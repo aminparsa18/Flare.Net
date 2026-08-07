@@ -125,7 +125,7 @@ Explicitly **out** of v1 dashboard scope: dashboards-as-code, arbitrary user-bui
 - [x] Query API: search, filter, time-range, aggregate
 - [x] Live-tail streaming endpoint
 - [x] Dashboard: log table, live tail, filtering, event detail, basic volume chart
-- [ ] `docker-compose.yml` — full stack up in one command
+- [x] `docker-compose.yml` — full stack up in one command
 - [ ] Getting-started docs with a snippet per logger (Serilog, NLog, ZLogger, MEL)
 
 ### Later (only if v1 gets traction)

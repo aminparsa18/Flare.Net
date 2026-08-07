@@ -20,8 +20,8 @@ npm run build
 npm run preview
 ```
 
-`vite.config.ts` uses `@sveltejs/adapter-auto`; swap in a specific adapter once a deployment target is picked (tracked as the `docker-compose.yml` v1 roadmap item).
+`vite.config.ts` uses `@sveltejs/adapter-node` — picked as part of the `docker-compose.yml` v1 roadmap item (see the repo root's `docker-compose.yml` and this project's `Dockerfile`). Has to be a real Node server, not `adapter-static`: `PUBLIC_API_URL` (`src/lib/api.ts`) is read via `$env/dynamic/public`, resolved per-request at runtime, not baked in at build time.
 
 ## Status
 
-v1, phase 1: a single Overview page (`/`) that smoke-tests the three Flare.Api surfaces — search, aggregate, and the live-tail WebSocket — end to end. The real log table, filtering, event detail, and volume chart land in later phases.
+v1: a single page (`/`) that is the Logs Explorer — virtualized log table, filter toolbar, event detail sheet, live tail, and volume chart, talking to `Flare.Api`'s search/aggregate/live-tail surfaces end to end.

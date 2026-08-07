@@ -1,0 +1,18 @@
+# Scoped to the two .NET Dockerfiles' build context (repo root) - see
+# src/Flare.Ingest/Dockerfile and src/Flare.Api/Dockerfile. The dashboard's Dockerfile
+# has its own build context (src/dashboard) and its own .dockerignore.
+.git
+.github
+.vscode
+.agents
+.claude
+
+**/bin/
+**/obj/
+
+src/dashboard/node_modules
+src/dashboard/.svelte-kit
+src/dashboard/build
+
+*.md
+!README.md
