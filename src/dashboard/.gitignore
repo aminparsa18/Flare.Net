@@ -13,6 +13,9 @@ node_modules
 .DS_Store
 Thumbs.db
 
+# playwright-cli's local session artifacts (snapshots/screenshots/console logs)
+.playwright-cli/
+
 # Env
 .env
 .env.*
