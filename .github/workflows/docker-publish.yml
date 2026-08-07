@@ -1,0 +1,116 @@
+# Builds and publishes Flare's three distributable images to Docker Hub under the
+# account named by the DOCKERHUB_USERNAME repo variable (currently `xracer007`)
+# (Planning.md's "Next — v1.1" roadmap item). This is what an
+# eventual `Aspire.Hosting.Flare` package will wrap via AddContainer(...) — see
+# Flare.AppHost/Program.cs for the resource graph that package replicates against
+# these same images.
+#
+# Tagging: `edge` on every push to main (nothing stable exists yet - Flare is
+# pre-alpha with no versioning scheme), semver tags (+ auto `latest`) on `v*.*.*` git
+# tags once a real release happens. PRs build (validates the Dockerfiles) but never
+# log in or push. Build contexts/dockerfiles below are copied verbatim from
+# docker-compose.yml's own `build:` stanzas so this never diverges from the
+# already-working local build story.
+
+name: Docker Publish
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+    paths:
+      - 'src/Flare.Ingest/**'
+      - 'src/Flare.Api/**'
+      - 'src/Flare.ServiceDefaults/**'
+      - 'src/dashboard/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - '.github/workflows/docker-publish.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/Flare.Ingest/**'
+      - 'src/Flare.Api/**'
+      - 'src/Flare.ServiceDefaults/**'
+      - 'src/dashboard/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - '.github/workflows/docker-publish.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: docker-publish-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: ${{ matrix.image.name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: flare-ingest
+            context: .
+            dockerfile: src/Flare.Ingest/Dockerfile
+          - name: flare-api
+            context: .
+            dockerfile: src/Flare.Api/Dockerfile
+          - name: flare-dashboard
+            context: src/dashboard
+            dockerfile: src/dashboard/Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Skipped on PRs - forked PRs don't have access to repo secrets/vars, and PR
+      # builds only need to prove the Dockerfile builds, not publish anything.
+      # DOCKERHUB_USERNAME is a repo *variable* (Settings > Secrets and variables >
+      # Actions > Variables), not a secret - it's not confidential (it's literally
+      # part of the public image names below), and keeping it a variable means it
+      # prints normally in logs instead of being redacted as *** if a login ever
+      # fails and you need to see what was actually sent. DOCKERHUB_TOKEN is the
+      # actual credential and must stay a real secret.
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # latest=auto (the action's default) tags `latest` on the highest *non-prerelease*
+      # semver tag only, so a throwaway `v0.0.1-test` tag never touches `latest`. The
+      # major/major.minor patterns are likewise skipped automatically on prerelease
+      # tags - only the exact {{version}} pattern applies to those.
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.DOCKERHUB_USERNAME }}/${{ matrix.image.name }}
+          tags: |
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      # Single-arch (linux/amd64) for now - pre-alpha, no evidence anyone needs arm64
+      # yet. Buildx is already wired in above, so adding
+      # `platforms: linux/amd64,linux/arm64` later (+ QEMU setup) is a one-line change.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}

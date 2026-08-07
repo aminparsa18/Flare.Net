@@ -128,17 +128,29 @@ Explicitly **out** of v1 dashboard scope: dashboards-as-code, arbitrary user-bui
 - [x] `docker-compose.yml` — full stack up in one command
 - [x] Getting-started docs with a snippet per logger (Serilog, NLog, ZLogger, MEL)
 
+### Next — v1.1: Container distribution & Aspire.Hosting.Flare
+Promoted out of "Later" (2026-08-07) — the `docker-compose.yml` v1 gate that blocked
+this is now cleared. Sequenced: the CI item has to land and publish a real image
+before the package item has anything to wrap.
+
+- [ ] **Docker Hub image publishing CI** — GitHub Actions workflow
+      (`.github/workflows/docker-publish.yml`) that builds all three images
+      (`xracer007/flare-ingest`, `xracer007/flare-api`,
+      `xracer007/flare-dashboard`) from the existing Dockerfiles and pushes them to
+      Docker Hub: `:edge` on every push to `main`, semver tags (+ auto `:latest`) on
+      `v*.*.*` git tags. Build-only (no push) on PRs. Single-arch (`linux/amd64`) for
+      now — pre-alpha, no evidence yet anyone needs arm64; buildx is wired in from the
+      start so adding `linux/arm64` later is a one-line change.
+- [ ] **`Aspire.Hosting.Flare` integration package** — publishable NuGet package
+      (`src/Aspire.Hosting.Flare/`) exposing `builder.AddFlare("flare")` for any .NET
+      developer already using .NET Aspire for their own app, wrapping the three images
+      above (ClickHouse + Redis wired the same way `Flare.AppHost/Program.cs` does).
+      Not `Flare.AppHost` itself — that stays Flare's private dev-inner-loop
+      orchestrator, never published. **Gated on the CI item above landing and
+      publishing a first verified image set** — nothing to wire/test against until then.
+
 ### Later (only if v1 gets traction)
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack
-- [ ] Official `Aspire.Hosting.Flare` integration package — lets any .NET developer
-      already using .NET Aspire for their own app add Flare as a dev-time resource in
-      *their* AppHost (`builder.AddFlare("flare")`, mirroring `Aspire.Hosting.Seq` /
-      `Aspire.Hosting.Redis` / `CommunityToolkit.Aspire.Hosting.*`), instead of running
-      `docker compose up` by hand. Not our own internal `Flare.AppHost` (that stays
-      Flare's private dev-inner-loop orchestrator, never meant for end users) — this
-      would be a separate, publishable package wrapping Flare's published container
-      image(s). **Gated on the `docker-compose.yml` v1 item landing first** — there's
-      nothing to wrap into a resource until an official image exists.
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
 - [ ] Alerting (threshold/query-based → webhook, email, Slack)
 - [ ] Auth + multi-user / roles
