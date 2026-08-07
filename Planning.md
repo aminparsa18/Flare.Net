@@ -77,7 +77,7 @@ Orchestrated in development with **.NET Aspire**.
 |---|---|---|
 | `Flare.Ingest` | ASP.NET Core | Terminate OTLP (gRPC + HTTP), map to internal model, buffer, batch-insert to ClickHouse |
 | `Flare.Api` | ASP.NET Core | Query/search/aggregate over ClickHouse; live-tail streaming endpoint |
-| `Flare.Dashboard` | SPA (see open question) | The UI — the thing people come for |
+| `Flare.Dashboard` | SvelteKit (Svelte 5, runes) + Tailwind + shadcn-svelte | The UI — the thing people come for |
 | `Flare.AppHost` | .NET Aspire | Local orchestration of all of the above + ClickHouse |
 | ClickHouse | container | Log storage and query engine |
 
@@ -161,7 +161,7 @@ Anything past v1 is intentionally vague. Decide based on whether people actually
 
 ## Open questions to resolve before/early in v1
 
-1. **Dashboard stack.** Not committing to Blazor — the UI ambition may be better served by a dedicated SPA (Svelte / React) for virtualized tables and live-tail feel. **Decision needed early**, since the query API contract is shaped by it. (Keep the API frontend-agnostic regardless.)
+1. **Dashboard stack.** ~~Not committing to Blazor — the UI ambition may be better served by a dedicated SPA (Svelte / React) for virtualized tables and live-tail feel. Decision needed early, since the query API contract is shaped by it.~~ **Decided (2026-08-07): SvelteKit** (Svelte 5 runes, Tailwind 4, shadcn-svelte `mira` style, lucide icons), living at `src/dashboard`. Client-rendered SPA talking to `Flare.Api` over plain HTTP/WebSocket (`src/dashboard/src/lib/api.ts`) — the API stayed frontend-agnostic as intended, so this didn't require any query API changes.
 2. **ClickHouse schema.** Fixed columns for the common fields (timestamp, level, service, message, trace/span id) + a flexible column strategy for arbitrary structured properties (Map vs. JSON vs. dynamic columns). Query performance depends on getting this right.
 3. **Buffering layer.** ~~In-memory ring buffer for v1 simplicity, or Redis from the start for durability across restarts? Lean in-memory for v1; revisit.~~ **Decided (2026-08-07): Redis-backed from the start**, via `Aspire.Hosting.Redis` (`AddRedis(...).WithDataVolume().WithPersistence(...)`) + `Aspire.StackExchange.Redis` client, using Redis Streams (not `IDistributedCache`/`OutputCaching` — those are value-cache/HTTP-cache abstractions, not a fit) so events survive `Flare.Ingest` restarting mid-buffer. Consumer-group `XREADGROUP`/`XACK` gives at-least-once delivery into the ClickHouse flush. Valkey (`Aspire.Hosting.Valkey`, wire-compatible) noted as a cheap later swap if Redis's license becomes a concern for a bundled `docker-compose` dependency — not a v1 decision.
 4. **OTLP transport priority.** Support both gRPC (4317) and HTTP (4318), or ship HTTP first and add gRPC fast-follow?
@@ -174,7 +174,7 @@ Anything past v1 is intentionally vague. Decide based on whether people actually
 - **.NET** (latest LTS) — Aspire, ASP.NET Core
 - **ClickHouse** — storage/query (via Aspire ClickHouse integration)
 - **OpenTelemetry / OTLP** — the one ingestion protocol
-- **SPA framework — TBD** (see open questions)
+- **SvelteKit** (Svelte 5) — dashboard SPA, Tailwind 4 + shadcn-svelte for UI
 - **RustFS** — cold/object storage (Later)
 - **Docker Compose** — v1 distribution
 
