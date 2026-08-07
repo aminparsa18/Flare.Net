@@ -29,6 +29,7 @@ public static class OtlpLogMapper
                 {
                     yield return new LogEvent
                     {
+                        EventId = Guid.NewGuid(),
                         Timestamp = FromUnixNano(record.TimeUnixNano != 0 ? record.TimeUnixNano : record.ObservedTimeUnixNano),
                         ObservedTimestamp = record.ObservedTimeUnixNano != 0 ? FromUnixNano(record.ObservedTimeUnixNano) : null,
                         SeverityNumber = (int)record.SeverityNumber,

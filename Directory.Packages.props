@@ -39,6 +39,18 @@
     <PackageVersion Include="Grpc.AspNetCore" Version="2.83.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
 
+    <!-- Flare.Api: query API (search/filter/time-range/aggregate) over the ClickHouse
+         `logs` table. OpenApi pinned at 10.0.10 to match Microsoft.Extensions.Diagnostics.HealthChecks
+         above (same .NET 10 servicing train) - gives a browsable /openapi endpoint for
+         manually exercising the API before the dashboard (still an open question, see
+         Planning.md #1) exists to call it. -->
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <!-- Microsoft.AspNetCore.OpenApi 10.0.10 transitively pulls Microsoft.OpenApi 2.0.0,
+         which has a known high-severity advisory (GHSA-v5pm-xwqc-g5wc, circular schema
+         references can hang the parser) fixed in 2.7.5. Pinned directly + referenced
+         from Flare.Api.csproj so the direct reference wins over the transitive one. -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
+
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

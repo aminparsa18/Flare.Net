@@ -38,4 +38,14 @@ var ingest = builder.AddProject<Projects.Flare_Ingest>("ingest")
     .WithEndpoint(port: 4318, targetPort: 4318, scheme: "http", name: "otlp-http", isProxied: false)
     .WithHttpHealthCheck("/health", endpointName: "otlp-http");
 
+// Flare.Api: the Query API (search/filter/time-range/aggregate) over the same
+// `clickhousedb.logs` table Flare.Ingest writes to. Unlike Ingest's fixed, unproxied
+// OTLP ports (external loggers need those conventional port numbers), this is a normal
+// proxied Aspire HTTP endpoint - callers (curl today, the not-yet-built dashboard SPA
+// later) go through Aspire's dev-proxy/service discovery like any other resource.
+var api = builder.AddProject<Projects.Flare_Api>("api")
+    .WithReference(logsDb)
+    .WaitFor(logsDb)
+    .WithHttpHealthCheck("/health");
+
 builder.Build().Run();

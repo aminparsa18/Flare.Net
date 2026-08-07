@@ -17,6 +17,7 @@ public class LogEventJsonContextTests
     {
         var original = new LogEvent
         {
+            EventId = Guid.NewGuid(),
             Timestamp = new DateTimeOffset(2026, 8, 7, 12, 0, 0, TimeSpan.Zero),
             ObservedTimestamp = new DateTimeOffset(2026, 8, 7, 12, 0, 1, TimeSpan.Zero),
             SeverityNumber = 17,
@@ -44,6 +45,7 @@ public class LogEventJsonContextTests
     {
         var original = new LogEvent
         {
+            EventId = Guid.NewGuid(),
             Timestamp = DateTimeOffset.UnixEpoch,
             SeverityNumber = 0,
             ResourceAttributes = new Dictionary<string, string>(),
@@ -70,6 +72,7 @@ public class LogEventJsonContextTests
         var roundTripped = JsonSerializer.Deserialize(json, LogEventJsonContext.Default.LogEvent);
 
         Assert.NotNull(roundTripped);
+        Assert.Equal(original.EventId, roundTripped.EventId);
         Assert.Equal(original.Timestamp, roundTripped.Timestamp);
         Assert.Equal(original.ObservedTimestamp, roundTripped.ObservedTimestamp);
         Assert.Equal(original.SeverityNumber, roundTripped.SeverityNumber);
