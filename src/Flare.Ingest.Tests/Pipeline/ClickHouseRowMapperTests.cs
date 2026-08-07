@@ -9,14 +9,15 @@ public class ClickHouseRowMapperTests
     [Fact]
     public void Columns_MatchLogsTableColumnOrder()
     {
-        // Mirrors db/clickhouse/0001_logs.sql's column declaration order exactly -
-        // InsertBinaryAsync pairs row values with these names positionally.
+        // Mirrors db/clickhouse/0001_logs.sql's column declaration order, with EventId
+        // appended per 0002_logs_event_id.sql's ALTER TABLE ... ADD COLUMN - both pair
+        // with row values positionally via InsertBinaryAsync.
         Assert.Equal(
             [
                 "Timestamp", "ObservedTimestamp", "TraceId", "SpanId", "TraceFlags",
                 "SeverityText", "SeverityNumber", "ServiceName", "Body", "ResourceSchemaUrl",
                 "ResourceAttributes", "ScopeSchemaUrl", "ScopeName", "ScopeVersion",
-                "ScopeAttributes", "LogAttributes", "EventName",
+                "ScopeAttributes", "LogAttributes", "EventName", "EventId",
             ],
             ClickHouseRowMapper.Columns);
     }
@@ -110,8 +111,20 @@ public class ClickHouseRowMapperTests
         Assert.Equal("second", rows[1][8]);
     }
 
+    [Fact]
+    public void ToRow_PassesThroughEventId_AsTheLastColumn()
+    {
+        var eventId = Guid.NewGuid();
+        var logEvent = MinimalLogEvent() with { EventId = eventId };
+
+        var row = ClickHouseRowMapper.ToRow(logEvent);
+
+        Assert.Equal(eventId, row[17]);
+    }
+
     private static LogEvent MinimalLogEvent() => new()
     {
+        EventId = Guid.NewGuid(),
         Timestamp = DateTimeOffset.UnixEpoch,
         SeverityNumber = 9,
         ResourceAttributes = new Dictionary<string, string>(),

@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Flare.Ingest\Flare.Ingest.csproj" />
+    <ProjectReference Include="..\Flare.Api\Flare.Api.csproj" />
   </ItemGroup>
 
 </Project>

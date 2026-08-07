@@ -1,0 +1,31 @@
+-- Flare log storage schema, migration 0002.
+--
+-- Adds a stable per-row identifier to `clickhousedb.logs`, needed by the Query API
+-- roadmap item (`Flare.Api`) for correct keyset pagination. Without it, the only
+-- candidate tiebreaker columns for an exact-`Timestamp` tie are `TraceId`/`SpanId`,
+-- which are frequently empty (untraced logs) - pagination could skip or duplicate rows
+-- at a page boundary in that case. See db/clickhouse/README.md's "Design decisions" for
+-- the full rationale (reviewed against the `clickhouse-best-practices` skill).
+--
+-- `EventId` is Flare-internal, not part of the OTLP wire format - `Flare.Ingest`'s
+-- `OtlpLogMapper` generates a fresh `Guid` for every record at map time (see
+-- `LogEvent.EventId`'s doc comment). Plain `UUID`, not `Nullable`: the mapper always
+-- sets it, so there's no "unset" case to model (`schema-types-avoid-nullable`).
+--
+-- Deliberately NOT added to `ORDER BY`: it's a pagination tiebreaker, not a filter
+-- column, and no point-lookup-by-id endpoint is planned for v1 - so no dedicated skip
+-- index either. `ORDER BY` is immutable after table creation anyway
+-- (`schema-pk-plan-before-creation`); nothing here needs to change it, since keyset
+-- pagination compares `(Timestamp, EventId)` at query time regardless of physical sort
+-- order within a partition.
+ALTER TABLE clickhousedb.logs ADD COLUMN IF NOT EXISTS EventId UUID;
+
+-- Operational note (same caveat 0001_logs.sql's own comments call out for its
+-- `CREATE DATABASE`/`CREATE TABLE`): the official ClickHouse image's
+-- /docker-entrypoint-initdb.d convention only runs numbered *.sql files once, the first
+-- time the container starts against an EMPTY data directory. That means this migration
+-- auto-applies on a fresh volume, but an already-provisioned local dev volume (e.g. one
+-- left over from testing roadmap items 1-3) will NOT pick it up automatically - it
+-- needs either a one-off manual run of the `ALTER TABLE` above against that volume, or
+-- a volume wipe before the next `dotnet run --project src/Flare.AppHost`. `IF NOT
+-- EXISTS` above makes a manual re-run idempotent either way.

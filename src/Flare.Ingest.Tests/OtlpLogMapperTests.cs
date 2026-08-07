@@ -51,6 +51,40 @@ public class OtlpLogMapperTests
     }
 
     [Fact]
+    public void Map_AssignsDistinctEventId_ToEachRecord()
+    {
+        var request = new ExportLogsServiceRequest
+        {
+            ResourceLogs =
+            {
+                new ResourceLogs
+                {
+                    Resource = new Resource(),
+                    ScopeLogs =
+                    {
+                        new ScopeLogs
+                        {
+                            Scope = new InstrumentationScope { Name = "test-scope" },
+                            LogRecords =
+                            {
+                                new LogRecord { Body = new AnyValue { StringValue = "first" } },
+                                new LogRecord { Body = new AnyValue { StringValue = "second" } },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        var logEvents = OtlpLogMapper.Map(request).ToList();
+
+        Assert.Equal(2, logEvents.Count);
+        Assert.NotEqual(Guid.Empty, logEvents[0].EventId);
+        Assert.NotEqual(Guid.Empty, logEvents[1].EventId);
+        Assert.NotEqual(logEvents[0].EventId, logEvents[1].EventId);
+    }
+
+    [Fact]
     public void Map_ExtractsServiceName_FromResourceAttributes()
     {
         var request = SingleRecordRequest(resource: resourceAttrs =>

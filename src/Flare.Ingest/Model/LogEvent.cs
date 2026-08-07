@@ -17,6 +17,16 @@ namespace Flare.Ingest.Model;
 /// </remarks>
 public sealed record LogEvent
 {
+    /// <summary>
+    /// Flare-internal per-row identifier - not part of the OTLP wire format.
+    /// <see cref="OtlpLogMapper"/> generates a fresh <see cref="Guid.NewGuid"/> for
+    /// every record it maps. Exists solely so <c>Flare.Api</c>'s search endpoint has a
+    /// stable tiebreaker for keyset pagination when two rows share the same
+    /// <see cref="Timestamp"/> (see <c>db/clickhouse/0002_logs_event_id.sql</c>) - not
+    /// a general-purpose lookup key, and not indexed for point lookups in v1.
+    /// </summary>
+    public required Guid EventId { get; init; }
+
     /// <summary>Event time. Falls back to <see cref="ObservedTimestamp"/> if the OTLP record's own time was unset.</summary>
     public required DateTimeOffset Timestamp { get; init; }
 

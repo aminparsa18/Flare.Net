@@ -19,10 +19,13 @@ namespace Flare.Ingest.Pipeline;
 public static class ClickHouseRowMapper
 {
     /// <summary>
-    /// Column names in the exact order <c>0001_logs.sql</c> declares them - both this
-    /// list and <see cref="ToRow"/> must be kept in that order together, since
-    /// <see cref="ClickHouse.Driver.IClickHouseClient.InsertBinaryAsync"/> pairs each
-    /// row's values with these names positionally.
+    /// Column names in the exact order this list and every row's values must agree on -
+    /// <see cref="ClickHouse.Driver.IClickHouseClient.InsertBinaryAsync"/> builds the
+    /// RowBinary insert against this column order, so <see cref="ToRow"/>'s array must
+    /// produce values in the same order. Matches <c>0001_logs.sql</c>'s declaration
+    /// order, with <c>EventId</c> appended last, matching how
+    /// <c>0002_logs_event_id.sql</c>'s <c>ALTER TABLE ... ADD COLUMN</c> appended it to
+    /// the table.
     /// </summary>
     public static readonly IReadOnlyList<string> Columns =
     [
@@ -43,6 +46,7 @@ public static class ClickHouseRowMapper
         "ScopeAttributes",
         "LogAttributes",
         "EventName",
+        "EventId",
     ];
 
     /// <summary>Maps a single <see cref="LogEvent"/> to a row, positionally matching <see cref="Columns"/>.</summary>
@@ -65,6 +69,7 @@ public static class ClickHouseRowMapper
         new Dictionary<string, string>(logEvent.ScopeAttributes),
         new Dictionary<string, string>(logEvent.LogAttributes),
         logEvent.EventName ?? string.Empty,
+        logEvent.EventId,
     ];
 
     /// <summary>Maps a batch of events to rows, in the same order.</summary>
