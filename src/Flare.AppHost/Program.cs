@@ -46,6 +46,11 @@ var ingest = builder.AddProject<Projects.Flare_Ingest>("ingest")
 var api = builder.AddProject<Projects.Flare_Api>("api")
     .WithReference(logsDb)
     .WaitFor(logsDb)
+    // Redis: the live-tail streaming endpoint's LogTailBroadcaster reads new entries off
+    // the same `flare:logs` stream Flare.Ingest buffers into (plain XREAD, no consumer
+    // group - doesn't touch Flare.Ingest's flare-ingest group/PEL accounting).
+    .WithReference(redis)
+    .WaitFor(redis)
     .WithHttpHealthCheck("/health");
 
 builder.Build().Run();

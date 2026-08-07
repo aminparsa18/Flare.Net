@@ -9,8 +9,9 @@ namespace Flare.Api.Endpoints;
 /// <remarks>
 /// POST + JSON body rather than GET + query string for both - filters are
 /// multi-valued/structured (service lists, level lists, attribute key/value pairs),
-/// which doesn't fit cleanly in a query string. No live-tail/streaming endpoint here -
-/// that's a separate, later roadmap item.
+/// which doesn't fit cleanly in a query string. The live-tail streaming endpoint
+/// (<c>GET /api/logs/tail</c>) lives separately in <see cref="LogTailEndpoints"/> - a
+/// WebSocket upgrade, not a request/response route, so it doesn't fit this file's shape.
 /// </remarks>
 public static class LogsEndpoints
 {
