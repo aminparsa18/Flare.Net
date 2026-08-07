@@ -1,0 +1,123 @@
+# Flare's v1 distribution story (Planning.md: "least overhead to try" / "docker compose
+# up for v1"). `docker compose up` alone brings up the whole stack - ClickHouse, Redis,
+# Flare.Ingest (OTLP receiver), Flare.Api (query + live-tail), Flare.Dashboard - with
+# working defaults for every credential and port. Copy .env.example to .env to
+# override any of them (see that file for what each one does and why).
+#
+# This is the non-Aspire counterpart to Flare.AppHost/Program.cs - same two backing
+# resources (ClickHouse, Redis), same connection-string shape, same ClickHouse
+# init-mount trick (see db/clickhouse/README.md), deliberately kept in sync with it.
+# Unlike Flare.AppHost, nothing here is proxied or dynamically ported: every port below
+# is fixed, because this is meant to be pointed at directly (by OTLP clients, by you
+# opening the dashboard), not driven through Aspire's dashboard/service discovery.
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    environment:
+      # The official image's own env var for the "default" user's password - same
+      # mechanism Aspire's AddClickHouse resource uses under the hood.
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-flare}
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      # Same trick as Flare.AppHost's Program.cs: the official image runs every *.sql
+      # file here once, in filename order, the first time it starts against an empty
+      # data directory. db/clickhouse/0001_logs.sql creates the `clickhousedb`
+      # database itself (see that file's own comments for why) - no CLICKHOUSE_DB env
+      # var wires that up for you.
+      - ./db/clickhouse:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user default --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:latest
+    # --save 30 100 mirrors Flare.AppHost's WithPersistence(interval: 30s,
+    # keysChangedThreshold: 100) - RDB snapshotting so buffered-but-unflushed log
+    # events survive a Redis container restart, not just a Flare.Ingest restart.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-flare}", "--save", "30", "100"]
+    environment:
+      # Only read by this service's own healthcheck below (redis-cli, inside the
+      # container) - the actual password is set via `command:` above.
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-flare}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ingest:
+    build:
+      context: .
+      dockerfile: src/Flare.Ingest/Dockerfile
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Connection names must match what Flare.AppHost references onto this project
+      # (see its Program.cs) - Flare.Ingest reads these via Aspire's
+      # AddClickHouseDataSource/AddRedisClient client integrations regardless of
+      # whether Aspire orchestration is actually driving the process.
+      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
+    ports:
+      - "${FLARE_INGEST_GRPC_PORT:-4317}:4317"
+      - "${FLARE_INGEST_HTTP_PORT:-4318}:4318"
+    healthcheck:
+      # No curl/wget in the mcr.microsoft.com/dotnet/aspnet base image (confirmed -
+      # neither is installed) - bash's own /dev/tcp pseudo-device sends a real HTTP/1.1
+      # GET against ServiceDefaults' /health endpoint instead of just checking that the
+      # port accepts connections, with no extra tooling installed into the image.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/4318; printf \"GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; read -r status <&3; [[ \"$$status\" == *\" 200 \"* ]]'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Flare.Api/Dockerfile
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
+    ports:
+      - "${FLARE_API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; read -r status <&3; [[ \"$$status\" == *\" 200 \"* ]]'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  dashboard:
+    build:
+      context: ./src/dashboard
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # Must resolve from *your browser*, not from inside this compose network - the
+      # dashboard is a client-rendered SPA (src/dashboard/src/lib/api.ts fetches this
+      # directly from JS running on your machine), so the in-network service name
+      # "api" would not resolve for you. Override in .env if you're opening the
+      # dashboard from a different host than the one running `docker compose up`.
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+      ORIGIN: "http://localhost:${FLARE_DASHBOARD_PORT:-3000}"
+    ports:
+      - "${FLARE_DASHBOARD_PORT:-3000}:3000"
+
+volumes:
+  clickhouse-data:
+  redis-data:
