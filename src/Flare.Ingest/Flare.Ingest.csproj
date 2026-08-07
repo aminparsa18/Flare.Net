@@ -3,6 +3,8 @@
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" />
     <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Aspire.StackExchange.Redis" />
+    <PackageReference Include="Aspire.ClickHouse.Driver" />
   </ItemGroup>
 
   <ItemGroup>

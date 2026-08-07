@@ -16,6 +16,15 @@
     <PackageVersion Include="Aspire.Hosting.ClickHouse" Version="13.4.6" />
     <PackageVersion Include="Aspire.ClickHouse.Driver" Version="13.4.6" />
 
+    <!-- Redis: durable Redis-Streams buffer for the batched ClickHouse insert pipeline
+         (Planning.md's "Buffering layer" decision, 2026-08-07). Pinned at 13.4.6 to match
+         every other Aspire package here / global.json's Aspire.AppHost.Sdk - the locally
+         cached 13.3.1 build of these two is stale and would silently downgrade if picked
+         instead; first restore of these two needs to go online, same one-time situation
+         already accepted above for Aspire.ClickHouse.Driver. -->
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.6" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.4.6" />
+
     <!-- Flare.ServiceDefaults: standard Aspire template observability stack -->
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />

@@ -46,7 +46,7 @@ Flare is deliberately **not** trying to be a full observability suite (metrics, 
   │  Flare.Ingest  (ASP.NET Core)                │
   │  • OTLP receiver (logs)                       │
   │  • Normalize → internal log-event model       │
-  │  • Buffer + batch (in-memory / Redis)         │
+  │  • Buffer + batch (Redis Streams)             │
   └───────────────────────┬─────────────────────┘
                           │  batched inserts
                           ▼
@@ -121,7 +121,7 @@ Explicitly **out** of v1 dashboard scope: dashboards-as-code, arbitrary user-bui
 ### v1 — "Read your logs, beautifully" (MVP)
 - [x] OTLP logs receiver (gRPC + HTTP) in `Flare.Ingest`
 - [x] Internal log-event model + ClickHouse schema
-- [ ] Batched insert pipeline (buffer, flush by size/interval)
+- [x] Batched insert pipeline (buffer, flush by size/interval)
 - [ ] Query API: search, filter, time-range, aggregate
 - [ ] Live-tail streaming endpoint
 - [ ] Dashboard: log table, live tail, filtering, event detail, basic volume chart
@@ -163,7 +163,7 @@ Anything past v1 is intentionally vague. Decide based on whether people actually
 
 1. **Dashboard stack.** Not committing to Blazor — the UI ambition may be better served by a dedicated SPA (Svelte / React) for virtualized tables and live-tail feel. **Decision needed early**, since the query API contract is shaped by it. (Keep the API frontend-agnostic regardless.)
 2. **ClickHouse schema.** Fixed columns for the common fields (timestamp, level, service, message, trace/span id) + a flexible column strategy for arbitrary structured properties (Map vs. JSON vs. dynamic columns). Query performance depends on getting this right.
-3. **Buffering layer.** In-memory ring buffer for v1 simplicity, or Redis from the start for durability across restarts? Lean in-memory for v1; revisit.
+3. **Buffering layer.** ~~In-memory ring buffer for v1 simplicity, or Redis from the start for durability across restarts? Lean in-memory for v1; revisit.~~ **Decided (2026-08-07): Redis-backed from the start**, via `Aspire.Hosting.Redis` (`AddRedis(...).WithDataVolume().WithPersistence(...)`) + `Aspire.StackExchange.Redis` client, using Redis Streams (not `IDistributedCache`/`OutputCaching` — those are value-cache/HTTP-cache abstractions, not a fit) so events survive `Flare.Ingest` restarting mid-buffer. Consumer-group `XREADGROUP`/`XACK` gives at-least-once delivery into the ClickHouse flush. Valkey (`Aspire.Hosting.Valkey`, wire-compatible) noted as a cheap later swap if Redis's license becomes a concern for a bundled `docker-compose` dependency — not a v1 decision.
 4. **OTLP transport priority.** Support both gRPC (4317) and HTTP (4318), or ship HTTP first and add gRPC fast-follow?
 5. **Timestamp/timezone & clock-skew handling** from distributed clients.
 

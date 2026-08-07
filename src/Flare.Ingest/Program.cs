@@ -1,4 +1,5 @@
 using Flare.Ingest.Otlp;
+using Flare.Ingest.Pipeline;
 using Flare.Ingest.Sinks;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -17,8 +18,18 @@ builder.WebHost.ConfigureKestrel(options =>
 
 builder.Services.AddGrpc();
 
-// Placeholder sink - swapped for the ClickHouse batching pipeline in a later roadmap item.
-builder.Services.AddSingleton<ILogEventSink, ConsoleLogEventSink>();
+builder.Services.Configure<LogEventPipelineOptions>(
+    builder.Configuration.GetSection(LogEventPipelineOptions.SectionName));
+
+// Redis: durable buffer the pipeline writes to (RedisStreamLogEventSink) and reads from
+// (ClickHouseFlushWorker). ClickHouse: batched insert destination. Connection names must
+// match the resource names Flare.AppHost references onto this project.
+builder.AddRedisClient(connectionName: "redis");
+builder.AddClickHouseDataSource(connectionName: "clickhousedb");
+
+builder.Services.AddSingleton<ILogEventSink, RedisStreamLogEventSink>();
+builder.Services.AddSingleton<IClickHouseLogEventWriter, ClickHouseLogEventWriter>();
+builder.Services.AddHostedService<ClickHouseFlushWorker>();
 
 var app = builder.Build();
 
