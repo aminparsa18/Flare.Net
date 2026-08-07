@@ -13,7 +13,7 @@ That's the whole stack — ClickHouse, Redis, the OTLP receiver, the query API, 
 Once it's up:
 
 - **Dashboard:** [http://localhost:3000](http://localhost:3000)
-- **Send logs:** point any OTLP-capable logger at `http://localhost:4317` (gRPC) or `http://localhost:4318` (HTTP). Per-logger setup snippets (Serilog, NLog, ZLogger, `Microsoft.Extensions.Logging`) are a separate in-progress roadmap item — for now, see [src/Flare.Ingest/README.md](src/Flare.Ingest/README.md) for a `curl`-based example against the HTTP endpoint.
+- **Send logs:** see [docs/getting-started.md](docs/getting-started.md) for a copy-paste snippet per logger (Serilog, NLog, ZLogger, `Microsoft.Extensions.Logging`) — they all converge on the same OTLP endpoint (`http://localhost:4317` gRPC / `:4318` HTTP).
 
 ## Local development
 

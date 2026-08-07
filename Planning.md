@@ -4,7 +4,7 @@
 
 Flare is an open-source log ingestion server and dashboard. Point any OTLP-capable logger at it and get a fast, modern, genuinely nice place to search, filter, and live-tail your structured logs. Self-hosted, low-overhead, and designed to be running in one command.
 
-> Status: **Planning / pre-alpha.** This document is the design contract for v1. Nothing here is built yet.
+> Status: **v1 complete (2026-08-07).** Every item in the v1 roadmap below is built and e2e-verified — `docker compose up` gets you the full stack. This document remains the design contract; "Later" is next, gated on real usage per the scope-discipline principle below.
 
 ---
 
@@ -126,7 +126,7 @@ Explicitly **out** of v1 dashboard scope: dashboards-as-code, arbitrary user-bui
 - [x] Live-tail streaming endpoint
 - [x] Dashboard: log table, live tail, filtering, event detail, basic volume chart
 - [x] `docker-compose.yml` — full stack up in one command
-- [ ] Getting-started docs with a snippet per logger (Serilog, NLog, ZLogger, MEL)
+- [x] Getting-started docs with a snippet per logger (Serilog, NLog, ZLogger, MEL)
 
 ### Later (only if v1 gets traction)
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack
