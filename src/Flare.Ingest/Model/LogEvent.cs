@@ -4,10 +4,16 @@ namespace Flare.Ingest.Model;
 /// Internal representation of a single log record, after mapping from OTLP.
 /// </summary>
 /// <remarks>
-/// This is a deliberately minimal preview of the model, scoped to what the OTLP
-/// receiver needs to hand off to a sink. The roadmap item "Internal log-event model
-/// + ClickHouse schema" owns the real, storage-driving shape of this type (attribute
-/// typing, ClickHouse column mapping, etc.) - do not treat this as final.
+/// This is the shape that drives the ClickHouse <c>logs</c> table
+/// (<c>db/clickhouse/0001_logs.sql</c>) — keep the two in sync; a field added here
+/// needs a matching column there, and vice versa.
+///
+/// Proto3 string fields can't distinguish "unset" from "explicitly empty string" on
+/// the wire. <see cref="OtlpLogMapper"/> normalizes empty string to <see langword="null"/>
+/// for every nullable string field on this type, so a non-null value here is always a
+/// meaningful signal from the source. This matters most for <see cref="EventName"/>,
+/// where OTel's own spec says *presence* of the field is what marks a record as a named
+/// event, not just its content.
 /// </remarks>
 public sealed record LogEvent
 {
@@ -36,11 +42,25 @@ public sealed record LogEvent
     /// <summary>Resource attribute "service.name", if present.</summary>
     public string? ServiceName { get; init; }
 
+    /// <summary>The Schema URL of the enclosing OTLP ResourceLogs, if known. Applies to <see cref="ResourceAttributes"/>.</summary>
+    public string? ResourceSchemaUrl { get; init; }
+
     public required IReadOnlyDictionary<string, string> ResourceAttributes { get; init; }
+
+    /// <summary>The Schema URL of the enclosing OTLP ScopeLogs, if known. Applies to the scope fields and <see cref="LogAttributes"/>.</summary>
+    public string? ScopeSchemaUrl { get; init; }
 
     public string? ScopeName { get; init; }
 
     public string? ScopeVersion { get; init; }
 
-    public required IReadOnlyDictionary<string, string> Attributes { get; init; }
+    public required IReadOnlyDictionary<string, string> ScopeAttributes { get; init; }
+
+    public required IReadOnlyDictionary<string, string> LogAttributes { get; init; }
+
+    /// <summary>
+    /// OTLP LogRecord.event_name. Presence (non-null) marks this record as a named
+    /// OTel "event", per the OTel logs data model — not just descriptive text.
+    /// </summary>
+    public string? EventName { get; init; }
 }

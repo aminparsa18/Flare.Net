@@ -130,13 +130,13 @@ public class OtlpLogMapperTests
 
         var logEvent = Assert.Single(OtlpLogMapper.Map(request));
 
-        Assert.Equal("hello", logEvent.Attributes["str"]);
-        Assert.Equal("true", logEvent.Attributes["bool"]);
-        Assert.Equal("42", logEvent.Attributes["int"]);
-        Assert.Equal("3.5", logEvent.Attributes["double"]);
-        Assert.Equal(Convert.ToBase64String([1, 2, 3]), logEvent.Attributes["bytes"]);
-        Assert.Equal("[1,2]", logEvent.Attributes["array"]);
-        Assert.Equal("{nested=v}", logEvent.Attributes["kvlist"]);
+        Assert.Equal("hello", logEvent.LogAttributes["str"]);
+        Assert.Equal("true", logEvent.LogAttributes["bool"]);
+        Assert.Equal("42", logEvent.LogAttributes["int"]);
+        Assert.Equal("3.5", logEvent.LogAttributes["double"]);
+        Assert.Equal(Convert.ToBase64String([1, 2, 3]), logEvent.LogAttributes["bytes"]);
+        Assert.Equal("[1,2]", logEvent.LogAttributes["array"]);
+        Assert.Equal("{nested=v}", logEvent.LogAttributes["kvlist"]);
     }
 
     [Fact]
@@ -176,6 +176,116 @@ public class OtlpLogMapperTests
         Assert.Equal("boom", logEvent.Body);
         Assert.Equal("Serilog", logEvent.ScopeName);
         Assert.Equal("3.1.0", logEvent.ScopeVersion);
+    }
+
+    [Fact]
+    public void Map_CarriesSchemaUrls()
+    {
+        var request = new ExportLogsServiceRequest
+        {
+            ResourceLogs =
+            {
+                new ResourceLogs
+                {
+                    Resource = new Resource(),
+                    SchemaUrl = "https://opentelemetry.io/schemas/1.27.0",
+                    ScopeLogs =
+                    {
+                        new ScopeLogs
+                        {
+                            Scope = new InstrumentationScope { Name = "test-scope" },
+                            SchemaUrl = "https://opentelemetry.io/schemas/1.20.0",
+                            LogRecords = { new LogRecord { Body = new AnyValue { StringValue = "hello" } } },
+                        },
+                    },
+                },
+            },
+        };
+
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+
+        Assert.Equal("https://opentelemetry.io/schemas/1.27.0", logEvent.ResourceSchemaUrl);
+        Assert.Equal("https://opentelemetry.io/schemas/1.20.0", logEvent.ScopeSchemaUrl);
+    }
+
+    [Fact]
+    public void Map_SchemaUrlsAreNull_WhenAbsent()
+    {
+        var request = SingleRecordRequest();
+
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+
+        Assert.Null(logEvent.ResourceSchemaUrl);
+        Assert.Null(logEvent.ScopeSchemaUrl);
+    }
+
+    [Fact]
+    public void Map_FlattensScopeAttributes()
+    {
+        var request = new ExportLogsServiceRequest
+        {
+            ResourceLogs =
+            {
+                new ResourceLogs
+                {
+                    Resource = new Resource(),
+                    ScopeLogs =
+                    {
+                        new ScopeLogs
+                        {
+                            Scope = new InstrumentationScope
+                            {
+                                Name = "test-scope",
+                                Attributes = { new KeyValue { Key = "scope.key", Value = new AnyValue { StringValue = "scope-value" } } },
+                            },
+                            LogRecords = { new LogRecord { Body = new AnyValue { StringValue = "hello" } } },
+                        },
+                    },
+                },
+            },
+        };
+
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+
+        Assert.Equal("scope-value", logEvent.ScopeAttributes["scope.key"]);
+    }
+
+    [Fact]
+    public void Map_SetsEventName_WhenPresent()
+    {
+        var request = SingleRecordRequest(record => record.EventName = "user.login");
+
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+
+        Assert.Equal("user.login", logEvent.EventName);
+    }
+
+    [Fact]
+    public void Map_EventNameIsNull_WhenAbsent()
+    {
+        var request = SingleRecordRequest();
+
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+
+        Assert.Null(logEvent.EventName);
+    }
+
+    [Fact]
+    public void Map_NormalizesEmptyStringsToNull()
+    {
+        var request = SingleRecordRequest(record =>
+        {
+            record.SeverityText = "";
+            record.EventName = "";
+        });
+
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+
+        Assert.Null(logEvent.SeverityText);
+        Assert.Null(logEvent.EventName);
+        // ScopeName/ScopeVersion: InstrumentationScope.Name defaults to "" when unset -
+        // exercised here via a scope with no Version set.
+        Assert.Null(logEvent.ScopeVersion);
     }
 
     private static ExportLogsServiceRequest SingleRecordRequest(

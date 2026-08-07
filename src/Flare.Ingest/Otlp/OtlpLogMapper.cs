@@ -18,9 +18,13 @@ public static class OtlpLogMapper
         {
             var resourceAttributes = Flatten(resourceLogs.Resource?.Attributes);
             var serviceName = resourceAttributes.GetValueOrDefault("service.name");
+            var resourceSchemaUrl = EmptyToNull(resourceLogs.SchemaUrl);
 
             foreach (var scopeLogs in resourceLogs.ScopeLogs)
             {
+                var scopeAttributes = Flatten(scopeLogs.Scope?.Attributes);
+                var scopeSchemaUrl = EmptyToNull(scopeLogs.SchemaUrl);
+
                 foreach (var record in scopeLogs.LogRecords)
                 {
                     yield return new LogEvent
@@ -28,16 +32,20 @@ public static class OtlpLogMapper
                         Timestamp = FromUnixNano(record.TimeUnixNano != 0 ? record.TimeUnixNano : record.ObservedTimeUnixNano),
                         ObservedTimestamp = record.ObservedTimeUnixNano != 0 ? FromUnixNano(record.ObservedTimeUnixNano) : null,
                         SeverityNumber = (int)record.SeverityNumber,
-                        SeverityText = record.SeverityText,
+                        SeverityText = EmptyToNull(record.SeverityText),
                         Body = AnyValueToString(record.Body),
                         TraceId = record.TraceId.IsEmpty ? null : Convert.ToHexStringLower(record.TraceId.Span),
                         SpanId = record.SpanId.IsEmpty ? null : Convert.ToHexStringLower(record.SpanId.Span),
                         TraceFlags = (byte)(record.Flags & 0xFF),
                         ServiceName = serviceName,
+                        ResourceSchemaUrl = resourceSchemaUrl,
                         ResourceAttributes = resourceAttributes,
-                        ScopeName = scopeLogs.Scope?.Name,
-                        ScopeVersion = scopeLogs.Scope?.Version,
-                        Attributes = Flatten(record.Attributes),
+                        ScopeSchemaUrl = scopeSchemaUrl,
+                        ScopeName = EmptyToNull(scopeLogs.Scope?.Name),
+                        ScopeVersion = EmptyToNull(scopeLogs.Scope?.Version),
+                        ScopeAttributes = scopeAttributes,
+                        LogAttributes = Flatten(record.Attributes),
+                        EventName = EmptyToNull(record.EventName),
                     };
                 }
             }
@@ -46,6 +54,13 @@ public static class OtlpLogMapper
 
     private static DateTimeOffset FromUnixNano(ulong unixNano) =>
         DateTimeOffset.UnixEpoch.AddTicks((long)(unixNano / 100));
+
+    /// <summary>
+    /// Proto3 string fields default to <c>""</c> when unset on the wire - there's no way
+    /// to distinguish "unset" from "explicitly empty" at the protobuf level. Flare treats
+    /// both as "absent" for every nullable string field on <see cref="LogEvent"/>.
+    /// </summary>
+    private static string? EmptyToNull(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
     private static Dictionary<string, string> Flatten(IEnumerable<KeyValue>? attributes)
     {

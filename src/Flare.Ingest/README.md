@@ -26,12 +26,12 @@ Concretely, it:
 Per [Planning.md](../../Planning.md)'s roadmap, the following are **separate, later
 items** — don't extend this project to cover them without checking there first:
 
-- No ClickHouse. No persistence at all. `ConsoleLogEventSink` is a throwaway
-  placeholder — the batched ClickHouse insert pipeline replaces its DI registration
+- No persistence. ClickHouse now exists as an `Aspire.AppHost` resource with a real
+  schema (see [`db/clickhouse/`](../../db/clickhouse/)), but nothing in `Flare.Ingest`
+  writes to it yet — `ConsoleLogEventSink` is still a throwaway placeholder. The batched
+  ClickHouse insert pipeline replaces its DI registration
   (`AddSingleton<ILogEventSink, ...>()` in `Program.cs`), nothing else needs to change.
 - No real buffering/batching (no ring buffer, no flush-by-size-or-interval logic).
-- No `LogEvent` schema finalization — attributes are flattened to `string`, which is a
-  preview shape, not the ClickHouse-driving model.
 - No `Flare.Api` or `Flare.Dashboard` wiring.
 
 ## Project layout
