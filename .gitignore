@@ -23,6 +23,12 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# The vendored OTLP proto directory legitimately has folders named "logs" (matching
+# the OTLP spec's own layout: opentelemetry/proto/logs/v1/, .../collector/logs/v1/)
+# which the generic Logs/ ignore rule above would otherwise swallow.
+!src/Flare.Ingest/Protos/opentelemetry/proto/logs/
+!src/Flare.Ingest/Protos/opentelemetry/proto/collector/logs/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

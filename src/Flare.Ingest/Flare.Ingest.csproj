@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" />
+    <PackageReference Include="Google.Protobuf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Flare.ServiceDefaults\Flare.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Vendored official OTLP proto definitions - see Protos/VENDORED.md -->
+    <Protobuf Include="Protos/opentelemetry/proto/collector/logs/v1/logs_service.proto" ProtoRoot="Protos" GrpcServices="Server" Access="Public" />
+    <Protobuf Include="Protos/opentelemetry/proto/logs/v1/logs.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
+    <Protobuf Include="Protos/opentelemetry/proto/resource/v1/resource.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
+    <Protobuf Include="Protos/opentelemetry/proto/common/v1/common.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
+  </ItemGroup>
+
+</Project>
