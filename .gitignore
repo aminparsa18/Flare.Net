@@ -29,6 +29,12 @@ bld/
 !src/Flare.Ingest/Protos/opentelemetry/proto/logs/
 !src/Flare.Ingest/Protos/opentelemetry/proto/collector/logs/
 
+# Same collision, same fix: the dashboard's Logs Explorer state/helpers and its Logs UI
+# components both legitimately live in folders named "logs" (domain-named, not a .NET
+# build log directory).
+!src/dashboard/src/lib/logs/
+!src/dashboard/src/lib/components/logs/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json
