@@ -1,4 +1,5 @@
 using Flare.Api.Endpoints;
+using Flare.Api.LiveTail;
 using Flare.Api.Query;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,8 +10,16 @@ builder.AddServiceDefaults();
 // write the same `clickhousedb.logs` table.
 builder.AddClickHouseDataSource(connectionName: "clickhousedb");
 
+// Redis: the live-tail endpoint's LogTailBroadcaster reads new entries off the same
+// `flare:logs` stream Flare.Ingest's RedisStreamLogEventSink writes into. Same connection
+// name Flare.AppHost references onto Flare.Ingest.
+builder.AddRedisClient(connectionName: "redis");
+
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ILogQueryService, LogQueryService>();
+builder.Services.Configure<LiveTailOptions>(builder.Configuration.GetSection(LiveTailOptions.SectionName));
+builder.Services.AddSingleton<LogTailBroadcaster>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailBroadcaster>());
 builder.Services.AddOpenApi();
 
 // Permissive CORS for every environment, not just dev: v1 has no auth story anywhere
@@ -26,6 +35,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.UseCors();
+app.UseWebSockets();
 
 app.MapDefaultEndpoints();
 
@@ -35,5 +45,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapLogsEndpoints();
+app.MapLogTailEndpoints();
 
 app.Run();

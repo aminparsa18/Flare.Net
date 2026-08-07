@@ -123,7 +123,7 @@ Explicitly **out** of v1 dashboard scope: dashboards-as-code, arbitrary user-bui
 - [x] Internal log-event model + ClickHouse schema
 - [x] Batched insert pipeline (buffer, flush by size/interval)
 - [x] Query API: search, filter, time-range, aggregate
-- [ ] Live-tail streaming endpoint
+- [x] Live-tail streaming endpoint
 - [ ] Dashboard: log table, live tail, filtering, event detail, basic volume chart
 - [ ] `docker-compose.yml` — full stack up in one command
 - [ ] Getting-started docs with a snippet per logger (Serilog, NLog, ZLogger, MEL)

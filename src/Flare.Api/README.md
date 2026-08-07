@@ -6,7 +6,8 @@ time-range/aggregate requests into parameterized ClickHouse queries over it.
 
 ## What it does today
 
-Implements v1's **"Query API: search, filter, time-range, aggregate"** roadmap item:
+Implements v1's **"Query API: search, filter, time-range, aggregate"** and **"Live-tail
+streaming endpoint"** roadmap items:
 
 - **`POST /api/logs/search`** — paginated, most-recent-first log event list. Filters by
   time range, service, severity level, exact trace id, attribute key/value equality
@@ -14,16 +15,18 @@ Implements v1's **"Query API: search, filter, time-range, aggregate"** roadmap i
   `Body`. Keyset-paginated via `(Timestamp, EventId)` — see "Pagination" below.
 - **`POST /api/logs/aggregate`** — bucketed event counts for the dashboard's volume
   chart, optionally grouped by service or level. Same filter shape as `/search`.
+- **`GET /api/logs/tail`** — WebSocket live tail, real-time events filtered by the same
+  `LogFilter` shape. See "Live-tail streaming" below.
 
-Both endpoints take a JSON body (not query-string params) — filters are multi-valued/
-structured (service lists, attribute key/value pairs), which doesn't fit cleanly in a
-URL, and the dashboard stack itself is still an open question
+The two POST endpoints take a JSON body (not query-string params) — filters are
+multi-valued/structured (service lists, attribute key/value pairs), which doesn't fit
+cleanly in a URL, and the dashboard stack itself is still an open question
 ([Planning.md #1](../../Planning.md)).
 
-**Explicitly not here:** live-tail/streaming (a separate, later roadmap item), auth (no
-roadmap item has it yet), saved queries (a dashboard-side concern), and materialized
-views/pre-aggregation for `/aggregate` — see `db/clickhouse/README.md`'s "No
-materialized views" note for why plain `GROUP BY` queries are the right v1 call.
+**Explicitly not here:** auth (no roadmap item has it yet), saved queries (a
+dashboard-side concern), and materialized views/pre-aggregation for `/aggregate` — see
+`db/clickhouse/README.md`'s "No materialized views" note for why plain `GROUP BY`
+queries are the right v1 call.
 
 ## Project layout
 
@@ -31,13 +34,19 @@ materialized views" note for why plain `GROUP BY` queries are the right v1 call.
 Model/      LogFilter (shared by both endpoints), request/response DTOs, LogEventDto
             (the API-facing row shape - a deliberate, separate mirror of
             Flare.Ingest.Model.LogEvent, not a shared reference - see LogEventDto's doc
-            comment for why).
+            comment for why), LogTailMessages (the live-tail WebSocket envelope types).
 Query/      LogFilterSqlBuilder (LogFilter -> parameterized WHERE clause, shared),
             LogSearchQueryBuilder / LogAggregateQueryBuilder (full SELECT statements),
             LogSearchCursor (keyset pagination token), LogQueryService (the only piece
-            that actually talks to ClickHouse).
-Endpoints/  LogsEndpoints - the two POST routes.
-Json/       LogsJsonContext - source-generated System.Text.Json contract.
+            that actually talks to ClickHouse), LogFilterMatcher (LogFilter -> boolean
+            match, live-tail's in-memory counterpart to LogFilterSqlBuilder).
+Endpoints/  LogsEndpoints - the two POST routes. LogTailEndpoints - the WebSocket route.
+Json/       LogsJsonContext, LogTailJsonContext - source-generated System.Text.Json contracts.
+LiveTail/   LogTailBroadcaster (the single background XREAD-and-fan-out reader over
+            Redis's flare:logs stream), LogTailSubscription (one connection's state),
+            LiveTailOptions, BufferedLogEvent + BufferedLogEventJsonContext +
+            BufferedLogEventMapper (deserializing/normalizing the Redis wire format -
+            same "deliberate mirror, not a shared reference" convention as LogEventDto).
 ```
 
 `Model` and `Query` are deliberately pure/ClickHouse-free wherever possible
@@ -66,6 +75,46 @@ default caps on any of these. Reviewed against the `clickhouse-best-practices` s
 `agent-query-safety` rule. `/api/logs/search` also defaults the time range to the last
 hour when `From`/`To` are omitted (`LogFilterSqlBuilder.DefaultLookback`), so an
 unfiltered request doesn't scan the whole table.
+
+## Live-tail streaming
+
+`GET /api/logs/tail` upgrades to a WebSocket. A connection gets no events until it sends
+a `subscribe` message; it can re-subscribe with a new filter, or `pause`/`resume`, at any
+point without reconnecting:
+
+```jsonc
+// client -> server
+{"type":"subscribe","filter":{"services":["flare-ingest"],"severityNumbers":[17,21]}}
+{"type":"pause"}
+{"type":"resume"}
+
+// server -> client
+{"type":"event","event":{ /* LogEventDto, same shape as /api/logs/search's Events */ }}
+{"type":"dropped","droppedCount":3}
+{"type":"error","error":"Malformed message: ..."}
+```
+
+**Source: the Redis Stream, not ClickHouse.** A single background reader
+(`LogTailBroadcaster`) polls the same `flare:logs` stream `Flare.Ingest`'s
+`RedisStreamLogEventSink` writes into and `ClickHouseFlushWorker` consumes from, via a
+plain `XREAD` (no consumer group — it never joins `Flare.Ingest`'s `flare-ingest` group or
+touches its ack/PEL accounting) and fans each new entry out to every subscribed
+connection's channel after applying that connection's current filter. This gets
+sub-second latency without adding per-viewer ClickHouse query load, at the accepted
+trade-off that a tailed event is shown slightly before it's durably in ClickHouse — no
+different from how the event already sits in Redis before the batched flush picks it up
+either way. A live tail has no durability requirement: if `Flare.Api` restarts, connected
+clients just reconnect and see whatever's new from that point; nothing is replayed.
+
+**`LogFilter.From`/`To` are ignored** for `/tail` — a live stream is inherently
+open-ended; use `/api/logs/search` for a bounded historical range.
+
+**Backpressure**: each connection's channel is bounded
+(`LiveTailOptions.SubscriberChannelCapacity`, default 500). A slow reader's channel fills
+up and further events fail to enqueue rather than blocking the shared broadcaster loop
+for every other subscriber — the connection's send loop reports the drop count via a
+`dropped` message instead. Events published while `paused` are dropped outright (not
+queued), so resuming doesn't create a burst of stale events.
 
 ## A known, inherited trade-off
 
@@ -118,6 +167,11 @@ curl -s -X POST "$API/api/logs/search" -H 'Content-Type: application/json' -d \
 # Volume by service, 1-minute buckets
 curl -s -X POST "$API/api/logs/aggregate" -H 'Content-Type: application/json' -d \
   '{"bucketWidthSeconds":60,"groupBy":"Service"}'
+
+# Live tail (needs a WebSocket client, e.g. websocat: https://github.com/vi/websocat).
+# Connect, then paste a subscribe message and watch events arrive as you send more logs.
+websocat "$(echo "$API" | sed 's#^http#ws#')/api/logs/tail"
+# > {"type":"subscribe","filter":{}}
 ```
 
 ## Tests
@@ -126,12 +180,16 @@ curl -s -X POST "$API/api/logs/aggregate" -H 'Content-Type: application/json' -d
 hosting, no network, no containers: `LogFilterSqlBuilder` (every filter field, one at a
 time and combined), `LogSearchQueryBuilder` (column list, page-size clamping, cursor
 presence/absence), `LogAggregateQueryBuilder` (each `GroupBy` value, bucket-width
-validation), `LogSearchCursor` (round-trip, malformed input).
+validation), `LogSearchCursor` (round-trip, malformed input), `LogFilterMatcher` (the
+live-tail counterpart to `LogFilterSqlBuilder` - same cases, asserting a boolean match
+instead of a SQL fragment), `BufferedLogEventMapper` (null-coalescing/fallback
+conventions), `BufferedLogEventJsonContext` (round-trips, plus a hand-written fixture
+proving it parses `Flare.Ingest.Pipeline.LogEventJsonContext`'s exact wire format).
 
-`LogQueryService` itself (real `IClickHouseClient` I/O) is deliberately **not**
-unit-tested against a fake, same reasoning `Flare.Ingest.Tests` documents for its own
-ClickHouse/Redis-touching classes — covered by real end-to-end runs instead (see
-"Smoke-testing manually" above, plus `EXPLAIN indexes=1` checks in
-`db/clickhouse/README.md`).
+`LogQueryService` and `LogTailBroadcaster` (real `IClickHouseClient`/`IConnectionMultiplexer`
+I/O) are deliberately **not** unit-tested against a fake, same reasoning
+`Flare.Ingest.Tests` documents for its own ClickHouse/Redis-touching classes — covered by
+real end-to-end runs instead (see "Smoke-testing manually" above, plus `EXPLAIN
+indexes=1` checks in `db/clickhouse/README.md`).
 
 Run with `dotnet test`.
