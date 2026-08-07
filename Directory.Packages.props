@@ -1,0 +1,48 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Aspire -->
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.6" />
+
+    <!-- ClickHouse: schema in db/clickhouse/, see db/clickhouse/README.md.
+         Aspire.Hosting.ClickHouse is referenced by Flare.AppHost today.
+         Aspire.ClickHouse.Driver isn't referenced by any project yet - schema
+         verification uses curl (see db/clickhouse/README.md); pinned here so the
+         batched insert pipeline (a later roadmap item) doesn't need to pick a version. -->
+    <PackageVersion Include="Aspire.Hosting.ClickHouse" Version="13.4.6" />
+    <PackageVersion Include="Aspire.ClickHouse.Driver" Version="13.4.6" />
+
+    <!-- Redis: durable Redis-Streams buffer for the batched ClickHouse insert pipeline
+         (Planning.md's "Buffering layer" decision, 2026-08-07). Pinned at 13.4.6 to match
+         every other Aspire package here / global.json's Aspire.AppHost.Sdk - the locally
+         cached 13.3.1 build of these two is stale and would silently downgrade if picked
+         instead; first restore of these two needs to go online, same one-time situation
+         already accepted above for Aspire.ClickHouse.Driver. -->
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.6" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.4.6" />
+
+    <!-- Flare.ServiceDefaults: standard Aspire template observability stack -->
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.10" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+
+    <!-- Flare.Ingest: OTLP receiver -->
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.83.0" />
+    <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
+
+    <!-- Tests -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+</Project>
