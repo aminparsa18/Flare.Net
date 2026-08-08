@@ -69,7 +69,20 @@ public static class Extensions
 
         if (useOtlpExporter)
         {
-            builder.Services.AddOpenTelemetry().UseOtlpExporter();
+            // Signal-specific AddOtlpExporter() (unnamed - still reads the standard
+            // OTEL_EXPORTER_OTLP_* env vars exactly like the cross-cutting UseOtlpExporter()
+            // this replaced), not the cross-cutting UseOtlpExporter(). The OTel SDK explicitly
+            // forbids mixing UseOtlpExporter with any signal-specific AddOtlpExporter call on
+            // the same IServiceCollection (throws NotSupportedException at startup) - and
+            // Aspire.Flare's AddFlareOtlpExporter needs to register its own additional, named
+            // signal-specific log exporter alongside this one, so this one has to be
+            // signal-specific too. Confirmed against the real installed
+            // OpenTelemetry.Exporter.OpenTelemetryProtocol 1.17.0 assembly (reflection, not just
+            // XML docs - those over-documented overloads this SDK version doesn't actually ship).
+            builder.Services.AddOpenTelemetry()
+                .WithLogging(logging => logging.AddOtlpExporter())
+                .WithMetrics(metrics => metrics.AddOtlpExporter())
+                .WithTracing(tracing => tracing.AddOtlpExporter());
         }
 
         return builder;

@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- NuGet package metadata. Version starts pre-1.0, matching Aspire.Hosting.Flare - pre-alpha,
+         no stable release yet. -->
+    <PackageId>Aspire.Flare</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Amin Parsa</Authors>
+    <Description>.NET Aspire client integration that points a service project's OTLP log exporter at Flare, a self-hosted OpenTelemetry-native log dashboard. Call builder.AddFlareOtlpExporter("flare") to read the connection info injected by .WithReference(flare) (Aspire.Hosting.Flare) and register a named OTLP log exporter against it.</Description>
+    <PackageTags>aspire;aspire-integration;flare;opentelemetry;otlp;logging;observability</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/aminparsa18/Flare.Net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/aminparsa18/Flare.Net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageIcon>logo.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Packed straight from their existing location - not physically copied into this project. -->
+    <None Include="..\..\logo.png" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Hosting/Configuration abstractions to read IHostApplicationBuilder.Configuration and bind
+         FlareSettings, mirroring Aspire.Seq's dependency set. OpenTelemetry.Extensions.Hosting +
+         OpenTelemetry.Exporter.OpenTelemetryProtocol give AddOpenTelemetry()/WithLogging()/the
+         named AddOtlpExporter(string, ...) overload this package registers against. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+  </ItemGroup>
+
+</Project>

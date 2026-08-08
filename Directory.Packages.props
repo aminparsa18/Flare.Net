@@ -40,6 +40,12 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
 
+    <!-- Aspire.Flare: the client-side package (v2 roadmap item). Pinned at 10.0.10 to match
+         Microsoft.Extensions.Diagnostics.HealthChecks above (same .NET 10 servicing train). -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
+
     <!-- Flare.Ingest: OTLP receiver -->
     <PackageVersion Include="Grpc.AspNetCore" Version="2.83.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
