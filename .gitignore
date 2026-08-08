@@ -74,3 +74,6 @@ nunit-*.xml
 
 # macOS Finder metadata
 .DS_Store
+
+# graphify knowledge-graph output - regeneratable, not source
+graphify-out/
