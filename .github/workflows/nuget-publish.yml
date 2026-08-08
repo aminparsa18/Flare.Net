@@ -1,0 +1,71 @@
+# Publishes the Aspire.Hosting.Flare package to nuget.org (Planning.md's "Next — v1.1"
+# roadmap item). Uses NuGet Trusted Publishing (OIDC) instead of a long-lived API key
+# secret — see https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing.
+#
+# Triggered by a dedicated `aspire-hosting-flare-v*.*.*` tag, deliberately NOT the plain
+# `v*.*.*` pattern docker-publish.yml already owns — this package's version isn't pinned
+# to the Docker image tags (see the csproj's Version comment), and tagging a NuGet
+# release shouldn't have the side effect of also cutting a "stable" Docker Hub release.
+#
+# Release process:
+#   1. Bump <Version> in src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj, commit.
+#   2. git tag aspire-hosting-flare-v0.1.0 && git push origin main --tags
+#   3. This workflow packs, validates the tag matches the csproj version, and pushes.
+
+name: NuGet Publish (Aspire.Hosting.Flare)
+
+on:
+  push:
+    tags:
+      - 'aspire-hosting-flare-v*.*.*'
+  workflow_dispatch: {}
+
+concurrency:
+  group: nuget-publish-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Pack and push
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write # required for NuGet/login's OIDC token exchange
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Only meaningful on an actual version tag - workflow_dispatch has no tag to
+      # extract from, so version validation below is skipped for manual runs.
+      - name: Extract version from tag
+        id: version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: echo "VERSION=${GITHUB_REF_NAME#aspire-hosting-flare-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag matches project version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          PROJECT_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj)
+          if [ "$PROJECT_VERSION" != "${{ steps.version.outputs.VERSION }}" ]; then
+            echo "::error::Tag version (${{ steps.version.outputs.VERSION }}) doesn't match csproj Version ($PROJECT_VERSION)"
+            exit 1
+          fi
+
+      - name: Pack
+        run: dotnet pack src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj -c Release -o ./artifacts
+
+      - name: NuGet login (OIDC)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }} # nuget.org profile name, NOT email
+
+      - name: Push to NuGet
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
