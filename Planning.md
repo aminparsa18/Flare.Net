@@ -177,7 +177,7 @@ before the package item has anything to wrap.
       current API and pre-publish status, cross-linked from the root `README.md`. Package
       itself is still not packed/pushed — that's the explicit next step, deferred until
       the user has tried the example.
-- [ ] **Expose Flare's ingest OTLP endpoint on `FlareResource`.** Today `AddFlare()`
+- [x] **Expose Flare's ingest OTLP endpoint on `FlareResource`.** Today `AddFlare()`
       keeps the `ingest` container's gRPC endpoint as a private local variable
       (`Aspire.Hosting.Flare/FlareResourceBuilderExtensions.cs:106-115`) — never
       attached to the `flare` builder it returns. That's why every consuming resource
@@ -209,7 +209,7 @@ roles" Later-roadmap item: once ingest needs an API key/token, the client packag
 the natural place to attach it to the OTLP exporter, the same job `Aspire.Seq`'s client
 package does today for Seq's own API key.
 
-- [ ] **`Aspire.Flare` package** (`src/Aspire.Flare/`) — `builder.AddFlareOtlpExporter("flare")`
+- [x] **`Aspire.Flare` package** (`src/Aspire.Flare/`) — `builder.AddFlareOtlpExporter("flare")`
       called from a consuming service project's own `Program.cs` (alongside or in place of
       `Flare.ServiceDefaults`'s existing OTel wiring), reading the connection info injected by
       `.WithReference(flare)` on the AppHost side and registering a second, **named** OTLP log
@@ -232,14 +232,14 @@ package does today for Seq's own API key.
       against. No client-side health check yet either — the connection string is Flare.Ingest's
       OTLP/gRPC endpoint, not cleanly HTTP-health-checkable the way Seq's single HTTP endpoint
       is; that's a separate follow-up needing the HTTP endpoint threaded through too.
-- [ ] **`Flare.ServiceDefaults.ConfigureOpenTelemetry()` switched from `UseOtlpExporter()` to
+- [x] **`Flare.ServiceDefaults.ConfigureOpenTelemetry()` switched from `UseOtlpExporter()` to
       signal-specific `AddOtlpExporter()`** (`src/Flare.ServiceDefaults/Extensions.cs`) — required
       by the `Aspire.Flare` fix above: the two styles can't coexist in one `IServiceCollection`,
       and `Aspire.Flare` needs the signal-specific, named one to add Flare as a second
       destination. Behavior for existing consumers is unchanged — still reads the same
       `OTEL_EXPORTER_OTLP_*` env vars, just via `WithLogging/WithMetrics/WithTracing(x =>
       x.AddOtlpExporter())` instead of the single cross-cutting call.
-- [ ] `ExampleApp.LogGenerator` updated to consume `Aspire.Flare` directly, replacing its
+- [x] `ExampleApp.LogGenerator` updated to consume `Aspire.Flare` directly, replacing its
       `Flare.ServiceDefaults`-only wiring — chosen over adding a second example project (the
       alternative this bullet originally described) since one example proving the full
       `Aspire.Hosting.Flare` + `Aspire.Flare` pairing is clearer than two partial ones.
@@ -247,10 +247,9 @@ package does today for Seq's own API key.
       `WithOtlpEndpoint(flare)` (injects `ConnectionStrings__flare` rather than setting
       `OTEL_EXPORTER_OTLP_ENDPOINT` directly), and `ExampleApp.LogGenerator/Program.cs` calls
       `builder.AddFlareOtlpExporter("flare")` alongside its existing `AddServiceDefaults()`.
-      Builds clean; first run surfaced the `NotSupportedException` above (now fixed in
-      `AddFlareOtlpExporter` itself) — a fresh end-to-end run (`aspire start`,
-      `POST /generate-burst`, confirm the burst shows up in the Flare dashboard, the same
-      verification `323bab0` did for `WithOtlpEndpoint`) is still pending user confirmation.
+      **Built and e2e-verified 2026-08-08** — `dotnet build Flare.sln` clean, `aspire start`
+      against `ExampleApp.AppHost`, `POST /generate-burst`, burst confirmed showing up in the
+      Flare dashboard (user-verified). Merged via PR #12.
 - [ ] Getting-started docs updated to show the `Aspire.Flare` path for Aspire-orchestrated
       consumers, alongside the existing per-logger (Serilog/NLog/ZLogger/MEL) snippets for
       non-Aspire consumers.
