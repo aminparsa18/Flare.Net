@@ -1,10 +1,14 @@
-# Aspire.Flare
+# Flare.Aspire
+
+> Package ID `Flare.Aspire`, not `Aspire.Flare` - that prefix is reserved on nuget.org for
+> Microsoft's own official integrations. Same project (`src/Aspire.Flare`), same
+> `builder.AddFlareOtlpExporter(...)` API - only the published package name differs.
 
 .NET Aspire client integration for [Flare](https://github.com/aminparsa18/Flare.Net) - a
 self-hosted, OpenTelemetry-native log dashboard for .NET developers.
 
 Points your app's OTLP log exporter at Flare.Ingest, reading the connection info injected by
-`.WithReference(flare)` on the AppHost side (see [`Aspire.Hosting.Flare`](https://www.nuget.org/packages/Aspire.Hosting.Flare)):
+`.WithReference(flare)` on the AppHost side (see [`Flare.Hosting.Aspire`](https://www.nuget.org/packages/Flare.Hosting.Aspire)):
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -36,5 +40,5 @@ Logs only for now - Flare.Ingest doesn't receive traces or metrics yet (a separa
 
 ## Status
 
-Pre-alpha, mirroring [`Aspire.Hosting.Flare`](https://github.com/aminparsa18/Flare.Net/blob/main/src/Aspire.Hosting.Flare/README.md)'s
+Pre-alpha, mirroring [`Flare.Hosting.Aspire`](https://github.com/aminparsa18/Flare.Net/blob/main/src/Aspire.Hosting.Flare/README.md)'s
 status. Not yet packed/pushed to nuget.org.

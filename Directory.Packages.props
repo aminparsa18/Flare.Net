@@ -8,9 +8,10 @@
     <!-- Aspire -->
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.6" />
 
-    <!-- Aspire.Hosting.Flare: the published integration package references Aspire.Hosting
-         directly (not Aspire.Hosting.AppHost - that's the AppHost-executable meta-package),
-         per Aspire's own "Create custom hosting integrations" doc pattern. -->
+    <!-- Flare.Hosting.Aspire (project: src/Aspire.Hosting.Flare/) - the published integration
+         package references Aspire.Hosting directly (not Aspire.Hosting.AppHost - that's the
+         AppHost-executable meta-package), per Aspire's own "Create custom hosting integrations"
+         doc pattern. -->
     <PackageVersion Include="Aspire.Hosting" Version="13.4.6" />
 
     <!-- ClickHouse: schema in db/clickhouse/, see db/clickhouse/README.md.
@@ -40,8 +41,9 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
 
-    <!-- Aspire.Flare: the client-side package (v2 roadmap item). Pinned at 10.0.10 to match
-         Microsoft.Extensions.Diagnostics.HealthChecks above (same .NET 10 servicing train). -->
+    <!-- Flare.Aspire (project: src/Aspire.Flare/) - the client-side package (v2 roadmap item).
+         Pinned at 10.0.10 to match Microsoft.Extensions.Diagnostics.HealthChecks above (same
+         .NET 10 servicing train). -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />

@@ -58,7 +58,7 @@ public sealed class FlareResource(string name) : Resource(name), IResourceWithou
     /// <summary>
     /// Host/Port/Uri breakdown of <see cref="OtlpGrpcEndpoint"/>, surfaced the same way
     /// Aspire.Hosting.Seq's <c>SeqResource</c> does for its own connection string - lets
-    /// tooling (and the future <c>Aspire.Flare</c> client package) read structured pieces
+    /// tooling (and the future <c>Flare.Aspire</c> client package) read structured pieces
     /// instead of parsing the connection string.
     /// </summary>
     IEnumerable<KeyValuePair<string, ReferenceExpression>> IResourceWithConnectionString.GetConnectionProperties()

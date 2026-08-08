@@ -9,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 // AddFlareOtlpExporter below is what actually ships logs to Flare.
 builder.AddServiceDefaults();
 
-// Aspire.Flare: reads ConnectionStrings__flare (injected by .WithReference(flare) on the
+// Flare.Aspire (project src/Aspire.Flare/): reads ConnectionStrings__flare (injected by .WithReference(flare) on the
 // AppHost side) and registers a named OTLP log exporter pointed at Flare.Ingest - additive
 // alongside whatever ConfigureOpenTelemetry() already wired, same mechanism Aspire.Seq's
 // AddSeqEndpoint uses for Seq. This is the only Flare-specific line in this whole project.

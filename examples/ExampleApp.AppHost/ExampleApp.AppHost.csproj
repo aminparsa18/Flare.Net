@@ -14,8 +14,10 @@
     <!-- Not yet published to nuget.org - referenced directly so this example proves the
          package works before packing/pushing it (see docs/aspire-hosting.md). Once
          published, a real consumer would use:
-           <PackageReference Include="Aspire.Hosting.Flare" Version="x.y.z" />
-         instead. IsAspireProjectResource=false tells Aspire's tooling this is a plain
+           <PackageReference Include="Flare.Hosting.Aspire" Version="x.y.z" />
+         instead - PackageId Flare.Hosting.Aspire, NOT Aspire.Hosting.Flare (that prefix is
+         reserved on nuget.org for Microsoft's own official integrations; see this project's
+         .csproj). IsAspireProjectResource=false tells Aspire's tooling this is a plain
          class-library reference, not a project resource to orchestrate - same pattern
          Aspire's own "Create custom hosting integrations" doc uses for a hosting-library
          reference from an AppHost. -->

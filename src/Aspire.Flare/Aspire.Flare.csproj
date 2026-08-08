@@ -7,12 +7,18 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- NuGet package metadata. Version starts pre-1.0, matching Aspire.Hosting.Flare - pre-alpha,
-         no stable release yet. -->
-    <PackageId>Aspire.Flare</PackageId>
+    <!-- NuGet package metadata. Version starts pre-1.0, matching Flare.Hosting.Aspire - pre-alpha,
+         no stable release yet.
+
+         PackageId is Flare.Aspire, NOT Aspire.Flare - that prefix is reserved on nuget.org
+         (Microsoft owns the real Aspire.* namespace for official integrations); see
+         Aspire.Hosting.Flare.csproj's PackageId comment and Planning.md for how this was
+         discovered. Project/directory/namespace names are unaffected; only the published
+         package identity changed. -->
+    <PackageId>Flare.Aspire</PackageId>
     <Version>0.1.0</Version>
     <Authors>Amin Parsa</Authors>
-    <Description>.NET Aspire client integration that points a service project's OTLP log exporter at Flare, a self-hosted OpenTelemetry-native log dashboard. Call builder.AddFlareOtlpExporter("flare") to read the connection info injected by .WithReference(flare) (Aspire.Hosting.Flare) and register a named OTLP log exporter against it.</Description>
+    <Description>.NET Aspire client integration that points a service project's OTLP log exporter at Flare, a self-hosted OpenTelemetry-native log dashboard. Call builder.AddFlareOtlpExporter("flare") to read the connection info injected by .WithReference(flare) (Flare.Hosting.Aspire) and register a named OTLP log exporter against it.</Description>
     <PackageTags>aspire;aspire-integration;flare;opentelemetry;otlp;logging;observability</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/aminparsa18/Flare.Net</PackageProjectUrl>

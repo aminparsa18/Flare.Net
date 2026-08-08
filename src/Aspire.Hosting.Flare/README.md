@@ -1,4 +1,8 @@
-# Aspire.Hosting.Flare
+# Flare.Hosting.Aspire
+
+> Package ID `Flare.Hosting.Aspire`, not `Aspire.Hosting.Flare` - that prefix is reserved on
+> nuget.org for Microsoft's own official integrations. Same project (`src/Aspire.Hosting.Flare`),
+> same `builder.AddFlare(...)` API - only the published package name differs.
 
 .NET Aspire hosting integration for [Flare](https://github.com/aminparsa18/Flare.Net) - a
 self-hosted, OpenTelemetry-native log dashboard for .NET developers.
@@ -29,7 +33,7 @@ DNS/ingress once published) instead of a hardcoded `http://localhost:4317`. Pass
 
 `.WithReference(flare)` also works, for code that wants the raw connection info instead - it
 injects `ConnectionStrings__flare` with the same OTLP/gRPC URL. That's what the future
-`Aspire.Flare` client package reads.
+`Flare.Aspire` client package reads.
 
 ## Status
 

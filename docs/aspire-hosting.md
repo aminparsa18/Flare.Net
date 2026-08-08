@@ -1,9 +1,11 @@
 # Using Flare from your own .NET Aspire app
 
-If your own app is already orchestrated with .NET Aspire, `Aspire.Hosting.Flare`
-(`src/Aspire.Hosting.Flare`) adds the whole Flare stack — ClickHouse, Redis, the OTLP
-ingest receiver, the query API, and the dashboard — to your AppHost with one call,
-pulling Flare's published Docker Hub images rather than anything you build yourself.
+If your own app is already orchestrated with .NET Aspire, `Flare.Hosting.Aspire`
+(`src/Aspire.Hosting.Flare` - package ID `Flare.Hosting.Aspire`, not `Aspire.Hosting.Flare`;
+that prefix is reserved on nuget.org for Microsoft's own official integrations) adds the
+whole Flare stack — ClickHouse, Redis, the OTLP ingest receiver, the query API, and the
+dashboard — to your AppHost with one call, pulling Flare's published Docker Hub images
+rather than anything you build yourself.
 
 > **Status:** pre-alpha, not yet published to nuget.org. See
 > [`examples/`](../examples) for a full runnable demo you can try today — it
@@ -77,7 +79,7 @@ as pointing any OTLP source at Flare via docker-compose.
 ## Installing (once published)
 
 ```sh
-dotnet add package Aspire.Hosting.Flare
+dotnet add package Flare.Hosting.Aspire
 ```
 
 Not usable yet — there's no published version. Until then, reference the project
@@ -97,7 +99,7 @@ You may see `RemoteCertificateNameMismatch` errors in the AppHost console, and t
 **Aspire orchestration dashboard** (the Resources/Console/Traces UI at the AppHost's
 own dashboard URL) fail to load its resource list. This is an
 [upstream Aspire 13.4.6 bug](https://aspire.dev/app-host/certificate-configuration/),
-not caused by `Aspire.Hosting.Flare` or anything in your AppHost: an internal Aspire
+not caused by `Flare.Hosting.Aspire` or anything in your AppHost: an internal Aspire
 component (`Aspire.Hosting.Dashboard.ServiceClient.DashboardClient`) connects to its
 own resource service over the loopback IP literal `127.0.0.1`, but the ASP.NET Core
 dev certificate only carries DNS-name SANs (`localhost`, `*.dev.internal`, etc.) — no
@@ -121,6 +123,6 @@ instead of the broken dashboard UI, and open Flare's own dashboard directly.
 - **Multiple `AddFlare()` calls in one AppHost are untested** — the resource names are
   collision-safe (prefixed by `name`), but running two full Flare stacks side by side
   hasn't been exercised end-to-end.
-- **No package-version-to-image-tag pinning** — `Aspire.Hosting.Flare`'s own NuGet
+- **No package-version-to-image-tag pinning** — `Flare.Hosting.Aspire`'s own NuGet
   version and the Docker image tag it defaults to (`edge`) aren't linked; this is an
   explicitly deferred decision until Flare has a real versioning scheme.

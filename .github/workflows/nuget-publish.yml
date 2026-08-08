@@ -12,9 +12,10 @@
 # package release shouldn't have the side effect of also cutting a "stable" Docker Hub
 # release.
 #
-# Packages published from here:
-#   - Aspire.Hosting.Flare  <- tag aspire-hosting-flare-v*.*.*
-#   - Aspire.Flare          <- tag aspire-flare-v*.*.*
+# Packages published from here (PackageId, NOT the project/directory name - Aspire.* is a
+# Microsoft-reserved prefix on nuget.org, see the .csproj PackageId comments and Planning.md):
+#   - Flare.Hosting.Aspire (project: src/Aspire.Hosting.Flare/)  <- tag aspire-hosting-flare-v*.*.*
+#   - Flare.Aspire         (project: src/Aspire.Flare/)          <- tag aspire-flare-v*.*.*
 #
 # Adding a new package: add its tag pattern under `on.push.tags`, a case arm in
 # "Resolve target package" below (and to the workflow_dispatch `package` choices), and a
@@ -43,8 +44,8 @@ on:
         required: true
         type: choice
         options:
-          - Aspire.Hosting.Flare
-          - Aspire.Flare
+          - Flare.Hosting.Aspire
+          - Flare.Aspire
 
 concurrency:
   group: nuget-publish-${{ github.workflow }}-${{ github.ref }}
@@ -77,18 +78,18 @@ jobs:
             PACKAGE="${{ inputs.package }}"
           else
             case "$GITHUB_REF_NAME" in
-              aspire-hosting-flare-v*) PACKAGE="Aspire.Hosting.Flare" ;;
-              aspire-flare-v*) PACKAGE="Aspire.Flare" ;;
+              aspire-hosting-flare-v*) PACKAGE="Flare.Hosting.Aspire" ;;
+              aspire-flare-v*) PACKAGE="Flare.Aspire" ;;
               *) echo "::error::Unrecognized tag $GITHUB_REF_NAME"; exit 1 ;;
             esac
           fi
 
           case "$PACKAGE" in
-            Aspire.Hosting.Flare)
+            Flare.Hosting.Aspire)
               echo "project=src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj" >> "$GITHUB_OUTPUT"
               echo "tag_prefix=aspire-hosting-flare-v" >> "$GITHUB_OUTPUT"
               ;;
-            Aspire.Flare)
+            Flare.Aspire)
               echo "project=src/Aspire.Flare/Aspire.Flare.csproj" >> "$GITHUB_OUTPUT"
               echo "tag_prefix=aspire-flare-v" >> "$GITHUB_OUTPUT"
               ;;
