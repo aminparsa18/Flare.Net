@@ -1,4 +1,4 @@
-# Example: using `Aspire.Hosting.Flare` from your own AppHost
+# Example: using `Aspire.Hosting.Flare` + `Aspire.Flare` together
 
 A minimal .NET Aspire application that adds Flare via `builder.AddFlare("flare")`
 (the `src/Aspire.Hosting.Flare` package) and runs a small web app that emits random,
@@ -8,17 +8,21 @@ dashboard without having to wire up your own logger first.
 - **`ExampleApp.AppHost`** — the whole example. `builder.AddFlare("flare")` brings up
   ClickHouse, Redis, the OTLP ingest receiver, the query API, and the dashboard —
   pulling Flare's published `xracer007/flare-*` Docker Hub images, not building
-  anything from source.
-- **`ExampleApp.LogGenerator`** — a plain ASP.NET Core app with zero Flare-specific
-  code. It uses [`Flare.ServiceDefaults`](../src/Flare.ServiceDefaults) (the same
-  generic Aspire `AddServiceDefaults()` pattern any Aspire project has) and a
+  anything from source. `.WithReference(flare)` on the log generator injects
+  `ConnectionStrings__flare` (Flare.Ingest's OTLP/gRPC endpoint).
+- **`ExampleApp.LogGenerator`** — an ASP.NET Core app with one Flare-specific line:
+  `builder.AddFlareOtlpExporter("flare")` (the `src/Aspire.Flare` client package),
+  which reads that connection string and registers a named OTLP log exporter pointed
+  at it. Everything else is generic [`Flare.ServiceDefaults`](../src/Flare.ServiceDefaults)
+  (tracing/metrics instrumentation, health checks, service discovery) plus a
   background worker that logs a random event roughly every 1-2 seconds. This is what
-  "point any .NET Aspire app at Flare" looks like in practice.
+  "point any .NET Aspire app at Flare" looks like in practice, v2-style.
 
-`Aspire.Hosting.Flare` isn't published to nuget.org yet, so `ExampleApp.AppHost`
-references it as a `ProjectReference` rather than a `PackageReference` — see
-[`docs/aspire-hosting.md`](../docs/aspire-hosting.md) for what a real published-package
-consumer would look like instead.
+Neither `Aspire.Hosting.Flare` nor `Aspire.Flare` are published to nuget.org yet, so
+`ExampleApp.AppHost`/`ExampleApp.LogGenerator` reference them as `ProjectReference`s
+rather than `PackageReference`s — see [`docs/aspire-hosting.md`](../docs/aspire-hosting.md)
+and [`src/Aspire.Flare/README.md`](../src/Aspire.Flare/README.md) for what a real
+published-package consumer would look like instead.
 
 ## Prerequisites
 

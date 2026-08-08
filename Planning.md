@@ -210,14 +210,47 @@ the natural place to attach it to the OTLP exporter, the same job `Aspire.Seq`'s
 package does today for Seq's own API key.
 
 - [ ] **`Aspire.Flare` package** (`src/Aspire.Flare/`) — `builder.AddFlareOtlpExporter("flare")`
-      (naming TBD) called from a consuming service project's own `Program.cs` (alongside or
-      in place of `Flare.ServiceDefaults`'s existing OTel wiring), reading the connection
-      info injected by `.WithReference(flare)` on the AppHost side and configuring the OTLP
-      log exporter against it. Depends on the v1.1 `FlareResource` endpoint-exposure item.
-- [ ] Add a second example project under `examples/` that consumes `Aspire.Flare` directly
-      (alongside, or replacing, `ExampleApp.LogGenerator`'s current
-      `Flare.ServiceDefaults`-only wiring), so the new package is proven end-to-end the same
-      way `Aspire.Hosting.Flare` was.
+      called from a consuming service project's own `Program.cs` (alongside or in place of
+      `Flare.ServiceDefaults`'s existing OTel wiring), reading the connection info injected by
+      `.WithReference(flare)` on the AppHost side and registering a second, **named** OTLP log
+      exporter against it via the signal-specific `AddOpenTelemetry().WithLogging(l =>
+      l.AddOtlpExporter(name, configure))` — additive alongside whatever exporter the app's own
+      OpenTelemetry setup already registered, same mechanism `Aspire.Seq`'s `AddSeqEndpoint`
+      uses. Logs only for now — Flare.Ingest doesn't receive traces/metrics yet. First e2e run
+      (`ExampleApp.LogGenerator`) threw `NotSupportedException` at startup: the OTel SDK forbids
+      mixing this signal-specific `AddOtlpExporter` family with the cross-cutting
+      `UseOtlpExporter()`, and `Flare.ServiceDefaults.ConfigureOpenTelemetry()` was calling the
+      latter (see below). A wrong first fix attempt assumed `UseOtlpExporter` had a named
+      multi-destination overload per its XML docs - reflecting on the actually-installed
+      `OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.17.0 assembly showed that overload doesn't
+      really exist in this version (its XML docs over-describe it); the real, verified fix was
+      making `Flare.ServiceDefaults` signal-specific instead (below), letting the original
+      `AddOtlpExporter(name, ...)` design stand. `FlareSettings` deliberately stays minimal
+      (`Endpoint` + `Protocol` only, defaulting to gRPC) — no `ApiKey` placeholder yet; the
+      package's existence *is* the forward-compat seam described above, and an unused property
+      would be exactly the kind of speculative surface the scope-discipline principle warns
+      against. No client-side health check yet either — the connection string is Flare.Ingest's
+      OTLP/gRPC endpoint, not cleanly HTTP-health-checkable the way Seq's single HTTP endpoint
+      is; that's a separate follow-up needing the HTTP endpoint threaded through too.
+- [ ] **`Flare.ServiceDefaults.ConfigureOpenTelemetry()` switched from `UseOtlpExporter()` to
+      signal-specific `AddOtlpExporter()`** (`src/Flare.ServiceDefaults/Extensions.cs`) — required
+      by the `Aspire.Flare` fix above: the two styles can't coexist in one `IServiceCollection`,
+      and `Aspire.Flare` needs the signal-specific, named one to add Flare as a second
+      destination. Behavior for existing consumers is unchanged — still reads the same
+      `OTEL_EXPORTER_OTLP_*` env vars, just via `WithLogging/WithMetrics/WithTracing(x =>
+      x.AddOtlpExporter())` instead of the single cross-cutting call.
+- [ ] `ExampleApp.LogGenerator` updated to consume `Aspire.Flare` directly, replacing its
+      `Flare.ServiceDefaults`-only wiring — chosen over adding a second example project (the
+      alternative this bullet originally described) since one example proving the full
+      `Aspire.Hosting.Flare` + `Aspire.Flare` pairing is clearer than two partial ones.
+      `ExampleApp.AppHost/Program.cs` now uses `.WithReference(flare)` instead of
+      `WithOtlpEndpoint(flare)` (injects `ConnectionStrings__flare` rather than setting
+      `OTEL_EXPORTER_OTLP_ENDPOINT` directly), and `ExampleApp.LogGenerator/Program.cs` calls
+      `builder.AddFlareOtlpExporter("flare")` alongside its existing `AddServiceDefaults()`.
+      Builds clean; first run surfaced the `NotSupportedException` above (now fixed in
+      `AddFlareOtlpExporter` itself) — a fresh end-to-end run (`aspire start`,
+      `POST /generate-burst`, confirm the burst shows up in the Flare dashboard, the same
+      verification `323bab0` did for `WithOtlpEndpoint`) is still pending user confirmation.
 - [ ] Getting-started docs updated to show the `Aspire.Flare` path for Aspire-orchestrated
       consumers, alongside the existing per-logger (Serilog/NLog/ZLogger/MEL) snippets for
       non-Aspire consumers.

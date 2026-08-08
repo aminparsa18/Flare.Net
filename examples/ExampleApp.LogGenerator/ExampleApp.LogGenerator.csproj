@@ -2,11 +2,20 @@
 
   <ItemGroup>
     <!-- Same OTel logging/tracing/metrics pipeline Flare's own Flare.Api/Flare.Ingest use -
-         fully generic, no Flare-ingest-specific coupling (see that project's Extensions.cs).
-         This is what makes the example representative: any .NET Aspire app that already has
-         a ServiceDefaults project gets Flare logging for free by pointing
-         OTEL_EXPORTER_OTLP_ENDPOINT at Flare's ingest endpoint - nothing else changes. -->
+         fully generic, no Flare-specific coupling (see that project's Extensions.cs). Still
+         wires health checks, service discovery, and general tracing/metrics instrumentation
+         regardless of where logs end up. -->
     <ProjectReference Include="..\..\src\Flare.ServiceDefaults\Flare.ServiceDefaults.csproj" />
+    <!-- Not yet published to nuget.org - referenced directly so this example proves the
+         package works before packing/pushing it (see src/Aspire.Flare/README.md). Once
+         published, a real consumer would use:
+           <PackageReference Include="Aspire.Flare" Version="x.y.z" />
+         instead. This is what makes the example representative of the v2 story: rather than
+         the generic ServiceDefaults OTLP exporter activating off an ambient
+         OTEL_EXPORTER_OTLP_ENDPOINT env var, builder.AddFlareOtlpExporter("flare") reads the
+         ConnectionStrings__flare injected by .WithReference(flare) on the AppHost side and
+         registers a named exporter pointed at it. -->
+    <ProjectReference Include="..\..\src\Aspire.Flare\Aspire.Flare.csproj" />
   </ItemGroup>
 
 </Project>
