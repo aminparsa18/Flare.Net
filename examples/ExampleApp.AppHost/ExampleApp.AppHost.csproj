@@ -1,0 +1,26 @@
+<Project Sdk="Aspire.AppHost.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsAspireHost>true</IsAspireHost>
+    <UserSecretsId>exampleapp-apphost-secrets</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Not yet published to nuget.org - referenced directly so this example proves the
+         package works before packing/pushing it (see docs/aspire-hosting.md). Once
+         published, a real consumer would use:
+           <PackageReference Include="Aspire.Hosting.Flare" Version="x.y.z" />
+         instead. IsAspireProjectResource=false tells Aspire's tooling this is a plain
+         class-library reference, not a project resource to orchestrate - same pattern
+         Aspire's own "Create custom hosting integrations" doc uses for a hosting-library
+         reference from an AppHost. -->
+    <ProjectReference Include="..\..\src\Aspire.Hosting.Flare\Aspire.Hosting.Flare.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\ExampleApp.LogGenerator\ExampleApp.LogGenerator.csproj" />
+  </ItemGroup>
+
+</Project>

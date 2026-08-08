@@ -133,21 +133,50 @@ Promoted out of "Later" (2026-08-07) — the `docker-compose.yml` v1 gate that b
 this is now cleared. Sequenced: the CI item has to land and publish a real image
 before the package item has anything to wrap.
 
-- [ ] **Docker Hub image publishing CI** — GitHub Actions workflow
+- [x] **Docker Hub image publishing CI** — GitHub Actions workflow
       (`.github/workflows/docker-publish.yml`) that builds all three images
       (`xracer007/flare-ingest`, `xracer007/flare-api`,
       `xracer007/flare-dashboard`) from the existing Dockerfiles and pushes them to
       Docker Hub: `:edge` on every push to `main`, semver tags (+ auto `:latest`) on
       `v*.*.*` git tags. Build-only (no push) on PRs. Single-arch (`linux/amd64`) for
       now — pre-alpha, no evidence yet anyone needs arm64; buildx is wired in from the
-      start so adding `linux/arm64` later is a one-line change.
-- [ ] **`Aspire.Hosting.Flare` integration package** — publishable NuGet package
+      start so adding `linux/arm64` later is a one-line change. **Done and verified
+      2026-08-07** — merged via PR #8, `:edge` confirmed live and public on all three
+      Docker Hub repos.
+- [x] **`Aspire.Hosting.Flare` integration package** — publishable NuGet package
       (`src/Aspire.Hosting.Flare/`) exposing `builder.AddFlare("flare")` for any .NET
       developer already using .NET Aspire for their own app, wrapping the three images
       above (ClickHouse + Redis wired the same way `Flare.AppHost/Program.cs` does).
       Not `Flare.AppHost` itself — that stays Flare's private dev-inner-loop
-      orchestrator, never published. **Gated on the CI item above landing and
-      publishing a first verified image set** — nothing to wire/test against until then.
+      orchestrator, never published. `AddFlare()` builds a composite `FlareResource`
+      (5 children attached via `WithParentRelationship`: ClickHouse + database, Redis,
+      and the three `xracer007/flare-*` containers), with ClickHouse's init SQL
+      embedded in the package and materialized to a temp dir for `WithBindMount`
+      (resolves the open structural gap from the earlier design pass). NuGet metadata
+      in place: icon (root `logo.png`), package `README.md`, MIT license, repo URL —
+      not yet packed/pushed to nuget.org. **Built and e2e-verified 2026-08-08** —
+      `aspire start` against a throwaway AppHost referencing the package, all 6 real
+      resources reached `Running`/`Healthy` pulling the actual `xracer007/flare-*`
+      images, and a real OTLP log POSTed to the ingest container's `:4318` round-tripped
+      through Redis → ClickHouse and came back correctly from `flare-api`'s
+      `/api/logs/search`. Two bugs only surfaced by that live run, now fixed: (1) the
+      published `flare-ingest`/`flare-api` images hardcode connection-string names
+      `"clickhousedb"`/`"redis"` (confirmed against their `Program.cs`) — the Aspire
+      *resource* names stay `{name}`-prefixed for multi-instance safety, but each
+      `WithReference` now passes an explicit `connectionName:` override so the injected
+      env var matches what the images expect; (2) `PUBLIC_API_URL`/`ORIGIN` were
+      resolving to Aspire's internal `*.dev.internal` container-network DNS (unreachable
+      from a real browser) because plain `GetEndpoint("http")` defaults to container-
+      network context for a container-to-container reference — fixed by passing
+      `KnownNetworkIdentifiers.LocalhostNetwork` explicitly, since both env vars are read
+      by the browser, not another container. **2026-08-08, before packing/publishing:**
+      added `examples/` (an `ExampleApp.AppHost` + `ExampleApp.LogGenerator`, the latter
+      using `Flare.ServiceDefaults` and a background worker emitting random structured
+      logs) referencing the package via `ProjectReference` so it can actually be run and
+      watched end-to-end, plus `docs/aspire-hosting.md` documenting `AddFlare()`'s
+      current API and pre-publish status, cross-linked from the root `README.md`. Package
+      itself is still not packed/pushed — that's the explicit next step, deferred until
+      the user has tried the example.
 
 ### Later (only if v1 gets traction)
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack
