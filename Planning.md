@@ -177,6 +177,50 @@ before the package item has anything to wrap.
       current API and pre-publish status, cross-linked from the root `README.md`. Package
       itself is still not packed/pushed — that's the explicit next step, deferred until
       the user has tried the example.
+- [ ] **Expose Flare's ingest OTLP endpoint on `FlareResource`.** Today `AddFlare()`
+      keeps the `ingest` container's gRPC endpoint as a private local variable
+      (`Aspire.Hosting.Flare/FlareResourceBuilderExtensions.cs:106-115`) — never
+      attached to the `flare` builder it returns. That's why every consuming resource
+      currently needs a hand-written
+      `.WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")`
+      (see `examples/ExampleApp.AppHost/Program.cs`), which only resolves correctly by
+      coincidence of local dev topology and silently breaks once that consumer runs in
+      its own container — under a `docker-compose` publish or a real Kubernetes/ACA
+      deployment — where `localhost` no longer reaches Flare's ingest. Exposing the
+      endpoint lets a consuming AppHost call `.WithReference(flare)` (or a small
+      `WithOtlpEndpoint(flare)` convenience wrapper), which Aspire resolves correctly
+      per execution context (loopback locally, container-network alias under compose,
+      real Service DNS/ingress once published) instead of a hardcoded string — replacing
+      the manual `WithEnvironment(...)` line, not supplementing it. Prerequisite for the
+      `Aspire.Flare` client package below — `WithReference(flare)` needs something real
+      on `FlareResource` to reference. Once built, update
+      `examples/ExampleApp.AppHost/Program.cs` to consume it, replacing the current
+      manual `WithEnvironment` line and its explanatory comment.
+
+### v2 — `Aspire.Flare` (client-side package)
+Mirrors the two-package shape of `Aspire.Hosting.Seq` / `Aspire.Seq`:
+`Aspire.Hosting.Flare` (server/AppHost side, v1.1 above) pairs with a new `Aspire.Flare`
+client package that a *consuming service project* references directly and calls from its
+own `Program.cs` — the same convention every other Aspire client integration
+(`Aspire.StackExchange.Redis`, `Aspire.Npgsql`, `Aspire.Seq`, ...) follows. Today the
+consuming side needs zero Flare-specific code because ingest is pure OTLP — `Aspire.Flare`
+earns its keep as a forward-compatible seam for the already-planned "Auth + multi-user /
+roles" Later-roadmap item: once ingest needs an API key/token, the client package becomes
+the natural place to attach it to the OTLP exporter, the same job `Aspire.Seq`'s client
+package does today for Seq's own API key.
+
+- [ ] **`Aspire.Flare` package** (`src/Aspire.Flare/`) — `builder.AddFlareOtlpExporter("flare")`
+      (naming TBD) called from a consuming service project's own `Program.cs` (alongside or
+      in place of `Flare.ServiceDefaults`'s existing OTel wiring), reading the connection
+      info injected by `.WithReference(flare)` on the AppHost side and configuring the OTLP
+      log exporter against it. Depends on the v1.1 `FlareResource` endpoint-exposure item.
+- [ ] Add a second example project under `examples/` that consumes `Aspire.Flare` directly
+      (alongside, or replacing, `ExampleApp.LogGenerator`'s current
+      `Flare.ServiceDefaults`-only wiring), so the new package is proven end-to-end the same
+      way `Aspire.Hosting.Flare` was.
+- [ ] Getting-started docs updated to show the `Aspire.Flare` path for Aspire-orchestrated
+      consumers, alongside the existing per-logger (Serilog/NLog/ZLogger/MEL) snippets for
+      non-Aspire consumers.
 
 ### Later (only if v1 gets traction)
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack

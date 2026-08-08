@@ -11,7 +11,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 var flare = builder.AddFlare("flare");
 
 builder.AddProject<Projects.MyApi>("myapi")
-    .WithReference(flare); // not required - your app reaches Flare over OTLP, not a reference
+    .WithOtlpEndpoint(flare); // OTEL_EXPORTER_OTLP_ENDPOINT -> Flare.Ingest's OTLP/gRPC endpoint
 
 builder.Build().Run();
 ```
@@ -22,9 +22,14 @@ images (`xracer007/flare-ingest`, `xracer007/flare-api`, `xracer007/flare-dashbo
 than building from source, the same way [`docker-compose.yml`](https://github.com/aminparsa18/Flare.Net/blob/main/docker-compose.yml)
 in Flare's own repo does.
 
-Point any OTLP-capable logger (Serilog, NLog, ZLogger, `Microsoft.Extensions.Logging`) at the
-ingest endpoints - `http://localhost:4317` (gRPC) or `:4318` (HTTP) by default - and open the
-dashboard to read your logs.
+`WithOtlpEndpoint(flare)` points your app's OTLP exporter at Flare.Ingest, resolved correctly
+per execution context (loopback locally, container-network alias under compose, real Service
+DNS/ingress once published) instead of a hardcoded `http://localhost:4317`. Pass
+`useHttp: true` for the OTLP/HTTP endpoint (`:4318`) instead of gRPC.
+
+`.WithReference(flare)` also works, for code that wants the raw connection info instead - it
+injects `ConnectionStrings__flare` with the same OTLP/gRPC URL. That's what the future
+`Aspire.Flare` client package reads.
 
 ## Status
 

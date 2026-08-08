@@ -26,6 +26,13 @@ public static class FlareResourceBuilderExtensions
     /// They're still fully orchestrated (health-checked, waited-on, etc.) - just not shown by
     /// default. Toggle "Show hidden resources" in the dashboard, or use
     /// <c>aspire describe --include-hidden</c> / <c>aspire ps --include-hidden</c>, to see them.
+    /// <para>
+    /// The returned <see cref="FlareResource"/> exposes Flare.Ingest's OTLP endpoints via
+    /// <see cref="FlareResource.OtlpGrpcEndpoint"/>/<see cref="FlareResource.OtlpHttpEndpoint"/>
+    /// and a <c>ConnectionStringExpression</c> usable with <c>.WithReference(flare)</c>. Point a
+    /// consuming resource's OTLP exporter at ingest with <see cref="WithOtlpEndpoint{TDestination}"/> instead
+    /// of hand-writing <c>.WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")</c>.
+    /// </para>
     /// </remarks>
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/>.</param>
     /// <param name="name">The name of the Flare resource group.</param>
@@ -60,15 +67,16 @@ public static class FlareResourceBuilderExtensions
         ArgumentException.ThrowIfNullOrEmpty(imageTag);
 
         // The FlareResource itself has no process - it's a pure grouping node the five real
-        // resources below attach to via WithParentRelationship. ExcludeFromManifest because
-        // there's nothing meaningful to publish for a node that doesn't run anything itself;
-        // the five resources it groups still publish normally. WithHidden because a consumer
-        // adding Flare to their AppHost should see one thing in the resource list - the
-        // dashboard - not five implementation-detail backing resources (ClickHouse, its
-        // database, Redis, ingest, api); all of it stays reachable via "Show hidden resources"
-        // in the dashboard or `aspire describe --include-hidden` for anyone who wants it.
+        // resources below attach to via WithParentRelationship. It's NOT excluded from the
+        // manifest, though: it carries a real ConnectionStringExpression (Flare.Ingest's OTLP
+        // gRPC URL) so a downstream `.WithReference(flare)` publishes correctly - if flare were
+        // excluded, that reference would emit a dangling `{flare.connectionString}` placeholder
+        // pointing at a resource absent from the manifest. WithHidden is a separate, purely
+        // dashboard-visibility concern: a consumer adding Flare to their AppHost should see one
+        // thing in the resource list - the dashboard - not five implementation-detail backing
+        // resources (ClickHouse, its database, Redis, ingest, api); all of it stays reachable
+        // via "Show hidden resources" in the dashboard or `aspire describe --include-hidden`.
         var flare = builder.AddResource(new FlareResource(name))
-            .ExcludeFromManifest()
             .WithHidden();
 
         // ClickHouse: log storage. Same /docker-entrypoint-initdb.d init-script trick as
@@ -114,6 +122,12 @@ public static class FlareResourceBuilderExtensions
             .WithParentRelationship(flare)
             .WithHidden();
 
+        // Attach ingest's real endpoints to the composite FlareResource so consumers can reach
+        // them via `flare` itself - through `.WithReference(flare)` (ConnectionStringExpression
+        // below) or the WithOtlpEndpoint helper - instead of hand-writing
+        // "http://localhost:4317" and hoping local dev topology holds.
+        flare.Resource.SetIngestEndpoints(ingest.GetEndpoint("otlp-grpc"), ingest.GetEndpoint("otlp-http"));
+
         // Flare.Api: the query API (search/filter/time-range/aggregate) and live-tail streaming
         // endpoint over the same clickhousedb.logs table Flare.Ingest writes to. A normal
         // proxied Aspire HTTP endpoint - callers go through Aspire's dev-proxy/service
@@ -148,6 +162,34 @@ public static class FlareResourceBuilderExtensions
             .WithEnvironment("ORIGIN", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
 
         return flare;
+    }
+
+    /// <summary>
+    /// Points a consuming resource's OTLP exporter at Flare.Ingest by setting
+    /// <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> from <paramref name="flare"/>'s ingest sub-resource -
+    /// resolved correctly per execution context (loopback locally, container-network alias
+    /// under compose, real Service DNS/ingress once published) instead of a hardcoded string.
+    /// Prefer this over a hand-written
+    /// <c>.WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")</c>.
+    /// </summary>
+    /// <param name="builder">The consuming resource builder.</param>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="useHttp">
+    /// Use Flare.Ingest's OTLP/HTTP endpoint (4318) instead of OTLP/gRPC (4317, the default -
+    /// matches the default protocol OpenTelemetry .NET's OTLP exporter uses).
+    /// </param>
+    /// <returns>The <paramref name="builder"/>, for chaining.</returns>
+    public static IResourceBuilder<TDestination> WithOtlpEndpoint<TDestination>(
+        this IResourceBuilder<TDestination> builder,
+        IResourceBuilder<FlareResource> flare,
+        bool useHttp = false)
+        where TDestination : IResourceWithEnvironment
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(flare);
+
+        var endpoint = useHttp ? flare.Resource.OtlpHttpEndpoint : flare.Resource.OtlpGrpcEndpoint;
+        return builder.WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint);
     }
 
     /// <summary>
