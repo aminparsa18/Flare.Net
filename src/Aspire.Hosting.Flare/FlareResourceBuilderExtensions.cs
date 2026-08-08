@@ -18,6 +18,15 @@ public static class FlareResourceBuilderExtensions
     /// <c>Flare.AppHost/Program.cs</c> wires up locally, swapping <c>AddProject</c> for
     /// <c>AddContainer</c>.
     /// </summary>
+    /// <remarks>
+    /// Only the dashboard shows up in the Aspire dashboard's resource list by default - the
+    /// composite <see cref="FlareResource"/> and its four backing resources (ClickHouse, its
+    /// database, Redis, and the ingest/api containers) are marked hidden, since they're
+    /// implementation details a consumer adding Flare to their own AppHost doesn't need to see.
+    /// They're still fully orchestrated (health-checked, waited-on, etc.) - just not shown by
+    /// default. Toggle "Show hidden resources" in the dashboard, or use
+    /// <c>aspire describe --include-hidden</c> / <c>aspire ps --include-hidden</c>, to see them.
+    /// </remarks>
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/>.</param>
     /// <param name="name">The name of the Flare resource group.</param>
     /// <param name="imageTag">
@@ -53,9 +62,14 @@ public static class FlareResourceBuilderExtensions
         // The FlareResource itself has no process - it's a pure grouping node the five real
         // resources below attach to via WithParentRelationship. ExcludeFromManifest because
         // there's nothing meaningful to publish for a node that doesn't run anything itself;
-        // the five resources it groups still publish normally.
+        // the five resources it groups still publish normally. WithHidden because a consumer
+        // adding Flare to their AppHost should see one thing in the resource list - the
+        // dashboard - not five implementation-detail backing resources (ClickHouse, its
+        // database, Redis, ingest, api); all of it stays reachable via "Show hidden resources"
+        // in the dashboard or `aspire describe --include-hidden` for anyone who wants it.
         var flare = builder.AddResource(new FlareResource(name))
-            .ExcludeFromManifest();
+            .ExcludeFromManifest()
+            .WithHidden();
 
         // ClickHouse: log storage. Same /docker-entrypoint-initdb.d init-script trick as
         // Flare.AppHost/Program.cs, except the SQL is embedded in this package and materialized
@@ -65,14 +79,16 @@ public static class FlareResourceBuilderExtensions
         var clickhouse = builder.AddClickHouse($"{name}-clickhouse")
             .WithDataVolume()
             .WithBindMount(ExtractClickHouseInitScripts(), "/docker-entrypoint-initdb.d", isReadOnly: true)
-            .WithParentRelationship(flare);
+            .WithParentRelationship(flare)
+            .WithHidden();
         // The Aspire *resource* name is prefixed (collision-safe across multiple AddFlare()
         // calls); the actual ClickHouse database name is pinned to "clickhousedb" - what
         // db/clickhouse/*.sql creates - and re-asserted as the connection-string name on each
         // WithReference below, because Flare.Ingest/Flare.Api's published images hardcode
         // AddClickHouseDataSource(connectionName: "clickhousedb") (confirmed against their
         // Program.cs in Flare's own repo) and won't recognize any other key.
-        var logsDb = clickhouse.AddDatabase($"{name}-clickhousedb", databaseName: "clickhousedb");
+        var logsDb = clickhouse.AddDatabase($"{name}-clickhousedb", databaseName: "clickhousedb")
+            .WithHidden();
 
         // Redis: durable buffer for the batched ClickHouse insert pipeline, so buffered-but-
         // unflushed events survive a Redis container restart. Same interval/threshold as
@@ -80,7 +96,8 @@ public static class FlareResourceBuilderExtensions
         var redis = builder.AddRedis($"{name}-redis")
             .WithDataVolume()
             .WithPersistence(interval: TimeSpan.FromSeconds(30), keysChangedThreshold: 100)
-            .WithParentRelationship(flare);
+            .WithParentRelationship(flare)
+            .WithHidden();
 
         // Flare.Ingest: terminates OTLP over gRPC (4317) and HTTP (4318, protobuf + JSON).
         // Fixed, unproxied ports so external OTLP clients can point at the conventional port
@@ -94,7 +111,8 @@ public static class FlareResourceBuilderExtensions
             .WithEndpoint(port: ingestGrpcPort, targetPort: 4317, scheme: "http", name: "otlp-grpc", isProxied: false)
             .WithEndpoint(port: ingestHttpPort, targetPort: 4318, scheme: "http", name: "otlp-http", isProxied: false)
             .WithHttpHealthCheck("/health", endpointName: "otlp-http")
-            .WithParentRelationship(flare);
+            .WithParentRelationship(flare)
+            .WithHidden();
 
         // Flare.Api: the query API (search/filter/time-range/aggregate) and live-tail streaming
         // endpoint over the same clickhousedb.logs table Flare.Ingest writes to. A normal
@@ -107,7 +125,8 @@ public static class FlareResourceBuilderExtensions
             .WaitFor(redis)
             .WithHttpEndpoint(port: apiPort, targetPort: 8080)
             .WithHttpHealthCheck("/health")
-            .WithParentRelationship(flare);
+            .WithParentRelationship(flare)
+            .WithHidden();
 
         // Flare.Dashboard: the SvelteKit SPA. PUBLIC_API_URL/ORIGIN are read at *container
         // runtime* via SvelteKit's $env/dynamic/public, not baked in at image build time
