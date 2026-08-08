@@ -1,4 +1,4 @@
-# Example: using `Aspire.Hosting.Flare` + `Aspire.Flare` together
+# Example: using `Flare.Hosting.Aspire` + `Flare.Aspire` together
 
 A minimal .NET Aspire application that adds Flare via `builder.AddFlare("flare")`
 (the `src/Aspire.Hosting.Flare` package) and runs a small web app that emits random,
@@ -18,7 +18,7 @@ dashboard without having to wire up your own logger first.
   background worker that logs a random event roughly every 1-2 seconds. This is what
   "point any .NET Aspire app at Flare" looks like in practice, v2-style.
 
-Neither `Aspire.Hosting.Flare` nor `Aspire.Flare` are published to nuget.org yet, so
+Neither `Flare.Hosting.Aspire` nor `Flare.Aspire` are published to nuget.org yet, so
 `ExampleApp.AppHost`/`ExampleApp.LogGenerator` reference them as `ProjectReference`s
 rather than `PackageReference`s — see [`docs/aspire-hosting.md`](../docs/aspire-hosting.md)
 and [`src/Aspire.Flare/README.md`](../src/Aspire.Flare/README.md) for what a real

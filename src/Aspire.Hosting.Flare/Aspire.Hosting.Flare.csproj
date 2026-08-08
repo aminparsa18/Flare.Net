@@ -9,8 +9,16 @@
   <PropertyGroup>
     <!-- NuGet package metadata. Version starts pre-1.0 - pre-alpha, no stable release yet, and
          deliberately not pinned 1:1 to the "edge"/future-semver Docker image tags (Planning.md's
-         "Aspire.Hosting.Flare" item: that pinning is an explicitly deferred decision). -->
-    <PackageId>Aspire.Hosting.Flare</PackageId>
+         "Flare.Hosting.Aspire" item: that pinning is an explicitly deferred decision).
+
+         PackageId is Flare.Hosting.Aspire, NOT Aspire.Hosting.Flare - that prefix is reserved on
+         nuget.org (Microsoft owns the real Aspire.Hosting.* namespace for official integrations).
+         A push under it gets silently swallowed: accepted into nuget.org's storage (permanently
+         burning the id+version) but never listed/indexed/visible anywhere, with no error and no
+         email. Discovered 2026-08-08 checking why a "successful" CI publish never appeared on
+         nuget.org - see Planning.md. Project/directory/namespace names are unaffected; only the
+         published package identity changed. -->
+    <PackageId>Flare.Hosting.Aspire</PackageId>
     <Version>0.1.0</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>

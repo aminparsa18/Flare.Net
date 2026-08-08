@@ -17,7 +17,7 @@ Once it's up:
 
 ## Using Flare from your own .NET Aspire app
 
-Already orchestrating your own app with .NET Aspire? `Aspire.Hosting.Flare` (`src/Aspire.Hosting.Flare`) adds the whole Flare stack to your AppHost with `builder.AddFlare("flare")` instead of `docker compose up`. Not published to nuget.org yet — see [docs/aspire-hosting.md](docs/aspire-hosting.md) for the current API and [examples/](examples) for a full runnable demo.
+Already orchestrating your own app with .NET Aspire? `Flare.Hosting.Aspire` (`src/Aspire.Hosting.Flare` - package ID `Flare.Hosting.Aspire`, not `Aspire.Hosting.Flare`, which is reserved on nuget.org for Microsoft's own official integrations) adds the whole Flare stack to your AppHost with `builder.AddFlare("flare")` instead of `docker compose up`. Not published to nuget.org yet — see [docs/aspire-hosting.md](docs/aspire-hosting.md) for the current API and [examples/](examples) for a full runnable demo.
 
 ## Local development
 

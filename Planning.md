@@ -128,7 +128,7 @@ Explicitly **out** of v1 dashboard scope: dashboards-as-code, arbitrary user-bui
 - [x] `docker-compose.yml` — full stack up in one command
 - [x] Getting-started docs with a snippet per logger (Serilog, NLog, ZLogger, MEL)
 
-### Next — v1.1: Container distribution & Aspire.Hosting.Flare
+### Next — v1.1: Container distribution & Flare.Hosting.Aspire
 Promoted out of "Later" (2026-08-07) — the `docker-compose.yml` v1 gate that blocked
 this is now cleared. Sequenced: the CI item has to land and publish a real image
 before the package item has anything to wrap.
@@ -143,7 +143,7 @@ before the package item has anything to wrap.
       start so adding `linux/arm64` later is a one-line change. **Done and verified
       2026-08-07** — merged via PR #8, `:edge` confirmed live and public on all three
       Docker Hub repos.
-- [x] **`Aspire.Hosting.Flare` integration package** — publishable NuGet package
+- [x] **`Flare.Hosting.Aspire` integration package** — publishable NuGet package
       (`src/Aspire.Hosting.Flare/`) exposing `builder.AddFlare("flare")` for any .NET
       developer already using .NET Aspire for their own app, wrapping the three images
       above (ClickHouse + Redis wired the same way `Flare.AppHost/Program.cs` does).
@@ -192,24 +192,25 @@ before the package item has anything to wrap.
       per execution context (loopback locally, container-network alias under compose,
       real Service DNS/ingress once published) instead of a hardcoded string — replacing
       the manual `WithEnvironment(...)` line, not supplementing it. Prerequisite for the
-      `Aspire.Flare` client package below — `WithReference(flare)` needs something real
+      `Flare.Aspire` client package below — `WithReference(flare)` needs something real
       on `FlareResource` to reference. Once built, update
       `examples/ExampleApp.AppHost/Program.cs` to consume it, replacing the current
       manual `WithEnvironment` line and its explanatory comment.
 
-### v2 — `Aspire.Flare` (client-side package)
+### v2 — `Flare.Aspire` (client-side package)
 Mirrors the two-package shape of `Aspire.Hosting.Seq` / `Aspire.Seq`:
-`Aspire.Hosting.Flare` (server/AppHost side, v1.1 above) pairs with a new `Aspire.Flare`
+`Flare.Hosting.Aspire` (server/AppHost side, v1.1 above) pairs with a new `Flare.Aspire`
 client package that a *consuming service project* references directly and calls from its
 own `Program.cs` — the same convention every other Aspire client integration
-(`Aspire.StackExchange.Redis`, `Aspire.Npgsql`, `Aspire.Seq`, ...) follows. Today the
-consuming side needs zero Flare-specific code because ingest is pure OTLP — `Aspire.Flare`
+(`Aspire.StackExchange.Redis`, `Aspire.Npgsql`, `Aspire.Seq`, ...) follows, just under our
+own `Flare.*` prefix rather than `Aspire.*` — see the naming note below. Today the
+consuming side needs zero Flare-specific code because ingest is pure OTLP — `Flare.Aspire`
 earns its keep as a forward-compatible seam for the already-planned "Auth + multi-user /
 roles" Later-roadmap item: once ingest needs an API key/token, the client package becomes
 the natural place to attach it to the OTLP exporter, the same job `Aspire.Seq`'s client
 package does today for Seq's own API key.
 
-- [x] **`Aspire.Flare` package** (`src/Aspire.Flare/`) — `builder.AddFlareOtlpExporter("flare")`
+- [x] **`Flare.Aspire` package** (`src/Aspire.Flare/`) — `builder.AddFlareOtlpExporter("flare")`
       called from a consuming service project's own `Program.cs` (alongside or in place of
       `Flare.ServiceDefaults`'s existing OTel wiring), reading the connection info injected by
       `.WithReference(flare)` on the AppHost side and registering a second, **named** OTLP log
@@ -234,15 +235,15 @@ package does today for Seq's own API key.
       is; that's a separate follow-up needing the HTTP endpoint threaded through too.
 - [x] **`Flare.ServiceDefaults.ConfigureOpenTelemetry()` switched from `UseOtlpExporter()` to
       signal-specific `AddOtlpExporter()`** (`src/Flare.ServiceDefaults/Extensions.cs`) — required
-      by the `Aspire.Flare` fix above: the two styles can't coexist in one `IServiceCollection`,
-      and `Aspire.Flare` needs the signal-specific, named one to add Flare as a second
+      by the `Flare.Aspire` fix above: the two styles can't coexist in one `IServiceCollection`,
+      and `Flare.Aspire` needs the signal-specific, named one to add Flare as a second
       destination. Behavior for existing consumers is unchanged — still reads the same
       `OTEL_EXPORTER_OTLP_*` env vars, just via `WithLogging/WithMetrics/WithTracing(x =>
       x.AddOtlpExporter())` instead of the single cross-cutting call.
-- [x] `ExampleApp.LogGenerator` updated to consume `Aspire.Flare` directly, replacing its
+- [x] `ExampleApp.LogGenerator` updated to consume `Flare.Aspire` directly, replacing its
       `Flare.ServiceDefaults`-only wiring — chosen over adding a second example project (the
       alternative this bullet originally described) since one example proving the full
-      `Aspire.Hosting.Flare` + `Aspire.Flare` pairing is clearer than two partial ones.
+      `Flare.Hosting.Aspire` + `Flare.Aspire` pairing is clearer than two partial ones.
       `ExampleApp.AppHost/Program.cs` now uses `.WithReference(flare)` instead of
       `WithOtlpEndpoint(flare)` (injects `ConnectionStrings__flare` rather than setting
       `OTEL_EXPORTER_OTLP_ENDPOINT` directly), and `ExampleApp.LogGenerator/Program.cs` calls
@@ -250,9 +251,34 @@ package does today for Seq's own API key.
       **Built and e2e-verified 2026-08-08** — `dotnet build Flare.sln` clean, `aspire start`
       against `ExampleApp.AppHost`, `POST /generate-burst`, burst confirmed showing up in the
       Flare dashboard (user-verified). Merged via PR #12.
-- [ ] Getting-started docs updated to show the `Aspire.Flare` path for Aspire-orchestrated
+- [ ] Getting-started docs updated to show the `Flare.Aspire` path for Aspire-orchestrated
       consumers, alongside the existing per-logger (Serilog/NLog/ZLogger/MEL) snippets for
       non-Aspire consumers.
+
+**Package naming correction, 2026-08-08 (after the above shipped):** the first real publish
+attempt (`aspire-hosting-flare-v0.1.0`, tagged after the whole v1.1/v2 body of work above)
+exposed that `Aspire.` is a Microsoft-reserved ID prefix on nuget.org (confirmed by the
+"Prefix Reserved" badge on official packages like `Aspire.Hosting.Redis`). Pushing under it
+from a non-Microsoft account gets silently swallowed: nuget.org's push endpoint accepts the
+upload into storage (permanently burning that exact id+version — NuGet never lets an
+id+version be reused, even for a rejected upload) but never lists, indexes, or emails about
+it — no error surfaces anywhere, including in the "successful" CI run's own log, unless you
+read past its green checkmark to the `409 Conflict — already exists` line. Confirmed via the
+nuget.org API directly: `v3-flatcontainer`/registration/package-page all 404, search 0 hits,
+and the account's own Published/Unlisted package lists show nothing — despite a "success"
+workflow run. Both `aspire-hosting-flare-v0.1.0` and `aspire-flare-v0.1.0` are unrecoverable
+under those exact package IDs.
+
+**Fix:** renamed the *published `PackageId` only* — `Aspire.Hosting.Flare` → `Flare.Hosting.Aspire`,
+`Aspire.Flare` → `Flare.Aspire`. Deliberately **not** a project rename: directory names
+(`src/Aspire.Hosting.Flare/`, `src/Aspire.Flare/`), `.csproj` filenames, the `.sln` entries,
+and every C# namespace (`Aspire.Hosting`, `Aspire.Hosting.ApplicationModel`,
+`Microsoft.Extensions.Hosting`) are unchanged — those `Aspire.*` namespaces are the documented
+Aspire "Create custom hosting/client integrations" discoverability convention and aren't
+policed by nuget.org's prefix reservation (only package *IDs* are). Old tags
+`aspire-hosting-flare-v0.1.0` / `aspire-flare-v0.1.0` are left in git history as a record of
+the incident; the next real release tags will be new names matching the new PackageIds (exact
+scheme TBD when that release actually happens) since the old prefixes are now stale.
 
 ### Later (only if v1 gets traction)
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack

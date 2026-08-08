@@ -74,7 +74,7 @@ public static class Extensions
             // this replaced), not the cross-cutting UseOtlpExporter(). The OTel SDK explicitly
             // forbids mixing UseOtlpExporter with any signal-specific AddOtlpExporter call on
             // the same IServiceCollection (throws NotSupportedException at startup) - and
-            // Aspire.Flare's AddFlareOtlpExporter needs to register its own additional, named
+            // Flare.Aspire's AddFlareOtlpExporter needs to register its own additional, named
             // signal-specific log exporter alongside this one, so this one has to be
             // signal-specific too. Confirmed against the real installed
             // OpenTelemetry.Exporter.OpenTelemetryProtocol 1.17.0 assembly (reflection, not just

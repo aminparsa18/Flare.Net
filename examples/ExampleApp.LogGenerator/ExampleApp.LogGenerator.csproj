@@ -9,8 +9,10 @@
     <!-- Not yet published to nuget.org - referenced directly so this example proves the
          package works before packing/pushing it (see src/Aspire.Flare/README.md). Once
          published, a real consumer would use:
-           <PackageReference Include="Aspire.Flare" Version="x.y.z" />
-         instead. This is what makes the example representative of the v2 story: rather than
+           <PackageReference Include="Flare.Aspire" Version="x.y.z" />
+         instead - PackageId Flare.Aspire, NOT Aspire.Flare (that prefix is reserved on
+         nuget.org for Microsoft's own official integrations; see this package's .csproj).
+         This is what makes the example representative of the v2 story: rather than
          the generic ServiceDefaults OTLP exporter activating off an ambient
          OTEL_EXPORTER_OTLP_ENDPOINT env var, builder.AddFlareOtlpExporter("flare") reads the
          ConnectionStrings__flare injected by .WithReference(flare) on the AppHost side and

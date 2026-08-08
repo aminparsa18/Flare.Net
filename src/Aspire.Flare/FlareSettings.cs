@@ -14,7 +14,7 @@ public sealed class FlareSettings
     /// <summary>
     /// Gets or sets Flare.Ingest's OTLP endpoint. Normally left unset and resolved from the
     /// <c>{connectionName}</c> connection string injected by <c>.WithReference(flare)</c> on the
-    /// AppHost side (see <c>Aspire.Hosting.Flare</c>'s <c>FlareResource.ConnectionStringExpression</c>).
+    /// AppHost side (see <c>Flare.Hosting.Aspire</c>'s <c>FlareResource.ConnectionStringExpression</c>).
     /// </summary>
     public Uri? Endpoint { get; set; }
 
