@@ -25,8 +25,10 @@
 # share this one workflow file.
 #
 # Release process (per package):
-#   1. Bump <Version> in the package's .csproj, commit.
-#   2. git tag {prefix}-v0.1.0 && git push origin main --tags
+#   1. Bump <Version> in the package's .csproj, commit. (First real release is 0.1.1, not
+#      0.1.0 - see the csproj Version comments and Planning.md: 0.1.0 was already
+#      tagged/attempted under the pre-rename Aspire.* PackageIds.)
+#   2. git tag {prefix}-v{version} && git push origin main --tags
 #   3. This workflow resolves the package from the tag, packs, validates the tag
 #      matches the csproj version, and pushes.
 

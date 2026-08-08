@@ -277,8 +277,10 @@ and every C# namespace (`Aspire.Hosting`, `Aspire.Hosting.ApplicationModel`,
 Aspire "Create custom hosting/client integrations" discoverability convention and aren't
 policed by nuget.org's prefix reservation (only package *IDs* are). Old tags
 `aspire-hosting-flare-v0.1.0` / `aspire-flare-v0.1.0` are left in git history as a record of
-the incident; the next real release tags will be new names matching the new PackageIds (exact
-scheme TBD when that release actually happens) since the old prefixes are now stale.
+the incident, and the tag *prefixes* (`aspire-hosting-flare-v*`/`aspire-flare-v*`) stay as-is
+in `nuget-publish.yml` — only the `<Version>` each package bumps to changed, to `0.1.1`, so the
+first real release tags (`aspire-hosting-flare-v0.1.1` / `aspire-flare-v0.1.1`) don't collide
+with the already-existing `v0.1.0` tags from the abandoned attempt.
 
 ### Later (only if v1 gets traction)
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack
