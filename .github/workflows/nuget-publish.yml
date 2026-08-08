@@ -1,24 +1,50 @@
-# Publishes the Aspire.Hosting.Flare package to nuget.org (Planning.md's "Next — v1.1"
-# roadmap item). Uses NuGet Trusted Publishing (OIDC) instead of a long-lived API key
-# secret — see https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing.
+# Publishes Flare's NuGet packages to nuget.org via NuGet Trusted Publishing (OIDC)
+# instead of a long-lived API key secret - see
+# https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing.
 #
-# Triggered by a dedicated `aspire-hosting-flare-v*.*.*` tag, deliberately NOT the plain
-# `v*.*.*` pattern docker-publish.yml already owns — this package's version isn't pinned
-# to the Docker image tags (see the csproj's Version comment), and tagging a NuGet
-# release shouldn't have the side effect of also cutting a "stable" Docker Hub release.
+# One workflow file, dispatched by tag prefix, rather than a separate file per package:
+# nuget.org's trusted-publishing policies are scoped to (Repository Owner, Repository,
+# Workflow File, Environment) - reusing this same file + `release` environment for every
+# Flare package means adding a new package only needs its own policy entry on nuget.org,
+# not a whole new workflow. Each package still gets its own version-tag prefix,
+# deliberately NOT the plain `v*.*.*` pattern docker-publish.yml already owns - these
+# packages' versions aren't pinned to the Docker image tags, and tagging one NuGet
+# package release shouldn't have the side effect of also cutting a "stable" Docker Hub
+# release.
 #
-# Release process:
-#   1. Bump <Version> in src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj, commit.
-#   2. git tag aspire-hosting-flare-v0.1.0 && git push origin main --tags
-#   3. This workflow packs, validates the tag matches the csproj version, and pushes.
+# Packages published from here:
+#   - Aspire.Hosting.Flare  <- tag aspire-hosting-flare-v*.*.*
+#   - Aspire.Flare          <- tag aspire-flare-v*.*.*
+#
+# Adding a new package: add its tag pattern under `on.push.tags`, a case arm in
+# "Resolve target package" below (and to the workflow_dispatch `package` choices), and a
+# matching nuget.org trusted-publishing policy (Repository Owner: aminparsa18,
+# Repository: Flare.Net, Workflow File: nuget-publish.yml, Environment: release,
+# Package: the new package ID) - each package needs its own policy even though they
+# share this one workflow file.
+#
+# Release process (per package):
+#   1. Bump <Version> in the package's .csproj, commit.
+#   2. git tag {prefix}-v0.1.0 && git push origin main --tags
+#   3. This workflow resolves the package from the tag, packs, validates the tag
+#      matches the csproj version, and pushes.
 
-name: NuGet Publish (Aspire.Hosting.Flare)
+name: NuGet Publish
 
 on:
   push:
     tags:
       - 'aspire-hosting-flare-v*.*.*'
-  workflow_dispatch: {}
+      - 'aspire-flare-v*.*.*'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to pack and push (manual run only - tag pushes resolve this automatically)'
+        required: true
+        type: choice
+        options:
+          - Aspire.Hosting.Flare
+          - Aspire.Flare
 
 concurrency:
   group: nuget-publish-${{ github.workflow }}-${{ github.ref }}
@@ -42,24 +68,52 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # Maps the pushed tag's prefix (or the manual workflow_dispatch input) to a
+      # project path + tag-version-prefix, so every step below is package-agnostic.
+      - name: Resolve target package
+        id: package
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PACKAGE="${{ inputs.package }}"
+          else
+            case "$GITHUB_REF_NAME" in
+              aspire-hosting-flare-v*) PACKAGE="Aspire.Hosting.Flare" ;;
+              aspire-flare-v*) PACKAGE="Aspire.Flare" ;;
+              *) echo "::error::Unrecognized tag $GITHUB_REF_NAME"; exit 1 ;;
+            esac
+          fi
+
+          case "$PACKAGE" in
+            Aspire.Hosting.Flare)
+              echo "project=src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj" >> "$GITHUB_OUTPUT"
+              echo "tag_prefix=aspire-hosting-flare-v" >> "$GITHUB_OUTPUT"
+              ;;
+            Aspire.Flare)
+              echo "project=src/Aspire.Flare/Aspire.Flare.csproj" >> "$GITHUB_OUTPUT"
+              echo "tag_prefix=aspire-flare-v" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::Unknown package '$PACKAGE'"; exit 1 ;;
+          esac
+
       # Only meaningful on an actual version tag - workflow_dispatch has no tag to
       # extract from, so version validation below is skipped for manual runs.
       - name: Extract version from tag
         id: version
         if: startsWith(github.ref, 'refs/tags/')
-        run: echo "VERSION=${GITHUB_REF_NAME#aspire-hosting-flare-v}" >> "$GITHUB_OUTPUT"
+        run: echo "VERSION=${GITHUB_REF_NAME#${{ steps.package.outputs.tag_prefix }}}" >> "$GITHUB_OUTPUT"
 
       - name: Validate tag matches project version
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          PROJECT_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj)
+          PROJECT_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' ${{ steps.package.outputs.project }})
           if [ "$PROJECT_VERSION" != "${{ steps.version.outputs.VERSION }}" ]; then
             echo "::error::Tag version (${{ steps.version.outputs.VERSION }}) doesn't match csproj Version ($PROJECT_VERSION)"
             exit 1
           fi
 
       - name: Pack
-        run: dotnet pack src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj -c Release -o ./artifacts
+        run: dotnet pack ${{ steps.package.outputs.project }} -c Release -o ./artifacts
 
       - name: NuGet login (OIDC)
         id: login
