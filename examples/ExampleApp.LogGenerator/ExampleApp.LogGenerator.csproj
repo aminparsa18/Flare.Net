@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <!-- Same OTel logging/tracing/metrics pipeline Flare's own Flare.Api/Flare.Ingest use -
+         fully generic, no Flare-ingest-specific coupling (see that project's Extensions.cs).
+         This is what makes the example representative: any .NET Aspire app that already has
+         a ServiceDefaults project gets Flare logging for free by pointing
+         OTEL_EXPORTER_OTLP_ENDPOINT at Flare's ingest endpoint - nothing else changes. -->
+    <ProjectReference Include="..\..\src\Flare.ServiceDefaults\Flare.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

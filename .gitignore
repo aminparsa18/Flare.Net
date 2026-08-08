@@ -67,3 +67,7 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# playwright-cli session artifacts (screenshots, snapshots, console logs) - left behind
+# wherever a `playwright-cli` command happened to run from, not meant to be committed.
+.playwright-cli/

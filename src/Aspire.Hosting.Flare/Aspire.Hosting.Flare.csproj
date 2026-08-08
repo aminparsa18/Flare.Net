@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- NuGet package metadata. Version starts pre-1.0 - pre-alpha, no stable release yet, and
+         deliberately not pinned 1:1 to the "edge"/future-semver Docker image tags (Planning.md's
+         "Aspire.Hosting.Flare" item: that pinning is an explicitly deferred decision). -->
+    <PackageId>Aspire.Hosting.Flare</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Amin Parsa</Authors>
+    <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>
+    <PackageTags>aspire;aspire-hosting;flare;opentelemetry;otlp;logging;observability;clickhouse;redis</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/aminparsa18/Flare.Net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/aminparsa18/Flare.Net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageIcon>logo.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Packed straight from their existing location - not physically copied into this project. -->
+    <None Include="..\..\logo.png" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Aspire.Hosting directly (not Aspire.Hosting.AppHost - that meta-package + the
+         Aspire.AppHost.Sdk combo is for the AppHost *executable* project itself; a hosting
+         integration library depends on Aspire.Hosting directly, per Aspire's "Create custom
+         hosting integrations" doc). ClickHouse/Redis give AddClickHouse/AddDatabase/AddRedis/
+         WithDataVolume/WithPersistence, mirroring Flare.AppHost/Program.cs's own resource graph. -->
+    <PackageReference Include="Aspire.Hosting" />
+    <PackageReference Include="Aspire.Hosting.ClickHouse" />
+    <PackageReference Include="Aspire.Hosting.Redis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ClickHouse init scripts embedded so AddFlare() can materialize them to a temp directory
+         and WithBindMount it into a consumer's ClickHouse container - a consuming repo doesn't
+         have db/clickhouse/ on disk the way this repo's own Flare.AppHost does. LogicalName is
+         pinned explicitly (rather than relying on MSBuild's default dot-joined logical name) so
+         FlareResourceBuilderExtensions can look resources up by an exact, known prefix instead
+         of parsing generated names. -->
+    <EmbeddedResource Include="..\..\db\clickhouse\*.sql">
+      <LogicalName>Aspire.Hosting.Flare.ClickHouseInit.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>
