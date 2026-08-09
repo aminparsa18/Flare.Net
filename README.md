@@ -2,22 +2,26 @@
 
 A self-hosted, OpenTelemetry-native log dashboard for .NET developers. See [Planning.md](Planning.md) for the full design doc and roadmap.
 
-## Quickstart
+## Getting started
 
-```sh
-docker compose up
-```
+Flare ingests logs over OTLP, so how you install it depends on whether the app you want
+logs from already uses .NET Aspire — see **[docs/getting-started.md](docs/getting-started.md)**
+to pick the right path. Short version:
 
-That's the whole stack — ClickHouse, Redis, the OTLP receiver, the query API, and the dashboard — with working defaults for every port and credential. Copy [.env.example](.env.example) to `.env` first if you need to change any of them (e.g. a port is already taken on your machine).
+- **Already using .NET Aspire?** `dotnet add package Flare.Hosting.Aspire` +
+  `builder.AddFlare("flare")` in your AppHost adds the whole stack — ClickHouse, Redis,
+  the OTLP receiver, the query API, the dashboard — as one more resource, no
+  `docker compose up` needed. See [docs/aspire-hosting.md](docs/aspire-hosting.md).
+- **Not using Aspire?** `docker compose up` at the repo root brings up the same stack
+  standalone, with working defaults for every port and credential (copy
+  [.env.example](.env.example) to `.env` to change any). See
+  [docs/standalone.md](docs/standalone.md).
 
-Once it's up:
-
-- **Dashboard:** [http://localhost:3000](http://localhost:3000)
-- **Send logs:** see [docs/getting-started.md](docs/getting-started.md) for a copy-paste snippet per logger (Serilog, NLog, ZLogger, `Microsoft.Extensions.Logging`) — they all converge on the same OTLP endpoint (`http://localhost:4317` gRPC / `:4318` HTTP).
-
-## Using Flare from your own .NET Aspire app
-
-Already orchestrating your own app with .NET Aspire? `Flare.Hosting.Aspire` (`src/Aspire.Hosting.Flare` - package ID `Flare.Hosting.Aspire`, not `Aspire.Hosting.Flare`, which is reserved on nuget.org for Microsoft's own official integrations) adds the whole Flare stack to your AppHost with `builder.AddFlare("flare")` instead of `docker compose up`. Not published to nuget.org yet — see [docs/aspire-hosting.md](docs/aspire-hosting.md) for the current API and [examples/](examples) for a full runnable demo.
+Either way, once it's running: **dashboard** at [http://localhost:3000](http://localhost:3000),
+and see [docs/standalone.md](docs/standalone.md#point-your-logger-at-it) (or
+[docs/aspire-hosting.md](docs/aspire-hosting.md#2-point-your-logger-at-it) if you're on
+Aspire) for a copy-paste OTLP snippet per logger (Serilog, NLog, ZLogger,
+`Microsoft.Extensions.Logging`).
 
 ## Local development
 

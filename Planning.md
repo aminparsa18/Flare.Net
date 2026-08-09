@@ -251,9 +251,24 @@ package does today for Seq's own API key.
       **Built and e2e-verified 2026-08-08** — `dotnet build Flare.sln` clean, `aspire start`
       against `ExampleApp.AppHost`, `POST /generate-burst`, burst confirmed showing up in the
       Flare dashboard (user-verified). Merged via PR #12.
-- [ ] Getting-started docs updated to show the `Flare.Aspire` path for Aspire-orchestrated
+- [x] Getting-started docs updated to show the `Flare.Aspire` path for Aspire-orchestrated
       consumers, alongside the existing per-logger (Serilog/NLog/ZLogger/MEL) snippets for
-      non-Aspire consumers.
+      non-Aspire consumers. **Done 2026-08-09** — went further than just adding the
+      `Flare.Aspire` snippet: split the docs by audience instead of leading with an
+      unexplained `docker compose up`. `docs/getting-started.md` is now a short hub that
+      forks on "already using .NET Aspire?"; `docs/aspire-hosting.md` covers that path
+      (`AddFlare` + `Flare.Aspire`'s `AddFlareOtlpExporter`, `WithOtlpEndpoint` as the
+      no-client-package fallback) and also fixed its stale "pre-alpha, not published"
+      status - confirmed both `Flare.Hosting.Aspire` and `Flare.Aspire` are live on
+      nuget.org at `0.1.1` via the flatcontainer API; `docs/standalone.md` (new) covers
+      the non-Aspire path (the old `docker compose up` content, now with the
+      clone/prereqs context it was missing) - Docker is documented as the only way to
+      run standalone, no non-Docker install path is planned. README's Quickstart
+      rewritten to present both paths instead of only the Docker one. Also corrected the
+      same stale pre-alpha/not-published claims and a stale `WithOtlpEndpoint`-only
+      snippet in `src/Aspire.Hosting.Flare/README.md` and `src/Aspire.Flare/README.md`
+      (the nuget package READMEs, effective from the next release since nuget.org package
+      pages are immutable per version).
 
 **Package naming correction, 2026-08-08 (after the above shipped):** the first real publish
 attempt (`aspire-hosting-flare-v0.1.0`, tagged after the whole v1.1/v2 body of work above)

@@ -41,4 +41,4 @@ Logs only for now - Flare.Ingest doesn't receive traces or metrics yet (a separa
 ## Status
 
 Pre-alpha, mirroring [`Flare.Hosting.Aspire`](https://github.com/aminparsa18/Flare.Net/blob/main/src/Aspire.Hosting.Flare/README.md)'s
-status. Not yet packed/pushed to nuget.org.
+status.

@@ -7,10 +7,10 @@ whole Flare stack — ClickHouse, Redis, the OTLP ingest receiver, the query API
 dashboard — to your AppHost with one call, pulling Flare's published Docker Hub images
 rather than anything you build yourself.
 
-> **Status:** pre-alpha, not yet published to nuget.org. See
-> [`examples/`](../examples) for a full runnable demo you can try today — it
-> references the package directly rather than via a NuGet install. The rest of this
-> page documents the shape of the API as it exists now.
+> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently `0.1.1`) —
+> `dotnet add package Flare.Hosting.Aspire` works today. See
+> [`examples/`](../examples) for a full runnable demo, which references the package
+> as a `ProjectReference` instead (useful for trying Flare's `main` before a release).
 
 ## 1. Add Flare to your AppHost
 
@@ -55,35 +55,62 @@ IResourceBuilder<FlareResource> AddFlare(
 
 ## 2. Point your logger at it
 
-Once Flare is up, this is identical to the docker-compose story — see
-[`getting-started.md`](getting-started.md#2-point-your-logger-at-it) for a
-copy-paste snippet per logger (Serilog, NLog, ZLogger, `Microsoft.Extensions.Logging`).
-They all just need `OTEL_EXPORTER_OTLP_ENDPOINT` pointed at `http://localhost:4317`
-(or whatever you passed for `ingestGrpcPort`).
+The recommended way is `Flare.Aspire` (`builder.AddFlareOtlpExporter("flare")`), a
+client-side package that reads the connection info `.WithReference(flare)` injects and
+registers a named OTLP log exporter pointed at it — additive alongside whatever
+OpenTelemetry setup your project already has (e.g. the Aspire dashboard collector via
+`AddServiceDefaults()`/`UseOtlpExporter()`), not a replacement for it:
 
-If your own project already has an Aspire `ServiceDefaults`-style project (the
-standard `AddServiceDefaults()` template pattern), it likely already emits logs this
-way — you only need to set `OTEL_EXPORTER_OTLP_ENDPOINT` in its environment:
+```csharp
+// AppHost
+var flare = builder.AddFlare("flare");
+
+builder.AddProject<Projects.MyApp_Web>("web")
+    .WithReference(flare); // injects ConnectionStrings__flare -> Flare.Ingest's OTLP/gRPC endpoint
+```
+
+```csharp
+// MyApp.Web
+builder.AddFlareOtlpExporter("flare");
+```
+
+```sh
+dotnet add package Flare.Aspire
+```
+
+Logs only for now — `Flare.Ingest` doesn't receive traces or metrics yet (a separate
+roadmap item).
+
+### Without the `Flare.Aspire` package
+
+`FlareResource` also exposes its OTLP endpoint as a plain environment variable via
+`WithOtlpEndpoint(flare)`, if you'd rather wire your project's own `OpenTelemetry` SDK
+call directly instead of taking the `Flare.Aspire` dependency:
 
 ```csharp
 var flare = builder.AddFlare("flare");
 
 builder.AddProject<Projects.MyApp_Web>("web")
-    .WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317");
+    .WithOtlpEndpoint(flare); // OTEL_EXPORTER_OTLP_ENDPOINT -> Flare.Ingest's OTLP/gRPC endpoint
 ```
 
-`FlareResource` doesn't currently expose its child `ingest` resource for a
-`WithReference`-style wiring — the endpoint is fixed and conventional by design, same
-as pointing any OTLP source at Flare via docker-compose.
+Pass `useHttp: true` for the OTLP/HTTP endpoint (`:4318`) instead of gRPC.
 
-## Installing (once published)
+See [`docs/standalone.md`](standalone.md#point-your-logger-at-it) for the same
+copy-paste snippet per logger (Serilog, NLog, ZLogger, `Microsoft.Extensions.Logging`)
+if your project isn't wired through Aspire's own `AddServiceDefaults()` pattern at all —
+just set `OTEL_EXPORTER_OTLP_ENDPOINT` from `WithOtlpEndpoint` above instead of a
+hardcoded `http://localhost:4317`.
+
+## Installing
 
 ```sh
 dotnet add package Flare.Hosting.Aspire
 ```
 
-Not usable yet — there's no published version. Until then, reference the project
-directly the way [`examples/ExampleApp.AppHost`](../examples/ExampleApp.AppHost) does:
+Published on nuget.org (currently `0.1.1`). To build against Flare's `main` instead of
+a release, reference the project directly the way
+[`examples/ExampleApp.AppHost`](../examples/ExampleApp.AppHost) does:
 
 ```xml
 <ProjectReference Include="path\to\Flare.Net\src\Aspire.Hosting.Flare\Aspire.Hosting.Flare.csproj"

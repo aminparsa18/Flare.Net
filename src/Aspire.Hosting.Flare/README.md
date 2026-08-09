@@ -15,7 +15,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 var flare = builder.AddFlare("flare");
 
 builder.AddProject<Projects.MyApi>("myapi")
-    .WithOtlpEndpoint(flare); // OTEL_EXPORTER_OTLP_ENDPOINT -> Flare.Ingest's OTLP/gRPC endpoint
+    .WithReference(flare); // injects ConnectionStrings__flare -> Flare.Ingest's OTLP/gRPC endpoint
 
 builder.Build().Run();
 ```
@@ -26,17 +26,17 @@ images (`xracer007/flare-ingest`, `xracer007/flare-api`, `xracer007/flare-dashbo
 than building from source, the same way [`docker-compose.yml`](https://github.com/aminparsa18/Flare.Net/blob/main/docker-compose.yml)
 in Flare's own repo does.
 
-`WithOtlpEndpoint(flare)` points your app's OTLP exporter at Flare.Ingest, resolved correctly
-per execution context (loopback locally, container-network alias under compose, real Service
-DNS/ingress once published) instead of a hardcoded `http://localhost:4317`. Pass
-`useHttp: true` for the OTLP/HTTP endpoint (`:4318`) instead of gRPC.
-
-`.WithReference(flare)` also works, for code that wants the raw connection info instead - it
-injects `ConnectionStrings__flare` with the same OTLP/gRPC URL. That's what the future
-`Flare.Aspire` client package reads.
+Pair `.WithReference(flare)` above with the [`Flare.Aspire`](https://www.nuget.org/packages/Flare.Aspire)
+client package's `builder.AddFlareOtlpExporter("flare")` in the consuming project - it reads
+the injected `ConnectionStrings__flare` and registers an OTLP log exporter pointed at it. Or
+skip the client package and call `WithOtlpEndpoint(flare)` instead of `WithReference(flare)`
+here, which sets `OTEL_EXPORTER_OTLP_ENDPOINT` directly on the consuming resource (`useHttp: true`
+for the OTLP/HTTP endpoint, `:4318`, instead of gRPC) - for wiring your own `OpenTelemetry` SDK
+call by hand.
 
 ## Status
 
-Pre-alpha. `imageTag` defaults to `"edge"` - Flare has no stable release yet. See the
+Pre-alpha, `imageTag` defaults to `"edge"` - Flare has no stable release yet. See the
 [getting-started docs](https://github.com/aminparsa18/Flare.Net/blob/main/docs/getting-started.md)
-for a snippet per logger.
+and [Aspire hosting docs](https://github.com/aminparsa18/Flare.Net/blob/main/docs/aspire-hosting.md)
+for the full API and a snippet per logger.
