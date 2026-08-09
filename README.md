@@ -1,3 +1,12 @@
+<p align="center">
+  <img src="logo.png" alt="Flare.Net" width="280" />
+</p>
+
+<!-- logo.png is packed into both NuGet packages (Flare.Aspire/Flare.Hosting.Aspire csproj
+     PackageIcon + this README as PackageReadmeFile), both at the package root - a plain
+     relative "logo.png" reference resolves correctly on GitHub (repo root) and on the
+     nuget.org-rendered README (package root) without any path differences. -->
+
 # Flare.Net
 
 A self-hosted, OpenTelemetry-native log dashboard for .NET developers. See [Planning.md](Planning.md) for the full design doc and roadmap.
