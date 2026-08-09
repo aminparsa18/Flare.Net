@@ -54,22 +54,41 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
     private const string RuleColumns =
         "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, CreatedAt, UpdatedAt";
 
+    /// <summary>
+    /// Resolves <see cref="AlertRuleRequest"/>'s nullable optional members to their real
+    /// defaults - see that type's remarks for why they can't just be C# property
+    /// initializers. Called from <see cref="CreateAsync"/>/<see cref="UpdateAsync"/>, the
+    /// same point <see cref="LogSearchQueryBuilder.Build"/> coalesces
+    /// <see cref="Model.LogSearchRequest.Filter"/>, rather than trusted at the DTO.
+    /// Pure and free of <see cref="IClickHouseClient"/> so it's unit-testable on its own,
+    /// same reasoning <see cref="LogSearchQueryBuilder.Build"/> is a static pure builder
+    /// rather than an instance method.
+    /// </summary>
+    internal static (string Description, bool Enabled, int CooldownSeconds, string WebhookUrl, string TelegramBotToken, string TelegramChatId) ResolveDefaults(AlertRuleRequest request) => (
+        Description: request.Description ?? "",
+        Enabled: request.Enabled ?? true,
+        CooldownSeconds: request.CooldownSeconds ?? 300,
+        WebhookUrl: request.WebhookUrl ?? "",
+        TelegramBotToken: request.TelegramBotToken ?? "",
+        TelegramChatId: request.TelegramChatId ?? "");
+
     public async Task<AlertRule> CreateAsync(AlertRuleRequest request, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
+        var defaults = ResolveDefaults(request);
         var rule = new AlertRule
         {
             Id = Guid.NewGuid(),
             Name = request.Name,
-            Description = request.Description,
-            Enabled = request.Enabled,
+            Description = defaults.Description,
+            Enabled = defaults.Enabled,
             Condition = request.Condition,
             Threshold = request.Threshold,
             WindowSeconds = request.WindowSeconds,
-            CooldownSeconds = request.CooldownSeconds,
-            WebhookUrl = request.WebhookUrl,
-            TelegramBotToken = request.TelegramBotToken,
-            TelegramChatId = request.TelegramChatId,
+            CooldownSeconds = defaults.CooldownSeconds,
+            WebhookUrl = defaults.WebhookUrl,
+            TelegramBotToken = defaults.TelegramBotToken,
+            TelegramChatId = defaults.TelegramChatId,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -102,18 +121,19 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             return null;
         }
 
+        var defaults = ResolveDefaults(request);
         var updated = existing with
         {
             Name = request.Name,
-            Description = request.Description,
-            Enabled = request.Enabled,
+            Description = defaults.Description,
+            Enabled = defaults.Enabled,
             Condition = request.Condition,
             Threshold = request.Threshold,
             WindowSeconds = request.WindowSeconds,
-            CooldownSeconds = request.CooldownSeconds,
-            WebhookUrl = request.WebhookUrl,
-            TelegramBotToken = request.TelegramBotToken,
-            TelegramChatId = request.TelegramChatId,
+            CooldownSeconds = defaults.CooldownSeconds,
+            WebhookUrl = defaults.WebhookUrl,
+            TelegramBotToken = defaults.TelegramBotToken,
+            TelegramChatId = defaults.TelegramChatId,
             UpdatedAt = timeProvider.GetUtcNow(),
         };
 
