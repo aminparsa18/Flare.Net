@@ -33,7 +33,7 @@
 	<title>Flare — Logs</title>
 </svelte:head>
 
-<div class="flex h-screen flex-col">
+<div class="flex h-full flex-col">
 	<LogsToolbar />
 	<VolumeChart />
 	<div class="flex min-h-0 flex-1 flex-col">

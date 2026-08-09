@@ -1,6 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { ModeWatcher } from 'mode-watcher';
+	import AppNav from '$lib/components/nav/AppNav.svelte';
 
 	const { children } = $props();
 </script>
@@ -14,4 +15,12 @@
      exactly what layout.css's .dark selector expects, so no config needed here. -->
 <ModeWatcher />
 
-{@render children()}
+<!-- Shared across every route (Logs, Alerts, ...) - a route's own root div is
+     responsible for its own scroll/height handling below this, same as the Logs page's
+     `flex h-screen flex-col` already did before this nav existed. -->
+<div class="flex h-screen flex-col">
+	<AppNav />
+	<div class="min-h-0 flex-1">
+		{@render children()}
+	</div>
+</div>

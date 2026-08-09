@@ -2,7 +2,6 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Separator } from '$lib/components/ui/separator';
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
@@ -47,11 +46,6 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
-	<!-- logo.png (static/) is a stacked icon-over-wordmark lockup with a transparent
-	     background - h-8 keeps the "Flare.Net" text legible-ish at toolbar scale without
-	     towering over the row's other h-6/h-7 controls. -->
-	<img src="/logo.png" alt="Flare" class="h-8 w-auto shrink-0" />
-	<Separator orientation="vertical" class="h-6" />
 	<TimeRangePicker />
 	<PopoverMultiSelect
 		label="Service"
