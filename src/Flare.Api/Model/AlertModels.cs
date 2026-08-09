@@ -61,9 +61,22 @@ public sealed record AlertRule
     /// <summary>
     /// Where the fired-alert JSON payload is POSTed. Covers both a generic webhook
     /// consumer and a Slack incoming-webhook URL - see <c>WebhookAlertNotifier</c> for
-    /// the shared payload shape.
+    /// the shared payload shape. Mutually exclusive with <see cref="TelegramBotToken"/>/
+    /// <see cref="TelegramChatId"/> - a rule notifies exactly one channel; see
+    /// <c>AlertEndpoints</c>'s channel validation.
     /// </summary>
-    public required string WebhookUrl { get; init; }
+    public string WebhookUrl { get; init; } = "";
+
+    /// <summary>
+    /// The Telegram bot (from @BotFather) a fired alert is sent through, when this rule's
+    /// channel is Telegram instead of webhook/Slack. Set together with
+    /// <see cref="TelegramChatId"/>, never alongside <see cref="WebhookUrl"/> - see
+    /// <c>TelegramAlertNotifier</c>.
+    /// </summary>
+    public string TelegramBotToken { get; init; } = "";
+
+    /// <summary>The target chat/channel/group ID <see cref="TelegramBotToken"/> sends the fired-alert message to.</summary>
+    public string TelegramChatId { get; init; } = "";
 
     public required DateTimeOffset CreatedAt { get; init; }
 
@@ -88,7 +101,42 @@ public sealed record AlertRuleRequest
 
     public int CooldownSeconds { get; init; } = 300;
 
-    public required string WebhookUrl { get; init; }
+    /// <summary>See <see cref="AlertRule.WebhookUrl"/>'s doc comment - mutually exclusive with <see cref="TelegramBotToken"/>/<see cref="TelegramChatId"/>.</summary>
+    public string WebhookUrl { get; init; } = "";
+
+    /// <summary>See <see cref="AlertRule.TelegramBotToken"/>'s doc comment.</summary>
+    public string TelegramBotToken { get; init; } = "";
+
+    /// <summary>See <see cref="AlertRule.TelegramChatId"/>'s doc comment.</summary>
+    public string TelegramChatId { get; init; } = "";
+
+    /// <summary>
+    /// Exactly one notification channel: either <see cref="WebhookUrl"/> (covers both a
+    /// generic webhook consumer and Slack), or both <see cref="TelegramBotToken"/> and
+    /// <see cref="TelegramChatId"/> together - never neither, never both channels, never
+    /// one Telegram field without the other. Called by <c>AlertEndpoints</c>'s
+    /// create/update handlers (not the dry-run test endpoints, which never notify).
+    /// Returns an error message, or null when this request is valid.
+    /// </summary>
+    public string? ValidateChannel()
+    {
+        var hasWebhook = !string.IsNullOrWhiteSpace(WebhookUrl);
+        var hasBotToken = !string.IsNullOrWhiteSpace(TelegramBotToken);
+        var hasChatId = !string.IsNullOrWhiteSpace(TelegramChatId);
+        var hasTelegram = hasBotToken && hasChatId;
+
+        if (hasBotToken != hasChatId)
+        {
+            return "telegramBotToken and telegramChatId must be set together.";
+        }
+
+        return (hasWebhook, hasTelegram) switch
+        {
+            (false, false) => "Either webhookUrl or telegramBotToken/telegramChatId is required.",
+            (true, true) => "webhookUrl and telegramBotToken/telegramChatId are mutually exclusive - a rule notifies exactly one channel.",
+            _ => null,
+        };
+    }
 }
 
 /// <summary>Response body for <c>GET /api/alerts</c>.</summary>

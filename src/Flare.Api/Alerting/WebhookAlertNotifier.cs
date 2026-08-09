@@ -20,11 +20,9 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient) : IAlertNotifier
 {
     public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken)
     {
-        var comparatorSymbol = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
         var payload = new
         {
-            text = $":rotating_light: Alert \"{rule.Name}\" fired: {observedCount} events " +
-                   $"({comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s",
+            text = AlertMessageFormatter.BuildText(rule, observedCount),
             ruleId = rule.Id,
             ruleName = rule.Name,
             observedCount,

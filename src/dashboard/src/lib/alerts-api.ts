@@ -25,7 +25,11 @@ export interface AlertRule {
 	threshold: AlertThreshold;
 	windowSeconds: number;
 	cooldownSeconds: number;
+	/** Mutually exclusive with `telegramBotToken`/`telegramChatId` - a rule notifies exactly one channel. */
 	webhookUrl: string;
+	/** Set together with `telegramChatId`, never alongside `webhookUrl`. */
+	telegramBotToken: string;
+	telegramChatId: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -39,7 +43,9 @@ export interface AlertRuleRequest {
 	threshold: AlertThreshold;
 	windowSeconds: number;
 	cooldownSeconds?: number;
-	webhookUrl: string;
+	webhookUrl?: string;
+	telegramBotToken?: string;
+	telegramChatId?: string;
 }
 
 export interface AlertRuleListResponse {

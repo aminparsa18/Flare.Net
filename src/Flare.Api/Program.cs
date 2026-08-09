@@ -24,9 +24,14 @@ builder.Services.AddSingleton<LogTailBroadcaster>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailBroadcaster>());
 
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
-// Named/typed HttpClient so the webhook/Slack sender inherits AddServiceDefaults()'s
-// ConfigureHttpClientDefaults (resilience handler + service discovery) for free.
-builder.Services.AddHttpClient<IAlertNotifier, WebhookAlertNotifier>("alert-webhook");
+// Named/typed HttpClients so the webhook/Slack and Telegram senders inherit
+// AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
+// discovery) for free. Registered as their own concrete types, not IAlertNotifier -
+// CompositeAlertNotifier (the one actually registered as IAlertNotifier below) holds both
+// and picks per-rule which one to delegate to.
+builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
+builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
+builder.Services.AddSingleton<IAlertNotifier, CompositeAlertNotifier>();
 builder.Services.AddHostedService<AlertEvaluationWorker>();
 
 builder.Services.AddOpenApi();

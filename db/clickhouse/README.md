@@ -134,6 +134,13 @@ than tracking cooldown in Redis (available, but rejected as a second source of t
 that would have to agree with this audit log anyway). A rule in cooldown is simply not
 re-evaluated into a new row - no "Suppressed" rows.
 
+**`TelegramBotToken`/`TelegramChatId` (migration 0005), `ALTER TABLE ... ADD COLUMN`
+on `alert_rules`.** A second, mutually-exclusive notification channel alongside
+`WebhookUrl` - both default to `''` so existing (webhook/Slack) rows round-trip
+unchanged. `Flare.Api.Endpoints.AlertEndpoints`'s channel validation, not the schema,
+enforces "exactly one channel set" - ClickHouse has no `CHECK` constraint story that
+fits this table's insert-a-new-version-per-update CRUD shape.
+
 ## `LogEvent` field → column mapping
 
 | `LogEvent` field (C#)          | `logs` column        | Notes |

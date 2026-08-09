@@ -52,7 +52,7 @@ public interface IAlertQueryService
 public sealed class AlertQueryService(IClickHouseClient client, TimeProvider timeProvider) : IAlertQueryService
 {
     private const string RuleColumns =
-        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, CreatedAt, UpdatedAt";
+        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, CreatedAt, UpdatedAt";
 
     public async Task<AlertRule> CreateAsync(AlertRuleRequest request, CancellationToken cancellationToken)
     {
@@ -68,6 +68,8 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             WindowSeconds = request.WindowSeconds,
             CooldownSeconds = request.CooldownSeconds,
             WebhookUrl = request.WebhookUrl,
+            TelegramBotToken = request.TelegramBotToken,
+            TelegramChatId = request.TelegramChatId,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -110,6 +112,8 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             WindowSeconds = request.WindowSeconds,
             CooldownSeconds = request.CooldownSeconds,
             WebhookUrl = request.WebhookUrl,
+            TelegramBotToken = request.TelegramBotToken,
+            TelegramChatId = request.TelegramChatId,
             UpdatedAt = timeProvider.GetUtcNow(),
         };
 
@@ -232,14 +236,16 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         parameters.AddParameter("windowSeconds", (uint)rule.WindowSeconds);
         parameters.AddParameter("cooldownSeconds", (uint)rule.CooldownSeconds);
         parameters.AddParameter("webhookUrl", rule.WebhookUrl);
+        parameters.AddParameter("telegramBotToken", rule.TelegramBotToken);
+        parameters.AddParameter("telegramChatId", rule.TelegramChatId);
         parameters.AddParameter("createdAt", rule.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", rule.UpdatedAt.UtcDateTime);
 
         const string sql = """
             INSERT INTO alert_rules
-                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, CreatedAt, UpdatedAt)
+                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, CreatedAt, UpdatedAt)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -271,8 +277,10 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         WindowSeconds = (int)reader.GetFieldValue<uint>(7),
         CooldownSeconds = (int)reader.GetFieldValue<uint>(8),
         WebhookUrl = reader.GetString(9),
-        CreatedAt = ReadUtc(reader, 10),
-        UpdatedAt = ReadUtc(reader, 11),
+        TelegramBotToken = reader.GetString(10),
+        TelegramChatId = reader.GetString(11),
+        CreatedAt = ReadUtc(reader, 12),
+        UpdatedAt = ReadUtc(reader, 13),
     };
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>
