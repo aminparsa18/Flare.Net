@@ -20,7 +20,7 @@ export const SEVERITY_BUCKETS: SeverityBucket[] = [
 	{ label: 'Trace', min: 1, max: 4, variant: 'outline' },
 	{ label: 'Debug', min: 5, max: 8, variant: 'outline' },
 	{ label: 'Info', min: 9, max: 12, variant: 'secondary' },
-	{ label: 'Warn', min: 13, max: 16, variant: 'secondary' },
+	{ label: 'Warn', min: 13, max: 16, variant: 'warning' },
 	{ label: 'Error', min: 17, max: 20, variant: 'destructive' },
 	{ label: 'Fatal', min: 21, max: 24, variant: 'destructive' }
 ];

@@ -11,7 +11,7 @@
 	// Shared between the header and every LogRow via CSS custom properties (set once
 	// here, per svelte-best-practices' style:--prop guidance) so the two can never drift
 	// out of alignment the way two hand-copied grid-template-columns strings could.
-	const COLUMNS = '150px 90px 160px 1fr';
+	const COLUMNS = '170px 90px 160px 1fr'; // 170px fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width
 </script>
 
 <div
@@ -19,9 +19,13 @@
 	style:--log-row-columns={COLUMNS}
 	style:--log-row-height="{ROW_HEIGHT}px"
 >
+	<!-- overflow-y: hidden + scrollbar-gutter: stable reserves the same width VirtualList's
+	     actual scrollbar eats into below - without it, this header (never itself scrollable)
+	     would be a few px wider than the rows once there's enough data to scroll, throwing the
+	     rightmost column (Message) out of alignment even with gap-3 matching. -->
 	<div
-		class="bg-muted/30 text-muted-foreground grid shrink-0 items-center border-b px-3 text-xs font-medium"
-		style="grid-template-columns: var(--log-row-columns); height: 28px;"
+		class="bg-muted/30 text-muted-foreground grid shrink-0 items-center gap-3 overflow-y-hidden border-b px-3 text-xs font-medium"
+		style="grid-template-columns: var(--log-row-columns); height: 28px; scrollbar-gutter: stable;"
 	>
 		<span>Time</span>
 		<span>Level</span>

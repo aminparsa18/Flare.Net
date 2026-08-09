@@ -41,7 +41,9 @@ export class LogsExplorerState {
 		search: ''
 	});
 
-	live = $state(false);
+	/** Logs Explorer opens in live mode by default - see +page.svelte's onMount, which calls
+	 *  startLiveTail() instead of runSearch() when this is true at mount time. */
+	live = $state(true);
 	connectionStatus = $state<LiveTailStatus>('closed');
 	droppedCount = $state(0);
 
@@ -218,21 +220,31 @@ export class LogsExplorerState {
 		this.live = next;
 
 		if (next) {
-			this.events = [];
-			this.nextCursor = null;
-			this.#seenIds = new Set();
-			this.droppedCount = 0;
-			this.error = null;
-			const connection = this.#ensureConnection();
-			// Lazy-connect already subscribes with the current filter on open; an
-			// already-open reused connection (paused, then Live re-toggled) needs an
-			// explicit re-subscribe in case the filter changed while paused, plus resume.
-			connection.subscribe(this.buildFilter(null));
-			connection.resume();
+			this.startLiveTail();
 		} else {
 			this.#connection?.pause(); // keep the socket warm rather than reconnecting next time
 			void this.runSearch(); // fresh static snapshot for the now-current filter
 		}
+	}
+
+	/**
+	 * Connects (or resumes/re-subscribes) the live-tail stream. Split out from setLive so
+	 * +page.svelte's onMount can call this directly for the live-by-default initial load -
+	 * setLive(true) itself is a no-op when `live` is already true (the equality guard exists
+	 * for the toolbar button's toggle, not for starting up).
+	 */
+	startLiveTail(): void {
+		this.events = [];
+		this.nextCursor = null;
+		this.#seenIds = new Set();
+		this.droppedCount = 0;
+		this.error = null;
+		const connection = this.#ensureConnection();
+		// Lazy-connect already subscribes with the current filter on open; an
+		// already-open reused connection (paused, then Live re-toggled) needs an
+		// explicit re-subscribe in case the filter changed while paused, plus resume.
+		connection.subscribe(this.buildFilter(null));
+		connection.resume();
 	}
 
 	/** Wired to `document.visibilitychange` from the page - spares the server building up drops for a backgrounded tab. */

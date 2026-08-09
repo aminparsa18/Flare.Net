@@ -87,6 +87,24 @@
 		return Math.max(MIN_BAR_HEIGHT, (count / maxCount) * (BASELINE_Y - PEAK_Y));
 	}
 
+	const BAR_CORNER_RADIUS = 3;
+
+	/** Rounds only the top two corners, flush at the bottom - <rect rx> rounds all four,
+	    which opens a visible gap at the baseline where a bar meets the axis. */
+	function barPath(x: number, y: number, width: number, height: number): string {
+		const r = Math.max(0, Math.min(BAR_CORNER_RADIUS, width / 2, height / 2));
+		if (r === 0) {
+			return `M ${x} ${y + height} L ${x} ${y} L ${x + width} ${y} L ${x + width} ${y + height} Z`;
+		}
+		return `M ${x} ${y + height}
+			L ${x} ${y + r}
+			A ${r} ${r} 0 0 1 ${x + r} ${y}
+			L ${x + width - r} ${y}
+			A ${r} ${r} 0 0 1 ${x + width} ${y + r}
+			L ${x + width} ${y + height}
+			Z`;
+	}
+
 	function handlePointerMove(e: PointerEvent) {
 		if (buckets.length === 0) return;
 		const svg = e.currentTarget as SVGSVGElement;
@@ -184,12 +202,13 @@
 									     emitting a --color-primary custom property on :root, confirmed empty via
 									     getComputedStyle. --primary itself (layout.css's own :root/.dark block) is the
 									     real runtime variable, so that's what this binds to directly. -->
-									<rect
-										x={i * barWidth + 1}
-										y={BASELINE_Y - barHeight(bucket.count)}
-										width={Math.max(1, barWidth - 2)}
-										height={barHeight(bucket.count)}
-										rx="1"
+									<path
+										d={barPath(
+											i * barWidth + 1,
+											BASELINE_Y - barHeight(bucket.count),
+											Math.max(1, barWidth - 2),
+											barHeight(bucket.count)
+										)}
 										style="fill: var(--primary); fill-opacity: {hoverIndex === i ? 1 : 0.55};"
 									/>
 								{/each}

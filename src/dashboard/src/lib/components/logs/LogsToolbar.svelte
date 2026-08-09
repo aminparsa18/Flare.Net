@@ -2,10 +2,14 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Separator } from '$lib/components/ui/separator';
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import SearchIcon from '@lucide/svelte/icons/search';
+	import SunIcon from '@lucide/svelte/icons/sun';
+	import MoonIcon from '@lucide/svelte/icons/moon';
+	import { mode, toggleMode } from 'mode-watcher';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
 
@@ -43,6 +47,11 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
+	<!-- logo.png (static/) is a stacked icon-over-wordmark lockup with a transparent
+	     background - h-8 keeps the "Flare.Net" text legible-ish at toolbar scale without
+	     towering over the row's other h-6/h-7 controls. -->
+	<img src="/logo.png" alt="Flare" class="h-8 w-auto shrink-0" />
+	<Separator orientation="vertical" class="h-6" />
 	<TimeRangePicker />
 	<PopoverMultiSelect
 		label="Service"
@@ -62,6 +71,11 @@
 		/>
 	</div>
 
+	<!-- Clicking anywhere on the button (including the badge) toggles live via the shared
+	     onclick below - the badge is a label, not a separate control. Once actually
+	     streaming ("open"), it reads "Pause" so the button communicates what clicking does
+	     next, not raw websocket state; connecting/closed/error stay as technical status
+	     since those aren't states a click "pauses" out of. -->
 	<Button
 		variant={explorer.live ? 'default' : 'outline'}
 		size="sm"
@@ -70,7 +84,22 @@
 		<RadioIcon data-icon="inline-start" />
 		Live
 		{#if explorer.live}
-			<Badge variant={liveVariant} class="ml-1">{explorer.connectionStatus}</Badge>
+			<Badge variant={liveVariant} class="ml-1">
+				{explorer.connectionStatus === 'open' ? 'Pause' : explorer.connectionStatus}
+			</Badge>
+		{/if}
+	</Button>
+
+	<!-- mode.current is undefined during SSR (mode-watcher's isBrowser guard) - the icon
+	     briefly defaults to Moon in that window, corrected the instant the client hydrates.
+	     Harmless: the anti-FOUC script in +layout.svelte already set the *page's* actual
+	     theme correctly before paint, this only affects which icon this one button shows
+	     for a frame. -->
+	<Button variant="outline" size="icon-sm" onclick={toggleMode} title="Toggle dark/light theme">
+		{#if mode.current === 'light'}
+			<SunIcon />
+		{:else}
+			<MoonIcon />
 		{/if}
 	</Button>
 </div>

@@ -84,14 +84,30 @@ internal static class SampleLogEvents
     private static void EmitBackgroundJobFailed(ILogger logger)
     {
         var jobName = Pick(JobNames);
-        var ex = new InvalidOperationException($"Job '{jobName}' could not acquire the distributed lock in time.");
-        logger.LogError(ex, "Background job {JobName} failed", jobName);
+        try
+        {
+            // Actually thrown (not just `new`'d) so .StackTrace is populated - the CLR only
+            // fills that in during unwind. A merely-constructed exception has a null
+            // StackTrace, so exception.stacktrace never reaches the OTel log record and the
+            // dashboard's event-detail panel has nothing to show.
+            throw new InvalidOperationException($"Job '{jobName}' could not acquire the distributed lock in time.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Background job {JobName} failed", jobName);
+        }
     }
 
     private static void EmitCriticalFailure(ILogger logger)
     {
-        var ex = new TimeoutException("Downstream payment provider did not respond within 5000ms.");
-        logger.LogCritical(ex, "Payment provider call timed out - failing over to secondary");
+        try
+        {
+            throw new TimeoutException("Downstream payment provider did not respond within 5000ms.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Payment provider call timed out - failing over to secondary");
+        }
     }
 
     private static string Pick(IReadOnlyList<string> options) => options[Random.Shared.Next(options.Count)];

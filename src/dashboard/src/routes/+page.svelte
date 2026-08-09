@@ -14,7 +14,11 @@
 	}
 
 	onMount(() => {
-		void explorer.runSearch();
+		if (explorer.live) {
+			explorer.startLiveTail();
+		} else {
+			void explorer.runSearch();
+		}
 		void explorer.loadKnownServices();
 	});
 
