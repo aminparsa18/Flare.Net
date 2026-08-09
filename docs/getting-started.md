@@ -16,7 +16,8 @@ one more resource, and `Flare.Aspire` wires your project's logger to it in one l
 var flare = builder.AddFlare("flare");
 
 builder.AddProject<Projects.MyApi>("myapi")
-    .WithReference(flare);
+    .WithReference(flare)
+    .WaitForFlare(flare);
 ```
 
 ```csharp

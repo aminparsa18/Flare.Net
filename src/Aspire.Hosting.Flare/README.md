@@ -15,7 +15,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 var flare = builder.AddFlare("flare");
 
 builder.AddProject<Projects.MyApi>("myapi")
-    .WithReference(flare); // injects ConnectionStrings__flare -> Flare.Ingest's OTLP/gRPC endpoint
+    .WithReference(flare) // injects ConnectionStrings__flare -> Flare.Ingest's OTLP/gRPC endpoint
+    .WaitForFlare(flare);
 
 builder.Build().Run();
 ```

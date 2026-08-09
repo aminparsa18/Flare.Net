@@ -22,6 +22,7 @@ public sealed class FlareResource(string name) : Resource(name), IResourceWithou
     // EndpointReference has to be handed in from AddFlare rather than built from `this`.
     private EndpointReference? _otlpGrpcEndpoint;
     private EndpointReference? _otlpHttpEndpoint;
+    private string? _dashboardResourceName;
 
     /// <summary>
     /// Wires this resource's endpoint references to Flare.Ingest's actual OTLP endpoints.
@@ -33,6 +34,23 @@ public sealed class FlareResource(string name) : Resource(name), IResourceWithou
         _otlpGrpcEndpoint = grpc;
         _otlpHttpEndpoint = http;
     }
+
+    /// <summary>
+    /// Records the dashboard sub-resource's Aspire resource name, so
+    /// <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.WaitForFlare{TDestination}"/> can
+    /// look it up by name later without the caller needing to hold onto their own reference to it.
+    /// Called once by <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/> after
+    /// the dashboard container is created.
+    /// </summary>
+    internal void SetDashboardResourceName(string dashboardResourceName)
+    {
+        _dashboardResourceName = dashboardResourceName;
+    }
+
+    /// <summary>The dashboard sub-resource's Aspire resource name (e.g. <c>"flare-dashboard"</c>).</summary>
+    internal string DashboardResourceName => _dashboardResourceName
+        ?? throw new InvalidOperationException(
+            $"{nameof(DashboardResourceName)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
 
     /// <summary>Endpoint reference for Flare.Ingest's OTLP gRPC endpoint (4317 by default).</summary>
     public EndpointReference OtlpGrpcEndpoint => _otlpGrpcEndpoint
