@@ -258,10 +258,11 @@ websocat "$(echo "$API" | sed 's#^http#ws#')/api/logs/tail"
 # > {"type":"subscribe","filter":{}}
 
 # Create an alert rule (point webhookUrl at a real Slack incoming-webhook URL, or a
-# throwaway HTTP sink like webhook.site, to see a real notification land). "enabled" is
-# passed explicitly - a System.Text.Json quirk means an omitted bool defaults to false on
-# deserialization, not the model's own `= true`, so leaving it out here would create a
-# rule AlertEvaluationWorker never evaluates.
+# throwaway HTTP sink like webhook.site, to see a real notification land). "enabled",
+# "cooldownSeconds", etc are all optional and default to true/300/"" when omitted -
+# AlertRuleRequest declares them nullable specifically so System.Text.Json can tell
+# "omitted" apart from "explicitly false/0/empty" (see AlertRuleRequest's remarks); shown
+# explicitly below anyway for clarity.
 curl -s -X POST "$API/api/alerts" -H 'Content-Type: application/json' -d \
   '{"name":"high error rate","enabled":true,"condition":{"severityNumbers":[17,21]},"threshold":{"count":10,"comparator":"GreaterThanOrEqual"},"windowSeconds":300,"cooldownSeconds":300,"webhookUrl":"https://webhook.site/<your-id>"}'
 

@@ -13,4 +13,11 @@
     <ProjectReference Include="..\Flare.ServiceDefaults\Flare.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lets Flare.Api.Tests unit-test AlertQueryService.ResolveDefaults directly - it's
+         pure/ClickHouse-free, same reasoning LogSearchQueryBuilder.Build is public and
+         tested without a fake IClickHouseClient. -->
+    <InternalsVisibleTo Include="Flare.Api.Tests" />
+  </ItemGroup>
+
 </Project>

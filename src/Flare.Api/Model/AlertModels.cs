@@ -84,13 +84,34 @@ public sealed record AlertRule
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
+/// <remarks>
+/// Every optional member below is nullable rather than typed with a non-default C#
+/// initializer, unlike <see cref="AlertRule"/>'s equivalents - see
+/// <see cref="Model.LogSearchRequest.Filter"/>'s doc comment for the general caveat, and
+/// why it hits harder here: this type also has `required` members, which pushes System.Text.Json's
+/// source generator onto its parameterized-constructor-style converter (confirmed live -
+/// a JSON body omitting a `required` member throws instead of silently defaulting, proving
+/// this converter treats every settable member, not just the `required` ones, as a
+/// constructor parameter and passes <see langword="default"/> for anything the JSON body
+/// omits). For <see cref="bool"/>/<see cref="int"/> members that collision is
+/// unrecoverable in place: a caller must be able to send <c>"enabled":false</c>
+/// explicitly, so a non-nullable <see cref="bool"/> can never tell "omitted" apart from
+/// "explicitly false" once <see langword="default"/> and "explicitly false" are the same
+/// value. Hence <see cref="bool"/>?/<see cref="int"/>? here, coalesced to the real default
+/// in <see cref="Query.AlertQueryService"/>'s <c>CreateAsync</c>/<c>UpdateAsync</c> - same
+/// pattern <see cref="Query.LogSearchQueryBuilder.Build"/> uses for <see cref="Model.LogSearchRequest.Filter"/>.
+/// The <see cref="string"/> members have no such collision (there's no meaningful
+/// difference between "omitted" and "explicitly empty" for a description or webhook URL)
+/// but are made nullable too, so the whole type uses one consistent shape instead of
+/// mixing coalescing strategies.
+/// </remarks>
 public sealed record AlertRuleRequest
 {
     public required string Name { get; init; }
 
-    public string Description { get; init; } = "";
+    public string? Description { get; init; }
 
-    public bool Enabled { get; init; } = true;
+    public bool? Enabled { get; init; }
 
     /// <summary>See <see cref="Model.LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization default caveat applies here.</summary>
     public LogFilter Condition { get; init; } = new();
@@ -99,16 +120,16 @@ public sealed record AlertRuleRequest
 
     public required int WindowSeconds { get; init; }
 
-    public int CooldownSeconds { get; init; } = 300;
+    public int? CooldownSeconds { get; init; }
 
     /// <summary>See <see cref="AlertRule.WebhookUrl"/>'s doc comment - mutually exclusive with <see cref="TelegramBotToken"/>/<see cref="TelegramChatId"/>.</summary>
-    public string WebhookUrl { get; init; } = "";
+    public string? WebhookUrl { get; init; }
 
     /// <summary>See <see cref="AlertRule.TelegramBotToken"/>'s doc comment.</summary>
-    public string TelegramBotToken { get; init; } = "";
+    public string? TelegramBotToken { get; init; }
 
     /// <summary>See <see cref="AlertRule.TelegramChatId"/>'s doc comment.</summary>
-    public string TelegramChatId { get; init; } = "";
+    public string? TelegramChatId { get; init; }
 
     /// <summary>
     /// Exactly one notification channel: either <see cref="WebhookUrl"/> (covers both a
