@@ -27,6 +27,15 @@ public static class FlareResourceBuilderExtensions
     /// default. Toggle "Show hidden resources" in the dashboard, or use
     /// <c>aspire describe --include-hidden</c> / <c>aspire ps --include-hidden</c>, to see them.
     /// <para>
+    /// The returned <see cref="FlareResource"/> is <em>not</em> itself something you can
+    /// <c>.WaitFor()</c> - it implements <see cref="IResourceWithoutLifetime"/> (a pure grouping
+    /// node with no process of its own), and Aspire's own orchestrator unconditionally skips
+    /// <see cref="IResourceWithoutLifetime"/> targets in <c>WaitFor</c>'s dependency wait, no
+    /// matter what health checks are attached to them. Use
+    /// <see cref="WaitForFlare{TDestination}"/> instead to block a consuming resource until the
+    /// whole Flare stack is actually ready.
+    /// </para>
+    /// <para>
     /// The returned <see cref="FlareResource"/> exposes Flare.Ingest's OTLP endpoints via
     /// <see cref="FlareResource.OtlpGrpcEndpoint"/>/<see cref="FlareResource.OtlpHttpEndpoint"/>
     /// and a <c>ConnectionStringExpression</c> usable with <c>.WithReference(flare)</c>. Point a
@@ -156,12 +165,62 @@ public static class FlareResourceBuilderExtensions
         var dashboard = builder.AddContainer($"{name}-dashboard", FlareContainerImageTags.DashboardImage, imageTag)
             .WaitFor(api)
             .WithHttpEndpoint(port: dashboardPort, targetPort: 3000)
+            // A real liveness signal - the container reaching "Running" doesn't mean SvelteKit's
+            // Node server is actually accepting requests yet. WaitForFlare (below) waits on this,
+            // not just the container's Running state.
+            .WithHttpHealthCheck("/")
             .WithParentRelationship(flare);
         dashboard
             .WithEnvironment("PUBLIC_API_URL", api.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork))
             .WithEnvironment("ORIGIN", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
 
+        // Stash the dashboard's resource name so WaitForFlare can look it up later without the
+        // caller needing to hold onto a `dashboard` variable of their own - see WaitForFlare's
+        // remarks for why `.WaitFor(flare)` itself can never work here.
+        flare.Resource.SetDashboardResourceName(dashboard.Resource.Name);
+
         return flare;
+    }
+
+    /// <summary>
+    /// Waits for the whole Flare stack - ClickHouse, Redis, ingest, api, and the dashboard - to be
+    /// ready before starting <paramref name="builder"/>'s resource.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Plain <c>.WaitFor(flare)</c> does <em>not</em> work, no matter what health checks are
+    /// attached to <c>flare</c> itself: <see cref="FlareResource"/> implements
+    /// <see cref="IResourceWithoutLifetime"/> (it's a pure grouping node - see its type doc
+    /// comment), and Aspire's own <c>ResourceNotificationService.WaitForDependenciesAsync</c>
+    /// unconditionally filters out any <c>WaitFor</c> target that implements
+    /// <see cref="IResourceWithoutLifetime"/> <em>before</em> it ever looks at that target's
+    /// state or health - confirmed against Aspire's own source
+    /// (<c>src/Aspire.Hosting/ApplicationModel/ResourceNotificationService.cs</c>,
+    /// <c>waitAnnotation.Resource is not IResourceWithoutLifetime</c>). So a downstream
+    /// <c>.WaitFor(flare)</c> is treated as having nothing to wait for and resolves immediately,
+    /// regardless of whether ClickHouse/Redis/ingest/api/the dashboard have even started.
+    /// </para>
+    /// <para>
+    /// This method sidesteps that by waiting on the dashboard container instead - a real,
+    /// DCP-managed resource with its own lifetime and a genuine HTTP health check. The dashboard
+    /// already <c>.WaitFor(api)</c>s, and <c>api</c>/<c>ingest</c> already wait on ClickHouse and
+    /// Redis, so "dashboard healthy" transitively means the whole stack is up.
+    /// </para>
+    /// </remarks>
+    /// <typeparam name="TDestination">The type of the resource that will be waiting.</typeparam>
+    /// <param name="builder">The resource builder for the resource that will be waiting.</param>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <returns>The <paramref name="builder"/>, for chaining.</returns>
+    public static IResourceBuilder<TDestination> WaitForFlare<TDestination>(
+        this IResourceBuilder<TDestination> builder,
+        IResourceBuilder<FlareResource> flare)
+        where TDestination : IResourceWithWaitSupport
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(flare);
+
+        var dashboard = flare.ApplicationBuilder.CreateResourceBuilder<ContainerResource>(flare.Resource.DashboardResourceName);
+        return builder.WaitFor(dashboard);
     }
 
     /// <summary>

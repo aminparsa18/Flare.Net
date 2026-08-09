@@ -66,7 +66,8 @@ OpenTelemetry setup your project already has (e.g. the Aspire dashboard collecto
 var flare = builder.AddFlare("flare");
 
 builder.AddProject<Projects.MyApp_Web>("web")
-    .WithReference(flare); // injects ConnectionStrings__flare -> Flare.Ingest's OTLP/gRPC endpoint
+    .WithReference(flare) // injects ConnectionStrings__flare -> Flare.Ingest's OTLP/gRPC endpoint
+    .WaitForFlare(flare);
 ```
 
 ```csharp
@@ -91,7 +92,8 @@ call directly instead of taking the `Flare.Aspire` dependency:
 var flare = builder.AddFlare("flare");
 
 builder.AddProject<Projects.MyApp_Web>("web")
-    .WithOtlpEndpoint(flare); // OTEL_EXPORTER_OTLP_ENDPOINT -> Flare.Ingest's OTLP/gRPC endpoint
+    .WithOtlpEndpoint(flare) // OTEL_EXPORTER_OTLP_ENDPOINT -> Flare.Ingest's OTLP/gRPC endpoint
+    .WaitForFlare(flare);
 ```
 
 Pass `useHttp: true` for the OTLP/HTTP endpoint (`:4318`) instead of gRPC.
