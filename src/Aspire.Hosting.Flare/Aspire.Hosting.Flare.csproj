@@ -19,11 +19,11 @@
          nuget.org - see Planning.md. Project/directory/namespace names are unaffected; only the
          published package identity changed. -->
     <PackageId>Flare.Hosting.Aspire</PackageId>
-    <!-- 0.1.1, not 0.1.0: 0.1.0 was tagged/attempted under the old reserved Aspire.Hosting.Flare
-         PackageId before the rename above (see the PackageId comment and Planning.md) - that tag
-         already exists in git history, so this bump avoids colliding with it locally rather than
-         forcing/reusing a tag that documents the abandoned name. -->
-    <Version>0.1.1</Version>
+    <!-- Bumped 0.1.1 -> 0.1.4 alongside Flare.Aspire's same bump - this release adds AddFlare()'s
+         optional ingestImage/apiImage/dashboardImage overrides (default-unchanged, backward
+         compatible). Tag on release: aspire-hosting-flare-v{Version} (see
+         .github/workflows/nuget-publish.yml). -->
+    <Version>0.1.4</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>
     <PackageTags>aspire;aspire-hosting;flare;opentelemetry;otlp;logging;observability;clickhouse;redis</PackageTags>
