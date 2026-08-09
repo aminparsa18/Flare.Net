@@ -61,6 +61,16 @@ public static class FlareResourceBuilderExtensions
     /// </param>
     /// <param name="apiPort">Optional host port for Flare's query API. A normal proxied Aspire HTTP endpoint.</param>
     /// <param name="dashboardPort">Optional host port for the dashboard SPA. A normal proxied Aspire HTTP endpoint.</param>
+    /// <param name="ingestImage">
+    /// Override for the ingest image name (registry/repo, no tag - <paramref name="imageTag"/> still supplies
+    /// the tag). Defaults to <see cref="FlareContainerImageTags.IngestImage"/> (Docker Hub). Local-dev escape
+    /// hatch for pointing at images built with <c>docker compose build</c> instead of Docker Hub, e.g.
+    /// <c>"flarenet-ingest"</c> with <c>imageTag: "latest"</c> - Docker won't re-pull a mutable tag like
+    /// <c>edge</c> that's already cached locally, so this is how to force local source into an AppHost run
+    /// without waiting on a fresh Docker Hub publish.
+    /// </param>
+    /// <param name="apiImage">Same override as <paramref name="ingestImage"/>, for the api image.</param>
+    /// <param name="dashboardImage">Same override as <paramref name="ingestImage"/>, for the dashboard image.</param>
     /// <returns>An <see cref="IResourceBuilder{FlareResource}"/> for the composite Flare resource.</returns>
     /// <exception cref="ArgumentException"><paramref name="imageTag"/> is null or empty.</exception>
     public static IResourceBuilder<FlareResource> AddFlare(
@@ -70,7 +80,10 @@ public static class FlareResourceBuilderExtensions
         int? ingestGrpcPort = null,
         int? ingestHttpPort = null,
         int? apiPort = null,
-        int? dashboardPort = null)
+        int? dashboardPort = null,
+        string? ingestImage = null,
+        string? apiImage = null,
+        string? dashboardImage = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(imageTag);
@@ -120,7 +133,7 @@ public static class FlareResourceBuilderExtensions
         // Fixed, unproxied ports so external OTLP clients can point at the conventional port
         // numbers directly, rather than Aspire's dashboard dev-proxy / dynamically-assigned
         // ports - same reasoning as Flare.AppHost/Program.cs.
-        var ingest = builder.AddContainer($"{name}-ingest", FlareContainerImageTags.IngestImage, imageTag)
+        var ingest = builder.AddContainer($"{name}-ingest", ingestImage ?? FlareContainerImageTags.IngestImage, imageTag)
             .WithReference(logsDb, connectionName: "clickhousedb")
             .WaitFor(logsDb)
             .WithReference(redis, connectionName: "redis")
@@ -141,7 +154,7 @@ public static class FlareResourceBuilderExtensions
         // endpoint over the same clickhousedb.logs table Flare.Ingest writes to. A normal
         // proxied Aspire HTTP endpoint - callers go through Aspire's dev-proxy/service
         // discovery like any other resource.
-        var api = builder.AddContainer($"{name}-api", FlareContainerImageTags.ApiImage, imageTag)
+        var api = builder.AddContainer($"{name}-api", apiImage ?? FlareContainerImageTags.ApiImage, imageTag)
             .WithReference(logsDb, connectionName: "clickhousedb")
             .WaitFor(logsDb)
             .WithReference(redis, connectionName: "redis")
@@ -162,7 +175,7 @@ public static class FlareResourceBuilderExtensions
         // resolution GetEndpoint uses for a plain container-to-container reference - confirmed
         // by e2e run that the default otherwise injects Aspire's internal *.dev.internal DNS
         // names, unreachable from a real browser on the host.
-        var dashboard = builder.AddContainer($"{name}-dashboard", FlareContainerImageTags.DashboardImage, imageTag)
+        var dashboard = builder.AddContainer($"{name}-dashboard", dashboardImage ?? FlareContainerImageTags.DashboardImage, imageTag)
             .WaitFor(api)
             .WithHttpEndpoint(port: dashboardPort, targetPort: 3000)
             // A real liveness signal - the container reaching "Running" doesn't mean SvelteKit's

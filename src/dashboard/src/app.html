@@ -1,8 +1,16 @@
 <!doctype html>
-<html lang="en" class="dark">
+<!-- No hardcoded class="dark" here - mode-watcher's ModeWatcher (root +layout.svelte)
+     injects a synchronous inline script into <head> that sets the correct dark/light
+     class before first paint, based on the user's saved choice or system preference. -->
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<!-- favicon.svg used to be here, but it was the unmodified `create-svelte` scaffold's
+		     Svelte-logo placeholder (<title>svelte-logo</title>, still on disk if needed) - not
+		     Flare's own mark. These three are the real brand favicons. -->
+		<link rel="icon" href="%sveltekit.assets%/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/png" sizes="32x32" href="%sveltekit.assets%/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="%sveltekit.assets%/favicon-16x16.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
 		%sveltekit.head%

@@ -63,7 +63,16 @@
 	});
 </script>
 
-<div bind:this={containerEl} class={cn('relative overflow-y-auto', className)} onscroll={handleScroll}>
+<!-- scrollbar-gutter: stable keeps this container's content width constant whether or not
+     the list is currently tall enough to actually scroll - LogTable's header (never itself
+     scrollable) reserves the same gutter via the same property, so columns stay aligned
+     whether or not a scrollbar is visible. -->
+<div
+	bind:this={containerEl}
+	class={cn('relative overflow-y-auto', className)}
+	style="scrollbar-gutter: stable;"
+	onscroll={handleScroll}
+>
 	<div style="height: {totalHeight}px; position: relative;">
 		<div style="transform: translateY({offsetY}px);">
 			{#each visibleItems as item, i (getKey(item, startIndex + i))}

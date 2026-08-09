@@ -5,9 +5,16 @@
 
 	let { event, onSelect }: { event: LogEventDto; onSelect: (event: LogEventDto) => void } = $props();
 
+	// Hand-formatted rather than toLocaleString/toLocaleDateString - this is a monospace
+	// technical column (font-mono below), and locale date formats vary in width (e.g. "Aug 9"
+	// vs "Aug 12"), which would make the column jitter row to row. Fixed-width zero-padded
+	// MM-DD keeps every row exactly the same character count.
 	function formatTime(iso: string): string {
 		const d = new Date(iso);
-		return d.toLocaleTimeString(undefined, { hour12: false }) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+		const pad = (n: number, len = 2) => String(n).padStart(len, '0');
+		const date = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+		const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+		return `${date} ${time}`;
 	}
 </script>
 
