@@ -13,6 +13,10 @@
 	let buckets = $state<LogAggregateBucket[]>([]);
 	let fetchError = $state<string | null>(null);
 	let hoverIndex = $state<number | null>(null);
+	// The requested window, not derived from bucket boundaries - buckets can undershoot the
+	// edges (e.g. a trailing partial bucket), so the axis labels use what was actually asked for.
+	let rangeFrom = $state<string | null>(null);
+	let rangeTo = $state<string | null>(null);
 
 	function currentRange(): { from: string; to: string } {
 		if (explorer.live) {
@@ -35,6 +39,8 @@
 				bucketWidthSeconds: pickBucketWidthSeconds(rangeSeconds)
 			});
 			buckets = res.buckets;
+			rangeFrom = range.from;
+			rangeTo = range.to;
 			fetchError = null;
 		} catch (err) {
 			fetchError = err instanceof Error ? err.message : String(err);
@@ -63,14 +69,22 @@
 		return () => clearInterval(interval);
 	});
 
-	const maxCount = $derived(Math.max(1, ...buckets.map((b) => b.count)));
+	// Real peak (for the y-axis labels) vs. the height-calc denominator (never 0, or every
+	// bar in an all-zero window would divide by zero and render full-height).
+	const peakCount = $derived(Math.max(0, ...buckets.map((b) => b.count)));
+	const maxCount = $derived(Math.max(1, peakCount));
+	const totalCount = $derived(buckets.reduce((sum, b) => sum + b.count, 0));
 
 	const CHART_WIDTH = 800;
 	const CHART_HEIGHT = 100;
+	const BASELINE_Y = CHART_HEIGHT - 2;
+	const PEAK_Y = 3;
+	const MIN_BAR_HEIGHT = 2; // keeps a lone/rare event visible instead of a 0px sliver
 	const barWidth = $derived(CHART_WIDTH / Math.max(1, buckets.length));
 
 	function barHeight(count: number): number {
-		return (count / maxCount) * (CHART_HEIGHT - 4);
+		if (count === 0) return 0;
+		return Math.max(MIN_BAR_HEIGHT, (count / maxCount) * (BASELINE_Y - PEAK_Y));
 	}
 
 	function handlePointerMove(e: PointerEvent) {
@@ -90,54 +104,111 @@
 			minute: '2-digit'
 		});
 	}
+
+	function formatAxisTime(iso: string): string {
+		return new Date(iso).toLocaleString(undefined, { hour12: false, hour: '2-digit', minute: '2-digit' });
+	}
+
+	const compactCount = new Intl.NumberFormat(undefined, { notation: 'compact' });
+	function formatCount(n: number): string {
+		return compactCount.format(n);
+	}
 </script>
 
-<div class="border-b px-4 py-2">
+<div class="border-b px-4 py-3">
 	{#if fetchError}
 		<p class="text-destructive text-xs">Volume chart: {fetchError}</p>
 	{:else if buckets.length === 0}
 		<div class="text-muted-foreground flex h-[100px] items-center justify-center text-xs">No data</div>
 	{:else}
-		<Tooltip.Provider>
-			<Tooltip.Root open={hoverIndex !== null}>
-				<Tooltip.Trigger>
-					{#snippet child({ props })}
-						<svg
-							{...props}
-							viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
-							preserveAspectRatio="none"
-							class="h-[100px] w-full"
-							role="img"
-							aria-label="Event volume over time"
-							onpointermove={handlePointerMove}
-							onpointerleave={() => (hoverIndex = null)}
-						>
-							{#each buckets as bucket, i (bucket.bucketStart)}
-								<!-- Inline style, not a fill-primary Tailwind class: this project's Tailwind build
-								     never emits fill-*/stroke-* color utilities (confirmed - no such rule exists in
-								     any stylesheet even for a plain fill-primary). --color-primary (the @theme
-								     inline token) isn't a real runtime custom property either - `inline` tells
-								     Tailwind to bake var(--primary) directly into generated utilities instead of
-								     emitting a --color-primary custom property on :root, confirmed empty via
-								     getComputedStyle. --primary itself (layout.css's own :root/.dark block) is the
-								     real runtime variable, so that's what this binds to directly. -->
-								<rect
-									x={i * barWidth + 1}
-									y={CHART_HEIGHT - barHeight(bucket.count)}
-									width={Math.max(1, barWidth - 2)}
-									height={Math.max(0, barHeight(bucket.count))}
-									style="fill: var(--primary); fill-opacity: {hoverIndex === i ? 1 : 0.6};"
-								/>
-							{/each}
-						</svg>
-					{/snippet}
-				</Tooltip.Trigger>
-				{#if hoverIndex !== null && buckets[hoverIndex]}
-					<Tooltip.Content>
-						{formatBucketTime(buckets[hoverIndex].bucketStart)} · {buckets[hoverIndex].count} events
-					</Tooltip.Content>
-				{/if}
-			</Tooltip.Root>
-		</Tooltip.Provider>
+		<div class="text-muted-foreground mb-1 flex items-center justify-between text-xs">
+			<span>Event volume</span>
+			<span class="tabular-nums">{formatCount(totalCount)} events</span>
+		</div>
+		<div class="grid grid-cols-[2.5rem_1fr] gap-x-2">
+			<div class="text-muted-foreground flex h-[100px] flex-col justify-between py-0.5 text-right text-[10px] tabular-nums">
+				<span>{formatCount(peakCount)}</span>
+				<span>{formatCount(Math.round(peakCount / 2))}</span>
+				<span>0</span>
+			</div>
+			<Tooltip.Provider>
+				<Tooltip.Root open={hoverIndex !== null}>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<svg
+								{...props}
+								viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
+								preserveAspectRatio="none"
+								class="h-[100px] w-full"
+								role="img"
+								aria-label="Event volume over time"
+								onpointermove={handlePointerMove}
+								onpointerleave={() => (hoverIndex = null)}
+							>
+								<!-- Gridlines at peak / half / zero, aligned with the y-axis labels beside them.
+								     non-scaling-stroke keeps them a crisp 1px regardless of the viewBox's
+								     non-uniform stretch (preserveAspectRatio="none" scales x and y independently). -->
+								{#each [PEAK_Y, (PEAK_Y + BASELINE_Y) / 2, BASELINE_Y] as gridY (gridY)}
+									<line
+										x1="0"
+										y1={gridY}
+										x2={CHART_WIDTH}
+										y2={gridY}
+										class="text-border"
+										stroke="currentColor"
+										stroke-width="1"
+										vector-effect="non-scaling-stroke"
+									/>
+								{/each}
+
+								{#if hoverIndex !== null}
+									<line
+										x1={hoverIndex * barWidth + barWidth / 2}
+										y1={PEAK_Y}
+										x2={hoverIndex * barWidth + barWidth / 2}
+										y2={BASELINE_Y}
+										class="text-muted-foreground"
+										stroke="currentColor"
+										stroke-width="1"
+										stroke-dasharray="2,2"
+										vector-effect="non-scaling-stroke"
+									/>
+								{/if}
+
+								{#each buckets as bucket, i (bucket.bucketStart)}
+									<!-- Inline style, not a fill-primary Tailwind class: this project's Tailwind build
+									     never emits fill-*/stroke-* color utilities (confirmed - no such rule exists in
+									     any stylesheet even for a plain fill-primary). --color-primary (the @theme
+									     inline token) isn't a real runtime custom property either - `inline` tells
+									     Tailwind to bake var(--primary) directly into generated utilities instead of
+									     emitting a --color-primary custom property on :root, confirmed empty via
+									     getComputedStyle. --primary itself (layout.css's own :root/.dark block) is the
+									     real runtime variable, so that's what this binds to directly. -->
+									<rect
+										x={i * barWidth + 1}
+										y={BASELINE_Y - barHeight(bucket.count)}
+										width={Math.max(1, barWidth - 2)}
+										height={barHeight(bucket.count)}
+										rx="1"
+										style="fill: var(--primary); fill-opacity: {hoverIndex === i ? 1 : 0.55};"
+									/>
+								{/each}
+							</svg>
+						{/snippet}
+					</Tooltip.Trigger>
+					{#if hoverIndex !== null && buckets[hoverIndex]}
+						<Tooltip.Content>
+							{formatBucketTime(buckets[hoverIndex].bucketStart)} · {formatCount(buckets[hoverIndex].count)} events
+						</Tooltip.Content>
+					{/if}
+				</Tooltip.Root>
+			</Tooltip.Provider>
+
+			<div></div>
+			<div class="text-muted-foreground mt-1 flex justify-between text-[10px]">
+				<span>{rangeFrom ? formatAxisTime(rangeFrom) : ''}</span>
+				<span>{rangeTo ? formatAxisTime(rangeTo) : ''}</span>
+			</div>
+		</div>
 	{/if}
 </div>
