@@ -17,6 +17,7 @@ builder.AddRedisClient(connectionName: "redis");
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ILogQueryService, LogQueryService>();
+builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.Configure<LiveTailOptions>(builder.Configuration.GetSection(LiveTailOptions.SectionName));
 builder.Services.AddSingleton<LogTailBroadcaster>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailBroadcaster>());
@@ -46,5 +47,6 @@ if (app.Environment.IsDevelopment())
 
 app.MapLogsEndpoints();
 app.MapLogTailEndpoints();
+app.MapAlertEndpoints();
 
 app.Run();
