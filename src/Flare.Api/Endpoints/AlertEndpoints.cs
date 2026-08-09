@@ -45,6 +45,11 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (request.ValidateChannel() is { } channelError)
+        {
+            return Results.Problem(channelError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var rule = await alerts.CreateAsync(request, cancellationToken);
         return Results.Json(rule, AlertsJsonContext.Default.AlertRule, statusCode: StatusCodes.Status201Created);
     }
@@ -76,6 +81,11 @@ public static class AlertEndpoints
         if (request is null)
         {
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request.ValidateChannel() is { } channelError)
+        {
+            return Results.Problem(channelError, statusCode: StatusCodes.Status400BadRequest);
         }
 
         var rule = await alerts.UpdateAsync(id, request, cancellationToken);

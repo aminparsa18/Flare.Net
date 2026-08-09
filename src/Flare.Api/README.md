@@ -20,7 +20,7 @@ streaming endpoint"** roadmap items, plus the **"Alerting"** item promoted out o
   `LogFilter` shape. See "Live-tail streaming" below.
 - **`/api/alerts/*`** — threshold/query-based alert rule CRUD, fired-alert history, and
   evaluation dry-runs, plus the `AlertEvaluationWorker` background service that actually
-  evaluates them and sends webhook/Slack notifications. See "Alerting" below.
+  evaluates them and sends webhook/Slack or Telegram notifications. See "Alerting" below.
 
 The two `/api/logs/*` POST endpoints take a JSON body (not query-string params) —
 filters are multi-valued/structured (service lists, attribute key/value pairs), which
@@ -30,7 +30,7 @@ same reason (a rule's condition is a full `LogFilter`).
 **Explicitly not here:** auth (no roadmap item has it yet), a general-purpose saved-query
 feature (a dashboard-side concern distinct from alert rules — an alert rule is a saved
 condition *plus* a threshold and notification target, not a bare re-runnable search),
-email/SMTP alert notifications (webhook/Slack only for now — see "Alerting" below), and
+email/SMTP alert notifications (webhook/Slack and Telegram only for now — see "Alerting" below), and
 materialized views/pre-aggregation for `/aggregate` — see `db/clickhouse/README.md`'s "No
 materialized views" note for why plain `GROUP BY` queries are the right v1 call.
 
@@ -53,16 +53,18 @@ Query/      LogFilterSqlBuilder (LogFilter -> parameterized WHERE clause, shared
             LogQueryService, reusing LogFilterSqlBuilder for its threshold count query).
 Endpoints/  LogsEndpoints - the two /api/logs POST routes. LogTailEndpoints - the
             WebSocket route. AlertEndpoints - /api/alerts CRUD + history + test-run routes.
-Json/       LogsJsonContext, LogTailJsonContext, AlertsJsonContext - source-generated
-            System.Text.Json contracts.
+Json/       LogsJsonContext, LogTailJsonContext, AlertsJsonContext, TelegramJsonContext -
+            source-generated System.Text.Json contracts.
 LiveTail/   LogTailBroadcaster (the single background XREAD-and-fan-out reader over
             Redis's flare:logs stream), LogTailSubscription (one connection's state),
             LiveTailOptions, BufferedLogEvent + BufferedLogEventJsonContext +
             BufferedLogEventMapper (deserializing/normalizing the Redis wire format -
             same "deliberate mirror, not a shared reference" convention as LogEventDto).
 Alerting/   AlertEvaluationWorker (the poll-loop BackgroundService that evaluates every
-            enabled rule and notifies on breach), AlertingOptions, IAlertNotifier +
-            WebhookAlertNotifier (the webhook/Slack sender).
+            enabled rule and notifies on breach), AlertingOptions, AlertMessageFormatter
+            (the fired-alert text shared by every channel), IAlertNotifier +
+            WebhookAlertNotifier (the webhook/Slack sender), TelegramAlertNotifier (the
+            Telegram sender), CompositeAlertNotifier (picks between the two per rule).
 ```
 
 `Model` and `Query` are deliberately pure/ClickHouse-free wherever possible
@@ -135,7 +137,7 @@ queued), so resuming doesn't create a burst of stale events.
 ## Alerting
 
 A saved `LogFilter` condition plus a count threshold over a rolling window, evaluated
-periodically and notified via webhook/Slack on breach:
+periodically and notified via webhook/Slack or Telegram on breach:
 
 ```
 POST   /api/alerts             create
@@ -149,7 +151,8 @@ POST   /api/alerts/test                    dry-run an unsaved draft (same body s
 ```
 
 **Storage: `alert_rules` (ReplacingMergeTree) + `alert_events` (append-only MergeTree)**,
-`db/clickhouse/0003_alert_rules.sql` / `0004_alert_events.sql`. Rule CRUD is INSERT-only —
+`db/clickhouse/0003_alert_rules.sql` / `0004_alert_events.sql` (plus `0005_alert_rules_telegram.sql`,
+which adds the `TelegramBotToken`/`TelegramChatId` columns). Rule CRUD is INSERT-only —
 every create/update inserts a new version, delete inserts an `IsDeleted=1` tombstone, and
 every read goes through `FROM alert_rules FINAL WHERE IsDeleted = 0`. See those
 migrations' own comments and `db/clickhouse/README.md`'s "Design decisions" for the full
@@ -170,17 +173,32 @@ in the history table itself, not a separate cache), it notifies and inserts a ne
 for this pass, since polling matches "threshold/query-based" exactly and is the simplest
 correct implementation.
 
-**Notification: one payload shape for both webhook and Slack.** `WebhookAlertNotifier`
-POSTs JSON with a top-level `text` (what Slack's incoming-webhook parser renders) plus
-flat structured fields (`ruleId`, `observedCount`, `thresholdCount`, `windowSeconds`,
-`firedAt`) a generic webhook consumer can read directly — Slack ignores unrecognized
-top-level keys, so one shape serves both. Sent via a named/typed `HttpClient`
-(`AddHttpClient<IAlertNotifier, WebhookAlertNotifier>`), which inherits
-`Flare.ServiceDefaults`' resilience handler (retries/circuit-breaking) for free.
+**Notification: exactly one channel per rule, picked by `CompositeAlertNotifier`.** A
+rule sets either `WebhookUrl`, or `TelegramBotToken`+`TelegramChatId` — never both, never
+neither (`AlertEndpoints.ValidateChannel` 400s a create/update that breaks this).
+`CompositeAlertNotifier` (the `IAlertNotifier` actually registered for DI) inspects the
+rule and delegates to one of:
 
-**Explicitly out of scope: email/SMTP.** Webhook + Slack cover this pass; email needs its
-own credential/config design (SMTP host/port/auth) and a mail-sending dependency this
-project doesn't have yet — a clearly scoped follow-up, not attempted here.
+- `WebhookAlertNotifier` — POSTs JSON with a top-level `text` (what Slack's
+  incoming-webhook parser renders) plus flat structured fields (`ruleId`,
+  `observedCount`, `thresholdCount`, `windowSeconds`, `firedAt`) a generic webhook
+  consumer can read directly — Slack ignores unrecognized top-level keys, so one shape
+  serves both.
+- `TelegramAlertNotifier` — POSTs `{chat_id, text, parse_mode}` to
+  `https://api.telegram.org/bot{TelegramBotToken}/sendMessage`. Telegram returns HTTP 200
+  with `{"ok":false,"description":"..."}` for most delivery failures (bad chat ID, bot
+  blocked/kicked) rather than a non-2xx status, so its `NotificationResult.Success` is
+  derived from the parsed `ok` field, not `IsSuccessStatusCode` alone — otherwise a failed
+  Telegram send would be misrecorded as `"Sent"` in `alert_events`.
+
+Both notifiers share the fired-alert message text (`AlertMessageFormatter.BuildText`) and
+are sent via their own named/typed `HttpClient`s (`AddHttpClient<WebhookAlertNotifier>`,
+`AddHttpClient<TelegramAlertNotifier>`), which inherit `Flare.ServiceDefaults`' resilience
+handler (retries/circuit-breaking) for free.
+
+**Explicitly out of scope: email/SMTP.** Webhook/Slack + Telegram cover this pass; email
+needs its own credential/config design (SMTP host/port/auth) and a mail-sending
+dependency this project doesn't have yet — a clearly scoped follow-up, not attempted here.
 
 ## A known, inherited trade-off
 
@@ -240,9 +258,18 @@ websocat "$(echo "$API" | sed 's#^http#ws#')/api/logs/tail"
 # > {"type":"subscribe","filter":{}}
 
 # Create an alert rule (point webhookUrl at a real Slack incoming-webhook URL, or a
-# throwaway HTTP sink like webhook.site, to see a real notification land)
+# throwaway HTTP sink like webhook.site, to see a real notification land). "enabled" is
+# passed explicitly - a System.Text.Json quirk means an omitted bool defaults to false on
+# deserialization, not the model's own `= true`, so leaving it out here would create a
+# rule AlertEvaluationWorker never evaluates.
 curl -s -X POST "$API/api/alerts" -H 'Content-Type: application/json' -d \
-  '{"name":"high error rate","condition":{"severityNumbers":[17,21]},"threshold":{"count":10,"comparator":"GreaterThanOrEqual"},"windowSeconds":300,"cooldownSeconds":300,"webhookUrl":"https://webhook.site/<your-id>"}'
+  '{"name":"high error rate","enabled":true,"condition":{"severityNumbers":[17,21]},"threshold":{"count":10,"comparator":"GreaterThanOrEqual"},"windowSeconds":300,"cooldownSeconds":300,"webhookUrl":"https://webhook.site/<your-id>"}'
+
+# Or notify via Telegram instead - webhookUrl and telegramBotToken/telegramChatId are
+# mutually exclusive (a bot token from @BotFather, a chat id from a getUpdates call or
+# @userinfobot)
+curl -s -X POST "$API/api/alerts" -H 'Content-Type: application/json' -d \
+  '{"name":"high error rate","enabled":true,"condition":{"severityNumbers":[17,21]},"threshold":{"count":10,"comparator":"GreaterThanOrEqual"},"windowSeconds":300,"cooldownSeconds":300,"telegramBotToken":"<bot-token>","telegramChatId":"<chat-id>"}'
 
 # Dry-run it against current data without waiting for the next poll tick
 curl -s -X POST "$API/api/alerts/<id-from-create-response>/test"

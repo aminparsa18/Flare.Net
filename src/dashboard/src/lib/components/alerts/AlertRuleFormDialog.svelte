@@ -34,7 +34,10 @@
 	let comparator = $state<ThresholdComparator>('GreaterThanOrEqual');
 	let windowSecondsText = $state('300');
 	let cooldownSecondsText = $state('300');
+	let channel = $state<'webhook' | 'telegram'>('webhook');
 	let webhookUrl = $state('');
+	let telegramBotToken = $state('');
+	let telegramChatId = $state('');
 
 	let testResult = $state<AlertTestResult | null>(null);
 	let testing = $state(false);
@@ -58,7 +61,10 @@
 			comparator = 'GreaterThanOrEqual';
 			windowSecondsText = '300';
 			cooldownSecondsText = '300';
+			channel = 'webhook';
 			webhookUrl = '';
+			telegramBotToken = '';
+			telegramChatId = '';
 		} else if (target) {
 			name = target.name;
 			description = target.description;
@@ -70,7 +76,10 @@
 			comparator = target.threshold.comparator;
 			windowSecondsText = String(target.windowSeconds);
 			cooldownSecondsText = String(target.cooldownSeconds);
+			channel = target.telegramBotToken || target.telegramChatId ? 'telegram' : 'webhook';
 			webhookUrl = target.webhookUrl;
+			telegramBotToken = target.telegramBotToken;
+			telegramChatId = target.telegramChatId;
 		}
 	});
 
@@ -78,9 +87,13 @@
 	const windowSeconds = $derived(Number(windowSecondsText));
 	const cooldownSeconds = $derived(Number(cooldownSecondsText));
 
+	const hasChannel = $derived(
+		channel === 'webhook' ? webhookUrl.trim().length > 0 : telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
+	);
+
 	const canSave = $derived(
 		name.trim().length > 0 &&
-			webhookUrl.trim().length > 0 &&
+			hasChannel &&
 			Number.isFinite(thresholdCount) &&
 			thresholdCount > 0 &&
 			Number.isFinite(windowSeconds) &&
@@ -137,7 +150,12 @@
 			threshold: { count: thresholdCount, comparator },
 			windowSeconds,
 			cooldownSeconds,
-			webhookUrl: webhookUrl.trim()
+			// Exactly one channel goes out non-blank - the other is left "" so the API's
+			// channel validation (AlertEndpoints.ValidateChannel) sees a clean single choice
+			// even if the user typed into a field before switching the channel selector.
+			webhookUrl: channel === 'webhook' ? webhookUrl.trim() : '',
+			telegramBotToken: channel === 'telegram' ? telegramBotToken.trim() : '',
+			telegramChatId: channel === 'telegram' ? telegramChatId.trim() : ''
 		};
 	}
 
@@ -220,10 +238,38 @@
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-medium">Webhook URL</span>
-				<Input bind:value={webhookUrl} placeholder="https://hooks.slack.com/services/..." />
-				<span class="text-muted-foreground text-xs">A generic JSON webhook or a Slack incoming-webhook URL.</span>
+				<span class="text-xs font-medium">Notify via</span>
+				<Select.Root type="single" value={channel} onValueChange={(v) => v && (channel = v as typeof channel)}>
+					<Select.Trigger class="w-40">
+						{channel === 'telegram' ? 'Telegram' : 'Webhook / Slack'}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="webhook" label="Webhook / Slack" />
+						<Select.Item value="telegram" label="Telegram" />
+					</Select.Content>
+				</Select.Root>
 			</div>
+
+			{#if channel === 'webhook'}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">Webhook URL</span>
+					<Input bind:value={webhookUrl} placeholder="https://hooks.slack.com/services/..." />
+					<span class="text-muted-foreground text-xs">A generic JSON webhook or a Slack incoming-webhook URL.</span>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">Bot token</span>
+					<Input bind:value={telegramBotToken} placeholder="123456789:AAExampleTokenFromBotFather" />
+					<span class="text-muted-foreground text-xs">From @BotFather.</span>
+				</div>
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">Chat ID</span>
+					<Input bind:value={telegramChatId} placeholder="-1001234567890" />
+					<span class="text-muted-foreground text-xs">
+						The target chat/channel/group ID - e.g. from a `getUpdates` call, or a bot like @userinfobot.
+					</span>
+				</div>
+			{/if}
 
 			<div class="flex items-center gap-2">
 				<Switch bind:checked={enabled} />
