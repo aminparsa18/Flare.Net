@@ -1,3 +1,4 @@
+using Flare.Api.Alerting;
 using Flare.Api.Endpoints;
 using Flare.Api.LiveTail;
 using Flare.Api.Query;
@@ -21,6 +22,13 @@ builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.Configure<LiveTailOptions>(builder.Configuration.GetSection(LiveTailOptions.SectionName));
 builder.Services.AddSingleton<LogTailBroadcaster>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailBroadcaster>());
+
+builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
+// Named/typed HttpClient so the webhook/Slack sender inherits AddServiceDefaults()'s
+// ConfigureHttpClientDefaults (resilience handler + service discovery) for free.
+builder.Services.AddHttpClient<IAlertNotifier, WebhookAlertNotifier>("alert-webhook");
+builder.Services.AddHostedService<AlertEvaluationWorker>();
+
 builder.Services.AddOpenApi();
 
 // Permissive CORS for every environment, not just dev: v1 has no auth story anywhere
