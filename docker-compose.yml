@@ -93,6 +93,17 @@ services:
     environment:
       ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
+      # App-wide SMTP server for the alerting Email channel (EmailAlertNotifier /
+      # EmailOptions) - unlike CLICKHOUSE_PASSWORD/REDIS_PASSWORD above, these have no
+      # working default (there's no sensible default mail server), so they're blank
+      # unless set in .env. A rule whose channel is Email just fails per-send with a
+      # clear error until these are configured - not a startup requirement.
+      Email__Host: "${SMTP_HOST:-}"
+      Email__Port: "${SMTP_PORT:-587}"
+      Email__Username: "${SMTP_USERNAME:-}"
+      Email__Password: "${SMTP_PASSWORD:-}"
+      Email__From: "${SMTP_FROM:-}"
+      Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
     ports:
       - "${FLARE_API_PORT:-8080}:8080"
     healthcheck:

@@ -25,11 +25,13 @@ export interface AlertRule {
 	threshold: AlertThreshold;
 	windowSeconds: number;
 	cooldownSeconds: number;
-	/** Mutually exclusive with `telegramBotToken`/`telegramChatId` - a rule notifies exactly one channel. */
+	/** Mutually exclusive with `telegramBotToken`/`telegramChatId` and `emailTo` - a rule notifies exactly one channel. */
 	webhookUrl: string;
-	/** Set together with `telegramChatId`, never alongside `webhookUrl`. */
+	/** Set together with `telegramChatId`, never alongside `webhookUrl`/`emailTo`. */
 	telegramBotToken: string;
 	telegramChatId: string;
+	/** Recipient address(es), comma/semicolon-separated for more than one. The SMTP server itself is app-wide server config, not part of the rule. */
+	emailTo: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -46,6 +48,7 @@ export interface AlertRuleRequest {
 	webhookUrl?: string;
 	telegramBotToken?: string;
 	telegramChatId?: string;
+	emailTo?: string;
 }
 
 export interface AlertRuleListResponse {

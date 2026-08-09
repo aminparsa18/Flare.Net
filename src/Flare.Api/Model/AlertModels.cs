@@ -78,6 +78,14 @@ public sealed record AlertRule
     /// <summary>The target chat/channel/group ID <see cref="TelegramBotToken"/> sends the fired-alert message to.</summary>
     public string TelegramChatId { get; init; } = "";
 
+    /// <summary>
+    /// Recipient address(es) (comma/semicolon-separated for more than one) a fired alert
+    /// is emailed to, when this rule's channel is Email instead of webhook/Slack or
+    /// Telegram. The SMTP server itself is app-wide config (<c>Alerting.EmailOptions</c>),
+    /// not per-rule - see <c>EmailAlertNotifier</c>.
+    /// </summary>
+    public string EmailTo { get; init; } = "";
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
@@ -131,13 +139,16 @@ public sealed record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.TelegramChatId"/>'s doc comment.</summary>
     public string? TelegramChatId { get; init; }
 
+    /// <summary>See <see cref="AlertRule.EmailTo"/>'s doc comment.</summary>
+    public string? EmailTo { get; init; }
+
     /// <summary>
-    /// Exactly one notification channel: either <see cref="WebhookUrl"/> (covers both a
-    /// generic webhook consumer and Slack), or both <see cref="TelegramBotToken"/> and
-    /// <see cref="TelegramChatId"/> together - never neither, never both channels, never
-    /// one Telegram field without the other. Called by <c>AlertEndpoints</c>'s
-    /// create/update handlers (not the dry-run test endpoints, which never notify).
-    /// Returns an error message, or null when this request is valid.
+    /// Exactly one notification channel: <see cref="WebhookUrl"/> (covers both a generic
+    /// webhook consumer and Slack), both <see cref="TelegramBotToken"/> and
+    /// <see cref="TelegramChatId"/> together, or <see cref="EmailTo"/> - never none, never
+    /// more than one channel, never one Telegram field without the other. Called by
+    /// <c>AlertEndpoints</c>'s create/update handlers (not the dry-run test endpoints,
+    /// which never notify). Returns an error message, or null when this request is valid.
     /// </summary>
     public string? ValidateChannel()
     {
@@ -145,17 +156,19 @@ public sealed record AlertRuleRequest
         var hasBotToken = !string.IsNullOrWhiteSpace(TelegramBotToken);
         var hasChatId = !string.IsNullOrWhiteSpace(TelegramChatId);
         var hasTelegram = hasBotToken && hasChatId;
+        var hasEmail = !string.IsNullOrWhiteSpace(EmailTo);
 
         if (hasBotToken != hasChatId)
         {
             return "telegramBotToken and telegramChatId must be set together.";
         }
 
-        return (hasWebhook, hasTelegram) switch
+        var channelCount = (hasWebhook ? 1 : 0) + (hasTelegram ? 1 : 0) + (hasEmail ? 1 : 0);
+        return channelCount switch
         {
-            (false, false) => "Either webhookUrl or telegramBotToken/telegramChatId is required.",
-            (true, true) => "webhookUrl and telegramBotToken/telegramChatId are mutually exclusive - a rule notifies exactly one channel.",
-            _ => null,
+            0 => "One of webhookUrl, telegramBotToken/telegramChatId, or emailTo is required.",
+            1 => null,
+            _ => "webhookUrl, telegramBotToken/telegramChatId, and emailTo are mutually exclusive - a rule notifies exactly one channel.",
         };
     }
 }

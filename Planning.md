@@ -298,11 +298,14 @@ first real release tags (`aspire-hosting-flare-v0.1.1` / `aspire-flare-v0.1.1`) 
 with the already-existing `v0.1.0` tags from the abandoned attempt.
 
 ### v3 — Alerting (threshold/query-based → webhook, email, Slack)
-Promoted out of "Later" (2026-08-09). Scoped down slightly from the original bullet:
+Promoted out of "Later" (2026-08-09). ~~Scoped down slightly from the original bullet:
 webhook + Slack notifications now, email explicitly deferred (see below) — Slack's
 simplest integration is itself just an incoming-webhook URL, so it shares almost all its
 code with a generic webhook sink, while email needs its own SMTP credential/config design
-and a mail-sending dependency this project doesn't have yet.
+and a mail-sending dependency this project doesn't have yet.~~ **Decided (2026-08-09):**
+shipped in three passes instead of one — webhook/Slack first (below), then Telegram as a
+follow-up, then email as a second follow-up once its SMTP credential/config design was
+actually worked out (see the three bullets below) — closing out the full original scope.
 
 - [x] **ClickHouse storage** — `db/clickhouse/0003_alert_rules.sql` /
       `0004_alert_events.sql`: `alert_rules` (rule definitions) and `alert_events`
@@ -364,9 +367,31 @@ and a mail-sending dependency this project doesn't have yet.
       "Sent (200)" entry, then edited and deleted it — all through the actual UI, not
       mocked. `dotnet test` clean (92 tests, including new `AlertThresholdTests` for the
       one pure piece of alerting logic); `npm run build` clean.
-- [ ] **Follow-up, explicitly deferred: email/SMTP notifications.** Needs its own
-      credential/config design (SMTP host/port/auth) and a mail-sending dependency this
-      project doesn't have yet — not attempted in this pass.
+- [x] **Follow-up: Telegram notifier** (PR #23) — `TelegramAlertNotifier`, a second
+      channel alongside webhook/Slack, mutually exclusive per rule (a rule picks exactly
+      one channel; `AlertRuleRequest.ValidateChannel` enforces it). Needed its own
+      request shape (`chat_id`/`text`/`parse_mode` to Telegram's `sendMessage`, not a
+      bare webhook URL) since a bot token + chat id can't piggyback on the
+      webhook/Slack payload trick the way Slack could. Notably, Telegram returns HTTP 200
+      with `{"ok":false}` for most delivery failures rather than a non-2xx status, so
+      success is derived from the parsed response body, not the HTTP status alone —
+      otherwise failures would be misrecorded as sent. `CompositeAlertNotifier`
+      introduced here as the actual `IAlertNotifier` registered for DI, picking the
+      right concrete notifier per rule. `db/clickhouse/0005_alert_rules_telegram.sql`
+      adds `TelegramBotToken`/`TelegramChatId`. Verified end-to-end against a real
+      `docker compose` stack (channel-validation 400s, round-tripped a Telegram-only
+      rule, existing webhook rules unaffected) and through the dashboard's real form
+      dialog via a headless browser.
+- [x] **Follow-up: Email/SMTP notifier** (closes the item originally deferred above) —
+      `EmailAlertNotifier`, a third channel, via **MailKit** (new pinned dependency).
+      Resolved the "own credential/config design" gap by treating SMTP as one app-wide
+      server (`EmailOptions`, bound from config/`Email__*` env vars — same
+      `AlertingOptions`-style pattern, wired into `docker-compose.yml`/`.env.example`
+      with no working default, since there's no sensible default mail server) rather
+      than per-rule credentials — a rule just supplies a recipient address (`EmailTo`),
+      the same role `WebhookUrl`/`TelegramBotToken`+`TelegramChatId` already play.
+      `db/clickhouse/0006_alert_rules_email.sql` adds `EmailTo`. Verified end-to-end
+      against a real `docker compose` stack.
 
 ### Later (only if v1 gets traction)
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack

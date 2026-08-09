@@ -1,19 +1,15 @@
 <Project>
-
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-
   <ItemGroup>
     <!-- Aspire -->
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.6" />
-
     <!-- Flare.Hosting.Aspire (project: src/Aspire.Hosting.Flare/) - the published integration
          package references Aspire.Hosting directly (not Aspire.Hosting.AppHost - that's the
          AppHost-executable meta-package), per Aspire's own "Create custom hosting integrations"
          doc pattern. -->
     <PackageVersion Include="Aspire.Hosting" Version="13.4.6" />
-
     <!-- ClickHouse: schema in db/clickhouse/, see db/clickhouse/README.md.
          Aspire.Hosting.ClickHouse is referenced by Flare.AppHost today.
          Aspire.ClickHouse.Driver isn't referenced by any project yet - schema
@@ -21,7 +17,6 @@
          batched insert pipeline (a later roadmap item) doesn't need to pick a version. -->
     <PackageVersion Include="Aspire.Hosting.ClickHouse" Version="13.4.6" />
     <PackageVersion Include="Aspire.ClickHouse.Driver" Version="13.4.6" />
-
     <!-- Redis: durable Redis-Streams buffer for the batched ClickHouse insert pipeline
          (Planning.md's "Buffering layer" decision, 2026-08-07). Pinned at 13.4.6 to match
          every other Aspire package here / global.json's Aspire.AppHost.Sdk - the locally
@@ -30,8 +25,8 @@
          already accepted above for Aspire.ClickHouse.Driver. -->
     <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.6" />
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.4.6" />
-
     <!-- Flare.ServiceDefaults: standard Aspire template observability stack -->
+    <PackageVersion Include="MailKit" Version="4.17.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.10" />
@@ -40,18 +35,15 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
-
     <!-- Flare.Aspire (project: src/Aspire.Flare/) - the client-side package (v2 roadmap item).
          Pinned at 10.0.10 to match Microsoft.Extensions.Diagnostics.HealthChecks above (same
          .NET 10 servicing train). -->
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
-
     <!-- Flare.Ingest: OTLP receiver -->
     <PackageVersion Include="Grpc.AspNetCore" Version="2.83.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
-
     <!-- Flare.Api: query API (search/filter/time-range/aggregate) over the ClickHouse
          `logs` table. OpenApi pinned at 10.0.10 to match Microsoft.Extensions.Diagnostics.HealthChecks
          above (same .NET 10 servicing train) - gives a browsable /openapi endpoint for
@@ -63,11 +55,9 @@
          references can hang the parser) fixed in 2.7.5. Pinned directly + referenced
          from Flare.Api.csproj so the direct reference wins over the transitive one. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
-
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
-
 </Project>
