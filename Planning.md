@@ -297,10 +297,80 @@ in `nuget-publish.yml` — only the `<Version>` each package bumps to changed, t
 first real release tags (`aspire-hosting-flare-v0.1.1` / `aspire-flare-v0.1.1`) don't collide
 with the already-existing `v0.1.0` tags from the abandoned attempt.
 
+### v3 — Alerting (threshold/query-based → webhook, email, Slack)
+Promoted out of "Later" (2026-08-09). Scoped down slightly from the original bullet:
+webhook + Slack notifications now, email explicitly deferred (see below) — Slack's
+simplest integration is itself just an incoming-webhook URL, so it shares almost all its
+code with a generic webhook sink, while email needs its own SMTP credential/config design
+and a mail-sending dependency this project doesn't have yet.
+
+- [x] **ClickHouse storage** — `db/clickhouse/0003_alert_rules.sql` /
+      `0004_alert_events.sql`: `alert_rules` (rule definitions) and `alert_events`
+      (append-only fired-notification history, also the sole cooldown-tracking
+      mechanism). First "config, not log data" table in the schema — CRUD is INSERT-only
+      (`ReplacingMergeTree` + `FINAL` reads, tombstone deletes), since ClickHouse has no
+      good in-place-update story and `ALTER TABLE ... UPDATE/DELETE` are async mutations,
+      the wrong tool for "write, read back immediately" CRUD. Full rationale in both
+      migrations' own comments and `db/clickhouse/README.md`'s "Design decisions".
+- [x] **Rule CRUD + evaluation-dry-run API** (`Flare.Api`) — `/api/alerts/*`: create,
+      list, get, update, delete, fired-alert history, and two test endpoints (dry-run a
+      saved rule or an unsaved draft against current data, ignoring cooldown). An alert
+      rule's condition reuses `Flare.Api.Model.LogFilter` verbatim — the same filter DSL
+      `/api/logs/search`/`/api/logs/aggregate` already compile via `LogFilterSqlBuilder`
+      — the concrete payoff of keeping alerting in-process in `Flare.Api` rather than a
+      new microservice.
+- [x] **`AlertEvaluationWorker`** — a `BackgroundService` (same poll-loop idiom as
+      `Flare.Ingest`'s `ClickHouseFlushWorker`) that re-evaluates every enabled rule's
+      condition as a count over its own rolling window on every poll tick (default 30s),
+      checks cooldown against `alert_events`, and notifies + records history on breach.
+      Periodic polling only, matching "threshold/query-based" exactly — no
+      streaming/near-real-time evaluation attempted, since the repo's only two
+      `BackgroundService`s (the flush worker and live-tail's broadcaster) both already
+      establish poll-loop as the idiom and there's no shared pub/sub bus to hook into
+      instead.
+- [x] **Webhook/Slack notifier** — `WebhookAlertNotifier` POSTs one JSON payload shape
+      that serves both a generic webhook consumer (flat structured fields) and Slack's
+      incoming-webhook parser (a top-level `text` field it renders as the message) —
+      Slack ignores unrecognized top-level keys, so no per-rule "payload style" toggle
+      was needed. Sent via a named/typed `HttpClient` that inherits
+      `Flare.ServiceDefaults`' resilience handler (retries/circuit-breaking) for free.
+- [x] **Dashboard: Alerts page** (`src/dashboard`) — the app's first route beyond Logs,
+      and its first shared app-shell nav (`AppNav.svelte`, mounted in `+layout.svelte`;
+      `LogsToolbar`'s own inline logo removed as now-redundant). Rule list (`Table`/`Card`
+      shadcn components' first real use), create/edit form (`Dialog`'s first real use —
+      a bounded form fits it better than `Sheet`'s established detail-viewer role from
+      `EventDetailSheet`) with a live "test against current data" dry-run before saving,
+      and a fired-alert history view (`Sheet`, matching `EventDetailSheet`'s precedent).
+      Reuses `PopoverMultiSelect` and the severity-bucket utilities from the Logs
+      Explorer for the condition builder; added shadcn `select`/`switch` components
+      (composed from the already-installed `bits-ui`, no new npm dependency) for the
+      threshold comparator and enabled toggle.
+- [x] **Verified end-to-end, 2026-08-09** — real `docker compose`-built `api` image
+      against real ClickHouse + Redis containers (existing dev volumes reused; the two
+      new migrations applied manually since the ClickHouse image's init-script mount only
+      auto-runs against an empty data directory): rule CRUD round-tripped via `curl`;
+      inserted matching log rows directly into `logs` to simulate breaches; confirmed the
+      dry-run test endpoints, the real `AlertEvaluationWorker` firing a real webhook with
+      the exact designed payload (`Transfer-Encoding: chunked` — the resilience handler
+      disables upfront content-length computation, a real quirk worth knowing, not a
+      bug), cooldown correctly suppressing an in-window re-fire and firing again once
+      elapsed, the rolling window correctly aging matching rows out and stopping further
+      fires, and delete correctly stopping evaluation (one benign straggler fire was
+      observed landing in the same poll tick as an in-flight delete — expected
+      poll-based-system semantics, not a defect). Separately drove the dashboard through
+      a real Chromium browser (Playwright): created a rule via the form, watched its live
+      dry-run flip from "would not fire" to "would fire" as a matching log landed, saved
+      it, watched the real worker fire it and the history sheet show the resulting
+      "Sent (200)" entry, then edited and deleted it — all through the actual UI, not
+      mocked. `dotnet test` clean (92 tests, including new `AlertThresholdTests` for the
+      one pure piece of alerting logic); `npm run build` clean.
+- [ ] **Follow-up, explicitly deferred: email/SMTP notifications.** Needs its own
+      credential/config design (SMTP host/port/auth) and a mail-sending dependency this
+      project doesn't have yet — not attempted in this pass.
+
 ### Later (only if v1 gets traction)
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
-- [ ] Alerting (threshold/query-based → webhook, email, Slack)
 - [ ] Auth + multi-user / roles
 - [ ] OTLP traces & metrics (become a real observability tool)
 - [ ] Trace/log correlation view

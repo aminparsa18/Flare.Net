@@ -7,7 +7,8 @@ time-range/aggregate requests into parameterized ClickHouse queries over it.
 ## What it does today
 
 Implements v1's **"Query API: search, filter, time-range, aggregate"** and **"Live-tail
-streaming endpoint"** roadmap items:
+streaming endpoint"** roadmap items, plus the **"Alerting"** item promoted out of
+"Later":
 
 - **`POST /api/logs/search`** — paginated, most-recent-first log event list. Filters by
   time range, service, severity level, exact trace id, attribute key/value equality
@@ -17,36 +18,51 @@ streaming endpoint"** roadmap items:
   chart, optionally grouped by service or level. Same filter shape as `/search`.
 - **`GET /api/logs/tail`** — WebSocket live tail, real-time events filtered by the same
   `LogFilter` shape. See "Live-tail streaming" below.
+- **`/api/alerts/*`** — threshold/query-based alert rule CRUD, fired-alert history, and
+  evaluation dry-runs, plus the `AlertEvaluationWorker` background service that actually
+  evaluates them and sends webhook/Slack notifications. See "Alerting" below.
 
-The two POST endpoints take a JSON body (not query-string params) — filters are
-multi-valued/structured (service lists, attribute key/value pairs), which doesn't fit
-cleanly in a URL, and the dashboard stack itself is still an open question
-([Planning.md #1](../../Planning.md)).
+The two `/api/logs/*` POST endpoints take a JSON body (not query-string params) —
+filters are multi-valued/structured (service lists, attribute key/value pairs), which
+doesn't fit cleanly in a URL. `/api/alerts` endpoints follow the same convention for the
+same reason (a rule's condition is a full `LogFilter`).
 
-**Explicitly not here:** auth (no roadmap item has it yet), saved queries (a
-dashboard-side concern), and materialized views/pre-aggregation for `/aggregate` — see
-`db/clickhouse/README.md`'s "No materialized views" note for why plain `GROUP BY`
-queries are the right v1 call.
+**Explicitly not here:** auth (no roadmap item has it yet), a general-purpose saved-query
+feature (a dashboard-side concern distinct from alert rules — an alert rule is a saved
+condition *plus* a threshold and notification target, not a bare re-runnable search),
+email/SMTP alert notifications (webhook/Slack only for now — see "Alerting" below), and
+materialized views/pre-aggregation for `/aggregate` — see `db/clickhouse/README.md`'s "No
+materialized views" note for why plain `GROUP BY` queries are the right v1 call.
 
 ## Project layout
 
 ```
-Model/      LogFilter (shared by both endpoints), request/response DTOs, LogEventDto
-            (the API-facing row shape - a deliberate, separate mirror of
-            Flare.Ingest.Model.LogEvent, not a shared reference - see LogEventDto's doc
-            comment for why), LogTailMessages (the live-tail WebSocket envelope types).
+Model/      LogFilter (shared by both /api/logs endpoints AND reused verbatim as an
+            AlertRule's condition), request/response DTOs, LogEventDto (the API-facing
+            row shape - a deliberate, separate mirror of Flare.Ingest.Model.LogEvent, not
+            a shared reference - see LogEventDto's doc comment for why), LogTailMessages
+            (the live-tail WebSocket envelope types), AlertModels (AlertRule/
+            AlertRuleRequest/AlertThreshold/AlertHistoryEntry/AlertTestResult).
 Query/      LogFilterSqlBuilder (LogFilter -> parameterized WHERE clause, shared),
             LogSearchQueryBuilder / LogAggregateQueryBuilder (full SELECT statements),
             LogSearchCursor (keyset pagination token), LogQueryService (the only piece
-            that actually talks to ClickHouse), LogFilterMatcher (LogFilter -> boolean
-            match, live-tail's in-memory counterpart to LogFilterSqlBuilder).
-Endpoints/  LogsEndpoints - the two POST routes. LogTailEndpoints - the WebSocket route.
-Json/       LogsJsonContext, LogTailJsonContext - source-generated System.Text.Json contracts.
+            that talks to ClickHouse for logs), LogFilterMatcher (LogFilter -> boolean
+            match, live-tail's in-memory counterpart to LogFilterSqlBuilder),
+            AlertQueryService (rule CRUD + fired-alert history + the count/last-fired
+            queries AlertEvaluationWorker runs - the alerting equivalent of
+            LogQueryService, reusing LogFilterSqlBuilder for its threshold count query).
+Endpoints/  LogsEndpoints - the two /api/logs POST routes. LogTailEndpoints - the
+            WebSocket route. AlertEndpoints - /api/alerts CRUD + history + test-run routes.
+Json/       LogsJsonContext, LogTailJsonContext, AlertsJsonContext - source-generated
+            System.Text.Json contracts.
 LiveTail/   LogTailBroadcaster (the single background XREAD-and-fan-out reader over
             Redis's flare:logs stream), LogTailSubscription (one connection's state),
             LiveTailOptions, BufferedLogEvent + BufferedLogEventJsonContext +
             BufferedLogEventMapper (deserializing/normalizing the Redis wire format -
             same "deliberate mirror, not a shared reference" convention as LogEventDto).
+Alerting/   AlertEvaluationWorker (the poll-loop BackgroundService that evaluates every
+            enabled rule and notifies on breach), AlertingOptions, IAlertNotifier +
+            WebhookAlertNotifier (the webhook/Slack sender).
 ```
 
 `Model` and `Query` are deliberately pure/ClickHouse-free wherever possible
@@ -116,6 +132,56 @@ for every other subscriber — the connection's send loop reports the drop count
 `dropped` message instead. Events published while `paused` are dropped outright (not
 queued), so resuming doesn't create a burst of stale events.
 
+## Alerting
+
+A saved `LogFilter` condition plus a count threshold over a rolling window, evaluated
+periodically and notified via webhook/Slack on breach:
+
+```
+POST   /api/alerts             create
+GET    /api/alerts             list
+GET    /api/alerts/{id}        get
+PUT    /api/alerts/{id}        update
+DELETE /api/alerts/{id}        soft-delete
+GET    /api/alerts/{id}/history?limit=50   fired-alert history
+POST   /api/alerts/{id}/test               dry-run the saved rule (ignores cooldown, writes nothing)
+POST   /api/alerts/test                    dry-run an unsaved draft (same body shape as create/update)
+```
+
+**Storage: `alert_rules` (ReplacingMergeTree) + `alert_events` (append-only MergeTree)**,
+`db/clickhouse/0003_alert_rules.sql` / `0004_alert_events.sql`. Rule CRUD is INSERT-only —
+every create/update inserts a new version, delete inserts an `IsDeleted=1` tombstone, and
+every read goes through `FROM alert_rules FINAL WHERE IsDeleted = 0`. See those
+migrations' own comments and `db/clickhouse/README.md`'s "Design decisions" for the full
+rationale (`ALTER TABLE ... UPDATE/DELETE` are async mutations, the wrong tool for
+"write, read back immediately" CRUD).
+
+**Evaluation: periodic polling, in-process.** `AlertEvaluationWorker` (a
+`BackgroundService`, same poll-loop idiom as `Flare.Ingest`'s `ClickHouseFlushWorker`)
+runs every `AlertingOptions.PollInterval` (default 30s). Each tick, for every enabled
+rule: count matching logs over the rule's own rolling window (`WindowSeconds`) by cloning
+the rule's `LogFilter` condition with `From`/`To` overridden and running it through
+`LogFilterSqlBuilder` — the same compiler `/api/logs/search` uses — then a tighter
+query-safety cap than `LogQueryService`'s (`max_execution_time=10`, since this runs once
+per rule *every* tick). If the threshold breaches and the rule isn't in cooldown
+(`SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = ...` — cooldown state lives
+in the history table itself, not a separate cache), it notifies and inserts a new
+`alert_events` row. No streaming/near-real-time evaluation — deliberately out of scope
+for this pass, since polling matches "threshold/query-based" exactly and is the simplest
+correct implementation.
+
+**Notification: one payload shape for both webhook and Slack.** `WebhookAlertNotifier`
+POSTs JSON with a top-level `text` (what Slack's incoming-webhook parser renders) plus
+flat structured fields (`ruleId`, `observedCount`, `thresholdCount`, `windowSeconds`,
+`firedAt`) a generic webhook consumer can read directly — Slack ignores unrecognized
+top-level keys, so one shape serves both. Sent via a named/typed `HttpClient`
+(`AddHttpClient<IAlertNotifier, WebhookAlertNotifier>`), which inherits
+`Flare.ServiceDefaults`' resilience handler (retries/circuit-breaking) for free.
+
+**Explicitly out of scope: email/SMTP.** Webhook + Slack cover this pass; email needs its
+own credential/config design (SMTP host/port/auth) and a mail-sending dependency this
+project doesn't have yet — a clearly scoped follow-up, not attempted here.
+
 ## A known, inherited trade-off
 
 `logs`' `ORDER BY (ServiceName, SeverityNumber, Timestamp, TraceId)` favors "browse one
@@ -172,6 +238,17 @@ curl -s -X POST "$API/api/logs/aggregate" -H 'Content-Type: application/json' -d
 # Connect, then paste a subscribe message and watch events arrive as you send more logs.
 websocat "$(echo "$API" | sed 's#^http#ws#')/api/logs/tail"
 # > {"type":"subscribe","filter":{}}
+
+# Create an alert rule (point webhookUrl at a real Slack incoming-webhook URL, or a
+# throwaway HTTP sink like webhook.site, to see a real notification land)
+curl -s -X POST "$API/api/alerts" -H 'Content-Type: application/json' -d \
+  '{"name":"high error rate","condition":{"severityNumbers":[17,21]},"threshold":{"count":10,"comparator":"GreaterThanOrEqual"},"windowSeconds":300,"cooldownSeconds":300,"webhookUrl":"https://webhook.site/<your-id>"}'
+
+# Dry-run it against current data without waiting for the next poll tick
+curl -s -X POST "$API/api/alerts/<id-from-create-response>/test"
+
+# Fired-alert history
+curl -s "$API/api/alerts/<id-from-create-response>/history"
 ```
 
 ## Tests
@@ -186,10 +263,17 @@ instead of a SQL fragment), `BufferedLogEventMapper` (null-coalescing/fallback
 conventions), `BufferedLogEventJsonContext` (round-trips, plus a hand-written fixture
 proving it parses `Flare.Ingest.Pipeline.LogEventJsonContext`'s exact wire format).
 
-`LogQueryService` and `LogTailBroadcaster` (real `IClickHouseClient`/`IConnectionMultiplexer`
-I/O) are deliberately **not** unit-tested against a fake, same reasoning
-`Flare.Ingest.Tests` documents for its own ClickHouse/Redis-touching classes — covered by
-real end-to-end runs instead (see "Smoke-testing manually" above, plus `EXPLAIN
-indexes=1` checks in `db/clickhouse/README.md`).
+`AlertThresholdTests` covers `AlertThreshold.IsBreached` (both comparators, boundary
+values) — the one piece of pure alerting logic worth a unit test on its own.
+
+`LogQueryService`, `LogTailBroadcaster`, `AlertQueryService`, and `AlertEvaluationWorker`
+(real `IClickHouseClient`/`IConnectionMultiplexer`/`HttpClient` I/O) are deliberately
+**not** unit-tested against a fake, same reasoning `Flare.Ingest.Tests` documents for its
+own ClickHouse/Redis-touching classes — covered by real end-to-end runs instead (see
+"Smoke-testing manually" above, plus `EXPLAIN indexes=1` checks in
+`db/clickhouse/README.md`). The alerting feature's own end-to-end verification (webhook
+delivery, cooldown suppression, rolling-window expiry, delete-stops-evaluation) was run
+this way against a real `docker compose`-built `api` image, a real ClickHouse/Redis, and
+a real webhook receiver — not re-derived as a mock-based unit test.
 
 Run with `dotnet test`.
