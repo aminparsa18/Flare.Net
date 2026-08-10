@@ -90,7 +90,15 @@
 					<div class="grid grid-cols-2 gap-2 text-xs">
 						<div>
 							<span class="text-muted-foreground">Trace ID</span>
-							<p class="truncate font-mono">{event.traceId || '—'}</p>
+							{#if event.traceId}
+								<p class="truncate">
+									<a href="/traces/{event.traceId}" class="hover:text-primary font-mono underline-offset-2 hover:underline">
+										{event.traceId}
+									</a>
+								</p>
+							{:else}
+								<p class="truncate font-mono">—</p>
+							{/if}
 						</div>
 						<div>
 							<span class="text-muted-foreground">Span ID</span>

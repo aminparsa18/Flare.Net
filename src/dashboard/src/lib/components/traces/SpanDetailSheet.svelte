@@ -7,12 +7,52 @@
 	import { statusVariant, statusLabel, kindLabel } from '$lib/traces/status';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
+	import { searchLogs, type LogEventDto } from '$lib/api';
+	import { severityVariant } from '$lib/logs/severity';
 
 	const detail = traceDetailContext.get();
 
 	function formatTimestamp(iso: string): string {
 		return new Date(iso).toLocaleString(undefined, { hour12: false });
 	}
+
+	// Linked logs: view-local, transient data for whichever span is currently selected -
+	// no other consumer needs it, so it doesn't belong on TraceDetailState. Re-fetched
+	// (not accumulated) every time the selected span changes.
+	let linkedLogs = $state<LogEventDto[]>([]);
+	let linkedLogsLoading = $state(false);
+	let linkedLogsAbort: AbortController | null = null;
+
+	$effect(() => {
+		const span = detail.selectedSpan;
+		linkedLogsAbort?.abort();
+
+		if (!span) {
+			linkedLogs = [];
+			linkedLogsLoading = false;
+			return;
+		}
+
+		const abort = new AbortController();
+		linkedLogsAbort = abort;
+		linkedLogsLoading = true;
+
+		searchLogs({ filter: { traceId: span.traceId, spanId: span.spanId }, pageSize: 20 }, abort.signal)
+			.then((result) => {
+				if (abort.signal.aborted) return;
+				linkedLogs = result.events;
+			})
+			.catch((err) => {
+				if (abort.signal.aborted) return;
+				console.error('Failed to load linked logs', err);
+				linkedLogs = [];
+			})
+			.finally(() => {
+				if (!abort.signal.aborted) linkedLogsLoading = false;
+			});
+
+		return () => abort.abort();
+	});
 </script>
 
 <Sheet.Root
@@ -80,6 +120,23 @@
 											<span class="text-muted-foreground shrink-0 font-mono text-xs">{formatTimestamp(event.timestamp)}</span>
 										</div>
 										<AttributeTable title="Attributes" attributes={event.attributes} />
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+
+					{#if linkedLogs.length > 0}
+						<div>
+							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">Linked logs</h3>
+							<div class="flex flex-col gap-2">
+								{#each linkedLogs as log (log.eventId)}
+									<div class="rounded-md border p-2">
+										<div class="flex items-baseline justify-between gap-2">
+											<Badge variant={severityVariant(log.severityNumber)}>{log.severityText || '—'}</Badge>
+											<span class="text-muted-foreground shrink-0 font-mono text-xs">{formatTimestamp(log.timestamp)}</span>
+										</div>
+										<p class="mt-1 truncate text-sm">{log.body}</p>
 									</div>
 								{/each}
 							</div>

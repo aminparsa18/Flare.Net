@@ -61,6 +61,15 @@ public class LogFilterSqlBuilderTests
     }
 
     [Fact]
+    public void Build_WithSpanId_AddsEqualityClause()
+    {
+        var result = LogFilterSqlBuilder.Build(new LogFilter { SpanId = "0102030405060708" }, Now);
+
+        Assert.Contains("SpanId = {spanId:String}", result.WhereSql);
+        Assert.Equal("0102030405060708", result.Parameters.ToDictionary()["spanId"]);
+    }
+
+    [Fact]
     public void Build_WithSearch_WrapsTermInWildcards_ForIlike()
     {
         var result = LogFilterSqlBuilder.Build(new LogFilter { Search = "boom" }, Now);

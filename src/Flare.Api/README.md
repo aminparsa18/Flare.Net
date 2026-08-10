@@ -11,9 +11,10 @@ streaming endpoint"** roadmap items, plus the **"Alerting"** item promoted out o
 "Later":
 
 - **`POST /api/logs/search`** — paginated, most-recent-first log event list. Filters by
-  time range, service, severity level, exact trace id, attribute key/value equality
-  (any of the three OTel attribute bags), and free-text substring search against
-  `Body`. Keyset-paginated via `(Timestamp, EventId)` — see "Pagination" below.
+  time range, service, severity level, exact trace id, exact span id (trace/log
+  correlation — see below), attribute key/value equality (any of the three OTel
+  attribute bags), and free-text substring search against `Body`. Keyset-paginated via
+  `(Timestamp, EventId)` — see "Pagination" below.
 - **`POST /api/logs/aggregate`** — bucketed event counts for the dashboard's volume
   chart, optionally grouped by service or level. Same filter shape as `/search`.
 - **`GET /api/logs/tail`** — WebSocket live tail, real-time events filtered by the same
