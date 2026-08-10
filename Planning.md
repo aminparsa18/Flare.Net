@@ -881,6 +881,87 @@ need to expose) and it's a materially separate design pass.
       (including the 24h/1440-bucket worst case, confirmed fast), and zero browser console
       errors throughout.
 
+### v9 — Indexing page
+Prompted by the same Seq-comparison conversation as v8, same day. **Deliberately not a
+literal port of Seq's own Indexing page** - naming and scope were both reworked to fit
+ClickHouse's actual model rather than Seq's:
+- **Naming**: considered "Storage" first, rejected - collides with the *other*
+  Later-roadmap item ("Retention policies + cold storage to S3-compatible object store
+  (RustFS)"), which will need its own page eventually. Kept "Indexing" (Seq's own name)
+  instead, so the vocabulary stays non-overlapping long-term: **Indexing** = ClickHouse-
+  local/hot ("how is my data organized"), **Retention** = RustFS/S3-cold ("how long do I
+  keep it"), whenever that item gets built.
+- **Scope**: Seq's Indexing page exists because its embedded store makes *you* explicitly
+  create computed/signal indexes and pay their storage/CPU cost - the page is a tuning
+  tool. ClickHouse already made those tradeoffs at the schema level (`db/clickhouse/*.sql`,
+  17 skip indexes across `logs`/`spans`/`metrics_*` as of this item), so there's nothing
+  for a self-hosted user to create or tune here - a literal λ/signal-list clone would be
+  read-only trivia at best, misleading at worst. Rebuilt instead as: per-table storage/
+  compression (an operator question almost no self-hosted ClickHouse user has a UI for),
+  the skip-index inventory (makes the schema work in `db/clickhouse/*.sql` visible, not
+  editable), and a growth trend - genuinely more useful than Seq's page for this product's
+  actual architecture, not just a reskin of it.
+
+- [x] **Live research before writing any query** (2026-08-10) — spun up the real
+      `clickhouse`/`redis` containers first and probed `system.tables`/`system.parts`/
+      `system.data_skipping_indices`/`system.part_log` directly via `clickhouse-client`
+      before committing to a query shape, same "verify against the real thing, don't
+      assume" precedent the dotnet-otel-grpc-gotchas memory documents elsewhere in this
+      project. Caught two things a docs-only read would have gotten wrong: (1)
+      `system.data_skipping_indices` has no `marks` column - it's `marks_bytes`; (2)
+      `system.parts`' own `data_uncompressed_bytes` excludes index/mark overhead and reads
+      *smaller* than the compressed size at low row counts (confirmed live: 363 B
+      "uncompressed" vs. 924 B compressed on a 1-row table) - actively misleading for a
+      compression-ratio stat. Switched to `system.tables.total_bytes`/
+      `total_bytes_uncompressed`/`active_parts`, which already carries every per-table
+      number needed in one row, no join against `system.parts` required at all - simpler
+      than the originally planned query, not just a corrected one.
+- [x] **Query API** (`Flare.Api`) — `GET /api/indexing/stats`, no request body/params:
+      `IndexingQueryService` runs three independent, fixed queries concurrently
+      (`system.tables`, `system.data_skipping_indices`, and a 30-day-bounded
+      `system.part_log` scan for the growth trend), all scoped to `WHERE database =
+      currentDatabase()` - Flare owns its whole ClickHouse database, so no table allowlist
+      is hardcoded; a future migration's new table shows up automatically. No SQL-builder
+      class the way `LogQueryService`/`SpanQueryService` have one, since there's no
+      per-request filter to translate - the query shape is fixed. The growth query is
+      wrapped in try/catch: `system.part_log` is config-gated, not guaranteed on every
+      self-hosted ClickHouse deployment, so a failure there degrades to
+      `growthAvailable: false` rather than failing the whole response.
+- [x] **Dashboard: Indexing page** (`src/dashboard`) — seventh nav entry (`AppNav.svelte`).
+      `lib/indexing-api.ts` + `lib/indexing/state.svelte.ts`/`context.ts` follow the
+      established convention, with one deliberate difference from every other explorer
+      page: no time-window selector and no polling (`IngestionState`'s 10s poll doesn't
+      fit here - table/index shape doesn't change on a 10-second cadence) - just a load-
+      once-plus-manual-refresh button, matching what this data actually is. Four summary
+      tiles, a hand-rolled 5-line growth chart (`IndexingGrowthChart.svelte`, top 5 tables
+      by size, reusing `IngestionChart`'s technique), a per-table storage/compression
+      table, and a skip-index inventory table. `lib/indexing/format.ts` re-exports
+      `formatBytes`/`formatCount` from `$lib/ingestion/format` rather than duplicating them
+      (both pages want identical formatting) and adds one new pure helper,
+      `formatRatio`.
+- [x] **Found and fixed a real bug during Playwright verification, before any code was
+      merged** — `IndexingGrowthChart`'s conditional order checked
+      `!stats?.growthAvailable` *before* checking whether the page had finished loading at
+      all, so every fresh page load flashed the "not available - `system.part_log` isn't
+      queryable" message for the ~1-2s the first fetch was in flight (`stats` is `null`
+      until then, and `null?.growthAvailable` is falsy same as an explicit `false`) -
+      caught live by taking a snapshot mid-load, not by reasoning about the code
+      statically. Fixed by checking the loading state first.
+- [x] **Verified end-to-end, 2026-08-10** — `dotnet build`/`dotnet test`: 271 tests, 0
+      failures (unchanged from v8 - no new pure/testable logic this endpoint's fixed,
+      argument-free queries introduced, consistent with `LogQueryService`/
+      `SavedViewQueryService` also having no dedicated unit tests beyond their SQL-builder
+      siblings). `svelte-check`: 0 errors across 903 files. `npm run build`: clean. Real
+      `docker compose up -d --build` (clickhouse+redis+ingest+api+dashboard, reusing the
+      v8 session's already-populated volumes plus a few more OTLP metric points sent
+      live): `GET /api/indexing/stats` confirmed correct against direct
+      `clickhouse-client` queries run beforehand (9 tables, 17 skip indexes, matching
+      byte-for-byte). Playwright-driven Chromium session against the live dashboard:
+      tiles, growth chart (5-series legend + "+4 more" note), tables table (correct
+      compression ratios, e.g. `logs` at 12.6x), and skip-index table all rendered
+      correctly; the loading-order bug above caught and fixed within this same pass,
+      re-verified after the fix; zero browser console errors throughout.
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---

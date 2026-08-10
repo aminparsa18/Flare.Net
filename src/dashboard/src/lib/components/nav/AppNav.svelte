@@ -13,6 +13,7 @@
 		{ href: '/traces', label: 'Traces' },
 		{ href: '/metrics', label: 'Metrics' },
 		{ href: '/ingestion', label: 'Ingestion' },
+		{ href: '/indexing', label: 'Indexing' },
 		{ href: '/alerts', label: 'Alerts' },
 		{ href: '/views', label: 'Views' }
 	];
