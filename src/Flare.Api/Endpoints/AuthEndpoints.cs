@@ -157,13 +157,19 @@ public static class AuthEndpoints
         return Results.Json(ToDto(user), AuthJsonContext.Default.AuthUserDto, statusCode: StatusCodes.Status201Created);
     }
 
-    internal static async Task<IResult> HandleBootstrapStatusAsync(IUserStore users, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleBootstrapStatusAsync(IUserStore users, IOptions<EntraOptions> entraOptions, CancellationToken cancellationToken)
     {
         var needsBootstrap = !await users.AnyAsync(cancellationToken);
-        return Results.Json(new BootstrapStatusResponse { NeedsBootstrap = needsBootstrap }, AuthJsonContext.Default.BootstrapStatusResponse);
+        return Results.Json(
+            new BootstrapStatusResponse { NeedsBootstrap = needsBootstrap, EntraEnabled = entraOptions.Value.Enabled },
+            AuthJsonContext.Default.BootstrapStatusResponse);
     }
 
-    private static async Task SignInAsync(HttpContext http, ISessionStore sessions, AuthOptions authOptions, User user, CancellationToken cancellationToken)
+    /// <summary>Mints a <c>Sessions</c> row + <c>flare_session</c> cookie for
+    /// <paramref name="user"/> - the one place either login path (password or Entra)
+    /// ends up, so both produce byte-for-byte the same session/cookie shape. Internal
+    /// (not private) so <see cref="EntraAuthEndpoints"/> can call it too.</summary>
+    internal static async Task SignInAsync(HttpContext http, ISessionStore sessions, AuthOptions authOptions, User user, CancellationToken cancellationToken)
     {
         var session = await sessions.CreateAsync(user.Id, authOptions.SessionLifetime, cancellationToken);
         http.Response.Cookies.Append(authOptions.CookieName, session.Id, new CookieOptions
@@ -176,5 +182,5 @@ public static class AuthEndpoints
         });
     }
 
-    private static AuthUserDto ToDto(User user) => new() { Id = user.Id, Username = user.Username, Role = user.Role };
+    internal static AuthUserDto ToDto(User user) => new() { Id = user.Id, Username = user.Username, Role = user.Role, AuthProvider = user.AuthProvider };
 }

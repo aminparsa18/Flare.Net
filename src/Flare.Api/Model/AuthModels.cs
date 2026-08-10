@@ -21,11 +21,18 @@ public sealed record AuthUserDto
     public required string Username { get; init; }
 
     public required UserRole Role { get; init; }
+
+    /// <summary>"Local" or "Entra" - lets the dashboard show e.g. a disabled password
+    /// field for an SSO account without a second round-trip.</summary>
+    public required string AuthProvider { get; init; }
 }
 
 /// <summary>Response body for <c>GET /api/auth/bootstrap/status</c> - the dashboard uses
-/// this to decide whether to show <c>/setup</c> (create the first Admin) or <c>/login</c>.</summary>
+/// this to decide whether to show <c>/setup</c> (create the first Admin) or <c>/login</c>,
+/// and whether <c>/login</c> should also offer "Sign in with Microsoft".</summary>
 public sealed record BootstrapStatusResponse
 {
     public required bool NeedsBootstrap { get; init; }
+
+    public required bool EntraEnabled { get; init; }
 }

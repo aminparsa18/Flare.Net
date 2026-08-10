@@ -8,14 +8,22 @@ import { API_BASE_URL, apiFetch } from './api';
 
 export type UserRole = 'Admin' | 'Member' | 'Viewer';
 
+export type AuthProvider = 'Local' | 'Entra';
+
 export interface AuthUser {
 	id: string;
 	username: string;
 	role: UserRole;
+	authProvider: AuthProvider;
 }
 
 export interface BootstrapStatusResponse {
 	needsBootstrap: boolean;
+	/** Whether Flare.Api has Auth:Entra:Enabled=true - gates the "Sign in with
+	 * Microsoft" button on /login (see EntraAuthEndpoints.HandleLoginAsync, which
+	 * itself 404s when this is false - the button check is a UX nicety on top of that,
+	 * not the actual enforcement). */
+	entraEnabled: boolean;
 }
 
 /** `GET /api/auth/bootstrap/status` - decides whether `+layout.svelte`'s route guard sends an unauthenticated visitor to `/setup` or `/login`. */
@@ -77,4 +85,15 @@ export async function getCurrentUser(signal?: AbortSignal): Promise<AuthUser | n
 		throw new Error(`GET /api/auth/me failed: ${res.status} ${res.statusText}`);
 	}
 	return res.json();
+}
+
+/** Navigates the browser to `GET /api/auth/entra/login` - a full page navigation, not a
+ * fetch, since this has to leave the SPA for Microsoft's own sign-in page and come back
+ * through a server-side redirect (see EntraAuthEndpoints). `returnUrl` is this window's
+ * own origin, which Flare.Api validates against Cors:AllowedOrigins before ever
+ * redirecting back to it. */
+export function startEntraLogin(): void {
+	const url = new URL(`${API_BASE_URL}/api/auth/entra/login`);
+	url.searchParams.set('returnUrl', window.location.origin);
+	window.location.href = url.toString();
 }

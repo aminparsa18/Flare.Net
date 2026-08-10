@@ -20,6 +20,9 @@ internal sealed class FakeUserStore : IUserStore
     public Task<User?> FindByUsernameAsync(string username, CancellationToken cancellationToken = default) =>
         Task.FromResult((User?)_usersById.Values.SingleOrDefault(e => string.Equals(e.User.Username, username, StringComparison.OrdinalIgnoreCase)).User);
 
+    public Task<User?> FindByExternalIdAsync(string authProvider, string externalId, CancellationToken cancellationToken = default) =>
+        Task.FromResult((User?)_usersById.Values.SingleOrDefault(e => e.User.AuthProvider == authProvider && e.User.ExternalId == externalId).User);
+
     public Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<User>>(_usersById.Values.Select(e => e.User).ToList());
 
@@ -32,6 +35,13 @@ internal sealed class FakeUserStore : IUserStore
 
         var user = new User(Guid.NewGuid(), username, role, DateTimeOffset.UtcNow, IsDisabled: false);
         _usersById[user.Id] = (user, _hasher.HashPassword(password));
+        return Task.FromResult(user);
+    }
+
+    public Task<User> CreateFromExternalAsync(string authProvider, string externalId, string username, UserRole role, CancellationToken cancellationToken = default)
+    {
+        var user = new User(Guid.NewGuid(), username, role, DateTimeOffset.UtcNow, IsDisabled: false, AuthProvider: authProvider, ExternalId: externalId);
+        _usersById[user.Id] = (user, _hasher.HashPassword($"{Guid.NewGuid():N}"));
         return Task.FromResult(user);
     }
 

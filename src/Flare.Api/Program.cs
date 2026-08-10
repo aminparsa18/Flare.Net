@@ -1,5 +1,6 @@
 using ClickHouse.Driver;
 using Flare.Api.Alerting;
+using Flare.Api.Auth;
 using Flare.Api.Endpoints;
 using Flare.Api.LiveTail;
 using Flare.Api.Query;
@@ -7,6 +8,8 @@ using Flare.Identity;
 using Flare.Identity.Auth;
 using Flare.Identity.Users;
 using Flare.ServiceDefaults.ClickHouseMigrations;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,9 +29,46 @@ builder.AddRedisClient(connectionName: "redis");
 // separate shared project rather than living directly in this one.
 builder.AddFlareIdentity();
 
-builder.Services
+var authenticationBuilder = builder.Services
     .AddAuthentication(SessionAuthenticationDefaults.SchemeName)
     .AddScheme<SessionAuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationDefaults.SchemeName, _ => { });
+
+// Microsoft Entra ID (SSO) - only registered when configured (Auth:Entra:Enabled),
+// same opt-in-by-config precedent Auth:IngestKeyRequired already uses, so an upgraded
+// deployment with no Entra config isn't suddenly asked for a TenantId/ClientId/
+// ClientSecret it doesn't have. Read directly off configuration here (not via the
+// IOptions<EntraOptions> registered by AddFlareIdentity above) because scheme
+// registration happens at builder time, before the DI container exists to resolve
+// IOptions from - see docs/auth.md's "Microsoft Entra ID (SSO)" section for the full
+// design, including why SignInScheme is a short-lived paired cookie rather than trying
+// to do Flare's own session-minting inside an OnTicketReceived event.
+var entraOptions = builder.Configuration.GetSection(EntraOptions.SectionName).Get<EntraOptions>() ?? new EntraOptions();
+if (entraOptions.Enabled)
+{
+    authenticationBuilder
+        .AddCookie(EntraAuthenticationDefaults.ExternalCookieScheme, o =>
+        {
+            o.Cookie.Name = "flare_entra_external";
+            o.Cookie.HttpOnly = true;
+            o.Cookie.SameSite = SameSiteMode.Lax;
+            o.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+        })
+        .AddOpenIdConnect(EntraAuthenticationDefaults.SchemeName, o =>
+        {
+            o.SignInScheme = EntraAuthenticationDefaults.ExternalCookieScheme;
+            o.Authority = $"https://login.microsoftonline.com/{entraOptions.TenantId}/v2.0";
+            o.ClientId = entraOptions.ClientId;
+            o.ClientSecret = entraOptions.ClientSecret;
+            o.ResponseType = OpenIdConnectResponseType.Code;
+            o.UsePkce = true;
+            // Flare never needs the id/access token again after this one exchange - the
+            // ClaimsPrincipal is read once in EntraAuthEndpoints.HandleCompleteAsync and
+            // discarded with the external cookie.
+            o.SaveTokens = false;
+            o.TokenValidationParameters.RoleClaimType = "roles";
+            o.TokenValidationParameters.NameClaimType = "preferred_username";
+        });
+}
 
 // Role set is intentionally small (Admin/Member/Viewer, see Flare.Identity.Users.UserRole) -
 // the default policy (RequireAuthorization() with no policy name) already means "any
@@ -116,6 +156,7 @@ if (app.Environment.IsDevelopment())
 
 // Unauthenticated by design - a client can't have a session yet when calling these.
 app.MapAuthEndpoints();
+app.MapEntraAuthEndpoints();
 
 // MapGroup("") is a routing no-op (empty prefix) used purely to get a convention
 // builder to hang RequireAuthorization() off of - every Map*Endpoints() call below is
@@ -143,5 +184,6 @@ memberRoutes.MapAlertEndpoints();
 // self-service.
 var adminRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireAdmin);
 adminRoutes.MapIngestApiKeyEndpoints();
+adminRoutes.MapUserEndpoints();
 
 app.Run();

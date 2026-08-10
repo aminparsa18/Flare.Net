@@ -122,4 +122,55 @@ public class SqliteUserStoreTests : IAsyncLifetime
 
         Assert.Equal(["alpha", "zeta"], list.Select(u => u.Username));
     }
+
+    [Fact]
+    public async Task CreateFromExternalAsync_ThenFindByExternalId_ReturnsTheUser()
+    {
+        var created = await _store.CreateFromExternalAsync("Entra", "oid-123", "heidi@example.com", UserRole.Member);
+
+        Assert.Equal("Entra", created.AuthProvider);
+        Assert.Equal("oid-123", created.ExternalId);
+
+        var found = await _store.FindByExternalIdAsync("Entra", "oid-123");
+        Assert.NotNull(found);
+        Assert.Equal(created.Id, found.Id);
+        Assert.Equal(UserRole.Member, found.Role);
+    }
+
+    [Fact]
+    public async Task FindByExternalIdAsync_ReturnsNull_WhenNoMatch()
+    {
+        Assert.Null(await _store.FindByExternalIdAsync("Entra", "no-such-oid"));
+    }
+
+    [Fact]
+    public async Task LocalUsers_ReportAuthProviderLocal_WithNoExternalId()
+    {
+        var created = await _store.CreateAsync("ivan", "correctpassword7", UserRole.Viewer);
+
+        Assert.Equal("Local", created.AuthProvider);
+        Assert.Null(created.ExternalId);
+    }
+
+    [Fact]
+    public async Task VerifyPasswordAsync_ReturnsNull_ForAnEntraProvisionedAccount_RegardlessOfPassword()
+    {
+        // An Entra-provisioned account's PasswordHash is a real, well-formed hash of a
+        // random string nobody knows - VerifyPasswordAsync must reject it like any wrong
+        // password, not throw, for every guess.
+        await _store.CreateFromExternalAsync("Entra", "oid-456", "judy@example.com", UserRole.Viewer);
+
+        Assert.Null(await _store.VerifyPasswordAsync("judy@example.com", "anything"));
+        Assert.Null(await _store.VerifyPasswordAsync("judy@example.com", ""));
+    }
+
+    [Fact]
+    public async Task CreateFromExternalAsync_ThrowsOnDuplicateExternalId_ForTheSameProvider()
+    {
+        await _store.CreateFromExternalAsync("Entra", "oid-789", "mallory@example.com", UserRole.Viewer);
+
+        // UX_Users_AuthProvider_ExternalId (Migrations/0002_entra_id.sql) - enforced by
+        // SQLite itself, same precedent as CreateAsync_ThrowsOnDuplicateUsername above.
+        await Assert.ThrowsAnyAsync<Exception>(() => _store.CreateFromExternalAsync("Entra", "oid-789", "mallory2@example.com", UserRole.Viewer));
+    }
 }
