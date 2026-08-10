@@ -247,6 +247,16 @@ public static class FlareResourceBuilderExtensions
             .WithEnvironment("PUBLIC_API_URL", api.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork))
             .WithEnvironment("ORIGIN", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
 
+        // Flare.Api rejects every browser origin by default once auth is in the picture
+        // (Cors:AllowedOrigins has no safe default - see docs/auth.md in Flare's own
+        // repo) - without this, every fetch the dashboard's browser-side JS makes fails
+        // CORS and the app hangs on its own "checking session" spinner with no
+        // indication why. Same LocalhostNetwork-pinned endpoint reference already used
+        // for PUBLIC_API_URL above and for the same reason: this has to resolve to what
+        // the *browser* sees, not container-network DNS. Confirmed live against a real
+        // Aspire-orchestrated run that this was missing and broke the dashboard outright.
+        api.WithEnvironment("Cors__AllowedOrigins__0", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
+
         // Stash the dashboard's resource name so WaitForFlare can look it up later without the
         // caller needing to hold onto a `dashboard` variable of their own - see WaitForFlare's
         // remarks for why `.WaitFor(flare)` itself can never work here.
