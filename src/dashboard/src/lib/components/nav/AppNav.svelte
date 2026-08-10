@@ -12,7 +12,8 @@
 		{ href: '/', label: 'Logs' },
 		{ href: '/traces', label: 'Traces' },
 		{ href: '/metrics', label: 'Metrics' },
-		{ href: '/alerts', label: 'Alerts' }
+		{ href: '/alerts', label: 'Alerts' },
+		{ href: '/views', label: 'Views' }
 	];
 
 	// Exact match for every link except "/" (which would otherwise match every route,

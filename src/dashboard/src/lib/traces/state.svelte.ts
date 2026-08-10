@@ -15,6 +15,9 @@ export interface TracesFilterState {
 	services: string[];
 }
 
+/** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). */
+export type TracesSavedViewState = TracesFilterState;
+
 export class TracesExplorerState {
 	filter = $state<TracesFilterState>({
 		timeRangePreset: '1h',
@@ -119,6 +122,18 @@ export class TracesExplorerState {
 
 	setServices(services: string[]): void {
 		this.filter.services = services;
+		void this.runSearch();
+	}
+
+	/** Serializes the current filter into a saved view's opaque `state` payload - see `TracesSavedViewState`. */
+	toSavedViewState(): TracesSavedViewState {
+		return { timeRangePreset: this.filter.timeRangePreset, services: [...this.filter.services] };
+	}
+
+	/** Restores a saved view's filter (defensively narrowed - see `LogsExplorerState.applySavedViewState`'s identical caveat) and re-runs the search. */
+	applySavedViewState(state: unknown): void {
+		const s = (state ?? {}) as Partial<TracesSavedViewState>;
+		this.filter = { timeRangePreset: s.timeRangePreset ?? '1h', services: s.services ?? [] };
 		void this.runSearch();
 	}
 

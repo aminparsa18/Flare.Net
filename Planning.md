@@ -407,7 +407,10 @@ actually worked out (see the three bullets below) — closing out the full origi
 - [x] ~~Trace/log correlation view~~ **Shipped 2026-08-10 (see v5 below)** — correctly
       sized as a single, non-staged session once v4 landed, per the plan's own
       pre-session cost read.
-- [ ] Saved dashboards / shareable views
+- [x] ~~Saved dashboards / shareable views~~ **Shipped 2026-08-10 (see v7 below)** —
+      scoped as saved-per-page filter state (Logs/Traces/Metrics), not a multi-panel
+      dashboard builder, per this doc's own "dashboards-as-code, arbitrary user-built
+      panels" non-goal.
 - [ ] Helm chart for Kubernetes
 
 ### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
@@ -702,6 +705,62 @@ that per-pass live verification, not by unit tests, the same payoff v4/v5 got fr
       `dotnet build Flare.sln`/`dotnet test`: 244 tests (90 `Flare.Ingest.Tests` + 154
       `Flare.Api.Tests`), 0 failures. `svelte-check`: 0 errors. `npm run build`: clean.
       Stack torn down after verification (`docker compose down`, volumes kept).
+
+### v7 — Saved views ("Saved dashboards / shareable views")
+Promoted out of "Later" and shipped 2026-08-10. Scoped up front to **named, reloadable,
+shareable filter/selection state per explorer page** (Logs/Traces/Metrics), not a
+Grafana-style multi-panel dashboard builder — `VolumeChart`/`MetricChart` are hard-wired
+to their own page's context, not props-driven reusable panels, and a real builder would
+directly conflict with this doc's own "dashboards-as-code, arbitrary user-built panels"
+non-goal. Views are global/unowned (no auth exists anywhere yet, same as `alert_rules`).
+
+- [x] **ClickHouse storage + API** — `db/clickhouse/0009_saved_views.sql`: `saved_views`
+      table, reusing `alert_rules`' `ReplacingMergeTree(UpdatedAt)` + `IsDeleted`
+      tombstone CRUD pattern verbatim. `PageType LowCardinality(String)` lets one
+      table/endpoint set serve all three pages; `StateJson` is fully opaque to
+      Flare.Api (round-tripped as `JsonElement`, never interpreted — one level more
+      opaque than `alert_rules.ConditionJson`, which at least deserializes into a real
+      `LogFilter`). `Model/SavedViewModels.cs`, `Json/SavedViewsJsonContext.cs`,
+      `Query/SavedViewQueryService.cs`, `Endpoints/SavedViewEndpoints.cs` under
+      `/api/views` (`POST`/`GET` (+optional `pageType` filter)/`GET {id}`/`PUT {id}`/
+      `DELETE {id}`) — a near 1:1 mirror of the Alerting CRUD stack.
+- [x] **Dashboard: per-page save/load + a "Views" management page** — each explorer
+      state class (`LogsExplorerState`/`TracesExplorerState`/`MetricsExplorerState`)
+      gained `toSavedViewState()`/`applySavedViewState()`; a shared `ViewsMenu.svelte`
+      toolbar control (list + "Save current view…") was added to all three toolbars
+      rather than three bespoke ones. New `/views` route (`SavedViewsState`,
+      `SavedViewTable.svelte`, rename-only `RenameViewDialog.svelte` — a view's filter
+      itself is only edited from its source page) mirrors the Alerts page's
+      state-class/context/Dialog+Table shape. Fifth `AppNav.svelte` entry.
+- [x] **Shareable links, scoped narrowly** — a one-shot `?view=<id>` query param read
+      only in each explorer's `onMount` (`lib/saved-views/hydrate.ts`), not the
+      generalized "every filter change reflects into the URL" work this doc's v5
+      section flagged as separate and still unstarted. "Copy link" on the `/views`
+      table writes `${origin}${pageBasePath}?view=<id>` to the clipboard.
+- [x] **Verified end-to-end, 2026-08-10** — `dotnet build`/`dotnet test`: 249 tests (up
+      from 244), 0 failures (new `SavedViewRequestJsonTests`). `svelte-check`: 0 errors
+      across 880 files. `npm run build`: clean. Real `docker compose`-built stack: full
+      `curl` CRUD round-trip against `/api/views` (create per page type, `pageType`-filtered
+      list, get, update, soft-delete, 404 on a deleted id); Playwright click-through
+      against the real running dashboard — saved a live Logs filter via the toolbar,
+      confirmed it listed on `/views`, "Copy link"/"Open" produced and followed a
+      working `?view=` URL, a **fresh tab** opened directly on that URL correctly
+      reproduced the filter with live tail off, and delete removed it from both
+      `/views` and the toolbar's own list. Zero browser console errors throughout.
+      **Found one real, pre-existing bug this live run caught, unrelated to this
+      feature**: `Flare.Api`/`Flare.Ingest`'s Dockerfiles never `COPY db/clickhouse/`
+      into the build context, so `Flare.ServiceDefaults.csproj`'s
+      `EmbeddedResource Include="..\..\db\clickhouse\*.sql"` glob silently matches zero
+      files when built via `docker build` (confirmed: the container's published
+      `Flare.ServiceDefaults.dll` has zero embedded resources, vs. 9 when built via
+      plain `dotnet build` locally) — `ClickHouseMigrationRunner` therefore can never
+      actually apply a migration from the real Docker images, the exact "past its first
+      boot" scenario its own doc comment says it exists to fix. Not a regression from
+      this session and not fixed here (out of scope for this feature) — `saved_views`
+      itself still verified correctly because this was a first boot against fresh
+      volumes, so `docker-entrypoint-initdb.d`'s separate mount-based mechanism created
+      it directly. Flagged here, unresolved, the same way this doc names other known
+      gaps rather than silently working around them.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

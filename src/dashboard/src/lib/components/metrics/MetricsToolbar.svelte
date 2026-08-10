@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
+	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
@@ -38,5 +39,10 @@
 		options={serviceOptions}
 		selected={explorer.filter.services}
 		onChange={(next) => explorer.setServices(next)}
+	/>
+	<ViewsMenu
+		pageType="Metrics"
+		currentState={() => explorer.toSavedViewState()}
+		applyState={(s) => explorer.applySavedViewState(s)}
 	/>
 </div>

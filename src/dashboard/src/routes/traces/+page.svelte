@@ -1,15 +1,27 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { page } from '$app/state';
 	import { TracesExplorerState } from '$lib/traces/state.svelte';
 	import { tracesExplorerContext } from '$lib/traces/context';
+	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
 	import TracesToolbar from '$lib/components/traces/TracesToolbar.svelte';
 	import TraceList from '$lib/components/traces/TraceList.svelte';
 
 	const explorer = tracesExplorerContext.set(new TracesExplorerState());
 
 	onMount(() => {
-		void explorer.runSearch();
-		void explorer.loadKnownServices();
+		void (async () => {
+			// ?view=<id> (a saved view's shareable link) takes priority - applySavedViewState
+			// already runs the search itself, so runSearch() below is only reached with no
+			// (or an invalid) view id.
+			const view = await resolveRequestedSavedView(page.url, 'Traces');
+			if (view) {
+				explorer.applySavedViewState(view.state);
+			} else {
+				void explorer.runSearch();
+			}
+			void explorer.loadKnownServices();
+		})();
 	});
 
 	onDestroy(() => {

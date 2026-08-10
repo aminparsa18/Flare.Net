@@ -32,6 +32,20 @@ export interface LogsFilterState {
 	search: string;
 }
 
+/**
+ * JSON-safe mirror of `LogsFilterState` (a saved view's `state` payload for `pageType:
+ * 'Logs'`) - identical except `customRange` uses ISO strings instead of `Date` objects,
+ * since `Date` doesn't survive a JSON round-trip through Flare.Api's opaque
+ * `JsonElement` storage. See `LogsExplorerState.toSavedViewState`/`applySavedViewState`.
+ */
+export interface LogsSavedViewState {
+	timeRangePreset: TimeRangePreset;
+	customRange: { from: string; to: string } | null;
+	services: string[];
+	severityNumbers: number[];
+	search: string;
+}
+
 export class LogsExplorerState {
 	filter = $state<LogsFilterState>({
 		timeRangePreset: '1h',
@@ -245,6 +259,40 @@ export class LogsExplorerState {
 		// explicit re-subscribe in case the filter changed while paused, plus resume.
 		connection.subscribe(this.buildFilter(null));
 		connection.resume();
+	}
+
+	/** Serializes the current filter into a saved view's opaque `state` payload - see `LogsSavedViewState`. */
+	toSavedViewState(): LogsSavedViewState {
+		return {
+			timeRangePreset: this.filter.timeRangePreset,
+			customRange: this.filter.customRange
+				? { from: this.filter.customRange.from.toISOString(), to: this.filter.customRange.to.toISOString() }
+				: null,
+			services: [...this.filter.services],
+			severityNumbers: [...this.filter.severityNumbers],
+			search: this.filter.search
+		};
+	}
+
+	/**
+	 * Restores a saved view's filter (from saved-views-api's opaque `unknown` - defensively
+	 * narrowed since the payload came back through a JsonElement, not a typed response) and
+	 * re-runs the search. Always turns live tail off first - a saved view's whole point is a
+	 * specific filter, not "go live" (same reasoning `TimeRangePicker` already disables
+	 * custom ranges while live), then delegates to `applyFilterChange` so "how a filter
+	 * change re-runs the query" stays defined in exactly one place.
+	 */
+	applySavedViewState(state: unknown): void {
+		const s = (state ?? {}) as Partial<LogsSavedViewState>;
+		this.live = false;
+		this.filter = {
+			timeRangePreset: s.timeRangePreset ?? '1h',
+			customRange: s.customRange ? { from: new Date(s.customRange.from), to: new Date(s.customRange.to) } : null,
+			services: s.services ?? [],
+			severityNumbers: s.severityNumbers ?? [],
+			search: s.search ?? ''
+		};
+		this.applyFilterChange();
 	}
 
 	/** Wired to `document.visibilitychange` from the page - spares the server building up drops for a backgrounded tab. */
