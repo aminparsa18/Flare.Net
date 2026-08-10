@@ -2,7 +2,7 @@
 // src/Flare.Api/Model/IndexingModels.cs + Json/IndexingJsonContext.cs (camelCase
 // properties, no string enums in this response). Keep in sync with those files by hand.
 
-import { API_BASE_URL } from './api';
+import { API_BASE_URL, apiFetch } from './api';
 
 export interface TableStorageInfo {
 	tableName: string;
@@ -40,7 +40,7 @@ export interface IndexingStatsResponse {
 }
 
 export async function getIndexingStats(signal?: AbortSignal): Promise<IndexingStatsResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/indexing/stats`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/indexing/stats`, { signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/indexing/stats failed: ${res.status} ${res.statusText}`);
 	}

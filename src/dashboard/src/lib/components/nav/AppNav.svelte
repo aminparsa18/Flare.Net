@@ -4,9 +4,23 @@
 	// hoisted here and mounted once in +layout.svelte so every route shares them; the
 	// Logs toolbar keeps only its own filter controls.
 	import { page } from '$app/state';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
 	import { cn } from '$lib/utils';
 	import { Separator } from '$lib/components/ui/separator';
+	import { authContext } from '$lib/auth/context';
+
+	// +layout.svelte only renders AppNav once auth.currentUser is confirmed non-null
+	// (see its showChrome derived value) - safe to assume a user here, no null-guarding
+	// needed in this file's markup.
+	const auth = authContext.get();
+
+	async function handleLogout() {
+		// No goto() needed here - auth.currentUser flipping to null is itself what
+		// +layout.svelte's route-guard $effect reacts to, which calls goto('/login')
+		// (or /setup) on its own the moment this resolves.
+		await auth.logout();
+	}
 
 	const links = [
 		{ href: '/', label: 'Logs' },
@@ -39,5 +53,10 @@
 				{link.label}
 			</a>
 		{/each}
+	</div>
+	<div class="ml-auto flex items-center gap-2">
+		<span class="text-muted-foreground text-xs">{auth.currentUser?.username}</span>
+		<Badge variant="outline">{auth.currentUser?.role}</Badge>
+		<Button variant="ghost" size="sm" onclick={handleLogout} disabled={auth.loading}>Log out</Button>
 	</div>
 </nav>

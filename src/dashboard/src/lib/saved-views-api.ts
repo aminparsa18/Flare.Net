@@ -9,7 +9,7 @@
 // see SavedView's C# remarks), and which shape it actually is depends on `pageType`. Each
 // explorer state class's own toSavedViewState()/applySavedViewState() narrows it.
 
-import { API_BASE_URL } from './api';
+import { API_BASE_URL, apiFetch } from './api';
 
 // ---- Shared shapes (SavedViewModels.cs) ------------------------------------
 
@@ -43,7 +43,7 @@ export interface SavedViewListResponse {
 /** `pageType` scopes the list to one dashboard page's own view picker; omitted lists every view (the `/views` management page). */
 export async function listSavedViews(pageType?: PageType, signal?: AbortSignal): Promise<SavedViewListResponse> {
 	const url = pageType ? `${API_BASE_URL}/api/views?pageType=${pageType}` : `${API_BASE_URL}/api/views`;
-	const res = await fetch(url, { signal });
+	const res = await apiFetch(url, { signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/views failed: ${res.status} ${res.statusText}`);
 	}
@@ -51,7 +51,7 @@ export async function listSavedViews(pageType?: PageType, signal?: AbortSignal):
 }
 
 export async function getSavedView(id: string, signal?: AbortSignal): Promise<SavedView> {
-	const res = await fetch(`${API_BASE_URL}/api/views/${id}`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/views/${id}`, { signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/views/${id} failed: ${res.status} ${res.statusText}`);
 	}
@@ -59,7 +59,7 @@ export async function getSavedView(id: string, signal?: AbortSignal): Promise<Sa
 }
 
 export async function createSavedView(request: SavedViewRequest): Promise<SavedView> {
-	const res = await fetch(`${API_BASE_URL}/api/views`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/views`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request)
@@ -71,7 +71,7 @@ export async function createSavedView(request: SavedViewRequest): Promise<SavedV
 }
 
 export async function updateSavedView(id: string, request: SavedViewRequest): Promise<SavedView> {
-	const res = await fetch(`${API_BASE_URL}/api/views/${id}`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/views/${id}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request)
@@ -84,7 +84,7 @@ export async function updateSavedView(id: string, request: SavedViewRequest): Pr
 
 /** 204 No Content on success - unlike every other function here, there's no JSON body to return. */
 export async function deleteSavedView(id: string): Promise<void> {
-	const res = await fetch(`${API_BASE_URL}/api/views/${id}`, { method: 'DELETE' });
+	const res = await apiFetch(`${API_BASE_URL}/api/views/${id}`, { method: 'DELETE' });
 	if (!res.ok) {
 		throw new Error(`DELETE /api/views/${id} failed: ${res.status} ${res.statusText}`);
 	}

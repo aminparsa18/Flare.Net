@@ -10,6 +10,18 @@ import { env } from '$env/dynamic/public';
 /** Falls back to Flare.Api's fixed standalone dev port (see src/Flare.Api/Properties/launchSettings.json). */
 export const API_BASE_URL = env.PUBLIC_API_URL ?? 'http://localhost:5085';
 
+/**
+ * `fetch` wrapper every `lib/*-api.ts` module calls instead of the global `fetch` -
+ * `credentials: 'include'` is required for the session cookie (see
+ * `lib/auth/state.svelte.ts`) to actually be sent, since the dashboard and Flare.Api are
+ * different origins even in docker-compose (different ports). Same signature as `fetch`
+ * itself, so every existing call site's URL-building/options stay exactly as they were -
+ * only the function name changes.
+ */
+export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
+	return fetch(input, { ...init, credentials: 'include' });
+}
+
 // ---- Shared filter shape (LogFilter.cs) ----------------------------------
 
 export type AttributeBag = 'Log' | 'Resource' | 'Scope';
@@ -68,7 +80,7 @@ export interface LogSearchResponse {
 }
 
 export async function searchLogs(request: LogSearchRequest = {}, signal?: AbortSignal): Promise<LogSearchResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/logs/search`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/logs/search`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request),
@@ -101,7 +113,7 @@ export interface LogAggregateResponse {
 }
 
 export async function aggregateLogs(request: LogAggregateRequest, signal?: AbortSignal): Promise<LogAggregateResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/logs/aggregate`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/logs/aggregate`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request),

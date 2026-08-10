@@ -4,7 +4,7 @@
 // src/Flare.Api/Model/PipelineModels.cs + Json/PipelineJsonContext.cs, same convention
 // ingestion-api.ts documents.
 
-import { API_BASE_URL } from './api';
+import { API_BASE_URL, apiFetch } from './api';
 import type { IngestionSignal } from './ingestion-api';
 
 export interface PipelineStreamHealth {
@@ -49,7 +49,7 @@ export interface PipelineStatsResponse {
 }
 
 export async function getPipelineStats(minutes: number, signal?: AbortSignal): Promise<PipelineStatsResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/ingestion/pipeline?minutes=${minutes}`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/ingestion/pipeline?minutes=${minutes}`, { signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/ingestion/pipeline failed: ${res.status} ${res.statusText}`);
 	}
