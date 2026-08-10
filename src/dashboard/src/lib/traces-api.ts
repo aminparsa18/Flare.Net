@@ -4,7 +4,7 @@
 // camelCase-properties/PascalCase-string-enum-values convention `api.ts` documents for
 // LogsJsonContext. Keep in sync with those files by hand.
 
-import { API_BASE_URL } from './api';
+import { API_BASE_URL, apiFetch } from './api';
 
 // ---- Shared filter shape (SpanFilter.cs) -----------------------------------
 
@@ -77,7 +77,7 @@ export interface SpanSearchResponse {
 }
 
 export async function searchSpans(request: SpanSearchRequest = {}, signal?: AbortSignal): Promise<SpanSearchResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/spans/search`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/spans/search`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request),
@@ -99,7 +99,7 @@ export interface TraceDto {
 
 /** Returns `null` for a 404 (no spans found for that trace id) rather than throwing - a normal, expected outcome the caller renders as "not found," not an error state. */
 export async function getTrace(traceId: string, signal?: AbortSignal): Promise<TraceDto | null> {
-	const res = await fetch(`${API_BASE_URL}/api/traces/${encodeURIComponent(traceId)}`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/traces/${encodeURIComponent(traceId)}`, { signal });
 	if (res.status === 404) {
 		return null;
 	}

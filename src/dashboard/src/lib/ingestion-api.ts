@@ -3,7 +3,7 @@
 // same camelCase-properties/PascalCase-string-enum-values convention `api.ts` documents
 // for LogsJsonContext. Keep in sync with those files by hand.
 
-import { API_BASE_URL } from './api';
+import { API_BASE_URL, apiFetch } from './api';
 
 export type IngestionSignal = 'Logs' | 'Traces' | 'Metrics';
 export type IngestionProtocol = 'Grpc' | 'Http';
@@ -42,7 +42,7 @@ export interface IngestionStatsResponse {
 }
 
 export async function getIngestionStats(minutes: number, signal?: AbortSignal): Promise<IngestionStatsResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/ingestion/stats?minutes=${minutes}`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/ingestion/stats?minutes=${minutes}`, { signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/ingestion/stats failed: ${res.status} ${res.statusText}`);
 	}

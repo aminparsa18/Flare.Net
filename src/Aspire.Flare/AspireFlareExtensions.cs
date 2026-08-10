@@ -77,12 +77,22 @@ public static class AspireFlareExtensions
                 "via the configureSettings delegate.");
         }
 
-        // One shared delegate for both signals - Endpoint/Protocol configuration is
-        // identical either way, only the signal-specific builder type differs.
+        // One shared delegate for both signals - Endpoint/Protocol/ApiKey configuration
+        // is identical either way, only the signal-specific builder type differs.
         void ConfigureExporter(OtlpExporterOptions otlp)
         {
             otlp.Endpoint = settings.Endpoint;
             otlp.Protocol = settings.Protocol;
+
+            // The OTel SDK's own Headers mechanism (comma-separated key=value pairs) -
+            // no custom transport code needed. Only set when a key is actually
+            // configured, so exporting to an ingest instance with no auth requirement
+            // (today's default) sends no Authorization header at all, same as before
+            // this property existed.
+            if (!string.IsNullOrEmpty(settings.ApiKey))
+            {
+                otlp.Headers = $"Authorization=Bearer {settings.ApiKey}";
+            }
         }
 
         builder.Services.AddOpenTelemetry()

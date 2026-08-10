@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsAspireSharedProject>true</IsAspireSharedProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Authentication/authorization abstractions (AuthenticationHandler<T>,
+         IAuthenticationSchemeProvider, ClaimsPrincipal helpers, ...) ship in the ASP.NET
+         Core shared framework, not as standalone NuGet packages post-.NET-Core-3.0 - a
+         FrameworkReference is how a plain (non-Sdk.Web) class library opts into them,
+         same as Flare.ServiceDefaults doesn't need this (no auth types there) but would
+         reach for the same mechanism if it did. Also brings Microsoft.Extensions.Logging/
+         Options in transitively, so no separate PackageReference for those is needed. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <!-- Direct references (see Directory.Packages.props) so the pinned, patched 2.1.12
+         versions win over Microsoft.Data.Sqlite's own transitive >=2.1.11 floor. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <PackageReference Include="SQLitePCLRaw.core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embedded the same way Flare.ServiceDefaults embeds db/clickhouse/*.sql for
+         ClickHouseMigrationRunner - see IdentityMigrationRunner's remarks. -->
+    <EmbeddedResource Include="Migrations\*.sql">
+      <LogicalName>Flare.Identity.Migrations.Sql.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Flare.Identity.Tests" />
+  </ItemGroup>
+
+</Project>

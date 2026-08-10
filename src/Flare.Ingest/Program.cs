@@ -1,4 +1,6 @@
 using ClickHouse.Driver;
+using Flare.Identity;
+using Flare.Ingest.Auth;
 using Flare.Ingest.Otlp;
 using Flare.Ingest.Pipeline;
 using Flare.Ingest.Sinks;
@@ -60,6 +62,14 @@ builder.Services.AddSingleton<IIngestionStatsTracker, RedisIngestionStatsTracker
 // Flare.Api, not tracked separately.
 builder.Services.AddSingleton<IFlushHealthTracker, RedisFlushHealthTracker>();
 
+// Ingest API key validation (Planning.md's "Auth + multi-user / roles" item, ingest-side
+// half) - narrow wiring only (IIngestApiKeyStore against the shared identity SQLite
+// file), no Users/Sessions here, see Flare.Identity's remarks for why.
+builder.AddFlareIngestAuth();
+builder.Services.Configure<IngestAuthOptions>(builder.Configuration.GetSection(IngestAuthOptions.SectionName));
+builder.Services.AddSingleton<IngestApiKeyCache>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<IngestApiKeyCache>());
+
 var app = builder.Build();
 
 // Apply any pending db/clickhouse/*.sql migrations before starting the flush workers
@@ -73,7 +83,25 @@ await ClickHouseMigrationRunner.ApplyAsync(
     app.Logger,
     CancellationToken.None);
 
+// Same idempotent-migration convention, applied from both Flare.Ingest and Flare.Api
+// independently (see IdentityMigrationRunner's remarks) - Ingest needs the IngestApiKeys
+// table to exist regardless of which process happens to start first.
+await IdentityMigrationRunner.ApplyAsync(
+    app.Services.GetRequiredService<IdentityDbConnectionFactory>(),
+    app.Logger,
+    CancellationToken.None);
+
+// Populate the cache before accepting any traffic - IngestApiKeyCache's own background
+// refresh loop wouldn't run its first tick for RefreshInterval (30s) otherwise, during
+// which every request would be rejected as if zero keys existed.
+await app.Services.GetRequiredService<IngestApiKeyCache>().InitializeAsync(CancellationToken.None);
+
 app.MapDefaultEndpoints();
+
+// Must come after MapDefaultEndpoints() (so /health and /alive stay reachable
+// unconditionally - see the middleware's own remarks for why this is a positive
+// allow-list, not a /health exclusion) and before every OTLP Map* call below.
+app.UseMiddleware<IngestApiKeyValidationMiddleware>();
 
 app.MapGrpcService<OtlpGrpcLogsService>();
 app.MapOtlpHttpLogsEndpoint();

@@ -396,7 +396,11 @@ actually worked out (see the three bullets below) — closing out the full origi
 ### Later (only if v1 gets traction)
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
-- [ ] Auth + multi-user / roles
+- [x] ~~Auth + multi-user / roles~~ **Shipped 2026-08-10 (see v11 below)** — local
+      username/password + RBAC (Admin/Member/Viewer) on one shared instance, not
+      multi-tenant isolation, per this doc's own "self-hosted, single-instance" framing;
+      identity lives in an embedded SQLite file rather than a fourth backing-store
+      container, mirroring Seq's own footprint-conscious design.
 - [x] ~~OTLP traces & metrics (become a real observability tool)~~ **Traces half done,
       2026-08-10 (see v4 below) — metrics remains a separate, later item** (materially
       different data model: 5 point types vs. one span shape; bundling it would have
@@ -1097,6 +1101,98 @@ not as a lag substitute.
       error message and its red styling, three per-signal service tables) with zero
       browser console errors. Stack torn down after verification (`docker compose down`,
       volumes kept).
+
+### v11 — Auth + multi-user / roles
+Promoted out of "Later" and shipped 2026-08-10. Unlike v4/v6/v7/v10 above (each a single
+roadmap-listed feature), this item arrived with no sub-bullets or design notes at all —
+scoping it was most of the work, done collaboratively before any code: multi-user RBAC on
+one shared self-hosted instance (not multi-tenant SaaS isolation - no per-row ownership
+anywhere, `alert_rules`/`saved_views` stay exactly as global as they always were), local
+username/password for v1 with a documented seam for OIDC/Entra ID/AD later, and - the one
+decision that reversed mid-session - embedded SQLite for identity instead of a fourth
+Postgres backing-store container, once resource footprint became the deciding factor
+(ClickHouse + Redis already run as containers; Seq's own single-binary design was the
+reference point for keeping a third one out of the picture). Full writeup, config
+reference, and the OIDC pluggability seam: **[docs/auth.md](../docs/auth.md)**.
+
+Shipped as five sequential, independently-buildable/testable PRs, each committed and
+verified (full solution build + test suite) before the next started:
+
+- [x] **`Flare.Identity`** (`src/Flare.Identity/`) - new shared project, referenced by
+      both `Flare.Api` (full) and `Flare.Ingest` (ingest-key checks only), mirroring the
+      existing `Flare.ServiceDefaults` shared-project pattern. `Users`/`Sessions`/
+      `IngestApiKeys` SQLite schema (`Migrations/0001_identity.sql`), an idempotent
+      `IdentityMigrationRunner` (same shape as `ClickHouseMigrationRunner`), raw
+      `Microsoft.Data.Sqlite` (no EF Core, matching how the rest of the repo talks to
+      ClickHouse), a custom `SessionAuthenticationHandler` (opaque server-side session
+      tokens in an httpOnly cookie, not JWT - revocation needs a server-side row anyway,
+      and this is a single-process deployment so JWT's stateless-scaling payoff doesn't
+      apply), and `AspNetPasswordHasher` (reuses only `PasswordHasher<T>` from ASP.NET
+      Core's shared framework, not the rest of Identity's EF Core/MVC-oriented stack -
+      confirmed via a NU1510 package-pruning warning that no separate package reference
+      is even needed for it in .NET 10). Also fixed a real NuGet-audit finding along the
+      way: pinned `SQLitePCLRaw.bundle_e_sqlite3`/`.core` to the patched `2.1.12`
+      (GHSA-2m69-gcr7-jv3q/NU1903), same override pattern already used for
+      `Microsoft.OpenApi`. 28 new tests.
+- [x] **`Flare.Api` wiring** (`Program.cs`, new `Endpoints/AuthEndpoints.cs`) -
+      `AddAuthentication`/`AddAuthorizationBuilder` (`RequireMember`/`RequireAdmin`
+      policies), `login`/`logout`/`me`/`bootstrap`/`bootstrap/status`, CORS tightened
+      from `AllowAnyOrigin()` to an explicit `Cors:AllowedOrigins` allow-list +
+      `AllowCredentials()`. Every existing endpoint group gets `RequireAuthorization()`
+      with **zero changes to any of the nine existing endpoint files** - an
+      empty-prefix `MapGroup("").RequireAuthorization()` wrapper lets their existing
+      `this IEndpointRouteBuilder endpoints => ...; return endpoints;` shape inherit the
+      group's policy. The live-tail WebSocket needed no special-casing either: the
+      session cookie is sent automatically on the WS upgrade request. 11 new tests
+      (fake in-memory `IUserStore`/`ISessionStore`, `IResult.ExecuteAsync` against a
+      real `DefaultHttpContext` - no live SQLite/WebApplicationFactory needed).
+- [x] **Persistence** (`docker-compose.yml`, `Flare.AppHost/AppHost.cs`) - a shared
+      `identity-data` volume/`.data/identity/` path for the SQLite file, `Cors:AllowedOrigins`
+      derived from the same `FLARE_DASHBOARD_PORT` the dashboard's own `ORIGIN` already
+      uses so the two can't drift apart. Surfaced and fixed a real gap: `IdentityDbConnectionFactory`
+      now creates the DB file's parent directory itself (SQLite only ever creates the
+      file, not its folder) - would have broken on a genuinely first-ever `aspire run`.
+- [x] **Dashboard** (`src/dashboard/`) - `routes/login`, `routes/setup` (first-run admin
+      creation), a route guard in `+layout.svelte` that renders a spinner (never the
+      real route) while a redirect is pending, so protected content can never flash
+      before the bounce completes - safe because `$effect` bodies only run after client
+      hydration, never during SSR. New `apiFetch()` wrapper in `lib/api.ts`
+      (`credentials: 'include'`) that every other `lib/*-api.ts` module's ~23 raw
+      `fetch()` call sites now route through - a mechanical rename, not a rewrite, so no
+      endpoint was missed. `svelte-check`: 0 errors/warnings across 914 files.
+- [x] **Ingest API keys** (`src/Flare.Ingest/Auth/`, `Aspire.Flare`,
+      `Aspire.Hosting.Flare`) - `Admin`-only key management (`Flare.Api`'s new
+      `IngestApiKeyEndpoints`), a background-refreshed in-memory cache on the
+      `Flare.Ingest` side (never hits SQLite per ingest request), and one deviation from
+      the original plan that turned out simpler: **no separate gRPC interceptor** - gRPC-
+      on-ASP.NET-Core requests flow through the same middleware pipeline as HTTP (gRPC
+      metadata like `authorization` is a plain HTTP header on the wire), so one
+      `IngestApiKeyValidationMiddleware` covers both transports. Ships with
+      `Auth:IngestKeyRequired=false` so existing anonymous-ingest deployments upgrade
+      without breakage. `Aspire.Flare`'s `FlareSettings.ApiKey` and
+      `Aspire.Hosting.Flare`'s `AddFlare(..., apiKey: ...)` complete the seam v2's
+      `Flare.Aspire` section had already earmarked for this. 11 new tests.
+
+**Verification:** full solution build + `dotnet test` after every one of the five PRs
+above (346 tests total, 0 failures by the end); `npm run check`/`npm run build` for the
+dashboard PR. Then a real `docker compose up --build` end-to-end pass (curl-driven, same
+"verify against the real thing" precedent as v9/v10) - which caught a genuine bug unit
+tests couldn't: `Flare.Api`/`Flare.Ingest`'s `Dockerfile`s only `COPY`'d the source
+directories that existed *before* this feature, so the new `Flare.Identity`
+`ProjectReference` silently resolved to nothing inside the build context (an MSBuild
+warning, not an error - `dotnet build` on the host never sees this, only a from-scratch
+Docker build with a clean context does). Fixed by adding the same `COPY src/Flare.Identity/`
+pair every other cross-project reference already gets. After that fix, the full flow
+confirmed live: `bootstrap/status` → 401 on a protected endpoint pre-login → bootstrap
+(201, `Set-Cookie`, `httponly`/`secure`/`samesite=lax`) → `/me` and a protected endpoint
+both succeed with the cookie → a second bootstrap 409s → create an ingest key (raw key
+shown once) → an anonymous OTLP HTTP log export still succeeds (`Auth:IngestKeyRequired`
+defaults false) → the log lands in ClickHouse and is queryable through the authenticated
+search endpoint (after the normal batch-flush delay, not instant) → logout clears the
+cookie and `/me` 401s again → the ingest key revokes cleanly → a CORS preflight from the
+dashboard's actual origin (`localhost:3000`) returns the right
+`Access-Control-Allow-Origin`/`-Credentials` headers. Stack torn down after
+(`docker compose down`), volumes kept - same closing move as v10.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

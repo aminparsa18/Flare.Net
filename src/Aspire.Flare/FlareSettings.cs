@@ -25,4 +25,17 @@ public sealed class FlareSettings
     /// default on the AppHost side.
     /// </summary>
     public OtlpExportProtocol Protocol { get; set; } = OtlpExportProtocol.Grpc;
+
+    /// <summary>
+    /// Gets or sets the ingest API key to attach as an <c>Authorization: Bearer</c>
+    /// header on every export, if Flare.Ingest's receiving instance has
+    /// <c>Auth:IngestKeyRequired</c> set. Unset by default - anonymous ingest, matching
+    /// today's default on the Flare.Ingest side. Bound from the <c>Aspire:Flare</c>
+    /// configuration section, same as <see cref="Endpoint"/>/<see cref="Protocol"/>; no
+    /// automatic flow-through from <c>.WithReference(flare)</c>'s connection string yet
+    /// (unlike <see cref="Endpoint"/>) - set it explicitly via <c>configureSettings</c> or
+    /// configuration, e.g. mirroring whatever value was passed to
+    /// <c>Aspire.Hosting.Flare</c>'s <c>AddFlare(..., apiKey: ...)</c> on the AppHost side.
+    /// </summary>
+    public string? ApiKey { get; set; }
 }

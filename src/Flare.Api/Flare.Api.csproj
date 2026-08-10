@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Flare.ServiceDefaults\Flare.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Flare.Identity\Flare.Identity.csproj" />
   </ItemGroup>
 
   <ItemGroup>

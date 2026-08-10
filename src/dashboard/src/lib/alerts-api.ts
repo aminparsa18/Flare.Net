@@ -4,7 +4,7 @@
 // PascalCase string enums - same convention `api.ts` documents for LogsJsonContext).
 // Keep in sync with those files by hand.
 
-import { API_BASE_URL, type LogFilter } from './api';
+import { API_BASE_URL, apiFetch, type LogFilter } from './api';
 
 // ---- Shared shapes (AlertModels.cs) ---------------------------------------
 
@@ -85,7 +85,7 @@ export interface AlertTestResult {
 // ---- CRUD ------------------------------------------------------------------
 
 export async function listAlertRules(signal?: AbortSignal): Promise<AlertRuleListResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/alerts`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts`, { signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/alerts failed: ${res.status} ${res.statusText}`);
 	}
@@ -93,7 +93,7 @@ export async function listAlertRules(signal?: AbortSignal): Promise<AlertRuleLis
 }
 
 export async function getAlertRule(id: string, signal?: AbortSignal): Promise<AlertRule> {
-	const res = await fetch(`${API_BASE_URL}/api/alerts/${id}`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}`, { signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/alerts/${id} failed: ${res.status} ${res.statusText}`);
 	}
@@ -101,7 +101,7 @@ export async function getAlertRule(id: string, signal?: AbortSignal): Promise<Al
 }
 
 export async function createAlertRule(request: AlertRuleRequest): Promise<AlertRule> {
-	const res = await fetch(`${API_BASE_URL}/api/alerts`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request)
@@ -113,7 +113,7 @@ export async function createAlertRule(request: AlertRuleRequest): Promise<AlertR
 }
 
 export async function updateAlertRule(id: string, request: AlertRuleRequest): Promise<AlertRule> {
-	const res = await fetch(`${API_BASE_URL}/api/alerts/${id}`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request)
@@ -126,7 +126,7 @@ export async function updateAlertRule(id: string, request: AlertRuleRequest): Pr
 
 /** 204 No Content on success - unlike every other function here, there's no JSON body to return. */
 export async function deleteAlertRule(id: string): Promise<void> {
-	const res = await fetch(`${API_BASE_URL}/api/alerts/${id}`, { method: 'DELETE' });
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}`, { method: 'DELETE' });
 	if (!res.ok) {
 		throw new Error(`DELETE /api/alerts/${id} failed: ${res.status} ${res.statusText}`);
 	}
@@ -135,7 +135,7 @@ export async function deleteAlertRule(id: string): Promise<void> {
 // ---- History -----------------------------------------------------------------
 
 export async function getAlertHistory(id: string, limit = 50, signal?: AbortSignal): Promise<AlertHistoryResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/alerts/${id}/history?limit=${limit}`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}/history?limit=${limit}`, { signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/alerts/${id}/history failed: ${res.status} ${res.statusText}`);
 	}
@@ -146,7 +146,7 @@ export async function getAlertHistory(id: string, limit = 50, signal?: AbortSign
 
 /** Dry-runs a saved rule by id - ignores cooldown, writes nothing. */
 export async function testAlertRule(id: string): Promise<AlertTestResult> {
-	const res = await fetch(`${API_BASE_URL}/api/alerts/${id}/test`, { method: 'POST' });
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}/test`, { method: 'POST' });
 	if (!res.ok) {
 		throw new Error(`POST /api/alerts/${id}/test failed: ${res.status} ${res.statusText}`);
 	}
@@ -155,7 +155,7 @@ export async function testAlertRule(id: string): Promise<AlertTestResult> {
 
 /** Dry-runs an unsaved draft - lets the create/edit form show "would fire now" before Save. */
 export async function testDraftAlertRule(request: AlertRuleRequest): Promise<AlertTestResult> {
-	const res = await fetch(`${API_BASE_URL}/api/alerts/test`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/test`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request)

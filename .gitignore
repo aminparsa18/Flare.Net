@@ -77,3 +77,8 @@ nunit-*.xml
 
 # graphify knowledge-graph output - regeneratable, not source
 graphify-out/
+
+# Flare.AppHost's local-dev embedded identity SQLite file (Users/Sessions/IngestApiKeys)
+# - see AppHost.cs's identityDbPath. Runtime data, not source, same reasoning as
+# clickhouse-data/redis-data not being committed for docker-compose.
+/.data/

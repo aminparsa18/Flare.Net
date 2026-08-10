@@ -71,6 +71,19 @@ public static class FlareResourceBuilderExtensions
     /// </param>
     /// <param name="apiImage">Same override as <paramref name="ingestImage"/>, for the api image.</param>
     /// <param name="dashboardImage">Same override as <paramref name="ingestImage"/>, for the dashboard image.</param>
+    /// <param name="apiKey">
+    /// Optional ingest API key parameter (pass a <c>secret: true</c> <c>AddParameter</c>
+    /// result) - when set, <c>ingest</c> gets <c>Auth__IngestKeyRequired=true</c> and
+    /// <c>Auth__StaticIngestApiKey</c> set to this value, so any OTLP exporter pointed
+    /// at this Flare instance must present it
+    /// (see <c>Flare.Identity.Auth.IngestAuthOptions.StaticIngestApiKey</c>'s remarks for
+    /// why this is a separate, config-driven mechanism from the dashboard's "create a
+    /// key" flow). Left unset (the default), ingest stays anonymous, matching today's
+    /// Flare.Ingest default. A consuming app's own <c>AddFlareOtlpExporter</c> call
+    /// (from the <c>Aspire.Flare</c> package) needs the same raw value passed to its own
+    /// <c>configureSettings: s =&gt; s.ApiKey = ...</c> delegate - there's no automatic
+    /// flow-through from this parameter yet, see <c>FlareSettings.ApiKey</c>'s remarks.
+    /// </param>
     /// <returns>An <see cref="IResourceBuilder{FlareResource}"/> for the composite Flare resource.</returns>
     /// <exception cref="ArgumentException"><paramref name="imageTag"/> is null or empty.</exception>
     public static IResourceBuilder<FlareResource> AddFlare(
@@ -83,7 +96,8 @@ public static class FlareResourceBuilderExtensions
         int? dashboardPort = null,
         string? ingestImage = null,
         string? apiImage = null,
-        string? dashboardImage = null)
+        string? dashboardImage = null,
+        IResourceBuilder<ParameterResource>? apiKey = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(imageTag);
@@ -163,6 +177,18 @@ public static class FlareResourceBuilderExtensions
         if (ingestImage is null)
         {
             ingest.WithImagePullPolicy(ImagePullPolicy.Always);
+        }
+
+        // Ingest API key (Planning.md's "Auth + multi-user / roles" item, ingest-side
+        // half) - config-driven rather than "create a key via the dashboard," since that
+        // manual flow doesn't fit an automated resource-graph-wiring use case like this
+        // one. Only wired onto `ingest` - `api`'s own auth (dashboard user sessions) is
+        // unrelated to this key.
+        if (apiKey is not null)
+        {
+            ingest
+                .WithEnvironment("Auth__IngestKeyRequired", "true")
+                .WithEnvironment("Auth__StaticIngestApiKey", apiKey);
         }
 
         // Attach ingest's real endpoints to the composite FlareResource so consumers can reach

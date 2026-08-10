@@ -54,6 +54,23 @@
          references can hang the parser) fixed in 2.7.5. Pinned directly + referenced
          from Flare.Api.csproj so the direct reference wins over the transitive one. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
+    <!-- Flare.Identity: local username/password auth + roles, embedded-SQLite-backed
+         (Planning.md's "Auth + multi-user / roles" Later-roadmap item, 2026-08-10 design
+         decision - SQLite over a new Postgres container, see docs/auth.md). Pinned at
+         10.0.10 to match every other .NET-10-servicing-train package above. -->
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <!-- PasswordHasher<T> (Auth/AspNetPasswordHasher.cs) comes from the ASP.NET Core
+         shared framework (Microsoft.AspNetCore.App FrameworkReference) in .NET 10, not a
+         separate Microsoft.Extensions.Identity.Core package reference - confirmed via
+         NU1510 package-pruning warning when one was added, then a clean build without it. -->
+    <!-- Microsoft.Data.Sqlite 10.0.0 floors its SQLitePCLRaw.* dependencies at >=2.1.11,
+         which NuGet audit flags as GHSA-2m69-gcr7-jv3q (high severity, vulnerable bundled
+         SQLite). 2.1.12 is a same-API-shape patch release on the 2.1.x branch (SQLitePCLRaw
+         restructured its packages in 3.x, which Microsoft.Data.Sqlite 10.0.x doesn't
+         target) - pinned directly + referenced from Flare.Identity.csproj so it wins over
+         the transitive 2.1.11 floor, same pattern already used above for Microsoft.OpenApi. -->
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.12" />
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

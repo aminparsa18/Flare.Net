@@ -6,7 +6,7 @@
 // names as-is - confirmed against a real response during Pass 2's e2e verification,
 // e.g. `"type": "Gauge"`). Keep in sync with those files by hand.
 
-import { API_BASE_URL } from './api';
+import { API_BASE_URL, apiFetch } from './api';
 
 // ---- Shared filter shape (MetricFilter.cs) ---------------------------------
 
@@ -45,7 +45,7 @@ export interface MetricNamesResponse {
 }
 
 export async function getMetricNames(request: MetricNamesRequest = {}, signal?: AbortSignal): Promise<MetricNamesResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/metrics/names`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/metrics/names`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request),
@@ -89,7 +89,7 @@ export interface MetricQueryResponse {
 }
 
 export async function queryMetric(request: MetricQueryRequest, signal?: AbortSignal): Promise<MetricQueryResponse> {
-	const res = await fetch(`${API_BASE_URL}/api/metrics/query`, {
+	const res = await apiFetch(`${API_BASE_URL}/api/metrics/query`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request),
