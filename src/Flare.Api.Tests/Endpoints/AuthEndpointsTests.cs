@@ -191,14 +191,12 @@ public class AuthEndpointsTests
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
     }
 
-    private static readonly IOptions<EntraOptions> DefaultEntraOptions = Options.Create(new EntraOptions());
-
     [Fact]
     public async Task BootstrapStatus_ReturnsTrue_WhenNoUsersExist()
     {
         var context = CreateContext();
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), DefaultEntraOptions, CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
@@ -212,7 +210,7 @@ public class AuthEndpointsTests
         await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
         var context = CreateContext();
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(users, DefaultEntraOptions, CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(users, new FakeEntraSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
@@ -223,9 +221,9 @@ public class AuthEndpointsTests
     public async Task BootstrapStatus_ReportsEntraEnabled_WhenConfigured()
     {
         var context = CreateContext();
-        var entraOptions = Options.Create(new EntraOptions { Enabled = true });
+        var entraSettings = new FakeEntraSettingsStore(new EntraSettings(Enabled: true, TenantId: "tenant-1", ClientId: "client-1", ClientSecret: "secret-1", UpdatedAt: DateTimeOffset.UtcNow));
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), entraOptions, CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), entraSettings, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);

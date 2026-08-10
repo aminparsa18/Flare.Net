@@ -157,11 +157,12 @@ public static class AuthEndpoints
         return Results.Json(ToDto(user), AuthJsonContext.Default.AuthUserDto, statusCode: StatusCodes.Status201Created);
     }
 
-    internal static async Task<IResult> HandleBootstrapStatusAsync(IUserStore users, IOptions<EntraOptions> entraOptions, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleBootstrapStatusAsync(IUserStore users, IEntraSettingsStore entraSettings, CancellationToken cancellationToken)
     {
         var needsBootstrap = !await users.AnyAsync(cancellationToken);
+        var settings = await entraSettings.GetAsync(cancellationToken);
         return Results.Json(
-            new BootstrapStatusResponse { NeedsBootstrap = needsBootstrap, EntraEnabled = entraOptions.Value.Enabled },
+            new BootstrapStatusResponse { NeedsBootstrap = needsBootstrap, EntraEnabled = settings.Enabled },
             AuthJsonContext.Default.BootstrapStatusResponse);
     }
 

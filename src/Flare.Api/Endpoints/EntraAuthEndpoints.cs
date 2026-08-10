@@ -38,9 +38,10 @@ public static class EntraAuthEndpoints
         return endpoints;
     }
 
-    internal static IResult HandleLoginAsync(string? returnUrl, IConfiguration configuration, IOptions<EntraOptions> entraOptions)
+    internal static async Task<IResult> HandleLoginAsync(string? returnUrl, IConfiguration configuration, IEntraSettingsStore entraSettings, CancellationToken cancellationToken)
     {
-        if (!entraOptions.Value.Enabled)
+        var settings = await entraSettings.GetAsync(cancellationToken);
+        if (!settings.Enabled)
         {
             return Results.NotFound();
         }
@@ -64,16 +65,17 @@ public static class EntraAuthEndpoints
         HttpContext http,
         IUserStore users,
         ISessionStore sessions,
+        IEntraSettingsStore entraSettings,
         IOptions<AuthOptions> authOptions,
         IOptions<EntraOptions> entraOptions,
         CancellationToken cancellationToken)
     {
-        // Defensive: the "EntraExternal"/"Entra" schemes are only registered in
-        // Program.cs when Auth:Entra:Enabled is true (see its remarks), so this guards
-        // against an InvalidOperationException from AuthenticateAsync if this endpoint
-        // were ever hit directly with Entra disabled - unreachable via the normal login
-        // flow (HandleLoginAsync already 404s first), but not via a hand-crafted request.
-        if (!entraOptions.Value.Enabled)
+        // Defensive: the "EntraExternal"/"Entra" auth *schemes* are always registered
+        // now (Program.cs), but the login flow itself is still gated on Enabled - this
+        // guards the same disabled-Entra case HandleLoginAsync already 404s on, just for
+        // a hand-crafted request that skips straight to this endpoint.
+        var settings = await entraSettings.GetAsync(cancellationToken);
+        if (!settings.Enabled)
         {
             return Results.NotFound();
         }

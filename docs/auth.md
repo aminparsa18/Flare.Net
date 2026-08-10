@@ -97,9 +97,20 @@ principal through. Entra ID is a second, separate front door that ends in exactl
 same kind of session — `RequireMember`/`RequireAdmin` and every existing endpoint needed
 zero changes to support it.
 
-**Single-tenant only.** Flare validates against one specific Entra directory
-(`Auth:Entra:TenantId`), not `common`/`organizations` — letting any Entra org's users
-reach a self-hosted internal tool's login is the wrong default.
+**Single-tenant only.** Flare validates against one specific Entra directory, not
+`common`/`organizations` — letting any Entra org's users reach a self-hosted internal
+tool's login is the wrong default.
+
+**Configured per-instance, through the dashboard - not config files.** Each self-hosted
+Flare operator creates their own Entra App Registration (see "App Registration setup"
+below) and pastes the resulting Tenant ID/Client ID/client secret into the Admin-only
+**Security** screen (`/security` in the dashboard), the same way Seq's own Security
+settings page works. There's no `Auth:Entra:TenantId`/`ClientId`/`ClientSecret` in
+config/`.env`/docker-compose to set - the database is the only place these live.
+Settings changes take effect after restarting `Flare.Api` (`docker compose restart api`,
+or an `aspire resource restart` in local dev) - not live, by design; see
+`EntraOpenIdConnectOptionsConfigurator`'s remarks in `Flare.Api/Auth/` for why that's a
+deliberate simplicity/risk trade-off, not a limitation anyone's expected to work around.
 
 ### How it works
 
@@ -130,7 +141,9 @@ Entra ID **App Roles** are the role source, matched by name against Flare's own
 3. On that person's **first** sign-in, Flare reads the token's `roles` claim and picks
    the highest-privilege match (`Admin` > `Member` > `Viewer`). No App Role assigned (or
    App Roles not configured on the registration at all) provisions
-   `Auth:Entra:DefaultRole` instead — `Viewer` unless you've overridden it.
+   `Auth:Entra:DefaultRole` instead (still config-bound, unlike the four values above -
+   the Security screen doesn't configure a role-mapping fallback either) — `Viewer`
+   unless you've overridden it.
 4. **Role changes after that live in Flare, not Entra.** Continuously re-reading the
    `roles` claim on every login would make the Users screen's own role control
    meaningless for SSO accounts — see "Managing users" below to promote/demote an
@@ -144,19 +157,22 @@ session.
 
 1. **Entra ID → App registrations → New registration.** Single tenant
    ("Accounts in this organizational directory only").
-2. **Redirect URI**: platform "Web", value `http://localhost:8080/signin-oidc` for a
-   local `docker compose up` (substitute your real `FLARE_API_PORT`/host for anything
-   beyond localhost — and use `https://` once this is reachable beyond your own machine,
-   see the caveat below).
+2. **Redirect URI**: platform "Web". No chicken-and-egg problem here - sign in to Flare
+   with your existing local username/password Admin account (see "First run" above) and
+   open `/security`; it displays the *exact* redirect URI to paste here, computed from
+   whatever host/port you're actually reaching Flare.Api on, so you don't have to work it
+   out by hand. For a local `docker compose up` this is
+   `http://localhost:8080/signin-oidc` by default; use `https://` once this is reachable
+   beyond your own machine, see the caveat below.
 3. **Certificates & secrets → New client secret.** Copy the value immediately — like an
    ingest API key's raw value, Azure only shows it once.
 4. **App roles** (see "Role provisioning" above) and, if you want anyone to actually be
    assigned one, **Enterprise applications → your app → Users and groups**.
 5. Note the **Application (client) ID** and **Directory (tenant) ID** from the
    registration's Overview page.
-6. Set `Auth:Entra:Enabled=true`, `Auth:Entra:TenantId`, `Auth:Entra:ClientId`,
-   `Auth:Entra:ClientSecret` (see the config reference below — `.env`'s
-   `ENTRA_*` variables for `docker compose`).
+6. Back in Flare's `/security` screen: paste the Directory (tenant) ID, Application
+   (client) ID, and client secret, flip **Enabled** on, and Save. Restart `Flare.Api`
+   (`docker compose restart api`) for it to take effect.
 
 **HTTPS caveat:** the correlation cookies ASP.NET Core's OIDC handler sets during the
 redirect round-trip to Microsoft need to survive a cross-site navigation, which browsers
@@ -172,7 +188,9 @@ list every account (local and Entra alike), change a role, or enable/disable an 
 This is also where you promote a newly-auto-provisioned Entra account past its initial
 role, or disable one without waiting for someone to remove their Entra App Role
 assignment. Flare refuses to demote or disable the **last enabled Admin** — that would
-be a lockout recoverable only by editing the SQLite file directly.
+be a lockout recoverable only by editing the SQLite file directly. A separate Admin-only
+page, `/security`, is where the Entra App Registration itself gets configured - see
+above.
 
 ## Configuration reference
 
@@ -186,11 +204,7 @@ be a lockout recoverable only by editing the SQLite file directly.
 | `Auth:IngestKeyRequired` | `false` | Whether `Flare.Ingest` rejects OTLP requests with no valid API key. |
 | `Auth:StaticIngestApiKey` | unset | A fixed ingest key set via config instead of the dashboard — see "Ingest API keys" above. |
 | `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. Also doubles as the Entra login `returnUrl` allow-list. |
-| `Auth:Entra:Enabled` | `false` | Registers the `Entra` OpenIdConnect scheme and the "Sign in with Microsoft" flow. Requires `TenantId`/`ClientId`/`ClientSecret` below to actually work. |
-| `Auth:Entra:TenantId` | unset | The Entra App Registration's Directory (tenant) ID. Single-tenant only — see above. |
-| `Auth:Entra:ClientId` | unset | The App Registration's Application (client) ID. |
-| `Auth:Entra:ClientSecret` | unset | The App Registration's client secret. No working default — same "blank until configured" convention as the alerting Email channel's SMTP settings. |
-| `Auth:Entra:DefaultRole` | `Viewer` | Role assigned on first login when the token carries no recognized `roles` claim entry. |
+| `Auth:Entra:DefaultRole` | `Viewer` | Role assigned on first login when the token carries no recognized `roles` claim entry. The one Entra-related setting that's still config-bound - `Enabled`/`TenantId`/`ClientId`/`ClientSecret` live in the database instead, set via the dashboard's `/security` screen (Admin-only, `GET`/`PUT /api/settings/entra`) - see "Configured per-instance, through the dashboard" above. |
 
 ## Backups
 

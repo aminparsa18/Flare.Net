@@ -1251,12 +1251,97 @@ screen shipped in the same pass, not as a follow-up.
       `AuthEndpointsTests`, the new `EntraAuthEndpointsTests`, `UserEndpointsTests`).
       `npm run build`/`npm run check` (dashboard): clean, `/users` present in the build
       output.
-- [ ] **Live-tenant + docker-compose end-to-end verification** — still pending. Everything
-      with `Auth:Entra:Enabled=false` (the shipped default) is curl-verifiable through a
-      real `docker compose up --build` the same way v11 was — not yet run this session.
-      The actual Microsoft redirect, App Role → role mapping, and the Users screen driven
-      through a real browser all need a real Entra tenant, which only the user has — see
-      `docs/auth.md`'s App Registration walkthrough for the setup.
+- [x] **Live-tenant + docker-compose end-to-end verification** — superseded by the v12.1
+      follow-up below before it was run: the config-file-based `Auth:Entra:*` values this
+      would have verified no longer exist.
+
+**v12.1 follow-up, same day:** the user looked at Seq's own Security settings page (a
+screenshot: Authentication provider dropdown, Redirect URI, Authority, Directory/Tenant
+ID, Application/Client ID, a write-only client secret field) and asked for the same
+experience — each self-hosted Flare operator pastes their own Entra App Registration's
+values into an Admin-only dashboard screen, not into `.env`/docker-compose/appsettings.
+Scoped via two AskUserQuestion calls before code: **restart required after saving**
+(not live hot-reload — simpler and far lower-risk than making ASP.NET Core's OIDC
+handler reconfigure itself mid-process, and this is already a restart-cheap
+single-replica deployment) and **the database is now the only source of truth** for
+`Enabled`/`TenantId`/`ClientId`/`ClientSecret` — the `Auth:Entra:*`/`ENTRA_*` config keys
+v12 shipped are removed entirely (`Auth:Entra:DefaultRole` stays config-bound - Seq's
+screen doesn't configure a role-mapping fallback either).
+
+- [x] **`Flare.Identity`** — additive migration (`0003_entra_settings.sql`: a
+      settings-singleton `EntraSettings` table, `CHECK (Id = 1)`), `EntraSettings`
+      record, `IEntraSettingsStore`/`SqliteEntraSettingsStore` (a SQLite
+      `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` upsert — `ClientSecret` only
+      overwrites when the caller actually supplies one, via `COALESCE(excluded.ClientSecret,
+      EntraSettings.ClientSecret)`, so the dashboard's blank-means-unchanged field never
+      needs a separate read-before-write). `EntraOptions` trimmed to just `DefaultRole`.
+      Client secret stored in plaintext — same trust model as the env var it replaces
+      (self-hosted, single-tenant, has to be reversible to send to Microsoft on token
+      exchange, unlike `IngestApiKeys.KeyHash`). 5 new tests.
+- [x] **`Flare.Api`: restart-required reconfiguration, with zero polling/invalidation
+      code** — the `Entra`/`EntraExternal` schemes are now *always* registered (`Enabled`
+      is a pure data flag `EntraAuthEndpoints` already checked, not a startup wiring
+      decision); a new `EntraOpenIdConnectOptionsConfigurator : IConfigureNamedOptions<OpenIdConnectOptions>`
+      applies the database row's Authority/ClientId/ClientSecret. This works because
+      ASP.NET Core resolves a named options instance lazily, once, then caches it for the
+      process's lifetime unless something explicitly invalidates it — nothing here ever
+      does, so a changed row only takes effect on the next resolution, i.e. after a
+      restart, for free. New Admin-only `GET`/`PUT /api/settings/entra`
+      (`EntraSettingsEndpoints`) — `GET` never returns the real secret (`hasClientSecret`
+      boolean instead, matching Seq's own "will not be displayed once set") and computes
+      the exact `redirectUri` to register in Entra from the current request's
+      scheme+host; `PUT` 400s if `enabled: true` is missing a tenant/client id or has no
+      secret on record (this call's or a previous one's).
+- [x] **Config cleanup** — `docker-compose.yml`/`.env.example`'s `Auth__Entra__*`/`ENTRA_*`
+      lines (added in v12) removed entirely.
+- [x] **Dashboard** — new Admin-only `/security` page (`SecuritySettingsForm.svelte`),
+      modeled on the Seq screenshot: read-only Redirect URI with a copy button, Tenant
+      ID/Client ID/Client secret inputs (secret shows a masked placeholder once set,
+      blank stays "unchanged" on save), an Enabled switch, and a post-save "restart
+      Flare.Api to apply" notice — no attempt to poll for or detect the restart. Second
+      role-gated nav entry alongside `/users`, same Admin-only route-guard pattern.
+- [x] **Found and fixed a real bug this live run caught, not unit tests** — the first
+      real `docker compose up --build` pass 500'd on *every single request*, including
+      `/health`, with `ArgumentNullException: ClientId`. Root cause: making the `Entra`
+      OpenIdConnect scheme always-registered (so a disabled/unconfigured deployment could
+      still resolve its options once, lazily) ran into a real ASP.NET Core behavior
+      neither the plan nor the framework docs called out: `AuthenticationMiddleware`
+      resolves (and validates) *every* registered scheme implementing
+      `IAuthenticationRequestHandler` - which `OpenIdConnectHandler` does - on *every
+      request*, to check whether that request's path matches the scheme's own
+      `CallbackPath`, not only on requests that actually challenge it.
+      `OpenIdConnectOptions.Validate()` unconditionally requires a non-empty
+      `ClientId`/`Authority`, so an all-null `EntraSettings` row broke the whole API, not
+      just Entra endpoints. Fixed in `EntraOpenIdConnectOptionsConfigurator` by falling
+      back to harmless placeholder values (`ClientId: "not-configured"`,
+      `Authority: .../common/v2.0`) when unconfigured - never actually used for anything
+      real (`EntraAuthEndpoints` still gates every real use on `Enabled` before
+      challenging, and Microsoft's metadata document is only ever fetched lazily on an
+      actual auth attempt, not at options-configure time), just enough to satisfy
+      `Validate()`. 3 new regression tests
+      (`EntraOpenIdConnectOptionsConfiguratorTests`) lock in "never null/empty," though
+      the real confirmation was re-running the live stack, not the unit tests - see below.
+- [x] **Verified 2026-08-10** — `dotnet build`/`dotnet test` on the full solution: 387
+      tests, 0 failures (up from 372 — 5 new in `Flare.Identity.Tests`, 10 new in
+      `Flare.Api.Tests`). `npm run build`/`npm run check` (dashboard): clean, `/security`
+      present in the build output. Real `docker compose up --build` end-to-end pass
+      (after the fix above): fresh volumes, `/health` 200 with Entra unconfigured (the
+      regression this session's own bug would have failed), bootstrapped an Admin,
+      `GET /api/settings/entra` correctly reported the unconfigured state and a correct
+      computed `redirectUri`; `PUT` real-shaped (fake) tenant/client/secret values,
+      confirmed `GET` never echoes the secret back; confirmed the `enabled: true` +
+      missing-tenant-id 400 guard; confirmed a second `PUT` with `clientSecret: null`
+      preserved the previously-saved secret. **Restart-required semantics confirmed live,
+      not just by design reasoning**: the login challenge's redirect to Microsoft used
+      the stale placeholder `client_id=not-configured` immediately after saving real
+      values (options already cached from the very first pre-save request), then after
+      `docker compose restart api` the same challenge correctly reached out to
+      `https://login.microsoftonline.com/<the-just-saved-tenant-id>/v2.0/.well-known/openid-configuration`
+      - failing only because that tenant ID was a fake placeholder GUID, not a real Entra
+      tenant, exactly the expected outcome without one. The actual Microsoft
+      redirect/App Role mapping through a real browser remains pending - same "needs the
+      user's own Entra tenant" caveat v12 already flagged, now against this revised
+      implementation instead.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
