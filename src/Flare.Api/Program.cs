@@ -1,7 +1,9 @@
+using ClickHouse.Driver;
 using Flare.Api.Alerting;
 using Flare.Api.Endpoints;
 using Flare.Api.LiveTail;
 using Flare.Api.Query;
+using Flare.ServiceDefaults.ClickHouseMigrations;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +54,17 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Apply any pending db/clickhouse/*.sql migrations before mapping any endpoints below
+// (they assume the schema already exists) - see ClickHouseMigrationRunner's remarks for
+// why docker-entrypoint-initdb.d alone isn't enough once a deployment has real data on
+// disk. Safe to run unconditionally on every startup: every migration is idempotent,
+// and safe to run from both Flare.Api and Flare.Ingest independently (no ordering
+// requirement between them).
+await ClickHouseMigrationRunner.ApplyAsync(
+    app.Services.GetRequiredService<IClickHouseClient>(),
+    app.Logger,
+    CancellationToken.None);
 
 app.UseCors();
 app.UseWebSockets();

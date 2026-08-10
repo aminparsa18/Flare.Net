@@ -13,6 +13,23 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <!-- ClickHouseMigrationRunner's IClickHouseClient parameter type - Flare.Ingest/
+         Flare.Api both already reference this directly for their own query/write paths
+         and pass their own DI-resolved client in, but the runner's signature still
+         needs the type in scope to compile. -->
+    <PackageReference Include="Aspire.ClickHouse.Driver" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Same db/clickhouse/*.sql source Aspire.Hosting.Flare embeds for its
+         docker-entrypoint-initdb.d bootstrap trick, embedded again here (separate
+         assembly, no collision) for ClickHouseMigrationRunner's own startup-time
+         application - see that type's remarks for why docker-entrypoint-initdb.d alone
+         isn't sufficient once a deployment has real data. LogicalName is pinned
+         explicitly, same reasoning as Aspire.Hosting.Flare's own embed. -->
+    <EmbeddedResource Include="..\..\db\clickhouse\*.sql">
+      <LogicalName>Flare.ServiceDefaults.ClickHouseMigrations.Sql.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

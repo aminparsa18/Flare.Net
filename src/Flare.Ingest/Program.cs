@@ -1,6 +1,8 @@
+using ClickHouse.Driver;
 using Flare.Ingest.Otlp;
 using Flare.Ingest.Pipeline;
 using Flare.Ingest.Sinks;
+using Flare.ServiceDefaults.ClickHouseMigrations;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,6 +50,17 @@ builder.Services.AddSingleton<IClickHouseMetricWriter, ClickHouseMetricWriter>()
 builder.Services.AddHostedService<MetricFlushWorker>();
 
 var app = builder.Build();
+
+// Apply any pending db/clickhouse/*.sql migrations before starting the flush workers
+// below (they assume the schema already exists) - see ClickHouseMigrationRunner's
+// remarks for why docker-entrypoint-initdb.d alone isn't enough once a deployment has
+// real data on disk. Safe to run unconditionally on every startup: every migration is
+// idempotent, and safe to run from both Flare.Ingest and Flare.Api independently (no
+// ordering requirement between them).
+await ClickHouseMigrationRunner.ApplyAsync(
+    app.Services.GetRequiredService<IClickHouseClient>(),
+    app.Logger,
+    CancellationToken.None);
 
 app.MapDefaultEndpoints();
 
