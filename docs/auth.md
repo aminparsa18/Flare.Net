@@ -86,25 +86,93 @@ collectors/exporters are actually operated (one or a few shared keys per environ
   accept it) and your app's own OTLP exporter (to send it), before either process has
   even started.
 
-## Pluggability: adding SSO later
+## Microsoft Entra ID (SSO)
 
-v1 ships local username/password only, but the design leaves room for Entra ID/OIDC/AD
-without restructuring anything above:
+Local username/password and Entra ID coexist — no deployment is forced to choose.
+Authentication is wired through ASP.NET Core's standard multi-scheme
+`AddAuthentication()` model: the cookie scheme
+(`Flare.Identity.Auth.SessionAuthenticationHandler`, registered as `FlareSession`) stays
+the *only* scheme any endpoint's `RequireAuthorization()` ever actually resolves a
+principal through. Entra ID is a second, separate front door that ends in exactly the
+same kind of session — `RequireMember`/`RequireAdmin` and every existing endpoint needed
+zero changes to support it.
 
-- Authentication is wired through ASP.NET Core's standard multi-scheme
-  `AddAuthentication()` model. The cookie scheme
-  (`Flare.Identity.Auth.SessionAuthenticationHandler`, registered as
-  `FlareSession`) and a future `AddOpenIdConnect()` scheme can coexist — this is exactly
-  what that API is built for, not something Flare bolted on.
-- The `Users` table already has everything an SSO-provisioned account needs
-  (`Id`/`Username`/`Role`). Adding OIDC support would add an *additive* migration (a new
-  nullable `ExternalId`/`AuthProvider` column, following the same idempotent-migration
-  pattern every file in `src/Flare.Identity/Migrations/` already uses) to map an OIDC
-  subject claim to a local user on first login — not a schema redesign.
-- `RequireMember`/`RequireAdmin` authorization policies check the resolved
-  `ClaimsPrincipal`'s role claim, regardless of which scheme populated it — zero
-  endpoint-protection code changes anywhere in `Flare.Api/Program.cs` when a second
-  scheme is added.
+**Single-tenant only.** Flare validates against one specific Entra directory
+(`Auth:Entra:TenantId`), not `common`/`organizations` — letting any Entra org's users
+reach a self-hosted internal tool's login is the wrong default.
+
+### How it works
+
+1. The dashboard's "Sign in with Microsoft" button (shown only when
+   `GET /api/auth/bootstrap/status` reports `entraEnabled: true`) navigates the browser
+   to `GET /api/auth/entra/login`, which challenges the `Entra` OpenIdConnect scheme.
+2. You sign in at Microsoft's own page. Entra redirects back to `/signin-oidc` (the OIDC
+   handler's default callback path, handled by framework middleware), which validates
+   the token and hands off to `GET /api/auth/entra/complete`.
+3. `complete` looks up the account by the token's `oid` claim
+   (`Users.AuthProvider = 'Entra'`, `Users.ExternalId = <oid>`). **First-ever login for
+   that identity** creates the row — see "Role provisioning" below for how its role is
+   picked. **Every login after that** just signs in as the existing row, role unchanged.
+4. A normal `flare_session` cookie is minted — same mechanism, same cookie, same
+   14-day-fixed-expiry behavior as a password login. From here on an Entra-provisioned
+   session is indistinguishable from a local one to every other endpoint in the app.
+
+### Role provisioning
+
+Entra ID **App Roles** are the role source, matched by name against Flare's own
+`Admin`/`Member`/`Viewer` enum:
+
+1. In the Entra App Registration's manifest, add three `appRoles` entries with
+   `"value"` set to exactly `Admin`, `Member`, and `Viewer` (case-insensitive match, but
+   keep them exact) and `"allowedMemberTypes": ["User"]`.
+2. In **Enterprise applications → your app → Users and groups**, assign each person (or
+   group) the one App Role that should become their Flare role.
+3. On that person's **first** sign-in, Flare reads the token's `roles` claim and picks
+   the highest-privilege match (`Admin` > `Member` > `Viewer`). No App Role assigned (or
+   App Roles not configured on the registration at all) provisions
+   `Auth:Entra:DefaultRole` instead — `Viewer` unless you've overridden it.
+4. **Role changes after that live in Flare, not Entra.** Continuously re-reading the
+   `roles` claim on every login would make the Users screen's own role control
+   meaningless for SSO accounts — see "Managing users" below to promote/demote an
+   Entra-provisioned account exactly like a local one.
+
+A disabled account (local or Entra) can't sign in either way — an Entra sign-in for a
+disabled account bounces back to `/login?error=account-disabled` instead of getting a
+session.
+
+### App Registration setup (Azure Portal)
+
+1. **Entra ID → App registrations → New registration.** Single tenant
+   ("Accounts in this organizational directory only").
+2. **Redirect URI**: platform "Web", value `http://localhost:8080/signin-oidc` for a
+   local `docker compose up` (substitute your real `FLARE_API_PORT`/host for anything
+   beyond localhost — and use `https://` once this is reachable beyond your own machine,
+   see the caveat below).
+3. **Certificates & secrets → New client secret.** Copy the value immediately — like an
+   ingest API key's raw value, Azure only shows it once.
+4. **App roles** (see "Role provisioning" above) and, if you want anyone to actually be
+   assigned one, **Enterprise applications → your app → Users and groups**.
+5. Note the **Application (client) ID** and **Directory (tenant) ID** from the
+   registration's Overview page.
+6. Set `Auth:Entra:Enabled=true`, `Auth:Entra:TenantId`, `Auth:Entra:ClientId`,
+   `Auth:Entra:ClientSecret` (see the config reference below — `.env`'s
+   `ENTRA_*` variables for `docker compose`).
+
+**HTTPS caveat:** the correlation cookies ASP.NET Core's OIDC handler sets during the
+redirect round-trip to Microsoft need to survive a cross-site navigation, which browsers
+only reliably allow over HTTPS (Chrome/Edge special-case plain `http://localhost` for
+this, which is why local dev works). Any real deployment reachable beyond your own
+machine needs to be behind HTTPS for Entra ID sign-in to work, same as it already should
+be for `Auth:CookieSecure`.
+
+### Managing users
+
+`Admin`-only, at `/users` in the dashboard (`GET`/`PATCH /api/users/*` in the API) —
+list every account (local and Entra alike), change a role, or enable/disable an account.
+This is also where you promote a newly-auto-provisioned Entra account past its initial
+role, or disable one without waiting for someone to remove their Entra App Role
+assignment. Flare refuses to demote or disable the **last enabled Admin** — that would
+be a lockout recoverable only by editing the SQLite file directly.
 
 ## Configuration reference
 
@@ -117,7 +185,12 @@ without restructuring anything above:
 | `Auth:CookieSameSite` | `Lax` | `None` (with `CookieSecure=true`) if your dashboard and API are ever split across genuinely different domains, not just different ports on `localhost`. |
 | `Auth:IngestKeyRequired` | `false` | Whether `Flare.Ingest` rejects OTLP requests with no valid API key. |
 | `Auth:StaticIngestApiKey` | unset | A fixed ingest key set via config instead of the dashboard — see "Ingest API keys" above. |
-| `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. |
+| `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. Also doubles as the Entra login `returnUrl` allow-list. |
+| `Auth:Entra:Enabled` | `false` | Registers the `Entra` OpenIdConnect scheme and the "Sign in with Microsoft" flow. Requires `TenantId`/`ClientId`/`ClientSecret` below to actually work. |
+| `Auth:Entra:TenantId` | unset | The Entra App Registration's Directory (tenant) ID. Single-tenant only — see above. |
+| `Auth:Entra:ClientId` | unset | The App Registration's Application (client) ID. |
+| `Auth:Entra:ClientSecret` | unset | The App Registration's client secret. No working default — same "blank until configured" convention as the alerting Email channel's SMTP settings. |
+| `Auth:Entra:DefaultRole` | `Viewer` | Role assigned on first login when the token carries no recognized `roles` claim entry. |
 
 ## Backups
 

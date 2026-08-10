@@ -24,6 +24,7 @@ public static class FlareIdentityServiceCollectionExtensions
     {
         builder.Services.Configure<IdentityOptions>(builder.Configuration.GetSection(IdentityOptions.SectionName));
         builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+        builder.Services.Configure<EntraOptions>(builder.Configuration.GetSection(EntraOptions.SectionName));
         builder.Services.AddSingleton<IdentityDbConnectionFactory>();
         builder.Services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
         builder.Services.AddSingleton<IUserStore, SqliteUserStore>();

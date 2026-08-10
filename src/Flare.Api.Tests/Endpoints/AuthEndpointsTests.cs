@@ -191,12 +191,14 @@ public class AuthEndpointsTests
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
     }
 
+    private static readonly IOptions<EntraOptions> DefaultEntraOptions = Options.Create(new EntraOptions());
+
     [Fact]
     public async Task BootstrapStatus_ReturnsTrue_WhenNoUsersExist()
     {
         var context = CreateContext();
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), DefaultEntraOptions, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
@@ -210,11 +212,24 @@ public class AuthEndpointsTests
         await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
         var context = CreateContext();
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(users, CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(users, DefaultEntraOptions, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
         Assert.False(dto!.NeedsBootstrap);
+    }
+
+    [Fact]
+    public async Task BootstrapStatus_ReportsEntraEnabled_WhenConfigured()
+    {
+        var context = CreateContext();
+        var entraOptions = Options.Create(new EntraOptions { Enabled = true });
+
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), entraOptions, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
+        Assert.True(dto!.EntraEnabled);
     }
 
     private static string ExtractCookieValue(string setCookieHeader, string cookieName)

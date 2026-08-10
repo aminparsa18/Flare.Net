@@ -29,6 +29,13 @@
 
 	const onAuthRoute = $derived(AUTH_ROUTES.includes(page.url.pathname));
 
+	// /users is the first Admin-only route (UserEndpoints.cs enforces this server-side
+	// regardless - this is a UX nicety, not the actual access control) - same reasoning
+	// as EntraAuthEndpoints.HandleLoginAsync's returnUrl validation being "defense in
+	// depth" on top of server checks that already exist.
+	const ADMIN_ONLY_ROUTES = ['/users'];
+	const onAdminOnlyRoute = $derived(ADMIN_ONLY_ROUTES.includes(page.url.pathname));
+
 	// Route guard: bounces between the app and /login|/setup based on session state.
 	// Doesn't run (and doesn't need to) until auth.initializing flips false - see above.
 	$effect(() => {
@@ -36,6 +43,7 @@
 
 		if (auth.currentUser) {
 			if (onAuthRoute) void goto('/');
+			else if (onAdminOnlyRoute && auth.currentUser.role !== 'Admin') void goto('/');
 			return;
 		}
 
@@ -67,11 +75,15 @@
 	}
 
 	// True once it's actually safe to render whatever route the user is on - either
-	// they're authenticated, or they're already on /login|/setup (which render
-	// regardless of auth state, by definition). False in between means a redirect is
-	// pending (see redirectUnauthenticated above) - render the spinner, not the route's
-	// real content, so a protected page never flashes before the bounce completes.
-	const readyToRenderChildren = $derived(!auth.initializing && (auth.currentUser !== null || onAuthRoute));
+	// they're authenticated (and not a non-Admin on an Admin-only route), or they're
+	// already on /login|/setup (which render regardless of auth state, by definition).
+	// False in between means a redirect is pending (see redirectUnauthenticated above) -
+	// render the spinner, not the route's real content, so a protected page (including
+	// an Admin-only one) never flashes before the bounce completes.
+	const readyToRenderChildren = $derived(
+		!auth.initializing &&
+			(onAuthRoute || (auth.currentUser !== null && (!onAdminOnlyRoute || auth.currentUser.role === 'Admin')))
+	);
 
 	// Nav makes no sense on the login/setup screens themselves (its links would just
 	// bounce back through the guard above) or while nothing's confirmed yet.

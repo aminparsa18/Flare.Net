@@ -54,6 +54,13 @@
          references can hang the parser) fixed in 2.7.5. Pinned directly + referenced
          from Flare.Api.csproj so the direct reference wins over the transitive one. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
+    <!-- Flare.Api: Microsoft Entra ID (SSO) login (Planning.md's "Entra ID (SSO) auth"
+         item, docs/auth.md). Unlike AddCookie/the base AddScheme, the OpenIdConnect
+         handler was split out of the Microsoft.AspNetCore.App shared framework into its
+         own NuGet package back in .NET Core 3.0 and never moved back - a real
+         FrameworkReference gap, confirmed by the CS0234 this package fixes. Pinned at
+         10.0.10 to match every other .NET-10-servicing-train package above. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.10" />
     <!-- Flare.Identity: local username/password auth + roles, embedded-SQLite-backed
          (Planning.md's "Auth + multi-user / roles" Later-roadmap item, 2026-08-10 design
          decision - SQLite over a new Postgres container, see docs/auth.md). Pinned at

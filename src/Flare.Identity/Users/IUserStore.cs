@@ -10,9 +10,25 @@ public interface IUserStore
 
     Task<User?> FindByUsernameAsync(string username, CancellationToken cancellationToken = default);
 
+    /// <summary>Looks up an Entra-provisioned account by its external identity
+    /// (<paramref name="authProvider"/> is always "Entra" today, but takes the value
+    /// rather than a hardcoded literal so a second external provider wouldn't need a
+    /// second method). Null on first-ever login for that identity - the caller then
+    /// provisions via <see cref="CreateFromExternalAsync"/>.</summary>
+    Task<User?> FindByExternalIdAsync(string authProvider, string externalId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default);
 
     Task<User> CreateAsync(string username, string password, UserRole role, CancellationToken cancellationToken = default);
+
+    /// <summary>First-login provisioning for an SSO account. <paramref name="role"/> is
+    /// only ever consulted here - once created, an Entra-provisioned user's role lives in
+    /// this table exactly like a local user's, managed via <see cref="SetRoleAsync"/>, not
+    /// re-derived from the identity provider on subsequent logins (see docs/auth.md).
+    /// Gets a real, well-formed password hash generated from a random, never-revealed
+    /// string (not a hand-rolled sentinel) - it always fails <see cref="VerifyPasswordAsync"/>
+    /// against any real guess without needing the hasher to special-case a malformed value.</summary>
+    Task<User> CreateFromExternalAsync(string authProvider, string externalId, string username, UserRole role, CancellationToken cancellationToken = default);
 
     /// <summary>Looks up <paramref name="username"/> and verifies <paramref name="password"/>
     /// against its stored hash in one call. Returns null on any failure (unknown username,

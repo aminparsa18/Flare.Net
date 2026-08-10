@@ -22,15 +22,22 @@
 		await auth.logout();
 	}
 
-	const links = [
-		{ href: '/', label: 'Logs' },
-		{ href: '/traces', label: 'Traces' },
-		{ href: '/metrics', label: 'Metrics' },
-		{ href: '/ingestion', label: 'Ingestion' },
-		{ href: '/indexing', label: 'Indexing' },
-		{ href: '/alerts', label: 'Alerts' },
-		{ href: '/views', label: 'Views' }
-	];
+	// Users is the first role-gated entry here - Admin-only both server-side
+	// (UserEndpoints.cs) and via +layout.svelte's own route guard; hiding the link for
+	// non-Admins is purely so it doesn't dead-end them into an immediate bounce back to
+	// "/".
+	const links = $derived(
+		[
+			{ href: '/', label: 'Logs' },
+			{ href: '/traces', label: 'Traces' },
+			{ href: '/metrics', label: 'Metrics' },
+			{ href: '/ingestion', label: 'Ingestion' },
+			{ href: '/indexing', label: 'Indexing' },
+			{ href: '/alerts', label: 'Alerts' },
+			{ href: '/views', label: 'Views' },
+			...(auth.currentUser?.role === 'Admin' ? [{ href: '/users', label: 'Users' }] : [])
+		]
+	);
 
 	// Exact match for every link except "/" (which would otherwise match every route,
 	// since every pathname starts with "/") - first needed now that /traces/[traceId]

@@ -1194,6 +1194,70 @@ dashboard's actual origin (`localhost:3000`) returns the right
 `Access-Control-Allow-Origin`/`-Credentials` headers. Stack torn down after
 (`docker compose down`), volumes kept - same closing move as v10.
 
+### v12 — Microsoft Entra ID (SSO) auth
+Uses the seam v11 deliberately left open (`docs/auth.md`'s former "Pluggability: adding
+SSO later" section, now rewritten into a real "Microsoft Entra ID (SSO)" section).
+Scoped collaboratively before code, same as v11: single-tenant only (not
+`common`/`organizations` — letting any Entra org sign into a self-hosted internal tool
+is the wrong default), Entra **App Roles** as the role source (maps 1:1 onto the
+existing 3-role enum, no Graph API calls needed), and local username/password stays
+enabled alongside it — no deployment is forced to choose.
+
+A real gap surfaced during scoping and got pulled into this item rather than deferred:
+`IUserStore.ListAsync`/`SetRoleAsync`/`SetDisabledAsync` existed since v11 but had no
+caller — there was no way to manage any user but the single first-run bootstrap Admin
+without hand-editing SQLite. Entra auto-provisioning forces this closed (a
+newly-provisioned Viewer needs a path to Member/Admin), so the Admin "manage users"
+screen shipped in the same pass, not as a follow-up.
+
+- [x] **`Flare.Identity`** — additive migration (`0002_entra_id.sql`:
+      `Users.ExternalId`/`AuthProvider` + a unique index), `IUserStore.FindByExternalIdAsync`/
+      `CreateFromExternalAsync`, `EntraOptions`. An Entra-provisioned row still gets a
+      real, well-formed `PasswordHash` (hashed from a random, never-revealed string, not
+      a hand-rolled sentinel) so the local `/login` form simply fails against it like any
+      wrong password, with no schema relaxation needed. 40 new tests.
+- [x] **`Flare.Api`: OIDC wiring + Entra endpoints** — `AddOpenIdConnect("Entra")` paired
+      with a short-lived `AddCookie("EntraExternal")` handoff scheme (the standard
+      ASP.NET Core "external login, custom post-processing" pattern — deliberately not
+      attempted inside an `OnTicketReceived` event), both only registered when
+      `Auth:Entra:Enabled=true`. `GET /api/auth/entra/login` (challenge, `returnUrl`
+      validated against `Cors:AllowedOrigins` as an open-redirect guard) and
+      `GET /api/auth/entra/complete` (provision-or-look-up by `oid`, mint the same
+      `flare_session` cookie password login uses via a `SignInAsync` helper extracted
+      from `AuthEndpoints` for both to share). `Microsoft.AspNetCore.Authentication.OpenIdConnect`
+      needed its own package reference — confirmed live (`CS0234`) that the OIDC handler
+      was split out of the `Microsoft.AspNetCore.App` shared framework back in .NET Core
+      3.0 and never moved back, unlike `AddCookie`/the base `AddScheme`.
+- [x] **`Flare.Api`: user management** — `GET /api/users`, `PATCH /api/users/{id}/role`,
+      `PATCH /api/users/{id}/disabled`, all `Admin`-only, thin wrappers over the
+      already-existing `IUserStore` methods above. Both mutating endpoints 400 rather
+      than allow demoting/disabling the **last enabled Admin** — an otherwise-unrecoverable
+      lockout.
+- [x] **Persistence/config** — `docker-compose.yml`'s `api` service and `.env.example`
+      gained `Auth__Entra__*`/`ENTRA_*`, same "no working default" pattern as the
+      alerting Email channel's SMTP settings. `Flare.AppHost.cs` deliberately untouched —
+      Email/SMTP has no AppHost wiring either, for the same reason (no sensible local
+      default; set via user secrets if you want to exercise this in local Aspire dev).
+- [x] **Dashboard** — `/login` gained a conditional "Sign in with Microsoft" button (only
+      when `bootstrap/status` reports `entraEnabled`) via a full-page navigation to
+      `entra/login`, plus an `?error=account-disabled` banner for the one failure mode
+      that can't flow through a normal form error. New `/users` page (`UserTable.svelte`
+      — first real role-gated nav entry in `AppNav.svelte`, first Admin-only route in
+      `+layout.svelte`'s guard) using the already-scaffolded `Select`/`Switch`
+      components for inline role/enabled editing.
+- [x] **Build/test verification, 2026-08-10** — `dotnet build`/`dotnet test` on the full
+      solution: 372 tests, 0 failures (up from 346 at v11 — 40 new in `Flare.Identity.Tests`,
+      the rest in `Flare.Api.Tests`, split across `SqliteUserStoreTests`,
+      `AuthEndpointsTests`, the new `EntraAuthEndpointsTests`, `UserEndpointsTests`).
+      `npm run build`/`npm run check` (dashboard): clean, `/users` present in the build
+      output.
+- [ ] **Live-tenant + docker-compose end-to-end verification** — still pending. Everything
+      with `Auth:Entra:Enabled=false` (the shipped default) is curl-verifiable through a
+      real `docker compose up --build` the same way v11 was — not yet run this session.
+      The actual Microsoft redirect, App Role → role mapping, and the Users screen driven
+      through a real browser all need a real Entra tenant, which only the user has — see
+      `docs/auth.md`'s App Registration walkthrough for the setup.
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---
