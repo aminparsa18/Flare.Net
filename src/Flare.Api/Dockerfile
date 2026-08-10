@@ -14,6 +14,14 @@ RUN dotnet restore src/Flare.Api/Flare.Api.csproj
 
 COPY src/Flare.Api/ src/Flare.Api/
 COPY src/Flare.ServiceDefaults/ src/Flare.ServiceDefaults/
+# Flare.ServiceDefaults.csproj embeds this directory's *.sql files
+# (EmbeddedResource Include="..\..\db\clickhouse\*.sql") for ClickHouseMigrationRunner -
+# without this copy the glob silently matches nothing inside the build context, so the
+# published image's ClickHouseMigrationRunner has zero migrations to apply (confirmed
+# live: GetManifestResourceNames() returns empty from a container-built assembly vs. 9
+# from a locally `dotnet build`-built one). No error, no warning - the image just never
+# gets new tables/columns past its first boot. See db/clickhouse/README.md.
+COPY db/clickhouse/ db/clickhouse/
 RUN dotnet publish src/Flare.Api/Flare.Api.csproj \
     --no-restore \
     -c Release \

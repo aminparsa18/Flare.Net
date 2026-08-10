@@ -753,14 +753,32 @@ non-goal. Views are global/unowned (no auth exists anywhere yet, same as `alert_
       `EmbeddedResource Include="..\..\db\clickhouse\*.sql"` glob silently matches zero
       files when built via `docker build` (confirmed: the container's published
       `Flare.ServiceDefaults.dll` has zero embedded resources, vs. 9 when built via
-      plain `dotnet build` locally) — `ClickHouseMigrationRunner` therefore can never
-      actually apply a migration from the real Docker images, the exact "past its first
-      boot" scenario its own doc comment says it exists to fix. Not a regression from
-      this session and not fixed here (out of scope for this feature) — `saved_views`
-      itself still verified correctly because this was a first boot against fresh
-      volumes, so `docker-entrypoint-initdb.d`'s separate mount-based mechanism created
-      it directly. Flagged here, unresolved, the same way this doc names other known
-      gaps rather than silently working around them.
+      plain `dotnet build` locally) — `ClickHouseMigrationRunner` therefore never
+      actually applied a migration from the real Docker images, the exact "past its
+      first boot" scenario its own doc comment says it exists to fix. `saved_views`
+      itself still verified correctly in this pass because that first pass was a fresh
+      volume, so `docker-entrypoint-initdb.d`'s separate mount-based mechanism created
+      it directly - the runner bug stayed latent.
+- [x] **Follow-up: fixed the Dockerfile bug above, confirmed live against the real
+      `xracer007/flare-api:edge` example, 2026-08-10** — caught in the wild, not just
+      theorized: running `examples/ExampleApp.AppHost` against its own (non-fresh,
+      reused-volume) ClickHouse, the dashboard's `/views` page showed a raw "Failed to
+      fetch" for every request. `flare-api`'s real console logs (via the `aspire` MCP
+      tools) showed the actual cause one layer down: `ClickHouse.Driver.ClickHouseServerException:
+      Unknown table expression identifier 'saved_views' (UNKNOWN_TABLE)` - a clean `500`
+      that the browser couldn't read because `Flare.Api` has no exception-handling
+      middleware, so the unhandled exception unwound past `UseCors()` without it adding
+      response headers, and CORS-header-less responses are invisible to `fetch()`
+      (surfaces as the generic, otherwise-undebuggable "Failed to fetch" - a separate,
+      still-open gap affecting *any* unhandled exception on *any* endpoint, not fixed
+      here, not scoped to this pass). The actual fix: both Dockerfiles now
+      `COPY db/clickhouse/ db/clickhouse/` into the build stage before `dotnet publish`.
+      Verified by extracting the rebuilt image's `Flare.ServiceDefaults.dll` and
+      confirming `GetManifestResourceNames()` now returns all 9 `.sql` files (was empty
+      before), then a full fresh `docker compose up -d --build`: `schema_migrations`
+      went from 0 rows to 9 (one per migration - the direct, only-possible-via-the-runner
+      proof, since `docker-entrypoint-initdb.d` never populates that table itself), and
+      `GET /api/views` returned a clean `200 {"views":[]}`.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
