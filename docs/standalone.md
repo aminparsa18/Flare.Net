@@ -24,9 +24,11 @@ need to change any of the defaults (e.g. a port is already taken on your machine
 
 Once it's up:
 
-- **Dashboard:** [http://localhost:3000](http://localhost:3000)
+- **Dashboard:** [http://localhost:3000](http://localhost:3000) — first visit creates
+  the admin account, then it's a normal login. See [docs/auth.md](auth.md).
 - **OTLP receiver:** gRPC on `:4317`, HTTP on `:4318` — what you point your logger at
-  below.
+  below. Anonymous by default; see [docs/auth.md#ingest-api-keys](auth.md#ingest-api-keys)
+  to require an API key instead.
 
 ## Point your logger at it
 
@@ -218,8 +220,9 @@ logger.Info("hello from {ServiceName}", "my-service");
 
 ## Confirm it worked
 
-Open [http://localhost:3000](http://localhost:3000) — your log should already be
-there (live tail is on by default). Or query it directly:
+Open [http://localhost:3000](http://localhost:3000) and log in — your log should
+already be there (live tail is on by default). Or query ClickHouse directly (this
+bypasses `Flare.Api`/auth entirely):
 
 ```sh
 curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flare" \

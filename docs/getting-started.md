@@ -45,9 +45,10 @@ app's orchestration? Docker is the only way to run Flare standalone.
 
 Either path above lands you in the same place: `Flare.Dashboard` at
 [http://localhost:3000](http://localhost:3000) (or wherever `flare-dashboard`'s Aspire
-resource URL points). It's a single SvelteKit SPA with seven pages behind one nav bar,
-all talking to `Flare.Api` over HTTP/WebSocket — no separate tools for logs, traces,
-metrics, or alerting.
+resource URL points). First visit creates the admin account — see
+[docs/auth.md](auth.md) — after that it's a normal login. Once you're in, it's a single
+SvelteKit SPA with seven pages behind one nav bar, all talking to `Flare.Api` over
+HTTP/WebSocket — no separate tools for logs, traces, metrics, or alerting.
 
 ### Logs
 

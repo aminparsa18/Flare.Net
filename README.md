@@ -26,10 +26,11 @@ to pick the right path. Short version:
   [.env.example](.env.example) to `.env` to change any). See
   [docs/standalone.md](docs/standalone.md).
 
-Either way, once it's running: **dashboard** at [http://localhost:3000](http://localhost:3000),
-and see [docs/standalone.md](docs/standalone.md#point-your-logger-at-it) (or
-[docs/aspire-hosting.md](docs/aspire-hosting.md#2-point-your-logger-at-it) if you're on
-Aspire) for a copy-paste OTLP snippet per logger (Serilog, NLog, ZLogger,
+Either way, once it's running: **dashboard** at [http://localhost:3000](http://localhost:3000)
+— first visit creates the admin account (see [docs/auth.md](docs/auth.md)), then it's a
+normal login — and see [docs/standalone.md](docs/standalone.md#point-your-logger-at-it)
+(or [docs/aspire-hosting.md](docs/aspire-hosting.md#2-point-your-logger-at-it) if you're
+on Aspire) for a copy-paste OTLP snippet per logger (Serilog, NLog, ZLogger,
 `Microsoft.Extensions.Logging`).
 
 ## Local development

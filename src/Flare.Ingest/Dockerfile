@@ -16,10 +16,15 @@ WORKDIR /source
 COPY Directory.Build.props Directory.Packages.props global.json ./
 COPY src/Flare.Ingest/Flare.Ingest.csproj src/Flare.Ingest/
 COPY src/Flare.ServiceDefaults/Flare.ServiceDefaults.csproj src/Flare.ServiceDefaults/
+COPY src/Flare.Identity/Flare.Identity.csproj src/Flare.Identity/
 RUN dotnet restore src/Flare.Ingest/Flare.Ingest.csproj
 
 COPY src/Flare.Ingest/ src/Flare.Ingest/
 COPY src/Flare.ServiceDefaults/ src/Flare.ServiceDefaults/
+# Ingest API key validation - ProjectReference'd from Flare.Ingest.csproj same as
+# Flare.ServiceDefaults above. See Flare.Api/Dockerfile's identical comment for why
+# missing this copy fails silently at restore (MSB9008 warning) and loudly at compile.
+COPY src/Flare.Identity/ src/Flare.Identity/
 # Flare.ServiceDefaults.csproj embeds this directory's *.sql files
 # (EmbeddedResource Include="..\..\db\clickhouse\*.sql") for ClickHouseMigrationRunner -
 # without this copy the glob silently matches nothing inside the build context, so the
