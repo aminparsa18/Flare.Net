@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
 // Put extensions in the Microsoft.Extensions.Hosting namespace to ease discovery - referencing
@@ -17,15 +18,13 @@ namespace Microsoft.Extensions.Hosting;
 public static class AspireFlareExtensions
 {
     /// <summary>
-    /// Registers a second, named OTLP log <em>and trace</em> exporter pointed at Flare.Ingest,
-    /// additive alongside whatever exporter <c>ConfigureOpenTelemetry()</c> already registered
-    /// (e.g. the Aspire dashboard collector) - the same signal-specific, named
+    /// Registers a second, named OTLP log, trace, <em>and metrics</em> exporter pointed at
+    /// Flare.Ingest, additive alongside whatever exporter <c>ConfigureOpenTelemetry()</c> already
+    /// registered (e.g. the Aspire dashboard collector) - the same signal-specific, named
     /// <c>AddOtlpExporter(name, ...)</c> mechanism <c>Aspire.Seq</c>'s <c>AddSeqEndpoint</c> uses
-    /// to send telemetry to Seq without displacing other destinations. Metrics are still
-    /// excluded: Flare.Ingest doesn't receive OTLP metrics yet - a separate, later effort with a
-    /// materially different data model than traces (see the "OTLP traces &amp; metrics" roadmap
-    /// item's own scoping note). This method really was logs-only until Flare.Ingest's trace
-    /// receiver shipped; the doc comment said so at the time.
+    /// to send telemetry to Seq without displacing other destinations. This method was logs-only,
+    /// then logs+traces, before Flare.Ingest's metrics receiver shipped (Planning.md's v6); the
+    /// doc comment said so at each of those points.
     /// <para>
     /// Requires <c>Flare.ServiceDefaults.ConfigureOpenTelemetry()</c> (or any other OTel setup
     /// this is layered on top of) to register its own exporter via the signal-specific
@@ -88,6 +87,7 @@ public static class AspireFlareExtensions
 
         builder.Services.AddOpenTelemetry()
             .WithLogging(logging => logging.AddOtlpExporter(connectionName, ConfigureExporter))
-            .WithTracing(tracing => tracing.AddOtlpExporter(connectionName, ConfigureExporter));
+            .WithTracing(tracing => tracing.AddOtlpExporter(connectionName, ConfigureExporter))
+            .WithMetrics(metrics => metrics.AddOtlpExporter(connectionName, ConfigureExporter));
     }
 }

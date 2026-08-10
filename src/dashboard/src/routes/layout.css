@@ -25,11 +25,23 @@
 	--border: oklch(0.922 0 0);
 	--input: oklch(0.922 0 0);
 	--ring: oklch(0.708 0 0);
-	--chart-1: oklch(0.87 0 0);
-	--chart-2: oklch(0.556 0 0);
-	--chart-3: oklch(0.439 0 0);
-	--chart-4: oklch(0.371 0 0);
-	--chart-5: oklch(0.269 0 0);
+	/* Categorical series palette (Metrics chart, first real multi-series use of these
+	   slots - VolumeChart is single-series and never referenced them). Was inherited
+	   from the shadcn scaffold as a flat grayscale ramp (0 chroma across all 5 - fine
+	   for a lightness-only sequential use, useless for series identity). Replaced with
+	   the `dataviz` skill's validated categorical palette (blue/orange/aqua/yellow/
+	   magenta, its documented fixed order - a CVD-safety property, not cosmetic),
+	   confirmed via its validator script against both this theme's surfaces: all pass
+	   in dark; light mode WARNs on contrast for slots 3/4/5 (aqua/yellow/magenta),
+	   which is why MetricChart always pairs color with a visible text legend/direct
+	   labels rather than relying on hue alone (the WARN's documented "relief" mitigation).
+	   Kept as plain hex, not oklch, to keep the direct copy from the skill's reference
+	   palette a one-to-one paste, unlike this file's other hand-authored oklch tokens. */
+	--chart-1: #2a78d6;
+	--chart-2: #eb6834;
+	--chart-3: #1baf7a;
+	--chart-4: #eda100;
+	--chart-5: #e87ba4;
 	--radius: 0.625rem;
 	--sidebar: oklch(0.985 0 0);
 	--sidebar-foreground: oklch(0.145 0 0);
@@ -61,11 +73,12 @@
 	--border: oklch(1 0 0 / 10%);
 	--input: oklch(1 0 0 / 15%);
 	--ring: oklch(0.556 0 0);
-	--chart-1: oklch(0.87 0 0);
-	--chart-2: oklch(0.556 0 0);
-	--chart-3: oklch(0.439 0 0);
-	--chart-4: oklch(0.371 0 0);
-	--chart-5: oklch(0.269 0 0);
+	/* Dark-mode steps of the same categorical palette - see :root's chart-1..5 comment. */
+	--chart-1: #3987e5;
+	--chart-2: #d95926;
+	--chart-3: #199e70;
+	--chart-4: #c98500;
+	--chart-5: #d55181;
 	--sidebar: oklch(0.205 0 0);
 	--sidebar-foreground: oklch(0.985 0 0);
 	--sidebar-primary: oklch(0.488 0.243 264.376);
