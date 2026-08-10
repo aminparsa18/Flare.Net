@@ -401,7 +401,9 @@ actually worked out (see the three bullets below) — closing out the full origi
       2026-08-10 (see v4 below) — metrics remains a separate, later item** (materially
       different data model: 5 point types vs. one span shape; bundling it would have
       roughly doubled v4's scope for no shared payoff).
-- [ ] OTLP metrics (split out of the item above, 2026-08-10)
+- [x] ~~OTLP metrics (split out of the item above, 2026-08-10)~~ **Shipped 2026-08-10
+      (see v6 below)** — Gauge/Sum/Histogram point types (ExponentialHistogram/Summary
+      deliberately deferred, same rationale as v4's omitted Span Links).
 - [x] ~~Trace/log correlation view~~ **Shipped 2026-08-10 (see v5 below)** — correctly
       sized as a single, non-staged session once v4 landed, per the plan's own
       pre-session cost read.
@@ -507,6 +509,199 @@ v3/v4 this didn't need multi-pass sequencing.
       click-through intentionally not run for this item — the new `SpanId` path is a
       byte-for-byte mirror of the already e2e-verified `TraceId` path from v4, so the
       marginal confidence didn't justify the session cost; can be run on request.
+
+### v6 — OTLP metrics (the metrics half of "OTLP traces & metrics")
+Planned and shipped 2026-08-10. Split out of the traces item (see v4) because the OTLP
+metrics data model is materially wider than the single span shape: a `Metric` carries one
+of five point-type payloads (Gauge, Sum, Histogram, ExponentialHistogram, Summary), each
+with its own fields, and metrics querying is fundamentally "get a time-bucketed series,"
+not "search rows" the way logs/spans search is — no direct precedent to mirror there.
+Staged the same way v4 was (ingest+storage → query API → dashboard UI → e2e verification),
+each pass independently verified before the next began - two real bugs (one SQL
+correctness bug in the query pass, one `ORDER BY`-after-`UNION ALL` bug) were caught by
+that per-pass live verification, not by unit tests, the same payoff v4/v5 got from it.
+
+**Scope decisions made up front** (both to keep this proportional to v4's effort, per the
+2026-08-10 note that originally split metrics out):
+- **Point types: Gauge + Sum + Histogram only.** Covers what .NET's built-in
+  instrumentation actually emits by default (ASP.NET Core/`System.Runtime`/`HttpClient` —
+  counters as Sum, durations as Histogram, observable gauges as Gauge).
+  ExponentialHistogram (opt-in, rare in .NET) and Summary (legacy Prometheus-client-style
+  quantiles) are deliberately deferred — same "add it when a concrete need exists"
+  precedent v4 used to omit Span Links from spans. `OtlpMetricsMapper` recognizes both but
+  drops their data points, logging once per metric name (rate-limited, not a hard error —
+  one export commonly mixes point types and shouldn't fail wholesale over an unsupported
+  one).
+- **Ingest pipeline: one shared Redis stream + one flush worker, fanning out to three
+  ClickHouse tables at flush time.** Logs vs. spans were deliberately duplicated into
+  fully separate pipelines because they're different *signals*; gauge/sum/histogram are
+  still one signal (metrics) arriving together in a single OTLP export, so splitting them
+  into three parallel streams/workers/consumer-groups would be tripling operational
+  surface for a sub-shape distinction, not a signal distinction. `MetricFlushWorker`
+  reads one batch off `flare:metrics` and issues three `InsertBinaryAsync` calls (one per
+  table), partitioning the batch by point type.
+
+- [x] **Ingest + ClickHouse storage** — vendored `metrics.proto`/`metrics_service.proto`
+      (same pinned `v1.11.0` tag as the existing logs/trace protos) and added gRPC
+      (`OtlpGrpcMetricsService`) + HTTP (`OtlpHttpMetricsEndpoints`, `POST /v1/metrics`)
+      receivers sharing `Flare.Ingest`'s existing :4317/:4318 listeners. `OtlpMetricsMapper`
+      maps each `Metric` (name/description/unit/resource/scope) × its data points into one
+      of `GaugePointRecord`/`SumPointRecord` (+`AggregationTemporality`/`IsMonotonic`)/
+      `HistogramPointRecord` (+`Count`/`Sum`/`BucketCounts`/`ExplicitBounds`) — all three
+      sharing one abstract `MetricPointRecord` base for their ~12 identical metadata
+      fields, polymorphic over `System.Text.Json`'s `JsonPolymorphic`/`JsonDerivedType` so
+      one Redis stream entry round-trips as whichever concrete point type it is.
+      ExponentialHistogram/Summary points are recognized and dropped (not erroring the
+      whole export), with a per-export warning log naming the affected metrics.
+      `db/clickhouse/0008_metrics.sql` added three tables — `metrics_gauge`, `metrics_sum`,
+      `metrics_histogram` — adapted from the OTel Collector's ClickHouse exporter default
+      schema, same lineage as `logs`/`spans`. `ORDER BY (MetricName, ServiceName, Time)`
+      per table (a metric's natural access pattern is "this metric, this service, over
+      time," unlike spans' trace-id-first choice), with a bloom-filter skip index on
+      `DataPointAttributes` keys/values only (no `ResourceAttributes` index — `ServiceName`
+      already leads `ORDER BY`). Redis pipeline: single `flare:metrics` stream
+      (`MetricEventPipelineOptions` mirroring `SpanEventPipelineOptions`'s shape),
+      `RedisStreamMetricEventSink`, `MetricFlushWorker` (per the scope decision above —
+      one shared stream/worker, partitioning the batch by runtime type into three
+      `IClickHouseMetricWriter.WriteBatchAsync` inserts at flush time). Unit tests:
+      `OtlpMetricsMapperTests` (18 cases covering all three point types, unsupported-type
+      reporting, start-time-absent handling), `ClickHouseMetricRowMapperTests` (column
+      order/coalescing per table), `MetricEventJsonContextTests` (polymorphic round-trip
+      per concrete type) — 90 tests total in `Flare.Ingest.Tests`, 0 failures. **Verified end-to-end 2026-08-10** against a real `docker compose`
+      stack (`clickhouse`+`redis`+`ingest`, fresh volumes so the init-mount picked up
+      `0008_metrics.sql` automatically): confirmed all three tables exist, then sent real
+      OTLP metric exports covering every mapped shape — HTTP/JSON: a Gauge (int value,
+      attribute-tagged), a monotonic cumulative Sum (double value, distinct
+      `StartTime`≠`Time`), a cumulative Histogram (bucket/bound arrays), and a Summary
+      metric (confirmed dropped with the expected warning log, not stored); gRPC via
+      `grpcurl` against the vendored proto: a Gauge, a **non-monotonic delta Sum with a
+      negative value** (up/down counter shape), and a delta Histogram. Queried ClickHouse
+      directly afterward and confirmed every field landed correctly, including
+      `BucketCounts`/`ExplicitBounds` round-tripping as real `Array(UInt64)`/`Array(Float64)`
+      values (the spike-test risk item — confirmed via this live run rather than a
+      separate throwaway spike, since the full pipeline was quicker to stand up here than
+      an isolated driver test) and `StartTime` correctly coalescing to `Time` when absent
+      on the wire (gauge case) vs. preserved when present (sum case). `dotnet build
+      Flare.sln` clean.
+- [x] **Query API** (`Flare.Api`) — `Model/MetricModels.cs` (`MetricFilter`: time range,
+      service, `DataPointAttributes`-only filter — no resource/scope-attribute filtering,
+      unlike `SpanFilter`'s three bags, since no planned query needs it). `POST
+      /api/metrics/names` lists distinct `(MetricName, Type, Unit, Description)` tuples
+      for a service + time range (metrics discovery — no log/span equivalent needed,
+      since those are searched, not picked from a list; POST+body, not GET, for
+      consistency with every other structured-filter endpoint in this API — a plan-time
+      GET sketch was reconsidered during implementation). `POST /api/metrics/query` is
+      the core, genuinely new endpoint: given a metric name + explicit `Type` (the
+      caller already knows it from a prior `/names` response) + filter + bucket `step`,
+      returns a time-bucketed series per attribute-set (`MetricSeries`, series key =
+      `toString(DataPointAttributes)` grouping, not the `Map` column directly — sidesteps
+      relying on unconfirmed `Map`-column `GROUP BY` semantics for something a plain
+      string trivially guarantees) — Gauge as `avg(Value)` per bucket; Sum (cumulative,
+      monotonic = counter) as `max(Value) - min(Value)` per bucket; Histogram as
+      `sum(Count)`/`sum(Sum)` plus `sumForEach(BucketCounts)` (the aggregate-combinator
+      that sums arrays element-wise across grouped rows) fed through
+      `HistogramQuantileEstimator` for p50/p90/p99 via linear interpolation over
+      `BucketCounts`/`ExplicitBounds` (the standard Prometheus/Grafana
+      `histogram_quantile` approximation, with a `null`-not-throw fallback for malformed/
+      empty bucket data). **Two named, deliberately-unresolved v1 limitations**, flagged
+      rather than solved now (same convention the schema docs already use elsewhere): a
+      counter reset/process-restart mid-bucket, or a bucket narrower than the sample
+      interval (confirmed live: a single sample per bucket always reads as a zero rate,
+      since `max - min` needs ≥2 points), breaks the naive rate calc; the quantile
+      interpolation assumes the metric's bucket boundaries don't change mid-window.
+      `Endpoints/MetricsEndpoints.cs`, `MetricQueryService`, SQL builders
+      (`MetricFilterSqlBuilder`/`MetricNamesQueryBuilder`/`MetricSeriesQueryBuilder`)
+      following `SpanFilterSqlBuilder`/`SpanSearchQueryBuilder`'s naming convention. New
+      unit tests across the SQL builders and `HistogramQuantileEstimatorTests` (the
+      quantile-interpolation math as pure functions — the easiest and highest-value thing
+      to unit test in this pass) — 153 tests total in `Flare.Api.Tests`, 0 failures.
+      **Verified end-to-end 2026-08-10** against a real `docker compose` stack
+      (`clickhouse`+`redis`+`ingest`+`api`): sent real OTLP exports (a two-series Gauge,
+      a 3-point cumulative Sum, two Histogram data points landing in the same bucket) via
+      curl, then queried `/api/metrics/names` and `/api/metrics/query` for all three
+      point types — histogram count/sum/bucket-merge/quantiles, gauge per-series
+      splitting, and the sum rate calc at both a narrow (single-sample, correctly reads
+      0) and wide (multi-sample, correctly reads the true delta) bucket width all matched
+      hand-computed expected values, plus 400s for a non-positive bucket width and a
+      missing required field, and an empty (not error) response for an unknown metric
+      name. **Found and fixed one real bug this live run caught that unit tests
+      couldn't**: `MetricNamesQueryBuilder`'s trailing `ORDER BY MetricName` after a
+      chain of `UNION ALL` SELECTs bound only to the last branch, not the combined
+      result (confirmed via a direct `clickhouse-client` query before and after) —
+      fixed by wrapping the three branches in a subquery and applying `ORDER BY` outside
+      it. `dotnet build Flare.sln` clean.
+- [x] **Dashboard UI** (`src/dashboard`) — fourth nav entry (`AppNav.svelte`): "Metrics".
+      `lib/metrics-api.ts` + `lib/metrics/state.svelte.ts`/`context.ts` following the
+      established `$state` class + typed-context convention (mirrors
+      `TracesExplorerState` closely, including its `loadKnownServices` wide-window
+      workaround for populating the service filter without self-narrowing). `MetricPicker`
+      — a persistent (not popover) `Command`-based filterable list from
+      `/api/metrics/names`, one row per (metric name, service) pair with a type badge —
+      + `MetricChart`, a hand-rolled multi-line chart reusing `VolumeChart`'s core SVG
+      technique (viewBox, array-index x-positions rather than a real time scale, hover-
+      to-tooltip): value-over-time per series for Gauge, `max-min`-rate-over-time per
+      series for Sum (both overlay every series as its own line, capped at 5 - the
+      `dataviz` skill's validated categorical palette's slot count - with a "+N not shown"
+      note past that, never a cycled/generated color), and p50/p90/p99 for Histogram
+      (one series' distribution at a time, picked via a dropdown when a histogram metric
+      has more than one series - N series × 3 lines each was judged unreadable). No
+      live-tail (same "the chart is the value, not a firehose" reasoning that kept spans
+      live-tail out of v4) and no dashboards-as-code / arbitrary panels (existing
+      non-goal). `svelte-check`: 0 errors. `npm run build`: clean.
+      **Found and fixed one real correctness bug while building this pass, before any
+      UI code touched it**: `MetricSeriesQueryBuilder`/`MetricNamesQueryBuilder` (pass 2)
+      grouped series by `DataPointAttributes` alone, not also `ServiceName` - two
+      different services emitting the same metric name with the same (or no) data-point
+      attributes would have silently merged into one line/one picker entry. Fixed by
+      adding `ServiceName` to both queries' `GROUP BY`/`ORDER BY` and to the
+      `MetricNameInfo`/`MetricSeries` response DTOs (`MetricSeries.serviceName`,
+      `MetricNameInfo.serviceName` - the picker's selection key is now the
+      (metricName, serviceName) pair, not metric name alone); `Flare.Api.Tests` updated
+      to match (154 tests, 0 failures) — re-verified against real ClickHouse data deferred
+      to Pass 4 per its own broader real-SDK verification, not re-run standalone here.
+      **Theme change**: `layout.css`'s `--chart-1..5` tokens - inherited from the shadcn
+      scaffold as a flat 0-chroma grayscale ramp, never actually used since `VolumeChart`
+      is single-series - replaced with the `dataviz` skill's validated categorical
+      palette (fixed blue/orange/aqua/yellow/magenta order, a CVD-safety property) for
+      both light and dark, confirmed via its validator script against both this theme's
+      surfaces (dark: all pass; light: WARN on 3 slots' contrast, mitigated by
+      `MetricChart` always pairing color with a visible text legend, never color alone).
+- [x] **End-to-end verification, 2026-08-10** — extended `Aspire.Flare`'s
+      `AddFlareOtlpExporter` (logs+traces before this pass) to also register a named
+      OTLP metrics exporter (`.WithMetrics(m => m.AddOtlpExporter(connectionName, ...))`),
+      and gave `examples/ExampleApp.LogGenerator` a real `Meter` (`ExampleApp.LogGenerator`,
+      registered via `AddMeter` alongside its existing `AddSource` call) with one
+      instrument per v1 point type, all tied to the same `GenerateBurst` path its
+      `ActivitySource` already instruments: `loggenerator.bursts` (`Counter<long>`, Sum),
+      `loggenerator.burst.duration` (`Histogram<double>`, Histogram),
+      `loggenerator.last_burst_size` (`ObservableGauge<int>`, Gauge). Real `docker
+      compose`-built full stack (`clickhouse`+`redis`+`ingest`+`api`+`dashboard`); the
+      log generator run standalone (not via Aspire, same as `run-full-stack.sh`) against
+      it, driven by several `POST /generate-burst` calls of varying size over time.
+      Confirmed via direct ClickHouse queries first: real ASP.NET Core/HttpClient/.NET
+      runtime instrumentation (already wired by `Flare.ServiceDefaults.ConfigureOpenTelemetry()`'s
+      existing `AddAspNetCoreInstrumentation()`/`AddRuntimeInstrumentation()`) landed
+      across all three tables alongside the three custom instruments, dozens of distinct
+      metric names total, correctly typed. Then a full Playwright click-through against
+      the real running dashboard (not hand-built payloads first this time - the built-in
+      instrumentation alone already supplied enough real, varied data that a hand-built-
+      payload pass would have added little before real SDK data was available anyway):
+      nav entry, toolbar, picker (filter-as-you-type, correct type badges, correct
+      service scoping), and the chart for all three point types - `loggenerator.burst.duration`
+      rendered three distinct p50/p90/p99 lines with a working legend, `loggenerator.bursts`
+      and `loggenerator.last_burst_size` each rendered their single line correctly (no
+      legend shown for one series, matching the `dataviz` skill's rule), and the service
+      filter correctly narrowed the picker to one service while keeping the current
+      chart selection since it stayed in scope. Zero browser console errors throughout.
+      **Re-verified the `ServiceName`-grouping fix from Pass 3** (deferred there per
+      request) with two freshly-inserted services sharing one metric name
+      (`shared.request.count` on `service-a` and `service-b`, real "now" timestamps):
+      `/api/metrics/names` correctly listed them as two separate entries, and
+      `/api/metrics/query` with no service filter returned two separate series rather
+      than one merged one - confirmed the two services' distinct values never combined.
+      `dotnet build Flare.sln`/`dotnet test`: 244 tests (90 `Flare.Ingest.Tests` + 154
+      `Flare.Api.Tests`), 0 failures. `svelte-check`: 0 errors. `npm run build`: clean.
+      Stack torn down after verification (`docker compose down`, volumes kept).
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

@@ -22,6 +22,8 @@ builder.Services.Configure<LogEventPipelineOptions>(
     builder.Configuration.GetSection(LogEventPipelineOptions.SectionName));
 builder.Services.Configure<SpanEventPipelineOptions>(
     builder.Configuration.GetSection(SpanEventPipelineOptions.SectionName));
+builder.Services.Configure<MetricEventPipelineOptions>(
+    builder.Configuration.GetSection(MetricEventPipelineOptions.SectionName));
 
 // Redis: durable buffer the pipeline writes to (RedisStreamLogEventSink) and reads from
 // (ClickHouseFlushWorker). ClickHouse: batched insert destination. Connection names must
@@ -39,6 +41,12 @@ builder.Services.AddSingleton<ISpanEventSink, RedisStreamSpanEventSink>();
 builder.Services.AddSingleton<IClickHouseSpanWriter, ClickHouseSpanWriter>();
 builder.Services.AddHostedService<SpanFlushWorker>();
 
+// Metrics - unlike spans, one shared Redis stream/flush worker for all three point
+// types (Gauge/Sum/Histogram); see MetricFlushWorker's remarks for why.
+builder.Services.AddSingleton<IMetricEventSink, RedisStreamMetricEventSink>();
+builder.Services.AddSingleton<IClickHouseMetricWriter, ClickHouseMetricWriter>();
+builder.Services.AddHostedService<MetricFlushWorker>();
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
@@ -48,5 +56,8 @@ app.MapOtlpHttpLogsEndpoint();
 
 app.MapGrpcService<OtlpGrpcTraceService>();
 app.MapOtlpHttpTraceEndpoint();
+
+app.MapGrpcService<OtlpGrpcMetricsService>();
+app.MapOtlpHttpMetricsEndpoint();
 
 app.Run();

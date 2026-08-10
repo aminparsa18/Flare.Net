@@ -1,4 +1,5 @@
 using ExampleApp.LogGenerator;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,8 +23,13 @@ builder.AddFlareOtlpExporter("flare");
 // framework-level spans) - a custom ActivitySource needs an explicit AddSource() call before the
 // SDK will sample/export anything it creates. This is what makes GenerateBurst's per-log child
 // spans (nested under the ASP.NET Core-instrumented POST /generate-burst request span) actually
-// real, exported spans, not just no-op Activity objects.
-builder.Services.AddOpenTelemetry().WithTracing(tracing => tracing.AddSource(RandomLogGeneratorWorker.ActivitySourceName));
+// real, exported spans, not just no-op Activity objects. Same story for
+// RandomLogGeneratorWorker.Meter (Planning.md's v6 Pass 4) - AddMeter() is the metrics
+// pipeline's equivalent of AddSource(), needed before the SDK samples/exports anything this
+// custom Meter's Counter/Histogram/ObservableGauge record.
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing.AddSource(RandomLogGeneratorWorker.ActivitySourceName))
+    .WithMetrics(metrics => metrics.AddMeter(RandomLogGeneratorWorker.MeterName));
 
 builder.Services.AddSingleton<RandomLogGeneratorWorker>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RandomLogGeneratorWorker>());

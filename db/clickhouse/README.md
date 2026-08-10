@@ -35,6 +35,12 @@ is out of scope - a separate, later effort with a materially different data mode
 "Design decisions" below for the schema, and the field→column mapping table at the
 bottom of this file.
 
+`0008_metrics.sql` - three tables (`metrics_gauge`/`metrics_sum`/`metrics_histogram`),
+one row per OTLP metric data point, mirroring
+[`Flare.Ingest`'s `MetricPointRecord` model](../../src/Flare.Ingest/Model/MetricPointRecord.cs)
+1:1. This is the metrics half of "OTLP traces & metrics" (Planning.md's v6) - v1 scope is
+Gauge/Sum/Histogram only, see "Design decisions" below.
+
 ## What it deliberately does *not* do (yet)
 
 - No ClickHouse-writing code anywhere - `Flare.Ingest`'s `ConsoleLogEventSink` is
@@ -196,6 +202,52 @@ specifically (both documented inline in `0007_spans.sql` too):
   spec-guaranteed present and unique on every span, so it already serves as both
   natural key and pagination tiebreaker.
 
+**`metrics_gauge`/`metrics_sum`/`metrics_histogram` (migration 0008), plain `MergeTree`
+each.** Immutable once written, same as `logs`/`spans`. Design decisions worth calling
+out specifically (also documented inline in `0008_metrics.sql`):
+
+- **Three tables, not one.** OTLP's `Metric` carries one of five point-type payloads
+  (Gauge, Sum, Histogram, ExponentialHistogram, Summary), each with materially different
+  fields - a single denormalized table would mean most columns are meaningless/empty for
+  most rows. Adapted from the OTel Collector's own ClickHouse exporter default schema,
+  which likewise uses one table per point type - same vendored-schema lineage as
+  `logs`/`spans`.
+- **v1 covers Gauge/Sum/Histogram only** - no `metrics_exponential_histogram` or
+  `metrics_summary` table. Same "add it when a concrete need exists" precedent as
+  `spans`' omitted Span Links: ExponentialHistogram is opt-in and rare in .NET's default
+  instrumentation, Summary is legacy Prometheus-client-style quantiles. `OtlpMetricsMapper`
+  recognizes both point types on the wire and drops their data points (logging a
+  per-export warning with the affected metric names) rather than erroring the whole
+  export over an unsupported metric mixed in with supported ones.
+- **`ORDER BY (MetricName, ServiceName, Time)`, not `(ServiceName, ...)` like `logs` or
+  `(TraceId, ...)` like `spans`.** A metric's natural access pattern is "this metric,
+  this service, over time" (picking one metric to chart) - what the Query API roadmap
+  pass (v6's second pass) actually serves - not "list every metric a service emits."
+- **`DataPointAttributes`**, not `MetricAttributes` - named after the OTLP spec's own
+  term (a data point's attributes identify its timeseries) while still following
+  `LogAttributes`/`SpanAttributes`'s per-signal-prefixed naming convention.
+- **No `ResourceAttributes` skip index**, unlike `spans`. `ServiceName` already leads
+  `ORDER BY` here (the one resource-level filter the Query API pass needs), so a
+  bloom-filter index on the full resource attribute map would cover queries no planned
+  feature makes - added reflexively only if a concrete query needs it, not because
+  `logs`/`spans` happened to add one.
+- **`StartTime` coalesces to `Time` when absent**, keeping the column non-`Nullable` -
+  same convention as `logs.ObservedTimestamp`, this time actually implemented at
+  row-mapping time (`ClickHouseMetricRowMapper`) rather than deferred, since the insert
+  pipeline already exists by the time this migration landed.
+- **`AggregationTemporality Enum8(...)`** on `metrics_sum`/`metrics_histogram`, same
+  `schema-types-enum` reasoning as `spans.StatusCode` - a fixed 3-value spec enum that
+  doesn't vary per source library.
+- **`Min`/`Max` deliberately omitted** from `metrics_histogram` (both optional on the
+  wire) - the Query API pass computes percentiles from `BucketCounts`/`ExplicitBounds`
+  instead, so no feature consumes them yet; add via a later `ALTER TABLE` once one does,
+  same precedent as `spans`' omitted Links.
+- **`BucketCounts Array(UInt64)`/`ExplicitBounds Array(Float64)`** - confirmed via the
+  same kind of live spike against `Aspire.ClickHouse.Driver` that `spans`' `Events`
+  Nested columns used before that migration was written: both round-trip as plain .NET
+  `ulong[]`/`double[]` through `InsertBinaryAsync`/`ExecuteReaderAsync`, no special
+  handling needed.
+
 ## `LogEvent` field → column mapping
 
 | `LogEvent` field (C#)          | `logs` column        | Notes |
@@ -263,6 +315,39 @@ filtering or event ordering in the dashboard needs.
 | `ScopeAttributes`                 | `ScopeAttributes`       | |
 | `SpanAttributes`                  | `SpanAttributes`        | |
 | `Events` (`IReadOnlyList<SpanEvent>`) | `Events.TimeUnixNano`/`Events.Name`/`Events.Attributes` | `Nested` column, desugared to three parallel arrays - see "Design decisions" above. |
+
+## `MetricPointRecord` field → column mapping
+
+Common columns (all three tables):
+
+| `MetricPointRecord` field (C#)   | Column                | Notes |
+|-----------------------------------|------------------------|-------|
+| `MetricName`                      | `MetricName`           | |
+| `Description`                     | `Description`          | |
+| `Unit`                             | `Unit`                 | |
+| `ServiceName`                     | `ServiceName`           | Sourced from `service.name` resource attribute. |
+| `ResourceSchemaUrl`               | `ResourceSchemaUrl`     | |
+| `ResourceAttributes`              | `ResourceAttributes`    | |
+| `ScopeSchemaUrl`                  | `ScopeSchemaUrl`        | |
+| `ScopeName` / `ScopeVersion`      | `ScopeName` / `ScopeVersion` | |
+| `ScopeAttributes`                 | `ScopeAttributes`       | |
+| `DataPointAttributes`             | `DataPointAttributes`   | |
+| `StartTime`                       | `StartTime`             | Nullable in C#, coalesced to `Time` when absent - see "Design decisions" above. |
+| `Time`                            | `Time`                  | See logs' "Timestamp precision" note - same 100ns tick truncation applies. |
+
+Per point type, in addition to the common columns above:
+
+| Type | Field (C#) | Column | Notes |
+|------|------------|--------|-------|
+| `GaugePointRecord` | `Value` | `Value` | |
+| `SumPointRecord` | `Value` | `Value` | |
+| `SumPointRecord` | `AggregationTemporality` | `AggregationTemporality` | `int` (0-2) → `Enum8` label string. |
+| `SumPointRecord` | `IsMonotonic` | `IsMonotonic` | `bool` → `UInt8`. |
+| `HistogramPointRecord` | `AggregationTemporality` | `AggregationTemporality` | `int` (0-2) → `Enum8` label string. |
+| `HistogramPointRecord` | `Count` | `Count` | |
+| `HistogramPointRecord` | `Sum` | `Sum` | Nullable in C#, defaults to 0 when absent. |
+| `HistogramPointRecord` | `BucketCounts` | `BucketCounts` | |
+| `HistogramPointRecord` | `ExplicitBounds` | `ExplicitBounds` | |
 
 ## Migration convention
 

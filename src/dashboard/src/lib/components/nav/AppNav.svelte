@@ -11,6 +11,7 @@
 	const links = [
 		{ href: '/', label: 'Logs' },
 		{ href: '/traces', label: 'Traces' },
+		{ href: '/metrics', label: 'Metrics' },
 		{ href: '/alerts', label: 'Alerts' }
 	];
 
