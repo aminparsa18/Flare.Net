@@ -138,4 +138,10 @@ authenticatedRoutes.MapIndexingEndpoints();
 var memberRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireMember);
 memberRoutes.MapAlertEndpoints();
 
+// Ingest API key issuance/revocation is Admin-only - a leaked key lets any caller ingest
+// telemetry as this Flare instance, so this isn't something a Member should be able to
+// self-service.
+var adminRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireAdmin);
+adminRoutes.MapIngestApiKeyEndpoints();
+
 app.Run();
