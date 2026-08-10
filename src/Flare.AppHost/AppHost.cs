@@ -11,7 +11,15 @@ var builder = DistributedApplication.CreateBuilder(args);
 // /docker-entrypoint-initdb.d, the ClickHouse *official* Docker image's own
 // (Aspire-independent) convention for running *.sql files once, in filename order, the
 // first time the container starts against an empty data directory.
-var clickhouse = builder.AddClickHouse("clickhouse")
+// Pin a fixed, shell-safe password instead of leaving it to AddClickHouse's default
+// random-password parameter - confirmed live that a random password containing '-'/')'/
+// '{'/'}' makes the official image's docker-entrypoint-initdb.d step fail outright
+// (`clickhouse-client ... Code: 552: Unrecognized option '-2B.GBAsjV8)hC_tWe{JNW'`),
+// because that script passes the password straight through to clickhouse-client's CLI
+// arg parser with no escaping for values that look like flags. Same default "flare"
+// docker-compose.yml already uses, for the same reason.
+var clickhousePassword = builder.AddParameter("clickhouse-password", "flare", secret: true);
+var clickhouse = builder.AddClickHouse("clickhouse", password: clickhousePassword)
     .WithDataVolume()
     .WithBindMount("../../db/clickhouse", "/docker-entrypoint-initdb.d", isReadOnly: true);
 var logsDb = clickhouse.AddDatabase("clickhousedb");

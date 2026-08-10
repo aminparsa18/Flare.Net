@@ -106,7 +106,16 @@ public static class FlareResourceBuilderExtensions
         // to a temp directory at call time (see ExtractClickHouseInitScripts) instead of
         // bind-mounted straight from db/clickhouse/ - a consuming repo doesn't have that
         // directory on disk.
-        var clickhouse = builder.AddClickHouse($"{name}-clickhouse")
+        // Pin a fixed, shell-safe password instead of leaving it to AddClickHouse's default
+        // random-password parameter - confirmed live that a random password containing
+        // '-'/')'/'{'/'}' makes the official image's docker-entrypoint-initdb.d step fail
+        // outright (`clickhouse-client ... Code: 552: Unrecognized option
+        // '-2B.GBAsjV8)hC_tWe{JNW'`), because that script passes the password straight
+        // through to clickhouse-client's CLI arg parser with no escaping for values that
+        // look like flags. Same default "flare" docker-compose.yml already uses, for the
+        // same reason - and same fix applied to Flare.AppHost/AppHost.cs.
+        var clickhousePassword = builder.AddParameter($"{name}-clickhouse-password", "flare", secret: true);
+        var clickhouse = builder.AddClickHouse($"{name}-clickhouse", password: clickhousePassword)
             .WithDataVolume()
             .WithBindMount(ExtractClickHouseInitScripts(), "/docker-entrypoint-initdb.d", isReadOnly: true)
             .WithParentRelationship(flare)
@@ -143,6 +152,18 @@ public static class FlareResourceBuilderExtensions
             .WithHttpHealthCheck("/health", endpointName: "otlp-http")
             .WithParentRelationship(flare)
             .WithHidden();
+        // "edge" is a mutable tag republished on every push to main - without this, Docker only
+        // pulls it once (the default pull policy is "if missing locally") and then silently
+        // reuses that stale local image on every future run, forever, with no error. This forces
+        // a fresh registry check on every `aspire start` so consumers (including Flare's own
+        // examples/ExampleApp.AppHost) actually get current bits. Gated on ingestImage being the
+        // default: the ingestImage override above exists specifically so local dev can point at
+        // an image built with `docker compose build` that was never pushed to any registry -
+        // ImagePullPolicy.Always against a registry-less image would just fail the pull outright.
+        if (ingestImage is null)
+        {
+            ingest.WithImagePullPolicy(ImagePullPolicy.Always);
+        }
 
         // Attach ingest's real endpoints to the composite FlareResource so consumers can reach
         // them via `flare` itself - through `.WithReference(flare)` (ConnectionStringExpression
@@ -163,6 +184,11 @@ public static class FlareResourceBuilderExtensions
             .WithHttpHealthCheck("/health")
             .WithParentRelationship(flare)
             .WithHidden();
+        // Same "edge" staleness reasoning and local-dev-override gate as ingest above.
+        if (apiImage is null)
+        {
+            api.WithImagePullPolicy(ImagePullPolicy.Always);
+        }
 
         // Flare.Dashboard: the SvelteKit SPA. PUBLIC_API_URL/ORIGIN are read at *container
         // runtime* via SvelteKit's $env/dynamic/public, not baked in at image build time
@@ -183,6 +209,14 @@ public static class FlareResourceBuilderExtensions
             // not just the container's Running state.
             .WithHttpHealthCheck("/")
             .WithParentRelationship(flare);
+        // Same "edge" staleness reasoning and local-dev-override gate as ingest above - this is
+        // the one that actually bit us: a consumer's Docker cache pins a stale dashboard build
+        // indefinitely otherwise, with nothing on screen telling them why they're not seeing
+        // recent dashboard changes.
+        if (dashboardImage is null)
+        {
+            dashboard.WithImagePullPolicy(ImagePullPolicy.Always);
+        }
         dashboard
             .WithEnvironment("PUBLIC_API_URL", api.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork))
             .WithEnvironment("ORIGIN", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
