@@ -4,6 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
+	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import SunIcon from '@lucide/svelte/icons/sun';
@@ -54,6 +55,7 @@
 		onChange={(next) => explorer.setServices(next)}
 	/>
 	<PopoverMultiSelect label="Level" options={severityOptions} selected={selectedSeverityLabels} onChange={handleSeverityChange} />
+	<ViewsMenu pageType="Logs" currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
 
 	<div class="relative min-w-48 flex-1">
 		<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />

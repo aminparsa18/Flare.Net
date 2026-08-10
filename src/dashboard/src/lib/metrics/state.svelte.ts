@@ -8,13 +8,24 @@
 // (POST /api/metrics/query) for whichever metric is currently selected - both refetch
 // on every filter change, and the query additionally refetches on selection change.
 
-import { getMetricNames, queryMetric, type MetricNameInfo, type MetricSeries } from '$lib/metrics-api';
+import { getMetricNames, queryMetric, type MetricNameInfo, type MetricPointType, type MetricSeries } from '$lib/metrics-api';
 import { resolveTimeRange, rangeSeconds, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
 
 export interface MetricsFilterState {
 	timeRangePreset: TimeRangePreset;
 	services: string[];
+}
+
+/**
+ * A saved view's `state` payload for `pageType: 'Metrics'` - `MetricsFilterState` plus the
+ * currently-charted metric's identity. Unlike Logs/Traces, "the view" on this page isn't
+ * just the filter: which (metricName, serviceName) is selected is equally part of what a
+ * saved view should reproduce, so it's carried alongside the filter here rather than
+ * needing a second saved-view concept.
+ */
+export interface MetricsSavedViewState extends MetricsFilterState {
+	selectedMetric: { metricName: string; serviceName: string; type: MetricPointType } | null;
 }
 
 /** Identifies one picker entry/selection - a (metricName, serviceName) pair, since the same metric name can be emitted by more than one service (see MetricNameInfo.serviceName's C# doc comment). */
@@ -157,6 +168,36 @@ export class MetricsExplorerState {
 		this.filter.services = services;
 		void this.loadNames();
 		void this.runQuery();
+	}
+
+	/** Serializes the current filter + selected metric into a saved view's opaque `state` payload - see `MetricsSavedViewState`. */
+	toSavedViewState(): MetricsSavedViewState {
+		return {
+			timeRangePreset: this.filter.timeRangePreset,
+			services: [...this.filter.services],
+			selectedMetric: this.selected
+				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
+				: null
+		};
+	}
+
+	/**
+	 * Restores a saved view's filter + selected metric (defensively narrowed - see
+	 * `LogsExplorerState.applySavedViewState`'s identical caveat). Reloads the name list
+	 * for the restored filter first (which auto-selects some metric so the chart isn't
+	 * blank - see `loadNames`), then re-selects the saved view's specific metric if it's
+	 * still present among the results; falls back to whatever `loadNames` already picked
+	 * if the saved metric no longer exists (e.g. that service stopped emitting it).
+	 */
+	async applySavedViewState(state: unknown): Promise<void> {
+		const s = (state ?? {}) as Partial<MetricsSavedViewState>;
+		this.filter = { timeRangePreset: s.timeRangePreset ?? '1h', services: s.services ?? [] };
+		await this.loadNames();
+		const saved = s.selectedMetric;
+		if (saved) {
+			const match = this.names.find((m) => m.metricName === saved.metricName && m.serviceName === saved.serviceName);
+			if (match) this.selectMetric(match);
+		}
 	}
 
 	dispose(): void {

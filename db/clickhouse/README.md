@@ -41,6 +41,14 @@ one row per OTLP metric data point, mirroring
 1:1. This is the metrics half of "OTLP traces & metrics" (Planning.md's v6) - v1 scope is
 Gauge/Sum/Histogram only, see "Design decisions" below.
 
+`0009_saved_views.sql` - the `saved_views` table: named, reloadable snapshots of one
+dashboard page's (Logs/Traces/Metrics) filter/selection state, CRUD'd via `Flare.Api`'s
+`/api/views` endpoints. This is the **"Saved dashboards / shareable views"** roadmap item,
+scoped as saved-per-page filter state (not a multi-panel dashboard builder - see
+Planning.md's non-goal on "dashboards-as-code, arbitrary user-built panels"). Second
+"config, not log data" table after `alert_rules` - see "Design decisions" below for the
+same CRUD-on-MergeTree approach reused from there.
+
 ## What it deliberately does *not* do (yet)
 
 - No ClickHouse-writing code anywhere - `Flare.Ingest`'s `ConsoleLogEventSink` is
@@ -247,6 +255,23 @@ out specifically (also documented inline in `0008_metrics.sql`):
   Nested columns used before that migration was written: both round-trip as plain .NET
   `ulong[]`/`double[]` through `InsertBinaryAsync`/`ExecuteReaderAsync`, no special
   handling needed.
+
+**`saved_views` (migration 0009), `ReplacingMergeTree(UpdatedAt)`.** Reuses `alert_rules`'
+tombstone-CRUD pattern verbatim - same `IsDeleted` tombstone column, same `FROM
+saved_views FINAL WHERE IsDeleted = 0` read pattern, same accepted `FINAL` cost at the
+same expected row count. Two differences worth calling out:
+
+- **`PageType LowCardinality(String)`** ("Logs"/"Traces"/"Metrics") lets one table (and
+  one CRUD endpoint set) serve all three dashboard pages, rather than three near-identical
+  tables - `ListAsync`/`GET /api/views` takes an optional `pageType` filter so each page's
+  toolbar picker only sees its own views while the `/views` management page sees all of
+  them.
+- **`StateJson` is fully opaque to `Flare.Api`**, unlike `alert_rules.ConditionJson`. That
+  column at least deserializes into a real C# `LogFilter` model; a saved view's state
+  shape (`LogsFilterState`/`TracesFilterState`/a Metrics equivalent) is owned entirely by
+  the dashboard's TypeScript, not mirrored as a Flare.Api model - so the API only ever
+  round-trips it as a `JsonElement`, never interprets its contents. No column exists (and
+  none should be added) to filter/aggregate on a saved view's state.
 
 ## `LogEvent` field → column mapping
 
