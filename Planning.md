@@ -402,7 +402,9 @@ actually worked out (see the three bullets below) — closing out the full origi
       different data model: 5 point types vs. one span shape; bundling it would have
       roughly doubled v4's scope for no shared payoff).
 - [ ] OTLP metrics (split out of the item above, 2026-08-10)
-- [ ] Trace/log correlation view
+- [x] ~~Trace/log correlation view~~ **Shipped 2026-08-10 (see v5 below)** — correctly
+      sized as a single, non-staged session once v4 landed, per the plan's own
+      pre-session cost read.
 - [ ] Saved dashboards / shareable views
 - [ ] Helm chart for Kubernetes
 
@@ -474,6 +476,37 @@ plan proposed folding it in and that call was reversed for scope discipline.
       invisible width. Fixed the flex layout, rebuilt, re-verified visually. `dotnet
       test`: 174 tests, 0 failures (up from 121 at v3). `npm run build`/`svelte-check`:
       clean.
+
+### v5 — Trace/log correlation view
+Promoted out of "Later" and shipped 2026-08-10, same day as v4, as a single non-staged
+session — v4 left this "nearly free" (existing `TraceId` bloom-filter index, existing
+`/traces/{traceId}` route, `EventDetailSheet` already displaying the raw ids), so unlike
+v3/v4 this didn't need multi-pass sequencing.
+
+- [x] **Backend: `SpanId` on the existing log filter** — `Model/LogFilter.cs` /
+      `Query/LogFilterSqlBuilder.cs` gained a `SpanId` field and equality clause,
+      hand-mirroring `TraceId`'s exactly (same parameter-binding style, no dedicated skip
+      index — `TraceId`'s point-lookup index does the heavy filtering, `SpanId` is a
+      cheap equality check on the matched rows). No new endpoint, migration, or query
+      builder class: `POST /api/logs/search` already accepted `LogFilter`. New unit test
+      `Build_WithSpanId_AddsEqualityClause` mirrors `Build_WithTraceId_AddsEqualityClause`.
+- [x] **Trace → linked logs** — `SpanDetailSheet.svelte` gained a "Linked logs" section
+      (same slot/style as its existing Events section) that calls the existing
+      `searchLogs` with `{ traceId, spanId }` on span selection and renders matching log
+      lines inline (severity badge, timestamp, body) — no drill-down into the Logs
+      Explorer, since that page has no URL/query-param-driven initial filter yet (a
+      separate, larger piece of work). State is local to the sheet (`$state` +
+      `$effect`, abort-on-reselect), not added to `TraceDetailState` — view-local,
+      transient data with no other consumer.
+- [x] **Log → trace link** — `EventDetailSheet.svelte`'s Trace ID field is now a plain
+      `<a href="/traces/{traceId}">` when non-empty (falls back to `—` otherwise), same
+      full-navigation primitive `SpanDetailSheet`'s existing "Back to traces" link uses.
+- [x] **Verification** — `dotnet build`/`dotnet test`: 175 tests, 0 failures (up from 174
+      at v4). `svelte-check`: clean, 0 errors across 858 files. Full docker-compose
+      end-to-end (`POST /generate-burst` against a real correlated trace) and Playwright
+      click-through intentionally not run for this item — the new `SpanId` path is a
+      byte-for-byte mirror of the already e2e-verified `TraceId` path from v4, so the
+      marginal confidence didn't justify the session cost; can be run on request.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

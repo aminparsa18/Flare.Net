@@ -47,6 +47,9 @@ public sealed record LogFilter
     /// <summary>Exact lower-hex <c>TraceId</c> match.</summary>
     public string? TraceId { get; init; }
 
+    /// <summary>Exact lower-hex <c>SpanId</c> match.</summary>
+    public string? SpanId { get; init; }
+
     /// <summary>
     /// Free-text, case-insensitive substring match against <c>Body</c>
     /// (<c>ILIKE '%term%'</c>). See <c>Flare.Api</c>'s README for why this is

@@ -26,6 +26,7 @@ export interface LogFilter {
 	services?: string[];
 	severityNumbers?: number[];
 	traceId?: string;
+	spanId?: string;
 	search?: string;
 	attributes?: AttributeFilter[];
 }
