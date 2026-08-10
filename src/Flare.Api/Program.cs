@@ -25,6 +25,7 @@ builder.Services.AddSingleton<IMetricQueryService, MetricQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();
+builder.Services.AddSingleton<IIndexingQueryService, IndexingQueryService>();
 builder.Services.Configure<LiveTailOptions>(builder.Configuration.GetSection(LiveTailOptions.SectionName));
 builder.Services.AddSingleton<LogTailBroadcaster>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailBroadcaster>());
@@ -85,5 +86,6 @@ app.MapMetricsEndpoints();
 app.MapAlertEndpoints();
 app.MapSavedViewEndpoints();
 app.MapIngestionEndpoints();
+app.MapIndexingEndpoints();
 
 app.Run();
