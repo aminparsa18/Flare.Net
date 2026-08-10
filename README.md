@@ -9,7 +9,7 @@
 
 # Flare.Net
 
-A self-hosted, OpenTelemetry-native log dashboard for .NET developers. See [Planning.md](Planning.md) for the full design doc and roadmap.
+A self-hosted, OpenTelemetry-native log dashboard for .NET developers. Search/filter/live-tail your logs, and set threshold/query-based alert rules that notify webhook/Slack, Telegram, or email on breach — see [src/Flare.Api/README.md#alerting](src/Flare.Api/README.md#alerting) for the full alert-rule/notification-channel writeup. See [Planning.md](Planning.md) for the full design doc and roadmap.
 
 ## Getting started
 

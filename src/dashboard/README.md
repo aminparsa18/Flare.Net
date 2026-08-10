@@ -24,4 +24,14 @@ npm run preview
 
 ## Status
 
-v1: a single page (`/`) that is the Logs Explorer — virtualized log table, filter toolbar, event detail sheet, live tail, and volume chart, talking to `Flare.Api`'s search/aggregate/live-tail surfaces end to end.
+v1: two pages, sharing `AppNav.svelte`'s app-shell nav (`+layout.svelte`) —
+
+- **`/` — Logs Explorer.** Virtualized log table, filter toolbar, event detail sheet,
+  live tail, and volume chart, talking to `Flare.Api`'s search/aggregate/live-tail
+  surfaces end to end.
+- **`/alerts` — Alerts.** Threshold/query-based alert rule list, create/edit form (with
+  a live "test against current data" dry-run before saving) and fired-alert history
+  view, talking to `Flare.Api`'s `/api/alerts/*` surface. A rule notifies exactly one of
+  three channels — webhook/Slack, Telegram, or email — via the form's "Notify via"
+  selector; see [`../Flare.Api/README.md`](../Flare.Api/README.md#alerting) for what
+  each channel needs configured server-side.
