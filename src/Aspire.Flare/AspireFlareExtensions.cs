@@ -1,7 +1,9 @@
 using Aspire.Flare;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Trace;
 
 // Put extensions in the Microsoft.Extensions.Hosting namespace to ease discovery - referencing
 // the package automatically adds this namespace, same convention Aspire.Seq's AspireSeqExtensions
@@ -15,12 +17,15 @@ namespace Microsoft.Extensions.Hosting;
 public static class AspireFlareExtensions
 {
     /// <summary>
-    /// Registers a second, named OTLP log exporter pointed at Flare.Ingest, additive alongside
-    /// whatever exporter <c>ConfigureOpenTelemetry()</c> already registered (e.g. the Aspire
-    /// dashboard collector) - the same signal-specific, named <c>AddOtlpExporter(name, ...)</c>
-    /// mechanism <c>Aspire.Seq</c>'s <c>AddSeqEndpoint</c> uses to send telemetry to Seq without
-    /// displacing other destinations. Logs only: Flare.Ingest doesn't receive traces or metrics
-    /// yet (a separate "Later" roadmap item).
+    /// Registers a second, named OTLP log <em>and trace</em> exporter pointed at Flare.Ingest,
+    /// additive alongside whatever exporter <c>ConfigureOpenTelemetry()</c> already registered
+    /// (e.g. the Aspire dashboard collector) - the same signal-specific, named
+    /// <c>AddOtlpExporter(name, ...)</c> mechanism <c>Aspire.Seq</c>'s <c>AddSeqEndpoint</c> uses
+    /// to send telemetry to Seq without displacing other destinations. Metrics are still
+    /// excluded: Flare.Ingest doesn't receive OTLP metrics yet - a separate, later effort with a
+    /// materially different data model than traces (see the "OTLP traces &amp; metrics" roadmap
+    /// item's own scoping note). This method really was logs-only until Flare.Ingest's trace
+    /// receiver shipped; the doc comment said so at the time.
     /// <para>
     /// Requires <c>Flare.ServiceDefaults.ConfigureOpenTelemetry()</c> (or any other OTel setup
     /// this is layered on top of) to register its own exporter via the signal-specific
@@ -73,11 +78,16 @@ public static class AspireFlareExtensions
                 "via the configureSettings delegate.");
         }
 
-        builder.Services.AddOpenTelemetry().WithLogging(logging =>
-            logging.AddOtlpExporter(connectionName, otlp =>
-            {
-                otlp.Endpoint = settings.Endpoint;
-                otlp.Protocol = settings.Protocol;
-            }));
+        // One shared delegate for both signals - Endpoint/Protocol configuration is
+        // identical either way, only the signal-specific builder type differs.
+        void ConfigureExporter(OtlpExporterOptions otlp)
+        {
+            otlp.Endpoint = settings.Endpoint;
+            otlp.Protocol = settings.Protocol;
+        }
+
+        builder.Services.AddOpenTelemetry()
+            .WithLogging(logging => logging.AddOtlpExporter(connectionName, ConfigureExporter))
+            .WithTracing(tracing => tracing.AddOtlpExporter(connectionName, ConfigureExporter));
     }
 }

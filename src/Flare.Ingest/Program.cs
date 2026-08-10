@@ -20,6 +20,8 @@ builder.Services.AddGrpc();
 
 builder.Services.Configure<LogEventPipelineOptions>(
     builder.Configuration.GetSection(LogEventPipelineOptions.SectionName));
+builder.Services.Configure<SpanEventPipelineOptions>(
+    builder.Configuration.GetSection(SpanEventPipelineOptions.SectionName));
 
 // Redis: durable buffer the pipeline writes to (RedisStreamLogEventSink) and reads from
 // (ClickHouseFlushWorker). ClickHouse: batched insert destination. Connection names must
@@ -31,11 +33,20 @@ builder.Services.AddSingleton<ILogEventSink, RedisStreamLogEventSink>();
 builder.Services.AddSingleton<IClickHouseLogEventWriter, ClickHouseLogEventWriter>();
 builder.Services.AddHostedService<ClickHouseFlushWorker>();
 
+// Spans - a parallel, deliberately un-unified pipeline alongside the logs one above
+// (own Redis stream, own flush worker); see SpanFlushWorker's remarks for why.
+builder.Services.AddSingleton<ISpanEventSink, RedisStreamSpanEventSink>();
+builder.Services.AddSingleton<IClickHouseSpanWriter, ClickHouseSpanWriter>();
+builder.Services.AddHostedService<SpanFlushWorker>();
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
 app.MapGrpcService<OtlpGrpcLogsService>();
 app.MapOtlpHttpLogsEndpoint();
+
+app.MapGrpcService<OtlpGrpcTraceService>();
+app.MapOtlpHttpTraceEndpoint();
 
 app.Run();

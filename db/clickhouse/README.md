@@ -24,6 +24,17 @@ storage: `alert_rules` (saved threshold/query-based rule definitions, CRUD'd via
 notifications, also the sole cooldown-tracking mechanism). See "Design decisions" below
 for the CRUD-on-MergeTree approach.
 
+`0005_alert_rules_telegram.sql` / `0006_alert_rules_email.sql` - `ALTER TABLE ... ADD
+COLUMN` follow-ups adding the Telegram and Email/SMTP notification channels to
+`alert_rules`.
+
+`0007_spans.sql` - the `spans` table: one row per OTLP `Span`, mirroring
+[`Flare.Ingest`'s `SpanRecord` model](../../src/Flare.Ingest/Model/SpanRecord.cs) 1:1.
+This is the traces half of the **"OTLP traces & metrics"** Later-roadmap item (metrics
+is out of scope - a separate, later effort with a materially different data model). See
+"Design decisions" below for the schema, and the field→column mapping table at the
+bottom of this file.
+
 ## What it deliberately does *not* do (yet)
 
 - No ClickHouse-writing code anywhere - `Flare.Ingest`'s `ConsoleLogEventSink` is
@@ -148,6 +159,43 @@ app-wide config (`Flare.Api.Alerting.EmailOptions`, from the `Email` configurati
 section / `Email__*` env vars), not a per-rule column, so credentials aren't duplicated
 across rules or stored in this table.
 
+**`spans` (migration 0007), plain `MergeTree`.** Immutable once written, same as `logs`
+- no `ReplacingMergeTree`/dedup needed. Two design decisions worth calling out
+specifically (both documented inline in `0007_spans.sql` too):
+
+- **`ORDER BY (TraceId, StartTime, SpanId)`, not `(ServiceName, ...)` like `logs`.** The
+  two plausible access patterns genuinely conflict: "get a full trace by id" (the
+  waterfall/trace-detail view) wants `TraceId` leading; "list/search spans by
+  service+time" (a logs-explorer-style view) wants `ServiceName`+time leading. This
+  migration picks the former, since the waterfall is the feature this roadmap slice is
+  actually for. **Known, deliberately unresolved trade-off**, same spirit as `logs`'
+  own one: covered adequately for v1 by the `idx_service` skip index (span rows within
+  one `TraceId` group are naturally low-cardinality in `ServiceName`) plus monthly
+  partition pruning - not by the `ORDER BY` prefix. Named follow-up if service+time
+  span search becomes a hot path: a `StartTime`-first projection, addable
+  non-destructively later.
+- **`Events Nested (...)`** for OTel's `Span.Events` (timestamped annotations on a
+  span). ClickHouse desugars `Nested` columns into parallel `Array(...)` columns
+  (`Events.TimeUnixNano`/`Events.Name`/`Events.Attributes`) at the physical level -
+  confirmed by a live spike against `Aspire.ClickHouse.Driver` *before* this migration
+  was written (the biggest identified risk in adding traces support at all): both
+  `InsertBinaryAsync` (RowBinary insert) and `ExecuteReaderAsync` round-trip these as
+  plain .NET `DateTime[]`/`string[]`/`Dictionary<string,string>[]` values with no
+  special handling needed, the same shape already used for the plain `Map` attribute
+  columns. **Span Links are deliberately not represented at all** (not even empty
+  columns) - no feature in this roadmap slice consumes them; add via a later `ALTER
+  TABLE` once one does, same precedent as the Telegram/Email `ALTER`s above.
+- **`StatusCode Enum8(...)`**, not `LowCardinality(String)` like `logs.SeverityText`.
+  OTel's `Status.Code` is a fixed 3-value spec enum that doesn't vary per source
+  library (unlike log severity text, which does) - `Enum8` fits per
+  `schema-types-enum`'s cardinality-stability guidance. Also spike-confirmed: the
+  driver accepts either the enum's ordinal byte or its string label on insert, but
+  always returns the string label on read - `ClickHouseSpanRowMapper` writes the label
+  to keep insert/read symmetric.
+- **No synthetic id column** (unlike `logs.EventId`): `(TraceId, SpanId)` is
+  spec-guaranteed present and unique on every span, so it already serves as both
+  natural key and pagination tiebreaker.
+
 ## `LogEvent` field → column mapping
 
 | `LogEvent` field (C#)          | `logs` column        | Notes |
@@ -193,6 +241,28 @@ interoperable with other OTLP-ClickHouse tooling. `Flare.Ingest`'s current mappi
 granularity, not true nanosecond fidelity. That's an accepted trade-off (.NET simply
 can't represent true nanoseconds); 100ns resolution is well beyond what time-range
 filtering or event ordering in the dashboard needs.
+
+## `SpanRecord` field → column mapping
+
+| `SpanRecord` field (C#)         | `spans` column        | Notes |
+|-----------------------------------|-------------------------|-------|
+| `TraceId` / `SpanId`              | `TraceId` / `SpanId`   | Lower-hex, spec-guaranteed present. |
+| `ParentSpanId`                    | `ParentSpanId`          | Empty string = root span. |
+| `TraceState`                      | `TraceState`            | |
+| `Name`                            | `Name`                  | |
+| `Kind`                            | `Kind`                  | `int` (0-5) → `UInt8`. |
+| `StartTime` / `EndTime`           | `StartTime` / `EndTime` | See logs' "Timestamp precision" note - same 100ns tick truncation applies. |
+| `DurationNano`                    | `DurationNano`          | Computed from raw wire nanoseconds by `OtlpTraceMapper`, not from `StartTime`/`EndTime`, to avoid the same truncation. |
+| `StatusCode`                      | `StatusCode`            | `int` (0-2) → `Enum8` label string. |
+| `StatusMessage`                   | `StatusMessage`         | |
+| `ServiceName`                     | `ServiceName`           | Sourced from `service.name` resource attribute. |
+| `ResourceSchemaUrl`               | `ResourceSchemaUrl`     | |
+| `ResourceAttributes`              | `ResourceAttributes`    | |
+| `ScopeSchemaUrl`                  | `ScopeSchemaUrl`        | |
+| `ScopeName` / `ScopeVersion`      | `ScopeName` / `ScopeVersion` | |
+| `ScopeAttributes`                 | `ScopeAttributes`       | |
+| `SpanAttributes`                  | `SpanAttributes`        | |
+| `Events` (`IReadOnlyList<SpanEvent>`) | `Events.TimeUnixNano`/`Events.Name`/`Events.Attributes` | `Nested` column, desugared to three parallel arrays - see "Design decisions" above. |
 
 ## Migration convention
 

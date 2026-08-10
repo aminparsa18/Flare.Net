@@ -17,6 +17,8 @@
     <Protobuf Include="Protos/opentelemetry/proto/logs/v1/logs.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
     <Protobuf Include="Protos/opentelemetry/proto/resource/v1/resource.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
     <Protobuf Include="Protos/opentelemetry/proto/common/v1/common.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
+    <Protobuf Include="Protos/opentelemetry/proto/collector/trace/v1/trace_service.proto" ProtoRoot="Protos" GrpcServices="Server" Access="Public" />
+    <Protobuf Include="Protos/opentelemetry/proto/trace/v1/trace.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
   </ItemGroup>
 
 </Project>
