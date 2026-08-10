@@ -152,6 +152,21 @@ public static class FlareResourceBuilderExtensions
             .WithParentRelationship(flare)
             .WithHidden();
 
+        // Auth's identity store (Users/Sessions/IngestApiKeys) - embedded SQLite (see
+        // docs/auth.md's "why not a fourth backing-store service" for the design
+        // rationale), shared between ingest and api via a plain named volume rather than
+        // a dedicated Aspire-modeled resource with its own container. WithVolume (not
+        // WithDataVolume, which is ClickHouse/Redis's own integration-specific
+        // convenience method, only available on their specialized resource types) is the
+        // generic mechanism for a raw AddContainer resource - passing the *same* volume
+        // name to both ingest and api below is what makes Docker give them the literal
+        // same file, mirroring docker-compose.yml's identity-data volume. Without this,
+        // the SQLite file lives in each container's ephemeral writable layer and is wiped
+        // on every container recreation - confirmed live: this exact gap surfaced as "asks
+        // to create the admin account again every time I restart aspire."
+        var identityVolumeName = $"{name}-identity-data";
+        const string identityDbPath = "/data/identity/flare-identity.db";
+
         // Flare.Ingest: terminates OTLP over gRPC (4317) and HTTP (4318, protobuf + JSON).
         // Fixed, unproxied ports so external OTLP clients can point at the conventional port
         // numbers directly, rather than Aspire's dashboard dev-proxy / dynamically-assigned
@@ -161,6 +176,8 @@ public static class FlareResourceBuilderExtensions
             .WaitFor(logsDb)
             .WithReference(redis, connectionName: "redis")
             .WaitFor(redis)
+            .WithVolume(identityVolumeName, "/data/identity")
+            .WithEnvironment("Identity__DbPath", identityDbPath)
             .WithEndpoint(port: ingestGrpcPort, targetPort: 4317, scheme: "http", name: "otlp-grpc", isProxied: false)
             .WithEndpoint(port: ingestHttpPort, targetPort: 4318, scheme: "http", name: "otlp-http", isProxied: false)
             .WithHttpHealthCheck("/health", endpointName: "otlp-http")
@@ -206,6 +223,9 @@ public static class FlareResourceBuilderExtensions
             .WaitFor(logsDb)
             .WithReference(redis, connectionName: "redis")
             .WaitFor(redis)
+            // Same volume name as ingest above - see that assignment's remarks.
+            .WithVolume(identityVolumeName, "/data/identity")
+            .WithEnvironment("Identity__DbPath", identityDbPath)
             .WithHttpEndpoint(port: apiPort, targetPort: 8080)
             .WithHttpHealthCheck("/health")
             .WithParentRelationship(flare)
