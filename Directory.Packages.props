@@ -12,9 +12,8 @@
     <PackageVersion Include="Aspire.Hosting" Version="13.4.6" />
     <!-- ClickHouse: schema in db/clickhouse/, see db/clickhouse/README.md.
          Aspire.Hosting.ClickHouse is referenced by Flare.AppHost today.
-         Aspire.ClickHouse.Driver isn't referenced by any project yet - schema
-         verification uses curl (see db/clickhouse/README.md); pinned here so the
-         batched insert pipeline (a later roadmap item) doesn't need to pick a version. -->
+         Aspire.ClickHouse.Driver is referenced by Flare.Ingest/Flare.Api (the batched
+         insert pipeline and query API) and Flare.ServiceDefaults (ClickHouseMigrationRunner). -->
     <PackageVersion Include="Aspire.Hosting.ClickHouse" Version="13.4.6" />
     <PackageVersion Include="Aspire.ClickHouse.Driver" Version="13.4.6" />
     <!-- Redis: durable Redis-Streams buffer for the batched ClickHouse insert pipeline
