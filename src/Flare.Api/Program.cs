@@ -3,6 +3,9 @@ using Flare.Api.Alerting;
 using Flare.Api.Endpoints;
 using Flare.Api.LiveTail;
 using Flare.Api.Query;
+using Flare.Identity;
+using Flare.Identity.Auth;
+using Flare.Identity.Users;
 using Flare.ServiceDefaults.ClickHouseMigrations;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +20,22 @@ builder.AddClickHouseDataSource(connectionName: "clickhousedb");
 // `flare:logs` stream Flare.Ingest's RedisStreamLogEventSink writes into. Same connection
 // name Flare.AppHost references onto Flare.Ingest.
 builder.AddRedisClient(connectionName: "redis");
+
+// Auth + multi-user / roles (Planning.md's "Later" roadmap item). Full identity wiring
+// (Users/Sessions/IngestApiKeys stores) - see Flare.Identity's remarks for why this is a
+// separate shared project rather than living directly in this one.
+builder.AddFlareIdentity();
+
+builder.Services
+    .AddAuthentication(SessionAuthenticationDefaults.SchemeName)
+    .AddScheme<SessionAuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationDefaults.SchemeName, _ => { });
+
+// Role set is intentionally small (Admin/Member/Viewer, see Flare.Identity.Users.UserRole) -
+// the default policy (RequireAuthorization() with no policy name) already means "any
+// authenticated user", i.e. Viewer-and-up, with no extra configuration needed here.
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(AuthorizationPolicies.RequireMember, p => p.RequireRole(nameof(UserRole.Admin), nameof(UserRole.Member)))
+    .AddPolicy(AuthorizationPolicies.RequireAdmin, p => p.RequireRole(nameof(UserRole.Admin)));
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ILogQueryService, LogQueryService>();
@@ -47,14 +66,19 @@ builder.Services.AddHostedService<AlertEvaluationWorker>();
 
 builder.Services.AddOpenApi();
 
-// Permissive CORS for every environment, not just dev: v1 has no auth story anywhere
-// yet (Planning.md's roadmap lists it as a later item), so this isn't loosening the
-// product's actual security posture - it's what lets the still-undecided dashboard SPA
-// (Planning.md open question #1) call this API cross-origin once it exists, in exactly
-// the self-hosted deployment this product ships as. Revisit once auth lands.
+// Auth landed - AllowAnyOrigin() is no longer safe now that requests carry a session
+// cookie (AllowCredentials() and AllowAnyOrigin() are mutually exclusive by the CORS
+// spec/ASP.NET Core's own enforcement anyway, so this couldn't stay permissive even
+// unintentionally). Cors:AllowedOrigins must list the dashboard's actual origin(s) -
+// e.g. http://localhost:5173 in dev, http://localhost:3000 in docker-compose (dashboard
+// and API are different origins even there, so this can't default to same-origin-only).
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    options.AddDefaultPolicy(policy => policy
+        .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials());
 });
 
 var app = builder.Build();
@@ -70,8 +94,18 @@ await ClickHouseMigrationRunner.ApplyAsync(
     app.Logger,
     CancellationToken.None);
 
+await IdentityMigrationRunner.ApplyAsync(
+    app.Services.GetRequiredService<IdentityDbConnectionFactory>(),
+    app.Logger,
+    CancellationToken.None);
+
 app.UseCors();
 app.UseWebSockets();
+
+// Must come after UseCors() (so a CORS preflight OPTIONS request isn't itself
+// auth-challenged) and before every Map*Endpoints() call below.
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapDefaultEndpoints();
 
@@ -80,14 +114,28 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.MapLogsEndpoints();
-app.MapLogTailEndpoints();
-app.MapSpanEndpoints();
-app.MapMetricsEndpoints();
-app.MapAlertEndpoints();
-app.MapSavedViewEndpoints();
-app.MapIngestionEndpoints();
-app.MapPipelineEndpoints();
-app.MapIndexingEndpoints();
+// Unauthenticated by design - a client can't have a session yet when calling these.
+app.MapAuthEndpoints();
+
+// MapGroup("") is a routing no-op (empty prefix) used purely to get a convention
+// builder to hang RequireAuthorization() off of - every Map*Endpoints() call below is
+// itself just `this IEndpointRouteBuilder endpoints => ... return endpoints;`, so
+// mapping them onto this group (rather than directly onto `app`) makes their routes
+// inherit the group's authorization requirement with no changes needed in any of those
+// endpoint files.
+var authenticatedRoutes = app.MapGroup("").RequireAuthorization();
+authenticatedRoutes.MapLogsEndpoints();
+authenticatedRoutes.MapLogTailEndpoints();
+authenticatedRoutes.MapSpanEndpoints();
+authenticatedRoutes.MapMetricsEndpoints();
+authenticatedRoutes.MapSavedViewEndpoints();
+authenticatedRoutes.MapIngestionEndpoints();
+authenticatedRoutes.MapPipelineEndpoints();
+authenticatedRoutes.MapIndexingEndpoints();
+
+// Alert rule CRUD/test-fire is mutating and can page people - Member/Admin only, unlike
+// every other (read-only) endpoint group above which just needs any authenticated user.
+var memberRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireMember);
+memberRoutes.MapAlertEndpoints();
 
 app.Run();
