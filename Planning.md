@@ -397,10 +397,83 @@ actually worked out (see the three bullets below) — closing out the full origi
 - [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
 - [ ] Auth + multi-user / roles
-- [ ] OTLP traces & metrics (become a real observability tool)
+- [x] ~~OTLP traces & metrics (become a real observability tool)~~ **Traces half done,
+      2026-08-10 (see v4 below) — metrics remains a separate, later item** (materially
+      different data model: 5 point types vs. one span shape; bundling it would have
+      roughly doubled v4's scope for no shared payoff).
+- [ ] OTLP metrics (split out of the item above, 2026-08-10)
 - [ ] Trace/log correlation view
 - [ ] Saved dashboards / shareable views
 - [ ] Helm chart for Kubernetes
+
+### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
+Promoted out of "Later" and shipped 2026-08-10, in four passes (ingest+storage →
+query API → dashboard UI → e2e verification), each independently verified before the
+next began — the same staged-delivery discipline v3's Alerting item used. Metrics
+deliberately excluded (see above); "Trace/log correlation view" also deliberately stays
+a separate future item rather than being folded in here, after an earlier draft of this
+plan proposed folding it in and that call was reversed for scope discipline.
+
+- [x] **Ingest + ClickHouse storage** — vendored `trace.proto`/`trace_service.proto`
+      (same pinned `v1.11.0` tag as the existing logs protos) and added gRPC
+      (`OtlpGrpcTraceService`) + HTTP (`OtlpHttpTraceEndpoints`, `POST /v1/traces`)
+      receivers sharing `Flare.Ingest`'s existing :4317/:4318 listeners.
+      `OtlpTraceMapper` maps to a new `SpanRecord` model; a deliberately-duplicated
+      (not generalized) Redis Streams → ClickHouse pipeline
+      (`RedisStreamSpanEventSink` → `SpanFlushWorker` → `ClickHouseSpanWriter`) mirrors
+      the logs pipeline's at-least-once/PEL-reclaim design. `db/clickhouse/0007_spans.sql`
+      adds the `spans` table: `Events Nested(...)` for span events (ClickHouse desugars
+      this into three parallel `Array(...)` columns) and `StatusCode Enum8(...)`.
+      Both were spike-tested against a live `Aspire.ClickHouse.Driver` *before* being
+      committed to (the single biggest identified risk in the whole effort) — confirmed
+      `InsertBinaryAsync`/`ExecuteReaderAsync` round-trip them as plain
+      `DateTime[]`/`string[]`/`Dictionary<string,string>[]` .NET values with no special
+      handling. `ORDER BY (TraceId, StartTime, SpanId)` optimizes "get a full trace by
+      id" (the waterfall) over "list spans by service+time," a known, deliberately
+      unresolved trade-off documented in the migration and `db/clickhouse/README.md`,
+      same spirit as `logs`' own unresolved `ORDER BY` trade-off. Span Links omitted
+      entirely (schema and model) - add via a later `ALTER TABLE` once a concrete
+      feature needs them. Unit tests added for `OtlpTraceMapper`/`ClickHouseSpanRowMapper`
+      (`Flare.Ingest.Tests`), matching the coverage the logs pipeline already had.
+      Verified end-to-end against a real `docker compose` stack: real OTLP trace
+      exports via both HTTP/JSON and gRPC (`grpcurl` against the vendored proto)
+      round-tripped correctly, including the `Events` Nested columns.
+- [x] **Query API** (`Flare.Api`) — `Model/SpanFilter.cs` (time range, services, kinds,
+      status codes, trace id, root-spans-only, duration range, attribute bags) and
+      `Query/SpanFilterSqlBuilder.cs`/`SpanSearchQueryBuilder.cs`/`TraceByIdQueryBuilder.cs`
+      (pure, parameterized, unit-tested), a new `SpanQueryService` (the one class
+      holding `IClickHouseClient` for spans), and `Endpoints/SpanEndpoints.cs`:
+      `POST /api/spans/search` (root-span list) and `GET /api/traces/{traceId}`
+      (the waterfall's one query, ordered ascending by `StartTime`). Keyset pagination
+      via `(StartTime, TraceId, SpanId)` - no synthetic id needed, unlike logs'
+      `EventId`, since `(TraceId, SpanId)` is already spec-guaranteed unique. Verified
+      via curl against real data: search pagination across pages, `Services`/`Kinds`/
+      `StatusCodes`/duration-range filters, and correct parent-before-child trace-by-id
+      ordering.
+- [x] **Dashboard UI** (`src/dashboard`) — third nav entry (`AppNav.svelte`, first
+      nested route in this app: `routes/traces/[traceId]`), `lib/traces-api.ts` +
+      `lib/traces/state.svelte.ts`/`trace-state.svelte.ts` (list state, waterfall/detail
+      state) following the established `$state` class + typed-context convention.
+      `TraceList`/`TraceRow` mirror `LogTable`/`LogRow`; `SpanDetailSheet` mirrors
+      `EventDetailSheet` and reuses `AttributeTable`. `TraceWaterfall` is the one
+      genuinely new component in this dashboard - hand-rolled indented timeline bars
+      (plain divs, no charting library), same "hand-roll it" precedent `VolumeChart`
+      already set. No live-tail of spans (deliberately out of scope - the waterfall is
+      the value, not a live firehose).
+- [x] **End-to-end verification, 2026-08-10** — real `docker compose`-built images;
+      Playwright-driven click-through (list → waterfall → span detail) against
+      hand-built OTLP payloads first, then against a **real OTel SDK-produced trace**:
+      extended `Aspire.Flare`'s client package (`AddFlareOtlpExporter`, previously
+      logs-only) to also export traces, and `examples/ExampleApp.LogGenerator` to emit
+      real child spans via `ActivitySource` nested under ASP.NET Core's
+      auto-instrumented request span. That real run surfaced and fixed a genuine bug
+      hand-built test data never would have caught: the waterfall's span-name label
+      used `shrink-0` on the service-name suffix, which - combined with the real SDK's
+      actual default `unknown_service:<name>` resource attribute (much longer than the
+      short hand-crafted service names used earlier) - crowded the span name out to
+      invisible width. Fixed the flex layout, rebuilt, re-verified visually. `dotnet
+      test`: 174 tests, 0 failures (up from 121 at v3). `npm run build`/`svelte-check`:
+      clean.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

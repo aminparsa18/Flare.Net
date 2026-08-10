@@ -5,7 +5,8 @@ These `.proto` files are vendored unmodified from the official
 
 - **Tag:** `v1.11.0`
 - **Commit:** `790608c4d51e6ffc12210b541e8514cbed9e91a4`
-- **Vendored:** 2026-08-07
+- **Vendored:** 2026-08-07 (logs); trace files added 2026-08-10 at the same tag, so
+  wire compatibility stays pinned to one snapshot across signals.
 - **License:** Apache-2.0 (see each file's header)
 
 Files:
@@ -14,6 +15,8 @@ opentelemetry/proto/common/v1/common.proto
 opentelemetry/proto/resource/v1/resource.proto
 opentelemetry/proto/logs/v1/logs.proto
 opentelemetry/proto/collector/logs/v1/logs_service.proto
+opentelemetry/proto/trace/v1/trace.proto
+opentelemetry/proto/collector/trace/v1/trace_service.proto
 ```
 
 ## Why vendored, not a NuGet dependency
@@ -41,7 +44,9 @@ TAG=vX.Y.Z
 for f in opentelemetry/proto/common/v1/common.proto \
          opentelemetry/proto/resource/v1/resource.proto \
          opentelemetry/proto/logs/v1/logs.proto \
-         opentelemetry/proto/collector/logs/v1/logs_service.proto; do
+         opentelemetry/proto/collector/logs/v1/logs_service.proto \
+         opentelemetry/proto/trace/v1/trace.proto \
+         opentelemetry/proto/collector/trace/v1/trace_service.proto; do
   curl -sf -o "$f" "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/$TAG/$f"
 done
 ```

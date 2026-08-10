@@ -10,8 +10,17 @@
 
 	const links = [
 		{ href: '/', label: 'Logs' },
+		{ href: '/traces', label: 'Traces' },
 		{ href: '/alerts', label: 'Alerts' }
 	];
+
+	// Exact match for every link except "/" (which would otherwise match every route,
+	// since every pathname starts with "/") - first needed now that /traces/[traceId]
+	// is this app's first nested route: visiting a trace's waterfall should still show
+	// "Traces" as active, not nothing.
+	function isActive(href: string, pathname: string): boolean {
+		return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
+	}
 </script>
 
 <nav class="bg-background flex shrink-0 items-center gap-3 border-b px-4 py-2">
@@ -21,7 +30,7 @@
 		{#each links as link (link.href)}
 			<a
 				href={link.href}
-				class={cn(buttonVariants({ variant: page.url.pathname === link.href ? 'secondary' : 'ghost', size: 'sm' }))}
+				class={cn(buttonVariants({ variant: isActive(link.href, page.url.pathname) ? 'secondary' : 'ghost', size: 'sm' }))}
 			>
 				{link.label}
 			</a>

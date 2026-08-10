@@ -36,7 +36,7 @@ Flare's "Auth + multi-user / roles" roadmap item lands and ingest needs an API k
 is the natural place to attach it to the exporter, the same job `Aspire.Seq`'s client package
 does today for Seq's own API key.
 
-Logs only for now - Flare.Ingest doesn't receive traces or metrics yet (a separate roadmap item).
+Logs and traces - Flare.Ingest doesn't receive OTLP metrics yet (a separate, later roadmap item with a materially different data model than traces).
 
 ## Status
 
