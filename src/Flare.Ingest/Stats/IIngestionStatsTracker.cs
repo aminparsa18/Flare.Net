@@ -32,4 +32,17 @@ public interface IIngestionStatsTracker
         IngestionProtocol protocol,
         string reason,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Call once per accepted export request alongside <see cref="RecordAcceptedAsync"/>,
+    /// with <paramref name="perService"/> built by <see cref="ServiceBreakdown.Build"/> -
+    /// the per-<c>service.name</c> arrivals/bytes breakdown folded into the Ingestion
+    /// page's pipeline-health section (Planning.md v10). Protocol-agnostic (unlike
+    /// <see cref="RecordAcceptedAsync"/>'s per-protocol split) - "which service is sending"
+    /// doesn't depend on transport.
+    /// </summary>
+    ValueTask RecordServiceBreakdownAsync(
+        IngestionSignal signal,
+        IReadOnlyDictionary<string, ServiceAcceptedCounts> perService,
+        CancellationToken cancellationToken = default);
 }

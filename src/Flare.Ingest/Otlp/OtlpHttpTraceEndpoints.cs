@@ -77,13 +77,16 @@ public static class OtlpHttpTraceEndpoints
         }
 
         var count = 0;
+        var serviceNames = new List<string?>();
         foreach (var span in OtlpTraceMapper.Map(request))
         {
             await sink.WriteAsync(span, cancellationToken);
             count++;
+            serviceNames.Add(span.ServiceName);
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Traces, IngestionProtocol.Http, count, byteCount, cancellationToken);
+        await stats.RecordServiceBreakdownAsync(IngestionSignal.Traces, ServiceBreakdown.Build(serviceNames, byteCount), cancellationToken);
 
         logger.LogDebug("Ingested {Count} span(s) via HTTP ({ContentType})", count, isJson ? "json" : "protobuf");
 

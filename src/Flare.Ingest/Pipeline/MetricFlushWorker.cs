@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Ingest.Model;
+using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
@@ -32,6 +33,7 @@ public sealed class MetricFlushWorker(
     IConnectionMultiplexer connectionMultiplexer,
     IClickHouseMetricWriter writer,
     IOptions<MetricEventPipelineOptions> options,
+    IFlushHealthTracker flushHealth,
     ILogger<MetricFlushWorker> logger) : BackgroundService
 {
     private static readonly RedisValue DataField = "data";
@@ -218,6 +220,7 @@ public sealed class MetricFlushWorker(
             logger.LogDebug(
                 "Flushed {Count} metric data points to ClickHouse ({Gauges} gauge, {Sums} sum, {Histograms} histogram).",
                 batch.Count, gauges.Count, sums.Count, histograms.Count);
+            await flushHealth.RecordSuccessAsync(IngestionSignal.Metrics, batch.Count);
         }
         catch (Exception ex)
         {
@@ -227,6 +230,7 @@ public sealed class MetricFlushWorker(
                 batch.Count);
             // Deliberately do not XACK - entries stay in the PEL and are retried once
             // they age past ReclaimIdle (see ReclaimStalePendingAsync).
+            await flushHealth.RecordFailureAsync(IngestionSignal.Metrics, $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 }

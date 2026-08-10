@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Ingest.Model;
+using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
@@ -42,6 +43,7 @@ public sealed class ClickHouseFlushWorker(
     IConnectionMultiplexer connectionMultiplexer,
     IClickHouseLogEventWriter writer,
     IOptions<LogEventPipelineOptions> options,
+    IFlushHealthTracker flushHealth,
     ILogger<ClickHouseFlushWorker> logger) : BackgroundService
 {
     private static readonly RedisValue DataField = "data";
@@ -209,6 +211,7 @@ public sealed class ClickHouseFlushWorker(
             var ids = batch.Select(b => b.Id).ToArray();
             await db.StreamAcknowledgeAsync(opts.StreamKey, opts.ConsumerGroup, ids);
             logger.LogDebug("Flushed {Count} log events to ClickHouse.", events.Length);
+            await flushHealth.RecordSuccessAsync(IngestionSignal.Logs, events.Length);
         }
         catch (Exception ex)
         {
@@ -218,6 +221,7 @@ public sealed class ClickHouseFlushWorker(
                 batch.Count);
             // Deliberately do not XACK - entries stay in the PEL and are retried once
             // they age past ReclaimIdle (see ReclaimStalePendingAsync).
+            await flushHealth.RecordFailureAsync(IngestionSignal.Logs, $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 }

@@ -38,6 +38,10 @@ public sealed class OtlpGrpcMetricsService(
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Grpc, result.Points.Count, byteCount, context.CancellationToken);
+        await stats.RecordServiceBreakdownAsync(
+            IngestionSignal.Metrics,
+            ServiceBreakdown.Build(result.Points.Select(p => p.ServiceName), byteCount),
+            context.CancellationToken);
 
         if (result.UnsupportedMetricNames.Count > 0)
         {

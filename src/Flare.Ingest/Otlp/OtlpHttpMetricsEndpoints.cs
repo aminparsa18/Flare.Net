@@ -81,6 +81,10 @@ public static class OtlpHttpMetricsEndpoints
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, result.Points.Count, byteCount, cancellationToken);
+        await stats.RecordServiceBreakdownAsync(
+            IngestionSignal.Metrics,
+            ServiceBreakdown.Build(result.Points.Select(p => p.ServiceName), byteCount),
+            cancellationToken);
 
         if (result.UnsupportedMetricNames.Count > 0)
         {

@@ -55,6 +55,11 @@ builder.Services.AddHostedService<MetricFlushWorker>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IIngestionStatsTracker, RedisIngestionStatsTracker>();
 
+// Pipeline-health tracking (Planning.md v10) - each *FlushWorker* above records its own
+// last-flush outcome here; stream/consumer-group depth itself is read live from Redis by
+// Flare.Api, not tracked separately.
+builder.Services.AddSingleton<IFlushHealthTracker, RedisFlushHealthTracker>();
+
 var app = builder.Build();
 
 // Apply any pending db/clickhouse/*.sql migrations before starting the flush workers

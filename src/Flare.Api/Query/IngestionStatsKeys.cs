@@ -20,4 +20,14 @@ public static class IngestionStatsKeys
 
     public static string FieldPrefix(Model.IngestionSignal signal, Model.IngestionProtocol protocol) =>
         $"{signal.ToString().ToLowerInvariant()}:{protocol.ToString().ToLowerInvariant()}";
+
+    private const string ServiceRecordsPrefix = "flare:ingestion:service-records:";
+    private const string ServiceBytesPrefix = "flare:ingestion:service-bytes:";
+
+    /// <summary>Read-side mirror of the write side's own service-breakdown key format (v10) - see its remarks.</summary>
+    public static string ServiceRecordsKey(long epochMinute, Model.IngestionSignal signal) =>
+        ServiceRecordsPrefix + epochMinute + ":" + signal.ToString().ToLowerInvariant();
+
+    public static string ServiceBytesKey(long epochMinute, Model.IngestionSignal signal) =>
+        ServiceBytesPrefix + epochMinute + ":" + signal.ToString().ToLowerInvariant();
 }
