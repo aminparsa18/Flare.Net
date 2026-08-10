@@ -412,17 +412,12 @@ actually worked out (see the three bullets below) — closing out the full origi
       dashboard builder, per this doc's own "dashboards-as-code, arbitrary user-built
       panels" non-goal.
 - [ ] Helm chart for Kubernetes
-- [ ] **Ingestion page: pipeline health.** Scoped out of v8's MVP (below) on purpose —
+- [x] ~~**Ingestion page: pipeline health.** Scoped out of v8's MVP on purpose -
       throughput/rejected-payload stats (v8) answer "is data arriving"; this answers "is
-      the buffered pipeline keeping up," which needs its own design pass: Redis stream
-      length (`XLEN`) + consumer-group lag (`XPENDING`, not `XAUTOCLAIM`'s `DeliveryCount`
-      — see the dotnet-otel-grpc-gotchas memory) per signal's stream
-      (`flare:logs`/`flare:spans`/`flare:metrics`), plus each flush worker's last-flush
-      timestamp/batch size/error count (`ClickHouseFlushWorker`/`SpanFlushWorker`/
-      `MetricFlushWorker` currently expose none of this). Also folds in the per-`service.name`
-      arrivals/bytes breakdown from the original page proposal, deferred for the same
-      reason. Promote when a real "why did my logs stop showing up" incident makes it
-      worth diagnosing, per this doc's own scope-discipline principle.
+      the buffered pipeline keeping up," which needs its own design pass.~~ **Promoted and
+      shipped 2026-08-10 (see v10 below)** - the design pass landed the same day it was
+      requested rather than waiting for a real incident, since the user asked for it
+      directly.
 
 ### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
 Promoted out of "Later" and shipped 2026-08-10, in four passes (ingest+storage →
@@ -961,6 +956,147 @@ ClickHouse's actual model rather than Seq's:
       compression ratios, e.g. `logs` at 12.6x), and skip-index table all rendered
       correctly; the loading-order bug above caught and fixed within this same pass,
       re-verified after the fix; zero browser console errors throughout.
+
+### v10 — Ingestion page: pipeline health
+Promoted out of "Later" and shipped 2026-08-10, same day as v8/v9. Extends the existing
+`/ingestion` page (v8) with a lower section, not a new nav entry - the item's own title is
+"Ingestion page," not a new page - answering "is the buffered pipeline keeping up" where
+v8's tiles/chart/table answer "is data arriving."
+
+**Live research before writing any code** (same "verify against the real thing" precedent
+v9's own opening step used) - spun up a throwaway `redis:latest` (8.10.0) container and
+probed `XADD`/`XGROUP CREATE`/`XREADGROUP`/`XINFO GROUPS`/`XPENDING` directly via
+`redis-cli` before committing to a design. This changed the plan in one concrete way:
+`XINFO GROUPS` returns a `lag` field Redis tracks natively (entries-added vs.
+entries-read), and `StackExchange.Redis` 2.13.x already exposes it typed
+(`StreamGroupInfo.Lag`, via `IDatabase.StreamGroupInfoAsync`) - a materially better
+"is the pipeline falling behind" number than the originally-sketched `XPENDING`-count
+proxy the Later-item bullet above described. `XPENDING`'s own count/idle-time is still
+used, but for a different question ("is something stuck" - delivered but never acked),
+not as a lag substitute.
+
+**Scope decisions made up front:**
+1. **Stream/consumer-group health is read live from Redis by `Flare.Api`, not tracked in a
+   hash the way the other two are.** Redis already holds this state natively (`XLEN`/
+   `XINFO GROUPS`/`XPENDING`); writing a duplicate copy into a stats hash would just be
+   another thing that can drift. `Flare.Api` already held its own `IConnectionMultiplexer`
+   (`IngestionStatsQueryService`, v8), so no new infrastructure dependency either.
+2. **Flush-worker health needed a genuinely new Ingest-side tracker**, since it's the one
+   piece of this feature with no natural home in Redis already: each `*FlushWorker`'s own
+   last-flush timestamp/batch size/error state is in-process data. New
+   `IFlushHealthTracker`/`RedisFlushHealthTracker` (`src/Flare.Ingest/Stats/`), one Redis
+   hash per signal (`flare:ingestion:flush:{signal}`, no TTL - unlike the per-minute stats
+   buckets, this must keep showing the *last known* outcome even after a worker stops
+   updating it, which is exactly the "why did my logs stop showing up" case this item
+   exists to diagnose), updated once per flush cycle (not the hot per-request path, so no
+   `IBatch`-per-call pressure the way v8's `IIngestionStatsTracker` has).
+3. **Per-`service.name` breakdown reuses `service.name` already present on every mapped
+   record** (`LogEvent`/`SpanRecord`/`MetricPointRecord.ServiceName`, from the v4/v6
+   pipelines) rather than re-parsing the OTLP resource. New `ServiceBreakdown.Build` (pure,
+   unit-tested) groups accepted records by service and splits the request's one byte count
+   *proportionally* to each service's record share - a documented approximation, not exact
+   accounting: OTLP gives one byte count per whole export request, not per resource, so an
+   export mixing services' records has no way to be measured exactly. Written via a new
+   `IIngestionStatsTracker.RecordServiceBreakdownAsync` method (not folded into the
+   existing `RecordAcceptedAsync` signature) to two per-(minute, signal) hashes -
+   `flare:ingestion:service-records:{minute}:{signal}` / `...-bytes:...`, field = raw
+   service name - deliberately *not* packed into a composite field name the way v8's
+   `{signal}:{protocol}:{counter}` fields are, since a service name can itself legally
+   contain a colon and this avoids any delimiter-collision risk parsing it back. Top-N
+   selection (`PipelineQueryService.TopServicesPerSignal = 5`, same slot count the
+   `dataviz` skill's palette already caps `MetricChart`/`IndexingGrowthChart` at) happens
+   at query time, not write time, with the rest folded into an "+N more" total - not a
+   silent drop.
+4. **Known, deliberately-unresolved limitation** (flagged, not solved, same convention
+   v6's rate-calc/quantile-interpolation notes use): `PipelineStreamKeys` (`Flare.Api`)
+   hardcodes each signal's stream key/consumer-group name as `LogEventPipelineOptions`/
+   `SpanEventPipelineOptions`/`MetricEventPipelineOptions`'s *default* values
+   (`flare:logs`/`flare-ingest`, `flare:spans`/`flare-ingest-spans`,
+   `flare:metrics`/`flare-ingest-metrics`) - a deployment that overrides them via its own
+   config won't have its stream health picked up here, since the two processes share no
+   config source (same "different deployables, no reference" situation every other
+   Flare.Ingest/Flare.Api pairing is already in). This is also the one place that bridges
+   the two existing, slightly mismatched vocabularies: the OTLP-facing `IngestionSignal`
+   enum (v8) calls the second signal "Traces"; the pipeline layer calls it "spans"
+   (`SpanFlushWorker`, `flare:spans`) - `PipelineStreamKeys`/`FlushHealthKeys` key off the
+   former throughout, joining the whole feature on one vocabulary.
+
+- [x] **Ingest-side instrumentation** (`src/Flare.Ingest/Stats/`) - `IFlushHealthTracker`/
+      `RedisFlushHealthTracker`/`FlushHealthKeys` (point 2 above), wired into all three
+      `*FlushWorker`s' success/failure paths (`RecordSuccessAsync` resets
+      `consecutiveErrors` to 0 and updates `lastFlushAt`/`lastBatchSize`;
+      `RecordFailureAsync` increments `consecutiveErrors` and sets `lastError`/
+      `lastErrorAt` without touching the success fields, so "last time data actually
+      reached ClickHouse" stays visible through a run of failures). `ServiceBreakdown`/
+      `ServiceAcceptedCounts` (point 3 above) plus the new `IngestionStatsKeys.ServiceRecordsKey`/
+      `ServiceBytesKey` helpers, wired into all six OTLP endpoint/service classes
+      (HTTP+gRPC × Logs/Traces/Metrics) alongside their existing `RecordAcceptedAsync`
+      call. New unit tests: `FlushHealthKeysTests`, `ServiceBreakdownTests`, plus
+      additions to the existing `IngestionStatsKeysTests` - 112 tests in
+      `Flare.Ingest.Tests` (up from 100), 0 failures.
+- [x] **Query API** (`Flare.Api`) - new `GET /api/ingestion/pipeline?minutes=60`, a
+      separate endpoint from v8's `/api/ingestion/stats` rather than folded into it (the
+      stream/flush sections are an unwindowed live snapshot; only the service breakdown
+      uses `minutes`, so one shared window param would only apply to half the payload).
+      `PipelineQueryService` (point 1 above): per-signal `XLEN`/`XINFO GROUPS`/`XPENDING`
+      reads (the oldest-pending age comes from `XPENDING`'s extended form's own
+      `IdleTimeInMilliseconds` on the single oldest entry - the same command
+      `ClickHouseFlushWorker.ReclaimStalePendingAsync` already uses for reclaim, read here
+      instead of acted on), degrading a stream to `available: false` rather than erroring
+      the whole response if it doesn't exist yet (no traffic on that signal since
+      Flare.Ingest last started). `Model/PipelineModels.cs`, `Json/PipelineJsonContext.cs`,
+      `Query/PipelineStreamKeys.cs`/`FlushHealthKeys.cs` (read-side mirrors, point 4
+      above), `Endpoints/PipelineEndpoints.cs`. Pure aggregation logic
+      (`BuildFlushHealth`/`BuildServiceBreakdown`) is `internal` and unit-tested directly
+      against hand-built `HashEntry[]`/dictionary data, same "test the pure function"
+      precedent as `IngestionStatsQueryService`'s own `BuildBuckets`/`BuildTotals` - new
+      `PipelineQueryServiceTests` - 183 tests in `Flare.Api.Tests` (up from 171), 0
+      failures.
+- [x] **Dashboard** (`src/dashboard`) - `lib/pipeline-api.ts` (hand-mirrors the new
+      response types, same convention `ingestion-api.ts` documents), `IngestionState`
+      extended (not a second polling state - the page renders both queries as one screen,
+      and the pipeline endpoint's own stream/flush sections don't use the window param
+      anyway, so a second poll loop would buy nothing) to fetch `/api/ingestion/stats` and
+      `/api/ingestion/pipeline` together in one `load()` call via `Promise.all`. Three new
+      components under a "Pipeline health" heading below v8's existing sections:
+      `PipelineStreamsTable.svelte` (per-signal buffered/lag/pending/consumers/oldest-
+      pending, lag/pending highlighted via the `warning` badge/text-color variant when
+      nonzero), `PipelineFlushHealthTable.svelte` (per-signal last-flush age/batch size,
+      consecutive-error count as a `destructive` badge, last error message truncated with
+      a `title` tooltip), `PipelineServiceBreakdown.svelte` (one compact table per signal
+      with traffic, top-N + "+N more" row, empty-stated if no `service.name` data exists
+      yet). `lib/ingestion/format.ts` gained `formatAge`/`secondsSince` (both new -
+      formatting a "how long ago" from either a raw seconds value or an ISO timestamp,
+      neither of which the existing `formatCount`/`formatBytes` cover).
+- [x] **Verified end-to-end, 2026-08-10** - `dotnet test`: 295 tests total (112
+      `Flare.Ingest.Tests` + 183 `Flare.Api.Tests`, up from 271 at v9), 0 failures.
+      `svelte-check`: 0 errors across 907 files. `npm run build`: clean. Real
+      `docker compose up -d --build` (reusing existing populated volumes): confirmed
+      `GET /api/ingestion/pipeline` showed real nonzero `length`/`consumers` on all three
+      streams before any new traffic. Sent real OTLP logs/traces/metrics via curl with two
+      distinct `service.name` values (`checkout-api`, `orders-api`, including one export
+      mixing services in one request to exercise the proportional byte-split) - flush
+      health (`lastFlushAt`/`lastBatchSize`) and the per-service breakdown both matched
+      hand-computed expected values exactly. **Then induced a real backlog**: stopped the
+      `clickhouse` container, sent 8 more log exports (24 records) into the now-unflushable
+      stream, and confirmed live: `pendingCount` climbed to 24, `oldestPendingAgeSeconds`
+      grew in real time, and the flush worker's `lastError`/`consecutiveErrors` recorded
+      the real `HttpRequestException: Name or service not known (clickhouse:8123)` failure
+      - while `lastFlushAt`/`lastBatchSize` correctly stayed frozen at the prior success,
+      per the design in point 2 above. Restarted `clickhouse`; confirmed the backlog did
+      *not* recover immediately (`XREADGROUP`'s `>` only delivers new entries - the failed
+      batch had already been dropped from the worker's local list, so recovery waits on
+      the periodic PEL reclaim once `ReclaimIdle` elapses) and *did* fully recover once
+      `oldestPendingAgeSeconds` crossed the 30s `ReclaimIdle` threshold: `pendingCount`
+      dropped to 0, a fresh `lastFlushAt`/`lastBatchSize: 24` landed, and
+      `consecutiveErrors` reset to 0 while `lastError` correctly stayed visible as history.
+      This real run is what surfaced and confirmed the "no immediate retry, recovery is
+      reclaim-interval-bound" behavior - not something reasoned about statically. Finally,
+      a Playwright-driven Chromium session against the live dashboard confirmed the three
+      new tables rendered exactly this data (stream buffers, flush workers with the real
+      error message and its red styling, three per-signal service tables) with zero
+      browser console errors. Stack torn down after verification (`docker compose down`,
+      volumes kept).
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

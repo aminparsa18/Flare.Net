@@ -78,13 +78,16 @@ public static class OtlpHttpLogsEndpoints
         }
 
         var count = 0;
+        var serviceNames = new List<string?>();
         foreach (var logEvent in OtlpLogMapper.Map(request))
         {
             await sink.WriteAsync(logEvent, cancellationToken);
             count++;
+            serviceNames.Add(logEvent.ServiceName);
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Logs, IngestionProtocol.Http, count, byteCount, cancellationToken);
+        await stats.RecordServiceBreakdownAsync(IngestionSignal.Logs, ServiceBreakdown.Build(serviceNames, byteCount), cancellationToken);
 
         logger.LogDebug("Ingested {Count} log record(s) via HTTP ({ContentType})", count, isJson ? "json" : "protobuf");
 

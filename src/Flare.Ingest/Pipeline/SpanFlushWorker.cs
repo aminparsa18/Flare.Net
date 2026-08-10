@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Ingest.Model;
+using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
@@ -29,6 +30,7 @@ public sealed class SpanFlushWorker(
     IConnectionMultiplexer connectionMultiplexer,
     IClickHouseSpanWriter writer,
     IOptions<SpanEventPipelineOptions> options,
+    IFlushHealthTracker flushHealth,
     ILogger<SpanFlushWorker> logger) : BackgroundService
 {
     private static readonly RedisValue DataField = "data";
@@ -196,6 +198,9 @@ public sealed class SpanFlushWorker(
             var ids = batch.Select(b => b.Id).ToArray();
             await db.StreamAcknowledgeAsync(opts.StreamKey, opts.ConsumerGroup, ids);
             logger.LogDebug("Flushed {Count} spans to ClickHouse.", spans.Length);
+            // IngestionSignal.Traces, not "Spans" - joins on the same vocabulary the
+            // Ingestion page's existing OTLP-facing stats already use (see FlushHealthKeys).
+            await flushHealth.RecordSuccessAsync(IngestionSignal.Traces, spans.Length);
         }
         catch (Exception ex)
         {
@@ -205,6 +210,7 @@ public sealed class SpanFlushWorker(
                 batch.Count);
             // Deliberately do not XACK - entries stay in the PEL and are retried once
             // they age past ReclaimIdle (see ReclaimStalePendingAsync).
+            await flushHealth.RecordFailureAsync(IngestionSignal.Traces, $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 }

@@ -7,6 +7,9 @@
 	import IngestionChart from '$lib/components/ingestion/IngestionChart.svelte';
 	import IngestionSignalsTable from '$lib/components/ingestion/IngestionSignalsTable.svelte';
 	import IngestionLog from '$lib/components/ingestion/IngestionLog.svelte';
+	import PipelineStreamsTable from '$lib/components/ingestion/PipelineStreamsTable.svelte';
+	import PipelineFlushHealthTable from '$lib/components/ingestion/PipelineFlushHealthTable.svelte';
+	import PipelineServiceBreakdown from '$lib/components/ingestion/PipelineServiceBreakdown.svelte';
 
 	const ingestion = ingestionContext.set(new IngestionState());
 
@@ -34,5 +37,15 @@
 		<IngestionChart />
 		<IngestionSignalsTable />
 		<IngestionLog />
+
+		<!-- Pipeline health (Planning.md v10) - "is the buffered pipeline keeping up",
+		     below the v8 "is data arriving" section rather than a separate page/nav
+		     entry, per this item's own title. -->
+		<div class="border-t pt-4">
+			<h1 class="mb-1 px-4 text-sm font-semibold">Pipeline health</h1>
+			<PipelineStreamsTable />
+			<PipelineFlushHealthTable />
+			<PipelineServiceBreakdown />
+		</div>
 	</div>
 </div>

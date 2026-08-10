@@ -52,4 +52,28 @@ public static class IngestionStatsKeys
     /// </summary>
     public static string FieldPrefix(IngestionSignal signal, IngestionProtocol protocol) =>
         $"{signal.ToString().ToLowerInvariant()}:{protocol.ToString().ToLowerInvariant()}";
+
+    private const string ServiceRecordsPrefix = "flare:ingestion:service-records:";
+    private const string ServiceBytesPrefix = "flare:ingestion:service-bytes:";
+
+    /// <summary>
+    /// One hash per (minute, signal), field = raw <c>service.name</c> (not folded into a
+    /// composite field name the way <see cref="FieldPrefix"/> is) - a service name can
+    /// itself legally contain a colon, and this avoids any delimiter-collision risk when
+    /// parsing it back, at the cost of one key per signal per minute rather than one
+    /// shared minute bucket. Records and bytes are separate hashes rather than packed into
+    /// one field's value, for the same reason (HINCRBY only touches one number per field).
+    /// </summary>
+    public static string ServiceRecordsKey(DateTimeOffset timestamp, IngestionSignal signal) =>
+        ServiceRecordsPrefix + timestamp.ToUnixTimeSeconds() / 60 + ":" + signal.ToString().ToLowerInvariant();
+
+    public static string ServiceBytesKey(DateTimeOffset timestamp, IngestionSignal signal) =>
+        ServiceBytesPrefix + timestamp.ToUnixTimeSeconds() / 60 + ":" + signal.ToString().ToLowerInvariant();
+
+    /// <summary>Same key format as <see cref="ServiceRecordsKey"/>/<see cref="ServiceBytesKey"/>, built from an already-known epoch minute (the reader side already has one, from its own window loop).</summary>
+    public static string ServiceRecordsKey(long epochMinute, IngestionSignal signal) =>
+        ServiceRecordsPrefix + epochMinute + ":" + signal.ToString().ToLowerInvariant();
+
+    public static string ServiceBytesKey(long epochMinute, IngestionSignal signal) =>
+        ServiceBytesPrefix + epochMinute + ":" + signal.ToString().ToLowerInvariant();
 }

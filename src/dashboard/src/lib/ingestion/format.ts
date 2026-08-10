@@ -17,3 +17,19 @@ export function formatBytes(n: number): string {
 	return `${exponent === 0 ? value : value.toFixed(value < 10 ? 1 : 0)} ${BYTE_UNITS[exponent]}`;
 }
 
+// Added for v10's pipeline-health section - "how long ago" for a last-flush timestamp or
+// an oldest-pending-entry age, both of which arrive as seconds (or an ISO timestamp
+// diffed against now), not a raw count like formatCount/formatBytes above.
+export function formatAge(seconds: number | null | undefined): string {
+	if (seconds === null || seconds === undefined) return '—';
+	if (seconds < 1) return 'just now';
+	if (seconds < 60) return `${Math.floor(seconds)}s ago`;
+	if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+	return `${Math.floor(seconds / 3600)}h ago`;
+}
+
+export function secondsSince(iso: string | null, now: Date = new Date()): number | null {
+	if (!iso) return null;
+	return Math.max(0, (now.getTime() - new Date(iso).getTime()) / 1000);
+}
+

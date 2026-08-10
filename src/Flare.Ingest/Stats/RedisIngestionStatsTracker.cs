@@ -60,4 +60,34 @@ public sealed class RedisIngestionStatsTracker(
 
         await Task.WhenAll(rejected, bucketExpire, push, trim, listExpire).WaitAsync(cancellationToken);
     }
+
+    public async ValueTask RecordServiceBreakdownAsync(
+        IngestionSignal signal,
+        IReadOnlyDictionary<string, ServiceAcceptedCounts> perService,
+        CancellationToken cancellationToken = default)
+    {
+        if (perService.Count == 0)
+        {
+            return;
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var db = connectionMultiplexer.GetDatabase();
+        var recordsKey = IngestionStatsKeys.ServiceRecordsKey(now, signal);
+        var bytesKey = IngestionStatsKeys.ServiceBytesKey(now, signal);
+
+        var batch = db.CreateBatch();
+        var tasks = new List<Task>(perService.Count * 2 + 2);
+        foreach (var (service, counts) in perService)
+        {
+            tasks.Add(batch.HashIncrementAsync(recordsKey, service, counts.RecordCount));
+            tasks.Add(batch.HashIncrementAsync(bytesKey, service, counts.ByteCount));
+        }
+
+        tasks.Add(batch.KeyExpireAsync(recordsKey, IngestionStatsKeys.BucketTtl));
+        tasks.Add(batch.KeyExpireAsync(bytesKey, IngestionStatsKeys.BucketTtl));
+        batch.Execute();
+
+        await Task.WhenAll(tasks).WaitAsync(cancellationToken);
+    }
 }

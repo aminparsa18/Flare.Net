@@ -24,6 +24,7 @@ public sealed class OtlpGrpcLogsService(
         var byteCount = request.CalculateSize();
 
         int count;
+        var serviceNames = new List<string?>();
         try
         {
             count = 0;
@@ -31,6 +32,7 @@ public sealed class OtlpGrpcLogsService(
             {
                 await sink.WriteAsync(logEvent, context.CancellationToken);
                 count++;
+                serviceNames.Add(logEvent.ServiceName);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException and not RpcException)
@@ -41,6 +43,7 @@ public sealed class OtlpGrpcLogsService(
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Logs, IngestionProtocol.Grpc, count, byteCount, context.CancellationToken);
+        await stats.RecordServiceBreakdownAsync(IngestionSignal.Logs, ServiceBreakdown.Build(serviceNames, byteCount), context.CancellationToken);
 
         logger.LogDebug("Ingested {Count} log record(s) via gRPC", count);
         return new ExportLogsServiceResponse();

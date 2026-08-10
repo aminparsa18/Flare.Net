@@ -1,6 +1,10 @@
-// Central reactive state for the Ingestion page - single-query shape (unlike Metrics'
-// coupled picker+chart queries), since /api/ingestion/stats returns everything the page
-// needs (buckets, tiles, recent-errors) in one call keyed only by a window size.
+// Central reactive state for the Ingestion page. Two queries as of v10 (was one at v8):
+// /api/ingestion/stats ("is data arriving" - buckets/tiles/recent-errors) and
+// /api/ingestion/pipeline ("is the buffered pipeline keeping up" - stream/consumer-group
+// health, flush-worker health, per-service breakdown), fetched together in one load() call
+// on the same window/poll cadence rather than as two independently-polling states - the
+// page renders them as one screen, and /api/ingestion/pipeline's own stream/flush sections
+// don't even use the window param, so splitting the poll loop in two would buy nothing.
 //
 // Unlike every other explorer page, this one polls: Seq's own Ingestion page live-updates
 // its tiles/chart, and that's the actual value of an ingestion page - "is something wrong
@@ -10,6 +14,7 @@
 // AlertEvaluationWorker/ClickHouseFlushWorker use server-side, just client-side here.
 
 import { getIngestionStats, type IngestionStatsResponse } from '$lib/ingestion-api';
+import { getPipelineStats, type PipelineStatsResponse } from '$lib/pipeline-api';
 
 export type IngestionWindowPreset = '15m' | '1h' | '6h' | '24h';
 
@@ -26,6 +31,7 @@ export class IngestionState {
 	windowPreset = $state<IngestionWindowPreset>('1h');
 
 	stats = $state.raw<IngestionStatsResponse | null>(null);
+	pipeline = $state.raw<PipelineStatsResponse | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
 
@@ -47,9 +53,13 @@ export class IngestionState {
 		if (!this.stats) this.loading = true;
 		this.error = null;
 		try {
-			const res = await getIngestionStats(this.#minutes(), abort.signal);
+			const [stats, pipeline] = await Promise.all([
+				getIngestionStats(this.#minutes(), abort.signal),
+				getPipelineStats(this.#minutes(), abort.signal)
+			]);
 			if (abort.signal.aborted) return;
-			this.stats = res;
+			this.stats = stats;
+			this.pipeline = pipeline;
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.error = err instanceof Error ? err.message : String(err);

@@ -46,6 +46,37 @@ public class IngestionStatsKeysTests
     {
         Assert.Equal(expected, IngestionStatsKeys.FieldPrefix(signal, protocol));
     }
+
+    [Fact]
+    public void ServiceRecordsKey_AndServiceBytesKey_DifferForSameMinuteAndSignal()
+    {
+        var timestamp = new DateTimeOffset(2026, 8, 10, 12, 30, 0, TimeSpan.Zero);
+
+        Assert.NotEqual(
+            IngestionStatsKeys.ServiceRecordsKey(timestamp, IngestionSignal.Logs),
+            IngestionStatsKeys.ServiceBytesKey(timestamp, IngestionSignal.Logs));
+    }
+
+    [Fact]
+    public void ServiceRecordsKey_TimestampOverload_MatchesEpochMinuteOverload()
+    {
+        var timestamp = new DateTimeOffset(2026, 8, 10, 12, 30, 0, TimeSpan.Zero);
+        var epochMinute = timestamp.ToUnixTimeSeconds() / 60;
+
+        Assert.Equal(
+            IngestionStatsKeys.ServiceRecordsKey(timestamp, IngestionSignal.Traces),
+            IngestionStatsKeys.ServiceRecordsKey(epochMinute, IngestionSignal.Traces));
+    }
+
+    [Fact]
+    public void ServiceRecordsKey_DifferentSignals_ProduceDifferentKeys()
+    {
+        var timestamp = new DateTimeOffset(2026, 8, 10, 12, 30, 0, TimeSpan.Zero);
+
+        Assert.NotEqual(
+            IngestionStatsKeys.ServiceRecordsKey(timestamp, IngestionSignal.Logs),
+            IngestionStatsKeys.ServiceRecordsKey(timestamp, IngestionSignal.Metrics));
+    }
 }
 
 public class IngestionErrorEntryJsonContextTests
