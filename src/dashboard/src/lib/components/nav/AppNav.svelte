@@ -35,7 +35,7 @@
 			{ href: '/indexing', label: 'Indexing' },
 			{ href: '/alerts', label: 'Alerts' },
 			{ href: '/views', label: 'Views' },
-			...(auth.currentUser?.role === 'Admin' ? [{ href: '/users', label: 'Users' }] : [])
+			...(auth.currentUser?.role === 'Admin' ? [{ href: '/users', label: 'Users' }, { href: '/security', label: 'Security' }] : [])
 		]
 	);
 

@@ -122,15 +122,6 @@ services:
       # service's comment) keeps both in sync automatically. AllowCredentials() means
       # this can't be a wildcard - the session cookie won't cross origins otherwise.
       Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-3000}"
-      # Microsoft Entra ID (SSO) - same "no working default" pattern as Email__* above
-      # (there's no sensible default Entra tenant). Auth__Entra__Enabled stays false
-      # unless every one of TenantId/ClientId/ClientSecret is actually set - see
-      # docs/auth.md's "Microsoft Entra ID (SSO)" section for the App Registration setup
-      # these values come from, including the exact redirect URI to register there.
-      Auth__Entra__Enabled: "${ENTRA_ENABLED:-false}"
-      Auth__Entra__TenantId: "${ENTRA_TENANT_ID:-}"
-      Auth__Entra__ClientId: "${ENTRA_CLIENT_ID:-}"
-      Auth__Entra__ClientSecret: "${ENTRA_CLIENT_SECRET:-}"
     volumes:
       - identity-data:/data/identity
     ports:

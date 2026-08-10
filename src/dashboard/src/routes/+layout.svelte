@@ -33,7 +33,7 @@
 	// regardless - this is a UX nicety, not the actual access control) - same reasoning
 	// as EntraAuthEndpoints.HandleLoginAsync's returnUrl validation being "defense in
 	// depth" on top of server checks that already exist.
-	const ADMIN_ONLY_ROUTES = ['/users'];
+	const ADMIN_ONLY_ROUTES = ['/users', '/security'];
 	const onAdminOnlyRoute = $derived(ADMIN_ONLY_ROUTES.includes(page.url.pathname));
 
 	// Route guard: bounces between the app and /login|/setup based on session state.
