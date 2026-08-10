@@ -412,6 +412,17 @@ actually worked out (see the three bullets below) — closing out the full origi
       dashboard builder, per this doc's own "dashboards-as-code, arbitrary user-built
       panels" non-goal.
 - [ ] Helm chart for Kubernetes
+- [ ] **Ingestion page: pipeline health.** Scoped out of v8's MVP (below) on purpose —
+      throughput/rejected-payload stats (v8) answer "is data arriving"; this answers "is
+      the buffered pipeline keeping up," which needs its own design pass: Redis stream
+      length (`XLEN`) + consumer-group lag (`XPENDING`, not `XAUTOCLAIM`'s `DeliveryCount`
+      — see the dotnet-otel-grpc-gotchas memory) per signal's stream
+      (`flare:logs`/`flare:spans`/`flare:metrics`), plus each flush worker's last-flush
+      timestamp/batch size/error count (`ClickHouseFlushWorker`/`SpanFlushWorker`/
+      `MetricFlushWorker` currently expose none of this). Also folds in the per-`service.name`
+      arrivals/bytes breakdown from the original page proposal, deferred for the same
+      reason. Promote when a real "why did my logs stop showing up" incident makes it
+      worth diagnosing, per this doc's own scope-discipline principle.
 
 ### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
 Promoted out of "Later" and shipped 2026-08-10, in four passes (ingest+storage →
@@ -779,6 +790,96 @@ non-goal. Views are global/unowned (no auth exists anywhere yet, same as `alert_
       went from 0 rows to 9 (one per migration - the direct, only-possible-via-the-runner
       proof, since `docker-entrypoint-initdb.d` never populates that table itself), and
       `GET /api/views` returned a clean `200 {"views":[]}`.
+
+### v8 — Ingestion page (MVP)
+Prompted by user comparison to Seq's own Ingestion page (2026-08-10) — asked whether Flare
+could have one, "or even a better one." Scoped in two passes on purpose: this MVP
+(throughput + rejected payloads) shipped same-day; **pipeline health** (Redis stream
+lag, flush-worker status, per-service breakdown) was deliberately deferred to "Later"
+above rather than folded in, since Seq has no equivalent of it (Flare's buffered
+Ingest→Redis→ClickHouse pipeline is the one thing Seq's single-process model doesn't
+need to expose) and it's a materially separate design pass.
+
+- [x] **Ingest-side stats tracking** (`src/Flare.Ingest/Stats/`) — `IIngestionStatsTracker`/
+      `RedisIngestionStatsTracker`, reusing the same `IConnectionMultiplexer` the event
+      sinks already hold rather than adding new infrastructure. One Redis hash per
+      wall-clock minute (`flare:ingestion:minute:{epochMinute}`, 25h TTL — a full 24h
+      window plus a 1h buffer), fields keyed `{signal}:{protocol}:{requests|records|bytes|rejected}`
+      (`logs:http:records`, etc. — plain lowercase, readable directly via `redis-cli
+      HGETALL` while debugging, same rationale `LogEventJsonContext` documents for its
+      own plain-property-name choice). A capped (200-entry) `flare:ingestion:errors` list
+      backs the dashboard's "Ingestion Log" panel. Both writes go through one `IBatch` per
+      call (single Redis round trip regardless of counter count), since this runs on the
+      hot ingest path. `IngestionStatsKeys` holds the pure key/field-naming logic,
+      split out so it's unit-tested without a real/mocked Redis connection.
+- [x] **All six OTLP endpoint/service classes instrumented** (`Otlp/*.cs` — HTTP + gRPC ×
+      Logs/Traces/Metrics) — `RecordAcceptedAsync` (record count + real byte count: buffer
+      length for HTTP protobuf, `Encoding.UTF8.GetByteCount` for HTTP JSON, `CalculateSize()`
+      for gRPC) on success, `RecordRejectedAsync` (reason string, no payload content) on an
+      unsupported content type or a parse failure. **Found and fixed a real, pre-existing
+      bug while wiring this**: the three HTTP endpoints had no try/catch around
+      `JsonParser.Parse`/`MessageParser.ParseFrom` at all — a malformed body took the
+      whole request down with a bare unhandled 500 and left no record anywhere that it
+      happened. Now: a clean `400`, a `LogWarning` trail, and a counted+listed entry on
+      the Ingestion page. gRPC's three services get the equivalent treatment
+      (`RpcException(StatusCode.InvalidArgument)` instead of a bare 400, since gRPC has
+      already deserialized the wire message by the time the handler runs — there's
+      nothing left to fail on except the mapping step).
+- [x] **Query API** (`Flare.Api`) — `GET /api/ingestion/stats?minutes=60` (a plain GET
+      with one bounded query param, not the POST+JSON-body convention every other
+      structured-filter endpoint in this API uses — there's no real filter object here to
+      justify a body). `IngestionStatsQueryService` reads back every minute-bucket hash in
+      the requested window plus the recent-errors list as a single batched round trip
+      (dispatches all `HGETALL`s + the one `LRANGE` together via `IDatabase.CreateBatch`,
+      confirmed via live testing at the worst case: a full 1440-bucket 24h window resolves
+      in ~60ms). Deliberately duplicates (doesn't reference) `Flare.Ingest`'s
+      `IngestionSignal`/`IngestionProtocol`/key-format logic — same "different
+      deployables, no project reference between them" precedent every other
+      Flare.Ingest/Flare.Api pairing in this repo already follows. Response is dense (every
+      minute × all 6 signal/protocol pairs, zero-filled) so the dashboard never gap-fills
+      by timestamp itself. `totals.arrivalsPerMinute`/`ingestedRecordsPerMinute`/
+      `ingestedBytesPerMinute` read only the single most recent (possibly still-filling)
+      bucket - a real distinction (requests vs. the records/bytes within them), not a
+      cosmetic split of the same number the way a literal mirror of Seq's "Current
+      Arrivals"/"Current Ingestion" tiles would have been, since Flare counts a request
+      "arrived" and "ingested" at the same instant (no auth/gateway layer to separate
+      them yet). `totals.requestsInWindow`/`rejectedInWindow` sum over the same window as
+      the chart, not a hardcoded 24h like Seq's own tiles - keeps this to one Redis round
+      trip per call rather than always paying for a 1440-bucket scan regardless of the
+      selected window. The pure aggregation logic (`BuildBuckets`/`BuildTotals`/
+      `BuildRecentErrors`) is `internal` and unit-tested directly against hand-built
+      `HashEntry[]`/`RedisValue[]` data, no mocked Redis connection needed.
+- [x] **Dashboard: Ingestion page** (`src/dashboard`) — sixth nav entry (`AppNav.svelte`).
+      `lib/ingestion-api.ts` + `lib/ingestion/state.svelte.ts`/`context.ts` follow the
+      established `$state` class + typed-context convention, with one new wrinkle: this is
+      the first explorer page that polls (10s interval) rather than relying on live-tail
+      or a manual refresh - matches what actually makes an ingestion page valuable ("is
+      something wrong right now"), while staying an aggregate poll rather than a
+      per-event firehose (same "live-tail is reserved for genuine per-event streams"
+      precedent that kept spans/metrics live-tail out of v4/v6). Four summary tiles
+      (Card component's first real use in this app), a hand-rolled 3-line chart
+      (`IngestionChart.svelte`, events/minute by signal, reusing `MetricChart`'s
+      viewBox/array-index-x/hover-tooltip technique), a six-row per-(signal, protocol)
+      table (`IngestionSignalsTable.svelte` - Flare's analog to Seq's per-API-key input
+      list, since Flare has no auth/named-input concept yet), and an inline "Ingestion
+      Log" table of recent rejections (`IngestionLog.svelte` - inline rather than a
+      separate route, since the list is already small and this is the only page that
+      would ever link to it).
+- [x] **Verified end-to-end, 2026-08-10** — `dotnet build`/`dotnet test`: 271 tests (100
+      `Flare.Ingest.Tests` + 171 `Flare.Api.Tests`, up from 244/154), 0 failures.
+      `svelte-check`: 0 errors across 890 files. `npm run build`: clean. Real
+      `docker compose up -d --build` (clickhouse+redis+ingest+api+dashboard): sent real
+      OTLP exports via curl - a valid HTTP/JSON log and a valid HTTP/JSON trace (200,
+      correctly counted with real byte/record numbers), a malformed JSON body (400,
+      recorded as `invalid-payload:InvalidJsonException`), an unsupported content type
+      (415, recorded as `unsupported-media-type`), and a malformed protobuf body on
+      `/v1/traces` (400, recorded as `invalid-payload:InvalidProtocolBufferException`).
+      Confirmed all of it via `GET /api/ingestion/stats` directly, then via a real
+      Playwright-driven Chromium browser against the live dashboard: tiles, chart,
+      per-receiver table, and ingestion log all showed the exact expected numbers/reasons,
+      the window-preset select correctly listed and switched between all four presets
+      (including the 24h/1440-bucket worst case, confirmed fast), and zero browser console
+      errors throughout.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

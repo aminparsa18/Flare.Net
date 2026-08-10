@@ -1,4 +1,6 @@
+using System.Text;
 using Flare.Ingest.Sinks;
+using Flare.Ingest.Stats;
 using Google.Protobuf;
 using OpenTelemetry.Proto.Collector.Trace.V1;
 
@@ -23,6 +25,7 @@ public static class OtlpHttpTraceEndpoints
     private static async Task<IResult> HandleExportAsync(
         HttpContext http,
         ISpanEventSink sink,
+        IIngestionStatsTracker stats,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -36,27 +39,41 @@ public static class OtlpHttpTraceEndpoints
         var isJson = contentType.Contains(JsonContentType, StringComparison.OrdinalIgnoreCase);
         var isProtobuf = contentType.Contains(ProtobufContentType, StringComparison.OrdinalIgnoreCase);
 
-        ExportTraceServiceRequest request;
-        if (isJson)
+        if (!isJson && !isProtobuf && contentType.Length > 0)
         {
-            using var reader = new StreamReader(http.Request.Body);
-            var json = await reader.ReadToEndAsync(cancellationToken);
-            request = JsonParser.Default.Parse<ExportTraceServiceRequest>(json);
-        }
-        else if (isProtobuf || contentType.Length == 0)
-        {
-            // Google.Protobuf's MessageParser.ParseFrom(Stream) reads synchronously, but
-            // Kestrel's request body stream disallows synchronous reads (AllowSynchronousIO
-            // is false by default) and throws InvalidOperationException. Buffer the body into
-            // memory asynchronously first, then parse from that in-memory stream instead.
-            using var buffer = new MemoryStream();
-            await http.Request.Body.CopyToAsync(buffer, cancellationToken);
-            buffer.Position = 0;
-            request = ExportTraceServiceRequest.Parser.ParseFrom(buffer);
-        }
-        else
-        {
+            await stats.RecordRejectedAsync(IngestionSignal.Traces, IngestionProtocol.Http, "unsupported-media-type", cancellationToken);
             return Results.StatusCode(StatusCodes.Status415UnsupportedMediaType);
+        }
+
+        ExportTraceServiceRequest request;
+        long byteCount;
+        try
+        {
+            if (isJson)
+            {
+                using var reader = new StreamReader(http.Request.Body);
+                var json = await reader.ReadToEndAsync(cancellationToken);
+                byteCount = Encoding.UTF8.GetByteCount(json);
+                request = JsonParser.Default.Parse<ExportTraceServiceRequest>(json);
+            }
+            else
+            {
+                // Google.Protobuf's MessageParser.ParseFrom(Stream) reads synchronously, but
+                // Kestrel's request body stream disallows synchronous reads (AllowSynchronousIO
+                // is false by default) and throws InvalidOperationException. Buffer the body into
+                // memory asynchronously first, then parse from that in-memory stream instead.
+                using var buffer = new MemoryStream();
+                await http.Request.Body.CopyToAsync(buffer, cancellationToken);
+                byteCount = buffer.Length;
+                buffer.Position = 0;
+                request = ExportTraceServiceRequest.Parser.ParseFrom(buffer);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Rejected malformed OTLP traces export via HTTP ({ContentType})", isJson ? "json" : "protobuf");
+            await stats.RecordRejectedAsync(IngestionSignal.Traces, IngestionProtocol.Http, $"invalid-payload:{ex.GetType().Name}", cancellationToken);
+            return Results.BadRequest();
         }
 
         var count = 0;
@@ -65,6 +82,8 @@ public static class OtlpHttpTraceEndpoints
             await sink.WriteAsync(span, cancellationToken);
             count++;
         }
+
+        await stats.RecordAcceptedAsync(IngestionSignal.Traces, IngestionProtocol.Http, count, byteCount, cancellationToken);
 
         logger.LogDebug("Ingested {Count} span(s) via HTTP ({ContentType})", count, isJson ? "json" : "protobuf");
 

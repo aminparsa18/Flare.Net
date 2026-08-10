@@ -12,6 +12,7 @@
 		{ href: '/', label: 'Logs' },
 		{ href: '/traces', label: 'Traces' },
 		{ href: '/metrics', label: 'Metrics' },
+		{ href: '/ingestion', label: 'Ingestion' },
 		{ href: '/alerts', label: 'Alerts' },
 		{ href: '/views', label: 'Views' }
 	];

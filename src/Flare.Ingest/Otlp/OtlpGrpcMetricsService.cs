@@ -1,4 +1,5 @@
 using Flare.Ingest.Sinks;
+using Flare.Ingest.Stats;
 using Grpc.Core;
 using OpenTelemetry.Proto.Collector.Metrics.V1;
 
@@ -9,17 +10,34 @@ namespace Flare.Ingest.Otlp;
 /// served on the "otlp-grpc" endpoint (conventionally port 4317), same shared listener
 /// as <see cref="OtlpGrpcTraceService"/>.
 /// </summary>
-public sealed class OtlpGrpcMetricsService(IMetricEventSink sink, ILogger<OtlpGrpcMetricsService> logger) : MetricsService.MetricsServiceBase
+public sealed class OtlpGrpcMetricsService(
+    IMetricEventSink sink,
+    IIngestionStatsTracker stats,
+    ILogger<OtlpGrpcMetricsService> logger) : MetricsService.MetricsServiceBase
 {
     public override async Task<ExportMetricsServiceResponse> Export(
         ExportMetricsServiceRequest request,
         ServerCallContext context)
     {
-        var result = OtlpMetricsMapper.Map(request);
-        foreach (var point in result.Points)
+        var byteCount = request.CalculateSize();
+
+        MetricMapResult result;
+        try
         {
-            await sink.WriteAsync(point, context.CancellationToken);
+            result = OtlpMetricsMapper.Map(request);
+            foreach (var point in result.Points)
+            {
+                await sink.WriteAsync(point, context.CancellationToken);
+            }
         }
+        catch (Exception ex) when (ex is not OperationCanceledException and not RpcException)
+        {
+            logger.LogWarning(ex, "Rejected malformed OTLP metrics export via gRPC");
+            await stats.RecordRejectedAsync(IngestionSignal.Metrics, IngestionProtocol.Grpc, $"invalid-payload:{ex.GetType().Name}", context.CancellationToken);
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Malformed metrics export"));
+        }
+
+        await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Grpc, result.Points.Count, byteCount, context.CancellationToken);
 
         if (result.UnsupportedMetricNames.Count > 0)
         {

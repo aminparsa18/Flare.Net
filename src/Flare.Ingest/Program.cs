@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using Flare.Ingest.Otlp;
 using Flare.Ingest.Pipeline;
 using Flare.Ingest.Sinks;
+using Flare.Ingest.Stats;
 using Flare.ServiceDefaults.ClickHouseMigrations;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -48,6 +49,11 @@ builder.Services.AddHostedService<SpanFlushWorker>();
 builder.Services.AddSingleton<IMetricEventSink, RedisStreamMetricEventSink>();
 builder.Services.AddSingleton<IClickHouseMetricWriter, ClickHouseMetricWriter>();
 builder.Services.AddHostedService<MetricFlushWorker>();
+
+// Ingestion-page operational stats (Planning.md v8) - shares the same Redis connection
+// as the sinks above rather than adding new infrastructure.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IIngestionStatsTracker, RedisIngestionStatsTracker>();
 
 var app = builder.Build();
 

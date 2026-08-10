@@ -1,4 +1,6 @@
+using System.Text;
 using Flare.Ingest.Sinks;
+using Flare.Ingest.Stats;
 using Google.Protobuf;
 using OpenTelemetry.Proto.Collector.Metrics.V1;
 
@@ -23,6 +25,7 @@ public static class OtlpHttpMetricsEndpoints
     private static async Task<IResult> HandleExportAsync(
         HttpContext http,
         IMetricEventSink sink,
+        IIngestionStatsTracker stats,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -36,25 +39,39 @@ public static class OtlpHttpMetricsEndpoints
         var isJson = contentType.Contains(JsonContentType, StringComparison.OrdinalIgnoreCase);
         var isProtobuf = contentType.Contains(ProtobufContentType, StringComparison.OrdinalIgnoreCase);
 
-        ExportMetricsServiceRequest request;
-        if (isJson)
+        if (!isJson && !isProtobuf && contentType.Length > 0)
         {
-            using var reader = new StreamReader(http.Request.Body);
-            var json = await reader.ReadToEndAsync(cancellationToken);
-            request = JsonParser.Default.Parse<ExportMetricsServiceRequest>(json);
-        }
-        else if (isProtobuf || contentType.Length == 0)
-        {
-            // Kestrel's request body stream disallows synchronous reads - see
-            // OtlpHttpTraceEndpoints for the full explanation of this buffering step.
-            using var buffer = new MemoryStream();
-            await http.Request.Body.CopyToAsync(buffer, cancellationToken);
-            buffer.Position = 0;
-            request = ExportMetricsServiceRequest.Parser.ParseFrom(buffer);
-        }
-        else
-        {
+            await stats.RecordRejectedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, "unsupported-media-type", cancellationToken);
             return Results.StatusCode(StatusCodes.Status415UnsupportedMediaType);
+        }
+
+        ExportMetricsServiceRequest request;
+        long byteCount;
+        try
+        {
+            if (isJson)
+            {
+                using var reader = new StreamReader(http.Request.Body);
+                var json = await reader.ReadToEndAsync(cancellationToken);
+                byteCount = Encoding.UTF8.GetByteCount(json);
+                request = JsonParser.Default.Parse<ExportMetricsServiceRequest>(json);
+            }
+            else
+            {
+                // Kestrel's request body stream disallows synchronous reads - see
+                // OtlpHttpTraceEndpoints for the full explanation of this buffering step.
+                using var buffer = new MemoryStream();
+                await http.Request.Body.CopyToAsync(buffer, cancellationToken);
+                byteCount = buffer.Length;
+                buffer.Position = 0;
+                request = ExportMetricsServiceRequest.Parser.ParseFrom(buffer);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Rejected malformed OTLP metrics export via HTTP ({ContentType})", isJson ? "json" : "protobuf");
+            await stats.RecordRejectedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, $"invalid-payload:{ex.GetType().Name}", cancellationToken);
+            return Results.BadRequest();
         }
 
         var result = OtlpMetricsMapper.Map(request);
@@ -62,6 +79,8 @@ public static class OtlpHttpMetricsEndpoints
         {
             await sink.WriteAsync(point, cancellationToken);
         }
+
+        await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, result.Points.Count, byteCount, cancellationToken);
 
         if (result.UnsupportedMetricNames.Count > 0)
         {
