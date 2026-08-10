@@ -1,4 +1,6 @@
+using System.Text;
 using Flare.Ingest.Sinks;
+using Flare.Ingest.Stats;
 using Google.Protobuf;
 using OpenTelemetry.Proto.Collector.Logs.V1;
 
@@ -22,6 +24,7 @@ public static class OtlpHttpLogsEndpoints
     private static async Task<IResult> HandleExportAsync(
         HttpContext http,
         ILogEventSink sink,
+        IIngestionStatsTracker stats,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -34,27 +37,44 @@ public static class OtlpHttpLogsEndpoints
         var isJson = contentType.Contains(JsonContentType, StringComparison.OrdinalIgnoreCase);
         var isProtobuf = contentType.Contains(ProtobufContentType, StringComparison.OrdinalIgnoreCase);
 
-        ExportLogsServiceRequest request;
-        if (isJson)
+        if (!isJson && !isProtobuf && contentType.Length > 0)
         {
-            using var reader = new StreamReader(http.Request.Body);
-            var json = await reader.ReadToEndAsync(cancellationToken);
-            request = JsonParser.Default.Parse<ExportLogsServiceRequest>(json);
-        }
-        else if (isProtobuf || contentType.Length == 0)
-        {
-            // Google.Protobuf's MessageParser.ParseFrom(Stream) reads synchronously, but
-            // Kestrel's request body stream disallows synchronous reads (AllowSynchronousIO
-            // is false by default) and throws InvalidOperationException. Buffer the body into
-            // memory asynchronously first, then parse from that in-memory stream instead.
-            using var buffer = new MemoryStream();
-            await http.Request.Body.CopyToAsync(buffer, cancellationToken);
-            buffer.Position = 0;
-            request = ExportLogsServiceRequest.Parser.ParseFrom(buffer);
-        }
-        else
-        {
+            await stats.RecordRejectedAsync(IngestionSignal.Logs, IngestionProtocol.Http, "unsupported-media-type", cancellationToken);
             return Results.StatusCode(StatusCodes.Status415UnsupportedMediaType);
+        }
+
+        ExportLogsServiceRequest request;
+        long byteCount;
+        try
+        {
+            if (isJson)
+            {
+                using var reader = new StreamReader(http.Request.Body);
+                var json = await reader.ReadToEndAsync(cancellationToken);
+                byteCount = Encoding.UTF8.GetByteCount(json);
+                request = JsonParser.Default.Parse<ExportLogsServiceRequest>(json);
+            }
+            else
+            {
+                // Google.Protobuf's MessageParser.ParseFrom(Stream) reads synchronously, but
+                // Kestrel's request body stream disallows synchronous reads (AllowSynchronousIO
+                // is false by default) and throws InvalidOperationException. Buffer the body into
+                // memory asynchronously first, then parse from that in-memory stream instead.
+                using var buffer = new MemoryStream();
+                await http.Request.Body.CopyToAsync(buffer, cancellationToken);
+                byteCount = buffer.Length;
+                buffer.Position = 0;
+                request = ExportLogsServiceRequest.Parser.ParseFrom(buffer);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Previously unhandled here - a malformed body took down the request with a bare
+            // 500 and left no record anywhere that it happened. Now: a clean 400, a debug
+            // trail in the logs, and a counted+listed entry on the dashboard's Ingestion page.
+            logger.LogWarning(ex, "Rejected malformed OTLP logs export via HTTP ({ContentType})", isJson ? "json" : "protobuf");
+            await stats.RecordRejectedAsync(IngestionSignal.Logs, IngestionProtocol.Http, $"invalid-payload:{ex.GetType().Name}", cancellationToken);
+            return Results.BadRequest();
         }
 
         var count = 0;
@@ -63,6 +83,8 @@ public static class OtlpHttpLogsEndpoints
             await sink.WriteAsync(logEvent, cancellationToken);
             count++;
         }
+
+        await stats.RecordAcceptedAsync(IngestionSignal.Logs, IngestionProtocol.Http, count, byteCount, cancellationToken);
 
         logger.LogDebug("Ingested {Count} log record(s) via HTTP ({ContentType})", count, isJson ? "json" : "protobuf");
 

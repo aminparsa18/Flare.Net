@@ -1,0 +1,55 @@
+namespace Flare.Ingest.Stats;
+
+/// <summary>
+/// Pure key/field-naming helpers for <see cref="RedisIngestionStatsTracker"/>, split out
+/// so they're unit-testable without a real/mocked <c>IConnectionMultiplexer</c> - same
+/// "test the pure function" precedent as <c>HistogramQuantileEstimator</c> and the various
+/// SQL builders elsewhere in this repo.
+/// </summary>
+public static class IngestionStatsKeys
+{
+    private const string MinuteBucketPrefix = "flare:ingestion:minute:";
+
+    /// <summary>
+    /// The recent-errors list key - a capped (<see cref="MaxErrorEntries"/>) list of the
+    /// most recent rejected-payload entries, newest first (<c>LPUSH</c>/<c>LTRIM</c>),
+    /// giving the dashboard's "Ingestion Log" panel something to render without a
+    /// dedicated ClickHouse table - deliberately in-memory/best-effort (same TTL as the
+    /// minute buckets), not durable history, matching this feature's MVP scope.
+    /// </summary>
+    public const string ErrorsListKey = "flare:ingestion:errors";
+
+    public const int MaxErrorEntries = 200;
+
+    /// <summary>
+    /// 25h, not 24h: gives a full rolling 24-hour window of usable history (matching
+    /// Seq's "last 24 hours" ingestion stats) plus a 1-hour buffer so the oldest bucket
+    /// a 24h query still wants hasn't already expired mid-read.
+    /// </summary>
+    public static readonly TimeSpan BucketTtl = TimeSpan.FromHours(25);
+
+    /// <summary>
+    /// One Redis hash per wall-clock minute, keyed by Unix-epoch minute number so it's
+    /// naturally sortable/comparable as a plain integer and stable regardless of how the
+    /// caller formats time. Each hash holds <c>{signal}:{protocol}:{requests|records|bytes|rejected}</c>
+    /// counter fields, incremented via <c>HINCRBY</c>.
+    /// </summary>
+    public static string MinuteBucketKey(DateTimeOffset timestamp) =>
+        MinuteBucketPrefix + timestamp.ToUnixTimeSeconds() / 60;
+
+    /// <summary>
+    /// The epoch-minute number a bucket key was built from, recovered by parsing back the
+    /// suffix - lets a reader (Flare.Api) enumerate the last N minute keys without needing
+    /// to duplicate this class, and lets tests assert round-trip stability.
+    /// </summary>
+    public static long ParseMinuteBucketKey(string key) =>
+        long.Parse(key[MinuteBucketPrefix.Length..]);
+
+    /// <summary>
+    /// Lowercase <c>{signal}:{protocol}</c>, e.g. <c>logs:http</c> - readable directly via
+    /// <c>redis-cli HGETALL</c> while debugging, same rationale <see cref="Pipeline.LogEventJsonContext"/>
+    /// documents for its own plain-PascalCase choice.
+    /// </summary>
+    public static string FieldPrefix(IngestionSignal signal, IngestionProtocol protocol) =>
+        $"{signal.ToString().ToLowerInvariant()}:{protocol.ToString().ToLowerInvariant()}";
+}
