@@ -5,6 +5,8 @@
 	import { page } from '$app/state';
 	import AppNav from '$lib/components/nav/AppNav.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { Alert, AlertTitle, AlertDescription } from '$lib/components/ui/alert';
+	import { Button } from '$lib/components/ui/button';
 	import { AuthState } from '$lib/auth/state.svelte';
 	import { authContext } from '$lib/auth/context';
 	import { getBootstrapStatus } from '$lib/auth-api';
@@ -42,12 +44,26 @@
 		}
 	});
 
+	// Set only when redirectUnauthenticated's own fetch fails (e.g. a CORS
+	// misconfiguration, or Flare.Api simply unreachable) - without this, that failure
+	// would otherwise be a silently-swallowed promise rejection: goto() never runs,
+	// readyToRenderChildren never becomes true, and the spinner below spins forever with
+	// no indication anything is wrong. Found exactly this way, live, against a real
+	// Aspire-orchestrated deployment - see git history for the incident this fixed.
+	let redirectError = $state<string | null>(null);
+
 	async function redirectUnauthenticated(): Promise<void> {
-		// Re-checked on every redirect (not cached) - an admin could have been created in
-		// another tab since the last check, and this is the one place that matters:
-		// whichever of /login or /setup we send an unauthenticated visitor to.
-		const status = await getBootstrapStatus();
-		await goto(status.needsBootstrap ? '/setup' : '/login');
+		redirectError = null;
+		try {
+			// Re-checked on every redirect (not cached) - an admin could have been
+			// created in another tab since the last check, and this is the one place
+			// that matters: whichever of /login or /setup we send an unauthenticated
+			// visitor to.
+			const status = await getBootstrapStatus();
+			await goto(status.needsBootstrap ? '/setup' : '/login');
+		} catch (err) {
+			redirectError = err instanceof Error ? err.message : String(err);
+		}
 	}
 
 	// True once it's actually safe to render whatever route the user is on - either
@@ -82,6 +98,23 @@
 		<div class="min-h-0 flex-1">
 			{@render children()}
 		</div>
+	</div>
+{:else if redirectError}
+	<div class="flex h-screen items-center justify-center p-4">
+		<Alert variant="destructive" class="max-w-md">
+			<AlertTitle>Can't reach Flare.Api</AlertTitle>
+			<AlertDescription class="flex flex-col gap-2">
+				<span>{redirectError}</span>
+				<span>
+					Check that this dashboard's origin is listed in Flare.Api's
+					<code>Cors:AllowedOrigins</code>, and that <code>PUBLIC_API_URL</code>
+					points at a reachable address.
+				</span>
+				<Button size="sm" variant="outline" onclick={() => void redirectUnauthenticated()} class="self-start">
+					Retry
+				</Button>
+			</AlertDescription>
+		</Alert>
 	</div>
 {:else}
 	<div class="flex h-screen items-center justify-center">
