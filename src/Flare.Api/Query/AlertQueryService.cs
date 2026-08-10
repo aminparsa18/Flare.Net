@@ -52,7 +52,7 @@ public interface IAlertQueryService
 public sealed class AlertQueryService(IClickHouseClient client, TimeProvider timeProvider) : IAlertQueryService
 {
     private const string RuleColumns =
-        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, CreatedAt, UpdatedAt";
+        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, CreatedAt, UpdatedAt";
 
     /// <summary>
     /// Resolves <see cref="AlertRuleRequest"/>'s nullable optional members to their real
@@ -64,13 +64,14 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
     /// same reasoning <see cref="LogSearchQueryBuilder.Build"/> is a static pure builder
     /// rather than an instance method.
     /// </summary>
-    internal static (string Description, bool Enabled, int CooldownSeconds, string WebhookUrl, string TelegramBotToken, string TelegramChatId) ResolveDefaults(AlertRuleRequest request) => (
+    internal static (string Description, bool Enabled, int CooldownSeconds, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo) ResolveDefaults(AlertRuleRequest request) => (
         Description: request.Description ?? "",
         Enabled: request.Enabled ?? true,
         CooldownSeconds: request.CooldownSeconds ?? 300,
         WebhookUrl: request.WebhookUrl ?? "",
         TelegramBotToken: request.TelegramBotToken ?? "",
-        TelegramChatId: request.TelegramChatId ?? "");
+        TelegramChatId: request.TelegramChatId ?? "",
+        EmailTo: request.EmailTo ?? "");
 
     public async Task<AlertRule> CreateAsync(AlertRuleRequest request, CancellationToken cancellationToken)
     {
@@ -89,6 +90,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             WebhookUrl = defaults.WebhookUrl,
             TelegramBotToken = defaults.TelegramBotToken,
             TelegramChatId = defaults.TelegramChatId,
+            EmailTo = defaults.EmailTo,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -134,6 +136,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             WebhookUrl = defaults.WebhookUrl,
             TelegramBotToken = defaults.TelegramBotToken,
             TelegramChatId = defaults.TelegramChatId,
+            EmailTo = defaults.EmailTo,
             UpdatedAt = timeProvider.GetUtcNow(),
         };
 
@@ -258,14 +261,15 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         parameters.AddParameter("webhookUrl", rule.WebhookUrl);
         parameters.AddParameter("telegramBotToken", rule.TelegramBotToken);
         parameters.AddParameter("telegramChatId", rule.TelegramChatId);
+        parameters.AddParameter("emailTo", rule.EmailTo);
         parameters.AddParameter("createdAt", rule.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", rule.UpdatedAt.UtcDateTime);
 
         const string sql = """
             INSERT INTO alert_rules
-                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, CreatedAt, UpdatedAt)
+                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, CreatedAt, UpdatedAt)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -299,8 +303,9 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         WebhookUrl = reader.GetString(9),
         TelegramBotToken = reader.GetString(10),
         TelegramChatId = reader.GetString(11),
-        CreatedAt = ReadUtc(reader, 12),
-        UpdatedAt = ReadUtc(reader, 13),
+        EmailTo = reader.GetString(12),
+        CreatedAt = ReadUtc(reader, 13),
+        UpdatedAt = ReadUtc(reader, 14),
     };
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>

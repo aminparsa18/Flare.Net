@@ -51,7 +51,11 @@ if [[ ${#pids[@]} -eq 0 ]]; then
 fi
 
 echo "Found ${#pids[@]} matching process(es):"
-ps -p "${pids[@]}" -o pid,state,command | sed 's/^/  /'
+# -p wants a single comma-separated list, not one -p per pid / space-separated args -
+# BSD ps (macOS) errors out on the latter ("illegal argument: -o") where GNU ps tolerates
+# it, so join explicitly rather than relying on "${pids[@]}" splitting to keep this
+# portable across both.
+ps -p "$(IFS=,; echo "${pids[*]}")" -o pid,state,command | sed 's/^/  /'
 
 if $DRY_RUN; then
   echo

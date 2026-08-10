@@ -34,10 +34,11 @@
 	let comparator = $state<ThresholdComparator>('GreaterThanOrEqual');
 	let windowSecondsText = $state('300');
 	let cooldownSecondsText = $state('300');
-	let channel = $state<'webhook' | 'telegram'>('webhook');
+	let channel = $state<'webhook' | 'telegram' | 'email'>('webhook');
 	let webhookUrl = $state('');
 	let telegramBotToken = $state('');
 	let telegramChatId = $state('');
+	let emailTo = $state('');
 
 	let testResult = $state<AlertTestResult | null>(null);
 	let testing = $state(false);
@@ -65,6 +66,7 @@
 			webhookUrl = '';
 			telegramBotToken = '';
 			telegramChatId = '';
+			emailTo = '';
 		} else if (target) {
 			name = target.name;
 			description = target.description;
@@ -76,10 +78,11 @@
 			comparator = target.threshold.comparator;
 			windowSecondsText = String(target.windowSeconds);
 			cooldownSecondsText = String(target.cooldownSeconds);
-			channel = target.telegramBotToken || target.telegramChatId ? 'telegram' : 'webhook';
+			channel = target.telegramBotToken || target.telegramChatId ? 'telegram' : target.emailTo ? 'email' : 'webhook';
 			webhookUrl = target.webhookUrl;
 			telegramBotToken = target.telegramBotToken;
 			telegramChatId = target.telegramChatId;
+			emailTo = target.emailTo;
 		}
 	});
 
@@ -88,7 +91,11 @@
 	const cooldownSeconds = $derived(Number(cooldownSecondsText));
 
 	const hasChannel = $derived(
-		channel === 'webhook' ? webhookUrl.trim().length > 0 : telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
+		channel === 'webhook'
+			? webhookUrl.trim().length > 0
+			: channel === 'telegram'
+				? telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
+				: emailTo.trim().length > 0
 	);
 
 	const canSave = $derived(
@@ -150,12 +157,13 @@
 			threshold: { count: thresholdCount, comparator },
 			windowSeconds,
 			cooldownSeconds,
-			// Exactly one channel goes out non-blank - the other is left "" so the API's
-			// channel validation (AlertEndpoints.ValidateChannel) sees a clean single choice
-			// even if the user typed into a field before switching the channel selector.
+			// Exactly one channel goes out non-blank - the others are left "" so the API's
+			// channel validation (AlertRuleRequest.ValidateChannel) sees a clean single
+			// choice even if the user typed into a field before switching the selector.
 			webhookUrl: channel === 'webhook' ? webhookUrl.trim() : '',
 			telegramBotToken: channel === 'telegram' ? telegramBotToken.trim() : '',
-			telegramChatId: channel === 'telegram' ? telegramChatId.trim() : ''
+			telegramChatId: channel === 'telegram' ? telegramChatId.trim() : '',
+			emailTo: channel === 'email' ? emailTo.trim() : ''
 		};
 	}
 
@@ -241,11 +249,12 @@
 				<span class="text-xs font-medium">Notify via</span>
 				<Select.Root type="single" value={channel} onValueChange={(v) => v && (channel = v as typeof channel)}>
 					<Select.Trigger class="w-40">
-						{channel === 'telegram' ? 'Telegram' : 'Webhook / Slack'}
+						{channel === 'telegram' ? 'Telegram' : channel === 'email' ? 'Email' : 'Webhook / Slack'}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="webhook" label="Webhook / Slack" />
 						<Select.Item value="telegram" label="Telegram" />
+						<Select.Item value="email" label="Email" />
 					</Select.Content>
 				</Select.Root>
 			</div>
@@ -256,7 +265,7 @@
 					<Input bind:value={webhookUrl} placeholder="https://hooks.slack.com/services/..." />
 					<span class="text-muted-foreground text-xs">A generic JSON webhook or a Slack incoming-webhook URL.</span>
 				</div>
-			{:else}
+			{:else if channel === 'telegram'}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">Bot token</span>
 					<Input bind:value={telegramBotToken} placeholder="123456789:AAExampleTokenFromBotFather" />
@@ -267,6 +276,14 @@
 					<Input bind:value={telegramChatId} placeholder="-1001234567890" />
 					<span class="text-muted-foreground text-xs">
 						The target chat/channel/group ID - e.g. from a `getUpdates` call, or a bot like @userinfobot.
+					</span>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">Recipient email</span>
+					<Input bind:value={emailTo} placeholder="oncall@example.com" />
+					<span class="text-muted-foreground text-xs">
+						Comma-separate more than one address. Sent through this server's configured SMTP settings.
 					</span>
 				</div>
 			{/if}

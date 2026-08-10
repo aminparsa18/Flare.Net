@@ -28,7 +28,15 @@ public class AlertChannelValidationTests
     }
 
     [Fact]
-    public void NeitherChannelSet_IsInvalid()
+    public void EmailOnly_IsValid()
+    {
+        var request = Build(emailTo: "oncall@example.com");
+
+        Assert.Null(request.ValidateChannel());
+    }
+
+    [Fact]
+    public void NoChannelSet_IsInvalid()
     {
         var request = Build();
 
@@ -36,9 +44,37 @@ public class AlertChannelValidationTests
     }
 
     [Fact]
-    public void BothChannelsSet_IsInvalid()
+    public void WebhookAndTelegramSet_IsInvalid()
     {
         var request = Build(webhookUrl: "https://hooks.slack.com/services/x", telegramBotToken: "123:abc", telegramChatId: "-100");
+
+        Assert.NotNull(request.ValidateChannel());
+    }
+
+    [Fact]
+    public void WebhookAndEmailSet_IsInvalid()
+    {
+        var request = Build(webhookUrl: "https://hooks.slack.com/services/x", emailTo: "oncall@example.com");
+
+        Assert.NotNull(request.ValidateChannel());
+    }
+
+    [Fact]
+    public void TelegramAndEmailSet_IsInvalid()
+    {
+        var request = Build(telegramBotToken: "123:abc", telegramChatId: "-100", emailTo: "oncall@example.com");
+
+        Assert.NotNull(request.ValidateChannel());
+    }
+
+    [Fact]
+    public void AllThreeChannelsSet_IsInvalid()
+    {
+        var request = Build(
+            webhookUrl: "https://hooks.slack.com/services/x",
+            telegramBotToken: "123:abc",
+            telegramChatId: "-100",
+            emailTo: "oncall@example.com");
 
         Assert.NotNull(request.ValidateChannel());
     }
@@ -63,7 +99,21 @@ public class AlertChannelValidationTests
         Assert.Null(request.ValidateChannel());
     }
 
-    private static AlertRuleRequest Build(string webhookUrl = "", string telegramBotToken = "", string telegramChatId = "") => new()
+    [Theory]
+    [InlineData("   ")]
+    [InlineData("")]
+    public void BlankEmailTo_DoesNotCountAsSet(string emailTo)
+    {
+        var request = Build(webhookUrl: "https://hooks.slack.com/services/x", emailTo: emailTo);
+
+        Assert.Null(request.ValidateChannel());
+    }
+
+    private static AlertRuleRequest Build(
+        string webhookUrl = "",
+        string telegramBotToken = "",
+        string telegramChatId = "",
+        string emailTo = "") => new()
     {
         Name = "test",
         Threshold = new AlertThreshold { Count = 1 },
@@ -71,5 +121,6 @@ public class AlertChannelValidationTests
         WebhookUrl = webhookUrl,
         TelegramBotToken = telegramBotToken,
         TelegramChatId = telegramChatId,
+        EmailTo = emailTo,
     };
 }

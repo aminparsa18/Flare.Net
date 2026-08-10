@@ -137,9 +137,16 @@ re-evaluated into a new row - no "Suppressed" rows.
 **`TelegramBotToken`/`TelegramChatId` (migration 0005), `ALTER TABLE ... ADD COLUMN`
 on `alert_rules`.** A second, mutually-exclusive notification channel alongside
 `WebhookUrl` - both default to `''` so existing (webhook/Slack) rows round-trip
-unchanged. `Flare.Api.Endpoints.AlertEndpoints`'s channel validation, not the schema,
+unchanged. `Flare.Api.Model.AlertRuleRequest.ValidateChannel`, not the schema,
 enforces "exactly one channel set" - ClickHouse has no `CHECK` constraint story that
 fits this table's insert-a-new-version-per-update CRUD shape.
+
+**`EmailTo` (migration 0006), `ALTER TABLE ... ADD COLUMN` on `alert_rules`.** A third
+channel, same "default to `''`, validated at the application layer" shape as the
+Telegram columns above. Only the recipient lives here - the SMTP server itself is
+app-wide config (`Flare.Api.Alerting.EmailOptions`, from the `Email` configuration
+section / `Email__*` env vars), not a per-rule column, so credentials aren't duplicated
+across rules or stored in this table.
 
 ## `LogEvent` field → column mapping
 

@@ -35,6 +35,7 @@ public class AlertRuleRequestJsonTests
         // indistinguishable from a caller explicitly requesting those values. Post-fix,
         // "omitted" is representable as null instead of colliding with a valid explicit
         // value, which is what makes AlertQueryService.ResolveDefaults's coalescing correct.
+        // EmailTo (added after this fix, for the Email channel) follows the same shape.
         var request = JsonSerializer.Deserialize(MinimalJson, AlertsJsonContext.Default.AlertRuleRequest)!;
 
         Assert.Null(request.Enabled);
@@ -43,6 +44,7 @@ public class AlertRuleRequestJsonTests
         Assert.Null(request.WebhookUrl);
         Assert.Null(request.TelegramBotToken);
         Assert.Null(request.TelegramChatId);
+        Assert.Null(request.EmailTo);
     }
 
     [Fact]
@@ -53,7 +55,7 @@ public class AlertRuleRequestJsonTests
         // that happens to equal default(T).
         const string json = """
             {"name":"x","threshold":{"count":10},"windowSeconds":300,
-             "enabled":false,"cooldownSeconds":0,"description":""}
+             "enabled":false,"cooldownSeconds":0,"description":"","emailTo":""}
             """;
 
         var request = JsonSerializer.Deserialize(json, AlertsJsonContext.Default.AlertRuleRequest)!;
@@ -61,6 +63,7 @@ public class AlertRuleRequestJsonTests
         Assert.False(request.Enabled);
         Assert.Equal(0, request.CooldownSeconds);
         Assert.Equal("", request.Description);
+        Assert.Equal("", request.EmailTo);
     }
 }
 
@@ -88,6 +91,7 @@ public class AlertQueryServiceDefaultsTests
         Assert.Equal("", defaults.WebhookUrl);
         Assert.Equal("", defaults.TelegramBotToken);
         Assert.Equal("", defaults.TelegramChatId);
+        Assert.Equal("", defaults.EmailTo);
     }
 
     [Fact]
@@ -104,6 +108,7 @@ public class AlertQueryServiceDefaultsTests
             WebhookUrl = "https://example.com/hook",
             TelegramBotToken = "bot-token",
             TelegramChatId = "chat-id",
+            EmailTo = "oncall@example.com",
         };
 
         var defaults = AlertQueryService.ResolveDefaults(request);
@@ -114,5 +119,6 @@ public class AlertQueryServiceDefaultsTests
         Assert.Equal("https://example.com/hook", defaults.WebhookUrl);
         Assert.Equal("bot-token", defaults.TelegramBotToken);
         Assert.Equal("chat-id", defaults.TelegramChatId);
+        Assert.Equal("oncall@example.com", defaults.EmailTo);
     }
 }
