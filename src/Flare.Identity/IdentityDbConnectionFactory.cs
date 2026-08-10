@@ -27,6 +27,17 @@ public sealed class IdentityDbConnectionFactory
     {
         var builder = new SqliteConnectionStringBuilder { DataSource = options.Value.DbPath };
         _connectionString = builder.ToString();
+
+        // SQLite creates the .db file itself on first connect, but not any missing
+        // parent directory. docker-compose's named volume is always pre-created empty by
+        // Docker, so this is a no-op there - it matters for Flare.AppHost's local-dev
+        // path (a repo-relative .data/identity/ that doesn't exist until something
+        // creates it) and for a bare `dotnet run` with a relative DbPath.
+        var directory = Path.GetDirectoryName(options.Value.DbPath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
     }
 
     public async Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken = default)

@@ -5,8 +5,11 @@
 # override any of them (see that file for what each one does and why).
 #
 # This is the non-Aspire counterpart to Flare.AppHost/Program.cs - same two backing
-# resources (ClickHouse, Redis), same connection-string shape, same ClickHouse
+# store services (ClickHouse, Redis), same connection-string shape, same ClickHouse
 # init-mount trick (see db/clickhouse/README.md), deliberately kept in sync with it.
+# Auth's identity store (Users/Sessions/IngestApiKeys) is a third thing `ingest`/`api`
+# share, but deliberately isn't a fourth service/container - it's embedded SQLite on a
+# plain shared volume (identity-data, below) mounted directly into both processes.
 # Unlike Flare.AppHost, nothing here is proxied or dynamically ported: every port below
 # is fixed, because this is meant to be pointed at directly (by OTLP clients, by you
 # opening the dashboard), not driven through Aspire's dashboard/service discovery.
@@ -68,6 +71,13 @@ services:
       # whether Aspire orchestration is actually driving the process.
       ConnectionStrings__clickhousedb: "Host=clickhouse;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
+      # Same file `api` below points at (see that service's Identity__DbPath and the
+      # shared identity-data volume) - both processes need to resolve to the literal
+      # same SQLite file. Ingest only ever reads IngestApiKeys from it (see
+      # Flare.Identity/IngestKeys/ remarks) - it never touches Users/Sessions.
+      Identity__DbPath: "/data/identity/flare-identity.db"
+    volumes:
+      - identity-data:/data/identity
     ports:
       - "${FLARE_INGEST_GRPC_PORT:-4317}:4317"
       - "${FLARE_INGEST_HTTP_PORT:-4318}:4318"
@@ -104,6 +114,16 @@ services:
       Email__Password: "${SMTP_PASSWORD:-}"
       Email__From: "${SMTP_FROM:-}"
       Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
+      # Same file `ingest` above points at - see its Identity__DbPath comment.
+      Identity__DbPath: "/data/identity/flare-identity.db"
+      # Must match wherever *your browser* actually loads the dashboard from - same
+      # value the dashboard service's own ORIGIN below is computed from, so overriding
+      # FLARE_DASHBOARD_PORT (or opening the dashboard from a different host, see that
+      # service's comment) keeps both in sync automatically. AllowCredentials() means
+      # this can't be a wildcard - the session cookie won't cross origins otherwise.
+      Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-3000}"
+    volumes:
+      - identity-data:/data/identity
     ports:
       - "${FLARE_API_PORT:-8080}:8080"
     healthcheck:
@@ -132,3 +152,7 @@ services:
 volumes:
   clickhouse-data:
   redis-data:
+  # Embedded SQLite identity store (Users/Sessions/IngestApiKeys) - shared by `ingest`
+  # and `api`, both mounting it at the same in-container path. See docs/auth.md for why
+  # this is a plain volume-backed file rather than a fourth backing-store service.
+  identity-data:

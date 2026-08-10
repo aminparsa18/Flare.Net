@@ -33,6 +33,16 @@ var redis = builder.AddRedis("redis")
     .WithDataVolume()
     .WithPersistence(interval: TimeSpan.FromSeconds(30), keysChangedThreshold: 100);
 
+// Auth's identity store (Users/Sessions/IngestApiKeys) - embedded SQLite, not an
+// Aspire-modeled resource with its own container (docker-compose.yml's identity-data
+// named volume is the containerized equivalent - deliberately not a fourth backing-store
+// service either way, see docs/auth.md). ingest and api both need to resolve to the
+// literal same file: a repo-relative, gitignored .data/identity/ directory does that for
+// local `aspire run`, mirroring how WithDataVolume() persists ClickHouse/Redis across
+// container restarts. IdentityDbConnectionFactory creates this directory itself if
+// missing - nothing here needs to pre-create it.
+var identityDbPath = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, "..", "..", ".data", "identity", "flare-identity.db"));
+
 // Flare.Ingest: terminates OTLP over gRPC (4317) and HTTP (4318, protobuf + JSON).
 // Both ports are fixed and unproxied so external OTLP clients (any logger's OTLP
 // exporter) can point at them directly using the conventional OTLP port numbers,
@@ -42,6 +52,7 @@ var ingest = builder.AddProject<Projects.Flare_Ingest>("ingest")
     .WaitFor(logsDb)
     .WithReference(redis)
     .WaitFor(redis)
+    .WithEnvironment("Identity__DbPath", identityDbPath)
     .WithEndpoint(port: 4317, targetPort: 4317, scheme: "http", name: "otlp-grpc", isProxied: false)
     .WithEndpoint(port: 4318, targetPort: 4318, scheme: "http", name: "otlp-http", isProxied: false)
     .WithHttpHealthCheck("/health", endpointName: "otlp-http");
@@ -59,6 +70,12 @@ var api = builder.AddProject<Projects.Flare_Api>("api")
     // group - doesn't touch Flare.Ingest's flare-ingest group/PEL accounting).
     .WithReference(redis)
     .WaitFor(redis)
+    .WithEnvironment("Identity__DbPath", identityDbPath)
+    // The dashboard isn't an Aspire resource here (it's run separately, e.g. `npm run
+    // dev` - see src/dashboard/README.md), so there's no resource reference to pull this
+    // from; SvelteKit/Vite's own dev-server default port. Override via user secrets
+    // (Cors:AllowedOrigins:0) if your dashboard dev server runs on a different port.
+    .WithEnvironment("Cors__AllowedOrigins__0", "http://localhost:5173")
     .WithHttpHealthCheck("/health");
 
 builder.Build().Run();
