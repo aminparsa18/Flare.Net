@@ -48,7 +48,7 @@ public class AuthSettingsEndpointsTests
         var authSettings = new FakeAuthSettingsStore(enabled: false, localEnabled: true);
         var context = CreateContext(new { enabled = true, localEnabled = true });
 
-        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, new FakeEntraSettingsStore(), new FakeLdapSettingsStore(), CancellationToken.None);
+        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, new FakeEntraSettingsStore(), new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -61,7 +61,7 @@ public class AuthSettingsEndpointsTests
         var authSettings = new FakeAuthSettingsStore(enabled: false, localEnabled: false);
         var context = CreateContext(new { enabled = true, localEnabled = false });
 
-        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, new FakeEntraSettingsStore(), new FakeLdapSettingsStore(), CancellationToken.None);
+        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, new FakeEntraSettingsStore(), new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
@@ -75,7 +75,7 @@ public class AuthSettingsEndpointsTests
         var entraSettings = new FakeEntraSettingsStore(new Flare.Identity.Auth.EntraSettings(true, "tenant-1", "client-1", "secret-1", DateTimeOffset.UtcNow));
         var context = CreateContext(new { enabled = true, localEnabled = false });
 
-        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, entraSettings, new FakeLdapSettingsStore(), CancellationToken.None);
+        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, entraSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -87,7 +87,7 @@ public class AuthSettingsEndpointsTests
         var authSettings = new FakeAuthSettingsStore(enabled: true, localEnabled: false);
         var context = CreateContext(new { enabled = false, localEnabled = false });
 
-        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, new FakeEntraSettingsStore(), new FakeLdapSettingsStore(), CancellationToken.None);
+        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, new FakeEntraSettingsStore(), new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -103,7 +103,22 @@ public class AuthSettingsEndpointsTests
             Flare.Identity.Users.UserRole.Viewer, DateTimeOffset.UtcNow));
         var context = CreateContext(new { enabled = true, localEnabled = false });
 
-        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, new FakeEntraSettingsStore(), ldapSettings, CancellationToken.None);
+        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, new FakeEntraSettingsStore(), ldapSettings, new FakeOidcSettingsStore(), CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Put_AllowsEnabling_WithOnlyOidcAsTheUsableMethod()
+    {
+        var authSettings = new FakeAuthSettingsStore(enabled: false, localEnabled: false);
+        var oidcSettings = new FakeOidcSettingsStore(new Flare.Identity.Auth.OidcSettings(
+            true, "Okta", "https://example.okta.com", "client-1", "secret-1", "openid profile email", "roles",
+            Flare.Identity.Users.UserRole.Viewer, DateTimeOffset.UtcNow));
+        var context = CreateContext(new { enabled = true, localEnabled = false });
+
+        var result = await AuthSettingsEndpoints.HandlePutAsync(context, authSettings, new FakeEntraSettingsStore(), new FakeLdapSettingsStore(), oidcSettings, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);

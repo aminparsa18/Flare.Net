@@ -31,7 +31,13 @@ public static class AuthSettingsEndpoints
         return Results.Json(ToDto(settings), AuthSettingsJsonContext.Default.AuthSettingsDto);
     }
 
-    internal static async Task<IResult> HandlePutAsync(HttpContext http, IAuthSettingsStore authSettings, IEntraSettingsStore entraSettings, ILdapSettingsStore ldapSettings, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandlePutAsync(
+        HttpContext http,
+        IAuthSettingsStore authSettings,
+        IEntraSettingsStore entraSettings,
+        ILdapSettingsStore ldapSettings,
+        IOidcSettingsStore oidcSettings,
+        CancellationToken cancellationToken)
     {
         AuthSettingsDto? request;
         try
@@ -54,10 +60,11 @@ public static class AuthSettingsEndpoints
             // nobody could ever sign in to manage it back.
             var entra = await entraSettings.GetAsync(cancellationToken);
             var ldap = await ldapSettings.GetAsync(cancellationToken);
-            if (!entra.Enabled && !ldap.Enabled)
+            var oidc = await oidcSettings.GetAsync(cancellationToken);
+            if (!entra.Enabled && !ldap.Enabled && !oidc.Enabled)
             {
                 return Results.Problem(
-                    "At least one sign-in method (local, Entra ID, or Active Directory) must be enabled before turning authentication on.",
+                    "At least one sign-in method (local, Entra ID, Active Directory, or OpenID Connect) must be enabled before turning authentication on.",
                     statusCode: StatusCodes.Status400BadRequest);
             }
         }

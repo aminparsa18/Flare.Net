@@ -12,22 +12,27 @@
 	import { entraSettingsContext } from '$lib/entra-settings/context';
 	import { LdapSettingsState } from '$lib/ldap-settings/state.svelte';
 	import { ldapSettingsContext } from '$lib/ldap-settings/context';
+	import { OidcSettingsState } from '$lib/oidc-settings/state.svelte';
+	import { oidcSettingsContext } from '$lib/oidc-settings/context';
 	import { UsersState } from '$lib/users/state.svelte';
 	import { usersContext } from '$lib/users/context';
 	import AuthToggleCard from '$lib/components/auth/AuthToggleCard.svelte';
 	import EntraSecurityForm from '$lib/components/auth/EntraSecurityForm.svelte';
 	import LdapSecurityForm from '$lib/components/auth/LdapSecurityForm.svelte';
+	import OidcSecurityForm from '$lib/components/auth/OidcSecurityForm.svelte';
 	import UserTable from '$lib/components/auth/UserTable.svelte';
 
 	const authSettings = authSettingsContext.set(new AuthSettingsState());
 	const entraSettings = entraSettingsContext.set(new EntraSettingsState());
 	const ldapSettings = ldapSettingsContext.set(new LdapSettingsState());
+	const oidcSettings = oidcSettingsContext.set(new OidcSettingsState());
 	const users = usersContext.set(new UsersState());
 
 	onMount(() => {
 		void authSettings.load();
 		void entraSettings.load();
 		void ldapSettings.load();
+		void oidcSettings.load();
 		void users.load();
 	});
 </script>
@@ -56,17 +61,17 @@
 		     anything to scroll - the cards silently clip their own content instead of the
 		     page scrolling to reveal it. Confirmed live: `scrollHeight === clientHeight`
 		     on the scroll container with this bug present, i.e. the browser saw nothing to
-		     scroll at all. Any future card added here (e.g. a generic OpenID Connect
-		     section) needs the same `shrink-0`. -->
+		     scroll at all. Any future card added here needs the same `shrink-0`. -->
 		<div class="mx-auto flex w-full max-w-5xl flex-col gap-4">
 			<AuthToggleCard />
 			<!-- Per-method sign-in config, two columns on wide viewports - was one long
-			     single-file column, but that doesn't scale as more methods (OpenID Connect,
-			     etc.) get added alongside Entra/AD. Falls back to one column below `xl` so
-			     narrow/tablet widths don't squeeze two forms side by side. -->
+			     single-file column, but that doesn't scale as more methods get added
+			     alongside Entra/AD/generic OIDC. Falls back to one column below `xl` so
+			     narrow/tablet widths don't squeeze forms side by side. -->
 			<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
 				<EntraSecurityForm />
 				<LdapSecurityForm />
+				<OidcSecurityForm />
 			</div>
 			<UserTable />
 		</div>

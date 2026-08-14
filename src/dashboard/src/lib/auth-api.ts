@@ -8,7 +8,7 @@ import { API_BASE_URL, apiFetch } from './api';
 
 export type UserRole = 'Admin' | 'Member' | 'Viewer';
 
-export type AuthProvider = 'Local' | 'Entra' | 'ActiveDirectory';
+export type AuthProvider = 'Local' | 'Entra' | 'ActiveDirectory' | 'Oidc';
 
 export interface AuthUser {
 	id: string;
@@ -33,6 +33,14 @@ export interface BootstrapStatusResponse {
 	 * sign-in option on /login the same way `entraEnabled` gates the Microsoft button
 	 * (see LdapAuthEndpoints.HandleLoginAsync's own disabled-gate 404). */
 	ldapEnabled: boolean;
+	/** Whether generic OpenID Connect is configured+enabled - gates the "Sign in with
+	 * {oidcDisplayName}" button on /login the same way `entraEnabled` gates the
+	 * Microsoft button (see OidcAuthEndpoints.HandleLoginAsync's own disabled-gate 404). */
+	oidcEnabled: boolean;
+	/** The dashboard-configured button label (e.g. "Okta") - unlike Entra's fixed
+	 * "Microsoft" wording, a generic provider has no built-in brand to hardcode. Null
+	 * when `oidcEnabled` is false or no display name was ever set. */
+	oidcDisplayName: string | null;
 }
 
 /** `GET /api/auth/bootstrap/status` - decides whether `+layout.svelte`'s route guard sends an unauthenticated visitor to `/setup` or `/login`. */
@@ -128,6 +136,14 @@ export async function getCurrentUser(signal?: AbortSignal): Promise<AuthUser | n
  * redirecting back to it. */
 export function startEntraLogin(): void {
 	const url = new URL(`${API_BASE_URL}/api/auth/entra/login`);
+	url.searchParams.set('returnUrl', window.location.origin);
+	window.location.href = url.toString();
+}
+
+/** Navigates the browser to `GET /api/auth/oidc/login` - same full-page-navigation shape
+ * as {@link startEntraLogin}, just the generic OIDC scheme (see OidcAuthEndpoints). */
+export function startOidcLogin(): void {
+	const url = new URL(`${API_BASE_URL}/api/auth/oidc/login`);
 	url.searchParams.set('returnUrl', window.location.origin);
 	window.location.href = url.toString();
 }

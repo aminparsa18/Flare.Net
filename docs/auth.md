@@ -1,7 +1,8 @@
 # Auth + multi-user / roles
 
-Flare ships with local username/password accounts, Microsoft Entra ID (SSO), and Active
-Directory (LDAP) sign-in, plus three fixed roles. This is **multi-user RBAC on one
+Flare ships with local username/password accounts, Microsoft Entra ID (SSO), Active
+Directory (LDAP), and generic OpenID Connect sign-in, plus three fixed roles. This is
+**multi-user RBAC on one
 shared self-hosted instance** — everyone logged into a given Flare deployment sees the
 same logs/traces/metrics/alert rules/saved views, just with different permission levels.
 It is **not** multi-tenant SaaS isolation: there's no per-user data ownership anywhere,
@@ -17,10 +18,10 @@ you've even decided you want one is friction nobody asked for.
 
 Turning authentication on is a single switch, in the dashboard, on one consolidated
 **`/auth`** page (see "The `/auth` page" below) — no separate `/setup`/`/security`/
-`/users` pages. Flipping "Require sign-in" on reveals the three method sections
-(Local / Microsoft Entra ID / Active Directory), each with its own enable toggle and
-inline configuration, plus a Users table underneath for managing accounts once any
-method is enabled.
+`/users` pages. Flipping "Require sign-in" on reveals the four method sections
+(Local / Microsoft Entra ID / Active Directory / OpenID Connect), each with its own
+enable toggle and inline configuration, plus a Users table underneath for managing
+accounts once any method is enabled.
 
 **Upgrading an existing deployment stays protected.** The opt-in default only applies to
 a genuinely *fresh* database with zero users in it. If you're upgrading a Flare instance
@@ -40,16 +41,17 @@ exactly as before. This is the one choke point that makes "off by default" possi
 without touching any of the individual endpoint files.
 
 Within that, **Local sign-in has its own enable flag** (`LocalEnabled`), independent of
-the three method-specific ones described below — so all three methods (Local / Entra /
-Active Directory) are turned on and configured the same, symmetrical way. An org fully
-migrated to SSO can eventually turn local password login off entirely, same as any other
-method.
+the three method-specific ones described below — so all four methods (Local / Entra /
+Active Directory / OpenID Connect) are turned on and configured the same, symmetrical
+way. An org fully migrated to SSO can eventually turn local password login off entirely,
+same as any other method.
 
-**Methods coexist, not exclusive.** Local, Entra ID, and Active Directory can all be
-enabled at once. This is a deliberate choice, not an accident of implementation: an
-exclusive single-method design risks a real lockout — if an Entra/AD group→role mapping
-is misconfigured and nobody ends up `Admin`, there's no way in — while coexistence keeps
-a local "break-glass" Admin path available even when SSO/AD is the day-to-day method.
+**Methods coexist, not exclusive.** Local, Entra ID, Active Directory, and OpenID Connect
+can all be enabled at once. This is a deliberate choice, not an accident of
+implementation: an exclusive single-method design risks a real lockout — if an
+Entra/AD/OIDC group→role mapping is misconfigured and nobody ends up `Admin`, there's no
+way in — while coexistence keeps a local "break-glass" Admin path available even when
+SSO/AD is the day-to-day method.
 
 ## The `/auth` page
 
@@ -60,12 +62,13 @@ authentication is off, same as every other page):
    username/password` toggle sit together at the top. Off → an explanatory blurb, and
    everything below is inert. On → the three method sections below become the live
    configuration surface.
-2. **Microsoft Entra ID** and **Active Directory** — each section's own enable toggle
-   plus inline configuration form (see their dedicated sections below). Settings save
-   independently per section.
-3. **Users** — every account (Local, Entra, and Active Directory alike), with role and
-   enable/disable controls, shown once any method is on. This is the same table that used
-   to live at a separate `/users` route — it's just folded into this page now.
+2. **Microsoft Entra ID**, **Active Directory**, and **OpenID Connect** — each section's
+   own enable toggle plus inline configuration form (see their dedicated sections below).
+   Settings save independently per section.
+3. **Users** — every account (Local, Entra, Active Directory, and OpenID Connect alike),
+   with role and enable/disable controls, shown once any method is on. This is the same
+   table that used to live at a separate `/users` route — it's just folded into this page
+   now.
 
 `/setup`, `/security`, and `/users` no longer exist as separate routes; `/auth` replaces
 all three.
@@ -102,7 +105,7 @@ Sessions default to a 14-day fixed expiry (`Auth:SessionLifetime`), no sliding w
 ## Where accounts live
 
 Users, sessions, ingest API keys, and all auth settings (the global switch, Entra config,
-LDAP config) are stored in an **embedded SQLite file** — not a separate database
+LDAP config, OpenID Connect config) are stored in an **embedded SQLite file** — not a separate database
 container. This was a deliberate choice: Flare already runs ClickHouse (log storage) and
 Redis (the ingest buffer) as backing services, and adding a third database container for
 what's a handful of small, low-write tables wasn't worth the extra resource footprint.
@@ -116,9 +119,9 @@ filesystem safely, and Flare's SQLite file lives on a local volume (`identity-da
 scaled replicas could safely share. This is a real constraint if the (currently
 unscheduled) Kubernetes/Helm roadmap item ever lands and you want to run more than one
 `Flare.Api` pod. If that day comes, migrating the tables here (`Users`/`Sessions`/
-`IngestApiKeys`/`AuthSettings`/`EntraSettings`/`LdapSettings`/`schema_migrations`) to
-Postgres is a contained, mechanical follow-up — not a rewrite of anything in this
-document.
+`IngestApiKeys`/`AuthSettings`/`EntraSettings`/`LdapSettings`/`OidcSettings`/
+`schema_migrations`) to Postgres is a contained, mechanical follow-up — not a rewrite of
+anything in this document.
 
 `Flare.Ingest` shares the same SQLite file (read-mostly, just checking ingest API key
 hashes) — both processes point at it via `Identity__DbPath`.
@@ -364,15 +367,106 @@ other account.
   custom/non-Docker deployment on Linux needs it present too, or every LDAP login attempt
   fails with an unhandled error instead of a clean 401/502.
 
+## OpenID Connect
+
+Sign in against any standards-compliant OpenID Connect provider — Okta, Auth0, Keycloak,
+Authentik, and the like — not just Microsoft Entra ID. Architecturally this is a close
+cousin of Entra ID: Entra is already just a named `AddOpenIdConnect()` scheme with a
+hardcoded Microsoft authority URL pattern (`EntraOpenIdConnectOptionsConfigurator`); the
+generic `Oidc` scheme is a second, independent `AddOpenIdConnect()` registration that
+applies `Authority` as-is instead of interpolating a tenant id — everything else
+(paired short-lived external cookie, `IConfigureNamedOptions<OpenIdConnectOptions>`
+lazily loading settings from the database, restart-required semantics) is the same
+mechanism.
+
+**v1 is sign-in only** — unlike some providers' dashboards (Seq's, for instance), Flare
+doesn't yet propagate logout to the provider's own end-session endpoint. `/api/auth/logout`
+just clears the local session cookie for OIDC-provisioned accounts, same as every other
+method today.
+
+**Configured per-instance, through the dashboard — not config files**, same as Entra ID
+and Active Directory above — the OpenID Connect section on `/auth`, Admin-only. No
+`Auth:Oidc:*` configuration keys exist; `Authority`/`ClientId`/`ClientSecret`/`Scopes`/
+`RoleClaimName`/`DefaultRole` all live in the database, set via that form. Settings
+changes take effect after restarting `Flare.Api`, same reason and same trade-off as
+Entra ID's own restart requirement — see `OidcOpenIdConnectOptionsConfigurator`'s remarks
+in `Flare.Api/Auth/`.
+
+### How it works
+
+1. The dashboard's "Sign in with {Display name}" button (shown only when
+   `GET /api/auth/bootstrap/status` reports `oidcEnabled: true`, labeled from that same
+   response's `oidcDisplayName`) navigates the browser to `GET /api/auth/oidc/login`,
+   which challenges the `Oidc` OpenIdConnect scheme.
+2. You sign in at the provider's own page. It redirects back to
+   `/signin-oidc-generic` (a fixed callback path distinct from Entra's own
+   `/signin-oidc` default — both schemes are registered in the same app, so they can't
+   share a callback path), which validates the token and hands off to
+   `GET /api/auth/oidc/complete`.
+3. `complete` looks up the account by the token's `sub` claim — the portable, standard
+   OIDC identifier (`Users.AuthProvider = 'Oidc'`, `Users.ExternalId = <sub>`), unlike
+   Entra's Microsoft-specific `oid` preference. **First-ever login for that identity**
+   creates the row — see "Role provisioning" below for how its role is picked. **Every
+   login after that** just signs in as the existing row, role unchanged.
+4. A normal `flare_session` cookie is minted — same mechanism, same cookie, same
+   14-day-fixed-expiry behavior as a password login.
+
+### Role provisioning
+
+Unlike Entra ID's fixed `roles` App Role claim, arbitrary OIDC providers vary widely in
+what claim (if any) carries role/group information — so the claim name itself is
+dashboard-configurable:
+
+1. **Role claim name** (default `roles`) — the token claim Flare inspects, matched by
+   name against Flare's own `Admin`/`Member`/`Viewer` enum (case-insensitive, highest
+   privilege wins if more than one value is present). Set this to whatever your provider
+   actually issues — Okta's default is `groups`, for instance.
+2. No recognized value under that claim (or the claim absent entirely) provisions
+   **Default role** instead — a dashboard-configured field (unlike Entra's still
+   config-bound `Auth:Entra:DefaultRole`), `Viewer` unless you've changed it.
+3. **Role changes after that live in Flare, not the provider** — same as Entra ID and
+   Active Directory; promote, demote, or disable an OIDC-provisioned account from the
+   Users table on `/auth`, same as any other account.
+
+A disabled account (any provider) can't sign in — an OIDC sign-in for a disabled account
+bounces back to `/login?error=account-disabled`, same redirect Entra ID uses.
+
+### Provider setup walkthrough
+
+1. Register Flare as an application/client with your OIDC provider. The exact steps vary
+   by provider, but every one of them needs:
+   - **Redirect/callback URI** — sign in to Flare with your existing local username/
+     password Admin account (see "First run" above) and open `/auth`; the OpenID Connect
+     section displays the *exact* callback URL to paste in, computed from whatever host/
+     port you're actually reaching Flare.Api on.
+   - A **client secret** — copy the value immediately; most providers only show it once.
+2. Back in Flare's `/auth` page, OpenID Connect section: fill in
+   - **Display name** — shown on the sign-in page as "Sign in with {Display name}".
+   - **Authority** — your provider's issuer URL, e.g. `https://your-tenant.okta.com`.
+     Flare fetches `{Authority}/.well-known/openid-configuration` for the rest of the
+     provider's endpoints.
+   - **Client ID** / **Client secret**.
+   - **Scopes** — defaults to `openid profile email`.
+   - **Role claim name** / **Default role** — see "Role provisioning" above.
+3. Flip **Enabled** on and **Save**, then restart `Flare.Api`
+   (`docker compose restart api`, or an `aspire resource restart` in local dev) for it to
+   take effect.
+4. Sign out and confirm the "Sign in with {Display name}" button now appears on the login
+   page; sign in with a real account at your provider to confirm end-to-end.
+
+**HTTPS caveat:** same as Entra ID — the correlation cookies ASP.NET Core's OIDC handler
+sets during the redirect round-trip need to survive a cross-site navigation, which
+browsers only reliably allow over HTTPS beyond `http://localhost`.
+
 ## Managing users
 
 `Admin`-only, in the Users section of the `/auth` page (`GET`/`PATCH /api/users/*` in
-the API) — list every account (Local, Entra, and Active Directory alike), change a role,
-or enable/disable an account. This is also where you promote a newly-auto-provisioned
-Entra or Active Directory account past its initial role, or disable one without waiting
-for someone to remove their group/App Role assignment upstream. Flare refuses to demote
-or disable the **last enabled Admin** — that would be a lockout recoverable only by
-editing the SQLite file directly.
+the API) — list every account (Local, Entra, Active Directory, and OpenID Connect alike),
+change a role, or enable/disable an account. This is also where you promote a
+newly-auto-provisioned Entra, Active Directory, or OpenID Connect account past its
+initial role, or disable one without waiting for someone to remove their group/role
+assignment upstream. Flare refuses to demote or disable the **last enabled Admin** —
+that would be a lockout recoverable only by editing the SQLite file directly.
 
 ## Configuration reference
 
@@ -388,10 +482,12 @@ editing the SQLite file directly.
 | `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. Also doubles as the Entra login `returnUrl` allow-list. |
 | `Auth:Entra:DefaultRole` | `Viewer` | Role assigned on first login when the token carries no recognized `roles` claim entry. The one Entra-related setting that's still config-bound — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` live in the database instead, set via the `/auth` page (Admin-only, `GET`/`PUT /api/settings/entra`) — see "Configured per-instance, through the dashboard" above. |
 
-Note that the global "Require sign-in" switch, `LocalEnabled`, and every Active Directory
-setting (`Host`/`Port`/`BaseDn`/`BindDn`/`BindPassword`/group DNs/`DefaultRole`/etc.) have
-**no configuration-file equivalent at all** — they're exclusively set through `/auth`
-(`GET`/`PUT /api/settings/auth`, `GET`/`PUT /api/settings/ldap`), same reasoning as
+Note that the global "Require sign-in" switch, `LocalEnabled`, every Active Directory
+setting (`Host`/`Port`/`BaseDn`/`BindDn`/`BindPassword`/group DNs/`DefaultRole`/etc.), and
+every OpenID Connect setting (`Authority`/`ClientId`/`ClientSecret`/`Scopes`/
+`RoleClaimName`/`DefaultRole`) have **no configuration-file equivalent at all** — they're
+exclusively set through `/auth` (`GET`/`PUT /api/settings/auth`,
+`GET`/`PUT /api/settings/ldap`, `GET`/`PUT /api/settings/oidc`), same reasoning as
 Entra ID's per-instance dashboard configuration above.
 
 ## Backups

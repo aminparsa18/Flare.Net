@@ -22,16 +22,16 @@ public sealed record AuthUserDto
 
     public required UserRole Role { get; init; }
 
-    /// <summary>"Local", "Entra", or "ActiveDirectory" - lets the dashboard show e.g. a
-    /// disabled password field for an SSO account without a second round-trip.</summary>
+    /// <summary>"Local", "Entra", "ActiveDirectory", or "Oidc" - lets the dashboard show
+    /// e.g. a disabled password field for an SSO account without a second round-trip.</summary>
     public required string AuthProvider { get; init; }
 }
 
 /// <summary>Response body for <c>GET /api/auth/bootstrap/status</c> - the dashboard's
 /// route guard uses <see cref="AuthEnabled"/> to decide whether any login is required at
 /// all (opt-in auth - see docs/auth.md), and (when it is) <see cref="NeedsBootstrap"/>/
-/// <see cref="LocalEnabled"/>/<see cref="EntraEnabled"/>/<see cref="LdapEnabled"/> to
-/// decide what <c>/login</c> should show.</summary>
+/// <see cref="LocalEnabled"/>/<see cref="EntraEnabled"/>/<see cref="LdapEnabled"/>/
+/// <see cref="OidcEnabled"/> to decide what <c>/login</c> should show.</summary>
 public sealed record BootstrapStatusResponse
 {
     /// <summary>The global switch - false means every endpoint in the app is open to
@@ -45,4 +45,12 @@ public sealed record BootstrapStatusResponse
     public required bool EntraEnabled { get; init; }
 
     public required bool LdapEnabled { get; init; }
+
+    public required bool OidcEnabled { get; init; }
+
+    /// <summary>The dashboard-configured button label for generic OIDC (e.g. "Okta") -
+    /// unlike Entra's fixed "Sign in with Microsoft" wording, a generic provider has no
+    /// built-in brand to hardcode. Null when <see cref="OidcEnabled"/> is false or no
+    /// display name was ever set.</summary>
+    public string? OidcDisplayName { get; init; }
 }

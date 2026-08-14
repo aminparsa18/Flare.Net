@@ -1485,6 +1485,79 @@ all three methods are configured the symmetrical way.
       "alice / Admin." Verification containers and volumes torn down after
       (`docker rm -f flare-verify-openldap`, `docker compose down -v`).
 
+### v14 — Generic OpenID Connect auth (2026-08-14)
+
+Fourth sign-in method alongside Local/Entra ID/Active Directory, scoped from a screenshot
+of Seq's own "Authentication provider: OpenID Connect" Security screen (Authority/Client
+id/Client secret/Scopes, computed Callback URL). Architecturally a near-freebie: Entra ID
+is already just a named `AddOpenIdConnect()` scheme with a hardcoded Microsoft authority
+pattern (`EntraOpenIdConnectOptionsConfigurator`) and `IUserStore.FindByExternalIdAsync`/
+`CreateFromExternalAsync` are already provider-agnostic — `SessionAuthenticationHandler`'s
+own remarks explicitly anticipated "a future OIDC/Entra ID scheme... as a second,
+independent `AddOpenIdConnect()` registration... nothing here needs to change for that."
+
+Two scope calls made explicitly with the user before implementation (`AskUserQuestion`,
+not assumed): **v1 is sign-in only** — no end-session/logout propagated to the provider,
+matching Entra ID's current behavior exactly, rather than chasing full Seq parity
+(End-session redirect URL etc.) — and **role provisioning uses a configurable role-claim
+name** (default `roles`) falling back to a **Default role**, both DB-bound like LDAP's
+`DefaultRole` rather than Entra's still config-bound one, since arbitrary providers vary
+in what claim (if any) carries roles, unlike Entra's fixed `roles` App Role claim.
+
+- [x] **New `OidcSettings` table** (migration `0007_oidc_settings.sql`, settings-singleton
+      shape like `EntraSettings`/`LdapSettings`): `Enabled`, `DisplayName` (drives the
+      login button's "Sign in with {DisplayName}" label — a generic provider has no fixed
+      brand the way Entra's "Microsoft" does), `Authority`, `ClientId`, `ClientSecret`,
+      `Scopes` (default `openid profile email`), `RoleClaimName` (default `roles`),
+      `DefaultRole`, `UpdatedAt`. `IOidcSettingsStore`/`SqliteOidcSettingsStore` mirror the
+      Entra pair's "blank secret means unchanged" upsert convention exactly.
+- [x] **`Users.AuthProvider` CHECK widened again** (migration `0008_oidc_id.sql`, the same
+      table-rebuild procedure `0005_ldap_id.sql` used for `'ActiveDirectory'`) to add
+      `'Oidc'` — SQLite still has no `ALTER TABLE ... ALTER CHECK`.
+- [x] **A third `AddOpenIdConnect()` scheme** (`OidcAuthenticationDefaults`: scheme
+      `"Oidc"`, paired external cookie `"OidcExternal"`) registered alongside Entra's in
+      `Program.cs`, with its own `OidcOpenIdConnectOptionsConfigurator` applying `Authority`
+      directly (no tenant-id interpolation, unlike Entra) plus a `Scope` collection rebuilt
+      from the stored space-separated string. **Needed an explicit distinct `CallbackPath`**
+      (`/signin-oidc-generic`) — `OpenIdConnectOptions` defaults every scheme to
+      `/signin-oidc`, which would otherwise collide with Entra's own registration in the
+      same app; not something the Entra-only codebase had to think about before. Same
+      harmless-placeholder-when-unconfigured trick and same restart-required semantics as
+      Entra's configurator, for the same reasons.
+- [x] **`OidcAuthEndpoints`** (`GET /api/auth/oidc/login`, `GET /api/auth/oidc/complete`)
+      mirrors `EntraAuthEndpoints` almost exactly, reusing its `ValidateReturnUrl` helper
+      directly rather than duplicating it. Two deliberate divergences: external id reads
+      the standard, provider-portable `sub` claim (vs Entra's Microsoft-specific `oid`
+      preference), and role resolution reads `settings.RoleClaimName` dynamically instead
+      of a hardcoded `"roles"` literal. `AuthProvider: "Oidc"` is just a fourth
+      provider-agnostic string — zero `IUserStore` interface changes needed.
+- [x] **`OidcSettingsEndpoints`** (`GET`/`PUT /api/settings/oidc`, Admin-only) mirrors
+      `EntraSettingsEndpoints`'s validation (`Enabled=true` requires Authority+ClientId+a
+      client secret on record) plus its own check that `Scopes`/`RoleClaimName` aren't
+      blank. `AuthSettingsEndpoints`' "at least one method enabled" lockout guard and
+      `AuthEndpoints.HandleBootstrapStatusAsync`'s response (`oidcEnabled`,
+      `oidcDisplayName`) both extended the same way LDAP's addition extended them in v13.
+- [x] **Dashboard**: the same 3-file-per-method convention (`oidc-settings-api.ts` →
+      `oidc-settings/state.svelte.ts` → `oidc-settings/context.ts`) plus
+      `OidcSecurityForm.svelte` (Display name/Authority/Client ID/Client secret/Scopes/Role
+      claim name/Default role/Enabled, read-only Callback URL with copy button) added as a
+      third card in `/auth`'s `xl:grid-cols-2` grid — the page's own pre-existing comment
+      had already flagged that exact spot for "a future generic OpenID Connect section."
+      `AuthToggleCard`'s lockout guard and `/login`'s button row both extended to treat
+      OIDC as a peer of Entra (`startOidcLogin()`, a generic "Sign in with {displayName}"
+      button, provider-neutral disabled-account error copy since the query param alone
+      doesn't say which SSO provider triggered it).
+- [x] **Verification performed**: `dotnet build`/`dotnet test` on `Flare.Api`,
+      `Flare.Api.Tests` (278 passed), `Flare.Identity.Tests` (52 passed), and `Flare.Ingest`
+      (unaffected build) — new `FakeOidcSettingsStore`, `OidcSettingsEndpointsTests`,
+      `OidcAuthEndpointsTests`, `OidcOpenIdConnectOptionsConfiguratorTests`,
+      `SqliteOidcSettingsStoreTests` mirror the Entra suite 1:1. Dashboard: `npm run check`
+      (0 errors) and `npm run build` (clean, `auth/_page.svelte.js` compiled). **Not yet
+      done**: a live end-to-end run against a real OIDC provider and a real `docker compose`
+      restart, the way v13's LDAP work was verified against a throwaway OpenLDAP container —
+      left for whenever this actually gets exercised against a real Okta/Auth0/Keycloak
+      tenant.
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---
