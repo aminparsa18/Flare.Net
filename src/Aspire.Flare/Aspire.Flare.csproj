@@ -16,9 +16,11 @@
          discovered. Project/directory/namespace names are unaffected; only the published
          package identity changed. -->
     <PackageId>Flare.Aspire</PackageId>
-    <!-- Bumped 0.1.1 -> 0.1.4 alongside Flare.Hosting.Aspire's same bump. Tag on release:
-         aspire-flare-v{Version} (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.4</Version>
+    <!-- Bumped 0.1.4 -> 0.2.0 alongside Flare.Hosting.Aspire's same bump - a minor bump (not
+         another 0.1.x patch) since real features accumulated unreleased since 0.1.4: ingest API
+         key auth wiring most notably. Tag on release: aspire-flare-v{Version} (see
+         .github/workflows/nuget-publish.yml). -->
+    <Version>0.2.0</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire client integration that points a service project's OTLP log exporter at Flare, a self-hosted OpenTelemetry-native log dashboard. Call builder.AddFlareOtlpExporter("flare") to read the connection info injected by .WithReference(flare) (Flare.Hosting.Aspire) and register a named OTLP log exporter against it.</Description>
     <PackageTags>aspire;aspire-integration;flare;opentelemetry;otlp;logging;observability</PackageTags>
