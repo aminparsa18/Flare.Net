@@ -14,18 +14,22 @@
 	import { ldapSettingsContext } from '$lib/ldap-settings/context';
 	import { OidcSettingsState } from '$lib/oidc-settings/state.svelte';
 	import { oidcSettingsContext } from '$lib/oidc-settings/context';
+	import { ProxyAuthSettingsState } from '$lib/proxy-auth-settings/state.svelte';
+	import { proxyAuthSettingsContext } from '$lib/proxy-auth-settings/context';
 	import { UsersState } from '$lib/users/state.svelte';
 	import { usersContext } from '$lib/users/context';
 	import AuthToggleCard from '$lib/components/auth/AuthToggleCard.svelte';
 	import EntraSecurityForm from '$lib/components/auth/EntraSecurityForm.svelte';
 	import LdapSecurityForm from '$lib/components/auth/LdapSecurityForm.svelte';
 	import OidcSecurityForm from '$lib/components/auth/OidcSecurityForm.svelte';
+	import ProxyAuthSecurityForm from '$lib/components/auth/ProxyAuthSecurityForm.svelte';
 	import UserTable from '$lib/components/auth/UserTable.svelte';
 
 	const authSettings = authSettingsContext.set(new AuthSettingsState());
 	const entraSettings = entraSettingsContext.set(new EntraSettingsState());
 	const ldapSettings = ldapSettingsContext.set(new LdapSettingsState());
 	const oidcSettings = oidcSettingsContext.set(new OidcSettingsState());
+	const proxyAuthSettings = proxyAuthSettingsContext.set(new ProxyAuthSettingsState());
 	const users = usersContext.set(new UsersState());
 
 	onMount(() => {
@@ -33,6 +37,7 @@
 		void entraSettings.load();
 		void ldapSettings.load();
 		void oidcSettings.load();
+		void proxyAuthSettings.load();
 		void users.load();
 	});
 </script>
@@ -72,6 +77,7 @@
 				<EntraSecurityForm />
 				<LdapSecurityForm />
 				<OidcSecurityForm />
+				<ProxyAuthSecurityForm />
 			</div>
 			<UserTable />
 		</div>

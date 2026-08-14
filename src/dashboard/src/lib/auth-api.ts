@@ -8,7 +8,7 @@ import { API_BASE_URL, apiFetch } from './api';
 
 export type UserRole = 'Admin' | 'Member' | 'Viewer';
 
-export type AuthProvider = 'Local' | 'Entra' | 'ActiveDirectory' | 'Oidc';
+export type AuthProvider = 'Local' | 'Entra' | 'ActiveDirectory' | 'Oidc' | 'ReverseProxy';
 
 export interface AuthUser {
 	id: string;
@@ -41,6 +41,11 @@ export interface BootstrapStatusResponse {
 	 * "Microsoft" wording, a generic provider has no built-in brand to hardcode. Null
 	 * when `oidcEnabled` is false or no display name was ever set. */
 	oidcDisplayName: string | null;
+	/** Whether reverse-proxy (trusted header) auth is configured+enabled - unlike every
+	 * other method, this has no button on /login: when true, the page calls
+	 * `loginViaProxy()` automatically (see ProxyAuthLoginEndpoints' own disabled-gate
+	 * 404), since there's no user action to trigger. */
+	proxyAuthEnabled: boolean;
 }
 
 /** `GET /api/auth/bootstrap/status` - decides whether `+layout.svelte`'s route guard sends an unauthenticated visitor to `/setup` or `/login`. */
@@ -146,4 +151,19 @@ export function startOidcLogin(): void {
 	const url = new URL(`${API_BASE_URL}/api/auth/oidc/login`);
 	url.searchParams.set('returnUrl', window.location.origin);
 	window.location.href = url.toString();
+}
+
+/** `POST /api/auth/proxy/login` - unlike {@link startEntraLogin}/{@link startOidcLogin},
+ * a same-origin `fetch`, not a full-page navigation: identity is already established by
+ * the time this request reaches Flare.Api (the reverse proxy set it on this very
+ * request), there's no external provider to redirect to. Called automatically by
+ * `/login` when `proxyAuthEnabled` is true - see ProxyAuthLoginEndpoints for the
+ * possible failure responses (404 disabled, 403 untrusted network, 401 header missing or
+ * account disabled). */
+export async function loginViaProxy(): Promise<AuthUser> {
+	const res = await apiFetch(`${API_BASE_URL}/api/auth/proxy/login`, { method: 'POST' });
+	if (!res.ok) {
+		throw new Error(`POST /api/auth/proxy/login failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
 }

@@ -9,6 +9,7 @@ import {
 	getCurrentUser,
 	login as loginRequest,
 	loginLdap as loginLdapRequest,
+	loginViaProxy as loginViaProxyRequest,
 	logout as logoutRequest,
 	type AuthUser
 } from '$lib/auth-api';
@@ -70,6 +71,24 @@ export class AuthState {
 		this.error = null;
 		try {
 			this.currentUser = await loginLdapRequest(username, password);
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		} finally {
+			this.loading = false;
+		}
+	}
+
+	/** `POST /api/auth/proxy/login` - unlike {@link login}/{@link loginLdap}, called with
+	 * no credentials, no user action, automatically by `/login` when the reverse-proxy
+	 * method is enabled (see ProxyAuthLoginEndpoints). A failure (untrusted network,
+	 * missing header, disabled account) leaves `error` set exactly like a rejected
+	 * password would - the login page falls back to whatever other methods are enabled
+	 * rather than getting stuck. */
+	async loginViaProxy(): Promise<void> {
+		this.loading = true;
+		this.error = null;
+		try {
+			this.currentUser = await loginViaProxyRequest();
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 		} finally {

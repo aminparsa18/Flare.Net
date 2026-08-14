@@ -1558,6 +1558,90 @@ in what claim (if any) carries roles, unlike Entra's fixed `roles` App Role clai
       left for whenever this actually gets exercised against a real Okta/Auth0/Keycloak
       tenant.
 
+### v15 — Reverse-proxy (trusted header) auth (2026-08-14)
+
+Fifth sign-in method, requested as "another auth method people use" and picked as "the
+lightest-weight option" from a menu the user was offered (SAML, reverse-proxy header
+trust, social/OAuth login, passkeys/WebAuthn, Kerberos/Windows Integrated, mTLS) —
+trusts an identity header an already-authenticating reverse proxy (Authelia, Authentik,
+oauth2-proxy, Cloudflare Access, Tailscale Serve, ...) sets, instead of Flare talking to
+an IdP itself. Unlike OIDC (which reused Entra's proven `AddOpenIdConnect()` shape),
+this was genuinely new ground for the codebase - confirmed via search before designing
+anything: no `UseForwardedHeaders`, no reverse-proxy config, no IP-allowlist concept
+existed anywhere in `Flare.Api`/`docs/`.
+
+Two scope calls made explicitly with the user before implementation (`AskUserQuestion`):
+**dashboard-triggered, not ambient** — a new `POST /api/auth/proxy/login` endpoint the
+`/login` page calls automatically, mirroring how every other method converges on
+`AuthEndpoints.SignInAsync`, rather than a new piece of request-pipeline middleware that
+self-authenticates every request (closer to how Grafana's `auth.proxy`/Authelia
+forward-auth actually work, but a bigger architectural insertion this codebase didn't
+have a precedent for) — and **role mapping via an optional groups header** matched
+against three configurable group names, mirroring LDAP's three-group-DN pattern instead
+of Entra's fixed claim or a Default-role-only design.
+
+- [x] **A trusted-network allowlist is mandatory, not optional (fail-closed)** — the
+      single most important design decision, stated repeatedly in both code comments and
+      docs, not just decided once and forgotten: a header can be trivially spoofed by any
+      client reaching `Flare.Api` directly, so enabling this method without at least one
+      valid CIDR is refused server-side (`400`). New `TrustedProxyNetworks`
+      (`Flare.Api/Auth/`) wraps `System.Net.IPNetwork` (.NET 8+ BCL type, no new
+      package) to parse/match — checks `HttpContext.Connection.RemoteIpAddress` (the
+      request's own direct TCP peer) only, deliberately never `X-Forwarded-For`/
+      `UseForwardedHeaders()`, since trusting one spoofable header to establish trust for
+      a *different* spoofable header would defeat the entire point. Normalizes an
+      IPv4-mapped-IPv6 address (`::ffff:172.18.0.5`, what Kestrel commonly reports for a
+      peer behind Docker's default bridge network) before matching — found via reasoning
+      through the real Docker networking path, not live-tested this session (flagged as
+      the main unverified assumption below), documented in the class's own remarks and
+      locked in by a dedicated test.
+- [x] **New `ProxyAuthSettings` table** (migration `0009_proxyauth_settings.sql`,
+      settings-singleton shape like every other method's): `Enabled`, `HeaderName`
+      (default `Remote-User`, Grafana's own convention), `TrustedProxyCidrs` (raw
+      newline/comma-separated string), `GroupsHeaderName`/`AdminGroup`/`MemberGroup`/
+      `ViewerGroup` (all optional), `DefaultRole`. The one settings record among five
+      methods with **no secret field at all** — nothing to mask, so
+      `IProxyAuthSettingsStore.SaveAsync` needed none of the other four stores'
+      "blank means unchanged" convention.
+- [x] **`Users.AuthProvider` CHECK widened a third time** (migration
+      `0010_proxyauth_id.sql`, the same table-rebuild procedure `0005_ldap_id.sql`/
+      `0008_oidc_id.sql` used) to add `'ReverseProxy'`.
+- [x] **`ProxyAuthLoginEndpoints`** (`POST /api/auth/proxy/login`) shaped like
+      `LdapAuthEndpoints` (single POST/JSON, no ASP.NET Core scheme, settings read fresh
+      per request, no restart needed) rather than Entra/OIDC's redirect dance — there's
+      no external provider to redirect to. Three distinct failure codes for
+      debuggability (`404` disabled, `403` untrusted network, `401` header missing or
+      account disabled), `sub`-claim-style identifier (the header value itself, doubling
+      as the seed username), `ResolveRole` mirrors `LdapAuthEndpoints.ResolveRole`'s
+      group-matching precedence exactly, just comma-split header values instead of
+      `memberOf`.
+- [x] **`ProxyAuthSettingsEndpoints`** (`GET`/`PUT /api/settings/proxyauth`) — the one
+      method whose "enable" validation exists purely for safety, not usability: rejects
+      enabling with a blank header name or zero CIDR entries that actually parse.
+      `AuthSettingsEndpoints`' lockout guard and `AuthEndpoints.HandleBootstrapStatusAsync`
+      both extended the same mechanical way every prior method extended them.
+- [x] **Dashboard**: same 3-file-per-method convention plus `ProxyAuthSecurityForm.svelte`
+      (Header name, Trusted proxy CIDRs textarea, Advanced-collapsed groups/role-mapping
+      fields, Default role, Enabled — no secret field, "Saved." banner not
+      "restart Flare.Api" since this method needs neither) as a fourth card in `/auth`'s
+      grid. `/login` gained a `showProxyAuthLoading`-gated auto-login effect
+      (`auth.loginViaProxy()`, a new `AuthState` method mirroring `login`/`loginLdap`) —
+      the one method with **no button at all**, since there's no user action to trigger;
+      a failed attempt falls through to whatever other methods are configured, with the
+      error only shown once (suppressed when a fallback form will already display it
+      inline, to avoid double-showing the same message).
+- [x] **Verification performed**: `dotnet build`/`dotnet test` on `Flare.Api`,
+      `Flare.Api.Tests` (303 passed, up from 278 - new `TrustedProxyNetworksTests` got
+      particular attention on CIDR edge cases including the IPv4-mapped-IPv6 case),
+      `Flare.Identity.Tests` (57 passed, up from 52), `Flare.Ingest` (unaffected build).
+      Dashboard: `npm run check` (0 errors) and `npm run build` (clean, both
+      `login/_page.svelte.js` and `auth/_page.svelte.js` grew as expected). **Not yet
+      done, same gap OIDC's v14 entry flagged for itself**: a live end-to-end run behind
+      a real reverse proxy (throwaway nginx/Authelia/oauth2-proxy container) confirming
+      the trusted-CIDR boundary actually rejects a direct, proxy-bypassing request in
+      practice, not just in the unit-tested `TrustedProxyNetworks` logic — left for
+      whenever this gets exercised against a real deployment.
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---
