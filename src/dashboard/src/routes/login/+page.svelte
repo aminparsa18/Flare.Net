@@ -13,7 +13,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { authContext } from '$lib/auth/context';
-	import { getBootstrapStatus, startEntraLogin, type BootstrapStatusResponse } from '$lib/auth-api';
+	import { getBootstrapStatus, startEntraLogin, startOidcLogin, type BootstrapStatusResponse } from '$lib/auth-api';
 
 	const auth = authContext.get();
 
@@ -38,6 +38,7 @@
 	const showBootstrap = $derived(status?.needsBootstrap === true && status?.localEnabled === true);
 	const showLocalForm = $derived(status === null || status.localEnabled);
 	const showEntraButton = $derived(status?.entraEnabled === true);
+	const showOidcButton = $derived(status?.oidcEnabled === true);
 	const showLdapOption = $derived(!showBootstrap && status?.ldapEnabled === true);
 
 	// A segmented "Local / Active Directory" toggle only makes sense when both are
@@ -48,10 +49,12 @@
 	let loginMethod = $state<'local' | 'ldap'>('local');
 	const usingLdap = $derived(showLdapOption && (loginMethod === 'ldap' || !showLocalForm));
 
-	// EntraAuthEndpoints.HandleCompleteAsync redirects here with this query param when
-	// the signed-in Entra account is disabled - there's no in-flow way to show that
-	// inline the way a failed password POST can.
-	const entraError = $derived(page.url.searchParams.get('error'));
+	// EntraAuthEndpoints.HandleCompleteAsync/OidcAuthEndpoints.HandleCompleteAsync both
+	// redirect here with this query param when the signed-in SSO account is disabled -
+	// there's no in-flow way to show that inline the way a failed password POST can. The
+	// query string alone doesn't say which provider triggered it, so the message below
+	// stays provider-neutral rather than naming one.
+	const ssoError = $derived(page.url.searchParams.get('error'));
 
 	// Client-side only - AuthEndpoints.HandleBootstrapAsync enforces the real
 	// 8-character minimum server-side; this is just UX, not the source of truth.
@@ -90,17 +93,22 @@
 			{/if}
 		</Card.Header>
 		<Card.Content>
-			{#if entraError}
+			{#if ssoError}
 				<Alert variant="destructive" class="mb-3">
 					<AlertDescription>
-						{entraError === 'account-disabled'
-							? 'That Microsoft account is disabled. Contact an Admin.'
-							: 'Sign-in with Microsoft failed.'}
+						{ssoError === 'account-disabled' ? 'That account is disabled. Contact an Admin.' : 'Sign-in failed.'}
 					</AlertDescription>
 				</Alert>
 			{/if}
-			{#if !showBootstrap && showEntraButton}
-				<Button variant="outline" class="mb-3 w-full" onclick={startEntraLogin}>Sign in with Microsoft</Button>
+			{#if !showBootstrap && (showEntraButton || showOidcButton)}
+				{#if showEntraButton}
+					<Button variant="outline" class="mb-3 w-full" onclick={startEntraLogin}>Sign in with Microsoft</Button>
+				{/if}
+				{#if showOidcButton}
+					<Button variant="outline" class="mb-3 w-full" onclick={startOidcLogin}>
+						Sign in with {status?.oidcDisplayName || 'SSO'}
+					</Button>
+				{/if}
 				{#if showLocalForm || showLdapOption}
 					<div class="mb-3 flex items-center gap-2">
 						<Separator class="flex-1" />
@@ -180,7 +188,7 @@
 						{/if}
 					</Button>
 				</form>
-			{:else if !showEntraButton}
+			{:else if !showEntraButton && !showOidcButton}
 				<p class="text-muted-foreground text-sm">No sign-in method is configured for this Flare instance.</p>
 			{/if}
 		</Card.Content>

@@ -179,12 +179,14 @@ public static class AuthEndpoints
         IEntraSettingsStore entraSettings,
         IAuthSettingsStore authSettings,
         ILdapSettingsStore ldapSettings,
+        IOidcSettingsStore oidcSettings,
         CancellationToken cancellationToken)
     {
         var needsBootstrap = !await users.AnyAsync(cancellationToken);
         var entra = await entraSettings.GetAsync(cancellationToken);
         var auth = await authSettings.GetAsync(cancellationToken);
         var ldap = await ldapSettings.GetAsync(cancellationToken);
+        var oidc = await oidcSettings.GetAsync(cancellationToken);
         return Results.Json(
             new BootstrapStatusResponse
             {
@@ -193,6 +195,8 @@ public static class AuthEndpoints
                 AuthEnabled = auth.Enabled,
                 LocalEnabled = auth.LocalEnabled,
                 LdapEnabled = ldap.Enabled,
+                OidcEnabled = oidc.Enabled,
+                OidcDisplayName = oidc.DisplayName,
             },
             AuthJsonContext.Default.BootstrapStatusResponse);
     }

@@ -30,15 +30,17 @@ builder.AddRedisClient(connectionName: "redis");
 // separate shared project rather than living directly in this one.
 builder.AddFlareIdentity();
 
-// Microsoft Entra ID (SSO) - the "Entra"/"EntraExternal" schemes are always registered
-// (not conditional on whether it's actually configured, unlike the ingest-key-required
-// precedent). "Enabled" is a pure data flag EntraAuthEndpoints checks before ever
-// challenging this scheme, not a startup wiring decision - see docs/auth.md's "Microsoft
-// Entra ID (SSO)" section for the full design. Authority/ClientId/ClientSecret are
-// deliberately NOT set here: EntraOpenIdConnectOptionsConfigurator (registered below)
-// applies those from the database-backed Security screen the first time this scheme is
-// actually used, which is also the entire mechanism behind "settings changes need a
-// restart to take effect" - see that class's remarks.
+// Microsoft Entra ID (SSO) and generic OpenID Connect - the "Entra"/"EntraExternal" and
+// "Oidc"/"OidcExternal" schemes are always registered (not conditional on whether either
+// is actually configured, unlike the ingest-key-required precedent). "Enabled" is a pure
+// data flag EntraAuthEndpoints/OidcAuthEndpoints check before ever challenging their
+// scheme, not a startup wiring decision - see docs/auth.md's "Microsoft Entra ID (SSO)"
+// and "OpenID Connect" sections for the full design. Authority/ClientId/ClientSecret are
+// deliberately NOT set here for either: EntraOpenIdConnectOptionsConfigurator/
+// OidcOpenIdConnectOptionsConfigurator (registered below) apply those from the
+// database-backed Security screen the first time each scheme is actually used, which is
+// also the entire mechanism behind "settings changes need a restart to take effect" - see
+// those classes' remarks.
 builder.Services
     .AddAuthentication(SessionAuthenticationDefaults.SchemeName)
     .AddScheme<SessionAuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationDefaults.SchemeName, _ => { })
@@ -60,8 +62,30 @@ builder.Services
         o.SaveTokens = false;
         o.TokenValidationParameters.RoleClaimType = "roles";
         o.TokenValidationParameters.NameClaimType = "preferred_username";
+    })
+    // Generic OpenID Connect - a second, independent AddOpenIdConnect() registration
+    // alongside Entra's, exactly as SessionAuthenticationHandler's own remarks
+    // anticipated. Needs its own explicit CallbackPath: OpenIdConnectOptions defaults
+    // every scheme to "/signin-oidc", which would collide with Entra's registration
+    // above. RoleClaimType is deliberately left unset here - OidcAuthEndpoints resolves
+    // roles from the dashboard-configured (not fixed) claim name at request time instead.
+    .AddCookie(OidcAuthenticationDefaults.ExternalCookieScheme, o =>
+    {
+        o.Cookie.Name = "flare_oidc_external";
+        o.Cookie.HttpOnly = true;
+        o.Cookie.SameSite = SameSiteMode.Lax;
+        o.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+    })
+    .AddOpenIdConnect(OidcAuthenticationDefaults.SchemeName, o =>
+    {
+        o.SignInScheme = OidcAuthenticationDefaults.ExternalCookieScheme;
+        o.CallbackPath = OidcAuthenticationDefaults.CallbackPath;
+        o.ResponseType = OpenIdConnectResponseType.Code;
+        o.UsePkce = true;
+        o.SaveTokens = false;
     });
 builder.Services.ConfigureOptions<EntraOpenIdConnectOptionsConfigurator>();
+builder.Services.ConfigureOptions<OidcOpenIdConnectOptionsConfigurator>();
 
 // Role set is intentionally small (Admin/Member/Viewer, see Flare.Identity.Users.UserRole) -
 // the default policy (RequireAuthorization() with no policy name) already means "any
@@ -156,6 +180,7 @@ if (app.Environment.IsDevelopment())
 app.MapAuthEndpoints();
 app.MapEntraAuthEndpoints();
 app.MapLdapAuthEndpoints();
+app.MapOidcAuthEndpoints();
 
 // MapGroup("") is a routing no-op (empty prefix) used purely to get a convention
 // builder to hang RequireAuthorization() off of - every Map*Endpoints() call below is
@@ -186,6 +211,7 @@ adminRoutes.MapIngestApiKeyEndpoints();
 adminRoutes.MapUserEndpoints();
 adminRoutes.MapEntraSettingsEndpoints();
 adminRoutes.MapLdapSettingsEndpoints();
+adminRoutes.MapOidcSettingsEndpoints();
 adminRoutes.MapAuthSettingsEndpoints();
 
 app.Run();
