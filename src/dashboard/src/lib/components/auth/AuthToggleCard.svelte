@@ -50,7 +50,7 @@
 	}
 </script>
 
-<Card.Root class="max-w-xl">
+<Card.Root class="shrink-0">
 	<Card.Header>
 		<Card.Title>Authentication</Card.Title>
 		<Card.Description>

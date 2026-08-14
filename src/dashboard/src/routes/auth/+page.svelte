@@ -41,10 +41,34 @@
 		<h1 class="text-sm font-semibold">Auth</h1>
 		<p class="text-muted-foreground text-xs">Sign-in methods and account management for this Flare instance.</p>
 	</div>
-	<div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
-		<AuthToggleCard />
-		<EntraSecurityForm />
-		<LdapSecurityForm />
-		<UserTable />
+	<div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
+		<!-- mx-auto/max-w-5xl centers+caps the whole column instead of each card picking
+		     its own mismatched max-width (the pre-grid layout's approach) - this also
+		     sizes each method card's grid column to a sane form width instead of
+		     stretching to whatever the viewport happens to be.
+
+		     Every direct card below needs `shrink-0` (see AuthToggleCard.svelte etc.) -
+		     shadcn's Card.Root sets `overflow-hidden` (for rounded-corner image clipping),
+		     which under the CSS flexbox spec makes a flex item's *automatic* minimum size
+		     resolve to 0 instead of its content size. Without `shrink-0`, once this
+		     column's total content height exceeds the viewport, flexbox compresses each
+		     card to fit instead of this container's own `overflow-y-auto` ever having
+		     anything to scroll - the cards silently clip their own content instead of the
+		     page scrolling to reveal it. Confirmed live: `scrollHeight === clientHeight`
+		     on the scroll container with this bug present, i.e. the browser saw nothing to
+		     scroll at all. Any future card added here (e.g. a generic OpenID Connect
+		     section) needs the same `shrink-0`. -->
+		<div class="mx-auto flex w-full max-w-5xl flex-col gap-4">
+			<AuthToggleCard />
+			<!-- Per-method sign-in config, two columns on wide viewports - was one long
+			     single-file column, but that doesn't scale as more methods (OpenID Connect,
+			     etc.) get added alongside Entra/AD. Falls back to one column below `xl` so
+			     narrow/tablet widths don't squeeze two forms side by side. -->
+			<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+				<EntraSecurityForm />
+				<LdapSecurityForm />
+			</div>
+			<UserTable />
+		</div>
 	</div>
 </div>

@@ -25,7 +25,7 @@
 	const ROLES: UserRole[] = ['Admin', 'Member', 'Viewer'];
 </script>
 
-<Card.Root class="max-w-3xl">
+<Card.Root class="shrink-0">
 	<Card.Header>
 		<Card.Title>Users</Card.Title>
 		<Card.Description>Manage accounts and roles - local, Microsoft Entra ID, and Active Directory alike.</Card.Description>

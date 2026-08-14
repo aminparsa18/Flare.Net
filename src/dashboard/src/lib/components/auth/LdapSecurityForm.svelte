@@ -82,7 +82,7 @@
 {:else if ldap.error}
 	<p class="text-destructive text-sm">{ldap.error}</p>
 {:else if ldap.settings}
-	<Card.Root class="max-w-xl">
+	<Card.Root class="shrink-0">
 		<Card.Header>
 			<Card.Title>Active Directory</Card.Title>
 			<Card.Description>

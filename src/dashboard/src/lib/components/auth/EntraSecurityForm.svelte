@@ -66,7 +66,7 @@
 {:else if entra.error}
 	<p class="text-destructive text-sm">{entra.error}</p>
 {:else if entra.settings}
-	<Card.Root class="max-w-xl">
+	<Card.Root class="shrink-0">
 		<Card.Header>
 			<Card.Title>Microsoft Entra ID</Card.Title>
 			<Card.Description>
