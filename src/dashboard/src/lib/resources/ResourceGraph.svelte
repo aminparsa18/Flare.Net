@@ -7,7 +7,11 @@
 	import ResourceNode from './ResourceNode.svelte';
 	import ProducerNode from './ProducerNode.svelte';
 
-	let { snapshot }: { snapshot: ResourceGraphSnapshot } = $props();
+	// showResourceNodes hides/shows the Docker-managed nodes (ClickHouse/Redis/ingest/
+	// api/dashboard/docker-proxy) - producer nodes are unaffected either way, since
+	// they're a separate concern (see types.ts's remarks). Shown by default: the whole
+	// point of this page is Flare's own containers, producers are the add-on.
+	let { snapshot, showResourceNodes = true }: { snapshot: ResourceGraphSnapshot; showResourceNodes?: boolean } = $props();
 
 	const nodeTypes = { 'flare-resource': ResourceNode, 'flare-producer': ProducerNode };
 
@@ -21,25 +25,35 @@
 	let edges = $state.raw<Edge[]>([]);
 
 	$effect(() => {
-		const resourceNodes: FlareResourceNode[] = snapshot.nodes.map((node) => ({
-			id: node.role,
-			type: 'flare-resource',
-			data: { node },
-			position: { x: 0, y: 0 }
-		}));
+		const resourceNodes: FlareResourceNode[] = showResourceNodes
+			? snapshot.nodes.map((node) => ({
+					id: node.role,
+					type: 'flare-resource',
+					data: { node },
+					position: { x: 0, y: 0 }
+				}))
+			: [];
 		const producerNodes: FlareProducerNode[] = snapshot.producers.map((producer) => ({
 			id: producer.id,
 			type: 'flare-producer',
 			data: { producer },
 			position: { x: 0, y: 0 }
 		}));
-		const rawEdges: Edge[] = snapshot.edges.map((edge) => ({
-			id: `${edge.sourceRole}->${edge.targetRole}`,
-			source: edge.sourceRole,
-			target: edge.targetRole,
-			label: edge.relationshipType,
-			animated: true
-		}));
+
+		// Dropping resource nodes above would otherwise leave dangling edges (a
+		// Reference edge between two hidden roles, or a Producer edge into a now-hidden
+		// "ingest") - SvelteFlow silently no-ops an edge with a missing endpoint rather
+		// than erroring, but filtering explicitly here is clearer than relying on that.
+		const visibleIds = new Set([...resourceNodes, ...producerNodes].map((n) => n.id));
+		const rawEdges: Edge[] = snapshot.edges
+			.filter((edge) => visibleIds.has(edge.sourceRole) && visibleIds.has(edge.targetRole))
+			.map((edge) => ({
+				id: `${edge.sourceRole}->${edge.targetRole}`,
+				source: edge.sourceRole,
+				target: edge.targetRole,
+				label: edge.relationshipType,
+				animated: true
+			}));
 
 		nodes = layoutGraph<FlareResourceNode | FlareProducerNode>([...resourceNodes, ...producerNodes], rawEdges);
 		edges = rawEdges;

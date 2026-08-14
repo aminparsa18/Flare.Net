@@ -5,9 +5,13 @@
 	import ResourceGraph from '$lib/resources/ResourceGraph.svelte';
 	import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '$lib/components/ui/empty';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Switch } from '$lib/components/ui/switch';
 	import NetworkIcon from '@lucide/svelte/icons/network';
 
 	const resources = resourcesContext.set(new ResourcesState());
+
+	/** Shown by default - see ResourceGraph.svelte's identical remark on its own prop of the same name. */
+	let showResourceNodes = $state(true);
 
 	onMount(() => {
 		void resources.connect();
@@ -33,10 +37,14 @@
 		{#if resources.error}
 			<span class="text-destructive text-xs">{resources.error}</span>
 		{/if}
+		<label for="show-flare-resources" class="ml-auto flex items-center gap-2 text-xs">
+			Flare resources
+			<Switch id="show-flare-resources" bind:checked={showResourceNodes} />
+		</label>
 	</div>
 	<div class="min-h-0 flex-1">
 		{#if resources.snapshot?.available}
-			<ResourceGraph snapshot={resources.snapshot} />
+			<ResourceGraph snapshot={resources.snapshot} {showResourceNodes} />
 		{:else}
 			<Empty>
 				<EmptyHeader>
