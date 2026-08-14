@@ -84,6 +84,23 @@ public static class FlareResourceBuilderExtensions
     /// <c>configureSettings: s =&gt; s.ApiKey = ...</c> delegate - there's no automatic
     /// flow-through from this parameter yet, see <c>FlareSettings.ApiKey</c>'s remarks.
     /// </param>
+    /// <param name="enableResourceGraph">
+    /// Turns on the dashboard's Docker-driven Resources page for this Flare instance.
+    /// Off by default - real, meaningful Docker access is involved (see below), and this
+    /// package follows the same "absent config = off" pattern as <paramref name="apiKey"/>
+    /// rather than defaulting it on. When <see langword="true"/>, this adds one more
+    /// sidecar container (<c>tecnativa/docker-socket-proxy</c>, scoped to read-only
+    /// container list/inspect - no exec, no start/stop, no image/volume/network
+    /// management) with <c>/var/run/docker.sock</c> bind-mounted read-only into it, and
+    /// points <c>api</c>'s <c>DockerResources__ProxyUrl</c> at it. Flare.Api itself never
+    /// touches the socket directly, only this proxy. Docker labels identifying/relating
+    /// this instance's containers (<c>flare.resource</c>/<c>flare.role</c>/
+    /// <c>flare.relationships</c>) are applied regardless of this flag - they're inert
+    /// metadata with no effect unless something is actually reading the Docker API, so
+    /// there's no reason to gate them separately. See
+    /// <c>docs/aspire-hosting.md</c>'s "Docker-driven Resources page" section for the full
+    /// security rationale (same one <c>docker-compose.yml</c>'s own opt-in documents).
+    /// </param>
     /// <returns>An <see cref="IResourceBuilder{FlareResource}"/> for the composite Flare resource.</returns>
     /// <exception cref="ArgumentException"><paramref name="imageTag"/> is null or empty.</exception>
     public static IResourceBuilder<FlareResource> AddFlare(
@@ -97,7 +114,8 @@ public static class FlareResourceBuilderExtensions
         string? ingestImage = null,
         string? apiImage = null,
         string? dashboardImage = null,
-        IResourceBuilder<ParameterResource>? apiKey = null)
+        IResourceBuilder<ParameterResource>? apiKey = null,
+        bool enableResourceGraph = false)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(imageTag);
@@ -133,7 +151,8 @@ public static class FlareResourceBuilderExtensions
             .WithDataVolume()
             .WithBindMount(ExtractClickHouseInitScripts(), "/docker-entrypoint-initdb.d", isReadOnly: true)
             .WithParentRelationship(flare)
-            .WithHidden();
+            .WithHidden()
+            .WithFlareResourceLabels("clickhouse");
         // The Aspire *resource* name is prefixed (collision-safe across multiple AddFlare()
         // calls); the actual ClickHouse database name is pinned to "clickhousedb" - what
         // db/clickhouse/*.sql creates - and re-asserted as the connection-string name on each
@@ -150,7 +169,8 @@ public static class FlareResourceBuilderExtensions
             .WithDataVolume()
             .WithPersistence(interval: TimeSpan.FromSeconds(30), keysChangedThreshold: 100)
             .WithParentRelationship(flare)
-            .WithHidden();
+            .WithHidden()
+            .WithFlareResourceLabels("redis");
 
         // Auth's identity store (Users/Sessions/IngestApiKeys) - embedded SQLite (see
         // docs/auth.md's "why not a fourth backing-store service" for the design
@@ -182,7 +202,8 @@ public static class FlareResourceBuilderExtensions
             .WithEndpoint(port: ingestHttpPort, targetPort: 4318, scheme: "http", name: "otlp-http", isProxied: false)
             .WithHttpHealthCheck("/health", endpointName: "otlp-http")
             .WithParentRelationship(flare)
-            .WithHidden();
+            .WithHidden()
+            .WithFlareResourceLabels("ingest", "clickhouse:Reference,redis:Reference");
         // "edge" is a mutable tag republished on every push to main - without this, Docker only
         // pulls it once (the default pull policy is "if missing locally") and then silently
         // reuses that stale local image on every future run, forever, with no error. This forces
@@ -229,7 +250,8 @@ public static class FlareResourceBuilderExtensions
             .WithHttpEndpoint(port: apiPort, targetPort: 8080)
             .WithHttpHealthCheck("/health")
             .WithParentRelationship(flare)
-            .WithHidden();
+            .WithHidden()
+            .WithFlareResourceLabels("api", "clickhouse:Reference,redis:Reference");
         // Same "edge" staleness reasoning and local-dev-override gate as ingest above.
         if (apiImage is null)
         {
@@ -254,7 +276,8 @@ public static class FlareResourceBuilderExtensions
             // Node server is actually accepting requests yet. WaitForFlare (below) waits on this,
             // not just the container's Running state.
             .WithHttpHealthCheck("/")
-            .WithParentRelationship(flare);
+            .WithParentRelationship(flare)
+            .WithFlareResourceLabels("dashboard", "api:Reference");
         // Same "edge" staleness reasoning and local-dev-override gate as ingest above - this is
         // the one that actually bit us: a consumer's Docker cache pins a stale dashboard build
         // indefinitely otherwise, with nothing on screen telling them why they're not seeing
@@ -276,6 +299,23 @@ public static class FlareResourceBuilderExtensions
         // the *browser* sees, not container-network DNS. Confirmed live against a real
         // Aspire-orchestrated run that this was missing and broke the dashboard outright.
         api.WithEnvironment("Cors__AllowedOrigins__0", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
+
+        // Opt-in Docker-driven Resources page (docs/aspire-hosting.md) - see
+        // enableResourceGraph's doc comment for the full rationale. Deliberately mirrors
+        // docker-compose.yml's own docker-proxy service: same image, same CONTAINERS=1-only
+        // scoping, same read-only socket bind mount, off unless explicitly requested.
+        if (enableResourceGraph)
+        {
+            var dockerProxy = builder.AddContainer($"{name}-docker-proxy", FlareContainerImageTags.DockerProxyImage)
+                .WithBindMount("/var/run/docker.sock", "/var/run/docker.sock", isReadOnly: true)
+                .WithEnvironment("CONTAINERS", "1")
+                .WithEnvironment("POST", "0")
+                .WithHttpEndpoint(targetPort: 2375)
+                .WithParentRelationship(flare)
+                .WithHidden();
+
+            api.WithEnvironment("DockerResources__ProxyUrl", dockerProxy.GetEndpoint("http"));
+        }
 
         // Stash the dashboard's resource name so WaitForFlare can look it up later without the
         // caller needing to hold onto a `dashboard` variable of their own - see WaitForFlare's
@@ -355,6 +395,32 @@ public static class FlareResourceBuilderExtensions
     }
 
     /// <summary>
+    /// Applies this package's Docker-driven-Resources-page labels
+    /// (<c>flare.resource</c>/<c>flare.role</c>/<c>flare.relationships</c>) to a
+    /// container resource - the Aspire/DCP-side counterpart to
+    /// <c>docker-compose.yml</c>'s own <c>labels:</c> blocks, same label vocabulary. There's
+    /// no more-direct "add a Docker label" API in Aspire 13.4 - <c>WithContainerRuntimeArgs</c>
+    /// (raw <c>docker run</c> arguments) is the documented escape hatch for this. Applied
+    /// unconditionally regardless of <c>enableResourceGraph</c> - see that parameter's own
+    /// doc comment for why these labels are harmless with the feature off.
+    /// </summary>
+    /// <param name="builder">The container resource to label.</param>
+    /// <param name="role">This container's stable <c>flare.role</c> value (e.g. <c>"ingest"</c>) - what Flare.Api's own <c>ResourceNodeDto.Role</c> reads back.</param>
+    /// <param name="relationships">Raw <c>flare.relationships</c> label value (e.g. <c>"clickhouse:Reference,redis:Reference"</c>), or <see langword="null"/> to omit the label entirely (nothing this container references).</param>
+    private static IResourceBuilder<T> WithFlareResourceLabels<T>(this IResourceBuilder<T> builder, string role, string? relationships = null)
+        where T : ContainerResource
+    {
+        var args = new List<string> { "--label", "flare.resource=true", "--label", $"flare.role={role}" };
+        if (relationships is not null)
+        {
+            args.Add("--label");
+            args.Add($"flare.relationships={relationships}");
+        }
+
+        return builder.WithContainerRuntimeArgs([.. args]);
+    }
+
+    /// <summary>
     /// Writes this package's embedded ClickHouse init scripts (<c>db/clickhouse/*.sql</c> in
     /// Flare's own repo) to a fresh temp directory and returns its absolute path.
     /// </summary>
@@ -400,4 +466,14 @@ internal static class FlareContainerImageTags
     internal const string IngestImage = "xracer007/flare-ingest";
     internal const string ApiImage = "xracer007/flare-api";
     internal const string DashboardImage = "xracer007/flare-dashboard";
+
+    /// <summary>
+    /// Third-party image (not one of Flare's own published ones above) for the opt-in
+    /// Docker-driven Resources page's socket-proxy sidecar - see
+    /// <c>enableResourceGraph</c>'s doc comment on <see cref="FlareResourceBuilderExtensions.AddFlare"/>.
+    /// No <c>imageTag</c> parameter reuse here (unlike the three above) - this isn't
+    /// versioned in lockstep with Flare's own releases, so it always pulls <c>:latest</c>,
+    /// same as <c>docker-compose.yml</c>'s own <c>docker-proxy</c> service.
+    /// </summary>
+    internal const string DockerProxyImage = "tecnativa/docker-socket-proxy";
 }

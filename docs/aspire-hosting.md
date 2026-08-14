@@ -39,7 +39,12 @@ IResourceBuilder<FlareResource> AddFlare(
     int? ingestGrpcPort = null,
     int? ingestHttpPort = null,
     int? apiPort = null,
-    int? dashboardPort = null)
+    int? dashboardPort = null,
+    string? ingestImage = null,
+    string? apiImage = null,
+    string? dashboardImage = null,
+    IResourceBuilder<ParameterResource>? apiKey = null,
+    bool enableResourceGraph = false)
 ```
 
 - **`name`** — the Flare resource group's name in the Aspire dashboard.
@@ -52,6 +57,15 @@ IResourceBuilder<FlareResource> AddFlare(
   directly — the same fixed-port story as `docker-compose.yml`.
 - **`apiPort` / `dashboardPort`** — override the query API / dashboard host ports.
   Normal proxied Aspire HTTP endpoints, left unset if you don't care what port you get.
+- **`ingestImage` / `apiImage` / `dashboardImage`** — override an image name/registry
+  (not tag — `imageTag` still supplies that) for local-dev use against images built
+  with `docker compose build` instead of Docker Hub.
+- **`apiKey`** — optional `secret: true` `AddParameter` result requiring OTLP callers
+  to present an ingest API key. Left unset (the default), ingest stays anonymous.
+- **`enableResourceGraph`** — turns on the dashboard's Resources page for this Flare
+  instance. Off by default — see
+  [Resources page (optional Docker access)](#resources-page-optional-docker-access)
+  below.
 
 ## 2. Point your logger at it
 
@@ -104,6 +118,33 @@ if your project isn't wired through Aspire's own `AddServiceDefaults()` pattern 
 just set `OTEL_EXPORTER_OTLP_ENDPOINT` from `WithOtlpEndpoint` above instead of a
 hardcoded `http://localhost:4317`.
 
+## Resources page (optional Docker access)
+
+The dashboard's **Resources** page shows Flare's own containers as a live graph —
+state, health, URLs, and the relationships between them — sourced from the Docker
+Engine API, not from Aspire's own resource service (Aspire's resource-service gRPC API
+only ever describes an AppHost's *own* process — nothing your AppHost consumers would
+ever see once Flare is packaged as containers, which is why this page exists as a
+separate Docker-backed feature at all). It's off by default:
+
+```csharp
+var flare = builder.AddFlare("flare", enableResourceGraph: true);
+```
+
+Passing `enableResourceGraph: true` adds one more sidecar container —
+[`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy),
+the same image and scoping `docker-compose.yml`'s standalone mode uses (see
+[`docs/standalone.md`](standalone.md#resources-page-optional-docker-access) for the
+full security rationale) — with `/var/run/docker.sock` bind-mounted **read-only** into
+it, configured with `CONTAINERS=1` and `POST=0` so it only ever answers container
+list/inspect calls (no exec, no start/stop, no image/volume/network management), and
+points `flare-api`'s `DockerResources__ProxyUrl` at it. `flare-api` itself never mounts
+or touches the real Docker socket — only this proxy's scoped endpoint.
+
+Leave it unset (the default) and no proxy container is added at all — `flare-api` never
+gains any form of Docker access, and the Resources page shows a clean "not enabled"
+state instead of an error.
+
 ## Installing
 
 ```sh
@@ -155,3 +196,8 @@ instead of the broken dashboard UI, and open Flare's own dashboard directly.
 - **No package-version-to-image-tag pinning** — `Flare.Hosting.Aspire`'s own NuGet
   version and the Docker image tag it defaults to (`edge`) aren't linked; this is an
   explicitly deferred decision until Flare has a real versioning scheme.
+- **`enableResourceGraph`'s Docker labels are applied via `WithContainerRuntimeArgs`**
+  (there's no more-direct "add a Docker label" API in Aspire 13.4) — this only reaches
+  containers Aspire actually launches locally via `aspire run`/`aspire start`. It hasn't
+  been exercised against `aspire publish`/a deployed target (see the "No `aspire
+  publish` support" limitation above, which already covers `AddFlare()` generally).

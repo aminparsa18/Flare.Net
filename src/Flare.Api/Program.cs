@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Api.Alerting;
 using Flare.Api.Auth;
+using Flare.Api.DockerResources;
 using Flare.Api.Endpoints;
 using Flare.Api.LiveTail;
 using Flare.Api.Query;
@@ -10,6 +11,7 @@ using Flare.Identity.Users;
 using Flare.ServiceDefaults.ClickHouseMigrations;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -112,6 +114,23 @@ builder.Services.Configure<LiveTailOptions>(builder.Configuration.GetSection(Liv
 builder.Services.AddSingleton<LogTailBroadcaster>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailBroadcaster>());
 
+// Docker-driven Resources page (Planning.md's resource-graph item) - opt-in, "absent
+// config = off" like Auth__IngestKeyRequired above. DockerEngineClient's BaseAddress is
+// only set when DockerResources:ProxyUrl is actually configured; DockerContainerPoller
+// itself checks the same option and simply never polls when it's unset - see both types'
+// remarks.
+builder.Services.Configure<DockerResourcesOptions>(builder.Configuration.GetSection(DockerResourcesOptions.SectionName));
+builder.Services.AddHttpClient<DockerEngineClient>((sp, client) =>
+{
+    var proxyUrl = sp.GetRequiredService<IOptions<DockerResourcesOptions>>().Value.ProxyUrl;
+    if (!string.IsNullOrWhiteSpace(proxyUrl))
+    {
+        client.BaseAddress = new Uri(proxyUrl);
+    }
+});
+builder.Services.AddSingleton<DockerContainerPoller>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DockerContainerPoller>());
+
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 // Named/typed HttpClients so the webhook/Slack and Telegram senders inherit
@@ -198,6 +217,7 @@ authenticatedRoutes.MapSavedViewEndpoints();
 authenticatedRoutes.MapIngestionEndpoints();
 authenticatedRoutes.MapPipelineEndpoints();
 authenticatedRoutes.MapIndexingEndpoints();
+authenticatedRoutes.MapResourceGraphEndpoints();
 
 // Alert rule CRUD/test-fire is mutating and can page people - Member/Admin only, unlike
 // every other (read-only) endpoint group above which just needs any authenticated user.

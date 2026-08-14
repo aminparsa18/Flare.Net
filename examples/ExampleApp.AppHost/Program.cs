@@ -1,5 +1,9 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+// enableResourceGraph defaults to false (see its doc comment on AddFlare) - left off here
+// too, so this example's default footprint doesn't grow a Docker-socket-proxy sidecar for
+// everyone who runs it. Pass `enableResourceGraph: true` to exercise the dashboard's
+// Resources page against this AppHost - see docs/aspire-hosting.md.
 var flare = builder.AddFlare("flare");
 
 // .WithReference(flare) injects ConnectionStrings__flare (Flare.Ingest's OTLP/gRPC endpoint) -

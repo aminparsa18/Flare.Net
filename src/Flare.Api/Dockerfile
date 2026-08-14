@@ -56,4 +56,15 @@ COPY --from=build /app .
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 
+# Same probe docker-compose.yml's own `healthcheck:` block for this service already runs
+# (bash's /dev/tcp pseudo-device, since neither curl nor wget is installed here) - baked
+# in here too so `.State.Health` is populated the same way regardless of which
+# orchestrator started this container. docker-compose.yml's healthcheck: block still wins
+# when both are present (Compose overrides the image's own HEALTHCHECK), but a container
+# started via Aspire's AddContainer (Aspire.Hosting.Flare's AddFlare()) only ever gets
+# this one - Aspire's own .WithHttpHealthCheck() is DCP polling from *outside* the
+# container, not a Docker-native healthcheck, so without this, `.State.Health` would stay
+# unset there while the Resources page expects it.
+HEALTHCHECK --interval=5s --timeout=5s --retries=20 CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080; printf 'GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; read -r status <&3; [[ \"$status\" == *' 200 '* ]]"]
+
 ENTRYPOINT ["dotnet", "Flare.Api.dll"]

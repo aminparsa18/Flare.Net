@@ -49,4 +49,9 @@ COPY --from=build /app .
 EXPOSE 4317
 EXPOSE 4318
 
+# See Flare.Api/Dockerfile's identical HEALTHCHECK comment for why this exists (same probe
+# docker-compose.yml's own healthcheck: block already runs for this service, against the
+# OTLP/HTTP port since that's the one serving /health).
+HEALTHCHECK --interval=5s --timeout=5s --retries=20 CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/4318; printf 'GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; read -r status <&3; [[ \"$status\" == *' 200 '* ]]"]
+
 ENTRYPOINT ["dotnet", "Flare.Ingest.dll"]

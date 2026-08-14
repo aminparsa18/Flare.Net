@@ -222,3 +222,85 @@ export function connectLiveTail(filter: LogFilter, handlers: LiveTailHandlers): 
 		}
 	};
 }
+
+// ---- GET /api/resources/snapshot + GET /api/resources/watch (ResourceGraphDto.cs) ----
+//
+// Docker-driven Resources page - see docs/standalone.md#resources-page-optional-docker-access.
+// `available: false` means the feature isn't configured (no DockerResources:ProxyUrl on
+// Flare.Api's side), not "no AppHost" - a different, simpler story than LiveTail-adjacent
+// features get elsewhere in this file. `state`/`health` are PascalCase string enum values,
+// same UseStringEnumConverter asymmetry documented above for LogTailServerMessage.
+
+export type ResourceState = 'Unknown' | 'Running' | 'Exited' | 'Restarting' | 'Paused';
+export type ResourceHealth = 'Starting' | 'Healthy' | 'Unhealthy';
+
+export interface ResourceNodeDto {
+	id: string;
+	role: string;
+	name: string;
+	image: string;
+	state: ResourceState;
+	health: ResourceHealth | null;
+	urls: string[];
+}
+
+export interface ResourceEdgeDto {
+	sourceRole: string;
+	targetRole: string;
+	relationshipType: string;
+}
+
+export interface ResourceGraphSnapshot {
+	available: boolean;
+	unavailableReason: string | null;
+	nodes: ResourceNodeDto[];
+	edges: ResourceEdgeDto[];
+	updatedAt: string | null;
+}
+
+export async function fetchResourceSnapshot(signal?: AbortSignal): Promise<ResourceGraphSnapshot> {
+	const res = await apiFetch(`${API_BASE_URL}/api/resources/snapshot`, { signal });
+	if (!res.ok) {
+		throw new Error(`GET /api/resources/snapshot failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
+}
+
+export type ResourcesWatchStatus = 'connecting' | 'open' | 'closed' | 'error';
+
+export interface ResourcesWatchHandlers {
+	onStatusChange?: (status: ResourcesWatchStatus) => void;
+	onSnapshot?: (snapshot: ResourceGraphSnapshot) => void;
+}
+
+/** Handle returned by {@link connectResourcesWatch}. Push-only on the wire (no client->server messages, unlike {@link LiveTailConnection}) - the graph isn't filtered, so there's nothing to subscribe/pause/resume. */
+export interface ResourcesWatchConnection {
+	close(): void;
+}
+
+/**
+ * Opens the resources-watch WebSocket - every message received is a complete, fresh
+ * {@link ResourceGraphSnapshot} (not an incremental diff or a discriminated-union
+ * envelope like {@link LogTailServerMessage}), pushed once per `DockerContainerPoller`
+ * tick on the server plus immediately on connect.
+ */
+export function connectResourcesWatch(handlers: ResourcesWatchHandlers): ResourcesWatchConnection {
+	const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/api/resources/watch`;
+	const socket = new WebSocket(wsUrl);
+
+	handlers.onStatusChange?.('connecting');
+
+	socket.addEventListener('open', () => handlers.onStatusChange?.('open'));
+	socket.addEventListener('message', (ev) => {
+		const snapshot: ResourceGraphSnapshot = JSON.parse(ev.data);
+		handlers.onSnapshot?.(snapshot);
+	});
+	socket.addEventListener('close', () => handlers.onStatusChange?.('closed'));
+	socket.addEventListener('error', () => handlers.onStatusChange?.('error'));
+
+	return {
+		close() {
+			socket.close();
+		}
+	};
+}

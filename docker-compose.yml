@@ -17,6 +17,17 @@
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
+    # flare.resource/flare.role are this stack's own identity/relationship labels for the
+    # opt-in Resources page (see the `api` service's DockerResources__ProxyUrl comment
+    # below and docs/standalone.md) - NOT read by Docker Compose itself. Compose's
+    # `depends_on` isn't visible via the Docker API at runtime, so Flare.Api has to author
+    # its own relationship data; `flare.role` is a stable cross-orchestrator identity
+    # (Aspire's AddFlare() labels its own containers with the same roles, even though the
+    # actual container names differ) that `flare.relationships` (below, on ingest/api/
+    # dashboard) references instead of container names/IDs.
+    labels:
+      flare.resource: "true"
+      flare.role: "clickhouse"
     environment:
       # The official image's own env var for the "default" user's password - same
       # mechanism Aspire's AddClickHouse resource uses under the hood.
@@ -39,6 +50,10 @@ services:
 
   redis:
     image: redis:latest
+    # See clickhouse's identical labels comment above.
+    labels:
+      flare.resource: "true"
+      flare.role: "redis"
     # --save 30 100 mirrors Flare.AppHost's WithPersistence(interval: 30s,
     # keysChangedThreshold: 100) - RDB snapshotting so buffered-but-unflushed log
     # events survive a Redis container restart, not just a Flare.Ingest restart.
@@ -59,6 +74,12 @@ services:
     build:
       context: .
       dockerfile: src/Flare.Ingest/Dockerfile
+    # flare.relationships references *roles* (clickhouse/redis), not container names/IDs -
+    # see clickhouse's labels comment above.
+    labels:
+      flare.resource: "true"
+      flare.role: "ingest"
+      flare.relationships: "clickhouse:Reference,redis:Reference"
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -95,6 +116,11 @@ services:
     build:
       context: .
       dockerfile: src/Flare.Api/Dockerfile
+    # See ingest's identical labels comment above.
+    labels:
+      flare.resource: "true"
+      flare.role: "api"
+      flare.relationships: "clickhouse:Reference,redis:Reference"
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -122,6 +148,14 @@ services:
       # service's comment) keeps both in sync automatically. AllowCredentials() means
       # this can't be a wildcard - the session cookie won't cross origins otherwise.
       Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-3000}"
+      # Opt-in Resources page (docs/standalone.md) - blank by default, meaning
+      # DockerContainerPoller never polls and the page shows a clean "not enabled" state.
+      # Turning this on requires TWO explicit `.env` lines, deliberately: this URL (only
+      # reachable if `docker-proxy` below is actually running) AND
+      # `COMPOSE_PROFILES=resource-graph` (Compose reads this automatically) to start that
+      # service - see docs/standalone.md for the full "why" of the read-only socket-proxy
+      # this points at instead of ever mounting /var/run/docker.sock into this container.
+      DockerResources__ProxyUrl: "${FLARE_DOCKER_PROXY_URL:-}"
     volumes:
       - identity-data:/data/identity
     ports:
@@ -135,6 +169,12 @@ services:
   dashboard:
     build:
       context: ./src/dashboard
+    # See ingest's identical labels comment above - dashboard only references api
+    # (clickhouse/redis are ingest/api's own backing stores, not the dashboard's).
+    labels:
+      flare.resource: "true"
+      flare.role: "dashboard"
+      flare.relationships: "api:Reference"
     depends_on:
       api:
         condition: service_healthy
@@ -148,6 +188,30 @@ services:
       ORIGIN: "http://localhost:${FLARE_DASHBOARD_PORT:-3000}"
     ports:
       - "${FLARE_DASHBOARD_PORT:-3000}:3000"
+
+  # Opt-in, read-only Docker access for the Resources page (`api`'s
+  # DockerResources__ProxyUrl above) - see docs/standalone.md for the full security
+  # rationale. Gated behind the "resource-graph" Compose profile so it's NEVER started by
+  # a bare `docker compose up`, on top of `api`'s own separate opt-in env var: enabling
+  # the feature means setting BOTH `COMPOSE_PROFILES=resource-graph` (Compose reads this
+  # env var automatically, no --profile flag needed) AND `FLARE_DOCKER_PROXY_URL` in
+  # `.env`. CONTAINERS=1 is the proxy's own allowlist mechanism - it scopes this to
+  # container list/inspect ONLY (no POST, so no start/stop/create/exec/kill; no image,
+  # volume, network, exec, or build endpoints at all) even though the mounted socket
+  # itself is otherwise full, unrestricted, effectively-root Docker access. Read-only bind
+  # mount and no published host port are both defense in depth on top of that scoping, not
+  # a substitute for it.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    profiles: ["resource-graph"]
+    labels:
+      flare.resource: "true"
+      flare.role: "docker-proxy"
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
   clickhouse-data:
