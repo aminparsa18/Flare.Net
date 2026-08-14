@@ -1,8 +1,8 @@
 # Auth + multi-user / roles
 
 Flare ships with local username/password accounts, Microsoft Entra ID (SSO), Active
-Directory (LDAP), and generic OpenID Connect sign-in, plus three fixed roles. This is
-**multi-user RBAC on one
+Directory (LDAP), generic OpenID Connect, and reverse-proxy (trusted header) sign-in,
+plus three fixed roles. This is **multi-user RBAC on one
 shared self-hosted instance** — everyone logged into a given Flare deployment sees the
 same logs/traces/metrics/alert rules/saved views, just with different permission levels.
 It is **not** multi-tenant SaaS isolation: there's no per-user data ownership anywhere,
@@ -18,10 +18,10 @@ you've even decided you want one is friction nobody asked for.
 
 Turning authentication on is a single switch, in the dashboard, on one consolidated
 **`/auth`** page (see "The `/auth` page" below) — no separate `/setup`/`/security`/
-`/users` pages. Flipping "Require sign-in" on reveals the four method sections
-(Local / Microsoft Entra ID / Active Directory / OpenID Connect), each with its own
-enable toggle and inline configuration, plus a Users table underneath for managing
-accounts once any method is enabled.
+`/users` pages. Flipping "Require sign-in" on reveals the five method sections
+(Local / Microsoft Entra ID / Active Directory / OpenID Connect / Reverse proxy), each
+with its own enable toggle and inline configuration, plus a Users table underneath for
+managing accounts once any method is enabled.
 
 **Upgrading an existing deployment stays protected.** The opt-in default only applies to
 a genuinely *fresh* database with zero users in it. If you're upgrading a Flare instance
@@ -41,17 +41,17 @@ exactly as before. This is the one choke point that makes "off by default" possi
 without touching any of the individual endpoint files.
 
 Within that, **Local sign-in has its own enable flag** (`LocalEnabled`), independent of
-the three method-specific ones described below — so all four methods (Local / Entra /
-Active Directory / OpenID Connect) are turned on and configured the same, symmetrical
-way. An org fully migrated to SSO can eventually turn local password login off entirely,
-same as any other method.
+the four method-specific ones described below — so all five methods (Local / Entra /
+Active Directory / OpenID Connect / Reverse proxy) are turned on and configured the
+same, symmetrical way. An org fully migrated to SSO can eventually turn local password
+login off entirely, same as any other method.
 
-**Methods coexist, not exclusive.** Local, Entra ID, Active Directory, and OpenID Connect
-can all be enabled at once. This is a deliberate choice, not an accident of
-implementation: an exclusive single-method design risks a real lockout — if an
-Entra/AD/OIDC group→role mapping is misconfigured and nobody ends up `Admin`, there's no
-way in — while coexistence keeps a local "break-glass" Admin path available even when
-SSO/AD is the day-to-day method.
+**Methods coexist, not exclusive.** Local, Entra ID, Active Directory, OpenID Connect,
+and reverse-proxy auth can all be enabled at once. This is a deliberate choice, not an
+accident of implementation: an exclusive single-method design risks a real lockout — if
+an Entra/AD/OIDC/proxy group→role mapping is misconfigured and nobody ends up `Admin`,
+there's no way in — while coexistence keeps a local "break-glass" Admin path available
+even when SSO/AD/proxy is the day-to-day method.
 
 ## The `/auth` page
 
@@ -60,15 +60,15 @@ authentication is off, same as every other page):
 
 1. **Authentication** — the umbrella "Require sign-in" switch and the `Local
    username/password` toggle sit together at the top. Off → an explanatory blurb, and
-   everything below is inert. On → the three method sections below become the live
+   everything below is inert. On → the four method sections below become the live
    configuration surface.
-2. **Microsoft Entra ID**, **Active Directory**, and **OpenID Connect** — each section's
-   own enable toggle plus inline configuration form (see their dedicated sections below).
-   Settings save independently per section.
-3. **Users** — every account (Local, Entra, Active Directory, and OpenID Connect alike),
-   with role and enable/disable controls, shown once any method is on. This is the same
-   table that used to live at a separate `/users` route — it's just folded into this page
-   now.
+2. **Microsoft Entra ID**, **Active Directory**, **OpenID Connect**, and **Reverse
+   proxy** — each section's own enable toggle plus inline configuration form (see their
+   dedicated sections below). Settings save independently per section.
+3. **Users** — every account (Local, Entra, Active Directory, OpenID Connect, and
+   reverse-proxy alike), with role and enable/disable controls, shown once any method is
+   on. This is the same table that used to live at a separate `/users` route — it's just
+   folded into this page now.
 
 `/setup`, `/security`, and `/users` no longer exist as separate routes; `/auth` replaces
 all three.
@@ -105,7 +105,8 @@ Sessions default to a 14-day fixed expiry (`Auth:SessionLifetime`), no sliding w
 ## Where accounts live
 
 Users, sessions, ingest API keys, and all auth settings (the global switch, Entra config,
-LDAP config, OpenID Connect config) are stored in an **embedded SQLite file** — not a separate database
+LDAP config, OpenID Connect config, reverse-proxy config) are stored in an **embedded
+SQLite file** — not a separate database
 container. This was a deliberate choice: Flare already runs ClickHouse (log storage) and
 Redis (the ingest buffer) as backing services, and adding a third database container for
 what's a handful of small, low-write tables wasn't worth the extra resource footprint.
@@ -120,8 +121,8 @@ scaled replicas could safely share. This is a real constraint if the (currently
 unscheduled) Kubernetes/Helm roadmap item ever lands and you want to run more than one
 `Flare.Api` pod. If that day comes, migrating the tables here (`Users`/`Sessions`/
 `IngestApiKeys`/`AuthSettings`/`EntraSettings`/`LdapSettings`/`OidcSettings`/
-`schema_migrations`) to Postgres is a contained, mechanical follow-up — not a rewrite of
-anything in this document.
+`ProxyAuthSettings`/`schema_migrations`) to Postgres is a contained, mechanical
+follow-up — not a rewrite of anything in this document.
 
 `Flare.Ingest` shares the same SQLite file (read-mostly, just checking ingest API key
 hashes) — both processes point at it via `Identity__DbPath`.
@@ -458,15 +459,125 @@ bounces back to `/login?error=account-disabled`, same redirect Entra ID uses.
 sets during the redirect round-trip need to survive a cross-site navigation, which
 browsers only reliably allow over HTTPS beyond `http://localhost`.
 
+## Reverse proxy (trusted header)
+
+Trust an identity header a reverse proxy sitting in front of Flare already sets, once
+*it's* authenticated the request — Authelia, Authentik, oauth2-proxy, Cloudflare Access,
+Tailscale Serve, or anything else that terminates its own login flow and forwards
+requests on. Flare never talks to an IdP itself for this method; it just reads a header.
+
+**The lightest-weight method, and the one with the sharpest edge.** A header is nothing
+more than text on an HTTP request — any client that can reach `Flare.Api` directly (not
+through the trusted proxy) can set it to anything, including `Admin`'s own username.
+Every other design decision below exists to make that mistake hard to make by accident:
+
+- **A trusted-network allowlist is mandatory, not optional.** Enabling this method
+  without at least one valid CIDR configured is refused server-side (`400`) — there is no
+  "trust everyone" default. The header is only honored when the *caller's own* TCP
+  connection (`HttpContext.Connection.RemoteIpAddress`, not a forwarded/spoofable header)
+  falls inside one of the configured ranges - `TrustedProxyNetworks`
+  (`Flare.Api/Auth/`) does the matching. In a typical docker-compose deployment this is
+  the reverse proxy container's own address on the shared Docker network, e.g.
+  `172.18.0.0/16` for the default bridge subnet - check your actual subnet with
+  `docker network inspect`, don't guess.
+- **No `X-Forwarded-For` trust chain.** Flare deliberately does not call
+  `UseForwardedHeaders()` or read `X-Forwarded-For` to determine the "real" client -
+  trusting one spoofable header to establish trust for a *different* spoofable header
+  would defeat the entire point. The direct TCP peer is the only thing checked.
+- **Corollary: `Flare.Api` must not be reachable except through the proxy.** If your
+  compose/network setup exposes `Flare.Api`'s port directly (not just the proxy's), this
+  method is not safe to enable — anyone who can reach that exposed port can set the
+  header themselves from an address that happens to be in your trusted range, or, if
+  your compose network puts every container's own address inside the "trusted" subnet,
+  from any other container on that same network. Keep `Flare.Api` off any
+  publicly-routable port and put only the proxy in front of it.
+
+**Dashboard-triggered, not ambient.** Unlike Entra/LDAP/OIDC, there's no button — the
+`/login` page calls `POST /api/auth/proxy/login` automatically (no credentials, no
+request body) as soon as it learns this method is enabled, since identity is already
+established by the time the request arrives. A script or automation client calling
+`Flare.Api` directly (through the same proxy, never having loaded the dashboard) needs
+to hit that same endpoint once itself to obtain a `flare_session` cookie - this method
+doesn't authenticate every request ambiently the way some reverse-proxy-auth
+integrations do.
+
+**No restart required** - like Active Directory, this registers no ASP.NET Core
+authentication scheme; settings are read fresh from SQLite on every login attempt.
+
+### How it works
+
+1. `/login` fetches `GET /api/auth/bootstrap/status`. If it reports
+   `proxyAuthEnabled: true`, the page immediately calls `POST /api/auth/proxy/login` -
+   no user action, no form.
+2. That endpoint checks, in order: is the method enabled (`404` if not); is the caller's
+   own address inside a trusted CIDR (`403` if not); is the configured header
+   (`Remote-User` by default) present and non-blank on this request (`401` if not).
+3. On success, Flare looks up the account by the header's value
+   (`Users.AuthProvider = 'ReverseProxy'`, `Users.ExternalId = <header value>`) -
+   **first-ever login for that identity** creates the row (see "Role provisioning"
+   below), **every login after that** signs in as the existing row, role unchanged. The
+   header value itself doubles as the seed username - there's no separate display-name
+   claim the way Entra/OIDC have.
+4. A normal `flare_session` cookie is minted - same mechanism as any other method. A
+   disabled account gets the same generic `401` LDAP's own login already uses.
+
+### Role provisioning
+
+An optional second header carries group membership, matched against three configurable
+group names - the same shape Active Directory's three group DNs already establish, just
+header values instead of directory attributes:
+
+1. **Groups header name** (e.g. `X-Forwarded-Groups`) - if left blank, every new account
+   gets **Default role** below and nothing else is inspected.
+2. If configured, Flare splits that header's value on commas and matches (case
+   insensitive) against **Admin group** / **Member group** / **Viewer group** -
+   highest-privilege match wins. No match → **Default role**.
+3. **Role changes after first sign-in live in Flare, not the proxy** - same as every
+   other method; promote, demote, or disable a reverse-proxy-provisioned account from
+   the Users table on `/auth`.
+
+### Setup walkthrough
+
+1. Configure your reverse proxy to authenticate requests and forward the signed-in
+   identity as a header - the exact steps vary by proxy. Authelia/oauth2-proxy-style
+   setups typically call this `Remote-User` (Flare's own default) or
+   `X-Forwarded-User`; check your proxy's own docs for the exact header name and
+   whether it also emits a groups header.
+2. Find your Docker network's actual subnet (`docker network inspect <network>` -
+   don't guess `172.18.0.0/16`, confirm it) or the specific address(es) your proxy
+   connects from.
+3. On `/auth`, in the Reverse proxy section, fill in **Header name** (matching whatever
+   your proxy actually sends) and **Trusted proxy CIDRs** (one per line - required). Set
+   **Groups header name** / group fields / **Default role** if you want group-based role
+   mapping (see "Role provisioning" above).
+4. Flip **Enabled** on and **Save** - takes effect immediately, no restart.
+5. Reach Flare **through the proxy** (not directly) and confirm `/login` signs you in
+   silently. Then confirm hitting `Flare.Api` directly (bypassing the proxy, if that's
+   even reachable in your setup) with a hand-set header gets a `403`, not a session.
+
+### Known limitations, stated plainly
+
+- **Logout doesn't propagate to the proxy/IdP.** As long as the proxy keeps sending the
+  header, `/login` will silently re-establish a session again right after a manual
+  logout - true logout has to happen at the proxy/IdP layer. Same class of limitation
+  OIDC's own logout scope already documents.
+- **A misconfigured or over-broad trusted-CIDR range is a real security hole**, not a
+  theoretical one - see the bulleted warnings above. Get this right before relying on
+  this method for anything beyond a throwaway/internal deployment.
+- **Direct API/script callers need to call the login endpoint once themselves** - this
+  method doesn't authenticate every request ambiently; see "Dashboard-triggered, not
+  ambient" above.
+
 ## Managing users
 
 `Admin`-only, in the Users section of the `/auth` page (`GET`/`PATCH /api/users/*` in
-the API) — list every account (Local, Entra, Active Directory, and OpenID Connect alike),
-change a role, or enable/disable an account. This is also where you promote a
-newly-auto-provisioned Entra, Active Directory, or OpenID Connect account past its
-initial role, or disable one without waiting for someone to remove their group/role
-assignment upstream. Flare refuses to demote or disable the **last enabled Admin** —
-that would be a lockout recoverable only by editing the SQLite file directly.
+the API) — list every account (Local, Entra, Active Directory, OpenID Connect, and
+reverse-proxy alike), change a role, or enable/disable an account. This is also where
+you promote a newly-auto-provisioned Entra, Active Directory, OpenID Connect, or
+reverse-proxy account past its initial role, or disable one without waiting for someone
+to remove their group/role assignment upstream. Flare refuses to demote or disable the
+**last enabled Admin** — that would be a lockout recoverable only by editing the SQLite
+file directly.
 
 ## Configuration reference
 
@@ -483,11 +594,13 @@ that would be a lockout recoverable only by editing the SQLite file directly.
 | `Auth:Entra:DefaultRole` | `Viewer` | Role assigned on first login when the token carries no recognized `roles` claim entry. The one Entra-related setting that's still config-bound — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` live in the database instead, set via the `/auth` page (Admin-only, `GET`/`PUT /api/settings/entra`) — see "Configured per-instance, through the dashboard" above. |
 
 Note that the global "Require sign-in" switch, `LocalEnabled`, every Active Directory
-setting (`Host`/`Port`/`BaseDn`/`BindDn`/`BindPassword`/group DNs/`DefaultRole`/etc.), and
+setting (`Host`/`Port`/`BaseDn`/`BindDn`/`BindPassword`/group DNs/`DefaultRole`/etc.),
 every OpenID Connect setting (`Authority`/`ClientId`/`ClientSecret`/`Scopes`/
-`RoleClaimName`/`DefaultRole`) have **no configuration-file equivalent at all** — they're
-exclusively set through `/auth` (`GET`/`PUT /api/settings/auth`,
-`GET`/`PUT /api/settings/ldap`, `GET`/`PUT /api/settings/oidc`), same reasoning as
+`RoleClaimName`/`DefaultRole`), and every reverse-proxy setting (`HeaderName`/
+`TrustedProxyCidrs`/`GroupsHeaderName`/group names/`DefaultRole`) have **no
+configuration-file equivalent at all** — they're exclusively set through `/auth`
+(`GET`/`PUT /api/settings/auth`, `GET`/`PUT /api/settings/ldap`,
+`GET`/`PUT /api/settings/oidc`, `GET`/`PUT /api/settings/proxyauth`), same reasoning as
 Entra ID's per-instance dashboard configuration above.
 
 ## Backups

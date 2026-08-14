@@ -37,6 +37,7 @@ public static class AuthSettingsEndpoints
         IEntraSettingsStore entraSettings,
         ILdapSettingsStore ldapSettings,
         IOidcSettingsStore oidcSettings,
+        IProxyAuthSettingsStore proxyAuthSettings,
         CancellationToken cancellationToken)
     {
         AuthSettingsDto? request;
@@ -61,10 +62,11 @@ public static class AuthSettingsEndpoints
             var entra = await entraSettings.GetAsync(cancellationToken);
             var ldap = await ldapSettings.GetAsync(cancellationToken);
             var oidc = await oidcSettings.GetAsync(cancellationToken);
-            if (!entra.Enabled && !ldap.Enabled && !oidc.Enabled)
+            var proxyAuth = await proxyAuthSettings.GetAsync(cancellationToken);
+            if (!entra.Enabled && !ldap.Enabled && !oidc.Enabled && !proxyAuth.Enabled)
             {
                 return Results.Problem(
-                    "At least one sign-in method (local, Entra ID, Active Directory, or OpenID Connect) must be enabled before turning authentication on.",
+                    "At least one sign-in method (local, Entra ID, Active Directory, OpenID Connect, or reverse proxy) must be enabled before turning authentication on.",
                     statusCode: StatusCodes.Status400BadRequest);
             }
         }

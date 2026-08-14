@@ -34,6 +34,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<IAuthSettingsStore, SqliteAuthSettingsStore>();
         builder.Services.AddSingleton<ILdapSettingsStore, SqliteLdapSettingsStore>();
         builder.Services.AddSingleton<IOidcSettingsStore, SqliteOidcSettingsStore>();
+        builder.Services.AddSingleton<IProxyAuthSettingsStore, SqliteProxyAuthSettingsStore>();
         return builder;
     }
 

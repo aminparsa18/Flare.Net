@@ -181,6 +181,7 @@ app.MapAuthEndpoints();
 app.MapEntraAuthEndpoints();
 app.MapLdapAuthEndpoints();
 app.MapOidcAuthEndpoints();
+app.MapProxyAuthLoginEndpoints();
 
 // MapGroup("") is a routing no-op (empty prefix) used purely to get a convention
 // builder to hang RequireAuthorization() off of - every Map*Endpoints() call below is
@@ -212,6 +213,7 @@ adminRoutes.MapUserEndpoints();
 adminRoutes.MapEntraSettingsEndpoints();
 adminRoutes.MapLdapSettingsEndpoints();
 adminRoutes.MapOidcSettingsEndpoints();
+adminRoutes.MapProxyAuthSettingsEndpoints();
 adminRoutes.MapAuthSettingsEndpoints();
 
 app.Run();

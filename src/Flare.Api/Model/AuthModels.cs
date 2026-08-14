@@ -22,8 +22,9 @@ public sealed record AuthUserDto
 
     public required UserRole Role { get; init; }
 
-    /// <summary>"Local", "Entra", "ActiveDirectory", or "Oidc" - lets the dashboard show
-    /// e.g. a disabled password field for an SSO account without a second round-trip.</summary>
+    /// <summary>"Local", "Entra", "ActiveDirectory", "Oidc", or "ReverseProxy" - lets the
+    /// dashboard show e.g. a disabled password field for an SSO account without a second
+    /// round-trip.</summary>
     public required string AuthProvider { get; init; }
 }
 
@@ -53,4 +54,10 @@ public sealed record BootstrapStatusResponse
     /// built-in brand to hardcode. Null when <see cref="OidcEnabled"/> is false or no
     /// display name was ever set.</summary>
     public string? OidcDisplayName { get; init; }
+
+    /// <summary>Whether reverse-proxy (trusted header) auth is configured+enabled - the
+    /// dashboard's <c>/login</c> page calls <c>POST /api/auth/proxy/login</c>
+    /// automatically when this is true, with no button/user action (see
+    /// <c>ProxyAuthLoginEndpoints</c>'s own disabled-gate 404).</summary>
+    public required bool ProxyAuthEnabled { get; init; }
 }

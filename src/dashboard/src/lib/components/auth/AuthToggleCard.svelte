@@ -1,11 +1,12 @@
 <script lang="ts">
 	// The consolidated /auth page's umbrella switch - opt-in auth (docs/auth.md): a
 	// fresh Flare instance has no login requirement at all until this is turned on.
-	// Reads Entra/LDAP/OIDC's own enabled state (already loaded by EntraSecurityForm.svelte/
-	// LdapSecurityForm.svelte/OidcSecurityForm.svelte on the same page) purely for the
-	// client-side "would this lock everyone out" guard below - the server enforces the
-	// same rule regardless (AuthSettingsEndpoints.HandlePutAsync), this is just so the
-	// Save button doesn't invite a 400 the UI could have prevented.
+	// Reads Entra/LDAP/OIDC/reverse-proxy's own enabled state (already loaded by
+	// EntraSecurityForm.svelte/LdapSecurityForm.svelte/OidcSecurityForm.svelte/
+	// ProxyAuthSecurityForm.svelte on the same page) purely for the client-side "would
+	// this lock everyone out" guard below - the server enforces the same rule regardless
+	// (AuthSettingsEndpoints.HandlePutAsync), this is just so the Save button doesn't
+	// invite a 400 the UI could have prevented.
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Switch } from '$lib/components/ui/switch';
@@ -15,12 +16,14 @@
 	import { entraSettingsContext } from '$lib/entra-settings/context';
 	import { ldapSettingsContext } from '$lib/ldap-settings/context';
 	import { oidcSettingsContext } from '$lib/oidc-settings/context';
+	import { proxyAuthSettingsContext } from '$lib/proxy-auth-settings/context';
 	import { authContext } from '$lib/auth/context';
 
 	const authSettings = authSettingsContext.get();
 	const entraSettings = entraSettingsContext.get();
 	const ldapSettings = ldapSettingsContext.get();
 	const oidcSettings = oidcSettingsContext.get();
+	const proxyAuthSettings = proxyAuthSettingsContext.get();
 	const auth = authContext.get();
 
 	let enabled = $state(false);
@@ -41,7 +44,8 @@
 			!localEnabled &&
 			entraSettings.settings?.enabled !== true &&
 			ldapSettings.settings?.enabled !== true &&
-			oidcSettings.settings?.enabled !== true
+			oidcSettings.settings?.enabled !== true &&
+			proxyAuthSettings.settings?.enabled !== true
 	);
 
 	async function handleSave(): Promise<void> {

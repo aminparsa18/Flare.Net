@@ -201,7 +201,7 @@ public class AuthEndpointsTests
     {
         var context = CreateContext();
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), new FakeProxyAuthSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
@@ -215,7 +215,7 @@ public class AuthEndpointsTests
         await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
         var context = CreateContext();
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(users, new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(users, new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), new FakeProxyAuthSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
@@ -228,7 +228,7 @@ public class AuthEndpointsTests
         var context = CreateContext();
         var entraSettings = new FakeEntraSettingsStore(new EntraSettings(Enabled: true, TenantId: "tenant-1", ClientId: "client-1", ClientSecret: "secret-1", UpdatedAt: DateTimeOffset.UtcNow));
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), entraSettings, DefaultAuthSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), entraSettings, DefaultAuthSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), new FakeProxyAuthSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
@@ -244,7 +244,7 @@ public class AuthEndpointsTests
             "secret", "(&(objectClass=user)(sAMAccountName={0}))", "objectGUID", null, null, null,
             UserRole.Viewer, DateTimeOffset.UtcNow));
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), DefaultAuthSettings, ldapSettings, new FakeOidcSettingsStore(), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), DefaultAuthSettings, ldapSettings, new FakeOidcSettingsStore(), new FakeProxyAuthSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
@@ -258,11 +258,25 @@ public class AuthEndpointsTests
         var oidcSettings = new FakeOidcSettingsStore(new OidcSettings(
             true, "Okta", "https://example.okta.com", "client-1", "secret-1", "openid profile email", "roles", UserRole.Viewer, DateTimeOffset.UtcNow));
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), oidcSettings, CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), oidcSettings, new FakeProxyAuthSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
         Assert.True(dto!.OidcEnabled);
+    }
+
+    [Fact]
+    public async Task BootstrapStatus_ReportsProxyAuthEnabled_WhenConfigured()
+    {
+        var context = CreateContext();
+        var proxyAuthSettings = new FakeProxyAuthSettingsStore(new ProxyAuthSettings(
+            true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, DateTimeOffset.UtcNow));
+
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), proxyAuthSettings, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
+        Assert.True(dto!.ProxyAuthEnabled);
     }
 
     [Fact]
@@ -271,7 +285,7 @@ public class AuthEndpointsTests
         var context = CreateContext();
         var authSettings = new FakeAuthSettingsStore(enabled: false, localEnabled: true);
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), authSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), authSettings, new FakeLdapSettingsStore(), new FakeOidcSettingsStore(), new FakeProxyAuthSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);

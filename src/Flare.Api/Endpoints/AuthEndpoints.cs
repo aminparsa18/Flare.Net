@@ -180,6 +180,7 @@ public static class AuthEndpoints
         IAuthSettingsStore authSettings,
         ILdapSettingsStore ldapSettings,
         IOidcSettingsStore oidcSettings,
+        IProxyAuthSettingsStore proxyAuthSettings,
         CancellationToken cancellationToken)
     {
         var needsBootstrap = !await users.AnyAsync(cancellationToken);
@@ -187,6 +188,7 @@ public static class AuthEndpoints
         var auth = await authSettings.GetAsync(cancellationToken);
         var ldap = await ldapSettings.GetAsync(cancellationToken);
         var oidc = await oidcSettings.GetAsync(cancellationToken);
+        var proxyAuth = await proxyAuthSettings.GetAsync(cancellationToken);
         return Results.Json(
             new BootstrapStatusResponse
             {
@@ -197,6 +199,7 @@ public static class AuthEndpoints
                 LdapEnabled = ldap.Enabled,
                 OidcEnabled = oidc.Enabled,
                 OidcDisplayName = oidc.DisplayName,
+                ProxyAuthEnabled = proxyAuth.Enabled,
             },
             AuthJsonContext.Default.BootstrapStatusResponse);
     }
