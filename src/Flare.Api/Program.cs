@@ -9,6 +9,7 @@ using Flare.Identity.Auth;
 using Flare.Identity.Users;
 using Flare.ServiceDefaults.ClickHouseMigrations;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -68,6 +69,11 @@ builder.Services.ConfigureOptions<EntraOpenIdConnectOptionsConfigurator>();
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AuthorizationPolicies.RequireMember, p => p.RequireRole(nameof(UserRole.Admin), nameof(UserRole.Member)))
     .AddPolicy(AuthorizationPolicies.RequireAdmin, p => p.RequireRole(nameof(UserRole.Admin)));
+
+// Opt-in auth (Planning.md) - wins over AddAuthorizationBuilder()'s own TryAddSingleton
+// default registration by being a plain AddSingleton registered after it. See the
+// class's own remarks for the full "why."
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ConditionalAuthorizationMiddlewareResultHandler>();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ILogQueryService, LogQueryService>();
@@ -149,6 +155,7 @@ if (app.Environment.IsDevelopment())
 // Unauthenticated by design - a client can't have a session yet when calling these.
 app.MapAuthEndpoints();
 app.MapEntraAuthEndpoints();
+app.MapLdapAuthEndpoints();
 
 // MapGroup("") is a routing no-op (empty prefix) used purely to get a convention
 // builder to hang RequireAuthorization() off of - every Map*Endpoints() call below is
@@ -178,5 +185,7 @@ var adminRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.Re
 adminRoutes.MapIngestApiKeyEndpoints();
 adminRoutes.MapUserEndpoints();
 adminRoutes.MapEntraSettingsEndpoints();
+adminRoutes.MapLdapSettingsEndpoints();
+adminRoutes.MapAuthSettingsEndpoints();
 
 app.Run();

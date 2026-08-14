@@ -16,7 +16,10 @@
 	const auth = new AuthState();
 	authContext.set(auth);
 
-	const AUTH_ROUTES = ['/login', '/setup'];
+	// /setup no longer exists as its own route - the first-run "create admin" form is
+	// now folded into /login itself (see that page), reached only when auth is actually
+	// on and there's no session, per opt-in auth (docs/auth.md).
+	const AUTH_ROUTES = ['/login'];
 
 	// $effect bodies never run during SSR (Svelte 5's server renderer only evaluates
 	// template/derived state, not effects) - this only ever fires client-side, once, on
@@ -29,17 +32,29 @@
 
 	const onAuthRoute = $derived(AUTH_ROUTES.includes(page.url.pathname));
 
-	// /users is the first Admin-only route (UserEndpoints.cs enforces this server-side
-	// regardless - this is a UX nicety, not the actual access control) - same reasoning
-	// as EntraAuthEndpoints.HandleLoginAsync's returnUrl validation being "defense in
-	// depth" on top of server checks that already exist.
-	const ADMIN_ONLY_ROUTES = ['/users', '/security'];
+	// /auth (the consolidated enable-auth/configure-methods/manage-users screen) is the
+	// one Admin-only route (server-side enforcement lives in the endpoints it calls -
+	// UserEndpoints.cs/EntraSettingsEndpoints.cs/AuthSettingsEndpoints.cs - this is a UX
+	// nicety, not the actual access control) - same reasoning as
+	// EntraAuthEndpoints.HandleLoginAsync's returnUrl validation being "defense in
+	// depth" on top of server checks that already exist. Not gated at all while auth is
+	// off (see below) - anyone needs to be able to reach it to turn auth on.
+	const ADMIN_ONLY_ROUTES = ['/auth'];
 	const onAdminOnlyRoute = $derived(ADMIN_ONLY_ROUTES.includes(page.url.pathname));
 
-	// Route guard: bounces between the app and /login|/setup based on session state.
+	// Route guard: bounces between the app and /login based on session state - but only
+	// when auth.authEnabled is true. Opt-in auth (docs/auth.md): a fresh Flare instance
+	// has no login requirement at all, so when it's off, every route (including
+	// admin-only ones - nobody has a role yet) renders freely; /login itself is
+	// meaningless in that state, so visiting it directly still bounces to "/".
 	// Doesn't run (and doesn't need to) until auth.initializing flips false - see above.
 	$effect(() => {
 		if (auth.initializing) return;
+
+		if (!auth.authEnabled) {
+			if (onAuthRoute) void goto('/');
+			return;
+		}
 
 		if (auth.currentUser) {
 			if (onAuthRoute) void goto('/');
@@ -63,31 +78,36 @@
 	async function redirectUnauthenticated(): Promise<void> {
 		redirectError = null;
 		try {
-			// Re-checked on every redirect (not cached) - an admin could have been
-			// created in another tab since the last check, and this is the one place
-			// that matters: whichever of /login or /setup we send an unauthenticated
-			// visitor to.
-			const status = await getBootstrapStatus();
-			await goto(status.needsBootstrap ? '/setup' : '/login');
+			// The fetch itself is what matters here now (a live connectivity/CORS probe
+			// before letting the app render at all) - /login vs "needs bootstrap" is
+			// decided by /login's own fresh fetch of this same endpoint on mount, not
+			// here, now that both live on the same route.
+			await getBootstrapStatus();
+			await goto('/login');
 		} catch (err) {
 			redirectError = err instanceof Error ? err.message : String(err);
 		}
 	}
 
-	// True once it's actually safe to render whatever route the user is on - either
-	// they're authenticated (and not a non-Admin on an Admin-only route), or they're
-	// already on /login|/setup (which render regardless of auth state, by definition).
-	// False in between means a redirect is pending (see redirectUnauthenticated above) -
-	// render the spinner, not the route's real content, so a protected page (including
-	// an Admin-only one) never flashes before the bounce completes.
+	// True once it's actually safe to render whatever route the user is on. Three ways
+	// to get there: auth is off entirely and we're not sitting on the now-meaningless
+	// /login (mid-redirect-away); auth is on and we're on /login itself; or auth is on,
+	// we're authenticated, and not a non-Admin on an Admin-only route. False in between
+	// means a redirect is pending (see redirectUnauthenticated above) - render the
+	// spinner, not the route's real content, so a protected page never flashes before
+	// the bounce completes.
 	const readyToRenderChildren = $derived(
 		!auth.initializing &&
-			(onAuthRoute || (auth.currentUser !== null && (!onAdminOnlyRoute || auth.currentUser.role === 'Admin')))
+			(!auth.authEnabled
+				? !onAuthRoute
+				: onAuthRoute || (auth.currentUser !== null && (!onAdminOnlyRoute || auth.currentUser.role === 'Admin')))
 	);
 
-	// Nav makes no sense on the login/setup screens themselves (its links would just
-	// bounce back through the guard above) or while nothing's confirmed yet.
-	const showChrome = $derived(auth.currentUser !== null && !onAuthRoute);
+	// Nav makes sense whenever there's real content to navigate between: either auth is
+	// off (everyone gets full access, including finding their way to turn it on) or
+	// someone's actually signed in - either way, never on the /login screen itself (its
+	// links would just bounce back through the guard above).
+	const showChrome = $derived(!onAuthRoute && (!auth.authEnabled || auth.currentUser !== null));
 </script>
 
 <!-- Handles both the dark/light class on <html> and, crucially, injects an inline

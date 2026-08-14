@@ -1,17 +1,81 @@
 # Auth + multi-user / roles
 
-Flare ships with local username/password accounts and three fixed roles. This is
-**multi-user RBAC on one shared self-hosted instance** — everyone logged into a given
-Flare deployment sees the same logs/traces/metrics/alert rules/saved views, just with
-different permission levels. It is **not** multi-tenant SaaS isolation: there's no
-per-user data ownership anywhere, and `alert_rules`/`saved_views` stay exactly as
-global/shared as they always were.
+Flare ships with local username/password accounts, Microsoft Entra ID (SSO), and Active
+Directory (LDAP) sign-in, plus three fixed roles. This is **multi-user RBAC on one
+shared self-hosted instance** — everyone logged into a given Flare deployment sees the
+same logs/traces/metrics/alert rules/saved views, just with different permission levels.
+It is **not** multi-tenant SaaS isolation: there's no per-user data ownership anywhere,
+and `alert_rules`/`saved_views` stay exactly as global/shared as they always were.
+
+## Authentication is off by default
+
+A fresh Flare instance has **no login requirement at all** — anyone who can reach the
+dashboard sees the Logs page immediately, with full access. There's no forced `/setup`
+step blocking you before you can look at anything. This is a deliberate default for a
+self-hosted, often-single-user or internal-network tool: requiring an account before
+you've even decided you want one is friction nobody asked for.
+
+Turning authentication on is a single switch, in the dashboard, on one consolidated
+**`/auth`** page (see "The `/auth` page" below) — no separate `/setup`/`/security`/
+`/users` pages. Flipping "Require sign-in" on reveals the three method sections
+(Local / Microsoft Entra ID / Active Directory), each with its own enable toggle and
+inline configuration, plus a Users table underneath for managing accounts once any
+method is enabled.
+
+**Upgrading an existing deployment stays protected.** The opt-in default only applies to
+a genuinely *fresh* database with zero users in it. If you're upgrading a Flare instance
+that already has accounts, the migration that introduces this switch seeds it as
+`Enabled = true` for you — auth stays required exactly as it already was; nothing opens
+up silently on upgrade.
+
+### How this is enforced
+
+A single global flag, `AuthSettings.Enabled`, is read by
+`ConditionalAuthorizationMiddlewareResultHandler` (`Flare.Api/Auth/`) — a thin wrapper
+around ASP.NET Core's own `AuthorizationMiddlewareResultHandler`. When the flag is
+`false`, it short-circuits *every* authorization check in the app (all of
+`RequireAuthorization()`/`RequireMember`/`RequireAdmin` across every endpoint group) to
+succeed unconditionally. When `true`, it delegates to the framework's default handler
+exactly as before. This is the one choke point that makes "off by default" possible
+without touching any of the individual endpoint files.
+
+Within that, **Local sign-in has its own enable flag** (`LocalEnabled`), independent of
+the three method-specific ones described below — so all three methods (Local / Entra /
+Active Directory) are turned on and configured the same, symmetrical way. An org fully
+migrated to SSO can eventually turn local password login off entirely, same as any other
+method.
+
+**Methods coexist, not exclusive.** Local, Entra ID, and Active Directory can all be
+enabled at once. This is a deliberate choice, not an accident of implementation: an
+exclusive single-method design risks a real lockout — if an Entra/AD group→role mapping
+is misconfigured and nobody ends up `Admin`, there's no way in — while coexistence keeps
+a local "break-glass" Admin path available even when SSO/AD is the day-to-day method.
+
+## The `/auth` page
+
+Everything auth-related lives on one Admin-only page (reachable to anyone while
+authentication is off, same as every other page):
+
+1. **Authentication** — the umbrella "Require sign-in" switch and the `Local
+   username/password` toggle sit together at the top. Off → an explanatory blurb, and
+   everything below is inert. On → the three method sections below become the live
+   configuration surface.
+2. **Microsoft Entra ID** and **Active Directory** — each section's own enable toggle
+   plus inline configuration form (see their dedicated sections below). Settings save
+   independently per section.
+3. **Users** — every account (Local, Entra, and Active Directory alike), with role and
+   enable/disable controls, shown once any method is on. This is the same table that used
+   to live at a separate `/users` route — it's just folded into this page now.
+
+`/setup`, `/security`, and `/users` no longer exist as separate routes; `/auth` replaces
+all three.
 
 ## First run
 
-The first time a Flare instance starts with no users yet, the dashboard sends you to
-`/setup` instead of `/login` to create the first account, which is always `Admin`. From
-then on, `/login` is where everyone signs in — there's no further "setup mode."
+The **first** Local account you create — from the "Local" section on `/auth` once you've
+turned authentication on — is always `Admin`, whether that happens on a brand-new
+instance or one that's had auth on from the start. There's no separate "setup mode"
+beyond that: once at least one Local account exists, sign-in works the normal way.
 
 ## Roles
 
@@ -37,12 +101,13 @@ Sessions default to a 14-day fixed expiry (`Auth:SessionLifetime`), no sliding w
 
 ## Where accounts live
 
-Users, sessions, and ingest API keys are stored in an **embedded SQLite file** — not a
-separate database container. This was a deliberate choice: Flare already runs ClickHouse
-(log storage) and Redis (the ingest buffer) as backing services, and adding a third
-database container for what's a handful of small, low-write tables wasn't worth the
-extra resource footprint. Seq (a similar self-hosted, single-binary tool) is the
-reference point — it keeps its own config/identity out of a separate database server too.
+Users, sessions, ingest API keys, and all auth settings (the global switch, Entra config,
+LDAP config) are stored in an **embedded SQLite file** — not a separate database
+container. This was a deliberate choice: Flare already runs ClickHouse (log storage) and
+Redis (the ingest buffer) as backing services, and adding a third database container for
+what's a handful of small, low-write tables wasn't worth the extra resource footprint.
+Seq (a similar self-hosted, single-binary tool) is the reference point — it keeps its own
+config/identity out of a separate database server too.
 
 **Trade-off, stated plainly:** this means `Flare.Api` can only run as a single replica.
 SQLite doesn't support multiple processes writing to the same file across a network
@@ -50,9 +115,10 @@ filesystem safely, and Flare's SQLite file lives on a local volume (`identity-da
 `docker-compose.yml`, `.data/identity/` for local Aspire dev), not something horizontally
 scaled replicas could safely share. This is a real constraint if the (currently
 unscheduled) Kubernetes/Helm roadmap item ever lands and you want to run more than one
-`Flare.Api` pod. If that day comes, migrating the four small tables here
-(`Users`/`Sessions`/`IngestApiKeys`/`schema_migrations`) to Postgres is a contained,
-mechanical follow-up — not a rewrite of anything in this document.
+`Flare.Api` pod. If that day comes, migrating the tables here (`Users`/`Sessions`/
+`IngestApiKeys`/`AuthSettings`/`EntraSettings`/`LdapSettings`/`schema_migrations`) to
+Postgres is a contained, mechanical follow-up — not a rewrite of anything in this
+document.
 
 `Flare.Ingest` shares the same SQLite file (read-mostly, just checking ingest API key
 hashes) — both processes point at it via `Identity__DbPath`.
@@ -77,6 +143,8 @@ collectors/exporters are actually operated (one or a few shared keys per environ
   an existing deployment doesn't suddenly reject every logger pointed at it. Create at
   least one key, update your exporters to send it, *then* flip
   `Auth:IngestKeyRequired=true` once you're ready to stop accepting anonymous ingest.
+  This flag is independent of the dashboard's own "Require sign-in" switch above —
+  ingest enforcement and dashboard/API-user auth are two separate gates.
 - **A second, config-driven mechanism exists for automation:** `Auth:StaticIngestApiKey`
   is a fixed key set via configuration instead of the dashboard, valid alongside (not
   instead of) any keys created through the UI. This is what `Flare.AppHost` (local dev)
@@ -88,8 +156,8 @@ collectors/exporters are actually operated (one or a few shared keys per environ
 
 ## Microsoft Entra ID (SSO)
 
-Local username/password and Entra ID coexist — no deployment is forced to choose.
-Authentication is wired through ASP.NET Core's standard multi-scheme
+Local username/password, Entra ID, and Active Directory all coexist — no deployment is
+forced to choose. Authentication is wired through ASP.NET Core's standard multi-scheme
 `AddAuthentication()` model: the cookie scheme
 (`Flare.Identity.Auth.SessionAuthenticationHandler`, registered as `FlareSession`) stays
 the *only* scheme any endpoint's `RequireAuthorization()` ever actually resolves a
@@ -101,14 +169,14 @@ zero changes to support it.
 `common`/`organizations` — letting any Entra org's users reach a self-hosted internal
 tool's login is the wrong default.
 
-**Configured per-instance, through the dashboard - not config files.** Each self-hosted
+**Configured per-instance, through the dashboard — not config files.** Each self-hosted
 Flare operator creates their own Entra App Registration (see "App Registration setup"
 below) and pastes the resulting Tenant ID/Client ID/client secret into the Admin-only
-**Security** screen (`/security` in the dashboard), the same way Seq's own Security
-settings page works. There's no `Auth:Entra:TenantId`/`ClientId`/`ClientSecret` in
-config/`.env`/docker-compose to set - the database is the only place these live.
+**`/auth`** page's Microsoft Entra ID section, the same way Seq's own Security settings
+page works. There's no `Auth:Entra:TenantId`/`ClientId`/`ClientSecret` in
+config/`.env`/docker-compose to set — the database is the only place these live.
 Settings changes take effect after restarting `Flare.Api` (`docker compose restart api`,
-or an `aspire resource restart` in local dev) - not live, by design; see
+or an `aspire resource restart` in local dev) — not live, by design; see
 `EntraOpenIdConnectOptionsConfigurator`'s remarks in `Flare.Api/Auth/` for why that's a
 deliberate simplicity/risk trade-off, not a limitation anyone's expected to work around.
 
@@ -141,25 +209,24 @@ Entra ID **App Roles** are the role source, matched by name against Flare's own
 3. On that person's **first** sign-in, Flare reads the token's `roles` claim and picks
    the highest-privilege match (`Admin` > `Member` > `Viewer`). No App Role assigned (or
    App Roles not configured on the registration at all) provisions
-   `Auth:Entra:DefaultRole` instead (still config-bound, unlike the four values above -
-   the Security screen doesn't configure a role-mapping fallback either) — `Viewer`
+   `Auth:Entra:DefaultRole` instead (still config-bound, unlike the four values above —
+   the `/auth` page doesn't configure a role-mapping fallback either) — `Viewer`
    unless you've overridden it.
 4. **Role changes after that live in Flare, not Entra.** Continuously re-reading the
-   `roles` claim on every login would make the Users screen's own role control
+   `roles` claim on every login would make the Users table's own role control
    meaningless for SSO accounts — see "Managing users" below to promote/demote an
    Entra-provisioned account exactly like a local one.
 
-A disabled account (local or Entra) can't sign in either way — an Entra sign-in for a
-disabled account bounces back to `/login?error=account-disabled` instead of getting a
-session.
+A disabled account (any provider) can't sign in — an Entra sign-in for a disabled
+account bounces back to `/login?error=account-disabled` instead of getting a session.
 
 ### App Registration setup (Azure Portal)
 
 1. **Entra ID → App registrations → New registration.** Single tenant
    ("Accounts in this organizational directory only").
-2. **Redirect URI**: platform "Web". No chicken-and-egg problem here - sign in to Flare
+2. **Redirect URI**: platform "Web". No chicken-and-egg problem here — sign in to Flare
    with your existing local username/password Admin account (see "First run" above) and
-   open `/security`; it displays the *exact* redirect URI to paste here, computed from
+   open `/auth`; it displays the *exact* redirect URI to paste here, computed from
    whatever host/port you're actually reaching Flare.Api on, so you don't have to work it
    out by hand. For a local `docker compose up` this is
    `http://localhost:8080/signin-oidc` by default; use `https://` once this is reachable
@@ -170,9 +237,9 @@ session.
    assigned one, **Enterprise applications → your app → Users and groups**.
 5. Note the **Application (client) ID** and **Directory (tenant) ID** from the
    registration's Overview page.
-6. Back in Flare's `/security` screen: paste the Directory (tenant) ID, Application
-   (client) ID, and client secret, flip **Enabled** on, and Save. Restart `Flare.Api`
-   (`docker compose restart api`) for it to take effect.
+6. Back in Flare's `/auth` page, Microsoft Entra ID section: paste the Directory (tenant)
+   ID, Application (client) ID, and client secret, flip **Enabled** on, and Save. Restart
+   `Flare.Api` (`docker compose restart api`) for it to take effect.
 
 **HTTPS caveat:** the correlation cookies ASP.NET Core's OIDC handler sets during the
 redirect round-trip to Microsoft need to survive a cross-site navigation, which browsers
@@ -181,16 +248,131 @@ this, which is why local dev works). Any real deployment reachable beyond your o
 machine needs to be behind HTTPS for Entra ID sign-in to work, same as it already should
 be for `Auth:CookieSecure`.
 
-### Managing users
+## Active Directory (LDAP)
 
-`Admin`-only, at `/users` in the dashboard (`GET`/`PATCH /api/users/*` in the API) —
-list every account (local and Entra alike), change a role, or enable/disable an account.
-This is also where you promote a newly-auto-provisioned Entra account past its initial
-role, or disable one without waiting for someone to remove their Entra App Role
-assignment. Flare refuses to demote or disable the **last enabled Admin** — that would
-be a lockout recoverable only by editing the SQLite file directly. A separate Admin-only
-page, `/security`, is where the Entra App Registration itself gets configured - see
-above.
+Sign in against an existing Active Directory (or AD-compatible — e.g. Samba AD, or a
+generic LDAP directory laid out similarly) domain, without Flare or its container being
+domain-joined. This uses **LDAP/LDAPS bind from Flare's own login form** — not Windows
+Integrated Auth/Kerberos SSO, which would require the `Flare.Api` container itself to be
+domain-joined and only works for domain-joined Windows clients reaching Flare on the same
+network. A network-reachable LDAP/LDAPS endpoint on your domain controller is all this
+needs.
+
+**Configured per-instance, through the dashboard**, same as Entra ID above — the
+Active Directory section on `/auth`, Admin-only. No `Auth:Ldap:*` configuration keys
+exist; `Host`/`Port`/`BaseDn`/`BindDn`/`BindPassword`/the three group DNs/`DefaultRole`
+all live in the database, set via that form.
+
+**No restart required, unlike Entra ID.** LDAP auth registers no ASP.NET Core
+authentication *scheme* — each login attempt reads the current LDAP settings fresh from
+SQLite and opens a plain LDAP connection imperatively. Settings changes (including
+flipping Enabled) apply on the very next login attempt.
+
+### How it works
+
+1. The dashboard's login page shows a segmented **Local / Active Directory** toggle
+   (shown only when both are enabled — see "The `/auth` page" above) sharing one
+   username/password form; switching just changes which endpoint the form submits to.
+2. `POST /api/auth/ldap/login` first binds to the directory as the configured **service
+   account** (`BindDn`/`BindPassword`). A bind/connection failure here — wrong service
+   account credentials, unreachable server, network/firewall issue — returns **`502`**,
+   distinct from a wrong-password `401`, so a broken Flare-side LDAP config isn't
+   mistaken for "everyone's password is suddenly wrong."
+3. Still bound as the service account, Flare searches `BaseDn` using
+   `UserSearchFilter` with the submitted username substituted in (default
+   `(&(objectClass=user)(sAMAccountName={0}))` — AD's own convention; override this in
+   the Advanced section for a differently-shaped directory, e.g. OpenLDAP's
+   `(&(objectClass=inetOrgPerson)(uid={0}))`). The username is escaped per RFC 4515
+   before being interpolated into the filter — the LDAP-injection equivalent of this
+   repo's parameterized SQL/ClickHouse queries elsewhere. No match → a generic **`401`**
+   (Flare deliberately doesn't distinguish "no such user" from "wrong password," same
+   anti-enumeration stance as local login).
+4. Flare **re-binds as the found user's DN** with the password actually submitted at
+   login, on a fresh connection — this, not the service-account bind, is what actually
+   verifies the password. Failure → `401`.
+5. On success, Flare reads `UniqueIdAttribute` (default `objectGUID`, AD's own binary
+   unique identifier — override to `entryUUID` for OpenLDAP-style directories, which use
+   a string instead) as the account's stable `ExternalId`, and `memberOf` to resolve a
+   role (see "Role provisioning" below). `Users.AuthProvider = 'ActiveDirectory'`,
+   `Users.ExternalId = <that id>` — first-ever login for that identity creates the row;
+   every login after that signs in as the existing row, role unchanged, exactly like
+   Entra ID's provisioning above.
+6. A disabled account gets the same generic `401` as a wrong password — no special-case
+   redirect banner is needed here, unlike Entra ID's OIDC redirect flow, since this is a
+   plain POST/JSON form.
+7. A normal `flare_session` cookie is minted — same mechanism as any other sign-in
+   method.
+
+### Role provisioning
+
+Unlike Entra ID's App Roles, AD's native concept is **group membership** — so role
+mapping is three optional group DNs configured directly in the Active Directory section:
+**Admin group DN**, **Member group DN**, **Viewer group DN**. On first sign-in, Flare
+checks the directory's `memberOf` attribute against each in turn (`Admin` > `Member` >
+`Viewer` — highest-privilege match wins if someone is in more than one). Not a member of
+any of the three → **Default role** (configured right below them in the same form,
+`Viewer` unless changed).
+
+**Only direct group membership is resolved** — nested group membership (a user in a
+group that's itself a member of one of the three configured groups) is *not* resolved.
+Real AD supports this via the `LDAP_MATCHING_RULE_IN_CHAIN` matching rule; Flare doesn't
+implement it. If your role-mapping groups rely on nested membership today, either flatten
+membership for the relevant users/groups, or expect them to land on the Default role
+until you do.
+
+**Role changes after first sign-in live in Flare, not AD** — same as Entra ID; promote,
+demote, or disable an AD-provisioned account from the Users table on `/auth`, same as any
+other account.
+
+### Setup walkthrough
+
+1. On `/auth`, in the Active Directory section, fill in:
+   - **Host** / **Port** — your domain controller's address. Defaults to port 636
+     (LDAPS).
+   - **Use LDAPS (TLS)** — on by default; leave it on for anything beyond a throwaway
+     test directory (see the TLS caveat below).
+   - **Base DN** — the search root, e.g. `DC=corp,DC=example,DC=com`.
+   - **Bind DN (service account)** / **Bind password** — a directory account with
+     read access to search for users under the Base DN. Doesn't need to be an Admin
+     account in AD itself, just read access.
+   - **Admin / Member / Viewer group DN** (optional) and **Default role** — see "Role
+     provisioning" above.
+   - **Advanced** (collapsed by default) — override **User search filter** or **Unique
+     ID attribute** only if you're pointing this at something other than a standard AD
+     layout (e.g. OpenLDAP).
+2. Flip **Enabled** on and **Save**. The bind password is never echoed back once saved —
+   leave that field blank on a later edit to keep the currently-saved value, same
+   convention as the Entra ID client secret field.
+3. Sign out and confirm the "Active Directory" option now appears next to "Local" on the
+   login page; sign in with a real directory account to confirm end-to-end.
+
+### Known limitations, stated plainly
+
+- **TLS certificate validation relies on the container/host's own OS trust store.** If
+  your domain controller's certificate is signed by a private/internal CA, that CA needs
+  to be trusted by the machine `Flare.Api` runs on (or its container image) — there's no
+  in-app certificate-pinning UI.
+- **Nested AD group membership isn't resolved** (see "Role provisioning" above).
+- **Built and named for Microsoft AD / AD-compatible directories**, not generic
+  arbitrary-LDAP-server support — though the Advanced overrides (search filter, unique ID
+  attribute) are flexible enough to point this at a plain OpenLDAP directory too, as this
+  feature's own verification testing did.
+- **Linux containers need the native LDAP client library installed.**
+  `System.DirectoryServices.Protocols` (the .NET LDAP client Flare uses) is a P/Invoke
+  wrapper over the OS's own OpenLDAP client on Linux, not a pure-managed implementation —
+  Flare's own `Flare.Api` Docker image already installs this (`libldap2`), but a
+  custom/non-Docker deployment on Linux needs it present too, or every LDAP login attempt
+  fails with an unhandled error instead of a clean 401/502.
+
+## Managing users
+
+`Admin`-only, in the Users section of the `/auth` page (`GET`/`PATCH /api/users/*` in
+the API) — list every account (Local, Entra, and Active Directory alike), change a role,
+or enable/disable an account. This is also where you promote a newly-auto-provisioned
+Entra or Active Directory account past its initial role, or disable one without waiting
+for someone to remove their group/App Role assignment upstream. Flare refuses to demote
+or disable the **last enabled Admin** — that would be a lockout recoverable only by
+editing the SQLite file directly.
 
 ## Configuration reference
 
@@ -204,7 +386,13 @@ above.
 | `Auth:IngestKeyRequired` | `false` | Whether `Flare.Ingest` rejects OTLP requests with no valid API key. |
 | `Auth:StaticIngestApiKey` | unset | A fixed ingest key set via config instead of the dashboard — see "Ingest API keys" above. |
 | `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. Also doubles as the Entra login `returnUrl` allow-list. |
-| `Auth:Entra:DefaultRole` | `Viewer` | Role assigned on first login when the token carries no recognized `roles` claim entry. The one Entra-related setting that's still config-bound - `Enabled`/`TenantId`/`ClientId`/`ClientSecret` live in the database instead, set via the dashboard's `/security` screen (Admin-only, `GET`/`PUT /api/settings/entra`) - see "Configured per-instance, through the dashboard" above. |
+| `Auth:Entra:DefaultRole` | `Viewer` | Role assigned on first login when the token carries no recognized `roles` claim entry. The one Entra-related setting that's still config-bound — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` live in the database instead, set via the `/auth` page (Admin-only, `GET`/`PUT /api/settings/entra`) — see "Configured per-instance, through the dashboard" above. |
+
+Note that the global "Require sign-in" switch, `LocalEnabled`, and every Active Directory
+setting (`Host`/`Port`/`BaseDn`/`BindDn`/`BindPassword`/group DNs/`DefaultRole`/etc.) have
+**no configuration-file equivalent at all** — they're exclusively set through `/auth`
+(`GET`/`PUT /api/settings/auth`, `GET`/`PUT /api/settings/ldap`), same reasoning as
+Entra ID's per-instance dashboard configuration above.
 
 ## Backups
 

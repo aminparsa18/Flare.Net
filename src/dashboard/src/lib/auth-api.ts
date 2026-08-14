@@ -8,7 +8,7 @@ import { API_BASE_URL, apiFetch } from './api';
 
 export type UserRole = 'Admin' | 'Member' | 'Viewer';
 
-export type AuthProvider = 'Local' | 'Entra';
+export type AuthProvider = 'Local' | 'Entra' | 'ActiveDirectory';
 
 export interface AuthUser {
 	id: string;
@@ -18,12 +18,21 @@ export interface AuthUser {
 }
 
 export interface BootstrapStatusResponse {
+	/** The global switch (opt-in auth - see docs/auth.md). False means every endpoint is
+	 * open to anyone - `+layout.svelte`'s route guard skips the whole login/setup
+	 * redirect dance entirely when this is false. */
+	authEnabled: boolean;
 	needsBootstrap: boolean;
-	/** Whether Flare.Api has Auth:Entra:Enabled=true - gates the "Sign in with
-	 * Microsoft" button on /login (see EntraAuthEndpoints.HandleLoginAsync, which
-	 * itself 404s when this is false - the button check is a UX nicety on top of that,
-	 * not the actual enforcement). */
+	localEnabled: boolean;
+	/** Whether Entra ID is configured+enabled - gates the "Sign in with Microsoft"
+	 * button on /login (see EntraAuthEndpoints.HandleLoginAsync, which itself 404s when
+	 * this is false - the button check is a UX nicety on top of that, not the actual
+	 * enforcement). */
 	entraEnabled: boolean;
+	/** Whether Active Directory is configured+enabled - gates the "Active Directory"
+	 * sign-in option on /login the same way `entraEnabled` gates the Microsoft button
+	 * (see LdapAuthEndpoints.HandleLoginAsync's own disabled-gate 404). */
+	ldapEnabled: boolean;
 }
 
 /** `GET /api/auth/bootstrap/status` - decides whether `+layout.svelte`'s route guard sends an unauthenticated visitor to `/setup` or `/login`. */
@@ -63,6 +72,31 @@ export async function login(username: string, password: string): Promise<AuthUse
 	}
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/login failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
+}
+
+/** `POST /api/auth/ldap/login` - same shape/semantics as `login` above (including the
+ * generic 401 message, mirroring LdapAuthEndpoints' own anti-enumeration stance), just a
+ * different endpoint and credential set (the AD account, not the local one). A 502
+ * (LdapAuthEndpoints' distinct "could not reach the LDAP server" response, a Flare-side
+ * config problem rather than a wrong password) gets its own message so an Admin
+ * debugging a broken Active Directory config isn't misled into thinking every login is
+ * a bad password. */
+export async function loginLdap(username: string, password: string): Promise<AuthUser> {
+	const res = await apiFetch(`${API_BASE_URL}/api/auth/ldap/login`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ username, password })
+	});
+	if (res.status === 401) {
+		throw new Error('Incorrect username or password.');
+	}
+	if (res.status === 502) {
+		throw new Error('Could not reach the Active Directory server. Contact an Admin.');
+	}
+	if (!res.ok) {
+		throw new Error(`POST /api/auth/ldap/login failed: ${res.status} ${res.statusText}`);
 	}
 	return res.json();
 }

@@ -31,6 +31,8 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<ISessionStore, SqliteSessionStore>();
         builder.Services.AddSingleton<IIngestApiKeyStore, SqliteIngestApiKeyStore>();
         builder.Services.AddSingleton<IEntraSettingsStore, SqliteEntraSettingsStore>();
+        builder.Services.AddSingleton<IAuthSettingsStore, SqliteAuthSettingsStore>();
+        builder.Services.AddSingleton<ILdapSettingsStore, SqliteLdapSettingsStore>();
         return builder;
     }
 
