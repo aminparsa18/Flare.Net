@@ -232,6 +232,56 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 (`flare` is the compose-default ClickHouse password — see
 [.env.example](../.env.example) if you changed it.)
 
+## Resources page (optional Docker access)
+
+The dashboard's **Resources** page shows Flare's own containers (ClickHouse, Redis,
+ingest, api, dashboard) as a live graph — state, health, URLs, and the relationships
+between them — sourced from the Docker Engine API. **This is off by default** and
+requires two explicit opt-ins, because it means `flare-api` gaining a form of Docker
+access:
+
+1. A `.env` line enabling the feature at the app level:
+   ```
+   FLARE_DOCKER_PROXY_URL=http://docker-proxy:2375
+   ```
+2. A `.env` line (or `COMPOSE_PROFILES=resource-graph` on the command line) telling
+   Compose to actually start the proxy container the above URL points at — Compose
+   reads `COMPOSE_PROFILES` from `.env` automatically, no `--profile` flag needed:
+   ```
+   COMPOSE_PROFILES=resource-graph
+   ```
+
+With neither set, `docker compose up` behaves exactly as before — no extra container,
+`flare-api` never talks to Docker at all, and the Resources page shows a plain "not
+enabled" state rather than an error.
+
+**Why two knobs, and why not `/var/run/docker.sock` straight into `flare-api`:** raw
+Docker socket access is effectively root-equivalent access to the whole host — start,
+stop, or inspect *any* container, read *any* container's environment variables/secrets,
+real container-escape potential in some configurations. Mounting it directly into
+`flare-api` (a network-facing service, unlike a one-off CLI script) would be a
+meaningfully worse security posture than this repo is comfortable defaulting anyone
+into, silently or otherwise. Instead, `docker-proxy` (the well-known
+[`tecnativa/docker-socket-proxy`](https://github.com/Tecnativa/docker-socket-proxy)
+image) sits between them: it's the only thing that ever mounts the real socket
+(read-only), and it's configured with `CONTAINERS=1` and nothing else — meaning it only
+answers container *list*/*inspect* calls. `POST=0` on top of that blocks every mutating
+endpoint outright (no start/stop/create/kill/exec), and there's no `EXEC`, `IMAGES`,
+`VOLUMES`, `NETWORKS`, or `BUILD` env var set either, so those endpoints aren't even
+reachable through it. `flare-api` never sees `/var/run/docker.sock` at all — only
+`docker-proxy`'s scoped HTTP endpoint, and only on the internal compose network (no
+published host port).
+
+Same "no working default because the tradeoff is real" spirit as this repo's other
+security-sensitive defaults (see `Program.cs`'s CORS comment: *"v1 has no auth story
+anywhere yet... Revisit once auth lands"*) — this isn't a fully-mitigated feature so
+much as a scoped-as-tightly-as-practical one, and it's opt-in specifically so nobody
+gets it without deciding to.
+
+If you're running Flare from a consumer Aspire AppHost instead of `docker compose up`,
+see [`docs/aspire-hosting.md`](aspire-hosting.md#resources-page-optional-docker-access)
+for the equivalent `enableResourceGraph` parameter.
+
 ## Using HTTP instead of gRPC
 
 Every snippet above defaults to gRPC (`:4317`), matching each library's own default.

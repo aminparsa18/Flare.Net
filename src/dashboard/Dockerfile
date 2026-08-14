@@ -31,4 +31,10 @@ COPY --from=build /app/package.json ./package.json
 ENV PORT=3000
 EXPOSE 3000
 
+# Same reasoning as Flare.Api/Dockerfile's HEALTHCHECK comment - baked in here too so
+# `.State.Health` is populated regardless of orchestrator, matching Aspire's own
+# .WithHttpHealthCheck("/") for this resource. No bash/`/dev/tcp` trick needed here:
+# node:22-alpine's busybox includes wget, unlike the .NET images above.
+HEALTHCHECK --interval=5s --timeout=5s --retries=20 CMD wget -q --spider http://127.0.0.1:3000/ || exit 1
+
 ENTRYPOINT ["node", "build/index.js"]

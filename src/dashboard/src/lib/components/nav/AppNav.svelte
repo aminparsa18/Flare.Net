@@ -36,6 +36,7 @@
 			{ href: '/ingestion', label: 'Ingestion' },
 			{ href: '/indexing', label: 'Indexing' },
 			{ href: '/alerts', label: 'Alerts' },
+			{ href: '/resources', label: 'Resources' },
 			{ href: '/views', label: 'Views' },
 			...(!auth.authEnabled || auth.currentUser?.role === 'Admin' ? [{ href: '/auth', label: 'Auth' }] : [])
 		]
