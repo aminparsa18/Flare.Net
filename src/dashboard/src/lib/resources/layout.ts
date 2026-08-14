@@ -3,8 +3,7 @@
 // used before (see docs/prompts/docker-resources-graph-prompt.md).
 
 import dagre from '@dagrejs/dagre';
-import { Position, type Edge } from '@xyflow/svelte';
-import type { FlareResourceNode } from './types';
+import { Position, type Edge, type Node } from '@xyflow/svelte';
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 92;
@@ -14,8 +13,12 @@ const NODE_HEIGHT = 92;
  * `ResourceGraph.svelte` receives a fresh snapshot (every poller tick, ~3s) rather than
  * preserving any user-dragged positions across ticks - simplest correct thing for a graph
  * this small that re-arranges its own node/edge set on every tick anyway.
+ *
+ * Generic over the node type - dagre only ever needs `.id`, so this lays out
+ * `FlareResourceNode`s and `FlareProducerNode`s mixed together in one call from
+ * `ResourceGraph.svelte`, same as SvelteFlow itself treats them as one node array.
  */
-export function layoutGraph(nodes: FlareResourceNode[], edges: Edge[]): FlareResourceNode[] {
+export function layoutGraph<T extends Node>(nodes: T[], edges: Edge[]): T[] {
 	const graph = new dagre.graphlib.Graph();
 	graph.setGraph({ rankdir: 'LR', nodesep: 32, ranksep: 96 });
 	graph.setDefaultEdgeLabel(() => ({}));

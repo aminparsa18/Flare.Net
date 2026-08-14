@@ -64,21 +64,45 @@ public sealed record ResourceNodeDto
 }
 
 /// <summary>
-/// One Flare-authored relationship between two roles, parsed from the referencing
-/// container's <c>flare.relationships</c> label (e.g. <c>"clickhouse:Reference,redis:Reference"</c>
-/// on <c>ingest</c> yields two edges with <see cref="SourceRole"/> <c>"ingest"</c>). Not
-/// derived from Docker Compose's <c>depends_on</c> or Aspire's own relationship graph -
-/// neither is readable from the Docker Engine API at runtime, see
-/// <c>docs/prompts/docker-resources-graph-prompt.md</c>.
+/// One relationship edge between two graph nodes. Two distinct sources feed this list
+/// (see <c>DockerResources.DockerContainerPoller</c>'s remarks): Flare-authored
+/// <c>flare.relationships</c> container labels (e.g. <c>"clickhouse:Reference,redis:Reference"</c>
+/// on <c>ingest</c> yields two edges with <see cref="SourceRole"/> <c>"ingest"</c> -
+/// not derived from Docker Compose's <c>depends_on</c> or Aspire's own relationship
+/// graph, neither of which is readable from the Docker Engine API at runtime, see
+/// <c>docs/prompts/docker-resources-graph-prompt.md</c>), and the producer-services
+/// overlay (a <see cref="ProducerServiceDto.Id"/> referencing <c>"ingest"</c>, for every
+/// service observed sending it telemetry).
 /// </summary>
 public sealed record ResourceEdgeDto
 {
+    /// <summary>Despite the name, any graph node id - a Docker <c>flare.role</c> value (<see cref="ResourceNodeDto.Role"/>) or a producer's <see cref="ProducerServiceDto.Id"/>. Kept as "Role" rather than renamed to "Id" since every Docker-sourced edge (the common case) is genuinely role-to-role.</summary>
     public required string SourceRole { get; init; }
 
+    /// <summary>See <see cref="SourceRole"/>'s remarks - same "any node id" meaning.</summary>
     public required string TargetRole { get; init; }
 
-    /// <summary>Free-form relationship type from the label value (e.g. <c>"Reference"</c>) - not a closed enum, since new relationship kinds shouldn't need a Flare.Api code change to show up.</summary>
+    /// <summary>Free-form relationship type (e.g. <c>"Reference"</c> from a label, or <c>"Producer"</c> from the telemetry overlay) - not a closed enum, since new relationship kinds shouldn't need a Flare.Api code change to show up.</summary>
     public required string RelationshipType { get; init; }
+}
+
+/// <summary>
+/// One service observed sending telemetry into <c>ingest</c> recently - sourced from
+/// ClickHouse (<see cref="Query.ILogQueryService.GetActiveServiceNamesAsync"/>), not
+/// Docker. Distinct from <see cref="ResourceNodeDto"/> on purpose: a producer isn't a
+/// container Flare manages (it may not be a container at all - see
+/// <c>DockerResources.DockerContainerPoller</c>'s remarks for the motivating case, a
+/// consumer's own <c>AddProject</c> resource with no Docker footprint whatsoever), so it
+/// has no image/state/health/urls to report.
+/// </summary>
+public sealed record ProducerServiceDto
+{
+    /// <summary><c>"service:" + </c><see cref="ServiceName"/> - namespaced so a producer can never collide with a Docker <see cref="ResourceNodeDto.Role"/> value (e.g. a producer literally named <c>"api"</c>).</summary>
+    public required string Id { get; init; }
+
+    public required string ServiceName { get; init; }
+
+    public required DateTimeOffset LastSeenAt { get; init; }
 }
 
 /// <summary>
@@ -105,6 +129,9 @@ public sealed record ResourceGraphSnapshot
     public IReadOnlyList<ResourceNodeDto> Nodes { get; init; } = [];
 
     public IReadOnlyList<ResourceEdgeDto> Edges { get; init; } = [];
+
+    /// <summary>Producer-services overlay (see <see cref="ProducerServiceDto"/>) - always empty when <see cref="Available"/> is <see langword="false"/>, and best-effort even when it's <see langword="true"/> (a ClickHouse query failure here doesn't take down <see cref="Nodes"/>/<see cref="Edges"/> - see <c>DockerResources.DockerContainerPoller</c>'s remarks).</summary>
+    public IReadOnlyList<ProducerServiceDto> Producers { get; init; } = [];
 
     /// <summary><see langword="null"/> until the first successful poll completes.</summary>
     public DateTimeOffset? UpdatedAt { get; init; }

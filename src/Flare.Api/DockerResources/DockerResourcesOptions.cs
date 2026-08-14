@@ -33,4 +33,12 @@ public sealed class DockerResourcesOptions
     /// for why this polls instead of consuming Docker's <c>/events</c> stream.
     /// </summary>
     public TimeSpan PollDelay { get; set; } = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// How far back to look for "recently active" producer services (see
+    /// <see cref="DockerContainerPoller"/>'s producer-overlay remarks) - a service with no
+    /// log event inside this window drops off the graph on the next poll tick, same
+    /// "live topology, not history" spirit as everything else on this page.
+    /// </summary>
+    public TimeSpan ProducerActivityWindow { get; set; } = TimeSpan.FromMinutes(5);
 }

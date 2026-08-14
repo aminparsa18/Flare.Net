@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Flare.Api.Model;
+using Flare.Api.Query;
 using Microsoft.Extensions.Options;
 
 namespace Flare.Api.DockerResources;
@@ -15,6 +16,7 @@ namespace Flare.Api.DockerResources;
 /// for <see cref="ExecuteAsync"/> - wired in <c>Program.cs</c>).
 /// </summary>
 /// <remarks>
+/// <para>
 /// Polls on an interval rather than consuming Docker's <c>/events</c> stream -
 /// <c>LogTailBroadcaster</c> itself polls Redis rather than using pub/sub, and five
 /// containers polled every few seconds is cheap; decoding Docker's chunked <c>/events</c>
@@ -23,9 +25,23 @@ namespace Flare.Api.DockerResources;
 /// doesn't return structured <c>.State.Health</c>), and broadcasts the *whole* computed
 /// snapshot - not a diff - since the graph is small enough that "send everything, every
 /// tick" is simpler and cheap enough to just be correct.
+/// </para>
+/// <para>
+/// Each tick also layers on a second, independent data source: <see cref="ProducerServiceDto"/>
+/// nodes for every service that's actually sent telemetry into <c>ingest</c> recently
+/// (via <see cref="ILogQueryService.GetActiveServiceNamesAsync"/>, ClickHouse - not
+/// Docker), with an edge into the <c>"ingest"</c> role. This matters because a real
+/// producer isn't always a Docker container at all - e.g. a consumer's own
+/// <c>AddProject</c> resource under Aspire's dev-loop runs as a plain <c>dotnet</c>
+/// process, invisible to the Docker Engine API no matter how broadly Docker-label
+/// discovery is widened. The two sources are independently fallible: a ClickHouse
+/// failure here only drops the producer overlay for that tick (caught separately in
+/// <see cref="PollOnceAsync"/>), never the Docker-sourced nodes/edges.
+/// </para>
 /// </remarks>
 public sealed class DockerContainerPoller(
     DockerEngineClient dockerEngineClient,
+    ILogQueryService logQueryService,
     IOptions<DockerResourcesOptions> options,
     TimeProvider timeProvider,
     ILogger<DockerContainerPoller> logger) : BackgroundService
@@ -91,6 +107,7 @@ public sealed class DockerContainerPoller(
 
     private async Task PollOnceAsync(CancellationToken cancellationToken)
     {
+        ResourceGraphSnapshot snapshot;
         try
         {
             var ids = await dockerEngineClient.ListFlareContainerIdsAsync(cancellationToken);
@@ -104,23 +121,43 @@ public sealed class DockerContainerPoller(
                 }
             }
 
-            Publish(BuildSnapshot(containers, timeProvider));
+            snapshot = BuildSnapshot(containers, timeProvider);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // A configured-but-unreachable proxy is deliberately NOT the same as
             // "not enabled" - Available stays true (config exists), just with no nodes and
             // a reason a human can act on, so the dashboard can tell "off" apart from
-            // "on but broken." See ResourceGraphSnapshot.Available's remarks.
+            // "on but broken." See ResourceGraphSnapshot.Available's remarks. No producer
+            // overlay attempted below when the Docker side itself failed - there'd be no
+            // "ingest" node for its edges to point at anyway.
             logger.LogWarning(ex, "Failed to poll Docker resources via the configured socket proxy.");
             Publish(CurrentSnapshot with
             {
                 Available = true,
                 Nodes = [],
                 Edges = [],
+                Producers = [],
                 UnavailableReason = $"Could not reach the Docker socket proxy: {ex.Message}",
             });
+            return;
         }
+
+        try
+        {
+            var active = await logQueryService.GetActiveServiceNamesAsync(options.Value.ProducerActivityWindow, cancellationToken);
+            var (producers, producerEdges) = BuildProducerOverlay(active);
+            snapshot = snapshot with { Producers = producers, Edges = [.. snapshot.Edges, .. producerEdges] };
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Independently fallible from the Docker side above - a ClickHouse hiccup
+            // just means this tick's snapshot has no producer overlay, not that the whole
+            // page breaks. See the class remarks.
+            logger.LogWarning(ex, "Failed to query active producer services for the Resources page.");
+        }
+
+        Publish(snapshot);
     }
 
     private void Publish(ResourceGraphSnapshot snapshot)
@@ -174,6 +211,31 @@ public sealed class DockerContainerPoller(
             Edges = edges,
             UpdatedAt = timeProvider.GetUtcNow(),
         };
+    }
+
+    /// <summary>
+    /// Maps active-service rows into <see cref="ProducerServiceDto"/> nodes plus one
+    /// <c>"Producer"</c>-typed edge per producer into the <c>"ingest"</c> role. Internal
+    /// (not private) for the same reason <see cref="BuildSnapshot"/> is - direct unit
+    /// testing without a fake <see cref="ILogQueryService"/>. Not filtered against
+    /// Flare's own Docker roles - see the class remarks and <c>ILogQueryService.GetActiveServiceNamesAsync</c>'s
+    /// doc comment for why a self-referential entry is possible in principle but not
+    /// expected in practice.
+    /// </summary>
+    internal static (IReadOnlyList<ProducerServiceDto> Producers, IReadOnlyList<ResourceEdgeDto> Edges) BuildProducerOverlay(
+        IReadOnlyList<ActiveService> activeServices)
+    {
+        var producers = new List<ProducerServiceDto>(activeServices.Count);
+        var edges = new List<ResourceEdgeDto>(activeServices.Count);
+
+        foreach (var service in activeServices)
+        {
+            var id = "service:" + service.ServiceName;
+            producers.Add(new ProducerServiceDto { Id = id, ServiceName = service.ServiceName, LastSeenAt = service.LastSeenAt });
+            edges.Add(new ResourceEdgeDto { SourceRole = id, TargetRole = "ingest", RelationshipType = "Producer" });
+        }
+
+        return (producers, edges);
     }
 
     /// <summary>Parses a <c>flare.relationships</c> label value (e.g. <c>"clickhouse:Reference,redis:Reference"</c>) into edges sourced from <paramref name="sourceRole"/>. Malformed entries are skipped individually, not fatal to the rest of the label.</summary>

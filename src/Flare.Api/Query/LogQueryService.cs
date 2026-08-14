@@ -9,7 +9,20 @@ public interface ILogQueryService
     Task<LogSearchResponse> SearchAsync(LogSearchRequest request, CancellationToken cancellationToken);
 
     Task<LogAggregateResponse> AggregateAsync(LogAggregateRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every distinct <c>ServiceName</c> that has logged at least one event within
+    /// <paramref name="window"/> of now, with each one's most recent event timestamp -
+    /// the data behind the Resources page's producer-services overlay (see
+    /// <see cref="DockerResources.DockerContainerPoller"/>'s remarks). Not filtered
+    /// against Flare's own container roles - see that type's remarks for why a
+    /// self-referential entry is possible in principle but not expected in practice.
+    /// </summary>
+    Task<IReadOnlyList<ActiveService>> GetActiveServiceNamesAsync(TimeSpan window, CancellationToken cancellationToken);
 }
+
+/// <summary>One row of <see cref="ILogQueryService.GetActiveServiceNamesAsync"/>'s result.</summary>
+public sealed record ActiveService(string ServiceName, DateTimeOffset LastSeenAt);
 
 /// <summary>
 /// The one component in <c>Flare.Api</c> that actually holds an
@@ -74,6 +87,21 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
         }
 
         return new LogAggregateResponse { Buckets = buckets };
+    }
+
+    public async Task<IReadOnlyList<ActiveService>> GetActiveServiceNamesAsync(TimeSpan window, CancellationToken cancellationToken)
+    {
+        var built = ActiveServicesQueryBuilder.Build(window, timeProvider.GetUtcNow());
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var services = new List<ActiveService>();
+        while (reader.Read())
+        {
+            services.Add(new ActiveService(reader.GetString(0), ReadUtc(reader, 1)));
+        }
+
+        return services;
     }
 
     private static LogEventDto ReadLogEvent(ClickHouseDataReader reader) => new()
