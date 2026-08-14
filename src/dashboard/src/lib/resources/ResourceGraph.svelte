@@ -2,26 +2,35 @@
 	import { SvelteFlow, Background, Controls, type Edge } from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 	import type { ResourceGraphSnapshot } from '$lib/api';
-	import type { FlareResourceNode } from './types';
+	import type { FlareResourceNode, FlareProducerNode } from './types';
 	import { layoutGraph } from './layout';
 	import ResourceNode from './ResourceNode.svelte';
+	import ProducerNode from './ProducerNode.svelte';
 
 	let { snapshot }: { snapshot: ResourceGraphSnapshot } = $props();
 
-	const nodeTypes = { 'flare-resource': ResourceNode };
+	const nodeTypes = { 'flare-resource': ResourceNode, 'flare-producer': ProducerNode };
 
-	// node.id is the role (e.g. "clickhouse"), not the underlying container ID - stable
-	// across polls (and matches ResourceEdgeDto.SourceRole/TargetRole), unlike the
-	// container ID, which changes across a recreate. Recomputed wholesale on every
-	// snapshot - see layoutGraph's remarks for why that's fine here.
-	let nodes = $state.raw<FlareResourceNode[]>([]);
+	// Docker-managed nodes key by role (e.g. "clickhouse"), stable across polls and
+	// matching ResourceEdgeDto.sourceRole/targetRole, unlike the underlying container ID
+	// (not stable across a recreate). Producer nodes key by ProducerServiceDto.id - already
+	// namespaced "service:<name>" server-side, so the two id spaces never collide and can
+	// be laid out/rendered as one mixed array. Recomputed wholesale on every snapshot -
+	// see layoutGraph's remarks for why that's fine here.
+	let nodes = $state.raw<(FlareResourceNode | FlareProducerNode)[]>([]);
 	let edges = $state.raw<Edge[]>([]);
 
 	$effect(() => {
-		const rawNodes: FlareResourceNode[] = snapshot.nodes.map((node) => ({
+		const resourceNodes: FlareResourceNode[] = snapshot.nodes.map((node) => ({
 			id: node.role,
 			type: 'flare-resource',
 			data: { node },
+			position: { x: 0, y: 0 }
+		}));
+		const producerNodes: FlareProducerNode[] = snapshot.producers.map((producer) => ({
+			id: producer.id,
+			type: 'flare-producer',
+			data: { producer },
 			position: { x: 0, y: 0 }
 		}));
 		const rawEdges: Edge[] = snapshot.edges.map((edge) => ({
@@ -32,7 +41,7 @@
 			animated: true
 		}));
 
-		nodes = layoutGraph(rawNodes, rawEdges);
+		nodes = layoutGraph<FlareResourceNode | FlareProducerNode>([...resourceNodes, ...producerNodes], rawEdges);
 		edges = rawEdges;
 	});
 </script>

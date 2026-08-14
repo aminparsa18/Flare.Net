@@ -245,9 +245,17 @@ export interface ResourceNodeDto {
 }
 
 export interface ResourceEdgeDto {
+	/** Despite the name, any graph node id - a Docker `flare.role` value (`ResourceNodeDto.role`) or a producer's `ProducerServiceDto.id`. See `ResourceEdgeDto.cs`'s remarks. */
 	sourceRole: string;
 	targetRole: string;
 	relationshipType: string;
+}
+
+/** A service observed sending telemetry into `ingest` recently - sourced from ClickHouse, not Docker, so it can represent a producer with no Docker footprint at all (e.g. an `AddProject` resource under Aspire's dev-loop). See `ResourceGraphDto.cs`'s remarks. */
+export interface ProducerServiceDto {
+	id: string;
+	serviceName: string;
+	lastSeenAt: string;
 }
 
 export interface ResourceGraphSnapshot {
@@ -255,6 +263,7 @@ export interface ResourceGraphSnapshot {
 	unavailableReason: string | null;
 	nodes: ResourceNodeDto[];
 	edges: ResourceEdgeDto[];
+	producers: ProducerServiceDto[];
 	updatedAt: string | null;
 }
 
