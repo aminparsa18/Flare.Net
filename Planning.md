@@ -1343,6 +1343,148 @@ screen doesn't configure a role-mapping fallback either).
       user's own Entra tenant" caveat v12 already flagged, now against this revised
       implementation instead.
 
+### v13 — Opt-in auth, one consolidated `/auth` page, and Active Directory (LDAP)
+
+Started as "add Active Directory as a third auth provider" and got substantially
+reframed by the user before any code: *"dashboard UX is expected better than this, by
+default there shouldn't be any auth. users directly see logs page, then in auth page
+there should be a button to enable authentication so when clicked we show different
+methods of auth (user/pass-entra-active directory) and user chose and configure theirs,
+we don't need multiple page such as auth-security. all in only one page."* This reverses
+a real, already-shipped v11 assumption (a fresh instance always forced `/setup` first) —
+a genuine architecture change, not an incremental addition — so it shipped as three
+independently-verifiable passes: the opt-in-auth foundation, page consolidation, then AD
+itself landing on top of both.
+
+Two product calls made per the user's explicit steer (*"just think which one makes more
+sense not which one is less work to do!"*), not the path of least implementation effort:
+**methods coexist, not exclusive** (Local/Entra/AD can all be enabled at once, same
+reasoning as v12's Local+Entra coexistence — an exclusive single-method design risks a
+real lockout if a group/App-Role mapping is misconfigured, with no escape hatch), and
+**Local becomes an explicit toggle too** (`LocalEnabled`), not implicitly always-on, so
+all three methods are configured the symmetrical way.
+
+- [x] **The opt-in-auth foundation** — new `AuthSettings` table (migration
+      `0004_auth_settings.sql`), settings-singleton shape like `EntraSettings`
+      (`Enabled`, `LocalEnabled`, `UpdatedAt`). **The one real backward-compat risk,
+      handled at migration time, not via a flat column default:** `Enabled` is seeded as
+      `EXISTS(SELECT 1 FROM Users)` — a genuinely fresh install (no Users yet) opens with
+      auth off; any v11/v12-shaped database upgrading (Users already present) stays
+      `Enabled = true`, exactly as protected as it already was. Dedicated test
+      (`Migration_SeedsEnabledTrue_WhenAUserAlreadyExisted_SimulatingAnUpgrade`) locks
+      this in. Enforcement is one choke point:
+      `ConditionalAuthorizationMiddlewareResultHandler` (`Flare.Api/Auth/`) wraps ASP.NET
+      Core's default `IAuthorizationMiddlewareResultHandler` and short-circuits every
+      `RequireAuthorization()`/`RequireMember`/`RequireAdmin` check app-wide when
+      `Enabled` is false — zero changes needed to any of the nine existing endpoint route
+      groups, the same "wrap once, nothing downstream changes" property
+      `MapGroup("").RequireAuthorization()` itself established in v11.
+      `AuthEndpoints.HandleLoginAsync`/`HandleBootstrapAsync` gained a `LocalEnabled`
+      gate (404 when off, same convention Entra/LDAP endpoints already used).
+- [x] **Page consolidation** — `/security` and `/users` removed outright (no redirect
+      needed — pre-alpha, no external users to break); `/auth` replaces both. Top:
+      umbrella "Require sign-in" + `Local username/password` switches
+      (`AuthToggleCard.svelte`, with a client-side lockout guard mirroring the
+      server-side "can't disable the last enabled Admin" rule). Below: the Entra section
+      (moved from the old `SecuritySettingsForm.svelte`, renamed `EntraSecurityForm.svelte`)
+      and the Users table (moved from the old `/users` route), both unconditionally
+      reachable from the one page. `+layout.svelte`'s route guard skips the login/setup
+      redirect entirely when auth is off — Logs renders immediately, no bounce. `AppNav`
+      shows a plain "Auth is off" link to `/auth` (visible to everyone — there's no role
+      concept to gate it behind while auth itself is off) instead of the user
+      badge/logout button in that state.
+- [x] **Active Directory (LDAP)** — LDAP/LDAPS bind from Flare's own login form
+      (not Windows Integrated Auth/Kerberos — would need the container domain-joined),
+      **service-account search-then-bind**: bind as a configured service account, search
+      `BaseDn` with `UserSearchFilter` (username escaped per RFC 4515 via new
+      `LdapFilterEncoder`, the LDAP-injection equivalent of this repo's parameterized
+      SQL/ClickHouse queries elsewhere) to find the real DN, then re-bind as that DN with
+      the submitted password to actually verify it — robust against real AD OU
+      structures, unlike a fragile direct-DN template. New `LdapSettings` table
+      (migration `0006_ldap_settings.sql`, mirrors `EntraSettings`'s shape: Host, Port
+      default 636, UseSsl default true, BaseDn, BindDn, BindPassword,
+      UserSearchFilter default `(&(objectClass=user)(sAMAccountName={0}))`,
+      UniqueIdAttribute default `objectGUID`, three group DNs + DefaultRole for AD's
+      native group-membership role source — the App Roles equivalent). `POST
+      /api/auth/ldap/login` (`LdapAuthEndpoints`): connection/bind failure → `502`
+      (distinct from a wrong-password `401`, so a broken Flare-side config isn't mistaken
+      for "everyone's password is wrong"); unknown user or wrong password → generic
+      `401` (same anti-enumeration stance as local login); success → reads
+      `UniqueIdAttribute` (handles both AD's binary `objectGUID` and OpenLDAP-style
+      string `entryUUID`) as `ExternalId`, resolves role from `memberOf` against the
+      three group DNs (Admin > Member > Viewer, direct membership only — nested groups
+      not resolved, `LDAP_MATCHING_RULE_IN_CHAIN` not implemented) or falls back to
+      `DefaultRole`, provisions via the same `IUserStore.FindByExternalIdAsync`/
+      `CreateFromExternalAsync` Entra already uses (`AuthProvider: "ActiveDirectory"` is
+      just a third provider-agnostic string, zero interface changes). No restart
+      required, unlike Entra — LDAP registers no ASP.NET Core auth scheme, settings are
+      read fresh from SQLite per login attempt. Package:
+      `System.DirectoryServices.Protocols` 10.0.10. Dashboard: login page gained a
+      segmented Local/Active Directory toggle (one form, submits to whichever endpoint,
+      shown only when both are enabled) via new `loginLdap()`; `/auth` gained an Active
+      Directory section (`LdapSecurityForm.svelte`) with an Advanced/collapsed subsection
+      for the two AD-default overrides.
+- [x] **A real SQLite migration wrinkle, found and fixed via a live test, not
+      assumption** — `Users.AuthProvider`'s `CHECK (AuthProvider IN ('Local', 'Entra'))`
+      needed broadening to include `'ActiveDirectory'`; SQLite has no
+      `ALTER TABLE ... ALTER CHECK`, so `0005_ldap_id.sql` uses the documented
+      table-rebuild procedure (`CREATE Users_new` with the wider CHECK → `INSERT ...
+      SELECT` copy → `DROP TABLE Users` → `RENAME`). First attempt failed with `FOREIGN
+      KEY constraint failed` on the `DROP` — `Microsoft.Data.Sqlite` enables `PRAGMA
+      foreign_keys = ON` by default (the *opposite* of raw SQLite's own default), already
+      documented elsewhere in this codebase (`SqliteSessionStoreTests.cs`) but wrongly
+      assumed not to apply here. Fixed: `PRAGMA foreign_keys = OFF` issued *outside* any
+      transaction (a no-op inside one, per SQLite's own docs) before an explicit
+      `BEGIN TRANSACTION`/`COMMIT` wrapping the rebuild, `PRAGMA foreign_keys = ON`
+      after. New regression test
+      (`ApplyAsync_UsersTableRebuild_PreservesExistingRowsAndTheirSessions`) locks in
+      that pre-existing Local/Entra rows and their Sessions survive the rebuild intact.
+- [x] **A real cross-process migration race, found live via docker-compose, not unit
+      tests** — `flarenet-api-1` crashed with `SQLite Error 19: UNIQUE constraint failed:
+      schema_migrations.Name` because `Flare.Ingest` and `Flare.Api` both call
+      `IdentityMigrationRunner.ApplyAsync` at startup against the same SQLite file and
+      raced to record migration 0004's bookkeeping row. Fixed: `INSERT INTO
+      schema_migrations` → `INSERT OR IGNORE INTO schema_migrations`. Confirmed via a
+      re-run of the same `docker compose up` (all containers came up healthy where
+      they'd crashed before) — an honest code comment explains why this specific race
+      isn't unit-tested (same-process `Task.WhenAll` against SQLite's own file-level
+      locking doesn't reproduce it reliably), matching this repo's established
+      "some things are left to e2e only" convention.
+- [x] **A real missing native dependency, found live via actual LDAP logins against a
+      real directory, not assumption** — every LDAP login attempt (valid or invalid
+      credentials alike) 500'd with `TypeInitializationException` →
+      `DllNotFoundException: libldap.so.2`. Root cause: `System.DirectoryServices.Protocols`
+      on Linux is a P/Invoke wrapper over the OS's own native OpenLDAP client library,
+      not a managed implementation, and `mcr.microsoft.com/dotnet/aspnet:10.0` (Ubuntu
+      24.04 "Noble," confirmed via `/etc/os-release` inside the running container) 
+      doesn't ship it. Fixed: `src/Flare.Api/Dockerfile`'s final stage now runs
+      `apt-get install -y --no-install-recommends libldap2` before the entrypoint
+      (`libldap2` — Ubuntu's package name; Debian's equivalent `libldap-2.5-0` doesn't
+      exist on this base image). Confirmed by installing live into the running
+      container first (established the fix before touching the Dockerfile), then
+      rebuilding the image and re-running the full login sequence.
+- [x] **Live end-to-end verification, 2026-08-14** — `dotnet test` on the full solution:
+      426 tests, 0 failures. `npm run check`/`npm run build` (dashboard): clean. Real
+      `docker compose up --build`, plus a throwaway `osixia/openldap:1.5.0` container
+      (`flare-verify-openldap`, attached to the compose network) seeded with an OU
+      structure, two users (`alice` in an admin group, `bob` in none), and the
+      `memberof` overlay manually enabled (`ldapmodify -Y EXTERNAL` against `cn=config`
+      — not on by default in OpenLDAP, unlike real AD where it's automatic) — confirmed
+      via direct `ldapsearch` before ever exercising Flare's own code, isolating the
+      libldap bug above to Flare's runtime, not the test fixture. Login sequence against
+      Flare's real `/api/auth/ldap/login`: unknown user → `401`, wrong password → `401`,
+      LDAP server stopped mid-attempt → `502` (confirmed distinct from the `401`s
+      above), `alice` → `200` + `Admin` role from group membership, `bob` → `200` +
+      `Viewer` (DefaultRole) — both provisioned with `AuthProvider: "ActiveDirectory"` in
+      `GET /api/users`, a second `alice` login reused the same row without re-deriving
+      role. Dashboard verified through a real Playwright browser: `/auth` page correctly
+      rendered the saved LDAP config and the Users table (admin/alice/bob, correct
+      providers/roles); flipping "Require sign-in" on live-redirected to `/login`, which
+      showed the segmented Local/Active Directory toggle; signing in as `alice` through
+      the AD option landed on the Logs page with the nav badge correctly showing
+      "alice / Admin." Verification containers and volumes torn down after
+      (`docker rm -f flare-verify-openldap`, `docker compose down -v`).
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---

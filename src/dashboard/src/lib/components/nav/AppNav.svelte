@@ -10,22 +10,24 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { authContext } from '$lib/auth/context';
 
-	// +layout.svelte only renders AppNav once auth.currentUser is confirmed non-null
-	// (see its showChrome derived value) - safe to assume a user here, no null-guarding
-	// needed in this file's markup.
+	// +layout.svelte renders AppNav once auth is off entirely (no currentUser then - see
+	// its showChrome derived value) or once auth.currentUser is confirmed non-null - the
+	// markup below branches on auth.authEnabled/currentUser itself rather than assuming
+	// a user is always present.
 	const auth = authContext.get();
 
 	async function handleLogout() {
 		// No goto() needed here - auth.currentUser flipping to null is itself what
 		// +layout.svelte's route-guard $effect reacts to, which calls goto('/login')
-		// (or /setup) on its own the moment this resolves.
+		// on its own the moment this resolves.
 		await auth.logout();
 	}
 
-	// Users is the first role-gated entry here - Admin-only both server-side
-	// (UserEndpoints.cs) and via +layout.svelte's own route guard; hiding the link for
-	// non-Admins is purely so it doesn't dead-end them into an immediate bounce back to
-	// "/".
+	// /auth (the consolidated enable-auth/configure-methods/manage-users screen) is
+	// Admin-only both server-side (UserEndpoints.cs/EntraSettingsEndpoints.cs/
+	// AuthSettingsEndpoints.cs) and via +layout.svelte's own route guard - *except*
+	// while auth is off entirely, when everyone has full access (opt-in auth, see
+	// docs/auth.md) and needs a way to actually find where to turn it on.
 	const links = $derived(
 		[
 			{ href: '/', label: 'Logs' },
@@ -35,7 +37,7 @@
 			{ href: '/indexing', label: 'Indexing' },
 			{ href: '/alerts', label: 'Alerts' },
 			{ href: '/views', label: 'Views' },
-			...(auth.currentUser?.role === 'Admin' ? [{ href: '/users', label: 'Users' }, { href: '/security', label: 'Security' }] : [])
+			...(!auth.authEnabled || auth.currentUser?.role === 'Admin' ? [{ href: '/auth', label: 'Auth' }] : [])
 		]
 	);
 
@@ -62,8 +64,12 @@
 		{/each}
 	</div>
 	<div class="ml-auto flex items-center gap-2">
-		<span class="text-muted-foreground text-xs">{auth.currentUser?.username}</span>
-		<Badge variant="outline">{auth.currentUser?.role}</Badge>
-		<Button variant="ghost" size="sm" onclick={handleLogout} disabled={auth.loading}>Log out</Button>
+		{#if auth.authEnabled}
+			<span class="text-muted-foreground text-xs">{auth.currentUser?.username}</span>
+			<Badge variant="outline">{auth.currentUser?.role}</Badge>
+			<Button variant="ghost" size="sm" onclick={handleLogout} disabled={auth.loading}>Log out</Button>
+		{:else}
+			<a href="/auth" class={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Auth is off</a>
+		{/if}
 	</div>
 </nav>

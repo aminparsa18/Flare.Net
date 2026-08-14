@@ -3,10 +3,24 @@
 // descendant (the route guard in +layout.svelte itself, AppNav's user/logout UI, the
 // login/setup pages) reads it via authContext.get() instead of receiving it as a prop.
 
-import { bootstrap as bootstrapRequest, getCurrentUser, login as loginRequest, logout as logoutRequest, type AuthUser } from '$lib/auth-api';
+import {
+	bootstrap as bootstrapRequest,
+	getBootstrapStatus,
+	getCurrentUser,
+	login as loginRequest,
+	loginLdap as loginLdapRequest,
+	logout as logoutRequest,
+	type AuthUser
+} from '$lib/auth-api';
 
 export class AuthState {
 	currentUser = $state.raw<AuthUser | null>(null);
+
+	/** The opt-in-auth global switch (see docs/auth.md) - defaults to `true` while
+	 * unknown (pre-{@link initialize}), the same fail-toward-secure bias
+	 * `IAuthSettingsStore.GetAsync`'s own defensive fallback uses, so nothing ever
+	 * flashes "open" for a frame before the real value is known. */
+	authEnabled = $state(true);
 
 	/** True until the first {@link initialize} call resolves - the route guard waits on
 	 * this specifically (not {@link loading}, which also flips for login/logout/bootstrap
@@ -20,13 +34,18 @@ export class AuthState {
 
 	error = $state<string | null>(null);
 
-	/** Checks for an existing session cookie on app load. Never throws - a failed check
-	 * just leaves currentUser null, same as no session existing (an unreachable API is
-	 * indistinguishable from "not logged in" for routing purposes; getCurrentUser's own
-	 * network-error case would already have surfaced elsewhere). */
+	/** Learns whether auth is even required at all, then - only if it is - checks for an
+	 * existing session cookie. Never throws - a failed check just leaves currentUser
+	 * null and authEnabled at its fail-secure default, same as no session existing (an
+	 * unreachable API is indistinguishable from "not logged in" for routing purposes;
+	 * getCurrentUser's own network-error case would already have surfaced elsewhere). */
 	async initialize(): Promise<void> {
 		try {
-			this.currentUser = await getCurrentUser();
+			const status = await getBootstrapStatus();
+			this.authEnabled = status.authEnabled;
+			if (status.authEnabled) {
+				this.currentUser = await getCurrentUser();
+			}
 		} catch {
 			this.currentUser = null;
 		} finally {
@@ -39,6 +58,18 @@ export class AuthState {
 		this.error = null;
 		try {
 			this.currentUser = await loginRequest(username, password);
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		} finally {
+			this.loading = false;
+		}
+	}
+
+	async loginLdap(username: string, password: string): Promise<void> {
+		this.loading = true;
+		this.error = null;
+		try {
+			this.currentUser = await loginLdapRequest(username, password);
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 		} finally {

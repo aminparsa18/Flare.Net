@@ -37,6 +37,17 @@ RUN dotnet publish src/Flare.Api/Flare.Api.csproj \
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+
+# System.DirectoryServices.Protocols (LdapAuthEndpoints' AD/LDAP client) is a P/Invoke
+# wrapper over the native OpenLDAP client on Linux, not a managed implementation - without
+# this, constructing an LdapConnection throws TypeInitializationException /
+# DllNotFoundException("libldap.so.2") the first time any LDAP login is attempted.
+# Confirmed live: this base image is Ubuntu 24.04 (Noble), where the package is
+# `libldap2` (Debian's `libldap-2.5-0` name doesn't exist on Ubuntu).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libldap2 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app .
 
 # Single Kestrel listener, unlike Flare.Ingest's fixed OTLP pair - this is a normal

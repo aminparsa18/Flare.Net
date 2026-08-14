@@ -30,6 +30,11 @@ public class AuthEndpointsTests
 {
     private static readonly AuthOptions DefaultAuthOptions = new();
 
+    // Local login enabled by default, matching AuthSettings' own migration-time default -
+    // most tests below aren't exercising the LocalEnabled gate itself, so they shouldn't
+    // have to think about it.
+    private static FakeAuthSettingsStore DefaultAuthSettings => new();
+
     // IResult.ExecuteAsync (Results.Json/Unauthorized/etc.) resolves services like
     // ILoggerFactory off HttpContext.RequestServices - a bare DefaultHttpContext leaves
     // that null, so every context needs at least an empty populated provider.
@@ -57,7 +62,7 @@ public class AuthEndpointsTests
     {
         var context = CreateContext(new { username = "nobody", password = "whatever1" });
 
-        var result = await AuthEndpoints.HandleLoginAsync(context, new FakeUserStore(), new FakeSessionStore(), Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleLoginAsync(context, new FakeUserStore(), new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
@@ -70,7 +75,7 @@ public class AuthEndpointsTests
         await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
         var context = CreateContext(new { username = "alice", password = "wrongpassword1" });
 
-        var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
@@ -84,7 +89,7 @@ public class AuthEndpointsTests
         var sessions = new FakeSessionStore();
         var context = CreateContext(new { username = "alice", password = "correctpassword1" });
 
-        var result = await AuthEndpoints.HandleLoginAsync(context, users, sessions, Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleLoginAsync(context, users, sessions, DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -158,7 +163,7 @@ public class AuthEndpointsTests
         var sessions = new FakeSessionStore();
         var context = CreateContext(new { username = "root", password = "correctpassword1" });
 
-        var result = await AuthEndpoints.HandleBootstrapAsync(context, users, sessions, Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapAsync(context, users, sessions, DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status201Created, context.Response.StatusCode);
@@ -174,7 +179,7 @@ public class AuthEndpointsTests
         await users.CreateAsync("existing-admin", "correctpassword1", UserRole.Admin);
         var context = CreateContext(new { username = "root", password = "correctpassword1" });
 
-        var result = await AuthEndpoints.HandleBootstrapAsync(context, users, new FakeSessionStore(), Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapAsync(context, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status409Conflict, context.Response.StatusCode);
@@ -185,7 +190,7 @@ public class AuthEndpointsTests
     {
         var context = CreateContext(new { username = "root", password = "short1" });
 
-        var result = await AuthEndpoints.HandleBootstrapAsync(context, new FakeUserStore(), new FakeSessionStore(), Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapAsync(context, new FakeUserStore(), new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
@@ -196,7 +201,7 @@ public class AuthEndpointsTests
     {
         var context = CreateContext();
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
@@ -210,7 +215,7 @@ public class AuthEndpointsTests
         await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
         var context = CreateContext();
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(users, new FakeEntraSettingsStore(), CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(users, new FakeEntraSettingsStore(), DefaultAuthSettings, new FakeLdapSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
@@ -223,11 +228,65 @@ public class AuthEndpointsTests
         var context = CreateContext();
         var entraSettings = new FakeEntraSettingsStore(new EntraSettings(Enabled: true, TenantId: "tenant-1", ClientId: "client-1", ClientSecret: "secret-1", UpdatedAt: DateTimeOffset.UtcNow));
 
-        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), entraSettings, CancellationToken.None);
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), entraSettings, DefaultAuthSettings, new FakeLdapSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
         Assert.True(dto!.EntraEnabled);
+    }
+
+    [Fact]
+    public async Task BootstrapStatus_ReportsLdapEnabled_WhenConfigured()
+    {
+        var context = CreateContext();
+        var ldapSettings = new FakeLdapSettingsStore(new LdapSettings(
+            true, "dc.corp.example.com", 636, true, "DC=corp,DC=example,DC=com", "CN=svc,DC=corp,DC=example,DC=com",
+            "secret", "(&(objectClass=user)(sAMAccountName={0}))", "objectGUID", null, null, null,
+            UserRole.Viewer, DateTimeOffset.UtcNow));
+
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), DefaultAuthSettings, ldapSettings, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
+        Assert.True(dto!.LdapEnabled);
+    }
+
+    [Fact]
+    public async Task BootstrapStatus_ReportsAuthEnabledAndLocalEnabled_FromAuthSettings()
+    {
+        var context = CreateContext();
+        var authSettings = new FakeAuthSettingsStore(enabled: false, localEnabled: true);
+
+        var result = await AuthEndpoints.HandleBootstrapStatusAsync(new FakeUserStore(), new FakeEntraSettingsStore(), authSettings, new FakeLdapSettingsStore(), CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.BootstrapStatusResponse);
+        Assert.False(dto!.AuthEnabled);
+        Assert.True(dto.LocalEnabled);
+    }
+
+    [Fact]
+    public async Task Login_Returns404_WhenLocalLoginIsDisabled()
+    {
+        var users = new FakeUserStore();
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        var context = CreateContext(new { username = "alice", password = "correctpassword1" });
+
+        var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), new FakeAuthSettingsStore(localEnabled: false), Options.Create(DefaultAuthOptions), CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Bootstrap_Returns404_WhenLocalLoginIsDisabled()
+    {
+        var context = CreateContext(new { username = "root", password = "correctpassword1" });
+
+        var result = await AuthEndpoints.HandleBootstrapAsync(context, new FakeUserStore(), new FakeSessionStore(), new FakeAuthSettingsStore(localEnabled: false), Options.Create(DefaultAuthOptions), CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
     }
 
     private static string ExtractCookieValue(string setCookieHeader, string cookieName)

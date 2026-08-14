@@ -10,6 +10,15 @@ namespace Flare.Identity;
 /// which this mirrors) - every migration file is idempotent DDL
 /// (<c>CREATE TABLE IF NOT EXISTS</c>/<c>CREATE INDEX IF NOT EXISTS</c>), so both
 /// processes calling this concurrently at startup is safe without any distributed lock.
+/// <b>Found the hard way</b> (a real `docker compose up` on a fresh volume, not a unit
+/// test): the migration SQL bodies being idempotent doesn't make recording them as
+/// applied idempotent on its own - two processes racing to apply the same not-yet-seen
+/// migration both used to `INSERT` into <c>schema_migrations</c> with a bare `INSERT`,
+/// and the loser crashed the whole process on the `Name` column's `UNIQUE` constraint.
+/// <c>INSERT OR IGNORE</c> (see <see cref="ApplyAsync"/>) fixes this for every migration,
+/// not just whichever one happens to trigger the race - the same fix
+/// <c>ClickHouseMigrationRunner</c> would need if it were ever called from two processes
+/// concurrently too, though today it isn't.
 /// </summary>
 /// <remarks>
 /// Unlike <c>ClickHouseMigrationRunner</c>, no manual statement-splitting/comment-
@@ -78,7 +87,13 @@ public static class IdentityMigrationRunner
 
             await using (var recordMigration = connection.CreateCommand())
             {
-                recordMigration.CommandText = "INSERT INTO schema_migrations (Name, AppliedAt) VALUES ($name, $appliedAt)";
+                // OR IGNORE: a concurrent Flare.Ingest/Flare.Api race can both observe
+                // this migration as "not yet applied" and both reach this INSERT - the
+                // loser hitting Name's UNIQUE constraint is expected, not an error, since
+                // the migration SQL itself already ran (idempotently) either way. A bare
+                // INSERT here crashed the whole process the first time this was actually
+                // exercised concurrently for real - see this class's own remarks.
+                recordMigration.CommandText = "INSERT OR IGNORE INTO schema_migrations (Name, AppliedAt) VALUES ($name, $appliedAt)";
                 recordMigration.Parameters.AddWithValue("$name", migrationName);
                 recordMigration.Parameters.AddWithValue("$appliedAt", DateTimeOffset.UtcNow.ToString("O"));
                 await recordMigration.ExecuteNonQueryAsync(cancellationToken);

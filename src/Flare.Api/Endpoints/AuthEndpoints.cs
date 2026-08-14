@@ -30,9 +30,20 @@ public static class AuthEndpoints
         HttpContext http,
         IUserStore users,
         ISessionStore sessions,
+        IAuthSettingsStore authSettings,
         IOptions<AuthOptions> authOptions,
         CancellationToken cancellationToken)
     {
+        // Same disabled-gate convention EntraAuthEndpoints/the LDAP endpoints use - local
+        // password login is its own toggle now (AuthSettings.LocalEnabled), independent
+        // of the global AuthSettings.Enabled switch: bootstrapping/verifying a local
+        // Admin account before flipping auth on globally is a reasonable workflow, so
+        // this only checks LocalEnabled, not Enabled.
+        if (!(await authSettings.GetAsync(cancellationToken)).LocalEnabled)
+        {
+            return Results.NotFound();
+        }
+
         LoginRequest? request;
         try
         {
@@ -103,9 +114,15 @@ public static class AuthEndpoints
         HttpContext http,
         IUserStore users,
         ISessionStore sessions,
+        IAuthSettingsStore authSettings,
         IOptions<AuthOptions> authOptions,
         CancellationToken cancellationToken)
     {
+        if (!(await authSettings.GetAsync(cancellationToken)).LocalEnabled)
+        {
+            return Results.NotFound();
+        }
+
         // Benign, accepted race: two concurrent first-run requests could both observe
         // AnyAsync()==false and both proceed to CreateAsync. Worst case is two Admin
         // users instead of a clean 409 for the second - not worth a distributed lock for
@@ -157,12 +174,26 @@ public static class AuthEndpoints
         return Results.Json(ToDto(user), AuthJsonContext.Default.AuthUserDto, statusCode: StatusCodes.Status201Created);
     }
 
-    internal static async Task<IResult> HandleBootstrapStatusAsync(IUserStore users, IEntraSettingsStore entraSettings, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleBootstrapStatusAsync(
+        IUserStore users,
+        IEntraSettingsStore entraSettings,
+        IAuthSettingsStore authSettings,
+        ILdapSettingsStore ldapSettings,
+        CancellationToken cancellationToken)
     {
         var needsBootstrap = !await users.AnyAsync(cancellationToken);
-        var settings = await entraSettings.GetAsync(cancellationToken);
+        var entra = await entraSettings.GetAsync(cancellationToken);
+        var auth = await authSettings.GetAsync(cancellationToken);
+        var ldap = await ldapSettings.GetAsync(cancellationToken);
         return Results.Json(
-            new BootstrapStatusResponse { NeedsBootstrap = needsBootstrap, EntraEnabled = settings.Enabled },
+            new BootstrapStatusResponse
+            {
+                NeedsBootstrap = needsBootstrap,
+                EntraEnabled = entra.Enabled,
+                AuthEnabled = auth.Enabled,
+                LocalEnabled = auth.LocalEnabled,
+                LdapEnabled = ldap.Enabled,
+            },
             AuthJsonContext.Default.BootstrapStatusResponse);
     }
 

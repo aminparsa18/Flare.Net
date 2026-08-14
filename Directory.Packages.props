@@ -61,6 +61,12 @@
          FrameworkReference gap, confirmed by the CS0234 this package fixes. Pinned at
          10.0.10 to match every other .NET-10-servicing-train package above. -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.10" />
+    <!-- Flare.Api: Active Directory (LDAP) login (Planning.md's "Active Directory auth"
+         item, docs/auth.md). Cross-platform LDAP client (works from the Linux container
+         this project ships) - unlike classic System.DirectoryServices/ADSI, which is
+         Windows-only. Pinned at 10.0.10 to match every other .NET-10-servicing-train
+         package above. -->
+    <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.10" />
     <!-- Flare.Identity: local username/password auth + roles, embedded-SQLite-backed
          (Planning.md's "Auth + multi-user / roles" Later-roadmap item, 2026-08-10 design
          decision - SQLite over a new Postgres container, see docs/auth.md). Pinned at
