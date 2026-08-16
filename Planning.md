@@ -394,8 +394,42 @@ actually worked out (see the three bullets below) — closing out the full origi
       against a real `docker compose` stack.
 
 ### Later (only if v1 gets traction)
-- [ ] `dotnet tool install -g flare` CLI that scaffolds + launches the stack
+- [x] ~~`dotnet tool install -g flare` CLI that scaffolds + launches the stack~~
+      **Shipped 2026-08-16** — `src/Flare.Cli` (nuget.org package id `Flare.Cli`, not
+      `flare`; that id is already taken/unlisted on nuget.org, unrelated old package -
+      installed *command* is still `flare`, same PackageId-vs-command-name trick as
+      `Flare.Hosting.Aspire`) wraps the standalone `docker-compose.yml` stack as a
+      standing, cross-project instance: `flare start/stop/status/open/update/logs/
+      doctor/destroy`, installable and runnable from anywhere via
+      `dotnet tool install --global Flare.Cli`, no repo checkout required. Deliberately
+      has zero interaction with Aspire orchestration - `aspire start` already covers
+      that path; this fills the gap it can't (one long-running instance shared across
+      unrelated local projects). E2e-verified against a real Docker daemon: full
+      lifecycle, data persistence across stop/start, `destroy` actually wiping volumes
+      (refuses without `--yes`), image-digest diffing on `update`, and Ctrl+C on
+      `logs -f` cleanly killing the child `docker compose` process tree instead of
+      orphaning it (caught and fixed during verification). See docs/cli.md.
+      **Also surfaced a pre-existing, unrelated bug during verification** - see the
+      identity-migration race item below.
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
+- [ ] **Fix identity-migration race between `ingest`/`api`.** Discovered 2026-08-16
+      while e2e-verifying the `flare` CLI's `destroy` → fresh `start` cycle (see above):
+      against a genuinely empty `identity-data` volume, `ingest` crashed with
+      `Microsoft.Data.Sqlite.SqliteException: SQLite Error 1: 'duplicate column name:
+      ExternalId'`. Root cause: `ingest` and `api` are separate processes that both
+      point at the *same* shared SQLite file (`Identity__DbPath`) and each
+      independently runs `Flare.Identity.IdentityMigrationRunner` on startup with no
+      lock between them - on a fresh database both see migration `0002_entra_id.sql`
+      as unapplied and race to run it; the loser crashes adding a column that now
+      already exists. Neither container has a Docker restart policy, so the crashed
+      one just sits `Exited` until manually restarted. Self-heals on a plain retry
+      (`flare start` again, or `docker compose up -d` again) - the surviving process's
+      migration already left the schema correct - so it's not a hard blocker, but it's
+      a real race condition, reproducible via either the CLI or a plain
+      `docker compose up` against a fresh volume (not specific to the CLI). Needs a
+      real fix: likely a file lock / advisory-lock table around
+      `IdentityMigrationRunner.ApplyAsync`, or restricting migrations to one service
+      (`api`) with `ingest` only ever reading.
 - [x] ~~Auth + multi-user / roles~~ **Shipped 2026-08-10 (see v11 below)** — local
       username/password + RBAC (Admin/Member/Viewer) on one shared instance, not
       multi-tenant isolation, per this doc's own "self-hosted, single-instance" framing;
