@@ -48,7 +48,8 @@ tells you plainly if it isn't.
 | `flare status` | Table of each service's state/health/port. |
 | `flare open` | Opens the dashboard in your default browser. |
 | `flare update` | Pulls the latest images for the currently pinned tag, recreates containers, prints a per-service digest diff. Never touches data. |
-| `flare logs [service] [-f]` | Shows or follows container logs. Omit the service for all of them. |
+| `flare logs [service] [-f]` | Shows or follows **container** logs (raw Docker stdout). Omit the service for all of them. |
+| `flare tail [-s service]... [-l level]... [--trace-id id] [--search text]` | Live-tails **app-level structured log events** via `Flare.Api`'s live-tail WebSocket - the CLI-native equivalent of the dashboard's Logs Explorer live-tail, not the same thing as `flare logs`. `-l`/`--level` accepts `trace`/`debug`/`info`/`warn`/`error`/`fatal`, repeatable. |
 | `flare doctor` | Read-only diagnostics: Docker reachable, Compose present, per-service state, and a ClickHouse row-count sanity check. |
 | `flare destroy [--yes] [--purge-config]` | **Destructive.** Removes containers and data volumes. Refuses to run without `--yes` (or an interactive confirm) - never proceeds silently on a non-interactive invocation. Keeps `~/.flare/.env` unless `--purge-config` is also passed. |
 | `flare --version` | Prints the installed CLI version. |
