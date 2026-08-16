@@ -22,6 +22,8 @@ app.Configure(config =>
         .WithDescription("Show the stack's current health/state.");
     config.AddCommand<OpenCommand>("open")
         .WithDescription("Open the dashboard in your default browser.");
+    config.AddCommand<TailCommand>("tail")
+        .WithDescription("Live-tail structured log events (filterable by service/level/trace/search).");
     config.AddCommand<UpdateCommand>("update")
         .WithDescription("Pull the latest images for the pinned tag and recreate containers.");
     config.AddCommand<LogsCommand>("logs")

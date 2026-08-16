@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Flare.Cli.Internal;
@@ -127,60 +126,30 @@ internal static class ComposeRunner
 
     /// <summary>
     /// Ensures the child `docker`/`docker compose` process (and anything it in turn
-    /// spawned) is killed whenever this tool is asked to stop - via Ctrl+C (SIGINT),
-    /// SIGTERM, or the caller's own <see cref="CancellationToken"/> - instead of being
-    /// silently orphaned. <c>context.Cancel = true</c> on the Posix handlers suppresses
-    /// .NET's own default "terminate immediately" action so this cleanup actually gets to
-    /// run first; once the child is killed, the awaited <c>WaitForExitAsync</c> above
-    /// unblocks normally and this process exits through its own normal return path.
+    /// spawned) is killed whenever this tool is asked to stop, instead of being silently
+    /// orphaned - see <see cref="InterruptSignal"/> for why Ctrl+C/SIGTERM need their own
+    /// handling on top of the caller's <see cref="CancellationToken"/>. Once the child is
+    /// killed, the awaited <c>WaitForExitAsync</c> above unblocks normally and this
+    /// process exits through its own normal return path.
     /// </summary>
     private static IDisposable RegisterChildProcessCleanup(Process process, CancellationToken ct)
     {
-        var registrations = new List<IDisposable>(3);
-
-        void KillProcessTree()
-        {
-            try
+        return InterruptSignal.OnInterrupt(
+            () =>
             {
-                if (!process.HasExited)
+                try
                 {
-                    process.Kill(entireProcessTree: true);
+                    if (!process.HasExited)
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
                 }
-            }
-            catch (InvalidOperationException)
-            {
-                // Process already exited between the check above and the kill call -
-                // not an error worth surfacing.
-            }
-        }
-
-        registrations.Add(PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
-        {
-            context.Cancel = true;
-            KillProcessTree();
-        }));
-        registrations.Add(PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
-        {
-            context.Cancel = true;
-            KillProcessTree();
-        }));
-
-        if (ct.CanBeCanceled)
-        {
-            registrations.Add(ct.Register(KillProcessTree));
-        }
-
-        return new DisposableGroup(registrations);
-    }
-
-    private sealed class DisposableGroup(List<IDisposable> items) : IDisposable
-    {
-        public void Dispose()
-        {
-            foreach (var item in items)
-            {
-                item.Dispose();
-            }
-        }
+                catch (InvalidOperationException)
+                {
+                    // Process already exited between the check above and the kill call -
+                    // not an error worth surfacing.
+                }
+            },
+            ct);
     }
 }

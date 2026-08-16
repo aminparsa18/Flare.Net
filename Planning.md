@@ -415,11 +415,28 @@ actually worked out (see the three bullets below) — closing out the full origi
       dashboard already shows/does that are also genuinely nicer from a terminal, all
       against endpoints `Flare.Api` already exposes (no backend work needed, just CLI
       clients):
-      - `flare tail` — **build this one first.** Live tail via the existing
+      - [x] ~~`flare tail`~~ **Shipped 2026-08-16.** Live tail via the existing
         `GET /api/logs/tail` WebSocket (same one the Logs Explorer's live-tail uses),
         streamed/filterable straight to the terminal (`flare tail --service api
         --level error`). Distinct from `flare logs`, which is raw Docker container
-        stdout, not app-level structured log events.
+        stdout, not app-level structured log events. `--level` accepts
+        trace/debug/info/warn/error/fatal, expanded to OTel `SeverityNumber` ranges
+        (mirrors `src/dashboard/src/lib/logs/severity.ts`'s bucket boundaries, not a
+        shared reference - the CLI never takes a compile-time dependency on
+        Flare.Api/the dashboard, same as its Docker-image relationship). E2e-verified
+        against a real live-tail session (real OTLP traffic via
+        `ExampleApp.LogGenerator`, level filtering, Ctrl+C cleanly closing the
+        WebSocket with no leftover process). **Bug caught and fixed during
+        verification**: `Flare.Api/README.md`'s live-tail example shows
+        `{"type":"event",...}`, but the server actually emits `{"type":"Event",...}` -
+        `LogTailJsonContext`'s camelCase `PropertyNamingPolicy` only rewrites property
+        *names*, not this enum-typed `type` discriminator's *value*, which
+        `UseStringEnumConverter` serializes as the raw PascalCase C# member name. A
+        hand-rolled client built against the doc's literal example silently received
+        zero events until this was caught (via a Python `websockets` probe reproducing
+        the raw wire traffic) and fixed with case-insensitive parsing. The doc itself
+        is still inaccurate - worth a one-line fix there too, not done as part of this
+        item.
       - `flare search` — one-shot query against `POST /api/logs/search`
         (`flare search --service api --level error --since 15m`), prints matching
         rows and exits.
