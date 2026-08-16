@@ -411,6 +411,29 @@ actually worked out (see the three bullets below) — closing out the full origi
       orphaning it (caught and fixed during verification). See docs/cli.md.
       **Also surfaced a pre-existing, unrelated bug during verification** - see the
       identity-migration race item below.
+- [ ] **`flare` CLI: dashboard-parity commands.** Discussed 2026-08-16 - things the
+      dashboard already shows/does that are also genuinely nicer from a terminal, all
+      against endpoints `Flare.Api` already exposes (no backend work needed, just CLI
+      clients):
+      - `flare tail` — **build this one first.** Live tail via the existing
+        `GET /api/logs/tail` WebSocket (same one the Logs Explorer's live-tail uses),
+        streamed/filterable straight to the terminal (`flare tail --service api
+        --level error`). Distinct from `flare logs`, which is raw Docker container
+        stdout, not app-level structured log events.
+      - `flare search` — one-shot query against `POST /api/logs/search`
+        (`flare search --service api --level error --since 15m`), prints matching
+        rows and exits.
+      - `flare alerts list` / `flare alerts test <id>` — wraps existing alert CRUD +
+        the dry-run test-fire endpoint (`POST /api/alerts/{id}/test`, ignores
+        cooldown, writes nothing) - verify a Slack/webhook/email channel actually
+        fires without waiting for a real threshold breach.
+      - `flare export` — dump a time range to NDJSON/CSV via `/api/logs/search`
+        pagination - a support-bundle-for-a-bug-report command.
+      - `flare apikey create` — ingest API-key management for scripted/CI OTLP setup
+        without clicking through the dashboard.
+      Deliberately not `flare traces`/`flare metrics` tail equivalents - logs are the
+      core product and the CLI's whole pitch is "least overhead," better to ship one
+      thing (`tail`) really well than three thin ones.
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
 - [ ] **Fix identity-migration race between `ingest`/`api`.** Discovered 2026-08-16
       while e2e-verifying the `flare` CLI's `destroy` → fresh `start` cycle (see above):
