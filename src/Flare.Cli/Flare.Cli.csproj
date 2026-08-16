@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Flare.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- dotnet tool packaging. PackageId is Flare.Cli, NOT "flare" - "flare" is already taken
+         on nuget.org (an old, unrelated, unlisted package - verified directly against
+         nuget.org's registration API before choosing this id), so a push under it would be
+         rejected outright. ToolCommandName is independent of PackageId:
+         `dotnet tool install -g Flare.Cli` still installs a tool invoked as `flare`. Mirrors
+         the Aspire.Hosting.Flare -> Flare.Hosting.Aspire reserved-id workaround already used
+         in this repo (see that project's own csproj/README for the same lesson). -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>flare</ToolCommandName>
+    <PackageType>DotnetTool</PackageType>
+    <PackageId>Flare.Cli</PackageId>
+    <!-- Pre-1.0, matching Flare.Hosting.Aspire/Flare.Aspire's own pre-alpha posture. First
+         tag on release: flare-cli-v0.1.0 (see .github/workflows/nuget-publish.yml). -->
+    <Version>0.1.0</Version>
+    <Authors>Amin Parsa</Authors>
+    <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
+    <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/aminparsa18/Flare.Net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/aminparsa18/Flare.Net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageIcon>logo.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- No GenerateDocumentationFile here unlike Aspire.Hosting.Flare/Aspire.Flare -
+         those are libraries with a real consumed API surface; this is an exe tool with
+         no public API for anyone to reference, so its command types are `internal`
+         (see Commands/*.cs) rather than carrying doc comments for nothing. -->
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Packed straight from their existing location - not physically copied into this
+         project. Same pattern as Aspire.Hosting.Flare.csproj/Aspire.Flare.csproj. -->
+    <None Include="..\..\logo.png" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console.Cli" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Generated stack definition, embedded so `flare start` can materialize it into
+         ~/.flare/ on first run without this repo checked out. NOT root docker-compose.yml
+         re-embedded verbatim: references published xracer007/flare-* images (image:), not
+         local build contexts (build:), since this tool runs from an arbitrary directory,
+         not necessarily a Flare.Net checkout. -->
+    <EmbeddedResource Include="Templates\docker-compose.flare.yml">
+      <LogicalName>Flare.Cli.Templates.docker-compose.flare.yml</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Templates\env.template">
+      <LogicalName>Flare.Cli.Templates.env.template</LogicalName>
+    </EmbeddedResource>
+    <!-- Same embedding trick Aspire.Hosting.Flare already uses for the same reason: a
+         consumer has no db/clickhouse/ on disk to bind-mount into ClickHouse. Materialized
+         to ~/.flare/db/clickhouse/ on first run (see Internal/FlareHome.cs). -->
+    <EmbeddedResource Include="..\..\db\clickhouse\*.sql">
+      <LogicalName>Flare.Cli.Templates.ClickHouseInit.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

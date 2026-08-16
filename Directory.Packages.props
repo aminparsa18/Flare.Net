@@ -84,6 +84,13 @@
          the transitive 2.1.11 floor, same pattern already used above for Microsoft.OpenApi. -->
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
     <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.12" />
+    <!-- Flare.Cli: command routing (attribute-based commands/options, built-in help and
+         version flags) plus Spectre.Console's table renderer (flare status) and spinner
+         (flare start's health-poll wait) - one dependency covers both instead of
+         System.CommandLine (parsing only, still pre-1.0 as of this pin) plus a separate
+         rendering library. 0.55.0 confirmed as latest stable via nuget.org's
+         flatcontainer index (next releases are 1.0.0-alpha.*, not yet stable). -->
+    <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

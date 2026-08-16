@@ -16,6 +16,10 @@
 # Microsoft-reserved prefix on nuget.org, see the .csproj PackageId comments and Planning.md):
 #   - Flare.Hosting.Aspire (project: src/Aspire.Hosting.Flare/)  <- tag aspire-hosting-flare-v*.*.*
 #   - Flare.Aspire         (project: src/Aspire.Flare/)          <- tag aspire-flare-v*.*.*
+#   - Flare.Cli            (project: src/Flare.Cli/)             <- tag flare-cli-v*.*.*
+#     ("flare" itself is already taken/unlisted on nuget.org, unrelated to this project -
+#     see src/Flare.Cli/Flare.Cli.csproj's PackageId comment. ToolCommandName is still
+#     `flare`; only the PackageId differs.)
 #
 # Adding a new package: add its tag pattern under `on.push.tags`, a case arm in
 # "Resolve target package" below (and to the workflow_dispatch `package` choices), and a
@@ -39,6 +43,7 @@ on:
     tags:
       - 'aspire-hosting-flare-v*.*.*'
       - 'aspire-flare-v*.*.*'
+      - 'flare-cli-v*.*.*'
   workflow_dispatch:
     inputs:
       package:
@@ -48,6 +53,7 @@ on:
         options:
           - Flare.Hosting.Aspire
           - Flare.Aspire
+          - Flare.Cli
 
 concurrency:
   group: nuget-publish-${{ github.workflow }}-${{ github.ref }}
@@ -82,6 +88,7 @@ jobs:
             case "$GITHUB_REF_NAME" in
               aspire-hosting-flare-v*) PACKAGE="Flare.Hosting.Aspire" ;;
               aspire-flare-v*) PACKAGE="Flare.Aspire" ;;
+              flare-cli-v*) PACKAGE="Flare.Cli" ;;
               *) echo "::error::Unrecognized tag $GITHUB_REF_NAME"; exit 1 ;;
             esac
           fi
@@ -94,6 +101,10 @@ jobs:
             Flare.Aspire)
               echo "project=src/Aspire.Flare/Aspire.Flare.csproj" >> "$GITHUB_OUTPUT"
               echo "tag_prefix=aspire-flare-v" >> "$GITHUB_OUTPUT"
+              ;;
+            Flare.Cli)
+              echo "project=src/Flare.Cli/Flare.Cli.csproj" >> "$GITHUB_OUTPUT"
+              echo "tag_prefix=flare-cli-v" >> "$GITHUB_OUTPUT"
               ;;
             *)
               echo "::error::Unknown package '$PACKAGE'"; exit 1 ;;
