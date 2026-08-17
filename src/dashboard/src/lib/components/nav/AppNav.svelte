@@ -9,12 +9,19 @@
 	import { cn } from '$lib/utils';
 	import { Separator } from '$lib/components/ui/separator';
 	import { authContext } from '$lib/auth/context';
+	import { navLinks } from './nav-links';
+	import SearchIcon from '@lucide/svelte/icons/search';
 
 	// +layout.svelte renders AppNav once auth is off entirely (no currentUser then - see
 	// its showChrome derived value) or once auth.currentUser is confirmed non-null - the
 	// markup below branches on auth.authEnabled/currentUser itself rather than assuming
 	// a user is always present.
 	const auth = authContext.get();
+
+	// Opens CommandPalette.svelte, mounted as this component's sibling in +layout.svelte -
+	// lifted there (rather than owned privately by either component) since both this
+	// button and the palette's own Cmd+K listener need to flip the same flag.
+	let { commandPaletteOpen = $bindable(false) }: { commandPaletteOpen?: boolean } = $props();
 
 	async function handleLogout() {
 		// No goto() needed here - auth.currentUser flipping to null is itself what
@@ -27,20 +34,9 @@
 	// Admin-only both server-side (UserEndpoints.cs/EntraSettingsEndpoints.cs/
 	// AuthSettingsEndpoints.cs) and via +layout.svelte's own route guard - *except*
 	// while auth is off entirely, when everyone has full access (opt-in auth, see
-	// docs/auth.md) and needs a way to actually find where to turn it on.
-	const links = $derived(
-		[
-			{ href: '/', label: 'Logs' },
-			{ href: '/traces', label: 'Traces' },
-			{ href: '/metrics', label: 'Metrics' },
-			{ href: '/ingestion', label: 'Ingestion' },
-			{ href: '/indexing', label: 'Indexing' },
-			{ href: '/alerts', label: 'Alerts' },
-			{ href: '/resources', label: 'Resources' },
-			{ href: '/views', label: 'Views' },
-			...(!auth.authEnabled || auth.currentUser?.role === 'Admin' ? [{ href: '/auth', label: 'Auth' }] : [])
-		]
-	);
+	// docs/auth.md) and needs a way to actually find where to turn it on. Shared with
+	// CommandPalette.svelte's "Navigate" group via nav-links.ts - one source of truth.
+	const links = $derived(navLinks(auth));
 
 	// Exact match for every link except "/" (which would otherwise match every route,
 	// since every pathname starts with "/") - first needed now that /traces/[traceId]
@@ -64,6 +60,18 @@
 			</a>
 		{/each}
 	</div>
+	<Button
+		variant="outline"
+		size="sm"
+		class="text-muted-foreground ml-2 w-64 justify-start"
+		onclick={() => (commandPaletteOpen = true)}
+	>
+		<SearchIcon data-icon="inline-start" />
+		Search or run a command...
+		<kbd class="bg-muted text-muted-foreground ml-auto rounded border px-1.5 py-0.5 font-mono text-[0.625rem]">
+			⌘K
+		</kbd>
+	</Button>
 	<div class="ml-auto flex items-center gap-2">
 		{#if auth.authEnabled}
 			<span class="text-muted-foreground text-xs">{auth.currentUser?.username}</span>
