@@ -274,15 +274,7 @@ export class LogsExplorerState {
 		if (this.#connection) return this.#connection;
 		this.#connection = connectLiveTail(this.buildFilter(null), {
 			onStatusChange: (status) => (this.connectionStatus = status),
-			// `pause()` only *asks* the server to stop (an async "Pause" message) - it doesn't
-			// close the socket, so an event already in flight (or one that beats the server's
-			// own handling of the pause) can still arrive after setLive(false). Without this
-			// guard that stray event would still prepend into `events` while the table is mid
-			// non-live pagination, shifting every already-rendered row's index out from under
-			// VirtualList.
-			onEvent: (event) => {
-				if (this.live) this.#prependLive(event);
-			},
+			onEvent: (event) => this.#prependLive(event),
 			onDropped: (count) => (this.droppedCount += count),
 			onError: (message) => (this.error = message)
 		});
