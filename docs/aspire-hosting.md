@@ -7,7 +7,7 @@ whole Flare stack — ClickHouse, Redis, the OTLP ingest receiver, the query API
 dashboard — to your AppHost with one call, pulling Flare's published Docker Hub images
 rather than anything you build yourself.
 
-> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently `0.1.1`) —
+> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently `0.2.0`) —
 > `dotnet add package Flare.Hosting.Aspire` works today. See
 > [`examples/`](../examples) for a full runnable demo, which references the package
 > as a `ProjectReference` instead (useful for trying Flare's `main` before a release).
@@ -62,6 +62,10 @@ IResourceBuilder<FlareResource> AddFlare(
   with `docker compose build` instead of Docker Hub.
 - **`apiKey`** — optional `secret: true` `AddParameter` result requiring OTLP callers
   to present an ingest API key. Left unset (the default), ingest stays anonymous.
+  There's no automatic flow-through to consumers: a project calling
+  `AddFlareOtlpExporter` still needs the same raw value passed to its own
+  `configureSettings: s => s.ApiKey = ...` delegate, or its OTLP calls get rejected
+  once this is set.
 - **`enableResourceGraph`** — turns on the dashboard's Resources page for this Flare
   instance. Off by default — see
   [Resources page (optional Docker access)](#resources-page-optional-docker-access)
@@ -71,9 +75,10 @@ IResourceBuilder<FlareResource> AddFlare(
 
 The recommended way is `Flare.Aspire` (`builder.AddFlareOtlpExporter("flare")`), a
 client-side package that reads the connection info `.WithReference(flare)` injects and
-registers a named OTLP log exporter pointed at it — additive alongside whatever
-OpenTelemetry setup your project already has (e.g. the Aspire dashboard collector via
-`AddServiceDefaults()`/`UseOtlpExporter()`), not a replacement for it:
+registers named OTLP log, trace, and metrics exporters pointed at it — additive
+alongside whatever OpenTelemetry setup your project already has (e.g. the Aspire
+dashboard collector via `AddServiceDefaults()`/`UseOtlpExporter()`), not a replacement
+for it:
 
 ```csharp
 // AppHost
@@ -93,8 +98,10 @@ builder.AddFlareOtlpExporter("flare");
 dotnet add package Flare.Aspire
 ```
 
-Logs only for now — `Flare.Ingest` doesn't receive traces or metrics yet (a separate
-roadmap item).
+`AddFlareOtlpExporter` requires `Flare.ServiceDefaults.ConfigureOpenTelemetry()` (or
+whatever else you layer it on) to use the signal-specific `AddOtlpExporter` family, not
+the cross-cutting `UseOtlpExporter()` — the OTel SDK throws at startup if both land in
+the same `IServiceCollection`.
 
 ### Without the `Flare.Aspire` package
 
@@ -127,6 +134,8 @@ only ever describes an AppHost's *own* process — nothing your AppHost consumer
 ever see once Flare is packaged as containers, which is why this page exists as a
 separate Docker-backed feature at all). It's off by default:
 
+![Resources page](screenshots/resources.png)
+
 ```csharp
 var flare = builder.AddFlare("flare", enableResourceGraph: true);
 ```
@@ -151,7 +160,7 @@ state instead of an error.
 dotnet add package Flare.Hosting.Aspire
 ```
 
-Published on nuget.org (currently `0.1.1`). To build against Flare's `main` instead of
+Published on nuget.org (currently `0.2.0`). To build against Flare's `main` instead of
 a release, reference the project directly the way
 [`examples/ExampleApp.AppHost`](../examples/ExampleApp.AppHost) does:
 

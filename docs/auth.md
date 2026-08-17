@@ -58,6 +58,8 @@ even when SSO/AD/proxy is the day-to-day method.
 Everything auth-related lives on one Admin-only page (reachable to anyone while
 authentication is off, same as every other page):
 
+![The /auth page](screenshots/auth.png)
+
 1. **Authentication** — the umbrella "Require sign-in" switch and the `Local
    username/password` toggle sit together at the top. Off → an explanatory blurb, and
    everything below is inert. On → the four method sections below become the live
