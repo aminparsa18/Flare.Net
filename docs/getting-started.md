@@ -113,6 +113,7 @@ Telegram, or email, depending on the rule's "Notify via" channel — see
 needs configured server-side.
 
 ![Alerts](screenshots/alerts.png)
+![Alerts](screenshots/alerts_add.png)
 
 ### Views
 

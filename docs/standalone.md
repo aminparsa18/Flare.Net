@@ -4,6 +4,12 @@ This is for running Flare as its own thing — not tied into another app's .NET 
 AppHost. See [docs/aspire-hosting.md](aspire-hosting.md) instead if your app already has
 one; that's the easier path when it applies.
 
+Want a standing instance you start once and point many unrelated local projects'
+OTLP output at, instead of a repo-local checkout? [`flare`](cli.md), a global CLI
+(`dotnet tool install --global Flare.Cli`), wraps this same stack as
+`flare start`/`stop`/`status`/`open`/... from anywhere, no `git clone` needed. Read on
+if you'd rather run the stack directly.
+
 ## Start Flare
 
 Requires Docker (or another Docker-compatible engine) running — Flare's
@@ -24,8 +30,9 @@ need to change any of the defaults (e.g. a port is already taken on your machine
 
 Once it's up:
 
-- **Dashboard:** [http://localhost:3000](http://localhost:3000) — first visit creates
-  the admin account, then it's a normal login. See [docs/auth.md](auth.md).
+- **Dashboard:** [http://localhost:3000](http://localhost:3000) — open, no login
+  required, until you turn sign-in on yourself from the `/auth` page. See
+  [docs/auth.md](auth.md).
 - **OTLP receiver:** gRPC on `:4317`, HTTP on `:4318` — what you point your logger at
   below. Anonymous by default; see [docs/auth.md#ingest-api-keys](auth.md#ingest-api-keys)
   to require an API key instead.
