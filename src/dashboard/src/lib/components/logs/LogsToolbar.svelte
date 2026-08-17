@@ -5,7 +5,7 @@
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
 	import PatternsModal from './PatternsModal.svelte';
-	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
+	import SavedSearchesMenu from '$lib/components/logs/SavedSearchesMenu.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import SunIcon from '@lucide/svelte/icons/sun';
@@ -75,7 +75,7 @@
 		</Badge>
 	{/if}
 
-	<ViewsMenu pageType="Logs" currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
+	<SavedSearchesMenu currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
 
 	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />
 

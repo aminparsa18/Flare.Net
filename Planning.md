@@ -863,6 +863,30 @@ non-goal. Views are global/unowned (no auth exists anywhere yet, same as `alert_
       went from 0 rows to 9 (one per migration - the direct, only-possible-via-the-runner
       proof, since `docker-entrypoint-initdb.d` never populates that table itself), and
       `GET /api/views` returned a clean `200 {"views":[]}`.
+- [x] **Follow-up: "Saved searches" reskin on the Logs page, 2026-08-17** — prompted
+      by the user doubting whether "Saved views" on Logs was anything other than a
+      saved search under a generic name; it wasn't — `LogsExplorerState`'s
+      `toSavedViewState()`/`applySavedViewState()` already captured exactly time
+      range + services + severity + search text, the same 5 fields a "saved search"
+      needs, just labeled "Views" because the control (`ViewsMenu.svelte`/
+      `SaveViewDialog.svelte`) is shared verbatim across Logs/Traces/Metrics. Decided
+      (with the user) to reskin rather than build new backend surface: new
+      Logs-only `SavedSearchesMenu.svelte`/`SaveSearchDialog.svelte`
+      (`src/dashboard/src/lib/components/logs/`) replace `ViewsMenu`/
+      `SaveViewDialog` on `LogsToolbar.svelte` only (star icon, "Saved searches" /
+      "My saved searches" / "Save current filter…" copy) - Traces/Metrics keep the
+      original "Views" control untouched. Same `saved_views` ClickHouse table and
+      `/api/views` API underneath (`pageType: "Logs"`), zero backend changes. Only
+      new behavior: inline per-row delete in the popover (native `confirm()` +
+      `deleteSavedView`, mirroring `SavedViewTable.svelte`'s delete pattern) so a
+      saved search can be removed without leaving the Logs page - rename still only
+      via the existing `/views` page. No seeding: fresh installs start with an empty
+      list. The `/views` management page and the `?view=<id>` shareable-link
+      hydration (`lib/saved-views/hydrate.ts`) both keep working unchanged for
+      Logs-tagged rows. Verified via `svelte-check` (0 errors) and `npm run build`
+      (clean); full live Docker click-through deliberately skipped for this pass
+      (low-risk, near-verbatim mirror of the already e2e-verified v7 code path) -
+      user can spot-check next time the stack is running.
 
 ### v8 — Ingestion page (MVP)
 Prompted by user comparison to Seq's own Ingestion page (2026-08-10) — asked whether Flare
