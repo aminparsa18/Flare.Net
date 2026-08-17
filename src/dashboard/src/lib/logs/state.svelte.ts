@@ -24,6 +24,18 @@ const PAGE_SIZE = 100;
  */
 const LIVE_CAP = 2000;
 
+/**
+ * Client-side cap on accumulated non-live pagination (`loadMore`), same idea as
+ * `LIVE_CAP` but sized for deliberate scroll-back browsing rather than a live firehose -
+ * a long research session paging through a high-volume time range would otherwise grow
+ * `events` (and the DOM spacer height VirtualList gives the browser) without bound.
+ * Trimmed from the *front* (the newest-loaded end) once exceeded, mirroring
+ * `#prependLive`'s "evict from whichever end isn't where growth is happening" - by the
+ * time accumulated history is this deep, the newest rows from before the scroll-back
+ * session started are the least likely to still matter.
+ */
+const PAGINATION_CAP = 5000;
+
 export interface LogsFilterState {
 	timeRangePreset: TimeRangePreset;
 	customRange: { from: Date; to: Date } | null;
@@ -178,7 +190,14 @@ export class LogsExplorerState {
 			});
 			const fresh = res.events.filter((e) => !this.#seenIds.has(e.eventId));
 			for (const e of fresh) this.#seenIds.add(e.eventId);
-			this.events = [...this.events, ...fresh];
+			const next = [...this.events, ...fresh];
+			// See PAGINATION_CAP's remarks - trims from the front (newest-loaded end),
+			// symmetric with #prependLive trimming from the back.
+			if (next.length > PAGINATION_CAP) {
+				const evicted = next.splice(0, next.length - PAGINATION_CAP);
+				for (const e of evicted) this.#seenIds.delete(e.eventId);
+			}
+			this.events = next;
 			this.nextCursor = res.nextCursor;
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
