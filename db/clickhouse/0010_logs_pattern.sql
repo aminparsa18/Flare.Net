@@ -1,0 +1,43 @@
+-- Flare log storage schema, migration 0010.
+--
+-- Adds log pattern detection (Drain clustering) storage to `clickhousedb.logs`. Every
+-- row's `PatternId`/`PatternTemplate` is computed once by `Flare.Ingest`'s
+-- `DrainPatternMatcher`/`LogPatternAnnotator` at flush time (see their own remarks) -
+-- this migration only adds storage for the already-finalized values; no ClickHouse-side
+-- clustering logic lives here.
+--
+-- LowCardinality(String), not plain String (unlike TraceId/SpanId, which are
+-- effectively unique per row and explicitly never LowCardinality per 0001_logs.sql's own
+-- comments): PatternId's whole purpose is a bounded label reused across many rows -
+-- genuinely low cardinality, bounded by DrainPatternMatcher's own MaxTemplates LRU cap
+-- (default 10,000) - exactly `schema-types-lowcardinality`'s sweet spot.
+-- PatternTemplate is 1:1 with PatternId within a matcher's lifetime, so gets the same
+-- treatment.
+--
+-- DEFAULT '': every pre-existing row (inserted before this migration, or before the
+-- feature existed) reads back as PatternId=''. Deliberately NOT backfilled - see
+-- Planning.md's rollout notes for this item; a correct backfill would need to replay
+-- `Body` through a fresh Drain tree in `Timestamp` order (its own future batch-job
+-- item), not a migration one-liner. The Patterns aggregate query (`Flare.Api`'s
+-- `LogPatternQueryBuilder`) explicitly filters `PatternId != ''`, so unbackfilled rows
+-- are simply invisible in the ranked list rather than surfacing as a misleading
+-- "unknown" bucket.
+ALTER TABLE clickhousedb.logs
+    ADD COLUMN IF NOT EXISTS PatternId LowCardinality(String) DEFAULT '',
+    ADD COLUMN IF NOT EXISTS PatternTemplate LowCardinality(String) DEFAULT '';
+
+-- No skip index in v1 - deliberate, not an oversight. The Patterns aggregate query is a
+-- `GROUP BY PatternId`, which a skip index doesn't help (skip indices prune granules for
+-- equality/IN predicates against a WHERE clause, not aggregation); the one path that
+-- could benefit - drilling into a single PatternId's rows via `/api/logs/search`'s new
+-- PatternId filter - already inherits `LogFilterSqlBuilder.DefaultLookback`'s time bound
+-- like every other filter today. Matches 0001_logs.sql/LogAggregateQueryBuilder's own
+-- "no pre-aggregation/index speculation ahead of measured real-data latency" convention.
+-- Named Later item if a real slow query against this column shows up. Also NOT added to
+-- ORDER BY: that's immutable after CREATE TABLE (`schema-pk-plan-before-creation`) - a
+-- full table rebuild, not a decision to make speculatively now.
+--
+-- Operational note (same caveat 0002_logs_event_id.sql's own comments call out): this
+-- ALTER TABLE auto-applies only against a fresh ClickHouse data volume via
+-- /docker-entrypoint-initdb.d; an already-provisioned dev volume needs either a manual
+-- run of the ALTER TABLE above (idempotent via IF NOT EXISTS) or a volume wipe.

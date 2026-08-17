@@ -1716,6 +1716,97 @@ of Entra's fixed claim or a Default-role-only design.
       practice, not just in the unit-tested `TrustedProxyNetworks` logic — left for
       whenever this gets exercised against a real deployment.
 
+### v16 — Log pattern detection (Drain clustering) (2026-08-17)
+
+Not a prior "Later" item — proposed fresh ("This could become another killer feature",
+inspired by OpenObserve's log-pattern-statistics feature): cluster similar log message
+bodies (`"GET /api/orders/123"`/`"GET /api/orders/456"` → `"GET /api/orders/<*>"`) and
+surface them ranked by occurrence count in a new Patterns view.
+
+Two implementation shapes were discussed before scoping: computing clusters at query
+time (cheap to build, no schema change) vs. computing them once at ingest time and
+storing a `PatternId` per row (real `GROUP BY` aggregates over arbitrary time ranges, at
+the cost of a schema/pipeline change). Query-time was rejected on a direct efficiency
+comparison, not a "less work" one — the flagship stat ("12,481 occurrences" over a wide
+window) needs either scanning `Body` text for every matching row on every page load, or
+silently capping/sampling and breaking the promised exact count; ingest-time pays the
+clustering cost once, in the flush worker that's already CPU-bound work happening
+anyway, turning the read side into a plain `GROUP BY PatternId` — the same shape the
+existing volume histogram/service-breakdown aggregates already use.
+
+Scoped down from the original pitch in one place, confirmed with the user before
+implementation (`AskUserQuestion`): **no duration/p95 in v1** — logs have no duration
+field anywhere in the schema (only `spans.DurationNano` does), and nothing in the
+codebase joins `logs`↔`spans` for aggregates. The pattern card ships with occurrence
+count, error count, first/last seen; duration is a named Later item requiring a
+`TraceId`/`SpanId` join, and would only cover logs that carry trace context anyway.
+
+- [x] **Drain matcher** (`Flare.Ingest/Patterns/`) - a simplified Drain (logpai/Drain3-
+      style) log-template miner: `DrainPatternMatcher` masks UUID/hex/numeric substrings
+      to `<*>` before whitespace tokenization, buckets by `(tokenCount, firstToken)`,
+      matches the best candidate cluster above `LogPatternOptions.SimilarityThreshold`
+      (generalizing differing positions to `<*>`) or creates a new cluster. In-memory
+      only, no persistence across a restart or across replicas - matches
+      `LogEventPipelineOptions.ConsumerName`'s own already-documented "single-instance
+      deployment model" gap rather than solving a problem the rest of the pipeline
+      doesn't solve yet. `PatternId` is a deterministic SHA-256-derived hash of the
+      finalized template text (not sequential), so the same template re-emerging after a
+      restart gets the same id - softens, doesn't eliminate, the restart-reset
+      limitation. A global `MaxTemplates` LRU cap (default 10,000) bounds worst-case
+      memory growth from adversarial/high-cardinality bodies, same safety-cap instinct as
+      `SafetyOptions()`/`StreamMaxLength` elsewhere.
+- [x] **Computed at flush time, not OTLP-receipt time** - `LogPatternAnnotator` runs
+      inside `ClickHouseFlushWorker.FlushAsync`, right before the batch write, not in
+      `OtlpLogMapper`/the OTLP gRPC/HTTP endpoints - keeps ingestion request latency
+      untouched, the same reasoning that motivated the Redis-Streams buffer in the first
+      place. `LogPatternOptions.Enabled` (default `true`) is an instant, config-only
+      rollback valve.
+- [x] **Migration `0010_logs_pattern.sql`** - `PatternId`/`PatternTemplate`
+      (`LowCardinality(String) DEFAULT ''`) appended to `logs` via `ALTER TABLE ... ADD
+      COLUMN IF NOT EXISTS`, same convention `0002_logs_event_id.sql` used for `EventId`.
+      No skip index in v1 (a `GROUP BY` doesn't benefit from one; the one path that
+      could, drilling into a single pattern's rows, already inherits
+      `LogFilterSqlBuilder.DefaultLookback`'s time bound) and no backfill of historical
+      rows (same precedent as `EventId`'s own migration) - unbackfilled rows read back as
+      `PatternId=''` and are simply excluded from the ranked list (`LogPatternQueryBuilder`
+      filters `PatternId != ''`), not shown as a misleading "unknown" bucket.
+- [x] **Query API**: new `POST /api/logs/patterns` (`LogsEndpoints.cs`,
+      `LogPatternQueryBuilder.cs`, `LogQueryService.GetPatternsAsync`) mirrors
+      `/api/logs/aggregate`'s shape exactly - `GROUP BY PatternId`, `countIf(SeverityNumber
+      >= 17)` for the error count (OTel's ERROR floor), `ORDER BY Count DESC LIMIT
+      {topN}` (clamped 1-1,000, default 200), same `SafetyOptions()`/`LogFilterSqlBuilder`
+      reuse as every other log query. `LogFilter` gained a `PatternId` equality field
+      (mirrors the existing `TraceId`/`SpanId` shape) for the drill-down below.
+- [x] **Dashboard**: new top-level `/patterns` route + `AppNav` link (no in-page tabs
+      precedent exists anywhere in this dashboard - every major view is its own route),
+      `patterns-api` additions in `api.ts` alongside `aggregateLogs`, and the usual
+      `patterns/state.svelte.ts` → `patterns/context.ts` pair (own `createContext`,
+      re-authored rather than shared - same explicit precedent `logs`/`ingestion`/`auth`/
+      etc.'s context files already document for that two-line helper). `PatternsTable`
+      follows `PipelineServiceBreakdown`'s `Table.Root`/`Empty.*` shape. **Drill-down**
+      ("View examples") is a plain `/?patternId=<id>&patternTemplate=<text>` URL, read by
+      the Logs Explorer's `onMount` (same priority slot as `?view=<id>`) via a new
+      `LogsExplorerState.applyPatternIdFilter` - surfaced as a dismissible badge in
+      `LogsToolbar` since it's a sticky filter with no other UI control to clear it
+      otherwise. Required refactoring `TimeRangePicker.svelte` from reading
+      `logsExplorerContext` internally to a prop-driven component (`timeRangePreset`/
+      `customRange`/`live`/`onSelectPreset`/`onSelectCustom`) so the Patterns toolbar
+      could reuse it directly; `LogsToolbar`'s one call site updated to pass those props.
+- [x] **Verification performed**: `dotnet test` on `Flare.Ingest.Tests` (140 passed) and
+      `Flare.Api.Tests` (339 passed) - new `DrainPatternMatcherTests` (tokenization/
+      wildcarding including the "pure a-f letter word isn't hex" case, threshold merge/
+      split, LRU eviction, determinism-across-restarts-of-the-same-template),
+      `LogPatternAnnotatorTests` (hand-written fake matcher, no mocking framework, same
+      convention as `FakeClickHouseLogEventWriter`), `LogPatternQueryBuilderTests`
+      (mirrors `LogAggregateQueryBuilderTests`'s exact-SQL-text-assertion style). Dashboard:
+      `npm run check` (0 errors) and `npm run build` (clean, `patterns/_page.svelte.js`
+      compiled). **Not yet done**: a live end-to-end run against a real stack (`docker
+      compose up` on a fresh ClickHouse volume so the migration applies, real OTLP
+      traffic with a few distinctly-shaped-but-parameterized routes) confirming the
+      Patterns view actually collapses them correctly and "View examples" round-trips -
+      left for whenever this gets exercised against a real deployment, same gap v14/v15
+      flagged for themselves.
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---

@@ -50,6 +50,9 @@ public sealed record LogFilter
     /// <summary>Exact lower-hex <c>SpanId</c> match.</summary>
     public string? SpanId { get; init; }
 
+    /// <summary>Exact Drain cluster id match - drives drilling from the Patterns view's "View examples" into the Logs Explorer/search.</summary>
+    public string? PatternId { get; init; }
+
     /// <summary>
     /// Free-text, case-insensitive substring match against <c>Body</c>
     /// (<c>ILIKE '%term%'</c>). See <c>Flare.Api</c>'s README for why this is

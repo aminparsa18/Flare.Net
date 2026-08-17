@@ -135,5 +135,7 @@ public class LogFilterMatcherTests
         ScopeAttributes = new Dictionary<string, string>(),
         LogAttributes = new Dictionary<string, string>(),
         EventName = string.Empty,
+        PatternId = string.Empty,
+        PatternTemplate = string.Empty,
     };
 }

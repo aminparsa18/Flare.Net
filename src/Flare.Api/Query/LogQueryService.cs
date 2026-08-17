@@ -10,6 +10,9 @@ public interface ILogQueryService
 
     Task<LogAggregateResponse> AggregateAsync(LogAggregateRequest request, CancellationToken cancellationToken);
 
+    /// <summary>Ranked Drain clusters ("log patterns") within the request's filter window - see <see cref="LogPatternQueryBuilder"/>.</summary>
+    Task<LogPatternResponse> GetPatternsAsync(LogPatternRequest request, CancellationToken cancellationToken);
+
     /// <summary>
     /// Every distinct <c>ServiceName</c> that has logged at least one event within
     /// <paramref name="window"/> of now, with each one's most recent event timestamp -
@@ -89,6 +92,29 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
         return new LogAggregateResponse { Buckets = buckets };
     }
 
+    public async Task<LogPatternResponse> GetPatternsAsync(LogPatternRequest request, CancellationToken cancellationToken)
+    {
+        var built = LogPatternQueryBuilder.Build(request, timeProvider.GetUtcNow());
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var patterns = new List<LogPatternRow>();
+        while (reader.Read())
+        {
+            patterns.Add(new LogPatternRow
+            {
+                PatternId = reader.GetString(0),
+                Template = reader.GetString(1),
+                Count = (long)reader.GetFieldValue<ulong>(2),
+                ErrorCount = (long)reader.GetFieldValue<ulong>(3),
+                FirstSeen = ReadUtc(reader, 4),
+                LastSeen = ReadUtc(reader, 5),
+            });
+        }
+
+        return new LogPatternResponse { Patterns = patterns };
+    }
+
     public async Task<IReadOnlyList<ActiveService>> GetActiveServiceNamesAsync(TimeSpan window, CancellationToken cancellationToken)
     {
         var built = ActiveServicesQueryBuilder.Build(window, timeProvider.GetUtcNow());
@@ -124,6 +150,8 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
         ScopeAttributes = reader.GetFieldValue<Dictionary<string, string>>(15),
         LogAttributes = reader.GetFieldValue<Dictionary<string, string>>(16),
         EventName = reader.GetString(17),
+        PatternId = reader.GetString(18),
+        PatternTemplate = reader.GetString(19),
     };
 
     /// <summary>

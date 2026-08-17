@@ -19,4 +19,6 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(LogSearchResponse))]
 [JsonSerializable(typeof(LogAggregateRequest))]
 [JsonSerializable(typeof(LogAggregateResponse))]
+[JsonSerializable(typeof(LogPatternRequest))]
+[JsonSerializable(typeof(LogPatternResponse))]
 public sealed partial class LogsJsonContext : JsonSerializerContext;
