@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AppNav from '$lib/components/nav/AppNav.svelte';
+	import CommandPalette from '$lib/components/nav/CommandPalette.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Alert, AlertTitle, AlertDescription } from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -15,6 +16,10 @@
 
 	const auth = new AuthState();
 	authContext.set(auth);
+
+	// Shared between AppNav's visible trigger button and CommandPalette's own Cmd+K
+	// listener (siblings below, not parent/descendant) - see CommandPalette.svelte.
+	let commandPaletteOpen = $state(false);
 
 	// /setup no longer exists as its own route - the first-run "create admin" form is
 	// now folded into /login itself (see that page), reached only when auth is actually
@@ -125,7 +130,8 @@
 	     page's `flex h-screen flex-col` already did before this nav existed. -->
 	<div class="flex h-screen flex-col">
 		{#if showChrome}
-			<AppNav />
+			<AppNav bind:commandPaletteOpen />
+			<CommandPalette bind:open={commandPaletteOpen} />
 		{/if}
 		<div class="min-h-0 flex-1">
 			{@render children()}
