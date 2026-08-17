@@ -451,14 +451,19 @@ actually worked out (see the three bullets below) — closing out the full origi
       Deliberately not `flare traces`/`flare metrics` tail equivalents - logs are the
       core product and the CLI's whole pitch is "least overhead," better to ship one
       thing (`tail`) really well than three thin ones.
-- [ ] **Logs Explorer: CSV/XLSX export + "Share" link.** Client-side-only companions
-      to the CLI's `flare export` idea above and to v7's saved-views/`?view=<id>`
-      mechanism: a toolbar "Export" dialog that asks the user to pick both rows
-      (exactly what's currently loaded in the table vs. the full filtered result set,
-      paginated via the existing `/api/logs/search`, bounded by a client-side row cap -
-      no new backend endpoint) and format (hand-rolled CSV or a real .xlsx workbook via
-      SheetJS - the one new dependency, pinned to `cdn.sheetjs.com`'s patched build
-      rather than the stale/CVE'd npm-registry `xlsx` package). A first cut always
+- [ ] **Logs Explorer: CSV/XLSX/JSON/XML export + "Share" link.** Client-side-only
+      companions to the CLI's `flare export` idea above and to v7's saved-views/
+      `?view=<id>` mechanism: a toolbar "Export" dialog that asks the user to pick both
+      rows (exactly what's currently loaded in the table vs. the full filtered result
+      set, paginated via the existing `/api/logs/search`, bounded by a client-side row
+      cap - no new backend endpoint) and format - hand-rolled CSV/JSON/XML, or a real
+      .xlsx workbook via SheetJS (the one new dependency, pinned to `cdn.sheetjs.com`'s
+      patched build rather than the stale/CVE'd npm-registry `xlsx` package). JSON keeps
+      `logAttributes` as a real nested object; XML nests it as `<LogAttributes><Attribute
+      key="...">`; CSV/XLSX (flat rows) double-stringify it into one
+      `LogAttributesJson` column - same underlying field set (`export.ts`'s `HEADER`/
+      `eventToRow`/`eventToJsonObject`/`eventToXmlElement`), one writer per format,
+      dispatched through a single `eventsToBlob(events, format)`. A first cut always
       exported the full filtered set silently, which read as "wrong" to anyone
       expecting an export of what's on screen - asking explicitly avoids guessing.
       Also a "Share" button that auto-creates a saved view from the current filter and

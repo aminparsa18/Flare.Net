@@ -1,5 +1,5 @@
-// Client-side CSV/XLSX export for the Logs Explorer table. No backend endpoint. Two
-// distinct scopes, both ending up as the same LogEventDto[] -> CSV/XLSX pipeline:
+// Client-side CSV/XLSX/JSON/XML export for the Logs Explorer table. No backend endpoint.
+// Two distinct scopes, both ending up as the same LogEventDto[] -> format pipeline:
 //  - "visible": exactly what's currently rendered in LogsExplorerState.events (a
 //    UI-scrollback cap - LIVE_CAP/PAGINATION_CAP - not "everything matching the filter").
 //    No fetch, instant.
@@ -32,7 +32,7 @@ const EXPORT_PAGE_SIZE = 1000;
  */
 export const EXPORT_ROW_CAP = 25_000;
 
-export type ExportFormat = 'csv' | 'xlsx';
+export type ExportFormat = 'csv' | 'xlsx' | 'json' | 'xml';
 
 /** "visible" = exactly the rows currently rendered in the table; "filtered" = the full filtered result set (paginated fetch). */
 export type ExportScope = 'visible' | 'filtered';
@@ -111,6 +111,79 @@ export function eventsToXlsxBlob(events: LogEventDto[]): Blob {
 	XLSX.utils.book_append_sheet(workbook, sheet, 'Logs');
 	const bytes = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
 	return new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+/** Same field set as HEADER/eventToRow, but as a JSON-native object - logAttributes stays a
+ *  real nested object here rather than the double-stringified LogAttributesJson column CSV/
+ *  XLSX need (flat rows can't hold a nested value). */
+function eventToJsonObject(event: LogEventDto) {
+	return {
+		eventId: event.eventId,
+		timestamp: event.timestamp,
+		severity: event.severityText,
+		severityNumber: event.severityNumber,
+		service: event.serviceName,
+		eventName: event.eventName,
+		message: event.body,
+		traceId: event.traceId,
+		spanId: event.spanId,
+		logAttributes: event.logAttributes
+	};
+}
+
+export function eventsToJson(events: LogEventDto[]): string {
+	return JSON.stringify(events.map(eventToJsonObject), null, 2);
+}
+
+/** Escapes text content for use inside an XML element - `&`/`<`/`>` are the only characters that are ever unsafe there. */
+function xmlEscapeText(value: string): string {
+	return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Text-content escaping plus `"`, for use inside a double-quoted attribute value. */
+function xmlEscapeAttr(value: string): string {
+	return xmlEscapeText(value).replace(/"/g, '&quot;');
+}
+
+function eventToXmlElement(event: LogEventDto): string {
+	const attributeEntries = Object.entries(event.logAttributes);
+	const attributesXml = attributeEntries.length
+		? `    <LogAttributes>\n${attributeEntries
+				.map(([key, value]) => `      <Attribute key="${xmlEscapeAttr(key)}">${xmlEscapeText(value)}</Attribute>`)
+				.join('\n')}\n    </LogAttributes>`
+		: '    <LogAttributes />';
+	return [
+		'  <Log>',
+		`    <EventId>${xmlEscapeText(event.eventId)}</EventId>`,
+		`    <Timestamp>${xmlEscapeText(event.timestamp)}</Timestamp>`,
+		`    <Severity>${xmlEscapeText(event.severityText)}</Severity>`,
+		`    <SeverityNumber>${event.severityNumber}</SeverityNumber>`,
+		`    <Service>${xmlEscapeText(event.serviceName)}</Service>`,
+		`    <EventName>${xmlEscapeText(event.eventName)}</EventName>`,
+		`    <Message>${xmlEscapeText(event.body)}</Message>`,
+		`    <TraceId>${xmlEscapeText(event.traceId)}</TraceId>`,
+		`    <SpanId>${xmlEscapeText(event.spanId)}</SpanId>`,
+		attributesXml,
+		'  </Log>'
+	].join('\n');
+}
+
+export function eventsToXml(events: LogEventDto[]): string {
+	return `<?xml version="1.0" encoding="UTF-8"?>\n<Logs>\n${events.map(eventToXmlElement).join('\n')}\n</Logs>\n`;
+}
+
+/** Dispatches to the right writer for `format` and wraps the result in a Blob with the right MIME type - the one place ExportDialog.svelte needs to know about, rather than growing a per-format ternary there as formats are added. */
+export function eventsToBlob(events: LogEventDto[], format: ExportFormat): Blob {
+	switch (format) {
+		case 'csv':
+			return new Blob([eventsToCsv(events)], { type: 'text/csv;charset=utf-8' });
+		case 'xlsx':
+			return eventsToXlsxBlob(events);
+		case 'json':
+			return new Blob([eventsToJson(events)], { type: 'application/json;charset=utf-8' });
+		case 'xml':
+			return new Blob([eventsToXml(events)], { type: 'application/xml;charset=utf-8' });
+	}
 }
 
 /** yyyy-MM-ddTHHmmss, filesystem-safe (no colons). */
