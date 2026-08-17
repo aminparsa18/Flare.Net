@@ -451,6 +451,18 @@ actually worked out (see the three bullets below) — closing out the full origi
       Deliberately not `flare traces`/`flare metrics` tail equivalents - logs are the
       core product and the CLI's whole pitch is "least overhead," better to ship one
       thing (`tail`) really well than three thin ones.
+- [ ] **Logs Explorer: CSV/XLSX export + "Share" link.** Client-side-only companions
+      to the CLI's `flare export` idea above and to v7's saved-views/`?view=<id>`
+      mechanism: a toolbar "Export" menu that paginates the existing
+      `/api/logs/search` (bounded, client-side row cap - no new backend endpoint) and
+      writes either a hand-rolled CSV or a real .xlsx workbook (via SheetJS - the one
+      new dependency, pinned to `cdn.sheetjs.com`'s patched build rather than the
+      stale/CVE'd npm-registry `xlsx` package), and a "Share" button that auto-creates
+      a saved view from the current filter and copies its `?view=<id>` link, reusing
+      v7's persistence/hydration wholesale rather than encoding filter state into the
+      URL directly. Auth-enabled deployments mean a shared link only works for a
+      recipient who's already an authenticated Flare user - not a public/anonymous
+      share token; known limitation, not a gap to close here.
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
 - [ ] **Fix identity-migration race between `ingest`/`api`.** Discovered 2026-08-16
       while e2e-verifying the `flare` CLI's `destroy` → fresh `start` cycle (see above):
@@ -496,6 +508,46 @@ actually worked out (see the three bullets below) — closing out the full origi
       shipped 2026-08-10 (see v10 below)** - the design pass landed the same day it was
       requested rather than waiting for a real incident, since the user asked for it
       directly.
+- [ ] **Logs page `VirtualList` hardening.** Backlog from a 2026-08-17 deep-dive into
+      the Logs page's virtualizer (`src/dashboard/src/lib/components/virtual-list/
+      VirtualList.svelte`), after three swapped-in library replacements
+      (`@tanstack/svelte-virtual`, `@humanspeak/svelte-virtual-list`) each hit the same
+      wall - none reconcile scroll position against an *externally*-owned `items` array
+      being prepended to (live-tail), only against changes they drive themselves. Ended
+      back on the hand-rolled component with a bounded-key-scan scroll-compensation
+      effect (handles both live-tail prepend and `PAGINATION_CAP`/`LIVE_CAP` eviction
+      from the front) plus `overflow-anchor: none` (the actual root cause of a
+      "gap appears mid-scroll while live, only a reload fixes it" report - native scroll
+      anchoring was fighting the manual compensation effect over the same `scrollTop`).
+      A follow-up read of `@humanspeak/svelte-virtual-list`'s actual source (not just
+      its README) surfaced concrete techniques worth porting, since fixed-row-height
+      sidesteps everything in that library that exists only for *unknown*/measured row
+      heights (its height-cache, block-sums, per-item ResizeObserver, grid detection,
+      and orientation-switching are all irrelevant here - skip re-researching those):
+      - Keyboard accessibility, currently entirely absent - `role="region"` +
+        `aria-label` + `tabindex="0"` on the scrollable viewport, a keydown handler
+        (arrows/PageUp/PageDown/Home/End, fixed-px line step - deliberately *not*
+        derived from `itemHeight`, same reasoning native scroll uses) that checks "is
+        this even a scroll key" before touching any layout property so an unrelated
+        keypress never forces a stray reflow, and a *inward*-drawn focus ring
+        (`outline-offset: -2px`, since the viewport clips outward outlines) keyed off
+        the ARIA attributes rather than a class name so it survives a future
+        `class` override.
+      - `ResizeObserver` has no guard today against a bogus zero-height reading (a
+        transient 0 mid-animation/tab-switch/detach-reattach would collapse the visible
+        range to nothing for a frame) - ignore non-finite/`<= 0`/unchanged readings,
+        keep the last known-good height.
+      - Dev-mode-only safety nets directly relevant to the bug class this whole session
+        was about: a duplicate-`getKey` assertion (use a plain `Set`, not a reactive
+        Svelte collection - humanspeak's own comment notes a reactive one caused a ~10s
+        stall on a 10k-item list from capturing a stack trace per key) and a
+        "same `scrollTop` written more than 10x in 1s" canary as a cheap feedback-loop
+        detector.
+      - No validation on the `itemHeight` prop (a `0`/`NaN` value would silently produce
+        `Infinity`/`NaN` throughout the scroll math) - validate at the point every
+        prop-driven number feeds into it.
+      User explicitly deferred implementing these ("add them to planning.md for later")
+      rather than doing them immediately - not yet scheduled to a version.
 
 ### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
 Promoted out of "Later" and shipped 2026-08-10, in four passes (ingest+storage →
