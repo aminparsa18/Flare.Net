@@ -4,6 +4,7 @@
 	import { resolveTimeRange } from '$lib/logs/time-range';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import XIcon from '@lucide/svelte/icons/x';
 
 	const explorer = logsExplorerContext.get();
 
@@ -75,6 +76,20 @@
 		return () => clearInterval(interval);
 	});
 
+	// Which of the *currently rendered* bars (if any) matches the explorer's active bar-click
+	// selection - deliberately not part of the refetch effect above, so selecting a bucket
+	// only changes this highlight, never the chart's own fetched window/resolution. Compared
+	// by timestamp rather than string equality: `selectedBucketRange.from` round-trips through
+	// `Date#toISOString()`, which normalizes to millisecond precision and may not equal the
+	// server's own bucketStart formatting byte-for-byte.
+	const selectedIndex = $derived.by(() => {
+		const selection = explorer.selectedBucketRange;
+		if (!selection) return null;
+		const target = new Date(selection.from).getTime();
+		const index = buckets.findIndex((b) => new Date(b.bucketStart).getTime() === target);
+		return index === -1 ? null : index;
+	});
+
 	// Real peak (for the y-axis labels) vs. the height-calc denominator (never 0, or every
 	// bar in an all-zero window would divide by zero and render full-height).
 	const peakCount = $derived(Math.max(0, ...buckets.map((b) => b.count)));
@@ -124,9 +139,12 @@
 	}
 
 	/**
-	 * Clicking a bar (or anywhere along its column) jumps the whole explorer to that
-	 * bucket's window - "something went wrong around 10:23" -> click the spike -> see
-	 * exactly what happened. Exits live mode if needed (focusTimeRange handles that).
+	 * Clicking a bar (or anywhere along its column) filters the log table to that bucket's
+	 * window - "something went wrong around 10:23" -> click the spike -> see exactly what
+	 * happened. Deliberately doesn't touch this chart's own fetched range (focusBucketRange
+	 * leaves filter.timeRangePreset/customRange alone) - the bars stay exactly as they were,
+	 * just with the clicked one highlighted, rather than re-fetching a zoomed-in,
+	 * second-resolution chart of a single bar's own window.
 	 */
 	function handleBarClick(e: MouseEvent) {
 		if (buckets.length === 0) return;
@@ -135,7 +153,7 @@
 		if (!bucket) return;
 		const from = new Date(bucket.bucketStart);
 		const to = new Date(from.getTime() + bucketWidthSeconds * 1000);
-		explorer.focusTimeRange({ from, to });
+		explorer.focusBucketRange({ from, to });
 	}
 
 	function formatBucketTime(iso: string): string {
@@ -166,6 +184,16 @@
 	{:else}
 		<div class="text-muted-foreground mb-1 flex items-center justify-between text-xs">
 			<span>Event volume</span>
+			{#if selectedIndex !== null && buckets[selectedIndex]}
+				<button
+					type="button"
+					class="text-foreground bg-accent hover:bg-accent/70 flex items-center gap-1 rounded px-1.5 py-0.5"
+					onclick={() => explorer.clearSelectedBucket()}
+				>
+					Filtered to {formatBucketTime(buckets[selectedIndex].bucketStart)}
+					<XIcon class="size-3" />
+				</button>
+			{/if}
 			<span class="tabular-nums">{formatCount(totalCount)} events</span>
 		</div>
 		<div class="grid grid-cols-[2.5rem_1fr] gap-x-2">
@@ -205,7 +233,22 @@
 									/>
 								{/each}
 
-								{#if hoverIndex !== null}
+								{#if selectedIndex !== null}
+									<!-- Persistent (not hover-only) marker for the bar-click selection, so the
+									     filtered-to range stays visible even after the pointer moves away. -->
+									<line
+										x1={selectedIndex * barWidth + barWidth / 2}
+										y1={PEAK_Y}
+										x2={selectedIndex * barWidth + barWidth / 2}
+										y2={BASELINE_Y}
+										class="text-foreground"
+										stroke="currentColor"
+										stroke-width="1"
+										vector-effect="non-scaling-stroke"
+									/>
+								{/if}
+
+								{#if hoverIndex !== null && hoverIndex !== selectedIndex}
 									<line
 										x1={hoverIndex * barWidth + barWidth / 2}
 										y1={PEAK_Y}
@@ -235,7 +278,10 @@
 											Math.max(1, barWidth - 2),
 											barHeight(bucket.count)
 										)}
-										style="fill: var(--primary); fill-opacity: {hoverIndex === i ? 1 : 0.55};"
+										style="fill: var(--primary); fill-opacity: {hoverIndex === i || selectedIndex === i
+											? 1
+											: 0.55}; {selectedIndex === i ? 'stroke: var(--foreground); stroke-width: 1.5;' : ''}"
+										vector-effect={selectedIndex === i ? 'non-scaling-stroke' : undefined}
 									/>
 								{/each}
 							</svg>
