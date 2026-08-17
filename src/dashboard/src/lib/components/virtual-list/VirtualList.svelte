@@ -148,11 +148,20 @@
 <!-- scrollbar-gutter: stable keeps this container's content width constant whether or not
      the list is currently tall enough to actually scroll - LogTable's header (never itself
      scrollable) reserves the same gutter via the same property, so columns stay aligned
-     whether or not a scrollbar is visible. -->
+     whether or not a scrollbar is visible.
+
+     overflow-anchor: none turns off the browser's own native scroll anchoring, which
+     (left on, the default) tries to solve the exact same problem the effect above does -
+     picking a DOM node near the top of the viewport and nudging scrollTop to keep it
+     visually stable whenever content shifts above it. With both active, the browser's
+     native adjustment and this component's manual one can each react to the same DOM
+     change independently, landing on an inconsistent scrollTop that (unlike either
+     adjustment alone) has no further scroll event to correct it - the same pattern
+     @humanspeak/svelte-virtual-list's own viewport explicitly disables it for. -->
 <div
 	bind:this={containerEl}
 	class={cn('relative overflow-y-auto', className)}
-	style="scrollbar-gutter: stable;"
+	style="scrollbar-gutter: stable; overflow-anchor: none;"
 	onscroll={handleScroll}
 >
 	<div style="height: {totalHeight}px; position: relative;">
