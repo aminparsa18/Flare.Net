@@ -75,6 +75,15 @@ export class LogsExplorerState {
 	selectedEventId = $state<string | null>(null);
 	selectedEvent = $derived(this.events.find((e) => e.eventId === this.selectedEventId) ?? null);
 
+	/**
+	 * Set by VolumeChart when a histogram bar is clicked - narrows what the log table
+	 * searches for without touching `filter.timeRangePreset`/`customRange`. Those two stay
+	 * "the window VolumeChart itself renders", so clicking a bar filters the logs to that
+	 * bucket while the histogram keeps showing the same bars (just highlighting the one
+	 * that's now selected) instead of re-fetching a zoomed-in, second-resolution chart.
+	 */
+	selectedBucketRange = $state<{ from: string; to: string } | null>(null);
+
 	// The API has no "list distinct services" endpoint, so the toolbar's service filter
 	// sources its options from a one-off broad aggregate (GroupBy: Service) instead -
 	// independent of the current filter/time-range so switching ranges never empties the
@@ -105,6 +114,7 @@ export class LogsExplorerState {
 	}
 
 	#resolvedRange(): ResolvedTimeRange | null {
+		if (this.selectedBucketRange) return this.selectedBucketRange;
 		return resolveTimeRange(this.filter.timeRangePreset, this.filter.customRange ?? undefined);
 	}
 
@@ -179,6 +189,7 @@ export class LogsExplorerState {
 
 	setTimeRangePreset(preset: TimeRangePreset): void {
 		if (this.live) return; // toolbar disables this control while live; defensive no-op
+		this.selectedBucketRange = null; // manually picking a range supersedes a bar-click selection
 		this.filter.timeRangePreset = preset;
 		if (preset !== 'custom') this.filter.customRange = null;
 		this.applyFilterChange();
@@ -186,39 +197,52 @@ export class LogsExplorerState {
 
 	setCustomRange(range: { from: Date; to: Date }): void {
 		if (this.live) return;
+		this.selectedBucketRange = null;
 		this.filter.timeRangePreset = 'custom';
 		this.filter.customRange = range;
 		this.applyFilterChange();
 	}
 
 	/**
-	 * Jumps straight to a specific window - used by VolumeChart when a histogram bar is
-	 * clicked ("something went wrong around 10:23" -> click the spike -> see exactly that
-	 * window). Unlike setCustomRange, this works even while live: the whole point is
-	 * pivoting from "what's happening now" to "what happened in this bucket", so it exits
-	 * live mode itself rather than requiring the caller to do it first (and being a no-op
-	 * like setCustomRange would be).
+	 * Narrows the log search to a specific window - used by VolumeChart when a histogram
+	 * bar is clicked ("something went wrong around 10:23" -> click the spike -> see exactly
+	 * what happened). Deliberately leaves `filter.timeRangePreset`/`customRange` alone:
+	 * those define the window VolumeChart itself renders, so a bar click filters the logs
+	 * without the chart re-fetching a zoomed-in, second-resolution view of its own bar -
+	 * see `selectedBucketRange`. Works even while live (exits live mode itself, since the
+	 * whole point is pivoting from "what's happening now" to "what happened back then").
 	 */
-	focusTimeRange(range: { from: Date; to: Date }): void {
-		this.live = false;
-		this.#connection?.pause(); // keep the socket warm rather than reconnecting next time, same as setLive(false)
-		this.filter.timeRangePreset = 'custom';
-		this.filter.customRange = range;
+	focusBucketRange(range: { from: Date; to: Date }): void {
+		this.selectedBucketRange = { from: range.from.toISOString(), to: range.to.toISOString() };
+		if (this.live) {
+			this.live = false;
+			this.#connection?.pause(); // keep the socket warm rather than reconnecting next time, same as setLive(false)
+		}
+		this.applyFilterChange();
+	}
+
+	/** Clears a VolumeChart bar-click selection, reverting the log search to the plain filter/time-range. */
+	clearSelectedBucket(): void {
+		if (!this.selectedBucketRange) return;
+		this.selectedBucketRange = null;
 		this.applyFilterChange();
 	}
 
 	setServices(services: string[]): void {
+		this.selectedBucketRange = null;
 		this.filter.services = services;
 		this.applyFilterChange();
 	}
 
 	setSeverityNumbers(severityNumbers: number[]): void {
+		this.selectedBucketRange = null;
 		this.filter.severityNumbers = severityNumbers;
 		this.applyFilterChange();
 	}
 
 	/** Not debounced here - the toolbar's search input owns debounce timing before calling this. */
 	setSearch(search: string): void {
+		this.selectedBucketRange = null;
 		this.filter.search = search;
 		this.applyFilterChange();
 	}
@@ -264,6 +288,7 @@ export class LogsExplorerState {
 	 * for the toolbar button's toggle, not for starting up).
 	 */
 	startLiveTail(): void {
+		this.selectedBucketRange = null;
 		this.events = [];
 		this.nextCursor = null;
 		this.#seenIds = new Set();
@@ -301,6 +326,7 @@ export class LogsExplorerState {
 	applySavedViewState(state: unknown): void {
 		const s = (state ?? {}) as Partial<LogsSavedViewState>;
 		this.live = false;
+		this.selectedBucketRange = null;
 		this.filter = {
 			timeRangePreset: s.timeRangePreset ?? '1h',
 			customRange: s.customRange ? { from: new Date(s.customRange.from), to: new Date(s.customRange.to) } : null,
