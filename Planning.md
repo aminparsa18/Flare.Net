@@ -453,15 +453,19 @@ actually worked out (see the three bullets below) — closing out the full origi
       thing (`tail`) really well than three thin ones.
 - [ ] **Logs Explorer: CSV/XLSX export + "Share" link.** Client-side-only companions
       to the CLI's `flare export` idea above and to v7's saved-views/`?view=<id>`
-      mechanism: a toolbar "Export" menu that paginates the existing
-      `/api/logs/search` (bounded, client-side row cap - no new backend endpoint) and
-      writes either a hand-rolled CSV or a real .xlsx workbook (via SheetJS - the one
-      new dependency, pinned to `cdn.sheetjs.com`'s patched build rather than the
-      stale/CVE'd npm-registry `xlsx` package), and a "Share" button that auto-creates
-      a saved view from the current filter and copies its `?view=<id>` link, reusing
-      v7's persistence/hydration wholesale rather than encoding filter state into the
-      URL directly. Auth-enabled deployments mean a shared link only works for a
-      recipient who's already an authenticated Flare user - not a public/anonymous
+      mechanism: a toolbar "Export" dialog that asks the user to pick both rows
+      (exactly what's currently loaded in the table vs. the full filtered result set,
+      paginated via the existing `/api/logs/search`, bounded by a client-side row cap -
+      no new backend endpoint) and format (hand-rolled CSV or a real .xlsx workbook via
+      SheetJS - the one new dependency, pinned to `cdn.sheetjs.com`'s patched build
+      rather than the stale/CVE'd npm-registry `xlsx` package). A first cut always
+      exported the full filtered set silently, which read as "wrong" to anyone
+      expecting an export of what's on screen - asking explicitly avoids guessing.
+      Also a "Share" button that auto-creates a saved view from the current filter and
+      copies its `?view=<id>` link, reusing v7's persistence/hydration wholesale
+      rather than encoding filter state into the URL directly. Auth-enabled
+      deployments mean a shared link only works for a recipient who's already an
+      authenticated Flare user - not a public/anonymous
       share token; known limitation, not a gap to close here.
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
 - [ ] **Fix identity-migration race between `ingest`/`api`.** Discovered 2026-08-16

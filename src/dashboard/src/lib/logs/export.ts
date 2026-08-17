@@ -1,13 +1,15 @@
-// Client-side CSV/XLSX export for the Logs Explorer table. No backend endpoint - fetches
-// the full filtered result set via the existing /api/logs/search pagination, then hands
-// the same rows to either a hand-rolled CSV writer or SheetJS (xlsx) for a real .xlsx
-// workbook. CSV needs no library (RFC4180 escaping is a few lines); XLSX is a zip-based
-// OOXML container that isn't worth hand-rolling, hence the one dependency.
+// Client-side CSV/XLSX export for the Logs Explorer table. No backend endpoint. Two
+// distinct scopes, both ending up as the same LogEventDto[] -> CSV/XLSX pipeline:
+//  - "visible": exactly what's currently rendered in LogsExplorerState.events (a
+//    UI-scrollback cap - LIVE_CAP/PAGINATION_CAP - not "everything matching the filter").
+//    No fetch, instant.
+//  - "filtered": the full filtered result set, paginated via the existing
+//    /api/logs/search (bounded by EXPORT_ROW_CAP below).
+// ExportDialog.svelte asks the user which one they want rather than assuming - exporting
+// silently more (or less) than what's on screen is surprising either way.
 //
-// Deliberately paginates the *full* filtered result set rather than exporting only
-// whatever's currently loaded in LogsExplorerState.events - `events` is a UI-scrollback
-// cap (LIVE_CAP/PAGINATION_CAP), not "everything matching the filter", and an export's
-// whole point is a complete, self-contained artifact.
+// CSV needs no library (RFC4180 escaping is a few lines); XLSX is a zip-based OOXML
+// container that isn't worth hand-rolling, hence the one dependency (SheetJS).
 //
 // The npm-registry `xlsx` package (SheetJS) stalled at 0.18.5 with unpatched high-severity
 // CVEs (prototype pollution, ReDoS) - fixes are only published via SheetJS's own CDN, so
@@ -31,6 +33,9 @@ const EXPORT_PAGE_SIZE = 1000;
 export const EXPORT_ROW_CAP = 25_000;
 
 export type ExportFormat = 'csv' | 'xlsx';
+
+/** "visible" = exactly the rows currently rendered in the table; "filtered" = the full filtered result set (paginated fetch). */
+export type ExportScope = 'visible' | 'filtered';
 
 export interface ExportResult {
 	events: LogEventDto[];
@@ -113,11 +118,17 @@ function timestampForFilename(iso: string): string {
 	return iso.replace(/[:.]/g, '').replace(/Z$/, '').slice(0, 15);
 }
 
-/** Bakes the applied range and truncation into the filename so the artifact self-documents even if a truncation alert was dismissed unread. */
-export function exportFilename(range: ResolvedTimeRange | null, truncated: boolean, format: ExportFormat): string {
+/** Bakes the applied range, scope, and truncation into the filename so the artifact self-documents even if a truncation alert was dismissed unread. */
+export function exportFilename(
+	range: ResolvedTimeRange | null,
+	truncated: boolean,
+	format: ExportFormat,
+	scope: ExportScope
+): string {
 	const rangePart = range ? `${timestampForFilename(range.from)}_${timestampForFilename(range.to)}` : 'all-time';
+	const scopePart = scope === 'visible' ? '_visible-rows' : '';
 	const truncatedPart = truncated ? `_first-${EXPORT_ROW_CAP}-rows` : '';
-	return `flare-logs_${rangePart}${truncatedPart}.${format}`;
+	return `flare-logs_${rangePart}${scopePart}${truncatedPart}.${format}`;
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {
