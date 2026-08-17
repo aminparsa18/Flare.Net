@@ -37,6 +37,16 @@
 	let searchDraft = $state(explorer.filter.search);
 	let searchDebounce: ReturnType<typeof setTimeout> | undefined;
 
+	// Keeps the input in sync when filter.search changes from outside typing - applying a
+	// saved search (applySavedViewState) or a ?view= link hydration both reassign
+	// explorer.filter wholesale, which searchDraft's one-time initializer above never sees.
+	// Typing itself only ever writes searchDraft directly (below) then debounces into
+	// explorer.setSearch, so this effect re-firing once that debounce settles is a
+	// same-value no-op, not a fight over who owns the field.
+	$effect(() => {
+		searchDraft = explorer.filter.search;
+	});
+
 	function handleSearchInput(value: string) {
 		searchDraft = value;
 		clearTimeout(searchDebounce);
