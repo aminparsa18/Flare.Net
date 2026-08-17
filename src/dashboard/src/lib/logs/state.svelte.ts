@@ -191,6 +191,22 @@ export class LogsExplorerState {
 		this.applyFilterChange();
 	}
 
+	/**
+	 * Jumps straight to a specific window - used by VolumeChart when a histogram bar is
+	 * clicked ("something went wrong around 10:23" -> click the spike -> see exactly that
+	 * window). Unlike setCustomRange, this works even while live: the whole point is
+	 * pivoting from "what's happening now" to "what happened in this bucket", so it exits
+	 * live mode itself rather than requiring the caller to do it first (and being a no-op
+	 * like setCustomRange would be).
+	 */
+	focusTimeRange(range: { from: Date; to: Date }): void {
+		this.live = false;
+		this.#connection?.pause(); // keep the socket warm rather than reconnecting next time, same as setLive(false)
+		this.filter.timeRangePreset = 'custom';
+		this.filter.customRange = range;
+		this.applyFilterChange();
+	}
+
 	setServices(services: string[]): void {
 		this.filter.services = services;
 		this.applyFilterChange();
