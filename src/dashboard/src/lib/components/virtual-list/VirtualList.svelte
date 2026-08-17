@@ -72,21 +72,30 @@
 		return () => observer.disconnect();
 	});
 
-	// Scroll-position compensation for prepends (live-tail inserting newer rows ahead of
-	// index 0 while scrolled away from the top). `scrollTop` is a plain pixel offset with
-	// no idea *why* `items` changed - a prepend silently shifts every already-rendered row's
-	// index by however many items landed above it, which (uncompensated) reads as the
-	// visible window jumping to unrelated content on every single live event. `previousItems`
-	// is a plain closure variable, not $state - it only needs to be read/written from inside
-	// this one effect, never trigger reactivity itself.
+	// Scroll-position compensation for content shifting at the front - both directions:
+	// live-tail *prepending* newer rows ahead of index 0 while scrolled away from the top,
+	// and a pagination cap *evicting* rows from the front once accumulated history gets
+	// large (see LogsExplorerState's PAGINATION_CAP/LIVE_CAP - both trim from whichever end
+	// isn't where growth is currently happening). `scrollTop` is a plain pixel offset with
+	// no idea *why* `items` changed - either direction silently shifts every already-
+	// rendered row's index, which (uncompensated) reads as the visible window jumping to
+	// unrelated content. `previousItems` is a plain closure variable, not $state - it only
+	// needs to be read/written from inside this one effect, never trigger reactivity itself.
 	//
-	// Deliberately *not* `items.length - prev.length`: once LogsExplorerState's live buffer
-	// hits LIVE_CAP, #prependLive evicts one row from the tail for every new one prepended,
-	// so `items.length` stops changing at all even though the content keeps shifting by one
-	// every event - a length-delta check would silently stop compensating right at the point
-	// ("the list gets long") where the jump is most noticeable. A bounded scan for where the
-	// previously-topmost row now sits catches that steady-state-at-cap case too.
-	const SHIFT_SCAN_LIMIT = 32;
+	// Deliberately *not* a items.length delta: once a cap is in effect (LIVE_CAP or
+	// PAGINATION_CAP), the array stops growing/shrinking at all once steady-state is
+	// reached (one row evicted for every one added), even though content keeps shifting by
+	// one every update - a length-delta check would silently stop compensating right at the
+	// point ("the list gets long") where the jump is most noticeable. A bounded scan for
+	// where the previously-topmost row now sits (or, for eviction, where the new topmost
+	// row previously sat) catches that steady-state case in both directions.
+	// Must safely exceed the largest single-update batch either direction can produce -
+	// live-tail prepends land close to one at a time, but a PAGINATION_CAP eviction can
+	// remove up to a full page's worth (Flare.Api's LogSearchQueryBuilder.MaxPageSize is
+	// 1000; LogsExplorerState's own PAGE_SIZE is 100) from the front in a single loadMore()
+	// call. Sized to comfortably cover that, not just today's PAGE_SIZE - cheap even so,
+	// since this scan runs at most once per items-array change, not per frame.
+	const SHIFT_SCAN_LIMIT = 1024;
 	// Starts undefined rather than reading `items` here (which would only capture its
 	// initial value, outside any reactive context) - the effect below sets it on every run,
 	// including the first, so the "skip on first run" check is `prev === undefined`, not a
@@ -96,24 +105,43 @@
 		const prev = previousItems;
 		previousItems = items;
 		if (!containerEl || prev === undefined || items === prev || prev.length === 0) return;
+		if (containerEl.scrollTop === 0) return; // already pinned to the newest row - let content push in naturally
 
-		let shift = -1;
+		// Grew from the front (a prepend): find where the old topmost row (prev[0]) now
+		// sits in `items`. Found at a positive index -> shift the view down to compensate.
+		let growShift = -1;
 		for (let i = 0; i < Math.min(items.length, SHIFT_SCAN_LIMIT); i++) {
 			if (getKey(items[i], i) === getKey(prev[0], 0)) {
-				shift = i;
+				growShift = i;
 				break;
 			}
 		}
-		// shift === 0: prev[0] is still at index 0 - a plain append (loadMore), nothing to
-		// compensate. shift === -1: not found within the scan window - a wholesale replace
-		// (filter change/disabling live), deliberately left alone here; this component's own
-		// clamp above already keeps that case from rendering as an empty slice instead.
-		if (shift > 0 && containerEl.scrollTop > 0) {
-			containerEl.scrollTop += shift * itemHeight;
+		if (growShift > 0) {
+			containerEl.scrollTop += growShift * itemHeight;
+			scrollTop = containerEl.scrollTop;
+			return;
+		}
+		if (growShift === 0) return; // prev[0] still at index 0 - a plain append, nothing to compensate
+
+		// Not found growing forward - check the other direction: shrank from the front (an
+		// eviction). Find where the new topmost row (items[0]) previously sat in `prev`;
+		// found at a positive index -> shift the view up by however many rows were trimmed.
+		let shrinkShift = -1;
+		if (items.length > 0) {
+			for (let i = 0; i < Math.min(prev.length, SHIFT_SCAN_LIMIT); i++) {
+				if (getKey(prev[i], i) === getKey(items[0], 0)) {
+					shrinkShift = i;
+					break;
+				}
+			}
+		}
+		if (shrinkShift > 0) {
+			containerEl.scrollTop = Math.max(0, containerEl.scrollTop - shrinkShift * itemHeight);
 			scrollTop = containerEl.scrollTop;
 		}
-		// else scrollTop === 0: already pinned to the newest row - let new rows push in
-		// naturally, same as any live-tailing UI.
+		// else not found in either direction within the scan window - a wholesale replace
+		// (filter change/disabling live), deliberately left alone here; this component's own
+		// clamp above already keeps that case from rendering as an empty slice instead.
 	});
 </script>
 
