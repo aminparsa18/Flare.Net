@@ -5,6 +5,8 @@
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
 	import PatternsModal from './PatternsModal.svelte';
+	import ExportMenu from './ExportMenu.svelte';
+	import ShareViewButton from './ShareViewButton.svelte';
 	import SavedSearchesMenu from '$lib/components/logs/SavedSearchesMenu.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -88,6 +90,9 @@
 	<SavedSearchesMenu currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
 
 	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />
+
+	<ExportMenu />
+	<ShareViewButton />
 
 	<div class="relative min-w-48 flex-1">
 		<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
