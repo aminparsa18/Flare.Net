@@ -4,11 +4,11 @@
 	// full filtered result set silently, which read as "wrong" to anyone who expected an
 	// export of what's actually on screen (e.g. after scrolling/loading more, or a bounded
 	// live-tail scrollback). Two independent choices, both funneled into export.ts's shared
-	// CSV/XLSX pipeline:
+	// pipeline (eventsToBlob dispatches on `format`):
 	//   - Rows: "visible" (exactly LogsExplorerState.events, no fetch, instant) vs.
 	//     "filtered" (the full filtered result set, paginated via /api/logs/search, bounded
 	//     by EXPORT_ROW_CAP).
-	//   - Format: CSV or XLSX.
+	//   - Format: CSV, XLSX, JSON, or XML.
 	// A small Dialog rather than the icon-only Popover this started as (see git history) -
 	// two real decisions to make before downloading warrants a confirm step, unlike Share's
 	// single fire-and-forget action.
@@ -18,15 +18,14 @@
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import type { LogEventDto } from '$lib/api';
-	import {
-		fetchAllForExport,
-		eventsToCsv,
-		eventsToXlsxBlob,
-		exportFilename,
-		downloadBlob,
-		type ExportFormat,
-		type ExportScope
-	} from '$lib/logs/export';
+	import { fetchAllForExport, eventsToBlob, exportFilename, downloadBlob, type ExportFormat, type ExportScope } from '$lib/logs/export';
+
+	const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
+		{ value: 'csv', label: 'CSV' },
+		{ value: 'xlsx', label: 'XLSX' },
+		{ value: 'json', label: 'JSON' },
+		{ value: 'xml', label: 'XML' }
+	];
 
 	const explorer = logsExplorerContext.get();
 
@@ -70,8 +69,7 @@
 				abortController = new AbortController();
 				({ events, truncated } = await fetchAllForExport(explorer.buildFilter(range), abortController.signal));
 			}
-			const blob = format === 'csv' ? new Blob([eventsToCsv(events)], { type: 'text/csv;charset=utf-8' }) : eventsToXlsxBlob(events);
-			downloadBlob(blob, exportFilename(range, truncated, format, scope));
+			downloadBlob(eventsToBlob(events, format), exportFilename(range, truncated, format, scope));
 			open = false;
 			if (truncated) {
 				alert(
@@ -147,25 +145,17 @@
 
 			<div class="space-y-2">
 				<span class="text-sm font-medium">Format</span>
-				<div class="flex gap-2">
-					<Button
-						type="button"
-						variant={format === 'csv' ? 'default' : 'outline'}
-						size="sm"
-						class="flex-1"
-						onclick={() => (format = 'csv')}
-					>
-						CSV
-					</Button>
-					<Button
-						type="button"
-						variant={format === 'xlsx' ? 'default' : 'outline'}
-						size="sm"
-						class="flex-1"
-						onclick={() => (format = 'xlsx')}
-					>
-						XLSX
-					</Button>
+				<div class="grid grid-cols-2 gap-2">
+					{#each FORMAT_OPTIONS as option (option.value)}
+						<Button
+							type="button"
+							variant={format === option.value ? 'default' : 'outline'}
+							size="sm"
+							onclick={() => (format = option.value)}
+						>
+							{option.label}
+						</Button>
+					{/each}
 				</div>
 			</div>
 
