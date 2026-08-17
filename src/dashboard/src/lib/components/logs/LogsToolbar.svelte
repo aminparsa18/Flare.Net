@@ -4,6 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
+	import PatternsModal from './PatternsModal.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -48,13 +49,7 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
-	<TimeRangePicker
-		timeRangePreset={explorer.filter.timeRangePreset}
-		customRange={explorer.filter.customRange}
-		live={explorer.live}
-		onSelectPreset={(preset) => explorer.setTimeRangePreset(preset)}
-		onSelectCustom={(range) => explorer.setCustomRange(range)}
-	/>
+	<TimeRangePicker />
 	<PopoverMultiSelect
 		label="Service"
 		options={serviceOptions}
@@ -64,7 +59,7 @@
 	<PopoverMultiSelect label="Level" options={severityOptions} selected={selectedSeverityLabels} onChange={handleSeverityChange} />
 
 	{#if explorer.filter.patternId}
-		<!-- Drill-down from the Patterns view ("View examples") - a sticky filter with no
+		<!-- Drill-down from PatternsModal ("View occurrences") - a sticky filter with no
 		     other UI control to remove it otherwise, so it needs its own visible, dismissible
 		     chip rather than silently narrowing every future search. -->
 		<Badge variant="secondary" class="max-w-64 gap-1">
@@ -81,6 +76,8 @@
 	{/if}
 
 	<ViewsMenu pageType="Logs" currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
+
+	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />
 
 	<div class="relative min-w-48 flex-1">
 		<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />

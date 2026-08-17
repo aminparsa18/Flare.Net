@@ -4,26 +4,10 @@
 	import { RangeCalendar } from '$lib/components/ui/range-calendar';
 	import { getLocalTimeZone, type DateValue } from '@internationalized/date';
 	import ClockIcon from '@lucide/svelte/icons/clock';
+	import { logsExplorerContext } from '$lib/logs/context';
 	import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
 
-	// Prop-driven, not `logsExplorerContext`-coupled - the Patterns view
-	// (`$lib/patterns/state.svelte.ts`) reuses this component directly with its own
-	// filter state, which never coexists with `LogsExplorerState`. `live` is optional
-	// since only the Logs Explorer has a live-tail concept; callers without one just
-	// never lock the control.
-	let {
-		timeRangePreset,
-		customRange,
-		live = false,
-		onSelectPreset,
-		onSelectCustom
-	}: {
-		timeRangePreset: TimeRangePreset;
-		customRange: { from: Date; to: Date } | null;
-		live?: boolean;
-		onSelectPreset: (preset: TimeRangePreset) => void;
-		onSelectCustom: (range: { from: Date; to: Date }) => void;
-	} = $props();
+	const explorer = logsExplorerContext.get();
 
 	let open = $state(false);
 	let showCustom = $state(false);
@@ -39,9 +23,9 @@
 	}
 
 	const activeLabel = $derived(
-		timeRangePreset === 'custom'
-			? formatCustomLabel(customRange)
-			: (TIME_RANGE_PRESETS.find((p) => p.value === timeRangePreset)?.label ?? 'Time range')
+		explorer.filter.timeRangePreset === 'custom'
+			? formatCustomLabel(explorer.filter.customRange)
+			: (TIME_RANGE_PRESETS.find((p) => p.value === explorer.filter.timeRangePreset)?.label ?? 'Time range')
 	);
 
 	function selectPreset(preset: TimeRangePreset) {
@@ -49,7 +33,7 @@
 			showCustom = true;
 			return;
 		}
-		onSelectPreset(preset);
+		explorer.setTimeRangePreset(preset);
 		open = false;
 		showCustom = false;
 	}
@@ -57,13 +41,13 @@
 	function applyCustomRange() {
 		if (!calendarValue.start || !calendarValue.end) return;
 		const tz = getLocalTimeZone();
-		onSelectCustom({ from: calendarValue.start.toDate(tz), to: calendarValue.end.toDate(tz) });
+		explorer.setCustomRange({ from: calendarValue.start.toDate(tz), to: calendarValue.end.toDate(tz) });
 		open = false;
 		showCustom = false;
 	}
 </script>
 
-{#if live}
+{#if explorer.live}
 	<!-- Live mode locks the range to "now" server-side (the tail endpoint ignores from/to) - no point offering a control that can't do anything. -->
 	<Button variant="outline" size="sm" disabled>
 		<ClockIcon data-icon="inline-start" />

@@ -1777,21 +1777,26 @@ count, error count, first/last seen; duration is a named Later item requiring a
       {topN}` (clamped 1-1,000, default 200), same `SafetyOptions()`/`LogFilterSqlBuilder`
       reuse as every other log query. `LogFilter` gained a `PatternId` equality field
       (mirrors the existing `TraceId`/`SpanId` shape) for the drill-down below.
-- [x] **Dashboard**: new top-level `/patterns` route + `AppNav` link (no in-page tabs
-      precedent exists anywhere in this dashboard - every major view is its own route),
-      `patterns-api` additions in `api.ts` alongside `aggregateLogs`, and the usual
-      `patterns/state.svelte.ts` → `patterns/context.ts` pair (own `createContext`,
-      re-authored rather than shared - same explicit precedent `logs`/`ingestion`/`auth`/
-      etc.'s context files already document for that two-line helper). `PatternsTable`
-      follows `PipelineServiceBreakdown`'s `Table.Root`/`Empty.*` shape. **Drill-down**
-      ("View examples") is a plain `/?patternId=<id>&patternTemplate=<text>` URL, read by
-      the Logs Explorer's `onMount` (same priority slot as `?view=<id>`) via a new
-      `LogsExplorerState.applyPatternIdFilter` - surfaced as a dismissible badge in
-      `LogsToolbar` since it's a sticky filter with no other UI control to clear it
-      otherwise. Required refactoring `TimeRangePicker.svelte` from reading
-      `logsExplorerContext` internally to a prop-driven component (`timeRangePreset`/
-      `customRange`/`live`/`onSelectPreset`/`onSelectCustom`) so the Patterns toolbar
-      could reuse it directly; `LogsToolbar`'s one call site updated to pass those props.
+- [x] **Dashboard**: shipped first as a standalone top-level `/patterns` route, then
+      revised same-day per direct user feedback ("wasn't expecting a new page for it")
+      into a modal opened from an icon-button trigger next to the Logs page's search box
+      (`PatternsModal.svelte`, `RegexIcon` trigger inside `LogsToolbar`) - patterns are
+      always "patterns within what I'm currently looking at," so a page switch away from
+      the Logs Explorer's own filter context was the wrong shape for this. The modal
+      reads `LogsExplorerState.buildFilter`/a new public `currentRange()` wrapper
+      directly (the window the log table is *currently* searching, respecting a
+      VolumeChart bucket-click selection) rather than owning a separate filter toolbar
+      of its own - one less state class, one less context, no filter UI duplicated
+      against what's already visible on the page underneath. **Drill-down** ("View
+      occurrences", renamed from "View examples") closes the modal and calls
+      `LogsExplorerState.applyPatternIdFilter` directly - no URL round-trip needed once
+      the modal and the Logs Explorer share one page/state instance, unlike the
+      discarded route version's `/?patternId=<id>&patternTemplate=<text>` link - still
+      surfaced as a dismissible badge in `LogsToolbar` since it's a sticky filter with no
+      other UI control to clear it otherwise. The route version's `TimeRangePicker.svelte`
+      prop-driven refactor (done so a separate Patterns toolbar could reuse it) was
+      reverted along with it - once nothing but `LogsToolbar` renders `TimeRangePicker`
+      again, the props were unearned complexity, not earned reuse.
 - [x] **Verification performed**: `dotnet test` on `Flare.Ingest.Tests` (140 passed) and
       `Flare.Api.Tests` (339 passed) - new `DrainPatternMatcherTests` (tokenization/
       wildcarding including the "pure a-f letter word isn't hex" case, threshold merge/

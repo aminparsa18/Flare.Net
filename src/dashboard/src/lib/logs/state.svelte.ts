@@ -125,6 +125,11 @@ export class LogsExplorerState {
 		return resolveTimeRange(this.filter.timeRangePreset, this.filter.customRange ?? undefined);
 	}
 
+	/** Public wrapper around #resolvedRange - the window the log table is *currently* searching (respects a VolumeChart bucket-click selection, unlike VolumeChart's own fetch). Used by PatternsModal so "patterns" means "patterns within what I'm currently looking at". */
+	currentRange(): ResolvedTimeRange | null {
+		return this.#resolvedRange();
+	}
+
 	/** One-off, wide-window (7d), single-bucket aggregate just to enumerate service names via `groupKey`. */
 	async loadKnownServices(): Promise<void> {
 		try {
@@ -347,12 +352,10 @@ export class LogsExplorerState {
 	}
 
 	/**
-	 * One-shot filter applied when the Logs Explorer is opened via a Patterns view's
-	 * "View examples" link (`/?patternId=<id>&patternTemplate=<text>`, read by
-	 * +page.svelte's onMount) - narrows the search to exactly the rows that produced one
-	 * Drain cluster. Always turns live tail off first, same reasoning
-	 * `applySavedViewState` already documents: the point is a specific filter, not "go
-	 * live".
+	 * One-shot filter applied when a row's "View occurrences" is clicked in PatternsModal
+	 * - narrows the search to exactly the rows that produced one Drain cluster. Always
+	 * turns live tail off first, same reasoning `applySavedViewState` already documents:
+	 * the point is a specific filter, not "go live".
 	 */
 	applyPatternIdFilter(patternId: string, label: string): void {
 		this.live = false;
