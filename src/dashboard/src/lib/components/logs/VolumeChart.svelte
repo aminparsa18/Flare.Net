@@ -17,6 +17,10 @@
 	// edges (e.g. a trailing partial bucket), so the axis labels use what was actually asked for.
 	let rangeFrom = $state<string | null>(null);
 	let rangeTo = $state<string | null>(null);
+	// The width actually requested for the current `buckets` - needed to turn a clicked
+	// bucket's bucketStart into a [from, to) window, since LogAggregateBucket carries no
+	// bucketEnd of its own.
+	let bucketWidthSeconds = $state(1);
 
 	function currentRange(): { from: string; to: string } {
 		if (explorer.live) {
@@ -33,14 +37,16 @@
 	async function refresh() {
 		const range = currentRange();
 		const rangeSeconds = (new Date(range.to).getTime() - new Date(range.from).getTime()) / 1000;
+		const width = pickBucketWidthSeconds(rangeSeconds);
 		try {
 			const res = await aggregateLogs({
 				filter: explorer.buildFilter(range),
-				bucketWidthSeconds: pickBucketWidthSeconds(rangeSeconds)
+				bucketWidthSeconds: width
 			});
 			buckets = res.buckets;
 			rangeFrom = range.from;
 			rangeTo = range.to;
+			bucketWidthSeconds = width;
 			fetchError = null;
 		} catch (err) {
 			fetchError = err instanceof Error ? err.message : String(err);
@@ -105,12 +111,31 @@
 			Z`;
 	}
 
+	/** Shared by hover and click - maps a pointer's x position to a bucket index. */
+	function bucketIndexAt(svg: SVGSVGElement, clientX: number): number {
+		const rect = svg.getBoundingClientRect();
+		const fraction = (clientX - rect.left) / rect.width;
+		return Math.min(buckets.length - 1, Math.max(0, Math.floor(fraction * buckets.length)));
+	}
+
 	function handlePointerMove(e: PointerEvent) {
 		if (buckets.length === 0) return;
-		const svg = e.currentTarget as SVGSVGElement;
-		const rect = svg.getBoundingClientRect();
-		const fraction = (e.clientX - rect.left) / rect.width;
-		hoverIndex = Math.min(buckets.length - 1, Math.max(0, Math.floor(fraction * buckets.length)));
+		hoverIndex = bucketIndexAt(e.currentTarget as SVGSVGElement, e.clientX);
+	}
+
+	/**
+	 * Clicking a bar (or anywhere along its column) jumps the whole explorer to that
+	 * bucket's window - "something went wrong around 10:23" -> click the spike -> see
+	 * exactly what happened. Exits live mode if needed (focusTimeRange handles that).
+	 */
+	function handleBarClick(e: MouseEvent) {
+		if (buckets.length === 0) return;
+		const index = bucketIndexAt(e.currentTarget as SVGSVGElement, e.clientX);
+		const bucket = buckets[index];
+		if (!bucket) return;
+		const from = new Date(bucket.bucketStart);
+		const to = new Date(from.getTime() + bucketWidthSeconds * 1000);
+		explorer.focusTimeRange({ from, to });
 	}
 
 	function formatBucketTime(iso: string): string {
@@ -157,11 +182,12 @@
 								{...props}
 								viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
 								preserveAspectRatio="none"
-								class="h-[100px] w-full"
+								class="h-[100px] w-full cursor-pointer"
 								role="img"
-								aria-label="Event volume over time"
+								aria-label="Event volume over time - click a bar to filter logs to that time range"
 								onpointermove={handlePointerMove}
 								onpointerleave={() => (hoverIndex = null)}
+								onclick={handleBarClick}
 							>
 								<!-- Gridlines at peak / half / zero, aligned with the y-axis labels beside them.
 								     non-scaling-stroke keeps them a crisp 1px regardless of the viewBox's
@@ -217,7 +243,7 @@
 					</Tooltip.Trigger>
 					{#if hoverIndex !== null && buckets[hoverIndex]}
 						<Tooltip.Content>
-							{formatBucketTime(buckets[hoverIndex].bucketStart)} · {formatCount(buckets[hoverIndex].count)} events
+							{formatBucketTime(buckets[hoverIndex].bucketStart)} · {formatCount(buckets[hoverIndex].count)} events · click to filter
 						</Tooltip.Content>
 					{/if}
 				</Tooltip.Root>
