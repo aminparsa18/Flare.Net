@@ -49,6 +49,13 @@ Planning.md's non-goal on "dashboards-as-code, arbitrary user-built panels"). Se
 "config, not log data" table after `alert_rules` - see "Design decisions" below for the
 same CRUD-on-MergeTree approach reused from there.
 
+`0010_logs_pattern.sql` - adds `PatternId`/`PatternTemplate` (both
+`LowCardinality(String)`) to `logs`, computed by `Flare.Ingest`'s `DrainPatternMatcher`/
+`LogPatternAnnotator` at flush time (Drain log-template clustering, not a ClickHouse-side
+computation). This is the **"Log pattern detection"** roadmap item - `Flare.Api`'s new
+`LogPatternQueryBuilder` does a plain `GROUP BY PatternId` for the ranked-patterns view,
+the same reason this is ingest-time rather than query-time (see Planning.md's rationale).
+
 ## What it deliberately does *not* do (yet)
 
 - No ClickHouse-writing code anywhere - `Flare.Ingest`'s `ConsoleLogEventSink` is
@@ -293,6 +300,7 @@ same expected row count. Two differences worth calling out:
 | `LogAttributes`                 | `LogAttributes`       | Renamed from `Attributes` so all three attribute bags mirror their columns 1:1. |
 | `EventName`                     | `EventName`           | Presence marks a named OTel "event", not just descriptive text. |
 | `EventId`                       | `EventId`              | Added in migration 0002. Flare-internal (`Guid.NewGuid()` at map time), not from OTLP. |
+| `PatternId` / `PatternTemplate` | `PatternId` / `PatternTemplate` | Added in migration 0010. Set by `Flare.Ingest`'s `LogPatternAnnotator` at flush time, not by `OtlpLogMapper` - not from OTLP either. |
 
 ## Empty string / NULL convention
 

@@ -73,4 +73,18 @@ public sealed record LogEvent
     /// OTel "event", per the OTel logs data model — not just descriptive text.
     /// </summary>
     public string? EventName { get; init; }
+
+    /// <summary>
+    /// Deterministic id of the Drain cluster <see cref="Body"/> matched to, set by
+    /// <see cref="Patterns.LogPatternAnnotator"/> at flush time — not by
+    /// <see cref="OtlpLogMapper"/>, unlike every other property here. Empty string (the
+    /// default) means unannotated: either the feature is disabled
+    /// (<see cref="Patterns.LogPatternOptions.Enabled"/>) or this row predates the
+    /// migration/feature and was never backfilled. Not <see langword="required"/>, unlike
+    /// <see cref="EventId"/>, so every pre-existing construction site keeps compiling.
+    /// </summary>
+    public string PatternId { get; init; } = string.Empty;
+
+    /// <summary>The (possibly wildcarded) template text <see cref="PatternId"/> was derived from. See <see cref="PatternId"/>'s remarks.</summary>
+    public string PatternTemplate { get; init; } = string.Empty;
 }

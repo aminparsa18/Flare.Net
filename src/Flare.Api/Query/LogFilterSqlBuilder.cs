@@ -71,6 +71,12 @@ public static class LogFilterSqlBuilder
             clauses.Add("SpanId = {spanId:String}");
         }
 
+        if (!string.IsNullOrEmpty(filter.PatternId))
+        {
+            parameters.AddParameter("patternId", filter.PatternId);
+            clauses.Add("PatternId = {patternId:String}");
+        }
+
         if (!string.IsNullOrEmpty(filter.Search))
         {
             // Pattern is fully formed client-side and bound as one parameter value,

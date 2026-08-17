@@ -39,6 +39,7 @@ export interface LogFilter {
 	severityNumbers?: number[];
 	traceId?: string;
 	spanId?: string;
+	patternId?: string;
 	search?: string;
 	attributes?: AttributeFilter[];
 }
@@ -64,6 +65,8 @@ export interface LogEventDto {
 	scopeAttributes: Record<string, string>;
 	logAttributes: Record<string, string>;
 	eventName: string;
+	patternId: string;
+	patternTemplate: string;
 }
 
 // ---- POST /api/logs/search (LogSearchRequest.cs / LogSearchResponse) ------
@@ -121,6 +124,44 @@ export async function aggregateLogs(request: LogAggregateRequest, signal?: Abort
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/logs/aggregate failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
+}
+
+// ---- POST /api/logs/patterns (LogPatternModels.cs) -------------------------
+//
+// Ranked Drain-cluster ("log pattern detection") view - "GET /api/orders/123" and
+// "GET /api/orders/456" collapse into one template row, ranked by occurrence count. No
+// duration/p95 (logs have no duration field - see Planning.md's rationale); pairs with
+// `LogFilter.patternId` for drilling from a pattern row into the Logs Explorer.
+
+export interface LogPatternRequest {
+	filter?: LogFilter;
+	topN?: number;
+}
+
+export interface LogPatternRow {
+	patternId: string;
+	template: string;
+	count: number;
+	errorCount: number;
+	firstSeen: string;
+	lastSeen: string;
+}
+
+export interface LogPatternResponse {
+	patterns: LogPatternRow[];
+}
+
+export async function getPatterns(request: LogPatternRequest = {}, signal?: AbortSignal): Promise<LogPatternResponse> {
+	const res = await apiFetch(`${API_BASE_URL}/api/logs/patterns`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/logs/patterns failed: ${res.status} ${res.statusText}`);
 	}
 	return res.json();
 }

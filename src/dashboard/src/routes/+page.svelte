@@ -20,9 +20,15 @@
 			// ?view=<id> (a saved view's shareable link) takes priority over the live-by-
 			// default startup - applySavedViewState turns live off itself and runs the
 			// search, so the branch below is only reached with no (or an invalid) view id.
+			// ?patternId=<id>[&patternTemplate=<text>] (the Patterns view's "View examples"
+			// drill-down, see PatternsTable.svelte) comes next, same "turn live off, run
+			// one specific search" shape as a saved view.
 			const view = await resolveRequestedSavedView(page.url, 'Logs');
+			const patternId = page.url.searchParams.get('patternId');
 			if (view) {
 				explorer.applySavedViewState(view.state);
+			} else if (patternId) {
+				explorer.applyPatternIdFilter(patternId, page.url.searchParams.get('patternTemplate') ?? '');
 			} else if (explorer.live) {
 				explorer.startLiveTail();
 			} else {

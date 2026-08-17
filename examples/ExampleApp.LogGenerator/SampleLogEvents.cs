@@ -8,12 +8,22 @@ namespace ExampleApp.LogGenerator;
 /// library (e.g. Bogus) - this pool is small enough to hand-write and keeps the example
 /// dependency-free.
 /// </summary>
+/// <remarks>
+/// Also the demo data behind Planning.md's v16 (log pattern detection / Drain
+/// clustering, `/patterns` in the dashboard) - <see cref="EmitRequestCompleted"/> emits
+/// the exact "GET /api/orders/{id}" shape the feature was originally pitched around
+/// (see <see cref="RandomPath"/>'s remarks), and every other event below still clusters
+/// too, just via Drain's similarity-merge path rather than pre-masking: e.g.
+/// <see cref="EmitOrderProcessed"/>'s "Processed order {OrderId} for {User} ({Product})
+/// in {DurationMs}ms" wildcards <c>{OrderId}</c>/<c>{DurationMs}</c> immediately (numeric
+/// masking) and <c>{User}</c>/<c>{Product}</c> once enough distinct pool values have been
+/// seen to push the position below the similarity threshold.
+/// </remarks>
 internal static class SampleLogEvents
 {
     private static readonly string[] Users = ["alice", "bob", "carol", "dave", "erin"];
     private static readonly string[] Products = ["widget", "gadget", "gizmo", "doohickey"];
     private static readonly string[] Tables = ["orders", "users", "products", "inventory"];
-    private static readonly string[] Paths = ["/api/products", "/api/orders", "/api/users", "/api/search"];
     private static readonly string[] JobNames = ["SendWelcomeEmail", "SyncInventory", "GenerateInvoice", "RefreshCache"];
 
     /// <summary>Logs one randomly-selected event: ~70% Information, ~20% Warning, ~10% Error/Critical.</summary>
@@ -70,8 +80,24 @@ internal static class SampleLogEvents
         var durationMs = Random.Shared.Next(5, 250);
         logger.LogInformation(
             "{Method} {Path} responded {StatusCode} in {DurationMs}ms",
-            "GET", Pick(Paths), statusCode, durationMs);
+            "GET", RandomPath(), statusCode, durationMs);
     }
+
+    /// <summary>
+    /// A resource path, sometimes with an embedded id - deliberately the running example
+    /// from Planning.md's v16 write-up ("GET /api/orders/123" and "GET /api/orders/456"
+    /// both collapsing into "GET /api/orders/&lt;*&gt;"). Two id shapes on purpose: a
+    /// plain decimal id (numeric masking) and a dashed <see cref="Guid"/> (UUID masking,
+    /// Drain's other wildcarding rule) - <c>/api/products</c>/<c>/api/search</c> stay
+    /// id-less so not every request path collapses into the same pattern.
+    /// </summary>
+    private static string RandomPath() => Random.Shared.Next(4) switch
+    {
+        0 => $"/api/orders/{Random.Shared.Next(1000, 99999)}",
+        1 => $"/api/users/{Guid.NewGuid()}",
+        2 => "/api/products",
+        _ => "/api/search",
+    };
 
     private static void EmitSlowQuery(ILogger logger)
     {

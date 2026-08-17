@@ -50,4 +50,10 @@ public sealed record LogEventDto
     public required IReadOnlyDictionary<string, string> LogAttributes { get; init; }
 
     public required string EventName { get; init; }
+
+    /// <summary>Drain cluster id set by <c>Flare.Ingest</c>'s <c>LogPatternAnnotator</c> at flush time. Empty string = unannotated (feature disabled, or this row predates the migration).</summary>
+    public required string PatternId { get; init; }
+
+    /// <summary>The (possibly wildcarded) template text <see cref="PatternId"/> was derived from.</summary>
+    public required string PatternTemplate { get; init; }
 }

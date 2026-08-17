@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Ingest.Model;
+using Flare.Ingest.Patterns;
 using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
@@ -44,6 +45,7 @@ public sealed class ClickHouseFlushWorker(
     IClickHouseLogEventWriter writer,
     IOptions<LogEventPipelineOptions> options,
     IFlushHealthTracker flushHealth,
+    ILogPatternAnnotator patternAnnotator,
     ILogger<ClickHouseFlushWorker> logger) : BackgroundService
 {
     private static readonly RedisValue DataField = "data";
@@ -205,9 +207,16 @@ public sealed class ClickHouseFlushWorker(
     {
         var events = batch.Select(b => b.Event).ToArray();
 
+        // Pattern-matching (Drain clustering, see LogPatternAnnotator's remarks for why
+        // it runs here rather than on the OTLP receive path) happens right before the
+        // ClickHouse write, on the batch as a whole - a CPU-bound, in-process step, not a
+        // network call, so it doesn't need its own try/catch here; any exception surfaces
+        // through the same catch block that already handles a failed write.
+        var annotated = patternAnnotator.Annotate(events);
+
         try
         {
-            await writer.WriteBatchAsync(events);
+            await writer.WriteBatchAsync(annotated);
             var ids = batch.Select(b => b.Id).ToArray();
             await db.StreamAcknowledgeAsync(opts.StreamKey, opts.ConsumerGroup, ids);
             logger.LogDebug("Flushed {Count} log events to ClickHouse.", events.Length);

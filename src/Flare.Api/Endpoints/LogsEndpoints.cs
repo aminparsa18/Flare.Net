@@ -5,7 +5,7 @@ using Flare.Api.Query;
 
 namespace Flare.Api.Endpoints;
 
-/// <summary>The Query API: <c>POST /api/logs/search</c> and <c>POST /api/logs/aggregate</c>.</summary>
+/// <summary>The Query API: <c>POST /api/logs/search</c>, <c>POST /api/logs/aggregate</c>, and <c>POST /api/logs/patterns</c>.</summary>
 /// <remarks>
 /// POST + JSON body rather than GET + query string for both - filters are
 /// multi-valued/structured (service lists, level lists, attribute key/value pairs),
@@ -19,6 +19,7 @@ public static class LogsEndpoints
     {
         endpoints.MapPost("/api/logs/search", HandleSearchAsync);
         endpoints.MapPost("/api/logs/aggregate", HandleAggregateAsync);
+        endpoints.MapPost("/api/logs/patterns", HandlePatternsAsync);
         return endpoints;
     }
 
@@ -72,5 +73,26 @@ public static class LogsEndpoints
         {
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
+    }
+
+    private static async Task<IResult> HandlePatternsAsync(
+        HttpContext http,
+        ILogQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        LogPatternRequest? request;
+        try
+        {
+            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogPatternRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        request ??= new LogPatternRequest();
+
+        var response = await queryService.GetPatternsAsync(request, cancellationToken);
+        return Results.Json(response, LogsJsonContext.Default.LogPatternResponse);
     }
 }

@@ -70,6 +70,15 @@ public class LogFilterSqlBuilderTests
     }
 
     [Fact]
+    public void Build_WithPatternId_AddsEqualityClause()
+    {
+        var result = LogFilterSqlBuilder.Build(new LogFilter { PatternId = "a82db7c88f594553" }, Now);
+
+        Assert.Contains("PatternId = {patternId:String}", result.WhereSql);
+        Assert.Equal("a82db7c88f594553", result.Parameters.ToDictionary()["patternId"]);
+    }
+
+    [Fact]
     public void Build_WithSearch_WrapsTermInWildcards_ForIlike()
     {
         var result = LogFilterSqlBuilder.Build(new LogFilter { Search = "boom" }, Now);

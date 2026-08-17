@@ -56,4 +56,17 @@ public sealed record BufferedLogEvent
     public required IReadOnlyDictionary<string, string> LogAttributes { get; init; }
 
     public string? EventName { get; init; }
+
+    /// <summary>
+    /// Always empty at this point in the pipeline in practice: <c>Flare.Ingest</c>'s
+    /// <c>LogPatternAnnotator</c> only runs in <c>ClickHouseFlushWorker</c>, after the
+    /// Redis Stream write this type deserializes - a live-tailed event predates pattern
+    /// annotation. Kept here anyway for the field-for-field mirror contract this type's
+    /// own remarks document, and because <c>LogEvent</c>'s JSON contract always includes
+    /// it (defaulting to <see cref="string.Empty"/>, never absent).
+    /// </summary>
+    public string? PatternId { get; init; }
+
+    /// <summary>See <see cref="PatternId"/>'s remarks.</summary>
+    public string? PatternTemplate { get; init; }
 }

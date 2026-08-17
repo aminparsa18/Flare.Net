@@ -9,6 +9,7 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { mode, toggleMode } from 'mode-watcher';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
@@ -47,7 +48,13 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
-	<TimeRangePicker />
+	<TimeRangePicker
+		timeRangePreset={explorer.filter.timeRangePreset}
+		customRange={explorer.filter.customRange}
+		live={explorer.live}
+		onSelectPreset={(preset) => explorer.setTimeRangePreset(preset)}
+		onSelectCustom={(range) => explorer.setCustomRange(range)}
+	/>
 	<PopoverMultiSelect
 		label="Service"
 		options={serviceOptions}
@@ -55,6 +62,24 @@
 		onChange={(next) => explorer.setServices(next)}
 	/>
 	<PopoverMultiSelect label="Level" options={severityOptions} selected={selectedSeverityLabels} onChange={handleSeverityChange} />
+
+	{#if explorer.filter.patternId}
+		<!-- Drill-down from the Patterns view ("View examples") - a sticky filter with no
+		     other UI control to remove it otherwise, so it needs its own visible, dismissible
+		     chip rather than silently narrowing every future search. -->
+		<Badge variant="secondary" class="max-w-64 gap-1">
+			<span class="truncate font-mono" title={explorer.patternFilterLabel ?? undefined}>{explorer.patternFilterLabel}</span>
+			<button
+				type="button"
+				class="hover:text-foreground shrink-0"
+				onclick={() => explorer.clearPatternIdFilter()}
+				aria-label="Clear pattern filter"
+			>
+				<XIcon class="size-3" />
+			</button>
+		</Badge>
+	{/if}
+
 	<ViewsMenu pageType="Logs" currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
 
 	<div class="relative min-w-48 flex-1">

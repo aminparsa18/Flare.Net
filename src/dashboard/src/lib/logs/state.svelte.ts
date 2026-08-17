@@ -30,6 +30,8 @@ export interface LogsFilterState {
 	services: string[];
 	severityNumbers: number[];
 	search: string;
+	/** Exact PatternId match - set only via applyPatternIdFilter (the Patterns view's "View examples" drill-down), never part of a saved view. */
+	patternId: string;
 }
 
 /**
@@ -52,8 +54,12 @@ export class LogsExplorerState {
 		customRange: null,
 		services: [],
 		severityNumbers: [],
-		search: ''
+		search: '',
+		patternId: ''
 	});
+
+	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
+	patternFilterLabel = $state<string | null>(null);
 
 	/** Logs Explorer opens in live mode by default - see +page.svelte's onMount, which calls
 	 *  startLiveTail() instead of runSearch() when this is true at mount time. */
@@ -110,6 +116,7 @@ export class LogsExplorerState {
 		if (this.filter.services.length) filter.services = [...this.filter.services];
 		if (this.filter.severityNumbers.length) filter.severityNumbers = [...this.filter.severityNumbers];
 		if (this.filter.search.trim()) filter.search = this.filter.search.trim();
+		if (this.filter.patternId) filter.patternId = this.filter.patternId;
 		return filter;
 	}
 
@@ -332,8 +339,34 @@ export class LogsExplorerState {
 			customRange: s.customRange ? { from: new Date(s.customRange.from), to: new Date(s.customRange.to) } : null,
 			services: s.services ?? [],
 			severityNumbers: s.severityNumbers ?? [],
-			search: s.search ?? ''
+			search: s.search ?? '',
+			patternId: '' // never part of a saved view - see LogsFilterState.patternId's remarks
 		};
+		this.patternFilterLabel = null;
+		this.applyFilterChange();
+	}
+
+	/**
+	 * One-shot filter applied when the Logs Explorer is opened via a Patterns view's
+	 * "View examples" link (`/?patternId=<id>&patternTemplate=<text>`, read by
+	 * +page.svelte's onMount) - narrows the search to exactly the rows that produced one
+	 * Drain cluster. Always turns live tail off first, same reasoning
+	 * `applySavedViewState` already documents: the point is a specific filter, not "go
+	 * live".
+	 */
+	applyPatternIdFilter(patternId: string, label: string): void {
+		this.live = false;
+		this.selectedBucketRange = null;
+		this.filter.patternId = patternId;
+		this.patternFilterLabel = label || patternId;
+		this.applyFilterChange();
+	}
+
+	/** Clears a pattern-id drill-down applied via applyPatternIdFilter - shown as a dismissible badge in LogsToolbar. */
+	clearPatternIdFilter(): void {
+		if (!this.filter.patternId) return;
+		this.filter.patternId = '';
+		this.patternFilterLabel = null;
 		this.applyFilterChange();
 	}
 

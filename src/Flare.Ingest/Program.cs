@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using Flare.Identity;
 using Flare.Ingest.Auth;
 using Flare.Ingest.Otlp;
+using Flare.Ingest.Patterns;
 using Flare.Ingest.Pipeline;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
@@ -39,6 +40,15 @@ builder.AddClickHouseDataSource(connectionName: "clickhousedb");
 builder.Services.AddSingleton<ILogEventSink, RedisStreamLogEventSink>();
 builder.Services.AddSingleton<IClickHouseLogEventWriter, ClickHouseLogEventWriter>();
 builder.Services.AddHostedService<ClickHouseFlushWorker>();
+
+// Log pattern detection (Drain clustering, Planning.md's "another killer feature" item) -
+// singleton so DrainPatternMatcher's in-memory tree persists across flush batches for the
+// life of the process (see its own remarks on why that's an accepted, not a solved,
+// restart-reset limitation).
+builder.Services.Configure<LogPatternOptions>(
+    builder.Configuration.GetSection(LogPatternOptions.SectionName));
+builder.Services.AddSingleton<ILogPatternMatcher, DrainPatternMatcher>();
+builder.Services.AddSingleton<ILogPatternAnnotator, LogPatternAnnotator>();
 
 // Spans - a parallel, deliberately un-unified pipeline alongside the logs one above
 // (own Redis stream, own flush worker); see SpanFlushWorker's remarks for why.

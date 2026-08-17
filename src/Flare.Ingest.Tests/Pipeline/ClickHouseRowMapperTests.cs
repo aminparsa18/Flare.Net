@@ -10,14 +10,16 @@ public class ClickHouseRowMapperTests
     public void Columns_MatchLogsTableColumnOrder()
     {
         // Mirrors db/clickhouse/0001_logs.sql's column declaration order, with EventId
-        // appended per 0002_logs_event_id.sql's ALTER TABLE ... ADD COLUMN - both pair
-        // with row values positionally via InsertBinaryAsync.
+        // (0002_logs_event_id.sql) then PatternId/PatternTemplate (0010_logs_pattern.sql)
+        // appended via their own ALTER TABLE ... ADD COLUMN migrations - all pair with
+        // row values positionally via InsertBinaryAsync.
         Assert.Equal(
             [
                 "Timestamp", "ObservedTimestamp", "TraceId", "SpanId", "TraceFlags",
                 "SeverityText", "SeverityNumber", "ServiceName", "Body", "ResourceSchemaUrl",
                 "ResourceAttributes", "ScopeSchemaUrl", "ScopeName", "ScopeVersion",
                 "ScopeAttributes", "LogAttributes", "EventName", "EventId",
+                "PatternId", "PatternTemplate",
             ],
             ClickHouseRowMapper.Columns);
     }
@@ -112,7 +114,7 @@ public class ClickHouseRowMapperTests
     }
 
     [Fact]
-    public void ToRow_PassesThroughEventId_AsTheLastColumn()
+    public void ToRow_PassesThroughEventId_AtItsColumnIndex()
     {
         var eventId = Guid.NewGuid();
         var logEvent = MinimalLogEvent() with { EventId = eventId };
@@ -120,6 +122,26 @@ public class ClickHouseRowMapperTests
         var row = ClickHouseRowMapper.ToRow(logEvent);
 
         Assert.Equal(eventId, row[17]);
+    }
+
+    [Fact]
+    public void ToRow_PassesThroughPatternIdAndTemplate_AsTheLastTwoColumns()
+    {
+        var logEvent = MinimalLogEvent() with { PatternId = "abc123", PatternTemplate = "GET /api/orders/<*>" };
+
+        var row = ClickHouseRowMapper.ToRow(logEvent);
+
+        Assert.Equal("abc123", row[18]);
+        Assert.Equal("GET /api/orders/<*>", row[19]);
+    }
+
+    [Fact]
+    public void ToRow_DefaultsPatternIdAndTemplate_ToEmptyString()
+    {
+        var row = ClickHouseRowMapper.ToRow(MinimalLogEvent());
+
+        Assert.Equal(string.Empty, row[18]);
+        Assert.Equal(string.Empty, row[19]);
     }
 
     private static LogEvent MinimalLogEvent() => new()
