@@ -1,5 +1,5 @@
 <script lang="ts">
-	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
+	import SvelteVirtualList from '@humanspeak/svelte-virtual-list';
 	import LogRow from './LogRow.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -19,10 +19,10 @@
 	style:--log-row-columns={COLUMNS}
 	style:--log-row-height="{ROW_HEIGHT}px"
 >
-	<!-- overflow-y: hidden + scrollbar-gutter: stable reserves the same width VirtualList's
-	     actual scrollbar eats into below - without it, this header (never itself scrollable)
-	     would be a few px wider than the rows once there's enough data to scroll, throwing the
-	     rightmost column (Message) out of alignment even with gap-3 matching. -->
+	<!-- overflow-y: hidden + scrollbar-gutter: stable reserves the same width the list's own
+	     scrollbar (always-on - see below) eats into - without it, this header (never itself
+	     scrollable) would be a few px wider than the rows once there's enough data to scroll,
+	     throwing the rightmost column (Message) out of alignment even with gap-3 matching. -->
 	<div
 		class="bg-muted/30 text-muted-foreground grid shrink-0 items-center gap-3 overflow-y-hidden border-b px-3 text-xs font-medium"
 		style="grid-template-columns: var(--log-row-columns); height: 28px; scrollbar-gutter: stable;"
@@ -43,17 +43,27 @@
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
-		<VirtualList
-			items={explorer.events}
-			itemHeight={ROW_HEIGHT}
-			getKey={(event) => event.eventId}
-			onEndReached={() => void explorer.loadMore()}
-			class="min-h-0 flex-1"
-		>
-			{#snippet children(event)}
-				<LogRow {event} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
-			{/snippet}
-		</VirtualList>
+		<!-- @humanspeak/svelte-virtual-list replaces the hand-rolled VirtualList component
+		     here (that component's own fixed-itemHeight scrollTop math had no anchor
+		     preservation for live-tail prepends - see its remarks) - VirtualList itself is
+		     left in place unused, not deleted, per the ask. This wrapper is what gives the
+		     library's own container (height: 100%, untouched default class) something to
+		     fill in LogTable's flex column - containerClass/viewportClass aren't passed
+		     here since supplying either replaces its built-in positioning/overflow CSS
+		     entirely rather than merging with it. -->
+		<div class="min-h-0 flex-1">
+			<SvelteVirtualList
+				items={explorer.events}
+				itemKey={(event) => event.eventId}
+				defaultEstimatedItemSize={ROW_HEIGHT}
+				onLoadMore={() => void explorer.loadMore()}
+				hasMore={!!explorer.nextCursor}
+			>
+				{#snippet renderItem(event)}
+					<LogRow {event} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
+				{/snippet}
+			</SvelteVirtualList>
+		</div>
 		{#if explorer.loadingMore}
 			<div class="flex shrink-0 items-center justify-center border-t py-2">
 				<Spinner />
