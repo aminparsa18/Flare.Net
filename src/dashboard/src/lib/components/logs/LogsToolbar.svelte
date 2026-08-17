@@ -5,7 +5,7 @@
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
 	import PatternsModal from './PatternsModal.svelte';
-	import ExportMenu from './ExportMenu.svelte';
+	import ExportDialog from './ExportDialog.svelte';
 	import ShareViewButton from './ShareViewButton.svelte';
 	import SavedSearchesMenu from '$lib/components/logs/SavedSearchesMenu.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
@@ -91,7 +91,7 @@
 
 	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />
 
-	<ExportMenu />
+	<ExportDialog />
 	<ShareViewButton />
 
 	<div class="relative min-w-48 flex-1">
