@@ -33,12 +33,35 @@
 		class: className
 	}: VirtualListProps<T> = $props();
 
+	// Vite/esbuild inline this to a literal true/false at build time, so the dev-only
+	// branches below (guarded on this, not re-checking import.meta.env.DEV each time)
+	// are dead code eliminated from the production bundle entirely.
+	const DEV = import.meta.env.DEV;
+
 	let containerEl = $state<HTMLDivElement | null>(null);
 	let scrollTop = $state(0);
 	let containerHeight = $state(0);
 
-	const totalHeight = $derived(items.length * itemHeight);
-	const visibleCount = $derived(Math.ceil(containerHeight / itemHeight) + overscan * 2);
+	// itemHeight is prop-driven, and this component has no control over what a caller
+	// passes - a 0/NaN/negative value would otherwise flow straight into every derived
+	// below (totalHeight, visibleCount, startIndex, offsetY) and the scroll-compensation
+	// math further down, silently producing Infinity/NaN throughout rather than a
+	// visible failure. Validated once here, at the single point every one of those reads
+	// from, rather than re-checked at each. Falls back to 1px - keeps the math finite (a
+	// genuinely-misconfigured row height now renders visibly squashed instead of
+	// invisibly NaN) - and warns loudly in dev so the caller notices; the warning itself
+	// is dev-only (a prop-contract violation, not a runtime condition worth production
+	// console noise), but the fallback applies unconditionally.
+	const safeItemHeight = $derived.by(() => {
+		if (Number.isFinite(itemHeight) && itemHeight > 0) return itemHeight;
+		if (DEV) {
+			console.error(`VirtualList: itemHeight must be a finite number > 0, got ${itemHeight}. Falling back to 1px.`);
+		}
+		return 1;
+	});
+
+	const totalHeight = $derived(items.length * safeItemHeight);
+	const visibleCount = $derived(Math.ceil(containerHeight / safeItemHeight) + overscan * 2);
 	// Clamped against `items.length` (via maxStartIndex), not just against 0 - `items` can
 	// *shrink* out from under a stale `scrollTop` (disabling live tail swaps a large
 	// live-tail buffer for a fresh, shorter search page; a filter change narrows the result
@@ -48,11 +71,11 @@
 	// vanish even though valid rows exist.
 	const maxStartIndex = $derived(Math.max(0, items.length - visibleCount));
 	const startIndex = $derived(
-		Math.max(0, Math.min(maxStartIndex, Math.floor(scrollTop / itemHeight) - overscan))
+		Math.max(0, Math.min(maxStartIndex, Math.floor(scrollTop / safeItemHeight) - overscan))
 	);
 	const endIndex = $derived(Math.min(items.length, startIndex + visibleCount));
 	const visibleItems = $derived(items.slice(startIndex, endIndex));
-	const offsetY = $derived(startIndex * itemHeight);
+	const offsetY = $derived(startIndex * safeItemHeight);
 
 	// Plain event attribute for the scroll listener (direct user-interaction handling),
 	// not $effect+addEventListener - $effect is reserved below for the ResizeObserver,
@@ -63,6 +86,37 @@
 		if (onEndReached && el.scrollHeight - el.scrollTop - el.clientHeight < endReachedThreshold) {
 			onEndReached();
 		}
+	}
+
+	// Dev-mode-only feedback-loop canary: every DOM scrollTop write in this component
+	// funnels through here so unrelated logic (keyboard, scroll-compensation) can't
+	// bypass it. If the *exact same* value gets written more than 10 times within 1s,
+	// something is fighting itself - the pattern the manual compensation effect below
+	// and the browser's own scroll anchoring were producing before overflow-anchor: none
+	// (see that effect's comment) - rather than a one-shot correction converging. Plain
+	// numbers/arrays, not $state - this is a diagnostic side channel, not something that
+	// should itself trigger reactivity or be read anywhere.
+	let lastScrollTopWrite: number | undefined;
+	let recentSameValueWrites: number[] = [];
+	function writeScrollTop(value: number) {
+		if (!containerEl) return;
+		if (DEV) {
+			const now = performance.now();
+			if (value === lastScrollTopWrite) {
+				recentSameValueWrites = recentSameValueWrites.filter((t) => now - t <= 1000);
+				recentSameValueWrites.push(now);
+				if (recentSameValueWrites.length > 10) {
+					console.error(
+						`VirtualList: scrollTop written to the same value (${value}px) ${recentSameValueWrites.length}x in the last second - likely a feedback loop between two effects fighting over scroll position.`
+					);
+					recentSameValueWrites = []; // don't re-fire on every subsequent write of the same value
+				}
+			} else {
+				lastScrollTopWrite = value;
+				recentSameValueWrites = [now];
+			}
+		}
+		containerEl.scrollTop = value;
 	}
 
 	// Fixed px line-scroll step for arrow keys - deliberately *not* derived from
@@ -107,8 +161,32 @@
 		// oversized Home/End delta just lands at the respective end. Setting scrollTop
 		// fires this element's own `scroll` event, which handleScroll picks up - no need
 		// to duplicate its scrollTop-state/onEndReached logic here.
-		containerEl.scrollTop += delta;
+		writeScrollTop(containerEl.scrollTop + delta);
 	}
+
+	// Dev-mode-only duplicate-key assertion. Uses a plain Set, not a reactive Svelte
+	// collection ($state(new Set())/SvelteSet) - @humanspeak/svelte-virtual-list's own
+	// equivalent check used a reactive Set and its own comment notes that caused a ~10s
+	// stall on a 10k-item list, since every mutation to a tracked collection captures a
+	// stack trace for dependency tracking. A plain Set has none of that overhead, and
+	// this effect only runs once per `items`-array change (not per frame), same cost
+	// model as the scroll-compensation scan below - dev-only on top of that, so it's
+	// dead-code-eliminated from production entirely.
+	$effect(() => {
+		if (!DEV) return;
+		const seen = new Set<string | number>();
+		const duplicates = new Set<string | number>();
+		for (let i = 0; i < items.length; i++) {
+			const key = getKey(items[i], i);
+			if (seen.has(key)) duplicates.add(key);
+			else seen.add(key);
+		}
+		if (duplicates.size > 0) {
+			console.error(
+				`VirtualList: getKey produced ${duplicates.size} duplicate key(s) across ${items.length} items (e.g. ${[...duplicates].slice(0, 5).join(', ')}) - keyed {#each} will misbehave (wrong row reused or dropped on reorder).`
+			);
+		}
+	});
 
 	$effect(() => {
 		if (!containerEl) return;
@@ -171,7 +249,7 @@
 			}
 		}
 		if (growShift > 0) {
-			containerEl.scrollTop += growShift * itemHeight;
+			writeScrollTop(containerEl.scrollTop + growShift * safeItemHeight);
 			scrollTop = containerEl.scrollTop;
 			return;
 		}
@@ -190,7 +268,7 @@
 			}
 		}
 		if (shrinkShift > 0) {
-			containerEl.scrollTop = Math.max(0, containerEl.scrollTop - shrinkShift * itemHeight);
+			writeScrollTop(Math.max(0, containerEl.scrollTop - shrinkShift * safeItemHeight));
 			scrollTop = containerEl.scrollTop;
 		}
 		// else not found in either direction within the scan window - a wholesale replace
