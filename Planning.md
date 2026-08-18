@@ -517,7 +517,7 @@ actually worked out (see the three bullets below) — closing out the full origi
       shipped 2026-08-10 (see v10 below)** - the design pass landed the same day it was
       requested rather than waiting for a real incident, since the user asked for it
       directly.
-- [ ] **Logs page `VirtualList` hardening.** Backlog from a 2026-08-17 deep-dive into
+- [x] **Logs page `VirtualList` hardening.** Backlog from a 2026-08-17 deep-dive into
       the Logs page's virtualizer (`src/dashboard/src/lib/components/virtual-list/
       VirtualList.svelte`), after three swapped-in library replacements
       (`@tanstack/svelte-virtual`, `@humanspeak/svelte-virtual-list`) each hit the same
@@ -548,17 +548,24 @@ actually worked out (see the three bullets below) — closing out the full origi
         **Shipped 2026-08-18** - a transient 0 mid-animation/tab-switch/detach-reattach
         would have collapsed the visible range to nothing for a frame; now ignores
         non-finite/`<= 0`/unchanged readings and keeps the last known-good height.
-      - Dev-mode-only safety nets directly relevant to the bug class this whole session
-        was about: a duplicate-`getKey` assertion (use a plain `Set`, not a reactive
-        Svelte collection - humanspeak's own comment notes a reactive one caused a ~10s
-        stall on a 10k-item list from capturing a stack trace per key) and a
-        "same `scrollTop` written more than 10x in 1s" canary as a cheap feedback-loop
-        detector.
-      - No validation on the `itemHeight` prop (a `0`/`NaN` value would silently produce
-        `Infinity`/`NaN` throughout the scroll math) - validate at the point every
-        prop-driven number feeds into it.
-      User explicitly deferred implementing these ("add them to planning.md for later")
-      rather than doing them immediately - not yet scheduled to a version.
+      - [x] ~~Dev-mode-only safety nets directly relevant to the bug class this whole
+        session was about~~ **Shipped 2026-08-18** - a duplicate-`getKey` assertion (a
+        plain `Set`, not a reactive Svelte collection, per humanspeak's own comment that
+        a reactive one caused a ~10s stall on a 10k-item list from capturing a stack
+        trace per key) and a "same `scrollTop` written more than 10x in 1s" canary as a
+        cheap feedback-loop detector - both funnel through one `writeScrollTop()`/
+        duplicate-key `$effect` gated on a build-time-inlined `DEV` constant, so both are
+        dead-code-eliminated from the production bundle (verified against the built
+        client chunks) rather than merely no-op'd at runtime.
+      - [x] ~~No validation on the `itemHeight` prop~~ **Shipped 2026-08-18** - a
+        `safeItemHeight` derived validates once at the single point `totalHeight`/
+        `visibleCount`/`startIndex`/`offsetY`/the scroll-compensation math all read from,
+        falling back to 1px (keeps the math finite - a misconfigured row height now
+        renders visibly squashed instead of invisibly NaN) with a dev-only
+        `console.error` so the caller notices; the fallback itself applies
+        unconditionally, only the warning is dev-gated.
+      All five items from this backlog are now shipped - `VirtualList` hardening is
+      done.
 
 ### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
 Promoted out of "Later" and shipped 2026-08-10, in four passes (ingest+storage →
