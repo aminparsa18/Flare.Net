@@ -13,6 +13,7 @@ import {
 	type LiveTailConnection
 } from '$lib/api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from './time-range';
+import { addRecentSearch } from './recent-searches';
 
 const PAGE_SIZE = 100;
 
@@ -271,11 +272,14 @@ export class LogsExplorerState {
 		this.applyFilterChange();
 	}
 
-	/** Not debounced here - the toolbar's search input owns debounce timing before calling this. */
+	/** Not debounced here - the toolbar's search input owns debounce timing before calling this.
+	 *  This is also the one and only place a search "commits" (see recent-searches.ts), so
+	 *  CommandPalette's history-tracking lives here rather than duplicated at each call site. */
 	setSearch(search: string): void {
 		this.selectedBucketRange = null;
 		this.filter.search = search;
 		this.applyFilterChange();
+		addRecentSearch(search);
 	}
 
 	#prependLive(event: LogEventDto): void {

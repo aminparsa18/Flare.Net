@@ -29,7 +29,12 @@
 
 	const explorer = logsExplorerContext.get();
 
-	let open = $state(false);
+	// Bindable (rather than fully owned here) so LogsToolbar can open this same dialog
+	// from outside - specifically, from the "Export Logs" command palette action, which
+	// reaches it via active-explorer.svelte.ts's openExport since the palette isn't a
+	// descendant of this component. The Dialog.Trigger button below still opens it the
+	// old way too - both paths just flip the same flag.
+	let { open = $bindable(false) }: { open?: boolean } = $props();
 	let scope = $state<ExportScope>('visible');
 	let format = $state<ExportFormat>('csv');
 	let exporting = $state(false);
