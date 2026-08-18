@@ -9,6 +9,7 @@
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import { computeCriticalPath } from '$lib/traces/critical-path';
+	import { kindIcon, kindLabel } from '$lib/traces/status';
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import TimerIcon from '@lucide/svelte/icons/timer';
 
@@ -136,12 +137,14 @@
 			</div>
 			<div class="flex flex-col gap-0.5">
 				{#each slowestSpans as span, i (span.spanId)}
+					{@const KindIcon = kindIcon(span)}
 					<button
 						type="button"
 						class="hover:bg-muted/50 flex w-full items-center gap-2 rounded px-1 py-0.5 text-left text-xs"
 						onclick={() => jumpToSpan(span.spanId)}
 					>
 						<span class="text-muted-foreground w-4 shrink-0 text-right tabular-nums">{i + 1}.</span>
+						<KindIcon class="text-muted-foreground size-3.5 shrink-0" title={kindLabel(span.kind)} />
 						<span class="w-40 shrink-0 truncate" title={span.name}>{span.name || '—'}</span>
 						<span class="text-muted-foreground w-16 shrink-0 text-right font-mono tabular-nums">
 							{formatDurationNano(span.durationNano)}
@@ -208,6 +211,7 @@
 			</div>
 
 			{#each rows as { span, depth } (span.spanId)}
+				{@const KindIcon = kindIcon(span)}
 				<button
 					type="button"
 					class="hover:bg-muted/50 focus-visible:bg-muted/50 grid w-full items-center border-b text-left focus-visible:outline-none"
@@ -224,6 +228,7 @@
 					     capped max-width instead of shrink-0 so it truncates too rather than
 					     dominating the row. -->
 					<span class="flex min-w-0 items-center gap-1 px-3 text-sm" style="padding-left: {12 + depth * 16}px;">
+						<KindIcon class="text-muted-foreground size-3.5 shrink-0" title={kindLabel(span.kind)} />
 						{#if criticalSpanIds.has(span.spanId)}
 							<ZapIcon class="text-warning size-3 shrink-0" />
 						{/if}
