@@ -61,6 +61,8 @@ export interface SpanDto {
 	scopeAttributes: Record<string, string>;
 	spanAttributes: Record<string, string>;
 	events: SpanEventDto[];
+	/** Total spans sharing this row's traceId - only populated for `SpanFilter.rootSpansOnly` searches (Flare's trace list view). See SpanDto.SpanCount's C# remarks. */
+	spanCount?: number;
 }
 
 // ---- POST /api/spans/search (SpanSearchRequest.cs / SpanSearchResponse) ---

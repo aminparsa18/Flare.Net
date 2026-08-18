@@ -15,7 +15,8 @@ public sealed record SpanEventDto
 /// type from <c>Flare.Ingest.Model.SpanRecord</c>, same rationale as <c>LogEventDto</c>
 /// vs <c>LogEvent</c> (this project doesn't pull in the write side's OTLP/gRPC/Redis
 /// dependency graph just to borrow a model shape). Field-for-field mirror of the DDL
-/// (<c>db/clickhouse/0007_spans.sql</c>) - keep the two in sync.
+/// (<c>db/clickhouse/0007_spans.sql</c>) - keep the two in sync - with one deliberate
+/// exception: <see cref="SpanCount"/>, a computed aggregate rather than a stored column.
 /// </summary>
 /// <remarks>
 /// Every DDL column is non-<c>Nullable</c> (same "empty string = absent" convention as
@@ -66,4 +67,15 @@ public sealed record SpanDto
     public required IReadOnlyDictionary<string, string> SpanAttributes { get; init; }
 
     public required IReadOnlyList<SpanEventDto> Events { get; init; }
+
+    /// <summary>
+    /// Total spans sharing this row's <see cref="TraceId"/> - a trace with a 200ms
+    /// duration and 2 spans reads very differently from one with the same duration and
+    /// 80. Populated only for <see cref="SpanFilter.RootSpansOnly"/> searches (Flare's
+    /// "trace list" view; see <see cref="Query.SpanQueryService.SearchAsync"/>'s
+    /// follow-up count query) - <see langword="null"/> for every other
+    /// <c>/api/spans/search</c> result and for <c>GetTraceAsync</c>'s per-span rows,
+    /// where every span of the trace is already in hand and a count would be redundant.
+    /// </summary>
+    public ulong? SpanCount { get; init; }
 }

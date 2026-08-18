@@ -10,7 +10,7 @@
 	const ROW_HEIGHT = 32;
 	// Same shared-CSS-custom-property trick as LogTable, so the header and every
 	// TraceRow can never drift out of alignment.
-	const COLUMNS = '170px 90px 160px 1fr 90px'; // Time | Status | Service | Name | Duration
+	const COLUMNS = '170px 90px 160px 1fr 90px 70px'; // Time | Status | Service | Name | Duration | Spans
 </script>
 
 <div
@@ -27,6 +27,7 @@
 		<span>Service</span>
 		<span>Name</span>
 		<span>Duration</span>
+		<span class="text-right">Spans</span>
 	</div>
 
 	{#if explorer.traces.length === 0 && !explorer.loading}

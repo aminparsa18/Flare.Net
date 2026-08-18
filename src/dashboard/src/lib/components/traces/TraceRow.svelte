@@ -29,4 +29,8 @@
 	<span class="truncate">{trace.serviceName || '—'}</span>
 	<span class="truncate">{trace.name || '—'}</span>
 	<span class="text-muted-foreground truncate font-mono text-xs">{formatDurationNano(trace.durationNano)}</span>
+	<!-- A 200ms trace with 2 spans and one with 80 read very differently - see
+	     SpanDto.spanCount's remarks. Only absent for pre-rollout cached data, hence the
+	     "—" fallback rather than assuming it's always present. -->
+	<span class="text-muted-foreground truncate text-right font-mono text-xs">{trace.spanCount ?? '—'}</span>
 </button>
