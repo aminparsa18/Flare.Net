@@ -41,6 +41,7 @@
 			items={explorer.traces}
 			itemHeight={ROW_HEIGHT}
 			getKey={(trace) => trace.traceId}
+			ariaLabel="Traces"
 			onEndReached={() => void explorer.loadMore()}
 			class="min-h-0 flex-1"
 		>
