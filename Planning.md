@@ -138,11 +138,15 @@ before the package item has anything to wrap.
       (`xracer007/flare-ingest`, `xracer007/flare-api`,
       `xracer007/flare-dashboard`) from the existing Dockerfiles and pushes them to
       Docker Hub: `:edge` on every push to `main`, semver tags (+ auto `:latest`) on
-      `v*.*.*` git tags. Build-only (no push) on PRs. Single-arch (`linux/amd64`) for
+      `v*.*.*` git tags. Single-arch (`linux/amd64`) for
       now — pre-alpha, no evidence yet anyone needs arm64; buildx is wired in from the
       start so adding `linux/arm64` later is a one-line change. **Done and verified
       2026-08-07** — merged via PR #8, `:edge` confirmed live and public on all three
-      Docker Hub repos.
+      Docker Hub repos. Originally also build-only (no push) on PRs to validate the
+      Dockerfiles pre-merge; dropped that trigger 2026-08-18 - it doubled CI time by
+      rebuilding the same images a second time right after, once the merge's own push
+      to `main` fired this workflow for real, for no benefit beyond a Dockerfile-break
+      signal a few minutes earlier.
 - [x] **`Flare.Hosting.Aspire` integration package** — publishable NuGet package
       (`src/Aspire.Hosting.Flare/`) exposing `builder.AddFlare("flare")` for any .NET
       developer already using .NET Aspire for their own app, wrapping the three images
