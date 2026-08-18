@@ -91,15 +91,20 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
 
     /// <summary>
     /// Emits one log event wrapped in a small, believable multi-span trace - "handle-request"
-    /// / "auth-check" / "db-query" / "render-response" - instead of one flat span, so the
-    /// Traces page's waterfall view actually has something to draw. Spans are backdated with
+    /// runs "auth-check", then forks into two concurrent branches ("inventory.query", with its
+    /// own nested "sql.query", racing "payment.request"), then joins into "render-response" -
+    /// instead of one flat span, so the Traces page's waterfall (and its critical-path
+    /// highlighting) has an actual bottleneck to show off, not just a flat sequential chain
+    /// where every span is trivially "critical". Spans are backdated with
     /// <see cref="Activity.SetEndTime"/> rather than real <c>Task.Delay</c>s: this is dummy
     /// data, so there's no reason to actually block the trickle loop (or, worse, a 500-item
-    /// burst) for the fake latency it's showing off. Called with no ambient <see
-    /// cref="Activity.Current"/> (the trickle loop) it becomes its own root trace; called from
-    /// inside <see cref="GenerateBurst"/> it nests under that call's "generate-burst" span the
-    /// same way <c>StartActivity</c> always has here, since <see cref="ActivityContext"/>
-    /// <c>default</c> means "use <see cref="Activity.Current"/> as the parent, if any".
+    /// burst) for the fake latency it's showing off - "concurrent" here just means both
+    /// branches' timestamps start at the same instant, not that they run on separate threads.
+    /// Called with no ambient <see cref="Activity.Current"/> (the trickle loop) it becomes its
+    /// own root trace; called from inside <see cref="GenerateBurst"/> it nests under that call's
+    /// "generate-burst" span the same way <c>StartActivity</c> always has here, since
+    /// <see cref="ActivityContext"/> <c>default</c> means "use <see cref="Activity.Current"/> as
+    /// the parent, if any".
     /// </summary>
     private void EmitWaterfall(int? burstIndex = null)
     {
@@ -110,19 +115,43 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
             root?.SetTag("burst.index", index);
         }
 
-        var cursor = start;
-        cursor = ChildSpan("auth-check", cursor, Random.Shared.Next(1, 8));
-        cursor = ChildSpan("db-query", cursor, Random.Shared.Next(5, 80), () => SampleLogEvents.EmitOne(logger));
-        cursor = ChildSpan("render-response", cursor, Random.Shared.Next(1, 5));
+        var forkStart = ChildSpan("auth-check", start, Random.Shared.Next(1, 8));
 
-        root?.SetEndTime(cursor.UtcDateTime);
+        // Two branches start at the same instant. inventory.query usually (not always -
+        // real overlapping I/O doesn't always resolve the same way either) draws the
+        // longer duration, making it - and its nested sql.query - the critical path;
+        // payment.request still ran, but finished in its shadow and never affected when
+        // render-response could start.
+        var inventoryEnd = SpanWithNestedChild(
+            "inventory.query", forkStart, Random.Shared.Next(180, 420),
+            "sql.query", childRatio: 0.7, work: () => SampleLogEvents.EmitOne(logger));
+        var paymentEnd = ChildSpan("payment.request", forkStart, Random.Shared.Next(40, 150), kind: ActivityKind.Client);
+        var joinTime = inventoryEnd > paymentEnd ? inventoryEnd : paymentEnd;
+
+        var end = ChildSpan("render-response", joinTime, Random.Shared.Next(1, 6));
+
+        root?.SetEndTime(end.UtcDateTime);
     }
 
     /// <summary>Starts a child span at <paramref name="start"/>, runs <paramref name="work"/> (if any), backdates it to end after <paramref name="durationMs"/>, and returns that end time for the next span to chain from.</summary>
-    private DateTimeOffset ChildSpan(string name, DateTimeOffset start, int durationMs, Action? work = null)
+    private DateTimeOffset ChildSpan(string name, DateTimeOffset start, int durationMs, Action? work = null, ActivityKind kind = ActivityKind.Internal)
     {
-        using var span = ActivitySource.StartActivity(name, ActivityKind.Internal, default(ActivityContext), startTime: start);
+        using var span = ActivitySource.StartActivity(name, kind, default(ActivityContext), startTime: start);
         work?.Invoke();
+        var end = start.AddMilliseconds(durationMs);
+        span?.SetEndTime(end.UtcDateTime);
+        return end;
+    }
+
+    /// <summary>
+    /// Like <see cref="ChildSpan"/>, but wraps a nested child spanning <paramref name="childRatio"/>
+    /// of its own duration (e.g. inventory.query's underlying sql.query) - the rest is the
+    /// parent's own overhead (connection acquisition, deserialization) around it.
+    /// </summary>
+    private DateTimeOffset SpanWithNestedChild(string name, DateTimeOffset start, int durationMs, string childName, double childRatio, Action? work = null)
+    {
+        using var span = ActivitySource.StartActivity(name, ActivityKind.Client, default(ActivityContext), startTime: start);
+        ChildSpan(childName, start, (int)(durationMs * childRatio), work, ActivityKind.Client);
         var end = start.AddMilliseconds(durationMs);
         span?.SetEndTime(end.UtcDateTime);
         return end;
