@@ -12,16 +12,16 @@
 -- key enforcement by default on every connection, unlike SQLite itself (whose own
 -- default is off) - Sessions.UserId REFERENCES Users(Id) is genuinely enforced here, and
 -- a bare DROP TABLE Users while it's still referenced fails with "FOREIGN KEY constraint
--- failed". SQLite's own documented rebuild recipe exists precisely for this: disable
--- enforcement first - and that PRAGMA is a documented no-op if issued *inside* a
--- transaction, so it has to come before BEGIN, not after.
-PRAGMA foreign_keys = OFF;
-
--- Wrapped in an explicit transaction - unlike every prior migration here (all pure
--- idempotent CREATE-IF-NOT-EXISTS DDL, safe to fail/retry mid-file), this one drops the
--- real Users table partway through; an interruption between DROP and RENAME with no
--- transaction would leave the database with no Users table at all.
-BEGIN TRANSACTION;
+-- failed".
+--
+-- This file drops the real Users table partway through (create Users_new, copy rows,
+-- DROP TABLE Users, RENAME) - unlike every prior migration here (pure idempotent
+-- CREATE-IF-NOT-EXISTS DDL). Atomicity comes from IdentityMigrationRunner's own outer
+-- `BEGIN IMMEDIATE`/`COMMIT` wrapping this file (and every other migration applied in the
+-- same batch) - this file must NOT open its own transaction; SQLite has no nested BEGIN.
+-- Foreign-key enforcement is likewise toggled once by the runner itself (before its
+-- BEGIN IMMEDIATE / after its COMMIT), not per-file - see IdentityMigrationRunner's own
+-- remarks for why.
 
 CREATE TABLE Users_new
 (
@@ -45,7 +45,3 @@ ALTER TABLE Users_new RENAME TO Users;
 -- DROP TABLE removes indexes defined on it - recreate this one on the renamed table,
 -- identical to how 0002_entra_id.sql originally defined it.
 CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_AuthProvider_ExternalId ON Users(AuthProvider, ExternalId) WHERE ExternalId IS NOT NULL;
-
-COMMIT;
-
-PRAGMA foreign_keys = ON;

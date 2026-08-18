@@ -74,6 +74,12 @@ services:
     build:
       context: .
       dockerfile: src/Flare.Ingest/Dockerfile
+    # Restarts after a crash or a Docker daemon restart, but (unlike `always`) doesn't
+    # fight an explicit `docker compose stop`/`flare stop`. Complementary hardening
+    # alongside the identity-migration lock fix (IdentityMigrationRunner's own
+    # BEGIN IMMEDIATE) - a safety net for any other unforeseen startup crash, so this
+    # container doesn't just sit Exited until someone notices and restarts it by hand.
+    restart: unless-stopped
     # flare.relationships references *roles* (clickhouse/redis), not container names/IDs -
     # see clickhouse's labels comment above.
     labels:
@@ -116,6 +122,8 @@ services:
     build:
       context: .
       dockerfile: src/Flare.Api/Dockerfile
+    # See ingest's identical restart comment above.
+    restart: unless-stopped
     # See ingest's identical labels comment above.
     labels:
       flare.resource: "true"

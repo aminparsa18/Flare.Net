@@ -147,14 +147,118 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
     // ApplyAsync at startup against the *same* SQLite file, and a fresh `docker compose
     // up` had them race to record the same not-yet-applied migration - the loser
     // crashed the whole process on schema_migrations.Name's UNIQUE constraint. Fixed
-    // with INSERT OR IGNORE in ApplyAsync's own recording step. Deliberately not
-    // unit-tested here: a genuine two-process race isn't reliably reproducible
-    // in-process (tried a Task.WhenAll-based repro - SQLite's own file-level write
-    // locking serializes two connections in the same process closely enough that the
-    // exact race window this bug needs is never hit that way, unlike two independent OS
-    // processes with real scheduling jitter), and a same-connection duplicate-INSERT
-    // test would be circular (it would just be re-asserting what INSERT OR IGNORE
-    // already guarantees by definition, never actually exercising ApplyAsync's own
-    // read-then-conditionally-insert path.) Verified instead the way it broke - a real
-    // `docker compose up --build` from a fresh volume - see Planning.md.
+    // with INSERT OR IGNORE in ApplyAsync's own recording step. That fix's own
+    // bookkeeping-only race is still deliberately not unit-tested here: a genuine
+    // two-process race isn't reliably reproducible in-process via a plain
+    // Task.WhenAll-based repro (SQLite's own file-level write locking serializes two
+    // connections in the same process closely enough that the exact window this
+    // particular race needs is never hit that way, unlike two independent OS processes
+    // with real scheduling jitter), and a same-connection duplicate-INSERT test would be
+    // circular. It was verified the way it broke - a real `docker compose up --build`
+    // from a fresh volume - see Planning.md.
+    //
+    // The real root cause behind that same bug report - two processes racing to apply
+    // the *SQL itself* (0002_entra_id.sql's bare, unguarded ALTER TABLE ADD COLUMN, no
+    // IF NOT EXISTS equivalent in SQLite) rather than just racing on the bookkeeping
+    // INSERT - is what ApplyAsync's outer BEGIN IMMEDIATE/COMMIT transaction now fixes,
+    // and unlike the bookkeeping race, *that* window is fully reproducible in-process by
+    // holding SQLite's own write lock open manually - see the two tests below.
+
+    [Fact]
+    public async Task ApplyAsync_BlocksUntilConcurrentHolderReleasesTheLock_ThenAppliesCleanly()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"flare-identity-lock-test-{Guid.NewGuid():N}.db");
+        try
+        {
+            var factory = new IdentityDbConnectionFactory(Options.Create(new IdentityOptions { DbPath = dbPath }));
+
+            // Hold SQLite's write lock open manually - simulates "another process's own
+            // ApplyAsync got there first and is mid-batch" deterministically, sidestepping
+            // the in-process-repro limitation the comment above documents for the
+            // bookkeeping-only race.
+            var holder = await factory.OpenAsync();
+            await using (var begin = holder.CreateCommand())
+            {
+                begin.CommandText = "BEGIN IMMEDIATE;";
+                await begin.ExecuteNonQueryAsync();
+            }
+
+            // Release the lock from a short background delay instead of racing a
+            // Task.Delay against ApplyAsync's own call directly (a first version of this
+            // test did that via Task.WhenAny, and was flaky): the blocked BEGIN IMMEDIATE
+            // retry inside ApplyAsync is a genuinely blocking native SQLite call that can
+            // occupy a thread-pool thread for its whole retry window (up to
+            // IdentityMigrationRunner's own 30s busy_timeout), which can starve a
+            // competing Task.Delay's callback under load and made "is it still pending"
+            // checks unreliable. Measuring elapsed time around one direct, uncontested
+            // `await ApplyAsync` call avoids that.
+            const int releaseDelayMilliseconds = 300;
+            var releaseTask = Task.Run(async () =>
+            {
+                await Task.Delay(releaseDelayMilliseconds);
+                await using var release = holder.CreateCommand();
+                release.CommandText = "COMMIT;";
+                await release.ExecuteNonQueryAsync();
+            });
+
+            var startTicks = Environment.TickCount64;
+            await IdentityMigrationRunner.ApplyAsync(factory, NullLogger.Instance);
+            var elapsedMilliseconds = Environment.TickCount64 - startTicks;
+
+            await releaseTask;
+            await holder.DisposeAsync();
+
+            // Proves ApplyAsync genuinely blocked on BEGIN IMMEDIATE until the lock was
+            // released, rather than happening to run after it was already free - a
+            // regression back to no locking at all would complete near-instantly instead.
+            Assert.True(
+                elapsedMilliseconds >= releaseDelayMilliseconds - 50,
+                $"Expected ApplyAsync to block until the lock was released (~{releaseDelayMilliseconds}ms), but it completed in {elapsedMilliseconds}ms.");
+
+            await using var verify = await factory.OpenAsync();
+            await using var count = verify.CreateCommand();
+            count.CommandText = "SELECT COUNT(*) FROM schema_migrations";
+            Assert.Equal(10L, (long)(await count.ExecuteScalarAsync())!);
+        }
+        finally
+        {
+            foreach (var path in new[] { dbPath, dbPath + "-wal", dbPath + "-shm" })
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ApplyAsync_TwoConcurrentCallers_NeitherThrows_AndSchemaIsCorrect()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"flare-identity-concurrent-test-{Guid.NewGuid():N}.db");
+        try
+        {
+            var factoryA = new IdentityDbConnectionFactory(Options.Create(new IdentityOptions { DbPath = dbPath }));
+            var factoryB = new IdentityDbConnectionFactory(Options.Create(new IdentityOptions { DbPath = dbPath }));
+
+            await Task.WhenAll(
+                IdentityMigrationRunner.ApplyAsync(factoryA, NullLogger.Instance),
+                IdentityMigrationRunner.ApplyAsync(factoryB, NullLogger.Instance));
+
+            await using var verify = await factoryA.OpenAsync();
+            await using var count = verify.CreateCommand();
+            count.CommandText = "SELECT COUNT(*) FROM schema_migrations";
+            Assert.Equal(10L, (long)(await count.ExecuteScalarAsync())!);
+        }
+        finally
+        {
+            foreach (var path in new[] { dbPath, dbPath + "-wal", dbPath + "-shm" })
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+    }
 }

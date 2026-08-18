@@ -477,24 +477,51 @@ actually worked out (see the three bullets below) — closing out the full origi
       authenticated Flare user - not a public/anonymous
       share token; known limitation, not a gap to close here.
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
-- [ ] **Fix identity-migration race between `ingest`/`api`.** Discovered 2026-08-16
-      while e2e-verifying the `flare` CLI's `destroy` → fresh `start` cycle (see above):
-      against a genuinely empty `identity-data` volume, `ingest` crashed with
-      `Microsoft.Data.Sqlite.SqliteException: SQLite Error 1: 'duplicate column name:
-      ExternalId'`. Root cause: `ingest` and `api` are separate processes that both
-      point at the *same* shared SQLite file (`Identity__DbPath`) and each
-      independently runs `Flare.Identity.IdentityMigrationRunner` on startup with no
-      lock between them - on a fresh database both see migration `0002_entra_id.sql`
-      as unapplied and race to run it; the loser crashes adding a column that now
-      already exists. Neither container has a Docker restart policy, so the crashed
-      one just sits `Exited` until manually restarted. Self-heals on a plain retry
-      (`flare start` again, or `docker compose up -d` again) - the surviving process's
-      migration already left the schema correct - so it's not a hard blocker, but it's
-      a real race condition, reproducible via either the CLI or a plain
-      `docker compose up` against a fresh volume (not specific to the CLI). Needs a
-      real fix: likely a file lock / advisory-lock table around
-      `IdentityMigrationRunner.ApplyAsync`, or restricting migrations to one service
-      (`api`) with `ingest` only ever reading.
+- [x] ~~Fix identity-migration race between `ingest`/`api`.~~ **Shipped 2026-08-18** —
+      discovered 2026-08-16 while e2e-verifying the `flare` CLI's `destroy` → fresh
+      `start` cycle (see above): against a genuinely empty `identity-data` volume,
+      `ingest` crashed with `Microsoft.Data.Sqlite.SqliteException: SQLite Error 1:
+      'duplicate column name: ExternalId'`. Root cause: `ingest` and `api` are separate
+      processes that both point at the *same* shared SQLite file (`Identity__DbPath`)
+      and each independently runs `Flare.Identity.IdentityMigrationRunner` on startup
+      with no lock between them - on a fresh database both see migration
+      `0002_entra_id.sql` as unapplied and race to run it; the loser crashed adding a
+      column that already existed. Fixed by wrapping `IdentityMigrationRunner.ApplyAsync`'s
+      whole body in a `BEGIN IMMEDIATE`/`COMMIT` transaction (raw SQL, since
+      `Microsoft.Data.Sqlite`'s `BeginTransaction()` has no IMMEDIATE mode) with a
+      30s `busy_timeout` scoped to that connection - SQLite's own write lock now serializes
+      the two processes, so the loser blocks on `BEGIN IMMEDIATE` until the winner
+      commits, then re-reads `schema_migrations` and finds everything already applied.
+      Required stripping the inner `BEGIN TRANSACTION`/`COMMIT`/`PRAGMA foreign_keys`
+      wrapper out of the three table-rebuild migrations (`0005_ldap_id.sql`,
+      `0008_oidc_id.sql`, `0010_proxyauth_id.sql`, each of which used to open its own
+      transaction) - SQLite has no nested `BEGIN`, so that toggling now happens once in
+      the runner itself, around the whole batch. Also added `restart: unless-stopped` to
+      `ingest`/`api` in both `docker-compose.yml` and the CLI's
+      `docker-compose.flare.yml` as complementary hardening (previously a crashed
+      container with no restart policy just sat `Exited` until someone noticed).
+      Verified against a real fresh Docker volume: `api` applied all 10 identity
+      migrations, `ingest` applied zero (blocked, then found everything already
+      committed) - no crash, no duplicate-column error. Also incidentally validated the
+      new `restart:` policy for real: an unrelated pre-existing ClickHouse-readiness
+      race (see new item below) crashed both `ingest` and `api` from within the process
+      3x each during this same verification run, and `restart: unless-stopped`
+      auto-recovered all 6 crashes with no manual intervention.
+- [ ] **`ClickHouseMigrationRunner` doesn't retry/wait on ClickHouse connection-refused
+      at startup.** Found 2026-08-18 while verifying the identity-migration race fix
+      above (see that item): even with `ingest`/`api`'s `depends_on: clickhouse:
+      condition: service_healthy`, a fresh `docker compose up --build` still saw both
+      containers throw an unhandled `System.Net.Http.HttpRequestException: Connection
+      refused (clickhouse:8123)` out of `ClickHouseMigrationRunner` on their first
+      startup attempt, crashing the process - Compose's `service_healthy` gate isn't
+      quite tight enough to guarantee ClickHouse is actually accepting connections by
+      the time the dependent container's own migration code runs. Not a new blocker in
+      practice - both containers now carry `restart: unless-stopped` (see above) and
+      self-healed automatically (3 crash/restart cycles each, all recovered) - but the
+      underlying gap is real and worth a proper fix later: likely a retry/backoff loop
+      around `ClickHouseMigrationRunner`'s own connection attempt, mirroring
+      `IdentityDbConnectionFactory`'s `busy_timeout` reasoning but for a genuinely
+      unavailable dependency rather than a lock.
 - [x] ~~Auth + multi-user / roles~~ **Shipped 2026-08-10 (see v11 below)** — local
       username/password + RBAC (Admin/Member/Viewer) on one shared instance, not
       multi-tenant isolation, per this doc's own "self-hosted, single-instance" framing;

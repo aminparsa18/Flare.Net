@@ -51,6 +51,10 @@ services:
 
   ingest:
     image: xracer007/flare-ingest:${FLARE_IMAGE_TAG:-edge}
+    # Restarts after a crash or a Docker daemon restart, but (unlike `always`) doesn't
+    # fight an explicit `docker compose stop`/`flare stop`. Kept in sync with the root
+    # docker-compose.yml's identical restart comment on this service.
+    restart: unless-stopped
     labels:
       flare.resource: "true"
       flare.role: "ingest"
@@ -77,6 +81,8 @@ services:
 
   api:
     image: xracer007/flare-api:${FLARE_IMAGE_TAG:-edge}
+    # See ingest's identical restart comment above.
+    restart: unless-stopped
     labels:
       flare.resource: "true"
       flare.role: "api"
