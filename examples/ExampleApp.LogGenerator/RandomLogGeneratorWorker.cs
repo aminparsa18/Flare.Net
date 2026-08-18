@@ -52,6 +52,15 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Unlike GenerateBurst's per-log spans (nested under an incoming HTTP
+            // request's auto-instrumented span), nothing calls this loop from the
+            // outside - so each tick starts its own root span, or the Traces page
+            // would stay empty until someone manually hits POST /generate-burst.
+            // Same ActivitySource, same "emit-log-event" name as the burst path, just
+            // without a "generate-burst" parent above it.
+            using var activity = ActivitySource.StartActivity("emit-log-event");
+            activity?.SetTag("emit.trigger", "trickle");
+
             SampleLogEvents.EmitOne(logger);
 
             try
