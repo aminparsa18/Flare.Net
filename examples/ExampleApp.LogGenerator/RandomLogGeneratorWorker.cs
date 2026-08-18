@@ -52,16 +52,12 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            // Unlike GenerateBurst's per-log spans (nested under an incoming HTTP
-            // request's auto-instrumented span), nothing calls this loop from the
-            // outside - so each tick starts its own root span, or the Traces page
-            // would stay empty until someone manually hits POST /generate-burst.
-            // Same ActivitySource, same "emit-log-event" name as the burst path, just
-            // without a "generate-burst" parent above it.
-            using var activity = ActivitySource.StartActivity("emit-log-event");
-            activity?.SetTag("emit.trigger", "trickle");
-
-            SampleLogEvents.EmitOne(logger);
+            // Nothing calls this loop from the outside, so each tick has to be its own
+            // root trace - or the Traces page stays empty until someone manually hits
+            // POST /generate-burst. EmitWaterfall gives it a few nested child spans
+            // instead of one flat span, so the Traces page has an actual waterfall to
+            // render, not just a single row.
+            EmitWaterfall();
 
             try
             {
@@ -84,15 +80,52 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
 
         for (var i = 0; i < count; i++)
         {
-            using var emitActivity = ActivitySource.StartActivity("emit-log-event");
-            emitActivity?.SetTag("burst.index", i);
-            SampleLogEvents.EmitOne(logger);
+            EmitWaterfall(burstIndex: i);
         }
 
         stopwatch.Stop();
         BurstsGenerated.Add(1);
         BurstDuration.Record(stopwatch.Elapsed.TotalMilliseconds);
         lastBurstSize = count;
+    }
+
+    /// <summary>
+    /// Emits one log event wrapped in a small, believable multi-span trace - "handle-request"
+    /// / "auth-check" / "db-query" / "render-response" - instead of one flat span, so the
+    /// Traces page's waterfall view actually has something to draw. Spans are backdated with
+    /// <see cref="Activity.SetEndTime"/> rather than real <c>Task.Delay</c>s: this is dummy
+    /// data, so there's no reason to actually block the trickle loop (or, worse, a 500-item
+    /// burst) for the fake latency it's showing off. Called with no ambient <see
+    /// cref="Activity.Current"/> (the trickle loop) it becomes its own root trace; called from
+    /// inside <see cref="GenerateBurst"/> it nests under that call's "generate-burst" span the
+    /// same way <c>StartActivity</c> always has here, since <see cref="ActivityContext"/>
+    /// <c>default</c> means "use <see cref="Activity.Current"/> as the parent, if any".
+    /// </summary>
+    private void EmitWaterfall(int? burstIndex = null)
+    {
+        var start = DateTimeOffset.UtcNow;
+        using var root = ActivitySource.StartActivity("handle-request", ActivityKind.Internal, default(ActivityContext), startTime: start);
+        if (burstIndex is int index)
+        {
+            root?.SetTag("burst.index", index);
+        }
+
+        var cursor = start;
+        cursor = ChildSpan("auth-check", cursor, Random.Shared.Next(1, 8));
+        cursor = ChildSpan("db-query", cursor, Random.Shared.Next(5, 80), () => SampleLogEvents.EmitOne(logger));
+        cursor = ChildSpan("render-response", cursor, Random.Shared.Next(1, 5));
+
+        root?.SetEndTime(cursor.UtcDateTime);
+    }
+
+    /// <summary>Starts a child span at <paramref name="start"/>, runs <paramref name="work"/> (if any), backdates it to end after <paramref name="durationMs"/>, and returns that end time for the next span to chain from.</summary>
+    private DateTimeOffset ChildSpan(string name, DateTimeOffset start, int durationMs, Action? work = null)
+    {
+        using var span = ActivitySource.StartActivity(name, ActivityKind.Internal, default(ActivityContext), startTime: start);
+        work?.Invoke();
+        var end = start.AddMilliseconds(durationMs);
+        span?.SetEndTime(end.UtcDateTime);
+        return end;
     }
 
     public override void Dispose()
