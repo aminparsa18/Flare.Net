@@ -451,7 +451,7 @@ actually worked out (see the three bullets below) — closing out the full origi
       Deliberately not `flare traces`/`flare metrics` tail equivalents - logs are the
       core product and the CLI's whole pitch is "least overhead," better to ship one
       thing (`tail`) really well than three thin ones.
-- [ ] **Logs Explorer: CSV/XLSX/JSON/XML export + "Share" link.** Client-side-only
+- [x] **Logs Explorer: CSV/XLSX/JSON/XML export + "Share" link.** Client-side-only
       companions to the CLI's `flare export` idea above and to v7's saved-views/
       `?view=<id>` mechanism: a toolbar "Export" dialog that asks the user to pick both
       rows (exactly what's currently loaded in the table vs. the full filtered result
@@ -533,19 +533,21 @@ actually worked out (see the three bullets below) — closing out the full origi
       sidesteps everything in that library that exists only for *unknown*/measured row
       heights (its height-cache, block-sums, per-item ResizeObserver, grid detection,
       and orientation-switching are all irrelevant here - skip re-researching those):
-      - Keyboard accessibility, currently entirely absent - `role="region"` +
-        `aria-label` + `tabindex="0"` on the scrollable viewport, a keydown handler
-        (arrows/PageUp/PageDown/Home/End, fixed-px line step - deliberately *not*
-        derived from `itemHeight`, same reasoning native scroll uses) that checks "is
-        this even a scroll key" before touching any layout property so an unrelated
-        keypress never forces a stray reflow, and a *inward*-drawn focus ring
-        (`outline-offset: -2px`, since the viewport clips outward outlines) keyed off
-        the ARIA attributes rather than a class name so it survives a future
-        `class` override.
-      - `ResizeObserver` has no guard today against a bogus zero-height reading (a
-        transient 0 mid-animation/tab-switch/detach-reattach would collapse the visible
-        range to nothing for a frame) - ignore non-finite/`<= 0`/unchanged readings,
-        keep the last known-good height.
+      - [x] ~~Keyboard accessibility, currently entirely absent~~ **Shipped 2026-08-18** -
+        `role="region"` + `aria-label` + `tabindex="0"` on the scrollable viewport, a
+        keydown handler (arrows/PageUp/PageDown/Home/End, fixed-px line step -
+        deliberately *not* derived from `itemHeight`, same reasoning native scroll uses)
+        that checks "is this even a scroll key" before touching any layout property so
+        an unrelated keypress never forces a stray reflow, and a *inward*-drawn focus
+        ring (`outline-offset: -2px`, since the viewport clips outward outlines) keyed
+        off the ARIA attributes rather than a class name so it survives a future
+        `class` override. Svelte's a11y linter flags `role="region"` + tabindex/keydown
+        as "non-interactive" by default; suppressed with `svelte-ignore` comments citing
+        the ARIA APG scrollable-region pattern this actually follows.
+      - [x] ~~`ResizeObserver` has no guard today against a bogus zero-height reading~~
+        **Shipped 2026-08-18** - a transient 0 mid-animation/tab-switch/detach-reattach
+        would have collapsed the visible range to nothing for a frame; now ignores
+        non-finite/`<= 0`/unchanged readings and keeps the last known-good height.
       - Dev-mode-only safety nets directly relevant to the bug class this whole session
         was about: a duplicate-`getKey` assertion (use a plain `Set`, not a reactive
         Svelte collection - humanspeak's own comment notes a reactive one caused a ~10s

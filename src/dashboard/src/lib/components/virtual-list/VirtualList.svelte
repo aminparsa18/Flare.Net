@@ -7,6 +7,8 @@
 		itemHeight: number;
 		/** Per svelte-best-practices: keyed each blocks must use a real identity, not the index (which shifts on every live-tail prepend). */
 		getKey: (item: T, index: number) => string | number;
+		/** Accessible name for the scrollable region (e.g. "Log events", "Traces") - this component has no visible label of its own. */
+		ariaLabel: string;
 		overscan?: number;
 		/** Fires (repeatedly, while still within threshold) once scroll nears the bottom - callers debounce/guard on their own loading state. */
 		onEndReached?: () => void;
@@ -23,6 +25,7 @@
 		items,
 		itemHeight,
 		getKey,
+		ariaLabel,
 		overscan = 8,
 		onEndReached,
 		endReachedThreshold = 200,
@@ -62,11 +65,62 @@
 		}
 	}
 
+	// Fixed px line-scroll step for arrow keys - deliberately *not* derived from
+	// itemHeight (e.g. "one row per press"), same reasoning native scroll containers use
+	// a constant line-height step regardless of what's actually rendered inside them.
+	const LINE_STEP_PX = 40;
+
+	// Keyboard equivalent of native scroll-container behavior, since this div isn't one
+	// (its content is a manually-positioned window, not real overflow content the
+	// browser already handles arrow/Page/Home/End on). Checks "is this even a scroll
+	// key" first and returns before touching scrollTop/calling preventDefault - an
+	// unrelated keypress (Tab, a letter, etc.) must never force a stray reflow.
+	// A modifier held down (Cmd/Ctrl/Alt) is left to the browser/OS (e.g. Cmd+ArrowUp
+	// as "scroll to top of page" in some browsers) rather than double-handled here.
+	function handleKeydown(e: KeyboardEvent) {
+		if (!containerEl || e.metaKey || e.ctrlKey || e.altKey) return;
+		let delta: number;
+		switch (e.key) {
+			case 'ArrowDown':
+				delta = LINE_STEP_PX;
+				break;
+			case 'ArrowUp':
+				delta = -LINE_STEP_PX;
+				break;
+			case 'PageDown':
+				delta = containerHeight;
+				break;
+			case 'PageUp':
+				delta = -containerHeight;
+				break;
+			case 'Home':
+				delta = -totalHeight; // any value >= current scrollTop clamps to 0 below
+				break;
+			case 'End':
+				delta = totalHeight; // any value >= remaining scroll clamps to max below
+				break;
+			default:
+				return; // not a scroll key - nothing to do
+		}
+		e.preventDefault();
+		// The browser clamps scrollTop to [0, scrollHeight - clientHeight] itself, so an
+		// oversized Home/End delta just lands at the respective end. Setting scrollTop
+		// fires this element's own `scroll` event, which handleScroll picks up - no need
+		// to duplicate its scrollTop-state/onEndReached logic here.
+		containerEl.scrollTop += delta;
+	}
+
 	$effect(() => {
 		if (!containerEl) return;
 		containerHeight = containerEl.clientHeight; // avoid a 0-height flash before the first observer callback
 		const observer = new ResizeObserver((entries) => {
-			containerHeight = entries[0].contentRect.height;
+			const height = entries[0].contentRect.height;
+			// Ignore a bogus reading rather than applying it: a transient 0 mid-animation,
+			// tab-switch, or detach/reattach would otherwise collapse the visible range to
+			// nothing for a frame. Also skip a no-op write for an unchanged height. Either
+			// way, keep the last known-good height instead of reacting to the noise.
+			if (!Number.isFinite(height) || height <= 0 || height === containerHeight) return;
+			containerHeight = height;
 		});
 		observer.observe(containerEl);
 		return () => observer.disconnect();
@@ -158,11 +212,24 @@
      change independently, landing on an inconsistent scrollTop that (unlike either
      adjustment alone) has no further scroll event to correct it - the same pattern
      @humanspeak/svelte-virtual-list's own viewport explicitly disables it for. -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- Svelte's linter treats role="region" as non-interactive by default, but the ARIA
+     APG's "scrollable region" pattern (https://www.w3.org/WAI/ARIA/apg/patterns/) calls
+     for exactly this: tabindex + a keydown handler on the region itself, since its
+     content (rows shift in and out of the DOM as this virtualizes) can't be relied on to
+     carry its own scroll-by-keyboard behavior. Individual rows (e.g. LogRow) are still
+     separately focusable <button>s for selection - this tabindex is for scrolling the
+     region as a whole, not a substitute for row focus. -->
 <div
 	bind:this={containerEl}
 	class={cn('relative overflow-y-auto', className)}
 	style="scrollbar-gutter: stable; overflow-anchor: none;"
+	role="region"
+	aria-label={ariaLabel}
+	tabindex="0"
 	onscroll={handleScroll}
+	onkeydown={handleKeydown}
 >
 	<div style="height: {totalHeight}px; position: relative;">
 		<div style="transform: translateY({offsetY}px);">
@@ -172,3 +239,15 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	/* Keyed off the role/aria-label attributes rather than a class name, so this
+	   survives a future `class` prop override on the container. `outline` (not a
+	   box-shadow-based ring) with a negative offset draws the ring *inward* from the
+	   border box - a positive/default outward outline would be clipped by this
+	   container's own overflow-y: auto. */
+	[role='region']:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: -2px;
+	}
+</style>

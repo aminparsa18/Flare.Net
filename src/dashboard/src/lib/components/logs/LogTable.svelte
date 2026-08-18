@@ -47,6 +47,7 @@
 			items={explorer.events}
 			itemHeight={ROW_HEIGHT}
 			getKey={(event) => event.eventId}
+			ariaLabel="Log events"
 			onEndReached={() => void explorer.loadMore()}
 			class="min-h-0 flex-1"
 		>
