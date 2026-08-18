@@ -10,12 +10,20 @@ export interface ServiceMapNode {
 	service: string;
 	/** Spans attributed to this service within the trace. */
 	spanCount: number;
-	hasError: boolean;
+	errorCount: number;
+	/** Sum of durationNano across every span attributed to this service - not wall-clock time spent (spans can overlap, see critical-path.ts for that decomposition), just "how much work this service did." */
+	totalDurationNano: number;
+	/** Distinct span names attributed to this service, first-seen order - the operations it performed in this trace. */
+	operations: string[];
 }
 
 export interface ServiceMapEdge {
 	source: string;
 	target: string;
+	/** Spans crossing from source into target - one call graph edge can represent more than one call (e.g. a loop, or a burst-generated repeat). */
+	callCount: number;
+	/** Sum of durationNano across every crossing span - the calling span's own duration is the natural stand-in for "how long this call took." */
+	totalDurationNano: number;
 }
 
 export interface ServiceMapResult {
@@ -41,22 +49,30 @@ export function buildServiceMap(spans: SpanDto[]): ServiceMapResult {
 
 	const byId = new Map(spans.map((s) => [s.spanId, s]));
 	const nodes = new Map<string, ServiceMapNode>();
-	const edgeKeys = new Set<string>();
-	const edges: ServiceMapEdge[] = [];
+	const edges = new Map<string, ServiceMapEdge>();
 
-	function touch(service: string, hasError: boolean): void {
+	function touchNode(service: string, span: SpanDto): void {
+		const isError = span.statusCode === 'STATUS_CODE_ERROR';
 		const existing = nodes.get(service);
 		if (existing) {
 			existing.spanCount += 1;
-			existing.hasError ||= hasError;
+			existing.totalDurationNano += span.durationNano;
+			if (isError) existing.errorCount += 1;
+			if (span.name && !existing.operations.includes(span.name)) existing.operations.push(span.name);
 		} else {
-			nodes.set(service, { service, spanCount: 1, hasError });
+			nodes.set(service, {
+				service,
+				spanCount: 1,
+				errorCount: isError ? 1 : 0,
+				totalDurationNano: span.durationNano,
+				operations: span.name ? [span.name] : []
+			});
 		}
 	}
 
 	for (const span of spans) {
 		const service = effectiveService(span);
-		touch(service, span.statusCode === 'STATUS_CODE_ERROR');
+		touchNode(service, span);
 
 		const parent = span.parentSpanId ? byId.get(span.parentSpanId) : undefined;
 		if (!parent) continue;
@@ -65,11 +81,14 @@ export function buildServiceMap(spans: SpanDto[]): ServiceMapResult {
 		if (parentService === service) continue; // Same-service call - not a dependency edge.
 
 		const key = `${parentService}->${service}`;
-		if (!edgeKeys.has(key)) {
-			edgeKeys.add(key);
-			edges.push({ source: parentService, target: service });
+		const existing = edges.get(key);
+		if (existing) {
+			existing.callCount += 1;
+			existing.totalDurationNano += span.durationNano;
+		} else {
+			edges.set(key, { source: parentService, target: service, callCount: 1, totalDurationNano: span.durationNano });
 		}
 	}
 
-	return { nodes: [...nodes.values()], edges };
+	return { nodes: [...nodes.values()], edges: [...edges.values()] };
 }
