@@ -51,7 +51,34 @@ public sealed class SpanQueryService(IClickHouseClient client, TimeProvider time
             ? new SpanSearchCursor(spans[^1].StartTime, spans[^1].TraceId, spans[^1].SpanId).Encode()
             : null;
 
+        // Root-span search doubles as Flare's "trace list" view (see SpanDto.SpanCount's
+        // remarks) - only that mode needs a count, so only that mode pays for the
+        // follow-up query.
+        if (request.Filter is { RootSpansOnly: true } && spans.Count > 0)
+        {
+            spans = await WithSpanCountsAsync(spans, cancellationToken);
+        }
+
         return new SpanSearchResponse { Spans = spans, NextCursor = nextCursor };
+    }
+
+    private async Task<List<SpanDto>> WithSpanCountsAsync(List<SpanDto> roots, CancellationToken cancellationToken)
+    {
+        var built = SpanCountQueryBuilder.Build(roots.Select(r => r.TraceId));
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var counts = new Dictionary<string, ulong>();
+        while (reader.Read())
+        {
+            counts[reader.GetString(0)] = reader.GetFieldValue<ulong>(1);
+        }
+
+        // A trace id absent from `counts` would mean its own root span vanished between
+        // the two queries (a real, if narrow, race with concurrent writes) - falls back
+        // to 1 (itself) rather than null, since "we already know at least this root span
+        // exists" is still true.
+        return roots.ConvertAll(r => r with { SpanCount = counts.GetValueOrDefault(r.TraceId, 1UL) });
     }
 
     public async Task<TraceDto?> GetTraceAsync(string traceId, CancellationToken cancellationToken)
