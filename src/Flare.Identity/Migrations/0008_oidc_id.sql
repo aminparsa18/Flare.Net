@@ -8,12 +8,13 @@
 -- over unchanged; only AuthProvider's allowed values grow by one ('Oidc').
 --
 -- Same foreign-key-enforcement caveat 0005_ldap_id.sql already documented:
--- Microsoft.Data.Sqlite enables FK enforcement by default, so the rebuild has to disable
--- it first (before BEGIN - the PRAGMA is a documented no-op inside a transaction) or the
--- DROP TABLE Users fails with "FOREIGN KEY constraint failed" against Sessions.UserId.
-PRAGMA foreign_keys = OFF;
-
-BEGIN TRANSACTION;
+-- Microsoft.Data.Sqlite enables FK enforcement by default, so the rebuild needs it
+-- disabled or the DROP TABLE Users fails with "FOREIGN KEY constraint failed" against
+-- Sessions.UserId.
+--
+-- Atomicity and foreign-key toggling both come from IdentityMigrationRunner's own outer
+-- BEGIN IMMEDIATE/COMMIT and PRAGMA foreign_keys - this file must NOT open its own
+-- transaction; SQLite has no nested BEGIN. See IdentityMigrationRunner's own remarks.
 
 CREATE TABLE Users_new
 (
@@ -37,7 +38,3 @@ ALTER TABLE Users_new RENAME TO Users;
 -- DROP TABLE removes indexes defined on it - recreate this one on the renamed table,
 -- identical to how 0002_entra_id.sql/0005_ldap_id.sql originally defined it.
 CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_AuthProvider_ExternalId ON Users(AuthProvider, ExternalId) WHERE ExternalId IS NOT NULL;
-
-COMMIT;
-
-PRAGMA foreign_keys = ON;
