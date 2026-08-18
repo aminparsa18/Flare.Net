@@ -7,10 +7,14 @@
 #
 # Tagging: `edge` on every push to main (nothing stable exists yet - Flare is
 # pre-alpha with no versioning scheme), semver tags (+ auto `latest`) on `v*.*.*` git
-# tags once a real release happens. PRs build (validates the Dockerfiles) but never
-# log in or push. Build contexts/dockerfiles below are copied verbatim from
-# docker-compose.yml's own `build:` stanzas so this never diverges from the
-# already-working local build story.
+# tags once a real release happens. push-only (main + tags) deliberately, not also
+# pull_request - a PR trigger would run this same build twice for one merge (once to
+# validate the PR, again on the push the merge itself produces), doubling CI time for
+# no benefit once nothing else in the run differs except the final push-to-Docker-Hub
+# step. Dockerfile breakage is instead caught here, after merge, same as any other
+# push-only workflow in this repo. Build contexts/dockerfiles below are copied
+# verbatim from docker-compose.yml's own `build:` stanzas so this never diverges from
+# the already-working local build story.
 
 name: Docker Publish
 
@@ -18,17 +22,6 @@ on:
   push:
     branches: [main]
     tags: ['v*.*.*']
-    paths:
-      - 'src/Flare.Ingest/**'
-      - 'src/Flare.Api/**'
-      - 'src/Flare.ServiceDefaults/**'
-      - 'src/dashboard/**'
-      - 'Directory.Build.props'
-      - 'Directory.Packages.props'
-      - 'global.json'
-      - '.github/workflows/docker-publish.yml'
-  pull_request:
-    branches: [main]
     paths:
       - 'src/Flare.Ingest/**'
       - 'src/Flare.Api/**'
@@ -70,8 +63,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Skipped on PRs - forked PRs don't have access to repo secrets/vars, and PR
-      # builds only need to prove the Dockerfile builds, not publish anything.
       # DOCKERHUB_USERNAME is a repo *variable* (Settings > Secrets and variables >
       # Actions > Variables), not a secret - it's not confidential (it's literally
       # part of the public image names below), and keeping it a variable means it
@@ -79,7 +70,6 @@ jobs:
       # fails and you need to see what was actually sent. DOCKERHUB_TOKEN is the
       # actual credential and must stay a real secret.
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
@@ -109,7 +99,7 @@ jobs:
           context: ${{ matrix.image.context }}
           file: ${{ matrix.image.dockerfile }}
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.image.name }}
