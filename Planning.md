@@ -1910,6 +1910,88 @@ count, error count, first/last seen; duration is a named Later item requiring a
       left for whenever this gets exercised against a real deployment, same gap v14/v15
       flagged for themselves.
 
+### v17 — Trace waterfall polish: continuous demo traces, critical-path highlighting, span counts, Service Map (2026-08-18)
+
+Not a prior "Later" item, same shape as v16 - a same-day chain of feedback-driven passes
+against the already-shipped v4 Traces feature, each landed and merged before the next
+began. Started from a bug report ("Traces page is always empty in ExampleApp") and grew
+into four follow-ups once the underlying data existed to react to.
+
+- [x] **Bug: the Traces page had nothing to show** - `RandomLogGeneratorWorker`'s
+      background trickle loop (v4's own e2e verification only exercised
+      `GenerateBurst`/`POST /generate-burst`) never started an `Activity`, so nothing
+      exported unless a user manually hit that endpoint. Fixed by wrapping every
+      trickled `SampleLogEvents.EmitOne()` call in its own span, same `ActivitySource`
+      the burst path already used.
+- [x] **Flat single-span traces → a real waterfall** - immediate follow-up once traces
+      existed at all: both paths emitted one flat span per event, so the waterfall view
+      had nothing to render beyond a single row. `EmitWaterfall()` (renamed from the
+      one-off trickle fix, now shared by both the trickle loop and `GenerateBurst`)
+      builds a small `handle-request` → `auth-check` → `render-response` chain instead,
+      with backdated timestamps (`Activity.SetEndTime`, not real `Task.Delay`s - no
+      reason to block the loop, or a 500-item burst, for fake latency this is dummy data
+      is showing off anyway).
+- [x] **Critical-path highlighting** (`lib/traces/critical-path.ts`) - external review
+      feedback that span-count-agnostic waterfalls miss the real story ("a trace taking
+      1.14s but only 700ms actually determines the response"). Confirmed the idea with
+      the user before building (`AskUserQuestion`) since it needs genuine concurrency to
+      demonstrate anything - a straight sequential chain is trivially "100% critical
+      path." Two pieces, both required: (1) `computeCriticalPath` - a standard trace-CPA
+      decomposition (walk each span's children latest-end-first; the gap between the
+      cursor and the next-latest child's end is the parent's own self time), attributing
+      every moment of the root's duration to exactly one span; (2)
+      `EmitWaterfall` reshaped to actually fork - `inventory.query` (with a nested
+      `sql.query`) racing `payment.request` - so there's a bottleneck branch and a
+      loses-the-race branch to distinguish. `TraceWaterfall.svelte` renders a sticky
+      "Critical path · N of M spans · top contributor" callout plus per-bar
+      ring/fade treatment.
+- [x] **Trace list: per-trace span count column** - external review feedback again
+      ("a 200ms trace with 2 spans is very different from one with 80"). Real backend
+      work, not a dashboard-only add (confirmed the scope with the user first): new
+      `SpanDto.SpanCount` (nullable, the one field that isn't a 1:1 mirror of
+      `0007_spans.sql` - documented as the deliberate exception), populated only for
+      `SpanFilter.RootSpansOnly` searches via a new `SpanCountQueryBuilder` - one
+      `GROUP BY TraceId` follow-up query over the returned page's trace ids, not a
+      correlated subquery per row (cheap because `TraceId` leads `spans`' `ORDER BY` -
+      `WHERE TraceId IN (...)` is a primary-key-prefix lookup). Kept the trace list's
+      "Name" column label rather than the feedback's suggested "Operation" rename -
+      consistent with `SpanDto.name` and the waterfall's own header, confirmed with the
+      user rather than assumed.
+- [x] **Service Map tab** (`lib/traces/service-map.ts`, `ServiceMap.svelte`,
+      `ServiceMapNode.svelte`) - external review feedback once more ("the trace becomes
+      a journey through your architecture, not just a list of spans"), reusing
+      `@xyflow/svelte` + `@dagrejs/dagre`'s `layoutGraph` wholesale from the Resources
+      page's own `ResourceGraph.svelte` rather than rebuilding graph infra - same
+      dark-`colorMode` requirement, same card/`Handle`-on-both-sides node shape. Flagged
+      a real scoping snag before building (confirmed with the user, `AskUserQuestion`):
+      `ServiceName` is a per-*process* OTel Resource attribute, not per-span, so a
+      single-process trace (this whole example app) can't naturally produce a
+      multi-service-looking map. Resolved via the standard `peer.service` span
+      attribute (spec-correct, not a hack) - `EmitWaterfall`'s `inventory.query`/
+      `sql.query`/`payment.request` spans now carry it (`inventory-service`/`postgres`/
+      `payment-service`), and `buildServiceMap` treats a span's `peer.service` as
+      overriding its own `serviceName` when present, so real multi-service deployments
+      and this fabricated single-process one both render correctly through the same
+      code path. New `Waterfall | Service Map` toggle in the trace-detail page header
+      (plain buttons, `buttonVariants`, same active/inactive pattern `AppNav` uses for
+      its nav links - no `Tabs` primitive exists in `ui/` yet, so this didn't add one for
+      a single two-way toggle).
+- [x] **Verification performed**: each of the five passes built/tested independently
+      before the next began (`dotnet build`/`dotnet test` per backend change, ending at
+      342 passed on `Flare.Api.Tests`; `svelte-check` 0 errors across 1,126 files and
+      `npm run build` clean after every dashboard change). The trickle/waterfall/fork
+      changes were confirmed against a **live running AppHost**, not just unit tests -
+      pulled real OTLP traces straight from the Aspire dashboard's own collector
+      mid-session and verified the exact shape (unique trace ids, correct parent/child
+      links, the fork structure) before trusting it. **Not yet done**: a live visual
+      check of critical-path highlighting, the span-count column, and the new Service
+      Map tab specifically against the running Flare dashboard (the
+      `xracer007/flare-*:edge` Docker images need a fresh pull to pick up each merge -
+      the session's one live check, a `svelte.dev/e/each_key_duplicate` console error,
+      turned out to be a stale cached JS bundle fixed by a hard refresh, not a data bug)
+      - same "left for whenever this gets exercised for real" gap v14/v15/v16 each
+      flagged for themselves.
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---

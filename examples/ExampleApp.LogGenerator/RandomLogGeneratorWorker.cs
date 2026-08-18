@@ -124,8 +124,11 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
         // render-response could start.
         var inventoryEnd = SpanWithNestedChild(
             "inventory.query", forkStart, Random.Shared.Next(180, 420),
-            "sql.query", childRatio: 0.7, work: () => SampleLogEvents.EmitOne(logger));
-        var paymentEnd = ChildSpan("payment.request", forkStart, Random.Shared.Next(40, 150), kind: ActivityKind.Client);
+            "sql.query", childRatio: 0.7, work: () => SampleLogEvents.EmitOne(logger),
+            peerService: "inventory-service", childPeerService: "postgres");
+        var paymentEnd = ChildSpan(
+            "payment.request", forkStart, Random.Shared.Next(40, 150),
+            kind: ActivityKind.Client, peerService: "payment-service");
         var joinTime = inventoryEnd > paymentEnd ? inventoryEnd : paymentEnd;
 
         var end = ChildSpan("render-response", joinTime, Random.Shared.Next(1, 6));
@@ -133,10 +136,24 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
         root?.SetEndTime(end.UtcDateTime);
     }
 
-    /// <summary>Starts a child span at <paramref name="start"/>, runs <paramref name="work"/> (if any), backdates it to end after <paramref name="durationMs"/>, and returns that end time for the next span to chain from.</summary>
-    private DateTimeOffset ChildSpan(string name, DateTimeOffset start, int durationMs, Action? work = null, ActivityKind kind = ActivityKind.Internal)
+    /// <summary>
+    /// Starts a child span at <paramref name="start"/>, runs <paramref name="work"/> (if any),
+    /// backdates it to end after <paramref name="durationMs"/>, and returns that end time for
+    /// the next span to chain from. <paramref name="peerService"/>, when given, is the standard
+    /// OTel <c>peer.service</c> span attribute - the spec-correct way to say "this span called
+    /// out to service X" from inside a process that never actually instruments a separate
+    /// "inventory-service"/"payment-service" (this example app is one process). The dashboard's
+    /// Service Map tab reads it to draw a distinct node for the call's destination instead of
+    /// collapsing everything into this app's own single <c>ServiceName</c>.
+    /// </summary>
+    private DateTimeOffset ChildSpan(string name, DateTimeOffset start, int durationMs, Action? work = null, ActivityKind kind = ActivityKind.Internal, string? peerService = null)
     {
         using var span = ActivitySource.StartActivity(name, kind, default(ActivityContext), startTime: start);
+        if (peerService is not null)
+        {
+            span?.SetTag("peer.service", peerService);
+        }
+
         work?.Invoke();
         var end = start.AddMilliseconds(durationMs);
         span?.SetEndTime(end.UtcDateTime);
@@ -148,10 +165,17 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
     /// of its own duration (e.g. inventory.query's underlying sql.query) - the rest is the
     /// parent's own overhead (connection acquisition, deserialization) around it.
     /// </summary>
-    private DateTimeOffset SpanWithNestedChild(string name, DateTimeOffset start, int durationMs, string childName, double childRatio, Action? work = null)
+    private DateTimeOffset SpanWithNestedChild(
+        string name, DateTimeOffset start, int durationMs, string childName, double childRatio,
+        Action? work = null, string? peerService = null, string? childPeerService = null)
     {
         using var span = ActivitySource.StartActivity(name, ActivityKind.Client, default(ActivityContext), startTime: start);
-        ChildSpan(childName, start, (int)(durationMs * childRatio), work, ActivityKind.Client);
+        if (peerService is not null)
+        {
+            span?.SetTag("peer.service", peerService);
+        }
+
+        ChildSpan(childName, start, (int)(durationMs * childRatio), work, ActivityKind.Client, childPeerService);
         var end = start.AddMilliseconds(durationMs);
         span?.SetEndTime(end.UtcDateTime);
         return end;
