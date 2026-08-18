@@ -15,9 +15,22 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { mode, toggleMode } from 'mode-watcher';
 	import { logsExplorerContext } from '$lib/logs/context';
+	import { setActiveLogsExplorer } from '$lib/logs/active-explorer.svelte';
 	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
 
 	const explorer = logsExplorerContext.get();
+
+	let exportDialogOpen = $state(false);
+
+	// Publishes this page's explorer + export opener for CommandPalette to find (see
+	// active-explorer.svelte.ts for why this can't just be logsExplorerContext). Runs for
+	// exactly as long as the toolbar - i.e. exactly as long as the Logs page is showing
+	// it - clearing back to null on teardown so the palette hides the "Actions" group the
+	// instant navigation leaves this page, rather than holding a stale reference.
+	$effect(() => {
+		setActiveLogsExplorer({ explorer, openExport: () => (exportDialogOpen = true) });
+		return () => setActiveLogsExplorer(null);
+	});
 
 	const serviceOptions = $derived(explorer.knownServices.map((s) => ({ value: s, label: s })));
 	const severityOptions = SEVERITY_BUCKETS.map((b) => ({ value: b.label, label: b.label }));
@@ -91,7 +104,7 @@
 
 	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />
 
-	<ExportDialog />
+	<ExportDialog bind:open={exportDialogOpen} />
 	<ShareViewButton />
 
 	<div class="relative min-w-48 flex-1">
