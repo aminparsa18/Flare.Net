@@ -125,7 +125,7 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
         var inventoryEnd = SpanWithNestedChild(
             "inventory.query", forkStart, Random.Shared.Next(180, 420),
             "sql.query", childRatio: 0.7, work: () => SampleLogEvents.EmitOne(logger),
-            peerService: "inventory-service", childPeerService: "postgres");
+            peerService: "inventory-service", childPeerService: "postgres", childDbSystem: "postgresql");
         var paymentEnd = ChildSpan(
             "payment.request", forkStart, Random.Shared.Next(40, 150),
             kind: ActivityKind.Client, peerService: "payment-service");
@@ -144,14 +144,24 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
     /// out to service X" from inside a process that never actually instruments a separate
     /// "inventory-service"/"payment-service" (this example app is one process). The dashboard's
     /// Service Map tab reads it to draw a distinct node for the call's destination instead of
-    /// collapsing everything into this app's own single <c>ServiceName</c>.
+    /// collapsing everything into this app's own single <c>ServiceName</c>. <paramref
+    /// name="dbSystem"/>, when given, is the standard OTel <c>db.system</c> attribute (e.g.
+    /// <c>"postgresql"</c>) - the dashboard's waterfall reads it to tell a database call apart
+    /// from a generic outbound one at a glance, same spirit as <c>peer.service</c>.
     /// </summary>
-    private DateTimeOffset ChildSpan(string name, DateTimeOffset start, int durationMs, Action? work = null, ActivityKind kind = ActivityKind.Internal, string? peerService = null)
+    private DateTimeOffset ChildSpan(
+        string name, DateTimeOffset start, int durationMs, Action? work = null,
+        ActivityKind kind = ActivityKind.Internal, string? peerService = null, string? dbSystem = null)
     {
         using var span = ActivitySource.StartActivity(name, kind, default(ActivityContext), startTime: start);
         if (peerService is not null)
         {
             span?.SetTag("peer.service", peerService);
+        }
+
+        if (dbSystem is not null)
+        {
+            span?.SetTag("db.system", dbSystem);
         }
 
         work?.Invoke();
@@ -167,7 +177,7 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
     /// </summary>
     private DateTimeOffset SpanWithNestedChild(
         string name, DateTimeOffset start, int durationMs, string childName, double childRatio,
-        Action? work = null, string? peerService = null, string? childPeerService = null)
+        Action? work = null, string? peerService = null, string? childPeerService = null, string? childDbSystem = null)
     {
         using var span = ActivitySource.StartActivity(name, ActivityKind.Client, default(ActivityContext), startTime: start);
         if (peerService is not null)
@@ -175,7 +185,7 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
             span?.SetTag("peer.service", peerService);
         }
 
-        ChildSpan(childName, start, (int)(durationMs * childRatio), work, ActivityKind.Client, childPeerService);
+        ChildSpan(childName, start, (int)(durationMs * childRatio), work, ActivityKind.Client, childPeerService, childDbSystem);
         var end = start.AddMilliseconds(durationMs);
         span?.SetEndTime(end.UtcDateTime);
         return end;
