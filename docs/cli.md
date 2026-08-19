@@ -83,17 +83,21 @@ yours to hand-edit if you'd rather set your own.
 
 ## Image tag policy
 
-Flare has no stable release yet - `edge` (built from every push to `main`, see
-[`.github/workflows/docker-publish.yml`](../.github/workflows/docker-publish.yml)) is
-the only meaningfully-maintained Docker Hub tag today, and is what `~/.flare/.env`
-defaults `FLARE_IMAGE_TAG` to. `flare update` re-pulls that same tag. Once the project
-starts cutting real `vX.Y.Z` image tags, later CLI releases will re-pin their own
-template's default - existing installs keep tracking `edge` unless you hand-edit
-`.env` or run `flare destroy --purge-config`.
+`~/.flare/.env` defaults `FLARE_IMAGE_TAG` to the latest stable Flare release this CLI
+version was tested against (currently `0.2.0`, see
+[`.github/workflows/docker-publish.yml`](../.github/workflows/docker-publish.yml) for
+how those `vX.Y.Z` tags get cut) - deliberately not the floating `edge`/`latest` tags,
+so a given `Flare.Cli` version keeps pulling the same images forever. `flare update`
+re-pulls that same pinned tag; it does not auto-track newer Flare releases. Each new
+`Flare.Cli` release re-pins its own template's default once tested against a newer
+Flare image - existing installs keep tracking whatever tag they were generated with
+unless you hand-edit `.env` or run `flare destroy --purge-config`. Set
+`FLARE_IMAGE_TAG=edge` yourself to track Flare's unreleased `main` branch instead.
 
 | `Flare.Cli` version | Default `FLARE_IMAGE_TAG` |
 |---|---|
 | 0.1.0 (2026-08-16) | `edge` |
+| 0.1.1 (2026-08-19) | `0.2.0` |
 
 ## Known limitations
 
@@ -107,6 +111,7 @@ template's default - existing installs keep tracking `edge` unless you hand-edit
 - **Not verified on Windows yet** - state-directory resolution and the browser-launch
   in `flare open` should work per .NET's own cross-platform guarantees, but haven't
   been run end-to-end there as of this doc.
-- **Versioning is pre-alpha**: `edge` is the only meaningfully-maintained image tag
-  today - `flare update` re-pulls the same mutable tag, it does not yet pin to a
-  tested-known-good release.
+- **Versioning is pre-alpha**: pinning tracks the CLI release, not automatically the
+  newest Flare image - `flare update` re-pulls whatever tag your `.env` already has,
+  it doesn't move you onto a newer pin without a new `Flare.Cli` release (or a
+  hand-edit).

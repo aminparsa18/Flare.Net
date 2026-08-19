@@ -4,7 +4,12 @@ var builder = DistributedApplication.CreateBuilder(args);
 // too, so this example's default footprint doesn't grow a Docker-socket-proxy sidecar for
 // everyone who runs it. Pass `enableResourceGraph: true` to exercise the dashboard's
 // Resources page against this AppHost - see docs/aspire-hosting.md.
-var flare = builder.AddFlare("flare");
+//
+// imageTag: "edge" is explicit and deliberate here, overriding AddFlare's own pinned-stable
+// default - this example ProjectReferences Flare's local, unreleased source (see this
+// project's .csproj), so it should always validate against main-tip images, not whatever
+// stable version the published NuGet package currently pins.
+var flare = builder.AddFlare("flare", imageTag: "edge");
 
 // .WithReference(flare) injects ConnectionStrings__flare (Flare.Ingest's OTLP/gRPC endpoint) -
 // ExampleApp.LogGenerator reads it via Flare.Aspire's builder.AddFlareOtlpExporter("flare")

@@ -46,9 +46,15 @@ public static class FlareResourceBuilderExtensions
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/>.</param>
     /// <param name="name">The name of the Flare resource group.</param>
     /// <param name="imageTag">
-    /// The tag to pull for all three Flare images. Defaults to <c>"edge"</c> - Flare is
-    /// pre-alpha with no stable release yet, and CI (<c>.github/workflows/docker-publish.yml</c>
-    /// in Flare's own repo) only publishes <c>edge</c> until a first <c>v*.*.*</c> tag lands.
+    /// The tag to pull for all three Flare images. Defaults to <c>"0.2.0"</c>, the latest
+    /// stable Flare release this package version was tested against - deliberately NOT
+    /// Docker Hub's floating <c>latest</c>/<c>edge</c> tags, so a given
+    /// <c>Flare.Hosting.Aspire</c> NuGet version keeps pulling the same images forever
+    /// instead of silently changing behavior as new Flare releases ship. This default is
+    /// bumped as part of cutting each new <c>Flare.Hosting.Aspire</c> release, once that
+    /// release has been tested against a newer Flare image - it does not track Docker
+    /// Hub automatically. Pass <c>"edge"</c> yourself to track Flare's unreleased
+    /// <c>main</c> branch instead.
     /// </param>
     /// <param name="ingestGrpcPort">
     /// Optional host port for the OTLP gRPC endpoint. Left unset, Aspire assigns the
@@ -106,7 +112,7 @@ public static class FlareResourceBuilderExtensions
     public static IResourceBuilder<FlareResource> AddFlare(
         this IDistributedApplicationBuilder builder,
         [ResourceName] string name = "flare",
-        string imageTag = "edge",
+        string imageTag = "0.2.0",
         int? ingestGrpcPort = null,
         int? ingestHttpPort = null,
         int? apiPort = null,

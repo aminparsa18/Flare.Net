@@ -7,7 +7,7 @@ whole Flare stack — ClickHouse, Redis, the OTLP ingest receiver, the query API
 dashboard — to your AppHost with one call, pulling Flare's published Docker Hub images
 rather than anything you build yourself.
 
-> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently `0.2.0`) —
+> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently `0.2.1`) —
 > `dotnet add package Flare.Hosting.Aspire` works today. See
 > [`examples/`](../examples) for a full runnable demo, which references the package
 > as a `ProjectReference` instead (useful for trying Flare's `main` before a release).
@@ -35,7 +35,7 @@ containers.
 IResourceBuilder<FlareResource> AddFlare(
     this IDistributedApplicationBuilder builder,
     string name = "flare",
-    string imageTag = "edge",
+    string imageTag = "0.2.0",
     int? ingestGrpcPort = null,
     int? ingestHttpPort = null,
     int? apiPort = null,
@@ -48,9 +48,14 @@ IResourceBuilder<FlareResource> AddFlare(
 ```
 
 - **`name`** — the Flare resource group's name in the Aspire dashboard.
-- **`imageTag`** — defaults to `"edge"`. Flare has no stable release yet, and CI
-  (`.github/workflows/docker-publish.yml` in Flare's own repo) only publishes `edge`
-  until a first `v*.*.*` tag lands.
+- **`imageTag`** — defaults to the latest stable Flare release this package version was
+  tested against (currently `"0.2.0"`), pulled from Docker Hub's immutable `v*.*.*`
+  tags (`.github/workflows/docker-publish.yml` in Flare's own repo). Deliberately not
+  the floating `latest`/`edge` tags, so a given `Flare.Hosting.Aspire` NuGet version
+  keeps pulling the same images forever — this default only moves forward when a new
+  `Flare.Hosting.Aspire` release bumps it, not automatically. Pass `imageTag: "edge"`
+  yourself to track Flare's unreleased `main` branch instead (what
+  [`examples/`](../examples) does, since it runs against local, unreleased source).
 - **`ingestGrpcPort` / `ingestHttpPort`** — override the OTLP receiver's host ports.
   Left unset, these default to the conventional `4317`/`4318`. They're always
   unproxied, so external OTLP clients (your own app's logger) can point at them
@@ -196,15 +201,11 @@ instead of the broken dashboard UI, and open Flare's own dashboard directly.
 
 ## Known limitations (v1 of the package)
 
-- **`imageTag` defaults to `"edge"`** — pre-alpha, no stable image yet.
 - **No `aspire publish` support** — deploying a consuming app that also brings up
   Flare via a publish/deployment pipeline isn't supported.
 - **Multiple `AddFlare()` calls in one AppHost are untested** — the resource names are
   collision-safe (prefixed by `name`), but running two full Flare stacks side by side
   hasn't been exercised end-to-end.
-- **No package-version-to-image-tag pinning** — `Flare.Hosting.Aspire`'s own NuGet
-  version and the Docker image tag it defaults to (`edge`) aren't linked; this is an
-  explicitly deferred decision until Flare has a real versioning scheme.
 - **`enableResourceGraph`'s Docker labels are applied via `WithContainerRuntimeArgs`**
   (there's no more-direct "add a Docker label" API in Aspire 13.4) — this only reaches
   containers Aspire actually launches locally via `aspire run`/`aspire start`. It hasn't
