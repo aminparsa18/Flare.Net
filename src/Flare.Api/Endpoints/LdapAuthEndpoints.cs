@@ -144,7 +144,70 @@ public static class LdapAuthEndpoints
             ? entry.Attributes["memberOf"].GetValues(typeof(string)).Cast<string>().ToArray()
             : [];
 
-        return new FoundEntry(entry.DistinguishedName, username, externalId, memberOf);
+        var effectiveMemberOf = ExpandNestedGroupMembership(connection, settings, entry.DistinguishedName, memberOf);
+
+        return new FoundEntry(entry.DistinguishedName, username, externalId, effectiveMemberOf);
+    }
+
+    /// <summary>
+    /// Expands <paramref name="directMemberOf"/> with any of the three role-mapping
+    /// group DNs (Admin/Member/Viewer - see <see cref="ResolveRole"/>) that the user is
+    /// only a *nested* member of, via AD's <c>LDAP_MATCHING_RULE_IN_CHAIN</c> extended
+    /// matching rule (OID <c>1.2.840.113556.1.4.1941</c> - see docs/auth.md's "Role
+    /// provisioning" section). Only the configured group DNs are checked - one extra
+    /// search per configured group not already a direct hit, not a full
+    /// transitive-closure walk of the user's entire group graph - since role resolution
+    /// only cares whether the user chains up to one of those three specific groups.
+    ///
+    /// This is an AD-specific extension. A non-AD directory (e.g. OpenLDAP) that
+    /// doesn't understand the matching rule throws an <see cref="LdapException"/> per
+    /// attempted search, which <see cref="IsNestedMember"/> swallows and treats as "not
+    /// a nested member" - direct membership (already in <paramref name="directMemberOf"/>)
+    /// still resolves normally on such directories, same as before this existed.
+    /// </summary>
+    private static IReadOnlyCollection<string> ExpandNestedGroupMembership(
+        LdapConnection connection, LdapSettings settings, string userDn, IReadOnlyCollection<string> directMemberOf)
+    {
+        var candidateGroups = new[] { settings.AdminGroupDn, settings.MemberGroupDn, settings.ViewerGroupDn }
+            .Where(dn => !string.IsNullOrWhiteSpace(dn))
+            .Where(dn => !directMemberOf.Contains(dn, StringComparer.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (candidateGroups.Length == 0)
+        {
+            return directMemberOf;
+        }
+
+        List<string>? nested = null;
+        foreach (var groupDn in candidateGroups)
+        {
+            if (IsNestedMember(connection, settings.BaseDn, userDn, groupDn!))
+            {
+                (nested ??= []).Add(groupDn!);
+            }
+        }
+
+        return nested is null ? directMemberOf : [.. directMemberOf, .. nested];
+    }
+
+    /// <summary>Single existence check: is <paramref name="userDn"/> a direct or nested
+    /// member of <paramref name="groupDn"/>? Requests no attributes back (<c>"1.1"</c>,
+    /// the standard LDAP "no attributes" OID) since only entry presence matters.</summary>
+    private static bool IsNestedMember(LdapConnection connection, string? baseDn, string userDn, string groupDn)
+    {
+        var filter = $"(&(distinguishedName={LdapFilterEncoder.Escape(userDn)})" +
+                     $"(memberOf:1.2.840.113556.1.4.1941:={LdapFilterEncoder.Escape(groupDn)}))";
+        try
+        {
+            var request = new SearchRequest(baseDn, filter, SearchScope.Subtree, "1.1");
+            var response = (SearchResponse)connection.SendRequest(request);
+            return response.Entries.Count > 0;
+        }
+        catch (LdapException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Re-binds as <paramref name="distinguishedName"/> with the submitted
