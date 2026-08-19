@@ -6,20 +6,16 @@ namespace Flare.Api.LiveTail;
 /// </summary>
 /// <remarks>
 /// See <see cref="LogTailBroadcaster"/> - the single background reader that polls
-/// <see cref="StreamKey"/> and fans new entries out to every connected WebSocket
-/// subscriber's bounded channel (capacity <see cref="SubscriberChannelCapacity"/>).
+/// <c>Pipeline.LogEventPipelineOptions.StreamKey</c> (the same <c>LogEventPipeline</c>
+/// config section Flare.Ingest binds - see that type's remarks; this class used to carry
+/// its own hand-synced <c>StreamKey</c> bound from this file's unrelated <c>LiveTail</c>
+/// section, which was a second, independent instance of the same config-drift bug
+/// <c>Query.PipelineStreamKeys</c> fixed) and fans new entries out to every connected
+/// WebSocket subscriber's bounded channel (capacity <see cref="SubscriberChannelCapacity"/>).
 /// </remarks>
 public sealed class LiveTailOptions
 {
     public const string SectionName = "LiveTail";
-
-    /// <summary>
-    /// The same Redis Stream key <c>Flare.Ingest</c>'s
-    /// <c>LogEventPipelineOptions.StreamKey</c> writes into (default <c>"flare:logs"</c>
-    /// on both sides) - not project-referenced, so this must be kept in sync by hand if
-    /// either side's default or configuration ever changes.
-    /// </summary>
-    public string StreamKey { get; set; } = "flare:logs";
 
     /// <summary>
     /// How long to wait between <c>XREAD</c> polls when a read returns no new entries.

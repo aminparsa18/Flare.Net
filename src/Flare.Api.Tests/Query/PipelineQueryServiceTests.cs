@@ -1,5 +1,7 @@
 using Flare.Api.Model;
+using Flare.Api.Pipeline;
 using Flare.Api.Query;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 using Xunit;
 
@@ -106,10 +108,33 @@ public class PipelineQueryServiceTests
     [InlineData(IngestionSignal.Logs, "flare:logs", "flare-ingest")]
     [InlineData(IngestionSignal.Traces, "flare:spans", "flare-ingest-spans")]
     [InlineData(IngestionSignal.Metrics, "flare:metrics", "flare-ingest-metrics")]
-    public void PipelineStreamKeys_MatchFlareIngestPipelineOptionsDefaults(IngestionSignal signal, string streamKey, string consumerGroup)
+    public void PipelineStreamKeys_DefaultOptions_MatchFlareIngestPipelineOptionsDefaults(IngestionSignal signal, string streamKey, string consumerGroup)
     {
-        Assert.Equal(streamKey, PipelineStreamKeys.StreamKey(signal));
-        Assert.Equal(consumerGroup, PipelineStreamKeys.ConsumerGroup(signal));
+        var keys = new PipelineStreamKeys(
+            Options.Create(new LogEventPipelineOptions()),
+            Options.Create(new SpanEventPipelineOptions()),
+            Options.Create(new MetricEventPipelineOptions()));
+
+        Assert.Equal(streamKey, keys.StreamKey(signal));
+        Assert.Equal(consumerGroup, keys.ConsumerGroup(signal));
+    }
+
+    [Fact]
+    public void PipelineStreamKeys_ConfiguredOverride_PropagatesInsteadOfHardcodedDefault()
+    {
+        var keys = new PipelineStreamKeys(
+            Options.Create(new LogEventPipelineOptions { StreamKey = "custom:logs", ConsumerGroup = "custom-ingest" }),
+            Options.Create(new SpanEventPipelineOptions()),
+            Options.Create(new MetricEventPipelineOptions()));
+
+        // The overridden signal picks up the override...
+        Assert.Equal("custom:logs", keys.StreamKey(IngestionSignal.Logs));
+        Assert.Equal("custom-ingest", keys.ConsumerGroup(IngestionSignal.Logs));
+
+        // ...and an unrelated signal's own options are untouched by it (proves each signal
+        // reads its own section, not a shared/leaked value).
+        Assert.Equal("flare:spans", keys.StreamKey(IngestionSignal.Traces));
+        Assert.Equal("flare-ingest-spans", keys.ConsumerGroup(IngestionSignal.Traces));
     }
 
     [Theory]
