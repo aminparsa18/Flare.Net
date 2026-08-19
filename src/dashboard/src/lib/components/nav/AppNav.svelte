@@ -10,6 +10,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { authContext } from '$lib/auth/context';
 	import { navLinks } from './nav-links';
+	import TerminalModal from './TerminalModal.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
 
 	// +layout.svelte renders AppNav once auth is off entirely (no currentUser then - see
@@ -72,6 +73,7 @@
 			⌘K
 		</kbd>
 	</Button>
+	<TerminalModal />
 	<div class="ml-auto flex items-center gap-2">
 		{#if auth.authEnabled}
 			<span class="text-muted-foreground text-xs">{auth.currentUser?.username}</span>
