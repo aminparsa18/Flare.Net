@@ -23,7 +23,15 @@ public sealed record ProxyAuthSettings(
     string? MemberGroup,
     string? ViewerGroup,
     Users.UserRole DefaultRole,
-    DateTimeOffset? UpdatedAt)
+    DateTimeOffset? UpdatedAt,
+    /// <summary>Optional. When set, <c>AuthEndpoints.HandleLogoutAsync</c> sends the
+    /// browser here after clearing the local session, but only for
+    /// <c>ReverseProxy</c>-provisioned accounts - see docs/auth.md's "Known limitations"
+    /// for why Flare can't do this automatically the way OIDC's end-session endpoint
+    /// could. Null (the default) leaves logout behavior unchanged: back to <c>/login</c>,
+    /// which silently re-establishes a session as long as the proxy keeps sending the
+    /// header.</summary>
+    string? LogoutRedirectUrl = null)
 {
     /// <summary>The shape <see cref="IProxyAuthSettingsStore.GetAsync"/> returns when no
     /// row exists yet - reverse-proxy auth has never been configured on this instance.
@@ -37,5 +45,6 @@ public sealed record ProxyAuthSettings(
         MemberGroup: null,
         ViewerGroup: null,
         DefaultRole: Users.UserRole.Viewer,
-        UpdatedAt: null);
+        UpdatedAt: null,
+        LogoutRedirectUrl: null);
 }

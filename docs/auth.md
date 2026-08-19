@@ -570,7 +570,9 @@ header values instead of directory attributes:
 3. On `/auth`, in the Reverse proxy section, fill in **Header name** (matching whatever
    your proxy actually sends) and **Trusted proxy CIDRs** (one per line - required). Set
    **Groups header name** / group fields / **Default role** if you want group-based role
-   mapping (see "Role provisioning" above).
+   mapping (see "Role provisioning" above). Optionally, under **Advanced: logout**, set
+   **Logout redirect URL** to your proxy's (or IdP's) own sign-out URL - see "Known
+   limitations" below for why this is a manual step, not something Flare does on its own.
 4. Flip **Enabled** on and **Save** - takes effect immediately, no restart.
 5. Reach Flare **through the proxy** (not directly) and confirm `/login` signs you in
    silently. Then confirm hitting `Flare.Api` directly (bypassing the proxy, if that's
@@ -578,10 +580,16 @@ header values instead of directory attributes:
 
 ### Known limitations, stated plainly
 
-- **Logout doesn't propagate to the proxy/IdP.** As long as the proxy keeps sending the
-  header, `/login` will silently re-establish a session again right after a manual
-  logout - true logout has to happen at the proxy/IdP layer. Same class of limitation
-  OIDC's own logout scope already documents.
+- **Logout doesn't propagate to the proxy/IdP automatically.** As long as the proxy keeps
+  sending the header, `/login` will silently re-establish a session again right after a
+  manual logout - Flare has no protocol-level way to end the proxy's own session the way
+  OIDC's own (not-yet-implemented) end-session-endpoint call could, since every proxy
+  (oauth2-proxy, Authelia, Cloudflare Access, ...) does logout differently and there's no
+  discovery document describing it. There's a manual escape hatch, though: set **Logout
+  redirect URL** (Reverse proxy section, "Advanced: logout") to your proxy's or IdP's own
+  sign-out URL, and Flare's "Log out" sends the browser there - instead of back to
+  `/login` - right after clearing its own session. Left blank (the default), behavior is
+  unchanged.
 - **A misconfigured or over-broad trusted-CIDR range is a real security hole**, not a
   theoretical one - see the bulleted warnings above. Get this right before relying on
   this method for anything beyond a throwaway/internal deployment.

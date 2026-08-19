@@ -28,6 +28,17 @@ public sealed record AuthUserDto
     public required string AuthProvider { get; init; }
 }
 
+/// <summary>Response body for <c>POST /api/auth/logout</c>. <see cref="RedirectUrl"/> is
+/// non-null only for a <c>ReverseProxy</c>-provisioned account with a configured
+/// <c>ProxyAuthSettings.LogoutRedirectUrl</c> - every other account (and a reverse-proxy
+/// account with none configured) gets a null-<see cref="RedirectUrl"/> response, same as
+/// this endpoint always returning bare 204 before this field existed. See
+/// docs/auth.md's "Reverse proxy (trusted header)" section, "Known limitations".</summary>
+public sealed record LogoutResponse
+{
+    public string? RedirectUrl { get; init; }
+}
+
 /// <summary>Response body for <c>GET /api/auth/bootstrap/status</c> - the dashboard's
 /// route guard uses <see cref="AuthEnabled"/> to decide whether any login is required at
 /// all (opt-in auth - see docs/auth.md), and (when it is) <see cref="NeedsBootstrap"/>/

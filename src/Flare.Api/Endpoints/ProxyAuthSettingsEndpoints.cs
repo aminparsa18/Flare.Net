@@ -65,6 +65,17 @@ public static class ProxyAuthSettingsEndpoints
             }
         }
 
+        // LogoutRedirectUrl is optional, but if set it has to actually be a URL the
+        // browser can be sent to - catches an obvious typo (e.g. a bare hostname) at
+        // save time rather than a broken redirect discovered at logout.
+        if (!string.IsNullOrWhiteSpace(request.LogoutRedirectUrl) &&
+            !Uri.TryCreate(request.LogoutRedirectUrl, UriKind.Absolute, out _))
+        {
+            return Results.Problem(
+                "Logout redirect URL must be a valid absolute URL.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var saved = await proxySettings.SaveAsync(
             request.Enabled,
             request.HeaderName,
@@ -74,6 +85,7 @@ public static class ProxyAuthSettingsEndpoints
             request.MemberGroup,
             request.ViewerGroup,
             request.DefaultRole,
+            request.LogoutRedirectUrl,
             cancellationToken);
         return Results.Json(ToDto(saved), ProxyAuthJsonContext.Default.ProxyAuthSettingsDto);
     }
@@ -88,5 +100,6 @@ public static class ProxyAuthSettingsEndpoints
         MemberGroup = settings.MemberGroup,
         ViewerGroup = settings.ViewerGroup,
         DefaultRole = settings.DefaultRole,
+        LogoutRedirectUrl = settings.LogoutRedirectUrl,
     };
 }

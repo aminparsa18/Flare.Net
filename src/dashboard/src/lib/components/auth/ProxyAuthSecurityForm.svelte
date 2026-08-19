@@ -29,6 +29,7 @@
 	let memberGroup = $state('');
 	let viewerGroup = $state('');
 	let defaultRole = $state<UserRole>('Viewer');
+	let logoutRedirectUrl = $state('');
 
 	// Re-seeds the form whenever proxyAuth.settings changes identity - on initial load,
 	// and again after a successful save - same "seed once per data change" shape
@@ -43,6 +44,7 @@
 			memberGroup = proxyAuth.settings.memberGroup ?? '';
 			viewerGroup = proxyAuth.settings.viewerGroup ?? '';
 			defaultRole = proxyAuth.settings.defaultRole;
+			logoutRedirectUrl = proxyAuth.settings.logoutRedirectUrl ?? '';
 		}
 	});
 
@@ -56,7 +58,8 @@
 			adminGroup: adminGroup.trim() || null,
 			memberGroup: memberGroup.trim() || null,
 			viewerGroup: viewerGroup.trim() || null,
-			defaultRole
+			defaultRole,
+			logoutRedirectUrl: logoutRedirectUrl.trim() || null
 		});
 	}
 </script>
@@ -141,6 +144,25 @@
 								<Input id="proxy-viewer-group" bind:value={viewerGroup} placeholder="Optional" />
 							</div>
 						</div>
+					</div>
+				</details>
+
+				<details class="text-xs">
+					<summary class="text-muted-foreground cursor-pointer font-medium">Advanced: logout</summary>
+					<div class="mt-3 flex flex-col gap-1">
+						<label for="proxy-logout-redirect-url" class="text-xs font-medium">Logout redirect URL</label>
+						<Input
+							id="proxy-logout-redirect-url"
+							bind:value={logoutRedirectUrl}
+							placeholder="Optional, e.g. https://proxy.example.com/oauth2/sign_out"
+							class="font-mono text-xs"
+						/>
+						<p class="text-muted-foreground text-xs">
+							Flare can't log a user out of the proxy's own session - it only clears Flare's own cookie. Left blank,
+							clicking "Log out" just returns to /login, which signs back in silently as long as the proxy keeps
+							sending the header. Set this to your proxy's own sign-out URL (or the identity provider's) to send the
+							browser there instead.
+						</p>
 					</div>
 				</details>
 

@@ -164,4 +164,53 @@ public class ProxyAuthSettingsEndpointsTests
         Assert.Equal("members", saved.MemberGroup);
         Assert.Equal("viewers", saved.ViewerGroup);
     }
+
+    [Fact]
+    public async Task Put_PersistsTheLogoutRedirectUrl()
+    {
+        var store = new FakeProxyAuthSettingsStore();
+        var body = new
+        {
+            enabled = true,
+            headerName = "Remote-User",
+            trustedProxyCidrs = "172.18.0.0/16",
+            groupsHeaderName = (string?)null,
+            adminGroup = (string?)null,
+            memberGroup = (string?)null,
+            viewerGroup = (string?)null,
+            defaultRole = "Viewer",
+            logoutRedirectUrl = "https://proxy.example.com/oauth2/sign_out",
+        };
+        var context = CreateContext(body);
+
+        var result = await ProxyAuthSettingsEndpoints.HandlePutAsync(context, store, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("https://proxy.example.com/oauth2/sign_out", (await store.GetAsync()).LogoutRedirectUrl);
+    }
+
+    [Fact]
+    public async Task Put_Returns400_WhenTheLogoutRedirectUrlIsNotAValidAbsoluteUrl()
+    {
+        var store = new FakeProxyAuthSettingsStore();
+        var body = new
+        {
+            enabled = true,
+            headerName = "Remote-User",
+            trustedProxyCidrs = "172.18.0.0/16",
+            groupsHeaderName = (string?)null,
+            adminGroup = (string?)null,
+            memberGroup = (string?)null,
+            viewerGroup = (string?)null,
+            defaultRole = "Viewer",
+            logoutRedirectUrl = "not-a-url",
+        };
+        var context = CreateContext(body);
+
+        var result = await ProxyAuthSettingsEndpoints.HandlePutAsync(context, store, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+    }
 }

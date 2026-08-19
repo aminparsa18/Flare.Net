@@ -23,6 +23,13 @@ public sealed record ProxyAuthSettingsDto
     public string? ViewerGroup { get; init; }
 
     public required UserRole DefaultRole { get; init; }
+
+    /// <summary>Optional. When set, <c>/api/auth/logout</c> sends the browser here after
+    /// clearing the local session, for <c>ReverseProxy</c>-provisioned accounts only -
+    /// see docs/auth.md's "Known limitations" for why Flare can't propagate logout to
+    /// the proxy/IdP automatically. Null means today's unchanged behavior: back to
+    /// <c>/login</c>.</summary>
+    public string? LogoutRedirectUrl { get; init; }
 }
 
 /// <summary>Request body for <c>PUT /api/settings/proxyauth</c>.</summary>
@@ -43,4 +50,6 @@ public sealed record SaveProxyAuthSettingsRequest
     public string? ViewerGroup { get; init; }
 
     public required UserRole DefaultRole { get; init; }
+
+    public string? LogoutRedirectUrl { get; init; }
 }
