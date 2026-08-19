@@ -169,7 +169,17 @@
 	);
 
 	interface PlotPoint {
-		bucketStart: string;
+		// Epoch ms, not the API's raw bucketStart string - the x-axis identity/equality
+		// key (bucketTimes/bucketIndexOf/pointAtHover below all key off this), so it has
+		// to be something comparison mode's shifted "Previous" points can produce
+		// *exactly* the same way normal points do. A string round-trip through
+		// `Date.toISOString()` can't guarantee that: the API's DateTimeOffset JSON omits
+		// fractional seconds and uses "+00:00" ("2026-08-19T10:00:00+00:00"), while
+		// `toISOString()` always emits ".000Z" - same instant, never string-equal. A
+		// bug this file actually shipped with (comparison mode's Previous line never
+		// lining up with Current) before this comment existed - numeric time sidesteps
+		// the whole format-matching class of bug rather than just this one instance.
+		time: number;
 		raw: number;
 	}
 	interface LineSpec {
@@ -202,7 +212,7 @@
 						detail: 'mean',
 						points: series.points
 							.filter((p) => p.sum != null && p.count != null && p.count > 0)
-							.map((p) => ({ bucketStart: p.bucketStart, raw: p.sum! / p.count! }))
+							.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p.sum! / p.count! }))
 					}
 				];
 			}
@@ -210,7 +220,9 @@
 				color: PERCENTILE_COLOR[key],
 				label: key,
 				detail: key,
-				points: series.points.filter((p) => p[key] != null).map((p) => ({ bucketStart: p.bucketStart, raw: p[key]! }))
+				points: series.points
+					.filter((p) => p[key] != null)
+					.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p[key]! }))
 			}));
 		}
 
@@ -220,32 +232,31 @@
 			detail: seriesLabel(series),
 			points: series.points
 				.filter((p) => p.value != null)
-				.map((p) => ({ bucketStart: p.bucketStart, raw: rateDivisor ? p.value! / rateDivisor : p.value! }))
+				.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: rateDivisor ? p.value! / rateDivisor : p.value! }))
 		}));
 	}
 
 	// Sums every series' value at each bucket into one total - the same reduction
 	// buildComparisonLines does for both periods, extracted since the percentage
 	// summary needs the plain (pre-rate) totals too, independent of any one line's
-	// x-position handling.
-	function totalsByBucket(series: MetricSeries[]): Map<string, number> {
-		const totals = new Map<string, number>();
+	// x-position handling. Keyed by epoch ms (see PlotPoint.time's remarks), not the
+	// API's bucketStart string.
+	function totalsByBucket(series: MetricSeries[]): Map<number, number> {
+		const totals = new Map<number, number>();
 		for (const s of series) {
 			for (const p of s.points) {
 				if (p.value == null) continue;
-				totals.set(p.bucketStart, (totals.get(p.bucketStart) ?? 0) + p.value);
+				const time = new Date(p.bucketStart).getTime();
+				totals.set(time, (totals.get(time) ?? 0) + p.value);
 			}
 		}
 		return totals;
 	}
 
-	function sortedPoints(totals: Map<string, number>, shiftMs = 0): PlotPoint[] {
+	function sortedPoints(totals: Map<number, number>, shiftMs = 0): PlotPoint[] {
 		return [...totals.entries()]
-			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-			.map(([bucketStart, total]) => ({
-				bucketStart: shiftMs ? new Date(new Date(bucketStart).getTime() + shiftMs).toISOString() : bucketStart,
-				raw: rateDivisor ? total / rateDivisor : total
-			}));
+			.sort(([a], [b]) => a - b)
+			.map(([time, total]) => ({ time: time + shiftMs, raw: rateDivisor ? total / rateDivisor : total }));
 	}
 
 	// Same identity MetricSeriesQueryBuilder's own SeriesKey is (ServiceName +
@@ -261,10 +272,7 @@
 		if (!series) return [];
 		return series.points
 			.filter((p) => p.sum != null && p.count != null && p.count > 0)
-			.map((p) => ({
-				bucketStart: shiftMs ? new Date(new Date(p.bucketStart).getTime() + shiftMs).toISOString() : p.bucketStart,
-				raw: p.sum! / p.count!
-			}));
+			.map((p) => ({ time: new Date(p.bucketStart).getTime() + shiftMs, raw: p.sum! / p.count! }));
 	}
 
 	/**
@@ -284,11 +292,12 @@
 	 *   mode does too - paired to its previous-period counterpart via matchingSeries,
 	 *   not blended with any other series.
 	 *
-	 * Previous's bucketStart values are shifted forward by one full period so they land
-	 * on the *same* x-position as their current-period counterpart (an overlay, not a
-	 * second, earlier-in-time set of points) - see previousPeriod's own remarks for why
-	 * this is exact (bucket boundaries are anchored to absolute time, and the shift is
-	 * exactly one period's duration).
+	 * Previous's `time` values are shifted forward by one full period (in shiftMs, as a
+	 * number - see PlotPoint.time's remarks on why not a re-stringified timestamp) so
+	 * they land on the *same* x-position as their current-period counterpart (an
+	 * overlay, not a second, earlier-in-time set of points) - see previousPeriod's own
+	 * remarks for why this is exact (bucket boundaries are anchored to absolute time,
+	 * and the shift is exactly one period's duration).
 	 */
 	function buildComparisonLines(): LineSpec[] {
 		// The preset's fixed duration, not a fresh resolveTimeRange() - same value
@@ -372,9 +381,10 @@
 	// uses (see its own remarks). Known v1 simplification: a line missing a bucket
 	// (no data point at that index) draws straight through to its next point rather
 	// than breaking - acceptable for the sparse-gap case this is meant to handle, not
-	// meant to imply interpolated data across a large hole.
-	const bucketStarts = $derived([...new Set(lines.flatMap((l) => l.points.map((p) => p.bucketStart)))].sort());
-	const bucketIndexOf = $derived(new Map(bucketStarts.map((b, i) => [b, i])));
+	// meant to imply interpolated data across a large hole. Epoch ms (see
+	// PlotPoint.time's remarks), not the API's bucketStart string.
+	const bucketTimes = $derived([...new Set(lines.flatMap((l) => l.points.map((p) => p.time)))].sort((a, b) => a - b));
+	const bucketIndexOf = $derived(new Map(bucketTimes.map((t, i) => [t, i])));
 
 	const CHART_WIDTH = 800;
 	const CHART_HEIGHT = 180;
@@ -402,10 +412,10 @@
 	const ticks = $derived(niceAxisTicks(peakValue, axisScale));
 	const maxValue = $derived(Math.max(1e-9, ticks.max));
 
-	function xFor(bucketStart: string): number {
-		const count = bucketStarts.length;
+	function xFor(time: number): number {
+		const count = bucketTimes.length;
 		if (count <= 1) return CHART_WIDTH / 2;
-		return (bucketIndexOf.get(bucketStart)! / (count - 1)) * CHART_WIDTH;
+		return (bucketIndexOf.get(time)! / (count - 1)) * CHART_WIDTH;
 	}
 
 	function yFor(raw: number): number {
@@ -413,26 +423,26 @@
 	}
 
 	function pathFor(points: PlotPoint[]): string {
-		return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.bucketStart)} ${yFor(p.raw)}`).join(' ');
+		return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.time)} ${yFor(p.raw)}`).join(' ');
 	}
 
 	let hoverIndex = $state<number | null>(null);
 
 	function handlePointerMove(e: PointerEvent) {
-		if (bucketStarts.length === 0) return;
+		if (bucketTimes.length === 0) return;
 		const svg = e.currentTarget as SVGSVGElement;
 		const rect = svg.getBoundingClientRect();
 		const fraction = (e.clientX - rect.left) / rect.width;
-		hoverIndex = Math.min(bucketStarts.length - 1, Math.max(0, Math.round(fraction * (bucketStarts.length - 1))));
+		hoverIndex = Math.min(bucketTimes.length - 1, Math.max(0, Math.round(fraction * (bucketTimes.length - 1))));
 	}
 
 	function pointAtHover(line: LineSpec): PlotPoint | undefined {
 		if (hoverIndex === null) return undefined;
-		return line.points.find((p) => p.bucketStart === bucketStarts[hoverIndex!]);
+		return line.points.find((p) => p.time === bucketTimes[hoverIndex!]);
 	}
 
-	function formatBucketTime(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, {
+	function formatBucketTime(time: number): string {
+		return new Date(time).toLocaleString(undefined, {
 			hour12: false,
 			month: 'short',
 			day: 'numeric',
@@ -576,7 +586,7 @@
 				</div>
 			{:else if explorer.queryError}
 				<p class="text-destructive text-xs">{explorer.queryError}</p>
-			{:else if bucketStarts.length === 0}
+			{:else if bucketTimes.length === 0}
 				<div class="text-muted-foreground flex h-[180px] items-center justify-center text-xs">No data in range</div>
 			{:else}
 				<div class="flex gap-2">
@@ -625,9 +635,9 @@
 
 										{#if hoverIndex !== null}
 											<line
-												x1={xFor(bucketStarts[hoverIndex])}
+												x1={xFor(bucketTimes[hoverIndex])}
 												y1={PEAK_Y}
-												x2={xFor(bucketStarts[hoverIndex])}
+												x2={xFor(bucketTimes[hoverIndex])}
 												y2={BASELINE_Y}
 												class="text-muted-foreground"
 												stroke="currentColor"
@@ -648,11 +658,11 @@
 												stroke-dasharray={line.dashed ? '5,4' : undefined}
 												vector-effect="non-scaling-stroke"
 											/>
-											{#each line.points as point (point.bucketStart)}
+											{#each line.points as point (point.time)}
 												<circle
-													cx={xFor(point.bucketStart)}
+													cx={xFor(point.time)}
 													cy={yFor(point.raw)}
-													r={bucketStarts.length > 60 ? 0 : 2.5}
+													r={bucketTimes.length > 60 ? 0 : 2.5}
 													fill={line.color}
 												/>
 											{/each}
@@ -663,7 +673,7 @@
 							{#if hoverIndex !== null}
 								<Tooltip.Content>
 									<div class="flex flex-col gap-0.5">
-										<span class="font-medium">{formatBucketTime(bucketStarts[hoverIndex])}</span>
+										<span class="font-medium">{formatBucketTime(bucketTimes[hoverIndex])}</span>
 										{#each lines as line (line.label)}
 											{@const point = pointAtHover(line)}
 											{#if point}
