@@ -413,7 +413,7 @@
 	// Out, then in - see the {#key chartKey} block's own remarks on why sequential,
 	// not overlapping. Also animateHeight's own duration, so the container's resize
 	// keeps pace with the full out+in sequence instead of finishing early.
-	const FADE_MS = 300;
+	const FADE_MS = 250;
 
 	const peakValue = $derived(Math.max(0, ...lines.flatMap((l) => l.points.map((p) => p.raw))));
 
@@ -638,15 +638,19 @@
 		</div>
 
 		<div class="min-h-0 flex-1 overflow-auto px-4 py-3">
-			{#if explorer.queryLoading && lines.length === 0}
-				<div class="flex h-full items-center justify-center">
-					<Spinner />
-				</div>
-			{:else if explorer.queryError}
-				<p class="text-destructive text-xs">{explorer.queryError}</p>
-			{:else if bucketTimes.length === 0}
-				<div class="text-muted-foreground flex h-[180px] items-center justify-center text-xs">No data in range</div>
-			{:else}
+			<!-- Wraps the *whole* loading/error/empty/chart decision below, not just the
+			     chart branch - a metric switch (unlike toggling compare) can't stale-while-
+			     revalidate (MetricsExplorerState.#resetForNewMetric clears immediately, a
+			     different metric's chart would be actively misleading to leave up - see its
+			     own remarks), so it genuinely passes through the loading branch. Keying on
+			     chartKey (metric + service + compareActive, unchanged by a plain data
+			     refresh) rather than a broader key covering every one of the four branches
+			     individually: the fade-out of the *old* metric's chart and the fade-in of
+			     the *new* metric's spinner both play as one transition when chartKey
+			     changes; once data for that same target arrives, the spinner-to-chart swap
+			     underneath is instant (no second fade queued up mid-transition) - avoids
+			     stacking multiple fade cycles for a query that resolves before the first one
+			     even finishes, which is the common case against local ClickHouse. -->
 			<div use:animateHeight class="overflow-hidden">
 			{#key chartKey}
 			<!-- Sequential, not overlapping: `in:` is delayed by exactly `out:`'s duration
@@ -655,10 +659,27 @@
 			     a plain shared `transition:fade` runs its outro/intro concurrently, which
 			     read as a messier crossfade than a clean "gone, then here" swap once the
 			     content on either side is a genuinely different shape (comparison mode's
-			     whole point). Slow enough (600ms total) to read as a deliberate transition,
-			     not a blip - animateHeight's own duration matches so the container's resize
-			     keeps pace with it instead of finishing early. -->
+			     whole point, and a metric switch's too). Slow enough (500ms total) to read
+			     as a deliberate transition, not a blip - animateHeight's own duration
+			     matches so the container's resize keeps pace with it instead of finishing
+			     early. -->
 			<div out:fade={{ duration: FADE_MS }} in:fade={{ duration: FADE_MS, delay: FADE_MS }}>
+			{#if explorer.queryLoading && lines.length === 0}
+				<!-- h-[180px], not h-full: h-full only resolves against an ancestor with an
+				     *explicit* height, and the two wrappers this now sits inside
+				     (use:animateHeight, out:fade/in:fade) are deliberately auto-height (that's
+				     the whole point of animateHeight - size to content) - h-full would silently
+				     collapse to the Spinner's own tiny intrinsic size instead of filling the
+				     body. A fixed height sidesteps that, and matches "No data in range"'s own
+				     h-[180px] below, so loading/empty don't jump size against each other either. -->
+				<div class="flex h-[180px] items-center justify-center">
+					<Spinner />
+				</div>
+			{:else if explorer.queryError}
+				<p class="text-destructive text-xs">{explorer.queryError}</p>
+			{:else if bucketTimes.length === 0}
+				<div class="text-muted-foreground flex h-[180px] items-center justify-center text-xs">No data in range</div>
+			{:else}
 				<div class="flex gap-2">
 					<!-- Rendered as real DOM text, not SVG <text>, deliberately: the chart's
 					     viewBox is stretched non-uniformly (preserveAspectRatio="none", see
@@ -807,10 +828,10 @@
 						+{hiddenSeriesCount} more series not shown ({MAX_SERIES} max) - narrow the service/attribute filter to see them.
 					</p>
 				{/if}
+			{/if}
 			</div>
 			{/key}
 			</div>
-			{/if}
 		</div>
 	{/if}
 </div>
