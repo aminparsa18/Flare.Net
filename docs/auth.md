@@ -592,7 +592,12 @@ header values instead of directory attributes:
   unchanged.
 - **A misconfigured or over-broad trusted-CIDR range is a real security hole**, not a
   theoretical one - see the bulleted warnings above. Get this right before relying on
-  this method for anything beyond a throwaway/internal deployment.
+  this method for anything beyond a throwaway/internal deployment. Flare rejects the one
+  most catastrophic case outright - `0.0.0.0/0`/`::/0` ("trust every IP address on the
+  internet") can't be saved, the same way a cloud console flags a security group rule
+  open to the world - but anything short of that (e.g. an entire `10.0.0.0/8` when only
+  one proxy container needed trusting) is still the operator's call to get right; there's
+  no way for Flare to know what your actual network topology should be.
 - **Direct API/script callers need to call the login endpoint once themselves** - this
   method doesn't authenticate every request ambiently; see "Dashboard-triggered, not
   ambient" above.

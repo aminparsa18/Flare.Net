@@ -112,6 +112,33 @@ public class ProxyAuthSettingsEndpointsTests
     }
 
     [Fact]
+    public async Task Put_Returns400_WhenTrustedProxyCidrsIncludesTheIPv4CatchAll()
+    {
+        var store = new FakeProxyAuthSettingsStore();
+        var context = CreateContext(ValidRequestBody(trustedProxyCidrs: "0.0.0.0/0"));
+
+        var result = await ProxyAuthSettingsEndpoints.HandlePutAsync(context, store, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Put_Returns400_WhenTrustedProxyCidrsIncludesTheCatchAll_EvenWhileDisabled()
+    {
+        // Unconditional, unlike the "at least one valid entry" check - there's no
+        // legitimate reason to ever persist "trust every IP address on the internet",
+        // even disabled/for later.
+        var store = new FakeProxyAuthSettingsStore();
+        var context = CreateContext(ValidRequestBody(enabled: false, trustedProxyCidrs: "::/0"));
+
+        var result = await ProxyAuthSettingsEndpoints.HandlePutAsync(context, store, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+    }
+
+    [Fact]
     public async Task Put_Returns400_WhenEnablingWithOnlyMalformedCidrs()
     {
         var store = new FakeProxyAuthSettingsStore();
