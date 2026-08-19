@@ -151,11 +151,14 @@
 		}
 	});
 
-	// Ready to type the moment it opens - a terminal that opens without focus in its
-	// own input isn't acting like one.
-	$effect(() => {
-		if (open) void tick().then(() => inputEl?.focus());
-	});
+	// bits-ui's own focus-on-open behavior (focus-scope's onOpenAutoFocus) would
+	// otherwise land focus on Dialog.Content itself, not our input - preventDefault
+	// and focus the input directly instead. This is the dedicated hook for it, unlike
+	// an `$effect`+tick() racing against bits-ui's own post-mount focus handling.
+	function focusInputOnOpen(e: Event): void {
+		e.preventDefault();
+		inputEl?.focus();
+	}
 
 	onDestroy(stopActive);
 </script>
@@ -163,13 +166,14 @@
 <Dialog.Root bind:open>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="icon-sm" title="Terminal">
+			<Button {...props} variant="outline" size="icon-sm" title="Terminal" class="ml-3 cursor-pointer">
 				<TerminalIcon />
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
 	<Dialog.Content
 		showCloseButton={false}
+		onOpenAutoFocus={focusInputOnOpen}
 		class="flex h-[28rem] w-full flex-col gap-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950 p-0 text-neutral-200 ring-0 sm:max-w-2xl"
 	>
 		<div class="flex shrink-0 items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
@@ -186,7 +190,7 @@
 		<div bind:this={outputEl} class="flex-1 overflow-y-auto px-3 py-2 font-mono text-xs leading-relaxed">
 			{#if lines.length === 0}
 				<div class="space-y-2 text-neutral-500">
-					<p>A flare.cli-styled command surface over this dashboard's own data. Try:</p>
+					<p>Try:</p>
 					<div>
 						{#each EXAMPLES as example (example)}
 							<button
