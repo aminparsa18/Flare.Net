@@ -48,7 +48,7 @@ export async function getProxyAuthSettings(signal?: AbortSignal): Promise<ProxyA
 	return res.json();
 }
 
-/** `PUT /api/settings/proxyauth`. 400s if `enabled: true` has a blank header name or no CIDR entry that actually parses, or if `logoutRedirectUrl` is set but isn't a valid absolute URL - surfaced as a plain Error. */
+/** `PUT /api/settings/proxyauth`. 400s if `enabled: true` has a blank header name or no CIDR entry that actually parses, if `trustedProxyCidrs` includes the 0.0.0.0/0 or ::/0 catch-all (rejected unconditionally, not just while enabling), or if `logoutRedirectUrl` is set but isn't a valid absolute URL - surfaced as a plain Error. */
 export async function saveProxyAuthSettings(request: SaveProxyAuthSettingsRequest): Promise<ProxyAuthSettings> {
 	const res = await apiFetch(`${API_BASE_URL}/api/settings/proxyauth`, {
 		method: 'PUT',

@@ -48,4 +48,16 @@ public static class TrustedProxyNetworks
         var normalized = remoteIp.IsIPv4MappedToIPv6 ? remoteIp.MapToIPv4() : remoteIp;
         return Parse(trustedProxyCidrs).Any(network => network.Contains(normalized));
     }
+
+    /// <summary>True if any parsed entry is the maximally-broad catch-all for its
+    /// address family - <c>0.0.0.0/0</c> for IPv4, <c>::/0</c> for IPv6 (a
+    /// <c>PrefixLength</c> of 0 always means "every address", regardless of family).
+    /// That's the header-spoofing equivalent of leaving the front door open: it would
+    /// trust the configured header from literally any IP address on the internet,
+    /// collapsing this method's entire security boundary. <see cref="Endpoints.ProxyAuthSettingsEndpoints"/>
+    /// rejects a save containing one of these outright, unconditionally - unlike the
+    /// "at least one valid entry" check, this isn't gated on <c>Enabled</c>, since
+    /// there's no legitimate reason to ever persist it even for later.</summary>
+    public static bool ContainsCatchAllEntry(string trustedProxyCidrs) =>
+        Parse(trustedProxyCidrs).Any(network => network.PrefixLength == 0);
 }

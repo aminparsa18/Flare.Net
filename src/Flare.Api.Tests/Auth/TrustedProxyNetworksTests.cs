@@ -79,4 +79,34 @@ public class TrustedProxyNetworksTests
         Assert.True(TrustedProxyNetworks.IsTrusted(IPAddress.Parse("192.168.1.42"), "192.168.1.42/32"));
         Assert.False(TrustedProxyNetworks.IsTrusted(IPAddress.Parse("192.168.1.43"), "192.168.1.42/32"));
     }
+
+    [Fact]
+    public void ContainsCatchAllEntry_ReturnsTrue_ForTheIPv4CatchAll()
+    {
+        Assert.True(TrustedProxyNetworks.ContainsCatchAllEntry("0.0.0.0/0"));
+    }
+
+    [Fact]
+    public void ContainsCatchAllEntry_ReturnsTrue_ForTheIPv6CatchAll()
+    {
+        Assert.True(TrustedProxyNetworks.ContainsCatchAllEntry("::/0"));
+    }
+
+    [Fact]
+    public void ContainsCatchAllEntry_ReturnsTrue_WhenTheCatchAllIsMixedInWithOtherEntries()
+    {
+        Assert.True(TrustedProxyNetworks.ContainsCatchAllEntry("172.18.0.0/16, 0.0.0.0/0"));
+    }
+
+    [Fact]
+    public void ContainsCatchAllEntry_ReturnsFalse_ForOrdinaryRanges()
+    {
+        Assert.False(TrustedProxyNetworks.ContainsCatchAllEntry("172.18.0.0/16, 10.0.0.0/8"));
+    }
+
+    [Fact]
+    public void ContainsCatchAllEntry_ReturnsFalse_ForBlankInput()
+    {
+        Assert.False(TrustedProxyNetworks.ContainsCatchAllEntry(""));
+    }
 }

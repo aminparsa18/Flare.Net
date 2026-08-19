@@ -51,6 +51,17 @@ public static class ProxyAuthSettingsEndpoints
             return Results.Problem("Header name is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        // Unconditional - not gated on Enabled like the "at least one valid entry" check
+        // below. There's no legitimate reason to ever persist "trust every IP address on
+        // the internet", even disabled/for later - see TrustedProxyNetworks.ContainsCatchAllEntry's
+        // remarks.
+        if (TrustedProxyNetworks.ContainsCatchAllEntry(request.TrustedProxyCidrs))
+        {
+            return Results.Problem(
+                "Trusted proxy CIDRs can't include 0.0.0.0/0 or ::/0 - that would trust every IP address on the internet, defeating this method's entire security model.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         if (request.Enabled)
         {
             // The one method whose "enable" validation exists purely for safety, not
