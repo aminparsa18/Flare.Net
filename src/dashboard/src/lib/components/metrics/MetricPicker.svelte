@@ -29,7 +29,7 @@
 <div class="flex w-72 shrink-0 flex-col border-r">
 	<Command.Root class="flex min-h-0 flex-1 flex-col rounded-none bg-transparent">
 		<Command.Input placeholder="Filter metrics..." />
-		<Command.List class="min-h-0 flex-1">
+		<Command.List class="min-h-0 max-h-none flex-1">
 			{#if explorer.namesLoading && explorer.names.length === 0}
 				<div class="flex justify-center py-8">
 					<Spinner />
