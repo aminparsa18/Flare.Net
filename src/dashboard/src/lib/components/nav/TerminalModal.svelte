@@ -7,10 +7,15 @@
 	// Self-contained trigger + Dialog in one component (same shape as
 	// PatternsModal.svelte), not the lifted-state pattern AppNav/CommandPalette use for
 	// commandPaletteOpen - nothing else needs to open this modal.
+	//
+	// Styled to actually read as a terminal window rather than a form dialog: a fixed
+	// dark palette (deliberately not following the app's own light/dark mode - real
+	// terminal emulators don't either), a titlebar with traffic-light dots, and the
+	// prompt/input pinned at the bottom outside the scrolling output rather than boxed
+	// separately below it.
 	import { tick, onDestroy } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import TerminalIcon from '@lucide/svelte/icons/terminal';
 	import { resolveCommand, parseCommandLine } from '$lib/terminal/registry';
 	import type { TerminalHandle, TerminalLine, TerminalLineKind } from '$lib/terminal/types';
@@ -49,12 +54,13 @@
 	function lineClass(kind: TerminalLineKind): string {
 		switch (kind) {
 			case 'error':
-				return 'text-destructive';
+				return 'text-red-400';
 			case 'input':
+				return 'text-neutral-400';
 			case 'info':
-				return 'text-muted-foreground';
+				return 'text-neutral-500';
 			default:
-				return 'text-foreground';
+				return 'text-neutral-100';
 		}
 	}
 
@@ -145,6 +151,12 @@
 		}
 	});
 
+	// Ready to type the moment it opens - a terminal that opens without focus in its
+	// own input isn't acting like one.
+	$effect(() => {
+		if (open) void tick().then(() => inputEl?.focus());
+	});
+
 	onDestroy(stopActive);
 </script>
 
@@ -156,44 +168,52 @@
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
-	<Dialog.Content class="sm:max-w-2xl">
-		<Dialog.Header>
-			<Dialog.Title>Terminal</Dialog.Title>
-			<Dialog.Description>
-				A flare.cli-styled command surface over this dashboard's own data - not a real shell. Type
-				<code>help</code> to see what's available.
-			</Dialog.Description>
-		</Dialog.Header>
-		<div bind:this={outputEl} class="bg-muted/30 h-96 overflow-y-auto rounded-md border p-3 font-mono text-xs">
-			{#each lines as line, i (i)}
-				<div class="{lineClass(line.kind)} whitespace-pre-wrap break-words">{line.text}</div>
-			{/each}
+	<Dialog.Content
+		showCloseButton={false}
+		class="flex h-[28rem] w-full flex-col gap-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950 p-0 text-neutral-200 ring-0 sm:max-w-2xl"
+	>
+		<div class="flex shrink-0 items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
+			<Dialog.Close class="group inline-flex cursor-pointer items-center" aria-label="Close terminal">
+				<span class="block size-2.5 rounded-full bg-red-500/90 transition-colors group-hover:bg-red-400"></span>
+			</Dialog.Close>
+			<span class="size-2.5 rounded-full bg-yellow-500/70"></span>
+			<span class="size-2.5 rounded-full bg-green-500/70"></span>
+			<Dialog.Title class="flex-1 truncate text-center font-mono text-[0.7rem] font-normal text-neutral-500">
+				flare — terminal
+			</Dialog.Title>
+			<span class="w-[46px]" aria-hidden="true"></span>
+		</div>
+		<div bind:this={outputEl} class="flex-1 overflow-y-auto px-3 py-2 font-mono text-xs leading-relaxed">
 			{#if lines.length === 0}
-				<div class="text-muted-foreground space-y-2">
+				<div class="space-y-2 text-neutral-500">
 					<p>A flare.cli-styled command surface over this dashboard's own data. Try:</p>
 					<div>
 						{#each EXAMPLES as example (example)}
 							<button
 								type="button"
-								class="hover:text-foreground block w-full text-left"
+								class="block w-full text-left text-neutral-400 hover:text-neutral-100"
 								onclick={() => useExample(example)}
 							>
-								<span class="select-none">flare&gt; </span>{example}
+								<span class="text-emerald-500">flare&gt;</span>
+								{example}
 							</button>
 						{/each}
 					</div>
-					<p>Or type <code>help</code> to see everything available.</p>
+					<p>Or type <span class="text-neutral-300">help</span> to see everything available.</p>
 				</div>
 			{/if}
+			{#each lines as line, i (i)}
+				<div class="{lineClass(line.kind)} whitespace-pre-wrap break-words">{line.text}</div>
+			{/each}
 		</div>
-		<div class="flex items-center gap-2">
-			<span class="text-muted-foreground font-mono text-xs">flare&gt;</span>
-			<Input
-				bind:ref={inputEl}
+		<div class="flex shrink-0 items-center gap-1.5 border-t border-neutral-900 px-3 py-2">
+			<span class="shrink-0 font-mono text-xs text-emerald-500">flare&gt;</span>
+			<input
+				bind:this={inputEl}
 				bind:value={inputValue}
 				onkeydown={handleKeydown}
-				placeholder={running ? 'running - Ctrl+C to stop' : 'type a command...'}
-				class="font-mono text-xs"
+				placeholder={running ? 'running — Ctrl+C to stop' : ''}
+				class="flex-1 bg-transparent font-mono text-xs text-neutral-100 outline-none placeholder:text-neutral-600"
 				autocomplete="off"
 				spellcheck="false"
 			/>
