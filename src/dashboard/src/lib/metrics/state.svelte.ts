@@ -37,6 +37,19 @@ function metricKey(metric: Pick<MetricNameInfo, 'metricName' | 'serviceName'>): 
 	return `${metric.metricName} ${metric.serviceName}`;
 }
 
+/**
+ * How long MetricChart's own out-transition takes when the displayed metric/mode
+ * changes (its `FADE_MS`, imported from here rather than hand-picked separately in
+ * both places - two independently-chosen numbers that happened to match would
+ * drift the moment either one changed). `#deferredReset` below waits exactly this
+ * long before actually clearing series/previousSeries/intervalSeconds on a metric
+ * switch, so MetricChart's *outgoing* chart - which reads those fields live, not a
+ * frozen snapshot - keeps rendering the metric it already had for the whole
+ * fade-out instead of visibly jumping to "no data" the instant `selected` flips,
+ * well before the fade-out even starts to play.
+ */
+export const METRIC_SWITCH_FADE_MS = 250;
+
 export class MetricsExplorerState {
 	filter = $state<MetricsFilterState>({
 		timeRangePreset: '1h',
@@ -61,6 +74,20 @@ export class MetricsExplorerState {
 	// MetricChart (its comparison lines/percentage degrade gracefully - see there),
 	// never blocks `series`/queryError for the period that actually matters.
 	previousSeries = $state.raw<MetricSeries[]>([]);
+	// selected?.type *as of the query that produced the current series* -
+	// deliberately not the same as selected?.type itself, which (unlike series/
+	// intervalSeconds) is never deferred by #deferredReset - the header/picker
+	// highlight update immediately on a metric switch, only the data lags. Without
+	// this, MetricChart's isHistogram/isSum (which decide how `series` gets
+	// interpreted - buildLines' Histogram branch vs. its Gauge/Sum one) would flip
+	// to the *new* metric's type the instant `selected` changes, while `series`
+	// still held the *old* metric's (differently-shaped) points for the whole
+	// METRIC_SWITCH_FADE_MS deferral - misinterpreting one type's points as the
+	// other's mid-outro, not just showing stale-but-correctly-shaped data. Set
+	// alongside series/previousSeries/intervalSeconds everywhere they change, so
+	// it's always describing what `series` actually *is*, never what's merely
+	// targeted next.
+	resultType = $state<MetricPointType | null>(null);
 	// filter.compareEnabled *as of the query that produced the current series/
 	// previousSeries* - deliberately not the same as filter.compareEnabled itself,
 	// which flips the instant the toolbar switch is clicked, well before the matching
@@ -91,6 +118,7 @@ export class MetricsExplorerState {
 
 	#namesAbort: AbortController | null = null;
 	#queryAbort: AbortController | null = null;
+	#pendingSwitchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	#resolvedRange(): ResolvedTimeRange {
 		// Every preset MetricsToolbar actually offers ('custom' is filtered out, same as
@@ -137,8 +165,7 @@ export class MetricsExplorerState {
 			const stillInScope = this.selected && this.names.some((m) => metricKey(m) === metricKey(this.selected!));
 			if (!stillInScope) {
 				this.selected = this.names[0] ?? null;
-				this.#resetForNewMetric();
-				void this.runQuery();
+				this.#deferredReset();
 			}
 		} catch (err) {
 			if (abort.signal.aborted) return;
@@ -160,6 +187,37 @@ export class MetricsExplorerState {
 		this.previousSeries = [];
 		this.intervalSeconds = null;
 		this.queryError = null;
+		this.resultType = null;
+	}
+
+	/**
+	 * `#resetForNewMetric` + `runQuery`, but not until METRIC_SWITCH_FADE_MS from now -
+	 * see that constant's own remarks for why the delay exists at all. `selected`
+	 * itself is set by the caller *before* calling this (so the header/picker
+	 * highlight update immediately - only the data clear is deferred).
+	 */
+	#deferredReset(): void {
+		this.#flushPendingSwitch();
+		this.#pendingSwitchTimeout = setTimeout(() => {
+			this.#pendingSwitchTimeout = null;
+			this.#resetForNewMetric();
+			void this.runQuery();
+		}, METRIC_SWITCH_FADE_MS);
+	}
+
+	/**
+	 * Runs a pending `#deferredReset` immediately instead of waiting out its timer -
+	 * called by every other query-triggering setter (time range, services, compare),
+	 * since any of them is about to run its own `runQuery` anyway, superseding
+	 * whatever the deferred metric-switch reset was waiting to do. Without this, a
+	 * filter change made within METRIC_SWITCH_FADE_MS of a metric switch could race
+	 * its own fresh data against the deferred reset clearing it back out again.
+	 */
+	#flushPendingSwitch(): void {
+		if (!this.#pendingSwitchTimeout) return;
+		clearTimeout(this.#pendingSwitchTimeout);
+		this.#pendingSwitchTimeout = null;
+		this.#resetForNewMetric();
 	}
 
 	async runQuery(): Promise<void> {
@@ -216,6 +274,7 @@ export class MetricsExplorerState {
 			this.previousSeries = previous?.series ?? [];
 			this.intervalSeconds = bucketWidthSeconds;
 			this.resultCompareEnabled = compareEnabled;
+			this.resultType = metric.type;
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.queryError = err instanceof Error ? err.message : String(err);
@@ -227,17 +286,18 @@ export class MetricsExplorerState {
 	selectMetric(metric: MetricNameInfo): void {
 		if (this.selected && metricKey(this.selected) === metricKey(metric)) return;
 		this.selected = metric;
-		this.#resetForNewMetric();
-		void this.runQuery();
+		this.#deferredReset();
 	}
 
 	setTimeRangePreset(preset: TimeRangePreset): void {
+		this.#flushPendingSwitch();
 		this.filter.timeRangePreset = preset;
 		void this.loadNames();
 		void this.runQuery();
 	}
 
 	setServices(services: string[]): void {
+		this.#flushPendingSwitch();
 		this.filter.services = services;
 		void this.loadNames();
 		void this.runQuery();
@@ -245,6 +305,7 @@ export class MetricsExplorerState {
 
 	/** No name-list reload needed, unlike setTimeRangePreset/setServices - which metrics exist doesn't depend on compare mode, only the chart's own query does. */
 	setCompareEnabled(enabled: boolean): void {
+		this.#flushPendingSwitch();
 		this.filter.compareEnabled = enabled;
 		void this.runQuery();
 	}
@@ -270,6 +331,7 @@ export class MetricsExplorerState {
 	 * if the saved metric no longer exists (e.g. that service stopped emitting it).
 	 */
 	async applySavedViewState(state: unknown): Promise<void> {
+		this.#flushPendingSwitch();
 		const s = (state ?? {}) as Partial<MetricsSavedViewState>;
 		this.filter = { timeRangePreset: s.timeRangePreset ?? '1h', services: s.services ?? [], compareEnabled: s.compareEnabled ?? false };
 		await this.loadNames();
@@ -283,5 +345,6 @@ export class MetricsExplorerState {
 	dispose(): void {
 		this.#namesAbort?.abort();
 		this.#queryAbort?.abort();
+		if (this.#pendingSwitchTimeout) clearTimeout(this.#pendingSwitchTimeout);
 	}
 }
