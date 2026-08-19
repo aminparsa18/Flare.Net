@@ -410,6 +410,11 @@
 	const BASELINE_Y = CHART_HEIGHT - 4;
 	const PEAK_Y = 6;
 
+	// Out, then in - see the {#key chartKey} block's own remarks on why sequential,
+	// not overlapping. Also animateHeight's own duration, so the container's resize
+	// keeps pace with the full out+in sequence instead of finishing early.
+	const FADE_MS = 300;
+
 	const peakValue = $derived(Math.max(0, ...lines.flatMap((l) => l.points.map((p) => p.raw))));
 
 	// Rate mode changes the unit, not just the numbers - a Sum declared "By" reads as
@@ -478,25 +483,27 @@
 
 	/**
 	 * Smoothly resizes this element whenever its content's natural height changes,
-	 * instead of snapping - the `{#key chartKey}` crossfade below only animates
-	 * opacity, which doesn't stop the *container* from instantly jumping to the new
-	 * height the moment swapped-in content mounts. That jump was barely noticeable for
-	 * Histogram (3 percentile lines vs. 2 compare lines - a small delta) but real for
-	 * Sum/Gauge with several series (a wrapped multi-row legend + a "+N more series"
-	 * note collapsing down to a plain 2-line "Current"/"Previous" legend - a much
-	 * bigger one). A FLIP-style animation via ResizeObserver + the Web Animations API:
-	 * capture the height *before* this fires (the browser has already resized the box
-	 * by the time the observer callback runs), then explicitly animate from that
-	 * captured value to the new one. No shared `$lib/actions` home yet for this -
-	 * inlined until a second consumer needs it (same "no natural shared-utils home for
-	 * a two-line helper yet" call context.ts's own generic-context helper makes).
+	 * instead of snapping - the `{#key chartKey}` fade below only animates opacity,
+	 * which doesn't stop the *container* from instantly jumping to the new height the
+	 * moment swapped-in content mounts. That jump was barely noticeable for Histogram
+	 * (3 percentile lines vs. 2 compare lines - a small delta) but real for Sum/Gauge
+	 * with several series (a wrapped multi-row legend + a "+N more series" note
+	 * collapsing down to a plain 2-line "Current"/"Previous" legend - a much bigger
+	 * one). A FLIP-style animation via ResizeObserver + the Web Animations API: capture
+	 * the height *before* this fires (the browser has already resized the box by the
+	 * time the observer callback runs), then explicitly animate from that captured
+	 * value to the new one, over the same FADE_MS*2 the out+in fade sequence takes -
+	 * so the box finishes resizing right as the new content finishes fading in, not
+	 * mid-fade or well after it. No shared `$lib/actions` home yet for this - inlined
+	 * until a second consumer needs it (same "no natural shared-utils home for a
+	 * two-line helper yet" call context.ts's own generic-context helper makes).
 	 */
 	function animateHeight(node: HTMLElement) {
 		let prevHeight = node.getBoundingClientRect().height;
 		const observer = new ResizeObserver(() => {
 			const nextHeight = node.getBoundingClientRect().height;
 			if (Math.abs(nextHeight - prevHeight) > 0.5) {
-				node.animate([{ height: `${prevHeight}px` }, { height: `${nextHeight}px` }], { duration: 150, easing: 'ease' });
+				node.animate([{ height: `${prevHeight}px` }, { height: `${nextHeight}px` }], { duration: FADE_MS * 2, easing: 'ease' });
 			}
 			prevHeight = nextHeight;
 		});
@@ -642,7 +649,16 @@
 			{:else}
 			<div use:animateHeight class="overflow-hidden">
 			{#key chartKey}
-			<div transition:fade={{ duration: 120 }}>
+			<!-- Sequential, not overlapping: `in:` is delayed by exactly `out:`'s duration
+			     (FADE_MS, declared above) so the old view fully fades to nothing before the new
+			     one starts fading in, rather than both fading through each other at once -
+			     a plain shared `transition:fade` runs its outro/intro concurrently, which
+			     read as a messier crossfade than a clean "gone, then here" swap once the
+			     content on either side is a genuinely different shape (comparison mode's
+			     whole point). Slow enough (600ms total) to read as a deliberate transition,
+			     not a blip - animateHeight's own duration matches so the container's resize
+			     keeps pace with it instead of finishing early. -->
+			<div out:fade={{ duration: FADE_MS }} in:fade={{ duration: FADE_MS, delay: FADE_MS }}>
 				<div class="flex gap-2">
 					<!-- Rendered as real DOM text, not SVG <text>, deliberately: the chart's
 					     viewBox is stretched non-uniformly (preserveAspectRatio="none", see
