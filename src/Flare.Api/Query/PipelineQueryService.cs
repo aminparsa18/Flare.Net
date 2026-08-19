@@ -41,7 +41,8 @@ public interface IPipelineQueryService
 /// </summary>
 public sealed class PipelineQueryService(
     IConnectionMultiplexer connectionMultiplexer,
-    TimeProvider timeProvider) : IPipelineQueryService
+    TimeProvider timeProvider,
+    PipelineStreamKeys streamKeys) : IPipelineQueryService
 {
     private static readonly IngestionSignal[] Signals = Enum.GetValues<IngestionSignal>();
 
@@ -54,18 +55,17 @@ public sealed class PipelineQueryService(
         var now = timeProvider.GetUtcNow();
         var db = connectionMultiplexer.GetDatabase();
 
-        var streams = await Task.WhenAll(Signals.Select(s => GetStreamHealthAsync(db, s, cancellationToken)));
+        var streams = await Task.WhenAll(Signals.Select(s =>
+            GetStreamHealthAsync(db, s, streamKeys.StreamKey(s), streamKeys.ConsumerGroup(s), cancellationToken)));
         var flushWorkers = await Task.WhenAll(Signals.Select(s => GetFlushHealthAsync(db, s, cancellationToken)));
         var serviceBreakdowns = await Task.WhenAll(Signals.Select(s => GetServiceBreakdownAsync(db, s, now, minutes, cancellationToken)));
 
         return new PipelineStatsResponse(now, streams, flushWorkers, serviceBreakdowns);
     }
 
-    private static async Task<PipelineStreamHealth> GetStreamHealthAsync(IDatabase db, IngestionSignal signal, CancellationToken cancellationToken)
+    private static async Task<PipelineStreamHealth> GetStreamHealthAsync(
+        IDatabase db, IngestionSignal signal, string streamKey, string consumerGroup, CancellationToken cancellationToken)
     {
-        var streamKey = PipelineStreamKeys.StreamKey(signal);
-        var consumerGroup = PipelineStreamKeys.ConsumerGroup(signal);
-
         try
         {
             var length = await db.StreamLengthAsync(streamKey).WaitAsync(cancellationToken);

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Flare.Api.Pipeline;
 using Flare.Api.Query;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
@@ -8,7 +9,7 @@ namespace Flare.Api.LiveTail;
 
 /// <summary>
 /// The single shared reader behind every <c>GET /api/logs/tail</c> connection: polls
-/// <see cref="LiveTailOptions.StreamKey"/> via a plain <c>XREAD</c> (no consumer group -
+/// <see cref="LogEventPipelineOptions.StreamKey"/> via a plain <c>XREAD</c> (no consumer group -
 /// deliberately doesn't join <c>Flare.Ingest</c>'s <c>flare-ingest</c> group or touch its
 /// ack/PEL accounting; a live tail has no durability requirement, unlike the ingest
 /// pipeline) and fans each new entry out to every subscribed connection's
@@ -29,6 +30,7 @@ namespace Flare.Api.LiveTail;
 public sealed class LogTailBroadcaster(
     IConnectionMultiplexer connectionMultiplexer,
     IOptions<LiveTailOptions> options,
+    IOptions<LogEventPipelineOptions> logPipelineOptions,
     ILogger<LogTailBroadcaster> logger) : BackgroundService
 {
     private static readonly RedisValue DataField = "data";
@@ -52,15 +54,16 @@ public sealed class LogTailBroadcaster(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var opts = options.Value;
+        var streamKey = logPipelineOptions.Value.StreamKey;
         var db = connectionMultiplexer.GetDatabase();
 
         try
         {
-            var lastId = await SeedStartPositionAsync(db, opts);
+            var lastId = await SeedStartPositionAsync(db, streamKey);
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                var entries = await db.StreamReadAsync(opts.StreamKey, lastId, opts.ReadBatchSize);
+                var entries = await db.StreamReadAsync(streamKey, lastId, opts.ReadBatchSize);
 
                 if (entries.Length == 0)
                 {
@@ -86,9 +89,9 @@ public sealed class LogTailBroadcaster(
     /// exist/is empty yet) so the first <c>XREAD</c> only returns entries added after this
     /// point - see the class remarks.
     /// </summary>
-    private static async Task<RedisValue> SeedStartPositionAsync(IDatabase db, LiveTailOptions opts)
+    private static async Task<RedisValue> SeedStartPositionAsync(IDatabase db, string streamKey)
     {
-        var last = await db.StreamRangeAsync(opts.StreamKey, messageOrder: Order.Descending, count: 1);
+        var last = await db.StreamRangeAsync(streamKey, messageOrder: Order.Descending, count: 1);
         return last.Length > 0 ? last[0].Id : StreamStart;
     }
 

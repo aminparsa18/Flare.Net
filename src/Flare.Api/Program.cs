@@ -4,6 +4,7 @@ using Flare.Api.Auth;
 using Flare.Api.DockerResources;
 using Flare.Api.Endpoints;
 using Flare.Api.LiveTail;
+using Flare.Api.Pipeline;
 using Flare.Api.Query;
 using Flare.Identity;
 using Flare.Identity.Auth;
@@ -109,6 +110,19 @@ builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();
 builder.Services.AddSingleton<IIndexingQueryService, IndexingQueryService>();
+
+// Local, minimal read-side copies of Flare.Ingest's pipeline options (StreamKey/
+// ConsumerGroup only) - see Flare.Api.Pipeline.LogEventPipelineOptions's remarks for why
+// this exists instead of PipelineStreamKeys hardcoding literals, or LiveTailOptions binding
+// its own out-of-sync section. Bound from the SAME section names Flare.Ingest binds
+// (LogEventPipeline/SpanEventPipeline/MetricEventPipeline), so overriding
+// LogEventPipeline__StreamKey (etc.) as an env var reaches both processes if applied to both
+// - see .env.example.
+builder.Services.Configure<LogEventPipelineOptions>(builder.Configuration.GetSection(LogEventPipelineOptions.SectionName));
+builder.Services.Configure<SpanEventPipelineOptions>(builder.Configuration.GetSection(SpanEventPipelineOptions.SectionName));
+builder.Services.Configure<MetricEventPipelineOptions>(builder.Configuration.GetSection(MetricEventPipelineOptions.SectionName));
+builder.Services.AddSingleton<PipelineStreamKeys>();
+
 builder.Services.AddSingleton<IPipelineQueryService, PipelineQueryService>();
 builder.Services.Configure<LiveTailOptions>(builder.Configuration.GetSection(LiveTailOptions.SectionName));
 builder.Services.AddSingleton<LogTailBroadcaster>();

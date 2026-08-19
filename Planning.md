@@ -1219,7 +1219,7 @@ not as a lag substitute.
    `dataviz` skill's palette already caps `MetricChart`/`IndexingGrowthChart` at) happens
    at query time, not write time, with the rest folded into an "+N more" total - not a
    silent drop.
-4. **Known, deliberately-unresolved limitation** (flagged, not solved, same convention
+4. ~~**Known, deliberately-unresolved limitation** (flagged, not solved, same convention
    v6's rate-calc/quantile-interpolation notes use): `PipelineStreamKeys` (`Flare.Api`)
    hardcodes each signal's stream key/consumer-group name as `LogEventPipelineOptions`/
    `SpanEventPipelineOptions`/`MetricEventPipelineOptions`'s *default* values
@@ -1227,11 +1227,33 @@ not as a lag substitute.
    `flare:metrics`/`flare-ingest-metrics`) - a deployment that overrides them via its own
    config won't have its stream health picked up here, since the two processes share no
    config source (same "different deployables, no reference" situation every other
-   Flare.Ingest/Flare.Api pairing is already in). This is also the one place that bridges
-   the two existing, slightly mismatched vocabularies: the OTLP-facing `IngestionSignal`
-   enum (v8) calls the second signal "Traces"; the pipeline layer calls it "spans"
+   Flare.Ingest/Flare.Api pairing is already in).~~ **Fixed 2026-08-19 (code+build+unit-test
+   verified; live e2e via `docker compose` still pending - Docker Desktop wasn't running on
+   this machine).** `PipelineStreamKeys` is now an injectable instance class that resolves
+   each signal's stream key/consumer group from Flare.Api's own new, minimal, bound copies of
+   Flare.Ingest's pipeline options (`Flare.Api.Pipeline.LogEventPipelineOptions`/
+   `SpanEventPipelineOptions`/`MetricEventPipelineOptions` - only the two fields Flare.Api
+   reads, not Ingest's full tuning surface) instead of hand-copied literals - bound from the
+   *same* `LogEventPipeline`/`SpanEventPipeline`/`MetricEventPipeline` config sections
+   Flare.Ingest binds, so a `LogEventPipeline__StreamKey` (etc.) env-var override now reaches
+   `PipelineQueryService` if applied to Flare.Api's environment too. While researching this
+   fix, found the identical root-cause bug a second time, independently: `LiveTailOptions.
+   StreamKey` was bound from its own, differently-named `LiveTail` section rather than
+   `LogEventPipeline`, so `LogTailBroadcaster` (live-tail) was also blind to the same
+   override, via a different mechanism - fixed the same way, `LogTailBroadcaster` now sources
+   its stream key from `Flare.Api.Pipeline.LogEventPipelineOptions` directly, and
+   `LiveTailOptions.StreamKey` was removed. Still not a *shared* config source between the
+   two deployables (deliberately out of scope - same "different deployables, no reference"
+   precedent as ever) - the override must still be set on both `ingest` and `api`; documented
+   in `.env.example`. New tests: `PipelineStreamKeys_DefaultOptions_MatchFlareIngestPipelineOptionsDefaults`
+   (renamed from the old static-method theory) and
+   `PipelineStreamKeys_ConfiguredOverride_PropagatesInsteadOfHardcodedDefault` (new, proves
+   the actual fix) in `PipelineQueryServiceTests.cs` - full `Flare.Api.Tests` suite green
+   (343 tests, 0 failures). This is also still the one place that bridges the two existing,
+   slightly mismatched vocabularies: the OTLP-facing `IngestionSignal` enum (v8) calls the
+   second signal "Traces"; the pipeline layer calls it "spans"
    (`SpanFlushWorker`, `flare:spans`) - `PipelineStreamKeys`/`FlushHealthKeys` key off the
-   former throughout, joining the whole feature on one vocabulary.
+   former throughout, joining the whole feature on one vocabulary - unchanged by this fix.
 
 - [x] **Ingest-side instrumentation** (`src/Flare.Ingest/Stats/`) - `IFlushHealthTracker`/
       `RedisFlushHealthTracker`/`FlushHealthKeys` (point 2 above), wired into all three

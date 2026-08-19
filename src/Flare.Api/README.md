@@ -115,10 +115,12 @@ point without reconnecting:
 ```
 
 **Source: the Redis Stream, not ClickHouse.** A single background reader
-(`LogTailBroadcaster`) polls the same `flare:logs` stream `Flare.Ingest`'s
-`RedisStreamLogEventSink` writes into and `ClickHouseFlushWorker` consumes from, via a
-plain `XREAD` (no consumer group — it never joins `Flare.Ingest`'s `flare-ingest` group or
-touches its ack/PEL accounting) and fans each new entry out to every subscribed
+(`LogTailBroadcaster`) polls the same Redis Stream key `Flare.Ingest`'s
+`RedisStreamLogEventSink` writes into and `ClickHouseFlushWorker` consumes from
+(`LogEventPipelineOptions.StreamKey`, default `flare:logs` — both sides bind the same
+`LogEventPipeline` config section, so an override reaches both if applied to both, see
+`.env.example`), via a plain `XREAD` (no consumer group — it never joins `Flare.Ingest`'s
+`flare-ingest` group or touches its ack/PEL accounting) and fans each new entry out to every subscribed
 connection's channel after applying that connection's current filter. This gets
 sub-second latency without adding per-viewer ClickHouse query load, at the accepted
 trade-off that a tailed event is shown slightly before it's durably in ClickHouse — no
