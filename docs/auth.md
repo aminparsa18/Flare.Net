@@ -319,12 +319,22 @@ checks the directory's `memberOf` attribute against each in turn (`Admin` > `Mem
 any of the three → **Default role** (configured right below them in the same form,
 `Viewer` unless changed).
 
-**Only direct group membership is resolved** — nested group membership (a user in a
-group that's itself a member of one of the three configured groups) is *not* resolved.
-Real AD supports this via the `LDAP_MATCHING_RULE_IN_CHAIN` matching rule; Flare doesn't
-implement it. If your role-mapping groups rely on nested membership today, either flatten
-membership for the relevant users/groups, or expect them to land on the Default role
-until you do.
+**Nested group membership is resolved against real Microsoft AD**, in addition to direct
+membership — a user in a group that's itself a member of one of the three configured
+groups still matches. This uses AD's `LDAP_MATCHING_RULE_IN_CHAIN` extended matching rule
+(OID `1.2.840.113556.1.4.1941`): for each of the three configured group DNs the user
+isn't already a *direct* member of, Flare issues one extra existence-only search asking
+the directory itself to walk the chain, rather than doing the group-graph traversal
+client-side. Only those (up to three) configured group DNs are checked this way — not a
+full transitive closure of every group the user is nested in — since role resolution only
+ever cares about those three.
+
+This is an AD-specific extension. Against a non-AD directory (e.g. OpenLDAP) that doesn't
+understand the matching rule, each such search simply fails and is treated as "not a
+nested member" — direct membership still resolves normally there, but nested membership
+on a non-AD directory is not resolved. If your role-mapping groups rely on nested
+membership on a non-AD directory, either flatten membership for the relevant
+users/groups, or expect them to land on the Default role.
 
 **Role changes after first sign-in live in Flare, not AD** — same as Entra ID; promote,
 demote, or disable an AD-provisioned account from the Users table on `/auth`, same as any
@@ -366,7 +376,8 @@ other account.
 
 ### Known limitations, stated plainly
 
-- **Nested AD group membership isn't resolved** (see "Role provisioning" above).
+- **Nested group membership only resolves against real Microsoft AD**, not other
+  directories (see "Role provisioning" above).
 - **Built and named for Microsoft AD / AD-compatible directories**, not generic
   arbitrary-LDAP-server support — though the Advanced overrides (search filter, unique ID
   attribute) are flexible enough to point this at a plain OpenLDAP directory too, as this
