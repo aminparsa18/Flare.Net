@@ -14,6 +14,7 @@
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
+	import { TIME_RANGE_PRESETS, previousPeriodLabel } from '$lib/logs/time-range';
 	import type { MetricSeries } from '$lib/metrics-api';
 
 	const explorer = metricsExplorerContext.get();
@@ -102,6 +103,14 @@
 	const isHistogram = $derived(explorer.selected?.type === 'Histogram');
 	const isSum = $derived(explorer.selected?.type === 'Sum');
 
+	// Comparison mode is Gauge/Sum only - a Histogram's "line" is already 3 percentiles
+	// (or a mean) for one series; doubling that to 6 dashed-vs-solid lines for a
+	// current/previous overlay is more clutter than the feature is worth, so the chart
+	// quietly ignores the toolbar's "Compare with previous period" switch for Histogram
+	// rather than erroring or disabling the switch itself (which would need to know the
+	// selected metric's type, coupling it to whichever metric happens to be selected).
+	const compareActive = $derived(explorer.filter.compareEnabled && !isHistogram && explorer.selected != null);
+
 	// "View related logs"/"View traces" - cross-links into Logs/Traces pre-filtered to
 	// this metric's service and the explorer's current time range (see $lib/deep-links.ts),
 	// so Metrics -> Logs -> Traces reads as one system rather than three unrelated pages.
@@ -150,7 +159,11 @@
 	const visibleSeries = $derived(
 		isHistogram ? explorer.series.slice(histogramSeriesIndex, histogramSeriesIndex + 1) : explorer.series.slice(0, MAX_SERIES)
 	);
-	const hiddenSeriesCount = $derived(isHistogram ? 0 : Math.max(0, explorer.series.length - MAX_SERIES));
+	// Not applicable in comparison mode - buildComparisonLines sums *every* series
+	// (uncapped), so there's nothing "not shown" to warn about there.
+	const hiddenSeriesCount = $derived(
+		isHistogram || compareActive ? 0 : Math.max(0, explorer.series.length - MAX_SERIES)
+	);
 
 	interface PlotPoint {
 		bucketStart: string;
@@ -167,6 +180,10 @@
 		// per-legend-item tooltip so compacting `label` never actually loses
 		// information, just hides it until asked for.
 		detail: string;
+		// Set only by the comparison-mode "Previous" line (see buildComparisonLines) -
+		// dashed stroke is the one visual distinction it needs beyond its muted color;
+		// every other line leaves this unset (solid).
+		dashed?: boolean;
 		points: PlotPoint[];
 	}
 
@@ -194,10 +211,6 @@
 			}));
 		}
 
-		// Rate divides the already-returned per-bucket value by that bucket's width -
-		// no re-query, since every bucket in one response shares the same width
-		// (bucketWidthSeconds is one request-level parameter, not per-bucket).
-		const rateDivisor = isSum && sumMode === 'rate' ? explorer.intervalSeconds : null;
 		return visibleSeries.map((series, i) => ({
 			color: `var(${SERIES_COLOR_VARS[i]})`,
 			label: compactSeriesLabel(series, visibleSeries),
@@ -208,7 +221,90 @@
 		}));
 	}
 
-	const lines = $derived(buildLines());
+	// Sums every series' value at each bucket into one total - the same reduction
+	// buildComparisonLines does for both periods, extracted since the percentage
+	// summary needs the plain (pre-rate) totals too, independent of any one line's
+	// x-position handling.
+	function totalsByBucket(series: MetricSeries[]): Map<string, number> {
+		const totals = new Map<string, number>();
+		for (const s of series) {
+			for (const p of s.points) {
+				if (p.value == null) continue;
+				totals.set(p.bucketStart, (totals.get(p.bucketStart) ?? 0) + p.value);
+			}
+		}
+		return totals;
+	}
+
+	function sortedPoints(totals: Map<string, number>, shiftMs = 0): PlotPoint[] {
+		return [...totals.entries()]
+			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+			.map(([bucketStart, total]) => ({
+				bucketStart: shiftMs ? new Date(new Date(bucketStart).getTime() + shiftMs).toISOString() : bucketStart,
+				raw: rateDivisor ? total / rateDivisor : total
+			}));
+	}
+
+	/**
+	 * Comparison mode collapses every series into exactly two lines - "Current" (sum of
+	 * `explorer.series` at each bucket) and "Previous" (same, for `explorer.previousSeries`)
+	 * - rather than pairing each current series to its previous-period counterpart 1:1.
+	 * Deliberate: the user's own request was "Exceptions: +34% vs previous 24h", one
+	 * headline number and two lines, not N current lines next to N previous ones (which,
+	 * for a metric with several series, doubles an already-busy legend - see item 6/7's
+	 * compactSeriesLabel). For a single-series metric this reduces to exactly that one
+	 * series' current/previous anyway, so nothing is lost in the common case.
+	 *
+	 * Previous's bucketStart values are shifted forward by one full period so they land
+	 * on the *same* x-position as their current-period counterpart (an overlay, not a
+	 * second, earlier-in-time set of points) - see previousPeriod's own remarks for why
+	 * this is exact (bucket boundaries are anchored to absolute time, and the shift is
+	 * exactly one period's duration).
+	 */
+	function buildComparisonLines(): LineSpec[] {
+		// The preset's fixed duration, not a fresh resolveTimeRange() - same value
+		// either way (a preset's from/to always differ by exactly its durationMs,
+		// whatever "now" happens to be at call time), but this is the one that's
+		// actually deterministic rather than incidentally so.
+		const shiftMs = TIME_RANGE_PRESETS.find((p) => p.value === explorer.filter.timeRangePreset)?.durationMs ?? 0;
+		return [
+			{ color: 'var(--chart-1)', label: 'Current', detail: 'Current', points: sortedPoints(totalsByBucket(explorer.series)) },
+			{
+				color: 'var(--muted-foreground)',
+				label: 'Previous',
+				detail: 'Previous',
+				dashed: true,
+				points: sortedPoints(totalsByBucket(explorer.previousSeries), shiftMs)
+			}
+		];
+	}
+
+	const rateDivisor = $derived(isSum && sumMode === 'rate' ? explorer.intervalSeconds : null);
+	const lines = $derived(compareActive ? buildComparisonLines() : buildLines());
+
+	// Same totals buildComparisonLines' two lines are built from, kept independent of
+	// `rateDivisor` (a plain sum, not a rate) since a percentage change is identical
+	// either way - rate divides both totals by the same bucket width, which cancels out
+	// of the ratio. null when there's nothing to compare (comparison mode isn't active,
+	// or the previous period has no data at all - can't divide by zero, and "some
+	// number vs no baseline" isn't a percentage).
+	const comparePercent = $derived.by((): number | 'new' | null => {
+		if (!compareActive) return null;
+		const sum = (series: MetricSeries[]) =>
+			series.flatMap((s) => s.points).reduce((total, p) => total + (p.value ?? 0), 0);
+		const currentTotal = sum(explorer.series);
+		const previousTotal = sum(explorer.previousSeries);
+		if (previousTotal === 0) return currentTotal === 0 ? null : 'new';
+		return ((currentTotal - previousTotal) / previousTotal) * 100;
+	});
+
+	const compareChangeText = $derived.by(() => {
+		if (comparePercent === null) return null;
+		const periodLabel = previousPeriodLabel(explorer.filter.timeRangePreset);
+		if (comparePercent === 'new') return `new (no data in ${periodLabel})`;
+		const sign = comparePercent > 0 ? '+' : '';
+		return `${sign}${comparePercent.toFixed(0)}% vs ${periodLabel}`;
+	});
 
 	// Shared x-domain: every distinct bucket across the visible lines, in order - same
 	// "array-index position, not a real time scale" simplification VolumeChart already
@@ -346,9 +442,21 @@
 							<span>{explorer.selected.type}</span>
 						{/if}
 						<span aria-hidden="true">·</span>
-						<span>{explorer.series.length} series</span>
+						<!-- "(summed)" only in comparison mode - the chart itself is showing 2
+						     aggregate lines then (see buildComparisonLines), not one per
+						     series, so this count would otherwise look inconsistent with what's
+						     actually drawn. -->
+						<span>{explorer.series.length} series{compareActive ? ' (summed)' : ''}</span>
 						<span aria-hidden="true">·</span>
 						<span>{formatBucketWidthSeconds(explorer.intervalSeconds)} interval</span>
+						{#if compareChangeText}
+							<span aria-hidden="true">·</span>
+							<!-- Deliberately no color-coding (green/red) - "up" isn't
+							     universally good or bad (exceptions vs. requests/sec read
+							     oppositely), so a neutral, "subtle" number per the request
+							     this shipped from, not a judgment. -->
+							<span class="font-medium">{compareChangeText}</span>
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -454,6 +562,7 @@
 												stroke-width="2"
 												stroke-linecap="round"
 												stroke-linejoin="round"
+												stroke-dasharray={line.dashed ? '5,4' : undefined}
 												vector-effect="non-scaling-stroke"
 											/>
 											{#each line.points as point (point.bucketStart)}

@@ -42,3 +42,26 @@ export function resolveTimeRange(
 export function rangeSeconds(range: ResolvedTimeRange): number {
 	return (new Date(range.to).getTime() - new Date(range.from).getTime()) / 1000;
 }
+
+/**
+ * The window immediately before `range`, same duration, back-to-back (no gap) - "previous
+ * 24h" for a "last 24h" range is `[from - 24h, from)`. Used by Metrics' comparison mode
+ * (see MetricsExplorerState.runQuery) to fetch a second series for the same metric.
+ */
+export function previousPeriod(range: ResolvedTimeRange): ResolvedTimeRange {
+	const durationMs = new Date(range.to).getTime() - new Date(range.from).getTime();
+	return {
+		from: new Date(new Date(range.from).getTime() - durationMs).toISOString(),
+		to: range.from
+	};
+}
+
+/**
+ * "Last 24 hours" -> "previous 24 hours" - every preset label follows the same "Last ..."
+ * shape (see TIME_RANGE_PRESETS above), so this is a simple, always-correct substitution
+ * rather than a second hand-written label table to keep in sync with the first.
+ */
+export function previousPeriodLabel(preset: TimeRangePreset): string {
+	const label = TIME_RANGE_PRESETS.find((p) => p.value === preset)?.label ?? 'previous period';
+	return label.replace(/^Last /, 'previous ');
+}

@@ -7,14 +7,18 @@
 // picker's name list (POST /api/metrics/names) and the chart's series data
 // (POST /api/metrics/query) for whichever metric is currently selected - both refetch
 // on every filter change, and the query additionally refetches on selection change.
+// With `filter.compareEnabled` on, the series query becomes two parallel /query calls
+// (current + previous period) - see runQuery's own remarks.
 
 import { getMetricNames, queryMetric, type MetricNameInfo, type MetricPointType, type MetricSeries } from '$lib/metrics-api';
-import { resolveTimeRange, rangeSeconds, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
+import { resolveTimeRange, rangeSeconds, previousPeriod, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
 
 export interface MetricsFilterState {
 	timeRangePreset: TimeRangePreset;
 	services: string[];
+	/** "Compare with previous period" toggle - see MetricChart.svelte's comparison-mode remarks. Unlike Logs' patternId/attribute drill-downs, this *is* carried in a saved view (toSavedViewState/applySavedViewState below) - it's a display preference for the metric, not a one-off hop. */
+	compareEnabled: boolean;
 }
 
 /**
@@ -36,7 +40,8 @@ function metricKey(metric: Pick<MetricNameInfo, 'metricName' | 'serviceName'>): 
 export class MetricsExplorerState {
 	filter = $state<MetricsFilterState>({
 		timeRangePreset: '1h',
-		services: []
+		services: [],
+		compareEnabled: false
 	});
 
 	// Never mutated in place, always a wholesale reassignment - same $state.raw
@@ -50,6 +55,12 @@ export class MetricsExplorerState {
 	series = $state.raw<MetricSeries[]>([]);
 	queryLoading = $state(false);
 	queryError = $state<string | null>(null);
+	// The previous-period series when filter.compareEnabled is on - fetched alongside
+	// `series` in runQuery (see there), same shape, one period earlier. Deliberately
+	// fails soft: a broken/empty previous fetch just means "no previous data" to
+	// MetricChart (its comparison lines/percentage degrade gracefully - see there),
+	// never blocks `series`/queryError for the period that actually matters.
+	previousSeries = $state.raw<MetricSeries[]>([]);
 	// The bucketWidthSeconds actually sent with the current `series` - for the chart
 	// header's "1m interval" metadata row. Reset to null at the start of every query
 	// (not just replaced alongside `series`) so a metric switch never briefly shows the
@@ -126,6 +137,7 @@ export class MetricsExplorerState {
 
 		if (!this.selected) {
 			this.series = [];
+			this.previousSeries = [];
 			this.queryError = null;
 			this.intervalSeconds = null;
 			return;
@@ -134,6 +146,7 @@ export class MetricsExplorerState {
 		const abort = new AbortController();
 		this.#queryAbort = abort;
 		const metric = this.selected;
+		const compareEnabled = this.filter.compareEnabled;
 
 		this.queryLoading = true;
 		this.queryError = null;
@@ -141,17 +154,35 @@ export class MetricsExplorerState {
 		try {
 			const range = this.#resolvedRange();
 			const bucketWidthSeconds = pickBucketWidthSeconds(rangeSeconds(range));
-			const res = await queryMetric(
-				{
-					metricName: metric.metricName,
-					type: metric.type,
-					bucketWidthSeconds,
-					filter: { from: range.from, to: range.to, services: [metric.serviceName] }
-				},
-				abort.signal
-			);
+			const filterFor = (r: ResolvedTimeRange) => ({ from: r.from, to: r.to, services: [metric.serviceName] });
+
+			// Same bucketWidthSeconds for both, not re-picked from the previous range's own
+			// duration (which would happen to match anyway, same duration) - explicit is
+			// simpler to reason about than "trust it comes out the same". Previous is
+			// best-effort (.catch, not awaited through the outer try/catch) - see
+			// previousSeries' own remarks on why a broken previous fetch never blocks
+			// `series`, the period that actually matters. Run in parallel, not sequenced,
+			// so compare mode doesn't just double the wait.
+			const [current, previous] = await Promise.all([
+				queryMetric(
+					{ metricName: metric.metricName, type: metric.type, bucketWidthSeconds, filter: filterFor(range) },
+					abort.signal
+				),
+				compareEnabled
+					? queryMetric(
+							{
+								metricName: metric.metricName,
+								type: metric.type,
+								bucketWidthSeconds,
+								filter: filterFor(previousPeriod(range))
+							},
+							abort.signal
+						).catch(() => null)
+					: Promise.resolve(null)
+			]);
 			if (abort.signal.aborted) return;
-			this.series = res.series;
+			this.series = current.series;
+			this.previousSeries = previous?.series ?? [];
 			this.intervalSeconds = bucketWidthSeconds;
 		} catch (err) {
 			if (abort.signal.aborted) return;
@@ -179,11 +210,18 @@ export class MetricsExplorerState {
 		void this.runQuery();
 	}
 
+	/** No name-list reload needed, unlike setTimeRangePreset/setServices - which metrics exist doesn't depend on compare mode, only the chart's own query does. */
+	setCompareEnabled(enabled: boolean): void {
+		this.filter.compareEnabled = enabled;
+		void this.runQuery();
+	}
+
 	/** Serializes the current filter + selected metric into a saved view's opaque `state` payload - see `MetricsSavedViewState`. */
 	toSavedViewState(): MetricsSavedViewState {
 		return {
 			timeRangePreset: this.filter.timeRangePreset,
 			services: [...this.filter.services],
+			compareEnabled: this.filter.compareEnabled,
 			selectedMetric: this.selected
 				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
 				: null
@@ -200,7 +238,7 @@ export class MetricsExplorerState {
 	 */
 	async applySavedViewState(state: unknown): Promise<void> {
 		const s = (state ?? {}) as Partial<MetricsSavedViewState>;
-		this.filter = { timeRangePreset: s.timeRangePreset ?? '1h', services: s.services ?? [] };
+		this.filter = { timeRangePreset: s.timeRangePreset ?? '1h', services: s.services ?? [], compareEnabled: s.compareEnabled ?? false };
 		await this.loadNames();
 		const saved = s.selectedMetric;
 		if (saved) {

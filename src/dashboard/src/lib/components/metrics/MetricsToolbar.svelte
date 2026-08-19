@@ -2,6 +2,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
+	import { Switch } from '$lib/components/ui/switch';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
@@ -40,6 +41,21 @@
 		selected={explorer.filter.services}
 		onChange={(next) => explorer.setServices(next)}
 	/>
+
+	<!-- MetricChart itself is the one that decides whether comparison actually renders
+	     (off for Histogram - see its own remarks), so this switch stays available
+	     regardless of the currently-selected metric's type rather than disabling/hiding
+	     depending on selection, same "toolbar filter, chart decides what to do with it"
+	     split every other filter here already has. -->
+	<label class="flex items-center gap-1.5 text-xs font-medium">
+		<Switch
+			checked={explorer.filter.compareEnabled}
+			onCheckedChange={(v) => explorer.setCompareEnabled(v)}
+			size="sm"
+		/>
+		Compare with previous period
+	</label>
+
 	<ViewsMenu
 		pageType="Metrics"
 		currentState={() => explorer.toSavedViewState()}
