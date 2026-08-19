@@ -39,6 +39,7 @@ public sealed class MetricQueryService(IClickHouseClient client, TimeProvider ti
                 Type = ParseType(reader.GetString(2)),
                 Unit = NullIfEmpty(reader.GetString(3)),
                 Description = NullIfEmpty(reader.GetString(4)),
+                SeriesCount = (long)reader.GetFieldValue<ulong>(5),
             });
         }
 

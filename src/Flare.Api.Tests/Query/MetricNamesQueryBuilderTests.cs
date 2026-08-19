@@ -42,6 +42,17 @@ public class MetricNamesQueryBuilderTests
     }
 
     [Fact]
+    public void Build_SelectsDistinctSeriesCount_PerTable()
+    {
+        var result = MetricNamesQueryBuilder.Build(new MetricNamesRequest(), Now);
+
+        // Same toString(DataPointAttributes) key MetricSeriesQueryBuilder groups series
+        // by (see its own remarks) - counting distinct values of it here tells the
+        // picker up front how many chart lines this metric will produce.
+        Assert.Equal(3, CountOccurrences(result.Sql, "count(DISTINCT toString(DataPointAttributes)) AS SeriesCount"));
+    }
+
+    [Fact]
     public void Build_OrdersByMetricNameThenServiceName()
     {
         var result = MetricNamesQueryBuilder.Build(new MetricNamesRequest(), Now);

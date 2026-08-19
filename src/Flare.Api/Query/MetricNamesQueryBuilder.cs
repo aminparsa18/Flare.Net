@@ -37,12 +37,20 @@ public static class MetricNamesQueryBuilder
         // that away here would make it impossible for the picker to tell them apart -
         // the same reason MetricSeriesQueryBuilder groups series by ServiceName too
         // (see its remarks).
+        //
+        // count(DISTINCT toString(DataPointAttributes)) - same string-not-Map key as
+        // MetricSeriesQueryBuilder's own SeriesKey (see its remarks) - tells the picker
+        // up front how many chart lines this (MetricName, ServiceName) will produce,
+        // *before* it's selected and actually queried. Cheap here: this query already
+        // reads every row in scope to group by MetricName/ServiceName, so counting
+        // distinct attribute strings within that same pass is free relative to a second
+        // round trip.
         var sql = "SELECT * FROM (\n" +
-            $"SELECT MetricName, ServiceName, 'gauge' AS Type, any(Unit) AS Unit, any(Description) AS Description FROM metrics_gauge WHERE {filterSql.WhereSql} GROUP BY MetricName, ServiceName\n" +
+            $"SELECT MetricName, ServiceName, 'gauge' AS Type, any(Unit) AS Unit, any(Description) AS Description, count(DISTINCT toString(DataPointAttributes)) AS SeriesCount FROM metrics_gauge WHERE {filterSql.WhereSql} GROUP BY MetricName, ServiceName\n" +
             "UNION ALL\n" +
-            $"SELECT MetricName, ServiceName, 'sum' AS Type, any(Unit) AS Unit, any(Description) AS Description FROM metrics_sum WHERE {filterSql.WhereSql} GROUP BY MetricName, ServiceName\n" +
+            $"SELECT MetricName, ServiceName, 'sum' AS Type, any(Unit) AS Unit, any(Description) AS Description, count(DISTINCT toString(DataPointAttributes)) AS SeriesCount FROM metrics_sum WHERE {filterSql.WhereSql} GROUP BY MetricName, ServiceName\n" +
             "UNION ALL\n" +
-            $"SELECT MetricName, ServiceName, 'histogram' AS Type, any(Unit) AS Unit, any(Description) AS Description FROM metrics_histogram WHERE {filterSql.WhereSql} GROUP BY MetricName, ServiceName\n" +
+            $"SELECT MetricName, ServiceName, 'histogram' AS Type, any(Unit) AS Unit, any(Description) AS Description, count(DISTINCT toString(DataPointAttributes)) AS SeriesCount FROM metrics_histogram WHERE {filterSql.WhereSql} GROUP BY MetricName, ServiceName\n" +
             ")\n" +
             "ORDER BY MetricName, ServiceName";
 

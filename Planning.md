@@ -635,6 +635,35 @@ actually worked out (see the three bullets below) — closing out the full origi
         should be a deliberate choice, not a silent one - same "don't silently
         half-solve it" precedent `MetricSeriesQueryBuilder`'s own Sum-delta remark
         sets.
+- [ ] **Metrics chart: configurable "Group by" attribute.** 2026-08-19 - lets a user pick
+      which attribute key (`error.type`, `service.name`, `deployment.environment`,
+      `host.name`, etc.) defines a series, collapsing everything else. Motivated by a
+      metric like `dotnet.exceptions` carrying many `error.type` values on the same
+      service: as of 2026-08-19, `MetricChart.svelte`'s `compactSeriesLabel()` hides
+      attributes that are already constant across the *visible* series (so the legend
+      reads `InvalidOperationException`/`TimeoutException` instead of repeating
+      `log-generator · error.type=...` on every line, full dimension set still one
+      hover away) - a real mitigation, but a labeling one, not grouping. It doesn't
+      reduce series count, so a metric with 15+ `error.type` values still hits
+      `MAX_SERIES`'s 5-series cap and silently drops the rest behind "+N more series
+      not shown". Actual grouping needs backend work, not just a frontend picker:
+      - **A different aggregation, not a relabel.** `MetricSeriesQueryBuilder` currently
+        groups one series per distinct `(ServiceName, DataPointAttributes)` pair (see its
+        own remarks on why `ServiceName` is a separate `GROUP BY` column). Grouping by a
+        chosen attribute means collapsing every series that shares that one key's value
+        regardless of what else differs - a new `GROUP BY` shape, and the existing
+        per-type value expressions (`max(Value) - min(Value)` for Sum, `sum(Count)`/
+        `sum(Sum)`/`sumForEach(BucketCounts)` for Histogram) need to keep meaning the
+        same thing over the wider, coarser groups.
+      - **Needs attribute-key discovery.** The picker can't hardcode `error.type`/
+        `service.name`/etc. as options - it needs to know which keys actually exist on
+        the currently-selected metric, which means a new query (or extending
+        `MetricNamesQueryBuilder`'s discovery pass) to enumerate `DataPointAttributes`
+        keys, not just names.
+      - **Interacts with the `MAX_SERIES` cap.** Grouping by a low-cardinality key
+        (`deployment.environment`) makes the 5-series cap almost never bind; grouping by
+        a high-cardinality one (`host.name`) could still exceed it - the cap and its
+        "narrow the filter" hint stay relevant either way, just less often triggered.
 
 ### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
 Promoted out of "Later" and shipped 2026-08-10, in four passes (ingest+storage →
