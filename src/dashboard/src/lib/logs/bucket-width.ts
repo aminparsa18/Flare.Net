@@ -11,3 +11,11 @@ export function pickBucketWidthSeconds(totalRangeSeconds: number): number {
 	const idealWidth = totalRangeSeconds / TARGET_BUCKET_COUNT;
 	return NICE_WIDTHS_SECONDS.find((w) => w >= idealWidth) ?? NICE_WIDTHS_SECONDS[NICE_WIDTHS_SECONDS.length - 1];
 }
+
+/** A `pickBucketWidthSeconds` result as a short label ("1m", "6h", ...) - every rung on `NICE_WIDTHS_SECONDS` lands on a whole s/m/h/d value, so no decimals to worry about. */
+export function formatBucketWidthSeconds(seconds: number): string {
+	if (seconds < 60) return `${seconds}s`;
+	if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+	if (seconds < 86400) return `${Math.round(seconds / 3600)}h`;
+	return `${Math.round(seconds / 86400)}d`;
+}

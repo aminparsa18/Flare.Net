@@ -11,6 +11,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
+	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import type { MetricSeries } from '$lib/metrics-api';
 
 	const explorer = metricsExplorerContext.get();
@@ -178,6 +179,18 @@
 				<h2 class="truncate text-sm font-medium">{explorer.selected.metricName}</h2>
 				{#if explorer.selected.description}
 					<p class="text-muted-foreground truncate text-xs">{explorer.selected.description}</p>
+				{/if}
+				<!-- Only once a query has actually completed for the currently-selected metric
+				     (see intervalSeconds' own remarks) - otherwise this would flash the
+				     previous metric's series count/interval for a moment on every switch. -->
+				{#if explorer.intervalSeconds !== null}
+					<p class="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 text-xs">
+						<span>{explorer.selected.type}</span>
+						<span aria-hidden="true">·</span>
+						<span>{explorer.series.length} series</span>
+						<span aria-hidden="true">·</span>
+						<span>{formatBucketWidthSeconds(explorer.intervalSeconds)} interval</span>
+					</p>
 				{/if}
 			</div>
 			{#if isHistogram && explorer.series.length > 1}
