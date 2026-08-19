@@ -5,7 +5,7 @@ namespace Flare.Identity.Auth;
 
 public sealed class SqliteProxyAuthSettingsStore(IdentityDbConnectionFactory connectionFactory, TimeProvider timeProvider) : IProxyAuthSettingsStore
 {
-    private const string Columns = "Enabled, HeaderName, TrustedProxyCidrs, GroupsHeaderName, AdminGroup, MemberGroup, ViewerGroup, DefaultRole, UpdatedAt";
+    private const string Columns = "Enabled, HeaderName, TrustedProxyCidrs, GroupsHeaderName, AdminGroup, MemberGroup, ViewerGroup, DefaultRole, UpdatedAt, LogoutRedirectUrl";
 
     public async Task<ProxyAuthSettings> GetAsync(CancellationToken cancellationToken = default)
     {
@@ -25,6 +25,7 @@ public sealed class SqliteProxyAuthSettingsStore(IdentityDbConnectionFactory con
         string? memberGroup,
         string? viewerGroup,
         UserRole defaultRole,
+        string? logoutRedirectUrl,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
@@ -35,7 +36,7 @@ public sealed class SqliteProxyAuthSettingsStore(IdentityDbConnectionFactory con
         command.CommandText =
             $"""
              INSERT INTO ProxyAuthSettings (Id, {Columns})
-             VALUES (1, $enabled, $headerName, $trustedProxyCidrs, $groupsHeaderName, $adminGroup, $memberGroup, $viewerGroup, $defaultRole, $updatedAt)
+             VALUES (1, $enabled, $headerName, $trustedProxyCidrs, $groupsHeaderName, $adminGroup, $memberGroup, $viewerGroup, $defaultRole, $updatedAt, $logoutRedirectUrl)
              ON CONFLICT(Id) DO UPDATE SET
                  Enabled = excluded.Enabled,
                  HeaderName = excluded.HeaderName,
@@ -45,7 +46,8 @@ public sealed class SqliteProxyAuthSettingsStore(IdentityDbConnectionFactory con
                  MemberGroup = excluded.MemberGroup,
                  ViewerGroup = excluded.ViewerGroup,
                  DefaultRole = excluded.DefaultRole,
-                 UpdatedAt = excluded.UpdatedAt
+                 UpdatedAt = excluded.UpdatedAt,
+                 LogoutRedirectUrl = excluded.LogoutRedirectUrl
              RETURNING {Columns}
              """;
         command.Parameters.AddWithValue("$enabled", enabled ? 1 : 0);
@@ -57,6 +59,7 @@ public sealed class SqliteProxyAuthSettingsStore(IdentityDbConnectionFactory con
         command.Parameters.AddWithValue("$viewerGroup", (object?)viewerGroup ?? DBNull.Value);
         command.Parameters.AddWithValue("$defaultRole", defaultRole.ToString());
         command.Parameters.AddWithValue("$updatedAt", timeProvider.GetUtcNow().ToString("O"));
+        command.Parameters.AddWithValue("$logoutRedirectUrl", (object?)logoutRedirectUrl ?? DBNull.Value);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         await reader.ReadAsync(cancellationToken);
@@ -72,5 +75,6 @@ public sealed class SqliteProxyAuthSettingsStore(IdentityDbConnectionFactory con
         MemberGroup: reader.IsDBNull(5) ? null : reader.GetString(5),
         ViewerGroup: reader.IsDBNull(6) ? null : reader.GetString(6),
         DefaultRole: Enum.Parse<UserRole>(reader.GetString(7)),
-        UpdatedAt: reader.IsDBNull(8) ? null : DateTimeOffset.Parse(reader.GetString(8)));
+        UpdatedAt: reader.IsDBNull(8) ? null : DateTimeOffset.Parse(reader.GetString(8)),
+        LogoutRedirectUrl: reader.IsDBNull(9) ? null : reader.GetString(9));
 }

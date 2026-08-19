@@ -114,12 +114,21 @@ export async function loginLdap(username: string, password: string): Promise<Aut
 	return res.json();
 }
 
-/** `POST /api/auth/logout`. Always succeeds (204) even if the session was already gone. */
-export async function logout(): Promise<void> {
+export interface LogoutResponse {
+	/** Non-null only for a ReverseProxy-provisioned account with a configured
+	 * `ProxyAuthSettings.logoutRedirectUrl` - see docs/auth.md's "Reverse proxy (trusted
+	 * header)" section, "Known limitations". Null for every other account (or a
+	 * reverse-proxy account with none configured), same as before this field existed. */
+	redirectUrl: string | null;
+}
+
+/** `POST /api/auth/logout`. Always succeeds even if the session was already gone. */
+export async function logout(): Promise<LogoutResponse> {
 	const res = await apiFetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/logout failed: ${res.status} ${res.statusText}`);
 	}
+	return res.json();
 }
 
 /** `GET /api/auth/me` - null (not a thrown Error) for the expected "no session yet" case, so callers doing a routine on-load check don't need a try/catch for it. */

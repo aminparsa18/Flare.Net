@@ -119,11 +119,59 @@ public class AuthEndpointsTests
         context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Id}";
         context.Response.Body = new MemoryStream();
 
-        var result = await AuthEndpoints.HandleLogoutAsync(context, sessions, Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleLogoutAsync(context, users, sessions, new FakeProxyAuthSettingsStore(), Options.Create(DefaultAuthOptions), CancellationToken.None);
         await result.ExecuteAsync(context);
 
-        Assert.Equal(StatusCodes.Status204NoContent, context.Response.StatusCode);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Null(await sessions.FindAsync(session.Id));
+        var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.LogoutResponse);
+        Assert.Null(dto!.RedirectUrl);
+    }
+
+    [Fact]
+    public async Task Logout_ReturnsTheConfiguredRedirectUrl_ForAReverseProxyProvisionedAccount()
+    {
+        var users = new FakeUserStore();
+        var user = await users.CreateFromExternalAsync("ReverseProxy", "alice", "alice", UserRole.Viewer);
+        var sessions = new FakeSessionStore();
+        var session = await sessions.CreateAsync(user.Id, TimeSpan.FromDays(1));
+        var proxyAuthSettings = new FakeProxyAuthSettingsStore(new ProxyAuthSettings(
+            true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, DateTimeOffset.UtcNow,
+            LogoutRedirectUrl: "https://proxy.example.com/oauth2/sign_out"));
+
+        var context = new DefaultHttpContext { RequestServices = EmptyRequestServices };
+        context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Id}";
+        context.Response.Body = new MemoryStream();
+
+        var result = await AuthEndpoints.HandleLogoutAsync(context, users, sessions, proxyAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Null(await sessions.FindAsync(session.Id));
+        var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.LogoutResponse);
+        Assert.Equal("https://proxy.example.com/oauth2/sign_out", dto!.RedirectUrl);
+    }
+
+    [Fact]
+    public async Task Logout_ReturnsNoRedirectUrl_ForALocalAccount_EvenIfOneIsConfigured()
+    {
+        var users = new FakeUserStore();
+        var user = await users.CreateAsync("alice", "correctpassword1", UserRole.Viewer);
+        var sessions = new FakeSessionStore();
+        var session = await sessions.CreateAsync(user.Id, TimeSpan.FromDays(1));
+        var proxyAuthSettings = new FakeProxyAuthSettingsStore(new ProxyAuthSettings(
+            true, "Remote-User", "172.18.0.0/16", null, null, null, null, UserRole.Viewer, DateTimeOffset.UtcNow,
+            LogoutRedirectUrl: "https://proxy.example.com/oauth2/sign_out"));
+
+        var context = new DefaultHttpContext { RequestServices = EmptyRequestServices };
+        context.Request.Headers.Cookie = $"{DefaultAuthOptions.CookieName}={session.Id}";
+        context.Response.Body = new MemoryStream();
+
+        var result = await AuthEndpoints.HandleLogoutAsync(context, users, sessions, proxyAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        var dto = await ReadJsonBodyAsync(context, AuthJsonContext.Default.LogoutResponse);
+        Assert.Null(dto!.RedirectUrl);
     }
 
     [Fact]

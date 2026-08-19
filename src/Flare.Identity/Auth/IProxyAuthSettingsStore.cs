@@ -18,5 +18,6 @@ public interface IProxyAuthSettingsStore
         string? memberGroup,
         string? viewerGroup,
         Users.UserRole defaultRole,
+        string? logoutRedirectUrl,
         CancellationToken cancellationToken = default);
 }

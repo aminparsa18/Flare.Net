@@ -19,6 +19,12 @@ export interface ProxyAuthSettings {
 	memberGroup: string | null;
 	viewerGroup: string | null;
 	defaultRole: UserRole;
+	/** Optional. When set, `/api/auth/logout` sends the browser here (instead of back to
+	 * /login) after clearing the local session, for ReverseProxy-provisioned accounts -
+	 * see docs/auth.md's "Known limitations": Flare can't propagate logout to the
+	 * proxy/IdP automatically, so this is a manual escape hatch pointing at your proxy's
+	 * own sign-out URL. */
+	logoutRedirectUrl: string | null;
 }
 
 export interface SaveProxyAuthSettingsRequest {
@@ -30,6 +36,7 @@ export interface SaveProxyAuthSettingsRequest {
 	memberGroup: string | null;
 	viewerGroup: string | null;
 	defaultRole: UserRole;
+	logoutRedirectUrl: string | null;
 }
 
 /** `GET /api/settings/proxyauth`. */
@@ -41,7 +48,7 @@ export async function getProxyAuthSettings(signal?: AbortSignal): Promise<ProxyA
 	return res.json();
 }
 
-/** `PUT /api/settings/proxyauth`. 400s if `enabled: true` has a blank header name or no CIDR entry that actually parses - surfaced as a plain Error. */
+/** `PUT /api/settings/proxyauth`. 400s if `enabled: true` has a blank header name or no CIDR entry that actually parses, or if `logoutRedirectUrl` is set but isn't a valid absolute URL - surfaced as a plain Error. */
 export async function saveProxyAuthSettings(request: SaveProxyAuthSettingsRequest): Promise<ProxyAuthSettings> {
 	const res = await apiFetch(`${API_BASE_URL}/api/settings/proxyauth`, {
 		method: 'PUT',

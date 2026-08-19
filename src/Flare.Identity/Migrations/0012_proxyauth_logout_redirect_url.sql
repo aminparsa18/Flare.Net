@@ -1,0 +1,14 @@
+-- Optional logout-redirect URL for reverse-proxy (trusted header) auth
+-- (docs/auth.md's "Reverse proxy (trusted header)" section, closing part of the "logout
+-- doesn't propagate to the proxy/IdP" known limitation). Flare has no way to log a user
+-- out of the proxy's own session automatically - unlike OIDC, there's no discovery
+-- document describing an end-session endpoint, and every proxy (oauth2-proxy, Authelia,
+-- Cloudflare Access, ...) does this differently. When set, AuthEndpoints.HandleLogoutAsync
+-- sends the browser here after clearing the local session, for ReverseProxy-provisioned
+-- accounts only - letting the operator point it at their own proxy's actual sign-out URL.
+-- Left NULL, behavior is unchanged (today's default): the browser just goes back to
+-- /login, where it silently signs back in as long as the proxy keeps sending the header.
+--
+-- Plain ADD COLUMN, same as 0011_ldap_pinned_certificate.sql - no CHECK constraint, no
+-- table rebuild needed.
+ALTER TABLE ProxyAuthSettings ADD COLUMN LogoutRedirectUrl TEXT NULL;

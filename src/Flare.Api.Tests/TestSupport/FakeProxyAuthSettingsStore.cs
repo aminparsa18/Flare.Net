@@ -30,6 +30,7 @@ internal sealed class FakeProxyAuthSettingsStore : IProxyAuthSettingsStore
         string? memberGroup,
         string? viewerGroup,
         UserRole defaultRole,
+        string? logoutRedirectUrl,
         CancellationToken cancellationToken = default)
     {
         _settings = _settings with
@@ -43,6 +44,7 @@ internal sealed class FakeProxyAuthSettingsStore : IProxyAuthSettingsStore
             ViewerGroup = viewerGroup,
             DefaultRole = defaultRole,
             UpdatedAt = DateTimeOffset.UtcNow,
+            LogoutRedirectUrl = logoutRedirectUrl,
         };
         return Task.FromResult(_settings);
     }

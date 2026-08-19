@@ -108,13 +108,23 @@ export class AuthState {
 		}
 	}
 
+	/** Clears the local session, then - only for a ReverseProxy-provisioned account with
+	 * a configured logout redirect URL (see docs/auth.md's "Known limitations") - sends
+	 * the whole browser there via a real navigation, not client-side routing, since it's
+	 * typically a different origin (the proxy's or IdP's own sign-out endpoint). Every
+	 * other case falls through to AppNav.svelte's usual "currentUser went null" ->
+	 * goto('/login') reaction, unchanged. */
 	async logout(): Promise<void> {
 		this.loading = true;
+		let redirectUrl: string | null = null;
 		try {
-			await logoutRequest();
+			redirectUrl = (await logoutRequest()).redirectUrl;
 		} finally {
 			this.currentUser = null;
 			this.loading = false;
+		}
+		if (redirectUrl) {
+			window.location.href = redirectUrl;
 		}
 	}
 }

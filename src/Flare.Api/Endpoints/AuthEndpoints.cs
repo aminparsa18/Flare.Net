@@ -74,17 +74,37 @@ public static class AuthEndpoints
 
     internal static async Task<IResult> HandleLogoutAsync(
         HttpContext http,
+        IUserStore users,
         ISessionStore sessions,
+        IProxyAuthSettingsStore proxyAuthSettings,
         IOptions<AuthOptions> authOptions,
         CancellationToken cancellationToken)
     {
+        string? redirectUrl = null;
         if (http.Request.Cookies.TryGetValue(authOptions.Value.CookieName, out var token) && !string.IsNullOrEmpty(token))
         {
+            // Looked up *before* deleting the session below - only to decide whether this
+            // was a ReverseProxy-provisioned account, since that's the one auth method
+            // whose logout can't fully happen client-side (see docs/auth.md's "Known
+            // limitations" - Flare has no end-session endpoint to call for it, unlike
+            // OIDC). Every other account keeps today's behavior: redirectUrl stays null,
+            // the dashboard just returns to /login.
+            var session = await sessions.FindAsync(token, cancellationToken);
+            if (session is not null)
+            {
+                var user = await users.FindByIdAsync(session.UserId, cancellationToken);
+                if (user is { AuthProvider: "ReverseProxy" })
+                {
+                    var proxySettings = await proxyAuthSettings.GetAsync(cancellationToken);
+                    redirectUrl = string.IsNullOrWhiteSpace(proxySettings.LogoutRedirectUrl) ? null : proxySettings.LogoutRedirectUrl;
+                }
+            }
+
             await sessions.DeleteAsync(token, cancellationToken);
         }
 
         http.Response.Cookies.Delete(authOptions.Value.CookieName, new CookieOptions { Path = "/" });
-        return Results.NoContent();
+        return Results.Json(new LogoutResponse { RedirectUrl = redirectUrl }, AuthJsonContext.Default.LogoutResponse);
     }
 
     internal static async Task<IResult> HandleMeAsync(ClaimsPrincipal principal, IUserStore users, CancellationToken cancellationToken)
