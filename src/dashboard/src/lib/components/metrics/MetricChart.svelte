@@ -12,6 +12,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Button } from '$lib/components/ui/button';
 	import { metricsExplorerContext } from '$lib/metrics/context';
+	import { METRIC_SWITCH_FADE_MS } from '$lib/metrics/state.svelte';
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
@@ -101,8 +102,17 @@
 		return parts.length > 0 ? parts.join(' · ') : seriesLabel(series);
 	}
 
-	const isHistogram = $derived(explorer.selected?.type === 'Histogram');
-	const isSum = $derived(explorer.selected?.type === 'Sum');
+	// explorer.resultType, not explorer.selected?.type - `selected` updates the instant
+	// a different metric is clicked (so the header/picker highlight update right away),
+	// but `series` itself stays pinned to the *previous* metric's (differently-shaped)
+	// points for the whole METRIC_SWITCH_FADE_MS deferral (see
+	// MetricsExplorerState.#deferredReset's remarks). Keying the branch that decides
+	// how to interpret `series` off the live target type, instead of what `series`
+	// actually *is*, would misinterpret one type's points as the other's mid-outro -
+	// a second, independent route to the same "content changes before the fade even
+	// starts" bug the deferral exists to fix.
+	const isHistogram = $derived(explorer.resultType === 'Histogram');
+	const isSum = $derived(explorer.resultType === 'Sum');
 
 	// Comparison mode supports Gauge/Sum (always) and Histogram's Mean view (already a
 	// single line, same shape as Gauge/Sum) - not Histogram's Percentiles view, which
@@ -412,8 +422,14 @@
 
 	// Out, then in - see the {#key chartKey} block's own remarks on why sequential,
 	// not overlapping. Also animateHeight's own duration, so the container's resize
-	// keeps pace with the full out+in sequence instead of finishing early.
-	const FADE_MS = 250;
+	// keeps pace with the full out+in sequence instead of finishing early. Imported
+	// from MetricsExplorerState, not a second hand-picked number here - it's also
+	// exactly how long #deferredReset waits before clearing series/previousSeries on
+	// a metric switch (see its own remarks), so the *outgoing* chart's data doesn't
+	// change out from under it before its own out-transition even starts. Two
+	// independently-chosen constants that happened to match would drift the moment
+	// either one changed.
+	const FADE_MS = METRIC_SWITCH_FADE_MS;
 
 	const peakValue = $derived(Math.max(0, ...lines.flatMap((l) => l.points.map((p) => p.raw))));
 
@@ -568,7 +584,10 @@
 								</Select.Content>
 							</Select.Root>
 						{:else}
-							<span>{explorer.selected.type}</span>
+							<!-- resultType, not explorer.selected.type - same reasoning as
+							     isHistogram/isSum above; keeps this consistent with which of the
+							     three branches actually rendered. -->
+							<span>{explorer.resultType}</span>
 						{/if}
 						<span aria-hidden="true">·</span>
 						<!-- "(summed)" only for Gauge/Sum comparison - the chart is showing 2
