@@ -205,18 +205,21 @@
 			{#each lines as line, i (i)}
 				<div class="{lineClass(line.kind)} whitespace-pre-wrap break-words">{line.text}</div>
 			{/each}
-		</div>
-		<div class="flex shrink-0 items-center gap-1.5 border-t border-neutral-900 px-3 py-2">
-			<span class="shrink-0 font-mono text-xs text-emerald-500">flare&gt;</span>
-			<input
-				bind:this={inputEl}
-				bind:value={inputValue}
-				onkeydown={handleKeydown}
-				placeholder={running ? 'running — Ctrl+C to stop' : ''}
-				class="flex-1 bg-transparent font-mono text-xs text-neutral-100 outline-none placeholder:text-neutral-600"
-				autocomplete="off"
-				spellcheck="false"
-			/>
+			<!-- The live prompt is the buffer's last row, not a separately-boxed field below
+			     it - same structure a real terminal (and e.g. svelte-terminal) uses: input and
+			     scrollback share one flow, so it reads as one continuous surface. -->
+			<div class="flex items-center gap-1.5">
+				<span class="shrink-0 text-emerald-500">flare&gt;</span>
+				<input
+					bind:this={inputEl}
+					bind:value={inputValue}
+					onkeydown={handleKeydown}
+					placeholder={running ? 'running — Ctrl+C to stop' : ''}
+					class="flex-1 bg-transparent font-mono text-xs text-neutral-100 outline-none placeholder:text-neutral-600"
+					autocomplete="off"
+					spellcheck="false"
+				/>
+			</div>
 		</div>
 	</Dialog.Content>
 </Dialog.Root>
