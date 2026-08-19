@@ -10,6 +10,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { metricsExplorerContext } from '$lib/metrics/context';
+	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import type { MetricSeries } from '$lib/metrics-api';
 
 	const explorer = metricsExplorerContext.get();
@@ -105,7 +106,17 @@
 	const PEAK_Y = 6;
 
 	const peakValue = $derived(Math.max(0, ...lines.flatMap((l) => l.points.map((p) => p.raw))));
-	const maxValue = $derived(Math.max(1e-9, peakValue));
+
+	// One scale for the whole chart (e.g. "ms"), picked from the data's raw peak so
+	// every tick/tooltip value reads in the same unit instead of each re-picking its
+	// own ("40 ms" next to "0.03 s").
+	const axisScale = $derived(resolveAxisScale(explorer.selected?.unit, peakValue));
+
+	// Round the axis up to a "nice" ceiling in the *displayed* scale (e.g. peak 37ms ->
+	// ticks 0/10/20/30/40 ms) rather than scaling exactly to the data's raw peak, so
+	// the top gridline lands on a number a human would actually pick - see axis.ts.
+	const ticks = $derived(niceAxisTicks(peakValue, axisScale));
+	const maxValue = $derived(Math.max(1e-9, ticks.max));
 
 	function xFor(bucketStart: string): number {
 		const count = bucketStarts.length;
@@ -146,10 +157,10 @@
 		});
 	}
 
-	const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, notation: 'compact' });
+	// Tooltip values share the axis's scale (not each point re-picking its own) so a
+	// hovered point never reads in a different unit than the gridline it sits next to.
 	function formatValue(n: number): string {
-		const unit = explorer.selected?.unit;
-		return unit ? `${numberFormat.format(n)} ${unit}` : numberFormat.format(n);
+		return formatAtScale(n, axisScale);
 	}
 </script>
 
@@ -197,87 +208,105 @@
 			{:else if bucketStarts.length === 0}
 				<div class="text-muted-foreground flex h-[180px] items-center justify-center text-xs">No data in range</div>
 			{:else}
-				<Tooltip.Provider>
-					<Tooltip.Root open={hoverIndex !== null}>
-						<Tooltip.Trigger>
-							{#snippet child({ props })}
-								<svg
-									{...props}
-									viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
-									preserveAspectRatio="none"
-									class="h-[180px] w-full"
-									role="img"
-									aria-label="{explorer.selected!.metricName} over time"
-									onpointermove={handlePointerMove}
-									onpointerleave={() => (hoverIndex = null)}
-								>
-									{#each [PEAK_Y, (PEAK_Y + BASELINE_Y) / 2, BASELINE_Y] as gridY (gridY)}
-										<line
-											x1="0"
-											y1={gridY}
-											x2={CHART_WIDTH}
-											y2={gridY}
-											class="text-border"
-											stroke="currentColor"
-											stroke-width="1"
-											vector-effect="non-scaling-stroke"
-										/>
-									{/each}
-
-									{#if hoverIndex !== null}
-										<line
-											x1={xFor(bucketStarts[hoverIndex])}
-											y1={PEAK_Y}
-											x2={xFor(bucketStarts[hoverIndex])}
-											y2={BASELINE_Y}
-											class="text-muted-foreground"
-											stroke="currentColor"
-											stroke-width="1"
-											stroke-dasharray="2,2"
-											vector-effect="non-scaling-stroke"
-										/>
-									{/if}
-
-									{#each lines as line (line.label)}
-										<path
-											d={pathFor(line.points)}
-											fill="none"
-											stroke={line.color}
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											vector-effect="non-scaling-stroke"
-										/>
-										{#each line.points as point (point.bucketStart)}
-											<circle
-												cx={xFor(point.bucketStart)}
-												cy={yFor(point.raw)}
-												r={bucketStarts.length > 60 ? 0 : 2.5}
-												fill={line.color}
+				<div class="flex gap-2">
+					<!-- Rendered as real DOM text, not SVG <text>, deliberately: the chart's
+					     viewBox is stretched non-uniformly (preserveAspectRatio="none", see
+					     below) to fill whatever width the container has, which would otherwise
+					     stretch glyph shapes horizontally by that same ratio. Positioned via
+					     the identical yFor() used for the SVG gridlines below, so labels stay
+					     pixel-aligned with them despite living outside the SVG. -->
+					<div
+						class="text-muted-foreground relative w-14 shrink-0 text-right text-xs whitespace-nowrap tabular-nums"
+						style="height: {CHART_HEIGHT}px"
+					>
+						{#each ticks.values as tick (tick)}
+							<span class="absolute right-1 -translate-y-1/2 leading-none" style="top: {yFor(tick)}px">
+								{formatAtScale(tick, axisScale)}
+							</span>
+						{/each}
+					</div>
+					<Tooltip.Provider>
+						<Tooltip.Root open={hoverIndex !== null}>
+							<Tooltip.Trigger>
+								{#snippet child({ props })}
+									<svg
+										{...props}
+										viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
+										preserveAspectRatio="none"
+										class="h-[180px] w-full min-w-0"
+										role="img"
+										aria-label="{explorer.selected!.metricName} over time"
+										onpointermove={handlePointerMove}
+										onpointerleave={() => (hoverIndex = null)}
+									>
+										{#each ticks.values as tick (tick)}
+											<line
+												x1="0"
+												y1={yFor(tick)}
+												x2={CHART_WIDTH}
+												y2={yFor(tick)}
+												class="text-border"
+												stroke="currentColor"
+												stroke-width="1"
+												vector-effect="non-scaling-stroke"
 											/>
 										{/each}
-									{/each}
-								</svg>
-							{/snippet}
-						</Tooltip.Trigger>
-						{#if hoverIndex !== null}
-							<Tooltip.Content>
-								<div class="flex flex-col gap-0.5">
-									<span class="font-medium">{formatBucketTime(bucketStarts[hoverIndex])}</span>
-									{#each lines as line (line.label)}
-										{@const point = pointAtHover(line)}
-										{#if point}
-											<span class="flex items-center gap-1.5">
-												<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-												{line.label}: {formatValue(point.raw)}
-											</span>
+
+										{#if hoverIndex !== null}
+											<line
+												x1={xFor(bucketStarts[hoverIndex])}
+												y1={PEAK_Y}
+												x2={xFor(bucketStarts[hoverIndex])}
+												y2={BASELINE_Y}
+												class="text-muted-foreground"
+												stroke="currentColor"
+												stroke-width="1"
+												stroke-dasharray="2,2"
+												vector-effect="non-scaling-stroke"
+											/>
 										{/if}
-									{/each}
-								</div>
-							</Tooltip.Content>
-						{/if}
-					</Tooltip.Root>
-				</Tooltip.Provider>
+
+										{#each lines as line (line.label)}
+											<path
+												d={pathFor(line.points)}
+												fill="none"
+												stroke={line.color}
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												vector-effect="non-scaling-stroke"
+											/>
+											{#each line.points as point (point.bucketStart)}
+												<circle
+													cx={xFor(point.bucketStart)}
+													cy={yFor(point.raw)}
+													r={bucketStarts.length > 60 ? 0 : 2.5}
+													fill={line.color}
+												/>
+											{/each}
+										{/each}
+									</svg>
+								{/snippet}
+							</Tooltip.Trigger>
+							{#if hoverIndex !== null}
+								<Tooltip.Content>
+									<div class="flex flex-col gap-0.5">
+										<span class="font-medium">{formatBucketTime(bucketStarts[hoverIndex])}</span>
+										{#each lines as line (line.label)}
+											{@const point = pointAtHover(line)}
+											{#if point}
+												<span class="flex items-center gap-1.5">
+													<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
+													{line.label}: {formatValue(point.raw)}
+												</span>
+											{/if}
+										{/each}
+									</div>
+								</Tooltip.Content>
+							{/if}
+						</Tooltip.Root>
+					</Tooltip.Provider>
+				</div>
 
 				{#if lines.length > 1}
 					<div class="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
