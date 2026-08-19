@@ -8,6 +8,13 @@ namespace Flare.Identity.Auth;
 /// the LDAP server with it on every login attempt), so it never appears in an API
 /// response; see <c>LdapSettingsEndpoints</c>'s <c>hasBindPassword</c> boolean instead.
 /// </summary>
+/// <param name="PinnedCertificatePem">PEM-encoded certificate pinned as the sole TLS
+/// trust anchor for LDAP connections - either an internal CA's root certificate, or the
+/// domain controller's own certificate if self-signed. Unlike <see cref="BindPassword"/>,
+/// this is plaintext AND echoed back in full by <c>LdapSettingsEndpoints</c> - a
+/// certificate isn't a secret, so there's no <c>hasX</c> boolean indirection for it.
+/// Null/empty means "no pin configured" - <c>LdapAuthEndpoints</c>'s connection factory
+/// falls back to the OS/container trust store, today's unchanged default behavior.</param>
 public sealed record LdapSettings(
     bool Enabled,
     string? Host,
@@ -22,7 +29,8 @@ public sealed record LdapSettings(
     string? MemberGroupDn,
     string? ViewerGroupDn,
     Users.UserRole DefaultRole,
-    DateTimeOffset? UpdatedAt)
+    DateTimeOffset? UpdatedAt,
+    string? PinnedCertificatePem = null)
 {
     /// <summary>The shape <see cref="ILdapSettingsStore.GetAsync"/> returns when no row
     /// exists yet - Active Directory has never been configured on this instance. Matches
@@ -41,5 +49,6 @@ public sealed record LdapSettings(
         MemberGroupDn: null,
         ViewerGroupDn: null,
         DefaultRole: Users.UserRole.Viewer,
-        UpdatedAt: null);
+        UpdatedAt: null,
+        PinnedCertificatePem: null);
 }

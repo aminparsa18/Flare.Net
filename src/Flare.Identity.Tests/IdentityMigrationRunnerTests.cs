@@ -218,7 +218,7 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
             await using var verify = await factory.OpenAsync();
             await using var count = verify.CreateCommand();
             count.CommandText = "SELECT COUNT(*) FROM schema_migrations";
-            Assert.Equal(10L, (long)(await count.ExecuteScalarAsync())!);
+            Assert.Equal(11L, (long)(await count.ExecuteScalarAsync())!);
         }
         finally
         {
@@ -248,7 +248,7 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
             await using var verify = await factoryA.OpenAsync();
             await using var count = verify.CreateCommand();
             count.CommandText = "SELECT COUNT(*) FROM schema_migrations";
-            Assert.Equal(10L, (long)(await count.ExecuteScalarAsync())!);
+            Assert.Equal(11L, (long)(await count.ExecuteScalarAsync())!);
         }
         finally
         {

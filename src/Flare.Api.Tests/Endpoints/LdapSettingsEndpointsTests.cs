@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using Flare.Api.Endpoints;
@@ -35,7 +36,7 @@ public class LdapSettingsEndpointsTests
         return await JsonSerializer.DeserializeAsync(context.Response.Body, typeInfo);
     }
 
-    private static object ValidRequestBody(bool enabled = true, string? bindPassword = "secret-1") => new
+    private static object ValidRequestBody(bool enabled = true, string? bindPassword = "secret-1", string? pinnedCertificatePem = null) => new
     {
         enabled,
         host = "dc.corp.example.com",
@@ -50,6 +51,7 @@ public class LdapSettingsEndpointsTests
         memberGroupDn = (string?)null,
         viewerGroupDn = (string?)null,
         defaultRole = "Viewer",
+        pinnedCertificatePem,
     };
 
     [Fact]
@@ -174,5 +176,50 @@ public class LdapSettingsEndpointsTests
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.False((await store.GetAsync()).Enabled);
+    }
+
+    [Fact]
+    public async Task Put_Returns400_WhenPinnedCertificatePemIsNotValidPem()
+    {
+        var store = new FakeLdapSettingsStore();
+        var context = CreateContext(ValidRequestBody(pinnedCertificatePem: "not a certificate"));
+
+        var result = await LdapSettingsEndpoints.HandlePutAsync(context, store, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Put_PersistsAValidPinnedCertificatePem()
+    {
+        var store = new FakeLdapSettingsStore();
+        var pem = TestCertificates.CreateSelfSigned().ExportCertificatePem();
+        var context = CreateContext(ValidRequestBody(pinnedCertificatePem: pem));
+
+        var result = await LdapSettingsEndpoints.HandlePutAsync(context, store, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(pem, (await store.GetAsync()).PinnedCertificatePem);
+    }
+
+    [Fact]
+    public async Task Get_ReturnsThePinnedCertificatePemInFull()
+    {
+        // Contrast with Get_NeverReturnsTheRealBindPassword above - a certificate isn't a
+        // secret, so unlike BindPassword/HasBindPassword there's no redaction here.
+        var pem = TestCertificates.CreateSelfSigned().ExportCertificatePem();
+        var store = new FakeLdapSettingsStore(new LdapSettings(
+            true, "dc.corp.example.com", 636, true, "DC=corp,DC=example,DC=com", "CN=svc,DC=corp,DC=example,DC=com",
+            "secret", "(&(objectClass=user)(sAMAccountName={0}))", "objectGUID", null, null, null,
+            UserRole.Viewer, DateTimeOffset.UtcNow, PinnedCertificatePem: pem));
+        var context = CreateContext();
+
+        var result = await LdapSettingsEndpoints.HandleGetAsync(store, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        var dto = await ReadJsonBodyAsync(context, LdapSettingsJsonContext.Default.LdapSettingsDto);
+        Assert.Equal(pem, dto!.PinnedCertificatePem);
     }
 }

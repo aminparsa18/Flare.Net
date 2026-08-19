@@ -7,6 +7,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { Switch } from '$lib/components/ui/switch';
 	import * as Select from '$lib/components/ui/select';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
@@ -22,6 +23,7 @@
 	let host = $state('');
 	let port = $state(636);
 	let useSsl = $state(true);
+	let pinnedCertificatePem = $state('');
 	let baseDn = $state('');
 	let bindDn = $state('');
 	let bindPassword = $state('');
@@ -41,6 +43,7 @@
 			host = ldap.settings.host ?? '';
 			port = ldap.settings.port;
 			useSsl = ldap.settings.useSsl;
+			pinnedCertificatePem = ldap.settings.pinnedCertificatePem ?? '';
 			baseDn = ldap.settings.baseDn ?? '';
 			bindDn = ldap.settings.bindDn ?? '';
 			bindPassword = '';
@@ -60,6 +63,9 @@
 			host: host.trim() || null,
 			port,
 			useSsl,
+			// Blank clears the pin (reverts to the OS/container trust store) - unlike
+			// bindPassword below, there's no "leave unchanged" semantics here.
+			pinnedCertificatePem: pinnedCertificatePem.trim() || null,
 			baseDn: baseDn.trim() || null,
 			bindDn: bindDn.trim() || null,
 			// Blank means "leave whatever's already stored unchanged" - only send a real
@@ -118,6 +124,24 @@
 				<div class="flex items-center gap-2">
 					<Switch bind:checked={useSsl} />
 					<span class="text-xs">Use LDAPS (TLS)</span>
+				</div>
+
+				<div class="flex flex-col gap-1">
+					<label for="ldap-pinned-cert" class="text-xs font-medium">Pinned server certificate (optional)</label>
+					<Textarea
+						id="ldap-pinned-cert"
+						bind:value={pinnedCertificatePem}
+						disabled={!useSsl}
+						placeholder={'-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----'}
+						rows={6}
+						class="font-mono text-xs"
+					/>
+					<p class="text-muted-foreground text-xs">
+						Paste your internal CA's root certificate, or the domain controller's own certificate if it's self-signed.
+						When set, Flare trusts <strong>only</strong> this certificate for LDAP connections, bypassing the host's OS
+						trust store. Leave blank to use the OS trust store (default). Get this with, e.g.
+						<code>openssl s_client -connect {'{host}'}:{'{port}'} -showcerts</code>.
+					</p>
 				</div>
 
 				<div class="flex flex-col gap-1">

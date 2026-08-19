@@ -25,6 +25,7 @@ internal sealed class FakeLdapSettingsStore : ILdapSettingsStore
         string? host,
         int port,
         bool useSsl,
+        string? pinnedCertificatePem,
         string? baseDn,
         string? bindDn,
         string? bindPassword,
@@ -42,6 +43,9 @@ internal sealed class FakeLdapSettingsStore : ILdapSettingsStore
             Host = host,
             Port = port,
             UseSsl = useSsl,
+            // Direct clear semantics, not a fallback to the previous value - mirrors
+            // SqliteLdapSettingsStore's real (non-COALESCE) behavior for this field.
+            PinnedCertificatePem = pinnedCertificatePem,
             BaseDn = baseDn,
             BindDn = bindDn,
             BindPassword = bindPassword ?? _settings.BindPassword,

@@ -1,5 +1,6 @@
 using System.DirectoryServices.Protocols;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Flare.Api.Auth;
 using Flare.Api.Json;
@@ -173,6 +174,23 @@ public static class LdapAuthEndpoints
         };
         connection.SessionOptions.ProtocolVersion = 3;
         connection.SessionOptions.SecureSocketLayer = settings.UseSsl;
+
+        if (settings.UseSsl && !string.IsNullOrWhiteSpace(settings.PinnedCertificatePem))
+        {
+            // Certificate pinning (docs/auth.md's "Active Directory (LDAP)" section) -
+            // bypasses the OS/container trust store for this connection in favor of
+            // trusting only the Admin-configured certificate. Re-parsed per connection:
+            // connections here are already created-and-disposed per FindUser/VerifyPassword
+            // call, no caching layer, consistent with settings themselves being re-read
+            // fresh on every attempt (see this type's own class remarks). A malformed PEM
+            // at this point (e.g. a hand-edited DB row bypassing LdapSettingsEndpoints'
+            // save-time validation) is deliberately left to throw rather than silently
+            // falling back to the OS trust store.
+            var pinnedCertificate = X509Certificate2.CreateFromPem(settings.PinnedCertificatePem);
+            connection.SessionOptions.VerifyServerCertificate = (_, certificate) =>
+                LdapCertificateTrust.Validate(pinnedCertificate, certificate);
+        }
+
         return connection;
     }
 

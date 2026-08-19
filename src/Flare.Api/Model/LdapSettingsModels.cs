@@ -35,11 +35,19 @@ public sealed record LdapSettingsDto
     public string? ViewerGroupDn { get; init; }
 
     public required UserRole DefaultRole { get; init; }
+
+    /// <summary>PEM-encoded certificate pinned as the sole TLS trust anchor for LDAP
+    /// connections - unlike <see cref="HasBindPassword"/>, this is echoed back in full
+    /// (not redacted behind a boolean): a certificate isn't a secret. Null means no pin is
+    /// configured (falls back to the OS/container trust store).</summary>
+    public string? PinnedCertificatePem { get; init; }
 }
 
 /// <summary>Request body for <c>PUT /api/settings/ldap</c>. <see cref="BindPassword"/>
 /// of <c>null</c>/omitted leaves the currently-stored password unchanged - see
-/// <c>ILdapSettingsStore.SaveAsync</c>'s remarks.</summary>
+/// <c>ILdapSettingsStore.SaveAsync</c>'s remarks. <see cref="PinnedCertificatePem"/> does
+/// NOT follow that convention: <c>null</c>/omitted always *clears* any previously-saved
+/// pin.</summary>
 public sealed record SaveLdapSettingsRequest
 {
     public required bool Enabled { get; init; }
@@ -67,4 +75,6 @@ public sealed record SaveLdapSettingsRequest
     public string? ViewerGroupDn { get; init; }
 
     public required UserRole DefaultRole { get; init; }
+
+    public string? PinnedCertificatePem { get; init; }
 }
