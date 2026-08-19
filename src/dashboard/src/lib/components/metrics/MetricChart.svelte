@@ -14,7 +14,7 @@
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
-	import { TIME_RANGE_PRESETS, previousPeriodLabel } from '$lib/logs/time-range';
+	import { TIME_RANGE_PRESETS, previousPeriodLabel, resolveTimeRange, previousPeriod } from '$lib/logs/time-range';
 	import type { MetricSeries } from '$lib/metrics-api';
 
 	const explorer = metricsExplorerContext.get();
@@ -103,13 +103,16 @@
 	const isHistogram = $derived(explorer.selected?.type === 'Histogram');
 	const isSum = $derived(explorer.selected?.type === 'Sum');
 
-	// Comparison mode is Gauge/Sum only - a Histogram's "line" is already 3 percentiles
-	// (or a mean) for one series; doubling that to 6 dashed-vs-solid lines for a
-	// current/previous overlay is more clutter than the feature is worth, so the chart
-	// quietly ignores the toolbar's "Compare with previous period" switch for Histogram
-	// rather than erroring or disabling the switch itself (which would need to know the
-	// selected metric's type, coupling it to whichever metric happens to be selected).
-	const compareActive = $derived(explorer.filter.compareEnabled && !isHistogram && explorer.selected != null);
+	// Comparison mode supports Gauge/Sum (always) and Histogram's Mean view (already a
+	// single line, same shape as Gauge/Sum) - not Histogram's Percentiles view, which
+	// would need 6 dashed-vs-solid lines (p50/p90/p99 x 2 periods) for a real overlay,
+	// more clutter than the feature is worth. The chart doesn't silently ignore that
+	// case, though (a real UX gap in the first cut of this feature) - see the header's
+	// own "switch to Mean" note below.
+	const compareActive = $derived(
+		explorer.filter.compareEnabled && (!isHistogram || histogramMode === 'mean') && explorer.selected != null
+	);
+	const compareUnavailable = $derived(explorer.filter.compareEnabled && isHistogram && histogramMode === 'percentiles');
 
 	// "View related logs"/"View traces" - cross-links into Logs/Traces pre-filtered to
 	// this metric's service and the explorer's current time range (see $lib/deep-links.ts),
@@ -245,15 +248,41 @@
 			}));
 	}
 
+	// Same identity MetricSeriesQueryBuilder's own SeriesKey is (ServiceName +
+	// DataPointAttributes) - pairs one series to its previous-period counterpart by
+	// what it *is*, not by array position (current/previous series lists aren't
+	// guaranteed to line up index-for-index - e.g. an error.type that only started
+	// appearing this period).
+	function matchingSeries(series: MetricSeries, against: MetricSeries[]): MetricSeries | null {
+		return against.find((s) => s.serviceName === series.serviceName && JSON.stringify(s.attributes) === JSON.stringify(series.attributes)) ?? null;
+	}
+
+	function meanPoints(series: MetricSeries | null, shiftMs = 0): PlotPoint[] {
+		if (!series) return [];
+		return series.points
+			.filter((p) => p.sum != null && p.count != null && p.count > 0)
+			.map((p) => ({
+				bucketStart: shiftMs ? new Date(new Date(p.bucketStart).getTime() + shiftMs).toISOString() : p.bucketStart,
+				raw: p.sum! / p.count!
+			}));
+	}
+
 	/**
-	 * Comparison mode collapses every series into exactly two lines - "Current" (sum of
-	 * `explorer.series` at each bucket) and "Previous" (same, for `explorer.previousSeries`)
-	 * - rather than pairing each current series to its previous-period counterpart 1:1.
-	 * Deliberate: the user's own request was "Exceptions: +34% vs previous 24h", one
-	 * headline number and two lines, not N current lines next to N previous ones (which,
-	 * for a metric with several series, doubles an already-busy legend - see item 6/7's
-	 * compactSeriesLabel). For a single-series metric this reduces to exactly that one
-	 * series' current/previous anyway, so nothing is lost in the common case.
+	 * Comparison mode's two lines, "Current" and "Previous", built one of two ways
+	 * depending on type - each matching how that type's *normal* (non-compare) mode
+	 * already scopes its data, so compare mode never shows a different slice than what
+	 * was already on screen before it was switched on:
+	 *
+	 * - Gauge/Sum: every series summed into one total per bucket (not paired 1:1) -
+	 *   normal mode already overlays every (capped) series as its own line, and the
+	 *   user's own request was "Exceptions: +34%", one headline number, not N current
+	 *   lines next to N previous ones (which doubles an already-busy legend - see item
+	 *   6/7's compactSeriesLabel). For a single-series metric this reduces to exactly
+	 *   that one series' current/previous anyway.
+	 * - Histogram (Mean view only - see compareActive/compareUnavailable): normal mode
+	 *   already restricts to the one series picked via histogramSeriesIndex, so compare
+	 *   mode does too - paired to its previous-period counterpart via matchingSeries,
+	 *   not blended with any other series.
 	 *
 	 * Previous's bucketStart values are shifted forward by one full period so they land
 	 * on the *same* x-position as their current-period counterpart (an overlay, not a
@@ -267,33 +296,51 @@
 		// whatever "now" happens to be at call time), but this is the one that's
 		// actually deterministic rather than incidentally so.
 		const shiftMs = TIME_RANGE_PRESETS.find((p) => p.value === explorer.filter.timeRangePreset)?.durationMs ?? 0;
+		const currentPoints = isHistogram ? meanPoints(visibleSeries[0] ?? null) : sortedPoints(totalsByBucket(explorer.series));
+		const previousPoints = isHistogram
+			? meanPoints(visibleSeries[0] ? matchingSeries(visibleSeries[0], explorer.previousSeries) : null, shiftMs)
+			: sortedPoints(totalsByBucket(explorer.previousSeries), shiftMs);
 		return [
-			{ color: 'var(--chart-1)', label: 'Current', detail: 'Current', points: sortedPoints(totalsByBucket(explorer.series)) },
-			{
-				color: 'var(--muted-foreground)',
-				label: 'Previous',
-				detail: 'Previous',
-				dashed: true,
-				points: sortedPoints(totalsByBucket(explorer.previousSeries), shiftMs)
-			}
+			{ color: 'var(--chart-1)', label: 'Current', detail: 'Current', points: currentPoints },
+			{ color: 'var(--muted-foreground)', label: 'Previous', detail: 'Previous', dashed: true, points: previousPoints }
 		];
 	}
 
 	const rateDivisor = $derived(isSum && sumMode === 'rate' ? explorer.intervalSeconds : null);
 	const lines = $derived(compareActive ? buildComparisonLines() : buildLines());
 
-	// Same totals buildComparisonLines' two lines are built from, kept independent of
-	// `rateDivisor` (a plain sum, not a rate) since a percentage change is identical
-	// either way - rate divides both totals by the same bucket width, which cancels out
-	// of the ratio. null when there's nothing to compare (comparison mode isn't active,
-	// or the previous period has no data at all - can't divide by zero, and "some
-	// number vs no baseline" isn't a percentage).
+	// Same reduction buildComparisonLines' two lines are built from, but over the whole
+	// period at once rather than per-bucket - the percentage summary is one number, not
+	// a time series. Independent of `rateDivisor` for the Gauge/Sum case (a plain sum,
+	// not a rate) since a percentage change is identical either way - rate divides both
+	// totals by the same bucket width, which cancels out of the ratio. null when
+	// there's nothing to compare (comparison mode isn't active, or the previous period
+	// has no data at all - can't divide by zero, and "some number vs no baseline" isn't
+	// a percentage).
 	const comparePercent = $derived.by((): number | 'new' | null => {
 		if (!compareActive) return null;
-		const sum = (series: MetricSeries[]) =>
-			series.flatMap((s) => s.points).reduce((total, p) => total + (p.value ?? 0), 0);
-		const currentTotal = sum(explorer.series);
-		const previousTotal = sum(explorer.previousSeries);
+		let currentTotal: number;
+		let previousTotal: number;
+		if (isHistogram) {
+			const weightedMean = (series: MetricSeries | null) => {
+				if (!series) return null;
+				let sum = 0;
+				let count = 0;
+				for (const p of series.points) {
+					if (p.sum == null || p.count == null) continue;
+					sum += p.sum;
+					count += p.count;
+				}
+				return count > 0 ? sum / count : null;
+			};
+			const current = visibleSeries[0] ?? null;
+			currentTotal = weightedMean(current) ?? 0;
+			previousTotal = weightedMean(current ? matchingSeries(current, explorer.previousSeries) : null) ?? 0;
+		} else {
+			const sum = (series: MetricSeries[]) => series.flatMap((s) => s.points).reduce((total, p) => total + (p.value ?? 0), 0);
+			currentTotal = sum(explorer.series);
+			previousTotal = sum(explorer.previousSeries);
+		}
 		if (previousTotal === 0) return currentTotal === 0 ? null : 'new';
 		return ((currentTotal - previousTotal) / previousTotal) * 100;
 	});
@@ -304,6 +351,20 @@
 		if (comparePercent === 'new') return `new (no data in ${periodLabel})`;
 		const sign = comparePercent > 0 ? '+' : '';
 		return `${sign}${comparePercent.toFixed(0)}% vs ${periodLabel}`;
+	});
+
+	// "previous 24 hours" names the *duration* being compared, not which 24 hours that
+	// actually is - answers "what does previous period mean" concretely, on hover,
+	// rather than requiring a click into a real date-range picker Metrics doesn't have
+	// (only fixed presets - see MetricsToolbar's own remarks).
+	const compareRangeDetail = $derived.by(() => {
+		if (!compareChangeText) return null;
+		const range = resolveTimeRange(explorer.filter.timeRangePreset);
+		if (!range) return null;
+		const previous = previousPeriod(range);
+		const fmt = (iso: string) =>
+			new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+		return `Current: ${fmt(range.from)} – ${fmt(range.to)}\nPrevious: ${fmt(previous.from)} – ${fmt(previous.to)}`;
 	});
 
 	// Shared x-domain: every distinct bucket across the visible lines, in order - same
@@ -442,20 +503,42 @@
 							<span>{explorer.selected.type}</span>
 						{/if}
 						<span aria-hidden="true">·</span>
-						<!-- "(summed)" only in comparison mode - the chart itself is showing 2
-						     aggregate lines then (see buildComparisonLines), not one per
-						     series, so this count would otherwise look inconsistent with what's
-						     actually drawn. -->
-						<span>{explorer.series.length} series{compareActive ? ' (summed)' : ''}</span>
+						<!-- "(summed)" only for Gauge/Sum comparison - the chart is showing 2
+						     aggregate-across-every-series lines then (see buildComparisonLines),
+						     not one per series, so this count would otherwise look inconsistent
+						     with what's actually drawn. Histogram compare doesn't get this -
+						     it's still the one series histogramSeriesIndex already picks, same
+						     as outside comparison mode, never a cross-series aggregate. -->
+						<span>{explorer.series.length} series{compareActive && !isHistogram ? ' (summed)' : ''}</span>
 						<span aria-hidden="true">·</span>
 						<span>{formatBucketWidthSeconds(explorer.intervalSeconds)} interval</span>
 						{#if compareChangeText}
 							<span aria-hidden="true">·</span>
-							<!-- Deliberately no color-coding (green/red) - "up" isn't
-							     universally good or bad (exceptions vs. requests/sec read
-							     oppositely), so a neutral, "subtle" number per the request
-							     this shipped from, not a judgment. -->
-							<span class="font-medium">{compareChangeText}</span>
+							<Tooltip.Provider>
+								<Tooltip.Root>
+									<Tooltip.Trigger>
+										{#snippet child({ props })}
+											<!-- Deliberately no color-coding (green/red) - "up" isn't
+											     universally good or bad (exceptions vs. requests/sec
+											     read oppositely), so a neutral, "subtle" number per the
+											     request this shipped from, not a judgment. Hoverable:
+											     "previous 24 hours" names a duration, not which 24 hours
+											     - the tooltip answers that with the actual compared
+											     dates (see compareRangeDetail) instead of requiring a
+											     real date-range picker Metrics doesn't have. -->
+											<span {...props} class="decoration-muted-foreground/50 font-medium underline decoration-dotted underline-offset-2">
+												{compareChangeText}
+											</span>
+										{/snippet}
+									</Tooltip.Trigger>
+									<Tooltip.Content>
+										<span class="whitespace-pre-line">{compareRangeDetail}</span>
+									</Tooltip.Content>
+								</Tooltip.Root>
+							</Tooltip.Provider>
+						{:else if compareUnavailable}
+							<span aria-hidden="true">·</span>
+							<span>Switch to Mean to compare with previous period</span>
 						{/if}
 					</div>
 				{/if}
