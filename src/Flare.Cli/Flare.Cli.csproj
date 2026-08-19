@@ -20,9 +20,15 @@
     <!-- Pre-1.0, matching Flare.Hosting.Aspire/Flare.Aspire's own pre-alpha posture. Bumped
          0.1.0 -> 0.1.1: the generated .env template's FLARE_IMAGE_TAG default (and state.json's
          ImageTag fallback) changed from the floating "edge" tag to a pinned stable release
-         ("0.2.0") - see docs/cli.md's Image tag policy section. Tag on release:
-         flare-cli-v{Version} (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.1</Version>
+         ("0.2.0") - see docs/cli.md's Image tag policy section. Bumped 0.1.1 -> 0.1.2: the
+         generated .env template's FLARE_DASHBOARD_PORT default moved 3000 -> 7777 (3000
+         collides with the near-universal Next.js/Vite/CRA/Grafana dev-server default -
+         see docs/cli.md's Known limitations section); `flare start`/`flare doctor` also
+         gained a host-port-availability preflight (DoctorChecks.CheckPortsAvailable) that
+         reports which specific port is taken instead of surfacing Docker's raw bind
+         error. Tag on release: flare-cli-v{Version} (see
+         .github/workflows/nuget-publish.yml). -->
+    <Version>0.1.2</Version>
     <Authors>Amin Parsa</Authors>
     <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
     <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>

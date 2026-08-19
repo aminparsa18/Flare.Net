@@ -63,7 +63,7 @@ internal sealed class StatusCommand : AsyncCommand
                      ("FLARE_INGEST_GRPC_PORT", "4317"),
                      ("FLARE_INGEST_HTTP_PORT", "4318"),
                      ("FLARE_API_PORT", "8080"),
-                     ("FLARE_DASHBOARD_PORT", "3000"),
+                     ("FLARE_DASHBOARD_PORT", "7777"),
                  })
         {
             result = result.Replace($"{{{key}}}", FlareHome.ReadEnvValue(key, fallback));

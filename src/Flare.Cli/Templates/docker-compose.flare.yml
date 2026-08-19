@@ -102,7 +102,7 @@ services:
       Email__From: "${SMTP_FROM:-}"
       Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
       Identity__DbPath: "/data/identity/flare-identity.db"
-      Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-3000}"
+      Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
       DockerResources__ProxyUrl: "${FLARE_DOCKER_PROXY_URL:-}"
     volumes:
       - identity-data:/data/identity
@@ -125,9 +125,9 @@ services:
         condition: service_healthy
     environment:
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
-      ORIGIN: "http://localhost:${FLARE_DASHBOARD_PORT:-3000}"
+      ORIGIN: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
     ports:
-      - "${FLARE_DASHBOARD_PORT:-3000}:3000"
+      - "${FLARE_DASHBOARD_PORT:-7777}:3000"
 
   # Opt-in, read-only Docker access for the Resources page - see docs/standalone.md (and
   # docs/cli.md) for the full security rationale. Gated behind the "resource-graph"

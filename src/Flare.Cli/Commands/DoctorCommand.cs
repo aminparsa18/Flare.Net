@@ -25,6 +25,16 @@ internal sealed class DoctorCommand : AsyncCommand
         if (!FlareHome.IsInitialized)
         {
             AnsiConsole.MarkupLine("[grey]○[/] Stack not initialized yet - run `flare start`. (not an error)");
+
+            // Worth checking even pre-init: this is exactly the moment a port conflict
+            // (e.g. a repo-local `docker compose up` of the same stack already running)
+            // is most useful to catch, before the first `flare start` hits it as a raw
+            // Docker bind error instead.
+            foreach (var portCheck in DoctorChecks.CheckPortsAvailable())
+            {
+                Report(portCheck, ref allPassed);
+            }
+
             return allPassed ? 0 : 1;
         }
 
@@ -39,6 +49,16 @@ internal sealed class DoctorCommand : AsyncCommand
                 {
                     AnsiConsole.MarkupLine($"    [grey]{Markup.Escape(line)}[/]");
                 }
+            }
+        }
+
+        // Only meaningful while the stack is down - if any service is already running,
+        // it's Flare's own containers holding these ports, not a conflict.
+        if (!stackChecks.Any(c => c.Passed))
+        {
+            foreach (var portCheck in DoctorChecks.CheckPortsAvailable())
+            {
+                Report(portCheck, ref allPassed);
             }
         }
 

@@ -165,7 +165,7 @@ builder.Services.AddOpenApi();
 // cookie (AllowCredentials() and AllowAnyOrigin() are mutually exclusive by the CORS
 // spec/ASP.NET Core's own enforcement anyway, so this couldn't stay permissive even
 // unintentionally). Cors:AllowedOrigins must list the dashboard's actual origin(s) -
-// e.g. http://localhost:5173 in dev, http://localhost:3000 in docker-compose (dashboard
+// e.g. http://localhost:5173 in dev, http://localhost:7777 in docker-compose (dashboard
 // and API are different origins even there, so this can't default to same-origin-only).
 builder.Services.AddCors(options =>
 {
