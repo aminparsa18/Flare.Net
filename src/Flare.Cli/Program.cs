@@ -25,7 +25,7 @@ app.Configure(config =>
     config.AddCommand<TailCommand>("tail")
         .WithDescription("Live-tail structured log events (filterable by service/level/trace/search).");
     config.AddCommand<UpdateCommand>("update")
-        .WithDescription("Pull the latest images for the pinned tag and recreate containers.");
+        .WithDescription("Pull the latest images for the pinned tag and recreate containers. --tag <TAG> moves the pin itself first.");
     config.AddCommand<LogsCommand>("logs")
         .WithDescription("Show or follow container logs.");
     config.AddCommand<DoctorCommand>("doctor")
