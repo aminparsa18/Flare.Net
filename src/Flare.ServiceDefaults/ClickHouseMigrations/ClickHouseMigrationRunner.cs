@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
@@ -45,10 +46,44 @@ namespace Flare.ServiceDefaults.ClickHouseMigrations;
 /// idempotent no-op re-execution below on first boot). This runner is what makes schema
 /// currency actually reliable for every boot after that.
 /// </para>
+/// <para>
+/// The very first statement below (the bootstrap <c>CREATE DATABASE</c>) is wrapped in a
+/// connection-failure retry/backoff loop. Found 2026-08-18: even with <c>ingest</c>/
+/// <c>api</c>'s <c>depends_on: clickhouse: condition: service_healthy</c> in both
+/// <c>docker-compose.yml</c> and <c>docker-compose.flare.yml</c>, a fresh
+/// <c>docker compose up --build</c> could still see this method throw an unhandled
+/// <see cref="System.Net.Http.HttpRequestException"/> ("Connection refused") on its
+/// first startup attempt - Compose's <c>service_healthy</c> gate isn't quite tight
+/// enough to guarantee ClickHouse is actually accepting connections by the time the
+/// dependent container's own migration code runs. Both containers also carry
+/// <c>restart: unless-stopped</c>, so this was self-healing (a crash/restart cycle or
+/// two) even before this retry loop existed, but retrying in-process avoids the crash
+/// (and its log noise) entirely. Only the first call retries deliberately - once it
+/// succeeds, ClickHouse is reachable and every later statement in this method runs
+/// against an already-proven-live connection.
+/// </para>
 /// </remarks>
 public static class ClickHouseMigrationRunner
 {
     private const string ResourcePrefix = "Flare.ServiceDefaults.ClickHouseMigrations.Sql.";
+
+    // Exponential backoff, capped at 8s/attempt, ~65s total across 10 attempts - well
+    // past the gap observed between Compose's service_healthy and ClickHouse actually
+    // accepting connections (a handful of seconds in practice), without hanging forever
+    // on a genuinely dead dependency.
+    private static readonly TimeSpan[] ConnectionRetryDelays =
+    [
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+    ];
 
     public static async Task ApplyAsync(IClickHouseClient client, ILogger logger, CancellationToken cancellationToken = default)
     {
@@ -56,7 +91,14 @@ public static class ClickHouseMigrationRunner
         // migration 0001 (which also does "CREATE DATABASE IF NOT EXISTS clickhousedb")
         // has ever run - both statements are themselves idempotent, so this is safe to
         // run unconditionally before walking the migration file list below.
-        await client.ExecuteNonQueryAsync("CREATE DATABASE IF NOT EXISTS clickhousedb", cancellationToken: cancellationToken);
+        //
+        // This first call is the one wrapped in connection-failure retry (see remarks) -
+        // it's the earliest point ClickHouse's actual reachability is exercised, so it's
+        // where a still-starting-up ClickHouse shows up as connection-refused.
+        await ExecuteWithConnectionRetryAsync(
+            ct => client.ExecuteNonQueryAsync("CREATE DATABASE IF NOT EXISTS clickhousedb", cancellationToken: ct),
+            logger,
+            cancellationToken);
         await client.ExecuteNonQueryAsync(
             """
             CREATE TABLE IF NOT EXISTS clickhousedb.schema_migrations
@@ -117,6 +159,50 @@ public static class ClickHouseMigrationRunner
                 cancellationToken: cancellationToken);
         }
     }
+
+    /// <summary>
+    /// Runs <paramref name="action"/>, retrying with backoff (<see cref="ConnectionRetryDelays"/>)
+    /// as long as the failure looks like ClickHouse not yet accepting connections rather
+    /// than a real query/schema error. See the type-level remarks for why this exists.
+    /// </summary>
+    private static async Task ExecuteWithConnectionRetryAsync(Func<CancellationToken, Task> action, ILogger logger, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await action(cancellationToken);
+                return;
+            }
+            catch (Exception ex) when (attempt < ConnectionRetryDelays.Length && IsConnectionFailure(ex))
+            {
+                var delay = ConnectionRetryDelays[attempt];
+                logger.LogWarning(
+                    ex,
+                    "ClickHouse not yet accepting connections (attempt {Attempt}/{MaxAttempts}); retrying in {Delay}.",
+                    attempt + 1,
+                    ConnectionRetryDelays.Length + 1,
+                    delay);
+                await Task.Delay(delay, cancellationToken);
+            }
+        }
+    }
+
+    /// <summary>
+    /// True for the transport-level failures a not-yet-ready ClickHouse produces
+    /// (connection refused/reset, DNS not resolving yet) - including wrapped inside a
+    /// driver-specific exception's <see cref="Exception.InnerException"/> chain. Not
+    /// true for query/schema errors (bad SQL, permission denied, etc.), which should
+    /// fail fast rather than retry for a minute.
+    /// </summary>
+    private static bool IsConnectionFailure(Exception ex) =>
+        ex switch
+        {
+            HttpRequestException => true,
+            SocketException => true,
+            IOException => true,
+            _ => ex.InnerException is not null && IsConnectionFailure(ex.InnerException),
+        };
 
     private static async Task<string> ReadEmbeddedSqlAsync(System.Reflection.Assembly assembly, string resourceName, CancellationToken cancellationToken)
     {
