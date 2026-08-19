@@ -30,7 +30,7 @@ need to change any of the defaults (e.g. a port is already taken on your machine
 
 Once it's up:
 
-- **Dashboard:** [http://localhost:3000](http://localhost:3000) — open, no login
+- **Dashboard:** [http://localhost:7777](http://localhost:7777) — open, no login
   required, until you turn sign-in on yourself from the `/auth` page. See
   [docs/auth.md](auth.md).
 - **OTLP receiver:** gRPC on `:4317`, HTTP on `:4318` — what you point your logger at
@@ -227,7 +227,7 @@ logger.Info("hello from {ServiceName}", "my-service");
 
 ## Confirm it worked
 
-Open [http://localhost:3000](http://localhost:3000) and log in — your log should
+Open [http://localhost:7777](http://localhost:7777) and log in — your log should
 already be there (live tail is on by default). Or query ClickHouse directly (this
 bypasses `Flare.Api`/auth entirely):
 

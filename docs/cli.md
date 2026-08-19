@@ -50,7 +50,7 @@ tells you plainly if it isn't.
 | `flare update` | Pulls the latest images for the currently pinned tag, recreates containers, prints a per-service digest diff. Never touches data. |
 | `flare logs [service] [-f]` | Shows or follows **container** logs (raw Docker stdout). Omit the service for all of them. |
 | `flare tail [-s service]... [-l level]... [--trace-id id] [--search text]` | Live-tails **app-level structured log events** via `Flare.Api`'s live-tail WebSocket - the CLI-native equivalent of the dashboard's Logs Explorer live-tail, not the same thing as `flare logs`. `-l`/`--level` accepts `trace`/`debug`/`info`/`warn`/`error`/`fatal`, repeatable. |
-| `flare doctor` | Read-only diagnostics: Docker reachable, Compose present, per-service state, and a ClickHouse row-count sanity check. |
+| `flare doctor` | Read-only diagnostics: Docker reachable, Compose present, per-service state, host-port availability (while the stack is down), and a ClickHouse row-count sanity check. |
 | `flare destroy [--yes] [--purge-config]` | **Destructive.** Removes containers and data volumes. Refuses to run without `--yes` (or an interactive confirm) - never proceeds silently on a non-interactive invocation. Keeps `~/.flare/.env` unless `--purge-config` is also passed. |
 | `flare --version` | Prints the installed CLI version. |
 
@@ -102,9 +102,12 @@ unless you hand-edit `.env` or run `flare destroy --purge-config`. Set
 ## Known limitations
 
 - **Port conflicts**: `flare start` and a repo-local `docker compose up` both default
-  to the same host ports (3000/8080/4317/4318/8123) - running both at once will fail
-  to bind. Not detected or resolved automatically; change one side's ports via its
-  `.env`.
+  to the same host ports (7777/8080/4317/4318/8123) - running both at once will fail
+  to bind. `flare start` and `flare doctor` both preflight-check port availability
+  (whenever the stack isn't already the thing holding them - see
+  `Internal/DoctorChecks.cs`'s `CheckPortsAvailable`) and report which specific port is
+  taken instead of surfacing Docker's raw "port is already allocated" error - but they
+  can't resolve the conflict for you; change one side's ports via its `.env`.
 - **No multi-instance support**: one `~/.flare/` per machine/user, one standing stack.
 - **No `flare aspire`-anything**: this tool has zero interaction with `aspire start`
   or AppHost wiring - out of scope by design, not a gap.

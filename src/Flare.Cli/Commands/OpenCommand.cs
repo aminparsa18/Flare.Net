@@ -22,7 +22,7 @@ internal sealed class OpenCommand : AsyncCommand
             return 1;
         }
 
-        var port = FlareHome.ReadEnvValue("FLARE_DASHBOARD_PORT", "3000");
+        var port = FlareHome.ReadEnvValue("FLARE_DASHBOARD_PORT", "7777");
         var url = $"http://localhost:{port}";
 
         if (!TryOpenBrowser(url))

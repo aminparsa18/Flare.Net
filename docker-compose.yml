@@ -155,7 +155,7 @@ services:
       # FLARE_DASHBOARD_PORT (or opening the dashboard from a different host, see that
       # service's comment) keeps both in sync automatically. AllowCredentials() means
       # this can't be a wildcard - the session cookie won't cross origins otherwise.
-      Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-3000}"
+      Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
       # Opt-in Resources page (docs/standalone.md) - blank by default, meaning
       # DockerContainerPoller never polls and the page shows a clean "not enabled" state.
       # Turning this on requires TWO explicit `.env` lines, deliberately: this URL (only
@@ -193,9 +193,9 @@ services:
       # "api" would not resolve for you. Override in .env if you're opening the
       # dashboard from a different host than the one running `docker compose up`.
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
-      ORIGIN: "http://localhost:${FLARE_DASHBOARD_PORT:-3000}"
+      ORIGIN: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
     ports:
-      - "${FLARE_DASHBOARD_PORT:-3000}:3000"
+      - "${FLARE_DASHBOARD_PORT:-7777}:3000"
 
   # Opt-in, read-only Docker access for the Resources page (`api`'s
   # DockerResources__ProxyUrl above) - see docs/standalone.md for the full security

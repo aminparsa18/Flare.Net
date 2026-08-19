@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Sockets;
+
 namespace Flare.Cli.Internal;
 
 internal sealed record DiagnosticCheck(string Name, bool Passed, string Detail);
@@ -88,5 +91,68 @@ internal static class DoctorChecks
     {
         var result = await ComposeRunner.RunCapturedAsync(["logs", "--tail=40", service], ct).ConfigureAwait(false);
         return result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    /// <summary>
+    /// Every host port this stack binds, resolved from ~/.flare/.env (or these same
+    /// fallbacks if no .env exists yet, i.e. before the first `flare start`) - the exact
+    /// values `docker compose up` would try to bind. Fallbacks mirror env.template's
+    /// defaults; keep both in sync if either changes.
+    /// </summary>
+    private static readonly (string Label, string EnvKey, string Fallback)[] ConfiguredPorts =
+    [
+        ("ClickHouse HTTP", "CLICKHOUSE_HTTP_PORT", "8123"),
+        ("Ingest gRPC (OTLP)", "FLARE_INGEST_GRPC_PORT", "4317"),
+        ("Ingest HTTP (OTLP)", "FLARE_INGEST_HTTP_PORT", "4318"),
+        ("API", "FLARE_API_PORT", "8080"),
+        ("Dashboard", "FLARE_DASHBOARD_PORT", "7777"),
+    ];
+
+    /// <summary>
+    /// Probes each configured host port with a loopback bind attempt - the same failure
+    /// `docker compose up` would hit if something else already owns one of these (most
+    /// commonly: a repo-local `docker compose up` of this same stack, still running - see
+    /// docs/cli.md's Known limitations), but caught here per-port with a specific message
+    /// instead of Compose's one raw "port is already allocated" error for whichever port
+    /// it happened to reach first.
+    ///
+    /// Callers must only invoke this when Flare's OWN stack isn't already the thing
+    /// holding these ports - both `flare doctor` and `flare start` skip it whenever the
+    /// stack is already running, since a bind failure there just means "our own healthy
+    /// containers", not a conflict to report.
+    /// </summary>
+    public static IReadOnlyList<DiagnosticCheck> CheckPortsAvailable()
+    {
+        var checks = new List<DiagnosticCheck>(ConfiguredPorts.Length);
+        foreach (var (label, envKey, fallback) in ConfiguredPorts)
+        {
+            var portText = FlareHome.ReadEnvValue(envKey, fallback);
+            if (!int.TryParse(portText, out var port))
+            {
+                checks.Add(new DiagnosticCheck($"Port ({label})", false, $"~/.flare/.env's {envKey}='{portText}' isn't a valid port number."));
+                continue;
+            }
+
+            checks.Add(CheckPortAvailable(label, port));
+        }
+
+        return checks;
+    }
+
+    private static DiagnosticCheck CheckPortAvailable(string label, int port)
+    {
+        try
+        {
+            using var listener = new TcpListener(IPAddress.Loopback, port);
+            listener.Start();
+            return new DiagnosticCheck($"Port {port} ({label})", true, "free");
+        }
+        catch (SocketException)
+        {
+            return new DiagnosticCheck(
+                $"Port {port} ({label})",
+                false,
+                "Already in use by something else - change it in ~/.flare/.env, or stop whatever else is bound to it, before starting.");
+        }
     }
 }

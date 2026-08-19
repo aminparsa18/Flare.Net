@@ -17,12 +17,38 @@ internal sealed class StartCommand : AsyncCommand
             return 1;
         }
 
-        if (!FlareHome.IsInitialized)
+        var wasAlreadyInitialized = FlareHome.IsInitialized;
+        if (!wasAlreadyInitialized)
         {
             AnsiConsole.MarkupLine($"[grey]Initializing {FlareHome.Directory}...[/]");
         }
 
         FlareHome.EnsureInitialized();
+
+        // Skip the port-availability preflight when Flare's own stack is already the
+        // thing holding these ports - `docker compose up` against an already-running
+        // stack is a normal idempotent no-op, not a conflict to warn about. Otherwise
+        // (first-ever init, or a previously-stopped stack), check up front so a collision
+        // - most commonly a repo-local `docker compose up` of this same stack, still
+        // running (see docs/cli.md's Known limitations) - fails here with a clear
+        // per-port message instead of `docker compose up`'s raw bind error.
+        var stackAlreadyRunning = wasAlreadyInitialized
+            && (await DoctorChecks.CheckStackStateAsync(cancellationToken)).Any(c => c.Passed);
+
+        if (!stackAlreadyRunning)
+        {
+            var portConflicts = DoctorChecks.CheckPortsAvailable().Where(c => !c.Passed).ToList();
+            if (portConflicts.Count > 0)
+            {
+                AnsiConsole.MarkupLine("[red]✗[/] Port conflict(s) - not starting:");
+                foreach (var conflict in portConflicts)
+                {
+                    AnsiConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(conflict.Name)}: {Markup.Escape(conflict.Detail)}");
+                }
+
+                return 1;
+            }
+        }
 
         AnsiConsole.MarkupLine("[grey]Starting containers (this pulls images on first run)...[/]");
         var upExitCode = await ComposeRunner.RunStreamedAsync(["up", "-d"]);
@@ -64,7 +90,7 @@ internal sealed class StartCommand : AsyncCommand
             return 1;
         }
 
-        var port = FlareHome.ReadEnvValue("FLARE_DASHBOARD_PORT", "3000");
+        var port = FlareHome.ReadEnvValue("FLARE_DASHBOARD_PORT", "7777");
         AnsiConsole.MarkupLine($"[green]✓[/] Flare is up: [link]http://localhost:{port}[/]");
         AnsiConsole.MarkupLine("[grey]Auth is off by default - anyone who can reach it has full access. Turn on sign-in from the dashboard's /auth page if you want it. Run `flare open` to launch it.[/]");
         return 0;
