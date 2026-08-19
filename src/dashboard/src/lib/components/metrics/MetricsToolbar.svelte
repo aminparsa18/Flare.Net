@@ -42,12 +42,19 @@
 		onChange={(next) => explorer.setServices(next)}
 	/>
 
-	<!-- MetricChart itself is the one that decides whether comparison actually renders
-	     (off for Histogram - see its own remarks), so this switch stays available
-	     regardless of the currently-selected metric's type rather than disabling/hiding
-	     depending on selection, same "toolbar filter, chart decides what to do with it"
-	     split every other filter here already has. -->
-	<label class="flex items-center gap-1.5 text-xs font-medium">
+	<!-- MetricChart itself is the one that decides whether/how comparison actually
+	     renders (unsupported for Histogram's Percentiles view - see its own remarks on
+	     compareActive/compareUnavailable), so this switch stays available regardless of
+	     the currently-selected metric's type rather than disabling/hiding depending on
+	     selection, same "toolbar filter, chart decides what to do with it" split every
+	     other filter here already has. A plain `title`, not a rich Tooltip.* - this is
+	     one static sentence, not something that needs its own Provider/Root/Trigger
+	     wiring (MetricChart's own hover tooltips are for genuinely dynamic content, e.g.
+	     the exact compared dates). -->
+	<label
+		class="flex items-center gap-1.5 text-xs font-medium"
+		title="Compares the current time range to the period immediately before it, of the same length (e.g. Last 24 hours vs. the 24 hours before that)."
+	>
 		<Switch
 			checked={explorer.filter.compareEnabled}
 			onCheckedChange={(v) => explorer.setCompareEnabled(v)}
