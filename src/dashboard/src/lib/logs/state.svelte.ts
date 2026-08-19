@@ -10,7 +10,8 @@ import {
 	type LogEventDto,
 	type LogFilter,
 	type LiveTailStatus,
-	type LiveTailConnection
+	type LiveTailConnection,
+	type AttributeFilter
 } from '$lib/api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from './time-range';
 import { addRecentSearch } from './recent-searches';
@@ -45,6 +46,12 @@ export interface LogsFilterState {
 	search: string;
 	/** Exact PatternId match - set only via applyPatternIdFilter (the Patterns view's "View examples" drill-down), never part of a saved view. */
 	patternId: string;
+	/**
+	 * Exact attribute-value match - set only via applyDeepLinkFilter (the "View related
+	 * logs" action on a Metrics chart, see MetricChart.svelte), same "sticky filter, not
+	 * part of a saved view" reasoning as patternId above.
+	 */
+	attribute: AttributeFilter | null;
 }
 
 /**
@@ -68,7 +75,8 @@ export class LogsExplorerState {
 		services: [],
 		severityNumbers: [],
 		search: '',
-		patternId: ''
+		patternId: '',
+		attribute: null
 	});
 
 	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
@@ -130,6 +138,7 @@ export class LogsExplorerState {
 		if (this.filter.severityNumbers.length) filter.severityNumbers = [...this.filter.severityNumbers];
 		if (this.filter.search.trim()) filter.search = this.filter.search.trim();
 		if (this.filter.patternId) filter.patternId = this.filter.patternId;
+		if (this.filter.attribute) filter.attributes = [this.filter.attribute];
 		return filter;
 	}
 
@@ -376,7 +385,8 @@ export class LogsExplorerState {
 			services: s.services ?? [],
 			severityNumbers: s.severityNumbers ?? [],
 			search: s.search ?? '',
-			patternId: '' // never part of a saved view - see LogsFilterState.patternId's remarks
+			patternId: '', // never part of a saved view - see LogsFilterState.patternId's remarks
+			attribute: null // never part of a saved view - see LogsFilterState.attribute's own remarks
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
@@ -401,6 +411,38 @@ export class LogsExplorerState {
 		if (!this.filter.patternId) return;
 		this.filter.patternId = '';
 		this.patternFilterLabel = null;
+		this.applyFilterChange();
+	}
+
+	/**
+	 * Arrival filter for the "View related logs" deep link from a Metrics chart (see
+	 * MetricChart.svelte / `$lib/deep-links.ts`, and `+page.svelte`'s onMount, which is
+	 * the only caller - parses the incoming `service`/`range`/`attrKey`/`attrValue` URL
+	 * params and lands here). Same "specific filter, not live, wholesale filter
+	 * reassignment" shape as `applySavedViewState`, and `attribute` is excluded from
+	 * saved views for the same reason `patternId` is - this is a one-off hop, not
+	 * something to persist and reproduce later.
+	 */
+	applyDeepLinkFilter(params: { services: string[]; timeRangePreset: TimeRangePreset; attribute: AttributeFilter | null }): void {
+		this.live = false;
+		this.selectedBucketRange = null;
+		this.filter = {
+			timeRangePreset: params.timeRangePreset,
+			customRange: null,
+			services: params.services,
+			severityNumbers: [],
+			search: '',
+			patternId: '',
+			attribute: params.attribute
+		};
+		this.patternFilterLabel = null;
+		this.applyFilterChange();
+	}
+
+	/** Clears a deep-link attribute filter (the dismissible badge in LogsToolbar) - service/time-range are left alone, since those already have their own visible, editable controls. */
+	clearAttributeFilter(): void {
+		if (!this.filter.attribute) return;
+		this.filter.attribute = null;
 		this.applyFilterChange();
 	}
 

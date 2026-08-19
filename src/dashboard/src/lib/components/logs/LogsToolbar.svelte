@@ -100,6 +100,24 @@
 		</Badge>
 	{/if}
 
+	{#if explorer.filter.attribute}
+		<!-- "View related logs" deep link from a Metrics chart (see MetricChart.svelte /
+		     $lib/deep-links.ts) - same "sticky filter, needs its own dismissible chip"
+		     reasoning as the pattern-id badge above; service/time-range don't get one since
+		     ServiceMultiSelect/TimeRangePicker already show and let you edit those. -->
+		<Badge variant="secondary" class="max-w-64 gap-1">
+			<span class="truncate font-mono">{explorer.filter.attribute.key} = {explorer.filter.attribute.value}</span>
+			<button
+				type="button"
+				class="hover:text-foreground shrink-0"
+				onclick={() => explorer.clearAttributeFilter()}
+				aria-label="Clear attribute filter"
+			>
+				<XIcon class="size-3" />
+			</button>
+		</Badge>
+	{/if}
+
 	<SavedSearchesMenu currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
 
 	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />

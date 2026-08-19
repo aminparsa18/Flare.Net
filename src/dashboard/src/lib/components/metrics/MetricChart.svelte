@@ -9,9 +9,11 @@
 	import * as Select from '$lib/components/ui/select';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { Button } from '$lib/components/ui/button';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
+	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
 	import type { MetricSeries } from '$lib/metrics-api';
 
 	const explorer = metricsExplorerContext.get();
@@ -44,19 +46,86 @@
 	// so switching never re-queries. `count`/`p75`/`p95`/`max` are deliberately not
 	// options here - see Planning.md's "Later" entry for why those need backend work
 	// this Tier-1 pass doesn't do.
+	// Rate, not Sum, is the default view for Sum-typed metrics: bucket width here
+	// tracks the selected time range (see intervalSeconds' own remarks), so a raw
+	// per-bucket Sum for the same underlying counter reads differently depending on
+	// which range happens to be selected - "100 exceptions" means something
+	// different over 10s than over 1h. Dividing by bucket width makes the number
+	// mean the same thing regardless of zoom level, which is what "exceptions/min"
+	// operationally answers anyway. Sum stays one click away in the picker below.
 	type SumMode = 'sum' | 'rate';
 	type HistogramMode = 'percentiles' | 'mean';
-	let sumMode = $state<SumMode>('sum');
+	let sumMode = $state<SumMode>('rate');
 	let histogramMode = $state<HistogramMode>('percentiles');
 
+	// Full, unambiguous label - serviceName plus every attribute - used where
+	// uniqueness matters more than brevity (the histogram series picker below,
+	// which lists every series, not just the capped/visible set) and as the
+	// per-legend-item tooltip's detail text (see compactSeriesLabel).
 	function seriesLabel(series: MetricSeries): string {
 		const attrs = Object.entries(series.attributes);
 		if (attrs.length === 0) return series.serviceName;
 		return `${series.serviceName} · ${attrs.map(([k, v]) => `${k}=${v}`).join(', ')}`;
 	}
 
+	// Compact legend/tooltip label: shows only what actually distinguishes this
+	// series from the others *currently on the chart*, not the full dimension
+	// set - with many series sharing serviceName and only one attribute varying
+	// (e.g. 15 error.type values on the same service), repeating
+	// "log-generator · error.type=" on every legend line is pure noise, and it's
+	// the case that gets worse the more series-defining attributes a metric
+	// carries. Real "group by a chosen attribute" (collapsing series server-side)
+	// is a bigger, separate piece of work - see Planning.md's Later item - this
+	// is just hiding what's already redundant within the visible set.
+	function compactSeriesLabel(series: MetricSeries, visible: MetricSeries[]): string {
+		if (visible.length <= 1) return seriesLabel(series);
+
+		const serviceNameVaries = new Set(visible.map((s) => s.serviceName)).size > 1;
+		const attrKeys = [...new Set(visible.flatMap((s) => Object.keys(s.attributes)))];
+		const varyingKeys = attrKeys.filter((k) => new Set(visible.map((s) => s.attributes[k] ?? '')).size > 1);
+
+		const parts: string[] = [];
+		if (serviceNameVaries) parts.push(series.serviceName);
+		if (varyingKeys.length === 1) {
+			// Sole distinguishing dimension - the bare value ("InvalidOperationException")
+			// reads better than the key-prefixed form repeated on every line.
+			parts.push(series.attributes[varyingKeys[0]] ?? '(none)');
+		} else {
+			parts.push(...varyingKeys.map((k) => `${k}=${series.attributes[k] ?? '(none)'}`));
+		}
+		// Nothing varies (shouldn't happen - the backend groups series by distinct
+		// attribute combinations, see MetricSeriesQueryBuilder's remarks) - fall
+		// back to the full label rather than an empty legend entry.
+		return parts.length > 0 ? parts.join(' · ') : seriesLabel(series);
+	}
+
 	const isHistogram = $derived(explorer.selected?.type === 'Histogram');
 	const isSum = $derived(explorer.selected?.type === 'Sum');
+
+	// "View related logs"/"View traces" - cross-links into Logs/Traces pre-filtered to
+	// this metric's service and the explorer's current time range (see $lib/deep-links.ts),
+	// so Metrics -> Logs -> Traces reads as one system rather than three unrelated pages.
+	// The Logs link also narrows to a specific attribute, but only when it's unambiguous:
+	// exactly one series charted, with exactly one attribute (e.g. dotnet.exceptions
+	// isolated to one error.type). A multi-series or multi-attribute metric still links by
+	// service alone - still useful, just not falsely asserting one line's specific value
+	// applies to the whole metric.
+	const logsHref = $derived.by(() => {
+		if (!explorer.selected) return null;
+		const single = explorer.series.length === 1 ? explorer.series[0] : null;
+		const attrs = single ? Object.entries(single.attributes) : [];
+		return buildLogsDeepLinkHref({
+			serviceName: explorer.selected.serviceName,
+			timeRangePreset: explorer.filter.timeRangePreset,
+			attribute: attrs.length === 1 ? { key: attrs[0][0], value: attrs[0][1] } : undefined
+		});
+	});
+
+	const tracesHref = $derived.by(() =>
+		explorer.selected
+			? buildTracesDeepLinkHref({ serviceName: explorer.selected.serviceName, timeRangePreset: explorer.filter.timeRangePreset })
+			: null
+	);
 
 	// Histogram: chart one series' distribution (p50/p90/p99) at a time, picked below
 	// - N series x 3 percentile lines each would be unreadable, and "look at this
@@ -74,7 +143,7 @@
 		// ever relevant again.
 		void explorer.selected;
 		histogramSeriesIndex = 0;
-		sumMode = 'sum';
+		sumMode = 'rate';
 		histogramMode = 'percentiles';
 	});
 
@@ -89,7 +158,15 @@
 	}
 	interface LineSpec {
 		color: string;
+		// Compact - what the wrapped legend row and chart's own crosshair-adjacent
+		// space can afford to show. See `detail` for the full picture.
 		label: string;
+		// Full, unambiguous identity (serviceName + every attribute for a
+		// Gauge/Sum series; itself for percentile/mean, which have no series
+		// ambiguity since only one series is charted at a time) - shown in the
+		// per-legend-item tooltip so compacting `label` never actually loses
+		// information, just hides it until asked for.
+		detail: string;
 		points: PlotPoint[];
 	}
 
@@ -102,6 +179,7 @@
 					{
 						color: MEAN_COLOR,
 						label: 'mean',
+						detail: 'mean',
 						points: series.points
 							.filter((p) => p.sum != null && p.count != null && p.count > 0)
 							.map((p) => ({ bucketStart: p.bucketStart, raw: p.sum! / p.count! }))
@@ -111,6 +189,7 @@
 			return (['p50', 'p90', 'p99'] as const).map((key) => ({
 				color: PERCENTILE_COLOR[key],
 				label: key,
+				detail: key,
 				points: series.points.filter((p) => p[key] != null).map((p) => ({ bucketStart: p.bucketStart, raw: p[key]! }))
 			}));
 		}
@@ -121,7 +200,8 @@
 		const rateDivisor = isSum && sumMode === 'rate' ? explorer.intervalSeconds : null;
 		return visibleSeries.map((series, i) => ({
 			color: `var(${SERIES_COLOR_VARS[i]})`,
-			label: seriesLabel(series),
+			label: compactSeriesLabel(series, visibleSeries),
+			detail: seriesLabel(series),
 			points: series.points
 				.filter((p) => p.value != null)
 				.map((p) => ({ bucketStart: p.bucketStart, raw: rateDivisor ? p.value! / rateDivisor : p.value! }))
@@ -272,22 +352,30 @@
 					</div>
 				{/if}
 			</div>
-			{#if isHistogram && explorer.series.length > 1}
-				<Select.Root
-					type="single"
-					value={String(histogramSeriesIndex)}
-					onValueChange={(v) => v && (histogramSeriesIndex = Number(v))}
-				>
-					<Select.Trigger class="w-56 shrink-0">
-						{seriesLabel(explorer.series[histogramSeriesIndex])}
-					</Select.Trigger>
-					<Select.Content>
-						{#each explorer.series as series, i (series.serviceName + JSON.stringify(series.attributes))}
-							<Select.Item value={String(i)} label={seriesLabel(series)} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			{/if}
+			<div class="flex shrink-0 items-center gap-3">
+				{#if isHistogram && explorer.series.length > 1}
+					<Select.Root
+						type="single"
+						value={String(histogramSeriesIndex)}
+						onValueChange={(v) => v && (histogramSeriesIndex = Number(v))}
+					>
+						<Select.Trigger class="w-56 shrink-0">
+							{seriesLabel(explorer.series[histogramSeriesIndex])}
+						</Select.Trigger>
+						<Select.Content>
+							{#each explorer.series as series, i (series.serviceName + JSON.stringify(series.attributes))}
+								<Select.Item value={String(i)} label={seriesLabel(series)} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				{/if}
+				{#if logsHref}
+					<Button variant="link" size="sm" href={logsHref} class="h-auto p-0">View related logs →</Button>
+				{/if}
+				{#if tracesHref}
+					<Button variant="link" size="sm" href={tracesHref} class="h-auto p-0">View traces →</Button>
+				{/if}
+			</div>
 		</div>
 
 		<div class="min-h-0 flex-1 overflow-auto px-4 py-3">
@@ -389,7 +477,7 @@
 											{#if point}
 												<span class="flex items-center gap-1.5">
 													<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-													{line.label}: {formatValue(point.raw)}
+													{line.detail}: {formatValue(point.raw)}
 												</span>
 											{/if}
 										{/each}
@@ -401,14 +489,34 @@
 				</div>
 
 				{#if lines.length > 1}
-					<div class="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-						{#each lines as line (line.label)}
-							<span class="flex items-center gap-1.5">
-								<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-								{line.label}
-							</span>
-						{/each}
-					</div>
+					<Tooltip.Provider>
+						<div class="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+							{#each lines as line (line.label)}
+								{#if line.detail === line.label}
+									<span class="flex items-center gap-1.5">
+										<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
+										{line.label}
+									</span>
+								{:else}
+									<!-- compactSeriesLabel hid attributes shared across the visible set
+									     to keep this row readable with many series (e.g. one exception
+									     type each) - the full dimension set is one hover away, not lost. -->
+									<Tooltip.Root>
+										<Tooltip.Trigger>
+											{#snippet child({ props })}
+												<span {...props} class="flex items-center gap-1.5">
+													<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"
+													></span>
+													{line.label}
+												</span>
+											{/snippet}
+										</Tooltip.Trigger>
+										<Tooltip.Content>{line.detail}</Tooltip.Content>
+									</Tooltip.Root>
+								{/if}
+							{/each}
+						</div>
+					</Tooltip.Provider>
 				{/if}
 
 				{#if hiddenSeriesCount > 0}

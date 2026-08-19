@@ -137,6 +137,18 @@ export class TracesExplorerState {
 		void this.runSearch();
 	}
 
+	/**
+	 * Arrival filter for the "View traces" deep link from a Metrics chart (see
+	 * MetricChart.svelte / `$lib/deep-links.ts`, and `traces/+page.svelte`'s onMount,
+	 * the only caller). No attribute/patternId-style extra state to carry here, unlike
+	 * Logs - Traces' filter is already just services + time range, so this is really
+	 * just `applySavedViewState` without the saved-view indirection.
+	 */
+	applyDeepLinkFilter(params: { services: string[]; timeRangePreset: TimeRangePreset }): void {
+		this.filter = { timeRangePreset: params.timeRangePreset, services: params.services };
+		void this.runSearch();
+	}
+
 	dispose(): void {
 		this.#searchAbort?.abort();
 	}

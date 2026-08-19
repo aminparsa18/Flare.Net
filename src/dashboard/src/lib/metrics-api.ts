@@ -38,6 +38,10 @@ export interface MetricNameInfo {
 	type: MetricPointType;
 	unit: string | null;
 	description: string | null;
+	// How many distinct chart lines selecting this metric will produce - see
+	// MetricNamesQueryBuilder's remarks. Lets the picker show it up front, before
+	// the metric is ever selected/queried.
+	seriesCount: number;
 }
 
 export interface MetricNamesResponse {

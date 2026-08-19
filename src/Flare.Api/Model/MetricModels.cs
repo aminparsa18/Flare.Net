@@ -78,6 +78,14 @@ public sealed record MetricNameInfo
     public string? Unit { get; init; }
 
     public string? Description { get; init; }
+
+    /// <summary>
+    /// How many distinct chart lines selecting this metric will produce - the same
+    /// count <see cref="MetricQueryRequest"/> would return one <see cref="MetricSeries"/>
+    /// per, computed up front (see <see cref="Query.MetricNamesQueryBuilder"/>'s remarks)
+    /// so the picker can show it before the metric is ever selected/queried.
+    /// </summary>
+    public required long SeriesCount { get; init; }
 }
 
 /// <summary>Response body for <c>POST /api/metrics/names</c>.</summary>
