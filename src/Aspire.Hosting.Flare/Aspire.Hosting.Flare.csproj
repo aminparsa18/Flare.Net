@@ -7,9 +7,13 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- NuGet package metadata. Version starts pre-1.0 - pre-alpha, no stable release yet, and
-         deliberately not pinned 1:1 to the "edge"/future-semver Docker image tags (Planning.md's
-         "Flare.Hosting.Aspire" item: that pinning is an explicitly deferred decision).
+    <!-- NuGet package metadata. Version starts pre-1.0 - pre-alpha, no 1.0 yet, and this
+         package's own version number is deliberately NOT the same number as the Docker image
+         tag it defaults to - see FlareResourceBuilderExtensions.AddFlare's imageTag doc comment.
+         AddFlare's imageTag default is instead pinned to a specific known-good Flare image
+         version (currently "0.2.0"), bumped as part of cutting each new release of *this*
+         package once tested against a newer Flare image - the two numbering schemes stay
+         independent even though the pin tracks Flare's latest stable release.
 
          PackageId is Flare.Hosting.Aspire, NOT Aspire.Hosting.Flare - that prefix is reserved on
          nuget.org (Microsoft owns the real Aspire.Hosting.* namespace for official integrations).
@@ -19,11 +23,11 @@
          nuget.org - see Planning.md. Project/directory/namespace names are unaffected; only the
          published package identity changed. -->
     <PackageId>Flare.Hosting.Aspire</PackageId>
-    <!-- Bumped 0.1.4 -> 0.2.0 alongside Flare.Aspire's same bump - a minor bump (not another
-         0.1.x patch) since real features accumulated unreleased since 0.1.4: ingest API key auth
-         wiring, a CORS gap fix, and identity SQLite persistence across container recreation. Tag
+    <!-- Bumped 0.2.0 -> 0.2.1: AddFlare's imageTag default changed from the floating "edge"
+         tag to a pinned stable release ("0.2.0") - a patch bump, not minor, since this only
+         changes a default value (already documented as forthcoming), not new API surface. Tag
          on release: aspire-hosting-flare-v{Version} (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>
     <PackageTags>aspire;aspire-hosting;flare;opentelemetry;otlp;logging;observability;clickhouse;redis</PackageTags>

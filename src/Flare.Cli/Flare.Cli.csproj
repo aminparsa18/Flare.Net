@@ -17,9 +17,12 @@
     <ToolCommandName>flare</ToolCommandName>
     <PackageType>DotnetTool</PackageType>
     <PackageId>Flare.Cli</PackageId>
-    <!-- Pre-1.0, matching Flare.Hosting.Aspire/Flare.Aspire's own pre-alpha posture. First
-         tag on release: flare-cli-v0.1.0 (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.0</Version>
+    <!-- Pre-1.0, matching Flare.Hosting.Aspire/Flare.Aspire's own pre-alpha posture. Bumped
+         0.1.0 -> 0.1.1: the generated .env template's FLARE_IMAGE_TAG default (and state.json's
+         ImageTag fallback) changed from the floating "edge" tag to a pinned stable release
+         ("0.2.0") - see docs/cli.md's Image tag policy section. Tag on release:
+         flare-cli-v{Version} (see .github/workflows/nuget-publish.yml). -->
+    <Version>0.1.1</Version>
     <Authors>Amin Parsa</Authors>
     <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
     <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>

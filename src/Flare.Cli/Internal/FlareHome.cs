@@ -82,7 +82,7 @@ internal static class FlareHome
         {
             StateMetadata.Save(StateFilePath, new StateMetadata
             {
-                ImageTag = "edge",
+                ImageTag = "0.2.0",
                 CliVersion = assembly.GetName().Version?.ToString() ?? "unknown",
             });
         }
