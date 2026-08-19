@@ -61,10 +61,25 @@ export class MetricsExplorerState {
 	// MetricChart (its comparison lines/percentage degrade gracefully - see there),
 	// never blocks `series`/queryError for the period that actually matters.
 	previousSeries = $state.raw<MetricSeries[]>([]);
+	// filter.compareEnabled *as of the query that produced the current series/
+	// previousSeries* - deliberately not the same as filter.compareEnabled itself,
+	// which flips the instant the toolbar switch is clicked, well before the matching
+	// (re)fetch resolves. MetricChart keys its Current/Previous-vs-per-series line
+	// mode off this, not the live filter, so the chart only ever switches shape in the
+	// same paint the data for that shape actually arrives - no frame where the toggle
+	// reads "on" but the previous-period line hasn't loaded yet (a real, shipped
+	// "blink" this field exists to fix, not a hypothetical one).
+	resultCompareEnabled = $state(false);
 	// The bucketWidthSeconds actually sent with the current `series` - for the chart
-	// header's "1m interval" metadata row. Reset to null at the start of every query
-	// (not just replaced alongside `series`) so a metric switch never briefly shows the
-	// *previous* metric's interval next to a chart that hasn't caught up yet.
+	// header's "1m interval" metadata row. Only reset (along with series/previousSeries/
+	// queryError - see #resetForNewMetric) when the *selected metric itself* changes,
+	// never on a plain filter refetch (time range, service, compare toggle) - those keep
+	// showing the last good chart/metadata row until the new data arrives and replaces
+	// it in one go, same "stale-while-revalidate, never an empty gap" reasoning
+	// resultCompareEnabled above documents. A metric switch still resets immediately:
+	// two different metrics can have completely different intervals/units, so briefly
+	// showing metric A's chart under metric B's name would be actively misleading in a
+	// way a same-metric refetch reusing slightly-stale data never is.
 	intervalSeconds = $state<number | null>(null);
 
 	// Not derived from `names` (which is already narrowed by the current service
@@ -122,6 +137,7 @@ export class MetricsExplorerState {
 			const stillInScope = this.selected && this.names.some((m) => metricKey(m) === metricKey(this.selected!));
 			if (!stillInScope) {
 				this.selected = this.names[0] ?? null;
+				this.#resetForNewMetric();
 				void this.runQuery();
 			}
 		} catch (err) {
@@ -132,14 +148,25 @@ export class MetricsExplorerState {
 		}
 	}
 
+	/**
+	 * Clears series/previousSeries/intervalSeconds/queryError back to their "nothing
+	 * loaded yet" defaults - called right before runQuery whenever `selected` is about
+	 * to point at a genuinely different metric (selectMetric, and loadNames' own
+	 * auto-select fallback), never on a plain filter refetch of the *same* metric - see
+	 * intervalSeconds' own remarks for why that distinction matters.
+	 */
+	#resetForNewMetric(): void {
+		this.series = [];
+		this.previousSeries = [];
+		this.intervalSeconds = null;
+		this.queryError = null;
+	}
+
 	async runQuery(): Promise<void> {
 		this.#queryAbort?.abort();
 
 		if (!this.selected) {
-			this.series = [];
-			this.previousSeries = [];
-			this.queryError = null;
-			this.intervalSeconds = null;
+			this.#resetForNewMetric();
 			return;
 		}
 
@@ -148,9 +175,13 @@ export class MetricsExplorerState {
 		const metric = this.selected;
 		const compareEnabled = this.filter.compareEnabled;
 
+		// Deliberately doesn't touch series/previousSeries/intervalSeconds here - only
+		// queryError, and only because a stale error message next to fresh-looking
+		// loading state would read wrong. Everything else stays exactly as it was
+		// (stale-while-revalidate) until the try block below actually has something new
+		// to replace it with - see intervalSeconds/resultCompareEnabled's own remarks.
 		this.queryLoading = true;
 		this.queryError = null;
-		this.intervalSeconds = null;
 		try {
 			const range = this.#resolvedRange();
 			const bucketWidthSeconds = pickBucketWidthSeconds(rangeSeconds(range));
@@ -184,6 +215,7 @@ export class MetricsExplorerState {
 			this.series = current.series;
 			this.previousSeries = previous?.series ?? [];
 			this.intervalSeconds = bucketWidthSeconds;
+			this.resultCompareEnabled = compareEnabled;
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.queryError = err instanceof Error ? err.message : String(err);
@@ -195,6 +227,7 @@ export class MetricsExplorerState {
 	selectMetric(metric: MetricNameInfo): void {
 		if (this.selected && metricKey(this.selected) === metricKey(metric)) return;
 		this.selected = metric;
+		this.#resetForNewMetric();
 		void this.runQuery();
 	}
 
