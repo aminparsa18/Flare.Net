@@ -5,6 +5,7 @@
 	// pointer-move hover mapped to the nearest index, Tooltip.Root pinned open by
 	// hover state) - the genuinely new part is multiple simultaneous lines instead of
 	// one bar series, so see this file's own remarks for what that changes.
+	import { fade } from 'svelte/transition';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import * as Select from '$lib/components/ui/select';
 	import * as Empty from '$lib/components/ui/empty';
@@ -109,8 +110,16 @@
 	// more clutter than the feature is worth. The chart doesn't silently ignore that
 	// case, though (a real UX gap in the first cut of this feature) - see the header's
 	// own "switch to Mean" note below.
+	//
+	// Keyed on `resultCompareEnabled` (what `series`/`previousSeries` were actually
+	// fetched with), not the live `filter.compareEnabled` the toolbar switch shows -
+	// see resultCompareEnabled's own remarks. histogramMode/isHistogram/selected don't
+	// need the same lag: switching Percentiles<->Mean never re-queries (both are
+	// already in every fetched point - see buildLines' own remarks), and a metric
+	// switch clears series/previousSeries synchronously (MetricsExplorerState.
+	// #resetForNewMetric) rather than leaving stale data to be inconsistent about.
 	const compareActive = $derived(
-		explorer.filter.compareEnabled && (!isHistogram || histogramMode === 'mean') && explorer.selected != null
+		explorer.resultCompareEnabled && (!isHistogram || histogramMode === 'mean') && explorer.selected != null
 	);
 	const compareUnavailable = $derived(explorer.filter.compareEnabled && isHistogram && histogramMode === 'percentiles');
 
@@ -317,6 +326,16 @@
 
 	const rateDivisor = $derived(isSum && sumMode === 'rate' ? explorer.intervalSeconds : null);
 	const lines = $derived(compareActive ? buildComparisonLines() : buildLines());
+
+	// Changes exactly when the chart's *shape* changes - a different metric, or
+	// comparison mode actually switching on/off (compareActive, already gated on
+	// resultCompareEnabled so this never fires mid-fetch - see its own remarks). Keys
+	// the {#key} crossfade below: a plain data refresh on the same metric/mode (a
+	// different time range, an added service) morphs the existing lines in place with
+	// no fade at all, which reads as smoothly updated rather than "reloaded"; a real
+	// shape change (N per-series lines <-> 2 aggregate lines, or metric A -> metric B)
+	// gets a quick fade instead of an instant swap.
+	const chartKey = $derived(`${explorer.selected?.metricName ?? ''}|${explorer.selected?.serviceName ?? ''}|${compareActive}`);
 
 	// Same reduction buildComparisonLines' two lines are built from, but over the whole
 	// period at once rather than per-bucket - the percentage summary is one number, not
@@ -589,6 +608,8 @@
 			{:else if bucketTimes.length === 0}
 				<div class="text-muted-foreground flex h-[180px] items-center justify-center text-xs">No data in range</div>
 			{:else}
+			{#key chartKey}
+			<div transition:fade={{ duration: 120 }}>
 				<div class="flex gap-2">
 					<!-- Rendered as real DOM text, not SVG <text>, deliberately: the chart's
 					     viewBox is stretched non-uniformly (preserveAspectRatio="none", see
@@ -726,6 +747,8 @@
 						+{hiddenSeriesCount} more series not shown ({MAX_SERIES} max) - narrow the service/attribute filter to see them.
 					</p>
 				{/if}
+			</div>
+			{/key}
 			{/if}
 		</div>
 	{/if}
