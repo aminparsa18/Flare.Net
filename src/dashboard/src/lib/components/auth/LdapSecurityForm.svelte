@@ -138,9 +138,13 @@
 					/>
 					<p class="text-muted-foreground text-xs">
 						Paste your internal CA's root certificate, or the domain controller's own certificate if it's self-signed.
-						When set, Flare trusts <strong>only</strong> this certificate for LDAP connections, bypassing the host's OS
-						trust store. Leave blank to use the OS trust store (default). Get this with, e.g.
-						<code>openssl s_client -connect {'{host}'}:{'{port}'} -showcerts</code>.
+						You can paste more than one certificate back to back (e.g. a root <strong>and</strong> the intermediate
+						that actually signed the DC's certificate, or two DC certificates to ride out a rotation) - same
+						concatenated-PEM convention as any CA bundle file. When set, Flare trusts <strong>only</strong> the
+						certificate(s) pasted here for LDAP connections, bypassing the host's OS trust store. Leave blank to use
+						the OS trust store (default). Get this with, e.g.
+						<code>openssl s_client -connect {'{host}'}:{'{port}'} -showcerts</code> - its output already includes the
+						full chain.
 					</p>
 				</div>
 

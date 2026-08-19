@@ -340,10 +340,15 @@ other account.
    - **Pinned server certificate** (optional) — paste a PEM-encoded certificate to pin
      TLS trust for this connection to exactly that certificate, bypassing the OS trust
      store. Use your internal CA's root certificate if the DC's certificate is signed by
-     a private CA, or the DC's own certificate if it's self-signed. Get it with, e.g.,
-     `openssl s_client -connect dc.corp.example.com:636 -showcerts`. Leave blank to keep
-     relying on the OS/container trust store (the default, and the only option before
-     this field existed).
+     a private CA, or the DC's own certificate if it's self-signed. You can paste more
+     than one certificate back to back — a root plus the intermediate that actually
+     signed the DC's leaf certificate (a bare root alone can't always complete that
+     chain), or two DC certificates side by side to ride out a rotation window — same
+     concatenated-PEM convention as any CA bundle file; at least one certificate in the
+     bundle must be self-signed to serve as a trust anchor. Get it with, e.g.,
+     `openssl s_client -connect dc.corp.example.com:636 -showcerts`, whose output already
+     includes the full chain. Leave blank to keep relying on the OS/container trust store
+     (the default, and the only option before this field existed).
    - **Base DN** — the search root, e.g. `DC=corp,DC=example,DC=com`.
    - **Bind DN (service account)** / **Bind password** — a directory account with
      read access to search for users under the Base DN. Doesn't need to be an Admin
@@ -361,13 +366,6 @@ other account.
 
 ### Known limitations, stated plainly
 
-- **TLS certificate validation defaults to the container/host's own OS trust store, with
-  an optional pin.** If your domain controller's certificate is signed by a
-  private/internal CA — or is self-signed — paste that CA's root certificate (or the
-  DC's own certificate, if self-signed) into the **Pinned server certificate** field
-  under **Use LDAPS (TLS)**. Once set, Flare trusts *only* that certificate for LDAP
-  connections and stops relying on the OS trust store entirely; leave it blank to keep
-  today's OS-trust-store behavior unchanged.
 - **Nested AD group membership isn't resolved** (see "Role provisioning" above).
 - **Built and named for Microsoft AD / AD-compatible directories**, not generic
   arbitrary-LDAP-server support — though the Advanced overrides (search filter, unique ID

@@ -205,6 +205,40 @@ public class LdapSettingsEndpointsTests
     }
 
     [Fact]
+    public async Task Put_Returns400_WhenPinnedCertificateBundleHasOnlyAnIntermediate_NoRootTrustAnchor()
+    {
+        // A bundle of only intermediate certificates has nothing for the chain builder
+        // to terminate trust at - rejected here at save time (see
+        // LdapCertificateTrust.Validate's remarks) rather than surfacing later as every
+        // LDAP login silently failing.
+        var store = new FakeLdapSettingsStore();
+        var (_, intermediate, _) = TestCertificates.CreateRootIntermediateAndLeaf();
+        var context = CreateContext(ValidRequestBody(pinnedCertificatePem: intermediate.ExportCertificatePem()));
+
+        var result = await LdapSettingsEndpoints.HandlePutAsync(context, store, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Put_PersistsAMultiCertificatePemBundle()
+    {
+        // The two-tier private-CA case: root + intermediate pasted together as one
+        // concatenated-PEM bundle, same convention as a CA bundle file.
+        var store = new FakeLdapSettingsStore();
+        var (root, intermediate, _) = TestCertificates.CreateRootIntermediateAndLeaf();
+        var bundle = root.ExportCertificatePem() + "\n" + intermediate.ExportCertificatePem();
+        var context = CreateContext(ValidRequestBody(pinnedCertificatePem: bundle));
+
+        var result = await LdapSettingsEndpoints.HandlePutAsync(context, store, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(bundle, (await store.GetAsync()).PinnedCertificatePem);
+    }
+
+    [Fact]
     public async Task Get_ReturnsThePinnedCertificatePemInFull()
     {
         // Contrast with Get_NeverReturnsTheRealBindPassword above - a certificate isn't a
