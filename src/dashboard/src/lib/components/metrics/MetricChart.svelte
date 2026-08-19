@@ -33,6 +33,21 @@
 		p90: 'var(--chart-2)',
 		p99: 'var(--chart-4)'
 	};
+	// Its own fixed slot (unused by PERCENTILE_COLOR above) - mean isn't a percentile,
+	// so it shouldn't borrow p50's color and read as if it were one.
+	const MEAN_COLOR = 'var(--chart-3)';
+
+	// Alternate views for Sum/Histogram, picked via the small Select next to the
+	// metadata row below - "how should this be aggregated", not "which series". Both
+	// are pure reshapes of the *already-fetched* data (rate = value / bucket width;
+	// mean = sum / count, both already returned per point - see MetricSeriesPoint),
+	// so switching never re-queries. `count`/`p75`/`p95`/`max` are deliberately not
+	// options here - see Planning.md's "Later" entry for why those need backend work
+	// this Tier-1 pass doesn't do.
+	type SumMode = 'sum' | 'rate';
+	type HistogramMode = 'percentiles' | 'mean';
+	let sumMode = $state<SumMode>('sum');
+	let histogramMode = $state<HistogramMode>('percentiles');
 
 	function seriesLabel(series: MetricSeries): string {
 		const attrs = Object.entries(series.attributes);
@@ -41,6 +56,7 @@
 	}
 
 	const isHistogram = $derived(explorer.selected?.type === 'Histogram');
+	const isSum = $derived(explorer.selected?.type === 'Sum');
 
 	// Histogram: chart one series' distribution (p50/p90/p99) at a time, picked below
 	// - N series x 3 percentile lines each would be unreadable, and "look at this
@@ -50,11 +66,16 @@
 	let histogramSeriesIndex = $state(0);
 
 	$effect(() => {
-		// Reset the histogram series picker whenever the tracked metric changes
-		// underneath it - same "abort/reset on reselect" idiom SpanDetailSheet uses for
-		// its own local, view-only state.
+		// Reset the histogram series picker and the aggregation-mode toggles whenever
+		// the tracked metric changes underneath it - same "abort/reset on reselect"
+		// idiom SpanDetailSheet uses for its own local, view-only state. Resetting both
+		// modes unconditionally (not just the one matching the new metric's type) is
+		// simplest and never wrong - the unused one just sits at its default until it's
+		// ever relevant again.
 		void explorer.selected;
 		histogramSeriesIndex = 0;
+		sumMode = 'sum';
+		histogramMode = 'percentiles';
 	});
 
 	const visibleSeries = $derived(
@@ -76,6 +97,17 @@
 		if (isHistogram) {
 			const series = visibleSeries[0];
 			if (!series) return [];
+			if (histogramMode === 'mean') {
+				return [
+					{
+						color: MEAN_COLOR,
+						label: 'mean',
+						points: series.points
+							.filter((p) => p.sum != null && p.count != null && p.count > 0)
+							.map((p) => ({ bucketStart: p.bucketStart, raw: p.sum! / p.count! }))
+					}
+				];
+			}
 			return (['p50', 'p90', 'p99'] as const).map((key) => ({
 				color: PERCENTILE_COLOR[key],
 				label: key,
@@ -83,10 +115,16 @@
 			}));
 		}
 
+		// Rate divides the already-returned per-bucket value by that bucket's width -
+		// no re-query, since every bucket in one response shares the same width
+		// (bucketWidthSeconds is one request-level parameter, not per-bucket).
+		const rateDivisor = isSum && sumMode === 'rate' ? explorer.intervalSeconds : null;
 		return visibleSeries.map((series, i) => ({
 			color: `var(${SERIES_COLOR_VARS[i]})`,
 			label: seriesLabel(series),
-			points: series.points.filter((p) => p.value != null).map((p) => ({ bucketStart: p.bucketStart, raw: p.value! }))
+			points: series.points
+				.filter((p) => p.value != null)
+				.map((p) => ({ bucketStart: p.bucketStart, raw: rateDivisor ? p.value! / rateDivisor : p.value! }))
 		}));
 	}
 
@@ -108,10 +146,18 @@
 
 	const peakValue = $derived(Math.max(0, ...lines.flatMap((l) => l.points.map((p) => p.raw))));
 
+	// Rate mode changes the unit, not just the numbers - a Sum declared "By" reads as
+	// "By/s" once every value has been divided by the bucket width. axis.ts already
+	// knows how to split/format a "<unit>/s" rate unit (composing it back this way is
+	// simplest: MetricNameInfo has no separate "rate unit" of its own to read).
+	const displayUnit = $derived(
+		isSum && sumMode === 'rate' ? `${explorer.selected?.unit ?? ''}/s` : explorer.selected?.unit
+	);
+
 	// One scale for the whole chart (e.g. "ms"), picked from the data's raw peak so
 	// every tick/tooltip value reads in the same unit instead of each re-picking its
 	// own ("40 ms" next to "0.03 s").
-	const axisScale = $derived(resolveAxisScale(explorer.selected?.unit, peakValue));
+	const axisScale = $derived(resolveAxisScale(displayUnit, peakValue));
 
 	// Round the axis up to a "nice" ceiling in the *displayed* scale (e.g. peak 37ms ->
 	// ticks 0/10/20/30/40 ms) rather than scaling exactly to the data's raw peak, so
@@ -184,13 +230,46 @@
 				     (see intervalSeconds' own remarks) - otherwise this would flash the
 				     previous metric's series count/interval for a moment on every switch. -->
 				{#if explorer.intervalSeconds !== null}
-					<p class="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 text-xs">
-						<span>{explorer.selected.type}</span>
+					<div class="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 text-xs">
+						<!-- The type itself is never a plain label here for Sum/Histogram - it
+						     doubles as the aggregation-mode picker (Sum/Rate, Percentiles/Mean).
+						     A real Select, not a styled-to-look-clickable badge: badges elsewhere
+						     in this app (the picker list's own Sum/Histogram tags included) are
+						     inert, so overloading one with a click handler here would be an
+						     undiscoverable, inconsistent affordance - this reuses the same
+						     Select.Trigger pattern the series picker to the right already uses. -->
+						{#if isSum}
+							<Select.Root type="single" value={sumMode} onValueChange={(v) => v && (sumMode = v as SumMode)}>
+								<Select.Trigger class="w-auto">
+									{sumMode === 'rate' ? 'Rate' : 'Sum'}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="sum" label="Sum" />
+									<Select.Item value="rate" label="Rate" />
+								</Select.Content>
+							</Select.Root>
+						{:else if isHistogram}
+							<Select.Root
+								type="single"
+								value={histogramMode}
+								onValueChange={(v) => v && (histogramMode = v as HistogramMode)}
+							>
+								<Select.Trigger class="w-auto">
+									{histogramMode === 'mean' ? 'Mean' : 'Percentiles'}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="percentiles" label="Percentiles" />
+									<Select.Item value="mean" label="Mean" />
+								</Select.Content>
+							</Select.Root>
+						{:else}
+							<span>{explorer.selected.type}</span>
+						{/if}
 						<span aria-hidden="true">·</span>
 						<span>{explorer.series.length} series</span>
 						<span aria-hidden="true">·</span>
 						<span>{formatBucketWidthSeconds(explorer.intervalSeconds)} interval</span>
-					</p>
+					</div>
 				{/if}
 			</div>
 			{#if isHistogram && explorer.series.length > 1}
