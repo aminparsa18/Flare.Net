@@ -1,0 +1,14 @@
+-- Optional TLS certificate pinning for the Active Directory (LDAP) auth provider
+-- (docs/auth.md's "Active Directory (LDAP)" section, closing the "TLS validation relies
+-- on the OS trust store" known limitation). When set, LdapAuthEndpoints.CreateConnection
+-- builds a custom X509Chain trusting *only* this certificate - either an internal CA's
+-- root certificate, or the domain controller's own certificate if self-signed - bypassing
+-- the OS/container trust store entirely for LDAP connections. Left NULL, behavior is
+-- unchanged (OS trust store, today's default).
+--
+-- Plaintext, and unlike BindPassword it's not a secret - a certificate is public data, so
+-- LdapSettingsEndpoints echoes it back in full on GET rather than hiding it behind a
+-- hasX boolean. A plain ADD COLUMN is enough here: no CHECK constraint, no table rebuild
+-- needed (contrast 0005_ldap_id.sql/0008_oidc_id.sql/0010_proxyauth_id.sql, which had to
+-- rebuild Users because SQLite can't ALTER a CHECK constraint in place).
+ALTER TABLE LdapSettings ADD COLUMN PinnedCertificatePem TEXT NULL;

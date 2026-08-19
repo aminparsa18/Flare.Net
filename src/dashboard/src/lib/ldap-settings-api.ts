@@ -23,6 +23,10 @@ export interface LdapSettings {
 	memberGroupDn: string | null;
 	viewerGroupDn: string | null;
 	defaultRole: UserRole;
+	/** PEM-encoded certificate pinned as the sole TLS trust anchor for LDAP connections -
+	 * unlike `hasBindPassword`, echoed back in full (not redacted): a certificate isn't a
+	 * secret. `null` means no pin is configured (falls back to the OS/container trust store). */
+	pinnedCertificatePem: string | null;
 }
 
 export interface SaveLdapSettingsRequest {
@@ -41,6 +45,9 @@ export interface SaveLdapSettingsRequest {
 	memberGroupDn: string | null;
 	viewerGroupDn: string | null;
 	defaultRole: UserRole;
+	/** `null`/omitted always *clears* any previously-saved pin - unlike `bindPassword`,
+	 * there's no "leave unchanged" semantics for this field (it isn't a secret). */
+	pinnedCertificatePem: string | null;
 }
 
 /** `GET /api/settings/ldap`. */

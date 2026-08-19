@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
@@ -62,11 +64,24 @@ public static class LdapSettingsEndpoints
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(request.PinnedCertificatePem))
+        {
+            try
+            {
+                using var _ = X509Certificate2.CreateFromPem(request.PinnedCertificatePem);
+            }
+            catch (Exception ex) when (ex is CryptographicException or ArgumentException or FormatException)
+            {
+                return Results.Problem("Pinned certificate must be a single, valid PEM-encoded X.509 certificate.", statusCode: StatusCodes.Status400BadRequest);
+            }
+        }
+
         var saved = await ldapSettings.SaveAsync(
             request.Enabled,
             request.Host,
             request.Port,
             request.UseSsl,
+            request.PinnedCertificatePem,
             request.BaseDn,
             request.BindDn,
             request.BindPassword,
@@ -95,5 +110,6 @@ public static class LdapSettingsEndpoints
         MemberGroupDn = settings.MemberGroupDn,
         ViewerGroupDn = settings.ViewerGroupDn,
         DefaultRole = settings.DefaultRole,
+        PinnedCertificatePem = settings.PinnedCertificatePem,
     };
 }
