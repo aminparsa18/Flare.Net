@@ -507,21 +507,30 @@ actually worked out (see the three bullets below) — closing out the full origi
       race (see new item below) crashed both `ingest` and `api` from within the process
       3x each during this same verification run, and `restart: unless-stopped`
       auto-recovered all 6 crashes with no manual intervention.
-- [ ] **`ClickHouseMigrationRunner` doesn't retry/wait on ClickHouse connection-refused
-      at startup.** Found 2026-08-18 while verifying the identity-migration race fix
-      above (see that item): even with `ingest`/`api`'s `depends_on: clickhouse:
-      condition: service_healthy`, a fresh `docker compose up --build` still saw both
-      containers throw an unhandled `System.Net.Http.HttpRequestException: Connection
-      refused (clickhouse:8123)` out of `ClickHouseMigrationRunner` on their first
-      startup attempt, crashing the process - Compose's `service_healthy` gate isn't
-      quite tight enough to guarantee ClickHouse is actually accepting connections by
-      the time the dependent container's own migration code runs. Not a new blocker in
-      practice - both containers now carry `restart: unless-stopped` (see above) and
-      self-healed automatically (3 crash/restart cycles each, all recovered) - but the
-      underlying gap is real and worth a proper fix later: likely a retry/backoff loop
-      around `ClickHouseMigrationRunner`'s own connection attempt, mirroring
-      `IdentityDbConnectionFactory`'s `busy_timeout` reasoning but for a genuinely
-      unavailable dependency rather than a lock.
+- [x] ~~`ClickHouseMigrationRunner` doesn't retry/wait on ClickHouse connection-refused
+      at startup.~~ **Fixed 2026-08-19 (code+build-verified only, live e2e still
+      pending - Docker Desktop wasn't running on this machine to redo the
+      `docker compose up --build` repro).** Found 2026-08-18 while verifying the
+      identity-migration race fix above (see that item): even with `ingest`/`api`'s
+      `depends_on: clickhouse: condition: service_healthy`, a fresh
+      `docker compose up --build` still saw both containers throw an unhandled
+      `System.Net.Http.HttpRequestException: Connection refused (clickhouse:8123)` out
+      of `ClickHouseMigrationRunner` on their first startup attempt, crashing the
+      process - Compose's `service_healthy` gate isn't quite tight enough to guarantee
+      ClickHouse is actually accepting connections by the time the dependent
+      container's own migration code runs. Not a new blocker in practice - both
+      containers already carried `restart: unless-stopped` (see above) and self-healed
+      automatically (3 crash/restart cycles each, all recovered) - but the underlying
+      gap was real. Fix: `ClickHouseMigrationRunner`'s first statement (the bootstrap
+      `CREATE DATABASE IF NOT EXISTS clickhousedb`) is now wrapped in a
+      connection-failure retry/backoff loop (1s/2s/4s/8s.../8s, 10 attempts, ~65s total)
+      that only retries transport-level failures (`HttpRequestException`,
+      `SocketException`, `IOException`, including wrapped in a driver exception's
+      `InnerException`) - a real query/schema error still fails fast instead of
+      retrying for a minute. No call-site changes needed (`Flare.Api`/`Flare.Ingest`
+      `Program.cs` both still call `ApplyAsync(client, logger, cancellationToken)`
+      as before) since the retry lives inside the method itself. `restart:
+      unless-stopped` stays as the outer safety net either way.
 - [x] ~~Auth + multi-user / roles~~ **Shipped 2026-08-10 (see v11 below)** — local
       username/password + RBAC (Admin/Member/Viewer) on one shared instance, not
       multi-tenant isolation, per this doc's own "self-hosted, single-instance" framing;
