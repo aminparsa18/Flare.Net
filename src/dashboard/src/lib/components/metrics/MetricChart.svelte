@@ -637,8 +637,18 @@
 						value={String(histogramSeriesIndex)}
 						onValueChange={(v) => v && (histogramSeriesIndex = Number(v))}
 					>
+						<!-- Select.Trigger's own base classes are `whitespace-nowrap` with no
+						     truncation for raw text children (its `line-clamp-1` rule only
+						     targets a `data-slot="select-value"` child, which plain text isn't) -
+						     a full seriesLabel() (every attribute, unbounded) inside a fixed
+						     w-56 trigger just overflowed past its own edges into the header's
+						     other content instead of clipping. min-w-0 lets this flex child
+						     actually shrink below its content size (the usual flexbox
+						     truncation gotcha) so `truncate` has room to take effect; `title`
+						     carries the full label for whoever needs it on hover. -->
+						{@const label = seriesLabel(explorer.series[histogramSeriesIndex])}
 						<Select.Trigger class="w-56 shrink-0">
-							{seriesLabel(explorer.series[histogramSeriesIndex])}
+							<span class="min-w-0 truncate" title={label}>{label}</span>
 						</Select.Trigger>
 						<Select.Content>
 							{#each explorer.series as series, i (series.serviceName + JSON.stringify(series.attributes))}
