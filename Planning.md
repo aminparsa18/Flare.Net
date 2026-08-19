@@ -606,6 +606,35 @@ actually worked out (see the three bullets below) — closing out the full origi
         unconditionally, only the warning is dev-gated.
       All five items from this backlog are now shipped - `VirtualList` hardening is
       done.
+- [ ] **Metrics chart: remaining aggregation-mode options (Count for Sum; p75/p95/Max
+      for Histogram).** 2026-08-19 - Tier 2 of the chart header's aggregation-mode
+      picker (`MetricChart.svelte`'s `sumMode`/`histogramMode` Select next to the
+      type). Tier 1 shipped the same day - Sum↔Rate and Percentiles↔Mean - because
+      both are pure client-side reshapes of data the API already returns in full
+      (`value`/bucket-width for rate; `sum`/`count` for mean - see
+      `MetricSeriesPoint`), no query change needed. These four are not:
+      - **Sum → Count.** `MetricSeriesQueryBuilder`'s Sum branch only ever selects
+        `max(Value) - min(Value)` per bucket - there's no `count()` of raw samples.
+        Needs a new query branch (or an added `count(*) AS Count` column alongside the
+        existing one) plus a new response field wired through `MetricModels.cs` →
+        `metrics-api.ts`.
+      - **Histogram → p75, p95.** Cheap in principle - `HistogramQuantileEstimator`
+        already does the interpolation `MetricQueryService` calls it with for
+        p50/p90/p99, just call it at two more quantiles - but `MetricSeriesPoint` has
+        fixed `P50`/`P90`/`P99` fields, not a general list, so this also wants a small
+        API shape change (either add two more fixed fields, the path of least
+        resistance, or move to a `percentiles: Record<string, double>` map if this
+        keeps growing).
+      - **Histogram → Max.** Not derivable from anything currently stored
+        (`BucketCounts`/`ExplicitBounds`/`Sum`/`Count` - no true max). Two options:
+        capture the OTLP `HistogramDataPoint.Max` field end-to-end (`OtlpMetricsMapper`
+        → ClickHouse schema → query) *if* the producer actually sets it (optional
+        per the OTel proto, plenty of SDKs omit it), or approximate as "upper bound of
+        the highest non-empty bucket" using `ExplicitBounds` already in hand - honest
+        about being an approximation, but zero schema change. Whichever is picked,
+        should be a deliberate choice, not a silent one - same "don't silently
+        half-solve it" precedent `MetricSeriesQueryBuilder`'s own Sum-delta remark
+        sets.
 
 ### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
 Promoted out of "Later" and shipped 2026-08-10, in four passes (ingest+storage →
