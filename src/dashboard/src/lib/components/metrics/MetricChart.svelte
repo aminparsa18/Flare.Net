@@ -649,14 +649,25 @@
 					     below) to fill whatever width the container has, which would otherwise
 					     stretch glyph shapes horizontally by that same ratio. Positioned via
 					     the identical yFor() used for the SVG gridlines below, so labels stay
-					     pixel-aligned with them despite living outside the SVG. -->
+					     pixel-aligned with them despite living outside the SVG.
+					     w-28, not the tighter width this used to have - a rate unit built from a
+					     UCUM curly-brace annotation (axis.ts's own remarks: "{collection}/s" ->
+					     "collection/s") spells out the counted noun in full, easily 10+
+					     characters wider than "ms"/"MB"/"%". Was clipping *silently* before
+					     (an absolutely-positioned, unconstrained-width span just overflows past
+					     its container's edge with nothing to stop it) rather than truncating
+					     visibly - inset-x-1 (not just right-1) below gives each span an actual
+					     bounded width so `truncate` has something to truncate against, with the
+					     full text still available via `title` for whatever's still too long to
+					     fit even at this width. -->
 					<div
-						class="text-muted-foreground relative w-14 shrink-0 text-right text-xs whitespace-nowrap tabular-nums"
+						class="text-muted-foreground relative w-28 shrink-0 text-right text-xs whitespace-nowrap tabular-nums"
 						style="height: {CHART_HEIGHT}px"
 					>
 						{#each ticks.values as tick (tick)}
-							<span class="absolute right-1 -translate-y-1/2 leading-none" style="top: {yFor(tick)}px">
-								{formatAtScale(tick, axisScale)}
+							{@const label = formatAtScale(tick, axisScale)}
+							<span class="absolute inset-x-1 -translate-y-1/2 truncate leading-none" style="top: {yFor(tick)}px" title={label}>
+								{label}
 							</span>
 						{/each}
 					</div>
