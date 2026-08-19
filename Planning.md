@@ -2050,6 +2050,53 @@ into four follow-ups once the underlying data existed to react to.
       - same "left for whenever this gets exercised for real" gap v14/v15/v16 each
       flagged for themselves.
 
+### v18 — Active Directory (LDAP): TLS certificate pinning + chain/bundle support (2026-08-19)
+
+Two same-day, directly-related passes; recorded together since the second is a
+straight-up fix to the first, not independent work - `docs/auth.md`'s "Known
+limitations" bullet under v13's LDAP work (never itself given a proper header here, a
+doc gap - see that section above) originally read "TLS certificate validation relies on
+the container/host's own OS trust store... there's no in-app certificate-pinning UI."
+
+- [x] **PR #90 - certificate pinning itself.** Admins can paste a PEM certificate into a
+      new **Pinned server certificate** field on the AD settings form (under "Use LDAPS
+      (TLS)"); when set, `LdapAuthEndpoints.CreateConnection` wires
+      `SessionOptions.VerifyServerCertificate` to a new `LdapCertificateTrust.Validate`
+      helper that builds an `X509Chain` with `TrustMode = CustomRootTrust` and only that
+      one certificate in `CustomTrustStore` - the OS/container trust store is bypassed
+      entirely for that connection. Fails closed on an expired pinned certificate
+      (pinning isn't an "ignore expiry" escape hatch). `LdapSettings.PinnedCertificatePem`
+      stores it as plaintext with direct-clear (not `BindPassword`'s COALESCE-preserve)
+      semantics, since a certificate isn't a secret - additive migration
+      `0011_ldap_pinned_certificate.sql`, no `hasX` redaction on the DTO. Save-time PEM
+      validation in `LdapSettingsEndpoints` (400 on malformed input).
+- [x] **Follow-up, same day: bundle/chain support** (closes a gap identified while
+      re-reviewing the PR right after merge, not a bug report from the field) -
+      `LdapCertificateTrust.Validate` only ever pinned a single certificate. A real
+      two-tier private CA (offline root + issuing intermediate) presents `leaf →
+      intermediate`, and .NET's chain builder has no guaranteed way to fetch a missing
+      intermediate (AIA fetching can be unavailable in a container with restricted
+      egress) - pinning just the root could fail to build a chain even though trust was
+      conceptually correct. Fixed without any schema/API shape change -
+      `PinnedCertificatePem` stays one nullable string, now read as a PEM **bundle**
+      (concatenated blocks, same convention as any CA bundle file - and exactly what
+      `openssl s_client -showcerts`, already docs/auth.md's suggested command, prints by
+      default). `Validate` now takes an `X509Certificate2Collection`; certificates are
+      sorted by a new `LdapCertificateTrust.IsTrustAnchor` (self-signed, i.e. `Subject ==
+      Issuer`) into `CustomTrustStore` (roots) vs. `ExtraStore` (intermediates) - handles
+      the two-tier-CA case and "pin two DC certificates side by side during a rotation
+      window" with the same mechanism. `LdapSettingsEndpoints` save-time validation
+      extended to reject (400) a bundle with no self-signed certificate at all - no trust
+      anchor, would otherwise fail closed at every login with no clue why. New
+      `TestCertificates.CreateRootIntermediateAndLeaf` (3-tier chain, throwaway/hermetic
+      like its existing `CreateCaAndLeaf`/`CreateSelfSigned` siblings) backs new
+      `LdapCertificateTrustTests`/`LdapSettingsEndpointsTests` cases. `dotnet test
+      Flare.Api.Tests` - 357/357 (up from 350). Dashboard copy and `docs/auth.md` updated
+      to describe bundle support. **Not yet done**: no live e2e run against a real
+      two-tier private CA (self-signed-root-only was the only path v13's own LDAP
+      verification exercised against a real directory) - same "left for whenever this
+      gets exercised for real" gap v14/v15/v16/v17 each flagged for themselves.
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---

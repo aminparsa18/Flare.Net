@@ -41,4 +41,42 @@ internal static class TestCertificates
 
         return (ca, leaf);
     }
+
+    /// <summary>A root CA, an intermediate (issuing) CA it signed, and a leaf certificate
+    /// the intermediate signed - the real two-tier private-CA shape
+    /// <see cref="Flare.Api.Auth.LdapCertificateTrust.Validate"/>'s bundle support exists
+    /// for: a bare pinned root alone can't complete this chain, since the intermediate
+    /// has to come from somewhere (ExtraStore, in production from the same pinned PEM
+    /// bundle as the root).</summary>
+    public static (X509Certificate2 Root, X509Certificate2 Intermediate, X509Certificate2 Leaf) CreateRootIntermediateAndLeaf(
+        string rootSubject = "CN=Test Root CA",
+        string intermediateSubject = "CN=Test Issuing CA",
+        string leafSubject = "CN=test-dc.corp.example.com")
+    {
+        using var rootKey = RSA.Create(2048);
+        var rootRequest = new CertificateRequest(rootSubject, rootKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        rootRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(certificateAuthority: true, hasPathLengthConstraint: false, pathLengthConstraint: 0, critical: true));
+        rootRequest.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, critical: true));
+        var notBefore = DateTimeOffset.UtcNow.AddDays(-1);
+        var notAfter = DateTimeOffset.UtcNow.AddYears(10);
+        var root = rootRequest.CreateSelfSigned(notBefore, notAfter);
+
+        using var intermediateKey = RSA.Create(2048);
+        var intermediateRequest = new CertificateRequest(intermediateSubject, intermediateKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        intermediateRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(certificateAuthority: true, hasPathLengthConstraint: true, pathLengthConstraint: 0, critical: true));
+        intermediateRequest.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, critical: true));
+        var intermediateSerial = RandomNumberGenerator.GetBytes(16);
+        var intermediate = intermediateRequest.Create(root, notBefore, notAfter, intermediateSerial);
+
+        using var leafKey = RSA.Create(2048);
+        var leafRequest = new CertificateRequest(leafSubject, leafKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var leafSerial = RandomNumberGenerator.GetBytes(16);
+        // CertificateRequest.Create's issuer overload needs the issuer's private key to
+        // sign with - intermediate.Create(root, ...) above only returned the public half,
+        // so re-attach intermediateKey before using it to sign the leaf.
+        using var intermediateWithKey = intermediate.CopyWithPrivateKey(intermediateKey);
+        var leaf = leafRequest.Create(intermediateWithKey, notBefore, notAfter, leafSerial);
+
+        return (root, intermediate, leaf);
+    }
 }

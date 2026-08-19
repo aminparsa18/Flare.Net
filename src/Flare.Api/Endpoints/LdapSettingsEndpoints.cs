@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
+using Flare.Api.Auth;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
@@ -66,13 +67,50 @@ public static class LdapSettingsEndpoints
 
         if (!string.IsNullOrWhiteSpace(request.PinnedCertificatePem))
         {
+            var parsed = new X509Certificate2Collection();
             try
             {
-                using var _ = X509Certificate2.CreateFromPem(request.PinnedCertificatePem);
+                parsed.ImportFromPem(request.PinnedCertificatePem);
             }
             catch (Exception ex) when (ex is CryptographicException or ArgumentException or FormatException)
             {
-                return Results.Problem("Pinned certificate must be a single, valid PEM-encoded X.509 certificate.", statusCode: StatusCodes.Status400BadRequest);
+                return Results.Problem("Pinned certificate must be one or more valid PEM-encoded X.509 certificates.", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            try
+            {
+                if (parsed.Count == 0)
+                {
+                    return Results.Problem("Pinned certificate must be one or more valid PEM-encoded X.509 certificates.", statusCode: StatusCodes.Status400BadRequest);
+                }
+
+                // A bundle of only intermediate certificates has nothing for the chain
+                // builder to terminate trust at - catch that here, at save time, with a
+                // clear message, rather than letting it surface later as every LDAP login
+                // silently failing (see LdapCertificateTrust.Validate's remarks).
+                var hasTrustAnchor = false;
+                foreach (var certificate in parsed)
+                {
+                    if (LdapCertificateTrust.IsTrustAnchor(certificate))
+                    {
+                        hasTrustAnchor = true;
+                        break;
+                    }
+                }
+
+                if (!hasTrustAnchor)
+                {
+                    return Results.Problem(
+                        "Pinned certificate bundle must include at least one self-signed certificate (a root CA, or the domain controller's own certificate) to serve as a trust anchor - intermediate certificates alone can't be trusted.",
+                        statusCode: StatusCodes.Status400BadRequest);
+                }
+            }
+            finally
+            {
+                foreach (var certificate in parsed)
+                {
+                    certificate.Dispose();
+                }
             }
         }
 
