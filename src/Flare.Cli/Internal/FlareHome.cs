@@ -124,6 +124,53 @@ internal static class FlareHome
         return fallback;
     }
 
+    /// <summary>
+    /// Rewrites a single <c>KEY=value</c> line in <c>~/.flare/.env</c> in place -
+    /// everything else (comments, blank lines, other keys) is preserved verbatim, and a
+    /// new line is appended at the end if the key isn't present yet. Same minimal
+    /// KEY=value assumption as <see cref="ReadEnvValue"/>: no quoting/escaping support,
+    /// values written here are always a plain token (e.g. an image tag). This is the one
+    /// piece of <c>.env</c> the CLI itself ever rewrites after first init - see
+    /// <c>UpdateCommand</c>'s <c>--tag</c> option, the CLI-native alternative to hand-
+    /// editing <c>.env</c> to move an existing install onto a newer image pin.
+    /// </summary>
+    public static void SetEnvValue(string key, string value)
+    {
+        var lines = File.Exists(EnvFilePath) ? File.ReadAllLines(EnvFilePath).ToList() : [];
+        var replaced = false;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var trimmed = lines[i].Trim();
+            if (trimmed.Length == 0 || trimmed.StartsWith('#'))
+            {
+                continue;
+            }
+
+            var separatorIndex = trimmed.IndexOf('=');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
+
+            if (!string.Equals(trimmed[..separatorIndex], key, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            lines[i] = $"{key}={value}";
+            replaced = true;
+            break;
+        }
+
+        if (!replaced)
+        {
+            lines.Add($"{key}={value}");
+        }
+
+        File.WriteAllLines(EnvFilePath, lines);
+    }
+
     private static string ReadEmbeddedResource(Assembly assembly, string resourceName)
     {
         using var stream = assembly.GetManifestResourceStream(resourceName)

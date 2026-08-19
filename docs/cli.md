@@ -47,7 +47,7 @@ tells you plainly if it isn't.
 | `flare stop` | Stops containers, keeps data volumes - a pause, not a teardown. |
 | `flare status` | Table of each service's state/health/port. |
 | `flare open` | Opens the dashboard in your default browser. |
-| `flare update` | Pulls the latest images for the currently pinned tag, recreates containers, prints a per-service digest diff. Never touches data. |
+| `flare update [--tag TAG]` | Pulls the latest images for the currently pinned tag, recreates containers, prints a per-service digest diff. Never touches data. `--tag` rewrites `~/.flare/.env`'s `FLARE_IMAGE_TAG` to `TAG` first - the CLI-native way to move an existing install onto a newer pin instead of hand-editing `.env`. |
 | `flare logs [service] [-f]` | Shows or follows **container** logs (raw Docker stdout). Omit the service for all of them. |
 | `flare tail [-s service]... [-l level]... [--trace-id id] [--search text]` | Live-tails **app-level structured log events** via `Flare.Api`'s live-tail WebSocket - the CLI-native equivalent of the dashboard's Logs Explorer live-tail, not the same thing as `flare logs`. `-l`/`--level` accepts `trace`/`debug`/`info`/`warn`/`error`/`fatal`, repeatable. |
 | `flare doctor` | Read-only diagnostics: Docker reachable, Compose present, per-service state, host-port availability (while the stack is down), and a ClickHouse row-count sanity check. |
@@ -87,17 +87,25 @@ yours to hand-edit if you'd rather set your own.
 version was tested against (currently `0.2.0`, see
 [`.github/workflows/docker-publish.yml`](../.github/workflows/docker-publish.yml) for
 how those `vX.Y.Z` tags get cut) - deliberately not the floating `edge`/`latest` tags,
-so a given `Flare.Cli` version keeps pulling the same images forever. `flare update`
-re-pulls that same pinned tag; it does not auto-track newer Flare releases. Each new
+so a given `Flare.Cli` version keeps pulling the same images forever. Plain `flare
+update` (no `--tag`) re-pulls that same pinned tag; it does not auto-discover or
+auto-track newer Flare releases - and deliberately never will, since only this CLI's
+own author knows which newer Flare Docker images have actually been tested against a
+given `Flare.Cli` version (a newer tag on Docker Hub isn't necessarily one). Each new
 `Flare.Cli` release re-pins its own template's default once tested against a newer
 Flare image - existing installs keep tracking whatever tag they were generated with
-unless you hand-edit `.env` or run `flare destroy --purge-config`. Set
-`FLARE_IMAGE_TAG=edge` yourself to track Flare's unreleased `main` branch instead.
+unless you move them explicitly. `flare update --tag TAG` is the CLI-native way to do
+that (rewrites `~/.flare/.env`'s `FLARE_IMAGE_TAG` in place, then pulls) - hand-editing
+`.env` still works too, `--tag` is just the same edit without leaving the CLI. Set
+`FLARE_IMAGE_TAG=edge` (via either route) to track Flare's unreleased `main` branch
+instead, or `flare destroy --purge-config` to reset to the currently-installed CLI
+version's own default.
 
 | `Flare.Cli` version | Default `FLARE_IMAGE_TAG` |
 |---|---|
 | 0.1.0 (2026-08-16) | `edge` |
 | 0.1.1 (2026-08-19) | `0.2.0` |
+| 0.1.2 (2026-08-19) | `0.2.0` (unchanged - this release's own changes were the dashboard port default and the `flare start`/`doctor` port-availability check, plus adding `--tag` above) |
 
 ## Known limitations
 
@@ -114,7 +122,9 @@ unless you hand-edit `.env` or run `flare destroy --purge-config`. Set
 - **Not verified on Windows yet** - state-directory resolution and the browser-launch
   in `flare open` should work per .NET's own cross-platform guarantees, but haven't
   been run end-to-end there as of this doc.
-- **Versioning is pre-alpha**: pinning tracks the CLI release, not automatically the
-  newest Flare image - `flare update` re-pulls whatever tag your `.env` already has,
-  it doesn't move you onto a newer pin without a new `Flare.Cli` release (or a
-  hand-edit).
+- **`Flare.Cli` itself is pre-1.0** (currently `0.1.2`) - normal SemVer "still shifting,
+  no compatibility guarantee yet", unrelated to whether it's published (it is - see the
+  Install section above). Separately, and by design rather than as a gap: an existing
+  install's image-tag pin never moves on its own - see the Image tag policy section
+  above for why, and `flare update --tag TAG` for the CLI-native way to move it
+  yourself.
