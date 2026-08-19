@@ -50,6 +50,11 @@ export class MetricsExplorerState {
 	series = $state.raw<MetricSeries[]>([]);
 	queryLoading = $state(false);
 	queryError = $state<string | null>(null);
+	// The bucketWidthSeconds actually sent with the current `series` - for the chart
+	// header's "1m interval" metadata row. Reset to null at the start of every query
+	// (not just replaced alongside `series`) so a metric switch never briefly shows the
+	// *previous* metric's interval next to a chart that hasn't caught up yet.
+	intervalSeconds = $state<number | null>(null);
 
 	// Not derived from `names` (which is already narrowed by the current service
 	// filter - self-narrowing the picklist as soon as one service is chosen, same
@@ -122,6 +127,7 @@ export class MetricsExplorerState {
 		if (!this.selected) {
 			this.series = [];
 			this.queryError = null;
+			this.intervalSeconds = null;
 			return;
 		}
 
@@ -131,19 +137,22 @@ export class MetricsExplorerState {
 
 		this.queryLoading = true;
 		this.queryError = null;
+		this.intervalSeconds = null;
 		try {
 			const range = this.#resolvedRange();
+			const bucketWidthSeconds = pickBucketWidthSeconds(rangeSeconds(range));
 			const res = await queryMetric(
 				{
 					metricName: metric.metricName,
 					type: metric.type,
-					bucketWidthSeconds: pickBucketWidthSeconds(rangeSeconds(range)),
+					bucketWidthSeconds,
 					filter: { from: range.from, to: range.to, services: [metric.serviceName] }
 				},
 				abort.signal
 			);
 			if (abort.signal.aborted) return;
 			this.series = res.series;
+			this.intervalSeconds = bucketWidthSeconds;
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.queryError = err instanceof Error ? err.message : String(err);
