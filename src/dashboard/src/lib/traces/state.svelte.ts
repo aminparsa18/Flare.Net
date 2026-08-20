@@ -45,6 +45,24 @@ export class TracesExplorerState {
 	#seenTraceIds = new Set<string>();
 	#searchAbort: AbortController | null = null;
 
+	/**
+	 * Dedupes a freshly-fetched page against `#seenTraceIds` (cross-page duplicates) *and*
+	 * against itself (same-page duplicates) - see LogsExplorerState's identically-shaped
+	 * `#dedupeAgainstSeen`, which this mirrors, for why the naive `!seenIds.has` filter
+	 * alone isn't enough: two same-ID rows arriving in the same `res.spans` array both pass
+	 * it (neither is in `seenTraceIds` *yet*), landing in `traces` with an identical key -
+	 * exactly what trips Svelte's each_key_duplicate on the keyed {#each} in VirtualList.
+	 */
+	#dedupeAgainstSeen(spans: SpanDto[]): SpanDto[] {
+		const fresh: SpanDto[] = [];
+		for (const s of spans) {
+			if (this.#seenTraceIds.has(s.traceId)) continue;
+			this.#seenTraceIds.add(s.traceId);
+			fresh.push(s);
+		}
+		return fresh;
+	}
+
 	buildFilter(range: ResolvedTimeRange | null): SpanFilter {
 		const filter: SpanFilter = { rootSpansOnly: true };
 		if (range) {
@@ -84,9 +102,9 @@ export class TracesExplorerState {
 		try {
 			const res = await searchSpans({ filter: this.buildFilter(this.#resolvedRange()), pageSize: PAGE_SIZE }, abort.signal);
 			if (abort.signal.aborted) return;
-			this.traces = res.spans;
+			this.#seenTraceIds = new Set();
+			this.traces = this.#dedupeAgainstSeen(res.spans);
 			this.nextCursor = res.nextCursor;
-			this.#seenTraceIds = new Set(res.spans.map((s) => s.traceId));
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.error = err instanceof Error ? err.message : String(err);
@@ -104,8 +122,7 @@ export class TracesExplorerState {
 				cursor: this.nextCursor,
 				pageSize: PAGE_SIZE
 			});
-			const fresh = res.spans.filter((s) => !this.#seenTraceIds.has(s.traceId));
-			for (const s of fresh) this.#seenTraceIds.add(s.traceId);
+			const fresh = this.#dedupeAgainstSeen(res.spans);
 			this.traces = [...this.traces, ...fresh];
 			this.nextCursor = res.nextCursor;
 		} catch (err) {
