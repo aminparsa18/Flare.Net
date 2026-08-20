@@ -5,6 +5,7 @@
 	import IngestionToolbar from '$lib/components/ingestion/IngestionToolbar.svelte';
 	import IngestionTiles from '$lib/components/ingestion/IngestionTiles.svelte';
 	import IngestionChart from '$lib/components/ingestion/IngestionChart.svelte';
+	import IngestionReceivers from '$lib/components/ingestion/IngestionReceivers.svelte';
 	import IngestionSignalsTable from '$lib/components/ingestion/IngestionSignalsTable.svelte';
 	import IngestionLog from '$lib/components/ingestion/IngestionLog.svelte';
 	import PipelineStreamsTable from '$lib/components/ingestion/PipelineStreamsTable.svelte';
@@ -36,6 +37,7 @@
 		{/if}
 		<IngestionTiles />
 		<IngestionChart />
+		<IngestionReceivers />
 		<IngestionSignalsTable />
 		<IngestionLog />
 
