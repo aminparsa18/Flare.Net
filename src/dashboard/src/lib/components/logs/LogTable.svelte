@@ -36,7 +36,7 @@
 
 	{#if explorer.events.length === 0 && !explorer.loading}
 		<Empty.Root class="flex-1">
-			<Empty.Media class="size-40">
+			<Empty.Media class="size-34">
 				<!-- Always autoplay - the animation draws its icon in from an empty first frame,
 				     so a non-live "no match" state would render blank without at least one
 				     play-through. Only *loop* while live: a filtered/no-match search isn't
@@ -51,6 +51,15 @@
 						: 'No events match the current filters. Try widening the time range or clearing a filter.'}
 				</Empty.Description>
 			</Empty.Header>
+			{#if explorer.live}
+				<!-- Only for the live/nothing-has-arrived-yet case, not the filtered/no-match one -
+				     a search that just doesn't match anything isn't a "how do I send logs" moment. -->
+				<Empty.Content>
+					<a href="/data-sources" class="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4">
+						See how to ingest data →
+					</a>
+				</Empty.Content>
+			{/if}
 		</Empty.Root>
 	{:else}
 		<VirtualList
