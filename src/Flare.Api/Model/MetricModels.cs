@@ -95,6 +95,44 @@ public sealed record MetricNamesResponse
 }
 
 /// <summary>
+/// Request body for <c>POST /api/metrics/attribute-keys</c> - discovery of the distinct
+/// <c>DataPointAttributes</c> keys present on one metric, for populating a "Group by"
+/// picker. Scoped by <see cref="MetricName"/> + <see cref="Type"/> (a single table), not
+/// a cross-type union like <see cref="MetricNamesRequest"/> - same convention
+/// <see cref="MetricQueryRequest"/> already uses: the dashboard always has a metric's
+/// type in hand (from a prior <c>/api/metrics/names</c> response) before it ever needs
+/// to discover that metric's group-by keys.
+/// </summary>
+public sealed record MetricAttributeKeysRequest
+{
+    public required string MetricName { get; init; }
+
+    public required MetricPointType Type { get; init; }
+
+    public MetricFilter Filter { get; init; } = new();
+}
+
+/// <summary>
+/// One distinct <c>DataPointAttributes</c> key found in scope, with a cardinality hint -
+/// same "surface it before selection, not after" reasoning as
+/// <see cref="MetricNameInfo.SeriesCount"/> - so the picker can show e.g. "error.type (3)"
+/// vs "host.name (47)" before the user picks a key that still exceeds the dashboard's
+/// series cap.
+/// </summary>
+public sealed record MetricAttributeKeyInfo
+{
+    public required string Key { get; init; }
+
+    public required long DistinctValueCount { get; init; }
+}
+
+/// <summary>Response body for <c>POST /api/metrics/attribute-keys</c>, sorted by <see cref="MetricAttributeKeyInfo.Key"/>.</summary>
+public sealed record MetricAttributeKeysResponse
+{
+    public required IReadOnlyList<MetricAttributeKeyInfo> Keys { get; init; }
+}
+
+/// <summary>
 /// Request body for <c>POST /api/metrics/query</c> - the core, genuinely new endpoint:
 /// a time-bucketed series for one metric, one attribute-set per <see cref="MetricSeries"/>.
 /// </summary>
@@ -108,6 +146,15 @@ public sealed record MetricQueryRequest
 
     /// <summary>Bucket width, e.g. 60 for 1-minute buckets. Compiles to <c>toStartOfInterval(Time, INTERVAL n SECOND)</c>, same convention as <c>LogAggregateRequest.BucketWidthSeconds</c>.</summary>
     public required int BucketWidthSeconds { get; init; }
+
+    /// <summary>
+    /// Optional <c>DataPointAttributes</c> key that defines series identity, collapsing
+    /// every series sharing that one key's value regardless of what else differs - see
+    /// <see cref="Query.MetricSeriesQueryBuilder"/>'s remarks. Null or empty = ungrouped
+    /// (default: one series per distinct <c>DataPointAttributes</c> map), same
+    /// "empty/null = default" convention <see cref="MetricFilter.Services"/> already uses.
+    /// </summary>
+    public string? GroupByAttributeKey { get; init; }
 }
 
 /// <summary>
@@ -166,6 +213,14 @@ public sealed record MetricSeriesPoint
 /// attributes would silently merge into one line - see
 /// <see cref="Query.MetricSeriesQueryBuilder"/>'s remarks.
 /// </summary>
+/// <remarks>
+/// <see cref="Attributes"/>' meaning depends on the request that produced it:
+/// ungrouped (<see cref="MetricQueryRequest.GroupByAttributeKey"/> null/empty), it's the
+/// full original <c>DataPointAttributes</c> map for the series. Grouped, it's a
+/// single-entry map (<c>{ [GroupByAttributeKey] = value }</c>) - the caller already has
+/// <see cref="MetricQueryRequest.GroupByAttributeKey"/> in hand, so this record carries
+/// no separate flag for which mode produced it.
+/// </remarks>
 public sealed record MetricSeries
 {
     public required string ServiceName { get; init; }

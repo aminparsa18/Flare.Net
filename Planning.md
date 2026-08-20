@@ -668,7 +668,7 @@ actually worked out (see the three bullets below) — closing out the full origi
         response, and drove the dashboard (Playwright) through all five new Select
         options, confirming correct rendering and the "Max (approx.): 500 ms"
         tooltip wording.
-- [ ] **Metrics chart: configurable "Group by" attribute.** 2026-08-19 - lets a user pick
+- [x] ~~**Metrics chart: configurable "Group by" attribute.** 2026-08-19 - lets a user pick
       which attribute key (`error.type`, `service.name`, `deployment.environment`,
       `host.name`, etc.) defines a series, collapsing everything else. Motivated by a
       metric like `dotnet.exceptions` carrying many `error.type` values on the same
@@ -696,7 +696,44 @@ actually worked out (see the three bullets below) — closing out the full origi
       - **Interacts with the `MAX_SERIES` cap.** Grouping by a low-cardinality key
         (`deployment.environment`) makes the 5-series cap almost never bind; grouping by
         a high-cardinality one (`host.name`) could still exceed it - the cap and its
-        "narrow the filter" hint stay relevant either way, just less often triggered.
+        "narrow the filter" hint stay relevant either way, just less often triggered.~~
+      **Shipped 2026-08-20 (code+unit-test+live e2e-verified).** `MetricQueryRequest`
+      gained `GroupByAttributeKey` (null/empty = ungrouped, same convention
+      `MetricFilter.Services` uses). `MetricSeriesQueryBuilder` branches `SeriesKey`/
+      `SeriesAttributes` on it - grouped mode uses `DataPointAttributes[key]` as the key
+      and a synthetic `map(key, any(DataPointAttributes[key]))` as the attributes column,
+      deliberately kept `Map`-shaped in both modes so `MetricQueryService`'s ordinal-3
+      fold loop needed zero changes; the per-type value expressions were left untouched,
+      confirmed live to still aggregate correctly over the wider groups (a targeted test
+      merged two differently-`host.name`'d rows sharing one `error.type` into a single
+      series with `count` 1→3 and `value` reflecting the true `max-min` across all three,
+      not just one arbitrary row). Missing-key data points collapse into one `"(none)"`
+      series via ClickHouse's Map-subscript default-value behavior (no `mapContains`
+      disambiguation - confirmed as the intended v1 behavior). Attribute-key discovery is
+      a new `POST /api/metrics/attribute-keys` endpoint / `MetricAttributeKeysQueryBuilder`
+      (`arrayJoin(mapKeys(DataPointAttributes))` grouped with `count(DISTINCT
+      DataPointAttributes[Key])`), returning a per-key distinct-value-count cardinality
+      hint (shipped in v1, not deferred) so the "Group by" picker can show e.g.
+      "error.type (3)" vs "host.name (47)" before the user hits the cap - `MAX_SERIES`
+      itself needed no code change, it already naturally shrinks with fewer returned
+      series. The picker lives in `MetricsToolbar.svelte`, not `MetricChart.svelte` -
+      it's filter-affecting (changes what SQL runs) like the service/compare controls
+      already there, not a pure client reshape like `sumMode`/`histogramMode`. The chosen
+      key is persisted in saved views (`MetricsFilterState.groupByAttributeKey`, same
+      reasoning as `compareEnabled`) and auto-resets to ungrouped if a metric switch or
+      saved-view restore lands on a metric without that key
+      (`state.svelte.ts`'s `loadKnownAttributeKeys`). One real bug caught only by live
+      verification (not unit tests, which only assert SQL text): `compactSeriesLabel`'s
+      `?? '(none)'` fallback only caught a *missing* attribute key, not grouped mode's
+      new case of a *present* key with an empty-string value - fixed to `|| '(none)'`.
+      Live-verified end to end: posted synthetic OTLP Sum metrics through `docker
+      compose`'s ingest container (including a data point missing `error.type`),
+      confirmed `/api/metrics/attribute-keys`' discovered keys and counts, confirmed
+      `/api/metrics/query`'s grouped-mode collapse and correct merged aggregation via the
+      two-data-point test above, and drove the dashboard (Playwright) through selecting
+      `error.type`, confirming the legend collapsed from 6 to 4 correctly-labeled lines
+      (including the fixed `(none)` rendering), and reverting to "None" restored the
+      original 6-series ungrouped view.
 
 ### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
 Promoted out of "Later" and shipped 2026-08-10, in four passes (ingest+storage →

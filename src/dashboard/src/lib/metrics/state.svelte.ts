@@ -10,7 +10,15 @@
 // With `filter.compareEnabled` on, the series query becomes two parallel /query calls
 // (current + previous period) - see runQuery's own remarks.
 
-import { getMetricNames, queryMetric, type MetricNameInfo, type MetricPointType, type MetricSeries } from '$lib/metrics-api';
+import {
+	getMetricNames,
+	getMetricAttributeKeys,
+	queryMetric,
+	type MetricAttributeKeyInfo,
+	type MetricNameInfo,
+	type MetricPointType,
+	type MetricSeries
+} from '$lib/metrics-api';
 import { resolveTimeRange, rangeSeconds, previousPeriod, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
 
@@ -19,6 +27,8 @@ export interface MetricsFilterState {
 	services: string[];
 	/** "Compare with previous period" toggle - see MetricChart.svelte's comparison-mode remarks. Unlike Logs' patternId/attribute drill-downs, this *is* carried in a saved view (toSavedViewState/applySavedViewState below) - it's a display preference for the metric, not a one-off hop. */
 	compareEnabled: boolean;
+	/** "Group by" attribute key (see MetricQueryRequest.groupByAttributeKey), or null when ungrouped. Same "real display preference, not a one-off hop" reasoning as compareEnabled - carried in a saved view too. */
+	groupByAttributeKey: string | null;
 }
 
 /**
@@ -54,7 +64,8 @@ export class MetricsExplorerState {
 	filter = $state<MetricsFilterState>({
 		timeRangePreset: '1h',
 		services: [],
-		compareEnabled: false
+		compareEnabled: false,
+		groupByAttributeKey: null
 	});
 
 	// Never mutated in place, always a wholesale reassignment - same $state.raw
@@ -116,8 +127,18 @@ export class MetricsExplorerState {
 	// instead, same workaround.
 	knownServices = $state.raw<string[]>([]);
 
+	// Attribute keys available for the *currently selected metric* - unlike
+	// knownServices' deliberately wide/decoupled 7-day scope (avoiding a
+	// self-narrowing picklist), grouping by a key that doesn't exist on this metric is
+	// meaningless, so this is intentionally narrow: this metric's own keys, refreshed
+	// on every metric switch (see #deferredReset below).
+	knownAttributeKeys = $state.raw<MetricAttributeKeyInfo[]>([]);
+	knownAttributeKeysLoading = $state(false);
+	knownAttributeKeysError = $state<string | null>(null);
+
 	#namesAbort: AbortController | null = null;
 	#queryAbort: AbortController | null = null;
+	#attributeKeysAbort: AbortController | null = null;
 	#pendingSwitchTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	#resolvedRange(): ResolvedTimeRange {
@@ -140,6 +161,59 @@ export class MetricsExplorerState {
 			this.knownServices = [...new Set(res.metrics.map((m) => m.serviceName).filter(Boolean))].sort();
 		} catch {
 			// Non-critical - the service filter just shows fewer/no options until a retry.
+		}
+	}
+
+	/**
+	 * Loads the "Group by" picker's option list for the currently selected metric - see
+	 * knownAttributeKeys' own remarks for why this is narrowly scoped, unlike
+	 * loadKnownServices. Called from #deferredReset (immediately, not deferred by its
+	 * fade timeout - this drives the toolbar picker, not the chart) whenever `selected`
+	 * is set, covering selectMetric, loadNames' auto-select fallback, and
+	 * applySavedViewState (which goes through selectMetric).
+	 *
+	 * If the currently-chosen filter.groupByAttributeKey doesn't exist on the new
+	 * metric's key list, resets it to null and re-runs the query - covers a metric
+	 * switch landing on a metric without that key, and a saved view restoring a key that
+	 * no longer exists.
+	 */
+	async loadKnownAttributeKeys(): Promise<void> {
+		this.#attributeKeysAbort?.abort();
+
+		if (!this.selected) {
+			this.knownAttributeKeys = [];
+			return;
+		}
+
+		const abort = new AbortController();
+		this.#attributeKeysAbort = abort;
+		const metric = this.selected;
+
+		this.knownAttributeKeysLoading = true;
+		this.knownAttributeKeysError = null;
+		try {
+			const range = this.#resolvedRange();
+			const res = await getMetricAttributeKeys(
+				{
+					metricName: metric.metricName,
+					type: metric.type,
+					filter: { from: range.from, to: range.to, services: [metric.serviceName] }
+				},
+				abort.signal
+			);
+			if (abort.signal.aborted) return;
+			this.knownAttributeKeys = res.keys;
+
+			const current = this.filter.groupByAttributeKey;
+			if (current && !res.keys.some((k) => k.key === current)) {
+				this.filter.groupByAttributeKey = null;
+				void this.runQuery();
+			}
+		} catch (err) {
+			if (abort.signal.aborted) return;
+			this.knownAttributeKeysError = err instanceof Error ? err.message : String(err);
+		} finally {
+			if (!abort.signal.aborted) this.knownAttributeKeysLoading = false;
 		}
 	}
 
@@ -198,6 +272,10 @@ export class MetricsExplorerState {
 	 */
 	#deferredReset(): void {
 		this.#flushPendingSwitch();
+		// Not deferred by the fade timeout below - this drives the toolbar's "Group by"
+		// picker, not the chart, so it can refresh as soon as `selected` changes instead
+		// of waiting out MetricChart's outro.
+		void this.loadKnownAttributeKeys();
 		this.#pendingSwitchTimeout = setTimeout(() => {
 			this.#pendingSwitchTimeout = null;
 			this.#resetForNewMetric();
@@ -232,6 +310,7 @@ export class MetricsExplorerState {
 		this.#queryAbort = abort;
 		const metric = this.selected;
 		const compareEnabled = this.filter.compareEnabled;
+		const groupByAttributeKey = this.filter.groupByAttributeKey ?? undefined;
 
 		// Deliberately doesn't touch series/previousSeries/intervalSeconds here - only
 		// queryError, and only because a stale error message next to fresh-looking
@@ -254,7 +333,13 @@ export class MetricsExplorerState {
 			// so compare mode doesn't just double the wait.
 			const [current, previous] = await Promise.all([
 				queryMetric(
-					{ metricName: metric.metricName, type: metric.type, bucketWidthSeconds, filter: filterFor(range) },
+					{
+						metricName: metric.metricName,
+						type: metric.type,
+						bucketWidthSeconds,
+						filter: filterFor(range),
+						groupByAttributeKey
+					},
 					abort.signal
 				),
 				compareEnabled
@@ -263,7 +348,8 @@ export class MetricsExplorerState {
 								metricName: metric.metricName,
 								type: metric.type,
 								bucketWidthSeconds,
-								filter: filterFor(previousPeriod(range))
+								filter: filterFor(previousPeriod(range)),
+								groupByAttributeKey
 							},
 							abort.signal
 						).catch(() => null)
@@ -310,12 +396,20 @@ export class MetricsExplorerState {
 		void this.runQuery();
 	}
 
+	/** Same shape as setCompareEnabled - no name-list reload, which metrics exist doesn't depend on the grouping key, only the chart's own query does. */
+	setGroupByAttribute(key: string | null): void {
+		this.#flushPendingSwitch();
+		this.filter.groupByAttributeKey = key;
+		void this.runQuery();
+	}
+
 	/** Serializes the current filter + selected metric into a saved view's opaque `state` payload - see `MetricsSavedViewState`. */
 	toSavedViewState(): MetricsSavedViewState {
 		return {
 			timeRangePreset: this.filter.timeRangePreset,
 			services: [...this.filter.services],
 			compareEnabled: this.filter.compareEnabled,
+			groupByAttributeKey: this.filter.groupByAttributeKey,
 			selectedMetric: this.selected
 				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
 				: null
@@ -333,7 +427,12 @@ export class MetricsExplorerState {
 	async applySavedViewState(state: unknown): Promise<void> {
 		this.#flushPendingSwitch();
 		const s = (state ?? {}) as Partial<MetricsSavedViewState>;
-		this.filter = { timeRangePreset: s.timeRangePreset ?? '1h', services: s.services ?? [], compareEnabled: s.compareEnabled ?? false };
+		this.filter = {
+			timeRangePreset: s.timeRangePreset ?? '1h',
+			services: s.services ?? [],
+			compareEnabled: s.compareEnabled ?? false,
+			groupByAttributeKey: s.groupByAttributeKey ?? null
+		};
 		await this.loadNames();
 		const saved = s.selectedMetric;
 		if (saved) {
@@ -345,6 +444,7 @@ export class MetricsExplorerState {
 	dispose(): void {
 		this.#namesAbort?.abort();
 		this.#queryAbort?.abort();
+		this.#attributeKeysAbort?.abort();
 		if (this.#pendingSwitchTimeout) clearTimeout(this.#pendingSwitchTimeout);
 	}
 }

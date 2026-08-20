@@ -9,6 +9,8 @@ public interface IMetricQueryService
     Task<MetricNamesResponse> GetNamesAsync(MetricNamesRequest request, CancellationToken cancellationToken);
 
     Task<MetricQueryResponse> QueryAsync(MetricQueryRequest request, CancellationToken cancellationToken);
+
+    Task<MetricAttributeKeysResponse> GetAttributeKeysAsync(MetricAttributeKeysRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -88,6 +90,25 @@ public sealed class MetricQueryService(IClickHouseClient client, TimeProvider ti
         }
 
         return new MetricQueryResponse { Series = series };
+    }
+
+    public async Task<MetricAttributeKeysResponse> GetAttributeKeysAsync(MetricAttributeKeysRequest request, CancellationToken cancellationToken)
+    {
+        var built = MetricAttributeKeysQueryBuilder.Build(request, timeProvider.GetUtcNow());
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var keys = new List<MetricAttributeKeyInfo>();
+        while (reader.Read())
+        {
+            keys.Add(new MetricAttributeKeyInfo
+            {
+                Key = reader.GetString(0),
+                DistinctValueCount = (long)reader.GetFieldValue<ulong>(1),
+            });
+        }
+
+        return new MetricAttributeKeysResponse { Keys = keys };
     }
 
     private static MetricSeriesPoint ReadPoint(ClickHouseDataReader reader, MetricPointType type)
