@@ -22,4 +22,12 @@ public sealed class MetricEventPipelineOptions
     /// <c>MetricEventPipelineOptions.ConsumerGroup</c>.
     /// </summary>
     public string ConsumerGroup { get; set; } = "flare-ingest-metrics";
+
+    /// <summary>
+    /// Approximate cap on stream length (MAXLEN ~). Must match Flare.Ingest's
+    /// <c>MetricEventPipelineOptions.StreamMaxLength</c> - see
+    /// <see cref="LogEventPipelineOptions.StreamMaxLength"/>'s remarks for what this is used
+    /// for and why staleness only degrades the displayed percentage, not correctness.
+    /// </summary>
+    public int StreamMaxLength { get; set; } = 1_000_000;
 }

@@ -13,7 +13,7 @@
 // firehoses (logs) - this is a periodic aggregate refresh, the same idiom
 // AlertEvaluationWorker/ClickHouseFlushWorker use server-side, just client-side here.
 
-import { getIngestionStats, type IngestionStatsResponse } from '$lib/ingestion-api';
+import { getIngestionStats, type IngestionProtocol, type IngestionSignal, type IngestionStatsResponse } from '$lib/ingestion-api';
 import { getPipelineStats, type PipelineStatsResponse } from '$lib/pipeline-api';
 
 export type IngestionWindowPreset = '15m' | '1h' | '6h' | '24h';
@@ -34,6 +34,13 @@ export class IngestionState {
 	pipeline = $state.raw<PipelineStatsResponse | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
+
+	// Set by RejectedTelemetryDialog's "View rejected payloads" action (Planning.md v10
+	// follow-up) - scopes the Ingestion log at the bottom of the page to one (signal,
+	// protocol) instead of showing every rejection mixed together. Lives here rather than
+	// as local state in IngestionLog since it's set from a different component
+	// (IngestionSignalsTable's dialog).
+	logFilter = $state<{ signal: IngestionSignal; protocol: IngestionProtocol } | null>(null);
 
 	#abort: AbortController | null = null;
 	#pollHandle: ReturnType<typeof setInterval> | null = null;
@@ -73,6 +80,14 @@ export class IngestionState {
 		this.windowPreset = preset;
 		this.stats = null; // force the spinner - a new window is a genuinely different query, not a background refresh
 		void this.load();
+	}
+
+	setLogFilter(signal: IngestionSignal, protocol: IngestionProtocol): void {
+		this.logFilter = { signal, protocol };
+	}
+
+	clearLogFilter(): void {
+		this.logFilter = null;
 	}
 
 	startPolling(): void {

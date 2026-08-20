@@ -5,11 +5,22 @@
 	// Metrics, summed across gRPC+HTTP - protocol is a receiver-plumbing detail, not
 	// something worth a 4th chart dimension), and the bucket grid is already dense
 	// (BuildBuckets fills every minute), so there's no gap-handling to do.
+	//
+	// Feedback: the chart had no axis label/ticks at all, so a reader had no way to tell
+	// whether the huge spikes were requests/min, events/min, or bytes/sec - and the legend
+	// (Logs/Traces/Metrics) implies the *signals* are the series, when what's actually
+	// varying underneath is which of those three concepts is plotted. Two fixes: an
+	// explicit axis caption + tick values (VolumeChart's own grid-cols-[label_svg] +
+	// peak/half/zero convention, reused verbatim here), and a switcher so the chart plots
+	// exactly one concept at a time instead of implying all three share a unit - same
+	// "don't collapse ingress/egress measurements into one undifferentiated stream" split
+	// OpenTelemetry's own data-flow model uses between accepted/refused/exported counts.
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatCount } from '$lib/ingestion/format';
-	import type { IngestionSignal } from '$lib/ingestion-api';
+	import { formatBytes, formatCount } from '$lib/ingestion/format';
+	import type { IngestionBucketPoint, IngestionSignal } from '$lib/ingestion-api';
 
 	const ingestion = ingestionContext.get();
 
@@ -19,6 +30,55 @@
 		Metrics: 'var(--chart-4)'
 	};
 	const SIGNALS: IngestionSignal[] = ['Logs', 'Traces', 'Metrics'];
+
+	type ChartMetric = 'events' | 'requests' | 'bytes';
+
+	interface MetricConfig {
+		label: string; // switcher button text
+		axisLabel: string; // y-axis unit caption
+		ariaNoun: string; // aria-label wording
+		valueOf: (b: IngestionBucketPoint) => number;
+		format: (n: number) => string;
+	}
+
+	// bytes/sec (not bytes/min) to match the throughput-rate convention MetricChart's own
+	// axis.ts uses elsewhere ("By/s") - buckets are per-minute sums, so /60 converts without
+	// fabricating anything. Rounded before formatBytes rather than left fractional -
+	// formatBytes's own exponent===0 branch prints the raw value with no rounding, and a
+	// bytes/sec rate lands in that branch (a whole request's worth of bytes divided by 60)
+	// far more often than a plain byte *count* ever did, so this is the mode that would
+	// actually surface it.
+	const METRIC_CONFIG: Record<ChartMetric, MetricConfig> = {
+		events: {
+			label: 'Events/min',
+			axisLabel: 'events / min',
+			ariaNoun: 'events per minute',
+			valueOf: (b) => b.records,
+			format: formatCount
+		},
+		requests: {
+			label: 'Requests/min',
+			axisLabel: 'requests / min',
+			ariaNoun: 'requests per minute',
+			valueOf: (b) => b.requests,
+			format: formatCount
+		},
+		bytes: {
+			label: 'Bytes/s',
+			axisLabel: 'bytes / sec',
+			ariaNoun: 'bytes per second',
+			valueOf: (b) => Math.round(b.bytes / 60),
+			format: formatBytes
+		}
+	};
+	const METRIC_OPTIONS: { value: ChartMetric; label: string }[] = [
+		{ value: 'events', label: METRIC_CONFIG.events.label },
+		{ value: 'requests', label: METRIC_CONFIG.requests.label },
+		{ value: 'bytes', label: METRIC_CONFIG.bytes.label }
+	];
+
+	let metric = $state<ChartMetric>('events');
+	const config = $derived(METRIC_CONFIG[metric]);
 
 	interface LineSpec {
 		signal: IngestionSignal;
@@ -32,7 +92,7 @@
 			const bySignal = buckets.filter((b) => b.signal === signal);
 			const byBucket = new Map<string, number>();
 			for (const b of bySignal) {
-				byBucket.set(b.bucketStart, (byBucket.get(b.bucketStart) ?? 0) + b.records);
+				byBucket.set(b.bucketStart, (byBucket.get(b.bucketStart) ?? 0) + config.valueOf(b));
 			}
 			const points = [...byBucket.entries()]
 				.sort(([a], [b]) => a.localeCompare(b))
@@ -81,13 +141,25 @@
 </script>
 
 <div class="flex flex-col gap-2 px-4 pb-4">
-	<div class="text-muted-foreground flex items-center gap-4 text-xs">
-		{#each lines as line (line.signal)}
-			<span class="flex items-center gap-1.5">
-				<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-				{line.signal}
-			</span>
-		{/each}
+	<div class="flex flex-wrap items-center justify-between gap-2">
+		<div class="text-muted-foreground flex items-center gap-4 text-xs">
+			{#each lines as line (line.signal)}
+				<span class="flex items-center gap-1.5">
+					<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
+					{line.signal}
+				</span>
+			{/each}
+		</div>
+		<div class="flex items-center gap-2">
+			<span class="text-muted-foreground text-[10px]">{config.axisLabel}</span>
+			<div class="flex gap-1">
+				{#each METRIC_OPTIONS as opt (opt.value)}
+					<Button type="button" variant={metric === opt.value ? 'secondary' : 'ghost'} size="xs" onclick={() => (metric = opt.value)}>
+						{opt.label}
+					</Button>
+				{/each}
+			</div>
+		</div>
 	</div>
 
 	{#if ingestion.loading}
@@ -97,75 +169,82 @@
 	{:else if bucketStarts.length === 0}
 		<div class="text-muted-foreground flex h-[140px] items-center justify-center text-xs">No data in range</div>
 	{:else}
-		<Tooltip.Provider>
-			<Tooltip.Root open={hoverIndex !== null}>
-				<Tooltip.Trigger>
-					{#snippet child({ props })}
-						<svg
-							{...props}
-							viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
-							preserveAspectRatio="none"
-							class="h-[140px] w-full"
-							role="img"
-							aria-label="Ingested events per minute, by signal"
-							onpointermove={handlePointerMove}
-							onpointerleave={() => (hoverIndex = null)}
-						>
-							{#each [PEAK_Y, (PEAK_Y + BASELINE_Y) / 2, BASELINE_Y] as gridY (gridY)}
-								<line
-									x1="0"
-									y1={gridY}
-									x2={CHART_WIDTH}
-									y2={gridY}
-									class="text-border"
-									stroke="currentColor"
-									stroke-width="1"
-									vector-effect="non-scaling-stroke"
-								/>
-							{/each}
+		<div class="grid grid-cols-[3.5rem_1fr] gap-x-2">
+			<div class="text-muted-foreground flex h-[140px] flex-col justify-between py-0.5 text-right text-[10px] tabular-nums">
+				<span class="truncate" title={config.format(peakValue)}>{config.format(peakValue)}</span>
+				<span class="truncate" title={config.format(Math.round(peakValue / 2))}>{config.format(Math.round(peakValue / 2))}</span>
+				<span>0</span>
+			</div>
+			<Tooltip.Provider>
+				<Tooltip.Root open={hoverIndex !== null}>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<svg
+								{...props}
+								viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
+								preserveAspectRatio="none"
+								class="h-[140px] w-full"
+								role="img"
+								aria-label="Ingested {config.ariaNoun}, by signal"
+								onpointermove={handlePointerMove}
+								onpointerleave={() => (hoverIndex = null)}
+							>
+								{#each [PEAK_Y, (PEAK_Y + BASELINE_Y) / 2, BASELINE_Y] as gridY (gridY)}
+									<line
+										x1="0"
+										y1={gridY}
+										x2={CHART_WIDTH}
+										y2={gridY}
+										class="text-border"
+										stroke="currentColor"
+										stroke-width="1"
+										vector-effect="non-scaling-stroke"
+									/>
+								{/each}
 
-							{#if hoverIndex !== null}
-								<line
-									x1={xFor(hoverIndex)}
-									y1={PEAK_Y}
-									x2={xFor(hoverIndex)}
-									y2={BASELINE_Y}
-									class="text-muted-foreground"
-									stroke="currentColor"
-									stroke-width="1"
-									stroke-dasharray="2,2"
-									vector-effect="non-scaling-stroke"
-								/>
-							{/if}
+								{#if hoverIndex !== null}
+									<line
+										x1={xFor(hoverIndex)}
+										y1={PEAK_Y}
+										x2={xFor(hoverIndex)}
+										y2={BASELINE_Y}
+										class="text-muted-foreground"
+										stroke="currentColor"
+										stroke-width="1"
+										stroke-dasharray="2,2"
+										vector-effect="non-scaling-stroke"
+									/>
+								{/if}
 
-							{#each lines as line (line.signal)}
-								<path
-									d={pathFor(line.points)}
-									fill="none"
-									stroke={line.color}
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									vector-effect="non-scaling-stroke"
-								/>
-							{/each}
-						</svg>
-					{/snippet}
-				</Tooltip.Trigger>
-				{#if hoverIndex !== null}
-					<Tooltip.Content>
-						<div class="flex flex-col gap-0.5">
-							<span class="font-medium">{formatBucketTime(bucketStarts[hoverIndex])}</span>
-							{#each lines as line (line.signal)}
-								<span class="flex items-center gap-1.5">
-									<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-									{line.signal}: {formatCount(line.points[hoverIndex!]?.value ?? 0)}
-								</span>
-							{/each}
-						</div>
-					</Tooltip.Content>
-				{/if}
-			</Tooltip.Root>
-		</Tooltip.Provider>
+								{#each lines as line (line.signal)}
+									<path
+										d={pathFor(line.points)}
+										fill="none"
+										stroke={line.color}
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										vector-effect="non-scaling-stroke"
+									/>
+								{/each}
+							</svg>
+						{/snippet}
+					</Tooltip.Trigger>
+					{#if hoverIndex !== null}
+						<Tooltip.Content>
+							<div class="flex flex-col gap-0.5">
+								<span class="font-medium">{formatBucketTime(bucketStarts[hoverIndex])}</span>
+								{#each lines as line (line.signal)}
+									<span class="flex items-center gap-1.5">
+										<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
+										{line.signal}: {config.format(line.points[hoverIndex!]?.value ?? 0)}
+									</span>
+								{/each}
+							</div>
+						</Tooltip.Content>
+					{/if}
+				</Tooltip.Root>
+			</Tooltip.Provider>
+		</div>
 	{/if}
 </div>

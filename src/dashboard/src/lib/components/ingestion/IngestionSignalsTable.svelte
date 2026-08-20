@@ -10,8 +10,17 @@
 	import { ingestionContext } from '$lib/ingestion/context';
 	import { formatBytes, formatCount } from '$lib/ingestion/format';
 	import type { IngestionProtocol, IngestionSignal } from '$lib/ingestion-api';
+	import RejectedTelemetryDialog from './RejectedTelemetryDialog.svelte';
 
 	const ingestion = ingestionContext.get();
+
+	// Which row's Rejected count opened the drill-down, if any - one dialog instance shared
+	// across rows rather than one per row, same "single controlled dialog" shape
+	// ExportDialog uses. dialogRow is left set after the dialog first closes (only `open`
+	// toggles) rather than nulled out - harmless, since it's not rendered while closed, and
+	// avoids re-deriving it on every close.
+	let dialogOpen = $state(false);
+	let dialogRow = $state<{ signal: IngestionSignal; protocol: IngestionProtocol; rejected: number } | null>(null);
 
 	interface Row {
 		signal: IngestionSignal;
@@ -80,8 +89,21 @@
 						<Table.Cell class="text-right tabular-nums">{formatCount(row.requests)}</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{formatCount(row.records)}</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{formatBytes(row.bytes)}</Table.Cell>
-						<Table.Cell class="text-right tabular-nums {row.rejected > 0 ? 'text-destructive' : ''}">
-							{formatCount(row.rejected)}
+						<Table.Cell class="text-right tabular-nums">
+							{#if row.rejected > 0}
+								<button
+									type="button"
+									class="text-destructive cursor-pointer underline decoration-dotted underline-offset-2 hover:decoration-solid"
+									onclick={() => {
+										dialogRow = { signal: row.signal, protocol: row.protocol, rejected: row.rejected };
+										dialogOpen = true;
+									}}
+								>
+									{formatCount(row.rejected)}
+								</button>
+							{:else}
+								{formatCount(row.rejected)}
+							{/if}
 						</Table.Cell>
 					</Table.Row>
 				{/each}
@@ -89,3 +111,12 @@
 		</Table.Root>
 	{/if}
 </div>
+
+{#if dialogRow}
+	<RejectedTelemetryDialog
+		bind:open={dialogOpen}
+		signal={dialogRow.signal}
+		protocol={dialogRow.protocol}
+		rejectedCount={dialogRow.rejected}
+	/>
+{/if}
