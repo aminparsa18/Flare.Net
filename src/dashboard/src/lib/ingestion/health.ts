@@ -132,6 +132,24 @@ export function computeFlushStatus(
 	return { key: 'healthy', label: 'Healthy', tone: 'good' };
 }
 
+// Feedback: a receiver with zero requests (e.g. nobody's using OTLP/HTTP, only gRPC) isn't
+// a problem - it just means that transport is unused. Reuses FlushStatus's own tone
+// vocabulary rather than inventing a second one (good/default/warning/destructive already
+// says exactly what's needed here too).
+export interface ReceiverStatus {
+	key: 'healthy' | 'idle' | 'degraded' | 'down';
+	label: string;
+	tone: FlushStatusTone;
+}
+
+/** requests/rejected are the sum across all three signals for one protocol, within whatever window the caller's already querying. */
+export function computeReceiverStatus(requests: number, rejected: number): ReceiverStatus {
+	if (requests === 0) return { key: 'idle', label: 'Idle', tone: 'default' };
+	if (rejected === 0) return { key: 'healthy', label: 'Healthy', tone: 'good' };
+	if (rejected >= requests) return { key: 'down', label: 'Down', tone: 'destructive' }; // every request to this receiver failed - not a partial blip
+	return { key: 'degraded', label: 'Degraded', tone: 'warning' };
+}
+
 export function computeIngestionHealth(
 	stats: IngestionStatsResponse | null,
 	pipeline: PipelineStatsResponse | null
