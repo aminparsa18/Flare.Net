@@ -6,6 +6,11 @@
 	import type { MetricNameInfo, MetricPointType } from '$lib/metrics-api';
 	import { cn } from '$lib/utils';
 
+	// Controlled width in px, not a Tailwind class - the divider in +page.svelte drags
+	// this live, and Tailwind has no arbitrary-per-drag-frame class to generate. Default
+	// (288px) matches the fixed `w-72` this replaced.
+	let { width = 288 }: { width?: number } = $props();
+
 	const explorer = metricsExplorerContext.get();
 
 	function isSelected(metric: MetricNameInfo): boolean {
@@ -26,7 +31,7 @@
 	};
 </script>
 
-<div class="flex w-72 shrink-0 flex-col border-r">
+<div class="flex min-w-0 shrink-0 flex-col border-r" style="width: {width}px">
 	<Command.Root class="flex min-h-0 flex-1 flex-col rounded-none bg-transparent">
 		<Command.Input placeholder="Filter metrics..." />
 		<Command.List class="min-h-0 max-h-none flex-1">

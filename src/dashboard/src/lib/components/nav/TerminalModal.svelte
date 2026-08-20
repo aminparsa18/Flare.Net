@@ -27,6 +27,20 @@
 	let outputEl: HTMLDivElement | null = null;
 	let inputEl: HTMLInputElement | null = $state(null);
 
+	// Green traffic-light dot's job (macOS convention: red = close, yellow = decorative
+	// here - no real "minimize" for a dialog - green = maximize/zoom). Toggles the
+	// Dialog.Content sizing classes below rather than a separate fullscreen component -
+	// same dialog, just resized. Not reset on close, unlike `lines`/`recall` - a
+	// maximized-or-not preference is worth keeping across reopens in the same session,
+	// unlike scrollback (which PatternsModal-style "fetch fresh every open" already
+	// clears on purpose).
+	let maximized = $state(false);
+	const contentClass = $derived(
+		maximized
+			? 'flex h-[85vh] w-[95vw] max-w-[80rem] flex-col gap-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950 p-0 text-neutral-200 ring-0'
+			: 'flex h-[28rem] w-full flex-col gap-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950 p-0 text-neutral-200 ring-0 sm:max-w-2xl'
+	);
+
 	// Shown only while `lines` is empty (before the first command) - a first-run
 	// hint, not a command list (that's `help`'s job). Clicking one fills the input
 	// rather than submitting immediately, so it's a starting point to edit, not a
@@ -171,17 +185,21 @@
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
-	<Dialog.Content
-		showCloseButton={false}
-		onOpenAutoFocus={focusInputOnOpen}
-		class="flex h-[28rem] w-full flex-col gap-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950 p-0 text-neutral-200 ring-0 sm:max-w-2xl"
-	>
+	<Dialog.Content showCloseButton={false} onOpenAutoFocus={focusInputOnOpen} class={contentClass}>
 		<div class="flex shrink-0 items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
 			<Dialog.Close class="group inline-flex cursor-pointer items-center" aria-label="Close terminal">
 				<span class="block size-2.5 rounded-full bg-red-500/90 transition-colors group-hover:bg-red-400"></span>
 			</Dialog.Close>
 			<span class="size-2.5 rounded-full bg-yellow-500/70"></span>
-			<span class="size-2.5 rounded-full bg-green-500/70"></span>
+			<button
+				type="button"
+				onclick={() => (maximized = !maximized)}
+				class="group inline-flex cursor-pointer items-center"
+				aria-label={maximized ? 'Restore terminal' : 'Maximize terminal'}
+				title={maximized ? 'Restore' : 'Maximize'}
+			>
+				<span class="block size-2.5 rounded-full bg-green-500/70 transition-colors group-hover:bg-green-400"></span>
+			</button>
 			<Dialog.Title class="flex-1 truncate text-center font-mono text-[0.7rem] font-normal text-neutral-500">
 				flare — terminal
 			</Dialog.Title>
