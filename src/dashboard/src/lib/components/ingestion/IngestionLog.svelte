@@ -8,6 +8,15 @@
 	// follow-up) - set by RejectedTelemetryDialog's "View rejected payloads" action, so
 	// clicking a Rejected count up in IngestionSignalsTable lands here already scoped to
 	// what was clicked, instead of the reader having to eyeball-filter a mixed list.
+	//
+	// A normal-flow block section (not flex-1/min-h-0) - that sizing was left over from
+	// when this was the last thing on the page and could fairly claim "whatever's left" of
+	// the scrollable body's height. It no longer is (Pipeline health, then Ingestion
+	// topology, both render after it) - flex-1 on a *non-last* child of a flex column still
+	// tries to fill the remaining space against those later siblings' own height, which
+	// squeezes this section below its content's actual size and lets that content visually
+	// overflow on top of Pipeline health below it instead of properly reserving room for it.
+	// The table now caps its own height and scrolls internally instead.
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Badge } from '$lib/components/ui/badge';
@@ -29,7 +38,7 @@
 	}
 </script>
 
-<div id="ingestion-log" class="flex min-h-0 flex-1 flex-col border-t px-4 py-3">
+<div id="ingestion-log" class="border-t px-4 py-3">
 	<div class="mb-2 flex items-center gap-2">
 		<h2 class="text-sm font-medium">Ingestion log</h2>
 		{#if filter}
@@ -42,7 +51,7 @@
 		{/if}
 	</div>
 	{#if errors.length === 0}
-		<Empty.Root class="flex-1">
+		<Empty.Root>
 			<Empty.Header>
 				<Empty.Title>{filter ? 'No matching rejected payloads' : 'No rejected payloads'}</Empty.Title>
 				{#if filter}
@@ -56,7 +65,7 @@
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
-		<div class="min-h-0 flex-1 overflow-auto">
+		<div class="max-h-[320px] overflow-auto">
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
