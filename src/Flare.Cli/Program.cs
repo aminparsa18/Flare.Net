@@ -24,6 +24,14 @@ app.Configure(config =>
         .WithDescription("Open the dashboard in your default browser.");
     config.AddCommand<TailCommand>("tail")
         .WithDescription("Live-tail structured log events (filterable by service/level/trace/search).");
+    config.AddCommand<TracesCommand>("traces")
+        .WithDescription("Search recent traces (filterable by service/status/kind/duration/trace-id).");
+    config.AddCommand<TraceCommand>("trace")
+        .WithDescription("Render one trace as a text waterfall.");
+    config.AddCommand<MetricsCommand>("metrics")
+        .WithDescription("List discoverable metrics (filterable by service/since).");
+    config.AddCommand<MetricCommand>("metric")
+        .WithDescription("Chart one metric as ASCII sparklines.");
     config.AddCommand<UpdateCommand>("update")
         .WithDescription("Pull the latest images for the pinned tag and recreate containers. --tag <TAG> moves the pin itself first.");
     config.AddCommand<LogsCommand>("logs")
