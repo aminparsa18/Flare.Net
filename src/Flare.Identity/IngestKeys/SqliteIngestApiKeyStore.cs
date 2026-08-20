@@ -1,5 +1,3 @@
-using Microsoft.Data.Sqlite;
-
 namespace Flare.Identity.IngestKeys;
 
 public sealed class SqliteIngestApiKeyStore(IdentityDbConnectionFactory connectionFactory, TimeProvider timeProvider) : IIngestApiKeyStore

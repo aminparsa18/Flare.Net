@@ -10,7 +10,6 @@ using Flare.Identity;
 using Flare.Identity.Auth;
 using Flare.Identity.Users;
 using Flare.ServiceDefaults.ClickHouseMigrations;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;

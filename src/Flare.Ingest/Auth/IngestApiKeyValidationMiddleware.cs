@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 
 namespace Flare.Ingest.Auth;
