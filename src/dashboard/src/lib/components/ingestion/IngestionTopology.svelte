@@ -25,6 +25,7 @@
 		DOWN_UTILIZATION_PERCENT,
 		WARN_UTILIZATION_PERCENT,
 		computeFlushStatus,
+		hasRecentArrivals,
 		isBacklogStuck,
 		utilizationPercent
 	} from '$lib/ingestion/health';
@@ -141,7 +142,7 @@
 			// destructive/warning just because *a* lastError string exists; 'good'/'default'
 			// both read as a plain, uncolored border here (this diagram has no green-highlight
 			// treatment, unlike the table's own check icon).
-			const flushStatus = worker ? computeFlushStatus(worker, stream) : null;
+			const flushStatus = worker ? computeFlushStatus(worker, stream, hasRecentArrivals(stats.buckets, signal)) : null;
 			const workerTone: TopologyTone =
 				flushStatus?.tone === 'destructive' ? 'destructive' : flushStatus?.tone === 'warning' ? 'warning' : 'default';
 
