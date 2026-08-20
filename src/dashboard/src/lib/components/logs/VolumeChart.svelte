@@ -1,51 +1,52 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { fade } from 'svelte/transition';
 	import { aggregateLogs, type LogAggregateBucket } from '$lib/api';
 	import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import { resolveTimeRange } from '$lib/logs/time-range';
 	import { logsExplorerContext } from '$lib/logs/context';
-	import { animateHeight } from '$lib/actions/animate-height';
+	import * as Accordion from '$lib/components/ui/accordion';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import XIcon from '@lucide/svelte/icons/x';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 
 	const explorer = logsExplorerContext.get();
-
-	// Collapse/expand animation timing - shared by the chevron rotation, the fade on the
-	// collapsible body, and the use:animateHeight resize below, so all three settle at
-	// the same moment instead of visibly finishing out of sync with each other.
-	const COLLAPSE_ANIM_MS = 200;
 
 	const LIVE_POLL_MS = 15_000; // not per-event recompute - a burst could mean dozens of /aggregate calls/sec for a visual that doesn't need per-event resolution
 	const LIVE_TRAILING_WINDOW_MS = 60 * 60 * 1000; // matches LogFilterSqlBuilder.DefaultLookback (1h) so live mode's window feels consistent with the unfiltered-search default
 
-	// Collapse toggle - lets the user hide the chart to focus on the log table below,
-	// same "layout preference, not query state" reasoning metrics/+page.svelte's
-	// pickerWidth documents, so this lives as component-local state rather than on
-	// LogsExplorerState (which is about what's queried, not how the page is laid out).
-	// Persisted to localStorage so the choice survives reloads, same convention.
+	// The collapse/expand toggle is a single-item shadcn/bits-ui Accordion (see
+	// $lib/components/ui/accordion) rather than a hand-rolled collapsed boolean +
+	// custom animation - open/close animation, keyboard handling, and aria wiring all
+	// come from the primitive itself. "" is bits-ui's own closed-accordion value for
+	// type="single"; VOLUME_ITEM is this section's (only) open value.
+	const VOLUME_ITEM = 'volume';
 	const COLLAPSE_STORAGE_KEY = 'flare.logs.volumeChartCollapsed';
 
-	function loadStoredCollapsed(): boolean {
-		if (!browser) return false;
+	function loadStoredValue(): string {
+		if (!browser) return VOLUME_ITEM;
 		try {
-			return localStorage.getItem(COLLAPSE_STORAGE_KEY) === 'true';
+			return localStorage.getItem(COLLAPSE_STORAGE_KEY) === 'true' ? '' : VOLUME_ITEM;
 		} catch {
-			return false; // storage disabled (e.g. private browsing) - fall back to expanded
+			return VOLUME_ITEM; // storage disabled (e.g. private browsing) - fall back to expanded
 		}
 	}
 
-	let collapsed = $state(loadStoredCollapsed());
+	let accordionValue = $state(loadStoredValue());
 
-	function toggleCollapsed(): void {
-		collapsed = !collapsed;
+	// Persists whenever the accordion opens/closes (header click or keyboard) - a layout
+	// preference, not part of LogsExplorerState (which is about what's queried, not how
+	// the page is laid out), same reasoning metrics/+page.svelte's pickerWidth documents
+	// for its own localStorage use.
+	$effect(() => {
+		const value = accordionValue;
+		if (!browser) return;
 		try {
-			localStorage.setItem(COLLAPSE_STORAGE_KEY, String(collapsed));
+			localStorage.setItem(COLLAPSE_STORAGE_KEY, String(value !== VOLUME_ITEM));
 		} catch {
 			// Non-critical - the next reload just falls back to expanded instead.
 		}
-	}
+	});
+
+	const collapsed = $derived(accordionValue !== VOLUME_ITEM);
 
 	let buckets = $state<LogAggregateBucket[]>([]);
 	let fetchError = $state<string | null>(null);
@@ -222,156 +223,140 @@
 	}
 </script>
 
-<div class="border-b px-4 transition-[padding] duration-200 ease-out {collapsed ? 'py-1.5' : 'py-3'}">
-	<div
-		class="text-muted-foreground flex items-center justify-between text-xs transition-[margin] duration-200 ease-out"
-		class:mb-1={!collapsed}
-	>
-		<button
-			type="button"
-			class="hover:text-foreground -ml-1 flex items-center gap-1 rounded px-1 py-0.5"
-			aria-expanded={!collapsed}
-			onclick={toggleCollapsed}
-		>
-			<ChevronDownIcon class="size-3.5 transition-transform duration-200 ease-out {collapsed ? '-rotate-90' : ''}" />
-			Event volume
-		</button>
-		{#if !collapsed}
-			{#if selectedIndex !== null && buckets[selectedIndex]}
-				<button
-					type="button"
-					class="text-foreground bg-accent hover:bg-accent/70 flex items-center gap-1 rounded px-1.5 py-0.5"
-					onclick={() => explorer.clearSelectedBucket()}
-				>
-					Filtered to {formatBucketTime(buckets[selectedIndex].bucketStart)}
-					<XIcon class="size-3" />
-				</button>
-			{/if}
-			<span class="tabular-nums">{formatCount(totalCount)} events</span>
-		{/if}
-	</div>
-	<!-- use:animateHeight (see $lib/actions/animate-height.ts) smooths the container's
-	     resize as the block below mounts/unmounts instead of snapping straight to 0/full
-	     height - same technique MetricChart.svelte's chart-swap uses. transition:fade on
-	     the inner wrapper keeps the outgoing content laid out (so animateHeight still has
-	     a real height to measure/animate from) while it fades to transparent, rather than
-	     vanishing the instant `collapsed` flips - same pairing MetricChart's out:fade +
-	     use:animateHeight rely on. -->
-	<div use:animateHeight={COLLAPSE_ANIM_MS} class="overflow-hidden">
-		{#if !collapsed}
-			<div transition:fade={{ duration: COLLAPSE_ANIM_MS }}>
-				{#if fetchError}
-					<p class="text-destructive text-xs">Volume chart: {fetchError}</p>
-				{:else if buckets.length === 0}
-					<div class="text-muted-foreground flex h-[100px] items-center justify-center text-xs">No data</div>
-				{:else}
-					<div class="grid grid-cols-[2.5rem_1fr] gap-x-2">
-						<div class="text-muted-foreground flex h-[100px] flex-col justify-between py-0.5 text-right text-[10px] tabular-nums">
-							<span>{formatCount(peakCount)}</span>
-							<span>{formatCount(Math.round(peakCount / 2))}</span>
-							<span>0</span>
-						</div>
-						<Tooltip.Provider>
-							<Tooltip.Root open={hoverIndex !== null}>
-								<Tooltip.Trigger>
-									{#snippet child({ props })}
-										<svg
-											{...props}
-											viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
-											preserveAspectRatio="none"
-											class="h-[100px] w-full cursor-pointer"
-											role="img"
-											aria-label="Event volume over time - click a bar to filter logs to that time range"
-											onpointermove={handlePointerMove}
-											onpointerleave={() => (hoverIndex = null)}
-											onclick={handleBarClick}
-										>
-											<!-- Gridlines at peak / half / zero, aligned with the y-axis labels beside them.
-											     non-scaling-stroke keeps them a crisp 1px regardless of the viewBox's
-											     non-uniform stretch (preserveAspectRatio="none" scales x and y independently). -->
-											{#each [PEAK_Y, (PEAK_Y + BASELINE_Y) / 2, BASELINE_Y] as gridY (gridY)}
-												<line
-													x1="0"
-													y1={gridY}
-													x2={CHART_WIDTH}
-													y2={gridY}
-													class="text-border"
-													stroke="currentColor"
-													stroke-width="1"
-													vector-effect="non-scaling-stroke"
-												/>
-											{/each}
-
-											{#if selectedIndex !== null}
-												<!-- Persistent (not hover-only) marker for the bar-click selection, so the
-												     filtered-to range stays visible even after the pointer moves away. -->
-												<line
-													x1={selectedIndex * barWidth + barWidth / 2}
-													y1={PEAK_Y}
-													x2={selectedIndex * barWidth + barWidth / 2}
-													y2={BASELINE_Y}
-													class="text-foreground"
-													stroke="currentColor"
-													stroke-width="1"
-													vector-effect="non-scaling-stroke"
-												/>
-											{/if}
-
-											{#if hoverIndex !== null && hoverIndex !== selectedIndex}
-												<line
-													x1={hoverIndex * barWidth + barWidth / 2}
-													y1={PEAK_Y}
-													x2={hoverIndex * barWidth + barWidth / 2}
-													y2={BASELINE_Y}
-													class="text-muted-foreground"
-													stroke="currentColor"
-													stroke-width="1"
-													stroke-dasharray="2,2"
-													vector-effect="non-scaling-stroke"
-												/>
-											{/if}
-
-											{#each buckets as bucket, i (bucket.bucketStart)}
-												<!-- Inline style, not a fill-primary Tailwind class: this project's Tailwind build
-												     never emits fill-*/stroke-* color utilities (confirmed - no such rule exists in
-												     any stylesheet even for a plain fill-primary). --color-primary (the @theme
-												     inline token) isn't a real runtime custom property either - `inline` tells
-												     Tailwind to bake var(--primary) directly into generated utilities instead of
-												     emitting a --color-primary custom property on :root, confirmed empty via
-												     getComputedStyle. --primary itself (layout.css's own :root/.dark block) is the
-												     real runtime variable, so that's what this binds to directly. -->
-												<path
-													d={barPath(
-														i * barWidth + 1,
-														BASELINE_Y - barHeight(bucket.count),
-														Math.max(1, barWidth - 2),
-														barHeight(bucket.count)
-													)}
-													style="fill: var(--primary); fill-opacity: {hoverIndex === i || selectedIndex === i
-														? 1
-														: 0.55}; {selectedIndex === i ? 'stroke: var(--foreground); stroke-width: 1.5;' : ''}"
-													vector-effect={selectedIndex === i ? 'non-scaling-stroke' : undefined}
-												/>
-											{/each}
-										</svg>
-									{/snippet}
-								</Tooltip.Trigger>
-								{#if hoverIndex !== null && buckets[hoverIndex]}
-									<Tooltip.Content>
-										{formatBucketTime(buckets[hoverIndex].bucketStart)} · {formatCount(buckets[hoverIndex].count)} events · click to filter
-									</Tooltip.Content>
-								{/if}
-							</Tooltip.Root>
-						</Tooltip.Provider>
-
-						<div></div>
-						<div class="text-muted-foreground mt-1 flex justify-between text-[10px]">
-							<span>{rangeFrom ? formatAxisTime(rangeFrom) : ''}</span>
-							<span>{rangeTo ? formatAxisTime(rangeTo) : ''}</span>
-						</div>
-					</div>
+<Accordion.Root type="single" bind:value={accordionValue} class="w-full flex-col rounded-none border-0 border-b">
+	<Accordion.Item value={VOLUME_ITEM} class="border-0 data-open:bg-transparent">
+		<div class="flex items-center justify-between gap-2 px-4 py-3 text-xs">
+			<Accordion.Trigger
+				class="text-muted-foreground hover:text-foreground group/accordion-trigger relative flex w-auto flex-none items-center justify-start gap-1 border-none p-0 text-left text-xs font-normal hover:no-underline **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:size-3.5"
+			>
+				Event volume
+			</Accordion.Trigger>
+			{#if !collapsed}
+				{#if selectedIndex !== null && buckets[selectedIndex]}
+					<button
+						type="button"
+						class="text-foreground bg-accent hover:bg-accent/70 flex items-center gap-1 rounded px-1.5 py-0.5"
+						onclick={() => explorer.clearSelectedBucket()}
+					>
+						Filtered to {formatBucketTime(buckets[selectedIndex].bucketStart)}
+						<XIcon class="size-3" />
+					</button>
 				{/if}
-			</div>
-		{/if}
-	</div>
-</div>
+				<span class="text-muted-foreground tabular-nums">{formatCount(totalCount)} events</span>
+			{/if}
+		</div>
+		<Accordion.Content class="px-4 pb-3">
+			{#if fetchError}
+				<p class="text-destructive text-xs">Volume chart: {fetchError}</p>
+			{:else if buckets.length === 0}
+				<div class="text-muted-foreground flex h-[100px] items-center justify-center text-xs">No data</div>
+			{:else}
+				<div class="grid grid-cols-[2.5rem_1fr] gap-x-2">
+					<div class="text-muted-foreground flex h-[100px] flex-col justify-between py-0.5 text-right text-[10px] tabular-nums">
+						<span>{formatCount(peakCount)}</span>
+						<span>{formatCount(Math.round(peakCount / 2))}</span>
+						<span>0</span>
+					</div>
+					<Tooltip.Provider>
+						<Tooltip.Root open={hoverIndex !== null}>
+							<Tooltip.Trigger>
+								{#snippet child({ props })}
+									<svg
+										{...props}
+										viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
+										preserveAspectRatio="none"
+										class="h-[100px] w-full cursor-pointer"
+										role="img"
+										aria-label="Event volume over time - click a bar to filter logs to that time range"
+										onpointermove={handlePointerMove}
+										onpointerleave={() => (hoverIndex = null)}
+										onclick={handleBarClick}
+									>
+										<!-- Gridlines at peak / half / zero, aligned with the y-axis labels beside them.
+										     non-scaling-stroke keeps them a crisp 1px regardless of the viewBox's
+										     non-uniform stretch (preserveAspectRatio="none" scales x and y independently). -->
+										{#each [PEAK_Y, (PEAK_Y + BASELINE_Y) / 2, BASELINE_Y] as gridY (gridY)}
+											<line
+												x1="0"
+												y1={gridY}
+												x2={CHART_WIDTH}
+												y2={gridY}
+												class="text-border"
+												stroke="currentColor"
+												stroke-width="1"
+												vector-effect="non-scaling-stroke"
+											/>
+										{/each}
+
+										{#if selectedIndex !== null}
+											<!-- Persistent (not hover-only) marker for the bar-click selection, so the
+											     filtered-to range stays visible even after the pointer moves away. -->
+											<line
+												x1={selectedIndex * barWidth + barWidth / 2}
+												y1={PEAK_Y}
+												x2={selectedIndex * barWidth + barWidth / 2}
+												y2={BASELINE_Y}
+												class="text-foreground"
+												stroke="currentColor"
+												stroke-width="1"
+												vector-effect="non-scaling-stroke"
+											/>
+										{/if}
+
+										{#if hoverIndex !== null && hoverIndex !== selectedIndex}
+											<line
+												x1={hoverIndex * barWidth + barWidth / 2}
+												y1={PEAK_Y}
+												x2={hoverIndex * barWidth + barWidth / 2}
+												y2={BASELINE_Y}
+												class="text-muted-foreground"
+												stroke="currentColor"
+												stroke-width="1"
+												stroke-dasharray="2,2"
+												vector-effect="non-scaling-stroke"
+											/>
+										{/if}
+
+										{#each buckets as bucket, i (bucket.bucketStart)}
+											<!-- Inline style, not a fill-primary Tailwind class: this project's Tailwind build
+											     never emits fill-*/stroke-* color utilities (confirmed - no such rule exists in
+											     any stylesheet even for a plain fill-primary). --color-primary (the @theme
+											     inline token) isn't a real runtime custom property either - `inline` tells
+											     Tailwind to bake var(--primary) directly into generated utilities instead of
+											     emitting a --color-primary custom property on :root, confirmed empty via
+											     getComputedStyle. --primary itself (layout.css's own :root/.dark block) is the
+											     real runtime variable, so that's what this binds to directly. -->
+											<path
+												d={barPath(
+													i * barWidth + 1,
+													BASELINE_Y - barHeight(bucket.count),
+													Math.max(1, barWidth - 2),
+													barHeight(bucket.count)
+												)}
+												style="fill: var(--primary); fill-opacity: {hoverIndex === i || selectedIndex === i
+													? 1
+													: 0.55}; {selectedIndex === i ? 'stroke: var(--foreground); stroke-width: 1.5;' : ''}"
+												vector-effect={selectedIndex === i ? 'non-scaling-stroke' : undefined}
+											/>
+										{/each}
+									</svg>
+								{/snippet}
+							</Tooltip.Trigger>
+							{#if hoverIndex !== null && buckets[hoverIndex]}
+								<Tooltip.Content>
+									{formatBucketTime(buckets[hoverIndex].bucketStart)} · {formatCount(buckets[hoverIndex].count)} events · click to filter
+								</Tooltip.Content>
+							{/if}
+						</Tooltip.Root>
+					</Tooltip.Provider>
+
+					<div></div>
+					<div class="text-muted-foreground mt-1 flex justify-between text-[10px]">
+						<span>{rangeFrom ? formatAxisTime(rangeFrom) : ''}</span>
+						<span>{rangeTo ? formatAxisTime(rangeTo) : ''}</span>
+					</div>
+				</div>
+			{/if}
+		</Accordion.Content>
+	</Accordion.Item>
+</Accordion.Root>
