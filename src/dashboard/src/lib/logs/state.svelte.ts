@@ -122,6 +122,27 @@ export class LogsExplorerState {
 	#searchAbort: AbortController | null = null;
 
 	/**
+	 * Dedupes a freshly-fetched page against `#seenIds` (cross-page duplicates - e.g. a
+	 * cursor boundary re-returning the last row of the previous page) *and* against itself
+	 * (same-page duplicates - e.g. Flare.Api/ClickHouse occasionally returning two rows
+	 * sharing an eventId, most likely from at-least-once OTLP ingestion). The `!seenIds.has`
+	 * filter alone only catches the cross-page case: two same-ID rows arriving in the same
+	 * `res.events` array both pass it (neither is in `seenIds` *yet*), landing in `events`
+	 * with an identical key - which is exactly what trips Svelte's each_key_duplicate on the
+	 * keyed {#each} in VirtualList. Mutates `seenIds` in place as it goes so a same-page
+	 * duplicate's second occurrence is rejected too, not just future pages' repeats.
+	 */
+	#dedupeAgainstSeen(events: LogEventDto[]): LogEventDto[] {
+		const fresh: LogEventDto[] = [];
+		for (const e of events) {
+			if (this.#seenIds.has(e.eventId)) continue;
+			this.#seenIds.add(e.eventId);
+			fresh.push(e);
+		}
+		return fresh;
+	}
+
+	/**
 	 * Builds a LogFilter from the current service/severity/search selection plus an
 	 * explicit time range (or none). Shared by search/load-more (resolved preset range),
 	 * live-tail subscribe (no range - the tail endpoint ignores from/to anyway), and
@@ -178,9 +199,9 @@ export class LogsExplorerState {
 		try {
 			const res = await searchLogs({ filter: this.buildFilter(this.#resolvedRange()), pageSize: PAGE_SIZE }, abort.signal);
 			if (abort.signal.aborted) return;
-			this.events = res.events;
+			this.#seenIds = new Set();
+			this.events = this.#dedupeAgainstSeen(res.events);
 			this.nextCursor = res.nextCursor;
-			this.#seenIds = new Set(res.events.map((e) => e.eventId));
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.error = err instanceof Error ? err.message : String(err);
@@ -198,8 +219,7 @@ export class LogsExplorerState {
 				cursor: this.nextCursor,
 				pageSize: PAGE_SIZE
 			});
-			const fresh = res.events.filter((e) => !this.#seenIds.has(e.eventId));
-			for (const e of fresh) this.#seenIds.add(e.eventId);
+			const fresh = this.#dedupeAgainstSeen(res.events);
 			const next = [...this.events, ...fresh];
 			// See PAGINATION_CAP's remarks - trims from the front (newest-loaded end),
 			// symmetric with #prependLive trimming from the back.
