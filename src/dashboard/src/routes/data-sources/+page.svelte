@@ -19,6 +19,7 @@
 	const host = browser ? window.location.hostname : 'localhost';
 	const { categories, items } = $derived(
 		buildCategories({
+			host,
 			grpcHostPort: `${host}:4317`,
 			grpcUri: `http://${host}:4317`,
 			httpUri: `http://${host}:4318`,

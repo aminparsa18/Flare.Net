@@ -6,9 +6,12 @@
 // "Databases"/"Web Servers"/etc. is "run the OpenTelemetry Collector with that source's
 // receiver, export OTLP to Flare" rather than a bespoke snippet per product. This is the
 // curated "focused core" set: platforms apps commonly run on, the languages/SDKs most
-// likely to be emitting the logs in the first place, and the DevOps tools that came up
-// by name (Jenkins/Ansible/Terraform/GitHub Actions) - not full category parity with
-// OpenObserve's 40+ item catalog.
+// likely to be emitting the logs in the first place, the DevOps tools that came up by
+// name (Jenkins/Ansible/Terraform/GitHub Actions), and the log shippers whose *own*
+// native OTLP output can skip the Collector middleman entirely (Vector, Fluent Bit -
+// verified against vector.dev/docs.fluentbit.io directly, since OpenObserve's own
+// integration docs default both of them to OpenObserve's proprietary bulk-JSON API
+// instead of OTLP). Not full category parity with OpenObserve's 40+ item catalog.
 //
 // Ingest auth: IngestApiKeyValidationMiddleware (src/Flare.Ingest/Auth/) only enforces a
 // Bearer token when IngestAuthOptions.IngestKeyRequired is turned on - off by default, so
@@ -35,6 +38,13 @@ import WrenchIcon from '@lucide/svelte/icons/wrench';
 import WorkflowIcon from '@lucide/svelte/icons/workflow';
 import LayersIcon from '@lucide/svelte/icons/layers';
 import CirclePlayIcon from '@lucide/svelte/icons/circle-play';
+// Log shippers - Vector and Fluent Bit both have their own native OTLP output, verified
+// against vector.dev/docs and docs.fluentbit.io directly (not just OpenObserve's
+// integration page, which defaults both of them to OpenObserve's own proprietary
+// bulk-JSON API instead - see this tab's own doc comment below).
+import MoveRightIcon from '@lucide/svelte/icons/move-right';
+import DropletIcon from '@lucide/svelte/icons/droplet';
+import RadioTowerIcon from '@lucide/svelte/icons/radio-tower';
 
 export interface GuideStep {
 	heading: string;
@@ -65,6 +75,8 @@ export interface GuideCategory {
  * do with the browser's origin, so that one stays a placeholder.
  */
 export interface GuideEndpoints {
+	/** Bare hostname, no port/scheme - what Fluent Bit's split Host/Port config keys want. */
+	host: string;
 	/** host:port, no scheme - what OTel Collector exporter config (`endpoint:`) and Go's otlploggrpc.WithEndpoint want. */
 	grpcHostPort: string;
 	/** http://host:port - what OTEL_EXPORTER_OTLP_ENDPOINT env vars and C#'s `new Uri(...)` want. */
@@ -472,6 +484,84 @@ ansible-playbook site.yml`
 				}
 			]
 		},
+		vector: {
+			id: 'vector',
+			title: 'Vector',
+			icon: MoveRightIcon,
+			intro: "Vector ships a native OpenTelemetry sink - point it at Flare.Ingest directly, no separate Collector needed.",
+			steps: [
+				{
+					heading: 'Add an opentelemetry sink',
+					body: 'inputs should list whatever source or transform is already producing the events you want shipped - a file source tailing a log, a docker_logs source, etc.',
+					code: {
+						label: 'vector.yaml',
+						text: `sinks:
+  flare:
+    type: opentelemetry
+    inputs: [your_source_or_transform_id]
+    protocol:
+      type: http
+      uri: ${ep.httpUri}/v1/logs
+      encoding:
+        codec: otlp`
+					}
+				}
+			]
+		},
+		'fluent-bit': {
+			id: 'fluent-bit',
+			title: 'Fluent Bit',
+			icon: DropletIcon,
+			intro: 'Fluent Bit ships a built-in OpenTelemetry output plugin - point it at Flare.Ingest directly, no separate Collector needed.',
+			steps: [
+				{
+					heading: 'Add an opentelemetry output',
+					code: {
+						label: 'fluent-bit.conf',
+						text: `[OUTPUT]
+    Name       opentelemetry
+    Match      *
+    Host       ${ep.host}
+    Port       4318
+    Logs_uri   /v1/logs`
+					}
+				}
+			]
+		},
+		syslog: {
+			id: 'syslog',
+			title: 'Syslog',
+			icon: RadioTowerIcon,
+			intro: "Flare.Ingest has no syslog listener of its own - route through the OpenTelemetry Collector's syslog receiver instead, same pattern as any other source that doesn't speak OTLP.",
+			steps: [
+				{
+					heading: 'Configure the Collector',
+					body: "Runs alongside whatever else the Collector is already doing on this host - see the Platforms tab for the full install steps (this is just the receiver/exporter pair to add to that config).",
+					code: {
+						label: 'config.yaml',
+						text: `receivers:
+  syslog:
+    tcp:
+      listen_address: "0.0.0.0:5514"
+    protocol: rfc5424
+exporters:
+  otlp/flare:
+    endpoint: ${ep.grpcHostPort}
+    tls:
+      insecure: true
+service:
+  pipelines:
+    logs:
+      receivers: [syslog]
+      exporters: [otlp/flare]`
+					}
+				},
+				{
+					heading: '',
+					body: "Point whatever's emitting syslog (a network device, syslog-ng, journald's syslog forwarding, etc.) at this host on port 5514 instead of wherever it was going before."
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: 'Custom / raw OTLP',
@@ -520,6 +610,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 	const categories: GuideCategory[] = [
 		{ id: 'recommended', label: 'Recommended', itemIds: ['kubernetes', 'docker', 'dotnet', 'custom'] },
 		{ id: 'platforms', label: 'Platforms', itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
+		{ id: 'shippers', label: 'Log Shippers', itemIds: ['vector', 'fluent-bit', 'syslog'] },
 		{ id: 'languages', label: 'Languages & Frameworks', itemIds: ['dotnet', 'python', 'nodejs', 'java', 'go'] },
 		{ id: 'devops', label: 'DevOps', itemIds: ['jenkins', 'ansible', 'terraform', 'github-actions'] },
 		{ id: 'custom', label: 'Custom', itemIds: ['custom'] }
