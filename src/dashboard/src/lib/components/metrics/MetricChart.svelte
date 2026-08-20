@@ -33,22 +33,24 @@
 	// series-identity order above) - p50/p90/p99 are the same three quantities on
 	// every histogram, so their colors stay constant regardless of series count,
 	// unlike Gauge/Sum lines whose color depends on their position in the series list.
+	// p75/p95 aren't part of this map - they're separate single-line modes (see
+	// HistogramMode below), not folded into the 3-line Percentiles view.
 	const PERCENTILE_COLOR: Record<'p50' | 'p90' | 'p99', string> = {
 		p50: 'var(--chart-1)',
 		p90: 'var(--chart-2)',
 		p99: 'var(--chart-4)'
 	};
-	// Its own fixed slot (unused by PERCENTILE_COLOR above) - mean isn't a percentile,
-	// so it shouldn't borrow p50's color and read as if it were one.
-	const MEAN_COLOR = 'var(--chart-3)';
+	// Shared slot for every single-computed-line histogram mode (mean/p75/p95/max) -
+	// they're mutually exclusive (only one histogramMode is ever active), so there's
+	// never a visual collision, and reusing one slot avoids spending --chart-5
+	// (reserved for the 5th Gauge/Sum overlay series) on lines that never coexist.
+	const SINGLE_LINE_COLOR = 'var(--chart-3)';
 
 	// Alternate views for Sum/Histogram, picked via the small Select next to the
-	// metadata row below - "how should this be aggregated", not "which series". Both
+	// metadata row below - "how should this be aggregated", not "which series". All
 	// are pure reshapes of the *already-fetched* data (rate = value / bucket width;
-	// mean = sum / count, both already returned per point - see MetricSeriesPoint),
-	// so switching never re-queries. `count`/`p75`/`p95`/`max` are deliberately not
-	// options here - see Planning.md's "Later" entry for why those need backend work
-	// this Tier-1 pass doesn't do.
+	// mean = sum / count; p75/p95/maxApprox are already returned per point - see
+	// MetricSeriesPoint), so switching never re-queries.
 	// Rate, not Sum, is the default view for Sum-typed metrics: bucket width here
 	// tracks the selected time range (see intervalSeconds' own remarks), so a raw
 	// per-bucket Sum for the same underlying counter reads differently depending on
@@ -56,10 +58,32 @@
 	// different over 10s than over 1h. Dividing by bucket width makes the number
 	// mean the same thing regardless of zoom level, which is what "exceptions/min"
 	// operationally answers anyway. Sum stays one click away in the picker below.
-	type SumMode = 'sum' | 'rate';
-	type HistogramMode = 'percentiles' | 'mean';
+	type SumMode = 'sum' | 'rate' | 'count';
+	type HistogramMode = 'percentiles' | 'mean' | 'p75' | 'p95' | 'max';
 	let sumMode = $state<SumMode>('rate');
 	let histogramMode = $state<HistogramMode>('percentiles');
+
+	const SUM_MODE_LABEL: Record<SumMode, string> = { sum: 'Sum', rate: 'Rate', count: 'Count' };
+	// "Max (approx.)" everywhere it's user-visible (Select item, trigger, line
+	// detail/tooltip) - MaxApprox is a bucket-boundary approximation, not the true
+	// OTLP max (see MetricSeriesPoint.maxApprox), so the caveat travels with the
+	// value rather than being a one-off mention.
+	const HISTOGRAM_MODE_LABEL: Record<HistogramMode, string> = {
+		percentiles: 'Percentiles',
+		mean: 'Mean',
+		p75: 'p75',
+		p95: 'p95',
+		max: 'Max (approx.)'
+	};
+
+	// Histogram modes period-over-period comparison supports - Mean (a single line,
+	// same shape as Gauge/Sum) and Max (a "max of per-bucket maxApprox across the
+	// period" is a mathematically valid aggregation, same reasoning Mean's weighted-
+	// average already relies on). p75/p95 stay unavailable alongside Percentiles:
+	// per-bucket percentiles can't be validly averaged/combined across a period the
+	// way a mean or a max can, and the frontend never receives the raw bucket data a
+	// true whole-period percentile would need anyway.
+	const HISTOGRAM_COMPARABLE_MODES: readonly HistogramMode[] = ['mean', 'max'];
 
 	// Full, unambiguous label - serviceName plus every attribute - used where
 	// uniqueness matters more than brevity (the histogram series picker below,
@@ -114,12 +138,12 @@
 	const isHistogram = $derived(explorer.resultType === 'Histogram');
 	const isSum = $derived(explorer.resultType === 'Sum');
 
-	// Comparison mode supports Gauge/Sum (always) and Histogram's Mean view (already a
-	// single line, same shape as Gauge/Sum) - not Histogram's Percentiles view, which
-	// would need 6 dashed-vs-solid lines (p50/p90/p99 x 2 periods) for a real overlay,
-	// more clutter than the feature is worth. The chart doesn't silently ignore that
-	// case, though (a real UX gap in the first cut of this feature) - see the header's
-	// own "switch to Mean" note below.
+	// Comparison mode supports Gauge/Sum (always) and Histogram's Mean/Max views
+	// (see HISTOGRAM_COMPARABLE_MODES) - not Percentiles/p75/p95, which would need
+	// N dashed-vs-solid lines for a real overlay (more clutter than the feature is
+	// worth) and can't be validly averaged across a period anyway (unlike Mean/Max).
+	// The chart doesn't silently ignore that case, though (a real UX gap in the first
+	// cut of this feature) - see the header's own "switch to Mean or Max" note below.
 	//
 	// Keyed on `resultCompareEnabled` (what `series`/`previousSeries` were actually
 	// fetched with), not the live `filter.compareEnabled` the toolbar switch shows -
@@ -129,9 +153,13 @@
 	// switch clears series/previousSeries synchronously (MetricsExplorerState.
 	// #resetForNewMetric) rather than leaving stale data to be inconsistent about.
 	const compareActive = $derived(
-		explorer.resultCompareEnabled && (!isHistogram || histogramMode === 'mean') && explorer.selected != null
+		explorer.resultCompareEnabled &&
+			(!isHistogram || HISTOGRAM_COMPARABLE_MODES.includes(histogramMode)) &&
+			explorer.selected != null
 	);
-	const compareUnavailable = $derived(explorer.filter.compareEnabled && isHistogram && histogramMode === 'percentiles');
+	const compareUnavailable = $derived(
+		explorer.filter.compareEnabled && isHistogram && !HISTOGRAM_COMPARABLE_MODES.includes(histogramMode)
+	);
 
 	// "View related logs"/"View traces" - cross-links into Logs/Traces pre-filtered to
 	// this metric's service and the explorer's current time range (see $lib/deep-links.ts),
@@ -226,12 +254,37 @@
 			if (histogramMode === 'mean') {
 				return [
 					{
-						color: MEAN_COLOR,
+						color: SINGLE_LINE_COLOR,
 						label: 'mean',
 						detail: 'mean',
 						points: series.points
 							.filter((p) => p.sum != null && p.count != null && p.count > 0)
 							.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p.sum! / p.count! }))
+					}
+				];
+			}
+			if (histogramMode === 'p75' || histogramMode === 'p95') {
+				const key = histogramMode;
+				return [
+					{
+						color: SINGLE_LINE_COLOR,
+						label: key,
+						detail: key,
+						points: series.points
+							.filter((p) => p[key] != null)
+							.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p[key]! }))
+					}
+				];
+			}
+			if (histogramMode === 'max') {
+				return [
+					{
+						color: SINGLE_LINE_COLOR,
+						label: HISTOGRAM_MODE_LABEL.max,
+						detail: HISTOGRAM_MODE_LABEL.max,
+						points: series.points
+							.filter((p) => p.maxApprox != null)
+							.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p.maxApprox! }))
 					}
 				];
 			}
@@ -250,8 +303,11 @@
 			label: compactSeriesLabel(series, visibleSeries),
 			detail: seriesLabel(series),
 			points: series.points
-				.filter((p) => p.value != null)
-				.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: rateDivisor ? p.value! / rateDivisor : p.value! }))
+				.filter((p) => (isSum && sumMode === 'count' ? p.count != null : p.value != null))
+				.map((p) => ({
+					time: new Date(p.bucketStart).getTime(),
+					raw: isSum && sumMode === 'count' ? p.count! : rateDivisor ? p.value! / rateDivisor : p.value!
+				}))
 		}));
 	}
 
@@ -294,6 +350,21 @@
 			.map((p) => ({ time: new Date(p.bucketStart).getTime() + shiftMs, raw: p.sum! / p.count! }));
 	}
 
+	// Mean's comparison-mode counterpart for the Max view - same shape, maps
+	// maxApprox instead of sum/count.
+	function maxApproxPoints(series: MetricSeries | null, shiftMs = 0): PlotPoint[] {
+		if (!series) return [];
+		return series.points
+			.filter((p) => p.maxApprox != null)
+			.map((p) => ({ time: new Date(p.bucketStart).getTime() + shiftMs, raw: p.maxApprox! }));
+	}
+
+	// Picks meanPoints vs maxApproxPoints for the Histogram case - buildComparisonLines
+	// and comparePercent both need this same choice, so it's factored out once.
+	function histogramComparePoints(series: MetricSeries | null, shiftMs = 0): PlotPoint[] {
+		return histogramMode === 'max' ? maxApproxPoints(series, shiftMs) : meanPoints(series, shiftMs);
+	}
+
 	/**
 	 * Comparison mode's two lines, "Current" and "Previous", built one of two ways
 	 * depending on type - each matching how that type's *normal* (non-compare) mode
@@ -306,10 +377,12 @@
 	 *   lines next to N previous ones (which doubles an already-busy legend - see item
 	 *   6/7's compactSeriesLabel). For a single-series metric this reduces to exactly
 	 *   that one series' current/previous anyway.
-	 * - Histogram (Mean view only - see compareActive/compareUnavailable): normal mode
-	 *   already restricts to the one series picked via histogramSeriesIndex, so compare
-	 *   mode does too - paired to its previous-period counterpart via matchingSeries,
-	 *   not blended with any other series.
+	 * - Histogram (Mean/Max views only - see compareActive/compareUnavailable/
+	 *   HISTOGRAM_COMPARABLE_MODES): normal mode already restricts to the one series
+	 *   picked via histogramSeriesIndex, so compare mode does too - paired to its
+	 *   previous-period counterpart via matchingSeries, not blended with any other
+	 *   series. histogramComparePoints picks mean-vs-max shaping to match whichever
+	 *   of the two is active.
 	 *
 	 * Previous's `time` values are shifted forward by one full period (in shiftMs, as a
 	 * number - see PlotPoint.time's remarks on why not a re-stringified timestamp) so
@@ -324,9 +397,11 @@
 		// whatever "now" happens to be at call time), but this is the one that's
 		// actually deterministic rather than incidentally so.
 		const shiftMs = TIME_RANGE_PRESETS.find((p) => p.value === explorer.filter.timeRangePreset)?.durationMs ?? 0;
-		const currentPoints = isHistogram ? meanPoints(visibleSeries[0] ?? null) : sortedPoints(totalsByBucket(explorer.series));
+		const currentPoints = isHistogram
+			? histogramComparePoints(visibleSeries[0] ?? null)
+			: sortedPoints(totalsByBucket(explorer.series));
 		const previousPoints = isHistogram
-			? meanPoints(visibleSeries[0] ? matchingSeries(visibleSeries[0], explorer.previousSeries) : null, shiftMs)
+			? histogramComparePoints(visibleSeries[0] ? matchingSeries(visibleSeries[0], explorer.previousSeries) : null, shiftMs)
 			: sortedPoints(totalsByBucket(explorer.previousSeries), shiftMs);
 		return [
 			{ color: 'var(--chart-1)', label: 'Current', detail: 'Current', points: currentPoints },
@@ -371,9 +446,18 @@
 				}
 				return count > 0 ? sum / count : null;
 			};
+			// "Max of per-bucket maxApprox across the whole period" - a valid aggregation
+			// for Max (unlike averaging percentiles, which weightedMean above wouldn't
+			// even make sense for), mirroring why HISTOGRAM_COMPARABLE_MODES includes it.
+			const periodMax = (series: MetricSeries | null) => {
+				if (!series) return null;
+				const values = series.points.map((p) => p.maxApprox).filter((v): v is number => v != null);
+				return values.length > 0 ? Math.max(...values) : null;
+			};
+			const aggregate = histogramMode === 'max' ? periodMax : weightedMean;
 			const current = visibleSeries[0] ?? null;
-			currentTotal = weightedMean(current) ?? 0;
-			previousTotal = weightedMean(current ? matchingSeries(current, explorer.previousSeries) : null) ?? 0;
+			currentTotal = aggregate(current) ?? 0;
+			previousTotal = aggregate(current ? matchingSeries(current, explorer.previousSeries) : null) ?? 0;
 		} else {
 			const sum = (series: MetricSeries[]) => series.flatMap((s) => s.points).reduce((total, p) => total + (p.value ?? 0), 0);
 			currentTotal = sum(explorer.series);
@@ -436,9 +520,16 @@
 	// Rate mode changes the unit, not just the numbers - a Sum declared "By" reads as
 	// "By/s" once every value has been divided by the bucket width. axis.ts already
 	// knows how to split/format a "<unit>/s" rate unit (composing it back this way is
-	// simplest: MetricNameInfo has no separate "rate unit" of its own to read).
+	// simplest: MetricNameInfo has no separate "rate unit" of its own to read). Count
+	// mode is a plain sample count, not the metric's declared unit at all - showing it
+	// labeled "ms"/"By" would be actively wrong (unlike Rate, which composes cleanly),
+	// so it gets no unit rather than an inherited, misleading one.
 	const displayUnit = $derived(
-		isSum && sumMode === 'rate' ? `${explorer.selected?.unit ?? ''}/s` : explorer.selected?.unit
+		isSum && sumMode === 'count'
+			? null
+			: isSum && sumMode === 'rate'
+				? `${explorer.selected?.unit ?? ''}/s`
+				: explorer.selected?.unit
 	);
 
 	// One scale for the whole chart (e.g. "ms"), picked from the data's raw peak so
@@ -562,11 +653,12 @@
 						{#if isSum}
 							<Select.Root type="single" value={sumMode} onValueChange={(v) => v && (sumMode = v as SumMode)}>
 								<Select.Trigger class="w-auto">
-									{sumMode === 'rate' ? 'Rate' : 'Sum'}
+									{SUM_MODE_LABEL[sumMode]}
 								</Select.Trigger>
 								<Select.Content>
 									<Select.Item value="sum" label="Sum" />
 									<Select.Item value="rate" label="Rate" />
+									<Select.Item value="count" label="Count" />
 								</Select.Content>
 							</Select.Root>
 						{:else if isHistogram}
@@ -576,11 +668,14 @@
 								onValueChange={(v) => v && (histogramMode = v as HistogramMode)}
 							>
 								<Select.Trigger class="w-auto">
-									{histogramMode === 'mean' ? 'Mean' : 'Percentiles'}
+									{HISTOGRAM_MODE_LABEL[histogramMode]}
 								</Select.Trigger>
 								<Select.Content>
 									<Select.Item value="percentiles" label="Percentiles" />
 									<Select.Item value="mean" label="Mean" />
+									<Select.Item value="p75" label="p75" />
+									<Select.Item value="p95" label="p95" />
+									<Select.Item value="max" label={HISTOGRAM_MODE_LABEL.max} />
 								</Select.Content>
 							</Select.Root>
 						{:else}
@@ -625,7 +720,7 @@
 							</Tooltip.Provider>
 						{:else if compareUnavailable}
 							<span aria-hidden="true">·</span>
-							<span>Switch to Mean to compare with previous period</span>
+							<span>Switch to Mean or Max to compare with previous period</span>
 						{/if}
 					</div>
 				{/if}

@@ -39,14 +39,17 @@ public sealed record MetricSeriesSql(string Sql, ClickHouseParameterCollection P
 /// downsample.
 /// </para>
 /// <para>
-/// <b>Sum:</b> <c>max(Value) - min(Value)</c> per bucket. This is the v1 approximation
-/// documented in Planning.md's v6 as a named, deliberately-unresolved limitation:
-/// correct for a monotonic, cumulative counter with no resets inside the bucket (the
-/// overwhelmingly common .NET case - ASP.NET Core/System.Runtime instrumentation), but a
-/// process restart or counter reset mid-bucket will read as a dip rather than the true
-/// increase. Not branched on <c>AggregationTemporality</c>/<c>IsMonotonic</c> in v1 -
-/// doing that correctly (delta sums want <c>sum(Value)</c>, not <c>max - min</c>) is a
-/// real, separate piece of work flagged for a later pass, not silently half-solved here.
+/// <b>Sum:</b> <c>max(Value) - min(Value)</c> per bucket, plus <c>count()</c> - the raw
+/// number of <c>metrics_sum</c> rows folded into the bucket, exposed as
+/// <see cref="Model.MetricSeriesPoint.Count"/> for the chart's "Count" aggregation-mode
+/// option. The <c>max - min</c> delta is the v1 approximation documented in Planning.md's
+/// v6 as a named, deliberately-unresolved limitation: correct for a monotonic, cumulative
+/// counter with no resets inside the bucket (the overwhelmingly common .NET case -
+/// ASP.NET Core/System.Runtime instrumentation), but a process restart or counter reset
+/// mid-bucket will read as a dip rather than the true increase. Not branched on
+/// <c>AggregationTemporality</c>/<c>IsMonotonic</c> in v1 - doing that correctly (delta
+/// sums want <c>sum(Value)</c>, not <c>max - min</c>) is a real, separate piece of work
+/// flagged for a later pass, not silently half-solved here.
 /// </para>
 /// <para>
 /// <b>Histogram:</b> <c>sum(Count)</c>/<c>sum(Sum)</c> per bucket, plus
@@ -56,8 +59,8 @@ public sealed record MetricSeriesSql(string Sql, ClickHouseParameterCollection P
 /// <c>any(ExplicitBounds)</c> (assumed stable across the group, same assumption the
 /// combinator itself makes). <see cref="MetricQueryService"/> feeds the resulting
 /// per-bucket arrays through <see cref="HistogramQuantileEstimator"/> to derive
-/// p50/p90/p99 - the second named, deliberately-unresolved v1 limitation (assumes bucket
-/// boundaries don't change mid-window).
+/// p50/p75/p90/p95/p99 and an approximate max - the second named, deliberately-unresolved
+/// v1 limitation (assumes bucket boundaries don't change mid-window).
 /// </para>
 /// </remarks>
 public static class MetricSeriesQueryBuilder
@@ -80,7 +83,7 @@ public static class MetricSeriesQueryBuilder
         var valueSelect = request.Type switch
         {
             MetricPointType.Gauge => "avg(Value) AS Value",
-            MetricPointType.Sum => "max(Value) - min(Value) AS Value",
+            MetricPointType.Sum => "max(Value) - min(Value) AS Value, count() AS Count",
             MetricPointType.Histogram => "sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds",
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Type, "Unknown metric point type."),
         };

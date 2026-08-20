@@ -37,7 +37,7 @@ public class MetricSeriesQueryBuilderTests
             new MetricQueryRequest { MetricName = "http.server.request.count", Type = MetricPointType.Sum, BucketWidthSeconds = 60 }, Now);
 
         Assert.Contains("FROM metrics_sum", result.Sql);
-        Assert.Contains("max(Value) - min(Value) AS Value", result.Sql);
+        Assert.Contains("max(Value) - min(Value) AS Value, count() AS Count", result.Sql);
     }
 
     [Fact]

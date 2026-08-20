@@ -606,7 +606,7 @@ actually worked out (see the three bullets below) — closing out the full origi
         unconditionally, only the warning is dev-gated.
       All five items from this backlog are now shipped - `VirtualList` hardening is
       done.
-- [ ] **Metrics chart: remaining aggregation-mode options (Count for Sum; p75/p95/Max
+- [x] ~~**Metrics chart: remaining aggregation-mode options (Count for Sum; p75/p95/Max
       for Histogram).** 2026-08-19 - Tier 2 of the chart header's aggregation-mode
       picker (`MetricChart.svelte`'s `sumMode`/`histogramMode` Select next to the
       type). Tier 1 shipped the same day - Sum↔Rate and Percentiles↔Mean - because
@@ -634,7 +634,40 @@ actually worked out (see the three bullets below) — closing out the full origi
         about being an approximation, but zero schema change. Whichever is picked,
         should be a deliberate choice, not a silent one - same "don't silently
         half-solve it" precedent `MetricSeriesQueryBuilder`'s own Sum-delta remark
-        sets.
+        sets.~~ **Shipped 2026-08-20 (code+unit-test+live e2e-verified).** All three
+        went with the "path of least resistance"/"zero schema change" options named
+        above, made deliberately rather than silently:
+      - **Sum → Count**: `count()` (bare, matching the codebase's existing convention)
+        added alongside `max(Value) - min(Value)` in the Sum branch; the result reuses
+        `MetricSeriesPoint.Count` (already unused for Sum) rather than a second field,
+        same "one field, type-dependent meaning" pattern `Value` already has.
+      - **Histogram → p75, p95**: added as fixed `P75`/`P95` fields (the named
+        least-resistance option - `HistogramQuantileEstimator.Estimate` already took an
+        arbitrary quantile, so this was two more call sites, not a signature change).
+      - **Histogram → Max**: shipped as the bucket-bound approximation (new
+        `HistogramQuantileEstimator.EstimateMax`, exposed as `MetricSeriesPoint.
+        MaxApprox`), not true OTLP `HistogramDataPoint.Max` end-to-end - decided
+        deliberately over true-capture because that OTLP field is optional and often
+        left unset by .NET's own OTel histogram instrumentation (Flare's primary
+        audience), so the "exact" version risked frequently rendering null, while the
+        approximation works retroactively on all existing data with zero schema/ingest
+        changes. Labeled "Max (approx.)" everywhere it's user-visible (Select item,
+        trigger, legend/tooltip) so it's never mistaken for a real max.
+      - All five new `MetricChart.svelte` Select options (Count; p75/p95/Max (approx.))
+        render as their own single line, sharing one reused color slot
+        (`SINGLE_LINE_COLOR`, ex-`MEAN_COLOR`) with Mean since they're mutually
+        exclusive. Comparison mode (period-over-period) was extended to the new **Max**
+        option too - a "max of per-bucket `maxApprox` across the period" is a valid
+        aggregation, unlike averaging percentiles - but deliberately *not* to p75/p95,
+        which stay alongside Percentiles in the unavailable bucket for that same
+        "can't validly average percentiles across a period" reason (and the frontend
+        never receives the raw bucket data a true whole-period percentile would need
+        anyway). Verified live end-to-end: posted real Sum/Histogram OTLP metrics
+        through `docker compose`'s ingest container, confirmed the new
+        `count`/`p75`/`p95`/`maxApprox` fields in the raw `/api/metrics/query`
+        response, and drove the dashboard (Playwright) through all five new Select
+        options, confirming correct rendering and the "Max (approx.): 500 ms"
+        tooltip wording.
 - [ ] **Metrics chart: configurable "Group by" attribute.** 2026-08-19 - lets a user pick
       which attribute key (`error.type`, `service.name`, `deployment.environment`,
       `host.name`, etc.) defines a series, collapsing everything else. Motivated by a

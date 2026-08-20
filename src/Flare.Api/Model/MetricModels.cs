@@ -125,18 +125,36 @@ public sealed record MetricSeriesPoint
     /// <summary>Gauge: average value in the bucket. Sum: <c>max(Value) - min(Value)</c> in the bucket - see <see cref="Query.MetricSeriesQueryBuilder"/>'s remarks for the known cumulative-reset caveat.</summary>
     public double? Value { get; init; }
 
-    /// <summary>Histogram only: total observation count in the bucket.</summary>
+    /// <summary>
+    /// Sum: raw sample row count in the bucket (<c>count()</c>). Histogram: total
+    /// observation count in the bucket (<c>sum(Count)</c>, a real OTLP field). Same JSON
+    /// field, two different computations depending on <see cref="MetricQueryRequest.Type"/> -
+    /// same pattern <see cref="Value"/> already uses.
+    /// </summary>
     public long? Count { get; init; }
 
     /// <summary>Histogram only: total of observed values in the bucket.</summary>
     public double? Sum { get; init; }
 
-    /// <summary>Histogram only: approximate median, via <see cref="Query.HistogramQuantileEstimator"/>. Null if the bucket has no data.</summary>
+    /// <summary>Histogram only: approximate percentiles, via <see cref="Query.HistogramQuantileEstimator.Estimate"/>. Null if the bucket has no data.</summary>
     public double? P50 { get; init; }
+
+    public double? P75 { get; init; }
 
     public double? P90 { get; init; }
 
+    public double? P95 { get; init; }
+
     public double? P99 { get; init; }
+
+    /// <summary>
+    /// Histogram only: upper bound of the highest non-empty bucket - an approximation of
+    /// the true observed max, via <see cref="Query.HistogramQuantileEstimator.EstimateMax"/>.
+    /// The real OTLP <c>HistogramDataPoint.Max</c> is optional and not captured by the
+    /// ingest pipeline. Not a real max - present as "Max (approx.)" in the UI, never bare
+    /// "Max". Null if the bucket has no data.
+    /// </summary>
+    public double? MaxApprox { get; init; }
 }
 
 /// <summary>
