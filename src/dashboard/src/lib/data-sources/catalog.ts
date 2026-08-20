@@ -18,8 +18,16 @@ import BoxesIcon from '@lucide/svelte/icons/boxes';
 import ContainerIcon from '@lucide/svelte/icons/container';
 import TerminalIcon from '@lucide/svelte/icons/terminal';
 import MonitorIcon from '@lucide/svelte/icons/monitor';
-import FileCodeIcon from '@lucide/svelte/icons/file-code';
 import WebhookIcon from '@lucide/svelte/icons/webhook';
+// One icon per language/framework instead of a shared placeholder - infinity and hexagon
+// are the actual .NET/Node.js logo shapes (not just puns), coffee/zap are the
+// well-known Java/Go associations. @lucide/svelte ships generic icons only (no brand
+// logos), so this is the closest a pure lucide set gets to "looks like the real thing".
+import InfinityIcon from '@lucide/svelte/icons/infinity';
+import CodeIcon from '@lucide/svelte/icons/code';
+import HexagonIcon from '@lucide/svelte/icons/hexagon';
+import CoffeeIcon from '@lucide/svelte/icons/coffee';
+import ZapIcon from '@lucide/svelte/icons/zap';
 
 export interface GuideStep {
 	heading: string;
@@ -214,7 +222,7 @@ service:
 		dotnet: {
 			id: 'dotnet',
 			title: '.NET',
-			icon: FileCodeIcon,
+			icon: InfinityIcon,
 			intro: 'The standard OpenTelemetry .NET SDK exports logs straight to Flare - no Flare-specific package required.',
 			steps: [
 				{
@@ -256,7 +264,7 @@ builder.Logging.AddOpenTelemetry(options =>
 		python: {
 			id: 'python',
 			title: 'Python',
-			icon: FileCodeIcon,
+			icon: CodeIcon,
 			intro: "Zero-code instrumentation - wrap your app's start command, no source changes needed.",
 			steps: [
 				{
@@ -279,7 +287,7 @@ opentelemetry-instrument python app.py`
 		nodejs: {
 			id: 'nodejs',
 			title: 'Node.js',
-			icon: FileCodeIcon,
+			icon: HexagonIcon,
 			intro: 'Zero-code instrumentation via the auto-instrumentations meta-package.',
 			steps: [
 				{ heading: 'Install', code: { text: 'npm install --save @opentelemetry/auto-instrumentations-node' } },
@@ -297,7 +305,7 @@ node --require @opentelemetry/auto-instrumentations-node/register app.js`
 		java: {
 			id: 'java',
 			title: 'Java',
-			icon: FileCodeIcon,
+			icon: CoffeeIcon,
 			intro: 'Zero-code instrumentation via the OpenTelemetry Java agent - attach it and set environment variables, no source changes.',
 			steps: [
 				{
@@ -320,7 +328,7 @@ java -javaagent:opentelemetry-javaagent.jar -jar your-app.jar`
 		go: {
 			id: 'go',
 			title: 'Go',
-			icon: FileCodeIcon,
+			icon: ZapIcon,
 			intro: 'Go has no zero-code agent for logs yet - wire the SDK’s OTLP log exporter directly.',
 			steps: [
 				{
@@ -397,10 +405,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 	const items = buildItems(ep);
 	const categories: GuideCategory[] = [
 		{ id: 'recommended', label: 'Recommended', itemIds: ['kubernetes', 'docker', 'dotnet', 'custom'] },
-		{ id: 'kubernetes', label: 'Kubernetes', itemIds: ['kubernetes'] },
-		{ id: 'docker', label: 'Docker', itemIds: ['docker'] },
-		{ id: 'linux', label: 'Linux', itemIds: ['linux'] },
-		{ id: 'windows', label: 'Windows', itemIds: ['windows'] },
+		{ id: 'platforms', label: 'Platforms', itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
 		{ id: 'languages', label: 'Languages & Frameworks', itemIds: ['dotnet', 'python', 'nodejs', 'java', 'go'] },
 		{ id: 'custom', label: 'Custom', itemIds: ['custom'] }
 	];
