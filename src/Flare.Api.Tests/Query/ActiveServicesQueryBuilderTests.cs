@@ -1,4 +1,3 @@
-using ClickHouse.Driver.Utility;
 using Flare.Api.Query;
 using Xunit;
 

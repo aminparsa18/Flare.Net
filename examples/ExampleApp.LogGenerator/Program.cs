@@ -1,6 +1,4 @@
 using ExampleApp.LogGenerator;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 

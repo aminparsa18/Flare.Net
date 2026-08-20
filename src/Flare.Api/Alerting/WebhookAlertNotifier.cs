@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using Flare.Api.Model;
 
 namespace Flare.Api.Alerting;

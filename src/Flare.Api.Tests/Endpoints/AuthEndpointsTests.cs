@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Flare.Api.Endpoints;
 using Flare.Api.Json;
-using Flare.Api.Model;
 using Flare.Api.Tests.TestSupport;
 using Flare.Identity.Auth;
 using Flare.Identity.Users;

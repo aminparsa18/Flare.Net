@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Flare.Cli.Internal;
 using Spectre.Console;
 using Spectre.Console.Cli;
