@@ -31,7 +31,7 @@
 	// hint, not a command list (that's `help`'s job). Clicking one fills the input
 	// rather than submitting immediately, so it's a starting point to edit, not a
 	// surprise action.
-	const EXAMPLES = ['tail', 'tail -l error', 'help'];
+	const EXAMPLES = ['tail', 'tail -l error', 'traces', 'metrics', 'help'];
 
 	function useExample(example: string): void {
 		inputValue = example;
@@ -224,6 +224,16 @@
 					spellcheck="false"
 				/>
 			</div>
+		</div>
+		<div class="shrink-0 border-t border-neutral-800 bg-neutral-900/60 px-3 py-1.5 text-center font-mono text-[0.7rem]">
+			<a
+				href="https://github.com/aminparsa18/Flare.Net/blob/main/docs/cli.md"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="text-neutral-500 hover:text-neutral-300"
+			>
+				Try Flare CLI on this machine
+			</a>
 		</div>
 	</Dialog.Content>
 </Dialog.Root>
