@@ -101,6 +101,75 @@ public class MetricSeriesQueryBuilderTests
         Assert.Contains("DataPointAttributes[{attrKey0:String}] = {attrValue0:String}", result.Sql);
     }
 
+    [Fact]
+    public void Build_WithoutGroupByAttributeKey_UsesFullAttributeMapAsSeriesKey()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60 }, Now);
+
+        Assert.Contains("toString(DataPointAttributes) AS SeriesKey", result.Sql);
+        Assert.Contains("any(DataPointAttributes) AS SeriesAttributes", result.Sql);
+        Assert.DoesNotContain("groupByKey", result.Sql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("groupByKey"));
+    }
+
+    [Fact]
+    public void Build_WithGroupByAttributeKey_UsesAttributeValueAsSeriesKey()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest
+            {
+                MetricName = "dotnet.exceptions",
+                Type = MetricPointType.Sum,
+                BucketWidthSeconds = 60,
+                GroupByAttributeKey = "error.type",
+            },
+            Now);
+
+        Assert.Contains("DataPointAttributes[{groupByKey:String}] AS SeriesKey", result.Sql);
+        Assert.Contains("map({groupByKey:String}, any(DataPointAttributes[{groupByKey:String}])) AS SeriesAttributes", result.Sql);
+        // Grouping mode doesn't change the per-type value expression - still a true
+        // aggregate, just over a wider group.
+        Assert.Contains("max(Value) - min(Value) AS Value, count() AS Count", result.Sql);
+        Assert.Contains("GROUP BY BucketStart, ServiceName, SeriesKey", result.Sql);
+        Assert.Contains("ORDER BY ServiceName, SeriesKey, BucketStart", result.Sql);
+    }
+
+    [Fact]
+    public void Build_WithGroupByAttributeKey_BindsGroupByKeyParameter()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest
+            {
+                MetricName = "dotnet.exceptions",
+                Type = MetricPointType.Sum,
+                BucketWidthSeconds = 60,
+                GroupByAttributeKey = "error.type",
+            },
+            Now);
+
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("error.type", parameters["groupByKey"]);
+    }
+
+    [Fact]
+    public void Build_WithEmptyStringGroupByAttributeKey_TreatedAsUngrouped()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest
+            {
+                MetricName = "process.threads",
+                Type = MetricPointType.Gauge,
+                BucketWidthSeconds = 60,
+                GroupByAttributeKey = "",
+            },
+            Now);
+
+        Assert.Contains("toString(DataPointAttributes) AS SeriesKey", result.Sql);
+        Assert.Contains("any(DataPointAttributes) AS SeriesAttributes", result.Sql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("groupByKey"));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

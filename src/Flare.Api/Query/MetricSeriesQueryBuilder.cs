@@ -30,7 +30,28 @@ public sealed record MetricSeriesSql(string Sql, ClickHouseParameterCollection P
 /// attribute half of the series key - sidesteps relying on <c>Map</c>-column grouping/
 /// hashing semantics (unconfirmed against this ClickHouse version at build time) for
 /// something a plain string equality trivially guarantees instead; the real map is still
-/// selected back via <c>any(DataPointAttributes)</c> for the response.
+/// selected back via <c>any(DataPointAttributes)</c> for the response. This is the
+/// <b>ungrouped</b> shape - see the next paragraph for <see cref="Model.MetricQueryRequest.GroupByAttributeKey"/>.
+/// </para>
+/// <para>
+/// <b>Grouped mode</b> (<see cref="Model.MetricQueryRequest.GroupByAttributeKey"/> set):
+/// <c>SeriesKey</c> becomes <c>DataPointAttributes[key]</c> - the one chosen key's value -
+/// instead of the whole serialized map, so every row sharing that value collapses into
+/// one series regardless of what else differs on <c>DataPointAttributes</c>.
+/// <c>SeriesAttributes</c> becomes a synthetic single-key map
+/// (<c>map(key, any(DataPointAttributes[key]))</c>) built in SQL rather than the full
+/// map, so it stays <c>Map</c>-shaped in both modes and <see cref="MetricQueryService"/>'s
+/// ordinal-3 fold logic needs no branch for which mode produced a given response. Map
+/// subscript access on a missing key returns the value type's default (empty string), not
+/// an error - already relied on by <see cref="MetricFilterSqlBuilder"/>'s own
+/// attribute-equality filter - so a data point missing the chosen key and one with a
+/// genuinely empty value for it both collapse into one <c>"(none)"</c>-rendering series
+/// (the dashboard's <c>compactSeriesLabel</c> already has that fallback). Deliberate, not
+/// disambiguated via <c>mapContains</c> - confirmed as the intended v1 behavior, same
+/// "named, deliberately-unresolved" tradeoff this file's Sum/Histogram remarks already
+/// make elsewhere. The per-type <c>valueSelect</c> expressions below are unchanged by
+/// grouping mode - they're true aggregates that keep meaning the same thing over the
+/// wider, coarser groups grouped mode produces.
 /// </para>
 /// <para>
 /// <b>Gauge:</b> <c>avg(Value)</c> per bucket - the "current value" point type has no
@@ -79,7 +100,7 @@ public static class MetricSeriesQueryBuilder
         filterSql.Parameters.AddParameter("metricName", request.MetricName);
         filterSql.Parameters.AddParameter("bucketWidth", request.BucketWidthSeconds);
 
-        var table = TableFor(request.Type);
+        var table = MetricTables.For(request.Type);
         var valueSelect = request.Type switch
         {
             MetricPointType.Gauge => "avg(Value) AS Value",
@@ -88,8 +109,22 @@ public static class MetricSeriesQueryBuilder
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Type, "Unknown metric point type."),
         };
 
+        string seriesKeyExpr;
+        string seriesAttributesExpr;
+        if (string.IsNullOrEmpty(request.GroupByAttributeKey))
+        {
+            seriesKeyExpr = "toString(DataPointAttributes) AS SeriesKey";
+            seriesAttributesExpr = "any(DataPointAttributes) AS SeriesAttributes";
+        }
+        else
+        {
+            filterSql.Parameters.AddParameter("groupByKey", request.GroupByAttributeKey);
+            seriesKeyExpr = "DataPointAttributes[{groupByKey:String}] AS SeriesKey";
+            seriesAttributesExpr = "map({groupByKey:String}, any(DataPointAttributes[{groupByKey:String}])) AS SeriesAttributes";
+        }
+
         var sql = "SELECT toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
-            "ServiceName, toString(DataPointAttributes) AS SeriesKey, any(DataPointAttributes) AS SeriesAttributes, " +
+            $"ServiceName, {seriesKeyExpr}, {seriesAttributesExpr}, " +
             $"{valueSelect}\n" +
             $"FROM {table}\n" +
             $"WHERE MetricName = {{metricName:String}} AND {filterSql.WhereSql}\n" +
@@ -98,12 +133,4 @@ public static class MetricSeriesQueryBuilder
 
         return new MetricSeriesSql(sql, filterSql.Parameters, request.Type);
     }
-
-    private static string TableFor(MetricPointType type) => type switch
-    {
-        MetricPointType.Gauge => "metrics_gauge",
-        MetricPointType.Sum => "metrics_sum",
-        MetricPointType.Histogram => "metrics_histogram",
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown metric point type."),
-    };
 }

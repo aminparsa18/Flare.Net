@@ -16,6 +16,13 @@
 	const serviceOptions = $derived(explorer.knownServices.map((s) => ({ value: s, label: s })));
 
 	const activeLabel = $derived(presets.find((p) => p.value === explorer.filter.timeRangePreset)?.label ?? 'Time range');
+
+	// Bits UI's Select needs a non-empty item value, so a sentinel stands in for "no
+	// grouping" and is translated back to null at the call site below.
+	const GROUP_BY_NONE = '__none__';
+	const groupByLabel = $derived(
+		explorer.filter.groupByAttributeKey ? `Group by: ${explorer.filter.groupByAttributeKey}` : 'Group by'
+	);
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
@@ -41,6 +48,30 @@
 		selected={explorer.filter.services}
 		onChange={(next) => explorer.setServices(next)}
 	/>
+
+	<!-- Real server-side grouping (collapses series sharing one attribute key's value -
+	     see MetricSeriesQueryBuilder's remarks), not a display reshape, so this lives here
+	     alongside the other filter-affecting controls rather than in MetricChart.svelte
+	     (which only holds pure client-side reshapes like sumMode/histogramMode). Hidden
+	     entirely when the selected metric has no discovered attribute keys, same
+	     graceful-degradation call as every other picker on this page. -->
+	{#if explorer.knownAttributeKeys.length > 0}
+		<Select.Root
+			type="single"
+			value={explorer.filter.groupByAttributeKey ?? GROUP_BY_NONE}
+			onValueChange={(v) => v && explorer.setGroupByAttribute(v === GROUP_BY_NONE ? null : v)}
+		>
+			<Select.Trigger class="w-auto">
+				{groupByLabel}
+			</Select.Trigger>
+			<Select.Content>
+				<Select.Item value={GROUP_BY_NONE} label="None" />
+				{#each explorer.knownAttributeKeys as key (key.key)}
+					<Select.Item value={key.key} label={`${key.key} (${key.distinctValueCount})`} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	{/if}
 
 	<!-- MetricChart itself is the one that decides whether/how comparison actually
 	     renders (unsupported for Histogram's Percentiles view - see its own remarks on

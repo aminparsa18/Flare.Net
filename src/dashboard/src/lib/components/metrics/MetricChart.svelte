@@ -101,9 +101,13 @@
 	// (e.g. 15 error.type values on the same service), repeating
 	// "log-generator · error.type=" on every legend line is pure noise, and it's
 	// the case that gets worse the more series-defining attributes a metric
-	// carries. Real "group by a chosen attribute" (collapsing series server-side)
-	// is a bigger, separate piece of work - see Planning.md's Later item - this
-	// is just hiding what's already redundant within the visible set.
+	// carries. Real "group by a chosen attribute" (collapsing series server-side,
+	// via MetricQueryRequest.groupByAttributeKey and MetricsToolbar's "Group by"
+	// picker) now exists as a separate feature - this function still does its own,
+	// independent job on top of it: compacting labels within whatever series set
+	// the request actually produced, grouped or not. Grouped series already arrive
+	// with a smaller (often single-entry) attributes map, so this needs no branch
+	// for which mode produced them.
 	function compactSeriesLabel(series: MetricSeries, visible: MetricSeries[]): string {
 		if (visible.length <= 1) return seriesLabel(series);
 
@@ -115,10 +119,14 @@
 		if (serviceNameVaries) parts.push(series.serviceName);
 		if (varyingKeys.length === 1) {
 			// Sole distinguishing dimension - the bare value ("InvalidOperationException")
-			// reads better than the key-prefixed form repeated on every line.
-			parts.push(series.attributes[varyingKeys[0]] ?? '(none)');
+			// reads better than the key-prefixed form repeated on every line. `||`, not
+			// `??`: a grouped response's missing-key series (see
+			// MetricSeriesQueryBuilder's remarks) surfaces as a present key with an empty
+			// string value, not a missing one, so `??` alone would render a blank label -
+			// `||` catches both "key absent" and "key present but empty" the same way.
+			parts.push(series.attributes[varyingKeys[0]] || '(none)');
 		} else {
-			parts.push(...varyingKeys.map((k) => `${k}=${series.attributes[k] ?? '(none)'}`));
+			parts.push(...varyingKeys.map((k) => `${k}=${series.attributes[k] || '(none)'}`));
 		}
 		// Nothing varies (shouldn't happen - the backend groups series by distinct
 		// attribute combinations, see MetricSeriesQueryBuilder's remarks) - fall

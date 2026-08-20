@@ -61,6 +61,42 @@ export async function getMetricNames(request: MetricNamesRequest = {}, signal?: 
 	return res.json();
 }
 
+// ---- POST /api/metrics/attribute-keys (MetricAttributeKeysRequest.cs / MetricAttributeKeysResponse.cs) -
+
+export interface MetricAttributeKeysRequest {
+	metricName: string;
+	type: MetricPointType;
+	filter?: MetricFilter;
+}
+
+export interface MetricAttributeKeyInfo {
+	key: string;
+	// Distinct-value count for this key in scope - same "surface cardinality before
+	// selection" reasoning as MetricNameInfo.seriesCount, so the "Group by" picker can
+	// show e.g. "error.type (3)" vs "host.name (47)".
+	distinctValueCount: number;
+}
+
+export interface MetricAttributeKeysResponse {
+	keys: MetricAttributeKeyInfo[];
+}
+
+export async function getMetricAttributeKeys(
+	request: MetricAttributeKeysRequest,
+	signal?: AbortSignal
+): Promise<MetricAttributeKeysResponse> {
+	const res = await apiFetch(`${API_BASE_URL}/api/metrics/attribute-keys`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/metrics/attribute-keys failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
+}
+
 // ---- POST /api/metrics/query (MetricQueryRequest.cs / MetricQueryResponse) -
 
 export interface MetricQueryRequest {
@@ -68,6 +104,10 @@ export interface MetricQueryRequest {
 	type: MetricPointType;
 	filter?: MetricFilter;
 	bucketWidthSeconds: number;
+	// Attribute key that defines series identity when set, collapsing every series
+	// sharing that one key's value - see MetricSeriesQueryBuilder's remarks. Omitted/
+	// undefined = ungrouped (one series per distinct attribute map).
+	groupByAttributeKey?: string;
 }
 
 export interface MetricSeriesPoint {
@@ -89,6 +129,9 @@ export interface MetricSeriesPoint {
 
 export interface MetricSeries {
 	serviceName: string;
+	// Full DataPointAttributes map when the request was ungrouped; a single-entry map
+	// ({ [groupByAttributeKey]: value }) when MetricQueryRequest.groupByAttributeKey was
+	// set - see MetricSeries.cs' remarks.
 	attributes: Record<string, string>;
 	points: MetricSeriesPoint[];
 }
