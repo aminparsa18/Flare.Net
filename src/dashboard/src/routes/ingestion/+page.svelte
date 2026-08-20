@@ -11,7 +11,6 @@
 	import PipelineStreamsTable from '$lib/components/ingestion/PipelineStreamsTable.svelte';
 	import PipelineFlushHealthTable from '$lib/components/ingestion/PipelineFlushHealthTable.svelte';
 	import PipelineServiceBreakdown from '$lib/components/ingestion/PipelineServiceBreakdown.svelte';
-	import IngestionTopology from '$lib/components/ingestion/IngestionTopology.svelte';
 
 	const ingestion = ingestionContext.set(new IngestionState());
 
@@ -50,11 +49,5 @@
 			<PipelineFlushHealthTable />
 			<PipelineServiceBreakdown />
 		</div>
-
-		<!-- Synthesizes the two sections above into one picture (Planning.md v10 follow-up)
-		     - deliberately last, as a capstone over data the reader has already seen
-		     piecemeal, not a first-thing "overview" that would duplicate the health
-		     indicator already at the top of the page. -->
-		<IngestionTopology />
 	</div>
 </div>

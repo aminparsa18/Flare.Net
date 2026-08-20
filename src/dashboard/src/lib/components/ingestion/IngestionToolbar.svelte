@@ -4,6 +4,7 @@
 	import { ingestionContext } from '$lib/ingestion/context';
 	import { INGESTION_WINDOW_PRESETS, type IngestionWindowPreset } from '$lib/ingestion/state.svelte';
 	import IngestionHealthStatus from './IngestionHealthStatus.svelte';
+	import IngestionTopology from './IngestionTopology.svelte';
 
 	const ingestion = ingestionContext.get();
 
@@ -18,19 +19,22 @@
 		<p class="text-muted-foreground text-xs">Live OTLP receiver throughput and rejected payloads.</p>
 	</div>
 	<IngestionHealthStatus />
-	<Select.Root
-		type="single"
-		value={ingestion.windowPreset}
-		onValueChange={(v) => v && ingestion.setWindowPreset(v as IngestionWindowPreset)}
-	>
-		<Select.Trigger class="w-auto">
-			<ClockIcon data-icon="inline-start" />
-			{activeLabel}
-		</Select.Trigger>
-		<Select.Content>
-			{#each INGESTION_WINDOW_PRESETS as preset (preset.value)}
-				<Select.Item value={preset.value} label={preset.label} />
-			{/each}
-		</Select.Content>
-	</Select.Root>
+	<div class="flex items-center gap-2">
+		<IngestionTopology />
+		<Select.Root
+			type="single"
+			value={ingestion.windowPreset}
+			onValueChange={(v) => v && ingestion.setWindowPreset(v as IngestionWindowPreset)}
+		>
+			<Select.Trigger class="w-auto">
+				<ClockIcon data-icon="inline-start" />
+				{activeLabel}
+			</Select.Trigger>
+			<Select.Content>
+				{#each INGESTION_WINDOW_PRESETS as preset (preset.value)}
+					<Select.Item value={preset.value} label={preset.label} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	</div>
 </div>

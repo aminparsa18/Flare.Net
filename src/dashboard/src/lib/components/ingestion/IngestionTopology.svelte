@@ -1,22 +1,30 @@
 <script lang="ts">
-	// "Ingestion topology" - a compact, collapsible flow diagram of the same pipeline the
-	// tiles/tables above already describe piecemeal (receivers -> per-signal stream buffer
-	// -> flush worker -> ClickHouse, plus a rejected-payloads side path), reusing this
-	// page's own health vocabulary (ingestion/health.ts) to color each node instead of
+	// "Ingestion topology" - a compact flow diagram of the same pipeline the tiles/tables
+	// elsewhere on this page already describe piecemeal (receivers -> per-signal stream
+	// buffer -> flush worker -> ClickHouse, plus a rejected-payloads side path), reusing
+	// this page's own health vocabulary (ingestion/health.ts) to color each node instead of
 	// introducing a second opinion about what "unhealthy" means. Not new data - a synthesis
 	// of ingestion.stats/ingestion.pipeline into one picture of where telemetry is flowing
 	// and where it's getting stuck, the thing a stack of separate tables can't show at a
 	// glance.
 	//
+	// A toolbar button opening a Dialog, not a collapsible section anchored at the bottom
+	// of the page (this component's first shape) - that placement made it easy to miss on
+	// an already-long page (feedback: couldn't find it after scrolling past three other
+	// table sections), and self-contained button+dialog is this app's own established shape
+	// for an on-demand secondary view (ExportDialog on the Logs page is the precedent: the
+	// trigger button and the dialog content live in one component, dropped into a toolbar).
+	//
 	// Reuses @xyflow/svelte + @dagrejs/dagre + resources/layout.ts's layoutGraph wholesale -
 	// already proven on the Resources page's own graph (ResourceGraph.svelte), and
 	// layoutGraph only ever needed `.id`/`.source`/`.target`, so it's exactly as reusable
 	// for this unrelated node/edge set as it was there.
-	import { browser } from '$app/environment';
 	import { SvelteFlow, Background, Controls, type Edge } from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
-	import * as Accordion from '$lib/components/ui/accordion';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import WaypointsIcon from '@lucide/svelte/icons/waypoints';
 	import { ingestionContext } from '$lib/ingestion/context';
 	import { layoutGraph } from '$lib/resources/layout';
 	import TopologyNode from './TopologyNode.svelte';
@@ -32,36 +40,9 @@
 	import type { IngestionTopologyNode, TopologyLine, TopologyTone } from '$lib/ingestion/topology-types';
 	import type { IngestionSignal } from '$lib/ingestion-api';
 
+	let { open = $bindable(false) }: { open?: boolean } = $props();
+
 	const ingestion = ingestionContext.get();
-
-	// Same single-item-Accordion collapse/expand + localStorage-persisted preference
-	// VolumeChart.svelte established - open by default (this is meant to be found, not
-	// hidden away), remembering a reader's choice to collapse it across visits.
-	const TOPOLOGY_ITEM = 'topology';
-	const COLLAPSE_STORAGE_KEY = 'flare.ingestion.topologyCollapsed';
-
-	function loadStoredValue(): string {
-		if (!browser) return TOPOLOGY_ITEM;
-		try {
-			return localStorage.getItem(COLLAPSE_STORAGE_KEY) === 'true' ? '' : TOPOLOGY_ITEM;
-		} catch {
-			return TOPOLOGY_ITEM; // storage disabled (e.g. private browsing) - fall back to expanded
-		}
-	}
-
-	let accordionValue = $state(loadStoredValue());
-
-	$effect(() => {
-		const value = accordionValue;
-		if (!browser) return;
-		try {
-			localStorage.setItem(COLLAPSE_STORAGE_KEY, String(value !== TOPOLOGY_ITEM));
-		} catch {
-			// Non-critical - the next reload just falls back to expanded instead.
-		}
-	});
-
-	const collapsed = $derived(accordionValue !== TOPOLOGY_ITEM);
 
 	const SIGNALS: IngestionSignal[] = ['Logs', 'Traces', 'Metrics'];
 	const nodeTypes = { 'ingestion-topology': TopologyNode };
@@ -70,9 +51,9 @@
 	let edges = $state.raw<Edge[]>([]);
 
 	$effect(() => {
-		// Skip rebuilding a hidden graph on every poll tick - same "don't do work behind a
-		// collapsed section" reasoning VolumeChart's own fetch effect documents.
-		if (collapsed) return;
+		// Only build the graph while the dialog is actually open - no point doing this work
+		// (or holding onto stale positions) while it's closed.
+		if (!open) return;
 
 		const stats = ingestion.stats;
 		const pipeline = ingestion.pipeline;
@@ -195,31 +176,34 @@
 	});
 </script>
 
-<Accordion.Root type="single" bind:value={accordionValue} class="w-full flex-col rounded-none border-0 border-t">
-	<Accordion.Item value={TOPOLOGY_ITEM} class="border-0 data-open:bg-transparent">
-		<div class="flex items-center justify-between gap-2 px-4 py-3 text-xs">
-			<Accordion.Trigger
-				class="text-muted-foreground hover:text-foreground group/accordion-trigger relative flex w-auto flex-none items-center justify-start gap-1 border-none p-0 text-left text-xs font-normal hover:no-underline **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:size-3.5"
-			>
-				Ingestion topology
-			</Accordion.Trigger>
-		</div>
-		<Accordion.Content class="px-4 pb-4">
-			{#if !ingestion.stats || !ingestion.pipeline}
-				<div class="flex h-[200px] items-center justify-center">
-					<Spinner />
-				</div>
-			{:else}
-				<!-- colorMode="dark" - see ResourceGraph.svelte's own remarks; this dashboard is
-				     dark-only and SvelteFlow's default light-mode CSS renders Controls/edge
-				     labels as broken white-on-white boxes without it. -->
-				<div class="h-[280px] w-full overflow-hidden rounded-md border">
-					<SvelteFlow bind:nodes bind:edges {nodeTypes} colorMode="dark" fitView minZoom={0.4} nodesDraggable={false}>
-						<Background />
-						<Controls />
-					</SvelteFlow>
-				</div>
-			{/if}
-		</Accordion.Content>
-	</Accordion.Item>
-</Accordion.Root>
+<Dialog.Root {open} onOpenChange={(v) => (open = v)}>
+	<Dialog.Trigger>
+		{#snippet child({ props })}
+			<Button {...props} variant="outline" size="sm">
+				<WaypointsIcon data-icon="inline-start" />
+				Topology
+			</Button>
+		{/snippet}
+	</Dialog.Trigger>
+	<Dialog.Content class="sm:max-w-3xl">
+		<Dialog.Header>
+			<Dialog.Title>Ingestion topology</Dialog.Title>
+			<Dialog.Description>Where telemetry is flowing right now, and where it's getting stuck.</Dialog.Description>
+		</Dialog.Header>
+		{#if !ingestion.stats || !ingestion.pipeline}
+			<div class="flex h-[320px] items-center justify-center">
+				<Spinner />
+			</div>
+		{:else}
+			<!-- colorMode="dark" - see ResourceGraph.svelte's own remarks; this dashboard is
+			     dark-only and SvelteFlow's default light-mode CSS renders Controls/edge labels
+			     as broken white-on-white boxes without it. -->
+			<div class="h-[420px] w-full overflow-hidden rounded-md border">
+				<SvelteFlow bind:nodes bind:edges {nodeTypes} colorMode="dark" fitView minZoom={0.4} nodesDraggable={false}>
+					<Background />
+					<Controls />
+				</SvelteFlow>
+			</div>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
