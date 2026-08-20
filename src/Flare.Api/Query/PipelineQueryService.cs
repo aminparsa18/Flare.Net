@@ -28,7 +28,11 @@ public interface IPipelineQueryService
 ///    form's own <c>IdleTimeInMilliseconds</c> on the single oldest entry (<c>count: 1</c> -
 ///    <c>XPENDING</c> iterates lowest-id-first) - the same command
 ///    <c>ClickHouseFlushWorker.ReclaimStalePendingAsync</c> already uses for reclaim, read
-///    here instead of acted on.
+///    here instead of acted on. <see cref="PipelineStreamHealth.Capacity"/> is the one field
+///    in this group *not* read live - it's each signal's configured MAXLEN
+///    (<c>PipelineStreamKeys.Capacity</c>), a static number Redis doesn't expose a live
+///    "current cap" query for, just passed straight through so the dashboard can show
+///    length as a percentage of it.
 /// 2. <b>Flush-worker health</b> - read back what
 ///    <c>Flare.Ingest.Stats.RedisFlushHealthTracker</c> (new, v10) writes once per flush
 ///    cycle.
@@ -56,7 +60,7 @@ public sealed class PipelineQueryService(
         var db = connectionMultiplexer.GetDatabase();
 
         var streams = await Task.WhenAll(Signals.Select(s =>
-            GetStreamHealthAsync(db, s, streamKeys.StreamKey(s), streamKeys.ConsumerGroup(s), cancellationToken)));
+            GetStreamHealthAsync(db, s, streamKeys.StreamKey(s), streamKeys.ConsumerGroup(s), streamKeys.Capacity(s), cancellationToken)));
         var flushWorkers = await Task.WhenAll(Signals.Select(s => GetFlushHealthAsync(db, s, cancellationToken)));
         var serviceBreakdowns = await Task.WhenAll(Signals.Select(s => GetServiceBreakdownAsync(db, s, now, minutes, cancellationToken)));
 
@@ -64,7 +68,7 @@ public sealed class PipelineQueryService(
     }
 
     private static async Task<PipelineStreamHealth> GetStreamHealthAsync(
-        IDatabase db, IngestionSignal signal, string streamKey, string consumerGroup, CancellationToken cancellationToken)
+        IDatabase db, IngestionSignal signal, string streamKey, string consumerGroup, long capacity, CancellationToken cancellationToken)
     {
         try
         {
@@ -76,7 +80,7 @@ public sealed class PipelineQueryService(
             {
                 // Stream exists (e.g. from a stale prior run) but this consumer group
                 // doesn't - EnsureConsumerGroupAsync hasn't run yet on this stream.
-                return new PipelineStreamHealth(signal, streamKey, Available: true, length, 0, 0, 0, null);
+                return new PipelineStreamHealth(signal, streamKey, Available: true, length, capacity, 0, 0, 0, null);
             }
 
             double? oldestPendingAgeSeconds = null;
@@ -90,14 +94,14 @@ public sealed class PipelineQueryService(
             }
 
             return new PipelineStreamHealth(
-                signal, streamKey, Available: true, length, group.Lag, group.PendingMessageCount, group.ConsumerCount, oldestPendingAgeSeconds);
+                signal, streamKey, Available: true, length, capacity, group.Lag, group.PendingMessageCount, group.ConsumerCount, oldestPendingAgeSeconds);
         }
         catch (RedisServerException)
         {
             // Stream doesn't exist yet - no traffic on this signal since Flare.Ingest last
             // started (the group is only created, lazily, by EnsureConsumerGroupAsync on
             // that worker's first poll tick). Not an error state to surface as one.
-            return new PipelineStreamHealth(signal, streamKey, Available: false, 0, 0, 0, 0, null);
+            return new PipelineStreamHealth(signal, streamKey, Available: false, 0, capacity, 0, 0, 0, null);
         }
     }
 

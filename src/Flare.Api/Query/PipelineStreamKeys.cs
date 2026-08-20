@@ -43,4 +43,13 @@ public sealed class PipelineStreamKeys(
         IngestionSignal.Metrics => metricOptions.Value.ConsumerGroup,
         _ => throw new ArgumentOutOfRangeException(nameof(signal), signal, null),
     };
+
+    /// <summary>Approximate MAXLEN cap for this signal's stream - the denominator behind the Ingestion page's buffer-utilization display.</summary>
+    public long Capacity(IngestionSignal signal) => signal switch
+    {
+        IngestionSignal.Logs => logOptions.Value.StreamMaxLength,
+        IngestionSignal.Traces => spanOptions.Value.StreamMaxLength,
+        IngestionSignal.Metrics => metricOptions.Value.StreamMaxLength,
+        _ => throw new ArgumentOutOfRangeException(nameof(signal), signal, null),
+    };
 }

@@ -21,12 +21,19 @@ public sealed record PipelineStatsRequest(int Minutes = 60);
 /// approaching the poison-message threshold each <c>*FlushWorker*</c> enforces).
 /// <see cref="Available"/> is false only when the stream/group doesn't exist yet (no
 /// traffic on this signal since Flare.Ingest last started) - not an error state.
+/// <see cref="Capacity"/> is the configured MAXLEN this stream is trimmed to on every XADD
+/// (<c>Query.PipelineStreamKeys.Capacity</c>) - <see cref="Length"/> approaching it is a
+/// real risk, not just backpressure: Redis's approximate MAXLEN trims the *oldest*
+/// unflushed entries once the cap is hit, which is silent data loss, the same "queue
+/// size/capacity" signal OpenTelemetry Collector's own health guidance calls out alongside
+/// accepted/refused data and exporter failures.
 /// </summary>
 public sealed record PipelineStreamHealth(
     IngestionSignal Signal,
     string StreamKey,
     bool Available,
     long Length,
+    long Capacity,
     long? Lag,
     long PendingCount,
     int Consumers,

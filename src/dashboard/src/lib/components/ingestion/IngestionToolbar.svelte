@@ -3,6 +3,7 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { ingestionContext } from '$lib/ingestion/context';
 	import { INGESTION_WINDOW_PRESETS, type IngestionWindowPreset } from '$lib/ingestion/state.svelte';
+	import IngestionHealthStatus from './IngestionHealthStatus.svelte';
 
 	const ingestion = ingestionContext.get();
 
@@ -11,11 +12,12 @@
 	);
 </script>
 
-<div class="bg-background sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2">
+<div class="bg-background sticky top-0 z-10 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b px-4 py-2">
 	<div>
 		<h1 class="text-sm font-semibold">Ingestion</h1>
 		<p class="text-muted-foreground text-xs">Live OTLP receiver throughput and rejected payloads.</p>
 	</div>
+	<IngestionHealthStatus />
 	<Select.Root
 		type="single"
 		value={ingestion.windowPreset}

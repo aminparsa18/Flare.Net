@@ -34,4 +34,15 @@ public sealed class LogEventPipelineOptions
     /// <c>LogEventPipelineOptions.ConsumerGroup</c>.
     /// </summary>
     public string ConsumerGroup { get; set; } = "flare-ingest";
+
+    /// <summary>
+    /// Approximate cap on stream length (MAXLEN ~) - the denominator for the Ingestion
+    /// page's buffer-utilization display (<c>Query.PipelineStreamKeys.Capacity</c>). Must
+    /// match Flare.Ingest's <c>LogEventPipelineOptions.StreamMaxLength</c>; unlike
+    /// <see cref="StreamKey"/>/<see cref="ConsumerGroup"/> this doesn't need to *match*
+    /// Redis's actual behavior to stay useful even if it drifts (it's read-only here, never
+    /// passed to a Redis command), but a stale value would just make the displayed
+    /// percentage wrong.
+    /// </summary>
+    public int StreamMaxLength { get; set; } = 1_000_000;
 }

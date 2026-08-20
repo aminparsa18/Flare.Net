@@ -12,6 +12,7 @@ export interface PipelineStreamHealth {
 	streamKey: string;
 	available: boolean;
 	length: number;
+	capacity: number;
 	lag: number | null;
 	pendingCount: number;
 	consumers: number;
