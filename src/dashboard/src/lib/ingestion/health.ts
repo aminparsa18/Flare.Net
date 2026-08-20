@@ -7,9 +7,9 @@
 // those three, already present on this page as totals.rejectedInWindow, flushWorkers[].
 // consecutiveErrors/lastError, and streams[].pendingCount/lag/length/capacity.
 
-import type { IngestionStatsResponse } from '../ingestion-api';
+import type { IngestionBucketPoint, IngestionSignal, IngestionStatsResponse } from '../ingestion-api';
 import type { PipelineFlushHealth, PipelineStatsResponse, PipelineStreamHealth } from '../pipeline-api';
-import { formatCount } from './format';
+import { formatAge, formatCount } from './format';
 
 export type IngestionHealthLevel = 'healthy' | 'degraded' | 'down';
 
@@ -52,6 +52,30 @@ export function utilizationPercent(stream: Pick<PipelineStreamHealth, 'length' |
 	return stream.capacity > 0 ? Math.round((stream.length / stream.capacity) * 100) : null;
 }
 
+// A worker that hasn't flushed in over a minute despite the signal actively receiving
+// traffic is stale - ClickHouseFlushWorker/SpanFlushWorker/MetricFlushWorker all default to
+// a 2s FlushInterval (a time-based trigger, independent of BatchSize), so nothing healthy
+// legitimately goes anywhere near this long between flushes while there's anything to flush.
+// Deliberately *not* keyed off isBacklogStuck alone (that needs a stream's own PEL to have
+// pending entries) - a worker that's stopped calling XREADGROUP entirely never populates the
+// PEL in the first place, so length just grows unnoticed there while this catches it via the
+// one thing that's unambiguous either way: time since the last successful flush.
+export const FLUSH_STALE_AGE_SECONDS = 60;
+
+// How far back "currently receiving traffic" looks for the staleness check above -
+// deliberately short and fixed, independent of the page's own selected window (a stuck
+// worker should be caught quickly, not only once a multi-hour window happens to be selected).
+export const RECENT_ACTIVITY_LOOKBACK_MINUTES = 3;
+
+export function hasRecentArrivals(
+	buckets: readonly Pick<IngestionBucketPoint, 'signal' | 'bucketStart' | 'records'>[],
+	signal: IngestionSignal,
+	now: Date = new Date()
+): boolean {
+	const cutoffMs = now.getTime() - RECENT_ACTIVITY_LOOKBACK_MINUTES * 60_000;
+	return buckets.some((b) => b.signal === signal && b.records > 0 && new Date(b.bucketStart).getTime() >= cutoffMs);
+}
+
 // Feedback: a worker with consecutiveErrors=0 sitting next to a red lastError string read
 // as "currently broken" - 0 consecutive errors is actually proof a *later* flush already
 // succeeded, i.e. it recovered. computeFlushStatus separates "what's true right now" from
@@ -60,7 +84,7 @@ export function utilizationPercent(stream: Pick<PipelineStreamHealth, 'length' |
 export type FlushStatusTone = 'good' | 'default' | 'warning' | 'destructive';
 
 export interface FlushStatus {
-	key: 'healthy' | 'recovered' | 'retrying' | 'stuck' | 'down' | 'idle';
+	key: 'healthy' | 'recovered' | 'retrying' | 'stuck' | 'stale' | 'down' | 'idle';
 	label: string;
 	tone: FlushStatusTone;
 }
@@ -72,10 +96,17 @@ export interface FlushStatus {
  * a worker with zero traffic legitimately going hours between flushes doesn't get flagged -
  * the exact false-alarm mistake PipelineStreamsTable's own Pending-column fix already
  * corrected once for the same underlying reason.
+ *
+ * `hasRecentTraffic` (from hasRecentArrivals, computed by the caller against stats.buckets)
+ * gates the "stale" check below - the same false-alarm mistake in reverse: a 2h-old
+ * lastFlushAt is completely normal for a signal with nothing to flush, and only becomes
+ * suspicious once there's evidence something *should* have been flushed by now.
  */
 export function computeFlushStatus(
 	worker: Pick<PipelineFlushHealth, 'lastFlushAt' | 'lastError' | 'consecutiveErrors'>,
-	stream?: Pick<PipelineStreamHealth, 'pendingCount' | 'oldestPendingAgeSeconds'>
+	stream?: Pick<PipelineStreamHealth, 'pendingCount' | 'oldestPendingAgeSeconds'>,
+	hasRecentTraffic = false,
+	now: Date = new Date()
 ): FlushStatus {
 	if (worker.consecutiveErrors >= DOWN_CONSECUTIVE_ERRORS) {
 		return { key: 'down', label: `Down (${formatCount(worker.consecutiveErrors)})`, tone: 'destructive' };
@@ -85,6 +116,12 @@ export function computeFlushStatus(
 	}
 	if (stream && isBacklogStuck(stream)) {
 		return { key: 'stuck', label: 'Stuck', tone: 'warning' };
+	}
+	if (hasRecentTraffic) {
+		const ageSeconds = worker.lastFlushAt ? (now.getTime() - new Date(worker.lastFlushAt).getTime()) / 1000 : Infinity;
+		if (ageSeconds >= FLUSH_STALE_AGE_SECONDS) {
+			return { key: 'stale', label: 'Stale', tone: 'warning' };
+		}
 	}
 	if (worker.lastError) {
 		return { key: 'recovered', label: 'Recovered', tone: 'good' };
@@ -108,12 +145,27 @@ export function computeIngestionHealth(
 	const degradedReasons: string[] = [];
 
 	const workersDown = new Set<string>();
+	const workersStale = new Set<string>();
 	for (const worker of pipeline.flushWorkers) {
 		if (worker.consecutiveErrors >= DOWN_CONSECUTIVE_ERRORS) {
 			workersDown.add(worker.signal);
 			downReasons.push(`${worker.signal} exporter unavailable`);
-		} else if (worker.consecutiveErrors > 0) {
+			continue;
+		}
+		if (worker.consecutiveErrors > 0) {
 			degradedReasons.push(`${worker.signal} flush retrying (${formatCount(worker.consecutiveErrors)} errors)`);
+			continue;
+		}
+		// Feedback: "Traces last flush 2h ago" next to active traffic is exactly the kind of
+		// thing this page shouldn't make the reader notice/interpret themselves - flag it the
+		// same way computeFlushStatus's own "stale" case does, gated on hasRecentArrivals so
+		// an idle signal's naturally-old lastFlushAt never gets flagged.
+		if (hasRecentArrivals(stats.buckets, worker.signal)) {
+			const ageSeconds = worker.lastFlushAt ? (Date.now() - new Date(worker.lastFlushAt).getTime()) / 1000 : Infinity;
+			if (ageSeconds >= FLUSH_STALE_AGE_SECONDS) {
+				workersStale.add(worker.signal);
+				degradedReasons.push(`${worker.signal} flush stale (${formatAge(ageSeconds)} since last flush, still receiving traffic)`);
+			}
 		}
 	}
 
@@ -139,6 +191,11 @@ export function computeIngestionHealth(
 			downReasons.push(`${stream.signal} pipeline backlog stuck (${formatCount(stream.pendingCount)} pending)`);
 			continue;
 		}
+
+		// A stale flush worker for this signal already explains a merely-*building* backlog
+		// (the milder case - real capacity risk and PEL-stuck above still get their own
+		// reason regardless) - don't report the same underlying cause twice.
+		if (workersStale.has(stream.signal)) continue;
 
 		if (pct !== null && pct >= WARN_UTILIZATION_PERCENT) {
 			degradedReasons.push(`${stream.signal} buffer at ${pct}% capacity`);
