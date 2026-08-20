@@ -6,6 +6,7 @@
 	// hover state) - the genuinely new part is multiple simultaneous lines instead of
 	// one bar series, so see this file's own remarks for what that changes.
 	import { fade } from 'svelte/transition';
+	import { animateHeight } from '$lib/actions/animate-height';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import * as Select from '$lib/components/ui/select';
 	import * as Empty from '$lib/components/ui/empty';
@@ -596,39 +597,15 @@
 		return formatAtScale(n, axisScale);
 	}
 
-	/**
-	 * Smoothly resizes this element whenever its content's natural height changes,
-	 * instead of snapping - the `{#key chartKey}` fade below only animates opacity,
-	 * which doesn't stop the *container* from instantly jumping to the new height the
-	 * moment swapped-in content mounts. That jump was barely noticeable for Histogram
-	 * (3 percentile lines vs. 2 compare lines - a small delta) but real for Sum/Gauge
-	 * with several series (a wrapped multi-row legend + a "+N more series" note
-	 * collapsing down to a plain 2-line "Current"/"Previous" legend - a much bigger
-	 * one). A FLIP-style animation via ResizeObserver + the Web Animations API: capture
-	 * the height *before* this fires (the browser has already resized the box by the
-	 * time the observer callback runs), then explicitly animate from that captured
-	 * value to the new one, over the same FADE_MS*2 the out+in fade sequence takes -
-	 * so the box finishes resizing right as the new content finishes fading in, not
-	 * mid-fade or well after it. No shared `$lib/actions` home yet for this - inlined
-	 * until a second consumer needs it (same "no natural shared-utils home for a
-	 * two-line helper yet" call context.ts's own generic-context helper makes).
-	 */
-	function animateHeight(node: HTMLElement) {
-		let prevHeight = node.getBoundingClientRect().height;
-		const observer = new ResizeObserver(() => {
-			const nextHeight = node.getBoundingClientRect().height;
-			if (Math.abs(nextHeight - prevHeight) > 0.5) {
-				node.animate([{ height: `${prevHeight}px` }, { height: `${nextHeight}px` }], { duration: FADE_MS * 2, easing: 'ease' });
-			}
-			prevHeight = nextHeight;
-		});
-		observer.observe(node);
-		return {
-			destroy() {
-				observer.disconnect();
-			}
-		};
-	}
+	// The `{#key chartKey}` fade below only animates opacity, which doesn't stop the
+	// *container* from instantly jumping to the new height the moment swapped-in content
+	// mounts. That jump was barely noticeable for Histogram (3 percentile lines vs. 2
+	// compare lines - a small delta) but real for Sum/Gauge with several series (a
+	// wrapped multi-row legend + a "+N more series" note collapsing down to a plain
+	// 2-line "Current"/"Previous" legend - a much bigger one). `use:animateHeight` below
+	// (see `$lib/actions/animate-height.ts`) smooths that resize - passed FADE_MS*2, the
+	// same duration the out+in fade sequence takes, so the box finishes resizing right as
+	// the new content finishes fading in, not mid-fade or well after it.
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
@@ -783,7 +760,7 @@
 			     underneath is instant (no second fade queued up mid-transition) - avoids
 			     stacking multiple fade cycles for a query that resolves before the first one
 			     even finishes, which is the common case against local ClickHouse. -->
-			<div use:animateHeight class="overflow-hidden">
+			<div use:animateHeight={FADE_MS * 2} class="overflow-hidden">
 			{#key chartKey}
 			<!-- Sequential, not overlapping: `in:` is delayed by exactly `out:`'s duration
 			     (FADE_MS, declared above) so the old view fully fades to nothing before the new
