@@ -2,6 +2,7 @@
 	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
 	import LogRow from './LogRow.svelte';
 	import * as Empty from '$lib/components/ui/empty';
+	import { Lottie } from '$lib/components/ui/lottie';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { logsExplorerContext } from '$lib/logs/context';
 
@@ -35,10 +36,19 @@
 
 	{#if explorer.events.length === 0 && !explorer.loading}
 		<Empty.Root class="flex-1">
+			<Empty.Media class="size-40">
+				<!-- Always autoplay - the animation draws its icon in from an empty first frame,
+				     so a non-live "no match" state would render blank without at least one
+				     play-through. Only *loop* while live: a filtered/no-match search isn't
+				     "waiting for something to happen", so it plays once and rests on the last frame. -->
+				<Lottie src="/no_log.json" loop={explorer.live} autoplay class="size-full" />
+			</Empty.Media>
 			<Empty.Header>
-				<Empty.Title>No events</Empty.Title>
+				<Empty.Title>{explorer.live ? 'Waiting for events' : 'No events'}</Empty.Title>
 				<Empty.Description>
-					{explorer.live ? 'Waiting for live events…' : 'No events match the current filters.'}
+					{explorer.live
+						? 'Live tail is connected — new events will appear here the moment they arrive.'
+						: 'No events match the current filters. Try widening the time range or clearing a filter.'}
 				</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
