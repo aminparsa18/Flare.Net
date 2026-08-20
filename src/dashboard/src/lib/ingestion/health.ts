@@ -8,7 +8,7 @@
 // consecutiveErrors/lastError, and streams[].pendingCount/lag/length/capacity.
 
 import type { IngestionStatsResponse } from '../ingestion-api';
-import type { PipelineStatsResponse, PipelineStreamHealth } from '../pipeline-api';
+import type { PipelineFlushHealth, PipelineStatsResponse, PipelineStreamHealth } from '../pipeline-api';
 import { formatCount } from './format';
 
 export type IngestionHealthLevel = 'healthy' | 'degraded' | 'down';
@@ -50,6 +50,49 @@ export const DOWN_UTILIZATION_PERCENT = 90;
 
 export function utilizationPercent(stream: Pick<PipelineStreamHealth, 'length' | 'capacity'>): number | null {
 	return stream.capacity > 0 ? Math.round((stream.length / stream.capacity) * 100) : null;
+}
+
+// Feedback: a worker with consecutiveErrors=0 sitting next to a red lastError string read
+// as "currently broken" - 0 consecutive errors is actually proof a *later* flush already
+// succeeded, i.e. it recovered. computeFlushStatus separates "what's true right now" from
+// "what happened historically" instead of letting the table imply the two are the same
+// thing.
+export type FlushStatusTone = 'good' | 'default' | 'warning' | 'destructive';
+
+export interface FlushStatus {
+	key: 'healthy' | 'recovered' | 'retrying' | 'stuck' | 'down' | 'idle';
+	label: string;
+	tone: FlushStatusTone;
+}
+
+/**
+ * One worker's *current* state. `stream` (the matching signal's PipelineStreamHealth) is
+ * optional and only used for the "stuck" case - cross-referencing the stream's own
+ * pending-backlog signal (isBacklogStuck) rather than flagging on last-flush age alone, so
+ * a worker with zero traffic legitimately going hours between flushes doesn't get flagged -
+ * the exact false-alarm mistake PipelineStreamsTable's own Pending-column fix already
+ * corrected once for the same underlying reason.
+ */
+export function computeFlushStatus(
+	worker: Pick<PipelineFlushHealth, 'lastFlushAt' | 'lastError' | 'consecutiveErrors'>,
+	stream?: Pick<PipelineStreamHealth, 'pendingCount' | 'oldestPendingAgeSeconds'>
+): FlushStatus {
+	if (worker.consecutiveErrors >= DOWN_CONSECUTIVE_ERRORS) {
+		return { key: 'down', label: `Down (${formatCount(worker.consecutiveErrors)})`, tone: 'destructive' };
+	}
+	if (worker.consecutiveErrors > 0) {
+		return { key: 'retrying', label: `Retrying (${formatCount(worker.consecutiveErrors)})`, tone: 'warning' };
+	}
+	if (stream && isBacklogStuck(stream)) {
+		return { key: 'stuck', label: 'Stuck', tone: 'warning' };
+	}
+	if (worker.lastError) {
+		return { key: 'recovered', label: 'Recovered', tone: 'good' };
+	}
+	if (!worker.lastFlushAt) {
+		return { key: 'idle', label: 'Idle', tone: 'default' };
+	}
+	return { key: 'healthy', label: 'Healthy', tone: 'good' };
 }
 
 export function computeIngestionHealth(

@@ -22,9 +22,9 @@
 	import TopologyNode from './TopologyNode.svelte';
 	import { formatAge, formatCount, secondsSince } from '$lib/ingestion/format';
 	import {
-		DOWN_CONSECUTIVE_ERRORS,
 		DOWN_UTILIZATION_PERCENT,
 		WARN_UTILIZATION_PERCENT,
+		computeFlushStatus,
 		isBacklogStuck,
 		utilizationPercent
 	} from '$lib/ingestion/health';
@@ -136,20 +136,19 @@
 				data: { kind: 'stream', title: signal, tone: streamTone, lines: streamLines }
 			});
 
-			const workerTone: TopologyTone = !worker
-				? 'default'
-				: worker.consecutiveErrors >= DOWN_CONSECUTIVE_ERRORS
-					? 'destructive'
-					: worker.consecutiveErrors > 0
-						? 'warning'
-						: 'default';
+			// Same computeFlushStatus PipelineFlushHealthTable uses - a worker that recovered
+			// (consecutiveErrors back to 0 after a real lastError) shouldn't render this node
+			// destructive/warning just because *a* lastError string exists; 'good'/'default'
+			// both read as a plain, uncolored border here (this diagram has no green-highlight
+			// treatment, unlike the table's own check icon).
+			const flushStatus = worker ? computeFlushStatus(worker, stream) : null;
+			const workerTone: TopologyTone =
+				flushStatus?.tone === 'destructive' ? 'destructive' : flushStatus?.tone === 'warning' ? 'warning' : 'default';
 
 			const workerLines: TopologyLine[] = worker
 				? [
 						{ label: 'Last flush', value: worker.lastFlushAt ? formatAge(secondsSince(worker.lastFlushAt)) : 'never' },
-						...(worker.consecutiveErrors > 0
-							? ([{ label: 'Errors', value: `${formatCount(worker.consecutiveErrors)} in a row`, tone: workerTone }] as TopologyLine[])
-							: [])
+						{ label: 'Status', value: flushStatus!.label, tone: workerTone }
 					]
 				: [];
 
