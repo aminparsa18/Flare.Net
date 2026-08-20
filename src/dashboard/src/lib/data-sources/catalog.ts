@@ -5,8 +5,10 @@
 // :4318 POST /v1/logs - see src/Flare.Ingest/README.md), so the honest equivalent for
 // "Databases"/"Web Servers"/etc. is "run the OpenTelemetry Collector with that source's
 // receiver, export OTLP to Flare" rather than a bespoke snippet per product. This is the
-// curated "focused core" set: platforms apps commonly run on, plus the languages/SDKs
-// most likely to be emitting the logs in the first place.
+// curated "focused core" set: platforms apps commonly run on, the languages/SDKs most
+// likely to be emitting the logs in the first place, and the DevOps tools that came up
+// by name (Jenkins/Ansible/Terraform/GitHub Actions) - not full category parity with
+// OpenObserve's 40+ item catalog.
 //
 // Ingest auth: IngestApiKeyValidationMiddleware (src/Flare.Ingest/Auth/) only enforces a
 // Bearer token when IngestAuthOptions.IngestKeyRequired is turned on - off by default, so
@@ -28,6 +30,11 @@ import CodeIcon from '@lucide/svelte/icons/code';
 import HexagonIcon from '@lucide/svelte/icons/hexagon';
 import CoffeeIcon from '@lucide/svelte/icons/coffee';
 import ZapIcon from '@lucide/svelte/icons/zap';
+// Same "closest generic icon to the real thing" reasoning for the DevOps tab.
+import WrenchIcon from '@lucide/svelte/icons/wrench';
+import WorkflowIcon from '@lucide/svelte/icons/workflow';
+import LayersIcon from '@lucide/svelte/icons/layers';
+import CirclePlayIcon from '@lucide/svelte/icons/circle-play';
 
 export interface GuideStep {
 	heading: string;
@@ -358,6 +365,113 @@ global.SetLoggerProvider(provider)`
 				}
 			]
 		},
+		jenkins: {
+			id: 'jenkins',
+			title: 'Jenkins',
+			icon: WrenchIcon,
+			intro: "Jenkins doesn't speak OTLP itself - which approach fits depends on how it's deployed.",
+			steps: [
+				{
+					heading: 'Running in a container?',
+					body: 'Nothing Jenkins-specific needed - the Kubernetes/Docker items on the Platforms tab already tail container stdout/stderr and forward it as OTLP.'
+				},
+				{
+					heading: 'Running on a VM or bare metal?',
+					body: 'Same idea as the Platforms tab\'s Linux/Windows items - point the Collector\'s filelog receiver at Jenkins\' own log file instead of /var/log/**/*.log (the default location varies by install: a .deb/.rpm package writes to /var/log/jenkins/jenkins.log; running the .war directly just logs to stdout, so tail wherever that\'s redirected to).',
+					code: {
+						label: 'receivers.filelog (rest of config.yaml matches the Linux item)',
+						text: `receivers:
+  filelog:
+    include: [/var/log/jenkins/jenkins.log]`
+					}
+				},
+				{
+					heading: 'Want per-build traces instead of raw log lines?',
+					body: "Jenkins' official OpenTelemetry plugin exports each pipeline run as OTel traces (one span per stage/step) via OTLP directly - no Collector needed. It's built on the OTel Java SDK, so it reads the same standard environment variables; whether it also ships build console logs (not just traces) depends on your installed plugin version's own config screen (Manage Jenkins → Configure System → OpenTelemetry).",
+					code: {
+						text: `OTEL_EXPORTER_OTLP_ENDPOINT=${ep.grpcUri}\nOTEL_EXPORTER_OTLP_PROTOCOL=grpc`
+					}
+				}
+			]
+		},
+		ansible: {
+			id: 'ansible',
+			title: 'Ansible',
+			icon: WorkflowIcon,
+			intro: 'A playbook run is ephemeral, not a long-running service - the community.general collection ships an OpenTelemetry callback plugin that exports each run as an OTel trace (one span per task) instead.',
+			steps: [
+				{
+					heading: 'Install the collection',
+					code: { text: 'ansible-galaxy collection install community.general' }
+				},
+				{
+					heading: 'Enable the callback and point it at Flare',
+					body: 'Double-check these env var names against your installed community.general version - callback plugin configuration has shifted across releases.',
+					code: {
+						text: `ANSIBLE_CALLBACKS_ENABLED=community.general.opentelemetry \\
+OTEL_EXPORTER_OTLP_ENDPOINT=${ep.grpcUri} \\
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc \\
+ansible-playbook site.yml`
+					}
+				},
+				{
+					heading: 'Running via AWX/Tower, or just want the raw log?',
+					body: 'Treat it like any other Linux service and tail its log file instead - see the Platforms tab.'
+				}
+			]
+		},
+		terraform: {
+			id: 'terraform',
+			title: 'Terraform',
+			icon: LayersIcon,
+			intro: "A terraform apply run is even more ephemeral than a playbook, and the CLI has no OTLP exporter of its own - get its debug log onto disk, then forward that.",
+			steps: [
+				{
+					heading: "Turn on Terraform's own debug log",
+					code: { text: 'TF_LOG=DEBUG\nTF_LOG_PATH=terraform.log\nterraform apply' }
+				},
+				{
+					heading: 'On a persistent host',
+					body: "Tail terraform.log the same way the Platforms tab's Linux item tails any other log file - point the Collector's filelog receiver at it."
+				},
+				{
+					heading: 'In ephemeral CI (e.g. a GitHub-hosted runner)',
+					body: "There's no host left for a Collector to read from once the job ends - see the GitHub Actions item for shipping a run's outcome directly from the workflow instead."
+				}
+			]
+		},
+		'github-actions': {
+			id: 'github-actions',
+			title: 'GitHub Actions',
+			icon: CirclePlayIcon,
+			intro: 'No native OTLP exporter for Actions - the reliable option is a workflow step that ships the job\'s outcome directly, the same shape as the Custom tab\'s raw curl example.',
+			steps: [
+				{
+					heading: 'Self-hosted runners you control?',
+					body: 'Treat the runner like any other Linux/Windows host - see the Platforms tab. Nothing GitHub-specific needed.'
+				},
+				{
+					heading: 'GitHub-hosted runners',
+					body: "The runner disappears once the job ends, so add a step that reports the outcome directly instead, using GitHub's own workflow context. This is a minimal example (one log event per run) - free-text values like a commit message would need real JSON escaping (e.g. via jq) before going in the body.",
+					code: {
+						label: '.github/workflows/*.yml',
+						text: `- name: Report to Flare
+  if: always()
+  env:
+    STATUS: \${{ job.status }}
+  run: |
+    TS=$(date +%s%N)
+    SEV=9
+    [ "$STATUS" = "success" ] || SEV=17
+    BODY=$(cat <<EOF
+    {"resourceLogs":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"github-actions"}}]},"scopeLogs":[{"scope":{"name":"\${{ github.workflow }}"},"logRecords":[{"timeUnixNano":"$TS","severityNumber":$SEV,"severityText":"$STATUS","body":{"stringValue":"\${{ github.workflow }} #\${{ github.run_number }} - $STATUS"}}]}]}]}
+    EOF
+    )
+    curl -s -X POST ${ep.httpUri}/v1/logs -H "Content-Type: application/json" -d "$BODY"`
+					}
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: 'Custom / raw OTLP',
@@ -407,6 +521,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 		{ id: 'recommended', label: 'Recommended', itemIds: ['kubernetes', 'docker', 'dotnet', 'custom'] },
 		{ id: 'platforms', label: 'Platforms', itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
 		{ id: 'languages', label: 'Languages & Frameworks', itemIds: ['dotnet', 'python', 'nodejs', 'java', 'go'] },
+		{ id: 'devops', label: 'DevOps', itemIds: ['jenkins', 'ansible', 'terraform', 'github-actions'] },
 		{ id: 'custom', label: 'Custom', itemIds: ['custom'] }
 	];
 	return { categories, items };
