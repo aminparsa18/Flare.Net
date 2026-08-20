@@ -74,12 +74,17 @@ export interface MetricSeriesPoint {
 	bucketStart: string;
 	/** Gauge/Sum only. */
 	value: number | null;
-	/** Histogram only. */
+	/** Sum: raw sample count. Histogram: total observation count. */
 	count: number | null;
+	/** Histogram only. */
 	sum: number | null;
 	p50: number | null;
+	p75: number | null;
 	p90: number | null;
+	p95: number | null;
 	p99: number | null;
+	/** Histogram only. Approximate - upper bound of the highest non-empty bucket, not the true OTLP max. */
+	maxApprox: number | null;
 }
 
 export interface MetricSeries {

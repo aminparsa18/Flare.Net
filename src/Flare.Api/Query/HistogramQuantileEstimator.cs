@@ -98,4 +98,53 @@ public static class HistogramQuantileEstimator
         // falling through with no answer.
         return explicitBounds[^1];
     }
+
+    /// <summary>
+    /// Approximates the maximum observed value as the upper bound of the highest
+    /// non-empty bucket - not a true max. The real OTLP <c>HistogramDataPoint.Max</c> is
+    /// an optional field many SDKs (including .NET's own OTel histogram instrumentation)
+    /// leave unset, and it isn't captured by the ingest pipeline; this derives an honest
+    /// approximation from data already fetched for <see cref="Estimate"/> instead, at the
+    /// cost of being a bucket boundary rather than an actual sample value. Callers/UI
+    /// should present the result as approximate (see <see cref="Model.MetricSeriesPoint.MaxApprox"/>),
+    /// never as a bare "Max".
+    /// </summary>
+    /// <returns>
+    /// The upper bound of the highest bucket with a non-zero count, or <see langword="null"/>
+    /// when there's no data (every bucket count is zero) or the inputs are malformed (no
+    /// buckets, or a <paramref name="bucketCounts"/>/<paramref name="explicitBounds"/>
+    /// length mismatch beyond the OTLP spec's "+1" relationship).
+    /// </returns>
+    public static double? EstimateMax(IReadOnlyList<ulong> bucketCounts, IReadOnlyList<double> explicitBounds)
+    {
+        if (bucketCounts.Count == 0 || explicitBounds.Count == 0)
+        {
+            return null;
+        }
+
+        for (var i = bucketCounts.Count - 1; i >= 0; i--)
+        {
+            if (bucketCounts[i] == 0)
+            {
+                continue;
+            }
+
+            // Last bucket has no finite upper bound per the OTLP spec - clamp to the
+            // last finite bound instead, same edge-case clamp Estimate applies to its own
+            // last-bucket case.
+            var isLastBucket = i == bucketCounts.Count - 1;
+            if (!isLastBucket && i >= explicitBounds.Count)
+            {
+                // Malformed input - bucketCounts/explicitBounds lengths disagree beyond
+                // the spec's "+1" relationship. No bound to anchor to - bail out rather
+                // than throw, same choice Estimate makes for the same situation.
+                return null;
+            }
+
+            return i < explicitBounds.Count ? explicitBounds[i] : explicitBounds[^1];
+        }
+
+        // All buckets empty.
+        return null;
+    }
 }

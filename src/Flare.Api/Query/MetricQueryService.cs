@@ -107,8 +107,21 @@ public sealed class MetricQueryService(IClickHouseClient client, TimeProvider ti
                 Count = (long)count,
                 Sum = sum,
                 P50 = HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.5),
+                P75 = HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.75),
                 P90 = HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.9),
+                P95 = HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.95),
                 P99 = HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.99),
+                MaxApprox = HistogramQuantileEstimator.EstimateMax(bucketCounts, explicitBounds),
+            };
+        }
+
+        if (type == MetricPointType.Sum)
+        {
+            return new MetricSeriesPoint
+            {
+                BucketStart = bucketStart,
+                Value = reader.GetFieldValue<double>(4),
+                Count = (long)reader.GetFieldValue<ulong>(5),
             };
         }
 

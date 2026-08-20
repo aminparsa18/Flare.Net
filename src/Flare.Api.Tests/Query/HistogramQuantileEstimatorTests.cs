@@ -104,4 +104,68 @@ public class HistogramQuantileEstimatorTests
 
         Assert.Null(result);
     }
+
+    [Fact]
+    public void EstimateMax_ReturnsNull_WhenBucketCountsIsEmpty()
+    {
+        Assert.Null(HistogramQuantileEstimator.EstimateMax([], [10.0]));
+    }
+
+    [Fact]
+    public void EstimateMax_ReturnsNull_WhenExplicitBoundsIsEmpty()
+    {
+        Assert.Null(HistogramQuantileEstimator.EstimateMax([5], []));
+    }
+
+    [Fact]
+    public void EstimateMax_ReturnsNull_WhenAllBucketsAreEmpty()
+    {
+        Assert.Null(HistogramQuantileEstimator.EstimateMax([0, 0, 0], [10.0, 50.0]));
+    }
+
+    [Fact]
+    public void EstimateMax_HighestNonEmptyBucketIsFirst_ReturnsItsUpperBound()
+    {
+        var result = HistogramQuantileEstimator.EstimateMax([5, 0, 0], [10.0, 50.0]);
+
+        Assert.Equal(10.0, result);
+    }
+
+    [Fact]
+    public void EstimateMax_IgnoresEmptyTrailingBuckets()
+    {
+        // Highest non-empty bucket is the middle one, not the empty last bucket - the
+        // approximation should use its upper bound, not the last bucket's.
+        var result = HistogramQuantileEstimator.EstimateMax([10, 5, 0], [10.0, 50.0]);
+
+        Assert.Equal(50.0, result);
+    }
+
+    [Fact]
+    public void EstimateMax_LastBucketNonEmpty_ClampsToLastFiniteBound()
+    {
+        // Last bucket (50, +Inf) has no finite upper bound - clamps to the one finite
+        // edge it does have, same clamp Estimate applies to its own last-bucket case.
+        var result = HistogramQuantileEstimator.EstimateMax([0, 0, 10], [10.0, 50.0]);
+
+        Assert.Equal(50.0, result);
+    }
+
+    [Fact]
+    public void EstimateMax_SingleBucket_WithOneExplicitBound_ReturnsThatBound()
+    {
+        var result = HistogramQuantileEstimator.EstimateMax([7], [25.0]);
+
+        Assert.Equal(25.0, result);
+    }
+
+    [Fact]
+    public void EstimateMax_MalformedInput_ReturnsNull_NotThrows()
+    {
+        // 4 bucket counts should pair with exactly 3 bounds; only 1 given here, and the
+        // highest non-empty bucket (index 1) isn't the last bucket.
+        var result = HistogramQuantileEstimator.EstimateMax([0, 5, 0, 0], [10.0]);
+
+        Assert.Null(result);
+    }
 }
