@@ -13,6 +13,12 @@ public interface ILogQueryService
     /// <summary>Ranked Drain clusters ("log patterns") within the request's filter window - see <see cref="LogPatternQueryBuilder"/>.</summary>
     Task<LogPatternResponse> GetPatternsAsync(LogPatternRequest request, CancellationToken cancellationToken);
 
+    /// <summary>Every <c>LogAttributes</c> key that parses as numeric on at least one in-scope event - the Value distribution chart's attribute picker. See <see cref="LogAttributeKeysQueryBuilder"/>.</summary>
+    Task<LogAttributeKeysResponse> GetNumericAttributeKeysAsync(LogAttributeKeysRequest request, CancellationToken cancellationToken);
+
+    /// <summary>A random sample of one numeric <c>LogAttributes</c> key's values over time - the Value distribution chart's data. See <see cref="LogValueDistributionQueryBuilder"/>.</summary>
+    Task<LogValueDistributionResponse> GetValueDistributionAsync(LogValueDistributionRequest request, CancellationToken cancellationToken);
+
     /// <summary>
     /// Every distinct <c>ServiceName</c> that has logged at least one event within
     /// <paramref name="window"/> of now, with each one's most recent event timestamp -
@@ -113,6 +119,36 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
         }
 
         return new LogPatternResponse { Patterns = patterns };
+    }
+
+    public async Task<LogAttributeKeysResponse> GetNumericAttributeKeysAsync(LogAttributeKeysRequest request, CancellationToken cancellationToken)
+    {
+        var built = LogAttributeKeysQueryBuilder.Build(request, timeProvider.GetUtcNow());
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var keys = new List<LogAttributeKeyInfo>();
+        while (reader.Read())
+        {
+            keys.Add(new LogAttributeKeyInfo { Key = reader.GetString(0), NumericCount = (long)reader.GetFieldValue<ulong>(1) });
+        }
+
+        return new LogAttributeKeysResponse { Keys = keys };
+    }
+
+    public async Task<LogValueDistributionResponse> GetValueDistributionAsync(LogValueDistributionRequest request, CancellationToken cancellationToken)
+    {
+        var built = LogValueDistributionQueryBuilder.Build(request, timeProvider.GetUtcNow());
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var points = new List<LogValueDistributionPoint>();
+        while (reader.Read())
+        {
+            points.Add(new LogValueDistributionPoint { Timestamp = ReadUtc(reader, 0), Value = reader.GetDouble(1) });
+        }
+
+        return new LogValueDistributionResponse { Points = points };
     }
 
     public async Task<IReadOnlyList<ActiveService>> GetActiveServiceNamesAsync(TimeSpan window, CancellationToken cancellationToken)
