@@ -9,15 +9,40 @@
 
 # Flare.Net
 
-A self-hosted, OpenTelemetry-native log dashboard for .NET developers: search/filter/live-tail logs, browse traces and metrics, and set threshold/query-based alert rules that notify webhook/Slack, Telegram, or email on breach.
+A self-hosted, OpenTelemetry-native observability platform for .NET — logs, traces, and metrics as first-class citizens, correlated in one place, with threshold/query-based alert rules that notify webhook/Slack, Telegram, or email on breach.
 
-**Think Seq or Datadog Logs — but fully open source (MIT), self-hosted, and OTLP straight in with no agent daemon to install.**
+**Think Seq or Datadog — but fully open source (MIT), self-hosted, and OTLP straight in with no proprietary agent or SDK to install.**
+
+## OpenTelemetry first
+
+Your application → **OTLP** → Flare. That's the whole ingestion story — no proprietary wire format, no agent daemon. If you're already instrumented with OpenTelemetry, Flare can consume it directly.
 
 ![Logs Explorer](docs/screenshots/logs.png)
 
+## What Flare provides
+
+| | |
+|---|---|
+| **Logs** | Search, filtering, live tail, structured properties |
+| **Traces** | Distributed tracing with log/trace correlation |
+| **Metrics** | Explore OpenTelemetry metrics alongside logs and traces |
+| **Alerts** | Threshold/query-based rules with webhook, Slack, Telegram, and email |
+| **Ingestion** | OTLP receiver and pipeline health |
+| **Indexing** | ClickHouse index and query/storage diagnostics |
+| **Auth** | Local accounts, Entra ID, Active Directory/LDAP, OIDC, and reverse-proxy trusted headers |
+| **Views** | Saved searches and reusable views |
+
+## Why Flare?
+
+- **OpenTelemetry-native** — no proprietary ingestion protocol; send standard OTLP telemetry directly.
+- **Self-hosted** — your telemetry stays in your infrastructure.
+- **Built for .NET** — first-class .NET/Aspire integration without requiring a separate agent ecosystem.
+- **One place for telemetry** — logs, traces, and metrics are correlated rather than treated as separate products.
+- **Simple deployment** — run it through Aspire, Docker Compose, or the Flare CLI.
+
 ## Getting started
 
-Logs reach Flare over plain **OTLP** — no proprietary wire format, ever. On Aspire, `Flare.Aspire` is a convenience package for wiring the endpoint, not a requirement. What differs is how you run Flare itself. Pick one:
+What differs is how you run Flare itself. Pick one:
 
 - **Already using .NET Aspire?**
   ```csharp
@@ -38,7 +63,7 @@ Logs reach Flare over plain **OTLP** — no proprietary wire format, ever. On As
   dotnet tool install --global Flare.Cli
   flare start
   ```
-  A global CLI (`flare start/stop/status/open/update/logs/tail/doctor/destroy`) that manages the same Docker stack from anywhere, no repo checkout required. Details: [docs/cli.md](docs/cli.md).
+  A global CLI that manages the same Docker stack from anywhere, no repo checkout required. Details: [docs/cli.md](docs/cli.md).
 
 Whichever path you pick, the dashboard comes up at [http://localhost:7777](http://localhost:7777). Authentication is **off by default** — the Logs page is open the moment it's up. Turn sign-in on (local accounts, Microsoft Entra ID, Active Directory, OpenID Connect, or reverse-proxy trusted headers) from the `/auth` page whenever you're ready; see [docs/auth.md](docs/auth.md).
 
@@ -48,11 +73,28 @@ Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogge
 
 Standalone Docker isn't the dev-inner-loop story — see [Flare.AppHost](src/Flare.AppHost) (.NET Aspire) for that, and each project's own README (e.g. [src/dashboard/README.md](src/dashboard/README.md)) for running it individually.
 
-## Roadmap
+## Status
 
-**Shipped:** logs · alerting (webhook/Slack/Telegram/email) · Docker Hub images + `Flare.Hosting.Aspire`/`Flare.Aspire` packages · traces · trace/log correlation · metrics · saved views · ingestion & indexing pages · pipeline health · auth (local, Entra ID SSO, Active Directory/LDAP, generic OIDC, reverse-proxy trusted headers) · `flare` CLI (`start`/`stop`/`status`/`open`/`update`/`logs`/`tail`/`doctor`/`destroy`)
+Flare is actively developed and currently provides:
 
-**Planned:** more `flare` CLI commands (`search`, `alerts`, `export`, `apikey`) · retention policies + cold storage to S3-compatible object storage · Helm chart for Kubernetes
+- Logs
+- Traces
+- Metrics
+- Alerts
+- OTLP ingestion
+- Pipeline health
+- Indexing diagnostics
+- Saved searches
+- Authentication
+- Aspire integration
+- Docker deployment
+- Flare CLI
+
+### Next
+
+- More `flare` CLI commands (`search`, `alerts`, `export`, `apikey`)
+- Retention policies + cold storage to S3-compatible object storage
+- Helm chart for Kubernetes
 
 Full design doc and version-by-version detail: [Planning.md](Planning.md).
 
