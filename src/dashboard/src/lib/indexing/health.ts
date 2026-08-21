@@ -28,3 +28,13 @@ export function computePartsHealth(activeParts: number): PartsHealth {
 	}
 	return { tone: 'good', label: 'Healthy' };
 }
+
+// Shared by the "Query performance" summary card and the "Query optimization" section's
+// Search latency card - both color a millisecond value the same way, so the thresholds
+// live in one place rather than two copies drifting apart.
+export function latencyClass(ms: number | null | undefined): string {
+	if (ms === null || ms === undefined) return '';
+	if (ms >= 1000) return 'text-destructive';
+	if (ms >= 300) return 'text-warning';
+	return '';
+}

@@ -6,6 +6,7 @@
 	import IndexingSummaryTiles from '$lib/components/indexing/IndexingSummaryTiles.svelte';
 	import IndexingGrowthChart from '$lib/components/indexing/IndexingGrowthChart.svelte';
 	import IndexingTablesTable from '$lib/components/indexing/IndexingTablesTable.svelte';
+	import IndexingQueryOptimization from '$lib/components/indexing/IndexingQueryOptimization.svelte';
 	import IndexingSkipIndexesTable from '$lib/components/indexing/IndexingSkipIndexesTable.svelte';
 
 	const indexing = indexingContext.set(new IndexingState());
@@ -32,6 +33,7 @@
 		<IndexingSummaryTiles />
 		<IndexingGrowthChart />
 		<IndexingTablesTable />
+		<IndexingQueryOptimization />
 		<IndexingSkipIndexesTable />
 	</div>
 </div>
