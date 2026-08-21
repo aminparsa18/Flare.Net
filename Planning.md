@@ -2335,13 +2335,36 @@ stored since v4) and no mutation.
         matched range*, not one page, so they'd need one of the two heavier shapes kept
         in the "Later" bullet above (the join or the mutation-backfill), not this
         bounded-follow-up shape - stays a separate Later item.
-- [ ] **Not yet done**: no live end-to-end run against a real stack (start the stack,
-      use ExampleApp's existing correlated log+span generator - already wraps
-      `SampleLogEvents.EmitOne()` calls in spans per v17, no new fixture work needed -
-      confirm the Duration column and `EventDetailSheet`'s "Span duration" cell show
-      real formatted values, Patterns'/export's query cost is unaffected, and live-tail
-      rows still show no duration). Same "code+unit-verified, live e2e pending" gap
-      v14/v15/v16/v17/v18 each flagged for themselves.
+- [x] **Live e2e run + bug: live mode showed "0" instead of hiding the column.** Run
+      against a real stack the same day - paginated/non-live search showed correct real
+      duration values, confirming the bounded follow-up query end-to-end. But every
+      live-tailed row showed "0", not `—`, for `spanDurationNano` - two compounding
+      issues, both in `LogRow.svelte`/`EventDetailSheet.svelte`:
+      1. **Null-check bug.** `LogsJsonContext` has no `DefaultIgnoreCondition`
+         configured, so an unset `LogEventDto.SpanDurationNano` (`ulong?`) serializes as
+         an explicit JSON `null`, not an omitted key. Both components checked
+         `!== undefined`, which `null` sails straight past - `formatDurationNano(null)`
+         then ran, and `null / 1_000_000` coerces to `0` in JS, printing "0µs". Fixed by
+         checking `!= null` (loose equality, catches both) instead.
+      2. **Product decision, not just a bug**: even with the null-check fixed, a
+         live-tailed row's duration is *always* absent (per the "deliberately deferred"
+         bullet above - it's not a rare miss, live-tail never populates this field at
+         all), so a Duration column showing nothing but `—` for every visible row while
+         live is worse than no column - direct user feedback after seeing it live.
+         `LogTable.svelte`'s `COLUMNS` grid template became `$derived` on
+         `explorer.live` (was a plain `const`) and both the header cell and each
+         `LogRow`'s cell are now wrapped in `{#if !live}` (`live` newly passed down as a
+         prop) - the column reappears the moment live tail is turned off, no reload
+         needed. `EventDetailSheet`'s "Span duration" field keeps showing `—` while live
+         (a single on-demand field isn't the same clutter a whole column is) - only the
+         null-check fix applies there.
+      `npm run check` (0 errors, 0 warnings) and `npm run build` (clean) after the fix.
+- [ ] **Not yet done**: the live e2e run above covered paginated search (confirmed real
+      values) and live-tail (confirmed no-duration handling, after the fix above) - not
+      yet re-confirmed: `EventDetailSheet`'s "Span duration" cell against a real
+      correlated event, and that Patterns'/export's query cost is genuinely unaffected.
+      Same "code+unit-verified, live e2e pending" gap v14/v15/v16/v17/v18 each flagged
+      for themselves, now narrowed rather than closed.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
