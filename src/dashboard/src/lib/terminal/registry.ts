@@ -10,6 +10,7 @@ import { tracesCommand } from './commands/traces';
 import { traceCommand } from './commands/trace';
 import { metricsCommand } from './commands/metrics';
 import { metricCommand } from './commands/metric';
+import { ingestionCommand } from './commands/ingestion';
 import { helpCommand } from './commands/help';
 import { hostOnlyCommand } from './commands/unavailable';
 
@@ -17,7 +18,7 @@ import { hostOnlyCommand } from './commands/unavailable';
 // lifecycle/env checks - see src/Flare.Cli/Commands/*.cs) plus `status` and `logs`,
 // which shell out to `docker compose ps`/`docker compose logs` on the host. None of
 // these can be answered from the browser; registering them as stubs (rather than
-// leaving them out) keeps `help` honest instead of silently missing 8 of 13 real
+// leaving them out) keeps `help` honest instead of silently missing 8 of 14 real
 // commands. Revisit `status` if the Resources page's opt-in DockerResources:ProxyUrl
 // proxy ever grows an endpoint this could ride on.
 const HOST_ONLY_COMMANDS: TerminalCommand[] = [
@@ -31,15 +32,16 @@ const HOST_ONLY_COMMANDS: TerminalCommand[] = [
 	hostOnlyCommand('logs', 'Shows raw container stdout from the host.')
 ];
 
-// The remaining 5 of 13 - tail/traces/trace/metrics/metric - all reach Flare.Api over
-// HTTP/WebSocket the same way clicking around the dashboard already does, so (unlike the
-// stubs above) they run for real here.
+// The remaining 6 of 14 - tail/traces/trace/metrics/metric/ingestion - all reach
+// Flare.Api over HTTP/WebSocket the same way clicking around the dashboard already
+// does, so (unlike the stubs above) they run for real here.
 const COMMANDS: TerminalCommand[] = [
 	tailCommand,
 	tracesCommand,
 	traceCommand,
 	metricsCommand,
 	metricCommand,
+	ingestionCommand,
 	helpCommand(() => COMMANDS),
 	...HOST_ONLY_COMMANDS
 ];

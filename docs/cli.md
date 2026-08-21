@@ -46,6 +46,7 @@ tells you plainly if it isn't.
 | `flare start` | First run initializes `~/.flare/`; every run brings the stack up and waits for it to become healthy. |
 | `flare stop` | Stops containers, keeps data volumes - a pause, not a teardown. |
 | `flare status` | Table of each service's state/health/port. |
+| `flare ingestion [--since range]` | OTLP ingestion health via `Flare.Api`'s `GET /api/ingestion/stats` + `GET /api/ingestion/pipeline` - the CLI-native equivalent of the dashboard's Ingestion page. A colored Healthy/Degraded/Down verdict with reasons, ingress/event/data rates, a Receivers table (gRPC/HTTP, Healthy/Idle/Degraded/Down), and a per-signal Pipeline table (buffer %, pending, last flush, status, last error). Same thresholds as the dashboard's own verdict, so the two never disagree. `--since` defaults to `1h` (e.g. `15m`, `6h`, `24h`). |
 | `flare open` | Opens the dashboard in your default browser. |
 | `flare update [--tag TAG]` | Pulls the latest images for the currently pinned tag, recreates containers, prints a per-service digest diff. Never touches data. `--tag` rewrites `~/.flare/.env`'s `FLARE_IMAGE_TAG` to `TAG` first - the CLI-native way to move an existing install onto a newer pin instead of hand-editing `.env`. |
 | `flare logs [service] [-f]` | Shows or follows **container** logs (raw Docker stdout). Omit the service for all of them. |
