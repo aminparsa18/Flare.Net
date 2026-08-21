@@ -67,6 +67,8 @@ export interface LogEventDto {
 	eventName: string;
 	patternId: string;
 	patternTemplate: string;
+	/** Enclosing span's duration in nanoseconds. Only ever set when the request opted in via `includeSpanDuration` - see LogSearchRequest.includeSpanDuration. */
+	spanDurationNano?: number;
 }
 
 // ---- POST /api/logs/search (LogSearchRequest.cs / LogSearchResponse) ------
@@ -75,6 +77,8 @@ export interface LogSearchRequest {
 	filter?: LogFilter;
 	cursor?: string;
 	pageSize?: number;
+	/** Opt-in: populate each event's `spanDurationNano` via a follow-up query. See LogSearchRequest.cs's remarks. */
+	includeSpanDuration?: boolean;
 }
 
 export interface LogSearchResponse {

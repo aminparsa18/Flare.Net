@@ -550,18 +550,22 @@ actually worked out (see the three bullets below) — closing out the full origi
       scoped as saved-per-page filter state (Logs/Traces/Metrics), not a multi-panel
       dashboard builder, per this doc's own "dashboards-as-code, arbitrary user-built
       panels" non-goal.
-- [ ] **Logs: correlate a log event to its enclosing span's duration.** Discussed
-      2026-08-21, while scoping the Logs page's Value distribution chart (a per-event
-      scatter/density plot of any numeric `LogAttributes` key, shipped the same session -
-      not yet given its own version-section writeup below, a known doc gap same shape as
-      v14/v15's). Deliberately *not* done as part of that chart, for the same
-      reason v16's Patterns feature already scoped out logs↔spans duration (see that
-      item's "no duration/p95 in v1" note): `spans.DurationNano` is only known once a
-      span *ends*, and most log lines are flushed to ClickHouse *during* their enclosing
-      span, before that duration exists - so this isn't a "join vs. precompute, pick the
-      cheaper one" choice the way `PatternId`/`spans.DurationNano` themselves were (both
-      computable at their own natural write time, no missing dependency). Two real shapes
-      if this gets picked up, not a one-line addition:
+- [x] ~~**Logs: correlate a log event to its enclosing span's duration.**~~ **Shipped
+      2026-08-21 (see v19 below)** - discussed the same day, while scoping the Logs
+      page's Value distribution chart (a per-event scatter/density plot of any numeric
+      `LogAttributes` key, shipped the same session - not yet given its own
+      version-section writeup below, a known doc gap same shape as v14/v15's).
+      Deliberately *not* done as part of that chart, for the same reason v16's Patterns
+      feature already scoped out logs↔spans duration (see that item's "no duration/p95
+      in v1" note): `spans.DurationNano` is only known once a span *ends*, and most log
+      lines are flushed to ClickHouse *during* their enclosing span, before that
+      duration exists - so this isn't a "join vs. precompute, pick the cheaper one"
+      choice the way `PatternId`/`spans.DurationNano` themselves were (both computable
+      at their own natural write time, no missing dependency). Two heavier shapes were
+      scoped out at the time, kept here for the record since v19 below only covers a
+      narrower "one page at a time" version of this problem - either could still be
+      needed for a genuinely cross-query feature later (e.g. duration/p95 in Patterns,
+      or sorting/filtering Logs by duration):
       - **Query-time `logs ⋈ spans` join** on `(TraceId, SpanId)`. Real cost, not just
         theoretical: `spans` is ordered `(TraceId, StartTime, SpanId)` (leads with
         TraceId) but `logs` is ordered `(ServiceName, SeverityNumber, Timestamp, TraceId)`
@@ -575,13 +579,13 @@ actually worked out (see the three bullets below) — closing out the full origi
         ClickHouse mutation. Avoids the per-query join cost entirely, at the price of
         eventual consistency (a log's duration column is briefly absent right after
         ingest) and a new piece of pipeline machinery to track "which spans just closed."
-      No decision made on which shape (or whether to do this at all) - written down so the
-      trade-off doesn't have to be re-derived from scratch next time it comes up. The
-      pragmatic alternative already shipped and needs no schema change: an app that logs a
-      `duration_ms`-style attribute on its own completion log line is already chartable
-      today via the Value distribution chart, no join, no ordering gap - same reason
-      `spans.DurationNano` itself has no ordering gap (both are known at their producer's
-      own natural write time).
+      Neither shape was used - v19 found a third one, precedented elsewhere in this same
+      codebase, that a single log-event/single-page view doesn't need either cost for.
+      The pragmatic alternative already shipped and still needs no schema change: an app
+      that logs a `duration_ms`-style attribute on its own completion log line is already
+      chartable today via the Value distribution chart, no join, no ordering gap - same
+      reason `spans.DurationNano` itself has no ordering gap (both are known at their
+      producer's own natural write time).
 - [ ] Helm chart for Kubernetes
 - [x] ~~**Ingestion page: pipeline health.** Scoped out of v8's MVP on purpose -
       throughput/rejected-payload stats (v8) answer "is data arriving"; this answers "is
@@ -2256,6 +2260,88 @@ the container/host's own OS trust store... there's no in-app certificate-pinning
       two-tier private CA (self-signed-root-only was the only path v13's own LDAP
       verification exercised against a real directory) - same "left for whenever this
       gets exercised for real" gap v14/v15/v16/v17 each flagged for themselves.
+
+### v19 — Logs: correlate a log event to its enclosing span's duration (2026-08-21)
+
+Picked up the same day it was scoped out (see the "Later" bullet above for the original
+trade-off writeup and the two heavier shapes it considered). User explicitly rejected a
+lighter single-item-lookup scope in favor of "the right thing... even if it's a huge
+change" - staged across a design pass instead of shipped as a shortcut.
+
+Neither of the two shapes originally scoped (query-time `logs ⋈ spans` join across an
+arbitrary matched result set; async ClickHouse-mutation backfill once a span closes) got
+used. Research surfaced a third shape already precedented in this exact codebase:
+`SpanDto.SpanCount` (v17) solves a structurally identical problem - enrich a page of
+already-fetched rows with derived data from the other table - via a small, bounded
+follow-up query keyed on the *current page's own keys*, not a join over the whole
+matched result set. This item mirrors that pattern for "the enclosing span's duration,"
+matching exact `(TraceId, SpanId)` pairs instead of `SpanCount`'s single-column
+`GROUP BY TraceId`. No schema/migration change (`spans.DurationNano` already existed,
+stored since v4) and no mutation.
+
+- [x] **`SpanDurationQueryBuilder`** (`Flare.Api/Query/`) - pure, ClickHouse-free
+      `(TraceId, SpanId)` pairs → SQL, same style as `SpanCountQueryBuilder`: `SELECT
+      TraceId, SpanId, DurationNano FROM spans WHERE TraceId IN {traceIds:Array(String)}
+      AND SpanId IN {spanIds:Array(String)}`. Deliberately two flat `IN` arrays rather
+      than a single `Array(Tuple(String,String))` parameter - no existing usage anywhere
+      in this codebase confirms `ClickHouse.Driver` 1.3.0 actually supports binding a
+      tuple array, and this item didn't need to block on that uncertainty. The looser
+      filter can in principle cross-match a spurious pair (trace A's SpanId happening to
+      also appear under trace B - astronomically unlikely under OTel's 8-byte random
+      SpanId); harmless regardless, since the caller's merge step keys on the exact pair
+      and a spurious row is simply never looked up. `SpanDurationQueryBuilderTests`
+      (4 cases: SQL shape, separate-array parameter binding, pair dedup, independent
+      TraceId/SpanId dedup when values are shared across different pairs).
+- [x] **`LogQueryService.WithSpanDurationsAsync`** - opt-in follow-up (new
+      `LogSearchRequest.IncludeSpanDuration`, defaults `false`; lives on the request
+      alongside `Cursor`/`PageSize`, not on `LogFilter`, since it shapes the response
+      rather than which rows match) called from `SearchAsync` right before returning,
+      only when the flag is set and the page has ≥1 event with non-empty
+      `TraceId`/`SpanId`. Builds the page's distinct pairs, runs
+      `SpanDurationQueryBuilder`, merges `DurationNano` back via `e with {
+      SpanDurationNano = ... }` - a pair with no match (span not flushed yet, or no span
+      at all) stays `null`, not a sentinel. Opt-in specifically because `/api/logs/search`
+      is also called by Patterns' drill-down and CSV export, neither of which shows a
+      duration column and shouldn't pay for the extra query - same "only the mode that
+      needs it pays for the follow-up query" principle `SpanFilter.RootSpansOnly`
+      already established for `SpanCount`. `LogEventDto` gained a nullable
+      `SpanDurationNano ulong?` - the one deliberate exception to its "field-for-field
+      DDL mirror" convention, same shape as `SpanDto.SpanCount`'s own documented
+      exception. No `LogsJsonContext`/endpoint changes needed - both already cover these
+      record types wholesale. The merge logic itself isn't independently unit tested,
+      matching this codebase's existing convention: `SpanQueryService`'s equivalent
+      `WithSpanCountsAsync` has no unit test either (no fake `IClickHouseClient` exists
+      in `Flare.Api.Tests`) - relies on live e2e for that path, same as the precedent it
+      mirrors. `dotnet test Flare.Api.Tests` - 402/402 (up from 398).
+- [x] **Dashboard**: `LogsExplorerState`'s two search call sites (`runSearch`,
+      `loadMore`) set `includeSpanDuration: true`; `SpanDetailSheet.svelte`'s
+      linked-logs fetch and `logs/export.ts` left untouched (still default `false`). New
+      "Duration" column in `LogTable.svelte`/`LogRow.svelte` (between Service and
+      Message), and `EventDetailSheet.svelte`'s existing Trace ID/Span ID grid gained a
+      third "Span duration" cell (2-col grid → 3-col) - both via the existing
+      `formatDurationNano` house formatter (`$lib/traces/duration.ts`, already used by
+      `SpanDetailSheet`/`TraceWaterfall`), showing `—` when absent. No per-item async
+      fetch needed in `EventDetailSheet` - the duration arrives already populated on the
+      `LogEventDto` from the bulk follow-up. `npm run check` (0 errors, 0 warnings) and
+      `npm run build` (clean).
+- [x] **Deliberately deferred, not folded in here**:
+      - **Live-tail duration enrichment** - live-tail rows come straight off the Redis
+        Stream (`flare:logs`) before ever reaching ClickHouse, so a freshly-arrived
+        row's span usually hasn't flushed yet; live-tail rows simply show no duration,
+        same as today. Would need the "detect a span just closed" pipeline machinery
+        this item's original scoping note already flagged as a separate, real cost.
+      - **True cross-query aggregation** - p95 span duration in Patterns, or
+        sorting/filtering the Logs table by duration. Both operate over an *entire
+        matched range*, not one page, so they'd need one of the two heavier shapes kept
+        in the "Later" bullet above (the join or the mutation-backfill), not this
+        bounded-follow-up shape - stays a separate Later item.
+- [ ] **Not yet done**: no live end-to-end run against a real stack (start the stack,
+      use ExampleApp's existing correlated log+span generator - already wraps
+      `SampleLogEvents.EmitOne()` calls in spans per v17, no new fixture work needed -
+      confirm the Duration column and `EventDetailSheet`'s "Span duration" cell show
+      real formatted values, Patterns'/export's query cost is unaffected, and live-tail
+      rows still show no duration). Same "code+unit-verified, live e2e pending" gap
+      v14/v15/v16/v17/v18 each flagged for themselves.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

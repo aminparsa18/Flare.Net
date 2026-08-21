@@ -6,7 +6,9 @@ namespace Flare.Api.Model;
 /// the read side (this project) doesn't pull in the write side's OTLP/gRPC/Redis
 /// dependency graph just to borrow a model shape. Field-for-field mirror of the DDL
 /// (<c>db/clickhouse/0001_logs.sql</c> + <c>0002_logs_event_id.sql</c>) - keep the three
-/// in sync, same convention <c>LogEvent</c> itself already documents against the DDL.
+/// in sync, same convention <c>LogEvent</c> itself already documents against the DDL —
+/// with one deliberate exception: <see cref="SpanDurationNano"/>, a computed follow-up
+/// value rather than a stored column.
 /// </summary>
 /// <remarks>
 /// Every DDL column is non-<c>Nullable</c> (see that migration's "Empty string / NULL
@@ -56,4 +58,19 @@ public sealed record LogEventDto
 
     /// <summary>The (possibly wildcarded) template text <see cref="PatternId"/> was derived from.</summary>
     public required string PatternTemplate { get; init; }
+
+    /// <summary>
+    /// Duration (nanoseconds) of this event's enclosing span - i.e. <c>spans.DurationNano</c>
+    /// for the matching <c>(TraceId, SpanId)</c> row. Populated only when the request set
+    /// <see cref="LogSearchRequest.IncludeSpanDuration"/> (Flare's Logs Explorer, not
+    /// Patterns' drill-down or the CSV export path - see
+    /// <see cref="Query.LogQueryService.SearchAsync"/>'s follow-up query), and even then
+    /// only for rows whose <c>(TraceId, SpanId)</c> pair matches an already-flushed span -
+    /// most commonly <see langword="null"/> for a log line emitted mid-span, before that
+    /// span's own duration is known (see Planning.md's "Logs: correlate a log event to
+    /// its enclosing span's duration" entry). Same "computed, opt-in, sometimes-null
+    /// follow-up field" shape as <see cref="SpanDto.SpanCount"/> - see that field's
+    /// remarks for the general pattern this mirrors.
+    /// </summary>
+    public ulong? SpanDurationNano { get; init; }
 }
