@@ -197,7 +197,10 @@ export class LogsExplorerState {
 		this.loading = true;
 		this.error = null;
 		try {
-			const res = await searchLogs({ filter: this.buildFilter(this.#resolvedRange()), pageSize: PAGE_SIZE }, abort.signal);
+			const res = await searchLogs(
+				{ filter: this.buildFilter(this.#resolvedRange()), pageSize: PAGE_SIZE, includeSpanDuration: true },
+				abort.signal
+			);
 			if (abort.signal.aborted) return;
 			this.#seenIds = new Set();
 			this.events = this.#dedupeAgainstSeen(res.events);
@@ -217,7 +220,8 @@ export class LogsExplorerState {
 			const res = await searchLogs({
 				filter: this.buildFilter(this.#resolvedRange()),
 				cursor: this.nextCursor,
-				pageSize: PAGE_SIZE
+				pageSize: PAGE_SIZE,
+				includeSpanDuration: true
 			});
 			const fresh = this.#dedupeAgainstSeen(res.events);
 			const next = [...this.events, ...fresh];

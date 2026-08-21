@@ -12,7 +12,7 @@
 	// Shared between the header and every LogRow via CSS custom properties (set once
 	// here, per svelte-best-practices' style:--prop guidance) so the two can never drift
 	// out of alignment the way two hand-copied grid-template-columns strings could.
-	const COLUMNS = '170px 90px 160px 1fr'; // 170px fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width
+	const COLUMNS = '170px 90px 160px 90px 1fr'; // 170px fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width; 90px fits Duration's widest realistic value (e.g. "12.34s")
 </script>
 
 <div
@@ -31,6 +31,7 @@
 		<span>Time</span>
 		<span>Level</span>
 		<span>Service</span>
+		<span>Duration</span>
 		<span>Message</span>
 	</div>
 

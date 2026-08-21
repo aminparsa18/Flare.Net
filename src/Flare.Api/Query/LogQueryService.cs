@@ -77,7 +77,59 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
             ? new LogSearchCursor(events[^1].Timestamp, events[^1].EventId).Encode()
             : null;
 
+        if (request.IncludeSpanDuration && events.Count > 0)
+        {
+            events = await WithSpanDurationsAsync(events, cancellationToken);
+        }
+
         return new LogSearchResponse { Events = events, NextCursor = nextCursor };
+    }
+
+    /// <summary>
+    /// Follow-up query for <see cref="LogSearchRequest.IncludeSpanDuration"/> - same
+    /// "bounded query over just this page's keys, not a join over the whole matched
+    /// result set" shape as <see cref="SpanQueryService"/>'s own span-count follow-up,
+    /// but matching exact <c>(TraceId, SpanId)</c> *pairs* rather than a single TraceId
+    /// column - see <see cref="SpanDurationQueryBuilder"/>'s remarks for why the SQL
+    /// itself is looser (TraceId-IN/SpanId-IN, not a true pair-IN) and why that's still
+    /// correct here.
+    /// </summary>
+    private async Task<List<LogEventDto>> WithSpanDurationsAsync(List<LogEventDto> events, CancellationToken cancellationToken)
+    {
+        // Logs use the same empty-string-means-absent convention as every other
+        // nullable-ish string here (see this file's class remarks) - a log with no
+        // trace context can't correlate to any span, so it's excluded before the query
+        // is even built rather than sent as a pointless '' lookup.
+        var pairs = events
+            .Where(e => e.TraceId.Length > 0 && e.SpanId.Length > 0)
+            .Select(e => (e.TraceId, e.SpanId))
+            .Distinct()
+            .ToList();
+
+        if (pairs.Count == 0)
+        {
+            return events;
+        }
+
+        var built = SpanDurationQueryBuilder.Build(pairs);
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var durations = new Dictionary<(string TraceId, string SpanId), ulong>();
+        while (reader.Read())
+        {
+            durations[(reader.GetString(0), reader.GetString(1))] = reader.GetFieldValue<ulong>(2);
+        }
+
+        // A pair absent from `durations` means either the log has trace context but its
+        // enclosing span hasn't flushed to ClickHouse yet (the common case - see
+        // Planning.md's "Logs: correlate a log event to its enclosing span's duration"
+        // entry), or no such span was ever emitted - both cases fall back to null (no
+        // duration shown), not a sentinel value.
+        return events.ConvertAll(e =>
+            durations.TryGetValue((e.TraceId, e.SpanId), out var duration)
+                ? e with { SpanDurationNano = duration }
+                : e);
     }
 
     public async Task<LogAggregateResponse> AggregateAsync(LogAggregateRequest request, CancellationToken cancellationToken)

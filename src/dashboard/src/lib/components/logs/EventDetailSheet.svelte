@@ -9,6 +9,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { severityVariant } from '$lib/logs/severity';
 	import { logsExplorerContext } from '$lib/logs/context';
+	import { formatDurationNano } from '$lib/traces/duration';
 
 	const explorer = logsExplorerContext.get();
 
@@ -87,7 +88,7 @@
 
 					<Separator />
 
-					<div class="grid grid-cols-2 gap-2 text-xs">
+					<div class="grid grid-cols-3 gap-2 text-xs">
 						<div>
 							<span class="text-muted-foreground">Trace ID</span>
 							{#if event.traceId}
@@ -103,6 +104,12 @@
 						<div>
 							<span class="text-muted-foreground">Span ID</span>
 							<p class="truncate font-mono">{event.spanId || '—'}</p>
+						</div>
+						<div>
+							<span class="text-muted-foreground">Span duration</span>
+							<p class="truncate font-mono">
+								{event.spanDurationNano !== undefined ? formatDurationNano(event.spanDurationNano) : '—'}
+							</p>
 						</div>
 					</div>
 

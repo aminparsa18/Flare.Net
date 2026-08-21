@@ -2,6 +2,7 @@
 	import type { LogEventDto } from '$lib/api';
 	import { Badge } from '$lib/components/ui/badge';
 	import { severityVariant } from '$lib/logs/severity';
+	import { formatDurationNano } from '$lib/traces/duration';
 
 	let { event, onSelect }: { event: LogEventDto; onSelect: (event: LogEventDto) => void } = $props();
 
@@ -27,5 +28,8 @@
 	<span class="text-muted-foreground truncate font-mono text-xs">{formatTime(event.timestamp)}</span>
 	<span><Badge variant={severityVariant(event.severityNumber)}>{event.severityText || '—'}</Badge></span>
 	<span class="truncate">{event.serviceName || '—'}</span>
+	<span class="text-muted-foreground truncate font-mono text-xs">
+		{event.spanDurationNano !== undefined ? formatDurationNano(event.spanDurationNano) : '—'}
+	</span>
 	<span class="truncate">{event.body}</span>
 </button>
