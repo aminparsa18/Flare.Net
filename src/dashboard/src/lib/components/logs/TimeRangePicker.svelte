@@ -5,9 +5,24 @@
 	import { getLocalTimeZone, type DateValue } from '@internationalized/date';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { logsExplorerContext } from '$lib/logs/context';
-	import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
+	import {
+		TIME_RANGE_PRESETS,
+		LOG_ONLY_TIME_RANGE_PRESETS,
+		presetLabel,
+		type TimeRangePreset
+	} from '$lib/logs/time-range';
 
 	const explorer = logsExplorerContext.get();
+
+	// Display order: fixed-duration presets, then the calendar-relative ones, then custom
+	// last - same "Last N ... All time / Today / This week ... Custom" shape Seq uses.
+	// TIME_RANGE_PRESETS keeps 'custom' at its end for Metrics/Traces (which render it
+	// directly, minus 'custom'), so it's pulled out and re-appended here instead.
+	const presets: TimeRangePreset[] = [
+		...TIME_RANGE_PRESETS.filter((p) => p.value !== 'custom').map((p) => p.value),
+		...LOG_ONLY_TIME_RANGE_PRESETS.map((p) => p.value),
+		'custom'
+	];
 
 	let open = $state(false);
 	let showCustom = $state(false);
@@ -25,7 +40,7 @@
 	const activeLabel = $derived(
 		explorer.filter.timeRangePreset === 'custom'
 			? formatCustomLabel(explorer.filter.customRange)
-			: (TIME_RANGE_PRESETS.find((p) => p.value === explorer.filter.timeRangePreset)?.label ?? 'Time range')
+			: presetLabel(explorer.filter.timeRangePreset)
 	);
 
 	function selectPreset(preset: TimeRangePreset) {
@@ -66,9 +81,9 @@
 		<Popover.Content class="w-auto p-2" align="start">
 			{#if !showCustom}
 				<div class="flex flex-col gap-1">
-					{#each TIME_RANGE_PRESETS as preset (preset.value)}
-						<Button variant="ghost" size="sm" class="justify-start" onclick={() => selectPreset(preset.value)}>
-							{preset.label}
+					{#each presets as preset (preset)}
+						<Button variant="ghost" size="sm" class="justify-start" onclick={() => selectPreset(preset)}>
+							{presetLabel(preset)}
 						</Button>
 					{/each}
 				</div>

@@ -67,7 +67,8 @@
 		}
 		const range = resolveTimeRange(explorer.filter.timeRangePreset, explorer.filter.customRange ?? undefined);
 		if (range) return range;
-		// Only reachable if 'custom' is selected but no range has been picked yet.
+		// Only reachable if 'custom' is selected but no range has been picked yet
+		// (resolveTimeRange only returns null for that case - see its own remarks).
 		const to = new Date();
 		return { from: new Date(to.getTime() - LIVE_TRAILING_WINDOW_MS).toISOString(), to: to.toISOString() };
 	}

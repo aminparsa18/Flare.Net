@@ -20,7 +20,7 @@
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { createSavedView } from '$lib/saved-views-api';
 	import { savedViewPath } from '$lib/saved-views/page-paths';
-	import { TIME_RANGE_PRESETS } from '$lib/logs/time-range';
+	import { presetLabel } from '$lib/logs/time-range';
 
 	const explorer = logsExplorerContext.get();
 
@@ -31,7 +31,7 @@
 	function rangeLabel(): string {
 		const { timeRangePreset, customRange } = explorer.filter;
 		if (timeRangePreset !== 'custom') {
-			return TIME_RANGE_PRESETS.find((p) => p.value === timeRangePreset)?.label ?? timeRangePreset;
+			return presetLabel(timeRangePreset);
 		}
 		if (!customRange) return 'a custom range';
 		const fmt = (d: Date) => d.toLocaleString(undefined, { hour12: false });

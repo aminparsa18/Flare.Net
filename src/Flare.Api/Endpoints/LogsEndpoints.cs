@@ -20,6 +20,8 @@ public static class LogsEndpoints
         endpoints.MapPost("/api/logs/search", HandleSearchAsync);
         endpoints.MapPost("/api/logs/aggregate", HandleAggregateAsync);
         endpoints.MapPost("/api/logs/patterns", HandlePatternsAsync);
+        endpoints.MapPost("/api/logs/numeric-attribute-keys", HandleNumericAttributeKeysAsync);
+        endpoints.MapPost("/api/logs/value-distribution", HandleValueDistributionAsync);
         return endpoints;
     }
 
@@ -94,5 +96,57 @@ public static class LogsEndpoints
 
         var response = await queryService.GetPatternsAsync(request, cancellationToken);
         return Results.Json(response, LogsJsonContext.Default.LogPatternResponse);
+    }
+
+    private static async Task<IResult> HandleNumericAttributeKeysAsync(
+        HttpContext http,
+        ILogQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        LogAttributeKeysRequest? request;
+        try
+        {
+            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogAttributeKeysRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        request ??= new LogAttributeKeysRequest();
+
+        var response = await queryService.GetNumericAttributeKeysAsync(request, cancellationToken);
+        return Results.Json(response, LogsJsonContext.Default.LogAttributeKeysResponse);
+    }
+
+    private static async Task<IResult> HandleValueDistributionAsync(
+        HttpContext http,
+        ILogQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        LogValueDistributionRequest? request;
+        try
+        {
+            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogValueDistributionRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        try
+        {
+            var response = await queryService.GetValueDistributionAsync(request, cancellationToken);
+            return Results.Json(response, LogsJsonContext.Default.LogValueDistributionResponse);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
     }
 }

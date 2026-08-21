@@ -128,6 +128,73 @@ export async function aggregateLogs(request: LogAggregateRequest, signal?: Abort
 	return res.json();
 }
 
+// ---- POST /api/logs/numeric-attribute-keys, POST /api/logs/value-distribution ---------
+// (LogValueDistributionRequest.cs) - the Logs page's "Value distribution" chart: pick any
+// numeric LogAttributes key (there's no first-class duration field - see Planning.md's
+// "no duration/p95 in v1" rationale on the Patterns feature for why that's deliberate) and
+// see its values scatter-plotted over time. The key list and the sampled points are two
+// separate calls so switching the picker doesn't re-run attribute discovery.
+
+export interface LogAttributeKeysRequest {
+	filter?: LogFilter;
+}
+
+export interface LogAttributeKeyInfo {
+	key: string;
+	numericCount: number;
+}
+
+export interface LogAttributeKeysResponse {
+	keys: LogAttributeKeyInfo[];
+}
+
+export async function getLogAttributeKeys(
+	request: LogAttributeKeysRequest = {},
+	signal?: AbortSignal
+): Promise<LogAttributeKeysResponse> {
+	const res = await apiFetch(`${API_BASE_URL}/api/logs/numeric-attribute-keys`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/logs/numeric-attribute-keys failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
+}
+
+export interface LogValueDistributionRequest {
+	filter?: LogFilter;
+	attributeKey: string;
+	sampleSize?: number;
+}
+
+export interface LogValueDistributionPoint {
+	timestamp: string;
+	value: number;
+}
+
+export interface LogValueDistributionResponse {
+	points: LogValueDistributionPoint[];
+}
+
+export async function getLogValueDistribution(
+	request: LogValueDistributionRequest,
+	signal?: AbortSignal
+): Promise<LogValueDistributionResponse> {
+	const res = await apiFetch(`${API_BASE_URL}/api/logs/value-distribution`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/logs/value-distribution failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
+}
+
 // ---- POST /api/logs/patterns (LogPatternModels.cs) -------------------------
 //
 // Ranked Drain-cluster ("log pattern detection") view - "GET /api/orders/123" and

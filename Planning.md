@@ -550,6 +550,38 @@ actually worked out (see the three bullets below) — closing out the full origi
       scoped as saved-per-page filter state (Logs/Traces/Metrics), not a multi-panel
       dashboard builder, per this doc's own "dashboards-as-code, arbitrary user-built
       panels" non-goal.
+- [ ] **Logs: correlate a log event to its enclosing span's duration.** Discussed
+      2026-08-21, while scoping the Logs page's Value distribution chart (a per-event
+      scatter/density plot of any numeric `LogAttributes` key, shipped the same session -
+      not yet given its own version-section writeup below, a known doc gap same shape as
+      v14/v15's). Deliberately *not* done as part of that chart, for the same
+      reason v16's Patterns feature already scoped out logs↔spans duration (see that
+      item's "no duration/p95 in v1" note): `spans.DurationNano` is only known once a
+      span *ends*, and most log lines are flushed to ClickHouse *during* their enclosing
+      span, before that duration exists - so this isn't a "join vs. precompute, pick the
+      cheaper one" choice the way `PatternId`/`spans.DurationNano` themselves were (both
+      computable at their own natural write time, no missing dependency). Two real shapes
+      if this gets picked up, not a one-line addition:
+      - **Query-time `logs ⋈ spans` join** on `(TraceId, SpanId)`. Real cost, not just
+        theoretical: `spans` is ordered `(TraceId, StartTime, SpanId)` (leads with
+        TraceId) but `logs` is ordered `(ServiceName, SeverityNumber, Timestamp, TraceId)`
+        (TraceId is 4th) - the mismatch means no cheap sorted-merge, ClickHouse falls back
+        to a hash join materializing the filtered `spans` side into memory, paid on every
+        query. Only ever covers logs that carry a non-empty `TraceId`/`SpanId` to begin
+        with. Would need a narrow time-window cap to stay safe.
+      - **Async backfill/enrichment**, mirroring `spans.DurationNano`'s own "stored
+        explicitly, not computed at query time" precedent but applied after the fact: once
+        a span closes, patch its already-written log rows with the span's duration via a
+        ClickHouse mutation. Avoids the per-query join cost entirely, at the price of
+        eventual consistency (a log's duration column is briefly absent right after
+        ingest) and a new piece of pipeline machinery to track "which spans just closed."
+      No decision made on which shape (or whether to do this at all) - written down so the
+      trade-off doesn't have to be re-derived from scratch next time it comes up. The
+      pragmatic alternative already shipped and needs no schema change: an app that logs a
+      `duration_ms`-style attribute on its own completion log line is already chartable
+      today via the Value distribution chart, no join, no ordering gap - same reason
+      `spans.DurationNano` itself has no ordering gap (both are known at their producer's
+      own natural write time).
 - [ ] Helm chart for Kubernetes
 - [x] ~~**Ingestion page: pipeline health.** Scoped out of v8's MVP on purpose -
       throughput/rejected-payload stats (v8) answer "is data arriving"; this answers "is
