@@ -37,7 +37,7 @@
 	let maximized = $state(false);
 	const contentClass = $derived(
 		maximized
-			? 'flex h-[85vh] w-[95vw] max-w-[80rem] flex-col gap-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950 p-0 text-neutral-200 ring-0'
+			? 'flex h-[85vh] w-[95vw] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950 p-0 text-neutral-200 ring-0 sm:max-w-[80rem]'
 			: 'flex h-[28rem] w-full flex-col gap-0 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950 p-0 text-neutral-200 ring-0 sm:max-w-2xl'
 	);
 
