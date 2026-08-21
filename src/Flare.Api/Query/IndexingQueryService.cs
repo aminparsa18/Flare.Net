@@ -54,13 +54,37 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
         ORDER BY day, table
         """;
 
+    // Largest disk wins when more than one is mounted - see DiskUsageInfo's doc comment.
+    private const string DiskUsageSql = """
+        SELECT total_space, free_space
+        FROM system.disks
+        ORDER BY total_space DESC
+        LIMIT 1
+        """;
+
+    private const int QueryPerformanceWindowMinutes = 60;
+
+    // `NOT has(databases, 'system')` excludes this very service's own three introspection
+    // queries (and any other system-table tooling) - what's left is queries real dashboard
+    // usage generated (log search, trace lookups, the Query API generally).
+    private const string QueryPerformanceSql = """
+        SELECT quantile(0.95)(query_duration_ms) AS p95, count() AS samples
+        FROM system.query_log
+        WHERE type = 'QueryFinish'
+          AND event_time >= now() - INTERVAL 60 MINUTE
+          AND has(databases, currentDatabase())
+          AND NOT has(databases, 'system')
+        """;
+
     public async Task<IndexingStatsResponse> GetStatsAsync(CancellationToken cancellationToken)
     {
         var tablesTask = ReadTablesAsync(cancellationToken);
         var skipIndexesTask = ReadSkipIndexesAsync(cancellationToken);
         var growthTask = ReadGrowthAsync(cancellationToken);
+        var diskUsageTask = ReadDiskUsageAsync(cancellationToken);
+        var queryPerformanceTask = ReadQueryPerformanceAsync(cancellationToken);
 
-        await Task.WhenAll(tablesTask, skipIndexesTask, growthTask);
+        await Task.WhenAll(tablesTask, skipIndexesTask, growthTask, diskUsageTask, queryPerformanceTask);
 
         var growth = await growthTask;
         return new IndexingStatsResponse(
@@ -68,7 +92,9 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
             await tablesTask,
             await skipIndexesTask,
             growth.Points,
-            growth.Available);
+            growth.Available,
+            await diskUsageTask,
+            await queryPerformanceTask);
     }
 
     private async Task<IReadOnlyList<TableStorageInfo>> ReadTablesAsync(CancellationToken cancellationToken)
@@ -135,6 +161,54 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
         {
             logger.LogWarning(ex, "Indexing page's growth trend unavailable - system.part_log isn't queryable on this ClickHouse deployment");
             return ([], false);
+        }
+    }
+
+    /// <summary>See <see cref="DiskUsageInfo"/> for why this degrades rather than fails the response.</summary>
+    private async Task<DiskUsageInfo> ReadDiskUsageAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var reader = await client.ExecuteReaderAsync(DiskUsageSql, null, SafetyOptions(), cancellationToken);
+            if (!reader.Read())
+            {
+                return new DiskUsageInfo(Available: false, TotalBytes: 0, FreeBytes: 0);
+            }
+
+            return new DiskUsageInfo(
+                Available: true,
+                TotalBytes: (long)reader.GetFieldValue<ulong>(0),
+                FreeBytes: (long)reader.GetFieldValue<ulong>(1));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Indexing page's disk usage unavailable - system.disks isn't queryable on this ClickHouse deployment");
+            return new DiskUsageInfo(Available: false, TotalBytes: 0, FreeBytes: 0);
+        }
+    }
+
+    /// <summary>
+    /// <c>system.query_log</c> is config-gated in ClickHouse just like <c>system.part_log</c>
+    /// (see <see cref="ReadGrowthAsync"/>) - degrades the same way on failure.
+    /// </summary>
+    private async Task<QueryPerformanceInfo> ReadQueryPerformanceAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var reader = await client.ExecuteReaderAsync(QueryPerformanceSql, null, SafetyOptions(), cancellationToken);
+            if (!reader.Read())
+            {
+                return new QueryPerformanceInfo(Available: true, P95Ms: null, SampleCount: 0, QueryPerformanceWindowMinutes);
+            }
+
+            var sampleCount = (long)reader.GetFieldValue<ulong>(1);
+            var p95Ms = sampleCount > 0 && !reader.IsDBNull(0) ? reader.GetDouble(0) : (double?)null;
+            return new QueryPerformanceInfo(Available: true, p95Ms, sampleCount, QueryPerformanceWindowMinutes);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Indexing page's query performance unavailable - system.query_log isn't queryable on this ClickHouse deployment");
+            return new QueryPerformanceInfo(Available: false, P95Ms: null, SampleCount: 0, QueryPerformanceWindowMinutes);
         }
     }
 

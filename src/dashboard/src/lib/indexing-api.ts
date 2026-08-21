@@ -31,12 +31,27 @@ export interface StorageGrowthPoint {
 	rows: number;
 }
 
+export interface DiskUsageInfo {
+	available: boolean;
+	totalBytes: number;
+	freeBytes: number;
+}
+
+export interface QueryPerformanceInfo {
+	available: boolean;
+	p95Ms: number | null;
+	sampleCount: number;
+	windowMinutes: number;
+}
+
 export interface IndexingStatsResponse {
 	generatedAt: string;
 	tables: TableStorageInfo[];
 	skipIndexes: SkipIndexInfo[];
 	growth: StorageGrowthPoint[];
 	growthAvailable: boolean;
+	diskUsage: DiskUsageInfo;
+	queryPerformance: QueryPerformanceInfo;
 }
 
 export async function getIndexingStats(signal?: AbortSignal): Promise<IndexingStatsResponse> {

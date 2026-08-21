@@ -38,6 +38,33 @@ public sealed record SkipIndexInfo(
 public sealed record StorageGrowthPoint(DateTimeOffset Day, string TableName, long Bytes, long Rows);
 
 /// <summary>
+/// Disk backing ClickHouse's data, from <c>system.disks</c>. Self-hosted deployments have
+/// no notion of a "configured storage limit" for us to compare against, so this stands in
+/// for one - real headroom instead of a made-up quota. Picks the largest disk when more
+/// than one is configured (default single-disk setups have exactly one row).
+/// <see cref="Available"/> false means <c>system.disks</c> itself wasn't queryable (should
+/// be rare - unlike part_log/query_log this table isn't config-gated - but still handled
+/// defensively rather than failing the whole response over it).
+/// </summary>
+public sealed record DiskUsageInfo(bool Available, long TotalBytes, long FreeBytes);
+
+/// <summary>
+/// p95 duration of queries Flare.Api itself ran against <c>currentDatabase()</c> in the
+/// trailing <see cref="WindowMinutes"/>, from <c>system.query_log</c> - "is the thing users
+/// actually feel (searching logs, opening traces) fast" rather than an index/storage count
+/// nobody can act on. Excludes queries that also touch <c>system</c> tables so this page's
+/// own three introspection queries don't pollute the number.
+/// </summary>
+/// <remarks>
+/// Config-gated like <see cref="StorageGrowthPoint"/>'s <c>system.part_log</c> -
+/// <see cref="Available"/> is false when <c>system.query_log</c> isn't queryable on this
+/// deployment. When it is, <see cref="P95Ms"/> is still null if <see cref="SampleCount"/>
+/// is zero (queryable, just no query traffic in the window) - the dashboard tells those two
+/// "nothing to show" cases apart rather than collapsing both into one em dash.
+/// </remarks>
+public sealed record QueryPerformanceInfo(bool Available, double? P95Ms, long SampleCount, int WindowMinutes);
+
+/// <summary>
 /// <c>GET /api/indexing/stats</c> response. <see cref="GrowthAvailable"/> is false when
 /// <c>system.part_log</c> doesn't exist or isn't queryable (it's config-gated, not
 /// guaranteed on every ClickHouse deployment) - the dashboard shows a plain note instead
@@ -48,4 +75,6 @@ public sealed record IndexingStatsResponse(
     IReadOnlyList<TableStorageInfo> Tables,
     IReadOnlyList<SkipIndexInfo> SkipIndexes,
     IReadOnlyList<StorageGrowthPoint> Growth,
-    bool GrowthAvailable);
+    bool GrowthAvailable,
+    DiskUsageInfo DiskUsage,
+    QueryPerformanceInfo QueryPerformance);
