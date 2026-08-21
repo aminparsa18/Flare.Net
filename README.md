@@ -11,6 +11,8 @@
 
 A self-hosted, OpenTelemetry-native log dashboard for .NET developers: search/filter/live-tail logs, browse traces and metrics, and set threshold/query-based alert rules that notify webhook/Slack, Telegram, or email on breach.
 
+**Think Seq or Datadog Logs — but fully open source (MIT), self-hosted, and OTLP straight in with no agent daemon to install.**
+
 ![Logs Explorer](docs/screenshots/logs.png)
 
 ## Getting started
