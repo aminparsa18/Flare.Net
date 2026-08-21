@@ -3,6 +3,7 @@ using Flare.Api.Alerting;
 using Flare.Api.Auth;
 using Flare.Api.DockerResources;
 using Flare.Api.Endpoints;
+using Flare.Api.HostStats;
 using Flare.Api.LiveTail;
 using Flare.Api.Pipeline;
 using Flare.Api.Query;
@@ -144,6 +145,15 @@ builder.Services.AddHttpClient<DockerEngineClient>((sp, client) =>
 builder.Services.AddSingleton<DockerContainerPoller>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DockerContainerPoller>());
 
+// Resources page's Host overview panel - always-on (no ProxyUrl-shaped opt-in like
+// DockerResources above, since this reads Linux /proc directly, nothing external to point
+// at). HostStatsPoller itself degrades to an explicit "unavailable" snapshot on non-Linux
+// platforms (e.g. Flare.Api running bare on a Mac Aspire dev loop) - see its remarks.
+builder.Services.Configure<HostStatsOptions>(builder.Configuration.GetSection(HostStatsOptions.SectionName));
+builder.Services.AddSingleton<HostDiskReader>();
+builder.Services.AddSingleton<HostStatsPoller>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<HostStatsPoller>());
+
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 // Named/typed HttpClients so the webhook/Slack and Telegram senders inherit
@@ -231,6 +241,7 @@ authenticatedRoutes.MapIngestionEndpoints();
 authenticatedRoutes.MapPipelineEndpoints();
 authenticatedRoutes.MapIndexingEndpoints();
 authenticatedRoutes.MapResourceGraphEndpoints();
+authenticatedRoutes.MapHostStatsEndpoints();
 
 // Alert rule CRUD/test-fire is mutating and can page people - Member/Admin only, unlike
 // every other (read-only) endpoint group above which just needs any authenticated user.

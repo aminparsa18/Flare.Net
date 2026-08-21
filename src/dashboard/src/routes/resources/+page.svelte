@@ -1,24 +1,30 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { ResourcesState } from '$lib/resources/state.svelte';
+	import { HostStatsState } from '$lib/resources/host-stats.svelte';
 	import { resourcesContext } from '$lib/resources/context';
 	import ResourceGraph from '$lib/resources/ResourceGraph.svelte';
+	import HostOverview from '$lib/resources/HostOverview.svelte';
 	import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '$lib/components/ui/empty';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Switch } from '$lib/components/ui/switch';
 	import NetworkIcon from '@lucide/svelte/icons/network';
 
 	const resources = resourcesContext.set(new ResourcesState());
+	/** Independent stream from `resources` above - see HostOverview.svelte's own remark on why it isn't gated by the Docker graph's enablement. */
+	const hostStats = new HostStatsState();
 
 	/** Shown by default - see ResourceGraph.svelte's identical remark on its own prop of the same name. */
 	let showResourceNodes = $state(true);
 
 	onMount(() => {
 		void resources.connect();
+		void hostStats.connect();
 	});
 
 	onDestroy(() => {
 		resources.dispose();
+		hostStats.dispose();
 	});
 
 	const statusVariant = $derived(
@@ -42,6 +48,7 @@
 			<Switch id="show-flare-resources" bind:checked={showResourceNodes} />
 		</label>
 	</div>
+	<HostOverview snapshot={hostStats.snapshot} />
 	<div class="min-h-0 flex-1">
 		{#if resources.snapshot?.available}
 			<ResourceGraph snapshot={resources.snapshot} {showResourceNodes} />
