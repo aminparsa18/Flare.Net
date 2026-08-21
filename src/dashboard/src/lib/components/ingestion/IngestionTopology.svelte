@@ -185,20 +185,20 @@
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
-	<Dialog.Content class="sm:max-w-3xl">
-		<Dialog.Header>
+	<Dialog.Content class="flex h-[80vh] w-[80vw] max-w-[80vw] flex-col sm:max-w-[80vw]">
+		<Dialog.Header class="shrink-0">
 			<Dialog.Title>Ingestion topology</Dialog.Title>
 			<Dialog.Description>Where telemetry is flowing right now, and where it's getting stuck.</Dialog.Description>
 		</Dialog.Header>
 		{#if !ingestion.stats || !ingestion.pipeline}
-			<div class="flex h-[320px] items-center justify-center">
+			<div class="flex flex-1 items-center justify-center">
 				<Spinner />
 			</div>
 		{:else}
 			<!-- colorMode="dark" - see ResourceGraph.svelte's own remarks; this dashboard is
 			     dark-only and SvelteFlow's default light-mode CSS renders Controls/edge labels
 			     as broken white-on-white boxes without it. -->
-			<div class="h-[420px] w-full overflow-hidden rounded-md border">
+			<div class="min-h-0 w-full flex-1 overflow-hidden rounded-md border">
 				<SvelteFlow bind:nodes bind:edges {nodeTypes} colorMode="dark" fitView minZoom={0.4} nodesDraggable={false}>
 					<Background />
 					<Controls />
