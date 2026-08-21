@@ -11,11 +11,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import { indexingContext } from '$lib/indexing/context';
 	import { formatBytes, formatCount } from '$lib/indexing/format';
+	import { matchesBreakdown, type GrowthBreakdown } from '$lib/indexing/growth';
 
 	const indexing = indexingContext.get();
 
 	type Metric = 'storage' | 'rows' | 'ingestion';
-	type Breakdown = 'total' | 'logs' | 'traces' | 'metrics';
+	type Breakdown = GrowthBreakdown;
 
 	const METRIC_OPTIONS: { value: Metric; label: string }[] = [
 		{ value: 'storage', label: 'Storage' },
@@ -34,22 +35,6 @@
 		{ value: 'traces', label: 'Traces' },
 		{ value: 'metrics', label: 'Metrics' }
 	];
-
-	// spans is the traces table's physical name (see db/clickhouse/*.sql) - "metrics_" is a
-	// prefix match rather than three hardcoded names so a future metrics_* table folds in
-	// automatically instead of silently falling out of the "Metrics" breakdown.
-	function matchesBreakdown(tableName: string, breakdown: Breakdown): boolean {
-		switch (breakdown) {
-			case 'total':
-				return true;
-			case 'logs':
-				return tableName === 'logs';
-			case 'traces':
-				return tableName === 'spans';
-			case 'metrics':
-				return tableName.startsWith('metrics_');
-		}
-	}
 
 	let metric = $state<Metric>('storage');
 	let breakdown = $state<Breakdown>('total');

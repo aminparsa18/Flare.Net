@@ -13,6 +13,7 @@
 	import { indexingContext } from '$lib/indexing/context';
 	import { formatBytes, formatCount, formatMs, formatPercent } from '$lib/indexing/format';
 	import { latencyClass } from '$lib/indexing/health';
+	import { averageDailyGrowth } from '$lib/indexing/growth';
 
 	const indexing = indexingContext.get();
 
@@ -40,17 +41,13 @@
 
 	// "Ingestion growth" averages new-part bytes/day over the trailing week of the same
 	// 30-day series the growth chart plots, rather than just yesterday's total - one quiet
-	// or one unusually heavy day alone would be a noisy headline number.
-	const GROWTH_WINDOW_DAYS = 7;
+	// or one unusually heavy day alone would be a noisy headline number. Shared with the
+	// growth chart's own aggregation and Storage health's cross-signal check - see
+	// $lib/indexing/growth.ts.
 	const growthPerDay = $derived.by(() => {
 		const stats = indexing.stats;
 		if (!stats?.growthAvailable || stats.growth.length === 0) return null;
-		const days = [...new Set(stats.growth.map((p) => p.day))].sort();
-		const window = days.slice(-GROWTH_WINDOW_DAYS);
-		if (window.length === 0) return null;
-		const windowSet = new Set(window);
-		const totalBytes = stats.growth.filter((p) => windowSet.has(p.day)).reduce((sum, p) => sum + p.bytes, 0);
-		return { bytesPerDay: totalBytes / window.length, windowDays: window.length };
+		return averageDailyGrowth(stats.growth);
 	});
 
 	const queryPerformance = $derived(indexing.stats?.queryPerformance);
