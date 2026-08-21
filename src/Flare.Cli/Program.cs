@@ -20,6 +20,8 @@ app.Configure(config =>
         .WithDescription("Stop the stack without removing data volumes - a pause, not a teardown.");
     config.AddCommand<StatusCommand>("status")
         .WithDescription("Show the stack's current health/state.");
+    config.AddCommand<IngestionCommand>("ingestion")
+        .WithDescription("Show OTLP ingestion health: verdict, rates, receivers, pipeline buffers/flush workers.");
     config.AddCommand<OpenCommand>("open")
         .WithDescription("Open the dashboard in your default browser.");
     config.AddCommand<TailCommand>("tail")
