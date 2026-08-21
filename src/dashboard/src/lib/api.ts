@@ -433,3 +433,68 @@ export function connectResourcesWatch(handlers: ResourcesWatchHandlers): Resourc
 		}
 	};
 }
+
+// ---- Resources page: Host overview panel (HostStatsSnapshot.cs) ----------
+
+/** Mirrors `Model/HostStatsSnapshot.cs` - see that file's own remarks for each field. */
+export interface HostStatsSnapshot {
+	available: boolean;
+	unavailableReason: string | null;
+	cpuUsagePercent: number;
+	cpuCoreCount: number;
+	loadAverage1m: number;
+	memoryTotalBytes: number;
+	memoryUsedBytes: number;
+	diskTotalBytes: number;
+	diskUsedBytes: number;
+	uptimeSeconds: number;
+	updatedAt: string | null;
+}
+
+export async function fetchHostStatsSnapshot(signal?: AbortSignal): Promise<HostStatsSnapshot> {
+	const res = await apiFetch(`${API_BASE_URL}/api/resources/host/snapshot`, { signal });
+	if (!res.ok) {
+		throw new Error(`GET /api/resources/host/snapshot failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
+}
+
+export type HostStatsWatchStatus = ResourcesWatchStatus;
+
+export interface HostStatsWatchHandlers {
+	onStatusChange?: (status: HostStatsWatchStatus) => void;
+	onSnapshot?: (snapshot: HostStatsSnapshot) => void;
+}
+
+/** Handle returned by {@link connectHostStatsWatch}. Same push-only shape as {@link ResourcesWatchConnection}. */
+export interface HostStatsWatchConnection {
+	close(): void;
+}
+
+/**
+ * Opens the host-stats-watch WebSocket - every message received is a complete, fresh
+ * {@link HostStatsSnapshot} pushed once per `HostStatsPoller` tick on the server plus
+ * immediately on connect. Same shape as {@link connectResourcesWatch}, kept as its own
+ * function/connection since it's an independent stream (no shared subscribe/pause
+ * protocol, no shared enablement with the Docker resource graph).
+ */
+export function connectHostStatsWatch(handlers: HostStatsWatchHandlers): HostStatsWatchConnection {
+	const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/api/resources/host/watch`;
+	const socket = new WebSocket(wsUrl);
+
+	handlers.onStatusChange?.('connecting');
+
+	socket.addEventListener('open', () => handlers.onStatusChange?.('open'));
+	socket.addEventListener('message', (ev) => {
+		const snapshot: HostStatsSnapshot = JSON.parse(ev.data);
+		handlers.onSnapshot?.(snapshot);
+	});
+	socket.addEventListener('close', () => handlers.onStatusChange?.('closed'));
+	socket.addEventListener('error', () => handlers.onStatusChange?.('error'));
+
+	return {
+		close() {
+			socket.close();
+		}
+	};
+}
