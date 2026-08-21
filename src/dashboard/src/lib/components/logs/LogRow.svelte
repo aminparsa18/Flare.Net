@@ -4,7 +4,11 @@
 	import { severityVariant } from '$lib/logs/severity';
 	import { formatDurationNano } from '$lib/traces/duration';
 
-	let { event, onSelect }: { event: LogEventDto; onSelect: (event: LogEventDto) => void } = $props();
+	let {
+		event,
+		live,
+		onSelect
+	}: { event: LogEventDto; live: boolean; onSelect: (event: LogEventDto) => void } = $props();
 
 	// Hand-formatted rather than toLocaleString/toLocaleDateString - this is a monospace
 	// technical column (font-mono below), and locale date formats vary in width (e.g. "Aug 9"
@@ -28,8 +32,13 @@
 	<span class="text-muted-foreground truncate font-mono text-xs">{formatTime(event.timestamp)}</span>
 	<span><Badge variant={severityVariant(event.severityNumber)}>{event.severityText || '—'}</Badge></span>
 	<span class="truncate">{event.serviceName || '—'}</span>
-	<span class="text-muted-foreground truncate font-mono text-xs">
-		{event.spanDurationNano !== undefined ? formatDurationNano(event.spanDurationNano) : '—'}
-	</span>
+	{#if !live}
+		<!-- != null (not !== undefined) - System.Text.Json serializes the unset LogEventDto.SpanDurationNano
+		     as JSON null, not an omitted key, so a stricter undefined-only check let a null
+		     duration slip through to formatDurationNano(null) and print "0" instead of "—". -->
+		<span class="text-muted-foreground truncate font-mono text-xs">
+			{event.spanDurationNano != null ? formatDurationNano(event.spanDurationNano) : '—'}
+		</span>
+	{/if}
 	<span class="truncate">{event.body}</span>
 </button>

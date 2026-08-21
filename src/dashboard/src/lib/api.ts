@@ -67,8 +67,16 @@ export interface LogEventDto {
 	eventName: string;
 	patternId: string;
 	patternTemplate: string;
-	/** Enclosing span's duration in nanoseconds. Only ever set when the request opted in via `includeSpanDuration` - see LogSearchRequest.includeSpanDuration. */
-	spanDurationNano?: number;
+	/**
+	 * Enclosing span's duration in nanoseconds. `System.Text.Json` has no
+	 * `DefaultIgnoreCondition` configured for this context, so an unset `ulong?` on the
+	 * backend serializes as an explicit JSON `null`, not an omitted key - `null`, not
+	 * just `undefined`, so callers must check `!= null`, never `!== undefined` alone.
+	 * Also `null` for every live-tailed event regardless of `includeSpanDuration`
+	 * (live-tail rows never go through the backend's follow-up query - see
+	 * LogQueryService.SearchAsync's remarks).
+	 */
+	spanDurationNano?: number | null;
 }
 
 // ---- POST /api/logs/search (LogSearchRequest.cs / LogSearchResponse) ------

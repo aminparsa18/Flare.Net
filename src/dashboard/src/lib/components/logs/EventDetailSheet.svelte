@@ -108,7 +108,7 @@
 						<div>
 							<span class="text-muted-foreground">Span duration</span>
 							<p class="truncate font-mono">
-								{event.spanDurationNano !== undefined ? formatDurationNano(event.spanDurationNano) : '—'}
+								{event.spanDurationNano != null ? formatDurationNano(event.spanDurationNano) : '—'}
 							</p>
 						</div>
 					</div>

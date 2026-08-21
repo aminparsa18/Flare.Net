@@ -12,7 +12,16 @@
 	// Shared between the header and every LogRow via CSS custom properties (set once
 	// here, per svelte-best-practices' style:--prop guidance) so the two can never drift
 	// out of alignment the way two hand-copied grid-template-columns strings could.
-	const COLUMNS = '170px 90px 160px 90px 1fr'; // 170px fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width; 90px fits Duration's widest realistic value (e.g. "12.34s")
+	// Duration column drops out entirely while live: live-tailed rows come straight off
+	// the Redis Stream, before ever reaching ClickHouse (see EventDetailSheet's/
+	// LogRow's own remarks), so their spanDurationNano is always absent - a column of
+	// nothing but "—" for every visible row is worse than no column at all. $derived
+	// (not const) so toggling live re-flows both the header and every row together.
+	let COLUMNS = $derived(
+		explorer.live
+			? '170px 90px 160px 1fr' // 170px fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width
+			: '170px 90px 160px 90px 1fr' // 90px fits Duration's widest realistic value (e.g. "12.34s")
+	);
 </script>
 
 <div
@@ -31,7 +40,9 @@
 		<span>Time</span>
 		<span>Level</span>
 		<span>Service</span>
-		<span>Duration</span>
+		{#if !explorer.live}
+			<span>Duration</span>
+		{/if}
 		<span>Message</span>
 	</div>
 
@@ -72,7 +83,7 @@
 			class="min-h-0 flex-1"
 		>
 			{#snippet children(event)}
-				<LogRow {event} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
+				<LogRow {event} live={explorer.live} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
 			{/snippet}
 		</VirtualList>
 		{#if explorer.loadingMore}
