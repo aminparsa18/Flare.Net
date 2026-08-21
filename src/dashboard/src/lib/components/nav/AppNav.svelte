@@ -12,6 +12,9 @@
 	import { navLinks } from './nav-links';
 	import TerminalModal from './TerminalModal.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
+	import SunIcon from '@lucide/svelte/icons/sun';
+	import MoonIcon from '@lucide/svelte/icons/moon';
+	import { mode, toggleMode } from 'mode-watcher';
 
 	// +layout.svelte renders AppNav once auth is off entirely (no currentUser then - see
 	// its showChrome derived value) or once auth.currentUser is confirmed non-null - the
@@ -74,6 +77,18 @@
 		</kbd>
 	</Button>
 	<TerminalModal />
+	<!-- mode.current is undefined during SSR (mode-watcher's isBrowser guard) - the icon
+	     briefly defaults to Moon in that window, corrected the instant the client hydrates.
+	     Harmless: the anti-FOUC script in +layout.svelte already set the *page's* actual
+	     theme correctly before paint, this only affects which icon this one button shows
+	     for a frame. Moved here from LogsToolbar - app-wide, not a Logs-page-only control. -->
+	<Button variant="outline" size="icon-sm" onclick={toggleMode} title="Toggle dark/light theme">
+		{#if mode.current === 'light'}
+			<SunIcon />
+		{:else}
+			<MoonIcon />
+		{/if}
+	</Button>
 	<div class="ml-auto flex items-center gap-2">
 		{#if auth.authEnabled}
 			<span class="text-muted-foreground text-xs">{auth.currentUser?.username}</span>

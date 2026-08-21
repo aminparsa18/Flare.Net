@@ -10,10 +10,7 @@
 	import SavedSearchesMenu from '$lib/components/logs/SavedSearchesMenu.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import SunIcon from '@lucide/svelte/icons/sun';
-	import MoonIcon from '@lucide/svelte/icons/moon';
 	import XIcon from '@lucide/svelte/icons/x';
-	import { mode, toggleMode } from 'mode-watcher';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { setActiveLogsExplorer } from '$lib/logs/active-explorer.svelte';
 	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
@@ -151,19 +148,6 @@
 			<Badge variant={liveVariant} class="ml-1">
 				{explorer.connectionStatus === 'open' ? 'Pause' : explorer.connectionStatus}
 			</Badge>
-		{/if}
-	</Button>
-
-	<!-- mode.current is undefined during SSR (mode-watcher's isBrowser guard) - the icon
-	     briefly defaults to Moon in that window, corrected the instant the client hydrates.
-	     Harmless: the anti-FOUC script in +layout.svelte already set the *page's* actual
-	     theme correctly before paint, this only affects which icon this one button shows
-	     for a frame. -->
-	<Button variant="outline" size="icon-sm" onclick={toggleMode} title="Toggle dark/light theme">
-		{#if mode.current === 'light'}
-			<SunIcon />
-		{:else}
-			<MoonIcon />
 		{/if}
 	</Button>
 </div>
