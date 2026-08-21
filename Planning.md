@@ -770,6 +770,34 @@ actually worked out (see the three bullets below) — closing out the full origi
       `error.type`, confirming the legend collapsed from 6 to 4 correctly-labeled lines
       (including the fixed `(none)` rendering), and reverting to "None" restored the
       original 6-series ungrouped view.
+- [ ] **Research: a real "skip-index effectiveness" signal for the Indexing page.**
+      2026-08-21, mid-redesign of the Indexing page's "Skip indexes" section into a
+      "Query optimization" one (v9 above): the requested shape included an "X% of
+      indexed queries benefited from data skipping" stat alongside the (shipped)
+      search-latency percentiles and slow-query count. Deliberately **not** shipped -
+      checked whether ClickHouse exposes this as real, queryable telemetry before
+      building it, and it doesn't in a form this page can rely on. What was found:
+      - `system.query_log`'s `ProfileEvents`/`SelectedMarks`/`SelectedRows`/etc. describe
+        what was read *after* all pruning (primary key *and* skip indices combined) -
+        there's no separate counter isolating the skip-index contribution specifically.
+      - The one place ClickHouse does report per-index granule-drop counts
+        ("Index `idx_name` has dropped X/Y granules") is a `LOG_TRACE`/`LOG_DEBUG` line,
+        only reaches `system.text_log` if that table is enabled *and* the server's log
+        level is raised well past the default - not something a self-hosted deployment
+        can be assumed to have, unlike `part_log`/`query_log` (config-gated but at least
+        commonly on).
+      - `EXPLAIN indexes = 1` / `EXPLAIN ESTIMATE` show real per-index effectiveness, but
+        only for a single ad-hoc query run right then - not retrospective over real
+        historical dashboard traffic the way this stat needs to be.
+      Open question for whoever picks this back up: is there a version-gated or
+      config-gated ClickHouse mechanism (newer `system.query_log` columns, an opt-in
+      trace setting worth documenting as a prerequisite, sampling live traffic through
+      `EXPLAIN` on a schedule) that would make this honest rather than invented? If not,
+      the fallback discussed and deferred at the same time was a differently-labeled,
+      genuinely-computable proxy - e.g. "% of queries reading under N% of their table's
+      total rows," a real read-efficiency signal from `system.query_log`, just not
+      skip-index-specific (primary-key pruning contributes too, so it can't be labeled as
+      the same claim).
 
 ### v4 — OTLP traces (the traces half of "OTLP traces & metrics")
 Promoted out of "Later" and shipped 2026-08-10, in four passes (ingest+storage →

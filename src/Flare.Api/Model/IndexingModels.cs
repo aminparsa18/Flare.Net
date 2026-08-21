@@ -49,20 +49,30 @@ public sealed record StorageGrowthPoint(DateTimeOffset Day, string TableName, lo
 public sealed record DiskUsageInfo(bool Available, long TotalBytes, long FreeBytes);
 
 /// <summary>
-/// p95 duration of queries Flare.Api itself ran against <c>currentDatabase()</c> in the
+/// Latency of queries Flare.Api itself ran against <c>currentDatabase()</c> in the
 /// trailing <see cref="WindowMinutes"/>, from <c>system.query_log</c> - "is the thing users
 /// actually feel (searching logs, opening traces) fast" rather than an index/storage count
 /// nobody can act on. Excludes queries that also touch <c>system</c> tables so this page's
-/// own three introspection queries don't pollute the number.
+/// own introspection queries (this class's own reads included) don't pollute the numbers.
+/// Backs both the Indexing page's "Query performance" summary card (p95 only) and its
+/// "Query optimization" section (all three percentiles + the slow-query count).
 /// </summary>
 /// <remarks>
 /// Config-gated like <see cref="StorageGrowthPoint"/>'s <c>system.part_log</c> -
 /// <see cref="Available"/> is false when <c>system.query_log</c> isn't queryable on this
-/// deployment. When it is, <see cref="P95Ms"/> is still null if <see cref="SampleCount"/>
-/// is zero (queryable, just no query traffic in the window) - the dashboard tells those two
+/// deployment. When it is, the percentiles are still null if <see cref="SampleCount"/> is
+/// zero (queryable, just no query traffic in the window) - the dashboard tells those two
 /// "nothing to show" cases apart rather than collapsing both into one em dash.
 /// </remarks>
-public sealed record QueryPerformanceInfo(bool Available, double? P95Ms, long SampleCount, int WindowMinutes);
+public sealed record QueryPerformanceInfo(
+    bool Available,
+    double? P50Ms,
+    double? P95Ms,
+    double? P99Ms,
+    long SlowQueryCount,
+    long SampleCount,
+    int WindowMinutes,
+    int SlowQueryThresholdMs);
 
 /// <summary>
 /// <c>GET /api/indexing/stats</c> response. <see cref="GrowthAvailable"/> is false when

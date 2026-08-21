@@ -12,6 +12,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { indexingContext } from '$lib/indexing/context';
 	import { formatBytes, formatCount, formatMs, formatPercent } from '$lib/indexing/format';
+	import { latencyClass } from '$lib/indexing/health';
 
 	const indexing = indexingContext.get();
 
@@ -53,13 +54,6 @@
 	});
 
 	const queryPerformance = $derived(indexing.stats?.queryPerformance);
-	const p95Class = $derived.by(() => {
-		const p95Ms = queryPerformance?.p95Ms;
-		if (p95Ms === null || p95Ms === undefined) return '';
-		if (p95Ms >= 1000) return 'text-destructive';
-		if (p95Ms >= 300) return 'text-warning';
-		return '';
-	});
 </script>
 
 <div class="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
@@ -112,7 +106,7 @@
 	<Card.Root>
 		<Card.Header>
 			<Card.Description>Query performance</Card.Description>
-			<Card.Title class="flex items-baseline gap-1 text-2xl tabular-nums {p95Class}">
+			<Card.Title class="flex items-baseline gap-1 text-2xl tabular-nums {latencyClass(queryPerformance?.p95Ms)}">
 				{#if queryPerformance?.available && queryPerformance.p95Ms !== null}
 					{formatMs(queryPerformance.p95Ms)}<span class="text-muted-foreground text-xs font-normal">p95</span>
 				{:else}

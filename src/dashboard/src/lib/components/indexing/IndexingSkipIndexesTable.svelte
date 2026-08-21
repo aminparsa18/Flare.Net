@@ -3,6 +3,12 @@
 	// backed product: nothing here is user-created (see IndexingQueryService's remarks) -
 	// this table exists so the schema work in db/clickhouse/*.sql is visible, not so a
 	// user can add/remove a row here the way Seq's own λ/signal indexes work.
+	//
+	// No section heading of its own on purpose - it renders directly under
+	// IndexingQueryOptimization's "Query optimization" heading and "N indexes across M
+	// tables" summary line, which already give this table its context ("here's the detail
+	// behind that count") instead of presenting as a standalone "here's every index"
+	// inventory.
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Badge } from '$lib/components/ui/badge';
@@ -13,7 +19,6 @@
 </script>
 
 <div class="px-4 pb-4">
-	<h2 class="mb-2 text-sm font-medium">Skip indexes</h2>
 	{#if !indexing.stats || indexing.stats.skipIndexes.length === 0}
 		<Empty.Root>
 			<Empty.Header>

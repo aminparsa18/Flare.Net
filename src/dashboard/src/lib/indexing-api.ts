@@ -39,9 +39,13 @@ export interface DiskUsageInfo {
 
 export interface QueryPerformanceInfo {
 	available: boolean;
+	p50Ms: number | null;
 	p95Ms: number | null;
+	p99Ms: number | null;
+	slowQueryCount: number;
 	sampleCount: number;
 	windowMinutes: number;
+	slowQueryThresholdMs: number;
 }
 
 export interface IndexingStatsResponse {

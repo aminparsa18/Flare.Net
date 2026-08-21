@@ -64,11 +64,23 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
 
     private const int QueryPerformanceWindowMinutes = 60;
 
-    // `NOT has(databases, 'system')` excludes this very service's own three introspection
+    // Threaded through to QueryPerformanceInfo so the dashboard's "> 500 ms" slow-query
+    // label reads this constant instead of hardcoding its own copy - but note the `500`
+    // literal inside QueryPerformanceSql below is a separate copy (ClickHouse SQL text
+    // can't reference a C# const), so the two have to be kept in sync by hand if this
+    // ever changes.
+    private const int SlowQueryThresholdMs = 500;
+
+    // `NOT has(databases, 'system')` excludes this very service's own introspection
     // queries (and any other system-table tooling) - what's left is queries real dashboard
     // usage generated (log search, trace lookups, the Query API generally).
     private const string QueryPerformanceSql = """
-        SELECT quantile(0.95)(query_duration_ms) AS p95, count() AS samples
+        SELECT
+            quantile(0.5)(query_duration_ms) AS p50,
+            quantile(0.95)(query_duration_ms) AS p95,
+            quantile(0.99)(query_duration_ms) AS p99,
+            countIf(query_duration_ms > 500) AS slow,
+            count() AS samples
         FROM system.query_log
         WHERE type = 'QueryFinish'
           AND event_time >= now() - INTERVAL 60 MINUTE
@@ -198,19 +210,40 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
             await using var reader = await client.ExecuteReaderAsync(QueryPerformanceSql, null, SafetyOptions(), cancellationToken);
             if (!reader.Read())
             {
-                return new QueryPerformanceInfo(Available: true, P95Ms: null, SampleCount: 0, QueryPerformanceWindowMinutes);
+                return EmptyQueryPerformance(available: true);
             }
 
-            var sampleCount = (long)reader.GetFieldValue<ulong>(1);
-            var p95Ms = sampleCount > 0 && !reader.IsDBNull(0) ? reader.GetDouble(0) : (double?)null;
-            return new QueryPerformanceInfo(Available: true, p95Ms, sampleCount, QueryPerformanceWindowMinutes);
+            // quantile() over zero rows returns NaN, not null/0 - gate every percentile on
+            // sampleCount rather than trusting IsDBNull alone.
+            var sampleCount = (long)reader.GetFieldValue<ulong>(4);
+            double? Percentile(int ordinal) => sampleCount > 0 && !reader.IsDBNull(ordinal) ? reader.GetDouble(ordinal) : null;
+
+            return new QueryPerformanceInfo(
+                Available: true,
+                P50Ms: Percentile(0),
+                P95Ms: Percentile(1),
+                P99Ms: Percentile(2),
+                SlowQueryCount: (long)reader.GetFieldValue<ulong>(3),
+                SampleCount: sampleCount,
+                QueryPerformanceWindowMinutes,
+                SlowQueryThresholdMs);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Indexing page's query performance unavailable - system.query_log isn't queryable on this ClickHouse deployment");
-            return new QueryPerformanceInfo(Available: false, P95Ms: null, SampleCount: 0, QueryPerformanceWindowMinutes);
+            return EmptyQueryPerformance(available: false);
         }
     }
+
+    private static QueryPerformanceInfo EmptyQueryPerformance(bool available) => new(
+        available,
+        P50Ms: null,
+        P95Ms: null,
+        P99Ms: null,
+        SlowQueryCount: 0,
+        SampleCount: 0,
+        QueryPerformanceWindowMinutes,
+        SlowQueryThresholdMs);
 
     private static long ReadNullableUInt64(ClickHouseDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? 0L : (long)reader.GetFieldValue<ulong>(ordinal);
