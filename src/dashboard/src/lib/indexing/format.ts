@@ -9,6 +9,18 @@ export function formatRatio(compressed: number, uncompressed: number): string {
 	return `${(uncompressed / compressed).toFixed(1)}x`;
 }
 
+// Tables table's Growth column: bytes a table added in the trailing 30-day window, as a
+// percentage of its *current* compressed size - "how much of what's on disk right now
+// arrived recently," which is what answers "where is my storage going" at a glance. `—`
+// means no percentage is derivable (no current size to divide by); `0%` means it's
+// derivable and genuinely flat, a different fact worth telling apart from "unknown."
+export function formatTableGrowth(addedBytes: number, compressedBytes: number): string {
+	if (compressedBytes <= 0) return '—';
+	if (addedBytes <= 0) return '0%';
+	const percent = (addedBytes / compressedBytes) * 100;
+	return `+${percent < 1 ? '<1' : Math.round(percent)}%`;
+}
+
 // Query performance card wants whole milliseconds below 1s (sub-ms precision isn't
 // actionable there) but a decimal once we're into seconds, where a tenth of a second is
 // the difference someone cares about.
