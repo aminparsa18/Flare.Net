@@ -21,13 +21,13 @@ public sealed class LogEventPipelineOptions
     public string ConsumerGroup { get; set; } = "flare-ingest";
 
     /// <summary>
-    /// This consumer's name within <see cref="ConsumerGroup"/>. Fixed for v1's
-    /// single-instance deployment model - running multiple concurrent Flare.Ingest
-    /// replicas would need unique names per instance (e.g. derived from machine/pod
-    /// name) to avoid falsely reclaiming each other's in-flight work. Not solved here;
-    /// a Later-item if/when Flare.Ingest becomes horizontally scaled.
+    /// This consumer's name within <see cref="ConsumerGroup"/>. Derived from
+    /// machine/process identity (see <see cref="ConsumerIdentity"/>) so multiple
+    /// concurrent Flare.Ingest replicas get distinct names automatically and don't
+    /// falsely reclaim each other's in-flight work. Override via
+    /// <c>LogEventPipeline__ConsumerName</c> if a fixed name is ever needed.
     /// </summary>
-    public string ConsumerName { get; set; } = "flare-ingest-1";
+    public string ConsumerName { get; set; } = $"flare-ingest-{ConsumerIdentity.Suffix}";
 
     /// <summary>
     /// Approximate cap on stream length (MAXLEN ~), trimmed on every XADD, so Redis

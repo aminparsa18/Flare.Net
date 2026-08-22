@@ -1,0 +1,50 @@
+<!--
+  Defines the `flare_cluster` topology referenced by every `ON CLUSTER 'flare_cluster'`
+  statement in db/clickhouse-cluster/*.sql and by every Distributed table's ENGINE clause.
+  Identical file, mounted into all four clickhouse-N services in docker-compose.cluster.yml
+  (docs/clustering.md) - only each node's own macros-N.xml differs.
+
+  2 shards x 2 replicas: shard 1 = clickhouse-1/clickhouse-2, shard 2 =
+  clickhouse-3/clickhouse-4. Port 9000 is ClickHouse's native TCP protocol, used for
+  inter-node replication and Distributed-table query forwarding (not the 8123 HTTP port
+  the app connects through) - internal to the compose network, never published to the
+  host.
+
+  <secret>: confirmed live (2026-08-22) that without this, a Distributed table query
+  landing on one node and forwarded to another failed AUTHENTICATION_FAILED - by
+  default a forwarded connection uses user "default" with NO password, not the
+  originally-connecting user's actual credentials (CLICKHOUSE_PASSWORD). The
+  inter-server secret is ClickHouse's documented mechanism for this exact case:
+  authenticates node-to-node traffic on its own terms, decoupled from
+  CLICKHOUSE_PASSWORD entirely (so this file doesn't need to track that env var's
+  value, or its default, at all). Not a sensitive credential in the way
+  CLICKHOUSE_PASSWORD is - only used for inter-node handshakes on a network no client
+  ever reaches directly.
+-->
+<clickhouse>
+    <remote_servers>
+        <flare_cluster>
+            <secret>flare-cluster-secret</secret>
+            <shard>
+                <replica>
+                    <host>clickhouse-1</host>
+                    <port>9000</port>
+                </replica>
+                <replica>
+                    <host>clickhouse-2</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+            <shard>
+                <replica>
+                    <host>clickhouse-3</host>
+                    <port>9000</port>
+                </replica>
+                <replica>
+                    <host>clickhouse-4</host>
+                    <port>9000</port>
+                </replica>
+            </shard>
+        </flare_cluster>
+    </remote_servers>
+</clickhouse>

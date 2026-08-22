@@ -61,6 +61,11 @@
          FrameworkReference gap, confirmed by the CS0234 this package fixes. Pinned at
          10.0.10 to match every other .NET-10-servicing-train package above. -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.10" />
+    <!-- Flare.Api: shares the Data Protection key ring across replicas via Redis (Planning.md's
+         "Multi-node scaling" item) so a mid-Entra/OIDC-handshake external cookie survives
+         landing on a different replica than the one that issued it. Pinned at 10.0.10 to
+         match every other .NET-10-servicing-train package above. -->
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.10" />
     <!-- Flare.Api: Active Directory (LDAP) login (Planning.md's "Active Directory auth"
          item, docs/auth.md). Cross-platform LDAP client (works from the Linux container
          this project ships) - unlike classic System.DirectoryServices/ADSI, which is

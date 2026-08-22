@@ -1,0 +1,7 @@
+<!-- Per-node macros for clickhouse-3 (shard 2, first replica). See macros-1.xml's comment. -->
+<clickhouse>
+    <macros>
+        <shard>2</shard>
+        <replica>clickhouse-3</replica>
+    </macros>
+</clickhouse>

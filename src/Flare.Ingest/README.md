@@ -36,10 +36,6 @@ Per [Planning.md](../../Planning.md)'s roadmap, the following are **separate, la
 items** — don't extend this project to cover them without checking there first:
 
 - No `Flare.Api` or `Flare.Dashboard` wiring.
-- Single fixed Redis Stream consumer name (`LogEventPipeline:ConsumerName`) — correct
-  for v1's single-instance deployment model. Running multiple concurrent `Flare.Ingest`
-  replicas needs unique names per instance to avoid cross-reclaiming each other's
-  in-flight work (see [`LogEventPipelineOptions`](Pipeline/LogEventPipelineOptions.cs)).
 - No dead-letter subsystem — poison stream entries (exceeding
   `LogEventPipeline:MaxDeliveryAttempts`) are logged and dropped, not routed anywhere
   for inspection.

@@ -1,0 +1,64 @@
+<!--
+  Complete standalone ClickHouse Keeper config for keeper-1 (server id 1 of the 3-node
+  quorum) - mounted directly over /etc/clickhouse-keeper/keeper_config.xml in
+  docker-compose.cluster.yml, REPLACING the clickhouse/clickhouse-keeper image's default
+  file entirely, not layered into config.d/.
+
+  Confirmed live (2026-08-22) that this image's entrypoint invokes clickhouse-keeper
+  with a config file flag pointed at /etc/clickhouse-keeper/keeper_config.xml, and that
+  file has no include_from pulling in config.d/*.xml the way clickhouse-server's own
+  default config does - a config.d/keeper.xml override (the first approach tried here)
+  was silently ignored; keeper_config-preprocessed.xml showed only the base file's
+  content, none of the override. Replacing the whole file sidesteps that entirely rather
+  than fighting ClickHouse Keeper's config merge semantics.
+
+  Also confirmed live: the base image's default keeper_config.xml has no explicit
+  <listen_host>, which defaults to loopback-only (127.0.0.1/::1) - every OTHER container
+  got Connection refused against this node's 9181 until <listen_host> was set explicitly
+  below. <listen_try>1</listen_try> means "try each listed address, don't fail startup if
+  one can't bind" (relevant if this Docker network has no IPv6).
+-->
+<clickhouse>
+    <logger>
+        <level>trace</level>
+        <log>/var/log/clickhouse-keeper/clickhouse-keeper.log</log>
+        <errorlog>/var/log/clickhouse-keeper/clickhouse-keeper.err.log</errorlog>
+        <size>100M</size>
+        <count>3</count>
+    </logger>
+
+    <listen_host>0.0.0.0</listen_host>
+    <listen_host>::</listen_host>
+    <listen_try>1</listen_try>
+
+    <keeper_server>
+        <tcp_port>9181</tcp_port>
+        <server_id>1</server_id>
+        <log_storage_path>/var/lib/clickhouse-keeper/coordination/log</log_storage_path>
+        <snapshot_storage_path>/var/lib/clickhouse-keeper/coordination/snapshots</snapshot_storage_path>
+
+        <coordination_settings>
+            <operation_timeout_ms>10000</operation_timeout_ms>
+            <session_timeout_ms>30000</session_timeout_ms>
+            <raft_logs_level>information</raft_logs_level>
+        </coordination_settings>
+
+        <raft_configuration>
+            <server>
+                <id>1</id>
+                <hostname>keeper-1</hostname>
+                <port>9234</port>
+            </server>
+            <server>
+                <id>2</id>
+                <hostname>keeper-2</hostname>
+                <port>9234</port>
+            </server>
+            <server>
+                <id>3</id>
+                <hostname>keeper-3</hostname>
+                <port>9234</port>
+            </server>
+        </raft_configuration>
+    </keeper_server>
+</clickhouse>

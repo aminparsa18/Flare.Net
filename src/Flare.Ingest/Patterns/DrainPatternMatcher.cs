@@ -13,10 +13,14 @@ namespace Flare.Ingest.Patterns;
 /// arrive. No ML/training step - pure string tokenization, run once per log body.
 /// </summary>
 /// <remarks>
-/// In-memory only, singleton-scoped, no persistence across a <c>Flare.Ingest</c> restart -
-/// matches this codebase's existing single-instance deployment model (see
-/// <c>LogEventPipelineOptions.ConsumerName</c>'s own remarks on the same gap) rather than
-/// solving a problem the rest of the pipeline doesn't solve yet. <see cref="Match"/> is
+/// In-memory only, singleton-scoped, no persistence across a <c>Flare.Ingest</c> restart
+/// or across replicas - unlike <c>LogEventPipelineOptions.ConsumerName</c> (now
+/// per-process, see <c>ConsumerIdentity</c>), this gap is NOT fixed by giving each
+/// replica a distinct identity: independent replicas would each build their own pattern
+/// clusters from whatever subset of logs they happen to consume, so the same template
+/// could land under different <c>PatternId</c>s depending which replica saw it first.
+/// A real fix needs shared cluster state (e.g. Redis- or ClickHouse-backed), which is a
+/// separate, still-open item - not attempted here. <see cref="Match"/> is
 /// called from <see cref="LogPatternAnnotator"/>, itself only ever invoked from
 /// <c>ClickHouseFlushWorker</c>'s single background loop today - the internal <c>lock</c>
 /// is cheap insurance against that changing, not a response to measured contention.

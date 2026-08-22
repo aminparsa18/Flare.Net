@@ -1,0 +1,13 @@
+<!--
+  Per-node macros for clickhouse-1 (shard 1, one of its two replicas). {shard}/{replica}
+  are substituted into every ReplicatedMergeTree/ReplicatedReplacingMergeTree ENGINE path
+  in db/clickhouse-cluster/*.sql (e.g. '/clickhouse/tables/{shard}/clickhousedb/logs_local').
+  {replica} = this node's own hostname, which is unique by construction (Docker Compose
+  gives each service its own hostname) - no separate replica-naming scheme needed.
+-->
+<clickhouse>
+    <macros>
+        <shard>1</shard>
+        <replica>clickhouse-1</replica>
+    </macros>
+</clickhouse>

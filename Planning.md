@@ -567,6 +567,53 @@ actually worked out (see the three bullets below) — closing out the full origi
       authenticated Flare user - not a public/anonymous
       share token; known limitation, not a gap to close here.
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
+- [x] **Multi-node scaling.** Distinct from the RustFS item above (retention/cold
+      storage vs. horizontal availability/throughput - conflating the two in an
+      earlier discussion was a real imprecision worth not repeating). Designed and
+      implemented 2026-08-22, live-verified against a real running cluster (not just
+      unit-tested) - see [`docs/clustering.md`](docs/clustering.md) for the full
+      writeup, including several real config bugs (Keeper's default loopback-only
+      bind, its config.d/ not auto-merging, Distributed cross-node auth, a
+      per-shard-fragmented `schema_migrations` path) found and fixed by actually
+      standing the cluster up, not assumed away.
+      - **ClickHouse**: `db/clickhouse-cluster/*.sql` is an opt-in, 1:1 variant of
+        every `db/clickhouse/*.sql` migration using `ReplicatedMergeTree`/
+        `Distributed` tables (2 shards x 2 replicas) + a 3-node ClickHouse Keeper
+        quorum, delivered as a standalone `docker-compose.cluster.yml` alongside the
+        unchanged single-node `docker-compose.yml`. `Distributed` tables keep the
+        plain table names (`logs`, `spans`, etc.), so zero code changes were needed
+        in `Flare.Ingest`'s writers or `Flare.Api`'s query builders.
+      - **Redis Streams consumer name**: no longer hardcoded - `LogEventPipelineOptions.ConsumerName`
+        (and its spans/metrics siblings) now default to a machine/process-derived
+        name (`ConsumerIdentity`), so multiple `Flare.Ingest` replicas safely share
+        one consumer group. `docker-compose.cluster.yml` runs two `ingest` replicas
+        against the cluster as a live demonstration of this.
+      - **`Flare.Api` statelessness**: `AlertEvaluationWorker` now gates each tick
+        behind a Redis-backed lock so N replicas don't duplicate alert evaluation/
+        notifications, and the ASP.NET Core Data Protection key ring is now
+        Redis-backed (`PersistKeysToStackExchangeRedis`) so the Entra/OIDC external
+        sign-in cookie survives a mid-handshake request landing on a different
+        replica. `LogTailBroadcaster` needed no change - verified each replica
+        already reads the shared Redis Stream independently via plain `XREAD` and
+        fans out only to its own locally-connected WebSocket clients, which is
+        already correct under multiple replicas. `HostStatsPoller`/
+        `DockerContainerPoller` are explicitly out of scope here - they're
+        inherently single-host/single-Docker-daemon concepts, not a gap this item
+        introduces.
+      - **Deferred, not started**: SQLite `Identity__DbPath` → Postgres. Only
+        required if actually running >1 `Flare.Api` replica; `docs/auth.md` already
+        documents the trade-off and names the migration as a contained, mechanical
+        follow-up (same table set - `Users`/`Sessions`/`IngestApiKeys`/
+        `AuthSettings`/`EntraSettings`/`LdapSettings`/`OidcSettings`/
+        `ProxyAuthSettings`/`schema_migrations` - different backing store, not a
+        rewrite).
+      - **Known limitations, named not solved**: no client-side load balancing
+        across ClickHouse cluster entry points; `IndexingQueryService`'s `system.*`
+        introspection stays single-node-scoped under cluster mode; `rand()` sharding
+        (not `ServiceName`/`TraceId`-aware) for every table; the in-memory
+        `DrainPatternMatcher`/Drain clustering state still doesn't share across
+        `Flare.Ingest` replicas (a separate gap from the consumer-name one - see its
+        own remarks). See `docs/clustering.md`'s "Known limitations" section.
 - [x] **Benchmark: ingest throughput + query latency proof points.** Shipped
       2026-08-22 - a proof point for the "Flare inherits HA/scale from ClickHouse +
       Redis Streams for free" claim discussed elsewhere, measured rather than just
@@ -2204,10 +2251,12 @@ count, error count, first/last seen; duration is a named Later item requiring a
       to `<*>` before whitespace tokenization, buckets by `(tokenCount, firstToken)`,
       matches the best candidate cluster above `LogPatternOptions.SimilarityThreshold`
       (generalizing differing positions to `<*>`) or creates a new cluster. In-memory
-      only, no persistence across a restart or across replicas - matches
-      `LogEventPipelineOptions.ConsumerName`'s own already-documented "single-instance
-      deployment model" gap rather than solving a problem the rest of the pipeline
-      doesn't solve yet. `PatternId` is a deterministic SHA-256-derived hash of the
+      only, no persistence across a restart or across replicas - unlike
+      `LogEventPipelineOptions.ConsumerName` (now per-process, see "Multi-node scaling"
+      below), this one isn't fixed by per-replica identity: independent replicas would
+      each build their own clusters from whatever logs they happen to see, fragmenting
+      `PatternId`s for the same template. A real fix needs shared cluster state; not
+      attempted as part of that item. `PatternId` is a deterministic SHA-256-derived hash of the
       finalized template text (not sequential), so the same template re-emerging after a
       restart gets the same id - softens, doesn't eliminate, the restart-reset
       limitation. A global `MaxTemplates` LRU cap (default 10,000) bounds worst-case

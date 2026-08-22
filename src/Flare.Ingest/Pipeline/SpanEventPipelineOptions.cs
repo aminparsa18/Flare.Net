@@ -20,8 +20,8 @@ public sealed class SpanEventPipelineOptions
     /// <summary>Consumer group name used for XREADGROUP/XACK at-least-once delivery.</summary>
     public string ConsumerGroup { get; set; } = "flare-ingest-spans";
 
-    /// <summary>This consumer's name within <see cref="ConsumerGroup"/>. Same v1 single-instance caveat as <see cref="LogEventPipelineOptions.ConsumerName"/>.</summary>
-    public string ConsumerName { get; set; } = "flare-ingest-spans-1";
+    /// <summary>This consumer's name within <see cref="ConsumerGroup"/>. Same machine/process-derived default as <see cref="LogEventPipelineOptions.ConsumerName"/>.</summary>
+    public string ConsumerName { get; set; } = $"flare-ingest-spans-{ConsumerIdentity.Suffix}";
 
     /// <summary>Approximate cap on stream length (MAXLEN ~), trimmed on every XADD.</summary>
     public int StreamMaxLength { get; set; } = 1_000_000;
