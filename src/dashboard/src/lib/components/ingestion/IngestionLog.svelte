@@ -23,6 +23,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { ingestionContext } from '$lib/ingestion/context';
+	import { protocolLabel } from '$lib/ingestion/format';
 
 	const ingestion = ingestionContext.get();
 
@@ -43,7 +44,7 @@
 		<h2 class="text-sm font-medium">Ingestion log</h2>
 		{#if filter}
 			<Badge variant="outline" class="gap-1">
-				{filter.signal} · {filter.protocol === 'Grpc' ? 'gRPC' : 'HTTP'}
+				{filter.signal} · {protocolLabel(filter.protocol)}
 				<button type="button" onclick={() => ingestion.clearLogFilter()} aria-label="Clear filter" class="cursor-pointer">
 					<XIcon class="size-3" />
 				</button>
@@ -56,7 +57,7 @@
 				<Empty.Title>{filter ? 'No matching rejected payloads' : 'No rejected payloads'}</Empty.Title>
 				{#if filter}
 					<Empty.Description>
-						No recent rejections for {filter.signal} · {filter.protocol === 'Grpc' ? 'gRPC' : 'HTTP'}.
+						No recent rejections for {filter.signal} · {protocolLabel(filter.protocol)}.
 						<Button variant="link" size="sm" class="h-auto p-0" onclick={() => ingestion.clearLogFilter()}>Clear filter</Button>
 					</Empty.Description>
 				{:else}

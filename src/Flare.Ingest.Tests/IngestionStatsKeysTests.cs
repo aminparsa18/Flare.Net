@@ -42,6 +42,9 @@ public class IngestionStatsKeysTests
     [InlineData(IngestionSignal.Traces, IngestionProtocol.Grpc, "traces:grpc")]
     [InlineData(IngestionSignal.Metrics, IngestionProtocol.Http, "metrics:http")]
     [InlineData(IngestionSignal.Metrics, IngestionProtocol.Grpc, "metrics:grpc")]
+    [InlineData(IngestionSignal.Logs, IngestionProtocol.Scrape, "logs:scrape")]
+    [InlineData(IngestionSignal.Traces, IngestionProtocol.Scrape, "traces:scrape")]
+    [InlineData(IngestionSignal.Metrics, IngestionProtocol.Scrape, "metrics:scrape")]
     public void FieldPrefix_IsLowercaseSignalColonProtocol(IngestionSignal signal, IngestionProtocol protocol, string expected)
     {
         Assert.Equal(expected, IngestionStatsKeys.FieldPrefix(signal, protocol));

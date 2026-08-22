@@ -1,4 +1,6 @@
+using System.Text;
 using Flare.Ingest.Sinks;
+using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
 
 namespace Flare.Ingest.Prometheus;
@@ -23,17 +25,18 @@ namespace Flare.Ingest.Prometheus;
 /// <see cref="Pipeline.SpanFlushWorker"/> already use for their own poll loops, just
 /// fanned out per target instead of per consumer group.
 ///
-/// Deliberately does not call <see cref="Stats.IIngestionStatsTracker"/> - v1 scope is
-/// backend-only (see Planning.md's v20 entry): those Redis-backed minute-bucket counters
-/// are the exact "Http protocol on port 4318" counters the dashboard's Ingestion page
-/// already renders, and tagging scrape activity onto the existing <c>Http</c> enum value
-/// would silently corrupt that count rather than just leave scrape activity unreported.
-/// Plain <see cref="ILogger"/> is the whole observability story here for now.
+/// Reports through <see cref="IIngestionStatsTracker"/> under the dedicated
+/// <see cref="IngestionProtocol.Scrape"/> value (added alongside this worker's Ingestion-
+/// page stats/UI follow-up, Planning.md v20's deferred item) - a third, pull-based
+/// protocol distinct from <see cref="IngestionProtocol.Grpc"/>/<see cref="IngestionProtocol.Http"/>,
+/// not folded into either, so scrape activity gets its own row instead of silently
+/// inflating the real "HTTP :4318" receiver counters.
 /// </remarks>
 public sealed class PrometheusScrapeWorker(
     IOptions<PrometheusScrapeOptions> options,
     IHttpClientFactory httpClientFactory,
     IMetricEventSink sink,
+    IIngestionStatsTracker stats,
     TimeProvider timeProvider,
     ILogger<PrometheusScrapeWorker> logger) : BackgroundService
 {
@@ -102,10 +105,13 @@ public sealed class PrometheusScrapeWorker(
                 logger.LogWarning(
                     "Prometheus scrape of {Job} ({Url}) failed with status {StatusCode}",
                     target.Job, target.Url, (int)response.StatusCode);
+                await stats.RecordRejectedAsync(
+                    IngestionSignal.Metrics, IngestionProtocol.Scrape, $"scrape-status:{(int)response.StatusCode}", stoppingToken);
                 return;
             }
 
             var body = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+            var byteCount = Encoding.UTF8.GetByteCount(body);
 
             var parsed = PrometheusExpositionParser.Parse(body);
             var result = PrometheusMetricsMapper.Map(parsed, target, timeProvider.GetUtcNow());
@@ -114,6 +120,12 @@ public sealed class PrometheusScrapeWorker(
             {
                 await sink.WriteAsync(point, stoppingToken);
             }
+
+            await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Scrape, result.Points.Count, byteCount, stoppingToken);
+            await stats.RecordServiceBreakdownAsync(
+                IngestionSignal.Metrics,
+                ServiceBreakdown.Build(result.Points.Select(p => p.ServiceName), byteCount),
+                stoppingToken);
 
             if (result.UnsupportedMetricNames.Count > 0)
             {
@@ -131,6 +143,7 @@ public sealed class PrometheusScrapeWorker(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Prometheus scrape of {Job} ({Url}) failed", target.Job, target.Url);
+            await stats.RecordRejectedAsync(IngestionSignal.Metrics, IngestionProtocol.Scrape, $"scrape-failed:{ex.GetType().Name}", stoppingToken);
         }
     }
 }
