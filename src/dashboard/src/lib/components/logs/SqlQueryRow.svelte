@@ -83,16 +83,44 @@
 	let suggestionResult = $state<LogQlSuggestionResult | null>(null);
 	let activeSuggestionIndex = $state(0);
 
+	// Caret-position mirror: an invisible clone of the textarea's text (same font/
+	// padding/wrap - see its own markup below) up to the caret, ending in a zero-width
+	// marker span. Measuring that span's viewport position (not the textarea/wrapper's
+	// own box) is what lets the dropdown open right under the line being typed rather
+	// than under the whole (now multi-line) box - the same "hidden mirror element"
+	// technique textarea-caret-position libraries use, just enough of it hand-rolled
+	// here for one marker instead of a full x/y-per-character API.
+	let caretMirrorEl: HTMLPreElement | null = $state(null);
+	let caretMarkerEl: HTMLSpanElement | null = $state(null);
+	let caretBeforeText = $state('');
+	let dropdownPosition = $state({ top: 0, left: 0 });
+
 	function updateSuggestions() {
 		if (!textareaEl) {
 			suggestionResult = null;
 			return;
 		}
 		const cursorPos = textareaEl.selectionStart ?? queryText.length;
+		caretBeforeText = queryText.slice(0, cursorPos);
 		const next = getLogQlSuggestions(queryText, cursorPos);
 		suggestionResult = next.suggestions.length > 0 ? next : null;
 		activeSuggestionIndex = 0;
 	}
+
+	// Recomputes the dropdown's fixed (viewport-relative, not wrapper-relative) position
+	// whenever it opens or the caret moves - `position: fixed` from the marker's own
+	// getBoundingClientRect (not the wrapper's), because Accordion.Content's own
+	// overflow-hidden (needed for its collapse/expand animation - see accordion-
+	// content.svelte) would otherwise clip an absolutely-positioned dropdown the instant
+	// it grows past the accordion's own rendered height, same as it was doing before
+	// this fix (the dropdown was rendering, just clipped under whatever came next).
+	$effect(() => {
+		if (!suggestionResult || !caretMarkerEl) return;
+		void caretBeforeText; // establishes the dependency - the marker's position only reflects this after it re-renders
+		const rect = caretMarkerEl.getBoundingClientRect();
+		const lineHeight = textareaEl ? parseFloat(getComputedStyle(textareaEl).lineHeight) || 20 : 20;
+		dropdownPosition = { top: rect.top + lineHeight, left: rect.left };
+	});
 
 	/** Replaces the in-progress word (suggestionResult.wordStart..caret) with the accepted suggestion's text. */
 	async function acceptSuggestion(suggestion: LogQlSuggestion) {
@@ -343,6 +371,14 @@
 						aria-hidden="true"
 						class="pointer-events-none absolute inset-0 m-0 overflow-hidden rounded-md border border-transparent px-2 py-2 font-mono text-sm break-words whitespace-pre-wrap md:text-xs/relaxed"
 					>{#each highlightTokens as token, i (i)}<span style={TOKEN_COLOR_VARS[token.type] ? `color: ${TOKEN_COLOR_VARS[token.type]}` : undefined}>{token.text}</span>{/each}</pre>
+					<!-- Invisible caret-position mirror - see dropdownPosition's own remarks. Not
+					     the same element as the highlight layer above (that one's spans are keyed
+					     by token, not by caret offset, so splicing a marker into it isn't simple). -->
+					<pre
+						bind:this={caretMirrorEl}
+						aria-hidden="true"
+						class="invisible pointer-events-none absolute inset-0 m-0 overflow-hidden rounded-md border border-transparent px-2 py-2 font-mono text-sm break-words whitespace-pre-wrap md:text-xs/relaxed"
+					>{caretBeforeText}<span bind:this={caretMarkerEl}></span></pre>
 					<Textarea
 						bind:ref={textareaEl}
 						class="min-h-24 relative bg-transparent pr-7 font-mono text-transparent"
@@ -373,11 +409,19 @@
 					{#if suggestionResult}
 						<!-- mousedown (not click), with preventDefault, so picking a suggestion never
 						     blurs the textarea first - that would fire the onblur close handler above
-						     before the click itself is ever handled. -->
+						     before the click itself is ever handled.
+
+						     position: fixed (viewport coordinates from dropdownPosition, not a
+						     wrapper-relative absolute) so this escapes Accordion.Content's own
+						     overflow-hidden (its collapse/expand animation - see accordion-
+						     content.svelte) instead of being clipped under whatever renders next
+						     (the log table) the moment it grows past the accordion's own height.
+						     z-50 matches this app's own Popover/Select content (see their z-50). -->
 						<ul
 							id="sql-query-suggestions"
 							role="listbox"
-							class="bg-popover text-popover-foreground absolute top-full left-0 z-20 mt-1 max-h-48 w-full min-w-56 overflow-auto rounded-md border py-1 shadow-md"
+							style="top: {dropdownPosition.top}px; left: {dropdownPosition.left}px;"
+							class="bg-popover text-popover-foreground fixed z-50 max-h-48 w-64 overflow-auto rounded-md border py-1 shadow-md"
 						>
 							{#each suggestionResult.suggestions as suggestion, i (suggestion.label)}
 								<li role="presentation">
