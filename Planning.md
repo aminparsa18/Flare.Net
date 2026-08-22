@@ -2394,6 +2394,82 @@ stored since v4) and no mutation.
       Same "code+unit-verified, live e2e pending" gap v14/v15/v16/v17/v18 each flagged
       for themselves, now narrowed rather than closed.
 
+### v20 — Prometheus native scrape (2026-08-22)
+
+Not a prior "Later" item — proposed fresh, in answer to a direct "can we get metrics from
+Prometheus?" question. Until now the only way in was OTLP push (`OtlpGrpcMetricsService`/
+`OtlpHttpMetricsEndpoints`), which meant a Prometheus-shaped `/metrics` endpoint needed an
+OpenTelemetry Collector in front of it (`prometheus` receiver → `otlp` exporter) to reach
+Flare at all. This adds a second, pull-side receiver directly to `Flare.Ingest` that scrapes
+configured targets itself.
+
+Scoped down in one place, confirmed with the user before implementation
+(`AskUserQuestion`): **backend only for v1** — no changes to the Ingestion page's stats/UI.
+`IngestionProtocol` today hardcodes exactly 6 receiver rows (3 signals × {Grpc, Http}) across
+a C# enum, `IngestionJsonContext`, the dashboard's TS type, and two Svelte components
+(`IngestionReceivers.svelte`, `IngestionSignalsTable.svelte`); wiring a third `Scrape`
+protocol through all of that is real, separate work, deferred rather than rushed in.
+
+- [x] **`Flare.Ingest/Prometheus/`** — three new pieces, mirroring the existing OTLP
+      metrics split (`OtlpHttpMetricsEndpoints` → `OtlpMetricsMapper` → `IMetricEventSink`):
+      `PrometheusExpositionParser` (pure static parser for the classic text exposition
+      format 0.0.4 — `# HELP`/`# TYPE`/`name{labels} value [timestamp]`; OpenMetrics-only
+      features — exemplars, `# EOF`, UTF-8 quoted names, native histograms — out of scope,
+      same "v1 doesn't cover X" precedent `OtlpMetricsMapper` already set for
+      ExponentialHistogram/Summary; tolerant of malformed individual lines rather than
+      throwing, since this runs against exporters Flare doesn't control), then
+      `PrometheusMetricsMapper` (parsed samples + one target's identity → the same
+      `Otlp.MetricMapResult` type `OtlpMetricsMapper` returns, reused rather than
+      duplicated), then `PrometheusScrapeWorker` (a `BackgroundService`, one independent
+      `PeriodicTimer` loop per configured target under one `Task.WhenAll`, writing through
+      the exact same `IMetricEventSink` the OTLP receivers use — no new storage path, no
+      new flush worker, scraped points flow through the identical Redis-stream/
+      `MetricFlushWorker`/ClickHouse pipeline and show up on the Metrics page identically
+      to pushed ones).
+- [x] **Type mapping**: `counter` → `SumPointRecord` (always monotonic, always Cumulative
+      temporality — Prometheus counters only ever count up since process start, there's no
+      delta flavor on the wire). `gauge`/untyped → `GaugePointRecord` (untyped defaults to
+      gauge per standard Prometheus consumer convention). `histogram` → `HistogramPointRecord`,
+      **converting Prometheus's cumulative `_bucket{le=...}` counts into OTLP's
+      non-cumulative `BucketCounts`** (`counts[i] - counts[i-1]`) — the single easiest place
+      to get this wrong, covered by a worked-example unit test. `summary` → dropped, same
+      treatment `OtlpMetricsMapper` already gives Summary/ExponentialHistogram on the OTLP
+      side. Resource attribution (`service.name` = the target's configured `Job`,
+      `service.instance.id` = the target URL's host:port, target `Labels` merged in last so
+      they can override either) follows the OTel Collector's own `prometheusreceiver`
+      convention, not a novel mapping.
+- [x] **Config**: `PrometheusScrapeOptions`/`PrometheusScrapeTargetOptions`, bound from a
+      `PrometheusScrape` section — same `IOptions<T>` convention as
+      `MetricEventPipelineOptions`/`LogPatternOptions`. Deliberately no separate `Enabled`
+      flag: an empty `Targets` list (the default) is already a no-op, matching Prometheus's
+      own `scrape_configs: []` convention rather than a second switch that could disagree
+      with an empty list. Each target has its own `Interval`/`Timeout`, optional `Labels`
+      (extra/override resource attributes) and `Headers` (e.g. a bearer token for a
+      protected endpoint).
+- [x] **Deliberately deferred, not folded in here**: full Ingestion-page stats/UI
+      integration — a third `IngestionProtocol.Scrape` value threaded through the C# enum,
+      `IngestionJsonContext`, the dashboard's `IngestionProtocol` TS type, and a new row in
+      both `IngestionReceivers.svelte` and `IngestionSignalsTable.svelte`. Until that lands,
+      `PrometheusScrapeWorker` deliberately makes no `IIngestionStatsTracker` calls at all —
+      tagging scrape activity onto the existing `Http` enum value would silently corrupt the
+      real "HTTP :4318" receiver counters the Ingestion page already renders, which is worse
+      than just not reporting scrape activity yet. Plain `ILogger` (accepted point counts,
+      or failure + reason, per target) is v1's whole observability story for the scrape
+      receiver itself.
+- [x] **Verification performed**: `dotnet build` on `Flare.slnx`, and `dotnet test` on
+      `Flare.Ingest.Tests` — 157 passed (up from 140), all 17 new in
+      `PrometheusExpositionParserTests`/`PrometheusMetricsMapperTests` (histogram
+      cumulative→delta worked example, label-set grouping excluding `le`, counter/gauge/
+      untyped mapping, job/instance/Labels resource attribution and override order, summary
+      → `UnsupportedMetricNames`, quoted-label escaping, malformed-line tolerance). No
+      dedicated worker-loop test, matching this codebase's existing precedent
+      (`MetricFlushWorker`/`SpanFlushWorker` have none either — only their pure pieces do).
+      **Not yet done**: a live e2e run against a real target (point a configured target at
+      an actual `/metrics` endpoint, confirm points land in ClickHouse's
+      `metrics_gauge`/`metrics_sum`/`metrics_histogram` tables and render on the dashboard's
+      Metrics page) — same "code+unit-verified, live e2e pending" gap v14–v19 each flagged
+      for themselves.
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---
