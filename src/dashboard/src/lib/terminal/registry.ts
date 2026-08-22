@@ -6,11 +6,15 @@
 
 import type { TerminalCommand } from './types';
 import { tailCommand } from './commands/tail';
+import { searchCommand } from './commands/search';
+import { exportCommand } from './commands/export';
 import { tracesCommand } from './commands/traces';
 import { traceCommand } from './commands/trace';
 import { metricsCommand } from './commands/metrics';
 import { metricCommand } from './commands/metric';
 import { ingestionCommand } from './commands/ingestion';
+import { alertsCommand } from './commands/alerts';
+import { apikeyCommand } from './commands/apikey';
 import { helpCommand } from './commands/help';
 import { hostOnlyCommand } from './commands/unavailable';
 
@@ -34,14 +38,20 @@ const HOST_ONLY_COMMANDS: TerminalCommand[] = [
 
 // The remaining 6 of 14 - tail/traces/trace/metrics/metric/ingestion - all reach
 // Flare.Api over HTTP/WebSocket the same way clicking around the dashboard already
-// does, so (unlike the stubs above) they run for real here.
+// does, so (unlike the stubs above) they run for real here. search/export/alerts/apikey
+// are the dashboard-side port of the same 4 commands added to Flare.Cli - also plain
+// HTTP against Flare.Api, so they run for real too.
 const COMMANDS: TerminalCommand[] = [
 	tailCommand,
+	searchCommand,
+	exportCommand,
 	tracesCommand,
 	traceCommand,
 	metricsCommand,
 	metricCommand,
 	ingestionCommand,
+	alertsCommand,
+	apikeyCommand,
 	helpCommand(() => COMMANDS),
 	...HOST_ONLY_COMMANDS
 ];

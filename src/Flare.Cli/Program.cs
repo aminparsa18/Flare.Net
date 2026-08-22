@@ -26,6 +26,10 @@ app.Configure(config =>
         .WithDescription("Open the dashboard in your default browser.");
     config.AddCommand<TailCommand>("tail")
         .WithDescription("Live-tail structured log events (filterable by service/level/trace/search).");
+    config.AddCommand<SearchCommand>("search")
+        .WithDescription("One-shot log search (filterable by service/level/trace/search/since).");
+    config.AddCommand<ExportCommand>("export")
+        .WithDescription("Export a time range of log events to NDJSON or CSV.");
     config.AddCommand<TracesCommand>("traces")
         .WithDescription("Search recent traces (filterable by service/status/kind/duration/trace-id).");
     config.AddCommand<TraceCommand>("trace")
@@ -34,6 +38,20 @@ app.Configure(config =>
         .WithDescription("List discoverable metrics (filterable by service/since).");
     config.AddCommand<MetricCommand>("metric")
         .WithDescription("Chart one metric as ASCII sparklines.");
+    // Branches: no top-level `.WithDescription` (IBranchConfigurator doesn't expose one) -
+    // each leaf command's own description carries the documentation instead.
+    config.AddBranch("alerts", alerts =>
+    {
+        alerts.AddCommand<AlertsListCommand>("list")
+            .WithDescription("List saved alert rules.");
+        alerts.AddCommand<AlertsTestCommand>("test")
+            .WithDescription("Dry-run fire a saved alert rule (ignores cooldown, sends no notification).");
+    });
+    config.AddBranch("apikey", apikey =>
+    {
+        apikey.AddCommand<ApiKeyCreateCommand>("create")
+            .WithDescription("Create a new ingest API key.");
+    });
     config.AddCommand<UpdateCommand>("update")
         .WithDescription("Pull the latest images for the pinned tag and recreate containers. --tag <TAG> moves the pin itself first.");
     config.AddCommand<LogsCommand>("logs")

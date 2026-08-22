@@ -31,9 +31,18 @@
          `flare update` gained a tag override option (UpdateCommand.Settings.Tag), the
          CLI-native way to move an existing install's FLARE_IMAGE_TAG pin without hand
          editing .env (FlareHome.SetEnvValue) - see docs/cli.md's Image tag policy
-         section for the flag's actual spelling. Tag on release: flare-cli-v{Version}
+         section for the flag's actual spelling. Bumped 0.1.2 -> 0.1.3: the remaining
+         dashboard-parity commands from Planning.md's "Later" list landed -
+         `flare search` (one-shot `POST /api/logs/search`, TracesCommand-shaped),
+         `flare export` (streaming NDJSON/CSV dump over the same endpoint's cursor
+         pagination, field-set parity with the dashboard's own CSV/XLSX export dialog),
+         `flare alerts list`/`flare alerts test <ID>` (first command *branch* in this
+         CLI - GET /api/alerts, dry-run POST /api/alerts/{id}/test), and
+         `flare apikey create <NAME>` (POST /api/ingest-keys, raw key shown once). No
+         backend changes - all four are thin HTTP clients against endpoints Flare.Api
+         already exposed. Tag on release: flare-cli-v{Version}
          (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
     <Authors>Amin Parsa</Authors>
     <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
     <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>
