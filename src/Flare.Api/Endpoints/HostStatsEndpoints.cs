@@ -6,13 +6,18 @@ using Flare.Api.Json;
 namespace Flare.Api.Endpoints;
 
 /// <summary>
-/// The Resources page's Host overview panel endpoint pair:
+/// The Resources page's Host overview panel endpoint trio:
 /// <c>GET /api/resources/host/snapshot</c> (REST, instant read of
-/// <see cref="HostStatsPoller.CurrentSnapshot"/>) and <c>GET /api/resources/host/watch</c>
+/// <see cref="HostStatsPoller.CurrentSnapshot"/>), <c>GET /api/resources/host/watch</c>
 /// (WebSocket, pushes a fresh <see cref="Model.HostStatsSnapshot"/> every time the poller
-/// publishes one). Same REST-snapshot/WebSocket-stream pairing as
-/// <c>ResourceGraphEndpoints</c>, copied near-verbatim - push-only, no client-sent control
-/// protocol to receive.
+/// publishes one), and <c>GET /api/resources/host/history</c> (REST, the Resource trends
+/// chart's backfill - see <see cref="HostStatsPoller.GetHistory"/>). The snapshot/watch
+/// pair is the same REST-snapshot/WebSocket-stream pairing as <c>ResourceGraphEndpoints</c>,
+/// copied near-verbatim - push-only, no client-sent control protocol to receive. History
+/// has no WebSocket counterpart - the frontend fetches it once on connect, then derives
+/// each subsequent history point itself from the watch stream it's already receiving (see
+/// <c>$lib/resources/host-stats.svelte.ts</c>), so there's no need for the server to push
+/// the whole rolling window on every tick.
 /// </summary>
 public static class HostStatsEndpoints
 {
@@ -20,11 +25,15 @@ public static class HostStatsEndpoints
     {
         endpoints.MapGet("/api/resources/host/snapshot", HandleSnapshot);
         endpoints.MapGet("/api/resources/host/watch", HandleWatchAsync);
+        endpoints.MapGet("/api/resources/host/history", HandleHistory);
         return endpoints;
     }
 
     private static IResult HandleSnapshot(HostStatsPoller poller) =>
         Results.Json(poller.CurrentSnapshot, HostStatsJsonContext.Default.HostStatsSnapshot);
+
+    private static IResult HandleHistory(HostStatsPoller poller) =>
+        Results.Json(poller.GetHistory(), HostStatsJsonContext.Default.IReadOnlyListHostStatsHistoryPoint);
 
     private static async Task HandleWatchAsync(HttpContext http, HostStatsPoller poller)
     {

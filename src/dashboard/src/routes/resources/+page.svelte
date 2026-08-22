@@ -48,7 +48,7 @@
 			<Switch id="show-flare-resources" bind:checked={showResourceNodes} />
 		</label>
 	</div>
-	<HostOverview snapshot={hostStats.snapshot} />
+	<HostOverview snapshot={hostStats.snapshot} history={hostStats.history} />
 	<div class="min-h-0 flex-1">
 		{#if resources.snapshot?.available}
 			<ResourceGraph snapshot={resources.snapshot} {showResourceNodes} />

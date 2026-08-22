@@ -3,7 +3,7 @@
 // independently-scaled values can land in different units ("800 MB / 16 GB"). This scales
 // both sides to whichever unit fits the *total*, so they always share one.
 
-import { formatBytes } from '$lib/ingestion/format';
+import { formatBytes, formatCount } from '$lib/ingestion/format';
 
 const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const;
 
@@ -31,4 +31,20 @@ export function formatUptime(totalSeconds: number): string {
 	if (days > 0) return `${days}d ${hours}h`;
 	if (hours > 0) return `${hours}h ${minutes}m`;
 	return `${minutes}m`;
+}
+
+/** `"2.4 MB/s"` - network/disk throughput, always non-negative from the backend (see HostStatsSnapshot.cs's remarks on the fields this formats). */
+export function formatByteRate(bytesPerSecond: number): string {
+	return `${formatBytes(bytesPerSecond)}/s`;
+}
+
+/** `"+1.2 GB/day"` / `"-340 MB/day"` - unlike the rate above, disk usage can shrink (data pruned/rotated), so this is sign-aware rather than assuming non-negative input the way `formatBytes` does. */
+export function formatByteGrowthPerDay(bytesPerDay: number): string {
+	const sign = bytesPerDay < 0 ? '-' : '+';
+	return `${sign}${formatBytes(Math.abs(bytesPerDay))}/day`;
+}
+
+/** `"340 pkt/s"` - same compact-count formatting `formatCount` already gives event counts elsewhere in the dashboard. */
+export function formatPacketRate(packetsPerSecond: number): string {
+	return `${formatCount(packetsPerSecond)} pkt/s`;
 }
