@@ -30,6 +30,14 @@
     <EmbeddedResource Include="..\..\db\clickhouse\*.sql">
       <LogicalName>Flare.ServiceDefaults.ClickHouseMigrations.Sql.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
+    <!-- Cluster-mode counterpart (ReplicatedMergeTree + Distributed tables + ClickHouse
+         Keeper, Planning.md's "Multi-node scaling" item, docs/clustering.md) - same
+         embed-for-ClickHouseMigrationRunner trick, separate LogicalName prefix so
+         ClickHouseMigrationRunner.ApplyAsync can pick which schema set to apply based on
+         ClickHouse:ClusterMode. -->
+    <EmbeddedResource Include="..\..\db\clickhouse-cluster\*.sql">
+      <LogicalName>Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

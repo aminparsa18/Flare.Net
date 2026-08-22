@@ -62,10 +62,20 @@ namespace Flare.ServiceDefaults.ClickHouseMigrations;
 /// succeeds, ClickHouse is reachable and every later statement in this method runs
 /// against an already-proven-live connection.
 /// </para>
+/// <para>
+/// <c>clusterMode</c> (Planning.md's "Multi-node scaling" item, docs/clustering.md)
+/// switches both the embedded resource set (<c>db/clickhouse-cluster/*.sql</c> instead
+/// of <c>db/clickhouse/*.sql</c> - <c>ReplicatedMergeTree</c>/<c>Distributed</c> tables
+/// wrapped in <c>ON CLUSTER 'flare_cluster'</c>) and the two bootstrap statements below
+/// (database + <c>schema_migrations</c> table) to their cluster-aware equivalents. This
+/// isn't a live migration path between the two modes - it's meant to be set once, before
+/// a deployment's first boot, against an empty ClickHouse/Keeper volume.
+/// </para>
 /// </remarks>
 public static class ClickHouseMigrationRunner
 {
-    private const string ResourcePrefix = "Flare.ServiceDefaults.ClickHouseMigrations.Sql.";
+    private const string SingleNodeResourcePrefix = "Flare.ServiceDefaults.ClickHouseMigrations.Sql.";
+    private const string ClusterResourcePrefix = "Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.";
 
     // Exponential backoff, capped at 8s/attempt, ~65s total across 10 attempts - well
     // past the gap observed between Compose's service_healthy and ClickHouse actually
@@ -85,8 +95,10 @@ public static class ClickHouseMigrationRunner
         TimeSpan.FromSeconds(8),
     ];
 
-    public static async Task ApplyAsync(IClickHouseClient client, ILogger logger, CancellationToken cancellationToken = default)
+    public static async Task ApplyAsync(IClickHouseClient client, ILogger logger, CancellationToken cancellationToken = default, bool clusterMode = false)
     {
+        var resourcePrefix = clusterMode ? ClusterResourcePrefix : SingleNodeResourcePrefix;
+
         // Bootstrap the database + tracking table explicitly rather than assuming
         // migration 0001 (which also does "CREATE DATABASE IF NOT EXISTS clickhousedb")
         // has ever run - both statements are themselves idempotent, so this is safe to
@@ -95,20 +107,43 @@ public static class ClickHouseMigrationRunner
         // This first call is the one wrapped in connection-failure retry (see remarks) -
         // it's the earliest point ClickHouse's actual reachability is exercised, so it's
         // where a still-starting-up ClickHouse shows up as connection-refused.
+        var createDatabaseSql = clusterMode
+            ? "CREATE DATABASE IF NOT EXISTS clickhousedb ON CLUSTER 'flare_cluster'"
+            : "CREATE DATABASE IF NOT EXISTS clickhousedb";
         await ExecuteWithConnectionRetryAsync(
-            ct => client.ExecuteNonQueryAsync("CREATE DATABASE IF NOT EXISTS clickhousedb", cancellationToken: ct),
+            ct => client.ExecuteNonQueryAsync(createDatabaseSql, cancellationToken: ct),
             logger,
             cancellationToken);
         await client.ExecuteNonQueryAsync(
-            """
-            CREATE TABLE IF NOT EXISTS clickhousedb.schema_migrations
-            (
-                Name String,
-                AppliedAt DateTime64(3) DEFAULT now64(3)
-            )
-            ENGINE = MergeTree
-            ORDER BY Name
-            """,
+            clusterMode
+                // NOT '/clickhouse/tables/{shard}/...' like the sharded app tables below -
+                // confirmed live (2026-08-22) that using the {shard} macro here means each
+                // shard tracks its own independent "applied migrations" history (different
+                // Keeper path per shard), so a node on shard 2 would show zero rows applied
+                // even after every migration ran successfully against shard 1. This table
+                // is a small, cluster-wide operational record, not sharded app data - one
+                // fixed literal path (no {shard}) makes all 4 nodes replicas of the SAME
+                // single table, matching what ApplyAsync's "SELECT DISTINCT Name FROM
+                // schema_migrations" query actually needs regardless of which node the
+                // connection string happens to point at.
+                ? """
+                  CREATE TABLE IF NOT EXISTS clickhousedb.schema_migrations ON CLUSTER 'flare_cluster'
+                  (
+                      Name String,
+                      AppliedAt DateTime64(3) DEFAULT now64(3)
+                  )
+                  ENGINE = ReplicatedMergeTree('/clickhouse/tables/flare_cluster/clickhousedb/schema_migrations', '{replica}')
+                  ORDER BY Name
+                  """
+                : """
+                  CREATE TABLE IF NOT EXISTS clickhousedb.schema_migrations
+                  (
+                      Name String,
+                      AppliedAt DateTime64(3) DEFAULT now64(3)
+                  )
+                  ENGINE = MergeTree
+                  ORDER BY Name
+                  """,
             cancellationToken: cancellationToken);
 
         var applied = new HashSet<string>(StringComparer.Ordinal);
@@ -124,10 +159,10 @@ public static class ClickHouseMigrationRunner
 
         var assembly = typeof(ClickHouseMigrationRunner).Assembly;
         var migrationNames = assembly.GetManifestResourceNames()
-            .Where(n => n.StartsWith(ResourcePrefix, StringComparison.Ordinal))
-            .Select(n => n[ResourcePrefix.Length..])
+            .Where(n => n.StartsWith(resourcePrefix, StringComparison.Ordinal))
+            .Select(n => n[resourcePrefix.Length..])
             // Numeric filename prefix (0001_, 0002_, ...) sorts correctly as plain text
-            // as long as every migration keeps the same digit count - true of all 8
+            // as long as every migration keeps the same digit count - true of all 10
             // today; a 10000th migration would need re-padding, not a smarter sort.
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
@@ -141,7 +176,7 @@ public static class ClickHouseMigrationRunner
 
             logger.LogInformation("Applying ClickHouse migration {MigrationName}", migrationName);
 
-            var sql = await ReadEmbeddedSqlAsync(assembly, ResourcePrefix + migrationName, cancellationToken);
+            var sql = await ReadEmbeddedSqlAsync(assembly, resourcePrefix + migrationName, cancellationToken);
             foreach (var statement in SplitStatements(sql))
             {
                 await client.ExecuteNonQueryAsync(statement, cancellationToken: cancellationToken);

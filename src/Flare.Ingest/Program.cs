@@ -97,10 +97,15 @@ var app = builder.Build();
 // real data on disk. Safe to run unconditionally on every startup: every migration is
 // idempotent, and safe to run from both Flare.Ingest and Flare.Api independently (no
 // ordering requirement between them).
+//
+// ClickHouse:ClusterMode (Planning.md's "Multi-node scaling" item, docs/clustering.md)
+// switches to the db/clickhouse-cluster/*.sql schema set instead - set by
+// docker-compose.cluster.yml, unset/false everywhere else.
 await ClickHouseMigrationRunner.ApplyAsync(
     app.Services.GetRequiredService<IClickHouseClient>(),
     app.Logger,
-    CancellationToken.None);
+    CancellationToken.None,
+    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode"));
 
 // Same idempotent-migration convention, applied from both Flare.Ingest and Flare.Api
 // independently (see IdentityMigrationRunner's remarks) - Ingest needs the IngestApiKeys

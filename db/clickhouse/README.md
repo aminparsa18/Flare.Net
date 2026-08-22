@@ -56,6 +56,13 @@ computation). This is the **"Log pattern detection"** roadmap item - `Flare.Api`
 `LogPatternQueryBuilder` does a plain `GROUP BY PatternId` for the ranked-patterns view,
 the same reason this is ingest-time rather than query-time (see Planning.md's rationale).
 
+Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
+**single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
+the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
+**"Multi-node scaling"** roadmap item - see [`docs/clustering.md`](../../docs/clustering.md)
+for the full design and how to run it. The single-node schema here stays the default;
+nothing about it changes to support that.
+
 ## What it deliberately does *not* do (yet)
 
 - No ClickHouse-writing code anywhere - `Flare.Ingest`'s `ConsoleLogEventSink` is

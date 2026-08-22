@@ -1,0 +1,27 @@
+<!--
+  Points every clickhouse-N node at the 3-node Keeper ensemble (keeper-1/2/3) for
+  ReplicatedMergeTree/ReplicatedReplacingMergeTree coordination and ON CLUSTER DDL queue
+  distribution. Identical file, mounted into all four clickhouse-N services - see
+  remote-servers.xml's comment.
+
+  ClickHouse's `<zookeeper>` config block works unchanged against ClickHouse Keeper
+  (Keeper implements the ZooKeeper wire protocol on port 9181) - no separate "use keeper"
+  toggle is needed beyond pointing this block at Keeper's nodes/port instead of a real
+  ZooKeeper ensemble.
+-->
+<clickhouse>
+    <zookeeper>
+        <node>
+            <host>keeper-1</host>
+            <port>9181</port>
+        </node>
+        <node>
+            <host>keeper-2</host>
+            <port>9181</port>
+        </node>
+        <node>
+            <host>keeper-3</host>
+            <port>9181</port>
+        </node>
+    </zookeeper>
+</clickhouse>

@@ -12,6 +12,7 @@ using Flare.Identity.Auth;
 using Flare.Identity.Users;
 using Flare.ServiceDefaults.ClickHouseMigrations;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
@@ -27,6 +28,22 @@ builder.AddClickHouseDataSource(connectionName: "clickhousedb");
 // `flare:logs` stream Flare.Ingest's RedisStreamLogEventSink writes into. Same connection
 // name Flare.AppHost references onto Flare.Ingest.
 builder.AddRedisClient(connectionName: "redis");
+
+// ASP.NET Core Data Protection's default key ring is per-process (and, without explicit
+// persistence, not even guaranteed to survive a restart in a container). That's invisible
+// under v1's single-replica deployment, but under multiple Flare.Api replicas (Planning.md's
+// "Multi-node scaling" item) it breaks the Entra/OIDC external sign-in cookies above
+// ("flare_entra_external"/"flare_oidc_external") the instant a mid-handshake request lands
+// on a different replica than the one that issued the cookie - that replica can't decrypt
+// it. Persisting the key ring to the same Redis every replica already depends on fixes this
+// with no new infrastructure. Uses its own dedicated connection (rather than the
+// IConnectionMultiplexer builder.AddRedisClient registers above) since this runs at
+// configuration time, before the service provider exists to resolve one.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Flare")
+    .PersistKeysToStackExchangeRedis(
+        () => StackExchange.Redis.ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("redis")!).GetDatabase(),
+        "Flare-DataProtection-Keys");
 
 // Auth + multi-user / roles (Planning.md's "Later" roadmap item). Full identity wiring
 // (Users/Sessions/IngestApiKeys stores) - see Flare.Identity's remarks for why this is a
@@ -193,10 +210,15 @@ var app = builder.Build();
 // disk. Safe to run unconditionally on every startup: every migration is idempotent,
 // and safe to run from both Flare.Api and Flare.Ingest independently (no ordering
 // requirement between them).
+//
+// ClickHouse:ClusterMode (Planning.md's "Multi-node scaling" item, docs/clustering.md)
+// switches to the db/clickhouse-cluster/*.sql schema set instead - set by
+// docker-compose.cluster.yml, unset/false everywhere else.
 await ClickHouseMigrationRunner.ApplyAsync(
     app.Services.GetRequiredService<IClickHouseClient>(),
     app.Logger,
-    CancellationToken.None);
+    CancellationToken.None,
+    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode"));
 
 await IdentityMigrationRunner.ApplyAsync(
     app.Services.GetRequiredService<IdentityDbConnectionFactory>(),
