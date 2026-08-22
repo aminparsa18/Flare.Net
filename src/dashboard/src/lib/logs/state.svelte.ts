@@ -269,6 +269,29 @@ export class LogsExplorerState {
 	}
 
 	/**
+	 * Shifts the current time window backward (-1) or forward (+1) by its own duration -
+	 * "Last 7 days" panned back becomes the 7 days before that, same back/forward arrows
+	 * Seq's toolbar has next to its range picker. Lands on an explicit custom range (like
+	 * setCustomRange) rather than staying on the original preset: a shifted "Last 7 days"
+	 * isn't "the last 7 days" any more, and re-resolving that preset on the next search
+	 * would just snap straight back to now. No-op while live (the control is hidden
+	 * entirely - see TimeRangePicker) or when the current selection has no concrete
+	 * duration to shift by (an 'all time' window, or 'custom' with no dates picked yet).
+	 */
+	shiftTimeRange(direction: -1 | 1): void {
+		if (this.live) return;
+		if (this.filter.timeRangePreset === 'all') return;
+		const range = resolveTimeRange(this.filter.timeRangePreset, this.filter.customRange ?? undefined);
+		if (!range) return;
+		const fromMs = new Date(range.from).getTime();
+		const toMs = new Date(range.to).getTime();
+		const durationMs = toMs - fromMs;
+		if (durationMs <= 0) return;
+		const delta = durationMs * direction;
+		this.setCustomRange({ from: new Date(fromMs + delta), to: new Date(toMs + delta) });
+	}
+
+	/**
 	 * Narrows the log search to a specific window - used by VolumeChart when a histogram
 	 * bar is clicked ("something went wrong around 10:23" -> click the spike -> see exactly
 	 * what happened). Deliberately leaves `filter.timeRangePreset`/`customRange` alone:

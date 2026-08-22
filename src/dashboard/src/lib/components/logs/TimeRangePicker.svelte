@@ -4,6 +4,8 @@
 	import { RangeCalendar } from '$lib/components/ui/range-calendar';
 	import { getLocalTimeZone, type DateValue } from '@internationalized/date';
 	import ClockIcon from '@lucide/svelte/icons/clock';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import {
 		TIME_RANGE_PRESETS,
@@ -60,6 +62,13 @@
 		open = false;
 		showCustom = false;
 	}
+
+	// 'all time' has no fixed duration to pan by, and an unresolved 'custom' (no dates
+	// picked yet) has nothing to shift from either - see shiftTimeRange's own remarks.
+	const canShift = $derived(
+		explorer.filter.timeRangePreset !== 'all' &&
+			(explorer.filter.timeRangePreset !== 'custom' || explorer.filter.customRange !== null)
+	);
 </script>
 
 {#if explorer.live}
@@ -69,33 +78,57 @@
 		Live — streaming now
 	</Button>
 {:else}
-	<Popover.Root bind:open>
-		<Popover.Trigger>
-			{#snippet child({ props })}
-				<Button {...props} variant="outline" size="sm">
-					<ClockIcon data-icon="inline-start" />
-					{activeLabel}
-				</Button>
-			{/snippet}
-		</Popover.Trigger>
-		<Popover.Content class="w-auto p-2" align="start">
-			{#if !showCustom}
-				<div class="flex flex-col gap-1">
-					{#each presets as preset (preset)}
-						<Button variant="ghost" size="sm" class="justify-start" onclick={() => selectPreset(preset)}>
-							{presetLabel(preset)}
-						</Button>
-					{/each}
-				</div>
-			{:else}
-				<RangeCalendar bind:value={calendarValue} />
-				<div class="flex justify-end gap-2 pt-2">
-					<Button variant="ghost" size="sm" onclick={() => (showCustom = false)}>Back</Button>
-					<Button size="sm" disabled={!calendarValue.start || !calendarValue.end} onclick={applyCustomRange}>
-						Apply
+	<div class="inline-flex items-center">
+		<Button
+			variant="outline"
+			size="icon-sm"
+			class="rounded-r-none"
+			disabled={!canShift}
+			onclick={() => explorer.shiftTimeRange(-1)}
+			title="Shift back"
+			aria-label="Shift time range back"
+		>
+			<ChevronLeftIcon />
+		</Button>
+		<Popover.Root bind:open>
+			<Popover.Trigger>
+				{#snippet child({ props })}
+					<Button {...props} variant="outline" size="sm" class="-ml-px rounded-none focus-visible:z-10">
+						<ClockIcon data-icon="inline-start" />
+						{activeLabel}
 					</Button>
-				</div>
-			{/if}
-		</Popover.Content>
-	</Popover.Root>
+				{/snippet}
+			</Popover.Trigger>
+			<Popover.Content class="w-auto p-2" align="start">
+				{#if !showCustom}
+					<div class="flex flex-col gap-1">
+						{#each presets as preset (preset)}
+							<Button variant="ghost" size="sm" class="justify-start" onclick={() => selectPreset(preset)}>
+								{presetLabel(preset)}
+							</Button>
+						{/each}
+					</div>
+				{:else}
+					<RangeCalendar bind:value={calendarValue} />
+					<div class="flex justify-end gap-2 pt-2">
+						<Button variant="ghost" size="sm" onclick={() => (showCustom = false)}>Back</Button>
+						<Button size="sm" disabled={!calendarValue.start || !calendarValue.end} onclick={applyCustomRange}>
+							Apply
+						</Button>
+					</div>
+				{/if}
+			</Popover.Content>
+		</Popover.Root>
+		<Button
+			variant="outline"
+			size="icon-sm"
+			class="-ml-px rounded-l-none"
+			disabled={!canShift}
+			onclick={() => explorer.shiftTimeRange(1)}
+			title="Shift forward"
+			aria-label="Shift time range forward"
+		>
+			<ChevronRightIcon />
+		</Button>
+	</div>
 {/if}
