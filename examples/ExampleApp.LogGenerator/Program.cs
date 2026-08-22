@@ -43,4 +43,15 @@ app.MapPost("/generate-burst", (int count, RandomLogGeneratorWorker worker) =>
     return Results.Ok(new { generated = clamped });
 });
 
+// Not part of the demo trickle/waterfall story - a benchmark-only entry point (see
+// docs/benchmark.md) for saturating the OTLP logs pipeline to find its real ingest
+// ceiling. Bounded to keep an accidental call from pinning this process forever.
+app.MapPost("/generate-throughput", async (int durationSeconds, int concurrency, RandomLogGeneratorWorker worker) =>
+{
+    var clampedDuration = Math.Clamp(durationSeconds, 1, 120);
+    var clampedConcurrency = Math.Clamp(concurrency, 1, 64);
+    var attempted = await worker.GenerateThroughput(TimeSpan.FromSeconds(clampedDuration), clampedConcurrency);
+    return Results.Ok(new { durationSeconds = clampedDuration, concurrency = clampedConcurrency, attempted });
+});
+
 app.Run();

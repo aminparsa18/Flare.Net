@@ -70,6 +70,49 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
         }
     }
 
+    /// <summary>
+    /// Emits one log event with no span/trace wrapping at all - unlike
+    /// <see cref="EmitWaterfall"/>, which exists to give the Traces page something to
+    /// render. Used by <see cref="GenerateThroughput"/> to isolate the cost actually
+    /// being measured (the OTLP logs pipeline) from the 5-span-per-log overhead a
+    /// waterfall trace would add - that overhead is real for the demo trickle, but
+    /// it's not what a throughput benchmark of the ingest pipeline wants to measure.
+    /// </summary>
+    private void EmitLogOnly() => SampleLogEvents.EmitOne(logger);
+
+    /// <summary>
+    /// Saturates the OTLP logs pipeline for <paramref name="duration"/>: <paramref name="concurrency"/>
+    /// parallel tasks each tight-loop <see cref="EmitLogOnly"/> with no delay between
+    /// calls, until <paramref name="duration"/> elapses. Deliberately saturating (no
+    /// rate limiting/pacing) - the point is to find the pipeline's real ceiling, not
+    /// simulate a fixed target rate. Returns the number of calls actually attempted;
+    /// this is a client-side send count, not proof of what actually landed in
+    /// ClickHouse - the caller is expected to measure that separately (a direct
+    /// ClickHouse row-count delta is the ground truth, since this pipeline buffers
+    /// through Redis Streams and flushes on its own batch/interval schedule, not
+    /// synchronously with the call that wrote to the stream).
+    /// </summary>
+    public async Task<long> GenerateThroughput(TimeSpan duration, int concurrency)
+    {
+        var deadline = DateTimeOffset.UtcNow + duration;
+        var counts = new long[concurrency];
+
+        var tasks = Enumerable.Range(0, concurrency).Select(workerIndex => Task.Run(() =>
+        {
+            long count = 0;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                EmitLogOnly();
+                count++;
+            }
+
+            counts[workerIndex] = count;
+        }));
+
+        await Task.WhenAll(tasks);
+        return counts.Sum();
+    }
+
     /// <summary>Immediately emits <paramref name="count"/> events, ignoring the normal timer.</summary>
     public void GenerateBurst(int count)
     {
