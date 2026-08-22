@@ -25,19 +25,31 @@ public static class LogSearchQueryBuilder
         // initializer-set default back to null). Coalesce defensively rather than
         // trust the property default once JSON is in the picture.
         var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now);
+        return BuildFromFilterSql(filterSql, request.Cursor, request.PageSize);
+    }
+
+    /// <summary>
+    /// Core builder, split out from <see cref="Build"/> so <c>LogQlQueryBuilder</c> (the
+    /// SQL-query-row feature's <c>select * ...</c> path) can reuse the exact same
+    /// paging/ordering SQL with its own already-built <see cref="LogFilterSql"/> instead
+    /// of a structured <see cref="LogFilter"/>. <paramref name="filterSql"/>'s parameter
+    /// collection is mutated in place, same as <see cref="Build"/> always did implicitly.
+    /// </summary>
+    public static LogSearchSql BuildFromFilterSql(LogFilterSql filterSql, string? cursor, int? pageSize)
+    {
         var clauses = new List<string> { filterSql.WhereSql };
 
-        if (LogSearchCursor.TryDecode(request.Cursor) is { } cursor)
+        if (LogSearchCursor.TryDecode(cursor) is { } decodedCursor)
         {
-            filterSql.Parameters.AddParameter("cursorTs", cursor.Timestamp.UtcDateTime);
-            filterSql.Parameters.AddParameter("cursorId", cursor.EventId);
+            filterSql.Parameters.AddParameter("cursorTs", decodedCursor.Timestamp.UtcDateTime);
+            filterSql.Parameters.AddParameter("cursorId", decodedCursor.EventId);
             clauses.Add("(Timestamp, EventId) < ({cursorTs:DateTime64(9)}, {cursorId:UUID})");
         }
 
-        var pageSize = Math.Clamp(request.PageSize ?? DefaultPageSize, 1, MaxPageSize);
+        var clampedPageSize = Math.Clamp(pageSize ?? DefaultPageSize, 1, MaxPageSize);
         // Fetch one extra row so LogQueryService can tell "more pages exist" apart from
         // "this page happened to end exactly at pageSize" without a separate count query.
-        filterSql.Parameters.AddParameter("limit", (uint)(pageSize + 1));
+        filterSql.Parameters.AddParameter("limit", (uint)(clampedPageSize + 1));
 
         // Built via concatenation rather than one interpolated string: the literal
         // "{limit:UInt64}" is a ClickHouse parameter placeholder, not C# interpolation
@@ -49,6 +61,6 @@ public static class LogSearchQueryBuilder
             "ORDER BY Timestamp DESC, EventId DESC\n" +
             "LIMIT {limit:UInt64}";
 
-        return new LogSearchSql(sql, filterSql.Parameters, pageSize);
+        return new LogSearchSql(sql, filterSql.Parameters, clampedPageSize);
     }
 }

@@ -18,20 +18,34 @@ public static class LogAggregateQueryBuilder
 {
     public static LogAggregateSql Build(LogAggregateRequest request, DateTimeOffset now)
     {
-        if (request.BucketWidthSeconds <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(request), request.BucketWidthSeconds, "BucketWidthSeconds must be positive.");
-        }
-
         // See LogSearchQueryBuilder's equivalent comment: request.Filter's default
         // doesn't survive JSON deserialization when "filter" is omitted from the body.
         var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now);
-        filterSql.Parameters.AddParameter("bucketWidth", request.BucketWidthSeconds);
+        return BuildFromFilterSql(filterSql, request.BucketWidthSeconds, request.GroupBy);
+    }
+
+    /// <summary>
+    /// Core builder, split out from <see cref="Build"/> so <c>LogQlQueryBuilder</c> (the
+    /// SQL-query-row feature) can reuse the exact same bucketing SQL with its own
+    /// already-built <see cref="LogFilterSql"/> (base time bound plus a translated
+    /// <c>WHERE</c> fragment from parsed query text) instead of a structured
+    /// <see cref="LogFilter"/>. <paramref name="filterSql"/>'s parameter collection is
+    /// mutated in place (the bucket-width parameter is added to it), same as <see cref="Build"/>
+    /// always did implicitly via <c>filterSql.Parameters</c>.
+    /// </summary>
+    public static LogAggregateSql BuildFromFilterSql(LogFilterSql filterSql, int bucketWidthSeconds, LogAggregateGroupBy groupBy)
+    {
+        if (bucketWidthSeconds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bucketWidthSeconds), bucketWidthSeconds, "BucketWidthSeconds must be positive.");
+        }
+
+        filterSql.Parameters.AddParameter("bucketWidth", bucketWidthSeconds);
 
         // GroupBy only ever comes from this closed enum, never request text - safe to
         // interpolate the resulting column name directly, same reasoning as
         // LogFilterSqlBuilder.ColumnFor for the attribute-bag column names.
-        var groupColumn = request.GroupBy switch
+        var groupColumn = groupBy switch
         {
             LogAggregateGroupBy.Service => "ServiceName",
             LogAggregateGroupBy.Level => "SeverityText",
@@ -39,7 +53,7 @@ public static class LogAggregateQueryBuilder
         };
 
         var selectGroup = groupColumn is null ? string.Empty : $"{groupColumn} AS GroupKey, ";
-        var groupBy = groupColumn is null ? "BucketStart" : $"BucketStart, {groupColumn}";
+        var groupByClause = groupColumn is null ? "BucketStart" : $"BucketStart, {groupColumn}";
 
         // See LogSearchQueryBuilder's equivalent comment: "{bucketWidth:UInt32}" is a
         // ClickHouse parameter placeholder, kept in a plain (non-interpolated) segment
@@ -48,7 +62,7 @@ public static class LogAggregateQueryBuilder
             $"{selectGroup}count() AS Count\n" +
             "FROM logs\n" +
             $"WHERE {filterSql.WhereSql}\n" +
-            $"GROUP BY {groupBy}\n" +
+            $"GROUP BY {groupByClause}\n" +
             "ORDER BY BucketStart";
 
         return new LogAggregateSql(sql, filterSql.Parameters, HasGroupKey: groupColumn is not null);

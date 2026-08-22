@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
+using Flare.Api.Query.LogQl;
 
 namespace Flare.Api.Query;
 
@@ -9,6 +10,13 @@ public interface ILogQueryService
     Task<LogSearchResponse> SearchAsync(LogSearchRequest request, CancellationToken cancellationToken);
 
     Task<LogAggregateResponse> AggregateAsync(LogAggregateRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Runs a parsed SQL-query-row query - the Logs page's SQL-query feature. Throws
+    /// <see cref="Query.LogQl.LogQlParseException"/> for invalid query text (the endpoint
+    /// turns that into a 400 with the exception's message).
+    /// </summary>
+    Task<LogQlQueryResponse> RunQlQueryAsync(LogQlQueryRequest request, CancellationToken cancellationToken);
 
     /// <summary>Ranked Drain clusters ("log patterns") within the request's filter window - see <see cref="LogPatternQueryBuilder"/>.</summary>
     Task<LogPatternResponse> GetPatternsAsync(LogPatternRequest request, CancellationToken cancellationToken);
@@ -148,6 +156,55 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
         }
 
         return new LogAggregateResponse { Buckets = buckets };
+    }
+
+    public async Task<LogQlQueryResponse> RunQlQueryAsync(LogQlQueryRequest request, CancellationToken cancellationToken)
+    {
+        // LogQlParseException propagates as-is - HandleQlQueryAsync turns it into a 400
+        // with the message intact, same "let the endpoint map the exception" shape
+        // AggregateAsync's own ArgumentOutOfRangeException already relies on.
+        var built = LogQlQueryBuilder.Build(request, timeProvider.GetUtcNow());
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        switch (built.Kind)
+        {
+            case LogQlDispatchKind.Count:
+            {
+                var count = reader.Read() ? (long)reader.GetFieldValue<ulong>(0) : 0;
+                return new LogQlQueryResponse { Kind = LogQlResultKind.Count, Count = count };
+            }
+
+            case LogQlDispatchKind.Series:
+            {
+                var buckets = new List<LogAggregateBucket>();
+                while (reader.Read())
+                {
+                    var bucketStart = ReadUtc(reader, 0);
+                    var groupKey = built.HasGroupKey ? reader.GetString(1) : null;
+                    var count = reader.GetFieldValue<ulong>(built.HasGroupKey ? 2 : 1);
+                    buckets.Add(new LogAggregateBucket { BucketStart = bucketStart, GroupKey = groupKey, Count = (long)count });
+                }
+
+                return new LogQlQueryResponse { Kind = LogQlResultKind.Series, Buckets = buckets };
+            }
+
+            default: // Rows
+            {
+                // See LogQlQueryBuilder.RawRowLimit's remarks - BuildFromFilterSql asked
+                // for one extra row (same "detect another page exists" trick SearchAsync
+                // uses), so more than the limit back means more rows exist beyond it.
+                var rows = new List<LogEventDto>();
+                while (reader.Read())
+                {
+                    rows.Add(ReadLogEvent(reader));
+                }
+
+                var hasMore = rows.Count > LogQlQueryBuilder.RawRowLimit;
+                var events = hasMore ? rows.GetRange(0, LogQlQueryBuilder.RawRowLimit) : rows;
+                return new LogQlQueryResponse { Kind = LogQlResultKind.Rows, Events = events, HasMoreRows = hasMore };
+            }
+        }
     }
 
     public async Task<LogPatternResponse> GetPatternsAsync(LogPatternRequest request, CancellationToken cancellationToken)
