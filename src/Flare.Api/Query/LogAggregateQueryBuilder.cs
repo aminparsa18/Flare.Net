@@ -33,7 +33,11 @@ public static class LogAggregateQueryBuilder
     /// mutated in place (the bucket-width parameter is added to it), same as <see cref="Build"/>
     /// always did implicitly via <c>filterSql.Parameters</c>.
     /// </summary>
-    public static LogAggregateSql BuildFromFilterSql(LogFilterSql filterSql, int bucketWidthSeconds, LogAggregateGroupBy groupBy)
+    public static LogAggregateSql BuildFromFilterSql(
+        LogFilterSql filterSql,
+        int bucketWidthSeconds,
+        LogAggregateGroupBy groupBy,
+        string aggregateSql = "count()")
     {
         if (bucketWidthSeconds <= 0)
         {
@@ -55,11 +59,15 @@ public static class LogAggregateQueryBuilder
         var selectGroup = groupColumn is null ? string.Empty : $"{groupColumn} AS GroupKey, ";
         var groupByClause = groupColumn is null ? "BucketStart" : $"BucketStart, {groupColumn}";
 
-        // See LogSearchQueryBuilder's equivalent comment: "{bucketWidth:UInt32}" is a
-        // ClickHouse parameter placeholder, kept in a plain (non-interpolated) segment
-        // so C# doesn't try to parse it as an interpolation hole.
+        // aggregateSql defaults to the literal "count()" every existing caller (the plain
+        // Build(request, now) wrapper below - /api/logs/aggregate) relies on, returning a
+        // ClickHouse UInt64 column read via GetFieldValue<ulong> in LogQueryService.AggregateAsync
+        // - unchanged. LogQlQueryBuilder (the SQL-query-row feature) is the only caller that
+        // ever passes something else, and only ever a fixed, closed-set string it builds
+        // itself from LogQlAggFunc/LogQlColumn (e.g. "toFloat64(avg(SeverityNumber))") - never
+        // request text, same discipline as every other interpolated fragment in this namespace.
         var sql = "SELECT toStartOfInterval(Timestamp, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
-            $"{selectGroup}count() AS Count\n" +
+            $"{selectGroup}{aggregateSql} AS Count\n" +
             "FROM logs\n" +
             $"WHERE {filterSql.WhereSql}\n" +
             $"GROUP BY {groupByClause}\n" +

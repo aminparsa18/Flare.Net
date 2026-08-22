@@ -11,7 +11,9 @@ public class LogQlParserTests
     {
         var query = LogQlParser.Parse("select count(*) from stream");
 
-        Assert.Equal(LogQlSelectKind.Count, query.Select);
+        var select = Assert.IsType<LogQlSelectAggregate>(query.Select);
+        Assert.Equal(LogQlAggFunc.Count, select.Func);
+        Assert.Null(select.Column);
         Assert.Null(query.Where);
         Assert.Null(query.GroupBy);
     }
@@ -21,7 +23,49 @@ public class LogQlParserTests
     {
         var query = LogQlParser.Parse("select * from stream");
 
-        Assert.Equal(LogQlSelectKind.Raw, query.Select);
+        Assert.IsType<LogQlSelectStar>(query.Select);
+    }
+
+    [Fact]
+    public void Parse_SelectColumnList_IsColumnsSelect()
+    {
+        var query = LogQlParser.Parse("select Service, Body from stream");
+
+        var select = Assert.IsType<LogQlSelectColumns>(query.Select);
+        Assert.Equal([LogQlColumn.Service, LogQlColumn.Body], select.Columns);
+    }
+
+    [Theory]
+    [InlineData("avg", LogQlAggFunc.Avg)]
+    [InlineData("sum", LogQlAggFunc.Sum)]
+    public void Parse_AvgOrSumOfSeverityNumber_IsAggregateSelect(string func, LogQlAggFunc expected)
+    {
+        var query = LogQlParser.Parse($"select {func}(SeverityNumber) from stream");
+
+        var select = Assert.IsType<LogQlSelectAggregate>(query.Select);
+        Assert.Equal(expected, select.Func);
+        Assert.Equal(LogQlColumn.SeverityNumber, select.Column);
+    }
+
+    [Theory]
+    [InlineData("avg")]
+    [InlineData("sum")]
+    public void Parse_AvgOrSumOfNonNumericColumn_Throws(string func)
+    {
+        Assert.Throws<LogQlParseException>(() => LogQlParser.Parse($"select {func}(Service) from stream"));
+    }
+
+    [Fact]
+    public void Parse_SeverityNumberInWhere_Throws()
+    {
+        var ex = Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select * from stream where SeverityNumber = '5'"));
+        Assert.Contains("SeverityNumber", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_ColumnSelectWithGroupBy_Throws()
+    {
+        Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select Service from stream group by time(1h)"));
     }
 
     [Fact]
@@ -29,7 +73,7 @@ public class LogQlParserTests
     {
         var query = LogQlParser.Parse("SELECT COUNT(*) FROM STREAM WHERE SERVICE = 'checkout'");
 
-        Assert.Equal(LogQlSelectKind.Count, query.Select);
+        Assert.IsType<LogQlSelectAggregate>(query.Select);
         var comparison = Assert.IsType<LogQlComparison>(query.Where);
         Assert.Equal(LogQlColumn.Service, comparison.Column);
     }
