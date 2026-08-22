@@ -4,6 +4,7 @@ using Flare.Ingest.Auth;
 using Flare.Ingest.Otlp;
 using Flare.Ingest.Patterns;
 using Flare.Ingest.Pipeline;
+using Flare.Ingest.Prometheus;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Flare.ServiceDefaults.ClickHouseMigrations;
@@ -61,6 +62,14 @@ builder.Services.AddHostedService<SpanFlushWorker>();
 builder.Services.AddSingleton<IMetricEventSink, RedisStreamMetricEventSink>();
 builder.Services.AddSingleton<IClickHouseMetricWriter, ClickHouseMetricWriter>();
 builder.Services.AddHostedService<MetricFlushWorker>();
+
+// Native Prometheus scrape (Planning.md v20) - a second, pull-side receiver feeding the
+// same IMetricEventSink/pipeline as the OTLP metrics endpoints above. No-ops with zero
+// configured targets, see PrometheusScrapeOptions's remarks.
+builder.Services.Configure<PrometheusScrapeOptions>(
+    builder.Configuration.GetSection(PrometheusScrapeOptions.SectionName));
+builder.Services.AddHttpClient("PrometheusScrape");
+builder.Services.AddHostedService<PrometheusScrapeWorker>();
 
 // Ingestion-page operational stats (Planning.md v8) - shares the same Redis connection
 // as the sinks above rather than adding new infrastructure.
