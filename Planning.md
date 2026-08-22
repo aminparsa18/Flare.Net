@@ -415,7 +415,7 @@ actually worked out (see the three bullets below) — closing out the full origi
       orphaning it (caught and fixed during verification). See docs/cli.md.
       **Also surfaced a pre-existing, unrelated bug during verification** - see the
       identity-migration race item below.
-- [ ] **`flare` CLI: dashboard-parity commands.** Discussed 2026-08-16 - things the
+- [x] **`flare` CLI: dashboard-parity commands.** Discussed 2026-08-16 - things the
       dashboard already shows/does that are also genuinely nicer from a terminal, all
       against endpoints `Flare.Api` already exposes (no backend work needed, just CLI
       clients):
@@ -441,20 +441,110 @@ actually worked out (see the three bullets below) — closing out the full origi
         the raw wire traffic) and fixed with case-insensitive parsing. The doc itself
         is still inaccurate - worth a one-line fix there too, not done as part of this
         item.
-      - `flare search` — one-shot query against `POST /api/logs/search`
-        (`flare search --service api --level error --since 15m`), prints matching
-        rows and exits.
-      - `flare alerts list` / `flare alerts test <id>` — wraps existing alert CRUD +
-        the dry-run test-fire endpoint (`POST /api/alerts/{id}/test`, ignores
-        cooldown, writes nothing) - verify a Slack/webhook/email channel actually
-        fires without waiting for a real threshold breach.
-      - `flare export` — dump a time range to NDJSON/CSV via `/api/logs/search`
-        pagination - a support-bundle-for-a-bug-report command.
-      - `flare apikey create` — ingest API-key management for scripted/CI OTLP setup
-        without clicking through the dashboard.
+      - [x] ~~`flare search`~~ **Shipped 2026-08-22.** One-shot query against
+        `POST /api/logs/search` (`flare search --service api --level error --since
+        15m`), prints matching rows and exits. New file `Commands/SearchCommand.cs`,
+        modeled directly on `TracesCommand.cs` (same `LogFilterWire`-style DTOs, same
+        `TracesCommand.TryParseSince` reuse). `Commands/LogEventDtoWire`/
+        `LogFilterWire`/`LogSearchRequestWire`/`LogSearchResponseWire` live here,
+        `internal` so `flare export` reuses them rather than duplicating.
+      - [x] ~~`flare alerts list` / `flare alerts test <id>`~~ **Shipped 2026-08-22.**
+        Wraps `GET /api/alerts` + the dry-run test-fire endpoint
+        (`POST /api/alerts/{id}/test`, ignores cooldown, writes nothing) - verify a
+        Slack/webhook/email channel actually fires without waiting for a real
+        threshold breach. New file `Commands/AlertsCommand.cs`. First command
+        **branch** in this CLI (Spectre.Console.Cli `config.AddBranch("alerts", ...)`)
+        - the only way to express a two-word `alerts list`/`alerts test <ID>` verb
+        pair. E2e-verified against a real rule (created directly via
+        `POST /api/alerts`): `list` renders name/enabled/threshold/window/channel/id
+        correctly, `test <id>` called twice in a row both returned a normal result
+        with no cooldown-suppression difference (confirming the dry-run really
+        ignores cooldown as documented), and `test <random-guid>` hit the explicit
+        404 path.
+      - [x] ~~`flare export`~~ **Shipped 2026-08-22.** Dumps a time range to
+        NDJSON (default)/CSV via `/api/logs/search` cursor pagination (1000/page,
+        matching `export.ts`'s `EXPORT_PAGE_SIZE`) - a support-bundle-for-a-bug-report
+        command. New file `Commands/ExportCommand.cs`. Streams each page straight to
+        stdout or `-o <path>` as it arrives rather than buffering the whole result
+        first (a CLI export isn't bound by a browser tab's lifetime the way the
+        dashboard's own export dialog's hard `EXPORT_ROW_CAP` is - `--limit`,
+        default 100000, is a safety cap instead). Field set matches that dialog's
+        CSV/XLSX export for parity. Wired to `InterruptSignal` the same way `flare
+        tail` is, so Ctrl+C mid-export flushes/closes cleanly instead of leaving a
+        truncated file. **Bug caught and fixed during verification**: the file-output
+        path (`-o`) used `Encoding.UTF8`, whose default preamble writes a UTF-8 BOM at
+        the start of the file - corrupted the CSV header's first cell to
+        `"﻿EventId"` for any reader that doesn't know to strip it (confirmed live
+        via Python's `csv` module without `utf-8-sig`), and would have been even less
+        forgiving for NDJSON parsers expecting `{` as the first byte. Fixed with an
+        explicit `new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)`.
+        E2e-verified against real data: NDJSON validated as real JSON per line, CSV
+        validated as real RFC4180 (correct quoting on a message containing a comma,
+        header/row column counts match, no BOM).
+      - [x] ~~`flare apikey create`~~ **Shipped 2026-08-22.** Ingest API-key creation
+        via `POST /api/ingest-keys` - scripted/CI OTLP setup without clicking through
+        the dashboard's Settings page. New file `Commands/ApiKeyCommand.cs`, also a
+        branch (`"apikey"` → `"create"`) for symmetry with `alerts` and to leave room
+        for `apikey list`/`apikey revoke` later (endpoints already exist, not built
+        here). Raw key is printed once with an explicit "won't be shown again"
+        warning. E2e-verified: created a real key, confirmed the printed id/name/
+        createdAt matches what `GET /api/ingest-keys` reports server-side (real
+        persistence, not just a client-side echo). Didn't verify the key actually
+        authenticates an OTLP call end-to-end - `IngestAuthOptions.IngestKeyRequired`
+        is off by default on this stack (matching Flare's opt-in-auth philosophy
+        elsewhere) and toggling it is a backend-config concern orthogonal to this CLI
+        feature, not exercised here.
+      All four are thin HTTP clients against endpoints `Flare.Api` already exposed -
+      no backend changes. `docs/cli.md`'s Command reference table and
+      `Flare.Cli.csproj`'s `<Version>` (0.1.2 → 0.1.3) updated to match. No auth header
+      sent by any of the four, same pre-existing gap every HTTP-based command already
+      has (Flare's auth is opt-in; these 401 today if a user has it enabled, exactly
+      like `tail`/`traces`/`metrics` already do) - inherited, not solved here.
       Deliberately not `flare traces`/`flare metrics` tail equivalents - logs are the
       core product and the CLI's whole pitch is "least overhead," better to ship one
       thing (`tail`) really well than three thin ones.
+- [x] **Dashboard terminal: port the same 4 commands.** Follow-up (2026-08-22), same
+      day - the dashboard's own browser-based terminal (`src/dashboard/src/lib/
+      terminal/`, opened via `TerminalModal.svelte`) already hand-ports `flare.cli`'s
+      commands to TypeScript (`tail`/`traces`/`trace`/`metrics`/`metric`/`ingestion`,
+      no code-sharing with the CLI - see that module's own header comment), so
+      `search`/`export`/`alerts list`+`alerts test <id>`/`apikey create` needed the
+      same port to keep the terminal's `help` matching `flare --help` for everything
+      that isn't inherently host-bound (`registry.ts`'s own stated criterion for what
+      belongs in `unavailable.ts` vs. a real command - none of these four touch the
+      host, so none belong there). New files: `commands/search.ts` (ported from
+      `SearchCommand.cs`, exports its filter-parsing helpers so `export.ts` reuses
+      them rather than a third copy - same precedent `metrics.ts`'s `parseSince`
+      already set for `metric.ts`/`ingestion.ts`), `commands/export.ts` (reuses the
+      Logs Explorer's own existing `$lib/logs/export.ts` pipeline -
+      `fetchAllForExport`/`eventsToBlob`/`downloadBlob` - wholesale rather than any
+      new fetch/pagination code; deliberately diverges from `ExportCommand.cs`'s
+      shape, not just its flags, since a browser can't stream to stdout/an arbitrary
+      path: `--format` offers the dashboard's existing csv/xlsx/json/xml instead of
+      the CLI's ndjson/csv, always triggers a real download instead of `-o`, and
+      inherits `fetchAllForExport`'s existing 25,000-row cap instead of a `--limit`
+      flag), `commands/alerts.ts` (first sub-dispatch command in this terminal -
+      `args[0]` branches on `list`/`test <id>`, wraps `$lib/alerts-api.ts`'s existing
+      `listAlertRules`/`testAlertRule` unmodified), and `commands/apikey.ts` +
+      new `src/dashboard/src/lib/ingest-keys-api.ts` (no ingest-key TS client existed
+      anywhere in the dashboard before this - the only prior trace was a hardcoded
+      curl example in `data-sources/catalog.ts`'s "Add Data Source" guide; only
+      `create` wrapped, matching `ApiKeyCreateCommand.cs`'s own deliberately-scoped
+      surface). `registry.ts` updated to register all four (`search`/`export` after
+      `tail`, `alerts`/`apikey` after `ingestion`). `npm run check` clean (0 errors,
+      0 warnings, 4950 files). E2e-verified via a real Playwright-driven Chromium
+      session against the live dashboard's terminal modal: `help` lists all four in
+      the right place; `search --level error --since 720h -n 5` rendered real
+      error-level rows; `alerts list`/`alerts test <id>` (twice, no cooldown
+      difference) against a real rule created via `curl`, plus `alerts test
+      <random-guid>` surfacing the 404 clearly; `apikey create` printed a real raw
+      key; `export --format json` and `--format csv` both triggered real browser
+      downloads (235 rows each, matching the CLI's own export of the same data),
+      validated as real JSON/CSV. Every usage-error path also exercised live
+      (`alerts`/`apikey` with no subcommand, `apikey create` with no name, `search`
+      with an unrecognized flag, `export --format bogus`) - all surfaced the expected
+      message. Test rule/key deleted and stack torn down after (volumes kept), same
+      as the CLI track above.
 - [x] **Logs Explorer: CSV/XLSX/JSON/XML export + "Share" link.** Client-side-only
       companions to the CLI's `flare export` idea above and to v7's saved-views/
       `?view=<id>` mechanism: a toolbar "Export" dialog that asks the user to pick both
