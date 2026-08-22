@@ -95,7 +95,33 @@
 	let caretBeforeText = $state('');
 	let dropdownPosition = $state({ top: 0, left: 0 });
 
+	// Set right before a keystroke that should explicitly dismiss the dropdown instead of
+	// letting the very next input event immediately recompute (and likely reopen) it - see
+	// handleKeydown's Space case below. A one-shot flag rather than skipping the oninput
+	// call entirely, so normal typing right after still works the moment this is consumed.
+	let suppressNextSuggestionUpdate = false;
+
+	// Arrow-key/Home/End cursor moves don't change the text, so they never fire oninput -
+	// keyup is the only signal for those. Deliberately NOT wired for every key: a printable
+	// key (space included) already triggers oninput for the same keystroke, and re-running
+	// here too would immediately re-open a dropdown Space just closed (see handleKeydown's
+	// Space case) before suppressNextSuggestionUpdate's one-shot ever gets to matter.
+	function handleKeyup(e: KeyboardEvent) {
+		// While the dropdown is open, Up/Down navigate its list instead of the cursor (see
+		// handleKeydown - preventDefault'd there) - recomputing here would reset
+		// activeSuggestionIndex back to 0 on every press, breaking that navigation.
+		if (suggestionResult && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+			updateSuggestions();
+		}
+	}
+
 	function updateSuggestions() {
+		if (suppressNextSuggestionUpdate) {
+			suppressNextSuggestionUpdate = false;
+			suggestionResult = null;
+			return;
+		}
 		if (!textareaEl) {
 			suggestionResult = null;
 			return;
@@ -217,6 +243,16 @@
 			}
 			if (e.key === 'Escape') {
 				suggestionResult = null;
+				return;
+			}
+			if (e.key === ' ') {
+				// A deliberate "no, I don't want a suggestion" dismissal, same intent as
+				// Escape, but (unlike Escape) the space itself should still be typed
+				// normally - just not immediately reopen the dropdown for the new word
+				// boundary it creates, or Enter right after would still be swallowed as
+				// "accept suggestion" instead of running the query.
+				suggestionResult = null;
+				suppressNextSuggestionUpdate = true;
 				return;
 			}
 		}
@@ -388,8 +424,8 @@
 						onkeydown={handleKeydown}
 						onscroll={syncHighlightScroll}
 						oninput={updateSuggestions}
-						onclick={updateSuggestions}
-						onkeyup={updateSuggestions}
+						onclick={() => (suggestionResult = null)}
+						onkeyup={handleKeyup}
 						onblur={() => (suggestionResult = null)}
 						role="combobox"
 						aria-autocomplete="list"
