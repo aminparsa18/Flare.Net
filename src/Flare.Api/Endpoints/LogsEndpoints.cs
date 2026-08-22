@@ -2,6 +2,7 @@ using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Flare.Api.Query.LogQl;
 
 namespace Flare.Api.Endpoints;
 
@@ -22,6 +23,7 @@ public static class LogsEndpoints
         endpoints.MapPost("/api/logs/patterns", HandlePatternsAsync);
         endpoints.MapPost("/api/logs/numeric-attribute-keys", HandleNumericAttributeKeysAsync);
         endpoints.MapPost("/api/logs/value-distribution", HandleValueDistributionAsync);
+        endpoints.MapPost("/api/logs/query", HandleQlQueryAsync);
         return endpoints;
     }
 
@@ -146,6 +148,39 @@ public static class LogsEndpoints
         }
         catch (ArgumentOutOfRangeException ex)
         {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+    }
+
+    private static async Task<IResult> HandleQlQueryAsync(
+        HttpContext http,
+        ILogQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        LogQlQueryRequest? request;
+        try
+        {
+            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogQlQueryRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Query))
+        {
+            return Results.Problem("A non-empty \"query\" is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        try
+        {
+            var response = await queryService.RunQlQueryAsync(request, cancellationToken);
+            return Results.Json(response, LogsJsonContext.Default.LogQlQueryResponse);
+        }
+        catch (LogQlParseException ex)
+        {
+            // ex.Message is written to be user-facing (see LogQlParseException's remarks)
+            // - reaches SqlQueryRow.svelte verbatim via runLogQlQuery's Problem-body read.
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
     }

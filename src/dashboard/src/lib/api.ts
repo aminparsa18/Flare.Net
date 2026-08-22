@@ -207,6 +207,58 @@ export async function getLogValueDistribution(
 	return res.json();
 }
 
+// ---- POST /api/logs/query (LogQlQueryRequest.cs) --------------------------
+// The Logs page's SQL-query-row feature - a constrained SQL-like grammar
+// (`select count(*)|* from stream [where ...] [group by time(1h)[, service|level]]`)
+// parsed and translated server-side (see Flare.Api's Query/LogQl/LogQlParser.cs for the
+// grammar), never passed through to ClickHouse as raw text. `from`/`to` are the page's
+// *current time range* (same resolution VolumeChart.svelte's own currentRange() does) -
+// not part of the query text. The toolbar's service/severity/search filters are
+// deliberately not applied here; the query's own `where` clause is the only filter.
+
+export type LogQlResultKind = 'Count' | 'Series' | 'Rows';
+
+export interface LogQlQueryRequest {
+	query: string;
+	from?: string;
+	to?: string;
+}
+
+export interface LogQlQueryResponse {
+	kind: LogQlResultKind;
+	count: number | null;
+	buckets: LogAggregateBucket[] | null;
+	events: LogEventDto[] | null;
+	hasMoreRows: boolean;
+}
+
+/**
+ * Unlike every other function in this file, a non-OK response here reads the JSON
+ * `ProblemDetails` body (`Results.Problem(ex.Message, ...)` server-side - see
+ * LogsEndpoints.HandleQlQueryAsync) and throws its `detail`/`title` instead of a generic
+ * "status statusText" string - a parser error like "Unknown column 'Sevrity'" needs to
+ * reach SqlQueryRow.svelte verbatim, not as "POST /api/logs/query failed: 400 Bad Request".
+ */
+export async function runLogQlQuery(request: LogQlQueryRequest, signal?: AbortSignal): Promise<LogQlQueryResponse> {
+	const res = await apiFetch(`${API_BASE_URL}/api/logs/query`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request),
+		signal
+	});
+	if (!res.ok) {
+		let message = `POST /api/logs/query failed: ${res.status} ${res.statusText}`;
+		try {
+			const problem = await res.json();
+			message = problem?.detail || problem?.title || message;
+		} catch {
+			// Body wasn't JSON (or was empty) - fall back to the generic message above.
+		}
+		throw new Error(message);
+	}
+	return res.json();
+}
+
 // ---- POST /api/logs/patterns (LogPatternModels.cs) -------------------------
 //
 // Ranked Drain-cluster ("log pattern detection") view - "GET /api/orders/123" and
