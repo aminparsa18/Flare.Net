@@ -7,11 +7,13 @@
 	// extra, shouldn't claim vertical space above the log table until opened once)
 	// and explicit Run only - no reactive $effect re-running it on every filter/keystroke
 	// change, matching Seq's own SQL bar and avoiding a query per keystroke.
+	import { tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { runLogQlQuery, type LogAggregateBucket, type LogQlQueryResponse } from '$lib/api';
 	import { resolveTimeRange } from '$lib/logs/time-range';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { tokenizeLogQl, TOKEN_COLOR_VARS } from '$lib/logs/sql-highlight';
+	import { getLogQlSuggestions, type LogQlSuggestion, type LogQlSuggestionResult } from '$lib/logs/sql-autocomplete';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Button } from '$lib/components/ui/button';
@@ -71,6 +73,44 @@
 		highlightEl.scrollLeft = textarea.scrollLeft;
 	}
 
+	// Autocomplete: so a user who doesn't already know the grammar can discover what's
+	// available (keywords/columns/functions) as they type - see sql-autocomplete.ts for
+	// the actual context walk. Recomputed imperatively (not a $derived off queryText)
+	// since it also depends on caret position, a plain DOM property with no reactive
+	// signal of its own - every place the caret can move (typing, click, arrow keys)
+	// calls updateSuggestions() directly instead.
+	let textareaEl: HTMLTextAreaElement | null = $state(null);
+	let suggestionResult = $state<LogQlSuggestionResult | null>(null);
+	let activeSuggestionIndex = $state(0);
+
+	function updateSuggestions() {
+		if (!textareaEl) {
+			suggestionResult = null;
+			return;
+		}
+		const cursorPos = textareaEl.selectionStart ?? queryText.length;
+		const next = getLogQlSuggestions(queryText, cursorPos);
+		suggestionResult = next.suggestions.length > 0 ? next : null;
+		activeSuggestionIndex = 0;
+	}
+
+	/** Replaces the in-progress word (suggestionResult.wordStart..caret) with the accepted suggestion's text. */
+	async function acceptSuggestion(suggestion: LogQlSuggestion) {
+		if (!suggestionResult || !textareaEl) return;
+		const cursorPos = textareaEl.selectionStart ?? queryText.length;
+		const before = queryText.slice(0, suggestionResult.wordStart);
+		const after = queryText.slice(cursorPos);
+		queryText = before + suggestion.insertText + after;
+		const newCaretPos = before.length + suggestion.insertText.length;
+		suggestionResult = null;
+		// bind:value only reflects the new text into the DOM after this tick - the caret
+		// position has to be set after that, or it's clamped against the still-stale value.
+		await tick();
+		textareaEl.focus();
+		textareaEl.setSelectionRange(newCaretPos, newCaretPos);
+		updateSuggestions();
+	}
+
 	$effect(() => {
 		const value = accordionValue;
 		if (!browser) return;
@@ -105,6 +145,7 @@
 		if (!query || running) return;
 		running = true;
 		error = null;
+		suggestionResult = null;
 		if (browser) {
 			try {
 				localStorage.setItem(QUERY_STORAGE_KEY, queryText);
@@ -123,11 +164,35 @@
 		}
 	}
 
-	// Enter runs the query (same as clicking Run); Shift+Enter falls through to the
-	// textarea's own default behavior and inserts a newline instead - standard
-	// chat-input convention (Slack, ChatGPT, etc.) for a box that's both multi-line and
-	// has a keyboard-driven "submit".
+	// When the suggestion dropdown is open, arrow keys move the highlighted row and
+	// Enter/Tab accept it instead of their usual meaning (run / leave the field) -
+	// standard combobox keyboard convention. Otherwise: Enter runs the query (same as
+	// clicking Run); Shift+Enter falls through to the textarea's own default behavior and
+	// inserts a newline instead (Slack/ChatGPT's submit-vs-newline convention).
 	function handleKeydown(e: KeyboardEvent) {
+		if (suggestionResult) {
+			const { suggestions } = suggestionResult;
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				activeSuggestionIndex = (activeSuggestionIndex + 1) % suggestions.length;
+				return;
+			}
+			if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				activeSuggestionIndex = (activeSuggestionIndex - 1 + suggestions.length) % suggestions.length;
+				return;
+			}
+			if (e.key === 'Enter' || e.key === 'Tab') {
+				e.preventDefault();
+				void acceptSuggestion(suggestions[activeSuggestionIndex]);
+				return;
+			}
+			if (e.key === 'Escape') {
+				suggestionResult = null;
+				return;
+			}
+		}
+
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			run();
@@ -138,6 +203,7 @@
 		queryText = '';
 		result = null;
 		error = null;
+		suggestionResult = null;
 	}
 
 	// ---- Series (grouped-by-time count) rendering -----------------------------
@@ -278,12 +344,21 @@
 						class="pointer-events-none absolute inset-0 m-0 overflow-hidden rounded-md border border-transparent px-2 py-2 font-mono text-sm break-words whitespace-pre-wrap md:text-xs/relaxed"
 					>{#each highlightTokens as token, i (i)}<span style={TOKEN_COLOR_VARS[token.type] ? `color: ${TOKEN_COLOR_VARS[token.type]}` : undefined}>{token.text}</span>{/each}</pre>
 					<Textarea
+						bind:ref={textareaEl}
 						class="min-h-24 relative bg-transparent pr-7 font-mono text-transparent"
 						style="caret-color: var(--foreground);"
 						placeholder="select count(*) from stream group by time(1h)"
 						bind:value={queryText}
 						onkeydown={handleKeydown}
 						onscroll={syncHighlightScroll}
+						oninput={updateSuggestions}
+						onclick={updateSuggestions}
+						onkeyup={updateSuggestions}
+						onblur={() => (suggestionResult = null)}
+						role="combobox"
+						aria-autocomplete="list"
+						aria-expanded={suggestionResult !== null}
+						aria-controls="sql-query-suggestions"
 					/>
 					{#if queryText}
 						<button
@@ -294,6 +369,40 @@
 						>
 							<XIcon class="size-3.5" />
 						</button>
+					{/if}
+					{#if suggestionResult}
+						<!-- mousedown (not click), with preventDefault, so picking a suggestion never
+						     blurs the textarea first - that would fire the onblur close handler above
+						     before the click itself is ever handled. -->
+						<ul
+							id="sql-query-suggestions"
+							role="listbox"
+							class="bg-popover text-popover-foreground absolute top-full left-0 z-20 mt-1 max-h-48 w-full min-w-56 overflow-auto rounded-md border py-1 shadow-md"
+						>
+							{#each suggestionResult.suggestions as suggestion, i (suggestion.label)}
+								<li role="presentation">
+									<button
+										type="button"
+										role="option"
+										aria-selected={i === activeSuggestionIndex}
+										class={[
+											'flex w-full items-baseline justify-between gap-3 px-2 py-1 text-left font-mono text-xs',
+											i === activeSuggestionIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
+										]}
+										onmousedown={(e) => {
+											e.preventDefault();
+											void acceptSuggestion(suggestion);
+										}}
+										onmouseenter={() => (activeSuggestionIndex = i)}
+									>
+										<span>{suggestion.label}</span>
+										{#if suggestion.detail}
+											<span class="text-muted-foreground shrink-0 font-sans text-[10px]">{suggestion.detail}</span>
+										{/if}
+									</button>
+								</li>
+							{/each}
+						</ul>
 					{/if}
 				</div>
 				<Button
