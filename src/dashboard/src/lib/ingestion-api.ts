@@ -6,7 +6,7 @@
 import { API_BASE_URL, apiFetch } from './api';
 
 export type IngestionSignal = 'Logs' | 'Traces' | 'Metrics';
-export type IngestionProtocol = 'Grpc' | 'Http';
+export type IngestionProtocol = 'Grpc' | 'Http' | 'Scrape';
 
 export interface IngestionBucketPoint {
 	bucketStart: string;

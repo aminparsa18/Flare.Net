@@ -2,6 +2,19 @@
 // byte formatter anywhere else in the dashboard to reuse (every other page counts events,
 // never bytes).
 
+import type { IngestionProtocol } from '../ingestion-api';
+
+// Short protocol label, e.g. for a "Logs · gRPC" filter badge - distinct from the longer
+// "gRPC :4317"/"Prometheus scrape" receiver-row labels IngestionReceivers.svelte/
+// IngestionSignalsTable.svelte/the terminal `ingestion` command each keep as their own
+// local per-surface array (same precedent 3 independent surfaces already followed before
+// Scrape existed). This one centralizes the short form specifically because
+// RejectedTelemetryDialog.svelte and IngestionLog.svelte (twice) were duplicating the
+// exact same ternary before Scrape needed a third branch everywhere.
+export function protocolLabel(protocol: IngestionProtocol): string {
+	return protocol === 'Grpc' ? 'gRPC' : protocol === 'Http' ? 'HTTP' : 'Scrape';
+}
+
 const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
 
 export function formatCount(n: number): string {

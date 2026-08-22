@@ -248,7 +248,7 @@ internal sealed class IngestionCommand : AsyncCommand<IngestionCommand.Settings>
         table.AddColumn("Status");
         table.AddColumn(new TableColumn("Requests").RightAligned());
 
-        foreach (var (protocol, label) in new[] { ("Grpc", "gRPC :4317"), ("Http", "HTTP :4318") })
+        foreach (var (protocol, label) in new[] { ("Grpc", "gRPC :4317"), ("Http", "HTTP :4318"), ("Scrape", "Prometheus scrape") })
         {
             var matching = stats.Buckets.Where(b => b.Protocol == protocol).ToList();
             var requests = matching.Sum(b => b.Requests);

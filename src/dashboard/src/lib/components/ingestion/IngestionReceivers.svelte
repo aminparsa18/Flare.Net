@@ -21,7 +21,8 @@
 
 	const PROTOCOLS: { value: IngestionProtocol; label: string }[] = [
 		{ value: 'Grpc', label: 'gRPC :4317' },
-		{ value: 'Http', label: 'HTTP :4318' }
+		{ value: 'Http', label: 'HTTP :4318' },
+		{ value: 'Scrape', label: 'Prometheus scrape' }
 	];
 
 	const rows = $derived.by(() => {

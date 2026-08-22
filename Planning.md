@@ -2469,6 +2469,43 @@ protocol through all of that is real, separate work, deferred rather than rushed
       `metrics_gauge`/`metrics_sum`/`metrics_histogram` tables and render on the dashboard's
       Metrics page) — same "code+unit-verified, live e2e pending" gap v14–v19 each flagged
       for themselves.
+- [x] **Follow-up (2026-08-22): the deferred Ingestion-page stats/UI integration above,
+      picked up the same day.** `IngestionProtocol` (both the `Flare.Ingest`/`Flare.Api`
+      copies, kept in sync by convention like every other pairing between the two) gained
+      a third `Scrape` member, and `PrometheusScrapeWorker` now calls
+      `IIngestionStatsTracker.RecordAcceptedAsync`/`RecordRejectedAsync` (reasons
+      `scrape-status:{code}`/`scrape-failed:{ExceptionType}`) tagged with it — a distinct
+      protocol, not folded into `Http`, so it gets its own counters rather than corrupting
+      the real "HTTP :4318" ones. Also wired `RecordServiceBreakdownAsync` (reusing
+      `ServiceBreakdown.Build` unchanged), closing a related gap the backend-only scope
+      left: scraped targets' services were invisible on the Service-breakdown panel too,
+      not just absent from the receiver rows.
+      `IngestionStatsQueryService`/`IngestionJsonContext` needed no code changes —
+      `Signals`/`Protocols` are already derived via `Enum.GetValues<T>()`, so the response's
+      dense per-minute bucket grid picked up the new value automatically (6 → 9 combos/min;
+      the two new non-Metrics ones, Logs/Traces × Scrape, are always zero, harmless). Every
+      UI surface that hardcoded exactly `{Grpc, Http}` got a third branch:
+      `IngestionReceivers.svelte`/`IngestionSignalsTable.svelte` (`+1` row apiece,
+      `IngestionSignalsTable.svelte` for `Metrics` only — Logs/Traces never scrape, so this
+      is a 7th row, not a full 3rd signal column), the `ingestion` terminal command, and
+      `Flare.Cli`'s `IngestionCommand` (a separate hand-port, no code-sharing boundary with
+      the dashboard). Introduced one new shared helper,
+      `ingestion/format.ts`'s `protocolLabel()`, deduplicating a short-label ternary that
+      `RejectedTelemetryDialog.svelte`/`IngestionLog.svelte` (×2) had each copy-pasted
+      before a third branch had to land in all three — the one new cross-cutting
+      abstraction; the longer per-receiver-row labels (`"gRPC :4317"` etc.) stayed as
+      independent local arrays per surface, following the precedent already set before
+      Scrape existed rather than inventing a shared constant for those too.
+      `IngestionChart.svelte`/`ingestion/health.ts` needed no changes at all — both are
+      already signal-only/protocol-agnostic, so Scrape traffic flows into the existing
+      per-signal chart lines and health/status computations automatically.
+      `dotnet test`: `Flare.Ingest.Tests` 160 passing (up from 157, 3 new `Scrape`
+      `IngestionStatsKeys.FieldPrefix` cases), `Flare.Api.Tests` 442 passing (no test
+      added/removed — the one dense-bucket-count test's assertion updated from `3×3×2` to
+      `3×3×3` in place). Dashboard:
+      `npm run check` (0 errors/warnings) and `npm run build` clean. **Not yet e2e-verified
+      against a real scrape target/live stack** — same gap this item's own parent v20 entry
+      (and v14–v19 before it) already flagged for themselves.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

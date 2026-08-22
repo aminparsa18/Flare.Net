@@ -15,7 +15,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ingestionContext } from '$lib/ingestion/context';
 	import { INGESTION_WINDOW_PRESETS } from '$lib/ingestion/state.svelte';
-	import { formatCount } from '$lib/ingestion/format';
+	import { formatCount, protocolLabel } from '$lib/ingestion/format';
 	import type { IngestionProtocol, IngestionSignal } from '$lib/ingestion-api';
 
 	let {
@@ -98,7 +98,7 @@
 			<div class="grid grid-cols-2 gap-3">
 				<div>
 					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Protocol</div>
-					<div>{protocol === 'Grpc' ? 'gRPC' : 'HTTP'}</div>
+					<div>{protocolLabel(protocol)}</div>
 				</div>
 				<div>
 					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Signal</div>
