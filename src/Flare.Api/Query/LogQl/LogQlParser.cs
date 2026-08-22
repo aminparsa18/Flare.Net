@@ -4,11 +4,11 @@ namespace Flare.Api.Query.LogQl;
 
 /// <summary>
 /// Recursive-descent parser for the SQL-query-row grammar:
-/// <code>select (count(*) | *) from stream [where &lt;bool-expr&gt;] [group by time(&lt;dur&gt;) [, service|level]]</code>
+/// <code>select (* | col[, col...] | count(*) | avg(col) | sum(col)) from stream [where &lt;bool-expr&gt;] [group by time(&lt;dur&gt;) [, service|level]]</code>
 /// Keywords/column/group names are case-insensitive. See <c>LogQlAst.cs</c> for the
 /// produced tree and this feature's plan doc for the full grammar writeup, including why
 /// it's deliberately this small (no bare/numeric literals, no un-time-bucketed group by,
-/// group by only valid with count(*)).
+/// group by only valid with an aggregate select).
 /// </summary>
 public static class LogQlParser
 {
@@ -62,9 +62,12 @@ public static class LogQlParser
             "BODY" => LogQlColumn.Body,
             "TRACEID" => LogQlColumn.TraceId,
             "SPANID" => LogQlColumn.SpanId,
+            "SEVERITYNUMBER" => LogQlColumn.SeverityNumber,
             _ => throw new LogQlParseException(
-                $"Unknown column '{t.Text}' at position {t.Position}. Supported columns: Service, Level, Body, TraceId, SpanId."),
+                $"Unknown column '{t.Text}' at position {t.Position}. Supported columns: Service, Level, Body, TraceId, SpanId, SeverityNumber."),
         };
+
+        bool IsNumericColumn(LogQlColumn column) => column == LogQlColumn.SeverityNumber;
 
         LogQlOp ResolveOp(string opText) => opText switch
         {
@@ -81,6 +84,11 @@ public static class LogQlParser
         {
             var columnToken = ExpectKind(LogQlTokenKind.Identifier, "a column name");
             var column = ResolveColumn(columnToken);
+            if (column == LogQlColumn.SeverityNumber)
+            {
+                throw new LogQlParseException(
+                    $"SeverityNumber isn't supported in 'where' yet at position {columnToken.Position} - only in 'select' and avg()/sum().");
+            }
 
             if (IsIdentifier(Current(), "like"))
             {
@@ -207,28 +215,73 @@ public static class LogQlParser
             return new LogQlGroupBy(seconds, secondary);
         }
 
+        LogQlSelect ParseAggregate(LogQlAggFunc func)
+        {
+            Advance(); // the function-name identifier itself (already peeked by the caller)
+            ExpectKind(LogQlTokenKind.LParen, "'('");
+            if (func == LogQlAggFunc.Count)
+            {
+                ExpectKind(LogQlTokenKind.Star, "'*'");
+                ExpectKind(LogQlTokenKind.RParen, "')'");
+                return new LogQlSelectAggregate(LogQlAggFunc.Count, null);
+            }
+
+            var columnToken = ExpectKind(LogQlTokenKind.Identifier, "a column name");
+            var column = ResolveColumn(columnToken);
+            if (!IsNumericColumn(column))
+            {
+                var funcName = func == LogQlAggFunc.Avg ? "avg" : "sum";
+                throw new LogQlParseException(
+                    $"{funcName}() needs a numeric column at position {columnToken.Position} - SeverityNumber is the only numeric column today.");
+            }
+
+            ExpectKind(LogQlTokenKind.RParen, "')'");
+            return new LogQlSelectAggregate(func, column);
+        }
+
+        LogQlSelect ParseSelectColumns()
+        {
+            var columns = new List<LogQlColumn> { ResolveColumn(ExpectKind(LogQlTokenKind.Identifier, "a column name, '*', or an aggregate like count(*)")) };
+            while (Current().Kind == LogQlTokenKind.Comma)
+            {
+                Advance();
+                columns.Add(ResolveColumn(ExpectKind(LogQlTokenKind.Identifier, "a column name")));
+            }
+
+            return new LogQlSelectColumns(columns);
+        }
+
         // ---- entry point -------------------------------------------------
 
         ExpectIdentifier("select");
 
-        LogQlSelectKind selectKind;
+        LogQlSelect select;
         if (Current().Kind == LogQlTokenKind.Star)
         {
             Advance();
-            selectKind = LogQlSelectKind.Raw;
+            select = new LogQlSelectStar();
         }
         else if (IsIdentifier(Current(), "count"))
         {
-            Advance();
-            ExpectKind(LogQlTokenKind.LParen, "'('");
-            ExpectKind(LogQlTokenKind.Star, "'*'");
-            ExpectKind(LogQlTokenKind.RParen, "')'");
-            selectKind = LogQlSelectKind.Count;
+            select = ParseAggregate(LogQlAggFunc.Count);
+        }
+        else if (IsIdentifier(Current(), "avg"))
+        {
+            select = ParseAggregate(LogQlAggFunc.Avg);
+        }
+        else if (IsIdentifier(Current(), "sum"))
+        {
+            select = ParseAggregate(LogQlAggFunc.Sum);
+        }
+        else if (Current().Kind == LogQlTokenKind.Identifier)
+        {
+            select = ParseSelectColumns();
         }
         else
         {
             var t = Current();
-            throw new LogQlParseException($"Expected '*' or 'count(*)' after SELECT at position {t.Position}, found '{DescribeToken(t)}'.");
+            throw new LogQlParseException(
+                $"Expected '*', a column list, or an aggregate (count(*), avg(...), sum(...)) after SELECT at position {t.Position}, found '{DescribeToken(t)}'.");
         }
 
         ExpectIdentifier("from");
@@ -255,12 +308,12 @@ public static class LogQlParser
             throw new LogQlParseException($"Unexpected '{DescribeToken(t)}' at position {t.Position}.");
         }
 
-        if (groupBy is not null && selectKind != LogQlSelectKind.Count)
+        if (groupBy is not null && select is not LogQlSelectAggregate)
         {
-            throw new LogQlParseException("'group by' requires 'select count(*)' - 'select *' can't be grouped.");
+            throw new LogQlParseException("'group by' requires an aggregate select (count(*), avg(...), or sum(...)).");
         }
 
-        return new LogQlQuery(selectKind, where, groupBy);
+        return new LogQlQuery(select, where, groupBy);
     }
 
     private static string DescribeToken(LogQlToken t) => t.Kind == LogQlTokenKind.Eof ? "end of query" : t.Text;

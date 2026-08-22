@@ -7,13 +7,25 @@ namespace Flare.Api.Query.LogQl;
 /// can compile to a parameterized ClickHouse fragment, so there's no path from user text
 /// to literal SQL.
 /// </summary>
-public sealed record LogQlQuery(LogQlSelectKind Select, LogQlExpr? Where, LogQlGroupBy? GroupBy);
+public sealed record LogQlQuery(LogQlSelect Select, LogQlExpr? Where, LogQlGroupBy? GroupBy);
 
-/// <summary><c>count(*)</c> (an aggregate) vs. <c>*</c> (raw matching events).</summary>
-public enum LogQlSelectKind
+/// <summary>Base type for a <c>select</c> list - exactly one of <see cref="LogQlSelectStar"/>/<see cref="LogQlSelectColumns"/>/<see cref="LogQlSelectAggregate"/>.</summary>
+public abstract record LogQlSelect;
+
+/// <summary><c>select *</c> - every column (the existing full-<c>LogEventDto</c> row shape).</summary>
+public sealed record LogQlSelectStar : LogQlSelect;
+
+/// <summary><c>select Col1, Col2, ...</c> - a specific projection, rendered as a generic column/row table (not the full event shape).</summary>
+public sealed record LogQlSelectColumns(IReadOnlyList<LogQlColumn> Columns) : LogQlSelect;
+
+/// <summary><c>select count(*)</c> / <c>avg(Col)</c> / <c>sum(Col)</c>. <see cref="Column"/> is null only for <see cref="LogQlAggFunc.Count"/>.</summary>
+public sealed record LogQlSelectAggregate(LogQlAggFunc Func, LogQlColumn? Column) : LogQlSelect;
+
+public enum LogQlAggFunc
 {
     Count,
-    Raw,
+    Avg,
+    Sum,
 }
 
 /// <summary>
@@ -25,7 +37,14 @@ public enum LogQlSelectKind
 /// </summary>
 public sealed record LogQlGroupBy(int TimeBucketSeconds, Model.LogAggregateGroupBy Secondary);
 
-/// <summary>Closed column allowlist for <c>where</c> comparisons - never request text past this point, same shape as <see cref="LogFilterSqlBuilder"/>'s attribute-bag enum.</summary>
+/// <summary>
+/// Closed column allowlist - never request text past this point, same shape as
+/// <see cref="LogFilterSqlBuilder"/>'s attribute-bag enum. <see cref="SeverityNumber"/> is
+/// select/aggregate-only (the only numeric column exposed today) - <see cref="LogQlParser"/>
+/// rejects it in a <c>where</c> comparison with its own explicit message, since every
+/// literal there is a string (see this grammar's "no bare/numeric literals" restriction),
+/// which would silently type-mismatch against a numeric column.
+/// </summary>
 public enum LogQlColumn
 {
     Service,
@@ -33,6 +52,7 @@ public enum LogQlColumn
     Body,
     TraceId,
     SpanId,
+    SeverityNumber,
 }
 
 public enum LogQlOp

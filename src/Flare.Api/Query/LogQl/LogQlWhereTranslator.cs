@@ -71,13 +71,21 @@ public static class LogQlWhereTranslator
         return $"{column} {sqlOp} {{{paramName}:String}}";
     }
 
-    private static string ColumnName(LogQlColumn column) => column switch
+    /// <summary>
+    /// Real ClickHouse column name for every <see cref="LogQlColumn"/>. Used both here
+    /// (where-clause translation) and by <c>LogQlQueryBuilder</c> for select/aggregate SQL -
+    /// <see cref="LogQlColumn.SeverityNumber"/> is never actually reachable from a where
+    /// clause (the parser rejects it there - see LogQlParser.ParseComparison), but the
+    /// mapping still needs an entry here for the switch to stay exhaustive.
+    /// </summary>
+    internal static string ColumnName(LogQlColumn column) => column switch
     {
         LogQlColumn.Service => "ServiceName",
         LogQlColumn.Level => "SeverityText",
         LogQlColumn.Body => "Body",
         LogQlColumn.TraceId => "TraceId",
         LogQlColumn.SpanId => "SpanId",
+        LogQlColumn.SeverityNumber => "SeverityNumber",
         _ => throw new InvalidOperationException($"Unhandled LogQlColumn '{column}'."),
     };
 }

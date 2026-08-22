@@ -32,6 +32,9 @@ public enum LogQlResultKind
 
     /// <summary><c>select * from stream ...</c> - up to <c>Query.LogQl.LogQlQueryBuilder.RawRowLimit</c> raw matching events.</summary>
     Rows,
+
+    /// <summary><c>select Col1, Col2, ... from stream ...</c> - a specific column projection, up to <c>Query.LogQl.LogQlQueryBuilder.RawRowLimit</c> rows.</summary>
+    Table,
 }
 
 /// <summary>Response body for <c>POST /api/logs/query</c>.</summary>
@@ -39,8 +42,13 @@ public sealed record LogQlQueryResponse
 {
     public required LogQlResultKind Kind { get; init; }
 
-    /// <summary>Populated only when <see cref="Kind"/> is <see cref="LogQlResultKind.Count"/>.</summary>
-    public long? Count { get; init; }
+    /// <summary>
+    /// Populated only when <see cref="Kind"/> is <see cref="LogQlResultKind.Count"/> - the
+    /// one computed <c>count(*)</c>/<c>avg(...)</c>/<c>sum(...)</c> value. <c>double</c> (not
+    /// <c>long</c>) since <c>avg()</c> is fractional; a whole <c>count()</c> result still
+    /// round-trips through JSON exactly (e.g. `25`, not `25.0`).
+    /// </summary>
+    public double? Count { get; init; }
 
     /// <summary>Populated only when <see cref="Kind"/> is <see cref="LogQlResultKind.Series"/> - same bucket shape <c>/api/logs/aggregate</c> already returns.</summary>
     public IReadOnlyList<LogAggregateBucket>? Buckets { get; init; }
@@ -48,6 +56,12 @@ public sealed record LogQlQueryResponse
     /// <summary>Populated only when <see cref="Kind"/> is <see cref="LogQlResultKind.Rows"/>.</summary>
     public IReadOnlyList<LogEventDto>? Events { get; init; }
 
-    /// <summary><see cref="Kind"/> is <see cref="LogQlResultKind.Rows"/> and more than <c>Query.LogQl.LogQlQueryBuilder.RawRowLimit</c> events matched - narrow the query/time range for the rest, there's no pagination here.</summary>
+    /// <summary>Populated only when <see cref="Kind"/> is <see cref="LogQlResultKind.Table"/> - the selected columns' display names, in select order.</summary>
+    public IReadOnlyList<string>? Columns { get; init; }
+
+    /// <summary>Populated only when <see cref="Kind"/> is <see cref="LogQlResultKind.Table"/> - each row's cell values, stringified, aligned with <see cref="Columns"/>.</summary>
+    public IReadOnlyList<IReadOnlyList<string>>? Rows { get; init; }
+
+    /// <summary><see cref="Kind"/> is <see cref="LogQlResultKind.Rows"/>/<see cref="LogQlResultKind.Table"/> and more than <c>Query.LogQl.LogQlQueryBuilder.RawRowLimit</c> rows matched - narrow the query/time range for the rest, there's no pagination here.</summary>
     public bool HasMoreRows { get; init; }
 }

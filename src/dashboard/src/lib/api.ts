@@ -216,7 +216,7 @@ export async function getLogValueDistribution(
 // not part of the query text. The toolbar's service/severity/search filters are
 // deliberately not applied here; the query's own `where` clause is the only filter.
 
-export type LogQlResultKind = 'Count' | 'Series' | 'Rows';
+export type LogQlResultKind = 'Count' | 'Series' | 'Rows' | 'Table';
 
 export interface LogQlQueryRequest {
 	query: string;
@@ -226,9 +226,14 @@ export interface LogQlQueryRequest {
 
 export interface LogQlQueryResponse {
 	kind: LogQlResultKind;
+	/** Count kind only - a plain count(*)/avg(...)/sum(...) result. Fractional for avg(). */
 	count: number | null;
 	buckets: LogAggregateBucket[] | null;
 	events: LogEventDto[] | null;
+	/** Table kind only - the selected columns' display names (e.g. `select Service, Body ...`), in select order. */
+	columns: string[] | null;
+	/** Table kind only - each row's cell values, stringified, aligned with `columns`. */
+	rows: string[][] | null;
 	hasMoreRows: boolean;
 }
 

@@ -152,7 +152,7 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
             var bucketStart = ReadUtc(reader, 0);
             var groupKey = built.HasGroupKey ? reader.GetString(1) : null;
             var count = reader.GetFieldValue<ulong>(built.HasGroupKey ? 2 : 1);
-            buckets.Add(new LogAggregateBucket { BucketStart = bucketStart, GroupKey = groupKey, Count = (long)count });
+            buckets.Add(new LogAggregateBucket { BucketStart = bucketStart, GroupKey = groupKey, Count = count });
         }
 
         return new LogAggregateResponse { Buckets = buckets };
@@ -171,25 +171,36 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
         {
             case LogQlDispatchKind.Count:
             {
-                var count = reader.Read() ? (long)reader.GetFieldValue<ulong>(0) : 0;
+                // Every aggregate select (count()/avg()/sum()) is wrapped in toFloat64(...)
+                // by LogQlQueryBuilder, so this is always a plain double read - see its own
+                // remarks. avg() over zero matching rows is NaN (0.0/0.0, not an error - a
+                // bare aggregate query with no GROUP BY still always returns exactly one
+                // row), which System.Text.Json can't serialize - sanitized to 0 here rather
+                // than surfacing as a 500 for an otherwise-valid "nothing matched" query.
+                var raw = reader.Read() ? reader.GetDouble(0) : 0;
+                var count = double.IsNaN(raw) || double.IsInfinity(raw) ? 0 : raw;
                 return new LogQlQueryResponse { Kind = LogQlResultKind.Count, Count = count };
             }
 
             case LogQlDispatchKind.Series:
             {
+                // Same toFloat64(...) wrapping as the Count case above - a plain double
+                // read regardless of which aggregate ran. Never NaN here: GROUP BY only
+                // ever emits a row for a bucket that actually has >=1 matching event, so
+                // avg()'s divisor can't be zero within an emitted bucket.
                 var buckets = new List<LogAggregateBucket>();
                 while (reader.Read())
                 {
                     var bucketStart = ReadUtc(reader, 0);
                     var groupKey = built.HasGroupKey ? reader.GetString(1) : null;
-                    var count = reader.GetFieldValue<ulong>(built.HasGroupKey ? 2 : 1);
-                    buckets.Add(new LogAggregateBucket { BucketStart = bucketStart, GroupKey = groupKey, Count = (long)count });
+                    var value = reader.GetDouble(built.HasGroupKey ? 2 : 1);
+                    buckets.Add(new LogAggregateBucket { BucketStart = bucketStart, GroupKey = groupKey, Count = value });
                 }
 
                 return new LogQlQueryResponse { Kind = LogQlResultKind.Series, Buckets = buckets };
             }
 
-            default: // Rows
+            case LogQlDispatchKind.Rows:
             {
                 // See LogQlQueryBuilder.RawRowLimit's remarks - BuildFromFilterSql asked
                 // for one extra row (same "detect another page exists" trick SearchAsync
@@ -203,6 +214,36 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
                 var hasMore = rows.Count > LogQlQueryBuilder.RawRowLimit;
                 var events = hasMore ? rows.GetRange(0, LogQlQueryBuilder.RawRowLimit) : rows;
                 return new LogQlQueryResponse { Kind = LogQlResultKind.Rows, Events = events, HasMoreRows = hasMore };
+            }
+
+            default: // Table
+            {
+                // Same "ask for one extra row" trick as Rows above. Every selected column
+                // here is one of the fixed scalar String/UInt8 columns LogQlColumn allows
+                // (see LogQlWhereTranslator.ColumnName) - generic ToString() reads are safe,
+                // no Map(String, String) attribute-bag columns are selectable this way.
+                var columnCount = built.Columns?.Count ?? 0;
+                var rawRows = new List<List<string>>();
+                while (reader.Read())
+                {
+                    var row = new List<string>(columnCount);
+                    for (var i = 0; i < columnCount; i++)
+                    {
+                        row.Add(reader.IsDBNull(i) ? string.Empty : reader.GetValue(i)?.ToString() ?? string.Empty);
+                    }
+
+                    rawRows.Add(row);
+                }
+
+                var hasMoreRows = rawRows.Count > LogQlQueryBuilder.RawRowLimit;
+                var tableRows = hasMoreRows ? rawRows.GetRange(0, LogQlQueryBuilder.RawRowLimit) : rawRows;
+                return new LogQlQueryResponse
+                {
+                    Kind = LogQlResultKind.Table,
+                    Columns = built.Columns,
+                    Rows = tableRows,
+                    HasMoreRows = hasMoreRows,
+                };
             }
         }
     }

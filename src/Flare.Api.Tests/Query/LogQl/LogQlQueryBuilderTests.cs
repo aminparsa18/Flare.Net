@@ -15,7 +15,7 @@ public class LogQlQueryBuilderTests
         var built = LogQlQueryBuilder.Build(new LogQlQueryRequest { Query = "select count(*) from stream" }, Now);
 
         Assert.Equal(LogQlDispatchKind.Count, built.Kind);
-        Assert.Contains("SELECT count() FROM logs WHERE", built.Sql);
+        Assert.Contains("SELECT toFloat64(count()) FROM logs WHERE", built.Sql);
     }
 
     [Fact]
@@ -81,5 +81,35 @@ public class LogQlQueryBuilderTests
     {
         Assert.Throws<LogQlParseException>(() =>
             LogQlQueryBuilder.Build(new LogQlQueryRequest { Query = "not a query" }, Now));
+    }
+
+    [Fact]
+    public void Build_AvgSeverityNumber_DispatchesToCount_WrappedInFloat64()
+    {
+        var built = LogQlQueryBuilder.Build(new LogQlQueryRequest { Query = "select avg(SeverityNumber) from stream" }, Now);
+
+        Assert.Equal(LogQlDispatchKind.Count, built.Kind);
+        Assert.Contains("SELECT toFloat64(avg(SeverityNumber)) FROM logs WHERE", built.Sql);
+    }
+
+    [Fact]
+    public void Build_SumSeverityNumberGroupedByTime_DispatchesToSeries()
+    {
+        var built = LogQlQueryBuilder.Build(
+            new LogQlQueryRequest { Query = "select sum(SeverityNumber) from stream group by time(1h)" }, Now);
+
+        Assert.Equal(LogQlDispatchKind.Series, built.Kind);
+        Assert.Contains("toFloat64(sum(SeverityNumber)) AS Count", built.Sql);
+    }
+
+    [Fact]
+    public void Build_SelectColumnList_DispatchesToTable_WithDisplayNamesAndRealColumns()
+    {
+        var built = LogQlQueryBuilder.Build(new LogQlQueryRequest { Query = "select Service, Body from stream" }, Now);
+
+        Assert.Equal(LogQlDispatchKind.Table, built.Kind);
+        Assert.Equal(["Service", "Body"], built.Columns);
+        Assert.Contains("SELECT ServiceName, Body\nFROM logs", built.Sql);
+        Assert.Equal((uint)(LogQlQueryBuilder.RawRowLimit + 1), built.Parameters.ToDictionary()["limit"]);
     }
 }

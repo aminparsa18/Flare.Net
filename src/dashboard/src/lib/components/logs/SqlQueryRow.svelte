@@ -235,7 +235,10 @@
 		});
 	}
 
-	const compactCount = new Intl.NumberFormat(undefined, { notation: 'compact' });
+	// maximumFractionDigits caps avg()'s fractional results (e.g. avg(SeverityNumber) ->
+	// 12.399999999999998) at 2 decimals - a no-op for plain counts, which are always
+	// whole (Intl doesn't pad trailing zeros without a matching minimumFractionDigits).
+	const compactCount = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 2 });
 	function formatCount(n: number): string {
 		return compactCount.format(n);
 	}
@@ -255,8 +258,10 @@
 						{formatCount(result.count ?? 0)} events
 					{:else if result.kind === 'Series'}
 						{formatCount(totalSeriesCount)} events
-					{:else}
+					{:else if result.kind === 'Rows'}
 						{formatCount(result.events?.length ?? 0)}{result.hasMoreRows ? '+' : ''} events
+					{:else}
+						{formatCount(result.rows?.length ?? 0)}{result.hasMoreRows ? '+' : ''} rows
 					{/if}
 				</span>
 			{/if}
@@ -384,6 +389,36 @@
 					{#if result.hasMoreRows}
 						<p class="text-muted-foreground mt-1 text-[10px]">
 							Showing first {result.events?.length ?? 0} — narrow your query or time range for more.
+						</p>
+					{/if}
+				{/if}
+			{:else if result?.kind === 'Table'}
+				{#if (result.rows?.length ?? 0) === 0}
+					<div class="text-muted-foreground mt-2 flex h-16 items-center justify-center text-xs">No matching events</div>
+				{:else}
+					<div class="mt-2 max-h-64 overflow-auto rounded border">
+						<table class="w-full text-left text-xs">
+							<thead class="bg-muted/50 sticky top-0">
+								<tr>
+									{#each result.columns ?? [] as column (column)}
+										<th class="px-2 py-1 font-medium whitespace-nowrap">{column}</th>
+									{/each}
+								</tr>
+							</thead>
+							<tbody>
+								{#each result.rows ?? [] as row, ri (ri)}
+									<tr class="border-t">
+										{#each row as cell, ci (ci)}
+											<td class="max-w-64 truncate px-2 py-1" title={cell}>{cell}</td>
+										{/each}
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+					{#if result.hasMoreRows}
+						<p class="text-muted-foreground mt-1 text-[10px]">
+							Showing first {result.rows?.length ?? 0} — narrow your query or time range for more.
 						</p>
 					{/if}
 				{/if}
