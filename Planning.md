@@ -567,6 +567,26 @@ actually worked out (see the three bullets below) — closing out the full origi
       authenticated Flare user - not a public/anonymous
       share token; known limitation, not a gap to close here.
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
+- [x] **Benchmark: ingest throughput + query latency proof points.** Shipped
+      2026-08-22 - a proof point for the "Flare inherits HA/scale from ClickHouse +
+      Redis Streams for free" claim discussed elsewhere, measured rather than just
+      asserted. Full methodology/results/reproduction steps:
+      **[docs/benchmark.md](../docs/benchmark.md)**. Two new committed scripts
+      (`scripts/seed-benchmark-logs.py`, `scripts/query-latency-benchmark.py`,
+      stdlib-only Python, no new dependency) plus a small additive
+      `ExampleApp.LogGenerator` change (`/generate-throughput`, a saturating
+      logs-only load generator, isolated from the demo trickle's 5-span-per-log
+      overhead). Headline findings: ingest sustains ~1,000-1,100 events/sec
+      end-to-end, flat across producer concurrency (1/4/16) - traced to the .NET OTel
+      SDK's own default bounded `BatchLogRecordProcessor` queue silently dropping
+      records under contention, not conclusively isolated from `Flare.Ingest`'s own
+      single-threaded pipeline (named follow-up, not done here); query latency
+      across 6 schema-motivated patterns at 5M seeded rows ranged 28.7ms (TraceId
+      exact match) to 337.1ms p50 (unscoped attribute filter) - and, a genuine
+      surprise stated plainly rather than smoothed over, the schema's own named
+      "worst case" (unfiltered all-services aggregate) was *not* the empirical worst
+      case at this scale. This is the RustFS-retention item's deferred sibling from
+      the same track - RustFS itself intentionally not started here.
 - [x] ~~Fix identity-migration race between `ingest`/`api`.~~ **Shipped 2026-08-18** —
       discovered 2026-08-16 while e2e-verifying the `flare` CLI's `destroy` → fresh
       `start` cycle (see above): against a genuinely empty `identity-data` volume,
@@ -2243,12 +2263,20 @@ count, error count, first/last seen; duration is a named Later item requiring a
       convention as `FakeClickHouseLogEventWriter`), `LogPatternQueryBuilderTests`
       (mirrors `LogAggregateQueryBuilderTests`'s exact-SQL-text-assertion style). Dashboard:
       `npm run check` (0 errors) and `npm run build` (clean, `patterns/_page.svelte.js`
-      compiled). **Not yet done**: a live end-to-end run against a real stack (`docker
-      compose up` on a fresh ClickHouse volume so the migration applies, real OTLP
-      traffic with a few distinctly-shaped-but-parameterized routes) confirming the
-      Patterns view actually collapses them correctly and "View examples" round-trips -
-      left for whenever this gets exercised against a real deployment, same gap v14/v15
-      flagged for themselves.
+      compiled). ~~**Not yet done**: a live end-to-end run against a real stack...~~ **Live
+      e2e-verified 2026-08-22.** Fresh `docker compose up --build`, real OTLP traffic
+      via a standalone `ExampleApp.LogGenerator` run (`ConnectionStrings__flare=
+      http://localhost:4317`, no Aspire needed). Patterns modal correctly collapsed
+      parameterized routes into wildcarded templates ("... <*> in <*>" at 5
+      occurrences, "exceeding the 500ms threshold" at 5, etc.) with real Count/
+      Errors/First seen/Last seen columns; "View occurrences" round-tripped
+      correctly - closing the modal and applying `patternId` as a real Logs Explorer
+      filter chip, table showing exactly the matching rows (confirmed via a real
+      `POST /api/logs/patterns` network request, no stale/cached data). No bugs
+      found. (First attempt showed "No patterns yet" against several-hours-old data
+      still sitting in the kept volume from earlier sessions - a time-range mismatch
+      against the modal's default window, not a detection bug; fresh traffic
+      resolved it immediately.)
 
 ### v17 — Trace waterfall polish: continuous demo traces, critical-path highlighting, span counts, Service Map (2026-08-18)
 
@@ -2323,14 +2351,16 @@ into four follow-ups once the underlying data existed to react to.
       changes were confirmed against a **live running AppHost**, not just unit tests -
       pulled real OTLP traces straight from the Aspire dashboard's own collector
       mid-session and verified the exact shape (unique trace ids, correct parent/child
-      links, the fork structure) before trusting it. **Not yet done**: a live visual
-      check of critical-path highlighting, the span-count column, and the new Service
-      Map tab specifically against the running Flare dashboard (the
-      `xracer007/flare-*:edge` Docker images need a fresh pull to pick up each merge -
-      the session's one live check, a `svelte.dev/e/each_key_duplicate` console error,
-      turned out to be a stale cached JS bundle fixed by a hard refresh, not a data bug)
-      - same "left for whenever this gets exercised for real" gap v14/v15/v16 each
-      flagged for themselves.
+      links, the fork structure) before trusting it. ~~**Not yet done**: a live visual check...~~ **Live e2e-verified 2026-08-22**
+      against a real multi-span trace (`ExampleApp.LogGenerator`'s own
+      `handle-request` → `auth-check`/`inventory.query`/`sql.query`/`payment.request`
+      chain, 6 spans). Waterfall tab: "Slowest spans" ranked correctly, critical path
+      correctly highlighted (orange borders on `inventory.query`/`sql.query`) with
+      the callout reading "Critical path · 4 of 6 spans · sql.query accounts for 68%
+      of the trace (264.0ms)" - a real, non-trivial percentage computed from real
+      span durations, not a placeholder. Service Map tab: real graph rendered
+      (`unknown_service:Exam...` / `payment-service` / `inventory-service` /
+      `postgres` nodes, correct per-edge call counts and durations). No bugs found.
 
 ### v18 — Active Directory (LDAP): TLS certificate pinning + chain/bundle support (2026-08-19)
 
@@ -2477,12 +2507,19 @@ stored since v4) and no mutation.
          (a single on-demand field isn't the same clutter a whole column is) - only the
          null-check fix applies there.
       `npm run check` (0 errors, 0 warnings) and `npm run build` (clean) after the fix.
-- [ ] **Not yet done**: the live e2e run above covered paginated search (confirmed real
-      values) and live-tail (confirmed no-duration handling, after the fix above) - not
-      yet re-confirmed: `EventDetailSheet`'s "Span duration" cell against a real
-      correlated event, and that Patterns'/export's query cost is genuinely unaffected.
-      Same "code+unit-verified, live e2e pending" gap v14/v15/v16/v17/v18 each flagged
-      for themselves, now narrowed rather than closed.
+- [x] ~~**Not yet done**: ... `EventDetailSheet`'s "Span duration" cell against a
+      real correlated event, and that Patterns'/export's query cost is genuinely
+      unaffected.~~ **Live e2e-verified 2026-08-22.** Opened a real event's detail
+      sheet: "Span duration: 275.0ms" matched the table's own Duration column
+      exactly (real `TraceId`/`SpanId`/`ParentId` shown alongside it, not
+      placeholders). Confirmed the query-cost claim directly off the wire, not just
+      by re-reading the source: captured the real request bodies via a live network
+      trace - `POST /api/logs/patterns` sends `{"filter":{...}}` with no
+      `includeSpanDuration` key at all; the export dialog's "All matching the
+      filter" flow sends `POST /api/logs/search` with `{"filter":{...},
+      "pageSize":1000}`, also no `includeSpanDuration`; only the main Logs Explorer
+      table's own search request carries `"includeSpanDuration":true`. Exactly the
+      three-way split the code intends. No bugs found.
 
 ### v20 — Prometheus native scrape (2026-08-22)
 
@@ -2554,11 +2591,20 @@ protocol through all of that is real, separate work, deferred rather than rushed
       → `UnsupportedMetricNames`, quoted-label escaping, malformed-line tolerance). No
       dedicated worker-loop test, matching this codebase's existing precedent
       (`MetricFlushWorker`/`SpanFlushWorker` have none either — only their pure pieces do).
-      **Not yet done**: a live e2e run against a real target (point a configured target at
-      an actual `/metrics` endpoint, confirm points land in ClickHouse's
-      `metrics_gauge`/`metrics_sum`/`metrics_histogram` tables and render on the dashboard's
-      Metrics page) — same "code+unit-verified, live e2e pending" gap v14–v19 each flagged
-      for themselves.
+      ~~**Not yet done**: a live e2e run against a real target...~~ **Live
+      e2e-verified 2026-08-22** against a real `prom/node-exporter` container
+      (`PrometheusScrape__Targets__0__*` env vars, no prior docker-compose.yml/
+      .env.example wiring existed for this - added via a throwaway
+      `docker-compose.override.yml`, not committed). Ingest logs confirmed real
+      scrapes every 10s, correctly dropping the one genuinely-unsupported metric
+      shape (`go_gc_duration_seconds`, a Summary) exactly per
+      `PrometheusExpositionParserTests`' documented behavior. Real points landed in
+      both `metrics_gauge` (`node_scrape_collector_success` etc.) and `metrics_sum`
+      (`node_cpu_seconds_total`, 64 series) - confirmed via a direct ClickHouse
+      query, not just app-level trust. Dashboard Metrics page picker listed the real
+      metric names/service/type; charted `node_cpu_seconds_total` and got a real
+      rendered line chart with a real legend (idle/iowait/irq/nice/softirq). No bugs
+      found.
 - [x] **Follow-up (2026-08-22): the deferred Ingestion-page stats/UI integration above,
       picked up the same day.** `IngestionProtocol` (both the `Flare.Ingest`/`Flare.Api`
       copies, kept in sync by convention like every other pairing between the two) gained
@@ -2593,9 +2639,15 @@ protocol through all of that is real, separate work, deferred rather than rushed
       `IngestionStatsKeys.FieldPrefix` cases), `Flare.Api.Tests` 442 passing (no test
       added/removed — the one dense-bucket-count test's assertion updated from `3×3×2` to
       `3×3×3` in place). Dashboard:
-      `npm run check` (0 errors/warnings) and `npm run build` clean. **Not yet e2e-verified
-      against a real scrape target/live stack** — same gap this item's own parent v20 entry
-      (and v14–v19 before it) already flagged for themselves.
+      `npm run check` (0 errors/warnings) and `npm run build` clean.
+      ~~**Not yet e2e-verified against a real scrape target/live stack**~~
+      **Live e2e-verified 2026-08-22**, same pass as the parent v20 entry above.
+      Ingestion page: a real "Prometheus scrape" row in the Receivers table (✓
+      Healthy, 48 req - a 7th row, correctly distinct from gRPC :4317/HTTP :4318),
+      and a real "Metrics · Prometheus scrape" row in the per-signal breakdown table
+      (49 requests) - confirming both the receiver-status and per-signal-count
+      surfaces this item added actually populate from real scrape traffic, not just
+      compile. No bugs found.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
