@@ -43,6 +43,21 @@
 				<p class="text-destructive px-3 py-4 text-xs">{explorer.namesError}</p>
 			{:else}
 				<Command.Empty>No metrics found for the current filters.</Command.Empty>
+				{#if explorer.names.length === 0 && explorer.knownServices.length === 0}
+					<!-- knownServices (not `names`, which is already narrowed by the toolbar's own
+					     filters/this list's own search box) is the wide, unfiltered 7-day signal
+					     that nothing has been ingested at all - same "See how to ingest data" link
+					     LogTable.svelte shows for its own "nothing has arrived yet" case, only shown
+					     here, not for a search/filter that just doesn't match anything real. -->
+					<p class="pb-4 text-center">
+						<a
+							href="/data-sources"
+							class="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4"
+						>
+							See how to ingest data →
+						</a>
+					</p>
+				{/if}
 				<Command.Group>
 					{#each explorer.names as metric (metric.metricName + '' + metric.serviceName)}
 						<Command.Item

@@ -13,10 +13,20 @@
 // integration docs default both of them to OpenObserve's proprietary bulk-JSON API
 // instead of OTLP). Not full category parity with OpenObserve's 40+ item catalog.
 //
+// One deliberate exception to "everything here is logs": the "prometheus" item (Metrics
+// tab) documents Flare.Ingest's native Prometheus scrape receiver (Planning.md v20,
+// PrometheusScrapeWorker/PrometheusScrapeOptions) - the one source in this catalog that's
+// metrics, not logs, and pull (Flare reaches out to the target), not push (nothing here
+// points an exporter *at* Flare). Kept in this same catalog/page rather than a second
+// "how do I send metrics" page since there's exactly one such item - not enough to justify
+// a parallel guide, and this page is the only ingestion-help surface that exists.
+//
 // Ingest auth: IngestApiKeyValidationMiddleware (src/Flare.Ingest/Auth/) only enforces a
 // Bearer token when IngestAuthOptions.IngestKeyRequired is turned on - off by default, so
 // every snippet below is written for the common anonymous-ingest case. The "custom" item's
-// last step covers the opt-in key case without building key-management UI here.
+// last step covers the opt-in key case without building key-management UI here. Prometheus
+// scrape has no such step - it's server-side config, not an exporter credential, so
+// IngestApiKeyValidationMiddleware never applies to it at all.
 
 import type { Component } from 'svelte';
 import BoxesIcon from '@lucide/svelte/icons/boxes';
@@ -45,6 +55,9 @@ import CirclePlayIcon from '@lucide/svelte/icons/circle-play';
 import MoveRightIcon from '@lucide/svelte/icons/move-right';
 import DropletIcon from '@lucide/svelte/icons/droplet';
 import RadioTowerIcon from '@lucide/svelte/icons/radio-tower';
+// Prometheus's own logo is a flame/torch - closest generic-icon match, same "closest
+// generic icon to the real thing" convention the language icons above already use.
+import FlameIcon from '@lucide/svelte/icons/flame';
 
 export interface GuideStep {
 	heading: string;
@@ -562,6 +575,63 @@ service:
 				}
 			]
 		},
+		prometheus: {
+			id: 'prometheus',
+			title: 'Prometheus',
+			icon: FlameIcon,
+			intro:
+				"The only pull-based source on this page - Flare.Ingest scrapes a Prometheus-style /metrics endpoint itself on a timer, instead of something exporting to Flare. No exporter, sidecar, or Collector needed on the target's side.",
+			steps: [
+				{
+					heading: 'Add a scrape target',
+					body: 'Add this to Flare.Ingest\'s configuration (appsettings.json, or an appsettings.Production.json override) and restart it - Job becomes the service.name every point from this target is tagged with, matching the OTel Collector\'s own prometheusreceiver convention.',
+					code: {
+						label: 'appsettings.json',
+						text: `{
+  "PrometheusScrape": {
+    "Targets": [
+      {
+        "Job": "node-exporter",
+        "Url": "http://node-exporter:9100/metrics",
+        "Interval": "00:00:15",
+        "Timeout": "00:00:10"
+      }
+    ]
+  }
+}`
+					}
+				},
+				{
+					heading: 'Or via docker-compose environment variables',
+					body: 'Same shape, no file to mount - .NET\'s standard double-underscore config-key binding reaches the same array/object structure. "ingest" is Flare\'s own docker-compose.yml service name; the target itself just needs to be reachable from that container\'s network.',
+					code: {
+						label: 'docker-compose.yml',
+						text: `services:
+  ingest:
+    environment:
+      PrometheusScrape__Targets__0__Job: node-exporter
+      PrometheusScrape__Targets__0__Url: http://node-exporter:9100/metrics`
+					}
+				},
+				{
+					heading: 'Protected endpoint, or extra labels?',
+					body: 'Headers are sent on every scrape request (e.g. a bearer token). Labels are merged onto every point\'s resource attributes, applied after - and able to override - the computed service.name/service.instance.id.',
+					code: {
+						label: 'appsettings.json (one target, extended)',
+						text: `{
+  "Job": "node-exporter",
+  "Url": "http://node-exporter:9100/metrics",
+  "Headers": { "Authorization": "Bearer <token>" },
+  "Labels": { "service.name": "my-custom-name" }
+}`
+					}
+				},
+				{
+					heading: 'Check it worked',
+					body: 'Give it one scrape interval, then look for the target\'s metric names on the Metrics page, or watch the "Prometheus scrape" row on the Ingestion page\'s Receivers table for real request counts.'
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: 'Custom / raw OTLP',
@@ -611,6 +681,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 		{ id: 'recommended', label: 'Recommended', itemIds: ['kubernetes', 'docker', 'dotnet', 'custom'] },
 		{ id: 'platforms', label: 'Platforms', itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
 		{ id: 'shippers', label: 'Log Shippers', itemIds: ['vector', 'fluent-bit', 'syslog'] },
+		{ id: 'metrics', label: 'Metrics', itemIds: ['prometheus'] },
 		{ id: 'languages', label: 'Languages & Frameworks', itemIds: ['dotnet', 'python', 'nodejs', 'java', 'go'] },
 		{ id: 'devops', label: 'DevOps', itemIds: ['jenkins', 'ansible', 'terraform', 'github-actions'] },
 		{ id: 'custom', label: 'Custom', itemIds: ['custom'] }
