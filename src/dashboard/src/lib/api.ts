@@ -443,10 +443,23 @@ export interface HostStatsSnapshot {
 	cpuUsagePercent: number;
 	cpuCoreCount: number;
 	loadAverage1m: number;
+	perCoreUsagePercent: number[];
 	memoryTotalBytes: number;
 	memoryUsedBytes: number;
+	memoryAvailableBytes: number;
+	swapTotalBytes: number;
+	swapUsedBytes: number;
 	diskTotalBytes: number;
 	diskUsedBytes: number;
+	diskAvailableBytes: number;
+	diskGrowthBytesPerDay: number | null;
+	diskGrowthWindowHours: number;
+	diskReadBytesPerSecond: number;
+	diskWriteBytesPerSecond: number;
+	networkBytesPerSecond: number;
+	networkRxBytesPerSecond: number;
+	networkTxBytesPerSecond: number;
+	networkPacketsPerSecond: number;
 	uptimeSeconds: number;
 	updatedAt: string | null;
 }
@@ -497,4 +510,27 @@ export function connectHostStatsWatch(handlers: HostStatsWatchHandlers): HostSta
 			socket.close();
 		}
 	};
+}
+
+/** Mirrors `Model/HostStatsHistoryPoint.cs` - one sample in the Resource trends chart. */
+export interface HostStatsHistoryPoint {
+	timestamp: string;
+	cpuUsagePercent: number;
+	memoryUsedPercent: number;
+	diskUsedPercent: number;
+	networkBytesPerSecond: number;
+}
+
+/**
+ * The Resource trends chart's backfill - the retained rolling window (default 1h) as of
+ * this call, oldest first. No WebSocket counterpart: `HostStatsState` fetches this once on
+ * connect, then derives each subsequent point itself from the watch stream it's already
+ * receiving (see `$lib/resources/host-stats.svelte.ts`).
+ */
+export async function fetchHostStatsHistory(signal?: AbortSignal): Promise<HostStatsHistoryPoint[]> {
+	const res = await apiFetch(`${API_BASE_URL}/api/resources/host/history`, { signal });
+	if (!res.ok) {
+		throw new Error(`GET /api/resources/host/history failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
 }

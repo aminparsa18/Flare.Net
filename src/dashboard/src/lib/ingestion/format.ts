@@ -14,7 +14,12 @@ export function formatBytes(n: number): string {
 	if (n <= 0) return '0 B';
 	const exponent = Math.min(BYTE_UNITS.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
 	const value = n / 1024 ** exponent;
-	return `${exponent === 0 ? value : value.toFixed(value < 10 ? 1 : 0)} ${BYTE_UNITS[exponent]}`;
+	// Every scaled unit already rounds (toFixed) - bytes themselves didn't, which was
+	// invisible as long as every caller only ever passed whole byte counts, but a rate
+	// (bytes/sec, see $lib/resources/format.ts's formatByteRate) is a division result and
+	// can land under 1024 with a long fractional tail ("349.68019997311455 B/s") without
+	// this.
+	return `${exponent === 0 ? Math.round(value) : value.toFixed(value < 10 ? 1 : 0)} ${BYTE_UNITS[exponent]}`;
 }
 
 // Added for v10's pipeline-health section - "how long ago" for a last-flush timestamp or
