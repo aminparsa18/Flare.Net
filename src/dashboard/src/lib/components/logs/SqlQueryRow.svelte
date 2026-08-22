@@ -11,8 +11,9 @@
 	import { runLogQlQuery, type LogAggregateBucket, type LogQlQueryResponse } from '$lib/api';
 	import { resolveTimeRange } from '$lib/logs/time-range';
 	import { logsExplorerContext } from '$lib/logs/context';
+	import { tokenizeLogQl, TOKEN_COLOR_VARS } from '$lib/logs/sql-highlight';
 	import * as Accordion from '$lib/components/ui/accordion';
-	import { Input } from '$lib/components/ui/input';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { Button } from '$lib/components/ui/button';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -48,6 +49,27 @@
 	let running = $state(false);
 	let error = $state<string | null>(null);
 	let result = $state<LogQlQueryResponse | null>(null);
+
+	// Syntax highlighting: a `<pre>` of colored spans rendered directly behind the
+	// textarea, which itself goes transparent-text-on-transparent-background so only its
+	// caret/selection show - the standard "highlighted textarea" overlay technique (same
+	// one react-simple-code-editor and friends use), picked over pulling in a full code-
+	// editor dependency since this is one input box, not a whole editing surface, and
+	// this project has no highlighter dependency installed anywhere else either (see
+	// CodeBlock.svelte's own "no highlighter dependency" remarks).
+	const highlightTokens = $derived(tokenizeLogQl(queryText));
+	let highlightEl: HTMLPreElement | null = $state(null);
+
+	// Keeps the (invisible-text) textarea and the highlight layer scrolling together -
+	// only reachable in practice if the textarea's field-sizing-content growth (see its
+	// own min-h-24 below) somehow can't keep up and it scrolls internally instead, but
+	// cheap enough to wire up unconditionally rather than assume that never happens.
+	function syncHighlightScroll(e: Event) {
+		const textarea = e.currentTarget as HTMLTextAreaElement;
+		if (!highlightEl) return;
+		highlightEl.scrollTop = textarea.scrollTop;
+		highlightEl.scrollLeft = textarea.scrollLeft;
+	}
 
 	$effect(() => {
 		const value = accordionValue;
@@ -101,8 +123,15 @@
 		}
 	}
 
+	// Enter runs the query (same as clicking Run); Shift+Enter falls through to the
+	// textarea's own default behavior and inserts a newline instead - standard
+	// chat-input convention (Slack, ChatGPT, etc.) for a box that's both multi-line and
+	// has a keyboard-driven "submit".
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') run();
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			run();
+		}
 	}
 
 	function clearQuery() {
@@ -233,18 +262,28 @@
 			{/if}
 		</div>
 		<Accordion.Content class="px-4 pb-3">
-			<div class="flex items-center gap-2">
+			<div class="flex items-start gap-2">
 				<div class="relative flex-1">
-					<Input
-						class="pr-7 font-mono"
+					<!-- Highlight layer - purely decorative (aria-hidden, no pointer events); the
+					     real textarea beneath owns the actual value/selection/a11y. Same padding/
+					     border/font/wrap classes as the Textarea below so the two stay pixel-aligned. -->
+					<pre
+						bind:this={highlightEl}
+						aria-hidden="true"
+						class="pointer-events-none absolute inset-0 m-0 overflow-hidden rounded-md border border-transparent px-2 py-2 font-mono text-sm break-words whitespace-pre-wrap md:text-xs/relaxed"
+					>{#each highlightTokens as token, i (i)}<span style={TOKEN_COLOR_VARS[token.type] ? `color: ${TOKEN_COLOR_VARS[token.type]}` : undefined}>{token.text}</span>{/each}</pre>
+					<Textarea
+						class="min-h-24 relative bg-transparent pr-7 font-mono text-transparent"
+						style="caret-color: var(--foreground);"
 						placeholder="select count(*) from stream group by time(1h)"
 						bind:value={queryText}
 						onkeydown={handleKeydown}
+						onscroll={syncHighlightScroll}
 					/>
 					{#if queryText}
 						<button
 							type="button"
-							class="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+							class="text-muted-foreground hover:text-foreground absolute top-2 right-2"
 							onclick={clearQuery}
 							aria-label="Clear query"
 						>
@@ -257,7 +296,7 @@
 					size="icon-sm"
 					disabled={!queryText.trim() || running}
 					onclick={run}
-					title="Run query"
+					title="Run query (Enter - use Shift+Enter for a new line)"
 					aria-label="Run query"
 				>
 					<PlayIcon class="text-primary" />
