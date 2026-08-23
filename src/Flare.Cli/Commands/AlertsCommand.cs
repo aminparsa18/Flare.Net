@@ -13,17 +13,23 @@ namespace Flare.Cli.Commands;
 /// (<c>src/Flare.Api/Endpoints/AlertEndpoints.cs</c>, member-or-admin auth when Flare's
 /// opt-in auth is enabled). The CLI-native equivalent of the dashboard's Alerts page list.
 /// </summary>
-internal sealed class AlertsListCommand : AsyncCommand
+internal sealed class AlertsListCommand : AsyncCommand<AlertsListCommand.Settings>
 {
-    protected override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    internal sealed class Settings : InstanceSettings
     {
-        if (!FlareHome.IsInitialized)
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
-        var port = FlareHome.ReadEnvValue("FLARE_API_PORT", "8080");
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
         using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
 
         AlertRuleListResponseWire? response;
@@ -114,7 +120,7 @@ internal sealed class AlertsListCommand : AsyncCommand
 /// </summary>
 internal sealed class AlertsTestCommand : AsyncCommand<AlertsTestCommand.Settings>
 {
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandArgument(0, "<ID>")]
         [Description("The alert rule's id (see `flare alerts list`).")]
@@ -123,13 +129,15 @@ internal sealed class AlertsTestCommand : AsyncCommand<AlertsTestCommand.Setting
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
-        var port = FlareHome.ReadEnvValue("FLARE_API_PORT", "8080");
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
         using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
 
         AlertTestResultWire? result;

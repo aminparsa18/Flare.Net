@@ -5,24 +5,30 @@ using Spectre.Console.Cli;
 
 namespace Flare.Cli.Commands;
 
-internal sealed class OpenCommand : AsyncCommand
+internal sealed class OpenCommand : AsyncCommand<OpenCommand.Settings>
 {
-    protected override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    internal sealed class Settings : InstanceSettings
     {
-        if (!FlareHome.IsInitialized)
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
-        var dashboardState = await ComposeRunner.RunCapturedAsync(["ps", "--format", "{{.State}}", "dashboard"]);
+        var dashboardState = await ComposeRunner.RunCapturedAsync(instance, ["ps", "--format", "{{.State}}", "dashboard"]);
         if (!string.Equals(dashboardState.StandardOutput.Trim(), "running", StringComparison.OrdinalIgnoreCase))
         {
-            AnsiConsole.MarkupLine("[red]✗[/] The dashboard isn't running - run `flare start` (or check `flare status`) first.");
+            AnsiConsole.MarkupLine($"[red]✗[/] The dashboard isn't running - run `{instance.StartHint}` (or check `flare status`) first.");
             return 1;
         }
 
-        var port = FlareHome.ReadEnvValue("FLARE_DASHBOARD_PORT", "7777");
+        var port = instance.ReadEnvValue("FLARE_DASHBOARD_PORT", "7777");
         var url = $"http://localhost:{port}";
 
         if (!TryOpenBrowser(url))

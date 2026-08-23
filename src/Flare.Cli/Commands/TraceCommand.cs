@@ -24,7 +24,7 @@ internal sealed class TraceCommand : AsyncCommand<TraceCommand.Settings>
     private const int LabelWidth = 46;
     private const int BarWidth = 36;
 
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandArgument(0, "<TRACE_ID>")]
         [Description("Exact lower-hex TraceId to render.")]
@@ -33,13 +33,15 @@ internal sealed class TraceCommand : AsyncCommand<TraceCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
-        var port = FlareHome.ReadEnvValue("FLARE_API_PORT", "8080");
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
         using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
 
         TraceDtoWire? trace;

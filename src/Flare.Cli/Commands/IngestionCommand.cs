@@ -35,7 +35,7 @@ internal sealed class IngestionCommand : AsyncCommand<IngestionCommand.Settings>
     private const double FlushStaleAgeSeconds = 60;
     private const int RecentActivityLookbackMinutes = 3;
 
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandOption("--since <RANGE>")]
         [Description("Window for rates/rejected totals and pipeline staleness: 15m, 1h, 6h, 24h. Default 1h.")]
@@ -44,9 +44,11 @@ internal sealed class IngestionCommand : AsyncCommand<IngestionCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
@@ -58,7 +60,7 @@ internal sealed class IngestionCommand : AsyncCommand<IngestionCommand.Settings>
 
         var minutes = Math.Clamp((int)since.TotalMinutes, 1, 1440);
 
-        var port = FlareHome.ReadEnvValue("FLARE_API_PORT", "8080");
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
         using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
 
         IngestionStatsResponseWire? stats;

@@ -24,7 +24,7 @@ internal sealed class ExportCommand : AsyncCommand<ExportCommand.Settings>
 {
     private const int PageSize = 1000; // matches export.ts's EXPORT_PAGE_SIZE - the backend's own LogSearchQueryBuilder max PageSize.
 
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandOption("-s|--service <NAME>")]
         [Description("Filter by exact service name. Repeatable.")]
@@ -69,9 +69,11 @@ internal sealed class ExportCommand : AsyncCommand<ExportCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
@@ -115,7 +117,7 @@ internal sealed class ExportCommand : AsyncCommand<ExportCommand.Settings>
             Search = string.IsNullOrWhiteSpace(settings.Search) ? null : settings.Search,
         };
 
-        var port = FlareHome.ReadEnvValue("FLARE_API_PORT", "8080");
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
         using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

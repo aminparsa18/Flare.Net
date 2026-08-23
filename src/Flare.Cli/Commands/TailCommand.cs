@@ -14,7 +14,7 @@ namespace Flare.Cli.Commands;
 /// </summary>
 internal sealed class TailCommand : AsyncCommand<TailCommand.Settings>
 {
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandOption("-s|--service <NAME>")]
         [Description("Filter by exact service name (e.g. flare-ingest). Repeatable.")]
@@ -35,9 +35,11 @@ internal sealed class TailCommand : AsyncCommand<TailCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
@@ -53,7 +55,7 @@ internal sealed class TailCommand : AsyncCommand<TailCommand.Settings>
             severityNumbers.AddRange(numbers);
         }
 
-        var port = FlareHome.ReadEnvValue("FLARE_API_PORT", "8080");
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
         var uri = new Uri($"ws://localhost:{port}/api/logs/tail");
 
         await using var client = new LogTailClient();

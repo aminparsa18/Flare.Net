@@ -4,7 +4,7 @@ using Spectre.Console.Cli;
 
 namespace Flare.Cli.Commands;
 
-internal sealed class StatusCommand : AsyncCommand
+internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
 {
     private static readonly (string Service, string PortLabel)[] Services =
     [
@@ -15,11 +15,17 @@ internal sealed class StatusCommand : AsyncCommand
         ("dashboard", "localhost:{FLARE_DASHBOARD_PORT}"),
     ];
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    internal sealed class Settings : InstanceSettings
     {
-        if (!FlareHome.IsInitialized)
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start`.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}`.[/]");
             return 0;
         }
 
@@ -31,8 +37,8 @@ internal sealed class StatusCommand : AsyncCommand
 
         foreach (var (service, portLabelTemplate) in Services)
         {
-            var stateResult = await ComposeRunner.RunCapturedAsync(["ps", "--format", "{{.State}}", service]);
-            var healthResult = await ComposeRunner.RunCapturedAsync(["ps", "--format", "{{.Health}}", service]);
+            var stateResult = await ComposeRunner.RunCapturedAsync(instance, ["ps", "--format", "{{.State}}", service]);
+            var healthResult = await ComposeRunner.RunCapturedAsync(instance, ["ps", "--format", "{{.Health}}", service]);
 
             var state = stateResult.StandardOutput.Trim();
             var health = healthResult.StandardOutput.Trim();
@@ -45,7 +51,7 @@ internal sealed class StatusCommand : AsyncCommand
                 _ => $"[red]{Markup.Escape(health)}[/]",
             };
 
-            var portLabel = ResolvePortLabel(portLabelTemplate);
+            var portLabel = ResolvePortLabel(instance, portLabelTemplate);
 
             table.AddRow(service, stateDisplay, healthDisplay, portLabel);
         }
@@ -54,19 +60,12 @@ internal sealed class StatusCommand : AsyncCommand
         return 0;
     }
 
-    private static string ResolvePortLabel(string template)
+    private static string ResolvePortLabel(FlareInstance instance, string template)
     {
         var result = template;
-        foreach (var (key, fallback) in new[]
-                 {
-                     ("CLICKHOUSE_HTTP_PORT", "8123"),
-                     ("FLARE_INGEST_GRPC_PORT", "4317"),
-                     ("FLARE_INGEST_HTTP_PORT", "4318"),
-                     ("FLARE_API_PORT", "8080"),
-                     ("FLARE_DASHBOARD_PORT", "7777"),
-                 })
+        foreach (var (_, envKey, fallback) in PortDefaults.All)
         {
-            result = result.Replace($"{{{key}}}", FlareHome.ReadEnvValue(key, fallback));
+            result = result.Replace($"{{{envKey}}}", instance.ReadEnvValue(envKey, fallback.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         return result;
