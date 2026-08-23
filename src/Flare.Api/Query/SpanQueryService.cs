@@ -28,8 +28,15 @@ public interface ISpanQueryService
 /// by the same live spike that de-risked the write side (see
 /// <c>Flare.Ingest</c>'s <c>ClickHouseSpanRowMapper</c> remarks) and re-confirmed against
 /// real inserted data during this roadmap slice's Pass 2 gate.
+///
+/// <para>
+/// <paramref name="clusterMode"/> (same <c>ClickHouse:ClusterMode</c> flag
+/// <c>ClickHouseMigrationRunner</c>/<c>IndexingQueryService</c> read - see
+/// docs/clustering.md) only affects <see cref="GetTraceAsync"/> - see
+/// <see cref="TraceByIdQueryOptions"/>.
+/// </para>
 /// </remarks>
-public sealed class SpanQueryService(IClickHouseClient client, TimeProvider timeProvider) : ISpanQueryService
+public sealed class SpanQueryService(IClickHouseClient client, TimeProvider timeProvider, bool clusterMode) : ISpanQueryService
 {
     public async Task<SpanSearchResponse> SearchAsync(SpanSearchRequest request, CancellationToken cancellationToken)
     {
@@ -85,7 +92,7 @@ public sealed class SpanQueryService(IClickHouseClient client, TimeProvider time
     {
         var built = TraceByIdQueryBuilder.Build(traceId);
 
-        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, TraceByIdQueryOptions(), cancellationToken);
 
         var spans = new List<SpanDto>();
         while (reader.Read())
@@ -154,4 +161,54 @@ public sealed class SpanQueryService(IClickHouseClient client, TimeProvider time
             ["result_overflow_mode"] = "break",
         },
     };
+
+    /// <summary>
+    /// <see cref="SafetyOptions"/> plus, only under cluster mode,
+    /// <c>optimize_skip_unused_shards</c> - lets ClickHouse skip the shard that provably
+    /// can't hold <c>traceId</c> instead of fanning the query out to every shard and
+    /// merging, now that <c>spans</c> shards on <c>cityHash64(TraceId)</c> rather than
+    /// <c>rand()</c> (see <c>db/clickhouse-cluster/0007_spans.sql</c> and
+    /// docs/clustering.md's "Design decision" section).
+    /// <para>
+    /// Deliberately best-effort, not forced - <c>force_optimize_skip_unused_shards</c>
+    /// stays unset. If ClickHouse can't determine which shard holds this trace for any
+    /// reason, this setting alone just falls back to querying every shard, same as
+    /// before <c>cityHash64(TraceId)</c> existed; forcing it would instead turn that same
+    /// situation into a hard error on a routine trace-by-id lookup the dashboard's
+    /// waterfall view depends on - a strictly worse failure mode than "no speedup this
+    /// time."
+    /// </para>
+    /// <para>
+    /// Relies on every row in <c>spans_local</c> actually being routed by
+    /// <c>cityHash64(TraceId)</c> - true for anything inserted through the <c>spans</c>
+    /// Distributed table since that sharding key was set, but NOT true for rows a cluster
+    /// inserted under the old <c>rand()</c> key before that change (they'd sit on
+    /// whichever shard <c>rand()</c> happened to pick, not the shard
+    /// <c>cityHash64(TraceId)</c> would now compute for the same TraceId) - skipping a
+    /// shard for such a trace would silently omit its older spans rather than error.
+    /// Same "fresh volumes only, not a live migration path" posture cluster mode already
+    /// has elsewhere (see docs/clustering.md) - not a new risk this introduces, but worth
+    /// restating here since this is the one place that risk turns into a live query
+    /// behavior instead of just a schema definition.
+    /// </para>
+    /// <para>
+    /// Confirmed live (2026-08-23) against a real 4-node cluster: ran this exact query
+    /// with and without <c>optimize_skip_unused_shards</c> and checked
+    /// <c>system.query_log</c> across all 4 nodes - without it, a trace-by-id lookup
+    /// forwards a sub-query to the shard that holds none of that trace's data; with it,
+    /// that shard shows no query_log entry at all, and the query still returns the
+    /// correct rows. Verified in both directions (a shard-1 trace and a shard-2 trace).
+    /// </para>
+    /// </summary>
+    private QueryOptions TraceByIdQueryOptions()
+    {
+        var options = SafetyOptions();
+        if (clusterMode)
+        {
+            // Non-null: SafetyOptions() above always populates CustomSettings itself.
+            options.CustomSettings!["optimize_skip_unused_shards"] = 1;
+        }
+
+        return options;
+    }
 }

@@ -121,12 +121,26 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, Conditional
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ILogQueryService, LogQueryService>();
-builder.Services.AddSingleton<ISpanQueryService, SpanQueryService>();
+// Factory registration (not a plain AddSingleton<,>) so SpanQueryService's own
+// ClickHouse:ClusterMode-gated optimize_skip_unused_shards can be threaded through -
+// see its TraceByIdQueryOptions remarks. Same flag as IndexingQueryService below.
+builder.Services.AddSingleton<ISpanQueryService>(sp => new SpanQueryService(
+    sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<TimeProvider>(),
+    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 builder.Services.AddSingleton<IMetricQueryService, MetricQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();
-builder.Services.AddSingleton<IIndexingQueryService, IndexingQueryService>();
+// ClickHouse:ClusterMode (same flag ClickHouseMigrationRunner reads below, see
+// docs/clustering.md) - lets IndexingQueryService's system.* introspection queries switch
+// from single-node-scoped to cluster()/clusterAllReplicas()-scoped. Factory registration
+// (not a plain AddSingleton<,>) since the ctor now takes that bool alongside its two
+// injected dependencies.
+builder.Services.AddSingleton<IIndexingQueryService>(sp => new IndexingQueryService(
+    sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<ILogger<IndexingQueryService>>(),
+    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 
 // Local, minimal read-side copies of Flare.Ingest's pipeline options (StreamKey/
 // ConsumerGroup only) - see Flare.Api.Pipeline.LogEventPipelineOptions's remarks for why
