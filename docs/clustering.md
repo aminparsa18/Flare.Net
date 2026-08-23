@@ -269,19 +269,37 @@ deployment with heavier requirements (per-user query queues/limits, more elabora
 routing) may still prefer `chproxy` - swapping it in only touches this one service,
 `Distributed`-table correctness above doesn't change.
 
-## Known limitations (not attempted here)
+## Drain log-pattern clustering now shares state across `Flare.Ingest` replicas
 
-- **Drain log-pattern clustering state doesn't share across `Flare.Ingest` replicas.**
-  `DrainPatternMatcher` (see its own remarks) is in-memory and singleton-scoped per
-  process, with no persistence or cross-replica sharing - unlike
-  `LogEventPipelineOptions.ConsumerName`, giving each replica a distinct identity
-  doesn't fix this, because the gap isn't identity collision, it's that `ingest-1` and
-  `ingest-2` each build their own pattern clusters from whichever subset of logs they
-  happen to consume off the shared Redis Stream. The same log template can end up under
-  a different `PatternId` depending on which replica saw it first, fragmenting the
-  Logs page's pattern grouping under `docker-compose.cluster.yml`'s two-replica setup.
-  A real fix needs shared cluster state (e.g. Redis- or ClickHouse-backed); named here
-  as a separate, still-open item, not solved by anything in this document.
+Previously a known limitation here: `DrainPatternMatcher` used to own its cluster tree
+in-memory and singleton-scoped per process, with no persistence or cross-replica
+sharing - unlike `LogEventPipelineOptions.ConsumerName`, giving each replica a distinct
+identity didn't fix this, because the gap wasn't identity collision, it was that
+`ingest-1` and `ingest-2` each built their own pattern clusters from whichever subset of
+logs they happened to consume off the shared Redis Stream. The same log template could
+end up under a different `PatternId` depending on which replica saw it first,
+fragmenting the Logs page's pattern grouping.
+
+Cluster storage now lives behind an `IPatternClusterStore` seam
+(`Flare.Ingest/Patterns/`), not inside `DrainPatternMatcher` itself - the matcher only
+does the pure masking/tokenizing/similarity/generalization work and orchestrates
+load-decide-save calls against whichever store is injected:
+
+- **`InMemoryPatternClusterStore`** (default, `LogPattern:SharedStore` unset/`false`) -
+  preserves the original per-process tree exactly, zero added overhead, correct for a
+  single replica.
+- **`RedisPatternClusterStore`** (opt-in, `LogPattern:SharedStore = true`) - one Redis
+  key per `(tokenCount, firstToken)` bucket, read/written via a StackExchange.Redis
+  conditional transaction (compare-and-swap, no Lua) so two replicas racing to update the
+  same bucket can't clobber each other. `DrainPatternMatcher.MatchBatchAsync` groups a
+  whole flush batch by bucket first, so this is normally one Redis round trip per
+  *distinct template in the batch*, not one per log line. Eviction is TTL-based
+  (`LogPattern:SharedTemplateTtl`, default 72h) rather than the in-memory store's exact
+  `MaxTemplates` LRU cap - a rarely-touched template's key just expires, with no
+  cross-replica coordination needed on the save path.
+
+`docker-compose.cluster.yml` sets `LogPattern__SharedStore: "true"` on both `ingest-1`
+and `ingest-2` so the two-replica deployment actually exercises this.
 
 ## Verifying it yourself
 
@@ -300,4 +318,15 @@ docker exec <clickhouse-1 container> clickhouse-client --user default --password
 # distinct, machine/process-derived consumer names, both showing recent activity:
 docker exec <redis container> redis-cli -a flare --no-auth-warning \
   XINFO CONSUMERS flare:logs flare-ingest
+
+# Drain pattern-cluster keys, shared across both replicas - send logs matching the same
+# template split across ingest-1/ingest-2, then confirm one bucket key holds the merged
+# cluster (not two separate per-replica templates):
+docker exec <redis container> redis-cli -a flare --no-auth-warning \
+  KEYS "flare:patterns:bucket:*"
+docker exec <redis container> redis-cli -a flare --no-auth-warning \
+  GET "flare:patterns:bucket:<key from above>"
 ```
+
+Then open the dashboard's Logs page Patterns modal and confirm a single row/`PatternId`
+for that template, instead of two fragmented rows.

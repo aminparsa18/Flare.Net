@@ -200,9 +200,13 @@ services:
 
   # Two Flare.Ingest replicas sharing one Redis Streams consumer group - proves
   # LogEventPipelineOptions.ConsumerName's machine/process-derived default (Workstream 1
-  # of the "Multi-node scaling" item) actually works, not just unit-tested. Distinct host
-  # port mappings since OTLP ports aren't proxied (see this file's header comment) - point
-  # OTLP clients at whichever replica, or add a load balancer in front for real use.
+  # of the "Multi-node scaling" item) actually works, not just unit-tested.
+  # LogPattern__SharedStore=true also proves the fix for docs/clustering.md's Drain
+  # cross-replica PatternId fragmentation - both replicas share pattern-cluster state via
+  # RedisPatternClusterStore instead of each building its own tree from whatever subset
+  # of logs it happens to consume. Distinct host port mappings since OTLP ports aren't
+  # proxied (see this file's header comment) - point OTLP clients at whichever replica,
+  # or add a load balancer in front for real use.
   ingest-1:
     build:
       context: .
@@ -219,6 +223,7 @@ services:
       ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
+      LogPattern__SharedStore: "true"
       Identity__DbPath: "/data/identity/flare-identity.db"
     volumes:
       - identity-data:/data/identity
@@ -247,6 +252,7 @@ services:
       ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
+      LogPattern__SharedStore: "true"
       Identity__DbPath: "/data/identity/flare-identity.db"
     volumes:
       - identity-data:/data/identity

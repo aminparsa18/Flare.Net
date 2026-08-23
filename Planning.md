@@ -629,10 +629,22 @@ actually worked out (see the three bullets below) — closing out the full origi
         `clickhouse-1`. Live-verified: killed `clickhouse-1` mid-traffic and saw
         zero failed requests, rotation across the other 3 nodes. See
         `docs/clustering.md`'s "ClickHouse load balancing" section.
-      - **Known limitation, still not solved**: the in-memory
-        `DrainPatternMatcher`/Drain clustering state still doesn't share across
-        `Flare.Ingest` replicas (a separate gap from the consumer-name one - see its
-        own remarks). See `docs/clustering.md`'s "Known limitations" section.
+      - **Follow-up (2026-08-23), fixed:** Drain clustering state now shares across
+        `Flare.Ingest` replicas (the gap left open above - see `DrainPatternMatcher`'s
+        remarks). Cluster storage moved behind a new `IPatternClusterStore` seam
+        (`Flare.Ingest/Patterns/`): `InMemoryPatternClusterStore` (default) preserves the
+        original per-process tree unchanged; `RedisPatternClusterStore` (opt-in via
+        `LogPattern:SharedStore`, set on `ingest-1`/`ingest-2` in
+        `docker-compose.cluster.yml`) shares cluster state across replicas through a
+        StackExchange.Redis conditional transaction (compare-and-swap, no Lua), with
+        `DrainPatternMatcher.MatchBatchAsync` grouping a flush batch by
+        `(tokenCount, firstToken)` bucket first so this is one Redis round trip per
+        distinct template in the batch, not per log line. Eviction is TTL-based
+        (`LogPattern:SharedTemplateTtl`) rather than the in-memory store's exact
+        `MaxTemplates` cap. `dotnet test` green (added convergence/fragmentation-contrast
+        tests proving two matcher instances sharing a store now agree on `PatternId`,
+        plus key-naming tests). See `docs/clustering.md`'s updated "Drain log-pattern
+        clustering now shares state across `Flare.Ingest` replicas" section.
 - [x] **Benchmark: ingest throughput + query latency proof points.** Shipped
       2026-08-22 - a proof point for the "Flare inherits HA/scale from ClickHouse +
       Redis Streams for free" claim discussed elsewhere, measured rather than just
@@ -2275,7 +2287,9 @@ count, error count, first/last seen; duration is a named Later item requiring a
       below), this one isn't fixed by per-replica identity: independent replicas would
       each build their own clusters from whatever logs they happen to see, fragmenting
       `PatternId`s for the same template. A real fix needs shared cluster state; not
-      attempted as part of that item. `PatternId` is a deterministic SHA-256-derived hash of the
+      attempted as part of that item (**fixed 2026-08-23** - see "Multi-node scaling"
+      below's follow-up: cluster storage moved behind `IPatternClusterStore`, with an
+      opt-in Redis-backed shared store). `PatternId` is a deterministic SHA-256-derived hash of the
       finalized template text (not sequential), so the same template re-emerging after a
       restart gets the same id - softens, doesn't eliminate, the restart-reset
       limitation. A global `MaxTemplates` LRU cap (default 10,000) bounds worst-case

@@ -86,7 +86,7 @@ public sealed class ClickHouseFlushWorker(
 
                 if (shouldFlush)
                 {
-                    await FlushAsync(db, opts, batch);
+                    await FlushAsync(db, opts, batch, stoppingToken);
                     batch.Clear();
                     lastFlush = now;
                 }
@@ -203,16 +203,17 @@ public sealed class ClickHouseFlushWorker(
         }
     }
 
-    private async Task FlushAsync(IDatabase db, LogEventPipelineOptions opts, List<(RedisValue Id, LogEvent Event)> batch)
+    private async Task FlushAsync(IDatabase db, LogEventPipelineOptions opts, List<(RedisValue Id, LogEvent Event)> batch, CancellationToken cancellationToken)
     {
         var events = batch.Select(b => b.Event).ToArray();
 
         // Pattern-matching (Drain clustering, see LogPatternAnnotator's remarks for why
         // it runs here rather than on the OTLP receive path) happens right before the
-        // ClickHouse write, on the batch as a whole - a CPU-bound, in-process step, not a
-        // network call, so it doesn't need its own try/catch here; any exception surfaces
-        // through the same catch block that already handles a failed write.
-        var annotated = patternAnnotator.Annotate(events);
+        // ClickHouse write, on the batch as a whole. No longer purely CPU-bound/in-process
+        // once LogPatternOptions.SharedStore is on (RedisPatternClusterStore does real
+        // I/O) - still no dedicated try/catch here, though; any exception surfaces through
+        // the same catch block that already handles a failed write.
+        var annotated = await patternAnnotator.AnnotateAsync(events, cancellationToken);
 
         try
         {

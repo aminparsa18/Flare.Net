@@ -8,13 +8,13 @@ namespace Flare.Ingest.Tests.Patterns;
 public class LogPatternAnnotatorTests
 {
     [Fact]
-    public void Annotate_SetsPatternIdAndTemplate_FromMatcherResult()
+    public async Task AnnotateAsync_SetsPatternIdAndTemplate_FromMatcherResult()
     {
         var matcher = new FakeLogPatternMatcher { Result = new PatternMatch("p1", "GET /api/orders/<*>") };
         var annotator = new LogPatternAnnotator(matcher, Options.Create(new LogPatternOptions { Enabled = true }));
         var events = new[] { MinimalLogEvent() with { Body = "GET /api/orders/123" } };
 
-        var result = annotator.Annotate(events);
+        var result = await annotator.AnnotateAsync(events, CancellationToken.None);
 
         Assert.Equal("p1", result[0].PatternId);
         Assert.Equal("GET /api/orders/<*>", result[0].PatternTemplate);
@@ -22,7 +22,7 @@ public class LogPatternAnnotatorTests
     }
 
     [Fact]
-    public void Annotate_PreservesBatchOrder()
+    public async Task AnnotateAsync_PreservesBatchOrder()
     {
         var matcher = new FakeLogPatternMatcher();
         var annotator = new LogPatternAnnotator(matcher, Options.Create(new LogPatternOptions { Enabled = true }));
@@ -32,20 +32,20 @@ public class LogPatternAnnotatorTests
             MinimalLogEvent() with { Body = "second" },
         };
 
-        var result = annotator.Annotate(events);
+        var result = await annotator.AnnotateAsync(events, CancellationToken.None);
 
         Assert.Equal("first", result[0].Body);
         Assert.Equal("second", result[1].Body);
     }
 
     [Fact]
-    public void Annotate_IsANoOp_WhenDisabled()
+    public async Task AnnotateAsync_IsANoOp_WhenDisabled()
     {
         var matcher = new FakeLogPatternMatcher();
         var annotator = new LogPatternAnnotator(matcher, Options.Create(new LogPatternOptions { Enabled = false }));
         var events = new[] { MinimalLogEvent() };
 
-        var result = annotator.Annotate(events);
+        var result = await annotator.AnnotateAsync(events, CancellationToken.None);
 
         Assert.Same(events, result);
         Assert.Empty(matcher.MatchedBodies);
