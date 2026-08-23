@@ -31,7 +31,7 @@ public interface IIndexingQueryService
 /// <paramref name="clusterMode"/> (same <c>ClickHouse:ClusterMode</c> flag
 /// <c>ClickHouseMigrationRunner</c> reads - see docs/clustering.md) switches every query
 /// below from plain <c>system.*</c> (this one connected node's local state) to the
-/// <c>'flare_cluster'</c>-scoped variant, so the Resources page reflects the whole
+/// <c>'flare_cluster'</c>-scoped variant, so the Indexing page reflects the whole
 /// cluster rather than whichever of the 4 nodes the connection happened to land on:
 /// </para>
 /// <list type="bullet">

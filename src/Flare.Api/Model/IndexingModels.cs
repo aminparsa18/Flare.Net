@@ -88,3 +88,33 @@ public sealed record IndexingStatsResponse(
     bool GrowthAvailable,
     DiskUsageInfo DiskUsage,
     QueryPerformanceInfo QueryPerformance);
+
+/// <summary>
+/// One row of <c>system.clusters</c> for the <c>flare_cluster</c> cluster - one ClickHouse
+/// node's place in the shard/replica topology. <see cref="ErrorsCount"/>/
+/// <see cref="EstimatedRecoveryTimeSeconds"/> are the connecting node's own view of that
+/// peer (ClickHouse tracks these per-connection, not as a cluster-wide consensus) - good
+/// enough for "does this look healthy right now," not a substitute for each node's own
+/// monitoring. See <see cref="ClusterQueryService"/>'s remarks for what this deliberately
+/// doesn't cover (Keeper quorum health, replication queue/lag).
+/// </summary>
+public sealed record ClusterNodeInfo(
+    int ShardNum,
+    int ReplicaNum,
+    string HostName,
+    int Port,
+    bool IsLocal,
+    long ErrorsCount,
+    long EstimatedRecoveryTimeSeconds);
+
+/// <summary>
+/// <c>GET /api/indexing/cluster</c> response - backs the Indexing page's cluster-status
+/// panel (Planning.md's "Multi-node scaling" follow-up, docs/clustering.md). When
+/// <see cref="ClusterModeEnabled"/> is false (the default, single-node deployment),
+/// <see cref="Nodes"/> is always empty and no ClickHouse query even runs - see
+/// <see cref="ClusterQueryService"/>.
+/// </summary>
+public sealed record ClusterStatusResponse(
+    bool ClusterModeEnabled,
+    bool SharedPatternStoreEnabled,
+    IReadOnlyList<ClusterNodeInfo> Nodes);

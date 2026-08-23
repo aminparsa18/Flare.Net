@@ -645,6 +645,41 @@ actually worked out (see the three bullets below) — closing out the full origi
         tests proving two matcher instances sharing a store now agree on `PatternId`,
         plus key-naming tests). See `docs/clustering.md`'s updated "Drain log-pattern
         clustering now shares state across `Flare.Ingest` replicas" section.
+      - **Follow-up (2026-08-23), shipped: cluster topology/health surfaced in the
+        dashboard.** Prompted by comparing against Seq's own Clustering page (an
+        Enterprise-only, paid-tier feature there) - not gated here, and every
+        limitation above was already closed out, so nothing blocked a dashboard view
+        of it. Lands on the **Indexing page** (`/indexing`), not Resources
+        (`/resources`) - `IndexingQueryService` is the piece already made
+        cluster-wide aware (see the earlier "Follow-up (2026-08-23)" bullet above),
+        while Resources' own `HostStatsPoller`/`DockerContainerPoller` are explicitly
+        single-host/single-Docker-daemon concepts - the wrong home for cluster-wide
+        state. New `GET /api/indexing/cluster` (`ClusterQueryService`) queries
+        `system.clusters` for shard/replica topology and per-node `errors_count`,
+        short-circuiting to `{ clusterModeEnabled: false, nodes: [] }` with no
+        ClickHouse round trip at all on a default single-node deployment; also
+        reports `LogPattern:SharedStore` (mirrored onto `api`'s own config, display
+        only, since `api` never does Drain matching itself) so the earlier
+        shared-pattern-store fix is visible on the dashboard instead of only
+        discoverable by reading `docs/clustering.md`. New
+        `IndexingClusterStatus.svelte` renders the topology grouped by shard with a
+        healthy/error badge per node, and renders nothing at all when cluster mode is
+        off. Deliberately out of scope, named not silently skipped: Keeper quorum
+        health and replication queue/lag - see `docs/clustering.md`'s "Dashboard:
+        cluster status on the Indexing page" section for the full writeup and why.
+        No unit test added for `ClusterQueryService` itself - same "holds
+        `IClickHouseClient`, not unit-tested against a fake" precedent
+        `IndexingQueryService`/`AlertQueryService`/`LogQueryService` already follow;
+        `dotnet build` clean across the full solution, `svelte-check` clean
+        (0 errors/warnings) for the dashboard. Live-verified (2026-08-23) against a
+        real `docker-compose.cluster.yml` stack, not just built/type-checked - and
+        it caught a real bug: `estimated_recovery_time` is `UInt32` in
+        `system.clusters`, not `UInt64` as first written, throwing
+        `InvalidCastException` on every row and silently degrading to an empty node
+        list until fixed (see `docs/clustering.md`'s updated "Dashboard: cluster
+        status" section). After the fix: all 4 nodes (2 shards x 2 replicas, all
+        `errorsCount: 0`) showed up correctly via `curl` and on the actual Indexing
+        page's new "Cluster" panel.
 - [x] **Benchmark: ingest throughput + query latency proof points.** Shipped
       2026-08-22 - a proof point for the "Flare inherits HA/scale from ClickHouse +
       Redis Streams for free" claim discussed elsewhere, measured rather than just

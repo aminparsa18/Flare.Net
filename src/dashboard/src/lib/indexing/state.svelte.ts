@@ -5,10 +5,17 @@
 // the way live throughput does; a manual refresh button covers the "I just generated
 // traffic and want to see it reflected" case instead.
 
-import { getIndexingStats, type IndexingStatsResponse } from '$lib/indexing-api';
+import { getIndexingStats, getClusterStatus, type IndexingStatsResponse, type ClusterStatusResponse } from '$lib/indexing-api';
 
 export class IndexingState {
 	stats = $state.raw<IndexingStatsResponse | null>(null);
+	/**
+	 * Fetched alongside `stats` on every `load()`, not gated behind it - a single-node
+	 * deployment gets `{ clusterModeEnabled: false, nodes: [] }` back cheaply (see
+	 * ClusterQueryService's remarks), so there's no need to skip this call client-side
+	 * first; IndexingClusterStatus.svelte just renders nothing when it's false.
+	 */
+	clusterStatus = $state.raw<ClusterStatusResponse | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
 
@@ -22,9 +29,10 @@ export class IndexingState {
 		this.loading = true;
 		this.error = null;
 		try {
-			const res = await getIndexingStats(abort.signal);
+			const [stats, clusterStatus] = await Promise.all([getIndexingStats(abort.signal), getClusterStatus(abort.signal)]);
 			if (abort.signal.aborted) return;
-			this.stats = res;
+			this.stats = stats;
+			this.clusterStatus = clusterStatus;
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.error = err instanceof Error ? err.message : String(err);

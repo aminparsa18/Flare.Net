@@ -281,6 +281,11 @@ services:
       ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
+      # Display-only here - api never does its own Drain pattern matching, this just lets
+      # the Indexing page's cluster-status panel report whether ingest-1/ingest-2 (which
+      # actually act on this flag) have shared pattern-cluster state turned on. Keep in
+      # sync with ingest-1/ingest-2's own copy above by hand.
+      LogPattern__SharedStore: "true"
       Email__Host: "${SMTP_HOST:-}"
       Email__Port: "${SMTP_PORT:-587}"
       Email__Username: "${SMTP_USERNAME:-}"
