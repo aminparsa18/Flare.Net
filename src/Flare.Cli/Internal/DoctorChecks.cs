@@ -46,7 +46,8 @@ internal static class DoctorChecks
             return [new DiagnosticCheck("Stack initialized", false, "Not initialized yet - run `flare start`.")];
         }
 
-        var services = new[] { "clickhouse", "redis", "ingest", "api", "dashboard" };
+        var profile = FlareHome.ResolveTopology(instance);
+        var services = profile.HealthCheckedServices.Concat(profile.RunningOnlyServices).ToArray();
         var checks = new List<DiagnosticCheck>(services.Length);
 
         foreach (var service in services)
@@ -68,10 +69,11 @@ internal static class DoctorChecks
     /// </summary>
     public static async Task<DiagnosticCheck> CheckIngestionAsync(FlareInstance instance, CancellationToken ct)
     {
+        var execTarget = FlareHome.ResolveTopology(instance).ClickHouseExecTarget;
         var result = await ComposeRunner.RunCapturedAsync(
             instance,
             [
-                "exec", "-T", "clickhouse", "sh", "-c",
+                "exec", "-T", execTarget, "sh", "-c",
                 "clickhouse-client --password \"$CLICKHOUSE_PASSWORD\" --query \"SELECT count() FROM clickhousedb.logs\"",
             ],
             ct).ConfigureAwait(false);
@@ -106,10 +108,10 @@ internal static class DoctorChecks
     /// whenever that instance is already running, since a bind failure there just means
     /// "our own healthy containers", not a conflict to report.
     /// </summary>
-    public static IReadOnlyList<DiagnosticCheck> CheckPortsAvailable(FlareInstance instance)
+    public static IReadOnlyList<DiagnosticCheck> CheckPortsAvailable(FlareInstance instance, (string Label, string EnvKey, int Fallback)[] portDefaults)
     {
-        var checks = new List<DiagnosticCheck>(PortDefaults.All.Length);
-        foreach (var (label, envKey, fallback) in PortDefaults.All)
+        var checks = new List<DiagnosticCheck>(portDefaults.Length);
+        foreach (var (label, envKey, fallback) in portDefaults)
         {
             var portText = instance.ReadEnvValue(envKey, fallback.ToString(System.Globalization.CultureInfo.InvariantCulture));
             if (!int.TryParse(portText, out var port))

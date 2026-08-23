@@ -20,17 +20,21 @@ internal static class EnvGenerator
 
     /// <summary>
     /// Renders env.template into a real .env: random passwords always, plus each
-    /// service's port. <paramref name="ports"/> is the named-instance auto-probe result
-    /// (see <see cref="PortDefaults.ProbeFreePorts"/>) - omit it (the default instance's
-    /// own path) to fall back to <see cref="PortDefaults.All"/>'s static defaults, which
-    /// keeps the default instance's rendered .env byte-identical to before per-instance
-    /// ports existed. PUBLIC_API_URL is derived from the resolved FLARE_API_PORT rather
-    /// than templated as its own independent literal, so a named instance's dashboard
-    /// always points its browser-side API calls at the port that instance actually uses.
+    /// service's port. <paramref name="portDefaults"/> is the target instance's own
+    /// topology profile's port table (see <see cref="TopologyProfile.Ports"/>) -
+    /// Standalone and Cluster carry different port sets, so this can no longer assume
+    /// <see cref="PortDefaults.All"/> the way it used to. <paramref name="ports"/> is the
+    /// named-instance auto-probe result (see <see cref="PortDefaults.ProbeFreePorts"/>) -
+    /// omit it (the default instance's own path) to fall back to
+    /// <paramref name="portDefaults"/>'s static defaults, which keeps the default
+    /// instance's rendered .env byte-identical to before per-instance ports existed.
+    /// PUBLIC_API_URL is derived from the resolved FLARE_API_PORT rather than templated
+    /// as its own independent literal, so a named instance's dashboard always points its
+    /// browser-side API calls at the port that instance actually uses.
     /// </summary>
-    public static string RenderEnvTemplate(string template, IReadOnlyDictionary<string, int>? ports = null)
+    public static string RenderEnvTemplate(string template, (string Label, string EnvKey, int Fallback)[] portDefaults, IReadOnlyDictionary<string, int>? ports = null)
     {
-        var resolved = PortDefaults.All.ToDictionary(
+        var resolved = portDefaults.ToDictionary(
             p => p.EnvKey,
             p => ports is not null && ports.TryGetValue(p.EnvKey, out var overridden) ? overridden : p.Fallback);
 

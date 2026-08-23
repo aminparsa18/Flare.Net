@@ -186,6 +186,39 @@ documentation:
   "Design decision" above for the full rationale, including the one real caveat (data
   inserted under the old `rand()` key, if any, isn't safely prunable) and the live
   verification confirming both the co-location and the actual shard pruning.
+- **The bootstrap `CREATE DATABASE IF NOT EXISTS clickhousedb` always failed on a truly
+  fresh cluster.** Found 2026-08-23 while building `flare start --cluster` (Flare.Cli):
+  `ConnectionStrings__clickhousedb` (every service, both compose files) sets
+  `Database=clickhousedb` - fine for every other statement in `ClickHouseMigrationRunner`,
+  which all explicitly qualify `clickhousedb.<name>`, but fatal for this one specifically
+  the first time it ever runs. ClickHouse's HTTP interface rejects EVERY query on a
+  session whose default database doesn't exist yet, even the `CREATE DATABASE` that would
+  create it - confirmed directly via `clickhouse-client --database clickhousedb --query
+  "CREATE DATABASE IF NOT EXISTS clickhousedb"` against a fresh node (`Code: 81
+  UNKNOWN_DATABASE`, no `--database` flag succeeds). Single-node mode never hit this
+  because `docker-entrypoint-initdb.d`'s own copy of this statement
+  (`db/clickhouse/0001_logs.sql`) already created the database before the app ever
+  connects; cluster mode deliberately has no such side channel, so this bootstrap call
+  was the ONLY thing that could create it, and it always failed. Fixed in
+  `ClickHouseMigrationRunner.ApplyAsync` by overriding just this one call's
+  `QueryOptions.Database` to ClickHouse's own always-present `default` database instead
+  of relying on the client's own connection-scoped one.
+- **Concurrent replicas can transiently crash-loop once on a truly fresh cluster** -
+  `ingest-1`/`ingest-2`/`api` all call `ApplyAsync` concurrently at startup (safe by
+  design for single-node's synchronous `CREATE TABLE`, see that method's own remarks),
+  but cluster mode's `ON CLUSTER` DDL propagates across the 4 nodes asynchronously - a
+  replica that reads `schema_migrations` and starts applying, say, migration 0006 can
+  hit `UNKNOWN_TABLE` on a table an earlier migration (0003) just created via `ON
+  CLUSTER`, if `clickhouse-lb`'s round robin happens to land it on a node the DDL hasn't
+  propagated to yet. Observed live (2026-08-23): `ingest-1`/`ingest-2` crash-looped for
+  roughly 10-20s on a fresh `flare start --cluster` before settling healthy -
+  `restart: unless-stopped` retries land on a caught-up node soon enough that this has
+  never been observed to exceed `flare start`'s own 120s per-service health-wait budget,
+  same self-healing spirit as the connection-retry case `ApplyAsync`'s own remarks
+  already describe. Not fixed here - a real fix would serialize cluster-wide migration
+  application (e.g. one designated writer, or waiting for `ON CLUSTER` DDL completion
+  before returning) rather than letting every replica race independently; named here as
+  a known, currently self-healing rough edge, not solved by anything in this document.
 
 ## ClickHouse load balancing: `clickhouse-lb`
 
@@ -227,6 +260,11 @@ routing) may still prefer `chproxy` - swapping it in only touches this one servi
   Logs page's pattern grouping under `docker-compose.cluster.yml`'s two-replica setup.
   A real fix needs shared cluster state (e.g. Redis- or ClickHouse-backed); named here
   as a separate, still-open item, not solved by anything in this document.
+- **Concurrent replicas racing `ON CLUSTER` DDL propagation can transiently crash-loop
+  on a truly fresh cluster's first boot** - see the "Operational notes" bullet above.
+  Self-heals within `flare start`'s own health-wait budget every time it's been
+  observed, so not a practical blocker, but a real fix (serializing migration
+  application instead of every replica racing independently) is still open.
 
 ## Verifying it yourself
 

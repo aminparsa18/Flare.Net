@@ -27,6 +27,11 @@ internal sealed class DoctorCommand : AsyncCommand<DoctorCommand.Settings>
         var composeCheck = await DoctorChecks.CheckComposePluginAsync(cancellationToken);
         Report(composeCheck, ref allPassed);
 
+        // Standalone default pre-init (nothing persisted yet to say otherwise - `flare
+        // doctor` has no --cluster flag of its own, that's `flare start`'s call). Once
+        // initialized this reads the instance's own persisted topology.
+        var profile = FlareHome.ResolveTopology(instance);
+
         if (!instance.IsInitialized)
         {
             AnsiConsole.MarkupLine($"[grey]○[/] Stack not initialized yet - run `{instance.StartHint}`. (not an error)");
@@ -35,7 +40,7 @@ internal sealed class DoctorCommand : AsyncCommand<DoctorCommand.Settings>
             // (e.g. another instance, or a repo-local `docker compose up`, already bound
             // to the same ports) is most useful to catch, before the first `flare start`
             // hits it as a raw Docker bind error instead.
-            foreach (var portCheck in DoctorChecks.CheckPortsAvailable(instance))
+            foreach (var portCheck in DoctorChecks.CheckPortsAvailable(instance, profile.Ports))
             {
                 Report(portCheck, ref allPassed);
             }
@@ -61,7 +66,7 @@ internal sealed class DoctorCommand : AsyncCommand<DoctorCommand.Settings>
         // it's this instance's own containers holding these ports, not a conflict.
         if (!stackChecks.Any(c => c.Passed))
         {
-            foreach (var portCheck in DoctorChecks.CheckPortsAvailable(instance))
+            foreach (var portCheck in DoctorChecks.CheckPortsAvailable(instance, profile.Ports))
             {
                 Report(portCheck, ref allPassed);
             }

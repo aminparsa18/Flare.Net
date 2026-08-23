@@ -23,6 +23,17 @@ internal sealed class StateMetadata
     [JsonPropertyName("cliVersion")]
     public string CliVersion { get; set; } = "unknown";
 
+    /// <summary>
+    /// "standalone" or "cluster" - set once at this instance's first `flare start` and
+    /// never changed afterward (not a live migration path, same posture
+    /// docs/clustering.md already states for the repo-level cluster compose file). A
+    /// pre-existing instance's state.json (written before cluster mode existed) has no
+    /// value for this field and deserializes to the default below, so an
+    /// already-initialized standalone instance keeps behaving exactly as before.
+    /// </summary>
+    [JsonPropertyName("topology")]
+    public string Topology { get; set; } = "standalone";
+
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         WriteIndented = true,

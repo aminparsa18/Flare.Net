@@ -6,15 +6,6 @@ namespace Flare.Cli.Commands;
 
 internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
 {
-    private static readonly (string Service, string PortLabel)[] Services =
-    [
-        ("clickhouse", "localhost:{CLICKHOUSE_HTTP_PORT}"),
-        ("redis", "(internal only)"),
-        ("ingest", "localhost:{FLARE_INGEST_GRPC_PORT} grpc / {FLARE_INGEST_HTTP_PORT} http"),
-        ("api", "localhost:{FLARE_API_PORT}"),
-        ("dashboard", "localhost:{FLARE_DASHBOARD_PORT}"),
-    ];
-
     internal sealed class Settings : InstanceSettings
     {
     }
@@ -29,13 +20,15 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
             return 0;
         }
 
+        var profile = FlareHome.ResolveTopology(instance);
+
         var table = new Table().Border(TableBorder.Rounded);
         table.AddColumn("Service");
         table.AddColumn("State");
         table.AddColumn("Health");
         table.AddColumn("Port");
 
-        foreach (var (service, portLabelTemplate) in Services)
+        foreach (var (service, portLabelTemplate) in profile.StatusRows)
         {
             var stateResult = await ComposeRunner.RunCapturedAsync(instance, ["ps", "--format", "{{.State}}", service]);
             var healthResult = await ComposeRunner.RunCapturedAsync(instance, ["ps", "--format", "{{.Health}}", service]);
@@ -51,7 +44,7 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
                 _ => $"[red]{Markup.Escape(health)}[/]",
             };
 
-            var portLabel = ResolvePortLabel(instance, portLabelTemplate);
+            var portLabel = ResolvePortLabel(instance, profile, portLabelTemplate);
 
             table.AddRow(service, stateDisplay, healthDisplay, portLabel);
         }
@@ -60,10 +53,10 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
         return 0;
     }
 
-    private static string ResolvePortLabel(FlareInstance instance, string template)
+    private static string ResolvePortLabel(FlareInstance instance, TopologyProfile profile, string template)
     {
         var result = template;
-        foreach (var (_, envKey, fallback) in PortDefaults.All)
+        foreach (var (_, envKey, fallback) in profile.Ports)
         {
             result = result.Replace($"{{{envKey}}}", instance.ReadEnvValue(envKey, fallback.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         }
