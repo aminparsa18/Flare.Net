@@ -13,9 +13,13 @@ public sealed record PatternMatch(string PatternId, string PatternTemplate);
 public interface ILogPatternMatcher
 {
     /// <summary>
-    /// Matches (or creates) a cluster for <paramref name="body"/>. Never throws on
-    /// null/empty/pathological input - the ingest flush path can't afford to fail a whole
-    /// batch over one malformed log line.
+    /// Matches (or creates) a cluster for every body in <paramref name="bodies"/>, in
+    /// order. Never throws on null/empty/pathological input - the ingest flush path can't
+    /// afford to fail a whole batch over one malformed log line. Batch-shaped (rather than
+    /// one body at a time) so an implementation backed by shared storage
+    /// (<see cref="RedisPatternClusterStore"/>) can group same-template lines into one
+    /// store round trip instead of one per line - see <see cref="DrainPatternMatcher"/>'s
+    /// remarks.
     /// </summary>
-    PatternMatch Match(string? body);
+    Task<IReadOnlyList<PatternMatch>> MatchBatchAsync(IReadOnlyList<string?> bodies, CancellationToken cancellationToken);
 }

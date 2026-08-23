@@ -43,11 +43,24 @@ builder.Services.AddSingleton<IClickHouseLogEventWriter, ClickHouseLogEventWrite
 builder.Services.AddHostedService<ClickHouseFlushWorker>();
 
 // Log pattern detection (Drain clustering, Planning.md's "another killer feature" item) -
-// singleton so DrainPatternMatcher's in-memory tree persists across flush batches for the
-// life of the process (see its own remarks on why that's an accepted, not a solved,
-// restart-reset limitation).
+// singleton so DrainPatternMatcher's cluster store persists across flush batches for the
+// life of the process (see its own remarks on why an in-memory store's restart reset is
+// accepted, not solved). LogPattern:SharedStore picks the cluster store implementation -
+// same "config-gated, off by default" shape as ClickHouse:ClusterMode below - so that
+// choice must be known before the singleton is registered, not resolved lazily per call.
 builder.Services.Configure<LogPatternOptions>(
     builder.Configuration.GetSection(LogPatternOptions.SectionName));
+if (builder.Configuration.GetValue<bool>($"{LogPatternOptions.SectionName}:{nameof(LogPatternOptions.SharedStore)}"))
+{
+    // Shared across replicas (docker-compose.cluster.yml's ingest-1/ingest-2) - the fix
+    // for docs/clustering.md's cross-replica PatternId fragmentation. See its remarks.
+    builder.Services.AddSingleton<IPatternClusterStore, RedisPatternClusterStore>();
+}
+else
+{
+    // Default: per-process only, correct for a single replica, no Redis traffic added.
+    builder.Services.AddSingleton<IPatternClusterStore, InMemoryPatternClusterStore>();
+}
 builder.Services.AddSingleton<ILogPatternMatcher, DrainPatternMatcher>();
 builder.Services.AddSingleton<ILogPatternAnnotator, LogPatternAnnotator>();
 

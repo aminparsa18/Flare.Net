@@ -29,7 +29,9 @@ public sealed class LogPatternOptions
     /// memory growth from adversarial/high-cardinality bodies - same safety-cap instinct
     /// as <see cref="Pipeline.LogEventPipelineOptions.StreamMaxLength"/> and
     /// <c>LogQueryService</c>'s ClickHouse <c>SafetyOptions()</c>. Once at the cap, creating
-    /// a new cluster evicts the least-recently-used one tree-wide.
+    /// a new cluster evicts the least-recently-used one tree-wide. Only enforced by
+    /// <see cref="InMemoryPatternClusterStore"/> - <see cref="RedisPatternClusterStore"/>
+    /// bounds growth via <see cref="SharedTemplateTtl"/> instead (see its remarks).
     /// </summary>
     public int MaxTemplates { get; set; } = 10_000;
 
@@ -38,4 +40,24 @@ public sealed class LogPatternOptions
     /// pathologically long log line can't blow up flush-path latency.
     /// </summary>
     public int MaxBodyLength { get; set; } = 4096;
+
+    /// <summary>
+    /// <see langword="false"/> (default): <see cref="InMemoryPatternClusterStore"/>, a
+    /// per-process tree - correct for a single <c>Flare.Ingest</c> replica, no Redis
+    /// traffic added. <see langword="true"/>: <see cref="RedisPatternClusterStore"/>,
+    /// shared across replicas - the fix for docs/clustering.md's cross-replica
+    /// <c>PatternId</c> fragmentation; set on <c>ingest-1</c>/<c>ingest-2</c> in
+    /// <c>docker-compose.cluster.yml</c>. Same "config-gated, off by default" shape as
+    /// <c>ClickHouse:ClusterMode</c>.
+    /// </summary>
+    public bool SharedStore { get; set; }
+
+    /// <summary>
+    /// Sliding TTL <see cref="RedisPatternClusterStore"/> refreshes on a bucket key every
+    /// time it's touched; unused by <see cref="InMemoryPatternClusterStore"/>. A
+    /// rarely-touched template's key simply expires - the shared-store equivalent of
+    /// <see cref="MaxTemplates"/>'s LRU eviction, without needing a cross-replica-visible
+    /// counter/sorted-set touched on every write.
+    /// </summary>
+    public TimeSpan SharedTemplateTtl { get; set; } = TimeSpan.FromHours(72);
 }
