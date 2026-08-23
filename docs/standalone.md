@@ -37,6 +37,9 @@ Once it's up:
   below. Anonymous by default; see [docs/auth.md#ingest-api-keys](auth.md#ingest-api-keys)
   to require an API key instead.
 
+Need ClickHouse to survive a node dying, or to scale beyond one box? There's a
+multi-node cluster setup too — see [docs/clustering.md](clustering.md).
+
 ## Point your logger at it
 
 Every logger below reaches Flare through the same protocol — OTLP — so they all

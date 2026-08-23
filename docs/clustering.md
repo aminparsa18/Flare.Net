@@ -187,14 +187,46 @@ documentation:
   inserted under the old `rand()` key, if any, isn't safely prunable) and the live
   verification confirming both the co-location and the actual shard pruning.
 
+## ClickHouse load balancing: `clickhouse-lb`
+
+Earlier drafts of this doc named single-entry-point failover as an unsolved limitation:
+`ConnectionStrings__clickhousedb` pointed every `Flare.Ingest`/`Flare.Api` instance at
+`clickhouse-1` specifically, so a down `clickhouse-1` took the whole app down with it
+even though 3 other healthy nodes were sitting right there.
+
+Fixed by adding `clickhouse-lb`, an `nginx:alpine` service
+(`db/clickhouse-cluster/config/nginx-lb.conf`) that round-robins ClickHouse's HTTP
+interface across all 4 nodes with passive failover (`max_fails`/`fail_timeout`, plus
+`proxy_next_upstream` retrying the next node on a connect error or 5xx instead of
+failing the client request). `ConnectionStrings__clickhousedb` for `ingest-1`,
+`ingest-2`, and `api` now all point at `clickhouse-lb:8123` instead of any single node.
+
+Any of the 4 nodes is a valid target regardless of which shard it belongs to - see
+"Design decision" above: `Distributed` tables live on every node and forward each
+request to the correct shard/replica internally, so round-robining without shard
+awareness is correct, not just convenient.
+
+This is a plain reverse-proxy approach (nginx), not ClickHouse's purpose-built
+`chproxy` - nginx was enough to solve the specific problem named above (a single dead
+node no longer breaks ingest/query) without pulling in `chproxy`'s own config format and
+user-routing model for functionality this deployment doesn't need yet. A real
+deployment with heavier requirements (per-user query queues/limits, more elaborate
+routing) may still prefer `chproxy` - swapping it in only touches this one service,
+`Distributed`-table correctness above doesn't change.
+
 ## Known limitations (not attempted here)
 
-- **No client-side load balancing across cluster entry points.**
-  `ConnectionStrings__clickhousedb` in `docker-compose.cluster.yml` points every
-  `Flare.Ingest`/`Flare.Api` instance at `clickhouse-1` specifically. If `clickhouse-1`
-  is down, the app can't fail over to another node on its own - a real deployment would
-  put a load balancer (or ClickHouse's own `chproxy`) in front instead. Named as a
-  follow-up, not solved here.
+- **Drain log-pattern clustering state doesn't share across `Flare.Ingest` replicas.**
+  `DrainPatternMatcher` (see its own remarks) is in-memory and singleton-scoped per
+  process, with no persistence or cross-replica sharing - unlike
+  `LogEventPipelineOptions.ConsumerName`, giving each replica a distinct identity
+  doesn't fix this, because the gap isn't identity collision, it's that `ingest-1` and
+  `ingest-2` each build their own pattern clusters from whichever subset of logs they
+  happen to consume off the shared Redis Stream. The same log template can end up under
+  a different `PatternId` depending on which replica saw it first, fragmenting the
+  Logs page's pattern grouping under `docker-compose.cluster.yml`'s two-replica setup.
+  A real fix needs shared cluster state (e.g. Redis- or ClickHouse-backed); named here
+  as a separate, still-open item, not solved by anything in this document.
 
 ## Verifying it yourself
 
