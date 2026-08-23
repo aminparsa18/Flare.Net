@@ -622,8 +622,14 @@ actually worked out (see the three bullets below) — closing out the full origi
         results). See `docs/clustering.md`'s "Operational notes" and "Design
         decision" sections, including the one real caveat: this assumes no data was
         inserted under the old `rand()` key before the sharding change.
-      - **Known limitations, named not solved**: no client-side load balancing
-        across ClickHouse cluster entry points; the in-memory
+      - **Client-side load balancing (2026-08-23, fixed):** `clickhouse-lb`, an
+        `nginx:alpine` reverse proxy, now round-robins ClickHouse's HTTP interface
+        across all 4 nodes with passive failover; `ConnectionStrings__clickhousedb`
+        for `ingest-1`/`ingest-2`/`api` points at it instead of a hardcoded
+        `clickhouse-1`. Live-verified: killed `clickhouse-1` mid-traffic and saw
+        zero failed requests, rotation across the other 3 nodes. See
+        `docs/clustering.md`'s "ClickHouse load balancing" section.
+      - **Known limitation, still not solved**: the in-memory
         `DrainPatternMatcher`/Drain clustering state still doesn't share across
         `Flare.Ingest` replicas (a separate gap from the consumer-name one - see its
         own remarks). See `docs/clustering.md`'s "Known limitations" section.

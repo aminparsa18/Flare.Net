@@ -69,6 +69,8 @@ Whichever path you pick, the dashboard comes up at [http://localhost:7777](http:
 
 Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogger, and `Microsoft.Extensions.Logging` live in [docs/standalone.md](docs/standalone.md#point-your-logger-at-it) (or [docs/aspire-hosting.md](docs/aspire-hosting.md#2-point-your-logger-at-it) on Aspire).
 
+Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup — see [docs/clustering.md](docs/clustering.md).
+
 ## Local development
 
 Standalone Docker isn't the dev-inner-loop story — see [Flare.AppHost](src/Flare.AppHost) (.NET Aspire) for that, and each project's own README (e.g. [src/dashboard/README.md](src/dashboard/README.md)) for running it individually.

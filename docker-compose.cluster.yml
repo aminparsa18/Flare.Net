@@ -15,10 +15,10 @@
 #
 # `ingest-1`/`ingest-2`'s OTLP ports aren't proxied/load-balanced here (same as the base
 # file) - each gets its own distinct host ports; a real deployment would put a load
-# balancer in front rather than expect clients to pick a replica. Same limitation on the
-# ClickHouse side: `ConnectionStrings__clickhousedb` below points at `clickhouse-1` as a
-# single entry point - no client-side load balancing across cluster nodes in v1 (see
-# docs/clustering.md).
+# balancer in front rather than expect clients to pick a replica. The ClickHouse side
+# DOES get one: `clickhouse-lb` (nginx) round-robins across all 4 ClickHouse nodes'
+# HTTP interfaces with passive failover, and `ConnectionStrings__clickhousedb` below
+# points at it instead of any single node - see docs/clustering.md.
 
 services:
   keeper-1:
@@ -159,6 +159,29 @@ services:
       timeout: 5s
       retries: 30
 
+  # Single ClickHouse entry point for Flare.Ingest/Flare.Api - round-robins across all
+  # 4 nodes with passive failover (see db/clickhouse-cluster/config/nginx-lb.conf).
+  # Fixes docs/clustering.md's former "no client-side load balancing" known limitation:
+  # a single node going down no longer takes the whole app with it.
+  clickhouse-lb:
+    image: nginx:alpine
+    labels:
+      flare.resource: "true"
+      flare.role: "clickhouse-lb"
+      flare.relationships: "clickhouse-1:Reference,clickhouse-2:Reference,clickhouse-3:Reference,clickhouse-4:Reference"
+    depends_on:
+      clickhouse-1: { condition: service_healthy }
+      clickhouse-2: { condition: service_healthy }
+      clickhouse-3: { condition: service_healthy }
+      clickhouse-4: { condition: service_healthy }
+    volumes:
+      - ./db/clickhouse-cluster/config/nginx-lb.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8123/ping | grep -q Ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
   redis:
     image: redis:latest
     labels:
@@ -188,12 +211,12 @@ services:
     labels:
       flare.resource: "true"
       flare.role: "ingest"
-      flare.relationships: "clickhouse-1:Reference,redis:Reference"
+      flare.relationships: "clickhouse-lb:Reference,redis:Reference"
     depends_on:
-      clickhouse-1: { condition: service_healthy }
+      clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse-1;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
       Identity__DbPath: "/data/identity/flare-identity.db"
@@ -216,12 +239,12 @@ services:
     labels:
       flare.resource: "true"
       flare.role: "ingest"
-      flare.relationships: "clickhouse-1:Reference,redis:Reference"
+      flare.relationships: "clickhouse-lb:Reference,redis:Reference"
     depends_on:
-      clickhouse-1: { condition: service_healthy }
+      clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse-1;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
       Identity__DbPath: "/data/identity/flare-identity.db"
@@ -244,12 +267,12 @@ services:
     labels:
       flare.resource: "true"
       flare.role: "api"
-      flare.relationships: "clickhouse-1:Reference,redis:Reference"
+      flare.relationships: "clickhouse-lb:Reference,redis:Reference"
     depends_on:
-      clickhouse-1: { condition: service_healthy }
+      clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
     environment:
-      ConnectionStrings__clickhousedb: "Host=clickhouse-1;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
       Email__Host: "${SMTP_HOST:-}"

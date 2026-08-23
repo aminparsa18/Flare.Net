@@ -126,6 +126,9 @@ version's own default.
   taken instead of surfacing Docker's raw "port is already allocated" error - but they
   can't resolve the conflict for you; change one side's ports via its `.env`.
 - **No multi-instance support**: one `~/.flare/` per machine/user, one standing stack.
+- **No cluster mode**: `flare` only manages the single-node stack. If you want the
+  multi-node ClickHouse setup, run `docker-compose.cluster.yml` directly — see
+  [docs/clustering.md](clustering.md).
 - **No `flare aspire`-anything**: this tool has zero interaction with `aspire start`
   or AppHost wiring - out of scope by design, not a gap.
 - **Not verified on Windows yet** - state-directory resolution and the browser-launch
