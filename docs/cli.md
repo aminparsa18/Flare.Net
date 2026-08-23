@@ -96,8 +96,8 @@ collide with the default instance or with each other), and their own credentials
 
 ```sh
 flare start -n work    # first run also initializes ~/.flare/instances/work/
-flare status -n work
-flare open -n work
+flare status            # -n not needed from here on - work is the only instance so far
+flare open
 flare instances list   # every instance on this machine, default plus named
 ```
 
