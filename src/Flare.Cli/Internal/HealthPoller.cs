@@ -16,8 +16,8 @@ internal static class HealthPoller
     /// "healthy" or the timeout elapses. Use for services with a compose-level
     /// healthcheck (clickhouse/redis/ingest/api).
     /// </summary>
-    public static Task<bool> WaitUntilHealthyAsync(string service, CancellationToken ct = default, TimeSpan? timeout = null)
-        => PollAsync(service, "{{.Health}}", "healthy", timeout ?? DefaultTimeout, ct);
+    public static Task<bool> WaitUntilHealthyAsync(FlareInstance instance, string service, CancellationToken ct = default, TimeSpan? timeout = null)
+        => PollAsync(instance, service, "{{.Health}}", "healthy", timeout ?? DefaultTimeout, ct);
 
     /// <summary>
     /// Polls `docker compose ps --format '{{.State}}' &lt;service&gt;` until it reports
@@ -25,10 +25,10 @@ internal static class HealthPoller
     /// today (see Templates/docker-compose.flare.yml), so "running" is its actual
     /// success bar - callers should surface that asymmetry rather than hide it.
     /// </summary>
-    public static Task<bool> WaitUntilRunningAsync(string service, CancellationToken ct = default, TimeSpan? timeout = null)
-        => PollAsync(service, "{{.State}}", "running", timeout ?? DefaultTimeout, ct);
+    public static Task<bool> WaitUntilRunningAsync(FlareInstance instance, string service, CancellationToken ct = default, TimeSpan? timeout = null)
+        => PollAsync(instance, service, "{{.State}}", "running", timeout ?? DefaultTimeout, ct);
 
-    private static async Task<bool> PollAsync(string service, string format, string expected, TimeSpan timeout, CancellationToken ct)
+    private static async Task<bool> PollAsync(FlareInstance instance, string service, string format, string expected, TimeSpan timeout, CancellationToken ct)
     {
         var deadline = DateTime.UtcNow + timeout;
 
@@ -36,7 +36,7 @@ internal static class HealthPoller
         {
             ct.ThrowIfCancellationRequested();
 
-            var result = await ComposeRunner.RunCapturedAsync(["ps", "--format", format, service], ct).ConfigureAwait(false);
+            var result = await ComposeRunner.RunCapturedAsync(instance, ["ps", "--format", format, service], ct).ConfigureAwait(false);
             var value = result.StandardOutput.Trim();
 
             if (string.Equals(value, expected, StringComparison.OrdinalIgnoreCase))

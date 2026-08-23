@@ -52,6 +52,11 @@ app.Configure(config =>
         apikey.AddCommand<ApiKeyCreateCommand>("create")
             .WithDescription("Create a new ingest API key.");
     });
+    config.AddBranch("instances", instances =>
+    {
+        instances.AddCommand<InstancesListCommand>("list")
+            .WithDescription("List every Flare instance on this machine (default plus any named ones).");
+    });
     config.AddCommand<UpdateCommand>("update")
         .WithDescription("Pull the latest images for the pinned tag and recreate containers. --tag <TAG> moves the pin itself first.");
     config.AddCommand<LogsCommand>("logs")

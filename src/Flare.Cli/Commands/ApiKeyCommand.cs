@@ -19,7 +19,7 @@ namespace Flare.Cli.Commands;
 /// </summary>
 internal sealed class ApiKeyCreateCommand : AsyncCommand<ApiKeyCreateCommand.Settings>
 {
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandArgument(0, "<NAME>")]
         [Description("A label for this key, e.g. 'ci' or 'staging-collector'.")]
@@ -28,9 +28,11 @@ internal sealed class ApiKeyCreateCommand : AsyncCommand<ApiKeyCreateCommand.Set
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
@@ -40,7 +42,7 @@ internal sealed class ApiKeyCreateCommand : AsyncCommand<ApiKeyCreateCommand.Set
             return 1;
         }
 
-        var port = FlareHome.ReadEnvValue("FLARE_API_PORT", "8080");
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
         using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
 
         CreateIngestApiKeyResponseWire? response;

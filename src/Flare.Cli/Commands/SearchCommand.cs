@@ -22,7 +22,7 @@ namespace Flare.Cli.Commands;
 /// </summary>
 internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
 {
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandOption("-s|--service <NAME>")]
         [Description("Filter by exact service name. Repeatable.")]
@@ -52,16 +52,18 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
         [Description("How far back to search: 15m, 1h, 6h, 24h, 7d. Default 1h.")]
         public string Since { get; init; } = "1h";
 
-        [CommandOption("-n|--limit <COUNT>")]
+        [CommandOption("--limit <COUNT>")]
         [Description("Max events to print. Default 20.")]
         public int Limit { get; init; } = 20;
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
@@ -98,7 +100,7 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
             Search = string.IsNullOrWhiteSpace(settings.Search) ? null : settings.Search,
         };
 
-        var port = FlareHome.ReadEnvValue("FLARE_API_PORT", "8080");
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
         using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
 
         LogSearchResponseWire? response;

@@ -4,12 +4,18 @@ using Spectre.Console.Cli;
 
 namespace Flare.Cli.Commands;
 
-internal sealed class StartCommand : AsyncCommand
+internal sealed class StartCommand : AsyncCommand<StartCommand.Settings>
 {
     private static readonly string[] HealthCheckedServices = ["clickhouse", "redis", "ingest", "api"];
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    internal sealed class Settings : InstanceSettings
     {
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
         var preflight = await DoctorChecks.CheckDockerReachableAsync(cancellationToken);
         if (!preflight.Passed)
         {
@@ -17,27 +23,27 @@ internal sealed class StartCommand : AsyncCommand
             return 1;
         }
 
-        var wasAlreadyInitialized = FlareHome.IsInitialized;
+        var wasAlreadyInitialized = instance.IsInitialized;
         if (!wasAlreadyInitialized)
         {
-            AnsiConsole.MarkupLine($"[grey]Initializing {FlareHome.Directory}...[/]");
+            AnsiConsole.MarkupLine($"[grey]Initializing {instance.Directory}...[/]");
         }
 
-        FlareHome.EnsureInitialized();
+        FlareHome.EnsureInitialized(instance);
 
-        // Skip the port-availability preflight when Flare's own stack is already the
-        // thing holding these ports - `docker compose up` against an already-running
+        // Skip the port-availability preflight when this instance's own stack is already
+        // the thing holding these ports - `docker compose up` against an already-running
         // stack is a normal idempotent no-op, not a conflict to warn about. Otherwise
         // (first-ever init, or a previously-stopped stack), check up front so a collision
-        // - most commonly a repo-local `docker compose up` of this same stack, still
-        // running (see docs/cli.md's Known limitations) - fails here with a clear
-        // per-port message instead of `docker compose up`'s raw bind error.
+        // - most commonly another instance (or a repo-local `docker compose up`) already
+        // bound to the same ports - fails here with a clear per-port message instead of
+        // `docker compose up`'s raw bind error.
         var stackAlreadyRunning = wasAlreadyInitialized
-            && (await DoctorChecks.CheckStackStateAsync(cancellationToken)).Any(c => c.Passed);
+            && (await DoctorChecks.CheckStackStateAsync(instance, cancellationToken)).Any(c => c.Passed);
 
         if (!stackAlreadyRunning)
         {
-            var portConflicts = DoctorChecks.CheckPortsAvailable().Where(c => !c.Passed).ToList();
+            var portConflicts = DoctorChecks.CheckPortsAvailable(instance).Where(c => !c.Passed).ToList();
             if (portConflicts.Count > 0)
             {
                 AnsiConsole.MarkupLine("[red]✗[/] Port conflict(s) - not starting:");
@@ -51,7 +57,7 @@ internal sealed class StartCommand : AsyncCommand
         }
 
         AnsiConsole.MarkupLine("[grey]Starting containers (this pulls images on first run)...[/]");
-        var upExitCode = await ComposeRunner.RunStreamedAsync(["up", "-d"]);
+        var upExitCode = await ComposeRunner.RunStreamedAsync(instance, ["up", "-d"]);
         if (upExitCode != 0)
         {
             AnsiConsole.MarkupLine("[red]✗[/] `docker compose up -d` failed - see the output above.");
@@ -64,7 +70,7 @@ internal sealed class StartCommand : AsyncCommand
             foreach (var service in HealthCheckedServices)
             {
                 ctx.Status($"Waiting for [bold]{service}[/] to become healthy...");
-                var healthy = await HealthPoller.WaitUntilHealthyAsync(service);
+                var healthy = await HealthPoller.WaitUntilHealthyAsync(instance, service);
                 if (!healthy)
                 {
                     AnsiConsole.MarkupLine($"[red]✗[/] [bold]{service}[/] did not become healthy in time. Try: [grey]flare logs {service}[/]");
@@ -77,7 +83,7 @@ internal sealed class StartCommand : AsyncCommand
             // actual success bar, not "healthy". Called out explicitly rather than
             // silently treating it the same as the four services above.
             ctx.Status("Waiting for [bold]dashboard[/] to start...");
-            var dashboardRunning = await HealthPoller.WaitUntilRunningAsync("dashboard");
+            var dashboardRunning = await HealthPoller.WaitUntilRunningAsync(instance, "dashboard");
             if (!dashboardRunning)
             {
                 AnsiConsole.MarkupLine("[red]✗[/] [bold]dashboard[/] did not start in time. Try: [grey]flare logs dashboard[/]");
@@ -90,8 +96,9 @@ internal sealed class StartCommand : AsyncCommand
             return 1;
         }
 
-        var port = FlareHome.ReadEnvValue("FLARE_DASHBOARD_PORT", "7777");
-        AnsiConsole.MarkupLine($"[green]✓[/] Flare is up: [link]http://localhost:{port}[/]");
+        var port = instance.ReadEnvValue("FLARE_DASHBOARD_PORT", "7777");
+        var instanceSuffix = instance.Name is null ? "" : $" ({instance.Name})";
+        AnsiConsole.MarkupLine($"[green]✓[/] Flare{instanceSuffix} is up: [link]http://localhost:{port}[/]");
         AnsiConsole.MarkupLine("[grey]Auth is off by default - anyone who can reach it has full access. Turn on sign-in from the dashboard's /auth page if you want it. Run `flare open` to launch it.[/]");
         return 0;
     }

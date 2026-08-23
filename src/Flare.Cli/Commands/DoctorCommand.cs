@@ -4,10 +4,15 @@ using Spectre.Console.Cli;
 
 namespace Flare.Cli.Commands;
 
-internal sealed class DoctorCommand : AsyncCommand
+internal sealed class DoctorCommand : AsyncCommand<DoctorCommand.Settings>
 {
-    protected override async Task<int> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    internal sealed class Settings : InstanceSettings
     {
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        var instance = FlareHome.Resolve(settings.InstanceName);
         var allPassed = true;
 
         var dockerCheck = await DoctorChecks.CheckDockerReachableAsync(cancellationToken);
@@ -22,15 +27,15 @@ internal sealed class DoctorCommand : AsyncCommand
         var composeCheck = await DoctorChecks.CheckComposePluginAsync(cancellationToken);
         Report(composeCheck, ref allPassed);
 
-        if (!FlareHome.IsInitialized)
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]○[/] Stack not initialized yet - run `flare start`. (not an error)");
+            AnsiConsole.MarkupLine($"[grey]○[/] Stack not initialized yet - run `{instance.StartHint}`. (not an error)");
 
             // Worth checking even pre-init: this is exactly the moment a port conflict
-            // (e.g. a repo-local `docker compose up` of the same stack already running)
-            // is most useful to catch, before the first `flare start` hits it as a raw
-            // Docker bind error instead.
-            foreach (var portCheck in DoctorChecks.CheckPortsAvailable())
+            // (e.g. another instance, or a repo-local `docker compose up`, already bound
+            // to the same ports) is most useful to catch, before the first `flare start`
+            // hits it as a raw Docker bind error instead.
+            foreach (var portCheck in DoctorChecks.CheckPortsAvailable(instance))
             {
                 Report(portCheck, ref allPassed);
             }
@@ -38,13 +43,13 @@ internal sealed class DoctorCommand : AsyncCommand
             return allPassed ? 0 : 1;
         }
 
-        var stackChecks = await DoctorChecks.CheckStackStateAsync(cancellationToken);
+        var stackChecks = await DoctorChecks.CheckStackStateAsync(instance, cancellationToken);
         foreach (var check in stackChecks)
         {
             Report(check, ref allPassed);
             if (!check.Passed)
             {
-                var tail = await DoctorChecks.TailUnhealthyLogsAsync(check.Name, cancellationToken);
+                var tail = await DoctorChecks.TailUnhealthyLogsAsync(instance, check.Name, cancellationToken);
                 foreach (var line in tail)
                 {
                     AnsiConsole.MarkupLine($"    [grey]{Markup.Escape(line)}[/]");
@@ -53,10 +58,10 @@ internal sealed class DoctorCommand : AsyncCommand
         }
 
         // Only meaningful while the stack is down - if any service is already running,
-        // it's Flare's own containers holding these ports, not a conflict.
+        // it's this instance's own containers holding these ports, not a conflict.
         if (!stackChecks.Any(c => c.Passed))
         {
-            foreach (var portCheck in DoctorChecks.CheckPortsAvailable())
+            foreach (var portCheck in DoctorChecks.CheckPortsAvailable(instance))
             {
                 Report(portCheck, ref allPassed);
             }
@@ -64,7 +69,7 @@ internal sealed class DoctorCommand : AsyncCommand
 
         if (stackChecks.All(c => c.Passed))
         {
-            var ingestionCheck = await DoctorChecks.CheckIngestionAsync(cancellationToken);
+            var ingestionCheck = await DoctorChecks.CheckIngestionAsync(instance, cancellationToken);
             Report(ingestionCheck, ref allPassed);
         }
 

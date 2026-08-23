@@ -41,6 +41,9 @@ tells you plainly if it isn't.
 
 ## Command reference
 
+Every command below accepts `-n`/`--name <NAME>` to target a named instance instead of
+the default one at `~/.flare/` - see [Multi-instance support](#multi-instance-support).
+
 | Command | What it does |
 |---|---|
 | `flare start` | First run initializes `~/.flare/`; every run brings the stack up and waits for it to become healthy. |
@@ -51,27 +54,63 @@ tells you plainly if it isn't.
 | `flare update [--tag TAG]` | Pulls the latest images for the currently pinned tag, recreates containers, prints a per-service digest diff. Never touches data. `--tag` rewrites `~/.flare/.env`'s `FLARE_IMAGE_TAG` to `TAG` first - the CLI-native way to move an existing install onto a newer pin instead of hand-editing `.env`. |
 | `flare logs [service] [-f]` | Shows or follows **container** logs (raw Docker stdout). Omit the service for all of them. |
 | `flare tail [-s service]... [-l level]... [--trace-id id] [--search text]` | Live-tails **app-level structured log events** via `Flare.Api`'s live-tail WebSocket - the CLI-native equivalent of the dashboard's Logs Explorer live-tail, not the same thing as `flare logs`. `-l`/`--level` accepts `trace`/`debug`/`info`/`warn`/`error`/`fatal`, repeatable. |
-| `flare search [-s service]... [-l level]... [--trace-id id] [--span-id id] [--pattern-id id] [--search text] [--since range] [-n limit]` | One-shot log search via `Flare.Api`'s `POST /api/logs/search` - the CLI-native equivalent of the dashboard's Logs Explorer, without live-tail (that's `flare tail`). `--since` defaults to `1h` (e.g. `15m`, `6h`, `24h`, `7d`). `-n`/`--limit` defaults to `20`. Attribute filters aren't exposed yet - planned as a follow-up. |
+| `flare search [-s service]... [-l level]... [--trace-id id] [--span-id id] [--pattern-id id] [--search text] [--since range] [--limit count]` | One-shot log search via `Flare.Api`'s `POST /api/logs/search` - the CLI-native equivalent of the dashboard's Logs Explorer, without live-tail (that's `flare tail`). `--since` defaults to `1h` (e.g. `15m`, `6h`, `24h`, `7d`). `--limit` defaults to `20`. Attribute filters aren't exposed yet - planned as a follow-up. |
 | `flare export [-s service]... [-l level]... [--trace-id id] [--span-id id] [--pattern-id id] [--search text] [--since range] [--format ndjson\|csv] [-o path] [--limit count]` | Streams a time range of log events to NDJSON (default) or CSV via `Flare.Api`'s `POST /api/logs/search`, paginating in the background - a support-bundle-for-a-bug-report command. Omit `-o`/`--output` to stream to stdout (composes with `\| jq`, `> file`, etc). `--limit` defaults to `100000` as a safety cap, not a hard ceiling like the dashboard's own CSV/XLSX export dialog. Field set matches that dialog's for parity: EventId, Timestamp, Severity, SeverityNumber, Service, EventName, Message, TraceId, SpanId, LogAttributes(Json). |
 | `flare alerts list` / `flare alerts test <ID>` | `list` tables saved alert rules (name, enabled, threshold, window, notification channel) via `Flare.Api`'s `GET /api/alerts`. `test <ID>` dry-runs a saved rule's condition/threshold against current data via `POST /api/alerts/{id}/test` - **ignores cooldown, sends no notification**, safe to run repeatedly to verify a Slack/webhook/email/Telegram channel is wired correctly without waiting for (or faking) a real threshold breach. |
 | `flare apikey create <NAME>` | Mints a new ingest API key via `Flare.Api`'s `POST /api/ingest-keys` - scripted/CI OTLP setup without clicking through the dashboard's Settings page. The raw key is printed **once**; Flare never stores or shows it again. `apikey list`/`apikey revoke` aren't implemented yet even though the underlying endpoints exist. |
-| `flare traces [-s service]... [--status s]... [--kind k]... [--trace-id id] [--min-duration d] [--max-duration d] [--since range] [-n limit]` | Searches recent traces (root spans) via `Flare.Api`'s Query API - the CLI-native equivalent of the dashboard's Trace List. `--status` accepts `ok`/`error`/`unset`, repeatable. `--kind` accepts `internal`/`server`/`client`/`producer`/`consumer`, repeatable. `--min-duration`/`--max-duration` take e.g. `500ms`/`2s`/`1.5m`. `--since` defaults to `1h` (e.g. `15m`, `6h`, `24h`, `7d`). One-shot only, no live-tail equivalent. |
+| `flare traces [-s service]... [--status s]... [--kind k]... [--trace-id id] [--min-duration d] [--max-duration d] [--since range] [--limit count]` | Searches recent traces (root spans) via `Flare.Api`'s Query API - the CLI-native equivalent of the dashboard's Trace List. `--status` accepts `ok`/`error`/`unset`, repeatable. `--kind` accepts `internal`/`server`/`client`/`producer`/`consumer`, repeatable. `--min-duration`/`--max-duration` take e.g. `500ms`/`2s`/`1.5m`. `--since` defaults to `1h` (e.g. `15m`, `6h`, `24h`, `7d`). One-shot only, no live-tail equivalent. |
 | `flare trace <TRACE_ID>` | Renders one trace as a text waterfall (indented span tree, colored duration bar, tick axis) via `Flare.Api`'s `GET /api/traces/{traceId}` - the CLI-native equivalent of the dashboard's trace-detail page. No critical-path highlighting or service-map yet (planned as a follow-up). |
-| `flare metrics [-s service]... [--since range] [-n limit]` | Lists discoverable metrics via `Flare.Api`'s `POST /api/metrics/names` - the CLI-native equivalent of the dashboard's Metric Picker sidebar. Table of name/service/type (Gauge/Sum/Histogram)/unit/series count. |
+| `flare metrics [-s service]... [--since range] [--limit count]` | Lists discoverable metrics via `Flare.Api`'s `POST /api/metrics/names` - the CLI-native equivalent of the dashboard's Metric Picker sidebar. Table of name/service/type (Gauge/Sum/Histogram)/unit/series count. |
 | `flare metric <NAME> [-s service] [--group-by key] [--mode mode] [--since range]` | Charts one metric as ASCII sparklines via `Flare.Api`'s `POST /api/metrics/query` - the CLI-native equivalent of the dashboard's Metrics chart. `-s/--service` disambiguates when more than one service emits the name. `--mode` mirrors the chart's aggregation picker: `sum`/`rate`(default)/`count` for Sum, `percentiles`(default)/`mean`/`p75`/`p95`/`max` for Histogram, not valid for Gauge. Values print in the metric's own declared unit (no ms↔s/B↔MB rescaling - a v1 simplification of the dashboard's axis scaling). |
 | `flare doctor` | Read-only diagnostics: Docker reachable, Compose present, per-service state, host-port availability (while the stack is down), and a ClickHouse row-count sanity check. |
-| `flare destroy [--yes] [--purge-config]` | **Destructive.** Removes containers and data volumes. Refuses to run without `--yes` (or an interactive confirm) - never proceeds silently on a non-interactive invocation. Keeps `~/.flare/.env` unless `--purge-config` is also passed. |
+| `flare destroy [--yes] [--purge-config]` | **Destructive.** Removes containers and data volumes. Refuses to run without `--yes` (or an interactive confirm) - never proceeds silently on a non-interactive invocation. Keeps `.env` unless `--purge-config` is also passed. |
+| `flare instances list` | Tables every Flare instance on this machine - the default one (if initialized) plus every named one - with directory, running-service count, and pinned image tag. |
 | `flare --version` | Prints the installed CLI version. |
 
 ## Where Flare's data lives (`~/.flare/`)
 
 ```
 ~/.flare/
-  docker-compose.yml   # generated on first `flare start`; never overwritten afterward
-  .env                  # generated on first init: RANDOM CLICKHOUSE_PASSWORD/REDIS_PASSWORD
-  db/clickhouse/*.sql    # ClickHouse init scripts, materialized from the CLI's own build
-  state.json               # last-pulled image digests, for `flare update`'s diff output
+  docker-compose.yml   # default instance - generated on first `flare start`; never overwritten afterward
+  .env                  # default instance - generated on first init: RANDOM CLICKHOUSE_PASSWORD/REDIS_PASSWORD
+  db/clickhouse/*.sql    # default instance - ClickHouse init scripts, materialized from the CLI's own build
+  state.json               # default instance - last-pulled image digests, for `flare update`'s diff output
+  instances/
+    work/                # `flare start -n work` - same layout as above, scoped to this instance
+      docker-compose.yml
+      .env
+      db/clickhouse/*.sql
+      state.json
 ```
+
+## Multi-instance support
+
+`-n`/`--name <NAME>` (every command accepts it - see the [command reference](#command-reference))
+targets a **named instance** instead of the default one at `~/.flare/` itself, so a
+single machine can run multiple independent Flare stacks side by side - useful for
+compliance-segregated logs, a box hosting several clients' stacks, or running old/new
+versions side by side during a migration. Named instances live in `~/.flare/instances/<NAME>/`
+and are otherwise a full, independent instance: their own `docker-compose.yml`/`.env`,
+their own Docker Compose project (`flare-<NAME>`, so containers/network/volumes never
+collide with the default instance or with each other), and their own credentials.
+
+```sh
+flare start -n work    # first run also initializes ~/.flare/instances/work/
+flare status -n work
+flare open -n work
+flare instances list   # every instance on this machine, default plus named
+```
+
+**Ports are auto-assigned for a named instance's first-ever start** - the CLI probes for
+the next free host port at or after each service's documented default (`8123`, `4317`,
+`4318`, `8080`, `7777`) and bakes the result into that instance's own `.env`, so
+`flare start -n work` doesn't collide with an already-running default instance (or
+another named one) without any manual `.env` editing first. Ports are only assigned
+once, the same as the default instance's - `.env` is still yours to hand-edit
+afterward if you want different values.
+
+Instance names: lowercase letters, digits, and hyphens only, not leading/trailing.
+`default` is reserved (it's what omitting `--name` already means).
 
 **Passwords are randomly generated, not the repo's `docker-compose.yml` `flare`/`flare`
 default.** This instance is meant to stand for weeks with its ports bound on your
@@ -118,14 +157,12 @@ version's own default.
 
 ## Known limitations
 
-- **Port conflicts**: `flare start` and a repo-local `docker compose up` both default
-  to the same host ports (7777/8080/4317/4318/8123) - running both at once will fail
-  to bind. `flare start` and `flare doctor` both preflight-check port availability
-  (whenever the stack isn't already the thing holding them - see
-  `Internal/DoctorChecks.cs`'s `CheckPortsAvailable`) and report which specific port is
-  taken instead of surfacing Docker's raw "port is already allocated" error - but they
-  can't resolve the conflict for you; change one side's ports via its `.env`.
-- **No multi-instance support**: one `~/.flare/` per machine/user, one standing stack.
+- **No `FLARE_INSTANCE` env var fallback yet**: `-n`/`--name` (see
+  [Multi-instance support](#multi-instance-support)) must be passed explicitly on every
+  invocation targeting a named instance - there's no persisted "current instance"
+  context to fall back to, by design (stateless and scriptable over convenient, same
+  reasoning `kubectl --namespace` takes over `kubectl config use-context`), but a
+  `FLARE_INSTANCE` env var as an opt-in shorthand is a reasonable future addition.
 - **No cluster mode**: `flare` only manages the single-node stack. If you want the
   multi-node ClickHouse setup, run `docker-compose.cluster.yml` directly — see
   [docs/clustering.md](clustering.md).

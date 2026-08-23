@@ -7,7 +7,8 @@ internal sealed record ProcessResult(int ExitCode, string StandardOutput, string
 
 /// <summary>
 /// Thin wrapper around shelling out to the `docker` CLI (specifically `docker compose`
-/// against ~/.flare/docker-compose.yml). Plain <see cref="Process"/>, not
+/// against a resolved <see cref="FlareInstance"/>'s own docker-compose.yml). Plain
+/// <see cref="Process"/>, not
 /// Docker.DotNet/Testcontainers - neither is referenced anywhere in Flare.Net today, and
 /// neither is the right shape for this: Testcontainers is a test-fixture library
 /// (ephemeral, test-run-scoped), and a raw Engine-API client would mean reimplementing
@@ -20,21 +21,22 @@ internal sealed record ProcessResult(int ExitCode, string StandardOutput, string
 internal static class ComposeRunner
 {
     /// <summary>
-    /// Runs `docker compose &lt;args&gt;` against ~/.flare/docker-compose.yml, capturing
-    /// output instead of inheriting the console. Use for anything whose output this tool
-    /// needs to parse or whose output shouldn't interleave with the caller's own
-    /// Spectre.Console rendering (e.g. a status table, a spinner).
+    /// Runs `docker compose &lt;args&gt;` against the given instance's docker-compose.yml,
+    /// capturing output instead of inheriting the console. Use for anything whose output
+    /// this tool needs to parse or whose output shouldn't interleave with the caller's
+    /// own Spectre.Console rendering (e.g. a status table, a spinner).
     /// </summary>
-    public static Task<ProcessResult> RunCapturedAsync(IEnumerable<string> composeArgs, CancellationToken ct = default)
-        => RunAsync(BuildComposeStartInfo(composeArgs, redirect: true), ct);
+    public static Task<ProcessResult> RunCapturedAsync(FlareInstance instance, IEnumerable<string> composeArgs, CancellationToken ct = default)
+        => RunAsync(BuildComposeStartInfo(instance, composeArgs, redirect: true), ct);
 
     /// <summary>
-    /// Runs `docker compose &lt;args&gt;` against ~/.flare/docker-compose.yml, streaming
-    /// output straight to the console instead of capturing it. Use for long-running or
-    /// deliberately verbose commands (`logs -f`, `up -d`'s own pull/build progress).
+    /// Runs `docker compose &lt;args&gt;` against the given instance's docker-compose.yml,
+    /// streaming output straight to the console instead of capturing it. Use for
+    /// long-running or deliberately verbose commands (`logs -f`, `up -d`'s own
+    /// pull/build progress).
     /// </summary>
-    public static Task<int> RunStreamedAsync(IEnumerable<string> composeArgs, CancellationToken ct = default)
-        => RunStreamedInternalAsync(BuildComposeStartInfo(composeArgs, redirect: false), ct);
+    public static Task<int> RunStreamedAsync(FlareInstance instance, IEnumerable<string> composeArgs, CancellationToken ct = default)
+        => RunStreamedInternalAsync(BuildComposeStartInfo(instance, composeArgs, redirect: false), ct);
 
     /// <summary>
     /// Runs a bare `docker &lt;args&gt;` command (not `docker compose`) - for preflight
@@ -56,28 +58,30 @@ internal static class ComposeRunner
         return RunAsync(psi, ct);
     }
 
-    private static ProcessStartInfo BuildComposeStartInfo(IEnumerable<string> composeArgs, bool redirect)
+    private static ProcessStartInfo BuildComposeStartInfo(FlareInstance instance, IEnumerable<string> composeArgs, bool redirect)
     {
         var psi = new ProcessStartInfo("docker")
         {
             UseShellExecute = false,
             RedirectStandardOutput = redirect,
             RedirectStandardError = redirect,
-            WorkingDirectory = FlareHome.Directory,
+            WorkingDirectory = instance.Directory,
         };
 
         psi.ArgumentList.Add("compose");
         // Explicit --project-name/--project-directory/--env-file rather than relying on
         // Compose's own directory-derived defaults: this tool can be invoked from any
         // cwd, so nothing about project identity or .env resolution should be implicit.
+        // --project-name is also the entire mechanism that keeps multiple instances'
+        // containers/network/volumes apart - see FlareInstance.ProjectName.
         psi.ArgumentList.Add("--project-name");
-        psi.ArgumentList.Add("flare");
+        psi.ArgumentList.Add(instance.ProjectName);
         psi.ArgumentList.Add("--project-directory");
-        psi.ArgumentList.Add(FlareHome.Directory);
+        psi.ArgumentList.Add(instance.Directory);
         psi.ArgumentList.Add("--env-file");
-        psi.ArgumentList.Add(FlareHome.EnvFilePath);
+        psi.ArgumentList.Add(instance.EnvFilePath);
         psi.ArgumentList.Add("-f");
-        psi.ArgumentList.Add(FlareHome.ComposeFilePath);
+        psi.ArgumentList.Add(instance.ComposeFilePath);
 
         foreach (var arg in composeArgs)
         {

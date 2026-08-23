@@ -20,18 +20,20 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
 {
     private static readonly string[] Services = ["ingest", "api", "dashboard"];
 
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandOption("--tag <TAG>")]
-        [Description("Move this install onto a different FLARE_IMAGE_TAG before pulling - rewrites ~/.flare/.env in place. Omit to just re-pull whatever tag is already pinned.")]
+        [Description("Move this install onto a different FLARE_IMAGE_TAG before pulling - rewrites .env in place. Omit to just re-pull whatever tag is already pinned.")]
         public string? Tag { get; init; }
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
@@ -43,15 +45,15 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
                 return 1;
             }
 
-            var previousTag = FlareHome.ReadEnvValue("FLARE_IMAGE_TAG", "(unset)");
-            FlareHome.SetEnvValue("FLARE_IMAGE_TAG", settings.Tag);
+            var previousTag = instance.ReadEnvValue("FLARE_IMAGE_TAG", "(unset)");
+            instance.SetEnvValue("FLARE_IMAGE_TAG", settings.Tag);
             AnsiConsole.MarkupLine($"[grey]Pinned tag: {Markup.Escape(previousTag)} -> {Markup.Escape(settings.Tag)}[/]");
         }
 
-        var before = await CaptureImageIdsAsync();
+        var before = await CaptureImageIdsAsync(instance);
 
         AnsiConsole.MarkupLine("[grey]Pulling latest images for the pinned tag...[/]");
-        var pullExitCode = await ComposeRunner.RunStreamedAsync(["pull"]);
+        var pullExitCode = await ComposeRunner.RunStreamedAsync(instance, ["pull"]);
         if (pullExitCode != 0)
         {
             AnsiConsole.MarkupLine("[red]✗[/] `docker compose pull` failed - see the output above.");
@@ -61,21 +63,21 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
         // Recreates any container whose image digest actually changed; compose no-ops
         // the rest. Never touches volumes - data persists across update exactly like it
         // does across stop/start.
-        var upExitCode = await ComposeRunner.RunStreamedAsync(["up", "-d"]);
+        var upExitCode = await ComposeRunner.RunStreamedAsync(instance, ["up", "-d"]);
         if (upExitCode != 0)
         {
             AnsiConsole.MarkupLine("[red]✗[/] `docker compose up -d` failed - see the output above.");
             return 1;
         }
 
-        var after = await CaptureImageIdsAsync();
+        var after = await CaptureImageIdsAsync(instance);
 
-        var state = StateMetadata.Load(FlareHome.StateFilePath);
+        var state = StateMetadata.Load(instance.StateFilePath);
         state.LastPulledAt = DateTimeOffset.UtcNow;
         // Keeps state.json's own record of the pinned tag in sync with .env - previously
         // only ever written once at init time, so it went stale the moment anyone
         // hand-edited FLARE_IMAGE_TAG (this update's own --tag included).
-        state.ImageTag = FlareHome.ReadEnvValue("FLARE_IMAGE_TAG", state.ImageTag);
+        state.ImageTag = instance.ReadEnvValue("FLARE_IMAGE_TAG", state.ImageTag);
 
         foreach (var service in Services)
         {
@@ -88,17 +90,17 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
                 : $"  [green]{service}: {Short(beforeId)} -> {Short(afterId)}[/]");
         }
 
-        StateMetadata.Save(FlareHome.StateFilePath, state);
+        StateMetadata.Save(instance.StateFilePath, state);
         AnsiConsole.MarkupLine("[green]✓[/] Update complete.");
         return 0;
     }
 
-    private static async Task<Dictionary<string, string>> CaptureImageIdsAsync()
+    private static async Task<Dictionary<string, string>> CaptureImageIdsAsync(FlareInstance instance)
     {
         var ids = new Dictionary<string, string>();
         foreach (var service in Services)
         {
-            var result = await ComposeRunner.RunCapturedAsync(["images", "-q", service]);
+            var result = await ComposeRunner.RunCapturedAsync(instance, ["images", "-q", service]);
             ids[service] = result.StandardOutput.Trim();
         }
 

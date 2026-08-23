@@ -31,7 +31,7 @@ internal sealed class MetricCommand : AsyncCommand<MetricCommand.Settings>
     private const int MaxSeries = 5;
     private static readonly char[] SparkChars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandArgument(0, "<METRIC_NAME>")]
         [Description("Exact metric name to chart, e.g. http.server.duration.")]
@@ -56,9 +56,11 @@ internal sealed class MetricCommand : AsyncCommand<MetricCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
@@ -71,7 +73,7 @@ internal sealed class MetricCommand : AsyncCommand<MetricCommand.Settings>
         var to = DateTimeOffset.UtcNow;
         var from = to - since;
 
-        var port = FlareHome.ReadEnvValue("FLARE_API_PORT", "8080");
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
         using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
 
         MetricNameInfoWire metric;

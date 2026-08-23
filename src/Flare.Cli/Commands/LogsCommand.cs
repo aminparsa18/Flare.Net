@@ -7,7 +7,7 @@ namespace Flare.Cli.Commands;
 
 internal sealed class LogsCommand : AsyncCommand<LogsCommand.Settings>
 {
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandArgument(0, "[SERVICE]")]
         [Description("Which service to show logs for (clickhouse, redis, ingest, api, dashboard). Omit for all.")]
@@ -20,9 +20,11 @@ internal sealed class LogsCommand : AsyncCommand<LogsCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
-            AnsiConsole.MarkupLine("[grey]Not initialized yet - run `flare start` first.[/]");
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
             return 1;
         }
 
@@ -39,6 +41,6 @@ internal sealed class LogsCommand : AsyncCommand<LogsCommand.Settings>
 
         // Streamed, not captured: this is meant to be watched (especially with -f), not
         // parsed - console-inherited output, cleanly interruptible with Ctrl+C.
-        return await ComposeRunner.RunStreamedAsync(args);
+        return await ComposeRunner.RunStreamedAsync(instance, args);
     }
 }

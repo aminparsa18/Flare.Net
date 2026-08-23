@@ -14,20 +14,22 @@ namespace Flare.Cli.Commands;
 /// </summary>
 internal sealed class DestroyCommand : AsyncCommand<DestroyCommand.Settings>
 {
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : InstanceSettings
     {
         [CommandOption("-y|--yes")]
         [Description("Skip the interactive confirmation prompt. Required for non-interactive use.")]
         public bool Yes { get; init; }
 
         [CommandOption("--purge-config")]
-        [Description("Also delete ~/.flare/ entirely (including .env credentials), not just the data volumes. A follow-up `flare start` regenerates fresh credentials.")]
+        [Description("Also delete this instance's directory entirely (including .env credentials), not just the data volumes. A follow-up `flare start` regenerates fresh credentials.")]
         public bool PurgeConfig { get; init; }
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        if (!FlareHome.IsInitialized)
+        var instance = FlareHome.Resolve(settings.InstanceName);
+
+        if (!instance.IsInitialized)
         {
             AnsiConsole.MarkupLine("[grey]Not initialized yet - nothing to destroy.[/]");
             return 0;
@@ -51,7 +53,7 @@ internal sealed class DestroyCommand : AsyncCommand<DestroyCommand.Settings>
             }
         }
 
-        var exitCode = await ComposeRunner.RunStreamedAsync(["down", "-v"]);
+        var exitCode = await ComposeRunner.RunStreamedAsync(instance, ["down", "-v"]);
         if (exitCode != 0)
         {
             AnsiConsole.MarkupLine("[red]✗[/] `docker compose down -v` failed - see the output above.");
@@ -62,12 +64,15 @@ internal sealed class DestroyCommand : AsyncCommand<DestroyCommand.Settings>
 
         if (settings.PurgeConfig)
         {
-            Directory.Delete(FlareHome.Directory, recursive: true);
-            AnsiConsole.MarkupLine($"[green]✓[/] Removed {FlareHome.Directory} entirely - the next `flare start` regenerates fresh credentials.");
+            // Deletes only this instance's own files - see FlareInstance.PurgeConfig's own
+            // remarks for why the default instance can't just delete its whole directory
+            // wholesale (it also hosts every named instance's own directory).
+            instance.PurgeConfig();
+            AnsiConsole.MarkupLine($"[green]✓[/] Removed {instance.Directory} - the next `{instance.StartHint}` regenerates fresh credentials.");
         }
         else
         {
-            AnsiConsole.MarkupLine("[grey]Kept ~/.flare/.env - `flare start` will reuse the same credentials against fresh, empty volumes.[/]");
+            AnsiConsole.MarkupLine($"[grey]Kept {instance.EnvFilePath} - `{instance.StartHint}` will reuse the same credentials against fresh, empty volumes.[/]");
         }
 
         return 0;
