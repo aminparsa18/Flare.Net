@@ -607,10 +607,23 @@ actually worked out (see the three bullets below) — closing out the full origi
         `AuthSettings`/`EntraSettings`/`LdapSettings`/`OidcSettings`/
         `ProxyAuthSettings`/`schema_migrations` - different backing store, not a
         rewrite).
+      - **Follow-up (2026-08-23), live-verified against a real 4-node cluster**:
+        `IndexingQueryService`'s `system.*` introspection is no longer
+        single-node-scoped under cluster mode (branches each query on
+        `ClickHouse:ClusterMode` to go through
+        `cluster()`/`clusterAllReplicas('flare_cluster', ...)` instead - confirmed
+        all five queries aggregate correctly, e.g. row/growth counts sum across
+        shards without doubling); `spans` now shards on `cityHash64(TraceId)`
+        instead of `rand()` (confirmed 30 inserted traces landed with zero
+        cross-shard overlap); and `SpanQueryService.GetTraceAsync` now sets
+        `optimize_skip_unused_shards` (cluster mode only, best-effort not forced -
+        confirmed via `system.query_log` that it actually prunes the shard that
+        doesn't hold a trace, in both directions, while still returning correct
+        results). See `docs/clustering.md`'s "Operational notes" and "Design
+        decision" sections, including the one real caveat: this assumes no data was
+        inserted under the old `rand()` key before the sharding change.
       - **Known limitations, named not solved**: no client-side load balancing
-        across ClickHouse cluster entry points; `IndexingQueryService`'s `system.*`
-        introspection stays single-node-scoped under cluster mode; `rand()` sharding
-        (not `ServiceName`/`TraceId`-aware) for every table; the in-memory
+        across ClickHouse cluster entry points; the in-memory
         `DrainPatternMatcher`/Drain clustering state still doesn't share across
         `Flare.Ingest` replicas (a separate gap from the consumer-name one - see its
         own remarks). See `docs/clustering.md`'s "Known limitations" section.

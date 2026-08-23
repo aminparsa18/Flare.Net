@@ -57,12 +57,47 @@ local node first - a deliberate v1 trade of a little insert latency for not havi
 "the row isn't visible on the other shard yet" window. See "Operational notes" below
 for what happens to this guarantee under a shard connectivity blip.
 
-Sharding key is `rand()` for every table - even distribution, the simple v1 choice.
-For `spans` specifically this means a single trace's spans can land on different
-shards (unlike the single-node table, where `ORDER BY (TraceId, ...)` keeps them
-physically adjacent) - a real trade-off for "get full trace by id" queries, named here
-rather than silently assumed free. A `TraceId`-hash sharding key (keeping one trace's
-spans on one shard) is the named, non-blocking follow-up if this proves costly.
+Sharding key is `rand()` for every table except `spans` - even distribution, the simple
+v1 choice, and still the right one for tables with no single-entity locality concern
+(`logs`, `metrics_*`, `alert_rules`, etc.).
+
+`spans` shards on `cityHash64(TraceId)` instead, so every span of a given trace lands on
+the same shard - matching the single-node table's own `ORDER BY (TraceId, ...)` physical
+adjacency, rather than scattering one trace's spans across shards the way `rand()` would.
+This was the named, non-blocking follow-up from an earlier draft of this doc; fixed by
+changing `0007_spans.sql`'s cluster variant directly (not a new migration - cluster mode
+has no live-migration path per "Not a live migration path" above, so an already-shipped
+migration file is still safe to adjust here; anyone who already stood up a cluster under
+the old `rand()` key would need to manually `DROP TABLE clickhousedb.spans ON CLUSTER
+'flare_cluster'` and let the next startup's `CREATE TABLE IF NOT EXISTS` recreate it -
+`Distributed` tables hold no data of their own, so this loses nothing).
+
+Schema-level co-location alone doesn't make "get full trace by id" queries skip the
+shard that provably can't hold a given `TraceId` - `SpanQueryService.GetTraceAsync` now
+also sets `optimize_skip_unused_shards` (only under `ClickHouse:ClusterMode`, via
+`TraceByIdQueryOptions` - see its own remarks for the full reasoning) so ClickHouse can
+prune the other shard instead of fanning out to both and merging. Deliberately
+best-effort, not forced (`force_optimize_skip_unused_shards` stays unset) - if
+ClickHouse can't determine the shard, this just falls back to querying every shard like
+before, not an error.
+
+**This assumes every row in `spans_local` was actually routed by `cityHash64(TraceId)`** -
+true for anything inserted since that sharding key was set, but NOT true for any data a
+cluster already accumulated under the old `rand()` key before this change; skipping a
+shard for a trace with older, `rand()`-routed spans would silently omit them rather than
+error. Same "fresh volumes only, no live migration path" posture cluster mode already
+has (see "Not a live migration path" above) - not a new risk, just one now live in a
+query's behavior instead of only a schema definition.
+
+Confirmed live (2026-08-23) against a real 4-node cluster: inserted 90 spans across 30
+distinct trace IDs through the `spans` Distributed table and found zero cross-shard
+overlap - every trace's spans landed entirely on one shard. Also confirmed
+`optimize_skip_unused_shards` itself actually prunes: ran `TraceByIdQueryBuilder`'s exact
+query with and without the setting and checked `system.query_log` across all 4 nodes -
+without it, a trace-by-id lookup forwards a sub-query to the shard that holds none of
+that trace's data; with it, that shard shows no query_log entry at all, and the query
+still returns the correct rows. Verified in both directions (a shard-1 trace and a
+shard-2 trace).
 
 ## How schema gets applied
 
@@ -129,6 +164,28 @@ documentation:
   normal steady-state operation (a cluster that isn't actively losing shard
   connectivity mid-insert) this doesn't arise; it's named here as a known operational
   edge case, not "fixed."
+- **`IndexingQueryService`'s `system.*` introspection queries are now cluster-wide under
+  `ClickHouse:ClusterMode`.** Previously they filtered `WHERE database = currentDatabase()`
+  against whichever single node they connected to, so the Resources page's index/part
+  diagnostics reflected one node's local state, not the whole cluster's. Fixed by
+  branching each query on the same `ClickHouse:ClusterMode` flag `ClickHouseMigrationRunner`
+  reads: the storage/skip-index/growth queries (backed by replicated `_local` tables) now
+  go through the `cluster('flare_cluster', ...)` table function - one replica per shard,
+  summed via `GROUP BY`, so a shard's data isn't double-counted across its two replicas -
+  while the disk-usage and query-performance queries (genuinely per-node, not replicated)
+  go through `clusterAllReplicas('flare_cluster', ...)` to cover all 4 nodes. Confirmed
+  live (2026-08-23): ran all five query strings verbatim against a real 4-node cluster -
+  `spans_local`'s row/growth counts summed correctly across both shards without doubling
+  (90 inserted rows read back as 90, not 180), disk usage summed to the true ~1.96TB
+  across 4 independent ~490.9GB disks without doubling, and query-performance quantiles
+  merged correctly across all 4 nodes' query logs.
+- **`spans` now shards on `cityHash64(TraceId)` instead of `rand()`, and
+  `SpanQueryService.GetTraceAsync` now sets `optimize_skip_unused_shards` under cluster
+  mode.** Keeps one trace's spans on one shard and lets a trace-by-id lookup skip the
+  shard that provably can't hold it, instead of fanning out to both and merging - see
+  "Design decision" above for the full rationale, including the one real caveat (data
+  inserted under the old `rand()` key, if any, isn't safely prunable) and the live
+  verification confirming both the co-location and the actual shard pruning.
 
 ## Known limitations (not attempted here)
 
@@ -138,13 +195,6 @@ documentation:
   is down, the app can't fail over to another node on its own - a real deployment would
   put a load balancer (or ClickHouse's own `chproxy`) in front instead. Named as a
   follow-up, not solved here.
-- **`IndexingQueryService`'s `system.*` introspection queries are single-node-scoped.**
-  They filter `WHERE database = currentDatabase()` against whichever node they connect
-  to, not `clusterAllReplicas()` across all 4 - the Resources page's index/part
-  diagnostics reflect one node's local state under cluster mode, not the whole
-  cluster's. Not addressed here.
-- **`ServiceName`/`TraceId`-aware sharding keys** (instead of `rand()`) - see "Design
-  decision" above.
 
 ## Verifying it yourself
 

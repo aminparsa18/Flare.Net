@@ -26,9 +26,40 @@ public interface IIndexingQueryService
 /// takes no input, three fixed queries scoped to <c>currentDatabase()</c> (Flare owns its
 /// whole ClickHouse database, so no table allowlist is needed - new migrations show up
 /// automatically). Queried concurrently since they're independent reads.
+///
+/// <para>
+/// <paramref name="clusterMode"/> (same <c>ClickHouse:ClusterMode</c> flag
+/// <c>ClickHouseMigrationRunner</c> reads - see docs/clustering.md) switches every query
+/// below from plain <c>system.*</c> (this one connected node's local state) to the
+/// <c>'flare_cluster'</c>-scoped variant, so the Resources page reflects the whole
+/// cluster rather than whichever of the 4 nodes the connection happened to land on:
+/// </para>
+/// <list type="bullet">
+/// <item><description>
+/// <c>system.tables</c>/<c>system.data_skipping_indices</c> back <c>ReplicatedMergeTree</c>
+/// storage that's identical across a shard's replicas - <c>cluster()</c> (one replica per
+/// shard, not <c>clusterAllReplicas()</c>) avoids double-counting a shard's own data twice,
+/// then the two shards' worth get summed via <c>GROUP BY</c>.
+/// </description></item>
+/// <item><description>
+/// <c>system.part_log</c> similarly uses <c>cluster()</c> - both replicas of a shard log
+/// their own <c>NewPart</c> event for what's ultimately the same replicated part (one from
+/// the original insert/merge, the other from the replication fetch), so querying every
+/// replica here would double the growth trend the same way.
+/// </description></item>
+/// <item><description>
+/// <c>system.disks</c>/<c>system.query_log</c> aren't replicated - each of the 4 nodes has
+/// its own physical disk and its own independent query traffic, so these use
+/// <c>clusterAllReplicas()</c> to cover every node rather than every shard.
+/// </description></item>
+/// </list>
 /// </remarks>
-public sealed class IndexingQueryService(IClickHouseClient client, ILogger<IndexingQueryService> logger) : IIndexingQueryService
+public sealed class IndexingQueryService(IClickHouseClient client, ILogger<IndexingQueryService> logger, bool clusterMode) : IIndexingQueryService
 {
+    // Matches the literal 'flare_cluster' name defined in db/clickhouse-cluster's
+    // remote-servers.xml and used by every ON CLUSTER statement in db/clickhouse-cluster/
+    // *.sql / ClickHouseMigrationRunner - no shared constant between them (same
+    // hand-synced-literal spirit as SlowQueryThresholdMs below), just kept consistent.
     private const string TablesSql = """
         SELECT name, engine, sorting_key, total_rows, total_bytes, total_bytes_uncompressed, active_parts
         FROM system.tables
@@ -36,10 +67,29 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
         ORDER BY total_bytes DESC
         """;
 
+    private const string TablesClusterSql = """
+        SELECT name, any(engine) AS engine, any(sorting_key) AS sorting_key,
+               sum(total_rows) AS total_rows, sum(total_bytes) AS total_bytes,
+               sum(total_bytes_uncompressed) AS total_bytes_uncompressed, sum(active_parts) AS active_parts
+        FROM cluster('flare_cluster', system.tables)
+        WHERE database = currentDatabase()
+        GROUP BY name
+        ORDER BY total_bytes DESC
+        """;
+
     private const string SkipIndexesSql = """
         SELECT table, name, type, expr, granularity, data_compressed_bytes, data_uncompressed_bytes
         FROM system.data_skipping_indices
         WHERE database = currentDatabase()
+        ORDER BY table, name
+        """;
+
+    private const string SkipIndexesClusterSql = """
+        SELECT table, name, any(type) AS type, any(expr) AS expr, any(granularity) AS granularity,
+               sum(data_compressed_bytes) AS data_compressed_bytes, sum(data_uncompressed_bytes) AS data_uncompressed_bytes
+        FROM cluster('flare_cluster', system.data_skipping_indices)
+        WHERE database = currentDatabase()
+        GROUP BY table, name
         ORDER BY table, name
         """;
 
@@ -54,6 +104,14 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
         ORDER BY day, table
         """;
 
+    private const string GrowthClusterSql = """
+        SELECT toDate(event_time) AS day, table, sum(size_in_bytes) AS bytes, sum(rows) AS rows
+        FROM cluster('flare_cluster', system.part_log)
+        WHERE database = currentDatabase() AND event_type = 'NewPart' AND event_time >= now() - INTERVAL 30 DAY
+        GROUP BY day, table
+        ORDER BY day, table
+        """;
+
     // Largest disk wins when more than one is mounted - see DiskUsageInfo's doc comment.
     private const string DiskUsageSql = """
         SELECT total_space, free_space
@@ -62,13 +120,28 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
         LIMIT 1
         """;
 
+    // Same "largest disk wins" per node, but summed across all 4 nodes instead of just
+    // the one connected to - `LIMIT 1 BY host` picks each node's own largest disk before
+    // the outer sum() combines them, so a node with two mounted disks doesn't get
+    // double-counted against a node with one.
+    private const string DiskUsageClusterSql = """
+        SELECT sum(total_space) AS total_space, sum(free_space) AS free_space
+        FROM
+        (
+            SELECT hostName() AS host, total_space, free_space
+            FROM clusterAllReplicas('flare_cluster', system.disks)
+            ORDER BY host, total_space DESC
+            LIMIT 1 BY host
+        )
+        """;
+
     private const int QueryPerformanceWindowMinutes = 60;
 
     // Threaded through to QueryPerformanceInfo so the dashboard's "> 500 ms" slow-query
     // label reads this constant instead of hardcoding its own copy - but note the `500`
-    // literal inside QueryPerformanceSql below is a separate copy (ClickHouse SQL text
-    // can't reference a C# const), so the two have to be kept in sync by hand if this
-    // ever changes.
+    // literal inside QueryPerformanceSql/QueryPerformanceClusterSql below is a separate
+    // copy (ClickHouse SQL text can't reference a C# const), so all three have to be kept
+    // in sync by hand if this ever changes.
     private const int SlowQueryThresholdMs = 500;
 
     // `NOT has(databases, 'system')` excludes this very service's own introspection
@@ -82,6 +155,23 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
             countIf(query_duration_ms > 500) AS slow,
             count() AS samples
         FROM system.query_log
+        WHERE type = 'QueryFinish'
+          AND event_time >= now() - INTERVAL 60 MINUTE
+          AND has(databases, currentDatabase())
+          AND NOT has(databases, 'system')
+        """;
+
+    // quantile()/count() merge correctly over a distributed table function's per-node
+    // partial states the same way they would over a Distributed table - ClickHouse
+    // computes the real cluster-wide percentiles here, not an average-of-per-node-p50s.
+    private const string QueryPerformanceClusterSql = """
+        SELECT
+            quantile(0.5)(query_duration_ms) AS p50,
+            quantile(0.95)(query_duration_ms) AS p95,
+            quantile(0.99)(query_duration_ms) AS p99,
+            countIf(query_duration_ms > 500) AS slow,
+            count() AS samples
+        FROM clusterAllReplicas('flare_cluster', system.query_log)
         WHERE type = 'QueryFinish'
           AND event_time >= now() - INTERVAL 60 MINUTE
           AND has(databases, currentDatabase())
@@ -111,7 +201,7 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
 
     private async Task<IReadOnlyList<TableStorageInfo>> ReadTablesAsync(CancellationToken cancellationToken)
     {
-        await using var reader = await client.ExecuteReaderAsync(TablesSql, null, SafetyOptions(), cancellationToken);
+        await using var reader = await client.ExecuteReaderAsync(clusterMode ? TablesClusterSql : TablesSql, null, SafetyOptions(), cancellationToken);
         var tables = new List<TableStorageInfo>();
         while (reader.Read())
         {
@@ -130,7 +220,7 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
 
     private async Task<IReadOnlyList<SkipIndexInfo>> ReadSkipIndexesAsync(CancellationToken cancellationToken)
     {
-        await using var reader = await client.ExecuteReaderAsync(SkipIndexesSql, null, SafetyOptions(), cancellationToken);
+        await using var reader = await client.ExecuteReaderAsync(clusterMode ? SkipIndexesClusterSql : SkipIndexesSql, null, SafetyOptions(), cancellationToken);
         var indexes = new List<SkipIndexInfo>();
         while (reader.Read())
         {
@@ -156,7 +246,7 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
     {
         try
         {
-            await using var reader = await client.ExecuteReaderAsync(GrowthSql, null, SafetyOptions(), cancellationToken);
+            await using var reader = await client.ExecuteReaderAsync(clusterMode ? GrowthClusterSql : GrowthSql, null, SafetyOptions(), cancellationToken);
             var points = new List<StorageGrowthPoint>();
             while (reader.Read())
             {
@@ -181,8 +271,14 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
     {
         try
         {
-            await using var reader = await client.ExecuteReaderAsync(DiskUsageSql, null, SafetyOptions(), cancellationToken);
-            if (!reader.Read())
+            await using var reader = await client.ExecuteReaderAsync(clusterMode ? DiskUsageClusterSql : DiskUsageSql, null, SafetyOptions(), cancellationToken);
+
+            // DiskUsageClusterSql is a bare sum() with no GROUP BY, so it always returns
+            // exactly one row even when clusterAllReplicas() found zero disks across every
+            // node - that row's sum columns are NULL rather than the row being absent, unlike
+            // DiskUsageSql's plain SELECT ... LIMIT 1 (absent row = !reader.Read()). Cover
+            // both shapes: no row, or a row of NULLs, both mean "unavailable".
+            if (!reader.Read() || reader.IsDBNull(0))
             {
                 return new DiskUsageInfo(Available: false, TotalBytes: 0, FreeBytes: 0);
             }
@@ -207,7 +303,7 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
     {
         try
         {
-            await using var reader = await client.ExecuteReaderAsync(QueryPerformanceSql, null, SafetyOptions(), cancellationToken);
+            await using var reader = await client.ExecuteReaderAsync(clusterMode ? QueryPerformanceClusterSql : QueryPerformanceSql, null, SafetyOptions(), cancellationToken);
             if (!reader.Read())
             {
                 return EmptyQueryPerformance(available: true);
