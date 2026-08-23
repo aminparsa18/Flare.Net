@@ -203,22 +203,44 @@ documentation:
   `ClickHouseMigrationRunner.ApplyAsync` by overriding just this one call's
   `QueryOptions.Database` to ClickHouse's own always-present `default` database instead
   of relying on the client's own connection-scoped one.
-- **Concurrent replicas can transiently crash-loop once on a truly fresh cluster** -
-  `ingest-1`/`ingest-2`/`api` all call `ApplyAsync` concurrently at startup (safe by
-  design for single-node's synchronous `CREATE TABLE`, see that method's own remarks),
-  but cluster mode's `ON CLUSTER` DDL propagates across the 4 nodes asynchronously - a
-  replica that reads `schema_migrations` and starts applying, say, migration 0006 can
-  hit `UNKNOWN_TABLE` on a table an earlier migration (0003) just created via `ON
-  CLUSTER`, if `clickhouse-lb`'s round robin happens to land it on a node the DDL hasn't
-  propagated to yet. Observed live (2026-08-23): `ingest-1`/`ingest-2` crash-looped for
-  roughly 10-20s on a fresh `flare start --cluster` before settling healthy -
-  `restart: unless-stopped` retries land on a caught-up node soon enough that this has
-  never been observed to exceed `flare start`'s own 120s per-service health-wait budget,
-  same self-healing spirit as the connection-retry case `ApplyAsync`'s own remarks
-  already describe. Not fixed here - a real fix would serialize cluster-wide migration
-  application (e.g. one designated writer, or waiting for `ON CLUSTER` DDL completion
-  before returning) rather than letting every replica race independently; named here as
-  a known, currently self-healing rough edge, not solved by anything in this document.
+- **Fixed (2026-08-23): concurrent replicas could transiently crash-loop once on a truly
+  fresh cluster.** `ingest-1`/`ingest-2`/`api` all call `ApplyAsync` concurrently at
+  startup (safe by design for single-node's synchronous `CREATE TABLE`, see that method's
+  own remarks), but cluster mode's `ON CLUSTER` DDL propagates across the 4 nodes
+  asynchronously - a replica that reads `schema_migrations` and starts applying, say,
+  migration 0006 could hit `UNKNOWN_TABLE` on a table an earlier migration (0003) just
+  created via `ON CLUSTER`, if `clickhouse-lb`'s round robin landed it on a node the DDL
+  hadn't propagated to yet. Fixed by adding `ClickHouseMigrationRunner.
+  WaitForClusterDdlPropagationAsync` - after every `ON CLUSTER` statement, it polls
+  `clusterAllReplicas('flare_cluster', system.{tables,columns,databases})` (whichever
+  matches the statement) until the object is actually visible on every node currently in
+  `system.clusters`, with bounded backoff, before the next statement runs or the
+  migration is recorded applied. `schema_migrations` now only ever shows a migration as
+  applied after it's provably everywhere, closing the specific race above regardless of
+  which node any later connection lands on.
+  <br><br>
+  Verifying this live surfaced a second, independent bug that had been silently
+  defeating cluster mode entirely: `src/Flare.Ingest/Dockerfile` and
+  `src/Flare.Api/Dockerfile` only `COPY db/clickhouse/ db/clickhouse/`, never
+  `db/clickhouse-cluster/`, so every Docker-built image's `ClickHouseMigrationRunner` had
+  zero cluster migrations to apply, no error or warning, regardless of
+  `ClickHouse:ClusterMode` - confirmed live via `docker compose -f
+  docker-compose.cluster.yml up --build` against a fresh cluster: all three services
+  reached "Application started" having applied none of the 10 `db/clickhouse-cluster/
+  *.sql` migrations, `schema_migrations` stayed at 0 rows on all 4 nodes, and `api-1`
+  then hit its own `UNKNOWN_TABLE` on `alert_rules` from its regular startup queries. Same
+  root cause and same missing-`COPY`-line shape as the single-node `db/clickhouse/` trap
+  both Dockerfiles already comment on just above - just never applied to the cluster
+  variant when cluster mode shipped. Fixed by adding the equivalent
+  `COPY db/clickhouse-cluster/ db/clickhouse-cluster/` line to both Dockerfiles.
+  <br><br>
+  Verified together (2026-08-23) across 3 consecutive truly fresh `docker compose down -v`
+  + `up -d` cycles against `docker-compose.cluster.yml`: 0 restarts on `ingest-1`/
+  `ingest-2`/`api` every time, no `UNKNOWN_TABLE`/`Unhandled exception` anywhere in their
+  logs, and all 4 ClickHouse nodes converging on the identical 17-table schema with all
+  10 migrations recorded in `schema_migrations` - including the `ALTER TABLE ... ADD
+  COLUMN` case (`logs_local.EventId`, migration 0002), confirmed present via
+  `system.columns` on all 4 nodes, not just the `CREATE TABLE` case.
 
 ## ClickHouse load balancing: `clickhouse-lb`
 
@@ -260,11 +282,6 @@ routing) may still prefer `chproxy` - swapping it in only touches this one servi
   Logs page's pattern grouping under `docker-compose.cluster.yml`'s two-replica setup.
   A real fix needs shared cluster state (e.g. Redis- or ClickHouse-backed); named here
   as a separate, still-open item, not solved by anything in this document.
-- **Concurrent replicas racing `ON CLUSTER` DDL propagation can transiently crash-loop
-  on a truly fresh cluster's first boot** - see the "Operational notes" bullet above.
-  Self-heals within `flare start`'s own health-wait budget every time it's been
-  observed, so not a practical blocker, but a real fix (serializing migration
-  application instead of every replica racing independently) is still open.
 
 ## Verifying it yourself
 

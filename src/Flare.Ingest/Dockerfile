@@ -33,6 +33,17 @@ COPY src/Flare.Identity/ src/Flare.Identity/
 # from a locally `dotnet build`-built one). No error, no warning - the image just never
 # gets new tables/columns past its first boot. See db/clickhouse/README.md.
 COPY db/clickhouse/ db/clickhouse/
+# Same trap, same fix, for cluster mode's schema set (EmbeddedResource Include=
+# "..\..\db\clickhouse-cluster\*.sql", docs/clustering.md) - this line was missing
+# entirely until found live (2026-08-23) via `docker compose -f docker-compose.cluster.yml
+# up --build` against a truly fresh cluster: ClickHouseMigrationRunner.ApplyAsync ran to
+# completion with zero log lines and zero tables created (schema_migrations itself came
+# from the two bootstrap statements in ApplyAsync, not from this embed) - every
+# Docker-built image had silently applied none of db/clickhouse-cluster/*.sql since
+# cluster mode was added, on both single-node and cluster-mode images alike, regardless
+# of ClickHouse:ClusterMode. A local Aspire/`dotnet run` process never hit this - only a
+# container built from this Dockerfile did.
+COPY db/clickhouse-cluster/ db/clickhouse-cluster/
 RUN dotnet publish src/Flare.Ingest/Flare.Ingest.csproj \
     --no-restore \
     -c Release \
