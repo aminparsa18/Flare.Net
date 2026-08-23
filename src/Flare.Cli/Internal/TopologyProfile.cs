@@ -93,11 +93,10 @@ internal sealed class TopologyProfile
         Topology = FlareTopology.Cluster,
         ComposeResourceName = "Flare.Cli.Templates.docker-compose.cluster.flare.yml",
         EnvTemplateResourceName = "Flare.Cli.Templates.env.cluster.template",
-        // No stable Flare release includes cluster-mode support yet (it merged after
-        // v0.2.0 was tagged) - "edge" is a deliberate, topology-specific deviation from
-        // Standalone's own pinned default, not an oversight. See env.cluster.template's
-        // own remarks.
-        DefaultImageTag = "edge",
+        // 0.3.0 - the first stable Flare release with cluster-mode support (v0.2.0
+        // predates it). Deliberately its own pin, independent of Standalone's own
+        // default. See env.cluster.template's own remarks.
+        DefaultImageTag = "0.3.0",
         Ports =
         [
             ("Ingest gRPC (OTLP)", "FLARE_INGEST_GRPC_PORT", 4317),
