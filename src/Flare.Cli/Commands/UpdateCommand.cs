@@ -18,8 +18,6 @@ namespace Flare.Cli.Commands;
 /// </summary>
 internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
 {
-    private static readonly string[] Services = ["ingest", "api", "dashboard"];
-
     internal sealed class Settings : InstanceSettings
     {
         [CommandOption("--tag <TAG>")]
@@ -50,7 +48,8 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
             AnsiConsole.MarkupLine($"[grey]Pinned tag: {Markup.Escape(previousTag)} -> {Markup.Escape(settings.Tag)}[/]");
         }
 
-        var before = await CaptureImageIdsAsync(instance);
+        var profile = FlareHome.ResolveTopology(instance);
+        var before = await CaptureImageIdsAsync(instance, profile.PullDiffServices);
 
         AnsiConsole.MarkupLine("[grey]Pulling latest images for the pinned tag...[/]");
         var pullExitCode = await ComposeRunner.RunStreamedAsync(instance, ["pull"]);
@@ -70,7 +69,7 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
             return 1;
         }
 
-        var after = await CaptureImageIdsAsync(instance);
+        var after = await CaptureImageIdsAsync(instance, profile.PullDiffServices);
 
         var state = StateMetadata.Load(instance.StateFilePath);
         state.LastPulledAt = DateTimeOffset.UtcNow;
@@ -79,7 +78,7 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
         // hand-edited FLARE_IMAGE_TAG (this update's own --tag included).
         state.ImageTag = instance.ReadEnvValue("FLARE_IMAGE_TAG", state.ImageTag);
 
-        foreach (var service in Services)
+        foreach (var service in profile.PullDiffServices)
         {
             var beforeId = before.GetValueOrDefault(service, "(none)");
             var afterId = after.GetValueOrDefault(service, "(unknown)");
@@ -95,10 +94,10 @@ internal sealed class UpdateCommand : AsyncCommand<UpdateCommand.Settings>
         return 0;
     }
 
-    private static async Task<Dictionary<string, string>> CaptureImageIdsAsync(FlareInstance instance)
+    private static async Task<Dictionary<string, string>> CaptureImageIdsAsync(FlareInstance instance, string[] services)
     {
         var ids = new Dictionary<string, string>();
-        foreach (var service in Services)
+        foreach (var service in services)
         {
             var result = await ComposeRunner.RunCapturedAsync(instance, ["images", "-q", service]);
             ids[service] = result.StandardOutput.Trim();

@@ -32,6 +32,7 @@ internal sealed class InstancesListCommand : AsyncCommand
 
         var table = new Table().Border(TableBorder.Rounded);
         table.AddColumn("Name");
+        table.AddColumn("Mode");
         table.AddColumn("Directory");
         table.AddColumn("Running");
         table.AddColumn("Image tag");
@@ -43,10 +44,11 @@ internal sealed class InstancesListCommand : AsyncCommand
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Length;
 
+            var profile = FlareHome.ResolveTopology(instance);
             var tag = instance.ReadEnvValue("FLARE_IMAGE_TAG", "(unknown)");
             var runningDisplay = runningCount > 0 ? $"[green]{runningCount} service(s)[/]" : "[grey]stopped[/]";
 
-            table.AddRow(instance.DisplayName, Markup.Escape(instance.Directory), runningDisplay, Markup.Escape(tag));
+            table.AddRow(instance.DisplayName, profile.DisplayLabel, Markup.Escape(instance.Directory), runningDisplay, Markup.Escape(tag));
         }
 
         AnsiConsole.Write(table);

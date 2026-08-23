@@ -110,8 +110,29 @@ public static class ClickHouseMigrationRunner
         var createDatabaseSql = clusterMode
             ? "CREATE DATABASE IF NOT EXISTS clickhousedb ON CLUSTER 'flare_cluster'"
             : "CREATE DATABASE IF NOT EXISTS clickhousedb";
+
+        // client's own connection is scoped to Database=clickhousedb (see
+        // ConnectionStrings__clickhousedb in every compose file) - fine for every OTHER
+        // statement in this file, which all explicitly qualify "clickhousedb.<name>"
+        // regardless of session default database, but fatal for THIS one specifically
+        // the first time it ever runs: ClickHouse's HTTP interface rejects EVERY query
+        // (even CREATE DATABASE) issued against a session whose default database
+        // doesn't exist yet, not only ones that reference it. Confirmed live
+        // (2026-08-23) via `clickhouse-client --database clickhousedb --query "CREATE
+        // DATABASE IF NOT EXISTS clickhousedb"` against a fresh node: fails with
+        // Code 81 UNKNOWN_DATABASE even though the failing statement is the one that
+        // would create it. Single-node mode never hit this because
+        // docker-entrypoint-initdb.d's own copy of this statement (see db/clickhouse/
+        // 0001_logs.sql) already created the database before the app ever connects;
+        // cluster mode deliberately has no such side channel (see this method's own
+        // clusterMode remarks), so nothing created it first and this bootstrap call
+        // always failed. QueryOptions.Database overrides the session's default database
+        // for this one call only, to ClickHouse's own always-present built-in "default"
+        // database - safe and correct regardless of topology or whether clickhousedb
+        // already exists.
+        var bootstrapOptions = new QueryOptions { Database = "default" };
         await ExecuteWithConnectionRetryAsync(
-            ct => client.ExecuteNonQueryAsync(createDatabaseSql, cancellationToken: ct),
+            ct => client.ExecuteNonQueryAsync(createDatabaseSql, options: bootstrapOptions, cancellationToken: ct),
             logger,
             cancellationToken);
         await client.ExecuteNonQueryAsync(

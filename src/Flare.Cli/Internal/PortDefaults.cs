@@ -1,11 +1,15 @@
 namespace Flare.Cli.Internal;
 
 /// <summary>
-/// Single source of truth for the host ports a Flare stack binds and their documented
-/// defaults - previously duplicated three ways (env.template's literals, DoctorChecks'
-/// own <c>ConfiguredPorts</c>, StatusCommand's own local array), each with a comment
-/// asking humans to keep the others in sync by hand. Keep this in sync with
-/// Templates/docker-compose.flare.yml's port bindings if either changes.
+/// Single source of truth for the Standalone-topology host ports a Flare stack binds
+/// and their documented defaults - previously duplicated three ways (env.template's
+/// literals, DoctorChecks' own <c>ConfiguredPorts</c>, StatusCommand's own local array),
+/// each with a comment asking humans to keep the others in sync by hand. Keep this in
+/// sync with Templates/docker-compose.flare.yml's port bindings if either changes.
+/// Cluster topology has its own, smaller port table (no ClickHouse HTTP - nothing in
+/// that topology publishes it to the host) - see <see cref="TopologyProfile"/>, which
+/// is what every caller should actually consult now; this type stays as Standalone's
+/// own data source underneath it.
 /// </summary>
 internal static class PortDefaults
 {
@@ -19,18 +23,19 @@ internal static class PortDefaults
     ];
 
     /// <summary>
-    /// For a brand-new named instance: the first free host port at or after each
-    /// service's documented default, so a second/third stack on the same machine doesn't
-    /// need any hand-editing before its first `flare start`. Probed with the same
-    /// loopback-bind technique <see cref="DoctorChecks"/> uses to detect conflicts - used
-    /// here to pick around one instead of just reporting it. `flare start` still runs the
-    /// usual pre-flight port check right before `docker compose up`, so a probe/use race
-    /// here is an existing, already-handled failure mode, not a new one. The default
-    /// instance never calls this - it always keeps the static defaults above.
+    /// For a brand-new named instance: the first free host port at or after each of
+    /// <paramref name="portDefaults"/>'s documented defaults, so a second/third stack on
+    /// the same machine doesn't need any hand-editing before its first `flare start`.
+    /// Probed with the same loopback-bind technique <see cref="DoctorChecks"/> uses to
+    /// detect conflicts - used here to pick around one instead of just reporting it.
+    /// `flare start` still runs the usual pre-flight port check right before `docker
+    /// compose up`, so a probe/use race here is an existing, already-handled failure
+    /// mode, not a new one. The default instance never calls this - it always keeps the
+    /// static defaults its topology's profile carries.
     /// </summary>
-    public static IReadOnlyDictionary<string, int> ProbeFreePorts()
+    public static IReadOnlyDictionary<string, int> ProbeFreePorts((string Label, string EnvKey, int Fallback)[] portDefaults)
     {
-        var resolved = new Dictionary<string, int>(All.Length);
+        var resolved = new Dictionary<string, int>(portDefaults.Length);
 
         // Tracks ports this pass has already handed to an earlier entry - each
         // individual IsFree() check binds-then-immediately-releases, so without this a
@@ -40,7 +45,7 @@ internal static class PortDefaults
         // Confirmed live: both landed on 4319 without this guard, and `docker compose
         // up` then failed trying to bind the same host port twice for one container.
         var claimedThisPass = new HashSet<int>();
-        foreach (var (_, envKey, fallback) in All)
+        foreach (var (_, envKey, fallback) in portDefaults)
         {
             var port = FindFreePort(fallback, claimedThisPass);
             claimedThisPass.Add(port);

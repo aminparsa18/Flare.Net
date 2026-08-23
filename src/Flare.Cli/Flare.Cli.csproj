@@ -40,9 +40,25 @@
          CLI - GET /api/alerts, dry-run POST /api/alerts/{id}/test), and
          `flare apikey create <NAME>` (POST /api/ingest-keys, raw key shown once). No
          backend changes - all four are thin HTTP clients against endpoints Flare.Api
-         already exposed. Tag on release: flare-cli-v{Version}
+         already exposed. Bumped 0.1.3 -> 0.1.4: `flare start` gained a Cluster flag
+         (Commands/StartCommand.Settings) standing an instance up as the multi-node
+         ClickHouse cluster topology (docs/clustering.md) instead of the single-node
+         default - own embedded compose template + env template (Templates/
+         docker-compose.cluster.flare.yml, env.cluster.template) plus embedded keeper/
+         ClickHouse config (db/clickhouse-cluster/config), materialized the same way
+         Standalone's own ClickHouse init SQL already is. Every per-service list that
+         used to be hardcoded once per command (StartCommand/DoctorChecks/StatusCommand/
+         UpdateCommand/DestroyCommand) is now driven by one new Internal/
+         TopologyProfile.cs instead. Topology is decided once at an instance's first
+         `flare start` and persisted to state.json - not a live migration path, mismatch
+         against an already-initialized instance errors clearly. `flare instances list`
+         gained a Mode column. Also fixed a real upstream bug this surfaced in
+         Flare.ServiceDefaults' ClickHouseMigrationRunner (see that file's own remarks) -
+         cluster mode's bootstrap CREATE DATABASE always failed with UNKNOWN_DATABASE
+         since nothing created clickhousedb before the app's own already-scoped
+         connection tried to. Tag on release: flare-cli-v{Version}
          (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.3</Version>
+    <Version>0.1.4</Version>
     <Authors>Amin Parsa</Authors>
     <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
     <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>
@@ -87,6 +103,29 @@
          to ~/.flare/db/clickhouse/ on first run (see Internal/FlareHome.cs). -->
     <EmbeddedResource Include="..\..\db\clickhouse\*.sql">
       <LogicalName>Flare.Cli.Templates.ClickHouseInit.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <!-- Cluster-mode `flare start` (its Cluster flag) - see docs/clustering.md and Internal/TopologyProfile.cs.
+         Own image-based compose template (root docker-compose.cluster.yml's ingest/api/
+         dashboard use `build:`, same reason docker-compose.flare.yml above isn't a
+         verbatim copy of root docker-compose.yml either) plus its own .env template
+         (different port table - no CLICKHOUSE_HTTP_PORT, plus FLARE_INGEST2_*). No
+         db/clickhouse-cluster/*.sql embedding needed here: that schema is already
+         embedded inside Flare.ServiceDefaults and applied by ClickHouseMigrationRunner
+         at app startup (ClickHouse__ClusterMode=true), not via a bind-mounted init
+         directory the way Standalone's ClickHouseInit above is. -->
+    <EmbeddedResource Include="Templates\docker-compose.cluster.flare.yml">
+      <LogicalName>Flare.Cli.Templates.docker-compose.cluster.flare.yml</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Templates\env.cluster.template">
+      <LogicalName>Flare.Cli.Templates.env.cluster.template</LogicalName>
+    </EmbeddedResource>
+    <!-- keeper-N.xml/macros-N.xml/remote-servers.xml/use-keeper.xml/nginx-lb.conf -
+         bind-mounted into the keeper/clickhouse/clickhouse-lb CONTAINERS themselves
+         (unlike ClickHouseInit above, which mounts into clickhouse's own
+         docker-entrypoint-initdb.d). Materialized to
+         ~/.flare/db/clickhouse-cluster/config/ on first run. -->
+    <EmbeddedResource Include="..\..\db\clickhouse-cluster\config\*">
+      <LogicalName>Flare.Cli.Templates.ClusterConfig.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

@@ -53,6 +53,8 @@ internal sealed class DestroyCommand : AsyncCommand<DestroyCommand.Settings>
             }
         }
 
+        var profile = FlareHome.ResolveTopology(instance);
+
         var exitCode = await ComposeRunner.RunStreamedAsync(instance, ["down", "-v"]);
         if (exitCode != 0)
         {
@@ -60,7 +62,7 @@ internal sealed class DestroyCommand : AsyncCommand<DestroyCommand.Settings>
             return 1;
         }
 
-        AnsiConsole.MarkupLine("[green]✓[/] Removed containers and data volumes (clickhouse-data, redis-data, identity-data).");
+        AnsiConsole.MarkupLine($"[green]✓[/] Removed containers and data volumes ({profile.DestroyVolumesLabel}).");
 
         if (settings.PurgeConfig)
         {
