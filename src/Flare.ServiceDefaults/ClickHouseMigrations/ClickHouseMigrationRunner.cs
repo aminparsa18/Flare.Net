@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
@@ -71,6 +72,23 @@ namespace Flare.ServiceDefaults.ClickHouseMigrations;
 /// isn't a live migration path between the two modes - it's meant to be set once, before
 /// a deployment's first boot, against an empty ClickHouse/Keeper volume.
 /// </para>
+/// <para>
+/// Every <c>ON CLUSTER</c> statement (in cluster mode only) is followed by
+/// <see cref="WaitForClusterDdlPropagationAsync"/> before the next statement runs or the
+/// migration is recorded applied. Found live (2026-08-23, docs/clustering.md's
+/// "Operational notes"): a successful <c>ON CLUSTER</c> query only means ClickHouse's own
+/// DDL coordinator waited for whichever nodes it currently considered "active" - on a
+/// truly fresh cluster's first boot, a node whose own DDL worker hasn't registered with
+/// Keeper yet is silently excluded from that wait and applies the DDL later, off Keeper's
+/// persisted queue, on no particular schedule. Concurrent callers of <see cref="ApplyAsync"/>
+/// (<c>ingest-1</c>/<c>ingest-2</c>/<c>api</c>, see this method's own remarks on why that
+/// concurrency is otherwise safe) would then see a migration recorded as applied and move
+/// on to one that depends on it, hitting <c>UNKNOWN_TABLE</c> if their next connection
+/// (round-robined through <c>clickhouse-lb</c>) lands on the still-lagging node. Waiting
+/// for independently-verified convergence - not trusting the statement's own return - is
+/// what actually closes that window: "recorded as applied" now only ever happens after
+/// every node in the cluster provably has it.
+/// </para>
 /// </remarks>
 public static class ClickHouseMigrationRunner
 {
@@ -87,6 +105,27 @@ public static class ClickHouseMigrationRunner
         TimeSpan.FromSeconds(2),
         TimeSpan.FromSeconds(4),
         TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+        TimeSpan.FromSeconds(8),
+    ];
+
+    // Same spirit as ConnectionRetryDelays above, sized for a different wait: not "is
+    // ClickHouse reachable yet" but "has this specific ON CLUSTER DDL reached every node
+    // yet". ~62s total, comfortably past the 10-20s convergence delay actually observed
+    // live (2026-08-23) on a fresh cluster's first boot (docs/clustering.md's
+    // "Operational notes").
+    private static readonly TimeSpan[] ClusterConvergenceRetryDelays =
+    [
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4),
+        TimeSpan.FromSeconds(4),
         TimeSpan.FromSeconds(8),
         TimeSpan.FromSeconds(8),
         TimeSpan.FromSeconds(8),
@@ -135,37 +174,48 @@ public static class ClickHouseMigrationRunner
             ct => client.ExecuteNonQueryAsync(createDatabaseSql, options: bootstrapOptions, cancellationToken: ct),
             logger,
             cancellationToken);
-        await client.ExecuteNonQueryAsync(
-            clusterMode
-                // NOT '/clickhouse/tables/{shard}/...' like the sharded app tables below -
-                // confirmed live (2026-08-22) that using the {shard} macro here means each
-                // shard tracks its own independent "applied migrations" history (different
-                // Keeper path per shard), so a node on shard 2 would show zero rows applied
-                // even after every migration ran successfully against shard 1. This table
-                // is a small, cluster-wide operational record, not sharded app data - one
-                // fixed literal path (no {shard}) makes all 4 nodes replicas of the SAME
-                // single table, matching what ApplyAsync's "SELECT DISTINCT Name FROM
-                // schema_migrations" query actually needs regardless of which node the
-                // connection string happens to point at.
-                ? """
-                  CREATE TABLE IF NOT EXISTS clickhousedb.schema_migrations ON CLUSTER 'flare_cluster'
-                  (
-                      Name String,
-                      AppliedAt DateTime64(3) DEFAULT now64(3)
-                  )
-                  ENGINE = ReplicatedMergeTree('/clickhouse/tables/flare_cluster/clickhousedb/schema_migrations', '{replica}')
-                  ORDER BY Name
-                  """
-                : """
-                  CREATE TABLE IF NOT EXISTS clickhousedb.schema_migrations
-                  (
-                      Name String,
-                      AppliedAt DateTime64(3) DEFAULT now64(3)
-                  )
-                  ENGINE = MergeTree
-                  ORDER BY Name
-                  """,
-            cancellationToken: cancellationToken);
+        if (clusterMode)
+        {
+            // See this method's own remarks on WaitForClusterDdlPropagationAsync: a
+            // successful ON CLUSTER response doesn't by itself mean every node has the
+            // database yet, on a truly fresh cluster's first boot.
+            await WaitForClusterDdlPropagationAsync(client, createDatabaseSql, logger, cancellationToken);
+        }
+
+        var createSchemaMigrationsTableSql = clusterMode
+            // NOT '/clickhouse/tables/{shard}/...' like the sharded app tables below -
+            // confirmed live (2026-08-22) that using the {shard} macro here means each
+            // shard tracks its own independent "applied migrations" history (different
+            // Keeper path per shard), so a node on shard 2 would show zero rows applied
+            // even after every migration ran successfully against shard 1. This table
+            // is a small, cluster-wide operational record, not sharded app data - one
+            // fixed literal path (no {shard}) makes all 4 nodes replicas of the SAME
+            // single table, matching what ApplyAsync's "SELECT DISTINCT Name FROM
+            // schema_migrations" query actually needs regardless of which node the
+            // connection string happens to point at.
+            ? """
+              CREATE TABLE IF NOT EXISTS clickhousedb.schema_migrations ON CLUSTER 'flare_cluster'
+              (
+                  Name String,
+                  AppliedAt DateTime64(3) DEFAULT now64(3)
+              )
+              ENGINE = ReplicatedMergeTree('/clickhouse/tables/flare_cluster/clickhousedb/schema_migrations', '{replica}')
+              ORDER BY Name
+              """
+            : """
+              CREATE TABLE IF NOT EXISTS clickhousedb.schema_migrations
+              (
+                  Name String,
+                  AppliedAt DateTime64(3) DEFAULT now64(3)
+              )
+              ENGINE = MergeTree
+              ORDER BY Name
+              """;
+        await client.ExecuteNonQueryAsync(createSchemaMigrationsTableSql, cancellationToken: cancellationToken);
+        if (clusterMode)
+        {
+            await WaitForClusterDdlPropagationAsync(client, createSchemaMigrationsTableSql, logger, cancellationToken);
+        }
 
         var applied = new HashSet<string>(StringComparer.Ordinal);
         await using (var reader = await client.ExecuteReaderAsync(
@@ -201,6 +251,16 @@ public static class ClickHouseMigrationRunner
             foreach (var statement in SplitStatements(sql))
             {
                 await client.ExecuteNonQueryAsync(statement, cancellationToken: cancellationToken);
+                if (clusterMode)
+                {
+                    // Don't move on to this migration's next statement (which may
+                    // reference what this one just created, e.g. a Distributed table
+                    // right after its _local counterpart) - or record this migration as
+                    // applied below - until every cluster node provably has it. See this
+                    // method's own remarks for why the statement's own success return
+                    // isn't enough on its own.
+                    await WaitForClusterDdlPropagationAsync(client, statement, logger, cancellationToken);
+                }
             }
 
             // migrationName comes from this assembly's own embedded resources (repo-
@@ -242,6 +302,145 @@ public static class ClickHouseMigrationRunner
                 await Task.Delay(delay, cancellationToken);
             }
         }
+    }
+
+    /// <summary>
+    /// One <c>ON CLUSTER</c> DDL statement's convergence check: which cluster it targets,
+    /// a human-readable label for logs/errors, and the exact "how many nodes have it"
+    /// query <see cref="WaitForClusterDdlPropagationAsync"/> polls.
+    /// </summary>
+    private readonly record struct ClusterDdlTarget(string Cluster, string Description, string ConvergenceCountSql);
+
+    // Matches every ON CLUSTER shape db/clickhouse-cluster/*.sql actually uses (confirmed
+    // by reading all 10 as of this writing) - repo-controlled DDL, same "caught at review
+    // time if a new shape shows up" posture as SplitStatements' own remarks.
+    private static readonly Regex CreateDatabaseOnClusterPattern = new(
+        @"\ACREATE\s+DATABASE\s+IF\s+NOT\s+EXISTS\s+(?<db>\w+)\s+ON\s+CLUSTER\s+'(?<cluster>[^']+)'",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex CreateTableOnClusterPattern = new(
+        @"\ACREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+(?<db>\w+)\.(?<name>\w+)\s+ON\s+CLUSTER\s+'(?<cluster>[^']+)'",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex AlterTableAddColumnOnClusterPattern = new(
+        @"\AALTER\s+TABLE\s+(?<db>\w+)\.(?<name>\w+)\s+ON\s+CLUSTER\s+'(?<cluster>[^']+)'\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+(?<col>\w+)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Recognizes one of the three <c>ON CLUSTER</c> statement shapes this repo's
+    /// migrations use and builds the query that checks whether every node in that
+    /// statement's cluster has picked it up yet. Returns <see langword="false"/> (nothing
+    /// to wait for) for anything else, including plain non-DDL statements like the
+    /// <c>INSERT INTO schema_migrations</c> record write.
+    /// </summary>
+    private static bool TryParseClusterDdlTarget(string statement, out ClusterDdlTarget target)
+    {
+        var databaseMatch = CreateDatabaseOnClusterPattern.Match(statement);
+        if (databaseMatch.Success)
+        {
+            var db = databaseMatch.Groups["db"].Value;
+            var cluster = databaseMatch.Groups["cluster"].Value;
+            target = new ClusterDdlTarget(
+                cluster,
+                $"database '{db}'",
+                $"SELECT count(DISTINCT hostName()) FROM clusterAllReplicas('{cluster}', system.databases) WHERE name = '{db}'");
+            return true;
+        }
+
+        // Checked before the plain CREATE TABLE pattern below only because both patterns
+        // are tried unconditionally and mutually exclusive by keyword (ALTER vs CREATE) -
+        // order between them doesn't actually matter, kept this way for readability.
+        var alterMatch = AlterTableAddColumnOnClusterPattern.Match(statement);
+        if (alterMatch.Success)
+        {
+            var db = alterMatch.Groups["db"].Value;
+            var name = alterMatch.Groups["name"].Value;
+            var col = alterMatch.Groups["col"].Value;
+            var cluster = alterMatch.Groups["cluster"].Value;
+            target = new ClusterDdlTarget(
+                cluster,
+                $"column '{db}.{name}.{col}'",
+                $"SELECT count(DISTINCT hostName()) FROM clusterAllReplicas('{cluster}', system.columns) " +
+                $"WHERE database = '{db}' AND table = '{name}' AND name = '{col}'");
+            return true;
+        }
+
+        var createTableMatch = CreateTableOnClusterPattern.Match(statement);
+        if (createTableMatch.Success)
+        {
+            var db = createTableMatch.Groups["db"].Value;
+            var name = createTableMatch.Groups["name"].Value;
+            var cluster = createTableMatch.Groups["cluster"].Value;
+            target = new ClusterDdlTarget(
+                cluster,
+                $"table '{db}.{name}'",
+                $"SELECT count(DISTINCT hostName()) FROM clusterAllReplicas('{cluster}', system.tables) " +
+                $"WHERE database = '{db}' AND name = '{name}'");
+            return true;
+        }
+
+        target = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Polls until <paramref name="statement"/>'s <c>ON CLUSTER</c> DDL has actually
+    /// reached every node currently in its target cluster - not just until the statement
+    /// itself returned successfully. See the type-level remarks (the paragraph starting
+    /// "Every ON CLUSTER statement...") for why the statement's own success isn't enough:
+    /// on a fresh cluster's first boot, ClickHouse's own DDL coordinator can return before
+    /// a node that hadn't yet registered as active ever gets the change. No-op for
+    /// anything <see cref="TryParseClusterDdlTarget"/> doesn't recognize as cluster DDL
+    /// (e.g. the plain <c>INSERT</c> that records a migration applied).
+    /// </summary>
+    private static async Task WaitForClusterDdlPropagationAsync(IClickHouseClient client, string statement, ILogger logger, CancellationToken cancellationToken)
+    {
+        if (!TryParseClusterDdlTarget(statement, out var target))
+        {
+            return;
+        }
+
+        var expectedNodeCount = await ExecuteScalarLongAsync(
+            client, $"SELECT count() FROM system.clusters WHERE cluster = '{target.Cluster}'", cancellationToken);
+        if (expectedNodeCount <= 0)
+        {
+            // Cluster name system.clusters doesn't recognize - a config problem, not the
+            // propagation race this method exists for. Nothing to usefully wait for.
+            return;
+        }
+
+        for (var attempt = 0; ; attempt++)
+        {
+            var actualNodeCount = await ExecuteScalarLongAsync(client, target.ConvergenceCountSql, cancellationToken);
+            if (actualNodeCount >= expectedNodeCount)
+            {
+                return;
+            }
+
+            if (attempt >= ClusterConvergenceRetryDelays.Length)
+            {
+                throw new InvalidOperationException(
+                    $"ClickHouse ON CLUSTER DDL for {target.Description} only reached {actualNodeCount}/{expectedNodeCount} " +
+                    $"nodes in cluster '{target.Cluster}' after {ClusterConvergenceRetryDelays.Length} retries " +
+                    $"(~{ClusterConvergenceRetryDelays.Sum(d => d.TotalSeconds)}s). Statement: {statement}");
+            }
+
+            var delay = ClusterConvergenceRetryDelays[attempt];
+            logger.LogWarning(
+                "ClickHouse ON CLUSTER DDL for {Target} has reached {ActualCount}/{ExpectedCount} nodes in cluster {Cluster}; retrying in {Delay}.",
+                target.Description,
+                actualNodeCount,
+                expectedNodeCount,
+                target.Cluster,
+                delay);
+            await Task.Delay(delay, cancellationToken);
+        }
+    }
+
+    private static async Task<long> ExecuteScalarLongAsync(IClickHouseClient client, string sql, CancellationToken cancellationToken)
+    {
+        var result = await client.ExecuteScalarAsync(sql, cancellationToken: cancellationToken);
+        return Convert.ToInt64(result);
     }
 
     /// <summary>
