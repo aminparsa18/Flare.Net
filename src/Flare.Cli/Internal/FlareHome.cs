@@ -135,6 +135,36 @@ internal static class FlareHome
     }
 
     /// <summary>
+    /// The instance a command should actually operate on, given its own `--name` (or
+    /// lack of one) - every command's entry point calls this instead of
+    /// <see cref="Resolve"/> directly. Identical to <see cref="Resolve"/> except when NO
+    /// name was passed and the default instance isn't initialized: if exactly one named
+    /// instance exists, that one is targeted instead of forcing `--name` on every command
+    /// when there's only ever been one instance on the machine to begin with. Two or more
+    /// named instances (still no default) stays ambiguous - resolves to the
+    /// (uninitialized) default, the same "not initialized, run flare start" outcome as
+    /// before, rather than guessing which one was meant. Never fires once the default
+    /// instance exists - that keeps being everyone's implicit target, unambiguously,
+    /// forever, regardless of how many named instances also exist alongside it.
+    /// </summary>
+    public static FlareInstance ResolveTarget(string? instanceName)
+    {
+        if (instanceName is not null)
+        {
+            return Resolve(instanceName);
+        }
+
+        var defaultInstance = Resolve(null);
+        if (defaultInstance.IsInitialized)
+        {
+            return defaultInstance;
+        }
+
+        var namedInstances = ListNamedInstances();
+        return namedInstances.Count == 1 ? namedInstances[0] : defaultInstance;
+    }
+
+    /// <summary>
     /// Every named instance currently on disk, sorted by name - just directories under
     /// <c>instances/</c> that look initialized, no separate registry to drift out of sync
     /// with reality (a manually deleted instance directory just stops showing up here).
