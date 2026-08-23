@@ -56,9 +56,14 @@
          Flare.ServiceDefaults' ClickHouseMigrationRunner (see that file's own remarks) -
          cluster mode's bootstrap CREATE DATABASE always failed with UNKNOWN_DATABASE
          since nothing created clickhousedb before the app's own already-scoped
-         connection tried to. Tag on release: flare-cli-v{Version}
+         connection tried to. Bumped 0.1.4 -> 0.1.5: cluster mode's own default
+         FLARE_IMAGE_TAG (Internal/TopologyProfile.cs's ClusterProfile, and
+         Templates/env.cluster.template) moved from "edge" to "0.3.0" - v0.3.0 (cut the
+         same day) is the first stable Flare release that actually contains cluster-mode
+         support, so pinning to a real tag instead of tracking main is now possible; the
+         standalone default stays 0.2.0, unaffected. Tag on release: flare-cli-v{Version}
          (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.4</Version>
+    <Version>0.1.5</Version>
     <Authors>Amin Parsa</Authors>
     <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
     <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>

@@ -168,13 +168,13 @@ flare start --cluster -n bignode   # a named instance, cluster mode - same -n as
 flare status -n bignode            # -n still needed here on, same as any named instance
 ```
 
-**Defaults to `FLARE_IMAGE_TAG=edge`, unlike the standalone instance's pinned stable
-default.** Cluster-mode support merged after `v0.2.0` was tagged, so no stable Flare
-release actually contains it yet - pinning a cluster instance to `0.2.0` the way
-standalone does would pull a cluster-unaware image that crash-loops trying to bootstrap
-`clickhousedb` (confirmed live while building this feature). Move a cluster instance
-onto a real pinned tag yourself via `flare update --tag TAG` once a stable release that
-includes cluster mode ships - see the Image tag policy section below.
+**Defaults to `FLARE_IMAGE_TAG=0.3.0`, a different pin than the standalone instance's
+own default (`0.2.0`).** Cluster-mode support merged after `v0.2.0` was tagged, so that
+tag would pull a cluster-unaware image that crash-loops trying to bootstrap
+`clickhousedb` (confirmed live while building this feature, fixed in
+`ClickHouseMigrationRunner`) - `v0.3.0` is the first stable release with cluster mode
+included. `flare update --tag TAG` still works normally to move a cluster instance onto
+a newer pin later - see the Image tag policy section below.
 
 Orthogonal to naming: either the default instance or any named one can be cluster mode,
 independent of every other named/default instance on the same machine. Decided once at
@@ -236,22 +236,24 @@ that (rewrites `~/.flare/.env`'s `FLARE_IMAGE_TAG` in place, then pulls) - hand-
 instead, or `flare destroy --purge-config` to reset to the currently-installed CLI
 version's own default.
 
-| `Flare.Cli` version | Default `FLARE_IMAGE_TAG` |
+This table tracks the **standalone** instance's own default - cluster mode
+([above](#cluster-mode)) is a deliberately separate pin, since it merged after `0.2.0`
+was already cut.
+
+| `Flare.Cli` version | Default `FLARE_IMAGE_TAG` (standalone) |
 |---|---|
 | 0.1.0 (2026-08-16) | `edge` |
 | 0.1.1 (2026-08-19) | `0.2.0` |
 | 0.1.2 (2026-08-19) | `0.2.0` (unchanged - this release's own changes were the dashboard port default and the `flare start`/`doctor` port-availability check, plus adding `--tag` above) |
+| 0.1.4 (2026-08-23) | `0.2.0` (unchanged - this release added cluster mode, whose own separate default started at `edge` since no stable release included it yet) |
+| 0.1.5 (2026-08-23) | `0.2.0` (unchanged - cluster mode's own default moved `edge` -> `0.3.0` the same day, once that first cluster-capable stable release shipped) |
 
 ## Known limitations
 
-- **`flare start --cluster` currently requires `edge`**: no stable Flare release
-  contains cluster-mode support yet (it merged after `v0.2.0` was tagged) - see
-  [Cluster mode](#cluster-mode) above. Move to a real pinned tag via
-  `flare update --tag TAG` once one ships.
 - **Not verified on Windows yet** - state-directory resolution and the browser-launch
   in `flare open` should work per .NET's own cross-platform guarantees, but haven't
   been run end-to-end there as of this doc.
-- **`Flare.Cli` itself is pre-1.0** (currently `0.1.4`) - normal SemVer "still shifting,
+- **`Flare.Cli` itself is pre-1.0** (currently `0.1.5`) - normal SemVer "still shifting,
   no compatibility guarantee yet", unrelated to whether it's published (it is - see the
   Install section above). Separately, and by design rather than as a gap: an existing
   install's image-tag pin never moves on its own - see the Image tag policy section
