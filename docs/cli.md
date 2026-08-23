@@ -112,6 +112,16 @@ afterward if you want different values.
 Instance names: lowercase letters, digits, and hyphens only, not leading/trailing.
 `default` is reserved (it's what omitting `--name` already means).
 
+**Omitting `--name` isn't forced onto a solely-named setup.** If the default instance
+doesn't exist yet but exactly one named instance does, every command targets that one
+instance automatically - `flare start -n work` once, then plain `flare status`/`flare
+open`/etc. from then on, no repeated `-n work`. This stops being unambiguous the moment
+a second named instance exists with still no default: at that point omitting `--name`
+resolves to the (uninitialized) default instance again, the same "not initialized, run
+`flare start`" outcome as always, rather than guessing which one you meant. Once the
+default instance itself exists, it's always the implicit target regardless of how many
+named instances also exist alongside it.
+
 **Passwords are randomly generated, not the repo's `docker-compose.yml` `flare`/`flare`
 default.** This instance is meant to stand for weeks with its ports bound on your
 machine the whole time, not be torn down after a quick eval - reusing a documented,

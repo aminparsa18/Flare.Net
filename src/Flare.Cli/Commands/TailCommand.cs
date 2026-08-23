@@ -35,7 +35,7 @@ internal sealed class TailCommand : AsyncCommand<TailCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var instance = FlareHome.Resolve(settings.InstanceName);
+        var instance = FlareHome.ResolveTarget(settings.InstanceName);
 
         if (!instance.IsInitialized)
         {

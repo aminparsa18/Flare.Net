@@ -21,7 +21,7 @@ internal sealed class AlertsListCommand : AsyncCommand<AlertsListCommand.Setting
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var instance = FlareHome.Resolve(settings.InstanceName);
+        var instance = FlareHome.ResolveTarget(settings.InstanceName);
 
         if (!instance.IsInitialized)
         {
@@ -129,7 +129,7 @@ internal sealed class AlertsTestCommand : AsyncCommand<AlertsTestCommand.Setting
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var instance = FlareHome.Resolve(settings.InstanceName);
+        var instance = FlareHome.ResolveTarget(settings.InstanceName);
 
         if (!instance.IsInitialized)
         {

@@ -12,7 +12,7 @@ internal sealed class DoctorCommand : AsyncCommand<DoctorCommand.Settings>
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
-        var instance = FlareHome.Resolve(settings.InstanceName);
+        var instance = FlareHome.ResolveTarget(settings.InstanceName);
         var allPassed = true;
 
         var dockerCheck = await DoctorChecks.CheckDockerReachableAsync(cancellationToken);
