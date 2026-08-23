@@ -65,3 +65,27 @@ export async function getIndexingStats(signal?: AbortSignal): Promise<IndexingSt
 	}
 	return res.json();
 }
+
+export interface ClusterNodeInfo {
+	shardNum: number;
+	replicaNum: number;
+	hostName: string;
+	port: number;
+	isLocal: boolean;
+	errorsCount: number;
+	estimatedRecoveryTimeSeconds: number;
+}
+
+export interface ClusterStatusResponse {
+	clusterModeEnabled: boolean;
+	sharedPatternStoreEnabled: boolean;
+	nodes: ClusterNodeInfo[];
+}
+
+export async function getClusterStatus(signal?: AbortSignal): Promise<ClusterStatusResponse> {
+	const res = await apiFetch(`${API_BASE_URL}/api/indexing/cluster`, { signal });
+	if (!res.ok) {
+		throw new Error(`GET /api/indexing/cluster failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
+}

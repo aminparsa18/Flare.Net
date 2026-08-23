@@ -4,14 +4,17 @@ using Flare.Api.Query;
 namespace Flare.Api.Endpoints;
 
 /// <summary>
-/// The Indexing page's one endpoint: <c>GET /api/indexing/stats</c>. No query params - see
-/// <see cref="IndexingQueryService"/>'s remarks for why there's no filter to accept.
+/// The Indexing page's endpoints: <c>GET /api/indexing/stats</c> and
+/// <c>GET /api/indexing/cluster</c>. No query params on either - see
+/// <see cref="IndexingQueryService"/>/<see cref="ClusterQueryService"/>'s remarks for why
+/// there's no filter to accept.
 /// </summary>
 public static class IndexingEndpoints
 {
     public static IEndpointRouteBuilder MapIndexingEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/indexing/stats", HandleGetStatsAsync);
+        endpoints.MapGet("/api/indexing/cluster", HandleGetClusterStatusAsync);
         return endpoints;
     }
 
@@ -21,5 +24,13 @@ public static class IndexingEndpoints
     {
         var response = await queryService.GetStatsAsync(cancellationToken);
         return Results.Json(response, IndexingJsonContext.Default.IndexingStatsResponse);
+    }
+
+    private static async Task<IResult> HandleGetClusterStatusAsync(
+        IClusterStatusService clusterStatusService,
+        CancellationToken cancellationToken)
+    {
+        var response = await clusterStatusService.GetStatusAsync(cancellationToken);
+        return Results.Json(response, IndexingJsonContext.Default.ClusterStatusResponse);
     }
 }

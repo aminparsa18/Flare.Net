@@ -142,6 +142,18 @@ builder.Services.AddSingleton<IIndexingQueryService>(sp => new IndexingQueryServ
     sp.GetRequiredService<ILogger<IndexingQueryService>>(),
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 
+// Indexing page's cluster-status panel (Planning.md's "Multi-node scaling" follow-up).
+// LogPattern:SharedStore here is display-only - Flare.Api never touches Drain pattern
+// matching itself (that's Flare.Ingest's job), this just mirrors the same env var so the
+// panel can show whether the deployment actually turned shared pattern-cluster state on,
+// rather than the dashboard having no way to know. docker-compose.cluster.yml sets it on
+// api alongside ingest-1/ingest-2 for that reason.
+builder.Services.AddSingleton<IClusterStatusService>(sp => new ClusterQueryService(
+    sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<ILogger<ClusterQueryService>>(),
+    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode"),
+    sharedPatternStoreEnabled: builder.Configuration.GetValue<bool>("LogPattern:SharedStore")));
+
 // Local, minimal read-side copies of Flare.Ingest's pipeline options (StreamKey/
 // ConsumerGroup only) - see Flare.Api.Pipeline.LogEventPipelineOptions's remarks for why
 // this exists instead of PipelineStreamKeys hardcoding literals, or LiveTailOptions binding

@@ -166,7 +166,7 @@ documentation:
   edge case, not "fixed."
 - **`IndexingQueryService`'s `system.*` introspection queries are now cluster-wide under
   `ClickHouse:ClusterMode`.** Previously they filtered `WHERE database = currentDatabase()`
-  against whichever single node they connected to, so the Resources page's index/part
+  against whichever single node they connected to, so the Indexing page's index/part
   diagnostics reflected one node's local state, not the whole cluster's. Fixed by
   branching each query on the same `ClickHouse:ClusterMode` flag `ClickHouseMigrationRunner`
   reads: the storage/skip-index/growth queries (backed by replicated `_local` tables) now
@@ -301,6 +301,54 @@ load-decide-save calls against whichever store is injected:
 `docker-compose.cluster.yml` sets `LogPattern__SharedStore: "true"` on both `ingest-1`
 and `ingest-2` so the two-replica deployment actually exercises this.
 
+## Dashboard: cluster status on the Indexing page
+
+With every limitation above closed out, the last piece was making any of this visible
+without reaching for `clickhouse-client` - a self-hosted answer to Seq's own Clustering
+page (Enterprise-only there; not gated here). `GET /api/indexing/cluster`
+(`ClusterQueryService`) backs a panel on the **Indexing** page (`/indexing`, not
+`/resources` - `IndexingQueryService` is the piece already made cluster-wide aware above,
+while Resources' `HostStatsPoller`/`DockerContainerPoller` are explicitly single-host/
+single-Docker-daemon concepts, see "Known limitations" history further up this doc).
+
+Renders nothing at all on a default single-node deployment - the endpoint itself skips
+querying ClickHouse entirely when `ClickHouse:ClusterMode` is off, returning
+`{ clusterModeEnabled: false, nodes: [] }` immediately, and the dashboard component
+matches by rendering nothing rather than an empty-state card. When cluster mode is on, it
+shows:
+
+- **Topology**, grouped by shard - `system.clusters` filtered to `cluster = 'flare_cluster'`,
+  the same source `docs/clustering.md`'s own "Verifying it yourself" query below already
+  used manually. No `cluster()`/`clusterAllReplicas()` branching needed the way
+  `IndexingQueryService`'s queries have - `system.clusters` is each node's own copy of
+  `remote-servers.xml`, identical everywhere, so a single query against whichever node
+  `clickhouse-lb` happens to route to already reflects the whole topology.
+- **Per-node health** - `errors_count` per row, badged healthy/error. This is the
+  *connecting* node's own view of that peer (ClickHouse tracks it per-connection, not as
+  a cluster-wide consensus) - good enough for "does this look healthy right now," not a
+  substitute for real monitoring.
+- **Shared pattern store on/off** - `LogPattern:SharedStore`, mirrored onto `api`'s own
+  config purely for display (`api` never does Drain matching itself) so the fix above is
+  visible on the dashboard instead of only discoverable by reading this doc or
+  `docker-compose.cluster.yml`.
+
+**Deliberately out of scope for this first cut**, named rather than silently skipped:
+Keeper quorum health (no notion of it in `system.clusters` at all - Keeper speaks its own
+four-letter-word protocol over a separate connection, not SQL) and replication
+queue/lag (`system.replication_queue`). Both are real follow-ups, not solved here.
+
+Live-verified (2026-08-23) against a real `docker-compose.cluster.yml` stack - and caught
+a real bug doing it: `estimated_recovery_time` is `UInt32` in `system.clusters`, not
+`UInt64` as first assumed, so the first cut of `ClusterQueryService` threw
+`InvalidCastException` on every row and the endpoint silently degraded to an empty node
+list (the same "config-gated table might not cooperate" catch path
+`IndexingQueryService`'s growth/query-performance reads already use). Confirmed via
+`DESCRIBE TABLE system.clusters` directly against a running node, fixed by reading that
+column as `uint` like `errors_count`/`slowdowns_count` rather than `ulong`. After the fix,
+`GET /api/indexing/cluster` correctly returned all 4 nodes (2 shards x 2 replicas, all
+`errorsCount: 0`) and the dashboard's Indexing page rendered the "Cluster" panel showing
+all 4 healthy.
+
 ## Verifying it yourself
 
 ```sh
@@ -326,7 +374,13 @@ docker exec <redis container> redis-cli -a flare --no-auth-warning \
   KEYS "flare:patterns:bucket:*"
 docker exec <redis container> redis-cli -a flare --no-auth-warning \
   GET "flare:patterns:bucket:<key from above>"
+
+# Cluster-status panel's own endpoint - expect the same 4 rows as the system.clusters
+# query above, plus clusterModeEnabled/sharedPatternStoreEnabled both true:
+curl -s http://localhost:8080/api/indexing/cluster | jq
 ```
 
 Then open the dashboard's Logs page Patterns modal and confirm a single row/`PatternId`
-for that template, instead of two fragmented rows.
+for that template, instead of two fragmented rows - and the Indexing page's new
+"Cluster" panel (see "Dashboard: cluster status on the Indexing page" above) showing all
+4 nodes healthy.
