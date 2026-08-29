@@ -107,6 +107,26 @@ public static class FlareResourceBuilderExtensions
     /// <c>docs/aspire-hosting.md</c>'s "Docker-driven Resources page" section for the full
     /// security rationale (same one <c>docker-compose.yml</c>'s own opt-in documents).
     /// </param>
+    /// <param name="publicApiUrl">
+    /// The externally-reachable URL browsers should use to reach <c>api</c>, surfaced to the
+    /// dashboard as <c>PUBLIC_API_URL</c>. Left unset (the default), this stays pinned to
+    /// <c>api</c>'s own loopback endpoint - correct for <c>aspire run</c>, where the dashboard
+    /// and the browser viewing it are on the same machine. Once actually publishing/deploying
+    /// (<c>aspire publish</c>/<c>aspire deploy</c> against a Docker Compose target - see
+    /// <c>docs/aspire-hosting.md</c>'s "Publishing / deploying via aspire publish" section) that
+    /// assumption stops holding - the browser reaches the deployed stack by a real hostname/IP,
+    /// not <c>localhost</c> - so pass a <c>secret: false</c> <c>AddParameter</c> result here
+    /// (left unset, so Aspire captures it as an <c>.env.{environment}</c> placeholder an
+    /// operator fills in with the real deployed URL per environment) instead.
+    /// </param>
+    /// <param name="publicDashboardUrl">
+    /// The externally-reachable URL browsers should use to reach the dashboard itself, surfaced
+    /// as the dashboard's own <c>ORIGIN</c> (required by SvelteKit's Node adapter to accept
+    /// requests) and as <c>api</c>'s <c>Cors__AllowedOrigins__0</c> (so <c>api</c> accepts
+    /// browser requests originating from it). Same default/override story as
+    /// <paramref name="publicApiUrl"/> - unset keeps today's loopback-pinned <c>aspire run</c>
+    /// behavior; set it via an <c>AddParameter</c> result for publish/deploy.
+    /// </param>
     /// <returns>An <see cref="IResourceBuilder{FlareResource}"/> for the composite Flare resource.</returns>
     /// <exception cref="ArgumentException"><paramref name="imageTag"/> is null or empty.</exception>
     public static IResourceBuilder<FlareResource> AddFlare(
@@ -121,7 +141,9 @@ public static class FlareResourceBuilderExtensions
         string? apiImage = null,
         string? dashboardImage = null,
         IResourceBuilder<ParameterResource>? apiKey = null,
-        bool enableResourceGraph = false)
+        bool enableResourceGraph = false,
+        IResourceBuilder<ParameterResource>? publicApiUrl = null,
+        IResourceBuilder<ParameterResource>? publicDashboardUrl = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(imageTag);
@@ -153,9 +175,18 @@ public static class FlareResourceBuilderExtensions
         // look like flags. Same default "flare" docker-compose.yml already uses, for the
         // same reason - and same fix applied to Flare.AppHost/AppHost.cs.
         var clickhousePassword = builder.AddParameter($"{name}-clickhouse-password", "flare", secret: true);
-        var clickhouse = builder.AddClickHouse($"{name}-clickhouse", password: clickhousePassword)
+        var clickhouse = builder.AddClickHouse($"{name}-clickhouse", password: clickhousePassword);
+        // Init scripts used to be a bind mount from a temp directory this process extracted
+        // them to (WithBindMount(ExtractClickHouseInitScripts(), ...)) - fine for `aspire run`,
+        // but that path only exists on the machine that ran `aspire publish`/`aspire build`, not
+        // on whatever host the generated docker-compose.yaml actually runs on (see
+        // docs/aspire-hosting.md's "Publishing / deploying via aspire publish" section). Baking
+        // the scripts into a small custom image built FROM AddClickHouse's own resolved image
+        // (WithDockerfile, not a bind mount) makes this portable to any Docker host, at the cost
+        // of `aspire run` now needing local `docker build` capability too, not just pull/run.
+        clickhouse
+            .WithDockerfile(WriteClickHouseInitDockerContext(clickhouse.Resource))
             .WithDataVolume()
-            .WithBindMount(ExtractClickHouseInitScripts(), "/docker-entrypoint-initdb.d", isReadOnly: true)
             .WithParentRelationship(flare)
             .WithHidden()
             .WithFlareResourceLabels("clickhouse");
@@ -292,9 +323,18 @@ public static class FlareResourceBuilderExtensions
         {
             dashboard.WithImagePullPolicy(ImagePullPolicy.Always);
         }
-        dashboard
-            .WithEnvironment("PUBLIC_API_URL", api.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork))
-            .WithEnvironment("ORIGIN", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
+        // publicApiUrl/publicDashboardUrl (both unset by default) exist for exactly this
+        // localhost assumption breaking once actually deployed rather than `aspire run` - see
+        // their doc comments on AddFlare and docs/aspire-hosting.md's "Publishing / deploying
+        // via aspire publish" section.
+        if (publicApiUrl is not null)
+        {
+            dashboard.WithEnvironment("PUBLIC_API_URL", publicApiUrl);
+        }
+        else
+        {
+            dashboard.WithEnvironment("PUBLIC_API_URL", api.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
+        }
 
         // Flare.Api rejects every browser origin by default once auth is in the picture
         // (Cors:AllowedOrigins has no safe default - see docs/auth.md in Flare's own
@@ -304,7 +344,16 @@ public static class FlareResourceBuilderExtensions
         // for PUBLIC_API_URL above and for the same reason: this has to resolve to what
         // the *browser* sees, not container-network DNS. Confirmed live against a real
         // Aspire-orchestrated run that this was missing and broke the dashboard outright.
-        api.WithEnvironment("Cors__AllowedOrigins__0", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
+        if (publicDashboardUrl is not null)
+        {
+            dashboard.WithEnvironment("ORIGIN", publicDashboardUrl);
+            api.WithEnvironment("Cors__AllowedOrigins__0", publicDashboardUrl);
+        }
+        else
+        {
+            dashboard.WithEnvironment("ORIGIN", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
+            api.WithEnvironment("Cors__AllowedOrigins__0", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
+        }
 
         // Opt-in Docker-driven Resources page (docs/aspire-hosting.md) - see
         // enableResourceGraph's doc comment for the full rationale. Deliberately mirrors
@@ -404,11 +453,15 @@ public static class FlareResourceBuilderExtensions
     /// Applies this package's Docker-driven-Resources-page labels
     /// (<c>flare.resource</c>/<c>flare.role</c>/<c>flare.relationships</c>) to a
     /// container resource - the Aspire/DCP-side counterpart to
-    /// <c>docker-compose.yml</c>'s own <c>labels:</c> blocks, same label vocabulary. There's
-    /// no more-direct "add a Docker label" API in Aspire 13.4 - <c>WithContainerRuntimeArgs</c>
-    /// (raw <c>docker run</c> arguments) is the documented escape hatch for this. Applied
-    /// unconditionally regardless of <c>enableResourceGraph</c> - see that parameter's own
-    /// doc comment for why these labels are harmless with the feature off.
+    /// <c>docker-compose.yml</c>'s own <c>labels:</c> blocks, same label vocabulary. Applied two
+    /// ways since neither alone covers both run modes: <c>WithContainerRuntimeArgs</c> (raw
+    /// <c>docker run</c> arguments - there's no more-direct "add a Docker label" API in Aspire
+    /// 13.4) for local <c>aspire run</c>/DCP, and <c>PublishAsDockerComposeService</c> for
+    /// <c>aspire publish</c>'s generated Docker Compose output, which has no concept of
+    /// <c>docker run</c> arguments at all - a compose-published deployment without this second
+    /// call would silently ship with no labels and break the Resources page's topology graph.
+    /// Applied unconditionally regardless of <c>enableResourceGraph</c> - see that parameter's
+    /// own doc comment for why these labels are harmless with the feature off.
     /// </summary>
     /// <param name="builder">The container resource to label.</param>
     /// <param name="role">This container's stable <c>flare.role</c> value (e.g. <c>"ingest"</c>) - what Flare.Api's own <c>ResourceNodeDto.Role</c> reads back.</param>
@@ -423,26 +476,61 @@ public static class FlareResourceBuilderExtensions
             args.Add($"flare.relationships={relationships}");
         }
 
-        return builder.WithContainerRuntimeArgs([.. args]);
+        return builder
+            .WithContainerRuntimeArgs([.. args])
+            .PublishAsDockerComposeService((_, service) =>
+            {
+                service.Labels["flare.resource"] = "true";
+                service.Labels["flare.role"] = role;
+                if (relationships is not null)
+                {
+                    service.Labels["flare.relationships"] = relationships;
+                }
+            });
     }
 
     /// <summary>
     /// Writes this package's embedded ClickHouse init scripts (<c>db/clickhouse/*.sql</c> in
-    /// Flare's own repo) to a fresh temp directory and returns its absolute path.
+    /// Flare's own repo) plus a generated <c>Dockerfile</c> into a fresh temp directory, and
+    /// returns that directory's absolute path as a <c>WithDockerfile</c> build context.
     /// </summary>
     /// <remarks>
-    /// <c>WithBindMount</c> resolves a relative source path against the *consumer's* AppHost
-    /// project directory, not this package's - an absolute path sidesteps that entirely, and
-    /// happens to also be how the source path always needs to work regardless of which project
-    /// calls <c>AddFlare</c> or from where.
+    /// <para>
+    /// A build context, not a bind mount - the ClickHouse image's own
+    /// <c>docker-entrypoint-initdb.d</c> convention runs any <c>*.sql</c> file found there once,
+    /// on first startup against an empty data directory, so <c>COPY</c>-ing them in at build
+    /// time has the exact same effect as the old bind mount did, but the resulting image is
+    /// self-contained - portable to whatever Docker host actually runs
+    /// <c>docker compose up</c>, unlike a bind mount from this (the <c>aspire publish</c>-time)
+    /// machine's own temp directory.
+    /// </para>
+    /// <para>
+    /// The generated Dockerfile's <c>FROM</c> line is read off <paramref name="clickhouseResource"/>'s
+    /// own resolved container image via <c>TryGetContainerImageName</c> rather than hand-pinned
+    /// here, so this never drifts from whatever <c>Aspire.Hosting.ClickHouse</c>'s own
+    /// <c>AddClickHouse</c> would otherwise have pulled directly.
+    /// </para>
+    /// <para>
+    /// An absolute path, not one relative to the consumer's AppHost project directory - both
+    /// <c>WithBindMount</c> and <c>WithDockerfile</c>'s context-path parameter resolve a
+    /// relative path against the *consumer's* AppHost project directory, not this package's, so
+    /// an absolute path sidesteps that regardless of which project calls <c>AddFlare</c> or from
+    /// where.
+    /// </para>
     /// </remarks>
-    private static string ExtractClickHouseInitScripts()
+    private static string WriteClickHouseInitDockerContext(IResource clickhouseResource)
     {
         const string ResourcePrefix = "Aspire.Hosting.Flare.ClickHouseInit.";
 
+        if (!clickhouseResource.TryGetContainerImageName(out var baseImage))
+        {
+            throw new InvalidOperationException(
+                $"Could not resolve {clickhouseResource.Name}'s container image to build a custom ClickHouse-init image FROM.");
+        }
+
         var assembly = typeof(FlareResourceBuilderExtensions).Assembly;
-        var tempDir = Path.Combine(Path.GetTempPath(), "flare-clickhouse-init-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        var contextDir = Path.Combine(Path.GetTempPath(), "flare-clickhouse-init-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(contextDir);
 
         foreach (var resourceName in assembly.GetManifestResourceNames())
         {
@@ -454,11 +542,18 @@ public static class FlareResourceBuilderExtensions
             var fileName = resourceName[ResourcePrefix.Length..];
             using var resourceStream = assembly.GetManifestResourceStream(resourceName)
                 ?? throw new InvalidOperationException($"Embedded resource '{resourceName}' was listed but could not be opened.");
-            using var fileStream = File.Create(Path.Combine(tempDir, fileName));
+            using var fileStream = File.Create(Path.Combine(contextDir, fileName));
             resourceStream.CopyTo(fileStream);
         }
 
-        return tempDir;
+        File.WriteAllText(
+            Path.Combine(contextDir, "Dockerfile"),
+            $"""
+            FROM {baseImage}
+            COPY *.sql /docker-entrypoint-initdb.d/
+            """);
+
+        return contextDir;
     }
 }
 

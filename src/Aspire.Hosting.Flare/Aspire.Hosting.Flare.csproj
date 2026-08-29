@@ -56,6 +56,8 @@
     <PackageReference Include="Aspire.Hosting" />
     <PackageReference Include="Aspire.Hosting.ClickHouse" />
     <PackageReference Include="Aspire.Hosting.Redis" />
+    <!-- PublishAsDockerComposeService only - see Directory.Packages.props's pin comment. -->
+    <PackageReference Include="Aspire.Hosting.Docker" />
   </ItemGroup>
 
   <ItemGroup>

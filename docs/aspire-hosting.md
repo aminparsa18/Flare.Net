@@ -44,7 +44,9 @@ IResourceBuilder<FlareResource> AddFlare(
     string? apiImage = null,
     string? dashboardImage = null,
     IResourceBuilder<ParameterResource>? apiKey = null,
-    bool enableResourceGraph = false)
+    bool enableResourceGraph = false,
+    IResourceBuilder<ParameterResource>? publicApiUrl = null,
+    IResourceBuilder<ParameterResource>? publicDashboardUrl = null)
 ```
 
 - **`name`** — the Flare resource group's name in the Aspire dashboard.
@@ -74,6 +76,12 @@ IResourceBuilder<FlareResource> AddFlare(
 - **`enableResourceGraph`** — turns on the dashboard's Resources page for this Flare
   instance. Off by default — see
   [Resources page (optional Docker access)](#resources-page-optional-docker-access)
+  below.
+- **`publicApiUrl` / `publicDashboardUrl`** — override the `localhost`-pinned
+  browser-facing URLs (`PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0`). Left
+  unset (the default), `aspire run` behavior is unchanged. Only needed once actually
+  publishing/deploying — see
+  [Publishing / deploying via `aspire publish`](#publishing--deploying-via-aspire-publish)
   below.
 
 ## 2. Point your logger at it
@@ -199,15 +207,66 @@ plain HTTP, no gRPC/TLS involved) and works independently of this bug. If you hi
 this, use `aspire ps` / `aspire describe` / `aspire logs` for orchestration visibility
 instead of the broken dashboard UI, and open Flare's own dashboard directly.
 
+## Publishing / deploying via `aspire publish`
+
+`Flare.Hosting.Aspire` doesn't add a deployment target itself — a consuming
+AppHost opts in the same way any other Aspire app does, by adding
+`AddDockerComposeEnvironment` (currently the only deployment target this
+package is verified against; Kubernetes/Azure targets are unverified):
+
+```csharp
+var builder = DistributedApplication.CreateBuilder(args);
+
+builder.AddDockerComposeEnvironment("env");
+
+var flare = builder.AddFlare("flare");
+// ...
+builder.Build().Run();
+```
+
+This has no effect on the normal `aspire run`/`dotnet run` inner loop —
+`AddDockerComposeEnvironment` only matters once you actually run
+`aspire publish`, `aspire do prepare-compose`, or `aspire deploy`, which
+generate a `docker-compose.yaml` (plus `.env`/`.env.{environment}` files) for
+the whole AppHost, Flare included. See
+[aspire.dev/deployment](https://aspire.dev/deployment/) and
+[aspire.dev/deployment/docker-compose](https://aspire.dev/deployment/docker-compose/)
+for the full publish/deploy workflow. `examples/ExampleApp.AppHost` wires this
+in as a worked example.
+
+Two things to know before deploying (not `aspire run`) a consumer app that
+brings up Flare this way:
+
+- **`publicApiUrl`/`publicDashboardUrl`.** `aspire run` assumes the browser
+  viewing the dashboard is on the same machine as the stack itself, and
+  points `PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0` at `localhost`
+  accordingly. That stops being true once actually deployed — the browser
+  reaches the stack by a real hostname/IP. Pass `AddFlare`'s
+  `publicApiUrl`/`publicDashboardUrl` parameters (left unset, so Aspire
+  captures them as `.env.{environment}` placeholders you fill in with the
+  real deployed URLs per environment, the same way `AddFlare`'s `apiKey`
+  parameter already works) to override this — see their doc comments on
+  `AddFlare`. Leaving them unset for `aspire run` needs no change.
+- **ClickHouse init now builds a small custom image.** The
+  `db/clickhouse/*.sql` init scripts used to be bind-mounted from a temp
+  directory this package's own process extracted them to at `aspire run`
+  time — that path only exists on whatever machine ran `aspire publish`, not
+  on the actual Docker Compose deploy target, so it's now baked into a
+  generated image (`FROM` whatever image `AddClickHouse` itself resolves to,
+  plus the init scripts `COPY`-ed in) instead. This means local `aspire
+  run`/`aspire start` now needs `docker build` capability too, not just
+  pull/run — typically already true wherever Docker itself is already
+  required.
+- **`enableResourceGraph`'s docker-socket-proxy still needs a real Docker
+  host.** Its `/var/run/docker.sock` bind mount requires the machine
+  actually running `docker compose up` to be a Docker host with that socket
+  present — same requirement `aspire run`/local dev already has, just now
+  also true of wherever the deployment target ends up.
+
 ## Known limitations (v1 of the package)
 
-- **No `aspire publish` support** — deploying a consuming app that also brings up
-  Flare via a publish/deployment pipeline isn't supported.
+- **Only the Docker Compose deployment target is verified end-to-end** — other
+  `aspire publish` targets (Kubernetes, Azure) are untested.
 - **Multiple `AddFlare()` calls in one AppHost are untested** — the resource names are
   collision-safe (prefixed by `name`), but running two full Flare stacks side by side
   hasn't been exercised end-to-end.
-- **`enableResourceGraph`'s Docker labels are applied via `WithContainerRuntimeArgs`**
-  (there's no more-direct "add a Docker label" API in Aspire 13.4) — this only reaches
-  containers Aspire actually launches locally via `aspire run`/`aspire start`. It hasn't
-  been exercised against `aspire publish`/a deployed target (see the "No `aspire
-  publish` support" limitation above, which already covers `AddFlare()` generally).
