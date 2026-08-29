@@ -210,9 +210,11 @@ instead of the broken dashboard UI, and open Flare's own dashboard directly.
 ## Publishing / deploying via `aspire publish`
 
 `Flare.Hosting.Aspire` doesn't add a deployment target itself — a consuming
-AppHost opts in the same way any other Aspire app does, by adding
-`AddDockerComposeEnvironment` (currently the only deployment target this
-package is verified against; Kubernetes/Azure targets are unverified):
+AppHost opts in the same way any other Aspire app does, by adding a
+deployment environment resource. Docker Compose and Kubernetes are both
+verified as of `0.2.3`; Azure/AWS targets are unverified.
+
+### Docker Compose
 
 ```csharp
 var builder = DistributedApplication.CreateBuilder(args);
@@ -263,10 +265,126 @@ brings up Flare this way:
   present — same requirement `aspire run`/local dev already has, just now
   also true of wherever the deployment target ends up.
 
+### Kubernetes
+
+Same `AddFlare` call, just registering
+[`AddKubernetesEnvironment`](https://aspire.dev/integrations/compute/kubernetes/)
+(from the `Aspire.Hosting.Kubernetes` package — add it to *your own* AppHost,
+not `Flare.Hosting.Aspire` itself, which stays deployment-target-agnostic)
+instead of `AddDockerComposeEnvironment`:
+
+```csharp
+var builder = DistributedApplication.CreateBuilder(args);
+
+var registry = builder.AddContainerRegistry("registry", "your-registry.example.com:5000");
+builder.AddKubernetesEnvironment("k8s").WithContainerRegistry(registry);
+
+var flare = builder.AddFlare("flare");
+// ...
+builder.Build().Run();
+```
+
+`aspire publish -o k8s-artifacts` generates a full Helm chart (`Chart.yaml`,
+`values.yaml`, `templates/`) for the whole AppHost, Flare included; `aspire
+deploy` installs it against your current `kubectl` context. Existing/external
+clusters only for now — Azure Kubernetes Service (AKS,
+`AddAzureKubernetesEnvironment`) is untested. See
+[aspire.dev/deployment/kubernetes](https://aspire.dev/deployment/kubernetes/clusters/)
+for the full workflow.
+
+**Verified live end-to-end as of `0.2.3`** (2026-08-29): a local
+[k3s](https://aspire.dev/integrations/compute/k3s/) cluster running in Docker,
+a local insecure registry mirror for the ClickHouse-init image, `aspire
+deploy` against it — the full stack (ClickHouse and Redis `StatefulSet`s
+included) reached `Running 1/1`, ClickHouse ran its init SQL, ingest/api
+connected to Redis and started listening, and `flare-api`'s `/health`
+returned `200` through a real Kubernetes `Service`. Not just artifact
+generation this time — an actual `helm upgrade --install --wait` against a
+live cluster.
+
+Things to know before deploying to Kubernetes:
+
+- **Before `0.2.3`, this could never work at all, for any consumer using the
+  standard Aspire AppHost naming convention.** Aspire's Kubernetes publisher
+  builds `WithDataVolume()`'s *default* volume name from the AppHost
+  project's own name without sanitizing it for Kubernetes' DNS-1123 naming
+  rules — a `.AppHost`-suffixed project name (the standard template
+  convention; `examples/ExampleApp.AppHost` and this repo's own
+  `Flare.AppHost` both use it) produces a volume name containing a dot,
+  which Kubernetes rejects outright (`must not contain dots`). ClickHouse's
+  and Redis's `StatefulSet`s could never create a pod — confirmed live, this
+  failed every time until fixed. `AddFlare` now passes an explicit,
+  dot-free name to both (`{name}-clickhouse-data`/`{name}-redis-data`),
+  the same pattern the identity volume already used. Nothing to do on the
+  consumer side — this was purely an `Aspire.Hosting.Flare` bug.
+- **A container registry is required, but only because of the ClickHouse-init
+  image.** A vanilla Kubernetes cluster has no local-build-and-run path the
+  way `docker compose build`/`up` does — any *locally-built* image has to be
+  pushed somewhere the cluster can pull it from. Confirmed live
+  (`aspire publish` against a Kubernetes target): `flare-ingest`/`flare-api`/
+  `flare-dashboard` need no registry at all (they're Flare's own pre-published
+  Docker Hub images, referenced directly); only the generated ClickHouse-init
+  image (see `WriteClickHouseInitDockerContext`) shows up in `values.yaml` as
+  a registry-relative placeholder (`flare_clickhouse_image`) that `aspire
+  deploy` builds and pushes to the registry you configure via
+  `AddContainerRegistry`/`WithContainerRegistry`. The container registry APIs
+  are still preview in Aspire itself (`ASPIRECOMPUTE003`).
+- **ClickHouse/Redis/identity data does NOT survive a pod restart by
+  default.** Confirmed live: `AddFlare`'s `WithDataVolume()`/`WithVolume()`
+  calls render as plain `emptyDir: {}` volumes in the generated
+  `StatefulSet`/`Deployment` specs, not `PersistentVolumeClaim`s, unless the
+  consumer explicitly binds a real
+  [`AddPersistentVolume`](https://aspire.dev/deployment/kubernetes/persistent-volumes/)
+  resource to the matching volume name (`{name}-clickhouse-data`,
+  `{name}-redis-data`, `{name}-identity-data`) themselves — `AddFlare` has no
+  way to do this on the consumer's behalf without taking a hard dependency on
+  `Aspire.Hosting.Kubernetes`, which it deliberately doesn't (see "doesn't add
+  a deployment target itself" above). For anything beyond a disposable
+  smoke-test deploy, wire persistent volumes for these three before deploying
+  for real — silently losing all logs and the identity/auth database on the
+  next pod reschedule is the actual failure mode, not an error.
+- **`publicApiUrl`/`publicDashboardUrl` are just as required as they are for
+  Docker Compose** (see above) — left unset, the dashboard's
+  `PUBLIC_API_URL`/`ORIGIN`/`api`'s `Cors__AllowedOrigins__0` resolve to
+  Kubernetes' own in-cluster Service DNS names (confirmed live, e.g.
+  `http://flare-api-service:8080`), unreachable from an external browser.
+  Pass real deployed URLs the same way as the Compose case.
+- **`ImagePullPolicy.Always`** (set on the ingest/api/dashboard images to
+  combat the mutable `"edge"` tag going stale — see `AddFlare`'s `imageTag`
+  doc comment) did not show up as `imagePullPolicy: Always` in the generated
+  manifests during this verification (`IfNotPresent` throughout) - not yet
+  root-caused whether that's an Aspire Kubernetes-publisher gap or something
+  else. Only matters if you're running `imageTag: "edge"` against a
+  Kubernetes target in the first place, which a real deployment normally
+  wouldn't (the pinned stable default tag is immutable, so staleness isn't a
+  concern there).
+- **The Resources page's Docker-driven topology graph
+  (`enableResourceGraph`/`flare.role` labels) is not supported on Kubernetes**
+  at all, and isn't planned for v1 — `enableResourceGraph`'s
+  `docker-socket-proxy` sidecar has no equivalent inside a Kubernetes pod (no
+  `/var/run/docker.sock` to bind-mount), so this would need a real
+  Kubernetes-API-based redesign, not just the label plumbing. Leave
+  `enableResourceGraph` off (its default) for Kubernetes deploys.
+
 ## Known limitations (v1 of the package)
 
-- **Only the Docker Compose deployment target is verified end-to-end** — other
-  `aspire publish` targets (Kubernetes, Azure) are untested.
+- **Docker Compose and Kubernetes are both verified end-to-end against a real
+  deploy** (2026-08-29 — Docker Compose via `docker compose up`, Kubernetes
+  via `aspire deploy`/`helm upgrade --install` against a local k3s cluster;
+  see the Kubernetes subsection above) — the whole stack reaches healthy on
+  both. Azure/AWS targets remain fully untested. See the Kubernetes
+  subsection above for the caveats that still apply on a real cluster
+  (persistent volumes, container registry, `publicApiUrl`/`publicDashboardUrl`)
+  even though the deploy itself now works.
 - **Multiple `AddFlare()` calls in one AppHost are untested** — the resource names are
   collision-safe (prefixed by `name`), but running two full Flare stacks side by side
   hasn't been exercised end-to-end.
+- **Multiple deployment environments in one AppHost are untested** — e.g. an
+  AppHost that registers both `AddDockerComposeEnvironment` and
+  `AddKubernetesEnvironment` to publish either way on demand.
+  `WithFlareResourceLabels`'s Docker Compose customization is now correctly
+  conditional on a `DockerComposeEnvironmentResource` being present (fixed in
+  `0.2.2`), but `AddFlare`'s internal resources have no way for a consumer to
+  steer them to a specific compute environment via `WithComputeEnvironment`
+  the way the consumer's own resources can - only tested with exactly one
+  deployment environment registered at a time.

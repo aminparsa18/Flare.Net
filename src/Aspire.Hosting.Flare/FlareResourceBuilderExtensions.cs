@@ -1,4 +1,5 @@
 using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.Docker;
 
 // Put extensions in the Aspire.Hosting namespace to ease discovery - referencing the
 // Aspire.Hosting package automatically adds this namespace (same convention Aspire's own
@@ -186,7 +187,7 @@ public static class FlareResourceBuilderExtensions
         // of `aspire run` now needing local `docker build` capability too, not just pull/run.
         clickhouse
             .WithDockerfile(WriteClickHouseInitDockerContext(clickhouse.Resource))
-            .WithDataVolume()
+            .WithDataVolume($"{name}-clickhouse-data")
             .WithParentRelationship(flare)
             .WithHidden()
             .WithFlareResourceLabels("clickhouse");
@@ -203,7 +204,7 @@ public static class FlareResourceBuilderExtensions
         // unflushed events survive a Redis container restart. Same interval/threshold as
         // Flare.AppHost/Program.cs.
         var redis = builder.AddRedis($"{name}-redis")
-            .WithDataVolume()
+            .WithDataVolume($"{name}-redis-data")
             .WithPersistence(interval: TimeSpan.FromSeconds(30), keysChangedThreshold: 100)
             .WithParentRelationship(flare)
             .WithHidden()
@@ -460,9 +461,27 @@ public static class FlareResourceBuilderExtensions
     /// <c>aspire publish</c>'s generated Docker Compose output, which has no concept of
     /// <c>docker run</c> arguments at all - a compose-published deployment without this second
     /// call would silently ship with no labels and break the Resources page's topology graph.
-    /// Applied unconditionally regardless of <c>enableResourceGraph</c> - see that parameter's
-    /// own doc comment for why these labels are harmless with the feature off.
     /// </summary>
+    /// <remarks>
+    /// The <c>PublishAsDockerComposeService</c> call is conditional on a
+    /// <see cref="DockerComposeEnvironmentResource"/> actually being present in the model - NOT
+    /// unconditional the way <c>WithContainerRuntimeArgs</c> above is. Confirmed live
+    /// (2026-08-29, verifying Kubernetes publish support - see Planning.md's "Helm chart for
+    /// Kubernetes" item): calling <c>PublishAsDockerComposeService</c> at all, even on an
+    /// AppHost that never adds a Docker Compose environment, unconditionally registers Aspire's
+    /// own <c>validate-docker-compose</c> pipeline step - which then hard-fails <em>any</em>
+    /// <c>aspire publish</c>/<c>aspire deploy</c>, regardless of target (Kubernetes, Azure, AWS,
+    /// ...), with "Resource '...' is configured to publish as a Docker Compose service, but
+    /// there are no 'DockerComposeEnvironmentResource' resources." Before this guard, that
+    /// meant <c>AddFlare</c> could only ever be published to Docker Compose - publishing to
+    /// anything else crashed outright, not just silently missing labels. Gating on an actual
+    /// <see cref="DockerComposeEnvironmentResource"/> being present requires the consumer to
+    /// call <c>AddDockerComposeEnvironment(...)</c> before <c>AddFlare(...)</c> (already the
+    /// documented/example order - see <c>docs/aspire-hosting.md</c> and
+    /// <c>examples/ExampleApp.AppHost/Program.cs</c>) - <c>builder.Resources</c> is checked
+    /// synchronously at the point each Flare sub-resource is built, so an environment added
+    /// after <c>AddFlare</c> returns would not be seen.
+    /// </remarks>
     /// <param name="builder">The container resource to label.</param>
     /// <param name="role">This container's stable <c>flare.role</c> value (e.g. <c>"ingest"</c>) - what Flare.Api's own <c>ResourceNodeDto.Role</c> reads back.</param>
     /// <param name="relationships">Raw <c>flare.relationships</c> label value (e.g. <c>"clickhouse:Reference,redis:Reference"</c>), or <see langword="null"/> to omit the label entirely (nothing this container references).</param>
@@ -476,9 +495,11 @@ public static class FlareResourceBuilderExtensions
             args.Add($"flare.relationships={relationships}");
         }
 
-        return builder
-            .WithContainerRuntimeArgs([.. args])
-            .PublishAsDockerComposeService((_, service) =>
+        builder.WithContainerRuntimeArgs([.. args]);
+
+        if (builder.ApplicationBuilder.Resources.OfType<DockerComposeEnvironmentResource>().Any())
+        {
+            builder.PublishAsDockerComposeService((_, service) =>
             {
                 service.Labels["flare.resource"] = "true";
                 service.Labels["flare.role"] = role;
@@ -487,6 +508,9 @@ public static class FlareResourceBuilderExtensions
                     service.Labels["flare.relationships"] = relationships;
                 }
             });
+        }
+
+        return builder;
     }
 
     /// <summary>
