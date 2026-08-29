@@ -8,6 +8,11 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" />
+    <!-- AddDockerComposeEnvironment - proves out docs/aspire-hosting.md's "Publishing /
+         deploying via aspire publish" section end-to-end (`aspire publish`/`aspire deploy`
+         against this AppHost). Purely a deployment target: registering it has no effect on
+         the default `aspire run`/`dotnet run` inner loop. -->
+    <PackageReference Include="Aspire.Hosting.Docker" />
   </ItemGroup>
 
   <ItemGroup>

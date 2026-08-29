@@ -10,6 +10,14 @@
          AppHost-executable meta-package), per Aspire's own "Create custom hosting integrations"
          doc pattern. -->
     <PackageVersion Include="Aspire.Hosting" Version="13.4.6" />
+    <!-- Aspire.Hosting.Docker: only needed for PublishAsDockerComposeService, which AddFlare
+         uses to mirror its Docker-driven-Resources-page labels onto the generated Docker
+         Compose service definitions (docs/aspire-hosting.md's "Publishing / deploying via
+         aspire publish" section) - a consuming AppHost that never calls
+         AddDockerComposeEnvironment never touches this, but the extension method itself has
+         to be in scope at compile time regardless. Pinned to match every other Aspire package
+         here. -->
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.4.6" />
     <!-- ClickHouse: schema in db/clickhouse/, see db/clickhouse/README.md.
          Aspire.Hosting.ClickHouse is referenced by Flare.AppHost today.
          Aspire.ClickHouse.Driver is referenced by Flare.Ingest/Flare.Api (the batched
