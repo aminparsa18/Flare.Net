@@ -809,7 +809,109 @@ actually worked out (see the three bullets below) — closing out the full origi
       chartable today via the Value distribution chart, no join, no ordering gap - same
       reason `spans.DurationNano` itself has no ordering gap (both are known at their
       producer's own natural write time).
-- [ ] Helm chart for Kubernetes
+- [x] **Helm chart for Kubernetes.** Not hand-authored - Aspire's built-in Kubernetes
+      hosting integration (`Aspire.Hosting.Kubernetes`, `builder.AddKubernetesEnvironment()`
+      + `WithHelm(...)`) generates Helm/K8s manifests at `aspire publish` time, same shape
+      of work as the Docker Compose publish support already shipped in
+      `Aspire.Hosting.Flare` (PR #176, `FlareResourceBuilderExtensions.cs`,
+      `docs/aspire-hosting.md`'s "Known limitations" section) - extend that package so a
+      *consumer's* `aspire publish` targeting Kubernetes works, not a chart maintained in
+      this repo. Scoped (2026-08-29):
+      - **v1 targets existing/external clusters only** (`AddKubernetesEnvironment`, current
+        `kubectl` context) - not Azure Kubernetes Service (AKS, `AddAzureKubernetesEnvironment`,
+        which also provisions ACR/identity/Azure infra). AKS is a separate, later item if
+        ever needed; deliberately not bundled in since it drags in Azure subscription/
+        resource-group/auth concerns `AddFlare` has never needed before.
+      - **Resources-page topology parity (`flare.resource`/`flare.role` labels,
+        `enableResourceGraph`) is explicitly out of scope for v1**, not silently dropped.
+        The Docker Compose fix added labels two ways - `WithContainerRuntimeArgs` for DCP,
+        `PublishAsDockerComposeService` for compose - and Kubernetes would need a third,
+        `PublishAsKubernetesService(...)` pod/deployment labels, to avoid the same silent
+        breakage `WithFlareResourceLabels`'s doc comment already warns about for compose.
+        But `enableResourceGraph`'s actual discovery mechanism bind-mounts
+        `/var/run/docker.sock` via a docker-socket-proxy sidecar - that has no equivalent
+        inside a K8s pod, so adding just the labels would only be half a fix. Document the
+        Resources page as Compose/DCP-only until a real K8s-API-based discovery redesign is
+        worth doing.
+      - **Open verification item carried over from the Compose work**: the custom
+        ClickHouse-init image (`WriteClickHouseInitDockerContext`, a generated `Dockerfile`
+        build context, not a bind mount) built fine for local `docker compose build`/`up`.
+        Kubernetes has no such local-build-and-run path - `aspire deploy` would need to
+        build *and push* that image to a registry the cluster can pull from, which per
+        Aspire's own Kubernetes hosting docs means a `AddContainerRegistry(...)` resource is
+        required for any locally-built image (Flare's own pre-published `xracer007/flare-*`
+        images need no registry, only this one generated image does). Not yet confirmed
+        whether `aspire deploy`'s Kubernetes pipeline actually builds+pushes a
+        `WithDockerfile` context automatically or whether this needs explicit wiring -
+        verify against a real cluster before calling this shipped, same "only Docker Compose
+        is verified end-to-end" caveat `docs/aspire-hosting.md` already carries for the
+        Compose target.
+      - **Started 2026-08-29 - real bug found and fixed, artifact generation verified.**
+        Built a throwaway scratch AppHost (`AddKubernetesEnvironment` +
+        `AddContainerRegistry`/`WithContainerRegistry`, `ProjectReference` to
+        `Aspire.Hosting.Flare`, outside the repo tree) and ran `aspire publish` against it.
+        First attempt crashed outright, not just missing labels: `WithFlareResourceLabels`
+        called `PublishAsDockerComposeService` *unconditionally* on every Flare container,
+        which turns out to register Aspire's own `validate-docker-compose` pipeline step
+        regardless of target - so `AddFlare` could only ever be published to Docker Compose;
+        publishing to Kubernetes (or presumably Azure/AWS) hard-failed with "Resource
+        '...' is configured to publish as a Docker Compose service, but there are no
+        'DockerComposeEnvironmentResource' resources." **Fixed**: that call is now gated on
+        an actual `DockerComposeEnvironmentResource` existing in the model (bumped
+        `Flare.Hosting.Aspire` 0.2.1 -> 0.2.2, a patch/behavior-fix bump). Re-ran `aspire
+        publish` after the fix - full Helm chart generated successfully (`Chart.yaml`,
+        `values.yaml`, `templates/` for all five sub-resources). Inspecting the generated
+        manifests surfaced three more real findings, written up in
+        `docs/aspire-hosting.md`'s new Kubernetes subsection: (1) the registry requirement is
+        confirmed narrowly scoped to just the ClickHouse-init image, as suspected; (2)
+        `WithDataVolume()`/`WithVolume()` render as non-persistent `emptyDir: {}` under
+        Kubernetes unless the consumer explicitly wires `AddPersistentVolume` themselves -
+        **silent data-loss-on-reschedule risk for ClickHouse/Redis/identity data**, arguably
+        the most important caveat found, not anticipated when this item was first scoped;
+        (3) `publicApiUrl`/`publicDashboardUrl`'s absence resolves to Kubernetes' in-cluster
+        Service DNS (e.g. `http://flare-api-service:8080`) instead of something
+        browser-reachable, same failure shape already known from Compose, just confirmed to
+        apply here too. **Still open**: no live cluster/Helm available on the verifying
+        machine, so only `aspire publish` artifact generation is verified - `aspire
+        deploy`/`helm install` against a real cluster remains unverified, same "known
+        limitations" honesty bar `docs/aspire-hosting.md` already holds Compose to.
+        `ImagePullPolicy.Always` also didn't appear to translate into the generated
+        manifests (`imagePullPolicy: IfNotPresent` throughout) - noted but not chased down,
+        low-severity (only matters for the `"edge"` tag, which a real deployment wouldn't
+        normally use).
+      - **Same day, continued - closed the "no live cluster" gap via k3s, found and fixed
+        a second, more severe real bug, then verified a real `aspire deploy` end-to-end.**
+        User pointed at [aspire.dev/integrations/compute/k3s](https://aspire.dev/integrations/compute/k3s/)
+        (`CommunityToolkit.Aspire.Hosting.K3s` runs a real k3s cluster inside a Docker
+        container - exactly the missing piece). Installed `helm` via brew (host had
+        `kubectl` already), stood up a real k3s cluster via plain `docker run
+        rancher/k3s` (privileged, on its own Docker network) plus a local `registry:2`
+        container wired into k3s's containerd as an insecure mirror for the ClickHouse-init
+        image. First `aspire deploy` against it failed for real, not a fluke: ClickHouse's
+        and Redis's `StatefulSet`s could never create a pod at all -
+        `spec.volumes[0].name: Invalid value: "k8sverify.apphost-...-flare-clickhouse-data":
+        must not contain dots`. Root cause: Aspire's Kubernetes publisher derives
+        `WithDataVolume()`'s *default* volume name from the AppHost project's own name
+        without DNS-1123 sanitization, and `.AppHost`-suffixed project names - the standard
+        Aspire template convention, used by `examples/ExampleApp.AppHost` and this repo's
+        own `Flare.AppHost` alike - produce a name containing a dot. **This meant Kubernetes
+        support was completely broken for any consumer using the standard naming
+        convention**, not an edge case. **Fixed**: pass an explicit dot-free name to both
+        (`{name}-clickhouse-data`/`{name}-redis-data}`), the same pattern the identity
+        volume already used (bumped `Flare.Hosting.Aspire` 0.2.2 -> 0.2.3). Re-ran `aspire
+        deploy` after the fix - full pipeline succeeded, ClickHouse ran its init SQL,
+        ingest/api connected to Redis and started listening, all pods (including both
+        StatefulSets) reached `Running 1/1`, and `flare-api`'s `/health` returned `200`
+        through a real Kubernetes `Service` (port-forwarded and curled). Cleaned up the k3s/
+        registry containers afterward. This closes the "actual live-cluster deploy
+        unverified" gap noted above - not just artifact generation anymore, a genuine
+        `helm upgrade --install --wait` against a running cluster. Write-up in
+        `docs/aspire-hosting.md`'s Kubernetes subsection and "Known limitations."
+      - **v1 considered done** against its own scope (existing/external clusters,
+        Resources-page parity deferred) - checkbox flipped. Remaining known caveats
+        (persistent volumes not wired by default, `ImagePullPolicy.Always` gap, AKS/
+        multi-deployment-environment untested) are documented limitations for later, not
+        blockers to calling this shipped.
 - [x] ~~**Ingestion page: pipeline health.** Scoped out of v8's MVP on purpose -
       throughput/rejected-payload stats (v8) answer "is data arriving"; this answers "is
       the buffered pipeline keeping up," which needs its own design pass.~~ **Promoted and

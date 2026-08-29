@@ -25,9 +25,30 @@
     <PackageId>Flare.Hosting.Aspire</PackageId>
     <!-- Bumped 0.2.0 -> 0.2.1: AddFlare's imageTag default changed from the floating "edge"
          tag to a pinned stable release ("0.2.0") - a patch bump, not minor, since this only
-         changes a default value (already documented as forthcoming), not new API surface. Tag
-         on release: aspire-hosting-flare-v{Version} (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.2.1</Version>
+         changes a default value (already documented as forthcoming), not new API surface.
+         Bumped 0.2.1 -> 0.2.2 (2026-08-29): fixed WithFlareResourceLabels unconditionally
+         calling PublishAsDockerComposeService, which registered Aspire's own
+         validate-docker-compose pipeline step regardless of target and hard-failed `aspire
+         publish`/`aspire deploy` for every non-Docker-Compose target (Kubernetes, Azure, AWS,
+         ...) - see FlareResourceBuilderExtensions.WithFlareResourceLabels's remarks and
+         docs/aspire-hosting.md's Kubernetes section. A patch bump - a behavior fix, not new API
+         surface.
+         Bumped 0.2.2 -> 0.2.3 (2026-08-29, same day): fixed ClickHouse's/Redis's
+         WithDataVolume() calls to pass an explicit dot-free volume name
+         ($"{name}-clickhouse-data"/$"{name}-redis-data"), matching the pattern the identity
+         volume already used. Confirmed live against a real k3s cluster: Aspire's Kubernetes
+         publisher builds the *default* WithDataVolume() name from the AppHost project's own
+         name without DNS-1123 sanitization, and ".AppHost"-suffixed project names (the
+         standard Aspire template convention - examples/ExampleApp.AppHost and this repo's own
+         Flare.AppHost both use it) produce a volume name containing a dot, which Kubernetes
+         rejects outright ("must not contain dots") - the StatefulSet can never create a pod,
+         at all, for any consumer using the default AppHost naming convention. Confirmed the
+         fix live too: full stack (including ClickHouse/Redis StatefulSets) reached Running
+         1/1 and `flare-api`'s /health returned 200 through a real Kubernetes Service on a
+         local k3s cluster. Another patch bump - a behavior fix, not new API surface. Tag on
+         release: aspire-hosting-flare-v{Version} (see
+         .github/workflows/nuget-publish.yml). -->
+    <Version>0.2.3</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>
     <PackageTags>aspire;aspire-hosting;flare;opentelemetry;otlp;logging;observability;clickhouse;redis</PackageTags>
