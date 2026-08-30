@@ -2956,14 +2956,57 @@ passing (up from 505 at the start of this item: new `KubernetesResourcePollerTes
 `DockerContainerPollerTests`/`ResourceGraphJsonContextTests` for the wire-format
 changes). Dashboard: `npm run check` (0 errors/warnings, confirmed the check itself
 actually catches errors via a deliberate-break test, not just trusting a suspiciously
-fast clean run) and `npm run build` clean. **Not yet live e2e-verified against a real
-cluster** - this whole item is code- and unit-verified only so far, unlike the
-Kubernetes-publish work itself (`docs/aspire-hosting.md`'s Kubernetes section,
-verified live 2026-08-29 against a local k3s cluster). A live pass still needs to
-confirm: the RBAC actually applies cleanly (`helm upgrade --install` succeeds, no
-permission errors in `flare-api`'s logs), the two Kubernetes-publish-behavior items
-flagged above, and that the Resources page actually renders a real hierarchical graph
-against a live cluster - not just against hand-built test fixtures.
+fast clean run) and `npm run build` clean. ~~**Not yet live e2e-verified against a real
+cluster** - this whole item is code- and unit-verified only so far~~
+
+**Live e2e-verified 2026-08-30, same day**, against the same local k3s cluster used for
+the Kubernetes-publish verification (2026-08-29): stood the cluster back up (k3s +
+insecure registry mirror), built a throwaway scratch AppHost outside the repo
+(`AddKubernetesEnvironment` + `AddContainerRegistry`, `ProjectReference` to
+`Aspire.Hosting.Flare`, `enableResourceGraph: true`), ran `aspire deploy`. **Found and
+fixed three real bugs**, none catchable by unit tests alone - all three are about what
+Aspire's Kubernetes publisher/a real API server actually do with the generated objects,
+not about this package's own mapping logic:
+
+1. **A Kubernetes label VALUE has a strict charset** (roughly alphanumeric/`-`/`_`/`.`
+   only) that a `"clickhouse:Reference,redis:Reference"`-shaped `flare.relationships`
+   value violates outright - `helm upgrade --install` rejected every Deployment carrying
+   it as invalid, first attempt. Docker labels have no such restriction, so this never
+   surfaced in any prior verification. **Fixed**: `flare.relationships` goes onto
+   pod-template *annotations* instead of labels, Kubernetes side only - it was never
+   selected on anyway, only `flare.resource`/`flare.role` are.
+2. **The generated RBAC `ServiceAccount`/`Role`/`RoleBinding` all shared the literal
+   same `Metadata.Name`, and Aspire's per-object Helm-chart-template-file naming keys
+   purely off that name, not name+kind** - each `AdditionalResources.Add` call silently
+   overwrote the previous one's rendered template file, so only the last one added
+   (`RoleBinding`) actually made it into the chart. `flare-api`'s own `ReplicaSet`
+   couldn't create pods at all: "error looking up service account
+   default/flare-resource-graph: serviceaccount ... not found." **Fixed**: each of the
+   three gets a distinct name now.
+3. **ClickHouse/Redis got zero `flare.*` labels at all under Kubernetes, invisible to
+   the topology graph entirely** - their `WithDataVolume()` calls promote them to a
+   `StatefulSet` (Aspire's own behavior, see this item's persistent-volumes-adjacent
+   note in the Kubernetes-publish item above), which the original
+   `resource.Workload is Deployment` pattern match in `WithFlareResourceLabels` silently
+   skipped - confirmed live via `kubectl get pod ... -o jsonpath='{.metadata.labels}'`
+   showing only Aspire's own `app.kubernetes.io/*` labels, no `flare.*` at all. **Fixed**:
+   reads the common `Workload.PodTemplate` (declared on the shared base type both
+   `Deployment` and `StatefulSet` derive from) instead of pattern-matching `Deployment`
+   specifically.
+
+After all three fixes (rebuilt `Flare.Api`/`Aspire.Hosting.Flare`, built+pushed a local
+`flare-api` image to the registry mirror since the published `xracer007/flare-api:edge`
+tag lagged behind these same-day fixes, redeployed): all five pods (`clickhouse`,
+`redis`, `ingest`, `api`, `dashboard`) reached `Running 1/1`, RBAC applied cleanly with
+zero permission errors in `flare-api`'s logs, and `GET /api/resources/snapshot` returned
+the complete real graph - 16 nodes (1 Namespace, 5 synthesized Deployment groups, 5
+Pods, 5 Services), all 5 `Selects` edges, and all 5 `Reference` edges. Also confirmed:
+`aspire deploy` does set `IsPublishMode` the same way `aspire publish` does (the
+`aspire run`-safety check fired correctly), and the RBAC `RoleBinding` subject's
+`{{ .Release.Namespace }}` Helm-templated string survives Aspire's YAML serialization
+and resolves correctly - no bugs found in either. Bumped `Flare.Hosting.Aspire` 0.3.0 ->
+0.3.1 (patch - bug fixes, not new API surface). Full write-up in
+`docs/aspire-hosting.md`'s Kubernetes section.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

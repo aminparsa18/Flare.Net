@@ -57,9 +57,24 @@
          confirmed live - pinned to the 13.4.6 preview train to match every other Aspire package
          here). A minor bump, not a patch - real new API surface/behavior, not a bug fix. Code-
          and unit-verified only as of this bump - not yet confirmed against a real cluster the
-         way 0.2.3's Kubernetes-publish fix was. Tag on release: aspire-hosting-flare-v{Version}
-         (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.3.0</Version>
+         way 0.2.3's Kubernetes-publish fix was.
+         Bumped 0.3.0 -> 0.3.1 (2026-08-30, same day): the live e2e pass 0.3.0 was missing -
+         found and fixed three real bugs against a real k3s cluster, none catchable by unit
+         tests alone (all three are about what Aspire's Kubernetes publisher/a real API server
+         do with the generated objects): (1) a Kubernetes label VALUE's strict charset rejects
+         flare.relationships's ":"/"," - moved to a pod-template annotation instead, Kubernetes
+         side only; (2) the generated ServiceAccount/Role/RoleBinding all shared one
+         Metadata.Name, and Aspire's per-object Helm-chart-template-file naming keys purely off
+         that name - each Add silently overwrote the last, so only RoleBinding ever made it
+         into the chart and flare-api's own pods couldn't be created ("serviceaccount ... not
+         found") - each of the three now gets a distinct name; (3) ClickHouse/Redis's
+         WithDataVolume() calls promote them to a StatefulSet, which the original
+         `resource.Workload is Deployment` check silently skipped, leaving both invisible to
+         the topology graph entirely - now reads the common Workload.PodTemplate instead. See
+         docs/aspire-hosting.md's Kubernetes section for the full live-verification write-up.
+         A patch bump - bug fixes to 0.3.0's behavior, not new API surface. Tag on release:
+         aspire-hosting-flare-v{Version} (see .github/workflows/nuget-publish.yml). -->
+    <Version>0.3.1</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>
     <PackageTags>aspire;aspire-hosting;flare;opentelemetry;otlp;logging;observability;clickhouse;redis</PackageTags>

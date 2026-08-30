@@ -251,9 +251,16 @@ public sealed class KubernetesResourcePoller(
                     ParentId = deploymentNodeId,
                 });
 
-                if (pod.Metadata?.Labels is { } labels)
+                // flare.relationships lives in Annotations here, not Labels - unlike Docker
+                // container labels, a Kubernetes label VALUE has a strict charset that a
+                // "clickhouse:Reference,redis:Reference"-shaped value violates outright
+                // (confirmed live - Aspire.Hosting.Flare's WithFlareResourceLabels stamps it
+                // as an annotation on the Kubernetes side for exactly this reason). Never
+                // selected on, only read back here, so moving it off Labels doesn't affect
+                // the flare.resource=true selector list call above at all.
+                if (pod.Metadata?.Annotations is { } annotations)
                 {
-                    edges.AddRange(RelationshipLabelParser.Parse(role, labels));
+                    edges.AddRange(RelationshipLabelParser.Parse(role, annotations));
                 }
             }
         }
