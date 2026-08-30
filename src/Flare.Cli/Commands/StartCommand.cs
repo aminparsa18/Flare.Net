@@ -22,7 +22,7 @@ internal sealed class StartCommand : AsyncCommand<StartCommand.Settings>
         var preflight = await DoctorChecks.CheckDockerReachableAsync(cancellationToken);
         if (!preflight.Passed)
         {
-            AnsiConsole.MarkupLine($"[red]✗[/] {preflight.Detail}");
+            AnsiConsole.MarkupLine($"[red]✗[/] {preflight.SuggestedAction ?? preflight.Detail}");
             return 1;
         }
 
@@ -62,7 +62,7 @@ internal sealed class StartCommand : AsyncCommand<StartCommand.Settings>
                 AnsiConsole.MarkupLine("[red]✗[/] Port conflict(s) - not starting:");
                 foreach (var conflict in portConflicts)
                 {
-                    AnsiConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(conflict.Name)}: {Markup.Escape(conflict.Detail)}");
+                    AnsiConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(conflict.Name)}: {Markup.Escape(conflict.SuggestedAction ?? conflict.Detail)}");
                 }
 
                 return 1;
