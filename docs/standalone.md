@@ -32,9 +32,10 @@ Once it's up:
 
 - **Dashboard:** [http://localhost:7777](http://localhost:7777) — open, no login
   required, until you turn sign-in on yourself from the `/auth` page. See
-  [docs/auth.md](auth.md).
+  [how-to/configure-authentication.md](how-to/configure-authentication.md).
 - **OTLP receiver:** gRPC on `:4317`, HTTP on `:4318` — what you point your logger at
-  below. Anonymous by default; see [docs/auth.md#ingest-api-keys](auth.md#ingest-api-keys)
+  below. Anonymous by default; see
+  [how-to/configure-authentication.md#ingest-api-keys](how-to/configure-authentication.md#ingest-api-keys)
   to require an API key instead.
 
 Need ClickHouse to survive a node dying, or to scale beyond one box? There's a

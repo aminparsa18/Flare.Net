@@ -13,10 +13,11 @@ the steps to solve a real-world problem with Flare.
   [`../explanation/`](../explanation/) instead.
 - Don't restate exact values (ports, env var names, defaults) — link to
   [`../reference/`](../reference/) instead of duplicating a config table.
-- One guide, one problem. Flare's current `docs/auth.md` covers 4 auth
-  methods in one file because they share enough surrounding structure
-  (Managing users, Backups) to justify it — that's a deliberate exception,
-  not the default; most tasks should be their own file.
+- One guide, one problem. [configure-authentication.md](configure-authentication.md)
+  covers all 5 auth methods in one file because they share enough
+  surrounding structure (Managing users, Backups) to justify it — that's a
+  deliberate exception, not the default; most tasks should be their own
+  file.
 
 ## Structure template
 
