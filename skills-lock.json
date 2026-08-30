@@ -55,6 +55,12 @@
       "skillPath": "skills/clickstack-otel-collector/SKILL.md",
       "computedHash": "215049d4675ac3a6ac4e1ef71cfb6feabab07b723e95b0ebe92698cd95ac1134"
     },
+    "diataxis": {
+      "source": "pfeff/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/diataxis/SKILL.md",
+      "computedHash": "227a4bd77238c644d6e884cb12e91846ca3a17f4effde9a69b0db8840d44107c"
+    },
     "infra-clickhouse": {
       "source": "clickhouse/agent-skills",
       "sourceType": "github",
