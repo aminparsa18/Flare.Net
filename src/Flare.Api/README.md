@@ -109,9 +109,9 @@ point without reconnecting:
 {"type":"resume"}
 
 // server -> client
-{"type":"event","event":{ /* LogEventDto, same shape as /api/logs/search's Events */ }}
-{"type":"dropped","droppedCount":3}
-{"type":"error","error":"Malformed message: ..."}
+{"type":"Event","event":{ /* LogEventDto, same shape as /api/logs/search's Events */ }}
+{"type":"Dropped","droppedCount":3}
+{"type":"Error","error":"Malformed message: ..."}
 ```
 
 **Source: the Redis Stream, not ClickHouse.** A single background reader

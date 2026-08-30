@@ -33,9 +33,9 @@ the raw wire traffic directly with a Python `websockets` probe and reading
 what actually came back, rather than trusting the documented shape.
 
 **Fix**: `flare tail`'s own client parses the `type` field
-case-insensitively. `Flare.Api/README.md`'s example itself is still
-inaccurate as of this writing — flagged as a real, still-open one-line doc
-fix, not completed as part of this item.
+case-insensitively. `Flare.Api/README.md`'s example was corrected
+separately (`docs-internal/`-migration phase 9's own follow-up) to show
+the real `Event`/`Dropped`/`Error` casing.
 
 ## Finding 2: `flare export -o` wrote a UTF-8 BOM, corrupting the CSV header
 
@@ -68,7 +68,5 @@ this pass.
 
 ## Unresolved / follow-ups
 
-- `Flare.Api/README.md`'s live-tail example still shows the inaccurate
-  `{"type":"event",...}` shape as of this writing — a real, still-open
-  one-line documentation fix, not completed as part of either finding
-  above.
+None — `Flare.Api/README.md`'s live-tail example inaccuracy (flagged
+above) was corrected alongside this investigation being written.
