@@ -72,9 +72,22 @@
          `resource.Workload is Deployment` check silently skipped, leaving both invisible to
          the topology graph entirely - now reads the common Workload.PodTemplate instead. See
          docs/aspire-hosting.md's Kubernetes section for the full live-verification write-up.
-         A patch bump - bug fixes to 0.3.0's behavior, not new API surface. Tag on release:
+         A patch bump - bug fixes to 0.3.0's behavior, not new API surface.
+         Bumped 0.3.1 -> 0.3.2: AddFlare's long parameter list (ingestGrpcPort/
+         ingestHttpPort/apiPort/dashboardPort/ingestImage/apiImage/dashboardImage/apiKey/
+         publicApiUrl/publicDashboardUrl) was replaced outright with the usual Aspire
+         chained-method convention - AddFlare now only takes name/imageTag/
+         enableResourceGraph, everything else moved to With* methods on the returned
+         FlareResource builder (WithIngestGrpcPort/WithIngestHttpPort/WithApiPort/
+         WithDashboardPort/WithIngestImage/WithApiImage/WithDashboardImage/WithApiKey/
+         WithPublicApiUrl/WithPublicDashboardUrl - see FlareResourceBuilderExtensions.cs
+         and docs/aspire-hosting.md's Parameters section). A breaking change to public API
+         surface, not a deprecated-overload shim, but kept as a patch bump rather than
+         minor - this package has no external consumers yet (still pre-1.0, no known
+         published-package usage beyond this repo's own examples/), so there's no
+         real-world breakage to signal loudly for. Tag on release:
          aspire-hosting-flare-v{Version} (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.3.1</Version>
+    <Version>0.3.2</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>
     <PackageTags>aspire;aspire-hosting;flare;opentelemetry;otlp;logging;observability;clickhouse;redis</PackageTags>

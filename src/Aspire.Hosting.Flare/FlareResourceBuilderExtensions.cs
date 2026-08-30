@@ -45,6 +45,22 @@ public static class FlareResourceBuilderExtensions
     /// consuming resource's OTLP exporter at ingest with <see cref="WithOtlpEndpoint{TDestination}"/> instead
     /// of hand-writing <c>.WithEnvironment("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")</c>.
     /// </para>
+    /// <para>
+    /// <b>⚠️ On Kubernetes, Flare's storage is ephemeral by default.</b> ClickHouse's, Redis's, and
+    /// the identity database's <c>WithDataVolume()</c>/<c>WithVolume()</c> calls render as plain
+    /// <c>emptyDir: {}</c> volumes in the generated <c>StatefulSet</c>/<c>Deployment</c> specs, not
+    /// <c>PersistentVolumeClaim</c>s - registering <see cref="KubernetesEnvironmentResource"/> alone
+    /// does NOT make Flare's logs or auth database durable. All historical telemetry and the
+    /// identity/auth database are lost on the next pod reschedule unless you bind a real
+    /// <c>AddPersistentVolume</c>/<c>WithPersistentVolume</c> (<c>Aspire.Hosting.Kubernetes</c>) to
+    /// each of <c>{name}-clickhouse-data</c>, <c>{name}-redis-data</c>, and
+    /// <c>{name}-identity-data</c> yourself - this method has no way to pick a storage
+    /// class/capacity/access-mode policy on your behalf. See <c>docs/aspire-hosting.md</c>'s
+    /// "Kubernetes" section (the "ClickHouse/Redis/identity data does NOT survive a pod restart by
+    /// default" bullet) for the full story and a worked example. This is also printed as a console
+    /// warning during <c>aspire publish</c>/<c>aspire deploy</c> against a Kubernetes target, so it
+    /// isn't only discoverable by reading documentation.
+    /// </para>
     /// </remarks>
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/>.</param>
     /// <param name="name">The name of the Flare resource group.</param>
@@ -57,51 +73,26 @@ public static class FlareResourceBuilderExtensions
     /// bumped as part of cutting each new <c>Flare.Hosting.Aspire</c> release, once that
     /// release has been tested against a newer Flare image - it does not track Docker
     /// Hub automatically. Pass <c>"edge"</c> yourself to track Flare's unreleased
-    /// <c>main</c> branch instead.
-    /// </param>
-    /// <param name="ingestGrpcPort">
-    /// Optional host port for the OTLP gRPC endpoint. Left unset, Aspire assigns the
-    /// conventional 4317. Always unproxied so external OTLP clients (your own app's logger) can
-    /// point at it directly, same as <c>Flare.AppHost/Program.cs</c>.
-    /// </param>
-    /// <param name="ingestHttpPort">
-    /// Optional host port for the OTLP HTTP endpoint. Left unset, Aspire assigns the
-    /// conventional 4318. Always unproxied, same reasoning as <paramref name="ingestGrpcPort"/>.
-    /// </param>
-    /// <param name="apiPort">Optional host port for Flare's query API. A normal proxied Aspire HTTP endpoint.</param>
-    /// <param name="dashboardPort">Optional host port for the dashboard SPA. A normal proxied Aspire HTTP endpoint.</param>
-    /// <param name="ingestImage">
-    /// Override for the ingest image name (registry/repo, no tag - <paramref name="imageTag"/> still supplies
-    /// the tag). Defaults to <see cref="FlareContainerImageTags.IngestImage"/> (Docker Hub). Local-dev escape
-    /// hatch for pointing at images built with <c>docker compose build</c> instead of Docker Hub, e.g.
-    /// <c>"flarenet-ingest"</c> with <c>imageTag: "latest"</c> - Docker won't re-pull a mutable tag like
-    /// <c>edge</c> that's already cached locally, so this is how to force local source into an AppHost run
-    /// without waiting on a fresh Docker Hub publish.
-    /// </param>
-    /// <param name="apiImage">Same override as <paramref name="ingestImage"/>, for the api image.</param>
-    /// <param name="dashboardImage">Same override as <paramref name="ingestImage"/>, for the dashboard image.</param>
-    /// <param name="apiKey">
-    /// Optional ingest API key parameter (pass a <c>secret: true</c> <c>AddParameter</c>
-    /// result) - when set, <c>ingest</c> gets <c>Auth__IngestKeyRequired=true</c> and
-    /// <c>Auth__StaticIngestApiKey</c> set to this value, so any OTLP exporter pointed
-    /// at this Flare instance must present it
-    /// (see <c>Flare.Identity.Auth.IngestAuthOptions.StaticIngestApiKey</c>'s remarks for
-    /// why this is a separate, config-driven mechanism from the dashboard's "create a
-    /// key" flow). Left unset (the default), ingest stays anonymous, matching today's
-    /// Flare.Ingest default. A consuming app's own <c>AddFlareOtlpExporter</c> call
-    /// (from the <c>Aspire.Flare</c> package) needs the same raw value passed to its own
-    /// <c>configureSettings: s =&gt; s.ApiKey = ...</c> delegate - there's no automatic
-    /// flow-through from this parameter yet, see <c>FlareSettings.ApiKey</c>'s remarks.
+    /// <c>main</c> branch instead. <see cref="WithIngestImage"/>/<see cref="WithApiImage"/>/
+    /// <see cref="WithDashboardImage"/> reuse this same tag when overriding just an image
+    /// name/registry - there's no separate per-image tag override.
     /// </param>
     /// <param name="enableResourceGraph">
     /// Turns on the dashboard's Resources page (a live topology graph) for this Flare
     /// instance. Off by default - real, meaningful cluster/Docker access is involved (see
-    /// below), and this package follows the same "absent config = off" pattern as
-    /// <paramref name="apiKey"/> rather than defaulting it on. Which of the two topology
-    /// providers this actually wires up is picked automatically from which compute
-    /// environment is registered - see the "Opt-in Resources page" block inside this
-    /// method for the exact branch - not a separate parameter, since a given AppHost only
-    /// ever targets one deployment environment at a time:
+    /// below), and this package follows the same "absent config = off" pattern the rest of
+    /// this method uses rather than defaulting it on. Kept as a constructor-time argument
+    /// rather than a <c>With*</c> chain method (unlike everything else this method used to
+    /// take as a parameter) because it decides whether whole extra resources exist at all
+    /// (an RBAC <c>ServiceAccount</c>/<c>Role</c>/<c>RoleBinding</c> on Kubernetes, or an
+    /// entire docker-socket-proxy sidecar container on Docker) - conditionally creating or
+    /// tearing those down after the fact would be far more invasive than reconfiguring a
+    /// port or image on an already-created resource, which is all the <c>With*</c> methods
+    /// below do. Which of the two topology providers this actually wires up is picked
+    /// automatically from which compute environment is registered - see the "Opt-in
+    /// Resources page" block inside this method for the exact branch - not a separate
+    /// parameter, since a given AppHost only ever targets one deployment environment at a
+    /// time:
     /// <list type="bullet">
     /// <item>
     /// <b>Docker</b> (the default for local <c>aspire run</c>, and for a Docker Compose
@@ -128,43 +119,30 @@ public static class FlareResourceBuilderExtensions
     /// section for the full security rationale (same one <c>docker-compose.yml</c>'s own
     /// Docker opt-in documents).
     /// </param>
-    /// <param name="publicApiUrl">
-    /// The externally-reachable URL browsers should use to reach <c>api</c>, surfaced to the
-    /// dashboard as <c>PUBLIC_API_URL</c>. Left unset (the default), this stays pinned to
-    /// <c>api</c>'s own loopback endpoint - correct for <c>aspire run</c>, where the dashboard
-    /// and the browser viewing it are on the same machine. Once actually publishing/deploying
-    /// (<c>aspire publish</c>/<c>aspire deploy</c> against a Docker Compose target - see
-    /// <c>docs/aspire-hosting.md</c>'s "Publishing / deploying via aspire publish" section) that
-    /// assumption stops holding - the browser reaches the deployed stack by a real hostname/IP,
-    /// not <c>localhost</c> - so pass a <c>secret: false</c> <c>AddParameter</c> result here
-    /// (left unset, so Aspire captures it as an <c>.env.{environment}</c> placeholder an
-    /// operator fills in with the real deployed URL per environment) instead.
-    /// </param>
-    /// <param name="publicDashboardUrl">
-    /// The externally-reachable URL browsers should use to reach the dashboard itself, surfaced
-    /// as the dashboard's own <c>ORIGIN</c> (required by SvelteKit's Node adapter to accept
-    /// requests) and as <c>api</c>'s <c>Cors__AllowedOrigins__0</c> (so <c>api</c> accepts
-    /// browser requests originating from it). Same default/override story as
-    /// <paramref name="publicApiUrl"/> - unset keeps today's loopback-pinned <c>aspire run</c>
-    /// behavior; set it via an <c>AddParameter</c> result for publish/deploy.
-    /// </param>
-    /// <returns>An <see cref="IResourceBuilder{FlareResource}"/> for the composite Flare resource.</returns>
+    /// <returns>
+    /// An <see cref="IResourceBuilder{FlareResource}"/> for the composite Flare resource. Chain
+    /// <see cref="WithIngestGrpcPort"/>/<see cref="WithIngestHttpPort"/>/<see cref="WithApiPort"/>/
+    /// <see cref="WithDashboardPort"/>, <see cref="WithIngestImage"/>/<see cref="WithApiImage"/>/
+    /// <see cref="WithDashboardImage"/>, <see cref="WithApiKey"/>, and
+    /// <see cref="WithPublicApiUrl"/>/<see cref="WithPublicDashboardUrl"/> off the result to
+    /// configure everything this method used to take as extra parameters - the usual Aspire
+    /// convention (compare <c>AddRedis(...).WithPersistence(...)</c>) rather than one long
+    /// parameter list. Each of them returns the same <see cref="FlareResource"/> builder, so
+    /// they chain freely and in any order:
+    /// <code>
+    /// var flare = builder.AddFlare("flare", enableResourceGraph: true)
+    ///     .WithIngestGrpcPort(4327)
+    ///     .WithApiKey(apiKeyParam)
+    ///     .WithPublicApiUrl(publicApiUrlParam)
+    ///     .WithPublicDashboardUrl(publicDashboardUrlParam);
+    /// </code>
+    /// </returns>
     /// <exception cref="ArgumentException"><paramref name="imageTag"/> is null or empty.</exception>
     public static IResourceBuilder<FlareResource> AddFlare(
         this IDistributedApplicationBuilder builder,
         [ResourceName] string name = "flare",
         string imageTag = "0.2.0",
-        int? ingestGrpcPort = null,
-        int? ingestHttpPort = null,
-        int? apiPort = null,
-        int? dashboardPort = null,
-        string? ingestImage = null,
-        string? apiImage = null,
-        string? dashboardImage = null,
-        IResourceBuilder<ParameterResource>? apiKey = null,
-        bool enableResourceGraph = false,
-        IResourceBuilder<ParameterResource>? publicApiUrl = null,
-        IResourceBuilder<ParameterResource>? publicDashboardUrl = null)
+        bool enableResourceGraph = false)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(imageTag);
@@ -248,16 +226,20 @@ public static class FlareResourceBuilderExtensions
         // Flare.Ingest: terminates OTLP over gRPC (4317) and HTTP (4318, protobuf + JSON).
         // Fixed, unproxied ports so external OTLP clients can point at the conventional port
         // numbers directly, rather than Aspire's dashboard dev-proxy / dynamically-assigned
-        // ports - same reasoning as Flare.AppHost/Program.cs.
-        var ingest = builder.AddContainer($"{name}-ingest", ingestImage ?? FlareContainerImageTags.IngestImage, imageTag)
+        // ports - same reasoning as Flare.AppHost/Program.cs. Ports are left at their
+        // conventional defaults here (port: null) - use WithIngestGrpcPort/WithIngestHttpPort
+        // below to override; WithEndpoint's own "change an existing named endpoint" overload
+        // (see those methods) reconfigures the "otlp-grpc"/"otlp-http" endpoints created here
+        // without needing the port up front.
+        var ingest = builder.AddContainer($"{name}-ingest", FlareContainerImageTags.IngestImage, imageTag)
             .WithReference(logsDb, connectionName: "clickhousedb")
             .WaitFor(logsDb)
             .WithReference(redis, connectionName: "redis")
             .WaitFor(redis)
             .WithVolume(identityVolumeName, "/data/identity")
             .WithEnvironment("Identity__DbPath", identityDbPath)
-            .WithEndpoint(port: ingestGrpcPort, targetPort: 4317, scheme: "http", name: "otlp-grpc", isProxied: false)
-            .WithEndpoint(port: ingestHttpPort, targetPort: 4318, scheme: "http", name: "otlp-http", isProxied: false)
+            .WithEndpoint(port: null, targetPort: 4317, scheme: "http", name: "otlp-grpc", isProxied: false)
+            .WithEndpoint(port: null, targetPort: 4318, scheme: "http", name: "otlp-http", isProxied: false)
             .WithHttpHealthCheck("/health", endpointName: "otlp-http")
             .WithParentRelationship(flare)
             .WithHidden()
@@ -266,26 +248,14 @@ public static class FlareResourceBuilderExtensions
         // pulls it once (the default pull policy is "if missing locally") and then silently
         // reuses that stale local image on every future run, forever, with no error. This forces
         // a fresh registry check on every `aspire start` so consumers (including Flare's own
-        // examples/ExampleApp.AppHost) actually get current bits. Gated on ingestImage being the
-        // default: the ingestImage override above exists specifically so local dev can point at
-        // an image built with `docker compose build` that was never pushed to any registry -
-        // ImagePullPolicy.Always against a registry-less image would just fail the pull outright.
-        if (ingestImage is null)
-        {
-            ingest.WithImagePullPolicy(ImagePullPolicy.Always);
-        }
-
-        // Ingest API key (Planning.md's "Auth + multi-user / roles" item, ingest-side
-        // half) - config-driven rather than "create a key via the dashboard," since that
-        // manual flow doesn't fit an automated resource-graph-wiring use case like this
-        // one. Only wired onto `ingest` - `api`'s own auth (dashboard user sessions) is
-        // unrelated to this key.
-        if (apiKey is not null)
-        {
-            ingest
-                .WithEnvironment("Auth__IngestKeyRequired", "true")
-                .WithEnvironment("Auth__StaticIngestApiKey", apiKey);
-        }
+        // examples/ExampleApp.AppHost) actually get current bits. Unconditional here (unlike
+        // before this type had With* chain methods) because AddFlare always starts every
+        // container off the default Docker Hub image now - WithIngestImage/WithApiImage/
+        // WithDashboardImage below reset this back to ImagePullPolicy.Default when a consumer
+        // overrides to a local, registry-less image, for the same reason the old ingestImage/
+        // apiImage/dashboardImage parameters gated this: ImagePullPolicy.Always against a
+        // registry-less image would just fail the pull outright.
+        ingest.WithImagePullPolicy(ImagePullPolicy.Always);
 
         // Attach ingest's real endpoints to the composite FlareResource so consumers can reach
         // them via `flare` itself - through `.WithReference(flare)` (ConnectionStringExpression
@@ -297,7 +267,7 @@ public static class FlareResourceBuilderExtensions
         // endpoint over the same clickhousedb.logs table Flare.Ingest writes to. A normal
         // proxied Aspire HTTP endpoint - callers go through Aspire's dev-proxy/service
         // discovery like any other resource.
-        var api = builder.AddContainer($"{name}-api", apiImage ?? FlareContainerImageTags.ApiImage, imageTag)
+        var api = builder.AddContainer($"{name}-api", FlareContainerImageTags.ApiImage, imageTag)
             .WithReference(logsDb, connectionName: "clickhousedb")
             .WaitFor(logsDb)
             .WithReference(redis, connectionName: "redis")
@@ -305,16 +275,14 @@ public static class FlareResourceBuilderExtensions
             // Same volume name as ingest above - see that assignment's remarks.
             .WithVolume(identityVolumeName, "/data/identity")
             .WithEnvironment("Identity__DbPath", identityDbPath)
-            .WithHttpEndpoint(port: apiPort, targetPort: 8080)
+            .WithHttpEndpoint(port: null, targetPort: 8080)
             .WithHttpHealthCheck("/health")
             .WithParentRelationship(flare)
             .WithHidden()
             .WithFlareResourceLabels("api", "clickhouse:Reference,redis:Reference");
-        // Same "edge" staleness reasoning and local-dev-override gate as ingest above.
-        if (apiImage is null)
-        {
-            api.WithImagePullPolicy(ImagePullPolicy.Always);
-        }
+        // Same "edge" staleness reasoning and unconditional-then-reset-on-override story as
+        // ingest above.
+        api.WithImagePullPolicy(ImagePullPolicy.Always);
 
         // Flare.Dashboard: the SvelteKit SPA. PUBLIC_API_URL/ORIGIN are read at *container
         // runtime* via SvelteKit's $env/dynamic/public, not baked in at image build time
@@ -327,35 +295,29 @@ public static class FlareResourceBuilderExtensions
         // resolution GetEndpoint uses for a plain container-to-container reference - confirmed
         // by e2e run that the default otherwise injects Aspire's internal *.dev.internal DNS
         // names, unreachable from a real browser on the host.
-        var dashboard = builder.AddContainer($"{name}-dashboard", dashboardImage ?? FlareContainerImageTags.DashboardImage, imageTag)
+        var dashboard = builder.AddContainer($"{name}-dashboard", FlareContainerImageTags.DashboardImage, imageTag)
             .WaitFor(api)
-            .WithHttpEndpoint(port: dashboardPort, targetPort: 3000)
+            .WithHttpEndpoint(port: null, targetPort: 3000)
             // A real liveness signal - the container reaching "Running" doesn't mean SvelteKit's
             // Node server is actually accepting requests yet. WaitForFlare (below) waits on this,
             // not just the container's Running state.
             .WithHttpHealthCheck("/")
             .WithParentRelationship(flare)
             .WithFlareResourceLabels("dashboard", "api:Reference");
-        // Same "edge" staleness reasoning and local-dev-override gate as ingest above - this is
-        // the one that actually bit us: a consumer's Docker cache pins a stale dashboard build
-        // indefinitely otherwise, with nothing on screen telling them why they're not seeing
-        // recent dashboard changes.
-        if (dashboardImage is null)
-        {
-            dashboard.WithImagePullPolicy(ImagePullPolicy.Always);
-        }
-        // publicApiUrl/publicDashboardUrl (both unset by default) exist for exactly this
-        // localhost assumption breaking once actually deployed rather than `aspire run` - see
-        // their doc comments on AddFlare and docs/aspire-hosting.md's "Publishing / deploying
-        // via aspire publish" section.
-        if (publicApiUrl is not null)
-        {
-            dashboard.WithEnvironment("PUBLIC_API_URL", publicApiUrl);
-        }
-        else
-        {
-            dashboard.WithEnvironment("PUBLIC_API_URL", api.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
-        }
+        // Same "edge" staleness reasoning and unconditional-then-reset-on-override story as
+        // ingest above - this is the one that actually bit us: a consumer's Docker cache pins a
+        // stale dashboard build indefinitely otherwise, with nothing on screen telling them why
+        // they're not seeing recent dashboard changes.
+        dashboard.WithImagePullPolicy(ImagePullPolicy.Always);
+        // Defaults for what WithPublicApiUrl/WithPublicDashboardUrl below let a consumer override
+        // once actually deployed rather than `aspire run` - see those methods' doc comments and
+        // docs/aspire-hosting.md's "Publishing / deploying via aspire publish" section. Always set
+        // here (unlike before this type had With* chain methods, when this branched on whether the
+        // publicApiUrl/publicDashboardUrl parameters were passed) because AddFlare no longer knows
+        // whether a consumer will chain an override afterward - WithEnvironment calls made later
+        // by those methods simply win over these, the same "last registered callback for a given
+        // key wins" behavior any other doubled-up WithEnvironment call relies on.
+        dashboard.WithEnvironment("PUBLIC_API_URL", api.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
 
         // Flare.Api rejects every browser origin by default once auth is in the picture
         // (Cors:AllowedOrigins has no safe default - see docs/auth.md in Flare's own
@@ -365,16 +327,8 @@ public static class FlareResourceBuilderExtensions
         // for PUBLIC_API_URL above and for the same reason: this has to resolve to what
         // the *browser* sees, not container-network DNS. Confirmed live against a real
         // Aspire-orchestrated run that this was missing and broke the dashboard outright.
-        if (publicDashboardUrl is not null)
-        {
-            dashboard.WithEnvironment("ORIGIN", publicDashboardUrl);
-            api.WithEnvironment("Cors__AllowedOrigins__0", publicDashboardUrl);
-        }
-        else
-        {
-            dashboard.WithEnvironment("ORIGIN", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
-            api.WithEnvironment("Cors__AllowedOrigins__0", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
-        }
+        dashboard.WithEnvironment("ORIGIN", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
+        api.WithEnvironment("Cors__AllowedOrigins__0", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
 
         // Opt-in Resources page (docs/aspire-hosting.md) - see enableResourceGraph's doc
         // comment for the full rationale. Exactly one of the two topology providers gets wired
@@ -501,12 +455,282 @@ public static class FlareResourceBuilderExtensions
             }
         }
 
-        // Stash the dashboard's resource name so WaitForFlare can look it up later without the
-        // caller needing to hold onto a `dashboard` variable of their own - see WaitForFlare's
-        // remarks for why `.WaitFor(flare)` itself can never work here.
+        // Stash the ingest/api/dashboard sub-resources' Aspire resource names (plus the shared
+        // imageTag) so the With* chain methods below - and WaitForFlare - can reach back into
+        // them after this method has already returned, without the caller needing to hold onto
+        // their own reference to any of them.
+        flare.Resource.SetIngestResourceName(ingest.Resource.Name);
+        flare.Resource.SetApiResourceName(api.Resource.Name);
         flare.Resource.SetDashboardResourceName(dashboard.Resource.Name);
+        flare.Resource.SetImageTag(imageTag);
+
+        WarnIfKubernetesStorageIsEphemeral(builder, name);
 
         return flare;
+    }
+
+    /// <summary>Resolves <paramref name="flare"/>'s ingest sub-resource, for the <c>With*</c> chain methods below.</summary>
+    private static IResourceBuilder<ContainerResource> GetIngestBuilder(IResourceBuilder<FlareResource> flare) =>
+        flare.ApplicationBuilder.CreateResourceBuilder<ContainerResource>(flare.Resource.IngestResourceName);
+
+    /// <summary>Resolves <paramref name="flare"/>'s api sub-resource, for the <c>With*</c> chain methods below.</summary>
+    private static IResourceBuilder<ContainerResource> GetApiBuilder(IResourceBuilder<FlareResource> flare) =>
+        flare.ApplicationBuilder.CreateResourceBuilder<ContainerResource>(flare.Resource.ApiResourceName);
+
+    /// <summary>Resolves <paramref name="flare"/>'s dashboard sub-resource, for <see cref="WaitForFlare{TDestination}"/> and the <c>With*</c> chain methods below.</summary>
+    private static IResourceBuilder<ContainerResource> GetDashboardBuilder(IResourceBuilder<FlareResource> flare) =>
+        flare.ApplicationBuilder.CreateResourceBuilder<ContainerResource>(flare.Resource.DashboardResourceName);
+
+    /// <summary>
+    /// Overrides the OTLP gRPC endpoint's host port (default: the conventional 4317, unproxied -
+    /// see <see cref="AddFlare"/>'s ingest remarks). Reconfigures the existing "otlp-grpc" named
+    /// endpoint <see cref="AddFlare"/> already created, rather than creating a new one -
+    /// <c>createIfNotExists: false</c> below fails loudly instead of silently creating a
+    /// wrong-shaped endpoint if that assumption ever stops holding.
+    /// </summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="port">The host port.</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    public static IResourceBuilder<FlareResource> WithIngestGrpcPort(this IResourceBuilder<FlareResource> flare, int port)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+
+        GetIngestBuilder(flare).WithEndpoint("otlp-grpc", e => e.Port = port, createIfNotExists: false);
+        return flare;
+    }
+
+    /// <summary>
+    /// Overrides the OTLP HTTP endpoint's host port (default: the conventional 4318, unproxied -
+    /// see <see cref="AddFlare"/>'s ingest remarks). Same reconfigure-by-name mechanism as
+    /// <see cref="WithIngestGrpcPort"/>, targeting the "otlp-http" named endpoint instead.
+    /// </summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="port">The host port.</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    public static IResourceBuilder<FlareResource> WithIngestHttpPort(this IResourceBuilder<FlareResource> flare, int port)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+
+        GetIngestBuilder(flare).WithEndpoint("otlp-http", e => e.Port = port, createIfNotExists: false);
+        return flare;
+    }
+
+    /// <summary>
+    /// Overrides Flare's query API's host port (a normal proxied Aspire HTTP endpoint, dynamically
+    /// assigned by default). Reconfigures the existing "http" named endpoint <see cref="AddFlare"/>
+    /// already created via <c>WithHttpEndpoint</c>, the same reconfigure-by-name mechanism as
+    /// <see cref="WithIngestGrpcPort"/>.
+    /// </summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="port">The host port.</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    public static IResourceBuilder<FlareResource> WithApiPort(this IResourceBuilder<FlareResource> flare, int port)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+
+        GetApiBuilder(flare).WithEndpoint("http", e => e.Port = port, createIfNotExists: false);
+        return flare;
+    }
+
+    /// <summary>
+    /// Overrides the dashboard SPA's host port (a normal proxied Aspire HTTP endpoint, dynamically
+    /// assigned by default). Same reconfigure-by-name mechanism as <see cref="WithApiPort"/>.
+    /// </summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="port">The host port.</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    public static IResourceBuilder<FlareResource> WithDashboardPort(this IResourceBuilder<FlareResource> flare, int port)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+
+        GetDashboardBuilder(flare).WithEndpoint("http", e => e.Port = port, createIfNotExists: false);
+        return flare;
+    }
+
+    /// <summary>
+    /// Overrides the ingest image name (registry/repo, no tag - <see cref="AddFlare"/>'s
+    /// <c>imageTag</c> still supplies the tag, reused automatically). Local-dev escape hatch for
+    /// pointing at an image built with <c>docker compose build</c> instead of Docker Hub, e.g.
+    /// <c>"flarenet-ingest"</c> with <c>imageTag: "latest"</c> passed to <see cref="AddFlare"/> -
+    /// Docker won't re-pull a mutable tag like <c>edge</c> that's already cached locally, so this
+    /// is how to force local source into an AppHost run without waiting on a fresh Docker Hub
+    /// publish. Also resets the ingest container's pull policy from <see cref="AddFlare"/>'s
+    /// default <see cref="ImagePullPolicy.Always"/> back to <see cref="ImagePullPolicy.Default"/> -
+    /// <c>Always</c> against a registry-less local image would just fail the pull outright.
+    /// </summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="image">The image name (registry/repo, no tag).</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    /// <exception cref="ArgumentException"><paramref name="image"/> is null or empty.</exception>
+    public static IResourceBuilder<FlareResource> WithIngestImage(this IResourceBuilder<FlareResource> flare, string image)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+        ArgumentException.ThrowIfNullOrEmpty(image);
+
+        GetIngestBuilder(flare)
+            .WithImage(image, flare.Resource.ImageTag)
+            .WithImagePullPolicy(ImagePullPolicy.Default);
+        return flare;
+    }
+
+    /// <summary>Same override as <see cref="WithIngestImage"/>, for the api image.</summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="image">The image name (registry/repo, no tag).</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    /// <exception cref="ArgumentException"><paramref name="image"/> is null or empty.</exception>
+    public static IResourceBuilder<FlareResource> WithApiImage(this IResourceBuilder<FlareResource> flare, string image)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+        ArgumentException.ThrowIfNullOrEmpty(image);
+
+        GetApiBuilder(flare)
+            .WithImage(image, flare.Resource.ImageTag)
+            .WithImagePullPolicy(ImagePullPolicy.Default);
+        return flare;
+    }
+
+    /// <summary>Same override as <see cref="WithIngestImage"/>, for the dashboard image.</summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="image">The image name (registry/repo, no tag).</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    /// <exception cref="ArgumentException"><paramref name="image"/> is null or empty.</exception>
+    public static IResourceBuilder<FlareResource> WithDashboardImage(this IResourceBuilder<FlareResource> flare, string image)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+        ArgumentException.ThrowIfNullOrEmpty(image);
+
+        GetDashboardBuilder(flare)
+            .WithImage(image, flare.Resource.ImageTag)
+            .WithImagePullPolicy(ImagePullPolicy.Default);
+        return flare;
+    }
+
+    /// <summary>
+    /// Requires OTLP callers to present an ingest API key - sets <c>ingest</c>'s
+    /// <c>Auth__IngestKeyRequired=true</c> and <c>Auth__StaticIngestApiKey</c> to
+    /// <paramref name="apiKey"/>'s value (see
+    /// <c>Flare.Identity.Auth.IngestAuthOptions.StaticIngestApiKey</c>'s remarks for why this is a
+    /// separate, config-driven mechanism from the dashboard's "create a key" flow) - config-driven
+    /// rather than "create a key via the dashboard," since that manual flow doesn't fit an
+    /// automated resource-graph-wiring use case like this one (Planning.md's "Auth + multi-user /
+    /// roles" item, ingest-side half). Not called at all (the default), ingest stays anonymous,
+    /// matching today's Flare.Ingest default. Only wired onto <c>ingest</c> - <c>api</c>'s own auth
+    /// (dashboard user sessions) is unrelated to this key. A consuming app's own
+    /// <c>AddFlareOtlpExporter</c> call (from the <c>Aspire.Flare</c> package) needs the same raw
+    /// value passed to its own <c>configureSettings: s =&gt; s.ApiKey = ...</c> delegate - there's
+    /// no automatic flow-through from this method yet, see <c>FlareSettings.ApiKey</c>'s remarks.
+    /// </summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="apiKey">A <c>secret: true</c> <c>AddParameter</c> result.</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    public static IResourceBuilder<FlareResource> WithApiKey(this IResourceBuilder<FlareResource> flare, IResourceBuilder<ParameterResource> apiKey)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+        ArgumentNullException.ThrowIfNull(apiKey);
+
+        GetIngestBuilder(flare)
+            .WithEnvironment("Auth__IngestKeyRequired", "true")
+            .WithEnvironment("Auth__StaticIngestApiKey", apiKey);
+        return flare;
+    }
+
+    /// <summary>
+    /// Overrides the externally-reachable URL browsers should use to reach <c>api</c>, surfaced to
+    /// the dashboard as <c>PUBLIC_API_URL</c>. Not called (the default), this stays pinned to
+    /// <c>api</c>'s own loopback endpoint - correct for <c>aspire run</c>, where the dashboard and
+    /// the browser viewing it are on the same machine. Once actually publishing/deploying
+    /// (<c>aspire publish</c>/<c>aspire deploy</c> - see <c>docs/aspire-hosting.md</c>'s
+    /// "Publishing / deploying via aspire publish" section) that assumption stops holding - the
+    /// browser reaches the deployed stack by a real hostname/IP, not <c>localhost</c> - so pass a
+    /// <c>secret: false</c> <c>AddParameter</c> result here (left unset, so Aspire captures it as
+    /// an <c>.env.{environment}</c> placeholder an operator fills in with the real deployed URL per
+    /// environment) instead. Overrides <see cref="AddFlare"/>'s loopback default by registering a
+    /// second, later <c>WithEnvironment("PUBLIC_API_URL", ...)</c> call - the later one wins.
+    /// </summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="publicApiUrl">A <c>secret: false</c> <c>AddParameter</c> result.</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    public static IResourceBuilder<FlareResource> WithPublicApiUrl(this IResourceBuilder<FlareResource> flare, IResourceBuilder<ParameterResource> publicApiUrl)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+        ArgumentNullException.ThrowIfNull(publicApiUrl);
+
+        GetDashboardBuilder(flare).WithEnvironment("PUBLIC_API_URL", publicApiUrl);
+        return flare;
+    }
+
+    /// <summary>
+    /// Overrides the externally-reachable URL browsers should use to reach the dashboard itself,
+    /// surfaced as the dashboard's own <c>ORIGIN</c> (required by SvelteKit's Node adapter to
+    /// accept requests) and as <c>api</c>'s <c>Cors__AllowedOrigins__0</c> (so <c>api</c> accepts
+    /// browser requests originating from it). Same default/override story as
+    /// <see cref="WithPublicApiUrl"/> - not called, keeps today's loopback-pinned <c>aspire run</c>
+    /// behavior; call it with an <c>AddParameter</c> result for publish/deploy.
+    /// </summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="publicDashboardUrl">A <c>secret: false</c> <c>AddParameter</c> result.</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    public static IResourceBuilder<FlareResource> WithPublicDashboardUrl(this IResourceBuilder<FlareResource> flare, IResourceBuilder<ParameterResource> publicDashboardUrl)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+        ArgumentNullException.ThrowIfNull(publicDashboardUrl);
+
+        GetDashboardBuilder(flare).WithEnvironment("ORIGIN", publicDashboardUrl);
+        GetApiBuilder(flare).WithEnvironment("Cors__AllowedOrigins__0", publicDashboardUrl);
+        return flare;
+    }
+
+    /// <summary>
+    /// Prints a console warning during <c>aspire publish</c>/<c>aspire deploy</c> when this
+    /// <see cref="AddFlare"/> call is publishing against a registered
+    /// <see cref="KubernetesEnvironmentResource"/> - see <see cref="AddFlare"/>'s remarks for the
+    /// full "why" (the review this addresses: registering
+    /// <c>AddKubernetesEnvironment</c>+<c>AddFlare</c> alone reasonably looks like "Flare is
+    /// deployed, my telemetry is durable," which is false until persistent volumes are wired up
+    /// by hand).
+    /// </summary>
+    /// <remarks>
+    /// Deliberately unconditional whenever a Kubernetes target is being published to, not gated on
+    /// <c>enableResourceGraph</c> or any other opt-in - the ephemeral-storage risk exists
+    /// regardless of whether the Resources page is enabled. There is no reliable way for this
+    /// package to detect whether the consumer already bound a real persistent volume to
+    /// <c>{name}-clickhouse-data</c>/<c>{name}-redis-data</c>/<c>{name}-identity-data</c>
+    /// themselves (the type those bindings produce isn't part of the
+    /// <c>Aspire.Hosting.Kubernetes</c> version this package currently references - see
+    /// <c>Directory.Packages.props</c>), so this warns every time rather than risking a false
+    /// "you're covered" negative.
+    /// <para>
+    /// Written straight to the console (not through <c>ILogger</c>/DI) because <see cref="AddFlare"/>
+    /// runs synchronously while the AppHost's application model is still being built, before
+    /// <c>builder.Build()</c> stands up a service provider - the same reason the existing
+    /// <c>enableResourceGraph</c> Kubernetes branch above only has <c>builder.Resources</c> to
+    /// inspect. <c>aspire publish</c>/<c>aspire deploy</c> both stream the AppHost process's own
+    /// stdout/stderr straight to the terminal, so this reaches the operator running the command
+    /// without needing any Aspire-version-specific publish-pipeline reporter API.
+    /// </para>
+    /// </remarks>
+    /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/> passed to <see cref="AddFlare"/>.</param>
+    /// <param name="name">The Flare resource group's name, to name the three volumes in the message.</param>
+    private static void WarnIfKubernetesStorageIsEphemeral(IDistributedApplicationBuilder builder, string name)
+    {
+        if (!builder.ExecutionContext.IsPublishMode
+            || !builder.Resources.OfType<KubernetesEnvironmentResource>().Any())
+        {
+            return;
+        }
+
+        Console.Error.WriteLine(
+            $"""
+
+            ⚠️  Flare ('{name}') storage is EPHEMERAL on Kubernetes unless you configure persistent volumes.
+                ClickHouse, Redis, and the identity/auth database render as empty `emptyDir` volumes by
+                default - all historical logs and the identity database are lost on the next pod
+                reschedule, not just a full redeploy. Bind AddPersistentVolume/WithPersistentVolume
+                (Aspire.Hosting.Kubernetes) to '{name}-clickhouse-data', '{name}-redis-data', and
+                '{name}-identity-data' in your own AppHost before relying on this for anything beyond a
+                disposable smoke test. See docs/aspire-hosting.md's "Kubernetes" section for a worked example.
+
+            """);
     }
 
     /// <summary>
@@ -546,8 +770,7 @@ public static class FlareResourceBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(flare);
 
-        var dashboard = flare.ApplicationBuilder.CreateResourceBuilder<ContainerResource>(flare.Resource.DashboardResourceName);
-        return builder.WaitFor(dashboard);
+        return builder.WaitFor(GetDashboardBuilder(flare));
     }
 
     /// <summary>

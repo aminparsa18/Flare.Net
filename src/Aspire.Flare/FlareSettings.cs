@@ -35,7 +35,7 @@ public sealed class FlareSettings
     /// automatic flow-through from <c>.WithReference(flare)</c>'s connection string yet
     /// (unlike <see cref="Endpoint"/>) - set it explicitly via <c>configureSettings</c> or
     /// configuration, e.g. mirroring whatever value was passed to
-    /// <c>Aspire.Hosting.Flare</c>'s <c>AddFlare(..., apiKey: ...)</c> on the AppHost side.
+    /// <c>Aspire.Hosting.Flare</c>'s <c>AddFlare(...).WithApiKey(...)</c> on the AppHost side.
     /// </summary>
     public string? ApiKey { get; set; }
 }
