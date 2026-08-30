@@ -17,7 +17,7 @@ public sealed class IngestAuthOptions
     /// An optional fixed key, valid in addition to (not instead of) any SQLite-backed
     /// keys created via <c>POST /api/ingest-keys</c>. This is the mechanism Aspire
     /// orchestration pins a key through - <c>Flare.AppHost</c> for local dev,
-    /// <c>Aspire.Hosting.Flare</c>'s <c>AddFlare(..., apiKey: ...)</c> for consumers of
+    /// <c>Aspire.Hosting.Flare</c>'s <c>AddFlare(...).WithApiKey(...)</c> for consumers of
     /// the published integration package - since "create a key via the dashboard" is a
     /// manual, human-driven flow that doesn't fit an automated resource-graph-wiring use
     /// case. Set via configuration (a secret Aspire parameter, an env var, etc.), never

@@ -23,6 +23,9 @@ public sealed class FlareResource(string name) : Resource(name), IResourceWithou
     private EndpointReference? _otlpGrpcEndpoint;
     private EndpointReference? _otlpHttpEndpoint;
     private string? _dashboardResourceName;
+    private string? _ingestResourceName;
+    private string? _apiResourceName;
+    private string? _imageTag;
 
     /// <summary>
     /// Wires this resource's endpoint references to Flare.Ingest's actual OTLP endpoints.
@@ -51,6 +54,56 @@ public sealed class FlareResource(string name) : Resource(name), IResourceWithou
     internal string DashboardResourceName => _dashboardResourceName
         ?? throw new InvalidOperationException(
             $"{nameof(DashboardResourceName)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
+
+    /// <summary>
+    /// Records the ingest sub-resource's Aspire resource name, so the <c>With*</c> chain methods
+    /// on <see cref="Aspire.Hosting.FlareResourceBuilderExtensions"/> (<c>WithIngestGrpcPort</c>,
+    /// <c>WithIngestHttpPort</c>, <c>WithIngestImage</c>, <c>WithApiKey</c>) can reach back into it
+    /// after <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/> has already
+    /// returned - same reasoning as <see cref="SetDashboardResourceName"/>.
+    /// </summary>
+    internal void SetIngestResourceName(string ingestResourceName)
+    {
+        _ingestResourceName = ingestResourceName;
+    }
+
+    /// <summary>The ingest sub-resource's Aspire resource name (e.g. <c>"flare-ingest"</c>).</summary>
+    internal string IngestResourceName => _ingestResourceName
+        ?? throw new InvalidOperationException(
+            $"{nameof(IngestResourceName)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
+
+    /// <summary>
+    /// Records the api sub-resource's Aspire resource name, so the <c>With*</c> chain methods
+    /// (<c>WithApiPort</c>, <c>WithApiImage</c>) can reach back into it after
+    /// <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/> has already returned -
+    /// same reasoning as <see cref="SetDashboardResourceName"/>.
+    /// </summary>
+    internal void SetApiResourceName(string apiResourceName)
+    {
+        _apiResourceName = apiResourceName;
+    }
+
+    /// <summary>The api sub-resource's Aspire resource name (e.g. <c>"flare-api"</c>).</summary>
+    internal string ApiResourceName => _apiResourceName
+        ?? throw new InvalidOperationException(
+            $"{nameof(ApiResourceName)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
+
+    /// <summary>
+    /// Records the <c>imageTag</c> passed to <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/>,
+    /// so <c>WithIngestImage</c>/<c>WithApiImage</c>/<c>WithDashboardImage</c> can keep reusing it
+    /// when a consumer overrides just the image name/registry, not the tag - the same "override the
+    /// name, keep the shared tag" split <c>AddFlare</c>'s own <c>ingestImage</c>/<c>apiImage</c>/
+    /// <c>dashboardImage</c> parameters used before this type became chain methods.
+    /// </summary>
+    internal void SetImageTag(string imageTag)
+    {
+        _imageTag = imageTag;
+    }
+
+    /// <summary>The shared image tag passed to <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/>.</summary>
+    internal string ImageTag => _imageTag
+        ?? throw new InvalidOperationException(
+            $"{nameof(ImageTag)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
 
     /// <summary>Endpoint reference for Flare.Ingest's OTLP gRPC endpoint (4317 by default).</summary>
     public EndpointReference OtlpGrpcEndpoint => _otlpGrpcEndpoint

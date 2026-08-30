@@ -4,8 +4,9 @@ var builder = DistributedApplication.CreateBuilder(args);
 // `dotnet run` inner loop, but makes `aspire publish`/`aspire do prepare-compose`/`aspire
 // deploy` produce a real docker-compose.yaml for this whole AppHost (Flare included). See
 // docs/aspire-hosting.md's "Publishing / deploying via aspire publish" section - this is
-// its worked example. AddFlare's publicApiUrl/publicDashboardUrl parameters below only
-// matter once actually deploying off this machine; leave them unset for `aspire run`.
+// its worked example. AddFlare's WithPublicApiUrl/WithPublicDashboardUrl chain methods
+// (not used below) only matter once actually deploying off this machine; leave them
+// uncalled for `aspire run`.
 builder.AddDockerComposeEnvironment("env");
 
 // enableResourceGraph defaults to false (see its doc comment on AddFlare) - left off here

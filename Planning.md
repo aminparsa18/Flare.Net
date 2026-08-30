@@ -567,6 +567,17 @@ actually worked out (see the three bullets below) — closing out the full origi
       authenticated Flare user - not a public/anonymous
       share token; known limitation, not a gap to close here.
 - [ ] Retention policies + cold storage to S3-compatible object store (**RustFS**)
+- [ ] **Kubernetes: first-class persistent-storage API on `AddFlare`.** Reviewer
+      follow-up (2026-08-30, same review as v21's console-warning fix above) -
+      agreed `AddFlare` shouldn't pick a storage class/capacity/access-mode/reclaim
+      policy on a consumer's behalf, but something like `WithPersistentStorage(...)`
+      binding `{name}-clickhouse-data`/`{name}-redis-data`/`{name}-identity-data` to
+      consumer-supplied `AddPersistentVolume` resources would still beat "wire it up
+      by hand." Blocked on bumping `Aspire.Hosting.Kubernetes` past the `13.4.6`
+      preview this package currently pins - `AddPersistentVolume`/
+      `WithPersistentVolume` don't exist in it at all (confirmed against its XML
+      docs). Needs its own live e2e pass once picked up, same as the rest of the
+      Kubernetes publish path.
 - [x] **Multi-node scaling.** Distinct from the RustFS item above (retention/cold
       storage vs. horizontal availability/throughput - conflating the two in an
       earlier discussion was a real imprecision worth not repeating). Designed and
@@ -3007,6 +3018,47 @@ Pods, 5 Services), all 5 `Selects` edges, and all 5 `Reference` edges. Also conf
 and resolves correctly - no bugs found in either. Bumped `Flare.Hosting.Aspire` 0.3.0 ->
 0.3.1 (patch - bug fixes, not new API surface). Full write-up in
 `docs/aspire-hosting.md`'s Kubernetes section.
+
+**Follow-up (2026-08-30), external review of this item:** two pieces of feedback acted
+on the same day, both scoped down from their maximal form after discussing tradeoffs:
+
+- **Ephemeral-storage discoverability.** The reviewer's main concern: registering
+  `AddKubernetesEnvironment` + `AddFlare` alone reasonably looks like "Flare is deployed,
+  my telemetry is durable" - false until persistent volumes are hand-wired (the
+  "ClickHouse/Redis/identity data does NOT survive a pod restart by default" bullet
+  above). Went with the docs/warning fix, not the full `WithPersistentStorage(...)` API
+  the review floated - the `Aspire.Hosting.Kubernetes` version this package pins
+  (`13.4.6-preview`) predates `AddPersistentVolume` entirely (confirmed against its XML
+  docs, zero matches), so a real first-class API needs a dependency bump plus its own
+  live e2e pass, deferred rather than done silently in this pass. Shipped instead:
+  `AddFlare` now prints an unconditional `⚠️` console warning during `aspire
+  publish`/`aspire deploy` against any registered Kubernetes environment (not gated on
+  `enableResourceGraph`), and the same warning is on `AddFlare`'s own XML doc comment so
+  it surfaces in IntelliSense, not only in this file.
+- **`AddFlare`'s API shape.** Separate feedback (not about persistence): the 14-parameter
+  `AddFlare(...)` signature didn't match Aspire's own chained-method convention (compare
+  `AddRedis(...).WithPersistence(...)`). Replaced outright (not a deprecated-overload
+  shim - this package has no known external consumers yet) - `AddFlare` now only takes
+  `name`/`imageTag`/`enableResourceGraph` (kept as constructor args since
+  `enableResourceGraph` decides whether whole extra resources get created, not just a
+  value tweak), and the other ten parameters became `With*` chain methods
+  (`WithIngestGrpcPort`/`WithIngestHttpPort`/`WithApiPort`/`WithDashboardPort`/
+  `WithIngestImage`/`WithApiImage`/`WithDashboardImage`/`WithApiKey`/`WithPublicApiUrl`/
+  `WithPublicDashboardUrl`) on the returned `FlareResource` builder. Implemented by
+  reconfiguring the already-created ingest/api/dashboard sub-resources after the fact -
+  ports via `WithEndpoint(name, callback, createIfNotExists: false)` against the named
+  endpoints `AddFlare` already declares, images via `WithImage`/`WithImagePullPolicy`,
+  env vars via a second, later `WithEnvironment` call for the same key (the standard
+  "last registered callback wins" Aspire behavior) - all confirmed against
+  `Aspire.Hosting`'s own XML docs before committing to the design, though this specific
+  redesign is build-verified only, not live e2e'd against a cluster (no behavior change
+  to what gets deployed, just how it's configured). `FlareResource` gained
+  `IngestResourceName`/`ApiResourceName`/`ImageTag` internal storage (same pattern
+  `DashboardResourceName` already used for `WaitForFlare`) so the new chain methods can
+  reach back into sub-resources created inside `AddFlare`. `dotnet build` clean across
+  the whole solution (`Flare.slnx`) after the change, including `examples/`. Bumped
+  `Flare.Hosting.Aspire` 0.3.1 -> 0.3.2 - a patch bump despite being breaking API
+  surface, since there's no real-world consumer to signal the break to yet.
 
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 

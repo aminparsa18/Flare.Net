@@ -31,22 +31,18 @@ containers.
 
 ### Parameters
 
+`AddFlare` itself only takes the three things that decide *what gets built* (a new
+sidecar container or RBAC objects, in `enableResourceGraph`'s case); everything else is
+a `With*` chain method on the `FlareResource` builder it returns, the usual Aspire
+convention (compare `AddRedis(...).WithPersistence(...)`) instead of one long parameter
+list:
+
 ```csharp
 IResourceBuilder<FlareResource> AddFlare(
     this IDistributedApplicationBuilder builder,
     string name = "flare",
     string imageTag = "0.2.0",
-    int? ingestGrpcPort = null,
-    int? ingestHttpPort = null,
-    int? apiPort = null,
-    int? dashboardPort = null,
-    string? ingestImage = null,
-    string? apiImage = null,
-    string? dashboardImage = null,
-    IResourceBuilder<ParameterResource>? apiKey = null,
-    bool enableResourceGraph = false,
-    IResourceBuilder<ParameterResource>? publicApiUrl = null,
-    IResourceBuilder<ParameterResource>? publicDashboardUrl = null)
+    bool enableResourceGraph = false)
 ```
 
 - **`name`** — the Flare resource group's name in the Aspire dashboard.
@@ -58,31 +54,57 @@ IResourceBuilder<FlareResource> AddFlare(
   `Flare.Hosting.Aspire` release bumps it, not automatically. Pass `imageTag: "edge"`
   yourself to track Flare's unreleased `main` branch instead (what
   [`examples/`](../examples) does, since it runs against local, unreleased source).
-- **`ingestGrpcPort` / `ingestHttpPort`** — override the OTLP receiver's host ports.
-  Left unset, these default to the conventional `4317`/`4318`. They're always
-  unproxied, so external OTLP clients (your own app's logger) can point at them
-  directly — the same fixed-port story as `docker-compose.yml`.
-- **`apiPort` / `dashboardPort`** — override the query API / dashboard host ports.
-  Normal proxied Aspire HTTP endpoints, left unset if you don't care what port you get.
-- **`ingestImage` / `apiImage` / `dashboardImage`** — override an image name/registry
-  (not tag — `imageTag` still supplies that) for local-dev use against images built
-  with `docker compose build` instead of Docker Hub.
-- **`apiKey`** — optional `secret: true` `AddParameter` result requiring OTLP callers
-  to present an ingest API key. Left unset (the default), ingest stays anonymous.
-  There's no automatic flow-through to consumers: a project calling
-  `AddFlareOtlpExporter` still needs the same raw value passed to its own
-  `configureSettings: s => s.ApiKey = ...` delegate, or its OTLP calls get rejected
-  once this is set.
+  `WithIngestImage`/`WithApiImage`/`WithDashboardImage` below reuse this same tag when
+  overriding just an image name/registry — there's no separate per-image tag override.
 - **`enableResourceGraph`** — turns on the dashboard's Resources page for this Flare
   instance. Off by default — see
   [Resources page (optional Docker access)](#resources-page-optional-docker-access)
-  below.
-- **`publicApiUrl` / `publicDashboardUrl`** — override the `localhost`-pinned
-  browser-facing URLs (`PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0`). Left
-  unset (the default), `aspire run` behavior is unchanged. Only needed once actually
-  publishing/deploying — see
+  below. Kept as a constructor argument rather than a chain method (unlike everything
+  below) because it decides whether whole extra resources exist at all — an RBAC
+  `ServiceAccount`/`Role`/`RoleBinding` on Kubernetes, or an entire docker-socket-proxy
+  sidecar container on Docker — which is more invasive to do after the fact than
+  reconfiguring a port or image on an already-created resource.
+
+Chain the rest off the returned builder, in any order:
+
+```csharp
+var flare = builder.AddFlare("flare", enableResourceGraph: true)
+    .WithIngestGrpcPort(4327)
+    .WithApiKey(apiKeyParam)
+    .WithPublicApiUrl(publicApiUrlParam)
+    .WithPublicDashboardUrl(publicDashboardUrlParam);
+```
+
+- **`WithIngestGrpcPort(int)` / `WithIngestHttpPort(int)`** — override the OTLP
+  receiver's host ports. Left uncalled, these default to the conventional `4317`/`4318`.
+  They're always unproxied, so external OTLP clients (your own app's logger) can point
+  at them directly — the same fixed-port story as `docker-compose.yml`.
+- **`WithApiPort(int)` / `WithDashboardPort(int)`** — override the query API / dashboard
+  host ports. Normal proxied Aspire HTTP endpoints, left uncalled if you don't care what
+  port you get.
+- **`WithIngestImage(string)` / `WithApiImage(string)` / `WithDashboardImage(string)`** —
+  override an image name/registry (not tag — `imageTag` above still supplies that) for
+  local-dev use against images built with `docker compose build` instead of Docker Hub.
+- **`WithApiKey(IResourceBuilder<ParameterResource>)`** — pass a `secret: true`
+  `AddParameter` result to require OTLP callers to present an ingest API key. Left
+  uncalled (the default), ingest stays anonymous. There's no automatic flow-through to
+  consumers: a project calling `AddFlareOtlpExporter` still needs the same raw value
+  passed to its own `configureSettings: s => s.ApiKey = ...` delegate, or its OTLP calls
+  get rejected once this is set.
+- **`WithPublicApiUrl(IResourceBuilder<ParameterResource>)` /
+  `WithPublicDashboardUrl(IResourceBuilder<ParameterResource>)`** — override the
+  `localhost`-pinned browser-facing URLs (`PUBLIC_API_URL`/`ORIGIN`/
+  `Cors__AllowedOrigins__0`). Left uncalled (the default), `aspire run` behavior is
+  unchanged. Only needed once actually publishing/deploying — see
   [Publishing / deploying via `aspire publish`](#publishing--deploying-via-aspire-publish)
   below.
+
+> **Breaking change in `0.3.2`:** before this version, all of the above were parameters
+> on `AddFlare` itself (`AddFlare(..., ingestGrpcPort: ..., apiKey: ..., ...)`). That
+> long parameter list didn't match Aspire's own chained-method convention, so it was
+> replaced outright rather than kept as a deprecated overload — update any
+> `AddFlare(..., someParam: ...)` call beyond `name`/`imageTag`/`enableResourceGraph` to
+> the matching `With*` method above.
 
 ## 2. Point your logger at it
 
@@ -353,6 +375,25 @@ Things to know before deploying to Kubernetes:
   before deploying for real — silently losing all logs and the identity/auth
   database on the next pod reschedule is the actual failure mode, not an
   error.
+
+  Note that `AddPersistentVolume`/`WithPersistentVolume` themselves aren't
+  usable through `Flare.Hosting.Aspire`'s own APIs today — the
+  `Aspire.Hosting.Kubernetes` version this package pins
+  (`13.4.6-preview.1.26319.6`, see `Directory.Packages.props`) predates that
+  API entirely (`AddPersistentVolume` first ships in a later preview). A
+  consumer app can still call it directly in their *own* AppHost code — NuGet
+  resolves the whole app to whatever newer `Aspire.Hosting.Kubernetes`
+  version they themselves reference, independent of the version
+  `Flare.Hosting.Aspire` pins internally for its own `PublishAsKubernetesService`
+  calls — but wiring it through `AddFlare` as a first-class parameter (e.g. a
+  hypothetical `WithPersistentStorage(...)`) is intentionally deferred
+  pending that version bump; see Planning.md's Kubernetes resource-topology
+  follow-ups. Because this package can't yet detect whether a consumer has
+  already done this binding, `AddFlare` prints an unconditional `⚠️` console
+  warning during `aspire publish`/`aspire deploy` against any registered
+  Kubernetes environment (not gated on `enableResourceGraph`), and the same
+  warning is now on `AddFlare`'s own XML doc comment so it surfaces in
+  IntelliSense, not just here.
 - **`publicApiUrl`/`publicDashboardUrl` are just as required as they are for
   Docker Compose** (see above) — left unset, the dashboard's
   `PUBLIC_API_URL`/`ORIGIN`/`api`'s `Cors__AllowedOrigins__0` resolve to
