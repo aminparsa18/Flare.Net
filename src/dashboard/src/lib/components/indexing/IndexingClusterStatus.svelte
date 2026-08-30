@@ -5,9 +5,11 @@
 	// card - this is opt-in infrastructure (docker-compose.cluster.yml only), most
 	// deployments should never see an inert "Cluster" section on their Indexing page.
 	//
-	// Node health here is per-node errors_count from system.clusters (see
-	// ClusterQueryService's remarks on what that does and doesn't mean) - not Keeper quorum
-	// health or replication lag, both named as deliberately out of scope for this first cut.
+	// "Status" is per-node errors_count from system.clusters - reachability, not replication
+	// currency (see ClusterQueryService's remarks). "Replication" is the currency signal:
+	// queue size + lag seconds from system.replicas, shown as "—" rather than a false "in
+	// sync" when replicationInfoAvailable is false. Keeper quorum health is still
+	// deliberately out of scope for this cut.
 	import * as Card from '$lib/components/ui/card';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
@@ -59,6 +61,7 @@
 								<Table.Head>Host</Table.Head>
 								<Table.Head>Replica</Table.Head>
 								<Table.Head>Status</Table.Head>
+								<Table.Head>Replication</Table.Head>
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
@@ -83,6 +86,25 @@
 											{:else}
 												<Badge variant="warning" title="{node.errorsCount} connection error(s) recorded by the node that answered this request">
 													<TriangleAlertIcon data-icon="inline-start" />{node.errorsCount} error{node.errorsCount === 1 ? '' : 's'}
+												</Badge>
+											{/if}
+										</Table.Cell>
+										<Table.Cell>
+											{#if !status.replicationInfoAvailable}
+												<span
+													class="text-muted-foreground text-xs"
+													title="system.replicas wasn't queryable just now - try refreshing"
+												>
+													—
+												</span>
+											{:else if node.replicationQueueSize === 0 && node.replicationLagSeconds === 0}
+												<Badge variant="secondary"><CircleCheckIcon data-icon="inline-start" />In sync</Badge>
+											{:else}
+												<Badge
+													variant="warning"
+													title="Furthest-behind replicated table on this node: {node.replicationQueueSize} queued entr{node.replicationQueueSize === 1 ? 'y' : 'ies'}, {node.replicationLagSeconds}s behind"
+												>
+													<TriangleAlertIcon data-icon="inline-start" />Queue {node.replicationQueueSize} · {node.replicationLagSeconds}s
 												</Badge>
 											{/if}
 										</Table.Cell>

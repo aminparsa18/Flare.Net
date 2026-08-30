@@ -691,6 +691,53 @@ actually worked out (see the three bullets below) — closing out the full origi
         status" section). After the fix: all 4 nodes (2 shards x 2 replicas, all
         `errorsCount: 0`) showed up correctly via `curl` and on the actual Indexing
         page's new "Cluster" panel.
+      - **Follow-up (2026-08-30), shipped: replication lag/queue on the cluster
+        panel.** Named as a real gap by review of the panel above:
+        `errors_count == 0` is reachability, not replication currency - a node can
+        show "Healthy" while being arbitrarily behind on its replication queue, with
+        no partial-result signal to notice it by. `ClusterQueryService` now also
+        queries `system.replicas` via
+        `clusterAllReplicas('flare_cluster', system.replicas)` grouped by
+        `hostName()`, joined in C# against the topology query's `host_name`,
+        collapsing each node's replicated tables to
+        `max(absolute_delay)`/`sum(queue_size)`. New
+        `ClusterStatusResponse.ReplicationInfoAvailable` flag so a failed
+        `system.replicas` read renders as "—" on the dashboard rather than a false
+        "in sync" `0`. `IndexingClusterStatus.svelte` gets a new "Replication"
+        column: "In sync" badge, "Queue N · Ns" warning badge, or "—".
+
+        Live-verified (2026-08-30) against a real `docker-compose.cluster.yml`
+        stack from fresh volumes, not just built/type-checked - and it caught two
+        real bugs the same way earlier cluster work in this item did:
+
+        1. `absolute_delay` is `UInt64` in `system.replicas` on this ClickHouse
+           version, not `UInt32` as first written - threw `InvalidCastException` on
+           every row, silently degrading `ReplicationInfoAvailable` to `false`
+           cluster-wide. Fixed by reading it as `ulong` like `queue_size`'s own
+           `sum()`.
+        2. The `hostName()`-to-`system.clusters.host_name` join assumed Docker
+           Compose gives each service a hostname equal to its own service name -
+           false by default (a container's hostname defaults to a random container
+           ID unless set explicitly), so the join silently matched nothing and
+           every node showed "—". `macros-N.xml`'s `{replica}` macro is a hand-set
+           literal, not derived from the container's real hostname, so its comment
+           didn't actually guarantee this the way it first appeared to. Fixed with
+           an explicit `hostname: clickhouse-N` on each of the 4 services in
+           `docker-compose.cluster.yml`.
+
+        After both fixes: `GET /api/indexing/cluster` returned
+        `replicationInfoAvailable: true` with all 4 nodes correctly joined. Then
+        exercised the actual failure/recovery loop, not just the idle case: stopped
+        `clickhouse-2`, inserted several million rows into `clickhouse-1` directly,
+        restarted `clickhouse-2`, and polled the live endpoint through its
+        catch-up window - correctly showed `replicationInfoAvailable: false` while
+        the node was down/starting (never a false "in sync" `0`), then real non-zero
+        `replicationQueueSize`/`replicationLagSeconds` mid-catch-up, settling back to
+        `0`/`0` once caught up with `logs_local` row counts matching exactly across
+        both replicas (7,050,000 on each). Dashboard's new "Replication" column
+        visually confirmed rendering correctly on the actual Indexing page.
+        Keeper quorum health and `system.replication_queue`'s own per-entry detail
+        remain deliberately out of scope.
 - [x] **Benchmark: ingest throughput + query latency proof points.** Shipped
       2026-08-22 - a proof point for the "Flare inherits HA/scale from ClickHouse +
       Redis Streams for free" claim discussed elsewhere, measured rather than just

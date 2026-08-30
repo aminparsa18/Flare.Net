@@ -74,11 +74,17 @@ export interface ClusterNodeInfo {
 	isLocal: boolean;
 	errorsCount: number;
 	estimatedRecoveryTimeSeconds: number;
+	// Both 0 when the parent response's replicationInfoAvailable is false - that's a
+	// "couldn't read it," not a real "caught up" reading, so check the flag first rather
+	// than trusting a bare 0 here.
+	replicationQueueSize: number;
+	replicationLagSeconds: number;
 }
 
 export interface ClusterStatusResponse {
 	clusterModeEnabled: boolean;
 	sharedPatternStoreEnabled: boolean;
+	replicationInfoAvailable: boolean;
 	nodes: ClusterNodeInfo[];
 }
 
