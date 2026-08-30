@@ -5,21 +5,23 @@
 > **not** a Diátaxis document (not a tutorial/how-to/reference/explanation) —
 > don't link it from `docs/README.md`'s index.
 >
-> Migration status: **Phase 8 done.** See `docs-internal/README.md` for
+> Migration status: **Phase 9 done.** See `docs-internal/README.md` for
 > the governance rules this plan established, `docs-internal/adr/` for the
-> ADRs extracted so far (11, as of Phase 8), and `docs/{tutorials,how-to,
-> reference,explanation}/README.md` for the scaffolded structure from
-> Phase 2. Phase 3 migrated `docs/clustering.md`; Phase 4 migrated
-> `docs/cli.md` (and seeded `docs/explanation/architecture.md`); Phase 5
-> migrated `docs/auth.md`; Phase 6 migrated `docs/standalone.md`,
+> 11 ADRs extracted so far, and `docs/{tutorials,how-to,reference,
+> explanation}/README.md` for the scaffolded structure from Phase 2.
+> Phase 3 migrated `docs/clustering.md`; Phase 4 migrated `docs/cli.md`
+> (and seeded `docs/explanation/architecture.md`); Phase 5 migrated
+> `docs/auth.md`; Phase 6 migrated `docs/standalone.md`,
 > `docs/aspire-hosting.md`, and `docs/getting-started.md`; Phase 7 moved
 > `docs/benchmark.md` wholesale into `docs-internal/investigations/`;
 > Phase 8 extracted 5 more ADRs from Planning.md's v16 entry and
-> `db/clickhouse/README.md`'s "Design decisions" section (that section now
-> points to the ADRs instead of re-narrating them; the file itself stays
-> in place as schema reference). All seven migrated doc paths are redirect
-> stubs; `db/clickhouse/README.md` is trimmed in place, not stubbed.
-> Phases 9–11 below are not started yet.
+> `db/clickhouse/README.md`'s "Design decisions" section; Phase 9
+> extracted the last 2 investigations from Planning.md (CLI-verification
+> bugs, Logs `VirtualList` hardening) — **Planning.md itself remains
+> completely untouched through all 9 phases**, right up to Phase 10's
+> pruning. All seven migrated doc paths are redirect stubs;
+> `db/clickhouse/README.md` is trimmed in place, not stubbed. Phases
+> 10–11 below are not started yet.
 
 # Flare.Net Documentation Architecture & Migration Plan
 
@@ -109,12 +111,12 @@ The fix is architectural, not cosmetic: split **public docs** (Diátaxis: tutori
 │   │   ├── 0009-crud-tables-use-replacingmergetree-tombstones.md
 │   │   ├── 0010-logs-order-by-service-first.md
 │   │   └── 0011-spans-order-by-trace-id-first.md
-│   ├── investigations/
+│   ├── investigations/         # all 4 done as of Phase 9
 │   │   ├── clickhouse-cluster-operational-notes.md
 │   │   ├── aspire-kubernetes-publish-and-resource-graph.md
 │   │   ├── benchmark-ingest-and-query.md
-│   │   └── (later, Phase 9) 2026-08-22-cli-verification-bugs.md,
-│   │       2026-08-17-logs-virtuallist-hardening.md
+│   │   ├── cli-verification-bugs.md
+│   │   └── logs-virtuallist-hardening.md
 │   └── planning/
 │       └── (later) roadmap.md
 │
@@ -254,7 +256,7 @@ Enforcement: a PR template checkbox is enough at Flare's current size — no bot
 | 6 | Migrate `docs/standalone.md`, `docs/aspire-hosting.md`, `docs/getting-started.md` | **Done** |
 | 7 | Move `docs/benchmark.md` → `docs-internal/investigations/` | **Done** |
 | 8 | Extract remaining ADRs from Planning.md + `db/clickhouse/README.md` | **Done** |
-| 9 | Extract remaining investigations from Planning.md | Not started |
+| 9 | Extract remaining investigations from Planning.md | **Done** |
 | 10 | Prune Planning.md to `docs-internal/planning/roadmap.md` (this file moves there too) | Not started |
 | 11 | `CONTRIBUTING.md` + validation tooling | Not started |
 
