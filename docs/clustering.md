@@ -81,13 +81,24 @@ best-effort, not forced (`force_optimize_skip_unused_shards` stays unset) - if
 ClickHouse can't determine the shard, this just falls back to querying every shard like
 before, not an error.
 
-**This assumes every row in `spans_local` was actually routed by `cityHash64(TraceId)`** -
-true for anything inserted since that sharding key was set, but NOT true for any data a
-cluster already accumulated under the old `rand()` key before this change; skipping a
-shard for a trace with older, `rand()`-routed spans would silently omit them rather than
-error. Same "fresh volumes only, no live migration path" posture cluster mode already
-has (see "Not a live migration path" above) - not a new risk, just one now live in a
-query's behavior instead of only a schema definition.
+**This is a data-correctness hazard, not merely an operational footnote: changing the
+spans sharding key is incompatible with existing cluster data.** `optimize_skip_unused_shards`
+assumes every row in `spans_local` was actually routed by `cityHash64(TraceId)` - true for
+anything inserted since that sharding key was set, but NOT true for any data a cluster
+already accumulated under the old `rand()` key before this change. Skipping a shard for a
+trace with older, `rand()`-routed spans doesn't degrade gracefully into "I might have
+incomplete results" - it silently returns a complete-looking, wrong answer: the pruned
+shard is never queried at all, so there's no partial-result signal, no error, nothing to
+notice. Existing cluster volumes must be destroyed and recreated before enabling this
+optimization; don't enable `ClickHouse:ClusterMode`'s trace-by-id pruning against a cluster
+that has ever run under the old key. Same "fresh volumes only, no live migration path"
+posture cluster mode already has (see "Not a live migration path" above), but worth
+restating explicitly here because the failure mode is silent wrong data rather than a
+visible error.
+
+Not yet done: a schema/version marker the cluster deployment could check at startup so an
+incompatible cluster refuses to come up under the new pruning behavior instead of relying
+on this doc being read. Named here as a real follow-up, not solved.
 
 Confirmed live (2026-08-23) against a real 4-node cluster: inserted 90 spans across 30
 distinct trace IDs through the `spans` Distributed table and found zero cross-shard
@@ -323,19 +334,67 @@ shows:
   `IndexingQueryService`'s queries have - `system.clusters` is each node's own copy of
   `remote-servers.xml`, identical everywhere, so a single query against whichever node
   `clickhouse-lb` happens to route to already reflects the whole topology.
-- **Per-node health** - `errors_count` per row, badged healthy/error. This is the
+- **Per-node reachability** - `errors_count` per row, badged healthy/error. This is the
   *connecting* node's own view of that peer (ClickHouse tracks it per-connection, not as
-  a cluster-wide consensus) - good enough for "does this look healthy right now," not a
-  substitute for real monitoring.
+  a cluster-wide consensus) - good enough for "can I reach this node right now," but
+  deliberately not a replication-currency signal - see the next bullet for that.
+- **Per-node replication status** (added after a review of an earlier draft of this doc
+  flagged the exact gap: `errors_count == 0` says nothing about whether a reachable node
+  is actually caught up). A second query against `system.replicas` -
+  `clusterAllReplicas('flare_cluster', system.replicas)` grouped by `hostName()`, then
+  joined in `ClusterQueryService` against the topology query's `host_name` - gives
+  `max(absolute_delay)`/`sum(queue_size)` per node, collapsing however many replicated
+  tables live on that node to "the worst any single one of them is behind." Renders as an
+  "In sync" badge when both are zero, a "Queue N · Ns" warning badge otherwise, or a plain
+  "—" when the `system.replicas` read itself failed
+  (`ClusterStatusResponse.ReplicationInfoAvailable`) - the dashboard deliberately never
+  shows a bare `0` in that failure case, since that would read as "caught up" when it
+  actually means "unknown," the same silent-wrong-answer shape the "Design decision"
+  section above warns about for the sharding-key caveat.
+
+  The `hostName()`-to-`host_name` join needs each ClickHouse container's actual OS
+  hostname to equal its `docker-compose.cluster.yml` service name - **not** true by
+  Docker Compose's default (a container's hostname defaults to a random container ID
+  unless set explicitly; `db/clickhouse-cluster/config/macros-N.xml`'s own `{replica}`
+  macro is a hand-set literal, unrelated to the container's real hostname, so its comment
+  didn't actually guarantee this the way it first appeared to - confirmed live below).
+  Each `clickhouse-N` service now sets `hostname: clickhouse-N` explicitly in
+  `docker-compose.cluster.yml` so the join has something real to match against.
 - **Shared pattern store on/off** - `LogPattern:SharedStore`, mirrored onto `api`'s own
   config purely for display (`api` never does Drain matching itself) so the fix above is
   visible on the dashboard instead of only discoverable by reading this doc or
   `docker-compose.cluster.yml`.
 
-**Deliberately out of scope for this first cut**, named rather than silently skipped:
-Keeper quorum health (no notion of it in `system.clusters` at all - Keeper speaks its own
-four-letter-word protocol over a separate connection, not SQL) and replication
-queue/lag (`system.replication_queue`). Both are real follow-ups, not solved here.
+**Deliberately out of scope still**, named rather than silently skipped: Keeper quorum
+health (no notion of it in `system.clusters` at all - Keeper speaks its own
+four-letter-word protocol over a separate connection, not SQL) and `system.replication_queue`'s
+own per-entry detail (what specifically is stuck, e.g. a retrying merge) - the aggregate
+queue/lag counters above answer "is this node caught up," not "why isn't it." Both are
+real follow-ups, not solved here.
+
+Live-verified (2026-08-30) against a real `docker-compose.cluster.yml` stack from fresh
+volumes - and caught two real bugs doing it:
+
+1. `absolute_delay` is `UInt64` in `system.replicas` on this ClickHouse version, not
+   `UInt32` as first written - threw `InvalidCastException` on every row, degrading
+   `ReplicationInfoAvailable` to `false` cluster-wide (every node showing "—", not a
+   crash - the same "config-gated table might not cooperate" degrade-not-fail posture
+   `IndexingQueryService`'s own reads use). Fixed by reading it as `ulong`, matching
+   `queue_size`'s own `sum()`.
+2. The `hostName()`-to-`host_name` join initially matched nothing at all, for the reason
+   named above - `hostName()` returned each container's random default hostname (e.g.
+   `128827a5a23e`), not `clickhouse-1`/etc. Fixed by adding an explicit `hostname:` to
+   each of the 4 `clickhouse-N` services.
+
+After both fixes, exercised the actual failure/recovery path, not just the idle case:
+stopped `clickhouse-2`, inserted several million rows directly into `clickhouse-1`,
+restarted `clickhouse-2`, and polled `GET /api/indexing/cluster` through its catch-up
+window. Confirmed: `replicationInfoAvailable: false` while the node was down/starting
+(never a false "in sync" `0`), real non-zero `replicationQueueSize`/`replicationLagSeconds`
+mid-catch-up (e.g. queue 4, 7s lag on `clickhouse-2` moments after it rejoined), settling
+back to `0`/`0` once caught up, with `logs_local` row counts matching exactly across both
+replicas (7,050,000 rows on each). The dashboard's new "Replication" column was also
+visually confirmed rendering correctly on a live Indexing page.
 
 Live-verified (2026-08-23) against a real `docker-compose.cluster.yml` stack - and caught
 a real bug doing it: `estimated_recovery_time` is `UInt32` in `system.clusters`, not
@@ -376,11 +435,18 @@ docker exec <redis container> redis-cli -a flare --no-auth-warning \
   GET "flare:patterns:bucket:<key from above>"
 
 # Cluster-status panel's own endpoint - expect the same 4 rows as the system.clusters
-# query above, plus clusterModeEnabled/sharedPatternStoreEnabled both true:
+# query above, plus clusterModeEnabled/sharedPatternStoreEnabled/replicationInfoAvailable
+# all true, and each node's replicationQueueSize/replicationLagSeconds at or near 0 on an
+# idle cluster:
 curl -s http://localhost:8080/api/indexing/cluster | jq
+
+# Replication currency, straight from system.replicas, for comparison against the
+# endpoint's own replicationQueueSize/replicationLagSeconds per node:
+docker exec <clickhouse-1 container> clickhouse-client --user default --password flare \
+  --query "SELECT hostName(), database, table, queue_size, absolute_delay FROM system.replicas"
 ```
 
 Then open the dashboard's Logs page Patterns modal and confirm a single row/`PatternId`
 for that template, instead of two fragmented rows - and the Indexing page's new
 "Cluster" panel (see "Dashboard: cluster status on the Indexing page" above) showing all
-4 nodes healthy.
+4 nodes healthy and in sync.

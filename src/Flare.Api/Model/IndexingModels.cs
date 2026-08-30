@@ -90,13 +90,22 @@ public sealed record IndexingStatsResponse(
     QueryPerformanceInfo QueryPerformance);
 
 /// <summary>
-/// One row of <c>system.clusters</c> for the <c>flare_cluster</c> cluster - one ClickHouse
-/// node's place in the shard/replica topology. <see cref="ErrorsCount"/>/
+/// One row of <c>system.clusters</c> for the <c>flare_cluster</c> cluster, joined with that
+/// same node's own <c>system.replicas</c> state - one ClickHouse node's place in the
+/// shard/replica topology, plus whether it's actually caught up. <see cref="ErrorsCount"/>/
 /// <see cref="EstimatedRecoveryTimeSeconds"/> are the connecting node's own view of that
 /// peer (ClickHouse tracks these per-connection, not as a cluster-wide consensus) - good
-/// enough for "does this look healthy right now," not a substitute for each node's own
-/// monitoring. See <see cref="ClusterQueryService"/>'s remarks for what this deliberately
-/// doesn't cover (Keeper quorum health, replication queue/lag).
+/// enough for "can I reach this node right now," but deliberately NOT a signal about
+/// replication currency: a node can show zero errors while being arbitrarily far behind on
+/// applying its replication queue. <see cref="ReplicationQueueSize"/>/
+/// <see cref="ReplicationLagSeconds"/> are that missing signal - summed/maxed across this
+/// node's replicated tables (<c>queue_size</c>/<c>absolute_delay</c> from
+/// <c>system.replicas</c>) - and are the fields that actually answer "is this replica
+/// synchronized." Both are 0 when <see cref="ClusterStatusResponse.ReplicationInfoAvailable"/>
+/// is false; the dashboard must check that flag rather than trusting a bare 0 here, for the
+/// same reason <see cref="ClusterQueryService"/>'s remarks call out. See
+/// <see cref="ClusterQueryService"/>'s remarks for what this still doesn't cover (Keeper
+/// quorum health).
 /// </summary>
 public sealed record ClusterNodeInfo(
     int ShardNum,
@@ -105,16 +114,23 @@ public sealed record ClusterNodeInfo(
     int Port,
     bool IsLocal,
     long ErrorsCount,
-    long EstimatedRecoveryTimeSeconds);
+    long EstimatedRecoveryTimeSeconds,
+    long ReplicationQueueSize,
+    long ReplicationLagSeconds);
 
 /// <summary>
 /// <c>GET /api/indexing/cluster</c> response - backs the Indexing page's cluster-status
 /// panel (Planning.md's "Multi-node scaling" follow-up, docs/clustering.md). When
 /// <see cref="ClusterModeEnabled"/> is false (the default, single-node deployment),
 /// <see cref="Nodes"/> is always empty and no ClickHouse query even runs - see
-/// <see cref="ClusterQueryService"/>.
+/// <see cref="ClusterQueryService"/>. <see cref="ReplicationInfoAvailable"/> is false when
+/// the <c>system.replicas</c> read failed (degrades independently of the topology read -
+/// see <see cref="ClusterQueryService"/>) - every node's <see cref="ClusterNodeInfo.ReplicationQueueSize"/>/
+/// <see cref="ClusterNodeInfo.ReplicationLagSeconds"/> is then a placeholder 0, not a real
+/// "caught up" reading, and must be rendered as unknown rather than healthy.
 /// </summary>
 public sealed record ClusterStatusResponse(
     bool ClusterModeEnabled,
     bool SharedPatternStoreEnabled,
+    bool ReplicationInfoAvailable,
     IReadOnlyList<ClusterNodeInfo> Nodes);

@@ -73,6 +73,13 @@ services:
   # Keeper's own startup.
   clickhouse-1:
     image: clickhouse/clickhouse-server:latest
+    # Explicit hostname, not left to Docker Compose's default (a random container ID) -
+    # ClusterQueryService's replication-lag join relies on hostName() returning this exact
+    # string to match system.clusters.host_name (remote-servers.xml's <host>clickhouse-1</host>).
+    # Confirmed live (2026-08-30) that without this, hostName() returns the container ID
+    # instead, so the join always misses and the dashboard's "Replication" column would
+    # show every node as "—" (unavailable) rather than a real reading.
+    hostname: clickhouse-1
     labels:
       flare.resource: "true"
       flare.role: "clickhouse"
@@ -95,6 +102,8 @@ services:
 
   clickhouse-2:
     image: clickhouse/clickhouse-server:latest
+    # See clickhouse-1's own comment above.
+    hostname: clickhouse-2
     labels:
       flare.resource: "true"
       flare.role: "clickhouse"
@@ -117,6 +126,8 @@ services:
 
   clickhouse-3:
     image: clickhouse/clickhouse-server:latest
+    # See clickhouse-1's own comment above.
+    hostname: clickhouse-3
     labels:
       flare.resource: "true"
       flare.role: "clickhouse"
@@ -139,6 +150,8 @@ services:
 
   clickhouse-4:
     image: clickhouse/clickhouse-server:latest
+    # See clickhouse-1's own comment above.
+    hostname: clickhouse-4
     labels:
       flare.resource: "true"
       flare.role: "clickhouse"
