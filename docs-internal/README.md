@@ -13,10 +13,8 @@ docs-internal/
 └── planning/       forward-looking roadmap — no diary, no history
 ```
 
-See [`planning/DOCUMENTATION-MIGRATION-PLAN.md`](planning/DOCUMENTATION-MIGRATION-PLAN.md)
-for the full architecture rationale and the phased migration this tree is
-part of, and [`planning/roadmap.md`](planning/roadmap.md) for Flare's
-current forward-looking roadmap.
+See [`planning/roadmap.md`](planning/roadmap.md) for Flare's current
+forward-looking roadmap.
 
 ## Where does new information belong?
 
