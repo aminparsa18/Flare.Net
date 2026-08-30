@@ -1,9 +1,10 @@
 <script lang="ts">
 	// Resources page's first section - "is the machine this runs on okay?" answered before
-	// the reader ever gets to the Docker graph below. Independent of that graph's own
+	// the reader ever gets to the topology graph below. Independent of that graph's own
 	// enablement (see routes/resources/+page.svelte) - HostStatsState/HostStatsSnapshot are
-	// their own stream, so this renders (or shows its own unavailable state) regardless of
-	// whether DockerResources:ProxyUrl is configured.
+	// their own stream (reading Linux /proc directly, not Docker/Kubernetes-specific at
+	// all), so this renders (or shows its own unavailable state) regardless of whether
+	// DockerResources:ProxyUrl/KubernetesResources:Enabled is configured.
 	//
 	// CPU/Memory get a meter bar per the dataviz skill's "Meter" contract: the fill carries
 	// severity (accent -> warning -> danger) and the unfilled track is a lighter step of
@@ -50,7 +51,8 @@
 
 	// Set by +page.svelte before this component renders - see context.ts's own convention
 	// ("every descendant calls .get() instead of receiving it as a prop"). Only used here
-	// for the Docker row in the Host health section below - independent of everything else
+	// for the Docker/Kubernetes row in the Host health section below (whichever provider is
+	// actually configured - see host-health.ts's remarks) - independent of everything else
 	// on this panel, which stays HostStatsState-only.
 	const resources = resourcesContext.get();
 
@@ -115,7 +117,7 @@
 	<div class="border-b px-4 py-3">
 		<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
 			<div class="flex items-center gap-2">
-				<span class="text-sm font-medium">Docker host running Flare.Net</span>
+				<span class="text-sm font-medium">Host running Flare.Net</span>
 				<Badge variant="outline" class="gap-1.5">
 					<span class="size-1.5 rounded-full" style="background: {isHealthy ? 'var(--chart-3)' : 'var(--warning)'}"></span>
 					{isHealthy ? 'Healthy' : 'Needs attention'}

@@ -4,13 +4,15 @@
 // one-check-function-per-row structure this mirrors wholesale rather than inventing a new
 // pattern.
 //
-// Docker is deliberately one row, not two ("Connected" only - no separate "daemon
-// running" line): there's no signal in ResourceGraphSnapshot that distinguishes "socket-
-// proxy reachable" from "daemon behind it responding" - both depend on the same single
-// HTTP round trip DockerContainerPoller already makes. And that one row is omitted
-// entirely (not shown as failing) when DockerResources:ProxyUrl isn't configured - it's
-// opt-in and off by default, so a "not enabled" state isn't a health problem to flag,
-// same reasoning the graph's own empty state on this page already uses.
+// Docker/Kubernetes are each deliberately one row, not two (e.g. "Connected" only - no
+// separate "daemon running"/"API server reachable" line): there's no signal in
+// ResourceGraphSnapshot that distinguishes "transport reachable" from "the thing behind it
+// responding" - both depend on the same single round trip each provider's poller already
+// makes. Only one of the two rows is ever expected to actually appear at a time (see
+// ResourceGraphSnapshot.provider's remarks - only one provider is ever configured per
+// deploy), and each is omitted entirely (not shown as failing) when its provider isn't
+// configured - it's opt-in and off by default, so a "not enabled" state isn't a health
+// problem to flag, same reasoning the graph's own empty state on this page already uses.
 
 import { WARNING_THRESHOLD_PERCENT } from './thresholds';
 import { formatBytes } from '../ingestion/format';
@@ -54,18 +56,33 @@ function checkSwap(snapshot: HostStatsSnapshot): HostHealthCheck {
 	return { id: 'swap', tone: warning ? 'warning' : 'good', title: 'Swap', detail: warning ? formatBytes(snapshot.swapUsedBytes) : 'Normal' };
 }
 
-function checkDocker(dockerSnapshot: ResourceGraphSnapshot | null): HostHealthCheck | null {
-	if (!dockerSnapshot?.available) {
-		return null; // not configured - see the file header remarks.
+function checkDocker(resourceSnapshot: ResourceGraphSnapshot | null): HostHealthCheck | null {
+	if (!resourceSnapshot?.available || resourceSnapshot.provider !== 'Docker') {
+		return null; // not configured, or the live provider is Kubernetes instead - see the file header remarks.
 	}
-	if (dockerSnapshot.unavailableReason) {
-		return { id: 'docker', tone: 'warning', title: 'Docker', detail: dockerSnapshot.unavailableReason };
+	if (resourceSnapshot.unavailableReason) {
+		return { id: 'docker', tone: 'warning', title: 'Docker', detail: resourceSnapshot.unavailableReason };
 	}
 	return { id: 'docker', tone: 'good', title: 'Docker', detail: 'Connected' };
 }
 
-export function computeHostHealth(snapshot: HostStatsSnapshot, dockerSnapshot: ResourceGraphSnapshot | null): HostHealthCheck[] {
-	return [checkCpu(snapshot), checkMemory(snapshot), checkDisk(snapshot), checkSwap(snapshot), checkDocker(dockerSnapshot)].filter(
-		(check): check is HostHealthCheck => check !== null
-	);
+function checkKubernetes(resourceSnapshot: ResourceGraphSnapshot | null): HostHealthCheck | null {
+	if (!resourceSnapshot?.available || resourceSnapshot.provider !== 'Kubernetes') {
+		return null; // not configured, or the live provider is Docker instead - see the file header remarks.
+	}
+	if (resourceSnapshot.unavailableReason) {
+		return { id: 'kubernetes', tone: 'warning', title: 'Kubernetes', detail: resourceSnapshot.unavailableReason };
+	}
+	return { id: 'kubernetes', tone: 'good', title: 'Kubernetes', detail: 'Connected' };
+}
+
+export function computeHostHealth(snapshot: HostStatsSnapshot, resourceSnapshot: ResourceGraphSnapshot | null): HostHealthCheck[] {
+	return [
+		checkCpu(snapshot),
+		checkMemory(snapshot),
+		checkDisk(snapshot),
+		checkSwap(snapshot),
+		checkDocker(resourceSnapshot),
+		checkKubernetes(resourceSnapshot)
+	].filter((check): check is HostHealthCheck => check !== null);
 }

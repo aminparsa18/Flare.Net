@@ -1,6 +1,5 @@
 using Flare.Api.DockerResources;
 using Flare.Api.Model;
-using Flare.Api.Query;
 using Xunit;
 
 namespace Flare.Api.Tests.DockerResources;
@@ -57,7 +56,10 @@ public class DockerContainerPollerTests
         Assert.Equal("xracer007/flare-ingest:edge", node.Image);
         Assert.Equal(ResourceState.Running, node.State);
         Assert.Null(node.Health);
+        Assert.Equal("Container", node.Kind);
+        Assert.Null(node.ParentId); // Docker's graph is flat - see ResourceNodeDto.ParentId's remarks.
         Assert.True(snapshot.Available);
+        Assert.Equal("Docker", snapshot.Provider);
         Assert.NotNull(snapshot.UpdatedAt);
     }
 
@@ -134,41 +136,4 @@ public class DockerContainerPollerTests
     [Fact]
     public void BuildUrls_ReturnsEmpty_WhenNoPortsPublished() =>
         Assert.Empty(DockerContainerPoller.BuildUrls(null));
-
-    [Fact]
-    public void BuildProducerOverlay_MapsEachActiveService_ToANamespacedNode_WithAnEdgeIntoIngest()
-    {
-        var active = new[]
-        {
-            new ActiveService("log-generator", new DateTimeOffset(2026, 8, 14, 12, 0, 0, TimeSpan.Zero)),
-        };
-
-        var (producers, edges) = DockerContainerPoller.BuildProducerOverlay(active);
-
-        var producer = Assert.Single(producers);
-        Assert.Equal("service:log-generator", producer.Id);
-        Assert.Equal("log-generator", producer.ServiceName);
-        Assert.Equal(new DateTimeOffset(2026, 8, 14, 12, 0, 0, TimeSpan.Zero), producer.LastSeenAt);
-
-        var edge = Assert.Single(edges);
-        Assert.Equal("service:log-generator", edge.SourceRole);
-        Assert.Equal("ingest", edge.TargetRole);
-        Assert.Equal("Producer", edge.RelationshipType);
-    }
-
-    [Fact]
-    public void BuildProducerOverlay_NamespacesIds_SoAProducerCanNeverCollideWithADockerRole()
-    {
-        // A producer literally named "api" must not collide with the real Docker "api"
-        // node's id - see ProducerServiceDto.Id's remarks.
-        var active = new[] { new ActiveService("api", DateTimeOffset.UnixEpoch) };
-
-        var (producers, _) = DockerContainerPoller.BuildProducerOverlay(active);
-
-        Assert.Equal("service:api", Assert.Single(producers).Id);
-    }
-
-    [Fact]
-    public void BuildProducerOverlay_ReturnsEmpty_WhenNoActiveServices() =>
-        Assert.Empty(DockerContainerPoller.BuildProducerOverlay([]).Producers);
 }

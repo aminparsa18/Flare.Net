@@ -402,11 +402,14 @@ export function connectLiveTail(filter: LogFilter, handlers: LiveTailHandlers): 
 
 // ---- GET /api/resources/snapshot + GET /api/resources/watch (ResourceGraphDto.cs) ----
 //
-// Docker-driven Resources page - see docs/standalone.md#resources-page-optional-docker-access.
-// `available: false` means the feature isn't configured (no DockerResources:ProxyUrl on
-// Flare.Api's side), not "no AppHost" - a different, simpler story than LiveTail-adjacent
-// features get elsewhere in this file. `state`/`health` are PascalCase string enum values,
-// same UseStringEnumConverter asymmetry documented above for LogTailServerMessage.
+// Resources page - see docs/standalone.md#resources-page-optional-docker-access and
+// docs/aspire-hosting.md. `available: false` means neither topology provider is configured
+// (no DockerResources:ProxyUrl / KubernetesResources:Enabled on Flare.Api's side), not "no
+// AppHost" - a different, simpler story than LiveTail-adjacent features get elsewhere in
+// this file. Exactly one provider is ever expected to actually be configured per deploy -
+// see `provider` below - so there's no "pick a backend" UI on this page, just different
+// rendering of the one snapshot that comes back. `state`/`health` are PascalCase string enum
+// values, same UseStringEnumConverter asymmetry documented above for LogTailServerMessage.
 
 export type ResourceState = 'Unknown' | 'Running' | 'Exited' | 'Restarting' | 'Paused';
 export type ResourceHealth = 'Starting' | 'Healthy' | 'Unhealthy';
@@ -419,16 +422,20 @@ export interface ResourceNodeDto {
 	state: ResourceState;
 	health: ResourceHealth | null;
 	urls: string[];
+	/** `'Container'` for every Docker-provider node. The Kubernetes provider emits `'Namespace'`/`'Deployment'`/`'Pod'`/`'Service'` - not a closed union on the C# side either, so treat unrecognized values as the generic case rather than exhaustively switching. See `ResourceNodeDto.cs`'s remarks. */
+	kind: string;
+	/** This node's parent in the Kubernetes provider's hierarchy - `null` for every Docker node (flat graph) and for the Namespace root itself. See `ResourceNodeDto.cs`'s remarks. */
+	parentId: string | null;
 }
 
 export interface ResourceEdgeDto {
-	/** Despite the name, any graph node id - a Docker `flare.role` value (`ResourceNodeDto.role`) or a producer's `ProducerServiceDto.id`. See `ResourceEdgeDto.cs`'s remarks. */
+	/** Despite the name, any graph node id - a Docker `flare.role` value, a Kubernetes Pod's `role` (see `ResourceNodeDto.role`'s Kubernetes-provider remarks), or a producer's `ProducerServiceDto.id`. See `ResourceEdgeDto.cs`'s remarks. */
 	sourceRole: string;
 	targetRole: string;
 	relationshipType: string;
 }
 
-/** A service observed sending telemetry into `ingest` recently - sourced from ClickHouse, not Docker, so it can represent a producer with no Docker footprint at all (e.g. an `AddProject` resource under Aspire's dev-loop). See `ResourceGraphDto.cs`'s remarks. */
+/** A service observed sending telemetry into `ingest` recently - sourced from ClickHouse, not Docker/Kubernetes, so it can represent a producer with no footprint in either (e.g. an `AddProject` resource under Aspire's dev-loop). See `ResourceGraphDto.cs`'s remarks. */
 export interface ProducerServiceDto {
 	id: string;
 	serviceName: string;
@@ -442,6 +449,8 @@ export interface ResourceGraphSnapshot {
 	edges: ResourceEdgeDto[];
 	producers: ProducerServiceDto[];
 	updatedAt: string | null;
+	/** Which topology provider produced this snapshot, or `null` when neither is configured (same state as `available: false`) - see `ResourceGraphSnapshot.cs`'s remarks. */
+	provider: 'Docker' | 'Kubernetes' | null;
 }
 
 export async function fetchResourceSnapshot(signal?: AbortSignal): Promise<ResourceGraphSnapshot> {

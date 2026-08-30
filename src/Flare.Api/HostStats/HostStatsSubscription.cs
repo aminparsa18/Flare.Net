@@ -6,7 +6,7 @@ namespace Flare.Api.HostStats;
 /// <summary>
 /// One active <c>GET /api/resources/host/watch</c> WebSocket connection's state. Same
 /// "latest snapshot only, no backlog" shape as
-/// <c>DockerResources.DockerContainerSubscription</c> - see that type's remarks for why
+/// <c>ResourceGraph.ResourceGraphSubscription</c> - see that type's remarks for why
 /// capacity-1 + <see cref="BoundedChannelFullMode.DropOldest"/> is the right fit here too.
 /// </summary>
 public sealed class HostStatsSubscription

@@ -45,10 +45,21 @@
          at all, for any consumer using the default AppHost naming convention. Confirmed the
          fix live too: full stack (including ClickHouse/Redis StatefulSets) reached Running
          1/1 and `flare-api`'s /health returned 200 through a real Kubernetes Service on a
-         local k3s cluster. Another patch bump - a behavior fix, not new API surface. Tag on
-         release: aspire-hosting-flare-v{Version} (see
-         .github/workflows/nuget-publish.yml). -->
-    <Version>0.2.3</Version>
+         local k3s cluster. Another patch bump - a behavior fix, not new API surface.
+         Bumped 0.2.3 -> 0.3.0: enableResourceGraph now works on Kubernetes too, not just
+         Docker/Docker Compose - WithFlareResourceLabels stamps flare.role/flare.relationships
+         onto the generated Deployment's pod-template labels, and AddFlare attaches a
+         namespace-scoped, read-only RBAC ServiceAccount/Role/RoleBinding (pods/services
+         get/list/watch only) to api's Deployment so KubernetesResources.KubernetesResourcePoller
+         (Flare.Api) can build a hierarchical Namespace/Deployment/Pod/Service graph - see
+         docs/aspire-hosting.md's Kubernetes section. Pulls in a new Aspire.Hosting.Kubernetes
+         package reference (preview-only on nuget.org - no stable release exists for it at all,
+         confirmed live - pinned to the 13.4.6 preview train to match every other Aspire package
+         here). A minor bump, not a patch - real new API surface/behavior, not a bug fix. Code-
+         and unit-verified only as of this bump - not yet confirmed against a real cluster the
+         way 0.2.3's Kubernetes-publish fix was. Tag on release: aspire-hosting-flare-v{Version}
+         (see .github/workflows/nuget-publish.yml). -->
+    <Version>0.3.0</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>
     <PackageTags>aspire;aspire-hosting;flare;opentelemetry;otlp;logging;observability;clickhouse;redis</PackageTags>
@@ -79,6 +90,8 @@
     <PackageReference Include="Aspire.Hosting.Redis" />
     <!-- PublishAsDockerComposeService only - see Directory.Packages.props's pin comment. -->
     <PackageReference Include="Aspire.Hosting.Docker" />
+    <!-- PublishAsKubernetesService only - see Directory.Packages.props's pin comment. -->
+    <PackageReference Include="Aspire.Hosting.Kubernetes" />
   </ItemGroup>
 
   <ItemGroup>

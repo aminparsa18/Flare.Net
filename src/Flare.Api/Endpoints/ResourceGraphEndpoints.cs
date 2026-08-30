@@ -1,18 +1,22 @@
 using System.Net.WebSockets;
 using System.Text.Json;
-using Flare.Api.DockerResources;
 using Flare.Api.Json;
+using Flare.Api.ResourceGraph;
 
 namespace Flare.Api.Endpoints;
 
 /// <summary>
-/// The Docker-driven Resources page's endpoint pair: <c>GET /api/resources/snapshot</c>
-/// (REST, instant read of <see cref="DockerContainerPoller.CurrentSnapshot"/>) and
+/// The Resources page's endpoint pair: <c>GET /api/resources/snapshot</c> (REST, instant
+/// read of <see cref="ResourceGraphSourceRegistry.CurrentSnapshot"/>) and
 /// <c>GET /api/resources/watch</c> (WebSocket, pushes a fresh
-/// <see cref="Model.ResourceGraphSnapshot"/> every time the poller publishes one). Same
-/// REST-snapshot/WebSocket-stream pairing as <c>LogsEndpoints</c>/<c>LogTailEndpoints</c>,
-/// simplified: there's no client-sent control protocol to receive here (the graph isn't
-/// filtered), so the watch connection is push-only.
+/// <see cref="Model.ResourceGraphSnapshot"/> every time either topology provider
+/// - <c>DockerResources.DockerContainerPoller</c> or
+/// <c>KubernetesResources.KubernetesResourcePoller</c> - publishes one; see
+/// <see cref="ResourceGraphSourceRegistry"/> for how the two are reconciled into this one
+/// stream). Same REST-snapshot/WebSocket-stream pairing as
+/// <c>LogsEndpoints</c>/<c>LogTailEndpoints</c>, simplified: there's no client-sent control
+/// protocol to receive here (the graph isn't filtered), so the watch connection is
+/// push-only.
 /// </summary>
 public static class ResourceGraphEndpoints
 {
@@ -23,10 +27,10 @@ public static class ResourceGraphEndpoints
         return endpoints;
     }
 
-    private static IResult HandleSnapshot(DockerContainerPoller poller) =>
-        Results.Json(poller.CurrentSnapshot, ResourceGraphJsonContext.Default.ResourceGraphSnapshot);
+    private static IResult HandleSnapshot(ResourceGraphSourceRegistry registry) =>
+        Results.Json(registry.CurrentSnapshot, ResourceGraphJsonContext.Default.ResourceGraphSnapshot);
 
-    private static async Task HandleWatchAsync(HttpContext http, DockerContainerPoller poller)
+    private static async Task HandleWatchAsync(HttpContext http, ResourceGraphSourceRegistry registry)
     {
         if (!http.WebSockets.IsWebSocketRequest)
         {
@@ -35,7 +39,7 @@ public static class ResourceGraphEndpoints
         }
 
         using var socket = await http.WebSockets.AcceptWebSocketAsync();
-        var subscription = poller.Subscribe();
+        var subscription = registry.Subscribe();
 
         try
         {
@@ -52,7 +56,7 @@ public static class ResourceGraphEndpoints
         }
         finally
         {
-            poller.Unsubscribe(subscription);
+            registry.Unsubscribe(subscription);
             if (socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
             {
                 try
@@ -92,7 +96,7 @@ public static class ResourceGraphEndpoints
         }
     }
 
-    private static async Task SendSnapshotsAsync(WebSocket socket, DockerContainerSubscription subscription, CancellationToken cancellationToken)
+    private static async Task SendSnapshotsAsync(WebSocket socket, ResourceGraphSubscription subscription, CancellationToken cancellationToken)
     {
         try
         {

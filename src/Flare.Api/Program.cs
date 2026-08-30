@@ -4,9 +4,11 @@ using Flare.Api.Auth;
 using Flare.Api.DockerResources;
 using Flare.Api.Endpoints;
 using Flare.Api.HostStats;
+using Flare.Api.KubernetesResources;
 using Flare.Api.LiveTail;
 using Flare.Api.Pipeline;
 using Flare.Api.Query;
+using Flare.Api.ResourceGraph;
 using Flare.Identity;
 using Flare.Identity.Auth;
 using Flare.Identity.Users;
@@ -171,11 +173,15 @@ builder.Services.Configure<LiveTailOptions>(builder.Configuration.GetSection(Liv
 builder.Services.AddSingleton<LogTailBroadcaster>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailBroadcaster>());
 
-// Docker-driven Resources page (Planning.md's resource-graph item) - opt-in, "absent
-// config = off" like Auth__IngestKeyRequired above. DockerEngineClient's BaseAddress is
-// only set when DockerResources:ProxyUrl is actually configured; DockerContainerPoller
-// itself checks the same option and simply never polls when it's unset - see both types'
-// remarks.
+// Resources page topology providers (Planning.md's resource-graph item) - both opt-in,
+// "absent config = off" like Auth__IngestKeyRequired above, and both publish into the one
+// shared registry Endpoints.ResourceGraphEndpoints actually depends on - see
+// ResourceGraphSourceRegistry's remarks for why only one is ever expected live per deploy.
+builder.Services.AddSingleton<ResourceGraphSourceRegistry>();
+
+// Docker: DockerEngineClient's BaseAddress is only set when DockerResources:ProxyUrl is
+// actually configured; DockerContainerPoller itself checks the same option and simply
+// never polls when it's unset - see both types' remarks.
 builder.Services.Configure<DockerResourcesOptions>(builder.Configuration.GetSection(DockerResourcesOptions.SectionName));
 builder.Services.AddHttpClient<DockerEngineClient>((sp, client) =>
 {
@@ -187,6 +193,13 @@ builder.Services.AddHttpClient<DockerEngineClient>((sp, client) =>
 });
 builder.Services.AddSingleton<DockerContainerPoller>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DockerContainerPoller>());
+
+// Kubernetes: no typed HttpClient to register - KubernetesResourcePoller builds its own
+// IKubernetes client lazily, only once KubernetesResources:Enabled is confirmed true (see
+// its remarks for why InClusterConfig() can't be called unconditionally at startup).
+builder.Services.Configure<KubernetesResourcesOptions>(builder.Configuration.GetSection(KubernetesResourcesOptions.SectionName));
+builder.Services.AddSingleton<KubernetesResourcePoller>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<KubernetesResourcePoller>());
 
 // Resources page's Host overview panel - always-on (no ProxyUrl-shaped opt-in like
 // DockerResources above, since this reads Linux /proc directly, nothing external to point

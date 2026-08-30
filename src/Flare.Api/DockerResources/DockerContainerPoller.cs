@@ -1,19 +1,17 @@
-using System.Collections.Concurrent;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Flare.Api.ResourceGraph;
 using Microsoft.Extensions.Options;
 
 namespace Flare.Api.DockerResources;
 
 /// <summary>
-/// The single shared reader behind every <c>GET /api/resources/watch</c> connection and
-/// <c>GET /api/resources/snapshot</c> request: polls the configured socket-proxy for every
-/// Flare-labeled container, builds a <see cref="ResourceGraphSnapshot"/>, and fans it out
-/// to every subscriber - the same "one instance, two roles" pattern as
-/// <c>LiveTail.LogTailBroadcaster</c> (registered as both a singleton, so
-/// <c>Endpoints.ResourceGraphEndpoints</c> can call <see cref="Subscribe"/>/
-/// <see cref="Unsubscribe"/> and read <see cref="CurrentSnapshot"/>, and a hosted service,
-/// for <see cref="ExecuteAsync"/> - wired in <c>Program.cs</c>).
+/// Polls the configured socket-proxy for every Flare-labeled container, builds a
+/// <see cref="ResourceGraphSnapshot"/>, and publishes it into the shared
+/// <see cref="ResourceGraphSourceRegistry"/> (registered as a hosted service for
+/// <see cref="ExecuteAsync"/>, wired alongside <c>KubernetesResources.KubernetesResourcePoller</c>
+/// in <c>Program.cs</c> - <c>Endpoints.ResourceGraphEndpoints</c> talks to the registry, not
+/// this type directly; see <see cref="SourceName"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -22,21 +20,20 @@ namespace Flare.Api.DockerResources;
 /// containers polled every few seconds is cheap; decoding Docker's chunked <c>/events</c>
 /// JSON stream would be meaningfully more code for no real benefit at this scale. Each
 /// tick lists Flare-labeled container IDs, inspects each one (the list endpoint alone
-/// doesn't return structured <c>.State.Health</c>), and broadcasts the *whole* computed
+/// doesn't return structured <c>.State.Health</c>), and publishes the *whole* computed
 /// snapshot - not a diff - since the graph is small enough that "send everything, every
 /// tick" is simpler and cheap enough to just be correct.
 /// </para>
 /// <para>
 /// Each tick also layers on a second, independent data source: <see cref="ProducerServiceDto"/>
-/// nodes for every service that's actually sent telemetry into <c>ingest</c> recently
-/// (via <see cref="ILogQueryService.GetActiveServiceNamesAsync"/>, ClickHouse - not
-/// Docker), with an edge into the <c>"ingest"</c> role. This matters because a real
-/// producer isn't always a Docker container at all - e.g. a consumer's own
-/// <c>AddProject</c> resource under Aspire's dev-loop runs as a plain <c>dotnet</c>
-/// process, invisible to the Docker Engine API no matter how broadly Docker-label
-/// discovery is widened. The two sources are independently fallible: a ClickHouse
-/// failure here only drops the producer overlay for that tick (caught separately in
-/// <see cref="PollOnceAsync"/>), never the Docker-sourced nodes/edges.
+/// nodes for every service that's actually sent telemetry into <c>ingest</c> recently (via
+/// <see cref="ProducerOverlayBuilder"/>, ClickHouse - not Docker), with an edge into the
+/// <c>"ingest"</c> role. This matters because a real producer isn't always a Docker
+/// container at all - e.g. a consumer's own <c>AddProject</c> resource under Aspire's
+/// dev-loop runs as a plain <c>dotnet</c> process, invisible to the Docker Engine API no
+/// matter how broadly Docker-label discovery is widened. The two sources are independently
+/// fallible: a ClickHouse failure here only drops the producer overlay for that tick
+/// (caught separately in <see cref="PollOnceAsync"/>), never the Docker-sourced nodes/edges.
 /// </para>
 /// </remarks>
 public sealed class DockerContainerPoller(
@@ -44,8 +41,12 @@ public sealed class DockerContainerPoller(
     ILogQueryService logQueryService,
     IOptions<DockerResourcesOptions> options,
     TimeProvider timeProvider,
+    ResourceGraphSourceRegistry registry,
     ILogger<DockerContainerPoller> logger) : BackgroundService
 {
+    /// <summary>The name this provider publishes its snapshots under - see <see cref="ResourceGraphSourceRegistry"/>.</summary>
+    internal const string SourceName = "Docker";
+
     private static readonly ResourceGraphSnapshot NotEnabledSnapshot = new()
     {
         Available = false,
@@ -55,39 +56,17 @@ public sealed class DockerContainerPoller(
             "or docs/aspire-hosting.md.",
     };
 
-    private readonly ConcurrentDictionary<DockerContainerSubscription, byte> _subscriptions = new();
-    private ResourceGraphSnapshot _currentSnapshot = NotEnabledSnapshot;
-
-    /// <summary>The most recently published snapshot - what <c>GET /api/resources/snapshot</c> returns, with no live Docker call on the request path.</summary>
-    public ResourceGraphSnapshot CurrentSnapshot
-    {
-        get => Volatile.Read(ref _currentSnapshot);
-        private set => Volatile.Write(ref _currentSnapshot, value);
-    }
-
-    public DockerContainerSubscription Subscribe()
-    {
-        var subscription = new DockerContainerSubscription();
-        _subscriptions[subscription] = 0;
-        // Don't make a fresh connection wait up to a full PollDelay for its first snapshot.
-        subscription.Publish(CurrentSnapshot);
-        return subscription;
-    }
-
-    public void Unsubscribe(DockerContainerSubscription subscription)
-    {
-        _subscriptions.TryRemove(subscription, out _);
-        subscription.Complete();
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var opts = options.Value;
         if (string.IsNullOrWhiteSpace(opts.ProxyUrl))
         {
-            // Feature disabled - CurrentSnapshot stays NotEnabledSnapshot forever, and this
-            // background service has nothing else to do. Same "absent config = off" shape
-            // the rest of this repo uses (e.g. Auth__IngestKeyRequired).
+            // Feature disabled - publish the "off" snapshot once so the registry always has
+            // an entry for this provider from startup (see ResourceGraphSourceRegistry's
+            // remarks), then this background service has nothing else to do. Same
+            // "absent config = off" shape the rest of this repo uses (e.g.
+            // Auth__IngestKeyRequired).
+            registry.Publish(SourceName, NotEnabledSnapshot);
             return;
         }
 
@@ -132,12 +111,13 @@ public sealed class DockerContainerPoller(
             // overlay attempted below when the Docker side itself failed - there'd be no
             // "ingest" node for its edges to point at anyway.
             logger.LogWarning(ex, "Failed to poll Docker resources via the configured socket proxy.");
-            Publish(CurrentSnapshot with
+            registry.Publish(SourceName, new ResourceGraphSnapshot
             {
                 Available = true,
                 Nodes = [],
                 Edges = [],
                 Producers = [],
+                Provider = SourceName,
                 UnavailableReason = $"Could not reach the Docker socket proxy: {ex.Message}",
             });
             return;
@@ -146,7 +126,7 @@ public sealed class DockerContainerPoller(
         try
         {
             var active = await logQueryService.GetActiveServiceNamesAsync(options.Value.ProducerActivityWindow, cancellationToken);
-            var (producers, producerEdges) = BuildProducerOverlay(active);
+            var (producers, producerEdges) = ProducerOverlayBuilder.Build(active);
             snapshot = snapshot with { Producers = producers, Edges = [.. snapshot.Edges, .. producerEdges] };
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -157,16 +137,7 @@ public sealed class DockerContainerPoller(
             logger.LogWarning(ex, "Failed to query active producer services for the Resources page.");
         }
 
-        Publish(snapshot);
-    }
-
-    private void Publish(ResourceGraphSnapshot snapshot)
-    {
-        CurrentSnapshot = snapshot;
-        foreach (var subscription in _subscriptions.Keys)
-        {
-            subscription.Publish(snapshot);
-        }
+        registry.Publish(SourceName, snapshot);
     }
 
     /// <summary>
@@ -199,9 +170,10 @@ public sealed class DockerContainerPoller(
                 State = ParseState(container.State?.Status),
                 Health = ParseHealth(container.State?.Health?.Status),
                 Urls = BuildUrls(container.NetworkSettings?.Ports),
+                Kind = "Container",
             });
 
-            edges.AddRange(ParseRelationships(role, labels));
+            edges.AddRange(RelationshipLabelParser.Parse(role, labels));
         }
 
         return new ResourceGraphSnapshot
@@ -209,53 +181,9 @@ public sealed class DockerContainerPoller(
             Available = true,
             Nodes = nodes,
             Edges = edges,
+            Provider = "Docker",
             UpdatedAt = timeProvider.GetUtcNow(),
         };
-    }
-
-    /// <summary>
-    /// Maps active-service rows into <see cref="ProducerServiceDto"/> nodes plus one
-    /// <c>"Producer"</c>-typed edge per producer into the <c>"ingest"</c> role. Internal
-    /// (not private) for the same reason <see cref="BuildSnapshot"/> is - direct unit
-    /// testing without a fake <see cref="ILogQueryService"/>. Not filtered against
-    /// Flare's own Docker roles - see the class remarks and <c>ILogQueryService.GetActiveServiceNamesAsync</c>'s
-    /// doc comment for why a self-referential entry is possible in principle but not
-    /// expected in practice.
-    /// </summary>
-    internal static (IReadOnlyList<ProducerServiceDto> Producers, IReadOnlyList<ResourceEdgeDto> Edges) BuildProducerOverlay(
-        IReadOnlyList<ActiveService> activeServices)
-    {
-        var producers = new List<ProducerServiceDto>(activeServices.Count);
-        var edges = new List<ResourceEdgeDto>(activeServices.Count);
-
-        foreach (var service in activeServices)
-        {
-            var id = "service:" + service.ServiceName;
-            producers.Add(new ProducerServiceDto { Id = id, ServiceName = service.ServiceName, LastSeenAt = service.LastSeenAt });
-            edges.Add(new ResourceEdgeDto { SourceRole = id, TargetRole = "ingest", RelationshipType = "Producer" });
-        }
-
-        return (producers, edges);
-    }
-
-    /// <summary>Parses a <c>flare.relationships</c> label value (e.g. <c>"clickhouse:Reference,redis:Reference"</c>) into edges sourced from <paramref name="sourceRole"/>. Malformed entries are skipped individually, not fatal to the rest of the label.</summary>
-    private static IEnumerable<ResourceEdgeDto> ParseRelationships(string sourceRole, Dictionary<string, string> labels)
-    {
-        if (!labels.TryGetValue("flare.relationships", out var relationships) || string.IsNullOrWhiteSpace(relationships))
-        {
-            yield break;
-        }
-
-        foreach (var entry in relationships.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            var parts = entry.Split(':', 2);
-            if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || string.IsNullOrWhiteSpace(parts[1]))
-            {
-                continue;
-            }
-
-            yield return new ResourceEdgeDto { SourceRole = sourceRole, TargetRole = parts[0], RelationshipType = parts[1] };
-        }
     }
 
     internal static ResourceState ParseState(string? status) => status switch

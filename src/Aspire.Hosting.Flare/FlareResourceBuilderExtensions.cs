@@ -1,5 +1,7 @@
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Docker;
+using Aspire.Hosting.Kubernetes;
+using Aspire.Hosting.Kubernetes.Resources;
 
 // Put extensions in the Aspire.Hosting namespace to ease discovery - referencing the
 // Aspire.Hosting package automatically adds this namespace (same convention Aspire's own
@@ -92,21 +94,39 @@ public static class FlareResourceBuilderExtensions
     /// flow-through from this parameter yet, see <c>FlareSettings.ApiKey</c>'s remarks.
     /// </param>
     /// <param name="enableResourceGraph">
-    /// Turns on the dashboard's Docker-driven Resources page for this Flare instance.
-    /// Off by default - real, meaningful Docker access is involved (see below), and this
-    /// package follows the same "absent config = off" pattern as <paramref name="apiKey"/>
-    /// rather than defaulting it on. When <see langword="true"/>, this adds one more
-    /// sidecar container (<c>tecnativa/docker-socket-proxy</c>, scoped to read-only
-    /// container list/inspect - no exec, no start/stop, no image/volume/network
-    /// management) with <c>/var/run/docker.sock</c> bind-mounted read-only into it, and
-    /// points <c>api</c>'s <c>DockerResources__ProxyUrl</c> at it. Flare.Api itself never
-    /// touches the socket directly, only this proxy. Docker labels identifying/relating
-    /// this instance's containers (<c>flare.resource</c>/<c>flare.role</c>/
-    /// <c>flare.relationships</c>) are applied regardless of this flag - they're inert
-    /// metadata with no effect unless something is actually reading the Docker API, so
-    /// there's no reason to gate them separately. See
-    /// <c>docs/aspire-hosting.md</c>'s "Docker-driven Resources page" section for the full
-    /// security rationale (same one <c>docker-compose.yml</c>'s own opt-in documents).
+    /// Turns on the dashboard's Resources page (a live topology graph) for this Flare
+    /// instance. Off by default - real, meaningful cluster/Docker access is involved (see
+    /// below), and this package follows the same "absent config = off" pattern as
+    /// <paramref name="apiKey"/> rather than defaulting it on. Which of the two topology
+    /// providers this actually wires up is picked automatically from which compute
+    /// environment is registered - see the "Opt-in Resources page" block inside this
+    /// method for the exact branch - not a separate parameter, since a given AppHost only
+    /// ever targets one deployment environment at a time:
+    /// <list type="bullet">
+    /// <item>
+    /// <b>Docker</b> (the default for local <c>aspire run</c>, and for a Docker Compose
+    /// publish target): adds one more sidecar container
+    /// (<c>tecnativa/docker-socket-proxy</c>, scoped to read-only container list/inspect -
+    /// no exec, no start/stop, no image/volume/network management) with
+    /// <c>/var/run/docker.sock</c> bind-mounted read-only into it, and points <c>api</c>'s
+    /// <c>DockerResources__ProxyUrl</c> at it. Flare.Api itself never touches the socket
+    /// directly, only this proxy.
+    /// </item>
+    /// <item>
+    /// <b>Kubernetes</b> (when a <c>KubernetesEnvironmentResource</c> is registered): no
+    /// sidecar - instead attaches a namespace-scoped, read-only RBAC
+    /// <c>ServiceAccount</c>/<c>Role</c>/<c>RoleBinding</c> (<c>get</c>/<c>list</c>/<c>watch</c>
+    /// on <c>pods</c>/<c>services</c> only) to <c>api</c>'s own generated <c>Deployment</c>,
+    /// and points <c>api</c>'s <c>KubernetesResources__Enabled</c> at <c>true</c>.
+    /// </item>
+    /// </list>
+    /// Resource-graph identity labels (<c>flare.resource</c>/<c>flare.role</c>/
+    /// <c>flare.relationships</c> - Docker container labels, or Kubernetes pod-template
+    /// labels) are applied regardless of this flag - they're inert metadata with no effect
+    /// unless something is actually reading the Docker/Kubernetes API, so there's no
+    /// reason to gate them separately. See <c>docs/aspire-hosting.md</c>'s Resources-page
+    /// section for the full security rationale (same one <c>docker-compose.yml</c>'s own
+    /// Docker opt-in documents).
     /// </param>
     /// <param name="publicApiUrl">
     /// The externally-reachable URL browsers should use to reach <c>api</c>, surfaced to the
@@ -356,21 +376,114 @@ public static class FlareResourceBuilderExtensions
             api.WithEnvironment("Cors__AllowedOrigins__0", dashboard.GetEndpoint("http", KnownNetworkIdentifiers.LocalhostNetwork));
         }
 
-        // Opt-in Docker-driven Resources page (docs/aspire-hosting.md) - see
-        // enableResourceGraph's doc comment for the full rationale. Deliberately mirrors
-        // docker-compose.yml's own docker-proxy service: same image, same CONTAINERS=1-only
-        // scoping, same read-only socket bind mount, off unless explicitly requested.
+        // Opt-in Resources page (docs/aspire-hosting.md) - see enableResourceGraph's doc
+        // comment for the full rationale. Exactly one of the two topology providers gets wired
+        // per deploy, picked by which compute environment is actually present AND whether this
+        // is actually a publish/deploy pass: Kubernetes only when both
+        // builder.ExecutionContext.IsPublishMode is true (aspire publish/aspire deploy - never
+        // aspire run) AND a KubernetesEnvironmentResource is registered, Docker (the historical/
+        // local aspire-run behavior) otherwise. The IsPublishMode check matters on its own,
+        // separately from which environment is registered: a consumer's AppHost commonly
+        // registers AddKubernetesEnvironment once and keeps using `aspire run` day-to-day for
+        // the inner dev loop - `aspire run` always executes real Docker containers via DCP
+        // regardless of what deployment-target resources happen to be registered (same
+        // "environment resources don't affect aspire run" behavior WithFlareResourceLabels's
+        // PublishAsDockerComposeService/PublishAsKubernetesService calls already get for free,
+        // since those specific APIs are inherently publish-only - but AddContainer/WithEnvironment
+        // below are NOT, so this block needs the explicit check they don't). Without it, that
+        // ordinary "registered for later deploy, but running locally today" shape would wire
+        // KubernetesResources__Enabled onto a flare-api that's actually talking to real local
+        // Docker containers, breaking the Resources page for the entire duration of every
+        // `aspire run` session. Deliberately mutually exclusive, not "wire both" - the Docker
+        // branch's socket-proxy sidecar bind-mounts /var/run/docker.sock, which is meaningless
+        // (no such socket exists on a Kubernetes node the way it does on a Docker host) and a
+        // real privilege-escalation footgun to even attempt shipping into a cluster, so it must
+        // never be created when publishing/deploying to Kubernetes. Not yet confirmed live that
+        // `aspire deploy` also sets IsPublishMode (vs. some third operation state) - see the
+        // sibling not-yet-confirmed Kubernetes items on WithFlareResourceLabels.
         if (enableResourceGraph)
         {
-            var dockerProxy = builder.AddContainer($"{name}-docker-proxy", FlareContainerImageTags.DockerProxyImage)
-                .WithBindMount("/var/run/docker.sock", "/var/run/docker.sock", isReadOnly: true)
-                .WithEnvironment("CONTAINERS", "1")
-                .WithEnvironment("POST", "0")
-                .WithHttpEndpoint(targetPort: 2375)
-                .WithParentRelationship(flare)
-                .WithHidden();
+            var targetingKubernetes = builder.ExecutionContext.IsPublishMode
+                && builder.Resources.OfType<KubernetesEnvironmentResource>().Any();
 
-            api.WithEnvironment("DockerResources__ProxyUrl", dockerProxy.GetEndpoint("http"));
+            if (targetingKubernetes)
+            {
+                // Kubernetes: no sidecar container needed - KubernetesResources.KubernetesResourcePoller
+                // talks to the Kubernetes API server directly via api's own ServiceAccount,
+                // scoped by the namespace-only, read-only Role below (Planning.md's Kubernetes
+                // resource-topology item - "no live Deployment API read" scope trim means only
+                // pods/services need to be readable, not deployments/replicasets - see
+                // KubernetesResourcePoller's remarks).
+                api.WithEnvironment("KubernetesResources__Enabled", "true");
+                api.PublishAsKubernetesService(resource =>
+                {
+                    var serviceAccount = new ServiceAccountV1();
+                    serviceAccount.Metadata.Name = $"{name}-resource-graph";
+
+                    var role = new Role();
+                    role.Metadata.Name = $"{name}-resource-graph";
+                    role.Rules.Add(new PolicyRuleV1
+                    {
+                        ApiGroups = { "" }, // core API group.
+                        Resources = { "pods", "services" },
+                        Verbs = { "get", "list", "watch" },
+                    });
+
+                    var roleBinding = new RoleBinding();
+                    roleBinding.Metadata.Name = $"{name}-resource-graph";
+                    roleBinding.RoleRef = new RoleRefV1
+                    {
+                        ApiGroup = "rbac.authorization.k8s.io",
+                        Kind = "Role",
+                        Name = role.Metadata.Name,
+                    };
+                    roleBinding.Subjects.Add(new SubjectV1
+                    {
+                        Kind = "ServiceAccount",
+                        Name = serviceAccount.Metadata.Name,
+                        // A RoleBinding subject's namespace isn't optional for a ServiceAccount
+                        // kind (the RBAC authorizer matches on the full
+                        // system:serviceaccount:<namespace>:<name> identity) - this Helm
+                        // built-in resolves to whatever namespace `aspire deploy`/`helm
+                        // upgrade --install` actually targets, since the ServiceAccount/Role/
+                        // RoleBinding/Deployment below are all rendered into that same release's
+                        // chart. Not yet confirmed live that Aspire's per-object YAML templating
+                        // passes this string through unescaped - see WithFlareResourceLabels's
+                        // remarks for the sibling not-yet-confirmed Kubernetes item.
+                        Namespace = "{{ .Release.Namespace }}",
+                    });
+
+                    resource.AdditionalResources.Add(serviceAccount);
+                    resource.AdditionalResources.Add(role);
+                    resource.AdditionalResources.Add(roleBinding);
+
+                    // Second PublishAsKubernetesService call on this same `api` builder -
+                    // WithFlareResourceLabels("api", ...) above already made one, for the
+                    // flare.* pod-template labels. Expected (per Aspire's usual multi-annotation
+                    // composition - e.g. multiple WithEnvironment calls all apply) to compose
+                    // independently rather than the second overwriting the first; not yet
+                    // confirmed live.
+                    if (resource.Workload is Deployment deployment)
+                    {
+                        deployment.Spec.Template.Spec.ServiceAccountName = serviceAccount.Metadata.Name;
+                    }
+                });
+            }
+            else
+            {
+                // Docker (docs/aspire-hosting.md) - deliberately mirrors docker-compose.yml's
+                // own docker-proxy service: same image, same CONTAINERS=1-only scoping, same
+                // read-only socket bind mount, off unless explicitly requested.
+                var dockerProxy = builder.AddContainer($"{name}-docker-proxy", FlareContainerImageTags.DockerProxyImage)
+                    .WithBindMount("/var/run/docker.sock", "/var/run/docker.sock", isReadOnly: true)
+                    .WithEnvironment("CONTAINERS", "1")
+                    .WithEnvironment("POST", "0")
+                    .WithHttpEndpoint(targetPort: 2375)
+                    .WithParentRelationship(flare)
+                    .WithHidden();
+
+                api.WithEnvironment("DockerResources__ProxyUrl", dockerProxy.GetEndpoint("http"));
+            }
         }
 
         // Stash the dashboard's resource name so WaitForFlare can look it up later without the
@@ -451,36 +564,52 @@ public static class FlareResourceBuilderExtensions
     }
 
     /// <summary>
-    /// Applies this package's Docker-driven-Resources-page labels
+    /// Applies this package's resource-graph identity labels
     /// (<c>flare.resource</c>/<c>flare.role</c>/<c>flare.relationships</c>) to a
     /// container resource - the Aspire/DCP-side counterpart to
-    /// <c>docker-compose.yml</c>'s own <c>labels:</c> blocks, same label vocabulary. Applied two
-    /// ways since neither alone covers both run modes: <c>WithContainerRuntimeArgs</c> (raw
-    /// <c>docker run</c> arguments - there's no more-direct "add a Docker label" API in Aspire
-    /// 13.4) for local <c>aspire run</c>/DCP, and <c>PublishAsDockerComposeService</c> for
-    /// <c>aspire publish</c>'s generated Docker Compose output, which has no concept of
-    /// <c>docker run</c> arguments at all - a compose-published deployment without this second
-    /// call would silently ship with no labels and break the Resources page's topology graph.
+    /// <c>docker-compose.yml</c>'s own <c>labels:</c> blocks, same label vocabulary, now shared
+    /// by both topology providers (Planning.md's Kubernetes resource-topology item). Applied
+    /// up to three ways since no single one covers every run mode: <c>WithContainerRuntimeArgs</c>
+    /// (raw <c>docker run</c> arguments - there's no more-direct "add a Docker label" API in
+    /// Aspire 13.4) for local <c>aspire run</c>/DCP, <c>PublishAsDockerComposeService</c> for
+    /// <c>aspire publish</c>'s generated Docker Compose output, and <c>PublishAsKubernetesService</c>
+    /// for its generated Kubernetes output - each publish-time call has no concept of the
+    /// others' output at all, so skipping any one of them silently ships that target with no
+    /// labels and breaks the Resources page's topology graph on it.
     /// </summary>
     /// <remarks>
-    /// The <c>PublishAsDockerComposeService</c> call is conditional on a
-    /// <see cref="DockerComposeEnvironmentResource"/> actually being present in the model - NOT
-    /// unconditional the way <c>WithContainerRuntimeArgs</c> above is. Confirmed live
-    /// (2026-08-29, verifying Kubernetes publish support - see Planning.md's "Helm chart for
-    /// Kubernetes" item): calling <c>PublishAsDockerComposeService</c> at all, even on an
-    /// AppHost that never adds a Docker Compose environment, unconditionally registers Aspire's
-    /// own <c>validate-docker-compose</c> pipeline step - which then hard-fails <em>any</em>
+    /// The <c>PublishAsDockerComposeService</c>/<c>PublishAsKubernetesService</c> calls are each
+    /// conditional on the matching environment resource
+    /// (<see cref="DockerComposeEnvironmentResource"/>/<c>KubernetesEnvironmentResource</c>)
+    /// actually being present in the model - NOT unconditional the way
+    /// <c>WithContainerRuntimeArgs</c> above is. Confirmed live (2026-08-29, verifying
+    /// Kubernetes publish support - see Planning.md's "Helm chart for Kubernetes" item):
+    /// calling <c>PublishAsDockerComposeService</c> at all, even on an AppHost that never adds
+    /// a Docker Compose environment, unconditionally registers Aspire's own
+    /// <c>validate-docker-compose</c> pipeline step - which then hard-fails <em>any</em>
     /// <c>aspire publish</c>/<c>aspire deploy</c>, regardless of target (Kubernetes, Azure, AWS,
     /// ...), with "Resource '...' is configured to publish as a Docker Compose service, but
     /// there are no 'DockerComposeEnvironmentResource' resources." Before this guard, that
     /// meant <c>AddFlare</c> could only ever be published to Docker Compose - publishing to
-    /// anything else crashed outright, not just silently missing labels. Gating on an actual
-    /// <see cref="DockerComposeEnvironmentResource"/> being present requires the consumer to
-    /// call <c>AddDockerComposeEnvironment(...)</c> before <c>AddFlare(...)</c> (already the
-    /// documented/example order - see <c>docs/aspire-hosting.md</c> and
-    /// <c>examples/ExampleApp.AppHost/Program.cs</c>) - <c>builder.Resources</c> is checked
-    /// synchronously at the point each Flare sub-resource is built, so an environment added
-    /// after <c>AddFlare</c> returns would not be seen.
+    /// anything else crashed outright, not just silently missing labels. The Kubernetes branch
+    /// is gated the same way defensively, on the same reasoning, even though it hasn't been
+    /// confirmed to fail the identical way unguarded. Gating on the matching environment
+    /// resource being present requires the consumer to call
+    /// <c>AddDockerComposeEnvironment(...)</c>/<c>AddKubernetesEnvironment(...)</c> before
+    /// <c>AddFlare(...)</c> (already the documented/example order - see
+    /// <c>docs/aspire-hosting.md</c> and <c>examples/ExampleApp.AppHost/Program.cs</c>) -
+    /// <c>builder.Resources</c> is checked synchronously at the point each Flare sub-resource is
+    /// built, so an environment added after <c>AddFlare</c> returns would not be seen.
+    /// <para>
+    /// The Kubernetes branch stamps these labels onto the generated <c>Deployment</c>'s <em>pod
+    /// template</em> (<c>deployment.Spec.Template.Metadata.Labels</c>), not the Deployment
+    /// object's own metadata - these labels land on the real Pods that way, giving
+    /// <c>KubernetesResources.KubernetesResourcePoller</c> (which lists Pods, not Deployments -
+    /// see that type's remarks) the same stable <c>flare.role</c> identity anchor the Docker
+    /// provider already has via Flare.Api's own <c>ResourceNodeDto.Role</c> - not yet confirmed
+    /// against a live <c>aspire deploy</c> that Aspire's Kubernetes publisher doesn't overwrite
+    /// or merge these labels away before the chart is rendered.
+    /// </para>
     /// </remarks>
     /// <param name="builder">The container resource to label.</param>
     /// <param name="role">This container's stable <c>flare.role</c> value (e.g. <c>"ingest"</c>) - what Flare.Api's own <c>ResourceNodeDto.Role</c> reads back.</param>
@@ -506,6 +635,25 @@ public static class FlareResourceBuilderExtensions
                 if (relationships is not null)
                 {
                     service.Labels["flare.relationships"] = relationships;
+                }
+            });
+        }
+
+        if (builder.ApplicationBuilder.Resources.OfType<KubernetesEnvironmentResource>().Any())
+        {
+            builder.PublishAsKubernetesService(resource =>
+            {
+                if (resource.Workload is not Deployment deployment)
+                {
+                    return;
+                }
+
+                var labels = deployment.Spec.Template.Metadata.Labels;
+                labels["flare.resource"] = "true";
+                labels["flare.role"] = role;
+                if (relationships is not null)
+                {
+                    labels["flare.relationships"] = relationships;
                 }
             });
         }
