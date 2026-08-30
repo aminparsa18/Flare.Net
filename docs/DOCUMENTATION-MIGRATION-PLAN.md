@@ -5,13 +5,14 @@
 > **not** a Diátaxis document (not a tutorial/how-to/reference/explanation) —
 > don't link it from `docs/README.md`'s index.
 >
-> Migration status: **Phase 3 done.** See `docs-internal/README.md` for
+> Migration status: **Phase 4 done.** See `docs-internal/README.md` for
 > the governance rules this plan established, `docs-internal/adr/` for the
 > ADRs extracted so far, and `docs/{tutorials,how-to,reference,
 > explanation}/README.md` for the scaffolded structure from Phase 2.
-> Phase 3 migrated `docs/clustering.md` (the representative document) —
-> its old path is now a redirect stub. Phases 4–11 below are not started
-> yet.
+> Phase 3 migrated `docs/clustering.md`; Phase 4 migrated `docs/cli.md`
+> (and seeded `docs/explanation/architecture.md`, ahead of its originally
+> planned phase) — both old paths are now redirect stubs. Phases 5–11
+> below are not started yet.
 
 # Flare.Net Documentation Architecture & Migration Plan
 
@@ -233,7 +234,7 @@ Enforcement: a PR template checkbox is enough at Flare's current size — no bot
 | 1 | `docs-internal/` skeleton + governance doc + 2 ADRs (SvelteKit, Redis Streams) from Planning.md's Open Questions | **Done** |
 | 2 | `/diataxis scaffold` for `docs/{tutorials,how-to,reference,explanation}/` + index READMEs | **Done** |
 | 3 | Migrate `docs/clustering.md` (representative document, validates the whole taxonomy) | **Done** |
-| 4 | Migrate `docs/cli.md` | Not started |
+| 4 | Migrate `docs/cli.md` | **Done** |
 | 5 | Migrate `docs/auth.md` | Not started |
 | 6 | Migrate `docs/standalone.md`, `docs/aspire-hosting.md`, `docs/getting-started.md` | Not started |
 | 7 | Move `docs/benchmark.md` → `docs-internal/investigations/` | Not started |

@@ -5,7 +5,7 @@ AppHost. See [docs/aspire-hosting.md](aspire-hosting.md) instead if your app alr
 one; that's the easier path when it applies.
 
 Want a standing instance you start once and point many unrelated local projects'
-OTLP output at, instead of a repo-local checkout? [`flare`](cli.md), a global CLI
+OTLP output at, instead of a repo-local checkout? [`flare`](how-to/run-with-cli.md), a global CLI
 (`dotnet tool install --global Flare.Cli`), wraps this same stack as
 `flare start`/`stop`/`status`/`open`/... from anywhere, no `git clone` needed. Read on
 if you'd rather run the stack directly.

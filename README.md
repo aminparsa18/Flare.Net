@@ -63,7 +63,7 @@ What differs is how you run Flare itself. Pick one:
   dotnet tool install --global Flare.Cli
   flare start
   ```
-  A global CLI that manages the same Docker stack from anywhere, no repo checkout required. Details: [docs/cli.md](docs/cli.md).
+  A global CLI that manages the same Docker stack from anywhere, no repo checkout required. Details: [docs/how-to/run-with-cli.md](docs/how-to/run-with-cli.md).
 
 Whichever path you pick, the dashboard comes up at [http://localhost:7777](http://localhost:7777). Authentication is **off by default** — the Logs page is open the moment it's up. Turn sign-in on (local accounts, Microsoft Entra ID, Active Directory, OpenID Connect, or reverse-proxy trusted headers) from the `/auth` page whenever you're ready; see [docs/auth.md](docs/auth.md).
 
