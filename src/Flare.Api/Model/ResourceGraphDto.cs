@@ -35,17 +35,26 @@ public enum ResourceHealth
 /// identity (the same <c>flare.role</c> label value under both docker-compose and a
 /// consumer's <c>AddFlare()</c> AppHost, even though the actual container name/ID differs
 /// between the two - see <c>docs/prompts/docker-resources-graph-prompt.md</c>) and is what
-/// <see cref="ResourceEdgeDto"/> references, not <see cref="Id"/>.
+/// <see cref="ResourceEdgeDto"/> references, not <see cref="Id"/>. Also doubles as the
+/// node type for every Kubernetes-provider object (see <c>KubernetesResources.KubernetesResourcePoller</c>)
+/// - <see cref="Kind"/>/<see cref="ParentId"/> exist purely for that provider; Docker nodes
+/// always have <c>Kind: "Container"</c> and a <see langword="null"/> <see cref="ParentId"/>
+/// (Docker's graph is flat).
 /// </summary>
 public sealed record ResourceNodeDto
 {
-    /// <summary>Docker's own short container ID - stable for this container's lifetime, but changes across a recreate (e.g. <c>docker compose up --force-recreate</c>).</summary>
+    /// <summary>
+    /// Docker: the container's own short ID, stable for its lifetime but changing across a
+    /// recreate. Kubernetes: the object's stable name (Pod/Service name, or a synthetic id
+    /// for the Namespace root / synthesized Deployment-group nodes) - see
+    /// <c>KubernetesResources.KubernetesResourcePoller</c>'s remarks.
+    /// </summary>
     public required string Id { get; init; }
 
     /// <summary>This container's <c>flare.role</c> label value (e.g. <c>"clickhouse"</c>, <c>"ingest"</c>) - see the type doc comment.</summary>
     public required string Role { get; init; }
 
-    /// <summary>Docker's container name, with the leading <c>/</c> Docker's inspect API always prefixes it with stripped.</summary>
+    /// <summary>Docker's container name (the leading <c>/</c> Docker's inspect API always prefixes it with, stripped), or the Kubernetes object's own name.</summary>
     public required string Name { get; init; }
 
     public required string Image { get; init; }
@@ -61,6 +70,25 @@ public sealed record ResourceNodeDto
     /// container publishes no host ports (nothing external needs to reach it directly).
     /// </summary>
     public IReadOnlyList<string> Urls { get; init; } = [];
+
+    /// <summary>
+    /// <c>"Container"</c> for every Docker-provider node (the only kind that provider ever
+    /// emits). The Kubernetes provider emits <c>"Namespace"</c>/<c>"Deployment"</c>/
+    /// <c>"Pod"</c>/<c>"Service"</c> - not a closed enum for the same reason
+    /// <see cref="ResourceEdgeDto.RelationshipType"/> isn't, so a new kind never needs a
+    /// Flare.Api code change to show up on the wire.
+    /// </summary>
+    public required string Kind { get; init; }
+
+    /// <summary>
+    /// This node's parent in the Kubernetes provider's hierarchy (a Pod's parent is its
+    /// synthesized Deployment-group node, whose own parent is the Namespace root) -
+    /// <see langword="null"/> for the Namespace root itself and for every Docker node
+    /// (Docker's graph is flat; see the type doc comment). Purely a rendering hint - not
+    /// referenced by <see cref="ResourceEdgeDto"/>, which stays keyed by <see cref="Role"/>
+    /// even for Kubernetes nodes.
+    /// </summary>
+    public string? ParentId { get; init; }
 }
 
 /// <summary>
@@ -135,4 +163,16 @@ public sealed record ResourceGraphSnapshot
 
     /// <summary><see langword="null"/> until the first successful poll completes.</summary>
     public DateTimeOffset? UpdatedAt { get; init; }
+
+    /// <summary>
+    /// Which topology provider produced this snapshot - <c>"Docker"</c> or
+    /// <c>"Kubernetes"</c>, or <see langword="null"/> when neither is configured (same
+    /// state as <see cref="Available"/> being <see langword="false"/>). Only one provider
+    /// is ever configured per deploy in practice (an <c>AddFlare</c> AppHost registers
+    /// either a Docker Compose or a Kubernetes environment, not both), so this is mainly a
+    /// rendering hint for the dashboard to pick a flat vs. hierarchical layout - see
+    /// <c>ResourceGraph.ResourceGraphSourceRegistry</c> for how the two providers'
+    /// snapshots are reconciled into this single value.
+    /// </summary>
+    public string? Provider { get; init; }
 }

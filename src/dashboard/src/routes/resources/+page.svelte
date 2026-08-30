@@ -11,7 +11,7 @@
 	import NetworkIcon from '@lucide/svelte/icons/network';
 
 	const resources = resourcesContext.set(new ResourcesState());
-	/** Independent stream from `resources` above - see HostOverview.svelte's own remark on why it isn't gated by the Docker graph's enablement. */
+	/** Independent stream from `resources` above - see HostOverview.svelte's own remark on why it isn't gated by the topology graph's enablement. */
 	const hostStats = new HostStatsState();
 
 	/** Shown by default - see ResourceGraph.svelte's identical remark on its own prop of the same name. */
@@ -61,7 +61,7 @@
 					<EmptyTitle>Resources graph not enabled</EmptyTitle>
 					<EmptyDescription>
 						{resources.snapshot?.unavailableReason ??
-							'Waiting for Flare.Api - the Docker resource graph is off by default and needs an explicit opt-in.'}
+							'Waiting for Flare.Api - the resource graph is off by default and needs an explicit opt-in (enableResourceGraph).'}
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

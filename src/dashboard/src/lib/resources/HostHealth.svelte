@@ -15,8 +15,8 @@
 	const TONE_ICON = { good: CheckIcon, warning: TriangleAlertIcon } satisfies Record<HostHealthTone, typeof CheckIcon>;
 
 	// Same emerald/warning split IndexingStorageHealth.svelte's own TONE_TEXT_CLASS uses -
-	// no 'unavailable' tone here (see host-health.ts's remarks - the one check that could
-	// be unavailable, Docker, is omitted from the list entirely instead).
+	// no 'unavailable' tone here (see host-health.ts's remarks - the checks that could be
+	// unavailable, Docker/Kubernetes, are omitted from the list entirely instead).
 	const TONE_TEXT_CLASS = { good: 'text-emerald-600 dark:text-emerald-400', warning: 'text-warning' } satisfies Record<HostHealthTone, string>;
 </script>
 

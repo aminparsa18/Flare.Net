@@ -2868,6 +2868,103 @@ protocol through all of that is real, separate work, deferred rather than rushed
       surfaces this item added actually populate from real scrape traffic, not just
       compile. No bugs found.
 
+### v21 — Kubernetes resource-topology provider (2026-08-30)
+
+Not a prior "Later" item either — a direct response to user feedback on the Resources
+page's known Kubernetes gap (`docs/aspire-hosting.md` used to say the Docker-driven
+topology graph "is not supported on Kubernetes at all, and isn't planned for v1").
+Rather than trying to fake Docker-shaped data out of the Kubernetes API, this adds a
+second, independent topology **provider** speaking Kubernetes' own richer shape
+(Namespace → Deployment → Pod, plus Service) through the same `ResourceGraphSnapshot`
+wire format and the same `/api/resources/snapshot`/`/api/resources/watch` endpoints -
+the Resources page keeps exactly one entry point regardless of which provider a given
+`AddFlare` deploy actually wires up.
+
+Landed in four parts:
+
+- **Wire format** (`Flare.Api.Model.ResourceGraphDto`): `ResourceNodeDto` gained
+  `Kind`/`ParentId` (Docker nodes: `Kind: "Container"`, `ParentId: null` - the graph
+  stays flat), `ResourceGraphSnapshot` gained `Provider` (`"Docker"`/`"Kubernetes"`/
+  `null`). New `Flare.Api/ResourceGraph/` folder holds what both providers now share:
+  `ResourceGraphSubscription` (renamed from `DockerContainerSubscription`),
+  `ResourceGraphSourceRegistry` (the new single selector both pollers publish into -
+  `Endpoints.ResourceGraphEndpoints` depends on this now, not either poller directly),
+  `ProducerOverlayBuilder` and `RelationshipLabelParser` (both extracted out of
+  `DockerContainerPoller`, which had no Docker-specific reason to own them).
+- **`Aspire.Hosting.Flare`**: took a new `Aspire.Hosting.Kubernetes` package reference
+  (preview-only on nuget.org - confirmed live, this package has never had a *stable*
+  release across its whole version history, 9.2.0 through 13.5.3; pinned to the
+  `13.4.6` preview build to match every other Aspire package here) for
+  `PublishAsKubernetesService`, mirroring the existing `Aspire.Hosting.Docker`
+  dependency's exact reasoning. `WithFlareResourceLabels` now stamps
+  `flare.resource`/`flare.role`/`flare.relationships` onto the generated Deployment's
+  pod-template labels when a `KubernetesEnvironmentResource` is registered.
+  `enableResourceGraph: true` on a Kubernetes target attaches a namespace-scoped,
+  read-only RBAC `ServiceAccount`/`Role`/`RoleBinding` (`get`/`list`/`watch` on
+  `pods`/`services` only - all built-in `Aspire.Hosting.Kubernetes.Resources` types,
+  no custom CRD subclassing needed) to `api`'s Deployment instead of the Docker
+  socket-proxy sidecar, and sets `KubernetesResources__Enabled=true`.
+  **Found and fixed a real bug before it shipped**, surfaced while writing this
+  entry: the branch originally picked Kubernetes vs. Docker purely on whether a
+  `KubernetesEnvironmentResource` was *registered*, which also fires during plain
+  `aspire run` for the completely ordinary shape of "registered a Kubernetes
+  environment for later deploy, still running locally today" - `aspire run` always
+  executes real Docker containers via DCP regardless of what deployment-target
+  resources are registered, so that would have wired `KubernetesResources__Enabled`
+  onto an `api` actually talking to real local Docker containers, breaking the
+  Resources page for the entire duration of every such `aspire run` session. Fixed by
+  additionally gating on `builder.ExecutionContext.IsPublishMode` (not yet confirmed
+  live that `aspire deploy` sets this the same way `aspire publish` does, alongside
+  the RBAC `RoleBinding` subject's `{{ .Release.Namespace }}` Helm-templated string -
+  both flagged in `FlareResourceBuilderExtensions.cs`'s remarks for the live e2e pass
+  below to confirm).
+- **`Flare.Api`**: new `KubernetesResources/` folder (`KubernetesResourcesOptions`,
+  `KubernetesResourcePoller`) mirroring `DockerResources/`'s shape, using the official
+  `KubernetesClient` NuGet package (19.0.2, latest stable) rather than a hand-rolled
+  `HttpClient` - Kubernetes API auth (in-cluster bearer-token/CA-trust) is meaningfully
+  more surface to get right by hand than Docker's case, where a socket-proxy sidecar
+  already handles auth externally. Lists Flare-labeled Pods + every Service in the
+  pod's own namespace (resolved from the standard in-cluster service-account
+  namespace file), synthesizes the "Deployment" grouping layer by `flare.role` label
+  rather than a live Deployments API read, and computes Service→Pod `"Selects"` edges
+  by matching each Service's selector against Pod labels client-side - both scope
+  trims made specifically to keep the RBAC `Role` to `pods`/`services` only, no
+  `deployments`/`replicasets` permission at all. No literal "Cluster" node either -
+  the `Role` is namespace-scoped (not a `ClusterRole`) on purpose, so there's nothing
+  beyond Flare's own namespace to show.
+- **Dashboard**: `api.ts`/`types.ts` extended to match; three new node components
+  (`NamespaceNode.svelte`/`DeploymentGroupNode.svelte`/`ServiceNode.svelte`, following
+  `ResourceNode.svelte`'s existing icon/Badge/Handle vocabulary) - `ResourceNode.svelte`
+  itself needed zero changes, since a Kubernetes Pod node carries the identical
+  `Role`-keyed shape a Docker container node already does. Deliberately did **not**
+  implement true nested/compound dagre layout for the hierarchy (the plan's original
+  phrasing flagged this as unverified) - no way to visually verify that rendering
+  without a browser in this environment, so the hierarchy is instead expressed as
+  synthetic, visually de-emphasized "Contains" edges (thin, unlabeled, unanimated)
+  derived from each node's `parentId`, laid out through the same flat `layoutGraph`
+  Docker already uses. Lower-risk, still shows the real structure. `host-health.ts`
+  gained a `checkKubernetes` alongside `checkDocker`, both now gated on
+  `snapshot.provider` since `resources.snapshot` is the one registry-reconciled
+  snapshot regardless of which provider is actually live. Found and fixed a few
+  pre-existing Docker-only hardcodes this work exposed along the way (`HostOverview.svelte`'s
+  "Docker host running Flare.Net" header - `HostStatsSnapshot` reads `/proc` directly
+  and was never actually Docker-specific; the Resources-page empty-state fallback text).
+
+`dotnet build`/`dotnet test` clean across the whole solution - `Flare.Api.Tests` 527
+passing (up from 505 at the start of this item: new `KubernetesResourcePollerTests`,
+`RelationshipLabelParserTests`, `ProducerOverlayBuilderTests`, plus updated
+`DockerContainerPollerTests`/`ResourceGraphJsonContextTests` for the wire-format
+changes). Dashboard: `npm run check` (0 errors/warnings, confirmed the check itself
+actually catches errors via a deliberate-break test, not just trusting a suspiciously
+fast clean run) and `npm run build` clean. **Not yet live e2e-verified against a real
+cluster** - this whole item is code- and unit-verified only so far, unlike the
+Kubernetes-publish work itself (`docs/aspire-hosting.md`'s Kubernetes section,
+verified live 2026-08-29 against a local k3s cluster). A live pass still needs to
+confirm: the RBAC actually applies cleanly (`helm upgrade --install` succeeds, no
+permission errors in `flare-api`'s logs), the two Kubernetes-publish-behavior items
+flagged above, and that the Resources page actually renders a real hierarchical graph
+against a live cluster - not just against hand-built test fixtures.
+
 Anything past v1 is intentionally vague. Decide based on whether people actually use v1.
 
 ---

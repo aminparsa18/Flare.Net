@@ -18,6 +18,18 @@
          to be in scope at compile time regardless. Pinned to match every other Aspire package
          here. -->
     <PackageVersion Include="Aspire.Hosting.Docker" Version="13.4.6" />
+    <!-- Aspire.Hosting.Kubernetes: only needed for PublishAsKubernetesService, the Kubernetes
+         counterpart to the Aspire.Hosting.Docker reference above - AddFlare uses it to mirror
+         the Docker-driven-Resources-page labels (as pod-template labels) onto the generated
+         Kubernetes Deployment specs, and to attach the read-only RBAC (ServiceAccount/Role/
+         RoleBinding) the Kubernetes resource-topology provider needs (docs/aspire-hosting.md's
+         Kubernetes section). Same "consumer never calls AddKubernetesEnvironment on their
+         behalf, extension method just has to be in scope" story as Aspire.Hosting.Docker.
+         Unlike every other Aspire package pinned here, this one has never had a stable
+         release on nuget.org (confirmed live: only *-preview.* versions exist across its
+         whole history, 9.2.0 through 13.5.3) - pinned to the preview build matching the
+         13.4.6 train the rest of this repo's Aspire packages use. -->
+    <PackageVersion Include="Aspire.Hosting.Kubernetes" Version="13.4.6-preview.1.26319.6" />
     <!-- ClickHouse: schema in db/clickhouse/, see db/clickhouse/README.md.
          Aspire.Hosting.ClickHouse is referenced by Flare.AppHost today.
          Aspire.ClickHouse.Driver is referenced by Flare.Ingest/Flare.Api (the batched
@@ -97,6 +109,16 @@
          the transitive 2.1.11 floor, same pattern already used above for Microsoft.OpenApi. -->
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
     <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.12" />
+    <!-- Flare.Api: the Kubernetes resource-topology provider (Planning.md's Kubernetes
+         resource-topology item) - KubernetesResources.KubernetesResourcePoller uses this to
+         talk to the in-cluster Kubernetes API server (bearer-token + CA-trust plumbing via
+         KubernetesClientConfiguration.InClusterConfig()), the same reasoning
+         Aspire.Hosting.Flare's PublishAsKubernetesService dependency is pinned for - chosen
+         over hand-rolling a raw HttpClient (the way DockerEngineClient does for Docker,
+         where a socket-proxy sidecar already handles auth externally) because Kubernetes API
+         auth is meaningfully more surface to get right by hand. Latest stable per nuget.org's
+         flatcontainer index. -->
+    <PackageVersion Include="KubernetesClient" Version="19.0.2" />
     <!-- Flare.Cli: command routing (attribute-based commands/options, built-in help and
          version flags) plus Spectre.Console's table renderer (flare status) and spinner
          (flare start's health-poll wait) - one dependency covers both instead of

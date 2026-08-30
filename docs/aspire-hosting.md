@@ -7,7 +7,7 @@ whole Flare stack — ClickHouse, Redis, the OTLP ingest receiver, the query API
 dashboard — to your AppHost with one call, pulling Flare's published Docker Hub images
 rather than anything you build yourself.
 
-> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently `0.2.1`) —
+> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently `0.3.0`) —
 > `dotnet add package Flare.Hosting.Aspire` works today. See
 > [`examples/`](../examples) for a full runnable demo, which references the package
 > as a `ProjectReference` instead (useful for trying Flare's `main` before a release).
@@ -166,6 +166,12 @@ or touches the real Docker socket — only this proxy's scoped endpoint.
 Leave it unset (the default) and no proxy container is added at all — `flare-api` never
 gains any form of Docker access, and the Resources page shows a clean "not enabled"
 state instead of an error.
+
+This is specifically the `aspire run`/local-dev-loop story, always backed by real Docker
+containers regardless of what deployment-target resources happen to be registered. Once
+you actually publish/deploy to a Kubernetes target, `enableResourceGraph` wires up a
+different, Kubernetes-native provider instead — see the
+[Kubernetes](#kubernetes) section below.
 
 ## Installing
 
@@ -337,12 +343,16 @@ Things to know before deploying to Kubernetes:
   [`AddPersistentVolume`](https://aspire.dev/deployment/kubernetes/persistent-volumes/)
   resource to the matching volume name (`{name}-clickhouse-data`,
   `{name}-redis-data`, `{name}-identity-data`) themselves — `AddFlare` has no
-  way to do this on the consumer's behalf without taking a hard dependency on
-  `Aspire.Hosting.Kubernetes`, which it deliberately doesn't (see "doesn't add
-  a deployment target itself" above). For anything beyond a disposable
-  smoke-test deploy, wire persistent volumes for these three before deploying
-  for real — silently losing all logs and the identity/auth database on the
-  next pod reschedule is the actual failure mode, not an error.
+  way to do this on the consumer's behalf without deciding a storage
+  class/capacity/access-mode policy for them, which isn't this package's call
+  to make (it does now take a real `Aspire.Hosting.Kubernetes` package
+  dependency as of `0.3.0`, for `PublishAsKubernetesService` - see the
+  Resources-page bullet below - but that's a different thing from
+  provisioning storage on a consumer's behalf). For anything beyond a
+  disposable smoke-test deploy, wire persistent volumes for these three
+  before deploying for real — silently losing all logs and the identity/auth
+  database on the next pod reschedule is the actual failure mode, not an
+  error.
 - **`publicApiUrl`/`publicDashboardUrl` are just as required as they are for
   Docker Compose** (see above) — left unset, the dashboard's
   `PUBLIC_API_URL`/`ORIGIN`/`api`'s `Cors__AllowedOrigins__0` resolve to
@@ -358,33 +368,34 @@ Things to know before deploying to Kubernetes:
   Kubernetes target in the first place, which a real deployment normally
   wouldn't (the pinned stable default tag is immutable, so staleness isn't a
   concern there).
-- **The Resources page's Docker-driven topology graph
-  (`enableResourceGraph`/`flare.role` labels) is not supported on Kubernetes**
-  at all, and isn't planned for v1 — `enableResourceGraph`'s
-  `docker-socket-proxy` sidecar has no equivalent inside a Kubernetes pod (no
-  `/var/run/docker.sock` to bind-mount), so this would need a real
-  Kubernetes-API-based redesign, not just the label plumbing. Leave
-  `enableResourceGraph` off (its default) for Kubernetes deploys.
+- **The Resources page's topology graph works on Kubernetes too, as of
+  `0.3.0`** — a real, separate provider from the Docker one described in
+  [Resources page (optional Docker access)](#resources-page-optional-docker-access)
+  above, not the same Docker-socket-proxy sidecar reused (there's no
+  `/var/run/docker.sock` equivalent inside a Kubernetes pod, so that was never
+  going to be possible - see `docs/prompts/docker-resources-graph-prompt.md`
+  for the original design notes this superseded). `enableResourceGraph: true`
+  on a Kubernetes target instead attaches a namespace-scoped, read-only RBAC
+  `ServiceAccount`/`Role`/`RoleBinding` (`get`/`list`/`watch` on `pods` and
+  `services` only - no `deployments`/`replicasets` permission at all) to
+  `api`'s Deployment, and sets `api`'s `KubernetesResources__Enabled=true`.
+  `flare-api`'s `KubernetesResourcePoller` then lists Flare-labeled Pods
+  (`flare.role`, stamped onto the Deployment's pod-template labels - the
+  Kubernetes counterpart to the Docker container labels) plus every Service
+  in the namespace, and renders a **hierarchical** graph — Namespace →
+  synthesized "Deployment" groups (grouped by `flare.role` label, not a live
+  read of the real Deployments API - a deliberate RBAC-minimizing trade-off,
+  so a Deployment node's replica count/rollout status isn't real data) → Pod,
+  plus Service nodes with `Selects` edges into the Pods they actually route
+  to - genuinely richer than the Docker provider's flat container graph.
+  Off by default, same "absent config = off" story as Docker's own opt-in.
+  **Not yet confirmed against a real cluster** (unlike the rest of this
+  Kubernetes section, verified live as of `0.2.3` above) - this is code- and
+  unit-verified only so far. Two specific things a live pass still needs to
+  confirm: whether Aspire's per-object YAML templating passes the
+  `RoleBinding` subject's `{{ .Release.Namespace }}` Helm expression through
+  unescaped, and whether `aspire deploy` (not just `aspire publish`) actually
+  sets `IsPublishMode` the way this feature's `aspire run`-safety check
+  assumes (see `WithFlareResourceLabels`'s and `AddFlare`'s remarks in
+  `FlareResourceBuilderExtensions.cs`).
 
-## Known limitations (v1 of the package)
-
-- **Docker Compose and Kubernetes are both verified end-to-end against a real
-  deploy** (2026-08-29 — Docker Compose via `docker compose up`, Kubernetes
-  via `aspire deploy`/`helm upgrade --install` against a local k3s cluster;
-  see the Kubernetes subsection above) — the whole stack reaches healthy on
-  both. Azure/AWS targets remain fully untested. See the Kubernetes
-  subsection above for the caveats that still apply on a real cluster
-  (persistent volumes, container registry, `publicApiUrl`/`publicDashboardUrl`)
-  even though the deploy itself now works.
-- **Multiple `AddFlare()` calls in one AppHost are untested** — the resource names are
-  collision-safe (prefixed by `name`), but running two full Flare stacks side by side
-  hasn't been exercised end-to-end.
-- **Multiple deployment environments in one AppHost are untested** — e.g. an
-  AppHost that registers both `AddDockerComposeEnvironment` and
-  `AddKubernetesEnvironment` to publish either way on demand.
-  `WithFlareResourceLabels`'s Docker Compose customization is now correctly
-  conditional on a `DockerComposeEnvironmentResource` being present (fixed in
-  `0.2.2`), but `AddFlare`'s internal resources have no way for a consumer to
-  steer them to a specific compute environment via `WithComputeEnvironment`
-  the way the consumer's own resources can - only tested with exactly one
-  deployment environment registered at a time.

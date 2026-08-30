@@ -7,6 +7,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="KubernetesClient" />
     <!-- Direct reference (see Directory.Packages.props) so the pinned, patched version
          wins over Microsoft.AspNetCore.OpenApi's own transitive Microsoft.OpenApi 2.0.0. -->
     <PackageReference Include="Microsoft.OpenApi" />

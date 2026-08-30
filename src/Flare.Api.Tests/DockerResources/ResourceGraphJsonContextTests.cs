@@ -15,6 +15,7 @@ public class ResourceGraphJsonContextTests
         {
             Available = true,
             UnavailableReason = null,
+            Provider = "Docker",
             UpdatedAt = new DateTimeOffset(2026, 8, 14, 12, 0, 0, TimeSpan.Zero),
             Nodes =
             [
@@ -27,6 +28,7 @@ public class ResourceGraphJsonContextTests
                     State = ResourceState.Running,
                     Health = ResourceHealth.Healthy,
                     Urls = ["http://localhost:4318"],
+                    Kind = "Container",
                 },
             ],
             Edges =
@@ -50,6 +52,9 @@ public class ResourceGraphJsonContextTests
         Assert.Equal(original.Nodes[0].State, roundTripped.Nodes[0].State);
         Assert.Equal(original.Nodes[0].Health, roundTripped.Nodes[0].Health);
         Assert.Equal(original.Nodes[0].Urls, roundTripped.Nodes[0].Urls);
+        Assert.Equal(original.Nodes[0].Kind, roundTripped.Nodes[0].Kind);
+        Assert.Equal(original.Nodes[0].ParentId, roundTripped.Nodes[0].ParentId);
+        Assert.Equal(original.Provider, roundTripped.Provider);
         Assert.Equal(original.Edges.Count, roundTripped.Edges.Count);
         Assert.Equal(original.Edges[0].SourceRole, roundTripped.Edges[0].SourceRole);
         Assert.Equal(original.Edges[0].TargetRole, roundTripped.Edges[0].TargetRole);
@@ -96,6 +101,7 @@ public class ResourceGraphJsonContextTests
                     Image = "xracer007/flare-api:edge",
                     State = ResourceState.Running,
                     Health = ResourceHealth.Unhealthy,
+                    Kind = "Container",
                 },
             ],
         };
