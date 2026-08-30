@@ -43,7 +43,7 @@ later phases:
 | ~~[cli.md](cli.md)~~ | **Done (Phase 4)** → [reference/cli-commands.md](reference/cli-commands.md) + [how-to/run-with-cli.md](how-to/run-with-cli.md) + [explanation/architecture.md](explanation/architecture.md) (seeded, not yet complete — see that file's own note). Old path kept as a redirect stub — see that file. |
 | ~~[clustering.md](clustering.md)~~ | **Done (Phase 3)** → [explanation/clustering.md](explanation/clustering.md) + [how-to/run-cluster-mode.md](how-to/run-cluster-mode.md) + [reference/clustering-config.md](reference/clustering-config.md) + [ADR-0003](../docs-internal/adr/0003-distributed-tables-plain-names-and-sharding.md) + [an investigation](../docs-internal/investigations/clickhouse-cluster-operational-notes.md). Old path kept as a redirect stub — see that file. |
 | ~~[auth.md](auth.md)~~ | **Done (Phase 5)** → [how-to/configure-authentication.md](how-to/configure-authentication.md) + [explanation/authentication-model.md](explanation/authentication-model.md) + [reference/authentication-config.md](reference/authentication-config.md) + [ADR-0004](../docs-internal/adr/0004-embedded-sqlite-for-identity.md). Old path kept as a redirect stub — see that file. |
-| [benchmark.md](benchmark.md) | moves wholesale to `../docs-internal/investigations/` |
+| ~~[benchmark.md](benchmark.md)~~ | **Done (Phase 7)** → moved wholesale, unsplit, to [`../docs-internal/investigations/benchmark-ingest-and-query.md`](../docs-internal/investigations/benchmark-ingest-and-query.md) — it was evidence end-to-end, not a guide. Old path kept as a redirect stub. |
 
 Until each phase lands, treat the files above as the current source of truth
 for their topic, and the folders in this README as the destination, not yet
