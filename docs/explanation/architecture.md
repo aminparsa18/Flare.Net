@@ -1,12 +1,11 @@
 # Architecture
 
-> **This page is a seed, not a finished tour.** It currently covers only
-> the material Phase 4 of the documentation migration surfaced (why the
-> `flare` CLI install path exists, and its image-tag/security rationale).
-> The full architecture write-up — the ingest → buffer → ClickHouse → API
-> → dashboard pipeline, design principles, and the "tour of the dashboard"
-> content — lands in a later phase, migrated from `Planning.md`'s intro and
-> `docs/getting-started.md`. See
+> **This page is still growing.** It currently covers the three install
+> paths, a tour of the dashboard, and CLI-specific rationale — surfaced by
+> phases 4 and 6 of the documentation migration. Still missing: the
+> ingest → buffer → ClickHouse → API pipeline diagram and Flare's stated
+> design principles, which come from `Planning.md`'s own intro in a later
+> phase. See
 > [`../DOCUMENTATION-MIGRATION-PLAN.md`](../DOCUMENTATION-MIGRATION-PLAN.md).
 
 ## Three ways to run Flare, and why each exists
@@ -28,6 +27,93 @@ rather than being redundant with the others:
   can't cover: Aspire mode ties Flare's lifecycle to one AppHost, and a
   repo-local Compose stack isn't meant to run for weeks in the background
   serving unrelated projects.
+
+## Tour of the dashboard
+
+Whichever install path you pick, you land in the same place:
+`Flare.Dashboard` — a single SvelteKit SPA with seven pages behind one nav
+bar, all talking to `Flare.Api` over HTTP/WebSocket, no separate tools for
+logs, traces, metrics, or alerting. First visit creates the admin account
+(see [`../how-to/configure-authentication.md`](../how-to/configure-authentication.md));
+after that it's a normal login.
+
+### Logs
+
+The default view (`/`). A dense, virtualized log table with live tail
+(real-time streaming, pause/resume), an event-volume chart, and filters
+for service, level, and free-text search over the message body. Click any
+row to expand its full structured payload, scopes, and exception details.
+
+![Logs Explorer](../screenshots/logs.png)
+
+### Traces
+
+`/traces` — every OTLP trace Flare has received, filterable by service and
+time range. Auto-instrumented spans (ASP.NET Core, HttpClient, …) and
+anything your own code emits via `ActivitySource` show up side by side.
+
+![Traces list](../screenshots/traces.png)
+
+Click into a trace for the waterfall view — parent/child spans laid out by
+start time and duration, the same shape as Jaeger/Zipkin but wired
+straight into the rest of the dashboard.
+
+![Trace detail waterfall](../screenshots/trace-detail.png)
+
+### Metrics
+
+`/metrics` — every OTLP metric instrument (Sum, Gauge, Histogram) reported
+by your services, browsable from a searchable sidebar and rendered as a
+time-series chart per instrument. Covers both the free
+`AddAspNetCoreInstrumentation()`/`AddRuntimeInstrumentation()` data (.NET
+GC, thread pool, Kestrel, HTTP client/server) and anything your own
+`Meter` emits.
+
+![Metrics browser](../screenshots/metrics.png)
+
+### Ingestion
+
+`/ingestion` — operational visibility into the OTLP receiver itself:
+current arrival/ingestion rates, a per-signal (logs/traces/metrics) ×
+per-protocol (gRPC/HTTP) breakdown of requests, events, and bytes, plus an
+ingestion log of anything Flare rejected (bad payloads, unsupported media
+types) and why. The page to check first if "my logs aren't showing up."
+
+![Ingestion](../screenshots/ingestion.png)
+
+### Indexing
+
+`/indexing` — the underlying ClickHouse store made visible: total storage
+(compressed/uncompressed), row counts, table-by-table breakdown (`logs`,
+`spans`, `metrics_sum`, `metrics_histogram`, `metrics_gauge`, …) with
+compression ratios, growth over the last 30 days, and the skip indexes
+backing fast filtering. Useful for capacity planning or just seeing where
+the bytes go. In cluster mode, this is also where the Cluster panel lives
+— see [`clustering.md`](clustering.md#dashboard-cluster-status-on-the-indexing-page).
+
+![Indexing](../screenshots/indexing.png)
+
+### Alerts
+
+`/alerts` — threshold/query-based alert rules: a saved filter (service,
+level, search text) plus a count threshold evaluated on a rolling window,
+with a cooldown and a "test against current data" dry-run before saving.
+Firing notifies one of webhook/Slack, Telegram, or email, depending on the
+rule's "Notify via" channel — see
+[`../../src/Flare.Api/README.md`](../../src/Flare.Api/README.md#alerting)
+for what each channel needs configured server-side.
+
+![Alerts](../screenshots/alerts.png)
+![Alerts](../screenshots/alerts_add.png)
+
+### Views
+
+`/views` — named, reloadable filters saved from the Logs, Traces, or
+Metrics toolbar's "Views" control. Save a filter once (e.g. "Warnings
+mentioning timeout"), and reload it from here or from that page's own
+Views dropdown — shareable by link, not tied to whoever created it.
+
+![Views](../screenshots/views.png)
 
 ## Why the CLI pins image tags instead of tracking `latest`
 

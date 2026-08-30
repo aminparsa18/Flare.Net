@@ -10,13 +10,13 @@ for why this path exists alongside Aspire and plain Docker Compose, see
 
 This is **not** an Aspire integration and has zero interaction with Aspire
 orchestration — if your app already has an AppHost, use
-[`Flare.Hosting.Aspire`](aspire-hosting.md) instead (`aspire start` already
+[`Flare.Hosting.Aspire`](run-with-aspire.md) instead (`aspire start` already
 covers that lifecycle).
 
 ## Prerequisites
 
 - Docker (or another Docker-compatible engine, with the Compose v2 plugin)
-  running — same requirement as [the standalone path](standalone.md).
+  running — same requirement as [the standalone path](run-standalone.md).
   `flare doctor` checks this and tells you plainly if it isn't.
 
 ## Install

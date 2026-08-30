@@ -37,9 +37,9 @@ later phases:
 
 | Existing doc | Will split into |
 |---|---|
-| [getting-started.md](getting-started.md) | `tutorials/getting-started.md` + `explanation/architecture.md` |
-| [standalone.md](standalone.md) | `how-to/run-standalone.md` |
-| [aspire-hosting.md](aspire-hosting.md) | `how-to/run-with-aspire.md` + `reference/` (parameters) |
+| ~~[getting-started.md](getting-started.md)~~ | **Done (Phase 6)** → [tutorials/getting-started.md](tutorials/getting-started.md) + [explanation/architecture.md](explanation/architecture.md) (Tour of the dashboard). Old path kept as a redirect stub. |
+| ~~[standalone.md](standalone.md)~~ | **Done (Phase 6)** → [how-to/run-standalone.md](how-to/run-standalone.md) + [reference/otlp-logger-versions.md](reference/otlp-logger-versions.md) + [ADR-0005](../docs-internal/adr/0005-docker-socket-proxy-for-resources-page.md). Old path kept as a redirect stub. |
+| ~~[aspire-hosting.md](aspire-hosting.md)~~ | **Done (Phase 6)** → [how-to/run-with-aspire.md](how-to/run-with-aspire.md) + [reference/aspire-hosting.md](reference/aspire-hosting.md) + [ADR-0006](../docs-internal/adr/0006-kubernetes-resource-graph-rbac-scoping.md) + [an investigation](../docs-internal/investigations/aspire-kubernetes-publish-and-resource-graph.md). Old path kept as a redirect stub. |
 | ~~[cli.md](cli.md)~~ | **Done (Phase 4)** → [reference/cli-commands.md](reference/cli-commands.md) + [how-to/run-with-cli.md](how-to/run-with-cli.md) + [explanation/architecture.md](explanation/architecture.md) (seeded, not yet complete — see that file's own note). Old path kept as a redirect stub — see that file. |
 | ~~[clustering.md](clustering.md)~~ | **Done (Phase 3)** → [explanation/clustering.md](explanation/clustering.md) + [how-to/run-cluster-mode.md](how-to/run-cluster-mode.md) + [reference/clustering-config.md](reference/clustering-config.md) + [ADR-0003](../docs-internal/adr/0003-distributed-tables-plain-names-and-sharding.md) + [an investigation](../docs-internal/investigations/clickhouse-cluster-operational-notes.md). Old path kept as a redirect stub — see that file. |
 | ~~[auth.md](auth.md)~~ | **Done (Phase 5)** → [how-to/configure-authentication.md](how-to/configure-authentication.md) + [explanation/authentication-model.md](explanation/authentication-model.md) + [reference/authentication-config.md](reference/authentication-config.md) + [ADR-0004](../docs-internal/adr/0004-embedded-sqlite-for-identity.md). Old path kept as a redirect stub — see that file. |

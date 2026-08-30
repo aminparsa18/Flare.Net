@@ -20,7 +20,7 @@ dashboard without having to wire up your own logger first.
 
 Neither `Flare.Hosting.Aspire` nor `Flare.Aspire` are published to nuget.org yet, so
 `ExampleApp.AppHost`/`ExampleApp.LogGenerator` reference them as `ProjectReference`s
-rather than `PackageReference`s — see [`docs/aspire-hosting.md`](../docs/aspire-hosting.md)
+rather than `PackageReference`s — see [`docs/how-to/run-with-aspire.md`](../docs/how-to/run-with-aspire.md)
 and [`src/Aspire.Flare/README.md`](../src/Aspire.Flare/README.md) for what a real
 published-package consumer would look like instead.
 
@@ -50,7 +50,7 @@ Once `flare-dashboard` and `log-generator` show `Healthy`, open the **`flare-das
 row's URL** (Flare's own product dashboard, not the Aspire orchestration dashboard at
 the top of `aspire describe`'s output) — logs should already be trickling in. If the
 Aspire orchestration dashboard itself shows a certificate error, see
-[`docs/aspire-hosting.md`](../docs/aspire-hosting.md#if-aspires-own-dashboard-shows-an-sslcertificate-error) —
+[`docs/how-to/run-with-aspire.md`](../docs/how-to/run-with-aspire.md#aspires-own-dashboard-shows-an-sslcertificate-error) —
 it's an unrelated upstream Aspire issue and doesn't affect Flare's own dashboard.
 
 ## Trigger a burst
