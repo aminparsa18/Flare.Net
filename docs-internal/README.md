@@ -127,3 +127,12 @@ history (3,000+ lines of shipped-and-checked-off items) from recurring.
   PR, not after the fact.
 - A PR whose interesting content is "we investigated X and found Y" adds an
   investigation doc, only if the finding clears the bar above.
+
+## Validating changes
+
+Run `python3 scripts/check-docs-links.py` after touching any Markdown
+under `docs/`, `docs-internal/`, `README.md`, or `CONTRIBUTING.md` — it
+checks every relative link (including `#heading` anchors) resolves, and
+that every `docs/{tutorials,how-to,reference,explanation}/` page is
+reachable from `docs/README.md`'s index. Also wired into CI
+(`.github/workflows/docs-links.yml`) on any PR touching `*.md`.

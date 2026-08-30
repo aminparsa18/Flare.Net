@@ -1,0 +1,15 @@
+name: Docs link check
+
+on:
+  pull_request:
+    paths:
+      - "**/*.md"
+      - "scripts/check-docs-links.py"
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check documentation links
+        run: python3 scripts/check-docs-links.py

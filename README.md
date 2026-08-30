@@ -100,6 +100,10 @@ object storage chief among it.
 
 Full architecture: [docs/explanation/architecture.md](docs/explanation/architecture.md). Design decisions: [docs-internal/adr/](docs-internal/adr/).
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 [MIT](LICENSE)

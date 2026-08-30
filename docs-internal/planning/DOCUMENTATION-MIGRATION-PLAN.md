@@ -5,23 +5,26 @@
 > explanation), so it doesn't belong under `docs/` any more than
 > `roadmap.md` does.
 >
-> Migration status: **Phase 10 done.** See `../README.md` for the
+> Migration status: **All 11 phases done.** See `../README.md` for the
 > governance rules this plan established, `../adr/` for the 13 ADRs, and
 > `../investigations/` for the 5 investigations. Phases 1–9 migrated every
 > user-facing doc (`docs/clustering.md`, `docs/cli.md`, `docs/auth.md`,
 > `docs/standalone.md`, `docs/aspire-hosting.md`, `docs/getting-started.md`,
 > `docs/benchmark.md`) into the Diátaxis split, each old path kept as a
 > redirect stub; extracted every ADR and investigation whose source lived
-> in `Planning.md` or `db/clickhouse/README.md`. **Phase 10 pruned
-> `Planning.md` itself** — completed `docs/explanation/architecture.md`
+> in `Planning.md` or `db/clickhouse/README.md`. Phase 10 pruned
+> `Planning.md` itself — completed `docs/explanation/architecture.md`
 > with the design-principles/pipeline/non-goals content from Planning.md's
 > intro (plus 2 more ADRs, 0012–0013, for the OTLP-only and
 > ClickHouse-as-storage-engine decisions that intro named), wrote
 > `roadmap.md` from the handful of genuinely still-open items, and reduced
-> `Planning.md` to a redirect stub — same pattern as every other migrated
-> doc, warranted even more here given ~60 source files reference
-> `Planning.md` by name. Phase 11 (`CONTRIBUTING.md` + validation tooling)
-> is not started yet.
+> `Planning.md` to a redirect stub. **Phase 11 added a real
+> [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md)** (replacing Planning.md's
+> old, now-inaccurate "pre-alpha" stub) and lightweight validation tooling
+> — `scripts/check-docs-links.py` (a dependency-free link + orphan-page
+> checker) wired into CI via `.github/workflows/docs-links.yml`. This
+> migration is now complete; see §11/§12 below for what "done" means and
+> §10 for how the structure stays that way going forward.
 
 # Flare.Net Documentation Architecture & Migration Plan
 
@@ -252,13 +255,24 @@ Enforcement: a PR template checkbox is enough at Flare's current size — no bot
 
 ## 11. Validation/tooling
 
-- Link checking via a lightweight tool (e.g. `lychee`) over `docs/`, `docs-internal/`, `README.md`, `CONTRIBUTING.md` on PRs touching `*.md`.
-- Orphan check: every file under `docs/{tutorials,how-to,reference,explanation}/` linked from `docs/README.md`'s index.
-- ADR numbering: `ls docs-internal/adr/ | sort` is validation enough at this volume.
-- Stale-claims check: the update-with-the-change rule in §10, plus periodic `/diataxis audit`.
-- No documentation platform recommended at this time.
-
-Still not implemented as of Phase 10 — this is Phase 11's remaining scope.
+- **Link checking — implemented (Phase 11)**: `scripts/check-docs-links.py`,
+  a dependency-free Python script (stdlib only, no `lychee`/npm install
+  needed) over `docs/`, `docs-internal/`, `README.md`, `CONTRIBUTING.md`.
+  Checks every relative link resolves to a real file, and — going further
+  than a typical link checker — that every `#heading` fragment resolves to
+  a real heading in the target file too (implements GitHub's own
+  heading-anchor slug algorithm). Wired into CI via
+  `.github/workflows/docs-links.yml`, running on any PR touching `*.md`.
+  Run it locally with `python3 scripts/check-docs-links.py`.
+- **Orphan check — implemented (Phase 11)**, in the same script: every
+  file under `docs/{tutorials,how-to,reference,explanation}/` must be
+  linked from `docs/README.md`'s index.
+- ADR numbering: `ls docs-internal/adr/ | sort` is validation enough at
+  this volume — not worth scripting.
+- Stale-claims check: the update-with-the-change rule in §10, plus
+  periodic `/diataxis audit` — process, not tooling.
+- No documentation platform recommended at this time (see §3's own
+  reasoning; nothing about this migration's outcome changes that call).
 
 ---
 
@@ -277,7 +291,7 @@ Still not implemented as of Phase 10 — this is Phase 11's remaining scope.
 | 8 | Extract remaining ADRs from Planning.md + `db/clickhouse/README.md` | **Done** |
 | 9 | Extract remaining investigations from Planning.md | **Done** |
 | 10 | Prune Planning.md to `docs-internal/planning/roadmap.md` (this file moves there too) | **Done** |
-| 11 | `CONTRIBUTING.md` + validation tooling | Not started |
+| 11 | `CONTRIBUTING.md` + validation tooling | **Done** |
 
 ---
 
@@ -285,4 +299,8 @@ Still not implemented as of Phase 10 — this is Phase 11's remaining scope.
 
 **Phase 1**, narrowly: create `docs-internal/README.md` (the governance doc) and `docs-internal/adr/` with exactly two ADRs extracted from Planning.md's "Open questions" section — the SvelteKit-over-Blazor decision and the Redis-Streams-buffering decision. Nothing else moves; nothing existing is edited or deleted; no links change.
 
-This plan document has now executed through Phase 10. Phase 11 (`CONTRIBUTING.md` + lightweight validation tooling) is the only remaining item.
+This plan document has now executed end to end, all 11 phases. The
+migration is complete — see §10 for the governance rules that keep the
+structure from drifting back into another `Planning.md`, and
+`docs-internal/README.md` for the day-to-day decision tree contributors
+(human or AI) should use going forward.
