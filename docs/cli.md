@@ -159,8 +159,10 @@ shards x 2 replicas) coordinated by a 3-node ClickHouse Keeper quorum, plus two
 `Flare.Ingest` replicas sharing one Redis Streams consumer group, instead of the
 single-node default - the no-checkout-required equivalent of running
 [`docker-compose.cluster.yml`](../docker-compose.cluster.yml) directly (see
-[docs/clustering.md](clustering.md) for the full topology/design writeup - that stays
-the source of truth for the cluster itself; this section only covers the CLI surface).
+[explanation/clustering.md](explanation/clustering.md) for the full topology/design
+writeup and [how-to/run-cluster-mode.md](how-to/run-cluster-mode.md) for running it
+directly - those stay the source of truth for the cluster itself; this section only
+covers the CLI surface).
 
 ```sh
 flare start --cluster              # default instance, cluster mode

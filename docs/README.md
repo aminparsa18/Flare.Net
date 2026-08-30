@@ -41,7 +41,7 @@ later phases:
 | [standalone.md](standalone.md) | `how-to/run-standalone.md` |
 | [aspire-hosting.md](aspire-hosting.md) | `how-to/run-with-aspire.md` + `reference/` (parameters) |
 | [cli.md](cli.md) | `reference/cli-commands.md` + `how-to/run-with-cli.md` |
-| [clustering.md](clustering.md) | `explanation/clustering.md` + `how-to/run-cluster-mode.md` + `reference/clickhouse-schema.md` (+ an ADR) |
+| ~~[clustering.md](clustering.md)~~ | **Done (Phase 3)** → [explanation/clustering.md](explanation/clustering.md) + [how-to/run-cluster-mode.md](how-to/run-cluster-mode.md) + [reference/clustering-config.md](reference/clustering-config.md) + [ADR-0003](../docs-internal/adr/0003-distributed-tables-plain-names-and-sharding.md) + [an investigation](../docs-internal/investigations/clickhouse-cluster-operational-notes.md). Old path kept as a redirect stub — see that file. |
 | [auth.md](auth.md) | `how-to/configure-authentication.md` + `explanation/authentication-model.md` + `reference/authentication-config.md` |
 | [benchmark.md](benchmark.md) | moves wholesale to `../docs-internal/investigations/` |
 

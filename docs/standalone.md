@@ -38,7 +38,7 @@ Once it's up:
   to require an API key instead.
 
 Need ClickHouse to survive a node dying, or to scale beyond one box? There's a
-multi-node cluster setup too — see [docs/clustering.md](clustering.md).
+multi-node cluster setup too — see [how-to/run-cluster-mode.md](how-to/run-cluster-mode.md).
 
 ## Point your logger at it
 

@@ -5,12 +5,13 @@
 > **not** a Diátaxis document (not a tutorial/how-to/reference/explanation) —
 > don't link it from `docs/README.md`'s index.
 >
-> Migration status: **Phase 2 done.** See `docs-internal/README.md` for
+> Migration status: **Phase 3 done.** See `docs-internal/README.md` for
 > the governance rules this plan established, `docs-internal/adr/` for the
-> first ADRs extracted per Phase 1, and `docs/{tutorials,how-to,reference,
-> explanation}/README.md` for the scaffolded structure from Phase 2 (still
-> empty — existing `docs/*.md` files haven't moved into it yet). Phases
-> 3–11 below are not started yet.
+> ADRs extracted so far, and `docs/{tutorials,how-to,reference,
+> explanation}/README.md` for the scaffolded structure from Phase 2.
+> Phase 3 migrated `docs/clustering.md` (the representative document) —
+> its old path is now a redirect stub. Phases 4–11 below are not started
+> yet.
 
 # Flare.Net Documentation Architecture & Migration Plan
 
@@ -150,7 +151,7 @@ See the full section-by-section table (Planning.md L1–3155, `docs/clustering.m
 
 - Planning.md's "Open questions" (L3129–3136) → `docs-internal/adr/0001-sveltekit-dashboard.md` + `docs-internal/adr/0002-redis-streams-buffering.md` (Phase 1, done)
 - Planning.md v16's ingest-vs-query-time tradeoff → future ADR (pattern-clustering-at-flush-time)
-- `docs/clustering.md`'s "Design decision" section → future ADR (distributed-tables-plain-names)
+- ~~`docs/clustering.md`'s "Design decision" section → future ADR (distributed-tables-plain-names)~~ **Done (Phase 3)** → ADR-0003
 - `db/clickhouse/README.md`'s "Design decisions" → future ADR(s) (clickhouse-as-storage-engine, json-over-map-for-log-attributes)
 - `docs/benchmark.md` → `docs-internal/investigations/benchmark-ingest-and-query.md` (wholesale move)
 - Planning v21's 3 field-tested Kubernetes bugs → `docs-internal/investigations/2026-08-30-kubernetes-deploy-bugs.md`
@@ -231,7 +232,7 @@ Enforcement: a PR template checkbox is enough at Flare's current size — no bot
 | 0 | Inventory + taxonomy (this document) | **Done** |
 | 1 | `docs-internal/` skeleton + governance doc + 2 ADRs (SvelteKit, Redis Streams) from Planning.md's Open Questions | **Done** |
 | 2 | `/diataxis scaffold` for `docs/{tutorials,how-to,reference,explanation}/` + index READMEs | **Done** |
-| 3 | Migrate `docs/clustering.md` (representative document, validates the whole taxonomy) | Not started |
+| 3 | Migrate `docs/clustering.md` (representative document, validates the whole taxonomy) | **Done** |
 | 4 | Migrate `docs/cli.md` | Not started |
 | 5 | Migrate `docs/auth.md` | Not started |
 | 6 | Migrate `docs/standalone.md`, `docs/aspire-hosting.md`, `docs/getting-started.md` | Not started |

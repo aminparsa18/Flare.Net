@@ -69,7 +69,7 @@ Whichever path you pick, the dashboard comes up at [http://localhost:7777](http:
 
 Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogger, and `Microsoft.Extensions.Logging` live in [docs/standalone.md](docs/standalone.md#point-your-logger-at-it) (or [docs/aspire-hosting.md](docs/aspire-hosting.md#2-point-your-logger-at-it) on Aspire).
 
-Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup — see [docs/clustering.md](docs/clustering.md).
+Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup — see [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.md).
 
 ## Local development
 
