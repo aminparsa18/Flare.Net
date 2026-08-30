@@ -26,14 +26,18 @@ public class KubernetesResourcePollerTests
             labels["flare.role"] = role;
         }
 
+        // flare.relationships is an annotation, not a label, on the Kubernetes side - see
+        // KubernetesResourcePoller.BuildSnapshot's remarks (a Kubernetes label value's strict
+        // charset rejects the ':'/',' this value contains).
+        var annotations = new Dictionary<string, string>();
         if (relationships is not null)
         {
-            labels["flare.relationships"] = relationships;
+            annotations["flare.relationships"] = relationships;
         }
 
         return new V1Pod
         {
-            Metadata = new V1ObjectMeta { Name = name, Labels = labels },
+            Metadata = new V1ObjectMeta { Name = name, Labels = labels, Annotations = annotations },
             Spec = new V1PodSpec { Containers = [new V1Container { Name = name, Image = image }] },
             Status = new V1PodStatus
             {

@@ -398,9 +398,10 @@ public static class FlareResourceBuilderExtensions
         // branch's socket-proxy sidecar bind-mounts /var/run/docker.sock, which is meaningless
         // (no such socket exists on a Kubernetes node the way it does on a Docker host) and a
         // real privilege-escalation footgun to even attempt shipping into a cluster, so it must
-        // never be created when publishing/deploying to Kubernetes. Not yet confirmed live that
-        // `aspire deploy` also sets IsPublishMode (vs. some third operation state) - see the
-        // sibling not-yet-confirmed Kubernetes items on WithFlareResourceLabels.
+        // never be created when publishing/deploying to Kubernetes. Confirmed live (2026-08-30,
+        // this feature's own live e2e pass against a local k3s cluster) that `aspire deploy`
+        // does set IsPublishMode the same way `aspire publish` does - the Kubernetes branch
+        // fired correctly (RBAC generated, no Docker sidecar created).
         if (enableResourceGraph)
         {
             var targetingKubernetes = builder.ExecutionContext.IsPublishMode
@@ -417,11 +418,21 @@ public static class FlareResourceBuilderExtensions
                 api.WithEnvironment("KubernetesResources__Enabled", "true");
                 api.PublishAsKubernetesService(resource =>
                 {
+                    // Each of the three needs a distinct Metadata.Name, not just a distinct
+                    // Kind - confirmed live (2026-08-30, this feature's own live e2e pass)
+                    // that Aspire's per-object Helm-chart-template-file naming keys purely off
+                    // Metadata.Name, not name+kind. All three sharing the literal same name
+                    // string (as this originally did) meant each AdditionalResources.Add call
+                    // silently overwrote the previous one's rendered template file - only the
+                    // last one added (RoleBinding) actually made it into the chart, so the
+                    // ServiceAccount/Role it referenced never existed on the cluster and
+                    // flare-api's own ReplicaSet couldn't create pods at all ("serviceaccount
+                    // ... not found").
                     var serviceAccount = new ServiceAccountV1();
                     serviceAccount.Metadata.Name = $"{name}-resource-graph";
 
                     var role = new Role();
-                    role.Metadata.Name = $"{name}-resource-graph";
+                    role.Metadata.Name = $"{name}-resource-graph-role";
                     role.Rules.Add(new PolicyRuleV1
                     {
                         ApiGroups = { "" }, // core API group.
@@ -430,7 +441,7 @@ public static class FlareResourceBuilderExtensions
                     });
 
                     var roleBinding = new RoleBinding();
-                    roleBinding.Metadata.Name = $"{name}-resource-graph";
+                    roleBinding.Metadata.Name = $"{name}-resource-graph-binding";
                     roleBinding.RoleRef = new RoleRefV1
                     {
                         ApiGroup = "rbac.authorization.k8s.io",
@@ -447,9 +458,10 @@ public static class FlareResourceBuilderExtensions
                         // built-in resolves to whatever namespace `aspire deploy`/`helm
                         // upgrade --install` actually targets, since the ServiceAccount/Role/
                         // RoleBinding/Deployment below are all rendered into that same release's
-                        // chart. Not yet confirmed live that Aspire's per-object YAML templating
-                        // passes this string through unescaped - see WithFlareResourceLabels's
-                        // remarks for the sibling not-yet-confirmed Kubernetes item.
+                        // chart. Confirmed live (2026-08-30) that Aspire's per-object YAML
+                        // templating passes this string through unescaped and Helm resolves it
+                        // correctly - the RoleBinding applied cleanly and the ServiceAccount it
+                        // references was found (once the naming-collision bug below was fixed).
                         Namespace = "{{ .Release.Namespace }}",
                     });
 
@@ -459,10 +471,13 @@ public static class FlareResourceBuilderExtensions
 
                     // Second PublishAsKubernetesService call on this same `api` builder -
                     // WithFlareResourceLabels("api", ...) above already made one, for the
-                    // flare.* pod-template labels. Expected (per Aspire's usual multi-annotation
-                    // composition - e.g. multiple WithEnvironment calls all apply) to compose
-                    // independently rather than the second overwriting the first; not yet
-                    // confirmed live.
+                    // flare.* pod-template labels. Confirmed live (2026-08-30) that these
+                    // compose independently rather than the second overwriting the first -
+                    // the deployed api Pod carried both the flare.* labels/annotations and this
+                    // ServiceAccountName. RBAC only ever attaches to api specifically (always a
+                    // Deployment, never promoted to a StatefulSet - it has no WithDataVolume()
+                    // call), so the Deployment-only pattern match here is intentional, unlike
+                    // the Workload-general one above.
                     if (resource.Workload is Deployment deployment)
                     {
                         deployment.Spec.Template.Spec.ServiceAccountName = serviceAccount.Metadata.Name;
@@ -601,19 +616,36 @@ public static class FlareResourceBuilderExtensions
     /// <c>builder.Resources</c> is checked synchronously at the point each Flare sub-resource is
     /// built, so an environment added after <c>AddFlare</c> returns would not be seen.
     /// <para>
-    /// The Kubernetes branch stamps these labels onto the generated <c>Deployment</c>'s <em>pod
-    /// template</em> (<c>deployment.Spec.Template.Metadata.Labels</c>), not the Deployment
-    /// object's own metadata - these labels land on the real Pods that way, giving
-    /// <c>KubernetesResources.KubernetesResourcePoller</c> (which lists Pods, not Deployments -
-    /// see that type's remarks) the same stable <c>flare.role</c> identity anchor the Docker
-    /// provider already has via Flare.Api's own <c>ResourceNodeDto.Role</c> - not yet confirmed
-    /// against a live <c>aspire deploy</c> that Aspire's Kubernetes publisher doesn't overwrite
-    /// or merge these labels away before the chart is rendered.
+    /// The Kubernetes branch stamps <c>flare.resource</c>/<c>flare.role</c> onto the generated
+    /// <em>pod template labels</em> (<c>resource.Workload.PodTemplate.Metadata.Labels</c>), not
+    /// the workload object's own metadata - these land on the real Pods that way, giving
+    /// <c>KubernetesResources.KubernetesResourcePoller</c> (which lists Pods, not
+    /// Deployments/StatefulSets - see that type's remarks) the same stable <c>flare.role</c>
+    /// identity anchor the Docker provider already has via Flare.Api's own
+    /// <c>ResourceNodeDto.Role</c>. Confirmed live (2026-08-30, this feature's own live e2e pass
+    /// against a local k3s cluster) that Aspire's Kubernetes publisher does not overwrite or
+    /// merge these away before the chart is rendered - the hard way, twice: (1) this reads
+    /// <c>resource.Workload</c>'s common <c>Workload.PodTemplate</c>, not a
+    /// <c>resource.Workload is Deployment</c> pattern match, specifically because ClickHouse/
+    /// Redis's <c>WithDataVolume()</c> calls promote them to a <c>StatefulSet</c> under
+    /// Kubernetes (see docs/aspire-hosting.md's persistent-volumes bullet) - the original
+    /// Deployment-only check silently skipped them, leaving both with zero <c>flare.*</c>
+    /// labels/annotations at all, invisible to the topology graph entirely; (2)
+    /// <c>flare.relationships</c> goes onto pod-template <em>annotations</em> instead of
+    /// labels, because a Kubernetes label VALUE has a strict charset (roughly
+    /// alphanumeric/<c>-</c>/<c>_</c>/<c>.</c> only - no <c>:</c>/<c>,</c>) that a
+    /// <c>"clickhouse:Reference,redis:Reference"</c>-shaped value violates outright -
+    /// <c>helm upgrade --install</c> rejected the whole Deployment as invalid the first time
+    /// this was actually deployed to a real cluster. Docker labels have no such restriction,
+    /// which is why neither of these surfaced there. Annotations have no charset restriction,
+    /// and this value is never selected on anyway (only <c>flare.resource</c>/<c>flare.role</c>
+    /// are, by <c>KubernetesResourcePoller</c>'s label-selector list call) - see
+    /// <c>KubernetesResourcePoller.BuildSnapshot</c>'s matching remark for the read side.
     /// </para>
     /// </remarks>
     /// <param name="builder">The container resource to label.</param>
     /// <param name="role">This container's stable <c>flare.role</c> value (e.g. <c>"ingest"</c>) - what Flare.Api's own <c>ResourceNodeDto.Role</c> reads back.</param>
-    /// <param name="relationships">Raw <c>flare.relationships</c> label value (e.g. <c>"clickhouse:Reference,redis:Reference"</c>), or <see langword="null"/> to omit the label entirely (nothing this container references).</param>
+    /// <param name="relationships">Raw <c>flare.relationships</c> value (e.g. <c>"clickhouse:Reference,redis:Reference"</c> - a label on Docker/Docker Compose, an annotation on Kubernetes, see the remarks), or <see langword="null"/> to omit it entirely (nothing this container references).</param>
     private static IResourceBuilder<T> WithFlareResourceLabels<T>(this IResourceBuilder<T> builder, string role, string? relationships = null)
         where T : ContainerResource
     {
@@ -643,17 +675,39 @@ public static class FlareResourceBuilderExtensions
         {
             builder.PublishAsKubernetesService(resource =>
             {
-                if (resource.Workload is not Deployment deployment)
+                // Workload (not Deployment specifically) - confirmed live (2026-08-30, this
+                // feature's own live e2e pass) that ClickHouse/Redis's WithDataVolume() calls
+                // promote them to a StatefulSet under Kubernetes (see docs/aspire-hosting.md's
+                // persistent-volumes bullet), which the original Deployment-only pattern match
+                // here silently skipped entirely - ClickHouse/Redis got zero flare.* labels at
+                // all, invisible to KubernetesResources.KubernetesResourcePoller's
+                // flare.resource=true selector. PodTemplate is declared on the common Workload
+                // base (Deployment/StatefulSet both derive from it), so this now covers both -
+                // and anything else Aspire's Kubernetes publisher might promote a workload to
+                // in the future.
+                if (resource.Workload is not { } workload)
                 {
                     return;
                 }
 
-                var labels = deployment.Spec.Template.Metadata.Labels;
+                var labels = workload.PodTemplate.Metadata.Labels;
                 labels["flare.resource"] = "true";
                 labels["flare.role"] = role;
                 if (relationships is not null)
                 {
-                    labels["flare.relationships"] = relationships;
+                    // Confirmed live (2026-08-30, this feature's own live e2e pass) that a
+                    // Kubernetes label VALUE has a strict charset
+                    // ([A-Za-z0-9][-A-Za-z0-9_.]*[A-Za-z0-9] - no ':'/',') that
+                    // "clickhouse:Reference,redis:Reference"-shaped relationship values
+                    // violate outright - `helm upgrade --install` rejects the whole
+                    // Deployment as invalid, unlike Docker labels above, which have no such
+                    // restriction. An annotation has no charset restriction, so
+                    // flare.relationships goes there instead on the Kubernetes side only -
+                    // it was never meant to be selected on anyway (only flare.resource/
+                    // flare.role are, by KubernetesResources.KubernetesResourcePoller's
+                    // label-selector list call), so moving just this one value off Labels
+                    // doesn't affect discovery at all.
+                    workload.PodTemplate.Metadata.Annotations["flare.relationships"] = relationships;
                 }
             });
         }

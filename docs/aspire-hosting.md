@@ -7,7 +7,7 @@ whole Flare stack — ClickHouse, Redis, the OTLP ingest receiver, the query API
 dashboard — to your AppHost with one call, pulling Flare's published Docker Hub images
 rather than anything you build yourself.
 
-> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently `0.3.0`) —
+> **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently `0.3.1`) —
 > `dotnet add package Flare.Hosting.Aspire` works today. See
 > [`examples/`](../examples) for a full runnable demo, which references the package
 > as a `ProjectReference` instead (useful for trying Flare's `main` before a release).
@@ -380,22 +380,57 @@ Things to know before deploying to Kubernetes:
   `services` only - no `deployments`/`replicasets` permission at all) to
   `api`'s Deployment, and sets `api`'s `KubernetesResources__Enabled=true`.
   `flare-api`'s `KubernetesResourcePoller` then lists Flare-labeled Pods
-  (`flare.role`, stamped onto the Deployment's pod-template labels - the
-  Kubernetes counterpart to the Docker container labels) plus every Service
-  in the namespace, and renders a **hierarchical** graph — Namespace →
-  synthesized "Deployment" groups (grouped by `flare.role` label, not a live
-  read of the real Deployments API - a deliberate RBAC-minimizing trade-off,
-  so a Deployment node's replica count/rollout status isn't real data) → Pod,
-  plus Service nodes with `Selects` edges into the Pods they actually route
-  to - genuinely richer than the Docker provider's flat container graph.
-  Off by default, same "absent config = off" story as Docker's own opt-in.
-  **Not yet confirmed against a real cluster** (unlike the rest of this
-  Kubernetes section, verified live as of `0.2.3` above) - this is code- and
-  unit-verified only so far. Two specific things a live pass still needs to
-  confirm: whether Aspire's per-object YAML templating passes the
-  `RoleBinding` subject's `{{ .Release.Namespace }}` Helm expression through
-  unescaped, and whether `aspire deploy` (not just `aspire publish`) actually
-  sets `IsPublishMode` the way this feature's `aspire run`-safety check
-  assumes (see `WithFlareResourceLabels`'s and `AddFlare`'s remarks in
-  `FlareResourceBuilderExtensions.cs`).
+  (`flare.role`, stamped onto the Deployment's/StatefulSet's pod-template
+  labels - the Kubernetes counterpart to the Docker container labels) plus
+  every Service in the namespace, and renders a **hierarchical** graph —
+  Namespace → synthesized "Deployment" groups (grouped by `flare.role` label,
+  not a live read of the real Deployments API - a deliberate RBAC-minimizing
+  trade-off, so a Deployment node's replica count/rollout status isn't real
+  data) → Pod, plus Service nodes with `Selects` edges into the Pods they
+  actually route to - genuinely richer than the Docker provider's flat
+  container graph. Off by default, same "absent config = off" story as
+  Docker's own opt-in.
+
+  **Verified live end-to-end as of `0.3.1`** (2026-08-30, this feature's own
+  live e2e pass against the same local k3s cluster used for the Kubernetes
+  publish verification above): `enableResourceGraph: true`, real RBAC
+  applied, a real `KubernetesResourcePoller` running inside a locally-built
+  `flare-api` image (the published `xracer007/flare-api:edge` tag lagged
+  behind these fixes at verification time) correctly listed all five
+  Flare-labeled Pods plus their five Services, and `GET /api/resources/snapshot`
+  returned the complete real graph - 16 nodes (1 Namespace, 5 synthesized
+  Deployment groups, 5 Pods, 5 Services), all 5 `Selects` edges, and all 5
+  `Reference` edges from `flare.relationships`. Three real bugs were found
+  and fixed along the way, none of which the unit tests alone could have
+  caught (all three are specifically about what Aspire's Kubernetes publisher
+  and a real API server do with the generated objects, not about this
+  package's own mapping logic):
+  1. **A Kubernetes label VALUE has a strict charset** (roughly
+     alphanumeric/`-`/`_`/`.` only) that a
+     `"clickhouse:Reference,redis:Reference"`-shaped `flare.relationships`
+     value violates outright - `helm upgrade --install` rejected the whole
+     Deployment as invalid. Docker labels have no such restriction, so this
+     never surfaced there. **Fixed**: `flare.relationships` goes onto
+     pod-template *annotations* instead of labels on the Kubernetes side
+     only (annotations have no charset restriction, and this value was never
+     selected on anyway).
+  2. **The generated RBAC `ServiceAccount`/`Role`/`RoleBinding` all shared
+     the same `Metadata.Name`, and Aspire's per-object Helm-chart-template-file
+     naming keys purely off that name, not name+kind** - each
+     `AdditionalResources.Add` call silently overwrote the previous one's
+     template file, so only the last one added (`RoleBinding`) actually made
+     it into the chart. `flare-api`'s own `ReplicaSet` couldn't create pods
+     at all ("serviceaccount ... not found"). **Fixed**: each of the three
+     now gets a distinct name.
+  3. **ClickHouse/Redis got zero `flare.*` labels at all under Kubernetes,
+     making them invisible to the topology graph entirely** - their
+     `WithDataVolume()` calls promote them to a `StatefulSet` (see the
+     persistent-volumes bullet above), which the original
+     `resource.Workload is Deployment` pattern match silently skipped.
+     **Fixed**: reads the common `Workload.PodTemplate` instead, covering
+     both `Deployment` and `StatefulSet`.
+
+  No bugs found in the `aspire run`-safety `IsPublishMode` check or the
+  `RoleBinding` subject's `{{ .Release.Namespace }}` Helm templating - both
+  confirmed working exactly as designed.
 
