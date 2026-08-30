@@ -1,6 +1,6 @@
 # Flare.Api
 
-The Query API for [Flare](../../Planning.md) — the read side of `clickhousedb.logs`.
+The Query API for [Flare](../../docs/explanation/architecture.md) — the read side of `clickhousedb.logs`.
 `Flare.Ingest` writes that table; this project turns structured search/filter/
 time-range/aggregate requests into parameterized ClickHouse queries over it.
 
@@ -109,9 +109,9 @@ point without reconnecting:
 {"type":"resume"}
 
 // server -> client
-{"type":"event","event":{ /* LogEventDto, same shape as /api/logs/search's Events */ }}
-{"type":"dropped","droppedCount":3}
-{"type":"error","error":"Malformed message: ..."}
+{"type":"Event","event":{ /* LogEventDto, same shape as /api/logs/search's Events */ }}
+{"type":"Dropped","droppedCount":3}
+{"type":"Error","error":"Malformed message: ..."}
 ```
 
 **Source: the Redis Stream, not ClickHouse.** A single background reader
