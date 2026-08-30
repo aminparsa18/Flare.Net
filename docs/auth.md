@@ -1,7 +1,7 @@
 # Auth + multi-user / roles
 
 > This document has moved as part of a documentation restructuring
-> ([`DOCUMENTATION-MIGRATION-PLAN.md`](DOCUMENTATION-MIGRATION-PLAN.md),
+> ([`DOCUMENTATION-MIGRATION-PLAN.md`](../docs-internal/planning/DOCUMENTATION-MIGRATION-PLAN.md),
 > Phase 5). Its content now lives, split by type, at:
 >
 > - **[how-to/configure-authentication.md](how-to/configure-authentication.md)**

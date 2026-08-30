@@ -1,12 +1,119 @@
 # Architecture
 
-> **This page is still growing.** It currently covers the three install
-> paths, a tour of the dashboard, and CLI-specific rationale — surfaced by
-> phases 4 and 6 of the documentation migration. Still missing: the
-> ingest → buffer → ClickHouse → API pipeline diagram and Flare's stated
-> design principles, which come from `Planning.md`'s own intro in a later
-> phase. See
-> [`../DOCUMENTATION-MIGRATION-PLAN.md`](../DOCUMENTATION-MIGRATION-PLAN.md).
+Flare is a self-hosted, OpenTelemetry-native observability platform for
+.NET — logs, traces, and metrics as first-class citizens, correlated in
+one place, with threshold/query-based alert rules. This page explains why
+it's built the way it is; see [`../reference/`](../reference/) for exact
+values and [`../how-to/`](../how-to/) for task instructions.
+
+## Why Flare exists
+
+The self-hosted log tooling landscape for .NET devs is a choice between
+two frustrations: **Seq** — a solid engine, but a dated UI and a
+single-user free tier — and **Grafana / SigNoz / OpenObserve** — powerful
+and OTel-native, but heavy to run, OTel-generic rather than tuned to the
+.NET dev experience, and built for infra/SRE teams rather than a developer
+who just wants to read their app's telemetry beautifully.
+
+Flare's bet: **the storage/query problem is already solved by ClickHouse
+(see [ADR-0013](../../docs-internal/adr/0013-clickhouse-as-storage-engine.md)).
+The differentiator is a great dashboard and a two-minute setup.** That's
+where the effort goes — Flare isn't chasing feature parity with a full
+observability suite; see [Non-goals](#non-goals) below.
+
+## Design principles
+
+1. **One protocol in: OTLP.** No ingestion adapters per logging library —
+   every supported logger reaches Flare through the OpenTelemetry
+   Protocol. See [ADR-0012](../../docs-internal/adr/0012-otlp-only-ingestion.md).
+2. **Storage is a solved problem.** ClickHouse is the backend, wrapped
+   well rather than reinvented. See
+   [ADR-0013](../../docs-internal/adr/0013-clickhouse-as-storage-engine.md).
+3. **The dashboard is the product.** Frontend gets first-class attention
+   — it should look and feel unlike Seq or a Grafana panel. See
+   [ADR-0001](../../docs-internal/adr/0001-sveltekit-dashboard.md) for the
+   stack behind it.
+4. **Least overhead to try.** `docker compose up` for the standalone path;
+   a `flare` CLI for a standing instance. If trying Flare takes more than
+   two minutes, that's a bug in the getting-started experience.
+5. **.NET-first DX, not .NET-only.** The getting-started experience is
+   tailored to .NET loggers, but because ingestion is pure OTLP, polyglot
+   teams aren't locked out.
+6. **Scope discipline.** Ship a tight, focused feature set. Speculative
+   ideas go in [the roadmap](../../docs-internal/planning/roadmap.md), not
+   into whatever's currently shipping.
+
+## The ingest → dashboard pipeline
+
+```
+  ┌─────────────────────────────────────────────┐
+  │  Your apps / services                        │
+  │  Serilog · NLog · ZLogger · MS ILogger · any │
+  │  OTLP source (Go, Node, Python, ...)         │
+  └───────────────────────┬─────────────────────┘
+                          │  OTLP  (gRPC :4317 / HTTP :4318)
+                          ▼
+  ┌─────────────────────────────────────────────┐
+  │  Flare.Ingest  (ASP.NET Core)                │
+  │  • OTLP receiver (logs, traces, metrics)      │
+  │  • Normalize → internal event model           │
+  │  • Buffer + batch (Redis Streams)             │
+  └───────────────────────┬─────────────────────┘
+                          │  batched inserts
+                          ▼
+  ┌─────────────────────────────────────────────┐
+  │  ClickHouse   (columnar store)               │
+  └───────────────────────┬─────────────────────┘
+                          │  SQL
+                          ▼
+  ┌─────────────────────────────────────────────┐
+  │  Flare.Api  (ASP.NET Core query API)         │
+  │  • Search / filter / aggregate                │
+  │  • Live-tail stream (WebSocket)               │
+  └───────────────────────┬─────────────────────┘
+                          │  HTTP / WS
+                          ▼
+  ┌─────────────────────────────────────────────┐
+  │  Flare.Dashboard  (SPA)                      │
+  │  • Logs, Traces, Metrics, Alerts, and more     │
+  │  • Live tail · saved searches · charts        │
+  └─────────────────────────────────────────────┘
+```
+
+| Component | Tech | Responsibility |
+|---|---|---|
+| `Flare.Ingest` | ASP.NET Core | Terminate OTLP (gRPC + HTTP), map to the internal event model, buffer, batch-insert to ClickHouse |
+| Redis | container | Durable buffer between ingest and ClickHouse — see [ADR-0002](../../docs-internal/adr/0002-redis-streams-buffering.md) |
+| ClickHouse | container | Log/trace/metric storage and query engine — see [ADR-0013](../../docs-internal/adr/0013-clickhouse-as-storage-engine.md) |
+| `Flare.Api` | ASP.NET Core | Query/search/aggregate over ClickHouse; live-tail streaming endpoint |
+| `Flare.Dashboard` | SvelteKit (Svelte 5, runes) + Tailwind + shadcn-svelte | The UI — the thing people come for. See [ADR-0001](../../docs-internal/adr/0001-sveltekit-dashboard.md). |
+| `Flare.AppHost` | .NET Aspire | Local orchestration of all of the above |
+
+Every OTLP-capable .NET logger reaches Flare's ingest receiver the same
+way — see [`../how-to/run-standalone.md`](../how-to/run-standalone.md)
+for a copy-paste snippet per logger
+(`Microsoft.Extensions.Logging`/ZLogger via `OpenTelemetry.Exporter.OpenTelemetryProtocol`,
+Serilog via `Serilog.Sinks.OpenTelemetry`, NLog via
+`NLog.Targets.OpenTelemetryProtocol`) and
+[`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.md)
+for known-good package versions.
+
+## Non-goals
+
+- Not a full APM (no code-level profiling or deployment tracking), though
+  it does distributed tracing.
+- Not a SIEM.
+- Not a crash-reporting tool — that's a different problem (symbolication,
+  fingerprinting); use Sentry/GlitchTip for that.
+- Not chasing feature parity with Datadog/Grafana/SigNoz. Different bet —
+  see [Why Flare exists](#why-flare-exists) above.
+
+## Built with
+
+.NET/ASP.NET Core, .NET Aspire, ClickHouse, Redis, OpenTelemetry/OTLP,
+SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS is
+a planned (not yet built) cold-storage backend — see
+[the roadmap](../../docs-internal/planning/roadmap.md).
 
 ## Three ways to run Flare, and why each exists
 

@@ -94,11 +94,11 @@ Flare is actively developed and currently provides:
 
 ### Next
 
-- More `flare` CLI commands (`search`, `alerts`, `export`, `apikey`)
-- Retention policies + cold storage to S3-compatible object storage
-- Helm chart for Kubernetes
+See [docs-internal/planning/roadmap.md](docs-internal/planning/roadmap.md)
+for what's currently open — retention/cold storage to S3-compatible
+object storage chief among it.
 
-Full design doc and version-by-version detail: [Planning.md](Planning.md).
+Full architecture: [docs/explanation/architecture.md](docs/explanation/architecture.md). Design decisions: [docs-internal/adr/](docs-internal/adr/).
 
 ## License
 

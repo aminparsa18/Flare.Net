@@ -52,8 +52,9 @@ flare export -l error --since 1h | jq '.Message'                # pipe straight 
 
 That's the everyday shape (a quick support-bundle-for-a-bug-report, no `-o`
 needed). A bundled `incident.zip` mode (trace + logs + metrics together) is
-a real want but not built yet — see [`../../Planning.md`](../../Planning.md)
-for its current status.
+a real want but not built yet — see
+[the roadmap](../../docs-internal/planning/roadmap.md) for its current
+status.
 
 ## Running multiple instances
 

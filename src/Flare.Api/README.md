@@ -1,6 +1,6 @@
 # Flare.Api
 
-The Query API for [Flare](../../Planning.md) — the read side of `clickhousedb.logs`.
+The Query API for [Flare](../../docs/explanation/architecture.md) — the read side of `clickhousedb.logs`.
 `Flare.Ingest` writes that table; this project turns structured search/filter/
 time-range/aggregate requests into parameterized ClickHouse queries over it.
 

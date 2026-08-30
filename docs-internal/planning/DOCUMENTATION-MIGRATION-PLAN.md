@@ -1,33 +1,33 @@
-> **⚠️ Temporary holding location.** This is the full documentation architecture
-> and migration plan produced during Phase 0 (inventory). It lives here only
-> until Phase 10 (see below) creates `docs-internal/planning/`, at which point
-> this file moves there and stops being part of the public `docs/` tree. It is
-> **not** a Diátaxis document (not a tutorial/how-to/reference/explanation) —
-> don't link it from `docs/README.md`'s index.
+> This is the full documentation architecture and migration plan produced
+> during Phase 0 (inventory) and executed across phases 1–10. It moved
+> here from `docs/DOCUMENTATION-MIGRATION-PLAN.md` as part of Phase 10 —
+> it was never a Diátaxis document (not a tutorial/how-to/reference/
+> explanation), so it doesn't belong under `docs/` any more than
+> `roadmap.md` does.
 >
-> Migration status: **Phase 9 done.** See `docs-internal/README.md` for
-> the governance rules this plan established, `docs-internal/adr/` for the
-> 11 ADRs extracted so far, and `docs/{tutorials,how-to,reference,
-> explanation}/README.md` for the scaffolded structure from Phase 2.
-> Phase 3 migrated `docs/clustering.md`; Phase 4 migrated `docs/cli.md`
-> (and seeded `docs/explanation/architecture.md`); Phase 5 migrated
-> `docs/auth.md`; Phase 6 migrated `docs/standalone.md`,
-> `docs/aspire-hosting.md`, and `docs/getting-started.md`; Phase 7 moved
-> `docs/benchmark.md` wholesale into `docs-internal/investigations/`;
-> Phase 8 extracted 5 more ADRs from Planning.md's v16 entry and
-> `db/clickhouse/README.md`'s "Design decisions" section; Phase 9
-> extracted the last 2 investigations from Planning.md (CLI-verification
-> bugs, Logs `VirtualList` hardening) — **Planning.md itself remains
-> completely untouched through all 9 phases**, right up to Phase 10's
-> pruning. All seven migrated doc paths are redirect stubs;
-> `db/clickhouse/README.md` is trimmed in place, not stubbed. Phases
-> 10–11 below are not started yet.
+> Migration status: **Phase 10 done.** See `../README.md` for the
+> governance rules this plan established, `../adr/` for the 13 ADRs, and
+> `../investigations/` for the 5 investigations. Phases 1–9 migrated every
+> user-facing doc (`docs/clustering.md`, `docs/cli.md`, `docs/auth.md`,
+> `docs/standalone.md`, `docs/aspire-hosting.md`, `docs/getting-started.md`,
+> `docs/benchmark.md`) into the Diátaxis split, each old path kept as a
+> redirect stub; extracted every ADR and investigation whose source lived
+> in `Planning.md` or `db/clickhouse/README.md`. **Phase 10 pruned
+> `Planning.md` itself** — completed `docs/explanation/architecture.md`
+> with the design-principles/pipeline/non-goals content from Planning.md's
+> intro (plus 2 more ADRs, 0012–0013, for the OTLP-only and
+> ClickHouse-as-storage-engine decisions that intro named), wrote
+> `roadmap.md` from the handful of genuinely still-open items, and reduced
+> `Planning.md` to a redirect stub — same pattern as every other migrated
+> doc, warranted even more here given ~60 source files reference
+> `Planning.md` by name. Phase 11 (`CONTRIBUTING.md` + validation tooling)
+> is not started yet.
 
 # Flare.Net Documentation Architecture & Migration Plan
 
 ## 1. Executive summary
 
-Flare has one architecturally-real problem, not a Markdown-quality problem: **there is exactly one place engineering knowledge gets written down — [Planning.md](../Planning.md) — and it has been asked to be four documents at once**: a product pitch, an architecture explanation, a decision log, and a change diary. It has grown to 3,155 lines / 250KB, with **148 checked-off roadmap items** (only 3 still open), because "done, so record what happened" has been the default move for eight months of `v1`→`v21`. `docs/` is smaller but has the same disease at file scale: `docs/auth.md` (645 lines) and `docs/cli.md` (274 lines) each interleave *how it works* (explanation), *do this* (how-to), *exact values* (reference), and *known limitations* (part explanation, part unfinished investigation) in the same document with no signal to a reader — or an AI agent about to edit it — about which mode they're in.
+Flare has one architecturally-real problem, not a Markdown-quality problem: **there is exactly one place engineering knowledge gets written down — [Planning.md](../../Planning.md) — and it has been asked to be four documents at once**: a product pitch, an architecture explanation, a decision log, and a change diary. It has grown to 3,155 lines / 250KB, with **148 checked-off roadmap items** (only a handful still open), because "done, so record what happened" has been the default move for eight months of `v1`→`v21`. `docs/` is smaller but has the same disease at file scale: `docs/auth.md` (645 lines) and `docs/cli.md` (274 lines) each interleave *how it works* (explanation), *do this* (how-to), *exact values* (reference), and *known limitations* (part explanation, part unfinished investigation) in the same document with no signal to a reader — or an AI agent about to edit it — about which mode they're in.
 
 Three consequences fall out of that:
 1. **Duplication is already happening.** Planning.md's v21 entry says "Full write-up in `docs/aspire-hosting.md`'s Kubernetes section" — the same Kubernetes-provider decision and its three field-tested bugs exist as diary text in Planning.md *and* as doc text in `docs/aspire-hosting.md`, with no rule for which one a future edit should update.
@@ -68,9 +68,10 @@ The fix is architectural, not cosmetic: split **public docs** (Diátaxis: tutori
 ```text
 /
 ├── README.md                # unchanged role: landing page, links out, doesn't grow
-├── CONTRIBUTING.md          # NEW — currently a 2-sentence stub inside Planning.md
+├── CONTRIBUTING.md          # Phase 11 — currently a 2-sentence stub, now removed
+│                            # from Planning.md's own stub rather than left stale
 ├── LICENSE
-├── Planning.md              # SCOPE NARROWED: future roadmap only, no diary
+├── Planning.md              # DONE (Phase 10): now a short redirect stub
 │
 ├── docs/                                  # user-facing, Diátaxis — matches the
 │   ├── README.md                          # installed skill's own scaffold shape
@@ -82,24 +83,32 @@ The fix is architectural, not cosmetic: split **public docs** (Diátaxis: tutori
 │   │   ├── run-with-cli.md
 │   │   ├── configure-authentication.md
 │   │   ├── run-cluster-mode.md
-│   │   └── troubleshoot-deployment.md
+│   │   └── troubleshoot-deployment.md     # not yet created — no dedicated
+│   │                                       # troubleshooting content surfaced
+│   │                                       # as its own guide through phase 10
 │   ├── reference/
 │   │   ├── cli-commands.md
 │   │   ├── authentication-config.md
-│   │   ├── environment-variables.md
-│   │   └── clickhouse-schema.md
+│   │   ├── clustering-config.md
+│   │   ├── aspire-hosting.md
+│   │   ├── otlp-logger-versions.md
+│   │   └── environment-variables.md       # not yet created — no single
+│   │                                       # consolidated env-var reference
+│   │                                       # exists yet; config keys are
+│   │                                       # currently split across the
+│   │                                       # reference files above by domain
 │   ├── explanation/
-│   │   ├── architecture.md
+│   │   ├── architecture.md                # DONE (Phase 10): design principles,
+│   │   │                                   # pipeline diagram, non-goals, tour
 │   │   ├── clustering.md
 │   │   └── authentication-model.md
-│   └── assets/  (existing docs/screenshots/, docs/social-preview.png move here)
+│   └── screenshots/, social-preview.png   # kept at their existing docs/ path,
+│                                           # not moved under a docs/assets/ —
+│                                           # no phase found a reason to move them
 │
 ├── docs-internal/            # maintainer-facing, still committed to Git
 │   ├── README.md             # the governance doc: what goes where, and why
-│   ├── adr/                  # 0001-0011 done as of Phase 8 (see §12's phase
-│   │   │                     # table for the live status; this list was the
-│   │   │                     # original Phase-0 illustration, not re-synced
-│   │   │                     # line-by-line after each phase)
+│   ├── adr/                  # 13 done as of Phase 10
 │   │   ├── 0001-sveltekit-dashboard.md
 │   │   ├── 0002-redis-streams-buffering.md
 │   │   ├── 0003-distributed-tables-plain-names-and-sharding.md
@@ -110,22 +119,25 @@ The fix is architectural, not cosmetic: split **public docs** (Diátaxis: tutori
 │   │   ├── 0008-clickhouse-attribute-typing.md
 │   │   ├── 0009-crud-tables-use-replacingmergetree-tombstones.md
 │   │   ├── 0010-logs-order-by-service-first.md
-│   │   └── 0011-spans-order-by-trace-id-first.md
-│   ├── investigations/         # all 4 done as of Phase 9
+│   │   ├── 0011-spans-order-by-trace-id-first.md
+│   │   ├── 0012-otlp-only-ingestion.md
+│   │   └── 0013-clickhouse-as-storage-engine.md
+│   ├── investigations/       # 5 done as of Phase 9
 │   │   ├── clickhouse-cluster-operational-notes.md
 │   │   ├── aspire-kubernetes-publish-and-resource-graph.md
 │   │   ├── benchmark-ingest-and-query.md
 │   │   ├── cli-verification-bugs.md
 │   │   └── logs-virtuallist-hardening.md
 │   └── planning/
-│       └── (later) roadmap.md
+│       ├── roadmap.md                     # DONE (Phase 10)
+│       └── DOCUMENTATION-MIGRATION-PLAN.md  # this file, DONE (Phase 10)
 │
 └── .github/
 ```
 
 This is deliberately **two top-level doc trees, not more**. A third tree for "contributor process" docs isn't justified — Flare doesn't yet have enough process content to need more than `CONTRIBUTING.md`, and per-project READMEs already cover per-project contributor needs.
 
-**Why this doesn't need a documentation website yet, and why it can add one later without rework:** `docs/`'s four Diátaxis folders map 1:1 onto the nav sections of any of MkDocs Material, Docusaurus, or Starlight. Total public-doc volume today is ~2,500 lines across 7 files — comfortably browsable as raw GitHub Markdown. Introduce a generator only when docs outgrow flat-file browsing, Flare needs versioned docs across breaking changes, or search/nav quality actually blocks users.
+**Why this doesn't need a documentation website yet, and why it can add one later without rework:** `docs/`'s four Diátaxis folders map 1:1 onto the nav sections of any of MkDocs Material, Docusaurus, or Starlight. Total public-doc volume today is comfortably browsable as raw GitHub Markdown. Introduce a generator only when docs outgrow flat-file browsing, Flare needs versioned docs across breaking changes, or search/nav quality actually blocks users.
 
 ---
 
@@ -165,16 +177,21 @@ Categories deliberately **not** created: a separate "concepts" vs. "architecture
 
 ## 6. Current → proposed migration map
 
-See the full section-by-section table (Planning.md L1–3155, `docs/clustering.md`, `docs/auth.md`, `docs/cli.md`, `docs/benchmark.md`, `db/clickhouse/README.md`, `docs/getting-started.md`) as produced during Phase 0 discussion. Key destinations:
+All items below are **done** as of Phase 10:
 
-- Planning.md's "Open questions" (L3129–3136) → `docs-internal/adr/0001-sveltekit-dashboard.md` + `docs-internal/adr/0002-redis-streams-buffering.md` (Phase 1, done)
-- ~~Planning.md v16's ingest-vs-query-time tradeoff → future ADR~~ **Done (Phase 8)** → ADR-0007
-- ~~`docs/clustering.md`'s "Design decision" section → future ADR (distributed-tables-plain-names)~~ **Done (Phase 3)** → ADR-0003
-- ~~`db/clickhouse/README.md`'s "Design decisions" → future ADR(s)~~ **Done (Phase 8)** → ADR-0008 (attribute typing), ADR-0009 (CRUD tombstone pattern), ADR-0010 (`logs` `ORDER BY`), ADR-0011 (`spans` `ORDER BY`). The file itself stays in place as schema reference, now pointing to these instead of re-narrating them.
-- ~~`docs/benchmark.md` → `docs-internal/investigations/benchmark-ingest-and-query.md`~~ **Done (Phase 7)**, wholesale move
-- ~~Planning v21's 3 field-tested Kubernetes bugs → an investigation~~ **Done (Phase 6)** → `docs-internal/investigations/aspire-kubernetes-publish-and-resource-graph.md` (final filename differs from this bullet's original guess)
-- ~145 remaining checked-off diary entries in Planning.md → deleted once their durable content (if any) has a new home; Git history keeps the narrative
-- The 3 still-open `- [ ]` items in Planning.md → `docs-internal/planning/roadmap.md`
+- Planning.md's "Open questions" (L3129–3136) → `docs-internal/adr/0001-sveltekit-dashboard.md` + `0002-redis-streams-buffering.md` (Phase 1). Two of the five numbered questions were never explicitly resolved in place — item 4 (OTLP transport priority) turned out to be resolved in practice (both gRPC and HTTP are supported, confirmed throughout the migrated docs) and needed no ADR; item 5 (timestamp/timezone/clock-skew handling) is genuinely still open and moved to `roadmap.md` instead.
+- Planning.md v16's ingest-vs-query-time tradeoff → `docs-internal/adr/0007-pattern-clustering-at-flush-time.md` (Phase 8)
+- Planning.md's own design principles + "Storage is a solved problem"/"One protocol in: OTLP" framing → `docs-internal/adr/0012-otlp-only-ingestion.md` + `0013-clickhouse-as-storage-engine.md`, plus the non-ADR-grade principles folded directly into `docs/explanation/architecture.md` (Phase 10)
+- `docs/clustering.md`'s "Design decision" section → `docs-internal/adr/0003-distributed-tables-plain-names-and-sharding.md` (Phase 3)
+- `db/clickhouse/README.md`'s "Design decisions" → `docs-internal/adr/0008` through `0011` (Phase 8); the file itself stays in place as schema reference, pointing to these instead of re-narrating them
+- `docs/benchmark.md` → `docs-internal/investigations/benchmark-ingest-and-query.md` (Phase 7), wholesale move
+- Planning v21's 3 field-tested Kubernetes bugs → `docs-internal/investigations/aspire-kubernetes-publish-and-resource-graph.md` (Phase 6)
+- The CLI-verification bugs (BOM, enum-casing) and the Logs `VirtualList` deep-dive → `docs-internal/investigations/cli-verification-bugs.md` + `logs-virtuallist-hardening.md` (Phase 9)
+- ~145 remaining checked-off diary entries in Planning.md → deleted; Git history keeps the narrative
+- The 5 genuinely still-open items (RustFS retention, Kubernetes persistent-storage API, skip-index-effectiveness research, CLI `incident.zip` mode, timestamp/clock-skew handling) → `docs-internal/planning/roadmap.md` (Phase 10)
+- Planning.md's Non-goals section → `docs/explanation/architecture.md#non-goals` (Phase 10), corrected in the process — "not a metrics platform" was dropped since Flare has shipped metrics since v6; carrying a now-false claim forward would have been worse than dropping it
+- Planning.md's Tech stack summary → `docs/explanation/architecture.md#built-with` (Phase 10)
+- Planning.md's 2-sentence, now-stale "Contributing" stub (still said "pre-alpha") → dropped, not carried forward; a real `CONTRIBUTING.md` is Phase 11's job
 
 ---
 
@@ -241,6 +258,8 @@ Enforcement: a PR template checkbox is enough at Flare's current size — no bot
 - Stale-claims check: the update-with-the-change rule in §10, plus periodic `/diataxis audit`.
 - No documentation platform recommended at this time.
 
+Still not implemented as of Phase 10 — this is Phase 11's remaining scope.
+
 ---
 
 ## 12. Incremental migration plan
@@ -257,13 +276,13 @@ Enforcement: a PR template checkbox is enough at Flare's current size — no bot
 | 7 | Move `docs/benchmark.md` → `docs-internal/investigations/` | **Done** |
 | 8 | Extract remaining ADRs from Planning.md + `db/clickhouse/README.md` | **Done** |
 | 9 | Extract remaining investigations from Planning.md | **Done** |
-| 10 | Prune Planning.md to `docs-internal/planning/roadmap.md` (this file moves there too) | Not started |
+| 10 | Prune Planning.md to `docs-internal/planning/roadmap.md` (this file moves there too) | **Done** |
 | 11 | `CONTRIBUTING.md` + validation tooling | Not started |
-
-Phases 3–7 can run in any order relative to each other once 1–2 land; 8–10 must follow.
 
 ---
 
 ## 13. First implementation step
 
 **Phase 1**, narrowly: create `docs-internal/README.md` (the governance doc) and `docs-internal/adr/` with exactly two ADRs extracted from Planning.md's "Open questions" section — the SvelteKit-over-Blazor decision and the Redis-Streams-buffering decision. Nothing else moves; nothing existing is edited or deleted; no links change.
+
+This plan document has now executed through Phase 10. Phase 11 (`CONTRIBUTING.md` + lightweight validation tooling) is the only remaining item.

@@ -1,7 +1,7 @@
 # Getting started
 
 > This document has moved as part of a documentation restructuring
-> ([`DOCUMENTATION-MIGRATION-PLAN.md`](DOCUMENTATION-MIGRATION-PLAN.md),
+> ([`DOCUMENTATION-MIGRATION-PLAN.md`](../docs-internal/planning/DOCUMENTATION-MIGRATION-PLAN.md),
 > Phase 6). Its content now lives, split by type, at:
 >
 > - **[tutorials/getting-started.md](tutorials/getting-started.md)** — a

@@ -1,6 +1,6 @@
 # Flare Dashboard
 
-The SPA frontend for [Flare](../../Planning.md) — SvelteKit 2 (Svelte 5, runes) + Tailwind 4 + shadcn-svelte (`mira` style).
+The SPA frontend for [Flare](../../docs/explanation/architecture.md) — SvelteKit 2 (Svelte 5, runes) + Tailwind 4 + shadcn-svelte (`mira` style).
 
 Talks to `Flare.Api` over plain HTTP/WebSocket (see `src/lib/api.ts`); no server-side rendering of log data is planned, so this stays a straightforward client-rendered app.
 

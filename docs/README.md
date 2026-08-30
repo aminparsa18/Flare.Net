@@ -25,29 +25,32 @@ investigations, the roadmap) lives outside this tree, in
 [`../docs-internal/`](../docs-internal/) — see that folder's `README.md` for
 the full rule set on what goes where.
 
-## Migration in progress
+## Migration history
 
 This `tutorials/`/`how-to/`/`reference/`/`explanation/` structure was
-scaffolded as Phase 2 of a documentation restructuring
-(see [`DOCUMENTATION-MIGRATION-PLAN.md`](DOCUMENTATION-MIGRATION-PLAN.md)
-for the full plan). It is **not yet populated** — the documents below still
-live at the top of `docs/` in their pre-migration form and each is a mix of
-several Diátaxis types. They move into the folders above, split by type, in
-later phases:
+scaffolded and populated by a documentation restructuring (see
+[`../docs-internal/planning/DOCUMENTATION-MIGRATION-PLAN.md`](../docs-internal/planning/DOCUMENTATION-MIGRATION-PLAN.md)
+for the full plan and phase history). Every doc that used to live as a
+mixed-type file at the top of `docs/` has been split by type; the old
+paths below are kept only as short redirect stubs, for the source-code
+comments elsewhere in the repo that still reference them by name:
 
-| Existing doc | Will split into |
+| Old doc | Split into |
 |---|---|
 | ~~[getting-started.md](getting-started.md)~~ | **Done (Phase 6)** → [tutorials/getting-started.md](tutorials/getting-started.md) + [explanation/architecture.md](explanation/architecture.md) (Tour of the dashboard). Old path kept as a redirect stub. |
 | ~~[standalone.md](standalone.md)~~ | **Done (Phase 6)** → [how-to/run-standalone.md](how-to/run-standalone.md) + [reference/otlp-logger-versions.md](reference/otlp-logger-versions.md) + [ADR-0005](../docs-internal/adr/0005-docker-socket-proxy-for-resources-page.md). Old path kept as a redirect stub. |
 | ~~[aspire-hosting.md](aspire-hosting.md)~~ | **Done (Phase 6)** → [how-to/run-with-aspire.md](how-to/run-with-aspire.md) + [reference/aspire-hosting.md](reference/aspire-hosting.md) + [ADR-0006](../docs-internal/adr/0006-kubernetes-resource-graph-rbac-scoping.md) + [an investigation](../docs-internal/investigations/aspire-kubernetes-publish-and-resource-graph.md). Old path kept as a redirect stub. |
-| ~~[cli.md](cli.md)~~ | **Done (Phase 4)** → [reference/cli-commands.md](reference/cli-commands.md) + [how-to/run-with-cli.md](how-to/run-with-cli.md) + [explanation/architecture.md](explanation/architecture.md) (seeded, not yet complete — see that file's own note). Old path kept as a redirect stub — see that file. |
+| ~~[cli.md](cli.md)~~ | **Done (Phase 4)** → [reference/cli-commands.md](reference/cli-commands.md) + [how-to/run-with-cli.md](how-to/run-with-cli.md) + [explanation/architecture.md](explanation/architecture.md). Old path kept as a redirect stub — see that file. |
 | ~~[clustering.md](clustering.md)~~ | **Done (Phase 3)** → [explanation/clustering.md](explanation/clustering.md) + [how-to/run-cluster-mode.md](how-to/run-cluster-mode.md) + [reference/clustering-config.md](reference/clustering-config.md) + [ADR-0003](../docs-internal/adr/0003-distributed-tables-plain-names-and-sharding.md) + [an investigation](../docs-internal/investigations/clickhouse-cluster-operational-notes.md). Old path kept as a redirect stub — see that file. |
 | ~~[auth.md](auth.md)~~ | **Done (Phase 5)** → [how-to/configure-authentication.md](how-to/configure-authentication.md) + [explanation/authentication-model.md](explanation/authentication-model.md) + [reference/authentication-config.md](reference/authentication-config.md) + [ADR-0004](../docs-internal/adr/0004-embedded-sqlite-for-identity.md). Old path kept as a redirect stub — see that file. |
 | ~~[benchmark.md](benchmark.md)~~ | **Done (Phase 7)** → moved wholesale, unsplit, to [`../docs-internal/investigations/benchmark-ingest-and-query.md`](../docs-internal/investigations/benchmark-ingest-and-query.md) — it was evidence end-to-end, not a guide. Old path kept as a redirect stub. |
 
-Until each phase lands, treat the files above as the current source of truth
-for their topic, and the folders in this README as the destination, not yet
-the source.
+Also part of the same restructuring: `Planning.md` (repo root) is now a
+short redirect stub too — its durable content moved into
+[`explanation/architecture.md`](explanation/architecture.md),
+[`../docs-internal/adr/`](../docs-internal/adr/),
+[`../docs-internal/investigations/`](../docs-internal/investigations/),
+and [`../docs-internal/planning/roadmap.md`](../docs-internal/planning/roadmap.md).
 
 ## Contributing documentation
 

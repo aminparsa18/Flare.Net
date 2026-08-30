@@ -1,6 +1,6 @@
 # Flare.Ingest
 
-The OTLP ingestion boundary for [Flare](../../Planning.md). This is where every logger
+The OTLP ingestion boundary for [Flare](../../docs/explanation/architecture.md). This is where every logger
 (Serilog, NLog, ZLogger, `Microsoft.Extensions.Logging`, or any other OTLP-speaking
 source, .NET or not) actually lands.
 
@@ -32,7 +32,7 @@ pipeline"**. Concretely, it:
 
 ## What it deliberately does *not* do (yet)
 
-Per [Planning.md](../../Planning.md)'s roadmap, the following are **separate, later
+Per [the roadmap](../../docs-internal/planning/roadmap.md), the following are **separate, later
 items** — don't extend this project to cover them without checking there first:
 
 - No `Flare.Api` or `Flare.Dashboard` wiring.

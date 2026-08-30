@@ -1,7 +1,7 @@
 # Multi-node ClickHouse (opt-in cluster mode)
 
 > This document has moved as part of a documentation restructuring
-> ([`DOCUMENTATION-MIGRATION-PLAN.md`](DOCUMENTATION-MIGRATION-PLAN.md),
+> ([`DOCUMENTATION-MIGRATION-PLAN.md`](../docs-internal/planning/DOCUMENTATION-MIGRATION-PLAN.md),
 > Phase 3). Its content now lives, split by type, at:
 >
 > - **[explanation/clustering.md](explanation/clustering.md)** — topology,

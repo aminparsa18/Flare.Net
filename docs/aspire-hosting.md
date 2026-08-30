@@ -1,7 +1,7 @@
 # Using Flare from your own .NET Aspire app
 
 > This document has moved as part of a documentation restructuring
-> ([`DOCUMENTATION-MIGRATION-PLAN.md`](DOCUMENTATION-MIGRATION-PLAN.md),
+> ([`DOCUMENTATION-MIGRATION-PLAN.md`](../docs-internal/planning/DOCUMENTATION-MIGRATION-PLAN.md),
 > Phase 6). Its content now lives, split by type, at:
 >
 > - **[how-to/run-with-aspire.md](how-to/run-with-aspire.md)** — adding
