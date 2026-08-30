@@ -1,0 +1,63 @@
+# Documentation
+
+This project uses the [Diátaxis](https://diataxis.fr/) documentation
+framework (also installed as an AI skill: `.claude/skills/diataxis`).
+
+## Quick links
+
+| Type | Purpose | Start here |
+|------|---------|------------|
+| [Tutorials](tutorials/) | Learn by doing | For newcomers |
+| [How-to guides](how-to/) | Solve a specific problem | For practitioners |
+| [Reference](reference/) | Exact technical details | For lookup |
+| [Explanation](explanation/) | Understand why Flare works this way | For deeper knowledge |
+
+- **New to Flare?** Start with [tutorials](tutorials/).
+- **Need to accomplish a task** (run standalone, configure auth, run a
+  cluster)? Check [how-to guides](how-to/).
+- **Looking up a CLI command, config key, or schema column?** See
+  [reference](reference/).
+- **Want to understand why Flare is built this way?** Read
+  [explanation](explanation/).
+
+Maintainer-facing documentation (architecture decisions, technical
+investigations, the roadmap) lives outside this tree, in
+[`../docs-internal/`](../docs-internal/) — see that folder's `README.md` for
+the full rule set on what goes where.
+
+## Migration in progress
+
+This `tutorials/`/`how-to/`/`reference/`/`explanation/` structure was
+scaffolded as Phase 2 of a documentation restructuring
+(see [`DOCUMENTATION-MIGRATION-PLAN.md`](DOCUMENTATION-MIGRATION-PLAN.md)
+for the full plan). It is **not yet populated** — the documents below still
+live at the top of `docs/` in their pre-migration form and each is a mix of
+several Diátaxis types. They move into the folders above, split by type, in
+later phases:
+
+| Existing doc | Will split into |
+|---|---|
+| [getting-started.md](getting-started.md) | `tutorials/getting-started.md` + `explanation/architecture.md` |
+| [standalone.md](standalone.md) | `how-to/run-standalone.md` |
+| [aspire-hosting.md](aspire-hosting.md) | `how-to/run-with-aspire.md` + `reference/` (parameters) |
+| [cli.md](cli.md) | `reference/cli-commands.md` + `how-to/run-with-cli.md` |
+| [clustering.md](clustering.md) | `explanation/clustering.md` + `how-to/run-cluster-mode.md` + `reference/clickhouse-schema.md` (+ an ADR) |
+| [auth.md](auth.md) | `how-to/configure-authentication.md` + `explanation/authentication-model.md` + `reference/authentication-config.md` |
+| [benchmark.md](benchmark.md) | moves wholesale to `../docs-internal/investigations/` |
+
+Until each phase lands, treat the files above as the current source of truth
+for their topic, and the folders in this README as the destination, not yet
+the source.
+
+## Contributing documentation
+
+When adding new documentation, work out its type first — see
+[`../docs-internal/README.md`](../docs-internal/README.md#where-does-new-information-belong)
+for the decision tree (it also covers when something is an ADR or
+investigation instead of a `docs/` page):
+
+1. **Tutorial**: step-by-step lesson for a beginner
+2. **How-to guide**: task-focused instructions for someone who knows what
+   they want, not how
+3. **Reference**: factual, comprehensive, dry description
+4. **Explanation**: context, background, and why
