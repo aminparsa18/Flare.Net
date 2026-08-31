@@ -32,6 +32,11 @@ export interface PipelineServiceEntry {
 	serviceName: string;
 	records: number;
 	bytes: number;
+	// (IngestedAt - event time) averaged across this service's records in the window
+	// (see ADR-0014) - positive = typically arrives claiming a past time relative to
+	// receipt (expected: latency), negative = claims a future time (this service's
+	// clock is ahead of the server's).
+	averageClockSkewMs: number;
 }
 
 export interface PipelineServiceBreakdown {

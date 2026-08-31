@@ -26,6 +26,7 @@ public static class OtlpHttpMetricsEndpoints
         HttpContext http,
         IMetricEventSink sink,
         IIngestionStatsTracker stats,
+        TimeProvider timeProvider,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -74,7 +75,11 @@ public static class OtlpHttpMetricsEndpoints
             return Results.BadRequest();
         }
 
-        var result = OtlpMetricsMapper.Map(request);
+        // Captured once per request, not per data point - see LogEvent.IngestedAt's
+        // remarks and ADR-0014.
+        var ingestedAt = timeProvider.GetUtcNow();
+
+        var result = OtlpMetricsMapper.Map(request, ingestedAt);
         foreach (var point in result.Points)
         {
             await sink.WriteAsync(point, cancellationToken);
@@ -83,7 +88,7 @@ public static class OtlpHttpMetricsEndpoints
         await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, result.Points.Count, byteCount, cancellationToken);
         await stats.RecordServiceBreakdownAsync(
             IngestionSignal.Metrics,
-            ServiceBreakdown.Build(result.Points.Select(p => p.ServiceName), byteCount),
+            ServiceBreakdown.Build(result.Points.Select(p => (p.ServiceName, ClockSkew.Nanos(ingestedAt, p.Time))), byteCount),
             cancellationToken);
 
         if (result.UnsupportedMetricNames.Count > 0)

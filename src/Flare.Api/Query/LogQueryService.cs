@@ -338,6 +338,7 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
         EventName = reader.GetString(17),
         PatternId = reader.GetString(18),
         PatternTemplate = reader.GetString(19),
+        IngestedAt = ReadUtc(reader, 20),
     };
 
     /// <summary>

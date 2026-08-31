@@ -56,8 +56,17 @@ public sealed record PipelineFlushHealth(
     string? LastError,
     long ConsecutiveErrors);
 
-/// <summary>One service's share of a signal's traffic within the requested window.</summary>
-public sealed record PipelineServiceEntry(string ServiceName, long Records, long Bytes);
+/// <summary>
+/// One service's share of a signal's traffic within the requested window.
+/// <see cref="AverageClockSkewMs"/> is <c>(IngestedAt - event time)</c> averaged across
+/// every record this service sent in the window (see ADR-0014) - positive means this
+/// service's events typically arrive claiming a time in the past relative to receipt
+/// (the expected case: latency), negative means they claim a time in the future (the
+/// service's clock is ahead of this server's). A simple per-window mean, not a robust
+/// statistic - see <c>Flare.Ingest.Stats.ServiceAcceptedCounts.SkewNanosSum</c>'s
+/// remarks for the same caveat on the write side.
+/// </summary>
+public sealed record PipelineServiceEntry(string ServiceName, long Records, long Bytes, double AverageClockSkewMs);
 
 /// <summary>
 /// Per-<c>service.name</c> breakdown for one signal, capped to the top

@@ -12,7 +12,15 @@ namespace Flare.Ingest.Otlp;
 /// </summary>
 public static class OtlpLogMapper
 {
-    public static IEnumerable<LogEvent> Map(ExportLogsServiceRequest request)
+    /// <param name="request">The parsed OTLP export request.</param>
+    /// <param name="ingestedAt">
+    /// <c>Flare.Ingest</c>'s own wall-clock read at the moment this request was
+    /// received (see <see cref="LogEvent.IngestedAt"/>'s remarks) - passed in rather
+    /// than read from a clock here so this mapper stays pure/deterministic and
+    /// unit-testable without mocking time, same as every other field it derives from
+    /// <paramref name="request"/> alone.
+    /// </param>
+    public static IEnumerable<LogEvent> Map(ExportLogsServiceRequest request, DateTimeOffset ingestedAt)
     {
         foreach (var resourceLogs in request.ResourceLogs)
         {
@@ -47,6 +55,7 @@ public static class OtlpLogMapper
                         ScopeAttributes = scopeAttributes,
                         LogAttributes = Flatten(record.Attributes),
                         EventName = EmptyToNull(record.EventName),
+                        IngestedAt = ingestedAt,
                     };
                 }
             }

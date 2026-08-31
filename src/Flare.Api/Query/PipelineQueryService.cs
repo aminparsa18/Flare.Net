@@ -148,20 +148,23 @@ public sealed class PipelineQueryService(
         var batch = db.CreateBatch();
         var recordTasks = new Task<HashEntry[]>[minutes];
         var byteTasks = new Task<HashEntry[]>[minutes];
+        var skewTasks = new Task<HashEntry[]>[minutes];
         for (var i = 0; i < minutes; i++)
         {
             var minute = startMinute + i;
             recordTasks[i] = batch.HashGetAllAsync(IngestionStatsKeys.ServiceRecordsKey(minute, signal));
             byteTasks[i] = batch.HashGetAllAsync(IngestionStatsKeys.ServiceBytesKey(minute, signal));
+            skewTasks[i] = batch.HashGetAllAsync(IngestionStatsKeys.ServiceSkewNanosKey(minute, signal));
         }
         batch.Execute();
 
-        await Task.WhenAll(recordTasks.Concat(byteTasks)).WaitAsync(cancellationToken);
+        await Task.WhenAll(recordTasks.Concat(byteTasks).Concat(skewTasks)).WaitAsync(cancellationToken);
 
         var recordsByService = SumHashes(recordTasks);
         var bytesByService = SumHashes(byteTasks);
+        var skewNanosByService = SumHashes(skewTasks);
 
-        return BuildServiceBreakdown(signal, recordsByService, bytesByService);
+        return BuildServiceBreakdown(signal, recordsByService, bytesByService, skewNanosByService);
     }
 
     private static Dictionary<string, long> SumHashes(Task<HashEntry[]>[] tasks)
@@ -181,13 +184,25 @@ public sealed class PipelineQueryService(
         return totals;
     }
 
+    /// <summary>
+    /// Nanoseconds-per-millisecond divisor for <see cref="PipelineServiceEntry.AverageClockSkewMs"/> -
+    /// named rather than a bare magic number since it's easy to confuse with the
+    /// unrelated nanoseconds-per-second scale elsewhere in this codebase.
+    /// </summary>
+    private const double NanosPerMillisecond = 1_000_000d;
+
     internal static PipelineServiceBreakdown BuildServiceBreakdown(
         IngestionSignal signal,
         IReadOnlyDictionary<string, long> recordsByService,
-        IReadOnlyDictionary<string, long> bytesByService)
+        IReadOnlyDictionary<string, long> bytesByService,
+        IReadOnlyDictionary<string, long> skewNanosByService)
     {
         var ordered = recordsByService
-            .Select(kv => new PipelineServiceEntry(kv.Key, kv.Value, bytesByService.GetValueOrDefault(kv.Key)))
+            .Select(kv => new PipelineServiceEntry(
+                kv.Key,
+                kv.Value,
+                bytesByService.GetValueOrDefault(kv.Key),
+                kv.Value > 0 ? skewNanosByService.GetValueOrDefault(kv.Key) / (double)kv.Value / NanosPerMillisecond : 0d))
             .OrderByDescending(e => e.Records)
             .ThenBy(e => e.ServiceName, StringComparer.Ordinal)
             .ToList();

@@ -47,6 +47,17 @@ public class BufferedLogEventMapperTests
         Assert.Equal(observed, dto.ObservedTimestamp);
     }
 
+    [Fact]
+    public void ToDto_PassesThroughIngestedAt_Directly_NoFallback()
+    {
+        var ingestedAt = new DateTimeOffset(2026, 8, 7, 12, 0, 5, TimeSpan.Zero);
+        var bufferedLogEvent = MinimalBufferedLogEvent() with { IngestedAt = ingestedAt };
+
+        var dto = BufferedLogEventMapper.ToDto(bufferedLogEvent);
+
+        Assert.Equal(ingestedAt, dto.IngestedAt);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(24)]
@@ -85,6 +96,7 @@ public class BufferedLogEventMapperTests
     {
         EventId = Guid.NewGuid(),
         Timestamp = DateTimeOffset.UnixEpoch,
+        IngestedAt = DateTimeOffset.UnixEpoch,
         SeverityNumber = 9,
         ResourceAttributes = new Dictionary<string, string>(),
         ScopeAttributes = new Dictionary<string, string>(),

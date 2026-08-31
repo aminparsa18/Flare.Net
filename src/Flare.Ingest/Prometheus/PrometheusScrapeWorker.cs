@@ -1,4 +1,5 @@
 using System.Text;
+using Flare.Ingest.Otlp;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
@@ -114,7 +115,11 @@ public sealed class PrometheusScrapeWorker(
             var byteCount = Encoding.UTF8.GetByteCount(body);
 
             var parsed = PrometheusExpositionParser.Parse(body);
-            var result = PrometheusMetricsMapper.Map(parsed, target, timeProvider.GetUtcNow());
+            // Also becomes every mapped point's IngestedAt - see PrometheusMetricsMapper's
+            // remarks for why "scrape time" and "receipt time" are the same moment here,
+            // unlike OTLP's push model.
+            var scrapeTime = timeProvider.GetUtcNow();
+            var result = PrometheusMetricsMapper.Map(parsed, target, scrapeTime);
 
             foreach (var point in result.Points)
             {
@@ -124,7 +129,7 @@ public sealed class PrometheusScrapeWorker(
             await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Scrape, result.Points.Count, byteCount, stoppingToken);
             await stats.RecordServiceBreakdownAsync(
                 IngestionSignal.Metrics,
-                ServiceBreakdown.Build(result.Points.Select(p => p.ServiceName), byteCount),
+                ServiceBreakdown.Build(result.Points.Select(p => (p.ServiceName, ClockSkew.Nanos(scrapeTime, p.Time))), byteCount),
                 stoppingToken);
 
             if (result.UnsupportedMetricNames.Count > 0)

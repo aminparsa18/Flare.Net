@@ -23,10 +23,10 @@ public static class ClickHouseRowMapper
     /// <see cref="ClickHouse.Driver.IClickHouseClient.InsertBinaryAsync"/> builds the
     /// RowBinary insert against this column order, so <see cref="ToRow"/>'s array must
     /// produce values in the same order. Matches <c>0001_logs.sql</c>'s declaration
-    /// order, with <c>EventId</c>, then <c>PatternId</c>/<c>PatternTemplate</c>, appended
-    /// in that order - matching how each was added via its own
-    /// <c>ALTER TABLE ... ADD COLUMN</c> migration (<c>0002_logs_event_id.sql</c>, then
-    /// <c>0010_logs_pattern.sql</c>).
+    /// order, with <c>EventId</c>, then <c>PatternId</c>/<c>PatternTemplate</c>, then
+    /// <c>IngestedAt</c>, appended in that order - matching how each was added via its
+    /// own <c>ALTER TABLE ... ADD COLUMN</c> migration (<c>0002_logs_event_id.sql</c>,
+    /// then <c>0010_logs_pattern.sql</c>, then <c>0011_ingest_receipt_time.sql</c>).
     /// </summary>
     public static readonly IReadOnlyList<string> Columns =
     [
@@ -50,6 +50,7 @@ public static class ClickHouseRowMapper
         "EventId",
         "PatternId",
         "PatternTemplate",
+        "IngestedAt",
     ];
 
     /// <summary>Maps a single <see cref="LogEvent"/> to a row, positionally matching <see cref="Columns"/>.</summary>
@@ -75,6 +76,7 @@ public static class ClickHouseRowMapper
         logEvent.EventId,
         logEvent.PatternId,
         logEvent.PatternTemplate,
+        logEvent.IngestedAt.UtcDateTime,
     ];
 
     /// <summary>Maps a batch of events to rows, in the same order.</summary>

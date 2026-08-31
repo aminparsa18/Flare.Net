@@ -44,6 +44,12 @@ public sealed record SpanDto
 
     public required DateTimeOffset EndTime { get; init; }
 
+    /// <summary>
+    /// <c>Flare.Ingest</c>'s own receipt-time read, not from the OTLP wire - see
+    /// <c>LogEventDto.IngestedAt</c>'s remarks and ADR-0014.
+    /// </summary>
+    public required DateTimeOffset IngestedAt { get; init; }
+
     public required ulong DurationNano { get; init; }
 
     public required string StatusCode { get; init; }

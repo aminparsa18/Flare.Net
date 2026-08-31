@@ -21,6 +21,7 @@ public class BufferedLogEventJsonContextTests
             EventId = Guid.NewGuid(),
             Timestamp = new DateTimeOffset(2026, 8, 7, 12, 0, 0, TimeSpan.Zero),
             ObservedTimestamp = new DateTimeOffset(2026, 8, 7, 12, 0, 1, TimeSpan.Zero),
+            IngestedAt = new DateTimeOffset(2026, 8, 7, 12, 0, 2, TimeSpan.Zero),
             SeverityNumber = 17,
             SeverityText = "Error",
             Body = "something went wrong",
@@ -48,6 +49,7 @@ public class BufferedLogEventJsonContextTests
         {
             EventId = Guid.NewGuid(),
             Timestamp = DateTimeOffset.UnixEpoch,
+            IngestedAt = DateTimeOffset.UnixEpoch,
             SeverityNumber = 0,
             ResourceAttributes = new Dictionary<string, string>(),
             ScopeAttributes = new Dictionary<string, string>(),
@@ -70,6 +72,7 @@ public class BufferedLogEventJsonContextTests
               "EventId": "11111111-1111-1111-1111-111111111111",
               "Timestamp": "2026-08-07T12:00:00+00:00",
               "ObservedTimestamp": "2026-08-07T12:00:01+00:00",
+              "IngestedAt": "2026-08-07T12:00:02+00:00",
               "SeverityNumber": 17,
               "SeverityText": "Error",
               "Body": "something went wrong",
@@ -94,6 +97,7 @@ public class BufferedLogEventJsonContextTests
         Assert.Equal(Guid.Parse("11111111-1111-1111-1111-111111111111"), bufferedLogEvent.EventId);
         Assert.Equal(new DateTimeOffset(2026, 8, 7, 12, 0, 0, TimeSpan.Zero), bufferedLogEvent.Timestamp);
         Assert.Equal(new DateTimeOffset(2026, 8, 7, 12, 0, 1, TimeSpan.Zero), bufferedLogEvent.ObservedTimestamp);
+        Assert.Equal(new DateTimeOffset(2026, 8, 7, 12, 0, 2, TimeSpan.Zero), bufferedLogEvent.IngestedAt);
         Assert.Equal(17, bufferedLogEvent.SeverityNumber);
         Assert.Equal("Error", bufferedLogEvent.SeverityText);
         Assert.Equal("something went wrong", bufferedLogEvent.Body);
@@ -119,6 +123,7 @@ public class BufferedLogEventJsonContextTests
         Assert.Equal(original.EventId, roundTripped.EventId);
         Assert.Equal(original.Timestamp, roundTripped.Timestamp);
         Assert.Equal(original.ObservedTimestamp, roundTripped.ObservedTimestamp);
+        Assert.Equal(original.IngestedAt, roundTripped.IngestedAt);
         Assert.Equal(original.SeverityNumber, roundTripped.SeverityNumber);
         Assert.Equal(original.SeverityText, roundTripped.SeverityText);
         Assert.Equal(original.Body, roundTripped.Body);

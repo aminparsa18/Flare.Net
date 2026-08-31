@@ -80,6 +80,28 @@ public class IngestionStatsKeysTests
             IngestionStatsKeys.ServiceRecordsKey(timestamp, IngestionSignal.Logs),
             IngestionStatsKeys.ServiceRecordsKey(timestamp, IngestionSignal.Metrics));
     }
+
+    [Fact]
+    public void ServiceSkewNanosKey_DiffersFromServiceRecordsAndBytesKeys_ForSameMinuteAndSignal()
+    {
+        var timestamp = new DateTimeOffset(2026, 8, 10, 12, 30, 0, TimeSpan.Zero);
+
+        var skewKey = IngestionStatsKeys.ServiceSkewNanosKey(timestamp, IngestionSignal.Logs);
+
+        Assert.NotEqual(skewKey, IngestionStatsKeys.ServiceRecordsKey(timestamp, IngestionSignal.Logs));
+        Assert.NotEqual(skewKey, IngestionStatsKeys.ServiceBytesKey(timestamp, IngestionSignal.Logs));
+    }
+
+    [Fact]
+    public void ServiceSkewNanosKey_TimestampOverload_MatchesEpochMinuteOverload()
+    {
+        var timestamp = new DateTimeOffset(2026, 8, 10, 12, 30, 0, TimeSpan.Zero);
+        var epochMinute = timestamp.ToUnixTimeSeconds() / 60;
+
+        Assert.Equal(
+            IngestionStatsKeys.ServiceSkewNanosKey(timestamp, IngestionSignal.Traces),
+            IngestionStatsKeys.ServiceSkewNanosKey(epochMinute, IngestionSignal.Traces));
+    }
 }
 
 public class IngestionErrorEntryJsonContextTests

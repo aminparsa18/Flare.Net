@@ -59,6 +59,14 @@ computation). This is the **"Log pattern detection"** roadmap item - `Flare.Api`
 the same reason this is ingest-time rather than query-time - see
 [ADR-0007](../../docs-internal/adr/0007-pattern-clustering-at-flush-time.md).
 
+`0011_ingest_receipt_time.sql` - adds `IngestedAt DateTime64(9)` to `logs`, `spans`, and
+all three `metrics_*` tables: `Flare.Ingest`'s own wall-clock read at the moment it
+received each OTLP export request, stamped on every record/span/data point that request
+contained. This is the **clock-skew visibility** roadmap item - see
+[ADR-0014](../../docs-internal/adr/0014-ingest-receipt-time-for-clock-skew-visibility.md)
+for why the OTLP wire's own `ObservedTimestamp` doesn't already answer this, and
+"`IngestedAt` vs `ObservedTimestamp`" below for the distinction.
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
@@ -317,6 +325,7 @@ expected row count. Two differences worth calling out:
 | `EventName`                     | `EventName`           | Presence marks a named OTel "event", not just descriptive text. |
 | `EventId`                       | `EventId`              | Added in migration 0002. Flare-internal (`Guid.NewGuid()` at map time), not from OTLP. |
 | `PatternId` / `PatternTemplate` | `PatternId` / `PatternTemplate` | Added in migration 0010. Set by `Flare.Ingest`'s `LogPatternAnnotator` at flush time, not by `OtlpLogMapper` - not from OTLP either. |
+| `IngestedAt`                    | `IngestedAt`           | Added in migration 0011 (ADR-0014). `Flare.Ingest`'s own receipt-time read, not from OTLP - see "`IngestedAt` vs `ObservedTimestamp`" below. |
 
 ## Empty string / NULL convention
 
@@ -332,6 +341,20 @@ when the OTLP record itself set `observed_time_unix_nano`), but the DDL's
 pipeline (a later roadmap item) is responsible for defaulting it to `Timestamp` when
 the model value is `null` - this migration surfaces that requirement but doesn't
 implement it.
+
+## `IngestedAt` vs `ObservedTimestamp`
+
+Easy to conflate, genuinely different things - see ADR-0014 for the full
+investigation. `Timestamp` and `ObservedTimestamp` both come from the OTLP wire: in
+every .NET OTel SDK export path Flare's receivers actually see, both are stamped from
+the **client's own clock**, generally at the same instant. `IngestedAt` (migration
+0011) is `Flare.Ingest`'s own wall-clock read (`TimeProvider.GetUtcNow()`), taken once
+per accepted export request and stamped on every record/span/data point it contains -
+the one timestamp on each row that's genuinely independent of the sending client's
+clock. `IngestedAt - <event time>` is what the Ingestion page's per-service clock-skew
+column (ADR-0014) is computed from; `ObservedTimestamp` alone can't answer that
+question. Same column added to `spans`/`metrics_gauge`/`metrics_sum`/`metrics_histogram`
+in the same migration, for the same reason.
 
 ## Timestamp precision
 
@@ -364,6 +387,7 @@ filtering or event ordering in the dashboard needs.
 | `ScopeAttributes`                 | `ScopeAttributes`       | |
 | `SpanAttributes`                  | `SpanAttributes`        | |
 | `Events` (`IReadOnlyList<SpanEvent>`) | `Events.TimeUnixNano`/`Events.Name`/`Events.Attributes` | `Nested` column, desugared to three parallel arrays - see "Design decisions" above. |
+| `IngestedAt`                      | `IngestedAt`            | Added in migration 0011 (ADR-0014). See "`IngestedAt` vs `ObservedTimestamp`" above. |
 
 ## `MetricPointRecord` field → column mapping
 
@@ -383,6 +407,7 @@ Common columns (all three tables):
 | `DataPointAttributes`             | `DataPointAttributes`   | |
 | `StartTime`                       | `StartTime`             | Nullable in C#, coalesced to `Time` when absent - see "Design decisions" above. |
 | `Time`                            | `Time`                  | See logs' "Timestamp precision" note - same 100ns tick truncation applies. |
+| `IngestedAt`                      | `IngestedAt`             | Added in migration 0011 (ADR-0014). See "`IngestedAt` vs `ObservedTimestamp`" above - for a Prometheus-scraped point this equals the scrape time, not a distinct receipt time (see `PrometheusMetricsMapper`'s remarks). |
 
 Per point type, in addition to the common columns above:
 

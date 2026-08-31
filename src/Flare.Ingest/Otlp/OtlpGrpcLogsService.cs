@@ -12,6 +12,7 @@ namespace Flare.Ingest.Otlp;
 public sealed class OtlpGrpcLogsService(
     ILogEventSink sink,
     IIngestionStatsTracker stats,
+    TimeProvider timeProvider,
     ILogger<OtlpGrpcLogsService> logger) : LogsService.LogsServiceBase
 {
     public override async Task<ExportLogsServiceResponse> Export(
@@ -23,16 +24,20 @@ public sealed class OtlpGrpcLogsService(
         // for stats purposes without needing the original raw bytes.
         var byteCount = request.CalculateSize();
 
+        // Captured once per request, not per record - see LogEvent.IngestedAt's remarks
+        // and ADR-0014.
+        var ingestedAt = timeProvider.GetUtcNow();
+
         int count;
-        var serviceNames = new List<string?>();
+        var records = new List<(string? ServiceName, long SkewNanos)>();
         try
         {
             count = 0;
-            foreach (var logEvent in OtlpLogMapper.Map(request))
+            foreach (var logEvent in OtlpLogMapper.Map(request, ingestedAt))
             {
                 await sink.WriteAsync(logEvent, context.CancellationToken);
                 count++;
-                serviceNames.Add(logEvent.ServiceName);
+                records.Add((logEvent.ServiceName, ClockSkew.Nanos(ingestedAt, logEvent.Timestamp)));
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException and not RpcException)
@@ -43,7 +48,7 @@ public sealed class OtlpGrpcLogsService(
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Logs, IngestionProtocol.Grpc, count, byteCount, context.CancellationToken);
-        await stats.RecordServiceBreakdownAsync(IngestionSignal.Logs, ServiceBreakdown.Build(serviceNames, byteCount), context.CancellationToken);
+        await stats.RecordServiceBreakdownAsync(IngestionSignal.Logs, ServiceBreakdown.Build(records, byteCount), context.CancellationToken);
 
         logger.LogDebug("Ingested {Count} log record(s) via gRPC", count);
         return new ExportLogsServiceResponse();
