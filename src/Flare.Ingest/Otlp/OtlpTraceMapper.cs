@@ -19,7 +19,13 @@ namespace Flare.Ingest.Otlp;
 /// </remarks>
 public static class OtlpTraceMapper
 {
-    public static IEnumerable<SpanRecord> Map(ExportTraceServiceRequest request)
+    /// <param name="request">The parsed OTLP export request.</param>
+    /// <param name="ingestedAt">
+    /// <c>Flare.Ingest</c>'s own wall-clock read at the moment this request was
+    /// received - see <see cref="OtlpLogMapper.Map"/>'s remarks for why this is a
+    /// parameter rather than read from a clock here.
+    /// </param>
+    public static IEnumerable<SpanRecord> Map(ExportTraceServiceRequest request, DateTimeOffset ingestedAt)
     {
         foreach (var resourceSpans in request.ResourceSpans)
         {
@@ -60,6 +66,7 @@ public static class OtlpTraceMapper
                         ScopeAttributes = scopeAttributes,
                         SpanAttributes = Flatten(span.Attributes),
                         Events = [.. span.Events.Select(MapEvent)],
+                        IngestedAt = ingestedAt,
                     };
                 }
             }

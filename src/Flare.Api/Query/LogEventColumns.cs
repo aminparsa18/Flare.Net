@@ -31,6 +31,7 @@ internal static class LogEventColumns
         "EventName",
         "PatternId",
         "PatternTemplate",
+        "IngestedAt",
     ];
 
     public static readonly string SelectList = string.Join(", ", Names);

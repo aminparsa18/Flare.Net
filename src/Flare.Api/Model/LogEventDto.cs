@@ -23,6 +23,13 @@ public sealed record LogEventDto
 
     public required DateTimeOffset ObservedTimestamp { get; init; }
 
+    /// <summary>
+    /// <c>Flare.Ingest</c>'s own receipt-time read, not from the OTLP wire - see
+    /// <c>Flare.Ingest.Model.LogEvent.IngestedAt</c>'s remarks and ADR-0014. Distinct
+    /// from <see cref="ObservedTimestamp"/>, which is a client-clock value.
+    /// </summary>
+    public required DateTimeOffset IngestedAt { get; init; }
+
     public required string TraceId { get; init; }
 
     public required string SpanId { get; init; }

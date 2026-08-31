@@ -41,9 +41,3 @@ folders are where "what happened and why" actually lives.
   instead of the current logs-only NDJSON/CSV stream. Deliberately held
   back: the shipped stdout/`-o` + shell composability (`> file`, `| jq`)
   already covers real usage; this is a real want, not an urgent one.
-- **Timestamp/timezone & clock-skew handling from distributed clients.**
-  Named as an open question before v1 and never explicitly revisited — no
-  clock-skew compensation exists anywhere in the ingest pipeline today;
-  timestamps are stored as received on the wire. Worth a real design pass
-  if multi-region/clock-drift-sensitive deployments become a reported
-  problem, rather than guessed at now.

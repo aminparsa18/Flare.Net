@@ -62,8 +62,9 @@ public class PipelineQueryServiceTests
     {
         var records = new Dictionary<string, long> { ["checkout-api"] = 10, ["orders-api"] = 5 };
         var bytes = new Dictionary<string, long> { ["checkout-api"] = 1000, ["orders-api"] = 500 };
+        var skew = new Dictionary<string, long>();
 
-        var breakdown = PipelineQueryService.BuildServiceBreakdown(IngestionSignal.Logs, records, bytes);
+        var breakdown = PipelineQueryService.BuildServiceBreakdown(IngestionSignal.Logs, records, bytes, skew);
 
         Assert.Equal(2, breakdown.TopServices.Count);
         Assert.Equal("checkout-api", breakdown.TopServices[0].ServiceName); // higher record count first
@@ -84,7 +85,7 @@ public class PipelineQueryServiceTests
             bytes[name] = 100;
         }
 
-        var breakdown = PipelineQueryService.BuildServiceBreakdown(IngestionSignal.Logs, records, bytes);
+        var breakdown = PipelineQueryService.BuildServiceBreakdown(IngestionSignal.Logs, records, bytes, skewNanosByService: new Dictionary<string, long>());
 
         Assert.Equal(PipelineQueryService.TopServicesPerSignal, breakdown.TopServices.Count);
         Assert.Equal(3, breakdown.OtherServiceCount);
@@ -99,9 +100,33 @@ public class PipelineQueryServiceTests
         var records = new Dictionary<string, long> { ["orphan-service"] = 1 };
         var bytes = new Dictionary<string, long>();
 
-        var breakdown = PipelineQueryService.BuildServiceBreakdown(IngestionSignal.Logs, records, bytes);
+        var breakdown = PipelineQueryService.BuildServiceBreakdown(IngestionSignal.Logs, records, bytes, skewNanosByService: new Dictionary<string, long>());
 
         Assert.Equal(0, Assert.Single(breakdown.TopServices).Bytes);
+    }
+
+    [Fact]
+    public void BuildServiceBreakdown_ComputesAverageClockSkewMs_FromSkewNanosSumDividedByRecordCount()
+    {
+        var records = new Dictionary<string, long> { ["checkout-api"] = 4 };
+        var bytes = new Dictionary<string, long> { ["checkout-api"] = 100 };
+        // 4 records, summed skew of 20,000,000ns (20ms) -> average 5ms/record.
+        var skew = new Dictionary<string, long> { ["checkout-api"] = 20_000_000 };
+
+        var breakdown = PipelineQueryService.BuildServiceBreakdown(IngestionSignal.Logs, records, bytes, skew);
+
+        Assert.Equal(5d, Assert.Single(breakdown.TopServices).AverageClockSkewMs);
+    }
+
+    [Fact]
+    public void BuildServiceBreakdown_ServiceWithNoSkewEntry_DefaultsToZero_NotAnException()
+    {
+        var records = new Dictionary<string, long> { ["orphan-service"] = 1 };
+        var bytes = new Dictionary<string, long>();
+
+        var breakdown = PipelineQueryService.BuildServiceBreakdown(IngestionSignal.Logs, records, bytes, skewNanosByService: new Dictionary<string, long>());
+
+        Assert.Equal(0d, Assert.Single(breakdown.TopServices).AverageClockSkewMs);
     }
 
     [Theory]

@@ -17,9 +17,20 @@ public class ClickHouseSpanRowMapperTests
                 "StartTime", "EndTime", "DurationNano", "StatusCode", "StatusMessage",
                 "ServiceName", "ResourceSchemaUrl", "ResourceAttributes", "ScopeSchemaUrl",
                 "ScopeName", "ScopeVersion", "ScopeAttributes", "SpanAttributes",
-                "Events.TimeUnixNano", "Events.Name", "Events.Attributes",
+                "Events.TimeUnixNano", "Events.Name", "Events.Attributes", "IngestedAt",
             ],
             ClickHouseSpanRowMapper.Columns);
+    }
+
+    [Fact]
+    public void ToRow_PassesThroughIngestedAt_AsTheLastColumn()
+    {
+        var ingestedAt = new DateTimeOffset(2026, 8, 10, 12, 0, 5, TimeSpan.Zero);
+        var span = MinimalSpan() with { IngestedAt = ingestedAt };
+
+        var row = ClickHouseSpanRowMapper.ToRow(span);
+
+        Assert.Equal(ingestedAt.UtcDateTime, row[22]);
     }
 
     [Fact]
@@ -150,6 +161,7 @@ public class ClickHouseSpanRowMapperTests
         Kind = 1,
         StartTime = DateTimeOffset.UnixEpoch,
         EndTime = DateTimeOffset.UnixEpoch.AddMilliseconds(10),
+        IngestedAt = DateTimeOffset.UnixEpoch,
         DurationNano = 10_000_000,
         StatusCode = 0,
         ResourceAttributes = new Dictionary<string, string>(),

@@ -75,6 +75,14 @@ public abstract record MetricPointRecord
 
     /// <summary>The moment this data point's aggregate value was captured. Required per the OTLP spec.</summary>
     public required DateTimeOffset Time { get; init; }
+
+    /// <summary>
+    /// <c>Flare.Ingest</c>'s own wall-clock read, taken once per accepted OTLP export
+    /// request and stamped on every data point it contains - not from the OTLP wire.
+    /// Same field/rationale as <see cref="LogEvent.IngestedAt"/> - see that type's
+    /// remarks and ADR-0014.
+    /// </summary>
+    public required DateTimeOffset IngestedAt { get; init; }
 }
 
 /// <summary>An OTLP Gauge data point - the "current value" at <see cref="MetricPointRecord.Time"/>, no aggregation temporality.</summary>

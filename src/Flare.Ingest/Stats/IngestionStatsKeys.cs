@@ -55,6 +55,7 @@ public static class IngestionStatsKeys
 
     private const string ServiceRecordsPrefix = "flare:ingestion:service-records:";
     private const string ServiceBytesPrefix = "flare:ingestion:service-bytes:";
+    private const string ServiceSkewNanosPrefix = "flare:ingestion:service-skew-ns:";
 
     /// <summary>
     /// One hash per (minute, signal), field = raw <c>service.name</c> (not folded into a
@@ -70,10 +71,24 @@ public static class IngestionStatsKeys
     public static string ServiceBytesKey(DateTimeOffset timestamp, IngestionSignal signal) =>
         ServiceBytesPrefix + timestamp.ToUnixTimeSeconds() / 60 + ":" + signal.ToString().ToLowerInvariant();
 
+    /// <summary>
+    /// Same one-hash-per-(minute,signal) shape as <see cref="ServiceRecordsKey"/>/
+    /// <see cref="ServiceBytesKey"/>, field = raw service name, value = the summed
+    /// <c>SkewNanos</c> from <see cref="ServiceAcceptedCounts.SkewNanosSum"/> - a
+    /// running total, not an average (the reader divides by the matching
+    /// <see cref="ServiceRecordsKey"/> hash's record count once it has summed across a
+    /// whole window - see ADR-0014).
+    /// </summary>
+    public static string ServiceSkewNanosKey(DateTimeOffset timestamp, IngestionSignal signal) =>
+        ServiceSkewNanosPrefix + timestamp.ToUnixTimeSeconds() / 60 + ":" + signal.ToString().ToLowerInvariant();
+
     /// <summary>Same key format as <see cref="ServiceRecordsKey"/>/<see cref="ServiceBytesKey"/>, built from an already-known epoch minute (the reader side already has one, from its own window loop).</summary>
     public static string ServiceRecordsKey(long epochMinute, IngestionSignal signal) =>
         ServiceRecordsPrefix + epochMinute + ":" + signal.ToString().ToLowerInvariant();
 
     public static string ServiceBytesKey(long epochMinute, IngestionSignal signal) =>
         ServiceBytesPrefix + epochMinute + ":" + signal.ToString().ToLowerInvariant();
+
+    public static string ServiceSkewNanosKey(long epochMinute, IngestionSignal signal) =>
+        ServiceSkewNanosPrefix + epochMinute + ":" + signal.ToString().ToLowerInvariant();
 }

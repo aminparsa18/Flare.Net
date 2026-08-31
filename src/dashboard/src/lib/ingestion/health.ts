@@ -142,6 +142,18 @@ export interface ReceiverStatus {
 	tone: FlushStatusTone;
 }
 
+// Clock-skew visibility only (ADR-0014) - deliberately NOT read by computeIngestionHealth
+// below, so a skewed client's clock never flips the page-level Healthy/Degraded/Down
+// verdict. 30s comfortably clears normal network/processing latency and typical NTP
+// drift, so crossing it is a real signal worth a warning-toned badge on the "Services by
+// signal" table, not routine noise.
+export const CLOCK_SKEW_WARN_MS = 30_000;
+
+/** Tone for one service's clock-skew figure in PipelineServiceBreakdown - reuses FlushStatusTone's vocabulary rather than inventing a second one, same precedent as computeReceiverStatus below. */
+export function clockSkewTone(averageClockSkewMs: number): FlushStatusTone {
+	return Math.abs(averageClockSkewMs) >= CLOCK_SKEW_WARN_MS ? 'warning' : 'default';
+}
+
 /** requests/rejected are the sum across all three signals for one protocol, within whatever window the caller's already querying. */
 export function computeReceiverStatus(requests: number, rejected: number): ReceiverStatus {
 	if (requests === 0) return { key: 'idle', label: 'Idle', tone: 'default' };

@@ -24,6 +24,7 @@ public class SpanEventJsonContextTests
             Kind = 2,
             StartTime = new DateTimeOffset(2026, 8, 10, 12, 0, 0, TimeSpan.Zero),
             EndTime = new DateTimeOffset(2026, 8, 10, 12, 0, 0, 150, TimeSpan.Zero),
+            IngestedAt = new DateTimeOffset(2026, 8, 10, 12, 0, 0, 200, TimeSpan.Zero),
             DurationNano = 150_000_000,
             StatusCode = 2,
             StatusMessage = "boom",
@@ -59,6 +60,7 @@ public class SpanEventJsonContextTests
             Kind = 0,
             StartTime = DateTimeOffset.UnixEpoch,
             EndTime = DateTimeOffset.UnixEpoch,
+            IngestedAt = DateTimeOffset.UnixEpoch,
             DurationNano = 0,
             StatusCode = 0,
             ResourceAttributes = new Dictionary<string, string>(),
@@ -91,6 +93,7 @@ public class SpanEventJsonContextTests
         Assert.Equal(original.Kind, roundTripped.Kind);
         Assert.Equal(original.StartTime, roundTripped.StartTime);
         Assert.Equal(original.EndTime, roundTripped.EndTime);
+        Assert.Equal(original.IngestedAt, roundTripped.IngestedAt);
         Assert.Equal(original.DurationNano, roundTripped.DurationNano);
         Assert.Equal(original.StatusCode, roundTripped.StatusCode);
         Assert.Equal(original.StatusMessage, roundTripped.StatusMessage);

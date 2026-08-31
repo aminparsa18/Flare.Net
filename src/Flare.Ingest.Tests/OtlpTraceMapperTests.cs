@@ -11,14 +11,27 @@ namespace Flare.Ingest.Tests;
 
 public class OtlpTraceMapperTests
 {
+    private static readonly DateTimeOffset TestIngestedAt = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public void Map_ReturnsEmpty_WhenNoResourceSpans()
     {
         var request = new ExportTraceServiceRequest();
 
-        var result = OtlpTraceMapper.Map(request);
+        var result = OtlpTraceMapper.Map(request, TestIngestedAt);
 
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Map_StampsIngestedAt_FromThePassedInParameter_IndependentOfStartTime()
+    {
+        var request = SingleSpanRequest(span => span.StartTimeUnixNano = 1_700_000_000_000_000_000UL);
+
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
+
+        Assert.Equal(TestIngestedAt, record.IngestedAt);
+        Assert.NotEqual(record.StartTime, record.IngestedAt);
     }
 
     [Fact]
@@ -35,7 +48,7 @@ public class OtlpTraceMapperTests
             span.ParentSpanId = ByteString.CopyFrom(parentSpanId);
         });
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("0102030405060708090a0b0c0d0e0f10", record.TraceId);
         Assert.Equal("a1a2a3a4a5a6a7a8", record.SpanId);
@@ -47,7 +60,7 @@ public class OtlpTraceMapperTests
     {
         var request = SingleSpanRequest();
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Null(record.ParentSpanId);
     }
@@ -63,7 +76,7 @@ public class OtlpTraceMapperTests
             span.EndTimeUnixNano = 1_700_000_000_000_000_037UL; // 37ns later
         });
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Equal(37UL, record.DurationNano);
     }
@@ -77,7 +90,7 @@ public class OtlpTraceMapperTests
             span.Status = new Status { Code = Status.Types.StatusCode.Error, Message = "boom" };
         });
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Equal((int)Span.Types.SpanKind.Server, record.Kind);
         Assert.Equal((int)Status.Types.StatusCode.Error, record.StatusCode);
@@ -89,7 +102,7 @@ public class OtlpTraceMapperTests
     {
         var request = SingleSpanRequest();
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Equal((int)Status.Types.StatusCode.Unset, record.StatusCode);
         Assert.Null(record.StatusMessage);
@@ -103,7 +116,7 @@ public class OtlpTraceMapperTests
             resourceAttrs.Add(new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = "payments-api" } });
         });
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("payments-api", record.ServiceName);
         Assert.Equal("payments-api", record.ResourceAttributes["service.name"]);
@@ -119,7 +132,7 @@ public class OtlpTraceMapperTests
             span.Attributes.Add(new KeyValue { Key = "int", Value = new AnyValue { IntValue = 42 } });
         });
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("hello", record.SpanAttributes["str"]);
         Assert.Equal("true", record.SpanAttributes["bool"]);
@@ -144,7 +157,7 @@ public class OtlpTraceMapperTests
             });
         });
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Equal(2, record.Events.Count);
         Assert.Equal("evt.start", record.Events[0].Name);
@@ -159,7 +172,7 @@ public class OtlpTraceMapperTests
     {
         var request = SingleSpanRequest();
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Empty(record.Events);
     }
@@ -173,7 +186,7 @@ public class OtlpTraceMapperTests
             span.TraceState = "";
         });
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Null(record.Name);
         Assert.Null(record.TraceState);
@@ -203,7 +216,7 @@ public class OtlpTraceMapperTests
             },
         };
 
-        var record = Assert.Single(OtlpTraceMapper.Map(request));
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("https://opentelemetry.io/schemas/1.27.0", record.ResourceSchemaUrl);
         Assert.Equal("https://opentelemetry.io/schemas/1.20.0", record.ScopeSchemaUrl);

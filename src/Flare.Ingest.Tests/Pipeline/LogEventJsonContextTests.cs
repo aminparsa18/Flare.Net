@@ -20,6 +20,7 @@ public class LogEventJsonContextTests
             EventId = Guid.NewGuid(),
             Timestamp = new DateTimeOffset(2026, 8, 7, 12, 0, 0, TimeSpan.Zero),
             ObservedTimestamp = new DateTimeOffset(2026, 8, 7, 12, 0, 1, TimeSpan.Zero),
+            IngestedAt = new DateTimeOffset(2026, 8, 7, 12, 0, 2, TimeSpan.Zero),
             SeverityNumber = 17,
             SeverityText = "Error",
             Body = "something went wrong",
@@ -47,6 +48,7 @@ public class LogEventJsonContextTests
         {
             EventId = Guid.NewGuid(),
             Timestamp = DateTimeOffset.UnixEpoch,
+            IngestedAt = DateTimeOffset.UnixEpoch,
             SeverityNumber = 0,
             ResourceAttributes = new Dictionary<string, string>(),
             ScopeAttributes = new Dictionary<string, string>(),
@@ -75,6 +77,7 @@ public class LogEventJsonContextTests
         Assert.Equal(original.EventId, roundTripped.EventId);
         Assert.Equal(original.Timestamp, roundTripped.Timestamp);
         Assert.Equal(original.ObservedTimestamp, roundTripped.ObservedTimestamp);
+        Assert.Equal(original.IngestedAt, roundTripped.IngestedAt);
         Assert.Equal(original.SeverityNumber, roundTripped.SeverityNumber);
         Assert.Equal(original.SeverityText, roundTripped.SeverityText);
         Assert.Equal(original.Body, roundTripped.Body);

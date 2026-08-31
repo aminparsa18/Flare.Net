@@ -33,6 +33,19 @@ public sealed record LogEvent
     /// <summary>Time the collector/receiver observed the event, if the OTLP record set it.</summary>
     public DateTimeOffset? ObservedTimestamp { get; init; }
 
+    /// <summary>
+    /// <c>Flare.Ingest</c>'s own wall-clock read (<see cref="TimeProvider.GetUtcNow"/>),
+    /// taken once per accepted OTLP export request and stamped on every record it
+    /// contains - not from the OTLP wire, unlike every other timestamp on this type.
+    /// Unlike <see cref="ObservedTimestamp"/> (itself a client-side clock value in every
+    /// path that matters - see ADR-0014), this is the one timestamp on this record Flare
+    /// actually trusts as "when did I see this," making <c>IngestedAt - Timestamp</c> the
+    /// basis for the clock-skew figures <see cref="Stats.ServiceBreakdown"/> aggregates.
+    /// Never used to rewrite <see cref="Timestamp"/> - see ADR-0014's "never rewrite"
+    /// decision.
+    /// </summary>
+    public required DateTimeOffset IngestedAt { get; init; }
+
     /// <summary>OTLP SeverityNumber (1-24; 0 = unspecified).</summary>
     public required int SeverityNumber { get; init; }
 

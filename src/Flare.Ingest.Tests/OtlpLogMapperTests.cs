@@ -11,14 +11,27 @@ namespace Flare.Ingest.Tests;
 
 public class OtlpLogMapperTests
 {
+    private static readonly DateTimeOffset TestIngestedAt = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public void Map_ReturnsEmpty_WhenNoResourceLogs()
     {
         var request = new ExportLogsServiceRequest();
 
-        var result = OtlpLogMapper.Map(request);
+        var result = OtlpLogMapper.Map(request, TestIngestedAt);
 
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Map_StampsIngestedAt_FromThePassedInParameter_IndependentOfEventTime()
+    {
+        var request = SingleRecordRequest(record => record.TimeUnixNano = 1_700_000_000_000_000_000UL);
+
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
+
+        Assert.Equal(TestIngestedAt, logEvent.IngestedAt);
+        Assert.NotEqual(logEvent.Timestamp, logEvent.IngestedAt);
     }
 
     [Fact]
@@ -30,7 +43,7 @@ public class OtlpLogMapperTests
             record.ObservedTimeUnixNano = 1_800_000_000_000_000_000UL;
         });
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Equal(DateTimeOffset.UnixEpoch.AddTicks(1_700_000_000_000_000_000L / 100), logEvent.Timestamp);
         Assert.Equal(DateTimeOffset.UnixEpoch.AddTicks(1_800_000_000_000_000_000L / 100), logEvent.ObservedTimestamp);
@@ -45,7 +58,7 @@ public class OtlpLogMapperTests
             record.ObservedTimeUnixNano = 1_700_000_000_000_000_000UL;
         });
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Equal(DateTimeOffset.UnixEpoch.AddTicks(1_700_000_000_000_000_000L / 100), logEvent.Timestamp);
     }
@@ -76,7 +89,7 @@ public class OtlpLogMapperTests
             },
         };
 
-        var logEvents = OtlpLogMapper.Map(request).ToList();
+        var logEvents = OtlpLogMapper.Map(request, TestIngestedAt).ToList();
 
         Assert.Equal(2, logEvents.Count);
         Assert.NotEqual(Guid.Empty, logEvents[0].EventId);
@@ -93,7 +106,7 @@ public class OtlpLogMapperTests
             resourceAttrs.Add(new KeyValue { Key = "deployment.environment", Value = new AnyValue { StringValue = "dev" } });
         });
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("flare-ingest", logEvent.ServiceName);
         Assert.Equal("flare-ingest", logEvent.ResourceAttributes["service.name"]);
@@ -113,7 +126,7 @@ public class OtlpLogMapperTests
             record.Flags = 0x01; // low byte = W3C trace flags
         });
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("0102030405060708090a0b0c0d0e0f10", logEvent.TraceId);
         Assert.Equal("0102030405060708", logEvent.SpanId);
@@ -125,7 +138,7 @@ public class OtlpLogMapperTests
     {
         var request = SingleRecordRequest();
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Null(logEvent.TraceId);
         Assert.Null(logEvent.SpanId);
@@ -162,7 +175,7 @@ public class OtlpLogMapperTests
             });
         });
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("hello", logEvent.LogAttributes["str"]);
         Assert.Equal("true", logEvent.LogAttributes["bool"]);
@@ -203,7 +216,7 @@ public class OtlpLogMapperTests
             },
         };
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Equal((int)SeverityNumber.Error, logEvent.SeverityNumber);
         Assert.Equal("Error", logEvent.SeverityText);
@@ -236,7 +249,7 @@ public class OtlpLogMapperTests
             },
         };
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("https://opentelemetry.io/schemas/1.27.0", logEvent.ResourceSchemaUrl);
         Assert.Equal("https://opentelemetry.io/schemas/1.20.0", logEvent.ScopeSchemaUrl);
@@ -247,7 +260,7 @@ public class OtlpLogMapperTests
     {
         var request = SingleRecordRequest();
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Null(logEvent.ResourceSchemaUrl);
         Assert.Null(logEvent.ScopeSchemaUrl);
@@ -279,7 +292,7 @@ public class OtlpLogMapperTests
             },
         };
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("scope-value", logEvent.ScopeAttributes["scope.key"]);
     }
@@ -289,7 +302,7 @@ public class OtlpLogMapperTests
     {
         var request = SingleRecordRequest(record => record.EventName = "user.login");
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Equal("user.login", logEvent.EventName);
     }
@@ -299,7 +312,7 @@ public class OtlpLogMapperTests
     {
         var request = SingleRecordRequest();
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Null(logEvent.EventName);
     }
@@ -313,7 +326,7 @@ public class OtlpLogMapperTests
             record.EventName = "";
         });
 
-        var logEvent = Assert.Single(OtlpLogMapper.Map(request));
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
 
         Assert.Null(logEvent.SeverityText);
         Assert.Null(logEvent.EventName);

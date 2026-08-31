@@ -11,15 +11,32 @@ namespace Flare.Ingest.Tests;
 
 public class OtlpMetricsMapperTests
 {
+    private static readonly DateTimeOffset TestIngestedAt = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public void Map_ReturnsEmpty_WhenNoResourceMetrics()
     {
         var request = new ExportMetricsServiceRequest();
 
-        var result = OtlpMetricsMapper.Map(request);
+        var result = OtlpMetricsMapper.Map(request, TestIngestedAt);
 
         Assert.Empty(result.Points);
         Assert.Empty(result.UnsupportedMetricNames);
+    }
+
+    [Fact]
+    public void Map_StampsIngestedAt_FromThePassedInParameter_IndependentOfDataPointTime()
+    {
+        var metric = new Metric
+        {
+            Name = "process.threads",
+            Gauge = new Gauge { DataPoints = { new NumberDataPoint { AsInt = 1, TimeUnixNano = 1_700_000_000_000_000_000UL } } },
+        };
+
+        var record = Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points);
+
+        Assert.Equal(TestIngestedAt, record.IngestedAt);
+        Assert.NotEqual(record.Time, record.IngestedAt);
     }
 
     [Fact]
@@ -34,7 +51,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var record = Assert.IsType<GaugePointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric)).Points));
+        var record = Assert.IsType<GaugePointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points));
 
         Assert.Equal("process.cpu.utilization", record.MetricName);
         Assert.Equal(0.42, record.Value);
@@ -52,7 +69,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var record = Assert.IsType<GaugePointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric)).Points));
+        var record = Assert.IsType<GaugePointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points));
 
         Assert.Equal(12d, record.Value);
     }
@@ -71,7 +88,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var record = Assert.IsType<SumPointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric)).Points));
+        var record = Assert.IsType<SumPointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points));
 
         Assert.Equal(7d, record.Value);
         Assert.Equal((int)AggregationTemporality.Cumulative, record.AggregationTemporality);
@@ -101,7 +118,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var record = Assert.IsType<HistogramPointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric)).Points));
+        var record = Assert.IsType<HistogramPointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points));
 
         Assert.Equal(3UL, record.Count);
         Assert.Equal(12.5, record.Sum);
@@ -121,7 +138,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var record = Assert.IsType<HistogramPointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric)).Points));
+        var record = Assert.IsType<HistogramPointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points));
 
         Assert.Null(record.Sum);
     }
@@ -138,7 +155,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var record = Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric)).Points);
+        var record = Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points);
 
         Assert.Null(record.StartTime);
     }
@@ -155,7 +172,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var record = Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric)).Points);
+        var record = Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points);
 
         Assert.NotNull(record.StartTime);
     }
@@ -166,7 +183,7 @@ public class OtlpMetricsMapperTests
     {
         var metric = new Metric { Name = "unset.metric" };
 
-        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric));
+        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt);
 
         Assert.Empty(result.Points);
         Assert.Equal(["unset.metric"], result.UnsupportedMetricNames);
@@ -184,7 +201,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric));
+        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt);
 
         Assert.Empty(result.Points);
         Assert.Equal(["http.server.request.duration.exp"], result.UnsupportedMetricNames);
@@ -202,7 +219,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric));
+        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt);
 
         Assert.Empty(result.Points);
         Assert.Equal(["legacy.summary"], result.UnsupportedMetricNames);
@@ -217,8 +234,10 @@ public class OtlpMetricsMapperTests
             Gauge = new Gauge { DataPoints = { new NumberDataPoint { AsInt = 1, TimeUnixNano = 1_700_000_000_000_000_000UL } } },
         };
 
-        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric, resource: attrs =>
-            attrs.Add(new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = "payments-api" } })));
+        var result = OtlpMetricsMapper.Map(
+            SingleMetricRequest(metric, resource: attrs =>
+                attrs.Add(new KeyValue { Key = "service.name", Value = new AnyValue { StringValue = "payments-api" } })),
+            TestIngestedAt);
 
         var record = Assert.Single(result.Points);
         Assert.Equal("payments-api", record.ServiceName);
@@ -249,7 +268,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var record = Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric)).Points);
+        var record = Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points);
 
         Assert.Equal("hello", record.DataPointAttributes["str"]);
         Assert.Equal("true", record.DataPointAttributes["bool"]);
@@ -266,7 +285,7 @@ public class OtlpMetricsMapperTests
             Gauge = new Gauge { DataPoints = { new NumberDataPoint { AsInt = 1, TimeUnixNano = 1_700_000_000_000_000_000UL } } },
         };
 
-        var record = Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric)).Points);
+        var record = Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points);
 
         Assert.Null(record.Description);
         Assert.Null(record.Unit);
@@ -299,7 +318,7 @@ public class OtlpMetricsMapperTests
             },
         };
 
-        var result = OtlpMetricsMapper.Map(request);
+        var result = OtlpMetricsMapper.Map(request, TestIngestedAt);
 
         Assert.Equal(3, result.Points.Count);
         Assert.IsType<GaugePointRecord>(result.Points[0]);

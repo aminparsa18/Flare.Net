@@ -27,6 +27,9 @@ public sealed record BufferedLogEvent
 
     public DateTimeOffset? ObservedTimestamp { get; init; }
 
+    /// <summary>Mirrors <c>Flare.Ingest.Model.LogEvent.IngestedAt</c> - see that field's remarks and ADR-0014.</summary>
+    public required DateTimeOffset IngestedAt { get; init; }
+
     public required int SeverityNumber { get; init; }
 
     public string? SeverityText { get; init; }
