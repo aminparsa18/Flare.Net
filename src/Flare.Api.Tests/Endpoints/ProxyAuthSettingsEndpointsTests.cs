@@ -52,7 +52,7 @@ public class ProxyAuthSettingsEndpointsTests
     {
         var context = CreateContext();
 
-        var result = await ProxyAuthSettingsEndpoints.HandleGetAsync(new FakeProxyAuthSettingsStore(), CancellationToken.None);
+        var result = await ProxyAuthSettingsEndpoints.HandleGetAsync(context, new FakeProxyAuthSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, ProxyAuthJsonContext.Default.ProxyAuthSettingsDto);

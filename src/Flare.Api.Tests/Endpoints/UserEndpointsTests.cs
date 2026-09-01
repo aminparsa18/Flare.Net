@@ -39,7 +39,7 @@ public class UserEndpointsTests
         await users.CreateAsync("bob", "correctpassword2", UserRole.Viewer);
         var context = CreateContext();
 
-        var result = await UserEndpoints.HandleListAsync(users, CancellationToken.None);
+        var result = await UserEndpoints.HandleListAsync(context, users, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         context.Response.Body.Position = 0;

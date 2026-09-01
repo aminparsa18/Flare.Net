@@ -51,3 +51,19 @@ export function secondsSince(iso: string | null, now: Date = new Date()): number
 	return Math.max(0, (now.getTime() - new Date(iso).getTime()) / 1000);
 }
 
+// Clock-skew display for the "Services by signal" table (ADR-0014). Sign follows
+// PipelineServiceEntry.averageClockSkewMs: positive = this service's events typically
+// arrive claiming a past time (expected: latency), negative = a future time (its clock
+// is ahead of the server's). Below CLOCK_SKEW_WARN_MS (health.ts) this renders as "in
+// sync" rather than a near-zero figure nobody needs to read - normal network/processing
+// latency and minor NTP drift both land well under that threshold.
+export function formatClockSkew(ms: number, warnThresholdMs: number): string {
+	const abs = Math.abs(ms);
+	if (abs < warnThresholdMs) return 'in sync';
+
+	const direction = ms < 0 ? 'ahead' : 'behind';
+	if (abs < 1000) return `${Math.round(abs)}ms ${direction}`;
+	if (abs < 60_000) return `${Math.round(abs / 1000)}s ${direction}`;
+	return `${Math.round(abs / 60_000)}m ${direction}`;
+}
+

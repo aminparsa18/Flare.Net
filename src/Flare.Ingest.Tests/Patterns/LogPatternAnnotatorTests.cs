@@ -55,6 +55,7 @@ public class LogPatternAnnotatorTests
     {
         EventId = Guid.NewGuid(),
         Timestamp = DateTimeOffset.UnixEpoch,
+        IngestedAt = DateTimeOffset.UnixEpoch,
         SeverityNumber = 9,
         ResourceAttributes = new Dictionary<string, string>(),
         ScopeAttributes = new Dictionary<string, string>(),

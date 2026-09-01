@@ -26,11 +26,11 @@ public static class UserEndpoints
         return endpoints;
     }
 
-    internal static async Task<IResult> HandleListAsync(IUserStore users, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleListAsync(HttpContext http, IUserStore users, CancellationToken cancellationToken)
     {
         var list = await users.ListAsync(cancellationToken);
         var response = new UserListResponse { Users = list.Select(ToDto).ToList() };
-        return Results.Json(response, UsersJsonContext.Default.UserListResponse);
+        return ApiSerialization.Write(http, response, UsersJsonContext.Default.UserListResponse);
     }
 
     internal static async Task<IResult> HandleSetRoleAsync(Guid id, HttpContext http, IUserStore users, CancellationToken cancellationToken)
@@ -38,7 +38,7 @@ public static class UserEndpoints
         SetUserRoleRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, UsersJsonContext.Default.SetUserRoleRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, UsersJsonContext.Default.SetUserRoleRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -64,7 +64,7 @@ public static class UserEndpoints
 
         await users.SetRoleAsync(id, request.Role, cancellationToken);
         var updated = await users.FindByIdAsync(id, cancellationToken);
-        return Results.Json(ToDto(updated!), UsersJsonContext.Default.UserSummaryDto);
+        return ApiSerialization.Write(http, ToDto(updated!), UsersJsonContext.Default.UserSummaryDto);
     }
 
     internal static async Task<IResult> HandleSetDisabledAsync(Guid id, HttpContext http, IUserStore users, CancellationToken cancellationToken)
@@ -72,7 +72,7 @@ public static class UserEndpoints
         SetUserDisabledRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, UsersJsonContext.Default.SetUserDisabledRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, UsersJsonContext.Default.SetUserDisabledRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -98,7 +98,7 @@ public static class UserEndpoints
 
         await users.SetDisabledAsync(id, request.IsDisabled, cancellationToken);
         var updated = await users.FindByIdAsync(id, cancellationToken);
-        return Results.Json(ToDto(updated!), UsersJsonContext.Default.UserSummaryDto);
+        return ApiSerialization.Write(http, ToDto(updated!), UsersJsonContext.Default.UserSummaryDto);
     }
 
     /// <summary>True if <paramref name="excludingId"/> is (or is about to stop being) the

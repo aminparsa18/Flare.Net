@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>
@@ -29,7 +31,8 @@ public enum IngestionProtocol
 /// Redis round trip per call. Defaults to 60 (matches <see cref="Query.IngestionStatsQueryService"/>'s
 /// clamp), clamped server-side to [1, 1440] (24h, the buckets' own TTL ceiling).
 /// </summary>
-public sealed record IngestionStatsRequest(int Minutes = 60);
+[MemoryPackable]
+public sealed partial record IngestionStatsRequest(int Minutes = 60);
 
 /// <summary>
 /// One minute-bucket's counters for one (signal, protocol) pair. The response is dense -
@@ -37,7 +40,8 @@ public sealed record IngestionStatsRequest(int Minutes = 60);
 /// filled where nothing arrived - so the dashboard never has to gap-fill by timestamp
 /// itself.
 /// </summary>
-public sealed record IngestionBucketPoint(
+[MemoryPackable]
+public sealed partial record IngestionBucketPoint(
     DateTimeOffset BucketStart,
     IngestionSignal Signal,
     IngestionProtocol Protocol,
@@ -52,7 +56,8 @@ public sealed record IngestionBucketPoint(
 /// <c>Flare.Ingest.Stats.IngestionErrorEntry</c> stores them), rather than round-tripping
 /// through the enums above, since nothing here needs to switch on them structurally.
 /// </summary>
-public sealed record IngestionErrorEntryDto(
+[MemoryPackable]
+public sealed partial record IngestionErrorEntryDto(
     DateTimeOffset Timestamp,
     string Signal,
     string Protocol,
@@ -69,14 +74,16 @@ public sealed record IngestionErrorEntryDto(
 /// requested window (see <see cref="IngestionStatsRequest.Minutes"/>'s remarks on why this
 /// isn't a fixed 24h like Seq's own "last 24 hours" tiles).
 /// </summary>
-public sealed record IngestionStatsTotals(
+[MemoryPackable]
+public sealed partial record IngestionStatsTotals(
     long ArrivalsPerMinute,
     long IngestedRecordsPerMinute,
     long IngestedBytesPerMinute,
     long RequestsInWindow,
     long RejectedInWindow);
 
-public sealed record IngestionStatsResponse(
+[MemoryPackable]
+public sealed partial record IngestionStatsResponse(
     DateTimeOffset GeneratedAt,
     int Minutes,
     IReadOnlyList<IngestionBucketPoint> Buckets,

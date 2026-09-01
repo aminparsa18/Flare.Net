@@ -75,17 +75,20 @@ public sealed class RedisIngestionStatsTracker(
         var db = connectionMultiplexer.GetDatabase();
         var recordsKey = IngestionStatsKeys.ServiceRecordsKey(now, signal);
         var bytesKey = IngestionStatsKeys.ServiceBytesKey(now, signal);
+        var skewKey = IngestionStatsKeys.ServiceSkewNanosKey(now, signal);
 
         var batch = db.CreateBatch();
-        var tasks = new List<Task>(perService.Count * 2 + 2);
+        var tasks = new List<Task>(perService.Count * 3 + 3);
         foreach (var (service, counts) in perService)
         {
             tasks.Add(batch.HashIncrementAsync(recordsKey, service, counts.RecordCount));
             tasks.Add(batch.HashIncrementAsync(bytesKey, service, counts.ByteCount));
+            tasks.Add(batch.HashIncrementAsync(skewKey, service, counts.SkewNanosSum));
         }
 
         tasks.Add(batch.KeyExpireAsync(recordsKey, IngestionStatsKeys.BucketTtl));
         tasks.Add(batch.KeyExpireAsync(bytesKey, IngestionStatsKeys.BucketTtl));
+        tasks.Add(batch.KeyExpireAsync(skewKey, IngestionStatsKeys.BucketTtl));
         batch.Execute();
 
         await Task.WhenAll(tasks).WaitAsync(cancellationToken);

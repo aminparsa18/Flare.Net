@@ -120,6 +120,7 @@ public class LogFilterMatcherTests
         EventId = Guid.NewGuid(),
         Timestamp = DateTimeOffset.UnixEpoch,
         ObservedTimestamp = DateTimeOffset.UnixEpoch,
+        IngestedAt = DateTimeOffset.UnixEpoch,
         TraceId = string.Empty,
         SpanId = string.Empty,
         TraceFlags = 0,

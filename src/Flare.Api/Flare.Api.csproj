@@ -8,6 +8,9 @@
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="KubernetesClient" />
+    <!-- MemoryPack, phase 0 of the JSON->MemoryPack request/response migration - see
+         docs-internal/investigations/memorypack-serialization-migration-scope.md. -->
+    <PackageReference Include="MemoryPack" />
     <!-- Direct reference (see Directory.Packages.props) so the pinned, patched version
          wins over Microsoft.AspNetCore.OpenApi's own transitive Microsoft.OpenApi 2.0.0. -->
     <PackageReference Include="Microsoft.OpenApi" />

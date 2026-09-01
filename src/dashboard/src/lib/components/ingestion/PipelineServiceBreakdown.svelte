@@ -26,12 +26,23 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatBytes, formatCount } from '$lib/ingestion/format';
+	import { formatBytes, formatClockSkew, formatCount } from '$lib/ingestion/format';
+	import { CLOCK_SKEW_WARN_MS, clockSkewTone, type FlushStatusTone } from '$lib/ingestion/health';
 	import { INGESTION_WINDOW_PRESETS } from '$lib/ingestion/state.svelte';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { IngestionSignal } from '$lib/ingestion-api';
 	import type { PipelineServiceEntry } from '$lib/pipeline-api';
+
+	// Same tone-to-text-class convention as PipelineFlushHealthTable - only 'default'/
+	// 'warning' are ever produced by clockSkewTone, but typed against the full palette
+	// for consistency with every other consumer of FlushStatusTone.
+	const SKEW_TEXT_CLASS = {
+		good: 'text-emerald-600 dark:text-emerald-400',
+		default: 'text-muted-foreground',
+		warning: 'text-warning',
+		destructive: 'text-destructive'
+	} satisfies Record<FlushStatusTone, string>;
 
 	const ingestion = ingestionContext.get();
 
@@ -86,6 +97,7 @@
 								<Table.Head class="text-right">Events</Table.Head>
 								<Table.Head class="text-right">Rate</Table.Head>
 								<Table.Head class="text-right">Bytes</Table.Head>
+								<Table.Head class="text-right">Clock skew</Table.Head>
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
@@ -106,6 +118,9 @@
 									</Table.Cell>
 									<Table.Cell class="text-muted-foreground text-right tabular-nums">{formatRate(entry.records)}</Table.Cell>
 									<Table.Cell class="text-right tabular-nums">{formatBytes(entry.bytes)}</Table.Cell>
+									<Table.Cell class="text-right tabular-nums {SKEW_TEXT_CLASS[clockSkewTone(entry.averageClockSkewMs)]}">
+										{formatClockSkew(entry.averageClockSkewMs, CLOCK_SKEW_WARN_MS)}
+									</Table.Cell>
 								</Table.Row>
 							{/each}
 							{#if breakdown.otherServiceCount > 0}
@@ -114,6 +129,7 @@
 									<Table.Cell class="text-muted-foreground text-right tabular-nums">{formatCount(breakdown.otherRecords)}</Table.Cell>
 									<Table.Cell class="text-muted-foreground text-right tabular-nums">{formatRate(breakdown.otherRecords)}</Table.Cell>
 									<Table.Cell class="text-muted-foreground text-right tabular-nums">{formatBytes(breakdown.otherBytes)}</Table.Cell>
+									<Table.Cell class="text-muted-foreground text-right tabular-nums">—</Table.Cell>
 								</Table.Row>
 							{/if}
 						</Table.Body>

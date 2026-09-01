@@ -28,7 +28,7 @@ public static class SavedViewEndpoints
         SavedViewRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, SavedViewsJsonContext.Default.SavedViewRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, SavedViewsJsonContext.Default.SavedViewRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -41,19 +41,19 @@ public static class SavedViewEndpoints
         }
 
         var view = await views.CreateAsync(request, cancellationToken);
-        return Results.Json(view, SavedViewsJsonContext.Default.SavedView, statusCode: StatusCodes.Status201Created);
+        return ApiSerialization.Write(http, view, SavedViewsJsonContext.Default.SavedView, statusCode: StatusCodes.Status201Created);
     }
 
-    private static async Task<IResult> HandleListAsync(SavedViewPageType? pageType, ISavedViewQueryService views, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleListAsync(SavedViewPageType? pageType, HttpContext http, ISavedViewQueryService views, CancellationToken cancellationToken)
     {
         var list = await views.ListAsync(pageType, cancellationToken);
-        return Results.Json(new SavedViewListResponse { Views = list }, SavedViewsJsonContext.Default.SavedViewListResponse);
+        return ApiSerialization.Write(http, new SavedViewListResponse { Views = list }, SavedViewsJsonContext.Default.SavedViewListResponse);
     }
 
-    private static async Task<IResult> HandleGetAsync(Guid id, ISavedViewQueryService views, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, ISavedViewQueryService views, CancellationToken cancellationToken)
     {
         var view = await views.GetAsync(id, cancellationToken);
-        return view is null ? Results.NotFound() : Results.Json(view, SavedViewsJsonContext.Default.SavedView);
+        return view is null ? Results.NotFound() : ApiSerialization.Write(http, view, SavedViewsJsonContext.Default.SavedView);
     }
 
     private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, ISavedViewQueryService views, CancellationToken cancellationToken)
@@ -61,7 +61,7 @@ public static class SavedViewEndpoints
         SavedViewRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, SavedViewsJsonContext.Default.SavedViewRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, SavedViewsJsonContext.Default.SavedViewRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -74,7 +74,7 @@ public static class SavedViewEndpoints
         }
 
         var view = await views.UpdateAsync(id, request, cancellationToken);
-        return view is null ? Results.NotFound() : Results.Json(view, SavedViewsJsonContext.Default.SavedView);
+        return view is null ? Results.NotFound() : ApiSerialization.Write(http, view, SavedViewsJsonContext.Default.SavedView);
     }
 
     private static async Task<IResult> HandleDeleteAsync(Guid id, ISavedViewQueryService views, CancellationToken cancellationToken)

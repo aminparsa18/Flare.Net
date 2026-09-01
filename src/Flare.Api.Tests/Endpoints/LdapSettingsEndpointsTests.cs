@@ -58,7 +58,7 @@ public class LdapSettingsEndpointsTests
     {
         var context = CreateContext();
 
-        var result = await LdapSettingsEndpoints.HandleGetAsync(new FakeLdapSettingsStore(), CancellationToken.None);
+        var result = await LdapSettingsEndpoints.HandleGetAsync(context, new FakeLdapSettingsStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, LdapSettingsJsonContext.Default.LdapSettingsDto);
@@ -77,7 +77,7 @@ public class LdapSettingsEndpointsTests
             UserRole.Viewer, DateTimeOffset.UtcNow));
         var context = CreateContext();
 
-        var result = await LdapSettingsEndpoints.HandleGetAsync(store, CancellationToken.None);
+        var result = await LdapSettingsEndpoints.HandleGetAsync(context, store, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         context.Response.Body.Position = 0;
@@ -249,7 +249,7 @@ public class LdapSettingsEndpointsTests
             UserRole.Viewer, DateTimeOffset.UtcNow, PinnedCertificatePem: pem));
         var context = CreateContext();
 
-        var result = await LdapSettingsEndpoints.HandleGetAsync(store, CancellationToken.None);
+        var result = await LdapSettingsEndpoints.HandleGetAsync(context, store, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         var dto = await ReadJsonBodyAsync(context, LdapSettingsJsonContext.Default.LdapSettingsDto);

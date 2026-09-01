@@ -50,17 +50,29 @@ public static class ClickHouseMetricRowMapper
         "Time",
     ];
 
-    public static readonly IReadOnlyList<string> GaugeColumns = [.. CommonColumns, "Value"];
+    // IngestedAt is listed last on every one of these, not folded into CommonColumns -
+    // it was added later via 0011_ingest_receipt_time.sql's ALTER TABLE ADD COLUMN,
+    // which appends at the true end of each table, after each type's own tail columns
+    // (Value/AggregationTemporality/etc.), not into the shared prefix CommonColumns
+    // represents.
+    public static readonly IReadOnlyList<string> GaugeColumns = [.. CommonColumns, "Value", "IngestedAt"];
 
-    public static readonly IReadOnlyList<string> SumColumns = [.. CommonColumns, "Value", "AggregationTemporality", "IsMonotonic"];
+    public static readonly IReadOnlyList<string> SumColumns =
+        [.. CommonColumns, "Value", "AggregationTemporality", "IsMonotonic", "IngestedAt"];
 
     public static readonly IReadOnlyList<string> HistogramColumns =
-        [.. CommonColumns, "AggregationTemporality", "Count", "Sum", "BucketCounts", "ExplicitBounds"];
+        [.. CommonColumns, "AggregationTemporality", "Count", "Sum", "BucketCounts", "ExplicitBounds", "IngestedAt"];
 
-    public static object[] ToRow(GaugePointRecord point) => [.. CommonValues(point), point.Value];
+    public static object[] ToRow(GaugePointRecord point) => [.. CommonValues(point), point.Value, point.IngestedAt.UtcDateTime];
 
     public static object[] ToRow(SumPointRecord point) =>
-        [.. CommonValues(point), point.Value, AggregationTemporalityLabel(point.AggregationTemporality), (byte)(point.IsMonotonic ? 1 : 0)];
+    [
+        .. CommonValues(point),
+        point.Value,
+        AggregationTemporalityLabel(point.AggregationTemporality),
+        (byte)(point.IsMonotonic ? 1 : 0),
+        point.IngestedAt.UtcDateTime,
+    ];
 
     public static object[] ToRow(HistogramPointRecord point) =>
     [
@@ -70,6 +82,7 @@ public static class ClickHouseMetricRowMapper
         point.Sum ?? 0d,
         point.BucketCounts.ToArray(),
         point.ExplicitBounds.ToArray(),
+        point.IngestedAt.UtcDateTime,
     ];
 
     public static IReadOnlyList<object[]> ToRows(IReadOnlyList<GaugePointRecord> points) => [.. points.Select(ToRow)];

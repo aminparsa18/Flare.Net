@@ -14,6 +14,7 @@ public class ClickHouseMetricRowMapperTests
                 "MetricName", "Description", "Unit", "ServiceName", "ResourceSchemaUrl",
                 "ResourceAttributes", "ScopeSchemaUrl", "ScopeName", "ScopeVersion",
                 "ScopeAttributes", "DataPointAttributes", "StartTime", "Time", "Value",
+                "IngestedAt",
             ],
             ClickHouseMetricRowMapper.GaugeColumns);
     }
@@ -26,7 +27,7 @@ public class ClickHouseMetricRowMapperTests
                 "MetricName", "Description", "Unit", "ServiceName", "ResourceSchemaUrl",
                 "ResourceAttributes", "ScopeSchemaUrl", "ScopeName", "ScopeVersion",
                 "ScopeAttributes", "DataPointAttributes", "StartTime", "Time", "Value",
-                "AggregationTemporality", "IsMonotonic",
+                "AggregationTemporality", "IsMonotonic", "IngestedAt",
             ],
             ClickHouseMetricRowMapper.SumColumns);
     }
@@ -40,8 +41,39 @@ public class ClickHouseMetricRowMapperTests
                 "ResourceAttributes", "ScopeSchemaUrl", "ScopeName", "ScopeVersion",
                 "ScopeAttributes", "DataPointAttributes", "StartTime", "Time",
                 "AggregationTemporality", "Count", "Sum", "BucketCounts", "ExplicitBounds",
+                "IngestedAt",
             ],
             ClickHouseMetricRowMapper.HistogramColumns);
+    }
+
+    [Fact]
+    public void ToRow_Gauge_PassesThroughIngestedAt_AsTheLastColumn()
+    {
+        var ingestedAt = new DateTimeOffset(2026, 8, 10, 12, 0, 5, TimeSpan.Zero);
+        var row = ClickHouseMetricRowMapper.ToRow(MinimalGauge() with { IngestedAt = ingestedAt });
+
+        // IngestedAt is index 14 in GaugeColumns.
+        Assert.Equal(ingestedAt.UtcDateTime, row[14]);
+    }
+
+    [Fact]
+    public void ToRow_Sum_PassesThroughIngestedAt_AsTheLastColumn()
+    {
+        var ingestedAt = new DateTimeOffset(2026, 8, 10, 12, 0, 5, TimeSpan.Zero);
+        var row = ClickHouseMetricRowMapper.ToRow(MinimalSum() with { IngestedAt = ingestedAt });
+
+        // IngestedAt is index 16 in SumColumns.
+        Assert.Equal(ingestedAt.UtcDateTime, row[16]);
+    }
+
+    [Fact]
+    public void ToRow_Histogram_PassesThroughIngestedAt_AsTheLastColumn()
+    {
+        var ingestedAt = new DateTimeOffset(2026, 8, 10, 12, 0, 5, TimeSpan.Zero);
+        var row = ClickHouseMetricRowMapper.ToRow(MinimalHistogram() with { IngestedAt = ingestedAt });
+
+        // IngestedAt is index 18 in HistogramColumns.
+        Assert.Equal(ingestedAt.UtcDateTime, row[18]);
     }
 
     [Fact]
@@ -201,6 +233,7 @@ public class ClickHouseMetricRowMapperTests
         ScopeAttributes = new Dictionary<string, string>(),
         DataPointAttributes = new Dictionary<string, string>(),
         Time = DateTimeOffset.UnixEpoch,
+        IngestedAt = DateTimeOffset.UnixEpoch,
         Value = 1,
     };
 
@@ -211,6 +244,7 @@ public class ClickHouseMetricRowMapperTests
         ScopeAttributes = new Dictionary<string, string>(),
         DataPointAttributes = new Dictionary<string, string>(),
         Time = DateTimeOffset.UnixEpoch,
+        IngestedAt = DateTimeOffset.UnixEpoch,
         Value = 1,
         AggregationTemporality = 2,
         IsMonotonic = true,
@@ -223,6 +257,7 @@ public class ClickHouseMetricRowMapperTests
         ScopeAttributes = new Dictionary<string, string>(),
         DataPointAttributes = new Dictionary<string, string>(),
         Time = DateTimeOffset.UnixEpoch,
+        IngestedAt = DateTimeOffset.UnixEpoch,
         AggregationTemporality = 2,
         Count = 0,
         BucketCounts = [],

@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>Which OTel attribute bag an <see cref="AttributeFilter"/> targets.</summary>
@@ -13,7 +15,8 @@ public enum AttributeBag
 /// <c>LogAttributes</c>/<c>ResourceAttributes</c>/<c>ScopeAttributes</c> in
 /// <c>db/clickhouse/0001_logs.sql</c>, selected via <see cref="Bag"/>.
 /// </summary>
-public sealed record AttributeFilter
+[MemoryPackable]
+public sealed partial record AttributeFilter
 {
     public AttributeBag Bag { get; init; } = AttributeBag.Log;
 
@@ -32,7 +35,8 @@ public sealed record AttributeFilter
 /// builders apply a default/max bounded range so an unfiltered request can't trigger an
 /// unbounded scan (see <c>Flare.Api</c>'s README, "Time range defaults").
 /// </remarks>
-public sealed record LogFilter
+[MemoryPackable]
+public sealed partial record LogFilter
 {
     public DateTimeOffset? From { get; init; }
 

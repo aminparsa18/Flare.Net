@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>Which OTel attribute bag a <see cref="SpanAttributeFilter"/> targets.</summary>
@@ -17,7 +19,8 @@ public enum SpanAttributeBag
 /// keeping them distinct avoids a `LogAttributes` value ever being a valid-looking (but
 /// meaningless) choice on a span filter, or vice versa.
 /// </summary>
-public sealed record SpanAttributeFilter
+[MemoryPackable]
+public sealed partial record SpanAttributeFilter
 {
     public SpanAttributeBag Bag { get; init; } = SpanAttributeBag.Span;
 
@@ -33,7 +36,8 @@ public sealed record SpanAttributeFilter
 /// not a reuse of it - the fields diverge too much (span kind/status/duration vs. log
 /// severity/body search) for a shared shape to stay meaningful for either endpoint.
 /// </summary>
-public sealed record SpanFilter
+[MemoryPackable]
+public sealed partial record SpanFilter
 {
     public DateTimeOffset? From { get; init; }
 

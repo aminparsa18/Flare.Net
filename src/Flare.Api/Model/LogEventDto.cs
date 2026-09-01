@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>
@@ -15,13 +17,21 @@ namespace Flare.Api.Model;
 /// convention"), so every string property here is non-nullable too - an absent value on
 /// the OTel side is stored, and returned, as <see cref="string.Empty"/>, not <c>null</c>.
 /// </remarks>
-public sealed record LogEventDto
+[MemoryPackable]
+public sealed partial record LogEventDto
 {
     public required Guid EventId { get; init; }
 
     public required DateTimeOffset Timestamp { get; init; }
 
     public required DateTimeOffset ObservedTimestamp { get; init; }
+
+    /// <summary>
+    /// <c>Flare.Ingest</c>'s own receipt-time read, not from the OTLP wire - see
+    /// <c>Flare.Ingest.Model.LogEvent.IngestedAt</c>'s remarks and ADR-0014. Distinct
+    /// from <see cref="ObservedTimestamp"/>, which is a client-clock value.
+    /// </summary>
+    public required DateTimeOffset IngestedAt { get; init; }
 
     public required string TraceId { get; init; }
 

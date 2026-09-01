@@ -1,7 +1,10 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>Request body for <c>POST /api/logs/search</c>.</summary>
-public sealed record LogSearchRequest
+[MemoryPackable]
+public sealed partial record LogSearchRequest
 {
     /// <summary>
     /// The <c>= new()</c> default only applies to callers constructing this in C#
@@ -39,7 +42,8 @@ public sealed record LogSearchRequest
 }
 
 /// <summary>Response body for <c>POST /api/logs/search</c>.</summary>
-public sealed record LogSearchResponse
+[MemoryPackable]
+public sealed partial record LogSearchResponse
 {
     /// <summary>Most-recent-first (<c>Timestamp DESC</c>).</summary>
     public required IReadOnlyList<LogEventDto> Events { get; init; }

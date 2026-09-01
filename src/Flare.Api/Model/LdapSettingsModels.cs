@@ -1,11 +1,13 @@
 using Flare.Identity.Users;
+using MemoryPack;
 
 namespace Flare.Api.Model;
 
 /// <summary>Response body for <c>GET /api/settings/ldap</c> - the consolidated
 /// <c>/auth</c> screen's Active Directory section. Never carries the real bind
 /// password - see <see cref="HasBindPassword"/>.</summary>
-public sealed record LdapSettingsDto
+[MemoryPackable]
+public sealed partial record LdapSettingsDto
 {
     public required bool Enabled { get; init; }
 
@@ -48,7 +50,8 @@ public sealed record LdapSettingsDto
 /// <c>ILdapSettingsStore.SaveAsync</c>'s remarks. <see cref="PinnedCertificatePem"/> does
 /// NOT follow that convention: <c>null</c>/omitted always *clears* any previously-saved
 /// pin.</summary>
-public sealed record SaveLdapSettingsRequest
+[MemoryPackable]
+public sealed partial record SaveLdapSettingsRequest
 {
     public required bool Enabled { get; init; }
 

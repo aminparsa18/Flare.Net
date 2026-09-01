@@ -42,6 +42,14 @@ public sealed record SpanRecord
     public required DateTimeOffset EndTime { get; init; }
 
     /// <summary>
+    /// <c>Flare.Ingest</c>'s own wall-clock read, taken once per accepted OTLP export
+    /// request and stamped on every span it contains - not from the OTLP wire. Same
+    /// field/rationale as <see cref="LogEvent.IngestedAt"/> - see that type's remarks
+    /// and ADR-0014.
+    /// </summary>
+    public required DateTimeOffset IngestedAt { get; init; }
+
+    /// <summary>
     /// End minus start, computed from the raw wire nanoseconds (not from
     /// <see cref="StartTime"/>/<see cref="EndTime"/>, which are tick-truncated to 100ns
     /// - see <see cref="OtlpTraceMapper"/>) so duration keeps full wire precision even

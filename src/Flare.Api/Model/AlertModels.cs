@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>How <see cref="AlertThreshold.Count"/> is compared against the observed count.</summary>
@@ -11,7 +13,8 @@ public enum ThresholdComparator
 }
 
 /// <summary>The breach condition an <see cref="AlertRule"/> evaluates on every poll tick.</summary>
-public sealed record AlertThreshold
+[MemoryPackable]
+public sealed partial record AlertThreshold
 {
     public required ulong Count { get; init; }
 
@@ -38,7 +41,8 @@ public sealed record AlertThreshold
 /// <c>AlertEvaluationWorker</c> supplies its own rolling window derived from
 /// <see cref="WindowSeconds"/> at evaluation time.
 /// </remarks>
-public sealed record AlertRule
+[MemoryPackable]
+public sealed partial record AlertRule
 {
     public required Guid Id { get; init; }
 
@@ -113,7 +117,8 @@ public sealed record AlertRule
 /// but are made nullable too, so the whole type uses one consistent shape instead of
 /// mixing coalescing strategies.
 /// </remarks>
-public sealed record AlertRuleRequest
+[MemoryPackable]
+public sealed partial record AlertRuleRequest
 {
     public required string Name { get; init; }
 
@@ -174,13 +179,15 @@ public sealed record AlertRuleRequest
 }
 
 /// <summary>Response body for <c>GET /api/alerts</c>.</summary>
-public sealed record AlertRuleListResponse
+[MemoryPackable]
+public sealed partial record AlertRuleListResponse
 {
     public required IReadOnlyList<AlertRule> Rules { get; init; }
 }
 
 /// <summary>One row of an <see cref="AlertRule"/>'s fired-notification history.</summary>
-public sealed record AlertHistoryEntry
+[MemoryPackable]
+public sealed partial record AlertHistoryEntry
 {
     public required Guid EventId { get; init; }
 
@@ -207,7 +214,8 @@ public sealed record AlertHistoryEntry
 }
 
 /// <summary>Response body for <c>GET /api/alerts/{id}/history</c>.</summary>
-public sealed record AlertHistoryResponse
+[MemoryPackable]
+public sealed partial record AlertHistoryResponse
 {
     public required IReadOnlyList<AlertHistoryEntry> Events { get; init; }
 }
@@ -217,7 +225,8 @@ public sealed record AlertHistoryResponse
 /// <c>POST /api/alerts/test</c>) - evaluates the condition/threshold against current
 /// data without touching cooldown state or sending a notification.
 /// </summary>
-public sealed record AlertTestResult
+[MemoryPackable]
+public sealed partial record AlertTestResult
 {
     public required ulong ObservedCount { get; init; }
 

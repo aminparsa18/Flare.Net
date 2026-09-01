@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>
@@ -12,7 +14,8 @@ namespace Flare.Api.Model;
 /// (service/severity/free-text filters) comes only from <see cref="Query"/>'s own
 /// <c>where</c> clause, if any - the toolbar's filters are deliberately not applied here.
 /// </remarks>
-public sealed record LogQlQueryRequest
+[MemoryPackable]
+public sealed partial record LogQlQueryRequest
 {
     public required string Query { get; init; }
 
@@ -38,7 +41,8 @@ public enum LogQlResultKind
 }
 
 /// <summary>Response body for <c>POST /api/logs/query</c>.</summary>
-public sealed record LogQlQueryResponse
+[MemoryPackable]
+public sealed partial record LogQlQueryResponse
 {
     public required LogQlResultKind Kind { get; init; }
 

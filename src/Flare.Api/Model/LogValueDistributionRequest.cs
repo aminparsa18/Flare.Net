@@ -1,14 +1,18 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>Request body for <c>POST /api/logs/numeric-attribute-keys</c> - populates the Value distribution chart's attribute picker (see <c>Query.LogAttributeKeysQueryBuilder</c>).</summary>
-public sealed record LogAttributeKeysRequest
+[MemoryPackable]
+public sealed partial record LogAttributeKeysRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
     public LogFilter Filter { get; init; } = new();
 }
 
 /// <summary>One <c>LogAttributes</c> key that parses as numeric on at least one in-scope event, with how many do.</summary>
-public sealed record LogAttributeKeyInfo
+[MemoryPackable]
+public sealed partial record LogAttributeKeyInfo
 {
     public required string Key { get; init; }
 
@@ -16,13 +20,15 @@ public sealed record LogAttributeKeyInfo
 }
 
 /// <summary>Response body for <c>POST /api/logs/numeric-attribute-keys</c>, ordered by <see cref="LogAttributeKeyInfo.NumericCount"/> descending.</summary>
-public sealed record LogAttributeKeysResponse
+[MemoryPackable]
+public sealed partial record LogAttributeKeysResponse
 {
     public required IReadOnlyList<LogAttributeKeyInfo> Keys { get; init; }
 }
 
 /// <summary>Request body for <c>POST /api/logs/value-distribution</c> - a random sample of one numeric <c>LogAttributes</c> value over time, for the Logs page's scatter/density chart.</summary>
-public sealed record LogValueDistributionRequest
+[MemoryPackable]
+public sealed partial record LogValueDistributionRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
     public LogFilter Filter { get; init; } = new();
@@ -35,7 +41,8 @@ public sealed record LogValueDistributionRequest
 }
 
 /// <summary>One sampled point: an event's <see cref="Value"/> for the requested attribute key, at the time it occurred.</summary>
-public sealed record LogValueDistributionPoint
+[MemoryPackable]
+public sealed partial record LogValueDistributionPoint
 {
     public required DateTimeOffset Timestamp { get; init; }
 
@@ -43,7 +50,8 @@ public sealed record LogValueDistributionPoint
 }
 
 /// <summary>Response body for <c>POST /api/logs/value-distribution</c>.</summary>
-public sealed record LogValueDistributionResponse
+[MemoryPackable]
+public sealed partial record LogValueDistributionResponse
 {
     public required IReadOnlyList<LogValueDistributionPoint> Points { get; init; }
 }

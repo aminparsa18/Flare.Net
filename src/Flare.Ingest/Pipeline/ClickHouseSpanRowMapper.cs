@@ -31,7 +31,8 @@ public static class ClickHouseSpanRowMapper
     /// Column names in the exact order every row's values must agree on - see
     /// <see cref="ClickHouseRowMapper.Columns"/>'s remarks for why order matters to
     /// <c>InsertBinaryAsync</c>. Matches <c>0007_spans.sql</c>'s declaration order, with
-    /// the <c>Events</c> Nested column's three desugared array columns listed last.
+    /// the <c>Events</c> Nested column's three desugared array columns, then
+    /// <c>IngestedAt</c> (added via <c>0011_ingest_receipt_time.sql</c>), listed last.
     /// </summary>
     public static readonly IReadOnlyList<string> Columns =
     [
@@ -57,6 +58,7 @@ public static class ClickHouseSpanRowMapper
         "Events.TimeUnixNano",
         "Events.Name",
         "Events.Attributes",
+        "IngestedAt",
     ];
 
     /// <summary>Maps a single <see cref="SpanRecord"/> to a row, positionally matching <see cref="Columns"/>.</summary>
@@ -84,6 +86,7 @@ public static class ClickHouseSpanRowMapper
         span.Events.Select(e => e.Timestamp.UtcDateTime).ToArray(),
         span.Events.Select(e => e.Name ?? string.Empty).ToArray(),
         span.Events.Select(e => new Dictionary<string, string>(e.Attributes)).ToArray(),
+        span.IngestedAt.UtcDateTime,
     ];
 
     /// <summary>Maps a batch of spans to rows, in the same order.</summary>

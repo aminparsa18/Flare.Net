@@ -13,6 +13,7 @@ namespace Flare.Ingest.Otlp;
 public sealed class OtlpGrpcMetricsService(
     IMetricEventSink sink,
     IIngestionStatsTracker stats,
+    TimeProvider timeProvider,
     ILogger<OtlpGrpcMetricsService> logger) : MetricsService.MetricsServiceBase
 {
     public override async Task<ExportMetricsServiceResponse> Export(
@@ -21,10 +22,14 @@ public sealed class OtlpGrpcMetricsService(
     {
         var byteCount = request.CalculateSize();
 
+        // Captured once per request, not per data point - see LogEvent.IngestedAt's
+        // remarks and ADR-0014.
+        var ingestedAt = timeProvider.GetUtcNow();
+
         MetricMapResult result;
         try
         {
-            result = OtlpMetricsMapper.Map(request);
+            result = OtlpMetricsMapper.Map(request, ingestedAt);
             foreach (var point in result.Points)
             {
                 await sink.WriteAsync(point, context.CancellationToken);
@@ -40,7 +45,7 @@ public sealed class OtlpGrpcMetricsService(
         await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Grpc, result.Points.Count, byteCount, context.CancellationToken);
         await stats.RecordServiceBreakdownAsync(
             IngestionSignal.Metrics,
-            ServiceBreakdown.Build(result.Points.Select(p => p.ServiceName), byteCount),
+            ServiceBreakdown.Build(result.Points.Select(p => (p.ServiceName, ClockSkew.Nanos(ingestedAt, p.Time))), byteCount),
             context.CancellationToken);
 
         if (result.UnsupportedMetricNames.Count > 0)

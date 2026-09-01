@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>
@@ -9,7 +11,8 @@ namespace Flare.Api.Model;
 /// "compression ratio" stat - while <c>system.tables.total_bytes_uncompressed</c> doesn't
 /// have that problem).
 /// </summary>
-public sealed record TableStorageInfo(
+[MemoryPackable]
+public sealed partial record TableStorageInfo(
     string TableName,
     string Engine,
     string SortingKey,
@@ -19,7 +22,8 @@ public sealed record TableStorageInfo(
     long UncompressedBytes);
 
 /// <summary>One skip index (<c>system.data_skipping_indices</c>) - the schema-defined acceleration structures behind fast trace/attribute lookups.</summary>
-public sealed record SkipIndexInfo(
+[MemoryPackable]
+public sealed partial record SkipIndexInfo(
     string TableName,
     string IndexName,
     string Type,
@@ -35,7 +39,8 @@ public sealed record SkipIndexInfo(
 /// relative to net disk growth on a table with heavy background merging. Good enough for
 /// "is this table growing and how fast," not a byte-exact audit.
 /// </summary>
-public sealed record StorageGrowthPoint(DateTimeOffset Day, string TableName, long Bytes, long Rows);
+[MemoryPackable]
+public sealed partial record StorageGrowthPoint(DateTimeOffset Day, string TableName, long Bytes, long Rows);
 
 /// <summary>
 /// Disk backing ClickHouse's data, from <c>system.disks</c>. Self-hosted deployments have
@@ -46,7 +51,8 @@ public sealed record StorageGrowthPoint(DateTimeOffset Day, string TableName, lo
 /// be rare - unlike part_log/query_log this table isn't config-gated - but still handled
 /// defensively rather than failing the whole response over it).
 /// </summary>
-public sealed record DiskUsageInfo(bool Available, long TotalBytes, long FreeBytes);
+[MemoryPackable]
+public sealed partial record DiskUsageInfo(bool Available, long TotalBytes, long FreeBytes);
 
 /// <summary>
 /// Latency of queries Flare.Api itself ran against <c>currentDatabase()</c> in the
@@ -64,7 +70,8 @@ public sealed record DiskUsageInfo(bool Available, long TotalBytes, long FreeByt
 /// zero (queryable, just no query traffic in the window) - the dashboard tells those two
 /// "nothing to show" cases apart rather than collapsing both into one em dash.
 /// </remarks>
-public sealed record QueryPerformanceInfo(
+[MemoryPackable]
+public sealed partial record QueryPerformanceInfo(
     bool Available,
     double? P50Ms,
     double? P95Ms,
@@ -80,7 +87,8 @@ public sealed record QueryPerformanceInfo(
 /// guaranteed on every ClickHouse deployment) - the dashboard shows a plain note instead
 /// of an empty chart in that case, rather than the endpoint failing outright.
 /// </summary>
-public sealed record IndexingStatsResponse(
+[MemoryPackable]
+public sealed partial record IndexingStatsResponse(
     DateTimeOffset GeneratedAt,
     IReadOnlyList<TableStorageInfo> Tables,
     IReadOnlyList<SkipIndexInfo> SkipIndexes,
@@ -107,7 +115,8 @@ public sealed record IndexingStatsResponse(
 /// <see cref="ClusterQueryService"/>'s remarks for what this still doesn't cover (Keeper
 /// quorum health).
 /// </summary>
-public sealed record ClusterNodeInfo(
+[MemoryPackable]
+public sealed partial record ClusterNodeInfo(
     int ShardNum,
     int ReplicaNum,
     string HostName,
@@ -129,7 +138,8 @@ public sealed record ClusterNodeInfo(
 /// <see cref="ClusterNodeInfo.ReplicationLagSeconds"/> is then a placeholder 0, not a real
 /// "caught up" reading, and must be rendered as unknown rather than healthy.
 /// </summary>
-public sealed record ClusterStatusResponse(
+[MemoryPackable]
+public sealed partial record ClusterStatusResponse(
     bool ClusterModeEnabled,
     bool SharedPatternStoreEnabled,
     bool ReplicationInfoAvailable,

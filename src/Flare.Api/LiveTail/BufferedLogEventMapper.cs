@@ -22,6 +22,7 @@ public static class BufferedLogEventMapper
         EventId = bufferedLogEvent.EventId,
         Timestamp = bufferedLogEvent.Timestamp,
         ObservedTimestamp = bufferedLogEvent.ObservedTimestamp ?? bufferedLogEvent.Timestamp,
+        IngestedAt = bufferedLogEvent.IngestedAt,
         TraceId = bufferedLogEvent.TraceId ?? string.Empty,
         SpanId = bufferedLogEvent.SpanId ?? string.Empty,
         TraceFlags = bufferedLogEvent.TraceFlags,

@@ -80,7 +80,7 @@ public static class ProxyAuthLoginEndpoints
         }
 
         await AuthEndpoints.SignInAsync(http, sessions, authOptions.Value, user, cancellationToken);
-        return Results.Json(AuthEndpoints.ToDto(user), AuthJsonContext.Default.AuthUserDto);
+        return ApiSerialization.Write(http, AuthEndpoints.ToDto(user), AuthJsonContext.Default.AuthUserDto);
     }
 
     /// <summary>Highest-privilege matching group name (Admin > Member > Viewer), or

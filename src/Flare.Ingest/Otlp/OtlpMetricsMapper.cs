@@ -33,7 +33,13 @@ public sealed record MetricMapResult(IReadOnlyList<MetricPointRecord> Points, IR
 /// </remarks>
 public static class OtlpMetricsMapper
 {
-    public static MetricMapResult Map(ExportMetricsServiceRequest request)
+    /// <param name="request">The parsed OTLP export request.</param>
+    /// <param name="ingestedAt">
+    /// <c>Flare.Ingest</c>'s own wall-clock read at the moment this request was
+    /// received - see <see cref="OtlpLogMapper.Map"/>'s remarks for why this is a
+    /// parameter rather than read from a clock here.
+    /// </param>
+    public static MetricMapResult Map(ExportMetricsServiceRequest request, DateTimeOffset ingestedAt)
     {
         var points = new List<MetricPointRecord>();
         var unsupported = new HashSet<string>(StringComparer.Ordinal);
@@ -78,6 +84,7 @@ public static class OtlpMetricsMapper
                                     StartTime = dp.StartTimeUnixNano == 0 ? null : FromUnixNano(dp.StartTimeUnixNano),
                                     Time = FromUnixNano(dp.TimeUnixNano),
                                     Value = NumberValue(dp),
+                                    IngestedAt = ingestedAt,
                                 });
                             }
                             break;
@@ -103,6 +110,7 @@ public static class OtlpMetricsMapper
                                     Value = NumberValue(dp),
                                     AggregationTemporality = (int)metric.Sum.AggregationTemporality,
                                     IsMonotonic = metric.Sum.IsMonotonic,
+                                    IngestedAt = ingestedAt,
                                 });
                             }
                             break;
@@ -130,6 +138,7 @@ public static class OtlpMetricsMapper
                                     Sum = dp.HasSum ? dp.Sum : null,
                                     BucketCounts = [.. dp.BucketCounts],
                                     ExplicitBounds = [.. dp.ExplicitBounds],
+                                    IngestedAt = ingestedAt,
                                 });
                             }
                             break;

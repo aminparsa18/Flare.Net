@@ -1,7 +1,10 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>Request body for <c>POST /api/spans/search</c>.</summary>
-public sealed record SpanSearchRequest
+[MemoryPackable]
+public sealed partial record SpanSearchRequest
 {
     /// <summary>
     /// Same System.Text.Json init-only-property caveat as <c>LogSearchRequest.Filter</c>
@@ -19,7 +22,8 @@ public sealed record SpanSearchRequest
 }
 
 /// <summary>Response body for <c>POST /api/spans/search</c>.</summary>
-public sealed record SpanSearchResponse
+[MemoryPackable]
+public sealed partial record SpanSearchResponse
 {
     /// <summary>Most-recent-first (<c>StartTime DESC</c>).</summary>
     public required IReadOnlyList<SpanDto> Spans { get; init; }
@@ -29,7 +33,8 @@ public sealed record SpanSearchResponse
 }
 
 /// <summary>Response body for <c>GET /api/traces/{traceId}</c> - every span in one trace, for the waterfall view.</summary>
-public sealed record TraceDto
+[MemoryPackable]
+public sealed partial record TraceDto
 {
     public required string TraceId { get; init; }
 

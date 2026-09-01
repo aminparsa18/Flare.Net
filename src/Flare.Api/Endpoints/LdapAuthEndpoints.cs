@@ -51,7 +51,7 @@ public static class LdapAuthEndpoints
         LoginRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, AuthJsonContext.Default.LoginRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, AuthJsonContext.Default.LoginRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -110,7 +110,7 @@ public static class LdapAuthEndpoints
         }
 
         await AuthEndpoints.SignInAsync(http, sessions, authOptions.Value, user, cancellationToken);
-        return Results.Json(AuthEndpoints.ToDto(user), AuthJsonContext.Default.AuthUserDto);
+        return ApiSerialization.Write(http, AuthEndpoints.ToDto(user), AuthJsonContext.Default.AuthUserDto);
     }
 
     /// <summary>Binds as the configured service account and searches for

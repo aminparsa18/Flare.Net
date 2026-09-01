@@ -142,6 +142,7 @@ public sealed class SpanQueryService(IClickHouseClient client, TimeProvider time
             ScopeAttributes = reader.GetFieldValue<Dictionary<string, string>>(17),
             SpanAttributes = reader.GetFieldValue<Dictionary<string, string>>(18),
             Events = events,
+            IngestedAt = ReadUtc(reader, 22),
         };
     }
 

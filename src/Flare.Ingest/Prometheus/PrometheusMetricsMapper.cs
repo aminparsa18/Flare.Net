@@ -27,9 +27,21 @@ namespace Flare.Ingest.Prometheus;
 /// <c>_bucket{le=...}</c> counts into OTLP's non-cumulative <see cref="HistogramPointRecord.BucketCounts"/>.
 /// summary is dropped (same "not in v1 scope" treatment <see cref="OtlpMetricsMapper"/>
 /// already gives ExponentialHistogram/Summary on the OTLP side).
+///
+/// <c>scrapeTime</c> (see <see cref="Map"/> below) does double duty here in a way it
+/// doesn't for the OTLP mappers: it's both the fallback <c>Time</c> for a sample with no
+/// embedded timestamp of its own (unchanged from before ADR-0014) *and* the value every
+/// mapped point's <see cref="MetricPointRecord.IngestedAt"/> is stamped with - because
+/// for a pull-based scrape, "when did Flare receive this" and "what time did Flare's own
+/// clock read when it initiated the scrape" are the same moment (<c>PrometheusScrapeWorker</c>
+/// passes <c>timeProvider.GetUtcNow()</c> straight through), unlike OTLP's push model
+/// where the client's own clock stamps the event time first and Flare only sees it later.
 /// </remarks>
 public static class PrometheusMetricsMapper
 {
+    /// <param name="parsed">The parsed Prometheus exposition-format samples.</param>
+    /// <param name="target">The scrape target's own identity/label configuration.</param>
+    /// <param name="scrapeTime"><c>Flare.Ingest</c>'s own wall-clock read at the moment this scrape was initiated - see this type's remarks for why it also becomes every point's <see cref="MetricPointRecord.IngestedAt"/>.</param>
     public static MetricMapResult Map(PrometheusParseResult parsed, PrometheusScrapeTargetOptions target, DateTimeOffset scrapeTime)
     {
         var resourceAttributes = BuildResourceAttributes(target);
@@ -85,6 +97,7 @@ public static class PrometheusMetricsMapper
                         DataPointAttributes = sample.Labels,
                         StartTime = null,
                         Time = time,
+                        IngestedAt = scrapeTime,
                         Value = sample.Value,
                         AggregationTemporality = CumulativeTemporality,
                         IsMonotonic = true,
@@ -108,6 +121,7 @@ public static class PrometheusMetricsMapper
                         DataPointAttributes = sample.Labels,
                         StartTime = null,
                         Time = time,
+                        IngestedAt = scrapeTime,
                         Value = sample.Value,
                     });
                     break;
@@ -248,6 +262,7 @@ public static class PrometheusMetricsMapper
                 DataPointAttributes = group.Labels,
                 StartTime = null,
                 Time = time,
+                IngestedAt = scrapeTime,
                 AggregationTemporality = CumulativeTemporality,
                 Count = count < 0 ? 0UL : (ulong)Math.Round(count),
                 Sum = group.Sum,

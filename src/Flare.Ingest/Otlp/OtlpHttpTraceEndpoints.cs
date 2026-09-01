@@ -26,6 +26,7 @@ public static class OtlpHttpTraceEndpoints
         HttpContext http,
         ISpanEventSink sink,
         IIngestionStatsTracker stats,
+        TimeProvider timeProvider,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -76,17 +77,21 @@ public static class OtlpHttpTraceEndpoints
             return Results.BadRequest();
         }
 
+        // Captured once per request, not per span - see LogEvent.IngestedAt's remarks
+        // and ADR-0014.
+        var ingestedAt = timeProvider.GetUtcNow();
+
         var count = 0;
-        var serviceNames = new List<string?>();
-        foreach (var span in OtlpTraceMapper.Map(request))
+        var records = new List<(string? ServiceName, long SkewNanos)>();
+        foreach (var span in OtlpTraceMapper.Map(request, ingestedAt))
         {
             await sink.WriteAsync(span, cancellationToken);
             count++;
-            serviceNames.Add(span.ServiceName);
+            records.Add((span.ServiceName, ClockSkew.Nanos(ingestedAt, span.StartTime)));
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Traces, IngestionProtocol.Http, count, byteCount, cancellationToken);
-        await stats.RecordServiceBreakdownAsync(IngestionSignal.Traces, ServiceBreakdown.Build(serviceNames, byteCount), cancellationToken);
+        await stats.RecordServiceBreakdownAsync(IngestionSignal.Traces, ServiceBreakdown.Build(records, byteCount), cancellationToken);
 
         logger.LogDebug("Ingested {Count} span(s) via HTTP ({ContentType})", count, isJson ? "json" : "protobuf");
 

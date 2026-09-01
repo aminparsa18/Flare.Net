@@ -19,9 +19,20 @@ public class ClickHouseRowMapperTests
                 "SeverityText", "SeverityNumber", "ServiceName", "Body", "ResourceSchemaUrl",
                 "ResourceAttributes", "ScopeSchemaUrl", "ScopeName", "ScopeVersion",
                 "ScopeAttributes", "LogAttributes", "EventName", "EventId",
-                "PatternId", "PatternTemplate",
+                "PatternId", "PatternTemplate", "IngestedAt",
             ],
             ClickHouseRowMapper.Columns);
+    }
+
+    [Fact]
+    public void ToRow_PassesThroughIngestedAt_AsTheLastColumn()
+    {
+        var ingestedAt = new DateTimeOffset(2026, 8, 7, 12, 0, 5, TimeSpan.Zero);
+        var logEvent = MinimalLogEvent() with { IngestedAt = ingestedAt };
+
+        var row = ClickHouseRowMapper.ToRow(logEvent);
+
+        Assert.Equal(ingestedAt.UtcDateTime, row[20]);
     }
 
     [Fact]
@@ -148,6 +159,7 @@ public class ClickHouseRowMapperTests
     {
         EventId = Guid.NewGuid(),
         Timestamp = DateTimeOffset.UnixEpoch,
+        IngestedAt = DateTimeOffset.UnixEpoch,
         SeverityNumber = 9,
         ResourceAttributes = new Dictionary<string, string>(),
         ScopeAttributes = new Dictionary<string, string>(),

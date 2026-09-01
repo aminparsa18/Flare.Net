@@ -303,8 +303,8 @@ internal sealed class ExportCommand : AsyncCommand<ExportCommand.Settings>
 /// Export row shape for NDJSON - parity with export.ts's HEADER field set (EventId,
 /// Timestamp, Severity, SeverityNumber, Service, EventName, Message, TraceId, SpanId,
 /// LogAttributes), deliberately excluding "low-signal OTel plumbing"
-/// (ObservedTimestamp/TraceFlags/*SchemaUrl/ScopeName/ScopeVersion/ResourceAttributes/
-/// ScopeAttributes/PatternId/PatternTemplate) the same way that file's own comment
+/// (ObservedTimestamp/IngestedAt/TraceFlags/*SchemaUrl/ScopeName/ScopeVersion/
+/// ResourceAttributes/ScopeAttributes/PatternId/PatternTemplate) the same way that file's own comment
 /// documents. One object per line, no enclosing array/pretty-print - unlike export.ts's
 /// own (never-shipped) NDJSON idea, which would have pretty-printed a JSON array instead.
 /// </summary>

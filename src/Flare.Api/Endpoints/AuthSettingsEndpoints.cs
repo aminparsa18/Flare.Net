@@ -25,10 +25,10 @@ public static class AuthSettingsEndpoints
         return endpoints;
     }
 
-    internal static async Task<IResult> HandleGetAsync(IAuthSettingsStore authSettings, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleGetAsync(HttpContext http, IAuthSettingsStore authSettings, CancellationToken cancellationToken)
     {
         var settings = await authSettings.GetAsync(cancellationToken);
-        return Results.Json(ToDto(settings), AuthSettingsJsonContext.Default.AuthSettingsDto);
+        return ApiSerialization.Write(http, ToDto(settings), AuthSettingsJsonContext.Default.AuthSettingsDto);
     }
 
     internal static async Task<IResult> HandlePutAsync(
@@ -43,7 +43,7 @@ public static class AuthSettingsEndpoints
         AuthSettingsDto? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, AuthSettingsJsonContext.Default.AuthSettingsDto, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, AuthSettingsJsonContext.Default.AuthSettingsDto, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -72,7 +72,7 @@ public static class AuthSettingsEndpoints
         }
 
         var saved = await authSettings.SaveAsync(request.Enabled, request.LocalEnabled, cancellationToken);
-        return Results.Json(ToDto(saved), AuthSettingsJsonContext.Default.AuthSettingsDto);
+        return ApiSerialization.Write(http, ToDto(saved), AuthSettingsJsonContext.Default.AuthSettingsDto);
     }
 
     private static AuthSettingsDto ToDto(AuthSettings settings) => new() { Enabled = settings.Enabled, LocalEnabled = settings.LocalEnabled };

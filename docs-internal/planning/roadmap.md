@@ -41,9 +41,17 @@ folders are where "what happened and why" actually lives.
   instead of the current logs-only NDJSON/CSV stream. Deliberately held
   back: the shipped stdout/`-o` + shell composability (`> file`, `| jq`)
   already covers real usage; this is a real want, not an urgent one.
-- **Timestamp/timezone & clock-skew handling from distributed clients.**
-  Named as an open question before v1 and never explicitly revisited — no
-  clock-skew compensation exists anywhere in the ingest pipeline today;
-  timestamps are stored as received on the wire. Worth a real design pass
-  if multi-region/clock-drift-sensitive deployments become a reported
-  problem, rather than guessed at now.
+- **`Flare.Ingest`: MemoryPack for the internal Redis Streams buffer
+  payload** (`ClickHouseFlushWorker`/`RedisStreamLogEventSink`/
+  `MetricEventSink`/`SpanEventSink`/`RedisPatternClusterStore`'s
+  `LogEvent`/`MetricEvent`/`SpanEvent`/`PatternClusterRecord` JSON
+  serialization, ADR-0002). Not the HTTP API — a self-contained, fully
+  Flare-controlled boundary that never crosses into the dashboard, sees far
+  higher throughput than the Query API (every ingested event, not
+  occasional UI clicks), and needs zero TypeScript changes. Flagged as the
+  likely higher-ROI, lower-risk follow-on to `Flare.Api`'s Phase 0/Phase 1
+  MemoryPack work (see
+  [`../investigations/memorypack-serialization-migration-scope.md`](../investigations/memorypack-serialization-migration-scope.md)'s
+  Finding 6) once that work's own open items (an ADR for the
+  content-negotiation shape, broader live e2e coverage) are picked up. Not
+  started.

@@ -25,6 +25,7 @@ public static class OtlpHttpLogsEndpoints
         HttpContext http,
         ILogEventSink sink,
         IIngestionStatsTracker stats,
+        TimeProvider timeProvider,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -77,17 +78,21 @@ public static class OtlpHttpLogsEndpoints
             return Results.BadRequest();
         }
 
+        // Captured once per request, not per record - see LogEvent.IngestedAt's remarks
+        // and ADR-0014.
+        var ingestedAt = timeProvider.GetUtcNow();
+
         var count = 0;
-        var serviceNames = new List<string?>();
-        foreach (var logEvent in OtlpLogMapper.Map(request))
+        var records = new List<(string? ServiceName, long SkewNanos)>();
+        foreach (var logEvent in OtlpLogMapper.Map(request, ingestedAt))
         {
             await sink.WriteAsync(logEvent, cancellationToken);
             count++;
-            serviceNames.Add(logEvent.ServiceName);
+            records.Add((logEvent.ServiceName, ClockSkew.Nanos(ingestedAt, logEvent.Timestamp)));
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Logs, IngestionProtocol.Http, count, byteCount, cancellationToken);
-        await stats.RecordServiceBreakdownAsync(IngestionSignal.Logs, ServiceBreakdown.Build(serviceNames, byteCount), cancellationToken);
+        await stats.RecordServiceBreakdownAsync(IngestionSignal.Logs, ServiceBreakdown.Build(records, byteCount), cancellationToken);
 
         logger.LogDebug("Ingested {Count} log record(s) via HTTP ({ContentType})", count, isJson ? "json" : "protobuf");
 

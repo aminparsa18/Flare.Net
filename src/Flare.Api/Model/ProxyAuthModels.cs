@@ -1,4 +1,5 @@
 using Flare.Identity.Users;
+using MemoryPack;
 
 namespace Flare.Api.Model;
 
@@ -6,7 +7,8 @@ namespace Flare.Api.Model;
 /// <c>/auth</c> screen's Reverse proxy section. No secret field to mask - unlike
 /// <see cref="EntraSettingsDto"/>/<see cref="LdapSettingsDto"/>/<see cref="OidcSettingsDto"/>,
 /// this is a plain round-trip of everything stored.</summary>
-public sealed record ProxyAuthSettingsDto
+[MemoryPackable]
+public sealed partial record ProxyAuthSettingsDto
 {
     public required bool Enabled { get; init; }
 
@@ -33,7 +35,8 @@ public sealed record ProxyAuthSettingsDto
 }
 
 /// <summary>Request body for <c>PUT /api/settings/proxyauth</c>.</summary>
-public sealed record SaveProxyAuthSettingsRequest
+[MemoryPackable]
+public sealed partial record SaveProxyAuthSettingsRequest
 {
     public required bool Enabled { get; init; }
 

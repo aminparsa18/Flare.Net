@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>The kind of control message a live-tail client sends over <c>GET /api/logs/tail</c>.</summary>
@@ -18,7 +20,8 @@ public enum LogTailClientMessageType
 /// mirrors <c>/api/logs/search</c>'s "send your query, then get results" shape rather than
 /// an implicit firehose-on-connect.
 /// </summary>
-public sealed record LogTailClientMessage
+[MemoryPackable]
+public sealed partial record LogTailClientMessage
 {
     public required LogTailClientMessageType Type { get; init; }
 
@@ -44,7 +47,8 @@ public enum LogTailServerMessageType
 }
 
 /// <summary>One message pushed to a live-tail client.</summary>
-public sealed record LogTailServerMessage
+[MemoryPackable]
+public sealed partial record LogTailServerMessage
 {
     public required LogTailServerMessageType Type { get; init; }
 

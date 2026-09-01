@@ -1,7 +1,10 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>Request body for <c>POST /api/logs/patterns</c> - the ranked Drain-cluster view.</summary>
-public sealed record LogPatternRequest
+[MemoryPackable]
+public sealed partial record LogPatternRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
     public LogFilter Filter { get; init; } = new();
@@ -11,7 +14,8 @@ public sealed record LogPatternRequest
 }
 
 /// <summary>One ranked pattern: a Drain cluster and its occurrence stats within the request's filter window.</summary>
-public sealed record LogPatternRow
+[MemoryPackable]
+public sealed partial record LogPatternRow
 {
     public required string PatternId { get; init; }
 
@@ -29,7 +33,8 @@ public sealed record LogPatternRow
 }
 
 /// <summary>Response body for <c>POST /api/logs/patterns</c>.</summary>
-public sealed record LogPatternResponse
+[MemoryPackable]
+public sealed partial record LogPatternResponse
 {
     public required IReadOnlyList<LogPatternRow> Patterns { get; init; }
 }

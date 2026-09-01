@@ -35,6 +35,7 @@ internal static class SpanColumns
         "`Events.TimeUnixNano`",
         "`Events.Name`",
         "`Events.Attributes`",
+        "IngestedAt",
     ];
 
     public static readonly string SelectList = string.Join(", ", Names);

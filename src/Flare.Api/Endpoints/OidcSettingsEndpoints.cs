@@ -26,7 +26,7 @@ public static class OidcSettingsEndpoints
     internal static async Task<IResult> HandleGetAsync(HttpContext http, IOidcSettingsStore oidcSettings, CancellationToken cancellationToken)
     {
         var settings = await oidcSettings.GetAsync(cancellationToken);
-        return Results.Json(ToDto(settings, http), OidcSettingsJsonContext.Default.OidcSettingsDto);
+        return ApiSerialization.Write(http, ToDto(settings, http), OidcSettingsJsonContext.Default.OidcSettingsDto);
     }
 
     internal static async Task<IResult> HandlePutAsync(HttpContext http, IOidcSettingsStore oidcSettings, CancellationToken cancellationToken)
@@ -34,7 +34,7 @@ public static class OidcSettingsEndpoints
         SaveOidcSettingsRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, OidcSettingsJsonContext.Default.SaveOidcSettingsRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, OidcSettingsJsonContext.Default.SaveOidcSettingsRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -83,7 +83,7 @@ public static class OidcSettingsEndpoints
             request.RoleClaimName,
             request.DefaultRole,
             cancellationToken);
-        return Results.Json(ToDto(saved, http), OidcSettingsJsonContext.Default.OidcSettingsDto);
+        return ApiSerialization.Write(http, ToDto(saved, http), OidcSettingsJsonContext.Default.OidcSettingsDto);
     }
 
     private static OidcSettingsDto ToDto(OidcSettings settings, HttpContext http) => new()

@@ -23,6 +23,7 @@ public static class IngestionStatsKeys
 
     private const string ServiceRecordsPrefix = "flare:ingestion:service-records:";
     private const string ServiceBytesPrefix = "flare:ingestion:service-bytes:";
+    private const string ServiceSkewNanosPrefix = "flare:ingestion:service-skew-ns:";
 
     /// <summary>Read-side mirror of the write side's own service-breakdown key format (v10) - see its remarks.</summary>
     public static string ServiceRecordsKey(long epochMinute, Model.IngestionSignal signal) =>
@@ -30,4 +31,8 @@ public static class IngestionStatsKeys
 
     public static string ServiceBytesKey(long epochMinute, Model.IngestionSignal signal) =>
         ServiceBytesPrefix + epochMinute + ":" + signal.ToString().ToLowerInvariant();
+
+    /// <summary>Read-side mirror of the write side's own clock-skew key format (ADR-0014) - see its remarks.</summary>
+    public static string ServiceSkewNanosKey(long epochMinute, Model.IngestionSignal signal) =>
+        ServiceSkewNanosPrefix + epochMinute + ":" + signal.ToString().ToLowerInvariant();
 }

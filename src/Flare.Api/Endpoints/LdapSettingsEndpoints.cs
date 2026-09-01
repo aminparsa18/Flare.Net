@@ -25,10 +25,10 @@ public static class LdapSettingsEndpoints
         return endpoints;
     }
 
-    internal static async Task<IResult> HandleGetAsync(ILdapSettingsStore ldapSettings, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleGetAsync(HttpContext http, ILdapSettingsStore ldapSettings, CancellationToken cancellationToken)
     {
         var settings = await ldapSettings.GetAsync(cancellationToken);
-        return Results.Json(ToDto(settings), LdapSettingsJsonContext.Default.LdapSettingsDto);
+        return ApiSerialization.Write(http, ToDto(settings), LdapSettingsJsonContext.Default.LdapSettingsDto);
     }
 
     internal static async Task<IResult> HandlePutAsync(HttpContext http, ILdapSettingsStore ldapSettings, CancellationToken cancellationToken)
@@ -36,7 +36,7 @@ public static class LdapSettingsEndpoints
         SaveLdapSettingsRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LdapSettingsJsonContext.Default.SaveLdapSettingsRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, LdapSettingsJsonContext.Default.SaveLdapSettingsRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -130,7 +130,7 @@ public static class LdapSettingsEndpoints
             request.ViewerGroupDn,
             request.DefaultRole,
             cancellationToken);
-        return Results.Json(ToDto(saved), LdapSettingsJsonContext.Default.LdapSettingsDto);
+        return ApiSerialization.Write(http, ToDto(saved), LdapSettingsJsonContext.Default.LdapSettingsDto);
     }
 
     private static LdapSettingsDto ToDto(LdapSettings settings) => new()

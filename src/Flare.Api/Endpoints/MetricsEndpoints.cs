@@ -32,7 +32,7 @@ public static class MetricsEndpoints
         MetricNamesRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, MetricsJsonContext.Default.MetricNamesRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, MetricsJsonContext.Default.MetricNamesRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -42,7 +42,7 @@ public static class MetricsEndpoints
         request ??= new MetricNamesRequest();
 
         var response = await queryService.GetNamesAsync(request, cancellationToken);
-        return Results.Json(response, MetricsJsonContext.Default.MetricNamesResponse);
+        return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricNamesResponse);
     }
 
     private static async Task<IResult> HandleAttributeKeysAsync(
@@ -53,7 +53,7 @@ public static class MetricsEndpoints
         MetricAttributeKeysRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, MetricsJsonContext.Default.MetricAttributeKeysRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, MetricsJsonContext.Default.MetricAttributeKeysRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -66,7 +66,7 @@ public static class MetricsEndpoints
         }
 
         var response = await queryService.GetAttributeKeysAsync(request, cancellationToken);
-        return Results.Json(response, MetricsJsonContext.Default.MetricAttributeKeysResponse);
+        return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricAttributeKeysResponse);
     }
 
     private static async Task<IResult> HandleQueryAsync(
@@ -77,7 +77,7 @@ public static class MetricsEndpoints
         MetricQueryRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, MetricsJsonContext.Default.MetricQueryRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, MetricsJsonContext.Default.MetricQueryRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -92,7 +92,7 @@ public static class MetricsEndpoints
         try
         {
             var response = await queryService.QueryAsync(request, cancellationToken);
-            return Results.Json(response, MetricsJsonContext.Default.MetricQueryResponse);
+            return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricQueryResponse);
         }
         catch (ArgumentOutOfRangeException ex)
         {

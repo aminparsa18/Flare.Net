@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>
@@ -41,7 +43,8 @@ public enum ResourceHealth
 /// always have <c>Kind: "Container"</c> and a <see langword="null"/> <see cref="ParentId"/>
 /// (Docker's graph is flat).
 /// </summary>
-public sealed record ResourceNodeDto
+[MemoryPackable]
+public sealed partial record ResourceNodeDto
 {
     /// <summary>
     /// Docker: the container's own short ID, stable for its lifetime but changing across a
@@ -102,7 +105,8 @@ public sealed record ResourceNodeDto
 /// overlay (a <see cref="ProducerServiceDto.Id"/> referencing <c>"ingest"</c>, for every
 /// service observed sending it telemetry).
 /// </summary>
-public sealed record ResourceEdgeDto
+[MemoryPackable]
+public sealed partial record ResourceEdgeDto
 {
     /// <summary>Despite the name, any graph node id - a Docker <c>flare.role</c> value (<see cref="ResourceNodeDto.Role"/>) or a producer's <see cref="ProducerServiceDto.Id"/>. Kept as "Role" rather than renamed to "Id" since every Docker-sourced edge (the common case) is genuinely role-to-role.</summary>
     public required string SourceRole { get; init; }
@@ -123,7 +127,8 @@ public sealed record ResourceEdgeDto
 /// consumer's own <c>AddProject</c> resource with no Docker footprint whatsoever), so it
 /// has no image/state/health/urls to report.
 /// </summary>
-public sealed record ProducerServiceDto
+[MemoryPackable]
+public sealed partial record ProducerServiceDto
 {
     /// <summary><c>"service:" + </c><see cref="ServiceName"/> - namespaced so a producer can never collide with a Docker <see cref="ResourceNodeDto.Role"/> value (e.g. a producer literally named <c>"api"</c>).</summary>
     public required string Id { get; init; }
@@ -138,7 +143,8 @@ public sealed record ProducerServiceDto
 /// pushed over <c>GET /api/resources/watch</c> - see <see cref="DockerResources.DockerContainerPoller"/>
 /// for how it's built and broadcast.
 /// </summary>
-public sealed record ResourceGraphSnapshot
+[MemoryPackable]
+public sealed partial record ResourceGraphSnapshot
 {
     /// <summary>
     /// <see langword="false"/> means the Docker resource graph isn't enabled (no

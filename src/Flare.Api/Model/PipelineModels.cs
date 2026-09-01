@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>
@@ -6,7 +8,8 @@ namespace Flare.Api.Model;
 /// always a live snapshot, not windowed. Same default/clamp as
 /// <see cref="IngestionStatsRequest"/>.
 /// </summary>
-public sealed record PipelineStatsRequest(int Minutes = 60);
+[MemoryPackable]
+public sealed partial record PipelineStatsRequest(int Minutes = 60);
 
 /// <summary>
 /// One Redis Stream's live buffer/consumer-group depth for one signal. <see cref="Lag"/> is
@@ -28,7 +31,8 @@ public sealed record PipelineStatsRequest(int Minutes = 60);
 /// size/capacity" signal OpenTelemetry Collector's own health guidance calls out alongside
 /// accepted/refused data and exporter failures.
 /// </summary>
-public sealed record PipelineStreamHealth(
+[MemoryPackable]
+public sealed partial record PipelineStreamHealth(
     IngestionSignal Signal,
     string StreamKey,
     bool Available,
@@ -48,7 +52,8 @@ public sealed record PipelineStreamHealth(
 /// <see cref="ConsecutiveErrors"/> climbs. All fields null/zero if this worker has never
 /// flushed since Flare.Ingest last started (not an error state).
 /// </summary>
-public sealed record PipelineFlushHealth(
+[MemoryPackable]
+public sealed partial record PipelineFlushHealth(
     IngestionSignal Signal,
     DateTimeOffset? LastFlushAt,
     long? LastBatchSize,
@@ -56,8 +61,18 @@ public sealed record PipelineFlushHealth(
     string? LastError,
     long ConsecutiveErrors);
 
-/// <summary>One service's share of a signal's traffic within the requested window.</summary>
-public sealed record PipelineServiceEntry(string ServiceName, long Records, long Bytes);
+/// <summary>
+/// One service's share of a signal's traffic within the requested window.
+/// <see cref="AverageClockSkewMs"/> is <c>(IngestedAt - event time)</c> averaged across
+/// every record this service sent in the window (see ADR-0014) - positive means this
+/// service's events typically arrive claiming a time in the past relative to receipt
+/// (the expected case: latency), negative means they claim a time in the future (the
+/// service's clock is ahead of this server's). A simple per-window mean, not a robust
+/// statistic - see <c>Flare.Ingest.Stats.ServiceAcceptedCounts.SkewNanosSum</c>'s
+/// remarks for the same caveat on the write side.
+/// </summary>
+[MemoryPackable]
+public sealed partial record PipelineServiceEntry(string ServiceName, long Records, long Bytes, double AverageClockSkewMs);
 
 /// <summary>
 /// Per-<c>service.name</c> breakdown for one signal, capped to the top
@@ -68,14 +83,16 @@ public sealed record PipelineServiceEntry(string ServiceName, long Records, long
 /// byte count per export request, not per resource, so a request spanning multiple services
 /// has its bytes split proportionally to each service's record share, not measured exactly.
 /// </summary>
-public sealed record PipelineServiceBreakdown(
+[MemoryPackable]
+public sealed partial record PipelineServiceBreakdown(
     IngestionSignal Signal,
     IReadOnlyList<PipelineServiceEntry> TopServices,
     long OtherServiceCount,
     long OtherRecords,
     long OtherBytes);
 
-public sealed record PipelineStatsResponse(
+[MemoryPackable]
+public sealed partial record PipelineStatsResponse(
     DateTimeOffset GeneratedAt,
     IReadOnlyList<PipelineStreamHealth> Streams,
     IReadOnlyList<PipelineFlushHealth> FlushWorkers,

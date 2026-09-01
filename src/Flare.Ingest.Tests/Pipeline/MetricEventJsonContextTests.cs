@@ -33,6 +33,7 @@ public class MetricEventJsonContextTests
             DataPointAttributes = new Dictionary<string, string> { ["state"] = "active" },
             StartTime = new DateTimeOffset(2026, 8, 10, 11, 0, 0, TimeSpan.Zero),
             Time = new DateTimeOffset(2026, 8, 10, 12, 0, 0, TimeSpan.Zero),
+            IngestedAt = new DateTimeOffset(2026, 8, 10, 12, 0, 1, TimeSpan.Zero),
             Value = 42,
         };
 
@@ -52,6 +53,7 @@ public class MetricEventJsonContextTests
             ScopeAttributes = new Dictionary<string, string>(),
             DataPointAttributes = new Dictionary<string, string>(),
             Time = DateTimeOffset.UnixEpoch,
+            IngestedAt = DateTimeOffset.UnixEpoch,
             Value = 7,
             AggregationTemporality = 2,
             IsMonotonic = true,
@@ -75,6 +77,7 @@ public class MetricEventJsonContextTests
             ScopeAttributes = new Dictionary<string, string>(),
             DataPointAttributes = new Dictionary<string, string>(),
             Time = DateTimeOffset.UnixEpoch,
+            IngestedAt = DateTimeOffset.UnixEpoch,
             AggregationTemporality = 2,
             Count = 3,
             Sum = 12.5,
@@ -101,6 +104,7 @@ public class MetricEventJsonContextTests
             ScopeAttributes = new Dictionary<string, string>(),
             DataPointAttributes = new Dictionary<string, string>(),
             Time = DateTimeOffset.UnixEpoch,
+            IngestedAt = DateTimeOffset.UnixEpoch,
             AggregationTemporality = 0,
             Count = 0,
             Sum = null,
@@ -133,6 +137,7 @@ public class MetricEventJsonContextTests
         Assert.Equal(original.DataPointAttributes, roundTripped.DataPointAttributes);
         Assert.Equal(original.StartTime, roundTripped.StartTime);
         Assert.Equal(original.Time, roundTripped.Time);
+        Assert.Equal(original.IngestedAt, roundTripped.IngestedAt);
         return roundTripped;
     }
 }
