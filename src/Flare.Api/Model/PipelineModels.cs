@@ -9,6 +9,7 @@ namespace Flare.Api.Model;
 /// <see cref="IngestionStatsRequest"/>.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record PipelineStatsRequest(int Minutes = 60);
 
 /// <summary>
@@ -32,6 +33,7 @@ public sealed partial record PipelineStatsRequest(int Minutes = 60);
 /// accepted/refused data and exporter failures.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record PipelineStreamHealth(
     IngestionSignal Signal,
     string StreamKey,
@@ -72,6 +74,7 @@ public sealed partial record PipelineFlushHealth(
 /// remarks for the same caveat on the write side.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record PipelineServiceEntry(string ServiceName, long Records, long Bytes, double AverageClockSkewMs);
 
 /// <summary>

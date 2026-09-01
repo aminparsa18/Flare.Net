@@ -106,6 +106,7 @@ public sealed partial record ResourceNodeDto
 /// service observed sending it telemetry).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ResourceEdgeDto
 {
     /// <summary>Despite the name, any graph node id - a Docker <c>flare.role</c> value (<see cref="ResourceNodeDto.Role"/>) or a producer's <see cref="ProducerServiceDto.Id"/>. Kept as "Role" rather than renamed to "Id" since every Docker-sourced edge (the common case) is genuinely role-to-role.</summary>

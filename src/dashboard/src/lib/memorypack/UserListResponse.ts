@@ -41,8 +41,14 @@ export class UserListResponse {
 		}
 
 		const value = new UserListResponse();
-		if (count == 0) return value;
-		value.users = reader.readArray((reader) => UserSummaryDto.deserializeCore(reader));
+		if (count == 1) {
+			value.users = reader.readArray((reader) => UserSummaryDto.deserializeCore(reader));
+		} else if (count > 1) {
+			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
+		} else {
+			if (count == 0) return value;
+			value.users = reader.readArray((reader) => UserSummaryDto.deserializeCore(reader));
+		}
 		return value;
 	}
 }

@@ -32,6 +32,7 @@ public enum IngestionProtocol
 /// clamp), clamped server-side to [1, 1440] (24h, the buckets' own TTL ceiling).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record IngestionStatsRequest(int Minutes = 60);
 
 /// <summary>
@@ -75,6 +76,7 @@ public sealed partial record IngestionErrorEntryDto(
 /// isn't a fixed 24h like Seq's own "last 24 hours" tiles).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record IngestionStatsTotals(
     long ArrivalsPerMinute,
     long IngestedRecordsPerMinute,

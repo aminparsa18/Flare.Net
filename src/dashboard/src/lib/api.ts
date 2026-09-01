@@ -19,6 +19,26 @@
 // comment for its current state.
 
 import { env } from '$env/dynamic/public';
+import { logAggregateGroupByFromString, logQlResultKindToString, resourceHealthToString, resourceStateToString } from '$lib/memorypack/enums';
+import { LogFilter as GeneratedLogFilter, logFilterFromPlain } from '$lib/memorypack/LogFilter';
+import { LogEventDto as GeneratedLogEventDto } from '$lib/memorypack/LogEventDto';
+import { LogSearchRequest as GeneratedLogSearchRequest } from '$lib/memorypack/LogSearchRequest';
+import { LogSearchResponse as GeneratedLogSearchResponse } from '$lib/memorypack/LogSearchResponse';
+import { LogAggregateRequest as GeneratedLogAggregateRequest } from '$lib/memorypack/LogAggregateRequest';
+import { LogAggregateBucket as GeneratedLogAggregateBucket } from '$lib/memorypack/LogAggregateBucket';
+import { LogAggregateResponse as GeneratedLogAggregateResponse } from '$lib/memorypack/LogAggregateResponse';
+import { LogAttributeKeysRequest as GeneratedLogAttributeKeysRequest } from '$lib/memorypack/LogAttributeKeysRequest';
+import { LogAttributeKeysResponse as GeneratedLogAttributeKeysResponse } from '$lib/memorypack/LogAttributeKeysResponse';
+import { LogValueDistributionRequest as GeneratedLogValueDistributionRequest } from '$lib/memorypack/LogValueDistributionRequest';
+import { LogValueDistributionResponse as GeneratedLogValueDistributionResponse } from '$lib/memorypack/LogValueDistributionResponse';
+import { LogQlQueryRequest as GeneratedLogQlQueryRequest } from '$lib/memorypack/LogQlQueryRequest';
+import { LogQlQueryResponse as GeneratedLogQlQueryResponse } from '$lib/memorypack/LogQlQueryResponse';
+import { LogPatternRequest as GeneratedLogPatternRequest } from '$lib/memorypack/LogPatternRequest';
+import { LogPatternResponse as GeneratedLogPatternResponse } from '$lib/memorypack/LogPatternResponse';
+import { ResourceNodeDto as GeneratedResourceNodeDto } from '$lib/memorypack/ResourceNodeDto';
+import { ResourceGraphSnapshot as GeneratedResourceGraphSnapshot } from '$lib/memorypack/ResourceGraphSnapshot';
+import { HostStatsSnapshot as GeneratedHostStatsSnapshot } from '$lib/memorypack/HostStatsSnapshot';
+import { HostStatsHistoryPoint as GeneratedHostStatsHistoryPoint } from '$lib/memorypack/HostStatsHistoryPoint';
 
 /** Falls back to Flare.Api's fixed standalone dev port (see src/Flare.Api/Properties/launchSettings.json). */
 export const API_BASE_URL = env.PUBLIC_API_URL ?? 'http://localhost:5085';
@@ -60,6 +80,16 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
 }
 
 // ---- Shared filter shape (LogFilter.cs) ----------------------------------
+//
+// Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
+// to MemoryPack. `LogFilter`/`LogEventDto` and every request/response type below are
+// hand-written (`$lib/memorypack/`) - `LogFilter.From`/`To` are `DateTimeOffset?` and
+// `LogEventDto.Timestamp`/`ObservedTimestamp`/`IngestedAt` are `DateTimeOffset` - see
+// `$lib/memorypack/date-time-offset.ts`'s header comment. `LogAttributeKeyInfo`/
+// `LogAttributeKeysResponse` are the one clean pair in this section and use real generated
+// classes. Enum fields (`bag`, `groupBy`, `kind`) convert through
+// `$lib/memorypack/enums.ts`'s ordinal↔string adapters, same reasoning `auth-api.ts`
+// documents for `UserRole`.
 
 export type AttributeBag = 'Log' | 'Resource' | 'Scope';
 
@@ -116,6 +146,44 @@ export interface LogEventDto {
 	spanDurationNano?: number | null;
 }
 
+function toRecord(map: Map<string | null, string | null> | null): Record<string, string> {
+	const record: Record<string, string> = {};
+	for (const [key, value] of map ?? []) {
+		record[key ?? ''] = value ?? '';
+	}
+	return record;
+}
+
+function toLogEventDto(dto: GeneratedLogEventDto): LogEventDto {
+	return {
+		eventId: dto.eventId,
+		timestamp: dto.timestamp.toISOString(),
+		observedTimestamp: dto.observedTimestamp.toISOString(),
+		traceId: dto.traceId ?? '',
+		spanId: dto.spanId ?? '',
+		traceFlags: dto.traceFlags,
+		severityText: dto.severityText ?? '',
+		severityNumber: dto.severityNumber,
+		serviceName: dto.serviceName ?? '',
+		body: dto.body ?? '',
+		resourceSchemaUrl: dto.resourceSchemaUrl ?? '',
+		resourceAttributes: toRecord(dto.resourceAttributes),
+		scopeSchemaUrl: dto.scopeSchemaUrl ?? '',
+		scopeName: dto.scopeName ?? '',
+		scopeVersion: dto.scopeVersion ?? '',
+		scopeAttributes: toRecord(dto.scopeAttributes),
+		logAttributes: toRecord(dto.logAttributes),
+		eventName: dto.eventName ?? '',
+		patternId: dto.patternId ?? '',
+		patternTemplate: dto.patternTemplate ?? '',
+		spanDurationNano: dto.spanDurationNano == null ? null : Number(dto.spanDurationNano)
+	};
+}
+
+function toGeneratedLogFilter(filter: LogFilter | undefined): GeneratedLogFilter {
+	return logFilterFromPlain(filter);
+}
+
 // ---- POST /api/logs/search (LogSearchRequest.cs / LogSearchResponse) ------
 
 export interface LogSearchRequest {
@@ -132,16 +200,25 @@ export interface LogSearchResponse {
 }
 
 export async function searchLogs(request: LogSearchRequest = {}, signal?: AbortSignal): Promise<LogSearchResponse> {
+	const dto = new GeneratedLogSearchRequest();
+	dto.filter = toGeneratedLogFilter(request.filter);
+	dto.cursor = request.cursor ?? null;
+	dto.pageSize = request.pageSize ?? null;
+	dto.includeSpanDuration = request.includeSpanDuration ?? false;
 	const res = await apiFetch(`${API_BASE_URL}/api/logs/search`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request),
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedLogSearchRequest.serialize(dto)),
 		signal
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/logs/search failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const body = GeneratedLogSearchResponse.deserialize(await res.arrayBuffer());
+	return {
+		events: (body?.events ?? []).map((e) => toLogEventDto(e!)),
+		nextCursor: body?.nextCursor ?? null
+	};
 }
 
 // ---- POST /api/logs/aggregate (LogAggregateRequest.cs / LogAggregateResponse) ----
@@ -164,17 +241,26 @@ export interface LogAggregateResponse {
 	buckets: LogAggregateBucket[];
 }
 
+function toLogAggregateBucket(dto: GeneratedLogAggregateBucket): LogAggregateBucket {
+	return { bucketStart: dto.bucketStart.toISOString(), groupKey: dto.groupKey, count: dto.count };
+}
+
 export async function aggregateLogs(request: LogAggregateRequest, signal?: AbortSignal): Promise<LogAggregateResponse> {
+	const dto = new GeneratedLogAggregateRequest();
+	dto.filter = toGeneratedLogFilter(request.filter);
+	dto.bucketWidthSeconds = request.bucketWidthSeconds;
+	dto.groupBy = logAggregateGroupByFromString(request.groupBy ?? 'None');
 	const res = await apiFetch(`${API_BASE_URL}/api/logs/aggregate`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request),
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedLogAggregateRequest.serialize(dto)),
 		signal
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/logs/aggregate failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const body = GeneratedLogAggregateResponse.deserialize(await res.arrayBuffer());
+	return { buckets: (body?.buckets ?? []).map((b) => toLogAggregateBucket(b!)) };
 }
 
 // ---- POST /api/logs/numeric-attribute-keys, POST /api/logs/value-distribution ---------
@@ -201,16 +287,21 @@ export async function getLogAttributeKeys(
 	request: LogAttributeKeysRequest = {},
 	signal?: AbortSignal
 ): Promise<LogAttributeKeysResponse> {
+	const dto = new GeneratedLogAttributeKeysRequest();
+	dto.filter = toGeneratedLogFilter(request.filter);
 	const res = await apiFetch(`${API_BASE_URL}/api/logs/numeric-attribute-keys`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request),
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedLogAttributeKeysRequest.serialize(dto)),
 		signal
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/logs/numeric-attribute-keys failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const body = GeneratedLogAttributeKeysResponse.deserialize(await res.arrayBuffer());
+	return {
+		keys: (body?.keys ?? []).map((k) => ({ key: k!.key ?? '', numericCount: Number(k!.numericCount) }))
+	};
 }
 
 export interface LogValueDistributionRequest {
@@ -232,16 +323,23 @@ export async function getLogValueDistribution(
 	request: LogValueDistributionRequest,
 	signal?: AbortSignal
 ): Promise<LogValueDistributionResponse> {
+	const dto = new GeneratedLogValueDistributionRequest();
+	dto.filter = toGeneratedLogFilter(request.filter);
+	dto.attributeKey = request.attributeKey;
+	dto.sampleSize = request.sampleSize ?? 4000;
 	const res = await apiFetch(`${API_BASE_URL}/api/logs/value-distribution`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request),
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedLogValueDistributionRequest.serialize(dto)),
 		signal
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/logs/value-distribution failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const body = GeneratedLogValueDistributionResponse.deserialize(await res.arrayBuffer());
+	return {
+		points: (body?.points ?? []).map((p) => ({ timestamp: p!.timestamp.toISOString(), value: p!.value }))
+	};
 }
 
 // ---- POST /api/logs/query (LogQlQueryRequest.cs) --------------------------
@@ -282,13 +380,20 @@ export interface LogQlQueryResponse {
  * reach SqlQueryRow.svelte verbatim, not as "POST /api/logs/query failed: 400 Bad Request".
  */
 export async function runLogQlQuery(request: LogQlQueryRequest, signal?: AbortSignal): Promise<LogQlQueryResponse> {
+	const dto = new GeneratedLogQlQueryRequest();
+	dto.query = request.query;
+	dto.from = request.from == null ? null : new Date(request.from);
+	dto.to = request.to == null ? null : new Date(request.to);
 	const res = await apiFetch(`${API_BASE_URL}/api/logs/query`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request),
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedLogQlQueryRequest.serialize(dto)),
 		signal
 	});
 	if (!res.ok) {
+		// A parser-error response is always plain JSON ProblemDetails (Results.Problem
+		// server-side, unaffected by the Accept header - ApiSerialization only drives the
+		// success path) - never MemoryPack, regardless of what this request asked for.
 		let message = `POST /api/logs/query failed: ${res.status} ${res.statusText}`;
 		try {
 			const problem = await res.json();
@@ -298,7 +403,19 @@ export async function runLogQlQuery(request: LogQlQueryRequest, signal?: AbortSi
 		}
 		throw new Error(message);
 	}
-	return res.json();
+	const body = GeneratedLogQlQueryResponse.deserialize(await res.arrayBuffer());
+	if (body == null) {
+		throw new Error('Empty response body decoding LogQlQueryResponse.');
+	}
+	return {
+		kind: logQlResultKindToString(body.kind),
+		count: body.count,
+		buckets: body.buckets == null ? null : body.buckets.map((b) => toLogAggregateBucket(b!)),
+		events: body.events == null ? null : body.events.map((e) => toLogEventDto(e!)),
+		columns: body.columns == null ? null : body.columns.map((c) => c ?? ''),
+		rows: body.rows == null ? null : body.rows.map((row) => (row ?? []).map((cell) => cell ?? '')),
+		hasMoreRows: body.hasMoreRows
+	};
 }
 
 // ---- POST /api/logs/patterns (LogPatternModels.cs) -------------------------
@@ -327,16 +444,29 @@ export interface LogPatternResponse {
 }
 
 export async function getPatterns(request: LogPatternRequest = {}, signal?: AbortSignal): Promise<LogPatternResponse> {
+	const dto = new GeneratedLogPatternRequest();
+	dto.filter = toGeneratedLogFilter(request.filter);
+	dto.topN = request.topN ?? null;
 	const res = await apiFetch(`${API_BASE_URL}/api/logs/patterns`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request),
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedLogPatternRequest.serialize(dto)),
 		signal
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/logs/patterns failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const body = GeneratedLogPatternResponse.deserialize(await res.arrayBuffer());
+	return {
+		patterns: (body?.patterns ?? []).map((p) => ({
+			patternId: p!.patternId ?? '',
+			template: p!.template ?? '',
+			count: Number(p!.count),
+			errorCount: Number(p!.errorCount),
+			firstSeen: p!.firstSeen.toISOString(),
+			lastSeen: p!.lastSeen.toISOString()
+		}))
+	};
 }
 
 // ---- GET /api/logs/tail (WebSocket, LogTailMessages.cs) -------------------
@@ -490,12 +620,56 @@ export interface ResourceGraphSnapshot {
 	provider: 'Docker' | 'Kubernetes' | null;
 }
 
+function toResourceNodeDto(dto: GeneratedResourceNodeDto): ResourceNodeDto {
+	return {
+		id: dto.id ?? '',
+		role: dto.role ?? '',
+		name: dto.name ?? '',
+		image: dto.image ?? '',
+		state: resourceStateToString(dto.state),
+		health: dto.health == null ? null : resourceHealthToString(dto.health),
+		urls: (dto.urls ?? []).map((u) => u ?? ''),
+		kind: dto.kind ?? '',
+		parentId: dto.parentId
+	};
+}
+
+function toResourceGraphSnapshot(dto: GeneratedResourceGraphSnapshot): ResourceGraphSnapshot {
+	return {
+		available: dto.available,
+		unavailableReason: dto.unavailableReason,
+		nodes: (dto.nodes ?? []).map((n) => toResourceNodeDto(n!)),
+		edges: (dto.edges ?? []).map((e) => ({
+			sourceRole: e!.sourceRole ?? '',
+			targetRole: e!.targetRole ?? '',
+			relationshipType: e!.relationshipType ?? ''
+		})),
+		producers: (dto.producers ?? []).map((p) => ({
+			id: p!.id ?? '',
+			serviceName: p!.serviceName ?? '',
+			lastSeenAt: p!.lastSeenAt.toISOString()
+		})),
+		updatedAt: dto.updatedAt?.toISOString() ?? null,
+		provider: dto.provider as 'Docker' | 'Kubernetes' | null
+	};
+}
+
+/**
+ * `/watch`'s messages are plain JSON (out of scope - the 3 WebSocket endpoints have no
+ * per-message `Accept` to negotiate against, see ADR-0015/ADR-0016), but this snapshot GET
+ * is now MemoryPack - both decode into the same `ResourceGraphSnapshot` shape, so
+ * `connectResourcesWatch` below is unaffected.
+ */
 export async function fetchResourceSnapshot(signal?: AbortSignal): Promise<ResourceGraphSnapshot> {
-	const res = await apiFetch(`${API_BASE_URL}/api/resources/snapshot`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/resources/snapshot`, { headers: memoryPackAcceptHeaders(), signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/resources/snapshot failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const dto = GeneratedResourceGraphSnapshot.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding ResourceGraphSnapshot.');
+	}
+	return toResourceGraphSnapshot(dto);
 }
 
 export type ResourcesWatchStatus = 'connecting' | 'open' | 'closed' | 'error';
@@ -567,12 +741,46 @@ export interface HostStatsSnapshot {
 	updatedAt: string | null;
 }
 
+function toHostStatsSnapshot(dto: GeneratedHostStatsSnapshot): HostStatsSnapshot {
+	return {
+		available: dto.available,
+		unavailableReason: dto.unavailableReason,
+		cpuUsagePercent: dto.cpuUsagePercent,
+		cpuCoreCount: dto.cpuCoreCount,
+		loadAverage1m: dto.loadAverage1m,
+		perCoreUsagePercent: dto.perCoreUsagePercent ?? [],
+		memoryTotalBytes: Number(dto.memoryTotalBytes),
+		memoryUsedBytes: Number(dto.memoryUsedBytes),
+		memoryAvailableBytes: Number(dto.memoryAvailableBytes),
+		swapTotalBytes: Number(dto.swapTotalBytes),
+		swapUsedBytes: Number(dto.swapUsedBytes),
+		diskTotalBytes: Number(dto.diskTotalBytes),
+		diskUsedBytes: Number(dto.diskUsedBytes),
+		diskAvailableBytes: Number(dto.diskAvailableBytes),
+		diskGrowthBytesPerDay: dto.diskGrowthBytesPerDay,
+		diskGrowthWindowHours: dto.diskGrowthWindowHours,
+		diskReadBytesPerSecond: dto.diskReadBytesPerSecond,
+		diskWriteBytesPerSecond: dto.diskWriteBytesPerSecond,
+		networkBytesPerSecond: dto.networkBytesPerSecond,
+		networkRxBytesPerSecond: dto.networkRxBytesPerSecond,
+		networkTxBytesPerSecond: dto.networkTxBytesPerSecond,
+		networkPacketsPerSecond: dto.networkPacketsPerSecond,
+		uptimeSeconds: dto.uptimeSeconds,
+		updatedAt: dto.updatedAt?.toISOString() ?? null
+	};
+}
+
+/** `/watch`'s messages are plain JSON (out of scope, same reasoning as the Docker resource graph's `/watch`), but this snapshot GET is now MemoryPack - both decode into the same `HostStatsSnapshot` shape, so `connectHostStatsWatch` below is unaffected. */
 export async function fetchHostStatsSnapshot(signal?: AbortSignal): Promise<HostStatsSnapshot> {
-	const res = await apiFetch(`${API_BASE_URL}/api/resources/host/snapshot`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/resources/host/snapshot`, { headers: memoryPackAcceptHeaders(), signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/resources/host/snapshot failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const dto = GeneratedHostStatsSnapshot.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding HostStatsSnapshot.');
+	}
+	return toHostStatsSnapshot(dto);
 }
 
 export type HostStatsWatchStatus = ResourcesWatchStatus;
@@ -631,9 +839,16 @@ export interface HostStatsHistoryPoint {
  * receiving (see `$lib/resources/host-stats.svelte.ts`).
  */
 export async function fetchHostStatsHistory(signal?: AbortSignal): Promise<HostStatsHistoryPoint[]> {
-	const res = await apiFetch(`${API_BASE_URL}/api/resources/host/history`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/resources/host/history`, { headers: memoryPackAcceptHeaders(), signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/resources/host/history failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const points = GeneratedHostStatsHistoryPoint.deserializeArray(await res.arrayBuffer());
+	return (points ?? []).map((p) => ({
+		timestamp: p!.timestamp.toISOString(),
+		cpuUsagePercent: p!.cpuUsagePercent,
+		memoryUsedPercent: p!.memoryUsedPercent,
+		diskUsedPercent: p!.diskUsedPercent,
+		networkBytesPerSecond: p!.networkBytesPerSecond
+	}));
 }

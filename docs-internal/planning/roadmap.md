@@ -41,23 +41,6 @@ folders are where "what happened and why" actually lives.
   instead of the current logs-only NDJSON/CSV stream. Deliberately held
   back: the shipped stdout/`-o` + shell composability (`> file`, `| jq`)
   already covers real usage; this is a real want, not an urgent one.
-- **Dashboard: finish MemoryPack adoption on the remaining 9
-  `src/dashboard/src/lib/*-api.ts` client files** (`alerts-api.ts`,
-  `indexing-api.ts`, `ingest-keys-api.ts`, `ingestion-api.ts`,
-  `metrics-api.ts`, `pipeline-api.ts`, `saved-views-api.ts`,
-  `traces-api.ts`, and the Logs/Resources/HostStats functions in
-  `api.ts`). 7 of 16 files are done
-  ([`../adr/0016-memorypack-dashboard-typescript-adoption.md`](../adr/0016-memorypack-dashboard-typescript-adoption.md)) -
-  the exact per-type generated-vs-hand-written classification for all 9
-  remaining files is already worked out in
-  [`../investigations/memorypack-serialization-migration-scope.md`](../investigations/memorypack-serialization-migration-scope.md)'s
-  Phase 2 section, so this is mechanical (hand-write the
-  `DateTimeOffset`/`JsonElement`-bearing types following
-  `src/dashboard/src/lib/memorypack/`'s existing pattern, generate the
-  rest, convert enums at the boundary via `$lib/memorypack/enums.ts`),
-  not a re-investigation. Each file should still get its own live e2e
-  check against a running stack before being called done, same bar
-  Phase 2 itself used. Not started.
 - **`Flare.Ingest`: MemoryPack for the internal Redis Streams buffer
   payload** (`ClickHouseFlushWorker`/`RedisStreamLogEventSink`/
   `MetricEventSink`/`SpanEventSink`/`RedisPatternClusterStore`'s

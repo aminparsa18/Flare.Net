@@ -18,9 +18,10 @@ through [MemoryPack's TypeScript
 support](https://github.com/Cysharp/MemoryPack#typescript-and-aspnet-core-formatter)
 instead of hand-mirrored `interface`s + `res.json()`.
 
-Two things turned out to be true only after reading MemoryPack 1.21.4's
+Three things turned out to be true only after reading MemoryPack 1.21.4's
 actual TypeScript generator source (not assumed from its README), and
-both reshape what "adopt MemoryPack in the dashboard" can mean today:
+all three reshape what "adopt MemoryPack in the dashboard" can mean
+today:
 
 - **The generator has no mapping for `DateTimeOffset`.** Its member-type
   resolution (`MemoryPack.Generator/TypeScriptMember.cs`) only handles
@@ -51,6 +52,25 @@ both reshape what "adopt MemoryPack in the dashboard" can mean today:
   `DateTimeOffset?` prepends an 8-byte `int64` has-value flag, 24 bytes
   total - the same pattern the generator's own `writeNullableInt64`/
   `writeNullableDate` use for every other unmanaged type.
+- **The generator also has no mapping for `IReadOnlyList<T>`/
+  `IReadOnlyDictionary<K,V>`, regardless of `T`.** Its collection-kind
+  detection (`TypeMeta.ParseCollectionKind`) walks a type's
+  `AllInterfaces` looking for the *mutable* `ICollection<T>`/`ISet<T>`/
+  `IDictionary<K,V>` - which the read-only interface family doesn't
+  extend (`IReadOnlyList<T>` implements `IReadOnlyCollection<T>`, a
+  separate hierarchy). A member declared `IReadOnlyList<string>` fails
+  `MEMPACK031` exactly like a `DateTimeOffset` member does - confirmed
+  by attaching `[GenerateTypeScript]` to `ResourceNodeDto` (its `Urls:
+  IReadOnlyList<string>` member) and to four otherwise-clean response
+  wrappers (`ClusterStatusResponse`, `MetricNamesResponse`,
+  `MetricAttributeKeysResponse`, `PipelineServiceBreakdown`) and hitting
+  the same error on each. This wasn't caught by the 7 files landed in
+  this ADR's first pass purely because none of their DTOs happen to have
+  a collection-of-objects member - `Flare.Api/Model` uses
+  `IReadOnlyList<T>`/`IReadOnlyDictionary<K,V>` as its standing
+  convention for every list/map-shaped property, so this affects nearly
+  every "list of X" response wrapper across all 16 files, independent of
+  `DateTimeOffset`.
 - **MemoryPack's enums are numeric ordinals on the wire, never the member
   name.** The JSON path used `UseStringEnumConverter`, so
   `user.role === 'Admin'` string comparisons are already scattered
@@ -66,13 +86,14 @@ both reshape what "adopt MemoryPack in the dashboard" can mean today:
 generator can reach and hand-written where it can't - not narrowed to a
 subset.** Per Model type:
 
-- A type with no `DateTimeOffset`/`JsonElement` member anywhere in its
-  nested closure gets `[GenerateTypeScript]` next to its existing
-  `[MemoryPackable]` and is served by MemoryPack's real generated
-  TypeScript class (`src/dashboard/src/lib/generated/memorypack/*.ts`).
-  A "closure" matters here: a type is only generator-eligible if every
-  type it nests is *also* generator-eligible, since the generator
-  resolves a nested `[MemoryPackable]` member by importing
+- A type with no `DateTimeOffset`/`JsonElement`/`IReadOnlyList<T>`/
+  `IReadOnlyDictionary<K,V>` member anywhere in its nested closure gets
+  `[GenerateTypeScript]` next to its existing `[MemoryPackable]` and is
+  served by MemoryPack's real generated TypeScript class
+  (`src/dashboard/src/lib/generated/memorypack/*.ts`). A "closure"
+  matters here: a type is only generator-eligible if every type it
+  nests is *also* generator-eligible, since the generator resolves a
+  nested `[MemoryPackable]` member by importing
   `{Type}.serializeCore`/`deserializeCore` from a same-directory
   `{Type}.ts` it assumes was also generated.
 - A type that fails that test (directly or via nesting) is hand-written
@@ -112,26 +133,31 @@ subset.** Per Model type:
   codegen step always regenerates it) - only the hand-written
   `$lib/memorypack/*.ts` and `$lib/*-api.ts` files are committed.
 
-**Scope actually completed in this pass: 7 of 16 files** -
-`auth-api.ts`, `auth-settings-api.ts`, `entra-settings-api.ts`,
-`ldap-settings-api.ts`, `oidc-settings-api.ts`,
-`proxy-auth-settings-api.ts` (all fully generated - none of their DTOs
-carry a `DateTimeOffset`/`JsonElement`) plus `users-api.ts` (the first
-fully hand-written file, chosen specifically because
-`UserSummaryDto.CreatedAt` exercises the hand-rolled `DateTimeOffset`
-codec against a real server). This proves both paths - generated and
-hand-written - end-to-end, including live. The remaining 9 files
+**All 16 of 16 files completed.** Landed in two passes: `auth-api.ts`,
+`auth-settings-api.ts`, `entra-settings-api.ts`, `ldap-settings-api.ts`,
+`oidc-settings-api.ts`, `proxy-auth-settings-api.ts` (all fully
+generated - none of their DTOs carry a blocking member) plus
+`users-api.ts` (the first fully hand-written file, chosen specifically
+because `UserSummaryDto.CreatedAt` exercises the hand-rolled
+`DateTimeOffset` codec against a real server) proved both paths -
+generated and hand-written - end-to-end, live, before the
+`IReadOnlyList<T>` finding above was even hit (none of those 7 files'
+DTOs have a collection-of-objects member). The remaining 9 files
 (`alerts-api.ts`, `indexing-api.ts`, `ingest-keys-api.ts`,
 `ingestion-api.ts`, `metrics-api.ts`, `pipeline-api.ts`,
 `saved-views-api.ts`, `traces-api.ts`, and the Logs/Resources/HostStats
-functions in `api.ts`) follow the exact same, now-proven mechanical
-pattern - hand-write the `DateTimeOffset`/`JsonElement`-bearing types,
-generate the rest, convert enums at the boundary - and are tracked as
-the immediate next slice in `docs-internal/planning/roadmap.md` rather
-than rushed through in the same pass; per-type generated-vs-hand-written
-classification for all of them was already worked out while landing this
-ADR and is recorded in `../investigations/memorypack-serialization-migration-scope.md`'s
-Phase 2 section so the follow-up is mechanical, not a re-investigation.
+functions in `api.ts`) followed the same mechanical pattern, extended by
+the `IReadOnlyList<T>` rule discovered while landing them - hand-write
+the `DateTimeOffset`/`JsonElement`/`IReadOnlyList<T>`-bearing types,
+generate the rest, convert enums at the boundary. The full, corrected
+per-type generated-vs-hand-written classification for all 16 files is
+recorded in `../investigations/memorypack-serialization-migration-scope.md`'s
+Phase 2 section. Final split: ~34 real generated classes, ~50
+hand-written ones (a field-count consistency check - constructor
+assignment count vs. every `writeObjectHeader`/`count ==`/`count >`
+call site - was run across every hand-written file to catch
+transcription mistakes before the live pass; it caught one real
+off-by-one in `LogEventDto.ts`, fixed before verification).
 
 ## Alternatives considered
 
@@ -164,17 +190,18 @@ Phase 2 section so the follow-up is mechanical, not a re-investigation.
   question - the real one became "which types can the generator reach,"
   answered once for all 16 files' worth of DTOs rather than
   re-discovered file by file.
-- **Rushing all 16 files' hand-written classes into this same pass.**
-  Rejected: hand-written classes have no compiler/generator catching
-  drift or transcription mistakes the way real codegen does - the stated
-  bar for "done" here is build+tests green *and* a live check against a
-  running server, and thoroughly live-verifying ~30 hand-written classes
-  in one pass would have meant either skipping that verification or
-  producing it without adequate scrutiny. Landing the pattern completely
-  proven (both a generated file and a hand-written one, live-verified)
-  and scoping the mechanical remainder as a tracked follow-up matches
-  how ADR-0015 itself handled its own leftover scope (the 3 WebSocket
-  endpoints).
+- **Rushing all 16 files' hand-written classes into the very first pass,
+  before either proven path was live-verified.** Rejected for that first
+  pass specifically: hand-written classes have no compiler/generator
+  catching drift or transcription mistakes the way real codegen does -
+  the stated bar for "done" here is build+tests green *and* a live check
+  against a running server. Landing 7 files first (both a generated file
+  and a hand-written one, live-verified) established the pattern and the
+  verification method - including the field-count consistency check that
+  later caught a real mistake - before scaling it to the remaining 9 in
+  a second pass within the same ADR, rather than either skipping
+  verification or discovering the `IReadOnlyList<T>` gap mid-way through
+  an unreviewable 16-file diff.
 
 ## Consequences
 
@@ -210,38 +237,47 @@ Phase 2 section so the follow-up is mechanical, not a re-investigation.
 - `src/dashboard/.gitignore` gained `/src/lib/generated/memorypack` -
   regenerated on every build, never committed, same reasoning JSON DTOs
   were never duplicated into a second hand-maintained copy.
-- New hand-written, committed files: `src/dashboard/src/lib/memorypack/date-time-offset.ts`
-  (the verified `DateTimeOffset` codec), `enums.ts` (ordinal↔string-literal
-  adapters, one exported pair per migrated enum so far -
-  `userRoleToString`/`userRoleFromString`), and `UserSummaryDto.ts`/
-  `UserListResponse.ts` (the first hand-written DTO classes). Every one
-  of these documents in its own header comment exactly why it exists and
-  what it must stay byte-compatible with - there is no compiler to catch
-  drift if `UserModels.cs` changes shape without a matching update here.
-- `Flare.Api/Model/UserModels.cs` gained `[GenerateTypeScript]` on
-  `SetUserRoleRequest`/`SetUserDisabledRequest` (both already
-  generator-eligible - no `DateTimeOffset`/`JsonElement` member).
+- New hand-written, committed files under `src/dashboard/src/lib/memorypack/`
+  (~50 DTO classes across the 16 files, plus shared infrastructure):
+  `date-time-offset.ts` (the verified `DateTimeOffset` codec), `enums.ts`
+  (ordinal↔string-literal adapters - one exported pair per migrated enum,
+  including the ones with no generated referrer at all, e.g.
+  `AttributeBag`/`SavedViewPageType`/`SpanAttributeBag`), and `LogFilter.ts`
+  (the one type reused across the most files - `alerts-api.ts`,
+  `metrics-api.ts`'s `MetricFilter`, and `api.ts`'s own Logs endpoints -
+  including its `logFilterToPlain`/`logFilterFromPlain` conversion
+  helpers against `api.ts`'s existing plain interface). Every hand-written
+  file documents in its own header comment exactly why it can't be
+  generated and what it must stay byte-compatible with - there is no
+  compiler to catch drift if the matching `Flare.Api/Model` type changes
+  shape without a matching update here.
+- `Flare.Api/Model/*.cs` gained `[GenerateTypeScript]` on every type that
+  passed the eligibility test above - `UserModels.cs`
+  (`SetUserRoleRequest`/`SetUserDisabledRequest`), `AlertModels.cs`
+  (`AlertThreshold`), `IndexingModels.cs` (6 types),
+  `IngestionModels.cs`/`IngestApiKeyModels.cs`/`MetricModels.cs`/
+  `PipelineModels.cs` (several each),
+  `LogValueDistributionRequest.cs`/`ResourceGraphDto.cs` (the one
+  eligible type each - `LogAttributeKeyInfo` and `ResourceEdgeDto`).
 - Verified: `dotnet build Flare.slnx` and `dotnet test Flare.slnx` both
   clean (782 tests, unchanged from Phase 1 plus normal drift), `npm run
-  check` clean across all 4976 files in `src/dashboard` (0 errors - the
-  7 changed files plus every other file in the app, confirming the enum
-  wire-format change didn't silently break a consumer outside this
-  migration's scope). Live-verified against a real `docker compose up`
-  stack (ClickHouse + Redis + `Flare.Api`, no mocks): MemoryPack request
-  +response round trips for `POST /api/auth/bootstrap`, `GET`/`PUT
-  /api/settings/auth` (both generated classes), and `GET /api/users` +
-  `PATCH /api/users/{id}/role`/`/disabled` (the hand-written
-  `UserSummaryDto`/`UserListResponse` classes) - the hand-rolled
-  `DateTimeOffset` decode matched the JSON baseline's `createdAt`
-  exactly (0ms diff) for a real, non-default timestamp. Re-confirmed the
-  Phase 1 malformed-body-400 fix still holds through this new client
-  code path. JSON baseline (`GET /api/auth/bootstrap/status` and
-  `GET /api/users` with no `Accept` override) reads byte-for-byte
-  unchanged.
-- Not covered by this ADR, tracked as the immediate next slice in
-  `docs-internal/planning/roadmap.md`: the remaining 9 dashboard client
-  files, using the exact pattern this ADR established and the
-  per-type classification already recorded in the investigation doc.
+  check` clean across all 5055 files in `src/dashboard` (0 errors,
+  confirming the enum wire-format change didn't silently break any of
+  the ~20 consumers outside this migration's scope either). Live-verified
+  twice against a real `docker compose up` stack (ClickHouse + Redis +
+  `Flare.Api`, no mocks) - once for the first 7 files, once for the
+  remaining 9 - covering every one of the 16 files' endpoints: MemoryPack
+  request+response round trips including real (non-default,
+  non-empty) `DateTimeOffset` values decoded correctly four separate
+  times (`users-api.ts`'s `CreatedAt`, `alerts-api.ts`'s
+  `CreatedAt`/`UpdatedAt`, `ingest-keys-api.ts`'s `CreatedAt`,
+  `saved-views-api.ts`'s `CreatedAt`/`UpdatedAt` - the last two created
+  live via their own POST endpoints, not just read back), a byte-exact
+  `JsonElement`-as-raw-JSON-text round trip for `SavedView.State`
+  (a nested object, not just a flat value), and the Phase 1
+  malformed-body-400 regression re-confirmed through the new client code
+  paths. JSON baseline (every endpoint tested with no `Accept` override)
+  reads byte-for-byte unchanged throughout.
 
 ## Related documentation
 

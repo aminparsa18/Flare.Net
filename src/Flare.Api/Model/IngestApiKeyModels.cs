@@ -20,6 +20,7 @@ public sealed partial record IngestApiKeyDto
 
 /// <summary>Request body for <c>POST /api/ingest-keys</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record CreateIngestApiKeyRequest
 {
     public required string Name { get; init; }

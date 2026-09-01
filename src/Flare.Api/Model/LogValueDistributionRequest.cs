@@ -12,6 +12,7 @@ public sealed partial record LogAttributeKeysRequest
 
 /// <summary>One <c>LogAttributes</c> key that parses as numeric on at least one in-scope event, with how many do.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record LogAttributeKeyInfo
 {
     public required string Key { get; init; }

@@ -12,6 +12,7 @@ namespace Flare.Api.Model;
 /// have that problem).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record TableStorageInfo(
     string TableName,
     string Engine,
@@ -23,6 +24,7 @@ public sealed partial record TableStorageInfo(
 
 /// <summary>One skip index (<c>system.data_skipping_indices</c>) - the schema-defined acceleration structures behind fast trace/attribute lookups.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SkipIndexInfo(
     string TableName,
     string IndexName,
@@ -52,6 +54,7 @@ public sealed partial record StorageGrowthPoint(DateTimeOffset Day, string Table
 /// defensively rather than failing the whole response over it).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record DiskUsageInfo(bool Available, long TotalBytes, long FreeBytes);
 
 /// <summary>
@@ -71,6 +74,7 @@ public sealed partial record DiskUsageInfo(bool Available, long TotalBytes, long
 /// "nothing to show" cases apart rather than collapsing both into one em dash.
 /// </remarks>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record QueryPerformanceInfo(
     bool Available,
     double? P50Ms,
@@ -116,6 +120,7 @@ public sealed partial record IndexingStatsResponse(
 /// quorum health).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ClusterNodeInfo(
     int ShardNum,
     int ReplicaNum,

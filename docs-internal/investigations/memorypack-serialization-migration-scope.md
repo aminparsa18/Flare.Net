@@ -328,14 +328,35 @@ function converts at the module boundary
 back to the exact string the JSON path always produced, so every
 exported `interface` (and every consumer outside `lib/`) is unchanged.
 
-**Per-type classification (all 16 files' backing `Model/*.cs` types)** -
-worked out in full so the remaining slice is mechanical, not a
-re-investigation. A type is *generated* only if every type it nests is
-also generated (the generator's own nested-object import is a hardcoded
-same-directory `./{Type}.js`, so a hand-written type can't sit behind a
-generated parent without the parent failing to import it):
+**A fourth finding, discovered partway through classifying the remaining
+9 files**: the generator's collection-kind detection
+(`TypeMeta.ParseCollectionKind`) only recognizes the *mutable*
+`ICollection<T>`/`ISet<T>`/`IDictionary<K,V>` interfaces (via
+`AllInterfaces`) - `IReadOnlyList<T>`/`IReadOnlyDictionary<K,V>` don't
+extend those (a separate interface hierarchy), so a member declared with
+either throws the same `MEMPACK031` a `DateTimeOffset` member does,
+*regardless of what `T` is* - confirmed by attaching
+`[GenerateTypeScript]` to `ResourceNodeDto` (blocked on `Urls:
+IReadOnlyList<string>`, a primitive element type) and to four
+otherwise-clean response wrappers (`ClusterStatusResponse`,
+`MetricNamesResponse`, `MetricAttributeKeysResponse`,
+`PipelineServiceBreakdown`) and hitting the identical error on each.
+Since `Flare.Api/Model` uses `IReadOnlyList<T>`/`IReadOnlyDictionary<K,V>`
+as its standing convention for every list/map property, this affects
+nearly every "list of X" response wrapper across all 16 files - it just
+wasn't visible in the first 7 files landed (none of their DTOs happen to
+have a collection-of-objects member). The table below already reflects
+this correction, not the original (wrong) classification.
 
-| File | Generated (real `[GenerateTypeScript]`) | Hand-written (`DateTimeOffset`/`JsonElement` somewhere in the closure) |
+**Per-type classification (all 16 files' backing `Model/*.cs` types)** -
+worked out in full, both passes. A type is *generated* only if every
+type it nests is also generated (the generator's own nested-object
+import is a hardcoded same-directory `./{Type}.js`, so a hand-written
+type can't sit behind a generated parent without the parent failing to
+import it) **and** has no `IReadOnlyList<T>`/`IReadOnlyDictionary<K,V>`
+member of its own (Finding 4 above):
+
+| File | Generated (real `[GenerateTypeScript]`) | Hand-written (`DateTimeOffset`/`JsonElement`/`IReadOnlyList<T>` somewhere in the closure) |
 |---|---|---|
 | `auth-api.ts` | `LoginRequest`, `AuthUserDto`, `LogoutResponse`, `BootstrapStatusResponse` | - |
 | `auth-settings-api.ts` | `AuthSettingsDto` | - |
@@ -345,28 +366,37 @@ generated parent without the parent failing to import it):
 | `proxy-auth-settings-api.ts` | `ProxyAuthSettingsDto`, `SaveProxyAuthSettingsRequest` | - |
 | `users-api.ts` | `SetUserRoleRequest`, `SetUserDisabledRequest` | `UserSummaryDto`, `UserListResponse` |
 | `alerts-api.ts` | `ThresholdComparator`, `AlertThreshold` | `AlertRule`, `AlertRuleRequest`, `AlertRuleListResponse`, `AlertHistoryEntry`, `AlertHistoryResponse`, `AlertTestResult` |
-| `indexing-api.ts` | `TableStorageInfo`, `SkipIndexInfo`, `DiskUsageInfo`, `QueryPerformanceInfo`, `ClusterNodeInfo`, `ClusterStatusResponse` | `StorageGrowthPoint`, `IndexingStatsResponse` |
+| `indexing-api.ts` | `TableStorageInfo`, `SkipIndexInfo`, `DiskUsageInfo`, `QueryPerformanceInfo`, `ClusterNodeInfo` | `StorageGrowthPoint`, `IndexingStatsResponse`, `ClusterStatusResponse` (blocked on `Nodes: IReadOnlyList<ClusterNodeInfo>`) |
 | `ingestion-api.ts` | `IngestionSignal`, `IngestionProtocol`, `IngestionStatsRequest`, `IngestionStatsTotals` | `IngestionBucketPoint`, `IngestionErrorEntryDto`, `IngestionStatsResponse` |
-| `ingest-keys-api.ts` | `CreateIngestApiKeyRequest` | `IngestApiKeyDto`, `CreateIngestApiKeyResponse`, `IngestApiKeyListResponse` |
-| `metrics-api.ts` | `MetricPointType`, `MetricAttributeFilter`, `MetricNameInfo`, `MetricNamesResponse`, `MetricAttributeKeyInfo`, `MetricAttributeKeysResponse` | `MetricFilter`, `MetricNamesRequest`, `MetricAttributeKeysRequest`, `MetricQueryRequest`, `MetricSeriesPoint`, `MetricSeries`, `MetricQueryResponse` |
-| `pipeline-api.ts` | `PipelineStatsRequest`, `PipelineStreamHealth`, `PipelineServiceEntry`, `PipelineServiceBreakdown` | `PipelineFlushHealth`, `PipelineStatsResponse` |
-| `saved-views-api.ts` | `SavedViewPageType` | `SavedView`, `SavedViewRequest`, `SavedViewListResponse` (also blocked by `JsonElement State`) |
+| `ingest-keys-api.ts` | `CreateIngestApiKeyRequest` | `IngestApiKeyDto`, `CreateIngestApiKeyResponse` (`IngestApiKeyListResponse` exists in the model but isn't called from this client file, so it was left unmigrated/unwritten - see that file's own header comment) |
+| `metrics-api.ts` | `MetricPointType`, `MetricAttributeFilter`, `MetricNameInfo`, `MetricAttributeKeyInfo` | `MetricFilter`, `MetricNamesRequest`, `MetricNamesResponse` (blocked on `Metrics: IReadOnlyList<MetricNameInfo>`), `MetricAttributeKeysRequest`, `MetricAttributeKeysResponse` (blocked on `Keys: IReadOnlyList<MetricAttributeKeyInfo>`), `MetricQueryRequest`, `MetricSeriesPoint`, `MetricSeries`, `MetricQueryResponse` |
+| `pipeline-api.ts` | `PipelineStatsRequest`, `PipelineStreamHealth`, `PipelineServiceEntry` | `PipelineFlushHealth`, `PipelineServiceBreakdown` (blocked on `TopServices: IReadOnlyList<PipelineServiceEntry>`), `PipelineStatsResponse` |
+| `saved-views-api.ts` | `SavedViewPageType` is a bare enum with zero generated referrers (its only consumers are hand-written) - hand-coded in `enums.ts` rather than generated | `SavedView`, `SavedViewRequest`, `SavedViewListResponse` (blocked by `JsonElement State`) |
 | `traces-api.ts` | - | `SpanEventDto`, `SpanDto`, `SpanAttributeFilter`, `SpanFilter`, `SpanSearchRequest`, `SpanSearchResponse`, `TraceDto` |
-| `api.ts` (Logs) | `AttributeBag`, `LogAggregateGroupBy`, `LogAttributeKeyInfo`, `LogAttributeKeysResponse`, `LogQlResultKind` | `AttributeFilter`, `LogFilter`, `LogEventDto`, `LogSearchRequest`, `LogSearchResponse`, `LogAggregateRequest`, `LogAggregateBucket`, `LogAggregateResponse`, `LogAttributeKeysRequest`, `LogValueDistributionRequest`, `LogValueDistributionPoint`, `LogValueDistributionResponse`, `LogQlQueryRequest`, `LogQlQueryResponse`, `LogPatternRequest`, `LogPatternRow`, `LogPatternResponse` |
-| `api.ts` (Resources/HostStats) | `ResourceNodeDto`, `ResourceEdgeDto` (clean, but only ever nested inside blocked `ResourceGraphSnapshot` - generating them standalone was skipped since nothing generated would import them) | `ProducerServiceDto`, `ResourceGraphSnapshot`, `HostStatsSnapshot`, `HostStatsHistoryPoint` |
+| `api.ts` (Logs) | `LogAttributeKeyInfo` | `AttributeFilter`, `LogFilter`, `LogEventDto`, `LogSearchRequest`, `LogSearchResponse`, `LogAggregateRequest`, `LogAggregateBucket`, `LogAggregateResponse`, `LogAttributeKeysRequest`, `LogAttributeKeysResponse` (blocked on `Keys: IReadOnlyList<LogAttributeKeyInfo>`, despite `LogAttributeKeyInfo` itself being clean), `LogValueDistributionRequest`, `LogValueDistributionPoint`, `LogValueDistributionResponse`, `LogQlQueryRequest`, `LogQlQueryResponse`, `LogPatternRequest`, `LogPatternRow`, `LogPatternResponse`. `AttributeBag`/`LogAggregateGroupBy`/`LogQlResultKind` are bare enums with zero generated referrers - hand-coded in `enums.ts`. |
+| `api.ts` (Resources/HostStats) | `ResourceEdgeDto` | `ResourceNodeDto` (blocked on `Urls: IReadOnlyList<string>` - a *primitive* list, confirming Finding 4 isn't object-list-specific), `ProducerServiceDto`, `ResourceGraphSnapshot`, `HostStatsSnapshot` (blocked on `PerCoreUsagePercent: IReadOnlyList<double>`), `HostStatsHistoryPoint` |
 
-**Completed this pass**: the first 7 rows (`auth-api.ts` through
-`users-api.ts`) - fully migrated, `npm run check` clean across all 4976
-files in `src/dashboard`, and live-verified against a real `docker
-compose up` stack. `users-api.ts` was deliberately chosen as the first
-hand-written file specifically because `UserSummaryDto.CreatedAt`
-exercises the empirically-verified `DateTimeOffset` codec end-to-end,
-including live - see the ADR's Consequences for the exact live checks
-run (bootstrap, login, list/patch users, settings round trip, the
-malformed-body-400 regression re-confirmed through the new client code
-path). The remaining 9 rows are the immediate next slice
-(`docs-internal/planning/roadmap.md`) - same mechanical pattern, no
-further investigation needed.
+Final split: ~34 real generated classes, ~50 hand-written ones.
+
+**Both passes completed and live-verified.** First pass: the first 7
+rows (`auth-api.ts` through `users-api.ts`) - `users-api.ts` was
+deliberately chosen as the first hand-written file specifically because
+`UserSummaryDto.CreatedAt` exercises the empirically-verified
+`DateTimeOffset` codec end-to-end, including live, before Finding 4 was
+even discovered (none of these 7 files' DTOs have a
+collection-of-objects member). Second pass: the remaining 9 rows, which
+surfaced Finding 4 - the table above already reflects the correction. A
+field-count consistency check (constructor assignment count vs. every
+`writeObjectHeader`/`count ==`/`count >` call site in each hand-written
+file) was run across all ~50 hand-written files before the second live
+pass and caught one real off-by-one (`LogEventDto.ts` had 22 fields but
+was header-stamped as 21) - fixed before verification. Both passes:
+`npm run check` clean across all 5055 files in `src/dashboard`, `dotnet
+test Flare.slnx` clean (782 tests), and live-verified against a real
+`docker compose up` stack covering every one of the 16 files' endpoints
+- see the ADR's Consequences for the full list of live checks, including
+four separate real (non-empty) `DateTimeOffset` round trips and a
+byte-exact `JsonElement` round trip for a nested object.
 
 ## Unresolved / follow-ups
 
@@ -384,11 +414,8 @@ further investigation needed.
   (schema evolution) is adopted, and what that costs in generator config.
 - ~~Not investigated/decided here: whether the dashboard TypeScript side
   ever actually adopts the MemoryPack `Accept`/`Content-Type` (Finding 4).~~
-  Decided and 7/16 files landed: see the Phase 2 section above and
+  Decided and all 16/16 files landed: see the Phase 2 section above and
   [`../adr/0016-memorypack-dashboard-typescript-adoption.md`](../adr/0016-memorypack-dashboard-typescript-adoption.md).
-  The remaining 9 files are the immediate next slice, tracked in
-  `../planning/roadmap.md` - same mechanical pattern, per-type
-  classification already recorded above.
 - Not investigated here: the three WebSocket endpoints' migration shape
   (Finding 5), or whether it's even worth moving given they're low-volume
   control/push channels compared to the Query API's request/response
