@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>
@@ -5,7 +7,8 @@ namespace Flare.Api.Model;
 /// pushed over <c>GET /api/resources/host/watch</c> - the Resources page's "Host overview"
 /// panel. See <c>HostStats.HostStatsPoller</c> for how it's sampled and broadcast.
 /// </summary>
-public sealed record HostStatsSnapshot
+[MemoryPackable]
+public sealed partial record HostStatsSnapshot
 {
     /// <summary>
     /// <see langword="false"/> means this host's stats genuinely can't be read - not Linux,

@@ -1,10 +1,12 @@
 using Flare.Identity.Users;
+using MemoryPack;
 
 namespace Flare.Api.Model;
 
 /// <summary>Request body for <c>POST /api/auth/login</c> and (reusing the same shape)
 /// <c>POST /api/auth/bootstrap</c>.</summary>
-public sealed record LoginRequest
+[MemoryPackable]
+public sealed partial record LoginRequest
 {
     public required string Username { get; init; }
 
@@ -14,7 +16,8 @@ public sealed record LoginRequest
 /// <summary>The authenticated-user shape returned by login/bootstrap/<c>/me</c>.
 /// Deliberately never carries a password hash or session token - see
 /// <see cref="Identity.Users.User"/>'s remarks.</summary>
-public sealed record AuthUserDto
+[MemoryPackable]
+public sealed partial record AuthUserDto
 {
     public required Guid Id { get; init; }
 
@@ -34,7 +37,8 @@ public sealed record AuthUserDto
 /// account with none configured) gets a null-<see cref="RedirectUrl"/> response, same as
 /// this endpoint always returning bare 204 before this field existed. See
 /// docs/auth.md's "Reverse proxy (trusted header)" section, "Known limitations".</summary>
-public sealed record LogoutResponse
+[MemoryPackable]
+public sealed partial record LogoutResponse
 {
     public string? RedirectUrl { get; init; }
 }
@@ -44,7 +48,8 @@ public sealed record LogoutResponse
 /// all (opt-in auth - see docs/auth.md), and (when it is) <see cref="NeedsBootstrap"/>/
 /// <see cref="LocalEnabled"/>/<see cref="EntraEnabled"/>/<see cref="LdapEnabled"/>/
 /// <see cref="OidcEnabled"/> to decide what <c>/login</c> should show.</summary>
-public sealed record BootstrapStatusResponse
+[MemoryPackable]
+public sealed partial record BootstrapStatusResponse
 {
     /// <summary>The global switch - false means every endpoint in the app is open to
     /// anyone, no login of any kind required. See <c>ConditionalAuthorizationMiddlewareResultHandler</c>.</summary>

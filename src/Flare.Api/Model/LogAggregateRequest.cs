@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>Optional secondary grouping dimension for <c>POST /api/logs/aggregate</c>.</summary>
@@ -9,7 +11,8 @@ public enum LogAggregateGroupBy
 }
 
 /// <summary>Request body for <c>POST /api/logs/aggregate</c> - volume-over-time chart data.</summary>
-public sealed record LogAggregateRequest
+[MemoryPackable]
+public sealed partial record LogAggregateRequest
 {
     /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
     public LogFilter Filter { get; init; } = new();
@@ -28,7 +31,8 @@ public sealed record LogAggregateRequest
 /// <c>count()</c> - a whole-number value still round-trips through JSON exactly (e.g. `25`,
 /// not `25.0`), so this is a no-op for every existing <c>/api/logs/aggregate</c> caller.
 /// </summary>
-public sealed record LogAggregateBucket
+[MemoryPackable]
+public sealed partial record LogAggregateBucket
 {
     public required DateTimeOffset BucketStart { get; init; }
 
@@ -38,7 +42,8 @@ public sealed record LogAggregateBucket
 }
 
 /// <summary>Response body for <c>POST /api/logs/aggregate</c>.</summary>
-public sealed record LogAggregateResponse
+[MemoryPackable]
+public sealed partial record LogAggregateResponse
 {
     public required IReadOnlyList<LogAggregateBucket> Buckets { get; init; }
 }

@@ -1,8 +1,11 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>An ingest API key as returned by list/create - never carries the raw key
 /// value except at creation time (see <see cref="CreateIngestApiKeyResponse"/>).</summary>
-public sealed record IngestApiKeyDto
+[MemoryPackable]
+public sealed partial record IngestApiKeyDto
 {
     public required Guid Id { get; init; }
 
@@ -16,14 +19,16 @@ public sealed record IngestApiKeyDto
 }
 
 /// <summary>Request body for <c>POST /api/ingest-keys</c>.</summary>
-public sealed record CreateIngestApiKeyRequest
+[MemoryPackable]
+public sealed partial record CreateIngestApiKeyRequest
 {
     public required string Name { get; init; }
 }
 
 /// <summary><see cref="RawKey"/> is shown exactly once, here - Flare never stores or
 /// displays it again after this response (see <see cref="Identity.IngestKeys.SqliteIngestApiKeyStore"/>).</summary>
-public sealed record CreateIngestApiKeyResponse
+[MemoryPackable]
+public sealed partial record CreateIngestApiKeyResponse
 {
     public required IngestApiKeyDto Key { get; init; }
 
@@ -31,7 +36,8 @@ public sealed record CreateIngestApiKeyResponse
 }
 
 /// <summary>Response body for <c>GET /api/ingest-keys</c>.</summary>
-public sealed record IngestApiKeyListResponse
+[MemoryPackable]
+public sealed partial record IngestApiKeyListResponse
 {
     public required IReadOnlyList<IngestApiKeyDto> Keys { get; init; }
 }

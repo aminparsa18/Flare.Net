@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>
@@ -9,7 +11,8 @@ namespace Flare.Api.Model;
 /// carrying four extra <see langword="long"/> fields per point. Network has no fixed
 /// ceiling to normalize against, so it stays in its natural unit (bytes/sec) instead.
 /// </summary>
-public sealed record HostStatsHistoryPoint
+[MemoryPackable]
+public sealed partial record HostStatsHistoryPoint
 {
     public required DateTimeOffset Timestamp { get; init; }
 

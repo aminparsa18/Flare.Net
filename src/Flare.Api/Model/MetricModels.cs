@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>
@@ -23,7 +25,8 @@ public enum MetricPointType
 /// planned query needs resource/scope-attribute filtering here, see
 /// <c>db/clickhouse/README.md</c>'s "No <c>ResourceAttributes</c> skip index" note).
 /// </summary>
-public sealed record MetricAttributeFilter
+[MemoryPackable]
+public sealed partial record MetricAttributeFilter
 {
     public required string Key { get; init; }
 
@@ -36,7 +39,8 @@ public sealed record MetricAttributeFilter
 /// <c>WHERE</c> clause usable against any of the three point-type tables (they share
 /// <c>Time</c>/<c>ServiceName</c>/<c>DataPointAttributes</c> columns).
 /// </summary>
-public sealed record MetricFilter
+[MemoryPackable]
+public sealed partial record MetricFilter
 {
     public DateTimeOffset? From { get; init; }
 
@@ -50,7 +54,8 @@ public sealed record MetricFilter
 }
 
 /// <summary>Request body for <c>POST /api/metrics/names</c> - metric discovery for a picker, not a full <see cref="MetricFilter"/> (no attribute filtering - see its remarks).</summary>
-public sealed record MetricNamesRequest
+[MemoryPackable]
+public sealed partial record MetricNamesRequest
 {
     public DateTimeOffset? From { get; init; }
 
@@ -67,7 +72,8 @@ public sealed record MetricNamesRequest
 /// pick one to query - <see cref="ServiceName"/> is that pin, carried straight into
 /// <see cref="MetricQueryRequest.Filter"/>.
 /// </summary>
-public sealed record MetricNameInfo
+[MemoryPackable]
+public sealed partial record MetricNameInfo
 {
     public required string MetricName { get; init; }
 
@@ -89,7 +95,8 @@ public sealed record MetricNameInfo
 }
 
 /// <summary>Response body for <c>POST /api/metrics/names</c>.</summary>
-public sealed record MetricNamesResponse
+[MemoryPackable]
+public sealed partial record MetricNamesResponse
 {
     public required IReadOnlyList<MetricNameInfo> Metrics { get; init; }
 }
@@ -103,7 +110,8 @@ public sealed record MetricNamesResponse
 /// type in hand (from a prior <c>/api/metrics/names</c> response) before it ever needs
 /// to discover that metric's group-by keys.
 /// </summary>
-public sealed record MetricAttributeKeysRequest
+[MemoryPackable]
+public sealed partial record MetricAttributeKeysRequest
 {
     public required string MetricName { get; init; }
 
@@ -119,7 +127,8 @@ public sealed record MetricAttributeKeysRequest
 /// vs "host.name (47)" before the user picks a key that still exceeds the dashboard's
 /// series cap.
 /// </summary>
-public sealed record MetricAttributeKeyInfo
+[MemoryPackable]
+public sealed partial record MetricAttributeKeyInfo
 {
     public required string Key { get; init; }
 
@@ -127,7 +136,8 @@ public sealed record MetricAttributeKeyInfo
 }
 
 /// <summary>Response body for <c>POST /api/metrics/attribute-keys</c>, sorted by <see cref="MetricAttributeKeyInfo.Key"/>.</summary>
-public sealed record MetricAttributeKeysResponse
+[MemoryPackable]
+public sealed partial record MetricAttributeKeysResponse
 {
     public required IReadOnlyList<MetricAttributeKeyInfo> Keys { get; init; }
 }
@@ -136,7 +146,8 @@ public sealed record MetricAttributeKeysResponse
 /// Request body for <c>POST /api/metrics/query</c> - the core, genuinely new endpoint:
 /// a time-bucketed series for one metric, one attribute-set per <see cref="MetricSeries"/>.
 /// </summary>
-public sealed record MetricQueryRequest
+[MemoryPackable]
+public sealed partial record MetricQueryRequest
 {
     public required string MetricName { get; init; }
 
@@ -165,7 +176,8 @@ public sealed record MetricQueryRequest
 /// response caller already knows the type from the request it sent - a discriminated
 /// response type would just be overhead here, not disambiguation.
 /// </summary>
-public sealed record MetricSeriesPoint
+[MemoryPackable]
+public sealed partial record MetricSeriesPoint
 {
     public required DateTimeOffset BucketStart { get; init; }
 
@@ -221,7 +233,8 @@ public sealed record MetricSeriesPoint
 /// <see cref="MetricQueryRequest.GroupByAttributeKey"/> in hand, so this record carries
 /// no separate flag for which mode produced it.
 /// </remarks>
-public sealed record MetricSeries
+[MemoryPackable]
+public sealed partial record MetricSeries
 {
     public required string ServiceName { get; init; }
 
@@ -231,7 +244,8 @@ public sealed record MetricSeries
 }
 
 /// <summary>Response body for <c>POST /api/metrics/query</c>.</summary>
-public sealed record MetricQueryResponse
+[MemoryPackable]
+public sealed partial record MetricQueryResponse
 {
     public required IReadOnlyList<MetricSeries> Series { get; init; }
 }

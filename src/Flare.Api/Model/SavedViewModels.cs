@@ -1,3 +1,4 @@
+using MemoryPack;
 using System.Text.Json;
 
 namespace Flare.Api.Model;
@@ -23,7 +24,8 @@ public enum SavedViewPageType
 /// ever round-trips it through ClickHouse's opaque <c>StateJson</c> column - it's never
 /// deserialized into a Flare.Api type, and no code here inspects its contents.
 /// </remarks>
-public sealed record SavedView
+[MemoryPackable]
+public sealed partial record SavedView
 {
     public required Guid Id { get; init; }
 
@@ -33,6 +35,8 @@ public sealed record SavedView
 
     public required SavedViewPageType PageType { get; init; }
 
+    /// <summary>Serialized via <see cref="Json.JsonElementMemoryPackFormatter"/> - see its remarks.</summary>
+    [MemoryPackAllowSerialize]
     public required JsonElement State { get; init; }
 
     public required DateTimeOffset CreatedAt { get; init; }
@@ -50,7 +54,8 @@ public sealed record SavedView
 /// coalesce-in-the-service shape is used anyway for consistency with the rest of this
 /// API's request DTOs.
 /// </remarks>
-public sealed record SavedViewRequest
+[MemoryPackable]
+public sealed partial record SavedViewRequest
 {
     public required string Name { get; init; }
 
@@ -58,11 +63,14 @@ public sealed record SavedViewRequest
 
     public required SavedViewPageType PageType { get; init; }
 
+    /// <summary>Serialized via <see cref="Json.JsonElementMemoryPackFormatter"/> - see its remarks.</summary>
+    [MemoryPackAllowSerialize]
     public required JsonElement State { get; init; }
 }
 
 /// <summary>Response body for <c>GET /api/views</c>.</summary>
-public sealed record SavedViewListResponse
+[MemoryPackable]
+public sealed partial record SavedViewListResponse
 {
     public required IReadOnlyList<SavedView> Views { get; init; }
 }

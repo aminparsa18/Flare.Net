@@ -1,7 +1,10 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>One entry of a span's <c>Events</c> Nested column - a timestamped annotation.</summary>
-public sealed record SpanEventDto
+[MemoryPackable]
+public sealed partial record SpanEventDto
 {
     public required DateTimeOffset Timestamp { get; init; }
 
@@ -26,7 +29,8 @@ public sealed record SpanEventDto
 /// (e.g. <c>"STATUS_CODE_OK"</c>), not re-encoded as an int - see
 /// <see cref="SpanFilter.StatusCodes"/>'s remarks for why.
 /// </remarks>
-public sealed record SpanDto
+[MemoryPackable]
+public sealed partial record SpanDto
 {
     public required string TraceId { get; init; }
 

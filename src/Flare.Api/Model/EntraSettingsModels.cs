@@ -1,9 +1,12 @@
+using MemoryPack;
+
 namespace Flare.Api.Model;
 
 /// <summary>Response body for <c>GET</c>/<c>PUT /api/settings/entra</c> - the Admin-only
 /// Security screen's shape. Never carries the real client secret - see
 /// <see cref="HasClientSecret"/>.</summary>
-public sealed record EntraSettingsDto
+[MemoryPackable]
+public sealed partial record EntraSettingsDto
 {
     public required bool Enabled { get; init; }
 
@@ -25,7 +28,8 @@ public sealed record EntraSettingsDto
 /// <summary>Request body for <c>PUT /api/settings/entra</c>. <see cref="ClientSecret"/>
 /// of <c>null</c>/omitted leaves the currently-stored secret unchanged - see
 /// <c>IEntraSettingsStore.SaveAsync</c>'s remarks.</summary>
-public sealed record SaveEntraSettingsRequest
+[MemoryPackable]
+public sealed partial record SaveEntraSettingsRequest
 {
     public required bool Enabled { get; init; }
 

@@ -1,11 +1,13 @@
 using Flare.Identity.Users;
+using MemoryPack;
 
 namespace Flare.Api.Model;
 
 /// <summary>Response body for <c>GET</c>/<c>PUT /api/settings/oidc</c> - the Admin-only
 /// Security screen's generic OpenID Connect section. Never carries the real client
 /// secret - see <see cref="HasClientSecret"/>.</summary>
-public sealed record OidcSettingsDto
+[MemoryPackable]
+public sealed partial record OidcSettingsDto
 {
     public required bool Enabled { get; init; }
 
@@ -36,7 +38,8 @@ public sealed record OidcSettingsDto
 /// <summary>Request body for <c>PUT /api/settings/oidc</c>. <see cref="ClientSecret"/> of
 /// <c>null</c>/omitted leaves the currently-stored secret unchanged - see
 /// <c>IOidcSettingsStore.SaveAsync</c>'s remarks.</summary>
-public sealed record SaveOidcSettingsRequest
+[MemoryPackable]
+public sealed partial record SaveOidcSettingsRequest
 {
     public required bool Enabled { get; init; }
 
