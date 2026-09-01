@@ -263,11 +263,10 @@ every existing call continues getting JSON exactly as before.
 
 ## Unresolved / follow-ups
 
-- No ADR written. Per `docs-internal/README.md`'s ADR bar this is still a
-  gap worth closing - the content-negotiation *shape* (additive,
-  `Accept`/`Content-Type`-driven, all-endpoints-at-once) is now a real
-  decision with consequences, not just a scope measurement. Write one
-  documenting that shape and the WebSocket-endpoints exclusion.
+- ~~No ADR written.~~ Written: [`../adr/0015-memorypack-content-negotiation-for-flare-api.md`](../adr/0015-memorypack-content-negotiation-for-flare-api.md) -
+  documents the additive/all-endpoints-at-once shape, the alternatives
+  weighed, and the malformed-body bug this investigation's live e2e pass
+  found as a Consequence.
 - Live e2e covered `POST /api/logs/search` and `GET /api/alerts` only (one
   request-body endpoint, one response-only endpoint) - not all 58. The bug
   it found was in the shared `ApiSerialization.ReadAsync` helper every
