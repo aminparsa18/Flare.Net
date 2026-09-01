@@ -33,7 +33,7 @@ public class AuthSettingsEndpointsTests
         var authSettings = new FakeAuthSettingsStore(enabled: false, localEnabled: true);
         var context = CreateContext();
 
-        var result = await AuthSettingsEndpoints.HandleGetAsync(authSettings, CancellationToken.None);
+        var result = await AuthSettingsEndpoints.HandleGetAsync(context, authSettings, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         context.Response.Body.Position = 0;

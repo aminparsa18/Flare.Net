@@ -25,7 +25,7 @@ public static class EntraSettingsEndpoints
     internal static async Task<IResult> HandleGetAsync(HttpContext http, IEntraSettingsStore entraSettings, CancellationToken cancellationToken)
     {
         var settings = await entraSettings.GetAsync(cancellationToken);
-        return Results.Json(ToDto(settings, http), EntraSettingsJsonContext.Default.EntraSettingsDto);
+        return ApiSerialization.Write(http, ToDto(settings, http), EntraSettingsJsonContext.Default.EntraSettingsDto);
     }
 
     internal static async Task<IResult> HandlePutAsync(HttpContext http, IEntraSettingsStore entraSettings, CancellationToken cancellationToken)
@@ -33,7 +33,7 @@ public static class EntraSettingsEndpoints
         SaveEntraSettingsRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, EntraSettingsJsonContext.Default.SaveEntraSettingsRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, EntraSettingsJsonContext.Default.SaveEntraSettingsRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -63,7 +63,7 @@ public static class EntraSettingsEndpoints
         }
 
         var saved = await entraSettings.SaveAsync(request.Enabled, request.TenantId, request.ClientId, request.ClientSecret, cancellationToken);
-        return Results.Json(ToDto(saved, http), EntraSettingsJsonContext.Default.EntraSettingsDto);
+        return ApiSerialization.Write(http, ToDto(saved, http), EntraSettingsJsonContext.Default.EntraSettingsDto);
     }
 
     private static EntraSettingsDto ToDto(EntraSettings settings, HttpContext http) => new()

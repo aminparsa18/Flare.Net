@@ -33,7 +33,7 @@ public static class AlertEndpoints
         AlertRuleRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, AlertsJsonContext.Default.AlertRuleRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, AlertsJsonContext.Default.AlertRuleRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -51,19 +51,19 @@ public static class AlertEndpoints
         }
 
         var rule = await alerts.CreateAsync(request, cancellationToken);
-        return Results.Json(rule, AlertsJsonContext.Default.AlertRule, statusCode: StatusCodes.Status201Created);
+        return ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule, statusCode: StatusCodes.Status201Created);
     }
 
-    private static async Task<IResult> HandleListAsync(IAlertQueryService alerts, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleListAsync(HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
         var rules = await alerts.ListAsync(cancellationToken);
-        return Results.Json(new AlertRuleListResponse { Rules = rules }, AlertsJsonContext.Default.AlertRuleListResponse);
+        return ApiSerialization.Write(http, new AlertRuleListResponse { Rules = rules }, AlertsJsonContext.Default.AlertRuleListResponse);
     }
 
-    private static async Task<IResult> HandleGetAsync(Guid id, IAlertQueryService alerts, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
-        return rule is null ? Results.NotFound() : Results.Json(rule, AlertsJsonContext.Default.AlertRule);
+        return rule is null ? Results.NotFound() : ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule);
     }
 
     private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
@@ -71,7 +71,7 @@ public static class AlertEndpoints
         AlertRuleRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, AlertsJsonContext.Default.AlertRuleRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, AlertsJsonContext.Default.AlertRuleRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -89,7 +89,7 @@ public static class AlertEndpoints
         }
 
         var rule = await alerts.UpdateAsync(id, request, cancellationToken);
-        return rule is null ? Results.NotFound() : Results.Json(rule, AlertsJsonContext.Default.AlertRule);
+        return rule is null ? Results.NotFound() : ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule);
     }
 
     private static async Task<IResult> HandleDeleteAsync(Guid id, IAlertQueryService alerts, CancellationToken cancellationToken)
@@ -98,13 +98,13 @@ public static class AlertEndpoints
         return deleted ? Results.NoContent() : Results.NotFound();
     }
 
-    private static async Task<IResult> HandleHistoryAsync(Guid id, int? limit, IAlertQueryService alerts, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleHistoryAsync(Guid id, int? limit, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
         var events = await alerts.GetHistoryAsync(id, limit is > 0 ? limit.Value : 50, cancellationToken);
-        return Results.Json(new AlertHistoryResponse { Events = events }, AlertsJsonContext.Default.AlertHistoryResponse);
+        return ApiSerialization.Write(http, new AlertHistoryResponse { Events = events }, AlertsJsonContext.Default.AlertHistoryResponse);
     }
 
-    private static async Task<IResult> HandleTestSavedAsync(Guid id, IAlertQueryService alerts, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
         if (rule is null)
@@ -113,7 +113,7 @@ public static class AlertEndpoints
         }
 
         var result = await EvaluateAsync(alerts, timeProvider, rule.Condition, rule.Threshold, rule.WindowSeconds, cancellationToken);
-        return Results.Json(result, AlertsJsonContext.Default.AlertTestResult);
+        return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
     private static async Task<IResult> HandleTestDraftAsync(HttpContext http, IAlertQueryService alerts, TimeProvider timeProvider, CancellationToken cancellationToken)
@@ -121,7 +121,7 @@ public static class AlertEndpoints
         AlertRuleRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, AlertsJsonContext.Default.AlertRuleRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, AlertsJsonContext.Default.AlertRuleRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -134,7 +134,7 @@ public static class AlertEndpoints
         }
 
         var result = await EvaluateAsync(alerts, timeProvider, request.Condition, request.Threshold, request.WindowSeconds, cancellationToken);
-        return Results.Json(result, AlertsJsonContext.Default.AlertTestResult);
+        return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
     /// <summary>

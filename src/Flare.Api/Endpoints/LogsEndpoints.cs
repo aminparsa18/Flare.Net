@@ -35,7 +35,7 @@ public static class LogsEndpoints
         LogSearchRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogSearchRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, LogsJsonContext.Default.LogSearchRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -45,7 +45,7 @@ public static class LogsEndpoints
         request ??= new LogSearchRequest();
 
         var response = await queryService.SearchAsync(request, cancellationToken);
-        return Results.Json(response, LogsJsonContext.Default.LogSearchResponse);
+        return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogSearchResponse);
     }
 
     private static async Task<IResult> HandleAggregateAsync(
@@ -56,7 +56,7 @@ public static class LogsEndpoints
         LogAggregateRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogAggregateRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, LogsJsonContext.Default.LogAggregateRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -71,7 +71,7 @@ public static class LogsEndpoints
         try
         {
             var response = await queryService.AggregateAsync(request, cancellationToken);
-            return Results.Json(response, LogsJsonContext.Default.LogAggregateResponse);
+            return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogAggregateResponse);
         }
         catch (ArgumentOutOfRangeException ex)
         {
@@ -87,7 +87,7 @@ public static class LogsEndpoints
         LogPatternRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogPatternRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, LogsJsonContext.Default.LogPatternRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -97,7 +97,7 @@ public static class LogsEndpoints
         request ??= new LogPatternRequest();
 
         var response = await queryService.GetPatternsAsync(request, cancellationToken);
-        return Results.Json(response, LogsJsonContext.Default.LogPatternResponse);
+        return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogPatternResponse);
     }
 
     private static async Task<IResult> HandleNumericAttributeKeysAsync(
@@ -108,7 +108,7 @@ public static class LogsEndpoints
         LogAttributeKeysRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogAttributeKeysRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, LogsJsonContext.Default.LogAttributeKeysRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -118,7 +118,7 @@ public static class LogsEndpoints
         request ??= new LogAttributeKeysRequest();
 
         var response = await queryService.GetNumericAttributeKeysAsync(request, cancellationToken);
-        return Results.Json(response, LogsJsonContext.Default.LogAttributeKeysResponse);
+        return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogAttributeKeysResponse);
     }
 
     private static async Task<IResult> HandleValueDistributionAsync(
@@ -129,7 +129,7 @@ public static class LogsEndpoints
         LogValueDistributionRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogValueDistributionRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, LogsJsonContext.Default.LogValueDistributionRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -144,7 +144,7 @@ public static class LogsEndpoints
         try
         {
             var response = await queryService.GetValueDistributionAsync(request, cancellationToken);
-            return Results.Json(response, LogsJsonContext.Default.LogValueDistributionResponse);
+            return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogValueDistributionResponse);
         }
         catch (ArgumentOutOfRangeException ex)
         {
@@ -160,7 +160,7 @@ public static class LogsEndpoints
         LogQlQueryRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, LogsJsonContext.Default.LogQlQueryRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, LogsJsonContext.Default.LogQlQueryRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -175,7 +175,7 @@ public static class LogsEndpoints
         try
         {
             var response = await queryService.RunQlQueryAsync(request, cancellationToken);
-            return Results.Json(response, LogsJsonContext.Default.LogQlQueryResponse);
+            return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogQlQueryResponse);
         }
         catch (LogQlParseException ex)
         {

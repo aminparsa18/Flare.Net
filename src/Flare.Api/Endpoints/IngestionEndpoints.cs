@@ -21,11 +21,12 @@ public static class IngestionEndpoints
 
     private static async Task<IResult> HandleGetStatsAsync(
         int? minutes,
+        HttpContext http,
         IIngestionStatsQueryService queryService,
         CancellationToken cancellationToken)
     {
         var request = new IngestionStatsRequest(minutes ?? 60);
         var response = await queryService.GetStatsAsync(request, cancellationToken);
-        return Results.Json(response, IngestionJsonContext.Default.IngestionStatsResponse);
+        return ApiSerialization.Write(http, response, IngestionJsonContext.Default.IngestionStatsResponse);
     }
 }

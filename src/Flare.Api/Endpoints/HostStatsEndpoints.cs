@@ -29,11 +29,11 @@ public static class HostStatsEndpoints
         return endpoints;
     }
 
-    private static IResult HandleSnapshot(HostStatsPoller poller) =>
-        Results.Json(poller.CurrentSnapshot, HostStatsJsonContext.Default.HostStatsSnapshot);
+    private static IResult HandleSnapshot(HttpContext http, HostStatsPoller poller) =>
+        ApiSerialization.Write(http, poller.CurrentSnapshot, HostStatsJsonContext.Default.HostStatsSnapshot);
 
-    private static IResult HandleHistory(HostStatsPoller poller) =>
-        Results.Json(poller.GetHistory(), HostStatsJsonContext.Default.IReadOnlyListHostStatsHistoryPoint);
+    private static IResult HandleHistory(HttpContext http, HostStatsPoller poller) =>
+        ApiSerialization.Write(http, poller.GetHistory(), HostStatsJsonContext.Default.IReadOnlyListHostStatsHistoryPoint);
 
     private static async Task HandleWatchAsync(HttpContext http, HostStatsPoller poller)
     {

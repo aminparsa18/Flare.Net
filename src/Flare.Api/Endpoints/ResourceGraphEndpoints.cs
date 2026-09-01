@@ -27,8 +27,8 @@ public static class ResourceGraphEndpoints
         return endpoints;
     }
 
-    private static IResult HandleSnapshot(ResourceGraphSourceRegistry registry) =>
-        Results.Json(registry.CurrentSnapshot, ResourceGraphJsonContext.Default.ResourceGraphSnapshot);
+    private static IResult HandleSnapshot(HttpContext http, ResourceGraphSourceRegistry registry) =>
+        ApiSerialization.Write(http, registry.CurrentSnapshot, ResourceGraphJsonContext.Default.ResourceGraphSnapshot);
 
     private static async Task HandleWatchAsync(HttpContext http, ResourceGraphSourceRegistry registry)
     {

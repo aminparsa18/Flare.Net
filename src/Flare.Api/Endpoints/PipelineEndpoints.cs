@@ -22,11 +22,12 @@ public static class PipelineEndpoints
 
     private static async Task<IResult> HandleGetPipelineStatsAsync(
         int? minutes,
+        HttpContext http,
         IPipelineQueryService queryService,
         CancellationToken cancellationToken)
     {
         var request = new PipelineStatsRequest(minutes ?? 60);
         var response = await queryService.GetPipelineStatsAsync(request, cancellationToken);
-        return Results.Json(response, PipelineJsonContext.Default.PipelineStatsResponse);
+        return ApiSerialization.Write(http, response, PipelineJsonContext.Default.PipelineStatsResponse);
     }
 }

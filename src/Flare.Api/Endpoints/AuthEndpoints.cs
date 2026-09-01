@@ -47,7 +47,7 @@ public static class AuthEndpoints
         LoginRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, AuthJsonContext.Default.LoginRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, AuthJsonContext.Default.LoginRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -69,7 +69,7 @@ public static class AuthEndpoints
         }
 
         await SignInAsync(http, sessions, authOptions.Value, user, cancellationToken);
-        return Results.Json(ToDto(user), AuthJsonContext.Default.AuthUserDto);
+        return ApiSerialization.Write(http, ToDto(user), AuthJsonContext.Default.AuthUserDto);
     }
 
     internal static async Task<IResult> HandleLogoutAsync(
@@ -104,10 +104,10 @@ public static class AuthEndpoints
         }
 
         http.Response.Cookies.Delete(authOptions.Value.CookieName, new CookieOptions { Path = "/" });
-        return Results.Json(new LogoutResponse { RedirectUrl = redirectUrl }, AuthJsonContext.Default.LogoutResponse);
+        return ApiSerialization.Write(http, new LogoutResponse { RedirectUrl = redirectUrl }, AuthJsonContext.Default.LogoutResponse);
     }
 
-    internal static async Task<IResult> HandleMeAsync(ClaimsPrincipal principal, IUserStore users, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleMeAsync(HttpContext http, ClaimsPrincipal principal, IUserStore users, CancellationToken cancellationToken)
     {
         // AuthEndpoints isn't wrapped in RequireAuthorization() (it can't be - /login
         // itself has to be reachable pre-session), but Program.cs's UseAuthentication()
@@ -127,7 +127,7 @@ public static class AuthEndpoints
         }
 
         var user = await users.FindByIdAsync(userId, cancellationToken);
-        return user is null || user.IsDisabled ? Results.Unauthorized() : Results.Json(ToDto(user), AuthJsonContext.Default.AuthUserDto);
+        return user is null || user.IsDisabled ? Results.Unauthorized() : ApiSerialization.Write(http, ToDto(user), AuthJsonContext.Default.AuthUserDto);
     }
 
     internal static async Task<IResult> HandleBootstrapAsync(
@@ -156,7 +156,7 @@ public static class AuthEndpoints
         LoginRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, AuthJsonContext.Default.LoginRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, AuthJsonContext.Default.LoginRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -191,10 +191,11 @@ public static class AuthEndpoints
         }
 
         await SignInAsync(http, sessions, authOptions.Value, user, cancellationToken);
-        return Results.Json(ToDto(user), AuthJsonContext.Default.AuthUserDto, statusCode: StatusCodes.Status201Created);
+        return ApiSerialization.Write(http, ToDto(user), AuthJsonContext.Default.AuthUserDto, statusCode: StatusCodes.Status201Created);
     }
 
     internal static async Task<IResult> HandleBootstrapStatusAsync(
+        HttpContext http,
         IUserStore users,
         IEntraSettingsStore entraSettings,
         IAuthSettingsStore authSettings,
@@ -209,7 +210,8 @@ public static class AuthEndpoints
         var ldap = await ldapSettings.GetAsync(cancellationToken);
         var oidc = await oidcSettings.GetAsync(cancellationToken);
         var proxyAuth = await proxyAuthSettings.GetAsync(cancellationToken);
-        return Results.Json(
+        return ApiSerialization.Write(
+            http,
             new BootstrapStatusResponse
             {
                 NeedsBootstrap = needsBootstrap,

@@ -23,10 +23,10 @@ public static class ProxyAuthSettingsEndpoints
         return endpoints;
     }
 
-    internal static async Task<IResult> HandleGetAsync(IProxyAuthSettingsStore proxySettings, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleGetAsync(HttpContext http, IProxyAuthSettingsStore proxySettings, CancellationToken cancellationToken)
     {
         var settings = await proxySettings.GetAsync(cancellationToken);
-        return Results.Json(ToDto(settings), ProxyAuthJsonContext.Default.ProxyAuthSettingsDto);
+        return ApiSerialization.Write(http, ToDto(settings), ProxyAuthJsonContext.Default.ProxyAuthSettingsDto);
     }
 
     internal static async Task<IResult> HandlePutAsync(HttpContext http, IProxyAuthSettingsStore proxySettings, CancellationToken cancellationToken)
@@ -34,7 +34,7 @@ public static class ProxyAuthSettingsEndpoints
         SaveProxyAuthSettingsRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, ProxyAuthJsonContext.Default.SaveProxyAuthSettingsRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, ProxyAuthJsonContext.Default.SaveProxyAuthSettingsRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -98,7 +98,7 @@ public static class ProxyAuthSettingsEndpoints
             request.DefaultRole,
             request.LogoutRedirectUrl,
             cancellationToken);
-        return Results.Json(ToDto(saved), ProxyAuthJsonContext.Default.ProxyAuthSettingsDto);
+        return ApiSerialization.Write(http, ToDto(saved), ProxyAuthJsonContext.Default.ProxyAuthSettingsDto);
     }
 
     private static ProxyAuthSettingsDto ToDto(ProxyAuthSettings settings) => new()

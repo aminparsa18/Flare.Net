@@ -27,7 +27,7 @@ public static class IngestApiKeyEndpoints
         CreateIngestApiKeyRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, IngestApiKeysJsonContext.Default.CreateIngestApiKeyRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, IngestApiKeysJsonContext.Default.CreateIngestApiKeyRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -41,14 +41,14 @@ public static class IngestApiKeyEndpoints
 
         var (key, rawKey) = await keys.CreateAsync(request.Name, cancellationToken);
         var response = new CreateIngestApiKeyResponse { Key = ToDto(key), RawKey = rawKey };
-        return Results.Json(response, IngestApiKeysJsonContext.Default.CreateIngestApiKeyResponse, statusCode: StatusCodes.Status201Created);
+        return ApiSerialization.Write(http, response, IngestApiKeysJsonContext.Default.CreateIngestApiKeyResponse, statusCode: StatusCodes.Status201Created);
     }
 
-    private static async Task<IResult> HandleListAsync(IIngestApiKeyStore keys, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleListAsync(HttpContext http, IIngestApiKeyStore keys, CancellationToken cancellationToken)
     {
         var list = await keys.ListAsync(cancellationToken);
         var response = new IngestApiKeyListResponse { Keys = list.Select(ToDto).ToList() };
-        return Results.Json(response, IngestApiKeysJsonContext.Default.IngestApiKeyListResponse);
+        return ApiSerialization.Write(http, response, IngestApiKeysJsonContext.Default.IngestApiKeyListResponse);
     }
 
     private static async Task<IResult> HandleRevokeAsync(Guid id, IIngestApiKeyStore keys, CancellationToken cancellationToken)

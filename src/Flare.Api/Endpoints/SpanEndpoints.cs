@@ -30,7 +30,7 @@ public static class SpanEndpoints
         SpanSearchRequest? request;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, SpansJsonContext.Default.SpanSearchRequest, cancellationToken);
+            request = await ApiSerialization.ReadAsync(http, SpansJsonContext.Default.SpanSearchRequest, cancellationToken);
         }
         catch (JsonException ex)
         {
@@ -40,17 +40,18 @@ public static class SpanEndpoints
         request ??= new SpanSearchRequest();
 
         var response = await queryService.SearchAsync(request, cancellationToken);
-        return Results.Json(response, SpansJsonContext.Default.SpanSearchResponse);
+        return ApiSerialization.Write(http, response, SpansJsonContext.Default.SpanSearchResponse);
     }
 
     private static async Task<IResult> HandleGetTraceAsync(
         string traceId,
+        HttpContext http,
         ISpanQueryService queryService,
         CancellationToken cancellationToken)
     {
         var trace = await queryService.GetTraceAsync(traceId, cancellationToken);
         return trace is null
             ? Results.NotFound()
-            : Results.Json(trace, SpansJsonContext.Default.TraceDto);
+            : ApiSerialization.Write(http, trace, SpansJsonContext.Default.TraceDto);
     }
 }

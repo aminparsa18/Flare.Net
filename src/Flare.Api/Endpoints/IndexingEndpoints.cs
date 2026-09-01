@@ -19,18 +19,20 @@ public static class IndexingEndpoints
     }
 
     private static async Task<IResult> HandleGetStatsAsync(
+        HttpContext http,
         IIndexingQueryService queryService,
         CancellationToken cancellationToken)
     {
         var response = await queryService.GetStatsAsync(cancellationToken);
-        return Results.Json(response, IndexingJsonContext.Default.IndexingStatsResponse);
+        return ApiSerialization.Write(http, response, IndexingJsonContext.Default.IndexingStatsResponse);
     }
 
     private static async Task<IResult> HandleGetClusterStatusAsync(
+        HttpContext http,
         IClusterStatusService clusterStatusService,
         CancellationToken cancellationToken)
     {
         var response = await clusterStatusService.GetStatusAsync(cancellationToken);
-        return Results.Json(response, IndexingJsonContext.Default.ClusterStatusResponse);
+        return ApiSerialization.Write(http, response, IndexingJsonContext.Default.ClusterStatusResponse);
     }
 }

@@ -144,38 +144,104 @@ Verified: `dotnet build Flare.slnx` succeeds (0 errors), all 530
 `Flare.Api.Tests` pass unchanged - this phase has no runtime behavior
 change, since nothing calls `MemoryPackSerializer` yet.
 
+## Phase 1: content-negotiated MemoryPack on every request/response endpoint
+
+Decided with the user rather than assumed: **additive, not a replacement**
+(a caller that never asks for MemoryPack gets the exact same JSON wire
+format Flare.Api always returned), covering **all** request/response
+endpoints in one pass rather than one vertical slice first.
+
+New shared helper: `src/Flare.Api/Json/ApiSerialization.cs` -
+`WantsMemoryPack(HttpRequest)` (checks `Accept` for
+`application/x-memorypack`), `ReadAsync<T>(HttpContext, JsonTypeInfo<T>, ct)`
+(MemoryPack if `Content-Type` says so, else the same
+`JsonSerializer.DeserializeAsync` path every endpoint already used), and
+`Write<T>(HttpContext, T, JsonTypeInfo<T>, statusCode?)` (MemoryPack via
+`Results.Bytes` if `Accept` asked for it, else the same
+`Results.Json`/`JsonTypeInfo<T>` path every endpoint already used). Every
+endpoint still passes its existing feature-scoped `JsonTypeInfo<T>` - the
+AOT-safe JSON path is untouched, MemoryPack is a parallel branch, not a
+replacement of it.
+
+**Scope actually covered: 58 of the 61 `Map*` endpoints**, not all 61 -
+the 3 WebSocket-upgrade endpoints (`LogTailEndpoints`'s `/api/logs/tail`,
+`HostStatsEndpoints`'s `/api/resources/host/watch`,
+`ResourceGraphEndpoints`'s `/api/resources/watch`) were left on plain JSON,
+carried over unmodified. This wasn't a scope-narrowing choice made
+unilaterally after the "all 61" decision - it's Finding 5 applied
+literally: a persistent WebSocket connection has no per-message `Accept`
+header to negotiate against, so "content-negotiate this endpoint" isn't a
+coherent instruction for these three. All 51 `Results.Json(...)` call sites
+and all 26 `JsonSerializer.DeserializeAsync(http.Request.Body, ...)` call
+sites across the other 58 endpoints now go through `ApiSerialization`.
+13 handler methods that returned a response but never took an
+`HttpContext` parameter before (needed to read `Accept`) had one added -
+Minimal API special-parameter binding matches by type, so where in the
+parameter list didn't matter.
+
+Verified:
+- `dotnet build Flare.slnx` - 0 errors.
+- New tests, `src/Flare.Api.Tests/Json/ApiSerializationTests.cs` (pure,
+  no infra, same convention as the Endpoints tests): `Accept`-header
+  parsing, a JSON round trip unchanged from the old `Results.Json` path, a
+  MemoryPack round trip including a requested status code, a
+  `Content-Type`-driven MemoryPack request read, and - the one case Phase 0
+  had to special-case - `SavedView.State`'s opaque `JsonElement` surviving
+  the *full* negotiated `Write` path, not just a bare
+  `MemoryPackSerializer` call.
+- Full solution: `dotnet test Flare.slnx` - 781 tests pass (541
+  `Flare.Api.Tests`, up from 530 + the 11 new `ApiSerializationTests`; 179
+  `Flare.Ingest.Tests`; 61 `Flare.Identity.Tests`), 0 failures.
+- Not verified: a live end-to-end request against a running `Flare.Api`
+  actually negotiating MemoryPack over the wire (ClickHouse/Redis/Identity
+  weren't stood up for this pass) - see follow-ups.
+
 ## Conclusion
 
 A JSON -> MemoryPack switch for `Flare.Api`'s HTTP surface touches all 61
 endpoint handlers (both request and response, since Minimal APIs have no
 global formatter hook), all ~21 JSON contexts, and all 16 dashboard API
 client files plus their response-parsing convention - not a subset. OTLP
-ingest (3 files) is out of scope by protocol contract. The live-tail
-WebSocket is a separate, third path. The internal `Flare.Ingest` ->
-Redis Streams payload is a distinct, arguably higher-value target that was
-never part of "the API" in the first place. Phase 0 (attribute + `partial`
-on the 96 `Flare.Api/Model` DTOs) is done, compiles clean, and already paid
-for itself by catching the `JsonElement` incompatibility before it became a
-runtime surprise mid-migration.
+ingest (3 files) is out of scope by protocol contract. The live-tail and
+two Resources-page WebSocket endpoints are a separate, third path. The
+internal `Flare.Ingest` -> Redis Streams payload is a distinct, arguably
+higher-value target that was never part of "the API" in the first place.
+Phase 0 (attribute + `partial` on the 96 `Flare.Api/Model` DTOs) and Phase 1
+(content-negotiated MemoryPack on the 58 non-WebSocket endpoints, JSON
+kept as the unconditional default) are both done, both compile clean, both
+pass their full test suites. **The dashboard was not touched** - it never
+sends the MemoryPack `Accept`/`Content-Type`, so every existing call
+continues getting JSON exactly as before.
 
 ## Unresolved / follow-ups
 
-- No ADR yet - per `docs-internal/README.md`'s ADR bar, actually switching
-  the wire format is a wire-compatibility-affecting decision with real
-  alternatives (this investigation exists partly to inform that ADR, not
-  replace it). Write one before Phase 1 touches any endpoint's actual
-  request/response wiring.
+- No ADR written. Per `docs-internal/README.md`'s ADR bar this is still a
+  gap worth closing - the content-negotiation *shape* (additive,
+  `Accept`/`Content-Type`-driven, all-endpoints-at-once) is now a real
+  decision with consequences, not just a scope measurement. Write one
+  documenting that shape and the WebSocket-endpoints exclusion.
+- No live e2e pass yet - build + unit tests only. Worth doing before
+  calling Phase 1 "done" in the roadmap sense: run the real stack
+  (`docker compose up` / Aspire) and confirm a raw `curl` with
+  `Accept: application/x-memorypack` against a couple of the 58 endpoints
+  actually gets MemoryPack bytes back, and that ordinary dashboard traffic
+  is provably unaffected.
 - Not investigated here: whether MemoryPack's "Version tolerant" mode
-  (schema evolution) is adopted, and what that costs in generator config -
-  relevant once real endpoints move off `JsonSerializerContext`.
-- Not investigated here: the live-tail WebSocket's migration shape (Finding
-  5), or whether it's even worth moving given it's a small, low-volume
-  control-message channel compared to the Query API responses.
-- Not pursued here, flagged as the likely better first target: the internal
-  `Flare.Ingest` Redis Streams payload (Finding 6) - a self-contained,
-  dashboard-independent, higher-throughput boundary Flare fully controls on
-  both ends.
+  (schema evolution) is adopted, and what that costs in generator config.
+- Not investigated/decided here: whether the dashboard TypeScript side ever
+  actually adopts the MemoryPack `Accept`/`Content-Type` (Finding 4) - Phase
+  1 makes it possible server-side without committing to it.
+- Not investigated here: the three WebSocket endpoints' migration shape
+  (Finding 5), or whether it's even worth moving given they're low-volume
+  control/push channels compared to the Query API's request/response
+  traffic.
+- Not pursued here, flagged as the likely better first target once Phase 1
+  is confirmed working end-to-end: the internal `Flare.Ingest` Redis
+  Streams payload (Finding 6) - a self-contained, dashboard-independent,
+  higher-throughput boundary Flare fully controls on both ends. Add to
+  `docs-internal/planning/roadmap.md` once Phase 1's live e2e pass above is
+  done, not before (explicit user instruction, 2026-09-01).
 - `src/Flare.Ingest`'s own DTOs (`LogEvent`/`MetricEvent`/`SpanEvent`/
-  `PatternClusterRecord`/`IngestionErrorEntry`) were not attributed in this
-  pass - Phase 0 was scoped to `Flare.Api/Model` only, per Finding 6's
-  reasoning that they're a separate track.
+  `PatternClusterRecord`/`IngestionErrorEntry`) were not attributed in
+  either phase - both were scoped to `Flare.Api` only, per Finding 6's
+  reasoning that Ingest is a separate track.
