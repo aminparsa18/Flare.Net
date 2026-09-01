@@ -4,10 +4,14 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"codegen": "dotnet build ../Flare.Api/Flare.Api.csproj -c Debug -clp:ErrorsOnly",
+		"predev": "npm run codegen",
 		"dev": "vite dev",
+		"prebuild": "npm run codegen",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
+		"precheck": "npm run codegen",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},

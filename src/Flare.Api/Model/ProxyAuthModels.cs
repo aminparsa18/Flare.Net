@@ -8,6 +8,7 @@ namespace Flare.Api.Model;
 /// <see cref="EntraSettingsDto"/>/<see cref="LdapSettingsDto"/>/<see cref="OidcSettingsDto"/>,
 /// this is a plain round-trip of everything stored.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record ProxyAuthSettingsDto
 {
     public required bool Enabled { get; init; }
@@ -36,6 +37,7 @@ public sealed partial record ProxyAuthSettingsDto
 
 /// <summary>Request body for <c>PUT /api/settings/proxyauth</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SaveProxyAuthSettingsRequest
 {
     public required bool Enabled { get; init; }

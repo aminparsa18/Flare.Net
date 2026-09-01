@@ -1,10 +1,14 @@
 // Client for Flare.Api's Admin-only Entra ID settings API
-// (src/Flare.Api/Endpoints/EntraSettingsEndpoints.cs). Field names/casing are a
-// hand-mirror of src/Flare.Api/Model/EntraSettingsModels.cs + Json/EntraSettingsJsonContext.cs
-// (camelCase properties, same convention `users-api.ts` already documents). Keep in sync
-// with those files by hand.
+// (src/Flare.Api/Endpoints/EntraSettingsEndpoints.cs).
+//
+// Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
+// to MemoryPack - see `auth-api.ts`'s header comment for the general shape. Neither
+// `EntraSettingsDto` nor `SaveEntraSettingsRequest` has an enum/DateTimeOffset member, so
+// the generated classes' fields already match this module's exported interfaces one-for-one.
 
-import { API_BASE_URL, apiFetch } from './api';
+import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
+import { EntraSettingsDto } from '$lib/generated/memorypack/EntraSettingsDto.js';
+import { SaveEntraSettingsRequest as GeneratedSaveEntraSettingsRequest } from '$lib/generated/memorypack/SaveEntraSettingsRequest.js';
 
 export interface EntraSettings {
 	enabled: boolean;
@@ -28,24 +32,47 @@ export interface SaveEntraSettingsRequest {
 	clientSecret: string | null;
 }
 
+function toEntraSettings(dto: EntraSettingsDto): EntraSettings {
+	return {
+		enabled: dto.enabled,
+		tenantId: dto.tenantId,
+		clientId: dto.clientId,
+		hasClientSecret: dto.hasClientSecret,
+		redirectUri: dto.redirectUri ?? ''
+	};
+}
+
+async function decodeEntraSettings(res: Response): Promise<EntraSettings> {
+	const dto = EntraSettingsDto.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding EntraSettingsDto.');
+	}
+	return toEntraSettings(dto);
+}
+
 /** `GET /api/settings/entra`. */
 export async function getEntraSettings(signal?: AbortSignal): Promise<EntraSettings> {
-	const res = await apiFetch(`${API_BASE_URL}/api/settings/entra`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/settings/entra`, { headers: memoryPackAcceptHeaders(), signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/settings/entra failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	return decodeEntraSettings(res);
 }
 
 /** `PUT /api/settings/entra`. 400s if `enabled: true` is missing a tenant/client id or has no client secret on record - surfaced as a plain Error. */
 export async function saveEntraSettings(request: SaveEntraSettingsRequest): Promise<EntraSettings> {
+	const dto = new GeneratedSaveEntraSettingsRequest();
+	dto.enabled = request.enabled;
+	dto.tenantId = request.tenantId;
+	dto.clientId = request.clientId;
+	dto.clientSecret = request.clientSecret;
 	const res = await apiFetch(`${API_BASE_URL}/api/settings/entra`, {
 		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request)
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSaveEntraSettingsRequest.serialize(dto))
 	});
 	if (!res.ok) {
 		throw new Error(`PUT /api/settings/entra failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	return decodeEntraSettings(res);
 }

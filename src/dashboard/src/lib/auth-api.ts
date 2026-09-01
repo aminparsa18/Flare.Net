@@ -1,12 +1,24 @@
 // Client for Flare.Api's auth endpoints (src/Flare.Api/Endpoints/AuthEndpoints.cs).
-// Field names/casing are a hand-mirror of src/Flare.Api/Model/AuthModels.cs +
-// Json/AuthJsonContext.cs (camelCase properties, PascalCase string enum for `role` -
-// `UseStringEnumConverter` with no naming policy, same convention as $lib/api.ts's
-// LogTailClientMessage/LogTailServerMessage). Keep in sync with those files by hand.
+//
+// Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
+// to MemoryPack: every function here sends/receives `application/x-memorypack` (see
+// `$lib/api.ts`'s header comment) and decodes through the generated classes under
+// `$lib/generated/memorypack/` (regenerated from `src/Flare.Api/Model/AuthModels.cs` by
+// `dotnet build` - see package.json's `predev`/`prebuild`/`precheck`), not `res.json()`.
+// `UserRole` on the wire is MemoryPack's raw numeric ordinal, not the string name JSON's
+// `UseStringEnumConverter` used to send - `$lib/memorypack/enums.ts`'s `userRoleToString`/
+// `userRoleFromString` convert at this module's boundary so every exported interface below
+// (and every consumer outside `lib/`) is unchanged. `authProvider` is a plain C# `string`
+// already (never an enum server-side), so it round-trips with no conversion.
 
-import { API_BASE_URL, apiFetch } from './api';
+import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
+import { AuthUserDto } from '$lib/generated/memorypack/AuthUserDto.js';
+import { LoginRequest } from '$lib/generated/memorypack/LoginRequest.js';
+import { LogoutResponse as GeneratedLogoutResponse } from '$lib/generated/memorypack/LogoutResponse.js';
+import { BootstrapStatusResponse as GeneratedBootstrapStatusResponse } from '$lib/generated/memorypack/BootstrapStatusResponse.js';
+import { userRoleToString, type UserRoleName } from '$lib/memorypack/enums';
 
-export type UserRole = 'Admin' | 'Member' | 'Viewer';
+export type UserRole = UserRoleName;
 
 export type AuthProvider = 'Local' | 'Entra' | 'ActiveDirectory' | 'Oidc' | 'ReverseProxy';
 
@@ -15,6 +27,23 @@ export interface AuthUser {
 	username: string;
 	role: UserRole;
 	authProvider: AuthProvider;
+}
+
+function toAuthUser(dto: AuthUserDto): AuthUser {
+	return {
+		id: dto.id,
+		username: dto.username ?? '',
+		role: userRoleToString(dto.role),
+		authProvider: dto.authProvider as AuthProvider
+	};
+}
+
+async function decodeAuthUser(res: Response): Promise<AuthUser> {
+	const dto = AuthUserDto.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding AuthUserDto.');
+	}
+	return toAuthUser(dto);
 }
 
 export interface BootstrapStatusResponse {
@@ -48,21 +77,41 @@ export interface BootstrapStatusResponse {
 	proxyAuthEnabled: boolean;
 }
 
+function toBootstrapStatusResponse(dto: GeneratedBootstrapStatusResponse): BootstrapStatusResponse {
+	return {
+		authEnabled: dto.authEnabled,
+		needsBootstrap: dto.needsBootstrap,
+		localEnabled: dto.localEnabled,
+		entraEnabled: dto.entraEnabled,
+		ldapEnabled: dto.ldapEnabled,
+		oidcEnabled: dto.oidcEnabled,
+		oidcDisplayName: dto.oidcDisplayName,
+		proxyAuthEnabled: dto.proxyAuthEnabled
+	};
+}
+
 /** `GET /api/auth/bootstrap/status` - decides whether `+layout.svelte`'s route guard sends an unauthenticated visitor to `/setup` or `/login`. */
 export async function getBootstrapStatus(signal?: AbortSignal): Promise<BootstrapStatusResponse> {
-	const res = await apiFetch(`${API_BASE_URL}/api/auth/bootstrap/status`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/auth/bootstrap/status`, { headers: memoryPackAcceptHeaders(), signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/auth/bootstrap/status failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const dto = GeneratedBootstrapStatusResponse.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding BootstrapStatusResponse.');
+	}
+	return toBootstrapStatusResponse(dto);
 }
 
 /** `POST /api/auth/bootstrap` - first-run only, creates the first Admin and signs them in. 409s (surfaced as a plain Error) if an admin already exists. */
 export async function bootstrap(username: string, password: string): Promise<AuthUser> {
+	const request = new LoginRequest();
+	request.username = username;
+	request.password = password;
 	const res = await apiFetch(`${API_BASE_URL}/api/auth/bootstrap`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ username, password })
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(LoginRequest.serialize(request))
 	});
 	if (res.status === 409) {
 		throw new Error('An admin user already exists.');
@@ -70,15 +119,18 @@ export async function bootstrap(username: string, password: string): Promise<Aut
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/bootstrap failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	return decodeAuthUser(res);
 }
 
 /** `POST /api/auth/login`. A 401 (wrong username/password, or an unknown username - AuthEndpoints deliberately doesn't distinguish them) is surfaced as a plain Error, not thrown as an HTTP-shaped one - the login form just needs a message to show. */
 export async function login(username: string, password: string): Promise<AuthUser> {
+	const request = new LoginRequest();
+	request.username = username;
+	request.password = password;
 	const res = await apiFetch(`${API_BASE_URL}/api/auth/login`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ username, password })
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(LoginRequest.serialize(request))
 	});
 	if (res.status === 401) {
 		throw new Error('Incorrect username or password.');
@@ -86,7 +138,7 @@ export async function login(username: string, password: string): Promise<AuthUse
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/login failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	return decodeAuthUser(res);
 }
 
 /** `POST /api/auth/ldap/login` - same shape/semantics as `login` above (including the
@@ -97,10 +149,13 @@ export async function login(username: string, password: string): Promise<AuthUse
  * debugging a broken Active Directory config isn't misled into thinking every login is
  * a bad password. */
 export async function loginLdap(username: string, password: string): Promise<AuthUser> {
+	const request = new LoginRequest();
+	request.username = username;
+	request.password = password;
 	const res = await apiFetch(`${API_BASE_URL}/api/auth/ldap/login`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ username, password })
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(LoginRequest.serialize(request))
 	});
 	if (res.status === 401) {
 		throw new Error('Incorrect username or password.');
@@ -111,7 +166,7 @@ export async function loginLdap(username: string, password: string): Promise<Aut
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/ldap/login failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	return decodeAuthUser(res);
 }
 
 export interface LogoutResponse {
@@ -124,23 +179,24 @@ export interface LogoutResponse {
 
 /** `POST /api/auth/logout`. Always succeeds even if the session was already gone. */
 export async function logout(): Promise<LogoutResponse> {
-	const res = await apiFetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
+	const res = await apiFetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST', headers: memoryPackAcceptHeaders() });
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/logout failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const dto = GeneratedLogoutResponse.deserialize(await res.arrayBuffer());
+	return { redirectUrl: dto?.redirectUrl ?? null };
 }
 
 /** `GET /api/auth/me` - null (not a thrown Error) for the expected "no session yet" case, so callers doing a routine on-load check don't need a try/catch for it. */
 export async function getCurrentUser(signal?: AbortSignal): Promise<AuthUser | null> {
-	const res = await apiFetch(`${API_BASE_URL}/api/auth/me`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/auth/me`, { headers: memoryPackAcceptHeaders(), signal });
 	if (res.status === 401) {
 		return null;
 	}
 	if (!res.ok) {
 		throw new Error(`GET /api/auth/me failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	return decodeAuthUser(res);
 }
 
 /** Navigates the browser to `GET /api/auth/entra/login` - a full page navigation, not a
@@ -170,9 +226,9 @@ export function startOidcLogin(): void {
  * possible failure responses (404 disabled, 403 untrusted network, 401 header missing or
  * account disabled). */
 export async function loginViaProxy(): Promise<AuthUser> {
-	const res = await apiFetch(`${API_BASE_URL}/api/auth/proxy/login`, { method: 'POST' });
+	const res = await apiFetch(`${API_BASE_URL}/api/auth/proxy/login`, { method: 'POST', headers: memoryPackAcceptHeaders() });
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/proxy/login failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	return decodeAuthUser(res);
 }

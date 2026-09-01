@@ -22,6 +22,40 @@
     <ProjectReference Include="..\Flare.Identity\Flare.Identity.csproj" />
   </ItemGroup>
 
+  <!-- MemoryPack TypeScript codegen, phase 2 of the JSON->MemoryPack migration - see
+       docs-internal/investigations/memorypack-serialization-migration-scope.md. Only types
+       with no DateTimeOffset/JsonElement member can carry [GenerateTypeScript] (MemoryPack's
+       TS generator has no mapping for either - see that doc's Phase 2 section); this writes
+       real generated .ts decoders straight into the dashboard's source tree, run as part of
+       `dotnet build` (skipped during IDE design-time builds - see MemoryPackGenerator's own
+       IsDesignTimeBuild check). src/dashboard's `npm run build`/`dev`/`check` all shell out to
+       `dotnet build` on this project first (see package.json's `predev`/`prebuild`/`precheck`)
+       so the generated files exist before Vite/svelte-check ever run; the output directory is
+       gitignored rather than committed, same reasoning the JSON DTOs were never duplicated
+       into a second hand-maintained copy. -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="MemoryPackGenerator_TypeScriptOutputDirectory" />
+    <CompilerVisibleProperty Include="MemoryPackGenerator_TypeScriptImportExtension" />
+    <CompilerVisibleProperty Include="MemoryPackGenerator_TypeScriptConvertPropertyName" />
+    <CompilerVisibleProperty Include="MemoryPackGenerator_TypeScriptEnableNullableTypes" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <MemoryPackGenerator_TypeScriptOutputDirectory>$(MSBuildProjectDirectory)/../dashboard/src/lib/generated/memorypack</MemoryPackGenerator_TypeScriptOutputDirectory>
+    <MemoryPackGenerator_TypeScriptImportExtension>.js</MemoryPackGenerator_TypeScriptImportExtension>
+    <MemoryPackGenerator_TypeScriptConvertPropertyName>true</MemoryPackGenerator_TypeScriptConvertPropertyName>
+    <!-- Deliberately false (MemoryPack's own default) rather than the README example's
+         true: with EnableNullableTypes=true, the generator emits a non-nullable `string`
+         *field* type for a required C# string but still calls `reader.readString()` to
+         populate it - a method whose own return type is unconditionally `string | null`
+         (MemoryPack's string wire format always has a null representation, so the runtime
+         method can't promise otherwise) - a real type mismatch under svelte-check's strict
+         mode, confirmed by turning this on and hitting exactly that error on every
+         required-string member. false keeps every generated string field `string | null`
+         uniformly, matching what readString() can actually return - verified working. -->
+    <MemoryPackGenerator_TypeScriptEnableNullableTypes>false</MemoryPackGenerator_TypeScriptEnableNullableTypes>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- Lets Flare.Api.Tests unit-test AlertQueryService.ResolveDefaults directly - it's
          pure/ClickHouse-free, same reasoning LogSearchQueryBuilder.Build is public and

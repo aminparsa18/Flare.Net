@@ -261,6 +261,113 @@ every unit test happened to construct a valid payload. **The dashboard was
 not touched** - it never sends the MemoryPack `Accept`/`Content-Type`, so
 every existing call continues getting JSON exactly as before.
 
+## Phase 2: dashboard TypeScript adoption (2026-09-01)
+
+Decided with the user, same pattern as Phase 1: all 16 dashboard client
+files (`src/dashboard/src/lib/*-api.ts`, 15 files, plus `api.ts`) in
+scope, always-on once a file is migrated (no transition flag), codegen
+wired via `npm run codegen` (→ `dotnet build` on `Flare.Api`) as a
+`predev`/`prebuild`/`precheck` hook rather than a Vite plugin - the
+generator writes files to disk as a `dotnet build` side effect, so
+there's nothing for a Vite plugin to hook into on the TypeScript-build
+side. Full reasoning and Consequences:
+[`../adr/0016-memorypack-dashboard-typescript-adoption.md`](../adr/0016-memorypack-dashboard-typescript-adoption.md).
+
+**Two findings changed what "adopt MemoryPack in TypeScript" can mean**,
+both confirmed by reading MemoryPack 1.21.4's actual generator source
+and by empirical measurement, not assumed from the README:
+
+1. **MemoryPack's TypeScript generator has no mapping for
+   `DateTimeOffset`** (`MemoryPack.Generator/TypeScriptMember.cs`'s
+   `ConvertFromSymbol` only handles
+   bool/numeric-primitives/bigint/string/Guid/enum/`DateTime`) -
+   `[GenerateTypeScript]` on any type with a `DateTimeOffset` member
+   throws `MEMPACK031` at compile time. Confirmed identical between
+   MemoryPack's `main` branch and the `1.21.4` tag already pinned here.
+   `Flare.Api` uses `DateTimeOffset` for nearly every timestamp - 18 of
+   28 `Model/*.cs` files.
+2. **`DateTimeOffset`'s wire bytes are MemoryPack's default
+   `UnmanagedFormatter<DateTimeOffset>`** - a raw copy of the CLR
+   struct's private field layout, not a documented format. Captured
+   empirically rather than reverse-engineered from assumption: a
+   throwaway `dotnet run` (`MemoryPack` 1.21.4, referenced directly)
+   called `MemoryPackSerializer.Serialize` on known values and the exact
+   bytes were read back:
+   - Non-null `DateTimeOffset`: 16 bytes - `offsetMinutes` as a signed
+     `int64` little-endian, then the wall-clock tick value with the top
+     2 (`DateTimeKind`) bits masked off (`localTicks = utcTicks +
+     offsetMinutes * ticksPerMinute`) - the exact same
+     `dateTimeMask`/`unixEpochTicks` trick MemoryPack's own generated
+     `writeDate`/`readDate` already use for plain `DateTime`.
+   - `DateTimeOffset?`: 24 bytes - an 8-byte `int64` has-value flag (0
+     or 1) prepended, then the same 16 bytes (zeroed when absent) -
+     identical shape to the generator's own `writeNullableInt64`/
+     `writeNullableDate` for every other unmanaged type.
+   - Verified inside a real `[MemoryPackable]` record with two
+     `DateTimeOffset?` fields (one set, one null) to confirm the object
+     envelope (`writeObjectHeader`/property count byte) composes with
+     this exactly as expected.
+   This became `src/dashboard/src/lib/memorypack/date-time-offset.ts`'s
+   `writeDateTimeOffset`/`readDateTimeOffset`/`writeNullableDateTimeOffset`/
+   `readNullableDateTimeOffset` - extending MemoryPack's own proven
+   `DateTime` trick to the one built-in type it hasn't reached yet,
+   rather than inventing a new server-side wire format (a custom
+   `[MemoryPackAllowSerialize]` formatter was considered and rejected -
+   see the ADR's Alternatives - since the TypeScript generator's member
+   resolution doesn't consult custom formatters at all, so it wouldn't
+   have unlocked `[GenerateTypeScript]` for anything).
+
+**A third finding, about enums**: MemoryPack encodes a C# enum as its
+raw numeric ordinal on the wire, never the member name JSON's
+`UseStringEnumConverter` sent. ~20 dashboard files outside this
+migration's 16-file scope already compare role/status fields as string
+literals (`user.role === 'Admin'` in `nav-links.ts`, `+layout.svelte`,
+...). Rather than widen the diff to every consumer, every migrated
+function converts at the module boundary
+(`$lib/memorypack/enums.ts`'s `userRoleToString`/`userRoleFromString`)
+back to the exact string the JSON path always produced, so every
+exported `interface` (and every consumer outside `lib/`) is unchanged.
+
+**Per-type classification (all 16 files' backing `Model/*.cs` types)** -
+worked out in full so the remaining slice is mechanical, not a
+re-investigation. A type is *generated* only if every type it nests is
+also generated (the generator's own nested-object import is a hardcoded
+same-directory `./{Type}.js`, so a hand-written type can't sit behind a
+generated parent without the parent failing to import it):
+
+| File | Generated (real `[GenerateTypeScript]`) | Hand-written (`DateTimeOffset`/`JsonElement` somewhere in the closure) |
+|---|---|---|
+| `auth-api.ts` | `LoginRequest`, `AuthUserDto`, `LogoutResponse`, `BootstrapStatusResponse` | - |
+| `auth-settings-api.ts` | `AuthSettingsDto` | - |
+| `entra-settings-api.ts` | `EntraSettingsDto`, `SaveEntraSettingsRequest` | - |
+| `ldap-settings-api.ts` | `LdapSettingsDto`, `SaveLdapSettingsRequest` | - |
+| `oidc-settings-api.ts` | `OidcSettingsDto`, `SaveOidcSettingsRequest` | - |
+| `proxy-auth-settings-api.ts` | `ProxyAuthSettingsDto`, `SaveProxyAuthSettingsRequest` | - |
+| `users-api.ts` | `SetUserRoleRequest`, `SetUserDisabledRequest` | `UserSummaryDto`, `UserListResponse` |
+| `alerts-api.ts` | `ThresholdComparator`, `AlertThreshold` | `AlertRule`, `AlertRuleRequest`, `AlertRuleListResponse`, `AlertHistoryEntry`, `AlertHistoryResponse`, `AlertTestResult` |
+| `indexing-api.ts` | `TableStorageInfo`, `SkipIndexInfo`, `DiskUsageInfo`, `QueryPerformanceInfo`, `ClusterNodeInfo`, `ClusterStatusResponse` | `StorageGrowthPoint`, `IndexingStatsResponse` |
+| `ingestion-api.ts` | `IngestionSignal`, `IngestionProtocol`, `IngestionStatsRequest`, `IngestionStatsTotals` | `IngestionBucketPoint`, `IngestionErrorEntryDto`, `IngestionStatsResponse` |
+| `ingest-keys-api.ts` | `CreateIngestApiKeyRequest` | `IngestApiKeyDto`, `CreateIngestApiKeyResponse`, `IngestApiKeyListResponse` |
+| `metrics-api.ts` | `MetricPointType`, `MetricAttributeFilter`, `MetricNameInfo`, `MetricNamesResponse`, `MetricAttributeKeyInfo`, `MetricAttributeKeysResponse` | `MetricFilter`, `MetricNamesRequest`, `MetricAttributeKeysRequest`, `MetricQueryRequest`, `MetricSeriesPoint`, `MetricSeries`, `MetricQueryResponse` |
+| `pipeline-api.ts` | `PipelineStatsRequest`, `PipelineStreamHealth`, `PipelineServiceEntry`, `PipelineServiceBreakdown` | `PipelineFlushHealth`, `PipelineStatsResponse` |
+| `saved-views-api.ts` | `SavedViewPageType` | `SavedView`, `SavedViewRequest`, `SavedViewListResponse` (also blocked by `JsonElement State`) |
+| `traces-api.ts` | - | `SpanEventDto`, `SpanDto`, `SpanAttributeFilter`, `SpanFilter`, `SpanSearchRequest`, `SpanSearchResponse`, `TraceDto` |
+| `api.ts` (Logs) | `AttributeBag`, `LogAggregateGroupBy`, `LogAttributeKeyInfo`, `LogAttributeKeysResponse`, `LogQlResultKind` | `AttributeFilter`, `LogFilter`, `LogEventDto`, `LogSearchRequest`, `LogSearchResponse`, `LogAggregateRequest`, `LogAggregateBucket`, `LogAggregateResponse`, `LogAttributeKeysRequest`, `LogValueDistributionRequest`, `LogValueDistributionPoint`, `LogValueDistributionResponse`, `LogQlQueryRequest`, `LogQlQueryResponse`, `LogPatternRequest`, `LogPatternRow`, `LogPatternResponse` |
+| `api.ts` (Resources/HostStats) | `ResourceNodeDto`, `ResourceEdgeDto` (clean, but only ever nested inside blocked `ResourceGraphSnapshot` - generating them standalone was skipped since nothing generated would import them) | `ProducerServiceDto`, `ResourceGraphSnapshot`, `HostStatsSnapshot`, `HostStatsHistoryPoint` |
+
+**Completed this pass**: the first 7 rows (`auth-api.ts` through
+`users-api.ts`) - fully migrated, `npm run check` clean across all 4976
+files in `src/dashboard`, and live-verified against a real `docker
+compose up` stack. `users-api.ts` was deliberately chosen as the first
+hand-written file specifically because `UserSummaryDto.CreatedAt`
+exercises the empirically-verified `DateTimeOffset` codec end-to-end,
+including live - see the ADR's Consequences for the exact live checks
+run (bootstrap, login, list/patch users, settings round trip, the
+malformed-body-400 regression re-confirmed through the new client code
+path). The remaining 9 rows are the immediate next slice
+(`docs-internal/planning/roadmap.md`) - same mechanical pattern, no
+further investigation needed.
+
 ## Unresolved / follow-ups
 
 - ~~No ADR written.~~ Written: [`../adr/0015-memorypack-content-negotiation-for-flare-api.md`](../adr/0015-memorypack-content-negotiation-for-flare-api.md) -
@@ -275,9 +382,13 @@ every existing call continues getting JSON exactly as before.
   individually exercised.
 - Not investigated here: whether MemoryPack's "Version tolerant" mode
   (schema evolution) is adopted, and what that costs in generator config.
-- Not investigated/decided here: whether the dashboard TypeScript side ever
-  actually adopts the MemoryPack `Accept`/`Content-Type` (Finding 4) - Phase
-  1 makes it possible server-side without committing to it.
+- ~~Not investigated/decided here: whether the dashboard TypeScript side
+  ever actually adopts the MemoryPack `Accept`/`Content-Type` (Finding 4).~~
+  Decided and 7/16 files landed: see the Phase 2 section above and
+  [`../adr/0016-memorypack-dashboard-typescript-adoption.md`](../adr/0016-memorypack-dashboard-typescript-adoption.md).
+  The remaining 9 files are the immediate next slice, tracked in
+  `../planning/roadmap.md` - same mechanical pattern, per-type
+  classification already recorded above.
 - Not investigated here: the three WebSocket endpoints' migration shape
   (Finding 5), or whether it's even worth moving given they're low-volume
   control/push channels compared to the Query API's request/response

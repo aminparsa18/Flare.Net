@@ -7,6 +7,7 @@ namespace Flare.Api.Model;
 /// Security screen's generic OpenID Connect section. Never carries the real client
 /// secret - see <see cref="HasClientSecret"/>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record OidcSettingsDto
 {
     public required bool Enabled { get; init; }
@@ -39,6 +40,7 @@ public sealed partial record OidcSettingsDto
 /// <c>null</c>/omitted leaves the currently-stored secret unchanged - see
 /// <c>IOidcSettingsStore.SaveAsync</c>'s remarks.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SaveOidcSettingsRequest
 {
     public required bool Enabled { get; init; }
