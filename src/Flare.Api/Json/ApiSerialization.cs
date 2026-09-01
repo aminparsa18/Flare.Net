@@ -50,6 +50,18 @@ public static class ApiSerialization
     /// (default - the same <paramref name="jsonTypeInfo"/>-driven path every endpoint
     /// already used).
     /// </summary>
+    /// <exception cref="JsonException">
+    /// The body was malformed - for either format. Every existing endpoint already
+    /// catches <see cref="JsonException"/> around its call to this method (from before
+    /// MemoryPack existed here) and turns it into a 400 <c>Results.Problem</c>; a live
+    /// end-to-end check against a running server (2026-09-01, see the investigation
+    /// doc's Phase 1 follow-ups) found that a malformed MemoryPack body throws
+    /// <see cref="MemoryPackSerializationException"/> instead, which none of those catch
+    /// blocks caught - an unhandled 500 where every other malformed-body case gets a
+    /// clean 400. Rewrapped here into <see cref="JsonException"/> specifically so every
+    /// existing catch site keeps working unmodified, rather than every one of them
+    /// needing to learn about a second exception type.
+    /// </exception>
     public static async ValueTask<T?> ReadAsync<T>(HttpContext http, JsonTypeInfo<T> jsonTypeInfo, CancellationToken cancellationToken)
     {
         var contentType = http.Request.ContentType ?? string.Empty;
@@ -60,7 +72,14 @@ public static class ApiSerialization
 
         using var buffer = new MemoryStream();
         await http.Request.Body.CopyToAsync(buffer, cancellationToken);
-        return MemoryPackSerializer.Deserialize<T>(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+        try
+        {
+            return MemoryPackSerializer.Deserialize<T>(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+        }
+        catch (MemoryPackSerializationException ex)
+        {
+            throw new JsonException(ex.Message, ex);
+        }
     }
 
     /// <summary>

@@ -125,6 +125,24 @@ public class ApiSerializationTests
     }
 
     /// <summary>
+    /// Regression test for a bug a live end-to-end check found (2026-09-01, see the
+    /// investigation doc's Phase 1 follow-ups): a malformed MemoryPack body used to throw
+    /// <c>MemoryPackSerializationException</c>, which the existing per-endpoint
+    /// <c>catch (JsonException ex)</c> blocks didn't catch - an unhandled 500 where a
+    /// malformed JSON body already got a clean 400. <see cref="ApiSerialization.ReadAsync{T}"/>
+    /// now rewraps it as <see cref="JsonException"/> so those catch sites keep working
+    /// unmodified.
+    /// </summary>
+    [Fact]
+    public async Task ReadAsync_MalformedMemoryPackBody_ThrowsJsonException()
+    {
+        var context = CreateContext(contentType: ApiSerialization.MemoryPackContentType, requestBody: "not memorypack bytes at all"u8.ToArray());
+
+        await Assert.ThrowsAsync<JsonException>(() =>
+            ApiSerialization.ReadAsync(context, AuthJsonContext.Default.LoginRequest, CancellationToken.None).AsTask());
+    }
+
+    /// <summary>
     /// The one DTO that needed a hand-written formatter (Phase 0 - see
     /// <see cref="JsonElementMemoryPackFormatter"/>'s remarks): confirms
     /// <c>SavedView.State</c>'s opaque <see cref="JsonElement"/> survives the full

@@ -192,9 +192,53 @@ Verified:
 - Full solution: `dotnet test Flare.slnx` - 781 tests pass (541
   `Flare.Api.Tests`, up from 530 + the 11 new `ApiSerializationTests`; 179
   `Flare.Ingest.Tests`; 61 `Flare.Identity.Tests`), 0 failures.
-- Not verified: a live end-to-end request against a running `Flare.Api`
-  actually negotiating MemoryPack over the wire (ClickHouse/Redis/Identity
-  weren't stood up for this pass) - see follow-ups.
+
+## Phase 1 live e2e pass (2026-09-01) - found and fixed a real bug
+
+`docker compose up -d --build clickhouse redis api` (real ClickHouse +
+Redis + `Flare.Api`, no mocks), then exercised it directly:
+
+- **Baseline unchanged**: `POST /api/logs/search` with plain
+  `Content-Type: application/json` and no `Accept` override -
+  `{"events":[],"nextCursor":null}`, exactly the pre-migration response.
+- **Response negotiation, live**: same request with
+  `Accept: application/x-memorypack` on both `POST /api/logs/search` and
+  `GET /api/alerts` (the latter one of the 13 handlers that gained an
+  `HttpContext` parameter in this phase) - both came back
+  `Content-Type: application/x-memorypack` with a compact binary body (9
+  and 5 bytes respectively, vs. 32/12 bytes of JSON text for the same empty
+  results), confirming the negotiation logic and the parameter-addition
+  pattern both work against a real server, not just in unit tests.
+- **Request negotiation, live, full round trip**: a throwaway client
+  (`MemoryPackSerializer.Serialize` on a real `LogSearchRequest`, `dotnet
+  run` against the live container, referencing `Flare.Api.csproj` directly
+  for the exact wire types) POSTed a MemoryPack-encoded body with both
+  `Content-Type` and `Accept` set to `application/x-memorypack` -
+  server logs confirmed it was received as `109` bytes of
+  `application/x-memorypack`, decoded successfully, and answered with a
+  9-byte MemoryPack response the client decoded back correctly.
+
+**Found a real bug this way, not in any unit test**: a malformed
+MemoryPack request body (`curl --data-binary "garbage..."` with
+`Content-Type: application/x-memorypack`) returned an unhandled **500**,
+not the clean 400 a malformed JSON body already gets. Server logs showed
+why: `MemoryPack.MemoryPackSerializationException` propagating out of
+`ApiSerialization.ReadAsync`, uncaught, because all 26 existing
+`catch (JsonException ex)` blocks (written before MemoryPack existed here)
+only know about `System.Text.Json`'s exception type. **Fixed** by having
+`ReadAsync<T>` itself catch `MemoryPackSerializationException` and rewrap
+it as `JsonException` - every existing catch site keeps working unmodified
+rather than 26 files each needing to learn about a second exception type.
+Added a regression test
+(`ApiSerializationTests.ReadAsync_MalformedMemoryPackBody_ThrowsJsonException`)
+and re-verified live: same malformed body now returns a clean
+`400 Bad Request` with a `Results.Problem` body, matching JSON's existing
+behavior exactly. Re-ran the full valid round trip afterward to confirm
+the fix didn't regress the happy path - still passes.
+
+This is the concrete case for why "build + unit tests pass" and "verified
+against a live server" are different claims - the gap here was exactly the
+kind unit tests miss when every unit test constructs a *valid* payload.
 
 ## Conclusion
 
@@ -209,9 +253,13 @@ higher-value target that was never part of "the API" in the first place.
 Phase 0 (attribute + `partial` on the 96 `Flare.Api/Model` DTOs) and Phase 1
 (content-negotiated MemoryPack on the 58 non-WebSocket endpoints, JSON
 kept as the unconditional default) are both done, both compile clean, both
-pass their full test suites. **The dashboard was not touched** - it never
-sends the MemoryPack `Accept`/`Content-Type`, so every existing call
-continues getting JSON exactly as before.
+pass their full test suites, and **both are now confirmed against a real,
+running `Flare.Api` over ClickHouse + Redis** - not just build/unit-test
+green. The live pass caught one real bug (malformed-MemoryPack-body 500,
+fixed, regression-tested) that no unit test had, specifically because
+every unit test happened to construct a valid payload. **The dashboard was
+not touched** - it never sends the MemoryPack `Accept`/`Content-Type`, so
+every existing call continues getting JSON exactly as before.
 
 ## Unresolved / follow-ups
 
@@ -220,12 +268,12 @@ continues getting JSON exactly as before.
   `Accept`/`Content-Type`-driven, all-endpoints-at-once) is now a real
   decision with consequences, not just a scope measurement. Write one
   documenting that shape and the WebSocket-endpoints exclusion.
-- No live e2e pass yet - build + unit tests only. Worth doing before
-  calling Phase 1 "done" in the roadmap sense: run the real stack
-  (`docker compose up` / Aspire) and confirm a raw `curl` with
-  `Accept: application/x-memorypack` against a couple of the 58 endpoints
-  actually gets MemoryPack bytes back, and that ordinary dashboard traffic
-  is provably unaffected.
+- Live e2e covered `POST /api/logs/search` and `GET /api/alerts` only (one
+  request-body endpoint, one response-only endpoint) - not all 58. The bug
+  it found was in the shared `ApiSerialization.ReadAsync` helper every
+  endpoint uses identically, so it's reasonable to expect the fix
+  generalizes, but the other 56 endpoints' live behavior wasn't
+  individually exercised.
 - Not investigated here: whether MemoryPack's "Version tolerant" mode
   (schema evolution) is adopted, and what that costs in generator config.
 - Not investigated/decided here: whether the dashboard TypeScript side ever
