@@ -1,6 +1,7 @@
-# Scoped to the two .NET Dockerfiles' build context (repo root) - see
-# src/Flare.Ingest/Dockerfile and src/Flare.Api/Dockerfile. The dashboard's Dockerfile
-# has its own build context (src/dashboard) and its own .dockerignore.
+# Repo-root build context, shared by all three Dockerfiles (src/Flare.Ingest,
+# src/Flare.Api, and - since MemoryPack TypeScript codegen needs Flare.Api's source
+# alongside it (ADR-0016) - src/dashboard too; it no longer has its own separate
+# .dockerignore).
 .git
 .github
 .vscode
@@ -13,6 +14,9 @@
 src/dashboard/node_modules
 src/dashboard/.svelte-kit
 src/dashboard/build
+src/dashboard/.env
+src/dashboard/.env.*
+!src/dashboard/.env.example
 
 *.md
 !README.md
