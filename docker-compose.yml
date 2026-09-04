@@ -176,7 +176,11 @@ services:
 
   dashboard:
     build:
-      context: ./src/dashboard
+      # Repo root, not ./src/dashboard - the Dockerfile's own codegen stage needs
+      # Flare.Api's source (MemoryPack TypeScript codegen, see that Dockerfile's header
+      # comment and ADR-0016), same context pattern api/ingest already use below.
+      context: .
+      dockerfile: src/dashboard/Dockerfile
     # See ingest's identical labels comment above - dashboard only references api
     # (clickhouse/redis are ingest/api's own backing stores, not the dashboard's).
     labels:

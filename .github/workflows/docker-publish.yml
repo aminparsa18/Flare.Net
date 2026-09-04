@@ -54,7 +54,9 @@ jobs:
             context: .
             dockerfile: src/Flare.Api/Dockerfile
           - name: flare-dashboard
-            context: src/dashboard
+            # Repo root, not src/dashboard - the Dockerfile's codegen stage needs
+            # Flare.Api's source for MemoryPack TypeScript codegen (ADR-0016).
+            context: .
             dockerfile: src/dashboard/Dockerfile
     steps:
       - name: Checkout
