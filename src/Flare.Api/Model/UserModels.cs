@@ -31,6 +31,7 @@ public sealed partial record UserListResponse
 
 /// <summary>Request body for <c>PATCH /api/users/{id}/role</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SetUserRoleRequest
 {
     public required UserRole Role { get; init; }
@@ -38,6 +39,7 @@ public sealed partial record SetUserRoleRequest
 
 /// <summary>Request body for <c>PATCH /api/users/{id}/disabled</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SetUserDisabledRequest
 {
     public required bool IsDisabled { get; init; }

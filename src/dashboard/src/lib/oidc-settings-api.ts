@@ -1,12 +1,16 @@
 // Client for Flare.Api's Admin-only generic OpenID Connect settings API
-// (src/Flare.Api/Endpoints/OidcSettingsEndpoints.cs). Field names/casing are a
-// hand-mirror of src/Flare.Api/Model/OidcSettingsModels.cs + Json/OidcSettingsJsonContext.cs
-// (camelCase properties, PascalCase string enum for `defaultRole`), same convention
-// `entra-settings-api.ts`/`ldap-settings-api.ts` already document. Keep in sync with those
-// files by hand.
+// (src/Flare.Api/Endpoints/OidcSettingsEndpoints.cs).
+//
+// Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
+// to MemoryPack - see `auth-api.ts`'s header comment for the general shape, and
+// `$lib/memorypack/enums.ts` for why `defaultRole` converts through `userRoleToString`/
+// `userRoleFromString` instead of being passed through as MemoryPack's raw numeric ordinal.
 
-import { API_BASE_URL, apiFetch } from './api';
+import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import type { UserRole } from './auth-api';
+import { userRoleFromString, userRoleToString } from '$lib/memorypack/enums';
+import { OidcSettingsDto } from '$lib/generated/memorypack/OidcSettingsDto.js';
+import { SaveOidcSettingsRequest as GeneratedSaveOidcSettingsRequest } from '$lib/generated/memorypack/SaveOidcSettingsRequest.js';
 
 export interface OidcSettings {
 	enabled: boolean;
@@ -39,24 +43,55 @@ export interface SaveOidcSettingsRequest {
 	defaultRole: UserRole;
 }
 
+function toOidcSettings(dto: OidcSettingsDto): OidcSettings {
+	return {
+		enabled: dto.enabled,
+		displayName: dto.displayName,
+		authority: dto.authority,
+		clientId: dto.clientId,
+		hasClientSecret: dto.hasClientSecret,
+		scopes: dto.scopes ?? '',
+		roleClaimName: dto.roleClaimName ?? '',
+		defaultRole: userRoleToString(dto.defaultRole),
+		redirectUri: dto.redirectUri ?? ''
+	};
+}
+
+async function decodeOidcSettings(res: Response): Promise<OidcSettings> {
+	const dto = OidcSettingsDto.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding OidcSettingsDto.');
+	}
+	return toOidcSettings(dto);
+}
+
 /** `GET /api/settings/oidc`. */
 export async function getOidcSettings(signal?: AbortSignal): Promise<OidcSettings> {
-	const res = await apiFetch(`${API_BASE_URL}/api/settings/oidc`, { signal });
+	const res = await apiFetch(`${API_BASE_URL}/api/settings/oidc`, { headers: memoryPackAcceptHeaders(), signal });
 	if (!res.ok) {
 		throw new Error(`GET /api/settings/oidc failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	return decodeOidcSettings(res);
 }
 
 /** `PUT /api/settings/oidc`. 400s if `enabled: true` is missing an authority/client id or has no client secret on record - surfaced as a plain Error. */
 export async function saveOidcSettings(request: SaveOidcSettingsRequest): Promise<OidcSettings> {
+	const dto = new GeneratedSaveOidcSettingsRequest();
+	dto.enabled = request.enabled;
+	dto.displayName = request.displayName;
+	dto.authority = request.authority;
+	dto.clientId = request.clientId;
+	dto.clientSecret = request.clientSecret;
+	dto.scopes = request.scopes;
+	dto.roleClaimName = request.roleClaimName;
+	dto.defaultRole = userRoleFromString(request.defaultRole);
 	const res = await apiFetch(`${API_BASE_URL}/api/settings/oidc`, {
 		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request)
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSaveOidcSettingsRequest.serialize(dto))
 	});
 	if (!res.ok) {
 		throw new Error(`PUT /api/settings/oidc failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	return decodeOidcSettings(res);
 }

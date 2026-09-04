@@ -6,6 +6,7 @@ namespace Flare.Api.Model;
 /// Security screen's shape. Never carries the real client secret - see
 /// <see cref="HasClientSecret"/>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record EntraSettingsDto
 {
     public required bool Enabled { get; init; }
@@ -29,6 +30,7 @@ public sealed partial record EntraSettingsDto
 /// of <c>null</c>/omitted leaves the currently-stored secret unchanged - see
 /// <c>IEntraSettingsStore.SaveAsync</c>'s remarks.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SaveEntraSettingsRequest
 {
     public required bool Enabled { get; init; }

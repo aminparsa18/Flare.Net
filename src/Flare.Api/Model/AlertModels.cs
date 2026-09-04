@@ -14,6 +14,7 @@ public enum ThresholdComparator
 
 /// <summary>The breach condition an <see cref="AlertRule"/> evaluates on every poll tick.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record AlertThreshold
 {
     public required ulong Count { get; init; }

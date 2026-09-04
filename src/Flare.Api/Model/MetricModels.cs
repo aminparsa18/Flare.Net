@@ -26,6 +26,7 @@ public enum MetricPointType
 /// <c>db/clickhouse/README.md</c>'s "No <c>ResourceAttributes</c> skip index" note).
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricAttributeFilter
 {
     public required string Key { get; init; }
@@ -73,6 +74,7 @@ public sealed partial record MetricNamesRequest
 /// <see cref="MetricQueryRequest.Filter"/>.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricNameInfo
 {
     public required string MetricName { get; init; }
@@ -128,6 +130,7 @@ public sealed partial record MetricAttributeKeysRequest
 /// series cap.
 /// </summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record MetricAttributeKeyInfo
 {
     public required string Key { get; init; }

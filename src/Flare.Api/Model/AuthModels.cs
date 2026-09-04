@@ -6,6 +6,7 @@ namespace Flare.Api.Model;
 /// <summary>Request body for <c>POST /api/auth/login</c> and (reusing the same shape)
 /// <c>POST /api/auth/bootstrap</c>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record LoginRequest
 {
     public required string Username { get; init; }
@@ -17,6 +18,7 @@ public sealed partial record LoginRequest
 /// Deliberately never carries a password hash or session token - see
 /// <see cref="Identity.Users.User"/>'s remarks.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record AuthUserDto
 {
     public required Guid Id { get; init; }
@@ -38,6 +40,7 @@ public sealed partial record AuthUserDto
 /// this endpoint always returning bare 204 before this field existed. See
 /// docs/auth.md's "Reverse proxy (trusted header)" section, "Known limitations".</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record LogoutResponse
 {
     public string? RedirectUrl { get; init; }
@@ -49,6 +52,7 @@ public sealed partial record LogoutResponse
 /// <see cref="LocalEnabled"/>/<see cref="EntraEnabled"/>/<see cref="LdapEnabled"/>/
 /// <see cref="OidcEnabled"/> to decide what <c>/login</c> should show.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record BootstrapStatusResponse
 {
     /// <summary>The global switch - false means every endpoint in the app is open to

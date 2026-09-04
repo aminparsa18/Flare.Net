@@ -1,12 +1,28 @@
 // Client for Flare.Api's metrics Query API (metric discovery, time-bucketed series
-// query). Field names/casing/enum values are a hand-mirror of
-// src/Flare.Api/Model/MetricModels.cs + Json/MetricsJsonContext.cs - same
-// camelCase-properties/PascalCase-string-enum-values convention `api.ts` documents for
-// LogsJsonContext (`UseStringEnumConverter` with no naming policy leaves enum member
-// names as-is - confirmed against a real response during Pass 2's e2e verification,
-// e.g. `"type": "Gauge"`). Keep in sync with those files by hand.
+// query).
+//
+// Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
+// to MemoryPack - see `auth-api.ts`'s header comment for the general shape.
+// `MetricAttributeFilter`/`MetricNameInfo`/`MetricNamesResponse`/`MetricAttributeKeyInfo`/
+// `MetricAttributeKeysResponse` have no DateTimeOffset/JsonElement/IReadOnlyList-of-object
+// member and use real generated classes; everything nesting `MetricFilter` (`DateTimeOffset?`
+// members) or `MetricSeriesPoint` (`DateTimeOffset`) is hand-written (`$lib/memorypack/`).
+// `type` converts through `$lib/memorypack/enums.ts`'s `metricPointTypeToString`/`FromString`.
 
-import { API_BASE_URL, apiFetch } from './api';
+import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
+import { metricPointTypeFromString, metricPointTypeToString, type MetricPointTypeName } from '$lib/memorypack/enums';
+import { MetricFilter as GeneratedMetricFilter } from '$lib/memorypack/MetricFilter';
+import { MetricNamesRequest as GeneratedMetricNamesRequest } from '$lib/memorypack/MetricNamesRequest';
+import { MetricNamesResponse as GeneratedMetricNamesResponse } from '$lib/memorypack/MetricNamesResponse';
+import { MetricAttributeKeysRequest as GeneratedMetricAttributeKeysRequest } from '$lib/memorypack/MetricAttributeKeysRequest';
+import { MetricAttributeKeysResponse as GeneratedMetricAttributeKeysResponse } from '$lib/memorypack/MetricAttributeKeysResponse';
+import { MetricQueryRequest as GeneratedMetricQueryRequest } from '$lib/memorypack/MetricQueryRequest';
+import { MetricQueryResponse as GeneratedMetricQueryResponse } from '$lib/memorypack/MetricQueryResponse';
+import { MetricAttributeFilter as GeneratedMetricAttributeFilter } from '$lib/generated/memorypack/MetricAttributeFilter.js';
+import type { MetricNameInfo as GeneratedMetricNameInfo } from '$lib/generated/memorypack/MetricNameInfo.js';
+import type { MetricAttributeKeyInfo as GeneratedMetricAttributeKeyInfo } from '$lib/generated/memorypack/MetricAttributeKeyInfo.js';
+import type { MetricSeries as GeneratedMetricSeries } from '$lib/memorypack/MetricSeries';
+import type { MetricSeriesPoint as GeneratedMetricSeriesPoint } from '$lib/memorypack/MetricSeriesPoint';
 
 // ---- Shared filter shape (MetricFilter.cs) ---------------------------------
 
@@ -22,7 +38,25 @@ export interface MetricFilter {
 	attributes?: MetricAttributeFilter[];
 }
 
-export type MetricPointType = 'Gauge' | 'Sum' | 'Histogram';
+export type MetricPointType = MetricPointTypeName;
+
+function toGeneratedMetricFilter(filter: MetricFilter | undefined): GeneratedMetricFilter {
+	const dto = new GeneratedMetricFilter();
+	if (filter == null) return dto;
+	dto.from = filter.from == null ? null : new Date(filter.from);
+	dto.to = filter.to == null ? null : new Date(filter.to);
+	dto.services = filter.services ?? null;
+	dto.attributes =
+		filter.attributes == null
+			? null
+			: filter.attributes.map((a) => {
+					const attr = new GeneratedMetricAttributeFilter();
+					attr.key = a.key;
+					attr.value = a.value;
+					return attr;
+				});
+	return dto;
+}
 
 // ---- POST /api/metrics/names (MetricNamesRequest.cs / MetricNamesResponse) -
 
@@ -48,17 +82,33 @@ export interface MetricNamesResponse {
 	metrics: MetricNameInfo[];
 }
 
+function toMetricNameInfo(dto: GeneratedMetricNameInfo): MetricNameInfo {
+	return {
+		metricName: dto.metricName ?? '',
+		serviceName: dto.serviceName ?? '',
+		type: metricPointTypeToString(dto.type),
+		unit: dto.unit,
+		description: dto.description,
+		seriesCount: Number(dto.seriesCount)
+	};
+}
+
 export async function getMetricNames(request: MetricNamesRequest = {}, signal?: AbortSignal): Promise<MetricNamesResponse> {
+	const dto = new GeneratedMetricNamesRequest();
+	dto.from = request.from == null ? null : new Date(request.from);
+	dto.to = request.to == null ? null : new Date(request.to);
+	dto.services = request.services ?? null;
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/names`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request),
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedMetricNamesRequest.serialize(dto)),
 		signal
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/metrics/names failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const body = GeneratedMetricNamesResponse.deserialize(await res.arrayBuffer());
+	return { metrics: (body?.metrics ?? []).map((m) => toMetricNameInfo(m!)) };
 }
 
 // ---- POST /api/metrics/attribute-keys (MetricAttributeKeysRequest.cs / MetricAttributeKeysResponse.cs) -
@@ -81,20 +131,29 @@ export interface MetricAttributeKeysResponse {
 	keys: MetricAttributeKeyInfo[];
 }
 
+function toMetricAttributeKeyInfo(dto: GeneratedMetricAttributeKeyInfo): MetricAttributeKeyInfo {
+	return { key: dto.key ?? '', distinctValueCount: Number(dto.distinctValueCount) };
+}
+
 export async function getMetricAttributeKeys(
 	request: MetricAttributeKeysRequest,
 	signal?: AbortSignal
 ): Promise<MetricAttributeKeysResponse> {
+	const dto = new GeneratedMetricAttributeKeysRequest();
+	dto.metricName = request.metricName;
+	dto.type = metricPointTypeFromString(request.type);
+	dto.filter = toGeneratedMetricFilter(request.filter);
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/attribute-keys`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request),
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedMetricAttributeKeysRequest.serialize(dto)),
 		signal
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/metrics/attribute-keys failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const body = GeneratedMetricAttributeKeysResponse.deserialize(await res.arrayBuffer());
+	return { keys: (body?.keys ?? []).map((k) => toMetricAttributeKeyInfo(k!)) };
 }
 
 // ---- POST /api/metrics/query (MetricQueryRequest.cs / MetricQueryResponse) -
@@ -140,15 +199,49 @@ export interface MetricQueryResponse {
 	series: MetricSeries[];
 }
 
+function toMetricSeriesPoint(dto: GeneratedMetricSeriesPoint): MetricSeriesPoint {
+	return {
+		bucketStart: dto.bucketStart.toISOString(),
+		value: dto.value,
+		count: dto.count == null ? null : Number(dto.count),
+		sum: dto.sum,
+		p50: dto.p50,
+		p75: dto.p75,
+		p90: dto.p90,
+		p95: dto.p95,
+		p99: dto.p99,
+		maxApprox: dto.maxApprox
+	};
+}
+
+function toMetricSeries(dto: GeneratedMetricSeries): MetricSeries {
+	const attributes: Record<string, string> = {};
+	for (const [key, value] of dto.attributes ?? []) {
+		attributes[key ?? ''] = value ?? '';
+	}
+	return {
+		serviceName: dto.serviceName ?? '',
+		attributes,
+		points: (dto.points ?? []).map((p) => toMetricSeriesPoint(p!))
+	};
+}
+
 export async function queryMetric(request: MetricQueryRequest, signal?: AbortSignal): Promise<MetricQueryResponse> {
+	const dto = new GeneratedMetricQueryRequest();
+	dto.metricName = request.metricName;
+	dto.type = metricPointTypeFromString(request.type);
+	dto.filter = toGeneratedMetricFilter(request.filter);
+	dto.bucketWidthSeconds = request.bucketWidthSeconds;
+	dto.groupByAttributeKey = request.groupByAttributeKey ?? null;
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/query`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(request),
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedMetricQueryRequest.serialize(dto)),
 		signal
 	});
 	if (!res.ok) {
 		throw new Error(`POST /api/metrics/query failed: ${res.status} ${res.statusText}`);
 	}
-	return res.json();
+	const body = GeneratedMetricQueryResponse.deserialize(await res.arrayBuffer());
+	return { series: (body?.series ?? []).map((s) => toMetricSeries(s!)) };
 }

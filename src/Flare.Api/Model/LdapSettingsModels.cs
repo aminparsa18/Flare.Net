@@ -7,6 +7,7 @@ namespace Flare.Api.Model;
 /// <c>/auth</c> screen's Active Directory section. Never carries the real bind
 /// password - see <see cref="HasBindPassword"/>.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record LdapSettingsDto
 {
     public required bool Enabled { get; init; }
@@ -51,6 +52,7 @@ public sealed partial record LdapSettingsDto
 /// NOT follow that convention: <c>null</c>/omitted always *clears* any previously-saved
 /// pin.</summary>
 [MemoryPackable]
+[GenerateTypeScript]
 public sealed partial record SaveLdapSettingsRequest
 {
     public required bool Enabled { get; init; }
