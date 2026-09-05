@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Ingest.Model;
 
 /// <summary>
@@ -16,8 +18,13 @@ namespace Flare.Ingest.Model;
 /// storage — same "add it when there's a concrete need" precedent as the alerting
 /// roadmap item's per-channel columns. Add a <c>Links</c> property (and the matching
 /// <c>ALTER TABLE</c> migration) only once a feature actually consumes them.
+///
+/// <see cref="MemoryPackableAttribute"/>: the MemoryPack wire format for
+/// <see cref="Sinks.RedisStreamSpanEventSink"/>/<see cref="Pipeline.SpanFlushWorker"/>'s
+/// Redis Stream buffer (ADR-0017), same rationale as <see cref="LogEvent"/>.
 /// </remarks>
-public sealed record SpanRecord
+[MemoryPackable]
+public sealed partial record SpanRecord
 {
     /// <summary>Lower-hex trace id (16 bytes). Spec-guaranteed present and unique together with <see cref="SpanId"/> - no synthetic id column needed, unlike <see cref="LogEvent.EventId"/>.</summary>
     public required string TraceId { get; init; }
@@ -83,7 +90,8 @@ public sealed record SpanRecord
 }
 
 /// <summary>A single OTLP Span.Event - a timestamped annotation on a span.</summary>
-public sealed record SpanEvent
+[MemoryPackable]
+public sealed partial record SpanEvent
 {
     public required DateTimeOffset Timestamp { get; init; }
 

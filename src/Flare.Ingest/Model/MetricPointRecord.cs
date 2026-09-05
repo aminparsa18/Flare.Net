@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MemoryPack;
 
 namespace Flare.Ingest.Model;
 
@@ -25,7 +26,11 @@ namespace Flare.Ingest.Model;
 /// Polymorphic - <see cref="Pipeline.MetricEventJsonContext"/> is the matching
 /// source-generated System.Text.Json contract that lets a single Redis stream/flush
 /// worker carry all three point types together, discriminated by the
-/// <see cref="JsonDerivedTypeAttribute"/> tags below.
+/// <see cref="JsonDerivedTypeAttribute"/> tags below. <see cref="Pipeline.MetricFlushWorker"/>
+/// only ever reads that contract back for entries buffered before ADR-0017's MemoryPack
+/// migration - the <see cref="MemoryPackUnionAttribute"/> tags below are the wire format
+/// for every entry this process itself writes now, same discriminated-union shape
+/// mirrored into MemoryPack's own union mechanism rather than System.Text.Json's.
 ///
 /// Proto3 string fields can't distinguish "unset" from "explicitly empty string" on the
 /// wire. <see cref="OtlpMetricsMapper"/> normalizes empty string to <see langword="null"/>
@@ -36,7 +41,11 @@ namespace Flare.Ingest.Model;
 [JsonDerivedType(typeof(GaugePointRecord), "gauge")]
 [JsonDerivedType(typeof(SumPointRecord), "sum")]
 [JsonDerivedType(typeof(HistogramPointRecord), "histogram")]
-public abstract record MetricPointRecord
+[MemoryPackable]
+[MemoryPackUnion(0, typeof(GaugePointRecord))]
+[MemoryPackUnion(1, typeof(SumPointRecord))]
+[MemoryPackUnion(2, typeof(HistogramPointRecord))]
+public abstract partial record MetricPointRecord
 {
     /// <summary>The metric's name, e.g. <c>http.server.request.duration</c>.</summary>
     public required string MetricName { get; init; }
@@ -86,13 +95,15 @@ public abstract record MetricPointRecord
 }
 
 /// <summary>An OTLP Gauge data point - the "current value" at <see cref="MetricPointRecord.Time"/>, no aggregation temporality.</summary>
-public sealed record GaugePointRecord : MetricPointRecord
+[MemoryPackable]
+public sealed partial record GaugePointRecord : MetricPointRecord
 {
     public required double Value { get; init; }
 }
 
 /// <summary>An OTLP Sum data point - a running total, either a monotonic counter or an up/down counter.</summary>
-public sealed record SumPointRecord : MetricPointRecord
+[MemoryPackable]
+public sealed partial record SumPointRecord : MetricPointRecord
 {
     public required double Value { get; init; }
 
@@ -103,7 +114,8 @@ public sealed record SumPointRecord : MetricPointRecord
 }
 
 /// <summary>An OTLP Histogram data point - bucketed distribution of a population of values.</summary>
-public sealed record HistogramPointRecord : MetricPointRecord
+[MemoryPackable]
+public sealed partial record HistogramPointRecord : MetricPointRecord
 {
     /// <summary>OTLP AggregationTemporality (0=unspecified, 1=delta, 2=cumulative).</summary>
     public required int AggregationTemporality { get; init; }

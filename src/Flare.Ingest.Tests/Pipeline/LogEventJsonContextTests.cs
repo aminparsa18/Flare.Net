@@ -6,9 +6,12 @@ using Xunit;
 namespace Flare.Ingest.Tests.Pipeline;
 
 /// <summary>
-/// Round-trip tests for the wire format <see cref="Sinks.RedisStreamLogEventSink"/> and
-/// <see cref="ClickHouseFlushWorker"/> share (serialize into a Redis Stream entry,
-/// deserialize back out on flush).
+/// Round-trip tests for <see cref="LogEvent"/>'s System.Text.Json contract. Prior to
+/// ADR-0017 this was the wire format <see cref="Sinks.RedisStreamLogEventSink"/> and
+/// <see cref="ClickHouseFlushWorker"/> shared; now it's kept as the legacy-decode
+/// fallback <see cref="RedisEventPayload"/> falls back to for a pre-upgrade entry - see
+/// <see cref="RedisEventPayloadTests"/> for the current (MemoryPack) wire format's own
+/// round-trip coverage.
 /// </summary>
 public class LogEventJsonContextTests
 {

@@ -6,12 +6,14 @@ using Xunit;
 namespace Flare.Ingest.Tests.Pipeline;
 
 /// <summary>
-/// Round-trip tests for the wire format <see cref="Sinks.RedisStreamMetricEventSink"/>
-/// and <see cref="MetricFlushWorker"/> share, same role as <see cref="SpanEventJsonContextTests"/>.
-/// Also the one place that actually exercises <see cref="MetricPointRecord"/>'s
-/// polymorphic serialization (<c>JsonPolymorphic</c>/<c>JsonDerivedType</c>) - the
-/// mechanism the "one shared stream for all three point types" pipeline decision
-/// (Planning.md's v6) depends on.
+/// Round-trip tests for <see cref="MetricPointRecord"/>'s System.Text.Json contract -
+/// now the legacy-decode fallback <see cref="RedisEventPayload"/> falls back to for a
+/// pre-upgrade entry, same role as <see cref="SpanEventJsonContextTests"/>. Also the
+/// one place that exercises this contract's polymorphic serialization
+/// (<c>JsonPolymorphic</c>/<c>JsonDerivedType</c>) - the mechanism the "one shared
+/// stream for all three point types" pipeline decision (Planning.md's v6) depends on.
+/// See <see cref="RedisEventPayloadTests"/> for the current (MemoryPack union) wire
+/// format's own round-trip coverage.
 /// </summary>
 public class MetricEventJsonContextTests
 {

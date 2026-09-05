@@ -27,7 +27,9 @@ namespace Flare.Ingest.Pipeline;
 ///
 /// Otherwise a structural duplicate of <see cref="SpanFlushWorker"/> (same
 /// poll-loop/XREADGROUP/XPENDING-reclaim/PEL-ack design) - see its remarks for the full
-/// at-least-once delivery explanation, not re-explained here.
+/// at-least-once delivery explanation, not re-explained here. <see cref="TryDeserialize"/>
+/// decodes each entry via <see cref="RedisEventPayload"/> (ADR-0017) - MemoryPack, with a
+/// fallback for any pre-upgrade JSON entry still sitting in the stream.
 /// </remarks>
 public sealed class MetricFlushWorker(
     IConnectionMultiplexer connectionMultiplexer,
@@ -129,7 +131,7 @@ public sealed class MetricFlushWorker(
 
         try
         {
-            point = JsonSerializer.Deserialize((string)raw!, MetricEventJsonContext.Default.MetricPointRecord)!;
+            point = RedisEventPayload.Decode((byte[])raw!, MetricEventJsonContext.Default.MetricPointRecord);
             return true;
         }
         catch (JsonException ex)

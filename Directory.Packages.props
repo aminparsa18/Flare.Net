@@ -74,11 +74,12 @@
          references can hang the parser) fixed in 2.7.5. Pinned directly + referenced
          from Flare.Api.csproj so the direct reference wins over the transitive one. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
-    <!-- Flare.Api: MemoryPack, phase 0 of the JSON->MemoryPack request/response migration
-         (see docs-internal/investigations/memorypack-serialization-migration-scope.md).
-         This phase only attaches [MemoryPackable] to src/Flare.Api/Model/*.cs DTOs so the
-         source generator runs and validates them - no endpoint yet serializes with it.
-         Latest stable per nuget.org's flatcontainer index. -->
+    <!-- MemoryPack. Originally added for Flare.Api's phase 0 JSON->MemoryPack
+         request/response migration (see
+         docs-internal/investigations/memorypack-serialization-migration-scope.md) and now
+         also used by Flare.Ingest for its internal Redis Streams buffer payload (see
+         docs-internal/adr/0017-memorypack-ingest-redis-buffer.md) - one centrally-pinned
+         version for both. Latest stable per nuget.org's flatcontainer index. -->
     <PackageVersion Include="MemoryPack" Version="1.21.4" />
     <!-- Flare.Api: Microsoft Entra ID (SSO) login (Planning.md's "Entra ID (SSO) auth"
          item, docs/auth.md). Unlike AddCookie/the base AddScheme, the OpenIdConnect

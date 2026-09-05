@@ -24,7 +24,9 @@ namespace Flare.Ingest.Pipeline;
 /// obscuring likely-divergent batching semantics (span bursts, Nested-column
 /// serialization) behind a premature generic base. See <see cref="ClickHouseFlushWorker"/>'s
 /// own remarks for the full at-least-once delivery / PEL-reclaim design this mirrors
-/// exactly - it is not re-explained here, only reproduced.
+/// exactly - it is not re-explained here, only reproduced. <see cref="TryDeserialize"/>
+/// decodes each entry via <see cref="RedisEventPayload"/> (ADR-0017) - MemoryPack, with a
+/// fallback for any pre-upgrade JSON entry still sitting in the stream.
 /// </remarks>
 public sealed class SpanFlushWorker(
     IConnectionMultiplexer connectionMultiplexer,
@@ -126,7 +128,7 @@ public sealed class SpanFlushWorker(
 
         try
         {
-            span = JsonSerializer.Deserialize((string)raw!, SpanEventJsonContext.Default.SpanRecord)!;
+            span = RedisEventPayload.Decode((byte[])raw!, SpanEventJsonContext.Default.SpanRecord);
             return true;
         }
         catch (JsonException ex)

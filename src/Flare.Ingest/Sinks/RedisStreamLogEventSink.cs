@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Flare.Ingest.Model;
 using Flare.Ingest.Pipeline;
 using Microsoft.Extensions.Options;
@@ -13,13 +12,14 @@ namespace Flare.Ingest.Sinks;
 /// has flushed them (Planning.md's "Buffering layer" decision, 2026-08-07).
 /// </summary>
 /// <remarks>
-/// Each stream entry carries the whole <see cref="LogEvent"/> as one JSON blob in a
+/// Each stream entry carries the whole <see cref="LogEvent"/> as one MemoryPack-encoded
+/// blob (<see cref="Pipeline.RedisEventPayload"/>, ADR-0017 - JSON prior to that) in a
 /// single <c>data</c> field, rather than flattened per-property fields. <see cref="LogEvent"/>
 /// carries three <c>Map&lt;string,string&gt;</c> attribute bags whose key sets vary per
 /// event - flattening those into synthesized Stream field names would require inventing
 /// a prefixing/escaping scheme for zero benefit, since nothing reads individual Stream
 /// fields directly; only <see cref="Pipeline.ClickHouseFlushWorker"/> ever reads this
-/// entry back, and it deserializes the whole blob at once via <see cref="LogEventJsonContext"/>.
+/// entry back, and it deserializes the whole blob at once.
 /// </remarks>
 public sealed class RedisStreamLogEventSink(
     IConnectionMultiplexer connectionMultiplexer,
@@ -30,7 +30,7 @@ public sealed class RedisStreamLogEventSink(
     public async ValueTask WriteAsync(LogEvent logEvent, CancellationToken cancellationToken = default)
     {
         var opts = options.Value;
-        var payload = JsonSerializer.Serialize(logEvent, LogEventJsonContext.Default.LogEvent);
+        var payload = RedisEventPayload.Encode(logEvent);
 
         var db = connectionMultiplexer.GetDatabase();
         await db.StreamAddAsync(
