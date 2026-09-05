@@ -5,6 +5,11 @@
     <PackageReference Include="Google.Protobuf" />
     <PackageReference Include="Aspire.StackExchange.Redis" />
     <PackageReference Include="Aspire.ClickHouse.Driver" />
+    <!-- MemoryPack wire format for the internal Redis Streams buffer payload - see
+         docs-internal/adr/0017-memorypack-ingest-redis-buffer.md. Version pinned centrally
+         (Directory.Packages.props), same package Flare.Api already uses for its HTTP
+         request/response MemoryPack support. -->
+    <PackageReference Include="MemoryPack" />
   </ItemGroup>
 
   <ItemGroup>

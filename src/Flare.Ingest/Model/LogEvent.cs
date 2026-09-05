@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Ingest.Model;
 
 /// <summary>
@@ -14,8 +16,15 @@ namespace Flare.Ingest.Model;
 /// meaningful signal from the source. This matters most for <see cref="EventName"/>,
 /// where OTel's own spec says *presence* of the field is what marks a record as a named
 /// event, not just its content.
+///
+/// <see cref="MemoryPackableAttribute"/> makes this the MemoryPack wire format for
+/// <see cref="Sinks.RedisStreamLogEventSink"/>/<see cref="Pipeline.ClickHouseFlushWorker"/>'s
+/// Redis Stream buffer (ADR-0017) - every <c>IReadOnlyDictionary&lt;string,string&gt;</c>
+/// member below has a built-in MemoryPack formatter, so no custom formatter was needed
+/// here (unlike <c>Flare.Api.Model.SavedView.State</c>'s opaque <c>JsonElement</c>).
 /// </remarks>
-public sealed record LogEvent
+[MemoryPackable]
+public sealed partial record LogEvent
 {
     /// <summary>
     /// Flare-internal per-row identifier - not part of the OTLP wire format.

@@ -12,7 +12,9 @@ namespace Flare.Ingest.Pipeline;
 /// <see cref="LogEvent"/>s off the Redis Stream <see cref="RedisStreamLogEventSink"/>
 /// writes to, accumulates a batch, and flushes it to ClickHouse once
 /// <see cref="LogEventPipelineOptions.BatchSize"/> or <see cref="LogEventPipelineOptions.FlushInterval"/>
-/// is reached.
+/// is reached. <see cref="TryDeserialize"/> decodes each entry via
+/// <see cref="RedisEventPayload"/> (ADR-0017) - MemoryPack, with a fallback for any
+/// pre-upgrade JSON entry still sitting in the stream.
 /// </summary>
 /// <remarks>
 /// Reads via a consumer group (<c>XREADGROUP</c>) and only <c>XACK</c>s an entry after
@@ -141,7 +143,7 @@ public sealed class ClickHouseFlushWorker(
 
         try
         {
-            logEvent = JsonSerializer.Deserialize((string)raw!, LogEventJsonContext.Default.LogEvent)!;
+            logEvent = RedisEventPayload.Decode((byte[])raw!, LogEventJsonContext.Default.LogEvent);
             return true;
         }
         catch (JsonException ex)

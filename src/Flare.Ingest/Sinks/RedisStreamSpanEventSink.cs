@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Flare.Ingest.Model;
 using Flare.Ingest.Pipeline;
 using Microsoft.Extensions.Options;
@@ -10,6 +9,7 @@ namespace Flare.Ingest.Sinks;
 /// Durable buffer for the batched ClickHouse insert pipeline for spans: writes each
 /// <see cref="SpanRecord"/> into a Redis Stream (<c>XADD</c>) instead of persisting it
 /// directly, same rationale and shape as <see cref="RedisStreamLogEventSink"/>.
+/// MemoryPack-encoded via <see cref="Pipeline.RedisEventPayload"/> (ADR-0017).
 /// </summary>
 public sealed class RedisStreamSpanEventSink(
     IConnectionMultiplexer connectionMultiplexer,
@@ -20,7 +20,7 @@ public sealed class RedisStreamSpanEventSink(
     public async ValueTask WriteAsync(SpanRecord span, CancellationToken cancellationToken = default)
     {
         var opts = options.Value;
-        var payload = JsonSerializer.Serialize(span, SpanEventJsonContext.Default.SpanRecord);
+        var payload = RedisEventPayload.Encode(span);
 
         var db = connectionMultiplexer.GetDatabase();
         await db.StreamAddAsync(

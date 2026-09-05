@@ -1,7 +1,15 @@
+using MemoryPack;
+
 namespace Flare.Ingest.Patterns;
 
-/// <summary>One Drain cluster's persisted shape - the unit <see cref="IPatternClusterStore"/> loads/saves per bucket.</summary>
-public sealed record ClusterRecord(string Id, string[] TemplateTokens, string PatternId, long LastUsedTicks);
+/// <summary>
+/// One Drain cluster's persisted shape - the unit <see cref="IPatternClusterStore"/> loads/saves per bucket.
+/// <see cref="MemoryPackableAttribute"/>: the wire format <see cref="RedisPatternClusterStore"/>
+/// uses for this record (ADR-0017) - <see cref="InMemoryPatternClusterStore"/> never
+/// serializes it at all.
+/// </summary>
+[MemoryPackable]
+public sealed partial record ClusterRecord(string Id, string[] TemplateTokens, string PatternId, long LastUsedTicks);
 
 /// <summary>
 /// Storage seam for <see cref="DrainPatternMatcher"/>'s cluster tree - split out so the

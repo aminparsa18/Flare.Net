@@ -6,8 +6,11 @@ using Xunit;
 namespace Flare.Ingest.Tests.Pipeline;
 
 /// <summary>
-/// Round-trip tests for the wire format <see cref="Sinks.RedisStreamSpanEventSink"/> and
-/// <see cref="SpanFlushWorker"/> share, same role as <see cref="LogEventJsonContextTests"/>.
+/// Round-trip tests for <see cref="SpanRecord"/>'s System.Text.Json contract - now the
+/// legacy-decode fallback <see cref="RedisEventPayload"/> falls back to for a pre-upgrade
+/// entry, same role as <see cref="LogEventJsonContextTests"/>. See
+/// <see cref="RedisEventPayloadTests"/> for the current (MemoryPack) wire format's own
+/// round-trip coverage.
 /// </summary>
 public class SpanEventJsonContextTests
 {
