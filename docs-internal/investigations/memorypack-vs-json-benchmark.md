@@ -5,7 +5,9 @@ Related: [SerializerBenchmark](https://github.com/aminparsa18/SerializerBenchmar
 (external repo - generic payload-shape numbers that originally motivated adopting
 MemoryPack), ADR-0015 (MemoryPack content negotiation for Flare.Api), ADR-0016
 (MemoryPack dashboard TypeScript adoption), ADR-0017 (MemoryPack for the Ingest Redis
-buffer)
+buffer), [Cysharp/MemoryPack#459](https://github.com/Cysharp/MemoryPack/pull/459)
+(upstream PR adding `DateTimeOffset` TypeScript-generator support - not merged as of this
+writing; its own wire-format re-verification is what surfaced Finding 5)
 
 The question behind this investigation: both migrations above were decided using the
 external SerializerBenchmark repo's generic payload shapes, not Flare's actual
@@ -175,6 +177,43 @@ axis. The gap narrowed for decode (1.89x → ~1.75x for a single row; 2.22x → 
 200-row page) but stayed roughly the same for encode - a structural ceiling either
 recommendation was already flagged as unable to close (per-field JS function-call
 dispatch vs. V8's single native JSON pass).
+
+## Finding 5: `date-time-offset.ts` had a real correctness bug for non-zero offsets - found via an upstream contribution, fixed and re-verified
+
+Finding 3 confirmed `DateTimeOffset` genuinely needs a hand-written wrapper. A follow-up
+attempt to upstream that wrapper into MemoryPack's TypeScript generator itself
+([Cysharp/MemoryPack#459](https://github.com/Cysharp/MemoryPack/pull/459)) re-verified
+the wire format from scratch (per its own instructions not to trust a copied layout
+without measuring it) and found the actual layout differs from what `date-time-offset.ts`
+had assumed:
+
+| | Assumed (wrong) | Actual (verified) |
+|---|---|---|
+| `offsetMinutes` field | 8 bytes, signed 64-bit | **4 bytes, signed 32-bit** (+ 4 bytes padding) |
+| Ticks field | "local" ticks (needs `± offsetMinutes * ticksPerMinute` to get UTC) | **UTC ticks directly** - the offset is metadata only, never used to compute the instant |
+
+The wrong assumption's arithmetic happens to reduce to a no-op when `offsetMinutes` is
+`0` - which is every value Flare's own data ever produces (ClickHouse timestamps,
+`UtcNow`) - so it was never actually exercised end-to-end against a non-UTC value in
+this repo. Re-verified independently on this machine (net10.0, MemoryPack 1.21.4, not
+just trusted from the PR) with `MemoryPackSerializer.Serialize` against zero/positive/
+negative offsets, `MinValue`/`MaxValue`, and sub-millisecond ticks - all matched the
+corrected layout exactly. Reproduced the actual failure mode with the *old* code against
+a real negative-offset value (`-5h`): it decoded 2026-09-05T17:00:00Z as
+`-006140-07-21T17:44:00.000Z` - silently, no thrown error.
+
+Fixed in `date-time-offset.ts` to match the verified layout. This also simplified the
+code: since ticks are unconditionally UTC on the wire regardless of `offsetMinutes`, no
+tick-adjustment math is needed at all anymore (not even the fast-pathed version from
+Finding 4's recommendation #2) - `offsetMinutes` is now carried through as pure metadata.
+Re-verified via TS-to-TS round-trip and cross-language interop (real C#-encoded bytes
+for all the cases above, decoded correctly on the TypeScript side, including the
+previously-broken negative-offset cases).
+
+This bug was latent, not hypothetical - it would have silently produced wrong data the
+moment any `DateTimeOffset` with a non-zero offset flowed through this path. Worth
+remembering next time this file's "every value already originates as UTC" invariant is
+touched: that invariant is what kept this dormant, not correct code.
 
 ## Consequences / follow-ups
 
