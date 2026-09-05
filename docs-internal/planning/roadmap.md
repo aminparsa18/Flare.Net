@@ -41,29 +41,3 @@ folders are where "what happened and why" actually lives.
   instead of the current logs-only NDJSON/CSV stream. Deliberately held
   back: the shipped stdout/`-o` + shell composability (`> file`, `| jq`)
   already covers real usage; this is a real want, not an urgent one.
-- **A Flare-specific JSON-vs-MemoryPack benchmark for logging scenarios**,
-  on both sides of the two MemoryPack migrations already shipped
-  ([ADR-0015](../adr/0015-memorypack-content-negotiation-for-flare-api.md)/
-  [ADR-0016](../adr/0016-memorypack-dashboard-typescript-adoption.md) for
-  `Flare.Api`'s HTTP surface,
-  [ADR-0017](../adr/0017-memorypack-ingest-redis-buffer.md) for
-  `Flare.Ingest`'s Redis buffer). The
-  [SerializerBenchmark](https://github.com/aminparsa18/SerializerBenchmark)
-  repo that originally motivated adopting MemoryPack measures generic
-  payload shapes, not Flare's actual ones - this item is realistic
-  `LogEvent`/log-search-response-shaped payloads (representative
-  attribute-bag sizes/cardinality, not synthetic types) run through both
-  wire formats, to get project-local numbers rather than leaning on the
-  external repo's generic ones for a decision already made.
-  - **.NET side**: a new BenchmarkDotNet project/harness exercising both
-    migrated boundaries - `Pipeline.RedisEventPayload`'s MemoryPack
-    encode/decode vs. the legacy `LogEventJsonContext` path (ADR-0017),
-    and `Flare.Api`'s `ApiSerialization` MemoryPack path vs. its JSON
-    default (ADR-0015) - for realistic single-event and batch-sized
-    payloads.
-  - **TypeScript side**: the dashboard's MemoryPack-generated decoders
-    (ADR-0016) vs. plain `JSON.parse`/hand-written `interface` parsing for
-    the same response shapes. Tooling undecided (e.g. `tinybench` or
-    Vitest's built-in `bench`) - whoever picks this up should check what's
-    already idiomatic for a SvelteKit/Vite project before choosing.
-  - Not started.

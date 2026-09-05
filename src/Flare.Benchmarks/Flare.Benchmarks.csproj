@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Flare.Benchmarks</RootNamespace>
+    <!-- BenchmarkDotNet builds/runs isolated copies of this project per benchmark job -
+         it needs a real, non-dev build, not a design-time one, so this project is
+         deliberately excluded from Flare.slnx's default `dotnet test`/CI build story
+         (see this project's own README) the same way examples/ is. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Real production types on both sides of both migrated boundaries (ADR-0016/
+         ADR-0017), not re-declared shapes - see docs-internal/planning/roadmap.md's
+         "Flare-specific JSON-vs-MemoryPack benchmark" item. -->
+    <ProjectReference Include="..\Flare.Ingest\Flare.Ingest.csproj" />
+    <ProjectReference Include="..\Flare.Api\Flare.Api.csproj" />
+  </ItemGroup>
+
+</Project>
