@@ -95,6 +95,87 @@ decoders' compile-time type safety against the C# DTOs), not client-side parse s
 That's a materially different justification than "faster," and worth knowing before
 citing this migration as a client-side performance win.
 
+## Finding 3: `DateTimeOffset` genuinely isn't supported by MemoryPack 1.21.4's TypeScript generator - confirmed empirically, not just from the existing code comment
+
+`$lib/memorypack/date-time-offset.ts`'s header comment claims any `[GenerateTypeScript]`
+DTO with a `DateTimeOffset` member throws `MEMPACK031`, citing MemoryPack's public docs'
+"unsupported types" list only names `char`/`decimal`, not `DateTimeOffset` - worth
+independently confirming rather than trusting either source. Two checks:
+
+1. **Decompiled `MemoryPack.Generator.dll` 1.21.4** (`ilspycmd`). The TypeScript
+   generator's `TypeScriptMember.ConvertFromSpecialType` switches purely on Roslyn's
+   `SpecialType` enum - the compiler's small hardcoded set of "special" BCL types.
+   `DateTime` is one (`SpecialType.System_DateTime` → `Date`/`writeDate`/`readDate`);
+   **`DateTimeOffset` isn't a `SpecialType` at all** (only `DateTime` is), and unlike
+   `Guid` (which gets an explicit `SymbolEqualityComparer` check), there's no manual
+   fallback for it either - it falls through to `NotSupportedTypeException` →
+   `MEMPACK031`. A `System_DateTimeOffset` symbol does exist in the generator, but only
+   for an unrelated unmanaged-struct-layout check on the core binary format - nothing to
+   do with TypeScript codegen.
+2. **Reproduced with a real throwaway build**: `[MemoryPackable, GenerateTypeScript]`
+   with a `DateTimeOffset` member → `error MEMPACK031: ... type
+   'global::System.DateTimeOffset' is not supported type in typescript generation`.
+   Swapping the member to plain `DateTime` in the same project built clean and generated
+   a real `foo: Date` field with `writeDate`/`readDate` calls - confirming the gap is
+   specific to `DateTimeOffset`, not a general generator failure.
+
+Also checked nuget.org: 1.21.4 is still the latest `MemoryPack.Generator` release, so
+there's no newer version where this might already be fixed. **Conclusion: the hand-written
+`date-time-offset.ts` (and every DTO that calls it) remains genuinely necessary - no
+roadmap item, no architecture change.**
+
+## Finding 4: two follow-up TypeScript optimizations applied - decode improved ~8-9%, encode unchanged
+
+Following Finding 2, two of its recommendations were implemented and re-measured (6 runs
+before, 6 after, discounting one clear outlier run - system noise, ~3.5% error margin vs.
+the usual ~1.3%):
+
+1. **`Map` → plain `Record<string, string>` for every attribute dictionary**
+   (`resourceAttributes`/`scopeAttributes`/`logAttributes`/`spanAttributes`/`attributes`
+   across `LogEventDto`/`SpanDto`/`SpanEventDto`/`MetricSeries`), via a new shared
+   `$lib/memorypack/string-record.ts` helper (`writeStringRecord`/`readStringRecord`)
+   replacing `MemoryPackWriter.writeMap`/`MemoryPackReader.readMap`. This wasn't just a
+   micro-optimization in the abstract: every consumer (`api.ts`/`traces-api.ts`/
+   `metrics-api.ts`) was already converting the decoded `Map` into a `Record` one line
+   later via a `key ?? ''`/`value ?? ''` loop (the public interfaces were `Record`-typed
+   all along) - so this also deleted three duplicated `toRecord` helpers and an entire
+   redundant conversion pass, not just changed the decoder's internal representation.
+2. **Fast-path `offsetMinutes === 0n`** in `writeDateTimeOffset`/`readDateTimeOffset`
+   (`date-time-offset.ts`) - skips the `* ticksPerMinute` `BigInt` multiply for the
+   common case (every `DateTimeOffset` in `Flare.Api/Model` already originates as UTC).
+
+| Scenario | Before (avg) | After (avg) | Change |
+|---|---:|---:|---:|
+| Single row, encode | 5.56 µs | 5.59 µs | -0.5% (no meaningful change) |
+| Single row, decode | 9.08 µs | 8.38 µs | +7.7% faster |
+| 200-row page, encode | 1.10 ms | 1.09 ms | +1.4% (no meaningful change) |
+| 200-row page, decode | 1.88 ms | 1.70 ms | +9.5% faster |
+
+**Decode improved meaningfully; encode did not.** The `Map`→`Record` change helps decode
+because it replaces `Map` construction (a `new Map()` plus N `.set()` calls, separate
+hash-table bookkeeping) with direct object-literal property assignment - genuinely
+cheaper in V8. It doesn't help encode by the same margin because `writeStringRecord`
+still has to call `Object.keys(value)` to iterate a plain object's keys (an extra array
+allocation `Map.forEach` didn't need), which roughly offsets what avoiding `Map` iteration
+saves. A further tweak (`for...in` instead of `Object.keys()`, avoiding that array
+allocation) was identified but not applied - not one of the two recommendations asked
+for, and not verified.
+
+Correctness was verified three ways, not just by `svelte-check` (which only checks
+types): a TS-to-TS round-trip (populated `LogEventDto`/`LogSearchResponse` → serialize →
+deserialize → deep-equal, including the empty-dictionary and null-dictionary cases); and
+cross-language interop - a real `MemoryPackSerializer.Serialize` call from a throwaway C#
+program, decoded on the TypeScript side via the new `readStringRecord`, byte-for-byte
+matching. The wire format is unchanged (payload sizes are identical to Finding 2's
+numbers: 945 B / 184,489 B for MemoryPack) - only the in-memory TypeScript
+representation differs.
+
+This does **not** change Finding 2's overall conclusion: JSON is still faster on every
+axis. The gap narrowed for decode (1.89x → ~1.75x for a single row; 2.22x → ~2.10x for a
+200-row page) but stayed roughly the same for encode - a structural ceiling either
+recommendation was already flagged as unable to close (per-field JS function-call
+dispatch vs. V8's single native JSON pass).
+
 ## Consequences / follow-ups
 
 - No decision changes as a result of this investigation - ADR-0015/0016/0017 all stand.
@@ -105,6 +186,11 @@ citing this migration as a client-side performance win.
 - Not investigated here: whether MemoryPack's TypeScript decode cost would look
   different with a hand-optimized (rather than generated) decoder, or under a JS engine
   other than V8 (Node's default) - e.g. a WebKit/JavaScriptCore-based browser.
+- Not applied (Finding 4): the `for...in`-instead-of-`Object.keys()` encode tweak, or
+  a lookup-table-based `Guid` hex encode/decode (the latter lives in the *generated*
+  `MemoryPackWriter.ts`/`MemoryPackReader.ts` runtime, regenerated on every
+  `dotnet build` - not something to hand-maintain the way `date-time-offset.ts`/
+  `string-record.ts` are).
 - `src/Flare.Benchmarks` and `src/dashboard/bench/` are left in the repo (not
   removed after this run) so the numbers above can be reproduced or re-checked after a
   future MemoryPack/`.NET` version bump - see each's own README for how to run them.

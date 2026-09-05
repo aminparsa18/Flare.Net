@@ -7,23 +7,7 @@
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
 import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
-
-type StringMap = Map<string | null, string | null> | null;
-
-function writeStringMap(writer: MemoryPackWriter, value: StringMap): void {
-	writer.writeMap(
-		value,
-		(writer, x) => writer.writeString(x),
-		(writer, x) => writer.writeString(x)
-	);
-}
-
-function readStringMap(reader: MemoryPackReader): StringMap {
-	return reader.readMap(
-		(reader) => reader.readString(),
-		(reader) => reader.readString()
-	);
-}
+import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
 
 export class LogEventDto {
 	eventId: string;
@@ -38,12 +22,12 @@ export class LogEventDto {
 	serviceName: string | null;
 	body: string | null;
 	resourceSchemaUrl: string | null;
-	resourceAttributes: StringMap;
+	resourceAttributes: StringRecord;
 	scopeSchemaUrl: string | null;
 	scopeName: string | null;
 	scopeVersion: string | null;
-	scopeAttributes: StringMap;
-	logAttributes: StringMap;
+	scopeAttributes: StringRecord;
+	logAttributes: StringRecord;
 	eventName: string | null;
 	patternId: string | null;
 	patternTemplate: string | null;
@@ -99,12 +83,12 @@ export class LogEventDto {
 		writer.writeString(value.serviceName);
 		writer.writeString(value.body);
 		writer.writeString(value.resourceSchemaUrl);
-		writeStringMap(writer, value.resourceAttributes);
+		writeStringRecord(writer, value.resourceAttributes);
 		writer.writeString(value.scopeSchemaUrl);
 		writer.writeString(value.scopeName);
 		writer.writeString(value.scopeVersion);
-		writeStringMap(writer, value.scopeAttributes);
-		writeStringMap(writer, value.logAttributes);
+		writeStringRecord(writer, value.scopeAttributes);
+		writeStringRecord(writer, value.logAttributes);
 		writer.writeString(value.eventName);
 		writer.writeString(value.patternId);
 		writer.writeString(value.patternTemplate);
@@ -145,12 +129,12 @@ export class LogEventDto {
 			value.serviceName = reader.readString();
 			value.body = reader.readString();
 			value.resourceSchemaUrl = reader.readString();
-			value.resourceAttributes = readStringMap(reader);
+			value.resourceAttributes = readStringRecord(reader);
 			value.scopeSchemaUrl = reader.readString();
 			value.scopeName = reader.readString();
 			value.scopeVersion = reader.readString();
-			value.scopeAttributes = readStringMap(reader);
-			value.logAttributes = readStringMap(reader);
+			value.scopeAttributes = readStringRecord(reader);
+			value.logAttributes = readStringRecord(reader);
 			value.eventName = reader.readString();
 			value.patternId = reader.readString();
 			value.patternTemplate = reader.readString();
@@ -183,7 +167,7 @@ export class LogEventDto {
 			if (count == 11) return value;
 			value.resourceSchemaUrl = reader.readString();
 			if (count == 12) return value;
-			value.resourceAttributes = readStringMap(reader);
+			value.resourceAttributes = readStringRecord(reader);
 			if (count == 13) return value;
 			value.scopeSchemaUrl = reader.readString();
 			if (count == 14) return value;
@@ -191,9 +175,9 @@ export class LogEventDto {
 			if (count == 15) return value;
 			value.scopeVersion = reader.readString();
 			if (count == 16) return value;
-			value.scopeAttributes = readStringMap(reader);
+			value.scopeAttributes = readStringRecord(reader);
 			if (count == 17) return value;
-			value.logAttributes = readStringMap(reader);
+			value.logAttributes = readStringRecord(reader);
 			if (count == 18) return value;
 			value.eventName = reader.readString();
 			if (count == 19) return value;

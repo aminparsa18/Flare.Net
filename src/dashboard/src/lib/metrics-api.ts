@@ -215,13 +215,9 @@ function toMetricSeriesPoint(dto: GeneratedMetricSeriesPoint): MetricSeriesPoint
 }
 
 function toMetricSeries(dto: GeneratedMetricSeries): MetricSeries {
-	const attributes: Record<string, string> = {};
-	for (const [key, value] of dto.attributes ?? []) {
-		attributes[key ?? ''] = value ?? '';
-	}
 	return {
 		serviceName: dto.serviceName ?? '',
-		attributes,
+		attributes: dto.attributes ?? {},
 		points: (dto.points ?? []).map((p) => toMetricSeriesPoint(p!))
 	};
 }

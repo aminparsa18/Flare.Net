@@ -2,17 +2,17 @@
 // generated. Mirrors `src/Flare.Api/Model/MetricModels.cs`'s `MetricSeries` field-for-field,
 // in declared order. Can't carry `[GenerateTypeScript]` itself because its `Points` member's
 // type, `MetricSeriesPoint`, has a `DateTimeOffset` member - see `MetricSeriesPoint.ts`'s
-// header comment. `Attributes` (`IReadOnlyDictionary<string, string>`) maps to a `Map<string,
-// string>`, same `writeMap`/`readMap` convention MemoryPack's own generator uses for a
-// `Dictionary<K, V>`.
+// header comment. `Attributes` (`IReadOnlyDictionary<string, string>`) decodes into a plain
+// `Record<string, string>` - see `$lib/memorypack/string-record.ts`'s header comment.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
 import { MetricSeriesPoint } from '$lib/memorypack/MetricSeriesPoint';
+import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
 
 export class MetricSeries {
 	serviceName: string | null;
-	attributes: Map<string | null, string | null> | null;
+	attributes: StringRecord;
 	points: (MetricSeriesPoint | null)[] | null;
 
 	constructor() {
@@ -35,11 +35,7 @@ export class MetricSeries {
 
 		writer.writeObjectHeader(3);
 		writer.writeString(value.serviceName);
-		writer.writeMap(
-			value.attributes,
-			(writer, x) => writer.writeString(x),
-			(writer, x) => writer.writeString(x)
-		);
+		writeStringRecord(writer, value.attributes);
 		writer.writeArray(value.points, (writer, x) => MetricSeriesPoint.serializeCore(writer, x));
 	}
 
@@ -66,10 +62,7 @@ export class MetricSeries {
 		const value = new MetricSeries();
 		if (count == 3) {
 			value.serviceName = reader.readString();
-			value.attributes = reader.readMap(
-				(reader) => reader.readString(),
-				(reader) => reader.readString()
-			);
+			value.attributes = readStringRecord(reader);
 			value.points = reader.readArray((reader) => MetricSeriesPoint.deserializeCore(reader));
 		} else if (count > 3) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
@@ -77,10 +70,7 @@ export class MetricSeries {
 			if (count == 0) return value;
 			value.serviceName = reader.readString();
 			if (count == 1) return value;
-			value.attributes = reader.readMap(
-				(reader) => reader.readString(),
-				(reader) => reader.readString()
-			);
+			value.attributes = readStringRecord(reader);
 			if (count == 2) return value;
 			value.points = reader.readArray((reader) => MetricSeriesPoint.deserializeCore(reader));
 			if (count == 3) return value;
