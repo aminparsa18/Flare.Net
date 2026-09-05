@@ -289,3 +289,9 @@ off-by-one in `LogEventDto.ts`, fixed before verification).
 - [`0015-memorypack-content-negotiation-for-flare-api.md`](0015-memorypack-content-negotiation-for-flare-api.md) -
   the server-side decision this one builds on (additive, JSON stays the
   default, `ApiSerialization` as the one seam every endpoint uses).
+- [`../investigations/memorypack-vs-json-benchmark.md`](../investigations/memorypack-vs-json-benchmark.md) -
+  Finding 2: on this dashboard's generated TypeScript decoders specifically, native
+  `JSON.parse`/`JSON.stringify` is actually 1.5-2.2x *faster* than MemoryPack decode/
+  encode (V8's native JSON codec beats a hand-rolled binary one) - this migration's
+  real benefit here is the ~18% smaller wire payload and generated type safety, not
+  client-side parse speed.

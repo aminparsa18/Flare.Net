@@ -81,6 +81,11 @@
          docs-internal/adr/0017-memorypack-ingest-redis-buffer.md) - one centrally-pinned
          version for both. Latest stable per nuget.org's flatcontainer index. -->
     <PackageVersion Include="MemoryPack" Version="1.21.4" />
+    <!-- src/Flare.Benchmarks: project-local JSON-vs-MemoryPack numbers for both migrated
+         boundaries above (ADR-0015/0016/0017) - see
+         docs-internal/planning/roadmap.md's "Flare-specific JSON-vs-MemoryPack benchmark"
+         item. Latest stable per nuget.org's flatcontainer index. -->
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <!-- Flare.Api: Microsoft Entra ID (SSO) login (Planning.md's "Entra ID (SSO) auth"
          item, docs/auth.md). Unlike AddCookie/the base AddScheme, the OpenIdConnect
          handler was split out of the Microsoft.AspNetCore.App shared framework into its

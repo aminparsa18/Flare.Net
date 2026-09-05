@@ -205,6 +205,11 @@ would remove the only thing that makes the upgrade seam possible.
 
 - [`../investigations/memorypack-serialization-migration-scope.md`](../investigations/memorypack-serialization-migration-scope.md) -
   Finding 6, the scope assessment this ADR acts on.
+- [`../investigations/memorypack-vs-json-benchmark.md`](../investigations/memorypack-vs-json-benchmark.md) -
+  project-local BenchmarkDotNet numbers for this boundary specifically (Finding 1):
+  MemoryPack wins on every axis (1.5-3.2x faster, up to 11x less allocation), decode
+  gap widest - confirms the decision with Flare's actual `LogEvent` shape rather than
+  the external SerializerBenchmark repo's generic payloads.
 - [`0015-memorypack-content-negotiation-for-flare-api.md`](0015-memorypack-content-negotiation-for-flare-api.md) -
   the `Flare.Api` HTTP-surface decision this one deliberately diverges from
   (full replacement vs. additive) and why.

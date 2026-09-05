@@ -176,6 +176,11 @@ change) is an explicitly separate, not-yet-made decision.
   the full scope assessment (endpoint/DTO/dashboard counts, findings 1-6),
   the Phase 0/Phase 1 implementation record, and the live e2e pass this
   ADR's Consequences summarize.
+- [`../investigations/memorypack-vs-json-benchmark.md`](../investigations/memorypack-vs-json-benchmark.md) -
+  project-local benchmark numbers for both sides of this boundary: MemoryPack wins on
+  every axis in .NET (Finding 1), but on the dashboard's TypeScript side native
+  `JSON.parse`/`JSON.stringify` actually beats MemoryPack's generated decoders on speed
+  (Finding 2) - the benefit there is payload size, not parse speed.
 - [`0012-otlp-only-ingestion.md`](0012-otlp-only-ingestion.md) - why OTLP
   ingestion is out of scope for this decision.
 - [`0002-redis-streams-buffering.md`](0002-redis-streams-buffering.md) -

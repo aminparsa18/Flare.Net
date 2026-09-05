@@ -82,3 +82,9 @@ graphify-out/
 # - see AppHost.cs's identityDbPath. Runtime data, not source, same reasoning as
 # clickhouse-data/redis-data not being committed for docker-compose.
 /.data/
+
+# BenchmarkDotNet output (src/Flare.Benchmarks) - lands wherever `dotnet run` was invoked
+# from (BenchmarkDotNet.Artifacts/), not necessarily under the project directory itself.
+# Generated results, not source - see docs-internal/investigations/ for the findings a
+# run actually produced.
+BenchmarkDotNet.Artifacts/
