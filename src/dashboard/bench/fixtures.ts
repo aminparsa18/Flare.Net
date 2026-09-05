@@ -61,25 +61,25 @@ export function buildLogEventDto(rand: () => number): LogEventDto {
 	dto.serviceName = serviceName;
 	dto.body = `Handled ${pick(rand, HTTP_METHODS)} ${pick(rand, HTTP_ROUTES)} in ${Math.floor(rand() * 500)}ms`;
 	dto.resourceSchemaUrl = 'https://opentelemetry.io/schemas/1.27.0';
-	dto.resourceAttributes = new Map([
-		['service.name', serviceName],
-		['service.version', `${1 + Math.floor(rand() * 5)}.${Math.floor(rand() * 20)}.${Math.floor(rand() * 20)}`],
-		['service.instance.id', randomGuid(rand)],
-		['deployment.environment', rand() < 0.5 ? 'production' : 'staging'],
-		['cloud.region', 'us-east-1'],
-		['host.name', `ip-10-0-${Math.floor(rand() * 255)}-${Math.floor(rand() * 255)}`]
-	]);
+	dto.resourceAttributes = {
+		'service.name': serviceName,
+		'service.version': `${1 + Math.floor(rand() * 5)}.${Math.floor(rand() * 20)}.${Math.floor(rand() * 20)}`,
+		'service.instance.id': randomGuid(rand),
+		'deployment.environment': rand() < 0.5 ? 'production' : 'staging',
+		'cloud.region': 'us-east-1',
+		'host.name': `ip-10-0-${Math.floor(rand() * 255)}-${Math.floor(rand() * 255)}`
+	};
 	dto.scopeSchemaUrl = 'https://opentelemetry.io/schemas/1.27.0';
 	dto.scopeName = `${serviceName}.instrumentation`;
 	dto.scopeVersion = '1.4.0';
-	dto.scopeAttributes = new Map();
-	dto.logAttributes = new Map([
-		['http.request.method', pick(rand, HTTP_METHODS)],
-		['http.route', pick(rand, HTTP_ROUTES)],
-		['http.response.status_code', String(200 + Math.floor(rand() * 5) * 100 + Math.floor(rand() * 5))],
-		['user.id', randomGuid(rand)],
-		['request.id', randomGuid(rand)]
-	]);
+	dto.scopeAttributes = {};
+	dto.logAttributes = {
+		'http.request.method': pick(rand, HTTP_METHODS),
+		'http.route': pick(rand, HTTP_ROUTES),
+		'http.response.status_code': String(200 + Math.floor(rand() * 5) * 100 + Math.floor(rand() * 5)),
+		'user.id': randomGuid(rand),
+		'request.id': randomGuid(rand)
+	};
 	dto.eventName = rand() < 0.25 ? 'http.server.request.failed' : '';
 	dto.patternId = '';
 	dto.patternTemplate = '';

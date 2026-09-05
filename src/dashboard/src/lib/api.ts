@@ -146,14 +146,6 @@ export interface LogEventDto {
 	spanDurationNano?: number | null;
 }
 
-function toRecord(map: Map<string | null, string | null> | null): Record<string, string> {
-	const record: Record<string, string> = {};
-	for (const [key, value] of map ?? []) {
-		record[key ?? ''] = value ?? '';
-	}
-	return record;
-}
-
 function toLogEventDto(dto: GeneratedLogEventDto): LogEventDto {
 	return {
 		eventId: dto.eventId,
@@ -167,12 +159,12 @@ function toLogEventDto(dto: GeneratedLogEventDto): LogEventDto {
 		serviceName: dto.serviceName ?? '',
 		body: dto.body ?? '',
 		resourceSchemaUrl: dto.resourceSchemaUrl ?? '',
-		resourceAttributes: toRecord(dto.resourceAttributes),
+		resourceAttributes: dto.resourceAttributes ?? {},
 		scopeSchemaUrl: dto.scopeSchemaUrl ?? '',
 		scopeName: dto.scopeName ?? '',
 		scopeVersion: dto.scopeVersion ?? '',
-		scopeAttributes: toRecord(dto.scopeAttributes),
-		logAttributes: toRecord(dto.logAttributes),
+		scopeAttributes: dto.scopeAttributes ?? {},
+		logAttributes: dto.logAttributes ?? {},
 		eventName: dto.eventName ?? '',
 		patternId: dto.patternId ?? '',
 		patternTemplate: dto.patternTemplate ?? '',

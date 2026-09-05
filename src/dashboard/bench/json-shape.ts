@@ -41,15 +41,6 @@ export interface LogSearchResponseJson {
 	nextCursor: string | null;
 }
 
-function mapToRecord(map: Map<string | null, string | null> | null): Record<string, string> {
-	const out: Record<string, string> = {};
-	if (map == null) return out;
-	for (const [k, v] of map) {
-		out[k ?? ''] = v ?? '';
-	}
-	return out;
-}
-
 /** `LogEventDto` (the in-memory class) -> the plain object `JSON.stringify` would send over the wire. */
 export function toJsonShape(dto: LogEventDto): LogEventDtoJson {
 	return {
@@ -65,12 +56,12 @@ export function toJsonShape(dto: LogEventDto): LogEventDtoJson {
 		serviceName: dto.serviceName ?? '',
 		body: dto.body ?? '',
 		resourceSchemaUrl: dto.resourceSchemaUrl ?? '',
-		resourceAttributes: mapToRecord(dto.resourceAttributes),
+		resourceAttributes: dto.resourceAttributes ?? {},
 		scopeSchemaUrl: dto.scopeSchemaUrl ?? '',
 		scopeName: dto.scopeName ?? '',
 		scopeVersion: dto.scopeVersion ?? '',
-		scopeAttributes: mapToRecord(dto.scopeAttributes),
-		logAttributes: mapToRecord(dto.logAttributes),
+		scopeAttributes: dto.scopeAttributes ?? {},
+		logAttributes: dto.logAttributes ?? {},
 		eventName: dto.eventName ?? '',
 		patternId: dto.patternId ?? '',
 		patternTemplate: dto.patternTemplate ?? '',

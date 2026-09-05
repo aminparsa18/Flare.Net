@@ -101,19 +101,11 @@ export interface SpanDto {
 	spanCount?: number;
 }
 
-function toRecord(map: Map<string | null, string | null> | null): Record<string, string> {
-	const record: Record<string, string> = {};
-	for (const [key, value] of map ?? []) {
-		record[key ?? ''] = value ?? '';
-	}
-	return record;
-}
-
 function toSpanEventDto(dto: GeneratedSpanEventDto): SpanEventDto {
 	return {
 		timestamp: dto.timestamp.toISOString(),
 		name: dto.name ?? '',
-		attributes: toRecord(dto.attributes)
+		attributes: dto.attributes ?? {}
 	};
 }
 
@@ -132,12 +124,12 @@ function toSpanDto(dto: GeneratedSpanDto): SpanDto {
 		statusMessage: dto.statusMessage ?? '',
 		serviceName: dto.serviceName ?? '',
 		resourceSchemaUrl: dto.resourceSchemaUrl ?? '',
-		resourceAttributes: toRecord(dto.resourceAttributes),
+		resourceAttributes: dto.resourceAttributes ?? {},
 		scopeSchemaUrl: dto.scopeSchemaUrl ?? '',
 		scopeName: dto.scopeName ?? '',
 		scopeVersion: dto.scopeVersion ?? '',
-		scopeAttributes: toRecord(dto.scopeAttributes),
-		spanAttributes: toRecord(dto.spanAttributes),
+		scopeAttributes: dto.scopeAttributes ?? {},
+		spanAttributes: dto.spanAttributes ?? {},
 		events: (dto.events ?? []).map((e) => toSpanEventDto(e!)),
 		spanCount: dto.spanCount == null ? undefined : Number(dto.spanCount)
 	};

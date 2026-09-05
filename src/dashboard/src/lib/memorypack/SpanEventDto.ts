@@ -6,11 +6,12 @@
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
 import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
 
 export class SpanEventDto {
 	timestamp: Date;
 	name: string | null;
-	attributes: Map<string | null, string | null> | null;
+	attributes: StringRecord;
 
 	constructor() {
 		this.timestamp = new Date(0);
@@ -33,11 +34,7 @@ export class SpanEventDto {
 		writer.writeObjectHeader(3);
 		writeDateTimeOffset(writer, value.timestamp);
 		writer.writeString(value.name);
-		writer.writeMap(
-			value.attributes,
-			(writer, x) => writer.writeString(x),
-			(writer, x) => writer.writeString(x)
-		);
+		writeStringRecord(writer, value.attributes);
 	}
 
 	static serializeArray(value: (SpanEventDto | null)[] | null): Uint8Array {
@@ -64,10 +61,7 @@ export class SpanEventDto {
 		if (count == 3) {
 			value.timestamp = readDateTimeOffset(reader);
 			value.name = reader.readString();
-			value.attributes = reader.readMap(
-				(reader) => reader.readString(),
-				(reader) => reader.readString()
-			);
+			value.attributes = readStringRecord(reader);
 		} else if (count > 3) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
@@ -76,10 +70,7 @@ export class SpanEventDto {
 			if (count == 1) return value;
 			value.name = reader.readString();
 			if (count == 2) return value;
-			value.attributes = reader.readMap(
-				(reader) => reader.readString(),
-				(reader) => reader.readString()
-			);
+			value.attributes = readStringRecord(reader);
 			if (count == 3) return value;
 		}
 		return value;

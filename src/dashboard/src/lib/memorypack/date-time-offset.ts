@@ -30,6 +30,16 @@
 // timestamps, `DateTimeOffset.UtcNow`) - `offsetMinutes` is always 0 in practice, so a plain
 // JS `Date` (inherently a UTC instant) round-trips losslessly through these functions with
 // nothing dropped.
+//
+// `offsetMinutes === 0n` is fast-pathed below (skips the `* ticksPerMinute` BigInt multiply
+// entirely, since adding/subtracting zero is a no-op) - see
+// docs-internal/investigations/memorypack-vs-json-benchmark.md's Finding 2 follow-up,
+// recommendation #2. The non-zero-offset path is unchanged/still fully correct, just not
+// the common case. This doesn't remove the two 8-byte `readInt64`/`readUint64` `DataView`
+// reads (BigInt-producing `DataView` methods are markedly slower in V8 than their
+// `Number`-producing counterparts like `getFloat64`) - those are unavoidable, ticks values
+// this large (~6.2e17 for the Unix epoch constant alone) exceed `Number.MAX_SAFE_INTEGER`
+// and need `bigint` precision to reconstruct correctly.
 
 import type { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import type { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -42,7 +52,7 @@ const ticksPerMinute = 600000000n;
 export function writeDateTimeOffset(writer: MemoryPackWriter, value: Date, offsetMinutes = 0n): void {
 	const unixMillisecond = BigInt(value.getTime());
 	const utcTicks = unixMillisecond * 10000n + unixEpochTicks;
-	const localTicks = utcTicks + offsetMinutes * ticksPerMinute;
+	const localTicks = offsetMinutes === 0n ? utcTicks : utcTicks + offsetMinutes * ticksPerMinute;
 	writer.writeInt64(offsetMinutes);
 	writer.writeUint64(localTicks & dateTimeMask);
 }
@@ -51,7 +61,7 @@ export function writeDateTimeOffset(writer: MemoryPackWriter, value: Date, offse
 export function readDateTimeOffset(reader: MemoryPackReader): Date {
 	const offsetMinutes = reader.readInt64();
 	const localTicks = reader.readUint64() & dateTimeMask;
-	const utcTicks = localTicks - offsetMinutes * ticksPerMinute;
+	const utcTicks = offsetMinutes === 0n ? localTicks : localTicks - offsetMinutes * ticksPerMinute;
 	const unixMillisecond = (utcTicks - unixEpochTicks) / 10000n;
 	return new Date(Number(unixMillisecond));
 }
