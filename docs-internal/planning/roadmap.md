@@ -23,23 +23,15 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Dashboard i18n: remaining rollout phases (Phases 3-7).** Branch
+- **Dashboard i18n: remaining rollout phases (Phases 4-7).** Branch
   `i18n/dashboard-paraglide-en-zh-cn` brought up Paraglide JS (en +
   zh-CN) from scratch — Phase 0 (infra + app shell + login), Phase 1
-  (Logs Explorer), and Phase 2 (Alerts) are done, committed, and
-  verified; everything else in the dashboard is still 100% hardcoded
-  English. Same mechanical pattern each time (extract strings to
-  `messages/en.json`, hand-author the zh-CN translation, wire `m.*()`
-  calls, `npm run check` + a grep sweep for stragglers to verify) —
-  pick up wherever is next:
-  - **Phase 3 — Traces, Metrics, Resources.** `src/lib/components/traces/`
-    + `routes/traces/+page.svelte` + `routes/traces/[traceId]/+page.svelte`;
-    `src/lib/components/metrics/`; `routes/resources/+page.svelte`. Note:
-    `MetricsToolbar.svelte`/`TracesToolbar.svelte` already had their
-    time-range-preset labels fixed during Phase 1 (a real bug — a static
-    module-scope `.label` field can't reflect a per-request locale, see
-    `src/lib/logs/time-range.ts`'s comment) — the rest of both files'
-    strings are still untranslated.
+  (Logs Explorer), Phase 2 (Alerts), and Phase 3 (Traces, Metrics,
+  Resources) are done, committed, and verified; everything else in the
+  dashboard is still 100% hardcoded English. Same mechanical pattern
+  each time (extract strings to `messages/en.json`, hand-author the
+  zh-CN translation, wire `m.*()` calls, `npm run check` + a grep sweep
+  for stragglers to verify) — pick up wherever is next:
   - **Phase 4 — Ingestion, Indexing, Saved Views.**
     `src/lib/components/ingestion/`, `src/lib/components/indexing/`,
     `src/lib/components/saved-views/`, plus their routes.

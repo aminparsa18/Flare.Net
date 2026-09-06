@@ -4,6 +4,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { tracesExplorerContext } from '$lib/traces/context';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = tracesExplorerContext.get();
 
@@ -22,19 +23,19 @@
 		class="bg-muted/30 text-muted-foreground grid shrink-0 items-center gap-3 overflow-y-hidden border-b px-3 text-xs font-medium"
 		style="grid-template-columns: var(--trace-row-columns); height: 28px; scrollbar-gutter: stable;"
 	>
-		<span>Time</span>
-		<span>Status</span>
-		<span>Service</span>
-		<span>Name</span>
-		<span>Duration</span>
-		<span class="text-right">Spans</span>
+		<span>{m.traceList_colTime()}</span>
+		<span>{m.traceList_colStatus()}</span>
+		<span>{m.traceList_colService()}</span>
+		<span>{m.traceList_colName()}</span>
+		<span>{m.traceList_colDuration()}</span>
+		<span class="text-right">{m.traceList_colSpans()}</span>
 	</div>
 
 	{#if explorer.traces.length === 0 && !explorer.loading}
 		<Empty.Root class="flex-1">
 			<Empty.Header>
-				<Empty.Title>No traces</Empty.Title>
-				<Empty.Description>No traces match the current filters.</Empty.Description>
+				<Empty.Title>{m.traceList_emptyTitle()}</Empty.Title>
+				<Empty.Description>{m.traceList_emptyDescription()}</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
@@ -42,7 +43,7 @@
 			items={explorer.traces}
 			itemHeight={ROW_HEIGHT}
 			getKey={(trace) => trace.traceId}
-			ariaLabel="Traces"
+			ariaLabel={m.traceList_ariaLabel()}
 			onEndReached={() => void explorer.loadMore()}
 			class="min-h-0 flex-1"
 		>

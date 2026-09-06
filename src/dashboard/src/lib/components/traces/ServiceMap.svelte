@@ -12,6 +12,7 @@
 	import { formatDurationNano } from '$lib/traces/duration';
 	import ServiceMapNode from './ServiceMapNode.svelte';
 	import * as Empty from '$lib/components/ui/empty';
+	import * as m from '$lib/paraglide/messages';
 
 	let { spans }: { spans: SpanDto[] } = $props();
 
@@ -39,8 +40,11 @@
 			animated: true,
 			label:
 				edge.callCount === 1
-					? `1 call · ${formatDurationNano(edge.totalDurationNano)}`
-					: `${edge.callCount} calls · avg ${formatDurationNano(edge.totalDurationNano / edge.callCount)}`
+					? m.serviceMap_edgeSingleCall({ duration: formatDurationNano(edge.totalDurationNano) })
+					: m.serviceMap_edgeMultiCall({
+							count: edge.callCount,
+							duration: formatDurationNano(edge.totalDurationNano / edge.callCount)
+						})
 		}));
 
 		nodes = layoutGraph(rawNodes, rawEdges);
@@ -51,9 +55,9 @@
 {#if nodes.length <= 1}
 	<Empty.Root class="flex-1">
 		<Empty.Header>
-			<Empty.Title>Nothing to map</Empty.Title>
+			<Empty.Title>{m.serviceMap_emptyTitle()}</Empty.Title>
 			<Empty.Description>
-				Every span in this trace belongs to the same service - the map has nothing to draw beyond it.
+				{m.serviceMap_emptyDescription()}
 			</Empty.Description>
 		</Empty.Header>
 	</Empty.Root>

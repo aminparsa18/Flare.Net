@@ -44,7 +44,7 @@
 	</Select.Root>
 
 	<PopoverMultiSelect
-		label="Service"
+		label={m.tracesToolbar_serviceLabel()}
 		options={serviceOptions}
 		selected={explorer.filter.services}
 		onChange={(next) => explorer.setServices(next)}

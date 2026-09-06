@@ -7,6 +7,7 @@
 	import { parseTracesDeepLinkParams } from '$lib/deep-links';
 	import TracesToolbar from '$lib/components/traces/TracesToolbar.svelte';
 	import TraceList from '$lib/components/traces/TraceList.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = tracesExplorerContext.set(new TracesExplorerState());
 
@@ -36,7 +37,7 @@
 </script>
 
 <svelte:head>
-	<title>Flare — Traces</title>
+	<title>{m.tracesPage_title()}</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">

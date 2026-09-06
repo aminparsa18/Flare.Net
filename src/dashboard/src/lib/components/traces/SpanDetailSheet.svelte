@@ -9,6 +9,7 @@
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import { searchLogs, type LogEventDto } from '$lib/api';
 	import { severityVariant } from '$lib/logs/severity';
+	import * as m from '$lib/paraglide/messages';
 
 	const detail = traceDetailContext.get();
 
@@ -86,32 +87,32 @@
 
 					<div class="grid grid-cols-2 gap-2 text-xs">
 						<div>
-							<span class="text-muted-foreground">Trace ID</span>
+							<span class="text-muted-foreground">{m.spanDetail_traceId()}</span>
 							<p class="truncate font-mono">{span.traceId}</p>
 						</div>
 						<div>
-							<span class="text-muted-foreground">Span ID</span>
+							<span class="text-muted-foreground">{m.spanDetail_spanId()}</span>
 							<p class="truncate font-mono">{span.spanId}</p>
 						</div>
 						<div>
-							<span class="text-muted-foreground">Parent span ID</span>
-							<p class="truncate font-mono">{span.parentSpanId || '— (root span)'}</p>
+							<span class="text-muted-foreground">{m.spanDetail_parentSpanId()}</span>
+							<p class="truncate font-mono">{span.parentSpanId || m.spanDetail_rootSpanFallback()}</p>
 						</div>
 						<div>
-							<span class="text-muted-foreground">Trace state</span>
+							<span class="text-muted-foreground">{m.spanDetail_traceState()}</span>
 							<p class="truncate font-mono">{span.traceState || '—'}</p>
 						</div>
 					</div>
 
 					<Separator />
 
-					<AttributeTable title="Span attributes" attributes={span.spanAttributes} />
-					<AttributeTable title="Resource attributes" attributes={span.resourceAttributes} />
-					<AttributeTable title="Scope attributes" attributes={span.scopeAttributes} />
+					<AttributeTable title={m.spanDetail_spanAttributesTitle()} attributes={span.spanAttributes} />
+					<AttributeTable title={m.spanDetail_resourceAttributesTitle()} attributes={span.resourceAttributes} />
+					<AttributeTable title={m.spanDetail_scopeAttributesTitle()} attributes={span.scopeAttributes} />
 
 					{#if span.events.length > 0}
 						<div>
-							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">Events</h3>
+							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">{m.spanDetail_eventsTitle()}</h3>
 							<div class="flex flex-col gap-2">
 								{#each span.events as event, i (i)}
 									<div class="rounded-md border p-2">
@@ -119,7 +120,7 @@
 											<span class="text-sm font-medium">{event.name || '—'}</span>
 											<span class="text-muted-foreground shrink-0 font-mono text-xs">{formatTimestamp(event.timestamp)}</span>
 										</div>
-										<AttributeTable title="Attributes" attributes={event.attributes} />
+										<AttributeTable title={m.spanDetail_attributesTitle()} attributes={event.attributes} />
 									</div>
 								{/each}
 							</div>
@@ -128,7 +129,7 @@
 
 					{#if linkedLogs.length > 0}
 						<div>
-							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">Linked logs</h3>
+							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">{m.spanDetail_linkedLogsTitle()}</h3>
 							<div class="flex flex-col gap-2">
 								{#each linkedLogs as log (log.eventId)}
 									<div class="rounded-md border p-2">

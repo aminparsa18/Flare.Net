@@ -8,6 +8,7 @@
 	import type { ServiceMapFlowNode } from '$lib/traces/service-map-flow-types';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import NetworkIcon from '@lucide/svelte/icons/network';
+	import * as m from '$lib/paraglide/messages';
 
 	let { data }: NodeProps<ServiceMapFlowNode> = $props();
 	const service = $derived(data.service);
@@ -28,10 +29,18 @@
 		<span class="truncate text-sm font-medium" title={service.service}>{service.service}</span>
 	</div>
 	<div class="mt-2 flex flex-wrap items-center gap-1">
-		<Badge variant="outline">{service.spanCount} {service.spanCount === 1 ? 'span' : 'spans'}</Badge>
+		<Badge variant="outline">
+			{service.spanCount === 1
+				? m.serviceMapNode_spanSingular({ count: service.spanCount })
+				: m.serviceMapNode_spanPlural({ count: service.spanCount })}
+		</Badge>
 		<Badge variant="outline">{formatDurationNano(service.totalDurationNano)}</Badge>
 		{#if service.errorCount > 0}
-			<Badge variant="destructive">{service.errorCount} {service.errorCount === 1 ? 'error' : 'errors'}</Badge>
+			<Badge variant="destructive">
+				{service.errorCount === 1
+					? m.serviceMapNode_errorSingular({ count: service.errorCount })
+					: m.serviceMapNode_errorPlural({ count: service.errorCount })}
+			</Badge>
 		{/if}
 	</div>
 	{#if shownOperations.length > 0}
@@ -40,7 +49,7 @@
 				<span class="truncate" title={operation}>{operation}</span>
 			{/each}
 			{#if hiddenOperationCount > 0}
-				<span>+{hiddenOperationCount} more</span>
+				<span>{m.serviceMapNode_moreOperations({ count: hiddenOperationCount })}</span>
 			{/if}
 		</div>
 	{/if}

@@ -11,6 +11,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { cn } from '$lib/utils';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import * as m from '$lib/paraglide/messages';
 
 	const detail = traceDetailContext.set(new TraceDetailState());
 
@@ -34,14 +35,14 @@
 </script>
 
 <svelte:head>
-	<title>Flare — Trace {page.params.traceId}</title>
+	<title>{m.tracePage_title({ traceId: page.params.traceId! })}</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">
 	<div class="bg-background sticky top-0 z-10 flex items-center gap-2 border-b px-4 py-2">
 		<Button variant="ghost" size="sm" href="/traces">
 			<ArrowLeftIcon data-icon="inline-start" />
-			Back to traces
+			{m.tracePage_backToTraces()}
 		</Button>
 		<span class="text-muted-foreground truncate font-mono text-xs">{page.params.traceId}</span>
 		{#if !detail.loading && !detail.notFound && !detail.error}
@@ -51,14 +52,14 @@
 					class={cn(buttonVariants({ variant: activeTab === 'waterfall' ? 'secondary' : 'ghost', size: 'sm' }))}
 					onclick={() => (activeTab = 'waterfall')}
 				>
-					Waterfall
+					{m.tracePage_waterfallTab()}
 				</button>
 				<button
 					type="button"
 					class={cn(buttonVariants({ variant: activeTab === 'service-map' ? 'secondary' : 'ghost', size: 'sm' }))}
 					onclick={() => (activeTab = 'service-map')}
 				>
-					Service Map
+					{m.tracePage_serviceMapTab()}
 				</button>
 			</div>
 		{/if}
@@ -71,14 +72,14 @@
 	{:else if detail.notFound}
 		<Empty.Root class="flex-1">
 			<Empty.Header>
-				<Empty.Title>Trace not found</Empty.Title>
-				<Empty.Description>No spans exist for this trace id.</Empty.Description>
+				<Empty.Title>{m.tracePage_notFoundTitle()}</Empty.Title>
+				<Empty.Description>{m.tracePage_notFoundDescription()}</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
 	{:else if detail.error}
 		<Empty.Root class="flex-1">
 			<Empty.Header>
-				<Empty.Title>Failed to load trace</Empty.Title>
+				<Empty.Title>{m.tracePage_errorTitle()}</Empty.Title>
 				<Empty.Description>{detail.error}</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
