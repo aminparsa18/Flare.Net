@@ -11,6 +11,7 @@ import DatabaseIcon from '@lucide/svelte/icons/database';
 import SendIcon from '@lucide/svelte/icons/send';
 import InboxIcon from '@lucide/svelte/icons/inbox';
 import CircleHelpIcon from '@lucide/svelte/icons/circle-help';
+import * as m from '$lib/paraglide/messages';
 
 export function statusVariant(statusCode: string): BadgeVariant {
 	switch (statusCode) {
@@ -26,26 +27,36 @@ export function statusVariant(statusCode: string): BadgeVariant {
 export function statusLabel(statusCode: string): string {
 	switch (statusCode) {
 		case 'STATUS_CODE_OK':
-			return 'OK';
+			return m.traceStatus_ok();
 		case 'STATUS_CODE_ERROR':
-			return 'Error';
+			return m.traceStatus_error();
 		default:
-			return 'Unset';
+			return m.traceStatus_unset();
 	}
 }
 
 /** OTel SpanKind (Span.proto's Span.SpanKind enum) - 0 through 5, spec-fixed. */
-const KIND_LABELS: Record<number, string> = {
-	0: 'Unspecified',
-	1: 'Internal',
-	2: 'Server',
-	3: 'Client',
-	4: 'Producer',
-	5: 'Consumer'
-};
+function kindLabelFor(kind: number): string | null {
+	switch (kind) {
+		case 0:
+			return m.traceKind_unspecified();
+		case 1:
+			return m.traceKind_internal();
+		case 2:
+			return m.traceKind_server();
+		case 3:
+			return m.traceKind_client();
+		case 4:
+			return m.traceKind_producer();
+		case 5:
+			return m.traceKind_consumer();
+		default:
+			return null;
+	}
+}
 
 export function kindLabel(kind: number): string {
-	return KIND_LABELS[kind] ?? `Kind ${kind}`;
+	return kindLabelFor(kind) ?? m.traceKind_fallback({ kind });
 }
 
 /**

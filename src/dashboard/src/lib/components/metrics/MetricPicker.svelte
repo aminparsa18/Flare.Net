@@ -5,6 +5,7 @@
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import type { MetricNameInfo, MetricPointType } from '$lib/metrics-api';
 	import { cn } from '$lib/utils';
+	import * as m from '$lib/paraglide/messages';
 
 	// Controlled width in px, not a Tailwind class - the divider in +page.svelte drags
 	// this live, and Tailwind has no arbitrary-per-drag-frame class to generate. Default
@@ -33,7 +34,7 @@
 
 <div class="flex min-w-0 shrink-0 flex-col border-r" style="width: {width}px">
 	<Command.Root class="flex min-h-0 flex-1 flex-col rounded-none bg-transparent">
-		<Command.Input placeholder="Filter metrics..." />
+		<Command.Input placeholder={m.metricPicker_filterPlaceholder()} />
 		<Command.List class="min-h-0 max-h-none flex-1">
 			{#if explorer.namesLoading && explorer.names.length === 0}
 				<div class="flex justify-center py-8">
@@ -42,7 +43,7 @@
 			{:else if explorer.namesError}
 				<p class="text-destructive px-3 py-4 text-xs">{explorer.namesError}</p>
 			{:else}
-				<Command.Empty>No metrics found for the current filters.</Command.Empty>
+				<Command.Empty>{m.metricPicker_empty()}</Command.Empty>
 				{#if explorer.names.length === 0 && explorer.knownServices.length === 0}
 					<!-- knownServices (not `names`, which is already narrowed by the toolbar's own
 					     filters/this list's own search box) is the wide, unfiltered 7-day signal
@@ -54,7 +55,7 @@
 							href="/data-sources"
 							class="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4"
 						>
-							See how to ingest data →
+							{m.metricPicker_ingestLink()}
 						</a>
 					</p>
 				{/if}
@@ -73,7 +74,7 @@
 								     another (e.g. dotnet.exceptions, one line per error.type) charts
 								     as several, before they've selected it. "series" is already its own
 								     plural in English, so no singular-vs-plural label branch needed. -->
-								<span class="text-muted-foreground truncate text-xs tabular-nums">{metric.seriesCount} series</span>
+								<span class="text-muted-foreground truncate text-xs tabular-nums">{m.metricPicker_seriesCount({ count: metric.seriesCount })}</span>
 								<span class="text-muted-foreground truncate text-xs">
 									{metric.serviceName}{metric.unit ? ` · ${metric.unit}` : ''}
 								</span>

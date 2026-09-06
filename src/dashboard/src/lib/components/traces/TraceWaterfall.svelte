@@ -12,6 +12,7 @@
 	import { kindIcon, kindLabel } from '$lib/traces/status';
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import TimerIcon from '@lucide/svelte/icons/timer';
+	import * as m from '$lib/paraglide/messages';
 
 	const detail = traceDetailContext.get();
 
@@ -133,7 +134,7 @@
 		<div class="shrink-0 border-b px-3 py-2">
 			<div class="text-muted-foreground mb-1.5 flex items-center gap-1.5 text-xs font-medium">
 				<TimerIcon class="size-3.5" />
-				Slowest spans
+				{m.traceWaterfall_slowestSpansHeading()}
 			</div>
 			<div class="flex flex-col gap-0.5">
 				{#each slowestSpans as span, i (span.spanId)}
@@ -178,14 +179,16 @@
 				{#if criticalPath && criticalPath.topContributor && (detail.trace?.spans.length ?? 0) > 1}
 					<div class="bg-warning/10 text-warning flex items-center gap-1.5 border-b px-3 py-1.5 text-xs">
 						<ZapIcon class="size-3.5 shrink-0" />
-						<span class="font-medium">Critical path</span>
+						<span class="font-medium">{m.traceWaterfall_criticalPathLabel()}</span>
 						<span class="text-warning/70">·</span>
-						<span>{criticalSpanIds.size} of {detail.trace?.spans.length} spans</span>
+						<span>{m.traceWaterfall_criticalPathCount({ count: criticalSpanIds.size, total: detail.trace?.spans.length ?? 0 })}</span>
 						<span class="text-warning/70">·</span>
 						<span>
 							<span class="font-medium">{criticalPath.topContributor.span.name || '—'}</span>
-							{' '}accounts for {Math.round((criticalPath.topContributor.ms / rootDurationMs) * 100)}% of the trace
-							({formatDurationNano(criticalPath.topContributor.ms * 1_000_000)})
+							{' '}{m.traceWaterfall_criticalPathContribution({
+								percent: Math.round((criticalPath.topContributor.ms / rootDurationMs) * 100),
+								duration: formatDurationNano(criticalPath.topContributor.ms * 1_000_000)
+							})}
 						</span>
 					</div>
 				{/if}
@@ -193,7 +196,7 @@
 					class="bg-muted/30 text-muted-foreground grid items-center border-b text-xs font-medium"
 					style="grid-template-columns: var(--waterfall-label-width) 1fr; height: 28px;"
 				>
-					<span class="px-3">Span</span>
+					<span class="px-3">{m.traceWaterfall_spanColumnHeader()}</span>
 					<!-- pr-3 + the last tick's own -translate-x-full keep the "total duration" label
 					     flush with, not overflowing past, the container's right edge - a left-anchored
 					     0% tick needs no such adjustment, so only the last one gets it. -->
@@ -247,7 +250,7 @@
 								? 'ring-warning opacity-100 ring-2'
 								: 'opacity-40'}"
 							style={barStyle(span)}
-							title="{span.name} — {formatDurationNano(span.durationNano)}"
+							title={m.traceWaterfall_barTitle({ name: span.name, duration: formatDurationNano(span.durationNano) })}
 						></div>
 					</div>
 				</button>

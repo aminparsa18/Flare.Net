@@ -9,6 +9,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Switch } from '$lib/components/ui/switch';
 	import NetworkIcon from '@lucide/svelte/icons/network';
+	import * as m from '$lib/paraglide/messages';
 
 	const resources = resourcesContext.set(new ResourcesState());
 	/** Independent stream from `resources` above - see HostOverview.svelte's own remark on why it isn't gated by the topology graph's enablement. */
@@ -33,18 +34,18 @@
 </script>
 
 <svelte:head>
-	<title>Flare — Resources</title>
+	<title>{m.resourcesPage_title()}</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">
 	<div class="bg-background sticky top-0 z-10 flex items-center gap-2 border-b px-4 py-2">
-		<h1 class="text-sm font-medium">Resources</h1>
+		<h1 class="text-sm font-medium">{m.resourcesPage_heading()}</h1>
 		<Badge variant={statusVariant} class="ml-1">{resources.connectionStatus}</Badge>
 		{#if resources.error}
 			<span class="text-destructive text-xs">{resources.error}</span>
 		{/if}
 		<label for="show-flare-resources" class="ml-auto flex items-center gap-2 text-xs">
-			Flare resources
+			{m.resourcesPage_flareResourcesLabel()}
 			<Switch id="show-flare-resources" bind:checked={showResourceNodes} />
 		</label>
 	</div>
@@ -58,10 +59,9 @@
 					<EmptyMedia variant="icon">
 						<NetworkIcon />
 					</EmptyMedia>
-					<EmptyTitle>Resources graph not enabled</EmptyTitle>
+					<EmptyTitle>{m.resourcesPage_graphDisabledTitle()}</EmptyTitle>
 					<EmptyDescription>
-						{resources.snapshot?.unavailableReason ??
-							'Waiting for Flare.Api - the resource graph is off by default and needs an explicit opt-in (enableResourceGraph).'}
+						{resources.snapshot?.unavailableReason ?? m.resourcesPage_graphDisabledDescription()}
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

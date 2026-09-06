@@ -28,7 +28,9 @@
 	// grouping" and is translated back to null at the call site below.
 	const GROUP_BY_NONE = '__none__';
 	const groupByLabel = $derived(
-		explorer.filter.groupByAttributeKey ? `Group by: ${explorer.filter.groupByAttributeKey}` : 'Group by'
+		explorer.filter.groupByAttributeKey
+			? m.metricsToolbar_groupByWithKey({ key: explorer.filter.groupByAttributeKey })
+			: m.metricsToolbar_groupByLabel()
 	);
 </script>
 
@@ -50,7 +52,7 @@
 	</Select.Root>
 
 	<PopoverMultiSelect
-		label="Service"
+		label={m.metricsToolbar_serviceLabel()}
 		options={serviceOptions}
 		selected={explorer.filter.services}
 		onChange={(next) => explorer.setServices(next)}
@@ -72,7 +74,7 @@
 				{groupByLabel}
 			</Select.Trigger>
 			<Select.Content>
-				<Select.Item value={GROUP_BY_NONE} label="None" />
+				<Select.Item value={GROUP_BY_NONE} label={m.metricsToolbar_groupByNone()} />
 				{#each explorer.knownAttributeKeys as key (key.key)}
 					<Select.Item value={key.key} label={`${key.key} (${key.distinctValueCount})`} />
 				{/each}
@@ -89,16 +91,13 @@
 	     one static sentence, not something that needs its own Provider/Root/Trigger
 	     wiring (MetricChart's own hover tooltips are for genuinely dynamic content, e.g.
 	     the exact compared dates). -->
-	<label
-		class="flex items-center gap-1.5 text-xs font-medium"
-		title="Compares the current time range to the period immediately before it, of the same length (e.g. Last 24 hours vs. the 24 hours before that)."
-	>
+	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.metricsToolbar_compareTitle()}>
 		<Switch
 			checked={explorer.filter.compareEnabled}
 			onCheckedChange={(v) => explorer.setCompareEnabled(v)}
 			size="sm"
 		/>
-		Compare with previous period
+		{m.metricsToolbar_compareLabel()}
 	</label>
 
 	<ViewsMenu

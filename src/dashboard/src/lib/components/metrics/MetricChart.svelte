@@ -19,6 +19,7 @@
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
 	import { TIME_RANGE_PRESETS, previousPeriodLabel, resolveTimeRange, previousPeriod } from '$lib/logs/time-range';
 	import type { MetricSeries } from '$lib/metrics-api';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = metricsExplorerContext.get();
 
@@ -64,18 +65,38 @@
 	let sumMode = $state<SumMode>('rate');
 	let histogramMode = $state<HistogramMode>('percentiles');
 
-	const SUM_MODE_LABEL: Record<SumMode, string> = { sum: 'Sum', rate: 'Rate', count: 'Count' };
+	// Functions, not module/instance-scope const lookup objects - see time-range.ts's
+	// own remarks (surfaced during Phase 1) on why a plain object literal built once
+	// can't reflect a per-request/live-switched locale, only a call re-evaluated at
+	// each use can.
+	function sumModeLabel(mode: SumMode): string {
+		switch (mode) {
+			case 'sum':
+				return m.metricChart_sumModeSum();
+			case 'rate':
+				return m.metricChart_sumModeRate();
+			case 'count':
+				return m.metricChart_sumModeCount();
+		}
+	}
 	// "Max (approx.)" everywhere it's user-visible (Select item, trigger, line
 	// detail/tooltip) - MaxApprox is a bucket-boundary approximation, not the true
 	// OTLP max (see MetricSeriesPoint.maxApprox), so the caveat travels with the
 	// value rather than being a one-off mention.
-	const HISTOGRAM_MODE_LABEL: Record<HistogramMode, string> = {
-		percentiles: 'Percentiles',
-		mean: 'Mean',
-		p75: 'p75',
-		p95: 'p95',
-		max: 'Max (approx.)'
-	};
+	function histogramModeLabel(mode: HistogramMode): string {
+		switch (mode) {
+			case 'percentiles':
+				return m.metricChart_histogramModePercentiles();
+			case 'mean':
+				return m.metricChart_histogramModeMean();
+			case 'p75':
+				return m.metricChart_histogramModeP75();
+			case 'p95':
+				return m.metricChart_histogramModeP95();
+			case 'max':
+				return m.metricChart_histogramModeMax();
+		}
+	}
 
 	// Histogram modes period-over-period comparison supports - Mean (a single line,
 	// same shape as Gauge/Sum) and Max (a "max of per-bucket maxApprox across the
@@ -264,8 +285,8 @@
 				return [
 					{
 						color: SINGLE_LINE_COLOR,
-						label: 'mean',
-						detail: 'mean',
+						label: histogramModeLabel('mean'),
+						detail: histogramModeLabel('mean'),
 						points: series.points
 							.filter((p) => p.sum != null && p.count != null && p.count > 0)
 							.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p.sum! / p.count! }))
@@ -277,8 +298,8 @@
 				return [
 					{
 						color: SINGLE_LINE_COLOR,
-						label: key,
-						detail: key,
+						label: histogramModeLabel(key),
+						detail: histogramModeLabel(key),
 						points: series.points
 							.filter((p) => p[key] != null)
 							.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p[key]! }))
@@ -289,8 +310,8 @@
 				return [
 					{
 						color: SINGLE_LINE_COLOR,
-						label: HISTOGRAM_MODE_LABEL.max,
-						detail: HISTOGRAM_MODE_LABEL.max,
+						label: histogramModeLabel('max'),
+						detail: histogramModeLabel('max'),
 						points: series.points
 							.filter((p) => p.maxApprox != null)
 							.map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p.maxApprox! }))
@@ -413,8 +434,14 @@
 			? histogramComparePoints(visibleSeries[0] ? matchingSeries(visibleSeries[0], explorer.previousSeries) : null, shiftMs)
 			: sortedPoints(totalsByBucket(explorer.previousSeries), shiftMs);
 		return [
-			{ color: 'var(--chart-1)', label: 'Current', detail: 'Current', points: currentPoints },
-			{ color: 'var(--muted-foreground)', label: 'Previous', detail: 'Previous', dashed: true, points: previousPoints }
+			{ color: 'var(--chart-1)', label: m.metricChart_currentLabel(), detail: m.metricChart_currentLabel(), points: currentPoints },
+			{
+				color: 'var(--muted-foreground)',
+				label: m.metricChart_previousLabel(),
+				detail: m.metricChart_previousLabel(),
+				dashed: true,
+				points: previousPoints
+			}
 		];
 	}
 
@@ -478,10 +505,10 @@
 
 	const compareChangeText = $derived.by(() => {
 		if (comparePercent === null) return null;
-		const periodLabel = previousPeriodLabel(explorer.filter.timeRangePreset);
-		if (comparePercent === 'new') return `new (no data in ${periodLabel})`;
+		const period = previousPeriodLabel(explorer.filter.timeRangePreset);
+		if (comparePercent === 'new') return m.metricChart_compareNew({ period });
 		const sign = comparePercent > 0 ? '+' : '';
-		return `${sign}${comparePercent.toFixed(0)}% vs ${periodLabel}`;
+		return m.metricChart_compareChange({ percent: `${sign}${comparePercent.toFixed(0)}`, period });
 	});
 
 	// "previous 24 hours" names the *duration* being compared, not which 24 hours that
@@ -495,7 +522,7 @@
 		const previous = previousPeriod(range);
 		const fmt = (iso: string) =>
 			new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-		return `Current: ${fmt(range.from)} – ${fmt(range.to)}\nPrevious: ${fmt(previous.from)} – ${fmt(previous.to)}`;
+		return `${m.metricChart_compareRangeCurrent({ from: fmt(range.from), to: fmt(range.to) })}\n${m.metricChart_compareRangePrevious({ from: fmt(previous.from), to: fmt(previous.to) })}`;
 	});
 
 	// Shared x-domain: every distinct bucket across the visible lines, in order - same
@@ -612,8 +639,8 @@
 	{#if !explorer.selected}
 		<Empty.Root class="flex-1">
 			<Empty.Header>
-				<Empty.Title>No metric selected</Empty.Title>
-				<Empty.Description>Pick a metric from the list to chart it.</Empty.Description>
+				<Empty.Title>{m.metricChart_noMetricSelectedTitle()}</Empty.Title>
+				<Empty.Description>{m.metricChart_noMetricSelectedDescription()}</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
@@ -638,12 +665,12 @@
 						{#if isSum}
 							<Select.Root type="single" value={sumMode} onValueChange={(v) => v && (sumMode = v as SumMode)}>
 								<Select.Trigger class="w-auto">
-									{SUM_MODE_LABEL[sumMode]}
+									{sumModeLabel(sumMode)}
 								</Select.Trigger>
 								<Select.Content>
-									<Select.Item value="sum" label="Sum" />
-									<Select.Item value="rate" label="Rate" />
-									<Select.Item value="count" label="Count" />
+									<Select.Item value="sum" label={m.metricChart_sumModeSum()} />
+									<Select.Item value="rate" label={m.metricChart_sumModeRate()} />
+									<Select.Item value="count" label={m.metricChart_sumModeCount()} />
 								</Select.Content>
 							</Select.Root>
 						{:else if isHistogram}
@@ -653,14 +680,14 @@
 								onValueChange={(v) => v && (histogramMode = v as HistogramMode)}
 							>
 								<Select.Trigger class="w-auto">
-									{HISTOGRAM_MODE_LABEL[histogramMode]}
+									{histogramModeLabel(histogramMode)}
 								</Select.Trigger>
 								<Select.Content>
-									<Select.Item value="percentiles" label="Percentiles" />
-									<Select.Item value="mean" label="Mean" />
-									<Select.Item value="p75" label="p75" />
-									<Select.Item value="p95" label="p95" />
-									<Select.Item value="max" label={HISTOGRAM_MODE_LABEL.max} />
+									<Select.Item value="percentiles" label={m.metricChart_histogramModePercentiles()} />
+									<Select.Item value="mean" label={m.metricChart_histogramModeMean()} />
+									<Select.Item value="p75" label={m.metricChart_histogramModeP75()} />
+									<Select.Item value="p95" label={m.metricChart_histogramModeP95()} />
+									<Select.Item value="max" label={histogramModeLabel('max')} />
 								</Select.Content>
 							</Select.Root>
 						{:else}
@@ -676,9 +703,13 @@
 						     with what's actually drawn. Histogram compare doesn't get this -
 						     it's still the one series histogramSeriesIndex already picks, same
 						     as outside comparison mode, never a cross-series aggregate. -->
-						<span>{explorer.series.length} series{compareActive && !isHistogram ? ' (summed)' : ''}</span>
+						<span>
+							{compareActive && !isHistogram
+								? m.metricChart_seriesCountSummed({ count: explorer.series.length })
+								: m.metricChart_seriesCount({ count: explorer.series.length })}
+						</span>
 						<span aria-hidden="true">·</span>
-						<span>{formatBucketWidthSeconds(explorer.intervalSeconds)} interval</span>
+						<span>{m.metricChart_intervalLabel({ interval: formatBucketWidthSeconds(explorer.intervalSeconds) })}</span>
 						{#if compareChangeText}
 							<span aria-hidden="true">·</span>
 							<Tooltip.Provider>
@@ -705,7 +736,7 @@
 							</Tooltip.Provider>
 						{:else if compareUnavailable}
 							<span aria-hidden="true">·</span>
-							<span>Switch to Mean or Max to compare with previous period</span>
+							<span>{m.metricChart_compareUnavailable()}</span>
 						{/if}
 					</div>
 				{/if}
@@ -738,10 +769,10 @@
 					</Select.Root>
 				{/if}
 				{#if logsHref}
-					<Button variant="link" size="sm" href={logsHref} class="h-auto p-0">View related logs →</Button>
+					<Button variant="link" size="sm" href={logsHref} class="h-auto p-0">{m.metricChart_viewLogs()}</Button>
 				{/if}
 				{#if tracesHref}
-					<Button variant="link" size="sm" href={tracesHref} class="h-auto p-0">View traces →</Button>
+					<Button variant="link" size="sm" href={tracesHref} class="h-auto p-0">{m.metricChart_viewTraces()}</Button>
 				{/if}
 			</div>
 		</div>
@@ -787,7 +818,7 @@
 			{:else if explorer.queryError}
 				<p class="text-destructive text-xs">{explorer.queryError}</p>
 			{:else if bucketTimes.length === 0}
-				<div class="text-muted-foreground flex h-[180px] items-center justify-center text-xs">No data in range</div>
+				<div class="text-muted-foreground flex h-[180px] items-center justify-center text-xs">{m.metricChart_noDataInRange()}</div>
 			{:else}
 				<div class="flex gap-2">
 					<!-- Rendered as real DOM text, not SVG <text>, deliberately: the chart's
@@ -827,7 +858,7 @@
 										preserveAspectRatio="none"
 										class="h-[180px] w-full min-w-0"
 										role="img"
-										aria-label="{explorer.selected!.metricName} over time"
+										aria-label={m.metricChart_chartAriaLabel({ metric: explorer.selected!.metricName })}
 										onpointermove={handlePointerMove}
 										onpointerleave={() => (hoverIndex = null)}
 									>
@@ -934,7 +965,7 @@
 
 				{#if hiddenSeriesCount > 0}
 					<p class="text-muted-foreground mt-2 text-xs">
-						+{hiddenSeriesCount} more series not shown ({MAX_SERIES} max) - narrow the service/attribute filter to see them.
+						{m.metricChart_hiddenSeries({ count: hiddenSeriesCount, max: MAX_SERIES })}
 					</p>
 				{/if}
 			{/if}

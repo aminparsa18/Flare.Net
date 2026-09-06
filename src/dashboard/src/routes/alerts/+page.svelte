@@ -5,6 +5,7 @@
 	import AlertRuleTable from '$lib/components/alerts/AlertRuleTable.svelte';
 	import AlertRuleFormDialog from '$lib/components/alerts/AlertRuleFormDialog.svelte';
 	import AlertHistorySheet from '$lib/components/alerts/AlertHistorySheet.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	const alerts = alertsContext.set(new AlertsState());
 
@@ -14,7 +15,7 @@
 </script>
 
 <svelte:head>
-	<title>Flare — Alerts</title>
+	<title>{m.alertsPage_title()}</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">

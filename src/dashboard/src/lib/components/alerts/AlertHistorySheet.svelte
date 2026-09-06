@@ -8,6 +8,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as Empty from '$lib/components/ui/empty';
 	import { alertsContext } from '$lib/alerts/context';
+	import * as m from '$lib/paraglide/messages';
 
 	const alerts = alertsContext.get();
 
@@ -27,7 +28,7 @@
 			{@const rule = alerts.historyRule}
 			<Sheet.Header>
 				<Sheet.Title>{rule.name}</Sheet.Title>
-				<Sheet.Description>Fired-alert history</Sheet.Description>
+				<Sheet.Description>{m.alertHistory_description()}</Sheet.Description>
 			</Sheet.Header>
 			<ScrollArea class="min-h-0 flex-1 px-4">
 				{#if alerts.historyLoading}
@@ -39,8 +40,8 @@
 				{:else if alerts.history.length === 0}
 					<Empty.Root>
 						<Empty.Header>
-							<Empty.Title>No alerts fired yet</Empty.Title>
-							<Empty.Description>This rule hasn't breached its threshold.</Empty.Description>
+							<Empty.Title>{m.alertHistory_emptyTitle()}</Empty.Title>
+							<Empty.Description>{m.alertHistory_emptyDescription()}</Empty.Description>
 						</Empty.Header>
 					</Empty.Root>
 				{:else}
@@ -57,7 +58,11 @@
 									</Badge>
 								</div>
 								<p class="text-muted-foreground mt-1">
-									{entry.observedCount} events (threshold {entry.thresholdCount}) in the last {entry.windowSeconds}s
+									{m.alertHistory_entrySummary({
+										count: entry.observedCount,
+										threshold: entry.thresholdCount,
+										window: entry.windowSeconds
+									})}
 								</p>
 								{#if entry.notificationError}
 									<p class="text-destructive mt-1">{entry.notificationError}</p>
