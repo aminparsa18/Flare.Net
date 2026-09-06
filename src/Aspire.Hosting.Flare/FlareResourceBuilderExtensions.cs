@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Docker;
 using Aspire.Hosting.Kubernetes;
 using Aspire.Hosting.Kubernetes.Resources;
+using Aspire.Hosting.Publishing;
 
 // Put extensions in the Aspire.Hosting namespace to ease discovery - referencing the
 // Aspire.Hosting package automatically adds this namespace (same convention Aspire's own
@@ -51,15 +53,16 @@ public static class FlareResourceBuilderExtensions
     /// <c>emptyDir: {}</c> volumes in the generated <c>StatefulSet</c>/<c>Deployment</c> specs, not
     /// <c>PersistentVolumeClaim</c>s - registering <see cref="KubernetesEnvironmentResource"/> alone
     /// does NOT make Flare's logs or auth database durable. All historical telemetry and the
-    /// identity/auth database are lost on the next pod reschedule unless you bind a real
-    /// <c>AddPersistentVolume</c>/<c>WithPersistentVolume</c> (<c>Aspire.Hosting.Kubernetes</c>) to
-    /// each of <c>{name}-clickhouse-data</c>, <c>{name}-redis-data</c>, and
-    /// <c>{name}-identity-data</c> yourself - this method has no way to pick a storage
-    /// class/capacity/access-mode policy on your behalf. See <c>docs/aspire-hosting.md</c>'s
-    /// "Kubernetes" section (the "ClickHouse/Redis/identity data does NOT survive a pod restart by
-    /// default" bullet) for the full story and a worked example. This is also printed as a console
-    /// warning during <c>aspire publish</c>/<c>aspire deploy</c> against a Kubernetes target, so it
-    /// isn't only discoverable by reading documentation.
+    /// identity/auth database are lost on the next pod reschedule unless you bind a real persistent
+    /// volume to each of <c>{name}-clickhouse-data</c>, <c>{name}-redis-data</c>, and
+    /// <c>{name}-identity-data</c> - use <see cref="WithPersistentStorage"/> to do that (this method
+    /// still won't pick a storage class/capacity/access-mode policy on your behalf - you supply
+    /// three already-configured <c>AddPersistentVolume</c> results, <see cref="WithPersistentStorage"/>
+    /// just performs the binding). See <c>docs/aspire-hosting.md</c>'s "Kubernetes" section (the
+    /// "ClickHouse/Redis/identity data does NOT survive a pod restart by default" bullet) for the
+    /// full story and a worked example. Skipping this is also flagged as a console warning during
+    /// <c>aspire publish</c>/<c>aspire deploy</c> against a Kubernetes target, so it isn't only
+    /// discoverable by reading documentation.
     /// </para>
     /// </remarks>
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/>.</param>
@@ -462,9 +465,27 @@ public static class FlareResourceBuilderExtensions
         flare.Resource.SetIngestResourceName(ingest.Resource.Name);
         flare.Resource.SetApiResourceName(api.Resource.Name);
         flare.Resource.SetDashboardResourceName(dashboard.Resource.Name);
+        flare.Resource.SetClickHouseResourceName(clickhouse.Resource.Name);
+        flare.Resource.SetRedisResourceName(redis.Resource.Name);
         flare.Resource.SetImageTag(imageTag);
 
-        WarnIfKubernetesStorageIsEphemeral(builder, name);
+        // Deferred, not called inline here: a consumer's own WithPersistentStorage(...) call (if
+        // any) only runs *after* AddFlare returns, as the next link in the same chain
+        // (`builder.AddFlare(...).WithPersistentStorage(...)`) - checking
+        // flare.Resource.PersistentStorageConfigured synchronously at this point, before that chain
+        // call has had a chance to run, would see it as never configured and warn every time
+        // regardless of whether the consumer actually fixed it. BeforePublishEvent fires once the
+        // whole application model - every With* chain call included - is fully built, right before
+        // aspire publish/aspire deploy's own publishing pipeline runs, which is exactly the "has the
+        // consumer's whole AddFlare(...).With*(...) chain finished running yet" checkpoint this
+        // needs. Not yet confirmed live that BeforePublishEvent fires identically for `aspire
+        // deploy`, not just `aspire publish` - same "needs its own live e2e pass" gap
+        // docs-internal/planning/roadmap.md already flags for this feature as a whole.
+        builder.Eventing.Subscribe<BeforePublishEvent>((_, _) =>
+        {
+            WarnIfKubernetesStorageIsEphemeral(builder, name, flare.Resource);
+            return Task.CompletedTask;
+        });
 
         return flare;
     }
@@ -480,6 +501,14 @@ public static class FlareResourceBuilderExtensions
     /// <summary>Resolves <paramref name="flare"/>'s dashboard sub-resource, for <see cref="WaitForFlare{TDestination}"/> and the <c>With*</c> chain methods below.</summary>
     private static IResourceBuilder<ContainerResource> GetDashboardBuilder(IResourceBuilder<FlareResource> flare) =>
         flare.ApplicationBuilder.CreateResourceBuilder<ContainerResource>(flare.Resource.DashboardResourceName);
+
+    /// <summary>Resolves <paramref name="flare"/>'s ClickHouse sub-resource, for <see cref="WithPersistentStorage"/>.</summary>
+    private static IResourceBuilder<ClickHouseServerResource> GetClickHouseBuilder(IResourceBuilder<FlareResource> flare) =>
+        flare.ApplicationBuilder.CreateResourceBuilder<ClickHouseServerResource>(flare.Resource.ClickHouseResourceName);
+
+    /// <summary>Resolves <paramref name="flare"/>'s Redis sub-resource, for <see cref="WithPersistentStorage"/>.</summary>
+    private static IResourceBuilder<RedisResource> GetRedisBuilder(IResourceBuilder<FlareResource> flare) =>
+        flare.ApplicationBuilder.CreateResourceBuilder<RedisResource>(flare.Resource.RedisResourceName);
 
     /// <summary>
     /// Overrides the OTLP gRPC endpoint's host port (default: the conventional 4317, unproxied -
@@ -681,40 +710,139 @@ public static class FlareResourceBuilderExtensions
     }
 
     /// <summary>
+    /// Binds consumer-supplied Kubernetes persistent volumes to ClickHouse's, Redis's, and the
+    /// identity database's storage - the first-class replacement for hand-wiring
+    /// <c>AddPersistentVolume</c>/<c>WithPersistentVolume</c> onto the sub-resources yourself, which
+    /// used to be the only option (see <c>docs/aspire-hosting.md</c>'s "Kubernetes" section and
+    /// <see cref="WarnIfKubernetesStorageIsEphemeral"/>'s remarks for the durability problem this
+    /// solves).
+    /// </summary>
+    /// <remarks>
+    /// Each parameter is the result of <c>kubernetesEnvironment.AddPersistentVolume(...)</c>
+    /// (<c>Aspire.Hosting.Kubernetes</c> <c>13.5.3-preview.1.26425.3</c>+ - see
+    /// <c>Directory.Packages.props</c>'s remarks on that package) plus whatever
+    /// <c>WithStorageClass</c>/<c>WithCapacity</c>/<c>WithAccessMode</c> chain the consumer needs -
+    /// this method still deliberately does not pick a storage class/capacity/access-mode policy on
+    /// the consumer's behalf (<see cref="AddFlare"/> never could, for the same reason), only the
+    /// <em>binding</em> of an already-configured volume to the right sub-resource:
+    /// <code>
+    /// var k8s = builder.AddKubernetesEnvironment("k8s");
+    /// var flare = builder.AddFlare("flare")
+    ///     .WithPersistentStorage(
+    ///         clickHouseVolume: k8s.AddPersistentVolume("flare-clickhouse-data")
+    ///             .WithStorageClass("standard").WithCapacity("20Gi")
+    ///             .WithAccessMode(PersistentVolumeAccessMode.ReadWriteOnce),
+    ///         redisVolume: k8s.AddPersistentVolume("flare-redis-data")
+    ///             .WithStorageClass("standard").WithCapacity("5Gi")
+    ///             .WithAccessMode(PersistentVolumeAccessMode.ReadWriteOnce),
+    ///         identityVolume: k8s.AddPersistentVolume("flare-identity-data")
+    ///             .WithStorageClass("standard").WithCapacity("1Gi")
+    ///             .WithAccessMode(PersistentVolumeAccessMode.ReadWriteOnce));
+    /// </code>
+    /// <para>
+    /// Binds by name, not by an explicit mount path - each of <paramref name="clickHouseVolume"/>/
+    /// <paramref name="redisVolume"/>/<paramref name="identityVolume"/> is matched against the
+    /// existing <c>WithDataVolume</c> (ClickHouse/Redis) / <c>WithVolume</c> (identity) call
+    /// <see cref="AddFlare"/> already made under the volume names <c>{name}-clickhouse-data</c>/
+    /// <c>{name}-redis-data</c>/<c>{name}-identity-data</c>. Per
+    /// <see href="https://aspire.dev/deployment/kubernetes/persistent-volumes/">Aspire's own
+    /// documentation</see>, the parameterless <c>WithPersistentVolume(volume)</c> overload used here
+    /// requires that name match rather than taking an explicit mount path itself (unlike the
+    /// <c>WithPersistentVolume(volume, mountPath)</c> overload, for a resource with no volume mount
+    /// of its own) - the volume's own Aspire *resource* name (the string passed to
+    /// <c>AddPersistentVolume</c> itself, e.g. <c>"flare-clickhouse-data"</c> above) does not need to
+    /// match anything; only the data-volume name it ends up bound to does, and that binding is what
+    /// this method performs.
+    /// </para>
+    /// <para>
+    /// <b>The identity volume is bound twice</b> - once each to the ingest and api sub-resources -
+    /// because <see cref="AddFlare"/>'s identity database is a single SQLite file shared between
+    /// both containers via one named volume (see <see cref="AddFlare"/>'s <c>identityVolumeName</c>
+    /// remarks). Both are promoted to a <c>StatefulSet</c> as a result - Aspire's unconditional
+    /// behavior for any workload bound to a persistent volume, no opt-out. Whether one
+    /// <c>ReadWriteOnce</c> PVC can actually satisfy two separate StatefulSets' Pods at once depends
+    /// on the storage class/CSI driver (most block-storage classes are node-scoped and would need
+    /// <c>ReadWriteMany</c>, or both Pods landing on the same node) - exactly the kind of detail this
+    /// feature's own live e2e pass (<c>docs-internal/planning/roadmap.md</c>) needs to confirm
+    /// against a real cluster; not yet verified live as of this method's introduction.
+    /// </para>
+    /// <para>
+    /// Requires suppressing <c>ASPIRECOMPUTE002</c> in the consumer's own AppHost project - the same
+    /// requirement <c>AddPersistentVolume</c>/<c>WithStorageClass</c>/<c>WithCapacity</c>/
+    /// <c>WithAccessMode</c> already carry to build the arguments passed in here. This method is
+    /// marked <see cref="ExperimentalAttribute"/> with that same diagnostic ID rather than minting a
+    /// separate one of its own, since it's a thin binding layer over an Aspire API that is itself
+    /// still experimental, not a new experimental surface in its own right.
+    /// </para>
+    /// </remarks>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="clickHouseVolume">A <c>kubernetesEnvironment.AddPersistentVolume(...)</c> result, bound to ClickHouse's <c>{name}-clickhouse-data</c> volume.</param>
+    /// <param name="redisVolume">A <c>kubernetesEnvironment.AddPersistentVolume(...)</c> result, bound to Redis's <c>{name}-redis-data</c> volume.</param>
+    /// <param name="identityVolume">A <c>kubernetesEnvironment.AddPersistentVolume(...)</c> result, bound to the identity database's <c>{name}-identity-data</c> volume on both the ingest and api sub-resources.</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+#pragma warning disable ASPIRECOMPUTE002 // Aspire.Hosting.Kubernetes' persistent-volume APIs are still evaluation-only - see this method's own remarks.
+    [Experimental("ASPIRECOMPUTE002")]
+    public static IResourceBuilder<FlareResource> WithPersistentStorage(
+        this IResourceBuilder<FlareResource> flare,
+        IResourceBuilder<KubernetesPersistentVolumeResource> clickHouseVolume,
+        IResourceBuilder<KubernetesPersistentVolumeResource> redisVolume,
+        IResourceBuilder<KubernetesPersistentVolumeResource> identityVolume)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+        ArgumentNullException.ThrowIfNull(clickHouseVolume);
+        ArgumentNullException.ThrowIfNull(redisVolume);
+        ArgumentNullException.ThrowIfNull(identityVolume);
+
+        GetClickHouseBuilder(flare).WithPersistentVolume(clickHouseVolume);
+        GetRedisBuilder(flare).WithPersistentVolume(redisVolume);
+        GetIngestBuilder(flare).WithPersistentVolume(identityVolume);
+        GetApiBuilder(flare).WithPersistentVolume(identityVolume);
+
+        flare.Resource.MarkPersistentStorageConfigured();
+        return flare;
+    }
+#pragma warning restore ASPIRECOMPUTE002
+
+    /// <summary>
     /// Prints a console warning during <c>aspire publish</c>/<c>aspire deploy</c> when this
     /// <see cref="AddFlare"/> call is publishing against a registered
-    /// <see cref="KubernetesEnvironmentResource"/> - see <see cref="AddFlare"/>'s remarks for the
-    /// full "why" (the review this addresses: registering
-    /// <c>AddKubernetesEnvironment</c>+<c>AddFlare</c> alone reasonably looks like "Flare is
-    /// deployed, my telemetry is durable," which is false until persistent volumes are wired up
-    /// by hand).
+    /// <see cref="KubernetesEnvironmentResource"/> and <see cref="WithPersistentStorage"/> was never
+    /// called - see <see cref="AddFlare"/>'s remarks for the full "why" (the review this addresses:
+    /// registering <c>AddKubernetesEnvironment</c>+<c>AddFlare</c> alone reasonably looks like "Flare
+    /// is deployed, my telemetry is durable," which is false until persistent volumes are wired up).
     /// </summary>
     /// <remarks>
     /// Deliberately unconditional whenever a Kubernetes target is being published to, not gated on
-    /// <c>enableResourceGraph</c> or any other opt-in - the ephemeral-storage risk exists
-    /// regardless of whether the Resources page is enabled. There is no reliable way for this
-    /// package to detect whether the consumer already bound a real persistent volume to
-    /// <c>{name}-clickhouse-data</c>/<c>{name}-redis-data</c>/<c>{name}-identity-data</c>
-    /// themselves (the type those bindings produce isn't part of the
-    /// <c>Aspire.Hosting.Kubernetes</c> version this package currently references - see
-    /// <c>Directory.Packages.props</c>), so this warns every time rather than risking a false
-    /// "you're covered" negative.
+    /// <c>enableResourceGraph</c> or any other opt-in - the ephemeral-storage risk exists regardless
+    /// of whether the Resources page is enabled. Checking
+    /// <paramref name="flareResource"/>.<see cref="FlareResource.PersistentStorageConfigured"/>
+    /// rather than inspecting the application model for actual Kubernetes persistent-volume bindings
+    /// is deliberate too - <c>WithPersistentVolume</c>'s own binding annotation type is internal to
+    /// <c>Aspire.Hosting.Kubernetes</c>, so this package has no public API to detect it, only its own
+    /// record of whether <see cref="WithPersistentStorage"/> ran. A consumer who binds
+    /// <c>AddPersistentVolume</c>/<c>WithPersistentVolume</c> directly onto the sub-resources instead
+    /// of calling <see cref="WithPersistentStorage"/> still sees this warning even though their
+    /// storage is, in fact, durable - a known false positive in that one specific case, traded off
+    /// against never risking the opposite false "you're covered" negative.
     /// <para>
-    /// Written straight to the console (not through <c>ILogger</c>/DI) because <see cref="AddFlare"/>
-    /// runs synchronously while the AppHost's application model is still being built, before
-    /// <c>builder.Build()</c> stands up a service provider - the same reason the existing
-    /// <c>enableResourceGraph</c> Kubernetes branch above only has <c>builder.Resources</c> to
-    /// inspect. <c>aspire publish</c>/<c>aspire deploy</c> both stream the AppHost process's own
-    /// stdout/stderr straight to the terminal, so this reaches the operator running the command
-    /// without needing any Aspire-version-specific publish-pipeline reporter API.
+    /// Called from a <c>BeforePublishEvent</c> subscription registered inside <see cref="AddFlare"/>
+    /// (see that call site's remarks for why the check has to be deferred, rather than run inline
+    /// during <see cref="AddFlare"/> itself), not written before this feature existed, when
+    /// <see cref="AddFlare"/> was still the only place this warning could execute from and had
+    /// nothing to defer past. Still written straight to the console (not through
+    /// <c>ILogger</c>/DI) - <c>aspire publish</c>/<c>aspire deploy</c> both stream the AppHost
+    /// process's own stdout/stderr straight to the terminal, so this reaches the operator running
+    /// the command without needing any Aspire-version-specific publish-pipeline reporter API.
     /// </para>
     /// </remarks>
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/> passed to <see cref="AddFlare"/>.</param>
     /// <param name="name">The Flare resource group's name, to name the three volumes in the message.</param>
-    private static void WarnIfKubernetesStorageIsEphemeral(IDistributedApplicationBuilder builder, string name)
+    /// <param name="flareResource">The <see cref="FlareResource"/> <see cref="AddFlare"/> created, to check <see cref="FlareResource.PersistentStorageConfigured"/>.</param>
+    private static void WarnIfKubernetesStorageIsEphemeral(IDistributedApplicationBuilder builder, string name, FlareResource flareResource)
     {
         if (!builder.ExecutionContext.IsPublishMode
-            || !builder.Resources.OfType<KubernetesEnvironmentResource>().Any())
+            || !builder.Resources.OfType<KubernetesEnvironmentResource>().Any()
+            || flareResource.PersistentStorageConfigured)
         {
             return;
         }
@@ -725,10 +853,10 @@ public static class FlareResourceBuilderExtensions
             ⚠️  Flare ('{name}') storage is EPHEMERAL on Kubernetes unless you configure persistent volumes.
                 ClickHouse, Redis, and the identity/auth database render as empty `emptyDir` volumes by
                 default - all historical logs and the identity database are lost on the next pod
-                reschedule, not just a full redeploy. Bind AddPersistentVolume/WithPersistentVolume
-                (Aspire.Hosting.Kubernetes) to '{name}-clickhouse-data', '{name}-redis-data', and
-                '{name}-identity-data' in your own AppHost before relying on this for anything beyond a
-                disposable smoke test. See docs/aspire-hosting.md's "Kubernetes" section for a worked example.
+                reschedule, not just a full redeploy. Call .WithPersistentStorage(...) on this AddFlare(...)
+                result with three kubernetesEnvironment.AddPersistentVolume(...) results (ClickHouse, Redis,
+                identity) before relying on this for anything beyond a disposable smoke test. See
+                docs/aspire-hosting.md's "Kubernetes" section for a worked example.
 
             """);
     }

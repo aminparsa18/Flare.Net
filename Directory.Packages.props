@@ -4,12 +4,11 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Aspire -->
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.6" />
     <!-- Flare.Hosting.Aspire (project: src/Aspire.Hosting.Flare/) - the published integration
          package references Aspire.Hosting directly (not Aspire.Hosting.AppHost - that's the
          AppHost-executable meta-package), per Aspire's own "Create custom hosting integrations"
          doc pattern. -->
-    <PackageVersion Include="Aspire.Hosting" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting" Version="13.5.3" />
     <!-- Aspire.Hosting.Docker: only needed for PublishAsDockerComposeService, which AddFlare
          uses to mirror its Docker-driven-Resources-page labels onto the generated Docker
          Compose service definitions (docs/aspire-hosting.md's "Publishing / deploying via
@@ -17,7 +16,7 @@
          AddDockerComposeEnvironment never touches this, but the extension method itself has
          to be in scope at compile time regardless. Pinned to match every other Aspire package
          here. -->
-    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.5.3" />
     <!-- Aspire.Hosting.Kubernetes: only needed for PublishAsKubernetesService, the Kubernetes
          counterpart to the Aspire.Hosting.Docker reference above - AddFlare uses it to mirror
          the Docker-driven-Resources-page labels (as pod-template labels) onto the generated
@@ -29,47 +28,47 @@
          release on nuget.org (confirmed live: only *-preview.* versions exist across its
          whole history, 9.2.0 through 13.5.3) - pinned to the preview build matching the
          13.4.6 train the rest of this repo's Aspire packages use. -->
-    <PackageVersion Include="Aspire.Hosting.Kubernetes" Version="13.4.6-preview.1.26319.6" />
+    <PackageVersion Include="Aspire.Hosting.Kubernetes" Version="13.5.3-preview.1.26425.3" />
     <!-- ClickHouse: schema in db/clickhouse/, see db/clickhouse/README.md.
          Aspire.Hosting.ClickHouse is referenced by Flare.AppHost today.
          Aspire.ClickHouse.Driver is referenced by Flare.Ingest/Flare.Api (the batched
          insert pipeline and query API) and Flare.ServiceDefaults (ClickHouseMigrationRunner). -->
-    <PackageVersion Include="Aspire.Hosting.ClickHouse" Version="13.4.6" />
-    <PackageVersion Include="Aspire.ClickHouse.Driver" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.ClickHouse" Version="13.5.3" />
+    <PackageVersion Include="Aspire.ClickHouse.Driver" Version="13.5.3" />
     <!-- Redis: durable Redis-Streams buffer for the batched ClickHouse insert pipeline
          (Planning.md's "Buffering layer" decision, 2026-08-07). Pinned at 13.4.6 to match
          every other Aspire package here / global.json's Aspire.AppHost.Sdk - the locally
          cached 13.3.1 build of these two is stale and would silently downgrade if picked
          instead; first restore of these two needs to go online, same one-time situation
          already accepted above for Aspire.ClickHouse.Driver. -->
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.4.6" />
-    <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.5.3" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.5.3" />
     <!-- Flare.ServiceDefaults: standard Aspire template observability stack -->
     <PackageVersion Include="MailKit" Version="4.17.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.11" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
     <!-- Flare.Aspire (project: src/Aspire.Flare/) - the client-side package (v2 roadmap item).
-         Pinned at 10.0.10 to match Microsoft.Extensions.Diagnostics.HealthChecks above (same
+         Pinned at 10.0.11 to match Microsoft.Extensions.Diagnostics.HealthChecks above (same
          .NET 10 servicing train). -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.11" />
     <!-- Flare.Ingest: OTLP receiver -->
     <PackageVersion Include="Grpc.AspNetCore" Version="2.83.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
     <!-- Flare.Api: query API (search/filter/time-range/aggregate) over the ClickHouse
-         `logs` table. OpenApi pinned at 10.0.10 to match Microsoft.Extensions.Diagnostics.HealthChecks
+         `logs` table. OpenApi pinned at 10.0.11 to match Microsoft.Extensions.Diagnostics.HealthChecks
          above (same .NET 10 servicing train) - gives a browsable /openapi endpoint for
          manually exercising the API before the dashboard (still an open question, see
          Planning.md #1) exists to call it. -->
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
-    <!-- Microsoft.AspNetCore.OpenApi 10.0.10 transitively pulls Microsoft.OpenApi 2.0.0,
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <!-- Microsoft.AspNetCore.OpenApi 10.0.11 transitively pulls Microsoft.OpenApi 2.0.0,
          which has a known high-severity advisory (GHSA-v5pm-xwqc-g5wc, circular schema
          references can hang the parser) fixed in 2.7.5. Pinned directly + referenced
          from Flare.Api.csproj so the direct reference wins over the transitive one. -->
@@ -91,23 +90,23 @@
          handler was split out of the Microsoft.AspNetCore.App shared framework into its
          own NuGet package back in .NET Core 3.0 and never moved back - a real
          FrameworkReference gap, confirmed by the CS0234 this package fixes. Pinned at
-         10.0.10 to match every other .NET-10-servicing-train package above. -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.10" />
+         10.0.11 to match every other .NET-10-servicing-train package above. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.11" />
     <!-- Flare.Api: shares the Data Protection key ring across replicas via Redis (Planning.md's
          "Multi-node scaling" item) so a mid-Entra/OIDC-handshake external cookie survives
-         landing on a different replica than the one that issued it. Pinned at 10.0.10 to
+         landing on a different replica than the one that issued it. Pinned at 10.0.11 to
          match every other .NET-10-servicing-train package above. -->
-    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.11" />
     <!-- Flare.Api: Active Directory (LDAP) login (Planning.md's "Active Directory auth"
          item, docs/auth.md). Cross-platform LDAP client (works from the Linux container
          this project ships) - unlike classic System.DirectoryServices/ADSI, which is
-         Windows-only. Pinned at 10.0.10 to match every other .NET-10-servicing-train
+         Windows-only. Pinned at 10.0.11 to match every other .NET-10-servicing-train
          package above. -->
-    <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.10" />
+    <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.11" />
     <!-- Flare.Identity: local username/password auth + roles, embedded-SQLite-backed
          (Planning.md's "Auth + multi-user / roles" Later-roadmap item, 2026-08-10 design
          decision - SQLite over a new Postgres container, see docs/auth.md). Pinned at
-         10.0.10 to match every other .NET-10-servicing-train package above. -->
+         10.0.11 to match every other .NET-10-servicing-train package above. -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.0" />
     <!-- PasswordHasher<T> (Auth/AspNetPasswordHasher.cs) comes from the ASP.NET Core
          shared framework (Microsoft.AspNetCore.App FrameworkReference) in .NET 10, not a

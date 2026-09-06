@@ -12,26 +12,14 @@ folders are where "what happened and why" actually lives.
   and [`../../docs/explanation/clustering.md`](../../docs/explanation/clustering.md)):
   this one is retention/cold storage, not horizontal availability/
   throughput. Not started.
-- **Kubernetes: a first-class persistent-storage API on `AddFlare`**
-  (something like a `WithPersistentStorage(...)` chain method binding
-  `{name}-clickhouse-data`/`{name}-redis-data`/`{name}-identity-data` to
-  consumer-supplied `AddPersistentVolume` resources, beating "wire it up
-  by hand"). Blocked on bumping the `Aspire.Hosting.Kubernetes` package
-  past the `13.4.6` preview `Flare.Hosting.Aspire` currently pins —
-  `AddPersistentVolume`/`WithPersistentVolume` don't exist in that
-  version. Needs its own live e2e pass once picked up. Current manual
-  workaround: [`../../docs/reference/aspire-hosting.md`](../../docs/reference/aspire-hosting.md#kubernetes).
 - **Research: a real "skip-index effectiveness" signal for the Indexing
-  page.** Deliberately not shipped after checking whether ClickHouse
-  exposes this as reliable production telemetry — it doesn't, in a form
-  the Indexing page can build on today (`system.query_log`'s counters
-  combine primary-key and skip-index pruning; the per-index granule-drop
-  line needs non-default logging most self-hosted deployments won't have
-  on; `EXPLAIN indexes = 1`/`EXPLAIN ESTIMATE` only cover one ad-hoc query,
-  not retrospective dashboard traffic). Open question for whoever picks
-  this back up: is there a version- or config-gated ClickHouse mechanism
-  that would make this honest rather than invented? If not, the deferred
-  fallback is a differently-labeled, genuinely-computable proxy (e.g. "%
-  of queries reading under N% of their table's total rows" from
-  `system.query_log`) — real, just not skip-index-specific, since
-  primary-key pruning contributes too.
+  page.** Deliberately not shipped — ClickHouse doesn't expose this as
+  reliable production telemetry today. Full findings, including upstream
+  ClickHouse's own attempt at exactly this (merged then reverted for a
+  correctness bug) and what to check before revisiting:
+  [`../investigations/skip-index-effectiveness-signal.md`](../investigations/skip-index-effectiveness-signal.md).
+  Until upstream lands something reliable, the fallback is a
+  differently-labeled, genuinely-computable proxy (e.g. "% of queries
+  reading under N% of their table's total rows" from `system.query_log`) —
+  real, just not skip-index-specific, since primary-key pruning contributes
+  too.

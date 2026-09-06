@@ -25,7 +25,10 @@ public sealed class FlareResource(string name) : Resource(name), IResourceWithou
     private string? _dashboardResourceName;
     private string? _ingestResourceName;
     private string? _apiResourceName;
+    private string? _clickHouseResourceName;
+    private string? _redisResourceName;
     private string? _imageTag;
+    private bool _persistentStorageConfigured;
 
     /// <summary>
     /// Wires this resource's endpoint references to Flare.Ingest's actual OTLP endpoints.
@@ -87,6 +90,59 @@ public sealed class FlareResource(string name) : Resource(name), IResourceWithou
     internal string ApiResourceName => _apiResourceName
         ?? throw new InvalidOperationException(
             $"{nameof(ApiResourceName)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
+
+    /// <summary>
+    /// Records the ClickHouse sub-resource's Aspire resource name, so
+    /// <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.WithPersistentStorage"/> can reach
+    /// back into it after <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/> has
+    /// already returned - same reasoning as <see cref="SetDashboardResourceName"/>.
+    /// </summary>
+    internal void SetClickHouseResourceName(string clickHouseResourceName)
+    {
+        _clickHouseResourceName = clickHouseResourceName;
+    }
+
+    /// <summary>The ClickHouse sub-resource's Aspire resource name (e.g. <c>"flare-clickhouse"</c>).</summary>
+    internal string ClickHouseResourceName => _clickHouseResourceName
+        ?? throw new InvalidOperationException(
+            $"{nameof(ClickHouseResourceName)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
+
+    /// <summary>
+    /// Records the Redis sub-resource's Aspire resource name, so
+    /// <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.WithPersistentStorage"/> can reach
+    /// back into it after <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/> has
+    /// already returned - same reasoning as <see cref="SetDashboardResourceName"/>.
+    /// </summary>
+    internal void SetRedisResourceName(string redisResourceName)
+    {
+        _redisResourceName = redisResourceName;
+    }
+
+    /// <summary>The Redis sub-resource's Aspire resource name (e.g. <c>"flare-redis"</c>).</summary>
+    internal string RedisResourceName => _redisResourceName
+        ?? throw new InvalidOperationException(
+            $"{nameof(RedisResourceName)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
+
+    /// <summary>
+    /// Marks that <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.WithPersistentStorage"/>
+    /// has bound real Kubernetes persistent volumes to this Flare instance's storage - read back by
+    /// the deferred ephemeral-storage warning
+    /// (<see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/>'s
+    /// <c>BeforePublishEvent</c> subscription) to silence it. A plain bool flag rather than
+    /// inspecting the actual Kubernetes annotations <c>WithPersistentVolume</c> attaches, because
+    /// those annotation types are internal to <c>Aspire.Hosting.Kubernetes</c> - this package has no
+    /// public API to introspect them, so it tracks its own record of "was the supported path used"
+    /// instead. Consequently: hand-wiring <c>AddPersistentVolume</c>/<c>WithPersistentVolume</c>
+    /// directly onto the sub-resources (bypassing <c>WithPersistentStorage</c>) still triggers the
+    /// warning, same as before this method existed.
+    /// </summary>
+    internal void MarkPersistentStorageConfigured()
+    {
+        _persistentStorageConfigured = true;
+    }
+
+    /// <summary>Whether <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.WithPersistentStorage"/> has been called for this Flare instance.</summary>
+    internal bool PersistentStorageConfigured => _persistentStorageConfigured;
 
     /// <summary>
     /// Records the <c>imageTag</c> passed to <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/>,

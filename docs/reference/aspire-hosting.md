@@ -7,7 +7,7 @@ Microsoft's own official integrations). For how to use it, see
 [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.md).
 
 > **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently
-> `0.3.2`).
+> `0.4.0`).
 
 ## `AddFlare`
 
@@ -40,6 +40,7 @@ returned `FlareResource` builder, the usual Aspire convention (compare
 | `WithIngestImage(string)` / `WithApiImage(string)` / `WithDashboardImage(string)` | Image name/registry (not tag — `imageTag` still supplies that) — for local-dev use against images built with `docker compose build` instead of Docker Hub. |
 | `WithApiKey(IResourceBuilder<ParameterResource>)` | Pass a `secret: true` `AddParameter` result to require OTLP callers to present an ingest API key. Uncalled = ingest stays anonymous. No automatic flow-through: a project calling `AddFlareOtlpExporter` still needs the same raw value passed to its own `configureSettings: s => s.ApiKey = ...` delegate. |
 | `WithPublicApiUrl(...)` / `WithPublicDashboardUrl(...)` | Override the `localhost`-pinned browser-facing URLs (`PUBLIC_API_URL`/`ORIGIN`/`Cors__AllowedOrigins__0`). Only needed once actually publishing/deploying — see [Publishing to Kubernetes/Docker Compose](#deployment-facts) below. |
+| `WithPersistentStorage(clickHouseVolume, redisVolume, identityVolume)` | Binds three `kubernetesEnvironment.AddPersistentVolume(...)` results (each with whatever `WithStorageClass`/`WithCapacity`/`WithAccessMode` you need) to ClickHouse's/Redis's/the identity database's storage — see [the Kubernetes section](#kubernetes) below. Requires suppressing `ASPIRECOMPUTE002` (same requirement `AddPersistentVolume` itself carries) — this method is marked `[Experimental("ASPIRECOMPUTE002")]` for that reason. |
 
 > **Breaking change in `0.3.2`:** before this version, all of the above
 > were parameters on `AddFlare` itself
@@ -81,28 +82,56 @@ AppHost — for the actual steps, see
   builds and pushes to the registry configured via
   `AddContainerRegistry`/`WithContainerRegistry`. The container registry
   APIs are still preview in Aspire itself (`ASPIRECOMPUTE003`).
-- **ClickHouse/Redis/identity data does NOT survive a pod restart by
-  default.** `AddFlare`'s `WithDataVolume()`/`WithVolume()` calls render
-  as plain `emptyDir: {}` volumes in the generated `StatefulSet`/
-  `Deployment` specs, not `PersistentVolumeClaim`s, unless you explicitly
-  bind a real
+- **ClickHouse/Redis/identity data does NOT survive a pod restart unless
+  you call `WithPersistentStorage`.** `AddFlare`'s `WithDataVolume()`/
+  `WithVolume()` calls render as plain `emptyDir: {}` volumes in the
+  generated `StatefulSet`/`Deployment` specs, not `PersistentVolumeClaim`s,
+  until you bind a real
   [`AddPersistentVolume`](https://aspire.dev/deployment/kubernetes/persistent-volumes/)
-  resource to the matching volume name (`{name}-clickhouse-data`,
-  `{name}-redis-data`, `{name}-identity-data}`) yourself. `AddFlare` has no
-  way to do this on your behalf without deciding a storage
-  class/capacity/access-mode policy for you. For anything beyond a
-  disposable smoke-test deploy, wire persistent volumes for these three
-  before deploying for real — silently losing all logs and the
-  identity/auth database on the next pod reschedule is the actual failure
-  mode, not an error. `AddFlare` prints an unconditional `⚠️` warning
-  during `aspire publish`/`aspire deploy` against any registered
-  Kubernetes environment as a reminder.
-  - `AddPersistentVolume`/`WithPersistentVolume` aren't usable through
-    `Flare.Hosting.Aspire`'s own APIs today — the `Aspire.Hosting.Kubernetes`
-    version this package pins (`13.4.6-preview.1.26319.6`) predates that
-    API. A consumer app can still call it directly in their *own* AppHost
-    code (NuGet resolves the whole app to whatever newer
-    `Aspire.Hosting.Kubernetes` version they reference).
+  to each of `{name}-clickhouse-data`, `{name}-redis-data`, and
+  `{name}-identity-data`. `WithPersistentStorage` (`Flare.Hosting.Aspire`
+  `0.4.0`+, needs `Aspire.Hosting.Kubernetes` `13.5.3-preview.1.26425.3`+ —
+  see `Directory.Packages.props`) does exactly that binding for you:
+
+    ```csharp
+    var k8s = builder.AddKubernetesEnvironment("k8s");
+    var flare = builder.AddFlare("flare")
+        .WithPersistentStorage(
+            clickHouseVolume: k8s.AddPersistentVolume("flare-clickhouse-data")
+                .WithStorageClass("standard").WithCapacity("20Gi")
+                .WithAccessMode(PersistentVolumeAccessMode.ReadWriteOnce),
+            redisVolume: k8s.AddPersistentVolume("flare-redis-data")
+                .WithStorageClass("standard").WithCapacity("5Gi")
+                .WithAccessMode(PersistentVolumeAccessMode.ReadWriteOnce),
+            identityVolume: k8s.AddPersistentVolume("flare-identity-data")
+                .WithStorageClass("standard").WithCapacity("1Gi")
+                .WithAccessMode(PersistentVolumeAccessMode.ReadWriteOnce));
+    ```
+
+    `AddFlare` still has no way to pick a storage class/capacity/access-mode
+    policy on your behalf — you supply three already-configured
+    `AddPersistentVolume` results, `WithPersistentStorage` just performs the
+    binding. Requires suppressing `ASPIRECOMPUTE002` in your own AppHost
+    project (same requirement `AddPersistentVolume` itself carries).
+    Verified live against a real k3s cluster (`aspire deploy`, not just
+    generated manifests): PVCs bind, ClickHouse and Redis both survive a pod
+    delete with their data intact, and the shared identity PVC really is one
+    file, mounted read-write by both the ingest and api StatefulSets' Pods
+    at once with no corruption — see
+    [the investigation](../../docs-internal/investigations/aspire-kubernetes-publish-and-resource-graph.md)'s
+    finding #8. One caveat that pass couldn't rule out: it ran on a
+    single-node cluster, where `ReadWriteOnce`'s node-scoped restriction
+    doesn't come into play at all — whether the shared identity PVC still
+    works with ingest and api scheduled onto two *different* nodes on a real
+    multi-node cluster (where most block-storage CSI drivers would need
+    `ReadWriteMany` instead) remains unverified.
+  - Skipping `WithPersistentStorage` against a registered Kubernetes
+    environment triggers a `⚠️` warning from `AddFlare` — but as of Aspire
+    `13.5.3`'s new pipeline-execution CLI, that warning no longer reaches
+    the terminal during `aspire publish`/`aspire deploy` (it's still
+    written, but only ends up in `~/.aspire/logs/cli_*.log`, not the
+    console) — see the investigation's finding #7. Don't rely on seeing it;
+    treat this document as the source of truth instead.
 - `publicApiUrl`/`publicDashboardUrl` are just as required as for Docker
   Compose — left unset, the dashboard's `PUBLIC_API_URL`/`ORIGIN`/`api`'s
   `Cors__AllowedOrigins__0` resolve to Kubernetes' own in-cluster Service
