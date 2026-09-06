@@ -51,10 +51,18 @@ flare export -l error --since 1h | jq '.Message'                # pipe straight 
 ```
 
 That's the everyday shape (a quick support-bundle-for-a-bug-report, no `-o`
-needed). A bundled `incident.zip` mode (trace + logs + metrics together) is
-a real want but not built yet — see
-[the roadmap](../../docs-internal/planning/roadmap.md) for its current
-status.
+needed). For a full incident, bundle trace + logs + metrics into one zip
+instead — any `--include-*` flag switches `export` into this mode (requires
+both `--trace-id` and `-o`):
+
+```sh
+flare export --trace-id abc123 --include-trace --include-logs --include-metrics -o incident.zip
+```
+
+The trace's own span window (padded by `--margin`, default `5m`) and
+service list scope both the logs and the metrics automatically — see
+[the reference](../reference/cli-commands.md) for exactly what each file
+in the archive contains.
 
 ## Running multiple instances
 
@@ -124,5 +132,5 @@ Known gaps, stated plainly:
 - **Not verified on Windows yet** — state-directory resolution and the
   browser-launch in `flare open` should work per .NET's own cross-platform
   guarantees, but haven't been run end-to-end there.
-- **`Flare.Cli` itself is pre-1.0** (currently `0.1.5`) — normal SemVer
+- **`Flare.Cli` itself is pre-1.0** (currently `0.1.6`) — normal SemVer
   "still shifting, no compatibility guarantee yet."
