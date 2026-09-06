@@ -248,7 +248,7 @@ dotnet run --project .
 The published `flare-api` Docker image (`Dockerfile` in this directory) is rebuilt and
 pushed by `docker-publish.yml` only when this project, `Flare.ServiceDefaults`, or
 `Flare.Identity` actually changes — a docs-only edit in any of those (this line
-included) does not trigger a rebuild.
+included, second confirmation) does not trigger a rebuild.
 
 ## Smoke-testing manually
 
