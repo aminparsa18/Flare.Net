@@ -71,6 +71,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # a future language needs a different Google code than its filename langcode).
 LANGS = {
     "zh-CN": "zh-CN",
+    "ru": "ru",
+    "fr": "fr",
 }
 
 DOCS_ROOT = REPO_ROOT / "docs"
@@ -94,31 +96,54 @@ GLOSSARY = [
 # translation - e.g. "Status" as a lone heading came back "地位", social/hierarchical
 # rank, rather than "current state of the project"). Only applied when the ENTIRE
 # stripped line/cell equals a key here, never as a substring - add more as they turn up.
-OVERRIDES = {
-    "Status": "当前状态",
-    "Next": "接下来",
-    "Auth": "身份验证",
-    "Authentication": "身份验证",
-    "Traces": "追踪",
-    "Views": "视图",
-    "License": "许可证",
-    "Local development": "本地开发",
+# Keyed per-langcode (NOT shared across languages) - these are hand-picked
+# translations for one specific target language, so a zh-CN entry must never be
+# consulted while translating to ru/fr or it would silently emit Chinese text into a
+# Russian/French doc. An empty/missing langcode here just means "no known mistranslations
+# for this language yet, fall through to plain MT" - add entries as they turn up during
+# review of that language's generated output, same as zh-CN's were.
+OVERRIDES: dict[str, dict[str, str]] = {
+    "zh-CN": {
+        "Status": "当前状态",
+        "Next": "接下来",
+        "Auth": "身份验证",
+        "Authentication": "身份验证",
+        "Traces": "追踪",
+        "Views": "视图",
+        "License": "许可证",
+        "Local development": "本地开发",
+    },
+    "ru": {
+        # "Ingestion" (as in the Dashboard's Ingestion page / README feature-table
+        # row) came back "Проглатывание" - literally "swallowing" - rather than the
+        # data-pipeline sense; observed in README.md's feature table and repeated
+        # verbatim as a heading in docs/explanation/architecture.md.
+        "Ingestion": "Приём данных",
+        # "Reference" (the Diátaxis doc-category name in docs/README.md) came back
+        # "Ссылка", which means "link/hyperlink" in Russian, not "reference
+        # documentation" - a false-friend translation of a different sense of the
+        # English word.
+        "Reference": "Справочник",
+    },
 }
 
 BULLET_RE = re.compile(r"^(\s*(?:[-*+]|\d+\.)\s+)(.*)$")
 EMPHASIS_RE = re.compile(r"^(\*\*|\*|__|_)(.+)\1$")
 
 
-def lookup_override(text: str) -> str | None:
-    """Matches OVERRIDES against `text` with a surrounding list-bullet prefix and/or
-    **bold**/_italic_ wrapper stripped first, then reapplies whichever wrapper it
-    found - so both "- Traces" and "**Auth**" hit the same plain-word key."""
+def lookup_override(text: str, langcode: str) -> str | None:
+    """Matches OVERRIDES[langcode] against `text` with a surrounding list-bullet
+    prefix and/or **bold**/_italic_ wrapper stripped first, then reapplies whichever
+    wrapper it found - so both "- Traces" and "**Auth**" hit the same plain-word key."""
+    lang_overrides = OVERRIDES.get(langcode)
+    if not lang_overrides:
+        return None
     stripped = text.strip()
-    if stripped in OVERRIDES:
-        return OVERRIDES[stripped]
+    if stripped in lang_overrides:
+        return lang_overrides[stripped]
     m = EMPHASIS_RE.match(stripped)
-    if m and m.group(2) in OVERRIDES:
-        return f"{m.group(1)}{OVERRIDES[m.group(2)]}{m.group(1)}"
+    if m and m.group(2) in lang_overrides:
+        return f"{m.group(1)}{lang_overrides[m.group(2)]}{m.group(1)}"
     return None
 
 MARKER_RE = re.compile(r"source-sha256:([0-9a-f]+)")
@@ -166,6 +191,13 @@ def slugify(heading: str) -> str:
     return text
 
 
+PLACEHOLDER_RE = re.compile(f"{PH_OPEN}(\\d+){PH_CLOSE}")
+
+# At least one "real" (non-placeholder) letter anywhere - Unicode-aware so it
+# recognizes letters from any script, not just ASCII.
+LETTER_RE = re.compile(r"[^\W\d_]", re.UNICODE)
+
+
 def protect(line: str) -> tuple[str, list[str]]:
     saved: list[str] = []
 
@@ -176,11 +208,25 @@ def protect(line: str) -> tuple[str, list[str]]:
     return PROTECT_RE.sub(_sub, line), saved
 
 
+def has_translatable_text(protected: str) -> bool:
+    """False when `protected` is nothing but placeholder tokens and punctuation/
+    whitespace once they're stripped out - e.g. a heading like "Active Directory
+    (LDAP)" is ENTIRELY glossary terms, so protect() leaves only "ZZPH0ZZ (ZZPH1ZZ)".
+    Sending that to the MT engine is pointless and, for at least one target script
+    (observed with ru), actively harmful: Google Translate transliterated the bare
+    placeholder tokens into Cyrillic look-alikes ("ЗЗПХ0ЗЗ"), which restore()'s
+    ASCII-only regex then no longer matches - the placeholder leaks into the final
+    doc verbatim instead of being replaced back. Skipping the call whenever there's
+    no real text left to translate avoids the whole failure class, for every
+    language, not just the one it was caught on."""
+    return bool(LETTER_RE.search(PLACEHOLDER_RE.sub("", protected)))
+
+
 def restore(text: str, saved: list[str]) -> str:
     def _sub(m: re.Match) -> str:
         return saved[int(m.group(1))]
 
-    return re.sub(f"{PH_OPEN}(\\d+){PH_CLOSE}", _sub, text)
+    return PLACEHOLDER_RE.sub(_sub, text)
 
 
 def google_translate(text: str, target: str, source: str = "en", retries: int = 3) -> str:
@@ -199,8 +245,20 @@ def google_translate(text: str, target: str, source: str = "en", retries: int = 
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             translated = "".join(seg[0] for seg in data[0] if seg and seg[0])
-            time.sleep(0.2)  # be a polite citizen of a free, keyless, unofficial endpoint
+            # 1.2s, not the original 0.2s - a full multi-file run (dozens of files x
+            # many lines/cells each) at 0.2s tripped this free endpoint's rate limit
+            # (HTTP 429) partway through a real run; 1.2s is the conservative fix.
+            time.sleep(1.2)  # be a polite citizen of a free, keyless, unofficial endpoint
             return leading + translated + trailing
+        except urllib.error.HTTPError as e:
+            if attempt == retries - 1:
+                print(f"  ! translation failed, leaving line untranslated: {e}", file=sys.stderr)
+                return text
+            # A 429 means the endpoint wants a real cooldown, not the short generic
+            # backoff below - retrying it in ~1-3s (as a plain URLError would) just
+            # burns through the retry budget hitting the same wall again. Any other
+            # HTTP error status falls back to the same generic backoff as a URLError.
+            time.sleep(20.0 * (attempt + 1) if e.code == 429 else 1.5 * (attempt + 1))
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, IndexError) as e:
             if attempt == retries - 1:
                 print(f"  ! translation failed, leaving line untranslated: {e}", file=sys.stderr)
@@ -216,10 +274,15 @@ def translate_line(line: str, target: str) -> str:
     # leading whitespace away), flattening a sub-list into its parent's level.
     bullet_m = BULLET_RE.match(line)
     prefix, body = (bullet_m.group(1), bullet_m.group(2)) if bullet_m else ("", line)
-    override = lookup_override(body)
+    override = lookup_override(body, target)
     if override is not None:
         return prefix + override
     protected, saved = protect(body)
+    if not has_translatable_text(protected):
+        # Nothing left but placeholders/punctuation (e.g. a heading that's entirely
+        # glossary terms, like "Active Directory (LDAP)") - skip the network call
+        # and restore straight from the protected string. See has_translatable_text().
+        return prefix + restore(protected, saved)
     translated = google_translate(protected, target)
     return prefix + restore(translated, saved)
 

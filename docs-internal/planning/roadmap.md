@@ -23,7 +23,3 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Russian and French translations of README.md + the docs/ tree.**
-  `scripts/translate-docs.py` (added for the zh-CN translation) is already
-  built to take more `LANGS` entries — adding `ru`/`fr` there and rerunning
-  it is the whole job, no new machinery needed. Not started.
