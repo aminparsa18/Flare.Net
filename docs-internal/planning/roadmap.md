@@ -35,9 +35,3 @@ folders are where "what happened and why" actually lives.
   of queries reading under N% of their table's total rows" from
   `system.query_log`) — real, just not skip-index-specific, since
   primary-key pruning contributes too.
-- **CLI: a multi-signal `incident.zip` export mode.** A `--trace-id`-keyed
-  `--include-trace`/`--include-logs`/`--include-metrics` mode for
-  `flare export` that bundles trace + logs + metrics into one archive,
-  instead of the current logs-only NDJSON/CSV stream. Deliberately held
-  back: the shipped stdout/`-o` + shell composability (`> file`, `| jq`)
-  already covers real usage; this is a real want, not an urgent one.

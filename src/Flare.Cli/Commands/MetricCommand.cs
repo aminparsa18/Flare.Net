@@ -334,10 +334,13 @@ internal sealed class MetricCommand : AsyncCommand<MetricCommand.Settings>
         _ => unit,
     };
 
-    // Port of $lib/logs/bucket-width.ts's pickBucketWidthSeconds.
+    // Port of $lib/logs/bucket-width.ts's pickBucketWidthSeconds. Internal (not private) -
+    // ExportCommand's incident-bundle mode reuses it too, same "no live tail
+    // equivalent"-style helper sharing TracesCommand's TryParseSince/FormatDurationNano
+    // already establish for this command file.
     private static readonly int[] NiceWidthsSeconds = [1, 5, 10, 30, 60, 300, 900, 3600, 21600, 86400];
 
-    private static int PickBucketWidthSeconds(double totalRangeSeconds)
+    internal static int PickBucketWidthSeconds(double totalRangeSeconds)
     {
         if (totalRangeSeconds <= 0)
         {
