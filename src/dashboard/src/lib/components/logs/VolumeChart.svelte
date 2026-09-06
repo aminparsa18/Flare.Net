@@ -7,6 +7,7 @@
 	import * as Accordion from '$lib/components/ui/accordion';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import XIcon from '@lucide/svelte/icons/x';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
 
@@ -230,7 +231,7 @@
 			<Accordion.Trigger
 				class="text-muted-foreground hover:text-foreground group/accordion-trigger relative flex w-auto flex-none items-center justify-start gap-1 border-none p-0 text-left text-xs font-normal hover:no-underline **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:size-3.5"
 			>
-				Event volume
+				{m.volumeChart_label()}
 			</Accordion.Trigger>
 			{#if !collapsed}
 				{#if selectedIndex !== null && buckets[selectedIndex]}
@@ -239,18 +240,18 @@
 						class="text-foreground bg-accent hover:bg-accent/70 flex items-center gap-1 rounded px-1.5 py-0.5"
 						onclick={() => explorer.clearSelectedBucket()}
 					>
-						Filtered to {formatBucketTime(buckets[selectedIndex].bucketStart)}
+						{m.volumeChart_filteredTo({ time: formatBucketTime(buckets[selectedIndex].bucketStart) })}
 						<XIcon class="size-3" />
 					</button>
 				{/if}
-				<span class="text-muted-foreground tabular-nums">{formatCount(totalCount)} events</span>
+				<span class="text-muted-foreground tabular-nums">{m.logs_eventsCount({ count: formatCount(totalCount) })}</span>
 			{/if}
 		</div>
 		<Accordion.Content class="px-4 pb-3">
 			{#if fetchError}
-				<p class="text-destructive text-xs">Volume chart: {fetchError}</p>
+				<p class="text-destructive text-xs">{m.volumeChart_errorPrefix({ error: fetchError })}</p>
 			{:else if buckets.length === 0}
-				<div class="text-muted-foreground flex h-[100px] items-center justify-center text-xs">No data</div>
+				<div class="text-muted-foreground flex h-[100px] items-center justify-center text-xs">{m.logs_noData()}</div>
 			{:else}
 				<div class="grid grid-cols-[2.5rem_1fr] gap-x-2">
 					<div class="text-muted-foreground flex h-[100px] flex-col justify-between py-0.5 text-right text-[10px] tabular-nums">
@@ -268,7 +269,7 @@
 										preserveAspectRatio="none"
 										class="h-[100px] w-full cursor-pointer"
 										role="img"
-										aria-label="Event volume over time - click a bar to filter logs to that time range"
+										aria-label={m.volumeChart_chartAriaLabel()}
 										onpointermove={handlePointerMove}
 										onpointerleave={() => (hoverIndex = null)}
 										onclick={handleBarClick}
@@ -345,7 +346,10 @@
 							</Tooltip.Trigger>
 							{#if hoverIndex !== null && buckets[hoverIndex]}
 								<Tooltip.Content>
-									{formatBucketTime(buckets[hoverIndex].bucketStart)} · {formatCount(buckets[hoverIndex].count)} events · click to filter
+									{m.volumeChart_tooltip({
+										time: formatBucketTime(buckets[hoverIndex].bucketStart),
+										count: formatCount(buckets[hoverIndex].count)
+									})}
 								</Tooltip.Content>
 							{/if}
 						</Tooltip.Root>

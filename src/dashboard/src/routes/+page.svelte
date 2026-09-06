@@ -11,6 +11,7 @@
 	import SqlQueryRow from '$lib/components/logs/SqlQueryRow.svelte';
 	import LogTable from '$lib/components/logs/LogTable.svelte';
 	import EventDetailSheet from '$lib/components/logs/EventDetailSheet.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.set(new LogsExplorerState());
 
@@ -52,7 +53,7 @@
 <svelte:document onvisibilitychange={handleVisibilityChange} />
 
 <svelte:head>
-	<title>Flare — Logs</title>
+	<title>{m.logsPage_title()}</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">

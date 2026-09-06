@@ -1,6 +1,16 @@
 // Time-range presets for the toolbar's TimeRangePicker. Presets are resolved to concrete
 // from/to instants at the moment they're used (not stored resolved) so "Last hour" stays
 // "last hour" across repeated searches rather than freezing at first selection.
+//
+// `label` is deliberately NOT stored on TIME_RANGE_PRESETS/LOG_ONLY_TIME_RANGE_PRESETS
+// below - these are module-scope consts, evaluated once per server process (not once per
+// request), so a static translated string baked in here would freeze at whatever locale
+// happened to be active the moment this module was first imported and never update for a
+// later request in a different locale. presetLabel()/previousPeriodLabel() call m.*()
+// fresh on every invocation instead - always call those for display, never read `.label`
+// directly off these arrays (see MetricsToolbar.svelte/TracesToolbar.svelte for the
+// correct pattern).
+import * as m from '$lib/paraglide/messages';
 
 export type TimeRangePreset =
 	| '5m'
@@ -19,7 +29,6 @@ export type TimeRangePreset =
 
 export interface TimeRangePresetOption {
 	value: TimeRangePreset;
-	label: string;
 	/** Set only for fixed-duration entries - null for 'custom' and absent from LOG_ONLY_TIME_RANGE_PRESETS's calendar-relative entries. MetricChart's comparison-mode shift math reads this directly rather than re-deriving it from resolveTimeRange(). */
 	durationMs?: number | null;
 }
@@ -34,16 +43,16 @@ export interface TimeRangePresetOption {
  * grows.
  */
 export const TIME_RANGE_PRESETS: TimeRangePresetOption[] = [
-	{ value: '5m', label: 'Last 5 minutes', durationMs: 5 * 60_000 },
-	{ value: '15m', label: 'Last 15 minutes', durationMs: 15 * 60_000 },
-	{ value: '1h', label: 'Last hour', durationMs: 60 * 60_000 },
-	{ value: '6h', label: 'Last 6 hours', durationMs: 6 * 60 * 60_000 },
-	{ value: '24h', label: 'Last 24 hours', durationMs: 24 * 60 * 60_000 },
-	{ value: '7d', label: 'Last 7 days', durationMs: 7 * 24 * 60 * 60_000 },
-	{ value: '30d', label: 'Last 30 days', durationMs: 30 * 24 * 60 * 60_000 },
-	{ value: '90d', label: 'Last 90 days', durationMs: 90 * 24 * 60 * 60_000 },
-	{ value: '365d', label: 'Last 365 days', durationMs: 365 * 24 * 60 * 60_000 },
-	{ value: 'custom', label: 'Custom range', durationMs: null }
+	{ value: '5m', durationMs: 5 * 60_000 },
+	{ value: '15m', durationMs: 15 * 60_000 },
+	{ value: '1h', durationMs: 60 * 60_000 },
+	{ value: '6h', durationMs: 6 * 60 * 60_000 },
+	{ value: '24h', durationMs: 24 * 60 * 60_000 },
+	{ value: '7d', durationMs: 7 * 24 * 60 * 60_000 },
+	{ value: '30d', durationMs: 30 * 24 * 60 * 60_000 },
+	{ value: '90d', durationMs: 90 * 24 * 60 * 60_000 },
+	{ value: '365d', durationMs: 365 * 24 * 60 * 60_000 },
+	{ value: 'custom', durationMs: null }
 ];
 
 /**
@@ -52,18 +61,31 @@ export const TIME_RANGE_PRESETS: TimeRangePresetOption[] = [
  * than filtered out by every other consumer.
  */
 export const LOG_ONLY_TIME_RANGE_PRESETS: TimeRangePresetOption[] = [
-	{ value: 'all', label: 'All time' },
-	{ value: 'today', label: 'Today' },
-	{ value: 'thisWeek', label: 'This week' }
+	{ value: 'all' },
+	{ value: 'today' },
+	{ value: 'thisWeek' }
 ];
 
-/** Looks up a preset's label across both lists above - the one place that needs to know both exist. */
+const PRESET_LABELS: Record<TimeRangePreset, () => string> = {
+	'5m': m.timeRange_last5m,
+	'15m': m.timeRange_last15m,
+	'1h': m.timeRange_last1h,
+	'6h': m.timeRange_last6h,
+	'24h': m.timeRange_last24h,
+	'7d': m.timeRange_last7d,
+	'30d': m.timeRange_last30d,
+	'90d': m.timeRange_last90d,
+	'365d': m.timeRange_last365d,
+	custom: m.timeRange_custom,
+	all: m.timeRange_all,
+	today: m.timeRange_today,
+	thisWeek: m.timeRange_thisWeek
+};
+
+/** Looks up a preset's translated label - called fresh every time (never cached), unlike
+ *  a static `.label` field, so it always reflects the current request/viewer's locale. */
 export function presetLabel(preset: TimeRangePreset): string {
-	return (
-		TIME_RANGE_PRESETS.find((p) => p.value === preset)?.label ??
-		LOG_ONLY_TIME_RANGE_PRESETS.find((p) => p.value === preset)?.label ??
-		preset
-	);
+	return PRESET_LABELS[preset]?.() ?? preset;
 }
 
 export interface ResolvedTimeRange {
@@ -128,14 +150,27 @@ export function previousPeriod(range: ResolvedTimeRange): ResolvedTimeRange {
 	};
 }
 
+const PREVIOUS_PERIOD_LABELS: Partial<Record<TimeRangePreset, () => string>> = {
+	'5m': m.timeRange_previous5m,
+	'15m': m.timeRange_previous15m,
+	'1h': m.timeRange_previous1h,
+	'6h': m.timeRange_previous6h,
+	'24h': m.timeRange_previous24h,
+	'7d': m.timeRange_previous7d,
+	'30d': m.timeRange_previous30d,
+	'90d': m.timeRange_previous90d,
+	'365d': m.timeRange_previous365d
+};
+
 /**
- * "Last 24 hours" -> "previous 24 hours" - every fixed-duration preset's label follows the
- * same "Last ..." shape (see TIME_RANGE_PRESETS above), so this is a simple, always-correct
- * substitution rather than a second hand-written label table to keep in sync with the
- * first. Only ever called with a preset from TIME_RANGE_PRESETS (Metrics never offers the
- * calendar-relative LOG_ONLY_TIME_RANGE_PRESETS), so there's no "Today" -> "previous Today"
- * case to worry about.
+ * "Last 24 hours" -> "previous 24 hours". Used to be a regex substitution on the English
+ * label ("Last " -> "previous ") - that only worked because English happens to prefix
+ * every fixed-duration label with "Last ", a pattern other languages don't share, so each
+ * "previous ..." variant now has its own translated message instead. Only ever called
+ * with a preset from TIME_RANGE_PRESETS (Metrics never offers the calendar-relative
+ * LOG_ONLY_TIME_RANGE_PRESETS), so there's no "Today" -> "previous Today" case to worry
+ * about - the fallback below only matters if that assumption is ever violated.
  */
 export function previousPeriodLabel(preset: TimeRangePreset): string {
-	return presetLabel(preset).replace(/^Last /, 'previous ');
+	return PREVIOUS_PERIOD_LABELS[preset]?.() ?? presetLabel(preset);
 }

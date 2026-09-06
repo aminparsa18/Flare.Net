@@ -11,6 +11,7 @@
 	import { AuthState } from '$lib/auth/state.svelte';
 	import { authContext } from '$lib/auth/context';
 	import { getBootstrapStatus } from '$lib/auth-api';
+	import * as m from '$lib/paraglide/messages';
 
 	const { children } = $props();
 
@@ -140,16 +141,22 @@
 {:else if redirectError}
 	<div class="flex h-screen items-center justify-center p-4">
 		<Alert variant="destructive" class="max-w-md">
-			<AlertTitle>Can't reach Flare.Api</AlertTitle>
+			<AlertTitle>{m.connError_title()}</AlertTitle>
 			<AlertDescription class="flex flex-col gap-2">
 				<span>{redirectError}</span>
-				<span>
-					Check that this dashboard's origin is listed in Flare.Api's
-					<code>Cors:AllowedOrigins</code>, and that <code>PUBLIC_API_URL</code>
-					points at a reachable address.
-				</span>
+				<!-- corsOption/envVar are fixed config-key literals, not user input, so
+				     interpolating them as raw <code> markup via {@html} is safe - lets the
+				     Chinese translation reorder the sentence around them naturally instead of
+				     being locked into English word order by splitting into three text
+				     fragments around the <code> tags. -->
+				<span
+					>{@html m.connError_description({
+						corsOption: '<code>Cors:AllowedOrigins</code>',
+						envVar: '<code>PUBLIC_API_URL</code>'
+					})}</span
+				>
 				<Button size="sm" variant="outline" onclick={() => void redirectUnauthenticated()} class="self-start">
-					Retry
+					{m.connError_retry()}
 				</Button>
 			</AlertDescription>
 		</Alert>

@@ -5,6 +5,7 @@
 	import { Lottie } from '$lib/components/ui/lottie';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { logsExplorerContext } from '$lib/logs/context';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
 
@@ -37,13 +38,13 @@
 		class="bg-muted/30 text-muted-foreground grid shrink-0 items-center gap-3 overflow-y-hidden border-b px-3 text-xs font-medium"
 		style="grid-template-columns: var(--log-row-columns); height: 28px; scrollbar-gutter: stable;"
 	>
-		<span>Time</span>
-		<span>Level</span>
-		<span>Service</span>
+		<span>{m.logsTable_colTime()}</span>
+		<span>{m.logsTable_colLevel()}</span>
+		<span>{m.logsTable_colService()}</span>
 		{#if !explorer.live}
-			<span>Duration</span>
+			<span>{m.logsTable_colDuration()}</span>
 		{/if}
-		<span>Message</span>
+		<span>{m.logsTable_colMessage()}</span>
 	</div>
 
 	{#if explorer.events.length === 0 && !explorer.loading}
@@ -56,11 +57,9 @@
 				<Lottie src="/no_log.json" loop={explorer.live} autoplay class="size-full" />
 			</Empty.Media>
 			<Empty.Header>
-				<Empty.Title>{explorer.live ? 'Waiting for events' : 'No events'}</Empty.Title>
+				<Empty.Title>{explorer.live ? m.logsTable_waitingTitle() : m.logsTable_noEventsTitle()}</Empty.Title>
 				<Empty.Description>
-					{explorer.live
-						? 'Live tail is connected — new events will appear here the moment they arrive.'
-						: 'No events match the current filters. Try widening the time range or clearing a filter.'}
+					{explorer.live ? m.logsTable_waitingDescription() : m.logsTable_noEventsDescription()}
 				</Empty.Description>
 			</Empty.Header>
 			{#if explorer.live}
@@ -68,7 +67,7 @@
 				     a search that just doesn't match anything isn't a "how do I send logs" moment. -->
 				<Empty.Content>
 					<a href="/data-sources" class="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4">
-						See how to ingest data →
+						{m.logsTable_seeHowToIngest()}
 					</a>
 				</Empty.Content>
 			{/if}
@@ -78,7 +77,7 @@
 			items={explorer.events}
 			itemHeight={ROW_HEIGHT}
 			getKey={(event) => event.eventId}
-			ariaLabel="Log events"
+			ariaLabel={m.logsTable_ariaLabel()}
 			onEndReached={() => void explorer.loadMore()}
 			class="min-h-0 flex-1"
 		>

@@ -15,6 +15,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { authContext } from '$lib/auth/context';
 	import { getBootstrapStatus, startEntraLogin, startOidcLogin, type BootstrapStatusResponse } from '$lib/auth-api';
+	import * as m from '$lib/paraglide/messages';
 
 	const auth = authContext.get();
 
@@ -103,18 +104,18 @@
 </script>
 
 <svelte:head>
-	<title>{showBootstrap ? 'Set up Flare' : 'Sign in - Flare'}</title>
+	<title>{showBootstrap ? m.login_pageTitleSetup() : m.login_pageTitleSignIn()}</title>
 </svelte:head>
 
 <div class="flex h-full items-center justify-center p-4">
 	<Card.Root class="w-full max-w-sm">
 		<Card.Header>
 			{#if showBootstrap}
-				<Card.Title>Create the admin account</Card.Title>
-				<Card.Description>One-time setup - no admin account exists yet for this Flare instance.</Card.Description>
+				<Card.Title>{m.login_createAdminTitle()}</Card.Title>
+				<Card.Description>{m.login_createAdminDescription()}</Card.Description>
 			{:else}
-				<Card.Title>Sign in to Flare</Card.Title>
-				<Card.Description>Enter your username and password.</Card.Description>
+				<Card.Title>{m.login_signInTitle()}</Card.Title>
+				<Card.Description>{m.login_signInDescription()}</Card.Description>
 			{/if}
 		</Card.Header>
 		<Card.Content>
@@ -124,7 +125,7 @@
 				{#if ssoError}
 					<Alert variant="destructive" class="mb-3">
 						<AlertDescription>
-							{ssoError === 'account-disabled' ? 'That account is disabled. Contact an Admin.' : 'Sign-in failed.'}
+							{ssoError === 'account-disabled' ? m.login_ssoAccountDisabled() : m.login_ssoFailed()}
 						</AlertDescription>
 					</Alert>
 				{/if}
@@ -138,17 +139,17 @@
 				{/if}
 				{#if !showBootstrap && (showEntraButton || showOidcButton)}
 					{#if showEntraButton}
-						<Button variant="outline" class="mb-3 w-full" onclick={startEntraLogin}>Sign in with Microsoft</Button>
+						<Button variant="outline" class="mb-3 w-full" onclick={startEntraLogin}>{m.login_signInWithMicrosoft()}</Button>
 					{/if}
 					{#if showOidcButton}
 						<Button variant="outline" class="mb-3 w-full" onclick={startOidcLogin}>
-							Sign in with {status?.oidcDisplayName || 'SSO'}
+							{m.login_signInWithSso({ provider: status?.oidcDisplayName || 'SSO' })}
 						</Button>
 					{/if}
 					{#if showLocalForm || showLdapOption}
 						<div class="mb-3 flex items-center gap-2">
 							<Separator class="flex-1" />
-							<span class="text-muted-foreground text-xs">or</span>
+							<span class="text-muted-foreground text-xs">{m.login_orSeparator()}</span>
 							<Separator class="flex-1" />
 						</div>
 					{/if}
@@ -164,7 +165,7 @@
 								variant={loginMethod === 'local' ? 'secondary' : 'ghost'}
 								onclick={() => (loginMethod = 'local')}
 							>
-								Local
+								{m.login_localMethod()}
 							</Button>
 							<Button
 								type="button"
@@ -172,7 +173,7 @@
 								variant={loginMethod === 'ldap' ? 'secondary' : 'ghost'}
 								onclick={() => (loginMethod = 'ldap')}
 							>
-								Active Directory
+								{m.login_ldapMethod()}
 							</Button>
 						</div>
 					{/if}
@@ -183,11 +184,11 @@
 							</Alert>
 						{/if}
 						<div class="flex flex-col gap-1">
-							<label for="username" class="text-xs font-medium">Username</label>
+							<label for="username" class="text-xs font-medium">{m.login_usernameLabel()}</label>
 							<Input id="username" bind:value={username} autocomplete="username" autofocus required />
 						</div>
 						<div class="flex flex-col gap-1">
-							<label for="password" class="text-xs font-medium">Password</label>
+							<label for="password" class="text-xs font-medium">{m.login_passwordLabel()}</label>
 							<Input
 								id="password"
 								type="password"
@@ -197,12 +198,12 @@
 								required
 							/>
 							{#if showBootstrap}
-								<p class="text-muted-foreground text-xs">At least 8 characters.</p>
+								<p class="text-muted-foreground text-xs">{m.login_passwordMinLength()}</p>
 							{/if}
 						</div>
 						{#if showBootstrap}
 							<div class="flex flex-col gap-1">
-								<label for="confirm-password" class="text-xs font-medium">Confirm password</label>
+								<label for="confirm-password" class="text-xs font-medium">{m.login_confirmPasswordLabel()}</label>
 								<Input
 									id="confirm-password"
 									type="password"
@@ -212,20 +213,20 @@
 									aria-invalid={!passwordsMatch}
 								/>
 								{#if !passwordsMatch}
-									<p class="text-destructive text-xs">Passwords don't match.</p>
+									<p class="text-destructive text-xs">{m.login_passwordsDontMatch()}</p>
 								{/if}
 							</div>
 						{/if}
 						<Button type="submit" disabled={auth.loading || (showBootstrap && !canSubmitBootstrap)}>
 							{#if auth.loading}
-								{showBootstrap ? 'Creating…' : 'Signing in…'}
+								{showBootstrap ? m.login_creating() : m.login_signingIn()}
 							{:else}
-								{showBootstrap ? 'Create admin account' : 'Sign in'}
+								{showBootstrap ? m.login_createAdminAccount() : m.login_signIn()}
 							{/if}
 						</Button>
 					</form>
 				{:else if !showEntraButton && !showOidcButton && !proxyAuthFailed}
-					<p class="text-muted-foreground text-sm">No sign-in method is configured for this Flare instance.</p>
+					<p class="text-muted-foreground text-sm">{m.login_noMethodConfigured()}</p>
 				{/if}
 			{/if}
 		</Card.Content>

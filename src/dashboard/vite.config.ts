@@ -1,10 +1,21 @@
 import tailwindcss from '@tailwindcss/vite';
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
 	plugins: [
+		// Regenerates src/lib/paraglide/* (messages.ts, runtime.ts, server.ts) from
+		// project.inlang/ + messages/*.json on every dev/build/preview - must run before
+		// sveltekit() touches module resolution. `npm run codegen` (predev/prebuild/precheck)
+		// regenerates the same output for `svelte-check`, which never runs Vite - see
+		// package.json and src/dashboard/README.md's Internationalization section.
+		paraglideVitePlugin({
+			project: './project.inlang',
+			outdir: './src/lib/paraglide',
+			strategy: ['cookie', 'preferredLanguage', 'baseLocale']
+		}),
 		tailwindcss(),
 		sveltekit({
 			compilerOptions: {

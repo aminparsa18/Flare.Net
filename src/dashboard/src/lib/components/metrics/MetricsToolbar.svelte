@@ -5,7 +5,8 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { metricsExplorerContext } from '$lib/metrics/context';
-	import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
+	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = metricsExplorerContext.get();
 
@@ -15,7 +16,13 @@
 
 	const serviceOptions = $derived(explorer.knownServices.map((s) => ({ value: s, label: s })));
 
-	const activeLabel = $derived(presets.find((p) => p.value === explorer.filter.timeRangePreset)?.label ?? 'Time range');
+	// presetLabel(), not a static `.label` field - see time-range.ts's own remarks on why
+	// that field was removed (a module-scope const can't reflect a per-request locale).
+	const activeLabel = $derived(
+		presets.some((p) => p.value === explorer.filter.timeRangePreset)
+			? presetLabel(explorer.filter.timeRangePreset)
+			: m.timeRange_label()
+	);
 
 	// Bits UI's Select needs a non-empty item value, so a sentinel stands in for "no
 	// grouping" and is translated back to null at the call site below.
@@ -37,7 +44,7 @@
 		</Select.Trigger>
 		<Select.Content>
 			{#each presets as preset (preset.value)}
-				<Select.Item value={preset.value} label={preset.label} />
+				<Select.Item value={preset.value} label={presetLabel(preset.value)} />
 			{/each}
 		</Select.Content>
 	</Select.Root>

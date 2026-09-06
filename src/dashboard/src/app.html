@@ -1,8 +1,15 @@
 <!doctype html>
 <!-- No hardcoded class="dark" here - mode-watcher's ModeWatcher (root +layout.svelte)
      injects a synchronous inline script into <head> that sets the correct dark/light
-     class before first paint, based on the user's saved choice or system preference. -->
-<html lang="en">
+     class before first paint, based on the user's saved choice or system preference.
+
+     The lang attribute below is filled in by hooks.server.ts's paraglideMiddleware with
+     the locale it resolved for this request (cookie, then Accept-Language, then "en") -
+     keeps <html lang> correct on the very first SSR'd response, not just after
+     hydration. Deliberately not spelling out the placeholder token itself in this
+     comment - transformPageChunk's replace matches the first occurrence in the whole
+     document, and it did match this comment before the real attribute once, below. -->
+<html lang="%paraglide.lang%">
 	<head>
 		<meta charset="utf-8" />
 		<!-- favicon.svg used to be here, but it was the unmodified `create-svelte` scaffold's

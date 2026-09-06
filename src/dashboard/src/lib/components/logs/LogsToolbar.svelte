@@ -14,6 +14,7 @@
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { setActiveLogsExplorer } from '$lib/logs/active-explorer.svelte';
 	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
 
@@ -73,12 +74,17 @@
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
 	<TimeRangePicker />
 	<PopoverMultiSelect
-		label="Service"
+		label={m.logsToolbar_serviceLabel()}
 		options={serviceOptions}
 		selected={explorer.filter.services}
 		onChange={(next) => explorer.setServices(next)}
 	/>
-	<PopoverMultiSelect label="Level" options={severityOptions} selected={selectedSeverityLabels} onChange={handleSeverityChange} />
+	<PopoverMultiSelect
+		label={m.logsToolbar_levelLabel()}
+		options={severityOptions}
+		selected={selectedSeverityLabels}
+		onChange={handleSeverityChange}
+	/>
 
 	{#if explorer.filter.patternId}
 		<!-- Drill-down from PatternsModal ("View occurrences") - a sticky filter with no
@@ -90,7 +96,7 @@
 				type="button"
 				class="hover:text-foreground shrink-0"
 				onclick={() => explorer.clearPatternIdFilter()}
-				aria-label="Clear pattern filter"
+				aria-label={m.logsToolbar_clearPatternFilter()}
 			>
 				<XIcon class="size-3" />
 			</button>
@@ -108,7 +114,7 @@
 				type="button"
 				class="hover:text-foreground shrink-0"
 				onclick={() => explorer.clearAttributeFilter()}
-				aria-label="Clear attribute filter"
+				aria-label={m.logsToolbar_clearAttributeFilter()}
 			>
 				<XIcon class="size-3" />
 			</button>
@@ -126,7 +132,7 @@
 		<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
 		<Input
 			class="pl-8"
-			placeholder="Search message body..."
+			placeholder={m.logsToolbar_searchPlaceholder()}
 			value={searchDraft}
 			oninput={(e) => handleSearchInput(e.currentTarget.value)}
 		/>
@@ -143,10 +149,10 @@
 		onclick={() => explorer.setLive(!explorer.live)}
 	>
 		<RadioIcon data-icon="inline-start" />
-		Live
+		{m.logsToolbar_live()}
 		{#if explorer.live}
 			<Badge variant={liveVariant} class="ml-1">
-				{explorer.connectionStatus === 'open' ? 'Pause' : explorer.connectionStatus}
+				{explorer.connectionStatus === 'open' ? m.logsToolbar_pause() : explorer.connectionStatus}
 			</Badge>
 		{/if}
 	</Button>

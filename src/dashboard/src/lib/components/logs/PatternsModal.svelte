@@ -9,6 +9,7 @@
 	import { getPatterns, type LogPatternRow } from '$lib/api';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { cn } from '$lib/utils';
+	import * as m from '$lib/paraglide/messages';
 
 	// Embedded in the Logs page's toolbar (an icon-button trigger next to the search box)
 	// rather than a standalone `/patterns` route - patterns are always "patterns within
@@ -62,16 +63,16 @@
 <Dialog.Root bind:open>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="icon-sm" title="Patterns">
+			<Button {...props} variant="outline" size="icon-sm" title={m.patterns_trigger()}>
 				<RegexIcon />
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
 	<Dialog.Content class="sm:max-w-3xl">
 		<Dialog.Header>
-			<Dialog.Title>Patterns</Dialog.Title>
+			<Dialog.Title>{m.patterns_trigger()}</Dialog.Title>
 			<Dialog.Description>
-				Recurring log message shapes over the current time range and filters, ranked by occurrence count.
+				{m.patterns_description()}
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="max-h-[60vh] overflow-auto">
@@ -82,17 +83,16 @@
 			{:else if error}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>Couldn't load patterns</Empty.Title>
+						<Empty.Title>{m.patterns_loadError()}</Empty.Title>
 						<Empty.Description>{error}</Empty.Description>
 					</Empty.Header>
 				</Empty.Root>
 			{:else if patterns.length === 0}
 				<Empty.Root>
 					<Empty.Header>
-						<Empty.Title>No patterns yet</Empty.Title>
+						<Empty.Title>{m.patterns_emptyTitle()}</Empty.Title>
 						<Empty.Description>
-							Patterns are computed as logs are ingested - rows written before this feature was enabled won't
-							appear here. Widen the time range or check back once more traffic has flowed through.
+							{m.patterns_emptyDescription()}
 						</Empty.Description>
 					</Empty.Header>
 				</Empty.Root>
@@ -100,11 +100,11 @@
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
-							<Table.Head>Template</Table.Head>
-							<Table.Head class="text-right">Count</Table.Head>
-							<Table.Head class="text-right">Errors</Table.Head>
-							<Table.Head>First seen</Table.Head>
-							<Table.Head>Last seen</Table.Head>
+							<Table.Head>{m.patterns_colTemplate()}</Table.Head>
+							<Table.Head class="text-right">{m.patterns_colCount()}</Table.Head>
+							<Table.Head class="text-right">{m.patterns_colErrors()}</Table.Head>
+							<Table.Head>{m.patterns_colFirstSeen()}</Table.Head>
+							<Table.Head>{m.patterns_colLastSeen()}</Table.Head>
 							<Table.Head></Table.Head>
 						</Table.Row>
 					</Table.Header>
@@ -119,7 +119,7 @@
 								<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatTimestamp(row.firstSeen)}</Table.Cell>
 								<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatTimestamp(row.lastSeen)}</Table.Cell>
 								<Table.Cell class="text-right">
-									<Button variant="ghost" size="sm" onclick={() => selectPattern(row)}>View occurrences</Button>
+									<Button variant="ghost" size="sm" onclick={() => selectPattern(row)}>{m.patterns_viewOccurrences()}</Button>
 								</Table.Cell>
 							</Table.Row>
 						{/each}

@@ -12,6 +12,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		label,
@@ -43,9 +44,9 @@
 	</Popover.Trigger>
 	<Popover.Content class="w-56 p-0" align="start">
 		<Command.Root>
-			<Command.Input placeholder="Filter {label.toLowerCase()}..." />
+			<Command.Input placeholder={m.multiSelect_filterPlaceholder({ label: label.toLowerCase() })} />
 			<Command.List>
-				<Command.Empty>No results.</Command.Empty>
+				<Command.Empty>{m.multiSelect_noResults()}</Command.Empty>
 				<Command.Group>
 					<ScrollArea class="h-64">
 						{#each options as option (option.value)}

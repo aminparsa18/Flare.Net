@@ -15,6 +15,7 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import SaveIcon from '@lucide/svelte/icons/save';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		currentState,
@@ -61,7 +62,7 @@
 	}
 
 	async function handleDelete(view: SavedView): Promise<void> {
-		if (!confirm(`Delete saved search "${view.name}"? This cannot be undone.`)) return;
+		if (!confirm(m.savedSearches_confirmDelete({ name: view.name }))) return;
 		deletingId = view.id;
 		deleteError = null;
 		try {
@@ -80,7 +81,7 @@
 		{#snippet child({ props })}
 			<Button {...props} variant="outline" size="sm">
 				<StarIcon data-icon="inline-start" />
-				Saved searches
+				{m.savedSearches_trigger()}
 				<ChevronDownIcon data-icon="inline-end" />
 			</Button>
 		{/snippet}
@@ -88,14 +89,14 @@
 	<Popover.Content class="w-64 p-0" align="start">
 		<Command.Root>
 			<Command.List>
-				<Command.Group heading="My saved searches">
+				<Command.Group heading={m.savedSearches_heading()}>
 					{#if loading}
-						<div class="text-muted-foreground px-2 py-4 text-center text-xs">Loading…</div>
+						<div class="text-muted-foreground px-2 py-4 text-center text-xs">{m.savedSearches_loading()}</div>
 					{:else if views.length === 0}
 						<div class="text-muted-foreground flex flex-col items-center gap-1 px-2 py-6 text-center">
 							<StarIcon class="size-5 opacity-50" />
-							<p class="text-xs">No saved searches yet</p>
-							<p class="text-xs">Save your current filters to re-run this search later.</p>
+							<p class="text-xs">{m.savedSearches_emptyTitle()}</p>
+							<p class="text-xs">{m.savedSearches_emptyDescription()}</p>
 						</div>
 					{:else}
 						<ScrollArea class="max-h-64">
@@ -108,7 +109,7 @@
 										variant="ghost"
 										size="icon-sm"
 										class="text-muted-foreground hover:text-destructive mr-1 shrink-0"
-										title="Delete saved search"
+										title={m.savedSearches_deleteTitle()}
 										disabled={deletingId === view.id}
 										onclick={(e) => {
 											e.stopPropagation();
@@ -134,7 +135,7 @@
 		<div class="border-t p-1">
 			<Button variant="ghost" size="sm" class="w-full justify-start" onclick={handleSaveClick}>
 				<SaveIcon data-icon="inline-start" />
-				Save current filter…
+				{m.savedSearches_saveCurrent()}
 			</Button>
 		</div>
 	</Popover.Content>
