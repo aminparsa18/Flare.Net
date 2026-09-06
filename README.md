@@ -9,6 +9,13 @@
 
 # Flare.Net
 
+[![CI](https://github.com/aminparsa18/Flare.Net/actions/workflows/ci.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/ci.yml)
+[![Docker Images](https://github.com/aminparsa18/Flare.Net/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/docker-publish.yml)
+[![Docs Link Check](https://github.com/aminparsa18/Flare.Net/actions/workflows/docs-links.yml/badge.svg)](https://github.com/aminparsa18/Flare.Net/actions/workflows/docs-links.yml)
+[![License: MIT](https://img.shields.io/github/license/aminparsa18/Flare.Net)](LICENSE)
+[![NuGet Flare.Hosting.Aspire](https://img.shields.io/nuget/v/Flare.Hosting.Aspire?label=Flare.Hosting.Aspire)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
+[![NuGet Flare.Cli](https://img.shields.io/nuget/v/Flare.Cli?label=flare%20cli)](https://www.nuget.org/packages/Flare.Cli)
+
 A self-hosted, OpenTelemetry-native observability platform for .NET — logs, traces, and metrics as first-class citizens, correlated in one place, with threshold/query-based alert rules that notify webhook/Slack, Telegram, or email on breach.
 
 **Think Seq or Datadog — but fully open source (MIT), self-hosted, and OTLP straight in with no proprietary agent or SDK to install.**

@@ -1,0 +1,45 @@
+# Builds the whole solution and runs its unit tests on every PR and every push to
+# main. This is deliberately separate from docker-publish.yml/nuget-publish.yml (those
+# are push/tag-only and only care about the images/packages they ship) - this workflow
+# is the actual "does the code compile and pass its tests" signal, and it's the one the
+# README's CI badge points at.
+#
+# No ClickHouse/Redis/Docker here on purpose: per CLAUDE.md, the unit test projects
+# (Flare.Ingest.Tests, Flare.Api.Tests, Flare.Identity.Tests) are plain xUnit with no
+# hosting/network/container dependencies by design - anything that needs real
+# infrastructure is covered by end-to-end runs instead, not by this workflow.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Reads global.json so the exact pinned SDK (10.0.100, rollForward
+      # latestFeature) is what actually builds - not whatever setup-dotnet's own
+      # default happens to be.
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Flare.slnx
+
+      - name: Build
+        run: dotnet build Flare.slnx --no-restore -c Release
+
+      - name: Test
+        run: dotnet test Flare.slnx --no-build -c Release --logger "console;verbosity=normal"
