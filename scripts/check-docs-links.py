@@ -128,6 +128,12 @@ def check_orphans() -> list[str]:
         for page in sorted(d.glob("*.md")):
             if page.name == "README.md":
                 continue
+            if Path(page.stem).suffix:
+                # A generated translation (e.g. "getting-started.zh-CN.md" - stem
+                # "getting-started.zh-CN" has its own ".zh-CN" suffix). It mirrors an
+                # already-indexed source page rather than being a new one that needs
+                # its own docs/README.md entry - see scripts/translate-docs.py.
+                continue
             rel = f"{sub}/{page.name}"
             # A page is "linked" if its relative path (or bare filename,
             # for links written without the subfolder prefix) appears

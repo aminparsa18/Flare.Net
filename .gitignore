@@ -88,3 +88,8 @@ graphify-out/
 # Generated results, not source - see docs-internal/investigations/ for the findings a
 # run actually produced.
 BenchmarkDotNet.Artifacts/
+
+# Python bytecode cache - scripts/*.py are run directly, never installed as a package,
+# so this is purely a local speedup artifact, not source.
+__pycache__/
+*.pyc
