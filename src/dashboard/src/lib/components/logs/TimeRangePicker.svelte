@@ -13,6 +13,7 @@
 		presetLabel,
 		type TimeRangePreset
 	} from '$lib/logs/time-range';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
 
@@ -47,7 +48,7 @@
 	 * variance is actually fine.
 	 */
 	function formatCustomLabel(range: { from: Date; to: Date } | null): string {
-		if (!range) return 'Custom range';
+		if (!range) return m.timeRange_custom();
 		const pad = (n: number, len = 2) => n.toString().padStart(len, '0');
 		const fmt = (d: Date) => {
 			const day = pad(d.getDate());
@@ -56,7 +57,7 @@
 			const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
 			return `${day} ${month} ${year} ${time}`;
 		};
-		return `${fmt(range.from)} to ${fmt(range.to)}`;
+		return m.timeRangePicker_customRangeFormat({ from: fmt(range.from), to: fmt(range.to) });
 	}
 
 	const activeLabel = $derived(
@@ -95,7 +96,7 @@
 	<!-- Live mode locks the range to "now" server-side (the tail endpoint ignores from/to) - no point offering a control that can't do anything. -->
 	<Button variant="outline" size="sm" disabled>
 		<ClockIcon data-icon="inline-start" />
-		Live — streaming now
+		{m.timeRangePicker_liveStreaming()}
 	</Button>
 {:else}
 	<div class="inline-flex items-center">
@@ -105,8 +106,8 @@
 			class="rounded-r-none"
 			disabled={!canShift}
 			onclick={() => explorer.shiftTimeRange(-1)}
-			title="Shift back"
-			aria-label="Shift time range back"
+			title={m.timeRangePicker_shiftBack()}
+			aria-label={m.timeRangePicker_shiftBack()}
 		>
 			<ChevronLeftIcon />
 		</Button>
@@ -131,9 +132,9 @@
 				{:else}
 					<RangeCalendar bind:value={calendarValue} />
 					<div class="flex justify-end gap-2 pt-2">
-						<Button variant="ghost" size="sm" onclick={() => (showCustom = false)}>Back</Button>
+						<Button variant="ghost" size="sm" onclick={() => (showCustom = false)}>{m.timeRangePicker_back()}</Button>
 						<Button size="sm" disabled={!calendarValue.start || !calendarValue.end} onclick={applyCustomRange}>
-							Apply
+							{m.timeRangePicker_apply()}
 						</Button>
 					</div>
 				{/if}
@@ -145,8 +146,8 @@
 			class="-ml-px rounded-l-none"
 			disabled={!canShift}
 			onclick={() => explorer.shiftTimeRange(1)}
-			title="Shift forward"
-			aria-label="Shift time range forward"
+			title={m.timeRangePicker_shiftForward()}
+			aria-label={m.timeRangePicker_shiftForward()}
 		>
 			<ChevronRightIcon />
 		</Button>

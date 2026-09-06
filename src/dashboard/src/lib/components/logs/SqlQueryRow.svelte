@@ -19,6 +19,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import XIcon from '@lucide/svelte/icons/x';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
 
@@ -380,18 +381,18 @@
 			<Accordion.Trigger
 				class="text-muted-foreground hover:text-foreground group/accordion-trigger relative flex w-auto flex-none items-center justify-start gap-1 border-none p-0 text-left text-xs font-normal hover:no-underline **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:size-3.5"
 			>
-				SQL query
+				{m.sqlQuery_label()}
 			</Accordion.Trigger>
 			{#if !collapsed && result}
 				<span class="text-muted-foreground tabular-nums">
 					{#if result.kind === 'Count'}
-						{formatCount(result.count ?? 0)} events
+						{m.logs_eventsCount({ count: formatCount(result.count ?? 0) })}
 					{:else if result.kind === 'Series'}
-						{formatCount(totalSeriesCount)} events
+						{m.logs_eventsCount({ count: formatCount(totalSeriesCount) })}
 					{:else if result.kind === 'Rows'}
-						{formatCount(result.events?.length ?? 0)}{result.hasMoreRows ? '+' : ''} events
+						{m.logs_eventsCount({ count: formatCount(result.events?.length ?? 0) + (result.hasMoreRows ? '+' : '') })}
 					{:else}
-						{formatCount(result.rows?.length ?? 0)}{result.hasMoreRows ? '+' : ''} rows
+						{m.logs_rowsCount({ count: formatCount(result.rows?.length ?? 0) + (result.hasMoreRows ? '+' : '') })}
 					{/if}
 				</span>
 			{/if}
@@ -437,7 +438,7 @@
 							type="button"
 							class="text-muted-foreground hover:text-foreground absolute top-2 right-2"
 							onclick={clearQuery}
-							aria-label="Clear query"
+							aria-label={m.sqlQuery_clearQuery()}
 						>
 							<XIcon class="size-3.5" />
 						</button>
@@ -490,8 +491,8 @@
 					size="icon-sm"
 					disabled={!queryText.trim() || running}
 					onclick={run}
-					title="Run query (Enter - use Shift+Enter for a new line)"
-					aria-label="Run query"
+					title={m.sqlQuery_runTitle()}
+					aria-label={m.sqlQuery_runAriaLabel()}
 				>
 					<PlayIcon class="text-primary" />
 				</Button>
@@ -502,11 +503,11 @@
 			{:else if result?.kind === 'Count'}
 				<div class="mt-2 flex h-16 items-baseline">
 					<span class="text-2xl font-semibold tabular-nums">{formatCount(result.count ?? 0)}</span>
-					<span class="text-muted-foreground ml-2 text-xs">events</span>
+					<span class="text-muted-foreground ml-2 text-xs">{m.logs_eventsUnit()}</span>
 				</div>
 			{:else if result?.kind === 'Series'}
 				{#if bucketStarts.length === 0}
-					<div class="text-muted-foreground mt-2 flex h-[100px] items-center justify-center text-xs">No data</div>
+					<div class="text-muted-foreground mt-2 flex h-[100px] items-center justify-center text-xs">{m.logs_noData()}</div>
 				{:else}
 					<div class="mt-2 grid grid-cols-[2.5rem_1fr] gap-x-2">
 						<div class="text-muted-foreground flex h-[100px] flex-col justify-between py-0.5 text-right text-[10px] tabular-nums">
@@ -514,7 +515,7 @@
 							<span>{formatCount(Math.round(peakBucketCount / 2))}</span>
 							<span>0</span>
 						</div>
-						<svg viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}" preserveAspectRatio="none" class="h-[100px] w-full" role="img" aria-label="Query result over time">
+						<svg viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}" preserveAspectRatio="none" class="h-[100px] w-full" role="img" aria-label={m.sqlQuery_resultChartAriaLabel()}>
 							{#each [PEAK_Y, (PEAK_Y + BASELINE_Y) / 2, BASELINE_Y] as gridY (gridY)}
 								<line x1="0" y1={gridY} x2={CHART_WIDTH} y2={gridY} class="text-border" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke" />
 							{/each}
@@ -524,7 +525,7 @@
 								{@const total = bucketTotals.get(bucketStart) ?? 0}
 								{@const segments = barSegments(bucketStart)}
 								<g>
-									<title>{formatBucketTime(bucketStart)} · {formatCount(total)} events</title>
+									<title>{m.sqlQuery_bucketTooltip({ time: formatBucketTime(bucketStart), count: formatCount(total) })}</title>
 									{#each segments as segment, si (si)}
 										{@const priorHeight = segments.slice(0, si).reduce((sum, s) => sum + s.height, 0)}
 										<rect {x} y={BASELINE_Y - priorHeight - segment.height} {width} height={Math.max(0.5, segment.height)} fill={segment.color} fill-opacity="0.85" />
@@ -543,7 +544,7 @@
 							{#each seriesKeys as key (key)}
 								<span class="text-muted-foreground flex items-center gap-1 text-[10px]">
 									<span class="size-2 rounded-sm" style="background: {colorFor(key)};"></span>
-									{key || '(none)'}
+									{key || m.sqlQuery_noGroupKey()}
 								</span>
 							{/each}
 						</div>
@@ -551,16 +552,16 @@
 				{/if}
 			{:else if result?.kind === 'Rows'}
 				{#if (result.events?.length ?? 0) === 0}
-					<div class="text-muted-foreground mt-2 flex h-16 items-center justify-center text-xs">No matching events</div>
+					<div class="text-muted-foreground mt-2 flex h-16 items-center justify-center text-xs">{m.sqlQuery_noMatchingEvents()}</div>
 				{:else}
 					<div class="mt-2 max-h-64 overflow-auto rounded border">
 						<table class="w-full text-left text-xs">
 							<thead class="bg-muted/50 sticky top-0">
 								<tr>
-									<th class="px-2 py-1 font-medium">Time</th>
-									<th class="px-2 py-1 font-medium">Service</th>
-									<th class="px-2 py-1 font-medium">Level</th>
-									<th class="px-2 py-1 font-medium">Body</th>
+									<th class="px-2 py-1 font-medium">{m.logsTable_colTime()}</th>
+									<th class="px-2 py-1 font-medium">{m.logsTable_colService()}</th>
+									<th class="px-2 py-1 font-medium">{m.logsTable_colLevel()}</th>
+									<th class="px-2 py-1 font-medium">{m.sqlQuery_colBody()}</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -577,13 +578,13 @@
 					</div>
 					{#if result.hasMoreRows}
 						<p class="text-muted-foreground mt-1 text-[10px]">
-							Showing first {result.events?.length ?? 0} — narrow your query or time range for more.
+							{m.sqlQuery_showingFirst({ count: result.events?.length ?? 0 })}
 						</p>
 					{/if}
 				{/if}
 			{:else if result?.kind === 'Table'}
 				{#if (result.rows?.length ?? 0) === 0}
-					<div class="text-muted-foreground mt-2 flex h-16 items-center justify-center text-xs">No matching events</div>
+					<div class="text-muted-foreground mt-2 flex h-16 items-center justify-center text-xs">{m.sqlQuery_noMatchingEvents()}</div>
 				{:else}
 					<div class="mt-2 max-h-64 overflow-auto rounded border">
 						<table class="w-full text-left text-xs">
@@ -607,7 +608,7 @@
 					</div>
 					{#if result.hasMoreRows}
 						<p class="text-muted-foreground mt-1 text-[10px]">
-							Showing first {result.rows?.length ?? 0} — narrow your query or time range for more.
+							{m.sqlQuery_showingFirst({ count: result.rows?.length ?? 0 })}
 						</p>
 					{/if}
 				{/if}

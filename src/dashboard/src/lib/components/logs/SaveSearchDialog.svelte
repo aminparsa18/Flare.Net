@@ -11,6 +11,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { createSavedView } from '$lib/saved-views-api';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		open = $bindable(false),
@@ -59,26 +60,26 @@
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Save current filter</Dialog.Title>
-			<Dialog.Description>Saves your current search, time range, and filters so you can re-run this search later.</Dialog.Description>
+			<Dialog.Title>{m.saveSearch_title()}</Dialog.Title>
+			<Dialog.Description>{m.saveSearch_description()}</Dialog.Description>
 		</Dialog.Header>
 		<form class="space-y-4" onsubmit={handleSubmit}>
 			<div class="space-y-2">
-				<label for="save-search-name" class="text-sm font-medium">Name</label>
-				<Input id="save-search-name" bind:value={name} required placeholder="e.g. Production errors" />
+				<label for="save-search-name" class="text-sm font-medium">{m.saveSearch_nameLabel()}</label>
+				<Input id="save-search-name" bind:value={name} required placeholder={m.saveSearch_namePlaceholder()} />
 			</div>
 			<div class="space-y-2">
-				<label for="save-search-description" class="text-sm font-medium">Description</label>
+				<label for="save-search-description" class="text-sm font-medium">{m.saveSearch_descriptionLabel()}</label>
 				<Textarea id="save-search-description" bind:value={description} rows={2} />
 			</div>
 			{#if error}
 				<p class="text-destructive text-sm">{error}</p>
 			{/if}
 			<Dialog.Footer>
-				<Button type="button" variant="outline" onclick={() => (open = false)}>Cancel</Button>
+				<Button type="button" variant="outline" onclick={() => (open = false)}>{m.saveSearch_cancel()}</Button>
 				<Button type="submit" disabled={saving}>
 					{#if saving}<Spinner class="size-4" />{/if}
-					Save
+					{m.saveSearch_save()}
 				</Button>
 			</Dialog.Footer>
 		</form>

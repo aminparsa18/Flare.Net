@@ -19,6 +19,7 @@
 	import { logsExplorerContext } from '$lib/logs/context';
 	import type { LogEventDto } from '$lib/api';
 	import { fetchAllForExport, eventsToBlob, exportFilename, downloadBlob, type ExportFormat, type ExportScope } from '$lib/logs/export';
+	import * as m from '$lib/paraglide/messages';
 
 	const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
 		{ value: 'csv', label: 'CSV' },
@@ -77,9 +78,7 @@
 			downloadBlob(eventsToBlob(events, format), exportFilename(range, truncated, format, scope));
 			open = false;
 			if (truncated) {
-				alert(
-					`Export limited to the first ${events.length.toLocaleString()} matching rows. Narrow the time range or filters to export the rest.`
-				);
+				alert(m.exportDialog_truncatedAlert({ count: events.length.toLocaleString() }));
 			}
 		} catch (err) {
 			if (abortController?.signal.aborted) {
@@ -104,20 +103,20 @@
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="icon-sm" title="Export">
+			<Button {...props} variant="outline" size="icon-sm" title={m.exportDialog_export()}>
 				<DownloadIcon />
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Export logs</Dialog.Title>
-			<Dialog.Description>Choose which rows and which format to download.</Dialog.Description>
+			<Dialog.Title>{m.exportDialog_title()}</Dialog.Title>
+			<Dialog.Description>{m.exportDialog_description()}</Dialog.Description>
 		</Dialog.Header>
 
 		<div class="space-y-4">
 			<div class="space-y-2">
-				<span class="text-sm font-medium">Rows</span>
+				<span class="text-sm font-medium">{m.exportDialog_rowsLabel()}</span>
 				<div class="flex gap-2">
 					<Button
 						type="button"
@@ -126,7 +125,7 @@
 						class="flex-1"
 						onclick={() => (scope = 'visible')}
 					>
-						Currently shown ({explorer.events.length.toLocaleString()})
+						{m.exportDialog_rowsVisible({ count: explorer.events.length.toLocaleString() })}
 					</Button>
 					<Button
 						type="button"
@@ -135,21 +134,16 @@
 						class="flex-1"
 						onclick={() => (scope = 'filtered')}
 					>
-						All matching the filter
+						{m.exportDialog_rowsFiltered()}
 					</Button>
 				</div>
 				<p class="text-muted-foreground text-xs">
-					{#if scope === 'visible'}
-						Exactly the rows currently loaded in the table below.
-					{:else}
-						Fetches every row matching the current filter and time range (up to 25,000 rows) - may take a
-						moment for a wide range.
-					{/if}
+					{scope === 'visible' ? m.exportDialog_scopeVisibleHint() : m.exportDialog_scopeFilteredHint()}
 				</p>
 			</div>
 
 			<div class="space-y-2">
-				<span class="text-sm font-medium">Format</span>
+				<span class="text-sm font-medium">{m.exportDialog_formatLabel()}</span>
 				<div class="grid grid-cols-2 gap-2">
 					{#each FORMAT_OPTIONS as option (option.value)}
 						<Button
@@ -170,10 +164,10 @@
 		</div>
 
 		<Dialog.Footer>
-			<Button type="button" variant="outline" onclick={handleCancel}>Cancel</Button>
+			<Button type="button" variant="outline" onclick={handleCancel}>{m.exportDialog_cancel()}</Button>
 			<Button type="button" disabled={exporting} onclick={handleExport}>
 				{#if exporting}<Spinner class="size-4" />{/if}
-				Export
+				{m.exportDialog_export()}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

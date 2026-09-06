@@ -21,6 +21,7 @@
 	import { createSavedView } from '$lib/saved-views-api';
 	import { savedViewPath } from '$lib/saved-views/page-paths';
 	import { presetLabel } from '$lib/logs/time-range';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
 
@@ -33,7 +34,7 @@
 		if (timeRangePreset !== 'custom') {
 			return presetLabel(timeRangePreset);
 		}
-		if (!customRange) return 'a custom range';
+		if (!customRange) return m.shareView_customRangeFallback();
 		const fmt = (d: Date) => d.toLocaleString(undefined, { hour12: false });
 		return `${fmt(customRange.from)} – ${fmt(customRange.to)}`;
 	}
@@ -44,8 +45,11 @@
 		try {
 			const search = explorer.filter.search.trim();
 			const view = await createSavedView({
-				name: search ? `Shared: ${search}` : 'Shared logs view',
-				description: `Shared on ${new Date().toLocaleString(undefined, { hour12: false })} - ${rangeLabel()}`,
+				name: search ? m.shareView_sharedSearchName({ search }) : m.shareView_sharedViewName(),
+				description: m.shareView_sharedDescription({
+					timestamp: new Date().toLocaleString(undefined, { hour12: false }),
+					range: rangeLabel()
+				}),
 				pageType: 'Logs',
 				state: explorer.toSavedViewState()
 			});
@@ -54,14 +58,20 @@
 			clearTimeout(copiedTimeout);
 			copiedTimeout = setTimeout(() => (copied = false), 1500);
 		} catch (err) {
-			alert(`Couldn't create a shareable link: ${err instanceof Error ? err.message : String(err)}`);
+			alert(m.shareView_shareFailedAlert({ error: err instanceof Error ? err.message : String(err) }));
 		} finally {
 			sharing = false;
 		}
 	}
 </script>
 
-<Button variant="outline" size="icon-sm" title={copied ? 'Copied!' : 'Share this view'} disabled={sharing} onclick={handleShare}>
+<Button
+	variant="outline"
+	size="icon-sm"
+	title={copied ? m.shareView_copied() : m.shareView_share()}
+	disabled={sharing}
+	onclick={handleShare}
+>
 	{#if sharing}
 		<Spinner class="size-3" />
 	{:else if copied}

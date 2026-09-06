@@ -4,7 +4,8 @@
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { tracesExplorerContext } from '$lib/traces/context';
-	import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
+	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = tracesExplorerContext.get();
 
@@ -16,7 +17,13 @@
 
 	const serviceOptions = $derived(explorer.knownServices.map((s) => ({ value: s, label: s })));
 
-	const activeLabel = $derived(presets.find((p) => p.value === explorer.filter.timeRangePreset)?.label ?? 'Time range');
+	// presetLabel(), not a static `.label` field - see time-range.ts's own remarks on why
+	// that field was removed (a module-scope const can't reflect a per-request locale).
+	const activeLabel = $derived(
+		presets.some((p) => p.value === explorer.filter.timeRangePreset)
+			? presetLabel(explorer.filter.timeRangePreset)
+			: m.timeRange_label()
+	);
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
@@ -31,7 +38,7 @@
 		</Select.Trigger>
 		<Select.Content>
 			{#each presets as preset (preset.value)}
-				<Select.Item value={preset.value} label={preset.label} />
+				<Select.Item value={preset.value} label={presetLabel(preset.value)} />
 			{/each}
 		</Select.Content>
 	</Select.Root>

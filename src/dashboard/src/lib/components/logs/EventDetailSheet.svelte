@@ -10,6 +10,7 @@
 	import { severityVariant } from '$lib/logs/severity';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { formatDurationNano } from '$lib/traces/duration';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
 
@@ -90,7 +91,7 @@
 
 					<div class="grid grid-cols-3 gap-2 text-xs">
 						<div>
-							<span class="text-muted-foreground">Trace ID</span>
+							<span class="text-muted-foreground">{m.eventDetail_traceId()}</span>
 							{#if event.traceId}
 								<p class="truncate">
 									<a href="/traces/{event.traceId}" class="hover:text-primary font-mono underline-offset-2 hover:underline">
@@ -102,11 +103,11 @@
 							{/if}
 						</div>
 						<div>
-							<span class="text-muted-foreground">Span ID</span>
+							<span class="text-muted-foreground">{m.eventDetail_spanId()}</span>
 							<p class="truncate font-mono">{event.spanId || '—'}</p>
 						</div>
 						<div>
-							<span class="text-muted-foreground">Span duration</span>
+							<span class="text-muted-foreground">{m.eventDetail_spanDuration()}</span>
 							<p class="truncate font-mono">
 								{event.spanDurationNano != null ? formatDurationNano(event.spanDurationNano) : '—'}
 							</p>
@@ -121,7 +122,7 @@
 									variant="ghost"
 									size="icon-xs"
 									class="text-muted-foreground hover:text-foreground shrink-0"
-									title="Copy exception details"
+									title={m.eventDetail_copyException()}
 									onclick={() => copyException(exceptionInfo)}
 								>
 									{#if copied}
@@ -144,9 +145,9 @@
 						</div>
 					{/if}
 
-					<AttributeTable title="Log attributes" attributes={logAttributesWithoutException} />
-					<AttributeTable title="Resource attributes" attributes={event.resourceAttributes} />
-					<AttributeTable title="Scope attributes" attributes={event.scopeAttributes} />
+					<AttributeTable title={m.eventDetail_logAttributes()} attributes={logAttributesWithoutException} />
+					<AttributeTable title={m.eventDetail_resourceAttributes()} attributes={event.resourceAttributes} />
+					<AttributeTable title={m.eventDetail_scopeAttributes()} attributes={event.scopeAttributes} />
 				</div>
 			</ScrollArea>
 		{/if}

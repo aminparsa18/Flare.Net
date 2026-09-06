@@ -30,6 +30,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
 
@@ -318,13 +319,13 @@
 			<Accordion.Trigger
 				class="text-muted-foreground hover:text-foreground group/accordion-trigger relative flex w-auto flex-none items-center justify-start gap-1 border-none p-0 text-left text-xs font-normal hover:no-underline **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:size-3.5"
 			>
-				Value distribution
+				{m.valueDist_label()}
 			</Accordion.Trigger>
 			{#if !collapsed}
 				{#if keys.length > 0}
 					<Select.Root type="single" value={selectedKey ?? undefined} onValueChange={(v) => v && (selectedKey = v)}>
 						<Select.Trigger class="h-6 w-auto text-xs">
-							{selectedKey ?? 'Select attribute'}
+							{selectedKey ?? m.valueDist_selectAttribute()}
 						</Select.Trigger>
 						<Select.Content>
 							{#each keys as key (key.key)}
@@ -335,7 +336,7 @@
 				{/if}
 				<div class="flex-1"></div>
 				{#if selectedKey && points.length > 0}
-					<span class="text-muted-foreground tabular-nums">{totalPoints} sampled</span>
+					<span class="text-muted-foreground tabular-nums">{m.valueDist_sampledCount({ count: totalPoints })}</span>
 					<div class="flex items-center gap-1">
 						<span class="text-muted-foreground tabular-nums">0</span>
 						<div
@@ -343,7 +344,7 @@
 							style="background: linear-gradient(to right, {isDark
 								? SEQUENTIAL_BLUE[SEQUENTIAL_BLUE.length - 1]
 								: SEQUENTIAL_BLUE[0]}, {isDark ? SEQUENTIAL_BLUE[0] : SEQUENTIAL_BLUE[SEQUENTIAL_BLUE.length - 1]});"
-							title="Events per cell: 0 (recedes) to {maxCellCount} (brightest)"
+							title={m.valueDist_legendTitle({ max: maxCellCount })}
 						></div>
 						<span class="text-muted-foreground tabular-nums">{maxCellCount}</span>
 					</div>
@@ -351,7 +352,7 @@
 						variant={logScale ? 'default' : 'outline'}
 						size="sm"
 						class="h-6 px-1.5 font-mono text-[0.65rem]"
-						title={logScale ? 'Switch to linear scale' : 'Switch to logarithmic scale'}
+						title={logScale ? m.valueDist_switchToLinear() : m.valueDist_switchToLog()}
 						onclick={() => (logScale = !logScale)}
 					>
 						ln
@@ -361,13 +362,13 @@
 		</div>
 		<Accordion.Content class="px-4 pb-3">
 			{#if fetchError}
-				<p class="text-destructive text-xs">Value distribution: {fetchError}</p>
+				<p class="text-destructive text-xs">{m.valueDist_errorPrefix({ error: fetchError })}</p>
 			{:else if keys.length === 0}
 				<div class="text-muted-foreground flex h-[100px] items-center justify-center text-xs">
-					No numeric log attributes in this range
+					{m.valueDist_noAttributes()}
 				</div>
 			{:else if points.length === 0}
-				<div class="text-muted-foreground flex h-[100px] items-center justify-center text-xs">No data</div>
+				<div class="text-muted-foreground flex h-[100px] items-center justify-center text-xs">{m.logs_noData()}</div>
 			{:else}
 				<div class="grid grid-cols-[3.5rem_1fr] gap-x-2">
 					<div class="text-muted-foreground flex h-[140px] flex-col justify-between py-0.5 text-right text-[10px] tabular-nums">
@@ -385,7 +386,7 @@
 										preserveAspectRatio="none"
 										class="h-[140px] w-full cursor-pointer"
 										role="img"
-										aria-label="{selectedKey} distribution over time - click a column to filter logs to that time range"
+										aria-label={m.valueDist_chartAriaLabel({ key: selectedKey ?? '' })}
 										onpointermove={handlePointerMove}
 										onpointerleave={() => (hoverCell = null)}
 										onclick={handleClick}
@@ -424,8 +425,12 @@
 							</Tooltip.Trigger>
 							{#if hoverCell !== null}
 								<Tooltip.Content>
-									{bucketTimeLabel(hoverCell.timeIndex)} · {selectedKey} {bucketValueLabel(hoverCell.valueIndex)} ·
-									{grid[hoverCell.timeIndex]?.[hoverCell.valueIndex] ?? 0} events · click to filter
+									{m.valueDist_tooltip({
+										time: bucketTimeLabel(hoverCell.timeIndex),
+										key: selectedKey ?? '',
+										valueRange: bucketValueLabel(hoverCell.valueIndex),
+										count: grid[hoverCell.timeIndex]?.[hoverCell.valueIndex] ?? 0
+									})}
 								</Tooltip.Content>
 							{/if}
 						</Tooltip.Root>
