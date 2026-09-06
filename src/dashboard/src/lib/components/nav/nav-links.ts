@@ -3,6 +3,7 @@
 // can reuse the exact same list (including the gating) instead of re-deriving it.
 
 import type { AuthState } from '$lib/auth/state.svelte';
+import * as m from '$lib/paraglide/messages';
 
 export interface NavLink {
 	href: string;
@@ -12,17 +13,21 @@ export interface NavLink {
 /** /auth (the consolidated enable-auth/configure-methods/manage-users screen) is
  *  Admin-only - except while auth is off entirely, when everyone has full access and
  *  needs a way to actually find where to turn it on. See AppNav.svelte's own history
- *  for the full reasoning. */
+ *  for the full reasoning.
+ *
+ *  Labels are m.*() calls, not static strings - navLinks() already recomputes on every
+ *  call (AppNav.svelte's `links = $derived(navLinks(auth))`), so this picks up the
+ *  current locale for free, no extra reactivity plumbing needed. */
 export function navLinks(auth: AuthState): NavLink[] {
 	return [
-		{ href: '/', label: 'Logs' },
-		{ href: '/traces', label: 'Traces' },
-		{ href: '/metrics', label: 'Metrics' },
-		{ href: '/ingestion', label: 'Ingestion' },
-		{ href: '/indexing', label: 'Indexing' },
-		{ href: '/alerts', label: 'Alerts' },
-		{ href: '/resources', label: 'Resources' },
-		{ href: '/views', label: 'Views' },
-		...(!auth.authEnabled || auth.currentUser?.role === 'Admin' ? [{ href: '/auth', label: 'Auth' }] : [])
+		{ href: '/', label: m.nav_logs() },
+		{ href: '/traces', label: m.nav_traces() },
+		{ href: '/metrics', label: m.nav_metrics() },
+		{ href: '/ingestion', label: m.nav_ingestion() },
+		{ href: '/indexing', label: m.nav_indexing() },
+		{ href: '/alerts', label: m.nav_alerts() },
+		{ href: '/resources', label: m.nav_resources() },
+		{ href: '/views', label: m.nav_views() },
+		...(!auth.authEnabled || auth.currentUser?.role === 'Admin' ? [{ href: '/auth', label: m.nav_auth() }] : [])
 	];
 }
