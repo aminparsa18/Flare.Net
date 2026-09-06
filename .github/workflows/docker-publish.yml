@@ -15,6 +15,18 @@
 # push-only workflow in this repo. Build contexts/dockerfiles below are copied
 # verbatim from docker-compose.yml's own `build:` stanzas so this never diverges from
 # the already-working local build story.
+#
+# Per-image selectivity: the top-level `paths:` filter below is just a cheap first
+# bail-out (skip the whole workflow for changes entirely outside these trees, e.g. a
+# root README.md or docs/ edit). Within a run, the `changes` job then works out which
+# of the three images actually need rebuilding from the *specific* files touched
+# (ProjectReferences mapped by hand below - Docker itself has no dependency graph to
+# ask), so e.g. a docs-only edit under src/Flare.Api/ or a change scoped to
+# src/Flare.Ingest/ no longer rebuilds+pushes all three. workflow_dispatch and a
+# `v*.*.*` tag push always build all three regardless of diff - a manual run implies
+# "rebuild everything", and a release tag should always produce a complete, consistent
+# set of images at that version rather than whatever happened to change since the last
+# one.
 
 name: Docker Publish
 
@@ -26,6 +38,7 @@ on:
       - 'src/Flare.Ingest/**'
       - 'src/Flare.Api/**'
       - 'src/Flare.ServiceDefaults/**'
+      - 'src/Flare.Identity/**'
       - 'src/dashboard/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
@@ -38,7 +51,95 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Works out which of the three images actually need rebuilding. Kept as its own job
+  # (rather than an `if:` on each matrix entry) so an unaffected image's job never
+  # spins up a runner at all - it just doesn't appear in the matrix below.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.images.outputs.images }}
+    steps:
+      - uses: actions/checkout@v4
+        # dorny/paths-filter diffs against history locally - full depth keeps that
+        # reliable regardless of how the push landed (merge commit, squash, etc.).
+        with:
+          fetch-depth: 0
+
+      # Skipped for workflow_dispatch/tag pushes - those force-build all three below
+      # instead of diffing (a manual run means "rebuild everything", and there's no
+      # single meaningful "previous commit" to diff a tag push against anyway).
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'push' && github.ref_type == 'branch'
+        with:
+          filters: |
+            shared:
+              - 'Directory.Build.props'
+              - 'Directory.Packages.props'
+              - 'global.json'
+              - '.github/workflows/docker-publish.yml'
+            ingest:
+              - 'src/Flare.Ingest/**'
+              - '!src/Flare.Ingest/**/*.md'
+              - 'src/Flare.ServiceDefaults/**'
+              - '!src/Flare.ServiceDefaults/**/*.md'
+              - 'src/Flare.Identity/**'
+              - '!src/Flare.Identity/**/*.md'
+            api:
+              - 'src/Flare.Api/**'
+              - '!src/Flare.Api/**/*.md'
+              - 'src/Flare.ServiceDefaults/**'
+              - '!src/Flare.ServiceDefaults/**/*.md'
+              - 'src/Flare.Identity/**'
+              - '!src/Flare.Identity/**/*.md'
+            dashboard:
+              - 'src/dashboard/**'
+              - '!src/dashboard/**/*.md'
+              # The codegen stage builds Flare.Api for its side effect (MemoryPack
+              # TypeScript codegen, ADR-0016) - see src/dashboard/Dockerfile - so the
+              # dashboard image depends on Flare.Api's source too, not just its own.
+              - 'src/Flare.Api/**'
+              - '!src/Flare.Api/**/*.md'
+              - 'src/Flare.ServiceDefaults/**'
+              - '!src/Flare.ServiceDefaults/**/*.md'
+              - 'src/Flare.Identity/**'
+              - '!src/Flare.Identity/**/*.md'
+
+      - name: Determine images to build
+        id: images
+        env:
+          FORCE_ALL: ${{ github.event_name == 'workflow_dispatch' || github.ref_type == 'tag' }}
+          SHARED: ${{ steps.filter.outputs.shared }}
+          INGEST: ${{ steps.filter.outputs.ingest }}
+          API: ${{ steps.filter.outputs.api }}
+          DASHBOARD: ${{ steps.filter.outputs.dashboard }}
+        run: |
+          set -euo pipefail
+          ingest='{"name":"flare-ingest","context":".","dockerfile":"src/Flare.Ingest/Dockerfile"}'
+          api='{"name":"flare-api","context":".","dockerfile":"src/Flare.Api/Dockerfile"}'
+          dashboard='{"name":"flare-dashboard","context":".","dockerfile":"src/dashboard/Dockerfile"}'
+
+          if [[ "$FORCE_ALL" == "true" ]]; then
+            images=$(jq -c -n --argjson i "$ingest" --argjson a "$api" --argjson d "$dashboard" '[$i,$a,$d]')
+            echo "images=$images" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          images='[]'
+          if [[ "$SHARED" == "true" || "$INGEST" == "true" ]]; then
+            images=$(jq -c --argjson x "$ingest" '. + [$x]' <<< "$images")
+          fi
+          if [[ "$SHARED" == "true" || "$API" == "true" ]]; then
+            images=$(jq -c --argjson x "$api" '. + [$x]' <<< "$images")
+          fi
+          if [[ "$SHARED" == "true" || "$DASHBOARD" == "true" ]]; then
+            images=$(jq -c --argjson x "$dashboard" '. + [$x]' <<< "$images")
+          fi
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+
   build-and-push:
+    needs: changes
+    if: needs.changes.outputs.images != '[]'
     name: ${{ matrix.image.name }}
     runs-on: ubuntu-latest
     permissions:
@@ -46,18 +147,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - name: flare-ingest
-            context: .
-            dockerfile: src/Flare.Ingest/Dockerfile
-          - name: flare-api
-            context: .
-            dockerfile: src/Flare.Api/Dockerfile
-          - name: flare-dashboard
-            # Repo root, not src/dashboard - the Dockerfile's codegen stage needs
-            # Flare.Api's source for MemoryPack TypeScript codegen (ADR-0016).
-            context: .
-            dockerfile: src/dashboard/Dockerfile
+        image: ${{ fromJson(needs.changes.outputs.images) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
