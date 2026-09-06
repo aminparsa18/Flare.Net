@@ -85,9 +85,27 @@
          surface, not a deprecated-overload shim, but kept as a patch bump rather than
          minor - this package has no external consumers yet (still pre-1.0, no known
          published-package usage beyond this repo's own examples/), so there's no
-         real-world breakage to signal loudly for. Tag on release:
-         aspire-hosting-flare-v{Version} (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.3.2</Version>
+         real-world breakage to signal loudly for.
+         Bumped 0.3.2 -> 0.4.0 (2026-09-06): added WithPersistentStorage, the first-class
+         binding of consumer-supplied AddPersistentVolume results onto ClickHouse's/Redis's/
+         the identity database's storage on Kubernetes (docs-internal/planning/roadmap.md's
+         "Kubernetes: a first-class persistent-storage API on AddFlare" item) - the
+         WarnIfKubernetesStorageIsEphemeral warning is now deferred to a BeforePublishEvent
+         subscription (so a later .WithPersistentStorage(...) chain call can silence it) rather
+         than firing inline inside AddFlare, and Aspire.Hosting.Kubernetes bumped from the
+         13.4.6 preview train to 13.5.3-preview.1.26425.3 - the first version with
+         AddPersistentVolume/WithPersistentVolume at all (see Directory.Packages.props). A minor
+         bump, not a patch - real new API surface, same reasoning as 0.3.0's. Verified against
+         generated Kubernetes manifests (correct StatefulSet promotion, one PersistentVolumeClaim
+         per volume, the shared identity PVC referenced by both ingest and api) but NOT yet
+         against a real cluster - see
+         docs-internal/investigations/aspire-kubernetes-publish-and-resource-graph.md's finding
+         #6 (and finding #7's separate, unrelated discovery: Console.Error-based warnings no
+         longer reach the terminal during aspire publish/aspire deploy as of Aspire 13.5.3's new
+         pipeline-execution CLI - the ephemeral-storage warning is affected regardless of this
+         bump). Tag on release: aspire-hosting-flare-v{Version} (see
+         .github/workflows/nuget-publish.yml). -->
+    <Version>0.4.0</Version>
     <Authors>Amin Parsa</Authors>
     <Description>.NET Aspire hosting integration for Flare, a self-hosted OpenTelemetry-native log dashboard. Adds the whole Flare stack (ClickHouse, Redis, OTLP ingest, query API, dashboard) to your AppHost with builder.AddFlare("flare"), wrapping Flare's published Docker Hub images.</Description>
     <PackageTags>aspire;aspire-hosting;flare;opentelemetry;otlp;logging;observability;clickhouse;redis</PackageTags>
