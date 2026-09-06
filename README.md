@@ -16,6 +16,8 @@
 [![NuGet Flare.Hosting.Aspire](https://img.shields.io/nuget/v/Flare.Hosting.Aspire?label=Flare.Hosting.Aspire)](https://www.nuget.org/packages/Flare.Hosting.Aspire)
 [![NuGet Flare.Cli](https://img.shields.io/nuget/v/Flare.Cli?label=flare%20cli)](https://www.nuget.org/packages/Flare.Cli)
 
+**Languages:** [English](README.md) &nbsp;|&nbsp; [简体中文](README.zh-CN.md) &nbsp;|&nbsp; [Русский](README.ru.md) &nbsp;|&nbsp; [Français](README.fr.md)
+
 A self-hosted, OpenTelemetry-native observability platform for .NET — logs, traces, and metrics as first-class citizens, correlated in one place, with threshold/query-based alert rules that notify webhook/Slack, Telegram, or email on breach.
 
 **Think Seq or Datadog — but fully open source (MIT), self-hosted, and OTLP straight in with no proprietary agent or SDK to install.**
