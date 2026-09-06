@@ -10,6 +10,7 @@
 	import { alertsContext } from '$lib/alerts/context';
 	import { testAlertRule, type AlertRule, type AlertTestResult } from '$lib/alerts-api';
 	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
+	import * as m from '$lib/paraglide/messages';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -28,16 +29,16 @@
 		);
 		if (labels.length) parts.push(labels.join('/'));
 		if (rule.condition.search) parts.push(`"${rule.condition.search}"`);
-		return parts.length ? parts.join(' · ') : 'All logs';
+		return parts.length ? parts.join(' · ') : m.alertRuleTable_allLogs();
 	}
 
 	function thresholdText(rule: AlertRule): string {
 		const symbol = rule.threshold.comparator === 'LessThan' ? '<' : '>=';
-		return `${symbol} ${rule.threshold.count} in ${rule.windowSeconds}s`;
+		return m.alertRuleTable_thresholdText({ symbol, count: rule.threshold.count, window: rule.windowSeconds });
 	}
 
 	async function handleDelete(rule: AlertRule): Promise<void> {
-		if (!confirm(`Delete alert "${rule.name}"? This cannot be undone.`)) return;
+		if (!confirm(m.alertRuleTable_deleteConfirm({ name: rule.name }))) return;
 		await alerts.remove(rule.id);
 	}
 
@@ -60,12 +61,12 @@
 
 <div class="flex items-center justify-between border-b px-4 py-3">
 	<div>
-		<h1 class="text-sm font-semibold">Alerts</h1>
-		<p class="text-muted-foreground text-xs">Threshold/query-based rules that notify a webhook or Slack when breached.</p>
+		<h1 class="text-sm font-semibold">{m.alertRuleTable_heading()}</h1>
+		<p class="text-muted-foreground text-xs">{m.alertRuleTable_subheading()}</p>
 	</div>
 	<Button size="sm" onclick={() => alerts.openCreate()}>
 		<PlusIcon data-icon="inline-start" />
-		New alert
+		{m.alertRuleTable_newAlert()}
 	</Button>
 </div>
 
@@ -83,13 +84,13 @@
 			<Empty.Media>
 				<BellIcon class="text-muted-foreground size-8" />
 			</Empty.Media>
-			<Empty.Title>No alert rules yet</Empty.Title>
-			<Empty.Description>Create one to get notified when your logs breach a threshold.</Empty.Description>
+			<Empty.Title>{m.alertRuleTable_emptyTitle()}</Empty.Title>
+			<Empty.Description>{m.alertRuleTable_emptyDescription()}</Empty.Description>
 		</Empty.Header>
 		<Empty.Content>
 			<Button size="sm" onclick={() => alerts.openCreate()}>
 				<PlusIcon data-icon="inline-start" />
-				New alert
+				{m.alertRuleTable_newAlert()}
 			</Button>
 		</Empty.Content>
 	</Empty.Root>
@@ -98,12 +99,12 @@
 		<Table.Root>
 			<Table.Header>
 				<Table.Row>
-					<Table.Head>Name</Table.Head>
-					<Table.Head>Condition</Table.Head>
-					<Table.Head>Threshold</Table.Head>
-					<Table.Head>Cooldown</Table.Head>
-					<Table.Head>Status</Table.Head>
-					<Table.Head class="text-right">Actions</Table.Head>
+					<Table.Head>{m.alertRuleTable_colName()}</Table.Head>
+					<Table.Head>{m.alertRuleTable_colCondition()}</Table.Head>
+					<Table.Head>{m.alertRuleTable_colThreshold()}</Table.Head>
+					<Table.Head>{m.alertRuleTable_colCooldown()}</Table.Head>
+					<Table.Head>{m.alertRuleTable_colStatus()}</Table.Head>
+					<Table.Head class="text-right">{m.alertRuleTable_colActions()}</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
@@ -119,33 +120,42 @@
 						<Table.Cell class="font-mono text-xs">{thresholdText(rule)}</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{rule.cooldownSeconds}s</Table.Cell>
 						<Table.Cell>
-							<Badge variant={rule.enabled ? 'secondary' : 'outline'}>{rule.enabled ? 'Enabled' : 'Disabled'}</Badge>
+							<Badge variant={rule.enabled ? 'secondary' : 'outline'}
+								>{rule.enabled ? m.alertRuleTable_enabled() : m.alertRuleTable_disabled()}</Badge
+							>
 							{#if testResults[rule.id] === 'loading'}
-								<Badge variant="outline" class="ml-1">Testing…</Badge>
+								<Badge variant="outline" class="ml-1">{m.alertRuleTable_testing()}</Badge>
 							{:else if testResults[rule.id] === 'error'}
-								<Badge variant="destructive" class="ml-1">Test failed</Badge>
+								<Badge variant="destructive" class="ml-1">{m.alertRuleTable_testFailed()}</Badge>
 							{:else if testResults[rule.id]}
 								{@const result = testResults[rule.id] as AlertTestResult}
 								<Badge variant={result.wouldFire ? 'warning' : 'outline'} class="ml-1">
-									{result.observedCount} now{result.wouldFire ? ' · would fire' : ''}
+									{result.wouldFire
+										? m.alertRuleTable_testResultFiring({ count: result.observedCount })
+										: m.alertRuleTable_testResultNotFiring({ count: result.observedCount })}
 								</Badge>
 							{/if}
 						</Table.Cell>
 						<Table.Cell class="text-right">
-							<Button variant="ghost" size="icon-sm" title="Dry-run this rule against current data" onclick={() => handleTest(rule)}>
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								title={m.alertRuleTable_actionTest()}
+								onclick={() => handleTest(rule)}
+							>
 								<PlayIcon />
 							</Button>
-							<Button variant="ghost" size="icon-sm" title="History" onclick={() => alerts.openHistory(rule)}>
+							<Button variant="ghost" size="icon-sm" title={m.alertRuleTable_actionHistory()} onclick={() => alerts.openHistory(rule)}>
 								<HistoryIcon />
 							</Button>
-							<Button variant="ghost" size="icon-sm" title="Edit" onclick={() => alerts.openEdit(rule)}>
+							<Button variant="ghost" size="icon-sm" title={m.alertRuleTable_actionEdit()} onclick={() => alerts.openEdit(rule)}>
 								<PencilIcon />
 							</Button>
 							<Button
 								variant="ghost"
 								size="icon-sm"
 								class="text-destructive hover:text-destructive"
-								title="Delete"
+								title={m.alertRuleTable_actionDelete()}
 								onclick={() => handleDelete(rule)}
 							>
 								<Trash2Icon />

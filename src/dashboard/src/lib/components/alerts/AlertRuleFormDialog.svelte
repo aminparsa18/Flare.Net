@@ -18,6 +18,7 @@
 	import { testDraftAlertRule, type AlertRuleRequest, type ThresholdComparator, type AlertTestResult } from '$lib/alerts-api';
 	import { aggregateLogs } from '$lib/api';
 	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
+	import * as m from '$lib/paraglide/messages';
 
 	const alerts = alertsContext.get();
 
@@ -193,36 +194,46 @@
 <Dialog.Root {open} onOpenChange={(next) => !next && alerts.closeForm()}>
 	<Dialog.Content class="max-h-[85vh] w-full overflow-y-auto sm:max-w-lg">
 		<Dialog.Header>
-			<Dialog.Title>{isEdit ? 'Edit alert' : 'New alert'}</Dialog.Title>
+			<Dialog.Title>{isEdit ? m.alertRuleForm_titleEdit() : m.alertRuleForm_titleNew()}</Dialog.Title>
 			<Dialog.Description>
-				A saved condition plus a count threshold, evaluated on a rolling window every poll interval.
+				{m.alertRuleForm_description()}
 			</Dialog.Description>
 		</Dialog.Header>
 
 		<div class="flex flex-col gap-3">
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-medium">Name</span>
-				<Input bind:value={name} placeholder="High error rate" />
+				<span class="text-xs font-medium">{m.alertRuleForm_nameLabel()}</span>
+				<Input bind:value={name} placeholder={m.alertRuleForm_namePlaceholder()} />
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-medium">Description</span>
-				<Textarea bind:value={description} placeholder="Optional" rows={2} />
+				<span class="text-xs font-medium">{m.alertRuleForm_descriptionLabel()}</span>
+				<Textarea bind:value={description} placeholder={m.alertRuleForm_optionalPlaceholder()} rows={2} />
 			</div>
 
 			<div class="flex flex-wrap items-center gap-2">
-				<PopoverMultiSelect label="Service" options={serviceOptions} selected={services} onChange={(next) => (services = next)} />
-				<PopoverMultiSelect label="Level" options={severityOptions} selected={selectedSeverityLabels} onChange={handleSeverityChange} />
+				<PopoverMultiSelect
+					label={m.alertRuleForm_serviceLabel()}
+					options={serviceOptions}
+					selected={services}
+					onChange={(next) => (services = next)}
+				/>
+				<PopoverMultiSelect
+					label={m.alertRuleForm_levelLabel()}
+					options={severityOptions}
+					selected={selectedSeverityLabels}
+					onChange={handleSeverityChange}
+				/>
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-medium">Search (message body contains)</span>
-				<Input bind:value={search} placeholder="Optional" />
+				<span class="text-xs font-medium">{m.alertRuleForm_searchLabel()}</span>
+				<Input bind:value={search} placeholder={m.alertRuleForm_optionalPlaceholder()} />
 			</div>
 
 			<div class="flex items-end gap-2">
 				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">Threshold</span>
+					<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
 					<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>
 						<Select.Trigger class="w-20">
 							{comparator === 'LessThan' ? '<' : '>='}
@@ -234,63 +245,67 @@
 					</Select.Root>
 				</div>
 				<Input type="number" min="1" bind:value={thresholdCountText} class="w-24" />
-				<span class="text-muted-foreground pb-1.5 text-xs">events in</span>
+				<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_eventsIn()}</span>
 				<Input type="number" min="1" bind:value={windowSecondsText} class="w-24" />
-				<span class="text-muted-foreground pb-1.5 text-xs">seconds</span>
+				<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_seconds()}</span>
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-medium">Cooldown (seconds)</span>
+				<span class="text-xs font-medium">{m.alertRuleForm_cooldownLabel()}</span>
 				<Input type="number" min="0" bind:value={cooldownSecondsText} class="w-24" />
-				<span class="text-muted-foreground text-xs">Minimum time between two notifications, even if it keeps breaching.</span>
+				<span class="text-muted-foreground text-xs">{m.alertRuleForm_cooldownHint()}</span>
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-medium">Notify via</span>
+				<span class="text-xs font-medium">{m.alertRuleForm_notifyViaLabel()}</span>
 				<Select.Root type="single" value={channel} onValueChange={(v) => v && (channel = v as typeof channel)}>
 					<Select.Trigger class="w-40">
-						{channel === 'telegram' ? 'Telegram' : channel === 'email' ? 'Email' : 'Webhook / Slack'}
+						{channel === 'telegram'
+							? m.alertRuleForm_channelTelegram()
+							: channel === 'email'
+								? m.alertRuleForm_channelEmail()
+								: m.alertRuleForm_channelWebhook()}
 					</Select.Trigger>
 					<Select.Content>
-						<Select.Item value="webhook" label="Webhook / Slack" />
-						<Select.Item value="telegram" label="Telegram" />
-						<Select.Item value="email" label="Email" />
+						<Select.Item value="webhook" label={m.alertRuleForm_channelWebhook()} />
+						<Select.Item value="telegram" label={m.alertRuleForm_channelTelegram()} />
+						<Select.Item value="email" label={m.alertRuleForm_channelEmail()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
 
 			{#if channel === 'webhook'}
 				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">Webhook URL</span>
-					<Input bind:value={webhookUrl} placeholder="https://hooks.slack.com/services/..." />
-					<span class="text-muted-foreground text-xs">A generic JSON webhook or a Slack incoming-webhook URL.</span>
+					<span class="text-xs font-medium">{m.alertRuleForm_webhookUrlLabel()}</span>
+					<Input bind:value={webhookUrl} placeholder={m.alertRuleForm_webhookUrlPlaceholder()} />
+					<span class="text-muted-foreground text-xs">{m.alertRuleForm_webhookUrlHint()}</span>
 				</div>
 			{:else if channel === 'telegram'}
 				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">Bot token</span>
-					<Input bind:value={telegramBotToken} placeholder="123456789:AAExampleTokenFromBotFather" />
-					<span class="text-muted-foreground text-xs">From @BotFather.</span>
+					<span class="text-xs font-medium">{m.alertRuleForm_botTokenLabel()}</span>
+					<Input bind:value={telegramBotToken} placeholder={m.alertRuleForm_botTokenPlaceholder()} />
+					<span class="text-muted-foreground text-xs">{m.alertRuleForm_botTokenHint()}</span>
 				</div>
 				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">Chat ID</span>
-					<Input bind:value={telegramChatId} placeholder="-1001234567890" />
+					<span class="text-xs font-medium">{m.alertRuleForm_chatIdLabel()}</span>
+					<Input bind:value={telegramChatId} placeholder={m.alertRuleForm_chatIdPlaceholder()} />
 					<span class="text-muted-foreground text-xs">
-						The target chat/channel/group ID - e.g. from a `getUpdates` call, or a bot like @userinfobot.
+						{m.alertRuleForm_chatIdHint()}
 					</span>
 				</div>
 			{:else}
 				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">Recipient email</span>
-					<Input bind:value={emailTo} placeholder="oncall@example.com" />
+					<span class="text-xs font-medium">{m.alertRuleForm_emailToLabel()}</span>
+					<Input bind:value={emailTo} placeholder={m.alertRuleForm_emailToPlaceholder()} />
 					<span class="text-muted-foreground text-xs">
-						Comma-separate more than one address. Sent through this server's configured SMTP settings.
+						{m.alertRuleForm_emailToHint()}
 					</span>
 				</div>
 			{/if}
 
 			<div class="flex items-center gap-2">
 				<Switch bind:checked={enabled} />
-				<span class="text-xs">Enabled</span>
+				<span class="text-xs">{m.alertRuleForm_enabledLabel()}</span>
 			</div>
 
 			<div class="flex items-center gap-2 border-t pt-3">
@@ -298,11 +313,13 @@
 					{#if testing}
 						<Spinner class="size-3.5" />
 					{/if}
-					Test against current data
+					{m.alertRuleForm_testButton()}
 				</Button>
 				{#if testResult}
 					<Badge variant={testResult.wouldFire ? 'warning' : 'outline'}>
-						{testResult.observedCount} events now{testResult.wouldFire ? ' · would fire' : ' · would not fire'}
+						{testResult.wouldFire
+							? m.alertRuleForm_testResultFiring({ count: testResult.observedCount })
+							: m.alertRuleForm_testResultNotFiring({ count: testResult.observedCount })}
 					</Badge>
 				{:else if testError}
 					<span class="text-destructive text-xs">{testError}</span>
@@ -315,12 +332,12 @@
 		</div>
 
 		<Dialog.Footer>
-			<Button variant="outline" size="sm" onclick={() => alerts.closeForm()}>Cancel</Button>
+			<Button variant="outline" size="sm" onclick={() => alerts.closeForm()}>{m.alertRuleForm_cancel()}</Button>
 			<Button size="sm" onclick={handleSave} disabled={!canSave || alerts.saving}>
 				{#if alerts.saving}
 					<Spinner class="size-3.5" />
 				{/if}
-				{isEdit ? 'Save changes' : 'Create alert'}
+				{isEdit ? m.alertRuleForm_saveChanges() : m.alertRuleForm_createAlert()}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
