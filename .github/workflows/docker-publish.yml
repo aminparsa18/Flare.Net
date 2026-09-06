@@ -68,10 +68,18 @@ jobs:
       # Skipped for workflow_dispatch/tag pushes - those force-build all three below
       # instead of diffing (a manual run means "rebuild everything", and there's no
       # single meaningful "previous commit" to diff a tag push against anyway).
+      # No `!**/*.md` negations here on purpose - with the default `some` (OR)
+      # quantifier, dorny/paths-filter evaluates each listed pattern independently, so a
+      # negated pattern matches *any* file that isn't under that specific .md path,
+      # including files totally unrelated to that filter (confirmed live: it flagged
+      # ingest/api/dashboard all `true` for a push that only touched README.md files and
+      # an unrelated workflow - see PR discussion). `list-files: json` instead hands the
+      # actual matched file list to the next step, which excludes .md changes itself.
       - uses: dorny/paths-filter@v3
         id: filter
         if: github.event_name == 'push' && github.ref_type == 'branch'
         with:
+          list-files: json
           filters: |
             shared:
               - 'Directory.Build.props'
@@ -80,39 +88,29 @@ jobs:
               - '.github/workflows/docker-publish.yml'
             ingest:
               - 'src/Flare.Ingest/**'
-              - '!src/Flare.Ingest/**/*.md'
               - 'src/Flare.ServiceDefaults/**'
-              - '!src/Flare.ServiceDefaults/**/*.md'
               - 'src/Flare.Identity/**'
-              - '!src/Flare.Identity/**/*.md'
             api:
               - 'src/Flare.Api/**'
-              - '!src/Flare.Api/**/*.md'
               - 'src/Flare.ServiceDefaults/**'
-              - '!src/Flare.ServiceDefaults/**/*.md'
               - 'src/Flare.Identity/**'
-              - '!src/Flare.Identity/**/*.md'
             dashboard:
               - 'src/dashboard/**'
-              - '!src/dashboard/**/*.md'
               # The codegen stage builds Flare.Api for its side effect (MemoryPack
               # TypeScript codegen, ADR-0016) - see src/dashboard/Dockerfile - so the
               # dashboard image depends on Flare.Api's source too, not just its own.
               - 'src/Flare.Api/**'
-              - '!src/Flare.Api/**/*.md'
               - 'src/Flare.ServiceDefaults/**'
-              - '!src/Flare.ServiceDefaults/**/*.md'
               - 'src/Flare.Identity/**'
-              - '!src/Flare.Identity/**/*.md'
 
       - name: Determine images to build
         id: images
         env:
           FORCE_ALL: ${{ github.event_name == 'workflow_dispatch' || github.ref_type == 'tag' }}
           SHARED: ${{ steps.filter.outputs.shared }}
-          INGEST: ${{ steps.filter.outputs.ingest }}
-          API: ${{ steps.filter.outputs.api }}
-          DASHBOARD: ${{ steps.filter.outputs.dashboard }}
+          INGEST_FILES: ${{ steps.filter.outputs.ingest_files }}
+          API_FILES: ${{ steps.filter.outputs.api_files }}
+          DASHBOARD_FILES: ${{ steps.filter.outputs.dashboard_files }}
         run: |
           set -euo pipefail
           ingest='{"name":"flare-ingest","context":".","dockerfile":"src/Flare.Ingest/Dockerfile"}'
@@ -125,14 +123,21 @@ jobs:
             exit 0
           fi
 
+          # True only if at least one *non-markdown* file in that filter's matched set
+          # changed - a docs-only edit inside a watched directory shouldn't rebuild it.
+          # $1 is the filter's `list-files: json` output, e.g. '["src/Flare.Api/README.md"]'.
+          has_real_change() {
+            jq -e 'any(.[]?; endswith(".md") | not)' >/dev/null 2>&1 <<< "${1:-[]}"
+          }
+
           images='[]'
-          if [[ "$SHARED" == "true" || "$INGEST" == "true" ]]; then
+          if [[ "$SHARED" == "true" ]] || has_real_change "$INGEST_FILES"; then
             images=$(jq -c --argjson x "$ingest" '. + [$x]' <<< "$images")
           fi
-          if [[ "$SHARED" == "true" || "$API" == "true" ]]; then
+          if [[ "$SHARED" == "true" ]] || has_real_change "$API_FILES"; then
             images=$(jq -c --argjson x "$api" '. + [$x]' <<< "$images")
           fi
-          if [[ "$SHARED" == "true" || "$DASHBOARD" == "true" ]]; then
+          if [[ "$SHARED" == "true" ]] || has_real_change "$DASHBOARD_FILES"; then
             images=$(jq -c --argjson x "$dashboard" '. + [$x]' <<< "$images")
           fi
           echo "images=$images" >> "$GITHUB_OUTPUT"
