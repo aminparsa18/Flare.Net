@@ -16,10 +16,22 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { proxyAuthSettingsContext } from '$lib/proxy-auth-settings/context';
 	import type { UserRole } from '$lib/auth-api';
+	import * as m from '$lib/paraglide/messages';
 
 	const proxyAuth = proxyAuthSettingsContext.get();
 
 	const ROLES: UserRole[] = ['Admin', 'Member', 'Viewer'];
+
+	function roleLabel(role: UserRole): string {
+		switch (role) {
+			case 'Admin':
+				return m.userRole_admin();
+			case 'Member':
+				return m.userRole_member();
+			case 'Viewer':
+				return m.userRole_viewer();
+		}
+	}
 
 	let enabled = $state(false);
 	let headerName = $state('');
@@ -73,12 +85,8 @@
 {:else if proxyAuth.settings}
 	<Card.Root class="shrink-0">
 		<Card.Header>
-			<Card.Title>Reverse proxy</Card.Title>
-			<Card.Description>
-				Trust an identity header from a reverse proxy that already authenticates requests in front of Flare
-				(Authelia, Authentik, oauth2-proxy, Cloudflare Access, Tailscale Serve, ...) - no separate sign-in flow,
-				Flare just reads the header. See docs/auth.md for the full walkthrough and the security model.
-			</Card.Description>
+			<Card.Title>{m.proxyAuthSecurityForm_title()}</Card.Title>
+			<Card.Description>{m.proxyAuthSecurityForm_description()}</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<form class="flex flex-col gap-4" onsubmit={handleSubmit}>
@@ -89,18 +97,18 @@
 				{/if}
 				{#if proxyAuth.justSaved}
 					<Alert>
-						<AlertDescription>Saved.</AlertDescription>
+						<AlertDescription>{m.proxyAuthSecurityForm_saved()}</AlertDescription>
 					</Alert>
 				{/if}
 
 				<div class="flex flex-col gap-1">
-					<label for="proxy-header-name" class="text-xs font-medium">Header name</label>
+					<label for="proxy-header-name" class="text-xs font-medium">{m.proxyAuthSecurityForm_headerNameLabel()}</label>
 					<Input id="proxy-header-name" bind:value={headerName} placeholder="Remote-User" class="font-mono text-xs" />
-					<p class="text-muted-foreground text-xs">The request header the proxy sets to the signed-in user's identity.</p>
+					<p class="text-muted-foreground text-xs">{m.proxyAuthSecurityForm_headerNameHint()}</p>
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="proxy-trusted-cidrs" class="text-xs font-medium">Trusted proxy CIDRs</label>
+					<label for="proxy-trusted-cidrs" class="text-xs font-medium">{m.proxyAuthSecurityForm_trustedCidrsLabel()}</label>
 					<Textarea
 						id="proxy-trusted-cidrs"
 						bind:value={trustedProxyCidrs}
@@ -109,88 +117,76 @@
 						class="font-mono text-xs"
 					/>
 					<p class="text-muted-foreground text-xs">
-						One or more CIDR ranges, one per line - <strong>required</strong> to enable this method. The header above
-						is only trusted from a caller whose own address falls inside one of these ranges, since the header itself
-						can be spoofed by anyone who can reach Flare.Api directly.
+						{@html m.proxyAuthSecurityForm_trustedCidrsHint({ required: '<strong>required</strong>' })}
 					</p>
 				</div>
 
 				<details class="text-xs">
-					<summary class="text-muted-foreground cursor-pointer font-medium">Advanced: role mapping</summary>
+					<summary class="text-muted-foreground cursor-pointer font-medium">{m.proxyAuthSecurityForm_advancedRoleMapping()}</summary>
 					<div class="mt-3 flex flex-col gap-3">
 						<div class="flex flex-col gap-1">
-							<label for="proxy-groups-header" class="text-xs font-medium">Groups header name</label>
+							<label for="proxy-groups-header" class="text-xs font-medium">{m.proxyAuthSecurityForm_groupsHeaderLabel()}</label>
 							<Input
 								id="proxy-groups-header"
 								bind:value={groupsHeaderName}
-								placeholder="Optional, e.g. X-Forwarded-Groups"
+								placeholder={m.proxyAuthSecurityForm_groupsHeaderPlaceholder()}
 								class="font-mono text-xs"
 							/>
-							<p class="text-muted-foreground text-xs">
-								A second header carrying comma-separated group names. Leave blank to always assign Default role below.
-							</p>
+							<p class="text-muted-foreground text-xs">{m.proxyAuthSecurityForm_groupsHeaderHint()}</p>
 						</div>
 						<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
 							<div class="flex flex-col gap-1">
-								<label for="proxy-admin-group" class="text-xs font-medium">Admin group</label>
-								<Input id="proxy-admin-group" bind:value={adminGroup} placeholder="Optional" />
+								<label for="proxy-admin-group" class="text-xs font-medium">{m.proxyAuthSecurityForm_adminGroupLabel()}</label>
+								<Input id="proxy-admin-group" bind:value={adminGroup} placeholder={m.proxyAuthSecurityForm_optionalPlaceholder()} />
 							</div>
 							<div class="flex flex-col gap-1">
-								<label for="proxy-member-group" class="text-xs font-medium">Member group</label>
-								<Input id="proxy-member-group" bind:value={memberGroup} placeholder="Optional" />
+								<label for="proxy-member-group" class="text-xs font-medium">{m.proxyAuthSecurityForm_memberGroupLabel()}</label>
+								<Input id="proxy-member-group" bind:value={memberGroup} placeholder={m.proxyAuthSecurityForm_optionalPlaceholder()} />
 							</div>
 							<div class="flex flex-col gap-1">
-								<label for="proxy-viewer-group" class="text-xs font-medium">Viewer group</label>
-								<Input id="proxy-viewer-group" bind:value={viewerGroup} placeholder="Optional" />
+								<label for="proxy-viewer-group" class="text-xs font-medium">{m.proxyAuthSecurityForm_viewerGroupLabel()}</label>
+								<Input id="proxy-viewer-group" bind:value={viewerGroup} placeholder={m.proxyAuthSecurityForm_optionalPlaceholder()} />
 							</div>
 						</div>
 					</div>
 				</details>
 
 				<details class="text-xs">
-					<summary class="text-muted-foreground cursor-pointer font-medium">Advanced: logout</summary>
+					<summary class="text-muted-foreground cursor-pointer font-medium">{m.proxyAuthSecurityForm_advancedLogout()}</summary>
 					<div class="mt-3 flex flex-col gap-1">
-						<label for="proxy-logout-redirect-url" class="text-xs font-medium">Logout redirect URL</label>
+						<label for="proxy-logout-redirect-url" class="text-xs font-medium">{m.proxyAuthSecurityForm_logoutRedirectLabel()}</label>
 						<Input
 							id="proxy-logout-redirect-url"
 							bind:value={logoutRedirectUrl}
-							placeholder="Optional, e.g. https://proxy.example.com/oauth2/sign_out"
+							placeholder={m.proxyAuthSecurityForm_logoutRedirectPlaceholder()}
 							class="font-mono text-xs"
 						/>
-						<p class="text-muted-foreground text-xs">
-							Flare can't log a user out of the proxy's own session - it only clears Flare's own cookie. Left blank,
-							clicking "Log out" just returns to /login, which signs back in silently as long as the proxy keeps
-							sending the header. Set this to your proxy's own sign-out URL (or the identity provider's) to send the
-							browser there instead.
-						</p>
+						<p class="text-muted-foreground text-xs">{m.proxyAuthSecurityForm_logoutRedirectHint()}</p>
 					</div>
 				</details>
 
 				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">Default role</span>
+					<span class="text-xs font-medium">{m.proxyAuthSecurityForm_defaultRoleLabel()}</span>
 					<Select.Root type="single" value={defaultRole} onValueChange={(v) => v && (defaultRole = v as UserRole)}>
 						<Select.Trigger class="w-28">
-							{defaultRole}
+							{roleLabel(defaultRole)}
 						</Select.Trigger>
 						<Select.Content>
 							{#each ROLES as role (role)}
-								<Select.Item value={role} label={role} />
+								<Select.Item value={role} label={roleLabel(role)} />
 							{/each}
 						</Select.Content>
 					</Select.Root>
-					<p class="text-muted-foreground text-xs">
-						Assigned on first sign-in when no groups header is configured, or its value matches none of the three
-						groups above.
-					</p>
+					<p class="text-muted-foreground text-xs">{m.proxyAuthSecurityForm_defaultRoleHint()}</p>
 				</div>
 
 				<div class="flex items-center gap-2">
 					<Switch bind:checked={enabled} />
-					<span class="text-xs">Enabled</span>
+					<span class="text-xs">{m.proxyAuthSecurityForm_enabled()}</span>
 				</div>
 
 				<Button type="submit" disabled={proxyAuth.saving} class="self-start">
-					{proxyAuth.saving ? 'Saving…' : 'Save'}
+					{proxyAuth.saving ? m.proxyAuthSecurityForm_saving() : m.proxyAuthSecurityForm_save()}
 				</Button>
 			</form>
 		</Card.Content>

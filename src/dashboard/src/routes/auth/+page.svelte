@@ -24,6 +24,7 @@
 	import OidcSecurityForm from '$lib/components/auth/OidcSecurityForm.svelte';
 	import ProxyAuthSecurityForm from '$lib/components/auth/ProxyAuthSecurityForm.svelte';
 	import UserTable from '$lib/components/auth/UserTable.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	const authSettings = authSettingsContext.set(new AuthSettingsState());
 	const entraSettings = entraSettingsContext.set(new EntraSettingsState());
@@ -43,13 +44,13 @@
 </script>
 
 <svelte:head>
-	<title>Flare — Auth</title>
+	<title>{m.authPage_title()}</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">
 	<div class="border-b px-4 py-3">
-		<h1 class="text-sm font-semibold">Auth</h1>
-		<p class="text-muted-foreground text-xs">Sign-in methods and account management for this Flare instance.</p>
+		<h1 class="text-sm font-semibold">{m.authPage_heading()}</h1>
+		<p class="text-muted-foreground text-xs">{m.authPage_description()}</p>
 	</div>
 	<div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
 		<!-- mx-auto/max-w-5xl centers+caps the whole column instead of each card picking

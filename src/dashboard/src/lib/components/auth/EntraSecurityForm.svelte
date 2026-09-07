@@ -16,6 +16,7 @@
 	import { entraSettingsContext } from '$lib/entra-settings/context';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import * as m from '$lib/paraglide/messages';
 
 	const entra = entraSettingsContext.get();
 
@@ -68,13 +69,8 @@
 {:else if entra.settings}
 	<Card.Root class="shrink-0">
 		<Card.Header>
-			<Card.Title>Microsoft Entra ID</Card.Title>
-			<Card.Description>
-				Before Flare can authenticate users against your Entra ID directory, it must be registered as an
-				<em>Application</em> in that directory. Create an App Registration in the Azure portal and paste the resulting
-				values below - see docs/auth.md for the full walkthrough. Each self-hosted Flare instance uses its own App
-				Registration; nothing here is shared across deployments.
-			</Card.Description>
+			<Card.Title>{m.entraSecurityForm_title()}</Card.Title>
+			<Card.Description>{@html m.entraSecurityForm_description({ app: '<em>Application</em>' })}</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<form class="flex flex-col gap-4" onsubmit={handleSubmit}>
@@ -85,15 +81,21 @@
 				{/if}
 				{#if entra.justSaved}
 					<Alert>
-						<AlertDescription>Saved. Restart Flare.Api for this to take effect.</AlertDescription>
+						<AlertDescription>{m.entraSecurityForm_savedRestart()}</AlertDescription>
 					</Alert>
 				{/if}
 
 				<div class="flex flex-col gap-1">
-					<label for="redirect-uri" class="text-xs font-medium">Redirect URI</label>
+					<label for="redirect-uri" class="text-xs font-medium">{m.entraSecurityForm_redirectUriLabel()}</label>
 					<div class="flex gap-1">
 						<Input id="redirect-uri" value={entra.settings.redirectUri} readonly class="font-mono text-xs" />
-						<Button type="button" variant="outline" size="icon" onclick={copyRedirectUri} title="Copy">
+						<Button
+							type="button"
+							variant="outline"
+							size="icon"
+							onclick={copyRedirectUri}
+							title={m.entraSecurityForm_copyTitle()}
+						>
 							{#if copied}
 								<CheckIcon />
 							{:else}
@@ -101,42 +103,39 @@
 							{/if}
 						</Button>
 					</div>
-					<p class="text-muted-foreground text-xs">
-						You must configure this <strong>exact</strong> redirect URI (reply URL) in your Entra ID app registration.
-					</p>
+					<p class="text-muted-foreground text-xs">{@html m.entraSecurityForm_redirectUriHint({ exact: '<strong>exact</strong>' })}</p>
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="tenant-id" class="text-xs font-medium">Directory (tenant) ID</label>
+					<label for="tenant-id" class="text-xs font-medium">{m.entraSecurityForm_tenantIdLabel()}</label>
 					<Input id="tenant-id" bind:value={tenantId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="client-id" class="text-xs font-medium">Application (client) ID</label>
+					<label for="client-id" class="text-xs font-medium">{m.entraSecurityForm_clientIdLabel()}</label>
 					<Input id="client-id" bind:value={clientId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="client-secret" class="text-xs font-medium">Client secret</label>
+					<label for="client-secret" class="text-xs font-medium">{m.entraSecurityForm_clientSecretLabel()}</label>
 					<Input
 						id="client-secret"
 						type="password"
 						bind:value={clientSecret}
-						placeholder={entra.settings.hasClientSecret ? '•••••••••••••••••••••• (unchanged)' : 'Paste the client secret value'}
+						placeholder={entra.settings.hasClientSecret
+							? m.entraSecurityForm_clientSecretPlaceholderUnchanged()
+							: m.entraSecurityForm_clientSecretPlaceholderNew()}
 					/>
-					<p class="text-muted-foreground text-xs">
-						Client secret assigned to the Flare application. Leave blank to keep the currently-saved value - it is never
-						displayed once set.
-					</p>
+					<p class="text-muted-foreground text-xs">{m.entraSecurityForm_clientSecretHint()}</p>
 				</div>
 
 				<div class="flex items-center gap-2">
 					<Switch bind:checked={enabled} />
-					<span class="text-xs">Enabled</span>
+					<span class="text-xs">{m.entraSecurityForm_enabled()}</span>
 				</div>
 
 				<Button type="submit" disabled={entra.saving} class="self-start">
-					{entra.saving ? 'Saving…' : 'Save'}
+					{entra.saving ? m.entraSecurityForm_saving() : m.entraSecurityForm_save()}
 				</Button>
 			</form>
 		</Card.Content>
