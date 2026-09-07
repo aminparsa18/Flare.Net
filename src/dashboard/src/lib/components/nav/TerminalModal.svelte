@@ -19,6 +19,7 @@
 	import TerminalIcon from '@lucide/svelte/icons/terminal';
 	import { resolveCommand, parseCommandLine } from '$lib/terminal/registry';
 	import type { TerminalHandle, TerminalLine, TerminalLineKind } from '$lib/terminal/types';
+	import * as m from '$lib/paraglide/messages';
 
 	let open = $state(false);
 	let lines = $state<TerminalLine[]>([]);
@@ -107,7 +108,7 @@
 
 		const command = resolveCommand(name);
 		if (!command) {
-			write(`${name}: command not found (try 'help')`, 'error');
+			write(m.terminalModal_commandNotFound({ name, help: 'help' }), 'error');
 			return;
 		}
 
@@ -180,14 +181,14 @@
 <Dialog.Root bind:open>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="icon-sm" title="Terminal" class="ml-3 cursor-pointer">
+			<Button {...props} variant="outline" size="icon-sm" title={m.terminalModal_triggerTitle()} class="ml-3 cursor-pointer">
 				<TerminalIcon />
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
 	<Dialog.Content showCloseButton={false} onOpenAutoFocus={focusInputOnOpen} class={contentClass}>
 		<div class="flex shrink-0 items-center gap-2 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
-			<Dialog.Close class="group inline-flex cursor-pointer items-center" aria-label="Close terminal">
+			<Dialog.Close class="group inline-flex cursor-pointer items-center" aria-label={m.terminalModal_closeLabel()}>
 				<span class="block size-2.5 rounded-full bg-red-500/90 transition-colors group-hover:bg-red-400"></span>
 			</Dialog.Close>
 			<span class="size-2.5 rounded-full bg-yellow-500/70"></span>
@@ -195,20 +196,20 @@
 				type="button"
 				onclick={() => (maximized = !maximized)}
 				class="group inline-flex cursor-pointer items-center"
-				aria-label={maximized ? 'Restore terminal' : 'Maximize terminal'}
-				title={maximized ? 'Restore' : 'Maximize'}
+				aria-label={maximized ? m.terminalModal_restoreLabel() : m.terminalModal_maximizeLabel()}
+				title={maximized ? m.terminalModal_restoreTitle() : m.terminalModal_maximizeTitle()}
 			>
 				<span class="block size-2.5 rounded-full bg-green-500/70 transition-colors group-hover:bg-green-400"></span>
 			</button>
 			<Dialog.Title class="flex-1 truncate text-center font-mono text-[0.7rem] font-normal text-neutral-500">
-				flare — terminal
+				{m.terminalModal_dialogTitle()}
 			</Dialog.Title>
 			<span class="w-[46px]" aria-hidden="true"></span>
 		</div>
 		<div bind:this={outputEl} class="flex-1 overflow-y-auto px-3 py-2 font-mono text-xs leading-relaxed">
 			{#if lines.length === 0}
 				<div class="space-y-2 text-neutral-500">
-					<p>Try:</p>
+					<p>{m.terminalModal_tryHint()}</p>
 					<div>
 						{#each EXAMPLES as example (example)}
 							<button
@@ -221,7 +222,7 @@
 							</button>
 						{/each}
 					</div>
-					<p>Or type <span class="text-neutral-300">help</span> to see everything available.</p>
+					<p>{@html m.terminalModal_helpHint({ help: '<span class="text-neutral-300">help</span>' })}</p>
 				</div>
 			{/if}
 			{#each lines as line, i (i)}
@@ -236,7 +237,7 @@
 					bind:this={inputEl}
 					bind:value={inputValue}
 					onkeydown={handleKeydown}
-					placeholder={running ? 'running — Ctrl+C to stop' : ''}
+					placeholder={running ? m.terminalModal_runningPlaceholder() : ''}
 					class="flex-1 bg-transparent font-mono text-xs text-neutral-100 outline-none placeholder:text-neutral-600"
 					autocomplete="off"
 					spellcheck="false"
@@ -250,7 +251,7 @@
 				rel="noopener noreferrer"
 				class="text-neutral-500 hover:text-neutral-300"
 			>
-				Try Flare CLI on this machine
+				{m.terminalModal_tryCliLink()}
 			</a>
 		</div>
 	</Dialog.Content>

@@ -70,11 +70,13 @@ function requireValue(args: string[], index: number, flag: string, commandName: 
 	return value;
 }
 
-/** Case-insensitive level name -> exact SeverityNumber list, same bucketing the Logs Explorer's own severity filter uses. */
+/** Case-insensitive level name -> exact SeverityNumber list, same bucketing the Logs Explorer's own severity filter uses.
+ *  Matches against `id` (stable, English, lowercase), not the locale-translated `severityBucketLabel()` - a CLI flag
+ *  value is a keyword like `tail`/`--service`, not prose, so it stays in English regardless of dashboard locale. */
 export function severityNumbersForLevel(level: string, commandName: string): number[] {
-	const bucket = SEVERITY_BUCKETS.find((b) => b.label.toLowerCase() === level.toLowerCase());
+	const bucket = SEVERITY_BUCKETS.find((b) => b.id === level.toLowerCase());
 	if (!bucket) {
-		const valid = SEVERITY_BUCKETS.map((b) => b.label.toLowerCase()).join(', ');
+		const valid = SEVERITY_BUCKETS.map((b) => b.id).join(', ');
 		throw new UsageError(`${commandName}: unknown level '${level}' (expected one of: ${valid})`);
 	}
 	return severityNumbersForBucket(bucket);

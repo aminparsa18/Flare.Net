@@ -13,7 +13,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { setActiveLogsExplorer } from '$lib/logs/active-explorer.svelte';
-	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
+	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
@@ -31,17 +31,17 @@
 	});
 
 	const serviceOptions = $derived(explorer.knownServices.map((s) => ({ value: s, label: s })));
-	const severityOptions = SEVERITY_BUCKETS.map((b) => ({ value: b.label, label: b.label }));
+	const severityOptions = $derived(SEVERITY_BUCKETS.map((b) => ({ value: b.id, label: severityBucketLabel(b) })));
 
-	const selectedSeverityLabels = $derived(
+	const selectedSeverityIds = $derived(
 		SEVERITY_BUCKETS.filter((b) =>
 			severityNumbersForBucket(b).every((n) => explorer.filter.severityNumbers.includes(n))
-		).map((b) => b.label)
+		).map((b) => b.id)
 	);
 
-	function handleSeverityChange(labels: string[]) {
-		const numbers = labels.flatMap((l) => {
-			const bucket = SEVERITY_BUCKETS.find((b) => b.label === l);
+	function handleSeverityChange(ids: string[]) {
+		const numbers = ids.flatMap((id) => {
+			const bucket = SEVERITY_BUCKETS.find((b) => b.id === id);
 			return bucket ? severityNumbersForBucket(bucket) : [];
 		});
 		explorer.setSeverityNumbers([...new Set(numbers)]);
@@ -82,7 +82,7 @@
 	<PopoverMultiSelect
 		label={m.logsToolbar_levelLabel()}
 		options={severityOptions}
-		selected={selectedSeverityLabels}
+		selected={selectedSeverityIds}
 		onChange={handleSeverityChange}
 	/>
 

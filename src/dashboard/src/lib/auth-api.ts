@@ -17,6 +17,7 @@ import { LoginRequest } from '$lib/generated/memorypack/LoginRequest.js';
 import { LogoutResponse as GeneratedLogoutResponse } from '$lib/generated/memorypack/LogoutResponse.js';
 import { BootstrapStatusResponse as GeneratedBootstrapStatusResponse } from '$lib/generated/memorypack/BootstrapStatusResponse.js';
 import { userRoleToString, type UserRoleName } from '$lib/memorypack/enums';
+import * as m from '$lib/paraglide/messages';
 
 export type UserRole = UserRoleName;
 
@@ -114,7 +115,7 @@ export async function bootstrap(username: string, password: string): Promise<Aut
 		body: memoryPackBody(LoginRequest.serialize(request))
 	});
 	if (res.status === 409) {
-		throw new Error('An admin user already exists.');
+		throw new Error(m.authApi_adminAlreadyExists());
 	}
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/bootstrap failed: ${res.status} ${res.statusText}`);
@@ -133,7 +134,7 @@ export async function login(username: string, password: string): Promise<AuthUse
 		body: memoryPackBody(LoginRequest.serialize(request))
 	});
 	if (res.status === 401) {
-		throw new Error('Incorrect username or password.');
+		throw new Error(m.authApi_incorrectCredentials());
 	}
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/login failed: ${res.status} ${res.statusText}`);
@@ -158,10 +159,10 @@ export async function loginLdap(username: string, password: string): Promise<Aut
 		body: memoryPackBody(LoginRequest.serialize(request))
 	});
 	if (res.status === 401) {
-		throw new Error('Incorrect username or password.');
+		throw new Error(m.authApi_incorrectCredentials());
 	}
 	if (res.status === 502) {
-		throw new Error('Could not reach the Active Directory server. Contact an Admin.');
+		throw new Error(m.authApi_ldapUnreachable());
 	}
 	if (!res.ok) {
 		throw new Error(`POST /api/auth/ldap/login failed: ${res.status} ${res.statusText}`);

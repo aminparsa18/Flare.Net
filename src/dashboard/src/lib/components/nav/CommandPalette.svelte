@@ -27,6 +27,7 @@
 	import { savedViewPath } from '$lib/saved-views/page-paths';
 	import { activeLogsExplorer } from '$lib/logs/active-explorer.svelte';
 	import { getRecentSearches } from '$lib/logs/recent-searches';
+	import * as m from '$lib/paraglide/messages';
 	import type { Component } from 'svelte';
 
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
@@ -136,10 +137,10 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <Command.Dialog bind:open>
-	<Command.Input placeholder="Search or run a command..." />
+	<Command.Input placeholder={m.commandPalette_inputPlaceholder()} />
 	<Command.List>
-		<Command.Empty>No results found.</Command.Empty>
-		<Command.Group heading="Navigate">
+		<Command.Empty>{m.commandPalette_noResults()}</Command.Empty>
+		<Command.Group heading={m.commandPalette_navigate()}>
 			{#each links as link (link.href)}
 				{@const Icon = NAV_ICONS[link.href]}
 				<Command.Item value={link.label} onSelect={() => selectNav(link.href)}>
@@ -149,19 +150,19 @@
 			{/each}
 		</Command.Group>
 		{#if logs}
-			<Command.Group heading="Actions">
+			<Command.Group heading={m.commandPalette_actions()}>
 				<Command.Item value="Toggle Live Mode" onSelect={toggleLive}>
 					<RadioIcon />
-					<span>{logs.explorer.live ? 'Pause live tail' : 'Resume live tail'}</span>
+					<span>{logs.explorer.live ? m.commandPalette_pauseLiveTail() : m.commandPalette_resumeLiveTail()}</span>
 				</Command.Item>
 				<Command.Item value="Export Logs" onSelect={exportLogs}>
 					<DownloadIcon />
-					<span>Export logs…</span>
+					<span>{m.commandPalette_exportLogs()}</span>
 				</Command.Item>
 			</Command.Group>
 		{/if}
 		{#if logs && recentSearches.length > 0}
-			<Command.Group heading="Recently Searched">
+			<Command.Group heading={m.commandPalette_recentlySearched()}>
 				{#each recentSearches as term (term)}
 					<Command.Item value="recent {term}" onSelect={() => selectRecentSearch(term)}>
 						<HistoryIcon />
@@ -170,11 +171,11 @@
 				{/each}
 			</Command.Group>
 		{/if}
-		<Command.Group heading="Saved Searches">
+		<Command.Group heading={m.commandPalette_savedSearches()}>
 			{#if loading}
-				<div class="text-muted-foreground px-2 py-4 text-center text-xs">Loading…</div>
+				<div class="text-muted-foreground px-2 py-4 text-center text-xs">{m.commandPalette_loading()}</div>
 			{:else if views.length === 0}
-				<div class="text-muted-foreground px-2 py-4 text-center text-xs">No saved searches yet.</div>
+				<div class="text-muted-foreground px-2 py-4 text-center text-xs">{m.commandPalette_noSavedSearches()}</div>
 			{:else}
 				{#each views as view (view.id)}
 					<Command.Item value="{view.name} {view.pageType}" onSelect={() => selectView(view)}>

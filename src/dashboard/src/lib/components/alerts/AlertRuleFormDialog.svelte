@@ -17,7 +17,7 @@
 	import { alertsContext } from '$lib/alerts/context';
 	import { testDraftAlertRule, type AlertRuleRequest, type ThresholdComparator, type AlertTestResult } from '$lib/alerts-api';
 	import { aggregateLogs } from '$lib/api';
-	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
+	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
 
 	const alerts = alertsContext.get();
@@ -133,13 +133,13 @@
 	}
 
 	const serviceOptions = $derived(knownServices.map((s) => ({ value: s, label: s })));
-	const severityOptions = SEVERITY_BUCKETS.map((b) => ({ value: b.label, label: b.label }));
-	const selectedSeverityLabels = $derived(
-		SEVERITY_BUCKETS.filter((b) => severityNumbersForBucket(b).every((n) => severityNumbers.includes(n))).map((b) => b.label)
+	const severityOptions = $derived(SEVERITY_BUCKETS.map((b) => ({ value: b.id, label: severityBucketLabel(b) })));
+	const selectedSeverityIds = $derived(
+		SEVERITY_BUCKETS.filter((b) => severityNumbersForBucket(b).every((n) => severityNumbers.includes(n))).map((b) => b.id)
 	);
-	function handleSeverityChange(labels: string[]): void {
-		const numbers = labels.flatMap((l) => {
-			const bucket = SEVERITY_BUCKETS.find((b) => b.label === l);
+	function handleSeverityChange(ids: string[]): void {
+		const numbers = ids.flatMap((id) => {
+			const bucket = SEVERITY_BUCKETS.find((b) => b.id === id);
 			return bucket ? severityNumbersForBucket(bucket) : [];
 		});
 		severityNumbers = [...new Set(numbers)];
@@ -221,7 +221,7 @@
 				<PopoverMultiSelect
 					label={m.alertRuleForm_levelLabel()}
 					options={severityOptions}
-					selected={selectedSeverityLabels}
+					selected={selectedSeverityIds}
 					onChange={handleSeverityChange}
 				/>
 			</div>
