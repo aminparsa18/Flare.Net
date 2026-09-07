@@ -12,7 +12,8 @@
 	// is currently in English, same convention every language picker uses.
 	const localeLabels: Record<Locale, string> = {
 		en: 'English',
-		'zh-CN': '中文'
+		'zh-CN': '中文',
+		ru: 'Русский'
 	};
 </script>
 
