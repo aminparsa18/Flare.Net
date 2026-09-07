@@ -8,6 +8,7 @@
 	import { cn } from '$lib/utils.js';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import * as m from '$lib/paraglide/messages';
 
 	let { code, label, class: className }: { code: string; label?: string; class?: string } = $props();
 
@@ -31,7 +32,7 @@
 		variant="ghost"
 		size="icon-xs"
 		class="text-muted-foreground hover:text-foreground absolute top-2 right-2"
-		title="Copy to clipboard"
+		title={m.codeBlock_copyTitle()}
 		onclick={copy}
 	>
 		{#if copied}

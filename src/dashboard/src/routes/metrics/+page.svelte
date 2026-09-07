@@ -8,6 +8,7 @@
 	import MetricsToolbar from '$lib/components/metrics/MetricsToolbar.svelte';
 	import MetricPicker from '$lib/components/metrics/MetricPicker.svelte';
 	import MetricChart from '$lib/components/metrics/MetricChart.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
 
@@ -130,7 +131,7 @@
 		<div
 			role="separator"
 			aria-orientation="vertical"
-			aria-label="Resize metric list"
+			aria-label={m.metricsPage_resizeListLabel()}
 			aria-valuenow={pickerWidth}
 			aria-valuemin={MIN_WIDTH}
 			aria-valuemax={MAX_WIDTH}

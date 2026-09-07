@@ -9,6 +9,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import type { HostHealthCheck, HostHealthTone } from '$lib/resources/host-health';
+	import * as m from '$lib/paraglide/messages';
 
 	let { checks }: { checks: HostHealthCheck[] } = $props();
 
@@ -21,7 +22,7 @@
 </script>
 
 <div class="mt-4 border-t pt-3">
-	<h3 class="mb-2 text-sm font-medium">Host health</h3>
+	<h3 class="mb-2 text-sm font-medium">{m.hostHealth_heading()}</h3>
 	<Card.Root>
 		<Card.Content class="divide-y px-0 py-0">
 			{#each checks as check (check.id)}

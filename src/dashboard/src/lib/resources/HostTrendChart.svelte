@@ -13,6 +13,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import type { HostStatsHistoryPoint } from '$lib/api';
+	import * as m from '$lib/paraglide/messages';
 
 	let { history }: { history: HostStatsHistoryPoint[] } = $props();
 
@@ -23,10 +24,10 @@
 	// 'By/s' for Network (still in its natural unit - no fixed ceiling to normalize
 	// against).
 	const METRICS: Record<MetricKey, { label: string; unit: string; valueOf: (p: HostStatsHistoryPoint) => number }> = {
-		cpu: { label: 'CPU', unit: '%', valueOf: (p) => p.cpuUsagePercent },
-		memory: { label: 'Memory', unit: '%', valueOf: (p) => p.memoryUsedPercent },
-		disk: { label: 'Disk', unit: '%', valueOf: (p) => p.diskUsedPercent },
-		network: { label: 'Network', unit: 'By/s', valueOf: (p) => p.networkBytesPerSecond }
+		cpu: { label: m.hostTrendChart_cpu(), unit: '%', valueOf: (p) => p.cpuUsagePercent },
+		memory: { label: m.hostTrendChart_memory(), unit: '%', valueOf: (p) => p.memoryUsedPercent },
+		disk: { label: m.hostTrendChart_disk(), unit: '%', valueOf: (p) => p.diskUsedPercent },
+		network: { label: m.hostTrendChart_network(), unit: 'By/s', valueOf: (p) => p.networkBytesPerSecond }
 	};
 	const METRIC_ORDER: MetricKey[] = ['cpu', 'memory', 'disk', 'network'];
 
@@ -96,7 +97,7 @@
 	// to exactly that).
 	function formatAgoLabel(time: number): string {
 		const minutes = Math.round((Date.now() - time) / 60000);
-		if (minutes < 1) return 'now';
+		if (minutes < 1) return m.hostTrendChart_now();
 		if (minutes < 60) return `-${minutes}m`;
 		return `-${Math.round(minutes / 60)}h`;
 	}
@@ -104,7 +105,7 @@
 
 <div class="mt-4 border-t pt-3">
 	<div class="mb-2 flex items-center justify-between gap-2">
-		<h3 class="text-sm font-medium">Resource trends</h3>
+		<h3 class="text-sm font-medium">{m.hostTrendChart_heading()}</h3>
 		<div class="bg-muted flex items-center gap-0.5 rounded-md p-0.5">
 			{#each METRIC_ORDER as key (key)}
 				<Button variant={metric === key ? 'secondary' : 'ghost'} size="sm" onclick={() => (metric = key)}>
@@ -116,7 +117,7 @@
 
 	{#if points.length < 2}
 		<div class="text-muted-foreground flex h-[140px] items-center justify-center text-xs">
-			Not enough data yet - the chart fills in over the next couple of samples.
+			{m.hostTrendChart_notEnoughData()}
 		</div>
 	{:else}
 		<div class="flex gap-2">
@@ -140,7 +141,7 @@
 								preserveAspectRatio="none"
 								class="h-[140px] w-full min-w-0"
 								role="img"
-								aria-label="{METRICS[metric].label} over the last hour"
+								aria-label={m.hostTrendChart_chartAriaLabel({ metric: METRICS[metric].label })}
 								onpointermove={handlePointerMove}
 								onpointerleave={() => (hoverIndex = null)}
 							>
@@ -189,7 +190,7 @@
 		</div>
 		<div class="text-muted-foreground mt-1 ml-16 flex justify-between text-xs">
 			<span>{formatAgoLabel(points[0].time)}</span>
-			<span>now</span>
+			<span>{m.hostTrendChart_now()}</span>
 		</div>
 	{/if}
 </div>

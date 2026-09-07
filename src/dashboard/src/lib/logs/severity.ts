@@ -8,24 +8,55 @@
 // treatment) rather than throwing.
 
 import type { BadgeVariant } from '$lib/components/ui/badge';
+import * as m from '$lib/paraglide/messages';
+
+export type SeverityBucketId = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'unspecified';
 
 export interface SeverityBucket {
-	label: string;
+	/** Stable, English, lowercase - the internal identity (multi-select `value`, terminal
+	 *  `-l/--level` argument matching). Never shown to a user - see {@link severityBucketLabel}
+	 *  for that. Kept separate from the display label so switching locale can't change what
+	 *  a saved filter or CLI command means, same "raw value vs. translated label" split
+	 *  Phase 5's `roleLabel()` helpers use for the UserRole enum. */
+	id: SeverityBucketId;
 	min: number;
 	max: number;
 	variant: BadgeVariant;
 }
 
 export const SEVERITY_BUCKETS: SeverityBucket[] = [
-	{ label: 'Trace', min: 1, max: 4, variant: 'outline' },
-	{ label: 'Debug', min: 5, max: 8, variant: 'outline' },
-	{ label: 'Info', min: 9, max: 12, variant: 'secondary' },
-	{ label: 'Warn', min: 13, max: 16, variant: 'warning' },
-	{ label: 'Error', min: 17, max: 20, variant: 'destructive' },
-	{ label: 'Fatal', min: 21, max: 24, variant: 'destructive' }
+	{ id: 'trace', min: 1, max: 4, variant: 'outline' },
+	{ id: 'debug', min: 5, max: 8, variant: 'outline' },
+	{ id: 'info', min: 9, max: 12, variant: 'secondary' },
+	{ id: 'warn', min: 13, max: 16, variant: 'warning' },
+	{ id: 'error', min: 17, max: 20, variant: 'destructive' },
+	{ id: 'fatal', min: 21, max: 24, variant: 'destructive' }
 ];
 
-const FALLBACK_BUCKET: SeverityBucket = { label: 'Unspecified', min: 0, max: 0, variant: 'outline' };
+const FALLBACK_BUCKET: SeverityBucket = { id: 'unspecified', min: 0, max: 0, variant: 'outline' };
+
+/** Translated display text for a bucket - a function, not a field baked into
+ *  SEVERITY_BUCKETS, so it re-evaluates against the current locale on every call (same
+ *  reasoning `traces/status.ts`'s `statusLabel()`/`kindLabel()` are functions rather than
+ *  a static labelled array). */
+export function severityBucketLabel(bucket: SeverityBucket): string {
+	switch (bucket.id) {
+		case 'trace':
+			return m.severityBucket_trace();
+		case 'debug':
+			return m.severityBucket_debug();
+		case 'info':
+			return m.severityBucket_info();
+		case 'warn':
+			return m.severityBucket_warn();
+		case 'error':
+			return m.severityBucket_error();
+		case 'fatal':
+			return m.severityBucket_fatal();
+		default:
+			return m.severityBucket_unspecified();
+	}
+}
 
 export function severityBucketFor(severityNumber: number): SeverityBucket {
 	return SEVERITY_BUCKETS.find((b) => severityNumber >= b.min && severityNumber <= b.max) ?? FALLBACK_BUCKET;

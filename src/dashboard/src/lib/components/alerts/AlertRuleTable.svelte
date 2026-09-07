@@ -9,7 +9,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { alertsContext } from '$lib/alerts/context';
 	import { testAlertRule, type AlertRule, type AlertTestResult } from '$lib/alerts-api';
-	import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
+	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -25,7 +25,7 @@
 		if (rule.condition.services?.length) parts.push(rule.condition.services.join(', '));
 		const severities = rule.condition.severityNumbers ?? [];
 		const labels = SEVERITY_BUCKETS.filter((b) => severityNumbersForBucket(b).every((n) => severities.includes(n))).map(
-			(b) => b.label
+			(b) => severityBucketLabel(b)
 		);
 		if (labels.length) parts.push(labels.join('/'));
 		if (rule.condition.search) parts.push(`"${rule.condition.search}"`);

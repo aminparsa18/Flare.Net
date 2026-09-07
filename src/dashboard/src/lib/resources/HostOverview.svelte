@@ -46,6 +46,7 @@
 	import ActivityIcon from '@lucide/svelte/icons/activity';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import * as m from '$lib/paraglide/messages';
 
 	let { snapshot, history }: { snapshot: HostStatsSnapshot | null; history: HostStatsHistoryPoint[] } = $props();
 
@@ -106,9 +107,9 @@
 				<EmptyMedia variant="icon">
 					<ActivityIcon />
 				</EmptyMedia>
-				<EmptyTitle>Host overview unavailable</EmptyTitle>
+				<EmptyTitle>{m.hostOverview_unavailableTitle()}</EmptyTitle>
 				<EmptyDescription>
-					{snapshot?.unavailableReason ?? 'Waiting for Flare.Api...'}
+					{snapshot?.unavailableReason ?? m.hostOverview_waitingForApi()}
 				</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
@@ -117,19 +118,19 @@
 	<div class="border-b px-4 py-3">
 		<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
 			<div class="flex items-center gap-2">
-				<span class="text-sm font-medium">Host running Flare.Net</span>
+				<span class="text-sm font-medium">{m.hostOverview_hostRunningFlare()}</span>
 				<Badge variant="outline" class="gap-1.5">
 					<span class="size-1.5 rounded-full" style="background: {isHealthy ? 'var(--chart-3)' : 'var(--warning)'}"></span>
-					{isHealthy ? 'Healthy' : 'Needs attention'}
+					{isHealthy ? m.hostOverview_healthy() : m.hostOverview_needsAttention()}
 				</Badge>
 			</div>
 			<!-- Compact live RX/TX - deliberately not a tile, see the file header remarks. -->
 			<div class="text-muted-foreground ml-auto flex items-center gap-3 text-xs tabular-nums">
-				<span class="flex items-center gap-1" title="Received">
+				<span class="flex items-center gap-1" title={m.hostOverview_received()}>
 					<ArrowDownIcon class="size-3" />
 					{formatByteRate(snapshot.networkRxBytesPerSecond)}
 				</span>
-				<span class="flex items-center gap-1" title="Sent">
+				<span class="flex items-center gap-1" title={m.hostOverview_sent()}>
 					<ArrowUpIcon class="size-3" />
 					{formatByteRate(snapshot.networkTxBytesPerSecond)}
 				</span>
@@ -141,14 +142,17 @@
 				<Card.Header>
 					<Card.Description class="flex items-center gap-1.5">
 						<CpuIcon class="size-3.5" />
-						CPU
+						{m.hostOverview_cpu()}
 					</Card.Description>
 					<Card.Title class="text-2xl tabular-nums {severityTextClass(cpuPercent)}">{cpuPercent}%</Card.Title>
 				</Card.Header>
 				<Card.Content class="flex flex-col gap-1.5">
 					{@render meter(cpuPercent)}
 					<span class="text-muted-foreground text-xs">
-						{snapshot.cpuCoreCount} core{snapshot.cpuCoreCount === 1 ? '' : 's'} · load {snapshot.loadAverage1m.toFixed(2)}
+						{snapshot.cpuCoreCount === 1
+							? m.hostOverview_coreCountSingular({ count: snapshot.cpuCoreCount })
+							: m.hostOverview_coreCountPlural({ count: snapshot.cpuCoreCount })}
+						· {m.hostOverview_load({ load: snapshot.loadAverage1m.toFixed(2) })}
 					</span>
 					{#if snapshot.perCoreUsagePercent.length > 0}
 						<Accordion.Root type="single" bind:value={perCoreAccordionValue} class="w-full border-0">
@@ -156,14 +160,14 @@
 								<Accordion.Trigger
 									class="text-muted-foreground hover:text-foreground relative flex w-auto flex-none items-center justify-start gap-1 border-none p-0 text-left text-xs font-normal hover:no-underline **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:size-3.5"
 								>
-									Per-core breakdown ({snapshot.perCoreUsagePercent.length} cores)
+									{m.hostOverview_perCoreBreakdown({ count: snapshot.perCoreUsagePercent.length })}
 								</Accordion.Trigger>
 								<Accordion.Content class="p-0 pt-2">
 									<div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
 										{#each snapshot.perCoreUsagePercent as corePercent, i (i)}
 											{@const rounded = Math.round(corePercent)}
 											<div class="flex items-center gap-1.5">
-												<span class="text-muted-foreground w-9 shrink-0 text-xs tabular-nums">core {i}</span>
+												<span class="text-muted-foreground w-9 shrink-0 text-xs tabular-nums">{m.hostOverview_coreIndex({ index: i })}</span>
 												{@render meter(rounded)}
 												<span class="w-8 shrink-0 text-right text-xs tabular-nums {severityTextClass(rounded)}">{rounded}%</span>
 											</div>
@@ -180,7 +184,7 @@
 				<Card.Header>
 					<Card.Description class="flex items-center gap-1.5">
 						<MemoryStickIcon class="size-3.5" />
-						Memory
+						{m.hostOverview_memory()}
 					</Card.Description>
 					<Card.Title class="text-2xl tabular-nums {severityTextClass(memPercent)}">
 						{formatByteUsage(snapshot.memoryUsedBytes, snapshot.memoryTotalBytes)}
@@ -189,13 +193,15 @@
 				<Card.Content class="flex flex-col gap-1.5">
 					{@render meter(memPercent)}
 					<span class="text-muted-foreground text-xs">
-						{memPercent}% used · {formatBytes(snapshot.memoryAvailableBytes)} available
+						{m.hostOverview_usedAvailable({ percent: memPercent, available: formatBytes(snapshot.memoryAvailableBytes) })}
 					</span>
 					<!-- Swap disabled entirely (0 total) is common under Docker Desktop and
 					     various cloud VM images - hidden rather than showing "0 B swap"
 					     everywhere. -->
 					{#if snapshot.swapTotalBytes > 0}
-						<span class="text-muted-foreground text-xs">+ {formatByteUsage(snapshot.swapUsedBytes, snapshot.swapTotalBytes)} swap</span>
+						<span class="text-muted-foreground text-xs"
+							>{m.hostOverview_swapUsage({ usage: formatByteUsage(snapshot.swapUsedBytes, snapshot.swapTotalBytes) })}</span
+						>
 					{/if}
 				</Card.Content>
 			</Card.Root>
@@ -204,14 +210,14 @@
 				<Card.Header>
 					<Card.Description class="flex items-center gap-1.5">
 						<HardDriveIcon class="size-3.5" />
-						Disk
+						{m.hostOverview_disk()}
 					</Card.Description>
 					<Card.Title class="text-2xl tabular-nums {severityTextClass(diskPercent)}">
 						{formatByteUsage(snapshot.diskUsedBytes, snapshot.diskTotalBytes)}
 					</Card.Title>
 				</Card.Header>
 				<Card.Content class="flex flex-col gap-1.5">
-					<span class="text-muted-foreground text-xs">{diskPercent}% used</span>
+					<span class="text-muted-foreground text-xs">{m.hostOverview_percentUsed({ percent: diskPercent })}</span>
 					<!-- null until HostStatsOptions.DiskGrowthMinimumSpan worth of samples has
 					     accumulated - omitted entirely rather than shown as a placeholder, see
 					     HostStatsSnapshot.cs's own remarks. -->
@@ -230,15 +236,21 @@
 									{/snippet}
 								</Tooltip.Trigger>
 								<Tooltip.Content>
-									Based on the trailing {snapshot.diskGrowthWindowHours < 1
-										? `${Math.round(snapshot.diskGrowthWindowHours * 60)}m`
-										: `${snapshot.diskGrowthWindowHours.toFixed(1)}h`}
+									{m.hostOverview_basedOnTrailing({
+										window:
+											snapshot.diskGrowthWindowHours < 1
+												? `${Math.round(snapshot.diskGrowthWindowHours * 60)}m`
+												: `${snapshot.diskGrowthWindowHours.toFixed(1)}h`
+									})}
 								</Tooltip.Content>
 							</Tooltip.Root>
 						</Tooltip.Provider>
 					{/if}
 					<span class="text-muted-foreground text-xs">
-						read {formatByteRate(snapshot.diskReadBytesPerSecond)} · write {formatByteRate(snapshot.diskWriteBytesPerSecond)}
+						{m.hostOverview_readWrite({
+							read: formatByteRate(snapshot.diskReadBytesPerSecond),
+							write: formatByteRate(snapshot.diskWriteBytesPerSecond)
+						})}
 					</span>
 				</Card.Content>
 			</Card.Root>
@@ -247,11 +259,11 @@
 				<Card.Header>
 					<Card.Description class="flex items-center gap-1.5">
 						<ClockIcon class="size-3.5" />
-						Uptime
+						{m.hostOverview_uptime()}
 					</Card.Description>
 					<Card.Title class="text-2xl tabular-nums">{formatUptime(snapshot.uptimeSeconds)}</Card.Title>
 				</Card.Header>
-				<Card.Content class="text-muted-foreground text-xs">since last boot</Card.Content>
+				<Card.Content class="text-muted-foreground text-xs">{m.hostOverview_sinceLastBoot()}</Card.Content>
 			</Card.Root>
 		</div>
 
