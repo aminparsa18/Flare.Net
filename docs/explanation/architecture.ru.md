@@ -164,7 +164,7 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 полную структурированную полезную нагрузку, области видимости и детали
 исключения.
 
-![Logs Explorer](../screenshots/logs.png)
+![Logs Explorer](../screenshots/logs-ru.webp)
 
 ### Трассировки
 
@@ -180,7 +180,7 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 длительности, та же форма, что у Jaeger/Zipkin, но встроенная прямо в
 остальную часть панели управления.
 
-![Trace detail waterfall](../screenshots/trace-detail.png)
+![Trace detail waterfall](../screenshots/traces-ru.webp)
 
 ### Метрики
 
@@ -204,7 +204,9 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 Это первая страница, которую стоит проверить, если «мои логи не
 отображаются».
 
-![Ingestion](../screenshots/ingestion.png)
+![Ingestion](../screenshots/ingestion-ru.webp)
+
+![Ingestion pipeline health](../screenshots/ingestion-2-ru.webp)
 
 ### Индексация
 
@@ -217,7 +219,11 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 кластерном режиме здесь же находится и панель Cluster — см.
 [`clustering.md`](clustering.md#dashboard-cluster-status-on-the-indexing-page).
 
-![Indexing](../screenshots/indexing.png)
+![Indexing](../screenshots/indexing-ru.webp)
+
+![Indexing storage growth and tables](../screenshots/indexing-2-ru.webp)
+
+![Indexing query optimization](../screenshots/indexing-3-ru.webp)
 
 ### Оповещения
 
@@ -231,7 +237,7 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 о том, что нужно настроить на стороне сервера для каждого канала.
 
 ![Alerts](../screenshots/alerts.png)
-![Alerts](../screenshots/alerts_add.png)
+![New alert](../screenshots/alerts-ru.webp)
 
 ### Представления
 

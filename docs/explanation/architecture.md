@@ -151,7 +151,7 @@ The default view (`/`). A dense, virtualized log table with live tail
 for service, level, and free-text search over the message body. Click any
 row to expand its full structured payload, scopes, and exception details.
 
-![Logs Explorer](../screenshots/logs.png)
+![Logs Explorer](../screenshots/logs-en.webp)
 
 ### Traces
 
@@ -165,7 +165,7 @@ Click into a trace for the waterfall view — parent/child spans laid out by
 start time and duration, the same shape as Jaeger/Zipkin but wired
 straight into the rest of the dashboard.
 
-![Trace detail waterfall](../screenshots/trace-detail.png)
+![Trace detail waterfall](../screenshots/traces-en.webp)
 
 ### Metrics
 
@@ -176,7 +176,7 @@ time-series chart per instrument. Covers both the free
 GC, thread pool, Kestrel, HTTP client/server) and anything your own
 `Meter` emits.
 
-![Metrics browser](../screenshots/metrics.png)
+![Metrics browser](../screenshots/metrics-en.webp)
 
 ### Ingestion
 
@@ -186,7 +186,9 @@ per-protocol (gRPC/HTTP) breakdown of requests, events, and bytes, plus an
 ingestion log of anything Flare rejected (bad payloads, unsupported media
 types) and why. The page to check first if "my logs aren't showing up."
 
-![Ingestion](../screenshots/ingestion.png)
+![Ingestion](../screenshots/ingestion-en.webp)
+
+![Ingestion pipeline health](../screenshots/ingestion-2-en.webp)
 
 ### Indexing
 
@@ -198,7 +200,11 @@ backing fast filtering. Useful for capacity planning or just seeing where
 the bytes go. In cluster mode, this is also where the Cluster panel lives
 — see [`clustering.md`](clustering.md#dashboard-cluster-status-on-the-indexing-page).
 
-![Indexing](../screenshots/indexing.png)
+![Indexing](../screenshots/indexing-en.webp)
+
+![Indexing storage growth and tables](../screenshots/indexing-2-en.webp)
+
+![Indexing query optimization](../screenshots/indexing-3-en.webp)
 
 ### Alerts
 
@@ -211,7 +217,7 @@ rule's "Notify via" channel — see
 for what each channel needs configured server-side.
 
 ![Alerts](../screenshots/alerts.png)
-![Alerts](../screenshots/alerts_add.png)
+![New alert](../screenshots/alerts-en.webp)
 
 ### Views
 

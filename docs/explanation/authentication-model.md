@@ -63,7 +63,9 @@ even when SSO/AD/proxy is the day-to-day method.
 Everything auth-related lives on one Admin-only page (reachable to anyone
 while authentication is off, same as every other page):
 
-![The /auth page](../screenshots/auth.png)
+![Microsoft Entra ID and Active Directory sections of the /auth page](../screenshots/auth-2-en.webp)
+
+![OpenID Connect and Reverse proxy sections of the /auth page](../screenshots/auth-en.webp)
 
 1. **Authentication** — the umbrella "Require sign-in" switch and the
    `Local username/password` toggle sit together at the top. Off → an

@@ -28,7 +28,7 @@
 
 Ваше приложение → **OTLP** → Flare. Это вся история приёма данных — никакого проприетарного формата передачи, никакого агента-демона. Если вы уже инструментированы с помощью OpenTelemetry, Flare может получать данные напрямую.
 
-![Logs Explorer](docs/screenshots/logs.png)
+![Logs Explorer](docs/screenshots/logs-ru.webp)
 
 ## Что предоставляет Flare
 

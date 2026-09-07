@@ -12,7 +12,9 @@
 Всё нижеописанное происходит на одной странице, доступной только
 администратору, **`/auth`**:
 
-![The /auth page](../screenshots/auth.png)
+![Microsoft Entra ID and Active Directory sections of the /auth page](../screenshots/auth-2-ru.webp)
+
+![OpenID Connect and Reverse proxy sections of the /auth page](../screenshots/auth-ru.webp)
 
 ## Включить вход
 

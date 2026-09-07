@@ -73,7 +73,9 @@ Connect / обратный прокси) включаются и настраи�
 только администратору (доступной всем, пока аутентификация отключена,
 как и любая другая страница):
 
-![The /auth page](../screenshots/auth.png)
+![Microsoft Entra ID and Active Directory sections of the /auth page](../screenshots/auth-2-ru.webp)
+
+![OpenID Connect and Reverse proxy sections of the /auth page](../screenshots/auth-ru.webp)
 
 1. **Аутентификация** — общий переключатель «Требовать вход» и
    переключатель «Локальное имя пользователя/пароль» расположены вместе

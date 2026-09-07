@@ -107,7 +107,7 @@ Aspire? См.
 Kubernetes, из отдельного нативного для Kubernetes поставщика), а не из
 собственной службы ресурсов Aspire. По умолчанию отключена:
 
-![Resources page](../screenshots/resources.png)
+![Resources page](../screenshots/resources-ru.webp)
 
 ```csharp
 var flare = builder.AddFlare("flare", enableResourceGraph: true);

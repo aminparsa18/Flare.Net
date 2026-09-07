@@ -94,7 +94,7 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 默认视图 (`/`)。密集的虚拟化日志表，具有实时尾部（实时流、暂停/恢复）、事件量图表以及服务、级别和消息正文上的自由文本搜索过滤器。单击任意行可展开其完整的结构化负载、范围和异常详细信息。
 
-![Logs Explorer](../screenshots/logs.png)
+![Logs Explorer](../screenshots/logs-ch.webp)
 
 ### 追踪
 
@@ -104,31 +104,37 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 单击瀑布视图的跟踪 - 按开始时间和持续时间布置的父/子跨度，与 Jaeger/Zipkin 的形状相同，但直接连接到仪表板的其余部分。
 
-![Trace detail waterfall](../screenshots/trace-detail.png)
+![Trace detail waterfall](../screenshots/traces-ch.webp)
 
 ### 指标
 
 `/metrics` — 您的服务报告的每个 OTLP 度量工具（总和、仪表、直方图），可从可搜索侧边栏浏览，并呈现为每个工具的时间序列图表。涵盖免费的 `AddAspNetCoreInstrumentation()`/`AddRuntimeInstrumentation()` 数据（.NET GC、线程池、Kestrel、HTTP 客户端/服务器）以及您自己的 `Meter` 发出的任何内容。
 
-![Metrics browser](../screenshots/metrics.png)
+![Metrics browser](../screenshots/metrics-ch.webp)
 
 ### 食入
 
 `/ingestion` — OTLP 接收器本身的操作可见性：当前到达/摄取速率、每个信号（日志/跟踪/指标）× 每个协议 (gRPC/HTTP) 请求、事件和字节的细分，以及任何 Flare 拒绝的摄取日志（错误的有效负载、不支持的媒体类型）及其原因。如果“我的日志没有显示”，则首先检查的页面。
 
-![Ingestion](../screenshots/ingestion.png)
+![Ingestion](../screenshots/ingestion-ch.webp)
+
+![Ingestion pipeline health](../screenshots/ingestion-2-ch.webp)
 
 ### 索引
 
 `/indexing` — 底层的 ClickHouse 存储变得可见：总存储（压缩/未压缩）、行数、逐表细分（`logs`、`spans`、`metrics_sum`、`metrics_histogram`、`metrics_gauge` 等）以及压缩率、过去 30 天的增长以及支持快速过滤的跳过索引。对于容量规划或只是查看字节的去向很有用。在集群模式下，这也是集群面板所在的位置 - 请参阅 [`clustering.md`](clustering.md#dashboard-cluster-status-on-the-indexing-page)。
 
-![Indexing](../screenshots/indexing.png)
+![Indexing](../screenshots/indexing-ch.webp)
+
+![Indexing storage growth and tables](../screenshots/indexing-2-ch.webp)
+
+![Indexing query optimization](../screenshots/indexing-3-ch.webp)
 
 ### 警报
 
 `/alerts` — 基于阈值/查询的警报规则：保存的过滤器（服务、级别、搜索文本）加上在滚动窗口上评估的计数阈值，在保存之前有冷却时间和“针对当前数据进行测试”的试运行。触发会通知 webhook/Slack、Telegram 或电子邮件之一，具体取决于规则的“通知方式”通道 - 请参阅 [`../../src/Flare.Api/README.md`](../../src/Flare.Api/README.md#alerting) 了解每个通道需要在服务器端配置的内容。
 
-![Alerts](../screenshots/alerts.png) ![Alerts](../screenshots/alerts_add.png)
+![Alerts](../screenshots/alerts.png) ![New alert](../screenshots/alerts-ch.webp)
 
 ### 视图
 

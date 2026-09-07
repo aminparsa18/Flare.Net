@@ -8,7 +8,9 @@ for exact config keys and the roles table, see
 
 Everything below happens on one Admin-only page, **`/auth`**:
 
-![The /auth page](../screenshots/auth.png)
+![Microsoft Entra ID and Active Directory sections of the /auth page](../screenshots/auth-2-en.webp)
+
+![OpenID Connect and Reverse proxy sections of the /auth page](../screenshots/auth-en.webp)
 
 ## Turn on sign-in
 

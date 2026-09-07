@@ -28,7 +28,7 @@
 
 您的申请 → **OTLP** → Flare。这就是整个摄取故事——没有专有的有线格式，没有代理守护进程。如果您已经使用 OpenTelemetry 进行检测，Flare 可以直接使用它。
 
-![Logs Explorer](docs/screenshots/logs.png)
+![Logs Explorer](docs/screenshots/logs-ch.webp)
 
 ## Flare 提供什么
 
