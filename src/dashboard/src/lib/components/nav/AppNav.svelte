@@ -5,17 +5,13 @@
 	// Logs toolbar keeps only its own filter controls.
 	import { page } from '$app/state';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
 	import { cn } from '$lib/utils';
 	import { Separator } from '$lib/components/ui/separator';
 	import { authContext } from '$lib/auth/context';
 	import { navLinks } from './nav-links';
 	import TerminalModal from './TerminalModal.svelte';
-	import LanguageSwitcher from './LanguageSwitcher.svelte';
+	import NavUserMenu from './NavUserMenu.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
-	import SunIcon from '@lucide/svelte/icons/sun';
-	import MoonIcon from '@lucide/svelte/icons/moon';
-	import { mode, toggleMode } from 'mode-watcher';
 	import * as m from '$lib/paraglide/messages';
 
 	// +layout.svelte renders AppNav once auth is off entirely (no currentUser then - see
@@ -28,13 +24,6 @@
 	// lifted there (rather than owned privately by either component) since both this
 	// button and the palette's own Cmd+K listener need to flip the same flag.
 	let { commandPaletteOpen = $bindable(false) }: { commandPaletteOpen?: boolean } = $props();
-
-	async function handleLogout() {
-		// No goto() needed here - auth.currentUser flipping to null is itself what
-		// +layout.svelte's route-guard $effect reacts to, which calls goto('/login')
-		// on its own the moment this resolves.
-		await auth.logout();
-	}
 
 	// /auth (the consolidated enable-auth/configure-methods/manage-users screen) is
 	// Admin-only both server-side (UserEndpoints.cs/EntraSettingsEndpoints.cs/
@@ -79,26 +68,7 @@
 		</kbd>
 	</Button>
 	<TerminalModal />
-	<!-- mode.current is undefined during SSR (mode-watcher's isBrowser guard) - the icon
-	     briefly defaults to Moon in that window, corrected the instant the client hydrates.
-	     Harmless: the anti-FOUC script in +layout.svelte already set the *page's* actual
-	     theme correctly before paint, this only affects which icon this one button shows
-	     for a frame. Moved here from LogsToolbar - app-wide, not a Logs-page-only control. -->
-	<Button variant="outline" size="icon-sm" onclick={toggleMode} title={m.nav_toggleTheme()}>
-		{#if mode.current === 'light'}
-			<SunIcon />
-		{:else}
-			<MoonIcon />
-		{/if}
-	</Button>
-	<LanguageSwitcher />
-	<div class="ml-auto flex items-center gap-2">
-		{#if auth.authEnabled}
-			<span class="text-muted-foreground text-xs">{auth.currentUser?.username}</span>
-			<Badge variant="outline">{auth.currentUser?.role}</Badge>
-			<Button variant="ghost" size="sm" onclick={handleLogout} disabled={auth.loading}>{m.nav_logOut()}</Button>
-		{:else}
-			<a href="/auth" class={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>{m.nav_authOff()}</a>
-		{/if}
+	<div class="ml-auto">
+		<NavUserMenu />
 	</div>
 </nav>
