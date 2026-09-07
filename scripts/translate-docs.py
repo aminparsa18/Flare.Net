@@ -42,6 +42,19 @@ What gets translated vs. left alone, within a source file:
     anchor links. See check-docs-links.py's own docstring for why that check exists;
     check_orphans() there also has a matching exclusion for `*.<langcode>.md` files
     (they mirror an already-indexed source page, not a new one needing its own entry).
+  - A relative link to ANOTHER in-scope doc (e.g. a Chinese README linking to
+    `docs/how-to/run-with-aspire.md`) gets repointed at that doc's own
+    `<name>.<langcode>.md` translation instead of silently staying on the English
+    original - otherwise every cross-doc link in every translated file would drop the
+    reader back into English. This (and the matching cross-file anchor fix-up) is a
+    SEPARATE pass over the already-written output, not part of translate_markdown()
+    itself: it's pure regex/text work, no MT call, so it reruns on every invocation
+    regardless of whether a doc's source hash changed - a translated file that's
+    otherwise "up to date" still gets its links repaired. A link back to the file's
+    OWN English source (a language-switcher's "[English](README.md)") is left alone
+    on purpose: that's the one case where staying on the English original is correct.
+    A link to a doc that's out of scope (docs-internal/, src/*/README.md, LICENSE,
+    ...) is also left alone, same reasoning - there's no translation to point at.
 
 Usage:
     python3 scripts/translate-docs.py                 # refresh everything in scope
@@ -151,6 +164,16 @@ HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
 TABLE_SEP_CELL_RE = re.compile(r"^\s*:?-+:?\s*$")
 FRAGMENT_LINK_RE = re.compile(r"(\(#)([\w-]+)(\))")
+
+# A markdown link OR image: group(1) is "!" for an image (never a cross-doc-link
+# rewrite target), group(2) the link text, group(3) the raw target (path + optional
+# "#anchor"). Deliberately the same shape protect()'s PROTECT_RE matches - these
+# functions run on already-translated, already-restored text, not the protected form.
+LINK_RE = re.compile(r"(!?)\[([^\]]*)\]\(([^)]+)\)")
+# Same, but ONLY a link whose target already ends "<something>.<langcode>.md#anchor" -
+# used by rewrite_cross_doc_anchors(), which runs after rewrite_cross_doc_links() has
+# already repointed the path half.
+CROSS_DOC_ANCHOR_RE = re.compile(r"(!?)\[([^\]]*)\]\(([^)#]+\.md)#([\w-]+)\)")
 
 # A distinctive all-caps alphanumeric token (not actual Unicode delimiter characters -
 # Private-Use-Area brackets were the obvious first choice, but got silently stripped
@@ -397,6 +420,99 @@ def translated_path(source: Path, langcode: str) -> Path:
     return source.with_suffix(f".{langcode}{source.suffix}")
 
 
+def extract_headings(text: str) -> list[str]:
+    """Original (untranslated where called on a source file, translated where called
+    on an output file) heading text, one entry per '#'-line, in document order -
+    fence-tracked the same way translate_markdown() is so a '#' inside a code sample
+    never counts. Used by derive_slug_map() to reconstruct a file's old-slug ->
+    new-slug map straight from what's already on disk, without a fresh MT pass."""
+    out: list[str] = []
+    in_fence = False
+    fence_marker = ""
+    for line in text.split("\n"):
+        fence_match = re.match(r"^\s*(```+|~~~+)", line)
+        if fence_match:
+            marker = fence_match.group(1)[:3]
+            if not in_fence:
+                in_fence, fence_marker = True, marker
+            elif line.strip().startswith(fence_marker):
+                in_fence = False
+            continue
+        if in_fence:
+            continue
+        m = HEADING_RE.match(line)
+        if m:
+            out.append(m.group(2))
+    return out
+
+
+def derive_slug_map(source_text: str, translated_text: str) -> dict[str, str]:
+    """Pairs an English source's headings with its already-generated translation's
+    headings, by document order (translation preserves heading count/order 1:1), to
+    rebuild the same old-slug -> new-slug map translate_markdown() computes during a
+    fresh translation - cheap enough (no MT call) to rerun on every invocation, even
+    for a file whose source hash didn't change and so got no fresh translation."""
+    slug_map: dict[str, str] = {}
+    for en, tr in zip(extract_headings(source_text), extract_headings(translated_text)):
+        old_slug, new_slug = slugify(en), slugify(tr)
+        if old_slug != new_slug:
+            slug_map[old_slug] = new_slug
+    return slug_map
+
+
+def rewrite_cross_doc_links(text: str, source: Path, langcode: str, in_scope: set[Path]) -> str:
+    """Repoints a relative link at another in-scope doc to that doc's own
+    <name>.<langcode>.md translation - see the module docstring for the full
+    rationale. Runs on an already-translated file's content, so `text` here has
+    ordinary, unprotected `[label](url)` syntax to match directly."""
+    own_source = source.resolve()
+
+    def _sub(m: re.Match) -> str:
+        bang, label, url = m.groups()
+        if bang:
+            return m.group(0)  # an image, never a doc link
+        path_part, sep, anchor = url.partition("#")
+        if not path_part or not path_part.endswith(".md"):
+            return m.group(0)
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", path_part):
+            return m.group(0)  # http(s):, mailto:, ... - not a relative repo path
+        if any(path_part.endswith(f".{lc}.md") for lc in LANGS):
+            return m.group(0)  # already points at an explicit locale on purpose
+        target = (source.parent / path_part).resolve()
+        if target == own_source or target not in in_scope:
+            return m.group(0)
+        new_path_part = path_part[: -len(".md")] + f".{langcode}.md"
+        return f"{bang}[{label}]({new_path_part}{sep}{anchor})"
+
+    return LINK_RE.sub(_sub, text)
+
+
+def rewrite_cross_doc_anchors(
+    text: str, langcode: str, out_dir: Path, slug_maps: dict[tuple[Path, str], dict[str, str]]
+) -> str:
+    """Second pass, run only after every file's slug map is known: fixes up the
+    `#anchor` half of a link rewrite_cross_doc_links() already repointed at a sibling
+    translation - the target heading's slug is usually different once translated, so
+    the anchor copied verbatim from the English link would otherwise silently 404
+    inside the (now correctly-language) page it points to. `slug_maps` is keyed by
+    (english_source, langcode), NOT just english_source - a heading's translated slug
+    is obviously language-specific, so looking it up without langcode would leak e.g.
+    a Chinese slug into a French document's anchor."""
+    suffix = f".{langcode}.md"
+
+    def _sub(m: re.Match) -> str:
+        bang, label, path_part, anchor = m.groups()
+        if bang or not path_part.endswith(suffix):
+            return m.group(0)
+        target_source = (out_dir / (path_part[: -len(suffix)] + ".md")).resolve()
+        slug_map = slug_maps.get((target_source, langcode))
+        if not slug_map or anchor not in slug_map:
+            return m.group(0)
+        return f"{bang}[{label}]({path_part}#{slug_map[anchor]})"
+
+    return CROSS_DOC_ANCHOR_RE.sub(_sub, text)
+
+
 def existing_marker_hash(path: Path) -> str | None:
     if not path.exists():
         return None
@@ -444,6 +560,46 @@ def process_file(source: Path, langcode: str, google_code: str, check_only: bool
     return True
 
 
+def relink_translations(sources: list[Path]) -> None:
+    """Phase 2, run after every requested file's prose is up to date: repoints
+    cross-doc links at sibling translations and repairs their anchors. Pure local
+    text work (no MT, no network) so it always reruns, even for a file whose source
+    hash didn't change and so got no fresh translation in phase 1 above - that's the
+    only way an already-generated file (most of them, on a typical run) actually gets
+    this fix applied. `in_scope` is always the FULL doc set, not just `sources` -
+    `translate-docs.py path/to/one-file.md` should still recognize a link to some
+    other, unrequested doc as in-scope and repoint it, even though that other doc's
+    own translation isn't being (re)written this run.
+    """
+    all_sources = discover_sources([])
+    in_scope = {s.resolve() for s in all_sources}
+
+    # Slug maps are needed for every in-scope doc, not just the ones this run was
+    # asked to (re)translate - a requested file can link to an unrequested one, and
+    # that link's anchor still needs the unrequested doc's already-on-disk slug map.
+    slug_maps: dict[tuple[Path, str], dict[str, str]] = {}
+    for source in all_sources:
+        source_text = source.read_text(encoding="utf-8")
+        for langcode in LANGS:
+            out_path = translated_path(source, langcode)
+            if out_path.exists():
+                slug_maps[(source.resolve(), langcode)] = derive_slug_map(
+                    source_text, out_path.read_text(encoding="utf-8")
+                )
+
+    for source in sources:
+        for langcode in LANGS:
+            out_path = translated_path(source, langcode)
+            if not out_path.exists():
+                continue
+            text = out_path.read_text(encoding="utf-8")
+            new_text = rewrite_cross_doc_links(text, source, langcode, in_scope)
+            new_text = rewrite_cross_doc_anchors(new_text, langcode, out_path.parent, slug_maps)
+            if new_text != text:
+                out_path.write_text(new_text, encoding="utf-8")
+                print(f"  relinked: {out_path.relative_to(REPO_ROOT)}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="*", type=Path, help="specific source files (default: full scope)")
@@ -461,6 +617,8 @@ def main() -> int:
     if args.check:
         print("OK - all translations up to date." if all_up_to_date else "Some translations are stale - run scripts/translate-docs.py.")
         return 0 if all_up_to_date else 1
+
+    relink_translations(sources)
     return 0
 
 

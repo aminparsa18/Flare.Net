@@ -4,9 +4,9 @@
 
 `Flare.Cli` 的精确命令、布局和配置参考（
 `flare` 命令）。安装和使用请参见
-[`../how-to/run-with-cli.md`](../how-to/run-with-cli.md);为什么这个
+[`../how-to/run-with-cli.md`](../how-to/run-with-cli.zh-CN.md);为什么这个
 安装路径与 Aspire/standalone 并存，请参阅
-[`../explanation/architecture.md`](../explanation/architecture.md)。
+[`../explanation/architecture.md`](../explanation/architecture.zh-CN.md)。
 
 > **状态：新的，未发布。** 已作为 `Flare.Cli` 发布到 nuget.org
 > 标记 `flare-cli-v*.*.*`。包 ID 是 `Flare.Cli`，而不是 `flare`（该 id 是
@@ -103,9 +103,9 @@
 组，而不是单节点默认值 - 不需要结账
 相当于跑步
 直接[`docker-compose.cluster.yml`](../../docker-compose.cluster.yml)。
-请参阅 [`../explanation/clustering.md`](../explanation/clustering.md) 了解
+请参阅 [`../explanation/clustering.md`](../explanation/clustering.zh-CN.md) 了解
 完整的拓扑/设计撰写和
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md) 跑步用
+[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.zh-CN.md) 跑步用
 直接——这些仍然是集群本身的真相来源；这
 截面仅覆盖 CLI 表面。
 
@@ -158,7 +158,7 @@
 [Cluster mode](#集群模式) 以上；看
 [`../../.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml)
 了解如何剪切 `vX.Y.Z` 标签）。故意不浮动`edge`/`latest`
-标签 — 参见 [`../explanation/architecture.md`](../explanation/architecture.md)
+标签 — 参见 [`../explanation/architecture.md`](../explanation/architecture.zh-CN.md)
 为什么。普通 `flare update`（无 `--tag`）重新拉动相同的固定标签。
 `flare update --tag TAG` 重写了 `~/.flare/.env` 的 `FLARE_IMAGE_TAG`
 放置，然后拉动 - 手动编辑 `.env` 仍然有效，`--tag` 是相同的

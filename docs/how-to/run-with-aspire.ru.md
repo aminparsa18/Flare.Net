@@ -7,7 +7,7 @@
 приёмник приёма OTLP, API запросов и панель управления — в ваш AppHost
 одним вызовом, подтягивая опубликованные образы Docker Hub от Flare, а не
 что-то, что вы собираете сами. Точный API и все факты о развёртывании см.
-в [`../reference/aspire-hosting.md`](../reference/aspire-hosting.md).
+в [`../reference/aspire-hosting.md`](../reference/aspire-hosting.ru.md).
 
 > **Текущее состояние:** опубликован на nuget.org как
 > `Flare.Hosting.Aspire` (сейчас `0.3.2`) — `dotnet add package
@@ -36,7 +36,7 @@ builder.Build().Run();
 Нужен нестандартный порт, приватный ключ API приёма данных или ваши
 собственные собранные образы вместо образов из Docker Hub? Присоедините
 методы `With*` к возвращённому builder'у — см.
-[полный справочник параметров](../reference/aspire-hosting.md#addflare)
+[полный справочник параметров](../reference/aspire-hosting.ru.md#addflare)
 по каждому варианту.
 
 ## 2. Направьте на него ваш логгер
@@ -94,7 +94,7 @@ gRPC.
 
 Вообще не подключены через собственный паттерн `AddServiceDefaults()`
 Aspire? См.
-[`run-standalone.md#point-your-logger-at-it`](run-standalone.md#point-your-logger-at-it)
+[`run-standalone.md#point-your-logger-at-it`](run-standalone.ru.md#направьте-на-него-ваш-логгер)
 за тем же готовым фрагментом кода для каждого логгера — просто установите
 `OTEL_EXPORTER_OTLP_ENDPOINT` из `WithOtlpEndpoint` выше вместо жёстко
 заданного `http://localhost:4317`.
@@ -157,7 +157,7 @@ dotnet add package Flare.Hosting.Aspire
 и Kubernetes оба проверены по состоянию на `0.2.3`; цели Azure/AWS не
 проверены. **Прежде чем разворачивать по-настоящему**, прочтите факты о
 развёртывании в
-[`../reference/aspire-hosting.md#deployment-facts`](../reference/aspire-hosting.md#deployment-facts)
+[`../reference/aspire-hosting.md#deployment-facts`](../reference/aspire-hosting.ru.md#факты-о-развёртывании)
 — несколько значений по умолчанию, приемлемых для локального `aspire
 run` (публичные URL, постоянное хранилище), требуют явного внимания при
 фактическом развёртывании.
@@ -211,7 +211,7 @@ Flare; `aspire deploy` устанавливает его в текущий ко�
 (AKS, `AddAzureKubernetesEnvironment`) не протестирован. См.
 [aspire.dev/deployment/kubernetes](https://aspire.dev/deployment/kubernetes/clusters/)
 для полного рабочего процесса и
-[`../reference/aspire-hosting.md#kubernetes`](../reference/aspire-hosting.md#kubernetes)
+[`../reference/aspire-hosting.md#kubernetes`](../reference/aspire-hosting.ru.md#kubernetes)
 для фактов о постоянном хранилище/реестре/публичном URL, которые вам
 нужны, прежде чем делать это по-настоящему.
 

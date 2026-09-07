@@ -6,19 +6,19 @@
 机器，无需回购结帐 - 当您需要一台时很有用
 在几个不相关的本地项目之间共享长期运行的实例，
 而不是局限于单个存储库或 AppHost。对于确切的命令
-和配置，请参见 [`../reference/cli-commands.md`](../reference/cli-commands.md)；
+和配置，请参见 [`../reference/cli-commands.md`](../reference/cli-commands.zh-CN.md)；
 有关为什么此路径与 Aspire 和普通 Docker Compose 一起存在的原因，请参阅
-[`../explanation/architecture.md`](../explanation/architecture.md)。
+[`../explanation/architecture.md`](../explanation/architecture.zh-CN.md)。
 
 这不是** Aspire 集成，与 Aspire 的交互为零
 编排 - 如果您的应用程序已经有 AppHost，请使用
-改为 [`Flare.Hosting.Aspire`](run-with-aspire.md)（`aspire start` 已经
+改为 [`Flare.Hosting.Aspire`](run-with-aspire.zh-CN.md)（`aspire start` 已经
 涵盖该生命周期）。
 
 ## 先决条件
 
 - Docker（或另一个 Docker 兼容引擎，带有 Compose v2 插件）
-  运行 — 与 [the standalone path](run-standalone.md) 的要求相同。
+  运行 — 与 [the standalone path](run-standalone.zh-CN.md) 的要求相同。
   `flare doctor` 检查这一点并清楚地告诉您是否不是。
 
 ## 安装
@@ -63,7 +63,7 @@ flare export --trace-id abc123 --include-trace --include-logs --include-metrics 
 
 迹线自己的跨度窗口（由 `--margin` 填充，默认为 `5m`）和
 服务列表自动限制日志和指标的范围 - 请参阅
-[the reference](../reference/cli-commands.md) 每个文件的具体内容
+[the reference](../reference/cli-commands.zh-CN.md) 每个文件的具体内容
 存档中包含。
 
 ## 运行多个实例
@@ -92,7 +92,7 @@ flare status   # same as: flare status -n work
 flare open     # same as: flare open -n work
 ```
 
-见[the reference](../reference/cli-commands.md#instance-naming-and-resolution)
+见[the reference](../reference/cli-commands.zh-CN.md#实例命名和解析)
 了解确切的命名规则、端口自动分配行为以及 CLI 如何
 当 `-n`/`FLARE_INSTANCE` 都是时，解析您指的是哪个实例
 省略。
@@ -108,11 +108,11 @@ flare status -n bignode            # -n still needed from here on, same as any n
 不是实时迁移路径，与 `docker-compose.cluster.yml` 本身相同 -
 将 `--cluster` 指向新的 `--name`（或 `flare destroy --purge-config`
 首先）如果您想切换现有实例的模式。看
-[`../reference/cli-commands.md#cluster-mode`](../reference/cli-commands.md#cluster-mode)
+[`../reference/cli-commands.md#cluster-mode`](../reference/cli-commands.zh-CN.md#集群模式)
 集群模式实例（容器、
 端口、配置布局），以及
-[`../explanation/clustering.md`](../explanation/clustering.md) /
-[`run-cluster-mode.md`](run-cluster-mode.md) 代表集群本身。
+[`../explanation/clustering.md`](../explanation/clustering.zh-CN.md) /
+[`run-cluster-mode.md`](run-cluster-mode.zh-CN.md) 代表集群本身。
 
 ## 确认
 

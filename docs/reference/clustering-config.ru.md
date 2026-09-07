@@ -3,8 +3,8 @@
 # Ключи конфигурации кластерного режима
 
 Точные ключи конфигурации для запуска Flare против многоузлового
-кластера ClickHouse. См. [`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md)
-о том, как это включить, и [`../explanation/clustering.md`](../explanation/clustering.md)
+кластера ClickHouse. См. [`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.ru.md)
+о том, как это включить, и [`../explanation/clustering.md`](../explanation/clustering.ru.md)
 о том, что именно каждый из них делает.
 
 | Ключ | Переменная окружения (Docker Compose) | Тип | По умолчанию | Значение |
@@ -17,4 +17,4 @@
 
 - `system.clusters`, `system.replicas` — читаются вживую панелью Cluster
   страницы Indexing (`GET /api/indexing/cluster`); см.
-  [`../explanation/clustering.md`](../explanation/clustering.md#dashboard-cluster-status-on-the-indexing-page).
+  [`../explanation/clustering.md`](../explanation/clustering.ru.md#панель-управления-статус-кластера-на-странице-индексации).

@@ -27,26 +27,26 @@
 ## Все страницы
 
 **Учебники**
-- [Начало работы](tutorials/getting-started.md)
+- [Начало работы](tutorials/getting-started.ru.md)
 
 **Практические руководства**
-- [Запуск автономно](how-to/run-standalone.md)
-- [Запуск с .NET Aspire](how-to/run-with-aspire.md)
-- [Запуск через CLI](how-to/run-with-cli.md)
-- [Настройка аутентификации](how-to/configure-authentication.md)
-- [Запуск в кластерном режиме](how-to/run-cluster-mode.md)
+- [Запуск автономно](how-to/run-standalone.ru.md)
+- [Запуск с .NET Aspire](how-to/run-with-aspire.ru.md)
+- [Запуск через CLI](how-to/run-with-cli.ru.md)
+- [Настройка аутентификации](how-to/configure-authentication.ru.md)
+- [Запуск в кластерном режиме](how-to/run-cluster-mode.ru.md)
 
 **Справочник**
-- [Команды CLI](reference/cli-commands.md)
-- [Хостинг Aspire](reference/aspire-hosting.md)
-- [Конфигурация аутентификации](reference/authentication-config.md)
-- [Конфигурация кластера](reference/clustering-config.md)
-- [Версии OTLP-логгеров](reference/otlp-logger-versions.md)
+- [Команды CLI](reference/cli-commands.ru.md)
+- [Хостинг Aspire](reference/aspire-hosting.ru.md)
+- [Конфигурация аутентификации](reference/authentication-config.ru.md)
+- [Конфигурация кластера](reference/clustering-config.ru.md)
+- [Версии OTLP-логгеров](reference/otlp-logger-versions.ru.md)
 
 **Объяснение**
-- [Архитектура](explanation/architecture.md)
-- [Кластеризация](explanation/clustering.md)
-- [Модель аутентификации](explanation/authentication-model.md)
+- [Архитектура](explanation/architecture.ru.md)
+- [Кластеризация](explanation/clustering.ru.md)
+- [Модель аутентификации](explanation/authentication-model.ru.md)
 
 ## Документация для контрибьюторов
 

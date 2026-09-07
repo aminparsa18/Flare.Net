@@ -8,7 +8,7 @@ tableau de bord. Cela prend environ cinq minutes.
 
 Ce tutoriel utilise le chemin autonome Docker Compose — celui avec le
 moins de prérequis. Si votre application a déjà un AppHost .NET Aspire,
-[`how-to/run-with-aspire.md`](../how-to/run-with-aspire.md) sera plus
+[`how-to/run-with-aspire.md`](../how-to/run-with-aspire.fr.md) sera plus
 naturel une fois que vous aurez terminé ici et voudrez voir en quoi ce
 chemin diffère.
 
@@ -108,15 +108,15 @@ pour d'éventuelles erreurs d'exportateur, et confirmez que
 
 - Vous utilisez Serilog, NLog ou ZLogger au lieu de
   `Microsoft.Extensions.Logging` ? Voir
-  [`../how-to/run-standalone.md`](../how-to/run-standalone.md) pour un
+  [`../how-to/run-standalone.md`](../how-to/run-standalone.fr.md) pour un
   extrait par logger.
 - Vous avez déjà un AppHost .NET Aspire ? Voir
-  [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.md) — Flare
+  [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.fr.md) — Flare
   rejoint votre graphe de ressources au lieu de s'exécuter comme une pile
   `docker compose` séparée.
 - Vous voulez une instance persistante partagée entre plusieurs projets
   plutôt qu'un checkout local à un dépôt ? Voir
-  [`../how-to/run-with-cli.md`](../how-to/run-with-cli.md).
+  [`../how-to/run-with-cli.md`](../how-to/run-with-cli.fr.md).
 - Activez la connexion, et lisez le reste de ce qu'offre le tableau de
-  bord : voir [`../explanation/architecture.md`](../explanation/architecture.md)
-  et [`../how-to/configure-authentication.md`](../how-to/configure-authentication.md).
+  bord : voir [`../explanation/architecture.md`](../explanation/architecture.fr.md)
+  et [`../how-to/configure-authentication.md`](../how-to/configure-authentication.fr.md).

@@ -5,9 +5,9 @@
 Включите вход и настройте один или несколько из пяти методов
 аутентификации Flare. О том, что на самом деле делает каждый метод и
 почему он устроен именно так, см.
-[`../explanation/authentication-model.md`](../explanation/authentication-model.md);
+[`../explanation/authentication-model.md`](../explanation/authentication-model.ru.md);
 точные ключи конфигурации и таблицу ролей см. в
-[`../reference/authentication-config.md`](../reference/authentication-config.md).
+[`../reference/authentication-config.md`](../reference/authentication-config.ru.md).
 
 Всё нижеописанное происходит на одной странице, доступной только
 администратору, **`/auth`**:
@@ -191,7 +191,7 @@ Authelia, Authentik, oauth2-proxy, Cloudflare Access, Tailscale Serve или
 **Перед началом** убедитесь, что `Flare.Api` не доступен иначе как через
 этот прокси — если ваша настройка compose/сети напрямую открывает порт
 `Flare.Api`, включать этот метод небезопасно (см.
-[объяснение](../explanation/authentication-model.md#reverse-proxy-trusted-header)
+[объяснение](../explanation/authentication-model.ru.md#обратный-прокси-доверенный-заголовок)
 о том, почему).
 
 1. Настройте свой обратный прокси на аутентификацию запросов и передачу

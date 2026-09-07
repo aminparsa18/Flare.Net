@@ -4,9 +4,9 @@
 
 Точный справочник команд, структуры и конфигурации для `Flare.Cli`
 (команда `flare`). Об установке и использовании см. в
-[`../how-to/run-with-cli.md`](../how-to/run-with-cli.md); о том, почему
+[`../how-to/run-with-cli.md`](../how-to/run-with-cli.ru.md); о том, почему
 этот путь установки существует наряду с Aspire/автономным вариантом,
-см. в [`../explanation/architecture.md`](../explanation/architecture.md).
+см. в [`../explanation/architecture.md`](../explanation/architecture.ru.md).
 
 > **Состояние: новое, не выпущено.** Опубликовано на nuget.org как
 > `Flare.Cli` под тегом `flare-cli-v*.*.*`. Идентификатор пакета —
@@ -113,9 +113,9 @@ ClickHouse Keeper из 3 узлов, плюс две реплики `Flare.Inges
 варианта по умолчанию — эквивалент запуска
 [`docker-compose.cluster.yml`](../../docker-compose.cluster.yml)
 напрямую, не требующий чекаута. См.
-[`../explanation/clustering.md`](../explanation/clustering.md) для
+[`../explanation/clustering.md`](../explanation/clustering.ru.md) для
 полного описания топологии/дизайна и
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md) для
+[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.ru.md) для
 запуска его напрямую — они остаются источником истины для самого
 кластера; этот раздел охватывает только поверхность CLI.
 
@@ -176,7 +176,7 @@ CLI (сейчас `0.2.0` для автономного режима, `0.3.0` д
 [`../../.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml)
 о том, как вырезаются теги `vX.Y.Z`). Намеренно не плавающие теги
 `edge`/`latest` — см.
-[`../explanation/architecture.md`](../explanation/architecture.md) о
+[`../explanation/architecture.md`](../explanation/architecture.ru.md) о
 том, почему. Обычный `flare update` (без `--tag`) заново подтягивает тот
 же закреплённый тег. `flare update --tag TAG` переписывает
 `FLARE_IMAGE_TAG` в `~/.flare/.env` на месте, затем подтягивает — ручное

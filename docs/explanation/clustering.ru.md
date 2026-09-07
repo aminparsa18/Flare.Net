@@ -9,8 +9,8 @@ ClickHouse. **Кластерный режим** — опциональная а�
 4-узловой кластер ClickHouse с таблицами `ReplicatedMergeTree`/
 `Distributed`, координируемый кворумом ClickHouse Keeper из 3 узлов вместо
 ZooKeeper. Эта страница объясняет модель; см.
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md), чтобы
-включить его, и [`../reference/clustering-config.md`](../reference/clustering-config.md)
+[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.ru.md), чтобы
+включить его, и [`../reference/clustering-config.md`](../reference/clustering-config.ru.md)
 для точных задействованных ключей конфигурации.
 
 Кластерный режим не заменяет `docker-compose.yml` — этот файл остаётся
@@ -140,7 +140,7 @@ ClickHouse) — то место, куда стоит посмотреть, ес�
 `docker-compose.cluster.yml` включает хранилище на основе Redis на обеих
 репликах приёма данных, чтобы двухрепличное развёртывание действительно
 его задействовало. См.
-[`../reference/clustering-config.md`](../reference/clustering-config.md)
+[`../reference/clustering-config.md`](../reference/clustering-config.ru.md)
 для точных ключей конфигурации.
 
 ## Панель управления: статус кластера на странице индексации

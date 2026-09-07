@@ -4,10 +4,10 @@
 
 Référence exacte des commandes, de la disposition et de la configuration
 pour `Flare.Cli` (la commande `flare`). Pour l'installer et l'utiliser,
-voir [`../how-to/run-with-cli.md`](../how-to/run-with-cli.md) ; pour
+voir [`../how-to/run-with-cli.md`](../how-to/run-with-cli.fr.md) ; pour
 comprendre pourquoi ce chemin d'installation existe aux côtés
 d'Aspire/autonome, voir
-[`../explanation/architecture.md`](../explanation/architecture.md).
+[`../explanation/architecture.md`](../explanation/architecture.fr.md).
 
 > **État : nouveau, non publié.** Publié sur nuget.org sous le nom
 > `Flare.Cli` sous le tag `flare-cli-v*.*.*`. L'ID du paquet est
@@ -111,9 +111,9 @@ ClickHouse Keeper à 3 nœuds, plus deux réplicas `Flare.Ingest` partageant
 un même groupe de consommateurs Redis Streams, au lieu du défaut à nœud
 unique — l'équivalent sans checkout requis de l'exécution directe de
 [`docker-compose.cluster.yml`](../../docker-compose.cluster.yml). Voir
-[`../explanation/clustering.md`](../explanation/clustering.md) pour la
+[`../explanation/clustering.md`](../explanation/clustering.fr.md) pour la
 description complète de la topologie/conception et
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md) pour
+[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.fr.md) pour
 l'exécuter directement — ceux-ci restent la source de vérité pour le
 cluster lui-même ; cette section ne couvre que la surface du CLI.
 
@@ -173,7 +173,7 @@ cluster — voir [Mode cluster](#cluster-mode) ci-dessus ; voir
 [`../../.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml)
 pour comment les tags `vX.Y.Z` sont coupés). Délibérément pas les tags
 flottants `edge`/`latest` — voir
-[`../explanation/architecture.md`](../explanation/architecture.md) pour
+[`../explanation/architecture.md`](../explanation/architecture.fr.md) pour
 comprendre pourquoi. Un simple `flare update` (sans `--tag`) retire ce
 même tag épinglé. `flare update --tag TAG` réécrit sur place le
 `FLARE_IMAGE_TAG` de `~/.flare/.env`, puis tire — modifier `.env` à la

@@ -6,8 +6,8 @@
 单节点部署 — 一旦单个 ClickHouse 无法满足需求，就会非常有用
 节点的冗余或吞吐量。其实际作用及其原因
 以此方式构建，请参阅
-[the clustering explanation](../explanation/clustering.md);对于确切的
-配置键，请参阅 [the reference](../reference/clustering-config.md)。
+[the clustering explanation](../explanation/clustering.zh-CN.md);对于确切的
+配置键，请参阅 [the reference](../reference/clustering-config.zh-CN.md)。
 
 ## 先决条件
 

@@ -7,7 +7,7 @@
 `Flare.Hosting.Aspire` — не `Aspire.Hosting.Flare`; этот префикс
 зарезервирован на nuget.org для собственных официальных интеграций
 Microsoft). О том, как это использовать, см.
-[`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.md).
+[`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.ru.md).
 
 > **Текущее состояние:** опубликован на nuget.org как
 > `Flare.Hosting.Aspire` (сейчас `0.4.0`).
@@ -56,7 +56,7 @@ IResourceBuilder<FlareResource> AddFlare(
 
 Факты, которые нужно знать перед развёртыванием (не `aspire run`)
 AppHost, содержащего Flare, — сами шаги см. в
-[`../how-to/run-with-aspire.md#publishing--deploying`](../how-to/run-with-aspire.md#publishing--deploying).
+[`../how-to/run-with-aspire.md#publishing--deploying`](../how-to/run-with-aspire.ru.md#публикация--развёртывание).
 
 ### Docker Compose
 

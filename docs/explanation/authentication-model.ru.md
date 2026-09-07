@@ -15,9 +15,9 @@ Flare поставляется с локальными учётными запи
 были всегда.
 
 Чтобы всё это настроить, см.
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.md).
+[`../how-to/configure-authentication.md`](../how-to/configure-authentication.ru.md).
 Точные ключи конфигурации и таблицу ролей см. в
-[`../reference/authentication-config.md`](../reference/authentication-config.md).
+[`../reference/authentication-config.md`](../reference/authentication-config.ru.md).
 
 ## Аутентификация отключена по умолчанию
 
@@ -124,7 +124,7 @@ Connect / обратный прокси) включаются и настраи�
 телеметрию-излучающее приложение быть связанным с чьим-то входом, что не
 соответствует тому, как на самом деле эксплуатируются
 коллекторы/экспортёры (один или несколько общих ключей на среду). См.
-[практическое руководство](../how-to/configure-authentication.md#ingest-api-keys)
+[практическое руководство](../how-to/configure-authentication.ru.md#ключи-api-приёма-данных)
 о создании/использовании/отзыве ключа.
 
 ## Как работает каждый метод

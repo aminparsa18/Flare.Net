@@ -6,7 +6,7 @@
 （`src/Aspire.Hosting.Flare`，包 ID `Flare.Hosting.Aspire` — 不
 `Aspire.Hosting.Flare`;该前缀在 nuget.org 上保留用于
 微软自己的官方集成）。使用方法请参见
-[`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.md)。
+[`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.zh-CN.md)。
 
 > **状态：** 在 nuget.org 上发布为 `Flare.Hosting.Aspire`（目前
 > `0.4.0`）。
@@ -55,7 +55,7 @@ IResourceBuilder<FlareResource> AddFlare(
 
 部署（不是 `aspire run`）包含 Flare 的组件之前需要了解的事实
 AppHost — 有关实际步骤，请参见
-[`../how-to/run-with-aspire.md#publishing--deploying`](../how-to/run-with-aspire.md#publishing--deploying)。
+[`../how-to/run-with-aspire.md#publishing--deploying`](../how-to/run-with-aspire.zh-CN.md#发布部署)。
 
 ### Docker 撰写
 

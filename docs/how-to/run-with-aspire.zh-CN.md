@@ -2,7 +2,7 @@
 
 # 如何从您自己的 .NET Aspire 应用程序运行 Flare
 
-如果您自己的应用程序已使用 .NET Aspire 进行编排，则 `Flare.Hosting.Aspire` 通过一次调用将整个 Flare 堆栈（ClickHouse、Redis、OTLP 摄取接收器、查询 API 和仪表板）添加到您的 AppHost，拉动 Flare 发布的 Docker Hub 图像，而不是您自己构建的任何图像。有关确切的 API 和每个部署事实，请参阅 [`../reference/aspire-hosting.md`](../reference/aspire-hosting.md)。
+如果您自己的应用程序已使用 .NET Aspire 进行编排，则 `Flare.Hosting.Aspire` 通过一次调用将整个 Flare 堆栈（ClickHouse、Redis、OTLP 摄取接收器、查询 API 和仪表板）添加到您的 AppHost，拉动 Flare 发布的 Docker Hub 图像，而不是您自己构建的任何图像。有关确切的 API 和每个部署事实，请参阅 [`../reference/aspire-hosting.md`](../reference/aspire-hosting.zh-CN.md)。
 
 > **状态：** 在 nuget.org 上发布为 `Flare.Hosting.Aspire`（当前 > `0.3.2`） — `dotnet add package Flare.Hosting.Aspire` 现已运行。请参阅 > [`../../examples/`](../../examples) 以获取完整的可运行演示，该演示 > 将包引用为 `ProjectReference`（对于 > 在发布之前尝试 Flare 的 `main` 很有用）。
 
@@ -18,7 +18,7 @@ builder.Build().Run();
 
 就是这样——没有 `docker compose up`，没有单独的服务可以运行。 `AddFlare` 镜像 Flare 自己的 `Flare.AppHost/Program.cs` 资源图：ClickHouse（具有相同的 `db/clickhouse/*.sql` 架构，嵌入在包中）、Redis（相同的持久批量插入缓冲区）以及三个 `xracer007/flare-ingest`/`flare-api`/`flare-dashboard` 容器。
 
-需要非默认端口、私有摄取 API 密钥或您自己构建的映像而不是 Docker Hub 的映像？从返回的构建器链接 `With*` 方法 - 请参阅 [the full parameter reference](../reference/aspire-hosting.md#addflare) 了解每个选项。
+需要非默认端口、私有摄取 API 密钥或您自己构建的映像而不是 Docker Hub 的映像？从返回的构建器链接 `With*` 方法 - 请参阅 [the full parameter reference](../reference/aspire-hosting.zh-CN.md#addflare) 了解每个选项。
 
 ## 2. 将记录器指向它
 
@@ -58,7 +58,7 @@ builder.AddProject<Projects.MyApp_Web>("web")
 
 为 OTLP/HTTP 端点 (`:4318`) 传递 `useHttp: true` 而不是 gRPC。
 
-根本没有通过 Aspire 自己的 `AddServiceDefaults()` 模式进行接线？请参阅 [`run-standalone.md#point-your-logger-at-it`](run-standalone.md#point-your-logger-at-it)，了解每个记录器的相同复制粘贴片段 - 只需从上面的 `WithOtlpEndpoint` 设置 `OTEL_EXPORTER_OTLP_ENDPOINT`，而不是硬编码的 `http://localhost:4317`。
+根本没有通过 Aspire 自己的 `AddServiceDefaults()` 模式进行接线？请参阅 [`run-standalone.md#point-your-logger-at-it`](run-standalone.zh-CN.md#将记录器指向它)，了解每个记录器的相同复制粘贴片段 - 只需从上面的 `WithOtlpEndpoint` 设置 `OTEL_EXPORTER_OTLP_ENDPOINT`，而不是硬编码的 `http://localhost:4317`。
 
 ## 资源页面（可选 Docker 访问）
 
@@ -91,7 +91,7 @@ dotnet add package Flare.Hosting.Aspire
 
 ## 发布/部署
 
-`Flare.Hosting.Aspire` 本身不添加部署目标 - 使用 AppHost 的选择方式与任何其他 Aspire 应用程序相同，即添加部署环境资源。 Docker Compose 和 Kubernetes 从 `0.2.3` 开始均经过验证； Azure/AWS 目标未经验证。 **在真正部署之前**，请阅读 [`../reference/aspire-hosting.md#deployment-facts`](../reference/aspire-hosting.md#deployment-facts) 中的部署事实 - 几个适用于本地 `aspire run` 的默认值（公共 URL、持久存储）在实际部署后需要明确注意。
+`Flare.Hosting.Aspire` 本身不添加部署目标 - 使用 AppHost 的选择方式与任何其他 Aspire 应用程序相同，即添加部署环境资源。 Docker Compose 和 Kubernetes 从 `0.2.3` 开始均经过验证； Azure/AWS 目标未经验证。 **在真正部署之前**，请阅读 [`../reference/aspire-hosting.md#deployment-facts`](../reference/aspire-hosting.zh-CN.md#部署事实) 中的部署事实 - 几个适用于本地 `aspire run` 的默认值（公共 URL、持久存储）在实际部署后需要明确注意。
 
 ### Docker 撰写
 
@@ -122,7 +122,7 @@ var flare = builder.AddFlare("flare");
 builder.Build().Run();
 ```
 
-`aspire publish -o k8s-artifacts` 为整个 AppHost、Flare 生成完整的 Helm 图表（`Chart.yaml`、`values.yaml`、`templates/`）； `aspire deploy` 根据您当前的 `kubectl` 上下文安装它。目前仅适用于现有/外部集群 - Azure Kubernetes 服务（AKS、`AddAzureKubernetesEnvironment`）未经测试。请参阅 [aspire.dev/deployment/kubernetes](https://aspire.dev/deployment/kubernetes/clusters/) 了解完整的工作流程，并参阅 [`../reference/aspire-hosting.md#kubernetes`](../reference/aspire-hosting.md#kubernetes) 了解真正执行此操作之前所需的持久存储/注册表/公共 URL 事实。
+`aspire publish -o k8s-artifacts` 为整个 AppHost、Flare 生成完整的 Helm 图表（`Chart.yaml`、`values.yaml`、`templates/`）； `aspire deploy` 根据您当前的 `kubectl` 上下文安装它。目前仅适用于现有/外部集群 - Azure Kubernetes 服务（AKS、`AddAzureKubernetesEnvironment`）未经测试。请参阅 [aspire.dev/deployment/kubernetes](https://aspire.dev/deployment/kubernetes/clusters/) 了解完整的工作流程，并参阅 [`../reference/aspire-hosting.md#kubernetes`](../reference/aspire-hosting.zh-CN.md#库伯内斯) 了解真正执行此操作之前所需的持久存储/注册表/公共 URL 事实。
 
 ## 故障排除
 

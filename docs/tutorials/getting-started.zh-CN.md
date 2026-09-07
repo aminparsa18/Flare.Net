@@ -4,7 +4,7 @@
 
 在本教程结束时，您将运行 Flare，一行代码向其发送日志，并且该日志实时显示在仪表板中。大约需要五分钟。
 
-本教程使用独立的 Docker Compose 路径 - 前提条件最少的路径。如果您的应用程序已经有 .NET Aspire AppHost，那么当您完成此处并想了解该路径有何不同时，[`how-to/run-with-aspire.md`](../how-to/run-with-aspire.md) 是更自然的选择。
+本教程使用独立的 Docker Compose 路径 - 前提条件最少的路径。如果您的应用程序已经有 .NET Aspire AppHost，那么当您完成此处并想了解该路径有何不同时，[`how-to/run-with-aspire.md`](../how-to/run-with-aspire.zh-CN.md) 是更自然的选择。
 
 ## 先决条件
 
@@ -83,7 +83,7 @@ dotnet run
 
 ## 后续步骤
 
-- 使用 Serilog、NLog 或 ZLogger 代替 `Microsoft.Extensions.Logging`？有关每个记录器的片段，请参阅 [`../how-to/run-standalone.md`](../how-to/run-standalone.md)。
-- 已经有 .NET Aspire AppHost 了吗？请参阅 [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.md) — Flare 加入您的资源图，而不是作为单独的 `docker compose` 堆栈运行。
-- 想要在多个项目之间共享常设实例而不是存储库本地结帐吗？参见 [`../how-to/run-with-cli.md`](../how-to/run-with-cli.md)。
-- 打开登录功能，然后阅读仪表板上的其余内容：请参阅 [`../explanation/architecture.md`](../explanation/architecture.md) 和 [`../how-to/configure-authentication.md`](../how-to/configure-authentication.md)。
+- 使用 Serilog、NLog 或 ZLogger 代替 `Microsoft.Extensions.Logging`？有关每个记录器的片段，请参阅 [`../how-to/run-standalone.md`](../how-to/run-standalone.zh-CN.md)。
+- 已经有 .NET Aspire AppHost 了吗？请参阅 [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.zh-CN.md) — Flare 加入您的资源图，而不是作为单独的 `docker compose` 堆栈运行。
+- 想要在多个项目之间共享常设实例而不是存储库本地结帐吗？参见 [`../how-to/run-with-cli.md`](../how-to/run-with-cli.zh-CN.md)。
+- 打开登录功能，然后阅读仪表板上的其余内容：请参阅 [`../explanation/architecture.md`](../explanation/architecture.zh-CN.md) 和 [`../how-to/configure-authentication.md`](../how-to/configure-authentication.zh-CN.md)。

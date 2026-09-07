@@ -9,8 +9,8 @@ Le **mode cluster** est l'alternative optionnelle — un vrai cluster
 ClickHouse à 4 nœuds avec des tables `ReplicatedMergeTree`/`Distributed`,
 coordonné par un quorum ClickHouse Keeper à 3 nœuds au lieu de ZooKeeper.
 Cette page explique le modèle ; voir
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md) pour
-l'activer, et [`../reference/clustering-config.md`](../reference/clustering-config.md)
+[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.fr.md) pour
+l'activer, et [`../reference/clustering-config.md`](../reference/clustering-config.fr.md)
 pour les clés de configuration exactes concernées.
 
 Le mode cluster ne remplace pas `docker-compose.yml` — ce fichier reste
@@ -141,7 +141,7 @@ via un point d'extension `IPatternClusterStore` :
 `docker-compose.cluster.yml` active le stockage basé sur Redis sur les
 deux réplicas d'ingestion afin que le déploiement à deux réplicas
 l'exerce réellement. Voir
-[`../reference/clustering-config.md`](../reference/clustering-config.md)
+[`../reference/clustering-config.md`](../reference/clustering-config.fr.md)
 pour les clés de configuration exactes.
 
 ## Tableau de bord : statut du cluster sur la page Indexing

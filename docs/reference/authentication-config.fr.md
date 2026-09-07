@@ -5,9 +5,9 @@
 Rôles exacts, faits de résolution d'identité, et clés de configuration
 pour le système d'authentification de Flare. Pour ce que fait réellement
 chaque méthode, voir
-[`../explanation/authentication-model.md`](../explanation/authentication-model.md).
+[`../explanation/authentication-model.md`](../explanation/authentication-model.fr.md).
 Pour les étapes de configuration, voir
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.md).
+[`../how-to/configure-authentication.md`](../how-to/configure-authentication.fr.md).
 
 ## Rôles
 
@@ -46,7 +46,7 @@ erroné.
 | `Auth:CookieSecure` | `true` | Ne réglez `false` que pour le développement local en HTTP simple. |
 | `Auth:CookieSameSite` | `Lax` | `None` (avec `CookieSecure=true`) si votre tableau de bord et votre API se retrouvent un jour séparés sur des domaines véritablement différents, pas seulement des ports différents sur `localhost`. |
 | `Auth:IngestKeyRequired` | `false` | Si `Flare.Ingest` rejette les requêtes OTLP sans clé API valide. |
-| `Auth:StaticIngestApiKey` | non défini | Une clé d'ingestion fixe définie via la configuration au lieu du tableau de bord — voir [les clés API d'ingestion](../how-to/configure-authentication.md#ingest-api-keys). |
+| `Auth:StaticIngestApiKey` | non défini | Une clé d'ingestion fixe définie via la configuration au lieu du tableau de bord — voir [les clés API d'ingestion](../how-to/configure-authentication.fr.md#clés-api-dingestion). |
 | `Cors:AllowedOrigins:0`, `:1`, … | aucune | Origine(s) autorisée(s) à appeler `Flare.Api` avec des identifiants (c'est-à-dire la propre origine du tableau de bord). Requis — `Flare.Api` n'utilise plus `AllowAnyOrigin()` par défaut. Sert aussi de liste blanche pour le `returnUrl` de connexion Entra. |
 | `Auth:Entra:DefaultRole` | `Viewer` | Rôle attribué à la première connexion quand le jeton ne porte aucune entrée de claim `roles` reconnue. Le seul paramètre lié à Entra qui reste piloté par la configuration — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` vivent plutôt dans la base de données, réglés via la page `/auth` (réservé à Admin, `GET`/`PUT /api/settings/entra`). |
 

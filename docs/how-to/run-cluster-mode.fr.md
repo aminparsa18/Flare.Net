@@ -6,8 +6,8 @@ Activez le cluster ClickHouse multi-nœuds optionnel à la place du
 déploiement à nœud unique par défaut — utile une fois que vous dépassez
 la redondance ou le débit d'un seul nœud ClickHouse. Pour ce que cela fait
 réellement et pourquoi c'est conçu ainsi, voir
-[l'explication du clustering](../explanation/clustering.md) ; pour les
-clés de configuration exactes, voir [la référence](../reference/clustering-config.md).
+[l'explication du clustering](../explanation/clustering.fr.md) ; pour les
+clés de configuration exactes, voir [la référence](../reference/clustering-config.fr.md).
 
 ## Prérequis
 

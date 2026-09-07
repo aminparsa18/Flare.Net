@@ -61,26 +61,26 @@
   var flare = builder.AddFlare("flare");
   builder.AddProject<Projects.MyApi>("myapi").WithReference(flare).WaitForFlare(flare);
   ```
-  `dotnet add package Flare.Hosting.Aspire` — Flare присоединяется к вашему AppHost как ресурс, поэтому он запускается, останавливается и обнаруживается другими вашими ресурсами точно так же, как и всё остальное в вашем графе. Подробности: [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.md).
+  `dotnet add package Flare.Hosting.Aspire` — Flare присоединяется к вашему AppHost как ресурс, поэтому он запускается, останавливается и обнаруживается другими вашими ресурсами точно так же, как и всё остальное в вашем графе. Подробности: [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.ru.md).
 
 - **Не используете Aspire и хотите запустить его отдельно?**
   ```sh
   docker compose up
   ```
-  в корне репозитория, с рабочими значениями по умолчанию для каждого порта и учётных данных (скопируйте [.env.example](.env.example) в `.env`, чтобы что-то изменить). Подробности: [docs/how-to/run-standalone.md](docs/how-to/run-standalone.md).
+  в корне репозитория, с рабочими значениями по умолчанию для каждого порта и учётных данных (скопируйте [.env.example](.env.example) в `.env`, чтобы что-то изменить). Подробности: [docs/how-to/run-standalone.md](docs/how-to/run-standalone.ru.md).
 
 - **Хотите один постоянно работающий экземпляр, общий для нескольких независимых локальных проектов?**
   ```sh
   dotnet tool install --global Flare.Cli
   flare start
   ```
-  Глобальный CLI, который управляет тем же стеком Docker откуда угодно, без необходимости клонировать репозиторий. Подробности: [docs/how-to/run-with-cli.md](docs/how-to/run-with-cli.md).
+  Глобальный CLI, который управляет тем же стеком Docker откуда угодно, без необходимости клонировать репозиторий. Подробности: [docs/how-to/run-with-cli.md](docs/how-to/run-with-cli.ru.md).
 
-Какой бы путь вы ни выбрали, панель управления запустится по адресу [http://localhost:7777](http://localhost:7777). Аутентификация **по умолчанию отключена** — страница логов открыта сразу после запуска. Включите вход (локальные учётные записи, Microsoft Entra ID, Active Directory, OpenID Connect или доверенные заголовки обратного прокси) на странице `/auth`, когда будете готовы; см. [docs/how-to/configure-authentication.md](docs/how-to/configure-authentication.md).
+Какой бы путь вы ни выбрали, панель управления запустится по адресу [http://localhost:7777](http://localhost:7777). Аутентификация **по умолчанию отключена** — страница логов открыта сразу после запуска. Включите вход (локальные учётные записи, Microsoft Entra ID, Active Directory, OpenID Connect или доверенные заголовки обратного прокси) на странице `/auth`, когда будете готовы; см. [docs/how-to/configure-authentication.md](docs/how-to/configure-authentication.ru.md).
 
-Затем направьте логгер на Flare — готовые фрагменты кода OTLP для Serilog, NLog, ZLogger и `Microsoft.Extensions.Logging` находятся в [docs/how-to/run-standalone.md](docs/how-to/run-standalone.md#point-your-logger-at-it) (или [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.md#2-point-your-logger-at-it) для Aspire).
+Затем направьте логгер на Flare — готовые фрагменты кода OTLP для Serilog, NLog, ZLogger и `Microsoft.Extensions.Logging` находятся в [docs/how-to/run-standalone.md](docs/how-to/run-standalone.ru.md#направьте-на-него-ваш-логгер) (или [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.ru.md#2-направьте-на-него-ваш-логгер) для Aspire).
 
-Переросли один узел ClickHouse? Есть опциональная настройка многоузлового кластера — см. [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.md).
+Переросли один узел ClickHouse? Есть опциональная настройка многоузлового кластера — см. [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.ru.md).
 
 ## Локальная разработка
 
@@ -107,7 +107,7 @@ Flare активно разрабатывается и в настоящее в�
 
 См. [docs-internal/planning/roadmap.md](docs-internal/planning/roadmap.md), чтобы узнать, что сейчас в работе — в первую очередь политики хранения и холодное хранилище в S3-совместимом объектном хранилище.
 
-Полная архитектура: [docs/explanation/architecture.md](docs/explanation/architecture.md). Архитектурные решения: [docs-internal/adr/](docs-internal/adr/).
+Полная архитектура: [docs/explanation/architecture.md](docs/explanation/architecture.ru.md). Архитектурные решения: [docs-internal/adr/](docs-internal/adr/).
 
 ## Участие в разработке
 

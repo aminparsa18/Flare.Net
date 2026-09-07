@@ -15,9 +15,9 @@ nulle part de propriété des données par utilisateur, et
 qu'ils l'ont toujours été.
 
 Pour configurer tout cela, voir
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.md).
+[`../how-to/configure-authentication.md`](../how-to/configure-authentication.fr.md).
 Pour les clés de configuration exactes et le tableau des rôles, voir
-[`../reference/authentication-config.md`](../reference/authentication-config.md).
+[`../reference/authentication-config.md`](../reference/authentication-config.fr.md).
 
 ## L'authentification est désactivée par défaut
 
@@ -125,7 +125,7 @@ authentifie une *machine* (l'exportateur OTLP d'une application), pas une
 émettant de la télémétrie à être liée à la connexion de quelqu'un, ce qui
 ne correspond pas à la façon dont les collecteurs/exportateurs sont
 réellement exploités (une ou quelques clés partagées par environnement).
-Voir [le guide pratique](../how-to/configure-authentication.md#ingest-api-keys)
+Voir [le guide pratique](../how-to/configure-authentication.fr.md#clés-api-dingestion)
 pour en créer, utiliser ou révoquer une.
 
 ## Comment fonctionne chaque méthode

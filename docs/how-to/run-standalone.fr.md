@@ -4,14 +4,14 @@
 
 Exécutez Flare comme une chose à part entière — non liée à l'AppHost .NET
 Aspire d'une autre application. Si votre application a déjà un AppHost,
-voir plutôt [`run-with-aspire.md`](run-with-aspire.md) ; c'est le chemin
+voir plutôt [`run-with-aspire.md`](run-with-aspire.fr.md) ; c'est le chemin
 le plus simple quand il s'applique. Pour une visite guidée à partir de
-zéro, voir d'abord [le tutoriel](../tutorials/getting-started.md).
+zéro, voir d'abord [le tutoriel](../tutorials/getting-started.fr.md).
 
 Vous voulez une instance persistante que vous démarrez une fois et vers
 laquelle vous dirigez la sortie OTLP de plusieurs projets locaux sans
 rapport, plutôt qu'un checkout local au dépôt ?
-[`flare`](run-with-cli.md), un CLI global
+[`flare`](run-with-cli.fr.md), un CLI global
 (`dotnet tool install --global Flare.Cli`), enveloppe cette même pile
 comme `flare start`/`stop`/`status`/`open`/... depuis n'importe où, sans
 `git clone` nécessaire. Continuez à lire si vous préférez exécuter la
@@ -45,15 +45,15 @@ Une fois que c'est lancé :
 - **Tableau de bord :** [http://localhost:7777](http://localhost:7777) —
   ouvert, aucune connexion requise, jusqu'à ce que vous activiez
   vous-même la connexion depuis la page `/auth`. Voir
-  [`configure-authentication.md`](configure-authentication.md).
+  [`configure-authentication.md`](configure-authentication.fr.md).
 - **Récepteur OTLP :** gRPC sur `:4317`, HTTP sur `:4318` — ce vers quoi
   vous dirigez votre logger ci-dessous. Anonyme par défaut ; voir
-  [`configure-authentication.md#ingest-api-keys`](configure-authentication.md#ingest-api-keys)
+  [`configure-authentication.md#ingest-api-keys`](configure-authentication.fr.md#clés-api-dingestion)
   pour exiger une clé API à la place.
 
 Besoin que ClickHouse survive à la mort d'un nœud, ou de passer à
 l'échelle au-delà d'une seule machine ? Voir
-[`run-cluster-mode.md`](run-cluster-mode.md).
+[`run-cluster-mode.md`](run-cluster-mode.fr.md).
 
 ## Pointer votre logger vers Flare
 
@@ -69,7 +69,7 @@ contre une vraie pile `docker compose up` lors de la rédaction de ceci,
 pas seulement vérifiés contre la documentation de la bibliothèque — les
 versions de paquets épinglées dont le fonctionnement a été confirmé sont
 dans
-[`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.md).
+[`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.fr.md).
 
 <details open>
 <summary><strong>Microsoft.Extensions.Logging</strong> (natif — <code>ILogger</code>, sans pont)</summary>
@@ -303,7 +303,7 @@ enabled » plutôt qu'une erreur.
 
 Si vous exécutez Flare depuis un AppHost Aspire consommateur à la place,
 voir
-[`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.md#resources-page-optional-docker-access)
+[`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.fr.md#page-resources-accès-docker-optionnel)
 pour le paramètre `enableResourceGraph` équivalent.
 
 ## Utiliser HTTP au lieu de gRPC

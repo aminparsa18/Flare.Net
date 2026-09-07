@@ -3,8 +3,8 @@
 # Clés de configuration du mode cluster
 
 Clés de configuration exactes pour exécuter Flare contre un cluster
-ClickHouse multi-nœuds. Voir [`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md)
-pour savoir comment l'activer et [`../explanation/clustering.md`](../explanation/clustering.md)
+ClickHouse multi-nœuds. Voir [`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.fr.md)
+pour savoir comment l'activer et [`../explanation/clustering.md`](../explanation/clustering.fr.md)
 pour ce que chacune fait réellement.
 
 | Clé | Variable d'environnement (Docker Compose) | Type | Par défaut | Signification |
@@ -17,4 +17,4 @@ pour ce que chacune fait réellement.
 
 - `system.clusters`, `system.replicas` — lus en direct par le panneau
   Cluster de la page Indexing (`GET /api/indexing/cluster`) ; voir
-  [`../explanation/clustering.md`](../explanation/clustering.md#dashboard-cluster-status-on-the-indexing-page).
+  [`../explanation/clustering.md`](../explanation/clustering.fr.md#tableau-de-bord--statut-du-cluster-sur-la-page-indexing).
