@@ -14,6 +14,7 @@
 	import { formatBytes, formatCount, formatMs, formatPercent } from '$lib/indexing/format';
 	import { latencyClass } from '$lib/indexing/health';
 	import { averageDailyGrowth } from '$lib/indexing/growth';
+	import * as m from '$lib/paraglide/messages';
 
 	const indexing = indexingContext.get();
 
@@ -56,34 +57,40 @@
 <div class="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
 	<Card.Root>
 		<Card.Header>
-			<Card.Description>Storage</Card.Description>
+			<Card.Description>{m.indexingSummaryTiles_storage()}</Card.Description>
 			<Card.Title class="text-2xl tabular-nums">{formatBytes(totals.totalCompressed)}</Card.Title>
 		</Card.Header>
 		<Card.Content class="text-muted-foreground text-xs">
 			{#if diskUsedPercent !== null && diskUsage}
 				<span class={diskUsedClass}>
-					{formatBytes(totals.totalCompressed)} / {formatBytes(diskUsage.totalBytes)} · {formatPercent(diskUsedPercent)} used
+					{m.indexingSummaryTiles_usedSummary({
+						compressed: formatBytes(totals.totalCompressed),
+						total: formatBytes(diskUsage.totalBytes),
+						percent: formatPercent(diskUsedPercent)
+					})}
 				</span>
 			{:else}
-				{formatBytes(totals.totalUncompressed)} uncompressed
+				{m.indexingSummaryTiles_uncompressedSuffix({ uncompressed: formatBytes(totals.totalUncompressed) })}
 			{/if}
 		</Card.Content>
 	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Description>Rows</Card.Description>
+			<Card.Description>{m.indexingSummaryTiles_rows()}</Card.Description>
 			<Card.Title class="text-2xl tabular-nums">{formatCount(totals.totalRows)}</Card.Title>
 		</Card.Header>
-		<Card.Content class="text-muted-foreground text-xs">across {totals.tableCount} tables with data</Card.Content>
+		<Card.Content class="text-muted-foreground text-xs">{m.indexingSummaryTiles_acrossTables({ count: totals.tableCount })}</Card.Content>
 	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Description>Ingestion growth</Card.Description>
+			<Card.Description>{m.indexingSummaryTiles_ingestionGrowth()}</Card.Description>
 			<Card.Title class="flex items-baseline gap-1 text-2xl tabular-nums">
 				{#if growthPerDay}
-					+{formatBytes(growthPerDay.bytesPerDay)}<span class="text-muted-foreground text-xs font-normal">/day</span>
+					+{formatBytes(growthPerDay.bytesPerDay)}<span class="text-muted-foreground text-xs font-normal"
+						>{m.indexingSummaryTiles_perDayUnit()}</span
+					>
 				{:else}
 					—
 				{/if}
@@ -91,18 +98,20 @@
 		</Card.Header>
 		<Card.Content class="text-muted-foreground text-xs">
 			{#if !indexing.stats?.growthAvailable}
-				Not available - <code class="font-mono">system.part_log</code> isn't queryable
+				{@html m.indexingCommon_notQueryable({ table: '<code class="font-mono">system.part_log</code>' })}
 			{:else if growthPerDay}
-				avg over last {growthPerDay.windowDays} day{growthPerDay.windowDays === 1 ? '' : 's'}
+				{growthPerDay.windowDays === 1
+					? m.indexingSummaryTiles_avgOverLastDaySingular()
+					: m.indexingSummaryTiles_avgOverLastDaysPlural({ days: growthPerDay.windowDays })}
 			{:else}
-				no new data in the last 30 days
+				{m.indexingSummaryTiles_noNewDataIn30Days()}
 			{/if}
 		</Card.Content>
 	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Description>Query performance</Card.Description>
+			<Card.Description>{m.indexingSummaryTiles_queryPerformance()}</Card.Description>
 			<Card.Title class="flex items-baseline gap-1 text-2xl tabular-nums {latencyClass(queryPerformance?.p95Ms)}">
 				{#if queryPerformance?.available && queryPerformance.p95Ms !== null}
 					{formatMs(queryPerformance.p95Ms)}<span class="text-muted-foreground text-xs font-normal">p95</span>
@@ -113,13 +122,13 @@
 		</Card.Header>
 		<Card.Content class="text-muted-foreground text-xs">
 			{#if !queryPerformance?.available}
-				Not available - <code class="font-mono">system.query_log</code> isn't queryable
+				{@html m.indexingCommon_notQueryable({ table: '<code class="font-mono">system.query_log</code>' })}
 			{:else if queryPerformance.sampleCount === 0}
-				no queries in the last {queryPerformance.windowMinutes}m
+				{m.indexingSummaryTiles_noQueriesInWindow({ minutes: queryPerformance.windowMinutes })}
 			{:else}
-				past {queryPerformance.windowMinutes}m · {formatCount(queryPerformance.sampleCount)} quer{queryPerformance.sampleCount === 1
-					? 'y'
-					: 'ies'}
+				{queryPerformance.sampleCount === 1
+					? m.indexingSummaryTiles_pastWindowSingular({ minutes: queryPerformance.windowMinutes, count: formatCount(queryPerformance.sampleCount) })
+					: m.indexingSummaryTiles_pastWindowPlural({ minutes: queryPerformance.windowMinutes, count: formatCount(queryPerformance.sampleCount) })}
 			{/if}
 		</Card.Content>
 	</Card.Root>

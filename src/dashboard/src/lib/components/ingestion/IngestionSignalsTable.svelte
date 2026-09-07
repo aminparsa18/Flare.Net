@@ -10,15 +10,23 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Badge } from '$lib/components/ui/badge';
 	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatBytes, formatCount } from '$lib/ingestion/format';
+	import { formatBytes, formatCount, signalLabel } from '$lib/ingestion/format';
 	import type { IngestionProtocol, IngestionSignal } from '$lib/ingestion-api';
 	import RejectedTelemetryDialog from './RejectedTelemetryDialog.svelte';
+	import * as m from '$lib/paraglide/messages';
 
-	const PROTOCOL_BADGE: Record<IngestionProtocol, string> = {
-		Grpc: 'gRPC :4317',
-		Http: 'HTTP :4318',
-		Scrape: 'Prometheus scrape'
-	};
+	// A function, not a static `.label` field - see time-range.ts's own remarks on why a
+	// module-scope const can't reflect a per-request/live-switched locale.
+	function protocolBadge(protocol: IngestionProtocol): string {
+		switch (protocol) {
+			case 'Grpc':
+				return m.ingestionSignalsTable_grpcLabel();
+			case 'Http':
+				return m.ingestionSignalsTable_httpLabel();
+			case 'Scrape':
+				return m.ingestionSignalsTable_scrapeLabel();
+		}
+	}
 
 	const ingestion = ingestionContext.get();
 
@@ -74,30 +82,27 @@
 	{#if ingestion.stats && rows.every((r) => r.requests === 0)}
 		<Empty.Root>
 			<Empty.Header>
-				<Empty.Title>No traffic in this window</Empty.Title>
-				<Empty.Description
-					>Point an OTLP exporter at :4317 (gRPC) or :4318 (HTTP), or configure a Prometheus scrape target, to see it
-					here.</Empty.Description
-				>
+				<Empty.Title>{m.ingestionSignalsTable_noTrafficTitle()}</Empty.Title>
+				<Empty.Description>{m.ingestionSignalsTable_noTrafficDescription()}</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
 		<Table.Root>
 			<Table.Header>
 				<Table.Row>
-					<Table.Head>Receiver</Table.Head>
-					<Table.Head class="text-right">Requests</Table.Head>
-					<Table.Head class="text-right">Events</Table.Head>
-					<Table.Head class="text-right">Bytes</Table.Head>
-					<Table.Head class="text-right">Rejected</Table.Head>
+					<Table.Head>{m.ingestionSignalsTable_receiverColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.ingestionSignalsTable_requestsColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.ingestionSignalsTable_eventsColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.ingestionSignalsTable_bytesColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.ingestionSignalsTable_rejectedColumn()}</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
 				{#each rows as row (row.signal + row.protocol)}
 					<Table.Row>
 						<Table.Cell class="flex items-center gap-2">
-							<span class="font-medium">{row.signal}</span>
-							<Badge variant="outline">{PROTOCOL_BADGE[row.protocol]}</Badge>
+							<span class="font-medium">{signalLabel(row.signal)}</span>
+							<Badge variant="outline">{protocolBadge(row.protocol)}</Badge>
 						</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{formatCount(row.requests)}</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{formatCount(row.records)}</Table.Cell>

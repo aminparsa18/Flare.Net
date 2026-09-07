@@ -16,6 +16,7 @@
 	import { indexingContext } from '$lib/indexing/context';
 	import { formatCount, formatMs } from '$lib/indexing/format';
 	import { latencyClass } from '$lib/indexing/health';
+	import * as m from '$lib/paraglide/messages';
 
 	const indexing = indexingContext.get();
 
@@ -37,20 +38,20 @@
 </script>
 
 <div class="flex flex-col gap-3 px-4 pb-4">
-	<h2 class="text-sm font-medium">Query optimization</h2>
+	<h2 class="text-sm font-medium">{m.indexingQueryOptimization_heading()}</h2>
 
 	<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 		<Card.Root>
 			<Card.Header>
-				<Card.Description>Search latency</Card.Description>
+				<Card.Description>{m.indexingQueryOptimization_searchLatency()}</Card.Description>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-1.5">
 				{#if !queryPerformance?.available}
 					<p class="text-muted-foreground text-xs">
-						Not available - <code class="font-mono">system.query_log</code> isn't queryable
+						{@html m.indexingCommon_notQueryable({ table: '<code class="font-mono">system.query_log</code>' })}
 					</p>
 				{:else if queryPerformance.sampleCount === 0}
-					<p class="text-muted-foreground text-xs">no queries in the last {queryPerformance.windowMinutes}m</p>
+					<p class="text-muted-foreground text-xs">{m.indexingQueryOptimization_noQueriesInWindow({ minutes: queryPerformance.windowMinutes })}</p>
 				{:else}
 					{#each PERCENTILES as { key, label } (key)}
 						{@const value = queryPerformance[key]}
@@ -67,23 +68,28 @@
 
 		<Card.Root>
 			<Card.Header>
-				<Card.Description>Slow queries</Card.Description>
+				<Card.Description>{m.indexingQueryOptimization_slowQueries()}</Card.Description>
 				<Card.Title class="text-2xl tabular-nums {(queryPerformance?.slowQueryCount ?? 0) > 0 ? 'text-warning' : ''}">
 					{queryPerformance?.available ? formatCount(queryPerformance.slowQueryCount) : '—'}
 				</Card.Title>
 			</Card.Header>
 			<Card.Content class="text-muted-foreground text-xs">
 				{#if !queryPerformance?.available}
-					Not available - <code class="font-mono">system.query_log</code> isn't queryable
+					{@html m.indexingCommon_notQueryable({ table: '<code class="font-mono">system.query_log</code>' })}
 				{:else}
-					queries over {queryPerformance.slowQueryThresholdMs} ms, past {queryPerformance.windowMinutes}m
+					{m.indexingQueryOptimization_slowQueriesDetail({
+						threshold: queryPerformance.slowQueryThresholdMs,
+						minutes: queryPerformance.windowMinutes
+					})}
 				{/if}
 			</Card.Content>
 		</Card.Root>
 	</div>
 
 	<p class="text-muted-foreground pt-1 text-sm">
-		<span class="text-foreground font-medium">{formatCount(indexSummary.indexCount)}</span> indexes across
-		<span class="text-foreground font-medium">{formatCount(indexSummary.tableCount)}</span> tables
+		{@html m.indexingQueryOptimization_summary({
+			indexCount: `<span class="text-foreground font-medium">${formatCount(indexSummary.indexCount)}</span>`,
+			tableCount: `<span class="text-foreground font-medium">${formatCount(indexSummary.tableCount)}</span>`
+		})}
 	</p>
 </div>

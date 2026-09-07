@@ -8,14 +8,16 @@
 // Deliberately missing a "skip index usage" check (e.g. "all configured indexes are being
 // used", or "idx_body only helped 3% of matching queries") - researched whether ClickHouse
 // exposes that as reliable telemetry before building anything here, and it doesn't (see
-// Planning.md's "Later" section, logged the same day this module was written). An
-// `unavailable`-tone placeholder row names the gap explicitly instead of silently omitting
-// it or, worse, inventing a number.
+// docs-internal/planning/roadmap.md's "Research: a real skip-index-effectiveness signal"
+// item, logged the same day this module was written). An `unavailable`-tone placeholder
+// row names the gap explicitly instead of silently omitting it or, worse, inventing a
+// number.
 
 import type { IndexingStatsResponse, TableStorageInfo } from '../indexing-api';
 import { formatBytes, formatCount, formatPercent, formatRatio } from './format';
 import { computePartsHealth } from './health';
 import { averageDailyGrowth, type GrowthBreakdown } from './growth';
+import * as m from '$lib/paraglide/messages';
 
 export type StorageHealthTone = 'good' | 'warning' | 'unavailable';
 
@@ -35,34 +37,41 @@ function checkCompression(tables: TableStorageInfo[]): StorageHealthCheck {
 	const compressed = tables.reduce((sum, t) => sum + t.compressedBytes, 0);
 	const uncompressed = tables.reduce((sum, t) => sum + t.uncompressedBytes, 0);
 	const ratio = compressed > 0 ? uncompressed / compressed : 0;
-	const detail = `${formatBytes(compressed)} compressed from ${formatBytes(uncompressed)} uncompressed - ${formatRatio(compressed, uncompressed)} compression ratio`;
+	const title = m.indexingStorageHealth_compressionTitle();
+	const detail = m.indexingStorageHealth_compressionDetail({
+		compressed: formatBytes(compressed),
+		uncompressed: formatBytes(uncompressed),
+		ratio: formatRatio(compressed, uncompressed)
+	});
 
 	if (compressed <= 0) {
-		return { id: 'compression', tone: 'good', title: 'Compression', detail: 'No data stored yet.' };
+		return { id: 'compression', tone: 'good', title, detail: m.indexingStorageHealth_noDataStoredYet() };
 	}
 	if (ratio < LOW_COMPRESSION_RATIO) {
 		return {
 			id: 'compression',
 			tone: 'warning',
-			title: 'Compression',
-			detail: `${detail} - lower than typical for structured log/trace/metric data, may be worth a look.`
+			title,
+			detail: m.indexingStorageHealth_compressionLowDetail({ detail })
 		};
 	}
-	return { id: 'compression', tone: 'good', title: 'Compression', detail };
+	return { id: 'compression', tone: 'good', title, detail };
 }
 
 function checkParts(tables: TableStorageInfo[]): StorageHealthCheck {
+	const title = m.indexingStorageHealth_partsTitle();
 	const fragmented = tables.filter((t) => computePartsHealth(t.activeParts).tone === 'warning');
 	if (fragmented.length === 0) {
-		return { id: 'parts', tone: 'good', title: 'Parts', detail: 'All tables have a healthy number of active parts.' };
+		return { id: 'parts', tone: 'good', title, detail: m.indexingStorageHealth_partsHealthyDetail() };
 	}
 	return {
 		id: 'parts',
 		tone: 'warning',
-		title: 'Parts',
-		detail: `${fragmented.length} table${fragmented.length === 1 ? '' : 's'} with a high number of active parts: ${fragmented
-			.map((t) => t.tableName)
-			.join(', ')}.`
+		title,
+		detail:
+			fragmented.length === 1
+				? m.indexingStorageHealth_partsFragmentedDetailSingular({ count: fragmented.length, tables: fragmented.map((t) => t.tableName).join(', ') })
+				: m.indexingStorageHealth_partsFragmentedDetailPlural({ count: fragmented.length, tables: fragmented.map((t) => t.tableName).join(', ') })
 	};
 }
 
@@ -72,9 +81,10 @@ function checkParts(tables: TableStorageInfo[]): StorageHealthCheck {
 const HIGH_ROW_CONCENTRATION_PERCENT = 70;
 
 function checkRowConcentration(tables: TableStorageInfo[]): StorageHealthCheck {
+	const title = m.indexingStorageHealth_rowDistributionTitle();
 	const totalRows = tables.reduce((sum, t) => sum + t.rows, 0);
 	if (totalRows <= 0) {
-		return { id: 'row-concentration', tone: 'good', title: 'Row distribution', detail: 'No data stored yet.' };
+		return { id: 'row-concentration', tone: 'good', title, detail: m.indexingStorageHealth_noDataStoredYet() };
 	}
 
 	const largest = tables.reduce((max, t) => (t.rows > max.rows ? t : max), tables[0]);
@@ -83,15 +93,20 @@ function checkRowConcentration(tables: TableStorageInfo[]): StorageHealthCheck {
 		return {
 			id: 'row-concentration',
 			tone: 'warning',
-			title: 'Row distribution',
-			detail: `${largest.tableName} accounts for ${formatPercent(percent)} of stored rows (${formatCount(largest.rows)} of ${formatCount(totalRows)}).`
+			title,
+			detail: m.indexingStorageHealth_rowConcentrationHighDetail({
+				table: largest.tableName,
+				percent: formatPercent(percent),
+				rows: formatCount(largest.rows),
+				totalRows: formatCount(totalRows)
+			})
 		};
 	}
 	return {
 		id: 'row-concentration',
 		tone: 'good',
-		title: 'Row distribution',
-		detail: `No single table dominates row volume (largest is ${largest.tableName} at ${formatPercent(percent)}).`
+		title,
+		detail: m.indexingStorageHealth_rowConcentrationOkDetail({ table: largest.tableName, percent: formatPercent(percent) })
 	};
 }
 
@@ -99,34 +114,35 @@ function checkRowConcentration(tables: TableStorageInfo[]): StorageHealthCheck {
 // it to be worth surfacing, rather than normal day-to-day variation between signals with
 // very different ingestion shapes (one metric point vs. one log line vs. one span).
 const GROWTH_SKEW_RATIO = 3;
-const SIGNAL_BREAKDOWNS: { breakdown: GrowthBreakdown; label: string }[] = [
-	{ breakdown: 'logs', label: 'Logs' },
-	{ breakdown: 'traces', label: 'Traces' },
-	{ breakdown: 'metrics', label: 'Metrics' }
+const SIGNAL_BREAKDOWNS: { breakdown: GrowthBreakdown; label: () => string }[] = [
+	{ breakdown: 'logs', label: () => m.ingestionSignal_logs() },
+	{ breakdown: 'traces', label: () => m.ingestionSignal_traces() },
+	{ breakdown: 'metrics', label: () => m.ingestionSignal_metrics() }
 ];
 
 function checkGrowthRateSkew(stats: IndexingStatsResponse): StorageHealthCheck {
+	const title = m.indexingStorageHealth_signalGrowthTitle();
 	if (!stats.growthAvailable) {
 		return {
 			id: 'growth-skew',
 			tone: 'unavailable',
-			title: 'Signal growth',
-			detail: 'Not available - system.part_log isn’t queryable on this ClickHouse deployment.'
+			title,
+			detail: m.indexingCommon_notQueryablePlainOnDeployment({ table: 'system.part_log' })
 		};
 	}
 
 	if (!stats.tables.some((t) => t.rows > 0)) {
-		return { id: 'growth-skew', tone: 'good', title: 'Signal growth', detail: 'No data stored yet.' };
+		return { id: 'growth-skew', tone: 'good', title, detail: m.indexingStorageHealth_noDataStoredYet() };
 	}
 
 	const rates = SIGNAL_BREAKDOWNS.map(({ breakdown, label }) => ({
-		label,
+		label: label(),
 		bytesPerDay: averageDailyGrowth(stats.growth, breakdown)?.bytesPerDay ?? 0
 	}));
 
 	const growing = rates.filter((r) => r.bytesPerDay > 0);
 	if (growing.length < 2) {
-		return { id: 'growth-skew', tone: 'good', title: 'Signal growth', detail: 'Not enough recent growth across signals to compare yet.' };
+		return { id: 'growth-skew', tone: 'good', title, detail: m.indexingStorageHealth_notEnoughGrowthToCompare() };
 	}
 
 	const fastest = growing.reduce((max, r) => (r.bytesPerDay > max.bytesPerDay ? r : max), growing[0]);
@@ -136,8 +152,12 @@ function checkGrowthRateSkew(stats: IndexingStatsResponse): StorageHealthCheck {
 		return {
 			id: 'growth-skew',
 			tone: 'warning',
-			title: 'Signal growth',
-			detail: `${fastest.label} is growing (${formatBytes(fastest.bytesPerDay)}/day) while ${slowest.label} shows no growth in the past week.`
+			title,
+			detail: m.indexingStorageHealth_growthSkewNoGrowthDetail({
+				fastest: fastest.label,
+				fastestRate: formatBytes(fastest.bytesPerDay),
+				slowest: slowest.label
+			})
 		};
 	}
 
@@ -146,21 +166,28 @@ function checkGrowthRateSkew(stats: IndexingStatsResponse): StorageHealthCheck {
 		return {
 			id: 'growth-skew',
 			tone: 'warning',
-			title: 'Signal growth',
-			detail: `${fastest.label} is growing ${ratio.toFixed(1)}× faster than ${slowest.label} (${formatBytes(fastest.bytesPerDay)}/day vs. ${formatBytes(slowest.bytesPerDay)}/day).`
+			title,
+			detail: m.indexingStorageHealth_growthSkewRatioDetail({
+				fastest: fastest.label,
+				ratio: ratio.toFixed(1),
+				slowest: slowest.label,
+				fastestRate: formatBytes(fastest.bytesPerDay),
+				slowestRate: formatBytes(slowest.bytesPerDay)
+			})
 		};
 	}
-	return { id: 'growth-skew', tone: 'good', title: 'Signal growth', detail: 'Growth rates are broadly proportional across logs, traces, and metrics.' };
+	return { id: 'growth-skew', tone: 'good', title, detail: m.indexingStorageHealth_growthProportionalDetail() };
 }
 
-const SKIP_INDEX_USAGE_CHECK: StorageHealthCheck = {
-	id: 'skip-index-usage',
-	tone: 'unavailable',
-	title: 'Skip index usage',
-	detail:
-		'Not available yet - ClickHouse doesn’t expose reliable per-index usage telemetry (system.query_log has no per-index attribution). Tracked as a research item in Planning.md.'
-};
+function skipIndexUsageCheck(): StorageHealthCheck {
+	return {
+		id: 'skip-index-usage',
+		tone: 'unavailable',
+		title: m.indexingStorageHealth_skipIndexUsageTitle(),
+		detail: m.indexingStorageHealth_skipIndexUsageDetail()
+	};
+}
 
 export function computeStorageHealth(stats: IndexingStatsResponse): StorageHealthCheck[] {
-	return [checkCompression(stats.tables), checkParts(stats.tables), checkRowConcentration(stats.tables), checkGrowthRateSkew(stats), SKIP_INDEX_USAGE_CHECK];
+	return [checkCompression(stats.tables), checkParts(stats.tables), checkRowConcentration(stats.tables), checkGrowthRateSkew(stats), skipIndexUsageCheck()];
 }

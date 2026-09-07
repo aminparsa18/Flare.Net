@@ -11,6 +11,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import MinusIcon from '@lucide/svelte/icons/minus';
+	import * as m from '$lib/paraglide/messages';
 
 	const indexing = indexingContext.get();
 
@@ -30,7 +31,7 @@
 </script>
 
 <div class="px-4 pb-4">
-	<h2 class="mb-2 text-sm font-medium">Storage health</h2>
+	<h2 class="mb-2 text-sm font-medium">{m.indexingStorageHealth_heading()}</h2>
 	{#if indexing.loading && !indexing.stats}
 		<div class="flex h-32 items-center justify-center">
 			<Spinner />

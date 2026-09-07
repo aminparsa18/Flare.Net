@@ -26,13 +26,14 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatBytes, formatClockSkew, formatCount } from '$lib/ingestion/format';
+	import { formatBytes, formatClockSkew, formatCount, signalLabel } from '$lib/ingestion/format';
 	import { CLOCK_SKEW_WARN_MS, clockSkewTone, type FlushStatusTone } from '$lib/ingestion/health';
 	import { INGESTION_WINDOW_PRESETS } from '$lib/ingestion/state.svelte';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { IngestionSignal } from '$lib/ingestion-api';
 	import type { PipelineServiceEntry } from '$lib/pipeline-api';
+	import * as m from '$lib/paraglide/messages';
 
 	// Same tone-to-text-class convention as PipelineFlushHealthTable - only 'default'/
 	// 'warning' are ever produced by clockSkewTone, but typed against the full palette
@@ -74,12 +75,12 @@
 </script>
 
 <div class="px-4 pb-4">
-	<h2 class="mb-2 text-sm font-medium">Services by signal</h2>
+	<h2 class="mb-2 text-sm font-medium">{m.pipelineServiceBreakdown_heading()}</h2>
 	{#if breakdowns.length === 0}
 		<Empty.Root>
 			<Empty.Header>
-				<Empty.Title>No service.name data yet</Empty.Title>
-				<Empty.Description>Populated once an OTLP export carries a resource with a service.name attribute.</Empty.Description>
+				<Empty.Title>{m.pipelineServiceBreakdown_emptyTitle()}</Empty.Title>
+				<Empty.Description>{m.pipelineServiceBreakdown_emptyDescription()}</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
@@ -88,16 +89,17 @@
 				{@const total = breakdown.topServices.reduce((sum: number, e: PipelineServiceEntry) => sum + e.records, 0) + breakdown.otherRecords}
 				<div>
 					<h3 class="text-muted-foreground mb-1 text-xs font-medium">
-						{breakdown.signal}{#if breakdown.otherServiceCount > 0}&nbsp;· Top {breakdown.topServices.length} services{/if}
+						{signalLabel(breakdown.signal)}{#if breakdown.otherServiceCount > 0}&nbsp;·
+							{m.pipelineServiceBreakdown_topServices({ count: breakdown.topServices.length })}{/if}
 					</h3>
 					<Table.Root>
 						<Table.Header>
 							<Table.Row>
-								<Table.Head>Service</Table.Head>
-								<Table.Head class="text-right">Events</Table.Head>
-								<Table.Head class="text-right">Rate</Table.Head>
-								<Table.Head class="text-right">Bytes</Table.Head>
-								<Table.Head class="text-right">Clock skew</Table.Head>
+								<Table.Head>{m.pipelineServiceBreakdown_serviceColumn()}</Table.Head>
+								<Table.Head class="text-right">{m.pipelineServiceBreakdown_eventsColumn()}</Table.Head>
+								<Table.Head class="text-right">{m.pipelineServiceBreakdown_rateColumn()}</Table.Head>
+								<Table.Head class="text-right">{m.pipelineServiceBreakdown_bytesColumn()}</Table.Head>
+								<Table.Head class="text-right">{m.pipelineServiceBreakdown_clockSkewColumn()}</Table.Head>
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
@@ -125,7 +127,7 @@
 							{/each}
 							{#if breakdown.otherServiceCount > 0}
 								<Table.Row>
-									<Table.Cell class="text-muted-foreground text-xs">+{breakdown.otherServiceCount} more</Table.Cell>
+									<Table.Cell class="text-muted-foreground text-xs">{m.serviceMapNode_moreOperations({ count: breakdown.otherServiceCount })}</Table.Cell>
 									<Table.Cell class="text-muted-foreground text-right tabular-nums">{formatCount(breakdown.otherRecords)}</Table.Cell>
 									<Table.Cell class="text-muted-foreground text-right tabular-nums">{formatRate(breakdown.otherRecords)}</Table.Cell>
 									<Table.Cell class="text-muted-foreground text-right tabular-nums">{formatBytes(breakdown.otherBytes)}</Table.Cell>

@@ -12,29 +12,52 @@
 	import { indexingContext } from '$lib/indexing/context';
 	import { formatBytes, formatCount } from '$lib/indexing/format';
 	import { matchesBreakdown, type GrowthBreakdown } from '$lib/indexing/growth';
+	import * as m from '$lib/paraglide/messages';
 
 	const indexing = indexingContext.get();
 
 	type Metric = 'storage' | 'rows' | 'ingestion';
 	type Breakdown = GrowthBreakdown;
 
-	const METRIC_OPTIONS: { value: Metric; label: string }[] = [
-		{ value: 'storage', label: 'Storage' },
-		{ value: 'rows', label: 'Rows' },
-		{ value: 'ingestion', label: 'Ingestion' }
-	];
-	const METRIC_HEADING: Record<Metric, string> = {
-		storage: 'Storage growth',
-		rows: 'Row growth',
-		ingestion: 'Ingestion'
-	};
+	// Functions, not module/instance-scope lookup objects - see time-range.ts's own
+	// remarks (surfaced during Phase 1) on why a plain object literal built once can't
+	// reflect a per-request/live-switched locale, only a call re-evaluated at each use can.
+	function metricLabel(value: Metric): string {
+		switch (value) {
+			case 'storage':
+				return m.indexingGrowthChart_metricStorage();
+			case 'rows':
+				return m.indexingGrowthChart_metricRows();
+			case 'ingestion':
+				return m.indexingGrowthChart_metricIngestion();
+		}
+	}
+	const METRIC_VALUES: Metric[] = ['storage', 'rows', 'ingestion'];
 
-	const BREAKDOWN_OPTIONS: { value: Breakdown; label: string }[] = [
-		{ value: 'total', label: 'Total' },
-		{ value: 'logs', label: 'Logs' },
-		{ value: 'traces', label: 'Traces' },
-		{ value: 'metrics', label: 'Metrics' }
-	];
+	function metricHeading(value: Metric): string {
+		switch (value) {
+			case 'storage':
+				return m.indexingGrowthChart_headingStorage();
+			case 'rows':
+				return m.indexingGrowthChart_headingRows();
+			case 'ingestion':
+				return m.indexingGrowthChart_headingIngestion();
+		}
+	}
+
+	function breakdownLabel(value: Breakdown): string {
+		switch (value) {
+			case 'total':
+				return m.indexingGrowthChart_breakdownTotal();
+			case 'logs':
+				return m.ingestionSignal_logs();
+			case 'traces':
+				return m.ingestionSignal_traces();
+			case 'metrics':
+				return m.ingestionSignal_metrics();
+		}
+	}
+	const BREAKDOWN_VALUES: Breakdown[] = ['total', 'logs', 'traces', 'metrics'];
 
 	let metric = $state<Metric>('storage');
 	let breakdown = $state<Breakdown>('total');
@@ -110,19 +133,19 @@
 
 <div class="flex flex-col gap-2 px-4 pb-4">
 	<div class="flex flex-wrap items-center justify-between gap-2">
-		<h2 class="text-sm font-medium">{METRIC_HEADING[metric]} (last 30 days)</h2>
+		<h2 class="text-sm font-medium">{m.indexingGrowthChart_heading({ metric: metricHeading(metric) })}</h2>
 		<div class="flex flex-wrap items-center gap-3">
 			<div class="flex items-center gap-0.5 rounded-md border p-0.5">
-				{#each METRIC_OPTIONS as opt (opt.value)}
-					<Button variant={metric === opt.value ? 'secondary' : 'ghost'} size="xs" onclick={() => (metric = opt.value)}>
-						{opt.label}
+				{#each METRIC_VALUES as value (value)}
+					<Button variant={metric === value ? 'secondary' : 'ghost'} size="xs" onclick={() => (metric = value)}>
+						{metricLabel(value)}
 					</Button>
 				{/each}
 			</div>
 			<div class="flex items-center gap-0.5 rounded-md border p-0.5">
-				{#each BREAKDOWN_OPTIONS as opt (opt.value)}
-					<Button variant={breakdown === opt.value ? 'secondary' : 'ghost'} size="xs" onclick={() => (breakdown = opt.value)}>
-						{opt.label}
+				{#each BREAKDOWN_VALUES as value (value)}
+					<Button variant={breakdown === value ? 'secondary' : 'ghost'} size="xs" onclick={() => (breakdown = value)}>
+						{breakdownLabel(value)}
 					</Button>
 				{/each}
 			</div>
@@ -135,10 +158,10 @@
 		</div>
 	{:else if !indexing.stats?.growthAvailable}
 		<p class="text-muted-foreground text-xs">
-			Not available - <code class="font-mono">system.part_log</code> isn't queryable on this ClickHouse deployment.
+			{@html m.indexingCommon_notQueryableOnDeployment({ table: '<code class="font-mono">system.part_log</code>' })}
 		</p>
 	{:else if days.length === 0}
-		<div class="text-muted-foreground flex h-[140px] items-center justify-center text-xs">No new data in the last 30 days</div>
+		<div class="text-muted-foreground flex h-[140px] items-center justify-center text-xs">{m.indexingGrowthChart_noNewDataIn30Days()}</div>
 	{:else}
 		<div class="flex gap-2">
 			<!-- Y-axis value labels live outside the SVG on purpose: the chart below is
@@ -161,7 +184,7 @@
 									preserveAspectRatio="none"
 									class="h-[140px] w-full"
 									role="img"
-									aria-label="{METRIC_HEADING[metric]}, last 30 days"
+									aria-label={m.indexingGrowthChart_ariaLabel({ metric: metricHeading(metric) })}
 									onpointermove={handlePointerMove}
 									onpointerleave={() => (hoverIndex = null)}
 								>
@@ -209,7 +232,11 @@
 							<Tooltip.Content>
 								<div class="flex flex-col gap-0.5">
 									<span class="font-medium">{formatDay(days[hoverIndex])}</span>
-									<span>{formatValue(points[hoverIndex]?.value ?? 0)}{metric === 'ingestion' ? ' that day' : ' total'}</span>
+									<span>
+									{metric === 'ingestion'
+										? m.indexingGrowthChart_valueThatDay({ value: formatValue(points[hoverIndex]?.value ?? 0) })
+										: m.indexingGrowthChart_valueTotal({ value: formatValue(points[hoverIndex]?.value ?? 0) })}
+								</span>
 								</div>
 							</Tooltip.Content>
 						{/if}

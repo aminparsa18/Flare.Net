@@ -13,6 +13,7 @@
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import SaveIcon from '@lucide/svelte/icons/save';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		pageType,
@@ -64,7 +65,7 @@
 		{#snippet child({ props })}
 			<Button {...props} variant="outline" size="sm">
 				<LayoutGridIcon data-icon="inline-start" />
-				Views
+				{m.viewsMenu_trigger()}
 				<ChevronDownIcon data-icon="inline-end" />
 			</Button>
 		{/snippet}
@@ -72,11 +73,11 @@
 	<Popover.Content class="w-64 p-0" align="start">
 		<Command.Root>
 			<Command.List>
-				<Command.Group heading="Saved views">
+				<Command.Group heading={m.viewsMenu_heading()}>
 					{#if loading}
-						<div class="text-muted-foreground px-2 py-4 text-center text-xs">Loading…</div>
+						<div class="text-muted-foreground px-2 py-4 text-center text-xs">{m.viewsMenu_loading()}</div>
 					{:else if views.length === 0}
-						<div class="text-muted-foreground px-2 py-4 text-center text-xs">No saved views for this page yet.</div>
+						<div class="text-muted-foreground px-2 py-4 text-center text-xs">{m.viewsMenu_emptyDescription()}</div>
 					{:else}
 						<ScrollArea class="max-h-64">
 							{#each views as view (view.id)}
@@ -92,7 +93,7 @@
 		<div class="border-t p-1">
 			<Button variant="ghost" size="sm" class="w-full justify-start" onclick={handleSaveClick}>
 				<SaveIcon data-icon="inline-start" />
-				Save current view…
+				{m.viewsMenu_saveCurrentView()}
 			</Button>
 		</div>
 	</Popover.Content>

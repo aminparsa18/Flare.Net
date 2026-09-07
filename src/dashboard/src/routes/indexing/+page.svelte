@@ -10,6 +10,7 @@
 	import IndexingTablesTable from '$lib/components/indexing/IndexingTablesTable.svelte';
 	import IndexingQueryOptimization from '$lib/components/indexing/IndexingQueryOptimization.svelte';
 	import IndexingSkipIndexesTable from '$lib/components/indexing/IndexingSkipIndexesTable.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	const indexing = indexingContext.set(new IndexingState());
 
@@ -23,7 +24,7 @@
 </script>
 
 <svelte:head>
-	<title>Flare — Indexing</title>
+	<title>{m.indexingPage_title()}</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">

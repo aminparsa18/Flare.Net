@@ -4,6 +4,7 @@
 	import { savedViewsContext } from '$lib/saved-views/context';
 	import SavedViewTable from '$lib/components/saved-views/SavedViewTable.svelte';
 	import RenameViewDialog from '$lib/components/saved-views/RenameViewDialog.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	const views = savedViewsContext.set(new SavedViewsState());
 
@@ -13,7 +14,7 @@
 </script>
 
 <svelte:head>
-	<title>Flare — Views</title>
+	<title>{m.savedViewsPage_title()}</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">

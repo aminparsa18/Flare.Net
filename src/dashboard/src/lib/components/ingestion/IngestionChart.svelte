@@ -19,8 +19,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatBytes, formatCount } from '$lib/ingestion/format';
+	import { formatBytes, formatCount, signalLabel } from '$lib/ingestion/format';
 	import type { IngestionBucketPoint, IngestionSignal } from '$lib/ingestion-api';
+	import * as m from '$lib/paraglide/messages';
 
 	const ingestion = ingestionContext.get();
 
@@ -41,6 +42,10 @@
 		format: (n: number) => string;
 	}
 
+	// Functions, not a module/instance-scope lookup object - see time-range.ts's own
+	// remarks (surfaced during Phase 1) on why a plain object literal built once can't
+	// reflect a per-request/live-switched locale, only a call re-evaluated at each use can.
+	//
 	// bytes/sec (not bytes/min) to match the throughput-rate convention MetricChart's own
 	// axis.ts uses elsewhere ("By/s") - buckets are per-minute sums, so /60 converts without
 	// fabricating anything. Rounded before formatBytes rather than left fractional -
@@ -48,37 +53,38 @@
 	// bytes/sec rate lands in that branch (a whole request's worth of bytes divided by 60)
 	// far more often than a plain byte *count* ever did, so this is the mode that would
 	// actually surface it.
-	const METRIC_CONFIG: Record<ChartMetric, MetricConfig> = {
-		events: {
-			label: 'Events/min',
-			axisLabel: 'events / min',
-			ariaNoun: 'events per minute',
-			valueOf: (b) => b.records,
-			format: formatCount
-		},
-		requests: {
-			label: 'Requests/min',
-			axisLabel: 'requests / min',
-			ariaNoun: 'requests per minute',
-			valueOf: (b) => b.requests,
-			format: formatCount
-		},
-		bytes: {
-			label: 'Bytes/s',
-			axisLabel: 'bytes / sec',
-			ariaNoun: 'bytes per second',
-			valueOf: (b) => Math.round(b.bytes / 60),
-			format: formatBytes
+	function metricConfig(metric: ChartMetric): MetricConfig {
+		switch (metric) {
+			case 'events':
+				return {
+					label: m.ingestionChart_metricEvents(),
+					axisLabel: m.ingestionChart_axisEvents(),
+					ariaNoun: m.ingestionChart_ariaNounEvents(),
+					valueOf: (b) => b.records,
+					format: formatCount
+				};
+			case 'requests':
+				return {
+					label: m.ingestionChart_metricRequests(),
+					axisLabel: m.ingestionChart_axisRequests(),
+					ariaNoun: m.ingestionChart_ariaNounRequests(),
+					valueOf: (b) => b.requests,
+					format: formatCount
+				};
+			case 'bytes':
+				return {
+					label: m.ingestionChart_metricBytes(),
+					axisLabel: m.ingestionChart_axisBytes(),
+					ariaNoun: m.ingestionChart_ariaNounBytes(),
+					valueOf: (b) => Math.round(b.bytes / 60),
+					format: formatBytes
+				};
 		}
-	};
-	const METRIC_OPTIONS: { value: ChartMetric; label: string }[] = [
-		{ value: 'events', label: METRIC_CONFIG.events.label },
-		{ value: 'requests', label: METRIC_CONFIG.requests.label },
-		{ value: 'bytes', label: METRIC_CONFIG.bytes.label }
-	];
+	}
+	const METRIC_VALUES: ChartMetric[] = ['events', 'requests', 'bytes'];
 
 	let metric = $state<ChartMetric>('events');
-	const config = $derived(METRIC_CONFIG[metric]);
+	const config = $derived(metricConfig(metric));
 
 	interface LineSpec {
 		signal: IngestionSignal;
@@ -146,16 +152,16 @@
 			{#each lines as line (line.signal)}
 				<span class="flex items-center gap-1.5">
 					<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-					{line.signal}
+					{signalLabel(line.signal)}
 				</span>
 			{/each}
 		</div>
 		<div class="flex items-center gap-2">
 			<span class="text-muted-foreground text-[10px]">{config.axisLabel}</span>
 			<div class="flex gap-1">
-				{#each METRIC_OPTIONS as opt (opt.value)}
-					<Button type="button" variant={metric === opt.value ? 'secondary' : 'ghost'} size="xs" onclick={() => (metric = opt.value)}>
-						{opt.label}
+				{#each METRIC_VALUES as value (value)}
+					<Button type="button" variant={metric === value ? 'secondary' : 'ghost'} size="xs" onclick={() => (metric = value)}>
+						{metricConfig(value).label}
 					</Button>
 				{/each}
 			</div>
@@ -167,7 +173,7 @@
 			<Spinner />
 		</div>
 	{:else if bucketStarts.length === 0}
-		<div class="text-muted-foreground flex h-[140px] items-center justify-center text-xs">No data in range</div>
+		<div class="text-muted-foreground flex h-[140px] items-center justify-center text-xs">{m.ingestionChart_noDataInRange()}</div>
 	{:else}
 		<div class="grid grid-cols-[3.5rem_1fr] gap-x-2">
 			<div class="text-muted-foreground flex h-[140px] flex-col justify-between py-0.5 text-right text-[10px] tabular-nums">
@@ -185,7 +191,7 @@
 								preserveAspectRatio="none"
 								class="h-[140px] w-full"
 								role="img"
-								aria-label="Ingested {config.ariaNoun}, by signal"
+								aria-label={m.ingestionChart_ariaLabel({ noun: config.ariaNoun })}
 								onpointermove={handlePointerMove}
 								onpointerleave={() => (hoverIndex = null)}
 							>
@@ -237,7 +243,10 @@
 								{#each lines as line (line.signal)}
 									<span class="flex items-center gap-1.5">
 										<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-										{line.signal}: {config.format(line.points[hoverIndex!]?.value ?? 0)}
+										{m.ingestionChart_seriesValue({
+											signal: signalLabel(line.signal),
+											value: config.format(line.points[hoverIndex!]?.value ?? 0)
+										})}
 									</span>
 								{/each}
 							</div>

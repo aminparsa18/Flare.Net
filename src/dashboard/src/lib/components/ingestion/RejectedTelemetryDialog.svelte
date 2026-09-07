@@ -15,8 +15,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ingestionContext } from '$lib/ingestion/context';
 	import { INGESTION_WINDOW_PRESETS } from '$lib/ingestion/state.svelte';
-	import { formatCount, protocolLabel } from '$lib/ingestion/format';
+	import { formatCount, protocolLabel, signalLabel } from '$lib/ingestion/format';
 	import type { IngestionProtocol, IngestionSignal } from '$lib/ingestion-api';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		open = $bindable(false),
@@ -32,7 +33,18 @@
 
 	const ingestion = ingestionContext.get();
 
-	const SIGNAL_NOUN: Record<IngestionSignal, string> = { Logs: 'log', Traces: 'trace', Metrics: 'metric' };
+	// A function, not a static lookup object - see time-range.ts's own remarks on why a
+	// module-scope const can't reflect a per-request/live-switched locale.
+	function signalNoun(signal: IngestionSignal): string {
+		switch (signal) {
+			case 'Logs':
+				return m.rejectedTelemetryDialog_logNoun();
+			case 'Traces':
+				return m.rejectedTelemetryDialog_traceNoun();
+			case 'Metrics':
+				return m.rejectedTelemetryDialog_metricNoun();
+		}
+	}
 
 	// recentErrors has no window param of its own (it's a flat last-200 FIFO, see
 	// IngestionStatsKeys.MaxErrorEntries) - filtering by the page's selected window here
@@ -75,17 +87,19 @@
 <Dialog.Root {open} onOpenChange={(v) => (open = v)}>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Rejected telemetry</Dialog.Title>
+			<Dialog.Title>{m.rejectedTelemetryDialog_title()}</Dialog.Title>
 			<Dialog.Description>
-				{formatCount(rejectedCount)} rejected {SIGNAL_NOUN[signal]} payload{rejectedCount === 1 ? '' : 's'}
+				{rejectedCount === 1
+					? m.rejectedTelemetryDialog_descriptionSingular({ count: formatCount(rejectedCount), noun: signalNoun(signal) })
+					: m.rejectedTelemetryDialog_descriptionPlural({ count: formatCount(rejectedCount), noun: signalNoun(signal) })}
 			</Dialog.Description>
 		</Dialog.Header>
 
 		<div class="space-y-4 text-sm">
 			<div>
-				<div class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">Reason</div>
+				<div class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">{m.rejectedTelemetryDialog_reasonLabel()}</div>
 				{#if reasonCounts.length === 0}
-					<p class="text-muted-foreground text-xs">No entries left in the recent-errors log for this window.</p>
+					<p class="text-muted-foreground text-xs">{m.rejectedTelemetryDialog_noEntriesLeft()}</p>
 				{:else}
 					<div class="space-y-0.5">
 						{#each reasonCounts as r (r.reason)}
@@ -97,38 +111,36 @@
 
 			<div class="grid grid-cols-2 gap-3">
 				<div>
-					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Protocol</div>
+					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">{m.rejectedTelemetryDialog_protocolLabel()}</div>
 					<div>{protocolLabel(protocol)}</div>
 				</div>
 				<div>
-					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Signal</div>
-					<div>{signal}</div>
+					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">{m.rejectedTelemetryDialog_signalLabel()}</div>
+					<div>{signalLabel(signal)}</div>
 				</div>
 				<div>
-					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">First seen</div>
+					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">{m.rejectedTelemetryDialog_firstSeenLabel()}</div>
 					<div class="tabular-nums">{firstSeen ? formatTime(firstSeen) : '—'}</div>
 				</div>
 				<div>
-					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Last seen</div>
+					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">{m.rejectedTelemetryDialog_lastSeenLabel()}</div>
 					<div class="tabular-nums">{lastSeen ? formatTime(lastSeen) : '—'}</div>
 				</div>
 			</div>
 
 			{#if sample.length > 0 && sample.length < rejectedCount}
 				<p class="text-muted-foreground text-xs">
-					Showing the {formatCount(sample.length)} most recent of {formatCount(rejectedCount)} - older entries have
-					rolled off the recent-errors log (capped at 200 across all signals).
+					{m.rejectedTelemetryDialog_showingMostRecent({ shown: formatCount(sample.length), total: formatCount(rejectedCount) })}
 				</p>
 			{/if}
 
 			<p class="text-muted-foreground text-xs">
-				Affected services aren't available - a rejection this early means the export was never parsed far enough to
-				read a service.name from it.
+				{m.rejectedTelemetryDialog_noAffectedServices()}
 			</p>
 		</div>
 
 		<Dialog.Footer>
-			<Button variant="outline" size="sm" onclick={viewLog}>View rejected payloads →</Button>
+			<Button variant="outline" size="sm" onclick={viewLog}>{m.rejectedTelemetryDialog_viewRejectedPayloads()}</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

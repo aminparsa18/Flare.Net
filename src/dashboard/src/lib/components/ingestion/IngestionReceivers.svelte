@@ -16,22 +16,31 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import CircleXIcon from '@lucide/svelte/icons/circle-x';
 	import MinusIcon from '@lucide/svelte/icons/minus';
+	import * as m from '$lib/paraglide/messages';
 
 	const ingestion = ingestionContext.get();
 
-	const PROTOCOLS: { value: IngestionProtocol; label: string }[] = [
-		{ value: 'Grpc', label: 'gRPC :4317' },
-		{ value: 'Http', label: 'HTTP :4318' },
-		{ value: 'Scrape', label: 'Prometheus scrape' }
-	];
+	// A function, not a static `.label` field - see time-range.ts's own remarks on why a
+	// module-scope const can't reflect a per-request/live-switched locale.
+	function receiverLabel(protocol: IngestionProtocol): string {
+		switch (protocol) {
+			case 'Grpc':
+				return m.ingestionReceivers_grpcLabel();
+			case 'Http':
+				return m.ingestionReceivers_httpLabel();
+			case 'Scrape':
+				return m.ingestionReceivers_scrapeLabel();
+		}
+	}
+	const PROTOCOLS: IngestionProtocol[] = ['Grpc', 'Http', 'Scrape'];
 
 	const rows = $derived.by(() => {
 		const buckets = ingestion.stats?.buckets ?? [];
-		return PROTOCOLS.map(({ value, label }) => {
+		return PROTOCOLS.map((value) => {
 			const matching = buckets.filter((b) => b.protocol === value);
 			const requests = matching.reduce((sum, b) => sum + b.requests, 0);
 			const rejected = matching.reduce((sum, b) => sum + b.rejected, 0);
-			return { protocol: value, label, requests, rejected, status: computeReceiverStatus(requests, rejected) };
+			return { protocol: value, label: receiverLabel(value), requests, rejected, status: computeReceiverStatus(requests, rejected) };
 		});
 	});
 
@@ -51,13 +60,13 @@
 </script>
 
 <div class="px-4 pb-4">
-	<h2 class="mb-2 text-sm font-medium">Receivers</h2>
+	<h2 class="mb-2 text-sm font-medium">{m.ingestionReceivers_heading()}</h2>
 	<Table.Root>
 		<Table.Header>
 			<Table.Row>
-				<Table.Head>Receiver</Table.Head>
-				<Table.Head>Status</Table.Head>
-				<Table.Head class="text-right">Requests</Table.Head>
+				<Table.Head>{m.ingestionReceivers_receiverColumn()}</Table.Head>
+				<Table.Head>{m.ingestionReceivers_statusColumn()}</Table.Head>
+				<Table.Head class="text-right">{m.ingestionReceivers_requestsColumn()}</Table.Head>
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
@@ -71,7 +80,7 @@
 							{row.status.label}
 						</span>
 					</Table.Cell>
-					<Table.Cell class="text-right tabular-nums">{formatCount(row.requests)} req</Table.Cell>
+					<Table.Cell class="text-right tabular-nums">{m.ingestionReceivers_requestsValue({ count: formatCount(row.requests) })}</Table.Cell>
 				</Table.Row>
 			{/each}
 		</Table.Body>

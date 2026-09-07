@@ -16,6 +16,7 @@
 	import { indexingContext } from '$lib/indexing/context';
 	import CircleCheckIcon from '@lucide/svelte/icons/circle-check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
+	import * as m from '$lib/paraglide/messages';
 
 	const indexing = indexingContext.get();
 
@@ -42,26 +43,28 @@
 {#if status?.clusterModeEnabled}
 	<div class="px-4 pb-4">
 		<div class="mb-2 flex items-center justify-between">
-			<h2 class="text-sm font-medium">Cluster</h2>
+			<h2 class="text-sm font-medium">{m.indexingClusterStatus_heading()}</h2>
 			<Badge variant={status.sharedPatternStoreEnabled ? 'secondary' : 'outline'}>
-				Shared pattern store {status.sharedPatternStoreEnabled ? 'on' : 'off'}
+				{status.sharedPatternStoreEnabled
+					? m.indexingClusterStatus_sharedPatternStoreOn()
+					: m.indexingClusterStatus_sharedPatternStoreOff()}
 			</Badge>
 		</div>
 		<Card.Root>
 			<Card.Content class="px-0 py-0">
 				{#if status.nodes.length === 0}
 					<p class="text-muted-foreground px-4 py-3 text-sm">
-						Cluster mode is on, but <code class="font-mono">system.clusters</code> wasn't queryable just now - try refreshing.
+						{@html m.indexingClusterStatus_clustersNotQueryable({ table: '<code class="font-mono">system.clusters</code>' })}
 					</p>
 				{:else}
 					<Table.Root>
 						<Table.Header>
 							<Table.Row>
-								<Table.Head>Shard</Table.Head>
-								<Table.Head>Host</Table.Head>
-								<Table.Head>Replica</Table.Head>
-								<Table.Head>Status</Table.Head>
-								<Table.Head>Replication</Table.Head>
+								<Table.Head>{m.indexingClusterStatus_shardColumn()}</Table.Head>
+								<Table.Head>{m.indexingClusterStatus_hostColumn()}</Table.Head>
+								<Table.Head>{m.indexingClusterStatus_replicaColumn()}</Table.Head>
+								<Table.Head>{m.indexingClusterStatus_statusColumn()}</Table.Head>
+								<Table.Head>{m.indexingClusterStatus_replicationColumn()}</Table.Head>
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
@@ -70,41 +73,44 @@
 									<Table.Row>
 										{#if i === 0}
 											<Table.Cell rowspan={nodes.length} class="text-muted-foreground align-top font-medium">
-												Shard {shardNum}
+												{m.indexingClusterStatus_shardLabel({ number: shardNum })}
 											</Table.Cell>
 										{/if}
 										<Table.Cell class="font-mono text-xs">
 											{node.hostName}:{node.port}
 											{#if node.isLocal}
-												<span class="text-muted-foreground">(local)</span>
+												<span class="text-muted-foreground">{m.indexingClusterStatus_localSuffix()}</span>
 											{/if}
 										</Table.Cell>
-										<Table.Cell class="text-muted-foreground text-xs">replica {node.replicaNum}</Table.Cell>
+										<Table.Cell class="text-muted-foreground text-xs">{m.indexingClusterStatus_replicaLabel({ number: node.replicaNum })}</Table.Cell>
 										<Table.Cell>
 											{#if node.errorsCount === 0}
-												<Badge variant="secondary"><CircleCheckIcon data-icon="inline-start" />Healthy</Badge>
+												<Badge variant="secondary"><CircleCheckIcon data-icon="inline-start" />{m.indexingClusterStatus_healthy()}</Badge>
 											{:else}
-												<Badge variant="warning" title="{node.errorsCount} connection error(s) recorded by the node that answered this request">
-													<TriangleAlertIcon data-icon="inline-start" />{node.errorsCount} error{node.errorsCount === 1 ? '' : 's'}
+												<Badge variant="warning" title={m.indexingClusterStatus_errorsTooltip({ count: node.errorsCount })}>
+													<TriangleAlertIcon data-icon="inline-start" />
+													{node.errorsCount === 1
+														? m.indexingClusterStatus_errorCountSingular({ count: node.errorsCount })
+														: m.indexingClusterStatus_errorCountPlural({ count: node.errorsCount })}
 												</Badge>
 											{/if}
 										</Table.Cell>
 										<Table.Cell>
 											{#if !status.replicationInfoAvailable}
-												<span
-													class="text-muted-foreground text-xs"
-													title="system.replicas wasn't queryable just now - try refreshing"
-												>
+												<span class="text-muted-foreground text-xs" title={m.indexingClusterStatus_replicasNotQueryableTooltip()}>
 													—
 												</span>
 											{:else if node.replicationQueueSize === 0 && node.replicationLagSeconds === 0}
-												<Badge variant="secondary"><CircleCheckIcon data-icon="inline-start" />In sync</Badge>
+												<Badge variant="secondary"><CircleCheckIcon data-icon="inline-start" />{m.indexingClusterStatus_inSync()}</Badge>
 											{:else}
 												<Badge
 													variant="warning"
-													title="Furthest-behind replicated table on this node: {node.replicationQueueSize} queued entr{node.replicationQueueSize === 1 ? 'y' : 'ies'}, {node.replicationLagSeconds}s behind"
+													title={node.replicationQueueSize === 1
+														? m.indexingClusterStatus_replicationLagTooltipSingular({ queueSize: node.replicationQueueSize, lagSeconds: node.replicationLagSeconds })
+														: m.indexingClusterStatus_replicationLagTooltipPlural({ queueSize: node.replicationQueueSize, lagSeconds: node.replicationLagSeconds })}
 												>
-													<TriangleAlertIcon data-icon="inline-start" />Queue {node.replicationQueueSize} · {node.replicationLagSeconds}s
+													<TriangleAlertIcon data-icon="inline-start" />
+													{m.indexingClusterStatus_queueValue({ queueSize: node.replicationQueueSize, lagSeconds: node.replicationLagSeconds })}
 												</Badge>
 											{/if}
 										</Table.Cell>

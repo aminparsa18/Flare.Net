@@ -13,6 +13,7 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import * as m from '$lib/paraglide/messages';
 
 	const views = savedViewsContext.get();
 
@@ -20,8 +21,22 @@
 		return new Date(iso).toLocaleString(undefined, { hour12: false });
 	}
 
+	// Reuses the nav_* labels rather than a fourth copy of "Logs"/"Traces"/"Metrics" -
+	// same concept, same translated text, and PageType's exact values are drawn from the
+	// same three pages the nav already names.
+	function pageTypeLabel(pageType: SavedView['pageType']): string {
+		switch (pageType) {
+			case 'Logs':
+				return m.nav_logs();
+			case 'Traces':
+				return m.nav_traces();
+			case 'Metrics':
+				return m.nav_metrics();
+		}
+	}
+
 	async function handleDelete(view: SavedView): Promise<void> {
-		if (!confirm(`Delete saved view "${view.name}"? This cannot be undone.`)) return;
+		if (!confirm(m.savedViewTable_confirmDelete({ name: view.name }))) return;
 		await views.remove(view.id);
 	}
 
@@ -41,9 +56,9 @@
 </script>
 
 <div class="border-b px-4 py-3">
-	<h1 class="text-sm font-semibold">Views</h1>
+	<h1 class="text-sm font-semibold">{m.savedViewTable_heading()}</h1>
 	<p class="text-muted-foreground text-xs">
-		Named, reloadable filters saved from Logs, Traces, or Metrics. Save one from a page's own toolbar.
+		{m.savedViewTable_description()}
 	</p>
 </div>
 
@@ -61,8 +76,8 @@
 			<Empty.Media>
 				<LayoutGridIcon class="text-muted-foreground size-8" />
 			</Empty.Media>
-			<Empty.Title>No saved views yet</Empty.Title>
-			<Empty.Description>Save one from the "Views" control in the Logs, Traces, or Metrics toolbar.</Empty.Description>
+			<Empty.Title>{m.savedViewTable_emptyTitle()}</Empty.Title>
+			<Empty.Description>{m.savedViewTable_emptyDescription()}</Empty.Description>
 		</Empty.Header>
 	</Empty.Root>
 {:else}
@@ -70,10 +85,10 @@
 		<Table.Root>
 			<Table.Header>
 				<Table.Row>
-					<Table.Head>Name</Table.Head>
-					<Table.Head>Page</Table.Head>
-					<Table.Head>Updated</Table.Head>
-					<Table.Head class="text-right">Actions</Table.Head>
+					<Table.Head>{m.savedViewTable_nameColumn()}</Table.Head>
+					<Table.Head>{m.savedViewTable_pageColumn()}</Table.Head>
+					<Table.Head>{m.savedViewTable_updatedColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.savedViewTable_actionsColumn()}</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
@@ -85,25 +100,25 @@
 								<p class="text-muted-foreground font-normal">{view.description}</p>
 							{/if}
 						</Table.Cell>
-						<Table.Cell><Badge variant="outline">{view.pageType}</Badge></Table.Cell>
+						<Table.Cell><Badge variant="outline">{pageTypeLabel(view.pageType)}</Badge></Table.Cell>
 						<Table.Cell class="text-muted-foreground">{formatDate(view.updatedAt)}</Table.Cell>
 						<Table.Cell class="text-right">
-							<Button variant="ghost" size="sm" href={savedViewPath(view)}>Open</Button>
-							<Button variant="ghost" size="icon-sm" title="Copy shareable link" onclick={() => handleCopyLink(view)}>
+							<Button variant="ghost" size="sm" href={savedViewPath(view)}>{m.savedViewTable_open()}</Button>
+							<Button variant="ghost" size="icon-sm" title={m.savedViewTable_copyLink()} onclick={() => handleCopyLink(view)}>
 								{#if copiedId === view.id}
 									<CheckIcon />
 								{:else}
 									<LinkIcon />
 								{/if}
 							</Button>
-							<Button variant="ghost" size="icon-sm" title="Rename" onclick={() => views.openRename(view)}>
+							<Button variant="ghost" size="icon-sm" title={m.savedViewTable_rename()} onclick={() => views.openRename(view)}>
 								<PencilIcon />
 							</Button>
 							<Button
 								variant="ghost"
 								size="icon-sm"
 								class="text-destructive hover:text-destructive"
-								title="Delete"
+								title={m.savedViewTable_delete()}
 								onclick={() => handleDelete(view)}
 							>
 								<Trash2Icon />

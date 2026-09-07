@@ -28,7 +28,8 @@
 	import { ingestionContext } from '$lib/ingestion/context';
 	import { layoutGraph } from '$lib/resources/layout';
 	import TopologyNode from './TopologyNode.svelte';
-	import { formatAge, formatCount, secondsSince } from '$lib/ingestion/format';
+	import { formatAge, formatCount, secondsSince, signalLabel } from '$lib/ingestion/format';
+	import * as m from '$lib/paraglide/messages';
 	import {
 		DOWN_UTILIZATION_PERCENT,
 		WARN_UTILIZATION_PERCENT,
@@ -69,16 +70,28 @@
 				position: { x: 0, y: 0 },
 				data: {
 					kind: 'receivers',
-					title: 'OTLP Receivers',
+					title: m.ingestionTopology_receiversTitle(),
 					tone: 'default',
-					lines: [{ label: 'Ingress', value: `${formatCount(stats.totals.arrivalsPerMinute)} req/min` }],
-					badges: ['gRPC :4317', 'HTTP :4318']
+					lines: [
+						{
+							label: m.ingestionTopology_ingressLabel(),
+							value: m.ingestionTopology_ingressValue({ count: formatCount(stats.totals.arrivalsPerMinute) })
+						}
+					],
+					// Same "gRPC :4317"/"HTTP :4318" wording as IngestionReceivers.svelte's own
+					// receiver labels - reuses its message keys rather than defining a third
+					// identical pair here (see ingestion/format.ts's own remarks on the
+					// deliberately-duplicated-per-surface *arrays*; the translated text itself
+					// doesn't need a fourth copy).
+					badges: [m.ingestionReceivers_grpcLabel(), m.ingestionReceivers_httpLabel()]
 				}
 			},
 			{
 				id: 'storage',
 				type: 'ingestion-topology',
 				position: { x: 0, y: 0 },
+				// "ClickHouse" - a product name, not translated (same convention as the
+				// <code>system.part_log</code>-style identifiers elsewhere on this page).
 				data: { kind: 'storage', title: 'ClickHouse', tone: 'default', lines: [] }
 			}
 		];
@@ -101,21 +114,30 @@
 			const streamLines: TopologyLine[] = stream
 				? [
 						{
-							label: 'Buffered',
-							value: pct !== null ? `${formatCount(stream.length)} (${pct}%)` : formatCount(stream.length),
+							label: m.ingestionTopology_bufferedLabel(),
+							value:
+								pct !== null
+									? m.ingestionTopology_bufferedValuePercent({ count: formatCount(stream.length), percent: pct })
+									: formatCount(stream.length),
 							tone: streamTone
 						},
 						...(streamStuck
-							? ([{ label: 'Pending', value: `${formatCount(stream.pendingCount)} stuck`, tone: 'destructive' }] as TopologyLine[])
+							? ([
+									{
+										label: m.ingestionTopology_pendingLabel(),
+										value: m.ingestionTopology_pendingStuckValue({ count: formatCount(stream.pendingCount) }),
+										tone: 'destructive'
+									}
+								] as TopologyLine[])
 							: [])
 					]
-				: [{ label: 'Buffered', value: 'no traffic yet' }];
+				: [{ label: m.ingestionTopology_bufferedLabel(), value: m.ingestionTopology_noTrafficYet() }];
 
 			topoNodes.push({
 				id: `stream-${signal}`,
 				type: 'ingestion-topology',
 				position: { x: 0, y: 0 },
-				data: { kind: 'stream', title: signal, tone: streamTone, lines: streamLines }
+				data: { kind: 'stream', title: signalLabel(signal), tone: streamTone, lines: streamLines }
 			});
 
 			// Same computeFlushStatus PipelineFlushHealthTable uses - a worker that recovered
@@ -129,8 +151,11 @@
 
 			const workerLines: TopologyLine[] = worker
 				? [
-						{ label: 'Last flush', value: worker.lastFlushAt ? formatAge(secondsSince(worker.lastFlushAt)) : 'never' },
-						{ label: 'Status', value: flushStatus!.label, tone: workerTone }
+						{
+							label: m.ingestionTopology_lastFlushLabel(),
+							value: worker.lastFlushAt ? formatAge(secondsSince(worker.lastFlushAt)) : m.ingestionTopology_neverValue()
+						},
+						{ label: m.ingestionTopology_statusLabel(), value: flushStatus!.label, tone: workerTone }
 					]
 				: [];
 
@@ -138,7 +163,7 @@
 				id: `worker-${signal}`,
 				type: 'ingestion-topology',
 				position: { x: 0, y: 0 },
-				data: { kind: 'worker', title: `${signal} consumer`, tone: workerTone, lines: workerLines }
+				data: { kind: 'worker', title: m.ingestionTopology_consumerTitle({ signal: signalLabel(signal) }), tone: workerTone, lines: workerLines }
 			});
 
 			topoEdges.push(
@@ -158,9 +183,11 @@
 				position: { x: 0, y: 0 },
 				data: {
 					kind: 'rejected',
-					title: 'Rejected',
+					title: m.ingestionTopology_rejectedTitle(),
 					tone: 'destructive',
-					lines: [{ label: 'This window', value: formatCount(stats.totals.rejectedInWindow), tone: 'destructive' }]
+					lines: [
+						{ label: m.ingestionTopology_thisWindowLabel(), value: formatCount(stats.totals.rejectedInWindow), tone: 'destructive' }
+					]
 				}
 			});
 			topoEdges.push({
@@ -181,14 +208,14 @@
 		{#snippet child({ props })}
 			<Button {...props} variant="outline" size="sm">
 				<WaypointsIcon data-icon="inline-start" />
-				Topology
+				{m.ingestionTopology_triggerLabel()}
 			</Button>
 		{/snippet}
 	</Dialog.Trigger>
 	<Dialog.Content class="flex h-[80vh] w-[80vw] max-w-[80vw] flex-col sm:max-w-[80vw]">
 		<Dialog.Header class="shrink-0">
-			<Dialog.Title>Ingestion topology</Dialog.Title>
-			<Dialog.Description>Where telemetry is flowing right now, and where it's getting stuck.</Dialog.Description>
+			<Dialog.Title>{m.ingestionTopology_dialogTitle()}</Dialog.Title>
+			<Dialog.Description>{m.ingestionTopology_dialogDescription()}</Dialog.Description>
 		</Dialog.Header>
 		{#if !ingestion.stats || !ingestion.pipeline}
 			<div class="flex flex-1 items-center justify-center">

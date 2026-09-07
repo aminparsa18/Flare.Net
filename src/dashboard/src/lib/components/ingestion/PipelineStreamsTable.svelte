@@ -14,8 +14,9 @@
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatAge, formatCount } from '$lib/ingestion/format';
+	import { formatAge, formatCount, signalLabel } from '$lib/ingestion/format';
 	import { DOWN_UTILIZATION_PERCENT, WARN_UTILIZATION_PERCENT, isBacklogStuck, utilizationPercent } from '$lib/ingestion/health';
+	import * as m from '$lib/paraglide/messages';
 
 	const ingestion = ingestionContext.get();
 
@@ -37,21 +38,18 @@
 </script>
 
 <div class="px-4 pb-4">
-	<h2 class="mb-2 text-sm font-medium">Pipeline buffers</h2>
+	<h2 class="mb-2 text-sm font-medium">{m.pipelineStreamsTable_heading()}</h2>
 	<Table.Root>
 		<Table.Header>
 			<Table.Row>
-				<Table.Head>Signal</Table.Head>
-				<Table.Head class="text-right">Buffer utilization</Table.Head>
-				<Table.Head class="text-right">Lag</Table.Head>
-				<Table.Head
-					class="text-right"
-					title="Delivered to the flush worker, not yet acknowledged - normal in small numbers while a batch is in flight. Only colored once an entry has actually sat unacked for 5+ minutes, not just for being nonzero."
-				>
-					Pending
+				<Table.Head>{m.pipelineStreamsTable_signalColumn()}</Table.Head>
+				<Table.Head class="text-right">{m.pipelineStreamsTable_bufferUtilizationColumn()}</Table.Head>
+				<Table.Head class="text-right">{m.pipelineStreamsTable_lagColumn()}</Table.Head>
+				<Table.Head class="text-right" title={m.pipelineStreamsTable_pendingColumnTooltip()}>
+					{m.pipelineStreamsTable_pendingColumn()}
 				</Table.Head>
-				<Table.Head class="text-right">Consumers</Table.Head>
-				<Table.Head class="text-right">Oldest pending</Table.Head>
+				<Table.Head class="text-right">{m.pipelineStreamsTable_consumersColumn()}</Table.Head>
+				<Table.Head class="text-right">{m.pipelineStreamsTable_oldestPendingColumn()}</Table.Head>
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
@@ -59,9 +57,9 @@
 				{@const pct = utilizationPercent(stream)}
 				<Table.Row>
 					<Table.Cell class="flex items-center gap-2">
-						<span class="font-medium">{stream.signal}</span>
+						<span class="font-medium">{signalLabel(stream.signal)}</span>
 						{#if !stream.available}
-							<Badge variant="outline">no traffic yet</Badge>
+							<Badge variant="outline">{m.pipelineStreamsTable_noTrafficYet()}</Badge>
 						{/if}
 					</Table.Cell>
 					<Table.Cell class="text-right">

@@ -9,6 +9,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { savedViewsContext } from '$lib/saved-views/context';
+	import * as m from '$lib/paraglide/messages';
 
 	const views = savedViewsContext.get();
 
@@ -41,26 +42,26 @@
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Rename view</Dialog.Title>
-			<Dialog.Description>Update this saved view's name or description. Its filter is unchanged.</Dialog.Description>
+			<Dialog.Title>{m.renameViewDialog_title()}</Dialog.Title>
+			<Dialog.Description>{m.renameViewDialog_description()}</Dialog.Description>
 		</Dialog.Header>
 		<form class="space-y-4" onsubmit={handleSubmit}>
 			<div class="space-y-2">
-				<label for="rename-view-name" class="text-sm font-medium">Name</label>
+				<label for="rename-view-name" class="text-sm font-medium">{m.renameViewDialog_nameLabel()}</label>
 				<Input id="rename-view-name" bind:value={name} required />
 			</div>
 			<div class="space-y-2">
-				<label for="rename-view-description" class="text-sm font-medium">Description</label>
+				<label for="rename-view-description" class="text-sm font-medium">{m.renameViewDialog_descriptionLabel()}</label>
 				<Textarea id="rename-view-description" bind:value={description} rows={2} />
 			</div>
 			{#if views.saveError}
 				<p class="text-destructive text-sm">{views.saveError}</p>
 			{/if}
 			<Dialog.Footer>
-				<Button type="button" variant="outline" onclick={() => views.closeRename()}>Cancel</Button>
+				<Button type="button" variant="outline" onclick={() => views.closeRename()}>{m.renameViewDialog_cancel()}</Button>
 				<Button type="submit" disabled={views.saving}>
 					{#if views.saving}<Spinner class="size-4" />{/if}
-					Save
+					{m.renameViewDialog_save()}
 				</Button>
 			</Dialog.Footer>
 		</form>
