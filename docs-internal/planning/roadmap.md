@@ -23,22 +23,20 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Dashboard i18n: remaining rollout phases (Phases 6-7).** Branch
+- **Dashboard i18n: remaining rollout phase (Phase 7).** Branch
   `i18n/dashboard-paraglide-en-zh-cn` brought up Paraglide JS (en +
   zh-CN) from scratch — Phase 0 (infra + app shell + login), Phase 1
   (Logs Explorer), Phase 2 (Alerts), Phase 3 (Traces, Metrics,
-  Resources), Phase 4 (Ingestion, Indexing, Saved Views), and Phase 5
-  (Auth settings) are done, committed, and verified; everything else
-  in the dashboard is still 100% hardcoded English. Same mechanical
-  pattern each time (extract strings to `messages/en.json`,
-  hand-author the zh-CN translation, wire `m.*()` calls, `npm run
-  check` + a grep sweep for stragglers to verify) — pick up wherever
-  is next:
-  - **Phase 6 — `src/lib/data-sources/catalog.ts`** (own PR — largest
-    single-file effort, ~14 `GuideItem`s' prose). Leave `code.text`/
-    `code.label` blocks untranslated (literal shell/YAML/env-var
-    snippets — translating them breaks copy-paste). Also
-    `routes/data-sources/+page.svelte`'s chrome text.
+  Resources), Phase 4 (Ingestion, Indexing, Saved Views), Phase 5
+  (Auth settings), and Phase 6 (`src/lib/data-sources/catalog.ts`'s
+  ~14 `GuideItem`s' prose plus `routes/data-sources/+page.svelte`'s
+  chrome text — `code.text`/`code.label` blocks deliberately left
+  untranslated, same as always) are done, committed, and verified;
+  everything else in the dashboard is still 100% hardcoded English.
+  Same mechanical pattern each time (extract strings to
+  `messages/en.json`, hand-author the zh-CN translation, wire
+  `m.*()` calls, `npm run check` + a grep sweep for stragglers to
+  verify):
   - **Phase 7 — sweep for stragglers** across the whole `src/dashboard/src`
     tree (toast/error strings in `*-api.ts` catch blocks, `CommandPalette.svelte`,
     `TerminalModal.svelte`) once phases 2-6 land.

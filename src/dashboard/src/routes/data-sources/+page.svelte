@@ -13,6 +13,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { cn } from '$lib/utils.js';
 	import SearchIcon from '@lucide/svelte/icons/search';
+	import * as m from '$lib/paraglide/messages';
 
 	// window.location.hostname is a correct guess for the common case (docker-compose:
 	// dashboard/api/ingest all on one host, different ports - see docker-compose.yml)
@@ -50,19 +51,18 @@
 </script>
 
 <svelte:head>
-	<title>Data sources · Flare</title>
+	<title>{m.dataSourcesPage_title()}</title>
 </svelte:head>
 
 <div class="flex h-full min-h-0 flex-col">
 	<div class="shrink-0 border-b px-6 py-4">
-		<h1 class="text-lg font-semibold tracking-tight">Data sources</h1>
+		<h1 class="text-lg font-semibold tracking-tight">{m.dataSourcesPage_heading()}</h1>
 		<p class="text-muted-foreground mt-1 text-sm">
-			Flare.Ingest speaks plain OTLP (and can pull Prometheus metrics directly) - pick where your data is coming from
-			for a ready-to-run snippet.
+			{m.dataSourcesPage_description()}
 		</p>
 	</div>
 
-	<div role="tablist" aria-label="Data source category" class="flex shrink-0 gap-1 overflow-x-auto border-b px-6">
+	<div role="tablist" aria-label={m.dataSourcesPage_categoryTablistLabel()} class="flex shrink-0 gap-1 overflow-x-auto border-b px-6">
 		{#each categories as category (category.id)}
 			<button
 				type="button"
@@ -86,7 +86,7 @@
 			<div class="p-3 pb-2">
 				<div class="relative">
 					<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-					<Input class="pl-8" placeholder="Search" bind:value={query} />
+					<Input class="pl-8" placeholder={m.dataSourcesPage_searchPlaceholder()} bind:value={query} />
 				</div>
 			</div>
 			<div class="min-h-0 flex-1 overflow-y-auto p-2 pt-0">
@@ -104,7 +104,7 @@
 						{item.title}
 					</button>
 				{:else}
-					<p class="text-muted-foreground px-2.5 py-2 text-sm">No matches.</p>
+					<p class="text-muted-foreground px-2.5 py-2 text-sm">{m.dataSourcesPage_noMatches()}</p>
 				{/each}
 			</div>
 		</div>

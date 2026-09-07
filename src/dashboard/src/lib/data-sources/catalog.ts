@@ -29,6 +29,7 @@
 // IngestApiKeyValidationMiddleware never applies to it at all.
 
 import type { Component } from 'svelte';
+import * as m from '$lib/paraglide/messages';
 import BoxesIcon from '@lucide/svelte/icons/boxes';
 import ContainerIcon from '@lucide/svelte/icons/container';
 import TerminalIcon from '@lucide/svelte/icons/terminal';
@@ -104,20 +105,19 @@ function buildItems(ep: GuideEndpoints): Record<string, GuideItem> {
 	return {
 		kubernetes: {
 			id: 'kubernetes',
-			title: 'Kubernetes',
+			title: m.dataSourceCatalog_kubernetesTitle(),
 			icon: BoxesIcon,
-			intro:
-				"Run the OpenTelemetry Collector as a DaemonSet so it tails every pod's container logs and forwards them to Flare.Ingest over OTLP.",
+			intro: m.dataSourceCatalog_kubernetesIntro(),
 			steps: [
 				{
-					heading: 'Add the OpenTelemetry Helm repo',
+					heading: m.dataSourceCatalog_kubernetesStep1Heading(),
 					code: {
 						text: 'helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts\nhelm repo update'
 					}
 				},
 				{
-					heading: 'Point the collector at Flare.Ingest',
-					body: 'Replace the endpoint below with wherever Flare.Ingest is reachable from inside the cluster - a Service DNS name if it runs in-cluster too, an external host:port otherwise.',
+					heading: m.dataSourceCatalog_kubernetesStep2Heading(),
+					body: m.dataSourceCatalog_kubernetesStep2Body(),
 					code: {
 						label: 'values.yaml',
 						text: `mode: daemonset
@@ -137,21 +137,20 @@ config:
 					}
 				},
 				{
-					heading: 'Install',
+					heading: m.dataSourceCatalog_kubernetesStep3Heading(),
 					code: { text: 'helm install otel-collector open-telemetry/opentelemetry-collector -f values.yaml' }
 				}
 			]
 		},
 		docker: {
 			id: 'docker',
-			title: 'Docker',
+			title: m.dataSourceCatalog_dockerTitle(),
 			icon: ContainerIcon,
-			intro:
-				'Already have an OTLP exporter in your app? Point it at Flare.Ingest with standard OTEL_EXPORTER_OTLP_* environment variables - no collector needed in between.',
+			intro: m.dataSourceCatalog_dockerIntro(),
 			steps: [
 				{
-					heading: 'Same docker-compose network as Flare',
-					body: '"ingest" is the service name Flare\'s own docker-compose.yml gives Flare.Ingest - use whatever name your Flare.Ingest container has, as long as both containers share a network.',
+					heading: m.dataSourceCatalog_dockerStep1Heading(),
+					body: m.dataSourceCatalog_dockerStep1Body(),
 					code: {
 						label: 'docker-compose.yml',
 						text: `services:
@@ -165,8 +164,8 @@ config:
 					}
 				},
 				{
-					heading: 'Running elsewhere?',
-					body: 'Same variables work for a container (or any process) outside the compose network - point at the published host ports instead.',
+					heading: m.dataSourceCatalog_dockerStep2Heading(),
+					body: m.dataSourceCatalog_dockerStep2Body(),
 					code: {
 						text: `OTEL_EXPORTER_OTLP_ENDPOINT=${ep.grpcUri}\nOTEL_EXPORTER_OTLP_PROTOCOL=grpc\nOTEL_SERVICE_NAME=your-app`
 					}
@@ -175,13 +174,12 @@ config:
 		},
 		linux: {
 			id: 'linux',
-			title: 'Linux',
+			title: m.dataSourceCatalog_linuxTitle(),
 			icon: TerminalIcon,
-			intro:
-				'Run the OpenTelemetry Collector to tail log files (or receive OTLP from local apps) and forward everything to Flare.',
+			intro: m.dataSourceCatalog_linuxIntro(),
 			steps: [
 				{
-					heading: 'Download otelcol-contrib',
+					heading: m.dataSourceCatalog_linuxStep1Heading(),
 					code: {
 						text: `curl -L -o otelcol-contrib.tar.gz \\
   https://github.com/open-telemetry/opentelemetry-collector-releases/releases/latest/download/otelcol-contrib_linux_amd64.tar.gz
@@ -190,7 +188,7 @@ sudo mv otelcol-contrib /usr/local/bin/`
 					}
 				},
 				{
-					heading: 'Configure it',
+					heading: m.dataSourceCatalog_linuxStep2Heading(),
 					code: {
 						label: '/etc/otelcol/config.yaml',
 						text: `receivers:
@@ -209,27 +207,26 @@ service:
 					}
 				},
 				{
-					heading: 'Run it',
-					body: 'Wrap this in a systemd unit for anything beyond a quick test.',
+					heading: m.dataSourceCatalog_linuxStep3Heading(),
+					body: m.dataSourceCatalog_linuxStep3Body(),
 					code: { text: 'otelcol-contrib --config /etc/otelcol/config.yaml' }
 				}
 			]
 		},
 		windows: {
 			id: 'windows',
-			title: 'Windows',
+			title: m.dataSourceCatalog_windowsTitle(),
 			icon: MonitorIcon,
-			intro:
-				'Run the OpenTelemetry Collector as a local OTLP relay, or skip it entirely and point an app’s own exporter straight at Flare (see Languages & Frameworks) - same protocol either way.',
+			intro: m.dataSourceCatalog_windowsIntro(),
 			steps: [
 				{
-					heading: 'Download & run the Collector',
-					body: 'Grab otelcol-contrib_windows_amd64.tar.gz from the OpenTelemetry Collector releases page.',
+					heading: m.dataSourceCatalog_windowsStep1Heading(),
+					body: m.dataSourceCatalog_windowsStep1Body(),
 					code: { text: 'otelcol-contrib.exe --config config.yaml' }
 				},
 				{
-					heading: 'Configure it',
-					body: 'Receives OTLP from apps on this machine and forwards to Flare - add the contrib windowseventlog receiver alongside otlp if you also want the Windows Event Log.',
+					heading: m.dataSourceCatalog_windowsStep2Heading(),
+					body: m.dataSourceCatalog_windowsStep2Body(),
 					code: {
 						label: 'config.yaml',
 						text: `receivers:
@@ -253,18 +250,18 @@ service:
 		},
 		dotnet: {
 			id: 'dotnet',
-			title: '.NET',
+			title: m.dataSourceCatalog_dotnetTitle(),
 			icon: InfinityIcon,
-			intro: 'The standard OpenTelemetry .NET SDK exports logs straight to Flare - no Flare-specific package required.',
+			intro: m.dataSourceCatalog_dotnetIntro(),
 			steps: [
 				{
-					heading: 'Add the packages',
+					heading: m.dataSourceCatalog_dotnetStep1Heading(),
 					code: {
 						text: 'dotnet add package OpenTelemetry.Extensions.Logging\ndotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol'
 					}
 				},
 				{
-					heading: 'Wire up the exporter',
+					heading: m.dataSourceCatalog_dotnetStep2Heading(),
 					code: {
 						label: 'Program.cs',
 						text: `using OpenTelemetry.Logs;
@@ -281,8 +278,8 @@ builder.Logging.AddOpenTelemetry(options =>
 					}
 				},
 				{
-					heading: 'Using Aspire?',
-					body: 'Flare ships an Aspire.Flare package that does the above for you, reading the endpoint from a connection string (e.g. .WithReference(flare) on the AppHost side) instead of a hardcoded URI.',
+					heading: m.dataSourceCatalog_dotnetStep3Heading(),
+					body: m.dataSourceCatalog_dotnetStep3Body(),
 					code: {
 						text: 'dotnet add package Aspire.Flare'
 					}
@@ -295,18 +292,18 @@ builder.Logging.AddOpenTelemetry(options =>
 		},
 		python: {
 			id: 'python',
-			title: 'Python',
+			title: m.dataSourceCatalog_pythonTitle(),
 			icon: CodeIcon,
-			intro: "Zero-code instrumentation - wrap your app's start command, no source changes needed.",
+			intro: m.dataSourceCatalog_pythonIntro(),
 			steps: [
 				{
-					heading: 'Install',
+					heading: m.dataSourceCatalog_pythonStep1Heading(),
 					code: {
 						text: 'pip install opentelemetry-distro opentelemetry-exporter-otlp\nopentelemetry-bootstrap -a install'
 					}
 				},
 				{
-					heading: 'Run your app through it',
+					heading: m.dataSourceCatalog_pythonStep2Heading(),
 					code: {
 						text: `OTEL_SERVICE_NAME=your-service \\
 OTEL_LOGS_EXPORTER=otlp \\
@@ -318,13 +315,16 @@ opentelemetry-instrument python app.py`
 		},
 		nodejs: {
 			id: 'nodejs',
-			title: 'Node.js',
+			title: m.dataSourceCatalog_nodejsTitle(),
 			icon: HexagonIcon,
-			intro: 'Zero-code instrumentation via the auto-instrumentations meta-package.',
+			intro: m.dataSourceCatalog_nodejsIntro(),
 			steps: [
-				{ heading: 'Install', code: { text: 'npm install --save @opentelemetry/auto-instrumentations-node' } },
 				{
-					heading: 'Run your app through it',
+					heading: m.dataSourceCatalog_nodejsStep1Heading(),
+					code: { text: 'npm install --save @opentelemetry/auto-instrumentations-node' }
+				},
+				{
+					heading: m.dataSourceCatalog_nodejsStep2Heading(),
 					code: {
 						text: `OTEL_SERVICE_NAME=your-service \\
 OTEL_LOGS_EXPORTER=otlp \\
@@ -336,18 +336,18 @@ node --require @opentelemetry/auto-instrumentations-node/register app.js`
 		},
 		java: {
 			id: 'java',
-			title: 'Java',
+			title: m.dataSourceCatalog_javaTitle(),
 			icon: CoffeeIcon,
-			intro: 'Zero-code instrumentation via the OpenTelemetry Java agent - attach it and set environment variables, no source changes.',
+			intro: m.dataSourceCatalog_javaIntro(),
 			steps: [
 				{
-					heading: 'Download the agent',
+					heading: m.dataSourceCatalog_javaStep1Heading(),
 					code: {
 						text: 'curl -L -o opentelemetry-javaagent.jar \\\n  https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar'
 					}
 				},
 				{
-					heading: 'Run your app with it attached',
+					heading: m.dataSourceCatalog_javaStep2Heading(),
 					code: {
 						text: `OTEL_SERVICE_NAME=your-service \\
 OTEL_LOGS_EXPORTER=otlp \\
@@ -359,19 +359,19 @@ java -javaagent:opentelemetry-javaagent.jar -jar your-app.jar`
 		},
 		go: {
 			id: 'go',
-			title: 'Go',
+			title: m.dataSourceCatalog_goTitle(),
 			icon: ZapIcon,
-			intro: 'Go has no zero-code agent for logs yet - wire the SDK’s OTLP log exporter directly.',
+			intro: m.dataSourceCatalog_goIntro(),
 			steps: [
 				{
-					heading: 'Add the modules',
+					heading: m.dataSourceCatalog_goStep1Heading(),
 					code: {
 						text: 'go get go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc\ngo get go.opentelemetry.io/otel/sdk/log'
 					}
 				},
 				{
-					heading: 'Wire up the exporter',
-					body: 'The Go logs SDK is newer than traces/metrics and its API has moved faster between releases - check go.opentelemetry.io/otel’s own docs if this doesn’t match your installed version.',
+					heading: m.dataSourceCatalog_goStep2Heading(),
+					body: m.dataSourceCatalog_goStep2Body(),
 					code: {
 						label: 'main.go',
 						text: `exporter, err := otlploggrpc.New(context.Background(),
@@ -392,17 +392,17 @@ global.SetLoggerProvider(provider)`
 		},
 		jenkins: {
 			id: 'jenkins',
-			title: 'Jenkins',
+			title: m.dataSourceCatalog_jenkinsTitle(),
 			icon: WrenchIcon,
-			intro: "Jenkins doesn't speak OTLP itself - which approach fits depends on how it's deployed.",
+			intro: m.dataSourceCatalog_jenkinsIntro(),
 			steps: [
 				{
-					heading: 'Running in a container?',
-					body: 'Nothing Jenkins-specific needed - the Kubernetes/Docker items on the Platforms tab already tail container stdout/stderr and forward it as OTLP.'
+					heading: m.dataSourceCatalog_jenkinsStep1Heading(),
+					body: m.dataSourceCatalog_jenkinsStep1Body()
 				},
 				{
-					heading: 'Running on a VM or bare metal?',
-					body: 'Same idea as the Platforms tab\'s Linux/Windows items - point the Collector\'s filelog receiver at Jenkins\' own log file instead of /var/log/**/*.log (the default location varies by install: a .deb/.rpm package writes to /var/log/jenkins/jenkins.log; running the .war directly just logs to stdout, so tail wherever that\'s redirected to).',
+					heading: m.dataSourceCatalog_jenkinsStep2Heading(),
+					body: m.dataSourceCatalog_jenkinsStep2Body(),
 					code: {
 						label: 'receivers.filelog (rest of config.yaml matches the Linux item)',
 						text: `receivers:
@@ -411,8 +411,8 @@ global.SetLoggerProvider(provider)`
 					}
 				},
 				{
-					heading: 'Want per-build traces instead of raw log lines?',
-					body: "Jenkins' official OpenTelemetry plugin exports each pipeline run as OTel traces (one span per stage/step) via OTLP directly - no Collector needed. It's built on the OTel Java SDK, so it reads the same standard environment variables; whether it also ships build console logs (not just traces) depends on your installed plugin version's own config screen (Manage Jenkins → Configure System → OpenTelemetry).",
+					heading: m.dataSourceCatalog_jenkinsStep3Heading(),
+					body: m.dataSourceCatalog_jenkinsStep3Body(),
 					code: {
 						text: `OTEL_EXPORTER_OTLP_ENDPOINT=${ep.grpcUri}\nOTEL_EXPORTER_OTLP_PROTOCOL=grpc`
 					}
@@ -421,17 +421,17 @@ global.SetLoggerProvider(provider)`
 		},
 		ansible: {
 			id: 'ansible',
-			title: 'Ansible',
+			title: m.dataSourceCatalog_ansibleTitle(),
 			icon: WorkflowIcon,
-			intro: 'A playbook run is ephemeral, not a long-running service - the community.general collection ships an OpenTelemetry callback plugin that exports each run as an OTel trace (one span per task) instead.',
+			intro: m.dataSourceCatalog_ansibleIntro(),
 			steps: [
 				{
-					heading: 'Install the collection',
+					heading: m.dataSourceCatalog_ansibleStep1Heading(),
 					code: { text: 'ansible-galaxy collection install community.general' }
 				},
 				{
-					heading: 'Enable the callback and point it at Flare',
-					body: 'Double-check these env var names against your installed community.general version - callback plugin configuration has shifted across releases.',
+					heading: m.dataSourceCatalog_ansibleStep2Heading(),
+					body: m.dataSourceCatalog_ansibleStep2Body(),
 					code: {
 						text: `ANSIBLE_CALLBACKS_ENABLED=community.general.opentelemetry \\
 OTEL_EXPORTER_OTLP_ENDPOINT=${ep.grpcUri} \\
@@ -440,44 +440,44 @@ ansible-playbook site.yml`
 					}
 				},
 				{
-					heading: 'Running via AWX/Tower, or just want the raw log?',
-					body: 'Treat it like any other Linux service and tail its log file instead - see the Platforms tab.'
+					heading: m.dataSourceCatalog_ansibleStep3Heading(),
+					body: m.dataSourceCatalog_ansibleStep3Body()
 				}
 			]
 		},
 		terraform: {
 			id: 'terraform',
-			title: 'Terraform',
+			title: m.dataSourceCatalog_terraformTitle(),
 			icon: LayersIcon,
-			intro: "A terraform apply run is even more ephemeral than a playbook, and the CLI has no OTLP exporter of its own - get its debug log onto disk, then forward that.",
+			intro: m.dataSourceCatalog_terraformIntro(),
 			steps: [
 				{
-					heading: "Turn on Terraform's own debug log",
+					heading: m.dataSourceCatalog_terraformStep1Heading(),
 					code: { text: 'TF_LOG=DEBUG\nTF_LOG_PATH=terraform.log\nterraform apply' }
 				},
 				{
-					heading: 'On a persistent host',
-					body: "Tail terraform.log the same way the Platforms tab's Linux item tails any other log file - point the Collector's filelog receiver at it."
+					heading: m.dataSourceCatalog_terraformStep2Heading(),
+					body: m.dataSourceCatalog_terraformStep2Body()
 				},
 				{
-					heading: 'In ephemeral CI (e.g. a GitHub-hosted runner)',
-					body: "There's no host left for a Collector to read from once the job ends - see the GitHub Actions item for shipping a run's outcome directly from the workflow instead."
+					heading: m.dataSourceCatalog_terraformStep3Heading(),
+					body: m.dataSourceCatalog_terraformStep3Body()
 				}
 			]
 		},
 		'github-actions': {
 			id: 'github-actions',
-			title: 'GitHub Actions',
+			title: m.dataSourceCatalog_githubActionsTitle(),
 			icon: CirclePlayIcon,
-			intro: 'No native OTLP exporter for Actions - the reliable option is a workflow step that ships the job\'s outcome directly, the same shape as the Custom tab\'s raw curl example.',
+			intro: m.dataSourceCatalog_githubActionsIntro(),
 			steps: [
 				{
-					heading: 'Self-hosted runners you control?',
-					body: 'Treat the runner like any other Linux/Windows host - see the Platforms tab. Nothing GitHub-specific needed.'
+					heading: m.dataSourceCatalog_githubActionsStep1Heading(),
+					body: m.dataSourceCatalog_githubActionsStep1Body()
 				},
 				{
-					heading: 'GitHub-hosted runners',
-					body: "The runner disappears once the job ends, so add a step that reports the outcome directly instead, using GitHub's own workflow context. This is a minimal example (one log event per run) - free-text values like a commit message would need real JSON escaping (e.g. via jq) before going in the body.",
+					heading: m.dataSourceCatalog_githubActionsStep2Heading(),
+					body: m.dataSourceCatalog_githubActionsStep2Body(),
 					code: {
 						label: '.github/workflows/*.yml',
 						text: `- name: Report to Flare
@@ -499,13 +499,13 @@ ansible-playbook site.yml`
 		},
 		vector: {
 			id: 'vector',
-			title: 'Vector',
+			title: m.dataSourceCatalog_vectorTitle(),
 			icon: MoveRightIcon,
-			intro: "Vector ships a native OpenTelemetry sink - point it at Flare.Ingest directly, no separate Collector needed.",
+			intro: m.dataSourceCatalog_vectorIntro(),
 			steps: [
 				{
-					heading: 'Add an opentelemetry sink',
-					body: 'inputs should list whatever source or transform is already producing the events you want shipped - a file source tailing a log, a docker_logs source, etc.',
+					heading: m.dataSourceCatalog_vectorStep1Heading(),
+					body: m.dataSourceCatalog_vectorStep1Body(),
 					code: {
 						label: 'vector.yaml',
 						text: `sinks:
@@ -523,12 +523,12 @@ ansible-playbook site.yml`
 		},
 		'fluent-bit': {
 			id: 'fluent-bit',
-			title: 'Fluent Bit',
+			title: m.dataSourceCatalog_fluentBitTitle(),
 			icon: DropletIcon,
-			intro: 'Fluent Bit ships a built-in OpenTelemetry output plugin - point it at Flare.Ingest directly, no separate Collector needed.',
+			intro: m.dataSourceCatalog_fluentBitIntro(),
 			steps: [
 				{
-					heading: 'Add an opentelemetry output',
+					heading: m.dataSourceCatalog_fluentBitStep1Heading(),
 					code: {
 						label: 'fluent-bit.conf',
 						text: `[OUTPUT]
@@ -543,13 +543,13 @@ ansible-playbook site.yml`
 		},
 		syslog: {
 			id: 'syslog',
-			title: 'Syslog',
+			title: m.dataSourceCatalog_syslogTitle(),
 			icon: RadioTowerIcon,
-			intro: "Flare.Ingest has no syslog listener of its own - route through the OpenTelemetry Collector's syslog receiver instead, same pattern as any other source that doesn't speak OTLP.",
+			intro: m.dataSourceCatalog_syslogIntro(),
 			steps: [
 				{
-					heading: 'Configure the Collector',
-					body: "Runs alongside whatever else the Collector is already doing on this host - see the Platforms tab for the full install steps (this is just the receiver/exporter pair to add to that config).",
+					heading: m.dataSourceCatalog_syslogStep1Heading(),
+					body: m.dataSourceCatalog_syslogStep1Body(),
 					code: {
 						label: 'config.yaml',
 						text: `receivers:
@@ -571,20 +571,19 @@ service:
 				},
 				{
 					heading: '',
-					body: "Point whatever's emitting syslog (a network device, syslog-ng, journald's syslog forwarding, etc.) at this host on port 5514 instead of wherever it was going before."
+					body: m.dataSourceCatalog_syslogStep2Body()
 				}
 			]
 		},
 		prometheus: {
 			id: 'prometheus',
-			title: 'Prometheus',
+			title: m.dataSourceCatalog_prometheusTitle(),
 			icon: FlameIcon,
-			intro:
-				"The only pull-based source on this page - Flare.Ingest scrapes a Prometheus-style /metrics endpoint itself on a timer, instead of something exporting to Flare. No exporter, sidecar, or Collector needed on the target's side.",
+			intro: m.dataSourceCatalog_prometheusIntro(),
 			steps: [
 				{
-					heading: 'Add a scrape target',
-					body: 'Add this to Flare.Ingest\'s configuration (appsettings.json, or an appsettings.Production.json override) and restart it - Job becomes the service.name every point from this target is tagged with, matching the OTel Collector\'s own prometheusreceiver convention.',
+					heading: m.dataSourceCatalog_prometheusStep1Heading(),
+					body: m.dataSourceCatalog_prometheusStep1Body(),
 					code: {
 						label: 'appsettings.json',
 						text: `{
@@ -602,8 +601,8 @@ service:
 					}
 				},
 				{
-					heading: 'Or via docker-compose environment variables',
-					body: 'Same shape, no file to mount - .NET\'s standard double-underscore config-key binding reaches the same array/object structure. "ingest" is Flare\'s own docker-compose.yml service name; the target itself just needs to be reachable from that container\'s network.',
+					heading: m.dataSourceCatalog_prometheusStep2Heading(),
+					body: m.dataSourceCatalog_prometheusStep2Body(),
 					code: {
 						label: 'docker-compose.yml',
 						text: `services:
@@ -614,8 +613,8 @@ service:
 					}
 				},
 				{
-					heading: 'Protected endpoint, or extra labels?',
-					body: 'Headers are sent on every scrape request (e.g. a bearer token). Labels are merged onto every point\'s resource attributes, applied after - and able to override - the computed service.name/service.instance.id.',
+					heading: m.dataSourceCatalog_prometheusStep3Heading(),
+					body: m.dataSourceCatalog_prometheusStep3Body(),
 					code: {
 						label: 'appsettings.json (one target, extended)',
 						text: `{
@@ -627,34 +626,34 @@ service:
 					}
 				},
 				{
-					heading: 'Check it worked',
-					body: 'Give it one scrape interval, then look for the target\'s metric names on the Metrics page, or watch the "Prometheus scrape" row on the Ingestion page\'s Receivers table for real request counts.'
+					heading: m.dataSourceCatalog_prometheusStep4Heading(),
+					body: m.dataSourceCatalog_prometheusStep4Body()
 				}
 			]
 		},
 		custom: {
 			id: 'custom',
-			title: 'Custom / raw OTLP',
+			title: m.dataSourceCatalog_customTitle(),
 			icon: WebhookIcon,
-			intro: 'Flare.Ingest speaks plain OTLP - point any OTLP-capable exporter, collector, or HTTP client at it directly.',
+			intro: m.dataSourceCatalog_customIntro(),
 			steps: [
 				{
-					heading: 'Endpoints',
-					body: `gRPC: ${ep.grpcHostPort} (opentelemetry.proto.collector.logs.v1.LogsService/Export) · HTTP: ${ep.httpUri}/v1/logs (application/json or application/x-protobuf)`
+					heading: m.dataSourceCatalog_customStep1Heading(),
+					body: m.dataSourceCatalog_customStep1Body({ grpcHostPort: ep.grpcHostPort, httpUri: ep.httpUri })
 				},
 				{
-					heading: 'Try it with curl',
+					heading: m.dataSourceCatalog_customStep2Heading(),
 					code: {
 						label: 'HTTP + JSON',
 						text: `curl -s -X POST ${ep.httpUri}/v1/logs \\
   -H "Content-Type: application/json" \\
   -d '{"resourceLogs":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"curl-test"}}]},"scopeLogs":[{"scope":{"name":"manual-test"},"logRecords":[{"timeUnixNano":"1700000000000000000","severityNumber":9,"severityText":"INFO","body":{"stringValue":"hello from curl"}}]}]}]}'`
 					},
-					body: 'Expect 200 {}. The event is buffered for a couple seconds before it lands in ClickHouse, so give Logs a moment before checking.'
+					body: m.dataSourceCatalog_customStep2Body()
 				},
 				{
-					heading: 'If this deployment requires an ingest key',
-					body: 'Anonymous ingest is the default. If yours has been turned to required, create a key from an Admin session and send it as a Bearer token on every export.',
+					heading: m.dataSourceCatalog_customStep3Heading(),
+					body: m.dataSourceCatalog_customStep3Body(),
 					code: {
 						label: 'Create a key (run as an Admin)',
 						text: `curl -s -X POST ${ep.apiOrigin}/api/ingest-keys \\
@@ -678,13 +677,17 @@ service:
 export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory[]; items: Record<string, GuideItem> } {
 	const items = buildItems(ep);
 	const categories: GuideCategory[] = [
-		{ id: 'recommended', label: 'Recommended', itemIds: ['kubernetes', 'docker', 'dotnet', 'custom'] },
-		{ id: 'platforms', label: 'Platforms', itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
-		{ id: 'shippers', label: 'Log Shippers', itemIds: ['vector', 'fluent-bit', 'syslog'] },
-		{ id: 'metrics', label: 'Metrics', itemIds: ['prometheus'] },
-		{ id: 'languages', label: 'Languages & Frameworks', itemIds: ['dotnet', 'python', 'nodejs', 'java', 'go'] },
-		{ id: 'devops', label: 'DevOps', itemIds: ['jenkins', 'ansible', 'terraform', 'github-actions'] },
-		{ id: 'custom', label: 'Custom', itemIds: ['custom'] }
+		{ id: 'recommended', label: m.dataSourceCatalog_categoryRecommended(), itemIds: ['kubernetes', 'docker', 'dotnet', 'custom'] },
+		{ id: 'platforms', label: m.dataSourceCatalog_categoryPlatforms(), itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
+		{ id: 'shippers', label: m.dataSourceCatalog_categoryShippers(), itemIds: ['vector', 'fluent-bit', 'syslog'] },
+		{ id: 'metrics', label: m.dataSourceCatalog_categoryMetrics(), itemIds: ['prometheus'] },
+		{
+			id: 'languages',
+			label: m.dataSourceCatalog_categoryLanguages(),
+			itemIds: ['dotnet', 'python', 'nodejs', 'java', 'go']
+		},
+		{ id: 'devops', label: m.dataSourceCatalog_categoryDevops(), itemIds: ['jenkins', 'ansible', 'terraform', 'github-actions'] },
+		{ id: 'custom', label: m.dataSourceCatalog_categoryCustom(), itemIds: ['custom'] }
 	];
 	return { categories, items };
 }
