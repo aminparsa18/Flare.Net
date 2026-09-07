@@ -14,6 +14,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { indexingContext } from '$lib/indexing/context';
 	import { formatBytes } from '$lib/indexing/format';
+	import * as m from '$lib/paraglide/messages';
 
 	const indexing = indexingContext.get();
 </script>
@@ -22,19 +23,19 @@
 	{#if !indexing.stats || indexing.stats.skipIndexes.length === 0}
 		<Empty.Root>
 			<Empty.Header>
-				<Empty.Title>No skip indexes</Empty.Title>
+				<Empty.Title>{m.indexingSkipIndexesTable_noSkipIndexes()}</Empty.Title>
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
 		<Table.Root>
 			<Table.Header>
 				<Table.Row>
-					<Table.Head>Table</Table.Head>
-					<Table.Head>Index</Table.Head>
-					<Table.Head>Type</Table.Head>
-					<Table.Head>Expression</Table.Head>
-					<Table.Head class="text-right">Compressed</Table.Head>
-					<Table.Head class="text-right">Uncompressed</Table.Head>
+					<Table.Head>{m.indexingSkipIndexesTable_tableColumn()}</Table.Head>
+					<Table.Head>{m.indexingSkipIndexesTable_indexColumn()}</Table.Head>
+					<Table.Head>{m.indexingSkipIndexesTable_typeColumn()}</Table.Head>
+					<Table.Head>{m.indexingSkipIndexesTable_expressionColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.indexingSkipIndexesTable_compressedColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.indexingSkipIndexesTable_uncompressedColumn()}</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>

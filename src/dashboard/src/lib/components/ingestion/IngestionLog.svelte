@@ -23,7 +23,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { ingestionContext } from '$lib/ingestion/context';
-	import { protocolLabel } from '$lib/ingestion/format';
+	import { protocolLabel, signalLabel } from '$lib/ingestion/format';
+	import * as m from '$lib/paraglide/messages';
 
 	const ingestion = ingestionContext.get();
 
@@ -41,11 +42,11 @@
 
 <div id="ingestion-log" class="border-t px-4 py-3">
 	<div class="mb-2 flex items-center gap-2">
-		<h2 class="text-sm font-medium">Ingestion log</h2>
+		<h2 class="text-sm font-medium">{m.ingestionLog_heading()}</h2>
 		{#if filter}
 			<Badge variant="outline" class="gap-1">
-				{filter.signal} · {protocolLabel(filter.protocol)}
-				<button type="button" onclick={() => ingestion.clearLogFilter()} aria-label="Clear filter" class="cursor-pointer">
+				{signalLabel(filter.signal)} · {protocolLabel(filter.protocol)}
+				<button type="button" onclick={() => ingestion.clearLogFilter()} aria-label={m.ingestionLog_clearFilterAriaLabel()} class="cursor-pointer">
 					<XIcon class="size-3" />
 				</button>
 			</Badge>
@@ -54,14 +55,14 @@
 	{#if errors.length === 0}
 		<Empty.Root>
 			<Empty.Header>
-				<Empty.Title>{filter ? 'No matching rejected payloads' : 'No rejected payloads'}</Empty.Title>
+				<Empty.Title>{filter ? m.ingestionLog_noMatchingRejectedTitle() : m.ingestionLog_noRejectedTitle()}</Empty.Title>
 				{#if filter}
 					<Empty.Description>
-						No recent rejections for {filter.signal} · {protocolLabel(filter.protocol)}.
-						<Button variant="link" size="sm" class="h-auto p-0" onclick={() => ingestion.clearLogFilter()}>Clear filter</Button>
+						{m.ingestionLog_noRecentRejectionsFor({ signal: signalLabel(filter.signal), protocol: protocolLabel(filter.protocol) })}
+						<Button variant="link" size="sm" class="h-auto p-0" onclick={() => ingestion.clearLogFilter()}>{m.ingestionLog_clearFilter()}</Button>
 					</Empty.Description>
 				{:else}
-					<Empty.Description>Malformed OTLP exports (bad protobuf/JSON, unsupported content type) will show up here.</Empty.Description>
+					<Empty.Description>{m.ingestionLog_malformedExportsHint()}</Empty.Description>
 				{/if}
 			</Empty.Header>
 		</Empty.Root>
@@ -70,9 +71,9 @@
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
-						<Table.Head>Time</Table.Head>
-						<Table.Head>Receiver</Table.Head>
-						<Table.Head>Reason</Table.Head>
+						<Table.Head>{m.ingestionLog_timeColumn()}</Table.Head>
+						<Table.Head>{m.ingestionLog_receiverColumn()}</Table.Head>
+						<Table.Head>{m.ingestionLog_reasonColumn()}</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
@@ -80,7 +81,7 @@
 						<Table.Row>
 							<Table.Cell class="text-muted-foreground whitespace-nowrap text-xs">{formatTime(entry.timestamp)}</Table.Cell>
 							<Table.Cell>
-								<Badge variant="outline">{entry.signal} · {entry.protocol}</Badge>
+								<Badge variant="outline">{signalLabel(entry.signal)} · {protocolLabel(entry.protocol)}</Badge>
 							</Table.Cell>
 							<Table.Cell class="text-destructive font-mono text-xs">{entry.reason}</Table.Cell>
 						</Table.Row>

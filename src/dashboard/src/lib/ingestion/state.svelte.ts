@@ -15,15 +15,32 @@
 
 import { getIngestionStats, type IngestionProtocol, type IngestionSignal, type IngestionStatsResponse } from '$lib/ingestion-api';
 import { getPipelineStats, type PipelineStatsResponse } from '$lib/pipeline-api';
+import * as m from '$lib/paraglide/messages';
 
 export type IngestionWindowPreset = '15m' | '1h' | '6h' | '24h';
 
-export const INGESTION_WINDOW_PRESETS: { value: IngestionWindowPreset; label: string; minutes: number }[] = [
-	{ value: '15m', label: 'Last 15 minutes', minutes: 15 },
-	{ value: '1h', label: 'Last hour', minutes: 60 },
-	{ value: '6h', label: 'Last 6 hours', minutes: 360 },
-	{ value: '24h', label: 'Last 24 hours', minutes: 1440 }
+// No `label` field - see time-range.ts's own remarks (surfaced during Phase 1) on why a
+// module-scope const can't reflect a per-request/live-switched locale. Use
+// ingestionWindowPresetLabel() below instead, called fresh at each use.
+export const INGESTION_WINDOW_PRESETS: { value: IngestionWindowPreset; minutes: number }[] = [
+	{ value: '15m', minutes: 15 },
+	{ value: '1h', minutes: 60 },
+	{ value: '6h', minutes: 360 },
+	{ value: '24h', minutes: 1440 }
 ];
+
+export function ingestionWindowPresetLabel(preset: IngestionWindowPreset): string {
+	switch (preset) {
+		case '15m':
+			return m.ingestionWindowPreset_last15m();
+		case '1h':
+			return m.ingestionWindowPreset_last1h();
+		case '6h':
+			return m.ingestionWindowPreset_last6h();
+		case '24h':
+			return m.ingestionWindowPreset_last24h();
+	}
+}
 
 const POLL_INTERVAL_MS = 10_000;
 

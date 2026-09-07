@@ -13,6 +13,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { ingestionContext } from '$lib/ingestion/context';
 	import { formatBytes, formatCount } from '$lib/ingestion/format';
+	import * as m from '$lib/paraglide/messages';
 
 	const ingestion = ingestionContext.get();
 
@@ -22,51 +23,53 @@
 <div class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-5">
 	<Card.Root>
 		<Card.Header>
-			<Card.Description>Ingress rate</Card.Description>
+			<Card.Description>{m.ingestionTiles_ingressRate()}</Card.Description>
 			<Card.Title class="flex items-baseline gap-1 text-2xl tabular-nums">
 				{formatCount(totals?.arrivalsPerMinute ?? 0)}
-				<span class="text-muted-foreground text-xs font-normal">req/min</span>
+				<span class="text-muted-foreground text-xs font-normal">{m.ingestionTiles_reqPerMinUnit()}</span>
 			</Card.Title>
 		</Card.Header>
-		<Card.Content class="text-muted-foreground text-xs">all signals</Card.Content>
+		<Card.Content class="text-muted-foreground text-xs">{m.ingestionTiles_allSignals()}</Card.Content>
 	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Description>Event rate</Card.Description>
+			<Card.Description>{m.ingestionTiles_eventRate()}</Card.Description>
 			<Card.Title class="flex items-baseline gap-1 text-2xl tabular-nums">
 				{formatCount(totals?.ingestedRecordsPerMinute ?? 0)}
-				<span class="text-muted-foreground text-xs font-normal">events/min</span>
+				<span class="text-muted-foreground text-xs font-normal">{m.ingestionTiles_eventsPerMinUnit()}</span>
 			</Card.Title>
 		</Card.Header>
-		<Card.Content class="text-muted-foreground text-xs">all signals</Card.Content>
+		<Card.Content class="text-muted-foreground text-xs">{m.ingestionTiles_allSignals()}</Card.Content>
 	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Description>Data rate</Card.Description>
+			<Card.Description>{m.ingestionTiles_dataRate()}</Card.Description>
 			<Card.Title class="flex items-baseline gap-1 text-2xl tabular-nums">
-				{formatBytes(totals?.ingestedBytesPerMinute ?? 0)}<span class="text-muted-foreground text-xs font-normal">/min</span>
+				{formatBytes(totals?.ingestedBytesPerMinute ?? 0)}<span class="text-muted-foreground text-xs font-normal"
+					>{m.ingestionTiles_perMinUnit()}</span
+				>
 			</Card.Title>
 		</Card.Header>
-		<Card.Content class="text-muted-foreground text-xs">all signals</Card.Content>
+		<Card.Content class="text-muted-foreground text-xs">{m.ingestionTiles_allSignals()}</Card.Content>
 	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Description>Window requests</Card.Description>
+			<Card.Description>{m.ingestionTiles_windowRequests()}</Card.Description>
 			<Card.Title class="text-2xl tabular-nums">{formatCount(totals?.requestsInWindow ?? 0)}</Card.Title>
 		</Card.Header>
-		<Card.Content class="text-muted-foreground text-xs">accepted export requests</Card.Content>
+		<Card.Content class="text-muted-foreground text-xs">{m.ingestionTiles_acceptedExportRequests()}</Card.Content>
 	</Card.Root>
 
 	<Card.Root>
 		<Card.Header>
-			<Card.Description>Rejected</Card.Description>
+			<Card.Description>{m.ingestionTiles_rejected()}</Card.Description>
 			<Card.Title class="text-2xl tabular-nums {totals && totals.rejectedInWindow > 0 ? 'text-destructive' : ''}">
 				{formatCount(totals?.rejectedInWindow ?? 0)}
 			</Card.Title>
 		</Card.Header>
-		<Card.Content class="text-muted-foreground text-xs">in the selected window</Card.Content>
+		<Card.Content class="text-muted-foreground text-xs">{m.ingestionTiles_inSelectedWindow()}</Card.Content>
 	</Card.Root>
 </div>

@@ -9,6 +9,8 @@
 // HIGH_FRAGMENTATION_PARTS below - so "high fragmentation" isn't a made-up style choice,
 // it's "this table is approaching ClickHouse's own insert-throttling point."
 
+import * as m from '$lib/paraglide/messages';
+
 export type PartsHealthTone = 'good' | 'warning';
 
 export interface PartsHealth {
@@ -24,9 +26,9 @@ export const HIGH_FRAGMENTATION_PARTS = 150;
 
 export function computePartsHealth(activeParts: number): PartsHealth {
 	if (activeParts >= HIGH_FRAGMENTATION_PARTS) {
-		return { tone: 'warning', label: 'High fragmentation' };
+		return { tone: 'warning', label: m.indexingHealth_highFragmentation() };
 	}
-	return { tone: 'good', label: 'Healthy' };
+	return { tone: 'good', label: m.indexingHealth_healthy() };
 }
 
 // Shared by the "Query performance" summary card and the "Query optimization" section's

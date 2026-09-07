@@ -2,7 +2,8 @@
 // byte formatter anywhere else in the dashboard to reuse (every other page counts events,
 // never bytes).
 
-import type { IngestionProtocol } from '../ingestion-api';
+import type { IngestionProtocol, IngestionSignal } from '../ingestion-api';
+import * as m from '$lib/paraglide/messages';
 
 // Short protocol label, e.g. for a "Logs · gRPC" filter badge - distinct from the longer
 // "gRPC :4317"/"Prometheus scrape" receiver-row labels IngestionReceivers.svelte/
@@ -11,8 +12,45 @@ import type { IngestionProtocol } from '../ingestion-api';
 // Scrape existed). This one centralizes the short form specifically because
 // RejectedTelemetryDialog.svelte and IngestionLog.svelte (twice) were duplicating the
 // exact same ternary before Scrape needed a third branch everywhere.
-export function protocolLabel(protocol: IngestionProtocol): string {
-	return protocol === 'Grpc' ? 'gRPC' : protocol === 'Http' ? 'HTTP' : 'Scrape';
+//
+// Takes `string`, not `IngestionProtocol`, so it also accepts IngestionErrorEntry.protocol
+// (recentErrors' own loosely-typed echo of whatever the backend sent - see
+// toIngestionErrorEntry's `dto.protocol ?? ''` fallback) without narrowing first. An
+// unrecognized value returns unchanged rather than throwing - the raw string is still more
+// useful there than silently swallowing it.
+//
+// A function, not a module-scope lookup object - see time-range.ts's own remarks
+// (surfaced during Phase 1) on why a plain object literal built once can't reflect a
+// per-request/live-switched locale, only a call re-evaluated at each use can.
+export function protocolLabel(protocol: IngestionProtocol | string): string {
+	switch (protocol) {
+		case 'Grpc':
+			return m.ingestionProtocol_grpcShort();
+		case 'Http':
+			return m.ingestionProtocol_httpShort();
+		case 'Scrape':
+			return m.ingestionProtocol_scrapeShort();
+		default:
+			return protocol;
+	}
+}
+
+// Signal display name (Logs/Traces/Metrics) - centralized here rather than left as the raw
+// IngestionSignal string, since it shows up as prose ("Traces flush stale…" in
+// ingestion/health.ts) as well as a bare label (chart legend, table cells), and both need
+// the translated form. Takes `string` for the same IngestionErrorEntry.signal reason
+// protocolLabel above does.
+export function signalLabel(signal: IngestionSignal | string): string {
+	switch (signal) {
+		case 'Logs':
+			return m.ingestionSignal_logs();
+		case 'Traces':
+			return m.ingestionSignal_traces();
+		case 'Metrics':
+			return m.ingestionSignal_metrics();
+		default:
+			return signal;
+	}
 }
 
 const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
@@ -40,10 +78,10 @@ export function formatBytes(n: number): string {
 // diffed against now), not a raw count like formatCount/formatBytes above.
 export function formatAge(seconds: number | null | undefined): string {
 	if (seconds === null || seconds === undefined) return '—';
-	if (seconds < 1) return 'just now';
-	if (seconds < 60) return `${Math.floor(seconds)}s ago`;
-	if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-	return `${Math.floor(seconds / 3600)}h ago`;
+	if (seconds < 1) return m.ingestionFormat_justNow();
+	if (seconds < 60) return m.ingestionFormat_secondsAgo({ seconds: Math.floor(seconds) });
+	if (seconds < 3600) return m.ingestionFormat_minutesAgo({ minutes: Math.floor(seconds / 60) });
+	return m.ingestionFormat_hoursAgo({ hours: Math.floor(seconds / 3600) });
 }
 
 export function secondsSince(iso: string | null, now: Date = new Date()): number | null {
@@ -59,11 +97,17 @@ export function secondsSince(iso: string | null, now: Date = new Date()): number
 // latency and minor NTP drift both land well under that threshold.
 export function formatClockSkew(ms: number, warnThresholdMs: number): string {
 	const abs = Math.abs(ms);
-	if (abs < warnThresholdMs) return 'in sync';
+	if (abs < warnThresholdMs) return m.ingestionFormat_clockInSync();
 
-	const direction = ms < 0 ? 'ahead' : 'behind';
-	if (abs < 1000) return `${Math.round(abs)}ms ${direction}`;
-	if (abs < 60_000) return `${Math.round(abs / 1000)}s ${direction}`;
-	return `${Math.round(abs / 60_000)}m ${direction}`;
+	const ahead = ms < 0;
+	if (abs < 1000) {
+		const value = Math.round(abs);
+		return ahead ? m.ingestionFormat_clockAheadMs({ ms: value }) : m.ingestionFormat_clockBehindMs({ ms: value });
+	}
+	if (abs < 60_000) {
+		const value = Math.round(abs / 1000);
+		return ahead ? m.ingestionFormat_clockAheadSeconds({ seconds: value }) : m.ingestionFormat_clockBehindSeconds({ seconds: value });
+	}
+	const value = Math.round(abs / 60_000);
+	return ahead ? m.ingestionFormat_clockAheadMinutes({ minutes: value }) : m.ingestionFormat_clockBehindMinutes({ minutes: value });
 }
-

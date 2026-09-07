@@ -19,12 +19,13 @@
 	// fed from this table's own bucket data, is what makes that distinction possible.
 	import * as Table from '$lib/components/ui/table';
 	import { ingestionContext } from '$lib/ingestion/context';
-	import { formatAge, formatCount, secondsSince } from '$lib/ingestion/format';
+	import { formatAge, formatCount, secondsSince, signalLabel } from '$lib/ingestion/format';
 	import { computeFlushStatus, hasRecentArrivals, type FlushStatusTone } from '$lib/ingestion/health';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import CircleXIcon from '@lucide/svelte/icons/circle-x';
 	import MinusIcon from '@lucide/svelte/icons/minus';
+	import * as m from '$lib/paraglide/messages';
 
 	const ingestion = ingestionContext.get();
 
@@ -48,15 +49,15 @@
 </script>
 
 <div class="px-4 pb-4">
-	<h2 class="mb-2 text-sm font-medium">Flush workers</h2>
+	<h2 class="mb-2 text-sm font-medium">{m.pipelineFlushHealthTable_heading()}</h2>
 	<Table.Root>
 		<Table.Header>
 			<Table.Row>
-				<Table.Head>Signal</Table.Head>
-				<Table.Head class="text-right">Last flush</Table.Head>
-				<Table.Head class="text-right">Batch size</Table.Head>
-				<Table.Head>Status</Table.Head>
-				<Table.Head>Last error</Table.Head>
+				<Table.Head>{m.pipelineFlushHealthTable_signalColumn()}</Table.Head>
+				<Table.Head class="text-right">{m.pipelineFlushHealthTable_lastFlushColumn()}</Table.Head>
+				<Table.Head class="text-right">{m.pipelineFlushHealthTable_batchSizeColumn()}</Table.Head>
+				<Table.Head>{m.pipelineFlushHealthTable_statusColumn()}</Table.Head>
+				<Table.Head>{m.pipelineFlushHealthTable_lastErrorColumn()}</Table.Head>
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
@@ -64,9 +65,9 @@
 				{@const status = computeFlushStatus(worker, streamBySignal.get(worker.signal), hasRecentArrivals(buckets, worker.signal))}
 				{@const StatusIcon = TONE_ICON[status.tone]}
 				<Table.Row>
-					<Table.Cell class="font-medium">{worker.signal}</Table.Cell>
+					<Table.Cell class="font-medium">{signalLabel(worker.signal)}</Table.Cell>
 					<Table.Cell class="text-muted-foreground text-right tabular-nums">
-						{worker.lastFlushAt ? formatAge(secondsSince(worker.lastFlushAt)) : 'never'}
+						{worker.lastFlushAt ? formatAge(secondsSince(worker.lastFlushAt)) : m.pipelineFlushHealthTable_never()}
 					</Table.Cell>
 					<Table.Cell class="text-right tabular-nums">
 						{worker.lastBatchSize === null ? '—' : formatCount(worker.lastBatchSize)}
@@ -86,7 +87,10 @@
 							     flush landed, the best evidence available for "since when has this
 							     actually been fine". -->
 							<span class="text-muted-foreground">
-								{worker.lastError} · recovered {worker.lastFlushAt ? formatAge(secondsSince(worker.lastFlushAt)) : 'since'}
+								{worker.lastError} ·
+								{worker.lastFlushAt
+									? m.pipelineFlushHealthTable_recoveredAge({ age: formatAge(secondsSince(worker.lastFlushAt)) })
+									: m.pipelineFlushHealthTable_recoveredSince()}
 							</span>
 						{:else if worker.lastError}
 							<span class="text-muted-foreground">{worker.lastError}</span>

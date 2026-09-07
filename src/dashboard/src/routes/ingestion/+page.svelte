@@ -11,6 +11,7 @@
 	import PipelineStreamsTable from '$lib/components/ingestion/PipelineStreamsTable.svelte';
 	import PipelineFlushHealthTable from '$lib/components/ingestion/PipelineFlushHealthTable.svelte';
 	import PipelineServiceBreakdown from '$lib/components/ingestion/PipelineServiceBreakdown.svelte';
+	import * as m from '$lib/paraglide/messages';
 
 	const ingestion = ingestionContext.set(new IngestionState());
 
@@ -25,7 +26,7 @@
 </script>
 
 <svelte:head>
-	<title>Flare — Ingestion</title>
+	<title>{m.ingestionPage_title()}</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">
@@ -44,7 +45,7 @@
 		     below the v8 "is data arriving" section rather than a separate page/nav
 		     entry, per this item's own title. -->
 		<div class="border-t pt-4">
-			<h1 class="mb-1 px-4 text-sm font-semibold">Pipeline health</h1>
+			<h1 class="mb-1 px-4 text-sm font-semibold">{m.ingestionPage_pipelineHealthHeading()}</h1>
 			<PipelineStreamsTable />
 			<PipelineFlushHealthTable />
 			<PipelineServiceBreakdown />

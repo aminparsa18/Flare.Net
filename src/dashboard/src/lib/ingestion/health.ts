@@ -9,7 +9,8 @@
 
 import type { IngestionBucketPoint, IngestionSignal, IngestionStatsResponse } from '../ingestion-api';
 import type { PipelineFlushHealth, PipelineStatsResponse, PipelineStreamHealth } from '../pipeline-api';
-import { formatAge, formatCount } from './format';
+import { formatAge, formatCount, signalLabel } from './format';
+import * as m from '$lib/paraglide/messages';
 
 export type IngestionHealthLevel = 'healthy' | 'degraded' | 'down';
 
@@ -109,27 +110,27 @@ export function computeFlushStatus(
 	now: Date = new Date()
 ): FlushStatus {
 	if (worker.consecutiveErrors >= DOWN_CONSECUTIVE_ERRORS) {
-		return { key: 'down', label: `Down (${formatCount(worker.consecutiveErrors)})`, tone: 'destructive' };
+		return { key: 'down', label: m.ingestionHealth_workerDown({ count: formatCount(worker.consecutiveErrors) }), tone: 'destructive' };
 	}
 	if (worker.consecutiveErrors > 0) {
-		return { key: 'retrying', label: `Retrying (${formatCount(worker.consecutiveErrors)})`, tone: 'warning' };
+		return { key: 'retrying', label: m.ingestionHealth_workerRetrying({ count: formatCount(worker.consecutiveErrors) }), tone: 'warning' };
 	}
 	if (stream && isBacklogStuck(stream)) {
-		return { key: 'stuck', label: 'Stuck', tone: 'warning' };
+		return { key: 'stuck', label: m.ingestionHealth_stuck(), tone: 'warning' };
 	}
 	if (hasRecentTraffic) {
 		const ageSeconds = worker.lastFlushAt ? (now.getTime() - new Date(worker.lastFlushAt).getTime()) / 1000 : Infinity;
 		if (ageSeconds >= FLUSH_STALE_AGE_SECONDS) {
-			return { key: 'stale', label: 'Stale', tone: 'warning' };
+			return { key: 'stale', label: m.ingestionHealth_stale(), tone: 'warning' };
 		}
 	}
 	if (worker.lastError) {
-		return { key: 'recovered', label: 'Recovered', tone: 'good' };
+		return { key: 'recovered', label: m.ingestionHealth_recovered(), tone: 'good' };
 	}
 	if (!worker.lastFlushAt) {
-		return { key: 'idle', label: 'Idle', tone: 'default' };
+		return { key: 'idle', label: m.ingestionHealth_idle(), tone: 'default' };
 	}
-	return { key: 'healthy', label: 'Healthy', tone: 'good' };
+	return { key: 'healthy', label: m.ingestionHealth_healthy(), tone: 'good' };
 }
 
 // Feedback: a receiver with zero requests (e.g. nobody's using OTLP/HTTP, only gRPC) isn't
@@ -156,10 +157,10 @@ export function clockSkewTone(averageClockSkewMs: number): FlushStatusTone {
 
 /** requests/rejected are the sum across all three signals for one protocol, within whatever window the caller's already querying. */
 export function computeReceiverStatus(requests: number, rejected: number): ReceiverStatus {
-	if (requests === 0) return { key: 'idle', label: 'Idle', tone: 'default' };
-	if (rejected === 0) return { key: 'healthy', label: 'Healthy', tone: 'good' };
-	if (rejected >= requests) return { key: 'down', label: 'Down', tone: 'destructive' }; // every request to this receiver failed - not a partial blip
-	return { key: 'degraded', label: 'Degraded', tone: 'warning' };
+	if (requests === 0) return { key: 'idle', label: m.ingestionHealth_idle(), tone: 'default' };
+	if (rejected === 0) return { key: 'healthy', label: m.ingestionHealth_healthy(), tone: 'good' };
+	if (rejected >= requests) return { key: 'down', label: m.ingestionHealth_down(), tone: 'destructive' }; // every request to this receiver failed - not a partial blip
+	return { key: 'degraded', label: m.ingestionHealth_degraded(), tone: 'warning' };
 }
 
 export function computeIngestionHealth(
@@ -179,11 +180,13 @@ export function computeIngestionHealth(
 	for (const worker of pipeline.flushWorkers) {
 		if (worker.consecutiveErrors >= DOWN_CONSECUTIVE_ERRORS) {
 			workersDown.add(worker.signal);
-			downReasons.push(`${worker.signal} exporter unavailable`);
+			downReasons.push(m.ingestionHealth_exporterUnavailable({ signal: signalLabel(worker.signal) }));
 			continue;
 		}
 		if (worker.consecutiveErrors > 0) {
-			degradedReasons.push(`${worker.signal} flush retrying (${formatCount(worker.consecutiveErrors)} errors)`);
+			degradedReasons.push(
+				m.ingestionHealth_flushRetrying({ signal: signalLabel(worker.signal), count: formatCount(worker.consecutiveErrors) })
+			);
 			continue;
 		}
 		// Feedback: "Traces last flush 2h ago" next to active traffic is exactly the kind of
@@ -194,7 +197,7 @@ export function computeIngestionHealth(
 			const ageSeconds = worker.lastFlushAt ? (Date.now() - new Date(worker.lastFlushAt).getTime()) / 1000 : Infinity;
 			if (ageSeconds >= FLUSH_STALE_AGE_SECONDS) {
 				workersStale.add(worker.signal);
-				degradedReasons.push(`${worker.signal} flush stale (${formatAge(ageSeconds)} since last flush, still receiving traffic)`);
+				degradedReasons.push(m.ingestionHealth_flushStale({ signal: signalLabel(worker.signal), age: formatAge(ageSeconds) }));
 			}
 		}
 	}
@@ -207,18 +210,22 @@ export function computeIngestionHealth(
 		// the same underlying failure as two separate reasons, just fold in the size/%.
 		if (workersDown.has(stream.signal)) {
 			if (stream.length > 0) {
-				downReasons.push(pct !== null ? `${formatCount(stream.length)} buffered (${pct}%)` : `${formatCount(stream.length)} buffered`);
+				downReasons.push(
+					pct !== null
+						? m.ingestionHealth_bufferedCountPercent({ count: formatCount(stream.length), percent: pct })
+						: m.ingestionHealth_bufferedCount({ count: formatCount(stream.length) })
+				);
 			}
 			continue;
 		}
 
 		if (pct !== null && pct >= DOWN_UTILIZATION_PERCENT) {
-			downReasons.push(`${stream.signal} buffer at ${pct}% capacity, oldest entries at risk of being dropped`);
+			downReasons.push(m.ingestionHealth_bufferAtRiskOfDrop({ signal: signalLabel(stream.signal), percent: pct }));
 			continue;
 		}
 
 		if (isBacklogStuck(stream)) {
-			downReasons.push(`${stream.signal} pipeline backlog stuck (${formatCount(stream.pendingCount)} pending)`);
+			downReasons.push(m.ingestionHealth_backlogStuck({ signal: signalLabel(stream.signal), count: formatCount(stream.pendingCount) }));
 			continue;
 		}
 
@@ -228,25 +235,27 @@ export function computeIngestionHealth(
 		if (workersStale.has(stream.signal)) continue;
 
 		if (pct !== null && pct >= WARN_UTILIZATION_PERCENT) {
-			degradedReasons.push(`${stream.signal} buffer at ${pct}% capacity`);
+			degradedReasons.push(m.ingestionHealth_bufferAtCapacity({ signal: signalLabel(stream.signal), percent: pct }));
 		} else if (stream.pendingCount > 0 || (stream.lag ?? 0) > 0) {
-			degradedReasons.push(`${stream.signal} backlog building (${formatCount(stream.length)} buffered)`);
+			degradedReasons.push(m.ingestionHealth_backlogBuilding({ signal: signalLabel(stream.signal), count: formatCount(stream.length) }));
 		}
 	}
 
 	if (totals.rejectedInWindow > 0) {
-		degradedReasons.push(`${Math.round(rejectionRate * 100)}% rejected (${formatCount(totals.rejectedInWindow)})`);
+		degradedReasons.push(
+			m.ingestionHealth_rejectedPercent({ percent: Math.round(rejectionRate * 100), count: formatCount(totals.rejectedInWindow) })
+		);
 	}
 
 	if (downReasons.length > 0) {
-		return { level: 'down', label: 'Down', detail: [...downReasons, ...degradedReasons].slice(0, 2).join(' · ') };
+		return { level: 'down', label: m.ingestionHealth_down(), detail: [...downReasons, ...degradedReasons].slice(0, 2).join(' · ') };
 	}
 	if (degradedReasons.length > 0) {
-		return { level: 'degraded', label: 'Degraded', detail: degradedReasons.slice(0, 2).join(' · ') };
+		return { level: 'degraded', label: m.ingestionHealth_degraded(), detail: degradedReasons.slice(0, 2).join(' · ') };
 	}
 	return {
 		level: 'healthy',
-		label: 'Healthy',
-		detail: 'All receivers operational · 0% rejected · no pipeline backlog'
+		label: m.ingestionHealth_healthy(),
+		detail: m.ingestionHealth_allOperationalDetail()
 	};
 }

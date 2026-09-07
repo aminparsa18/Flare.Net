@@ -9,6 +9,7 @@
 	import { indexingContext } from '$lib/indexing/context';
 	import { formatBytes, formatCount, formatRatio, formatTableGrowth } from '$lib/indexing/format';
 	import { computePartsHealth, HIGH_FRAGMENTATION_PARTS } from '$lib/indexing/health';
+	import * as m from '$lib/paraglide/messages';
 
 	const indexing = indexingContext.get();
 
@@ -33,7 +34,7 @@
 </script>
 
 <div class="px-4 pb-4">
-	<h2 class="mb-2 text-sm font-medium">Tables</h2>
+	<h2 class="mb-2 text-sm font-medium">{m.indexingTablesTable_heading()}</h2>
 	{#if indexing.loading && !indexing.stats}
 		<div class="flex h-32 items-center justify-center">
 			<Spinner />
@@ -41,21 +42,21 @@
 	{:else if !indexing.stats || indexing.stats.tables.length === 0}
 		<Empty.Root>
 			<Empty.Header>
-				<Empty.Title>No tables found</Empty.Title>
-				<Empty.Description>Flare.Api's ClickHouse migrations haven't run against this database yet.</Empty.Description>
+				<Empty.Title>{m.indexingTablesTable_noTablesTitle()}</Empty.Title>
+				<Empty.Description>{m.indexingTablesTable_noTablesDescription()}</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
 		<Table.Root>
 			<Table.Header>
 				<Table.Row>
-					<Table.Head>Table</Table.Head>
-					<Table.Head>Engine</Table.Head>
-					<Table.Head>Sorting key</Table.Head>
-					<Table.Head class="text-right">Rows</Table.Head>
+					<Table.Head>{m.indexingTablesTable_tableColumn()}</Table.Head>
+					<Table.Head>{m.indexingTablesTable_engineColumn()}</Table.Head>
+					<Table.Head>{m.indexingTablesTable_sortingKeyColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.indexingTablesTable_rowsColumn()}</Table.Head>
 					<Table.Head class="text-right">
 						<span class="inline-flex items-center justify-end gap-1">
-							Parts
+							{m.indexingTablesTable_partsColumn()}
 							<Popover.Root>
 								<Popover.Trigger>
 									{#snippet child({ props })}
@@ -63,32 +64,24 @@
 											{...props}
 											type="button"
 											class="text-muted-foreground hover:text-foreground -m-1 p-1"
-											aria-label="Why parts matter"
+											aria-label={m.indexingTablesTable_whyPartsMatterAriaLabel()}
 										>
 											<InfoIcon class="size-3" />
 										</button>
 									{/snippet}
 								</Popover.Trigger>
 								<Popover.Content align="end" class="text-left font-normal">
-									<p>
-										ClickHouse stores each table's data in immutable parts and periodically merges them together in the
-										background.
-									</p>
-									<p>
-										A high active-part count means merges aren't keeping up - it slows queries (every part is a separate
-										read) and usually points to small, frequent inserts rather than fewer, larger ones. Flare flags
-										{HIGH_FRAGMENTATION_PARTS}+ active parts as high fragmentation - the same point at which ClickHouse
-										itself starts throttling inserts to let merges catch up.
-									</p>
+									<p>{m.indexingTablesTable_partsExplanation1()}</p>
+									<p>{m.indexingTablesTable_partsExplanation2({ threshold: HIGH_FRAGMENTATION_PARTS })}</p>
 								</Popover.Content>
 							</Popover.Root>
 						</span>
 					</Table.Head>
-					<Table.Head class="text-right">Compressed</Table.Head>
-					<Table.Head class="text-right">Uncompressed</Table.Head>
-					<Table.Head class="text-right">Ratio</Table.Head>
-					<Table.Head class="text-right" title="Bytes added in the last 30 days, as a % of current compressed size">
-						Growth
+					<Table.Head class="text-right">{m.indexingTablesTable_compressedColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.indexingTablesTable_uncompressedColumn()}</Table.Head>
+					<Table.Head class="text-right">{m.indexingTablesTable_ratioColumn()}</Table.Head>
+					<Table.Head class="text-right" title={m.indexingTablesTable_growthColumnTooltip()}>
+						{m.indexingTablesTable_growthColumn()}
 					</Table.Head>
 				</Table.Row>
 			</Table.Header>

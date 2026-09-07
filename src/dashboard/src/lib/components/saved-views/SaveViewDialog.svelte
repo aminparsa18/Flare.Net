@@ -9,6 +9,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { createSavedView, type PageType } from '$lib/saved-views-api';
+	import * as m from '$lib/paraglide/messages';
 
 	let {
 		open = $bindable(false),
@@ -59,26 +60,26 @@
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Save current view</Dialog.Title>
-			<Dialog.Description>Saves this page's current filters so you (or anyone with the link) can reload them later.</Dialog.Description>
+			<Dialog.Title>{m.saveViewDialog_title()}</Dialog.Title>
+			<Dialog.Description>{m.saveViewDialog_description()}</Dialog.Description>
 		</Dialog.Header>
 		<form class="space-y-4" onsubmit={handleSubmit}>
 			<div class="space-y-2">
-				<label for="save-view-name" class="text-sm font-medium">Name</label>
-				<Input id="save-view-name" bind:value={name} required placeholder="e.g. Errors, last hour" />
+				<label for="save-view-name" class="text-sm font-medium">{m.saveViewDialog_nameLabel()}</label>
+				<Input id="save-view-name" bind:value={name} required placeholder={m.saveViewDialog_namePlaceholder()} />
 			</div>
 			<div class="space-y-2">
-				<label for="save-view-description" class="text-sm font-medium">Description</label>
+				<label for="save-view-description" class="text-sm font-medium">{m.saveViewDialog_descriptionLabel()}</label>
 				<Textarea id="save-view-description" bind:value={description} rows={2} />
 			</div>
 			{#if error}
 				<p class="text-destructive text-sm">{error}</p>
 			{/if}
 			<Dialog.Footer>
-				<Button type="button" variant="outline" onclick={() => (open = false)}>Cancel</Button>
+				<Button type="button" variant="outline" onclick={() => (open = false)}>{m.saveViewDialog_cancel()}</Button>
 				<Button type="submit" disabled={saving}>
 					{#if saving}<Spinner class="size-4" />{/if}
-					Save
+					{m.saveViewDialog_save()}
 				</Button>
 			</Dialog.Footer>
 		</form>
