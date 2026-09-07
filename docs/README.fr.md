@@ -27,26 +27,26 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 ## Toutes les pages
 
 **Tutoriels**
-- [Prise en main](tutorials/getting-started.md)
+- [Prise en main](tutorials/getting-started.fr.md)
 
 **Guides pratiques**
-- [Exécution autonome](how-to/run-standalone.md)
-- [Exécution avec .NET Aspire](how-to/run-with-aspire.md)
-- [Exécution avec le CLI](how-to/run-with-cli.md)
-- [Configurer l'authentification](how-to/configure-authentication.md)
-- [Exécution en mode cluster](how-to/run-cluster-mode.md)
+- [Exécution autonome](how-to/run-standalone.fr.md)
+- [Exécution avec .NET Aspire](how-to/run-with-aspire.fr.md)
+- [Exécution avec le CLI](how-to/run-with-cli.fr.md)
+- [Configurer l'authentification](how-to/configure-authentication.fr.md)
+- [Exécution en mode cluster](how-to/run-cluster-mode.fr.md)
 
 **Référence**
-- [Commandes CLI](reference/cli-commands.md)
-- [Hébergement Aspire](reference/aspire-hosting.md)
-- [Configuration de l'authentification](reference/authentication-config.md)
-- [Configuration du clustering](reference/clustering-config.md)
-- [Versions des loggers OTLP](reference/otlp-logger-versions.md)
+- [Commandes CLI](reference/cli-commands.fr.md)
+- [Hébergement Aspire](reference/aspire-hosting.fr.md)
+- [Configuration de l'authentification](reference/authentication-config.fr.md)
+- [Configuration du clustering](reference/clustering-config.fr.md)
+- [Versions des loggers OTLP](reference/otlp-logger-versions.fr.md)
 
 **Explication**
-- [Architecture](explanation/architecture.md)
-- [Clustering](explanation/clustering.md)
-- [Modèle d'authentification](explanation/authentication-model.md)
+- [Architecture](explanation/architecture.fr.md)
+- [Clustering](explanation/clustering.fr.md)
+- [Modèle d'authentification](explanation/authentication-model.fr.md)
 
 ## Contribuer à la documentation
 

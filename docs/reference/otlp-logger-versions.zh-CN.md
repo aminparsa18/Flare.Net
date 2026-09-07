@@ -3,7 +3,7 @@
 # 已知良好的 OTLP 记录器软件包版本
 
 固定到实际针对实时 Flare 实例运行的内容
-写 [`../how-to/run-standalone.md`](../how-to/run-standalone.md)
+写 [`../how-to/run-standalone.md`](../how-to/run-standalone.zh-CN.md)
 (2026-08-07)。 OTLP-for-logs 支持是每个的一个相当新的角落
 这些生态系统和其中一些跟踪预发布的 OpenTelemetry SDK
 版本 - 如果某些内容无法针对您选择的较新版本进行编译

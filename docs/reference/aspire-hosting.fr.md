@@ -7,7 +7,7 @@ L'API exacte d'`AddFlare` et les faits de déploiement Kubernetes pour
 `Flare.Hosting.Aspire` — pas `Aspire.Hosting.Flare` ; ce préfixe est
 réservé sur nuget.org pour les propres intégrations officielles de
 Microsoft). Pour savoir comment l'utiliser, voir
-[`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.md).
+[`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.fr.md).
 
 > **État actuel :** publié sur nuget.org sous le nom `Flare.Hosting.Aspire`
 > (actuellement `0.4.0`).
@@ -58,7 +58,7 @@ retourné, la convention Aspire habituelle (comparez avec
 
 Faits à connaître avant de déployer (pas `aspire run`) un AppHost
 contenant Flare — pour les étapes concrètes, voir
-[`../how-to/run-with-aspire.md#publishing--deploying`](../how-to/run-with-aspire.md#publishing--deploying).
+[`../how-to/run-with-aspire.md#publishing--deploying`](../how-to/run-with-aspire.fr.md#publication--déploiement).
 
 ### Docker Compose
 

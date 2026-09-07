@@ -61,26 +61,26 @@
   var flare = builder.AddFlare("flare");
   builder.AddProject<Projects.MyApi>("myapi").WithReference(flare).WaitForFlare(flare);
   ```
-  `dotnet add package Flare.Hosting.Aspire` — Flare 作为资源加入您的 AppHost，因此它启动、停止并被其他资源发现，就像图表中其他所有内容一样。详细信息：[docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.md)。
+  `dotnet add package Flare.Hosting.Aspire` — Flare 作为资源加入您的 AppHost，因此它启动、停止并被其他资源发现，就像图表中其他所有内容一样。详细信息：[docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.zh-CN.md)。
 
 - **不使用 Aspire，想要它独立运行吗？**
   ```sh
   docker compose up
   ```
-  在存储库根目录中，每个端口和凭据都有工作默认值（将 [.env.example](.env.example) 复制到 `.env` 以进行更改）。详细信息：[docs/how-to/run-standalone.md](docs/how-to/run-standalone.md)。
+  在存储库根目录中，每个端口和凭据都有工作默认值（将 [.env.example](.env.example) 复制到 `.env` 以进行更改）。详细信息：[docs/how-to/run-standalone.md](docs/how-to/run-standalone.zh-CN.md)。
 
 - **想要在多个不相关的本地项目之间共享一个常设实例吗？**
   ```sh
   dotnet tool install --global Flare.Cli
   flare start
   ```
-  全局 CLI，可以从任何地方管理相同的 Docker 堆栈，无需回购检查。详细信息：[docs/how-to/run-with-cli.md](docs/how-to/run-with-cli.md)。
+  全局 CLI，可以从任何地方管理相同的 Docker 堆栈，无需回购检查。详细信息：[docs/how-to/run-with-cli.md](docs/how-to/run-with-cli.zh-CN.md)。
 
-无论您选择哪条路径，仪表板都会出现在 [http://localhost:7777](http://localhost:7777) 处。身份验证**默认关闭** - 日志页面在启动时即打开。准备好后，即可从 `/auth` 页面打开登录（本地帐户、Microsoft Entra ID、Active Directory、OpenID Connect 或反向代理可信标头）；参见[docs/how-to/configure-authentication.md](docs/how-to/configure-authentication.md)。
+无论您选择哪条路径，仪表板都会出现在 [http://localhost:7777](http://localhost:7777) 处。身份验证**默认关闭** - 日志页面在启动时即打开。准备好后，即可从 `/auth` 页面打开登录（本地帐户、Microsoft Entra ID、Active Directory、OpenID Connect 或反向代理可信标头）；参见[docs/how-to/configure-authentication.md](docs/how-to/configure-authentication.zh-CN.md)。
 
-然后将记录器指向它 — 将 Serilog、NLog、ZLogger 和 `Microsoft.Extensions.Logging` 的 OTLP 片段复制粘贴到 [docs/how-to/run-standalone.md](docs/how-to/run-standalone.md#point-your-logger-at-it)（或 Aspire 上的 [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.md#2-point-your-logger-at-it)）中。
+然后将记录器指向它 — 将 Serilog、NLog、ZLogger 和 `Microsoft.Extensions.Logging` 的 OTLP 片段复制粘贴到 [docs/how-to/run-standalone.md](docs/how-to/run-standalone.zh-CN.md#将记录器指向它)（或 Aspire 上的 [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.zh-CN.md#2-将记录器指向它)）中。
 
-单个 ClickHouse 节点的增长是否超出了限制？有一个选择加入的多节点集群设置 - 请参阅 [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.md)。
+单个 ClickHouse 节点的增长是否超出了限制？有一个选择加入的多节点集群设置 - 请参阅 [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.zh-CN.md)。
 
 ## 本地开发
 
@@ -109,7 +109,7 @@ Flare正在积极开发中，目前提供：
 当前开放的内容 — 保留/冷存储至 S3 兼容
 对象存储就是其中的佼佼者。
 
-完整架构：[docs/explanation/architecture.md](docs/explanation/architecture.md)。设计决策：[docs-internal/adr/](docs-internal/adr/)。
+完整架构：[docs/explanation/architecture.md](docs/explanation/architecture.zh-CN.md)。设计决策：[docs-internal/adr/](docs-internal/adr/)。
 
 ## 贡献
 

@@ -2,7 +2,7 @@
 
 # 如何配置身份验证
 
-打开登录并设置 Flare 的五种身份验证方法中的一种或多种。有关每个方法的实际用途以及为什么以这种方式构建，请参阅 [`../explanation/authentication-model.md`](../explanation/authentication-model.md)；有关确切的配置键和角色表，请参阅 [`../reference/authentication-config.md`](../reference/authentication-config.md)。
+打开登录并设置 Flare 的五种身份验证方法中的一种或多种。有关每个方法的实际用途以及为什么以这种方式构建，请参阅 [`../explanation/authentication-model.md`](../explanation/authentication-model.zh-CN.md)；有关确切的配置键和角色表，请参阅 [`../reference/authentication-config.md`](../reference/authentication-config.zh-CN.md)。
 
 以下所有内容都发生在一个仅限管理员的页面 **`/auth`** 上：
 
@@ -74,7 +74,7 @@
 
 如果 Flare 前面的反向代理（Authelia、Authentik、oauth2-proxy、Cloudflare Access、Tailscale Serve 或类似的）已经对请求进行了身份验证，并且可以将身份作为标头转发，请使用此选项。
 
-**开始之前**，请确保除通过该代理之外无法访问 `Flare.Api` — 如果您的撰写/网络设置直接公开 `Flare.Api` 的端口，则启用此方法并不安全（请参阅 [the explanation](../explanation/authentication-model.md#reverse-proxy-trusted-header) 了解原因）。
+**开始之前**，请确保除通过该代理之外无法访问 `Flare.Api` — 如果您的撰写/网络设置直接公开 `Flare.Api` 的端口，则启用此方法并不安全（请参阅 [the explanation](../explanation/authentication-model.zh-CN.md#反向代理可信标头) 了解原因）。
 
 1. 配置反向代理以验证请求并将登录身份作为标头转发 - 具体步骤因代理而异。 Authelia/oauth2-proxy-style 设置通常将此称为 `Remote-User`（Flare 自己的默认值）或 `X-Forwarded-User`；检查代理自己的文档以获取确切的标头名称以及它是否还发出组标头。
 2. 找到您的 Docker 网络的实际子网（`docker network inspect <network>` - 不要猜测 `172.18.0.0/16`，确认它）或您的代理连接的特定地址。

@@ -8,7 +8,7 @@ récepteur d'ingestion OTLP, l'API de requêtage et le tableau de bord — à
 votre AppHost en un seul appel, en récupérant les images Docker Hub
 publiées de Flare plutôt que quelque chose que vous construisez
 vous-même. Pour l'API exacte et tous les faits de déploiement, voir
-[`../reference/aspire-hosting.md`](../reference/aspire-hosting.md).
+[`../reference/aspire-hosting.md`](../reference/aspire-hosting.fr.md).
 
 > **État actuel :** publié sur nuget.org sous le nom
 > `Flare.Hosting.Aspire` (actuellement `0.3.2`) — `dotnet add package
@@ -37,7 +37,7 @@ d'insertion par lots), et les trois conteneurs
 Besoin d'un port non par défaut, d'une clé API d'ingestion privée, ou de
 vos propres images construites au lieu de celles de Docker Hub ? Enchaînez
 des méthodes `With*` sur le builder retourné — voir
-[la référence complète des paramètres](../reference/aspire-hosting.md#addflare)
+[la référence complète des paramètres](../reference/aspire-hosting.fr.md#addflare)
 pour chaque option.
 
 ## 2. Pointez votre logger vers Flare
@@ -96,7 +96,7 @@ au lieu de gRPC.
 
 Pas du tout câblé via le propre modèle `AddServiceDefaults()` d'Aspire ?
 Voir
-[`run-standalone.md#point-your-logger-at-it`](run-standalone.md#point-your-logger-at-it)
+[`run-standalone.md#point-your-logger-at-it`](run-standalone.fr.md#pointer-votre-logger-vers-flare)
 pour le même extrait prêt à copier-coller par logger — réglez simplement
 `OTEL_EXPORTER_OTLP_ENDPOINT` depuis le `WithOtlpEndpoint` ci-dessus au
 lieu d'un `http://localhost:4317` codé en dur.
@@ -160,7 +160,7 @@ application Aspire, en ajoutant une ressource d'environnement de
 déploiement. Docker Compose et Kubernetes sont tous deux vérifiés depuis
 la `0.2.3` ; les cibles Azure/AWS ne sont pas vérifiées. **Avant de
 déployer pour de vrai**, lisez les faits de déploiement dans
-[`../reference/aspire-hosting.md#deployment-facts`](../reference/aspire-hosting.md#deployment-facts)
+[`../reference/aspire-hosting.md#deployment-facts`](../reference/aspire-hosting.fr.md#faits-de-déploiement)
 — plusieurs valeurs par défaut qui conviennent pour `aspire run` en local
 (URLs publiques, stockage persistant) nécessitent une attention explicite
 une fois réellement déployées.
@@ -215,7 +215,7 @@ Kubernetes Service (AKS, `AddAzureKubernetesEnvironment`) n'est pas
 testé. Voir
 [aspire.dev/deployment/kubernetes](https://aspire.dev/deployment/kubernetes/clusters/)
 pour le workflow complet, et
-[`../reference/aspire-hosting.md#kubernetes`](../reference/aspire-hosting.md#kubernetes)
+[`../reference/aspire-hosting.md#kubernetes`](../reference/aspire-hosting.fr.md#kubernetes)
 pour les faits sur le stockage persistant/le registre/l'URL publique dont
 vous avez besoin avant de faire cela pour de vrai.
 

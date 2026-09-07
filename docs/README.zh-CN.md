@@ -27,26 +27,26 @@
 ## 所有页面
 
 **教程**
--[Getting started](tutorials/getting-started.md)
+-[Getting started](tutorials/getting-started.zh-CN.md)
 
 **操作指南**
--[Run standalone](how-to/run-standalone.md)
--[Run with .NET Aspire](how-to/run-with-aspire.md)
--[Run with the CLI](how-to/run-with-cli.md)
--[Configure authentication](how-to/configure-authentication.md)
--[Run in cluster mode](how-to/run-cluster-mode.md)
+-[Run standalone](how-to/run-standalone.zh-CN.md)
+-[Run with .NET Aspire](how-to/run-with-aspire.zh-CN.md)
+-[Run with the CLI](how-to/run-with-cli.zh-CN.md)
+-[Configure authentication](how-to/configure-authentication.zh-CN.md)
+-[Run in cluster mode](how-to/run-cluster-mode.zh-CN.md)
 
 **参考**
--[CLI commands](reference/cli-commands.md)
--[Aspire hosting](reference/aspire-hosting.md)
--[Authentication config](reference/authentication-config.md)
--[Clustering config](reference/clustering-config.md)
--[OTLP logger versions](reference/otlp-logger-versions.md)
+-[CLI commands](reference/cli-commands.zh-CN.md)
+-[Aspire hosting](reference/aspire-hosting.zh-CN.md)
+-[Authentication config](reference/authentication-config.zh-CN.md)
+-[Clustering config](reference/clustering-config.zh-CN.md)
+-[OTLP logger versions](reference/otlp-logger-versions.zh-CN.md)
 
 **解释**
--[Architecture](explanation/architecture.md)
--[Clustering](explanation/clustering.md)
--[Authentication model](explanation/authentication-model.md)
+-[Architecture](explanation/architecture.zh-CN.md)
+-[Clustering](explanation/clustering.zh-CN.md)
+-[Authentication model](explanation/authentication-model.zh-CN.md)
 
 ## 贡献文档
 

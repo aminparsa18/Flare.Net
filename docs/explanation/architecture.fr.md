@@ -103,12 +103,12 @@ voir [Non-objectifs](#non-objectifs) ci-dessous.
 
 Chaque logger .NET compatible OTLP atteint le récepteur d'ingestion de
 Flare de la même façon — voir
-[`../how-to/run-standalone.md`](../how-to/run-standalone.md) pour un
+[`../how-to/run-standalone.md`](../how-to/run-standalone.fr.md) pour un
 extrait prêt à copier-coller par logger
 (`Microsoft.Extensions.Logging`/ZLogger via `OpenTelemetry.Exporter.OpenTelemetryProtocol`,
 Serilog via `Serilog.Sinks.OpenTelemetry`, NLog via
 `NLog.Targets.OpenTelemetryProtocol`) et
-[`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.md)
+[`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.fr.md)
 pour les versions de paquets connues comme fonctionnelles.
 
 ## Non-objectifs
@@ -134,15 +134,15 @@ un backend de stockage froid prévu (pas encore construit) — voir
 Flare a trois chemins d'installation légitimes, chacun résolvant un
 problème différent plutôt que d'être redondant avec les autres :
 
-- **[.NET Aspire](../how-to/run-with-aspire.md)** (`Flare.Hosting.Aspire`) —
+- **[.NET Aspire](../how-to/run-with-aspire.fr.md)** (`Flare.Hosting.Aspire`) —
   pour une application qui a déjà un AppHost. Flare rejoint le graphe de
   ressources ; `aspire start` orchestre déjà son cycle de vie aux côtés de
   tout le reste.
-- **[Docker Compose autonome](../how-to/run-standalone.md)** — pour une
+- **[Docker Compose autonome](../how-to/run-standalone.fr.md)** — pour une
   évaluation ponctuelle, locale au dépôt. `docker compose up` à la racine
   du dépôt est le moyen le plus rapide de simplement jeter un œil à Flare
   une fois.
-- **[Le CLI `flare`](../how-to/run-with-cli.md)** (`Flare.Cli`) — pour une
+- **[Le CLI `flare`](../how-to/run-with-cli.fr.md)** (`Flare.Cli`) — pour une
   instance persistante que vous démarrez une fois et oubliez, depuis
   n'importe quel répertoire, partagée entre plusieurs projets locaux
   indépendants, indépendante du cycle de vie d'un AppHost donné. C'est le
@@ -158,7 +158,7 @@ endroit : `Flare.Dashboard` — une seule SPA SvelteKit avec sept pages
 derrière une barre de navigation, communiquant toutes avec `Flare.Api` via
 HTTP/WebSocket, sans outils séparés pour les logs, les traces, les
 métriques ou les alertes. La première visite crée le compte administrateur
-(voir [`../how-to/configure-authentication.md`](../how-to/configure-authentication.md)) ;
+(voir [`../how-to/configure-authentication.md`](../how-to/configure-authentication.fr.md)) ;
 ensuite, c'est une connexion normale.
 
 ### Logs
@@ -221,7 +221,7 @@ derniers jours et les index de saut (skip indexes) qui accélèrent le
 filtrage. Utile pour la planification de capacité ou simplement pour voir
 où vont les octets. En mode cluster, c'est aussi ici que se trouve le
 panneau Cluster — voir
-[`clustering.md`](clustering.md#dashboard-cluster-status-on-the-indexing-page).
+[`clustering.md`](clustering.fr.md#tableau-de-bord--statut-du-cluster-sur-la-page-indexing).
 
 ![Indexing](../screenshots/indexing.png)
 
@@ -253,7 +253,7 @@ page — partageable par lien, non lié à la personne qui l'a créé.
 
 Les instances gérées par `Flare.Cli` utilisent par défaut un tag d'image
 `vX.Y.Z` spécifique et testé plutôt que les tags flottants `edge`/`latest`
-(voir [la référence](../reference/cli-commands.md#image-tag-policy) pour
+(voir [la référence](../reference/cli-commands.fr.md#politique-de-tags-dimage) pour
 les valeurs par défaut exactes et l'historique des versions) —
 délibérément, afin qu'une version donnée de `Flare.Cli` continue de tirer
 les mêmes images pour toujours jusqu'à ce que vous la déplaciez

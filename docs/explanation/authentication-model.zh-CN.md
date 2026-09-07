@@ -13,9 +13,9 @@ Flare 附带本地用户名/密码帐户、Microsoft Entra ID
 是。
 
 要进行其中任何设置，请参阅
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.md)。
+[`../how-to/configure-authentication.md`](../how-to/configure-authentication.zh-CN.md)。
 有关确切的配置键和角色表，请参阅
-[`../reference/authentication-config.md`](../reference/authentication-config.md)。
+[`../reference/authentication-config.md`](../reference/authentication-config.zh-CN.md)。
 
 ## 身份验证默认关闭
 
@@ -111,7 +111,7 @@ Entra / Active Directory / OpenID Connect / 反向代理）已打开
 row 将强制每个遥测发射应用程序链接到某人的
 登录，与收集器/导出器的实际操作方式不符
 （每个环境一个或几个共享密钥）。看
-[the how-to guide](../how-to/configure-authentication.md#ingest-api-keys)
+[the how-to guide](../how-to/configure-authentication.zh-CN.md#摄取-api-密钥)
 用于创建/使用/撤销一个。
 
 ## 每种方法的工作原理

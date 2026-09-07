@@ -5,9 +5,9 @@
 Точные роли, факты о разрешении идентичности и ключи конфигурации для
 системы аутентификации Flare. О том, что на самом деле делает каждый
 метод, см. в
-[`../explanation/authentication-model.md`](../explanation/authentication-model.md).
+[`../explanation/authentication-model.md`](../explanation/authentication-model.ru.md).
 О шагах настройки см. в
-[`../how-to/configure-authentication.md`](../how-to/configure-authentication.md).
+[`../how-to/configure-authentication.md`](../how-to/configure-authentication.ru.md).
 
 ## Роли
 
@@ -45,7 +45,7 @@ Entra/OIDC перенаправляют на `/login?error=account-disabled`; LD
 | `Auth:CookieSecure` | `true` | Устанавливайте `false` только для локальной разработки по обычному HTTP. |
 | `Auth:CookieSameSite` | `Lax` | `None` (с `CookieSecure=true`), если ваша панель управления и API когда-либо оказываются разнесены по-настоящему разным доменам, а не просто разным портам на `localhost`. |
 | `Auth:IngestKeyRequired` | `false` | Отклоняет ли `Flare.Ingest` запросы OTLP без действительного ключа API. |
-| `Auth:StaticIngestApiKey` | не установлено | Фиксированный ключ приёма данных, устанавливаемый через конфигурацию вместо панели управления — см. [ключи API приёма данных](../how-to/configure-authentication.md#ingest-api-keys). |
+| `Auth:StaticIngestApiKey` | не установлено | Фиксированный ключ приёма данных, устанавливаемый через конфигурацию вместо панели управления — см. [ключи API приёма данных](../how-to/configure-authentication.ru.md#ключи-api-приёма-данных). |
 | `Cors:AllowedOrigins:0`, `:1`, … | нет | Источник(и), которым разрешено вызывать `Flare.Api` с учётными данными (то есть собственный источник панели управления). Обязательно — `Flare.Api` больше не использует `AllowAnyOrigin()` по умолчанию. Также служит списком разрешённых `returnUrl` для входа через Entra. |
 | `Auth:Entra:DefaultRole` | `Viewer` | Роль, назначаемая при первом входе, когда токен не несёт распознанной записи claim `roles`. Единственная связанная с Entra настройка, которая всё ещё привязана к конфигурации — `Enabled`/`TenantId`/`ClientId`/`ClientSecret` вместо этого живут в базе данных, устанавливаются через страницу `/auth` (только для Admin, `GET`/`PUT /api/settings/entra`). |
 

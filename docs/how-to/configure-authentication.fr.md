@@ -5,9 +5,9 @@
 Activez la connexion et configurez une ou plusieurs des cinq méthodes
 d'authentification de Flare. Pour ce que fait réellement chaque méthode et
 pourquoi elle est conçue ainsi, voir
-[`../explanation/authentication-model.md`](../explanation/authentication-model.md) ;
+[`../explanation/authentication-model.md`](../explanation/authentication-model.fr.md) ;
 pour les clés de configuration exactes et le tableau des rôles, voir
-[`../reference/authentication-config.md`](../reference/authentication-config.md).
+[`../reference/authentication-config.md`](../reference/authentication-config.fr.md).
 
 Tout ce qui suit se passe sur une seule page réservée aux administrateurs,
 **`/auth`** :
@@ -195,7 +195,7 @@ d'en-tête.
 autrement que via ce proxy — si votre configuration compose/réseau expose
 directement le port de `Flare.Api`, il n'est pas sûr d'activer cette
 méthode (voir
-[l'explication](../explanation/authentication-model.md#reverse-proxy-trusted-header)
+[l'explication](../explanation/authentication-model.fr.md#proxy-inverse-en-tête-de-confiance)
 pour comprendre pourquoi).
 
 1. Configurez votre proxy inverse pour authentifier les requêtes et

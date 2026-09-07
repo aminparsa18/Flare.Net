@@ -65,7 +65,7 @@ Flare 的赌注：**存储/查询问题已经被 ClickHouse 解决了（参见 [
 | `Flare.Dashboard` | SvelteKit（Svelte 5，符文）+ Tailwind + shadcn-svelte | 用户界面——人们来这里的目的。参见 [ADR-0001](../../docs-internal/adr/0001-sveltekit-dashboard.md)。 |
 | `Flare.AppHost` | .NET Aspire | 上述所有内容的本地编排 |
 
-每个支持 OTLP 的 .NET 记录器都以相同的方式到达 Flare 的摄取接收器 - 请参阅 [`../how-to/run-standalone.md`](../how-to/run-standalone.md) 了解每个记录器的复制粘贴片段（`Microsoft.Extensions.Logging`/ZLogger 通过 `OpenTelemetry.Exporter.OpenTelemetryProtocol`、Serilog 通过 `Serilog.Sinks.OpenTelemetry`、NLog 通过 `NLog.Targets.OpenTelemetryProtocol`）和 [`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.md) 了解已知良好的软件包版本。
+每个支持 OTLP 的 .NET 记录器都以相同的方式到达 Flare 的摄取接收器 - 请参阅 [`../how-to/run-standalone.md`](../how-to/run-standalone.zh-CN.md) 了解每个记录器的复制粘贴片段（`Microsoft.Extensions.Logging`/ZLogger 通过 `OpenTelemetry.Exporter.OpenTelemetryProtocol`、Serilog 通过 `Serilog.Sinks.OpenTelemetry`、NLog 通过 `NLog.Targets.OpenTelemetryProtocol`）和 [`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.zh-CN.md) 了解已知良好的软件包版本。
 
 ## 非目标
 
@@ -82,13 +82,13 @@ Flare 的赌注：**存储/查询问题已经被 ClickHouse 解决了（参见 [
 
 Flare 具有三个合法的安装路径，每个路径解决不同的问题，而不是与其他路径冗余：
 
-- **[.NET Aspire](../how-to/run-with-aspire.md)** (`Flare.Hosting.Aspire`) — 对于已经有 AppHost 的应用程序。 Flare 加入资源图； `aspire start` 已经与其他一切一起协调了它的生命周期。
-- **[Standalone Docker Compose](../how-to/run-standalone.md)** — 用于一次性、回购本地评估。存储库根目录中的 `docker compose up` 是查看一次 Flare 的最快方法。
-- **[The `flare` CLI](../how-to/run-with-cli.md)** (`Flare.Cli`) — 对于一个常设实例，您从任何目录启动一次，然后就忘记了，在许多不相关的本地项目之间共享，独立于任何单个 AppHost 的生命周期。这是其他两条路径在结构上无法涵盖的情况：Aspire 模式将 Flare 的生命周期与一个 AppHost 联系起来，并且存储库本地 Compose 堆栈并不意味着在后台运行数周来为不相关的项目提供服务。
+- **[.NET Aspire](../how-to/run-with-aspire.zh-CN.md)** (`Flare.Hosting.Aspire`) — 对于已经有 AppHost 的应用程序。 Flare 加入资源图； `aspire start` 已经与其他一切一起协调了它的生命周期。
+- **[Standalone Docker Compose](../how-to/run-standalone.zh-CN.md)** — 用于一次性、回购本地评估。存储库根目录中的 `docker compose up` 是查看一次 Flare 的最快方法。
+- **[The `flare` CLI](../how-to/run-with-cli.zh-CN.md)** (`Flare.Cli`) — 对于一个常设实例，您从任何目录启动一次，然后就忘记了，在许多不相关的本地项目之间共享，独立于任何单个 AppHost 的生命周期。这是其他两条路径在结构上无法涵盖的情况：Aspire 模式将 Flare 的生命周期与一个 AppHost 联系起来，并且存储库本地 Compose 堆栈并不意味着在后台运行数周来为不相关的项目提供服务。
 
 ## 仪表板之旅
 
-无论您选择哪个安装路径，您都会到达同一个地方：`Flare.Dashboard` — 一个 SvelteKit SPA，在一个导航栏后面有七个页面，所有页面都通过 HTTP/WebSocket 与 `Flare.Api` 通信，没有单独的日志、跟踪、指标或警报工具。第一次访问创建管理员帐户（参见[`../how-to/configure-authentication.md`](../how-to/configure-authentication.md)）；之后就可以正常登录了。
+无论您选择哪个安装路径，您都会到达同一个地方：`Flare.Dashboard` — 一个 SvelteKit SPA，在一个导航栏后面有七个页面，所有页面都通过 HTTP/WebSocket 与 `Flare.Api` 通信，没有单独的日志、跟踪、指标或警报工具。第一次访问创建管理员帐户（参见[`../how-to/configure-authentication.md`](../how-to/configure-authentication.zh-CN.md)）；之后就可以正常登录了。
 
 ### 日志
 
@@ -122,7 +122,7 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 ### 索引
 
-`/indexing` — 底层的 ClickHouse 存储变得可见：总存储（压缩/未压缩）、行数、逐表细分（`logs`、`spans`、`metrics_sum`、`metrics_histogram`、`metrics_gauge` 等）以及压缩率、过去 30 天的增长以及支持快速过滤的跳过索引。对于容量规划或只是查看字节的去向很有用。在集群模式下，这也是集群面板所在的位置 - 请参阅 [`clustering.md`](clustering.md#dashboard-cluster-status-on-the-indexing-page)。
+`/indexing` — 底层的 ClickHouse 存储变得可见：总存储（压缩/未压缩）、行数、逐表细分（`logs`、`spans`、`metrics_sum`、`metrics_histogram`、`metrics_gauge` 等）以及压缩率、过去 30 天的增长以及支持快速过滤的跳过索引。对于容量规划或只是查看字节的去向很有用。在集群模式下，这也是集群面板所在的位置 - 请参阅 [`clustering.md`](clustering.zh-CN.md#仪表板索引页面上的集群状态)。
 
 ![Indexing](../screenshots/indexing-ch.webp)
 
@@ -144,7 +144,7 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 ## 为什么 CLI 固定图像标签而不是跟踪 `latest`
 
-`Flare.Cli` 托管实例默认使用特定的、经过测试的 `vX.Y.Z` 映像标签，而不是浮动 `edge`/`latest` 标签（请参阅 [the reference](../reference/cli-commands.md#image-tag-policy) 了解确切的默认值和版本历史记录） - 故意的，因此给定的 `Flare.Cli` 版本会永远拉取相同的映像，直到您显式移动它。 `flare update`（不是 `--tag`）重新拉动相同的固定标签，而不是自动发现较新的版本，并且故意永远不会这样做：只有这个 CLI 自己的作者知道哪些较新的 Flare Docker 图像实际上已经针对给定的 `Flare.Cli` 版本进行了测试 - Docker Hub 上现有的较新标签并不相同。每个新的 `Flare.Cli` 版本在针对较新的 Flare 映像进行测试后都会重新固定其自己的模板默认值；现有安装会继续跟踪它们生成的任何标签，直到您使用 `flare update --tag TAG` 显式移动它们。
+`Flare.Cli` 托管实例默认使用特定的、经过测试的 `vX.Y.Z` 映像标签，而不是浮动 `edge`/`latest` 标签（请参阅 [the reference](../reference/cli-commands.zh-CN.md#图片标签政策) 了解确切的默认值和版本历史记录） - 故意的，因此给定的 `Flare.Cli` 版本会永远拉取相同的映像，直到您显式移动它。 `flare update`（不是 `--tag`）重新拉动相同的固定标签，而不是自动发现较新的版本，并且故意永远不会这样做：只有这个 CLI 自己的作者知道哪些较新的 Flare Docker 图像实际上已经针对给定的 `Flare.Cli` 版本进行了测试 - Docker Hub 上现有的较新标签并不相同。每个新的 `Flare.Cli` 版本在针对较新的 Flare 映像进行测试后都会重新固定其自己的模板默认值；现有安装会继续跟踪它们生成的任何标签，直到您使用 `flare update --tag TAG` 显式移动它们。
 
 ## 为什么 CLI 托管实例获得随机密码
 

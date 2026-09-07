@@ -2,9 +2,9 @@
 
 # 如何独立运行 Flare（没有 .NET Aspire）
 
-将 Flare 作为自己的东西运行 - 不与其他应用程序的 .NET Aspire AppHost 绑定。如果您的应用已经有 AppHost，请参阅 [`run-with-aspire.md`](run-with-aspire.md)；当它适用时，这是更简单的路径。有关从头开始的指导演练，请首先参阅 [the tutorial](../tutorials/getting-started.md)。
+将 Flare 作为自己的东西运行 - 不与其他应用程序的 .NET Aspire AppHost 绑定。如果您的应用已经有 AppHost，请参阅 [`run-with-aspire.md`](run-with-aspire.zh-CN.md)；当它适用时，这是更简单的路径。有关从头开始的指导演练，请首先参阅 [the tutorial](../tutorials/getting-started.zh-CN.md)。
 
-想要一个启动一次并指向许多不相关的本地项目的 OTLP 输出的常设实例，而不是回购本地结账？ [`flare`](run-with-cli.md) 是全局 CLI (`dotnet tool install --global Flare.Cli`)，从任何地方包装与 `flare start`/`stop`/`status`/ `open`/... 相同的堆栈，无需 `git clone`。如果您想直接运行堆栈，请继续阅读。
+想要一个启动一次并指向许多不相关的本地项目的 OTLP 输出的常设实例，而不是回购本地结账？ [`flare`](run-with-cli.zh-CN.md) 是全局 CLI (`dotnet tool install --global Flare.Cli`)，从任何地方包装与 `flare start`/`stop`/`status`/ `open`/... 相同的堆栈，无需 `git clone`。如果您想直接运行堆栈，请继续阅读。
 
 ## 先决条件
 
@@ -22,16 +22,16 @@ docker compose up
 
 一旦启动：
 
-- **仪表板：** [http://localhost:7777](http://localhost:7777) — 打开，无需登录，直到您从 `/auth` 页面自行登录。参见 [`configure-authentication.md`](configure-authentication.md)。
-- **OTLP 接收器：** `:4317` 上的 gRPC、`:4318` 上的 HTTP — 您将记录仪指向下方。默认匿名；请参阅 [`configure-authentication.md#ingest-api-keys`](configure-authentication.md#ingest-api-keys) 来需要 API 密钥。
+- **仪表板：** [http://localhost:7777](http://localhost:7777) — 打开，无需登录，直到您从 `/auth` 页面自行登录。参见 [`configure-authentication.md`](configure-authentication.zh-CN.md)。
+- **OTLP 接收器：** `:4317` 上的 gRPC、`:4318` 上的 HTTP — 您将记录仪指向下方。默认匿名；请参阅 [`configure-authentication.md#ingest-api-keys`](configure-authentication.zh-CN.md#摄取-api-密钥) 来需要 API 密钥。
 
-需要 ClickHouse 在节点死亡时幸存下来，或者扩展到一个盒子之外？参见 [`run-cluster-mode.md`](run-cluster-mode.md)。
+需要 ClickHouse 在节点死亡时幸存下来，或者扩展到一个盒子之外？参见 [`run-cluster-mode.md`](run-cluster-mode.zh-CN.md)。
 
 ## 将记录器指向它
 
 下面的每个记录器都通过相同的协议（OTLP）到达 Flare，因此它们都汇聚在相同的两个端口上。您关注哪一个仅取决于您已经在使用的产品；它们都不与其他任何人或特定于 Flare 的代码对话，并且这里不需要特定于 Flare 的包。
 
-每个片段默认为 `:4317` 上的 **gRPC**，与每个库自己的默认值匹配。在编写本文时，所有四个都是针对真实的 `docker compose up` 堆栈运行的，而不仅仅是对照库的文档进行检查 - 已确认工作的固定包版本位于 [`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.md) 中。
+每个片段默认为 `:4317` 上的 **gRPC**，与每个库自己的默认值匹配。在编写本文时，所有四个都是针对真实的 `docker compose up` 堆栈运行的，而不仅仅是对照库的文档进行检查 - 已确认工作的固定包版本位于 [`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.zh-CN.md) 中。
 
 <details open> <summary><strong>Microsoft.Extensions.Logging</strong>（本机 — <code>ILogger</code>，无桥）</summary>
 
@@ -217,7 +217,7 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 
 如果没有设置，`docker compose up` 的行为与以前完全相同 - 没有额外的容器，`flare-api` 根本不会与 Docker 对话，并且资源页面显示简单的“未启用”状态而不是错误。
 
-如果您从使用者 Aspire AppHost 运行 Flare，请参阅 [`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.md#resources-page-optional-docker-access) 以获取等效的 `enableResourceGraph` 参数。
+如果您从使用者 Aspire AppHost 运行 Flare，请参阅 [`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.zh-CN.md#资源页面可选-docker-访问) 以获取等效的 `enableResourceGraph` 参数。
 
 ## 使用 HTTP 代替 gRPC
 

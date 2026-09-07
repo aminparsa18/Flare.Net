@@ -98,12 +98,12 @@ OTel, а не заточенные под опыт разработчика на
 | `Flare.AppHost` | .NET Aspire | Локальная оркестрация всего вышеперечисленного |
 
 Каждый OTLP-совместимый логгер .NET достигает приёмника Flare одинаковым
-способом — см. [`../how-to/run-standalone.md`](../how-to/run-standalone.md)
+способом — см. [`../how-to/run-standalone.md`](../how-to/run-standalone.ru.md)
 для готового фрагмента кода по каждому логгеру
 (`Microsoft.Extensions.Logging`/ZLogger через `OpenTelemetry.Exporter.OpenTelemetryProtocol`,
 Serilog через `Serilog.Sinks.OpenTelemetry`, NLog через
 `NLog.Targets.OpenTelemetryProtocol`) и
-[`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.md)
+[`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.ru.md)
 для проверенных версий пакетов.
 
 ## Нецели
@@ -128,14 +128,14 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 У Flare есть три законных пути установки, каждый решает свою задачу, а не
 дублирует остальные:
 
-- **[.NET Aspire](../how-to/run-with-aspire.md)** (`Flare.Hosting.Aspire`) —
+- **[.NET Aspire](../how-to/run-with-aspire.ru.md)** (`Flare.Hosting.Aspire`) —
   для приложения, у которого уже есть AppHost. Flare присоединяется к
   графу ресурсов; `aspire start` уже оркестрирует его жизненный цикл
   наряду со всем остальным.
-- **[Автономный Docker Compose](../how-to/run-standalone.md)** — для
+- **[Автономный Docker Compose](../how-to/run-standalone.ru.md)** — для
   разовой, локальной для репозитория оценки. `docker compose up` в корне
   репозитория — самый быстрый способ просто взглянуть на Flare один раз.
-- **[CLI `flare`](../how-to/run-with-cli.md)** (`Flare.Cli`) — для
+- **[CLI `flare`](../how-to/run-with-cli.ru.md)** (`Flare.Cli`) — для
   постоянно работающего экземпляра, который вы запускаете один раз и
   забываете о нём, из любого каталога, общего для нескольких независимых
   локальных проектов, независимо от жизненного цикла какого-либо
@@ -152,7 +152,7 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 одной панелью навигации, все они общаются с `Flare.Api` по HTTP/WebSocket,
 без отдельных инструментов для логов, трассировок, метрик или
 оповещений. При первом визите создаётся учётная запись администратора
-(см. [`../how-to/configure-authentication.md`](../how-to/configure-authentication.md));
+(см. [`../how-to/configure-authentication.md`](../how-to/configure-authentication.ru.md));
 после этого — обычный вход.
 
 ### Логи
@@ -217,7 +217,7 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 пропуска (skip indexes), обеспечивающими быструю фильтрацию. Полезно для
 планирования ёмкости или просто чтобы увидеть, куда уходят байты. В
 кластерном режиме здесь же находится и панель Cluster — см.
-[`clustering.md`](clustering.md#dashboard-cluster-status-on-the-indexing-page).
+[`clustering.md`](clustering.ru.md#панель-управления-статус-кластера-на-странице-индексации).
 
 ![Indexing](../screenshots/indexing-ru.webp)
 
@@ -253,7 +253,7 @@ timeout») и загружайте его отсюда или из выпада�
 
 Экземпляры, управляемые `Flare.Cli`, по умолчанию используют конкретный,
 протестированный тег образа `vX.Y.Z`, а не плавающие теги `edge`/`latest`
-(см. [справочник](../reference/cli-commands.md#image-tag-policy) для
+(см. [справочник](../reference/cli-commands.ru.md#политика-тегов-образов) для
 точных значений по умолчанию и истории версий) — намеренно, чтобы данная
 версия `Flare.Cli` навсегда продолжала загружать одни и те же образы, пока
 вы явно её не перенастроите. `flare update` (без `--tag`) заново

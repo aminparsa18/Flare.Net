@@ -7,20 +7,20 @@
 когда вам нужен один долго работающий экземпляр, общий для нескольких
 несвязанных локальных проектов, а не привязанный к одному репозиторию или
 AppHost. Точные команды и конфигурацию см. в
-[`../reference/cli-commands.md`](../reference/cli-commands.md); о том,
+[`../reference/cli-commands.md`](../reference/cli-commands.ru.md); о том,
 почему этот путь существует наряду с Aspire и обычным Docker Compose,
-см. в [`../explanation/architecture.md`](../explanation/architecture.md).
+см. в [`../explanation/architecture.md`](../explanation/architecture.ru.md).
 
 Это **не** интеграция с Aspire и не имеет никакого взаимодействия с
 оркестрацией Aspire — если у вашего приложения уже есть AppHost,
-используйте вместо этого [`Flare.Hosting.Aspire`](run-with-aspire.md)
+используйте вместо этого [`Flare.Hosting.Aspire`](run-with-aspire.ru.md)
 (`aspire start` уже покрывает этот жизненный цикл).
 
 ## Предварительные требования
 
 - Запущенный Docker (или другой совместимый с Docker движок, с плагином
   Compose v2) — то же требование, что и для
-  [автономного пути](run-standalone.md). `flare doctor` проверяет это и
+  [автономного пути](run-standalone.ru.md). `flare doctor` проверяет это и
   прямо сообщает вам, если это не так.
 
 ## Установка
@@ -68,7 +68,7 @@ flare export --trace-id abc123 --include-trace --include-logs --include-metrics 
 Собственное окно спанов трассировки (расширенное на `--margin`, по
 умолчанию `5m`) и список сервисов автоматически ограничивают область
 действия как логов, так и метрик — см.
-[справочник](../reference/cli-commands.md) о том, что именно содержит
+[справочник](../reference/cli-commands.ru.md) о том, что именно содержит
 каждый файл в архиве.
 
 ## Запуск нескольких экземпляров
@@ -99,7 +99,7 @@ flare status   # то же самое, что: flare status -n work
 flare open     # то же самое, что: flare open -n work
 ```
 
-См. [справочник](../reference/cli-commands.md#instance-naming-and-resolution)
+См. [справочник](../reference/cli-commands.ru.md#именование-экземпляров-и-разрешение)
 о точных правилах именования, поведении автоматического назначения
 портов и о том, как CLI определяет, какой экземпляр вы имеете в виду,
 когда и `-n`, и `FLARE_INSTANCE` опущены.
@@ -116,11 +116,11 @@ flare status -n bignode            # -n всё ещё нужен отсюда, �
 направьте `--cluster` на свежее `--name` (или сначала `flare destroy
 --purge-config`), если хотите переключить режим существующего
 экземпляра. См.
-[`../reference/cli-commands.md#cluster-mode`](../reference/cli-commands.md#cluster-mode)
+[`../reference/cli-commands.md#cluster-mode`](../reference/cli-commands.ru.md#кластерный-режим)
 о том, что именно отличается в экземпляре в кластерном режиме
 (контейнеры, порты, структура конфигурации), и
-[`../explanation/clustering.md`](../explanation/clustering.md) /
-[`run-cluster-mode.md`](run-cluster-mode.md) про сам кластер.
+[`../explanation/clustering.md`](../explanation/clustering.ru.md) /
+[`run-cluster-mode.md`](run-cluster-mode.ru.md) про сам кластер.
 
 ## Проверка
 

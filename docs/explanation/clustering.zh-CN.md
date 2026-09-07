@@ -8,8 +8,8 @@ Flare 的默认部署 (`docker-compose.yml`) 运行单个 ClickHouse
 替代方案 — 具有 `ReplicatedMergeTree`/ 的真正 4 节点 ClickHouse 集群
 `Distributed` 表，由 3 节点 ClickHouse Keeper 仲裁协调
 而不是动物园管理员。本页解释了模型；看
-[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md) 转动它
-开，和 [`../reference/clustering-config.md`](../reference/clustering-config.md)
+[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.zh-CN.md) 转动它
+开，和 [`../reference/clustering-config.md`](../reference/clustering-config.zh-CN.md)
 有关所涉及的确切配置键。
 
 集群模式不会取代 `docker-compose.yml` — 该文件未受影响
@@ -120,7 +120,7 @@ ClickHouse 自己的客户端重试/负载平衡策略）是
 
 `docker-compose.cluster.yml` 在两个摄取上启用 Redis 支持的存储
 副本，因此两个副本部署实际上会执行它。看
-[`../reference/clustering-config.md`](../reference/clustering-config.md) 为
+[`../reference/clustering-config.md`](../reference/clustering-config.zh-CN.md) 为
 确切的配置键。
 
 ## 仪表板：索引页面上的集群状态

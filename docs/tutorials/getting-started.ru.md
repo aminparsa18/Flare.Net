@@ -9,7 +9,7 @@
 В этом учебнике используется автономный путь Docker Compose — тот, у
 которого меньше всего предварительных требований. Если у вашего
 приложения уже есть AppHost .NET Aspire,
-[`how-to/run-with-aspire.md`](../how-to/run-with-aspire.md) будет более
+[`how-to/run-with-aspire.md`](../how-to/run-with-aspire.ru.md) будет более
 естественным вариантом, как только вы закончите здесь и захотите
 посмотреть, чем отличается этот путь.
 
@@ -108,15 +108,15 @@ dotnet run
 
 - Используете Serilog, NLog или ZLogger вместо
   `Microsoft.Extensions.Logging`? См.
-  [`../how-to/run-standalone.md`](../how-to/run-standalone.md) за
+  [`../how-to/run-standalone.md`](../how-to/run-standalone.ru.md) за
   фрагментом кода для каждого логгера.
 - Уже есть AppHost .NET Aspire? См.
-  [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.md) — Flare
+  [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.ru.md) — Flare
   присоединяется к вашему графу ресурсов вместо запуска в виде отдельного
   стека `docker compose`.
 - Хотите постоянно работающий экземпляр, общий для нескольких проектов,
   вместо чекаута, локального для репозитория? См.
-  [`../how-to/run-with-cli.md`](../how-to/run-with-cli.md).
+  [`../how-to/run-with-cli.md`](../how-to/run-with-cli.ru.md).
 - Включите вход и прочитайте про остальное, что есть в панели управления:
-  см. [`../explanation/architecture.md`](../explanation/architecture.md)
-  и [`../how-to/configure-authentication.md`](../how-to/configure-authentication.md).
+  см. [`../explanation/architecture.md`](../explanation/architecture.ru.md)
+  и [`../how-to/configure-authentication.md`](../how-to/configure-authentication.ru.md).

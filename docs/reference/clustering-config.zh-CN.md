@@ -3,8 +3,8 @@
 # 集群模式配置键
 
 针对多节点 ClickHouse 运行 Flare 的精确配置密钥
-簇。见[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.md)
-了解如何打开此功能以及 [`../explanation/clustering.md`](../explanation/clustering.md)
+簇。见[`../how-to/run-cluster-mode.md`](../how-to/run-cluster-mode.zh-CN.md)
+了解如何打开此功能以及 [`../explanation/clustering.md`](../explanation/clustering.zh-CN.md)
 了解其中每一个的实际作用。
 
 | 钥匙 | 环境变量（Docker 撰写） | 类型 | 默认 | 意义 |
@@ -17,4 +17,4 @@
 
 - `system.clusters`、`system.replicas` — 通过索引页面实时读取
   集群面板（`GET /api/indexing/cluster`）；看
-  [`../explanation/clustering.md`](../explanation/clustering.md#dashboard-cluster-status-on-the-indexing-page)。
+  [`../explanation/clustering.md`](../explanation/clustering.zh-CN.md#仪表板索引页面上的集群状态)。

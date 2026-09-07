@@ -4,7 +4,7 @@
 
 Épinglées à ce qui a réellement été exécuté contre une instance Flare en
 direct lors de la rédaction de
-[`../how-to/run-standalone.md`](../how-to/run-standalone.md)
+[`../how-to/run-standalone.md`](../how-to/run-standalone.fr.md)
 (2026-08-07). Le support OTLP pour les logs est un coin assez récent de
 chacun de ces écosystèmes et une partie suit des versions pré-release du
 SDK OpenTelemetry — si quelque chose ne compile pas contre une version

@@ -4,14 +4,14 @@
 
 Запустите Flare как самостоятельную вещь — не привязанную к AppHost
 .NET Aspire другого приложения. Если у вашего приложения уже есть
-AppHost, см. вместо этого [`run-with-aspire.md`](run-with-aspire.md) —
+AppHost, см. вместо этого [`run-with-aspire.md`](run-with-aspire.ru.md) —
 это более простой путь, когда он применим. Для пошагового руководства с
-нуля сначала см. [учебник](../tutorials/getting-started.md).
+нуля сначала см. [учебник](../tutorials/getting-started.ru.md).
 
 Хотите постоянно работающий экземпляр, который вы запускаете один раз и
 на который направляете вывод OTLP нескольких несвязанных локальных
 проектов, вместо локального для репозитория чекаута?
-[`flare`](run-with-cli.md), глобальный CLI (`dotnet tool install --global
+[`flare`](run-with-cli.ru.md), глобальный CLI (`dotnet tool install --global
 Flare.Cli`), оборачивает тот же самый стек как `flare
 start`/`stop`/`status`/`open`/... из любого места, без необходимости
 `git clone`. Читайте дальше, если предпочитаете запускать стек напрямую.
@@ -42,14 +42,14 @@ ClickHouse, Redis, приёмник OTLP, API запросов и панель �
 
 - **Панель управления:** [http://localhost:7777](http://localhost:7777)
   — открыта, вход не требуется, пока вы сами не включите его на странице
-  `/auth`. См. [`configure-authentication.md`](configure-authentication.md).
+  `/auth`. См. [`configure-authentication.md`](configure-authentication.ru.md).
 - **Приёмник OTLP:** gRPC на `:4317`, HTTP на `:4318` — то, на что вы
   направите свой логгер ниже. По умолчанию анонимный; см.
-  [`configure-authentication.md#ingest-api-keys`](configure-authentication.md#ingest-api-keys),
+  [`configure-authentication.md#ingest-api-keys`](configure-authentication.ru.md#ключи-api-приёма-данных),
   чтобы вместо этого потребовать ключ API.
 
 Нужно, чтобы ClickHouse пережил падение узла, или масштабироваться за
-пределы одной машины? См. [`run-cluster-mode.md`](run-cluster-mode.md).
+пределы одной машины? См. [`run-cluster-mode.md`](run-cluster-mode.ru.md).
 
 ## Направьте на него ваш логгер
 
@@ -65,7 +65,7 @@ ClickHouse, Redis, приёмник OTLP, API запросов и панель �
 `docker compose up`, а не просто сверены с документацией библиотеки —
 закреплённые версии пакетов, работоспособность которых была подтверждена,
 указаны в
-[`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.md).
+[`../reference/otlp-logger-versions.md`](../reference/otlp-logger-versions.ru.md).
 
 <details open>
 <summary><strong>Microsoft.Extensions.Logging</strong> (нативно — <code>ILogger</code>, без моста)</summary>
@@ -295,7 +295,7 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 
 Если вы вместо этого запускаете Flare из потребительского AppHost
 Aspire, см.
-[`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.md#resources-page-optional-docker-access)
+[`run-with-aspire.md#resources-page-optional-docker-access`](run-with-aspire.ru.md#страница-resources-опциональный-доступ-к-docker)
 про эквивалентный параметр `enableResourceGraph`.
 
 ## Использование HTTP вместо gRPC

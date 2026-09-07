@@ -7,21 +7,21 @@ où sur votre machine, sans qu'un checkout de dépôt soit nécessaire —
 utile quand vous voulez une instance de longue durée partagée entre
 plusieurs projets locaux sans rapport, plutôt qu'une instance limitée à
 un seul dépôt ou AppHost. Pour les commandes exactes et la configuration,
-voir [`../reference/cli-commands.md`](../reference/cli-commands.md) ;
+voir [`../reference/cli-commands.md`](../reference/cli-commands.fr.md) ;
 pour comprendre pourquoi ce chemin existe aux côtés d'Aspire et de Docker
 Compose simple, voir
-[`../explanation/architecture.md`](../explanation/architecture.md).
+[`../explanation/architecture.md`](../explanation/architecture.fr.md).
 
 Ce n'est **pas** une intégration Aspire et cela n'a aucune interaction
 avec l'orchestration Aspire — si votre application a déjà un AppHost,
-utilisez plutôt [`Flare.Hosting.Aspire`](run-with-aspire.md)
+utilisez plutôt [`Flare.Hosting.Aspire`](run-with-aspire.fr.md)
 (`aspire start` couvre déjà ce cycle de vie).
 
 ## Prérequis
 
 - Docker (ou un autre moteur compatible Docker, avec le plugin Compose
   v2) en cours d'exécution — même exigence que pour
-  [le chemin autonome](run-standalone.md). `flare doctor` vérifie cela et
+  [le chemin autonome](run-standalone.fr.md). `flare doctor` vérifie cela et
   vous le dit clairement si ce n'est pas le cas.
 
 ## Installation
@@ -69,7 +69,7 @@ flare export --trace-id abc123 --include-trace --include-logs --include-metrics 
 
 La propre fenêtre de spans de la trace (élargie par `--margin`, par
 défaut `5m`) et la liste de services délimitent automatiquement à la fois
-les logs et les métriques — voir [la référence](../reference/cli-commands.md)
+les logs et les métriques — voir [la référence](../reference/cli-commands.fr.md)
 pour savoir exactement ce que contient chaque fichier de l'archive.
 
 ## Exécuter plusieurs instances
@@ -101,7 +101,7 @@ flare status   # identique à : flare status -n work
 flare open     # identique à : flare open -n work
 ```
 
-Voir [la référence](../reference/cli-commands.md#instance-naming-and-resolution)
+Voir [la référence](../reference/cli-commands.fr.md#nommage-et-résolution-des-instances)
 pour les règles exactes de nommage, le comportement d'attribution
 automatique des ports, et comment le CLI détermine à quelle instance vous
 faites référence quand `-n`/`FLARE_INSTANCE` sont tous deux omis.
@@ -118,11 +118,11 @@ Pas un chemin de migration à chaud, tout comme
 `docker-compose.cluster.yml` lui-même — pointez `--cluster` vers un
 `--name` frais (ou d'abord `flare destroy --purge-config`) si vous voulez
 changer le mode d'une instance existante. Voir
-[`../reference/cli-commands.md#cluster-mode`](../reference/cli-commands.md#cluster-mode)
+[`../reference/cli-commands.md#cluster-mode`](../reference/cli-commands.fr.md#mode-cluster)
 pour savoir exactement ce qui diffère dans une instance en mode cluster
 (conteneurs, ports, disposition de la configuration), et
-[`../explanation/clustering.md`](../explanation/clustering.md) /
-[`run-cluster-mode.md`](run-cluster-mode.md) pour le cluster lui-même.
+[`../explanation/clustering.md`](../explanation/clustering.fr.md) /
+[`run-cluster-mode.md`](run-cluster-mode.fr.md) pour le cluster lui-même.
 
 ## Vérification
 
