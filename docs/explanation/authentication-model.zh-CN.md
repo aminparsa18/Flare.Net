@@ -65,7 +65,9 @@ Entra / Active Directory / OpenID Connect / 反向代理）已打开
 所有与身份验证相关的内容都位于一个仅限管理员的页面上（任何人都可以访问）
 当身份验证关闭时，与其他页面相同）：
 
-![The /auth page](../screenshots/auth.png)
+![Microsoft Entra ID and Active Directory sections of the /auth page](../screenshots/auth-2-ch.webp)
+
+![OpenID Connect and Reverse proxy sections of the /auth page](../screenshots/auth-ch.webp)
 
 1. **身份验证** — “需要登录”开关和
    `Local username/password` 拨动开关位于顶部。关 → 一个

@@ -6,7 +6,9 @@
 
 以下所有内容都发生在一个仅限管理员的页面 **`/auth`** 上：
 
-![The /auth page](../screenshots/auth.png)
+![Microsoft Entra ID and Active Directory sections of the /auth page](../screenshots/auth-2-ch.webp)
+
+![OpenID Connect and Reverse proxy sections of the /auth page](../screenshots/auth-ch.webp)
 
 ## 开启登录功能
 

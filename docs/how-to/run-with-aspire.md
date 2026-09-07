@@ -97,7 +97,7 @@ from the Docker Engine API (or, on a Kubernetes deploy target, a separate
 Kubernetes-native provider), not from Aspire's own resource service. It's
 off by default:
 
-![Resources page](../screenshots/resources.png)
+![Resources page](../screenshots/resources-en.webp)
 
 ```csharp
 var flare = builder.AddFlare("flare", enableResourceGraph: true);

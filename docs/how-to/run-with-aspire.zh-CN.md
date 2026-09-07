@@ -64,7 +64,7 @@ builder.AddProject<Projects.MyApp_Web>("web")
 
 仪表板的 **资源** 页面将 Flare 自己的容器显示为实时图表 - 状态、运行状况、URL 以及它们之间的关系 - 源自 Docker 引擎 API（或者，在 Kubernetes 部署目标上，是单独的 Kubernetes 原生提供程序），而不是来自 Aspire 自己的资源服务。默认情况下它是关闭的：
 
-![Resources page](../screenshots/resources.png)
+![Resources page](../screenshots/resources-ch.webp)
 
 ```csharp
 var flare = builder.AddFlare("flare", enableResourceGraph: true);
