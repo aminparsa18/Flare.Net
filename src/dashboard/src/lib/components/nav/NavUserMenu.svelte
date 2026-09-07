@@ -12,8 +12,7 @@
 	import { mode, setMode } from 'mode-watcher';
 	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
 	import * as m from '$lib/paraglide/messages';
-	import UserIcon from '@lucide/svelte/icons/user';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import LanguagesIcon from '@lucide/svelte/icons/languages';
@@ -41,10 +40,11 @@
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} variant={auth.authEnabled ? 'ghost' : 'outline'} size="sm" class="max-w-40 gap-1.5">
-				<UserIcon data-icon="inline-start" />
-				<span class="truncate">{auth.authEnabled ? auth.currentUser?.username : m.nav_authOff()}</span>
-				<ChevronDownIcon data-icon="inline-end" />
+			<!-- Icon-only "more" affordance, not a status readout - a trigger that showed the
+			     username/"Auth is off" here read as a label rather than something clickable.
+			     Auth status still shows first thing inside the menu itself, below. -->
+			<Button {...props} variant="outline" size="icon-sm" aria-label={m.nav_moreOptions()}>
+				<EllipsisIcon />
 			</Button>
 		{/snippet}
 	</DropdownMenu.Trigger>
