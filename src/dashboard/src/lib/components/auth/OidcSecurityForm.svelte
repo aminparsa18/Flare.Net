@@ -18,10 +18,22 @@
 	import type { UserRole } from '$lib/auth-api';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import * as m from '$lib/paraglide/messages';
 
 	const oidc = oidcSettingsContext.get();
 
 	const ROLES: UserRole[] = ['Admin', 'Member', 'Viewer'];
+
+	function roleLabel(role: UserRole): string {
+		switch (role) {
+			case 'Admin':
+				return m.userRole_admin();
+			case 'Member':
+				return m.userRole_member();
+			case 'Viewer':
+				return m.userRole_viewer();
+		}
+	}
 
 	let enabled = $state(false);
 	let displayName = $state('');
@@ -83,12 +95,8 @@
 {:else if oidc.settings}
 	<Card.Root class="shrink-0">
 		<Card.Header>
-			<Card.Title>OpenID Connect</Card.Title>
-			<Card.Description>
-				Sign in against any standards-compliant OpenID Connect provider - Okta, Auth0, Keycloak, Authentik, and the
-				like. Register Flare as an application with your provider first, then paste the resulting values below - see
-				docs/auth.md for the full walkthrough.
-			</Card.Description>
+			<Card.Title>{m.oidcSecurityForm_title()}</Card.Title>
+			<Card.Description>{m.oidcSecurityForm_description()}</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<form class="flex flex-col gap-4" onsubmit={handleSubmit}>
@@ -99,15 +107,21 @@
 				{/if}
 				{#if oidc.justSaved}
 					<Alert>
-						<AlertDescription>Saved. Restart Flare.Api for this to take effect.</AlertDescription>
+						<AlertDescription>{m.oidcSecurityForm_savedRestart()}</AlertDescription>
 					</Alert>
 				{/if}
 
 				<div class="flex flex-col gap-1">
-					<label for="oidc-redirect-uri" class="text-xs font-medium">Callback URL</label>
+					<label for="oidc-redirect-uri" class="text-xs font-medium">{m.oidcSecurityForm_callbackUrlLabel()}</label>
 					<div class="flex gap-1">
 						<Input id="oidc-redirect-uri" value={oidc.settings.redirectUri} readonly class="font-mono text-xs" />
-						<Button type="button" variant="outline" size="icon" onclick={copyRedirectUri} title="Copy">
+						<Button
+							type="button"
+							variant="outline"
+							size="icon"
+							onclick={copyRedirectUri}
+							title={m.oidcSecurityForm_copyTitle()}
+						>
 							{#if copied}
 								<CheckIcon />
 							{:else}
@@ -115,79 +129,78 @@
 							{/if}
 						</Button>
 					</div>
-					<p class="text-muted-foreground text-xs">
-						You must configure this <strong>exact</strong> callback (redirect) URL in your OpenID Connect provider.
-					</p>
+					<p class="text-muted-foreground text-xs">{@html m.oidcSecurityForm_callbackUrlHint({ exact: '<strong>exact</strong>' })}</p>
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="oidc-display-name" class="text-xs font-medium">Display name</label>
+					<label for="oidc-display-name" class="text-xs font-medium">{m.oidcSecurityForm_displayNameLabel()}</label>
 					<Input id="oidc-display-name" bind:value={displayName} placeholder="Okta" />
-					<p class="text-muted-foreground text-xs">Shown on the sign-in page as "Sign in with {displayName || '…'}".</p>
+					<p class="text-muted-foreground text-xs">{m.oidcSecurityForm_displayNameHint({ name: displayName || '…' })}</p>
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="oidc-authority" class="text-xs font-medium">Authority</label>
+					<label for="oidc-authority" class="text-xs font-medium">{m.oidcSecurityForm_authorityLabel()}</label>
 					<Input id="oidc-authority" bind:value={authority} placeholder="https://example.okta.com" />
-					<p class="text-muted-foreground text-xs">The URL of the OpenID Connect authorization server.</p>
+					<p class="text-muted-foreground text-xs">{m.oidcSecurityForm_authorityHint()}</p>
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="oidc-client-id" class="text-xs font-medium">Client ID</label>
+					<label for="oidc-client-id" class="text-xs font-medium">{m.oidcSecurityForm_clientIdLabel()}</label>
 					<Input id="oidc-client-id" bind:value={clientId} />
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="oidc-client-secret" class="text-xs font-medium">Client secret</label>
+					<label for="oidc-client-secret" class="text-xs font-medium">{m.oidcSecurityForm_clientSecretLabel()}</label>
 					<Input
 						id="oidc-client-secret"
 						type="password"
 						bind:value={clientSecret}
-						placeholder={oidc.settings.hasClientSecret ? '•••••••••••••••••••••• (unchanged)' : 'Paste the client secret value'}
+						placeholder={oidc.settings.hasClientSecret
+							? m.entraSecurityForm_clientSecretPlaceholderUnchanged()
+							: m.entraSecurityForm_clientSecretPlaceholderNew()}
 					/>
-					<p class="text-muted-foreground text-xs">
-						Client secret assigned to the Flare application. Leave blank to keep the currently-saved value - it is
-						never displayed once set.
-					</p>
+					<p class="text-muted-foreground text-xs">{m.entraSecurityForm_clientSecretHint()}</p>
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="oidc-scopes" class="text-xs font-medium">Scopes</label>
+					<label for="oidc-scopes" class="text-xs font-medium">{m.oidcSecurityForm_scopesLabel()}</label>
 					<Input id="oidc-scopes" bind:value={scopes} class="font-mono text-xs" />
-					<p class="text-muted-foreground text-xs">Scopes Flare will request when authenticating users, separated by spaces.</p>
+					<p class="text-muted-foreground text-xs">{m.oidcSecurityForm_scopesHint()}</p>
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="oidc-role-claim" class="text-xs font-medium">Role claim name</label>
+					<label for="oidc-role-claim" class="text-xs font-medium">{m.oidcSecurityForm_roleClaimLabel()}</label>
 					<Input id="oidc-role-claim" bind:value={roleClaimName} class="font-mono text-xs" />
 					<p class="text-muted-foreground text-xs">
-						The token claim carrying <code>Admin</code>/<code>Member</code>/<code>Viewer</code> - unlike Entra ID's fixed
-						<code>roles</code> claim, generic providers vary in what they issue.
+						{@html m.oidcSecurityForm_roleClaimHint({
+							roleCodes: '<code>Admin</code>/<code>Member</code>/<code>Viewer</code>',
+							rolesClaim: '<code>roles</code>'
+						})}
 					</p>
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">Default role</span>
+					<span class="text-xs font-medium">{m.oidcSecurityForm_defaultRoleLabel()}</span>
 					<Select.Root type="single" value={defaultRole} onValueChange={(v) => v && (defaultRole = v as UserRole)}>
 						<Select.Trigger class="w-28">
-							{defaultRole}
+							{roleLabel(defaultRole)}
 						</Select.Trigger>
 						<Select.Content>
 							{#each ROLES as role (role)}
-								<Select.Item value={role} label={role} />
+								<Select.Item value={role} label={roleLabel(role)} />
 							{/each}
 						</Select.Content>
 					</Select.Root>
-					<p class="text-muted-foreground text-xs">Assigned on first sign-in when the role claim above is absent or unrecognized.</p>
+					<p class="text-muted-foreground text-xs">{m.oidcSecurityForm_defaultRoleHint()}</p>
 				</div>
 
 				<div class="flex items-center gap-2">
 					<Switch bind:checked={enabled} />
-					<span class="text-xs">Enabled</span>
+					<span class="text-xs">{m.oidcSecurityForm_enabled()}</span>
 				</div>
 
 				<Button type="submit" disabled={oidc.saving} class="self-start">
-					{oidc.saving ? 'Saving…' : 'Save'}
+					{oidc.saving ? m.oidcSecurityForm_saving() : m.oidcSecurityForm_save()}
 				</Button>
 			</form>
 		</Card.Content>

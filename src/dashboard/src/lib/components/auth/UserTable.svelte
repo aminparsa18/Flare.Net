@@ -18,17 +18,29 @@
 	import { usersContext } from '$lib/users/context';
 	import { authContext } from '$lib/auth/context';
 	import type { UserRole } from '$lib/auth-api';
+	import * as m from '$lib/paraglide/messages';
 
 	const users = usersContext.get();
 	const auth = authContext.get();
 
 	const ROLES: UserRole[] = ['Admin', 'Member', 'Viewer'];
+
+	function roleLabel(role: UserRole): string {
+		switch (role) {
+			case 'Admin':
+				return m.userRole_admin();
+			case 'Member':
+				return m.userRole_member();
+			case 'Viewer':
+				return m.userRole_viewer();
+		}
+	}
 </script>
 
 <Card.Root class="shrink-0">
 	<Card.Header>
-		<Card.Title>Users</Card.Title>
-		<Card.Description>Manage accounts and roles - local, Microsoft Entra ID, and Active Directory alike.</Card.Description>
+		<Card.Title>{m.userTable_title()}</Card.Title>
+		<Card.Description>{m.userTable_description()}</Card.Description>
 	</Card.Header>
 	<Card.Content>
 		{#if users.saveError}
@@ -47,11 +59,11 @@
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
-						<Table.Head>Username</Table.Head>
-						<Table.Head>Provider</Table.Head>
-						<Table.Head>Role</Table.Head>
-						<Table.Head>Status</Table.Head>
-						<Table.Head class="text-right">Enabled</Table.Head>
+						<Table.Head>{m.userTable_colUsername()}</Table.Head>
+						<Table.Head>{m.userTable_colProvider()}</Table.Head>
+						<Table.Head>{m.userTable_colRole()}</Table.Head>
+						<Table.Head>{m.userTable_colStatus()}</Table.Head>
+						<Table.Head class="text-right">{m.userTable_colEnabled()}</Table.Head>
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
@@ -61,7 +73,7 @@
 							<Table.Cell class="font-medium">
 								{user.username}
 								{#if user.id === auth.currentUser?.id}
-									<Badge variant="outline" class="ml-1">You</Badge>
+									<Badge variant="outline" class="ml-1">{m.userTable_youBadge()}</Badge>
 								{/if}
 							</Table.Cell>
 							<Table.Cell>
@@ -75,17 +87,19 @@
 									onValueChange={(v) => v && users.changeRole(user, v as UserRole)}
 								>
 									<Select.Trigger class="w-28">
-										{user.role}
+										{roleLabel(user.role)}
 									</Select.Trigger>
 									<Select.Content>
 										{#each ROLES as role (role)}
-											<Select.Item value={role} label={role} />
+											<Select.Item value={role} label={roleLabel(role)} />
 										{/each}
 									</Select.Content>
 								</Select.Root>
 							</Table.Cell>
 							<Table.Cell>
-								<Badge variant={user.isDisabled ? 'destructive' : 'secondary'}>{user.isDisabled ? 'Disabled' : 'Active'}</Badge>
+								<Badge variant={user.isDisabled ? 'destructive' : 'secondary'}
+									>{user.isDisabled ? m.userTable_statusDisabled() : m.userTable_statusActive()}</Badge
+								>
 							</Table.Cell>
 							<Table.Cell class="text-right">
 								<Switch

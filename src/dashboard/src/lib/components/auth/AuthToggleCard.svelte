@@ -18,6 +18,7 @@
 	import { oidcSettingsContext } from '$lib/oidc-settings/context';
 	import { proxyAuthSettingsContext } from '$lib/proxy-auth-settings/context';
 	import { authContext } from '$lib/auth/context';
+	import * as m from '$lib/paraglide/messages';
 
 	const authSettings = authSettingsContext.get();
 	const entraSettings = entraSettingsContext.get();
@@ -62,11 +63,8 @@
 
 <Card.Root class="shrink-0">
 	<Card.Header>
-		<Card.Title>Authentication</Card.Title>
-		<Card.Description>
-			Off by default - anyone who can reach this dashboard has full access. Turn this on to require signing in, then
-			enable and configure at least one method below.
-		</Card.Description>
+		<Card.Title>{m.authToggleCard_title()}</Card.Title>
+		<Card.Description>{m.authToggleCard_description()}</Card.Description>
 	</Card.Header>
 	<Card.Content>
 		{#if authSettings.loading}
@@ -80,24 +78,21 @@
 				{/if}
 				{#if wouldLockOut}
 					<Alert variant="destructive">
-						<AlertDescription>
-							Enabling this with local sign-in off and no other method enabled would lock everyone out. Enable local
-							sign-in or configure another method (below) first.
-						</AlertDescription>
+						<AlertDescription>{m.authToggleCard_lockoutWarning()}</AlertDescription>
 					</Alert>
 				{/if}
 
 				<div class="flex items-center gap-2">
 					<Switch bind:checked={enabled} />
-					<span class="text-xs font-medium">Require sign-in</span>
+					<span class="text-xs font-medium">{m.authToggleCard_requireSignIn()}</span>
 				</div>
 				<div class="flex items-center gap-2">
 					<Switch bind:checked={localEnabled} />
-					<span class="text-xs">Local username/password</span>
+					<span class="text-xs">{m.authToggleCard_localSignIn()}</span>
 				</div>
 
 				<Button onclick={handleSave} disabled={authSettings.saving || wouldLockOut} class="self-start">
-					{authSettings.saving ? 'Saving…' : 'Save'}
+					{authSettings.saving ? m.authToggleCard_saving() : m.authToggleCard_save()}
 				</Button>
 			</div>
 		{/if}
