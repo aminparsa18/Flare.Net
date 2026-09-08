@@ -13,6 +13,7 @@
 	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
 	import * as m from '$lib/paraglide/messages';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
+	import PlugIcon from '@lucide/svelte/icons/plug';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import LanguagesIcon from '@lucide/svelte/icons/languages';
@@ -49,6 +50,20 @@
 		{/snippet}
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content class="w-56" align="end">
+		<!-- /data-sources (the ingest-catalog "how do I get data in" page) is deliberately
+		     NOT in nav-links.ts's persistent top bar - see that page's own comment - but a
+		     click-to-reveal row here is a fine middle ground between that and its other only
+		     entry point (the Logs empty state's "See how to ingest data" link). -->
+		<DropdownMenu.Item>
+			{#snippet child({ props })}
+				<a href="/data-sources" {...props}>
+					<PlugIcon />
+					{m.dataSourcesPage_heading()}
+				</a>
+			{/snippet}
+		</DropdownMenu.Item>
+		<DropdownMenu.Separator />
+
 		{#if auth.authEnabled}
 			<DropdownMenu.Label class="flex items-center justify-between gap-2">
 				<span class="truncate">{auth.currentUser?.username}</span>
