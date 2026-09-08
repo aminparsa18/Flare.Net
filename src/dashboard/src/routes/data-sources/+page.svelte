@@ -1,11 +1,13 @@
 <script lang="ts">
 	// The "how do I get data into Flare" guide - almost entirely logs (OpenObserve calls
 	// this page "Data sources" and links it from a persistent topbar item; this one is
-	// deliberately NOT in AppNav/nav-links.ts, see that file's own list - the only way in
-	// is the "See how to ingest data" link on the Logs empty state, LogTable.svelte,
-	// which is exactly the moment someone actually needs it), plus one Metrics tab for
-	// Flare.Ingest's native Prometheus scrape receiver - see catalog.ts's own doc comment
-	// for why that one item lives here instead of a second page.
+	// deliberately NOT in AppNav/nav-links.ts, see that file's own list - it's reachable
+	// via the "See how to ingest data" link on the Logs empty state, LogTable.svelte,
+	// which is exactly the moment someone actually needs it, and via a row in AppNav's
+	// NavUserMenu dropdown for anyone who wants it without hitting an empty Logs page
+	// first), plus one Metrics tab for Flare.Ingest's native Prometheus scrape receiver -
+	// see catalog.ts's own doc comment for why that one item lives here instead of a
+	// second page.
 	import { browser } from '$app/environment';
 	import { API_BASE_URL } from '$lib/api';
 	import { buildCategories } from '$lib/data-sources/catalog';
