@@ -1,3 +1,5 @@
+using MemoryPack;
+
 namespace Flare.Api.LiveTail;
 
 /// <summary>
@@ -9,8 +11,8 @@ namespace Flare.Api.LiveTail;
 /// dependency graph just to borrow a model shape" convention <see cref="Model.LogEventDto"/>
 /// already documents against that same source type. <b>Must be kept in sync by hand</b>
 /// with <c>Flare.Ingest.Model.LogEvent</c> - a field added/renamed/retyped there needs the
-/// matching change here, or <see cref="BufferedLogEventJsonContext"/> silently stops
-/// round-tripping that field.
+/// matching change here, or <see cref="BufferedLogEventJsonContext"/>/
+/// <see cref="MemoryPackableAttribute"/> silently stops round-tripping that field.
 /// </summary>
 /// <remarks>
 /// Nullable/typed exactly like <c>Flare.Ingest.Model.LogEvent</c> (not
@@ -18,8 +20,18 @@ namespace Flare.Api.LiveTail;
 /// events haven't gone through <c>ClickHouseRowMapper</c>'s null-coalescing yet, so
 /// <see cref="BufferedLogEventMapper.ToDto"/> is where that normalization happens on this
 /// side, mirroring <c>ClickHouseRowMapper.ToRow</c>'s conventions.
+/// <para/>
+/// <see cref="MemoryPackableAttribute"/> makes this able to decode the tagged MemoryPack
+/// payload <c>RedisStreamLogEventSink</c> now writes (ADR-0017) - <see cref="LogTailBroadcaster"/>
+/// is a second, independent reader of the same <c>flare:logs</c> stream
+/// <c>ClickHouseFlushWorker</c> reads, so it needs the identical
+/// <see cref="BufferedEventPayload.Decode{T}"/> tagged/legacy-JSON handling, not just a
+/// same-shaped record - field declaration order here must keep matching
+/// <c>Flare.Ingest.Model.LogEvent</c>'s exactly, since MemoryPack's default (non-
+/// <c>VersionTolerant</c>) mode is positional.
 /// </remarks>
-public sealed record BufferedLogEvent
+[MemoryPackable]
+public sealed partial record BufferedLogEvent
 {
     public required Guid EventId { get; init; }
 

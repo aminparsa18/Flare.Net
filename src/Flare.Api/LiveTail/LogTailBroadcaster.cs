@@ -103,19 +103,14 @@ public sealed class LogTailBroadcaster(
             return;
         }
 
-        BufferedLogEvent? bufferedLogEvent;
+        BufferedLogEvent bufferedLogEvent;
         try
         {
-            bufferedLogEvent = JsonSerializer.Deserialize((string)raw!, BufferedLogEventJsonContext.Default.BufferedLogEvent);
+            bufferedLogEvent = BufferedEventPayload.Decode((byte[])raw!, BufferedLogEventJsonContext.Default.BufferedLogEvent);
         }
         catch (JsonException ex)
         {
             logger.LogWarning(ex, "Failed to deserialize stream entry {Id} for live tail; skipping.", entry.Id);
-            return;
-        }
-
-        if (bufferedLogEvent is null)
-        {
             return;
         }
 
