@@ -76,7 +76,7 @@ What differs is how you run Flare itself. Pick one:
 
 Whichever path you pick, the dashboard comes up at [http://localhost:7777](http://localhost:7777). Authentication is **off by default** — the Logs page is open the moment it's up. Turn sign-in on (local accounts, Microsoft Entra ID, Active Directory, OpenID Connect, or reverse-proxy trusted headers) from the `/auth` page whenever you're ready; see [docs/how-to/configure-authentication.md](docs/how-to/configure-authentication.md).
 
-Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogger, and `Microsoft.Extensions.Logging` live in [docs/how-to/run-standalone.md](docs/how-to/run-standalone.md#point-your-logger-at-it) (or [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.md#2-point-your-logger-at-it) on Aspire).
+Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogger, and `Microsoft.Extensions.Logging` live in [docs/how-to/run-standalone.md](docs/how-to/run-standalone.md#point-your-logger-at-it) (or [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.md#2-point-your-logger-at-it) on Aspire). For anything else — Python, Node.js, Java, Go, Kubernetes, DevOps pipelines, a log shipper, or Prometheus scrape — the dashboard's own **Data sources** page (nav dropdown, or the Logs page's empty state) has the same kind of copy-paste snippets; see the [architecture tour](docs/explanation/architecture.md#data-sources) for a preview.
 
 Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup — see [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.md).
 

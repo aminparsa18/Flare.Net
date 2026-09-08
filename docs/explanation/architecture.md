@@ -228,6 +228,23 @@ Views dropdown — shareable by link, not tied to whoever created it.
 
 ![Views](../screenshots/views.png)
 
+### Data sources
+
+Reached from the nav dropdown, or from the Logs page's empty state ("See
+how to ingest data") right when someone actually needs it. A searchable,
+copy-paste catalog of OTLP setup snippets organized by platform
+(Kubernetes, Docker, Linux, Windows), language/SDK (.NET, Python,
+Node.js, Java, Go), log shipper (Vector, Fluent Bit, Syslog), CI/DevOps
+tool (Jenkins, Ansible, Terraform, GitHub Actions), and a raw HTTP/JSON
+fallback for anything else — plus one Prometheus item filed under Metrics
+for `Flare.Ingest`'s native scrape receiver, the one entry here that's
+pulled rather than pushed. Every snippet's host/port comes from the
+browser's own origin, so what you copy matches your actual deployment
+instead of a placeholder — this is the same catalog the README's ".NET
+only" snippets point to for every other language or platform.
+
+![Data sources](../screenshots/catalog-en.webp)
+
 ## Why the CLI pins image tags instead of tracking `latest`
 
 `Flare.Cli`-managed instances default to a specific, tested `vX.Y.Z` image
