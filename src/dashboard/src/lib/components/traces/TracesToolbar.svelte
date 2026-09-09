@@ -2,10 +2,18 @@
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
+	import TracesViewTabs from './TracesViewTabs.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { tracesExplorerContext } from '$lib/traces/context';
 	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import * as m from '$lib/paraglide/messages';
+
+	interface Props {
+		activeTab: 'traces' | 'services';
+		onTabChange: (tab: 'traces' | 'services') => void;
+	}
+
+	let { activeTab, onTabChange }: Props = $props();
 
 	const explorer = tracesExplorerContext.get();
 
@@ -27,6 +35,7 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
+	<TracesViewTabs {activeTab} {onTabChange} />
 	<Select.Root
 		type="single"
 		value={explorer.filter.timeRangePreset}

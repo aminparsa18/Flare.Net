@@ -1,4 +1,5 @@
-// Client for Flare.Api's Services page endpoint (per-service RED metrics overview).
+// Client for Flare.Api's Services-tab endpoint (per-service RED metrics overview,
+// surfaced as a tab on the Traces page rather than its own route).
 //
 // MemoryPack over the wire, same shape as `indexing-api.ts`'s header comment: `ServiceMetrics`
 // has no DateTimeOffset/JsonElement/IReadOnlyList member and is a real generated class;

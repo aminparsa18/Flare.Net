@@ -1,9 +1,10 @@
-// Central reactive state for the Services landing page - the "which service is
+// Central reactive state for the Traces page's "Services" tab - the "which service is
 // unhealthy right now" per-service RED-metrics table (see
 // docs-internal/planning/roadmap.md's now-removed "Per-service RED-metrics overview"
-// item). Polls on the same 10s cadence as IngestionState, same rationale: this is a
-// "what's happening right now" view, not a point-in-time snapshot - a stale error rate
-// is the one thing this page must never show silently.
+// item; folded into a tab on /traces rather than given its own route - see that page's
+// own remarks). Polls on the same 10s cadence as IngestionState, same rationale: this is
+// a "what's happening right now" view, not a point-in-time snapshot - a stale error rate
+// is the one thing this tab must never show silently.
 
 import { getServiceOverview, type ServiceMetrics } from '$lib/services-api';
 import * as m from '$lib/paraglide/messages';
