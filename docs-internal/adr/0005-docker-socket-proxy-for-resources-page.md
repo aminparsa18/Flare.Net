@@ -1,4 +1,4 @@
-# ADR-0005: Docker access for the Resources page goes through a read-only socket proxy, never a direct mount
+# ADR-0005: Read-only container inspection through a Docker socket proxy, never a direct mount
 
 Status: Accepted
 Date: 2026-08-14 (Resources page/producer-overlay, PR #48/#49)
