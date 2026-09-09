@@ -16,10 +16,15 @@ that imposes on every deployment, including the smallest single-user ones.
 ## Decision
 
 Store identity/auth data in an **embedded SQLite file**, not a separate
-database container. `Flare.Api` owns writes; `Flare.Ingest` shares the same
-file read-mostly (checking ingest API key hashes) via `Identity__DbPath`.
-The file lives on a local volume — `identity-data` in `docker-compose.yml`,
-`.data/identity/` for local Aspire dev.
+database container. This makes SQLite the persistence layer for
+per-instance identity/auth state — users, sessions, ingest API keys, auth
+method settings — a different role from ClickHouse's telemetry data plane
+(ADR-0013) or Redis's ingest buffer (ADR-0002): it was never a scale-driven
+choice so much as a categorical one, and the low write volume just happens
+to be consistent with it. `Flare.Api` owns writes; `Flare.Ingest` shares the
+same file read-mostly (checking ingest API key hashes) via
+`Identity__DbPath`. The file lives on a local volume — `identity-data` in
+`docker-compose.yml`, `.data/identity/` for local Aspire dev.
 
 ## Alternatives considered
 
@@ -52,6 +57,24 @@ The file lives on a local volume — `identity-data` in `docker-compose.yml`,
   dashboard page rather than config files — a direct consequence of picking
   a database that's naturally per-instance and admin-editable, rather than
   a config-file model. See `docs/explanation/authentication-model.md`.
+- **`Flare.Ingest`'s read access is cache-mediated, not a per-request
+  dependency.** `IngestApiKeyCache` (a `BackgroundService`) polls the SQLite
+  store every 30s into an in-memory hash set; the OTLP hot path
+  (`IngestApiKeyValidationMiddleware`) only ever reads that in-memory set,
+  never SQLite directly, and keeps serving the last-known-good set on a read
+  failure rather than failing ingestion. This was deliberate, not incidental
+  — routing key validation through `Flare.Api` instead would make
+  `Flare.Ingest`'s auth path depend on `Flare.Api` being reachable, which
+  would undercut the independence ADR-0002 already establishes (Ingest
+  keeps durably buffering telemetry regardless of downstream availability).
+  A revoked key can therefore stay valid for up to the refresh interval —
+  an accepted trade-off for a self-hosted ingest key, not a bug.
+- **This still couples `Flare.Ingest` to `Flare.Identity` at compile time**,
+  not just via the shared file: both `Flare.Ingest.csproj` and
+  `Flare.Api.csproj` carry a direct `ProjectReference` to `Flare.Identity`,
+  and `Flare.Ingest` resolves `Flare.Identity.IngestKeys.IIngestApiKeyStore`
+  directly. A schema change to the ingest-key model requires both services
+  to move in lockstep at build time.
 
 ## Related documentation
 
