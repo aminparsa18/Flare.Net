@@ -23,12 +23,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Zero-prerequisite quick-install script for the docker-compose path.**
-  A `curl | bash` installer (OS/package-manager detection, installs Docker
-  if missing, pulls and starts the standalone stack) for evaluators with
-  neither the repo cloned nor a .NET SDK — a fourth, even-lower-friction
-  entry point alongside the existing three install paths (Aspire
-  integration, `docker compose up`, the `flare` CLI). Not started.
 - **Global service map + per-service dependency breakdown (external calls,
   DB operations).** Aggregates spans across *all* traces in a time window
   into a dependency graph (nodes/edges colored by error rate and latency),

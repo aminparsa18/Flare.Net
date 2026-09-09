@@ -14,7 +14,7 @@ differs.
 
 - Docker (or another Docker-compatible engine, with the Compose v2 plugin)
 - The .NET SDK
-- `git`
+- `git` — or skip it via the quick-install script mentioned in step 1
 
 ## 1. Start Flare
 
@@ -30,6 +30,14 @@ credential. Wait for the logs to settle (a minute or so on first run), then
 open [http://localhost:7777](http://localhost:7777). You'll land on the
 Logs page — empty for now, but open. Authentication is off by default, so
 there's nothing to sign in to yet.
+
+> Don't want to clone the whole repo just to start the stack? `curl -fsSL
+> https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh
+> | bash` installs Docker if it's missing and starts the same stack from
+> the published images instead — see
+> [`../how-to/run-standalone.md#zero-prerequisite-quick-install`](../how-to/run-standalone.md#zero-prerequisite-quick-install).
+> You'll still need the .NET SDK for step 2 below either way, since that's
+> where this tutorial's own throwaway console app comes from.
 
 ## 2. Send it a log
 
