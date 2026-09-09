@@ -167,6 +167,16 @@ straight into the rest of the dashboard.
 
 ![Trace detail waterfall](../screenshots/traces-en.webp)
 
+A "Services" tab alongside the trace list gives a sortable, per-service
+rollup of the RED metrics (request rate, error rate, p50/p95/p99 latency)
+derived from the same spans, over its own selectable window (5m–24h),
+refreshed every 10 seconds. Answers "which service is unhealthy right now"
+without hand-building the equivalent query in the trace search or the
+Metrics picker. "Requests" here means root spans (`ParentSpanId` empty) —
+a service's trace entry points, the same convention the trace list itself
+uses for "one row per trace". Click a service name to jump back into the
+trace list, pre-filtered to that service and window.
+
 ### Metrics
 
 `/metrics` — every OTLP metric instrument (Sum, Gauge, Histogram) reported
@@ -177,18 +187,6 @@ GC, thread pool, Kestrel, HTTP client/server) and anything your own
 `Meter` emits.
 
 ![Metrics browser](../screenshots/metrics-en.webp)
-
-### Services
-
-`/services` — a sortable, per-service rollup of the RED metrics (request
-rate, error rate, p50/p95/p99 latency) derived from trace spans over a
-selectable window (5m–24h), refreshed every 10 seconds. Answers "which
-service is unhealthy right now" without hand-building the equivalent query
-in the Traces search explorer or the Metrics picker. "Requests" here means
-root spans (`ParentSpanId` empty) — a service's trace entry points, the
-same convention the Traces list already uses for "one row per trace".
-Click a service name to jump into the Traces page, pre-filtered to that
-service and window.
 
 ### Ingestion
 

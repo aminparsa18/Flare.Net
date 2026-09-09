@@ -5,7 +5,7 @@ namespace Flare.Api.Model;
 /// <summary>
 /// Per-service RED metrics (Rate/Errors/Duration) for one window, aggregated from
 /// <c>spans</c> - the row shape behind <c>GET /api/services/overview</c>, the
-/// dashboard's "Services" landing page (see
+/// dashboard's "Services" tab on the Traces page (see
 /// docs-internal/planning/roadmap.md's now-removed "Per-service RED-metrics overview"
 /// item). No <see cref="DateTimeOffset"/>/<see cref="System.Text.Json.JsonElement"/>
 /// member, so this carries <c>[GenerateTypeScript]</c> - see

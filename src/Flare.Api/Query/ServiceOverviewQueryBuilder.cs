@@ -7,7 +7,7 @@ namespace Flare.Api.Query;
 public sealed record ServiceOverviewSql(string Sql, ClickHouseParameterCollection Parameters);
 
 /// <summary>
-/// Pure window → parameterized SQL builder for the Services landing page's per-service
+/// Pure window → parameterized SQL builder for the Traces page's Services tab per-service
 /// Rate/Errors/Duration rollup - one <c>GROUP BY ServiceName</c> over <c>spans</c>. Same
 /// "pure function, no ClickHouse dependency" style as <see cref="ActiveServicesQueryBuilder"/>/
 /// <see cref="SpanCountQueryBuilder"/>, split out of <see cref="ServiceOverviewQueryService"/>

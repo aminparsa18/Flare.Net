@@ -4,7 +4,7 @@ using Flare.Api.Query;
 namespace Flare.Api.Endpoints;
 
 /// <summary>
-/// The Services landing page's one endpoint: <c>GET /api/services/overview?windowMinutes=15</c>.
+/// The Traces page's Services-tab endpoint: <c>GET /api/services/overview?windowMinutes=15</c>.
 /// Same plain-GET-with-one-bounded-int-query-param convention as
 /// <see cref="IngestionEndpoints"/> (see its own remarks) - the only input here is one
 /// window length, so there's no structured filter to justify a POST body.

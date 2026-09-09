@@ -18,5 +18,5 @@ export function createContext<T>(name: string) {
 	};
 }
 
-/** `routes/services/+page.svelte` calls `.set(new ServicesState())`; every descendant calls `.get()` instead of receiving it as a prop. */
+/** `routes/traces/+page.svelte` calls `.set(new ServicesState())` (the Services tab lives on the Traces route, not its own - see that page's own remarks); every descendant calls `.get()` instead of receiving it as a prop. */
 export const servicesContext = createContext<ServicesState>('services');
