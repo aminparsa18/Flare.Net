@@ -131,6 +131,7 @@ builder.Services.AddSingleton<ISpanQueryService>(sp => new SpanQueryService(
     sp.GetRequiredService<TimeProvider>(),
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 builder.Services.AddSingleton<IMetricQueryService, MetricQueryService>();
+builder.Services.AddSingleton<IServiceOverviewQueryService, ServiceOverviewQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();
@@ -297,6 +298,7 @@ authenticatedRoutes.MapLogsEndpoints();
 authenticatedRoutes.MapLogTailEndpoints();
 authenticatedRoutes.MapSpanEndpoints();
 authenticatedRoutes.MapMetricsEndpoints();
+authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapSavedViewEndpoints();
 authenticatedRoutes.MapIngestionEndpoints();
 authenticatedRoutes.MapPipelineEndpoints();

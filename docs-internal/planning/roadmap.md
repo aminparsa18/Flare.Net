@@ -23,12 +23,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Per-service RED-metrics overview ("Services" landing page).** A
-  sortable table aggregating trace spans into per-service request rate,
-  error rate, and p99 latency — so "which service is unhealthy right now"
-  is answerable at a glance. Today that answer only comes from the raw
-  Traces search explorer or the generic Metrics picker/chart, neither of
-  which aggregates by service. Not started.
 - **Zero-prerequisite quick-install script for the docker-compose path.**
   A `curl | bash` installer (OS/package-manager detection, installs Docker
   if missing, pulls and starts the standalone stack) for evaluators with
