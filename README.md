@@ -67,6 +67,12 @@ What differs is how you run Flare itself. Pick one:
   ```
   at the repo root, with working defaults for every port and credential (copy [.env.example](.env.example) to `.env` to change any). Details: [docs/how-to/run-standalone.md](docs/how-to/run-standalone.md).
 
+- **Just evaluating — no repo cloned, no .NET SDK?**
+  ```sh
+  curl -fsSL https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh | bash
+  ```
+  Installs Docker if it's missing, then pulls and starts the same standalone stack from the published images. Details: [docs/how-to/run-standalone.md#zero-prerequisite-quick-install](docs/how-to/run-standalone.md#zero-prerequisite-quick-install).
+
 - **Want one standing instance shared across several unrelated local projects?**
   ```sh
   dotnet tool install --global Flare.Cli

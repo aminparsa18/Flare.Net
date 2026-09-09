@@ -20,6 +20,31 @@ Docker (or another Docker-compatible engine) running — Flare's
 images, and ClickHouse/Redis themselves run as containers too. There's no
 non-Docker install path.
 
+## Zero-prerequisite quick install
+
+Just evaluating Flare and don't have this repo cloned, or even a .NET SDK
+installed? Run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/aminparsa18/Flare.Net/main/scripts/install.sh | bash
+```
+
+This installs Docker itself if it's missing (via
+[Docker's official convenience script](https://get.docker.com) on Linux, or
+Homebrew on macOS), then fetches just what's needed to run the stack —
+[`docker-compose.install.yml`](../../docker-compose.install.yml), the
+same compose file below but pulling the three Flare images from Docker Hub
+instead of building them, since there's no local source to build — into
+`~/.flare` (override with `FLARE_INSTALL_DIR`), and starts it. Safe to
+re-run: it never touches an existing `.env` or your data volumes, only
+re-pulls the compose file/migrations and the latest images. See the
+script's own header comment
+([`scripts/install.sh`](../../scripts/install.sh)) for every env var it
+reads and exactly what it does.
+
+Prefer to clone the repo yourself (e.g. to build from source, or review the
+compose file first)? Skip ahead to **Start Flare** below.
+
 ## Start Flare
 
 ```sh
