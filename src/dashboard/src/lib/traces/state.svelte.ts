@@ -78,14 +78,28 @@ export class TracesExplorerState {
 		return fresh;
 	}
 
-	buildFilter(range: ResolvedTimeRange | null): SpanFilter {
-		const filter: SpanFilter = { rootSpansOnly: true };
+	/**
+	 * @param overrides.attributeFilters Substituted for `this.filter.attributeFilters` when
+	 * given - see LogsExplorerState.buildFilter's identically-shaped parameter for why
+	 * (SpanAttributeFiltersRow's value autocomplete needs the same "exclude the row being
+	 * typed" exclusion).
+	 * @param overrides.rootSpansOnly Defaults to `true` (this page's own trace-list search
+	 * only ever wants root spans - see `SpanDto.SpanCount`'s remarks). SpanAttributeFiltersRow's
+	 * value autocomplete overrides it to `false`: live-verified an attribute like
+	 * `peer.service` typically lives on a *child* span (an outbound call a root span like
+	 * `handle-request` merely triggers, not one it carries itself), so leaving this `true`
+	 * silently searched zero matching rows for exactly the attributes autocomplete exists
+	 * to help with.
+	 */
+	buildFilter(range: ResolvedTimeRange | null, overrides?: { attributeFilters?: SpanAttributeFilter[]; rootSpansOnly?: boolean }): SpanFilter {
+		const filter: SpanFilter = { rootSpansOnly: overrides?.rootSpansOnly ?? true };
 		if (range) {
 			filter.from = range.from;
 			filter.to = range.to;
 		}
 		if (this.filter.services.length) filter.services = [...this.filter.services];
-		if (this.filter.attributeFilters.length) filter.attributes = [...this.filter.attributeFilters];
+		const attributes = overrides?.attributeFilters ?? this.filter.attributeFilters;
+		if (attributes.length) filter.attributes = [...attributes];
 		return filter;
 	}
 

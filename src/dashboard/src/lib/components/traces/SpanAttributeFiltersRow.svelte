@@ -144,14 +144,29 @@
 
 	const activeCount = $derived(explorer.filter.attributeFilters.length);
 
-	/** Value autocomplete for one row's value input - see AttributeFiltersRow.svelte's identically-shaped `suggestValues` for the full rationale (same best-effort posture, same filter/time-window scoping via `explorer.buildFilter`/`currentRange`). */
+	/** Every *other* row's filter, excluding the one being edited - see AttributeFiltersRow.svelte's identically-shaped `otherAttributeFilters` for why this exclusion matters (live-verified: without it, the row's own not-yet-useful filter self-scoped its own suggestion query to nothing). */
+	function otherAttributeFilters(excludeId: number): SpanAttributeFilter[] {
+		return rows
+			.filter((r) => r.id !== excludeId && r.key.trim())
+			.map((r) => ({ bag: r.bag, key: r.key.trim(), operator: r.operator, value: needsValue(r.operator) ? r.value : '' }));
+	}
+
+	/**
+	 * Value autocomplete for one row's value input - see AttributeFiltersRow.svelte's
+	 * identically-shaped `suggestValues` for the full rationale (same best-effort posture,
+	 * same filter/time-window scoping via `explorer.buildFilter`/`currentRange` minus this
+	 * row's own filter). `rootSpansOnly: false` overrides `buildFilter`'s own default - see
+	 * its remarks on `overrides.rootSpansOnly` for why: an attribute like `peer.service`
+	 * usually lives on a child span, not the root span this page's own trace-list search
+	 * is scoped to.
+	 */
 	async function suggestValues(row: Row, text: string, signal: AbortSignal): Promise<AttributeValueSuggestion[]> {
 		const key = row.key.trim();
 		if (!key) return [];
 		try {
 			const res = await getSpanAttributeValues(
 				{
-					filter: explorer.buildFilter(explorer.currentRange()),
+					filter: explorer.buildFilter(explorer.currentRange(), { attributeFilters: otherAttributeFilters(row.id), rootSpansOnly: false }),
 					bag: row.bag,
 					key,
 					prefix: text.trim() || undefined,

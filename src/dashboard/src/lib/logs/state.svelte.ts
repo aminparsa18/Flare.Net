@@ -157,8 +157,16 @@ export class LogsExplorerState {
 	 * live-tail subscribe (no range - the tail endpoint ignores from/to anyway), and
 	 * VolumeChart (its own bucket-aware range) so "how the non-time filters map to the
 	 * wire shape" lives in exactly one place.
+	 *
+	 * @param attributeFiltersOverride Substituted for `this.filter.attributeFilters` when
+	 * given - used by AttributeFiltersRow's value autocomplete, which needs everything
+	 * *except* the one row it's fetching suggestions for: including that row's own
+	 * (still-being-typed, possibly value-less) filter would self-scope the suggestion
+	 * query to events already matching a value that hasn't been picked yet, live-verified
+	 * to silently return zero suggestions the moment a key is entered (see git history for
+	 * the incident this comment documents).
 	 */
-	buildFilter(range: ResolvedTimeRange | null): LogFilter {
+	buildFilter(range: ResolvedTimeRange | null, attributeFiltersOverride?: AttributeFilter[]): LogFilter {
 		const filter: LogFilter = {};
 		if (range) {
 			filter.from = range.from;
@@ -172,7 +180,7 @@ export class LogsExplorerState {
 		// `attributeFilters` - order doesn't affect matching (every entry is ANDed - see
 		// LogFilterSqlBuilder.Build/LogFilterMatcher.Matches), it's just a stable order for
 		// the resulting parameter names.
-		const attributes = [...(this.filter.attribute ? [this.filter.attribute] : []), ...this.filter.attributeFilters];
+		const attributes = [...(this.filter.attribute ? [this.filter.attribute] : []), ...(attributeFiltersOverride ?? this.filter.attributeFilters)];
 		if (attributes.length) filter.attributes = attributes;
 		return filter;
 	}
