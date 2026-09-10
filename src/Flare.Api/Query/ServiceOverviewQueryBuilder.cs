@@ -10,7 +10,7 @@ public sealed record ServiceOverviewSql(string Sql, ClickHouseParameterCollectio
 /// Pure window → parameterized SQL builder for the Traces page's Services tab per-service
 /// Rate/Errors/Duration rollup - one <c>GROUP BY ServiceName</c> over <c>spans</c>. Same
 /// "pure function, no ClickHouse dependency" style as <see cref="ActiveServicesQueryBuilder"/>/
-/// <see cref="SpanCountQueryBuilder"/>, split out of <see cref="ServiceOverviewQueryService"/>
+/// <see cref="SpanRollupQueryBuilder"/>, split out of <see cref="ServiceOverviewQueryService"/>
 /// so the SQL shape is unit-testable on its own.
 /// </summary>
 /// <remarks>

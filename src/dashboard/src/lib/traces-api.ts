@@ -112,6 +112,8 @@ export interface SpanDto {
 	events: SpanEventDto[];
 	/** Total spans sharing this row's traceId - only populated for `SpanFilter.rootSpansOnly` searches (Flare's trace list view). See SpanDto.SpanCount's C# remarks. */
 	spanCount?: number;
+	/** Whether any span sharing this row's traceId - not just this row's own `statusCode` - carries "STATUS_CODE_ERROR". Same populated-when as `spanCount`. See SpanDto.HasError's C# remarks. */
+	hasError?: boolean;
 }
 
 function toSpanEventDto(dto: GeneratedSpanEventDto): SpanEventDto {
@@ -144,7 +146,8 @@ function toSpanDto(dto: GeneratedSpanDto): SpanDto {
 		scopeAttributes: dto.scopeAttributes ?? {},
 		spanAttributes: dto.spanAttributes ?? {},
 		events: (dto.events ?? []).map((e) => toSpanEventDto(e!)),
-		spanCount: dto.spanCount == null ? undefined : Number(dto.spanCount)
+		spanCount: dto.spanCount == null ? undefined : Number(dto.spanCount),
+		hasError: dto.hasError ?? undefined
 	};
 }
 
