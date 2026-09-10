@@ -144,12 +144,29 @@
 	const activeCount = $derived(explorer.filter.attributeFilters.length);
 
 	/**
+	 * Every *other* row's filter (own key trimmed/non-empty, same "which rows count as
+	 * committed" rule `commit()` applies) - passed as `buildFilter`'s override so a
+	 * suggestion fetch never self-scopes to the very row it's fetching suggestions for.
+	 * Live-verified this matters: without excluding it, the row being edited's own filter
+	 * (key set, value still `''` since nothing's been picked yet) rode along in the search
+	 * scope as an implicit "value equals empty string" constraint - which real log/span
+	 * data essentially never matches - silently returning zero suggestions the instant a
+	 * key was typed.
+	 */
+	function otherAttributeFilters(excludeId: number): AttributeFilter[] {
+		return rows
+			.filter((r) => r.id !== excludeId && r.key.trim())
+			.map((r) => ({ bag: r.bag, key: r.key.trim(), operator: r.operator, value: needsValue(r.operator) ? r.value : '' }));
+	}
+
+	/**
 	 * Value autocomplete for one row's value input (AttributeValueCombobox) - every
 	 * distinct value observed for the row's current bag+key, scoped to the same
 	 * filter/time-window the log table itself is searching (see
-	 * `explorer.buildFilter`/`currentRange`), narrowed by `text` if the caller's already
-	 * typed something. Best-effort: a key not yet chosen or a failed lookup both resolve to
-	 * no suggestions rather than surfacing an error - same posture
+	 * `explorer.buildFilter`/`currentRange`) minus this row's own not-yet-useful filter
+	 * (see `otherAttributeFilters`), narrowed by `text` if the caller's already typed
+	 * something. Best-effort: a key not yet chosen or a failed lookup both resolve to no
+	 * suggestions rather than surfacing an error - same posture
 	 * `TracesExplorerState.loadKnownServices` documents for its own best-effort fetch.
 	 */
 	async function suggestValues(row: Row, text: string, signal: AbortSignal): Promise<AttributeValueSuggestion[]> {
@@ -158,7 +175,7 @@
 		try {
 			const res = await getLogAttributeValues(
 				{
-					filter: explorer.buildFilter(explorer.currentRange()),
+					filter: explorer.buildFilter(explorer.currentRange(), otherAttributeFilters(row.id)),
 					bag: row.bag,
 					key,
 					prefix: text.trim() || undefined,
