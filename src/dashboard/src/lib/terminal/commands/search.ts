@@ -2,12 +2,16 @@
 // same POST /api/logs/search the Logs Explorer itself uses (searchLogs() from $lib/api),
 // rather than any new backend surface - same "already-authenticated dashboard API,
 // different front end" shape as commands/tail.ts/traces.ts. Flag parsing is a direct port
-// of Flare.Cli/Commands/SearchCommand.cs's own Settings. Exports its parse helpers so
-// commands/export.ts (identical filter-flag set) reuses them rather than a third copy -
-// same precedent commands/metrics.ts's parseSince already sets for metric.ts/ingestion.ts.
+// of Flare.Cli/Commands/SearchCommand.cs's own Settings, including
+// --attr/--attr-not/--attr-exists/--attr-absent (attr-flags.ts, mirroring Flare.Cli's
+// Internal/AttributeFlagParsing.cs) always against the default Log bag (no --attr-bag flag
+// yet). Exports its parse helpers so commands/export.ts (identical filter-flag set) reuses
+// them rather than a third copy - same precedent commands/metrics.ts's parseSince already
+// sets for metric.ts/ingestion.ts.
 
-import { searchLogs, type LogEventDto, type LogFilter } from '$lib/api';
+import { searchLogs, type AttributeFilter, type LogEventDto, type LogFilter } from '$lib/api';
 import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
+import { parseAttrBareKey, parseAttrKeyValue, type AttrFlagEntry } from './attr-flags';
 import type { TerminalCommand } from '../types';
 
 export class UsageError extends Error {}
@@ -19,6 +23,7 @@ export interface ParsedLogArgs {
 	spanId?: string;
 	patternId?: string;
 	search?: string;
+	attrs: AttrFlagEntry[];
 	sinceMs: number;
 }
 
@@ -27,7 +32,7 @@ const DEFAULT_LIMIT = 20;
 
 /** Shared by search.ts/export.ts - both take the same filter flags, only search.ts also has -n/--limit. */
 export function parseLogFilterArgs(args: string[], commandName: string, startIndex = 0): { parsed: ParsedLogArgs; nextIndex: number } {
-	const result: ParsedLogArgs = { services: [], levels: [], sinceMs: DEFAULT_SINCE_MS };
+	const result: ParsedLogArgs = { services: [], levels: [], attrs: [], sinceMs: DEFAULT_SINCE_MS };
 	let i = startIndex;
 
 	for (; i < args.length; i++) {
@@ -52,6 +57,18 @@ export function parseLogFilterArgs(args: string[], commandName: string, startInd
 				break;
 			case '--search':
 				result.search = requireValue(args, ++i, arg, commandName);
+				break;
+			case '--attr':
+				result.attrs.push(parseAttrKeyValue(requireValue(args, ++i, arg, commandName), arg, commandName, 'Equals'));
+				break;
+			case '--attr-not':
+				result.attrs.push(parseAttrKeyValue(requireValue(args, ++i, arg, commandName), arg, commandName, 'NotEquals'));
+				break;
+			case '--attr-exists':
+				result.attrs.push(parseAttrBareKey(requireValue(args, ++i, arg, commandName), arg, commandName, 'Exists'));
+				break;
+			case '--attr-absent':
+				result.attrs.push(parseAttrBareKey(requireValue(args, ++i, arg, commandName), arg, commandName, 'Absent'));
 				break;
 			case '--since':
 				result.sinceMs = parseSince(requireValue(args, ++i, arg, commandName), commandName);
@@ -104,6 +121,9 @@ export function buildLogFilter(parsed: ParsedLogArgs, commandName: string): LogF
 	if (parsed.spanId) filter.spanId = parsed.spanId;
 	if (parsed.patternId) filter.patternId = parsed.patternId;
 	if (parsed.search) filter.search = parsed.search;
+	if (parsed.attrs.length > 0) {
+		filter.attributes = parsed.attrs.map((a): AttributeFilter => ({ bag: 'Log', key: a.key, value: a.value, operator: a.operator }));
+	}
 	return filter;
 }
 
@@ -162,7 +182,7 @@ export const searchCommand: TerminalCommand = {
 	name: 'search',
 	summary: 'One-shot log search (same feed as the Logs Explorer).',
 	usage:
-		'search [-s|--service <name>]... [-l|--level <level>]... [--trace-id <id>] [--span-id <id>] [--pattern-id <id>] [--search <text>] [--since <range>] [-n|--limit <count>]',
+		'search [-s|--service <name>]... [-l|--level <level>]... [--trace-id <id>] [--span-id <id>] [--pattern-id <id>] [--search <text>] [--attr <key=value>]... [--attr-not <key=value>]... [--attr-exists <key>]... [--attr-absent <key>]... [--since <range>] [-n|--limit <count>]',
 	async run(args, term) {
 		let parsed: SearchArgs;
 		try {

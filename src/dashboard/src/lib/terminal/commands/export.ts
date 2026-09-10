@@ -58,7 +58,7 @@ export const exportCommand: TerminalCommand = {
 	name: 'export',
 	summary: 'Downloads a time range of log events as a file (csv/xlsx/json/xml).',
 	usage:
-		'export [-s|--service <name>]... [-l|--level <level>]... [--trace-id <id>] [--span-id <id>] [--pattern-id <id>] [--search <text>] [--since <range>] [--format csv|xlsx|json|xml]',
+		'export [-s|--service <name>]... [-l|--level <level>]... [--trace-id <id>] [--span-id <id>] [--pattern-id <id>] [--search <text>] [--attr <key=value>]... [--attr-not <key=value>]... [--attr-exists <key>]... [--attr-absent <key>]... [--since <range>] [--format csv|xlsx|json|xml]',
 	async run(args, term) {
 		let parsed: ExportArgs;
 		let filter: LogFilter;

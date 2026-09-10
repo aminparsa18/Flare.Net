@@ -35,23 +35,6 @@ folders are where "what happened and why" actually lives.
   a new AST node, and translator support for `mapContains`/map-subscript
   SQL. Approach TBD (SQL-bar grammar vs. something else entirely) - not
   started.
-- **Attribute filter flags for `flare search`/`flare traces` (Flare.Cli)
-  and the dashboard's embedded terminal's mirror commands.** Neither
-  surface exposes `LogFilter.Attributes`/`SpanFilter.Attributes` at all
-  yet - [`SearchCommand.cs`](../../src/Flare.Cli/Commands/SearchCommand.cs)'s
-  own header comment already flagged this as a planned follow-up, written
-  before the exists/absent/not-equals operator work (see git history)
-  made it more worth doing (a plain `--attr key=value` alone couldn't
-  express "missing this attribute" or "exclude this value" anyway). Needs
-  a repeatable flag per operator - e.g. `--attr key=value` (Equals),
-  `--attr-not key=value` (NotEquals), `--attr-exists key`/`--attr-absent
-  key` - in `Flare.Cli/Commands/SearchCommand.cs`/`TracesCommand.cs` *and*
-  their dashboard-terminal ports
-  ([`src/dashboard/src/lib/terminal/commands/search.ts`](../../src/dashboard/src/lib/terminal/commands/search.ts)/`traces.ts`),
-  which explicitly mirror the CLI's own flag set 1:1 - the two need to land
-  together, not one then the other. `search.ts`'s `parseLogFilterArgs` is
-  already shared with `export.ts`, so that command picks up the same flags
-  for free. Not started.
 - **Custom, user-built dashboards (multi-panel, saved, composed from
   arbitrary log/trace/metric queries).** A bigger item, likely needs its
   own design pass before implementation. Distinct from

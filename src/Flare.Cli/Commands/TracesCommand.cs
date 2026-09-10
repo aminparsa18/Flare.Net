@@ -17,7 +17,10 @@ namespace Flare.Cli.Commands;
 /// <see cref="LogTailClient"/> already draws for the live-tail WebSocket. No live-tail
 /// counterpart here (unlike `flare tail` for logs): the dashboard's own Traces state
 /// (<c>state.svelte.ts</c>) is deliberately non-live too, so there's no live protocol to
-/// mirror.
+/// mirror. Attribute filters (<c>SpanFilter.Attributes</c>) are exposed via the repeatable
+/// <c>--attr</c>/<c>--attr-not</c>/<c>--attr-exists</c>/<c>--attr-absent</c> flags - see
+/// <see cref="Internal.AttributeFlagParsing"/> - always against the default <c>Span</c>
+/// bag (no <c>--attr-bag</c> flag yet).
 /// </summary>
 internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
 {
@@ -38,6 +41,22 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         [CommandOption("--trace-id <ID>")]
         [Description("Exact lower-hex TraceId match.")]
         public string? TraceId { get; init; }
+
+        [CommandOption("--attr <KEY=VALUE>")]
+        [Description("Span attribute equals: key=value. Repeatable.")]
+        public string[] Attr { get; init; } = [];
+
+        [CommandOption("--attr-not <KEY=VALUE>")]
+        [Description("Span attribute not-equals (absent also matches): key=value. Repeatable.")]
+        public string[] AttrNot { get; init; } = [];
+
+        [CommandOption("--attr-exists <KEY>")]
+        [Description("Span attribute key is present, any value. Repeatable.")]
+        public string[] AttrExists { get; init; } = [];
+
+        [CommandOption("--attr-absent <KEY>")]
+        [Description("Span attribute key is absent.")]
+        public string[] AttrAbsent { get; init; } = [];
 
         [CommandOption("--min-duration <DURATION>")]
         [Description("Inclusive lower bound on trace duration, e.g. 500ms, 2s, 1.5m.")]
@@ -110,6 +129,12 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
             return 1;
         }
 
+        if (!AttributeFlagParsing.TryParse(settings.Attr, settings.AttrNot, settings.AttrExists, settings.AttrAbsent, out var parsedAttrs, out var attrError))
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(attrError)}");
+            return 1;
+        }
+
         var to = DateTimeOffset.UtcNow;
         var from = to - since;
 
@@ -124,6 +149,9 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
             TraceId = string.IsNullOrWhiteSpace(settings.TraceId) ? null : settings.TraceId,
             MinDurationNano = minDurationNano,
             MaxDurationNano = maxDurationNano,
+            Attributes = parsedAttrs.Count > 0
+                ? parsedAttrs.Select(a => new SpanAttributeFilterWire { Key = a.Key, Value = a.Value, Operator = a.Operator }).ToList()
+                : null,
         };
 
         var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
@@ -362,6 +390,27 @@ internal sealed class SpanFilterWire
     public ulong? MinDurationNano { get; init; }
 
     public ulong? MaxDurationNano { get; init; }
+
+    public IReadOnlyList<SpanAttributeFilterWire>? Attributes { get; init; }
+}
+
+/// <summary>
+/// Hand-mirror of <c>Model/SpanFilter.cs</c>'s <c>SpanAttributeFilter</c>. <see cref="Bag"/>/
+/// <see cref="Operator"/> are plain strings (not a C# enum), matching this file's existing
+/// <c>StatusCodes</c>/<c>Kinds</c>-as-strings convention rather than a
+/// <c>JsonStringEnumConverter</c> on <see cref="WireJsonOptions"/>. Built only via
+/// <see cref="Internal.AttributeFlagParsing"/>, which always fills <see cref="Bag"/> with
+/// the default <c>"Span"</c> - no <c>--attr-bag</c> flag yet.
+/// </summary>
+internal sealed class SpanAttributeFilterWire
+{
+    public string Bag { get; init; } = "Span";
+
+    public required string Key { get; init; }
+
+    public required string Value { get; init; }
+
+    public string Operator { get; init; } = "Equals";
 }
 
 internal sealed class SpanSearchRequestWire
