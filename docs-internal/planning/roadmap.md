@@ -23,17 +23,35 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Attribute filter operators beyond equality, for logs and spans both:
-  "exists"/"absent" and "exclude"/negate.** `AttributeFilter`/
-  `SpanAttributeFilter`
-  ([`LogFilter.cs`](../../src/Flare.Api/Model/LogFilter.cs),
-  [`SpanFilter.cs`](../../src/Flare.Api/Model/SpanFilter.cs)) only support
-  exact-value equality on an attribute key today. Two related gaps, same
-  underlying filter-shape work: no way to ask "show me records where this
-  attribute is/isn't set at all" (e.g. spans missing `tenant.id`, logs with
-  `error.stack` present), and no way to exclude/negate a value (`!=`
-  instead of `=`). `Kinds`/`StatusCodes` on `SpanFilter` are the existing
-  precedent for a non-equality match shape to follow. Not started.
+- **LogQL attribute-map syntax.** The SQL query bar (`LogQlLexer`/
+  `LogQlParser`/`LogQlAst`/`LogQlWhereTranslator` under
+  [`src/Flare.Api/Query/LogQl/`](../../src/Flare.Api/Query/LogQl/)) only
+  knows a fixed column list (`service`, `level`, `body`, `traceId`,
+  `spanId`, `severityNumber`) - it has no syntax for reaching into the
+  arbitrary key/value `LogAttributes`/`ResourceAttributes`/
+  `ScopeAttributes` maps at all, unlike the structured `AttributeFilter`
+  path (which now supports exists/absent/not-equals - see git history).
+  A bigger change than that one: needs new grammar (e.g. `attributes.foo`),
+  a new AST node, and translator support for `mapContains`/map-subscript
+  SQL. Approach TBD (SQL-bar grammar vs. something else entirely) - not
+  started.
+- **Attribute filter flags for `flare search`/`flare traces` (Flare.Cli)
+  and the dashboard's embedded terminal's mirror commands.** Neither
+  surface exposes `LogFilter.Attributes`/`SpanFilter.Attributes` at all
+  yet - [`SearchCommand.cs`](../../src/Flare.Cli/Commands/SearchCommand.cs)'s
+  own header comment already flagged this as a planned follow-up, written
+  before the exists/absent/not-equals operator work (see git history)
+  made it more worth doing (a plain `--attr key=value` alone couldn't
+  express "missing this attribute" or "exclude this value" anyway). Needs
+  a repeatable flag per operator - e.g. `--attr key=value` (Equals),
+  `--attr-not key=value` (NotEquals), `--attr-exists key`/`--attr-absent
+  key` - in `Flare.Cli/Commands/SearchCommand.cs`/`TracesCommand.cs` *and*
+  their dashboard-terminal ports
+  ([`src/dashboard/src/lib/terminal/commands/search.ts`](../../src/dashboard/src/lib/terminal/commands/search.ts)/`traces.ts`),
+  which explicitly mirror the CLI's own flag set 1:1 - the two need to land
+  together, not one then the other. `search.ts`'s `parseLogFilterArgs` is
+  already shared with `export.ts`, so that command picks up the same flags
+  for free. Not started.
 - **Custom, user-built dashboards (multi-panel, saved, composed from
   arbitrary log/trace/metric queries).** A bigger item, likely needs its
   own design pass before implementation. Distinct from

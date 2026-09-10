@@ -96,6 +96,57 @@ public class LogFilterMatcherTests
         Assert.False(LogFilterMatcher.Matches(logEvent, filter));
     }
 
+    [Theory]
+    [InlineData("GET", false)] // present, equals -> NotEquals fails
+    [InlineData("POST", true)] // present, differs -> NotEquals passes
+    public void Matches_NotEqualsOperator_WhenKeyIsPresent(string filterValue, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.method"] = "GET" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "http.method", Value = filterValue, Operator = AttributeFilterOperator.NotEquals }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_NotEqualsOperator_ReturnsTrue_WhenKeyIsAbsent()
+    {
+        var logEvent = MinimalLogEvent();
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "missing.key", Value = "anything", Operator = AttributeFilterOperator.NotEquals }] };
+
+        Assert.True(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData("http.method", true)]
+    [InlineData("missing.key", false)]
+    public void Matches_ExistsOperator_ChecksKeyPresence_IgnoringValue(string key, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.method"] = "GET" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = key, Value = "", Operator = AttributeFilterOperator.Exists }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData("http.method", false)]
+    [InlineData("missing.key", true)]
+    public void Matches_AbsentOperator_ChecksKeyAbsence_IgnoringValue(string key, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.method"] = "GET" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = key, Value = "", Operator = AttributeFilterOperator.Absent }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
     [Fact]
     public void Matches_MultipleAttributeFilters_AreAnded()
     {

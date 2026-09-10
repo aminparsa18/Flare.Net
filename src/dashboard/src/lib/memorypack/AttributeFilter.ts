@@ -6,8 +6,14 @@
 // a hardcoded same-directory `./{Type}.js` reference, so a generated `AttributeFilter`
 // wouldn't help a hand-written `LogFilter` that has to import it from
 // `$lib/memorypack/` instead. Hand-written for consistency with `LogFilter`, its only user.
-// `bag` is a raw MemoryPack numeric ordinal (converted to string at `$lib/memorypack/LogFilter.ts`'s
-// mapping boundary, via `$lib/memorypack/enums.ts`'s `attributeBagToString`/`FromString`).
+// `bag`/`operator` are raw MemoryPack numeric ordinals (converted to string at
+// `$lib/memorypack/LogFilter.ts`'s mapping boundary, via `$lib/memorypack/enums.ts`'s
+// `attributeBagToString`/`FromString` and `attributeFilterOperatorToString`/`FromString`).
+// `operator` is member 4, appended after the original 3 (`Flare.Api`'s own C# comment on
+// `AttributeFilter.Operator` explains why it had to land last, not inserted) - the
+// count-gated fallback branch below is what lets this file's own already-deployed builds
+// (still writing/reading only 3 members) stay wire-compatible with a `Flare.Api` that now
+// has 4, and vice versa.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -16,11 +22,13 @@ export class AttributeFilter {
 	bag: number;
 	key: string | null;
 	value: string | null;
+	operator: number;
 
 	constructor() {
 		this.bag = 0;
 		this.key = null;
 		this.value = null;
+		this.operator = 0;
 	}
 
 	static serialize(value: AttributeFilter | null): Uint8Array {
@@ -35,10 +43,11 @@ export class AttributeFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(3);
+		writer.writeObjectHeader(4);
 		writer.writeInt32(value.bag);
 		writer.writeString(value.key);
 		writer.writeString(value.value);
+		writer.writeInt32(value.operator);
 	}
 
 	static serializeArray(value: (AttributeFilter | null)[] | null): Uint8Array {
@@ -62,11 +71,12 @@ export class AttributeFilter {
 		}
 
 		const value = new AttributeFilter();
-		if (count == 3) {
+		if (count == 4) {
 			value.bag = reader.readInt32();
 			value.key = reader.readString();
 			value.value = reader.readString();
-		} else if (count > 3) {
+			value.operator = reader.readInt32();
+		} else if (count > 4) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -76,6 +86,8 @@ export class AttributeFilter {
 			if (count == 2) return value;
 			value.value = reader.readString();
 			if (count == 3) return value;
+			value.operator = reader.readInt32();
+			if (count == 4) return value;
 		}
 		return value;
 	}

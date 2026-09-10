@@ -11,7 +11,29 @@ public enum AttributeBag
 }
 
 /// <summary>
-/// One equality filter against a <c>Map(LowCardinality(String), String)</c> column -
+/// Comparison an <see cref="AttributeFilter"/> applies between its <see cref="AttributeFilter.Key"/>
+/// and <see cref="AttributeFilter.Value"/>. A separate enum from spans' equivalent
+/// (<see cref="SpanAttributeFilterOperator"/>), not a shared/reused one - same
+/// keep-logs-and-spans-independent reasoning <see cref="SpanAttributeBag"/>'s remarks give
+/// for that type, applied here too even though the members themselves don't diverge.
+/// </summary>
+public enum AttributeFilterOperator
+{
+    /// <summary>Attribute is present and equals <see cref="AttributeFilter.Value"/> - the default, and the only behavior that existed before this enum did.</summary>
+    Equals,
+
+    /// <summary>Attribute is absent, or present with a value other than <see cref="AttributeFilter.Value"/>.</summary>
+    NotEquals,
+
+    /// <summary>Attribute key is present in the bag, whatever its value. <see cref="AttributeFilter.Value"/> is ignored.</summary>
+    Exists,
+
+    /// <summary>Attribute key is absent from the bag. <see cref="AttributeFilter.Value"/> is ignored.</summary>
+    Absent,
+}
+
+/// <summary>
+/// One filter against a <c>Map(LowCardinality(String), String)</c> column -
 /// <c>LogAttributes</c>/<c>ResourceAttributes</c>/<c>ScopeAttributes</c> in
 /// <c>db/clickhouse/0001_logs.sql</c>, selected via <see cref="Bag"/>.
 /// </summary>
@@ -22,7 +44,17 @@ public sealed partial record AttributeFilter
 
     public required string Key { get; init; }
 
+    /// <summary>Ignored (may be left as an empty string) when <see cref="Operator"/> is <see cref="AttributeFilterOperator.Exists"/> or <see cref="AttributeFilterOperator.Absent"/>.</summary>
     public required string Value { get; init; }
+
+    /// <summary>
+    /// Appended after <see cref="Value"/>, not inserted between existing members, so the
+    /// MemoryPack wire layout stays backward-compatible with already-deployed dashboards
+    /// that still write the original 3-member object (see ADR-0016) - a missing trailing
+    /// member just takes this default, reproducing the original equality-only behavior
+    /// exactly.
+    /// </summary>
+    public AttributeFilterOperator Operator { get; init; } = AttributeFilterOperator.Equals;
 }
 
 /// <summary>

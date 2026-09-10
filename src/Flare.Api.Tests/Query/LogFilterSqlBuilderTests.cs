@@ -123,4 +123,42 @@ public class LogFilterSqlBuilderTests
         Assert.Contains("LogAttributes[{attrKey0:String}] = {attrValue0:String}", result.WhereSql);
         Assert.Contains("LogAttributes[{attrKey1:String}] = {attrValue1:String}", result.WhereSql);
     }
+
+    [Fact]
+    public void Build_WithNotEqualsOperator_GuardsWithMapContains_AndBindsValue()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "http.method", Value = "GET", Operator = AttributeFilterOperator.NotEquals }] },
+            Now);
+
+        Assert.Contains(
+            "NOT (mapContains(LogAttributes, {attrKey0:String}) AND LogAttributes[{attrKey0:String}] = {attrValue0:String})",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http.method", parameters["attrKey0"]);
+        Assert.Equal("GET", parameters["attrValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithExistsOperator_UsesMapContains_AndDoesNotBindValue()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "tenant.id", Value = "", Operator = AttributeFilterOperator.Exists }] },
+            Now);
+
+        Assert.Contains("mapContains(LogAttributes, {attrKey0:String})", result.WhereSql);
+        Assert.DoesNotContain("attrValue0", result.WhereSql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("attrValue0"));
+    }
+
+    [Fact]
+    public void Build_WithAbsentOperator_NegatesMapContains_AndDoesNotBindValue()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "tenant.id", Value = "", Operator = AttributeFilterOperator.Absent }] },
+            Now);
+
+        Assert.Contains("NOT mapContains(LogAttributes, {attrKey0:String})", result.WhereSql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("attrValue0"));
+    }
 }

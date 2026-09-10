@@ -86,6 +86,19 @@ export function attributeBagFromString(value: AttributeBagName): number {
 	return ATTRIBUTE_BAG_NAMES.indexOf(value);
 }
 
+/** Matches `LogFilter.cs`'s `AttributeFilterOperator` member order. Not itself MemoryPack-TS-generated - same reasoning `AttributeBagName` gives (`AttributeFilter`, its only consumer, is hand-written). */
+const ATTRIBUTE_FILTER_OPERATOR_NAMES = ['Equals', 'NotEquals', 'Exists', 'Absent'] as const;
+
+export type AttributeFilterOperatorName = (typeof ATTRIBUTE_FILTER_OPERATOR_NAMES)[number];
+
+export function attributeFilterOperatorToString(value: number): AttributeFilterOperatorName {
+	return ATTRIBUTE_FILTER_OPERATOR_NAMES[value];
+}
+
+export function attributeFilterOperatorFromString(value: AttributeFilterOperatorName): number {
+	return ATTRIBUTE_FILTER_OPERATOR_NAMES.indexOf(value);
+}
+
 /** Matches `AlertModels.cs`'s `ThresholdComparator` member order. */
 const THRESHOLD_COMPARATOR_NAMES = ['GreaterThanOrEqual', 'LessThan'] as const;
 
@@ -123,6 +136,19 @@ export function spanAttributeBagToString(value: number): SpanAttributeBagName {
 
 export function spanAttributeBagFromString(value: SpanAttributeBagName): number {
 	return SPAN_ATTRIBUTE_BAG_NAMES.indexOf(value);
+}
+
+/** Matches `SpanFilter.cs`'s `SpanAttributeFilterOperator` member order. Not itself MemoryPack-TS-generated - same reasoning `SpanAttributeBagName` gives (`SpanAttributeFilter`, its only consumer, is hand-written). */
+const SPAN_ATTRIBUTE_FILTER_OPERATOR_NAMES = ['Equals', 'NotEquals', 'Exists', 'Absent'] as const;
+
+export type SpanAttributeFilterOperatorName = (typeof SPAN_ATTRIBUTE_FILTER_OPERATOR_NAMES)[number];
+
+export function spanAttributeFilterOperatorToString(value: number): SpanAttributeFilterOperatorName {
+	return SPAN_ATTRIBUTE_FILTER_OPERATOR_NAMES[value];
+}
+
+export function spanAttributeFilterOperatorFromString(value: SpanAttributeFilterOperatorName): number {
+	return SPAN_ATTRIBUTE_FILTER_OPERATOR_NAMES.indexOf(value);
 }
 
 /** Matches `ResourceGraphDto.cs`'s `ResourceState` member order. Not itself MemoryPack-TS-generated - see `SavedViewPageTypeName`'s comment for why (`ResourceNodeDto`, its only consumer, is hand-written - its `Urls: IReadOnlyList<string>` member alone blocks `[GenerateTypeScript]`, same reasoning as `PipelineServiceBreakdown.ts`). */

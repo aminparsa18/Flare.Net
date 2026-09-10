@@ -4,8 +4,15 @@
 // IReadOnlyList member), but hand-written anyway since its only consumer, `SpanFilter`, is
 // blocked (`DateTimeOffset?` members) and the generator's nested-object import is a
 // hardcoded same-directory reference - see `LogFilter.ts`'s header comment for the same
-// reasoning applied to `AttributeFilter`. `bag` is a raw MemoryPack numeric ordinal
-// (converted to string at `traces-api.ts`'s module boundary).
+// reasoning applied to `AttributeFilter`. `bag`/`operator` are raw MemoryPack numeric
+// ordinals (converted to string at `traces-api.ts`'s module boundary, via
+// `spanAttributeBagToString`/`FromString` and `spanAttributeFilterOperatorToString`/
+// `FromString`). `operator` is member 4, appended after the original 3 (`Flare.Api`'s own
+// C# comment on `SpanAttributeFilter.Operator` explains why it had to land last, not
+// inserted) - the count-gated fallback branch below keeps this file's own already-deployed
+// builds (still writing/reading only 3 members) wire-compatible with a `Flare.Api` that
+// now has 4, and vice versa - same reasoning `AttributeFilter.ts` documents for its own
+// identical change.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -14,11 +21,13 @@ export class SpanAttributeFilter {
 	bag: number;
 	key: string | null;
 	value: string | null;
+	operator: number;
 
 	constructor() {
 		this.bag = 0;
 		this.key = null;
 		this.value = null;
+		this.operator = 0;
 	}
 
 	static serialize(value: SpanAttributeFilter | null): Uint8Array {
@@ -33,10 +42,11 @@ export class SpanAttributeFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(3);
+		writer.writeObjectHeader(4);
 		writer.writeInt32(value.bag);
 		writer.writeString(value.key);
 		writer.writeString(value.value);
+		writer.writeInt32(value.operator);
 	}
 
 	static serializeArray(value: (SpanAttributeFilter | null)[] | null): Uint8Array {
@@ -60,11 +70,12 @@ export class SpanAttributeFilter {
 		}
 
 		const value = new SpanAttributeFilter();
-		if (count == 3) {
+		if (count == 4) {
 			value.bag = reader.readInt32();
 			value.key = reader.readString();
 			value.value = reader.readString();
-		} else if (count > 3) {
+			value.operator = reader.readInt32();
+		} else if (count > 4) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -74,6 +85,8 @@ export class SpanAttributeFilter {
 			if (count == 2) return value;
 			value.value = reader.readString();
 			if (count == 3) return value;
+			value.operator = reader.readInt32();
+			if (count == 4) return value;
 		}
 		return value;
 	}

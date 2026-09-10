@@ -83,17 +83,46 @@ public static class SpanFilterSqlBuilder
         {
             for (var i = 0; i < attributes.Count; i++)
             {
-                var attribute = attributes[i];
-                var column = ColumnFor(attribute.Bag);
-                var keyParam = $"attrKey{i}";
-                var valueParam = $"attrValue{i}";
-                parameters.AddParameter(keyParam, attribute.Key);
-                parameters.AddParameter(valueParam, attribute.Value);
-                clauses.Add($"{column}[{{{keyParam}:String}}] = {{{valueParam}:String}}");
+                clauses.Add(AttributeClause(attributes[i], i, parameters));
             }
         }
 
         return new SpanFilterSql(string.Join(" AND ", clauses), parameters);
+    }
+
+    /// <summary>
+    /// One <see cref="SpanAttributeFilter"/>'s clause - same shape as
+    /// <see cref="LogFilterSqlBuilder"/>'s <c>AttributeClause</c>: <c>Exists</c>/<c>Absent</c>
+    /// compile to <c>mapContains</c> alone (<see cref="SpanAttributeFilter.Value"/> unused),
+    /// and <c>NotEquals</c> guards with <c>mapContains</c> explicitly so a missing key
+    /// counts as "not equal", not just relying on the map's empty-string default.
+    /// </summary>
+    private static string AttributeClause(SpanAttributeFilter attribute, int index, ClickHouseParameterCollection parameters)
+    {
+        var column = ColumnFor(attribute.Bag);
+        var keyParam = $"attrKey{index}";
+        parameters.AddParameter(keyParam, attribute.Key);
+        var containsSql = $"mapContains({column}, {{{keyParam}:String}})";
+
+        switch (attribute.Operator)
+        {
+            case SpanAttributeFilterOperator.Exists:
+                return containsSql;
+            case SpanAttributeFilterOperator.Absent:
+                return $"NOT {containsSql}";
+            case SpanAttributeFilterOperator.NotEquals:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] = {{{valueParam}:String}})";
+            }
+            default:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"{column}[{{{keyParam}:String}}] = {{{valueParam}:String}}";
+            }
+        }
     }
 
     private static string ColumnFor(SpanAttributeBag bag) => bag switch

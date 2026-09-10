@@ -8,6 +8,7 @@
 	import LogsToolbar from '$lib/components/logs/LogsToolbar.svelte';
 	import VolumeChart from '$lib/components/logs/VolumeChart.svelte';
 	import ValueDistributionChart from '$lib/components/logs/ValueDistributionChart.svelte';
+	import AttributeFiltersRow from '$lib/components/logs/AttributeFiltersRow.svelte';
 	import SqlQueryRow from '$lib/components/logs/SqlQueryRow.svelte';
 	import LogTable from '$lib/components/logs/LogTable.svelte';
 	import EventDetailSheet from '$lib/components/logs/EventDetailSheet.svelte';
@@ -60,6 +61,7 @@
 	<LogsToolbar />
 	<VolumeChart />
 	<ValueDistributionChart />
+	<AttributeFiltersRow />
 	<SqlQueryRow />
 	<div class="flex min-h-0 flex-1 flex-col">
 		<LogTable />
