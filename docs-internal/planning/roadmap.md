@@ -97,22 +97,34 @@ folders are where "what happened and why" actually lives.
   inside the facet's checkbox list itself. Reference:
   [signoz#1308](https://github.com/SigNoz/signoz/commit/224ec8d0d9d3ce0b9422c6c35dd378d3d5cd6449).
   Not started.
-- **Wire `Aspire.Hosting.Flare`'s `AddFlare()` and the `flare` CLI's compose
-  templates to the new `alert-worker` container once a released image
-  exists.** [`../adr/0018-alert-worker-extraction.md`](../adr/0018-alert-worker-extraction.md)
+- **Cut an actual Flare release that publishes `xracer007/flare-alert-worker`,
+  then bump `Aspire.Hosting.Flare`'s `AddFlare()` and the `flare` CLI's
+  `DefaultImageTag`s past it.** [`../adr/0018-alert-worker-extraction.md`](../adr/0018-alert-worker-extraction.md)
   split `AlertEvaluationWorker` out of `Flare.Api` into its own process
-  (`src/Flare.AlertWorker`), and wired it into the two install paths that
-  build from source (`Flare.AppHost`, repo-root `docker-compose.yml`).
-  `Aspire.Hosting.Flare`'s `AddFlare()` and the `flare` CLI's own embedded
-  compose templates (`TopologyProfile.cs`) both pull pinned, published
-  Docker Hub image tags instead, so they can't productively gain an
-  `alert-worker` container until a Flare release actually publishes one —
-  deferred rather than blocked on indefinitely. **Release gate in the
-  meantime:** neither path's default `imageTag`/`DefaultImageTag` should
-  move past this change until both are updated — otherwise upgrading
-  through `AddFlare()` or `flare update` silently stops alert evaluation
-  entirely (the released `api` image no longer runs it, and nothing else
-  would either). Not started.
+  (`src/Flare.AlertWorker`), wired into the two install paths that build
+  from source (`Flare.AppHost`, repo-root `docker-compose.yml`). Both
+  remaining pieces are now done in code:
+  `.github/workflows/docker-publish.yml` builds/publishes a fourth
+  `flare-alert-worker` image alongside ingest/api/dashboard, and
+  `Aspire.Hosting.Flare`'s `AddFlare()` (`FlareResourceBuilderExtensions.cs`)
+  and both of the `flare` CLI's embedded compose templates
+  (`docker-compose.flare.yml`, `docker-compose.cluster.flare.yml`, via
+  `TopologyProfile.cs`) now add an `alert-worker` container alongside
+  ingest/api/dashboard. **What's left is a release, not code:** no Flare
+  version has actually published `xracer007/flare-alert-worker` to Docker
+  Hub yet (`edge` included — no push has landed since alert-worker was added
+  to the publish workflow), so `AddFlare`'s `imageTag` default and both
+  `TopologyProfile`s' `DefaultImageTag` are still deliberately pinned below
+  this change (`"0.2.0"`/`"0.2.0"`/`"0.3.0"`). Bumping any of those three
+  defaults to a tag that predates a real `flare-alert-worker` publish would
+  make `AddFlare`/`flare start`/`flare update` fail to pull the alert-worker
+  container outright — do that update only once a tagged release has
+  actually built and pushed the image (confirm on Docker Hub first).
+  `docker-compose.cluster.yml` (the repo-root source-build cluster compose
+  file) also gained its own `alert-worker` service in this same pass — it
+  was missing entirely (a gap ADR-0018 never covered, since that ADR only
+  wired `Flare.AppHost` and the base `docker-compose.yml`). Not started
+  (the release cut itself is the only remaining piece).
 - **Cache-control headers on the dashboard's static assets.** Small ops
   tweak, not a product feature: self-hosted `docker-compose.yml`/nginx
   config for `src/dashboard` doesn't currently set explicit

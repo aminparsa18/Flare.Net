@@ -82,7 +82,7 @@ AppHost, содержащего Flare, — сами шаги см. в
 ### Kubernetes
 
 - **Реестр контейнеров обязателен, но только из-за образа инициализации
-  ClickHouse.** `flare-ingest`/`flare-api`/`flare-dashboard` вообще не
+  ClickHouse.** `flare-ingest`/`flare-api`/`flare-alert-worker`/`flare-dashboard` вообще не
   нуждаются в реестре (используются собственные заранее опубликованные
   образы Docker Hub от Flare, напрямую) — только сгенерированный образ
   инициализации ClickHouse появляется в `values.yaml` как плейсхолдер,

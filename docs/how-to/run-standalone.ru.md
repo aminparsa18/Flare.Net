@@ -293,7 +293,7 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 ## Включить страницу Resources (опциональный доступ к Docker)
 
 Страница **Resources** панели управления показывает собственные
-контейнеры Flare (ClickHouse, Redis, ingest, api, dashboard) в виде
+контейнеры Flare (ClickHouse, Redis, ingest, api, alert-worker, dashboard) в виде
 живого графа — состояние, здоровье, URL и связи между ними — полученные
 из Docker Engine API. **Это отключено по умолчанию** и требует двух явных
 включений, потому что означает получение `flare-api` некоторой формы

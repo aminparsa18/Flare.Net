@@ -18,16 +18,16 @@ public static class FlareResourceBuilderExtensions
 {
     /// <summary>
     /// Adds the Flare stack to the application: ClickHouse (log storage), Redis (the batched
-    /// insert buffer), the OTLP ingest receiver, the query API, and the dashboard SPA - wrapping
-    /// Flare's published Docker Hub images. Mirrors the resource graph Flare's own
-    /// <c>Flare.AppHost/Program.cs</c> wires up locally, swapping <c>AddProject</c> for
-    /// <c>AddContainer</c>.
+    /// insert buffer), the OTLP ingest receiver, the query API, the alert-rule evaluation
+    /// worker, and the dashboard SPA - wrapping Flare's published Docker Hub images. Mirrors
+    /// the resource graph Flare's own <c>Flare.AppHost/Program.cs</c> wires up locally,
+    /// swapping <c>AddProject</c> for <c>AddContainer</c>.
     /// </summary>
     /// <remarks>
     /// Only the dashboard shows up in the Aspire dashboard's resource list by default - the
-    /// composite <see cref="FlareResource"/> and its four backing resources (ClickHouse, its
-    /// database, Redis, and the ingest/api containers) are marked hidden, since they're
-    /// implementation details a consumer adding Flare to their own AppHost doesn't need to see.
+    /// composite <see cref="FlareResource"/> and its five backing resources (ClickHouse, its
+    /// database, Redis, and the ingest/api/alert-worker containers) are marked hidden, since
+    /// they're implementation details a consumer adding Flare to their own AppHost doesn't need to see.
     /// They're still fully orchestrated (health-checked, waited-on, etc.) - just not shown by
     /// default. Toggle "Show hidden resources" in the dashboard, or use
     /// <c>aspire describe --include-hidden</c> / <c>aspire ps --include-hidden</c>, to see them.
@@ -68,7 +68,7 @@ public static class FlareResourceBuilderExtensions
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/>.</param>
     /// <param name="name">The name of the Flare resource group.</param>
     /// <param name="imageTag">
-    /// The tag to pull for all three Flare images. Defaults to <c>"0.2.0"</c>, the latest
+    /// The tag to pull for all four Flare images. Defaults to <c>"0.2.0"</c>, the latest
     /// stable Flare release this package version was tested against - deliberately NOT
     /// Docker Hub's floating <c>latest</c>/<c>edge</c> tags, so a given
     /// <c>Flare.Hosting.Aspire</c> NuGet version keeps pulling the same images forever
@@ -77,8 +77,18 @@ public static class FlareResourceBuilderExtensions
     /// release has been tested against a newer Flare image - it does not track Docker
     /// Hub automatically. Pass <c>"edge"</c> yourself to track Flare's unreleased
     /// <c>main</c> branch instead. <see cref="WithIngestImage"/>/<see cref="WithApiImage"/>/
-    /// <see cref="WithDashboardImage"/> reuse this same tag when overriding just an image
-    /// name/registry - there's no separate per-image tag override.
+    /// <see cref="WithDashboardImage"/>/<see cref="WithAlertWorkerImage"/> reuse this same tag
+    /// when overriding just an image name/registry - there's no separate per-image tag
+    /// override.
+    /// <para>
+    /// <b>No published <c>flare-alert-worker</c> image exists yet</b> as of this package
+    /// version - <c>"0.2.0"</c>/<c>"edge"</c> (and every other tag today) resolve to an image
+    /// that 404s for <c>alert-worker</c> specifically until a Flare release actually publishes
+    /// one (<c>docs-internal/adr/0018-alert-worker-extraction.md</c>'s release gate). Until
+    /// then, calling <see cref="AddFlare"/> at all will fail to pull the alert-worker
+    /// container - there is no way to opt back out of it short of not calling
+    /// <see cref="AddFlare"/>.
+    /// </para>
     /// </param>
     /// <param name="enableResourceGraph">
     /// Turns on the dashboard's Resources page (a live topology graph) for this Flare
@@ -126,7 +136,7 @@ public static class FlareResourceBuilderExtensions
     /// An <see cref="IResourceBuilder{FlareResource}"/> for the composite Flare resource. Chain
     /// <see cref="WithIngestGrpcPort"/>/<see cref="WithIngestHttpPort"/>/<see cref="WithApiPort"/>/
     /// <see cref="WithDashboardPort"/>, <see cref="WithIngestImage"/>/<see cref="WithApiImage"/>/
-    /// <see cref="WithDashboardImage"/>, <see cref="WithApiKey"/>, and
+    /// <see cref="WithDashboardImage"/>/<see cref="WithAlertWorkerImage"/>, <see cref="WithApiKey"/>, and
     /// <see cref="WithPublicApiUrl"/>/<see cref="WithPublicDashboardUrl"/> off the result to
     /// configure everything this method used to take as extra parameters - the usual Aspire
     /// convention (compare <c>AddRedis(...).WithPersistence(...)</c>) rather than one long
@@ -286,6 +296,27 @@ public static class FlareResourceBuilderExtensions
         // Same "edge" staleness reasoning and unconditional-then-reset-on-override story as
         // ingest above.
         api.WithImagePullPolicy(ImagePullPolicy.Always);
+
+        // Flare.AlertWorker: periodic alert-rule evaluation, split out of Flare.Api into its
+        // own process (docs-internal/adr/0018-alert-worker-extraction.md) so that restarting
+        // `api` no longer also stops alert evaluation. Same ClickHouse/Redis references as
+        // `api` - AlertQueryService/CompositeAlertNotifier are reused from Flare.Api via a
+        // ProjectReference, not a new backing store. No identity volume/Cors - it never
+        // touches either. No published ports (internal only, same as redis) - nothing outside
+        // this stack talks to this process directly.
+        var alertWorker = builder.AddContainer($"{name}-alert-worker", FlareContainerImageTags.AlertWorkerImage, imageTag)
+            .WithReference(logsDb, connectionName: "clickhousedb")
+            .WaitFor(logsDb)
+            .WithReference(redis, connectionName: "redis")
+            .WaitFor(redis)
+            .WithHttpEndpoint(port: null, targetPort: 8080)
+            .WithHttpHealthCheck("/health")
+            .WithParentRelationship(flare)
+            .WithHidden()
+            .WithFlareResourceLabels("alert-worker", "clickhouse:Reference,redis:Reference");
+        // Same "edge" staleness reasoning and unconditional-then-reset-on-override story as
+        // ingest above.
+        alertWorker.WithImagePullPolicy(ImagePullPolicy.Always);
 
         // Flare.Dashboard: the SvelteKit SPA. PUBLIC_API_URL/ORIGIN are read at *container
         // runtime* via SvelteKit's $env/dynamic/public, not baked in at image build time
@@ -464,6 +495,7 @@ public static class FlareResourceBuilderExtensions
         // their own reference to any of them.
         flare.Resource.SetIngestResourceName(ingest.Resource.Name);
         flare.Resource.SetApiResourceName(api.Resource.Name);
+        flare.Resource.SetAlertWorkerResourceName(alertWorker.Resource.Name);
         flare.Resource.SetDashboardResourceName(dashboard.Resource.Name);
         flare.Resource.SetClickHouseResourceName(clickhouse.Resource.Name);
         flare.Resource.SetRedisResourceName(redis.Resource.Name);
@@ -497,6 +529,10 @@ public static class FlareResourceBuilderExtensions
     /// <summary>Resolves <paramref name="flare"/>'s api sub-resource, for the <c>With*</c> chain methods below.</summary>
     private static IResourceBuilder<ContainerResource> GetApiBuilder(IResourceBuilder<FlareResource> flare) =>
         flare.ApplicationBuilder.CreateResourceBuilder<ContainerResource>(flare.Resource.ApiResourceName);
+
+    /// <summary>Resolves <paramref name="flare"/>'s alert-worker sub-resource, for <see cref="WithAlertWorkerImage"/>.</summary>
+    private static IResourceBuilder<ContainerResource> GetAlertWorkerBuilder(IResourceBuilder<FlareResource> flare) =>
+        flare.ApplicationBuilder.CreateResourceBuilder<ContainerResource>(flare.Resource.AlertWorkerResourceName);
 
     /// <summary>Resolves <paramref name="flare"/>'s dashboard sub-resource, for <see cref="WaitForFlare{TDestination}"/> and the <c>With*</c> chain methods below.</summary>
     private static IResourceBuilder<ContainerResource> GetDashboardBuilder(IResourceBuilder<FlareResource> flare) =>
@@ -629,6 +665,22 @@ public static class FlareResourceBuilderExtensions
         ArgumentException.ThrowIfNullOrEmpty(image);
 
         GetDashboardBuilder(flare)
+            .WithImage(image, flare.Resource.ImageTag)
+            .WithImagePullPolicy(ImagePullPolicy.Default);
+        return flare;
+    }
+
+    /// <summary>Same override as <see cref="WithIngestImage"/>, for the alert-worker image.</summary>
+    /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
+    /// <param name="image">The image name (registry/repo, no tag).</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    /// <exception cref="ArgumentException"><paramref name="image"/> is null or empty.</exception>
+    public static IResourceBuilder<FlareResource> WithAlertWorkerImage(this IResourceBuilder<FlareResource> flare, string image)
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+        ArgumentException.ThrowIfNullOrEmpty(image);
+
+        GetAlertWorkerBuilder(flare)
             .WithImage(image, flare.Resource.ImageTag)
             .WithImagePullPolicy(ImagePullPolicy.Default);
         return flare;
@@ -1135,7 +1187,7 @@ public static class FlareResourceBuilderExtensions
 }
 
 /// <summary>
-/// Docker Hub image coordinates for Flare's three published components (see
+/// Docker Hub image coordinates for Flare's four published components (see
 /// <c>.github/workflows/docker-publish.yml</c> in Flare's own repo). Unqualified Docker Hub
 /// image names - registry defaults to docker.io.
 /// </summary>
@@ -1144,6 +1196,7 @@ internal static class FlareContainerImageTags
     internal const string IngestImage = "xracer007/flare-ingest";
     internal const string ApiImage = "xracer007/flare-api";
     internal const string DashboardImage = "xracer007/flare-dashboard";
+    internal const string AlertWorkerImage = "xracer007/flare-alert-worker";
 
     /// <summary>
     /// Third-party image (not one of Flare's own published ones above) for the opt-in

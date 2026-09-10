@@ -25,6 +25,7 @@ public sealed class FlareResource(string name) : Resource(name), IResourceWithou
     private string? _dashboardResourceName;
     private string? _ingestResourceName;
     private string? _apiResourceName;
+    private string? _alertWorkerResourceName;
     private string? _clickHouseResourceName;
     private string? _redisResourceName;
     private string? _imageTag;
@@ -90,6 +91,22 @@ public sealed class FlareResource(string name) : Resource(name), IResourceWithou
     internal string ApiResourceName => _apiResourceName
         ?? throw new InvalidOperationException(
             $"{nameof(ApiResourceName)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
+
+    /// <summary>
+    /// Records the alert-worker sub-resource's Aspire resource name, so
+    /// <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.WithAlertWorkerImage"/> can reach
+    /// back into it after <see cref="Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare"/> has
+    /// already returned - same reasoning as <see cref="SetDashboardResourceName"/>.
+    /// </summary>
+    internal void SetAlertWorkerResourceName(string alertWorkerResourceName)
+    {
+        _alertWorkerResourceName = alertWorkerResourceName;
+    }
+
+    /// <summary>The alert-worker sub-resource's Aspire resource name (e.g. <c>"flare-alert-worker"</c>).</summary>
+    internal string AlertWorkerResourceName => _alertWorkerResourceName
+        ?? throw new InvalidOperationException(
+            $"{nameof(AlertWorkerResourceName)} isn't available until {nameof(Aspire.Hosting.FlareResourceBuilderExtensions.AddFlare)} has finished configuring this resource.");
 
     /// <summary>
     /// Records the ClickHouse sub-resource's Aspire resource name, so

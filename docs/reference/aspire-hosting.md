@@ -75,8 +75,8 @@ AppHost — for the actual steps, see
 ### Kubernetes
 
 - **A container registry is required, but only because of the
-  ClickHouse-init image.** `flare-ingest`/`flare-api`/`flare-dashboard`
-  need no registry at all (Flare's own pre-published Docker Hub images,
+  ClickHouse-init image.** `flare-ingest`/`flare-api`/`flare-alert-worker`/
+  `flare-dashboard` need no registry at all (Flare's own pre-published Docker Hub images,
   referenced directly) — only the generated ClickHouse-init image shows up
   in `values.yaml` as a registry-relative placeholder that `aspire deploy`
   builds and pushes to the registry configured via

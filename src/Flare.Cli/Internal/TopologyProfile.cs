@@ -66,7 +66,7 @@ internal sealed class TopologyProfile
         EnvTemplateResourceName = "Flare.Cli.Templates.env.template",
         DefaultImageTag = "0.2.0",
         Ports = PortDefaults.All,
-        HealthCheckedServices = ["clickhouse", "redis", "ingest", "api"],
+        HealthCheckedServices = ["clickhouse", "redis", "ingest", "api", "alert-worker"],
         RunningOnlyServices = ["dashboard"],
         StatusRows =
         [
@@ -74,10 +74,11 @@ internal sealed class TopologyProfile
             ("redis", "(internal only)"),
             ("ingest", "localhost:{FLARE_INGEST_GRPC_PORT} grpc / {FLARE_INGEST_HTTP_PORT} http"),
             ("api", "localhost:{FLARE_API_PORT}"),
+            ("alert-worker", "(internal only)"),
             ("dashboard", "localhost:{FLARE_DASHBOARD_PORT}"),
         ],
         ClickHouseExecTarget = "clickhouse",
-        PullDiffServices = ["ingest", "api", "dashboard"],
+        PullDiffServices = ["ingest", "api", "alert-worker", "dashboard"],
         DestroyVolumesLabel = "clickhouse-data, redis-data, identity-data",
         DisplayLabel = "standalone",
     };
@@ -110,7 +111,7 @@ internal sealed class TopologyProfile
         [
             "keeper-1", "keeper-2", "keeper-3",
             "clickhouse-1", "clickhouse-2", "clickhouse-3", "clickhouse-4",
-            "clickhouse-lb", "redis", "ingest-1", "ingest-2", "api",
+            "clickhouse-lb", "redis", "ingest-1", "ingest-2", "api", "alert-worker",
         ],
         RunningOnlyServices = ["dashboard"],
         StatusRows =
@@ -127,10 +128,11 @@ internal sealed class TopologyProfile
             ("ingest-1", "localhost:{FLARE_INGEST_GRPC_PORT} grpc / {FLARE_INGEST_HTTP_PORT} http"),
             ("ingest-2", "localhost:{FLARE_INGEST2_GRPC_PORT} grpc / {FLARE_INGEST2_HTTP_PORT} http"),
             ("api", "localhost:{FLARE_API_PORT}"),
+            ("alert-worker", "(internal only)"),
             ("dashboard", "localhost:{FLARE_DASHBOARD_PORT}"),
         ],
         ClickHouseExecTarget = "clickhouse-1",
-        PullDiffServices = ["ingest-1", "ingest-2", "api", "dashboard"],
+        PullDiffServices = ["ingest-1", "ingest-2", "api", "alert-worker", "dashboard"],
         DestroyVolumesLabel = "keeper-{1,2,3}-data, clickhouse-{1,2,3,4}-data, redis-data, identity-data",
         DisplayLabel = "cluster",
     };

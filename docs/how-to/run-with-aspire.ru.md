@@ -30,8 +30,8 @@ builder.Build().Run();
 запуска. `AddFlare` зеркалирует граф ресурсов собственного
 `Flare.AppHost/Program.cs` от Flare: ClickHouse (с той же схемой
 `db/clickhouse/*.sql`, встроенной в пакет), Redis (тот же надёжный буфер
-пакетной вставки) и три контейнера
-`xracer007/flare-ingest`/`flare-api`/`flare-dashboard`.
+пакетной вставки) и четыре контейнера
+`xracer007/flare-ingest`/`flare-api`/`flare-alert-worker`/`flare-dashboard`.
 
 Нужен нестандартный порт, приватный ключ API приёма данных или ваши
 собственные собранные образы вместо образов из Docker Hub? Присоедините

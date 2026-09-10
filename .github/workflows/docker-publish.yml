@@ -1,4 +1,4 @@
-# Builds and publishes Flare's three distributable images to Docker Hub under the
+# Builds and publishes Flare's four distributable images to Docker Hub under the
 # account named by the DOCKERHUB_USERNAME repo variable (currently `xracer007`)
 # (Planning.md's "Next — v1.1" roadmap item). This is what an
 # eventual `Flare.Hosting.Aspire` package will wrap via AddContainer(...) — see
@@ -19,11 +19,11 @@
 # Per-image selectivity: the top-level `paths:` filter below is just a cheap first
 # bail-out (skip the whole workflow for changes entirely outside these trees, e.g. a
 # root README.md or docs/ edit). Within a run, the `changes` job then works out which
-# of the three images actually need rebuilding from the *specific* files touched
+# of the four images actually need rebuilding from the *specific* files touched
 # (ProjectReferences mapped by hand below - Docker itself has no dependency graph to
 # ask), so e.g. a docs-only edit under src/Flare.Api/ or a change scoped to
-# src/Flare.Ingest/ no longer rebuilds+pushes all three. workflow_dispatch and a
-# `v*.*.*` tag push always build all three regardless of diff - a manual run implies
+# src/Flare.Ingest/ no longer rebuilds+pushes all four. workflow_dispatch and a
+# `v*.*.*` tag push always build all four regardless of diff - a manual run implies
 # "rebuild everything", and a release tag should always produce a complete, consistent
 # set of images at that version rather than whatever happened to change since the last
 # one.
@@ -37,6 +37,7 @@ on:
     paths:
       - 'src/Flare.Ingest/**'
       - 'src/Flare.Api/**'
+      - 'src/Flare.AlertWorker/**'
       - 'src/Flare.ServiceDefaults/**'
       - 'src/Flare.Identity/**'
       - 'src/dashboard/**'
@@ -51,7 +52,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Works out which of the three images actually need rebuilding. Kept as its own job
+  # Works out which of the four images actually need rebuilding. Kept as its own job
   # (rather than an `if:` on each matrix entry) so an unaffected image's job never
   # spins up a runner at all - it just doesn't appear in the matrix below.
   changes:
@@ -65,7 +66,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Skipped for workflow_dispatch/tag pushes - those force-build all three below
+      # Skipped for workflow_dispatch/tag pushes - those force-build all four below
       # instead of diffing (a manual run means "rebuild everything", and there's no
       # single meaningful "previous commit" to diff a tag push against anyway).
       # No `!**/*.md` negations here on purpose - with the default `some` (OR)
@@ -94,6 +95,16 @@ jobs:
               - 'src/Flare.Api/**'
               - 'src/Flare.ServiceDefaults/**'
               - 'src/Flare.Identity/**'
+            alert_worker:
+              - 'src/Flare.AlertWorker/**'
+              # Flare.AlertWorker reuses AlertQueryService/CompositeAlertNotifier from
+              # Flare.Api via a plain ProjectReference, not a mirrored copy
+              # (docs-internal/adr/0018-alert-worker-extraction.md) - so a Flare.Api-only
+              # change can change what this image actually runs, same as dashboard's own
+              # Flare.Api dependency below.
+              - 'src/Flare.Api/**'
+              - 'src/Flare.ServiceDefaults/**'
+              - 'src/Flare.Identity/**'
             dashboard:
               - 'src/dashboard/**'
               # The codegen stage builds Flare.Api for its side effect (MemoryPack
@@ -110,15 +121,17 @@ jobs:
           SHARED: ${{ steps.filter.outputs.shared }}
           INGEST_FILES: ${{ steps.filter.outputs.ingest_files }}
           API_FILES: ${{ steps.filter.outputs.api_files }}
+          ALERT_WORKER_FILES: ${{ steps.filter.outputs.alert_worker_files }}
           DASHBOARD_FILES: ${{ steps.filter.outputs.dashboard_files }}
         run: |
           set -euo pipefail
           ingest='{"name":"flare-ingest","context":".","dockerfile":"src/Flare.Ingest/Dockerfile"}'
           api='{"name":"flare-api","context":".","dockerfile":"src/Flare.Api/Dockerfile"}'
+          alertWorker='{"name":"flare-alert-worker","context":".","dockerfile":"src/Flare.AlertWorker/Dockerfile"}'
           dashboard='{"name":"flare-dashboard","context":".","dockerfile":"src/dashboard/Dockerfile"}'
 
           if [[ "$FORCE_ALL" == "true" ]]; then
-            images=$(jq -c -n --argjson i "$ingest" --argjson a "$api" --argjson d "$dashboard" '[$i,$a,$d]')
+            images=$(jq -c -n --argjson i "$ingest" --argjson a "$api" --argjson w "$alertWorker" --argjson d "$dashboard" '[$i,$a,$w,$d]')
             echo "images=$images" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -136,6 +149,9 @@ jobs:
           fi
           if [[ "$SHARED" == "true" ]] || has_real_change "$API_FILES"; then
             images=$(jq -c --argjson x "$api" '. + [$x]' <<< "$images")
+          fi
+          if [[ "$SHARED" == "true" ]] || has_real_change "$ALERT_WORKER_FILES"; then
+            images=$(jq -c --argjson x "$alertWorker" '. + [$x]' <<< "$images")
           fi
           if [[ "$SHARED" == "true" ]] || has_real_change "$DASHBOARD_FILES"; then
             images=$(jq -c --argjson x "$dashboard" '. + [$x]' <<< "$images")
