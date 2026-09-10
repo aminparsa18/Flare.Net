@@ -46,6 +46,8 @@ app.Configure(config =>
             .WithDescription("List saved alert rules.");
         alerts.AddCommand<AlertsTestCommand>("test")
             .WithDescription("Dry-run fire a saved alert rule (ignores cooldown, sends no notification).");
+        alerts.AddCommand<AlertsSendTestCommand>("send-test")
+            .WithDescription("Send a real test notification through a saved alert rule's configured channel.");
     });
     config.AddBranch("apikey", apikey =>
     {

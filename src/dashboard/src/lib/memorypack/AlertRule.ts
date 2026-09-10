@@ -24,6 +24,7 @@ export class AlertRule {
 	telegramBotToken: string | null;
 	telegramChatId: string | null;
 	emailTo: string | null;
+	pagerDutyRoutingKey: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 
@@ -40,6 +41,7 @@ export class AlertRule {
 		this.telegramBotToken = null;
 		this.telegramChatId = null;
 		this.emailTo = null;
+		this.pagerDutyRoutingKey = null;
 		this.createdAt = new Date(0);
 		this.updatedAt = new Date(0);
 	}
@@ -56,7 +58,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(14);
+		writer.writeObjectHeader(15);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -69,6 +71,7 @@ export class AlertRule {
 		writer.writeString(value.telegramBotToken);
 		writer.writeString(value.telegramChatId);
 		writer.writeString(value.emailTo);
+		writer.writeString(value.pagerDutyRoutingKey);
 		writeDateTimeOffset(writer, value.createdAt);
 		writeDateTimeOffset(writer, value.updatedAt);
 	}
@@ -94,7 +97,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 14) {
+		if (count == 15) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -107,9 +110,10 @@ export class AlertRule {
 			value.telegramBotToken = reader.readString();
 			value.telegramChatId = reader.readString();
 			value.emailTo = reader.readString();
+			value.pagerDutyRoutingKey = reader.readString();
 			value.createdAt = readDateTimeOffset(reader);
 			value.updatedAt = readDateTimeOffset(reader);
-		} else if (count > 14) {
+		} else if (count > 15) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -137,10 +141,12 @@ export class AlertRule {
 			if (count == 11) return value;
 			value.emailTo = reader.readString();
 			if (count == 12) return value;
-			value.createdAt = readDateTimeOffset(reader);
+			value.pagerDutyRoutingKey = reader.readString();
 			if (count == 13) return value;
-			value.updatedAt = readDateTimeOffset(reader);
+			value.createdAt = readDateTimeOffset(reader);
 			if (count == 14) return value;
+			value.updatedAt = readDateTimeOffset(reader);
+			if (count == 15) return value;
 		}
 		return value;
 	}

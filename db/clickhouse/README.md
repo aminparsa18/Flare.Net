@@ -67,6 +67,10 @@ contained. This is the **clock-skew visibility** roadmap item - see
 for why the OTLP wire's own `ObservedTimestamp` doesn't already answer this, and
 "`IngestedAt` vs `ObservedTimestamp`" below for the distinction.
 
+`0012_alert_rules_pagerduty.sql` - `ALTER TABLE ... ADD COLUMN` follow-up adding
+PagerDuty as a fourth notification channel to `alert_rules`, alongside migrations
+0005/0006's Telegram and Email columns.
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
@@ -206,6 +210,12 @@ Telegram columns above. Only the recipient lives here - the SMTP server itself i
 app-wide config (`Flare.Api.Alerting.EmailOptions`, from the `Email` configuration
 section / `Email__*` env vars), not a per-rule column, so credentials aren't duplicated
 across rules or stored in this table.
+
+**`PagerDutyRoutingKey` (migration 0012), `ALTER TABLE ... ADD COLUMN` on
+`alert_rules`.** A fourth channel, same shape again. Unlike `EmailTo`, there's no
+app-wide server config to go with it - a PagerDuty Events API v2 routing/integration key
+alone is enough to POST to PagerDuty's fixed endpoint, so the whole channel fits in this
+one column.
 
 **`spans` (migration 0007), plain `MergeTree`.** Immutable once written, same as `logs`
 - no `ReplacingMergeTree`/dedup needed. Two design decisions worth calling out

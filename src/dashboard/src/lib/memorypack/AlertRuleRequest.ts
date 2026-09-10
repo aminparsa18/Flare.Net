@@ -22,6 +22,7 @@ export class AlertRuleRequest {
 	telegramBotToken: string | null;
 	telegramChatId: string | null;
 	emailTo: string | null;
+	pagerDutyRoutingKey: string | null;
 
 	constructor() {
 		this.name = null;
@@ -35,6 +36,7 @@ export class AlertRuleRequest {
 		this.telegramBotToken = null;
 		this.telegramChatId = null;
 		this.emailTo = null;
+		this.pagerDutyRoutingKey = null;
 	}
 
 	static serialize(value: AlertRuleRequest | null): Uint8Array {
@@ -49,7 +51,7 @@ export class AlertRuleRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(11);
+		writer.writeObjectHeader(12);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeNullableBoolean(value.enabled);
@@ -61,6 +63,7 @@ export class AlertRuleRequest {
 		writer.writeString(value.telegramBotToken);
 		writer.writeString(value.telegramChatId);
 		writer.writeString(value.emailTo);
+		writer.writeString(value.pagerDutyRoutingKey);
 	}
 
 	static deserialize(buffer: ArrayBuffer): AlertRuleRequest | null {
@@ -74,7 +77,7 @@ export class AlertRuleRequest {
 		}
 
 		const value = new AlertRuleRequest();
-		if (count == 11) {
+		if (count == 12) {
 			value.name = reader.readString();
 			value.description = reader.readString();
 			value.enabled = reader.readNullableBoolean();
@@ -86,7 +89,8 @@ export class AlertRuleRequest {
 			value.telegramBotToken = reader.readString();
 			value.telegramChatId = reader.readString();
 			value.emailTo = reader.readString();
-		} else if (count > 11) {
+			value.pagerDutyRoutingKey = reader.readString();
+		} else if (count > 12) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -112,6 +116,8 @@ export class AlertRuleRequest {
 			if (count == 10) return value;
 			value.emailTo = reader.readString();
 			if (count == 11) return value;
+			value.pagerDutyRoutingKey = reader.readString();
+			if (count == 12) return value;
 		}
 		return value;
 	}

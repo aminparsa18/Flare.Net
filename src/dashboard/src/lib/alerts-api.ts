@@ -19,6 +19,7 @@ import { AlertRuleListResponse as GeneratedAlertRuleListResponse } from '$lib/me
 import { AlertHistoryResponse as GeneratedAlertHistoryResponse } from '$lib/memorypack/AlertHistoryResponse';
 import { AlertTestResult as GeneratedAlertTestResult } from '$lib/memorypack/AlertTestResult';
 import type { AlertHistoryEntry as GeneratedAlertHistoryEntry } from '$lib/memorypack/AlertHistoryEntry';
+import { AlertNotificationTestResult as GeneratedAlertNotificationTestResult } from '$lib/generated/memorypack/AlertNotificationTestResult.js';
 
 // ---- Shared shapes (AlertModels.cs) ---------------------------------------
 
@@ -46,6 +47,8 @@ export interface AlertRule {
 	telegramChatId: string;
 	/** Recipient address(es), comma/semicolon-separated for more than one. The SMTP server itself is app-wide server config, not part of the rule. */
 	emailTo: string;
+	/** A PagerDuty Events API v2 integration/routing key. Unlike `emailTo`, there's no app-wide server config to go with it. */
+	pagerDutyRoutingKey: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -63,6 +66,7 @@ export interface AlertRuleRequest {
 	telegramBotToken?: string;
 	telegramChatId?: string;
 	emailTo?: string;
+	pagerDutyRoutingKey?: string;
 }
 
 export interface AlertRuleListResponse {
@@ -96,6 +100,14 @@ export interface AlertTestResult {
 	windowSeconds: number;
 }
 
+/** "Send test alert" result: actually notified through the rule/draft's configured channel - unlike `AlertTestResult`, which never notifies. */
+export interface AlertNotificationTestResult {
+	success: boolean;
+	/** The channel's own status code where one exists (HTTP status for webhook/Slack/Telegram/PagerDuty); 0 for Email, which has none. */
+	statusCode: number;
+	error: string;
+}
+
 function toAlertThreshold(dto: GeneratedAlertThreshold): AlertThreshold {
 	return { count: Number(dto.count), comparator: thresholdComparatorToString(dto.comparator) };
 }
@@ -121,6 +133,7 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		telegramBotToken: dto.telegramBotToken ?? '',
 		telegramChatId: dto.telegramChatId ?? '',
 		emailTo: dto.emailTo ?? '',
+		pagerDutyRoutingKey: dto.pagerDutyRoutingKey ?? '',
 		createdAt: dto.createdAt.toISOString(),
 		updatedAt: dto.updatedAt.toISOString()
 	};
@@ -147,6 +160,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.telegramBotToken = request.telegramBotToken ?? null;
 	dto.telegramChatId = request.telegramChatId ?? null;
 	dto.emailTo = request.emailTo ?? null;
+	dto.pagerDutyRoutingKey = request.pagerDutyRoutingKey ?? null;
 	return dto;
 }
 
@@ -269,4 +283,45 @@ export async function testDraftAlertRule(request: AlertRuleRequest): Promise<Ale
 		throw new Error('Empty response body decoding AlertTestResult.');
 	}
 	return toAlertTestResult(dtoResult);
+}
+
+// ---- "Send test alert" (actually notifies, unlike the dry-runs above) -----------
+
+function toAlertNotificationTestResult(dto: GeneratedAlertNotificationTestResult): AlertNotificationTestResult {
+	return {
+		success: dto.success,
+		statusCode: dto.statusCode,
+		error: dto.error ?? ''
+	};
+}
+
+/** Sends a real test notification through a saved rule's configured channel - ignores cooldown, writes nothing to history. */
+export async function sendTestAlertRule(id: string): Promise<AlertNotificationTestResult> {
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}/send-test`, { method: 'POST', headers: memoryPackAcceptHeaders() });
+	if (!res.ok) {
+		throw new Error(`POST /api/alerts/${id}/send-test failed: ${res.status} ${res.statusText}`);
+	}
+	const dto = GeneratedAlertNotificationTestResult.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding AlertNotificationTestResult.');
+	}
+	return toAlertNotificationTestResult(dto);
+}
+
+/** Sends a real test notification through an unsaved draft's configured channel - lets the create/edit form verify a channel before Save. */
+export async function sendTestDraftAlertRule(request: AlertRuleRequest): Promise<AlertNotificationTestResult> {
+	const dto = toGeneratedAlertRuleRequest(request);
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/send-test`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedAlertRuleRequest.serialize(dto))
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/alerts/send-test failed: ${res.status} ${res.statusText}`);
+	}
+	const dtoResult = GeneratedAlertNotificationTestResult.deserialize(await res.arrayBuffer());
+	if (dtoResult == null) {
+		throw new Error('Empty response body decoding AlertNotificationTestResult.');
+	}
+	return toAlertNotificationTestResult(dtoResult);
 }

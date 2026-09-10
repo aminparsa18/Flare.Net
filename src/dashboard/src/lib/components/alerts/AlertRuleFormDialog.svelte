@@ -15,7 +15,14 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import { alertsContext } from '$lib/alerts/context';
-	import { testDraftAlertRule, type AlertRuleRequest, type ThresholdComparator, type AlertTestResult } from '$lib/alerts-api';
+	import {
+		testDraftAlertRule,
+		sendTestDraftAlertRule,
+		type AlertRuleRequest,
+		type ThresholdComparator,
+		type AlertTestResult,
+		type AlertNotificationTestResult
+	} from '$lib/alerts-api';
 	import { aggregateLogs } from '$lib/api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
@@ -35,15 +42,20 @@
 	let comparator = $state<ThresholdComparator>('GreaterThanOrEqual');
 	let windowSecondsText = $state('300');
 	let cooldownSecondsText = $state('300');
-	let channel = $state<'webhook' | 'telegram' | 'email'>('webhook');
+	let channel = $state<'webhook' | 'telegram' | 'email' | 'pagerduty'>('webhook');
 	let webhookUrl = $state('');
 	let telegramBotToken = $state('');
 	let telegramChatId = $state('');
 	let emailTo = $state('');
+	let pagerDutyRoutingKey = $state('');
 
 	let testResult = $state<AlertTestResult | null>(null);
 	let testing = $state(false);
 	let testError = $state<string | null>(null);
+
+	let sendTestResult = $state<AlertNotificationTestResult | null>(null);
+	let sendingTest = $state(false);
+	let sendTestError = $state<string | null>(null);
 
 	// Resets the draft whenever the dialog opens for a different target - `formTarget`
 	// only ever transitions null <-> 'new'|AlertRule at open/close time, so this doesn't
@@ -52,6 +64,8 @@
 		const target = alerts.formTarget;
 		testResult = null;
 		testError = null;
+		sendTestResult = null;
+		sendTestError = null;
 		if (target === 'new') {
 			name = '';
 			description = '';
@@ -68,6 +82,7 @@
 			telegramBotToken = '';
 			telegramChatId = '';
 			emailTo = '';
+			pagerDutyRoutingKey = '';
 		} else if (target) {
 			name = target.name;
 			description = target.description;
@@ -79,11 +94,18 @@
 			comparator = target.threshold.comparator;
 			windowSecondsText = String(target.windowSeconds);
 			cooldownSecondsText = String(target.cooldownSeconds);
-			channel = target.telegramBotToken || target.telegramChatId ? 'telegram' : target.emailTo ? 'email' : 'webhook';
+			channel = target.telegramBotToken || target.telegramChatId
+				? 'telegram'
+				: target.emailTo
+					? 'email'
+					: target.pagerDutyRoutingKey
+						? 'pagerduty'
+						: 'webhook';
 			webhookUrl = target.webhookUrl;
 			telegramBotToken = target.telegramBotToken;
 			telegramChatId = target.telegramChatId;
 			emailTo = target.emailTo;
+			pagerDutyRoutingKey = target.pagerDutyRoutingKey;
 		}
 	});
 
@@ -96,7 +118,9 @@
 			? webhookUrl.trim().length > 0
 			: channel === 'telegram'
 				? telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
-				: emailTo.trim().length > 0
+				: channel === 'email'
+					? emailTo.trim().length > 0
+					: pagerDutyRoutingKey.trim().length > 0
 	);
 
 	const canSave = $derived(
@@ -164,7 +188,8 @@
 			webhookUrl: channel === 'webhook' ? webhookUrl.trim() : '',
 			telegramBotToken: channel === 'telegram' ? telegramBotToken.trim() : '',
 			telegramChatId: channel === 'telegram' ? telegramChatId.trim() : '',
-			emailTo: channel === 'email' ? emailTo.trim() : ''
+			emailTo: channel === 'email' ? emailTo.trim() : '',
+			pagerDutyRoutingKey: channel === 'pagerduty' ? pagerDutyRoutingKey.trim() : ''
 		};
 	}
 
@@ -177,6 +202,24 @@
 			testError = err instanceof Error ? err.message : String(err);
 		} finally {
 			testing = false;
+		}
+	}
+
+	// Unlike handleTest above (a dry-run evaluation), this actually notifies through the
+	// selected channel. Always goes through the unsaved-draft endpoint with the form's
+	// current field values, even when editing a saved rule - so testing an in-progress
+	// edit (e.g. a routing key being typed in right now) never falls back to testing the
+	// still-saved value instead. AlertRuleTable.svelte's own "send test" row action covers
+	// the already-saved case.
+	async function handleSendTest(): Promise<void> {
+		sendingTest = true;
+		sendTestError = null;
+		try {
+			sendTestResult = await sendTestDraftAlertRule(buildRequest());
+		} catch (err) {
+			sendTestError = err instanceof Error ? err.message : String(err);
+		} finally {
+			sendingTest = false;
 		}
 	}
 
@@ -264,12 +307,15 @@
 							? m.alertRuleForm_channelTelegram()
 							: channel === 'email'
 								? m.alertRuleForm_channelEmail()
-								: m.alertRuleForm_channelWebhook()}
+								: channel === 'pagerduty'
+									? m.alertRuleForm_channelPagerDuty()
+									: m.alertRuleForm_channelWebhook()}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="webhook" label={m.alertRuleForm_channelWebhook()} />
 						<Select.Item value="telegram" label={m.alertRuleForm_channelTelegram()} />
 						<Select.Item value="email" label={m.alertRuleForm_channelEmail()} />
+						<Select.Item value="pagerduty" label={m.alertRuleForm_channelPagerDuty()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
@@ -293,12 +339,20 @@
 						{m.alertRuleForm_chatIdHint()}
 					</span>
 				</div>
-			{:else}
+			{:else if channel === 'email'}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_emailToLabel()}</span>
 					<Input bind:value={emailTo} placeholder={m.alertRuleForm_emailToPlaceholder()} />
 					<span class="text-muted-foreground text-xs">
 						{m.alertRuleForm_emailToHint()}
+					</span>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.alertRuleForm_pagerDutyRoutingKeyLabel()}</span>
+					<Input bind:value={pagerDutyRoutingKey} placeholder={m.alertRuleForm_pagerDutyRoutingKeyPlaceholder()} />
+					<span class="text-muted-foreground text-xs">
+						{m.alertRuleForm_pagerDutyRoutingKeyHint()}
 					</span>
 				</div>
 			{/if}
@@ -308,7 +362,7 @@
 				<span class="text-xs">{m.alertRuleForm_enabledLabel()}</span>
 			</div>
 
-			<div class="flex items-center gap-2 border-t pt-3">
+			<div class="flex flex-wrap items-center gap-2 border-t pt-3">
 				<Button variant="outline" size="sm" onclick={handleTest} disabled={testing}>
 					{#if testing}
 						<Spinner class="size-3.5" />
@@ -323,6 +377,20 @@
 					</Badge>
 				{:else if testError}
 					<span class="text-destructive text-xs">{testError}</span>
+				{/if}
+
+				<Button variant="outline" size="sm" onclick={handleSendTest} disabled={sendingTest || !hasChannel}>
+					{#if sendingTest}
+						<Spinner class="size-3.5" />
+					{/if}
+					{m.alertRuleForm_sendTestButton()}
+				</Button>
+				{#if sendTestResult}
+					<Badge variant={sendTestResult.success ? 'secondary' : 'destructive'}>
+						{sendTestResult.success ? m.alertRuleForm_sendTestSuccess() : m.alertRuleForm_sendTestFailure({ error: sendTestResult.error })}
+					</Badge>
+				{:else if sendTestError}
+					<span class="text-destructive text-xs">{sendTestError}</span>
 				{/if}
 			</div>
 

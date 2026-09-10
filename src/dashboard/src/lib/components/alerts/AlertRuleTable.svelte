@@ -8,7 +8,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { alertsContext } from '$lib/alerts/context';
-	import { testAlertRule, type AlertRule, type AlertTestResult } from '$lib/alerts-api';
+	import { testAlertRule, sendTestAlertRule, type AlertRule, type AlertTestResult, type AlertNotificationTestResult } from '$lib/alerts-api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -16,6 +16,7 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import PlayIcon from '@lucide/svelte/icons/play';
+	import SendIcon from '@lucide/svelte/icons/send';
 	import BellIcon from '@lucide/svelte/icons/bell';
 
 	const alerts = alertsContext.get();
@@ -55,6 +56,21 @@
 			testResults = { ...testResults, [rule.id]: result };
 		} catch {
 			testResults = { ...testResults, [rule.id]: 'error' };
+		}
+	}
+
+	// "Send test alert" - unlike handleTest above (a dry-run evaluation), this actually
+	// notifies through the rule's saved channel, so its config can be verified without
+	// waiting for a real breach. Same per-row ephemeral-state shape as testResults.
+	let sendTestResults = $state<Record<string, AlertNotificationTestResult | 'loading' | 'error'>>({});
+
+	async function handleSendTest(rule: AlertRule): Promise<void> {
+		sendTestResults = { ...sendTestResults, [rule.id]: 'loading' };
+		try {
+			const result = await sendTestAlertRule(rule.id);
+			sendTestResults = { ...sendTestResults, [rule.id]: result };
+		} catch {
+			sendTestResults = { ...sendTestResults, [rule.id]: 'error' };
 		}
 	}
 </script>
@@ -135,6 +151,16 @@
 										: m.alertRuleTable_testResultNotFiring({ count: result.observedCount })}
 								</Badge>
 							{/if}
+							{#if sendTestResults[rule.id] === 'loading'}
+								<Badge variant="outline" class="ml-1">{m.alertRuleTable_testing()}</Badge>
+							{:else if sendTestResults[rule.id] === 'error'}
+								<Badge variant="destructive" class="ml-1">{m.alertRuleTable_sendTestFailed()}</Badge>
+							{:else if sendTestResults[rule.id]}
+								{@const sendResult = sendTestResults[rule.id] as AlertNotificationTestResult}
+								<Badge variant={sendResult.success ? 'secondary' : 'destructive'} class="ml-1">
+									{sendResult.success ? m.alertRuleTable_sendTestSent() : m.alertRuleTable_sendTestFailed()}
+								</Badge>
+							{/if}
 						</Table.Cell>
 						<Table.Cell class="text-right">
 							<Button
@@ -144,6 +170,14 @@
 								onclick={() => handleTest(rule)}
 							>
 								<PlayIcon />
+							</Button>
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								title={m.alertRuleTable_actionSendTest()}
+								onclick={() => handleSendTest(rule)}
+							>
+								<SendIcon />
 							</Button>
 							<Button variant="ghost" size="icon-sm" title={m.alertRuleTable_actionHistory()} onclick={() => alerts.openHistory(rule)}>
 								<HistoryIcon />

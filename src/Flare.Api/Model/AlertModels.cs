@@ -91,6 +91,15 @@ public sealed partial record AlertRule
     /// </summary>
     public string EmailTo { get; init; } = "";
 
+    /// <summary>
+    /// A PagerDuty Events API v2 integration/routing key (from a PagerDuty service's
+    /// "Events API v2" integration), when this rule's channel is PagerDuty instead of
+    /// webhook/Slack, Telegram, or Email - see <c>PagerDutyAlertNotifier</c>. Unlike
+    /// Email, there's no app-wide server config: the routing key alone is enough to POST
+    /// to PagerDuty's fixed Events API endpoint.
+    /// </summary>
+    public string PagerDutyRoutingKey { get; init; } = "";
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
@@ -148,13 +157,17 @@ public sealed partial record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.EmailTo"/>'s doc comment.</summary>
     public string? EmailTo { get; init; }
 
+    /// <summary>See <see cref="AlertRule.PagerDutyRoutingKey"/>'s doc comment.</summary>
+    public string? PagerDutyRoutingKey { get; init; }
+
     /// <summary>
     /// Exactly one notification channel: <see cref="WebhookUrl"/> (covers both a generic
     /// webhook consumer and Slack), both <see cref="TelegramBotToken"/> and
-    /// <see cref="TelegramChatId"/> together, or <see cref="EmailTo"/> - never none, never
-    /// more than one channel, never one Telegram field without the other. Called by
-    /// <c>AlertEndpoints</c>'s create/update handlers (not the dry-run test endpoints,
-    /// which never notify). Returns an error message, or null when this request is valid.
+    /// <see cref="TelegramChatId"/> together, <see cref="EmailTo"/>, or
+    /// <see cref="PagerDutyRoutingKey"/> - never none, never more than one channel, never
+    /// one Telegram field without the other. Called by <c>AlertEndpoints</c>'s
+    /// create/update handlers (not the dry-run test endpoints, which never notify).
+    /// Returns an error message, or null when this request is valid.
     /// </summary>
     public string? ValidateChannel()
     {
@@ -163,18 +176,19 @@ public sealed partial record AlertRuleRequest
         var hasChatId = !string.IsNullOrWhiteSpace(TelegramChatId);
         var hasTelegram = hasBotToken && hasChatId;
         var hasEmail = !string.IsNullOrWhiteSpace(EmailTo);
+        var hasPagerDuty = !string.IsNullOrWhiteSpace(PagerDutyRoutingKey);
 
         if (hasBotToken != hasChatId)
         {
             return "telegramBotToken and telegramChatId must be set together.";
         }
 
-        var channelCount = (hasWebhook ? 1 : 0) + (hasTelegram ? 1 : 0) + (hasEmail ? 1 : 0);
+        var channelCount = (hasWebhook ? 1 : 0) + (hasTelegram ? 1 : 0) + (hasEmail ? 1 : 0) + (hasPagerDuty ? 1 : 0);
         return channelCount switch
         {
-            0 => "One of webhookUrl, telegramBotToken/telegramChatId, or emailTo is required.",
+            0 => "One of webhookUrl, telegramBotToken/telegramChatId, emailTo, or pagerDutyRoutingKey is required.",
             1 => null,
-            _ => "webhookUrl, telegramBotToken/telegramChatId, and emailTo are mutually exclusive - a rule notifies exactly one channel.",
+            _ => "webhookUrl, telegramBotToken/telegramChatId, emailTo, and pagerDutyRoutingKey are mutually exclusive - a rule notifies exactly one channel.",
         };
     }
 }
@@ -236,4 +250,26 @@ public sealed partial record AlertTestResult
     public required DateTimeOffset EvaluatedAt { get; init; }
 
     public required int WindowSeconds { get; init; }
+}
+
+/// <summary>
+/// Response body for the "send test alert" endpoints (<c>POST /api/alerts/{id}/send-test</c>
+/// and <c>POST /api/alerts/send-test</c>) - actually sends a notification through the
+/// rule/draft's configured channel (unlike <see cref="AlertTestResult"/>'s dry-run, which
+/// never notifies), so a channel's config (URL, bot token, SMTP address, PagerDuty
+/// routing key) can be verified before relying on it in a real incident. Carries no
+/// <see cref="DateTimeOffset"/>/nested member, unlike <see cref="AlertRule"/>, so this can
+/// carry <c>[GenerateTypeScript]</c> directly rather than needing a hand-written
+/// <c>$lib/memorypack/</c> companion.
+/// </summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record AlertNotificationTestResult
+{
+    public required bool Success { get; init; }
+
+    /// <summary>The channel's own status code where one exists (HTTP status for webhook/Slack/Telegram/PagerDuty); 0 for Email, which has none.</summary>
+    public required int StatusCode { get; init; }
+
+    public string Error { get; init; } = "";
 }

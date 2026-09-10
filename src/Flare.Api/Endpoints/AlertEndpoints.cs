@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Alerting;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
@@ -25,6 +26,12 @@ public static class AlertEndpoints
         // the draft-rule route below.
         endpoints.MapPost("/api/alerts/{id:guid}/test", HandleTestSavedAsync);
         endpoints.MapPost("/api/alerts/test", HandleTestDraftAsync);
+        // "Send test alert": actually notifies through the configured channel (unlike the
+        // dry-runs above, which only evaluate the condition) - saved-rule route first
+        // (more specific) so it isn't shadowed by the draft route below, same ordering
+        // reason as the dry-run pair.
+        endpoints.MapPost("/api/alerts/{id:guid}/send-test", HandleSendTestSavedAsync);
+        endpoints.MapPost("/api/alerts/send-test", HandleSendTestDraftAsync);
         return endpoints;
     }
 
@@ -135,6 +142,84 @@ public static class AlertEndpoints
 
         var result = await EvaluateAsync(alerts, timeProvider, request.Condition, request.Threshold, request.WindowSeconds, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
+    }
+
+    private static async Task<IResult> HandleSendTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, IAlertNotifier notifier, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        var rule = await alerts.GetAsync(id, cancellationToken);
+        if (rule is null)
+        {
+            return Results.NotFound();
+        }
+
+        var result = await SendTestAsync(notifier, rule, timeProvider, cancellationToken);
+        return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertNotificationTestResult);
+    }
+
+    private static async Task<IResult> HandleSendTestDraftAsync(HttpContext http, IAlertNotifier notifier, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        AlertRuleRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AlertsJsonContext.Default.AlertRuleRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // Unlike the dry-run draft test above, this one actually notifies - so it needs
+        // the same channel validation as create/update, not just an evaluable condition.
+        if (request.ValidateChannel() is { } channelError)
+        {
+            return Results.Problem(channelError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var defaults = AlertQueryService.ResolveDefaults(request);
+        var draftRule = new AlertRule
+        {
+            Id = Guid.Empty,
+            Name = request.Name,
+            Description = defaults.Description,
+            Enabled = defaults.Enabled,
+            Condition = request.Condition,
+            Threshold = request.Threshold,
+            WindowSeconds = request.WindowSeconds,
+            CooldownSeconds = defaults.CooldownSeconds,
+            WebhookUrl = defaults.WebhookUrl,
+            TelegramBotToken = defaults.TelegramBotToken,
+            TelegramChatId = defaults.TelegramChatId,
+            EmailTo = defaults.EmailTo,
+            PagerDutyRoutingKey = defaults.PagerDutyRoutingKey,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+
+        var result = await SendTestAsync(notifier, draftRule, timeProvider, cancellationToken);
+        return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertNotificationTestResult);
+    }
+
+    /// <summary>
+    /// Shared by both send-test endpoints: actually notifies through <paramref name="rule"/>'s
+    /// configured channel with a synthetic (non-breaching) event and <c>isTest: true</c>
+    /// wording, so a channel's config can be verified without waiting for a real breach -
+    /// unlike <see cref="EvaluateAsync"/>, which never notifies.
+    /// </summary>
+    private static async Task<AlertNotificationTestResult> SendTestAsync(IAlertNotifier notifier, AlertRule rule, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        var result = await notifier.SendAsync(rule, observedCount: 0, timeProvider.GetUtcNow(), cancellationToken, isTest: true);
+        return new AlertNotificationTestResult
+        {
+            Success = result.Success,
+            StatusCode = result.StatusCode,
+            Error = result.Error ?? "",
+        };
     }
 
     /// <summary>
