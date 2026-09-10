@@ -1,28 +1,36 @@
+using Flare.Api.Alerting;
 using Flare.Api.Model;
 using Flare.Api.Query;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
-namespace Flare.Api.Alerting;
+namespace Flare.AlertWorker.Alerting;
 
 /// <summary>
 /// Periodically re-evaluates every enabled <see cref="AlertRule"/>'s saved condition as a
 /// count over its rolling window, and notifies (subject to cooldown) on breach.
 /// </summary>
 /// <remarks>
+/// Runs in its own process (<c>Flare.AlertWorker</c>), not inside <c>Flare.Api</c> - see
+/// <c>docs-internal/adr/0018-alert-worker-extraction.md</c> for why. <see cref="IAlertQueryService"/>/
+/// <see cref="IAlertNotifier"/>/<see cref="AlertRule"/> etc. are still defined in
+/// <c>Flare.Api</c> and reused here via a plain <c>ProjectReference</c> (that project's
+/// own CRUD/send-test endpoints still need them) - not duplicated.
+/// <para>
 /// Same poll-loop <see cref="BackgroundService"/> idiom as
-/// <c>Flare.Ingest</c>'s <c>ClickHouseFlushWorker</c> and this project's own
+/// <c>Flare.Ingest</c>'s <c>ClickHouseFlushWorker</c> and <c>Flare.Api</c>'s own
 /// <c>LogTailBroadcaster</c> - <c>while (!stoppingToken.IsCancellationRequested) { ...;
 /// await Task.Delay(...); }</c>. Registered as a plain hosted service (not also a
 /// singleton other components reach into, unlike <c>LogTailBroadcaster</c>'s "one
 /// instance, two roles" registration) - nothing else needs to reach into this worker; the
-/// <c>/api/alerts/*/test</c> endpoints are stateless dry-runs through
-/// <see cref="IAlertQueryService"/> directly, not calls into this class.
+/// <c>/api/alerts/*/test</c> endpoints (in <c>Flare.Api</c>) are stateless dry-runs
+/// through <see cref="IAlertQueryService"/> directly, not calls into this class.
+/// </para>
 /// <para>
 /// Every replica runs this same loop independently, so without coordination N replicas
 /// would each evaluate every rule and could each send a duplicate notification for the
 /// same breach (per-rule cooldown alone doesn't prevent two replicas both passing the
-/// cooldown check in the same tick - see Planning.md's "Multi-node scaling" item). Each
+/// cooldown check in the same tick - see the roadmap's "Multi-node scaling" item). Each
 /// tick is gated behind a single Redis-backed mutual-exclusion lock
 /// (<see cref="LockKey"/>) so only one replica actually evaluates rules per tick; the
 /// rest skip that tick entirely. The lock's expiry equals <see cref="AlertingOptions.PollInterval"/>,

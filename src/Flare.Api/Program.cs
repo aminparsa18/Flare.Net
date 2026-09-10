@@ -214,7 +214,13 @@ builder.Services.AddSingleton<HostDiskReader>();
 builder.Services.AddSingleton<HostStatsPoller>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<HostStatsPoller>());
 
-builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
+// AlertingOptions/AlertEvaluationWorker itself moved to Flare.AlertWorker (see
+// docs-internal/adr/0018-alert-worker-extraction.md) - a Flare.Api deploy/restart no
+// longer stops alert evaluation. Everything below is still needed here: AlertQueryService
+// (rule CRUD/history, registered above) and every notifier are also used directly by
+// AlertEndpoints' /api/alerts/*/send-test routes, an HTTP-triggered real notification
+// independent of the poll loop - Flare.AlertWorker reuses these same types via a
+// ProjectReference rather than a second copy.
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 // Named/typed HttpClients so the webhook/Slack, Telegram, and PagerDuty senders inherit
 // AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
@@ -227,7 +233,6 @@ builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
 builder.Services.AddSingleton<EmailAlertNotifier>();
 builder.Services.AddSingleton<IAlertNotifier, CompositeAlertNotifier>();
-builder.Services.AddHostedService<AlertEvaluationWorker>();
 
 builder.Services.AddOpenApi();
 

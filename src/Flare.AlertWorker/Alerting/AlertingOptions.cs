@@ -1,11 +1,11 @@
-namespace Flare.Api.Alerting;
+namespace Flare.AlertWorker.Alerting;
 
 /// <summary>
 /// Tuning knobs for <see cref="AlertEvaluationWorker"/>. Bound from the
 /// <c>Alerting</c> configuration section.
 /// </summary>
 /// <remarks>
-/// Per-rule defaults (window, cooldown) live on <see cref="Model.AlertRuleRequest"/>
+/// Per-rule defaults (window, cooldown) live on <see cref="Flare.Api.Model.AlertRuleRequest"/>
 /// itself, not here - there's no separate "default window" config to keep in sync with
 /// the model's own defaults.
 /// </remarks>

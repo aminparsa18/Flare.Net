@@ -13,6 +13,7 @@
     <Project Path="src/Aspire.Hosting.Flare/Aspire.Hosting.Flare.csproj" />
     <Project Path="src/Flare.Api.Tests/Flare.Api.Tests.csproj" />
     <Project Path="src/Flare.Api/Flare.Api.csproj" />
+    <Project Path="src/Flare.AlertWorker/Flare.AlertWorker.csproj" />
     <Project Path="src/Flare.AppHost/Flare.AppHost.csproj" />
     <Project Path="src/Flare.Benchmarks/Flare.Benchmarks.csproj" />
     <Project Path="src/Flare.Cli/Flare.Cli.csproj" />

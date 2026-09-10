@@ -78,4 +78,17 @@ var api = builder.AddProject<Projects.Flare_Api>("api")
     .WithEnvironment("Cors__AllowedOrigins__0", "http://localhost:5173")
     .WithHttpHealthCheck("/health");
 
+// Flare.AlertWorker: periodic alert-rule evaluation, split out of Flare.Api into its own
+// process (docs-internal/adr/0018-alert-worker-extraction.md) so that restarting `api`
+// no longer also stops alert evaluation. Same ClickHouse/Redis references as `api` -
+// AlertQueryService/CompositeAlertNotifier are reused from Flare.Api via a
+// ProjectReference, not a new backing store. No Identity__DbPath/Cors - it never touches
+// either.
+var alertWorker = builder.AddProject<Projects.Flare_AlertWorker>("alert-worker")
+    .WithReference(logsDb)
+    .WaitFor(logsDb)
+    .WithReference(redis)
+    .WaitFor(redis)
+    .WithHttpHealthCheck("/health");
+
 builder.Build().Run();
