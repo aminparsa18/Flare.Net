@@ -5,7 +5,7 @@ namespace Flare.Api.Query;
 
 public interface IServiceCallBreakdownQueryService
 {
-    Task<ServiceCallBreakdownResponse> GetBreakdownAsync(string service, int requestedWindowMinutes, CancellationToken cancellationToken);
+    Task<ServiceCallBreakdownResponse> GetBreakdownAsync(string service, int requestedWindowMinutes, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -18,13 +18,13 @@ public sealed class ServiceCallBreakdownQueryService(IClickHouseClient client, T
 {
     private const double NanosPerMilli = 1_000_000.0;
 
-    public async Task<ServiceCallBreakdownResponse> GetBreakdownAsync(string service, int requestedWindowMinutes, CancellationToken cancellationToken)
+    public async Task<ServiceCallBreakdownResponse> GetBreakdownAsync(string service, int requestedWindowMinutes, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes, CancellationToken cancellationToken)
     {
         var windowMinutes = ServiceCallBreakdownQueryBuilder.ClampWindowMinutes(requestedWindowMinutes);
         var window = TimeSpan.FromMinutes(windowMinutes);
         var now = timeProvider.GetUtcNow();
 
-        var built = ServiceCallBreakdownQueryBuilder.Build(service, window, now);
+        var built = ServiceCallBreakdownQueryBuilder.Build(service, window, now, resourceAttributes);
 
         var externalCalls = new List<ExternalCallGroup>();
         await using (var reader = await client.ExecuteReaderAsync(built.ExternalCallsSql, built.ExternalCallsParameters, SafetyOptions(), cancellationToken))

@@ -1,61 +1,107 @@
+using System.Text.Json;
 using Flare.Api.Json;
+using Flare.Api.Model;
 using Flare.Api.Query;
 
 namespace Flare.Api.Endpoints;
 
 /// <summary>
-/// The Traces page's Services-tab endpoints: <c>GET /api/services/overview?windowMinutes=15</c>
-/// (Table view), <c>GET /api/services/dependencies?windowMinutes=15</c> (Map view - see
+/// The Traces page's Services-tab endpoints: <c>POST /api/services/overview</c> (Table
+/// view), <c>POST /api/services/dependencies</c> (Map view - see
 /// <see cref="ServiceDependencyQueryBuilder"/>'s remarks), and
-/// <c>GET /api/services/breakdown?service=X&amp;windowMinutes=15</c> (the Map view's per-node
-/// drill-down - see <see cref="ServiceCallBreakdownQueryBuilder"/>'s remarks). Same
-/// plain-GET-with-query-params convention as <see cref="IngestionEndpoints"/> (see its own
-/// remarks) throughout - a window length plus, for the drill-down, one service name -
-/// nothing structured enough here to justify a POST body.
+/// <c>POST /api/services/breakdown</c> (the Map view's per-node drill-down - see
+/// <see cref="ServiceCallBreakdownQueryBuilder"/>'s remarks). Was plain
+/// GET-with-query-params (a window length plus, for the drill-down, one service name) until
+/// the Services tab's resource-attribute filter chips
+/// (docs-internal/planning/roadmap.md's now-removed "Resource-attribute filtering on the
+/// Traces &gt; Services tab" item) made every request carry an optional, multi-valued list of
+/// <see cref="ResourceAttributeFilter"/> - the same "filters are multi-valued/structured,
+/// so POST not GET-with-query-string" reasoning this codebase's CLAUDE.md already
+/// documents for <c>/api/logs/*</c>, applied here for the first time.
 /// </summary>
 public static class ServicesEndpoints
 {
     public static IEndpointRouteBuilder MapServicesEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/api/services/overview", HandleGetOverviewAsync);
-        endpoints.MapGet("/api/services/dependencies", HandleGetDependenciesAsync);
-        endpoints.MapGet("/api/services/breakdown", HandleGetBreakdownAsync);
+        endpoints.MapPost("/api/services/overview", HandleGetOverviewAsync);
+        endpoints.MapPost("/api/services/dependencies", HandleGetDependenciesAsync);
+        endpoints.MapPost("/api/services/breakdown", HandleGetBreakdownAsync);
         return endpoints;
     }
 
     private static async Task<IResult> HandleGetOverviewAsync(
-        int? windowMinutes,
         HttpContext http,
         IServiceOverviewQueryService queryService,
         CancellationToken cancellationToken)
     {
-        var response = await queryService.GetOverviewAsync(windowMinutes ?? ServiceOverviewQueryBuilder.DefaultWindowMinutes, cancellationToken);
+        ServiceOverviewRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, ServicesJsonContext.Default.ServiceOverviewRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        request ??= new ServiceOverviewRequest();
+
+        var response = await queryService.GetOverviewAsync(
+            request.WindowMinutes ?? ServiceOverviewQueryBuilder.DefaultWindowMinutes,
+            request.ResourceAttributes,
+            cancellationToken);
         return ApiSerialization.Write(http, response, ServicesJsonContext.Default.ServiceOverviewResponse);
     }
 
     private static async Task<IResult> HandleGetDependenciesAsync(
-        int? windowMinutes,
         HttpContext http,
         IServiceDependencyQueryService queryService,
         CancellationToken cancellationToken)
     {
-        var response = await queryService.GetGraphAsync(windowMinutes ?? ServiceDependencyQueryBuilder.DefaultWindowMinutes, cancellationToken);
+        ServiceDependencyRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, ServicesJsonContext.Default.ServiceDependencyRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        request ??= new ServiceDependencyRequest();
+
+        var response = await queryService.GetGraphAsync(
+            request.WindowMinutes ?? ServiceDependencyQueryBuilder.DefaultWindowMinutes,
+            request.ResourceAttributes,
+            cancellationToken);
         return ApiSerialization.Write(http, response, ServicesJsonContext.Default.ServiceDependencyGraphResponse);
     }
 
     private static async Task<IResult> HandleGetBreakdownAsync(
-        string? service,
-        int? windowMinutes,
         HttpContext http,
         IServiceCallBreakdownQueryService queryService,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(service))
+        ServiceCallBreakdownRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, ServicesJsonContext.Default.ServiceCallBreakdownRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Service))
         {
             return Results.Problem("service is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var response = await queryService.GetBreakdownAsync(service, windowMinutes ?? ServiceCallBreakdownQueryBuilder.DefaultWindowMinutes, cancellationToken);
+        var response = await queryService.GetBreakdownAsync(
+            request.Service,
+            request.WindowMinutes ?? ServiceCallBreakdownQueryBuilder.DefaultWindowMinutes,
+            request.ResourceAttributes,
+            cancellationToken);
         return ApiSerialization.Write(http, response, ServicesJsonContext.Default.ServiceCallBreakdownResponse);
     }
 }

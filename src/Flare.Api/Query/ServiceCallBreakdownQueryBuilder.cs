@@ -1,5 +1,6 @@
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Model;
 
 namespace Flare.Api.Query;
 
@@ -61,13 +62,27 @@ public static class ServiceCallBreakdownQueryBuilder
     /// <summary>Same clamp as <see cref="ServiceOverviewQueryBuilder.ClampWindowMinutes"/> - kept as its own method so this builder reads standalone, same precedent as <see cref="ServiceDependencyQueryBuilder.ClampWindowMinutes"/>.</summary>
     public static int ClampWindowMinutes(int requested) => ServiceOverviewQueryBuilder.ClampWindowMinutes(requested);
 
-    public static ServiceCallBreakdownSql Build(string service, TimeSpan window, DateTimeOffset now)
+    /// <param name="resourceAttributes">
+    /// Optional equality filters against <c>ResourceAttributes</c> - the Services tab's
+    /// filter chips, ANDed into both queries alongside the service/window predicates.
+    /// Null/empty = no narrowing, same queries as before this parameter existed. See
+    /// <see cref="ResourceAttributeFilterSqlBuilder"/>.
+    /// </param>
+    public static ServiceCallBreakdownSql Build(string service, TimeSpan window, DateTimeOffset now, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes = null)
     {
         var externalCallsParameters = new ClickHouseParameterCollection();
         externalCallsParameters.AddParameter("service", service);
         externalCallsParameters.AddParameter("from", (now - window).UtcDateTime);
         externalCallsParameters.AddParameter("to", now.UtcDateTime);
         externalCallsParameters.AddParameter("errorStatus", "STATUS_CODE_ERROR");
+
+        var externalCallsClauses = new List<string>
+        {
+            "ServiceName = {service:String}",
+            "SpanAttributes['peer.service'] != ''",
+            "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}",
+        };
+        ResourceAttributeFilterSqlBuilder.AppendClauses(externalCallsClauses, externalCallsParameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
 
         var externalCallsSql = "SELECT\n" +
             "    SpanAttributes['peer.service'] AS PeerService,\n" +
@@ -76,8 +91,7 @@ public static class ServiceCallBreakdownQueryBuilder
             "    quantile(0.5)(DurationNano) AS P50DurationNano,\n" +
             "    quantile(0.95)(DurationNano) AS P95DurationNano\n" +
             "FROM spans\n" +
-            "WHERE ServiceName = {service:String} AND SpanAttributes['peer.service'] != ''\n" +
-            "    AND StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}\n" +
+            "WHERE " + string.Join(" AND ", externalCallsClauses) + "\n" +
             "GROUP BY PeerService\n" +
             "ORDER BY CallCount DESC";
 
@@ -87,6 +101,14 @@ public static class ServiceCallBreakdownQueryBuilder
         databaseCallsParameters.AddParameter("to", now.UtcDateTime);
         databaseCallsParameters.AddParameter("errorStatus", "STATUS_CODE_ERROR");
 
+        var databaseCallsClauses = new List<string>
+        {
+            "ServiceName = {service:String}",
+            "SpanAttributes['db.system'] != ''",
+            "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}",
+        };
+        ResourceAttributeFilterSqlBuilder.AppendClauses(databaseCallsClauses, databaseCallsParameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
+
         var databaseCallsSql = "SELECT\n" +
             "    SpanAttributes['db.system'] AS DbSystem,\n" +
             "    SpanAttributes['db.operation'] AS DbOperation,\n" +
@@ -95,8 +117,7 @@ public static class ServiceCallBreakdownQueryBuilder
             "    quantile(0.5)(DurationNano) AS P50DurationNano,\n" +
             "    quantile(0.95)(DurationNano) AS P95DurationNano\n" +
             "FROM spans\n" +
-            "WHERE ServiceName = {service:String} AND SpanAttributes['db.system'] != ''\n" +
-            "    AND StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}\n" +
+            "WHERE " + string.Join(" AND ", databaseCallsClauses) + "\n" +
             "GROUP BY DbSystem, DbOperation\n" +
             "ORDER BY CallCount DESC";
 

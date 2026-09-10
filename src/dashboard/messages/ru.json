@@ -184,6 +184,7 @@
 	"attributeFilters_opNotEquals": "Не равно",
 	"attributeFilters_opExists": "Существует",
 	"attributeFilters_opAbsent": "Отсутствует",
+	"resourceAttributeFilters_label": "Фильтры атрибутов ресурса",
 	"attributeValueCombobox_loading": "Загрузка…",
 	"volumeChart_label": "Объём событий",
 	"volumeChart_filteredTo": "Отфильтровано по {time}",

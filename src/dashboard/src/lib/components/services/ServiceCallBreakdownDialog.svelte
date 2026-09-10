@@ -55,7 +55,7 @@
 		loading = true;
 		error = null;
 
-		getServiceCallBreakdown(service, minutes, controller.signal)
+		getServiceCallBreakdown(service, minutes, services.resourceAttributes, controller.signal)
 			.then((result) => {
 				if (controller.signal.aborted) return;
 				breakdown = result;

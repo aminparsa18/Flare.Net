@@ -8,17 +8,47 @@
 // (`$lib/memorypack/ServiceOverviewResponse.ts`), and so are `ServiceDependencyNode` (an
 // IReadOnlyList<string> member) and `ServiceDependencyGraphResponse` (IReadOnlyList-of-object
 // members) - see their own header comments.
+//
+// All three endpoints were plain GET-with-`?windowMinutes=` until the Services tab's
+// resource-attribute filter chips (docs-internal/planning/roadmap.md's now-removed
+// "Resource-attribute filtering on the Traces > Services tab" item) - see
+// `ServicesEndpoints.cs`'s own header comment for why that made them POST. Their request
+// bodies (`ServiceOverviewRequest`/`ServiceDependencyRequest`/`ServiceCallBreakdownRequest`)
+// are hand-written for the same reason as the response types above: an
+// `IReadOnlyList<ResourceAttributeFilter>?` member blocks the generator, even though
+// `ResourceAttributeFilter` itself is a real generated class (no list/DateTimeOffset
+// member of its own).
 
-import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders } from './api';
+import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
+import { ServiceOverviewRequest as GeneratedServiceOverviewRequest } from '$lib/memorypack/ServiceOverviewRequest';
 import { ServiceOverviewResponse as GeneratedServiceOverviewResponse } from '$lib/memorypack/ServiceOverviewResponse';
+import { ServiceDependencyRequest as GeneratedServiceDependencyRequest } from '$lib/memorypack/ServiceDependencyRequest';
 import { ServiceDependencyGraphResponse as GeneratedServiceDependencyGraphResponse } from '$lib/memorypack/ServiceDependencyGraphResponse';
+import { ServiceCallBreakdownRequest as GeneratedServiceCallBreakdownRequest } from '$lib/memorypack/ServiceCallBreakdownRequest';
 import { ServiceCallBreakdownResponse as GeneratedServiceCallBreakdownResponse } from '$lib/memorypack/ServiceCallBreakdownResponse';
+import { ResourceAttributeFilter as GeneratedResourceAttributeFilter } from '$lib/generated/memorypack/ResourceAttributeFilter.js';
 import type { ServiceMetrics as GeneratedServiceMetrics } from '$lib/generated/memorypack/ServiceMetrics.js';
 import type { ServiceDependencyNode as GeneratedServiceDependencyNode } from '$lib/memorypack/ServiceDependencyNode';
 import type { ServiceDependencyEdge as GeneratedServiceDependencyEdge } from '$lib/generated/memorypack/ServiceDependencyEdge.js';
 import type { ExternalCallGroup as GeneratedExternalCallGroup } from '$lib/generated/memorypack/ExternalCallGroup.js';
 import type { DatabaseCallGroup as GeneratedDatabaseCallGroup } from '$lib/generated/memorypack/DatabaseCallGroup.js';
 import type { ServiceMapNode, ServiceMapEdge } from '$lib/traces/service-map';
+
+/** See `ResourceAttributeFilter` (ResourceAttributeFilter.cs) - the Services tab's filter chips, e.g. `{ key: 'deployment.environment', value: 'production' }`. */
+export interface ResourceAttributeFilter {
+	key: string;
+	value: string;
+}
+
+function toGeneratedResourceAttributes(resourceAttributes: ResourceAttributeFilter[] | undefined): (GeneratedResourceAttributeFilter | null)[] | null {
+	if (resourceAttributes == null || resourceAttributes.length === 0) return null;
+	return resourceAttributes.map((a) => {
+		const attr = new GeneratedResourceAttributeFilter();
+		attr.key = a.key;
+		attr.value = a.value;
+		return attr;
+	});
+}
 
 export interface ServiceMetrics {
 	serviceName: string;
@@ -49,14 +79,27 @@ function toServiceMetrics(dto: GeneratedServiceMetrics): ServiceMetrics {
 	};
 }
 
-/** @param windowMinutes Lookback window, minutes. Server clamps/defaults - see `ServiceOverviewQueryBuilder.ClampWindowMinutes`. */
-export async function getServiceOverview(windowMinutes: number, signal?: AbortSignal): Promise<ServiceOverviewResponse> {
-	const res = await apiFetch(`${API_BASE_URL}/api/services/overview?windowMinutes=${windowMinutes}`, {
-		headers: memoryPackAcceptHeaders(),
+/**
+ * @param windowMinutes Lookback window, minutes. Server clamps/defaults - see `ServiceOverviewQueryBuilder.ClampWindowMinutes`.
+ * @param resourceAttributes Optional filter chips, ANDed together server-side. Omit/empty = no narrowing.
+ */
+export async function getServiceOverview(
+	windowMinutes: number,
+	resourceAttributes?: ResourceAttributeFilter[],
+	signal?: AbortSignal
+): Promise<ServiceOverviewResponse> {
+	const request = new GeneratedServiceOverviewRequest();
+	request.windowMinutes = windowMinutes;
+	request.resourceAttributes = toGeneratedResourceAttributes(resourceAttributes);
+
+	const res = await apiFetch(`${API_BASE_URL}/api/services/overview`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedServiceOverviewRequest.serialize(request)),
 		signal
 	});
 	if (!res.ok) {
-		throw new Error(`GET /api/services/overview failed: ${res.status} ${res.statusText}`);
+		throw new Error(`POST /api/services/overview failed: ${res.status} ${res.statusText}`);
 	}
 	const dto = GeneratedServiceOverviewResponse.deserialize(await res.arrayBuffer());
 	if (dto == null) {
@@ -98,14 +141,27 @@ function toServiceMapEdge(dto: GeneratedServiceDependencyEdge): ServiceMapEdge {
 	};
 }
 
-/** @param windowMinutes Lookback window, minutes. Server clamps/defaults - see `ServiceDependencyQueryBuilder.ClampWindowMinutes`. */
-export async function getServiceDependencyGraph(windowMinutes: number, signal?: AbortSignal): Promise<ServiceDependencyGraph> {
-	const res = await apiFetch(`${API_BASE_URL}/api/services/dependencies?windowMinutes=${windowMinutes}`, {
-		headers: memoryPackAcceptHeaders(),
+/**
+ * @param windowMinutes Lookback window, minutes. Server clamps/defaults - see `ServiceDependencyQueryBuilder.ClampWindowMinutes`.
+ * @param resourceAttributes Optional filter chips, ANDed together server-side (both aliased sides of the edges query - see `ServiceDependencyQueryBuilder.Build`'s remarks). Omit/empty = no narrowing.
+ */
+export async function getServiceDependencyGraph(
+	windowMinutes: number,
+	resourceAttributes?: ResourceAttributeFilter[],
+	signal?: AbortSignal
+): Promise<ServiceDependencyGraph> {
+	const request = new GeneratedServiceDependencyRequest();
+	request.windowMinutes = windowMinutes;
+	request.resourceAttributes = toGeneratedResourceAttributes(resourceAttributes);
+
+	const res = await apiFetch(`${API_BASE_URL}/api/services/dependencies`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedServiceDependencyRequest.serialize(request)),
 		signal
 	});
 	if (!res.ok) {
-		throw new Error(`GET /api/services/dependencies failed: ${res.status} ${res.statusText}`);
+		throw new Error(`POST /api/services/dependencies failed: ${res.status} ${res.statusText}`);
 	}
 	const dto = GeneratedServiceDependencyGraphResponse.deserialize(await res.arrayBuffer());
 	if (dto == null) {
@@ -171,15 +227,29 @@ function toDatabaseCallGroup(dto: GeneratedDatabaseCallGroup): DatabaseCallGroup
  * The Services tab Map view's per-node drill-down - "what does this service call, and how
  * slow/erroring is each one." @param service Exact service name (or `peer.service`-overridden
  * node id) clicked in the graph. @param windowMinutes Lookback window, minutes. Server
- * clamps/defaults - see `ServiceCallBreakdownQueryBuilder.ClampWindowMinutes`.
+ * clamps/defaults - see `ServiceCallBreakdownQueryBuilder.ClampWindowMinutes`. @param
+ * resourceAttributes Same filter chips as the Table/Map views, so a node's drill-down stays
+ * consistent with whatever narrowed the graph it was opened from. Omit/empty = no narrowing.
  */
-export async function getServiceCallBreakdown(service: string, windowMinutes: number, signal?: AbortSignal): Promise<ServiceCallBreakdown> {
-	const res = await apiFetch(`${API_BASE_URL}/api/services/breakdown?service=${encodeURIComponent(service)}&windowMinutes=${windowMinutes}`, {
-		headers: memoryPackAcceptHeaders(),
+export async function getServiceCallBreakdown(
+	service: string,
+	windowMinutes: number,
+	resourceAttributes?: ResourceAttributeFilter[],
+	signal?: AbortSignal
+): Promise<ServiceCallBreakdown> {
+	const request = new GeneratedServiceCallBreakdownRequest();
+	request.service = service;
+	request.windowMinutes = windowMinutes;
+	request.resourceAttributes = toGeneratedResourceAttributes(resourceAttributes);
+
+	const res = await apiFetch(`${API_BASE_URL}/api/services/breakdown`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedServiceCallBreakdownRequest.serialize(request)),
 		signal
 	});
 	if (!res.ok) {
-		throw new Error(`GET /api/services/breakdown failed: ${res.status} ${res.statusText}`);
+		throw new Error(`POST /api/services/breakdown failed: ${res.status} ${res.statusText}`);
 	}
 	const dto = GeneratedServiceCallBreakdownResponse.deserialize(await res.arrayBuffer());
 	if (dto == null) {

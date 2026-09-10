@@ -68,16 +68,6 @@ folders are where "what happened and why" actually lives.
   grid-layout drag/resize directly to a persistence API call on every
   tick — they did, then removed it in favor of an explicit save
   ([signoz#1306](https://github.com/SigNoz/signoz/commit/63e663a92d88859f0ec5f5438ef9aba8641666ad)).
-- **Resource-attribute filtering on the Traces › Services tab.** Today
-  that tab is just the dependency graph + per-node External/Database
-  breakdown (see [`../../docs-internal/investigations/`](../investigations/)
-  service-dependency-map work) with no way to narrow it by resource
-  attributes (e.g. `deployment.environment`, `host.name`). `LogFilter`
-  already does key/value attribute filtering for logs; this would be the
-  same shape applied to the Services view — filter chips backed by
-  arbitrary resource-attribute key/value pairs, not just a service-name
-  picker. Reference: [signoz#1022](https://github.com/SigNoz/signoz/commit/7948bca710c1ab1184515e03ef890168f765a7a7).
-  Not started.
 - **Searchable facet-value list in filter panels.** Logs/Traces filter
   sidebars render each facet (service name, attribute key, etc.) as a
   checkbox list with no way to narrow it by typing — fine for a handful

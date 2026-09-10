@@ -5,7 +5,7 @@ namespace Flare.Api.Query;
 
 public interface IServiceOverviewQueryService
 {
-    Task<ServiceOverviewResponse> GetOverviewAsync(int requestedWindowMinutes, CancellationToken cancellationToken);
+    Task<ServiceOverviewResponse> GetOverviewAsync(int requestedWindowMinutes, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -22,13 +22,13 @@ public sealed class ServiceOverviewQueryService(IClickHouseClient client, TimePr
     /// <summary>Converts a ClickHouse <c>DurationNano</c> quantile (nanoseconds) to milliseconds for the DTO.</summary>
     private const double NanosPerMilli = 1_000_000.0;
 
-    public async Task<ServiceOverviewResponse> GetOverviewAsync(int requestedWindowMinutes, CancellationToken cancellationToken)
+    public async Task<ServiceOverviewResponse> GetOverviewAsync(int requestedWindowMinutes, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes, CancellationToken cancellationToken)
     {
         var windowMinutes = ServiceOverviewQueryBuilder.ClampWindowMinutes(requestedWindowMinutes);
         var window = TimeSpan.FromMinutes(windowMinutes);
         var now = timeProvider.GetUtcNow();
 
-        var built = ServiceOverviewQueryBuilder.Build(window, now);
+        var built = ServiceOverviewQueryBuilder.Build(window, now, resourceAttributes);
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 

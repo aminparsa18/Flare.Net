@@ -184,6 +184,7 @@
 	"attributeFilters_opNotEquals": "不等于",
 	"attributeFilters_opExists": "存在",
 	"attributeFilters_opAbsent": "不存在",
+	"resourceAttributeFilters_label": "资源属性筛选器",
 	"attributeValueCombobox_loading": "加载中…",
 	"volumeChart_label": "事件量",
 	"volumeChart_filteredTo": "已筛选到 {time}",
