@@ -135,7 +135,13 @@ public static class LogFilterSqlBuilder
         }
     }
 
-    private static string ColumnFor(AttributeBag bag) => bag switch
+    /// <summary>
+    /// The <c>Map(LowCardinality(String), String)</c> column a bag reads/writes.
+    /// <c>internal</c> (not <c>private</c>) so <see cref="LogAttributeValuesQueryBuilder"/>
+    /// can resolve the same column for its own attribute-value-autocomplete query rather
+    /// than re-deriving this switch a second time.
+    /// </summary>
+    internal static string ColumnFor(AttributeBag bag) => bag switch
     {
         AttributeBag.Resource => "ResourceAttributes",
         AttributeBag.Scope => "ScopeAttributes",

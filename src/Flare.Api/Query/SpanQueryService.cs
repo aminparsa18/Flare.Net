@@ -10,6 +10,9 @@ public interface ISpanQueryService
 
     /// <summary>Every span sharing <paramref name="traceId"/>, for the waterfall view. Returns <see langword="null"/> if no spans match.</summary>
     Task<TraceDto?> GetTraceAsync(string traceId, CancellationToken cancellationToken);
+
+    /// <summary>Every distinct value observed for one attribute key, most-observed first - the Attribute filters builder's value autocomplete. See <see cref="SpanAttributeValuesQueryBuilder"/>.</summary>
+    Task<SpanAttributeValuesResponse> GetAttributeValuesAsync(SpanAttributeValuesRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -101,6 +104,21 @@ public sealed class SpanQueryService(IClickHouseClient client, TimeProvider time
         }
 
         return spans.Count == 0 ? null : new TraceDto { TraceId = traceId, Spans = spans };
+    }
+
+    public async Task<SpanAttributeValuesResponse> GetAttributeValuesAsync(SpanAttributeValuesRequest request, CancellationToken cancellationToken)
+    {
+        var built = SpanAttributeValuesQueryBuilder.Build(request, timeProvider.GetUtcNow());
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var values = new List<SpanAttributeValueInfo>();
+        while (reader.Read())
+        {
+            values.Add(new SpanAttributeValueInfo { Value = reader.GetString(0), Count = (long)reader.GetFieldValue<ulong>(1) });
+        }
+
+        return new SpanAttributeValuesResponse { Values = values };
     }
 
     private static SpanDto ReadSpan(ClickHouseDataReader reader)

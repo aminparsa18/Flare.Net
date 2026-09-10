@@ -183,6 +183,7 @@
 	"attributeFilters_opNotEquals": "Не равно",
 	"attributeFilters_opExists": "Существует",
 	"attributeFilters_opAbsent": "Отсутствует",
+	"attributeValueCombobox_loading": "Загрузка…",
 	"volumeChart_label": "Объём событий",
 	"volumeChart_filteredTo": "Отфильтровано по {time}",
 	"volumeChart_errorPrefix": "График объёма: {error}",

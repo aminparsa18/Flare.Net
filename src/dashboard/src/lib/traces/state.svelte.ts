@@ -93,6 +93,11 @@ export class TracesExplorerState {
 		return resolveTimeRange(this.filter.timeRangePreset);
 	}
 
+	/** Public wrapper around #resolvedRange - same "the window currently in scope" rationale as LogsExplorerState.currentRange. Used by SpanAttributeFiltersRow's value autocomplete to scope its suggestions to what's actually being searched. */
+	currentRange(): ResolvedTimeRange | null {
+		return this.#resolvedRange();
+	}
+
 	/** One-off, wide-window (7d) root-span search just to enumerate service names. */
 	async loadKnownServices(): Promise<void> {
 		try {

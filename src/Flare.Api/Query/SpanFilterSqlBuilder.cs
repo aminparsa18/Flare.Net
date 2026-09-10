@@ -125,7 +125,13 @@ public static class SpanFilterSqlBuilder
         }
     }
 
-    private static string ColumnFor(SpanAttributeBag bag) => bag switch
+    /// <summary>
+    /// The <c>Map(LowCardinality(String), String)</c> column a bag reads/writes.
+    /// <c>internal</c> (not <c>private</c>) so <see cref="SpanAttributeValuesQueryBuilder"/>
+    /// can resolve the same column for its own attribute-value-autocomplete query rather
+    /// than re-deriving this switch a second time.
+    /// </summary>
+    internal static string ColumnFor(SpanAttributeBag bag) => bag switch
     {
         SpanAttributeBag.Resource => "ResourceAttributes",
         SpanAttributeBag.Scope => "ScopeAttributes",

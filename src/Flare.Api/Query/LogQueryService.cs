@@ -27,6 +27,9 @@ public interface ILogQueryService
     /// <summary>A random sample of one numeric <c>LogAttributes</c> key's values over time - the Value distribution chart's data. See <see cref="LogValueDistributionQueryBuilder"/>.</summary>
     Task<LogValueDistributionResponse> GetValueDistributionAsync(LogValueDistributionRequest request, CancellationToken cancellationToken);
 
+    /// <summary>Every distinct value observed for one attribute key, most-observed first - the Attribute filters builder's value autocomplete. See <see cref="LogAttributeValuesQueryBuilder"/>.</summary>
+    Task<LogAttributeValuesResponse> GetAttributeValuesAsync(LogAttributeValuesRequest request, CancellationToken cancellationToken);
+
     /// <summary>
     /// Every distinct <c>ServiceName</c> that has logged at least one event within
     /// <paramref name="window"/> of now, with each one's most recent event timestamp -
@@ -299,6 +302,21 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
         }
 
         return new LogValueDistributionResponse { Points = points };
+    }
+
+    public async Task<LogAttributeValuesResponse> GetAttributeValuesAsync(LogAttributeValuesRequest request, CancellationToken cancellationToken)
+    {
+        var built = LogAttributeValuesQueryBuilder.Build(request, timeProvider.GetUtcNow());
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var values = new List<LogAttributeValueInfo>();
+        while (reader.Read())
+        {
+            values.Add(new LogAttributeValueInfo { Value = reader.GetString(0), Count = (long)reader.GetFieldValue<ulong>(1) });
+        }
+
+        return new LogAttributeValuesResponse { Values = values };
     }
 
     public async Task<IReadOnlyList<ActiveService>> GetActiveServiceNamesAsync(TimeSpan window, CancellationToken cancellationToken)

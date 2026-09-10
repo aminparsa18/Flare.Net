@@ -21,6 +21,8 @@ import { SpanSearchResponse as GeneratedSpanSearchResponse } from '$lib/memorypa
 import { TraceDto as GeneratedTraceDto } from '$lib/memorypack/TraceDto';
 import type { SpanDto as GeneratedSpanDto } from '$lib/memorypack/SpanDto';
 import type { SpanEventDto as GeneratedSpanEventDto } from '$lib/memorypack/SpanEventDto';
+import { SpanAttributeValuesRequest as GeneratedSpanAttributeValuesRequest } from '$lib/memorypack/SpanAttributeValuesRequest';
+import { SpanAttributeValuesResponse as GeneratedSpanAttributeValuesResponse } from '$lib/memorypack/SpanAttributeValuesResponse';
 
 // ---- Shared filter shape (SpanFilter.cs) -----------------------------------
 
@@ -204,5 +206,53 @@ export async function getTrace(traceId: string, signal?: AbortSignal): Promise<T
 	return {
 		traceId: dto.traceId ?? '',
 		spans: (dto.spans ?? []).map((s) => toSpanDto(s!))
+	};
+}
+
+// ---- POST /api/spans/attribute-values (SpanAttributeValuesRequest.cs) -----------------
+// Value autocomplete for SpanAttributeFiltersRow.svelte's value input - the Traces page's
+// equivalent of `$lib/api.ts`'s `getLogAttributeValues`. Every distinct value observed for
+// one caller-chosen bag+key, most-observed first, optionally narrowed by `prefix`.
+
+export interface SpanAttributeValuesRequest {
+	filter?: SpanFilter;
+	bag?: SpanAttributeBag;
+	key: string;
+	/** Case-insensitive substring already typed, if any - narrows candidates server-side. */
+	prefix?: string;
+	limit?: number;
+}
+
+export interface SpanAttributeValueInfo {
+	value: string;
+	count: number;
+}
+
+export interface SpanAttributeValuesResponse {
+	values: SpanAttributeValueInfo[];
+}
+
+export async function getSpanAttributeValues(
+	request: SpanAttributeValuesRequest,
+	signal?: AbortSignal
+): Promise<SpanAttributeValuesResponse> {
+	const dto = new GeneratedSpanAttributeValuesRequest();
+	dto.filter = toGeneratedSpanFilter(request.filter);
+	dto.bag = spanAttributeBagFromString(request.bag ?? 'Span');
+	dto.key = request.key;
+	dto.prefix = request.prefix ?? null;
+	dto.limit = request.limit ?? 25;
+	const res = await apiFetch(`${API_BASE_URL}/api/spans/attribute-values`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSpanAttributeValuesRequest.serialize(dto)),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/spans/attribute-values failed: ${res.status} ${res.statusText}`);
+	}
+	const body = GeneratedSpanAttributeValuesResponse.deserialize(await res.arrayBuffer());
+	return {
+		values: (body?.values ?? []).map((v) => ({ value: v!.value ?? '', count: Number(v!.count) }))
 	};
 }
