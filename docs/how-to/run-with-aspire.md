@@ -26,8 +26,8 @@ builder.Build().Run();
 That's it — no `docker compose up`, no separate services to run. `AddFlare`
 mirrors Flare's own `Flare.AppHost/Program.cs` resource graph: ClickHouse
 (with the same `db/clickhouse/*.sql` schema, embedded in the package),
-Redis (the same durable batched-insert buffer), and the three
-`xracer007/flare-ingest`/`flare-api`/`flare-dashboard` containers.
+Redis (the same durable batched-insert buffer), and the four
+`xracer007/flare-ingest`/`flare-api`/`flare-alert-worker`/`flare-dashboard` containers.
 
 Need a non-default port, a private ingest API key, or your own built
 images instead of Docker Hub's? Chain `With*` methods off the returned

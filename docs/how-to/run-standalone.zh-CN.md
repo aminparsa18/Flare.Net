@@ -216,7 +216,7 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 
 ## 启用资源页面（可选 Docker 访问）
 
-仪表板的 **资源** 页面将 Flare 自己的容器（ClickHouse、Redis、摄取、api、仪表板）显示为实时图表 - 状态、运行状况、URL 以及它们之间的关系 - 源自 Docker 引擎 API。 **默认情况下关闭**并且需要两个显式选择加入，因为这意味着 `flare-api` 获得某种形式的 Docker 访问权限 - 请参阅 [ADR-0005](../../docs-internal/adr/0005-docker-socket-proxy-for-resources-page.md) 了解为什么这样设计（作用域只读代理，从不直接套接字安装）。
+仪表板的 **资源** 页面将 Flare 自己的容器（ClickHouse、Redis、摄取、api、alert-worker、仪表板）显示为实时图表 - 状态、运行状况、URL 以及它们之间的关系 - 源自 Docker 引擎 API。 **默认情况下关闭**并且需要两个显式选择加入，因为这意味着 `flare-api` 获得某种形式的 Docker 访问权限 - 请参阅 [ADR-0005](../../docs-internal/adr/0005-docker-socket-proxy-for-resources-page.md) 了解为什么这样设计（作用域只读代理，从不直接套接字安装）。
 
 1. `.env` 行在应用程序级别启用该功能：
    ```

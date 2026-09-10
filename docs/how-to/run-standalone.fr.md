@@ -300,7 +300,7 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 ## Activer la page Resources (accès Docker optionnel)
 
 La page **Resources** du tableau de bord affiche les propres conteneurs
-de Flare (ClickHouse, Redis, ingest, api, dashboard) sous forme de
+de Flare (ClickHouse, Redis, ingest, api, alert-worker, dashboard) sous forme de
 graphe en direct — état, santé, URLs, et les relations entre eux —
 alimenté par l'API Docker Engine. **C'est désactivé par défaut** et
 nécessite deux activations explicites, car cela signifie que `flare-api`

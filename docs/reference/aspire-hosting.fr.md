@@ -83,7 +83,7 @@ contenant Flare — pour les étapes concrètes, voir
 
 - **Un registre de conteneurs est requis, mais uniquement à cause de
   l'image d'init de ClickHouse.** `flare-ingest`/`flare-api`/
-  `flare-dashboard` n'ont besoin d'aucun registre (les propres images
+  `flare-alert-worker`/`flare-dashboard` n'ont besoin d'aucun registre (les propres images
   Docker Hub pré-publiées de Flare sont référencées directement) — seule
   l'image d'init ClickHouse générée apparaît dans `values.yaml` comme un
   placeholder relatif au registre, qu'`aspire deploy` construit et pousse

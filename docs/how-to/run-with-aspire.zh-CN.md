@@ -16,7 +16,7 @@ var flare = builder.AddFlare("flare");
 builder.Build().Run();
 ```
 
-就是这样——没有 `docker compose up`，没有单独的服务可以运行。 `AddFlare` 镜像 Flare 自己的 `Flare.AppHost/Program.cs` 资源图：ClickHouse（具有相同的 `db/clickhouse/*.sql` 架构，嵌入在包中）、Redis（相同的持久批量插入缓冲区）以及三个 `xracer007/flare-ingest`/`flare-api`/`flare-dashboard` 容器。
+就是这样——没有 `docker compose up`，没有单独的服务可以运行。 `AddFlare` 镜像 Flare 自己的 `Flare.AppHost/Program.cs` 资源图：ClickHouse（具有相同的 `db/clickhouse/*.sql` 架构，嵌入在包中）、Redis（相同的持久批量插入缓冲区）以及四个 `xracer007/flare-ingest`/`flare-api`/`flare-alert-worker`/`flare-dashboard` 容器。
 
 需要非默认端口、私有摄取 API 密钥或您自己构建的映像而不是 Docker Hub 的映像？从返回的构建器链接 `With*` 方法 - 请参阅 [the full parameter reference](../reference/aspire-hosting.zh-CN.md#addflare) 了解每个选项。
 

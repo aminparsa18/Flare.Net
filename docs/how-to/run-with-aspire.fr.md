@@ -31,8 +31,8 @@ C'est tout — pas de `docker compose up`, pas de services séparés à
 exécuter. `AddFlare` reproduit le propre graphe de ressources de
 `Flare.AppHost/Program.cs` de Flare : ClickHouse (avec le même schéma
 `db/clickhouse/*.sql`, intégré au paquet), Redis (le même buffer durable
-d'insertion par lots), et les trois conteneurs
-`xracer007/flare-ingest`/`flare-api`/`flare-dashboard`.
+d'insertion par lots), et les quatre conteneurs
+`xracer007/flare-ingest`/`flare-api`/`flare-alert-worker`/`flare-dashboard`.
 
 Besoin d'un port non par défaut, d'une clé API d'ingestion privée, ou de
 vos propres images construites au lieu de celles de Docker Hub ? Enchaînez

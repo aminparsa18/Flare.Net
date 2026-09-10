@@ -77,7 +77,7 @@ AppHost — 有关实际步骤，请参见
 ### 库伯内斯
 
 - **需要容器注册表，但这只是因为
-  ClickHouse-init 映像。** `flare-ingest`/`flare-api`/`flare-dashboard`
+  ClickHouse-init 映像。** `flare-ingest`/`flare-api`/`flare-alert-worker`/`flare-dashboard`
   根本不需要注册（Flare自己预先发布的Docker Hub图像，
   直接引用）——仅显示生成的 ClickHouse-init 映像
   在 `values.yaml` 中作为与注册表相关的占位符，`aspire deploy`

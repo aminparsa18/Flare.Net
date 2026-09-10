@@ -280,7 +280,7 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 ## Enable the Resources page (optional Docker access)
 
 The dashboard's **Resources** page shows Flare's own containers
-(ClickHouse, Redis, ingest, api, dashboard) as a live graph — state,
+(ClickHouse, Redis, ingest, api, alert-worker, dashboard) as a live graph — state,
 health, URLs, and the relationships between them — sourced from the Docker
 Engine API. **This is off by default** and requires two explicit opt-ins,
 because it means `flare-api` gaining a form of Docker access — see

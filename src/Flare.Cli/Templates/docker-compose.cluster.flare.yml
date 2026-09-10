@@ -287,6 +287,42 @@ services:
       timeout: 5s
       retries: 20
 
+  # Alert-rule evaluation, split out of `api` into its own process
+  # (docs-internal/adr/0018-alert-worker-extraction.md) so an `api` restart/deploy no
+  # longer also stops it, and so its poll loop no longer competes with query/dashboard
+  # traffic for `api`'s own thread pool. Same clickhouse-lb/redis endpoints as `api` -
+  # no new backing store.
+  alert-worker:
+    image: xracer007/flare-alert-worker:${FLARE_IMAGE_TAG:-edge}
+    restart: unless-stopped
+    labels:
+      flare.resource: "true"
+      flare.role: "alert-worker"
+      flare.relationships: "clickhouse-lb:Reference,redis:Reference"
+    depends_on:
+      clickhouse-lb: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
+      ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
+      ClickHouse__ClusterMode: "true"
+      # Same app-wide SMTP server as `api`'s own Email__* block - real breach
+      # notifications for the Email channel are sent from here now, not `api`. `api`
+      # still sends its own (via the same config) for /api/alerts/*/send-test.
+      Email__Host: "${SMTP_HOST:-}"
+      Email__Port: "${SMTP_PORT:-587}"
+      Email__Username: "${SMTP_USERNAME:-}"
+      Email__Password: "${SMTP_PASSWORD:-}"
+      Email__From: "${SMTP_FROM:-}"
+      Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
+    # No published ports (internal only, same as redis) - nothing outside this stack
+    # talks to this process directly.
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; read -r status <&3; [[ \"$$status\" == *\" 200 \"* ]]'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   dashboard:
     image: xracer007/flare-dashboard:${FLARE_IMAGE_TAG:-edge}
     labels:
