@@ -121,6 +121,11 @@
 		</Badge>
 	{/if}
 
+	<Button variant="ghost" size="sm" onclick={() => explorer.resetFilters()} disabled={!explorer.hasActiveFilters()}>
+		<XIcon data-icon="inline-start" />
+		{m.logsToolbar_clearFilters()}
+	</Button>
+
 	<SavedSearchesMenu currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
 
 	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />

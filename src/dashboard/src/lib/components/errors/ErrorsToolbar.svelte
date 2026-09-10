@@ -5,6 +5,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import * as m from '$lib/paraglide/messages';
@@ -42,6 +43,11 @@
 		selected={errors.filter.services}
 		onChange={(next) => errors.setServices(next)}
 	/>
+
+	<Button variant="ghost" size="sm" onclick={() => errors.resetFilters()} disabled={!errors.hasActiveFilters()}>
+		<XIcon data-icon="inline-start" />
+		{m.errorsToolbar_clearFilters()}
+	</Button>
 
 	<Button variant="outline" size="sm" class="ml-auto" onclick={() => errors.runSearch()} disabled={errors.loading}>
 		{#if errors.loading}

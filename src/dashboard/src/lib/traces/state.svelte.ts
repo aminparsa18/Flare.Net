@@ -202,6 +202,22 @@ export class TracesExplorerState {
 		void this.runSearch();
 	}
 
+	/** Whether the toolbar's "Clear filters" button has anything to do - same fields `resetFilters` zeroes out. */
+	hasActiveFilters(): boolean {
+		return this.filter.services.length > 0 || this.filter.attributeFilters.length > 0;
+	}
+
+	/**
+	 * Toolbar's "Clear filters" button - same "services + attribute filters, leave the
+	 * time range alone" scope LogsExplorerState.resetFilters documents for itself (this
+	 * page has no search/severity/sticky-drilldown fields to also reset).
+	 */
+	resetFilters(): void {
+		this.filter.services = [];
+		this.filter.attributeFilters = [];
+		void this.runSearch();
+	}
+
 	/** Serializes the current filter into a saved view's opaque `state` payload - see `TracesSavedViewState`. */
 	toSavedViewState(): TracesSavedViewState {
 		return {
