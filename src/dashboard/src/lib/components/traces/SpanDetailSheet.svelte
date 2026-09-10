@@ -4,6 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Separator } from '$lib/components/ui/separator';
 	import AttributeTable from '$lib/components/logs/AttributeTable.svelte';
+	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
 	import { statusVariant, statusLabel, kindLabel } from '$lib/traces/status';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
@@ -12,6 +13,19 @@
 	import * as m from '$lib/paraglide/messages';
 
 	const detail = traceDetailContext.get();
+
+	// Same OTel exception semantic-conventions key EventDetailSheet special-cases out of the
+	// generic attribute table - here it matters even more, since AttributeTable truncates
+	// every value to one line and a stack trace is the one attribute value that's never
+	// meaningfully readable truncated to one line.
+	const EXCEPTION_STACKTRACE_KEY = 'exception.stacktrace';
+
+	function eventAttributesWithoutStacktrace(attributes: Record<string, string>): Record<string, string> {
+		if (!(EXCEPTION_STACKTRACE_KEY in attributes)) return attributes;
+		const rest = { ...attributes };
+		delete rest[EXCEPTION_STACKTRACE_KEY];
+		return rest;
+	}
 
 	function formatTimestamp(iso: string): string {
 		return new Date(iso).toLocaleString(undefined, { hour12: false });
@@ -120,7 +134,15 @@
 											<span class="text-sm font-medium">{event.name || '—'}</span>
 											<span class="text-muted-foreground shrink-0 font-mono text-xs">{formatTimestamp(event.timestamp)}</span>
 										</div>
-										<AttributeTable title={m.spanDetail_attributesTitle()} attributes={event.attributes} />
+										{#if event.attributes[EXCEPTION_STACKTRACE_KEY]}
+											<div class="mt-1 mb-2">
+												<h4 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
+													{m.spanDetail_stackTraceTitle()}
+												</h4>
+												<StackTraceViewer trace={event.attributes[EXCEPTION_STACKTRACE_KEY]} maxHeight="16rem" />
+											</div>
+										{/if}
+										<AttributeTable title={m.spanDetail_attributesTitle()} attributes={eventAttributesWithoutStacktrace(event.attributes)} />
 									</div>
 								{/each}
 							</div>

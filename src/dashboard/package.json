@@ -17,6 +17,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"dependencies": {
+		"@codemirror/state": "^6.7.4",
+		"@codemirror/view": "^6.43.11",
 		"@dagrejs/dagre": "^3.1.1",
 		"@fontsource-variable/noto-sans": "^5.3.0",
 		"@lucide/svelte": "^1.42.0",

@@ -11,6 +11,7 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import * as m from '$lib/paraglide/messages';
 
@@ -80,7 +81,7 @@
 									<Table.Cell colspan={4} class="bg-muted/30 p-0">
 										<details class="px-3 py-2">
 											<summary class="text-muted-foreground cursor-pointer text-xs">{m.exceptionOccurrenceDialog_showStacktrace()}</summary>
-											<pre class="mt-2 max-h-64 overflow-auto font-mono text-xs whitespace-pre-wrap">{occurrence.stacktrace}</pre>
+											<StackTraceViewer trace={occurrence.stacktrace} maxHeight="16rem" class="mt-2" />
 										</details>
 									</Table.Cell>
 								</Table.Row>
