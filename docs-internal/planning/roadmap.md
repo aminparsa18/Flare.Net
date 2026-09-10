@@ -43,13 +43,6 @@ folders are where "what happened and why" actually lives.
   dashboard is a named collection of independent panels (mix of charts
   from different queries/signals) arranged on a grid. No CRUD for this
   shape exists anywhere in `Flare.Api` today. Not started.
-- **Auto-refresh toggle for the Traces and Metrics explorer pages.**
-  Re-runs the current query on an interval (e.g. every 30s) so the page
-  stays live without a manual re-search. Logs already has live-tail via
-  WebSocket, a different mechanism that doesn't cover Traces or Metrics —
-  neither `$lib/traces` nor `$lib/metrics` implements interval-based
-  polling today. Small, self-contained; no backend changes needed. Not
-  started.
 - **Exceptions/errors tracking page.** Groups recorded exceptions by
   type/message across services — occurrence count, first/last seen,
   affected services — distinct from the RED-metrics overview item above

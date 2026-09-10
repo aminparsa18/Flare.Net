@@ -4,6 +4,7 @@
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import { Switch } from '$lib/components/ui/switch';
 	import ClockIcon from '@lucide/svelte/icons/clock';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import * as m from '$lib/paraglide/messages';
@@ -98,6 +99,20 @@
 			size="sm"
 		/>
 		{m.metricsToolbar_compareLabel()}
+	</label>
+
+	<!-- Re-runs the chart's current query on an interval while on - see
+	     MetricsExplorerState.autoRefreshEnabled's own remarks. A plain `title`, same
+	     "one static sentence, not a rich Tooltip.*" call the compare switch above already
+	     makes. -->
+	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.metricsToolbar_autoRefreshTitle()}>
+		<Switch
+			checked={explorer.autoRefreshEnabled}
+			onCheckedChange={(v) => explorer.setAutoRefreshEnabled(v)}
+			size="sm"
+		/>
+		<RefreshCwIcon class="size-3.5" />
+		{m.metricsToolbar_autoRefreshLabel()}
 	</label>
 
 	<ViewsMenu
