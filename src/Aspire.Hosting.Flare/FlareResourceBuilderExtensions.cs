@@ -68,7 +68,7 @@ public static class FlareResourceBuilderExtensions
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/>.</param>
     /// <param name="name">The name of the Flare resource group.</param>
     /// <param name="imageTag">
-    /// The tag to pull for all four Flare images. Defaults to <c>"0.2.0"</c>, the latest
+    /// The tag to pull for all four Flare images. Defaults to <c>"0.5.0"</c>, the latest
     /// stable Flare release this package version was tested against - deliberately NOT
     /// Docker Hub's floating <c>latest</c>/<c>edge</c> tags, so a given
     /// <c>Flare.Hosting.Aspire</c> NuGet version keeps pulling the same images forever
@@ -81,13 +81,10 @@ public static class FlareResourceBuilderExtensions
     /// when overriding just an image name/registry - there's no separate per-image tag
     /// override.
     /// <para>
-    /// <b>No published <c>flare-alert-worker</c> image exists yet</b> as of this package
-    /// version - <c>"0.2.0"</c>/<c>"edge"</c> (and every other tag today) resolve to an image
-    /// that 404s for <c>alert-worker</c> specifically until a Flare release actually publishes
-    /// one (<c>docs-internal/adr/0018-alert-worker-extraction.md</c>'s release gate). Until
-    /// then, calling <see cref="AddFlare"/> at all will fail to pull the alert-worker
-    /// container - there is no way to opt back out of it short of not calling
-    /// <see cref="AddFlare"/>.
+    /// <c>xracer007/flare-alert-worker</c> has been published on Docker Hub since the
+    /// <c>v0.5.0</c> Flare release (<c>docs-internal/adr/0018-alert-worker-extraction.md</c>'s
+    /// release gate) - any tag from <c>0.5.0</c> onward resolves for all four images,
+    /// alert-worker included.
     /// </para>
     /// </param>
     /// <param name="enableResourceGraph">
@@ -154,7 +151,7 @@ public static class FlareResourceBuilderExtensions
     public static IResourceBuilder<FlareResource> AddFlare(
         this IDistributedApplicationBuilder builder,
         [ResourceName] string name = "flare",
-        string imageTag = "0.2.0",
+        string imageTag = "0.5.0",
         bool enableResourceGraph = false)
     {
         ArgumentNullException.ThrowIfNull(builder);
