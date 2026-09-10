@@ -61,19 +61,3 @@ folders are where "what happened and why" actually lives.
   actually works before relying on it in a real incident. PagerDuty would
   follow the same one-channel-per-rule shape as the existing three; the
   test action is channel-agnostic and applies to all four. Not started.
-- **Extend the trace-error rollup (`SpanDto.HasError`) to the `flare`
-  CLI's `traces` command and the dashboard's terminal `traces` command.**
-  The dashboard's Trace List (`TraceRow.svelte`) now badges a trace as
-  errored if *any* of its spans failed, not just the root span (server
-  computes `SpanDto.HasError` — see
-  [`SpanRollupQueryBuilder.cs`](../../src/Flare.Api/Query/SpanRollupQueryBuilder.cs)).
-  [`Flare.Cli/Commands/TracesCommand.cs`](../../src/Flare.Cli/Commands/TracesCommand.cs)
-  and the dashboard's
-  [`terminal/commands/traces.ts`](../../src/dashboard/src/lib/terminal/commands/traces.ts)
-  still color/label each row from the root span's own `statusCode` alone,
-  so the same "healthy root, erroring child span" case still reads as
-  healthy in both. `traces.ts` deliberately keeps its own copy of
-  status-label logic in lockstep with `TracesCommand.cs` rather than
-  reusing `$lib/traces/status.ts` (see that file's header comment), so
-  this needs both updated together to stay interchangeable, not just the
-  dashboard side. Not started.

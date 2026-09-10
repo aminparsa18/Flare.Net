@@ -199,7 +199,7 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         foreach (var span in traces.Take(settings.Limit))
         {
             var time = span.StartTime.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
-            var (statusLabel, statusColor) = DescribeStatus(span.StatusCode);
+            var (statusLabel, statusColor) = DescribeStatus(RolledUpStatusCode(span));
 
             table.AddRow(
                 time,
@@ -275,6 +275,19 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         "STATUS_CODE_ERROR" => ("Error", "red"),
         _ => ("Unset", "grey"),
     };
+
+    /// <summary>
+    /// Mirrors dashboard/src/lib/traces/status.ts's rolledUpStatusCode: a root span's own
+    /// <see cref="SpanDtoWire.StatusCode"/> only reflects the root, not the rest of the
+    /// trace, so a trace whose root succeeded but has an erroring span deeper in the call
+    /// chain would otherwise print as healthy. <see cref="SpanDtoWire.HasError"/> is the
+    /// server-computed rollup across every span in the trace (see
+    /// <c>Flare.Api/Query/SpanRollupQueryBuilder.cs</c>) - when true and the root itself
+    /// didn't already fail, this reports STATUS_CODE_ERROR so DescribeStatus renders the
+    /// same "Error" row it would for a directly-failing root.
+    /// </summary>
+    private static string RolledUpStatusCode(SpanDtoWire span) =>
+        span.HasError == true && span.StatusCode != "STATUS_CODE_ERROR" ? "STATUS_CODE_ERROR" : span.StatusCode;
 
     // Inverse of dashboard/src/lib/traces/duration.ts's formatDurationNano - accepts a
     // bare number (nanoseconds) or a number with a us/ms/s/m unit suffix.
@@ -451,6 +464,11 @@ internal sealed class SpanDtoWire
     public required string StatusCode { get; init; }
 
     public int? SpanCount { get; init; }
+
+    // Populated the same way and under the same condition as SpanCount (root-span search
+    // results only) - see Flare.Api's SpanDto.HasError remarks. Rolled into the printed
+    // status by RolledUpStatusCode rather than shown as its own column.
+    public bool? HasError { get; init; }
 }
 
 internal sealed class SpanSearchResponseWire
