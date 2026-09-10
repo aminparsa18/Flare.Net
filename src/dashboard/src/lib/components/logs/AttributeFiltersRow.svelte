@@ -85,11 +85,24 @@
 
 	let rows = $state<Row[]>(toRows(explorer.filter.attributeFilters));
 
-	// Resyncs when explorer.filter is reassigned wholesale from outside this component
-	// (applySavedViewState, applyDeepLinkFilter) - same reasoning LogsToolbar's own
-	// searchDraft effect documents. A same-value re-sync right after this component's own
-	// commit() is a harmless no-op (new ids, identical bag/key/operator/value content).
+	/** Cheap content snapshot for the resync guard below - order-sensitive is fine, since commit() always writes rows in their current on-screen order. */
+	function snapshotOf(filters: AttributeFilter[]): string {
+		return JSON.stringify(filters.map((f) => [f.bag, f.key, f.operator ?? 'Equals', f.value]));
+	}
+
+	// Tracks the last committed value so the resync effect below can tell "explorer.filter
+	// changed because of my own commit()" apart from "explorer.filter changed from outside
+	// this component" (applySavedViewState, applyDeepLinkFilter) - only the latter should
+	// overwrite `rows`. Without this guard, commit()'s own write bounces straight back
+	// through the effect and re-derives `rows` from the *committed* filters - which drops
+	// any row with an empty/mid-edit key (see commit()'s own filter), instantly deleting a
+	// just-added row the moment its bag/operator is changed before a key is typed.
+	let lastAppliedSnapshot = snapshotOf(explorer.filter.attributeFilters);
+
 	$effect(() => {
+		const snapshot = snapshotOf(explorer.filter.attributeFilters);
+		if (snapshot === lastAppliedSnapshot) return;
+		lastAppliedSnapshot = snapshot;
 		rows = toRows(explorer.filter.attributeFilters);
 	});
 
@@ -103,6 +116,7 @@
 				operator: r.operator,
 				value: needsValue(r.operator) ? r.value : ''
 			}));
+		lastAppliedSnapshot = snapshotOf(filters);
 		explorer.setAttributeFilters(filters);
 	}
 
