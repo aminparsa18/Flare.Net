@@ -90,17 +90,49 @@ public static class LogFilterSqlBuilder
         {
             for (var i = 0; i < attributes.Count; i++)
             {
-                var attribute = attributes[i];
-                var column = ColumnFor(attribute.Bag);
-                var keyParam = $"attrKey{i}";
-                var valueParam = $"attrValue{i}";
-                parameters.AddParameter(keyParam, attribute.Key);
-                parameters.AddParameter(valueParam, attribute.Value);
-                clauses.Add($"{column}[{{{keyParam}:String}}] = {{{valueParam}:String}}");
+                clauses.Add(AttributeClause(attributes[i], i, parameters));
             }
         }
 
         return new LogFilterSql(string.Join(" AND ", clauses), parameters);
+    }
+
+    /// <summary>
+    /// One <see cref="AttributeFilter"/>'s clause. <see cref="AttributeFilterOperator.Exists"/>/
+    /// <see cref="AttributeFilterOperator.Absent"/> compile to <c>mapContains</c> alone (no
+    /// value parameter bound - <see cref="AttributeFilter.Value"/> is unused);
+    /// <see cref="AttributeFilterOperator.NotEquals"/> explicitly guards with
+    /// <c>mapContains</c> too, rather than relying on the map's empty-string default for a
+    /// missing key, so it matches <see cref="LogFilterMatcher"/>'s in-memory semantics
+    /// exactly: a record missing the key counts as "not equal", same as one that has it
+    /// with a different value.
+    /// </summary>
+    private static string AttributeClause(AttributeFilter attribute, int index, ClickHouseParameterCollection parameters)
+    {
+        var column = ColumnFor(attribute.Bag);
+        var keyParam = $"attrKey{index}";
+        parameters.AddParameter(keyParam, attribute.Key);
+        var containsSql = $"mapContains({column}, {{{keyParam}:String}})";
+
+        switch (attribute.Operator)
+        {
+            case AttributeFilterOperator.Exists:
+                return containsSql;
+            case AttributeFilterOperator.Absent:
+                return $"NOT {containsSql}";
+            case AttributeFilterOperator.NotEquals:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] = {{{valueParam}:String}})";
+            }
+            default:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"{column}[{{{keyParam}:String}}] = {{{valueParam}:String}}";
+            }
+        }
     }
 
     private static string ColumnFor(AttributeBag bag) => bag switch

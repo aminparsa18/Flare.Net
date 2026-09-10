@@ -52,6 +52,13 @@ export interface LogsFilterState {
 	 * part of a saved view" reasoning as patternId above.
 	 */
 	attribute: AttributeFilter | null;
+	/**
+	 * User-built attribute filters (AttributeFiltersRow.svelte's expandable builder
+	 * section) - ANDed together and with `attribute` above (see buildFilter). Unlike
+	 * `attribute`, this one *is* part of a saved view: it's an ordinary, editable filter
+	 * control, not a one-off drill-down.
+	 */
+	attributeFilters: AttributeFilter[];
 }
 
 /**
@@ -66,6 +73,7 @@ export interface LogsSavedViewState {
 	services: string[];
 	severityNumbers: number[];
 	search: string;
+	attributeFilters: AttributeFilter[];
 }
 
 export class LogsExplorerState {
@@ -76,7 +84,8 @@ export class LogsExplorerState {
 		severityNumbers: [],
 		search: '',
 		patternId: '',
-		attribute: null
+		attribute: null,
+		attributeFilters: []
 	});
 
 	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
@@ -159,7 +168,12 @@ export class LogsExplorerState {
 		if (this.filter.severityNumbers.length) filter.severityNumbers = [...this.filter.severityNumbers];
 		if (this.filter.search.trim()) filter.search = this.filter.search.trim();
 		if (this.filter.patternId) filter.patternId = this.filter.patternId;
-		if (this.filter.attribute) filter.attributes = [this.filter.attribute];
+		// The deep-link `attribute` (if any) always leads, followed by the user-built
+		// `attributeFilters` - order doesn't affect matching (every entry is ANDed - see
+		// LogFilterSqlBuilder.Build/LogFilterMatcher.Matches), it's just a stable order for
+		// the resulting parameter names.
+		const attributes = [...(this.filter.attribute ? [this.filter.attribute] : []), ...this.filter.attributeFilters];
+		if (attributes.length) filter.attributes = attributes;
 		return filter;
 	}
 
@@ -322,6 +336,13 @@ export class LogsExplorerState {
 		this.applyFilterChange();
 	}
 
+	/** Wholesale-replaces the user-built attribute filters (AttributeFiltersRow.svelte) - called on every row add/remove/edit, same "one setter, caller passes the full next array" shape as setServices/setSeverityNumbers. */
+	setAttributeFilters(attributeFilters: AttributeFilter[]): void {
+		this.selectedBucketRange = null;
+		this.filter.attributeFilters = attributeFilters;
+		this.applyFilterChange();
+	}
+
 	setSeverityNumbers(severityNumbers: number[]): void {
 		this.selectedBucketRange = null;
 		this.filter.severityNumbers = severityNumbers;
@@ -410,7 +431,8 @@ export class LogsExplorerState {
 				: null,
 			services: [...this.filter.services],
 			severityNumbers: [...this.filter.severityNumbers],
-			search: this.filter.search
+			search: this.filter.search,
+			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a }))
 		};
 	}
 
@@ -433,7 +455,8 @@ export class LogsExplorerState {
 			severityNumbers: s.severityNumbers ?? [],
 			search: s.search ?? '',
 			patternId: '', // never part of a saved view - see LogsFilterState.patternId's remarks
-			attribute: null // never part of a saved view - see LogsFilterState.attribute's own remarks
+			attribute: null, // never part of a saved view - see LogsFilterState.attribute's own remarks
+			attributeFilters: s.attributeFilters ?? []
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
@@ -480,7 +503,8 @@ export class LogsExplorerState {
 			severityNumbers: [],
 			search: '',
 			patternId: '',
-			attribute: params.attribute
+			attribute: params.attribute,
+			attributeFilters: []
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();

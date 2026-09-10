@@ -5,7 +5,7 @@
 // waterfall/detail view is the value being built, not a live span firehose), so this is
 // simpler than LogsExplorerState: no connection/live/dropped-count fields at all.
 
-import { searchSpans, type SpanDto, type SpanFilter } from '$lib/traces-api';
+import { searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter } from '$lib/traces-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 
 const PAGE_SIZE = 100;
@@ -13,6 +13,8 @@ const PAGE_SIZE = 100;
 export interface TracesFilterState {
 	timeRangePreset: TimeRangePreset;
 	services: string[];
+	/** User-built attribute filters (SpanAttributeFiltersRow.svelte's expandable builder section) - ANDed together, same shape LogsFilterState.attributeFilters documents for Logs. */
+	attributeFilters: SpanAttributeFilter[];
 }
 
 /** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). */
@@ -21,7 +23,8 @@ export type TracesSavedViewState = TracesFilterState;
 export class TracesExplorerState {
 	filter = $state<TracesFilterState>({
 		timeRangePreset: '1h',
-		services: []
+		services: [],
+		attributeFilters: []
 	});
 
 	// One row per trace (root spans only) - never mutated in place, always a wholesale
@@ -70,6 +73,7 @@ export class TracesExplorerState {
 			filter.to = range.to;
 		}
 		if (this.filter.services.length) filter.services = [...this.filter.services];
+		if (this.filter.attributeFilters.length) filter.attributes = [...this.filter.attributeFilters];
 		return filter;
 	}
 
@@ -142,27 +146,38 @@ export class TracesExplorerState {
 		void this.runSearch();
 	}
 
+	/** Wholesale-replaces the user-built attribute filters (SpanAttributeFiltersRow.svelte) - same "one setter, caller passes the full next array" shape as LogsExplorerState.setAttributeFilters. */
+	setAttributeFilters(attributeFilters: SpanAttributeFilter[]): void {
+		this.filter.attributeFilters = attributeFilters;
+		void this.runSearch();
+	}
+
 	/** Serializes the current filter into a saved view's opaque `state` payload - see `TracesSavedViewState`. */
 	toSavedViewState(): TracesSavedViewState {
-		return { timeRangePreset: this.filter.timeRangePreset, services: [...this.filter.services] };
+		return {
+			timeRangePreset: this.filter.timeRangePreset,
+			services: [...this.filter.services],
+			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a }))
+		};
 	}
 
 	/** Restores a saved view's filter (defensively narrowed - see `LogsExplorerState.applySavedViewState`'s identical caveat) and re-runs the search. */
 	applySavedViewState(state: unknown): void {
 		const s = (state ?? {}) as Partial<TracesSavedViewState>;
-		this.filter = { timeRangePreset: s.timeRangePreset ?? '1h', services: s.services ?? [] };
+		this.filter = { timeRangePreset: s.timeRangePreset ?? '1h', services: s.services ?? [], attributeFilters: s.attributeFilters ?? [] };
 		void this.runSearch();
 	}
 
 	/**
 	 * Arrival filter for the "View traces" deep link from a Metrics chart (see
 	 * MetricChart.svelte / `$lib/deep-links.ts`, and `traces/+page.svelte`'s onMount,
-	 * the only caller). No attribute/patternId-style extra state to carry here, unlike
-	 * Logs - Traces' filter is already just services + time range, so this is really
-	 * just `applySavedViewState` without the saved-view indirection.
+	 * the only caller). No patternId-style extra state to carry here, unlike Logs -
+	 * attributeFilters is reset to empty, same "one-off hop, not something to persist and
+	 * reproduce" reasoning `LogsExplorerState.applyDeepLinkFilter` documents for its own
+	 * reset fields.
 	 */
 	applyDeepLinkFilter(params: { services: string[]; timeRangePreset: TimeRangePreset }): void {
-		this.filter = { timeRangePreset: params.timeRangePreset, services: params.services };
+		this.filter = { timeRangePreset: params.timeRangePreset, services: params.services, attributeFilters: [] };
 		void this.runSearch();
 	}
 

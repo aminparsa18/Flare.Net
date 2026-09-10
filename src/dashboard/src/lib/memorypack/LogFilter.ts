@@ -10,7 +10,12 @@ import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js'
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
 import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
 import { AttributeFilter } from '$lib/memorypack/AttributeFilter';
-import { attributeBagFromString, attributeBagToString } from '$lib/memorypack/enums';
+import {
+	attributeBagFromString,
+	attributeBagToString,
+	attributeFilterOperatorFromString,
+	attributeFilterOperatorToString
+} from '$lib/memorypack/enums';
 import type { LogFilter as PlainLogFilter } from '$lib/api';
 
 export class LogFilter {
@@ -125,7 +130,8 @@ export function logFilterToPlain(dto: LogFilter): PlainLogFilter {
 				: dto.attributes.map((a) => ({
 						bag: attributeBagToString(a!.bag),
 						key: a!.key ?? '',
-						value: a!.value ?? ''
+						value: a!.value ?? '',
+						operator: attributeFilterOperatorToString(a!.operator)
 					}))
 	};
 }
@@ -150,6 +156,7 @@ export function logFilterFromPlain(filter: PlainLogFilter | undefined): LogFilte
 					attr.bag = attributeBagFromString(a.bag);
 					attr.key = a.key;
 					attr.value = a.value;
+					attr.operator = attributeFilterOperatorFromString(a.operator ?? 'Equals');
 					return attr;
 				});
 	return dto;

@@ -8,7 +8,12 @@
 // `spanAttributeBagToString`/`FromString`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { spanAttributeBagFromString, type SpanAttributeBagName } from '$lib/memorypack/enums';
+import {
+	spanAttributeBagFromString,
+	spanAttributeFilterOperatorFromString,
+	type SpanAttributeBagName,
+	type SpanAttributeFilterOperatorName
+} from '$lib/memorypack/enums';
 import { SpanFilter as GeneratedSpanFilter } from '$lib/memorypack/SpanFilter';
 import { SpanAttributeFilter as GeneratedSpanAttributeFilter } from '$lib/memorypack/SpanAttributeFilter';
 import { SpanSearchRequest as GeneratedSpanSearchRequest } from '$lib/memorypack/SpanSearchRequest';
@@ -21,10 +26,15 @@ import type { SpanEventDto as GeneratedSpanEventDto } from '$lib/memorypack/Span
 
 export type SpanAttributeBag = SpanAttributeBagName;
 
+/** See `SpanAttributeFilterOperator` (SpanFilter.cs). `Exists`/`Absent` ignore `SpanAttributeFilter.value`. */
+export type SpanAttributeFilterOperator = SpanAttributeFilterOperatorName;
+
 export interface SpanAttributeFilter {
 	bag: SpanAttributeBag;
 	key: string;
 	value: string;
+	/** Defaults to `'Equals'` when omitted - matches the backend's own default, and keeps every existing caller that only ever set bag/key/value unchanged. */
+	operator?: SpanAttributeFilterOperator;
 }
 
 export interface SpanFilter {
@@ -60,6 +70,7 @@ function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFil
 					attr.bag = spanAttributeBagFromString(a.bag);
 					attr.key = a.key;
 					attr.value = a.value;
+					attr.operator = spanAttributeFilterOperatorFromString(a.operator ?? 'Equals');
 					return attr;
 				});
 	return dto;

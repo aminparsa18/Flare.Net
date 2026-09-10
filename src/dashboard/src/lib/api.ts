@@ -93,10 +93,15 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
 
 export type AttributeBag = 'Log' | 'Resource' | 'Scope';
 
+/** See `AttributeFilterOperator` (LogFilter.cs). `Exists`/`Absent` ignore `AttributeFilter.value`. */
+export type AttributeFilterOperator = 'Equals' | 'NotEquals' | 'Exists' | 'Absent';
+
 export interface AttributeFilter {
 	bag: AttributeBag;
 	key: string;
 	value: string;
+	/** Defaults to `'Equals'` when omitted - matches the backend's own default, and keeps every existing caller that only ever set bag/key/value unchanged. */
+	operator?: AttributeFilterOperator;
 }
 
 export interface LogFilter {

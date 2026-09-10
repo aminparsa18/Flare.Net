@@ -11,7 +11,8 @@ namespace Flare.Api.Query;
 /// <remarks>
 /// Mirrors <see cref="LogFilterSqlBuilder"/>'s semantics field-for-field (exact-match
 /// services/severities/traceId, case-insensitive substring search against
-/// <see cref="LogEventDto.Body"/>, per-bag attribute equality) with one deliberate
+/// <see cref="LogEventDto.Body"/>, per-bag attribute equals/not-equals/exists/absent) with
+/// one deliberate
 /// exception: <see cref="LogFilter.From"/>/<see cref="LogFilter.To"/> are ignored - a live
 /// tail is inherently an open-ended stream of events observed from the moment of
 /// subscription onward, not a bounded historical range; use <c>/api/logs/search</c> for
@@ -47,7 +48,15 @@ public static class LogFilterMatcher
             foreach (var attribute in attributes)
             {
                 var bag = BagFor(logEvent, attribute.Bag);
-                if (!bag.TryGetValue(attribute.Key, out var value) || !string.Equals(value, attribute.Value, StringComparison.Ordinal))
+                var exists = bag.TryGetValue(attribute.Key, out var value);
+                var matches = attribute.Operator switch
+                {
+                    AttributeFilterOperator.Exists => exists,
+                    AttributeFilterOperator.Absent => !exists,
+                    AttributeFilterOperator.NotEquals => !(exists && string.Equals(value, attribute.Value, StringComparison.Ordinal)),
+                    _ => exists && string.Equals(value, attribute.Value, StringComparison.Ordinal),
+                };
+                if (!matches)
                 {
                     return false;
                 }

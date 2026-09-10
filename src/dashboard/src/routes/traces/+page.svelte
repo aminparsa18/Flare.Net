@@ -8,6 +8,7 @@
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
 	import { parseTracesDeepLinkParams } from '$lib/deep-links';
 	import TracesToolbar from '$lib/components/traces/TracesToolbar.svelte';
+	import SpanAttributeFiltersRow from '$lib/components/traces/SpanAttributeFiltersRow.svelte';
 	import TraceList from '$lib/components/traces/TraceList.svelte';
 	import ServicesToolbar from '$lib/components/services/ServicesToolbar.svelte';
 	import ServicesSummaryTiles from '$lib/components/services/ServicesSummaryTiles.svelte';
@@ -104,6 +105,7 @@
 <div class="flex h-full flex-col">
 	{#if activeTab === 'traces'}
 		<TracesToolbar {activeTab} onTabChange={setActiveTab} />
+		<SpanAttributeFiltersRow />
 		<div class="flex min-h-0 flex-1 flex-col">
 			<TraceList />
 		</div>

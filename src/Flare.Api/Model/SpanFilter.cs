@@ -11,7 +11,29 @@ public enum SpanAttributeBag
 }
 
 /// <summary>
-/// One equality filter against a <c>Map(LowCardinality(String), String)</c> column -
+/// Comparison a <see cref="SpanAttributeFilter"/> applies between its
+/// <see cref="SpanAttributeFilter.Key"/> and <see cref="SpanAttributeFilter.Value"/>. A
+/// separate enum from logs' equivalent (<see cref="AttributeFilterOperator"/>), not a
+/// shared/reused one - same reasoning <see cref="SpanAttributeBag"/>'s remarks give for
+/// that type, applied here too even though the members themselves don't diverge.
+/// </summary>
+public enum SpanAttributeFilterOperator
+{
+    /// <summary>Attribute is present and equals <see cref="SpanAttributeFilter.Value"/> - the default, and the only behavior that existed before this enum did.</summary>
+    Equals,
+
+    /// <summary>Attribute is absent, or present with a value other than <see cref="SpanAttributeFilter.Value"/>.</summary>
+    NotEquals,
+
+    /// <summary>Attribute key is present in the bag, whatever its value. <see cref="SpanAttributeFilter.Value"/> is ignored.</summary>
+    Exists,
+
+    /// <summary>Attribute key is absent from the bag. <see cref="SpanAttributeFilter.Value"/> is ignored.</summary>
+    Absent,
+}
+
+/// <summary>
+/// One filter against a <c>Map(LowCardinality(String), String)</c> column -
 /// <c>SpanAttributes</c>/<c>ResourceAttributes</c>/<c>ScopeAttributes</c> in
 /// <c>db/clickhouse/0007_spans.sql</c>, selected via <see cref="Bag"/>. A separate type
 /// from <c>Model.AttributeFilter</c> (logs' equivalent), not a shared/reused one - the
@@ -26,7 +48,17 @@ public sealed partial record SpanAttributeFilter
 
     public required string Key { get; init; }
 
+    /// <summary>Ignored (may be left as an empty string) when <see cref="Operator"/> is <see cref="SpanAttributeFilterOperator.Exists"/> or <see cref="SpanAttributeFilterOperator.Absent"/>.</summary>
     public required string Value { get; init; }
+
+    /// <summary>
+    /// Appended after <see cref="Value"/>, not inserted between existing members, so the
+    /// MemoryPack wire layout stays backward-compatible with already-deployed dashboards
+    /// that still write the original 3-member object (see ADR-0016) - a missing trailing
+    /// member just takes this default, reproducing the original equality-only behavior
+    /// exactly.
+    /// </summary>
+    public SpanAttributeFilterOperator Operator { get; init; } = SpanAttributeFilterOperator.Equals;
 }
 
 /// <summary>
