@@ -362,6 +362,7 @@
 	"spanDetail_scopeAttributesTitle": "作用域属性",
 	"spanDetail_eventsTitle": "事件",
 	"spanDetail_attributesTitle": "属性",
+	"spanDetail_stackTraceTitle": "堆栈跟踪",
 	"spanDetail_linkedLogsTitle": "关联日志",
 	"traceList_colTime": "时间",
 	"traceList_colStatus": "状态",

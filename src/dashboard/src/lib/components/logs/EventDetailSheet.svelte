@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import AttributeTable from './AttributeTable.svelte';
+	import StackTraceViewer from './StackTraceViewer.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { severityVariant } from '$lib/logs/severity';
@@ -68,8 +69,8 @@
 >
 	<!-- Wide enough that real .NET stack trace lines (often 100-150+ chars with generics/async
 	     state machines/file paths) mostly fit on one line at text-xs monospace, instead of
-	     wrapping constantly. whitespace-pre-wrap (added earlier) is still the actual
-	     never-truncates guarantee for the rare line that's wider than even this. -->
+	     wrapping constantly. StackTraceViewer still wraps (never truncates) the rare line
+	     that's wider than even this. -->
 	<Sheet.Content class="flex w-full flex-col sm:max-w-5xl">
 		{#if explorer.selectedEvent}
 			{@const event = explorer.selectedEvent}
@@ -136,11 +137,7 @@
 								<p class="mt-1 text-sm break-words">{exceptionInfo.message}</p>
 							{/if}
 							{#if exceptionInfo.stacktrace}
-								<!-- whitespace-pre-wrap (not whitespace-pre): keeps the stacktrace's own
-								     indentation/line breaks but wraps long lines instead of clipping them
-								     behind overflow-x-auto - that was the actual cause of "can't see the
-								     whole message," not the sheet's width. -->
-								<pre class="mt-2 overflow-x-auto text-xs whitespace-pre-wrap break-words">{exceptionInfo.stacktrace}</pre>
+								<StackTraceViewer trace={exceptionInfo.stacktrace} class="mt-2" />
 							{/if}
 						</div>
 					{/if}

@@ -68,17 +68,6 @@ folders are where "what happened and why" actually lives.
   grid-layout drag/resize directly to a persistence API call on every
   tick — they did, then removed it in favor of an explicit save
   ([signoz#1306](https://github.com/SigNoz/signoz/commit/63e663a92d88859f0ec5f5438ef9aba8641666ad)).
-- **Stack traces rendered in a read-only code editor, not a plain-text
-  blob.** Flare's trace span-detail view and the `/errors` page
-  (exception groups) currently show `exception.stacktrace` as raw text.
-  SigNoz opens it in a Monaco instance instead (syntax highlighting,
-  proper scrolling, wide modal) — much more readable for multi-frame
-  traces. Cheap, self-contained UI change; the dashboard already has no
-  Monaco dependency today so this would mean picking a lightweight
-  code-view component (CodeMirror or similar) rather than pulling in
-  full Monaco for one read-only view. Reference:
-  [signoz#1091](https://github.com/SigNoz/signoz/commit/3789e25a1e62b16bc2774f563d301d099b7c38b4).
-  Not started.
 - **Resource-attribute filtering on the Traces › Services tab.** Today
   that tab is just the dependency graph + per-node External/Database
   breakdown (see [`../../docs-internal/investigations/`](../investigations/)
