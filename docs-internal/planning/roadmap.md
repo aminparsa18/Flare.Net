@@ -23,19 +23,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Global service map + per-service dependency breakdown (external calls,
-  DB operations).** Aggregates spans across *all* traces in a time window
-  into a dependency graph (nodes/edges colored by error rate and latency),
-  plus per-service "what am I calling, and how slow/erroring is each one"
-  tabs grouped by `peer.service` (external HTTP calls) and `db.system`/
-  `db.operation` (DB calls). Flare already has the per-trace building
-  blocks (`$lib/traces/service-map.ts`, `ServiceMap.svelte`, `peer.service`
-  handling) but scoped to one trace's spans only ("the trace as a journey
-  through your architecture") — this item is aggregating that same shape
-  across traces and over time, plus adding the external-call/DB-operation
-  grouping the trace/span query layer doesn't do yet. Same underlying
-  span-attribute work as the RED-metrics overview item above; natural to
-  build together. Not started.
 - **Attribute filter operators beyond equality, for logs and spans both:
   "exists"/"absent" and "exclude"/negate.** `AttributeFilter`/
   `SpanAttributeFilter`

@@ -6,8 +6,10 @@
 // a "what's happening right now" view, not a point-in-time snapshot - a stale error rate
 // is the one thing this tab must never show silently.
 
-import { getServiceOverview, type ServiceMetrics } from '$lib/services-api';
+import { getServiceOverview, getServiceDependencyGraph, type ServiceMetrics, type ServiceDependencyGraph } from '$lib/services-api';
 import * as m from '$lib/paraglide/messages';
+
+export type ServicesViewMode = 'table' | 'map';
 
 export type ServicesWindowPreset = '5m' | '15m' | '1h' | '6h' | '24h';
 
@@ -47,6 +49,21 @@ export class ServicesState {
 	loading = $state(false);
 	error = $state<string | null>(null);
 
+	// Table vs. Map - two views over the same window, not two separate pages (see this
+	// tab's own remarks on the Traces page). Only the active view's data is fetched -
+	// switching views re-fetches rather than eagerly loading both, same "don't run a query
+	// nothing on screen needs" instinct as `load()` deferring until the tab is first
+	// visited at all.
+	viewMode = $state<ServicesViewMode>('table');
+	graph = $state.raw<ServiceDependencyGraph | null>(null);
+
+	// The Map view's per-node drill-down selection - same plain-field-mutated-by-the-clicking-
+	// component, cleared-on-close precedent as TraceDetailState.selectedSpanId (see
+	// SpanDetailSheet.svelte's own onOpenChange). Lives here rather than as local state on
+	// ServiceDependencyGraph.svelte because the dialog reading it (ServiceCallBreakdownDialog)
+	// is rendered as this tab's own sibling, not nested inside the graph component.
+	selectedService = $state<string | null>(null);
+
 	// Client-side only - the server always returns RequestCount DESC (see
 	// ServiceOverviewQueryBuilder's ORDER BY); re-sorting a small, already-fetched list
 	// client-side is simpler than threading a sort param through the query, and matches
@@ -67,15 +84,22 @@ export class ServicesState {
 		const abort = new AbortController();
 		this.#abort = abort;
 
-		// Only show the spinner on the very first load for this window - a background
-		// poll refresh shouldn't blank the table every 10s while data is already on
-		// screen (same reasoning as IngestionState.load).
-		if (!this.services) this.loading = true;
+		// Only show the spinner on the very first load for this window/view - a background
+		// poll refresh shouldn't blank the table (or graph) every 10s while data is already
+		// on screen (same reasoning as IngestionState.load).
+		const hasData = this.viewMode === 'table' ? this.services != null : this.graph != null;
+		if (!hasData) this.loading = true;
 		this.error = null;
 		try {
-			const response = await getServiceOverview(this.#minutes(), abort.signal);
-			if (abort.signal.aborted) return;
-			this.services = response.services;
+			if (this.viewMode === 'table') {
+				const response = await getServiceOverview(this.#minutes(), abort.signal);
+				if (abort.signal.aborted) return;
+				this.services = response.services;
+			} else {
+				const response = await getServiceDependencyGraph(this.#minutes(), abort.signal);
+				if (abort.signal.aborted) return;
+				this.graph = response;
+			}
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.error = err instanceof Error ? err.message : String(err);
@@ -87,7 +111,18 @@ export class ServicesState {
 	setWindowPreset(preset: ServicesWindowPreset): void {
 		if (this.windowPreset === preset) return;
 		this.windowPreset = preset;
-		this.services = null; // force the spinner - a new window is a genuinely different query, not a background refresh
+		// A new window is a genuinely different query, not a background refresh - force
+		// the spinner for whichever view is active.
+		this.services = null;
+		this.graph = null;
+		void this.load();
+	}
+
+	setViewMode(mode: ServicesViewMode): void {
+		if (this.viewMode === mode) return;
+		this.viewMode = mode;
+		// Switching views is the first load of a query that's never run yet (or is stale
+		// from a since-changed window) - same spinner treatment as a window change.
 		void this.load();
 	}
 

@@ -12,6 +12,8 @@
 	import ServicesToolbar from '$lib/components/services/ServicesToolbar.svelte';
 	import ServicesSummaryTiles from '$lib/components/services/ServicesSummaryTiles.svelte';
 	import ServicesTable from '$lib/components/services/ServicesTable.svelte';
+	import ServiceDependencyGraph from '$lib/components/services/ServiceDependencyGraph.svelte';
+	import ServiceCallBreakdownDialog from '$lib/components/services/ServiceCallBreakdownDialog.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = tracesExplorerContext.set(new TracesExplorerState());
@@ -107,12 +109,25 @@
 		</div>
 	{:else}
 		<ServicesToolbar {activeTab} onTabChange={setActiveTab} />
-		<div class="flex min-h-0 flex-1 flex-col overflow-auto">
-			{#if services.error}
-				<p class="text-destructive px-4 py-3 text-sm">{services.error}</p>
-			{/if}
-			<ServicesSummaryTiles />
-			<ServicesTable />
-		</div>
+		{#if services.viewMode === 'table'}
+			<div class="flex min-h-0 flex-1 flex-col overflow-auto">
+				{#if services.error}
+					<p class="text-destructive px-4 py-3 text-sm">{services.error}</p>
+				{/if}
+				<ServicesSummaryTiles />
+				<ServicesTable />
+			</div>
+		{:else}
+			<!-- No overflow-auto here, unlike the Table branch above - SvelteFlow manages its
+			     own canvas and panning, same container shape as the trace-detail page's own
+			     ServiceMap.svelte wrapper. -->
+			<div class="flex min-h-0 flex-1 flex-col">
+				{#if services.error}
+					<p class="text-destructive px-4 py-3 text-sm">{services.error}</p>
+				{/if}
+				<ServiceDependencyGraph graph={services.graph} />
+			</div>
+		{/if}
 	{/if}
 </div>
+<ServiceCallBreakdownDialog />

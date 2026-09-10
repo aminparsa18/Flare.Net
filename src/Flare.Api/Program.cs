@@ -132,6 +132,8 @@ builder.Services.AddSingleton<ISpanQueryService>(sp => new SpanQueryService(
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 builder.Services.AddSingleton<IMetricQueryService, MetricQueryService>();
 builder.Services.AddSingleton<IServiceOverviewQueryService, ServiceOverviewQueryService>();
+builder.Services.AddSingleton<IServiceDependencyQueryService, ServiceDependencyQueryService>();
+builder.Services.AddSingleton<IServiceCallBreakdownQueryService, ServiceCallBreakdownQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();
