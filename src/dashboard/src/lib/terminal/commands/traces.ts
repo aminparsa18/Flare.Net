@@ -166,6 +166,19 @@ function statusLabel(statusCode: string): string {
 	}
 }
 
+// Mirrors Flare.Cli's TracesCommand.cs RolledUpStatusCode (itself a port of
+// $lib/traces/status.ts's rolledUpStatusCode - not imported directly, same
+// keep-our-own-copy-in-lockstep reasoning this file's header comment gives for
+// statusLabel/parseStatus/etc.). A root span's own statusCode only reflects the root, not
+// the rest of the trace, so a trace whose root succeeded but has an erroring span deeper
+// in the call chain would otherwise print/color as healthy. span.hasError is the
+// server-computed rollup across every span in the trace (SpanDto.hasError) - when true and
+// the root itself didn't already fail, this reports STATUS_CODE_ERROR instead.
+function rolledUpStatusCode(span: SpanDto): string {
+	if (span.hasError && span.statusCode !== 'STATUS_CODE_ERROR') return 'STATUS_CODE_ERROR';
+	return span.statusCode;
+}
+
 // Deliberately HH:mm:ss.fff only (no date), matching TracesCommand.cs's own row
 // formatting - not tail.ts's formatTime (which prefixes month-day for log rows), a
 // different command with a different real-CLI output to stay faithful to.
@@ -177,7 +190,7 @@ function formatTime(iso: string): string {
 
 function formatRow(span: SpanDto): string {
 	const time = formatTime(span.startTime);
-	const status = statusLabel(span.statusCode).padEnd(6);
+	const status = statusLabel(rolledUpStatusCode(span)).padEnd(6);
 	const service = (span.serviceName || '-').padEnd(20).slice(0, 20);
 	const name = (span.name || '-').padEnd(30).slice(0, 30);
 	const duration = formatDurationNano(span.durationNano).padStart(8);
@@ -228,7 +241,7 @@ export const tracesCommand: TerminalCommand = {
 		}
 
 		for (const span of traces) {
-			term.writeLine(formatRow(span), span.statusCode === 'STATUS_CODE_ERROR' ? 'error' : 'output');
+			term.writeLine(formatRow(span), rolledUpStatusCode(span) === 'STATUS_CODE_ERROR' ? 'error' : 'output');
 		}
 		if (response.nextCursor && traces.length === response.spans.length) {
 			term.writeLine(`… more available - narrow --since/--service or raise --limit (shown: ${traces.length}).`, 'info');
