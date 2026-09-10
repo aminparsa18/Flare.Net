@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.ClickHouse.Driver" />
+    <PackageReference Include="Aspire.StackExchange.Redis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Flare.ServiceDefaults\Flare.ServiceDefaults.csproj" />
+    <!-- Not a duplicate of Flare.Api - this project's own AlertEvaluationWorker is the
+         only thing that moved out of Flare.Api (see docs-internal/adr/0018-alert-worker-
+         extraction.md). AlertQueryService, CompositeAlertNotifier + its four channel
+         notifiers, EmailOptions, and the LogFilter/AlertRule/AlertThreshold model types
+         all stay defined in Flare.Api (its own CRUD/send-test endpoints still need them)
+         and are reused here as-is via this reference, the same "shared library
+         ProjectReference'd by more than one process" shape Flare.Identity already is for
+         Flare.Ingest/Flare.Api - not the mirrored-DTO shape those two use at their own
+         ingest/query boundary. -->
+    <ProjectReference Include="..\Flare.Api\Flare.Api.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -20,9 +20,8 @@ streaming endpoint"** roadmap items, plus the **"Alerting"** item promoted out o
 - **`GET /api/logs/tail`** — WebSocket live tail, real-time events filtered by the same
   `LogFilter` shape. See "Live-tail streaming" below.
 - **`/api/alerts/*`** — threshold/query-based alert rule CRUD, fired-alert history, and
-  evaluation dry-runs, plus the `AlertEvaluationWorker` background service that actually
-  evaluates them and sends webhook/Slack, Telegram, or email notifications. See
-  "Alerting" below.
+  evaluation dry-runs/send-test. The actual periodic evaluation (`AlertEvaluationWorker`)
+  runs in its own process, `../Flare.AlertWorker` — see "Alerting" below.
 
 The two `/api/logs/*` POST endpoints take a JSON body (not query-string params) —
 filters are multi-valued/structured (service lists, attribute key/value pairs), which
@@ -50,8 +49,9 @@ Query/      LogFilterSqlBuilder (LogFilter -> parameterized WHERE clause, shared
             that talks to ClickHouse for logs), LogFilterMatcher (LogFilter -> boolean
             match, live-tail's in-memory counterpart to LogFilterSqlBuilder),
             AlertQueryService (rule CRUD + fired-alert history + the count/last-fired
-            queries AlertEvaluationWorker runs - the alerting equivalent of
-            LogQueryService, reusing LogFilterSqlBuilder for its threshold count query).
+            queries ../Flare.AlertWorker's AlertEvaluationWorker runs - the alerting
+            equivalent of LogQueryService, reusing LogFilterSqlBuilder for its threshold
+            count query).
 Endpoints/  LogsEndpoints - the two /api/logs POST routes. LogTailEndpoints - the
             WebSocket route. AlertEndpoints - /api/alerts CRUD + history + test-run routes.
 Json/       LogsJsonContext, LogTailJsonContext, AlertsJsonContext, TelegramJsonContext -
@@ -61,13 +61,14 @@ LiveTail/   LogTailBroadcaster (the single background XREAD-and-fan-out reader o
             LiveTailOptions, BufferedLogEvent + BufferedLogEventJsonContext +
             BufferedLogEventMapper (deserializing/normalizing the Redis wire format -
             same "deliberate mirror, not a shared reference" convention as LogEventDto).
-Alerting/   AlertEvaluationWorker (the poll-loop BackgroundService that evaluates every
-            enabled rule and notifies on breach), AlertingOptions, EmailOptions (app-wide
-            SMTP server settings), AlertMessageFormatter (the fired-alert text shared by
-            every channel), IAlertNotifier + WebhookAlertNotifier (the webhook/Slack
-            sender), TelegramAlertNotifier (the Telegram sender), EmailAlertNotifier (the
-            email sender), PagerDutyAlertNotifier (the PagerDuty sender),
-            CompositeAlertNotifier (picks between the four per rule).
+Alerting/   EmailOptions (app-wide SMTP server settings), AlertMessageFormatter (the
+            fired-alert text shared by every channel), IAlertNotifier +
+            WebhookAlertNotifier (the webhook/Slack sender), TelegramAlertNotifier (the
+            Telegram sender), EmailAlertNotifier (the email sender), PagerDutyAlertNotifier
+            (the PagerDuty sender), CompositeAlertNotifier (picks between the four per
+            rule) - all reused as-is by ../Flare.AlertWorker via ProjectReference.
+            AlertEvaluationWorker/AlertingOptions themselves live there now, not here -
+            see docs-internal/adr/0018-alert-worker-extraction.md.
 ```
 
 `Model` and `Query` are deliberately pure/ClickHouse-free wherever possible
@@ -175,9 +176,12 @@ migrations' own comments and `db/clickhouse/README.md`'s "Design decisions" for 
 rationale (`ALTER TABLE ... UPDATE/DELETE` are async mutations, the wrong tool for
 "write, read back immediately" CRUD).
 
-**Evaluation: periodic polling, in-process.** `AlertEvaluationWorker` (a
+**Evaluation: periodic polling, in its own process.** `AlertEvaluationWorker` (a
 `BackgroundService`, same poll-loop idiom as `Flare.Ingest`'s `ClickHouseFlushWorker`)
-runs every `AlertingOptions.PollInterval` (default 30s). Each tick, for every enabled
+runs in `../Flare.AlertWorker`, a separate deployable from this project — see
+`docs-internal/adr/0018-alert-worker-extraction.md` for why. It reuses this project's own
+`AlertQueryService`/`IAlertNotifier` types via a `ProjectReference` rather than a second
+copy. Every `AlertingOptions.PollInterval` (default 30s), each tick, for every enabled
 rule: count matching logs over the rule's own rolling window (`WindowSeconds`) by cloning
 the rule's `LogFilter` condition with `From`/`To` overridden and running it through
 `LogFilterSqlBuilder` — the same compiler `/api/logs/search` uses — then a tighter
@@ -346,14 +350,16 @@ proving it parses `Flare.Ingest.Pipeline.LogEventJsonContext`'s exact wire forma
 `AlertThresholdTests` covers `AlertThreshold.IsBreached` (both comparators, boundary
 values) — the one piece of pure alerting logic worth a unit test on its own.
 
-`LogQueryService`, `LogTailBroadcaster`, `AlertQueryService`, and `AlertEvaluationWorker`
-(real `IClickHouseClient`/`IConnectionMultiplexer`/`HttpClient` I/O) are deliberately
-**not** unit-tested against a fake, same reasoning `Flare.Ingest.Tests` documents for its
-own ClickHouse/Redis-touching classes — covered by real end-to-end runs instead (see
+`LogQueryService`, `LogTailBroadcaster`, and `AlertQueryService` (real
+`IClickHouseClient`/`IConnectionMultiplexer`/`HttpClient` I/O) are deliberately **not**
+unit-tested against a fake, same reasoning `Flare.Ingest.Tests` documents for its own
+ClickHouse/Redis-touching classes — covered by real end-to-end runs instead (see
 "Smoke-testing manually" above, plus `EXPLAIN indexes=1` checks in
-`db/clickhouse/README.md`). The alerting feature's own end-to-end verification (webhook
-delivery, cooldown suppression, rolling-window expiry, delete-stops-evaluation) was run
-this way against a real `docker compose`-built `api` image, a real ClickHouse/Redis, and
-a real webhook receiver — not re-derived as a mock-based unit test.
+`db/clickhouse/README.md`). `AlertEvaluationWorker` itself now lives in
+`../Flare.AlertWorker` (its own README documents the same "not unit-tested" reasoning),
+not here. The alerting feature's own end-to-end verification (webhook delivery, cooldown
+suppression, rolling-window expiry, delete-stops-evaluation) was run this way against a
+real `docker compose`-built `api` image, a real ClickHouse/Redis, and a real webhook
+receiver — not re-derived as a mock-based unit test.
 
 Run with `dotnet test`.
