@@ -45,7 +45,7 @@ call by hand.
 ## Status
 
 Pre-alpha. `imageTag` defaults to the latest stable Flare release this package version
-was tested against (currently `"0.2.0"`) - pass `imageTag: "edge"` to track Flare's
+was tested against (currently `"0.5.0"`) - pass `imageTag: "edge"` to track Flare's
 unreleased `main` branch instead. See the
 [getting-started tutorial](https://github.com/aminparsa18/Flare.Net/blob/main/docs/tutorials/getting-started.md)
 and [Aspire hosting how-to](https://github.com/aminparsa18/Flare.Net/blob/main/docs/how-to/run-with-aspire.md)
