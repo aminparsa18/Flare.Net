@@ -64,7 +64,7 @@ internal sealed class TopologyProfile
         Topology = FlareTopology.Standalone,
         ComposeResourceName = "Flare.Cli.Templates.docker-compose.flare.yml",
         EnvTemplateResourceName = "Flare.Cli.Templates.env.template",
-        DefaultImageTag = "0.2.0",
+        DefaultImageTag = "0.5.0",
         Ports = PortDefaults.All,
         HealthCheckedServices = ["clickhouse", "redis", "ingest", "api", "alert-worker"],
         RunningOnlyServices = ["dashboard"],
@@ -94,10 +94,14 @@ internal sealed class TopologyProfile
         Topology = FlareTopology.Cluster,
         ComposeResourceName = "Flare.Cli.Templates.docker-compose.cluster.flare.yml",
         EnvTemplateResourceName = "Flare.Cli.Templates.env.cluster.template",
-        // 0.3.0 - the first stable Flare release with cluster-mode support (v0.2.0
-        // predates it). Deliberately its own pin, independent of Standalone's own
-        // default. See env.cluster.template's own remarks.
-        DefaultImageTag = "0.3.0",
+        // 0.5.0 - both topologies now pin the same tag: v0.5.0 is the first stable
+        // Flare release that publishes a flare-alert-worker image at all (every
+        // topology's compose template now has an alert-worker service), which
+        // supersedes cluster mode's earlier standalone-independent pin at 0.3.0 (the
+        // first release with cluster-mode support, v0.2.0 predates it). Deliberately
+        // still its own field rather than sharing Standalone's, in case the two
+        // diverge again later. See env.cluster.template's own remarks.
+        DefaultImageTag = "0.5.0",
         Ports =
         [
             ("Ingest gRPC (OTLP)", "FLARE_INGEST_GRPC_PORT", 4317),

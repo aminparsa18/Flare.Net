@@ -7,7 +7,7 @@ Microsoft's own official integrations). For how to use it, see
 [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.md).
 
 > **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently
-> `0.4.0`).
+> `0.4.1`).
 
 ## `AddFlare`
 
@@ -15,7 +15,7 @@ Microsoft's own official integrations). For how to use it, see
 IResourceBuilder<FlareResource> AddFlare(
     this IDistributedApplicationBuilder builder,
     string name = "flare",
-    string imageTag = "0.2.0",
+    string imageTag = "0.5.0",
     bool enableResourceGraph = false)
 ```
 
@@ -28,7 +28,7 @@ returned `FlareResource` builder, the usual Aspire convention (compare
 | Parameter | Meaning |
 |---|---|
 | `name` | The Flare resource group's name in the Aspire dashboard. |
-| `imageTag` | Defaults to the latest stable Flare release this package version was tested against (currently `"0.2.0"`), pulled from Docker Hub's immutable `v*.*.*` tags. Deliberately not the floating `latest`/`edge` tags — this default only moves forward when a new `Flare.Hosting.Aspire` release bumps it. Pass `imageTag: "edge"` to track Flare's unreleased `main` branch instead. `WithIngestImage`/`WithApiImage`/`WithDashboardImage` reuse this same tag when overriding just an image name/registry — no separate per-image tag override. |
+| `imageTag` | Defaults to the latest stable Flare release this package version was tested against (currently `"0.5.0"`), pulled from Docker Hub's immutable `v*.*.*` tags. Deliberately not the floating `latest`/`edge` tags — this default only moves forward when a new `Flare.Hosting.Aspire` release bumps it. Pass `imageTag: "edge"` to track Flare's unreleased `main` branch instead. `WithIngestImage`/`WithApiImage`/`WithDashboardImage` reuse this same tag when overriding just an image name/registry — no separate per-image tag override. |
 | `enableResourceGraph` | Turns on the dashboard's Resources page for this Flare instance. Off by default. Kept as a constructor argument (unlike everything below) because it decides whether whole extra resources exist at all — a docker-socket-proxy sidecar on Docker ([ADR-0005](../../docs-internal/adr/0005-docker-socket-proxy-for-resources-page.md)), or an RBAC `ServiceAccount`/`Role`/`RoleBinding` on Kubernetes ([ADR-0006](../../docs-internal/adr/0006-kubernetes-resource-graph-rbac-scoping.md)) — more invasive to add after the fact than reconfiguring a port or image on an already-created resource. |
 
 ### `With*` chain methods

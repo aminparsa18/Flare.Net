@@ -128,10 +128,13 @@ initialisée) échoue avec une erreur claire. Pointez `--cluster` vers un
 `--name` frais (ou d'abord `flare destroy --purge-config`) pour changer
 le mode d'une instance.
 
-**Par défaut `FLARE_IMAGE_TAG=0.3.0`**, un épinglage différent du propre
-défaut de l'instance autonome (`0.2.0`) — le support du mode cluster a
-été fusionné après que `v0.2.0` a été taguée, et `v0.3.0` est la première
-release stable qui l'inclut. `flare update --tag TAG` fonctionne toujours
+**Par défaut `FLARE_IMAGE_TAG=0.5.0`**, le même épinglage que l'instance
+autonome utilise désormais aussi — le mode cluster épinglait à l'origine
+son propre `0.3.0` séparé (la première release stable avec le support du
+mode cluster, puisque `v0.2.0` la précède), mais `v0.5.0` remplace cet
+épinglage : c'est la première release stable qui publie une image
+`flare-alert-worker`, que les fichiers compose des deux topologies
+exécutent désormais. `flare update --tag TAG` fonctionne toujours
 normalement pour faire passer plus tard une instance cluster à un
 épinglage plus récent.
 
@@ -168,7 +171,7 @@ Ce qui diffère d'une instance autonome :
 
 `~/.flare/.env` règle par défaut `FLARE_IMAGE_TAG` sur la dernière
 release stable de Flare contre laquelle cette version du CLI a été
-testée (actuellement `0.2.0` pour l'autonome, `0.3.0` pour le mode
+testée (actuellement `0.5.0` pour l'autonome comme pour le mode
 cluster — voir [Mode cluster](#cluster-mode) ci-dessus ; voir
 [`../../.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml)
 pour comment les tags `vX.Y.Z` sont coupés). Délibérément pas les tags
@@ -192,3 +195,4 @@ Historique des versions (propre défaut de l'instance autonome) :
 | 0.1.2 (2026-08-19) | `0.2.0` (inchangé — les propres changements de cette release étaient le port par défaut du tableau de bord et la vérification de disponibilité de port de `flare start`/`doctor`, plus l'ajout de `--tag` ci-dessus) |
 | 0.1.4 (2026-08-23) | `0.2.0` (inchangé — cette release a ajouté le mode cluster, dont le propre défaut séparé commençait à `edge` puisqu'aucune release stable ne l'incluait encore) |
 | 0.1.5 (2026-08-23) | `0.2.0` (inchangé — le propre défaut du mode cluster est passé d'`edge` à `0.3.0` le même jour, une fois cette première release stable compatible cluster livrée) |
+| 0.1.7 (2026-09-10) | `0.5.0` pour l'autonome comme pour le mode cluster (`v0.5.0` est la première release stable qui publie une image `flare-alert-worker`, que les fichiers compose des deux topologies exécutent désormais — l'épinglage séparé `0.3.0` du mode cluster est remplacé) |

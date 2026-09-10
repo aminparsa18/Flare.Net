@@ -10,7 +10,7 @@ Microsoft). О том, как это использовать, см.
 [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.ru.md).
 
 > **Текущее состояние:** опубликован на nuget.org как
-> `Flare.Hosting.Aspire` (сейчас `0.4.0`).
+> `Flare.Hosting.Aspire` (сейчас `0.4.1`).
 
 ## `AddFlare`
 
@@ -18,7 +18,7 @@ Microsoft). О том, как это использовать, см.
 IResourceBuilder<FlareResource> AddFlare(
     this IDistributedApplicationBuilder builder,
     string name = "flare",
-    string imageTag = "0.2.0",
+    string imageTag = "0.5.0",
     bool enableResourceGraph = false)
 ```
 
@@ -31,7 +31,7 @@ IResourceBuilder<FlareResource> AddFlare(
 | Параметр | Значение |
 |---|---|
 | `name` | Имя группы ресурсов Flare в панели управления Aspire. |
-| `imageTag` | По умолчанию — последний стабильный релиз Flare, против которого была протестирована эта версия пакета (сейчас `"0.2.0"`), взятый из неизменяемых тегов `v*.*.*` Docker Hub. Намеренно не плавающие теги `latest`/`edge` — это значение по умолчанию продвигается вперёд только тогда, когда новый релиз `Flare.Hosting.Aspire` его повышает. Передайте `imageTag: "edge"`, чтобы вместо этого отслеживать неопубликованную ветку `main` Flare. `WithIngestImage`/`WithApiImage`/`WithDashboardImage` повторно используют этот же тег при переопределении только имени образа/реестра — отдельного переопределения тега для каждого образа нет. |
+| `imageTag` | По умолчанию — последний стабильный релиз Flare, против которого была протестирована эта версия пакета (сейчас `"0.5.0"`), взятый из неизменяемых тегов `v*.*.*` Docker Hub. Намеренно не плавающие теги `latest`/`edge` — это значение по умолчанию продвигается вперёд только тогда, когда новый релиз `Flare.Hosting.Aspire` его повышает. Передайте `imageTag: "edge"`, чтобы вместо этого отслеживать неопубликованную ветку `main` Flare. `WithIngestImage`/`WithApiImage`/`WithDashboardImage` повторно используют этот же тег при переопределении только имени образа/реестра — отдельного переопределения тега для каждого образа нет. |
 | `enableResourceGraph` | Включает страницу Resources панели управления для этого экземпляра Flare. По умолчанию отключено. Оставлено как аргумент конструктора (в отличие от всего ниже), потому что определяет, существуют ли вообще целые дополнительные ресурсы — сайдкар docker-socket-proxy на Docker ([ADR-0005](../../docs-internal/adr/0005-docker-socket-proxy-for-resources-page.md)) или RBAC `ServiceAccount`/`Role`/`RoleBinding` на Kubernetes ([ADR-0006](../../docs-internal/adr/0006-kubernetes-resource-graph-rbac-scoping.md)) — более инвазивно добавлять постфактум, чем перенастраивать порт или образ у уже созданного ресурса. |
 
 ### Методы-цепочки `With*`

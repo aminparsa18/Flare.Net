@@ -116,11 +116,13 @@ machine. Decided once at an instance's first `flare start` and persisted —
 with a clear error. Point `--cluster` at a fresh `--name` (or
 `flare destroy --purge-config` first) to switch an instance's mode.
 
-**Defaults to `FLARE_IMAGE_TAG=0.3.0`**, a different pin than the standalone
-instance's own default (`0.2.0`) — cluster-mode support merged after
-`v0.2.0` was tagged, and `v0.3.0` is the first stable release that includes
-it. `flare update --tag TAG` still works normally to move a cluster
-instance onto a newer pin later.
+**Defaults to `FLARE_IMAGE_TAG=0.5.0`**, the same pin the standalone
+instance now uses too — cluster mode originally pinned its own separate
+`0.3.0` (the first stable release with cluster-mode support, since
+`v0.2.0` predates it), but `v0.5.0` supersedes that: it's the first stable
+release that publishes a `flare-alert-worker` image at all, which both
+topologies' compose files now run. `flare update --tag TAG` still works
+normally to move a cluster instance onto a newer pin later.
 
 What's different from a standalone instance:
 
@@ -151,8 +153,8 @@ What's different from a standalone instance:
 ## Image tag policy
 
 `~/.flare/.env` defaults `FLARE_IMAGE_TAG` to the latest stable Flare
-release this CLI version was tested against (currently `0.2.0` for
-standalone, `0.3.0` for cluster mode — see
+release this CLI version was tested against (currently `0.5.0` for both
+standalone and cluster mode — see
 [Cluster mode](#cluster-mode) above; see
 [`../../.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml)
 for how `vX.Y.Z` tags get cut). Deliberately not the floating `edge`/`latest`
@@ -174,3 +176,4 @@ Version history (standalone instance's own default):
 | 0.1.2 (2026-08-19) | `0.2.0` (unchanged — this release's own changes were the dashboard port default and the `flare start`/`doctor` port-availability check, plus adding `--tag` above) |
 | 0.1.4 (2026-08-23) | `0.2.0` (unchanged — this release added cluster mode, whose own separate default started at `edge` since no stable release included it yet) |
 | 0.1.5 (2026-08-23) | `0.2.0` (unchanged — cluster mode's own default moved `edge` → `0.3.0` the same day, once that first cluster-capable stable release shipped) |
+| 0.1.7 (2026-09-10) | `0.5.0` for both standalone and cluster mode (`v0.5.0` is the first stable release that publishes a `flare-alert-worker` image at all, which both topologies' compose files now run — cluster mode's separate `0.3.0` pin is superseded) |

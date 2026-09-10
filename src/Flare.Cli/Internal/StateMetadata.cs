@@ -12,7 +12,7 @@ namespace Flare.Cli.Internal;
 internal sealed class StateMetadata
 {
     [JsonPropertyName("imageTag")]
-    public string ImageTag { get; set; } = "0.2.0";
+    public string ImageTag { get; set; } = "0.5.0";
 
     [JsonPropertyName("lastPulled")]
     public Dictionary<string, string> LastPulled { get; set; } = new();
