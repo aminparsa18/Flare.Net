@@ -16,9 +16,10 @@ namespace Flare.Cli.Commands;
 /// rather than a project reference on Flare.Api - same boundary <see cref="TracesCommand"/>
 /// and <see cref="LogTailClient"/> already draw. No live-tail counterpart here - that's
 /// `flare tail`; this is the one-shot query equivalent, same pairing `traces`/no-live-tail
-/// already establishes. Attribute filters (<c>LogFilter.Attributes</c>) aren't exposed yet -
-/// planned as a follow-up, same posture <see cref="TraceCommand"/> takes on critical-path
-/// highlighting.
+/// already establishes. Attribute filters (<c>LogFilter.Attributes</c>) are exposed via
+/// the repeatable <c>--attr</c>/<c>--attr-not</c>/<c>--attr-exists</c>/<c>--attr-absent</c>
+/// flags - see <see cref="AttributeFlagParsing"/> - always against the default
+/// <c>Log</c> bag (no <c>--attr-bag</c> flag yet).
 /// </summary>
 internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
 {
@@ -47,6 +48,22 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
         [CommandOption("--search <TEXT>")]
         [Description("Case-insensitive substring match against the log body.")]
         public string? Search { get; init; }
+
+        [CommandOption("--attr <KEY=VALUE>")]
+        [Description("Log attribute equals: key=value. Repeatable.")]
+        public string[] Attr { get; init; } = [];
+
+        [CommandOption("--attr-not <KEY=VALUE>")]
+        [Description("Log attribute not-equals (absent also matches): key=value. Repeatable.")]
+        public string[] AttrNot { get; init; } = [];
+
+        [CommandOption("--attr-exists <KEY>")]
+        [Description("Log attribute key is present, any value. Repeatable.")]
+        public string[] AttrExists { get; init; } = [];
+
+        [CommandOption("--attr-absent <KEY>")]
+        [Description("Log attribute key is absent.")]
+        public string[] AttrAbsent { get; init; } = [];
 
         [CommandOption("--since <RANGE>")]
         [Description("How far back to search: 15m, 1h, 6h, 24h, 7d. Default 1h.")]
@@ -85,6 +102,12 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
             return 1;
         }
 
+        if (!AttributeFlagParsing.TryParse(settings.Attr, settings.AttrNot, settings.AttrExists, settings.AttrAbsent, out var parsedAttrs, out var attrError))
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(attrError)}");
+            return 1;
+        }
+
         var to = DateTimeOffset.UtcNow;
         var from = to - since;
 
@@ -98,6 +121,9 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
             SpanId = string.IsNullOrWhiteSpace(settings.SpanId) ? null : settings.SpanId,
             PatternId = string.IsNullOrWhiteSpace(settings.PatternId) ? null : settings.PatternId,
             Search = string.IsNullOrWhiteSpace(settings.Search) ? null : settings.Search,
+            Attributes = parsedAttrs.Count > 0
+                ? parsedAttrs.Select(a => new AttributeFilterWire { Key = a.Key, Value = a.Value, Operator = a.Operator }).ToList()
+                : null,
         };
 
         var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
@@ -192,6 +218,27 @@ internal sealed class LogFilterWire
     public string? PatternId { get; init; }
 
     public string? Search { get; init; }
+
+    public IReadOnlyList<AttributeFilterWire>? Attributes { get; init; }
+}
+
+/// <summary>
+/// Hand-mirror of <c>Model/AttributeFilter.cs</c>. <see cref="Bag"/>/<see cref="Operator"/>
+/// are plain strings (not a C# enum), matching this file's existing <c>StatusCodes</c>/
+/// <c>Kinds</c>-as-strings convention in <see cref="TracesCommand"/>'s wire DTOs - avoids
+/// needing a <c>JsonStringEnumConverter</c> on <see cref="WireJsonOptions"/>. Built only
+/// via <see cref="Internal.AttributeFlagParsing"/>, which always fills <see cref="Bag"/>
+/// with the default <c>"Log"</c> - no <c>--attr-bag</c> flag yet.
+/// </summary>
+internal sealed class AttributeFilterWire
+{
+    public string Bag { get; init; } = "Log";
+
+    public required string Key { get; init; }
+
+    public required string Value { get; init; }
+
+    public string Operator { get; init; } = "Equals";
 }
 
 internal sealed class LogSearchRequestWire

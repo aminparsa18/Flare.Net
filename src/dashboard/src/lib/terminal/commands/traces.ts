@@ -4,10 +4,13 @@
 // dashboard API, different front end" shape as commands/tail.ts. Flag parsing/validation
 // (status/kind names, duration/since suffix grammar) is a direct port of
 // Flare.Cli/Commands/TracesCommand.cs's own Settings/TryExpand*/TryParse* so the two stay
-// usable interchangeably.
+// usable interchangeably. --attr/--attr-not/--attr-exists/--attr-absent (attr-flags.ts)
+// mirror Flare.Cli's Internal/AttributeFlagParsing.cs the same way, always against the
+// default Span bag (no --attr-bag flag yet).
 
-import { searchSpans, type SpanDto, type SpanFilter } from '$lib/traces-api';
+import { searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter } from '$lib/traces-api';
 import { formatDurationNano } from '$lib/traces/duration';
+import { parseAttrBareKey, parseAttrKeyValue, type AttrFlagEntry } from './attr-flags';
 import type { TerminalCommand } from '../types';
 
 class UsageError extends Error {}
@@ -17,6 +20,7 @@ interface ParsedArgs {
 	statusCodes: string[];
 	kinds: number[];
 	traceId?: string;
+	attrs: AttrFlagEntry[];
 	minDurationNano?: number;
 	maxDurationNano?: number;
 	sinceMs: number;
@@ -27,7 +31,7 @@ const DEFAULT_SINCE_MS = 60 * 60_000;
 const DEFAULT_LIMIT = 20;
 
 function parseArgs(args: string[]): ParsedArgs {
-	const result: ParsedArgs = { services: [], statusCodes: [], kinds: [], sinceMs: DEFAULT_SINCE_MS, limit: DEFAULT_LIMIT };
+	const result: ParsedArgs = { services: [], statusCodes: [], kinds: [], attrs: [], sinceMs: DEFAULT_SINCE_MS, limit: DEFAULT_LIMIT };
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
@@ -44,6 +48,18 @@ function parseArgs(args: string[]): ParsedArgs {
 				break;
 			case '--trace-id':
 				result.traceId = requireValue(args, ++i, arg);
+				break;
+			case '--attr':
+				result.attrs.push(parseAttrKeyValue(requireValue(args, ++i, arg), arg, 'traces', 'Equals'));
+				break;
+			case '--attr-not':
+				result.attrs.push(parseAttrKeyValue(requireValue(args, ++i, arg), arg, 'traces', 'NotEquals'));
+				break;
+			case '--attr-exists':
+				result.attrs.push(parseAttrBareKey(requireValue(args, ++i, arg), arg, 'traces', 'Exists'));
+				break;
+			case '--attr-absent':
+				result.attrs.push(parseAttrBareKey(requireValue(args, ++i, arg), arg, 'traces', 'Absent'));
 				break;
 			case '--min-duration':
 				result.minDurationNano = parseDurationNano(requireValue(args, ++i, arg));
@@ -173,7 +189,7 @@ export const tracesCommand: TerminalCommand = {
 	name: 'traces',
 	summary: 'Searches recent traces (same feed as the Trace List).',
 	usage:
-		'traces [-s|--service <name>]... [--status <ok|error|unset>]... [--kind <kind>]... [--trace-id <id>] [--min-duration <d>] [--max-duration <d>] [--since <range>] [-n|--limit <count>]',
+		'traces [-s|--service <name>]... [--status <ok|error|unset>]... [--kind <kind>]... [--trace-id <id>] [--attr <key=value>]... [--attr-not <key=value>]... [--attr-exists <key>]... [--attr-absent <key>]... [--min-duration <d>] [--max-duration <d>] [--since <range>] [-n|--limit <count>]',
 	async run(args, term) {
 		let parsed: ParsedArgs;
 		try {
@@ -191,6 +207,9 @@ export const tracesCommand: TerminalCommand = {
 		if (parsed.statusCodes.length > 0) filter.statusCodes = parsed.statusCodes;
 		if (parsed.kinds.length > 0) filter.kinds = parsed.kinds;
 		if (parsed.traceId) filter.traceId = parsed.traceId;
+		if (parsed.attrs.length > 0) {
+			filter.attributes = parsed.attrs.map((a): SpanAttributeFilter => ({ bag: 'Span', key: a.key, value: a.value, operator: a.operator }));
+		}
 		if (parsed.minDurationNano !== undefined) filter.minDurationNano = parsed.minDurationNano;
 		if (parsed.maxDurationNano !== undefined) filter.maxDurationNano = parsed.maxDurationNano;
 
