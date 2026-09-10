@@ -86,10 +86,3 @@ folders are where "what happened and why" actually lives.
   inside the facet's checkbox list itself. Reference:
   [signoz#1308](https://github.com/SigNoz/signoz/commit/224ec8d0d9d3ce0b9422c6c35dd378d3d5cd6449).
   Not started.
-- **Cache-control headers on the dashboard's static assets.** Small ops
-  tweak, not a product feature: self-hosted `docker-compose.yml`/nginx
-  config for `src/dashboard` doesn't currently set explicit
-  `Cache-Control` headers for built JS/CSS bundles, so repeat visits
-  re-validate more than necessary. SigNoz added this at the nginx layer.
-  References: [signoz#1104](https://github.com/SigNoz/signoz/commit/da386b0e8),
-  [#1057](https://github.com/SigNoz/signoz/commit/a0643aaf4). Not started.

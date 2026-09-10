@@ -60,6 +60,13 @@ ENV NODE_ENV=production
 COPY --from=build /app/build ./build
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
+# Our own thin wrapper around adapter-node's generated build/handler.js - adds
+# Cache-Control on the un-hashed static/ files (favicon*, logo.png, no_log.json) that
+# adapter-node itself leaves uncached. See server.js's own header comment for why this
+# can't just be an nginx config (there is no nginx in front of the dashboard) or a
+# hooks.server.ts hook (sirv serves these before SvelteKit's own request pipeline ever
+# sees them).
+COPY --from=build /app/server.js ./server.js
 
 # adapter-node's own defaults (see https://svelte.dev/docs/kit/adapter-node) - listens
 # on 0.0.0.0:3000 unless PORT/HOST are overridden.
@@ -72,4 +79,7 @@ EXPOSE 3000
 # node:22-alpine's busybox includes wget, unlike the .NET images above.
 HEALTHCHECK --interval=5s --timeout=5s --retries=20 CMD wget -q --spider http://127.0.0.1:3000/ || exit 1
 
-ENTRYPOINT ["node", "build/index.js"]
+# server.js, not adapter-node's own generated build/index.js - see server.js's header
+# comment for why (Cache-Control on static/ files that adapter-node itself leaves
+# uncached).
+ENTRYPOINT ["node", "server.js"]
