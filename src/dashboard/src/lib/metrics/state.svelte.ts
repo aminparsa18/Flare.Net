@@ -60,6 +60,9 @@ function metricKey(metric: Pick<MetricNameInfo, 'metricName' | 'serviceName'>): 
  */
 export const METRIC_SWITCH_FADE_MS = 250;
 
+/** How often `autoRefreshEnabled` re-runs `runQuery()` - see its own remarks. Same value TracesExplorerState.AUTO_REFRESH_INTERVAL_MS uses, for the same "one query per interval" shape. */
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
+
 export class MetricsExplorerState {
 	filter = $state<MetricsFilterState>({
 		timeRangePreset: '1h',
@@ -136,10 +139,21 @@ export class MetricsExplorerState {
 	knownAttributeKeysLoading = $state(false);
 	knownAttributeKeysError = $state<string | null>(null);
 
+	/** Toolbar-driven "Auto-refresh" toggle (roadmap: "Auto-refresh toggle for the Traces
+	 *  and Metrics explorer pages") - re-runs `runQuery()` for the currently selected
+	 *  metric on `AUTO_REFRESH_INTERVAL_MS`, same "poll while enabled" shape
+	 *  TracesExplorerState.autoRefreshEnabled uses. Deliberately not part of
+	 *  `MetricsFilterState`/the saved-view payload - see that field's own remarks on why
+	 *  this is a per-session preference, not something a saved view reproduces. Doesn't
+	 *  re-run `loadNames()` - "the current query" (the roadmap's own words) is the chart's
+	 *  series query, not the picker's name list, which changes far less often. */
+	autoRefreshEnabled = $state(false);
+
 	#namesAbort: AbortController | null = null;
 	#queryAbort: AbortController | null = null;
 	#attributeKeysAbort: AbortController | null = null;
 	#pendingSwitchTimeout: ReturnType<typeof setTimeout> | null = null;
+	#autoRefreshHandle: ReturnType<typeof setInterval> | null = null;
 
 	#resolvedRange(): ResolvedTimeRange {
 		// Every preset MetricsToolbar actually offers ('custom' is filtered out, same as
@@ -403,6 +417,25 @@ export class MetricsExplorerState {
 		void this.runQuery();
 	}
 
+	setAutoRefreshEnabled(enabled: boolean): void {
+		if (enabled === this.autoRefreshEnabled) return;
+		this.autoRefreshEnabled = enabled;
+		if (enabled) this.#startAutoRefresh();
+		else this.#stopAutoRefresh();
+	}
+
+	#startAutoRefresh(): void {
+		this.#stopAutoRefresh();
+		this.#autoRefreshHandle = setInterval(() => void this.runQuery(), AUTO_REFRESH_INTERVAL_MS);
+	}
+
+	#stopAutoRefresh(): void {
+		if (this.#autoRefreshHandle !== null) {
+			clearInterval(this.#autoRefreshHandle);
+			this.#autoRefreshHandle = null;
+		}
+	}
+
 	/** Serializes the current filter + selected metric into a saved view's opaque `state` payload - see `MetricsSavedViewState`. */
 	toSavedViewState(): MetricsSavedViewState {
 		return {
@@ -446,5 +479,6 @@ export class MetricsExplorerState {
 		this.#queryAbort?.abort();
 		this.#attributeKeysAbort?.abort();
 		if (this.#pendingSwitchTimeout) clearTimeout(this.#pendingSwitchTimeout);
+		this.#stopAutoRefresh();
 	}
 }

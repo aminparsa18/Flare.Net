@@ -10,6 +10,9 @@ import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '
 
 const PAGE_SIZE = 100;
 
+/** How often `autoRefreshEnabled` re-runs the current search - see its own remarks. Same order of magnitude as ServicesState's own POLL_INTERVAL_MS (10s), picked longer since a full trace-list re-search is a heavier query than the Services RED rollup. */
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
+
 export interface TracesFilterState {
 	timeRangePreset: TimeRangePreset;
 	services: string[];
@@ -45,8 +48,17 @@ export class TracesExplorerState {
 	// not a guarantee of completeness.
 	knownServices = $state.raw<string[]>([]);
 
+	/** Toolbar-driven "Auto-refresh" toggle (roadmap: "Auto-refresh toggle for the Traces
+	 *  and Metrics explorer pages") - re-runs `runSearch()` on `AUTO_REFRESH_INTERVAL_MS`
+	 *  while on, same "poll while enabled" shape ServicesState.startPolling already uses.
+	 *  Deliberately not part of `TracesFilterState`/the saved-view payload - it's a
+	 *  per-session UI preference ("keep this open and watch it"), not part of what a saved
+	 *  view reproduces, same call Logs' own `live` field makes for itself. */
+	autoRefreshEnabled = $state(false);
+
 	#seenTraceIds = new Set<string>();
 	#searchAbort: AbortController | null = null;
+	#autoRefreshHandle: ReturnType<typeof setInterval> | null = null;
 
 	/**
 	 * Dedupes a freshly-fetched page against `#seenTraceIds` (cross-page duplicates) *and*
@@ -136,6 +148,25 @@ export class TracesExplorerState {
 		}
 	}
 
+	setAutoRefreshEnabled(enabled: boolean): void {
+		if (enabled === this.autoRefreshEnabled) return;
+		this.autoRefreshEnabled = enabled;
+		if (enabled) this.#startAutoRefresh();
+		else this.#stopAutoRefresh();
+	}
+
+	#startAutoRefresh(): void {
+		this.#stopAutoRefresh();
+		this.#autoRefreshHandle = setInterval(() => void this.runSearch(), AUTO_REFRESH_INTERVAL_MS);
+	}
+
+	#stopAutoRefresh(): void {
+		if (this.#autoRefreshHandle !== null) {
+			clearInterval(this.#autoRefreshHandle);
+			this.#autoRefreshHandle = null;
+		}
+	}
+
 	setTimeRangePreset(preset: TimeRangePreset): void {
 		this.filter.timeRangePreset = preset;
 		void this.runSearch();
@@ -183,5 +214,6 @@ export class TracesExplorerState {
 
 	dispose(): void {
 		this.#searchAbort?.abort();
+		this.#stopAutoRefresh();
 	}
 }

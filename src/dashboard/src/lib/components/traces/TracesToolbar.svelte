@@ -2,8 +2,10 @@
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
+	import { Switch } from '$lib/components/ui/switch';
 	import TracesViewTabs from './TracesViewTabs.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { tracesExplorerContext } from '$lib/traces/context';
 	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import * as m from '$lib/paraglide/messages';
@@ -58,5 +60,20 @@
 		selected={explorer.filter.services}
 		onChange={(next) => explorer.setServices(next)}
 	/>
+
+	<!-- Re-runs the trace search on an interval while on - see
+	     TracesExplorerState.autoRefreshEnabled's own remarks. A plain `title`, same "one
+	     static sentence, not a rich Tooltip.*" call MetricsToolbar's compare switch makes
+	     for itself. -->
+	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.tracesToolbar_autoRefreshTitle()}>
+		<Switch
+			checked={explorer.autoRefreshEnabled}
+			onCheckedChange={(v) => explorer.setAutoRefreshEnabled(v)}
+			size="sm"
+		/>
+		<RefreshCwIcon class="size-3.5" />
+		{m.tracesToolbar_autoRefreshLabel()}
+	</label>
+
 	<ViewsMenu pageType="Traces" currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
 </div>
