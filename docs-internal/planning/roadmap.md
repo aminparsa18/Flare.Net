@@ -43,12 +43,3 @@ folders are where "what happened and why" actually lives.
   dashboard is a named collection of independent panels (mix of charts
   from different queries/signals) arranged on a grid. No CRUD for this
   shape exists anywhere in `Flare.Api` today. Not started.
-- **Exceptions/errors tracking page.** Groups recorded exceptions by
-  type/message across services — occurrence count, first/last seen,
-  affected services — distinct from the RED-metrics overview item above
-  (that's aggregate *rate*; this is *which specific exceptions*, à la
-  Sentry). The raw material already exists (`SpanRecord.Events`/
-  `SpanEvent` capture OTel span events generically, which is where
-  `exception.type`/`exception.message`/`exception.stacktrace` live as
-  event attributes), but nothing groups/dedupes it and there's no
-  `routes/errors` page. Not started.
