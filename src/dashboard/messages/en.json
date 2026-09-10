@@ -183,6 +183,7 @@
 	"attributeFilters_opNotEquals": "Not equals",
 	"attributeFilters_opExists": "Exists",
 	"attributeFilters_opAbsent": "Absent",
+	"attributeValueCombobox_loading": "Loading…",
 	"volumeChart_label": "Event volume",
 	"volumeChart_filteredTo": "Filtered to {time}",
 	"volumeChart_errorPrefix": "Volume chart: {error}",

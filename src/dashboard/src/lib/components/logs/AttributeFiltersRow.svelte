@@ -16,11 +16,12 @@
 	// already documents.
 	import { browser } from '$app/environment';
 	import { logsExplorerContext } from '$lib/logs/context';
-	import type { AttributeBag, AttributeFilter, AttributeFilterOperator } from '$lib/api';
+	import { getLogAttributeValues, type AttributeBag, type AttributeFilter, type AttributeFilterOperator } from '$lib/api';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import * as Select from '$lib/components/ui/select';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
+	import AttributeValueCombobox, { type AttributeValueSuggestion } from './AttributeValueCombobox.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as m from '$lib/paraglide/messages';
@@ -141,6 +142,35 @@
 	}
 
 	const activeCount = $derived(explorer.filter.attributeFilters.length);
+
+	/**
+	 * Value autocomplete for one row's value input (AttributeValueCombobox) - every
+	 * distinct value observed for the row's current bag+key, scoped to the same
+	 * filter/time-window the log table itself is searching (see
+	 * `explorer.buildFilter`/`currentRange`), narrowed by `text` if the caller's already
+	 * typed something. Best-effort: a key not yet chosen or a failed lookup both resolve to
+	 * no suggestions rather than surfacing an error - same posture
+	 * `TracesExplorerState.loadKnownServices` documents for its own best-effort fetch.
+	 */
+	async function suggestValues(row: Row, text: string, signal: AbortSignal): Promise<AttributeValueSuggestion[]> {
+		const key = row.key.trim();
+		if (!key) return [];
+		try {
+			const res = await getLogAttributeValues(
+				{
+					filter: explorer.buildFilter(explorer.currentRange()),
+					bag: row.bag,
+					key,
+					prefix: text.trim() || undefined,
+					limit: 20
+				},
+				signal
+			);
+			return res.values;
+		} catch {
+			return [];
+		}
+	}
 </script>
 
 <Accordion.Root type="single" bind:value={accordionValue} class="w-full flex-col rounded-none border-0 border-b">
@@ -208,14 +238,15 @@
 						</Select.Root>
 
 						{#if needsValue(row.operator)}
-							<Input
+							<AttributeValueCombobox
 								class="h-7 w-40 text-xs"
 								placeholder={m.attributeFilters_valuePlaceholder()}
 								value={row.value}
-								oninput={(e) => {
-									updateRow(row.id, { value: e.currentTarget.value });
+								oninput={(v) => {
+									updateRow(row.id, { value: v });
 									commitDebounced();
 								}}
+								fetchSuggestions={(text, signal) => suggestValues(row, text, signal)}
 							/>
 						{/if}
 

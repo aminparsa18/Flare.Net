@@ -23,6 +23,7 @@ public static class LogsEndpoints
         endpoints.MapPost("/api/logs/patterns", HandlePatternsAsync);
         endpoints.MapPost("/api/logs/numeric-attribute-keys", HandleNumericAttributeKeysAsync);
         endpoints.MapPost("/api/logs/value-distribution", HandleValueDistributionAsync);
+        endpoints.MapPost("/api/logs/attribute-values", HandleAttributeValuesAsync);
         endpoints.MapPost("/api/logs/query", HandleQlQueryAsync);
         return endpoints;
     }
@@ -145,6 +146,37 @@ public static class LogsEndpoints
         {
             var response = await queryService.GetValueDistributionAsync(request, cancellationToken);
             return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogValueDistributionResponse);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+    }
+
+    private static async Task<IResult> HandleAttributeValuesAsync(
+        HttpContext http,
+        ILogQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        LogAttributeValuesRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, LogsJsonContext.Default.LogAttributeValuesRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        try
+        {
+            var response = await queryService.GetAttributeValuesAsync(request, cancellationToken);
+            return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogAttributeValuesResponse);
         }
         catch (ArgumentOutOfRangeException ex)
         {

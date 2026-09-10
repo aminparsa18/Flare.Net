@@ -19,6 +19,7 @@ public static class SpanEndpoints
     {
         endpoints.MapPost("/api/spans/search", HandleSearchAsync);
         endpoints.MapGet("/api/traces/{traceId}", HandleGetTraceAsync);
+        endpoints.MapPost("/api/spans/attribute-values", HandleAttributeValuesAsync);
         return endpoints;
     }
 
@@ -53,5 +54,36 @@ public static class SpanEndpoints
         return trace is null
             ? Results.NotFound()
             : ApiSerialization.Write(http, trace, SpansJsonContext.Default.TraceDto);
+    }
+
+    private static async Task<IResult> HandleAttributeValuesAsync(
+        HttpContext http,
+        ISpanQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        SpanAttributeValuesRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, SpansJsonContext.Default.SpanAttributeValuesRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        try
+        {
+            var response = await queryService.GetAttributeValuesAsync(request, cancellationToken);
+            return ApiSerialization.Write(http, response, SpansJsonContext.Default.SpanAttributeValuesResponse);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
     }
 }

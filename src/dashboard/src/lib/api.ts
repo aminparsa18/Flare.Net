@@ -31,6 +31,9 @@ import { LogAttributeKeysRequest as GeneratedLogAttributeKeysRequest } from '$li
 import { LogAttributeKeysResponse as GeneratedLogAttributeKeysResponse } from '$lib/memorypack/LogAttributeKeysResponse';
 import { LogValueDistributionRequest as GeneratedLogValueDistributionRequest } from '$lib/memorypack/LogValueDistributionRequest';
 import { LogValueDistributionResponse as GeneratedLogValueDistributionResponse } from '$lib/memorypack/LogValueDistributionResponse';
+import { LogAttributeValuesRequest as GeneratedLogAttributeValuesRequest } from '$lib/memorypack/LogAttributeValuesRequest';
+import { LogAttributeValuesResponse as GeneratedLogAttributeValuesResponse } from '$lib/memorypack/LogAttributeValuesResponse';
+import { attributeBagFromString } from '$lib/memorypack/enums';
 import { LogQlQueryRequest as GeneratedLogQlQueryRequest } from '$lib/memorypack/LogQlQueryRequest';
 import { LogQlQueryResponse as GeneratedLogQlQueryResponse } from '$lib/memorypack/LogQlQueryResponse';
 import { LogPatternRequest as GeneratedLogPatternRequest } from '$lib/memorypack/LogPatternRequest';
@@ -336,6 +339,55 @@ export async function getLogValueDistribution(
 	const body = GeneratedLogValueDistributionResponse.deserialize(await res.arrayBuffer());
 	return {
 		points: (body?.points ?? []).map((p) => ({ timestamp: p!.timestamp.toISOString(), value: p!.value }))
+	};
+}
+
+// ---- POST /api/logs/attribute-values (LogAttributeValuesRequest.cs) -------------------
+// Value autocomplete for AttributeFiltersRow.svelte's value input - every distinct value
+// observed for one caller-chosen bag+key, most-observed first, optionally narrowed by
+// `prefix` (the text already typed). Separate from the key-discovery pair above: this
+// enumerates *values* for a key the caller already picked, not numeric-looking keys.
+
+export interface LogAttributeValuesRequest {
+	filter?: LogFilter;
+	bag?: AttributeBag;
+	key: string;
+	/** Case-insensitive substring already typed, if any - narrows candidates server-side. */
+	prefix?: string;
+	limit?: number;
+}
+
+export interface LogAttributeValueInfo {
+	value: string;
+	count: number;
+}
+
+export interface LogAttributeValuesResponse {
+	values: LogAttributeValueInfo[];
+}
+
+export async function getLogAttributeValues(
+	request: LogAttributeValuesRequest,
+	signal?: AbortSignal
+): Promise<LogAttributeValuesResponse> {
+	const dto = new GeneratedLogAttributeValuesRequest();
+	dto.filter = toGeneratedLogFilter(request.filter);
+	dto.bag = attributeBagFromString(request.bag ?? 'Log');
+	dto.key = request.key;
+	dto.prefix = request.prefix ?? null;
+	dto.limit = request.limit ?? 25;
+	const res = await apiFetch(`${API_BASE_URL}/api/logs/attribute-values`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedLogAttributeValuesRequest.serialize(dto)),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/logs/attribute-values failed: ${res.status} ${res.statusText}`);
+	}
+	const body = GeneratedLogAttributeValuesResponse.deserialize(await res.arrayBuffer());
+	return {
+		values: (body?.values ?? []).map((v) => ({ value: v!.value ?? '', count: Number(v!.count) }))
 	};
 }
 

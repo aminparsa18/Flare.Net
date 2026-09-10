@@ -52,12 +52,6 @@ folders are where "what happened and why" actually lives.
   `exception.type`/`exception.message`/`exception.stacktrace` live as
   event attributes), but nothing groups/dedupes it and there's no
   `routes/errors` page. Not started.
-- **Attribute-value autocomplete in the Logs/Traces filter builders.**
-  Given a key (e.g. `http.route`), suggest actual observed values instead
-  of requiring an exact typed match. Today only service names get this
-  treatment (`loadKnownServices()` in `$lib/traces/state.svelte.ts`) — no
-  general "suggest values for this attribute key" endpoint or UI exists
-  for either signal. Not started.
 - **Roll up "does this trace contain any error" across all its spans, not
   just the root span.** `/api/spans/search` with `RootSpansOnly` returns
   one row per trace via its root span, and `TraceRow.svelte`'s status
