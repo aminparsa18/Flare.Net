@@ -171,7 +171,7 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
             peerService: "inventory-service", childPeerService: "postgres", childDbSystem: "postgresql");
         var paymentEnd = ChildSpan(
             "payment.request", forkStart, Random.Shared.Next(40, 150),
-            kind: ActivityKind.Client, peerService: "payment-service");
+            kind: ActivityKind.Client, peerService: "payment-service", canFail: true);
         var joinTime = inventoryEnd > paymentEnd ? inventoryEnd : paymentEnd;
 
         var end = ChildSpan("render-response", joinTime, Random.Shared.Next(1, 6));
@@ -192,9 +192,17 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
     /// <c>"postgresql"</c>) - the dashboard's waterfall reads it to tell a database call apart
     /// from a generic outbound one at a glance, same spirit as <c>peer.service</c>.
     /// </summary>
+    /// <param name="canFail">
+    /// When true, this span has a ~1-in-8 chance (same order of magnitude as
+    /// <see cref="SampleLogEvents.EmitOne"/>'s own ~10% Error/Critical rate) of recording a
+    /// real <c>exception</c> span event and flipping its own status to Error - see
+    /// <see cref="RecordFailure"/>. Off by default: most spans in this demo trace are the
+    /// happy path, same as <see cref="SampleLogEvents"/>'s own event mix.
+    /// </param>
     private DateTimeOffset ChildSpan(
         string name, DateTimeOffset start, int durationMs, Action? work = null,
-        ActivityKind kind = ActivityKind.Internal, string? peerService = null, string? dbSystem = null)
+        ActivityKind kind = ActivityKind.Internal, string? peerService = null, string? dbSystem = null,
+        bool canFail = false)
     {
         using var span = ActivitySource.StartActivity(name, kind, default(ActivityContext), startTime: start);
         if (peerService is not null)
@@ -208,9 +216,51 @@ internal sealed class RandomLogGeneratorWorker(ILogger<RandomLogGeneratorWorker>
         }
 
         work?.Invoke();
+
+        if (canFail && Random.Shared.Next(8) == 0)
+        {
+            try
+            {
+                // Same message EmitCriticalFailure logs for its own independent
+                // payment-timeout narrative - actually thrown (not just `new`'d) so
+                // .StackTrace is populated, same reasoning EmitBackgroundJobFailed's own
+                // comment gives for its log-level exception.
+                throw new TimeoutException("Downstream payment provider did not respond within 5000ms.");
+            }
+            catch (Exception ex)
+            {
+                RecordFailure(span, ex);
+            }
+        }
+
         var end = start.AddMilliseconds(durationMs);
         span?.SetEndTime(end.UtcDateTime);
         return end;
+    }
+
+    /// <summary>
+    /// Records a real OTel <c>exception</c> span event - <c>exception.type</c>/
+    /// <c>exception.message</c>/<c>exception.stacktrace</c> event attributes, the exact
+    /// shape Flare's <c>/errors</c> page groups by (see
+    /// <c>Flare.Api/Query/ExceptionGroupQueryBuilder.cs</c>) - plus flips the span's own
+    /// status to Error, same "the span that actually failed carries the error status"
+    /// convention real OTel instrumentation follows. Built directly via
+    /// <see cref="Activity.AddEvent"/>/<see cref="ActivityEvent"/> rather than pulling in
+    /// the <c>OpenTelemetry.Api</c> package's <c>RecordException</c> extension - it does
+    /// the exact same thing, and everything used here is already part of
+    /// <see cref="System.Diagnostics"/> (the package this file already depends on for
+    /// <see cref="ActivitySource"/> itself), so no new dependency is worth adding just for
+    /// this one call.
+    /// </summary>
+    private static void RecordFailure(Activity? span, Exception ex)
+    {
+        span?.SetStatus(ActivityStatusCode.Error, ex.Message);
+        span?.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
+        {
+            ["exception.type"] = ex.GetType().FullName,
+            ["exception.message"] = ex.Message,
+            ["exception.stacktrace"] = ex.StackTrace,
+        }));
     }
 
     /// <summary>
