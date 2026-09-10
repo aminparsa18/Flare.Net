@@ -35,6 +35,23 @@ export function statusLabel(statusCode: string): string {
 	}
 }
 
+/**
+ * The status code to badge a trace-list row with: `span.statusCode` on its own only
+ * reflects the *root* span (that's all a `SpanFilter.rootSpansOnly` row carries), so a
+ * trace whose root span succeeded (e.g. a gateway returning 200) but has an erroring span
+ * deeper in the call chain would otherwise badge as healthy until the waterfall is
+ * opened. `hasError` is the server-computed rollup across every span in the trace (see
+ * `SpanDto.hasError`'s C# remarks) - when true and the root itself didn't already fail,
+ * this reports `STATUS_CODE_ERROR` so `statusVariant`/`statusLabel` render the same
+ * "Error" badge they would for a directly-failing root.
+ */
+export function rolledUpStatusCode(span: SpanDto): string {
+	if (span.hasError && span.statusCode !== 'STATUS_CODE_ERROR') {
+		return 'STATUS_CODE_ERROR';
+	}
+	return span.statusCode;
+}
+
 /** OTel SpanKind (Span.proto's Span.SpanKind enum) - 0 through 5, spec-fixed. */
 function kindLabelFor(kind: number): string | null {
 	switch (kind) {

@@ -33,6 +33,7 @@ export class SpanDto {
 	spanAttributes: StringRecord;
 	events: (SpanEventDto | null)[] | null;
 	spanCount: bigint | null;
+	hasError: boolean | null;
 
 	constructor() {
 		this.traceId = null;
@@ -57,6 +58,7 @@ export class SpanDto {
 		this.spanAttributes = null;
 		this.events = null;
 		this.spanCount = null;
+		this.hasError = null;
 	}
 
 	static serialize(value: SpanDto | null): Uint8Array {
@@ -71,7 +73,7 @@ export class SpanDto {
 			return;
 		}
 
-		writer.writeObjectHeader(22);
+		writer.writeObjectHeader(23);
 		writer.writeString(value.traceId);
 		writer.writeString(value.spanId);
 		writer.writeString(value.parentSpanId);
@@ -94,6 +96,7 @@ export class SpanDto {
 		writeStringRecord(writer, value.spanAttributes);
 		writer.writeArray(value.events, (writer, x) => SpanEventDto.serializeCore(writer, x));
 		writer.writeNullableUint64(value.spanCount);
+		writer.writeNullableBoolean(value.hasError);
 	}
 
 	static serializeArray(value: (SpanDto | null)[] | null): Uint8Array {
@@ -117,7 +120,7 @@ export class SpanDto {
 		}
 
 		const value = new SpanDto();
-		if (count == 22) {
+		if (count == 23) {
 			value.traceId = reader.readString();
 			value.spanId = reader.readString();
 			value.parentSpanId = reader.readString();
@@ -140,7 +143,8 @@ export class SpanDto {
 			value.spanAttributes = readStringRecord(reader);
 			value.events = reader.readArray((reader) => SpanEventDto.deserializeCore(reader));
 			value.spanCount = reader.readNullableUint64();
-		} else if (count > 22) {
+			value.hasError = reader.readNullableBoolean();
+		} else if (count > 23) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -188,6 +192,8 @@ export class SpanDto {
 			if (count == 21) return value;
 			value.spanCount = reader.readNullableUint64();
 			if (count == 22) return value;
+			value.hasError = reader.readNullableBoolean();
+			if (count == 23) return value;
 		}
 		return value;
 	}

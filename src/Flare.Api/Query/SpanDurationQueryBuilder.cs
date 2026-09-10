@@ -11,7 +11,7 @@ public sealed record SpanDurationSql(string Sql, ClickHouseParameterCollection P
 /// <see cref="Model.LogSearchRequest.IncludeSpanDuration"/> search, to populate each
 /// result row's <see cref="Model.LogEventDto.SpanDurationNano"/>. Pure
 /// <c>(TraceId, SpanId)</c> pairs -&gt; parameterized SQL, no ClickHouse dependency - same
-/// unit-testable-on-its-own style as <see cref="SpanCountQueryBuilder"/>.
+/// unit-testable-on-its-own style as <see cref="SpanRollupQueryBuilder"/>.
 /// </summary>
 /// <remarks>
 /// Deliberately <c>TraceId IN (...) AND SpanId IN (...)</c> over two flat string
@@ -29,7 +29,7 @@ public sealed record SpanDurationSql(string Sql, ClickHouseParameterCollection P
 /// <c>WHERE TraceId IN (...)</c> alone is already a primary-key-prefix lookup, not a
 /// scan - the SpanId filter narrows further but isn't what makes this cheap.
 /// Deliberately unbounded by any time range, same rationale as
-/// <see cref="SpanCountQueryBuilder"/>: bounded already by the caller only ever passing
+/// <see cref="SpanRollupQueryBuilder"/>: bounded already by the caller only ever passing
 /// one page's worth of distinct pairs.
 /// </remarks>
 public static class SpanDurationQueryBuilder

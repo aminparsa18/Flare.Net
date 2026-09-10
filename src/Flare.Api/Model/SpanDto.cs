@@ -88,4 +88,25 @@ public sealed partial record SpanDto
     /// where every span of the trace is already in hand and a count would be redundant.
     /// </summary>
     public ulong? SpanCount { get; init; }
+
+    /// <summary>
+    /// Whether any span sharing this row's <see cref="TraceId"/> - not just this row
+    /// itself - carries <c>StatusCode = STATUS_CODE_ERROR</c>. Exists because
+    /// <see cref="StatusCode"/> alone, on a <see cref="SpanFilter.RootSpansOnly"/> row,
+    /// only reflects the root span: a trace whose root span succeeds (e.g. a gateway
+    /// returning 200) but has an erroring span deeper in the call chain would otherwise
+    /// read as healthy in the trace list, only visible once the waterfall is opened.
+    /// Populated the same way and under the same condition as <see cref="SpanCount"/> -
+    /// see its remarks and <see cref="Query.SpanQueryService.SearchAsync"/>'s follow-up
+    /// rollup query - <see langword="null"/> for every other <c>/api/spans/search</c>
+    /// result and for <c>GetTraceAsync</c>'s per-span rows, where every span of the trace
+    /// is already in hand and a rollup would be redundant.
+    /// </summary>
+    /// <remarks>
+    /// Appended after <see cref="SpanCount"/>, not inserted between existing members, so
+    /// the MemoryPack wire layout stays backward-compatible with already-deployed
+    /// dashboards that still decode the original member count - see
+    /// <see cref="SpanAttributeFilter.Operator"/>'s remarks for the same convention.
+    /// </remarks>
+    public bool? HasError { get; init; }
 }

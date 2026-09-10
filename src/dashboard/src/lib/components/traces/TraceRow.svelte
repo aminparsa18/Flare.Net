@@ -2,10 +2,14 @@
 	import { goto } from '$app/navigation';
 	import type { SpanDto } from '$lib/traces-api';
 	import { Badge } from '$lib/components/ui/badge';
-	import { statusVariant, statusLabel } from '$lib/traces/status';
+	import { statusVariant, statusLabel, rolledUpStatusCode } from '$lib/traces/status';
 	import { formatDurationNano } from '$lib/traces/duration';
 
 	let { trace }: { trace: SpanDto } = $props();
+
+	// Rolled up across every span in the trace, not just this root row's own statusCode -
+	// see rolledUpStatusCode's remarks.
+	let displayStatusCode = $derived(rolledUpStatusCode(trace));
 
 	// Same hand-formatted, fixed-width time convention as LogRow.formatTime - a
 	// monospace technical column shouldn't jitter row to row with locale-varying widths.
@@ -25,7 +29,7 @@
 	onclick={() => goto(`/traces/${trace.traceId}`)}
 >
 	<span class="text-muted-foreground truncate font-mono text-xs">{formatTime(trace.startTime)}</span>
-	<span><Badge variant={statusVariant(trace.statusCode)}>{statusLabel(trace.statusCode)}</Badge></span>
+	<span><Badge variant={statusVariant(displayStatusCode)}>{statusLabel(displayStatusCode)}</Badge></span>
 	<span class="truncate">{trace.serviceName || '—'}</span>
 	<span class="truncate">{trace.name || '—'}</span>
 	<span class="text-muted-foreground truncate font-mono text-xs">{formatDurationNano(trace.durationNano)}</span>

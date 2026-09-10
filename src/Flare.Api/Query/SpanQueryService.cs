@@ -62,33 +62,37 @@ public sealed class SpanQueryService(IClickHouseClient client, TimeProvider time
             : null;
 
         // Root-span search doubles as Flare's "trace list" view (see SpanDto.SpanCount's
-        // remarks) - only that mode needs a count, so only that mode pays for the
-        // follow-up query.
+        // remarks) - only that mode needs the count/error rollup, so only that mode pays
+        // for the follow-up query.
         if (request.Filter is { RootSpansOnly: true } && spans.Count > 0)
         {
-            spans = await WithSpanCountsAsync(spans, cancellationToken);
+            spans = await WithRollupsAsync(spans, cancellationToken);
         }
 
         return new SpanSearchResponse { Spans = spans, NextCursor = nextCursor };
     }
 
-    private async Task<List<SpanDto>> WithSpanCountsAsync(List<SpanDto> roots, CancellationToken cancellationToken)
+    private async Task<List<SpanDto>> WithRollupsAsync(List<SpanDto> roots, CancellationToken cancellationToken)
     {
-        var built = SpanCountQueryBuilder.Build(roots.Select(r => r.TraceId));
+        var built = SpanRollupQueryBuilder.Build(roots.Select(r => r.TraceId));
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
-        var counts = new Dictionary<string, ulong>();
+        var rollups = new Dictionary<string, (ulong SpanCount, bool HasError)>();
         while (reader.Read())
         {
-            counts[reader.GetString(0)] = reader.GetFieldValue<ulong>(1);
+            rollups[reader.GetString(0)] = (reader.GetFieldValue<ulong>(1), reader.GetByte(2) != 0);
         }
 
-        // A trace id absent from `counts` would mean its own root span vanished between
+        // A trace id absent from `rollups` would mean its own root span vanished between
         // the two queries (a real, if narrow, race with concurrent writes) - falls back
-        // to 1 (itself) rather than null, since "we already know at least this root span
-        // exists" is still true.
-        return roots.ConvertAll(r => r with { SpanCount = counts.GetValueOrDefault(r.TraceId, 1UL) });
+        // to a count of 1 (itself) and no known error rather than null, since "we already
+        // know at least this root span exists, and know its own status" is still true.
+        return roots.ConvertAll(r =>
+        {
+            var (spanCount, hasError) = rollups.GetValueOrDefault(r.TraceId, (1UL, r.StatusCode == "STATUS_CODE_ERROR"));
+            return r with { SpanCount = spanCount, HasError = hasError };
+        });
     }
 
     public async Task<TraceDto?> GetTraceAsync(string traceId, CancellationToken cancellationToken)
