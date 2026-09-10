@@ -66,7 +66,8 @@ Alerting/   AlertEvaluationWorker (the poll-loop BackgroundService that evaluate
             SMTP server settings), AlertMessageFormatter (the fired-alert text shared by
             every channel), IAlertNotifier + WebhookAlertNotifier (the webhook/Slack
             sender), TelegramAlertNotifier (the Telegram sender), EmailAlertNotifier (the
-            email sender), CompositeAlertNotifier (picks between the three per rule).
+            email sender), PagerDutyAlertNotifier (the PagerDuty sender),
+            CompositeAlertNotifier (picks between the four per rule).
 ```
 
 `Model` and `Query` are deliberately pure/ClickHouse-free wherever possible
@@ -141,7 +142,7 @@ queued), so resuming doesn't create a burst of stale events.
 ## Alerting
 
 A saved `LogFilter` condition plus a count threshold over a rolling window, evaluated
-periodically and notified via webhook/Slack, Telegram, or email on breach:
+periodically and notified via webhook/Slack, Telegram, email, or PagerDuty on breach:
 
 ```
 POST   /api/alerts             create
@@ -150,14 +151,24 @@ GET    /api/alerts/{id}        get
 PUT    /api/alerts/{id}        update
 DELETE /api/alerts/{id}        soft-delete
 GET    /api/alerts/{id}/history?limit=50   fired-alert history
-POST   /api/alerts/{id}/test               dry-run the saved rule (ignores cooldown, writes nothing)
+POST   /api/alerts/{id}/test               dry-run the saved rule (ignores cooldown, writes nothing, never notifies)
 POST   /api/alerts/test                    dry-run an unsaved draft (same body shape as create/update)
+POST   /api/alerts/{id}/send-test          send a real test notification through the saved rule's channel (ignores cooldown, writes nothing to alert_events)
+POST   /api/alerts/send-test               send a real test notification through an unsaved draft's channel
 ```
+
+The `/test` pair only ever evaluates the condition - see `AlertTestResult`. The
+`/send-test` pair exists specifically so a channel's config (URL, bot token, SMTP
+address, PagerDuty routing key) can be verified before relying on it in a real incident:
+it calls the same `IAlertNotifier.SendAsync` a real breach would, with `isTest: true` so
+`AlertMessageFormatter` sends distinct "test notification" wording instead of a fake
+breach count - see `AlertNotificationTestResult`.
 
 **Storage: `alert_rules` (ReplacingMergeTree) + `alert_events` (append-only MergeTree)**,
 `db/clickhouse/0003_alert_rules.sql` / `0004_alert_events.sql` (plus
 `0005_alert_rules_telegram.sql`, which adds the `TelegramBotToken`/`TelegramChatId`
-columns, and `0006_alert_rules_email.sql`, which adds `EmailTo`). Rule CRUD is INSERT-only —
+columns, `0006_alert_rules_email.sql`, which adds `EmailTo`, and
+`0012_alert_rules_pagerduty.sql`, which adds `PagerDutyRoutingKey`). Rule CRUD is INSERT-only —
 every create/update inserts a new version, delete inserts an `IsDeleted=1` tombstone, and
 every read goes through `FROM alert_rules FINAL WHERE IsDeleted = 0`. See those
 migrations' own comments and `db/clickhouse/README.md`'s "Design decisions" for the full
@@ -179,10 +190,10 @@ for this pass, since polling matches "threshold/query-based" exactly and is the 
 correct implementation.
 
 **Notification: exactly one channel per rule, picked by `CompositeAlertNotifier`.** A
-rule sets exactly one of `WebhookUrl`, `TelegramBotToken`+`TelegramChatId`, or `EmailTo`
-— never more than one, never none (`AlertRuleRequest.ValidateChannel` 400s a create/update
-that breaks this). `CompositeAlertNotifier` (the `IAlertNotifier` actually registered for
-DI) inspects the rule and delegates to one of:
+rule sets exactly one of `WebhookUrl`, `TelegramBotToken`+`TelegramChatId`, `EmailTo`, or
+`PagerDutyRoutingKey` — never more than one, never none (`AlertRuleRequest.ValidateChannel`
+400s a create/update that breaks this). `CompositeAlertNotifier` (the `IAlertNotifier`
+actually registered for DI) inspects the rule and delegates to one of:
 
 - `WebhookAlertNotifier` — POSTs JSON with a top-level `text` (what Slack's
   incoming-webhook parser renders) plus flat structured fields (`ruleId`,
@@ -203,13 +214,23 @@ DI) inspects the rule and delegates to one of:
   recipient is — so credentials live in one place, not duplicated across rules or stored
   in `alert_rules`. A blank `EmailOptions.Host` (SMTP never configured) is a per-send
   failure recorded in `alert_events`, not a startup error.
+- `PagerDutyAlertNotifier` — POSTs an `event_action: "trigger"` event to PagerDuty's fixed
+  Events API v2 endpoint (`https://events.pagerduty.com/v2/enqueue`) using
+  `PagerDutyRoutingKey` alone - like Email there's no per-rule server URL, but unlike
+  Email there's also no app-wide server config to go with it: the routing key addresses a
+  fixed PagerDuty endpoint directly. No `dedup_key` is sent, so every breach (or test
+  send) opens a new PagerDuty incident rather than deduplicating/auto-resolving against a
+  prior one - a named follow-up, not built now. PagerDuty reliably reports failure via a
+  non-2xx status (unlike Telegram's HTTP-200-with-`ok:false`), so `IsSuccessStatusCode`
+  alone decides success; the response body is only parsed for a clearer error message.
 
-The webhook and Telegram notifiers share the fired-alert message text
+The webhook, Telegram, and PagerDuty notifiers share the fired-alert message text
 (`AlertMessageFormatter.BuildText`, also the email body) and are sent via their own
 named/typed `HttpClient`s (`AddHttpClient<WebhookAlertNotifier>`,
-`AddHttpClient<TelegramAlertNotifier>`), which inherit `Flare.ServiceDefaults`' resilience
-handler (retries/circuit-breaking) for free. `EmailAlertNotifier` has no `HttpClient` —
-MailKit's `SmtpClient` is its own socket-based client, not HTTP.
+`AddHttpClient<TelegramAlertNotifier>`, `AddHttpClient<PagerDutyAlertNotifier>`), which
+inherit `Flare.ServiceDefaults`' resilience handler (retries/circuit-breaking) for free.
+`EmailAlertNotifier` has no `HttpClient` — MailKit's `SmtpClient` is its own socket-based
+client, not HTTP.
 
 ## A known, inherited trade-off
 
@@ -282,9 +303,9 @@ websocat "$(echo "$API" | sed 's#^http#ws#')/api/logs/tail"
 curl -s -X POST "$API/api/alerts" -H 'Content-Type: application/json' -d \
   '{"name":"high error rate","enabled":true,"condition":{"severityNumbers":[17,21]},"threshold":{"count":10,"comparator":"GreaterThanOrEqual"},"windowSeconds":300,"cooldownSeconds":300,"webhookUrl":"https://webhook.site/<your-id>"}'
 
-# Or notify via Telegram instead - webhookUrl, telegramBotToken/telegramChatId, and
-# emailTo are mutually exclusive (a bot token from @BotFather, a chat id from a
-# getUpdates call or @userinfobot)
+# Or notify via Telegram instead - webhookUrl, telegramBotToken/telegramChatId, emailTo,
+# and pagerDutyRoutingKey are mutually exclusive (a bot token from @BotFather, a chat id
+# from a getUpdates call or @userinfobot)
 curl -s -X POST "$API/api/alerts" -H 'Content-Type: application/json' -d \
   '{"name":"high error rate","enabled":true,"condition":{"severityNumbers":[17,21]},"threshold":{"count":10,"comparator":"GreaterThanOrEqual"},"windowSeconds":300,"cooldownSeconds":300,"telegramBotToken":"<bot-token>","telegramChatId":"<chat-id>"}'
 
@@ -294,8 +315,17 @@ curl -s -X POST "$API/api/alerts" -H 'Content-Type: application/json' -d \
 curl -s -X POST "$API/api/alerts" -H 'Content-Type: application/json' -d \
   '{"name":"high error rate","enabled":true,"condition":{"severityNumbers":[17,21]},"threshold":{"count":10,"comparator":"GreaterThanOrEqual"},"windowSeconds":300,"cooldownSeconds":300,"emailTo":"oncall@example.com"}'
 
+# Or PagerDuty instead - a service's Events API v2 integration/routing key, no other
+# server config needed
+curl -s -X POST "$API/api/alerts" -H 'Content-Type: application/json' -d \
+  '{"name":"high error rate","enabled":true,"condition":{"severityNumbers":[17,21]},"threshold":{"count":10,"comparator":"GreaterThanOrEqual"},"windowSeconds":300,"cooldownSeconds":300,"pagerDutyRoutingKey":"<routing-key>"}'
+
 # Dry-run it against current data without waiting for the next poll tick
 curl -s -X POST "$API/api/alerts/<id-from-create-response>/test"
+
+# Or actually send a test notification through its configured channel, to verify the
+# channel's own config (URL/token/SMTP address/routing key) before relying on it for real
+curl -s -X POST "$API/api/alerts/<id-from-create-response>/send-test"
 
 # Fired-alert history
 curl -s "$API/api/alerts/<id-from-create-response>/history"

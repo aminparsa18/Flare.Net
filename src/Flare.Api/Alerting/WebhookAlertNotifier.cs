@@ -17,11 +17,11 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class WebhookAlertNotifier(HttpClient httpClient) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         var payload = new
         {
-            text = AlertMessageFormatter.BuildText(rule, observedCount),
+            text = AlertMessageFormatter.BuildText(rule, observedCount, isTest),
             ruleId = rule.Id,
             ruleName = rule.Name,
             observedCount,

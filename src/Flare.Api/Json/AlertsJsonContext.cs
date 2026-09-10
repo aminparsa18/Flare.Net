@@ -24,5 +24,6 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(AlertRuleListResponse))]
 [JsonSerializable(typeof(AlertHistoryResponse))]
 [JsonSerializable(typeof(AlertTestResult))]
+[JsonSerializable(typeof(AlertNotificationTestResult))]
 [JsonSerializable(typeof(LogFilter))]
 public sealed partial class AlertsJsonContext : JsonSerializerContext;

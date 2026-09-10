@@ -36,6 +36,14 @@ public class AlertChannelValidationTests
     }
 
     [Fact]
+    public void PagerDutyOnly_IsValid()
+    {
+        var request = Build(pagerDutyRoutingKey: "R0123456789ABCDEF0123456789ABCDE");
+
+        Assert.Null(request.ValidateChannel());
+    }
+
+    [Fact]
     public void NoChannelSet_IsInvalid()
     {
         var request = Build();
@@ -68,13 +76,22 @@ public class AlertChannelValidationTests
     }
 
     [Fact]
-    public void AllThreeChannelsSet_IsInvalid()
+    public void EmailAndPagerDutySet_IsInvalid()
+    {
+        var request = Build(emailTo: "oncall@example.com", pagerDutyRoutingKey: "R0123456789ABCDEF0123456789ABCDE");
+
+        Assert.NotNull(request.ValidateChannel());
+    }
+
+    [Fact]
+    public void AllFourChannelsSet_IsInvalid()
     {
         var request = Build(
             webhookUrl: "https://hooks.slack.com/services/x",
             telegramBotToken: "123:abc",
             telegramChatId: "-100",
-            emailTo: "oncall@example.com");
+            emailTo: "oncall@example.com",
+            pagerDutyRoutingKey: "R0123456789ABCDEF0123456789ABCDE");
 
         Assert.NotNull(request.ValidateChannel());
     }
@@ -109,11 +126,22 @@ public class AlertChannelValidationTests
         Assert.Null(request.ValidateChannel());
     }
 
+    [Theory]
+    [InlineData("   ")]
+    [InlineData("")]
+    public void BlankPagerDutyRoutingKey_DoesNotCountAsSet(string pagerDutyRoutingKey)
+    {
+        var request = Build(webhookUrl: "https://hooks.slack.com/services/x", pagerDutyRoutingKey: pagerDutyRoutingKey);
+
+        Assert.Null(request.ValidateChannel());
+    }
+
     private static AlertRuleRequest Build(
         string webhookUrl = "",
         string telegramBotToken = "",
         string telegramChatId = "",
-        string emailTo = "") => new()
+        string emailTo = "",
+        string pagerDutyRoutingKey = "") => new()
     {
         Name = "test",
         Threshold = new AlertThreshold { Count = 1 },
@@ -122,5 +150,6 @@ public class AlertChannelValidationTests
         TelegramBotToken = telegramBotToken,
         TelegramChatId = telegramChatId,
         EmailTo = emailTo,
+        PagerDutyRoutingKey = pagerDutyRoutingKey,
     };
 }

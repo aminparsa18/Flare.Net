@@ -215,14 +215,15 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<HostStatsPoller>()
 
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
-// Named/typed HttpClients so the webhook/Slack and Telegram senders inherit
+// Named/typed HttpClients so the webhook/Slack, Telegram, and PagerDuty senders inherit
 // AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
 // discovery) for free. Registered as their own concrete types, not IAlertNotifier -
 // CompositeAlertNotifier (the one actually registered as IAlertNotifier below) holds all
-// three and picks per-rule which one to delegate to. EmailAlertNotifier gets no typed
+// four and picks per-rule which one to delegate to. EmailAlertNotifier gets no typed
 // HttpClient - MailKit's SmtpClient is its own socket-based client, not HTTP.
 builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
+builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
 builder.Services.AddSingleton<EmailAlertNotifier>();
 builder.Services.AddSingleton<IAlertNotifier, CompositeAlertNotifier>();
 builder.Services.AddHostedService<AlertEvaluationWorker>();

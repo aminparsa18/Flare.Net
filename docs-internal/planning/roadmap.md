@@ -52,12 +52,3 @@ folders are where "what happened and why" actually lives.
   `exception.type`/`exception.message`/`exception.stacktrace` live as
   event attributes), but nothing groups/dedupes it and there's no
   `routes/errors` page. Not started.
-- **Notification channel improvements: PagerDuty as a fourth channel type,
-  plus a "send test alert" action on any channel.**
-  [`AlertModels.cs`](../../src/Flare.Api/Model/AlertModels.cs) supports
-  exactly three mutually-exclusive channels today (webhook/Slack via
-  `WebhookUrl`, Telegram, Email) via `ValidateChannel()` — no PagerDuty,
-  and no way to verify a channel's config (URL, bot token, SMTP address)
-  actually works before relying on it in a real incident. PagerDuty would
-  follow the same one-channel-per-rule shape as the existing three; the
-  test action is channel-agnostic and applies to all four. Not started.

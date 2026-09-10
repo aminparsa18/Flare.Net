@@ -11,8 +11,17 @@ namespace Flare.Api.Alerting;
 /// </summary>
 public static class AlertMessageFormatter
 {
-    public static string BuildText(AlertRule rule, ulong observedCount)
+    /// <param name="isTest">
+    /// True from the "send test alert" endpoints - <paramref name="observedCount"/> isn't
+    /// a real breach in that case, so the text says so instead of reporting it as one.
+    /// </param>
+    public static string BuildText(AlertRule rule, ulong observedCount, bool isTest = false)
     {
+        if (isTest)
+        {
+            return $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly.";
+        }
+
         var comparatorSymbol = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
         return $":rotating_light: Alert \"{rule.Name}\" fired: {observedCount} events " +
                $"({comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s";

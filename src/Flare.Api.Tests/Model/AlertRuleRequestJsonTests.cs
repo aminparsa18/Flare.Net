@@ -35,7 +35,8 @@ public class AlertRuleRequestJsonTests
         // indistinguishable from a caller explicitly requesting those values. Post-fix,
         // "omitted" is representable as null instead of colliding with a valid explicit
         // value, which is what makes AlertQueryService.ResolveDefaults's coalescing correct.
-        // EmailTo (added after this fix, for the Email channel) follows the same shape.
+        // EmailTo/PagerDutyRoutingKey (added after this fix, for the Email/PagerDuty
+        // channels) follow the same shape.
         var request = JsonSerializer.Deserialize(MinimalJson, AlertsJsonContext.Default.AlertRuleRequest)!;
 
         Assert.Null(request.Enabled);
@@ -45,6 +46,7 @@ public class AlertRuleRequestJsonTests
         Assert.Null(request.TelegramBotToken);
         Assert.Null(request.TelegramChatId);
         Assert.Null(request.EmailTo);
+        Assert.Null(request.PagerDutyRoutingKey);
     }
 
     [Fact]
@@ -55,7 +57,7 @@ public class AlertRuleRequestJsonTests
         // that happens to equal default(T).
         const string json = """
             {"name":"x","threshold":{"count":10},"windowSeconds":300,
-             "enabled":false,"cooldownSeconds":0,"description":"","emailTo":""}
+             "enabled":false,"cooldownSeconds":0,"description":"","emailTo":"","pagerDutyRoutingKey":""}
             """;
 
         var request = JsonSerializer.Deserialize(json, AlertsJsonContext.Default.AlertRuleRequest)!;
@@ -64,6 +66,7 @@ public class AlertRuleRequestJsonTests
         Assert.Equal(0, request.CooldownSeconds);
         Assert.Equal("", request.Description);
         Assert.Equal("", request.EmailTo);
+        Assert.Equal("", request.PagerDutyRoutingKey);
     }
 }
 
@@ -92,6 +95,7 @@ public class AlertQueryServiceDefaultsTests
         Assert.Equal("", defaults.TelegramBotToken);
         Assert.Equal("", defaults.TelegramChatId);
         Assert.Equal("", defaults.EmailTo);
+        Assert.Equal("", defaults.PagerDutyRoutingKey);
     }
 
     [Fact]
@@ -109,6 +113,7 @@ public class AlertQueryServiceDefaultsTests
             TelegramBotToken = "bot-token",
             TelegramChatId = "chat-id",
             EmailTo = "oncall@example.com",
+            PagerDutyRoutingKey = "R0123456789ABCDEF0123456789ABCDE",
         };
 
         var defaults = AlertQueryService.ResolveDefaults(request);
@@ -120,5 +125,6 @@ public class AlertQueryServiceDefaultsTests
         Assert.Equal("bot-token", defaults.TelegramBotToken);
         Assert.Equal("chat-id", defaults.TelegramChatId);
         Assert.Equal("oncall@example.com", defaults.EmailTo);
+        Assert.Equal("R0123456789ABCDEF0123456789ABCDE", defaults.PagerDutyRoutingKey);
     }
 }

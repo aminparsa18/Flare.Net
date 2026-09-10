@@ -35,7 +35,7 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class EmailAlertNotifier(IOptions<EmailOptions> options) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         var opts = options.Value;
         if (string.IsNullOrWhiteSpace(opts.Host))
@@ -50,8 +50,8 @@ public sealed class EmailAlertNotifier(IOptions<EmailOptions> options) : IAlertN
             message.To.Add(MailboxAddress.Parse(recipient));
         }
 
-        message.Subject = $"Flare alert: {rule.Name}";
-        message.Body = new TextPart("plain") { Text = AlertMessageFormatter.BuildText(rule, observedCount) };
+        message.Subject = isTest ? $"Flare test alert: {rule.Name}" : $"Flare alert: {rule.Name}";
+        message.Body = new TextPart("plain") { Text = AlertMessageFormatter.BuildText(rule, observedCount, isTest) };
 
         try
         {

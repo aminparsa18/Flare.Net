@@ -19,6 +19,7 @@ function describeChannel(rule: AlertRule): string {
 	if (rule.webhookUrl) return 'Webhook';
 	if (rule.telegramBotToken && rule.telegramChatId) return 'Telegram';
 	if (rule.emailTo) return 'Email';
+	if (rule.pagerDutyRoutingKey) return 'PagerDuty';
 	return 'none';
 }
 
