@@ -3,9 +3,11 @@
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import { Switch } from '$lib/components/ui/switch';
+	import { Button } from '$lib/components/ui/button';
 	import TracesViewTabs from './TracesViewTabs.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { tracesExplorerContext } from '$lib/traces/context';
 	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import * as m from '$lib/paraglide/messages';
@@ -60,6 +62,11 @@
 		selected={explorer.filter.services}
 		onChange={(next) => explorer.setServices(next)}
 	/>
+
+	<Button variant="ghost" size="sm" onclick={() => explorer.resetFilters()} disabled={!explorer.hasActiveFilters()}>
+		<XIcon data-icon="inline-start" />
+		{m.tracesToolbar_clearFilters()}
+	</Button>
 
 	<!-- Re-runs the trace search on an interval while on - see
 	     TracesExplorerState.autoRefreshEnabled's own remarks. A plain `title`, same "one

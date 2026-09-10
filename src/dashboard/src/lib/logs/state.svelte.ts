@@ -367,6 +367,38 @@ export class LogsExplorerState {
 		addRecentSearch(search);
 	}
 
+	/** Whether the toolbar's "Clear filters" button has anything to do - same fields `resetFilters` zeroes out. Drives that button's disabled state so it isn't a permanently-live no-op. */
+	hasActiveFilters(): boolean {
+		return (
+			this.filter.search !== '' ||
+			this.filter.services.length > 0 ||
+			this.filter.severityNumbers.length > 0 ||
+			this.filter.attributeFilters.length > 0 ||
+			this.filter.patternId !== '' ||
+			this.filter.attribute !== null
+		);
+	}
+
+	/**
+	 * Toolbar's "Clear filters" button - resets every content filter (search, services,
+	 * severity, user-built attribute filters, and the two sticky drill-down filters
+	 * pattern/attribute otherwise only dismissible via their own badge) back to default in
+	 * one go. Deliberately leaves `timeRangePreset`/`customRange` and `live` alone: those
+	 * are the toolbar's own primary controls, not "a filter" in the sense this button
+	 * targets - same distinction `clearSelectedBucket` draws for the chart selection.
+	 */
+	resetFilters(): void {
+		this.selectedBucketRange = null;
+		this.filter.search = '';
+		this.filter.services = [];
+		this.filter.severityNumbers = [];
+		this.filter.attributeFilters = [];
+		this.filter.patternId = '';
+		this.patternFilterLabel = null;
+		this.filter.attribute = null;
+		this.applyFilterChange();
+	}
+
 	#prependLive(event: LogEventDto): void {
 		if (this.#seenIds.has(event.eventId)) return; // duplicate delivery (e.g. a re-subscribe race)
 		this.#seenIds.add(event.eventId);

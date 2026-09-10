@@ -101,6 +101,17 @@ export class ErrorsExplorerState {
 		void this.runSearch();
 	}
 
+	/** Whether the toolbar's "Clear filters" button has anything to do - this page only has one content filter. */
+	hasActiveFilters(): boolean {
+		return this.filter.services.length > 0;
+	}
+
+	/** Toolbar's "Clear filters" button - same "leave the time range alone" scope LogsExplorerState.resetFilters documents for itself. */
+	resetFilters(): void {
+		this.filter.services = [];
+		void this.runSearch();
+	}
+
 	setSort(column: ErrorsSortColumn): void {
 		if (this.sortColumn === column) {
 			this.sortDescending = !this.sortDescending;
