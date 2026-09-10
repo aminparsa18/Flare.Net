@@ -72,9 +72,18 @@
          "multi-signal incident.zip export mode" item. No backend changes - three
          existing endpoints (traces/{traceId}, logs/search, metrics/names+metrics/query),
          reusing TracesCommand/MetricsCommand/MetricCommand's own wire DTOs rather than
-         duplicating them. Tag on release: flare-cli-v{Version}
+         duplicating them. Bumped 0.1.6 -> 0.1.7 (2026-09-10): both topology profiles'
+         FLARE_IMAGE_TAG default (Internal/TopologyProfile.cs, Templates/env.template,
+         Templates/env.cluster.template, and state.json's ImageTag fallback) moved to
+         "0.5.0" - Flare v0.5.0 is the first tagged release that actually publishes a
+         flare-alert-worker image to Docker Hub (docs-internal/adr/
+         0018-alert-worker-extraction.md's release gate; confirmed live on Docker Hub
+         before this bump), and both templates' compose files now run an alert-worker
+         container that would otherwise fail to pull. Cluster mode's separate 0.3.0 pin
+         (see TopologyProfile.cs's own remarks) is superseded, not just bumped in place -
+         both topologies now converge on the same tag. Tag on release: flare-cli-v{Version}
          (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.6</Version>
+    <Version>0.1.7</Version>
     <Authors>Amin Parsa</Authors>
     <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
     <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>

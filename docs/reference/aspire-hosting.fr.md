@@ -10,7 +10,7 @@ Microsoft). Pour savoir comment l'utiliser, voir
 [`../how-to/run-with-aspire.md`](../how-to/run-with-aspire.fr.md).
 
 > **État actuel :** publié sur nuget.org sous le nom `Flare.Hosting.Aspire`
-> (actuellement `0.4.0`).
+> (actuellement `0.4.1`).
 
 ## `AddFlare`
 
@@ -18,7 +18,7 @@ Microsoft). Pour savoir comment l'utiliser, voir
 IResourceBuilder<FlareResource> AddFlare(
     this IDistributedApplicationBuilder builder,
     string name = "flare",
-    string imageTag = "0.2.0",
+    string imageTag = "0.5.0",
     bool enableResourceGraph = false)
 ```
 
@@ -32,7 +32,7 @@ retourné, la convention Aspire habituelle (comparez avec
 | Paramètre | Signification |
 |---|---|
 | `name` | Le nom du groupe de ressources Flare dans le tableau de bord Aspire. |
-| `imageTag` | Par défaut, la dernière release stable de Flare contre laquelle cette version du paquet a été testée (actuellement `"0.2.0"`), tirée des tags immuables `v*.*.*` de Docker Hub. Délibérément pas les tags flottants `latest`/`edge` — cette valeur par défaut n'avance que lorsqu'une nouvelle release de `Flare.Hosting.Aspire` la fait progresser. Passez `imageTag: "edge"` pour suivre à la place la branche `main` non publiée de Flare. `WithIngestImage`/`WithApiImage`/`WithDashboardImage` réutilisent ce même tag quand on ne surcharge que le nom d'image/registre — pas de surcharge de tag séparée par image. |
+| `imageTag` | Par défaut, la dernière release stable de Flare contre laquelle cette version du paquet a été testée (actuellement `"0.5.0"`), tirée des tags immuables `v*.*.*` de Docker Hub. Délibérément pas les tags flottants `latest`/`edge` — cette valeur par défaut n'avance que lorsqu'une nouvelle release de `Flare.Hosting.Aspire` la fait progresser. Passez `imageTag: "edge"` pour suivre à la place la branche `main` non publiée de Flare. `WithIngestImage`/`WithApiImage`/`WithDashboardImage` réutilisent ce même tag quand on ne surcharge que le nom d'image/registre — pas de surcharge de tag séparée par image. |
 | `enableResourceGraph` | Active la page Resources du tableau de bord pour cette instance Flare. Désactivé par défaut. Conservé comme argument de constructeur (contrairement à tout ce qui suit) parce qu'il décide si des ressources supplémentaires entières existent ou non — un sidecar docker-socket-proxy sur Docker ([ADR-0005](../../docs-internal/adr/0005-docker-socket-proxy-for-resources-page.md)), ou un `ServiceAccount`/`Role`/`RoleBinding` RBAC sur Kubernetes ([ADR-0006](../../docs-internal/adr/0006-kubernetes-resource-graph-rbac-scoping.md)) — plus invasif à ajouter après coup qu'à reconfigurer un port ou une image sur une ressource déjà créée. |
 
 ### Méthodes de chaîne `With*`
