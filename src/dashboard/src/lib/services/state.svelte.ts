@@ -9,8 +9,6 @@
 import { getServiceOverview, getServiceDependencyGraph, type ServiceMetrics, type ServiceDependencyGraph } from '$lib/services-api';
 import * as m from '$lib/paraglide/messages';
 
-export type ServicesViewMode = 'table' | 'map';
-
 export type ServicesWindowPreset = '5m' | '15m' | '1h' | '6h' | '24h';
 
 // No `label` field - same reasoning as ingestion/state.svelte.ts's INGESTION_WINDOW_PRESETS:
@@ -49,15 +47,11 @@ export class ServicesState {
 	loading = $state(false);
 	error = $state<string | null>(null);
 
-	// Table vs. Map - two views over the same window, not two separate pages (see this
-	// tab's own remarks on the Traces page). Only the active view's data is fetched -
-	// switching views re-fetches rather than eagerly loading both, same "don't run a query
-	// nothing on screen needs" instinct as `load()` deferring until the tab is first
-	// visited at all.
-	viewMode = $state<ServicesViewMode>('table');
+	// The dependency map, rendered below the table (not behind a separate tab) - both
+	// views share this one window, so both are fetched together on every load()/poll.
 	graph = $state.raw<ServiceDependencyGraph | null>(null);
 
-	// The Map view's per-node drill-down selection - same plain-field-mutated-by-the-clicking-
+	// The map's per-node drill-down selection - same plain-field-mutated-by-the-clicking-
 	// component, cleared-on-close precedent as TraceDetailState.selectedSpanId (see
 	// SpanDetailSheet.svelte's own onOpenChange). Lives here rather than as local state on
 	// ServiceDependencyGraph.svelte because the dialog reading it (ServiceCallBreakdownDialog)
@@ -84,22 +78,21 @@ export class ServicesState {
 		const abort = new AbortController();
 		this.#abort = abort;
 
-		// Only show the spinner on the very first load for this window/view - a background
-		// poll refresh shouldn't blank the table (or graph) every 10s while data is already
-		// on screen (same reasoning as IngestionState.load).
-		const hasData = this.viewMode === 'table' ? this.services != null : this.graph != null;
+		// Only show the spinner on the very first load for this window - a background poll
+		// refresh shouldn't blank the table+map every 10s while data is already on screen
+		// (same reasoning as IngestionState.load). Table and map share one window, so both
+		// are fetched together, in parallel - not "load whichever is visible": both are
+		// always visible now (see the Traces page's own remarks on why the tab no longer
+		// switches between them).
+		const hasData = this.services != null && this.graph != null;
 		if (!hasData) this.loading = true;
 		this.error = null;
 		try {
-			if (this.viewMode === 'table') {
-				const response = await getServiceOverview(this.#minutes(), abort.signal);
-				if (abort.signal.aborted) return;
-				this.services = response.services;
-			} else {
-				const response = await getServiceDependencyGraph(this.#minutes(), abort.signal);
-				if (abort.signal.aborted) return;
-				this.graph = response;
-			}
+			const minutes = this.#minutes();
+			const [overview, graph] = await Promise.all([getServiceOverview(minutes, abort.signal), getServiceDependencyGraph(minutes, abort.signal)]);
+			if (abort.signal.aborted) return;
+			this.services = overview.services;
+			this.graph = graph;
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.error = err instanceof Error ? err.message : String(err);
@@ -111,18 +104,10 @@ export class ServicesState {
 	setWindowPreset(preset: ServicesWindowPreset): void {
 		if (this.windowPreset === preset) return;
 		this.windowPreset = preset;
-		// A new window is a genuinely different query, not a background refresh - force
-		// the spinner for whichever view is active.
+		// A new window is a genuinely different pair of queries, not a background refresh -
+		// force the spinner.
 		this.services = null;
 		this.graph = null;
-		void this.load();
-	}
-
-	setViewMode(mode: ServicesViewMode): void {
-		if (this.viewMode === mode) return;
-		this.viewMode = mode;
-		// Switching views is the first load of a query that's never run yet (or is stale
-		// from a since-changed window) - same spinner treatment as a window change.
 		void this.load();
 	}
 

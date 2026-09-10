@@ -109,25 +109,24 @@
 		</div>
 	{:else}
 		<ServicesToolbar {activeTab} onTabChange={setActiveTab} />
-		{#if services.viewMode === 'table'}
-			<div class="flex min-h-0 flex-1 flex-col overflow-auto">
-				{#if services.error}
-					<p class="text-destructive px-4 py-3 text-sm">{services.error}</p>
-				{/if}
-				<ServicesSummaryTiles />
-				<ServicesTable />
-			</div>
-		{:else}
-			<!-- No overflow-auto here, unlike the Table branch above - SvelteFlow manages its
-			     own canvas and panning, same container shape as the trace-detail page's own
-			     ServiceMap.svelte wrapper. -->
-			<div class="flex min-h-0 flex-1 flex-col">
-				{#if services.error}
-					<p class="text-destructive px-4 py-3 text-sm">{services.error}</p>
-				{/if}
+		<!-- Table then map, stacked in one scrollable column - not a Table/Map tab switch
+		     (dropped after feedback that a toggle was unnecessary indirection for two views
+		     that share one window and are both cheap enough to just show together). The
+		     map gets a fixed height (SvelteFlow needs a sized container, unlike the table's
+		     natural height) and its own `flex flex-col` wrapper so ServiceDependencyGraph's
+		     internal `flex-1`/`h-full` classes still resolve against something, the same as
+		     when it had the whole tab's height to itself. -->
+		<div class="flex min-h-0 flex-1 flex-col overflow-auto">
+			{#if services.error}
+				<p class="text-destructive px-4 py-3 text-sm">{services.error}</p>
+			{/if}
+			<ServicesSummaryTiles />
+			<ServicesTable />
+			<h3 class="text-muted-foreground px-4 pt-2 text-sm font-medium">{m.servicesPage_dependencyMapHeading()}</h3>
+			<div class="flex h-[480px] shrink-0 flex-col px-4 pt-2 pb-4">
 				<ServiceDependencyGraph graph={services.graph} />
 			</div>
-		{/if}
+		</div>
 	{/if}
 </div>
 <ServiceCallBreakdownDialog />

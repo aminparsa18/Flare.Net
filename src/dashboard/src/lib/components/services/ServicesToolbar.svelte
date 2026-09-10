@@ -1,12 +1,9 @@
 <script lang="ts">
 	import * as Select from '$lib/components/ui/select';
 	import TracesViewTabs from '$lib/components/traces/TracesViewTabs.svelte';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import { cn } from '$lib/utils';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { servicesContext } from '$lib/services/context';
 	import { SERVICES_WINDOW_PRESETS, servicesWindowPresetLabel, type ServicesWindowPreset } from '$lib/services/state.svelte';
-	import * as m from '$lib/paraglide/messages';
 
 	interface Props {
 		activeTab: 'traces' | 'services';
@@ -32,24 +29,6 @@
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
 	<TracesViewTabs {activeTab} {onTabChange} />
-	<!-- Table vs. Map - same plain buttonVariants toggle style as TracesViewTabs (see its
-	     own remarks), scoped to this tab only since only the Services tab has two views. -->
-	<div class="flex items-center gap-1">
-		<button
-			type="button"
-			class={cn(buttonVariants({ variant: services.viewMode === 'table' ? 'secondary' : 'ghost', size: 'sm' }))}
-			onclick={() => services.setViewMode('table')}
-		>
-			{m.servicesToolbar_tableView()}
-		</button>
-		<button
-			type="button"
-			class={cn(buttonVariants({ variant: services.viewMode === 'map' ? 'secondary' : 'ghost', size: 'sm' }))}
-			onclick={() => services.setViewMode('map')}
-		>
-			{m.servicesToolbar_mapView()}
-		</button>
-	</div>
 	<Select.Root
 		type="single"
 		value={services.windowPreset}
