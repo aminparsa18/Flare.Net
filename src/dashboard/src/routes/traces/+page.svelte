@@ -11,6 +11,7 @@
 	import SpanAttributeFiltersRow from '$lib/components/traces/SpanAttributeFiltersRow.svelte';
 	import TraceList from '$lib/components/traces/TraceList.svelte';
 	import ServicesToolbar from '$lib/components/services/ServicesToolbar.svelte';
+	import ResourceAttributeFiltersRow from '$lib/components/services/ResourceAttributeFiltersRow.svelte';
 	import ServicesSummaryTiles from '$lib/components/services/ServicesSummaryTiles.svelte';
 	import ServicesTable from '$lib/components/services/ServicesTable.svelte';
 	import ServiceDependencyGraph from '$lib/components/services/ServiceDependencyGraph.svelte';
@@ -111,6 +112,7 @@
 		</div>
 	{:else}
 		<ServicesToolbar {activeTab} onTabChange={setActiveTab} />
+		<ResourceAttributeFiltersRow />
 		<!-- Table then map, stacked in one scrollable column - not a Table/Map tab switch
 		     (dropped after feedback that a toggle was unnecessary indirection for two views
 		     that share one window and are both cheap enough to just show together). The

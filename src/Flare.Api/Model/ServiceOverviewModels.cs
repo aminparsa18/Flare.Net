@@ -38,7 +38,7 @@ public sealed partial record ServiceMetrics
 }
 
 /// <summary>
-/// Response body for <c>GET /api/services/overview</c>. Deliberately hand-written on
+/// Response body for <c>POST /api/services/overview</c>. Deliberately hand-written on
 /// the MemoryPack TS side (not <c>[GenerateTypeScript]</c>) - an
 /// <c>IReadOnlyList&lt;ServiceMetrics&gt;</c> member blocks the generator the same way
 /// <c>IndexingStatsResponse</c>'s list members do; see <c>indexing-api.ts</c>'s header
@@ -52,4 +52,26 @@ public sealed partial record ServiceOverviewResponse
 
     /// <summary>Highest <see cref="ServiceMetrics.RequestCount"/> first - see <see cref="Query.ServiceOverviewQueryBuilder"/>'s <c>ORDER BY</c>. The dashboard table re-sorts client-side on any column; this default just makes the unsorted table land on the busiest, most likely-relevant services first.</summary>
     public required IReadOnlyList<ServiceMetrics> Services { get; init; }
+}
+
+/// <summary>
+/// Request body for <c>POST /api/services/overview</c> - was a plain
+/// <c>?windowMinutes=</c> query-string param until the Services tab's resource-attribute
+/// filter chips (docs-internal/planning/roadmap.md's now-removed "Resource-attribute
+/// filtering on the Traces &gt; Services tab" item) made the request structured/multi-valued,
+/// the same "filters are multi-valued/structured, so POST not GET-with-query-string"
+/// reasoning this codebase's CLAUDE.md already documents for <c>/api/logs/*</c>. Flat
+/// fields rather than a nested nested filter object - unlike <see cref="LogSearchRequest.Filter"/>,
+/// there's no third field these two would otherwise collide with, so a wrapper type would
+/// only add System.Text.Json's documented init-property-default-nulling gotcha
+/// (<see cref="LogSearchRequest.Filter"/>'s own remarks) for no benefit.
+/// </summary>
+[MemoryPackable]
+public sealed partial record ServiceOverviewRequest
+{
+    /// <summary>Lookback window, minutes. Null/non-positive defaults - see <see cref="Query.ServiceOverviewQueryBuilder.ClampWindowMinutes"/>.</summary>
+    public int? WindowMinutes { get; init; }
+
+    /// <summary>Equality filters against <c>ResourceAttributes</c>, ANDed together - the Services tab's filter chips. Null/empty = no narrowing.</summary>
+    public IReadOnlyList<ResourceAttributeFilter>? ResourceAttributes { get; init; }
 }

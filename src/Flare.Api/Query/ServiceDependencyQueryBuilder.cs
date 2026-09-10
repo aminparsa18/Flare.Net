@@ -1,5 +1,6 @@
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Model;
 
 namespace Flare.Api.Query;
 
@@ -85,12 +86,25 @@ public static class ServiceDependencyQueryBuilder
     private static string EffectiveServiceExpr(string alias) =>
         $"if({alias}SpanAttributes['peer.service'] != '', {alias}SpanAttributes['peer.service'], {alias}ServiceName)";
 
-    public static ServiceDependencyGraphSql Build(TimeSpan window, DateTimeOffset now)
+    /// <param name="resourceAttributes">
+    /// Optional equality filters against <c>ResourceAttributes</c> - the Services tab's
+    /// filter chips. Applied unqualified to the nodes query; applied to <b>both</b> the
+    /// <c>parent.</c> and <c>child.</c> sides of the edges query (unlike the window
+    /// predicate's documented child-only latitude above) - a chip like
+    /// <c>deployment.environment=production</c> means "show only what's running in
+    /// production," and an edge whose caller matched but whose callee didn't (or vice
+    /// versa) would misrepresent that. Null/empty = no narrowing, same queries as before
+    /// this parameter existed. See <see cref="ResourceAttributeFilterSqlBuilder"/>.
+    /// </param>
+    public static ServiceDependencyGraphSql Build(TimeSpan window, DateTimeOffset now, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes = null)
     {
         var nodesParameters = new ClickHouseParameterCollection();
         nodesParameters.AddParameter("from", (now - window).UtcDateTime);
         nodesParameters.AddParameter("to", now.UtcDateTime);
         nodesParameters.AddParameter("errorStatus", "STATUS_CODE_ERROR");
+
+        var nodesClauses = new List<string> { "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}" };
+        ResourceAttributeFilterSqlBuilder.AppendClauses(nodesClauses, nodesParameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
 
         var nodesSql = "SELECT\n" +
             $"    {EffectiveServiceExpr(string.Empty)} AS Service,\n" +
@@ -99,13 +113,21 @@ public static class ServiceDependencyQueryBuilder
             "    sum(DurationNano) AS TotalDurationNano,\n" +
             "    topK(3)(Name) AS TopOperations\n" +
             "FROM spans\n" +
-            "WHERE StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}\n" +
+            "WHERE " + string.Join(" AND ", nodesClauses) + "\n" +
             "GROUP BY Service\n" +
             "ORDER BY SpanCount DESC";
 
         var edgesParameters = new ClickHouseParameterCollection();
         edgesParameters.AddParameter("from", (now - window).UtcDateTime);
         edgesParameters.AddParameter("to", now.UtcDateTime);
+
+        var edgesClauses = new List<string>
+        {
+            "child.StartTime >= {from:DateTime64(9)} AND child.StartTime < {to:DateTime64(9)}",
+            "child.ParentSpanId != ''",
+        };
+        ResourceAttributeFilterSqlBuilder.AppendClauses(edgesClauses, edgesParameters, resourceAttributes, columnAlias: "parent.", paramPrefix: "parent");
+        ResourceAttributeFilterSqlBuilder.AppendClauses(edgesClauses, edgesParameters, resourceAttributes, columnAlias: "child.", paramPrefix: "child");
 
         var edgesSql = "SELECT\n" +
             $"    {EffectiveServiceExpr("parent.")} AS Source,\n" +
@@ -114,7 +136,7 @@ public static class ServiceDependencyQueryBuilder
             "    sum(child.DurationNano) AS TotalDurationNano\n" +
             "FROM spans AS child\n" +
             "INNER JOIN spans AS parent ON parent.TraceId = child.TraceId AND parent.SpanId = child.ParentSpanId\n" +
-            "WHERE child.StartTime >= {from:DateTime64(9)} AND child.StartTime < {to:DateTime64(9)} AND child.ParentSpanId != ''\n" +
+            "WHERE " + string.Join(" AND ", edgesClauses) + "\n" +
             "GROUP BY Source, Target\n" +
             "HAVING Source != Target\n" +
             "ORDER BY CallCount DESC";

@@ -1,3 +1,4 @@
+using Flare.Api.Model;
 using Flare.Api.Query;
 using Xunit;
 
@@ -52,5 +53,35 @@ public class ServiceOverviewQueryBuilderTests
     public void ClampWindowMinutes_DefaultsAndClamps(int requested, int expected)
     {
         Assert.Equal(expected, ServiceOverviewQueryBuilder.ClampWindowMinutes(requested));
+    }
+
+    [Fact]
+    public void Build_WithNoResourceAttributes_OmitsAttributeClauses()
+    {
+        var result = ServiceOverviewQueryBuilder.Build(TimeSpan.FromMinutes(15), Now);
+
+        Assert.DoesNotContain("ResourceAttributes", result.Sql);
+    }
+
+    [Fact]
+    public void Build_WithResourceAttributes_AndsInEqualityClauses_AndBindsKeyValueParameters()
+    {
+        var resourceAttributes = new[]
+        {
+            new ResourceAttributeFilter { Key = "deployment.environment", Value = "production" },
+            new ResourceAttributeFilter { Key = "host.name", Value = "web-1" },
+        };
+
+        var result = ServiceOverviewQueryBuilder.Build(TimeSpan.FromMinutes(15), Now, resourceAttributes);
+
+        Assert.Contains("ResourceAttributes[{ResAttrKey0:String}] = {ResAttrValue0:String}", result.Sql);
+        Assert.Contains("ResourceAttributes[{ResAttrKey1:String}] = {ResAttrValue1:String}", result.Sql);
+        Assert.Contains("WHERE StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)} AND ParentSpanId = '' AND ResourceAttributes", result.Sql);
+
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("deployment.environment", parameters["ResAttrKey0"]);
+        Assert.Equal("production", parameters["ResAttrValue0"]);
+        Assert.Equal("host.name", parameters["ResAttrKey1"]);
+        Assert.Equal("web-1", parameters["ResAttrValue1"]);
     }
 }

@@ -55,7 +55,7 @@ public sealed partial record ServiceDependencyEdge
 }
 
 /// <summary>
-/// Response body for <c>GET /api/services/dependencies</c>. Deliberately hand-written on
+/// Response body for <c>POST /api/services/dependencies</c>. Deliberately hand-written on
 /// the MemoryPack TS side (not <c>[GenerateTypeScript]</c>) - an
 /// <c>IReadOnlyList&lt;T&gt;</c> member blocks the generator the same way
 /// <see cref="ServiceOverviewResponse"/>'s own list member does; see <c>indexing-api.ts</c>'s
@@ -72,4 +72,15 @@ public sealed partial record ServiceDependencyGraphResponse
 
     /// <summary>Busiest edge (by <see cref="ServiceDependencyEdge.CallCount"/>) first - see <see cref="Query.ServiceDependencyQueryBuilder"/>'s edges <c>ORDER BY</c>.</summary>
     public required IReadOnlyList<ServiceDependencyEdge> Edges { get; init; }
+}
+
+/// <summary>Request body for <c>POST /api/services/dependencies</c> - see <see cref="ServiceOverviewRequest"/>'s remarks for why this is POST-with-a-flat-body rather than the GET-with-query-string it used to be.</summary>
+[MemoryPackable]
+public sealed partial record ServiceDependencyRequest
+{
+    /// <summary>Lookback window, minutes. Null/non-positive defaults - see <see cref="Query.ServiceDependencyQueryBuilder.ClampWindowMinutes"/>.</summary>
+    public int? WindowMinutes { get; init; }
+
+    /// <summary>Equality filters against <c>ResourceAttributes</c>, ANDed together - the Services tab's filter chips. Null/empty = no narrowing. See <see cref="Query.ServiceDependencyQueryBuilder"/>'s remarks on how this is applied to the edges query's two aliased sides.</summary>
+    public IReadOnlyList<ResourceAttributeFilter>? ResourceAttributes { get; init; }
 }

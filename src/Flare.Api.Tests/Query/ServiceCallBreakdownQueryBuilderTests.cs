@@ -1,3 +1,4 @@
+using Flare.Api.Model;
 using Flare.Api.Query;
 using Xunit;
 
@@ -63,5 +64,24 @@ public class ServiceCallBreakdownQueryBuilderTests
     public void ClampWindowMinutes_DefaultsAndClamps_SameAsServiceOverviewQueryBuilder(int requested, int expected)
     {
         Assert.Equal(expected, ServiceCallBreakdownQueryBuilder.ClampWindowMinutes(requested));
+    }
+
+    [Fact]
+    public void Build_WithResourceAttributes_AndsInEqualityClauses_OnBothQueries()
+    {
+        var resourceAttributes = new[] { new ResourceAttributeFilter { Key = "deployment.environment", Value = "production" } };
+
+        var result = ServiceCallBreakdownQueryBuilder.Build("checkout-api", TimeSpan.FromMinutes(15), Now, resourceAttributes);
+
+        Assert.Contains("ResourceAttributes[{ResAttrKey0:String}] = {ResAttrValue0:String}", result.ExternalCallsSql);
+        Assert.Contains("ResourceAttributes[{ResAttrKey0:String}] = {ResAttrValue0:String}", result.DatabaseCallsSql);
+
+        var externalParameters = result.ExternalCallsParameters.ToDictionary();
+        Assert.Equal("deployment.environment", externalParameters["ResAttrKey0"]);
+        Assert.Equal("production", externalParameters["ResAttrValue0"]);
+
+        var databaseParameters = result.DatabaseCallsParameters.ToDictionary();
+        Assert.Equal("deployment.environment", databaseParameters["ResAttrKey0"]);
+        Assert.Equal("production", databaseParameters["ResAttrValue0"]);
     }
 }

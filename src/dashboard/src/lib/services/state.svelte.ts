@@ -6,7 +6,7 @@
 // a "what's happening right now" view, not a point-in-time snapshot - a stale error rate
 // is the one thing this tab must never show silently.
 
-import { getServiceOverview, getServiceDependencyGraph, type ServiceMetrics, type ServiceDependencyGraph } from '$lib/services-api';
+import { getServiceOverview, getServiceDependencyGraph, type ServiceMetrics, type ServiceDependencyGraph, type ResourceAttributeFilter } from '$lib/services-api';
 import * as m from '$lib/paraglide/messages';
 
 export type ServicesWindowPreset = '5m' | '15m' | '1h' | '6h' | '24h';
@@ -46,6 +46,13 @@ export class ServicesState {
 	services = $state.raw<ServiceMetrics[] | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
+
+	// The Services tab's filter chips (docs-internal/planning/roadmap.md's now-removed
+	// "Resource-attribute filtering on the Traces > Services tab" item) - one set narrows
+	// the Table view, Map view, and (via ServiceCallBreakdownDialog reading this same
+	// field) the per-node drill-down together, same "one filter shape reused across
+	// sibling views" precedent LogFilter already sets for the Logs page.
+	resourceAttributes = $state<ResourceAttributeFilter[]>([]);
 
 	// The dependency map, rendered below the table (not behind a separate tab) - both
 	// views share this one window, so both are fetched together on every load()/poll.
@@ -89,7 +96,10 @@ export class ServicesState {
 		this.error = null;
 		try {
 			const minutes = this.#minutes();
-			const [overview, graph] = await Promise.all([getServiceOverview(minutes, abort.signal), getServiceDependencyGraph(minutes, abort.signal)]);
+			const [overview, graph] = await Promise.all([
+				getServiceOverview(minutes, this.resourceAttributes, abort.signal),
+				getServiceDependencyGraph(minutes, this.resourceAttributes, abort.signal)
+			]);
 			if (abort.signal.aborted) return;
 			this.services = overview.services;
 			this.graph = graph;
@@ -106,6 +116,14 @@ export class ServicesState {
 		this.windowPreset = preset;
 		// A new window is a genuinely different pair of queries, not a background refresh -
 		// force the spinner.
+		this.services = null;
+		this.graph = null;
+		void this.load();
+	}
+
+	/** Replaces the filter-chip set and re-fetches - same "a changed filter is a genuinely different pair of queries, force the spinner" call as setWindowPreset. */
+	setResourceAttributes(resourceAttributes: ResourceAttributeFilter[]): void {
+		this.resourceAttributes = resourceAttributes;
 		this.services = null;
 		this.graph = null;
 		void this.load();

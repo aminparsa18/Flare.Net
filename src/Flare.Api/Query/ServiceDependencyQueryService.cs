@@ -5,7 +5,7 @@ namespace Flare.Api.Query;
 
 public interface IServiceDependencyQueryService
 {
-    Task<ServiceDependencyGraphResponse> GetGraphAsync(int requestedWindowMinutes, CancellationToken cancellationToken);
+    Task<ServiceDependencyGraphResponse> GetGraphAsync(int requestedWindowMinutes, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -18,13 +18,13 @@ public interface IServiceDependencyQueryService
 /// </summary>
 public sealed class ServiceDependencyQueryService(IClickHouseClient client, TimeProvider timeProvider) : IServiceDependencyQueryService
 {
-    public async Task<ServiceDependencyGraphResponse> GetGraphAsync(int requestedWindowMinutes, CancellationToken cancellationToken)
+    public async Task<ServiceDependencyGraphResponse> GetGraphAsync(int requestedWindowMinutes, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes, CancellationToken cancellationToken)
     {
         var windowMinutes = ServiceDependencyQueryBuilder.ClampWindowMinutes(requestedWindowMinutes);
         var window = TimeSpan.FromMinutes(windowMinutes);
         var now = timeProvider.GetUtcNow();
 
-        var built = ServiceDependencyQueryBuilder.Build(window, now);
+        var built = ServiceDependencyQueryBuilder.Build(window, now, resourceAttributes);
 
         var nodes = new List<ServiceDependencyNode>();
         await using (var reader = await client.ExecuteReaderAsync(built.NodesSql, built.NodesParameters, SafetyOptions(), cancellationToken))

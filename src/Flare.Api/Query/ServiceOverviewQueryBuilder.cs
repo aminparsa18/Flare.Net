@@ -1,5 +1,6 @@
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Model;
 
 namespace Flare.Api.Query;
 
@@ -30,6 +31,12 @@ public sealed record ServiceOverviewSql(string Sql, ClickHouseParameterCollectio
 /// <see cref="ActiveServicesQueryBuilder"/>'s own remarks document for the analogous
 /// unfiltered-by-service query over <c>logs</c>.
 /// </para>
+/// <para>
+/// An optional <see cref="ResourceAttributeFilter"/> list (the Services tab's filter
+/// chips) ANDs in equality predicates on top of that - see
+/// <see cref="ResourceAttributeFilterSqlBuilder"/>. Still no index helps: ClickHouse can't
+/// use a skip index on a <c>Map</c> column subscript the way it can on a plain column.
+/// </para>
 /// </remarks>
 public static class ServiceOverviewQueryBuilder
 {
@@ -41,14 +48,27 @@ public static class ServiceOverviewQueryBuilder
     public static int ClampWindowMinutes(int requested) =>
         Math.Clamp(requested <= 0 ? DefaultWindowMinutes : requested, MinWindowMinutes, MaxWindowMinutes);
 
-    public static ServiceOverviewSql Build(TimeSpan window, DateTimeOffset now)
+    /// <param name="resourceAttributes">
+    /// Optional equality filters against <c>ResourceAttributes</c> - the Services tab's
+    /// filter chips, ANDed in alongside the window/root-span predicates. Null/empty = no
+    /// narrowing, same query as before this parameter existed. See
+    /// <see cref="ResourceAttributeFilterSqlBuilder"/>.
+    /// </param>
+    public static ServiceOverviewSql Build(TimeSpan window, DateTimeOffset now, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes = null)
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("from", (now - window).UtcDateTime);
         parameters.AddParameter("to", now.UtcDateTime);
         parameters.AddParameter("errorStatus", "STATUS_CODE_ERROR");
 
-        const string sql = "SELECT\n" +
+        var clauses = new List<string>
+        {
+            "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}",
+            "ParentSpanId = ''",
+        };
+        ResourceAttributeFilterSqlBuilder.AppendClauses(clauses, parameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
+
+        var sql = "SELECT\n" +
             "    ServiceName,\n" +
             "    count() AS RequestCount,\n" +
             "    countIf(StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
@@ -56,7 +76,7 @@ public static class ServiceOverviewQueryBuilder
             "    quantile(0.95)(DurationNano) AS P95DurationNano,\n" +
             "    quantile(0.99)(DurationNano) AS P99DurationNano\n" +
             "FROM spans\n" +
-            "WHERE StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)} AND ParentSpanId = ''\n" +
+            "WHERE " + string.Join(" AND ", clauses) + "\n" +
             "GROUP BY ServiceName\n" +
             "ORDER BY RequestCount DESC";
 

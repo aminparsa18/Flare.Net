@@ -1,3 +1,4 @@
+using Flare.Api.Model;
 using Flare.Api.Query;
 using Xunit;
 
@@ -61,5 +62,38 @@ public class ServiceDependencyQueryBuilderTests
     public void ClampWindowMinutes_DefaultsAndClamps_SameAsServiceOverviewQueryBuilder(int requested, int expected)
     {
         Assert.Equal(expected, ServiceDependencyQueryBuilder.ClampWindowMinutes(requested));
+    }
+
+    [Fact]
+    public void Build_WithNoResourceAttributes_OmitsAttributeClauses()
+    {
+        var result = ServiceDependencyQueryBuilder.Build(TimeSpan.FromMinutes(15), Now);
+
+        Assert.DoesNotContain("ResourceAttributes", result.NodesSql);
+        Assert.DoesNotContain("ResourceAttributes", result.EdgesSql);
+    }
+
+    [Fact]
+    public void Build_WithResourceAttributes_AndsInEqualityClauses_UnqualifiedOnNodes_BothAliasesOnEdges()
+    {
+        var resourceAttributes = new[] { new ResourceAttributeFilter { Key = "deployment.environment", Value = "production" } };
+
+        var result = ServiceDependencyQueryBuilder.Build(TimeSpan.FromMinutes(15), Now, resourceAttributes);
+
+        Assert.Contains("ResourceAttributes[{ResAttrKey0:String}] = {ResAttrValue0:String}", result.NodesSql);
+        var nodesParameters = result.NodesParameters.ToDictionary();
+        Assert.Equal("deployment.environment", nodesParameters["ResAttrKey0"]);
+        Assert.Equal("production", nodesParameters["ResAttrValue0"]);
+
+        // Edges query: both the "parent." and "child." sides must match, not just one - see
+        // ServiceDependencyQueryBuilder.Build's own remarks on why this differs from the
+        // window predicate's documented child-only latitude.
+        Assert.Contains("parent.ResourceAttributes[{parentResAttrKey0:String}] = {parentResAttrValue0:String}", result.EdgesSql);
+        Assert.Contains("child.ResourceAttributes[{childResAttrKey0:String}] = {childResAttrValue0:String}", result.EdgesSql);
+        var edgesParameters = result.EdgesParameters.ToDictionary();
+        Assert.Equal("deployment.environment", edgesParameters["parentResAttrKey0"]);
+        Assert.Equal("production", edgesParameters["parentResAttrValue0"]);
+        Assert.Equal("deployment.environment", edgesParameters["childResAttrKey0"]);
+        Assert.Equal("production", edgesParameters["childResAttrValue0"]);
     }
 }

@@ -55,7 +55,7 @@ public sealed partial record DatabaseCallGroup
 }
 
 /// <summary>
-/// Response body for <c>GET /api/services/breakdown</c> - the per-node drill-down opened
+/// Response body for <c>POST /api/services/breakdown</c> - the per-node drill-down opened
 /// from clicking a node on the Services tab's Map view, answering "what does this service
 /// call, and how slow/erroring is each one" split into external HTTP-ish calls
 /// (<see cref="ExternalCalls"/>) and database calls (<see cref="DatabaseCalls"/>).
@@ -75,4 +75,18 @@ public sealed partial record ServiceCallBreakdownResponse
 
     /// <summary>Busiest db.system/db.operation pair first - see <see cref="Query.ServiceCallBreakdownQueryBuilder"/>'s database-calls <c>ORDER BY</c>.</summary>
     public required IReadOnlyList<DatabaseCallGroup> DatabaseCalls { get; init; }
+}
+
+/// <summary>Request body for <c>POST /api/services/breakdown</c> - see <see cref="ServiceOverviewRequest"/>'s remarks for why this is POST-with-a-flat-body rather than the GET-with-query-string it used to be. Same filter chips as the Table/Map views, so a node's drill-down stays consistent with whatever narrowed the graph it was opened from.</summary>
+[MemoryPackable]
+public sealed partial record ServiceCallBreakdownRequest
+{
+    /// <summary>Exact service name (or <c>peer.service</c>-overridden node id) clicked in the graph.</summary>
+    public required string Service { get; init; }
+
+    /// <summary>Lookback window, minutes. Null/non-positive defaults - see <see cref="Query.ServiceCallBreakdownQueryBuilder.ClampWindowMinutes"/>.</summary>
+    public int? WindowMinutes { get; init; }
+
+    /// <summary>Equality filters against <c>ResourceAttributes</c>, ANDed together - the Services tab's filter chips. Null/empty = no narrowing.</summary>
+    public IReadOnlyList<ResourceAttributeFilter>? ResourceAttributes { get; init; }
 }
