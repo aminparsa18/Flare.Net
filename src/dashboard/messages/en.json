@@ -375,6 +375,8 @@
 	"spanDetail_eventsTitle": "Events",
 	"spanDetail_attributesTitle": "Attributes",
 	"spanDetail_stackTraceTitle": "Stack trace",
+	"spanDetail_linksTitle": "Links",
+	"spanDetail_viewLinkedTrace": "View trace",
 	"spanDetail_linkedLogsTitle": "Linked logs",
 	"traceList_colTime": "Time",
 	"traceList_colStatus": "Status",

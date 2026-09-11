@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Separator } from '$lib/components/ui/separator';
+	import { Button } from '$lib/components/ui/button';
 	import AttributeTable from '$lib/components/logs/AttributeTable.svelte';
 	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
 	import { statusVariant, statusLabel, kindLabel } from '$lib/traces/status';
@@ -143,6 +145,30 @@
 											</div>
 										{/if}
 										<AttributeTable title={m.spanDetail_attributesTitle()} attributes={eventAttributesWithoutStacktrace(event.attributes)} />
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+
+					{#if span.links.length > 0}
+						<div>
+							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">{m.spanDetail_linksTitle()}</h3>
+							<div class="flex flex-col gap-2">
+								{#each span.links as link, i (i)}
+									<div class="rounded-md border p-2">
+										<div class="flex items-baseline justify-between gap-2">
+											<span class="truncate font-mono text-xs">
+												{link.traceId} / {link.spanId}
+											</span>
+											<Button variant="ghost" size="xs" class="shrink-0" onclick={() => goto(`/traces/${link.traceId}`)}>
+												{m.spanDetail_viewLinkedTrace()}
+											</Button>
+										</div>
+										{#if link.traceState}
+											<p class="text-muted-foreground mt-1 truncate font-mono text-xs">{link.traceState}</p>
+										{/if}
+										<AttributeTable title={m.spanDetail_attributesTitle()} attributes={link.attributes} />
 									</div>
 								{/each}
 							</div>

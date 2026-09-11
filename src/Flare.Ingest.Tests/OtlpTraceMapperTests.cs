@@ -178,6 +178,49 @@ public class OtlpTraceMapperTests
     }
 
     [Fact]
+    public void Map_MapsLinks_InOrder_WithTraceIdSpanIdTraceStateAndAttributes()
+    {
+        var linkedTraceId = Convert.FromHexString("1102030405060708090a0b0c0d0e0f10");
+        var linkedSpanId = Convert.FromHexString("b1a2a3a4a5a6a7a8");
+
+        var request = SingleSpanRequest(span =>
+        {
+            span.Links.Add(new Span.Types.Link
+            {
+                TraceId = ByteString.CopyFrom(linkedTraceId),
+                SpanId = ByteString.CopyFrom(linkedSpanId),
+                TraceState = "vendor=value",
+                Attributes = { new KeyValue { Key = "k1", Value = new AnyValue { StringValue = "v1" } } },
+            });
+            span.Links.Add(new Span.Types.Link
+            {
+                TraceId = ByteString.CopyFrom(linkedTraceId),
+                SpanId = ByteString.CopyFrom(linkedSpanId),
+            });
+        });
+
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
+
+        Assert.Equal(2, record.Links.Count);
+        Assert.Equal("1102030405060708090a0b0c0d0e0f10", record.Links[0].TraceId);
+        Assert.Equal("b1a2a3a4a5a6a7a8", record.Links[0].SpanId);
+        Assert.Equal("vendor=value", record.Links[0].TraceState);
+        Assert.Equal("v1", record.Links[0].Attributes["k1"]);
+        Assert.Null(record.Links[1].TraceState);
+        Assert.Empty(record.Links[1].Attributes);
+    }
+
+    [Fact]
+    public void Map_LinksIsEmpty_NotNull_WhenSpanHasNoLinks()
+    {
+        var request = SingleSpanRequest();
+
+        var record = Assert.Single(OtlpTraceMapper.Map(request, TestIngestedAt));
+
+        Assert.Empty(record.Links);
+    }
+
+    [Fact]
     public void Map_NormalizesEmptyStrings_ToNull()
     {
         var request = SingleSpanRequest(span =>

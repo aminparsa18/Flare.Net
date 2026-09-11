@@ -142,6 +142,23 @@ public sealed class SpanQueryService(IClickHouseClient client, TimeProvider time
             });
         }
 
+        var linkTraceIds = reader.GetFieldValue<string[]>(23);
+        var linkSpanIds = reader.GetFieldValue<string[]>(24);
+        var linkTraceStates = reader.GetFieldValue<string[]>(25);
+        var linkAttributes = reader.GetFieldValue<Dictionary<string, string>[]>(26);
+
+        var links = new List<SpanLinkDto>(linkTraceIds.Length);
+        for (var i = 0; i < linkTraceIds.Length; i++)
+        {
+            links.Add(new SpanLinkDto
+            {
+                TraceId = linkTraceIds[i],
+                SpanId = linkSpanIds[i],
+                TraceState = linkTraceStates[i],
+                Attributes = linkAttributes[i],
+            });
+        }
+
         return new SpanDto
         {
             TraceId = reader.GetString(0),
@@ -165,6 +182,7 @@ public sealed class SpanQueryService(IClickHouseClient client, TimeProvider time
             SpanAttributes = reader.GetFieldValue<Dictionary<string, string>>(18),
             Events = events,
             IngestedAt = ReadUtc(reader, 22),
+            Links = links,
         };
     }
 

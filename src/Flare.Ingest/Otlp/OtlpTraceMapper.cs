@@ -66,6 +66,7 @@ public static class OtlpTraceMapper
                         ScopeAttributes = scopeAttributes,
                         SpanAttributes = Flatten(span.Attributes),
                         Events = [.. span.Events.Select(MapEvent)],
+                        Links = [.. span.Links.Select(MapLink)],
                         IngestedAt = ingestedAt,
                     };
                 }
@@ -78,6 +79,14 @@ public static class OtlpTraceMapper
         Timestamp = FromUnixNano(evt.TimeUnixNano),
         Name = EmptyToNull(evt.Name),
         Attributes = Flatten(evt.Attributes),
+    };
+
+    private static SpanLink MapLink(Span.Types.Link link) => new()
+    {
+        TraceId = Convert.ToHexStringLower(link.TraceId.Span),
+        SpanId = Convert.ToHexStringLower(link.SpanId.Span),
+        TraceState = EmptyToNull(link.TraceState),
+        Attributes = Flatten(link.Attributes),
     };
 
     private static DateTimeOffset FromUnixNano(ulong unixNano) =>

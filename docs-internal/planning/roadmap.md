@@ -177,12 +177,3 @@ folders are where "what happened and why" actually lives.
   ([signoz#2261](https://github.com/SigNoz/signoz/commit/b99d7009a)) - a
   durable, user-scoped bearer token for programmatic API access,
   separate from the existing ingest keys. Not started.
-- **Span links (OTel `Span.Links`) are dropped entirely at ingest.**
-  No `.Links` reference exists anywhere in `Flare.Ingest`'s span
-  mapping/writer code - a span whose trace links to another trace
-  (common in async/batch/messaging processing, e.g. a queue consumer
-  span linking back to its producer's span in a different trace) has no
-  representation in Flare today: not ingested, not stored, not
-  queryable, not shown. SigNoz added support for this
-  ([signoz#2415](https://github.com/SigNoz/signoz/commit/2a5cb7896)).
-  Not started.

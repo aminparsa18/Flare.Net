@@ -72,6 +72,16 @@ public class RedisEventPayloadTests
                     Attributes = new Dictionary<string, string> { ["attempt"] = "2" },
                 },
             ],
+            Links =
+            [
+                new SpanLink
+                {
+                    TraceId = "aaa111",
+                    SpanId = "bbb222",
+                    TraceState = "vendor=value",
+                    Attributes = new Dictionary<string, string> { ["k1"] = "v1" },
+                },
+            ],
         };
 
         var encoded = RedisEventPayload.Encode(original);
@@ -84,6 +94,11 @@ public class RedisEventPayloadTests
         var decodedEvent = Assert.Single(decoded.Events);
         Assert.Equal("retry", decodedEvent.Name);
         Assert.Equal(original.Events[0].Attributes, decodedEvent.Attributes);
+        var decodedLink = Assert.Single(decoded.Links);
+        Assert.Equal("aaa111", decodedLink.TraceId);
+        Assert.Equal("bbb222", decodedLink.SpanId);
+        Assert.Equal("vendor=value", decodedLink.TraceState);
+        Assert.Equal(original.Links[0].Attributes, decodedLink.Attributes);
     }
 
     [Theory]

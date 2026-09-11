@@ -8,6 +8,7 @@ import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js'
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
 import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
 import { SpanEventDto } from '$lib/memorypack/SpanEventDto';
+import { SpanLinkDto } from '$lib/memorypack/SpanLinkDto';
 import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
 
 export class SpanDto {
@@ -34,6 +35,7 @@ export class SpanDto {
 	events: (SpanEventDto | null)[] | null;
 	spanCount: bigint | null;
 	hasError: boolean | null;
+	links: (SpanLinkDto | null)[] | null;
 
 	constructor() {
 		this.traceId = null;
@@ -59,6 +61,7 @@ export class SpanDto {
 		this.events = null;
 		this.spanCount = null;
 		this.hasError = null;
+		this.links = null;
 	}
 
 	static serialize(value: SpanDto | null): Uint8Array {
@@ -73,7 +76,7 @@ export class SpanDto {
 			return;
 		}
 
-		writer.writeObjectHeader(23);
+		writer.writeObjectHeader(24);
 		writer.writeString(value.traceId);
 		writer.writeString(value.spanId);
 		writer.writeString(value.parentSpanId);
@@ -97,6 +100,7 @@ export class SpanDto {
 		writer.writeArray(value.events, (writer, x) => SpanEventDto.serializeCore(writer, x));
 		writer.writeNullableUint64(value.spanCount);
 		writer.writeNullableBoolean(value.hasError);
+		writer.writeArray(value.links, (writer, x) => SpanLinkDto.serializeCore(writer, x));
 	}
 
 	static serializeArray(value: (SpanDto | null)[] | null): Uint8Array {
@@ -120,7 +124,7 @@ export class SpanDto {
 		}
 
 		const value = new SpanDto();
-		if (count == 23) {
+		if (count == 24) {
 			value.traceId = reader.readString();
 			value.spanId = reader.readString();
 			value.parentSpanId = reader.readString();
@@ -144,7 +148,8 @@ export class SpanDto {
 			value.events = reader.readArray((reader) => SpanEventDto.deserializeCore(reader));
 			value.spanCount = reader.readNullableUint64();
 			value.hasError = reader.readNullableBoolean();
-		} else if (count > 23) {
+			value.links = reader.readArray((reader) => SpanLinkDto.deserializeCore(reader));
+		} else if (count > 24) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -194,6 +199,8 @@ export class SpanDto {
 			if (count == 22) return value;
 			value.hasError = reader.readNullableBoolean();
 			if (count == 23) return value;
+			value.links = reader.readArray((reader) => SpanLinkDto.deserializeCore(reader));
+			if (count == 24) return value;
 		}
 		return value;
 	}

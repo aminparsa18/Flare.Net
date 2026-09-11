@@ -21,6 +21,7 @@ import { SpanSearchResponse as GeneratedSpanSearchResponse } from '$lib/memorypa
 import { TraceDto as GeneratedTraceDto } from '$lib/memorypack/TraceDto';
 import type { SpanDto as GeneratedSpanDto } from '$lib/memorypack/SpanDto';
 import type { SpanEventDto as GeneratedSpanEventDto } from '$lib/memorypack/SpanEventDto';
+import type { SpanLinkDto as GeneratedSpanLinkDto } from '$lib/memorypack/SpanLinkDto';
 import { SpanAttributeValuesRequest as GeneratedSpanAttributeValuesRequest } from '$lib/memorypack/SpanAttributeValuesRequest';
 import { SpanAttributeValuesResponse as GeneratedSpanAttributeValuesResponse } from '$lib/memorypack/SpanAttributeValuesResponse';
 
@@ -89,6 +90,15 @@ export interface SpanEventDto {
 	attributes: Record<string, string>;
 }
 
+/** One entry of a span's `links` (OTLP Span.Links - references to another span, in the same or a different trace). Unlike SpanEventDto, carries no timestamp of its own. */
+export interface SpanLinkDto {
+	traceId: string;
+	spanId: string;
+	/** Empty string when absent - same convention as SpanDto.traceState. */
+	traceState: string;
+	attributes: Record<string, string>;
+}
+
 export interface SpanDto {
 	traceId: string;
 	spanId: string;
@@ -117,12 +127,23 @@ export interface SpanDto {
 	spanCount?: number;
 	/** Whether any span sharing this row's traceId - not just this row's own `statusCode` - carries "STATUS_CODE_ERROR". Same populated-when as `spanCount`. See SpanDto.HasError's C# remarks. */
 	hasError?: boolean;
+	/** OTLP Span.Links - references from this span to a span in the same or a different trace. See SpanDto.Links' C# remarks. */
+	links: SpanLinkDto[];
 }
 
 function toSpanEventDto(dto: GeneratedSpanEventDto): SpanEventDto {
 	return {
 		timestamp: dto.timestamp.toISOString(),
 		name: dto.name ?? '',
+		attributes: dto.attributes ?? {}
+	};
+}
+
+function toSpanLinkDto(dto: GeneratedSpanLinkDto): SpanLinkDto {
+	return {
+		traceId: dto.traceId ?? '',
+		spanId: dto.spanId ?? '',
+		traceState: dto.traceState ?? '',
 		attributes: dto.attributes ?? {}
 	};
 }
@@ -150,7 +171,8 @@ function toSpanDto(dto: GeneratedSpanDto): SpanDto {
 		spanAttributes: dto.spanAttributes ?? {},
 		events: (dto.events ?? []).map((e) => toSpanEventDto(e!)),
 		spanCount: dto.spanCount == null ? undefined : Number(dto.spanCount),
-		hasError: dto.hasError ?? undefined
+		hasError: dto.hasError ?? undefined,
+		links: (dto.links ?? []).map((l) => toSpanLinkDto(l!))
 	};
 }
 

@@ -10,7 +10,9 @@ public class ClickHouseSpanRowMapperTests
     public void Columns_MatchSpansTableColumnOrder()
     {
         // Mirrors db/clickhouse/0007_spans.sql's column declaration order, with the
-        // Events Nested column's three desugared array columns listed last.
+        // Events Nested column's three desugared array columns, IngestedAt
+        // (0011_ingest_receipt_time.sql), then the Links Nested column's four
+        // desugared array columns (0013_span_links.sql) listed last, in migration order.
         Assert.Equal(
             [
                 "TraceId", "SpanId", "ParentSpanId", "TraceState", "Name", "Kind",
@@ -18,6 +20,7 @@ public class ClickHouseSpanRowMapperTests
                 "ServiceName", "ResourceSchemaUrl", "ResourceAttributes", "ScopeSchemaUrl",
                 "ScopeName", "ScopeVersion", "ScopeAttributes", "SpanAttributes",
                 "Events.TimeUnixNano", "Events.Name", "Events.Attributes", "IngestedAt",
+                "Links.TraceId", "Links.SpanId", "Links.TraceState", "Links.Attributes",
             ],
             ClickHouseSpanRowMapper.Columns);
     }
@@ -142,6 +145,54 @@ public class ClickHouseSpanRowMapperTests
     }
 
     [Fact]
+    public void ToRow_BuildsFourParallelArrays_FromLinks_InOrder()
+    {
+        var span = MinimalSpan() with
+        {
+            Links =
+            [
+                new SpanLink
+                {
+                    TraceId = "1102030405060708090a0b0c0d0e0f10",
+                    SpanId = "b1a2a3a4a5a6a7a8",
+                    TraceState = "vendor=value",
+                    Attributes = new Dictionary<string, string> { ["k1"] = "v1" },
+                },
+                new SpanLink
+                {
+                    TraceId = "2202030405060708090a0b0c0d0e0f10",
+                    SpanId = "c1a2a3a4a5a6a7a8",
+                    Attributes = new Dictionary<string, string>(),
+                },
+            ],
+        };
+
+        var row = ClickHouseSpanRowMapper.ToRow(span);
+
+        var traceIds = Assert.IsType<string[]>(row[23]);
+        var spanIds = Assert.IsType<string[]>(row[24]);
+        var traceStates = Assert.IsType<string[]>(row[25]);
+        var attrs = Assert.IsType<Dictionary<string, string>[]>(row[26]);
+
+        Assert.Equal(["1102030405060708090a0b0c0d0e0f10", "2202030405060708090a0b0c0d0e0f10"], traceIds);
+        Assert.Equal(["b1a2a3a4a5a6a7a8", "c1a2a3a4a5a6a7a8"], spanIds);
+        Assert.Equal(["vendor=value", string.Empty], traceStates);
+        Assert.Equal(new Dictionary<string, string> { ["k1"] = "v1" }, attrs[0]);
+        Assert.Empty(attrs[1]);
+    }
+
+    [Fact]
+    public void ToRow_BuildsEmptyArrays_WhenSpanHasNoLinks()
+    {
+        var row = ClickHouseSpanRowMapper.ToRow(MinimalSpan());
+
+        Assert.Empty(Assert.IsType<string[]>(row[23]));
+        Assert.Empty(Assert.IsType<string[]>(row[24]));
+        Assert.Empty(Assert.IsType<string[]>(row[25]));
+        Assert.Empty(Assert.IsType<Dictionary<string, string>[]>(row[26]));
+    }
+
+    [Fact]
     public void ToRows_MapsEachSpanInOrder()
     {
         var first = MinimalSpan() with { Name = "first" };
@@ -168,5 +219,6 @@ public class ClickHouseSpanRowMapperTests
         ScopeAttributes = new Dictionary<string, string>(),
         SpanAttributes = new Dictionary<string, string>(),
         Events = [],
+        Links = [],
     };
 }

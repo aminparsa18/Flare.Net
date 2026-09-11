@@ -14,6 +14,26 @@ public sealed partial record SpanEventDto
 }
 
 /// <summary>
+/// One entry of a span's <c>Links</c> Nested column (<c>db/clickhouse/0013_span_links.sql</c>)
+/// - a reference to another span, in the same or a different trace. Unlike
+/// <see cref="SpanEventDto"/>, a link carries no timestamp of its own.
+/// </summary>
+[MemoryPackable]
+public sealed partial record SpanLinkDto
+{
+    /// <summary>Lower-hex trace id of the linked-to span.</summary>
+    public required string TraceId { get; init; }
+
+    /// <summary>Lower-hex span id of the linked-to span.</summary>
+    public required string SpanId { get; init; }
+
+    /// <summary>W3C tracestate of the linked-to span - empty string, not null, when absent, same convention as the rest of this file.</summary>
+    public required string TraceState { get; init; }
+
+    public required IReadOnlyDictionary<string, string> Attributes { get; init; }
+}
+
+/// <summary>
 /// API-facing shape of one row from <c>clickhousedb.spans</c> - deliberately a separate
 /// type from <c>Flare.Ingest.Model.SpanRecord</c>, same rationale as <c>LogEventDto</c>
 /// vs <c>LogEvent</c> (this project doesn't pull in the write side's OTLP/gRPC/Redis
@@ -109,4 +129,13 @@ public sealed partial record SpanDto
     /// <see cref="SpanAttributeFilter.Operator"/>'s remarks for the same convention.
     /// </remarks>
     public bool? HasError { get; init; }
+
+    /// <summary>
+    /// OTLP Span.Links: references from this span to a span in the same or a different
+    /// trace (e.g. a queue consumer span linking back to its producer's span) -
+    /// <c>db/clickhouse/0013_span_links.sql</c>. Appended after <see cref="HasError"/>,
+    /// not inserted between existing members, for the same MemoryPack backward-
+    /// compatibility reason as <see cref="HasError"/>'s own remarks.
+    /// </summary>
+    public required IReadOnlyList<SpanLinkDto> Links { get; init; }
 }

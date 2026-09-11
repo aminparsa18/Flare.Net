@@ -7,7 +7,8 @@ namespace Flare.Api.Query;
 /// <see cref="LogEventColumns"/>. Order matches <c>Flare.Ingest</c>'s
 /// <c>ClickHouseSpanRowMapper.Columns</c> (the write side) for readability, though
 /// nothing requires the two to agree - each is independently self-consistent with its
-/// own reader.
+/// own reader. <c>Links</c>' four desugared array columns (<c>0013_span_links.sql</c>)
+/// are listed last, after <c>IngestedAt</c>, in migration order.
 /// </summary>
 internal static class SpanColumns
 {
@@ -36,6 +37,10 @@ internal static class SpanColumns
         "`Events.Name`",
         "`Events.Attributes`",
         "IngestedAt",
+        "`Links.TraceId`",
+        "`Links.SpanId`",
+        "`Links.TraceState`",
+        "`Links.Attributes`",
     ];
 
     public static readonly string SelectList = string.Join(", ", Names);
