@@ -321,6 +321,11 @@ authenticatedRoutes.MapIndexingEndpoints();
 authenticatedRoutes.MapResourceGraphEndpoints();
 authenticatedRoutes.MapHostStatsEndpoints();
 
+// Self-service, unlike ingest API keys below - see PersonalAccessTokenEndpoints' own
+// remarks for why any authenticated Viewer-and-up (not RequireMember/RequireAdmin) can
+// mint one of these for themselves.
+authenticatedRoutes.MapPersonalAccessTokenEndpoints();
+
 // Alert rule CRUD/test-fire is mutating and can page people - Member/Admin only, unlike
 // every other (read-only) endpoint group above which just needs any authenticated user.
 var memberRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireMember);

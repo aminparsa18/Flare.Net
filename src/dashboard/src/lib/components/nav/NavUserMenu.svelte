@@ -14,6 +14,7 @@
 	import * as m from '$lib/paraglide/messages';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PlugIcon from '@lucide/svelte/icons/plug';
+	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import LanguagesIcon from '@lucide/svelte/icons/languages';
@@ -69,6 +70,17 @@
 				<span class="truncate">{auth.currentUser?.username}</span>
 				<Badge variant="outline">{auth.currentUser?.role}</Badge>
 			</DropdownMenu.Label>
+			<!-- Personal access tokens (ADR-0019) only make sense once there's a real signed-in
+			     identity to own one - same auth.authEnabled gate as the username/role label
+			     above, unlike /data-sources' link below which is unconditional. -->
+			<DropdownMenu.Item>
+				{#snippet child({ props })}
+					<a href="/access-tokens" {...props}>
+						<KeyRoundIcon />
+						{m.accessTokensPage_heading()}
+					</a>
+				{/snippet}
+			</DropdownMenu.Item>
 			<DropdownMenu.Separator />
 		{/if}
 

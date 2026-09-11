@@ -112,6 +112,23 @@ login, which doesn't match how collectors/exporters are actually operated
 [the how-to guide](../how-to/configure-authentication.md#ingest-api-keys)
 for creating/using/revoking one.
 
+## Personal access tokens
+
+The counterpart to ingest API keys, for the *query* side instead of
+ingestion: a personal access token (PAT) is a durable bearer credential a
+script/CI job/another service can present instead of a browser session,
+so it can call `/api/logs`, `/api/alerts`, etc. without impersonating a
+person's cookie. Unlike ingest keys, a PAT is deliberately **user-scoped,
+self-service, and no more privileged than the user who created it** —
+creating one is not an admin action, and the token authenticates as that
+exact user (same role, same permissions), not a separate machine
+identity. See
+[ADR-0019](../../docs-internal/adr/0019-personal-access-tokens.md) for
+why this reuses the existing session authentication scheme rather than
+registering a second one, and
+[the how-to guide](../how-to/configure-authentication.md#personal-access-tokens)
+for creating/using/revoking one.
+
 ## How each method works
 
 All five methods end in the same kind of session — `flare_session`,

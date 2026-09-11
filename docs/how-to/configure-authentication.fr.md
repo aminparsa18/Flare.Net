@@ -278,6 +278,36 @@ machines), séparément des comptes utilisateurs.
   qu'utilisent `Flare.AppHost` (développement local) et
   `AddFlare(..., apiKey: ...)` d'`Aspire.Hosting.Flare`.
 
+## Jetons d'accès personnels
+
+Les jetons d'accès personnels authentifient l'API de requêtes
+(`/api/logs`, `/api/alerts`, etc.) en tant qu'*utilisateur* spécifique,
+séparément des clés API d'ingestion ci-dessus. En libre-service — tout
+utilisateur connecté (`Viewer` et au-dessus) peut créer le sien ; aucune
+étape d'administration n'est nécessaire.
+
+- **En créer un** : `POST /api/access-tokens` une fois connecté, par
+  exemple depuis le terminal du tableau de bord (ouvrez-le, exécutez
+  `help` pour la commande exacte) —
+  `{"name": "ci-pipeline", "expiresInDays": 90}` (`expiresInDays` est
+  optionnel ; omettez-le pour un jeton qui n'expire jamais). La valeur
+  brute du jeton est affichée **exactement une fois** — copiez-la
+  immédiatement en lieu sûr.
+- **L'utiliser** : envoyez `Authorization: Bearer <token>` sur toute
+  requête à l'API de requêtes. Il s'authentifie comme celui qui l'a
+  créé, avec le rôle existant de cet utilisateur — il n'accorde aucune
+  permission que l'utilisateur n'avait pas déjà.
+- **Lister/révoquer** : `GET /api/access-tokens` liste vos propres
+  jetons ; `DELETE /api/access-tokens/{id}` en révoque un immédiatement
+  (un `Admin` peut aussi révoquer un jeton appartenant à quelqu'un
+  d'autre, par id, sans avoir besoin de désactiver tout le compte de cet
+  utilisateur).
+- **Ne fonctionne pas pour le WebSocket du live tail** — un navigateur
+  ne peut pas attacher un en-tête personnalisé à une mise à niveau
+  WebSocket comme il envoie automatiquement le cookie de session.
+  Utilisez une session (c'est-à-dire restez connecté) pour le live tail ;
+  les PAT sont pour les appels requête/réponse classiques.
+
 ## Gérer les utilisateurs
 
 Réservé à `Admin`, dans la section Users de `/auth`
