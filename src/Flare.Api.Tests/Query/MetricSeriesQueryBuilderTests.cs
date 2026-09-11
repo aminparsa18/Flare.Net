@@ -179,4 +179,73 @@ public class MetricSeriesQueryBuilderTests
             MetricSeriesQueryBuilder.Build(
                 new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = bucketWidth }, Now));
     }
+
+    [Fact]
+    public void Build_WithoutTopN_CapsSeriesAtDefault()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60 }, Now);
+
+        Assert.Contains("AND (ServiceName, toString(DataPointAttributes)) IN (", result.Sql);
+        Assert.Contains("LIMIT {topN:UInt32}", result.Sql);
+        Assert.Equal((uint)MetricSeriesQueryBuilder.DefaultTopN, result.Parameters.ToDictionary()["topN"]);
+    }
+
+    [Theory]
+    [InlineData(5, 5)]
+    [InlineData(0, MetricSeriesQueryBuilder.DefaultTopN)]
+    [InlineData(-1, MetricSeriesQueryBuilder.DefaultTopN)]
+    [InlineData(10_000, 200)]
+    public void Build_ClampsTopN(int? requested, int expected)
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60, TopN = requested }, Now);
+
+        Assert.Equal((uint)expected, result.Parameters.ToDictionary()["topN"]);
+    }
+
+    [Fact]
+    public void Build_RanksSeriesByPerTypeMagnitude_Gauge()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60 }, Now);
+
+        Assert.Contains("avg(Value) AS RankValue", result.Sql);
+        Assert.Contains("ORDER BY RankValue DESC", result.Sql);
+    }
+
+    [Fact]
+    public void Build_RanksSeriesByPerTypeMagnitude_Sum()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "http.server.request.count", Type = MetricPointType.Sum, BucketWidthSeconds = 60 }, Now);
+
+        Assert.Contains("max(Value) - min(Value) AS RankValue", result.Sql);
+    }
+
+    [Fact]
+    public void Build_RanksSeriesByPerTypeMagnitude_Histogram()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "http.server.request.duration", Type = MetricPointType.Histogram, BucketWidthSeconds = 60 }, Now);
+
+        Assert.Contains("sum(Count) AS RankValue", result.Sql);
+    }
+
+    [Fact]
+    public void Build_WithGroupByAttributeKey_RanksByGroupedSeriesKey()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest
+            {
+                MetricName = "dotnet.exceptions",
+                Type = MetricPointType.Sum,
+                BucketWidthSeconds = 60,
+                GroupByAttributeKey = "error.type",
+            },
+            Now);
+
+        Assert.Contains("AND (ServiceName, DataPointAttributes[{groupByKey:String}]) IN (", result.Sql);
+        Assert.Contains("DataPointAttributes[{groupByKey:String}] AS SeriesKey, max(Value) - min(Value) AS RankValue", result.Sql);
+    }
 }

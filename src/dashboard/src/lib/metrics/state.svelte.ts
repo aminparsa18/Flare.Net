@@ -29,7 +29,12 @@ export interface MetricsFilterState {
 	compareEnabled: boolean;
 	/** "Group by" attribute key (see MetricQueryRequest.groupByAttributeKey), or null when ungrouped. Same "real display preference, not a one-off hop" reasoning as compareEnabled - carried in a saved view too. */
 	groupByAttributeKey: string | null;
+	/** Max series to chart, ranked by magnitude - see MetricQueryRequest.topN's remarks and MetricsToolbar's "Top N" picker. Always a concrete number, never null: unlike groupByAttributeKey there's no "uncapped" option, only which cap - same "real display preference, not a one-off hop" reasoning as compareEnabled/groupByAttributeKey, carried in a saved view too. Defaults to DEFAULT_TOP_N, which mirrors (but doesn't import - no shared config between Flare.Api and the dashboard) MetricSeriesQueryBuilder.DefaultTopN. */
+	topN: number;
 }
+
+/** Mirrors `MetricSeriesQueryBuilder.DefaultTopN` on the API side - see `MetricsFilterState.topN`'s own remarks for why this can't just be imported instead. */
+export const DEFAULT_TOP_N = 20;
 
 /**
  * A saved view's `state` payload for `pageType: 'Metrics'` - `MetricsFilterState` plus the
@@ -68,7 +73,8 @@ export class MetricsExplorerState {
 		timeRangePreset: '1h',
 		services: [],
 		compareEnabled: false,
-		groupByAttributeKey: null
+		groupByAttributeKey: null,
+		topN: DEFAULT_TOP_N
 	});
 
 	// Never mutated in place, always a wholesale reassignment - same $state.raw
@@ -325,6 +331,7 @@ export class MetricsExplorerState {
 		const metric = this.selected;
 		const compareEnabled = this.filter.compareEnabled;
 		const groupByAttributeKey = this.filter.groupByAttributeKey ?? undefined;
+		const topN = this.filter.topN;
 
 		// Deliberately doesn't touch series/previousSeries/intervalSeconds here - only
 		// queryError, and only because a stale error message next to fresh-looking
@@ -352,7 +359,8 @@ export class MetricsExplorerState {
 						type: metric.type,
 						bucketWidthSeconds,
 						filter: filterFor(range),
-						groupByAttributeKey
+						groupByAttributeKey,
+						topN
 					},
 					abort.signal
 				),
@@ -363,7 +371,8 @@ export class MetricsExplorerState {
 								type: metric.type,
 								bucketWidthSeconds,
 								filter: filterFor(previousPeriod(range)),
-								groupByAttributeKey
+								groupByAttributeKey,
+								topN
 							},
 							abort.signal
 						).catch(() => null)
@@ -417,6 +426,13 @@ export class MetricsExplorerState {
 		void this.runQuery();
 	}
 
+	/** Same shape as setGroupByAttribute - no name-list reload, which metrics exist doesn't depend on the series cap, only the chart's own query does. */
+	setTopN(topN: number): void {
+		this.#flushPendingSwitch();
+		this.filter.topN = topN;
+		void this.runQuery();
+	}
+
 	setAutoRefreshEnabled(enabled: boolean): void {
 		if (enabled === this.autoRefreshEnabled) return;
 		this.autoRefreshEnabled = enabled;
@@ -443,6 +459,7 @@ export class MetricsExplorerState {
 			services: [...this.filter.services],
 			compareEnabled: this.filter.compareEnabled,
 			groupByAttributeKey: this.filter.groupByAttributeKey,
+			topN: this.filter.topN,
 			selectedMetric: this.selected
 				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
 				: null
@@ -464,7 +481,8 @@ export class MetricsExplorerState {
 			timeRangePreset: s.timeRangePreset ?? '1h',
 			services: s.services ?? [],
 			compareEnabled: s.compareEnabled ?? false,
-			groupByAttributeKey: s.groupByAttributeKey ?? null
+			groupByAttributeKey: s.groupByAttributeKey ?? null,
+			topN: s.topN ?? DEFAULT_TOP_N
 		};
 		await this.loadNames();
 		const saved = s.selectedMetric;

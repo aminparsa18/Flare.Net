@@ -169,6 +169,18 @@ public sealed partial record MetricQueryRequest
     /// "empty/null = default" convention <see cref="MetricFilter.Services"/> already uses.
     /// </summary>
     public string? GroupByAttributeKey { get; init; }
+
+    /// <summary>
+    /// Max distinct series to return, ranked by each series' own magnitude descending (see
+    /// <see cref="Query.MetricSeriesQueryBuilder"/>'s remarks for the per-type ranking
+    /// expression) - "top N hosts by error rate" when combined with <see cref="GroupByAttributeKey"/>,
+    /// but applied unconditionally: unlike every other ClickHouse query in this codebase (see
+    /// this repo's own house rule in <c>CLAUDE.md</c>), a high-cardinality groupBy previously had
+    /// no cap on the number of series a query could produce. Clamped server-side; null uses the
+    /// default - same "null = default, clamped, ranked list" convention as
+    /// <see cref="ExceptionGroupsRequest.TopN"/>/<see cref="LogPatternRequest.TopN"/>.
+    /// </summary>
+    public int? TopN { get; init; }
 }
 
 /// <summary>

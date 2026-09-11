@@ -13,6 +13,7 @@ export class MetricQueryRequest {
 	filter: MetricFilter | null;
 	bucketWidthSeconds: number;
 	groupByAttributeKey: string | null;
+	topN: number | null;
 
 	constructor() {
 		this.metricName = null;
@@ -20,6 +21,7 @@ export class MetricQueryRequest {
 		this.filter = null;
 		this.bucketWidthSeconds = 0;
 		this.groupByAttributeKey = null;
+		this.topN = null;
 	}
 
 	static serialize(value: MetricQueryRequest | null): Uint8Array {
@@ -34,12 +36,13 @@ export class MetricQueryRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(5);
+		writer.writeObjectHeader(6);
 		writer.writeString(value.metricName);
 		writer.writeInt32(value.type);
 		MetricFilter.serializeCore(writer, value.filter);
 		writer.writeInt32(value.bucketWidthSeconds);
 		writer.writeString(value.groupByAttributeKey);
+		writer.writeNullableInt32(value.topN);
 	}
 
 	static deserialize(buffer: ArrayBuffer): MetricQueryRequest | null {
@@ -53,13 +56,14 @@ export class MetricQueryRequest {
 		}
 
 		const value = new MetricQueryRequest();
-		if (count == 5) {
+		if (count == 6) {
 			value.metricName = reader.readString();
 			value.type = reader.readInt32();
 			value.filter = MetricFilter.deserializeCore(reader);
 			value.bucketWidthSeconds = reader.readInt32();
 			value.groupByAttributeKey = reader.readString();
-		} else if (count > 5) {
+			value.topN = reader.readNullableInt32();
+		} else if (count > 6) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -73,6 +77,8 @@ export class MetricQueryRequest {
 			if (count == 4) return value;
 			value.groupByAttributeKey = reader.readString();
 			if (count == 5) return value;
+			value.topN = reader.readNullableInt32();
+			if (count == 6) return value;
 		}
 		return value;
 	}

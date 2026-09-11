@@ -317,6 +317,8 @@
 	"metricsToolbar_groupByLabel": "Группировать по",
 	"metricsToolbar_groupByWithKey": "Группировать по: {key}",
 	"metricsToolbar_groupByNone": "Нет",
+	"metricsToolbar_topNTitle": "Ограничивает график N сериями с наибольшим значением, чтобы группировка по атрибуту с высокой кардинальностью не создавала неограниченное число линий.",
+	"metricsToolbar_topNWithValue": "Топ {n}",
 	"metricsToolbar_compareTitle": "Сравнивает текущий диапазон времени с непосредственно предшествующим периодом такой же длины (например, последние 24 часа с предыдущими 24 часами).",
 	"metricsToolbar_compareLabel": "Сравнить с предыдущим периодом",
 	"metricsToolbar_autoRefreshTitle": "Автоматически повторяет запрос графика каждые 30 секунд",
