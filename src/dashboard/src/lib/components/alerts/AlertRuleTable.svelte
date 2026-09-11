@@ -37,6 +37,22 @@
 		return parts.length ? parts.join(' · ') : m.alertRuleTable_allLogs();
 	}
 
+	// See AlertsCommand.cs's DescribeChannel (the CLI's own equivalent) - a rule on
+	// channelIds shows a count (names would need a channel-id -> name lookup this table
+	// doesn't have loaded; the row's "send test"/edit actions are where the actual
+	// channels are visible), one still on its legacy inline field shows which one.
+	function channelSummary(rule: AlertRule): string {
+		if (rule.channelIds.length > 0) {
+			return rule.channelIds.length === 1 ? m.alertRuleTable_oneChannel() : m.alertRuleTable_multipleChannels({ count: rule.channelIds.length });
+		}
+
+		if (rule.webhookUrl) return m.alertRuleForm_channelWebhook();
+		if (rule.telegramBotToken && rule.telegramChatId) return m.alertRuleForm_channelTelegram();
+		if (rule.emailTo) return m.alertRuleForm_channelEmail();
+		if (rule.pagerDutyRoutingKey) return m.alertRuleForm_channelPagerDuty();
+		return '';
+	}
+
 	function thresholdText(rule: AlertRule): string {
 		const symbol = rule.threshold.comparator === 'LessThan' ? '<' : '>=';
 		if (rule.conditionKind === 'MetricThreshold') {
@@ -127,6 +143,7 @@
 					<Table.Head>{m.alertRuleTable_colCondition()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colThreshold()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colCooldown()}</Table.Head>
+					<Table.Head>{m.alertRuleTable_colChannel()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colStatus()}</Table.Head>
 					<Table.Head class="text-right">{m.alertRuleTable_colActions()}</Table.Head>
 				</Table.Row>
@@ -143,6 +160,7 @@
 						<Table.Cell class="text-muted-foreground">{summarizeCondition(rule)}</Table.Cell>
 						<Table.Cell class="font-mono text-xs">{thresholdText(rule)}</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{rule.cooldownSeconds}s</Table.Cell>
+						<Table.Cell class="text-muted-foreground">{channelSummary(rule)}</Table.Cell>
 						<Table.Cell>
 							<Badge variant={rule.enabled ? 'secondary' : 'outline'}
 								>{rule.enabled ? m.alertRuleTable_enabled() : m.alertRuleTable_disabled()}</Badge

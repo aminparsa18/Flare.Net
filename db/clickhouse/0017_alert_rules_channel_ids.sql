@@ -1,0 +1,23 @@
+-- Alerting schema, migration 0017.
+--
+-- Adds `ChannelIds` to `alert_rules` (migration 0003, extended since by migrations
+-- 0005/0006/0012's legacy notification-channel columns and 0014's condition-kind ones):
+-- zero or more `notification_channels` (migration 0016) IDs a rule fans out to on
+-- breach, the reusable-channel counterpart to the legacy inline WebhookUrl/Telegram*/
+-- EmailTo/PagerDutyRoutingKey columns. See
+-- docs-internal/adr/0021-reusable-notification-channels.md.
+--
+-- `DEFAULT []` makes every pre-existing row correct with zero backfill: an empty array
+-- means "still using the legacy inline channel", exactly what every rule created before
+-- this migration already does - this ships additively, coexisting with (not replacing)
+-- the legacy columns, so no data migration is needed or attempted here.
+-- Flare.Api.Model.AlertRuleRequest.ValidateChannel rejects a rule with both a non-empty
+-- ChannelIds and a legacy inline channel set, or neither.
+--
+-- Existing numbered migrations are immutable once merged (see this directory's README's
+-- "Migration convention"), hence a new file rather than editing 0003_alert_rules.sql.
+-- Like migrations 0002-0016, there's no automated apply path yet beyond the local-dev
+-- init-mount that only runs 0001 automatically - run this by hand via `clickhouse-client`
+-- against any already-running instance.
+ALTER TABLE clickhousedb.alert_rules
+    ADD COLUMN IF NOT EXISTS ChannelIds Array(UUID) DEFAULT [] AFTER MetricThresholdValue;

@@ -92,6 +92,11 @@ internal sealed class AlertsListCommand : AsyncCommand<AlertsListCommand.Setting
 
     private static string DescribeChannel(AlertRuleWire rule)
     {
+        if (rule.ChannelIds.Count > 0)
+        {
+            return rule.ChannelIds.Count == 1 ? "1 channel" : $"{rule.ChannelIds.Count} channels";
+        }
+
         if (!string.IsNullOrWhiteSpace(rule.WebhookUrl))
         {
             return "Webhook";
@@ -298,6 +303,9 @@ internal sealed class AlertRuleWire
     public DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>See <c>Flare.Api.Model.AlertRule.ChannelIds</c>'s doc comment - saved notification-channel IDs this rule fans out to, instead of one of the legacy inline fields above. No <c>flare notification-channels</c> subcommand exists yet to manage them by name, so <see cref="AlertsListCommand"/> only shows the count (see <c>DescribeChannel</c>) - a named follow-up.</summary>
+    public IReadOnlyList<Guid> ChannelIds { get; init; } = [];
 }
 
 internal sealed class AlertRuleListResponseWire

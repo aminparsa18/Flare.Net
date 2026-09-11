@@ -206,6 +206,20 @@ public sealed partial record AlertRule
 
     /// <summary>The metric-condition threshold value, compared via <see cref="AlertThreshold.IsBreachedValue"/>. Set (non-null) only for <see cref="AlertConditionKind.MetricThreshold"/> rules; null/ignored for <see cref="AlertConditionKind.LogCount"/> ones, which use <see cref="Threshold"/>'s <see cref="AlertThreshold.Count"/> instead.</summary>
     public double? MetricThresholdValue { get; init; }
+
+    /// <summary>
+    /// Zero or more saved <see cref="NotificationChannel"/> IDs this rule fans out to on
+    /// breach - the reusable-channel counterpart to <see cref="WebhookUrl"/>/
+    /// <see cref="TelegramBotToken"/>+<see cref="TelegramChatId"/>/<see cref="EmailTo"/>/
+    /// <see cref="PagerDutyRoutingKey"/>. Mutually exclusive with those legacy inline
+    /// fields (see <see cref="AlertRuleRequest.ValidateChannel"/>) - empty for every rule
+    /// created before this field existed, which keeps notifying through its legacy inline
+    /// channel unchanged; non-empty only for rules created/edited through the channel
+    /// picker. Appended after every pre-existing field, same versioning reasoning as
+    /// <see cref="ConditionKind"/>. Resolved to actual <see cref="NotificationChannel"/>
+    /// rows by <c>NotificationChannelResolver</c>, never read directly by a notifier.
+    /// </summary>
+    public IReadOnlyList<Guid> ChannelIds { get; init; } = [];
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -272,14 +286,18 @@ public sealed partial record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.MetricThresholdValue"/>'s doc comment.</summary>
     public double? MetricThresholdValue { get; init; }
 
+    /// <summary>See <see cref="AlertRule.ChannelIds"/>'s doc comment.</summary>
+    public IReadOnlyList<Guid>? ChannelIds { get; init; }
+
     /// <summary>
-    /// Exactly one notification channel: <see cref="WebhookUrl"/> (covers both a generic
-    /// webhook consumer and Slack), both <see cref="TelegramBotToken"/> and
-    /// <see cref="TelegramChatId"/> together, <see cref="EmailTo"/>, or
-    /// <see cref="PagerDutyRoutingKey"/> - never none, never more than one channel, never
-    /// one Telegram field without the other. Called by <c>AlertEndpoints</c>'s
-    /// create/update handlers (not the dry-run test endpoints, which never notify).
-    /// Returns an error message, or null when this request is valid.
+    /// Exactly one notification mode: either the legacy inline channel
+    /// (<see cref="WebhookUrl"/> - covers both a generic webhook consumer and Slack -
+    /// both <see cref="TelegramBotToken"/> and <see cref="TelegramChatId"/> together,
+    /// <see cref="EmailTo"/>, or <see cref="PagerDutyRoutingKey"/>) or one-or-more
+    /// <see cref="ChannelIds"/> - never both, never neither, never one Telegram field
+    /// without the other. Called by <c>AlertEndpoints</c>'s create/update handlers (not
+    /// the dry-run test endpoints, which never notify). Returns an error message, or null
+    /// when this request is valid.
     /// </summary>
     public string? ValidateChannel()
     {
@@ -289,18 +307,29 @@ public sealed partial record AlertRuleRequest
         var hasTelegram = hasBotToken && hasChatId;
         var hasEmail = !string.IsNullOrWhiteSpace(EmailTo);
         var hasPagerDuty = !string.IsNullOrWhiteSpace(PagerDutyRoutingKey);
+        var hasChannelIds = ChannelIds is { Count: > 0 };
 
         if (hasBotToken != hasChatId)
         {
             return "telegramBotToken and telegramChatId must be set together.";
         }
 
-        var channelCount = (hasWebhook ? 1 : 0) + (hasTelegram ? 1 : 0) + (hasEmail ? 1 : 0) + (hasPagerDuty ? 1 : 0);
-        return channelCount switch
+        var legacyChannelCount = (hasWebhook ? 1 : 0) + (hasTelegram ? 1 : 0) + (hasEmail ? 1 : 0) + (hasPagerDuty ? 1 : 0);
+        if (legacyChannelCount > 0 && hasChannelIds)
         {
-            0 => "One of webhookUrl, telegramBotToken/telegramChatId, emailTo, or pagerDutyRoutingKey is required.",
+            return "channelIds and a legacy inline channel (webhookUrl, telegramBotToken/telegramChatId, emailTo, pagerDutyRoutingKey) are mutually exclusive - use one or the other.";
+        }
+
+        if (hasChannelIds)
+        {
+            return null;
+        }
+
+        return legacyChannelCount switch
+        {
+            0 => "One of channelIds, webhookUrl, telegramBotToken/telegramChatId, emailTo, or pagerDutyRoutingKey is required.",
             1 => null,
-            _ => "webhookUrl, telegramBotToken/telegramChatId, emailTo, and pagerDutyRoutingKey are mutually exclusive - a rule notifies exactly one channel.",
+            _ => "webhookUrl, telegramBotToken/telegramChatId, emailTo, and pagerDutyRoutingKey are mutually exclusive - a rule's legacy inline channel is exactly one of them.",
         };
     }
 
@@ -366,6 +395,18 @@ public sealed partial record AlertHistoryEntry
 
     /// <summary>Set only for a <see cref="AlertConditionKind.MetricThreshold"/> event; null for a <see cref="AlertConditionKind.LogCount"/> one, which uses <see cref="ThresholdCount"/> instead.</summary>
     public double? ThresholdValue { get; init; }
+
+    /// <summary>
+    /// Per-channel outcome of this fire - one entry per channel the firing rule fanned
+    /// out to (see <c>NotificationChannelResolver</c>). <see cref="NotificationStatus"/>/
+    /// <see cref="NotificationStatusCode"/>/<see cref="NotificationError"/> stay as the
+    /// backward-compatible summary across all of them ("Sent" only if every channel
+    /// succeeded, "Failed" if any did, <see cref="NotificationError"/> joining per-channel
+    /// failures) - existing readers of those three fields see unchanged behavior for a
+    /// single-channel fire; this list is the additive per-channel detail. Appended after
+    /// every pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
+    /// </summary>
+    public IReadOnlyList<AlertChannelResult> ChannelResults { get; init; } = [];
 }
 
 /// <summary>Response body for <c>GET /api/alerts/{id}/history</c>.</summary>

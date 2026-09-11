@@ -1,0 +1,24 @@
+-- Alerting schema, migration 0018.
+--
+-- Adds `ChannelResultsJson` to `alert_events` (migration 0004, extended since by
+-- migration 0015's metric-condition columns): the per-channel outcome of a fan-out fire
+-- (Flare.Api.Model.AlertChannelResult list, JSON-serialized), for rules that fan out to
+-- more than one notification-channels row (migration 0016) at once. Mirrors
+-- `ConditionJson`/`MetricConditionJson`'s own "store opaque, round-trip through the C#
+-- model, don't explode into columns" reasoning (see migration 0003's comment) - a
+-- variable-length list of per-channel results doesn't fit cleanly as its own columns
+-- either.
+--
+-- `DEFAULT ''` (empty, not a backfilled single-element array): every event fired before
+-- this migration already has its outcome fully captured by the existing
+-- NotificationStatus/NotificationStatusCode/NotificationError columns, which stay as the
+-- backward-compatible summary across every channel a fire notified - this column is
+-- purely additive per-channel detail, empty for old rows rather than reconstructed.
+--
+-- Existing numbered migrations are immutable once merged (see this directory's README's
+-- "Migration convention"), hence a new file rather than editing 0004_alert_events.sql.
+-- Like migrations 0002-0017, there's no automated apply path yet beyond the local-dev
+-- init-mount that only runs 0001 automatically - run this by hand via `clickhouse-client`
+-- against any already-running instance.
+ALTER TABLE clickhousedb.alert_events
+    ADD COLUMN IF NOT EXISTS ChannelResultsJson String DEFAULT '' CODEC(ZSTD(1));

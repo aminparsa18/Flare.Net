@@ -22,11 +22,15 @@ streaming endpoint"** roadmap items, plus the **"Alerting"** item promoted out o
 - **`/api/alerts/*`** — threshold/query-based alert rule CRUD, fired-alert history, and
   evaluation dry-runs/send-test. The actual periodic evaluation (`AlertEvaluationWorker`)
   runs in its own process, `../Flare.AlertWorker` — see "Alerting" below.
+- **`/api/notification-channels/*`** — CRUD for reusable, named notification channels
+  (see "Alerting" below and
+  `docs-internal/adr/0021-reusable-notification-channels.md`) plus a per-channel
+  send-test, independent of any rule.
 
 The two `/api/logs/*` POST endpoints take a JSON body (not query-string params) —
 filters are multi-valued/structured (service lists, attribute key/value pairs), which
-doesn't fit cleanly in a URL. `/api/alerts` endpoints follow the same convention for the
-same reason (a rule's condition is a full `LogFilter`).
+doesn't fit cleanly in a URL. `/api/alerts`/`/api/notification-channels` endpoints follow
+the same convention for the same reason (a rule's condition is a full `LogFilter`).
 
 **Explicitly not here:** auth (no roadmap item has it yet), a general-purpose saved-query
 feature (a dashboard-side concern distinct from alert rules — an alert rule is a saved
@@ -42,7 +46,9 @@ Model/      LogFilter (shared by both /api/logs endpoints AND reused verbatim as
             row shape - a deliberate, separate mirror of Flare.Ingest.Model.LogEvent, not
             a shared reference - see LogEventDto's doc comment for why), LogTailMessages
             (the live-tail WebSocket envelope types), AlertModels (AlertRule/
-            AlertRuleRequest/AlertThreshold/AlertHistoryEntry/AlertTestResult).
+            AlertRuleRequest/AlertThreshold/AlertHistoryEntry/AlertTestResult),
+            NotificationChannelModels (NotificationChannel/NotificationChannelRequest/
+            AlertChannelResult - see docs-internal/adr/0021-reusable-notification-channels.md).
 Query/      LogFilterSqlBuilder (LogFilter -> parameterized WHERE clause, shared),
             LogSearchQueryBuilder / LogAggregateQueryBuilder (full SELECT statements),
             LogSearchCursor (keyset pagination token), LogQueryService (the only piece
@@ -51,11 +57,14 @@ Query/      LogFilterSqlBuilder (LogFilter -> parameterized WHERE clause, shared
             AlertQueryService (rule CRUD + fired-alert history + the count/last-fired
             queries ../Flare.AlertWorker's AlertEvaluationWorker runs - the alerting
             equivalent of LogQueryService, reusing LogFilterSqlBuilder for its threshold
-            count query).
+            count query), NotificationChannelQueryService (channel CRUD, same
+            ReplacingMergeTree/FINAL shape as AlertQueryService).
 Endpoints/  LogsEndpoints - the two /api/logs POST routes. LogTailEndpoints - the
             WebSocket route. AlertEndpoints - /api/alerts CRUD + history + test-run routes.
-Json/       LogsJsonContext, LogTailJsonContext, AlertsJsonContext, TelegramJsonContext -
-            source-generated System.Text.Json contracts.
+            NotificationChannelEndpoints - /api/notification-channels CRUD + send-test.
+Json/       LogsJsonContext, LogTailJsonContext, AlertsJsonContext,
+            NotificationChannelsJsonContext, TelegramJsonContext - source-generated
+            System.Text.Json contracts.
 LiveTail/   LogTailBroadcaster (the single background XREAD-and-fan-out reader over
             Redis's flare:logs stream), LogTailSubscription (one connection's state),
             LiveTailOptions, BufferedLogEvent + BufferedLogEventJsonContext +
@@ -67,7 +76,11 @@ Alerting/   EmailOptions (app-wide SMTP server settings), AlertLinkOptions (the
             by every channel), IAlertNotifier + WebhookAlertNotifier (the webhook/Slack
             sender), TelegramAlertNotifier (the Telegram sender), EmailAlertNotifier (the
             email sender), PagerDutyAlertNotifier (the PagerDuty sender),
-            CompositeAlertNotifier (picks between the four per rule) - all reused as-is by
+            CompositeAlertNotifier (picks the right one per NotificationChannel.Type, and
+            fans out to every channel a rule resolves to via SendAllAsync),
+            NotificationChannelResolver (a rule's ChannelIds resolved from the store, or
+            one ephemeral channel synthesized from its legacy inline fields - the one
+            place "which channels does this rule notify" is decided) - all reused as-is by
             ../Flare.AlertWorker via ProjectReference. AlertEvaluationWorker/AlertingOptions
             themselves live there now, not here - see
             docs-internal/adr/0018-alert-worker-extraction.md.
@@ -156,8 +169,15 @@ DELETE /api/alerts/{id}        soft-delete
 GET    /api/alerts/{id}/history?limit=50   fired-alert history
 POST   /api/alerts/{id}/test               dry-run the saved rule (ignores cooldown, writes nothing, never notifies)
 POST   /api/alerts/test                    dry-run an unsaved draft (same body shape as create/update)
-POST   /api/alerts/{id}/send-test          send a real test notification through the saved rule's channel (ignores cooldown, writes nothing to alert_events)
-POST   /api/alerts/send-test               send a real test notification through an unsaved draft's channel
+POST   /api/alerts/{id}/send-test          send a real test notification through the saved rule's channel(s) (ignores cooldown, writes nothing to alert_events)
+POST   /api/alerts/send-test               send a real test notification through an unsaved draft's channel(s)
+
+POST   /api/notification-channels                CRUD for reusable, named notification channels - see below
+GET    /api/notification-channels
+GET    /api/notification-channels/{id}
+PUT    /api/notification-channels/{id}
+DELETE /api/notification-channels/{id}
+POST   /api/notification-channels/{id}/send-test  send a real test notification through this one channel, independent of any rule
 ```
 
 The `/test` pair only ever evaluates the condition - see `AlertTestResult`. The
@@ -167,16 +187,21 @@ it calls the same `IAlertNotifier.SendAsync` a real breach would, with `isTest: 
 `AlertMessageFormatter` sends distinct "test notification" wording instead of a fake
 breach count - see `AlertNotificationTestResult`.
 
-**Storage: `alert_rules` (ReplacingMergeTree) + `alert_events` (append-only MergeTree)**,
-`db/clickhouse/0003_alert_rules.sql` / `0004_alert_events.sql` (plus
-`0005_alert_rules_telegram.sql`, which adds the `TelegramBotToken`/`TelegramChatId`
-columns, `0006_alert_rules_email.sql`, which adds `EmailTo`, and
-`0012_alert_rules_pagerduty.sql`, which adds `PagerDutyRoutingKey`). Rule CRUD is INSERT-only —
-every create/update inserts a new version, delete inserts an `IsDeleted=1` tombstone, and
-every read goes through `FROM alert_rules FINAL WHERE IsDeleted = 0`. See those
-migrations' own comments and `db/clickhouse/README.md`'s "Design decisions" for the full
-rationale (`ALTER TABLE ... UPDATE/DELETE` are async mutations, the wrong tool for
-"write, read back immediately" CRUD).
+**Storage: `alert_rules` (ReplacingMergeTree) + `alert_events` (append-only MergeTree) +
+`notification_channels` (ReplacingMergeTree)**, `db/clickhouse/0003_alert_rules.sql` /
+`0004_alert_events.sql` (plus `0005_alert_rules_telegram.sql`, which adds the
+`TelegramBotToken`/`TelegramChatId` columns, `0006_alert_rules_email.sql`, which adds
+`EmailTo`, `0012_alert_rules_pagerduty.sql`, which adds `PagerDutyRoutingKey`, and
+`0016_notification_channels.sql`/`0017_alert_rules_channel_ids.sql`/
+`0018_alert_events_channel_results.sql`, the reusable-channel entity + `AlertRule.ChannelIds`
++ `AlertHistoryEntry.ChannelResults` - see
+`docs-internal/adr/0021-reusable-notification-channels.md`). Rule/channel CRUD is
+INSERT-only — every create/update inserts a new version, delete inserts an `IsDeleted=1`
+tombstone, and every read goes through `FROM alert_rules FINAL WHERE IsDeleted = 0` (same
+shape for `notification_channels`). See those migrations' own comments and
+`db/clickhouse/README.md`'s "Design decisions" for the full rationale (`ALTER TABLE ...
+UPDATE/DELETE` are async mutations, the wrong tool for "write, read back immediately"
+CRUD).
 
 **Evaluation: periodic polling, in its own process.** `AlertEvaluationWorker` (a
 `BackgroundService`, same poll-loop idiom as `Flare.Ingest`'s `ClickHouseFlushWorker`)
@@ -195,11 +220,21 @@ in the history table itself, not a separate cache), it notifies and inserts a ne
 for this pass, since polling matches "threshold/query-based" exactly and is the simplest
 correct implementation.
 
-**Notification: exactly one channel per rule, picked by `CompositeAlertNotifier`.** A
-rule sets exactly one of `WebhookUrl`, `TelegramBotToken`+`TelegramChatId`, `EmailTo`, or
-`PagerDutyRoutingKey` — never more than one, never none (`AlertRuleRequest.ValidateChannel`
-400s a create/update that breaks this). `CompositeAlertNotifier` (the `IAlertNotifier`
-actually registered for DI) inspects the rule and delegates to one of:
+**Notification: one or more reusable channels per rule, resolved by
+`NotificationChannelResolver` and fanned out by `CompositeAlertNotifier`.** A rule sets
+either a non-empty `ChannelIds` (one or more saved `NotificationChannel` IDs) or its
+legacy inline channel — exactly one of `WebhookUrl`, `TelegramBotToken`+`TelegramChatId`,
+`EmailTo`, or `PagerDutyRoutingKey` — never both, never neither
+(`AlertRuleRequest.ValidateChannel` 400s a create/update that breaks this; see
+`docs-internal/adr/0021-reusable-notification-channels.md`). `NotificationChannelResolver`
+turns a rule into the list of `NotificationChannel`s it actually notifies - `ChannelIds`
+looked up from `notification_channels`, or (when empty) one ephemeral channel synthesized
+from the rule's legacy inline fields, never persisted. `CompositeAlertNotifier.SendAllAsync`
+then sends to every one of them concurrently and returns one `NotificationResult` per
+channel, recorded as `AlertHistoryEntry.ChannelResults` alongside the existing
+summary-across-all-channels `NotificationStatus`/`NotificationStatusCode`/`NotificationError`.
+Per channel, `CompositeAlertNotifier` (the `IAlertNotifier` actually registered for DI)
+inspects `NotificationChannel.Type` and delegates to one of:
 
 - `WebhookAlertNotifier` — POSTs JSON with a top-level `text` (what Slack's
   incoming-webhook parser renders) plus flat structured fields (`ruleId`,

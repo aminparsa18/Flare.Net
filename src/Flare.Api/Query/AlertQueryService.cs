@@ -65,7 +65,7 @@ public interface IAlertQueryService
 public sealed class AlertQueryService(IClickHouseClient client, TimeProvider timeProvider) : IAlertQueryService
 {
     private const string RuleColumns =
-        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue";
+        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds";
 
     /// <summary>
     /// Resolves <see cref="AlertRuleRequest"/>'s nullable optional members to their real
@@ -77,7 +77,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
     /// same reasoning <see cref="LogSearchQueryBuilder.Build"/> is a static pure builder
     /// rather than an instance method.
     /// </summary>
-    internal static (string Description, bool Enabled, int CooldownSeconds, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey, AlertConditionKind ConditionKind) ResolveDefaults(AlertRuleRequest request) => (
+    internal static (string Description, bool Enabled, int CooldownSeconds, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey, AlertConditionKind ConditionKind, IReadOnlyList<Guid> ChannelIds) ResolveDefaults(AlertRuleRequest request) => (
         Description: request.Description ?? "",
         Enabled: request.Enabled ?? true,
         CooldownSeconds: request.CooldownSeconds ?? 300,
@@ -86,7 +86,8 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         TelegramChatId: request.TelegramChatId ?? "",
         EmailTo: request.EmailTo ?? "",
         PagerDutyRoutingKey: request.PagerDutyRoutingKey ?? "",
-        ConditionKind: request.ConditionKind ?? AlertConditionKind.LogCount);
+        ConditionKind: request.ConditionKind ?? AlertConditionKind.LogCount,
+        ChannelIds: request.ChannelIds ?? []);
 
     public async Task<AlertRule> CreateAsync(AlertRuleRequest request, CancellationToken cancellationToken)
     {
@@ -112,6 +113,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             ConditionKind = defaults.ConditionKind,
             MetricCondition = request.MetricCondition,
             MetricThresholdValue = request.MetricThresholdValue,
+            ChannelIds = defaults.ChannelIds,
         };
 
         await InsertRuleVersionAsync(rule, isDeleted: false, cancellationToken);
@@ -161,6 +163,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             ConditionKind = defaults.ConditionKind,
             MetricCondition = request.MetricCondition,
             MetricThresholdValue = request.MetricThresholdValue,
+            ChannelIds = defaults.ChannelIds,
         };
 
         await InsertRuleVersionAsync(updated, isDeleted: false, cancellationToken);
@@ -287,12 +290,13 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         parameters.AddParameter("conditionKind", entry.ConditionKind.ToString());
         parameters.AddParameter("observedValue", (object?)entry.ObservedValue ?? DBNull.Value);
         parameters.AddParameter("thresholdValue", (object?)entry.ThresholdValue ?? DBNull.Value);
+        parameters.AddParameter("channelResultsJson", entry.ChannelResults.Count == 0 ? "" : JsonSerializer.Serialize(entry.ChannelResults, AlertsJsonContext.Default.IReadOnlyListAlertChannelResult));
 
         const string sql = """
             INSERT INTO alert_events
-                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue)
+                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson)
             VALUES
-                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)})
+                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)}, {channelResultsJson:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -304,7 +308,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         parameters.AddParameter("ruleId", ruleId);
         parameters.AddParameter("limit", (uint)limit);
         const string sql = """
-            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue
+            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson
             FROM alert_events
             WHERE RuleId = {ruleId:UUID}
             ORDER BY FiredAt DESC
@@ -330,6 +334,9 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
                 ConditionKind = Enum.Parse<AlertConditionKind>(reader.GetString(10)),
                 ObservedValue = reader.IsDBNull(11) ? null : reader.GetFieldValue<double>(11),
                 ThresholdValue = reader.IsDBNull(12) ? null : reader.GetFieldValue<double>(12),
+                ChannelResults = NullIfEmpty(reader.GetString(13)) is { } channelResultsJson
+                    ? JsonSerializer.Deserialize(channelResultsJson, AlertsJsonContext.Default.IReadOnlyListAlertChannelResult) ?? []
+                    : [],
             });
         }
 
@@ -359,12 +366,13 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         parameters.AddParameter("conditionKind", rule.ConditionKind.ToString());
         parameters.AddParameter("metricConditionJson", rule.MetricCondition is null ? "" : JsonSerializer.Serialize(rule.MetricCondition, AlertsJsonContext.Default.MetricAlertCondition));
         parameters.AddParameter("metricThresholdValue", (object?)rule.MetricThresholdValue ?? DBNull.Value);
+        parameters.AddParameter("channelIds", rule.ChannelIds.ToArray());
 
         const string sql = """
             INSERT INTO alert_rules
-                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue)
+                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)})
+                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)}, {channelIds:Array(UUID)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -407,6 +415,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             ? JsonSerializer.Deserialize(json, AlertsJsonContext.Default.MetricAlertCondition)
             : null,
         MetricThresholdValue = reader.IsDBNull(18) ? null : reader.GetFieldValue<double>(18),
+        ChannelIds = reader.GetFieldValue<Guid[]>(19),
     };
 
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;

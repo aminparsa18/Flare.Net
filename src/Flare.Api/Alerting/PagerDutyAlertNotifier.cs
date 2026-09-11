@@ -6,11 +6,12 @@ using Microsoft.Extensions.Options;
 namespace Flare.Api.Alerting;
 
 /// <summary>
-/// POSTs a fired alert to PagerDuty's Events API v2 <c>enqueue</c> endpoint
-/// (<see cref="AlertRule.PagerDutyRoutingKey"/>) - the PagerDuty counterpart to
+/// POSTs a fired alert to PagerDuty's Events API v2 <c>enqueue</c> endpoint (the
+/// channel's <see cref="NotificationChannel.PagerDutyRoutingKey"/>) - the PagerDuty
+/// counterpart to
 /// <see cref="WebhookAlertNotifier"/>/<see cref="TelegramAlertNotifier"/>/<see cref="EmailAlertNotifier"/>,
-/// picked by <see cref="CompositeAlertNotifier"/> instead of them when a rule has
-/// <see cref="AlertRule.PagerDutyRoutingKey"/> set.
+/// picked by <see cref="CompositeAlertNotifier"/> instead of them for a
+/// <see cref="NotificationChannelType.PagerDuty"/> channel.
 /// </summary>
 /// <remarks>
 /// Unlike <see cref="EmailOptions"/>, there's no app-wide server config here: the routing
@@ -32,7 +33,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
 {
     private const string EventsApiUrl = "https://events.pagerduty.com/v2/enqueue";
 
-    public async Task<NotificationResult> SendAsync(AlertRule rule, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         // Not folded into `summary` below the way the other three notifiers append it to
         // their plain-text message - PagerDuty renders `summary` as a single-line incident
@@ -45,7 +46,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         var isMetric = rule.ConditionKind == AlertConditionKind.MetricThreshold;
         var payload = new
         {
-            routing_key = rule.PagerDutyRoutingKey,
+            routing_key = channel.PagerDutyRoutingKey,
             event_action = "trigger",
             client = "Flare",
             client_url = ruleUrl,

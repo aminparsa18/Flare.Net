@@ -44,7 +44,8 @@ namespace Flare.AlertWorker.Alerting;
 /// </remarks>
 public sealed class AlertEvaluationWorker(
     IAlertQueryService alerts,
-    IAlertNotifier notifier,
+    INotificationChannelQueryService channels,
+    CompositeAlertNotifier notifier,
     IConnectionMultiplexer redis,
     IOptions<AlertingOptions> options,
     TimeProvider timeProvider,
@@ -159,14 +160,34 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        var result = await notifier.SendAsync(rule, observedValue ?? observedCount, now, cancellationToken);
-        if (!result.Success)
+        var ruleChannels = await NotificationChannelResolver.ResolveAsync(rule, channels, cancellationToken);
+        if (ruleChannels.Count == 0)
+        {
+            logger.LogWarning("Alert rule {RuleId} ({RuleName}) breached but has no resolvable notification channel; skipping notify.", rule.Id, rule.Name);
+            return;
+        }
+
+        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken);
+        var channelResults = ruleChannels.Zip(results, (channel, result) => new AlertChannelResult
+        {
+            ChannelId = channel.Id == NotificationChannelResolver.LegacyChannelId ? null : channel.Id,
+            ChannelName = channel.Name,
+            Type = channel.Type,
+            Success = result.Success,
+            StatusCode = result.StatusCode,
+            Error = result.Error ?? "",
+        }).ToList();
+
+        var failed = channelResults.Where(r => !r.Success).ToList();
+        if (failed.Count > 0)
         {
             logger.LogWarning(
-                "Alert rule {RuleId} ({RuleName}) fired but notification failed: {Error}",
+                "Alert rule {RuleId} ({RuleName}) fired but {FailedCount}/{TotalCount} channel notification(s) failed: {Errors}",
                 rule.Id,
                 rule.Name,
-                result.Error);
+                failed.Count,
+                channelResults.Count,
+                string.Join("; ", failed.Select(r => $"{r.ChannelName}: {r.Error}")));
         }
 
         await alerts.InsertEventAsync(
@@ -179,12 +200,17 @@ public sealed class AlertEvaluationWorker(
                 ObservedCount = observedCount,
                 ThresholdCount = rule.Threshold.Count,
                 WindowSeconds = rule.WindowSeconds,
-                NotificationStatus = result.Success ? "Sent" : "Failed",
-                NotificationStatusCode = result.StatusCode,
-                NotificationError = result.Error ?? "",
+                // Backward-compatible summary across every channel - "Sent" only if all
+                // of them succeeded, same contract this field had before fan-out existed
+                // (a single-channel rule's summary is unchanged). ChannelResults below
+                // carries the per-channel detail.
+                NotificationStatus = failed.Count == 0 ? "Sent" : "Failed",
+                NotificationStatusCode = channelResults[0].StatusCode,
+                NotificationError = failed.Count == 0 ? "" : string.Join("; ", failed.Select(r => $"{r.ChannelName}: {r.Error}")),
                 ConditionKind = rule.ConditionKind,
                 ObservedValue = observedValue,
                 ThresholdValue = rule.MetricThresholdValue,
+                ChannelResults = channelResults,
             },
             cancellationToken);
     }

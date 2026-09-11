@@ -36,6 +36,7 @@
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import BellIcon from '@lucide/svelte/icons/bell';
+	import SendIcon from '@lucide/svelte/icons/send';
 	import NetworkIcon from '@lucide/svelte/icons/network';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
@@ -56,6 +57,7 @@
 		'/ingestion': UploadIcon,
 		'/indexing': RefreshCwIcon,
 		'/alerts': BellIcon,
+		'/notification-channels': SendIcon,
 		'/resources': NetworkIcon,
 		'/views': LayoutGridIcon,
 		'/auth': ShieldIcon

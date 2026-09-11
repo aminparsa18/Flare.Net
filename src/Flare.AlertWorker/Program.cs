@@ -16,6 +16,7 @@ builder.AddRedisClient(connectionName: "redis");
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
+builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
 
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
@@ -35,7 +36,11 @@ builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
 builder.Services.AddSingleton<EmailAlertNotifier>();
-builder.Services.AddSingleton<IAlertNotifier, CompositeAlertNotifier>();
+// Registered as its own concrete type (not just IAlertNotifier) so AlertEvaluationWorker
+// can inject it directly for SendAllAsync, the fan-out entrypoint that isn't part of the
+// IAlertNotifier interface - same registration shape as Flare.Api's own Program.cs.
+builder.Services.AddSingleton<CompositeAlertNotifier>();
+builder.Services.AddSingleton<IAlertNotifier>(sp => sp.GetRequiredService<CompositeAlertNotifier>());
 
 builder.Services.AddHostedService<AlertEvaluationWorker>();
 

@@ -6,7 +6,8 @@
 // neither problem, so it's a real generated class, reused here directly.
 // `conditionKind`/`metricCondition`/`metricThresholdValue` were appended after every
 // pre-existing field (not inserted earlier) - see `AlertConditionKind`'s C#-side doc
-// comment for why.
+// comment for why. `channelIds` was appended after those, same reasoning - see
+// `AlertRule.ChannelIds`'s C#-side doc comment.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -34,6 +35,7 @@ export class AlertRule {
 	conditionKind: number;
 	metricCondition: MetricAlertCondition | null;
 	metricThresholdValue: number | null;
+	channelIds: (string | null)[] | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -54,6 +56,7 @@ export class AlertRule {
 		this.conditionKind = 0;
 		this.metricCondition = null;
 		this.metricThresholdValue = null;
+		this.channelIds = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -68,7 +71,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(18);
+		writer.writeObjectHeader(19);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -87,6 +90,7 @@ export class AlertRule {
 		writer.writeInt32(value.conditionKind);
 		MetricAlertCondition.serializeCore(writer, value.metricCondition);
 		writer.writeNullableFloat64(value.metricThresholdValue);
+		writer.writeArray(value.channelIds, (writer, x) => writer.writeGuid(x!));
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -110,7 +114,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 18) {
+		if (count == 19) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -129,7 +133,8 @@ export class AlertRule {
 			value.conditionKind = reader.readInt32();
 			value.metricCondition = MetricAlertCondition.deserializeCore(reader);
 			value.metricThresholdValue = reader.readNullableFloat64();
-		} else if (count > 18) {
+			value.channelIds = reader.readArray((reader) => reader.readGuid());
+		} else if (count > 19) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -169,6 +174,8 @@ export class AlertRule {
 			if (count == 17) return value;
 			value.metricThresholdValue = reader.readNullableFloat64();
 			if (count == 18) return value;
+			value.channelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 19) return value;
 		}
 		return value;
 	}
