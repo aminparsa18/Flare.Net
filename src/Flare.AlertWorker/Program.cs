@@ -19,6 +19,11 @@ builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+// The dashboard's public base URL, for the deep link every notifier appends to a real
+// fired alert - see AlertLinkOptions. Same "Alerting" section AlertingOptions itself binds
+// from, via its own options class in Flare.Api since Flare.Api's own send-test endpoints
+// need it too and PollInterval/MaxRulesPerTick are meaningless there.
+builder.Services.Configure<AlertLinkOptions>(builder.Configuration.GetSection(AlertLinkOptions.SectionName));
 // Named/typed HttpClients so the webhook/Slack, Telegram, and PagerDuty senders inherit
 // AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
 // discovery) for free - same registration Flare.Api's own Program.cs makes for its

@@ -1,4 +1,5 @@
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Alerting;
 
@@ -15,19 +16,25 @@ namespace Flare.Api.Alerting;
 /// audiences. Named follow-up if a consumer ever needs Slack <c>blocks</c> formatting or
 /// a stricter generic-webhook schema: a per-rule payload-style field - not built now.
 /// </remarks>
-public sealed class WebhookAlertNotifier(HttpClient httpClient) : IAlertNotifier
+public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
     public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
+        var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
         var payload = new
         {
-            text = AlertMessageFormatter.BuildText(rule, observedCount, isTest),
+            text = AlertMessageFormatter.BuildText(rule, observedCount, isTest, linkOptions.Value.PublicUrl),
             ruleId = rule.Id,
             ruleName = rule.Name,
             observedCount,
             thresholdCount = rule.Threshold.Count,
             windowSeconds = rule.WindowSeconds,
             firedAt,
+            // Null when Alerting:PublicUrl isn't configured - same "no link rather than a
+            // broken one" contract as the text field's own link line. Kept as a dedicated
+            // field (rather than making the generic webhook consumer parse it back out of
+            // text) since that consumer reads the flat fields above directly, not text.
+            ruleUrl,
         };
 
         try

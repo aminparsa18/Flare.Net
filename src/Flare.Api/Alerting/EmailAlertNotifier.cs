@@ -33,7 +33,7 @@ namespace Flare.Api.Alerting;
 /// <see cref="AuthenticationException"/>/socket/TLS/timeout exceptions are all still
 /// possible and all land here.
 /// </remarks>
-public sealed class EmailAlertNotifier(IOptions<EmailOptions> options) : IAlertNotifier
+public sealed class EmailAlertNotifier(IOptions<EmailOptions> options, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
     public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
@@ -51,7 +51,7 @@ public sealed class EmailAlertNotifier(IOptions<EmailOptions> options) : IAlertN
         }
 
         message.Subject = isTest ? $"Flare test alert: {rule.Name}" : $"Flare alert: {rule.Name}";
-        message.Body = new TextPart("plain") { Text = AlertMessageFormatter.BuildText(rule, observedCount, isTest) };
+        message.Body = new TextPart("plain") { Text = AlertMessageFormatter.BuildText(rule, observedCount, isTest, linkOptions.Value.PublicUrl) };
 
         try
         {

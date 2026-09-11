@@ -156,6 +156,12 @@ services:
       # service's comment) keeps both in sync automatically. AllowCredentials() means
       # this can't be a wildcard - the session cookie won't cross origins otherwise.
       Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
+      # Same dashboard URL as Cors__AllowedOrigins__0 above - used to build the deep link
+      # a fired alert's notification (Slack/Telegram/email/PagerDuty) carries back to the
+      # rule that fired it (AlertLinkOptions/AlertMessageFormatter). `api` only needs this
+      # for its own /api/alerts/*/send-test endpoint; `alert-worker` below is what sends
+      # real fired-alert notifications.
+      Alerting__PublicUrl: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
       # Opt-in Resources page (docs/standalone.md) - blank by default, meaning
       # DockerContainerPoller never polls and the page shows a clean "not enabled" state.
       # Turning this on requires TWO explicit `.env` lines, deliberately: this URL (only
@@ -209,6 +215,10 @@ services:
       Email__Password: "${SMTP_PASSWORD:-}"
       Email__From: "${SMTP_FROM:-}"
       Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
+      # Same value as `api`'s own Alerting__PublicUrl above - this is the process that
+      # actually sends real fired-alert notifications, so this is what puts a working
+      # link back to the rule in them.
+      Alerting__PublicUrl: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
     # No published ports (internal only, same as redis) - nothing outside this stack
     # talks to this process directly.
     healthcheck:

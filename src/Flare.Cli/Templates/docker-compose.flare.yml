@@ -103,6 +103,10 @@ services:
       Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
       Identity__DbPath: "/data/identity/flare-identity.db"
       Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
+      # Dashboard URL a fired alert's notification links back to the rule with
+      # (AlertLinkOptions) - only needed here for /api/alerts/*/send-test; alert-worker
+      # below is what sends real fired-alert notifications.
+      Alerting__PublicUrl: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
       DockerResources__ProxyUrl: "${FLARE_DOCKER_PROXY_URL:-}"
     volumes:
       - identity-data:/data/identity
@@ -145,6 +149,8 @@ services:
       Email__Password: "${SMTP_PASSWORD:-}"
       Email__From: "${SMTP_FROM:-}"
       Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
+      # Same value as `api`'s own Alerting__PublicUrl above.
+      Alerting__PublicUrl: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
     # No published ports (internal only, same as redis) - nothing outside this stack
     # talks to this process directly.
     healthcheck:
