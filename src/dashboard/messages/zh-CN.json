@@ -310,6 +310,7 @@
 	"tracesToolbar_autoRefreshTitle": "每 30 秒自动重新运行搜索",
 	"tracesToolbar_autoRefreshLabel": "自动刷新",
 	"tracesToolbar_clearFilters": "清除筛选条件",
+	"tracesToolbar_goToTracePlaceholder": "跳转到追踪 ID…",
 	"errorsToolbar_serviceLabel": "服务",
 	"errorsToolbar_refresh": "刷新",
 	"errorsToolbar_clearFilters": "清除筛选条件",

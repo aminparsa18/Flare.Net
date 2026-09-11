@@ -308,6 +308,7 @@
 	"tracesToolbar_autoRefreshTitle": "Автоматически повторяет поиск каждые 30 секунд",
 	"tracesToolbar_autoRefreshLabel": "Автообновление",
 	"tracesToolbar_clearFilters": "Очистить фильтры",
+	"tracesToolbar_goToTracePlaceholder": "Перейти к трассировке по ID…",
 	"errorsToolbar_serviceLabel": "Сервис",
 	"errorsToolbar_refresh": "Обновить",
 	"errorsToolbar_clearFilters": "Очистить фильтры",

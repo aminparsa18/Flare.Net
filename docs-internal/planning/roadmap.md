@@ -109,14 +109,3 @@ folders are where "what happened and why" actually lives.
   `LogCount`/`MetricThreshold`, following ADR-0020's established
   discriminator/additive-migration pattern, not a from-scratch design.
   Not started.
-- **"Go to trace by ID" quick-search in the Traces GUI page.** Low
-  confidence, not fully verified - the terminal already has this via its
-  `trace <id>` command
-  ([`src/dashboard/src/lib/terminal/commands/trace.ts`](../../src/dashboard/src/lib/terminal/commands/trace.ts)),
-  hitting the same `GET /api/traces/{traceId}` the GUI's trace-detail
-  page uses, but no equivalent "paste a trace ID and jump to it" input
-  was found on the GUI Traces page itself - only reachable there via
-  navigating to `/traces/{traceId}` directly or filtering. SigNoz has a
-  dedicated component for this
-  ([signoz#1551](https://github.com/SigNoz/signoz/commit/eaadc3bb9)).
-  Worth a closer look before committing to it. Not started.
