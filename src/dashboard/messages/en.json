@@ -196,7 +196,7 @@
 	"volumeChart_label": "Event volume",
 	"volumeChart_filteredTo": "Filtered to {time}",
 	"volumeChart_errorPrefix": "Volume chart: {error}",
-	"volumeChart_chartAriaLabel": "Event volume over time - click a bar to filter logs to that time range",
+	"volumeChart_chartAriaLabel": "Event volume over time - click a bar to filter logs to that time range, or drag to zoom into a range",
 	"volumeChart_tooltip": "{time} · {count} events · click to filter",
 	"alertsPage_title": "Flare — Alerts",
 	"alertRuleTable_heading": "Alerts",
