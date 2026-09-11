@@ -120,11 +120,3 @@ folders are where "what happened and why" actually lives.
   dedicated component for this
   ([signoz#1551](https://github.com/SigNoz/signoz/commit/eaadc3bb9)).
   Worth a closer look before committing to it. Not started.
-- **GroupBy attribute-key picker has no search/autocomplete, unlike
-  filter values.** [`MetricsToolbar.svelte:69-80`](../../src/dashboard/src/lib/components/metrics/MetricsToolbar.svelte)
-  is a plain dropdown listing every attribute key, no type-to-filter.
-  Flare already has autocomplete for attribute *filter values*; this is
-  the same affordance missing on the *groupBy field* picker specifically
-  - cheap, consistent extension of work already done. Reference:
-  [signoz#2156](https://github.com/SigNoz/signoz/commit/02ef1744b).
-  Not started.

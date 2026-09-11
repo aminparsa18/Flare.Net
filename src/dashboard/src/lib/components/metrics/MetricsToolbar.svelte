@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
+	import PopoverSingleSelect from '$lib/components/logs/PopoverSingleSelect.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import { Switch } from '$lib/components/ui/switch';
 	import ClockIcon from '@lucide/svelte/icons/clock';
@@ -34,14 +35,26 @@
 			: presetLabel(explorer.filter.timeRangePreset)
 	);
 
-	// Bits UI's Select needs a non-empty item value, so a sentinel stands in for "no
-	// grouping" and is translated back to null at the call site below.
+	// PopoverSingleSelect's `value`/option shape wants a plain non-null string, so a
+	// sentinel stands in for "no grouping" and is translated back to null at the call
+	// site below (same trick the Bits UI Select this replaced already used).
 	const GROUP_BY_NONE = '__none__';
 	const groupByLabel = $derived(
 		explorer.filter.groupByAttributeKey
 			? m.metricsToolbar_groupByWithKey({ key: explorer.filter.groupByAttributeKey })
 			: m.metricsToolbar_groupByLabel()
 	);
+
+	// Search/autocomplete for this picker (PopoverSingleSelect, backed by Command's
+	// client-side filter) - see PopoverSingleSelect.svelte's own remarks. `None` stays
+	// the first option, same position the plain Select gave it.
+	const groupByOptions = $derived([
+		{ value: GROUP_BY_NONE, label: m.metricsToolbar_groupByNone() },
+		...explorer.knownAttributeKeys.map((key) => ({
+			value: key.key,
+			label: `${key.key} (${key.distinctValueCount})`
+		}))
+	]);
 
 	// Fixed option set, not a free-text/numeric input - same "closed, sane set of
 	// choices" call PopoverMultiSelect/the other Select-backed toolbar pickers already
@@ -82,21 +95,13 @@
 	     entirely when the selected metric has no discovered attribute keys, same
 	     graceful-degradation call as every other picker on this page. -->
 	{#if explorer.knownAttributeKeys.length > 0}
-		<Select.Root
-			type="single"
+		<PopoverSingleSelect
+			label={m.metricsToolbar_groupByLabel()}
+			triggerLabel={groupByLabel}
+			options={groupByOptions}
 			value={explorer.filter.groupByAttributeKey ?? GROUP_BY_NONE}
-			onValueChange={(v) => v && explorer.setGroupByAttribute(v === GROUP_BY_NONE ? null : v)}
-		>
-			<Select.Trigger class="w-auto">
-				{groupByLabel}
-			</Select.Trigger>
-			<Select.Content>
-				<Select.Item value={GROUP_BY_NONE} label={m.metricsToolbar_groupByNone()} />
-				{#each explorer.knownAttributeKeys as key (key.key)}
-					<Select.Item value={key.key} label={`${key.key} (${key.distinctValueCount})`} />
-				{/each}
-			</Select.Content>
-		</Select.Root>
+			onChange={(v) => explorer.setGroupByAttribute(v === GROUP_BY_NONE ? null : v)}
+		/>
 	{/if}
 
 	<!-- The series cap (MetricQueryRequest.topN / MetricSeriesQueryBuilder's remarks)
