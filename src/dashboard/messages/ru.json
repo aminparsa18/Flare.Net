@@ -373,6 +373,8 @@
 	"spanDetail_eventsTitle": "События",
 	"spanDetail_attributesTitle": "Атрибуты",
 	"spanDetail_stackTraceTitle": "Трассировка стека",
+	"spanDetail_linksTitle": "Ссылки",
+	"spanDetail_viewLinkedTrace": "Открыть трассировку",
 	"spanDetail_linkedLogsTitle": "Связанные логи",
 	"traceList_colTime": "Время",
 	"traceList_colStatus": "Статус",

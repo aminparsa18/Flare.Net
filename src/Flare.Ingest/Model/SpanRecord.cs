@@ -14,10 +14,11 @@ namespace Flare.Ingest.Model;
 /// the wire. <see cref="OtlpTraceMapper"/> normalizes empty string to <see langword="null"/>
 /// for every nullable string field on this type, same as <see cref="LogEvent"/>.
 ///
-/// Span Links are deliberately omitted from this model entirely, not just from
-/// storage — same "add it when there's a concrete need" precedent as the alerting
-/// roadmap item's per-channel columns. Add a <c>Links</c> property (and the matching
-/// <c>ALTER TABLE</c> migration) only once a feature actually consumes them.
+/// <see cref="Links"/> (added via <c>db/clickhouse/0013_span_links.sql</c>) was
+/// deliberately omitted from the original model - see that migration's remarks for the
+/// "add it when there's a concrete need" precedent it followed and why a trace-linking
+/// feature (async/batch/messaging spans linking back to a producer in another trace,
+/// the waterfall view surfacing them) is that need.
 ///
 /// <see cref="MemoryPackableAttribute"/>: the MemoryPack wire format for
 /// <see cref="Sinks.RedisStreamSpanEventSink"/>/<see cref="Pipeline.SpanFlushWorker"/>'s
@@ -87,6 +88,16 @@ public sealed partial record SpanRecord
     public required IReadOnlyDictionary<string, string> SpanAttributes { get; init; }
 
     public required IReadOnlyList<SpanEvent> Events { get; init; }
+
+    /// <summary>
+    /// OTLP Span.Links: references from this span to a span in the same or a different
+    /// trace (e.g. a queue consumer span linking back to its producer's span). Appended
+    /// after <see cref="Events"/> rather than inserted earlier in the type, so the
+    /// MemoryPack wire layout stays backward-compatible with anything that already
+    /// serialized a <see cref="SpanRecord"/> without it - same "append, don't insert"
+    /// convention as <c>Flare.Api</c>'s <c>SpanDto.HasError</c>.
+    /// </summary>
+    public required IReadOnlyList<SpanLink> Links { get; init; }
 }
 
 /// <summary>A single OTLP Span.Event - a timestamped annotation on a span.</summary>
@@ -96,6 +107,26 @@ public sealed partial record SpanEvent
     public required DateTimeOffset Timestamp { get; init; }
 
     public string? Name { get; init; }
+
+    public required IReadOnlyDictionary<string, string> Attributes { get; init; }
+}
+
+/// <summary>
+/// A single OTLP Span.Link - a reference from a span to another span, in the same or a
+/// different trace. Unlike <see cref="SpanEvent"/>, a link carries no timestamp of its
+/// own on the wire.
+/// </summary>
+[MemoryPackable]
+public sealed partial record SpanLink
+{
+    /// <summary>Lower-hex trace id (16 bytes) of the linked-to span, same encoding as <see cref="SpanRecord.TraceId"/>.</summary>
+    public required string TraceId { get; init; }
+
+    /// <summary>Lower-hex span id (8 bytes) of the linked-to span.</summary>
+    public required string SpanId { get; init; }
+
+    /// <summary>W3C tracestate of the linked-to span, if set.</summary>
+    public string? TraceState { get; init; }
 
     public required IReadOnlyDictionary<string, string> Attributes { get; init; }
 }

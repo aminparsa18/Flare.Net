@@ -48,6 +48,16 @@ public class SpanEventJsonContextTests
                     Attributes = new Dictionary<string, string> { ["k1"] = "v1" },
                 },
             ],
+            Links =
+            [
+                new SpanLink
+                {
+                    TraceId = "1102030405060708090a0b0c0d0e0f10",
+                    SpanId = "b1a2a3a4a5a6a7a8",
+                    TraceState = "vendor=value",
+                    Attributes = new Dictionary<string, string> { ["k2"] = "v2" },
+                },
+            ],
         };
 
         AssertRoundTrips(original);
@@ -70,6 +80,7 @@ public class SpanEventJsonContextTests
             ScopeAttributes = new Dictionary<string, string>(),
             SpanAttributes = new Dictionary<string, string>(),
             Events = [],
+            Links = [],
         };
 
         AssertRoundTrips(original);
@@ -114,6 +125,14 @@ public class SpanEventJsonContextTests
             Assert.Equal(original.Events[i].Timestamp, roundTripped.Events[i].Timestamp);
             Assert.Equal(original.Events[i].Name, roundTripped.Events[i].Name);
             Assert.Equal(original.Events[i].Attributes, roundTripped.Events[i].Attributes);
+        }
+        Assert.Equal(original.Links.Count, roundTripped.Links.Count);
+        for (var i = 0; i < original.Links.Count; i++)
+        {
+            Assert.Equal(original.Links[i].TraceId, roundTripped.Links[i].TraceId);
+            Assert.Equal(original.Links[i].SpanId, roundTripped.Links[i].SpanId);
+            Assert.Equal(original.Links[i].TraceState, roundTripped.Links[i].TraceState);
+            Assert.Equal(original.Links[i].Attributes, roundTripped.Links[i].Attributes);
         }
     }
 }

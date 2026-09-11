@@ -16,7 +16,10 @@ namespace Flare.Ingest.Pipeline;
 /// row values, and that <c>ExecuteReaderAsync</c> reads them back as the same native
 /// array types - no special handling needed beyond building the three parallel arrays
 /// here, same way <see cref="ClickHouseRowMapper"/> builds <c>Dictionary&lt;string,string&gt;</c>
-/// for the plain <c>Map</c> columns.
+/// for the plain <c>Map</c> columns. <c>Links</c> (added by
+/// <c>db/clickhouse/0013_span_links.sql</c>) is a second <c>Nested</c> column, desugaring
+/// and round-tripping the same way as three more parallel arrays
+/// (<c>string[]</c>/<c>string[]</c>/<c>string[]</c>/<c>Dictionary&lt;string,string&gt;[]</c>).
 ///
 /// <c>StatusCode</c> is inserted as the enum's string label (e.g. <c>"STATUS_CODE_ERROR"</c>),
 /// not its ordinal byte - the same spike confirmed the driver accepts either for an
@@ -32,7 +35,9 @@ public static class ClickHouseSpanRowMapper
     /// <see cref="ClickHouseRowMapper.Columns"/>'s remarks for why order matters to
     /// <c>InsertBinaryAsync</c>. Matches <c>0007_spans.sql</c>'s declaration order, with
     /// the <c>Events</c> Nested column's three desugared array columns, then
-    /// <c>IngestedAt</c> (added via <c>0011_ingest_receipt_time.sql</c>), listed last.
+    /// <c>IngestedAt</c> (added via <c>0011_ingest_receipt_time.sql</c>), then the
+    /// <c>Links</c> Nested column's four desugared array columns (added via
+    /// <c>0013_span_links.sql</c>) listed last, in migration order.
     /// </summary>
     public static readonly IReadOnlyList<string> Columns =
     [
@@ -59,6 +64,10 @@ public static class ClickHouseSpanRowMapper
         "Events.Name",
         "Events.Attributes",
         "IngestedAt",
+        "Links.TraceId",
+        "Links.SpanId",
+        "Links.TraceState",
+        "Links.Attributes",
     ];
 
     /// <summary>Maps a single <see cref="SpanRecord"/> to a row, positionally matching <see cref="Columns"/>.</summary>
@@ -87,6 +96,10 @@ public static class ClickHouseSpanRowMapper
         span.Events.Select(e => e.Name ?? string.Empty).ToArray(),
         span.Events.Select(e => new Dictionary<string, string>(e.Attributes)).ToArray(),
         span.IngestedAt.UtcDateTime,
+        span.Links.Select(l => l.TraceId).ToArray(),
+        span.Links.Select(l => l.SpanId).ToArray(),
+        span.Links.Select(l => l.TraceState ?? string.Empty).ToArray(),
+        span.Links.Select(l => new Dictionary<string, string>(l.Attributes)).ToArray(),
     ];
 
     /// <summary>Maps a batch of spans to rows, in the same order.</summary>

@@ -71,6 +71,12 @@ for why the OTLP wire's own `ObservedTimestamp` doesn't already answer this, and
 PagerDuty as a fourth notification channel to `alert_rules`, alongside migrations
 0005/0006's Telegram and Email columns.
 
+`0013_span_links.sql` - adds a `Links` `Nested` column to `spans` for OTLP Span.Links
+(references from a span to another span, in the same or a different trace - e.g. a
+queue consumer span linking back to its producer's span). 0007's original DDL
+deliberately left this out entirely, not even as empty columns - see this migration's
+own remarks and "Span Links" below, which this supersedes.
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
@@ -235,9 +241,15 @@ specifically (both documented inline in `0007_spans.sql` too):
   `InsertBinaryAsync` (RowBinary insert) and `ExecuteReaderAsync` round-trip these as
   plain .NET `DateTime[]`/`string[]`/`Dictionary<string,string>[]` values with no
   special handling needed, the same shape already used for the plain `Map` attribute
-  columns. **Span Links are deliberately not represented at all** (not even empty
-  columns) - no feature in this roadmap slice consumes them; add via a later `ALTER
-  TABLE` once one does, same precedent as the Telegram/Email `ALTER`s above.
+  columns. **`Links Nested (...)` (migration 0013)** is a second `Nested` column added
+  the same way, for OTel's `Span.Links` - references from a span to another span, in
+  the same or a different trace (e.g. a queue consumer span linking back to its
+  producer's span), desugaring into four parallel arrays
+  (`Links.TraceId`/`Links.SpanId`/`Links.TraceState`/`Links.Attributes`). 0007's
+  original DDL deliberately left this out entirely, not even as empty columns, same
+  precedent as the Telegram/Email `ALTER`s above - added once the trace waterfall view
+  had a concrete need to surface them. Unlike `Events`, a link carries no timestamp of
+  its own on the OTLP wire, so there's no `Links.TimeUnixNano` counterpart.
 - **`StatusCode Enum8(...)`**, not `LowCardinality(String)` like `logs.SeverityText`.
   OTel's `Status.Code` is a fixed 3-value spec enum that doesn't vary per source
   library (unlike log severity text, which does) - `Enum8` fits per
@@ -260,9 +272,10 @@ out specifically (also documented inline in `0008_metrics.sql`):
   which likewise uses one table per point type - same vendored-schema lineage as
   `logs`/`spans`.
 - **v1 covers Gauge/Sum/Histogram only** - no `metrics_exponential_histogram` or
-  `metrics_summary` table. Same "add it when a concrete need exists" precedent as
-  `spans`' omitted Span Links: ExponentialHistogram is opt-in and rare in .NET's default
-  instrumentation, Summary is legacy Prometheus-client-style quantiles. `OtlpMetricsMapper`
+  `metrics_summary` table. Same "add it when a concrete need exists" precedent `spans`'
+  `Links` column followed before migration 0013 added it: ExponentialHistogram is
+  opt-in and rare in .NET's default instrumentation, Summary is legacy
+  Prometheus-client-style quantiles. `OtlpMetricsMapper`
   recognizes both point types on the wire and drops their data points (logging a
   per-export warning with the affected metric names) rather than erroring the whole
   export over an unsupported metric mixed in with supported ones.
@@ -398,6 +411,7 @@ filtering or event ordering in the dashboard needs.
 | `SpanAttributes`                  | `SpanAttributes`        | |
 | `Events` (`IReadOnlyList<SpanEvent>`) | `Events.TimeUnixNano`/`Events.Name`/`Events.Attributes` | `Nested` column, desugared to three parallel arrays - see "Design decisions" above. |
 | `IngestedAt`                      | `IngestedAt`            | Added in migration 0011 (ADR-0014). See "`IngestedAt` vs `ObservedTimestamp`" above. |
+| `Links` (`IReadOnlyList<SpanLink>`) | `Links.TraceId`/`Links.SpanId`/`Links.TraceState`/`Links.Attributes` | Added in migration 0013. `Nested` column, desugared to four parallel arrays - see "Design decisions" above. |
 
 ## `MetricPointRecord` field → column mapping
 
