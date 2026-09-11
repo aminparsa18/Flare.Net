@@ -20,12 +20,12 @@ public sealed class CompositeAlertNotifier(
     EmailAlertNotifier email,
     PagerDutyAlertNotifier pagerDuty) : IAlertNotifier
 {
-    public Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
+    public Task<NotificationResult> SendAsync(AlertRule rule, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         var isTelegram = !string.IsNullOrWhiteSpace(rule.TelegramBotToken) && !string.IsNullOrWhiteSpace(rule.TelegramChatId);
         var isEmail = !string.IsNullOrWhiteSpace(rule.EmailTo);
         var isPagerDuty = !string.IsNullOrWhiteSpace(rule.PagerDutyRoutingKey);
         var notifier = isTelegram ? (IAlertNotifier)telegram : isEmail ? email : isPagerDuty ? pagerDuty : webhook;
-        return notifier.SendAsync(rule, observedCount, firedAt, cancellationToken, isTest);
+        return notifier.SendAsync(rule, observedValue, firedAt, cancellationToken, isTest);
     }
 }

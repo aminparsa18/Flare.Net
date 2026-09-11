@@ -47,4 +47,38 @@ public class AlertThresholdTests
         Assert.True(threshold.IsBreached(5));
         Assert.False(threshold.IsBreached(4));
     }
+
+    [Theory]
+    [InlineData(500.0, 500.0, true)]
+    [InlineData(500.0, 512.3, true)]
+    [InlineData(500.0, 499.9, false)]
+    public void IsBreachedValue_GreaterThanOrEqual(double thresholdValue, double observed, bool expected)
+    {
+        var threshold = new AlertThreshold { Count = 0, Comparator = ThresholdComparator.GreaterThanOrEqual };
+
+        Assert.Equal(expected, threshold.IsBreachedValue(observed, thresholdValue));
+    }
+
+    [Theory]
+    [InlineData(1.0, 0.5, true)]
+    [InlineData(1.0, 1.0, false)]
+    [InlineData(1.0, 1.5, false)]
+    public void IsBreachedValue_LessThan(double thresholdValue, double observed, bool expected)
+    {
+        var threshold = new AlertThreshold { Count = 0, Comparator = ThresholdComparator.LessThan };
+
+        Assert.Equal(expected, threshold.IsBreachedValue(observed, thresholdValue));
+    }
+
+    [Fact]
+    public void IsBreachedValue_NaNObserved_NeverBreachesEitherDirection()
+    {
+        // Query.AlertQueryService.EvaluateMetricConditionAsync's documented "no data in the
+        // window" contract - see its own doc comment.
+        var gte = new AlertThreshold { Count = 0, Comparator = ThresholdComparator.GreaterThanOrEqual };
+        var lessThan = new AlertThreshold { Count = 0, Comparator = ThresholdComparator.LessThan };
+
+        Assert.False(gte.IsBreachedValue(double.NaN, 500.0));
+        Assert.False(lessThan.IsBreachedValue(double.NaN, 500.0));
+    }
 }

@@ -27,6 +27,19 @@ public interface IAlertQueryService
     /// <summary>Reuses <see cref="LogFilterSqlBuilder"/> against the <c>logs</c> table with <paramref name="condition"/>'s own From/To overridden by the caller's window.</summary>
     Task<ulong> CountMatchingLogsAsync(LogFilter condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The <see cref="AlertConditionKind.MetricThreshold"/> counterpart to
+    /// <see cref="CountMatchingLogsAsync"/> - evaluates <paramref name="condition"/>'s
+    /// metric query over <paramref name="from"/>/<paramref name="to"/> via
+    /// <see cref="MetricAlertConditionQueryBuilder"/>, reducing to <paramref name="condition"/>'s
+    /// <see cref="MetricAlertCondition.Aggregation"/>. Returns <see cref="double.NaN"/> when
+    /// there's no matching data in the window (mirrors ClickHouse's own <c>avg()</c>-of-empty-set
+    /// behavior) - deliberate, not mapped to 0: <see cref="AlertThreshold.IsBreachedValue"/>'s
+    /// comparisons are both false against <see cref="double.NaN"/>, so "no data" never breaches
+    /// either direction rather than silently reading as a real zero.
+    /// </summary>
+    Task<double> EvaluateMetricConditionAsync(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
+
     /// <summary>Null if the rule has never fired.</summary>
     Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, CancellationToken cancellationToken);
 
@@ -52,7 +65,7 @@ public interface IAlertQueryService
 public sealed class AlertQueryService(IClickHouseClient client, TimeProvider timeProvider) : IAlertQueryService
 {
     private const string RuleColumns =
-        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt";
+        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue";
 
     /// <summary>
     /// Resolves <see cref="AlertRuleRequest"/>'s nullable optional members to their real
@@ -64,7 +77,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
     /// same reasoning <see cref="LogSearchQueryBuilder.Build"/> is a static pure builder
     /// rather than an instance method.
     /// </summary>
-    internal static (string Description, bool Enabled, int CooldownSeconds, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey) ResolveDefaults(AlertRuleRequest request) => (
+    internal static (string Description, bool Enabled, int CooldownSeconds, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey, AlertConditionKind ConditionKind) ResolveDefaults(AlertRuleRequest request) => (
         Description: request.Description ?? "",
         Enabled: request.Enabled ?? true,
         CooldownSeconds: request.CooldownSeconds ?? 300,
@@ -72,7 +85,8 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         TelegramBotToken: request.TelegramBotToken ?? "",
         TelegramChatId: request.TelegramChatId ?? "",
         EmailTo: request.EmailTo ?? "",
-        PagerDutyRoutingKey: request.PagerDutyRoutingKey ?? "");
+        PagerDutyRoutingKey: request.PagerDutyRoutingKey ?? "",
+        ConditionKind: request.ConditionKind ?? AlertConditionKind.LogCount);
 
     public async Task<AlertRule> CreateAsync(AlertRuleRequest request, CancellationToken cancellationToken)
     {
@@ -95,6 +109,9 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             PagerDutyRoutingKey = defaults.PagerDutyRoutingKey,
             CreatedAt = now,
             UpdatedAt = now,
+            ConditionKind = defaults.ConditionKind,
+            MetricCondition = request.MetricCondition,
+            MetricThresholdValue = request.MetricThresholdValue,
         };
 
         await InsertRuleVersionAsync(rule, isDeleted: false, cancellationToken);
@@ -141,6 +158,9 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             EmailTo = defaults.EmailTo,
             PagerDutyRoutingKey = defaults.PagerDutyRoutingKey,
             UpdatedAt = timeProvider.GetUtcNow(),
+            ConditionKind = defaults.ConditionKind,
+            MetricCondition = request.MetricCondition,
+            MetricThresholdValue = request.MetricThresholdValue,
         };
 
         await InsertRuleVersionAsync(updated, isDeleted: false, cancellationToken);
@@ -176,6 +196,68 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         return ToUInt64(result);
     }
 
+    public async Task<double> EvaluateMetricConditionAsync(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    {
+        var built = MetricAlertConditionQueryBuilder.Build(condition, from, to);
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, EvaluationSafetyOptions(), cancellationToken);
+        if (!reader.Read())
+        {
+            // An aggregate query with no GROUP BY always returns exactly one row in
+            // ClickHouse even over zero matching source rows - this branch is defensive,
+            // not expected to actually run.
+            return double.NaN;
+        }
+
+        return built.Type switch
+        {
+            MetricPointType.Gauge => reader.GetFieldValue<double>(0),
+            MetricPointType.Sum => condition.Aggregation == MetricAlertAggregation.Count
+                ? (double)reader.GetFieldValue<ulong>(1)
+                : reader.GetFieldValue<double>(0),
+            MetricPointType.Histogram => ReadHistogramAggregate(reader, condition.Aggregation),
+            _ => throw new ArgumentOutOfRangeException(nameof(condition), condition.Type, "Unknown metric point type."),
+        };
+    }
+
+    /// <summary>
+    /// <see cref="MetricAlertConditionQueryBuilder"/>'s Histogram branch always selects
+    /// <c>Count</c>/<c>SumTotal</c>/<c>BucketCounts</c>/<c>ExplicitBounds</c> (ordinals 0-3)
+    /// regardless of which one <paramref name="aggregation"/> actually needs - see that
+    /// class's remarks. A percentile/max-approx <see cref="HistogramQuantileEstimator"/> null
+    /// (no data to estimate from) maps to <see cref="double.NaN"/> too, same "no data never
+    /// breaches" contract as the rest of this method.
+    /// </summary>
+    private static double ReadHistogramAggregate(ClickHouseDataReader reader, MetricAlertAggregation aggregation)
+    {
+        if (aggregation is MetricAlertAggregation.Count)
+        {
+            return (double)reader.GetFieldValue<ulong>(0);
+        }
+
+        if (aggregation is MetricAlertAggregation.Sum)
+        {
+            return reader.GetFieldValue<double>(1);
+        }
+
+        var bucketCounts = reader.GetFieldValue<ulong[]>(2);
+        var explicitBounds = reader.GetFieldValue<double[]>(3);
+        var estimate = aggregation switch
+        {
+            MetricAlertAggregation.P50 => HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.5),
+            MetricAlertAggregation.P75 => HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.75),
+            MetricAlertAggregation.P90 => HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.9),
+            MetricAlertAggregation.P95 => HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.95),
+            MetricAlertAggregation.P99 => HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.99),
+            MetricAlertAggregation.MaxApprox => HistogramQuantileEstimator.EstimateMax(bucketCounts, explicitBounds),
+            // Value isn't meaningful for Histogram (see MetricAlertAggregation's remarks) -
+            // the dashboard's picker never offers this combination; NaN is an inert fallback
+            // rather than throwing on a value that could only arrive via a hand-crafted request.
+            _ => (double?)null,
+        };
+
+        return estimate ?? double.NaN;
+    }
+
     public async Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, CancellationToken cancellationToken)
     {
         var parameters = new ClickHouseParameterCollection();
@@ -202,12 +284,15 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         parameters.AddParameter("status", entry.NotificationStatus);
         parameters.AddParameter("statusCode", entry.NotificationStatusCode);
         parameters.AddParameter("error", entry.NotificationError);
+        parameters.AddParameter("conditionKind", entry.ConditionKind.ToString());
+        parameters.AddParameter("observedValue", (object?)entry.ObservedValue ?? DBNull.Value);
+        parameters.AddParameter("thresholdValue", (object?)entry.ThresholdValue ?? DBNull.Value);
 
         const string sql = """
             INSERT INTO alert_events
-                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError)
+                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue)
             VALUES
-                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String})
+                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -219,7 +304,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         parameters.AddParameter("ruleId", ruleId);
         parameters.AddParameter("limit", (uint)limit);
         const string sql = """
-            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError
+            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue
             FROM alert_events
             WHERE RuleId = {ruleId:UUID}
             ORDER BY FiredAt DESC
@@ -242,6 +327,9 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
                 NotificationStatus = reader.GetString(7),
                 NotificationStatusCode = reader.GetInt32(8),
                 NotificationError = reader.GetString(9),
+                ConditionKind = Enum.Parse<AlertConditionKind>(reader.GetString(10)),
+                ObservedValue = reader.IsDBNull(11) ? null : reader.GetFieldValue<double>(11),
+                ThresholdValue = reader.IsDBNull(12) ? null : reader.GetFieldValue<double>(12),
             });
         }
 
@@ -268,12 +356,15 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         parameters.AddParameter("pagerDutyRoutingKey", rule.PagerDutyRoutingKey);
         parameters.AddParameter("createdAt", rule.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", rule.UpdatedAt.UtcDateTime);
+        parameters.AddParameter("conditionKind", rule.ConditionKind.ToString());
+        parameters.AddParameter("metricConditionJson", rule.MetricCondition is null ? "" : JsonSerializer.Serialize(rule.MetricCondition, AlertsJsonContext.Default.MetricAlertCondition));
+        parameters.AddParameter("metricThresholdValue", (object?)rule.MetricThresholdValue ?? DBNull.Value);
 
         const string sql = """
             INSERT INTO alert_rules
-                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt)
+                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -311,7 +402,14 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         PagerDutyRoutingKey = reader.GetString(13),
         CreatedAt = ReadUtc(reader, 14),
         UpdatedAt = ReadUtc(reader, 15),
+        ConditionKind = Enum.Parse<AlertConditionKind>(reader.GetString(16)),
+        MetricCondition = NullIfEmpty(reader.GetString(17)) is { } json
+            ? JsonSerializer.Deserialize(json, AlertsJsonContext.Default.MetricAlertCondition)
+            : null,
+        MetricThresholdValue = reader.IsDBNull(18) ? null : reader.GetFieldValue<double>(18),
     };
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>
     private static DateTimeOffset ReadUtc(ClickHouseDataReader reader, int ordinal) =>

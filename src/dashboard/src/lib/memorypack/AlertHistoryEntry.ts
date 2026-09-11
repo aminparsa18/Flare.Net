@@ -2,7 +2,8 @@
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AlertHistoryEntry`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
 // `FiredAt` is a `DateTimeOffset` - see `$lib/memorypack/date-time-offset.ts`'s header
-// comment.
+// comment. `conditionKind`/`observedValue`/`thresholdValue` were appended after every
+// pre-existing field, same versioning reasoning as `AlertRule.ts`.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -19,6 +20,9 @@ export class AlertHistoryEntry {
 	notificationStatus: string | null;
 	notificationStatusCode: number;
 	notificationError: string | null;
+	conditionKind: number;
+	observedValue: number | null;
+	thresholdValue: number | null;
 
 	constructor() {
 		this.eventId = '00000000-0000-0000-0000-000000000000';
@@ -31,6 +35,9 @@ export class AlertHistoryEntry {
 		this.notificationStatus = null;
 		this.notificationStatusCode = 0;
 		this.notificationError = null;
+		this.conditionKind = 0;
+		this.observedValue = null;
+		this.thresholdValue = null;
 	}
 
 	static serialize(value: AlertHistoryEntry | null): Uint8Array {
@@ -45,7 +52,7 @@ export class AlertHistoryEntry {
 			return;
 		}
 
-		writer.writeObjectHeader(10);
+		writer.writeObjectHeader(13);
 		writer.writeGuid(value.eventId);
 		writer.writeGuid(value.ruleId);
 		writer.writeString(value.ruleName);
@@ -56,6 +63,9 @@ export class AlertHistoryEntry {
 		writer.writeString(value.notificationStatus);
 		writer.writeInt32(value.notificationStatusCode);
 		writer.writeString(value.notificationError);
+		writer.writeInt32(value.conditionKind);
+		writer.writeNullableFloat64(value.observedValue);
+		writer.writeNullableFloat64(value.thresholdValue);
 	}
 
 	static serializeArray(value: (AlertHistoryEntry | null)[] | null): Uint8Array {
@@ -79,7 +89,7 @@ export class AlertHistoryEntry {
 		}
 
 		const value = new AlertHistoryEntry();
-		if (count == 10) {
+		if (count == 13) {
 			value.eventId = reader.readGuid();
 			value.ruleId = reader.readGuid();
 			value.ruleName = reader.readString();
@@ -90,7 +100,10 @@ export class AlertHistoryEntry {
 			value.notificationStatus = reader.readString();
 			value.notificationStatusCode = reader.readInt32();
 			value.notificationError = reader.readString();
-		} else if (count > 10) {
+			value.conditionKind = reader.readInt32();
+			value.observedValue = reader.readNullableFloat64();
+			value.thresholdValue = reader.readNullableFloat64();
+		} else if (count > 13) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -114,6 +127,12 @@ export class AlertHistoryEntry {
 			if (count == 9) return value;
 			value.notificationError = reader.readString();
 			if (count == 10) return value;
+			value.conditionKind = reader.readInt32();
+			if (count == 11) return value;
+			value.observedValue = reader.readNullableFloat64();
+			if (count == 12) return value;
+			value.thresholdValue = reader.readNullableFloat64();
+			if (count == 13) return value;
 		}
 		return value;
 	}

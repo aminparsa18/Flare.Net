@@ -57,6 +57,11 @@ public static class AlertEndpoints
             return Results.Problem(channelError, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (request.ValidateCondition() is { } conditionError)
+        {
+            return Results.Problem(conditionError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var rule = await alerts.CreateAsync(request, cancellationToken);
         return ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule, statusCode: StatusCodes.Status201Created);
     }
@@ -95,6 +100,11 @@ public static class AlertEndpoints
             return Results.Problem(channelError, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (request.ValidateCondition() is { } conditionError)
+        {
+            return Results.Problem(conditionError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var rule = await alerts.UpdateAsync(id, request, cancellationToken);
         return rule is null ? Results.NotFound() : ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule);
     }
@@ -119,7 +129,7 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, rule.Condition, rule.Threshold, rule.WindowSeconds, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.WindowSeconds, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -140,7 +150,7 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, request.Condition, request.Threshold, request.WindowSeconds, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.WindowSeconds, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -180,6 +190,11 @@ public static class AlertEndpoints
             return Results.Problem(channelError, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (request.ValidateCondition() is { } conditionError)
+        {
+            return Results.Problem(conditionError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var now = timeProvider.GetUtcNow();
         var defaults = AlertQueryService.ResolveDefaults(request);
         var draftRule = new AlertRule
@@ -199,6 +214,9 @@ public static class AlertEndpoints
             PagerDutyRoutingKey = defaults.PagerDutyRoutingKey,
             CreatedAt = now,
             UpdatedAt = now,
+            ConditionKind = defaults.ConditionKind,
+            MetricCondition = request.MetricCondition,
+            MetricThresholdValue = request.MetricThresholdValue,
         };
 
         var result = await SendTestAsync(notifier, draftRule, timeProvider, cancellationToken);
@@ -213,7 +231,7 @@ public static class AlertEndpoints
     /// </summary>
     private static async Task<AlertNotificationTestResult> SendTestAsync(IAlertNotifier notifier, AlertRule rule, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
-        var result = await notifier.SendAsync(rule, observedCount: 0, timeProvider.GetUtcNow(), cancellationToken, isTest: true);
+        var result = await notifier.SendAsync(rule, observedValue: 0, timeProvider.GetUtcNow(), cancellationToken, isTest: true);
         return new AlertNotificationTestResult
         {
             Success = result.Success,
@@ -223,20 +241,50 @@ public static class AlertEndpoints
     }
 
     /// <summary>
-    /// Shared by both test endpoints: counts matching logs over the rule/draft's window
-    /// and reports whether the threshold would breach - without touching cooldown state
-    /// or sending a notification (unlike <c>AlertEvaluationWorker</c>'s real evaluation).
+    /// Shared by both test endpoints: evaluates the rule/draft's condition (log-filter
+    /// count or metric-query threshold, per <paramref name="conditionKind"/>) over its
+    /// window and reports whether the threshold would breach - without touching cooldown
+    /// state or sending a notification (unlike <c>AlertEvaluationWorker</c>'s real
+    /// evaluation). A <see cref="AlertConditionKind.MetricThreshold"/> draft/rule with no
+    /// <paramref name="metricCondition"/>/<paramref name="metricThresholdValue"/> (an
+    /// incomplete draft still being edited) reports "wouldn't fire" rather than throwing -
+    /// <see cref="Model.AlertRuleRequest.ValidateCondition"/> is what rejects that shape on
+    /// create/update; this dry-run endpoint is intentionally more lenient, same as it never
+    /// calls <see cref="Model.AlertRuleRequest.ValidateChannel"/> either.
     /// </summary>
     private static async Task<AlertTestResult> EvaluateAsync(
         IAlertQueryService alerts,
         TimeProvider timeProvider,
+        AlertConditionKind conditionKind,
         LogFilter condition,
         AlertThreshold threshold,
+        MetricAlertCondition? metricCondition,
+        double? metricThresholdValue,
         int windowSeconds,
         CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         var from = now - TimeSpan.FromSeconds(windowSeconds);
+
+        if (conditionKind == AlertConditionKind.MetricThreshold)
+        {
+            if (metricCondition is null || metricThresholdValue is not { } thresholdValue)
+            {
+                return new AlertTestResult { ObservedCount = 0, WouldFire = false, EvaluatedAt = now, WindowSeconds = windowSeconds, ConditionKind = conditionKind, ObservedValue = null };
+            }
+
+            var value = await alerts.EvaluateMetricConditionAsync(metricCondition, from, now, cancellationToken);
+            return new AlertTestResult
+            {
+                ObservedCount = 0,
+                WouldFire = threshold.IsBreachedValue(value, thresholdValue),
+                EvaluatedAt = now,
+                WindowSeconds = windowSeconds,
+                ConditionKind = conditionKind,
+                ObservedValue = value,
+            };
+        }
+
         var count = await alerts.CountMatchingLogsAsync(condition, from, now, cancellationToken);
         return new AlertTestResult
         {
@@ -244,6 +292,8 @@ public static class AlertEndpoints
             WouldFire = threshold.IsBreached(count),
             EvaluatedAt = now,
             WindowSeconds = windowSeconds,
+            ConditionKind = conditionKind,
+            ObservedValue = null,
         };
     }
 }

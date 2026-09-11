@@ -4,12 +4,16 @@
 // `CreatedAt`/`UpdatedAt` and nests `LogFilter` (itself blocked - see
 // `$lib/memorypack/LogFilter.ts`'s header comment). `Threshold` (`AlertThreshold`) has
 // neither problem, so it's a real generated class, reused here directly.
+// `conditionKind`/`metricCondition`/`metricThresholdValue` were appended after every
+// pre-existing field (not inserted earlier) - see `AlertConditionKind`'s C#-side doc
+// comment for why.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
 import { AlertThreshold } from '$lib/generated/memorypack/AlertThreshold.js';
 import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
 import { LogFilter } from '$lib/memorypack/LogFilter';
+import { MetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
 
 export class AlertRule {
 	id: string;
@@ -27,6 +31,9 @@ export class AlertRule {
 	pagerDutyRoutingKey: string | null;
 	createdAt: Date;
 	updatedAt: Date;
+	conditionKind: number;
+	metricCondition: MetricAlertCondition | null;
+	metricThresholdValue: number | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -44,6 +51,9 @@ export class AlertRule {
 		this.pagerDutyRoutingKey = null;
 		this.createdAt = new Date(0);
 		this.updatedAt = new Date(0);
+		this.conditionKind = 0;
+		this.metricCondition = null;
+		this.metricThresholdValue = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -58,7 +68,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(15);
+		writer.writeObjectHeader(18);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -74,6 +84,9 @@ export class AlertRule {
 		writer.writeString(value.pagerDutyRoutingKey);
 		writeDateTimeOffset(writer, value.createdAt);
 		writeDateTimeOffset(writer, value.updatedAt);
+		writer.writeInt32(value.conditionKind);
+		MetricAlertCondition.serializeCore(writer, value.metricCondition);
+		writer.writeNullableFloat64(value.metricThresholdValue);
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -97,7 +110,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 15) {
+		if (count == 18) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -113,7 +126,10 @@ export class AlertRule {
 			value.pagerDutyRoutingKey = reader.readString();
 			value.createdAt = readDateTimeOffset(reader);
 			value.updatedAt = readDateTimeOffset(reader);
-		} else if (count > 15) {
+			value.conditionKind = reader.readInt32();
+			value.metricCondition = MetricAlertCondition.deserializeCore(reader);
+			value.metricThresholdValue = reader.readNullableFloat64();
+		} else if (count > 18) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -147,6 +163,12 @@ export class AlertRule {
 			if (count == 14) return value;
 			value.updatedAt = readDateTimeOffset(reader);
 			if (count == 15) return value;
+			value.conditionKind = reader.readInt32();
+			if (count == 16) return value;
+			value.metricCondition = MetricAlertCondition.deserializeCore(reader);
+			if (count == 17) return value;
+			value.metricThresholdValue = reader.readNullableFloat64();
+			if (count == 18) return value;
 		}
 		return value;
 	}

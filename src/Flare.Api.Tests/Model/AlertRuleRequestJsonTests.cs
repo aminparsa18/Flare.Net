@@ -47,6 +47,9 @@ public class AlertRuleRequestJsonTests
         Assert.Null(request.TelegramChatId);
         Assert.Null(request.EmailTo);
         Assert.Null(request.PagerDutyRoutingKey);
+        Assert.Null(request.ConditionKind);
+        Assert.Null(request.MetricCondition);
+        Assert.Null(request.MetricThresholdValue);
     }
 
     [Fact]
@@ -96,6 +99,7 @@ public class AlertQueryServiceDefaultsTests
         Assert.Equal("", defaults.TelegramChatId);
         Assert.Equal("", defaults.EmailTo);
         Assert.Equal("", defaults.PagerDutyRoutingKey);
+        Assert.Equal(AlertConditionKind.LogCount, defaults.ConditionKind);
     }
 
     [Fact]

@@ -58,11 +58,19 @@
 									</Badge>
 								</div>
 								<p class="text-muted-foreground mt-1">
-									{m.alertHistory_entrySummary({
-										count: entry.observedCount,
-										threshold: entry.thresholdCount,
-										window: entry.windowSeconds
-									})}
+									{#if entry.conditionKind === 'MetricThreshold'}
+										{m.alertHistory_entrySummaryMetric({
+											value: entry.observedValue ?? 0,
+											threshold: entry.thresholdValue ?? 0,
+											window: entry.windowSeconds
+										})}
+									{:else}
+										{m.alertHistory_entrySummary({
+											count: entry.observedCount,
+											threshold: entry.thresholdCount,
+											window: entry.windowSeconds
+										})}
+									{/if}
 								</p>
 								{#if entry.notificationError}
 									<p class="text-destructive mt-1">{entry.notificationError}</p>

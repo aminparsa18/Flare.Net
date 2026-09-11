@@ -12,11 +12,93 @@ public enum ThresholdComparator
     LessThan,
 }
 
+/// <summary>Which condition an <see cref="AlertRule"/> evaluates on every poll tick.</summary>
+/// <remarks>
+/// <see cref="LogCount"/> is the default/original behavior (<see cref="AlertRule.Condition"/>
+/// + <see cref="AlertRule.Threshold"/>'s <see cref="AlertThreshold.Count"/>) - every rule
+/// created before this discriminator existed reads back as <see cref="LogCount"/> (see
+/// <c>db/clickhouse/0014_alert_rules_metric_condition.sql</c>'s column default), unchanged.
+/// <see cref="MetricThreshold"/> instead evaluates <see cref="AlertRule.MetricCondition"/>
+/// against <see cref="AlertRule.MetricThresholdValue"/> through
+/// <see cref="Query.MetricAlertConditionQueryBuilder"/>/<c>IAlertQueryService.EvaluateMetricConditionAsync</c> -
+/// reusing the same metrics-query machinery <c>MetricQueryService</c> already has, not a
+/// new rule engine. <see cref="AlertRule.Condition"/>/<see cref="AlertThreshold.Count"/> are
+/// ignored for <see cref="MetricThreshold"/> rules (and vice versa for
+/// <see cref="AlertRule.MetricCondition"/>/<see cref="AlertRule.MetricThresholdValue"/> on
+/// <see cref="LogCount"/> rules) - same "field present, meaningful only for one mode"
+/// convention <see cref="AlertRule"/>'s notification-channel fields already use.
+/// </remarks>
+public enum AlertConditionKind
+{
+    LogCount,
+    MetricThreshold,
+}
+
+/// <summary>
+/// Which computed field of a metric point is compared against
+/// <see cref="AlertRule.MetricThresholdValue"/>. Which members are meaningful depends on
+/// the condition's <see cref="MetricAlertCondition.Type"/> - <see cref="Value"/> only for
+/// Gauge/Sum, the rest only for Histogram - same "the caller already knows the metric's
+/// type, the API trusts it" convention <see cref="MetricQueryRequest.Type"/>'s doc comment
+/// already documents; the dashboard's picker is what actually restricts the choice.
+/// Plain enum, no <c>[MemoryPackable]</c>/<c>[GenerateTypeScript]</c> - same convention as
+/// <see cref="ThresholdComparator"/>/<see cref="MetricPointType"/> (MemoryPack serializes a
+/// plain enum natively; the attributes exist for classes/records).
+/// </summary>
+public enum MetricAlertAggregation
+{
+    /// <summary>Gauge: <c>avg(Value)</c> over the window. Sum: <c>max(Value) - min(Value)</c> over the window.</summary>
+    Value,
+
+    /// <summary>Sum: raw sample row count over the window. Histogram: total observation count (<c>sum(Count)</c>) over the window.</summary>
+    Count,
+
+    /// <summary>Histogram only: <c>sum(Sum)</c> over the window.</summary>
+    Sum,
+
+    /// <summary>Histogram only: approximate p50 over the window, via <see cref="Query.HistogramQuantileEstimator.Estimate"/>.</summary>
+    P50,
+
+    P75,
+
+    P90,
+
+    P95,
+
+    P99,
+
+    /// <summary>Histogram only: approximate max over the window, via <see cref="Query.HistogramQuantileEstimator.EstimateMax"/>.</summary>
+    MaxApprox,
+}
+
+/// <summary>
+/// A metric-query threshold condition - the <see cref="AlertConditionKind.MetricThreshold"/>
+/// counterpart to <see cref="LogFilter"/>. Deliberately <see cref="MemoryPackableAttribute"/>
+/// only, no <c>[GenerateTypeScript]</c>: it nests <see cref="MetricFilter"/>, itself
+/// generator-ineligible for the same <c>IReadOnlyList&lt;T&gt;</c> reason
+/// <see cref="LogFilter"/> is (see <c>docs-internal/adr/0016-memorypack-dashboard-typescript-adoption.md</c>) -
+/// hand-written TypeScript companion (<c>$lib/memorypack/MetricAlertCondition.ts</c>),
+/// reusing the <c>$lib/memorypack/MetricFilter.ts</c> that already exists for the Metrics
+/// Explorer.
+/// </summary>
+[MemoryPackable]
+public sealed partial record MetricAlertCondition
+{
+    public required string MetricName { get; init; }
+
+    public required MetricPointType Type { get; init; }
+
+    public MetricFilter Filter { get; init; } = new();
+
+    public MetricAlertAggregation Aggregation { get; init; } = MetricAlertAggregation.Value;
+}
+
 /// <summary>The breach condition an <see cref="AlertRule"/> evaluates on every poll tick.</summary>
 [MemoryPackable]
 [GenerateTypeScript]
 public sealed partial record AlertThreshold
 {
+    /// <summary>Meaningful only for <see cref="AlertConditionKind.LogCount"/> rules - ignored (a harmless placeholder) for <see cref="AlertConditionKind.MetricThreshold"/> ones, which compare against <see cref="AlertRule.MetricThresholdValue"/> instead.</summary>
     public required ulong Count { get; init; }
 
     public ThresholdComparator Comparator { get; init; } = ThresholdComparator.GreaterThanOrEqual;
@@ -30,6 +112,18 @@ public sealed partial record AlertThreshold
     {
         ThresholdComparator.LessThan => observedCount < Count,
         _ => observedCount >= Count,
+    };
+
+    /// <summary>
+    /// <see cref="AlertConditionKind.MetricThreshold"/> counterpart to <see cref="IsBreached"/> -
+    /// compares against <paramref name="observedValue"/>/<paramref name="thresholdValue"/>
+    /// (a metric-query result, e.g. p99 latency) rather than <see cref="Count"/>, reusing
+    /// the same <see cref="Comparator"/>.
+    /// </summary>
+    public bool IsBreachedValue(double observedValue, double thresholdValue) => Comparator switch
+    {
+        ThresholdComparator.LessThan => observedValue < thresholdValue,
+        _ => observedValue >= thresholdValue,
     };
 }
 
@@ -103,6 +197,15 @@ public sealed partial record AlertRule
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>Which condition this rule evaluates. Appended after every pre-existing field (not inserted earlier) so the hand-written MemoryPack TypeScript companion (<c>$lib/memorypack/AlertRule.ts</c>) versions the same way its own <c>deserializeCore</c> already does for older payloads.</summary>
+    public AlertConditionKind ConditionKind { get; init; } = AlertConditionKind.LogCount;
+
+    /// <summary>Set (non-null) only for <see cref="AlertConditionKind.MetricThreshold"/> rules; null/ignored for <see cref="AlertConditionKind.LogCount"/> ones, which use <see cref="Condition"/> instead.</summary>
+    public MetricAlertCondition? MetricCondition { get; init; }
+
+    /// <summary>The metric-condition threshold value, compared via <see cref="AlertThreshold.IsBreachedValue"/>. Set (non-null) only for <see cref="AlertConditionKind.MetricThreshold"/> rules; null/ignored for <see cref="AlertConditionKind.LogCount"/> ones, which use <see cref="Threshold"/>'s <see cref="AlertThreshold.Count"/> instead.</summary>
+    public double? MetricThresholdValue { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -160,6 +263,15 @@ public sealed partial record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.PagerDutyRoutingKey"/>'s doc comment.</summary>
     public string? PagerDutyRoutingKey { get; init; }
 
+    /// <summary>See <see cref="AlertRule.ConditionKind"/>'s doc comment. Defaults to <see cref="AlertConditionKind.LogCount"/> when omitted, same as the saved-rule default.</summary>
+    public AlertConditionKind? ConditionKind { get; init; }
+
+    /// <summary>See <see cref="AlertRule.MetricCondition"/>'s doc comment.</summary>
+    public MetricAlertCondition? MetricCondition { get; init; }
+
+    /// <summary>See <see cref="AlertRule.MetricThresholdValue"/>'s doc comment.</summary>
+    public double? MetricThresholdValue { get; init; }
+
     /// <summary>
     /// Exactly one notification channel: <see cref="WebhookUrl"/> (covers both a generic
     /// webhook consumer and Slack), both <see cref="TelegramBotToken"/> and
@@ -191,6 +303,25 @@ public sealed partial record AlertRuleRequest
             _ => "webhookUrl, telegramBotToken/telegramChatId, emailTo, and pagerDutyRoutingKey are mutually exclusive - a rule notifies exactly one channel.",
         };
     }
+
+    /// <summary>
+    /// <see cref="AlertConditionKind.MetricThreshold"/> requires <see cref="MetricCondition"/>
+    /// and <see cref="MetricThresholdValue"/> both set; <see cref="AlertConditionKind.LogCount"/>
+    /// (the default) needs neither, since <see cref="Condition"/>/<see cref="Threshold"/> are
+    /// already independently required/validated. Called alongside <see cref="ValidateChannel"/>
+    /// from <c>AlertEndpoints</c>'s create/update/send-test-draft handlers. Not called from the
+    /// dry-run test endpoints' <c>EvaluateAsync</c>, which needs to branch on
+    /// <see cref="ConditionKind"/> either way to know which condition to evaluate, and reports
+    /// a missing <see cref="MetricCondition"/> as "wouldn't fire" rather than a 400 there - same
+    /// "channel validation is create/update-only" precedent <see cref="ValidateChannel"/>'s own
+    /// doc comment already sets.
+    /// </summary>
+    public string? ValidateCondition() => (ConditionKind ?? AlertConditionKind.LogCount) switch
+    {
+        AlertConditionKind.MetricThreshold when MetricCondition is null || MetricThresholdValue is null =>
+            "metricCondition and metricThresholdValue are required when conditionKind is MetricThreshold.",
+        _ => null,
+    };
 }
 
 /// <summary>Response body for <c>GET /api/alerts</c>.</summary>
@@ -226,6 +357,15 @@ public sealed partial record AlertHistoryEntry
     public int NotificationStatusCode { get; init; }
 
     public string NotificationError { get; init; } = "";
+
+    /// <summary>Snapshot of the firing rule's <see cref="AlertRule.ConditionKind"/> at fire time - appended after every pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.</summary>
+    public AlertConditionKind ConditionKind { get; init; } = AlertConditionKind.LogCount;
+
+    /// <summary>Set only for a <see cref="AlertConditionKind.MetricThreshold"/> event; null for a <see cref="AlertConditionKind.LogCount"/> one, which uses <see cref="ObservedCount"/> instead.</summary>
+    public double? ObservedValue { get; init; }
+
+    /// <summary>Set only for a <see cref="AlertConditionKind.MetricThreshold"/> event; null for a <see cref="AlertConditionKind.LogCount"/> one, which uses <see cref="ThresholdCount"/> instead.</summary>
+    public double? ThresholdValue { get; init; }
 }
 
 /// <summary>Response body for <c>GET /api/alerts/{id}/history</c>.</summary>
@@ -243,6 +383,7 @@ public sealed partial record AlertHistoryResponse
 [MemoryPackable]
 public sealed partial record AlertTestResult
 {
+    /// <summary>Meaningful only for a <see cref="AlertConditionKind.LogCount"/> rule/draft - 0 for a <see cref="AlertConditionKind.MetricThreshold"/> one, which reports its result via <see cref="ObservedValue"/> instead.</summary>
     public required ulong ObservedCount { get; init; }
 
     public required bool WouldFire { get; init; }
@@ -250,6 +391,12 @@ public sealed partial record AlertTestResult
     public required DateTimeOffset EvaluatedAt { get; init; }
 
     public required int WindowSeconds { get; init; }
+
+    /// <summary>Snapshot of the evaluated rule/draft's <see cref="AlertRule.ConditionKind"/> - appended after every pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.</summary>
+    public AlertConditionKind ConditionKind { get; init; } = AlertConditionKind.LogCount;
+
+    /// <summary>Set only when <see cref="ConditionKind"/> is <see cref="AlertConditionKind.MetricThreshold"/>; null otherwise.</summary>
+    public double? ObservedValue { get; init; }
 }
 
 /// <summary>

@@ -125,6 +125,32 @@ export function metricPointTypeFromString(value: MetricPointTypeName): MetricPoi
 	return METRIC_POINT_TYPE_NAMES.indexOf(value) as MetricPointType;
 }
 
+/** Matches `AlertModels.cs`'s `AlertConditionKind` member order. Not itself MemoryPack-TS-generated - `AlertRule`/`AlertRuleRequest`, its only consumers, are hand-written (nest `LogFilter`). */
+const ALERT_CONDITION_KIND_NAMES = ['LogCount', 'MetricThreshold'] as const;
+
+export type AlertConditionKindName = (typeof ALERT_CONDITION_KIND_NAMES)[number];
+
+export function alertConditionKindToString(value: number): AlertConditionKindName {
+	return ALERT_CONDITION_KIND_NAMES[value];
+}
+
+export function alertConditionKindFromString(value: AlertConditionKindName): number {
+	return ALERT_CONDITION_KIND_NAMES.indexOf(value);
+}
+
+/** Matches `AlertModels.cs`'s `MetricAlertAggregation` member order. Not itself MemoryPack-TS-generated - same reason as `AlertConditionKindName` above (`MetricAlertCondition` nests `MetricFilter`, itself ungenerated). */
+const METRIC_ALERT_AGGREGATION_NAMES = ['Value', 'Count', 'Sum', 'P50', 'P75', 'P90', 'P95', 'P99', 'MaxApprox'] as const;
+
+export type MetricAlertAggregationName = (typeof METRIC_ALERT_AGGREGATION_NAMES)[number];
+
+export function metricAlertAggregationToString(value: number): MetricAlertAggregationName {
+	return METRIC_ALERT_AGGREGATION_NAMES[value];
+}
+
+export function metricAlertAggregationFromString(value: MetricAlertAggregationName): number {
+	return METRIC_ALERT_AGGREGATION_NAMES.indexOf(value);
+}
+
 /** Matches `SpanFilter.cs`'s `SpanAttributeBag` member order. Not itself MemoryPack-TS-generated - see `SavedViewPageTypeName`'s comment for why (`SpanAttributeFilter`, its only consumer, is hand-written). */
 const SPAN_ATTRIBUTE_BAG_NAMES = ['Span', 'Resource', 'Scope'] as const;
 

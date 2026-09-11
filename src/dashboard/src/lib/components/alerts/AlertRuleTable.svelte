@@ -22,6 +22,10 @@
 	const alerts = alertsContext.get();
 
 	function summarizeCondition(rule: AlertRule): string {
+		if (rule.conditionKind === 'MetricThreshold') {
+			return rule.metricCondition ? `${rule.metricCondition.metricName} (${rule.metricCondition.aggregation})` : m.alertRuleTable_allLogs();
+		}
+
 		const parts: string[] = [];
 		if (rule.condition.services?.length) parts.push(rule.condition.services.join(', '));
 		const severities = rule.condition.severityNumbers ?? [];
@@ -35,6 +39,10 @@
 
 	function thresholdText(rule: AlertRule): string {
 		const symbol = rule.threshold.comparator === 'LessThan' ? '<' : '>=';
+		if (rule.conditionKind === 'MetricThreshold') {
+			return m.alertRuleTable_metricThresholdText({ symbol, value: rule.metricThresholdValue ?? 0, window: rule.windowSeconds });
+		}
+
 		return m.alertRuleTable_thresholdText({ symbol, count: rule.threshold.count, window: rule.windowSeconds });
 	}
 
@@ -146,9 +154,15 @@
 							{:else if testResults[rule.id]}
 								{@const result = testResults[rule.id] as AlertTestResult}
 								<Badge variant={result.wouldFire ? 'warning' : 'outline'} class="ml-1">
-									{result.wouldFire
-										? m.alertRuleTable_testResultFiring({ count: result.observedCount })
-										: m.alertRuleTable_testResultNotFiring({ count: result.observedCount })}
+									{#if result.conditionKind === 'MetricThreshold'}
+										{result.wouldFire
+											? m.alertRuleTable_testResultFiringMetric({ value: result.observedValue ?? 0 })
+											: m.alertRuleTable_testResultNotFiringMetric({ value: result.observedValue ?? 0 })}
+									{:else}
+										{result.wouldFire
+											? m.alertRuleTable_testResultFiring({ count: result.observedCount })
+											: m.alertRuleTable_testResultNotFiring({ count: result.observedCount })}
+									{/if}
 								</Badge>
 							{/if}
 							{#if sendTestResults[rule.id] === 'loading'}
