@@ -22,10 +22,12 @@ multi-selects).
 
 ## Decision
 
-**A new `NotificationChannel` entity, CRUD'd on its own
-`/notification-channels` page, that `AlertRule` references by ID
-(`ChannelIds: IReadOnlyList<Guid>`) — shipped additively, coexisting
-with the legacy inline fields rather than replacing or migrating them.**
+**A new `NotificationChannel` entity, CRUD'd from a "Channels" tab on
+the existing `/alerts` dashboard page (not a separate top-level
+page/nav entry - a channel only matters in service of an alert rule),
+that `AlertRule` references by ID (`ChannelIds: IReadOnlyList<Guid>`) —
+shipped additively, coexisting with the legacy inline fields rather
+than replacing or migrating them.**
 
 - **Coexistence, not a data migration.** `AlertRule` keeps its four
   legacy inline fields unchanged; `ChannelIds` is a new, separately

@@ -15,6 +15,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import { alertsContext } from '$lib/alerts/context';
+	import { notificationChannelsContext } from '$lib/notification-channels/context';
 	import {
 		testDraftAlertRule,
 		sendTestDraftAlertRule,
@@ -27,7 +28,6 @@
 	} from '$lib/alerts-api';
 	import { aggregateLogs } from '$lib/api';
 	import { getMetricNames, type MetricNameInfo, type MetricPointType } from '$lib/metrics-api';
-	import { listNotificationChannels, type NotificationChannel } from '$lib/notification-channels-api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
 
@@ -42,6 +42,10 @@
 	};
 
 	const alerts = alertsContext.get();
+	// Shared with the page's own Channels tab (routes/alerts/+page.svelte sets both
+	// contexts) - reusing that already-loaded state instead of a separate fetch here
+	// means a channel created/edited on that tab is immediately visible in this picker.
+	const channels = notificationChannelsContext.get();
 
 	const open = $derived(alerts.formTarget !== null);
 	const isEdit = $derived(alerts.formTarget !== null && alerts.formTarget !== 'new');
@@ -201,22 +205,10 @@
 	// Same wide-window discovery for the metric-name picker - getMetricNames() with no
 	// filter, same "no Explorer state to borrow one from" reasoning as knownServices.
 	let knownMetrics = $state<MetricNameInfo[]>([]);
-	// Saved channels for the picker - same "load once on mount, no Alerts-page state to
-	// borrow one from" reasoning as knownServices/knownMetrics above.
-	let availableChannels = $state<NotificationChannel[]>([]);
 	onMount(() => {
 		void loadKnownServices();
 		void loadKnownMetrics();
-		void loadAvailableChannels();
 	});
-	async function loadAvailableChannels(): Promise<void> {
-		try {
-			const res = await listNotificationChannels();
-			availableChannels = res.channels;
-		} catch {
-			// Non-critical - the picker just shows fewer/no options until a retry.
-		}
-	}
 	async function loadKnownServices(): Promise<void> {
 		try {
 			const to = new Date();
@@ -258,7 +250,7 @@
 	const metricNameOptions = $derived(knownMetrics.map((mi) => ({ value: mi.metricName, label: mi.metricName })));
 	const aggregationOptions = $derived(AGGREGATIONS_BY_TYPE[metricType]);
 	const severityOptions = $derived(SEVERITY_BUCKETS.map((b) => ({ value: b.id, label: severityBucketLabel(b) })));
-	const channelOptions = $derived(availableChannels.map((c) => ({ value: c.id, label: `${c.name} (${c.type})` })));
+	const channelOptions = $derived(channels.channels.map((c) => ({ value: c.id, label: `${c.name} (${c.type})` })));
 	const selectedSeverityIds = $derived(
 		SEVERITY_BUCKETS.filter((b) => severityNumbersForBucket(b).every((n) => severityNumbers.includes(n))).map((b) => b.id)
 	);
@@ -540,7 +532,7 @@
 						selected={selectedChannelIds}
 						onChange={(next) => (selectedChannelIds = next)}
 					/>
-					{#if availableChannels.length === 0}
+					{#if channels.channels.length === 0}
 						<span class="text-muted-foreground text-xs">{m.alertRuleForm_channelsEmptyHint()}</span>
 					{/if}
 				</div>

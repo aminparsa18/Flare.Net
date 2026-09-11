@@ -231,12 +231,13 @@ panneau Cluster — voir
 enregistré (service, niveau, texte de recherche) plus un seuil de comptage
 évalué sur une fenêtre glissante, avec un délai de refroidissement et un
 essai à blanc « tester sur les données actuelles » avant l'enregistrement.
-Le déclenchement notifie un ou plusieurs `/notification-channels` — des
-destinations réutilisables et nommées (webhook/Slack, Telegram, e-mail
-ou PagerDuty) qu'une règle référence par ID plutôt que d'intégrer
-directement, afin qu'un même canal puisse être réutilisé entre
-plusieurs règles et qu'une règle puisse notifier plusieurs destinations
-pour la même violation (voir
+Le déclenchement notifie un ou plusieurs canaux de notification, gérés
+depuis l'onglet « Channels » de cette même page — des destinations
+réutilisables et nommées (webhook/Slack, Telegram, e-mail ou PagerDuty)
+qu'une règle référence par ID plutôt que d'intégrer directement, afin
+qu'un même canal puisse être réutilisé entre plusieurs règles et qu'une
+règle puisse notifier plusieurs destinations pour la même violation
+(voir
 [ADR-0021](../../docs-internal/adr/0021-reusable-notification-channels.md)).
 Une règle créée avant l'existence de cette fonctionnalité continue de
 notifier via son propre canal intégré, sans changement. Voir
