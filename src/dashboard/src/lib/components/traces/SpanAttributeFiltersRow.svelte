@@ -1,7 +1,7 @@
 <script lang="ts">
-	// Structured builder for SpanAttributeFilter's exists/absent/equals/not-equals
-	// operators (see SpanFilterSqlBuilder.cs's AttributeClause) - the Traces page's
-	// equivalent of Logs' AttributeFiltersRow.svelte, same component shape and same
+	// Structured builder for SpanAttributeFilter's exists/absent/equals/not-equals/regex/
+	// not-regex/in/not-in operators (see SpanFilterSqlBuilder.cs's AttributeClause) - the
+	// Traces page's equivalent of Logs' AttributeFiltersRow.svelte, same component shape and same
 	// "no LogQl-style query language exists here to extend instead" reasoning. Own
 	// Accordion section, collapsed by default and remembered in localStorage, same
 	// pattern the Logs page's own accordion rows (SqlQueryRow/ValueDistributionChart)
@@ -22,6 +22,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import AttributeValueCombobox, { type AttributeValueSuggestion } from '$lib/components/logs/AttributeValueCombobox.svelte';
+	import AttributeValueListInput from '$lib/components/logs/AttributeValueListInput.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as m from '$lib/paraglide/messages';
@@ -62,12 +63,21 @@
 		{ value: 'Equals', label: m.attributeFilters_opEquals() },
 		{ value: 'NotEquals', label: m.attributeFilters_opNotEquals() },
 		{ value: 'Exists', label: m.attributeFilters_opExists() },
-		{ value: 'Absent', label: m.attributeFilters_opAbsent() }
+		{ value: 'Absent', label: m.attributeFilters_opAbsent() },
+		{ value: 'Regex', label: m.attributeFilters_opRegex() },
+		{ value: 'NotRegex', label: m.attributeFilters_opNotRegex() },
+		{ value: 'In', label: m.attributeFilters_opIn() },
+		{ value: 'NotIn', label: m.attributeFilters_opNotIn() }
 	];
 
-	/** Exists/Absent ignore SpanAttributeFilter.value entirely - see SpanAttributeFilterOperator's own remarks (SpanFilter.cs). */
-	function needsValue(operator: SpanAttributeFilterOperator): boolean {
-		return operator === 'Equals' || operator === 'NotEquals';
+	/** Exists/Absent ignore SpanAttributeFilter.value entirely - see SpanAttributeFilterOperator's own remarks (SpanFilter.cs); In/NotIn ignore it too, taking their operand from `values` instead (see needsMultiValue). */
+	function needsSingleValue(operator: SpanAttributeFilterOperator): boolean {
+		return operator === 'Equals' || operator === 'NotEquals' || operator === 'Regex' || operator === 'NotRegex';
+	}
+
+	/** In/NotIn's multi-value operand - AttributeValueListInput's chip editor, rather than a single AttributeValueCombobox. */
+	function needsMultiValue(operator: SpanAttributeFilterOperator): boolean {
+		return operator === 'In' || operator === 'NotIn';
 	}
 
 	interface Row {
@@ -76,19 +86,20 @@
 		key: string;
 		operator: SpanAttributeFilterOperator;
 		value: string;
+		values: string[];
 	}
 
 	let nextId = 0;
 
 	function toRows(filters: SpanAttributeFilter[]): Row[] {
-		return filters.map((f) => ({ id: nextId++, bag: f.bag, key: f.key, operator: f.operator ?? 'Equals', value: f.value }));
+		return filters.map((f) => ({ id: nextId++, bag: f.bag, key: f.key, operator: f.operator ?? 'Equals', value: f.value, values: f.values ?? [] }));
 	}
 
 	let rows = $state<Row[]>(toRows(explorer.filter.attributeFilters));
 
 	/** Cheap content snapshot for the resync guard below - order-sensitive is fine, since commit() always writes rows in their current on-screen order. */
 	function snapshotOf(filters: SpanAttributeFilter[]): string {
-		return JSON.stringify(filters.map((f) => [f.bag, f.key, f.operator ?? 'Equals', f.value]));
+		return JSON.stringify(filters.map((f) => [f.bag, f.key, f.operator ?? 'Equals', f.value, f.values ?? []]));
 	}
 
 	// Tracks the last committed value so the resync effect below can tell "explorer.filter
@@ -116,7 +127,8 @@
 				bag: r.bag,
 				key: r.key.trim(),
 				operator: r.operator,
-				value: needsValue(r.operator) ? r.value : ''
+				value: needsSingleValue(r.operator) ? r.value : '',
+				values: needsMultiValue(r.operator) ? r.values : undefined
 			}));
 		lastAppliedSnapshot = snapshotOf(filters);
 		explorer.setAttributeFilters(filters);
@@ -129,7 +141,7 @@
 	}
 
 	function addRow(): void {
-		rows = [...rows, { id: nextId++, bag: 'Span', key: '', operator: 'Equals', value: '' }];
+		rows = [...rows, { id: nextId++, bag: 'Span', key: '', operator: 'Equals', value: '', values: [] }];
 	}
 
 	function removeRow(id: number): void {
@@ -148,7 +160,13 @@
 	function otherAttributeFilters(excludeId: number): SpanAttributeFilter[] {
 		return rows
 			.filter((r) => r.id !== excludeId && r.key.trim())
-			.map((r) => ({ bag: r.bag, key: r.key.trim(), operator: r.operator, value: needsValue(r.operator) ? r.value : '' }));
+			.map((r) => ({
+				bag: r.bag,
+				key: r.key.trim(),
+				operator: r.operator,
+				value: needsSingleValue(r.operator) ? r.value : '',
+				values: needsMultiValue(r.operator) ? r.values : undefined
+			}));
 	}
 
 	/**
@@ -245,7 +263,7 @@
 							</Select.Content>
 						</Select.Root>
 
-						{#if needsValue(row.operator)}
+						{#if needsSingleValue(row.operator)}
 							<AttributeValueCombobox
 								class="h-7 w-40 text-xs"
 								placeholder={m.attributeFilters_valuePlaceholder()}
@@ -253,6 +271,15 @@
 								oninput={(v) => {
 									updateRow(row.id, { value: v });
 									commitDebounced();
+								}}
+								fetchSuggestions={(text, signal) => suggestValues(row, text, signal)}
+							/>
+						{:else if needsMultiValue(row.operator)}
+							<AttributeValueListInput
+								values={row.values}
+								onChange={(next) => {
+									updateRow(row.id, { values: next });
+									commit();
 								}}
 								fetchSuggestions={(text, signal) => suggestValues(row, text, signal)}
 							/>

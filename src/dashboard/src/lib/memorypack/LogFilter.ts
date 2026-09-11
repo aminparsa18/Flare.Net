@@ -131,7 +131,8 @@ export function logFilterToPlain(dto: LogFilter): PlainLogFilter {
 						bag: attributeBagToString(a!.bag),
 						key: a!.key ?? '',
 						value: a!.value ?? '',
-						operator: attributeFilterOperatorToString(a!.operator)
+						operator: attributeFilterOperatorToString(a!.operator),
+						values: a!.values == null ? undefined : a!.values.map((v) => v ?? '')
 					}))
 	};
 }
@@ -157,6 +158,7 @@ export function logFilterFromPlain(filter: PlainLogFilter | undefined): LogFilte
 					attr.key = a.key;
 					attr.value = a.value;
 					attr.operator = attributeFilterOperatorFromString(a.operator ?? 'Equals');
+					attr.values = a.values ?? null;
 					return attr;
 				});
 	return dto;

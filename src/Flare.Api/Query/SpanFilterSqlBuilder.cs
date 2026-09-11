@@ -96,6 +96,11 @@ public static class SpanFilterSqlBuilder
     /// compile to <c>mapContains</c> alone (<see cref="SpanAttributeFilter.Value"/> unused),
     /// and <c>NotEquals</c> guards with <c>mapContains</c> explicitly so a missing key
     /// counts as "not equal", not just relying on the map's empty-string default.
+    /// <c>Regex</c>/<c>NotRegex</c> compile to ClickHouse's <c>match()</c> (RE2 syntax)
+    /// instead of <c>=</c>, guarded by <c>mapContains</c> the same way. <c>In</c>/<c>NotIn</c>
+    /// compile to <c>IN</c> against <see cref="SpanAttributeFilter.Values"/> (bound as an
+    /// <c>Array(String)</c> parameter, empty when <c>Values</c> is null) instead of <c>=</c>
+    /// against <c>Value</c>, guarded the same way too.
     /// </summary>
     private static string AttributeClause(SpanAttributeFilter attribute, int index, ClickHouseParameterCollection parameters)
     {
@@ -115,6 +120,30 @@ public static class SpanFilterSqlBuilder
                 var valueParam = $"attrValue{index}";
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] = {{{valueParam}:String}})";
+            }
+            case SpanAttributeFilterOperator.Regex:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"({containsSql} AND match({column}[{{{keyParam}:String}}], {{{valueParam}:String}}))";
+            }
+            case SpanAttributeFilterOperator.NotRegex:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"NOT ({containsSql} AND match({column}[{{{keyParam}:String}}], {{{valueParam}:String}}))";
+            }
+            case SpanAttributeFilterOperator.In:
+            {
+                var valuesParam = $"attrValues{index}";
+                parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
+                return $"({containsSql} AND {column}[{{{keyParam}:String}}] IN {{{valuesParam}:Array(String)}})";
+            }
+            case SpanAttributeFilterOperator.NotIn:
+            {
+                var valuesParam = $"attrValues{index}";
+                parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
+                return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] IN {{{valuesParam}:Array(String)}})";
             }
             default:
             {

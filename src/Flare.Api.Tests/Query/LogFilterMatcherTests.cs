@@ -147,6 +147,136 @@ public class LogFilterMatcherTests
         Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
     }
 
+    [Theory]
+    [InlineData("^/api/v[0-9]+/users", true)] // matches
+    [InlineData("^/internal/", false)] // doesn't match
+    public void Matches_RegexOperator_WhenKeyIsPresent(string pattern, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.route"] = "/api/v2/users/123" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "http.route", Value = pattern, Operator = AttributeFilterOperator.Regex }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_RegexOperator_ReturnsFalse_WhenKeyIsAbsent()
+    {
+        var logEvent = MinimalLogEvent();
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "missing.key", Value = ".*", Operator = AttributeFilterOperator.Regex }] };
+
+        Assert.False(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_RegexOperator_ReturnsFalse_OnInvalidPattern()
+    {
+        // Fail-closed, not an exception - see LogFilterMatcher.RegexMatches's remarks on
+        // why an uncaught RegexParseException here would be worse than a false negative.
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.route"] = "/api/v2/users" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "http.route", Value = "(unclosed", Operator = AttributeFilterOperator.Regex }] };
+
+        Assert.False(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData("^/api/v[0-9]+/users", false)] // matches -> NotRegex fails
+    [InlineData("^/internal/", true)] // doesn't match -> NotRegex passes
+    public void Matches_NotRegexOperator_WhenKeyIsPresent(string pattern, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.route"] = "/api/v2/users/123" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "http.route", Value = pattern, Operator = AttributeFilterOperator.NotRegex }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_NotRegexOperator_ReturnsTrue_WhenKeyIsAbsent()
+    {
+        var logEvent = MinimalLogEvent();
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "missing.key", Value = ".*", Operator = AttributeFilterOperator.NotRegex }] };
+
+        Assert.True(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData(new[] { "500", "502", "503" }, true)] // present in the list
+    [InlineData(new[] { "200", "201" }, false)] // present but not in the list
+    public void Matches_InOperator_WhenKeyIsPresent(string[] values, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.status_code"] = "502" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "http.status_code", Value = "", Operator = AttributeFilterOperator.In, Values = values }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_InOperator_ReturnsFalse_WhenKeyIsAbsent()
+    {
+        var logEvent = MinimalLogEvent();
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "missing.key", Value = "", Operator = AttributeFilterOperator.In, Values = ["500"] }] };
+
+        Assert.False(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_InOperator_ReturnsFalse_WhenValuesIsNullOrEmpty()
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.status_code"] = "502" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "http.status_code", Value = "", Operator = AttributeFilterOperator.In }] };
+
+        Assert.False(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData(new[] { "500", "502", "503" }, false)] // present in the list -> NotIn fails
+    [InlineData(new[] { "200", "201" }, true)] // present but not in the list -> NotIn passes
+    public void Matches_NotInOperator_WhenKeyIsPresent(string[] values, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.status_code"] = "502" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "http.status_code", Value = "", Operator = AttributeFilterOperator.NotIn, Values = values }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_NotInOperator_ReturnsTrue_WhenKeyIsAbsent()
+    {
+        var logEvent = MinimalLogEvent();
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "missing.key", Value = "", Operator = AttributeFilterOperator.NotIn, Values = ["500"] }] };
+
+        Assert.True(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_NotInOperator_ReturnsTrue_WhenValuesIsNullOrEmpty()
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["http.status_code"] = "502" },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "http.status_code", Value = "", Operator = AttributeFilterOperator.NotIn }] };
+
+        Assert.True(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
     [Fact]
     public void Matches_MultipleAttributeFilters_AreAnded()
     {

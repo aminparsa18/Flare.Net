@@ -170,4 +170,74 @@ public class SpanFilterSqlBuilderTests
         Assert.Contains("NOT mapContains(SpanAttributes, {attrKey0:String})", result.WhereSql);
         Assert.False(result.Parameters.ToDictionary().ContainsKey("attrValue0"));
     }
+
+    [Fact]
+    public void Build_WithRegexOperator_GuardsWithMapContains_AndUsesMatch()
+    {
+        var result = SpanFilterSqlBuilder.Build(
+            new SpanFilter { Attributes = [new SpanAttributeFilter { Key = "http.route", Value = "^/api/v[0-9]+/users", Operator = SpanAttributeFilterOperator.Regex }] },
+            Now);
+
+        Assert.Contains(
+            "(mapContains(SpanAttributes, {attrKey0:String}) AND match(SpanAttributes[{attrKey0:String}], {attrValue0:String}))",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http.route", parameters["attrKey0"]);
+        Assert.Equal("^/api/v[0-9]+/users", parameters["attrValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithNotRegexOperator_GuardsWithMapContains_AndNegatesMatch()
+    {
+        var result = SpanFilterSqlBuilder.Build(
+            new SpanFilter { Attributes = [new SpanAttributeFilter { Key = "http.route", Value = "^/internal/", Operator = SpanAttributeFilterOperator.NotRegex }] },
+            Now);
+
+        Assert.Contains(
+            "NOT (mapContains(SpanAttributes, {attrKey0:String}) AND match(SpanAttributes[{attrKey0:String}], {attrValue0:String}))",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http.route", parameters["attrKey0"]);
+        Assert.Equal("^/internal/", parameters["attrValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithInOperator_GuardsWithMapContains_AndBindsValuesArray()
+    {
+        var result = SpanFilterSqlBuilder.Build(
+            new SpanFilter { Attributes = [new SpanAttributeFilter { Key = "http.status_code", Value = "", Operator = SpanAttributeFilterOperator.In, Values = ["500", "502", "503"] }] },
+            Now);
+
+        Assert.Contains(
+            "(mapContains(SpanAttributes, {attrKey0:String}) AND SpanAttributes[{attrKey0:String}] IN {attrValues0:Array(String)})",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http.status_code", parameters["attrKey0"]);
+        Assert.Equal(["500", "502", "503"], (string[])parameters["attrValues0"]!);
+    }
+
+    [Fact]
+    public void Build_WithInOperator_AndNullValues_BindsEmptyArray()
+    {
+        var result = SpanFilterSqlBuilder.Build(
+            new SpanFilter { Attributes = [new SpanAttributeFilter { Key = "http.status_code", Value = "", Operator = SpanAttributeFilterOperator.In }] },
+            Now);
+
+        Assert.Equal(Array.Empty<string>(), (string[])result.Parameters.ToDictionary()["attrValues0"]!);
+    }
+
+    [Fact]
+    public void Build_WithNotInOperator_GuardsWithMapContains_AndNegatesInClause()
+    {
+        var result = SpanFilterSqlBuilder.Build(
+            new SpanFilter { Attributes = [new SpanAttributeFilter { Key = "http.status_code", Value = "", Operator = SpanAttributeFilterOperator.NotIn, Values = ["200", "201"] }] },
+            Now);
+
+        Assert.Contains(
+            "NOT (mapContains(SpanAttributes, {attrKey0:String}) AND SpanAttributes[{attrKey0:String}] IN {attrValues0:Array(String)})",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http.status_code", parameters["attrKey0"]);
+        Assert.Equal(["200", "201"], (string[])parameters["attrValues0"]!);
+    }
 }

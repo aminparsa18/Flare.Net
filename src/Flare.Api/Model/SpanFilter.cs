@@ -30,6 +30,31 @@ public enum SpanAttributeFilterOperator
 
     /// <summary>Attribute key is absent from the bag. <see cref="SpanAttributeFilter.Value"/> is ignored.</summary>
     Absent,
+
+    /// <summary>
+    /// Attribute is present and its value matches <see cref="SpanAttributeFilter.Value"/> as
+    /// an RE2 pattern (ClickHouse <c>match()</c> semantics - see
+    /// <c>Query.SpanFilterSqlBuilder</c>'s <c>AttributeClause</c>). Appended after
+    /// <see cref="Absent"/>, not inserted earlier - same ordinal-stability reasoning
+    /// <see cref="AttributeFilterOperator.Regex"/> documents for its own identical addition.
+    /// </summary>
+    Regex,
+
+    /// <summary>Attribute is absent, or present with a value that does not match <see cref="SpanAttributeFilter.Value"/> as an RE2 pattern. Mirrors <see cref="NotEquals"/>'s "missing key counts as no-match" semantics.</summary>
+    NotRegex,
+
+    /// <summary>
+    /// Attribute is present and its value is one of <see cref="SpanAttributeFilter.Values"/> -
+    /// the multi-value counterpart to <see cref="Equals"/>. <see cref="SpanAttributeFilter.Value"/>
+    /// is ignored; an empty/null <see cref="SpanAttributeFilter.Values"/> matches nothing
+    /// (same as an empty ClickHouse <c>IN</c> list). Appended after <see cref="NotRegex"/>,
+    /// not inserted earlier - same ordinal-stability reasoning
+    /// <see cref="AttributeFilterOperator.In"/> documents for its own identical addition.
+    /// </summary>
+    In,
+
+    /// <summary>Attribute is absent, or present with a value that is none of <see cref="SpanAttributeFilter.Values"/>. <see cref="SpanAttributeFilter.Value"/> is ignored; an empty/null <see cref="SpanAttributeFilter.Values"/> matches everything (same as negating an empty ClickHouse <c>IN</c> list).</summary>
+    NotIn,
 }
 
 /// <summary>
@@ -48,7 +73,7 @@ public sealed partial record SpanAttributeFilter
 
     public required string Key { get; init; }
 
-    /// <summary>Ignored (may be left as an empty string) when <see cref="Operator"/> is <see cref="SpanAttributeFilterOperator.Exists"/> or <see cref="SpanAttributeFilterOperator.Absent"/>.</summary>
+    /// <summary>Ignored (may be left as an empty string) when <see cref="Operator"/> is <see cref="SpanAttributeFilterOperator.Exists"/>, <see cref="SpanAttributeFilterOperator.Absent"/>, <see cref="SpanAttributeFilterOperator.In"/>, or <see cref="SpanAttributeFilterOperator.NotIn"/> - the last two take their operand from <see cref="Values"/> instead.</summary>
     public required string Value { get; init; }
 
     /// <summary>
@@ -59,6 +84,15 @@ public sealed partial record SpanAttributeFilter
     /// exactly.
     /// </summary>
     public SpanAttributeFilterOperator Operator { get; init; } = SpanAttributeFilterOperator.Equals;
+
+    /// <summary>
+    /// Operand for <see cref="SpanAttributeFilterOperator.In"/>/<see cref="SpanAttributeFilterOperator.NotIn"/> -
+    /// ignored (may be left null/empty) for every other operator, same as <see cref="Value"/>
+    /// is for <see cref="SpanAttributeFilterOperator.Exists"/>/<see cref="SpanAttributeFilterOperator.Absent"/>.
+    /// Appended last (member 5), after <see cref="Operator"/> - same MemoryPack
+    /// wire-compatibility reasoning <see cref="Operator"/>'s own remarks give.
+    /// </summary>
+    public IReadOnlyList<string>? Values { get; init; }
 }
 
 /// <summary>

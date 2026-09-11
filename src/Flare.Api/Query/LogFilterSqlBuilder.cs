@@ -105,7 +105,16 @@ public static class LogFilterSqlBuilder
     /// <c>mapContains</c> too, rather than relying on the map's empty-string default for a
     /// missing key, so it matches <see cref="LogFilterMatcher"/>'s in-memory semantics
     /// exactly: a record missing the key counts as "not equal", same as one that has it
-    /// with a different value.
+    /// with a different value. <see cref="AttributeFilterOperator.Regex"/>/
+    /// <see cref="AttributeFilterOperator.NotRegex"/> compile to ClickHouse's <c>match()</c>
+    /// (RE2 syntax) instead of <c>=</c>, guarded by <c>mapContains</c> the same way - a
+    /// missing key never reaches <c>match()</c> against the map's empty-string default, so
+    /// <c>Regex</c> requires presence and <c>NotRegex</c> treats absence as "no match" like
+    /// <c>NotEquals</c> does. <see cref="AttributeFilterOperator.In"/>/
+    /// <see cref="AttributeFilterOperator.NotIn"/> compile to <c>IN</c> against
+    /// <see cref="AttributeFilter.Values"/> (bound as an <c>Array(String)</c> parameter,
+    /// empty when <c>Values</c> is null) instead of <c>=</c> against <c>Value</c>, guarded by
+    /// <c>mapContains</c> the same way as every other multi-branch operator here.
     /// </summary>
     private static string AttributeClause(AttributeFilter attribute, int index, ClickHouseParameterCollection parameters)
     {
@@ -125,6 +134,30 @@ public static class LogFilterSqlBuilder
                 var valueParam = $"attrValue{index}";
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] = {{{valueParam}:String}})";
+            }
+            case AttributeFilterOperator.Regex:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"({containsSql} AND match({column}[{{{keyParam}:String}}], {{{valueParam}:String}}))";
+            }
+            case AttributeFilterOperator.NotRegex:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"NOT ({containsSql} AND match({column}[{{{keyParam}:String}}], {{{valueParam}:String}}))";
+            }
+            case AttributeFilterOperator.In:
+            {
+                var valuesParam = $"attrValues{index}";
+                parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
+                return $"({containsSql} AND {column}[{{{keyParam}:String}}] IN {{{valuesParam}:Array(String)}})";
+            }
+            case AttributeFilterOperator.NotIn:
+            {
+                var valuesParam = $"attrValues{index}";
+                parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
+                return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] IN {{{valuesParam}:Array(String)}})";
             }
             default:
             {

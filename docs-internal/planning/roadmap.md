@@ -119,19 +119,6 @@ folders are where "what happened and why" actually lives.
   this as its own alert type ([signoz#1752](https://github.com/SigNoz/signoz/commit/33d34af2a)).
   Fold in as a third condition kind (exception-filter-based) alongside
   log-filter-count and metric-query-threshold, not a separate effort.
-- **Regex / not-regex operator on attribute filters.**
-  `AttributeFilterOperator` ([`src/Flare.Api/Model/LogFilter.cs:20`](../../src/Flare.Api/Model/LogFilter.cs))
-  only has `Equals`/`NotEquals`/`Exists`/`Absent` - no pattern match, so
-  there's no way to filter on e.g. a family of error codes or a path
-  prefix without one `Equals` clause per value. SigNoz has this for
-  metric-label filters (`REGEX`/`NREGEX` -
-  [signoz#1328](https://github.com/SigNoz/signoz/commit/da368ab5e8e118569417c541e55b4e414f756775)).
-  Cheap: two new enum members translated to ClickHouse `match()`/
-  `NOT match()`, same shape as the existing operators; likely the same
-  gap exists on `SpanAttributeFilterOperator` in `SpanFilter.cs`. Also
-  worth adding while touching this enum: a multi-value "one of [a, b, c]"
-  operator - today only the fixed top-level fields (e.g. `LogFilter.Services`)
-  support a list, arbitrary attribute filters don't. Not started.
 - **Reusable, named notification channels - a rule can only notify one
   destination today.** `AlertRule`'s `WebhookUrl`/`TelegramBotToken`+
   `TelegramChatId`/`EmailTo`/`PagerDutyRoutingKey`

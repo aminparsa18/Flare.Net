@@ -28,7 +28,7 @@ import { SpanAttributeValuesResponse as GeneratedSpanAttributeValuesResponse } f
 
 export type SpanAttributeBag = SpanAttributeBagName;
 
-/** See `SpanAttributeFilterOperator` (SpanFilter.cs). `Exists`/`Absent` ignore `SpanAttributeFilter.value`. */
+/** See `SpanAttributeFilterOperator` (SpanFilter.cs). `Exists`/`Absent` ignore `SpanAttributeFilter.value`; `In`/`NotIn` ignore it too, taking their operand from `SpanAttributeFilter.values` instead. */
 export type SpanAttributeFilterOperator = SpanAttributeFilterOperatorName;
 
 export interface SpanAttributeFilter {
@@ -37,6 +37,8 @@ export interface SpanAttributeFilter {
 	value: string;
 	/** Defaults to `'Equals'` when omitted - matches the backend's own default, and keeps every existing caller that only ever set bag/key/value unchanged. */
 	operator?: SpanAttributeFilterOperator;
+	/** Operand for `'In'`/`'NotIn'` - ignored (may be omitted) for every other operator. See `SpanAttributeFilter.Values` (SpanFilter.cs). */
+	values?: string[];
 }
 
 export interface SpanFilter {
@@ -73,6 +75,7 @@ function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFil
 					attr.key = a.key;
 					attr.value = a.value;
 					attr.operator = spanAttributeFilterOperatorFromString(a.operator ?? 'Equals');
+					attr.values = a.values ?? null;
 					return attr;
 				});
 	return dto;
