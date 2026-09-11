@@ -237,7 +237,12 @@ builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
 builder.Services.AddSingleton<EmailAlertNotifier>();
-builder.Services.AddSingleton<IAlertNotifier, CompositeAlertNotifier>();
+// Registered as its own concrete type (not just IAlertNotifier) so NotificationChannelEndpoints/
+// AlertEndpoints's send-test handlers can inject it directly for SendAllAsync - the fan-out
+// entrypoint isn't part of the IAlertNotifier interface AlertEvaluationWorker depends on.
+builder.Services.AddSingleton<CompositeAlertNotifier>();
+builder.Services.AddSingleton<IAlertNotifier>(sp => sp.GetRequiredService<CompositeAlertNotifier>());
+builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
 
 builder.Services.AddOpenApi();
 
@@ -330,6 +335,9 @@ authenticatedRoutes.MapPersonalAccessTokenEndpoints();
 // every other (read-only) endpoint group above which just needs any authenticated user.
 var memberRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireMember);
 memberRoutes.MapAlertEndpoints();
+// Same Member/Admin-only rationale as MapAlertEndpoints above - a channel holds a live
+// webhook/bot-token/routing-key secret and its "send test" action pages people too.
+memberRoutes.MapNotificationChannelEndpoints();
 
 // Ingest API key issuance/revocation is Admin-only - a leaked key lets any caller ingest
 // telemetry as this Flare instance, so this isn't something a Member should be able to

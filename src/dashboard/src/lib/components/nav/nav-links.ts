@@ -27,6 +27,7 @@ export function navLinks(auth: AuthState): NavLink[] {
 		{ href: '/ingestion', label: m.nav_ingestion() },
 		{ href: '/indexing', label: m.nav_indexing() },
 		{ href: '/alerts', label: m.nav_alerts() },
+		{ href: '/notification-channels', label: m.nav_notificationChannels() },
 		{ href: '/resources', label: m.nav_resources() },
 		{ href: '/views', label: m.nav_views() },
 		...(!auth.authEnabled || auth.currentUser?.role === 'Admin' ? [{ href: '/auth', label: m.nav_auth() }] : [])

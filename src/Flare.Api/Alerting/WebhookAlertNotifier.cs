@@ -4,9 +4,9 @@ using Microsoft.Extensions.Options;
 namespace Flare.Api.Alerting;
 
 /// <summary>
-/// POSTs a fired alert as JSON to <see cref="AlertRule.WebhookUrl"/> - covers both a
-/// generic webhook consumer and a Slack incoming-webhook URL with one payload shape (see
-/// remarks), rather than a per-rule "payload style" toggle.
+/// POSTs a fired alert as JSON to the channel's <see cref="NotificationChannel.WebhookUrl"/> -
+/// covers both a generic webhook consumer and a Slack incoming-webhook URL with one
+/// payload shape (see remarks), rather than a per-rule "payload style" toggle.
 /// </summary>
 /// <remarks>
 /// The payload always carries a top-level <c>text</c> field - what Slack's
@@ -18,7 +18,7 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
         var isMetric = rule.ConditionKind == AlertConditionKind.MetricThreshold;
@@ -48,7 +48,7 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
 
         try
         {
-            using var response = await httpClient.PostAsJsonAsync(rule.WebhookUrl, payload, cancellationToken);
+            using var response = await httpClient.PostAsJsonAsync(channel.WebhookUrl, payload, cancellationToken);
             return new NotificationResult(
                 response.IsSuccessStatusCode,
                 (int)response.StatusCode,

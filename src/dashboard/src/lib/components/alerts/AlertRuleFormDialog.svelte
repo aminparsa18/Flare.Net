@@ -27,6 +27,7 @@
 	} from '$lib/alerts-api';
 	import { aggregateLogs } from '$lib/api';
 	import { getMetricNames, type MetricNameInfo, type MetricPointType } from '$lib/metrics-api';
+	import { listNotificationChannels, type NotificationChannel } from '$lib/notification-channels-api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
 
@@ -61,6 +62,16 @@
 	let telegramChatId = $state('');
 	let emailTo = $state('');
 	let pagerDutyRoutingKey = $state('');
+
+	// Reusable notification channels (see
+	// docs-internal/adr/0021-reusable-notification-channels.md) - the channel-picker
+	// counterpart to `channel`/`webhookUrl`/etc. above. `usingLegacyChannel` is decided
+	// once per dialog-open (in the reset $effect below), not re-derived per keystroke: a
+	// rule already using its legacy inline channel keeps showing that same block when
+	// edited (no forced migration), while a new rule or one already on `channelIds` gets
+	// the multi-select instead - see that $effect for the exact rule.
+	let usingLegacyChannel = $state(false);
+	let selectedChannelIds = $state<string[]>([]);
 
 	// Metric-threshold condition (AlertConditionKind.MetricThreshold) - see
 	// docs-internal/adr/0020-metric-threshold-alerting.md. conditionKind toggles which of
@@ -105,6 +116,10 @@
 			telegramChatId = '';
 			emailTo = '';
 			pagerDutyRoutingKey = '';
+			// A new rule only ever gets the channel picker - there's no legacy value to
+			// preserve.
+			usingLegacyChannel = false;
+			selectedChannelIds = [];
 			conditionKind = 'LogCount';
 			metricName = '';
 			metricType = 'Gauge';
@@ -133,6 +148,11 @@
 			telegramChatId = target.telegramChatId;
 			emailTo = target.emailTo;
 			pagerDutyRoutingKey = target.pagerDutyRoutingKey;
+			// A rule already on channelIds keeps using the picker; one still on its legacy
+			// inline channel (channelIds empty) keeps showing that same block, unchanged -
+			// no forced migration on edit.
+			usingLegacyChannel = target.channelIds.length === 0;
+			selectedChannelIds = [...target.channelIds];
 			conditionKind = target.conditionKind;
 			metricName = target.metricCondition?.metricName ?? '';
 			metricType = target.metricCondition?.type ?? 'Gauge';
@@ -147,13 +167,15 @@
 	const metricThresholdValue = $derived(Number(metricThresholdValueText));
 
 	const hasChannel = $derived(
-		channel === 'webhook'
-			? webhookUrl.trim().length > 0
-			: channel === 'telegram'
-				? telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
-				: channel === 'email'
-					? emailTo.trim().length > 0
-					: pagerDutyRoutingKey.trim().length > 0
+		usingLegacyChannel
+			? channel === 'webhook'
+				? webhookUrl.trim().length > 0
+				: channel === 'telegram'
+					? telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
+					: channel === 'email'
+						? emailTo.trim().length > 0
+						: pagerDutyRoutingKey.trim().length > 0
+			: selectedChannelIds.length > 0
 	);
 
 	const hasCondition = $derived(
@@ -179,10 +201,22 @@
 	// Same wide-window discovery for the metric-name picker - getMetricNames() with no
 	// filter, same "no Explorer state to borrow one from" reasoning as knownServices.
 	let knownMetrics = $state<MetricNameInfo[]>([]);
+	// Saved channels for the picker - same "load once on mount, no Alerts-page state to
+	// borrow one from" reasoning as knownServices/knownMetrics above.
+	let availableChannels = $state<NotificationChannel[]>([]);
 	onMount(() => {
 		void loadKnownServices();
 		void loadKnownMetrics();
+		void loadAvailableChannels();
 	});
+	async function loadAvailableChannels(): Promise<void> {
+		try {
+			const res = await listNotificationChannels();
+			availableChannels = res.channels;
+		} catch {
+			// Non-critical - the picker just shows fewer/no options until a retry.
+		}
+	}
 	async function loadKnownServices(): Promise<void> {
 		try {
 			const to = new Date();
@@ -224,6 +258,7 @@
 	const metricNameOptions = $derived(knownMetrics.map((mi) => ({ value: mi.metricName, label: mi.metricName })));
 	const aggregationOptions = $derived(AGGREGATIONS_BY_TYPE[metricType]);
 	const severityOptions = $derived(SEVERITY_BUCKETS.map((b) => ({ value: b.id, label: severityBucketLabel(b) })));
+	const channelOptions = $derived(availableChannels.map((c) => ({ value: c.id, label: `${c.name} (${c.type})` })));
 	const selectedSeverityIds = $derived(
 		SEVERITY_BUCKETS.filter((b) => severityNumbersForBucket(b).every((n) => severityNumbers.includes(n))).map((b) => b.id)
 	);
@@ -250,14 +285,16 @@
 			threshold: { count: conditionKind === 'MetricThreshold' ? 0 : thresholdCount, comparator },
 			windowSeconds,
 			cooldownSeconds,
-			// Exactly one channel goes out non-blank - the others are left "" so the API's
-			// channel validation (AlertRuleRequest.ValidateChannel) sees a clean single
-			// choice even if the user typed into a field before switching the selector.
-			webhookUrl: channel === 'webhook' ? webhookUrl.trim() : '',
-			telegramBotToken: channel === 'telegram' ? telegramBotToken.trim() : '',
-			telegramChatId: channel === 'telegram' ? telegramChatId.trim() : '',
-			emailTo: channel === 'email' ? emailTo.trim() : '',
-			pagerDutyRoutingKey: channel === 'pagerduty' ? pagerDutyRoutingKey.trim() : '',
+			// Exactly one notification mode goes out - the legacy inline fields (only when
+			// usingLegacyChannel; the others left "" so the API's channel validation,
+			// AlertRuleRequest.ValidateChannel, sees a clean single choice even if the user
+			// typed into a field before switching the selector) or channelIds, never both.
+			webhookUrl: usingLegacyChannel && channel === 'webhook' ? webhookUrl.trim() : '',
+			telegramBotToken: usingLegacyChannel && channel === 'telegram' ? telegramBotToken.trim() : '',
+			telegramChatId: usingLegacyChannel && channel === 'telegram' ? telegramChatId.trim() : '',
+			emailTo: usingLegacyChannel && channel === 'email' ? emailTo.trim() : '',
+			pagerDutyRoutingKey: usingLegacyChannel && channel === 'pagerduty' ? pagerDutyRoutingKey.trim() : '',
+			channelIds: usingLegacyChannel ? [] : [...selectedChannelIds],
 			conditionKind,
 			// Only sent (rather than left undefined either way) when actually in metric mode -
 			// same "field present, meaningful only for one mode" shape the channel fields
@@ -436,61 +473,76 @@
 				<span class="text-muted-foreground text-xs">{m.alertRuleForm_cooldownHint()}</span>
 			</div>
 
-			<div class="flex flex-col gap-1">
-				<span class="text-xs font-medium">{m.alertRuleForm_notifyViaLabel()}</span>
-				<Select.Root type="single" value={channel} onValueChange={(v) => v && (channel = v as typeof channel)}>
-					<Select.Trigger class="w-40">
-						{channel === 'telegram'
-							? m.alertRuleForm_channelTelegram()
-							: channel === 'email'
-								? m.alertRuleForm_channelEmail()
-								: channel === 'pagerduty'
-									? m.alertRuleForm_channelPagerDuty()
-									: m.alertRuleForm_channelWebhook()}
-					</Select.Trigger>
-					<Select.Content>
-						<Select.Item value="webhook" label={m.alertRuleForm_channelWebhook()} />
-						<Select.Item value="telegram" label={m.alertRuleForm_channelTelegram()} />
-						<Select.Item value="email" label={m.alertRuleForm_channelEmail()} />
-						<Select.Item value="pagerduty" label={m.alertRuleForm_channelPagerDuty()} />
-					</Select.Content>
-				</Select.Root>
-			</div>
+			{#if usingLegacyChannel}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.alertRuleForm_notifyViaLabel()}</span>
+					<Select.Root type="single" value={channel} onValueChange={(v) => v && (channel = v as typeof channel)}>
+						<Select.Trigger class="w-40">
+							{channel === 'telegram'
+								? m.alertRuleForm_channelTelegram()
+								: channel === 'email'
+									? m.alertRuleForm_channelEmail()
+									: channel === 'pagerduty'
+										? m.alertRuleForm_channelPagerDuty()
+										: m.alertRuleForm_channelWebhook()}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="webhook" label={m.alertRuleForm_channelWebhook()} />
+							<Select.Item value="telegram" label={m.alertRuleForm_channelTelegram()} />
+							<Select.Item value="email" label={m.alertRuleForm_channelEmail()} />
+							<Select.Item value="pagerduty" label={m.alertRuleForm_channelPagerDuty()} />
+						</Select.Content>
+					</Select.Root>
+				</div>
 
-			{#if channel === 'webhook'}
-				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">{m.alertRuleForm_webhookUrlLabel()}</span>
-					<Input bind:value={webhookUrl} placeholder={m.alertRuleForm_webhookUrlPlaceholder()} />
-					<span class="text-muted-foreground text-xs">{m.alertRuleForm_webhookUrlHint()}</span>
-				</div>
-			{:else if channel === 'telegram'}
-				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">{m.alertRuleForm_botTokenLabel()}</span>
-					<Input bind:value={telegramBotToken} placeholder={m.alertRuleForm_botTokenPlaceholder()} />
-					<span class="text-muted-foreground text-xs">{m.alertRuleForm_botTokenHint()}</span>
-				</div>
-				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">{m.alertRuleForm_chatIdLabel()}</span>
-					<Input bind:value={telegramChatId} placeholder={m.alertRuleForm_chatIdPlaceholder()} />
-					<span class="text-muted-foreground text-xs">
-						{m.alertRuleForm_chatIdHint()}
-					</span>
-				</div>
-			{:else if channel === 'email'}
-				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">{m.alertRuleForm_emailToLabel()}</span>
-					<Input bind:value={emailTo} placeholder={m.alertRuleForm_emailToPlaceholder()} />
-					<span class="text-muted-foreground text-xs">
-						{m.alertRuleForm_emailToHint()}
-					</span>
-				</div>
+				{#if channel === 'webhook'}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_webhookUrlLabel()}</span>
+						<Input bind:value={webhookUrl} placeholder={m.alertRuleForm_webhookUrlPlaceholder()} />
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_webhookUrlHint()}</span>
+					</div>
+				{:else if channel === 'telegram'}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_botTokenLabel()}</span>
+						<Input bind:value={telegramBotToken} placeholder={m.alertRuleForm_botTokenPlaceholder()} />
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_botTokenHint()}</span>
+					</div>
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_chatIdLabel()}</span>
+						<Input bind:value={telegramChatId} placeholder={m.alertRuleForm_chatIdPlaceholder()} />
+						<span class="text-muted-foreground text-xs">
+							{m.alertRuleForm_chatIdHint()}
+						</span>
+					</div>
+				{:else if channel === 'email'}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_emailToLabel()}</span>
+						<Input bind:value={emailTo} placeholder={m.alertRuleForm_emailToPlaceholder()} />
+						<span class="text-muted-foreground text-xs">
+							{m.alertRuleForm_emailToHint()}
+						</span>
+					</div>
+				{:else}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_pagerDutyRoutingKeyLabel()}</span>
+						<Input bind:value={pagerDutyRoutingKey} placeholder={m.alertRuleForm_pagerDutyRoutingKeyPlaceholder()} />
+						<span class="text-muted-foreground text-xs">
+							{m.alertRuleForm_pagerDutyRoutingKeyHint()}
+						</span>
+					</div>
+				{/if}
 			{:else}
 				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">{m.alertRuleForm_pagerDutyRoutingKeyLabel()}</span>
-					<Input bind:value={pagerDutyRoutingKey} placeholder={m.alertRuleForm_pagerDutyRoutingKeyPlaceholder()} />
-					<span class="text-muted-foreground text-xs">
-						{m.alertRuleForm_pagerDutyRoutingKeyHint()}
-					</span>
+					<span class="text-xs font-medium">{m.alertRuleForm_channelsLabel()}</span>
+					<PopoverMultiSelect
+						label={m.alertRuleForm_channelsLabel()}
+						options={channelOptions}
+						selected={selectedChannelIds}
+						onChange={(next) => (selectedChannelIds = next)}
+					/>
+					{#if availableChannels.length === 0}
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_channelsEmptyHint()}</span>
+					{/if}
 				</div>
 			{/if}
 

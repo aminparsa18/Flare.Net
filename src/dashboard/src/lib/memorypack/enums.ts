@@ -138,6 +138,19 @@ export function alertConditionKindFromString(value: AlertConditionKindName): num
 	return ALERT_CONDITION_KIND_NAMES.indexOf(value);
 }
 
+/** Matches `NotificationChannelModels.cs`'s `NotificationChannelType` member order. Unlike `AlertConditionKindName` above, this one *is* MemoryPack-TS-generated (`$lib/generated/memorypack/NotificationChannelType.ts`) - this plain string/int converter pair exists anyway so `notification-channels-api.ts`'s plain `NotificationChannel`/`NotificationChannelRequest` interfaces can carry a readable string union, same "plain type at the app boundary, generated numeric enum only at the wire boundary" convention `thresholdComparatorToString`/`FromString` already set for a generated enum. */
+const NOTIFICATION_CHANNEL_TYPE_NAMES = ['Webhook', 'Telegram', 'Email', 'PagerDuty'] as const;
+
+export type NotificationChannelTypeName = (typeof NOTIFICATION_CHANNEL_TYPE_NAMES)[number];
+
+export function notificationChannelTypeToString(value: number): NotificationChannelTypeName {
+	return NOTIFICATION_CHANNEL_TYPE_NAMES[value];
+}
+
+export function notificationChannelTypeFromString(value: NotificationChannelTypeName): number {
+	return NOTIFICATION_CHANNEL_TYPE_NAMES.indexOf(value);
+}
+
 /** Matches `AlertModels.cs`'s `MetricAlertAggregation` member order. Not itself MemoryPack-TS-generated - same reason as `AlertConditionKindName` above (`MetricAlertCondition` nests `MetricFilter`, itself ungenerated). */
 const METRIC_ALERT_AGGREGATION_NAMES = ['Value', 'Count', 'Sum', 'P50', 'P75', 'P90', 'P95', 'P99', 'MaxApprox'] as const;
 

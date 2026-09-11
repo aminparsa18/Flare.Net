@@ -75,6 +75,18 @@
 								{#if entry.notificationError}
 									<p class="text-destructive mt-1">{entry.notificationError}</p>
 								{/if}
+								{#if entry.channelResults.length > 1}
+									<!-- Fan-out fire (see docs-internal/adr/0021-reusable-notification-channels.md) -
+									     notificationStatus/notificationError above are the summary across every
+									     channel; this is the per-channel breakdown. -->
+									<div class="mt-1 flex flex-wrap gap-1">
+										{#each entry.channelResults as result (result.channelId ?? result.channelName)}
+											<Badge variant={result.success ? 'secondary' : 'destructive'} class="font-normal">
+												{result.channelName}
+											</Badge>
+										{/each}
+									</div>
+								{/if}
 							</div>
 						{/each}
 					</div>

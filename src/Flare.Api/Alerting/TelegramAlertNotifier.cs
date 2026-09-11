@@ -6,10 +6,10 @@ using Microsoft.Extensions.Options;
 namespace Flare.Api.Alerting;
 
 /// <summary>
-/// POSTs a fired alert to a Telegram bot's <c>sendMessage</c> method
-/// (<see cref="AlertRule.TelegramBotToken"/> + <see cref="AlertRule.TelegramChatId"/>) -
+/// POSTs a fired alert to a Telegram bot's <c>sendMessage</c> method (the channel's
+/// <see cref="NotificationChannel.TelegramBotToken"/> + <see cref="NotificationChannel.TelegramChatId"/>) -
 /// the Telegram counterpart to <see cref="WebhookAlertNotifier"/>, picked by
-/// <see cref="CompositeAlertNotifier"/> instead of it when a rule has Telegram fields set.
+/// <see cref="CompositeAlertNotifier"/> instead of it for a <see cref="NotificationChannelType.Telegram"/> channel.
 /// </summary>
 /// <remarks>
 /// Telegram's Bot API returns HTTP 200 with <c>{"ok":false,"description":"..."}</c> for
@@ -22,11 +22,11 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class TelegramAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         var payload = new
         {
-            chat_id = rule.TelegramChatId,
+            chat_id = channel.TelegramChatId,
             text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl),
             parse_mode = "Markdown",
         };
@@ -34,7 +34,7 @@ public sealed class TelegramAlertNotifier(HttpClient httpClient, IOptions<AlertL
         try
         {
             using var response = await httpClient.PostAsJsonAsync(
-                $"https://api.telegram.org/bot{rule.TelegramBotToken}/sendMessage",
+                $"https://api.telegram.org/bot{channel.TelegramBotToken}/sendMessage",
                 payload,
                 cancellationToken);
 

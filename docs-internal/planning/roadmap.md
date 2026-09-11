@@ -109,23 +109,19 @@ folders are where "what happened and why" actually lives.
   `LogCount`/`MetricThreshold`, following ADR-0020's established
   discriminator/additive-migration pattern, not a from-scratch design.
   Not started.
-- **Reusable, named notification channels - a rule can only notify one
-  destination today.** `AlertRule`'s `WebhookUrl`/`TelegramBotToken`+
-  `TelegramChatId`/`EmailTo`/`PagerDutyRoutingKey`
-  ([`src/Flare.Api/Model/AlertModels.cs`](../../src/Flare.Api/Model/AlertModels.cs))
-  are mutually-exclusive inline fields on the rule itself - "a rule
-  notifies exactly one channel," per its own doc comment. There's no
-  saved/named channel entity: the same Slack webhook or PagerDuty
-  routing key has to be re-entered on every rule that should reach it,
-  rotating a key means updating every rule referencing it individually,
-  and a single critical rule can't fan out to more than one destination
-  (e.g. Slack *and* PagerDuty for the same breach). SigNoz models
-  channels as their own managed, named objects a rule multi-selects
-  ([signoz#1458](https://github.com/SigNoz/signoz/commit/7881aee3501c5081f020e61badd7c1607fc9946f)).
-  Needs a new `NotificationChannel` entity (CRUD'd on its own page) and
-  `AlertRule` referencing a set of channel IDs instead of embedding the
-  destination fields directly - a bigger item, comparable in scope to
-  the custom-dashboards one above. Not started.
+- **`flare notification-channels` CLI management.** Reusable, named
+  notification channels shipped - `NotificationChannel`, CRUD'd on its
+  own `/notification-channels` dashboard page, that `AlertRule`
+  references by `ChannelIds` (one or more) instead of embedding a
+  destination inline, coexisting with the legacy single-inline-channel
+  fields for rules that still use them (see
+  [`docs-internal/adr/0021-reusable-notification-channels.md`](../adr/0021-reusable-notification-channels.md)).
+  Deliberately deferred from that change: a CLI subcommand to
+  create/update/delete channels from the terminal (same scoping
+  precedent PATs' own CLI command was deferred by, see
+  [`docs-internal/adr/0019-personal-access-tokens.md`](../adr/0019-personal-access-tokens.md)) -
+  `flare alerts list`'s rule summary currently shows only a referenced
+  channel count, not names. Not started.
 - **"Go to trace by ID" quick-search in the Traces GUI page.** Low
   confidence, not fully verified - the terminal already has this via its
   `trace <id>` command

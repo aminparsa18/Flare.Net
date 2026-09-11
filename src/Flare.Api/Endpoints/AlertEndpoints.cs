@@ -154,7 +154,7 @@ public static class AlertEndpoints
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
-    private static async Task<IResult> HandleSendTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, IAlertNotifier notifier, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleSendTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, INotificationChannelQueryService channels, CompositeAlertNotifier notifier, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
         if (rule is null)
@@ -162,11 +162,11 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await SendTestAsync(notifier, rule, timeProvider, cancellationToken);
+        var result = await SendTestAsync(notifier, channels, rule, timeProvider, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertNotificationTestResult);
     }
 
-    private static async Task<IResult> HandleSendTestDraftAsync(HttpContext http, IAlertNotifier notifier, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleSendTestDraftAsync(HttpContext http, INotificationChannelQueryService channels, CompositeAlertNotifier notifier, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -217,26 +217,41 @@ public static class AlertEndpoints
             ConditionKind = defaults.ConditionKind,
             MetricCondition = request.MetricCondition,
             MetricThresholdValue = request.MetricThresholdValue,
+            ChannelIds = defaults.ChannelIds,
         };
 
-        var result = await SendTestAsync(notifier, draftRule, timeProvider, cancellationToken);
+        var result = await SendTestAsync(notifier, channels, draftRule, timeProvider, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertNotificationTestResult);
     }
 
     /// <summary>
-    /// Shared by both send-test endpoints: actually notifies through <paramref name="rule"/>'s
-    /// configured channel with a synthetic (non-breaching) event and <c>isTest: true</c>
+    /// Shared by both send-test endpoints: resolves <paramref name="rule"/>'s configured
+    /// channel(s) (via <see cref="NotificationChannelResolver"/>) and actually notifies
+    /// every one of them with a synthetic (non-breaching) event and <c>isTest: true</c>
     /// wording, so a channel's config can be verified without waiting for a real breach -
-    /// unlike <see cref="EvaluateAsync"/>, which never notifies.
+    /// unlike <see cref="EvaluateAsync"/>, which never notifies. Aggregates a fan-out
+    /// rule's per-channel results into one <see cref="AlertNotificationTestResult"/>
+    /// (success only if every channel succeeded, errors joined) rather than expanding
+    /// that response type into a per-channel list - the same "single summary, per-channel
+    /// detail lives in history instead" tradeoff <see cref="AlertHistoryEntry"/>'s own
+    /// <see cref="AlertHistoryEntry.NotificationStatus"/> vs
+    /// <see cref="AlertHistoryEntry.ChannelResults"/> makes.
     /// </summary>
-    private static async Task<AlertNotificationTestResult> SendTestAsync(IAlertNotifier notifier, AlertRule rule, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<AlertNotificationTestResult> SendTestAsync(CompositeAlertNotifier notifier, INotificationChannelQueryService channelStore, AlertRule rule, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
-        var result = await notifier.SendAsync(rule, observedValue: 0, timeProvider.GetUtcNow(), cancellationToken, isTest: true);
+        var channels = await NotificationChannelResolver.ResolveAsync(rule, channelStore, cancellationToken);
+        if (channels.Count == 0)
+        {
+            return new AlertNotificationTestResult { Success = false, StatusCode = 0, Error = "This rule/draft has no notification channel configured." };
+        }
+
+        var results = await notifier.SendAllAsync(rule, channels, observedValue: 0, timeProvider.GetUtcNow(), cancellationToken, isTest: true);
+        var failures = results.Where(r => !r.Success).ToList();
         return new AlertNotificationTestResult
         {
-            Success = result.Success,
-            StatusCode = result.StatusCode,
-            Error = result.Error ?? "",
+            Success = failures.Count == 0,
+            StatusCode = results[0].StatusCode,
+            Error = failures.Count == 0 ? "" : string.Join("; ", failures.Select(r => r.Error ?? "unknown error")),
         };
     }
 

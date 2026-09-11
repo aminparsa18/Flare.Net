@@ -136,12 +136,55 @@ public class AlertChannelValidationTests
         Assert.Null(request.ValidateChannel());
     }
 
+    // --- ChannelIds (the reusable-channel counterpart to the legacy inline fields above) ---
+
+    [Fact]
+    public void ChannelIdsOnly_IsValid()
+    {
+        var request = Build(channelIds: [Guid.NewGuid()]);
+
+        Assert.Null(request.ValidateChannel());
+    }
+
+    [Fact]
+    public void MultipleChannelIds_IsValid()
+    {
+        var request = Build(channelIds: [Guid.NewGuid(), Guid.NewGuid()]);
+
+        Assert.Null(request.ValidateChannel());
+    }
+
+    [Fact]
+    public void EmptyChannelIdsAndNoLegacyChannel_IsInvalid()
+    {
+        var request = Build(channelIds: []);
+
+        Assert.NotNull(request.ValidateChannel());
+    }
+
+    [Fact]
+    public void ChannelIdsAndWebhookBothSet_IsInvalid()
+    {
+        var request = Build(webhookUrl: "https://hooks.slack.com/services/x", channelIds: [Guid.NewGuid()]);
+
+        Assert.NotNull(request.ValidateChannel());
+    }
+
+    [Fact]
+    public void ChannelIdsAndPagerDutyBothSet_IsInvalid()
+    {
+        var request = Build(pagerDutyRoutingKey: "R0123456789ABCDEF0123456789ABCDE", channelIds: [Guid.NewGuid()]);
+
+        Assert.NotNull(request.ValidateChannel());
+    }
+
     private static AlertRuleRequest Build(
         string webhookUrl = "",
         string telegramBotToken = "",
         string telegramChatId = "",
         string emailTo = "",
-        string pagerDutyRoutingKey = "") => new()
+        string pagerDutyRoutingKey = "",
+        IReadOnlyList<Guid>? channelIds = null) => new()
     {
         Name = "test",
         Threshold = new AlertThreshold { Count = 1 },
@@ -151,5 +194,6 @@ public class AlertChannelValidationTests
         TelegramChatId = telegramChatId,
         EmailTo = emailTo,
         PagerDutyRoutingKey = pagerDutyRoutingKey,
+        ChannelIds = channelIds,
     };
 }

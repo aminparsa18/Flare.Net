@@ -12,7 +12,11 @@
 // alerting (see `docs-internal/adr/0020-metric-threshold-alerting.md`) - `metricCondition`
 // reuses `metrics-api.ts`'s `MetricFilter` plain type and
 // `toGeneratedMetricFilter`/`fromGeneratedMetricFilter` conversions rather than re-deriving
-// them.
+// them. `channelIds`/`channelResults` were added for reusable notification channels (see
+// `docs-internal/adr/0021-reusable-notification-channels.md`) - `channelResults`'
+// `AlertChannelResult` reuses the MemoryPack-TS-*generated* class directly (no plain-type
+// wrapper needed, same shape `AlertThreshold` already has), converting only its `type`
+// field through `notificationChannelTypeToString`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
 import {
@@ -27,10 +31,13 @@ import {
 	type MetricAlertAggregationName,
 	metricPointTypeFromString,
 	metricPointTypeToString,
+	notificationChannelTypeToString,
+	type NotificationChannelTypeName,
 } from '$lib/memorypack/enums';
 import { logFilterFromPlain, logFilterToPlain } from '$lib/memorypack/LogFilter';
 import { toGeneratedMetricFilter, fromGeneratedMetricFilter, type MetricFilter, type MetricPointType } from './metrics-api';
 import { AlertThreshold as GeneratedAlertThreshold } from '$lib/generated/memorypack/AlertThreshold.js';
+import { AlertChannelResult as GeneratedAlertChannelResult } from '$lib/generated/memorypack/AlertChannelResult.js';
 import { AlertRule as GeneratedAlertRule } from '$lib/memorypack/AlertRule';
 import { AlertRuleRequest as GeneratedAlertRuleRequest } from '$lib/memorypack/AlertRuleRequest';
 import { AlertRuleListResponse as GeneratedAlertRuleListResponse } from '$lib/memorypack/AlertRuleListResponse';
@@ -93,6 +100,8 @@ export interface AlertRule {
 	metricCondition?: MetricAlertCondition;
 	/** Set only when `conditionKind` is `'MetricThreshold'` - compared against via `threshold.comparator` (`threshold.count` is ignored/a placeholder for this kind). */
 	metricThresholdValue?: number;
+	/** Saved `NotificationChannel` IDs this rule fans out to - mutually exclusive with `webhookUrl`/`telegramBotToken`+`telegramChatId`/`emailTo`/`pagerDutyRoutingKey` above. Empty for a rule still using its legacy inline channel. */
+	channelIds: string[];
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -113,6 +122,8 @@ export interface AlertRuleRequest {
 	conditionKind?: AlertConditionKind;
 	metricCondition?: MetricAlertCondition;
 	metricThresholdValue?: number;
+	/** See `AlertRule.channelIds`'s doc comment. */
+	channelIds?: string[];
 }
 
 export interface AlertRuleListResponse {
@@ -138,6 +149,19 @@ export interface AlertHistoryEntry {
 	observedValue?: number;
 	/** Set only for a `'MetricThreshold'` event; undefined for a `'LogCount'` one, which uses `thresholdCount` instead. */
 	thresholdValue?: number;
+	/** Per-channel outcome of this fire - one entry per channel the rule fanned out to. `notificationStatus`/`notificationStatusCode`/`notificationError` above stay as the backward-compatible summary across all of them. */
+	channelResults: AlertChannelResult[];
+}
+
+/** One channel's outcome within a fan-out fire - `AlertHistoryEntry.channelResults`'s element shape. */
+export interface AlertChannelResult {
+	/** Null for a fire through a legacy inline channel (never a saved, named `NotificationChannel`) - `channelName` still carries a human-readable label ("Webhook"/"Telegram"/"Email"/"PagerDuty") in that case. */
+	channelId?: string;
+	channelName: string;
+	type: NotificationChannelTypeName;
+	success: boolean;
+	statusCode: number;
+	error: string;
 }
 
 export interface AlertHistoryResponse {
@@ -214,7 +238,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		updatedAt: dto.updatedAt.toISOString(),
 		conditionKind: alertConditionKindToString(dto.conditionKind),
 		metricCondition: toMetricAlertCondition(dto.metricCondition),
-		metricThresholdValue: dto.metricThresholdValue ?? undefined
+		metricThresholdValue: dto.metricThresholdValue ?? undefined,
+		channelIds: (dto.channelIds ?? []).filter((id): id is string => id != null)
 	};
 }
 
@@ -243,7 +268,19 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.conditionKind = request.conditionKind == null ? null : alertConditionKindFromString(request.conditionKind);
 	dto.metricCondition = toGeneratedMetricAlertCondition(request.metricCondition);
 	dto.metricThresholdValue = request.metricThresholdValue ?? null;
+	dto.channelIds = request.channelIds ?? null;
 	return dto;
+}
+
+function toAlertChannelResult(dto: GeneratedAlertChannelResult): AlertChannelResult {
+	return {
+		channelId: dto.channelId ?? undefined,
+		channelName: dto.channelName ?? '',
+		type: notificationChannelTypeToString(dto.type),
+		success: dto.success,
+		statusCode: dto.statusCode,
+		error: dto.error ?? ''
+	};
 }
 
 function toAlertHistoryEntry(dto: GeneratedAlertHistoryEntry): AlertHistoryEntry {
@@ -260,7 +297,8 @@ function toAlertHistoryEntry(dto: GeneratedAlertHistoryEntry): AlertHistoryEntry
 		notificationError: dto.notificationError ?? '',
 		conditionKind: alertConditionKindToString(dto.conditionKind),
 		observedValue: dto.observedValue ?? undefined,
-		thresholdValue: dto.thresholdValue ?? undefined
+		thresholdValue: dto.thresholdValue ?? undefined,
+		channelResults: (dto.channelResults ?? []).filter((r): r is GeneratedAlertChannelResult => r != null).map(toAlertChannelResult)
 	};
 }
 

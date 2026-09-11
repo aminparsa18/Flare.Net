@@ -77,6 +77,18 @@ queue consumer span linking back to its producer's span). 0007's original DDL
 deliberately left this out entirely, not even as empty columns - see this migration's
 own remarks and "Span Links" below, which this supersedes.
 
+`0014_alert_rules_metric_condition.sql` / `0015_alert_events_metric_value.sql` - add a
+second `ConditionKind` ("MetricThreshold" alongside the original "LogCount") to
+`alert_rules`/`alert_events`, evaluating a metric-query threshold instead of a log-filter
+count - see [ADR-0020](../../docs-internal/adr/0020-metric-threshold-alerting.md).
+
+`0016_notification_channels.sql` - a new `notification_channels` table: a saved, reusable
+notification destination, referenced by ID from zero or more `alert_rules.ChannelIds`
+(migration 0017) instead of being re-entered inline on every rule that should reach it.
+`0018_alert_events_channel_results.sql` adds the per-channel fired-outcome column to
+`alert_events` for a fan-out fire. See
+[ADR-0021](../../docs-internal/adr/0021-reusable-notification-channels.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
@@ -222,6 +234,22 @@ across rules or stored in this table.
 app-wide server config to go with it - a PagerDuty Events API v2 routing/integration key
 alone is enough to POST to PagerDuty's fixed endpoint, so the whole channel fits in this
 one column.
+
+**`ChannelIds` (migration 0017), `ALTER TABLE ... ADD COLUMN` on `alert_rules`.**
+`Array(UUID) DEFAULT []` - zero or more `notification_channels` (migration 0016) IDs a
+rule fans out to on breach, mutually exclusive with the four legacy inline columns above
+(`Flare.Api.Model.AlertRuleRequest.ValidateChannel` enforces "legacy inline channel XOR
+one-or-more `ChannelIds`", same application-layer enforcement as the legacy columns).
+Ships additively: every pre-existing row's empty array means "still using its legacy
+inline channel", so no data migration was needed. See
+[ADR-0021](../../docs-internal/adr/0021-reusable-notification-channels.md).
+
+**`notification_channels` (migration 0016), same CRUD-via-tombstone `ReplacingMergeTree`
+shape as `alert_rules` (see above).** A saved, reusable notification destination - `Type`
+plus the matching one of the same `WebhookUrl`/`TelegramBotToken`+`TelegramChatId`/
+`EmailTo`/`PagerDutyRoutingKey` columns `alert_rules` already has, just factored into
+their own named, independently-CRUD'd entity that a rule references by ID instead of
+duplicating inline.
 
 **`spans` (migration 0007), plain `MergeTree`.** Immutable once written, same as `logs`
 - no `ReplacingMergeTree`/dedup needed. Two design decisions worth calling out

@@ -7,11 +7,11 @@ using MimeKit;
 namespace Flare.Api.Alerting;
 
 /// <summary>
-/// Emails a fired alert to <see cref="AlertRule.EmailTo"/> through the app-wide SMTP
-/// server in <see cref="EmailOptions"/> - the Email counterpart to
-/// <see cref="WebhookAlertNotifier"/>/<see cref="TelegramAlertNotifier"/>, picked by
-/// <see cref="CompositeAlertNotifier"/> instead of them when a rule has
-/// <see cref="AlertRule.EmailTo"/> set.
+/// Emails a fired alert to the channel's <see cref="NotificationChannel.EmailTo"/>
+/// through the app-wide SMTP server in <see cref="EmailOptions"/> - the Email counterpart
+/// to <see cref="WebhookAlertNotifier"/>/<see cref="TelegramAlertNotifier"/>, picked by
+/// <see cref="CompositeAlertNotifier"/> instead of them for a
+/// <see cref="NotificationChannelType.Email"/> channel.
 /// </summary>
 /// <remarks>
 /// Unlike the other two notifiers, this one owns no <see cref="System.Net.Http.HttpClient"/> -
@@ -35,7 +35,7 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class EmailAlertNotifier(IOptions<EmailOptions> options, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         var opts = options.Value;
         if (string.IsNullOrWhiteSpace(opts.Host))
@@ -45,7 +45,7 @@ public sealed class EmailAlertNotifier(IOptions<EmailOptions> options, IOptions<
 
         var message = new MimeMessage();
         message.From.Add(MailboxAddress.Parse(opts.From));
-        foreach (var recipient in SplitRecipients(rule.EmailTo))
+        foreach (var recipient in SplitRecipients(channel.EmailTo))
         {
             message.To.Add(MailboxAddress.Parse(recipient));
         }
@@ -92,9 +92,9 @@ public sealed class EmailAlertNotifier(IOptions<EmailOptions> options, IOptions<
     }
 
     /// <summary>
-    /// Splits <see cref="AlertRule.EmailTo"/> on commas/semicolons, trimming whitespace
-    /// and dropping empty entries - pulled out as its own pure method so it's
-    /// unit-testable without real SMTP I/O.
+    /// Splits a channel's <see cref="NotificationChannel.EmailTo"/> on commas/semicolons,
+    /// trimming whitespace and dropping empty entries - pulled out as its own pure method
+    /// so it's unit-testable without real SMTP I/O.
     /// </summary>
     internal static IReadOnlyList<string> SplitRecipients(string to) =>
         to.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
