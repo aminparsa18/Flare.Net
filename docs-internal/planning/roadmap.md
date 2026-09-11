@@ -202,9 +202,3 @@ folders are where "what happened and why" actually lives.
   [#2567](https://github.com/SigNoz/signoz/commit/dd25ad95c),
   [#2561](https://github.com/SigNoz/signoz/commit/0bc44c6fd)). Treat as
   much a correctness/safety fix as a feature. Not started.
-- **No `Cache-Control` on autocomplete endpoints.** Same spirit as the
-  dashboard-static-assets caching already shipped, just for a different
-  endpoint class - no `Cache-Control` header found anywhere in
-  `Flare.Api/Endpoints` for the attribute/tag-value autocomplete
-  endpoints. Reference: [signoz#2504](https://github.com/SigNoz/signoz/commit/d4bfe3a09).
-  Not started.

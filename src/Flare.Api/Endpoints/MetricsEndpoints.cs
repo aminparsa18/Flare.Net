@@ -42,6 +42,7 @@ public static class MetricsEndpoints
         request ??= new MetricNamesRequest();
 
         var response = await queryService.GetNamesAsync(request, cancellationToken);
+        ApiSerialization.SetAutocompleteCacheControl(http);
         return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricNamesResponse);
     }
 
@@ -66,6 +67,7 @@ public static class MetricsEndpoints
         }
 
         var response = await queryService.GetAttributeKeysAsync(request, cancellationToken);
+        ApiSerialization.SetAutocompleteCacheControl(http);
         return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricAttributeKeysResponse);
     }
 

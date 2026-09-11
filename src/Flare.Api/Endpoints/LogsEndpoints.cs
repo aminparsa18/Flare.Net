@@ -119,6 +119,7 @@ public static class LogsEndpoints
         request ??= new LogAttributeKeysRequest();
 
         var response = await queryService.GetNumericAttributeKeysAsync(request, cancellationToken);
+        ApiSerialization.SetAutocompleteCacheControl(http);
         return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogAttributeKeysResponse);
     }
 
@@ -176,6 +177,7 @@ public static class LogsEndpoints
         try
         {
             var response = await queryService.GetAttributeValuesAsync(request, cancellationToken);
+            ApiSerialization.SetAutocompleteCacheControl(http);
             return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogAttributeValuesResponse);
         }
         catch (ArgumentOutOfRangeException ex)
