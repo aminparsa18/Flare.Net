@@ -147,14 +147,23 @@ folders are where "what happened and why" actually lives.
   dedicated component for this
   ([signoz#1551](https://github.com/SigNoz/signoz/commit/eaadc3bb9)).
   Worth a closer look before committing to it. Not started.
-- **No drag-to-zoom / brush-select on time-series charts.**
-  [`MetricChart.svelte`](../../src/dashboard/src/lib/components/metrics/MetricChart.svelte)
-  and [`VolumeChart.svelte`](../../src/dashboard/src/lib/components/logs/VolumeChart.svelte)
-  both lack click-and-drag over the chart to zoom into that time range -
-  `VolumeChart`'s own comment confirms a bar click only highlights
-  rather than re-fetching a zoomed view, a deliberate choice worth
-  revisiting. Common, expected charting UX for an observability tool.
-  Reference: [signoz#2018](https://github.com/SigNoz/signoz/commit/1e39131c3).
+- **No drag-to-zoom / brush-select on
+  [`MetricChart.svelte`](../../src/dashboard/src/lib/components/metrics/MetricChart.svelte).**
+  [`VolumeChart.svelte`](../../src/dashboard/src/lib/components/logs/VolumeChart.svelte)
+  got this - dragging over the chart now re-fetches it zoomed into that
+  window via `LogsExplorerState.setCustomRange`, the same entry point
+  the toolbar's calendar picker already used; a plain click still just
+  filters the log table to one bucket, unchanged. MetricChart has
+  nowhere to land the same call yet: `MetricsExplorerState`/
+  `MetricsToolbar` deliberately have no custom-range support (`'custom'`
+  is filtered out of the presets there - see `MetricsToolbar`'s own
+  comment) because comparison mode's "previous period" math needs a
+  fixed-duration preset. Wiring drag-to-zoom in here means adding
+  custom-range support to Metrics first - reversing that design call,
+  not just adding a gesture - so it's being left for a deliberate,
+  separate pass rather than folded in silently. Common, expected
+  charting UX for an observability tool. Reference:
+  [signoz#2018](https://github.com/SigNoz/signoz/commit/1e39131c3).
   Not started.
 - **GroupBy attribute-key picker has no search/autocomplete, unlike
   filter values.** [`MetricsToolbar.svelte:69-80`](../../src/dashboard/src/lib/components/metrics/MetricsToolbar.svelte)

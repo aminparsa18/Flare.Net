@@ -182,27 +182,97 @@
 		return Math.min(buckets.length - 1, Math.max(0, Math.floor(fraction * buckets.length)));
 	}
 
-	function handlePointerMove(e: PointerEvent) {
-		if (buckets.length === 0) return;
-		hoverIndex = bucketIndexAt(e.currentTarget as SVGSVGElement, e.clientX);
+	/** 0-1 position along the chart's width, clamped - used for the drag-to-zoom selection
+	    rather than bucketIndexAt's per-bucket rounding, so the zoomed range's edges track
+	    the pointer continuously instead of snapping to whole buckets while dragging. */
+	function fractionAt(svg: SVGSVGElement, clientX: number): number {
+		const rect = svg.getBoundingClientRect();
+		return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
 	}
 
 	/**
-	 * Clicking a bar (or anywhere along its column) filters the log table to that bucket's
-	 * window - "something went wrong around 10:23" -> click the spike -> see exactly what
-	 * happened. Deliberately doesn't touch this chart's own fetched range (focusBucketRange
-	 * leaves filter.timeRangePreset/customRange alone) - the bars stay exactly as they were,
-	 * just with the clicked one highlighted, rather than re-fetching a zoomed-in,
-	 * second-resolution chart of a single bar's own window.
+	 * Filters the log table to one bucket's window - "something went wrong around 10:23" ->
+	 * click the spike -> see exactly what happened. Deliberately doesn't touch this chart's
+	 * own fetched range (focusBucketRange leaves filter.timeRangePreset/customRange alone) -
+	 * the bars stay exactly as they were, just with the clicked one highlighted, rather than
+	 * re-fetching a zoomed-in, second-resolution chart of a single bar's own window. Used by
+	 * handlePointerUp for a plain click (see DRAG_THRESHOLD_PX) - a real drag zooms instead
+	 * (see handlePointerUp).
 	 */
-	function handleBarClick(e: MouseEvent) {
+	function filterToBucketAt(svg: SVGSVGElement, clientX: number) {
 		if (buckets.length === 0) return;
-		const index = bucketIndexAt(e.currentTarget as SVGSVGElement, e.clientX);
+		const index = bucketIndexAt(svg, clientX);
 		const bucket = buckets[index];
 		if (!bucket) return;
 		const from = new Date(bucket.bucketStart);
 		const to = new Date(from.getTime() + bucketWidthSeconds * 1000);
 		explorer.focusBucketRange({ from, to });
+	}
+
+	// Drag-to-zoom (brush-select) state. Fractions (0-1 along the chart's width), not pixel
+	// or SVG-viewBox coordinates - resilient to the element resizing mid-drag and shared
+	// directly between the pixel-space threshold check (getBoundingClientRect) and the
+	// viewBox-space rect the selection overlay is drawn in (fraction * CHART_WIDTH).
+	let isDragging = $state(false);
+	let dragStartFraction = $state(0);
+	let dragEndFraction = $state(0);
+
+	// Below this many screen pixels of movement, a press-release is a click (filter to that
+	// bucket), not a drag (zoom) - without a threshold, the tiniest hand tremor on what was
+	// meant as a click would zoom into a near-zero-width range instead.
+	const DRAG_THRESHOLD_PX = 4;
+
+	function handlePointerMove(e: PointerEvent) {
+		if (buckets.length === 0) return;
+		const svg = e.currentTarget as SVGSVGElement;
+		hoverIndex = bucketIndexAt(svg, e.clientX);
+		if (isDragging) dragEndFraction = fractionAt(svg, e.clientX);
+	}
+
+	function handlePointerDown(e: PointerEvent) {
+		if (buckets.length === 0) return;
+		const svg = e.currentTarget as SVGSVGElement;
+		svg.setPointerCapture(e.pointerId); // keeps delivering move/up to this element even once the pointer leaves it
+		isDragging = true;
+		dragStartFraction = fractionAt(svg, e.clientX);
+		dragEndFraction = dragStartFraction;
+	}
+
+	/**
+	 * Resolves a press-release as either a click (filter to the released-on bucket, see
+	 * filterToBucketAt) or a drag (re-fetch this chart itself zoomed into the dragged range,
+	 * via LogsExplorerState.setCustomRange - the same entry point the toolbar's calendar
+	 * picker uses) depending on how far the pointer travelled. Unlike a bar-click's
+	 * selectedBucketRange, a drag *does* change filter.timeRangePreset/customRange - the
+	 * whole point is a narrower, higher-resolution chart of the dragged window, not just a
+	 * highlight over the existing one.
+	 */
+	function handlePointerUp(e: PointerEvent) {
+		if (!isDragging) return;
+		isDragging = false;
+		const svg = e.currentTarget as SVGSVGElement;
+		svg.releasePointerCapture(e.pointerId);
+
+		const rect = svg.getBoundingClientRect();
+		const dragPx = Math.abs(dragEndFraction - dragStartFraction) * rect.width;
+		// explorer.live falls back to a plain click too: setCustomRange is a no-op while live
+		// (see its own remarks), but focusBucketRange (via filterToBucketAt) works even live -
+		// it exits live mode itself - so a drag started during live still does *something*
+		// useful rather than silently zooming into nothing.
+		if (dragPx < DRAG_THRESHOLD_PX || !rangeFrom || !rangeTo || explorer.live) {
+			filterToBucketAt(svg, e.clientX);
+			return;
+		}
+
+		const fromMs = new Date(rangeFrom).getTime();
+		const toMs = new Date(rangeTo).getTime();
+		const spanMs = toMs - fromMs;
+		const startFraction = Math.min(dragStartFraction, dragEndFraction);
+		const endFraction = Math.max(dragStartFraction, dragEndFraction);
+		explorer.setCustomRange({
+			from: new Date(fromMs + startFraction * spanMs),
+			to: new Date(fromMs + endFraction * spanMs)
+		});
 	}
 
 	function formatBucketTime(iso: string): string {
@@ -260,19 +330,22 @@
 						<span>0</span>
 					</div>
 					<Tooltip.Provider>
-						<Tooltip.Root open={hoverIndex !== null}>
+						<Tooltip.Root open={hoverIndex !== null && !isDragging}>
 							<Tooltip.Trigger>
 								{#snippet child({ props })}
 									<svg
 										{...props}
 										viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
 										preserveAspectRatio="none"
-										class="h-[100px] w-full cursor-pointer"
+										class="h-[100px] w-full cursor-crosshair"
 										role="img"
 										aria-label={m.volumeChart_chartAriaLabel()}
 										onpointermove={handlePointerMove}
-										onpointerleave={() => (hoverIndex = null)}
-										onclick={handleBarClick}
+										onpointerleave={() => {
+											if (!isDragging) hoverIndex = null;
+										}}
+										onpointerdown={handlePointerDown}
+										onpointerup={handlePointerUp}
 									>
 										<!-- Gridlines at peak / half / zero, aligned with the y-axis labels beside them.
 										     non-scaling-stroke keeps them a crisp 1px regardless of the viewBox's
@@ -341,10 +414,27 @@
 												vector-effect={selectedIndex === i ? 'non-scaling-stroke' : undefined}
 											/>
 										{/each}
+
+										{#if isDragging && !explorer.live}
+											<!-- Drag-to-zoom selection overlay - width tracks the pointer live, released ->
+											     handlePointerUp re-fetches this chart zoomed to the dragged window (or, below
+											     DRAG_THRESHOLD_PX, falls back to the plain bucket-click filter). Hidden while
+											     live: handlePointerUp always falls back to a plain click there (see its own
+											     remarks), so drawing a selection box that doesn't end up zooming would mislead. -->
+											<rect
+												x={Math.min(dragStartFraction, dragEndFraction) * CHART_WIDTH}
+												y={PEAK_Y}
+												width={Math.abs(dragEndFraction - dragStartFraction) * CHART_WIDTH}
+												height={BASELINE_Y - PEAK_Y}
+												style="fill: var(--foreground); fill-opacity: 0.12; stroke: var(--foreground); stroke-opacity: 0.4;"
+												stroke-width="1"
+												vector-effect="non-scaling-stroke"
+											/>
+										{/if}
 									</svg>
 								{/snippet}
 							</Tooltip.Trigger>
-							{#if hoverIndex !== null && buckets[hoverIndex]}
+							{#if hoverIndex !== null && !isDragging && buckets[hoverIndex]}
 								<Tooltip.Content>
 									{m.volumeChart_tooltip({
 										time: formatBucketTime(buckets[hoverIndex].bucketStart),

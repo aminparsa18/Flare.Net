@@ -196,7 +196,7 @@
 	"volumeChart_label": "事件量",
 	"volumeChart_filteredTo": "已筛选到 {time}",
 	"volumeChart_errorPrefix": "事件量图表:{error}",
-	"volumeChart_chartAriaLabel": "事件量随时间变化 — 点击柱形可将日志筛选到该时间范围",
+	"volumeChart_chartAriaLabel": "事件量随时间变化 — 点击柱形可将日志筛选到该时间范围,或拖动以缩放到某个范围",
 	"volumeChart_tooltip": "{time} · {count} 个事件 · 点击以筛选",
 	"alertsPage_title": "Flare — 警报",
 	"alertRuleTable_heading": "警报",

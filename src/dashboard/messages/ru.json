@@ -196,7 +196,7 @@
 	"volumeChart_label": "Объём событий",
 	"volumeChart_filteredTo": "Отфильтровано по {time}",
 	"volumeChart_errorPrefix": "График объёма: {error}",
-	"volumeChart_chartAriaLabel": "Объём событий во времени - нажмите на столбец, чтобы отфильтровать логи по этому диапазону времени",
+	"volumeChart_chartAriaLabel": "Объём событий во времени - нажмите на столбец, чтобы отфильтровать логи по этому диапазону времени, или перетащите, чтобы приблизить диапазон",
 	"volumeChart_tooltip": "{time} · {count} событий · нажмите для фильтрации",
 	"alertsPage_title": "Flare — Оповещения",
 	"alertRuleTable_heading": "Оповещения",
