@@ -159,7 +159,13 @@ const PREVIOUS_PERIOD_LABELS: Partial<Record<TimeRangePreset, () => string>> = {
 	'7d': m.timeRange_previous7d,
 	'30d': m.timeRange_previous30d,
 	'90d': m.timeRange_previous90d,
-	'365d': m.timeRange_previous365d
+	'365d': m.timeRange_previous365d,
+	// A drag-to-zoom on MetricChart (see MetricsExplorerState.setCustomRange) lands on
+	// 'custom' with an arbitrary, non-nameable duration - "previous 47 minutes" isn't a
+	// preset anyone picked, so this gets a generic label instead of a real duration one.
+	// The comparison math itself (previousPeriod/buildComparisonLines) doesn't need a
+	// named preset at all - it just mirrors whatever span [from, to) actually was.
+	custom: m.timeRange_previousPeriod
 };
 
 /**
@@ -173,4 +179,29 @@ const PREVIOUS_PERIOD_LABELS: Partial<Record<TimeRangePreset, () => string>> = {
  */
 export function previousPeriodLabel(preset: TimeRangePreset): string {
 	return PREVIOUS_PERIOD_LABELS[preset]?.() ?? presetLabel(preset);
+}
+
+/**
+ * Full-precision "20 Aug 2026 14:00:00.000 to 21 Aug 2026 09:15:00.000"-style label for an
+ * explicit custom range - shared by TimeRangePicker.svelte (Logs' calendar picker) and
+ * MetricsToolbar.svelte (which never offers 'custom' as a pickable preset, but can land on
+ * one via MetricChart's drag-to-zoom - see MetricsExplorerState.setCustomRange). Day/month/
+ * year plus 24h time down to the millisecond, not the coarser "Aug 20 - Aug 21" this used to
+ * be - see TimeRangePicker's original remarks (still applicable) on why a short pan/zoom
+ * that doesn't cross midnight needs to visibly show *something* moved. Built from plain Date
+ * getters (not toLocaleTimeString) so the separators/24h-ness are guaranteed regardless of
+ * locale, same reasoning VolumeChart's own axis-label formatting keeps to toLocaleString
+ * only where locale variance is actually fine.
+ */
+export function formatCustomRangeLabel(range: { from: Date; to: Date } | null): string {
+	if (!range) return m.timeRange_custom();
+	const pad = (n: number, len = 2) => n.toString().padStart(len, '0');
+	const fmt = (d: Date) => {
+		const day = pad(d.getDate());
+		const month = d.toLocaleDateString(undefined, { month: 'short' });
+		const year = d.getFullYear();
+		const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+		return `${day} ${month} ${year} ${time}`;
+	};
+	return m.timeRangePicker_customRangeFormat({ from: fmt(range.from), to: fmt(range.to) });
 }

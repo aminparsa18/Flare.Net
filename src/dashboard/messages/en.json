@@ -71,6 +71,7 @@
 	"timeRange_previous30d": "previous 30 days",
 	"timeRange_previous90d": "previous 90 days",
 	"timeRange_previous365d": "previous 365 days",
+	"timeRange_previousPeriod": "previous period",
 	"timeRange_label": "Time range",
 	"logsPage_title": "Flare — Logs",
 	"logsTable_colTime": "Time",

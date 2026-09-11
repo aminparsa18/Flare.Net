@@ -24,6 +24,8 @@ import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
 
 export interface MetricsFilterState {
 	timeRangePreset: TimeRangePreset;
+	/** Set only while timeRangePreset === 'custom' - same shape/lifecycle as LogsFilterState.customRange. Unlike Logs, nothing in MetricsToolbar ever picks 'custom' directly (see MetricsToolbar's own remarks); the only producer is MetricChart's drag-to-zoom, via setCustomRange below. */
+	customRange: { from: Date; to: Date } | null;
 	services: string[];
 	/** "Compare with previous period" toggle - see MetricChart.svelte's comparison-mode remarks. Unlike Logs' patternId/attribute drill-downs, this *is* carried in a saved view (toSavedViewState/applySavedViewState below) - it's a display preference for the metric, not a one-off hop. */
 	compareEnabled: boolean;
@@ -42,8 +44,14 @@ export const DEFAULT_TOP_N = 20;
  * just the filter: which (metricName, serviceName) is selected is equally part of what a
  * saved view should reproduce, so it's carried alongside the filter here rather than
  * needing a second saved-view concept.
+ *
+ * `Omit<..., 'customRange'>` + its own re-declaration, not a plain `extends` - `customRange`
+ * uses ISO strings here instead of `Date` objects, since `Date` doesn't survive a JSON
+ * round-trip through Flare.Api's opaque `JsonElement` storage. Same reasoning
+ * `LogsSavedViewState`'s own (standalone, not `extends`-based) declaration documents.
  */
-export interface MetricsSavedViewState extends MetricsFilterState {
+export interface MetricsSavedViewState extends Omit<MetricsFilterState, 'customRange'> {
+	customRange: { from: string; to: string } | null;
 	selectedMetric: { metricName: string; serviceName: string; type: MetricPointType } | null;
 }
 
@@ -71,6 +79,7 @@ const AUTO_REFRESH_INTERVAL_MS = 30_000;
 export class MetricsExplorerState {
 	filter = $state<MetricsFilterState>({
 		timeRangePreset: '1h',
+		customRange: null,
 		services: [],
 		compareEnabled: false,
 		groupByAttributeKey: null,
@@ -129,6 +138,18 @@ export class MetricsExplorerState {
 	// way a same-metric refetch reusing slightly-stale data never is.
 	intervalSeconds = $state<number | null>(null);
 
+	// The exact [from, to) range actually sent with the current `series`/`previousSeries` -
+	// same "requested range, not bucket extremes or a freshly re-resolved 'now'" reasoning
+	// VolumeChart.svelte's own rangeFrom/rangeTo document, and the same reset/staleness
+	// rules as intervalSeconds above (only cleared on a real metric switch, not a plain
+	// filter refetch). MetricChart's drag-to-zoom reads these to map a pointer's fractional
+	// x-position back to a concrete instant - re-resolving a fixed preset via
+	// resolveTimeRange() at drag time instead would drift from what's actually plotted by
+	// however long it's been since the last query (autoRefreshEnabled polls every 30s), a
+	// small but real skew this sidesteps entirely.
+	queryRangeFrom = $state<string | null>(null);
+	queryRangeTo = $state<string | null>(null);
+
 	// Not derived from `names` (which is already narrowed by the current service
 	// filter - self-narrowing the picklist as soon as one service is chosen, same
 	// chicken-and-egg problem TracesExplorerState.knownServices' own comment
@@ -162,10 +183,13 @@ export class MetricsExplorerState {
 	#autoRefreshHandle: ReturnType<typeof setInterval> | null = null;
 
 	#resolvedRange(): ResolvedTimeRange {
-		// Every preset MetricsToolbar actually offers ('custom' is filtered out, same as
-		// TracesToolbar) resolves non-null - the '1h' fallback is a defensive default,
-		// never expected to be hit.
-		return resolveTimeRange(this.filter.timeRangePreset) ?? resolveTimeRange('1h')!;
+		// MetricsToolbar's own preset picker still never offers 'custom' directly (same as
+		// TracesToolbar - only fixed-duration presets make sense for a manual pick, see its
+		// own remarks), but MetricChart's drag-to-zoom (setCustomRange below) can land the
+		// filter on 'custom' with a concrete range, same as Logs. The '1h' fallback stays a
+		// defensive default for the truly unreachable case (a stray 'custom' with no range
+		// ever attached), never expected to be hit in practice.
+		return resolveTimeRange(this.filter.timeRangePreset, this.filter.customRange ?? undefined) ?? resolveTimeRange('1h')!;
 	}
 
 	#servicesOrUndefined(): string[] | undefined {
@@ -280,6 +304,8 @@ export class MetricsExplorerState {
 		this.series = [];
 		this.previousSeries = [];
 		this.intervalSeconds = null;
+		this.queryRangeFrom = null;
+		this.queryRangeTo = null;
 		this.queryError = null;
 		this.resultType = null;
 	}
@@ -382,6 +408,8 @@ export class MetricsExplorerState {
 			this.series = current.series;
 			this.previousSeries = previous?.series ?? [];
 			this.intervalSeconds = bucketWidthSeconds;
+			this.queryRangeFrom = range.from;
+			this.queryRangeTo = range.to;
 			this.resultCompareEnabled = compareEnabled;
 			this.resultType = metric.type;
 		} catch (err) {
@@ -401,6 +429,29 @@ export class MetricsExplorerState {
 	setTimeRangePreset(preset: TimeRangePreset): void {
 		this.#flushPendingSwitch();
 		this.filter.timeRangePreset = preset;
+		// Picking a real preset (from MetricsToolbar's Select, which never offers 'custom'
+		// itself) supersedes whatever drag-to-zoom range was active - same "leaving custom
+		// clears it" rule LogsExplorerState.setTimeRangePreset follows, so a stale
+		// customRange never lingers behind a fixed preset that no longer uses it.
+		if (preset !== 'custom') this.filter.customRange = null;
+		void this.loadNames();
+		void this.runQuery();
+	}
+
+	/**
+	 * Lands the filter on an explicit [from, to) range - the only way MetricsExplorerState
+	 * ever reaches `timeRangePreset === 'custom'` (MetricsToolbar's picker deliberately
+	 * never offers it directly, see its own remarks). Called by MetricChart's drag-to-zoom,
+	 * the same entry point VolumeChart's own drag gesture uses via
+	 * LogsExplorerState.setCustomRange. Comparison mode keeps working on a custom range -
+	 * buildComparisonLines/previousPeriod derive "one period back" from the resolved
+	 * range's own duration, not a preset lookup, so an arbitrary dragged span still has a
+	 * well-defined previous period to compare against.
+	 */
+	setCustomRange(range: { from: Date; to: Date }): void {
+		this.#flushPendingSwitch();
+		this.filter.timeRangePreset = 'custom';
+		this.filter.customRange = range;
 		void this.loadNames();
 		void this.runQuery();
 	}
@@ -456,6 +507,11 @@ export class MetricsExplorerState {
 	toSavedViewState(): MetricsSavedViewState {
 		return {
 			timeRangePreset: this.filter.timeRangePreset,
+			// Same ISO-string round-trip LogsExplorerState.toSavedViewState uses for its own
+			// customRange - Date objects don't survive the saved-view payload's JSON encoding.
+			customRange: this.filter.customRange
+				? { from: this.filter.customRange.from.toISOString(), to: this.filter.customRange.to.toISOString() }
+				: null,
 			services: [...this.filter.services],
 			compareEnabled: this.filter.compareEnabled,
 			groupByAttributeKey: this.filter.groupByAttributeKey,
@@ -479,6 +535,7 @@ export class MetricsExplorerState {
 		const s = (state ?? {}) as Partial<MetricsSavedViewState>;
 		this.filter = {
 			timeRangePreset: s.timeRangePreset ?? '1h',
+			customRange: s.customRange ? { from: new Date(s.customRange.from), to: new Date(s.customRange.to) } : null,
 			services: s.services ?? [],
 			compareEnabled: s.compareEnabled ?? false,
 			groupByAttributeKey: s.groupByAttributeKey ?? null,

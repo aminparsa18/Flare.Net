@@ -24,9 +24,14 @@ export interface LogsDeepLinkTarget extends DeepLinkTarget {
 }
 
 function isTimeRangePreset(value: string | null): value is TimeRangePreset {
-	// 'custom' excluded deliberately - Metrics never offers it as a selectable preset
-	// (see MetricsExplorerState's own remarks), so a deep link never needs to carry one,
-	// and Traces has no custom-range support at all to receive it.
+	// 'custom' excluded deliberately - Metrics' toolbar still never offers it as a
+	// selectable preset (see MetricsExplorerState's own remarks), but MetricChart's
+	// drag-to-zoom *can* land the filter on 'custom' with a concrete range now. These
+	// params carry only a preset value, with nothing to round-trip an explicit from/to
+	// through, so a deep link built while zoomed just gets no `range` param at all (see
+	// MetricChart's own logsHref/tracesHref remarks on why that's the honest choice) -
+	// this parser side stays as strict as before, and Traces still has no custom-range
+	// support at all to receive one either way.
 	return value != null && TIME_RANGE_PRESETS.some((p) => p.value === value && p.value !== 'custom');
 }
 

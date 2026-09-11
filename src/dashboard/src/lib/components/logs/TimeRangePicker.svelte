@@ -11,6 +11,7 @@
 		TIME_RANGE_PRESETS,
 		LOG_ONLY_TIME_RANGE_PRESETS,
 		presetLabel,
+		formatCustomRangeLabel,
 		type TimeRangePreset
 	} from '$lib/logs/time-range';
 	import * as m from '$lib/paraglide/messages';
@@ -34,35 +35,11 @@
 		end: undefined
 	});
 
-	/**
-	 * Full precision (day/month/year, 24h time down to the millisecond) rather than the
-	 * old "Aug 20 – Aug 21" month/day-only label - that one dropped the actual time of
-	 * day entirely, so a short shiftTimeRange() pan (see TimeRangePicker's arrow buttons)
-	 * that happened to cross midnight rendered indistinguishably from a real multi-day
-	 * range, and a shift that *didn't* cross midnight showed the exact same "Aug 20"
-	 * label before and after, with nothing in the button to show anything had moved.
-	 * Same "day month year HH:mm:ss.mmm to ..." shape Seq itself uses for a shifted/
-	 * custom range display. Built from plain Date getters (not toLocaleTimeString) so
-	 * the separators/24h-ness are guaranteed regardless of locale, same reasoning
-	 * VolumeChart's own axis-label formatting keeps to toLocaleString only where locale
-	 * variance is actually fine.
-	 */
-	function formatCustomLabel(range: { from: Date; to: Date } | null): string {
-		if (!range) return m.timeRange_custom();
-		const pad = (n: number, len = 2) => n.toString().padStart(len, '0');
-		const fmt = (d: Date) => {
-			const day = pad(d.getDate());
-			const month = d.toLocaleDateString(undefined, { month: 'short' });
-			const year = d.getFullYear();
-			const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
-			return `${day} ${month} ${year} ${time}`;
-		};
-		return m.timeRangePicker_customRangeFormat({ from: fmt(range.from), to: fmt(range.to) });
-	}
-
+	// Full-precision "day month year HH:mm:ss.mmm to ..." custom-range label - shared
+	// with MetricsToolbar (see formatCustomRangeLabel's own remarks in time-range.ts).
 	const activeLabel = $derived(
 		explorer.filter.timeRangePreset === 'custom'
-			? formatCustomLabel(explorer.filter.customRange)
+			? formatCustomRangeLabel(explorer.filter.customRange)
 			: presetLabel(explorer.filter.timeRangePreset)
 	);
 
