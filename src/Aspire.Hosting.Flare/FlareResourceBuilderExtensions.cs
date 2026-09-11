@@ -744,6 +744,12 @@ public static class FlareResourceBuilderExtensions
     /// browser requests originating from it). Same default/override story as
     /// <see cref="WithPublicApiUrl"/> - not called, keeps today's loopback-pinned <c>aspire run</c>
     /// behavior; call it with an <c>AddParameter</c> result for publish/deploy.
+    /// <para/>
+    /// Also fans out as <c>Alerting__PublicUrl</c> on both <c>api</c> and <c>alert-worker</c>
+    /// (<see cref="Flare.Api.Alerting.AlertLinkOptions"/>) - the same URL a fired alert's
+    /// notification links back to the rule with, so calling this one method is enough to
+    /// get both the CORS/ORIGIN wiring and working notification links; nothing extra to
+    /// call for the latter.
     /// </summary>
     /// <param name="flare">The Flare resource returned by <see cref="AddFlare"/>.</param>
     /// <param name="publicDashboardUrl">A <c>secret: false</c> <c>AddParameter</c> result.</param>
@@ -754,7 +760,10 @@ public static class FlareResourceBuilderExtensions
         ArgumentNullException.ThrowIfNull(publicDashboardUrl);
 
         GetDashboardBuilder(flare).WithEnvironment("ORIGIN", publicDashboardUrl);
-        GetApiBuilder(flare).WithEnvironment("Cors__AllowedOrigins__0", publicDashboardUrl);
+        GetApiBuilder(flare)
+            .WithEnvironment("Cors__AllowedOrigins__0", publicDashboardUrl)
+            .WithEnvironment("Alerting__PublicUrl", publicDashboardUrl);
+        GetAlertWorkerBuilder(flare).WithEnvironment("Alerting__PublicUrl", publicDashboardUrl);
         return flare;
     }
 

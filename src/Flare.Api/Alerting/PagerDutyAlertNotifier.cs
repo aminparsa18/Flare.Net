@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Alerting;
 
@@ -27,16 +28,26 @@ namespace Flare.Api.Alerting;
 /// <see cref="NotificationResult.Success"/>; the response body is only parsed for a
 /// clearer <see cref="NotificationResult.Error"/> message on failure.
 /// </remarks>
-public sealed class PagerDutyAlertNotifier(HttpClient httpClient) : IAlertNotifier
+public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
     private const string EventsApiUrl = "https://events.pagerduty.com/v2/enqueue";
 
     public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
+        // Not folded into `summary` below the way the other three notifiers append it to
+        // their plain-text message - PagerDuty renders `summary` as a single-line incident
+        // title (truncated in list views), not a place for a trailing URL line. `client_url`
+        // is PagerDuty's own dedicated field for this: it renders as a clickable "View in
+        // {client}" link on the incident. Null when Alerting:PublicUrl isn't configured -
+        // PagerDuty tolerates the field's absence/null the same way the other notifiers omit
+        // the link entirely.
+        var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
         var payload = new
         {
             routing_key = rule.PagerDutyRoutingKey,
             event_action = "trigger",
+            client = "Flare",
+            client_url = ruleUrl,
             payload = new
             {
                 summary = AlertMessageFormatter.BuildText(rule, observedCount, isTest),
@@ -50,6 +61,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient) : IAlertNotifi
                     observedCount,
                     thresholdCount = rule.Threshold.Count,
                     windowSeconds = rule.WindowSeconds,
+                    ruleUrl,
                 },
             },
         };

@@ -61,14 +61,16 @@ LiveTail/   LogTailBroadcaster (the single background XREAD-and-fan-out reader o
             LiveTailOptions, BufferedLogEvent + BufferedLogEventJsonContext +
             BufferedLogEventMapper (deserializing/normalizing the Redis wire format -
             same "deliberate mirror, not a shared reference" convention as LogEventDto).
-Alerting/   EmailOptions (app-wide SMTP server settings), AlertMessageFormatter (the
-            fired-alert text shared by every channel), IAlertNotifier +
-            WebhookAlertNotifier (the webhook/Slack sender), TelegramAlertNotifier (the
-            Telegram sender), EmailAlertNotifier (the email sender), PagerDutyAlertNotifier
-            (the PagerDuty sender), CompositeAlertNotifier (picks between the four per
-            rule) - all reused as-is by ../Flare.AlertWorker via ProjectReference.
-            AlertEvaluationWorker/AlertingOptions themselves live there now, not here -
-            see docs-internal/adr/0018-alert-worker-extraction.md.
+Alerting/   EmailOptions (app-wide SMTP server settings), AlertLinkOptions (the
+            dashboard's public base URL, for the deep link a fired-alert notification
+            carries back to its rule), AlertMessageFormatter (the fired-alert text shared
+            by every channel), IAlertNotifier + WebhookAlertNotifier (the webhook/Slack
+            sender), TelegramAlertNotifier (the Telegram sender), EmailAlertNotifier (the
+            email sender), PagerDutyAlertNotifier (the PagerDuty sender),
+            CompositeAlertNotifier (picks between the four per rule) - all reused as-is by
+            ../Flare.AlertWorker via ProjectReference. AlertEvaluationWorker/AlertingOptions
+            themselves live there now, not here - see
+            docs-internal/adr/0018-alert-worker-extraction.md.
 ```
 
 `Model` and `Query` are deliberately pure/ClickHouse-free wherever possible
@@ -235,6 +237,16 @@ named/typed `HttpClient`s (`AddHttpClient<WebhookAlertNotifier>`,
 inherit `Flare.ServiceDefaults`' resilience handler (retries/circuit-breaking) for free.
 `EmailAlertNotifier` has no `HttpClient` — MailKit's `SmtpClient` is its own socket-based
 client, not HTTP.
+
+When `AlertLinkOptions.PublicUrl` is configured (bound from the same `Alerting`
+configuration section as `Flare.AlertWorker`'s own `AlertingOptions` — `Alerting__PublicUrl`
+env var), every notifier appends a `{PublicUrl}/alerts?rule={id}` deep link back to the
+rule: a bare URL on its own line in the shared text (Slack/Telegram/email all auto-linkify
+it), a dedicated `ruleUrl` field in the generic webhook payload, and PagerDuty's own
+`client_url` (renders as a "View in Flare" link on the incident) plus a `ruleUrl` in
+`custom_details`. Left unset, no notifier includes a link at all — same behavior as before
+this existed. `src/dashboard/src/routes/alerts/+page.svelte` reads the `?rule=` query
+param and opens that rule's history sheet.
 
 ## A known, inherited trade-off
 

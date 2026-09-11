@@ -47,8 +47,11 @@ above.
 
 ## Configuration
 
-Same `Alerting__*` (`PollInterval`/`MaxRulesPerTick`) and `Email__*` (SMTP server for the
-Email channel) configuration keys `Flare.Api` already documents, plus
+Same `Alerting__*` (`PollInterval`/`MaxRulesPerTick`, bound by this project's own
+`AlertingOptions`, plus `PublicUrl`, bound by `Flare.Api`'s `AlertLinkOptions` over the
+same section — the dashboard's public base URL, used to build the deep link a real fired
+alert's notification carries back to the rule; blank means no link) and `Email__*` (SMTP
+server for the Email channel) configuration keys `Flare.Api` already documents, plus
 `ConnectionStrings__clickhousedb`/`ConnectionStrings__redis` — see
 `docker-compose.yml`/`.env.example` for the full set. Webhook/Telegram/PagerDuty channels
 need no app-wide config; their URL/token/routing key live per-rule.

@@ -15,15 +15,48 @@ public static class AlertMessageFormatter
     /// True from the "send test alert" endpoints - <paramref name="observedCount"/> isn't
     /// a real breach in that case, so the text says so instead of reporting it as one.
     /// </param>
-    public static string BuildText(AlertRule rule, ulong observedCount, bool isTest = false)
+    /// <param name="publicUrl">
+    /// <see cref="AlertLinkOptions.PublicUrl"/>, passed straight through to
+    /// <see cref="BuildRuleUrl"/> - null/blank omits the link. A bare URL on its own line
+    /// (rather than channel-specific link markup) is deliberate: Slack's incoming-webhook
+    /// parser, Telegram (even under <c>parse_mode: Markdown</c>), and every common email
+    /// client all auto-linkify a plain <c>http(s)://</c> URL, so one plain-text form works
+    /// unchanged for every channel <see cref="CompositeAlertNotifier"/> can pick.
+    /// </param>
+    public static string BuildText(AlertRule rule, ulong observedCount, bool isTest = false, string? publicUrl = null)
     {
-        if (isTest)
-        {
-            return $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly.";
-        }
+        var text = isTest
+            ? $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly."
+            : BuildFiredText(rule, observedCount);
 
+        var ruleUrl = BuildRuleUrl(rule, publicUrl);
+        return ruleUrl is null ? text : $"{text}\n{ruleUrl}";
+    }
+
+    private static string BuildFiredText(AlertRule rule, ulong observedCount)
+    {
         var comparatorSymbol = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
         return $":rotating_light: Alert \"{rule.Name}\" fired: {observedCount} events " +
                $"({comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s";
+    }
+
+    /// <summary>
+    /// Builds the deep link from a fired-alert notification back to <paramref name="rule"/>
+    /// in the dashboard (<c>{publicUrl}/alerts?rule={rule.Id}</c> - see
+    /// <c>src/dashboard/src/routes/alerts/+page.svelte</c>, which opens that rule's history
+    /// sheet when the <c>rule</c> query param is present), or null when
+    /// <paramref name="publicUrl"/> is unset. Pulled out from <see cref="BuildText"/> so
+    /// <see cref="PagerDutyAlertNotifier"/>/<see cref="WebhookAlertNotifier"/> can also put
+    /// it in a dedicated structured field (PagerDuty's <c>client_url</c>, the generic
+    /// webhook payload's <c>ruleUrl</c>), not just inline in the text.
+    /// </summary>
+    public static string? BuildRuleUrl(AlertRule rule, string? publicUrl)
+    {
+        if (string.IsNullOrWhiteSpace(publicUrl))
+        {
+            return null;
+        }
+
+        return $"{publicUrl.TrimEnd('/')}/alerts?rule={Uri.EscapeDataString(rule.Id.ToString())}";
     }
 }

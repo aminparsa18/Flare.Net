@@ -136,15 +136,6 @@ folders are where "what happened and why" actually lives.
   `AlertRule` referencing a set of channel IDs instead of embedding the
   destination fields directly - a bigger item, comparable in scope to
   the custom-dashboards one above. Not started.
-- **Fired-alert notifications carry no link back into Flare.**
-  `AlertMessageFormatter.BuildText`
-  ([`src/Flare.Api/Alerting/AlertMessageFormatter.cs`](../../src/Flare.Api/Alerting/AlertMessageFormatter.cs))
-  produces plain text (rule name/observed count/threshold/window) with
-  no URL, so a fired alert in Slack/Telegram/email gives no way to click
-  straight through to the rule. SigNoz links the rule name in the Slack
-  message title ([signoz#1421](https://github.com/SigNoz/signoz/commit/7ff49ba47)).
-  Needs a configured public dashboard base URL first - doesn't look like
-  Flare has one today - to build the link from. Not started.
 - **"Go to trace by ID" quick-search in the Traces GUI page.** Low
   confidence, not fully verified - the terminal already has this via its
   `trace <id>` command
