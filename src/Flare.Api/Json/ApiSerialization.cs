@@ -102,4 +102,30 @@ public static class ApiSerialization
 
         return Results.Bytes(MemoryPackSerializer.Serialize(value), MemoryPackContentType);
     }
+
+    /// <summary>
+    /// The <c>max-age</c> set by <see cref="SetAutocompleteCacheControl"/> - long enough
+    /// to skip a redundant round-trip while a user is mid-keystroke in an attribute
+    /// autocomplete field, short enough that a value which just started landing in
+    /// ClickHouse isn't masked for more than a minute. 60s matches the OTel SDK's default
+    /// metric export interval (~10s of additional latency at the collector), the same
+    /// reasoning SigNoz used for its equivalent fix (signoz#2504).
+    /// </summary>
+    public const int AutocompleteCacheMaxAgeSeconds = 60;
+
+    /// <summary>
+    /// Sets a short-lived <c>Cache-Control</c> header for attribute/tag-value
+    /// "autocomplete" endpoints - key discovery, value discovery, and metric-name
+    /// discovery - so the browser can skip re-issuing an identical request on every
+    /// keystroke. See docs-internal/planning/roadmap.md's former "No Cache-Control on
+    /// autocomplete endpoints" item. <c>private</c>, not <c>public</c>: these endpoints
+    /// sit behind authentication (local accounts, Entra ID, LDAP, OIDC, or
+    /// reverse-proxy trusted headers - see Flare.Identity) and Flare may itself run
+    /// behind a shared reverse proxy, so an intermediate cache must never reuse one
+    /// caller's response for another.
+    /// </summary>
+    public static void SetAutocompleteCacheControl(HttpContext http)
+    {
+        http.Response.Headers.CacheControl = $"private, max-age={AutocompleteCacheMaxAgeSeconds}";
+    }
 }

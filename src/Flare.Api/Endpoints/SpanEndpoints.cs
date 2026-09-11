@@ -79,6 +79,7 @@ public static class SpanEndpoints
         try
         {
             var response = await queryService.GetAttributeValuesAsync(request, cancellationToken);
+            ApiSerialization.SetAutocompleteCacheControl(http);
             return ApiSerialization.Write(http, response, SpansJsonContext.Default.SpanAttributeValuesResponse);
         }
         catch (ArgumentOutOfRangeException ex)
