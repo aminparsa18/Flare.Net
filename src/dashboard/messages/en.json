@@ -319,6 +319,8 @@
 	"metricsToolbar_groupByLabel": "Group by",
 	"metricsToolbar_groupByWithKey": "Group by: {key}",
 	"metricsToolbar_groupByNone": "None",
+	"metricsToolbar_topNTitle": "Limits the chart to the N series with the highest value, so a high-cardinality group-by can't produce an unbounded number of lines.",
+	"metricsToolbar_topNWithValue": "Top {n}",
 	"metricsToolbar_compareTitle": "Compares the current time range to the period immediately before it, of the same length (e.g. Last 24 hours vs. the 24 hours before that).",
 	"metricsToolbar_compareLabel": "Compare with previous period",
 	"metricsToolbar_autoRefreshTitle": "Automatically re-runs the chart's query every 30 seconds",

@@ -167,6 +167,11 @@ export interface MetricQueryRequest {
 	// sharing that one key's value - see MetricSeriesQueryBuilder's remarks. Omitted/
 	// undefined = ungrouped (one series per distinct attribute map).
 	groupByAttributeKey?: string;
+	// Max series to return, ranked by magnitude descending - see MetricQueryRequest.cs'
+	// remarks. Omitted/undefined uses the server-side default cap; no UI control yet
+	// (same "field exists, no picker yet" state ExceptionGroupsRequest/LogPatternRequest's
+	// own topN started in).
+	topN?: number;
 }
 
 export interface MetricSeriesPoint {
@@ -229,6 +234,7 @@ export async function queryMetric(request: MetricQueryRequest, signal?: AbortSig
 	dto.filter = toGeneratedMetricFilter(request.filter);
 	dto.bucketWidthSeconds = request.bucketWidthSeconds;
 	dto.groupByAttributeKey = request.groupByAttributeKey ?? null;
+	dto.topN = request.topN ?? null;
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/query`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),

@@ -319,6 +319,8 @@
 	"metricsToolbar_groupByLabel": "分组方式",
 	"metricsToolbar_groupByWithKey": "分组方式:{key}",
 	"metricsToolbar_groupByNone": "无",
+	"metricsToolbar_topNTitle": "将图表限制为数值最高的 N 个序列,避免按高基数属性分组时产生数量不受限的线条。",
+	"metricsToolbar_topNWithValue": "前 {n} 个",
 	"metricsToolbar_compareTitle": "将当前时间范围与紧邻的前一个同等长度的时段进行比较(例如“过去 24 小时”对比再往前的 24 小时)。",
 	"metricsToolbar_compareLabel": "与上一时段比较",
 	"metricsToolbar_autoRefreshTitle": "每 30 秒自动重新运行图表查询",

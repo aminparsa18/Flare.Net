@@ -186,19 +186,3 @@ folders are where "what happened and why" actually lives.
   queryable, not shown. SigNoz added support for this
   ([signoz#2415](https://github.com/SigNoz/signoz/commit/2a5cb7896)).
   Not started.
-- **Metrics groupBy queries have no top-N/limit/sort on the resulting
-  series - and no safety cap.** `MetricSeriesRequest`'s
-  `GroupByAttributeKey` ([`src/Flare.Api/Model/MetricModels.cs`](../../src/Flare.Api/Model/MetricModels.cs))
-  is a single key with nothing to sort or cap the series it produces,
-  and [`MetricSeriesQueryBuilder.cs`](../../src/Flare.Api/Query/MetricSeriesQueryBuilder.cs)
-  has no `LIMIT` on distinct group-by values at all. Two problems in
-  one: no UX way to ask "top 10 hosts by error rate," and - more
-  seriously - no safety cap on a high-cardinality groupBy (thousands of
-  distinct values returns thousands of series, unbounded), unlike every
-  other ClickHouse query in Flare, which deliberately caps result size
-  (see this file's own house rule in `CLAUDE.md`). SigNoz added
-  `Having`/`OrderBy`/`Limit` filters to their query builder over this
-  same era ([signoz#2551](https://github.com/SigNoz/signoz/commit/63570c847),
-  [#2567](https://github.com/SigNoz/signoz/commit/dd25ad95c),
-  [#2561](https://github.com/SigNoz/signoz/commit/0bc44c6fd)). Treat as
-  much a correctness/safety fix as a feature. Not started.

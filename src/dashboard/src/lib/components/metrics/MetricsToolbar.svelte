@@ -33,6 +33,13 @@
 			? m.metricsToolbar_groupByWithKey({ key: explorer.filter.groupByAttributeKey })
 			: m.metricsToolbar_groupByLabel()
 	);
+
+	// Fixed option set, not a free-text/numeric input - same "closed, sane set of
+	// choices" call PopoverMultiSelect/the other Select-backed toolbar pickers already
+	// make, and it keeps every value within MetricSeriesQueryBuilder's MaxTopN clamp by
+	// construction. Bits UI's Select needs string item values, so values round-trip
+	// through Number()/String() at the call sites below.
+	const TOP_N_OPTIONS = [5, 10, 20, 50, 100];
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
@@ -78,6 +85,30 @@
 				<Select.Item value={GROUP_BY_NONE} label={m.metricsToolbar_groupByNone()} />
 				{#each explorer.knownAttributeKeys as key (key.key)}
 					<Select.Item value={key.key} label={`${key.key} (${key.distinctValueCount})`} />
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	{/if}
+
+	<!-- The series cap (MetricQueryRequest.topN / MetricSeriesQueryBuilder's remarks)
+	     applies unconditionally server-side regardless of this control - see there for
+	     why. Surfaced here only once grouping is actually on, though: that's the "top 10
+	     hosts by error rate" case the roadmap called out, and an ungrouped metric rarely
+	     has enough distinct series for the default cap to matter, so there's nothing
+	     useful for this picker to do until a group-by key narrows the series down to a
+	     rankable set. -->
+	{#if explorer.filter.groupByAttributeKey}
+		<Select.Root
+			type="single"
+			value={String(explorer.filter.topN)}
+			onValueChange={(v) => v && explorer.setTopN(Number(v))}
+		>
+			<Select.Trigger class="w-auto" title={m.metricsToolbar_topNTitle()}>
+				{m.metricsToolbar_topNWithValue({ n: explorer.filter.topN })}
+			</Select.Trigger>
+			<Select.Content>
+				{#each TOP_N_OPTIONS as n (n)}
+					<Select.Item value={String(n)} label={String(n)} />
 				{/each}
 			</Select.Content>
 		</Select.Root>

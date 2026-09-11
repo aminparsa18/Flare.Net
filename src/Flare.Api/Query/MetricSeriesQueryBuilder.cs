@@ -83,9 +83,31 @@ public sealed record MetricSeriesSql(string Sql, ClickHouseParameterCollection P
 /// p50/p75/p90/p95/p99 and an approximate max - the second named, deliberately-unresolved
 /// v1 limitation (assumes bucket boundaries don't change mid-window).
 /// </para>
+/// <para>
+/// <b>Series cap</b> (<see cref="Model.MetricQueryRequest.TopN"/>): a high-cardinality
+/// <see cref="Model.MetricQueryRequest.GroupByAttributeKey"/> (or even an ungrouped query
+/// over a metric with many distinct <c>DataPointAttributes</c> maps) can otherwise produce
+/// thousands of series, unlike every other ClickHouse query in this codebase which
+/// deliberately caps result size. Applied unconditionally (clamped between
+/// <see cref="DefaultTopN"/> and <see cref="MaxTopN"/> via <see cref="RangeSql"/> below),
+/// same "always on, ranked list" convention as <see cref="ExceptionGroupQueryBuilder"/>/
+/// <see cref="LogPatternQueryBuilder"/> - except a bucketed series can't just <c>LIMIT</c>
+/// the flat row set (that would cut a series off mid-window, not drop it entirely), so the
+/// cap is a subquery: rank distinct (<c>ServiceName</c>, <c>SeriesKey</c>) pairs by the
+/// same per-type magnitude the main query's <c>valueSelect</c> already computes - summed/
+/// averaged/counted over the <em>whole</em> requested window, not per-bucket - then
+/// restrict the bucketed query to that top-N set via a tuple <c>IN</c>. This also answers
+/// the UX half of the same roadmap item ("top 10 hosts by error rate"): series are ranked
+/// by magnitude, not returned in arbitrary (alphabetical) order and truncated.
+/// </para>
 /// </remarks>
 public static class MetricSeriesQueryBuilder
 {
+    /// <summary>Same shape of "ranked, bounded aggregate list" default as <see cref="ExceptionGroupQueryBuilder.DefaultTopN"/>/<see cref="LogPatternQueryBuilder.DefaultTopN"/>, just smaller - these are chart lines, not table rows.</summary>
+    public const int DefaultTopN = 20;
+
+    private const int MaxTopN = 200;
+
     public static MetricSeriesSql Build(MetricQueryRequest request, DateTimeOffset now)
     {
         if (request.BucketWidthSeconds <= 0)
@@ -100,6 +122,9 @@ public static class MetricSeriesQueryBuilder
         filterSql.Parameters.AddParameter("metricName", request.MetricName);
         filterSql.Parameters.AddParameter("bucketWidth", request.BucketWidthSeconds);
 
+        var topN = Math.Clamp(request.TopN is > 0 ? request.TopN.Value : DefaultTopN, 1, MaxTopN);
+        filterSql.Parameters.AddParameter("topN", (uint)topN);
+
         var table = MetricTables.For(request.Type);
         var valueSelect = request.Type switch
         {
@@ -109,25 +134,50 @@ public static class MetricSeriesQueryBuilder
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Type, "Unknown metric point type."),
         };
 
+        // Same per-type aggregate valueSelect uses, minus the alias - the magnitude a
+        // series is ranked by for the top-N cap above. Deliberately the whole-window
+        // aggregate (no BucketStart in the ranking subquery's GROUP BY), not a per-bucket
+        // one: "top 10 hosts" means top over the requested range, not top-in-the-first-bucket.
+        var rankExpr = request.Type switch
+        {
+            MetricPointType.Gauge => "avg(Value)",
+            MetricPointType.Sum => "max(Value) - min(Value)",
+            MetricPointType.Histogram => "sum(Count)",
+            _ => throw new ArgumentOutOfRangeException(nameof(request), request.Type, "Unknown metric point type."),
+        };
+
         string seriesKeyExpr;
+        string rawSeriesKeyExpr;
         string seriesAttributesExpr;
         if (string.IsNullOrEmpty(request.GroupByAttributeKey))
         {
-            seriesKeyExpr = "toString(DataPointAttributes) AS SeriesKey";
+            rawSeriesKeyExpr = "toString(DataPointAttributes)";
+            seriesKeyExpr = $"{rawSeriesKeyExpr} AS SeriesKey";
             seriesAttributesExpr = "any(DataPointAttributes) AS SeriesAttributes";
         }
         else
         {
             filterSql.Parameters.AddParameter("groupByKey", request.GroupByAttributeKey);
-            seriesKeyExpr = "DataPointAttributes[{groupByKey:String}] AS SeriesKey";
+            rawSeriesKeyExpr = "DataPointAttributes[{groupByKey:String}]";
+            seriesKeyExpr = $"{rawSeriesKeyExpr} AS SeriesKey";
             seriesAttributesExpr = "map({groupByKey:String}, any(DataPointAttributes[{groupByKey:String}])) AS SeriesAttributes";
         }
+
+        var whereSql = $"MetricName = {{metricName:String}} AND {filterSql.WhereSql}";
+        var topSeriesSql = "SELECT ServiceName, " +
+            $"{rawSeriesKeyExpr} AS SeriesKey, {rankExpr} AS RankValue\n" +
+            $"FROM {table}\n" +
+            $"WHERE {whereSql}\n" +
+            "GROUP BY ServiceName, SeriesKey\n" +
+            "ORDER BY RankValue DESC\n" +
+            "LIMIT {topN:UInt32}";
 
         var sql = "SELECT toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
             $"ServiceName, {seriesKeyExpr}, {seriesAttributesExpr}, " +
             $"{valueSelect}\n" +
             $"FROM {table}\n" +
-            $"WHERE MetricName = {{metricName:String}} AND {filterSql.WhereSql}\n" +
+            $"WHERE {whereSql}\n" +
+            $"  AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n  )\n" +
             "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
             "ORDER BY ServiceName, SeriesKey, BucketStart";
 
