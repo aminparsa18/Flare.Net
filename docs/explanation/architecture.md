@@ -221,11 +221,11 @@ the bytes go. In cluster mode, this is also where the Cluster panel lives
 `/alerts` — threshold/query-based alert rules: a saved filter (service,
 level, search text) plus a count threshold evaluated on a rolling window,
 with a cooldown and a "test against current data" dry-run before saving.
-Firing notifies one or more `/notification-channels` — reusable, named
-webhook/Slack, Telegram, email, or PagerDuty destinations a rule
-references by ID rather than embedding inline, so the same channel can
-be reused across rules and a rule can fan out to more than one
-destination for the same breach (see
+Firing notifies one or more notification channels, managed from this
+same page's "Channels" tab — reusable, named webhook/Slack, Telegram,
+email, or PagerDuty destinations a rule references by ID rather than
+embedding inline, so the same channel can be reused across rules and a
+rule can fan out to more than one destination for the same breach (see
 [ADR-0021](../../docs-internal/adr/0021-reusable-notification-channels.md)).
 A rule created before this existed still notifies through its own
 inline channel unchanged. See

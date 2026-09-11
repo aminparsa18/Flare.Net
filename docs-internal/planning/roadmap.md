@@ -110,11 +110,13 @@ folders are where "what happened and why" actually lives.
   discriminator/additive-migration pattern, not a from-scratch design.
   Not started.
 - **`flare notification-channels` CLI management.** Reusable, named
-  notification channels shipped - `NotificationChannel`, CRUD'd on its
-  own `/notification-channels` dashboard page, that `AlertRule`
-  references by `ChannelIds` (one or more) instead of embedding a
-  destination inline, coexisting with the legacy single-inline-channel
-  fields for rules that still use them (see
+  notification channels shipped - `NotificationChannel`, CRUD'd from a
+  "Channels" tab on the `/alerts` dashboard page (not a separate
+  top-level page/nav entry - a channel only matters in service of an
+  alert rule), that `AlertRule` references by `ChannelIds` (one or
+  more) instead of embedding a destination inline, coexisting with the
+  legacy single-inline-channel fields for rules that still use them
+  (see
   [`docs-internal/adr/0021-reusable-notification-channels.md`](../adr/0021-reusable-notification-channels.md)).
   Deliberately deferred from that change: a CLI subcommand to
   create/update/delete channels from the terminal (same scoping

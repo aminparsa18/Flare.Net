@@ -132,7 +132,7 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 ### 警报
 
-`/alerts` — 基于阈值/查询的警报规则：保存的过滤器（服务、级别、搜索文本）加上在滚动窗口上评估的计数阈值，在保存之前有冷却时间和“针对当前数据进行测试”的试运行。触发会通知一个或多个 `/notification-channels` —— 可复用的命名目标（webhook/Slack、Telegram、电子邮件或 PagerDuty），规则通过 ID 引用它们而不是直接内联，因此同一个渠道可以在多条规则间复用，一条规则也可以针对同一次告警同时通知多个目标（参见 [ADR-0021](../../docs-internal/adr/0021-reusable-notification-channels.md)）。在此功能上线前创建的规则仍会通过其自身的内联渠道通知，行为不变。请参阅 [`../../src/Flare.Api/README.md`](../../src/Flare.Api/README.md#alerting) 了解每种渠道类型需要在服务器端配置的内容。
+`/alerts` — 基于阈值/查询的警报规则：保存的过滤器（服务、级别、搜索文本）加上在滚动窗口上评估的计数阈值，在保存之前有冷却时间和“针对当前数据进行测试”的试运行。触发会通知一个或多个通知渠道，这些渠道在同一页面的“Channels”标签页中管理 —— 可复用的命名目标（webhook/Slack、Telegram、电子邮件或 PagerDuty），规则通过 ID 引用它们而不是直接内联，因此同一个渠道可以在多条规则间复用，一条规则也可以针对同一次告警同时通知多个目标（参见 [ADR-0021](../../docs-internal/adr/0021-reusable-notification-channels.md)）。在此功能上线前创建的规则仍会通过其自身的内联渠道通知，行为不变。请参阅 [`../../src/Flare.Api/README.md`](../../src/Flare.Api/README.md#alerting) 了解每种渠道类型需要在服务器端配置的内容。
 
 ![Alerts](../screenshots/alerts.png) ![New alert](../screenshots/alerts-ch.webp)
 
