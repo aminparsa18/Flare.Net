@@ -33,7 +33,9 @@
 		placeholder,
 		class: className,
 		oninput,
-		fetchSuggestions
+		fetchSuggestions,
+		onPick,
+		onCommit
 	}: {
 		value: string;
 		placeholder?: string;
@@ -48,6 +50,23 @@
 		 * fetch.
 		 */
 		fetchSuggestions: (text: string, signal: AbortSignal) => Promise<AttributeValueSuggestion[]>;
+		/**
+		 * Fired (in addition to `oninput`) when a suggestion is clicked, not when the user
+		 * just types - lets a caller distinguish "picked from the list" from "still typing"
+		 * without guessing from `oninput` alone. Optional: the single-value row usage
+		 * (AttributeFiltersRow/SpanAttributeFiltersRow's Equals/NotEquals/Regex/NotRegex
+		 * columns) has no use for it, `oninput` already commits every keystroke there.
+		 * `AttributeValueListInput` (the `In`/`NotIn` multi-value column) is the one
+		 * consumer that does - it commits a picked suggestion as a chip immediately.
+		 */
+		onPick?: (value: string) => void;
+		/**
+		 * Fired on Enter or comma, in addition to `oninput`'s per-keystroke updates.
+		 * Optional and unused by the single-value row usage (typing already commits there,
+		 * nothing extra happens on Enter); `AttributeValueListInput` uses it to commit the
+		 * current draft text as a chip without waiting for a click on a suggestion.
+		 */
+		onCommit?: () => void;
 	} = $props();
 
 	let open = $state(false);
@@ -106,13 +125,21 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent): void {
-		if (e.key === 'Escape') open = false;
+		if (e.key === 'Escape') {
+			open = false;
+			return;
+		}
+		if (onCommit && (e.key === 'Enter' || e.key === ',')) {
+			e.preventDefault();
+			onCommit();
+		}
 	}
 
 	function pick(v: string): void {
 		clearTimeout(fetchDebounce);
 		open = false;
 		oninput(v);
+		onPick?.(v);
 	}
 </script>
 

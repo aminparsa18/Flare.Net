@@ -161,4 +161,74 @@ public class LogFilterSqlBuilderTests
         Assert.Contains("NOT mapContains(LogAttributes, {attrKey0:String})", result.WhereSql);
         Assert.False(result.Parameters.ToDictionary().ContainsKey("attrValue0"));
     }
+
+    [Fact]
+    public void Build_WithRegexOperator_GuardsWithMapContains_AndUsesMatch()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "http.route", Value = "^/api/v[0-9]+/users", Operator = AttributeFilterOperator.Regex }] },
+            Now);
+
+        Assert.Contains(
+            "(mapContains(LogAttributes, {attrKey0:String}) AND match(LogAttributes[{attrKey0:String}], {attrValue0:String}))",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http.route", parameters["attrKey0"]);
+        Assert.Equal("^/api/v[0-9]+/users", parameters["attrValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithNotRegexOperator_GuardsWithMapContains_AndNegatesMatch()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "http.route", Value = "^/internal/", Operator = AttributeFilterOperator.NotRegex }] },
+            Now);
+
+        Assert.Contains(
+            "NOT (mapContains(LogAttributes, {attrKey0:String}) AND match(LogAttributes[{attrKey0:String}], {attrValue0:String}))",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http.route", parameters["attrKey0"]);
+        Assert.Equal("^/internal/", parameters["attrValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithInOperator_GuardsWithMapContains_AndBindsValuesArray()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "http.status_code", Value = "", Operator = AttributeFilterOperator.In, Values = ["500", "502", "503"] }] },
+            Now);
+
+        Assert.Contains(
+            "(mapContains(LogAttributes, {attrKey0:String}) AND LogAttributes[{attrKey0:String}] IN {attrValues0:Array(String)})",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http.status_code", parameters["attrKey0"]);
+        Assert.Equal(["500", "502", "503"], (string[])parameters["attrValues0"]!);
+    }
+
+    [Fact]
+    public void Build_WithInOperator_AndNullValues_BindsEmptyArray()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "http.status_code", Value = "", Operator = AttributeFilterOperator.In }] },
+            Now);
+
+        Assert.Equal(Array.Empty<string>(), (string[])result.Parameters.ToDictionary()["attrValues0"]!);
+    }
+
+    [Fact]
+    public void Build_WithNotInOperator_GuardsWithMapContains_AndNegatesInClause()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "http.status_code", Value = "", Operator = AttributeFilterOperator.NotIn, Values = ["200", "201"] }] },
+            Now);
+
+        Assert.Contains(
+            "NOT (mapContains(LogAttributes, {attrKey0:String}) AND LogAttributes[{attrKey0:String}] IN {attrValues0:Array(String)})",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http.status_code", parameters["attrKey0"]);
+        Assert.Equal(["200", "201"], (string[])parameters["attrValues0"]!);
+    }
 }

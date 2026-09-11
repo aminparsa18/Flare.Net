@@ -96,8 +96,8 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
 
 export type AttributeBag = 'Log' | 'Resource' | 'Scope';
 
-/** See `AttributeFilterOperator` (LogFilter.cs). `Exists`/`Absent` ignore `AttributeFilter.value`. */
-export type AttributeFilterOperator = 'Equals' | 'NotEquals' | 'Exists' | 'Absent';
+/** See `AttributeFilterOperator` (LogFilter.cs). `Exists`/`Absent` ignore `AttributeFilter.value`; `Regex`/`NotRegex` treat it as an RE2 pattern (ClickHouse `match()`); `In`/`NotIn` ignore `value` and take their operand from `AttributeFilter.values` instead. */
+export type AttributeFilterOperator = 'Equals' | 'NotEquals' | 'Exists' | 'Absent' | 'Regex' | 'NotRegex' | 'In' | 'NotIn';
 
 export interface AttributeFilter {
 	bag: AttributeBag;
@@ -105,6 +105,8 @@ export interface AttributeFilter {
 	value: string;
 	/** Defaults to `'Equals'` when omitted - matches the backend's own default, and keeps every existing caller that only ever set bag/key/value unchanged. */
 	operator?: AttributeFilterOperator;
+	/** Operand for `'In'`/`'NotIn'` - ignored (may be omitted) for every other operator. See `AttributeFilter.Values` (LogFilter.cs). */
+	values?: string[];
 }
 
 export interface LogFilter {

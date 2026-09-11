@@ -13,7 +13,9 @@
 // `AttributeFilter.Operator` explains why it had to land last, not inserted) - the
 // count-gated fallback branch below is what lets this file's own already-deployed builds
 // (still writing/reading only 3 members) stay wire-compatible with a `Flare.Api` that now
-// has 4, and vice versa.
+// has 4, and vice versa. `values` is member 5, appended after `operator` for the identical
+// reason - the `In`/`NotIn` operators' multi-value operand (`AttributeFilter.Values` in the
+// C# source).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -23,12 +25,14 @@ export class AttributeFilter {
 	key: string | null;
 	value: string | null;
 	operator: number;
+	values: (string | null)[] | null;
 
 	constructor() {
 		this.bag = 0;
 		this.key = null;
 		this.value = null;
 		this.operator = 0;
+		this.values = null;
 	}
 
 	static serialize(value: AttributeFilter | null): Uint8Array {
@@ -43,11 +47,12 @@ export class AttributeFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(4);
+		writer.writeObjectHeader(5);
 		writer.writeInt32(value.bag);
 		writer.writeString(value.key);
 		writer.writeString(value.value);
 		writer.writeInt32(value.operator);
+		writer.writeArray(value.values, (writer, x) => writer.writeString(x));
 	}
 
 	static serializeArray(value: (AttributeFilter | null)[] | null): Uint8Array {
@@ -71,12 +76,13 @@ export class AttributeFilter {
 		}
 
 		const value = new AttributeFilter();
-		if (count == 4) {
+		if (count == 5) {
 			value.bag = reader.readInt32();
 			value.key = reader.readString();
 			value.value = reader.readString();
 			value.operator = reader.readInt32();
-		} else if (count > 4) {
+			value.values = reader.readArray((reader) => reader.readString());
+		} else if (count > 5) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -88,6 +94,8 @@ export class AttributeFilter {
 			if (count == 3) return value;
 			value.operator = reader.readInt32();
 			if (count == 4) return value;
+			value.values = reader.readArray((reader) => reader.readString());
+			if (count == 5) return value;
 		}
 		return value;
 	}
