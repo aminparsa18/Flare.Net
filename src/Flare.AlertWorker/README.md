@@ -12,9 +12,12 @@ for the full "why" and its consequences.
 
 Runs `AlertEvaluationWorker` (a `BackgroundService`, same poll-loop idiom as
 `Flare.Ingest`'s `ClickHouseFlushWorker`) every `AlertingOptions.PollInterval` (default
-30s). Each tick, for every enabled rule: count matching logs over the rule's own rolling
-window, and if the threshold breaches and the rule isn't in cooldown, notify through
-whichever single channel the rule is configured for and record a new `alert_events` row.
+30s). Each tick, for every enabled rule: evaluate its condition over its own rolling
+window - a log-filter row count for a `LogCount` rule, or a metric-query result for a
+`MetricThreshold` rule (see
+[`docs-internal/adr/0020-metric-threshold-alerting.md`](../../docs-internal/adr/0020-metric-threshold-alerting.md)) -
+and if the threshold breaches and the rule isn't in cooldown, notify through whichever
+single channel the rule is configured for and record a new `alert_events` row.
 Every replica coordinates through a single Redis-backed lock (`flare:alerts:eval-lock`)
 so only one replica evaluates per tick even when more than one is running — see
 `AlertEvaluationWorker`'s own remarks for the full mechanism.

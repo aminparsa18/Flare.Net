@@ -126,9 +126,28 @@ public sealed class AlertEvaluationWorker(
     {
         var now = timeProvider.GetUtcNow();
         var from = now - TimeSpan.FromSeconds(rule.WindowSeconds);
-        var count = await alerts.CountMatchingLogsAsync(rule.Condition, from, now, cancellationToken);
 
-        if (!rule.Threshold.IsBreached(count))
+        bool breached;
+        ulong observedCount = 0;
+        double? observedValue = null;
+        if (rule.ConditionKind == AlertConditionKind.MetricThreshold)
+        {
+            if (rule.MetricCondition is null || rule.MetricThresholdValue is not { } thresholdValue)
+            {
+                logger.LogWarning("Alert rule {RuleId} ({RuleName}) is MetricThreshold but has no metric condition/threshold; skipping.", rule.Id, rule.Name);
+                return;
+            }
+
+            observedValue = await alerts.EvaluateMetricConditionAsync(rule.MetricCondition, from, now, cancellationToken);
+            breached = rule.Threshold.IsBreachedValue(observedValue.Value, thresholdValue);
+        }
+        else
+        {
+            observedCount = await alerts.CountMatchingLogsAsync(rule.Condition, from, now, cancellationToken);
+            breached = rule.Threshold.IsBreached(observedCount);
+        }
+
+        if (!breached)
         {
             return;
         }
@@ -140,7 +159,7 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        var result = await notifier.SendAsync(rule, count, now, cancellationToken);
+        var result = await notifier.SendAsync(rule, observedValue ?? observedCount, now, cancellationToken);
         if (!result.Success)
         {
             logger.LogWarning(
@@ -157,12 +176,15 @@ public sealed class AlertEvaluationWorker(
                 RuleId = rule.Id,
                 RuleName = rule.Name,
                 FiredAt = now,
-                ObservedCount = count,
+                ObservedCount = observedCount,
                 ThresholdCount = rule.Threshold.Count,
                 WindowSeconds = rule.WindowSeconds,
                 NotificationStatus = result.Success ? "Sent" : "Failed",
                 NotificationStatusCode = result.StatusCode,
                 NotificationError = result.Error ?? "",
+                ConditionKind = rule.ConditionKind,
+                ObservedValue = observedValue,
+                ThresholdValue = rule.MetricThresholdValue,
             },
             cancellationToken);
     }

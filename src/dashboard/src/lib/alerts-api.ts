@@ -7,11 +7,29 @@
 // generated class; every other type here nests `LogFilter` and/or has its own
 // `DateTimeOffset` member, so all are hand-written (`$lib/memorypack/`).
 // `comparator`/`condition` convert through `$lib/memorypack/enums.ts`/`LogFilter.ts`'s
-// helpers, same reasoning `auth-api.ts` documents for `UserRole`.
+// helpers, same reasoning `auth-api.ts` documents for `UserRole`. `conditionKind`/
+// `aggregation`/`metricCondition.type` follow the same pattern, added for metric-threshold
+// alerting (see `docs-internal/adr/0020-metric-threshold-alerting.md`) - `metricCondition`
+// reuses `metrics-api.ts`'s `MetricFilter` plain type and
+// `toGeneratedMetricFilter`/`fromGeneratedMetricFilter` conversions rather than re-deriving
+// them.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
-import { thresholdComparatorFromString, thresholdComparatorToString, type ThresholdComparatorName } from '$lib/memorypack/enums';
+import {
+	thresholdComparatorFromString,
+	thresholdComparatorToString,
+	type ThresholdComparatorName,
+	alertConditionKindFromString,
+	alertConditionKindToString,
+	type AlertConditionKindName,
+	metricAlertAggregationFromString,
+	metricAlertAggregationToString,
+	type MetricAlertAggregationName,
+	metricPointTypeFromString,
+	metricPointTypeToString,
+} from '$lib/memorypack/enums';
 import { logFilterFromPlain, logFilterToPlain } from '$lib/memorypack/LogFilter';
+import { toGeneratedMetricFilter, fromGeneratedMetricFilter, type MetricFilter, type MetricPointType } from './metrics-api';
 import { AlertThreshold as GeneratedAlertThreshold } from '$lib/generated/memorypack/AlertThreshold.js';
 import { AlertRule as GeneratedAlertRule } from '$lib/memorypack/AlertRule';
 import { AlertRuleRequest as GeneratedAlertRuleRequest } from '$lib/memorypack/AlertRuleRequest';
@@ -20,17 +38,36 @@ import { AlertHistoryResponse as GeneratedAlertHistoryResponse } from '$lib/memo
 import { AlertTestResult as GeneratedAlertTestResult } from '$lib/memorypack/AlertTestResult';
 import type { AlertHistoryEntry as GeneratedAlertHistoryEntry } from '$lib/memorypack/AlertHistoryEntry';
 import { AlertNotificationTestResult as GeneratedAlertNotificationTestResult } from '$lib/generated/memorypack/AlertNotificationTestResult.js';
+import { MetricAlertCondition as GeneratedMetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
 
 // ---- Shared shapes (AlertModels.cs) ---------------------------------------
 
 export type ThresholdComparator = ThresholdComparatorName;
+
+export type AlertConditionKind = AlertConditionKindName;
+
+export type MetricAlertAggregation = MetricAlertAggregationName;
+
+/** The `AlertConditionKind.MetricThreshold` counterpart to `LogFilter` - see `AlertRule.condition`'s comment. */
+export interface MetricAlertCondition {
+	metricName: string;
+	type: MetricPointType;
+	filter?: MetricFilter;
+	aggregation: MetricAlertAggregation;
+}
 
 export interface AlertThreshold {
 	count: number;
 	comparator: ThresholdComparator;
 }
 
-/** A saved threshold/query-based alert rule. `condition` reuses the same `LogFilter` shape the Logs Explorer filters with. */
+/**
+ * A saved threshold/query-based alert rule. `condition` reuses the same `LogFilter` shape
+ * the Logs Explorer filters with - meaningful only when `conditionKind` is `'LogCount'`
+ * (the default/original behavior); `metricCondition`/`metricThresholdValue` carry a
+ * `'MetricThreshold'` rule's condition instead - see
+ * `docs-internal/adr/0020-metric-threshold-alerting.md`.
+ */
 export interface AlertRule {
 	id: string;
 	name: string;
@@ -51,6 +88,11 @@ export interface AlertRule {
 	pagerDutyRoutingKey: string;
 	createdAt: string;
 	updatedAt: string;
+	conditionKind: AlertConditionKind;
+	/** Set only when `conditionKind` is `'MetricThreshold'`. */
+	metricCondition?: MetricAlertCondition;
+	/** Set only when `conditionKind` is `'MetricThreshold'` - compared against via `threshold.comparator` (`threshold.count` is ignored/a placeholder for this kind). */
+	metricThresholdValue?: number;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -67,6 +109,10 @@ export interface AlertRuleRequest {
 	telegramChatId?: string;
 	emailTo?: string;
 	pagerDutyRoutingKey?: string;
+	/** Omitted/undefined defaults to `'LogCount'`, same as the saved-rule default. */
+	conditionKind?: AlertConditionKind;
+	metricCondition?: MetricAlertCondition;
+	metricThresholdValue?: number;
 }
 
 export interface AlertRuleListResponse {
@@ -86,6 +132,12 @@ export interface AlertHistoryEntry {
 	notificationStatus: NotificationStatus;
 	notificationStatusCode: number;
 	notificationError: string;
+	/** Snapshot of the firing rule's condition kind at fire time. */
+	conditionKind: AlertConditionKind;
+	/** Set only for a `'MetricThreshold'` event; undefined for a `'LogCount'` one, which uses `observedCount` instead. */
+	observedValue?: number;
+	/** Set only for a `'MetricThreshold'` event; undefined for a `'LogCount'` one, which uses `thresholdCount` instead. */
+	thresholdValue?: number;
 }
 
 export interface AlertHistoryResponse {
@@ -94,10 +146,14 @@ export interface AlertHistoryResponse {
 
 /** Dry-run result: evaluates a rule/draft's condition+threshold against current data without touching cooldown state or sending a notification. */
 export interface AlertTestResult {
+	/** Meaningful only for a `'LogCount'` rule/draft - 0 for `'MetricThreshold'`, which reports its result via `observedValue` instead. */
 	observedCount: number;
 	wouldFire: boolean;
 	evaluatedAt: string;
 	windowSeconds: number;
+	conditionKind: AlertConditionKind;
+	/** Set only when `conditionKind` is `'MetricThreshold'`. */
+	observedValue?: number;
 }
 
 /** "Send test alert" result: actually notified through the rule/draft's configured channel - unlike `AlertTestResult`, which never notifies. */
@@ -119,6 +175,26 @@ function toGeneratedAlertThreshold(threshold: AlertThreshold): GeneratedAlertThr
 	return dto;
 }
 
+function toMetricAlertCondition(dto: GeneratedMetricAlertCondition | null): MetricAlertCondition | undefined {
+	if (dto == null) return undefined;
+	return {
+		metricName: dto.metricName ?? '',
+		type: metricPointTypeToString(dto.type),
+		filter: fromGeneratedMetricFilter(dto.filter),
+		aggregation: metricAlertAggregationToString(dto.aggregation)
+	};
+}
+
+function toGeneratedMetricAlertCondition(condition: MetricAlertCondition | undefined): GeneratedMetricAlertCondition | null {
+	if (condition == null) return null;
+	const dto = new GeneratedMetricAlertCondition();
+	dto.metricName = condition.metricName;
+	dto.type = metricPointTypeFromString(condition.type);
+	dto.filter = toGeneratedMetricFilter(condition.filter);
+	dto.aggregation = metricAlertAggregationFromString(condition.aggregation);
+	return dto;
+}
+
 function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 	return {
 		id: dto.id,
@@ -135,7 +211,10 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		emailTo: dto.emailTo ?? '',
 		pagerDutyRoutingKey: dto.pagerDutyRoutingKey ?? '',
 		createdAt: dto.createdAt.toISOString(),
-		updatedAt: dto.updatedAt.toISOString()
+		updatedAt: dto.updatedAt.toISOString(),
+		conditionKind: alertConditionKindToString(dto.conditionKind),
+		metricCondition: toMetricAlertCondition(dto.metricCondition),
+		metricThresholdValue: dto.metricThresholdValue ?? undefined
 	};
 }
 
@@ -161,6 +240,9 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.telegramChatId = request.telegramChatId ?? null;
 	dto.emailTo = request.emailTo ?? null;
 	dto.pagerDutyRoutingKey = request.pagerDutyRoutingKey ?? null;
+	dto.conditionKind = request.conditionKind == null ? null : alertConditionKindFromString(request.conditionKind);
+	dto.metricCondition = toGeneratedMetricAlertCondition(request.metricCondition);
+	dto.metricThresholdValue = request.metricThresholdValue ?? null;
 	return dto;
 }
 
@@ -175,7 +257,10 @@ function toAlertHistoryEntry(dto: GeneratedAlertHistoryEntry): AlertHistoryEntry
 		windowSeconds: dto.windowSeconds,
 		notificationStatus: (dto.notificationStatus ?? 'Failed') as NotificationStatus,
 		notificationStatusCode: dto.notificationStatusCode,
-		notificationError: dto.notificationError ?? ''
+		notificationError: dto.notificationError ?? '',
+		conditionKind: alertConditionKindToString(dto.conditionKind),
+		observedValue: dto.observedValue ?? undefined,
+		thresholdValue: dto.thresholdValue ?? undefined
 	};
 }
 
@@ -250,7 +335,9 @@ function toAlertTestResult(dto: GeneratedAlertTestResult): AlertTestResult {
 		observedCount: Number(dto.observedCount),
 		wouldFire: dto.wouldFire,
 		evaluatedAt: dto.evaluatedAt.toISOString(),
-		windowSeconds: dto.windowSeconds
+		windowSeconds: dto.windowSeconds,
+		conditionKind: alertConditionKindToString(dto.conditionKind),
+		observedValue: dto.observedValue ?? undefined
 	};
 }
 

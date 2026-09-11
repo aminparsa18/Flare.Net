@@ -56,7 +56,7 @@ public class AlertMessageFormatterTests
     [Fact]
     public void BuildText_NoPublicUrl_HasNoLink()
     {
-        var text = AlertMessageFormatter.BuildText(MakeRule(), observedCount: 42);
+        var text = AlertMessageFormatter.BuildText(MakeRule(), observedValue: 42);
 
         Assert.DoesNotContain("http", text, StringComparison.Ordinal);
     }
@@ -64,7 +64,7 @@ public class AlertMessageFormatterTests
     [Fact]
     public void BuildText_WithPublicUrl_AppendsLinkOnItsOwnLine()
     {
-        var text = AlertMessageFormatter.BuildText(MakeRule(), observedCount: 42, publicUrl: "https://flare.example.com");
+        var text = AlertMessageFormatter.BuildText(MakeRule(), observedValue: 42, publicUrl: "https://flare.example.com");
 
         var lines = text.Split('\n');
         Assert.Equal(2, lines.Length);
@@ -75,7 +75,7 @@ public class AlertMessageFormatterTests
     [Fact]
     public void BuildText_TestNotification_StillAppendsLink()
     {
-        var text = AlertMessageFormatter.BuildText(MakeRule(), observedCount: 0, isTest: true, publicUrl: "https://flare.example.com");
+        var text = AlertMessageFormatter.BuildText(MakeRule(), observedValue: 0, isTest: true, publicUrl: "https://flare.example.com");
 
         Assert.Contains("Test notification", text, StringComparison.Ordinal);
         Assert.EndsWith("https://flare.example.com/alerts?rule=11111111-2222-3333-4444-555555555555", text, StringComparison.Ordinal);

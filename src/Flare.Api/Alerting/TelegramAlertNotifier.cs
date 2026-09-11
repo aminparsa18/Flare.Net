@@ -22,12 +22,12 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class TelegramAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         var payload = new
         {
             chat_id = rule.TelegramChatId,
-            text = AlertMessageFormatter.BuildText(rule, observedCount, isTest, linkOptions.Value.PublicUrl),
+            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl),
             parse_mode = "Markdown",
         };
 

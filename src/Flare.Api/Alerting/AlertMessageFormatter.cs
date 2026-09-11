@@ -11,8 +11,9 @@ namespace Flare.Api.Alerting;
 /// </summary>
 public static class AlertMessageFormatter
 {
+    /// <param name="observedValue">See <see cref="IAlertNotifier.SendAsync"/>'s doc comment - a row count for <see cref="AlertConditionKind.LogCount"/> rules, a metric-query result for <see cref="AlertConditionKind.MetricThreshold"/> ones.</param>
     /// <param name="isTest">
-    /// True from the "send test alert" endpoints - <paramref name="observedCount"/> isn't
+    /// True from the "send test alert" endpoints - <paramref name="observedValue"/> isn't
     /// a real breach in that case, so the text says so instead of reporting it as one.
     /// </param>
     /// <param name="publicUrl">
@@ -23,20 +24,28 @@ public static class AlertMessageFormatter
     /// client all auto-linkify a plain <c>http(s)://</c> URL, so one plain-text form works
     /// unchanged for every channel <see cref="CompositeAlertNotifier"/> can pick.
     /// </param>
-    public static string BuildText(AlertRule rule, ulong observedCount, bool isTest = false, string? publicUrl = null)
+    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null)
     {
         var text = isTest
             ? $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly."
-            : BuildFiredText(rule, observedCount);
+            : BuildFiredText(rule, observedValue);
 
         var ruleUrl = BuildRuleUrl(rule, publicUrl);
         return ruleUrl is null ? text : $"{text}\n{ruleUrl}";
     }
 
-    private static string BuildFiredText(AlertRule rule, ulong observedCount)
+    private static string BuildFiredText(AlertRule rule, double observedValue)
     {
         var comparatorSymbol = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
-        return $":rotating_light: Alert \"{rule.Name}\" fired: {observedCount} events " +
+
+        if (rule.ConditionKind == AlertConditionKind.MetricThreshold)
+        {
+            var metricName = rule.MetricCondition?.MetricName ?? "?";
+            return $":rotating_light: Alert \"{rule.Name}\" fired: {metricName} = {observedValue:0.##} " +
+                   $"({comparatorSymbol} {rule.MetricThresholdValue:0.##}) over the last {rule.WindowSeconds}s";
+        }
+
+        return $":rotating_light: Alert \"{rule.Name}\" fired: {(ulong)observedValue} events " +
                $"({comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s";
     }
 

@@ -94,31 +94,21 @@ folders are where "what happened and why" actually lives.
   and exported dashboard JSON should carry only definitions, never
   embedded cached query results - SigNoz got this wrong first and fixed
   it later ([signoz#2052](https://github.com/SigNoz/signoz/commit/b72815ca2)).
-- **Metric-threshold alerting, not just log-count alerting.**
-  `AlertRule.Condition` ([`src/Flare.Api/Model/AlertModels.cs`](../../src/Flare.Api/Model/AlertModels.cs))
-  is hard-typed to `LogFilter`, and `AlertThreshold.IsBreached` only ever
-  compares an `observedCount` (rows matched by the filter) - there's no
-  way to alert on e.g. "p99 latency > 500ms" or a metric gauge crossing
-  a value, even though the query-side machinery a metric condition would
-  need already exists (`MetricQueryService`/`MetricSeriesQueryBuilder`/
-  `MetricFilter`). Needs a condition-kind discriminator on `AlertRule`
-  (log-filter-count vs. metric-query-threshold) and
-  `AlertEvaluationWorker`/`AlertQueryService` evaluating the metric
-  branch through the existing `MetricQueryService` - not a from-scratch
-  rule engine. SigNoz's own version of this
-  ([signoz#1346](https://github.com/SigNoz/signoz/commit/3a287b2b169dfae093a656d10da5ab8e816b7d1f),
-  [#1359](https://github.com/SigNoz/signoz/commit/a8c7237bb)) is a
-  ~4700-line rewrite borrowing Prometheus's own rule-engine internals -
-  worth knowing the gap exists and the shape of a condition, not worth
-  copying that scale of machinery. Not started. Same root cause blocks
-  exception-based alerting too: exceptions are queried through their own
-  `ExceptionFilter`/`ExceptionFilterSqlBuilder` path over span-event data
+- **Exception-count alerting, as a third `AlertConditionKind`.**
+  Metric-threshold alerting shipped (`AlertConditionKind.MetricThreshold` -
+  see [`docs-internal/adr/0020-metric-threshold-alerting.md`](../adr/0020-metric-threshold-alerting.md)),
+  establishing the discriminator shape this item should reuse. Exceptions
+  are still queried through their own `ExceptionFilter`/
+  `ExceptionFilterSqlBuilder` path over span-event data
   ([`src/Flare.Api/Query/ExceptionGroupQueryBuilder.cs`](../../src/Flare.Api/Query/ExceptionGroupQueryBuilder.cs)),
-  entirely separate from `LogFilter`, so there's no way to alert on e.g.
-  "this exception type occurred N times in 5 minutes" either. SigNoz has
-  this as its own alert type ([signoz#1752](https://github.com/SigNoz/signoz/commit/33d34af2a)).
-  Fold in as a third condition kind (exception-filter-based) alongside
-  log-filter-count and metric-query-threshold, not a separate effort.
+  entirely separate from `LogFilter`/`MetricAlertCondition`, so there's
+  still no way to alert on e.g. "this exception type occurred N times in
+  5 minutes." SigNoz has this as its own alert type
+  ([signoz#1752](https://github.com/SigNoz/signoz/commit/33d34af2a)).
+  Fold in as a third `AlertConditionKind` (`ExceptionCount`) alongside
+  `LogCount`/`MetricThreshold`, following ADR-0020's established
+  discriminator/additive-migration pattern, not a from-scratch design.
+  Not started.
 - **Reusable, named notification channels - a rule can only notify one
   destination today.** `AlertRule`'s `WebhookUrl`/`TelegramBotToken`+
   `TelegramChatId`/`EmailTo`/`PagerDutyRoutingKey`

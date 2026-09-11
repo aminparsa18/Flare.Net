@@ -32,7 +32,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
 {
     private const string EventsApiUrl = "https://events.pagerduty.com/v2/enqueue";
 
-    public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         // Not folded into `summary` below the way the other three notifiers append it to
         // their plain-text message - PagerDuty renders `summary` as a single-line incident
@@ -42,6 +42,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         // PagerDuty tolerates the field's absence/null the same way the other notifiers omit
         // the link entirely.
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
+        var isMetric = rule.ConditionKind == AlertConditionKind.MetricThreshold;
         var payload = new
         {
             routing_key = rule.PagerDutyRoutingKey,
@@ -50,7 +51,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
             client_url = ruleUrl,
             payload = new
             {
-                summary = AlertMessageFormatter.BuildText(rule, observedCount, isTest),
+                summary = AlertMessageFormatter.BuildText(rule, observedValue, isTest),
                 source = "flare",
                 severity = isTest ? "info" : "critical",
                 timestamp = firedAt,
@@ -58,8 +59,12 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
                 {
                     ruleId = rule.Id,
                     ruleName = rule.Name,
-                    observedCount,
+                    conditionKind = rule.ConditionKind.ToString(),
+                    observedCount = isMetric ? 0UL : (ulong)observedValue,
                     thresholdCount = rule.Threshold.Count,
+                    observedValue,
+                    thresholdValue = rule.MetricThresholdValue,
+                    metricName = rule.MetricCondition?.MetricName,
                     windowSeconds = rule.WindowSeconds,
                     ruleUrl,
                 },

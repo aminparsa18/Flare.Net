@@ -21,11 +21,24 @@
 		type AlertRuleRequest,
 		type ThresholdComparator,
 		type AlertTestResult,
-		type AlertNotificationTestResult
+		type AlertNotificationTestResult,
+		type AlertConditionKind,
+		type MetricAlertAggregation
 	} from '$lib/alerts-api';
 	import { aggregateLogs } from '$lib/api';
+	import { getMetricNames, type MetricNameInfo, type MetricPointType } from '$lib/metrics-api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
+
+	// Which MetricAlertAggregation values are meaningful for each MetricPointType - see
+	// that enum's C#-side doc comment. Drives the aggregation Select's option list, the
+	// same "restrict the choice, don't validate it server-side" convention
+	// MetricQueryRequest.Type's own doc comment documents.
+	const AGGREGATIONS_BY_TYPE: Record<MetricPointType, MetricAlertAggregation[]> = {
+		Gauge: ['Value'],
+		Sum: ['Value', 'Count'],
+		Histogram: ['Count', 'Sum', 'P50', 'P75', 'P90', 'P95', 'P99', 'MaxApprox']
+	};
 
 	const alerts = alertsContext.get();
 
@@ -48,6 +61,15 @@
 	let telegramChatId = $state('');
 	let emailTo = $state('');
 	let pagerDutyRoutingKey = $state('');
+
+	// Metric-threshold condition (AlertConditionKind.MetricThreshold) - see
+	// docs-internal/adr/0020-metric-threshold-alerting.md. conditionKind toggles which of
+	// this block or the services/severity/search block above buildRequest() reads from.
+	let conditionKind = $state<AlertConditionKind>('LogCount');
+	let metricName = $state('');
+	let metricType = $state<MetricPointType>('Gauge');
+	let metricAggregation = $state<MetricAlertAggregation>('Value');
+	let metricThresholdValueText = $state('0');
 
 	let testResult = $state<AlertTestResult | null>(null);
 	let testing = $state(false);
@@ -83,6 +105,11 @@
 			telegramChatId = '';
 			emailTo = '';
 			pagerDutyRoutingKey = '';
+			conditionKind = 'LogCount';
+			metricName = '';
+			metricType = 'Gauge';
+			metricAggregation = 'Value';
+			metricThresholdValueText = '0';
 		} else if (target) {
 			name = target.name;
 			description = target.description;
@@ -106,12 +133,18 @@
 			telegramChatId = target.telegramChatId;
 			emailTo = target.emailTo;
 			pagerDutyRoutingKey = target.pagerDutyRoutingKey;
+			conditionKind = target.conditionKind;
+			metricName = target.metricCondition?.metricName ?? '';
+			metricType = target.metricCondition?.type ?? 'Gauge';
+			metricAggregation = target.metricCondition?.aggregation ?? 'Value';
+			metricThresholdValueText = String(target.metricThresholdValue ?? 0);
 		}
 	});
 
 	const thresholdCount = $derived(Number(thresholdCountText));
 	const windowSeconds = $derived(Number(windowSecondsText));
 	const cooldownSeconds = $derived(Number(cooldownSecondsText));
+	const metricThresholdValue = $derived(Number(metricThresholdValueText));
 
 	const hasChannel = $derived(
 		channel === 'webhook'
@@ -123,11 +156,16 @@
 					: pagerDutyRoutingKey.trim().length > 0
 	);
 
+	const hasCondition = $derived(
+		conditionKind === 'MetricThreshold'
+			? metricName.trim().length > 0 && Number.isFinite(metricThresholdValue)
+			: Number.isFinite(thresholdCount) && thresholdCount > 0
+	);
+
 	const canSave = $derived(
 		name.trim().length > 0 &&
 			hasChannel &&
-			Number.isFinite(thresholdCount) &&
-			thresholdCount > 0 &&
+			hasCondition &&
 			Number.isFinite(windowSeconds) &&
 			windowSeconds > 0 &&
 			Number.isFinite(cooldownSeconds) &&
@@ -138,8 +176,12 @@
 	// approach LogsExplorerState.loadKnownServices uses - duplicated rather than shared
 	// since the Alerts page has no LogsExplorerState instance to borrow one from.
 	let knownServices = $state<string[]>([]);
+	// Same wide-window discovery for the metric-name picker - getMetricNames() with no
+	// filter, same "no Explorer state to borrow one from" reasoning as knownServices.
+	let knownMetrics = $state<MetricNameInfo[]>([]);
 	onMount(() => {
 		void loadKnownServices();
+		void loadKnownMetrics();
 	});
 	async function loadKnownServices(): Promise<void> {
 		try {
@@ -155,8 +197,32 @@
 			// Non-critical - the picker just shows fewer/no options until a retry.
 		}
 	}
+	async function loadKnownMetrics(): Promise<void> {
+		try {
+			const to = new Date();
+			const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+			const res = await getMetricNames({ from: from.toISOString(), to: to.toISOString() });
+			// Same name can be emitted by more than one service (MetricNamesQueryBuilder's own
+			// remarks) - dedupe by name for the picker, keeping the first entry's type. A
+			// metric changing point type between services is not a shape this picker handles;
+			// not expected in practice (one metric name -> one instrument type per app).
+			const seen = new Set<string>();
+			knownMetrics = res.metrics.filter((mi) => (seen.has(mi.metricName) ? false : (seen.add(mi.metricName), true)));
+		} catch {
+			// Non-critical - the picker just shows fewer/no options until a retry.
+		}
+	}
+	function handleMetricNameChange(next: string): void {
+		metricName = next;
+		metricType = knownMetrics.find((mi) => mi.metricName === next)?.type ?? metricType;
+		if (!AGGREGATIONS_BY_TYPE[metricType].includes(metricAggregation)) {
+			metricAggregation = AGGREGATIONS_BY_TYPE[metricType][0];
+		}
+	}
 
 	const serviceOptions = $derived(knownServices.map((s) => ({ value: s, label: s })));
+	const metricNameOptions = $derived(knownMetrics.map((mi) => ({ value: mi.metricName, label: mi.metricName })));
+	const aggregationOptions = $derived(AGGREGATIONS_BY_TYPE[metricType]);
 	const severityOptions = $derived(SEVERITY_BUCKETS.map((b) => ({ value: b.id, label: severityBucketLabel(b) })));
 	const selectedSeverityIds = $derived(
 		SEVERITY_BUCKETS.filter((b) => severityNumbersForBucket(b).every((n) => severityNumbers.includes(n))).map((b) => b.id)
@@ -179,7 +245,9 @@
 			description: description.trim(),
 			enabled,
 			condition,
-			threshold: { count: thresholdCount, comparator },
+			// count is a placeholder (ignored server-side) when conditionKind is
+			// MetricThreshold - see AlertThreshold.Count's own doc comment.
+			threshold: { count: conditionKind === 'MetricThreshold' ? 0 : thresholdCount, comparator },
 			windowSeconds,
 			cooldownSeconds,
 			// Exactly one channel goes out non-blank - the others are left "" so the API's
@@ -189,7 +257,16 @@
 			telegramBotToken: channel === 'telegram' ? telegramBotToken.trim() : '',
 			telegramChatId: channel === 'telegram' ? telegramChatId.trim() : '',
 			emailTo: channel === 'email' ? emailTo.trim() : '',
-			pagerDutyRoutingKey: channel === 'pagerduty' ? pagerDutyRoutingKey.trim() : ''
+			pagerDutyRoutingKey: channel === 'pagerduty' ? pagerDutyRoutingKey.trim() : '',
+			conditionKind,
+			// Only sent (rather than left undefined either way) when actually in metric mode -
+			// same "field present, meaningful only for one mode" shape the channel fields
+			// above already use.
+			metricCondition:
+				conditionKind === 'MetricThreshold'
+					? { metricName: metricName.trim(), type: metricType, aggregation: metricAggregation }
+					: undefined,
+			metricThresholdValue: conditionKind === 'MetricThreshold' ? metricThresholdValue : undefined
 		};
 	}
 
@@ -254,41 +331,101 @@
 				<Textarea bind:value={description} placeholder={m.alertRuleForm_optionalPlaceholder()} rows={2} />
 			</div>
 
-			<div class="flex flex-wrap items-center gap-2">
-				<PopoverMultiSelect
-					label={m.alertRuleForm_serviceLabel()}
-					options={serviceOptions}
-					selected={services}
-					onChange={(next) => (services = next)}
-				/>
-				<PopoverMultiSelect
-					label={m.alertRuleForm_levelLabel()}
-					options={severityOptions}
-					selected={selectedSeverityIds}
-					onChange={handleSeverityChange}
-				/>
-			</div>
-
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-medium">{m.alertRuleForm_searchLabel()}</span>
-				<Input bind:value={search} placeholder={m.alertRuleForm_optionalPlaceholder()} />
+				<span class="text-xs font-medium">{m.alertRuleForm_conditionKindLabel()}</span>
+				<Select.Root type="single" value={conditionKind} onValueChange={(v) => v && (conditionKind = v as AlertConditionKind)}>
+					<Select.Trigger class="w-48">
+						{conditionKind === 'MetricThreshold' ? m.alertRuleForm_conditionKindMetricThreshold() : m.alertRuleForm_conditionKindLogCount()}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="LogCount" label={m.alertRuleForm_conditionKindLogCount()} />
+						<Select.Item value="MetricThreshold" label={m.alertRuleForm_conditionKindMetricThreshold()} />
+					</Select.Content>
+				</Select.Root>
 			</div>
 
-			<div class="flex items-end gap-2">
+			{#if conditionKind === 'LogCount'}
+				<div class="flex flex-wrap items-center gap-2">
+					<PopoverMultiSelect
+						label={m.alertRuleForm_serviceLabel()}
+						options={serviceOptions}
+						selected={services}
+						onChange={(next) => (services = next)}
+					/>
+					<PopoverMultiSelect
+						label={m.alertRuleForm_levelLabel()}
+						options={severityOptions}
+						selected={selectedSeverityIds}
+						onChange={handleSeverityChange}
+					/>
+				</div>
+
 				<div class="flex flex-col gap-1">
-					<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
-					<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>
-						<Select.Trigger class="w-20">
-							{comparator === 'LessThan' ? '<' : '>='}
+					<span class="text-xs font-medium">{m.alertRuleForm_searchLabel()}</span>
+					<Input bind:value={search} placeholder={m.alertRuleForm_optionalPlaceholder()} />
+				</div>
+			{:else}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.alertRuleForm_metricNameLabel()}</span>
+					<Select.Root type="single" value={metricName} onValueChange={(v) => v && handleMetricNameChange(v)}>
+						<Select.Trigger class="w-full">
+							{metricName || m.alertRuleForm_metricNamePlaceholder()}
 						</Select.Trigger>
 						<Select.Content>
-							<Select.Item value="GreaterThanOrEqual" label=">=" />
-							<Select.Item value="LessThan" label="<" />
+							{#each metricNameOptions as option (option.value)}
+								<Select.Item value={option.value} label={option.label} />
+							{/each}
 						</Select.Content>
 					</Select.Root>
 				</div>
-				<Input type="number" min="1" bind:value={thresholdCountText} class="w-24" />
-				<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_eventsIn()}</span>
+
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.alertRuleForm_aggregationLabel()}</span>
+					<Select.Root type="single" value={metricAggregation} onValueChange={(v) => v && (metricAggregation = v as MetricAlertAggregation)}>
+						<Select.Trigger class="w-40">
+							{metricAggregation}
+						</Select.Trigger>
+						<Select.Content>
+							{#each aggregationOptions as option (option)}
+								<Select.Item value={option} label={option} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+			{/if}
+
+			<div class="flex items-end gap-2">
+				{#if conditionKind === 'LogCount'}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
+						<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>
+							<Select.Trigger class="w-20">
+								{comparator === 'LessThan' ? '<' : '>='}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="GreaterThanOrEqual" label=">=" />
+								<Select.Item value="LessThan" label="<" />
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<Input type="number" min="1" bind:value={thresholdCountText} class="w-24" />
+					<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_eventsIn()}</span>
+				{:else}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
+						<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>
+							<Select.Trigger class="w-20">
+								{comparator === 'LessThan' ? '<' : '>='}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="GreaterThanOrEqual" label=">=" />
+								<Select.Item value="LessThan" label="<" />
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<Input type="number" bind:value={metricThresholdValueText} class="w-24" />
+					<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_metricOverLabel()}</span>
+				{/if}
 				<Input type="number" min="1" bind:value={windowSecondsText} class="w-24" />
 				<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_seconds()}</span>
 			</div>
@@ -371,9 +508,15 @@
 				</Button>
 				{#if testResult}
 					<Badge variant={testResult.wouldFire ? 'warning' : 'outline'}>
-						{testResult.wouldFire
-							? m.alertRuleForm_testResultFiring({ count: testResult.observedCount })
-							: m.alertRuleForm_testResultNotFiring({ count: testResult.observedCount })}
+						{#if testResult.conditionKind === 'MetricThreshold'}
+							{testResult.wouldFire
+								? m.alertRuleForm_testResultFiringMetric({ value: testResult.observedValue ?? 0 })
+								: m.alertRuleForm_testResultNotFiringMetric({ value: testResult.observedValue ?? 0 })}
+						{:else}
+							{testResult.wouldFire
+								? m.alertRuleForm_testResultFiring({ count: testResult.observedCount })
+								: m.alertRuleForm_testResultNotFiring({ count: testResult.observedCount })}
+						{/if}
 					</Badge>
 				{:else if testError}
 					<span class="text-destructive text-xs">{testError}</span>

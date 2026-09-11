@@ -40,7 +40,10 @@ export interface MetricFilter {
 
 export type MetricPointType = MetricPointTypeName;
 
-function toGeneratedMetricFilter(filter: MetricFilter | undefined): GeneratedMetricFilter {
+// Exported (not module-private) so `alerts-api.ts` can reuse it for
+// `MetricAlertCondition.filter` (a metric-threshold alert rule's condition embeds the same
+// `MetricFilter` shape) rather than re-deriving this conversion a second time.
+export function toGeneratedMetricFilter(filter: MetricFilter | undefined): GeneratedMetricFilter {
 	const dto = new GeneratedMetricFilter();
 	if (filter == null) return dto;
 	dto.from = filter.from == null ? null : new Date(filter.from);
@@ -56,6 +59,24 @@ function toGeneratedMetricFilter(filter: MetricFilter | undefined): GeneratedMet
 					return attr;
 				});
 	return dto;
+}
+
+/**
+ * Reverse of {@link toGeneratedMetricFilter} - this module otherwise never needs it (a
+ * `MetricFilter` is only ever sent, never read back), but `alerts-api.ts` does, to decode a
+ * fetched `AlertRule.metricCondition.filter` back into plain form for the create/edit form.
+ */
+export function fromGeneratedMetricFilter(dto: GeneratedMetricFilter | null): MetricFilter {
+	if (dto == null) return {};
+	return {
+		from: dto.from == null ? undefined : dto.from.toISOString(),
+		to: dto.to == null ? undefined : dto.to.toISOString(),
+		services: dto.services == null ? undefined : dto.services.filter((s): s is string => s != null),
+		attributes:
+			dto.attributes == null
+				? undefined
+				: dto.attributes.filter((a): a is GeneratedMetricAttributeFilter => a != null).map((a) => ({ key: a.key ?? '', value: a.value ?? '' })),
+	};
 }
 
 // ---- POST /api/metrics/names (MetricNamesRequest.cs / MetricNamesResponse) -

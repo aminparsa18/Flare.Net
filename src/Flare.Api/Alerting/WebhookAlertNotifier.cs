@@ -18,16 +18,25 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, ulong observedCount, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
     {
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
+        var isMetric = rule.ConditionKind == AlertConditionKind.MetricThreshold;
         var payload = new
         {
-            text = AlertMessageFormatter.BuildText(rule, observedCount, isTest, linkOptions.Value.PublicUrl),
+            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl),
             ruleId = rule.Id,
             ruleName = rule.Name,
-            observedCount,
+            conditionKind = rule.ConditionKind.ToString(),
+            // observedCount/thresholdCount stay ulong (unchanged wire shape for existing
+            // LogCount consumers); observedValue/thresholdValue are the new generic doubles
+            // a MetricThreshold consumer reads instead - same "field present, meaningful
+            // only for one mode" convention the rest of AlertRule already uses.
+            observedCount = isMetric ? 0UL : (ulong)observedValue,
             thresholdCount = rule.Threshold.Count,
+            observedValue,
+            thresholdValue = rule.MetricThresholdValue,
+            metricName = rule.MetricCondition?.MetricName,
             windowSeconds = rule.WindowSeconds,
             firedAt,
             // Null when Alerting:PublicUrl isn't configured - same "no link rather than a
