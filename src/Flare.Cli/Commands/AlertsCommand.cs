@@ -304,7 +304,7 @@ internal sealed class AlertRuleWire
 
     public DateTimeOffset UpdatedAt { get; init; }
 
-    /// <summary>See <c>Flare.Api.Model.AlertRule.ChannelIds</c>'s doc comment - saved notification-channel IDs this rule fans out to, instead of one of the legacy inline fields above. No <c>flare notification-channels</c> subcommand exists yet to manage them by name, so <see cref="AlertsListCommand"/> only shows the count (see <c>DescribeChannel</c>) - a named follow-up.</summary>
+    /// <summary>See <c>Flare.Api.Model.AlertRule.ChannelIds</c>'s doc comment - saved notification-channel IDs this rule fans out to, instead of one of the legacy inline fields above. <see cref="AlertsListCommand"/> still only shows the count (see <c>DescribeChannel</c>), not each channel's name - resolving IDs to names via <c>flare notification-channels list</c> (<c>NotificationChannelsCommand.cs</c>) remains a named follow-up.</summary>
     public IReadOnlyList<Guid> ChannelIds { get; init; } = [];
 }
 
