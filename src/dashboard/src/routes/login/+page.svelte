@@ -107,9 +107,13 @@
 	<title>{showBootstrap ? m.login_pageTitleSetup() : m.login_pageTitleSignIn()}</title>
 </svelte:head>
 
-<div class="flex h-full items-center justify-center p-4">
-	<Card.Root class="w-full max-w-sm">
+<div
+	class="flex h-full items-center justify-center bg-cover bg-center p-4"
+	style="background-image: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)), url('/login.webp');"
+>
+	<Card.Root class="w-full max-w-sm backdrop-blur-sm supports-backdrop-filter:bg-card/90">
 		<Card.Header>
+			<img src="/logo.png" alt="Flare" class="mx-auto mb-2 h-24 w-auto shrink-0" />
 			{#if showBootstrap}
 				<Card.Title>{m.login_createAdminTitle()}</Card.Title>
 				<Card.Description>{m.login_createAdminDescription()}</Card.Description>
