@@ -15,6 +15,7 @@ import { metricCommand } from './commands/metric';
 import { ingestionCommand } from './commands/ingestion';
 import { alertsCommand } from './commands/alerts';
 import { apikeyCommand } from './commands/apikey';
+import { tokenCommand } from './commands/token';
 import { helpCommand } from './commands/help';
 import { hostOnlyCommand } from './commands/unavailable';
 
@@ -40,7 +41,9 @@ const HOST_ONLY_COMMANDS: TerminalCommand[] = [
 // Flare.Api over HTTP/WebSocket the same way clicking around the dashboard already
 // does, so (unlike the stubs above) they run for real here. search/export/alerts/apikey
 // are the dashboard-side port of the same 4 commands added to Flare.Cli - also plain
-// HTTP against Flare.Api, so they run for real too.
+// HTTP against Flare.Api, so they run for real too. `token` (personal access tokens,
+// ADR-0019) is the one exception with no flare.cli counterpart at all - see
+// commands/token.ts's own header comment for why the CLI can't have one.
 const COMMANDS: TerminalCommand[] = [
 	tailCommand,
 	searchCommand,
@@ -52,6 +55,7 @@ const COMMANDS: TerminalCommand[] = [
 	ingestionCommand,
 	alertsCommand,
 	apikeyCommand,
+	tokenCommand,
 	helpCommand(() => COMMANDS),
 	...HOST_ONLY_COMMANDS
 ];

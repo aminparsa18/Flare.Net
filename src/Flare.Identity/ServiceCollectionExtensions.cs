@@ -1,6 +1,7 @@
 using Flare.Identity;
 using Flare.Identity.Auth;
 using Flare.Identity.IngestKeys;
+using Flare.Identity.PersonalAccessTokens;
 using Flare.Identity.Users;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +31,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<IUserStore, SqliteUserStore>();
         builder.Services.AddSingleton<ISessionStore, SqliteSessionStore>();
         builder.Services.AddSingleton<IIngestApiKeyStore, SqliteIngestApiKeyStore>();
+        builder.Services.AddSingleton<IPersonalAccessTokenStore, SqlitePersonalAccessTokenStore>();
         builder.Services.AddSingleton<IEntraSettingsStore, SqliteEntraSettingsStore>();
         builder.Services.AddSingleton<IAuthSettingsStore, SqliteAuthSettingsStore>();
         builder.Services.AddSingleton<ILdapSettingsStore, SqliteLdapSettingsStore>();

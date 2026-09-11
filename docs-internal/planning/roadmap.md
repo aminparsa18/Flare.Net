@@ -164,16 +164,3 @@ folders are where "what happened and why" actually lives.
   - cheap, consistent extension of work already done. Reference:
   [signoz#2156](https://github.com/SigNoz/signoz/commit/02ef1744b).
   Not started.
-- **No API tokens for the query API - only ingest has them.**
-  [`IngestApiKeyEndpoints.cs`](../../src/Flare.Api/Endpoints/IngestApiKeyEndpoints.cs)'s
-  own doc comment is explicit: those keys authenticate telemetry-emitting
-  apps/collectors calling `Flare.Ingest`'s OTLP receiver, "not dashboard
-  users." Every `/api/logs`, `/api/alerts`, etc. endpoint in `Program.cs`
-  is gated behind `SessionAuthenticationDefaults` (cookie) or the SSO
-  schemes (Entra/OIDC) only - there's no bearer-token/API-key path for
-  the query side at all, so a script/CI job/another service has no way
-  to call Flare's API without impersonating a browser session. SigNoz
-  added Personal Access Tokens for exactly this
-  ([signoz#2261](https://github.com/SigNoz/signoz/commit/b99d7009a)) - a
-  durable, user-scoped bearer token for programmatic API access,
-  separate from the existing ingest keys. Not started.

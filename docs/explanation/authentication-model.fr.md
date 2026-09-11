@@ -128,6 +128,25 @@ réellement exploités (une ou quelques clés partagées par environnement).
 Voir [le guide pratique](../how-to/configure-authentication.fr.md#clés-api-dingestion)
 pour en créer, utiliser ou révoquer une.
 
+## Jetons d'accès personnels
+
+Le pendant des clés API d'ingestion, mais côté *requêtes* plutôt
+qu'ingestion : un jeton d'accès personnel (PAT) est un identifiant
+porteur durable qu'un script, une tâche CI ou un autre service peut
+présenter à la place d'une session de navigateur, afin d'appeler
+`/api/logs`, `/api/alerts`, etc. sans se faire passer pour le cookie
+d'une personne. Contrairement aux clés d'ingestion, un PAT est
+délibérément **propre à un utilisateur, en libre-service, et n'a pas
+plus de droits que l'utilisateur qui l'a créé** — le créer n'est pas une
+action d'administration, et le jeton s'authentifie comme cet utilisateur
+exact (même rôle, mêmes permissions), pas comme une identité machine
+distincte. Voir
+[ADR-0019](../../docs-internal/adr/0019-personal-access-tokens.md) pour
+savoir pourquoi ceci réutilise le schéma d'authentification de session
+existant plutôt que d'en enregistrer un second, et
+[le guide pratique](../how-to/configure-authentication.fr.md#jetons-daccès-personnels)
+pour en créer, utiliser ou révoquer un.
+
 ## Comment fonctionne chaque méthode
 
 Les cinq méthodes se terminent par le même type de session —

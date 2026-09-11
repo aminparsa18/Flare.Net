@@ -10,9 +10,9 @@ For setup steps, see
 
 | Role | Can do |
 |---|---|
-| `Viewer` | Read logs, traces, metrics, saved views, ingestion/pipeline/indexing status. |
+| `Viewer` | Read logs, traces, metrics, saved views, ingestion/pipeline/indexing status; create/revoke their own personal access tokens. |
 | `Member` | Everything `Viewer` can, plus create/edit/delete/test-fire alert rules. |
-| `Admin` | Everything `Member` can, plus manage users and ingest API keys. |
+| `Admin` | Everything `Member` can, plus manage users, ingest API keys, and revoke any user's personal access tokens. |
 
 Fixed three-value enum, not a custom/configurable permission system — see
 [`Flare.Identity.Users.UserRole`](../../src/Flare.Identity/Users/UserRole.cs).

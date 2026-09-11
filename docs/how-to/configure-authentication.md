@@ -239,6 +239,31 @@ accounts.
   what `Flare.AppHost` (local dev) and `Aspire.Hosting.Flare`'s
   `AddFlare(..., apiKey: ...)` use.
 
+## Personal access tokens
+
+Personal access tokens authenticate the query API (`/api/logs`,
+`/api/alerts`, etc.) as a specific *user*, separate from ingest API keys
+above. Self-service — any signed-in user (`Viewer` and up) can create
+their own; there's no admin step.
+
+- **Create one**: `POST /api/access-tokens` while signed in, e.g. from the
+  dashboard's terminal (open it, run `help` for the exact command) —
+  `{"name": "ci-pipeline", "expiresInDays": 90}` (`expiresInDays` is
+  optional; omit it for a token that never expires). The raw token is
+  shown **exactly once** — copy it somewhere safe immediately.
+- **Use it**: send `Authorization: Bearer <token>` on any query-API
+  request. It authenticates as whoever created it, with that user's
+  existing role — it does not grant any permission the user didn't
+  already have.
+- **List/revoke**: `GET /api/access-tokens` lists your own tokens;
+  `DELETE /api/access-tokens/{id}` revokes one immediately (an `Admin`
+  can also revoke a token belonging to someone else, by id, without
+  needing to disable that user's whole account).
+- **Doesn't work for the live-tail WebSocket** — a browser can't attach a
+  custom header to a WebSocket upgrade the way it automatically sends
+  the session cookie. Use a session (i.e. stay logged in) for live-tail;
+  PATs are for plain request/response calls.
+
 ## Managing users
 
 `Admin`-only, in the Users section of `/auth` (`GET`/`PATCH /api/users/*`) —
