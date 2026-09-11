@@ -71,6 +71,7 @@
 	"timeRange_previous30d": "предыдущие 30 дней",
 	"timeRange_previous90d": "предыдущие 90 дней",
 	"timeRange_previous365d": "предыдущие 365 дней",
+	"timeRange_previousPeriod": "предыдущий период",
 	"timeRange_label": "Диапазон времени",
 	"logsPage_title": "Flare — Логи",
 	"logsTable_colTime": "Время",

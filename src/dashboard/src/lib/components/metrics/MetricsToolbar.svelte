@@ -6,23 +6,32 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { metricsExplorerContext } from '$lib/metrics/context';
-	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
+	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = metricsExplorerContext.get();
 
-	// No live-tail / custom-range calendar here either - same "only fixed-duration
-	// presets make sense" call TracesToolbar already made, for the same reason.
+	// This Select itself still offers only fixed-duration presets, no manual custom-range
+	// calendar - same "only fixed-duration presets make sense to *pick*" call TracesToolbar
+	// already made (comparison mode's previous-period math wants a nameable duration for
+	// its label - see time-range.ts's PREVIOUS_PERIOD_LABELS). Unlike before, the filter
+	// itself *can* land on 'custom' now - MetricChart's drag-to-zoom sets it via
+	// MetricsExplorerState.setCustomRange - so activeLabel below still has to render that
+	// state even though selecting it here isn't offered.
 	const presets = TIME_RANGE_PRESETS.filter((p) => p.value !== 'custom');
 
 	const serviceOptions = $derived(explorer.knownServices.map((s) => ({ value: s, label: s })));
 
 	// presetLabel(), not a static `.label` field - see time-range.ts's own remarks on why
 	// that field was removed (a module-scope const can't reflect a per-request locale).
+	// 'custom' (reachable only via drag-to-zoom, see `presets` above) gets the same
+	// full-precision range label TimeRangePicker's own Trigger shows for Logs, not the
+	// generic "Time range" fallback this used to show for it - it's a genuine result of a
+	// user action, not an unreachable/defensive case.
 	const activeLabel = $derived(
-		presets.some((p) => p.value === explorer.filter.timeRangePreset)
-			? presetLabel(explorer.filter.timeRangePreset)
-			: m.timeRange_label()
+		explorer.filter.timeRangePreset === 'custom'
+			? formatCustomRangeLabel(explorer.filter.customRange)
+			: presetLabel(explorer.filter.timeRangePreset)
 	);
 
 	// Bits UI's Select needs a non-empty item value, so a sentinel stands in for "no

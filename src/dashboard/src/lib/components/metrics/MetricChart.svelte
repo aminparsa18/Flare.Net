@@ -17,7 +17,7 @@
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
-	import { TIME_RANGE_PRESETS, previousPeriodLabel, resolveTimeRange, previousPeriod } from '$lib/logs/time-range';
+	import { previousPeriodLabel, resolveTimeRange, previousPeriod } from '$lib/logs/time-range';
 	import type { MetricSeries } from '$lib/metrics-api';
 	import * as m from '$lib/paraglide/messages';
 
@@ -199,8 +199,16 @@
 	// isolated to one error.type). A multi-series or multi-attribute metric still links by
 	// service alone - still useful, just not falsely asserting one line's specific value
 	// applies to the whole metric.
+	// Deep links only ever carry a preset value (see deep-links.ts's own remarks) - there's
+	// no from/to param for them to round-trip a drag-to-zoomed custom range through, and
+	// silently sending `range=custom` would just fail Logs'/Traces' own parseXDeepLinkParams
+	// validation and fall back to *their* default range instead, discarding what the user
+	// was actually looking at without saying so. Hiding the link entirely while zoomed
+	// (same as the `!explorer.selected` case above) is the honest version of that - "not
+	// offered" over "offered but quietly wrong" - left as a documented gap rather than
+	// widening deep-links.ts to carry an explicit range, which is its own separate concern.
 	const logsHref = $derived.by(() => {
-		if (!explorer.selected) return null;
+		if (!explorer.selected || explorer.filter.timeRangePreset === 'custom') return null;
 		const single = explorer.series.length === 1 ? explorer.series[0] : null;
 		const attrs = single ? Object.entries(single.attributes) : [];
 		return buildLogsDeepLinkHref({
@@ -211,7 +219,7 @@
 	});
 
 	const tracesHref = $derived.by(() =>
-		explorer.selected
+		explorer.selected && explorer.filter.timeRangePreset !== 'custom'
 			? buildTracesDeepLinkHref({ serviceName: explorer.selected.serviceName, timeRangePreset: explorer.filter.timeRangePreset })
 			: null
 	);
@@ -422,11 +430,16 @@
 	 * and the shift is exactly one period's duration).
 	 */
 	function buildComparisonLines(): LineSpec[] {
-		// The preset's fixed duration, not a fresh resolveTimeRange() - same value
-		// either way (a preset's from/to always differ by exactly its durationMs,
-		// whatever "now" happens to be at call time), but this is the one that's
-		// actually deterministic rather than incidentally so.
-		const shiftMs = TIME_RANGE_PRESETS.find((p) => p.value === explorer.filter.timeRangePreset)?.durationMs ?? 0;
+		// Derived from the actually-resolved current range's own duration, not a preset
+		// table lookup - for a fixed preset this comes out identical either way (its
+		// from/to always differ by exactly its durationMs, whatever "now" happens to be at
+		// resolve time), but a drag-to-zoom (MetricsExplorerState.setCustomRange) lands on
+		// 'custom' with an arbitrary duration no preset table has an entry for. Falls back
+		// to 0 (no shift - Previous overlays exactly on Current) only for the unreachable
+		// case of an unresolvable range, same defensive fallback #resolvedRange() itself
+		// documents.
+		const currentRange = resolveTimeRange(explorer.filter.timeRangePreset, explorer.filter.customRange ?? undefined);
+		const shiftMs = currentRange ? new Date(currentRange.to).getTime() - new Date(currentRange.from).getTime() : 0;
 		const currentPoints = isHistogram
 			? histogramComparePoints(visibleSeries[0] ?? null)
 			: sortedPoints(totalsByBucket(explorer.series));
@@ -517,7 +530,7 @@
 	// (only fixed presets - see MetricsToolbar's own remarks).
 	const compareRangeDetail = $derived.by(() => {
 		if (!compareChangeText) return null;
-		const range = resolveTimeRange(explorer.filter.timeRangePreset);
+		const range = resolveTimeRange(explorer.filter.timeRangePreset, explorer.filter.customRange ?? undefined);
 		if (!range) return null;
 		const previous = previousPeriod(range);
 		const fmt = (iso: string) =>
@@ -595,17 +608,94 @@
 
 	let hoverIndex = $state<number | null>(null);
 
+	// Drag-to-zoom (brush-select) - same technique VolumeChart.svelte's own drag gesture
+	// uses (see its own remarks for the full reasoning), landing here on
+	// MetricsExplorerState.setCustomRange instead of LogsExplorerState's. Fractions (0-1
+	// along the chart's width), not pixel or SVG-viewBox coordinates - resilient to the
+	// element resizing mid-drag and shared directly between the pixel-space threshold
+	// check (getBoundingClientRect) and the viewBox-space rect the selection overlay is
+	// drawn in (fraction * CHART_WIDTH).
+	let isDragging = $state(false);
+	let dragStartFraction = $state(0);
+	let dragEndFraction = $state(0);
+
+	// Below this many screen pixels of movement, a press-release is a plain click (nothing
+	// to do here - unlike VolumeChart, MetricChart has no per-bucket click-to-filter
+	// action), not a drag (zoom) - without a threshold, the tiniest hand tremor on what was
+	// meant as a hover/click would zoom into a near-zero-width range instead.
+	const DRAG_THRESHOLD_PX = 4;
+
+	/** 0-1 position along the chart's width, clamped - see VolumeChart.svelte's identical helper. */
+	function fractionAt(svg: SVGSVGElement, clientX: number): number {
+		const rect = svg.getBoundingClientRect();
+		return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+	}
+
 	function handlePointerMove(e: PointerEvent) {
 		if (bucketTimes.length === 0) return;
 		const svg = e.currentTarget as SVGSVGElement;
 		const rect = svg.getBoundingClientRect();
 		const fraction = (e.clientX - rect.left) / rect.width;
 		hoverIndex = Math.min(bucketTimes.length - 1, Math.max(0, Math.round(fraction * (bucketTimes.length - 1))));
+		if (isDragging) dragEndFraction = fractionAt(svg, e.clientX);
 	}
 
+	function handlePointerDown(e: PointerEvent) {
+		if (bucketTimes.length === 0 || !explorer.queryRangeFrom || !explorer.queryRangeTo) return;
+		const svg = e.currentTarget as SVGSVGElement;
+		svg.setPointerCapture(e.pointerId); // keeps delivering move/up to this element even once the pointer leaves it
+		isDragging = true;
+		dragStartFraction = fractionAt(svg, e.clientX);
+		dragEndFraction = dragStartFraction;
+	}
+
+	/**
+	 * Resolves a press-release: below DRAG_THRESHOLD_PX it's just a click, nothing to do
+	 * (see DRAG_THRESHOLD_PX's own remarks); otherwise maps the dragged fraction range onto
+	 * `queryRangeFrom`/`queryRangeTo` (the range actually last queried, not bucket extremes
+	 * or a freshly re-resolved "now" - see those fields' own remarks) and re-fetches the
+	 * chart zoomed into that window via MetricsExplorerState.setCustomRange, the same entry
+	 * point the (fixed-preset-only) toolbar picker uses.
+	 */
+	function handlePointerUp(e: PointerEvent) {
+		if (!isDragging) return;
+		isDragging = false;
+		const svg = e.currentTarget as SVGSVGElement;
+		svg.releasePointerCapture(e.pointerId);
+
+		const rect = svg.getBoundingClientRect();
+		const dragPx = Math.abs(dragEndFraction - dragStartFraction) * rect.width;
+		if (dragPx < DRAG_THRESHOLD_PX || !explorer.queryRangeFrom || !explorer.queryRangeTo) return;
+
+		const fromMs = new Date(explorer.queryRangeFrom).getTime();
+		const toMs = new Date(explorer.queryRangeTo).getTime();
+		const spanMs = toMs - fromMs;
+		const startFraction = Math.min(dragStartFraction, dragEndFraction);
+		const endFraction = Math.max(dragStartFraction, dragEndFraction);
+		explorer.setCustomRange({
+			from: new Date(fromMs + startFraction * spanMs),
+			to: new Date(fromMs + endFraction * spanMs)
+		});
+	}
+
+	// hoverIndex tracks a position along the currently-hovered mouse gesture, not a
+	// bucket identity - bucketTimes itself can change shape (a different bucket count/
+	// width) out from under it without a fresh pointermove ever firing to reclamp:
+	// drag-to-zoom's own pointerup lands inside the SVG (no pointerleave to reset it,
+	// unlike every other range-changing control, which lives outside the chart and
+	// naturally crosses out of it first - see onpointerleave below), and
+	// autoRefreshEnabled's polling can refresh series/bucketTimes while the pointer just
+	// sits still over the chart with no move event at all. A stale hoverIndex past the
+	// new bucketTimes.length reads bucketTimes[hoverIndex] as undefined, and every
+	// xFor()/formatBucketTime() downstream of that as NaN - a real, visible rendering
+	// glitch (stray full-height/width <line>s), not just a console warning. Clamped once
+	// here so every consumer below reads through this instead of the raw state - safe
+	// regardless of what changed bucketTimes out from under it.
+	const safeHoverIndex = $derived(hoverIndex !== null && hoverIndex < bucketTimes.length ? hoverIndex : null);
+
 	function pointAtHover(line: LineSpec): PlotPoint | undefined {
-		if (hoverIndex === null) return undefined;
-		return line.points.find((p) => p.time === bucketTimes[hoverIndex!]);
+		if (safeHoverIndex === null) return undefined;
+		return line.points.find((p) => p.time === bucketTimes[safeHoverIndex]);
 	}
 
 	function formatBucketTime(time: number): string {
@@ -849,18 +939,22 @@
 						{/each}
 					</div>
 					<Tooltip.Provider>
-						<Tooltip.Root open={hoverIndex !== null}>
+						<Tooltip.Root open={safeHoverIndex !== null && !isDragging}>
 							<Tooltip.Trigger>
 								{#snippet child({ props })}
 									<svg
 										{...props}
 										viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
 										preserveAspectRatio="none"
-										class="h-[180px] w-full min-w-0"
+										class="h-[180px] w-full min-w-0 cursor-crosshair"
 										role="img"
 										aria-label={m.metricChart_chartAriaLabel({ metric: explorer.selected!.metricName })}
 										onpointermove={handlePointerMove}
-										onpointerleave={() => (hoverIndex = null)}
+										onpointerleave={() => {
+											if (!isDragging) hoverIndex = null;
+										}}
+										onpointerdown={handlePointerDown}
+										onpointerup={handlePointerUp}
 									>
 										{#each ticks.values as tick (tick)}
 											<line
@@ -875,11 +969,11 @@
 											/>
 										{/each}
 
-										{#if hoverIndex !== null}
+										{#if safeHoverIndex !== null}
 											<line
-												x1={xFor(bucketTimes[hoverIndex])}
+												x1={xFor(bucketTimes[safeHoverIndex])}
 												y1={PEAK_Y}
-												x2={xFor(bucketTimes[hoverIndex])}
+												x2={xFor(bucketTimes[safeHoverIndex])}
 												y2={BASELINE_Y}
 												class="text-muted-foreground"
 												stroke="currentColor"
@@ -909,13 +1003,28 @@
 												/>
 											{/each}
 										{/each}
+
+										{#if isDragging}
+											<!-- Drag-to-zoom selection overlay - same visual as VolumeChart's own, width
+											     tracks the pointer live; released -> handlePointerUp re-fetches this chart
+											     zoomed to the dragged window (or, below DRAG_THRESHOLD_PX, is a no-op click). -->
+											<rect
+												x={Math.min(dragStartFraction, dragEndFraction) * CHART_WIDTH}
+												y={PEAK_Y}
+												width={Math.abs(dragEndFraction - dragStartFraction) * CHART_WIDTH}
+												height={BASELINE_Y - PEAK_Y}
+												style="fill: var(--foreground); fill-opacity: 0.12; stroke: var(--foreground); stroke-opacity: 0.4;"
+												stroke-width="1"
+												vector-effect="non-scaling-stroke"
+											/>
+										{/if}
 									</svg>
 								{/snippet}
 							</Tooltip.Trigger>
-							{#if hoverIndex !== null}
+							{#if safeHoverIndex !== null}
 								<Tooltip.Content>
 									<div class="flex flex-col gap-0.5">
-										<span class="font-medium">{formatBucketTime(bucketTimes[hoverIndex])}</span>
+										<span class="font-medium">{formatBucketTime(bucketTimes[safeHoverIndex])}</span>
 										{#each lines as line (line.label)}
 											{@const point = pointAtHover(line)}
 											{#if point}

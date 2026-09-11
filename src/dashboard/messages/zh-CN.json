@@ -71,6 +71,7 @@
 	"timeRange_previous30d": "前 30 天",
 	"timeRange_previous90d": "前 90 天",
 	"timeRange_previous365d": "前 365 天",
+	"timeRange_previousPeriod": "上一周期",
 	"timeRange_label": "时间范围",
 	"logsPage_title": "Flare — 日志",
 	"logsTable_colTime": "时间",

@@ -164,13 +164,25 @@ public static class MetricSeriesQueryBuilder
         }
 
         var whereSql = $"MetricName = {{metricName:String}} AND {filterSql.WhereSql}";
-        var topSeriesSql = "SELECT ServiceName, " +
+        // Outer SELECT ServiceName, SeriesKey FROM (...) wrapper, not the ranking query's
+        // own three columns used directly as the IN subquery - the ranked-by/ORDER BY
+        // column (RankValue) has to be part of the inner SELECT to sort by, but the outer
+        // (ServiceName, SeriesKey) tuple this feeds into below is only 2 columns wide.
+        // Selecting the inner query's three columns straight into that 2-column tuple IN
+        // is a real column-count mismatch ClickHouse rejects outright (Code: 20,
+        // NUMBER_OF_COLUMNS_DOESNT_MATCH) - caught only via a real ClickHouse instance
+        // (see this project's own "no fake ClickHouse in unit tests" convention), not the
+        // Assert.Contains SQL-substring tests this file already has, which never execute
+        // the generated SQL.
+        var topSeriesSql = "SELECT ServiceName, SeriesKey FROM (\n" +
+            "  SELECT ServiceName, " +
             $"{rawSeriesKeyExpr} AS SeriesKey, {rankExpr} AS RankValue\n" +
-            $"FROM {table}\n" +
-            $"WHERE {whereSql}\n" +
-            "GROUP BY ServiceName, SeriesKey\n" +
-            "ORDER BY RankValue DESC\n" +
-            "LIMIT {topN:UInt32}";
+            $"  FROM {table}\n" +
+            $"  WHERE {whereSql}\n" +
+            "  GROUP BY ServiceName, SeriesKey\n" +
+            "  ORDER BY RankValue DESC\n" +
+            "  LIMIT {topN:UInt32}\n" +
+            ")";
 
         var sql = "SELECT toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
             $"ServiceName, {seriesKeyExpr}, {seriesAttributesExpr}, " +
