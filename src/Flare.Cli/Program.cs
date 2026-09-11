@@ -54,6 +54,19 @@ app.Configure(config =>
         apikey.AddCommand<ApiKeyCreateCommand>("create")
             .WithDescription("Create a new ingest API key.");
     });
+    config.AddBranch("notification-channels", notificationChannels =>
+    {
+        notificationChannels.AddCommand<NotificationChannelsListCommand>("list")
+            .WithDescription("List saved notification channels.");
+        notificationChannels.AddCommand<NotificationChannelsCreateCommand>("create")
+            .WithDescription("Create a new notification channel.");
+        notificationChannels.AddCommand<NotificationChannelsUpdateCommand>("update")
+            .WithDescription("Update an existing notification channel.");
+        notificationChannels.AddCommand<NotificationChannelsDeleteCommand>("delete")
+            .WithDescription("Delete a notification channel.");
+        notificationChannels.AddCommand<NotificationChannelsSendTestCommand>("send-test")
+            .WithDescription("Send a real test notification through a saved channel.");
+    });
     config.AddBranch("instances", instances =>
     {
         instances.AddCommand<InstancesListCommand>("list")

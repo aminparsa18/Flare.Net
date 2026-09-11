@@ -109,21 +109,6 @@ folders are where "what happened and why" actually lives.
   `LogCount`/`MetricThreshold`, following ADR-0020's established
   discriminator/additive-migration pattern, not a from-scratch design.
   Not started.
-- **`flare notification-channels` CLI management.** Reusable, named
-  notification channels shipped - `NotificationChannel`, CRUD'd from a
-  "Channels" tab on the `/alerts` dashboard page (not a separate
-  top-level page/nav entry - a channel only matters in service of an
-  alert rule), that `AlertRule` references by `ChannelIds` (one or
-  more) instead of embedding a destination inline, coexisting with the
-  legacy single-inline-channel fields for rules that still use them
-  (see
-  [`docs-internal/adr/0021-reusable-notification-channels.md`](../adr/0021-reusable-notification-channels.md)).
-  Deliberately deferred from that change: a CLI subcommand to
-  create/update/delete channels from the terminal (same scoping
-  precedent PATs' own CLI command was deferred by, see
-  [`docs-internal/adr/0019-personal-access-tokens.md`](../adr/0019-personal-access-tokens.md)) -
-  `flare alerts list`'s rule summary currently shows only a referenced
-  channel count, not names. Not started.
 - **"Go to trace by ID" quick-search in the Traces GUI page.** Low
   confidence, not fully verified - the terminal already has this via its
   `trace <id>` command
