@@ -310,6 +310,7 @@
 	"tracesToolbar_autoRefreshTitle": "Automatically re-runs the search every 30 seconds",
 	"tracesToolbar_autoRefreshLabel": "Auto-refresh",
 	"tracesToolbar_clearFilters": "Clear filters",
+	"tracesToolbar_goToTracePlaceholder": "Go to trace ID…",
 	"errorsToolbar_serviceLabel": "Service",
 	"errorsToolbar_refresh": "Refresh",
 	"errorsToolbar_clearFilters": "Clear filters",

@@ -1,12 +1,15 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
+	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Button } from '$lib/components/ui/button';
 	import TracesViewTabs from './TracesViewTabs.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { tracesExplorerContext } from '$lib/traces/context';
 	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
@@ -36,6 +39,21 @@
 			? presetLabel(explorer.filter.timeRangePreset)
 			: m.timeRange_label()
 	);
+
+	// A direct id lookup, not another filter on TracesExplorerState - jumping to a trace
+	// navigates away to the trace-detail route (same `goto(`/traces/${traceId}`)` TraceRow
+	// and SpanDetailSheet's link-jumps already use) rather than narrowing the list, so it
+	// has no reason to live on shared explorer state. Local draft + Enter-to-go, same shape
+	// as LogsToolbar's search box, minus the debounce (this doesn't fire a query per
+	// keystroke).
+	let traceIdDraft = $state('');
+
+	function goToTrace(): void {
+		const id = traceIdDraft.trim();
+		if (!id) return;
+		traceIdDraft = '';
+		void goto(`/traces/${encodeURIComponent(id)}`);
+	}
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
@@ -67,6 +85,18 @@
 		<XIcon data-icon="inline-start" />
 		{m.tracesToolbar_clearFilters()}
 	</Button>
+
+	<div class="relative w-44">
+		<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+		<Input
+			class="pl-8"
+			placeholder={m.tracesToolbar_goToTracePlaceholder()}
+			aria-label={m.tracesToolbar_goToTracePlaceholder()}
+			value={traceIdDraft}
+			oninput={(e) => (traceIdDraft = e.currentTarget.value)}
+			onkeydown={(e) => e.key === 'Enter' && goToTrace()}
+		/>
+	</div>
 
 	<!-- Re-runs the trace search on an interval while on - see
 	     TracesExplorerState.autoRefreshEnabled's own remarks. A plain `title`, same "one
