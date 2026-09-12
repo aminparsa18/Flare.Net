@@ -3,6 +3,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
+	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Button } from '$lib/components/ui/button';
@@ -113,4 +114,6 @@
 	</label>
 
 	<ViewsMenu pageType="Traces" currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
+
+	<PinToDashboardButton panelType="Traces" currentState={() => explorer.toSavedViewState()} defaultTitle={m.nav_traces()} />
 </div>

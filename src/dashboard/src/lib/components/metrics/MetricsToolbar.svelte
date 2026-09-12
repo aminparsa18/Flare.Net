@@ -3,6 +3,7 @@
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import PopoverSingleSelect from '$lib/components/logs/PopoverSingleSelect.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
+	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
 	import { Switch } from '$lib/components/ui/switch';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
@@ -164,5 +165,11 @@
 		pageType="Metrics"
 		currentState={() => explorer.toSavedViewState()}
 		applyState={(s) => explorer.applySavedViewState(s)}
+	/>
+
+	<PinToDashboardButton
+		panelType="Metrics"
+		currentState={() => explorer.toSavedViewState()}
+		defaultTitle={explorer.selected?.metricName ?? m.nav_metrics()}
 	/>
 </div>

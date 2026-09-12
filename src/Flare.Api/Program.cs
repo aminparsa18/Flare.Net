@@ -137,6 +137,7 @@ builder.Services.AddSingleton<IServiceCallBreakdownQueryService, ServiceCallBrea
 builder.Services.AddSingleton<IExceptionQueryService, ExceptionQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
+builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();
 // ClickHouse:ClusterMode (same flag ClickHouseMigrationRunner reads below, see
 // docs/clustering.md) - lets IndexingQueryService's system.* introspection queries switch
@@ -320,6 +321,7 @@ authenticatedRoutes.MapMetricsEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapExceptionEndpoints();
 authenticatedRoutes.MapSavedViewEndpoints();
+authenticatedRoutes.MapDashboardEndpoints();
 authenticatedRoutes.MapIngestionEndpoints();
 authenticatedRoutes.MapPipelineEndpoints();
 authenticatedRoutes.MapIndexingEndpoints();
