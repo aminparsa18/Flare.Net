@@ -7,7 +7,8 @@
 // `conditionKind`/`metricCondition`/`metricThresholdValue` were appended after every
 // pre-existing field (not inserted earlier) - see `AlertConditionKind`'s C#-side doc
 // comment for why. `channelIds` was appended after those, same reasoning - see
-// `AlertRule.ChannelIds`'s C#-side doc comment.
+// `AlertRule.ChannelIds`'s C#-side doc comment. `exceptionCondition` was appended after
+// `channelIds`, same reasoning - see `AlertRule.ExceptionCondition`'s C#-side doc comment.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -15,6 +16,7 @@ import { AlertThreshold } from '$lib/generated/memorypack/AlertThreshold.js';
 import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-time-offset';
 import { LogFilter } from '$lib/memorypack/LogFilter';
 import { MetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
+import { ExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
 
 export class AlertRule {
 	id: string;
@@ -36,6 +38,7 @@ export class AlertRule {
 	metricCondition: MetricAlertCondition | null;
 	metricThresholdValue: number | null;
 	channelIds: (string | null)[] | null;
+	exceptionCondition: ExceptionCountCondition | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -57,6 +60,7 @@ export class AlertRule {
 		this.metricCondition = null;
 		this.metricThresholdValue = null;
 		this.channelIds = null;
+		this.exceptionCondition = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -71,7 +75,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(19);
+		writer.writeObjectHeader(20);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -91,6 +95,7 @@ export class AlertRule {
 		MetricAlertCondition.serializeCore(writer, value.metricCondition);
 		writer.writeNullableFloat64(value.metricThresholdValue);
 		writer.writeArray(value.channelIds, (writer, x) => writer.writeGuid(x!));
+		ExceptionCountCondition.serializeCore(writer, value.exceptionCondition);
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -114,7 +119,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 19) {
+		if (count == 20) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -134,7 +139,8 @@ export class AlertRule {
 			value.metricCondition = MetricAlertCondition.deserializeCore(reader);
 			value.metricThresholdValue = reader.readNullableFloat64();
 			value.channelIds = reader.readArray((reader) => reader.readGuid());
-		} else if (count > 19) {
+			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
+		} else if (count > 20) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -176,6 +182,8 @@ export class AlertRule {
 			if (count == 18) return value;
 			value.channelIds = reader.readArray((reader) => reader.readGuid());
 			if (count == 19) return value;
+			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
+			if (count == 20) return value;
 		}
 		return value;
 	}

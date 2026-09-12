@@ -16,7 +16,11 @@
 // `docs-internal/adr/0021-reusable-notification-channels.md`) - `channelResults`'
 // `AlertChannelResult` reuses the MemoryPack-TS-*generated* class directly (no plain-type
 // wrapper needed, same shape `AlertThreshold` already has), converting only its `type`
-// field through `notificationChannelTypeToString`.
+// field through `notificationChannelTypeToString`. `exceptionCondition` was added for
+// exception-count alerting (see docs-internal/adr/0022-exception-count-alerting.md) -
+// reuses `errors-api.ts`'s `ExceptionFilter` plain type and
+// `toGeneratedExceptionFilter`/`fromGeneratedExceptionFilter` conversions, same "reuse the
+// existing filter's conversions" precedent `metricCondition` set for `MetricFilter`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
 import {
@@ -46,6 +50,8 @@ import { AlertTestResult as GeneratedAlertTestResult } from '$lib/memorypack/Ale
 import type { AlertHistoryEntry as GeneratedAlertHistoryEntry } from '$lib/memorypack/AlertHistoryEntry';
 import { AlertNotificationTestResult as GeneratedAlertNotificationTestResult } from '$lib/generated/memorypack/AlertNotificationTestResult.js';
 import { MetricAlertCondition as GeneratedMetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
+import { ExceptionCountCondition as GeneratedExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
+import { type ExceptionFilter, toGeneratedExceptionFilter, fromGeneratedExceptionFilter } from './errors-api';
 
 // ---- Shared shapes (AlertModels.cs) ---------------------------------------
 
@@ -69,11 +75,24 @@ export interface AlertThreshold {
 }
 
 /**
+ * The `AlertConditionKind.ExceptionCount` counterpart to `LogFilter` - see
+ * `AlertRule.condition`'s comment. `exceptionMessage` empty/undefined matches every message
+ * for `exceptionType` - see `ExceptionCountCondition.ExceptionMessage`'s C#-side doc comment.
+ */
+export interface ExceptionCountCondition {
+	exceptionType: string;
+	exceptionMessage?: string;
+	filter?: ExceptionFilter;
+}
+
+/**
  * A saved threshold/query-based alert rule. `condition` reuses the same `LogFilter` shape
  * the Logs Explorer filters with - meaningful only when `conditionKind` is `'LogCount'`
  * (the default/original behavior); `metricCondition`/`metricThresholdValue` carry a
  * `'MetricThreshold'` rule's condition instead - see
- * `docs-internal/adr/0020-metric-threshold-alerting.md`.
+ * `docs-internal/adr/0020-metric-threshold-alerting.md`. `exceptionCondition` carries an
+ * `'ExceptionCount'` rule's condition instead - see
+ * `docs-internal/adr/0022-exception-count-alerting.md`.
  */
 export interface AlertRule {
 	id: string;
@@ -102,6 +121,8 @@ export interface AlertRule {
 	metricThresholdValue?: number;
 	/** Saved `NotificationChannel` IDs this rule fans out to - mutually exclusive with `webhookUrl`/`telegramBotToken`+`telegramChatId`/`emailTo`/`pagerDutyRoutingKey` above. Empty for a rule still using its legacy inline channel. */
 	channelIds: string[];
+	/** Set only when `conditionKind` is `'ExceptionCount'`. */
+	exceptionCondition?: ExceptionCountCondition;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -124,6 +145,7 @@ export interface AlertRuleRequest {
 	metricThresholdValue?: number;
 	/** See `AlertRule.channelIds`'s doc comment. */
 	channelIds?: string[];
+	exceptionCondition?: ExceptionCountCondition;
 }
 
 export interface AlertRuleListResponse {
@@ -219,6 +241,24 @@ function toGeneratedMetricAlertCondition(condition: MetricAlertCondition | undef
 	return dto;
 }
 
+function toExceptionCountCondition(dto: GeneratedExceptionCountCondition | null): ExceptionCountCondition | undefined {
+	if (dto == null) return undefined;
+	return {
+		exceptionType: dto.exceptionType ?? '',
+		exceptionMessage: dto.exceptionMessage || undefined,
+		filter: fromGeneratedExceptionFilter(dto.filter)
+	};
+}
+
+function toGeneratedExceptionCountCondition(condition: ExceptionCountCondition | undefined): GeneratedExceptionCountCondition | null {
+	if (condition == null) return null;
+	const dto = new GeneratedExceptionCountCondition();
+	dto.exceptionType = condition.exceptionType;
+	dto.exceptionMessage = condition.exceptionMessage ?? '';
+	dto.filter = toGeneratedExceptionFilter(condition.filter);
+	return dto;
+}
+
 function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 	return {
 		id: dto.id,
@@ -239,7 +279,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		conditionKind: alertConditionKindToString(dto.conditionKind),
 		metricCondition: toMetricAlertCondition(dto.metricCondition),
 		metricThresholdValue: dto.metricThresholdValue ?? undefined,
-		channelIds: (dto.channelIds ?? []).filter((id): id is string => id != null)
+		channelIds: (dto.channelIds ?? []).filter((id): id is string => id != null),
+		exceptionCondition: toExceptionCountCondition(dto.exceptionCondition)
 	};
 }
 
@@ -269,6 +310,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.metricCondition = toGeneratedMetricAlertCondition(request.metricCondition);
 	dto.metricThresholdValue = request.metricThresholdValue ?? null;
 	dto.channelIds = request.channelIds ?? null;
+	dto.exceptionCondition = toGeneratedExceptionCountCondition(request.exceptionCondition);
 	return dto;
 }
 

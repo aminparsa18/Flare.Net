@@ -73,6 +73,20 @@ public class AlertMessageFormatterTests
     }
 
     [Fact]
+    public void BuildText_ExceptionCountRule_NamesTheExceptionType()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.ExceptionCount,
+            ExceptionCondition = new ExceptionCountCondition { ExceptionType = "System.NullReferenceException" },
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, observedValue: 7);
+
+        Assert.Contains("System.NullReferenceException occurred 7 times", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildText_TestNotification_StillAppendsLink()
     {
         var text = AlertMessageFormatter.BuildText(MakeRule(), observedValue: 0, isTest: true, publicUrl: "https://flare.example.com");

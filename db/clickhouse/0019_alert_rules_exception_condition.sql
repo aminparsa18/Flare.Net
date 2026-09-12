@@ -1,0 +1,32 @@
+-- Alerting schema, migration 0019.
+--
+-- Adds a third condition kind to `alert_rules` (migration 0003, extended since by
+-- migrations 0005/0006/0012's notification-channel columns, migration 0014's
+-- `MetricThreshold` columns, and migration 0017's `ChannelIds`): an exception-occurrence
+-- count (e.g. "this exception type occurred N times in 5 minutes") alongside the existing
+-- log-filter-count (`ConditionJson`/`ThresholdCount`/`ThresholdComparator`) and
+-- metric-query-threshold (`MetricConditionJson`/`MetricThresholdValue`) conditions. See
+-- `docs-internal/adr/0022-exception-count-alerting.md` for the full design.
+--
+-- `ConditionKind` (migration 0014) gains a third value, `'ExceptionCount'` - no schema
+-- change needed for that, it's already a plain `LowCardinality(String)`. `Flare.Api.Model.AlertRule`'s
+-- existing `ConditionJson`/`MetricConditionJson`/`MetricThresholdValue` are ignored (client
+-- sends harmless placeholders) when `ConditionKind = 'ExceptionCount'`, and
+-- `ExceptionConditionJson` below is ignored for the other two kinds - same "column present,
+-- meaningful only for one mode" shape migration 0014's own comment documents.
+--
+-- Unlike `MetricThreshold`, this condition needs no new *value* column: it's compared as a
+-- count via the same `ThresholdCount`/`ThresholdComparator` columns `ConditionKind =
+-- 'LogCount'` rules already use (`AlertThreshold.IsBreached`, not `IsBreachedValue`) - so no
+-- `alert_events` migration is needed either, unlike migration 0014's `0015_alert_events_metric_value.sql`
+-- pairing. `ExceptionConditionJson` mirrors `MetricConditionJson`'s own "store opaque,
+-- round-trip through the C# model, don't explode into columns" reasoning - it's a
+-- JSON-serialized `Flare.Api.Model.ExceptionCountCondition` (exception type/message/`ExceptionFilter`).
+--
+-- Existing numbered migrations are immutable once merged (see this directory's README's
+-- "Migration convention"), hence a new file rather than editing 0014_alert_rules_metric_condition.sql
+-- or 0017_alert_rules_channel_ids.sql. Like migrations 0002-0018, there's no automated apply
+-- path yet beyond the local-dev init-mount that only runs 0001 automatically - run this by
+-- hand via `clickhouse-client` against any already-running instance.
+ALTER TABLE clickhousedb.alert_rules
+    ADD COLUMN IF NOT EXISTS ExceptionConditionJson String DEFAULT '' CODEC(ZSTD(1)) AFTER ChannelIds;

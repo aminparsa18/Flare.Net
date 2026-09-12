@@ -22,16 +22,23 @@ public enum ThresholdComparator
 /// against <see cref="AlertRule.MetricThresholdValue"/> through
 /// <see cref="Query.MetricAlertConditionQueryBuilder"/>/<c>IAlertQueryService.EvaluateMetricConditionAsync</c> -
 /// reusing the same metrics-query machinery <c>MetricQueryService</c> already has, not a
-/// new rule engine. <see cref="AlertRule.Condition"/>/<see cref="AlertThreshold.Count"/> are
-/// ignored for <see cref="MetricThreshold"/> rules (and vice versa for
-/// <see cref="AlertRule.MetricCondition"/>/<see cref="AlertRule.MetricThresholdValue"/> on
-/// <see cref="LogCount"/> rules) - same "field present, meaningful only for one mode"
-/// convention <see cref="AlertRule"/>'s notification-channel fields already use.
+/// new rule engine. <see cref="ExceptionCount"/> evaluates <see cref="AlertRule.ExceptionCondition"/>
+/// as a count over <see cref="AlertRule.Threshold"/>'s <see cref="AlertThreshold.Count"/> -
+/// same shape as <see cref="LogCount"/>, just against exception-event occurrences
+/// (<see cref="Query.ExceptionCountConditionQueryBuilder"/>/<c>IAlertQueryService.CountMatchingExceptionsAsync</c>,
+/// reusing <c>ExceptionFilterSqlBuilder</c>) rather than log rows - see
+/// <c>docs-internal/adr/0022-exception-count-alerting.md</c>. <see cref="AlertRule.Condition"/>
+/// is ignored for <see cref="MetricThreshold"/>/<see cref="ExceptionCount"/> rules (and vice
+/// versa for <see cref="AlertRule.MetricCondition"/>/<see cref="AlertRule.MetricThresholdValue"/>
+/// on non-<see cref="MetricThreshold"/> rules, and for <see cref="AlertRule.ExceptionCondition"/>
+/// on non-<see cref="ExceptionCount"/> rules) - same "field present, meaningful only for one
+/// mode" convention <see cref="AlertRule"/>'s notification-channel fields already use.
 /// </remarks>
 public enum AlertConditionKind
 {
     LogCount,
     MetricThreshold,
+    ExceptionCount,
 }
 
 /// <summary>
@@ -91,6 +98,39 @@ public sealed partial record MetricAlertCondition
     public MetricFilter Filter { get; init; } = new();
 
     public MetricAlertAggregation Aggregation { get; init; } = MetricAlertAggregation.Value;
+}
+
+/// <summary>
+/// An exception-occurrence-count condition - the <see cref="AlertConditionKind.ExceptionCount"/>
+/// counterpart to <see cref="LogFilter"/>. Deliberately <see cref="MemoryPackableAttribute"/>
+/// only, no <c>[GenerateTypeScript]</c>: it nests <see cref="ExceptionFilter"/>, itself
+/// generator-ineligible (nullable <c>DateTimeOffset</c> members - see
+/// <c>$lib/memorypack/date-time-offset.ts</c>'s header comment) - hand-written TypeScript
+/// companion (<c>$lib/memorypack/ExceptionCountCondition.ts</c>), reusing the
+/// <c>$lib/memorypack/ExceptionFilter.ts</c> that already exists for the Exceptions page.
+/// </summary>
+/// <remarks>
+/// Counts via <see cref="Query.ExceptionCountConditionQueryBuilder"/>, which reuses
+/// <see cref="Query.ExceptionFilterSqlBuilder"/> (the same <c>WHERE</c> fragment
+/// <see cref="Query.ExceptionGroupQueryBuilder"/>/<c>ExceptionOccurrenceQueryBuilder</c> build
+/// on) plus an exact <c>exception.type</c> match, so evaluation stays consistent with how the
+/// Exceptions page itself groups occurrences.
+/// </remarks>
+[MemoryPackable]
+public sealed partial record ExceptionCountCondition
+{
+    /// <summary>The <c>exception.type</c> event attribute to match, e.g. <c>"System.NullReferenceException"</c>.</summary>
+    public required string ExceptionType { get; init; }
+
+    /// <summary>
+    /// Exact <c>exception.message</c> match, same grouping <see cref="ExceptionGroup"/> uses.
+    /// Empty (the default) matches every message for <see cref="ExceptionType"/> - counting
+    /// "this exception type occurred N times" without narrowing to one specific message, the
+    /// roadmap item's literal ask; a non-empty value narrows to one exact (type, message) group.
+    /// </summary>
+    public string ExceptionMessage { get; init; } = "";
+
+    public ExceptionFilter Filter { get; init; } = new();
 }
 
 /// <summary>The breach condition an <see cref="AlertRule"/> evaluates on every poll tick.</summary>
@@ -220,6 +260,17 @@ public sealed partial record AlertRule
     /// rows by <c>NotificationChannelResolver</c>, never read directly by a notifier.
     /// </summary>
     public IReadOnlyList<Guid> ChannelIds { get; init; } = [];
+
+    /// <summary>
+    /// Set (non-null) only for <see cref="AlertConditionKind.ExceptionCount"/> rules;
+    /// null/ignored otherwise. Compared as a count via <see cref="Threshold"/>'s
+    /// <see cref="AlertThreshold.Count"/>/<see cref="AlertThreshold.IsBreached"/>, same as
+    /// <see cref="Condition"/> - unlike <see cref="MetricCondition"/>, this doesn't need its
+    /// own threshold-value sibling. Appended after every pre-existing field (after
+    /// <see cref="ChannelIds"/>, the most recently appended field before this one), same
+    /// versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public ExceptionCountCondition? ExceptionCondition { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -289,6 +340,9 @@ public sealed partial record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.ChannelIds"/>'s doc comment.</summary>
     public IReadOnlyList<Guid>? ChannelIds { get; init; }
 
+    /// <summary>See <see cref="AlertRule.ExceptionCondition"/>'s doc comment. Appended after <see cref="ChannelIds"/>, same versioning reasoning as that field.</summary>
+    public ExceptionCountCondition? ExceptionCondition { get; init; }
+
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
     /// (<see cref="WebhookUrl"/> - covers both a generic webhook consumer and Slack -
@@ -335,20 +389,23 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>
     /// <see cref="AlertConditionKind.MetricThreshold"/> requires <see cref="MetricCondition"/>
-    /// and <see cref="MetricThresholdValue"/> both set; <see cref="AlertConditionKind.LogCount"/>
+    /// and <see cref="MetricThresholdValue"/> both set; <see cref="AlertConditionKind.ExceptionCount"/>
+    /// requires <see cref="ExceptionCondition"/> set; <see cref="AlertConditionKind.LogCount"/>
     /// (the default) needs neither, since <see cref="Condition"/>/<see cref="Threshold"/> are
     /// already independently required/validated. Called alongside <see cref="ValidateChannel"/>
     /// from <c>AlertEndpoints</c>'s create/update/send-test-draft handlers. Not called from the
     /// dry-run test endpoints' <c>EvaluateAsync</c>, which needs to branch on
     /// <see cref="ConditionKind"/> either way to know which condition to evaluate, and reports
-    /// a missing <see cref="MetricCondition"/> as "wouldn't fire" rather than a 400 there - same
-    /// "channel validation is create/update-only" precedent <see cref="ValidateChannel"/>'s own
-    /// doc comment already sets.
+    /// a missing <see cref="MetricCondition"/>/<see cref="ExceptionCondition"/> as "wouldn't
+    /// fire" rather than a 400 there - same "channel validation is create/update-only"
+    /// precedent <see cref="ValidateChannel"/>'s own doc comment already sets.
     /// </summary>
     public string? ValidateCondition() => (ConditionKind ?? AlertConditionKind.LogCount) switch
     {
         AlertConditionKind.MetricThreshold when MetricCondition is null || MetricThresholdValue is null =>
             "metricCondition and metricThresholdValue are required when conditionKind is MetricThreshold.",
+        AlertConditionKind.ExceptionCount when ExceptionCondition is null =>
+            "exceptionCondition is required when conditionKind is ExceptionCount.",
         _ => null,
     };
 }
@@ -390,10 +447,10 @@ public sealed partial record AlertHistoryEntry
     /// <summary>Snapshot of the firing rule's <see cref="AlertRule.ConditionKind"/> at fire time - appended after every pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.</summary>
     public AlertConditionKind ConditionKind { get; init; } = AlertConditionKind.LogCount;
 
-    /// <summary>Set only for a <see cref="AlertConditionKind.MetricThreshold"/> event; null for a <see cref="AlertConditionKind.LogCount"/> one, which uses <see cref="ObservedCount"/> instead.</summary>
+    /// <summary>Set only for a <see cref="AlertConditionKind.MetricThreshold"/> event; null for a <see cref="AlertConditionKind.LogCount"/>/<see cref="AlertConditionKind.ExceptionCount"/> one, both of which use <see cref="ObservedCount"/> instead.</summary>
     public double? ObservedValue { get; init; }
 
-    /// <summary>Set only for a <see cref="AlertConditionKind.MetricThreshold"/> event; null for a <see cref="AlertConditionKind.LogCount"/> one, which uses <see cref="ThresholdCount"/> instead.</summary>
+    /// <summary>Set only for a <see cref="AlertConditionKind.MetricThreshold"/> event; null for a <see cref="AlertConditionKind.LogCount"/>/<see cref="AlertConditionKind.ExceptionCount"/> one, both of which use <see cref="ThresholdCount"/> instead.</summary>
     public double? ThresholdValue { get; init; }
 
     /// <summary>
@@ -424,7 +481,7 @@ public sealed partial record AlertHistoryResponse
 [MemoryPackable]
 public sealed partial record AlertTestResult
 {
-    /// <summary>Meaningful only for a <see cref="AlertConditionKind.LogCount"/> rule/draft - 0 for a <see cref="AlertConditionKind.MetricThreshold"/> one, which reports its result via <see cref="ObservedValue"/> instead.</summary>
+    /// <summary>Meaningful only for a <see cref="AlertConditionKind.LogCount"/>/<see cref="AlertConditionKind.ExceptionCount"/> rule/draft - 0 for a <see cref="AlertConditionKind.MetricThreshold"/> one, which reports its result via <see cref="ObservedValue"/> instead.</summary>
     public required ulong ObservedCount { get; init; }
 
     public required bool WouldFire { get; init; }

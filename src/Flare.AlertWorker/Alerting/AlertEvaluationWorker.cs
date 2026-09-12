@@ -142,6 +142,17 @@ public sealed class AlertEvaluationWorker(
             observedValue = await alerts.EvaluateMetricConditionAsync(rule.MetricCondition, from, now, cancellationToken);
             breached = rule.Threshold.IsBreachedValue(observedValue.Value, thresholdValue);
         }
+        else if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
+        {
+            if (rule.ExceptionCondition is null)
+            {
+                logger.LogWarning("Alert rule {RuleId} ({RuleName}) is ExceptionCount but has no exception condition; skipping.", rule.Id, rule.Name);
+                return;
+            }
+
+            observedCount = await alerts.CountMatchingExceptionsAsync(rule.ExceptionCondition, from, now, cancellationToken);
+            breached = rule.Threshold.IsBreached(observedCount);
+        }
         else
         {
             observedCount = await alerts.CountMatchingLogsAsync(rule.Condition, from, now, cancellationToken);
