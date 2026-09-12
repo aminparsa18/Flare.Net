@@ -33,6 +33,7 @@ the full rule set on what goes where.
 - [Run with the CLI](how-to/run-with-cli.md)
 - [Configure authentication](how-to/configure-authentication.md)
 - [Run in cluster mode](how-to/run-cluster-mode.md)
+- [Build a custom dashboard](how-to/build-custom-dashboards.md)
 
 **Reference**
 - [CLI commands](reference/cli-commands.md)

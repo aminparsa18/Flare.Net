@@ -38,6 +38,7 @@
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import NetworkIcon from '@lucide/svelte/icons/network';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
+	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
 	import StarIcon from '@lucide/svelte/icons/star';
 	import RadioIcon from '@lucide/svelte/icons/radio';
@@ -57,6 +58,7 @@
 		'/indexing': RefreshCwIcon,
 		'/alerts': BellIcon,
 		'/resources': NetworkIcon,
+		'/dashboards': LayoutDashboardIcon,
 		'/views': LayoutGridIcon,
 		'/auth': ShieldIcon
 	};

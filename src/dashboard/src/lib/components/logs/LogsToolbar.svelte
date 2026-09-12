@@ -8,6 +8,7 @@
 	import ExportDialog from './ExportDialog.svelte';
 	import ShareViewButton from './ShareViewButton.svelte';
 	import SavedSearchesMenu from '$lib/components/logs/SavedSearchesMenu.svelte';
+	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -127,6 +128,8 @@
 	</Button>
 
 	<SavedSearchesMenu currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
+
+	<PinToDashboardButton panelType="Logs" currentState={() => explorer.toSavedViewState()} defaultTitle={m.nav_logs()} />
 
 	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />
 
