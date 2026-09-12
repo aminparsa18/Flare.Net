@@ -126,7 +126,7 @@ export function metricPointTypeFromString(value: MetricPointTypeName): MetricPoi
 }
 
 /** Matches `AlertModels.cs`'s `AlertConditionKind` member order. Not itself MemoryPack-TS-generated - `AlertRule`/`AlertRuleRequest`, its only consumers, are hand-written (nest `LogFilter`). */
-const ALERT_CONDITION_KIND_NAMES = ['LogCount', 'MetricThreshold'] as const;
+const ALERT_CONDITION_KIND_NAMES = ['LogCount', 'MetricThreshold', 'ExceptionCount'] as const;
 
 export type AlertConditionKindName = (typeof ALERT_CONDITION_KIND_NAMES)[number];
 

@@ -86,6 +86,13 @@
 	let metricAggregation = $state<MetricAlertAggregation>('Value');
 	let metricThresholdValueText = $state('0');
 
+	// Exception-count condition (AlertConditionKind.ExceptionCount) - see
+	// docs-internal/adr/0022-exception-count-alerting.md. Reuses `services` above for its
+	// ExceptionFilter scope - only one condition block is ever active at once, so there's no
+	// collision with LogCount's own use of `services`.
+	let exceptionType = $state('');
+	let exceptionMessage = $state('');
+
 	let testResult = $state<AlertTestResult | null>(null);
 	let testing = $state(false);
 	let testError = $state<string | null>(null);
@@ -129,11 +136,16 @@
 			metricType = 'Gauge';
 			metricAggregation = 'Value';
 			metricThresholdValueText = '0';
+			exceptionType = '';
+			exceptionMessage = '';
 		} else if (target) {
 			name = target.name;
 			description = target.description;
 			enabled = target.enabled;
-			services = target.condition.services ?? [];
+			// ExceptionCount's own filter scope reuses this same `services` state - see its
+			// declaration's comment - so it's populated from whichever filter this rule's
+			// conditionKind actually uses.
+			services = target.conditionKind === 'ExceptionCount' ? (target.exceptionCondition?.filter?.services ?? []) : (target.condition.services ?? []);
 			severityNumbers = target.condition.severityNumbers ?? [];
 			search = target.condition.search ?? '';
 			thresholdCountText = String(target.threshold.count);
@@ -162,6 +174,8 @@
 			metricType = target.metricCondition?.type ?? 'Gauge';
 			metricAggregation = target.metricCondition?.aggregation ?? 'Value';
 			metricThresholdValueText = String(target.metricThresholdValue ?? 0);
+			exceptionType = target.exceptionCondition?.exceptionType ?? '';
+			exceptionMessage = target.exceptionCondition?.exceptionMessage ?? '';
 		}
 	});
 
@@ -185,7 +199,9 @@
 	const hasCondition = $derived(
 		conditionKind === 'MetricThreshold'
 			? metricName.trim().length > 0 && Number.isFinite(metricThresholdValue)
-			: Number.isFinite(thresholdCount) && thresholdCount > 0
+			: conditionKind === 'ExceptionCount'
+				? exceptionType.trim().length > 0 && Number.isFinite(thresholdCount) && thresholdCount > 0
+				: Number.isFinite(thresholdCount) && thresholdCount > 0
 	);
 
 	const canSave = $derived(
@@ -263,10 +279,16 @@
 	}
 
 	function buildRequest(): AlertRuleRequest {
+		// `services` doubles as ExceptionCount's own filter scope (see its declaration's
+		// comment) - only folded into the LogFilter condition below when actually in
+		// LogCount mode, so an ExceptionCount draft's service picks never leak into the
+		// (ignored, but still sent) LogFilter placeholder.
 		const condition: AlertRuleRequest['condition'] = {};
-		if (services.length) condition.services = [...services];
-		if (severityNumbers.length) condition.severityNumbers = [...severityNumbers];
-		if (search.trim()) condition.search = search.trim();
+		if (conditionKind === 'LogCount') {
+			if (services.length) condition.services = [...services];
+			if (severityNumbers.length) condition.severityNumbers = [...severityNumbers];
+			if (search.trim()) condition.search = search.trim();
+		}
 		return {
 			name: name.trim(),
 			description: description.trim(),
@@ -295,7 +317,15 @@
 				conditionKind === 'MetricThreshold'
 					? { metricName: metricName.trim(), type: metricType, aggregation: metricAggregation }
 					: undefined,
-			metricThresholdValue: conditionKind === 'MetricThreshold' ? metricThresholdValue : undefined
+			metricThresholdValue: conditionKind === 'MetricThreshold' ? metricThresholdValue : undefined,
+			exceptionCondition:
+				conditionKind === 'ExceptionCount'
+					? {
+							exceptionType: exceptionType.trim(),
+							exceptionMessage: exceptionMessage.trim() || undefined,
+							filter: services.length ? { services: [...services] } : undefined
+						}
+					: undefined
 		};
 	}
 
@@ -364,11 +394,16 @@
 				<span class="text-xs font-medium">{m.alertRuleForm_conditionKindLabel()}</span>
 				<Select.Root type="single" value={conditionKind} onValueChange={(v) => v && (conditionKind = v as AlertConditionKind)}>
 					<Select.Trigger class="w-48">
-						{conditionKind === 'MetricThreshold' ? m.alertRuleForm_conditionKindMetricThreshold() : m.alertRuleForm_conditionKindLogCount()}
+						{conditionKind === 'MetricThreshold'
+							? m.alertRuleForm_conditionKindMetricThreshold()
+							: conditionKind === 'ExceptionCount'
+								? m.alertRuleForm_conditionKindExceptionCount()
+								: m.alertRuleForm_conditionKindLogCount()}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="LogCount" label={m.alertRuleForm_conditionKindLogCount()} />
 						<Select.Item value="MetricThreshold" label={m.alertRuleForm_conditionKindMetricThreshold()} />
+						<Select.Item value="ExceptionCount" label={m.alertRuleForm_conditionKindExceptionCount()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
@@ -392,6 +427,26 @@
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_searchLabel()}</span>
 					<Input bind:value={search} placeholder={m.alertRuleForm_optionalPlaceholder()} />
+				</div>
+			{:else if conditionKind === 'ExceptionCount'}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.alertRuleForm_exceptionTypeLabel()}</span>
+					<Input bind:value={exceptionType} placeholder={m.alertRuleForm_exceptionTypePlaceholder()} />
+				</div>
+
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.alertRuleForm_exceptionMessageLabel()}</span>
+					<Input bind:value={exceptionMessage} placeholder={m.alertRuleForm_optionalPlaceholder()} />
+					<span class="text-muted-foreground text-xs">{m.alertRuleForm_exceptionMessageHint()}</span>
+				</div>
+
+				<div class="flex flex-wrap items-center gap-2">
+					<PopoverMultiSelect
+						label={m.alertRuleForm_serviceLabel()}
+						options={serviceOptions}
+						selected={services}
+						onChange={(next) => (services = next)}
+					/>
 				</div>
 			{:else}
 				<div class="flex flex-col gap-1">
@@ -424,7 +479,7 @@
 			{/if}
 
 			<div class="flex items-end gap-2">
-				{#if conditionKind === 'LogCount'}
+				{#if conditionKind === 'LogCount' || conditionKind === 'ExceptionCount'}
 					<div class="flex flex-col gap-1">
 						<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
 						<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>

@@ -129,7 +129,7 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.WindowSeconds, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ExceptionCondition, rule.WindowSeconds, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -150,7 +150,7 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.WindowSeconds, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ExceptionCondition, request.WindowSeconds, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -218,6 +218,7 @@ public static class AlertEndpoints
             MetricCondition = request.MetricCondition,
             MetricThresholdValue = request.MetricThresholdValue,
             ChannelIds = defaults.ChannelIds,
+            ExceptionCondition = request.ExceptionCondition,
         };
 
         var result = await SendTestAsync(notifier, channels, draftRule, timeProvider, cancellationToken);
@@ -257,15 +258,17 @@ public static class AlertEndpoints
 
     /// <summary>
     /// Shared by both test endpoints: evaluates the rule/draft's condition (log-filter
-    /// count or metric-query threshold, per <paramref name="conditionKind"/>) over its
-    /// window and reports whether the threshold would breach - without touching cooldown
-    /// state or sending a notification (unlike <c>AlertEvaluationWorker</c>'s real
-    /// evaluation). A <see cref="AlertConditionKind.MetricThreshold"/> draft/rule with no
-    /// <paramref name="metricCondition"/>/<paramref name="metricThresholdValue"/> (an
-    /// incomplete draft still being edited) reports "wouldn't fire" rather than throwing -
-    /// <see cref="Model.AlertRuleRequest.ValidateCondition"/> is what rejects that shape on
-    /// create/update; this dry-run endpoint is intentionally more lenient, same as it never
-    /// calls <see cref="Model.AlertRuleRequest.ValidateChannel"/> either.
+    /// count, metric-query threshold, or exception-occurrence count, per
+    /// <paramref name="conditionKind"/>) over its window and reports whether the threshold
+    /// would breach - without touching cooldown state or sending a notification (unlike
+    /// <c>AlertEvaluationWorker</c>'s real evaluation). A <see cref="AlertConditionKind.MetricThreshold"/>
+    /// draft/rule with no <paramref name="metricCondition"/>/<paramref name="metricThresholdValue"/>,
+    /// or a <see cref="AlertConditionKind.ExceptionCount"/> draft/rule with no
+    /// <paramref name="exceptionCondition"/> (an incomplete draft still being edited) reports
+    /// "wouldn't fire" rather than throwing - <see cref="Model.AlertRuleRequest.ValidateCondition"/>
+    /// is what rejects that shape on create/update; this dry-run endpoint is intentionally
+    /// more lenient, same as it never calls <see cref="Model.AlertRuleRequest.ValidateChannel"/>
+    /// either.
     /// </summary>
     private static async Task<AlertTestResult> EvaluateAsync(
         IAlertQueryService alerts,
@@ -275,6 +278,7 @@ public static class AlertEndpoints
         AlertThreshold threshold,
         MetricAlertCondition? metricCondition,
         double? metricThresholdValue,
+        ExceptionCountCondition? exceptionCondition,
         int windowSeconds,
         CancellationToken cancellationToken)
     {
@@ -297,6 +301,25 @@ public static class AlertEndpoints
                 WindowSeconds = windowSeconds,
                 ConditionKind = conditionKind,
                 ObservedValue = value,
+            };
+        }
+
+        if (conditionKind == AlertConditionKind.ExceptionCount)
+        {
+            if (exceptionCondition is null)
+            {
+                return new AlertTestResult { ObservedCount = 0, WouldFire = false, EvaluatedAt = now, WindowSeconds = windowSeconds, ConditionKind = conditionKind, ObservedValue = null };
+            }
+
+            var exceptionCount = await alerts.CountMatchingExceptionsAsync(exceptionCondition, from, now, cancellationToken);
+            return new AlertTestResult
+            {
+                ObservedCount = exceptionCount,
+                WouldFire = threshold.IsBreached(exceptionCount),
+                EvaluatedAt = now,
+                WindowSeconds = windowSeconds,
+                ConditionKind = conditionKind,
+                ObservedValue = null,
             };
         }
 

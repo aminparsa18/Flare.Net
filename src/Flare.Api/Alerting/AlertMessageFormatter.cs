@@ -45,6 +45,13 @@ public static class AlertMessageFormatter
                    $"({comparatorSymbol} {rule.MetricThresholdValue:0.##}) over the last {rule.WindowSeconds}s";
         }
 
+        if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
+        {
+            var exceptionType = rule.ExceptionCondition?.ExceptionType ?? "?";
+            return $":rotating_light: Alert \"{rule.Name}\" fired: {exceptionType} occurred {(ulong)observedValue} times " +
+                   $"({comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s";
+        }
+
         return $":rotating_light: Alert \"{rule.Name}\" fired: {(ulong)observedValue} events " +
                $"({comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s";
     }

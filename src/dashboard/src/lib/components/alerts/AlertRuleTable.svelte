@@ -26,6 +26,13 @@
 			return rule.metricCondition ? `${rule.metricCondition.metricName} (${rule.metricCondition.aggregation})` : m.alertRuleTable_allLogs();
 		}
 
+		if (rule.conditionKind === 'ExceptionCount') {
+			if (!rule.exceptionCondition) return m.alertRuleTable_allLogs();
+			return rule.exceptionCondition.exceptionMessage
+				? `${rule.exceptionCondition.exceptionType} (${rule.exceptionCondition.exceptionMessage})`
+				: rule.exceptionCondition.exceptionType;
+		}
+
 		const parts: string[] = [];
 		if (rule.condition.services?.length) parts.push(rule.condition.services.join(', '));
 		const severities = rule.condition.severityNumbers ?? [];

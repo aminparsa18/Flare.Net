@@ -50,9 +50,31 @@ public class AlertConditionValidationTests
         Assert.NotNull(request.ValidateCondition());
     }
 
+    [Fact]
+    public void ExceptionCount_WithCondition_IsValid()
+    {
+        var request = Build(AlertConditionKind.ExceptionCount, exceptionCondition: MakeExceptionCondition());
+
+        Assert.Null(request.ValidateCondition());
+    }
+
+    [Fact]
+    public void ExceptionCount_MissingExceptionCondition_IsInvalid()
+    {
+        var request = Build(AlertConditionKind.ExceptionCount, exceptionCondition: null);
+
+        Assert.NotNull(request.ValidateCondition());
+    }
+
     private static MetricAlertCondition MakeCondition() => new() { MetricName = "process.threads", Type = MetricPointType.Gauge };
 
-    private static AlertRuleRequest Build(AlertConditionKind? conditionKind, MetricAlertCondition? metricCondition = null, double? metricThresholdValue = null) => new()
+    private static ExceptionCountCondition MakeExceptionCondition() => new() { ExceptionType = "System.NullReferenceException" };
+
+    private static AlertRuleRequest Build(
+        AlertConditionKind? conditionKind,
+        MetricAlertCondition? metricCondition = null,
+        double? metricThresholdValue = null,
+        ExceptionCountCondition? exceptionCondition = null) => new()
     {
         Name = "test",
         Threshold = new AlertThreshold { Count = 1 },
@@ -61,5 +83,6 @@ public class AlertConditionValidationTests
         ConditionKind = conditionKind,
         MetricCondition = metricCondition,
         MetricThresholdValue = metricThresholdValue,
+        ExceptionCondition = exceptionCondition,
     };
 }

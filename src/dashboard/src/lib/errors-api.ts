@@ -21,13 +21,29 @@ export interface ExceptionFilter {
 	services?: string[];
 }
 
-function toGeneratedExceptionFilter(filter: ExceptionFilter | undefined): GeneratedExceptionFilter {
+/** Exported for `alerts-api.ts`'s `ExceptionCountCondition` - see `fromGeneratedExceptionFilter`'s doc comment below. */
+export function toGeneratedExceptionFilter(filter: ExceptionFilter | undefined): GeneratedExceptionFilter {
 	const dto = new GeneratedExceptionFilter();
 	if (filter == null) return dto;
 	dto.from = filter.from == null ? null : new Date(filter.from);
 	dto.to = filter.to == null ? null : new Date(filter.to);
 	dto.services = filter.services ?? null;
 	return dto;
+}
+
+/**
+ * The read-direction counterpart to `toGeneratedExceptionFilter` above - exported for
+ * `alerts-api.ts`'s `ExceptionCountCondition` (see
+ * `docs-internal/adr/0022-exception-count-alerting.md`), the first caller that reads an
+ * `ExceptionFilter` back from the server rather than only ever sending one.
+ */
+export function fromGeneratedExceptionFilter(dto: GeneratedExceptionFilter | null): ExceptionFilter | undefined {
+	if (dto == null) return undefined;
+	return {
+		from: dto.from?.toISOString(),
+		to: dto.to?.toISOString(),
+		services: (dto.services ?? []).filter((s): s is string => s != null)
+	};
 }
 
 // ---- POST /api/errors/groups (ExceptionGroupsRequest/Response) ------------

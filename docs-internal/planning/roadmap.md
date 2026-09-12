@@ -94,18 +94,3 @@ folders are where "what happened and why" actually lives.
   and exported dashboard JSON should carry only definitions, never
   embedded cached query results - SigNoz got this wrong first and fixed
   it later ([signoz#2052](https://github.com/SigNoz/signoz/commit/b72815ca2)).
-- **Exception-count alerting, as a third `AlertConditionKind`.**
-  Metric-threshold alerting shipped (`AlertConditionKind.MetricThreshold` -
-  see [`docs-internal/adr/0020-metric-threshold-alerting.md`](../adr/0020-metric-threshold-alerting.md)),
-  establishing the discriminator shape this item should reuse. Exceptions
-  are still queried through their own `ExceptionFilter`/
-  `ExceptionFilterSqlBuilder` path over span-event data
-  ([`src/Flare.Api/Query/ExceptionGroupQueryBuilder.cs`](../../src/Flare.Api/Query/ExceptionGroupQueryBuilder.cs)),
-  entirely separate from `LogFilter`/`MetricAlertCondition`, so there's
-  still no way to alert on e.g. "this exception type occurred N times in
-  5 minutes." SigNoz has this as its own alert type
-  ([signoz#1752](https://github.com/SigNoz/signoz/commit/33d34af2a)).
-  Fold in as a third `AlertConditionKind` (`ExceptionCount`) alongside
-  `LogCount`/`MetricThreshold`, following ADR-0020's established
-  discriminator/additive-migration pattern, not a from-scratch design.
-  Not started.
