@@ -1132,6 +1132,8 @@
 	"dashboardPanelCard_renameLabel": "Название панели",
 	"dashboardPanelCard_createAlert": "Создать оповещение из этой панели",
 	"dashboardPanelCard_alertNameFromPanel": "Оповещение: {title}",
+	"dashboardPanelCard_duplicate": "Дублировать панель",
+	"dashboardPanelCard_export": "Экспортировать панель",
 	"addPanelDialog_title": "Добавить панель",
 	"addPanelDialog_description": "Постройте запрос и добавьте его как новую панель на этот дашборд.",
 	"addPanelDialog_titleLabel": "Название панели",

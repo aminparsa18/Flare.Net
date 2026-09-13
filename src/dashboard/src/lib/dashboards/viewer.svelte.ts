@@ -8,12 +8,22 @@
 // Phase 4 adds a dashboard-wide "Service" override - the scoped-down MVP of dashboard
 // variables (see roadmap.md's own remarks on what's deliberately *not* built here):
 // session-only, one fixed built-in variable, no query-backed/chained variables.
+//
+// duplicatePanel()/exportPanel() (roadmap follow-up to Phase 3, which only covered a whole
+// dashboard) are this class's own counterparts to DashboardsState's duplicate()/
+// exportDashboard() - same "just another mutation against what's already loaded, no new
+// API endpoint" shape, just scoped to one panel within `dashboard` instead of a whole
+// dashboard in the list.
 
 import { getDashboard, updateDashboard, type DashboardSummary, type DashboardPanel } from '$lib/dashboards-api';
 import { aggregateLogs } from '$lib/api';
 import type { TimeRangePreset } from '$lib/logs/time-range';
 import { type RefreshInterval, refreshIntervalMs } from './refresh-intervals';
 import { getHomeDashboardId, setHomeDashboardId, clearHomeDashboardIdIfMatching } from './home-preference';
+import { nextPanelPosition } from './layout';
+import { slugify } from './state.svelte';
+import { downloadBlob } from '$lib/logs/export';
+import * as m from '$lib/paraglide/messages';
 
 export class DashboardViewerState {
 	dashboard = $state<DashboardSummary | null>(null);
@@ -209,5 +219,36 @@ export class DashboardViewerState {
 		} finally {
 			this.removingPanelId = null;
 		}
+	}
+
+	/** Appends an independent copy of `panelId` (new id, "(copy)" title, placed below every
+	 *  existing panel per nextPanelPosition - same placement AddPanelDialog gives a brand-new
+	 *  panel) right after it in the same dashboard. Mirrors DashboardsState.duplicate(), just
+	 *  one panel instead of a whole dashboard, and going through addPanel's own PUT rather
+	 *  than a fresh createDashboard() call since there's no new dashboard here. */
+	async duplicatePanel(panelId: string): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		const original = dashboard.layout.panels.find((p) => p.id === panelId);
+		if (!original) return;
+		await this.addPanel({
+			...original,
+			id: crypto.randomUUID(),
+			title: m.dashboardTable_duplicateName({ name: original.title }),
+			layout: nextPanelPosition(dashboard.layout.panels)
+		});
+	}
+
+	/** Downloads `panelId`'s definition (type/title/size/query - never any cached query
+	 *  result, same "definitions only" rule exportDashboard() follows) as a JSON file.
+	 *  Position (x/y) is deliberately omitted - it's only meaningful within this dashboard's
+	 *  own grid, not something a copy elsewhere could reuse. No import path for this file
+	 *  exists yet, same as exportDashboard() before Phase 3's import follow-up landed. */
+	exportPanel(panelId: string): void {
+		const panel = this.dashboard?.layout.panels.find((p) => p.id === panelId);
+		if (!panel) return;
+		const body = { panelType: panel.panelType, title: panel.title, layout: { w: panel.layout.w, h: panel.layout.h }, query: panel.query };
+		const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json;charset=utf-8' });
+		downloadBlob(blob, `flare-dashboard-panel_${slugify(panel.title, 'panel')}.json`);
 	}
 }

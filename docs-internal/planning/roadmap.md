@@ -94,7 +94,6 @@ folders are where "what happened and why" actually lives.
   - Lower-priority nice-to-have: importing Grafana dashboard JSON, easing
     migration for anyone coming from Grafana
     ([signoz#1700](https://github.com/SigNoz/signoz/commit/9735a6e5c)).
-  - Per-panel duplicate/export (Phase 3 only covers a whole dashboard).
   - Per-user dashboard ownership (today: global/visible to every
     authenticated user, same as saved views and alert rules).
   More design notes worth baking in from the start: variable chaining -

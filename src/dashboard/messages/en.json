@@ -1173,6 +1173,8 @@
 	"dashboardPanelCard_renameLabel": "Panel title",
 	"dashboardPanelCard_createAlert": "Create alert from this panel",
 	"dashboardPanelCard_alertNameFromPanel": "Alert: {title}",
+	"dashboardPanelCard_duplicate": "Duplicate panel",
+	"dashboardPanelCard_export": "Export panel",
 	"addPanelDialog_title": "Add panel",
 	"addPanelDialog_description": "Build a query and add it as a new panel on this dashboard.",
 	"addPanelDialog_titleLabel": "Panel title",

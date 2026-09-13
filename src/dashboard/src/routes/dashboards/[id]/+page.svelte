@@ -242,6 +242,8 @@
 				onLayoutChange={(changes) => viewer.updateLayout(changes)}
 				onRemove={(id) => viewer.removePanel(id)}
 				onRename={(id, title) => viewer.renamePanel(id, title)}
+				onDuplicate={(id) => viewer.duplicatePanel(id)}
+				onExport={(id) => viewer.exportPanel(id)}
 			/>
 		</div>
 	{/if}

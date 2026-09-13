@@ -1173,6 +1173,8 @@
 	"dashboardPanelCard_renameLabel": "面板标题",
 	"dashboardPanelCard_createAlert": "根据此面板创建警报",
 	"dashboardPanelCard_alertNameFromPanel": "警报:{title}",
+	"dashboardPanelCard_duplicate": "复制面板",
+	"dashboardPanelCard_export": "导出面板",
 	"addPanelDialog_title": "添加面板",
 	"addPanelDialog_description": "构建查询并将其作为新面板添加到此仪表板。",
 	"addPanelDialog_titleLabel": "面板标题",

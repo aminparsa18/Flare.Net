@@ -34,7 +34,9 @@
 		removingPanelId,
 		onLayoutChange,
 		onRemove,
-		onRename
+		onRename,
+		onDuplicate,
+		onExport
 	}: {
 		panels: DashboardPanel[];
 		editing: boolean;
@@ -45,6 +47,8 @@
 		onLayoutChange: (next: { id: string; layout: DashboardPanel['layout'] }[]) => void;
 		onRemove: (id: string) => void;
 		onRename: (id: string, title: string) => void;
+		onDuplicate: (id: string) => void;
+		onExport: (id: string) => void;
 	} = $props();
 
 	let container: HTMLDivElement;
@@ -118,6 +122,8 @@
 					removing={removingPanelId === panel.id}
 					onRemove={() => onRemove(panel.id)}
 					onRename={(title) => onRename(panel.id, title)}
+					onDuplicate={() => onDuplicate(panel.id)}
+					onExport={() => onExport(panel.id)}
 				/>
 			</div>
 		</div>
