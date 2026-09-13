@@ -7,6 +7,10 @@
 	// hidden for a Viewer via `auth.canMutate` - see that property's own remarks. Open
 	// and Export stay available to everyone: opening is read-only, and Export just
 	// downloads the dashboard's already-loaded JSON client-side, no API call at all.
+	//
+	// Import accepts either a Flare export or a Grafana dashboard export from the same file
+	// picker - DashboardsState.importDashboard() sniffs which shape it got. See that method
+	// and $lib/dashboards/grafana-import.ts.
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
@@ -66,7 +70,7 @@
 	{#if auth.canMutate}
 		<div class="flex items-center gap-2">
 			<input bind:this={importInput} type="file" accept="application/json" class="hidden" onchange={handleImportFileChange} />
-			<Button size="sm" variant="outline" onclick={() => importInput?.click()}>
+			<Button size="sm" variant="outline" title={m.dashboardTable_importTitle()} onclick={() => importInput?.click()}>
 				<UploadIcon data-icon="inline-start" />
 				{m.dashboardTable_import()}
 			</Button>
@@ -81,6 +85,10 @@
 {#if dashboards.importError}
 	<Alert variant="destructive" class="mx-4 mt-3">
 		<AlertDescription>{dashboards.importError}</AlertDescription>
+	</Alert>
+{:else if dashboards.importWarning}
+	<Alert class="mx-4 mt-3">
+		<AlertDescription>{dashboards.importWarning}</AlertDescription>
 	</Alert>
 {/if}
 

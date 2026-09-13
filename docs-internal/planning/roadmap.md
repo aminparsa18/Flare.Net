@@ -91,9 +91,6 @@ folders are where "what happened and why" actually lives.
     and letting a variable back something other than the one thing
     "Service" happens to cover today
     ([signoz#1552](https://github.com/SigNoz/signoz/commit/461a15d52d2840cd6e50e237cd3f8ab9860321a7)).
-  - Lower-priority nice-to-have: importing Grafana dashboard JSON, easing
-    migration for anyone coming from Grafana
-    ([signoz#1700](https://github.com/SigNoz/signoz/commit/9735a6e5c)).
   - Per-user dashboard ownership (today: global/visible to every
     authenticated user, same as saved views and alert rules).
   More design notes worth baking in from the start: variable chaining -
