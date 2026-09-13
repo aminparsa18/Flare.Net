@@ -99,6 +99,20 @@ enregistrée sur l'objet tableau de bord, donc sans effet sur ce que voient
 les autres) — si le tableau de bord est ensuite supprimé, Flare revient au
 Logs Explorer la prochaine fois plutôt que d'afficher une page cassée.
 
+## Surcharger le service pour une session
+
+Le sélecteur de **service** dans l'en-tête d'un tableau de bord (à côté de
+la surcharge de plage de temps) restreint temporairement chaque panneau
+Logs/Metrics/Traces à un seul service, quel que soit celui avec lequel
+chaque panneau a été individuellement épinglé/ajouté. Remettez-le sur
+**Service propre à chaque panneau** pour revenir à l'affichage du/des
+service(s) avec lesquels chaque panneau a été enregistré. Comme la
+surcharge de plage de temps, ceci est propre au navigateur/à la session —
+jamais enregistré sur le tableau de bord. Il s'agit d'une variable fixe et
+intégrée, pas d'une variable enregistrée ou alimentée par une requête :
+elle signifie toujours « service », et il n'est pas encore possible de
+définir votre propre variable alimentée par une requête arbitraire.
+
 ## Créer une alerte depuis un panneau
 
 Cliquez sur l'icône **cloche** dans l'en-tête d'un panneau Logs ou Metrics

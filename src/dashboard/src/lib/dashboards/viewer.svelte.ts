@@ -5,8 +5,12 @@
 // adds `editing` (drives DashboardGrid.svelte's drag/resize), a dashboard-wide time-range
 // override, and add/reposition/rename alongside remove. Phase 3 (roadmap's "Custom,
 // user-built dashboards" item) adds an auto-refresh interval and the "set as home" toggle.
+// Phase 4 adds a dashboard-wide "Service" override - the scoped-down MVP of dashboard
+// variables (see roadmap.md's own remarks on what's deliberately *not* built here):
+// session-only, one fixed built-in variable, no query-backed/chained variables.
 
 import { getDashboard, updateDashboard, type DashboardSummary, type DashboardPanel } from '$lib/dashboards-api';
+import { aggregateLogs } from '$lib/api';
 import type { TimeRangePreset } from '$lib/logs/time-range';
 import { type RefreshInterval, refreshIntervalMs } from './refresh-intervals';
 import { getHomeDashboardId, setHomeDashboardId, clearHomeDashboardIdIfMatching } from './home-preference';
@@ -28,6 +32,21 @@ export class DashboardViewerState {
 	 * changing what a saved panel shows for everyone who opens this dashboard next.
 	 */
 	timeRangeOverride = $state<TimeRangePreset | null>(null);
+
+	/**
+	 * Overrides every panel's own `services` filter for this session, or `null` to leave
+	 * each panel showing whatever service(s) it was pinned/added with - same session-only
+	 * reasoning as timeRangeOverride above (this is the MVP "variable": one fixed built-in,
+	 * not a saved/query-backed one - see roadmap.md's own remarks on the fuller version
+	 * left as still-open work).
+	 */
+	serviceOverride = $state<string | null>(null);
+
+	/** Options for the Service override picker - loaded once in load() below, same wide-window
+	 *  aggregate `LogsExplorerState.loadKnownServices`/AlertRuleFormDialog's own copy of it use
+	 *  (see this class's loadKnownServices' own remarks for why this is a third copy rather
+	 *  than sharing one of those). */
+	knownServices = $state<string[]>([]);
 
 	/** Off by default - opening a dashboard never starts silently polling. Session-only,
 	 *  same reasoning as timeRangeOverride above. */
@@ -58,6 +77,31 @@ export class DashboardViewerState {
 		} finally {
 			this.loading = false;
 		}
+		// Fire-and-forget, same as AlertRuleFormDialog's own onMount - the service picker
+		// just shows fewer/no options until this resolves, not worth blocking the dashboard
+		// itself (`loading` above) on.
+		void this.loadKnownServices();
+	}
+
+	/** One-off, wide-window (7d) aggregate to enumerate service names - same query
+	 *  `LogsExplorerState.loadKnownServices`/AlertRuleFormDialog's own copy run, duplicated
+	 *  here rather than shared for the same reason AlertRuleFormDialog's own copy gives:
+	 *  this page has no LogsExplorerState instance of its own to borrow one from (each
+	 *  panel's own private explorer, inside DashboardLogsPanelBody, is scoped to that one
+	 *  panel and may not even be a Logs panel). */
+	async loadKnownServices(): Promise<void> {
+		try {
+			const to = new Date();
+			const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+			const res = await aggregateLogs({
+				filter: { from: from.toISOString(), to: to.toISOString() },
+				bucketWidthSeconds: 7 * 24 * 60 * 60,
+				groupBy: 'Service'
+			});
+			this.knownServices = [...new Set(res.buckets.map((b) => b.groupKey).filter((k): k is string => !!k))].sort();
+		} catch {
+			// Non-critical - the picker just shows fewer/no options until a retry.
+		}
 	}
 
 	setEditing(v: boolean): void {
@@ -66,6 +110,10 @@ export class DashboardViewerState {
 
 	setTimeRangeOverride(preset: TimeRangePreset | null): void {
 		this.timeRangeOverride = preset;
+	}
+
+	setServiceOverride(service: string | null): void {
+		this.serviceOverride = service;
 	}
 
 	setRefreshInterval(value: RefreshInterval): void {

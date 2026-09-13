@@ -1154,6 +1154,8 @@
 	"dashboardViewer_addPanel": "添加面板",
 	"dashboardViewer_timeRangeOverrideTitle": "在本次会话中覆盖所有面板的时间范围",
 	"dashboardViewer_timeRangeOverrideOff": "各面板自身的范围",
+	"dashboardViewer_serviceOverrideTitle": "在本次会话中覆盖所有面板的服务",
+	"dashboardViewer_serviceOverrideOff": "各面板自身的服务",
 	"dashboardViewer_refreshIntervalTitle": "自动刷新此仪表板上的所有面板",
 	"dashboardViewer_refreshOff": "自动刷新已关闭",
 	"dashboardViewer_refresh15s": "每 15 秒",

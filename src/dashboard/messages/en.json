@@ -1154,6 +1154,8 @@
 	"dashboardViewer_addPanel": "Add panel",
 	"dashboardViewer_timeRangeOverrideTitle": "Override every panel's time range for this session",
 	"dashboardViewer_timeRangeOverrideOff": "Each panel's own range",
+	"dashboardViewer_serviceOverrideTitle": "Override every panel's service for this session",
+	"dashboardViewer_serviceOverrideOff": "Each panel's own service",
 	"dashboardViewer_refreshIntervalTitle": "Auto-refresh every panel on this dashboard",
 	"dashboardViewer_refreshOff": "Auto-refresh off",
 	"dashboardViewer_refresh15s": "Every 15s",

@@ -19,8 +19,14 @@
 	let {
 		query,
 		timeRangeOverride,
+		serviceOverride,
 		refreshToken
-	}: { query: unknown; timeRangeOverride: TimeRangePreset | null; refreshToken: number } = $props();
+	}: {
+		query: unknown;
+		timeRangeOverride: TimeRangePreset | null;
+		serviceOverride: string | null;
+		refreshToken: number;
+	} = $props();
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
 	let ready = $state(false);
@@ -38,12 +44,48 @@
 	$effect(() => {
 		const override = timeRangeOverride;
 		if (!ready) return;
-		if (override) {
-			explorer.setTimeRangePreset(override);
-		} else if (overrideWasActive) {
-			void explorer.applySavedViewState(query);
-		}
+		// untrack: see DashboardLogsPanelBody.svelte's identical effect for why this whole
+		// block must be untracked - explorer.setXxx() ends up (via loadNames/runQuery's own
+		// synchronous prefix, before their first await) reading this same explorer's
+		// `filter.*` fields, which would otherwise make this effect depend on state it just
+		// wrote a moment earlier and loop (effect_update_depth_exceeded, caught live during
+		// e2e verification on the Logs/serviceOverride case this mirrors).
+		untrack(() => {
+			if (override) {
+				explorer.setTimeRangePreset(override);
+			} else if (overrideWasActive) {
+				// applySavedViewState is async here (unlike Logs/Traces - it reloads the metric
+				// name list first) - a still-active serviceOverride must be reapplied only after
+				// that resolves, or its own setServices would just be clobbered once the saved
+				// state lands. See DashboardLogsPanelBody.svelte's identical branch for why this
+				// reapply is needed at all.
+				void explorer.applySavedViewState(query).then(() => {
+					if (serviceOverride) explorer.setServices([serviceOverride]);
+				});
+			}
+		});
 		overrideWasActive = override != null;
+	});
+
+	// See DashboardLogsPanelBody.svelte's identical field/effect pair for the dashboard-wide
+	// "Service" variable - mirrored here, with the same async-revert handling as the
+	// timeRangeOverride effect above.
+	let serviceOverrideWasActive = untrack(() => serviceOverride != null);
+
+	$effect(() => {
+		const override = serviceOverride;
+		if (!ready) return;
+		// See the timeRangeOverride effect above for why this must be untracked.
+		untrack(() => {
+			if (override) {
+				explorer.setServices([override]);
+			} else if (serviceOverrideWasActive) {
+				void explorer.applySavedViewState(query).then(() => {
+					if (timeRangeOverride) explorer.setTimeRangePreset(timeRangeOverride);
+				});
+			}
+		});
+		serviceOverrideWasActive = override != null;
 	});
 
 	// See DashboardLogsPanelBody.svelte's identical block for why this compares against a

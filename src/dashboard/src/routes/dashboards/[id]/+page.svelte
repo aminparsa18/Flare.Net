@@ -16,6 +16,7 @@
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import ClockIcon from '@lucide/svelte/icons/clock';
+	import ServerIcon from '@lucide/svelte/icons/server';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
@@ -78,6 +79,15 @@
 		viewer.setTimeRangeOverride(value === OVERRIDE_OFF ? null : (value as TimeRangePreset));
 	}
 
+	// Dashboard-wide "Service" variable (MVP scope - see DashboardViewerState.serviceOverride's
+	// own remarks) - same OVERRIDE_OFF-sentinel shape as the time-range override above.
+	const SERVICE_OVERRIDE_OFF = '__off__';
+	const serviceOverrideLabel = $derived(viewer.serviceOverride ?? m.dashboardViewer_serviceOverrideOff());
+
+	function handleServiceOverrideChange(value: string): void {
+		viewer.setServiceOverride(value === SERVICE_OVERRIDE_OFF ? null : value);
+	}
+
 	function handleRefreshIntervalChange(value: string): void {
 		viewer.setRefreshInterval(value as RefreshInterval);
 	}
@@ -131,6 +141,23 @@
 						<Select.Item value={OVERRIDE_OFF} label={m.dashboardViewer_timeRangeOverrideOff()} />
 						{#each overridePresets as preset (preset.value)}
 							<Select.Item value={preset.value} label={presetLabel(preset.value)} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+
+				<Select.Root
+					type="single"
+					value={viewer.serviceOverride ?? SERVICE_OVERRIDE_OFF}
+					onValueChange={(v) => v && handleServiceOverrideChange(v)}
+				>
+					<Select.Trigger class="w-auto" title={m.dashboardViewer_serviceOverrideTitle()}>
+						<ServerIcon data-icon="inline-start" />
+						{serviceOverrideLabel}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value={SERVICE_OVERRIDE_OFF} label={m.dashboardViewer_serviceOverrideOff()} />
+						{#each viewer.knownServices as service (service)}
+							<Select.Item value={service} label={service} />
 						{/each}
 					</Select.Content>
 				</Select.Root>
@@ -203,6 +230,7 @@
 				panels={viewer.dashboard.layout.panels}
 				editing={viewer.editing}
 				timeRangeOverride={viewer.timeRangeOverride}
+				serviceOverride={viewer.serviceOverride}
 				refreshToken={viewer.refreshToken}
 				removingPanelId={viewer.removingPanelId}
 				onLayoutChange={(changes) => viewer.updateLayout(changes)}
