@@ -11,6 +11,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { listDashboards, createDashboard, updateDashboard, type DashboardSummary, type PanelType } from '$lib/dashboards-api';
+	import { nextPanelPosition } from '$lib/dashboards/layout';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -67,23 +68,24 @@
 		saving = true;
 		error = null;
 		try {
+			const target = selectedId === NEW_DASHBOARD ? null : dashboards.find((d) => d.id === selectedId);
+			if (selectedId !== NEW_DASHBOARD && !target) throw new Error('Selected dashboard no longer exists.');
+			const existingPanels = target?.layout.panels ?? [];
 			const panel = {
 				id: crypto.randomUUID(),
 				panelType,
 				title: panelTitle,
-				layout: { x: 0, y: 0, w: 12, h: 4 },
+				layout: nextPanelPosition(existingPanels),
 				query: currentState()
 			};
 
-			if (selectedId === NEW_DASHBOARD) {
+			if (!target) {
 				await createDashboard({ name: newDashboardName, description: '', layout: { panels: [panel] } });
 			} else {
-				const target = dashboards.find((d) => d.id === selectedId);
-				if (!target) throw new Error('Selected dashboard no longer exists.');
 				await updateDashboard(target.id, {
 					name: target.name,
 					description: target.description,
-					layout: { panels: [...target.layout.panels, panel] }
+					layout: { panels: [...existingPanels, panel] }
 				});
 			}
 			open = false;
