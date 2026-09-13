@@ -62,7 +62,7 @@ folders are where "what happened and why" actually lives.
   static viewer), Phase 2 (ADR-0024, drag/resize grid editor,
   add/rename/remove panels in place, session-only dashboard-wide
   time-range override), Phase 3 (session-only auto-refresh interval;
-  whole-dashboard duplicate and JSON export - no import path yet; a
+  whole-dashboard duplicate and JSON export/import round-trip; a
   per-browser "set as home page" preference that self-clears if the chosen
   dashboard is later deleted), and Phase 4: full-screen/TV mode (a
   session-only, per-browser nav-chrome toggle using the Fullscreen API); a
@@ -77,10 +77,12 @@ folders are where "what happened and why" actually lives.
   Delete/Edit/Add-panel/Pin-to-dashboard controls in the UI so a Viewer
   never hits a 403, per the SigNoz button-level precedent
   [signoz#1051](https://github.com/SigNoz/signoz/commit/5caf94f024c2447d04d7609c5e018ecd7cba1ed2)/
-  [#1066](https://github.com/SigNoz/signoz/commit/6c5a48082b0ea6eec51accf57de29ab1e611222b)) -
+  [#1066](https://github.com/SigNoz/signoz/commit/6c5a48082b0ea6eec51accf57de29ab1e611222b));
+  and importing this app's own dashboard-export JSON back in (an "Import"
+  button next to Export, filling the one-way gap Phase 3 left open) -
   see [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
   for the user-facing walkthrough of all of the above. Still open, not started:
-   - Full dashboard variables/templating - Phase 4 shipped only the scoped-
+  - Full dashboard variables/templating - Phase 4 shipped only the scoped-
     down MVP (one fixed built-in "Service" variable, sourced the same way
     each Explorer toolbar's own service filter already is - see
     `DashboardViewerState.serviceOverride`). Still open: a *saved,
@@ -92,9 +94,6 @@ folders are where "what happened and why" actually lives.
   - Lower-priority nice-to-have: importing Grafana dashboard JSON, easing
     migration for anyone coming from Grafana
     ([signoz#1700](https://github.com/SigNoz/signoz/commit/9735a6e5c)).
-    (Importing this app's own dashboard-export JSON back in shipped as a
-    Phase 3 follow-up - see `docs/how-to/build-custom-dashboards.md`'s
-    "Managing dashboards" section.)
   - Per-panel duplicate/export (Phase 3 only covers a whole dashboard).
   - Per-user dashboard ownership (today: global/visible to every
     authenticated user, same as saved views and alert rules).
