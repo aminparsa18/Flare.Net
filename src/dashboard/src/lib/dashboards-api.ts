@@ -61,7 +61,10 @@ export interface DashboardListResponse {
 
 const EMPTY_LAYOUT: DashboardLayout = { panels: [] };
 
-function parseLayout(raw: unknown): DashboardLayout {
+/** Exported so `DashboardsState.importDashboard()` can apply the same "malformed layout ->
+ *  empty panels, don't throw" leniency to a hand-edited/corrupted import file that this
+ *  module already applies to a server response's `layoutJson`. */
+export function parseLayout(raw: unknown): DashboardLayout {
 	if (raw != null && typeof raw === 'object' && Array.isArray((raw as DashboardLayout).panels)) {
 		return raw as DashboardLayout;
 	}

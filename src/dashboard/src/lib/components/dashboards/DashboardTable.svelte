@@ -3,7 +3,7 @@
 	// unlike SavedViewTable.svelte (no create flow, see SavedViewsState's remarks), a
 	// dashboard is created blank from here, same shape as an alert rule.
 	//
-	// New/Rename/Duplicate/Delete are all real mutations (create/PUT/DELETE) and are
+	// New/Rename/Duplicate/Import/Delete are all real mutations (create/PUT/DELETE) and are
 	// hidden for a Viewer via `auth.canMutate` - see that property's own remarks. Open
 	// and Export stay available to everyone: opening is read-only, and Export just
 	// downloads the dashboard's already-loaded JSON client-side, no API call at all.
@@ -11,6 +11,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { goto } from '$app/navigation';
 	import { authContext } from '$lib/auth/context';
 	import { dashboardsContext } from '$lib/dashboards/context';
@@ -18,6 +19,7 @@
 	import type { DashboardSummary } from '$lib/dashboards-api';
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import UploadIcon from '@lucide/svelte/icons/upload';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
@@ -26,6 +28,8 @@
 
 	const auth = authContext.get();
 	const dashboards = dashboardsContext.get();
+
+	let importInput: HTMLInputElement | undefined = $state();
 
 	function formatDate(iso: string): string {
 		return new Date(iso).toLocaleString(undefined, { hour12: false });
@@ -41,6 +45,17 @@
 		const id = await dashboards.duplicate(dashboard);
 		if (id) await goto(dashboardPath({ id }));
 	}
+
+	/** Same "land on what you just made" UX as handleDuplicate() above. Resets the input's
+	 *  value afterward so picking the same file again still fires a change event. */
+	async function handleImportFileChange(event: Event): Promise<void> {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) return;
+		const id = await dashboards.importDashboard(file);
+		if (id) await goto(dashboardPath({ id }));
+	}
 </script>
 
 <div class="flex items-center justify-between border-b px-4 py-3">
@@ -49,12 +64,25 @@
 		<p class="text-muted-foreground text-xs">{m.dashboardTable_description()}</p>
 	</div>
 	{#if auth.canMutate}
-		<Button size="sm" onclick={() => dashboards.openCreate()}>
-			<PlusIcon data-icon="inline-start" />
-			{m.dashboardTable_new()}
-		</Button>
+		<div class="flex items-center gap-2">
+			<input bind:this={importInput} type="file" accept="application/json" class="hidden" onchange={handleImportFileChange} />
+			<Button size="sm" variant="outline" onclick={() => importInput?.click()}>
+				<UploadIcon data-icon="inline-start" />
+				{m.dashboardTable_import()}
+			</Button>
+			<Button size="sm" onclick={() => dashboards.openCreate()}>
+				<PlusIcon data-icon="inline-start" />
+				{m.dashboardTable_new()}
+			</Button>
+		</div>
 	{/if}
 </div>
+
+{#if dashboards.importError}
+	<Alert variant="destructive" class="mx-4 mt-3">
+		<AlertDescription>{dashboards.importError}</AlertDescription>
+	</Alert>
+{/if}
 
 {#if dashboards.loading}
 	<div class="flex flex-1 items-center justify-center">
