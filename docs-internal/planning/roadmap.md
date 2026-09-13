@@ -58,31 +58,25 @@ folders are where "what happened and why" actually lives.
   a new AST node, and translator support for `mapContains`/map-subscript
   SQL. Approach TBD (SQL-bar grammar vs. something else entirely) - not
   started.
-- **Custom, user-built dashboards (multi-panel, saved, composed from
-  arbitrary log/trace/metric queries).** A bigger item, likely needs its
-  own design pass before implementation. Distinct from
-  [`Saved views`](../../src/dashboard/src/routes/views) — a saved view is
-  one named filter preset for a single Logs/Traces/Metrics page; a
-  dashboard is a named collection of independent panels (mix of charts
-  from different queries/signals) arranged on a grid. No CRUD for this
-  shape exists anywhere in `Flare.Api` today. Not started. When this does
-  get built: gate widget edit/delete and dashboard-description edit in
-  the UI itself by role (admin/editor can mutate, viewer read-only), not
-  just a 403 from the API — SigNoz does this at the button level
-  (e.g. [signoz#1051](https://github.com/SigNoz/signoz/commit/5caf94f024c2447d04d7609c5e018ecd7cba1ed2),
-  [#1066](https://github.com/SigNoz/signoz/commit/6c5a48082b0ea6eec51accf57de29ab1e611222b)).
-  Also worth avoiding a pitfall SigNoz hit and walked back: don't wire
-  grid-layout drag/resize directly to a persistence API call on every
-  tick — they did, then removed it in favor of an explicit save
-  ([signoz#1306](https://github.com/SigNoz/signoz/commit/63e663a92d88859f0ec5f5438ef9aba8641666ad)).
-  Also worth designing in from the start rather than bolting on later:
-  dashboard variables/templating - a saved variable backed by its own
-  query (e.g. "distinct `service.name` values"), surfaced as a dropdown
-  at the dashboard level, that every panel's query can reference
-  ([signoz#1552](https://github.com/SigNoz/signoz/commit/461a15d52d2840cd6e50e237cd3f8ab9860321a7)).
-  Lower-priority nice-to-have once dashboards exist: importing Grafana
-  dashboard JSON, easing migration for anyone coming from Grafana
-  ([signoz#1700](https://github.com/SigNoz/signoz/commit/9735a6e5c)).
+- **Custom, user-built dashboards** — shipped: Phase 1 (ADR-0023, CRUD +
+  static viewer) and Phase 2 (ADR-0024, drag/resize grid editor,
+  add/rename/remove panels in place, session-only dashboard-wide
+  time-range override). Still open, not started:
+  - Gate widget edit/delete and dashboard-description edit in the UI
+    itself by role (admin/editor can mutate, viewer read-only), not
+    just a 403 from the API — SigNoz does this at the button level
+    (e.g. [signoz#1051](https://github.com/SigNoz/signoz/commit/5caf94f024c2447d04d7609c5e018ecd7cba1ed2),
+    [#1066](https://github.com/SigNoz/signoz/commit/6c5a48082b0ea6eec51accf57de29ab1e611222b)).
+  - Dashboard variables/templating - a saved variable backed by its own
+    query (e.g. "distinct `service.name` values"), surfaced as a dropdown
+    at the dashboard level, that every panel's query can reference
+    ([signoz#1552](https://github.com/SigNoz/signoz/commit/461a15d52d2840cd6e50e237cd3f8ab9860321a7)).
+  - Lower-priority nice-to-have: importing Grafana dashboard JSON, easing
+    migration for anyone coming from Grafana
+    ([signoz#1700](https://github.com/SigNoz/signoz/commit/9735a6e5c)).
+  - Auto-refresh, and duplicate/export for a dashboard or a single panel.
+  - Per-user dashboard ownership (today: global/visible to every
+    authenticated user, same as saved views and alert rules).
   More design notes worth baking in from the start: variable chaining -
   one variable's choices narrow based on another's selected value
   ([signoz#2036](https://github.com/SigNoz/signoz/commit/cd9768c73),

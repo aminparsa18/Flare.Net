@@ -5,6 +5,16 @@ import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+	// gridstack ships internal relative imports without an explicit `.js` extension (e.g.
+	// `./gridstack-engine`) and no `"type": "module"`/`exports` map - fine for Vite's own
+	// bundler, but Vite's SSR build otherwise leaves node_modules packages as real runtime
+	// `import`s for Node to resolve, and Node's strict ESM resolver rejects an extensionless
+	// relative import with ERR_MODULE_NOT_FOUND. `noExternal` forces gridstack into the SSR
+	// bundle instead (DashboardGrid.svelte imports it at module scope, so it's evaluated
+	// during SSR even though GridStack.init() itself only ever runs client-side in onMount) -
+	// found via a real `adapter-node` production build + reload, not svelte-check (which
+	// only type-checks, it doesn't exercise SSR module resolution).
+	ssr: { noExternal: ['gridstack'] },
 	plugins: [
 		// Regenerates src/lib/paraglide/* (messages.ts, runtime.ts, server.ts) from
 		// project.inlang/ + messages/*.json on every dev/build/preview - must run before
