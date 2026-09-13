@@ -7,6 +7,7 @@
 	import { getChromeVisibilityContext } from '$lib/chrome/context.svelte';
 	import DashboardGrid from '$lib/components/dashboards/DashboardGrid.svelte';
 	import AddPanelDialog from '$lib/components/dashboards/AddPanelDialog.svelte';
+	import ManageVariablesDialog from '$lib/components/dashboards/ManageVariablesDialog.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
@@ -17,7 +18,7 @@
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import ClockIcon from '@lucide/svelte/icons/clock';
-	import ServerIcon from '@lucide/svelte/icons/server';
+	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
@@ -27,6 +28,7 @@
 	const auth = authContext.get();
 	const viewer = new DashboardViewerState();
 	let addPanelOpen = $state(false);
+	let manageVariablesOpen = $state(false);
 
 	// Full-screen/TV mode: hides AppNav (via the layout-provided chrome signal - see
 	// $lib/chrome/context.svelte.ts) and asks the browser's Fullscreen API to fill the screen with
@@ -81,13 +83,18 @@
 		viewer.setTimeRangeOverride(value === OVERRIDE_OFF ? null : (value as TimeRangePreset));
 	}
 
-	// Dashboard-wide "Service" variable (MVP scope - see DashboardViewerState.serviceOverride's
-	// own remarks) - same OVERRIDE_OFF-sentinel shape as the time-range override above.
-	const SERVICE_OVERRIDE_OFF = '__off__';
-	const serviceOverrideLabel = $derived(viewer.serviceOverride ?? m.dashboardViewer_serviceOverrideOff());
+	// Dashboard variables (docs-internal/adr/0025-dashboard-variables.md) - any number of
+	// them, each rendering its own dropdown with the same OVERRIDE_OFF-sentinel shape as the
+	// time-range override above ("All" meaning this variable isn't currently narrowing
+	// anything).
+	const VARIABLE_OFF = '__all__';
 
-	function handleServiceOverrideChange(value: string): void {
-		viewer.setServiceOverride(value === SERVICE_OVERRIDE_OFF ? null : value);
+	function variableLabel(variableId: string): string {
+		return viewer.variableValues[variableId] ?? m.dashboardViewer_variableAll();
+	}
+
+	function handleVariableChange(variableId: string, value: string): void {
+		viewer.setVariableValue(variableId, value === VARIABLE_OFF ? null : value);
 	}
 
 	function handleRefreshIntervalChange(value: string): void {
@@ -147,25 +154,32 @@
 					</Select.Content>
 				</Select.Root>
 
-				<Select.Root
-					type="single"
-					value={viewer.serviceOverride ?? SERVICE_OVERRIDE_OFF}
-					onValueChange={(v) => v && handleServiceOverrideChange(v)}
-				>
-					<Select.Trigger class="w-auto" title={m.dashboardViewer_serviceOverrideTitle()}>
-						<ServerIcon data-icon="inline-start" />
-						{serviceOverrideLabel}
-					</Select.Trigger>
-					<Select.Content>
-						<Select.Item value={SERVICE_OVERRIDE_OFF} label={m.dashboardViewer_serviceOverrideOff()} />
-						{#each viewer.knownServices as service (service)}
-							<Select.Item value={service} label={service} />
-						{/each}
-					</Select.Content>
-				</Select.Root>
+				{#each viewer.variables as variable (variable.id)}
+					<Select.Root
+						type="single"
+						value={viewer.variableValues[variable.id] ?? VARIABLE_OFF}
+						onValueChange={(v) => v && handleVariableChange(variable.id, v)}
+					>
+						<Select.Trigger class="w-auto" title={variable.name}>
+							<SlidersHorizontalIcon data-icon="inline-start" />
+							{variable.name}: {variableLabel(variable.id)}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value={VARIABLE_OFF} label={m.dashboardViewer_variableAll()} />
+							{#each viewer.variableOptions[variable.id] ?? [] as option (option)}
+								<Select.Item value={option} label={option} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				{/each}
 
 				{#if auth.canMutate}
 					{#if viewer.editing}
+						<Button variant="outline" size="sm" onclick={() => (manageVariablesOpen = true)}>
+							<SlidersHorizontalIcon data-icon="inline-start" />
+							{m.dashboardViewer_manageVariables()}
+						</Button>
+
 						<Button variant="outline" size="sm" onclick={() => (addPanelOpen = true)}>
 							<PlusIcon data-icon="inline-start" />
 							{m.dashboardViewer_addPanel()}
@@ -236,7 +250,7 @@
 				panels={viewer.dashboard.layout.panels}
 				editing={viewer.editing}
 				timeRangeOverride={viewer.timeRangeOverride}
-				serviceOverride={viewer.serviceOverride}
+				variableOverrides={viewer.resolvedVariableOverrides}
 				refreshToken={viewer.refreshToken}
 				removingPanelId={viewer.removingPanelId}
 				onLayoutChange={(changes) => viewer.updateLayout(changes)}
@@ -250,3 +264,4 @@
 </div>
 
 <AddPanelDialog bind:open={addPanelOpen} existingPanels={viewer.dashboard?.layout.panels ?? []} onAdd={(panel) => viewer.addPanel(panel)} />
+<ManageVariablesDialog bind:open={manageVariablesOpen} {viewer} />

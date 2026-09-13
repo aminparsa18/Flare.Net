@@ -168,7 +168,7 @@ export function parseGrafanaDashboard(parsed: unknown): GrafanaImportResult | nu
 
 	return {
 		name: typeof root.title === 'string' && root.title.trim() ? root.title : 'Imported dashboard',
-		layout: { panels },
+		layout: { panels, variables: [] },
 		importedCount: panels.length,
 		skippedCount,
 		skippedTypes: [...skippedTypes].sort()

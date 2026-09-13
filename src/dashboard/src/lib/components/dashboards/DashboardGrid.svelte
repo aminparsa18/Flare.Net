@@ -24,12 +24,13 @@
 	import DashboardPanelCard from './DashboardPanelCard.svelte';
 	import type { DashboardPanel } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
+	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 
 	let {
 		panels,
 		editing,
 		timeRangeOverride,
-		serviceOverride,
+		variableOverrides,
 		refreshToken,
 		removingPanelId,
 		onLayoutChange,
@@ -41,7 +42,7 @@
 		panels: DashboardPanel[];
 		editing: boolean;
 		timeRangeOverride: TimeRangePreset | null;
-		serviceOverride: string | null;
+		variableOverrides: ResolvedVariableOverrides;
 		refreshToken: number;
 		removingPanelId: string | null;
 		onLayoutChange: (next: { id: string; layout: DashboardPanel['layout'] }[]) => void;
@@ -117,7 +118,7 @@
 					{panel}
 					{editing}
 					{timeRangeOverride}
-					{serviceOverride}
+					{variableOverrides}
 					{refreshToken}
 					removing={removingPanelId === panel.id}
 					onRemove={() => onRemove(panel.id)}

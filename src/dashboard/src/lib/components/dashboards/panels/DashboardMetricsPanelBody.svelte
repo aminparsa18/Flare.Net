@@ -1,12 +1,21 @@
 <script lang="ts">
 	// Renders a "Metrics" panel by reusing the Metrics Explorer page's own state class +
 	// chart wholesale - same reuse decision as DashboardLogsPanelBody.svelte, see that
-	// file's header comment (including the `timeRangeOverride` handling, mirrored here).
+	// file's header comment (including the combined `timeRangeOverride`/`variableOverrides`
+	// effect, mirrored here against the async `applySavedViewState`/`runQuery`).
 	// `applySavedViewState` here is async (it reloads the metric name list before
 	// re-selecting the saved metric - see MetricsExplorerState's own remarks), so
 	// MetricChart's own `!explorer.selected` empty state carries the panel until that
 	// resolves - `ready` below exists purely to sequence the override effect after the
 	// initial saved-view application lands, not to gate what's rendered.
+	//
+	// Metrics has no attribute-equality filter of its own (only `services` and a single
+	// `groupByAttributeKey` dimension - see MetricsFilterState's own remarks), so an
+	// `Attribute`-target variable simply has nothing to attach to here: `variableOverrides`
+	// still carries any resolved attribute values, this panel just never reads them, the
+	// same way it already ignores every attribute-drill-down concept Logs/Traces have that
+	// Metrics doesn't.
+	//
 	// `refreshToken` (Phase 3) is DashboardViewerState's auto-refresh tick - see
 	// DashboardLogsPanelBody.svelte's header comment for the general shape, mirrored here
 	// against MetricsExplorerState.runQuery instead of runSearch.
@@ -15,16 +24,17 @@
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import MetricChart from '$lib/components/metrics/MetricChart.svelte';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
+	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 
 	let {
 		query,
 		timeRangeOverride,
-		serviceOverride,
+		variableOverrides,
 		refreshToken
 	}: {
 		query: unknown;
 		timeRangeOverride: TimeRangePreset | null;
-		serviceOverride: string | null;
+		variableOverrides: ResolvedVariableOverrides;
 		refreshToken: number;
 	} = $props();
 
@@ -37,55 +47,27 @@
 		});
 	});
 
-	// See DashboardLogsPanelBody.svelte's identical field for why this isn't `$state` and
-	// why it's seeded from the current prop via `untrack`.
-	let overrideWasActive = untrack(() => timeRangeOverride != null);
-
+	// See DashboardLogsPanelBody.svelte's identical effect for why this recomputes the
+	// panel's whole effective filter from its saved baseline on every change instead of
+	// reverting/reapplying overrides pairwise, and why the block below must be untracked -
+	// explorer.setXxx()/applySavedViewState end up (via loadNames/runQuery's own synchronous
+	// prefix, before their first await) reading this same explorer's `filter.*` fields,
+	// which would otherwise make this effect depend on state it just wrote a moment earlier
+	// and loop (effect_update_depth_exceeded, caught live during Phase 4's own e2e
+	// verification).
 	$effect(() => {
-		const override = timeRangeOverride;
+		const range = timeRangeOverride;
+		const overrides = variableOverrides;
 		if (!ready) return;
-		// untrack: see DashboardLogsPanelBody.svelte's identical effect for why this whole
-		// block must be untracked - explorer.setXxx() ends up (via loadNames/runQuery's own
-		// synchronous prefix, before their first await) reading this same explorer's
-		// `filter.*` fields, which would otherwise make this effect depend on state it just
-		// wrote a moment earlier and loop (effect_update_depth_exceeded, caught live during
-		// e2e verification on the Logs/serviceOverride case this mirrors).
 		untrack(() => {
-			if (override) {
-				explorer.setTimeRangePreset(override);
-			} else if (overrideWasActive) {
-				// applySavedViewState is async here (unlike Logs/Traces - it reloads the metric
-				// name list first) - a still-active serviceOverride must be reapplied only after
-				// that resolves, or its own setServices would just be clobbered once the saved
-				// state lands. See DashboardLogsPanelBody.svelte's identical branch for why this
-				// reapply is needed at all.
-				void explorer.applySavedViewState(query).then(() => {
-					if (serviceOverride) explorer.setServices([serviceOverride]);
-				});
-			}
+			// applySavedViewState is async here (unlike Logs/Traces - it reloads the metric name
+			// list first) - `services` must be applied only after that resolves, or setServices
+			// would just be clobbered once the saved state lands.
+			void explorer.applySavedViewState(query).then(() => {
+				if (range) explorer.setTimeRangePreset(range);
+				if (overrides.services.length) explorer.setServices(overrides.services);
+			});
 		});
-		overrideWasActive = override != null;
-	});
-
-	// See DashboardLogsPanelBody.svelte's identical field/effect pair for the dashboard-wide
-	// "Service" variable - mirrored here, with the same async-revert handling as the
-	// timeRangeOverride effect above.
-	let serviceOverrideWasActive = untrack(() => serviceOverride != null);
-
-	$effect(() => {
-		const override = serviceOverride;
-		if (!ready) return;
-		// See the timeRangeOverride effect above for why this must be untracked.
-		untrack(() => {
-			if (override) {
-				explorer.setServices([override]);
-			} else if (serviceOverrideWasActive) {
-				void explorer.applySavedViewState(query).then(() => {
-					if (timeRangeOverride) explorer.setTimeRangePreset(timeRangeOverride);
-				});
-			}
-		});
-		serviceOverrideWasActive = override != null;
 	});
 
 	// See DashboardLogsPanelBody.svelte's identical block for why this compares against a

@@ -79,25 +79,29 @@ folders are where "what happened and why" actually lives.
   [signoz#1051](https://github.com/SigNoz/signoz/commit/5caf94f024c2447d04d7609c5e018ecd7cba1ed2)/
   [#1066](https://github.com/SigNoz/signoz/commit/6c5a48082b0ea6eec51accf57de29ab1e611222b));
   and importing this app's own dashboard-export JSON back in (an "Import"
-  button next to Export, filling the one-way gap Phase 3 left open) -
+  button next to Export, filling the one-way gap Phase 3 left open); and
+  Phase 5 (ADR-0025): real dashboard variables - any number of named,
+  user-defined ones (not Phase 4's single fixed built-in), each either
+  `Query`-sourced (distinct values resolved live from Logs'/Traces' own
+  attribute-value endpoints, or a wide-window service aggregate) or a fixed
+  `Custom` list, backing either the `services` filter (Phase 4's own case,
+  generalized) or an arbitrary attribute bag+key equality match on Logs
+  and/or Traces panels (Metrics has no attribute filter to attach to) -
   see [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
   for the user-facing walkthrough of all of the above. Still open, not started:
-  - Full dashboard variables/templating - Phase 4 shipped only the scoped-
-    down MVP (one fixed built-in "Service" variable, sourced the same way
-    each Explorer toolbar's own service filter already is - see
-    `DashboardViewerState.serviceOverride`). Still open: a *saved,
-    query-backed* variable (e.g. "distinct `service.name` values" as its
-    own query, not a fixed built-in), more than one variable per dashboard,
-    and letting a variable back something other than the one thing
-    "Service" happens to cover today
-    ([signoz#1552](https://github.com/SigNoz/signoz/commit/461a15d52d2840cd6e50e237cd3f8ab9860321a7)).
+  - Variable chaining - one variable's choices narrowing based on another's
+    selected value, rather than every variable's options resolving
+    independently against the same fixed wide window (ADR-0025's own
+    "not built" note)
+    ([signoz#2036](https://github.com/SigNoz/signoz/commit/cd9768c73),
+    [#2037](https://github.com/SigNoz/signoz/commit/ca53136cb)).
+  - Per-panel opt-out from a dashboard variable - today a variable narrows
+    every panel its target/bag applies to, with no way for one panel to
+    say "don't narrow me".
   - Per-user dashboard ownership (today: global/visible to every
     authenticated user, same as saved views and alert rules).
-  More design notes worth baking in from the start: variable chaining -
-  one variable's choices narrow based on another's selected value
-  ([signoz#2036](https://github.com/SigNoz/signoz/commit/cd9768c73),
-  [#2037](https://github.com/SigNoz/signoz/commit/ca53136cb)); one global
-  time range driving every panel, not per-panel pickers
+  More design notes worth baking in from the start: one global time range
+  driving every panel, not per-panel pickers
   ([signoz#2013](https://github.com/SigNoz/signoz/commit/17f32e976));
   lazy-loading panels - only fetch/render what's in viewport, not every
   panel on page load ([signoz#2133](https://github.com/SigNoz/signoz/commit/af272a368));
@@ -106,5 +110,5 @@ folders are where "what happened and why" actually lives.
   it later ([signoz#2052](https://github.com/SigNoz/signoz/commit/b72815ca2));
   Phase 3's export already follows this (LayoutJson never held cached
   results to begin with - see `Dashboard`'s own remarks in
-  `DashboardModels.cs`), so this is really a "don't regress it" note for
-  whatever eventually adds variables, not open work today.
+  `DashboardModels.cs`), and Phase 5's variables followed the same rule
+  (only definitions are persisted, never a resolved value or option list).

@@ -80,12 +80,12 @@
 			};
 
 			if (!target) {
-				await createDashboard({ name: newDashboardName, description: '', layout: { panels: [panel] } });
+				await createDashboard({ name: newDashboardName, description: '', layout: { panels: [panel], variables: [] } });
 			} else {
 				await updateDashboard(target.id, {
 					name: target.name,
 					description: target.description,
-					layout: { panels: [...existingPanels, panel] }
+					layout: { panels: [...existingPanels, panel], variables: target.layout.variables }
 				});
 			}
 			open = false;
