@@ -1166,6 +1166,8 @@
 	"dashboardViewer_exitFullscreen": "退出全屏",
 	"dashboardPanelCard_dragHandle": "拖动以移动位置",
 	"dashboardPanelCard_renameLabel": "面板标题",
+	"dashboardPanelCard_createAlert": "根据此面板创建警报",
+	"dashboardPanelCard_alertNameFromPanel": "警报:{title}",
 	"addPanelDialog_title": "添加面板",
 	"addPanelDialog_description": "构建查询并将其作为新面板添加到此仪表板。",
 	"addPanelDialog_titleLabel": "面板标题",

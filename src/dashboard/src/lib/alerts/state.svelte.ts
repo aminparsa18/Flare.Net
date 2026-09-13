@@ -13,6 +13,7 @@ import {
 	type AlertRuleRequest,
 	type AlertHistoryEntry
 } from '$lib/alerts-api';
+import type { AlertPanelDraft } from '$lib/deep-links';
 
 export class AlertsState {
 	rules = $state.raw<AlertRule[]>([]);
@@ -27,6 +28,17 @@ export class AlertsState {
 	formTarget = $state<AlertRule | 'new' | null>(null);
 	saving = $state(false);
 	saveError = $state<string | null>(null);
+
+	/**
+	 * A pending "Create alert from panel" draft (see `$lib/deep-links.ts`'s
+	 * `AlertPanelDraft`/`parseAlertDeepLinkParams`) - deliberately *not* `$state`. It's a
+	 * one-shot handoff to AlertRuleFormDialog's own reset effect (consumed, then nulled
+	 * out, the first time `formTarget` becomes `'new'`); if this were reactive state, that
+	 * same nulling would re-trigger the effect and wipe the fields it just set. Plain
+	 * `openCreate()` (the toolbar's own "+ New alert" button) always clears this first, so
+	 * a stale draft never leaks into an unrelated blank rule.
+	 */
+	createDraft: AlertPanelDraft | null = null;
 
 	/** Drives the history sheet - the rule currently being inspected, or null if closed. */
 	historyRule = $state<AlertRule | null>(null);
@@ -49,6 +61,16 @@ export class AlertsState {
 
 	openCreate(): void {
 		this.saveError = null;
+		this.createDraft = null;
+		this.formTarget = 'new';
+	}
+
+	/** Opens the create dialog pre-filled from a Logs/Metrics dashboard panel - see
+	 *  `createDraft`'s own remarks and `DashboardPanelCard.svelte`'s "Create alert" action,
+	 *  the only caller. */
+	openCreateFromDraft(draft: AlertPanelDraft): void {
+		this.saveError = null;
+		this.createDraft = draft;
 		this.formTarget = 'new';
 	}
 

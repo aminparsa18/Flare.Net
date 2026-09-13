@@ -1166,6 +1166,8 @@
 	"dashboardViewer_exitFullscreen": "Exit full screen",
 	"dashboardPanelCard_dragHandle": "Drag to reposition",
 	"dashboardPanelCard_renameLabel": "Panel title",
+	"dashboardPanelCard_createAlert": "Create alert from this panel",
+	"dashboardPanelCard_alertNameFromPanel": "Alert: {title}",
 	"addPanelDialog_title": "Add panel",
 	"addPanelDialog_description": "Build a query and add it as a new panel on this dashboard.",
 	"addPanelDialog_titleLabel": "Panel title",

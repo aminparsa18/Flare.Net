@@ -64,10 +64,13 @@ folders are where "what happened and why" actually lives.
   time-range override), Phase 3 (session-only auto-refresh interval;
   whole-dashboard duplicate and JSON export - no import path yet; a
   per-browser "set as home page" preference that self-clears if the chosen
-  dashboard is later deleted), and, from Phase 4, full-screen/TV mode (a
-  session-only, per-browser nav-chrome toggle using the Fullscreen API - see
-  [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
-  for the user-facing walkthrough of all of the above). Still open, not started:
+  dashboard is later deleted), and, from Phase 4 so far: full-screen/TV mode
+  (a session-only, per-browser nav-chrome toggle using the Fullscreen API)
+  and a "Create alert" action on a Logs/Metrics panel (deep-links into the
+  Alerts page's create dialog, pre-filled with that panel's condition -
+  Traces has no alert condition kind to draft into, so it's skipped there) -
+  see [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
+  for the user-facing walkthrough of all of the above. Still open, not started:
   - Gate widget edit/delete and dashboard-description edit in the UI
     itself by role (admin/editor can mutate, viewer read-only), not
     just a 403 from the API — SigNoz does this at the button level
