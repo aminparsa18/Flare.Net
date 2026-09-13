@@ -3,6 +3,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
 	import { REFRESH_INTERVALS, refreshIntervalLabel, type RefreshInterval } from '$lib/dashboards/refresh-intervals';
+	import { getChromeVisibilityContext } from '$lib/chrome/context.svelte';
 	import DashboardGrid from '$lib/components/dashboards/DashboardGrid.svelte';
 	import AddPanelDialog from '$lib/components/dashboards/AddPanelDialog.svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -17,17 +18,51 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import HomeIcon from '@lucide/svelte/icons/home';
+	import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
+	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
 	import * as m from '$lib/paraglide/messages';
 
 	const viewer = new DashboardViewerState();
 	let addPanelOpen = $state(false);
 
+	// Full-screen/TV mode: hides AppNav (via the layout-provided chrome signal - see
+	// $lib/chrome/context.svelte.ts) and asks the browser's Fullscreen API to fill the screen with
+	// just this route's own root element, for wall-mounted displays. `isFullscreen` mirrors
+	// `document.fullscreenElement` rather than being toggled directly, so it stays correct
+	// however fullscreen ends - our own button, the browser's native Escape handling, or the
+	// user hitting F11 - since all three fire the same `fullscreenchange` event.
+	const chrome = getChromeVisibilityContext();
+	let rootEl = $state<HTMLDivElement>();
+	let isFullscreen = $state(false);
+	// Safari's un-prefixed detection lags; requestFullscreen()/exitFullscreen() are still
+	// called through the standard API below and simply no-op (button hidden) where absent.
+	const fullscreenSupported = typeof document !== 'undefined' && document.fullscreenEnabled;
+
+	function handleFullscreenChange(): void {
+		isFullscreen = document.fullscreenElement === rootEl;
+		chrome.hidden = isFullscreen;
+	}
+
+	function toggleFullscreen(): void {
+		if (isFullscreen) {
+			void document.exitFullscreen();
+		} else {
+			void rootEl?.requestFullscreen();
+		}
+	}
+
 	onMount(() => {
 		void viewer.load(page.params.id!);
+		document.addEventListener('fullscreenchange', handleFullscreenChange);
 	});
 
 	onDestroy(() => {
 		viewer.dispose();
+		document.removeEventListener('fullscreenchange', handleFullscreenChange);
+		// Leaving the route (not just toggling off) must always give the nav back, even if
+		// the browser is still mid-fullscreen (e.g. navigating away via a keyboard shortcut).
+		if (document.fullscreenElement === rootEl) void document.exitFullscreen();
+		chrome.hidden = false;
 	});
 
 	// Same "fixed-duration presets only" set Traces'/Metrics' own toolbars offer - see
@@ -52,7 +87,7 @@
 	<title>{viewer.dashboard ? `Flare — ${viewer.dashboard.name}` : m.dashboardsPage_title()}</title>
 </svelte:head>
 
-<div class="flex h-full flex-col">
+<div class="flex h-full flex-col" bind:this={rootEl}>
 	<div class="flex flex-wrap items-center gap-2 border-b px-4 py-3">
 		<Button variant="ghost" size="icon-sm" href="/dashboards" title={m.dashboardViewer_back()}>
 			<ArrowLeftIcon />
@@ -115,6 +150,21 @@
 					<PencilIcon data-icon="inline-start" />
 					{viewer.editing ? m.dashboardViewer_doneEditing() : m.dashboardViewer_edit()}
 				</Button>
+
+				{#if fullscreenSupported}
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						title={isFullscreen ? m.dashboardViewer_exitFullscreen() : m.dashboardViewer_fullscreen()}
+						onclick={toggleFullscreen}
+					>
+						{#if isFullscreen}
+							<Minimize2Icon />
+						{:else}
+							<Maximize2Icon />
+						{/if}
+					</Button>
+				{/if}
 			</div>
 		{/if}
 	</div>

@@ -85,6 +85,16 @@ preference (not saved to the dashboard object, so it doesn't affect what
 anyone else sees) — if the dashboard is later deleted, Flare falls back to
 the Logs Explorer next time rather than showing a broken page.
 
+## Full-screen / TV mode
+
+Click the **full screen** icon in a dashboard's header (next to Edit) to
+hide Flare's navigation bar and fill the browser window with just the
+dashboard's panels — useful for a wall-mounted display or a TV in a team
+space. Click the icon again, or press **Escape**, to exit. This uses your
+browser's own full-screen mode, so it's per-browser/per-session like the
+time-range override and auto-refresh above — nothing about it is saved to
+the dashboard.
+
 ## Managing dashboards
 
 From the **Dashboards** page you can:

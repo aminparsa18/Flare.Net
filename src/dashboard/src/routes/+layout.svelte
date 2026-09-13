@@ -11,12 +11,18 @@
 	import { AuthState } from '$lib/auth/state.svelte';
 	import { authContext } from '$lib/auth/context';
 	import { getBootstrapStatus } from '$lib/auth-api';
+	import { ChromeVisibilityState, setChromeVisibilityContext } from '$lib/chrome/context.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const { children } = $props();
 
 	const auth = new AuthState();
 	authContext.set(auth);
+
+	// Lets a child route (e.g. the dashboard viewer's full-screen/TV mode) hide AppNav
+	// without this layout knowing anything about why - see $lib/chrome/context.svelte.ts.
+	const chrome = new ChromeVisibilityState();
+	setChromeVisibilityContext(chrome);
 
 	// Shared between AppNav's visible trigger button and CommandPalette's own Cmd+K
 	// listener (siblings below, not parent/descendant) - see CommandPalette.svelte.
@@ -113,7 +119,7 @@
 	// off (everyone gets full access, including finding their way to turn it on) or
 	// someone's actually signed in - either way, never on the /login screen itself (its
 	// links would just bounce back through the guard above).
-	const showChrome = $derived(!onAuthRoute && (!auth.authEnabled || auth.currentUser !== null));
+	const showChrome = $derived(!onAuthRoute && (!auth.authEnabled || auth.currentUser !== null) && !chrome.hidden);
 </script>
 
 <!-- Handles both the dark/light class on <html> and, crucially, injects an inline
