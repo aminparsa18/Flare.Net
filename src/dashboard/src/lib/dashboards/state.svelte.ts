@@ -11,8 +11,14 @@
 // just that same request body written to a file (see Dashboard's C# remarks: LayoutJson
 // only ever holds panel definitions, never cached query results, so there's nothing to
 // strip before writing it out).
+//
+// importDashboard() (roadmap follow-up: "importing this app's own dashboard-export JSON
+// back in") closes the loop - it's the read side of exportDashboard()'s write, and, like
+// duplicate(), still just another createDashboard() call under the hood. No new API
+// endpoint here either, and no import of a *foreign* (e.g. Grafana) dashboard JSON - that's
+// a separate, larger roadmap item.
 
-import { listDashboards, createDashboard, updateDashboard, deleteDashboard, type DashboardSummary } from '$lib/dashboards-api';
+import { listDashboards, createDashboard, updateDashboard, deleteDashboard, parseLayout, type DashboardSummary } from '$lib/dashboards-api';
 import { downloadBlob } from '$lib/logs/export';
 import * as m from '$lib/paraglide/messages';
 
@@ -25,6 +31,10 @@ export class DashboardsState {
 	formTarget = $state<DashboardSummary | 'new' | null>(null);
 	saving = $state(false);
 	saveError = $state<string | null>(null);
+
+	/** Set by importDashboard() on a bad file - separate from `error`/`saveError` since it's
+	 *  surfaced next to the Import button itself, not inside the create/rename dialog. */
+	importError = $state<string | null>(null);
 
 	async load(): Promise<void> {
 		this.loading = true;
@@ -113,6 +123,40 @@ export class DashboardsState {
 		const body = { name: dashboard.name, description: dashboard.description, layout: dashboard.layout };
 		const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json;charset=utf-8' });
 		downloadBlob(blob, `flare-dashboard_${slugify(dashboard.name)}.json`);
+	}
+
+	/** The reverse of exportDashboard(): reads `file` (as produced by that method, or hand-
+	 *  edited from it), creates a new dashboard from it, and returns the copy's id (so the
+	 *  caller can navigate straight to it) or `null` on failure. A malformed `layout` is
+	 *  handled the same lenient way parseLayout() already treats a malformed server response
+	 *  - dropped to an empty panel list rather than rejected - but a missing/blank `name` is
+	 *  rejected outright, since unlike layout there's no sane default for it. */
+	async importDashboard(file: File): Promise<string | null> {
+		this.importError = null;
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(await file.text());
+		} catch {
+			this.importError = m.dashboardTable_importInvalidJson();
+			return null;
+		}
+		if (parsed == null || typeof parsed !== 'object' || typeof (parsed as { name?: unknown }).name !== 'string' || !(parsed as { name: string }).name.trim()) {
+			this.importError = m.dashboardTable_importInvalidShape();
+			return null;
+		}
+		const body = parsed as { name: string; description?: unknown; layout?: unknown };
+		try {
+			const created = await createDashboard({
+				name: body.name,
+				description: typeof body.description === 'string' ? body.description : undefined,
+				layout: parseLayout(body.layout)
+			});
+			await this.load();
+			return created.id;
+		} catch (err) {
+			this.importError = err instanceof Error ? err.message : String(err);
+			return null;
+		}
 	}
 }
 

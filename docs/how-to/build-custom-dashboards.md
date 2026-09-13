@@ -126,9 +126,13 @@ From the **Dashboards** page you can:
 - **Duplicate** a dashboard — creates an independent copy with the same
   panels, named "*(copy)*", that you can then edit separately.
 - **Export** a dashboard — downloads its name, description, and panel
-  definitions as a JSON file. There's no matching import yet (see "Known
-  gaps" below), so treat this as a readable backup/snapshot rather than a
-  way to move a dashboard between Flare instances today.
+  definitions as a JSON file, a readable backup/snapshot you can also use
+  to move a dashboard to another Flare instance (see **Import** below).
+- **Import** a dashboard — pick a JSON file previously produced by Export
+  (on this instance or another one) to create a new dashboard from it. This
+  only understands Flare's own export format, not a Grafana dashboard JSON
+  (see "Known gaps" below); an invalid or unrelated file is rejected with
+  an inline error rather than partially imported.
 - **Delete** a dashboard. This only removes the dashboard object itself —
   it never touches the underlying Logs/Traces/Metrics data.
 
@@ -158,8 +162,8 @@ search.
 
 ## Known gaps, stated plainly
 
-- **No import for an exported dashboard's JSON file** — export is one-way
-  today (see "Managing dashboards" above).
+- **No import of a Grafana dashboard JSON** — Import only understands
+  Flare's own export format (see "Managing dashboards" above).
 - **No per-panel duplicate/export** — only a whole dashboard.
 - **Dashboards are visible to every signed-in user**, the same as saved
   searches and alert rules today — there's no per-user ownership or private

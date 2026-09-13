@@ -148,10 +148,15 @@ Depuis la page **Dashboards**, vous pouvez :
   mêmes panneaux, nommée « *(copie)* », que vous pouvez ensuite modifier
   séparément.
 - **Exporter** un tableau de bord — télécharge son nom, sa description et
-  les définitions de ses panneaux sous forme de fichier JSON. Il n'y a pas
-  encore d'import correspondant (voir « Limites connues » ci-dessous) :
-  considérez plutôt cela comme une sauvegarde/instantané lisible que comme
-  un moyen de déplacer un tableau de bord entre instances Flare aujourd'hui.
+  les définitions de ses panneaux sous forme de fichier JSON, une sauvegarde/
+  instantané lisible que vous pouvez aussi utiliser pour déplacer un tableau
+  de bord vers une autre instance Flare (voir **Importer** ci-dessous).
+- **Importer** un tableau de bord — choisissez un fichier JSON produit
+  précédemment par Exporter (sur cette instance ou une autre) pour créer un
+  nouveau tableau de bord à partir de celui-ci. Cela ne comprend que le
+  format d'export propre à Flare, pas un JSON de tableau de bord Grafana
+  (voir « Limites connues » ci-dessous) ; un fichier invalide ou sans
+  rapport est rejeté avec une erreur affichée plutôt qu'importé partiellement.
 - **Supprimer** un tableau de bord. Cela ne supprime que l'objet tableau de
   bord lui-même — cela ne touche jamais aux données Logs/Traces/Metrics
   sous-jacentes.
@@ -184,9 +189,9 @@ consomme ni ne supprime une recherche enregistrée.
 
 ## Limites connues, dites clairement
 
-- **Pas d'import pour le fichier JSON exporté d'un tableau de bord** —
-  l'export est à sens unique aujourd'hui (voir « Gérer les tableaux de
-  bord » ci-dessus).
+- **Pas d'import d'un JSON de tableau de bord Grafana** — Importer ne
+  comprend que le format d'export propre à Flare (voir « Gérer les
+  tableaux de bord » ci-dessus).
 - **Pas de duplication/export par panneau** — uniquement pour un tableau de
   bord entier.
 - **Les tableaux de bord sont visibles par tous les utilisateurs connectés**,

@@ -80,7 +80,7 @@ folders are where "what happened and why" actually lives.
   [#1066](https://github.com/SigNoz/signoz/commit/6c5a48082b0ea6eec51accf57de29ab1e611222b)) -
   see [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
   for the user-facing walkthrough of all of the above. Still open, not started:
-  - Full dashboard variables/templating - Phase 4 shipped only the scoped-
+   - Full dashboard variables/templating - Phase 4 shipped only the scoped-
     down MVP (one fixed built-in "Service" variable, sourced the same way
     each Explorer toolbar's own service filter already is - see
     `DashboardViewerState.serviceOverride`). Still open: a *saved,
@@ -91,9 +91,10 @@ folders are where "what happened and why" actually lives.
     ([signoz#1552](https://github.com/SigNoz/signoz/commit/461a15d52d2840cd6e50e237cd3f8ab9860321a7)).
   - Lower-priority nice-to-have: importing Grafana dashboard JSON, easing
     migration for anyone coming from Grafana
-    ([signoz#1700](https://github.com/SigNoz/signoz/commit/9735a6e5c)) - and,
-    smaller than that, importing this app's own dashboard-export JSON back
-    in (Phase 3 shipped export only, one-way).
+    ([signoz#1700](https://github.com/SigNoz/signoz/commit/9735a6e5c)).
+    (Importing this app's own dashboard-export JSON back in shipped as a
+    Phase 3 follow-up - see `docs/how-to/build-custom-dashboards.md`'s
+    "Managing dashboards" section.)
   - Per-panel duplicate/export (Phase 3 only covers a whole dashboard).
   - Per-user dashboard ownership (today: global/visible to every
     authenticated user, same as saved views and alert rules).
