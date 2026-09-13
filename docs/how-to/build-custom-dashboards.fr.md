@@ -148,6 +148,10 @@ bord :
 4. Définissez éventuellement une **valeur par défaut**, présélectionnée à
    chaque ouverture du tableau de bord. Laissez vide pour « Tous » (la
    variable ne restreint rien tant qu'aucune valeur n'est choisie).
+5. Définissez éventuellement **Dépend de** (proposé uniquement pour les
+   variables « Depuis une requête ») pour chaîner cette variable à une
+   autre déjà définie sur le tableau de bord — voir « Chaînage de
+   variables » ci-dessous.
 
 Chaque variable obtient ensuite sa propre liste déroulante à côté des
 contrôles de plage de temps/actualisation. Choisir une valeur restreint
@@ -163,9 +167,35 @@ cible, source) l'est, via **Variables**, de sorte que tout le monde qui
 ouvre le tableau de bord voit les mêmes listes déroulantes mais peut
 choisir ses propres valeurs.
 
-Il n'y a pas encore de chaînage de variables (les options d'une variable
-se restreignant selon la sélection d'une autre) ni de désactivation par
-panneau d'une variable — voir « Limites connues » ci-dessous.
+Il n'y a pas encore de désactivation par panneau d'une variable — voir
+« Limites connues » ci-dessous.
+
+### Chaînage de variables
+
+Une variable « Depuis une requête » peut optionnellement **dépendre** d'une
+autre variable déjà définie sur le tableau de bord : choisissez-en une dans
+sa liste déroulante **Dépend de** (seules les variables qui ne créeraient
+pas de cycle de dépendance sont proposées). Une fois chaînée, sa propre
+liste de valeurs est résolue restreinte à la valeur *actuellement*
+sélectionnée pour sa variable parente, au lieu de la fenêtre non filtrée de
+7 jours utilisée par une variable indépendante — par exemple, une variable
+« Hôte » qui restreint un attribut de ressource peut dépendre d'une
+variable « Service », de sorte que sa liste déroulante ne propose que les
+hôtes réellement observés pour le service actuellement sélectionné, et non
+tous les hôtes de tous les services. Choisir « Tous » sur la variable
+parente (ou ne jamais choisir de valeur pour le parent d'une variable
+chaînée) revient à la même fenêtre non filtrée qu'une variable sans
+dépendance. Changer la valeur sélectionnée d'une variable parente
+re-résout automatiquement chaque variable qui en dépend (et, par
+transitivité, tout ce qui en dépend à son tour) ; si la sélection actuelle
+d'une variable dépendante ne fait plus partie de ses options
+fraîchement résolues, elle revient à « Tous » plutôt que de continuer à
+restreindre silencieusement des panneaux avec une valeur qui n'est plus
+réellement proposée. Comme toute autre relation entre variables, seule la
+*chaîne elle-même* (quelle variable dépend de laquelle) fait partie du
+tableau de bord enregistré — les valeurs actuellement sélectionnées
+restent propres à la session, comme la sélection d'une variable non
+chaînée.
 
 ## Créer une alerte depuis un panneau
 
@@ -276,10 +306,6 @@ consomme ni ne supprime une recherche enregistrée.
   privés. (La préférence « page d'accueil » ci-dessus est propre au
   navigateur, pas à l'utilisateur, et ne change rien à qui peut voir le
   tableau de bord lui-même.)
-- **Pas de chaînage de variables** — les valeurs « Depuis une requête »
-  d'une variable se résolvent toujours indépendamment, sur la même fenêtre
-  fixe de 7 jours ; une variable ne peut pas restreindre ses propres
-  options selon la sélection actuelle d'une autre variable.
 - **Pas de désactivation par panneau d'une variable** — une variable
   restreint chaque panneau auquel sa cible/son type d'attribut s'applique,
   pour tout le tableau de bord ; impossible d'en exclure un panneau.

@@ -27,7 +27,7 @@ import { getHomeDashboardId, setHomeDashboardId, clearHomeDashboardIdIfMatching 
 import { nextPanelPosition } from './layout';
 import { slugify } from './state.svelte';
 import { downloadBlob } from '$lib/logs/export';
-import { resolveQueryVariableOptions, resolveVariableOverrides, type ResolvedVariableOverrides } from './variables';
+import { resolveQueryVariableOptions, resolveVariableOverrides, type ResolvedVariableOverrides, type VariableDependency } from './variables';
 import * as m from '$lib/paraglide/messages';
 
 export class DashboardViewerState {
@@ -138,11 +138,58 @@ export class DashboardViewerState {
 		this.variableValues = next;
 	}
 
+	/**
+	 * Resolves every variable's options, parents before their (possibly chained) dependents -
+	 * see `DashboardVariable.dependsOnVariableId`. `#resolveOne` memoizes into `resolved` so a
+	 * variable with more than one dependent isn't re-resolved once per dependent, and
+	 * `#resolvingIds` breaks a cycle (a dependency loop a malformed/manually-edited layout
+	 * could otherwise recurse on forever) by treating an in-progress parent as if it had none.
+	 */
 	async #loadVariableOptions(): Promise<void> {
-		const entries = await Promise.all(
-			this.variables.map(async (v): Promise<[string, string[]]> => [v.id, v.sourceKind === 'Custom' ? (v.customValues ?? []) : await resolveQueryVariableOptions(v)])
-		);
+		const byId = new Map(this.variables.map((v) => [v.id, v]));
+		const resolved = new Map<string, string[]>();
+		const resolvingIds = new Set<string>();
+
+		const resolveOne = async (variable: DashboardVariable): Promise<string[]> => {
+			const cached = resolved.get(variable.id);
+			if (cached) return cached;
+			if (variable.sourceKind === 'Custom') {
+				const options = variable.customValues ?? [];
+				resolved.set(variable.id, options);
+				return options;
+			}
+			const options = await resolveQueryVariableOptions(variable, await this.#resolveDependency(variable, byId, resolveOne, resolvingIds));
+			resolved.set(variable.id, options);
+			return options;
+		};
+
+		const entries = await Promise.all(this.variables.map(async (v): Promise<[string, string[]]> => [v.id, await resolveOne(v)]));
 		this.variableOptions = Object.fromEntries(entries);
+	}
+
+	/** Resolves `variable`'s own `dependsOnVariableId` (if any) into a `VariableDependency` -
+	 *  ensuring the parent's options are themselves resolved first (so a chain more than one
+	 *  level deep still resolves parent-before-child), and `undefined` for an unset/unknown/
+	 *  currently-resolving (cyclic) parent or one with no value currently selected, matching
+	 *  `resolveQueryVariableOptions`' own "no dependency means no narrowing" fallback. */
+	async #resolveDependency(
+		variable: DashboardVariable,
+		byId: Map<string, DashboardVariable>,
+		resolveOne: (v: DashboardVariable) => Promise<string[]>,
+		resolvingIds: Set<string>
+	): Promise<VariableDependency | undefined> {
+		const parentId = variable.dependsOnVariableId;
+		if (!parentId) return undefined;
+		const parent = byId.get(parentId);
+		if (!parent || resolvingIds.has(variable.id)) return undefined;
+		resolvingIds.add(variable.id);
+		try {
+			await resolveOne(parent);
+		} finally {
+			resolvingIds.delete(variable.id);
+		}
+		const value = this.variableValues[parentId];
+		return value ? { variable: parent, value } : undefined;
 	}
 
 	setEditing(v: boolean): void {
@@ -155,6 +202,29 @@ export class DashboardViewerState {
 
 	setVariableValue(variableId: string, value: string | null): void {
 		this.variableValues = { ...this.variableValues, [variableId]: value };
+		void this.#refreshDependentsOf(variableId);
+	}
+
+	/** Re-resolves the option list of every variable that directly `dependsOnVariableId`
+	 *  `changedId` (and, recursively, theirs) after `changedId`'s own selected value changes -
+	 *  chaining's whole point (see `DashboardVariable.dependsOnVariableId`). A dependent whose
+	 *  current selection is no longer among its freshly-resolved options is reset to "All",
+	 *  same as any other out-of-range selection elsewhere in this class, rather than left
+	 *  silently narrowing a panel by a value that's no longer actually offered. */
+	async #refreshDependentsOf(changedId: string): Promise<void> {
+		const parent = this.variables.find((v) => v.id === changedId);
+		const parentValue = this.variableValues[changedId];
+		const dependency: VariableDependency | undefined = parent && parentValue ? { variable: parent, value: parentValue } : undefined;
+		const dependents = this.variables.filter((v) => v.dependsOnVariableId === changedId && v.sourceKind === 'Query');
+		for (const dependent of dependents) {
+			const options = await resolveQueryVariableOptions(dependent, dependency);
+			this.variableOptions = { ...this.variableOptions, [dependent.id]: options };
+			const current = this.variableValues[dependent.id];
+			if (current && !options.includes(current)) {
+				this.variableValues = { ...this.variableValues, [dependent.id]: null };
+			}
+			await this.#refreshDependentsOf(dependent.id);
+		}
 	}
 
 	setRefreshInterval(value: RefreshInterval): void {
@@ -323,11 +393,17 @@ export class DashboardViewerState {
 
 	/** Removes one variable definition and its session-only selection/options - any panel
 	 *  currently narrowed by it just stops being narrowed, same as turning Phase 4's fixed
-	 *  Service override off. */
+	 *  Service override off. Any other variable that chained off this one (`dependsOnVariableId
+	 *  === variableId`, see `DashboardVariable.dependsOnVariableId`) has that link cleared too,
+	 *  same "off means don't touch this filter at all" fallback a missing/unselected parent
+	 *  already gets in `resolveQueryVariableOptions` - left pointing at a deleted id, it would
+	 *  otherwise silently resolve as unchained forever (harmless, since `#loadVariableOptions`
+	 *  already treats an unknown parent id as "no dependency") but never say so in the form.
+	 */
 	async removeVariable(variableId: string): Promise<void> {
 		const dashboard = this.dashboard;
 		if (!dashboard) return;
-		const variables = this.variables.filter((v) => v.id !== variableId);
+		const variables = this.variables.filter((v) => v.id !== variableId).map((v) => (v.dependsOnVariableId === variableId ? { ...v, dependsOnVariableId: null } : v));
 		try {
 			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels, variables });
 			this.variables = variables;
@@ -335,6 +411,7 @@ export class DashboardViewerState {
 			const { [variableId]: _removedOptions, ...restOptions } = this.variableOptions;
 			this.variableValues = restValues;
 			this.variableOptions = restOptions;
+			await this.#loadVariableOptions();
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 		}

@@ -23,6 +23,14 @@
 		return v.target === 'Service' ? m.manageVariables_targetService() : m.manageVariables_targetAttribute({ bag: v.attributeBag ?? '', key: v.attributeKey ?? '' });
 	}
 
+	/** Name of the variable `v` chains off (see `DashboardVariable.dependsOnVariableId`), or
+	 *  `null` if it's independent - shown as an extra badge so a chain is visible from the
+	 *  list without opening each variable's own edit form. */
+	function dependsOnName(v: (typeof variables)[number]): string | null {
+		if (!v.dependsOnVariableId) return null;
+		return variables.find((p) => p.id === v.dependsOnVariableId)?.name ?? null;
+	}
+
 	function handleRemove(id: string, name: string): void {
 		if (!confirm(m.manageVariables_confirmRemove({ name }))) return;
 		void viewer.removeVariable(id);
@@ -46,6 +54,9 @@
 							<div class="flex items-center gap-2">
 								<span class="truncate text-sm font-medium">{variable.name}</span>
 								<Badge variant="outline">{variable.sourceKind === 'Query' ? m.manageVariables_sourceQuery() : m.manageVariables_sourceCustom()}</Badge>
+								{#if dependsOnName(variable)}
+									<Badge variant="secondary">{m.manageVariables_dependsOn({ name: dependsOnName(variable) ?? '' })}</Badge>
+								{/if}
 							</div>
 							<p class="text-muted-foreground truncate text-xs">{targetSummary(variable)}</p>
 						</div>

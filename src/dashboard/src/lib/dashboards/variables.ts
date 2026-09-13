@@ -34,29 +34,81 @@ function logsAttributeBag(bag: DashboardAttributeBag): AttributeBag {
 	return bag === 'Span' ? 'Log' : bag;
 }
 
+/** A resolved parent for a chained (`dependsOnVariableId`) variable - the parent's own
+ *  definition plus its currently-selected value (a `null`/"All" parent selection is never
+ *  passed in here; the caller resolves to `undefined` instead, same as having no parent). */
+export interface VariableDependency {
+	variable: DashboardVariable;
+	value: string;
+}
+
 /**
- * Resolves a `Query`-sourced variable's selectable values. Never called for a `Custom`
- * variable - the caller should read `variable.customValues` directly instead, so a custom
- * variable's options never depend on network state at all.
+ * Extra `services`/`attributes` narrowing a chained variable's own wide-window query should
+ * carry from its resolved parent - `{}` (no narrowing, same as an unchained variable) when
+ * `dependency` is absent *or* when the parent's target/bag isn't expressible against
+ * `endpoint` (e.g. a `Span`-bag parent narrowing a Logs-endpoint child: Logs' `LogFilter` has
+ * no `Span` bag to filter on). That silent fallback, not an error, mirrors this codebase's
+ * existing "best-effort, missing input just means no narrowing" posture for variable
+ * resolution in general.
+ */
+function dependencyNarrowing(
+	dependency: VariableDependency | undefined,
+	endpoint: 'Logs' | 'Traces'
+): { services?: string[]; attributes?: { bag: DashboardAttributeBag; key: string; value: string }[] } {
+	if (!dependency) return {};
+	const { variable, value } = dependency;
+	if (variable.target === 'Service') return { services: [value] };
+	const bag = variable.attributeBag;
+	const key = variable.attributeKey?.trim();
+	if (!bag || !key) return {};
+	if (endpoint === 'Logs' && bag === 'Span') return {};
+	if (endpoint === 'Traces' && bag === 'Log') return {};
+	return { attributes: [{ bag, key, value }] };
+}
+
+/**
+ * Resolves a `Query`-sourced variable's selectable values, narrowed by `dependency` (its
+ * resolved parent - see `DashboardVariable.dependsOnVariableId`) when one is given. Never
+ * called for a `Custom` variable - the caller should read `variable.customValues` directly
+ * instead, so a custom variable's options never depend on network state at all.
  *
  * Best-effort, same posture as the old `loadKnownServices`: a failed lookup (or an
  * `Attribute` variable with no key typed yet) resolves to no options rather than
  * surfacing an error - the picker just shows only "All" until a retry.
  */
-export async function resolveQueryVariableOptions(variable: DashboardVariable): Promise<string[]> {
+export async function resolveQueryVariableOptions(variable: DashboardVariable, dependency?: VariableDependency | null): Promise<string[]> {
+	const dep = dependency ?? undefined;
 	try {
 		if (variable.target === 'Service') {
-			const res = await aggregateLogs({ filter: wideRange(), bucketWidthSeconds: WINDOW_MS / 1000, groupBy: 'Service' });
+			// Service is always resolved against Logs' own aggregate regardless of which panel
+			// types the resolved value ends up applied to (see the module header comment) - so a
+			// dependency here is narrowed the same "Logs endpoint" way an Attribute/Log|Resource|
+			// Scope variable's own query below is.
+			const narrowing = dependencyNarrowing(dep, 'Logs');
+			const filter = { ...wideRange(), services: narrowing.services, attributes: narrowing.attributes?.map((a) => ({ bag: a.bag as AttributeBag, key: a.key, value: a.value })) };
+			const res = await aggregateLogs({ filter, bucketWidthSeconds: WINDOW_MS / 1000, groupBy: 'Service' });
 			return [...new Set(res.buckets.map((b) => b.groupKey).filter((k): k is string => !!k))].sort();
 		}
 		const key = variable.attributeKey?.trim();
 		const bag = variable.attributeBag;
 		if (!key || !bag) return [];
 		if (bag === 'Span') {
-			const res = await getSpanAttributeValues({ filter: wideRange(), bag: 'Span', key, limit: 50 });
+			const narrowing = dependencyNarrowing(dep, 'Traces');
+			const filter = {
+				...wideRange(),
+				services: narrowing.services,
+				attributes: narrowing.attributes?.map((a) => ({ bag: a.bag as 'Span' | 'Resource' | 'Scope', key: a.key, value: a.value }))
+			};
+			const res = await getSpanAttributeValues({ filter, bag: 'Span', key, limit: 50 });
 			return res.values.map((v) => v.value);
 		}
-		const res = await getLogAttributeValues({ filter: wideRange(), bag: logsAttributeBag(bag), key, limit: 50 });
+		const narrowing = dependencyNarrowing(dep, 'Logs');
+		const filter = {
+			...wideRange(),
+			services: narrowing.services,
+			attributes: narrowing.attributes?.map((a) => ({ bag: logsAttributeBag(a.bag), key: a.key, value: a.value }))
+		};
+		const res = await getLogAttributeValues({ filter, bag: logsAttributeBag(bag), key, limit: 50 });
 		return res.values.map((v) => v.value);
 	} catch {
 		return [];
