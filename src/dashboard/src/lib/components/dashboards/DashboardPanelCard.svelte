@@ -25,6 +25,7 @@
 		panel,
 		editing,
 		timeRangeOverride,
+		refreshToken,
 		removing,
 		onRemove,
 		onRename
@@ -32,6 +33,7 @@
 		panel: DashboardPanel;
 		editing: boolean;
 		timeRangeOverride: TimeRangePreset | null;
+		refreshToken: number;
 		removing: boolean;
 		onRemove: () => void;
 		onRename: (title: string) => void;
@@ -123,11 +125,11 @@
 	</div>
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 		{#if panel.panelType === 'Logs'}
-			<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} />
+			<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} {refreshToken} />
 		{:else if panel.panelType === 'Metrics'}
-			<DashboardMetricsPanelBody query={panel.query} {timeRangeOverride} />
+			<DashboardMetricsPanelBody query={panel.query} {timeRangeOverride} {refreshToken} />
 		{:else if panel.panelType === 'Traces'}
-			<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} />
+			<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} {refreshToken} />
 		{/if}
 	</div>
 </div>

@@ -6,12 +6,15 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { goto } from '$app/navigation';
 	import { dashboardsContext } from '$lib/dashboards/context';
 	import { dashboardPath } from '$lib/dashboards/page-paths';
 	import type { DashboardSummary } from '$lib/dashboards-api';
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import * as m from '$lib/paraglide/messages';
 
@@ -24,6 +27,12 @@
 	async function handleDelete(dashboard: DashboardSummary): Promise<void> {
 		if (!confirm(m.dashboardTable_confirmDelete({ name: dashboard.name }))) return;
 		await dashboards.remove(dashboard.id);
+	}
+
+	/** Navigates straight to the copy, same "land on what you just made" UX createDashboard's own flow gives from the New dashboard dialog. */
+	async function handleDuplicate(dashboard: DashboardSummary): Promise<void> {
+		const id = await dashboards.duplicate(dashboard);
+		if (id) await goto(dashboardPath({ id }));
 	}
 </script>
 
@@ -88,6 +97,12 @@
 							<Button variant="ghost" size="sm" href={dashboardPath(dashboard)}>{m.dashboardTable_open()}</Button>
 							<Button variant="ghost" size="icon-sm" title={m.dashboardTable_rename()} onclick={() => dashboards.openRename(dashboard)}>
 								<PencilIcon />
+							</Button>
+							<Button variant="ghost" size="icon-sm" title={m.dashboardTable_duplicate()} onclick={() => handleDuplicate(dashboard)}>
+								<CopyIcon />
+							</Button>
+							<Button variant="ghost" size="icon-sm" title={m.dashboardTable_export()} onclick={() => dashboards.exportDashboard(dashboard)}>
+								<DownloadIcon />
 							</Button>
 							<Button
 								variant="ghost"

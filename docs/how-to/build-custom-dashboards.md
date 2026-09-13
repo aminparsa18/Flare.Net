@@ -67,12 +67,36 @@ the page) to go back to each panel showing whatever range it was saved
 with. This override is per-browser-session only: it's never saved to the
 dashboard, so it never changes what anyone else sees when they open it.
 
+## Auto-refreshing a dashboard
+
+The **refresh** picker in a dashboard's header (next to the time-range
+override) re-runs every panel's query on a fixed interval — 15s, 30s, 1m, or
+5m — instead of you reloading the page to see newer data. Set it back to
+**Auto-refresh off** to stop. Like the time-range override, this is
+per-browser-session only: it resets when you leave the page, and it's never
+saved to the dashboard.
+
+## Setting a dashboard as your home page
+
+Click the **home** icon in a dashboard's header to make it the page you land
+on instead of the Logs Explorer whenever you open Flare at its root URL (or
+click the Flare logo). Click it again to unset it. This is a per-browser
+preference (not saved to the dashboard object, so it doesn't affect what
+anyone else sees) — if the dashboard is later deleted, Flare falls back to
+the Logs Explorer next time rather than showing a broken page.
+
 ## Managing dashboards
 
 From the **Dashboards** page you can:
 
 - **Create** a blank dashboard (then add panels to it, per the steps above).
 - **Rename** a dashboard's name or description.
+- **Duplicate** a dashboard — creates an independent copy with the same
+  panels, named "*(copy)*", that you can then edit separately.
+- **Export** a dashboard — downloads its name, description, and panel
+  definitions as a JSON file. There's no matching import yet (see "Known
+  gaps" below), so treat this as a readable backup/snapshot rather than a
+  way to move a dashboard between Flare instances today.
 - **Delete** a dashboard. This only removes the dashboard object itself —
   it never touches the underlying Logs/Traces/Metrics data.
 
@@ -102,10 +126,14 @@ search.
 
 ## Known gaps, stated plainly
 
-- **No auto-refresh** — reload the page to see newer data.
-- **No duplicate/export** for a dashboard or a single panel.
+- **No import for an exported dashboard's JSON file** — export is one-way
+  today (see "Managing dashboards" above).
+- **No per-panel duplicate/export** — only a whole dashboard.
 - **Dashboards are visible to every signed-in user**, the same as saved
   searches and alert rules today — there's no per-user ownership or private
-  dashboards yet.
+  dashboards yet. (The "set as home page" preference above is per-browser,
+  not per-user, and doesn't change who can see the dashboard itself.)
+- **No dashboard variables/templating** — every panel's query is fixed at
+  add/edit time.
 
 None of these are permanent limits, just not built yet.

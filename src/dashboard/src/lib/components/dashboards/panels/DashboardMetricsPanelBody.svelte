@@ -7,13 +7,20 @@
 	// MetricChart's own `!explorer.selected` empty state carries the panel until that
 	// resolves - `ready` below exists purely to sequence the override effect after the
 	// initial saved-view application lands, not to gate what's rendered.
+	// `refreshToken` (Phase 3) is DashboardViewerState's auto-refresh tick - see
+	// DashboardLogsPanelBody.svelte's header comment for the general shape, mirrored here
+	// against MetricsExplorerState.runQuery instead of runSearch.
 	import { onMount, untrack } from 'svelte';
 	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import MetricChart from '$lib/components/metrics/MetricChart.svelte';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 
-	let { query, timeRangeOverride }: { query: unknown; timeRangeOverride: TimeRangePreset | null } = $props();
+	let {
+		query,
+		timeRangeOverride,
+		refreshToken
+	}: { query: unknown; timeRangeOverride: TimeRangePreset | null; refreshToken: number } = $props();
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
 	let ready = $state(false);
@@ -37,6 +44,17 @@
 			void explorer.applySavedViewState(query);
 		}
 		overrideWasActive = override != null;
+	});
+
+	// See DashboardLogsPanelBody.svelte's identical block for why this compares against a
+	// snapshot rather than reacting to every refreshToken value unconditionally.
+	let lastRefreshToken = untrack(() => refreshToken);
+
+	$effect(() => {
+		const token = refreshToken;
+		if (!ready || token === lastRefreshToken) return;
+		lastRefreshToken = token;
+		void explorer.runQuery();
 	});
 </script>
 

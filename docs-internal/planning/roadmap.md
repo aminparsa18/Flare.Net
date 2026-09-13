@@ -59,9 +59,14 @@ folders are where "what happened and why" actually lives.
   SQL. Approach TBD (SQL-bar grammar vs. something else entirely) - not
   started.
 - **Custom, user-built dashboards** — shipped: Phase 1 (ADR-0023, CRUD +
-  static viewer) and Phase 2 (ADR-0024, drag/resize grid editor,
+  static viewer), Phase 2 (ADR-0024, drag/resize grid editor,
   add/rename/remove panels in place, session-only dashboard-wide
-  time-range override). Still open, not started:
+  time-range override), and Phase 3 (session-only auto-refresh interval;
+  whole-dashboard duplicate and JSON export - no import path yet; a
+  per-browser "set as home page" preference that self-clears if the chosen
+  dashboard is later deleted - see
+  [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
+  for the user-facing walkthrough of all three). Still open, not started:
   - Gate widget edit/delete and dashboard-description edit in the UI
     itself by role (admin/editor can mutate, viewer read-only), not
     just a 403 from the API — SigNoz does this at the button level
@@ -73,8 +78,10 @@ folders are where "what happened and why" actually lives.
     ([signoz#1552](https://github.com/SigNoz/signoz/commit/461a15d52d2840cd6e50e237cd3f8ab9860321a7)).
   - Lower-priority nice-to-have: importing Grafana dashboard JSON, easing
     migration for anyone coming from Grafana
-    ([signoz#1700](https://github.com/SigNoz/signoz/commit/9735a6e5c)).
-  - Auto-refresh, and duplicate/export for a dashboard or a single panel.
+    ([signoz#1700](https://github.com/SigNoz/signoz/commit/9735a6e5c)) - and,
+    smaller than that, importing this app's own dashboard-export JSON back
+    in (Phase 3 shipped export only, one-way).
+  - Per-panel duplicate/export (Phase 3 only covers a whole dashboard).
   - Per-user dashboard ownership (today: global/visible to every
     authenticated user, same as saved views and alert rules).
   More design notes worth baking in from the start: variable chaining -
@@ -87,4 +94,8 @@ folders are where "what happened and why" actually lives.
   panel on page load ([signoz#2133](https://github.com/SigNoz/signoz/commit/af272a368));
   and exported dashboard JSON should carry only definitions, never
   embedded cached query results - SigNoz got this wrong first and fixed
-  it later ([signoz#2052](https://github.com/SigNoz/signoz/commit/b72815ca2)).
+  it later ([signoz#2052](https://github.com/SigNoz/signoz/commit/b72815ca2));
+  Phase 3's export already follows this (LayoutJson never held cached
+  results to begin with - see `Dashboard`'s own remarks in
+  `DashboardModels.cs`), so this is really a "don't regress it" note for
+  whatever eventually adds variables, not open work today.

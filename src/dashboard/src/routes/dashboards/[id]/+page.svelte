@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
+	import { REFRESH_INTERVALS, refreshIntervalLabel, type RefreshInterval } from '$lib/dashboards/refresh-intervals';
 	import DashboardGrid from '$lib/components/dashboards/DashboardGrid.svelte';
 	import AddPanelDialog from '$lib/components/dashboards/AddPanelDialog.svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -14,6 +15,8 @@
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import ClockIcon from '@lucide/svelte/icons/clock';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import HomeIcon from '@lucide/svelte/icons/home';
 	import * as m from '$lib/paraglide/messages';
 
 	const viewer = new DashboardViewerState();
@@ -21,6 +24,10 @@
 
 	onMount(() => {
 		void viewer.load(page.params.id!);
+	});
+
+	onDestroy(() => {
+		viewer.dispose();
 	});
 
 	// Same "fixed-duration presets only" set Traces'/Metrics' own toolbars offer - see
@@ -34,6 +41,10 @@
 
 	function handleOverrideChange(value: string): void {
 		viewer.setTimeRangeOverride(value === OVERRIDE_OFF ? null : (value as TimeRangePreset));
+	}
+
+	function handleRefreshIntervalChange(value: string): void {
+		viewer.setRefreshInterval(value as RefreshInterval);
 	}
 </script>
 
@@ -55,6 +66,27 @@
 
 		{#if viewer.dashboard}
 			<div class="ml-auto flex items-center gap-2">
+				<Button
+					variant={viewer.isHome ? 'secondary' : 'ghost'}
+					size="icon-sm"
+					title={viewer.isHome ? m.dashboardViewer_unsetHome() : m.dashboardViewer_setHome()}
+					onclick={() => viewer.toggleHome()}
+				>
+					<HomeIcon />
+				</Button>
+
+				<Select.Root type="single" value={viewer.refreshInterval} onValueChange={(v) => v && handleRefreshIntervalChange(v)}>
+					<Select.Trigger class="w-auto" title={m.dashboardViewer_refreshIntervalTitle()}>
+						<RefreshCwIcon data-icon="inline-start" />
+						{refreshIntervalLabel(viewer.refreshInterval)}
+					</Select.Trigger>
+					<Select.Content>
+						{#each REFRESH_INTERVALS as interval (interval.value)}
+							<Select.Item value={interval.value} label={refreshIntervalLabel(interval.value)} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+
 				<Select.Root type="single" value={viewer.timeRangeOverride ?? OVERRIDE_OFF} onValueChange={(v) => v && handleOverrideChange(v)}>
 					<Select.Trigger class="w-auto" title={m.dashboardViewer_timeRangeOverrideTitle()}>
 						<ClockIcon data-icon="inline-start" />
@@ -121,6 +153,7 @@
 				panels={viewer.dashboard.layout.panels}
 				editing={viewer.editing}
 				timeRangeOverride={viewer.timeRangeOverride}
+				refreshToken={viewer.refreshToken}
 				removingPanelId={viewer.removingPanelId}
 				onLayoutChange={(changes) => viewer.updateLayout(changes)}
 				onRemove={(id) => viewer.removePanel(id)}
