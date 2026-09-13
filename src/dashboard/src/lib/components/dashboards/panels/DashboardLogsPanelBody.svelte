@@ -11,6 +11,11 @@
 	// see the `$effect` below for why it's gated on `ready` and tracks its own "was an
 	// override active last run" flag rather than reacting to every `timeRangeOverride`
 	// change unconditionally.
+	//
+	// `refreshToken` (Phase 3) is DashboardViewerState's auto-refresh tick, bumped once per
+	// interval - this panel doesn't own a timer itself, it just re-runs its own query
+	// whenever the number it's handed changes, same "state flows down, this component
+	// reacts" shape as timeRangeOverride.
 	import { onMount, untrack } from 'svelte';
 	import { LogsExplorerState } from '$lib/logs/state.svelte';
 	import { logsExplorerContext } from '$lib/logs/context';
@@ -18,7 +23,11 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 
-	let { query, timeRangeOverride }: { query: unknown; timeRangeOverride: TimeRangePreset | null } = $props();
+	let {
+		query,
+		timeRangeOverride,
+		refreshToken
+	}: { query: unknown; timeRangeOverride: TimeRangePreset | null; refreshToken: number } = $props();
 
 	const explorer = logsExplorerContext.set(new LogsExplorerState());
 	let ready = $state(false);
@@ -45,6 +54,18 @@
 			explorer.applySavedViewState(query);
 		}
 		overrideWasActive = override != null;
+	});
+
+	// Same "seed via untrack, compare on the next run" shape as overrideWasActive above -
+	// skips the spurious first fire (refreshToken starts at 0 and hasn't ticked yet) so
+	// only an actual auto-refresh interval elapsing re-runs the query.
+	let lastRefreshToken = untrack(() => refreshToken);
+
+	$effect(() => {
+		const token = refreshToken;
+		if (!ready || token === lastRefreshToken) return;
+		lastRefreshToken = token;
+		void explorer.runSearch();
 	});
 </script>
 

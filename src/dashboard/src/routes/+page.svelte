@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import { LogsExplorerState } from '$lib/logs/state.svelte';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
 	import { parseLogsDeepLinkParams } from '$lib/deep-links';
+	import { getHomeDashboardId } from '$lib/dashboards/home-preference';
+	import { dashboardPath } from '$lib/dashboards/page-paths';
 	import LogsToolbar from '$lib/components/logs/LogsToolbar.svelte';
 	import VolumeChart from '$lib/components/logs/VolumeChart.svelte';
 	import ValueDistributionChart from '$lib/components/logs/ValueDistributionChart.svelte';
@@ -21,6 +24,19 @@
 	}
 
 	onMount(() => {
+		// A "set as home" dashboard (Phase 3, $lib/dashboards/home-preference.ts) takes over
+		// this bare "/" only when nothing else is asking to land here - a `?view=<id>`
+		// shareable link or a Metrics "View related logs" deep link (both checked below via
+		// searchParams.size) still means "show the Logs Explorer", not the home dashboard.
+		// replaceState so the redirect doesn't leave an extra "/" entry for Back to land on.
+		if (page.url.searchParams.size === 0) {
+			const homeId = getHomeDashboardId();
+			if (homeId) {
+				void goto(dashboardPath({ id: homeId }), { replaceState: true });
+				return;
+			}
+		}
+
 		void (async () => {
 			// ?view=<id> (a saved view's shareable link) takes priority over the live-by-
 			// default startup - applySavedViewState turns live off itself and runs the

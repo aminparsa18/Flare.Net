@@ -29,6 +29,7 @@
 		panels,
 		editing,
 		timeRangeOverride,
+		refreshToken,
 		removingPanelId,
 		onLayoutChange,
 		onRemove,
@@ -37,6 +38,7 @@
 		panels: DashboardPanel[];
 		editing: boolean;
 		timeRangeOverride: TimeRangePreset | null;
+		refreshToken: number;
 		removingPanelId: string | null;
 		onLayoutChange: (next: { id: string; layout: DashboardPanel['layout'] }[]) => void;
 		onRemove: (id: string) => void;
@@ -109,6 +111,7 @@
 					{panel}
 					{editing}
 					{timeRangeOverride}
+					{refreshToken}
 					removing={removingPanelId === panel.id}
 					onRemove={() => onRemove(panel.id)}
 					onRename={(title) => onRename(panel.id, title)}
