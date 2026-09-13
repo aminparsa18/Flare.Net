@@ -50,8 +50,18 @@ Click **Edit** on a dashboard to:
 - **Drag** a panel (by its grip handle) to reposition it, and **resize** it
   from its corner/edge, on a 12-column grid.
 - **Rename** a panel — click its title and type a new one.
+- **Duplicate** a panel (the copy icon in its header) — adds an independent
+  copy, named "*(copy)*", below the rest of the dashboard's panels, that you
+  can then edit or reposition separately.
 - **Remove** a panel (the trash icon in its header).
 - **Add** a new panel in place, per the steps above.
+
+Independent of edit mode, every panel also has an **export** icon in its
+header that downloads that one panel's type, title, size, and query as a
+JSON file — the per-panel equivalent of the whole-dashboard Export described
+under "Managing dashboards" below, useful as a smaller snapshot when you
+only care about one panel's definition. There's no per-panel import — bring
+the query back by hand (Add panel, same type, matching filters).
 
 Every change saves immediately — there's no separate "Save" step. Click
 **Done editing** to leave edit mode and lock the layout again (view mode
@@ -164,7 +174,9 @@ search.
 
 - **No import of a Grafana dashboard JSON** — Import only understands
   Flare's own export format (see "Managing dashboards" above).
-- **No per-panel duplicate/export** — only a whole dashboard.
+- **No per-panel import** — duplicate and export work per-panel (see
+  "Editing a dashboard's layout" above), but a panel's exported JSON can't
+  be read back in; only a whole dashboard's export/import round-trips.
 - **Dashboards are visible to every signed-in user**, the same as saved
   searches and alert rules today — there's no per-user ownership or private
   dashboards yet. (The "set as home page" preference above is per-browser,

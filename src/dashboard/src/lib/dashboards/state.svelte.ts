@@ -17,6 +17,13 @@
 // duplicate(), still just another createDashboard() call under the hood. No new API
 // endpoint here either, and no import of a *foreign* (e.g. Grafana) dashboard JSON - that's
 // a separate, larger roadmap item.
+//
+// The per-panel counterparts (another roadmap follow-up: "Phase 3 only covers a whole
+// dashboard") live in DashboardViewerState.duplicatePanel/exportPanel instead of here -
+// this class only ever has a dashboard *list* (DashboardSummary, no panels loaded until
+// you open one), while a panel-level operation needs the one dashboard already loaded by
+// the viewer page. Both share this file's slugify() helper (exported below) for the same
+// filename-sanitizing reason.
 
 import { listDashboards, createDashboard, updateDashboard, deleteDashboard, parseLayout, type DashboardSummary } from '$lib/dashboards-api';
 import { downloadBlob } from '$lib/logs/export';
@@ -162,12 +169,13 @@ export class DashboardsState {
 
 /** Lowercases and replaces anything that isn't a letter/digit with `-`, collapsing runs -
  *  same rough shape as exportFilename's own timestamp sanitizing in `$lib/logs/export.ts`,
- *  just for a name instead of a timestamp. Falls back to "dashboard" for an all-punctuation
- *  name so the filename is never just `flare-dashboard_.json`. */
-function slugify(name: string): string {
+ *  just for a name instead of a timestamp. Falls back to `fallback` for an all-punctuation
+ *  name so the filename is never just `flare-dashboard_.json`. Exported for
+ *  DashboardViewerState.exportPanel's own per-panel filename, same reasoning as here. */
+export function slugify(name: string, fallback = 'dashboard'): string {
 	const slug = name
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-+|-+$/g, '');
-	return slug || 'dashboard';
+	return slug || fallback;
 }

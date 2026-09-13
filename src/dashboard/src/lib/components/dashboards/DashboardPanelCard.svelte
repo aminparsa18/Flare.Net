@@ -5,9 +5,11 @@
 	// component only fills whatever cell it's given (`h-full` below), see
 	// docs-internal/adr/0024-custom-dashboards-phase2-editor.md.
 	//
-	// The drag handle, title-edit affordance, and remove button are all scoped to
+	// The drag handle, title-edit affordance, duplicate, and remove button are all scoped to
 	// `editing` - outside edit mode a panel is read-only chrome, so nothing here risks an
-	// accidental drag/rename/delete while just looking at a dashboard.
+	// accidental drag/rename/duplicate/delete while just looking at a dashboard. Export is
+	// the one exception, available in both modes - same "read-only, no reason to gate it"
+	// call DashboardTable.svelte's own per-dashboard Export button already makes.
 	import { goto } from '$app/navigation';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -24,6 +26,8 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import BellPlusIcon from '@lucide/svelte/icons/bell-plus';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import DownloadIcon from '@lucide/svelte/icons/download';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -34,7 +38,9 @@
 		refreshToken,
 		removing,
 		onRemove,
-		onRename
+		onRename,
+		onDuplicate,
+		onExport
 	}: {
 		panel: DashboardPanel;
 		editing: boolean;
@@ -44,6 +50,8 @@
 		removing: boolean;
 		onRemove: () => void;
 		onRename: (title: string) => void;
+		onDuplicate: () => void;
+		onExport: () => void;
 	} = $props();
 
 	function panelTypeLabel(panelType: DashboardPanel['panelType']): string {
@@ -165,7 +173,25 @@
 				<BellPlusIcon />
 			</Button>
 		{/if}
+		<Button
+			variant="ghost"
+			size="icon-sm"
+			class="text-muted-foreground hover:text-foreground shrink-0"
+			title={m.dashboardPanelCard_export()}
+			onclick={onExport}
+		>
+			<DownloadIcon />
+		</Button>
 		{#if editing}
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="text-muted-foreground hover:text-foreground shrink-0"
+				title={m.dashboardPanelCard_duplicate()}
+				onclick={onDuplicate}
+			>
+				<CopyIcon />
+			</Button>
 			<Button
 				variant="ghost"
 				size="icon-sm"

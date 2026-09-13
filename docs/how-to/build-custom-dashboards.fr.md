@@ -58,8 +58,21 @@ Cliquez sur **Edit** sur un tableau de bord pour :
 - **Glisser** un panneau (par sa poignée) pour le repositionner, et le
   **redimensionner** depuis son coin/bord, sur une grille à 12 colonnes.
 - **Renommer** un panneau — cliquez sur son titre et tapez-en un nouveau.
+- **Dupliquer** un panneau (l'icône de copie dans son en-tête) — ajoute une
+  copie indépendante, nommée « *(copie)* », sous le reste des panneaux du
+  tableau de bord, que vous pouvez ensuite modifier ou repositionner
+  séparément.
 - **Supprimer** un panneau (l'icône de corbeille dans son en-tête).
 - **Ajouter** un nouveau panneau sur place, selon les étapes ci-dessus.
+
+Indépendamment du mode édition, chaque panneau a aussi une icône
+**d'export** dans son en-tête qui télécharge le type, le titre, la taille et
+la requête de ce seul panneau sous forme de fichier JSON — l'équivalent par
+panneau de l'Export de tableau de bord complet décrit dans « Gérer les
+tableaux de bord » ci-dessous, utile comme instantané plus petit quand seule
+la définition d'un panneau vous intéresse. Il n'y a pas d'import par
+panneau — récupérez la requête manuellement (Ajouter un panneau, même type,
+filtres identiques).
 
 Chaque changement est enregistré immédiatement — il n'y a pas d'étape
 « Save » séparée. Cliquez sur **Done editing** pour quitter le mode édition
@@ -192,8 +205,10 @@ consomme ni ne supprime une recherche enregistrée.
 - **Pas d'import d'un JSON de tableau de bord Grafana** — Importer ne
   comprend que le format d'export propre à Flare (voir « Gérer les
   tableaux de bord » ci-dessus).
-- **Pas de duplication/export par panneau** — uniquement pour un tableau de
-  bord entier.
+- **Pas d'import par panneau** — la duplication et l'export fonctionnent par
+  panneau (voir « Modifier la disposition d'un tableau de bord » ci-dessus),
+  mais le JSON exporté d'un panneau ne peut pas être réimporté ; seul
+  l'export/import d'un tableau de bord entier fait l'aller-retour.
 - **Les tableaux de bord sont visibles par tous les utilisateurs connectés**,
   comme les recherches enregistrées et les règles d'alerte aujourd'hui — il
   n'y a pas encore de propriété par utilisateur ni de tableaux de bord
