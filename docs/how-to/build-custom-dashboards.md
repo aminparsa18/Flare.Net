@@ -85,6 +85,18 @@ preference (not saved to the dashboard object, so it doesn't affect what
 anyone else sees) — if the dashboard is later deleted, Flare falls back to
 the Logs Explorer next time rather than showing a broken page.
 
+## Overriding the service for a session
+
+The **service** picker in a dashboard's header (next to the time-range
+override) temporarily narrows every Logs/Metrics/Traces panel to one
+service, regardless of what each panel was individually pinned/added with.
+Set it back to **Each panel's own service** to go back to each panel
+showing whatever service(s) it was saved with. Like the time-range
+override, this is per-browser-session only — it's never saved to the
+dashboard. This is a fixed, built-in variable, not a saved or query-backed
+one: it always means "service", and it isn't currently possible to define
+your own variable backed by an arbitrary query.
+
 ## Creating an alert from a panel
 
 Click the **bell** icon in a Logs or Metrics panel's header to open the

@@ -1113,6 +1113,8 @@
 	"dashboardViewer_addPanel": "Добавить панель",
 	"dashboardViewer_timeRangeOverrideTitle": "Переопределить временной диапазон всех панелей для этого сеанса",
 	"dashboardViewer_timeRangeOverrideOff": "Диапазон каждой панели",
+	"dashboardViewer_serviceOverrideTitle": "Переопределить сервис всех панелей для этого сеанса",
+	"dashboardViewer_serviceOverrideOff": "Сервис каждой панели",
 	"dashboardViewer_refreshIntervalTitle": "Автообновление всех панелей на этом дашборде",
 	"dashboardViewer_refreshOff": "Автообновление выключено",
 	"dashboardViewer_refresh15s": "Каждые 15 с",

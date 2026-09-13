@@ -26,8 +26,14 @@
 	let {
 		query,
 		timeRangeOverride,
+		serviceOverride,
 		refreshToken
-	}: { query: unknown; timeRangeOverride: TimeRangePreset | null; refreshToken: number } = $props();
+	}: {
+		query: unknown;
+		timeRangeOverride: TimeRangePreset | null;
+		serviceOverride: string | null;
+		refreshToken: number;
+	} = $props();
 
 	const explorer = logsExplorerContext.set(new LogsExplorerState());
 	let ready = $state(false);
@@ -48,12 +54,53 @@
 	$effect(() => {
 		const override = timeRangeOverride;
 		if (!ready) return; // let onMount's initial applySavedViewState land first - see its own remarks on ordering
-		if (override) {
-			explorer.setTimeRangePreset(override);
-		} else if (overrideWasActive) {
-			explorer.applySavedViewState(query);
-		}
+		// untrack: explorer.setTimeRangePreset/applySavedViewState/setServices all end up
+		// (via applyFilterChange -> runSearch's synchronous prefix, before its first await)
+		// reading this same explorer's own `filter.*` fields to build the search request -
+		// left untracked, that read would make *this* effect depend on state it just wrote
+		// a moment earlier, which Svelte detects as a self-triggering loop and throws
+		// effect_update_depth_exceeded for (found live during e2e verification - see the
+		// serviceOverride effect below, where this was first caught). This effect must
+		// depend only on timeRangeOverride/serviceOverride/ready, never on anything
+		// explorer.setXxx() happens to read while doing its job.
+		untrack(() => {
+			if (override) {
+				explorer.setTimeRangePreset(override);
+			} else if (overrideWasActive) {
+				// Reverting wholesale reapplies *every* saved field, including services - so a
+				// still-active serviceOverride (independent of this one) needs reapplying right
+				// after, or turning the time-range override off would silently also undo the
+				// service override. See serviceOverride's own effect below for the symmetric case.
+				explorer.applySavedViewState(query);
+				if (serviceOverride) explorer.setServices([serviceOverride]);
+			}
+		});
 		overrideWasActive = override != null;
+	});
+
+	// Same "seed via untrack, compare on the next run" shape as overrideWasActive above, for
+	// the dashboard-wide "Service" variable (DashboardViewerState.serviceOverride's own
+	// remarks - the MVP scope this is).
+	let serviceOverrideWasActive = untrack(() => serviceOverride != null);
+
+	$effect(() => {
+		const override = serviceOverride;
+		if (!ready) return;
+		// See the timeRangeOverride effect above for why this whole block must be untracked -
+		// this is exactly where that loop was first caught live (explorer.setServices, via
+		// applyFilterChange -> runSearch's synchronous prefix, reads this.filter.services
+		// right after writing it).
+		untrack(() => {
+			if (override) {
+				explorer.setServices([override]);
+			} else if (serviceOverrideWasActive) {
+				// Symmetric to the time-range effect above - reapply a still-active time-range
+				// override after the wholesale revert undoes it too.
+				explorer.applySavedViewState(query);
+				if (timeRangeOverride) explorer.setTimeRangePreset(timeRangeOverride);
+			}
+		});
+		serviceOverrideWasActive = override != null;
 	});
 
 	// Same "seed via untrack, compare on the next run" shape as overrideWasActive above -

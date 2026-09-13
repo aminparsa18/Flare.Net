@@ -64,11 +64,14 @@ folders are where "what happened and why" actually lives.
   time-range override), Phase 3 (session-only auto-refresh interval;
   whole-dashboard duplicate and JSON export - no import path yet; a
   per-browser "set as home page" preference that self-clears if the chosen
-  dashboard is later deleted), and, from Phase 4 so far: full-screen/TV mode
-  (a session-only, per-browser nav-chrome toggle using the Fullscreen API)
-  and a "Create alert" action on a Logs/Metrics panel (deep-links into the
+  dashboard is later deleted), and Phase 4: full-screen/TV mode (a
+  session-only, per-browser nav-chrome toggle using the Fullscreen API); a
+  "Create alert" action on a Logs/Metrics panel (deep-links into the
   Alerts page's create dialog, pre-filled with that panel's condition -
-  Traces has no alert condition kind to draft into, so it's skipped there) -
+  Traces has no alert condition kind to draft into, so it's skipped there);
+  and a dashboard-wide "Service" override (a session-only built-in
+  variable - a fixed dropdown of known service names, not a saved/
+  query-backed variable - see "Still open" below for the fuller version) -
   see [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
   for the user-facing walkthrough of all of the above. Still open, not started:
   - Gate widget edit/delete and dashboard-description edit in the UI
@@ -76,9 +79,14 @@ folders are where "what happened and why" actually lives.
     just a 403 from the API — SigNoz does this at the button level
     (e.g. [signoz#1051](https://github.com/SigNoz/signoz/commit/5caf94f024c2447d04d7609c5e018ecd7cba1ed2),
     [#1066](https://github.com/SigNoz/signoz/commit/6c5a48082b0ea6eec51accf57de29ab1e611222b)).
-  - Dashboard variables/templating - a saved variable backed by its own
-    query (e.g. "distinct `service.name` values"), surfaced as a dropdown
-    at the dashboard level, that every panel's query can reference
+  - Full dashboard variables/templating - Phase 4 shipped only the scoped-
+    down MVP (one fixed built-in "Service" variable, sourced the same way
+    each Explorer toolbar's own service filter already is - see
+    `DashboardViewerState.serviceOverride`). Still open: a *saved,
+    query-backed* variable (e.g. "distinct `service.name` values" as its
+    own query, not a fixed built-in), more than one variable per dashboard,
+    and letting a variable back something other than the one thing
+    "Service" happens to cover today
     ([signoz#1552](https://github.com/SigNoz/signoz/commit/461a15d52d2840cd6e50e237cd3f8ab9860321a7)).
   - Lower-priority nice-to-have: importing Grafana dashboard JSON, easing
     migration for anyone coming from Grafana
