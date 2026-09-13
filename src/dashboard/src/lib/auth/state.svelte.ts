@@ -35,6 +35,18 @@ export class AuthState {
 
 	error = $state<string | null>(null);
 
+	/** Admin/Member can create, edit, and delete shared resources (dashboards, saved
+	 *  views, ...) - Viewer is read-only everywhere (mirrors `UserRole`'s own doc-comment
+	 *  in `Flare.Identity`). True while auth is disabled entirely, same fail-open-while-off
+	 *  convention `navLinks()`'s Admin-only `/auth` gating already uses - there's no
+	 *  `currentUser`/role to check in that case, and everyone has full access. UI-only:
+	 *  the API enforces the same rule independently (`RequireMember` on the mutating
+	 *  dashboard/alert/notification-channel endpoints) - this just keeps a Viewer from
+	 *  ever seeing a control that would 403, not the actual security boundary. */
+	get canMutate(): boolean {
+		return !this.authEnabled || this.currentUser?.role !== 'Viewer';
+	}
+
 	/** Learns whether auth is even required at all, then - only if it is - checks for an
 	 * existing session cookie. Never throws - a failed check just leaves currentUser
 	 * null and authEnabled at its fail-secure default, same as no session existing (an

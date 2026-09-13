@@ -10,8 +10,8 @@ For setup steps, see
 
 | Role | Can do |
 |---|---|
-| `Viewer` | Read logs, traces, metrics, saved views, ingestion/pipeline/indexing status; create/revoke their own personal access tokens. |
-| `Member` | Everything `Viewer` can, plus create/edit/delete/test-fire alert rules. |
+| `Viewer` | Read logs, traces, metrics, saved views, dashboards, ingestion/pipeline/indexing status; create/revoke their own personal access tokens. |
+| `Member` | Everything `Viewer` can, plus create/edit/delete/test-fire alert rules, and create/edit/delete dashboards. |
 | `Admin` | Everything `Member` can, plus manage users, ingest API keys, and revoke any user's personal access tokens. |
 
 Fixed three-value enum, not a custom/configurable permission system — see

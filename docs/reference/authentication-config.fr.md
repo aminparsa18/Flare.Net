@@ -13,8 +13,8 @@ Pour les étapes de configuration, voir
 
 | Rôle | Peut faire |
 |---|---|
-| `Viewer` | Lire les logs, traces, métriques, vues enregistrées, statut d'ingestion/pipeline/indexation ; créer/révoquer ses propres jetons d'accès personnels. |
-| `Member` | Tout ce que peut `Viewer`, plus créer/modifier/supprimer/tester des règles d'alerte. |
+| `Viewer` | Lire les logs, traces, métriques, vues enregistrées, tableaux de bord, statut d'ingestion/pipeline/indexation ; créer/révoquer ses propres jetons d'accès personnels. |
+| `Member` | Tout ce que peut `Viewer`, plus créer/modifier/supprimer/tester des règles d'alerte, et créer/modifier/supprimer des tableaux de bord. |
 | `Admin` | Tout ce que peut `Member`, plus gérer les utilisateurs, les clés API d'ingestion, et révoquer le jeton d'accès personnel de n'importe quel utilisateur. |
 
 Une énumération fixe à trois valeurs, pas un système de permissions
