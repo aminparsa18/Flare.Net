@@ -71,14 +71,15 @@ folders are where "what happened and why" actually lives.
   Traces has no alert condition kind to draft into, so it's skipped there);
   and a dashboard-wide "Service" override (a session-only built-in
   variable - a fixed dropdown of known service names, not a saved/
-  query-backed variable - see "Still open" below for the fuller version) -
+  query-backed variable - see "Still open" below for the fuller version);
+  and role-gated dashboard mutation (`RequireMember` on the create/update/
+  delete endpoints, `AuthState.canMutate` hiding New/Rename/Duplicate/
+  Delete/Edit/Add-panel/Pin-to-dashboard controls in the UI so a Viewer
+  never hits a 403, per the SigNoz button-level precedent
+  [signoz#1051](https://github.com/SigNoz/signoz/commit/5caf94f024c2447d04d7609c5e018ecd7cba1ed2)/
+  [#1066](https://github.com/SigNoz/signoz/commit/6c5a48082b0ea6eec51accf57de29ab1e611222b)) -
   see [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
   for the user-facing walkthrough of all of the above. Still open, not started:
-  - Gate widget edit/delete and dashboard-description edit in the UI
-    itself by role (admin/editor can mutate, viewer read-only), not
-    just a 403 from the API — SigNoz does this at the button level
-    (e.g. [signoz#1051](https://github.com/SigNoz/signoz/commit/5caf94f024c2447d04d7609c5e018ecd7cba1ed2),
-    [#1066](https://github.com/SigNoz/signoz/commit/6c5a48082b0ea6eec51accf57de29ab1e611222b)).
   - Full dashboard variables/templating - Phase 4 shipped only the scoped-
     down MVP (one fixed built-in "Service" variable, sourced the same way
     each Explorer toolbar's own service filter already is - see

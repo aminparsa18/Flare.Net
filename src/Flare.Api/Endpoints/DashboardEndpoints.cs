@@ -2,6 +2,7 @@ using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Flare.Identity.Auth;
 
 namespace Flare.Api.Endpoints;
 
@@ -13,16 +14,27 @@ namespace Flare.Api.Endpoints;
 /// 400s. No page-type query-string filter on the list endpoint - unlike a
 /// <see cref="SavedView"/>, a dashboard isn't scoped to one Explorer page (see
 /// <c>docs-internal/adr/0023-custom-dashboards.md</c>).
+///
+/// Unlike every other feature mapped wholesale onto one of Program.cs's three
+/// authenticated/member/admin route groups, this file splits per-route: the create/
+/// update/delete handlers below additionally require <see cref="AuthorizationPolicies.RequireMember"/>
+/// (Admin or Member - Viewer stays read-only, mirroring the alert-rule/notification-channel
+/// convention), while list/get stay on Program.cs's group-level plain <c>RequireAuthorization()</c>
+/// (any authenticated user, Viewer included) - a dashboard is visible to everyone but only
+/// Admin/Member can mutate it. ASP.NET Core's authorization metadata is additive, so adding
+/// a per-route policy here on top of the group's own doesn't replace it, it ANDs with it.
+/// The dashboard viewer/list UI mirrors this with `AuthState.canMutate` so a Viewer never
+/// sees a control that would just 403 - see that property's own remarks.
 /// </remarks>
 public static class DashboardEndpoints
 {
     public static IEndpointRouteBuilder MapDashboardEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/dashboards", HandleCreateAsync);
+        endpoints.MapPost("/api/dashboards", HandleCreateAsync).RequireAuthorization(AuthorizationPolicies.RequireMember);
         endpoints.MapGet("/api/dashboards", HandleListAsync);
         endpoints.MapGet("/api/dashboards/{id:guid}", HandleGetAsync);
-        endpoints.MapPut("/api/dashboards/{id:guid}", HandleUpdateAsync);
-        endpoints.MapDelete("/api/dashboards/{id:guid}", HandleDeleteAsync);
+        endpoints.MapPut("/api/dashboards/{id:guid}", HandleUpdateAsync).RequireAuthorization(AuthorizationPolicies.RequireMember);
+        endpoints.MapDelete("/api/dashboards/{id:guid}", HandleDeleteAsync).RequireAuthorization(AuthorizationPolicies.RequireMember);
         return endpoints;
     }
 

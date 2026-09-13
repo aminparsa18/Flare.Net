@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { onMount, onDestroy } from 'svelte';
+	import { authContext } from '$lib/auth/context';
 	import { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
 	import { REFRESH_INTERVALS, refreshIntervalLabel, type RefreshInterval } from '$lib/dashboards/refresh-intervals';
 	import { getChromeVisibilityContext } from '$lib/chrome/context.svelte';
@@ -23,6 +24,7 @@
 	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
 	import * as m from '$lib/paraglide/messages';
 
+	const auth = authContext.get();
 	const viewer = new DashboardViewerState();
 	let addPanelOpen = $state(false);
 
@@ -162,21 +164,23 @@
 					</Select.Content>
 				</Select.Root>
 
-				{#if viewer.editing}
-					<Button variant="outline" size="sm" onclick={() => (addPanelOpen = true)}>
-						<PlusIcon data-icon="inline-start" />
-						{m.dashboardViewer_addPanel()}
+				{#if auth.canMutate}
+					{#if viewer.editing}
+						<Button variant="outline" size="sm" onclick={() => (addPanelOpen = true)}>
+							<PlusIcon data-icon="inline-start" />
+							{m.dashboardViewer_addPanel()}
+						</Button>
+					{/if}
+
+					<Button
+						variant={viewer.editing ? 'secondary' : 'outline'}
+						size="sm"
+						onclick={() => viewer.setEditing(!viewer.editing)}
+					>
+						<PencilIcon data-icon="inline-start" />
+						{viewer.editing ? m.dashboardViewer_doneEditing() : m.dashboardViewer_edit()}
 					</Button>
 				{/if}
-
-				<Button
-					variant={viewer.editing ? 'secondary' : 'outline'}
-					size="sm"
-					onclick={() => viewer.setEditing(!viewer.editing)}
-				>
-					<PencilIcon data-icon="inline-start" />
-					{viewer.editing ? m.dashboardViewer_doneEditing() : m.dashboardViewer_edit()}
-				</Button>
 
 				{#if fullscreenSupported}
 					<Button
@@ -218,10 +222,12 @@
 				<Empty.Description>{m.dashboardViewer_emptyDescription()}</Empty.Description>
 			</Empty.Header>
 			<Empty.Content>
-				<Button size="sm" onclick={() => (addPanelOpen = true)}>
-					<PlusIcon data-icon="inline-start" />
-					{m.dashboardViewer_addPanel()}
-				</Button>
+				{#if auth.canMutate}
+					<Button size="sm" onclick={() => (addPanelOpen = true)}>
+						<PlusIcon data-icon="inline-start" />
+						{m.dashboardViewer_addPanel()}
+					</Button>
+				{/if}
 			</Empty.Content>
 		</Empty.Root>
 	{:else}
