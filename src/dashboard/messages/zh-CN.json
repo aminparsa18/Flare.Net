@@ -1162,6 +1162,8 @@
 	"dashboardViewer_refresh5m": "每 5 分钟",
 	"dashboardViewer_setHome": "设为主页仪表板",
 	"dashboardViewer_unsetHome": "这是您的主页仪表板 — 点击取消",
+	"dashboardViewer_fullscreen": "全屏",
+	"dashboardViewer_exitFullscreen": "退出全屏",
 	"dashboardPanelCard_dragHandle": "拖动以移动位置",
 	"dashboardPanelCard_renameLabel": "面板标题",
 	"addPanelDialog_title": "添加面板",

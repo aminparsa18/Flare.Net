@@ -1121,6 +1121,8 @@
 	"dashboardViewer_refresh5m": "Каждые 5 мин",
 	"dashboardViewer_setHome": "Сделать домашним дашбордом",
 	"dashboardViewer_unsetHome": "Это ваш домашний дашборд — нажмите, чтобы отменить",
+	"dashboardViewer_fullscreen": "Полноэкранный режим",
+	"dashboardViewer_exitFullscreen": "Выйти из полноэкранного режима",
 	"dashboardPanelCard_dragHandle": "Перетащите для перемещения",
 	"dashboardPanelCard_renameLabel": "Название панели",
 	"addPanelDialog_title": "Добавить панель",

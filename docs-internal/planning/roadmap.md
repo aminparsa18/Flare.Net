@@ -61,12 +61,13 @@ folders are where "what happened and why" actually lives.
 - **Custom, user-built dashboards** — shipped: Phase 1 (ADR-0023, CRUD +
   static viewer), Phase 2 (ADR-0024, drag/resize grid editor,
   add/rename/remove panels in place, session-only dashboard-wide
-  time-range override), and Phase 3 (session-only auto-refresh interval;
+  time-range override), Phase 3 (session-only auto-refresh interval;
   whole-dashboard duplicate and JSON export - no import path yet; a
   per-browser "set as home page" preference that self-clears if the chosen
-  dashboard is later deleted - see
+  dashboard is later deleted), and, from Phase 4, full-screen/TV mode (a
+  session-only, per-browser nav-chrome toggle using the Fullscreen API - see
   [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
-  for the user-facing walkthrough of all three). Still open, not started:
+  for the user-facing walkthrough of all of the above). Still open, not started:
   - Gate widget edit/delete and dashboard-description edit in the UI
     itself by role (admin/editor can mutate, viewer read-only), not
     just a 403 from the API — SigNoz does this at the button level

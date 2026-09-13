@@ -99,6 +99,18 @@ enregistrée sur l'objet tableau de bord, donc sans effet sur ce que voient
 les autres) — si le tableau de bord est ensuite supprimé, Flare revient au
 Logs Explorer la prochaine fois plutôt que d'afficher une page cassée.
 
+## Mode plein écran / TV
+
+Cliquez sur l'icône **plein écran** dans l'en-tête d'un tableau de bord
+(à côté de Modifier) pour masquer la barre de navigation de Flare et
+remplir la fenêtre du navigateur avec uniquement les panneaux du tableau
+de bord — utile pour un affichage mural ou une TV dans un espace d'équipe.
+Cliquez à nouveau sur l'icône, ou appuyez sur **Échap**, pour quitter. Ceci
+utilise le mode plein écran natif de votre navigateur, donc c'est propre
+au navigateur/à la session comme la surcharge de plage de temps et
+l'actualisation automatique ci-dessus — rien n'est enregistré sur le
+tableau de bord.
+
 ## Gérer les tableaux de bord
 
 Depuis la page **Dashboards**, vous pouvez :

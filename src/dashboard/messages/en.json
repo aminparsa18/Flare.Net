@@ -1162,6 +1162,8 @@
 	"dashboardViewer_refresh5m": "Every 5m",
 	"dashboardViewer_setHome": "Set as home dashboard",
 	"dashboardViewer_unsetHome": "This is your home dashboard — click to unset",
+	"dashboardViewer_fullscreen": "Full screen",
+	"dashboardViewer_exitFullscreen": "Exit full screen",
 	"dashboardPanelCard_dragHandle": "Drag to reposition",
 	"dashboardPanelCard_renameLabel": "Panel title",
 	"addPanelDialog_title": "Add panel",
