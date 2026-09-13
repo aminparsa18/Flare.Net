@@ -85,6 +85,16 @@ preference (not saved to the dashboard object, so it doesn't affect what
 anyone else sees) — if the dashboard is later deleted, Flare falls back to
 the Logs Explorer next time rather than showing a broken page.
 
+## Creating an alert from a panel
+
+Click the **bell** icon in a Logs or Metrics panel's header to open the
+**Create alert** dialog on the Alerts page, pre-filled with that panel's
+condition — a Logs panel's service/severity/search filter, or a Metrics
+panel's selected metric. Adjust the threshold, window, and notification
+channel, then save as usual. Traces panels don't offer this — there's no
+trace-based alert condition today (alert rules only support log-count,
+metric-threshold, and exception-count conditions).
+
 ## Full-screen / TV mode
 
 Click the **full screen** icon in a dashboard's header (next to Edit) to

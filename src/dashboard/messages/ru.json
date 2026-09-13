@@ -1125,6 +1125,8 @@
 	"dashboardViewer_exitFullscreen": "Выйти из полноэкранного режима",
 	"dashboardPanelCard_dragHandle": "Перетащите для перемещения",
 	"dashboardPanelCard_renameLabel": "Название панели",
+	"dashboardPanelCard_createAlert": "Создать оповещение из этой панели",
+	"dashboardPanelCard_alertNameFromPanel": "Оповещение: {title}",
 	"addPanelDialog_title": "Добавить панель",
 	"addPanelDialog_description": "Постройте запрос и добавьте его как новую панель на этот дашборд.",
 	"addPanelDialog_titleLabel": "Название панели",

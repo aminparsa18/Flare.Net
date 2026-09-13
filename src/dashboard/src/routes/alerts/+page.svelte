@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { AlertsState } from '$lib/alerts/state.svelte';
 	import { alertsContext } from '$lib/alerts/context';
+	import { parseAlertDeepLinkParams } from '$lib/deep-links';
 	import { NotificationChannelsState } from '$lib/notification-channels/state.svelte';
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
 	import { Button } from '$lib/components/ui/button';
@@ -26,6 +27,14 @@
 
 	onMount(() => {
 		void channels.load();
+
+		// "Create alert" from a dashboard Logs/Metrics panel (DashboardPanelCard.svelte) -
+		// checked before the rule list even loads (unlike ?rule= below, which needs
+		// alerts.rules populated first) since opening the create dialog doesn't depend on
+		// any saved rule existing. See $lib/deep-links.ts's own remarks for the param shape.
+		const draft = parseAlertDeepLinkParams(page.url);
+		if (draft) alerts.openCreateFromDraft(draft);
+
 		void (async () => {
 			await alerts.load();
 

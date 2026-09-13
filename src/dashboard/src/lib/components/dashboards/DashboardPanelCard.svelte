@@ -8,6 +8,7 @@
 	// The drag handle, title-edit affordance, and remove button are all scoped to
 	// `editing` - outside edit mode a panel is read-only chrome, so nothing here risks an
 	// accidental drag/rename/delete while just looking at a dashboard.
+	import { goto } from '$app/navigation';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -17,8 +18,12 @@
 	import DashboardTracesPanelBody from './panels/DashboardTracesPanelBody.svelte';
 	import type { DashboardPanel } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
+	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
+	import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
+	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '$lib/deep-links';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
+	import BellPlusIcon from '@lucide/svelte/icons/bell-plus';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -81,6 +86,43 @@
 		renaming = false;
 		titleDraft = panel.title;
 	}
+
+	// "Create alert" - Traces has no alert condition kind to draft into (AlertConditionKind
+	// is LogCount/MetricThreshold/ExceptionCount only, see ADR-0020/ADR-0022), so this is
+	// Logs/Metrics only. Reads the panel's *saved* query (the same `LogsSavedViewState`/
+	// `MetricsSavedViewState` shape DashboardLogsPanelBody/DashboardMetricsPanelBody feed
+	// into `explorer.applySavedViewState`), not the live in-panel explorer's own possibly
+	// since-changed state - same "defensively narrowed, unknown at rest" caveat those
+	// `applySavedViewState` methods already document. Available in both view and edit mode -
+	// unlike rename/remove/drag, drafting an alert never risks losing anything, so there's
+	// no reason to gate it behind `editing`.
+	const alertDraft = $derived.by((): AlertPanelDraft | null => {
+		if (panel.panelType === 'Logs') {
+			const q = (panel.query ?? {}) as Partial<LogsSavedViewState>;
+			return {
+				kind: 'LogCount',
+				name: m.dashboardPanelCard_alertNameFromPanel({ title: panel.title }),
+				services: q.services ?? [],
+				severityNumbers: q.severityNumbers ?? [],
+				search: q.search ?? ''
+			};
+		}
+		if (panel.panelType === 'Metrics') {
+			const q = (panel.query ?? {}) as Partial<MetricsSavedViewState>;
+			if (!q.selectedMetric) return null;
+			return {
+				kind: 'MetricThreshold',
+				name: m.dashboardPanelCard_alertNameFromPanel({ title: panel.title }),
+				metricName: q.selectedMetric.metricName,
+				metricType: q.selectedMetric.type
+			};
+		}
+		return null;
+	});
+
+	function handleCreateAlert(): void {
+		if (alertDraft) void goto(buildAlertDeepLinkHref(alertDraft));
+	}
 </script>
 
 <div class="flex h-full flex-col rounded-lg border">
@@ -110,6 +152,17 @@
 			{/if}
 			<Badge variant="outline" class="shrink-0">{panelTypeLabel(panel.panelType)}</Badge>
 		</div>
+		{#if alertDraft}
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="text-muted-foreground hover:text-foreground shrink-0"
+				title={m.dashboardPanelCard_createAlert()}
+				onclick={handleCreateAlert}
+			>
+				<BellPlusIcon />
+			</Button>
+		{/if}
 		{#if editing}
 			<Button
 				variant="ghost"

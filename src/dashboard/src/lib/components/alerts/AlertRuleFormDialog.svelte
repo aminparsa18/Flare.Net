@@ -138,6 +138,26 @@
 			metricThresholdValueText = '0';
 			exceptionType = '';
 			exceptionMessage = '';
+			// A pending "Create alert from panel" draft (DashboardPanelCard.svelte's "Create
+			// alert" action, routed through the ?kind=.../routes/alerts/+page.svelte's own
+			// onMount) overrides a subset of the blanks just set above. Read once and cleared
+			// immediately - see AlertsState.createDraft's own remarks for why it isn't $state
+			// and why this doesn't just reset the fields it changed on the very next run.
+			const draft = alerts.createDraft;
+			if (draft) {
+				name = draft.name;
+				conditionKind = draft.kind;
+				if (draft.kind === 'LogCount') {
+					services = [...draft.services];
+					severityNumbers = [...draft.severityNumbers];
+					search = draft.search;
+				} else {
+					metricName = draft.metricName;
+					metricType = draft.metricType;
+					metricAggregation = AGGREGATIONS_BY_TYPE[draft.metricType][0];
+				}
+				alerts.createDraft = null;
+			}
 		} else if (target) {
 			name = target.name;
 			description = target.description;

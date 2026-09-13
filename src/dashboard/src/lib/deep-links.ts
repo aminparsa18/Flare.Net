@@ -12,6 +12,7 @@
 
 import type { AttributeFilter } from './api';
 import { TIME_RANGE_PRESETS, type TimeRangePreset } from './logs/time-range';
+import type { MetricPointType } from './metrics-api';
 
 export interface DeepLinkTarget {
 	serviceName: string;
@@ -87,4 +88,76 @@ export function parseTracesDeepLinkParams(url: URL): ParsedTracesDeepLink | null
 	const range = url.searchParams.get('range');
 	if (!service || !isTimeRangePreset(range)) return null;
 	return { services: [service], timeRangePreset: range };
+}
+
+// Dashboard panel -> Alerts ("Create alert" on a Logs/Metrics panel, DashboardPanelCard.svelte -
+// the only producer). Traces has no alert condition kind to draft into (AlertConditionKind is
+// LogCount/MetricThreshold/ExceptionCount only - see ADR-0020/ADR-0022), so there's no Traces
+// variant here. Same "plain query params on the existing route, one-off/ephemeral hop" shape as
+// the Metrics -> Logs/Traces links above - AlertRuleFormDialog.svelte's draft is consumed once
+// (AlertsState.openCreateFromDraft) and never round-tripped back into a URL.
+
+/** A Logs panel's condition, pre-filled into a new alert rule's LogCount block. */
+export interface AlertDraftFromLogsPanel {
+	kind: 'LogCount';
+	name: string;
+	services: string[];
+	severityNumbers: number[];
+	search: string;
+}
+
+/** A Metrics panel's condition, pre-filled into a new alert rule's MetricThreshold block - no
+ *  `filter`/services counterpart: AlertRuleFormDialog's metric block has no filter UI to
+ *  receive one today (see MetricAlertCondition.filter's own doc comment). */
+export interface AlertDraftFromMetricsPanel {
+	kind: 'MetricThreshold';
+	name: string;
+	metricName: string;
+	metricType: MetricPointType;
+}
+
+export type AlertPanelDraft = AlertDraftFromLogsPanel | AlertDraftFromMetricsPanel;
+
+function isMetricPointType(value: string | null): value is MetricPointType {
+	return value === 'Gauge' || value === 'Sum' || value === 'Histogram';
+}
+
+export function buildAlertDeepLinkHref(draft: AlertPanelDraft): string {
+	const params = new URLSearchParams({ kind: draft.kind, name: draft.name });
+	if (draft.kind === 'LogCount') {
+		if (draft.services.length) params.set('services', draft.services.join(','));
+		if (draft.severityNumbers.length) params.set('severities', draft.severityNumbers.join(','));
+		if (draft.search.trim()) params.set('search', draft.search.trim());
+	} else {
+		params.set('metricName', draft.metricName);
+		params.set('metricType', draft.metricType);
+	}
+	return `/alerts?${params.toString()}`;
+}
+
+/** Parses `routes/alerts/+page.svelte`'s deep-link params - null when this isn't a deep-link arrival (a direct visit, or the unrelated `?rule=<id>` history deep-link, checked separately by the caller). */
+export function parseAlertDeepLinkParams(url: URL): AlertPanelDraft | null {
+	const kind = url.searchParams.get('kind');
+	if (kind !== 'LogCount' && kind !== 'MetricThreshold') return null;
+	const name = url.searchParams.get('name') ?? '';
+	if (kind === 'MetricThreshold') {
+		const metricName = url.searchParams.get('metricName');
+		const metricType = url.searchParams.get('metricType');
+		if (!metricName || !isMetricPointType(metricType)) return null;
+		return { kind, name, metricName, metricType };
+	}
+	const services = url.searchParams.get('services');
+	const severities = url.searchParams.get('severities');
+	return {
+		kind,
+		name,
+		services: services ? services.split(',').filter(Boolean) : [],
+		severityNumbers: severities
+			? severities
+					.split(',')
+					.map(Number)
+					.filter((n) => Number.isFinite(n))
+			: [],
+		search: url.searchParams.get('search') ?? ''
+	};
 }

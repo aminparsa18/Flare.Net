@@ -99,6 +99,18 @@ enregistrée sur l'objet tableau de bord, donc sans effet sur ce que voient
 les autres) — si le tableau de bord est ensuite supprimé, Flare revient au
 Logs Explorer la prochaine fois plutôt que d'afficher une page cassée.
 
+## Créer une alerte depuis un panneau
+
+Cliquez sur l'icône **cloche** dans l'en-tête d'un panneau Logs ou Metrics
+pour ouvrir la boîte de dialogue **Créer une alerte** sur la page Alertes,
+pré-remplie avec la condition de ce panneau — le filtre service/gravité/
+recherche d'un panneau Logs, ou la métrique sélectionnée d'un panneau
+Metrics. Ajustez le seuil, la fenêtre et le canal de notification, puis
+enregistrez normalement. Les panneaux Traces ne proposent pas cette
+fonction — il n'existe aujourd'hui aucune condition d'alerte basée sur les
+traces (les règles d'alerte ne prennent en charge que les conditions par
+nombre de logs, seuil de métrique et nombre d'exceptions).
+
 ## Mode plein écran / TV
 
 Cliquez sur l'icône **plein écran** dans l'en-tête d'un tableau de bord
