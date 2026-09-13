@@ -7,31 +7,43 @@
 	// panels never share one, same isolation `+page.svelte` gets by construction.
 	//
 	// `timeRangeOverride` (Phase 2, docs-internal/adr/0024-custom-dashboards-phase2-editor.md)
-	// layers the dashboard-wide time-range picker on top of the panel's own saved range -
-	// see the `$effect` below for why it's gated on `ready` and tracks its own "was an
-	// override active last run" flag rather than reacting to every `timeRangeOverride`
-	// change unconditionally.
+	// layers the dashboard-wide time-range picker on top of the panel's own saved range.
+	// `variableOverrides` (Phase 5, docs-internal/adr/0025-dashboard-variables.md) is every
+	// currently-selected dashboard variable's value, already resolved - a `Service`-target
+	// variable narrows `filter.services` (Phase 4's fixed override, generalized to any
+	// number of user-defined variables), an `Attribute`-target one is appended to this
+	// panel's own saved `attributeFilters` (never replacing them - a panel that already
+	// filters on, say, `level=error` keeps that filter alongside a dashboard variable's
+	// own attribute constraint).
+	//
+	// Both overrides are applied by one combined effect below that recomputes the panel's
+	// *entire* effective filter from its saved baseline every time either changes, rather
+	// than Phase 4's pairwise "revert this one, reapply that one" dance - that only ever
+	// scaled to exactly two independent overrides (time range + one fixed variable); with
+	// any number of variables now possible, recomputing from scratch each time is the
+	// simpler rule and the one that still can't drop an override that's still active.
 	//
 	// `refreshToken` (Phase 3) is DashboardViewerState's auto-refresh tick, bumped once per
 	// interval - this panel doesn't own a timer itself, it just re-runs its own query
 	// whenever the number it's handed changes, same "state flows down, this component
-	// reacts" shape as timeRangeOverride.
+	// reacts" shape as timeRangeOverride/variableOverrides.
 	import { onMount, untrack } from 'svelte';
-	import { LogsExplorerState } from '$lib/logs/state.svelte';
+	import { LogsExplorerState, type LogsSavedViewState } from '$lib/logs/state.svelte';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import VolumeChart from '$lib/components/logs/VolumeChart.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
+	import { attributesForLogsPanel, type ResolvedVariableOverrides } from '$lib/dashboards/variables';
 
 	let {
 		query,
 		timeRangeOverride,
-		serviceOverride,
+		variableOverrides,
 		refreshToken
 	}: {
 		query: unknown;
 		timeRangeOverride: TimeRangePreset | null;
-		serviceOverride: string | null;
+		variableOverrides: ResolvedVariableOverrides;
 		refreshToken: number;
 	} = $props();
 
@@ -43,69 +55,38 @@
 		ready = true;
 	});
 
-	// Not reactive state - just remembers, across effect runs, whether an override was
-	// applied last time so a later "override turned off" transition knows to restore the
-	// panel's own saved range instead of leaving whatever the override last set. Seeded
-	// from the current prop (via `untrack` - a deliberate one-time snapshot, not a
-	// reactive read) so the very first (post-`ready`) run doesn't wastefully re-apply
-	// `query` when there was never an override to begin with.
-	let overrideWasActive = untrack(() => timeRangeOverride != null);
-
+	/**
+	 * Re-applies this panel's saved baseline plus every currently-active override whenever
+	 * either the time-range override or `variableOverrides` changes (including the initial
+	 * transition to `ready`, so an override that's already active - e.g. a variable with a
+	 * `defaultValue` - is reflected as soon as the panel mounts, same as Phase 4's own
+	 * initial-application behavior).
+	 */
 	$effect(() => {
-		const override = timeRangeOverride;
-		if (!ready) return; // let onMount's initial applySavedViewState land first - see its own remarks on ordering
-		// untrack: explorer.setTimeRangePreset/applySavedViewState/setServices all end up
-		// (via applyFilterChange -> runSearch's synchronous prefix, before its first await)
-		// reading this same explorer's own `filter.*` fields to build the search request -
-		// left untracked, that read would make *this* effect depend on state it just wrote
-		// a moment earlier, which Svelte detects as a self-triggering loop and throws
-		// effect_update_depth_exceeded for (found live during e2e verification - see the
-		// serviceOverride effect below, where this was first caught). This effect must
-		// depend only on timeRangeOverride/serviceOverride/ready, never on anything
-		// explorer.setXxx() happens to read while doing its job.
+		const range = timeRangeOverride;
+		const overrides = variableOverrides;
+		if (!ready) return; // let onMount's initial applySavedViewState land first
+		// untrack: explorer.setXxx()/applySavedViewState all end up (via applyFilterChange ->
+		// runSearch's synchronous prefix, before its first await) reading this same explorer's
+		// own `filter.*` fields to build the search request - left untracked, that read would
+		// make *this* effect depend on state it just wrote a moment earlier, which Svelte
+		// detects as a self-triggering loop and throws effect_update_depth_exceeded for
+		// (found live during Phase 4's own e2e verification).
 		untrack(() => {
-			if (override) {
-				explorer.setTimeRangePreset(override);
-			} else if (overrideWasActive) {
-				// Reverting wholesale reapplies *every* saved field, including services - so a
-				// still-active serviceOverride (independent of this one) needs reapplying right
-				// after, or turning the time-range override off would silently also undo the
-				// service override. See serviceOverride's own effect below for the symmetric case.
-				explorer.applySavedViewState(query);
-				if (serviceOverride) explorer.setServices([serviceOverride]);
+			explorer.applySavedViewState(query);
+			if (range) explorer.setTimeRangePreset(range);
+			if (overrides.services.length) explorer.setServices(overrides.services);
+			const attributes = attributesForLogsPanel(overrides);
+			if (attributes.length) {
+				const saved = (query as Partial<LogsSavedViewState> | null)?.attributeFilters ?? [];
+				explorer.setAttributeFilters([...saved, ...attributes]);
 			}
 		});
-		overrideWasActive = override != null;
 	});
 
-	// Same "seed via untrack, compare on the next run" shape as overrideWasActive above, for
-	// the dashboard-wide "Service" variable (DashboardViewerState.serviceOverride's own
-	// remarks - the MVP scope this is).
-	let serviceOverrideWasActive = untrack(() => serviceOverride != null);
-
-	$effect(() => {
-		const override = serviceOverride;
-		if (!ready) return;
-		// See the timeRangeOverride effect above for why this whole block must be untracked -
-		// this is exactly where that loop was first caught live (explorer.setServices, via
-		// applyFilterChange -> runSearch's synchronous prefix, reads this.filter.services
-		// right after writing it).
-		untrack(() => {
-			if (override) {
-				explorer.setServices([override]);
-			} else if (serviceOverrideWasActive) {
-				// Symmetric to the time-range effect above - reapply a still-active time-range
-				// override after the wholesale revert undoes it too.
-				explorer.applySavedViewState(query);
-				if (timeRangeOverride) explorer.setTimeRangePreset(timeRangeOverride);
-			}
-		});
-		serviceOverrideWasActive = override != null;
-	});
-
-	// Same "seed via untrack, compare on the next run" shape as overrideWasActive above -
-	// skips the spurious first fire (refreshToken starts at 0 and hasn't ticked yet) so
-	// only an actual auto-refresh interval elapsing re-runs the query.
+	// Same "seed via untrack, compare on the next run" shape as above - skips the spurious
+	// first fire (refreshToken starts at 0 and hasn't ticked yet) so only an actual
+	// auto-refresh interval elapsing re-runs the query.
 	let lastRefreshToken = untrack(() => refreshToken);
 
 	$effect(() => {

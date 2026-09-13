@@ -100,7 +100,7 @@ export class DashboardsState {
 		this.saveError = null;
 		try {
 			if (target === 'new') {
-				const created = await createDashboard({ name, description, layout: { panels: [] } });
+				const created = await createDashboard({ name, description, layout: { panels: [], variables: [] } });
 				this.formTarget = null;
 				await this.load();
 				return created.id;

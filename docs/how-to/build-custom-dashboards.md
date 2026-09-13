@@ -4,8 +4,9 @@ Compose a **multi-panel dashboard** out of queries you already built on the
 Logs, Traces, and Metrics pages — one saved object with several widgets on
 it, instead of several separate saved searches you have to open one at a
 time. For the storage/execution design behind this, see
-[the original ADR](../../docs-internal/adr/0023-custom-dashboards.md) and
-[the editor follow-up](../../docs-internal/adr/0024-custom-dashboards-phase2-editor.md);
+[the original ADR](../../docs-internal/adr/0023-custom-dashboards.md),
+[the editor follow-up](../../docs-internal/adr/0024-custom-dashboards-phase2-editor.md),
+and [the variables follow-up](../../docs-internal/adr/0025-dashboard-variables.md);
 for the single-page equivalent (one saved filter, no panels), see
 [Saved searches](#saved-searches-vs-dashboards) below.
 
@@ -95,17 +96,49 @@ preference (not saved to the dashboard object, so it doesn't affect what
 anyone else sees) — if the dashboard is later deleted, Flare falls back to
 the Logs Explorer next time rather than showing a broken page.
 
-## Overriding the service for a session
+## Dashboard variables
 
-The **service** picker in a dashboard's header (next to the time-range
-override) temporarily narrows every Logs/Metrics/Traces panel to one
-service, regardless of what each panel was individually pinned/added with.
-Set it back to **Each panel's own service** to go back to each panel
-showing whatever service(s) it was saved with. Like the time-range
-override, this is per-browser-session only — it's never saved to the
-dashboard. This is a fixed, built-in variable, not a saved or query-backed
-one: it always means "service", and it isn't currently possible to define
-your own variable backed by an arbitrary query.
+Click **Variables** in a dashboard's header (in edit mode) to define
+dropdowns that temporarily narrow every panel that can use them, for this
+browser session — regardless of what each panel was individually
+pinned/added with. Unlike the time-range/auto-refresh/service overrides,
+which are fixed built-in controls, a variable is something you define
+yourself, and any number of them can exist on one dashboard:
+
+1. Click **Add variable** and give it a **name** (shown as its dropdown's
+   label in the header).
+2. Choose what it **backs**:
+   - **Service** — narrows every Logs/Traces/Metrics panel's service
+     filter, the same thing Phase 4's old fixed Service override did.
+   - **Attribute** — narrows Logs and/or Traces panels (Metrics has no
+     attribute filter to narrow) to one attribute value. Pick an
+     **attribute type** — Log attribute (Logs panels only), Span attribute
+     (Traces panels only), or Resource/Scope attribute (both, since those
+     are the same ingest-time-correlated bag either way) — and type the
+     **attribute key** (e.g. `http.method`).
+3. Choose where its **values** come from:
+   - **From query** — every distinct value observed over the last 7 days,
+     resolved automatically (the same lookup Logs'/Traces' own attribute
+     filter builders already use for autocomplete).
+   - **Custom list** — a fixed, comma-separated list you type in yourself.
+4. Optionally set a **default value**, preselected whenever the dashboard
+   is opened. Leave it blank for "All" (the variable doesn't narrow
+   anything until you pick a value).
+
+Each variable then gets its own dropdown next to the time-range/refresh
+controls. Selecting a value narrows every panel its target/attribute type
+applies to; more than one Service-backed variable combines as "any of
+these services" rather than one replacing another. An attribute variable's
+value is *added to* a panel's own saved filters, not a replacement — a
+panel that already filters on, say, an error level keeps that filter too.
+Like the time-range override, a variable's *selected value* is
+per-browser-session only and never saved to the dashboard — only its
+*definition* (name, target, source) is, via **Variables**, so everyone who
+opens the dashboard sees the same dropdowns but can pick their own values.
+
+There's no variable chaining (one variable's options narrowing based on
+another's selection) and no per-panel opt-out from a variable yet — see
+"Known gaps" below.
 
 ## Creating an alert from a panel
 
@@ -197,7 +230,12 @@ search.
   searches and alert rules today — there's no per-user ownership or private
   dashboards yet. (The "set as home page" preference above is per-browser,
   not per-user, and doesn't change who can see the dashboard itself.)
-- **No dashboard variables/templating** — every panel's query is fixed at
-  add/edit time.
+- **No variable chaining** — a variable's "From query" values always
+  resolve independently over the same fixed 7-day window; one variable
+  can't narrow its own options based on another variable's current
+  selection.
+- **No per-panel opt-out from a variable** — a variable narrows every panel
+  its target/attribute type applies to, dashboard-wide; there's no way to
+  exclude one panel from it.
 
 None of these are permanent limits, just not built yet.

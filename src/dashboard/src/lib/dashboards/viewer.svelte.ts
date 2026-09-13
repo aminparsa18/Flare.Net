@@ -5,9 +5,14 @@
 // adds `editing` (drives DashboardGrid.svelte's drag/resize), a dashboard-wide time-range
 // override, and add/reposition/rename alongside remove. Phase 3 (roadmap's "Custom,
 // user-built dashboards" item) adds an auto-refresh interval and the "set as home" toggle.
-// Phase 4 adds a dashboard-wide "Service" override - the scoped-down MVP of dashboard
-// variables (see roadmap.md's own remarks on what's deliberately *not* built here):
-// session-only, one fixed built-in variable, no query-backed/chained variables.
+// Phase 4 added a dashboard-wide "Service" override - a fixed, always-on built-in variable,
+// not persisted anywhere. Phase 5 (docs-internal/adr/0025-dashboard-variables.md) replaces
+// that fixed override with real, user-defined `DashboardVariable`s: any number of them, each
+// either backing `services` (like the old override) or an arbitrary attribute equality
+// filter, with either a fixed custom value list or one resolved live from a query. A
+// variable's *definition* is part of `dashboard.layout.variables` (persisted, like a panel);
+// which value is currently *selected* stays session-only in `variableValues` below, same
+// "never written back to the dashboard row" rule `timeRangeOverride` already follows.
 //
 // duplicatePanel()/exportPanel() (roadmap follow-up to Phase 3, which only covered a whole
 // dashboard) are this class's own counterparts to DashboardsState's duplicate()/
@@ -15,14 +20,14 @@
 // API endpoint" shape, just scoped to one panel within `dashboard` instead of a whole
 // dashboard in the list.
 
-import { getDashboard, updateDashboard, type DashboardSummary, type DashboardPanel } from '$lib/dashboards-api';
-import { aggregateLogs } from '$lib/api';
+import { getDashboard, updateDashboard, type DashboardSummary, type DashboardPanel, type DashboardLayout, type DashboardVariable } from '$lib/dashboards-api';
 import type { TimeRangePreset } from '$lib/logs/time-range';
 import { type RefreshInterval, refreshIntervalMs } from './refresh-intervals';
 import { getHomeDashboardId, setHomeDashboardId, clearHomeDashboardIdIfMatching } from './home-preference';
 import { nextPanelPosition } from './layout';
 import { slugify } from './state.svelte';
 import { downloadBlob } from '$lib/logs/export';
+import { resolveQueryVariableOptions, resolveVariableOverrides, type ResolvedVariableOverrides } from './variables';
 import * as m from '$lib/paraglide/messages';
 
 export class DashboardViewerState {
@@ -44,19 +49,44 @@ export class DashboardViewerState {
 	timeRangeOverride = $state<TimeRangePreset | null>(null);
 
 	/**
-	 * Overrides every panel's own `services` filter for this session, or `null` to leave
-	 * each panel showing whatever service(s) it was pinned/added with - same session-only
-	 * reasoning as timeRangeOverride above (this is the MVP "variable": one fixed built-in,
-	 * not a saved/query-backed one - see roadmap.md's own remarks on the fuller version
-	 * left as still-open work).
+	 * Mirrors `dashboard.layout.variables`, but is only ever reassigned by the methods
+	 * that actually mean to change a variable (`load`/`saveVariable`/`removeVariable`) -
+	 * never by `updateLayout`/`addPanel`/`renamePanel`/`removePanel`, even though those all
+	 * reassign `dashboard` wholesale from a fresh server response (a new `layout.variables`
+	 * array reference every time, JSON-round-tripped through `updateDashboard`, even when
+	 * its *content* didn't change). `resolvedVariableOverrides` below derives from this
+	 * field rather than `dashboard.layout.variables` directly for exactly that reason: a
+	 * derived reading the latter would recompute to a new object on every unrelated panel
+	 * drag/rename/add/remove, and every panel body's combined override effect (see
+	 * `Dashboard*PanelBody.svelte`) would spuriously re-run - fully resetting every other
+	 * panel's own live state (live-tail connection, selected event, scroll position, ...) -
+	 * on an edit that never touched any variable.
 	 */
-	serviceOverride = $state<string | null>(null);
+	variables = $state<DashboardVariable[]>([]);
 
-	/** Options for the Service override picker - loaded once in load() below, same wide-window
-	 *  aggregate `LogsExplorerState.loadKnownServices`/AlertRuleFormDialog's own copy of it use
-	 *  (see this class's loadKnownServices' own remarks for why this is a third copy rather
-	 *  than sharing one of those). */
-	knownServices = $state<string[]>([]);
+	/**
+	 * Session-only selection for each of `variables` - keyed by `DashboardVariable.id`,
+	 * `null`/absent meaning "All" (that variable isn't currently narrowing anything). Never
+	 * persisted - see this file's header comment. Seeded from each variable's own
+	 * `defaultValue` in `load()`/whenever a variable is added.
+	 */
+	variableValues = $state<Record<string, string | null>>({});
+
+	/** Resolved selectable values for each of `variables`, keyed by id - `Custom` variables'
+	 *  own `customValues` verbatim, `Query` variables resolved live via
+	 *  `resolveQueryVariableOptions` (see `./variables.ts`). Loaded once in `load()` and
+	 *  again whenever the variable list itself changes (add/edit/remove below). */
+	variableOptions = $state<Record<string, string[]>>({});
+
+	/** Every currently-selected variable value, already resolved into the shape panel
+	 *  bodies apply (see `./variables.ts`) - recomputed whenever `variables` or
+	 *  `variableValues` changes, and *only* then (see `variables`' own remarks above).
+	 *  Replaces Phase 4's single `serviceOverride` prop threaded through DashboardGrid ->
+	 *  DashboardPanelCard -> each panel body. */
+	resolvedVariableOverrides = $derived<ResolvedVariableOverrides>(resolveVariableOverrides(this.variables, this.variableValues));
+
+	/** Drives ManageVariablesDialog.svelte - `null` closed, `'new'` the blank-create form, else the variable being edited. */
+	variableFormTarget = $state<DashboardVariable | 'new' | null>(null);
 
 	/** Off by default - opening a dashboard never starts silently polling. Session-only,
 	 *  same reasoning as timeRangeOverride above. */
@@ -81,37 +111,38 @@ export class DashboardViewerState {
 		try {
 			this.dashboard = await getDashboard(id);
 			this.isHome = getHomeDashboardId() === id;
+			this.variables = this.dashboard.layout.variables;
+			this.#reseedVariableValues();
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 			clearHomeDashboardIdIfMatching(id);
 		} finally {
 			this.loading = false;
 		}
-		// Fire-and-forget, same as AlertRuleFormDialog's own onMount - the service picker
-		// just shows fewer/no options until this resolves, not worth blocking the dashboard
-		// itself (`loading` above) on.
-		void this.loadKnownServices();
+		// Fire-and-forget, same as AlertRuleFormDialog's own onMount - each variable's
+		// dropdown just shows fewer/no options until this resolves, not worth blocking the
+		// dashboard itself (`loading` above) on.
+		void this.#loadVariableOptions();
 	}
 
-	/** One-off, wide-window (7d) aggregate to enumerate service names - same query
-	 *  `LogsExplorerState.loadKnownServices`/AlertRuleFormDialog's own copy run, duplicated
-	 *  here rather than shared for the same reason AlertRuleFormDialog's own copy gives:
-	 *  this page has no LogsExplorerState instance of its own to borrow one from (each
-	 *  panel's own private explorer, inside DashboardLogsPanelBody, is scoped to that one
-	 *  panel and may not even be a Logs panel). */
-	async loadKnownServices(): Promise<void> {
-		try {
-			const to = new Date();
-			const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
-			const res = await aggregateLogs({
-				filter: { from: from.toISOString(), to: to.toISOString() },
-				bucketWidthSeconds: 7 * 24 * 60 * 60,
-				groupBy: 'Service'
-			});
-			this.knownServices = [...new Set(res.buckets.map((b) => b.groupKey).filter((k): k is string => !!k))].sort();
-		} catch {
-			// Non-critical - the picker just shows fewer/no options until a retry.
+	/** Seeds `variableValues` for every variable that doesn't have a selection yet - called
+	 *  on load and after adding a variable, so a freshly-added variable starts at its own
+	 *  `defaultValue` (or "All") instead of `undefined`. Never overwrites an existing
+	 *  selection (editing/removing other variables shouldn't reset ones the user already
+	 *  picked a value for). */
+	#reseedVariableValues(): void {
+		const next = { ...this.variableValues };
+		for (const variable of this.variables) {
+			if (!(variable.id in next)) next[variable.id] = variable.defaultValue ?? null;
 		}
+		this.variableValues = next;
+	}
+
+	async #loadVariableOptions(): Promise<void> {
+		const entries = await Promise.all(
+			this.variables.map(async (v): Promise<[string, string[]]> => [v.id, v.sourceKind === 'Custom' ? (v.customValues ?? []) : await resolveQueryVariableOptions(v)])
+		);
+		this.variableOptions = Object.fromEntries(entries);
 	}
 
 	setEditing(v: boolean): void {
@@ -122,8 +153,8 @@ export class DashboardViewerState {
 		this.timeRangeOverride = preset;
 	}
 
-	setServiceOverride(service: string | null): void {
-		this.serviceOverride = service;
+	setVariableValue(variableId: string, value: string | null): void {
+		this.variableValues = { ...this.variableValues, [variableId]: value };
 	}
 
 	setRefreshInterval(value: RefreshInterval): void {
@@ -158,6 +189,18 @@ export class DashboardViewerState {
 		this.#stopAutoRefresh();
 	}
 
+	/** Persists `layout`, carrying `dashboard.layout.variables` forward untouched unless the
+	 *  caller's `layout` already specifies its own - every layout-mutating method below
+	 *  (updateLayout/addPanel/renamePanel/removePanel) only ever means to touch `panels`, so
+	 *  without this a drag/resize would silently wipe out every variable definition the next
+	 *  time it fired. */
+	async #saveLayout(layout: Pick<DashboardLayout, 'panels'> & Partial<Pick<DashboardLayout, 'variables'>>): Promise<DashboardSummary | null> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return null;
+		const full: DashboardLayout = { panels: layout.panels, variables: layout.variables ?? dashboard.layout.variables };
+		return updateDashboard(dashboard.id, { name: dashboard.name, description: dashboard.description, layout: full });
+	}
+
 	/**
 	 * Applies DashboardGrid's `change` event (fired once per completed drag/resize).
 	 * Updates `dashboard.layout` optimistically *before* awaiting the PUT, unlike
@@ -173,9 +216,9 @@ export class DashboardViewerState {
 		if (!dashboard) return;
 		const byId = new Map(changes.map((c) => [c.id, c.layout]));
 		const panels = dashboard.layout.panels.map((p) => (byId.has(p.id) ? { ...p, layout: byId.get(p.id)! } : p));
-		this.dashboard = { ...dashboard, layout: { panels } };
+		this.dashboard = { ...dashboard, layout: { panels, variables: dashboard.layout.variables } };
 		try {
-			await updateDashboard(dashboard.id, { name: dashboard.name, description: dashboard.description, layout: { panels } });
+			await this.#saveLayout({ panels });
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 		}
@@ -185,8 +228,7 @@ export class DashboardViewerState {
 		const dashboard = this.dashboard;
 		if (!dashboard) return;
 		try {
-			const layout = { panels: [...dashboard.layout.panels, panel] };
-			this.dashboard = await updateDashboard(dashboard.id, { name: dashboard.name, description: dashboard.description, layout });
+			this.dashboard = await this.#saveLayout({ panels: [...dashboard.layout.panels, panel] });
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 		}
@@ -196,8 +238,7 @@ export class DashboardViewerState {
 		const dashboard = this.dashboard;
 		if (!dashboard) return;
 		try {
-			const layout = { panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, title } : p)) };
-			this.dashboard = await updateDashboard(dashboard.id, { name: dashboard.name, description: dashboard.description, layout });
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, title } : p)) });
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 		}
@@ -208,12 +249,7 @@ export class DashboardViewerState {
 		if (!dashboard) return;
 		this.removingPanelId = panelId;
 		try {
-			const layout = { panels: dashboard.layout.panels.filter((p) => p.id !== panelId) };
-			this.dashboard = await updateDashboard(dashboard.id, {
-				name: dashboard.name,
-				description: dashboard.description,
-				layout
-			});
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels.filter((p) => p.id !== panelId) });
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 		} finally {
@@ -250,5 +286,57 @@ export class DashboardViewerState {
 		const body = { panelType: panel.panelType, title: panel.title, layout: { w: panel.layout.w, h: panel.layout.h }, query: panel.query };
 		const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json;charset=utf-8' });
 		downloadBlob(blob, `flare-dashboard-panel_${slugify(panel.title, 'panel')}.json`);
+	}
+
+	// ---- Variables (ManageVariablesDialog.svelte) -------------------------------------
+
+	openCreateVariable(): void {
+		this.variableFormTarget = 'new';
+	}
+
+	openEditVariable(variable: DashboardVariable): void {
+		this.variableFormTarget = variable;
+	}
+
+	closeVariableForm(): void {
+		this.variableFormTarget = null;
+	}
+
+	/** Adds or updates one variable definition, persists it, then re-resolves every
+	 *  variable's options (a rename/target/query change can change what this one variable's
+	 *  own dropdown should offer) and re-seeds `variableValues` for a brand-new variable. */
+	async saveVariable(variable: DashboardVariable): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		const exists = this.variables.some((v) => v.id === variable.id);
+		const variables = exists ? this.variables.map((v) => (v.id === variable.id ? variable : v)) : [...this.variables, variable];
+		try {
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels, variables });
+			this.variables = variables;
+			this.variableFormTarget = null;
+			this.#reseedVariableValues();
+			await this.#loadVariableOptions();
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/** Removes one variable definition and its session-only selection/options - any panel
+	 *  currently narrowed by it just stops being narrowed, same as turning Phase 4's fixed
+	 *  Service override off. */
+	async removeVariable(variableId: string): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		const variables = this.variables.filter((v) => v.id !== variableId);
+		try {
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels, variables });
+			this.variables = variables;
+			const { [variableId]: _removedValue, ...restValues } = this.variableValues;
+			const { [variableId]: _removedOptions, ...restOptions } = this.variableOptions;
+			this.variableValues = restValues;
+			this.variableOptions = restOptions;
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
 	}
 }

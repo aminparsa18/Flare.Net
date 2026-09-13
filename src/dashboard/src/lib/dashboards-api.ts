@@ -33,9 +33,61 @@ export interface DashboardPanel {
 	query: unknown;
 }
 
+/**
+ * Which bag a dashboard variable's attribute lives in - the same four bags Logs'
+ * `AttributeBag` and Traces' `SpanAttributeBag` split between them (there's no single bag
+ * enum that covers both: `Log`/`Span` are panel-type-specific record bags, `Resource`/
+ * `Scope` are the ingest-time-correlated bags shared by both - see
+ * docs-internal/adr/0025-dashboard-variables.md's "one bag enum, panel-type-scoped
+ * applicability" decision). Determines both which panel types a resolved value gets
+ * applied to (`Log` -> Logs panels only, `Span` -> Traces panels only, `Resource`/`Scope`
+ * -> both) and, for a `Query`-sourced variable, which endpoint resolves its option list
+ * (see `$lib/dashboards/variables.ts`'s `resolveQueryVariableOptions`).
+ */
+export type DashboardAttributeBag = 'Log' | 'Span' | 'Resource' | 'Scope';
+
+/** What a dashboard variable's selected value narrows - `Service` mirrors Phase 4's fixed
+ *  MVP override (applies to every panel type's own `services` filter), `Attribute` is the
+ *  fuller "back something other than Service" case the roadmap left open, narrowed to one
+ *  bag+key equality match (see `DashboardAttributeBag`'s own remarks on applicability). */
+export type DashboardVariableTarget = 'Service' | 'Attribute';
+
+/** Where a variable's selectable values come from - `Query` resolves them live (see
+ *  `resolveQueryVariableOptions`), `Custom` is a fixed, hand-typed list. Session-only
+ *  *selection* (which value is currently picked) still lives in `DashboardViewerState`,
+ *  same as Phase 2's time-range override - only the variable's *definition* (this shape)
+ *  is part of the saved dashboard. */
+export type DashboardVariableSourceKind = 'Query' | 'Custom';
+
+/**
+ * One dashboard-wide, user-defined variable (see
+ * docs-internal/adr/0025-dashboard-variables.md) - the fuller replacement for Phase 4's
+ * single fixed built-in "Service" override. A dashboard can define any number of these;
+ * each renders its own dropdown in the viewer's header, and its currently-selected value
+ * (session-only, never part of this shape) narrows every applicable panel's query the same
+ * "mutate the panel's own explorer state, let it re-run" way the old override did.
+ */
+export interface DashboardVariable {
+	id: string;
+	/** Display label shown in both the viewer's dropdown and the manage-variables list - freeform, not a token (no panel query is ever textually templated, so there's nothing for a `$name`-style identifier to be substituted into). */
+	name: string;
+	target: DashboardVariableTarget;
+	/** Required when `target === 'Attribute'`; meaningless otherwise. */
+	attributeBag?: DashboardAttributeBag;
+	/** Required when `target === 'Attribute'`; meaningless otherwise. */
+	attributeKey?: string;
+	sourceKind: DashboardVariableSourceKind;
+	/** Required when `sourceKind === 'Custom'`; ignored (a query resolves the list instead) when `sourceKind === 'Query'`. */
+	customValues?: string[];
+	/** Preselected value when the dashboard is first opened in a session, or `null`/omitted for "All" (no filter from this variable) by default. */
+	defaultValue?: string | null;
+}
+
 /** The parsed shape of a `Dashboard`'s opaque `layoutJson` blob. */
 export interface DashboardLayout {
 	panels: DashboardPanel[];
+	/** Defaults to `[]` for any dashboard saved before this field existed - see `parseLayout`. */
+	variables: DashboardVariable[];
 }
 
 /** A named, multi-panel dashboard. */
@@ -59,14 +111,18 @@ export interface DashboardListResponse {
 	dashboards: DashboardSummary[];
 }
 
-const EMPTY_LAYOUT: DashboardLayout = { panels: [] };
+const EMPTY_LAYOUT: DashboardLayout = { panels: [], variables: [] };
 
 /** Exported so `DashboardsState.importDashboard()` can apply the same "malformed layout ->
  *  empty panels, don't throw" leniency to a hand-edited/corrupted import file that this
- *  module already applies to a server response's `layoutJson`. */
+ *  module already applies to a server response's `layoutJson`. A dashboard saved before
+ *  `variables` existed (or an imported Flare-export file predating it) has no such field at
+ *  all - defaulted to `[]` here rather than rejected, same "additive, tolerant of older
+ *  shapes" rule the ClickHouse migrations doc applies to storage. */
 export function parseLayout(raw: unknown): DashboardLayout {
 	if (raw != null && typeof raw === 'object' && Array.isArray((raw as DashboardLayout).panels)) {
-		return raw as DashboardLayout;
+		const layout = raw as Partial<DashboardLayout>;
+		return { panels: layout.panels!, variables: Array.isArray(layout.variables) ? layout.variables : [] };
 	}
 	return EMPTY_LAYOUT;
 }

@@ -22,6 +22,7 @@
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
 	import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
+	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '$lib/deep-links';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
@@ -34,7 +35,7 @@
 		panel,
 		editing,
 		timeRangeOverride,
-		serviceOverride,
+		variableOverrides,
 		refreshToken,
 		removing,
 		onRemove,
@@ -45,7 +46,7 @@
 		panel: DashboardPanel;
 		editing: boolean;
 		timeRangeOverride: TimeRangePreset | null;
-		serviceOverride: string | null;
+		variableOverrides: ResolvedVariableOverrides;
 		refreshToken: number;
 		removing: boolean;
 		onRemove: () => void;
@@ -206,11 +207,11 @@
 	</div>
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 		{#if panel.panelType === 'Logs'}
-			<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} {serviceOverride} {refreshToken} />
+			<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
 		{:else if panel.panelType === 'Metrics'}
-			<DashboardMetricsPanelBody query={panel.query} {timeRangeOverride} {serviceOverride} {refreshToken} />
+			<DashboardMetricsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
 		{:else if panel.panelType === 'Traces'}
-			<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} {serviceOverride} {refreshToken} />
+			<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
 		{/if}
 	</div>
 </div>
