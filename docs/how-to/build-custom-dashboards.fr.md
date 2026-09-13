@@ -164,12 +164,31 @@ Depuis la page **Dashboards**, vous pouvez :
   les définitions de ses panneaux sous forme de fichier JSON, une sauvegarde/
   instantané lisible que vous pouvez aussi utiliser pour déplacer un tableau
   de bord vers une autre instance Flare (voir **Importer** ci-dessous).
-- **Importer** un tableau de bord — choisissez un fichier JSON produit
-  précédemment par Exporter (sur cette instance ou une autre) pour créer un
-  nouveau tableau de bord à partir de celui-ci. Cela ne comprend que le
-  format d'export propre à Flare, pas un JSON de tableau de bord Grafana
-  (voir « Limites connues » ci-dessous) ; un fichier invalide ou sans
-  rapport est rejeté avec une erreur affichée plutôt qu'importé partiellement.
+- **Importer** un tableau de bord — choisissez un fichier JSON pour créer un
+  nouveau tableau de bord à partir de celui-ci. Deux formats sont reconnus
+  depuis le même sélecteur de fichier :
+  - Un export Flare (produit précédemment par Exporter, sur cette instance
+    ou une autre) — les panneaux reviennent exactement comme exportés,
+    requêtes comprises.
+  - Un export de tableau de bord Grafana (« Export as JSON » depuis
+    l'interface de Grafana, ou le champ `dashboard` de sa réponse
+    `GET /api/dashboards/uid/:uid`) — la disposition (position/taille des
+    panneaux) et les titres sont conservés, et le type de chaque panneau est
+    mappé vers le plus proche des trois de Flare (panneaux de type
+    série temporelle/stat/jauge → Metrics, panneaux logs/table → Logs,
+    panneaux de traces → Traces). **Les requêtes, elles, ne le sont pas** —
+    la requête d'un panneau Grafana est écrite pour la source de données
+    qu'il cible (PromQL, LogQL, ...), qui n'a aucun équivalent dans les
+    formats de requête propres à Flare (logs/traces/métriques), donc la
+    requête de chaque panneau importé est réinitialisée à une valeur par
+    défaut vide et doit être configurée après coup (ouvrez le panneau et
+    définissez ce qu'il affiche, comme un panneau tout neuf). Un type de
+    panneau sans équivalent Flare (texte, heatmap, node graph, ...) est
+    ignoré plutôt que deviné ; le résumé d'import indique combien de
+    panneaux sont arrivés et combien ont été ignorés, et pourquoi.
+
+  Un fichier invalide ou sans rapport (ni l'un ni l'autre format) est rejeté
+  avec une erreur affichée plutôt qu'importé partiellement.
 - **Supprimer** un tableau de bord. Cela ne supprime que l'objet tableau de
   bord lui-même — cela ne touche jamais aux données Logs/Traces/Metrics
   sous-jacentes.
@@ -202,9 +221,10 @@ consomme ni ne supprime une recherche enregistrée.
 
 ## Limites connues, dites clairement
 
-- **Pas d'import d'un JSON de tableau de bord Grafana** — Importer ne
-  comprend que le format d'export propre à Flare (voir « Gérer les
-  tableaux de bord » ci-dessus).
+- **L'import Grafana n'est que structurel** — la disposition et le type de
+  panneau sont conservés, pas les requêtes (voir « Gérer les tableaux de
+  bord » ci-dessus pour le pourquoi). Une vraie traduction des requêtes
+  n'est pas prévue ; les sources de données n'ont pas d'équivalent.
 - **Pas d'import par panneau** — la duplication et l'export fonctionnent par
   panneau (voir « Modifier la disposition d'un tableau de bord » ci-dessus),
   mais le JSON exporté d'un panneau ne peut pas être réimporté ; seul

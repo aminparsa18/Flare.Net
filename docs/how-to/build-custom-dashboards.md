@@ -138,11 +138,26 @@ From the **Dashboards** page you can:
 - **Export** a dashboard — downloads its name, description, and panel
   definitions as a JSON file, a readable backup/snapshot you can also use
   to move a dashboard to another Flare instance (see **Import** below).
-- **Import** a dashboard — pick a JSON file previously produced by Export
-  (on this instance or another one) to create a new dashboard from it. This
-  only understands Flare's own export format, not a Grafana dashboard JSON
-  (see "Known gaps" below); an invalid or unrelated file is rejected with
-  an inline error rather than partially imported.
+- **Import** a dashboard — pick a JSON file to create a new dashboard from
+  it. Two shapes are recognized from the same file picker:
+  - A Flare export (previously produced by Export, on this instance or
+    another one) — panels come back exactly as exported, queries included.
+  - A Grafana dashboard export ("Export as JSON" from Grafana's own UI, or
+    the `dashboard` field of its `GET /api/dashboards/uid/:uid` response) —
+    layout (panel position/size) and titles carry over, and each panel's
+    type maps to the closest of Flare's three (time-series/stat/gauge-style
+    panels → Metrics, logs/table panels → Logs, trace panels → Traces).
+    **Queries don't** — a Grafana panel's query is written against whatever
+    datasource it points at (PromQL, LogQL, ...), which has no equivalent in
+    Flare's own log/trace/metric query shapes, so every imported panel's
+    query is reset to a blank default and needs configuring afterward (open
+    the panel and set what it shows, same as a brand-new panel). A panel
+    type with no Flare equivalent (text, heatmap, node graph, ...) is
+    skipped rather than guessed at; the import summary says how many panels
+    came in and how many were skipped, and why.
+
+  An invalid or unrelated file (neither shape) is rejected with an inline
+  error rather than partially imported.
 - **Delete** a dashboard. This only removes the dashboard object itself —
   it never touches the underlying Logs/Traces/Metrics data.
 
@@ -172,8 +187,9 @@ search.
 
 ## Known gaps, stated plainly
 
-- **No import of a Grafana dashboard JSON** — Import only understands
-  Flare's own export format (see "Managing dashboards" above).
+- **Grafana import is structural only** — layout and panel type come over,
+  queries don't (see "Managing dashboards" above for why). There's no plan
+  to build real query translation; the datasources don't correspond.
 - **No per-panel import** — duplicate and export work per-panel (see
   "Editing a dashboard's layout" above), but a panel's exported JSON can't
   be read back in; only a whole dashboard's export/import round-trips.
