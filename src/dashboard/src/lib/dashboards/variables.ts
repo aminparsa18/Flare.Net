@@ -125,10 +125,11 @@ export interface ResolvedAttributeOverride {
 	value: string;
 }
 
-/** Every currently-active override a dashboard's variables produce, already resolved from
- *  `DashboardVariable[]` + the session's selection map - the one shape threaded down
- *  through DashboardGrid -> DashboardPanelCard -> each panel body, replacing Phase 4's
- *  single `serviceOverride: string | null` prop. */
+/** Every currently-active override a dashboard's variables produce for one panel, already
+ *  resolved from `DashboardVariable[]` + the session's selection map (and that panel's own
+ *  `excludedVariableIds`) - computed per panel inside `DashboardPanelCard.svelte` and handed
+ *  straight down to that panel's own body, replacing Phase 4's single
+ *  `serviceOverride: string | null` prop. */
 export interface ResolvedVariableOverrides {
 	/** Every `Service`-target variable with a selected (non-"All") value, in definition
 	 *  order - passed to `explorer.setServices` as-is, so more than one such variable
@@ -143,11 +144,24 @@ export interface ResolvedVariableOverrides {
 /** Builds `ResolvedVariableOverrides` from a dashboard's variable definitions plus the
  *  viewer's session-only selection map (`DashboardViewerState.variableValues`) - `null`/
  *  missing/`'__all__'` all mean "not selected", same "off means don't touch this filter at
- *  all" rule the old `serviceOverride` used. */
-export function resolveVariableOverrides(variables: DashboardVariable[], values: Record<string, string | null>): ResolvedVariableOverrides {
+ *  all" rule the old `serviceOverride` used.
+ *
+ *  `excludedVariableIds` (a panel's own `DashboardPanel.excludedVariableIds`, or `[]` for
+ *  the dashboard-wide "every applicable variable narrows this panel" default) drops the
+ *  listed variables entirely, as if this one panel simply had no selection for them - the
+ *  per-panel opt-out. Called once per panel (see `DashboardPanelCard.svelte`), each with
+ *  that panel's own exclusions, rather than once dashboard-wide the way it was before that
+ *  feature existed. */
+export function resolveVariableOverrides(
+	variables: DashboardVariable[],
+	values: Record<string, string | null>,
+	excludedVariableIds: readonly string[] = []
+): ResolvedVariableOverrides {
+	const excluded = excludedVariableIds.length ? new Set(excludedVariableIds) : null;
 	const services: string[] = [];
 	const attributes: ResolvedAttributeOverride[] = [];
 	for (const variable of variables) {
+		if (excluded?.has(variable.id)) continue;
 		const value = values[variable.id];
 		if (!value) continue;
 		if (variable.target === 'Service') {

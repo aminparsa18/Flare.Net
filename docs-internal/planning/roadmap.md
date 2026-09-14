@@ -94,10 +94,12 @@ folders are where "what happened and why" actually lives.
   [signoz#2036](https://github.com/SigNoz/signoz/commit/cd9768c73)/
   [#2037](https://github.com/SigNoz/signoz/commit/ca53136cb)) - via a
   `dependsOnVariableId` field resolved parent-before-child, no separate
-  dependency graph kept around. Still open, not started:
-  - Per-panel opt-out from a dashboard variable - today a variable narrows
-    every panel its target/bag applies to, with no way for one panel to
-    say "don't narrow me".
+  dependency graph kept around; and per-panel opt-out from a dashboard
+  variable - `DashboardPanel.excludedVariableIds`, toggled per variable via
+  a filter-icon popover in that panel's own header (edit mode, only shown
+  once the dashboard has ≥1 variable) - so one panel can say "don't narrow
+  me" while every other panel that variable applies to still is. Still
+  open, not started:
   - Per-user dashboard ownership (today: global/visible to every
     authenticated user, same as saved views and alert rules).
   More design notes worth baking in from the start: one global time range

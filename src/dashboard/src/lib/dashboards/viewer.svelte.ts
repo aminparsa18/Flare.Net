@@ -27,7 +27,7 @@ import { getHomeDashboardId, setHomeDashboardId, clearHomeDashboardIdIfMatching 
 import { nextPanelPosition } from './layout';
 import { slugify } from './state.svelte';
 import { downloadBlob } from '$lib/logs/export';
-import { resolveQueryVariableOptions, resolveVariableOverrides, type ResolvedVariableOverrides, type VariableDependency } from './variables';
+import { resolveQueryVariableOptions, type VariableDependency } from './variables';
 import * as m from '$lib/paraglide/messages';
 
 export class DashboardViewerState {
@@ -60,7 +60,11 @@ export class DashboardViewerState {
 	 * drag/rename/add/remove, and every panel body's combined override effect (see
 	 * `Dashboard*PanelBody.svelte`) would spuriously re-run - fully resetting every other
 	 * panel's own live state (live-tail connection, selected event, scroll position, ...) -
-	 * on an edit that never touched any variable.
+	 * on an edit that never touched any variable. Passed straight down (with `variableValues`
+	 * below) to `DashboardPanelCard.svelte`, which resolves each panel's own
+	 * `ResolvedVariableOverrides` itself (factoring in that panel's own
+	 * `excludedVariableIds`) rather than this class resolving one shared object for every
+	 * panel - see `DashboardPanel.excludedVariableIds`'s own remarks.
 	 */
 	variables = $state<DashboardVariable[]>([]);
 
@@ -77,13 +81,6 @@ export class DashboardViewerState {
 	 *  `resolveQueryVariableOptions` (see `./variables.ts`). Loaded once in `load()` and
 	 *  again whenever the variable list itself changes (add/edit/remove below). */
 	variableOptions = $state<Record<string, string[]>>({});
-
-	/** Every currently-selected variable value, already resolved into the shape panel
-	 *  bodies apply (see `./variables.ts`) - recomputed whenever `variables` or
-	 *  `variableValues` changes, and *only* then (see `variables`' own remarks above).
-	 *  Replaces Phase 4's single `serviceOverride` prop threaded through DashboardGrid ->
-	 *  DashboardPanelCard -> each panel body. */
-	resolvedVariableOverrides = $derived<ResolvedVariableOverrides>(resolveVariableOverrides(this.variables, this.variableValues));
 
 	/** Drives ManageVariablesDialog.svelte - `null` closed, `'new'` the blank-create form, else the variable being edited. */
 	variableFormTarget = $state<DashboardVariable | 'new' | null>(null);
@@ -314,6 +311,28 @@ export class DashboardViewerState {
 		}
 	}
 
+	/** Toggles whether `panelId` opts out of `variableId`'s narrowing (see
+	 *  `DashboardPanel.excludedVariableIds`) - the per-panel counterpart to `setVariableValue`
+	 *  below, but a layout-level field (persisted per panel, like `title`) rather than a
+	 *  session-only selection, so it goes through `#saveLayout` the same way renamePanel does
+	 *  rather than just reassigning local state. */
+	async setPanelVariableExcluded(panelId: string, variableId: string, excluded: boolean): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels.map((p) => {
+					if (p.id !== panelId) return p;
+					const current = p.excludedVariableIds ?? [];
+					const next = excluded ? (current.includes(variableId) ? current : [...current, variableId]) : current.filter((id) => id !== variableId);
+					return { ...p, excludedVariableIds: next.length ? next : undefined };
+				})
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	async removePanel(panelId: string): Promise<void> {
 		const dashboard = this.dashboard;
 		if (!dashboard) return;
@@ -399,13 +418,19 @@ export class DashboardViewerState {
 	 *  already gets in `resolveQueryVariableOptions` - left pointing at a deleted id, it would
 	 *  otherwise silently resolve as unchained forever (harmless, since `#loadVariableOptions`
 	 *  already treats an unknown parent id as "no dependency") but never say so in the form.
+	 *  Any panel's own `excludedVariableIds` referencing this variable is cleaned up the same
+	 *  way - a dangling opt-out is just as harmless as a dangling `dependsOnVariableId`, but
+	 *  there's no reason to keep carrying it once the variable it names is gone.
 	 */
 	async removeVariable(variableId: string): Promise<void> {
 		const dashboard = this.dashboard;
 		if (!dashboard) return;
 		const variables = this.variables.filter((v) => v.id !== variableId).map((v) => (v.dependsOnVariableId === variableId ? { ...v, dependsOnVariableId: null } : v));
+		const panels = dashboard.layout.panels.map((p) =>
+			p.excludedVariableIds?.includes(variableId) ? { ...p, excludedVariableIds: p.excludedVariableIds.filter((id) => id !== variableId) } : p
+		);
 		try {
-			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels, variables });
+			this.dashboard = await this.#saveLayout({ panels, variables });
 			this.variables = variables;
 			const { [variableId]: _removedValue, ...restValues } = this.variableValues;
 			const { [variableId]: _removedOptions, ...restOptions } = this.variableOptions;

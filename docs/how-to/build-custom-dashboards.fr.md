@@ -167,8 +167,8 @@ cible, source) l'est, via **Variables**, de sorte que tout le monde qui
 ouvre le tableau de bord voit les mêmes listes déroulantes mais peut
 choisir ses propres valeurs.
 
-Il n'y a pas encore de désactivation par panneau d'une variable — voir
-« Limites connues » ci-dessous.
+Chaque panneau peut aussi désactiver individuellement une variable — voir
+« Désactivation par panneau » ci-dessous.
 
 ### Chaînage de variables
 
@@ -196,6 +196,21 @@ réellement proposée. Comme toute autre relation entre variables, seule la
 tableau de bord enregistré — les valeurs actuellement sélectionnées
 restent propres à la session, comme la sélection d'une variable non
 chaînée.
+
+### Désactivation par panneau
+
+Par défaut, une variable restreint chaque panneau auquel sa cible/son type
+d'attribut s'applique. Pour exclure un panneau précis d'une variable
+précise, passez en mode **Édition** et cliquez sur l'icône **filtre** dans
+l'en-tête de ce panneau (affichée uniquement dès que le tableau de bord
+compte au moins une variable) — elle liste chaque variable avec une case à
+cocher, cochée signifiant « cette variable restreint ce panneau ». Décochez
+une variable pour qu'elle cesse de restreindre ce panneau précis ; tous les
+autres panneaux auxquels elle s'applique continuent d'être restreints
+normalement. Comme le reste de la définition d'un panneau (titre, taille,
+requête), les variables qu'un panneau désactive sont enregistrées avec le
+tableau de bord — contrairement à la *valeur sélectionnée* d'une variable,
+qui reste propre à la session.
 
 ## Créer une alerte depuis un panneau
 
@@ -306,9 +321,6 @@ consomme ni ne supprime une recherche enregistrée.
   privés. (La préférence « page d'accueil » ci-dessus est propre au
   navigateur, pas à l'utilisateur, et ne change rien à qui peut voir le
   tableau de bord lui-même.)
-- **Pas de désactivation par panneau d'une variable** — une variable
-  restreint chaque panneau auquel sa cible/son type d'attribut s'applique,
-  pour tout le tableau de bord ; impossible d'en exclure un panneau.
 
 Aucune de ces limites n'est permanente, elles ne sont simplement pas encore
 construites.
