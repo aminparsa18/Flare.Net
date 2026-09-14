@@ -138,6 +138,29 @@ row 将强制每个遥测发射应用程序链接到某人的
 （`/auth` 上的用户表），不在上游提供者中，对于每个
 非本地方法。
 
+### 本地（用户名/密码）
+
+唯一一个背后没有外部身份提供者的方法 — 密码验证完全在
+`Flare.Identity` 内部进行，针对存储在账户 `Users` 行旁边的 bcrypt
+哈希值。与 LDAP 相同的反枚举立场：`POST /api/auth/login` 将
+“用户名不存在”、“密码错误”和“账户已禁用”合并为同一个通用
+`401`，从不透露实际发生的是哪一种情况。
+
+**失败尝试按 (用户名, 客户端 IP) 对进行限流**，而不仅仅按用户名 —
+攻击者从单一来源反复攻击一个账户会被锁定（`429`，带有
+`Retry-After` 标头），但其他人正常地几次输错自己的密码，不会因为
+来自另一来源、针对同一用户名的无关攻击而被连带锁定。可通过
+`Auth:MaxFailedLoginAttempts`（默认 5）、`Auth:LoginLockoutDuration`
+（默认 15 分钟）和 `Auth:LoginFailureWindow`（默认 15 分钟 — 一次失败
+保持“足够近期”以计入阈值的时长）配置；参见
+[配置参考](../reference/authentication-config.zh-CN.md#配置参考)。
+成功登录会清除该对已跟踪的失败次数。“客户端 IP” 是请求的原始 TCP
+对端地址，与反向代理认证中 `ProxyAuthLoginEndpoints`/
+`TrustedProxyNetworks` 所做的选择相同：在此信任转发的标头会让攻击者
+在每次尝试时伪造新的 IP，从而完全绕过锁定。**已知限制：** 在反向
+代理之后，每个请求因此共享代理自身的 IP 用于限流 — 这是接受的权衡，
+而非疏漏，原因与身份验证不信任该标头相同。
+
 ### 微软 Entra ID (SSO)
 
 通过ASP.NET Core的标准多方案`AddAuthentication()`有线

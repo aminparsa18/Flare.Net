@@ -30,6 +30,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
         builder.Services.AddSingleton<IUserStore, SqliteUserStore>();
         builder.Services.AddSingleton<ISessionStore, SqliteSessionStore>();
+        builder.Services.AddSingleton<ILoginAttemptStore, SqliteLoginAttemptStore>();
         builder.Services.AddSingleton<IIngestApiKeyStore, SqliteIngestApiKeyStore>();
         builder.Services.AddSingleton<IPersonalAccessTokenStore, SqlitePersonalAccessTokenStore>();
         builder.Services.AddSingleton<IEntraSettingsStore, SqliteEntraSettingsStore>();

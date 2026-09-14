@@ -39,6 +39,11 @@ public class AuthEndpointsTests
     // that null, so every context needs at least an empty populated provider.
     private static readonly IServiceProvider EmptyRequestServices = new ServiceCollection().AddLogging().BuildServiceProvider();
 
+    // Fresh instance per call (not a shared static) - tests that record failures against
+    // it shouldn't leak lockout state into unrelated tests.
+    private static FakeLoginAttemptStore CreateLoginAttempts(TimeProvider? timeProvider = null, int maxFailedAttempts = 5) =>
+        new(timeProvider ?? TimeProvider.System, maxFailedAttempts);
+
     private static DefaultHttpContext CreateContext(object? jsonBody = null)
     {
         var context = new DefaultHttpContext { RequestServices = EmptyRequestServices };
@@ -61,7 +66,7 @@ public class AuthEndpointsTests
     {
         var context = CreateContext(new { username = "nobody", password = "whatever1" });
 
-        var result = await AuthEndpoints.HandleLoginAsync(context, new FakeUserStore(), new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleLoginAsync(context, new FakeUserStore(), new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CreateLoginAttempts(), TimeProvider.System, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
@@ -74,7 +79,7 @@ public class AuthEndpointsTests
         await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
         var context = CreateContext(new { username = "alice", password = "wrongpassword1" });
 
-        var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), CreateLoginAttempts(), TimeProvider.System, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
@@ -88,7 +93,7 @@ public class AuthEndpointsTests
         var sessions = new FakeSessionStore();
         var context = CreateContext(new { username = "alice", password = "correctpassword1" });
 
-        var result = await AuthEndpoints.HandleLoginAsync(context, users, sessions, DefaultAuthSettings, Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleLoginAsync(context, users, sessions, DefaultAuthSettings, Options.Create(DefaultAuthOptions), CreateLoginAttempts(), TimeProvider.System, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -347,10 +352,86 @@ public class AuthEndpointsTests
         await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
         var context = CreateContext(new { username = "alice", password = "correctpassword1" });
 
-        var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), new FakeAuthSettingsStore(localEnabled: false), Options.Create(DefaultAuthOptions), CancellationToken.None);
+        var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), new FakeAuthSettingsStore(localEnabled: false), Options.Create(DefaultAuthOptions), CreateLoginAttempts(), TimeProvider.System, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsTooManyRequests_OnceFailedAttemptsReachTheThreshold_EvenWithTheCorrectPassword()
+    {
+        var users = new FakeUserStore();
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        var loginAttempts = CreateLoginAttempts(maxFailedAttempts: 3);
+
+        for (var i = 0; i < 3; i++)
+        {
+            var failContext = CreateContext(new { username = "alice", password = "wrongpassword1" });
+            var failResult = await AuthEndpoints.HandleLoginAsync(failContext, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), loginAttempts, TimeProvider.System, CancellationToken.None);
+            await failResult.ExecuteAsync(failContext);
+            Assert.Equal(StatusCodes.Status401Unauthorized, failContext.Response.StatusCode);
+        }
+
+        // A 4th attempt with the *correct* password - the lockout gates on the
+        // (username, IP) pair alone, before the password is ever checked.
+        var context = CreateContext(new { username = "alice", password = "correctpassword1" });
+        var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), loginAttempts, TimeProvider.System, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status429TooManyRequests, context.Response.StatusCode);
+        Assert.True(context.Response.Headers.ContainsKey("Retry-After"));
+    }
+
+    [Fact]
+    public async Task Login_DoesNotLockOut_WhenFailedAttemptsStayBelowTheThreshold()
+    {
+        var users = new FakeUserStore();
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        var loginAttempts = CreateLoginAttempts(maxFailedAttempts: 3);
+
+        for (var i = 0; i < 2; i++)
+        {
+            var failContext = CreateContext(new { username = "alice", password = "wrongpassword1" });
+            var failResult = await AuthEndpoints.HandleLoginAsync(failContext, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), loginAttempts, TimeProvider.System, CancellationToken.None);
+            await failResult.ExecuteAsync(failContext);
+        }
+
+        var context = CreateContext(new { username = "alice", password = "correctpassword1" });
+        var result = await AuthEndpoints.HandleLoginAsync(context, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), loginAttempts, TimeProvider.System, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_ResetsTheFailedAttemptCount_AfterASuccessfulLogin()
+    {
+        var users = new FakeUserStore();
+        await users.CreateAsync("alice", "correctpassword1", UserRole.Admin);
+        var loginAttempts = CreateLoginAttempts(maxFailedAttempts: 3);
+
+        // 2 failures, then a success - the success should clear the streak.
+        for (var i = 0; i < 2; i++)
+        {
+            var failContext = CreateContext(new { username = "alice", password = "wrongpassword1" });
+            var failResult = await AuthEndpoints.HandleLoginAsync(failContext, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), loginAttempts, TimeProvider.System, CancellationToken.None);
+            await failResult.ExecuteAsync(failContext);
+        }
+        var successContext = CreateContext(new { username = "alice", password = "correctpassword1" });
+        var successResult = await AuthEndpoints.HandleLoginAsync(successContext, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), loginAttempts, TimeProvider.System, CancellationToken.None);
+        await successResult.ExecuteAsync(successContext);
+        Assert.Equal(StatusCodes.Status200OK, successContext.Response.StatusCode);
+
+        // 2 more failures - still below the threshold of 3 *if* the streak actually
+        // reset; would be a 429 on this 2nd one below if it hadn't (2 old + 2 new = 4).
+        for (var i = 0; i < 2; i++)
+        {
+            var failContext = CreateContext(new { username = "alice", password = "wrongpassword1" });
+            var failResult = await AuthEndpoints.HandleLoginAsync(failContext, users, new FakeSessionStore(), DefaultAuthSettings, Options.Create(DefaultAuthOptions), loginAttempts, TimeProvider.System, CancellationToken.None);
+            await failResult.ExecuteAsync(failContext);
+            Assert.Equal(StatusCodes.Status401Unauthorized, failContext.Response.StatusCode);
+        }
     }
 
     [Fact]

@@ -158,6 +158,37 @@ son rôle inchangé** — les changements de rôle après cela vivent dans
 Flare (le tableau Users sur `/auth`), pas chez le fournisseur en amont,
 pour toute méthode non locale.
 
+### Local (nom d'utilisateur/mot de passe)
+
+La seule méthode sans fournisseur d'identité externe derrière elle — la
+vérification du mot de passe se fait entièrement à l'intérieur de
+`Flare.Identity`, contre un hachage bcrypt stocké aux côtés de la ligne
+`Users` du compte. Même position anti-énumération que LDAP :
+`POST /api/auth/login` fusionne « nom d'utilisateur inexistant », « mot
+de passe erroné » et « compte désactivé » en le même `401` générique, sans
+jamais révéler lequel s'est réellement produit.
+
+**Les tentatives échouées sont limitées par paire (nom d'utilisateur, IP
+du client)**, pas par nom d'utilisateur seul — un attaquant qui martèle un
+compte depuis une seule source se retrouve verrouillé (`429`, avec un
+en-tête `Retry-After`), mais quelqu'un d'autre qui se trompe légitimement
+de mot de passe quelques fois n'est pas verrouillé par ricochet à cause
+d'une attaque non liée contre le même nom d'utilisateur depuis une autre
+source. Configurable via `Auth:MaxFailedLoginAttempts` (5 par défaut),
+`Auth:LoginLockoutDuration` (15 minutes par défaut) et
+`Auth:LoginFailureWindow` (15 minutes par défaut — combien de temps un
+échec reste assez « récent » pour compter dans le seuil) ; voir
+[la référence de configuration](../reference/authentication-config.fr.md#référence-de-configuration).
+Une connexion réussie efface les échecs suivis pour cette paire. L'« IP du
+client » est le pair TCP brut de la requête, le même choix délibéré que
+`ProxyAuthLoginEndpoints`/`TrustedProxyNetworks` font pour
+l'authentification par proxy inverse : faire confiance à un en-tête
+transmis ici permettrait à un attaquant de forger une nouvelle IP à chaque
+tentative et de contourner entièrement le verrouillage. **Limitation
+connue :** derrière un proxy inverse, chaque requête partage donc l'IP du
+proxy lui-même à des fins de limitation — accepté, pas un oubli, pour la
+même raison que l'en-tête n'est pas non plus fiable pour l'identité.
+
 ### Microsoft Entra ID (SSO)
 
 Câblé via le modèle standard multi-schéma `AddAuthentication()` d'ASP.NET

@@ -42,6 +42,9 @@ Flare 的确切角色、身份解析事实和配置密钥
 | `Auth:SessionLifetime` | `14.00:00:00`（14 天） | 固定会话过期，在登录时设置。 |
 | `Auth:CookieSecure` | `true` | 仅为本地普通 HTTP 开发设置 `false`。 |
 | `Auth:CookieSameSite` | `Lax` | `None`（与 `CookieSecure=true`）如果您的仪表板和 API 曾经跨越真正不同的域，而不仅仅是 `localhost` 上的不同端口。 |
+| `Auth:MaxFailedLoginAttempts` | `5` | 同一 (用户名, 客户端 IP) 对在被锁定前允许的连续本地登录失败次数。只有本地用户名/密码登录会被这样限流 - 参见[身份验证模型](../explanation/authentication-model.zh-CN.md#本地用户名密码)。 |
+| `Auth:LoginLockoutDuration` | `00:15:00`（15 分钟） | 被锁定的 (用户名, 客户端 IP) 对保持锁定的时长。 |
+| `Auth:LoginFailureWindow` | `00:15:00`（15 分钟） | 早于此时长的失败不计入 `MaxFailedLoginAttempts` - 重置计数，而不是让偶尔的密码打错随时间累积。 |
 | `Auth:IngestKeyRequired` | `false` | `Flare.Ingest` 是否拒绝没有有效 API 密钥的 OTLP 请求。 |
 | `Auth:StaticIngestApiKey` | 未设置 | 通过配置而不是仪表板设置的固定摄取密钥 - 请参阅 [ingest API keys](../how-to/configure-authentication.zh-CN.md#摄取-api-密钥)。 |
 | `Cors:AllowedOrigins:0`、`:1`、…… | 没有任何 | 允许使用凭据调用 `Flare.Api` 的来源（即仪表板自己的来源）。必需 — `Flare.Api` 不再默认为 `AllowAnyOrigin()`。还兼作 Entra 登录 `returnUrl` 允许列表。 |
