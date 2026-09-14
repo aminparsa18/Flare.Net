@@ -250,7 +250,8 @@
 				panels={viewer.dashboard.layout.panels}
 				editing={viewer.editing}
 				timeRangeOverride={viewer.timeRangeOverride}
-				variableOverrides={viewer.resolvedVariableOverrides}
+				variables={viewer.variables}
+				variableValues={viewer.variableValues}
 				refreshToken={viewer.refreshToken}
 				removingPanelId={viewer.removingPanelId}
 				onLayoutChange={(changes) => viewer.updateLayout(changes)}
@@ -258,6 +259,7 @@
 				onRename={(id, title) => viewer.renamePanel(id, title)}
 				onDuplicate={(id) => viewer.duplicatePanel(id)}
 				onExport={(id) => viewer.exportPanel(id)}
+				onToggleVariable={(id, variableId, excluded) => viewer.setPanelVariableExcluded(id, variableId, excluded)}
 			/>
 		</div>
 	{/if}

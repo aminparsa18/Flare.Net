@@ -31,6 +31,18 @@ export interface DashboardPanel {
 	title: string;
 	layout: { x: number; y: number; w: number; h: number };
 	query: unknown;
+	/**
+	 * `id`s of this dashboard's `DashboardVariable`s this panel opts out of - an excluded
+	 * variable's currently-selected value never narrows this panel's own query, even though
+	 * it still narrows every other panel it's applicable to (roadmap's "Per-panel opt-out
+	 * from a dashboard variable" item). `undefined`/`[]` means "narrowed by every applicable
+	 * variable, same as before this field existed" - `resolveVariableOverrides` in
+	 * `$lib/dashboards/variables.ts` is where the exclusion is actually applied. An id left
+	 * over from a since-removed variable is harmless - filtering by id just never matches
+	 * anything, same "stale reference, silently inert" posture `DashboardVariable.
+	 * dependsOnVariableId` already has.
+	 */
+	excludedVariableIds?: string[];
 }
 
 /**

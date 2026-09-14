@@ -22,27 +22,29 @@
 	import { GridStack, type GridStackNode } from 'gridstack';
 	import 'gridstack/dist/gridstack.min.css';
 	import DashboardPanelCard from './DashboardPanelCard.svelte';
-	import type { DashboardPanel } from '$lib/dashboards-api';
+	import type { DashboardPanel, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
-	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 
 	let {
 		panels,
 		editing,
 		timeRangeOverride,
-		variableOverrides,
+		variables,
+		variableValues,
 		refreshToken,
 		removingPanelId,
 		onLayoutChange,
 		onRemove,
 		onRename,
 		onDuplicate,
-		onExport
+		onExport,
+		onToggleVariable
 	}: {
 		panels: DashboardPanel[];
 		editing: boolean;
 		timeRangeOverride: TimeRangePreset | null;
-		variableOverrides: ResolvedVariableOverrides;
+		variables: DashboardVariable[];
+		variableValues: Record<string, string | null>;
 		refreshToken: number;
 		removingPanelId: string | null;
 		onLayoutChange: (next: { id: string; layout: DashboardPanel['layout'] }[]) => void;
@@ -50,6 +52,7 @@
 		onRename: (id: string, title: string) => void;
 		onDuplicate: (id: string) => void;
 		onExport: (id: string) => void;
+		onToggleVariable: (id: string, variableId: string, excluded: boolean) => void;
 	} = $props();
 
 	let container: HTMLDivElement;
@@ -118,13 +121,15 @@
 					{panel}
 					{editing}
 					{timeRangeOverride}
-					{variableOverrides}
+					{variables}
+					{variableValues}
 					{refreshToken}
 					removing={removingPanelId === panel.id}
 					onRemove={() => onRemove(panel.id)}
 					onRename={(title) => onRename(panel.id, title)}
 					onDuplicate={() => onDuplicate(panel.id)}
 					onExport={() => onExport(panel.id)}
+					onToggleVariable={(variableId, excluded) => onToggleVariable(panel.id, variableId, excluded)}
 				/>
 			</div>
 		</div>

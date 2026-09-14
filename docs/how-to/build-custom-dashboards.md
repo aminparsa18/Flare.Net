@@ -139,7 +139,8 @@ per-browser-session only and never saved to the dashboard — only its
 *definition* (name, target, source) is, via **Variables**, so everyone who
 opens the dashboard sees the same dropdowns but can pick their own values.
 
-There's no per-panel opt-out from a variable yet — see "Known gaps" below.
+Each panel can also individually opt out of a variable — see "Per-panel
+opt-out" below.
 
 ### Variable chaining
 
@@ -163,6 +164,19 @@ longer actually offered. Like every other variable relationship, only the
 *chain itself* (which variable depends on which) is part of the saved
 dashboard — which values are currently selected stays session-only, same
 as an unchained variable's own selection.
+
+### Per-panel opt-out
+
+A variable narrows every panel its target/attribute type applies to by
+default. To exclude one specific panel from one specific variable, open
+**Edit** mode and click the **filter** icon in that panel's own header
+(only shown once the dashboard has at least one variable) — it lists
+every variable with a checkbox, checked meaning "this variable narrows
+this panel." Uncheck one to stop it narrowing that panel; every other
+panel keeps being narrowed by it as normal. Like the rest of a panel's
+definition (title, size, query), which variables a panel opts out of is
+saved with the dashboard — unlike a variable's own *selected value*,
+which stays session-only.
 
 ## Creating an alert from a panel
 
@@ -254,8 +268,5 @@ search.
   searches and alert rules today — there's no per-user ownership or private
   dashboards yet. (The "set as home page" preference above is per-browser,
   not per-user, and doesn't change who can see the dashboard itself.)
-- **No per-panel opt-out from a variable** — a variable narrows every panel
-  its target/attribute type applies to, dashboard-wide; there's no way to
-  exclude one panel from it.
 
 None of these are permanent limits, just not built yet.

@@ -5,11 +5,12 @@
 	// component only fills whatever cell it's given (`h-full` below), see
 	// docs-internal/adr/0024-custom-dashboards-phase2-editor.md.
 	//
-	// The drag handle, title-edit affordance, duplicate, and remove button are all scoped to
-	// `editing` - outside edit mode a panel is read-only chrome, so nothing here risks an
-	// accidental drag/rename/duplicate/delete while just looking at a dashboard. Export is
-	// the one exception, available in both modes - same "read-only, no reason to gate it"
-	// call DashboardTable.svelte's own per-dashboard Export button already makes.
+	// The drag handle, title-edit affordance, duplicate, remove button, and per-panel
+	// variables popover are all scoped to `editing` - outside edit mode a panel is read-only
+	// chrome, so nothing here risks an accidental drag/rename/duplicate/delete/opt-out while
+	// just looking at a dashboard. Export is the one exception, available in both modes -
+	// same "read-only, no reason to gate it" call DashboardTable.svelte's own per-dashboard
+	// Export button already makes.
 	import { goto } from '$app/navigation';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -18,11 +19,12 @@
 	import DashboardLogsPanelBody from './panels/DashboardLogsPanelBody.svelte';
 	import DashboardMetricsPanelBody from './panels/DashboardMetricsPanelBody.svelte';
 	import DashboardTracesPanelBody from './panels/DashboardTracesPanelBody.svelte';
-	import type { DashboardPanel } from '$lib/dashboards-api';
+	import PanelVariablesPopover from './PanelVariablesPopover.svelte';
+	import type { DashboardPanel, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
 	import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
-	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
+	import { resolveVariableOverrides } from '$lib/dashboards/variables';
 	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '$lib/deep-links';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
@@ -35,25 +37,38 @@
 		panel,
 		editing,
 		timeRangeOverride,
-		variableOverrides,
+		variables,
+		variableValues,
 		refreshToken,
 		removing,
 		onRemove,
 		onRename,
 		onDuplicate,
-		onExport
+		onExport,
+		onToggleVariable
 	}: {
 		panel: DashboardPanel;
 		editing: boolean;
 		timeRangeOverride: TimeRangePreset | null;
-		variableOverrides: ResolvedVariableOverrides;
+		variables: DashboardVariable[];
+		variableValues: Record<string, string | null>;
 		refreshToken: number;
 		removing: boolean;
 		onRemove: () => void;
 		onRename: (title: string) => void;
 		onDuplicate: () => void;
 		onExport: () => void;
+		onToggleVariable: (variableId: string, excluded: boolean) => void;
 	} = $props();
+
+	/** This panel's own effective overrides - `variables`/`variableValues` narrowed by
+	 *  `panel.excludedVariableIds` (see `DashboardPanel.excludedVariableIds`'s own remarks).
+	 *  Recomputed whenever any of those three change, same invalidation surface the old
+	 *  dashboard-wide `resolvedVariableOverrides` derived had (`variables`/`variableValues`
+	 *  are only ever reassigned by DashboardViewerState's own variable-mutating methods, and
+	 *  `panel` keeps its object identity across an unrelated panel's edit - see
+	 *  DashboardViewerState.updateLayout/renamePanel/removePanel). */
+	const variableOverrides = $derived(resolveVariableOverrides(variables, variableValues, panel.excludedVariableIds ?? []));
 
 	function panelTypeLabel(panelType: DashboardPanel['panelType']): string {
 		switch (panelType) {
@@ -184,6 +199,9 @@
 			<DownloadIcon />
 		</Button>
 		{#if editing}
+			{#if variables.length > 0}
+				<PanelVariablesPopover {variables} excludedVariableIds={panel.excludedVariableIds} onToggle={onToggleVariable} />
+			{/if}
 			<Button
 				variant="ghost"
 				size="icon-sm"
