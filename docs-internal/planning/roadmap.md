@@ -98,10 +98,13 @@ folders are where "what happened and why" actually lives.
   variable - `DashboardPanel.excludedVariableIds`, toggled per variable via
   a filter-icon popover in that panel's own header (edit mode, only shown
   once the dashboard has ≥1 variable) - so one panel can say "don't narrow
-  me" while every other panel that variable applies to still is. Still
-  open, not started:
-  - Per-user dashboard ownership (today: global/visible to every
-    authenticated user, same as saved views and alert rules).
+  me" while every other panel that variable applies to still is; and
+  per-user dashboard ownership (ADR-0027) - mutation-gated, not
+  visibility-gated: every dashboard stays visible to every authenticated
+  user (same as saved views/alert rules), but update/delete now also
+  require being the dashboard's own creator or an Admin, via a nullable
+  `OwnerUserId` column where null (predates the column, or created while
+  auth is disabled) means "anyone Member-and-up may still mutate it."
   More design notes worth baking in from the start: one global time range
   driving every panel, not per-panel pickers
   ([signoz#2013](https://github.com/SigNoz/signoz/commit/17f32e976));

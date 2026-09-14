@@ -47,6 +47,20 @@ export class AuthState {
 		return !this.authEnabled || this.currentUser?.role !== 'Viewer';
 	}
 
+	/** Per-dashboard narrowing of {@link canMutate} for dashboard ownership (ADR-0027) - a
+	 *  Member who isn't a given dashboard's own `ownerUserId` (and isn't an Admin) can't
+	 *  rename/edit/delete it, even though {@link canMutate} alone says Member-and-up may
+	 *  mutate *something*. `null` (unowned - predates this field, or auth was off at create
+	 *  time) is mutable by anyone {@link canMutate} already allows, same "nullable owner,
+	 *  anyone Member-and-up may still mutate it" rule `DashboardEndpoints.CanMutate`
+	 *  enforces server-side - this is that same check, UI-only, with the same "just hides a
+	 *  control that would otherwise 403" caveat {@link canMutate}'s own remarks give. */
+	canMutateDashboard(ownerUserId: string | null): boolean {
+		if (!this.canMutate) return false;
+		if (!this.authEnabled || ownerUserId == null) return true;
+		return ownerUserId === this.currentUser?.id || this.currentUser?.role === 'Admin';
+	}
+
 	/** Learns whether auth is even required at all, then - only if it is - checks for an
 	 * existing session cookie. Never throws - a failed check just leaves currentUser
 	 * null and authEnabled at its fail-secure default, same as no session existing (an

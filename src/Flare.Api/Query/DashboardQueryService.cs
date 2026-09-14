@@ -9,7 +9,9 @@ namespace Flare.Api.Query;
 
 public interface IDashboardQueryService
 {
-    Task<Dashboard> CreateAsync(DashboardRequest request, CancellationToken cancellationToken);
+    /// <summary><paramref name="ownerUserId"/> is the creating user (null when Flare's
+    /// opt-in auth is disabled) - see <see cref="Dashboard.OwnerUserId"/>'s own remarks.</summary>
+    Task<Dashboard> CreateAsync(DashboardRequest request, Guid? ownerUserId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Dashboard>> ListAsync(CancellationToken cancellationToken);
 
@@ -41,9 +43,9 @@ public interface IDashboardQueryService
 /// </remarks>
 public sealed class DashboardQueryService(IClickHouseClient client, TimeProvider timeProvider) : IDashboardQueryService
 {
-    private const string DashboardColumns = "Id, Name, Description, LayoutJson, CreatedAt, UpdatedAt";
+    private const string DashboardColumns = "Id, Name, Description, OwnerUserId, LayoutJson, CreatedAt, UpdatedAt";
 
-    public async Task<Dashboard> CreateAsync(DashboardRequest request, CancellationToken cancellationToken)
+    public async Task<Dashboard> CreateAsync(DashboardRequest request, Guid? ownerUserId, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         var dashboard = new Dashboard
@@ -51,6 +53,7 @@ public sealed class DashboardQueryService(IClickHouseClient client, TimeProvider
             Id = Guid.NewGuid(),
             Name = request.Name,
             Description = request.Description ?? "",
+            OwnerUserId = ownerUserId,
             LayoutJson = request.LayoutJson,
             CreatedAt = now,
             UpdatedAt = now,
@@ -115,6 +118,10 @@ public sealed class DashboardQueryService(IClickHouseClient client, TimeProvider
         parameters.AddParameter("id", dashboard.Id);
         parameters.AddParameter("name", dashboard.Name);
         parameters.AddParameter("description", dashboard.Description);
+        // (object?) cast + DBNull.Value, not the Guid? directly - same nullable-parameter
+        // convention AlertQueryService.InsertHistoryEntryAsync uses for its own Nullable
+        // columns; the driver has no implicit Guid?-to-DBNull mapping.
+        parameters.AddParameter("ownerUserId", (object?)dashboard.OwnerUserId ?? DBNull.Value);
         parameters.AddParameter("isDeleted", isDeleted ? (byte)1 : (byte)0);
         // GetRawText(), not JsonSerializer.Serialize(dashboard.LayoutJson) - LayoutJson is
         // already a parsed JsonElement (the request body's own "layoutJson" property), so
@@ -126,9 +133,9 @@ public sealed class DashboardQueryService(IClickHouseClient client, TimeProvider
 
         const string sql = """
             INSERT INTO dashboards
-                (Id, Name, Description, IsDeleted, LayoutJson, CreatedAt, UpdatedAt)
+                (Id, Name, Description, OwnerUserId, IsDeleted, LayoutJson, CreatedAt, UpdatedAt)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {layoutJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {ownerUserId:Nullable(UUID)}, {isDeleted:UInt8}, {layoutJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -150,9 +157,10 @@ public sealed class DashboardQueryService(IClickHouseClient client, TimeProvider
         Id = reader.GetGuid(0),
         Name = reader.GetString(1),
         Description = reader.GetString(2),
-        LayoutJson = JsonDocument.Parse(reader.GetString(3)).RootElement,
-        CreatedAt = ReadUtc(reader, 4),
-        UpdatedAt = ReadUtc(reader, 5),
+        OwnerUserId = reader.IsDBNull(3) ? null : reader.GetGuid(3),
+        LayoutJson = JsonDocument.Parse(reader.GetString(4)).RootElement,
+        CreatedAt = ReadUtc(reader, 5),
+        UpdatedAt = ReadUtc(reader, 6),
     };
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>

@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
 using Flare.Identity.Auth;
+using Flare.Identity.Users;
 
 namespace Flare.Api.Endpoints;
 
@@ -25,6 +27,16 @@ namespace Flare.Api.Endpoints;
 /// a per-route policy here on top of the group's own doesn't replace it, it ANDs with it.
 /// The dashboard viewer/list UI mirrors this with `AuthState.canMutate` so a Viewer never
 /// sees a control that would just 403 - see that property's own remarks.
+///
+/// On top of the Viewer/Member split above, update/delete are further narrowed to the
+/// dashboard's own <see cref="Dashboard.OwnerUserId"/> - a Member who isn't the owner (and
+/// isn't an Admin) gets a 403 too, same shape as <see cref="PersonalAccessTokenEndpoints"/>'
+/// revoke check. See <see cref="CanMutate"/> and
+/// <c>docs-internal/adr/0027-dashboard-ownership.md</c> for the full rationale, including
+/// why list/get (visibility) are deliberately untouched by this - every dashboard stays
+/// visible to everyone, only *who may change a given one* narrows. The dashboard
+/// viewer/table UI mirrors this with `AuthState.canMutateDashboard`, same "UI-only, the API
+/// enforces it independently" caveat `canMutate`'s own remarks give.
 /// </remarks>
 public static class DashboardEndpoints
 {
@@ -38,7 +50,7 @@ public static class DashboardEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> HandleCreateAsync(HttpContext http, IDashboardQueryService dashboards, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleCreateAsync(HttpContext http, ClaimsPrincipal principal, IDashboardQueryService dashboards, CancellationToken cancellationToken)
     {
         DashboardRequest? request;
         try
@@ -55,23 +67,28 @@ public static class DashboardEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var dashboard = await dashboards.CreateAsync(request, cancellationToken);
+        // Whoever's authenticated when RequireMember lets this request through becomes the
+        // owner; null (not a 401) when auth is disabled entirely - TryGetCurrentUserId
+        // returning false there is expected, not an error, same as PersonalAccessTokenEndpoints'
+        // own TryGetCurrentUserId remarks explain.
+        var ownerUserId = TryGetCurrentUserId(principal, out var userId) ? userId : (Guid?)null;
+        var dashboard = await dashboards.CreateAsync(request, ownerUserId, cancellationToken);
         return ApiSerialization.Write(http, dashboard, DashboardsJsonContext.Default.Dashboard, statusCode: StatusCodes.Status201Created);
     }
 
-    private static async Task<IResult> HandleListAsync(HttpContext http, IDashboardQueryService dashboards, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleListAsync(HttpContext http, IDashboardQueryService dashboards, CancellationToken cancellationToken)
     {
         var list = await dashboards.ListAsync(cancellationToken);
         return ApiSerialization.Write(http, new DashboardListResponse { Dashboards = list }, DashboardsJsonContext.Default.DashboardListResponse);
     }
 
-    private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, IDashboardQueryService dashboards, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, IDashboardQueryService dashboards, CancellationToken cancellationToken)
     {
         var dashboard = await dashboards.GetAsync(id, cancellationToken);
         return dashboard is null ? Results.NotFound() : ApiSerialization.Write(http, dashboard, DashboardsJsonContext.Default.Dashboard);
     }
 
-    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IDashboardQueryService dashboards, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, ClaimsPrincipal principal, IDashboardQueryService dashboards, CancellationToken cancellationToken)
     {
         DashboardRequest? request;
         try
@@ -86,15 +103,77 @@ public static class DashboardEndpoints
         if (request is null)
         {
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var existing = await dashboards.GetAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!CanMutate(existing, principal))
+        {
+            return Results.Forbid();
         }
 
         var dashboard = await dashboards.UpdateAsync(id, request, cancellationToken);
         return dashboard is null ? Results.NotFound() : ApiSerialization.Write(http, dashboard, DashboardsJsonContext.Default.Dashboard);
     }
 
-    private static async Task<IResult> HandleDeleteAsync(Guid id, IDashboardQueryService dashboards, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleDeleteAsync(Guid id, ClaimsPrincipal principal, IDashboardQueryService dashboards, CancellationToken cancellationToken)
     {
+        var existing = await dashboards.GetAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!CanMutate(existing, principal))
+        {
+            return Results.Forbid();
+        }
+
         var deleted = await dashboards.DeleteAsync(id, cancellationToken);
         return deleted ? Results.NoContent() : Results.NotFound();
+    }
+
+    /// <summary>
+    /// Whether <paramref name="principal"/> may update/delete <paramref name="dashboard"/> -
+    /// true for an unowned dashboard (see <see cref="Dashboard.OwnerUserId"/>'s remarks), the
+    /// dashboard's own owner, or an Admin. <see cref="AuthorizationPolicies.RequireMember"/>
+    /// on the route has already ruled out a Viewer by the time this runs.
+    /// </summary>
+    private static bool CanMutate(Dashboard dashboard, ClaimsPrincipal principal)
+    {
+        if (dashboard.OwnerUserId is not { } ownerId)
+        {
+            return true;
+        }
+
+        // No resolvable identity (Flare's opt-in auth is off, so RequireMember let this
+        // through unauthenticated) - nothing to compare ownership against, so it can't be
+        // the reason to refuse. Matches TryGetCurrentUserId's own "only meaningful with
+        // auth enabled" remarks.
+        if (!TryGetCurrentUserId(principal, out var userId))
+        {
+            return true;
+        }
+
+        return ownerId == userId || principal.IsInRole(nameof(UserRole.Admin));
+    }
+
+    /// <summary>Same pattern as <see cref="PersonalAccessTokenEndpoints"/>'s identically-named
+    /// helper - see that one's remarks for why this only ever resolves a real id when
+    /// Flare's opt-in auth is enabled.</summary>
+    private static bool TryGetCurrentUserId(ClaimsPrincipal principal, out Guid userId)
+    {
+        userId = Guid.Empty;
+        if (principal.Identity is not { IsAuthenticated: true })
+        {
+            return false;
+        }
+
+        var idClaim = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        return idClaim is not null && Guid.TryParse(idClaim, out userId);
     }
 }

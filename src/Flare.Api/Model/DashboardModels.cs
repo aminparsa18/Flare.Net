@@ -38,6 +38,20 @@ public sealed partial record Dashboard
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>
+    /// The <see cref="Identity.Users.User.Id"/> that created this dashboard, or
+    /// <see langword="null"/> for one created while auth was disabled, or one that predates
+    /// this field (see <c>db/clickhouse/0021_dashboards_owner.sql</c>). Never reassigned by
+    /// an update - see <see cref="Query.DashboardQueryService.UpdateAsync"/>. A null owner
+    /// means "anyone Member-and-up may still mutate it", not "no one can" - see
+    /// <see cref="Endpoints.DashboardEndpoints"/>'s own remarks and
+    /// <c>docs-internal/adr/0027-dashboard-ownership.md</c>. Appended after
+    /// <see cref="UpdatedAt"/>, not inserted alongside the other identity fields above -
+    /// same "new MemoryPack field always goes last" versioning reasoning
+    /// <see cref="AlertRule.ExceptionCondition"/>'s own doc comment gives.
+    /// </summary>
+    public Guid? OwnerUserId { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/dashboards</c>.</summary>
