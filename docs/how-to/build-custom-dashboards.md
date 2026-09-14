@@ -124,6 +124,9 @@ yourself, and any number of them can exist on one dashboard:
 4. Optionally set a **default value**, preselected whenever the dashboard
    is opened. Leave it blank for "All" (the variable doesn't narrow
    anything until you pick a value).
+5. Optionally set **Depends on** (only shown for "From query" variables) to
+   chain this variable off another one already defined on the dashboard —
+   see "Variable chaining" below.
 
 Each variable then gets its own dropdown next to the time-range/refresh
 controls. Selecting a value narrows every panel its target/attribute type
@@ -136,9 +139,30 @@ per-browser-session only and never saved to the dashboard — only its
 *definition* (name, target, source) is, via **Variables**, so everyone who
 opens the dashboard sees the same dropdowns but can pick their own values.
 
-There's no variable chaining (one variable's options narrowing based on
-another's selection) and no per-panel opt-out from a variable yet — see
-"Known gaps" below.
+There's no per-panel opt-out from a variable yet — see "Known gaps" below.
+
+### Variable chaining
+
+A "From query" variable can optionally **depend on** another variable
+already defined on the dashboard: pick one in its **Depends on** dropdown
+(only offered for other variables that wouldn't create a dependency
+cycle). Once chained, its own value list is resolved narrowed by whichever
+value its parent is *currently* set to, instead of the unfiltered 7-day
+window every independent variable's values are drawn from — for example, a
+"Host" variable backing a Resource attribute can depend on a "Service"
+variable, so its dropdown only offers hosts actually seen for the
+currently-selected service, not every host across every service. Picking
+"All" on the parent (or leaving a chained variable's own "Depends on" one
+without ever picking a parent value) falls back to the same unfiltered
+window a variable with no dependency uses. Changing a parent's selected
+value re-resolves every variable chained off it (and, transitively,
+anything chained off *those*) automatically; if a dependent's own current
+selection is no longer among its freshly-resolved options, it resets to
+"All" rather than silently keep narrowing panels by a value that's no
+longer actually offered. Like every other variable relationship, only the
+*chain itself* (which variable depends on which) is part of the saved
+dashboard — which values are currently selected stays session-only, same
+as an unchained variable's own selection.
 
 ## Creating an alert from a panel
 
@@ -230,10 +254,6 @@ search.
   searches and alert rules today — there's no per-user ownership or private
   dashboards yet. (The "set as home page" preference above is per-browser,
   not per-user, and doesn't change who can see the dashboard itself.)
-- **No variable chaining** — a variable's "From query" values always
-  resolve independently over the same fixed 7-day window; one variable
-  can't narrow its own options based on another variable's current
-  selection.
 - **No per-panel opt-out from a variable** — a variable narrows every panel
   its target/attribute type applies to, dashboard-wide; there's no way to
   exclude one panel from it.

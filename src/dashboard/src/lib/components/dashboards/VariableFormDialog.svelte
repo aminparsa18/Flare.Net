@@ -14,6 +14,12 @@
 
 	let { viewer }: { viewer: DashboardViewerState } = $props();
 
+	/** Sentinel for "independent" in the Depends-on select below - Radix/bits-ui `Select.Item`
+	 *  rejects an empty-string `value`, so this follows the same `__none__`/`__all__` sentinel
+	 *  convention AddPanelMetricsForm's "group by" picker and the dashboard viewer's own
+	 *  variable-value "All" picker already use. */
+	const NONE = '__none__';
+
 	const open = $derived(viewer.variableFormTarget !== null);
 	const isEdit = $derived(viewer.variableFormTarget !== null && viewer.variableFormTarget !== 'new');
 
@@ -25,6 +31,28 @@
 	/** Comma-separated draft for a `Custom` variable's value list - parsed into `customValues` on submit, same "freeform text, split on submit" shape a URL param list might use elsewhere in this app. */
 	let customValuesDraft = $state('');
 	let defaultValue = $state('');
+	/** `NONE` means "independent" (no `dependsOnVariableId`) - see the field's own remarks on `DashboardVariable`. Only meaningful (and only shown) for a `Query`-sourced variable. */
+	let dependsOnVariableId = $state(NONE);
+
+	/** Every other variable that's a legal `dependsOnVariableId` target for the one being
+	 *  edited - excludes itself (a brand-new variable has no id yet to exclude, and can't be
+	 *  anyone's dependent yet either, so every existing variable is fair game) and any
+	 *  variable that already (transitively) depends on it, which would otherwise close a
+	 *  cycle `DashboardViewerState`'s own resolution can only defend against at runtime by
+	 *  silently treating it as unchained. */
+	const parentOptions = $derived.by((): DashboardVariable[] => {
+		const selfId = isEdit && viewer.variableFormTarget !== 'new' ? viewer.variableFormTarget?.id : null;
+		if (!selfId) return viewer.variables;
+		const byId = new Map(viewer.variables.map((v) => [v.id, v]));
+		const dependsOnSelf = (id: string, visited: Set<string> = new Set()): boolean => {
+			if (visited.has(id)) return false;
+			visited.add(id);
+			const parentId = byId.get(id)?.dependsOnVariableId;
+			if (!parentId) return false;
+			return parentId === selfId || dependsOnSelf(parentId, visited);
+		};
+		return viewer.variables.filter((v) => v.id !== selfId && !dependsOnSelf(v.id));
+	});
 
 	// Resets/seeds the draft whenever the dialog opens for a different target - same "only
 	// reacts to identity change, not every keystroke" reasoning DashboardFormDialog's own
@@ -39,6 +67,7 @@
 			sourceKind = 'Query';
 			customValuesDraft = '';
 			defaultValue = '';
+			dependsOnVariableId = NONE;
 		} else if (t) {
 			name = t.name;
 			target = t.target;
@@ -47,6 +76,7 @@
 			sourceKind = t.sourceKind;
 			customValuesDraft = (t.customValues ?? []).join(', ');
 			defaultValue = t.defaultValue ?? '';
+			dependsOnVariableId = t.dependsOnVariableId ?? NONE;
 		}
 	});
 
@@ -81,7 +111,11 @@
 							.map((v) => v.trim())
 							.filter(Boolean)
 					: undefined,
-			defaultValue: defaultValue.trim() || null
+			defaultValue: defaultValue.trim() || null,
+			// Meaningless for a Custom variable (its list is fixed, nothing to narrow) even if a
+			// dependency was picked before switching Values to Custom - dropped here rather than
+			// left stale in the saved definition.
+			dependsOnVariableId: sourceKind === 'Query' && dependsOnVariableId !== NONE ? dependsOnVariableId : null
 		};
 		await viewer.saveVariable(variable);
 	}
@@ -155,6 +189,24 @@
 				<div class="space-y-2">
 					<label for="variable-form-custom-values" class="text-sm font-medium">{m.variableForm_customValuesLabel()}</label>
 					<Textarea id="variable-form-custom-values" bind:value={customValuesDraft} rows={2} placeholder={m.variableForm_customValuesPlaceholder()} />
+				</div>
+			{/if}
+
+			{#if sourceKind === 'Query' && parentOptions.length > 0}
+				<div class="space-y-2">
+					<span class="text-sm font-medium">{m.variableForm_dependsOnLabel()}</span>
+					<Select.Root type="single" value={dependsOnVariableId} onValueChange={(v) => (dependsOnVariableId = v ?? NONE)}>
+						<Select.Trigger class="w-full">
+							{dependsOnVariableId === NONE ? m.variableForm_dependsOnNone() : (parentOptions.find((v) => v.id === dependsOnVariableId)?.name ?? m.variableForm_dependsOnNone())}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value={NONE} label={m.variableForm_dependsOnNone()} />
+							{#each parentOptions as option (option.id)}
+								<Select.Item value={option.id} label={option.name} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
+					<p class="text-muted-foreground text-xs">{m.variableForm_dependsOnHint()}</p>
 				</div>
 			{/if}
 

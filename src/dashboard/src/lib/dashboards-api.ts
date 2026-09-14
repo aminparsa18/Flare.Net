@@ -81,6 +81,19 @@ export interface DashboardVariable {
 	customValues?: string[];
 	/** Preselected value when the dashboard is first opened in a session, or `null`/omitted for "All" (no filter from this variable) by default. */
 	defaultValue?: string | null;
+	/**
+	 * `id` of another variable in the same `DashboardLayout.variables` whose *currently
+	 * selected* value this variable's own `Query`-sourced options are resolved narrowed by
+	 * (chaining - see docs-internal/adr/0025-dashboard-variables.md's "not built" note and
+	 * the roadmap item this closes). Ignored when `sourceKind === 'Custom'` (a fixed list has
+	 * nothing to narrow) or when the referenced variable is currently unselected ("All") -
+	 * in either case this variable's options fall back to the same unscoped wide window used
+	 * before chaining existed. `$lib/dashboards/variables.ts#resolveQueryVariableOptions`
+	 * does the actual narrowing; `DashboardViewerState` resolves parents before their
+	 * dependents and re-resolves + revalidates every (transitive) dependent whenever the
+	 * parent's own selected value changes.
+	 */
+	dependsOnVariableId?: string | null;
 }
 
 /** The parsed shape of a `Dashboard`'s opaque `layoutJson` blob. */

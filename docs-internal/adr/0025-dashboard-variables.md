@@ -139,13 +139,14 @@ pairwise.**
   already-accepted pattern Phase 4 used for its own two-override case) per
   override change.
 - **Variable chaining (one variable's options narrowing based on another's
-  selection) is explicitly not built.** Each variable's `Query`-sourced
-  options resolve independently, against the same fixed wide (7-day)
-  window every other "enumerate known values" query in this codebase
-  already uses - not scoped to any other variable's current selection or to
-  the dashboard's own time-range override. Real chaining needs a dependency
-  graph between variables (which one depends on which) this ADR doesn't
-  attempt; still tracked as open work in the roadmap.
+  selection) was explicitly not built here** - each variable's
+  `Query`-sourced options resolved independently, against the same fixed
+  wide (7-day) window every other "enumerate known values" query in this
+  codebase already uses, not scoped to any other variable's current
+  selection or to the dashboard's own time-range override. Built as a
+  follow-up in [`0026-dashboard-variable-chaining.md`](0026-dashboard-variable-chaining.md) -
+  chaining still resolves against this same 7-day window, just additionally
+  narrowed by the parent's selected value.
 - **Per-panel opt-out/opt-in for a variable doesn't exist** - like the
   time-range override before it, a variable narrows *every* panel its
   target/bag applies to, dashboard-wide. A panel that shouldn't be narrowed

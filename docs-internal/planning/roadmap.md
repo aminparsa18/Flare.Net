@@ -88,13 +88,13 @@ folders are where "what happened and why" actually lives.
   generalized) or an arbitrary attribute bag+key equality match on Logs
   and/or Traces panels (Metrics has no attribute filter to attach to) -
   see [`docs/how-to/build-custom-dashboards.md`](../../docs/how-to/build-custom-dashboards.md)
-  for the user-facing walkthrough of all of the above. Still open, not started:
-  - Variable chaining - one variable's choices narrowing based on another's
-    selected value, rather than every variable's options resolving
-    independently against the same fixed wide window (ADR-0025's own
-    "not built" note)
-    ([signoz#2036](https://github.com/SigNoz/signoz/commit/cd9768c73),
-    [#2037](https://github.com/SigNoz/signoz/commit/ca53136cb)).
+  for the user-facing walkthrough of all of the above; and variable
+  chaining - one variable's choices narrowing based on another's selected
+  value (ADR-0026, following prior art from
+  [signoz#2036](https://github.com/SigNoz/signoz/commit/cd9768c73)/
+  [#2037](https://github.com/SigNoz/signoz/commit/ca53136cb)) - via a
+  `dependsOnVariableId` field resolved parent-before-child, no separate
+  dependency graph kept around. Still open, not started:
   - Per-panel opt-out from a dashboard variable - today a variable narrows
     every panel its target/bag applies to, with no way for one panel to
     say "don't narrow me".
