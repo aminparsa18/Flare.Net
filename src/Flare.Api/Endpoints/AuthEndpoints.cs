@@ -32,6 +32,8 @@ public static class AuthEndpoints
         ISessionStore sessions,
         IAuthSettingsStore authSettings,
         IOptions<AuthOptions> authOptions,
+        ILoginAttemptStore loginAttempts,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         // Same disabled-gate convention EntraAuthEndpoints/the LDAP endpoints use - local
@@ -59,17 +61,51 @@ public static class AuthEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        var clientIp = GetClientIp(http);
+        var lockedUntil = await loginAttempts.GetLockedUntilAsync(request.Username, clientIp, cancellationToken);
+        if (lockedUntil is { } locked)
+        {
+            // 429, not 401 - this pair is being throttled regardless of whether the
+            // credentials about to be typed are even correct, so it's a distinct signal
+            // from "wrong password". Doesn't leak whether the username exists: the same
+            // (username, IP) pair had to fail here enough times to get locked out in the
+            // first place, so nothing new is disclosed to whoever's attempting this now.
+            http.Response.Headers["Retry-After"] = ((int)Math.Ceiling((locked - timeProvider.GetUtcNow()).TotalSeconds)).ToString();
+            return Results.Problem("Too many failed login attempts. Try again later.", statusCode: StatusCodes.Status429TooManyRequests);
+        }
+
         // VerifyPasswordAsync collapses "unknown username", "wrong password", and
         // "disabled account" into a single null result on purpose - the response here
         // must not distinguish them, to avoid leaking whether a username exists.
         var user = await users.VerifyPasswordAsync(request.Username, request.Password, cancellationToken);
         if (user is null)
         {
+            await loginAttempts.RecordFailureAsync(request.Username, clientIp, cancellationToken);
             return Results.Unauthorized();
         }
 
+        await loginAttempts.RecordSuccessAsync(request.Username, clientIp, cancellationToken);
         await SignInAsync(http, sessions, authOptions.Value, user, cancellationToken);
         return ApiSerialization.Write(http, ToDto(user), AuthJsonContext.Default.AuthUserDto);
+    }
+
+    /// <summary>The request's raw TCP peer, not a forwarded header - same deliberate
+    /// choice as <see cref="Flare.Api.Auth.TrustedProxyNetworks"/> (see its remarks): trusting
+    /// <c>X-Forwarded-For</c> here would let an attacker forge a fresh IP on every
+    /// request and sidestep the lockout entirely. Behind a reverse proxy, every request
+    /// therefore shares the proxy's own IP for throttling purposes - a known, accepted
+    /// limitation of not trusting spoofable headers, not an oversight. Normalizes an
+    /// IPv4-mapped-IPv6 peer (what Kestrel commonly reports behind Docker's default
+    /// bridge network) to plain IPv4 so the same real client doesn't fragment across two
+    /// different-looking keys depending on which representation shows up.</summary>
+    private static string GetClientIp(HttpContext http)
+    {
+        var remoteIp = http.Connection.RemoteIpAddress;
+        if (remoteIp is null)
+        {
+            return "unknown";
+        }
+        return (remoteIp.IsIPv4MappedToIPv6 ? remoteIp.MapToIPv4() : remoteIp).ToString();
     }
 
     internal static async Task<IResult> HandleLogoutAsync(

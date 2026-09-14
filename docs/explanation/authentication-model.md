@@ -139,6 +139,34 @@ row, with its role unchanged** — role changes after that live in Flare
 (the Users table on `/auth`), not in the upstream provider, for every
 non-local method.
 
+### Local (username/password)
+
+The one method with no external identity provider behind it — password
+verification happens entirely inside `Flare.Identity`, against a bcrypt
+hash stored alongside the account's `Users` row. Same anti-enumeration
+stance as LDAP: `POST /api/auth/login` collapses "no such username,"
+"wrong password," and "disabled account" into the same generic `401`,
+never revealing which one actually happened.
+
+**Failed attempts are throttled per (username, client IP) pair**, not
+per-username alone — an attacker hammering one account from a single
+source gets locked out (`429`, with a `Retry-After` header), but someone
+else legitimately mistyping their own password a few times isn't
+collaterally locked out by an unrelated attack against the same username
+from a different source. Configurable via `Auth:MaxFailedLoginAttempts`
+(default 5), `Auth:LoginLockoutDuration` (default 15 minutes), and
+`Auth:LoginFailureWindow` (default 15 minutes — how long a failure stays
+"recent" enough to count toward the threshold); see
+[the config reference](../reference/authentication-config.md#configuration-reference).
+A successful login clears the pair's tracked failures. The "client IP" is
+the request's raw TCP peer, the same deliberate choice
+`ProxyAuthLoginEndpoints`/`TrustedProxyNetworks` make for reverse-proxy
+auth: trusting a forwarded header here would let an attacker forge a new
+IP on every attempt and bypass the lockout entirely. **Known limitation:**
+behind a reverse proxy, every request therefore shares the proxy's own IP
+for throttling purposes — accepted, not an oversight, for the same reason
+the header isn't trusted for identity either.
+
 ### Microsoft Entra ID (SSO)
 
 Wired through ASP.NET Core's standard multi-scheme `AddAuthentication()`

@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Http;
 
 namespace Flare.Identity.Auth;
 
-/// <summary>Session cookie tuning, bound from the <c>Auth</c> configuration section.</summary>
+/// <summary>Session cookie and local-login-lockout tuning, bound from the <c>Auth</c>
+/// configuration section.</summary>
 public sealed class AuthOptions
 {
     public const string SectionName = "Auth";
@@ -25,4 +26,21 @@ public sealed class AuthOptions
     /// Deployments that split dashboard/API across genuinely different domains need
     /// None (which also requires CookieSecure=true, per the cookie spec).</summary>
     public SameSiteMode CookieSameSite { get; set; } = SameSiteMode.Lax;
+
+    /// <summary>Consecutive failed local-login attempts for the same (username, client
+    /// IP) pair - see <see cref="ILoginAttemptStore"/> - before that pair is locked out
+    /// for <see cref="LoginLockoutDuration"/>. Only local username/password login is
+    /// throttled this way; Entra/AD/OIDC/reverse-proxy each delegate credential
+    /// verification elsewhere and aren't brute-forceable through this endpoint.</summary>
+    public int MaxFailedLoginAttempts { get; set; } = 5;
+
+    /// <summary>How long a (username, client IP) pair stays locked out once
+    /// <see cref="MaxFailedLoginAttempts"/> is reached.</summary>
+    public TimeSpan LoginLockoutDuration { get; set; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>A failed attempt older than this resets the streak back to zero instead
+    /// of counting toward <see cref="MaxFailedLoginAttempts"/> - without it, an
+    /// occasional mistyped password over weeks/months would eventually accumulate into a
+    /// lockout even though no actual attack was happening.</summary>
+    public TimeSpan LoginFailureWindow { get; set; } = TimeSpan.FromMinutes(15);
 }

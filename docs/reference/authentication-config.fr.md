@@ -45,6 +45,9 @@ erroné.
 | `Auth:SessionLifetime` | `14.00:00:00` (14 jours) | Expiration fixe de la session, définie à la connexion. |
 | `Auth:CookieSecure` | `true` | Ne réglez `false` que pour le développement local en HTTP simple. |
 | `Auth:CookieSameSite` | `Lax` | `None` (avec `CookieSecure=true`) si votre tableau de bord et votre API se retrouvent un jour séparés sur des domaines véritablement différents, pas seulement des ports différents sur `localhost`. |
+| `Auth:MaxFailedLoginAttempts` | `5` | Tentatives de connexion locale échouées consécutives pour la même paire (nom d'utilisateur, IP client) avant verrouillage. Seule la connexion locale par nom d'utilisateur/mot de passe est limitée ainsi - voir [le modèle d'authentification](../explanation/authentication-model.fr.md#local-nom-dutilisateurmot-de-passe). |
+| `Auth:LoginLockoutDuration` | `00:15:00` (15 minutes) | Durée pendant laquelle une paire (nom d'utilisateur, IP client) verrouillée le reste. |
+| `Auth:LoginFailureWindow` | `00:15:00` (15 minutes) | Un échec plus ancien que cela ne compte plus dans `MaxFailedLoginAttempts` - remet la série à zéro plutôt que de laisser des mots de passe occasionnellement mal tapés s'accumuler dans le temps. |
 | `Auth:IngestKeyRequired` | `false` | Si `Flare.Ingest` rejette les requêtes OTLP sans clé API valide. |
 | `Auth:StaticIngestApiKey` | non défini | Une clé d'ingestion fixe définie via la configuration au lieu du tableau de bord — voir [les clés API d'ingestion](../how-to/configure-authentication.fr.md#clés-api-dingestion). |
 | `Cors:AllowedOrigins:0`, `:1`, … | aucune | Origine(s) autorisée(s) à appeler `Flare.Api` avec des identifiants (c'est-à-dire la propre origine du tableau de bord). Requis — `Flare.Api` n'utilise plus `AllowAnyOrigin()` par défaut. Sert aussi de liste blanche pour le `returnUrl` de connexion Entra. |

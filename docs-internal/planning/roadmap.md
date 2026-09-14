@@ -58,6 +58,18 @@ folders are where "what happened and why" actually lives.
   a new AST node, and translator support for `mapContains`/map-subscript
   SQL. Approach TBD (SQL-bar grammar vs. something else entirely) - not
   started.
+- **Rate limiting.** Login brute-force protection shipped (see below) -
+  two candidate spots left, not yet prioritized against each other:
+  1. Personal access tokens on the query API (Flare.Api) — PATs let
+     external scripts hit `/api/logs/search`/`/aggregate` with bearer auth;
+     today's per-query execution caps (`max_execution_time`,
+     `max_rows_to_read`, etc.) bound cost per request but nothing bounds
+     request frequency per token.
+  2. Alert notification flapping (AlertEvaluationWorker / notification
+     channels) — a rapidly flapping threshold can spam Slack/Telegram/
+     email/PagerDuty with duplicate fires; needs a cooldown/dedup or rate
+     limit per rule. Likely the highest-value of the two since it's a
+     concrete current gap rather than a hypothetical.
 - **Custom, user-built dashboards** — shipped: Phase 1 (ADR-0023, CRUD +
   static viewer), Phase 2 (ADR-0024, drag/resize grid editor,
   add/rename/remove panels in place, session-only dashboard-wide
