@@ -119,10 +119,20 @@ folders are where "what happened and why" actually lives.
   auth is disabled) means "anyone Member-and-up may still mutate it."
   More design notes worth baking in from the start: one global time range
   driving every panel, not per-panel pickers
-  ([signoz#2013](https://github.com/SigNoz/signoz/commit/17f32e976));
-  and exported dashboard JSON should carry only definitions, never
-  embedded cached query results - SigNoz got this wrong first and fixed
-  it later ([signoz#2052](https://github.com/SigNoz/signoz/commit/b72815ca2));
+  ([signoz#2013](https://github.com/SigNoz/signoz/commit/17f32e976)) -
+  the viewer never rendered a per-panel `TimeRangePicker` (Traces panels
+  have no chart at all; Logs/Metrics panels only showed their reused
+  `VolumeChart`/`MetricChart`), but both of those charts' own built-in
+  drag-to-zoom gesture could still silently re-fetch just that one panel
+  into a custom range, diverging it from `timeRangeOverride` with no
+  visual indicator - fixed by a new `allowZoom` prop (default `true`,
+  the Explorer pages' own usage) that `DashboardLogsPanelBody`/
+  `DashboardMetricsPanelBody` pass as `false`, disabling only the
+  range-mutating branch (VolumeChart's harmless click-to-highlight-a-
+  bucket path, which never touches the fetched range, still works); and
+  exported dashboard JSON should carry only definitions, never embedded
+  cached query results - SigNoz got this wrong first and fixed it later
+  ([signoz#2052](https://github.com/SigNoz/signoz/commit/b72815ca2));
   Phase 3's export already follows this (LayoutJson never held cached
   results to begin with - see `Dashboard`'s own remarks in
   `DashboardModels.cs`), and Phase 5's variables followed the same rule
