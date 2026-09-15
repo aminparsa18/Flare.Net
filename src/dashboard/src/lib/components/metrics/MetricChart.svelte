@@ -23,6 +23,15 @@
 
 	const explorer = metricsExplorerContext.get();
 
+	// Defaults true (the Metrics Explorer page's own toolbar-driven usage) - dashboards pass
+	// false here (DashboardMetricsPanelBody.svelte) so a panel's chart can't silently
+	// diverge its query window from the dashboard-wide time-range override; see
+	// VolumeChart.svelte's identical prop for the fuller reasoning and the roadmap's "one
+	// global time range driving every panel" design note. Unlike VolumeChart, a disallowed
+	// drag here has no click fallback to land on (MetricChart has no per-bucket click
+	// action) - see handlePointerUp below.
+	let { allowZoom = true }: { allowZoom?: boolean } = $props();
+
 	// Fixed categorical slot order (--chart-1..5, the `dataviz` skill's validated
 	// palette - see layout.css's chart-1..5 comment) - never cycled past 5 series; a
 	// 6th+ series folds into the "+N not shown" note below instead of reusing a hue,
@@ -665,7 +674,7 @@
 
 		const rect = svg.getBoundingClientRect();
 		const dragPx = Math.abs(dragEndFraction - dragStartFraction) * rect.width;
-		if (dragPx < DRAG_THRESHOLD_PX || !explorer.queryRangeFrom || !explorer.queryRangeTo) return;
+		if (!allowZoom || dragPx < DRAG_THRESHOLD_PX || !explorer.queryRangeFrom || !explorer.queryRangeTo) return;
 
 		const fromMs = new Date(explorer.queryRangeFrom).getTime();
 		const toMs = new Date(explorer.queryRangeTo).getTime();
@@ -1004,10 +1013,12 @@
 											{/each}
 										{/each}
 
-										{#if isDragging}
+										{#if isDragging && allowZoom}
 											<!-- Drag-to-zoom selection overlay - same visual as VolumeChart's own, width
 											     tracks the pointer live; released -> handlePointerUp re-fetches this chart
-											     zoomed to the dragged window (or, below DRAG_THRESHOLD_PX, is a no-op click). -->
+											     zoomed to the dragged window (or, below DRAG_THRESHOLD_PX, is a no-op click).
+											     Hidden when allowZoom is false - a box that doesn't end up zooming would
+											     mislead, same reasoning as VolumeChart's identical guard. -->
 											<rect
 												x={Math.min(dragStartFraction, dragEndFraction) * CHART_WIDTH}
 												y={PEAK_Y}
