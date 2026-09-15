@@ -137,7 +137,14 @@ folders are where "what happened and why" actually lives.
   results to begin with - see `Dashboard`'s own remarks in
   `DashboardModels.cs`), and Phase 5's variables followed the same rule
   (only definitions are persisted, never a resolved value or option list).
-  Still open, not started:
-  - Lazy-loading panels - only fetch/render what's in viewport, not
-    every panel on page load
-    ([signoz#2133](https://github.com/SigNoz/signoz/commit/af272a368)).
+  Lazy-loading panels - only fetch/render what's in viewport, not every
+  panel on page load
+  ([signoz#2133](https://github.com/SigNoz/signoz/commit/af272a368)) -
+  `DashboardPanelCard.svelte`'s body doesn't mount (and its query doesn't
+  fire) until that panel's card has actually scrolled near the viewport
+  (`in-viewport.ts`, an `IntersectionObserver`-backed Svelte action with a
+  200px preload margin so scrolling to a panel doesn't show a bare spinner
+  first). Fire-once, not a continuous show/hide - a panel that's ever been
+  visible stays mounted rather than being torn down and re-fetched every
+  time it scrolls back off-screen, which is virtualization, a different
+  and much larger change this item never asked for.

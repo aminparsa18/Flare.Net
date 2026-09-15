@@ -16,6 +16,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { inViewport } from '$lib/actions/in-viewport';
 	import DashboardLogsPanelBody from './panels/DashboardLogsPanelBody.svelte';
 	import DashboardMetricsPanelBody from './panels/DashboardMetricsPanelBody.svelte';
 	import DashboardTracesPanelBody from './panels/DashboardTracesPanelBody.svelte';
@@ -69,6 +70,13 @@
 	 *  `panel` keeps its object identity across an unrelated panel's edit - see
 	 *  DashboardViewerState.updateLayout/renamePanel/removePanel). */
 	const variableOverrides = $derived(resolveVariableOverrides(variables, variableValues, panel.excludedVariableIds ?? []));
+
+	/** Lazy panel rendering (roadmap's "lazy-loading panels", signoz#2133) - the body below
+	 *  (and its query) doesn't mount until this card has actually scrolled near the
+	 *  viewport, via the `use:inViewport` below, instead of every panel firing its query on
+	 *  page load regardless of whether it's ever seen. Once true, stays true - see
+	 *  in-viewport.ts's own remarks on why this isn't a continuous show/hide. */
+	let visible = $state(false);
 
 	function panelTypeLabel(panelType: DashboardPanel['panelType']): string {
 		switch (panelType) {
@@ -223,13 +231,17 @@
 			</Button>
 		{/if}
 	</div>
-	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-		{#if panel.panelType === 'Logs'}
-			<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
-		{:else if panel.panelType === 'Metrics'}
-			<DashboardMetricsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
-		{:else if panel.panelType === 'Traces'}
-			<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
+	<div class="flex min-h-0 flex-1 flex-col overflow-hidden" use:inViewport={() => (visible = true)}>
+		{#if visible}
+			{#if panel.panelType === 'Logs'}
+				<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
+			{:else if panel.panelType === 'Metrics'}
+				<DashboardMetricsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
+			{:else if panel.panelType === 'Traces'}
+				<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
+			{/if}
+		{:else}
+			<div class="flex h-full items-center justify-center"><Spinner /></div>
 		{/if}
 	</div>
 </div>
