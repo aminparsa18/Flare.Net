@@ -19,6 +19,10 @@
 	// `refreshToken` (Phase 3) is DashboardViewerState's auto-refresh tick - see
 	// DashboardLogsPanelBody.svelte's header comment for the general shape, mirrored here
 	// against MetricsExplorerState.runQuery instead of runSearch.
+	//
+	// MetricChart gets `allowZoom={false}` for the same reason DashboardLogsPanelBody passes
+	// it to VolumeChart - see that file's comment and MetricChart.svelte's own remarks on
+	// the prop.
 	import { onMount, untrack } from 'svelte';
 	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
 	import { metricsExplorerContext } from '$lib/metrics/context';
@@ -82,4 +86,4 @@
 	});
 </script>
 
-<MetricChart />
+<MetricChart allowZoom={false} />

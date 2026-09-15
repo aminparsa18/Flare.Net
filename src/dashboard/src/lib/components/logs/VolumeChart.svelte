@@ -11,6 +11,15 @@
 
 	const explorer = logsExplorerContext.get();
 
+	// Defaults true (the Logs Explorer page's own toolbar-driven usage) - dashboards pass
+	// false here (DashboardLogsPanelBody.svelte) so a panel's chart can't silently diverge
+	// its query window from the dashboard-wide time-range override; see that override's own
+	// remarks and the roadmap's "one global time range driving every panel" design note.
+	// Only gates the *range-mutating* drag-zoom gesture below - the harmless click-to-
+	// highlight-a-bucket path (filterToBucketAt, which never touches the fetched range)
+	// still works everywhere.
+	let { allowZoom = true }: { allowZoom?: boolean } = $props();
+
 	const LIVE_POLL_MS = 15_000; // not per-event recompute - a burst could mean dozens of /aggregate calls/sec for a visual that doesn't need per-event resolution
 	const LIVE_TRAILING_WINDOW_MS = 60 * 60 * 1000; // matches LogFilterSqlBuilder.DefaultLookback (1h) so live mode's window feels consistent with the unfiltered-search default
 
@@ -258,8 +267,10 @@
 		// explorer.live falls back to a plain click too: setCustomRange is a no-op while live
 		// (see its own remarks), but focusBucketRange (via filterToBucketAt) works even live -
 		// it exits live mode itself - so a drag started during live still does *something*
-		// useful rather than silently zooming into nothing.
-		if (dragPx < DRAG_THRESHOLD_PX || !rangeFrom || !rangeTo || explorer.live) {
+		// useful rather than silently zooming into nothing. !allowZoom takes the same
+		// fallback for the same reason - a real drag still highlights whatever bucket the
+		// pointer was released over instead of doing nothing.
+		if (!allowZoom || dragPx < DRAG_THRESHOLD_PX || !rangeFrom || !rangeTo || explorer.live) {
 			filterToBucketAt(svg, e.clientX);
 			return;
 		}
@@ -415,12 +426,13 @@
 											/>
 										{/each}
 
-										{#if isDragging && !explorer.live}
+										{#if isDragging && !explorer.live && allowZoom}
 											<!-- Drag-to-zoom selection overlay - width tracks the pointer live, released ->
 											     handlePointerUp re-fetches this chart zoomed to the dragged window (or, below
 											     DRAG_THRESHOLD_PX, falls back to the plain bucket-click filter). Hidden while
-											     live: handlePointerUp always falls back to a plain click there (see its own
-											     remarks), so drawing a selection box that doesn't end up zooming would mislead. -->
+											     live (handlePointerUp always falls back to a plain click there, see its own
+											     remarks) or when allowZoom is false (same reason) - a box that doesn't end up
+											     zooming would mislead. -->
 											<rect
 												x={Math.min(dragStartFraction, dragEndFraction) * CHART_WIDTH}
 												y={PEAK_Y}

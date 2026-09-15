@@ -27,6 +27,11 @@
 	// interval - this panel doesn't own a timer itself, it just re-runs its own query
 	// whenever the number it's handed changes, same "state flows down, this component
 	// reacts" shape as timeRangeOverride/variableOverrides.
+	//
+	// VolumeChart gets `allowZoom={false}`: its built-in drag-to-zoom gesture otherwise lets
+	// this one panel's fetched range silently diverge from timeRangeOverride with no visual
+	// indicator, defeating "one global time range driving every panel" (roadmap design
+	// note) - see VolumeChart.svelte's own remarks on the prop.
 	import { onMount, untrack } from 'svelte';
 	import { LogsExplorerState, type LogsSavedViewState } from '$lib/logs/state.svelte';
 	import { logsExplorerContext } from '$lib/logs/context';
@@ -98,7 +103,7 @@
 </script>
 
 {#if ready}
-	<VolumeChart />
+	<VolumeChart allowZoom={false} />
 {:else}
 	<div class="flex items-center justify-center py-8"><Spinner /></div>
 {/if}
