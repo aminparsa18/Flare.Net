@@ -173,7 +173,7 @@
 					</Select.Root>
 				{/each}
 
-				{#if auth.canMutate}
+				{#if auth.canMutateDashboard(viewer.dashboard?.ownerUserId ?? null)}
 					{#if viewer.editing}
 						<Button variant="outline" size="sm" onclick={() => (manageVariablesOpen = true)}>
 							<SlidersHorizontalIcon data-icon="inline-start" />
@@ -236,7 +236,7 @@
 				<Empty.Description>{m.dashboardViewer_emptyDescription()}</Empty.Description>
 			</Empty.Header>
 			<Empty.Content>
-				{#if auth.canMutate}
+				{#if auth.canMutateDashboard(viewer.dashboard.ownerUserId)}
 					<Button size="sm" onclick={() => (addPanelOpen = true)}>
 						<PlusIcon data-icon="inline-start" />
 						{m.dashboardViewer_addPanel()}

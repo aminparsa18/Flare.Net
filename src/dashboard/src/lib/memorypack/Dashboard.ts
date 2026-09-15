@@ -6,6 +6,13 @@
 // `System.Text.Json.JsonElement`, round-tripped server-side through the same
 // `JsonElementMemoryPackFormatter` `SavedView.State` uses - this file mirrors that exact
 // wire format (`JSON.stringify`/`JSON.parse` around a plain MemoryPack string).
+//
+// `ownerUserId` (ADR-0027) is appended last, after `updatedAt` - not grouped alongside
+// `id`/`name`/`description` above - because it was added to an already-shipped MemoryPack
+// type, and a new field there always goes at the end (see `AlertRule.ExceptionCondition`'s
+// doc comment for the same versioning rule). It's a nullable Guid, written/read via
+// `writeNullableGuid`/`readNullableGuid` - see `AlertChannelResult.ts` (source-gen'd) for
+// the same pattern on its own nullable Guid field, `channelId`.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -18,6 +25,7 @@ export class Dashboard {
 	layoutJson: unknown;
 	createdAt: Date;
 	updatedAt: Date;
+	ownerUserId: string | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -26,6 +34,7 @@ export class Dashboard {
 		this.layoutJson = null;
 		this.createdAt = new Date(0);
 		this.updatedAt = new Date(0);
+		this.ownerUserId = null;
 	}
 
 	static serialize(value: Dashboard | null): Uint8Array {
@@ -40,13 +49,14 @@ export class Dashboard {
 			return;
 		}
 
-		writer.writeObjectHeader(6);
+		writer.writeObjectHeader(7);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeString(JSON.stringify(value.layoutJson ?? null));
 		writeDateTimeOffset(writer, value.createdAt);
 		writeDateTimeOffset(writer, value.updatedAt);
+		writer.writeNullableGuid(value.ownerUserId);
 	}
 
 	static serializeArray(value: (Dashboard | null)[] | null): Uint8Array {
@@ -70,14 +80,15 @@ export class Dashboard {
 		}
 
 		const value = new Dashboard();
-		if (count == 6) {
+		if (count == 7) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
 			value.layoutJson = JSON.parse(reader.readString() ?? 'null');
 			value.createdAt = readDateTimeOffset(reader);
 			value.updatedAt = readDateTimeOffset(reader);
-		} else if (count > 6) {
+			value.ownerUserId = reader.readNullableGuid();
+		} else if (count > 7) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -93,6 +104,8 @@ export class Dashboard {
 			if (count == 5) return value;
 			value.updatedAt = readDateTimeOffset(reader);
 			if (count == 6) return value;
+			value.ownerUserId = reader.readNullableGuid();
+			if (count == 7) return value;
 		}
 		return value;
 	}

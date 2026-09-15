@@ -200,6 +200,15 @@ the dashboard.
 
 ## Managing dashboards
 
+Renaming, editing, or deleting a dashboard requires being that dashboard's
+own creator or an Admin — anyone else with Member access can still view,
+duplicate, or export it, just not change it in place (the "Pin to
+dashboard" action on a Logs/Traces/Metrics panel only offers dashboards you
+can actually update, for the same reason — pick "New dashboard" instead to
+pin into one of your own). A dashboard created before this rule existed (or
+on an instance with auth disabled entirely) has no owner recorded, so any
+Member can still change it, same as before.
+
 From the **Dashboards** page you can:
 
 - **Create** a blank dashboard (then add panels to it, per the steps above).
@@ -265,8 +274,9 @@ search.
   "Editing a dashboard's layout" above), but a panel's exported JSON can't
   be read back in; only a whole dashboard's export/import round-trips.
 - **Dashboards are visible to every signed-in user**, the same as saved
-  searches and alert rules today — there's no per-user ownership or private
-  dashboards yet. (The "set as home page" preference above is per-browser,
-  not per-user, and doesn't change who can see the dashboard itself.)
+  searches and alert rules — there's no private/shared-only dashboards yet.
+  (The "set as home page" preference above is per-browser, not per-user,
+  and doesn't change who can see the dashboard itself.) *Who may change* a
+  given dashboard is narrower, though — see "Managing dashboards" below.
 
 None of these are permanent limits, just not built yet.

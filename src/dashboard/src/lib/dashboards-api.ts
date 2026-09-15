@@ -123,6 +123,11 @@ export interface DashboardSummary {
 	layout: DashboardLayout;
 	createdAt: string;
 	updatedAt: string;
+	/** The creating user's id, or `null` for a dashboard created while auth was disabled, or
+	 *  one that predates this field - see ADR-0027. A null owner means anyone Member-and-up
+	 *  may still mutate it - `AuthState.canMutateDashboard` is the UI's own mirror of that
+	 *  rule, `DashboardEndpoints.CanMutate` the server-enforced one. */
+	ownerUserId: string | null;
 }
 
 /** Create/update request body - same shape as `DashboardSummary` minus the server-assigned fields. */
@@ -159,7 +164,8 @@ function toDashboardSummary(dto: GeneratedDashboard): DashboardSummary {
 		description: dto.description ?? '',
 		layout: parseLayout(dto.layoutJson),
 		createdAt: dto.createdAt.toISOString(),
-		updatedAt: dto.updatedAt.toISOString()
+		updatedAt: dto.updatedAt.toISOString(),
+		ownerUserId: dto.ownerUserId
 	};
 }
 

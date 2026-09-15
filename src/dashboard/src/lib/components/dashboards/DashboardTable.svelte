@@ -8,6 +8,11 @@
 	// and Export stay available to everyone: opening is read-only, and Export just
 	// downloads the dashboard's already-loaded JSON client-side, no API call at all.
 	//
+	// Rename/Delete act on one *existing* dashboard, so they're further narrowed per-row by
+	// `auth.canMutateDashboard(dashboard.ownerUserId)` (ADR-0027) - New/Import (create a
+	// fresh, currently-unowned dashboard) and Duplicate (creates a new one, doesn't touch
+	// the source) only need the coarser `auth.canMutate`.
+	//
 	// Import accepts either a Flare export or a Grafana dashboard export from the same file
 	// picker - DashboardsState.importDashboard() sniffs which shape it got. See that method
 	// and $lib/dashboards/grafana-import.ts.
@@ -143,9 +148,11 @@
 						<Table.Cell class="text-right">
 							<Button variant="ghost" size="sm" href={dashboardPath(dashboard)}>{m.dashboardTable_open()}</Button>
 							{#if auth.canMutate}
-								<Button variant="ghost" size="icon-sm" title={m.dashboardTable_rename()} onclick={() => dashboards.openRename(dashboard)}>
-									<PencilIcon />
-								</Button>
+								{#if auth.canMutateDashboard(dashboard.ownerUserId)}
+									<Button variant="ghost" size="icon-sm" title={m.dashboardTable_rename()} onclick={() => dashboards.openRename(dashboard)}>
+										<PencilIcon />
+									</Button>
+								{/if}
 								<Button variant="ghost" size="icon-sm" title={m.dashboardTable_duplicate()} onclick={() => handleDuplicate(dashboard)}>
 									<CopyIcon />
 								</Button>
@@ -153,7 +160,7 @@
 							<Button variant="ghost" size="icon-sm" title={m.dashboardTable_export()} onclick={() => dashboards.exportDashboard(dashboard)}>
 								<DownloadIcon />
 							</Button>
-							{#if auth.canMutate}
+							{#if auth.canMutateDashboard(dashboard.ownerUserId)}
 								<Button
 									variant="ghost"
 									size="icon-sm"

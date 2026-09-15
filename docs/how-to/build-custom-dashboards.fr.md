@@ -238,6 +238,18 @@ tableau de bord.
 
 ## Gérer les tableaux de bord
 
+Renommer, modifier ou supprimer un tableau de bord exige d'en être le
+créateur ou d'être Admin — les autres utilisateurs disposant d'un accès
+Member peuvent toujours le consulter, le dupliquer ou l'exporter, mais pas
+le modifier directement (l'action « Épingler au tableau de bord » d'un
+panneau Logs/Traces/Metrics ne propose que les tableaux de bord que vous
+pouvez réellement modifier, pour la même raison — choisissez « Nouveau
+tableau de bord » pour épingler dans l'un des vôtres). Un tableau de bord
+créé avant l'existence de cette règle (ou sur une instance où
+l'authentification est entièrement désactivée) n'a pas de propriétaire
+enregistré, donc n'importe quel Member peut encore le modifier, comme
+avant.
+
 Depuis la page **Dashboards**, vous pouvez :
 
 - **Créer** un tableau de bord vide (puis y ajouter des panneaux, selon les
@@ -316,11 +328,12 @@ consomme ni ne supprime une recherche enregistrée.
   mais le JSON exporté d'un panneau ne peut pas être réimporté ; seul
   l'export/import d'un tableau de bord entier fait l'aller-retour.
 - **Les tableaux de bord sont visibles par tous les utilisateurs connectés**,
-  comme les recherches enregistrées et les règles d'alerte aujourd'hui — il
-  n'y a pas encore de propriété par utilisateur ni de tableaux de bord
-  privés. (La préférence « page d'accueil » ci-dessus est propre au
-  navigateur, pas à l'utilisateur, et ne change rien à qui peut voir le
-  tableau de bord lui-même.)
+  comme les recherches enregistrées et les règles d'alerte — il n'y a pas
+  encore de tableaux de bord privés ou partagés seulement. (La préférence
+  « page d'accueil » ci-dessus est propre au navigateur, pas à
+  l'utilisateur, et ne change rien à qui peut voir le tableau de bord
+  lui-même.) *Qui peut modifier* un tableau de bord donné est en revanche
+  plus restreint — voir « Gérer les tableaux de bord » ci-dessus.
 
 Aucune de ces limites n'est permanente, elles ne sont simplement pas encore
 construites.

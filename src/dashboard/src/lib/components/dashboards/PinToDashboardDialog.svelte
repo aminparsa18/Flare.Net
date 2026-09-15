@@ -12,7 +12,10 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { listDashboards, createDashboard, updateDashboard, type DashboardSummary, type PanelType } from '$lib/dashboards-api';
 	import { nextPanelPosition } from '$lib/dashboards/layout';
+	import { authContext } from '$lib/auth/context';
 	import * as m from '$lib/paraglide/messages';
+
+	const auth = authContext.get();
 
 	let {
 		open = $bindable(false),
@@ -40,7 +43,11 @@
 	async function loadDashboards(): Promise<void> {
 		loadingDashboards = true;
 		try {
-			dashboards = (await listDashboards()).dashboards;
+			// Only dashboards this caller may actually PUT into (ADR-0027) - pinning into an
+			// existing one is an update, so offering an owned-by-someone-else dashboard here
+			// would just walk the user into a 403 at submit time. "New dashboard" (below) stays
+			// offered regardless, since creating one has no owner to check yet.
+			dashboards = (await listDashboards()).dashboards.filter((d) => auth.canMutateDashboard(d.ownerUserId));
 			selectedId = dashboards.length > 0 ? dashboards[0].id : NEW_DASHBOARD;
 		} catch {
 			dashboards = []; // non-critical - falls back to "new dashboard" only
