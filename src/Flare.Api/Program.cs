@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Threading.RateLimiting;
 using ClickHouse.Driver;
 using Flare.Api.Alerting;
 using Flare.Api.Auth;
@@ -120,6 +122,49 @@ builder.Services.AddAuthorizationBuilder()
 // default registration by being a plain AddSingleton registered after it. See the
 // class's own remarks for the full "why."
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ConditionalAuthorizationMiddlewareResultHandler>();
+
+const string PatRateLimitPolicy = "PatRateLimit";
+
+// Per-personal-access-token request-frequency limit (docs-internal/adr/0028-personal-access-token-rate-limiting.md) -
+// bounds how often a given PAT can call the query API at all, independent of the
+// per-query execution caps (QueryOptions.CustomSettings) that already bound the cost of
+// any single request. In-memory is correct here, not a gap: ADR-0004 already fixes
+// Flare.Api to a single replica (embedded SQLite), so there's no second process this
+// state would need to be shared with. The partition-key factory only ever sees a PAT id
+// after SessionAuthenticationHandler has already validated that token against
+// IPersonalAccessTokenStore, so (unlike partitioning on raw IP/header input) an
+// unauthenticated caller can't grow the partition set.
+builder.Services.AddRateLimiter(options =>
+{
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        }
+
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsync("Personal access token rate limit exceeded.", cancellationToken);
+    };
+
+    options.AddPolicy(PatRateLimitPolicy, httpContext =>
+    {
+        var patId = httpContext.User.FindFirst(FlareClaimTypes.PersonalAccessTokenId)?.Value;
+        if (patId is null)
+        {
+            // Cookie session, not a PAT - never rate-limited here.
+            return RateLimitPartition.GetNoLimiter("session");
+        }
+
+        var authOptions = httpContext.RequestServices.GetRequiredService<IOptions<AuthOptions>>().Value;
+        return RateLimitPartition.GetFixedWindowLimiter(patId, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = authOptions.PatRateLimitPermitLimit,
+            Window = authOptions.PatRateLimitWindow,
+            QueueLimit = 0,
+        });
+    });
+});
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ILogQueryService, LogQueryService>();
@@ -292,6 +337,9 @@ app.UseWebSockets();
 // auth-challenged) and before every Map*Endpoints() call below.
 app.UseAuthentication();
 app.UseAuthorization();
+// After UseAuthorization() - the PatRateLimit policy's partition-key factory reads
+// HttpContext.User, which only authentication middleware populates.
+app.UseRateLimiter();
 
 app.MapDefaultEndpoints();
 
@@ -313,7 +361,7 @@ app.MapProxyAuthLoginEndpoints();
 // mapping them onto this group (rather than directly onto `app`) makes their routes
 // inherit the group's authorization requirement with no changes needed in any of those
 // endpoint files.
-var authenticatedRoutes = app.MapGroup("").RequireAuthorization();
+var authenticatedRoutes = app.MapGroup("").RequireAuthorization().RequireRateLimiting(PatRateLimitPolicy);
 authenticatedRoutes.MapLogsEndpoints();
 authenticatedRoutes.MapLogTailEndpoints();
 authenticatedRoutes.MapSpanEndpoints();

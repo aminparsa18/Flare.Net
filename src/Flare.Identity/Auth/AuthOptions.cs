@@ -43,4 +43,15 @@ public sealed class AuthOptions
     /// occasional mistyped password over weeks/months would eventually accumulate into a
     /// lockout even though no actual attack was happening.</summary>
     public TimeSpan LoginFailureWindow { get; set; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>Requests a single personal access token may make within
+    /// <see cref="PatRateLimitWindow"/> before <c>Flare.Api</c>'s rate limiter (see
+    /// <c>Program.cs</c>'s <c>"PatRateLimit"</c> policy) starts returning 429s for it. Only
+    /// PAT-authenticated requests are counted - cookie/session (dashboard) traffic is
+    /// never subject to this. 120/minute is generous for CI/script use while still
+    /// bounding a runaway loop or leaked token.</summary>
+    public int PatRateLimitPermitLimit { get; set; } = 120;
+
+    /// <summary>Fixed window <see cref="PatRateLimitPermitLimit"/> is measured over.</summary>
+    public TimeSpan PatRateLimitWindow { get; set; } = TimeSpan.FromMinutes(1);
 }

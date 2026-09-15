@@ -129,6 +129,20 @@ registering a second one, and
 [the how-to guide](../how-to/configure-authentication.md#personal-access-tokens)
 for creating/using/revoking one.
 
+Each token is also individually rate-limited — `Auth:PatRateLimitPermitLimit`
+requests (120 by default) per `Auth:PatRateLimitWindow` (1 minute by
+default), independent of the per-query execution caps
+(`max_execution_time`, `max_rows_to_read`, etc.) that already bound the
+cost of any single request. A token that exceeds it gets a `429` with a
+`Retry-After` header until the window resets; a normal dashboard session
+(cookie-authenticated) is never affected, no matter how many requests it
+makes. The limit is in-memory and per-process, which is safe rather than
+a gap: `Flare.Api` already only ever runs as a single replica (see
+[ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md)),
+so there's no second process this state would need to be shared with. See
+[ADR-0028](../../docs-internal/adr/0028-personal-access-token-rate-limiting.md)
+for the full decision.
+
 ## How each method works
 
 All five methods end in the same kind of session — `flare_session`,
