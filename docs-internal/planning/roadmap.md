@@ -120,8 +120,6 @@ folders are where "what happened and why" actually lives.
   More design notes worth baking in from the start: one global time range
   driving every panel, not per-panel pickers
   ([signoz#2013](https://github.com/SigNoz/signoz/commit/17f32e976));
-  lazy-loading panels - only fetch/render what's in viewport, not every
-  panel on page load ([signoz#2133](https://github.com/SigNoz/signoz/commit/af272a368));
   and exported dashboard JSON should carry only definitions, never
   embedded cached query results - SigNoz got this wrong first and fixed
   it later ([signoz#2052](https://github.com/SigNoz/signoz/commit/b72815ca2));
@@ -129,3 +127,14 @@ folders are where "what happened and why" actually lives.
   results to begin with - see `Dashboard`'s own remarks in
   `DashboardModels.cs`), and Phase 5's variables followed the same rule
   (only definitions are persisted, never a resolved value or option list).
+  Lazy-loading panels - only fetch/render what's in viewport, not every
+  panel on page load
+  ([signoz#2133](https://github.com/SigNoz/signoz/commit/af272a368)) -
+  `DashboardPanelCard.svelte`'s body doesn't mount (and its query doesn't
+  fire) until that panel's card has actually scrolled near the viewport
+  (`in-viewport.ts`, an `IntersectionObserver`-backed Svelte action with a
+  200px preload margin so scrolling to a panel doesn't show a bare spinner
+  first). Fire-once, not a continuous show/hide - a panel that's ever been
+  visible stays mounted rather than being torn down and re-fetched every
+  time it scrolls back off-screen, which is virtualization, a different
+  and much larger change this item never asked for.
