@@ -147,6 +147,23 @@ existant plutôt que d'en enregistrer un second, et
 [le guide pratique](../how-to/configure-authentication.fr.md#jetons-daccès-personnels)
 pour en créer, utiliser ou révoquer un.
 
+Chaque jeton est aussi limité individuellement en fréquence de requêtes —
+`Auth:PatRateLimitPermitLimit` requêtes (120 par défaut) par
+`Auth:PatRateLimitWindow` (1 minute par défaut), indépendamment des
+plafonds d'exécution par requête (`max_execution_time`,
+`max_rows_to_read`, etc.) qui bornent déjà le coût d'une seule requête.
+Un jeton qui dépasse cette limite reçoit un `429` avec un en-tête
+`Retry-After` jusqu'à la réinitialisation de la fenêtre ; une session de
+tableau de bord normale (authentifiée par cookie) n'est jamais affectée,
+quel que soit le nombre de requêtes qu'elle effectue. La limite est en
+mémoire et par processus, ce qui n'est pas une lacune mais un choix sûr :
+`Flare.Api` ne s'exécute déjà qu'en une seule réplique (voir
+[ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md)),
+il n'y a donc aucun second processus avec lequel cet état devrait être
+partagé. Voir
+[ADR-0028](../../docs-internal/adr/0028-personal-access-token-rate-limiting.md)
+pour la décision complète.
+
 ## Comment fonctionne chaque méthode
 
 Les cinq méthodes se terminent par le même type de session —

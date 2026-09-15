@@ -43,6 +43,8 @@ generic `401` a wrong password gets.
 | `Auth:MaxFailedLoginAttempts` | `5` | Consecutive failed local-login attempts for the same (username, client IP) pair before it's locked out. Only local username/password login is throttled this way - see [the authentication model](../explanation/authentication-model.md#local-usernamepassword). |
 | `Auth:LoginLockoutDuration` | `00:15:00` (15 minutes) | How long a locked-out (username, client IP) pair stays locked out. |
 | `Auth:LoginFailureWindow` | `00:15:00` (15 minutes) | A failed attempt older than this doesn't count toward `MaxFailedLoginAttempts` - resets the streak instead of letting occasional mistyped passwords accumulate over time. |
+| `Auth:PatRateLimitPermitLimit` | `120` | Requests a single [personal access token](../explanation/authentication-model.md#personal-access-tokens) may make per `PatRateLimitWindow` before `Flare.Api` starts returning `429`s for it. Cookie/session (dashboard) traffic is never subject to this. |
+| `Auth:PatRateLimitWindow` | `00:01:00` (1 minute) | Fixed window `PatRateLimitPermitLimit` is measured over. |
 | `Auth:IngestKeyRequired` | `false` | Whether `Flare.Ingest` rejects OTLP requests with no valid API key. |
 | `Auth:StaticIngestApiKey` | unset | A fixed ingest key set via config instead of the dashboard — see [ingest API keys](../how-to/configure-authentication.md#ingest-api-keys). |
 | `Cors:AllowedOrigins:0`, `:1`, … | none | Origin(s) allowed to call `Flare.Api` with credentials (i.e. the dashboard's own origin). Required — `Flare.Api` no longer defaults to `AllowAnyOrigin()`. Also doubles as the Entra login `returnUrl` allow-list. |

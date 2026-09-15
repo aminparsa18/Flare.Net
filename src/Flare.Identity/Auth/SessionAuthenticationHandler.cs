@@ -126,17 +126,25 @@ public sealed class SessionAuthenticationHandler(
             await personalAccessTokenStore.TouchLastUsedAsync(pat.Id, Context.RequestAborted);
         }
 
-        return AuthenticateResult.Success(BuildTicket(user));
+        return AuthenticateResult.Success(BuildTicket(user, pat));
     }
 
-    private AuthenticationTicket BuildTicket(User user)
+    /// <summary><paramref name="pat"/> is non-null only on the personal-access-token path -
+    /// its presence is what lets downstream code (e.g. Flare.Api's PAT rate-limit policy)
+    /// tell a PAT-authenticated request apart from a cookie session.</summary>
+    private AuthenticationTicket BuildTicket(User user, PersonalAccessToken? pat = null)
     {
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, user.Role.ToString()),
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Username),
+            new(ClaimTypes.Role, user.Role.ToString()),
         };
+        if (pat is not null)
+        {
+            claims.Add(new Claim(FlareClaimTypes.PersonalAccessTokenId, pat.Id.ToString()));
+        }
+
         var identity = new ClaimsIdentity(claims, Scheme.Name);
         var principal = new ClaimsPrincipal(identity);
         return new AuthenticationTicket(principal, Scheme.Name);
