@@ -46,21 +46,30 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Dependency graph + call breakdown pre-aggregated at flush time, not
-  queried live.** The Services-tab Table view's RED metrics are now
-  pre-aggregated (`service_metrics` + `service_metrics_mv`, ADR-0030), but
-  `ServiceDependencyQueryBuilder` (Map view nodes/edges, a self-join keyed
-  by the `peer.service`-overridden "effective service") and
-  `ServiceCallBreakdownQueryBuilder` (per-node drill-down, grouped by
-  unbounded-cardinality `peer.service`/`db.system`+`db.operation`) still
-  `GROUP BY`/self-join over raw `spans` on every load. Not started -
-  deliberately deferred out of ADR-0030's scope as a materially bigger
-  effort: edges need a table keyed by `(source, target)` pairs (non-trivial
-  with the effective-service override), and the breakdown's per-peer/
-  per-db-operation cardinality doesn't collapse into a single small
-  aggregate table the way per-service RED metrics did. Prior art: SigNoz's
-  `USE_SPAN_METRIC` feature flag sourcing the same page from
-  collector-generated span metrics instead of live trace aggregation
+- **Dependency-graph edges pre-aggregated at flush time, not queried
+  live.** The Services-tab Table view's RED metrics (ADR-0030) and, as of
+  ADR-0031, the Map view's nodes (`service_dependency_nodes` +
+  `service_dependency_nodes_mv`) and the per-node call breakdown
+  (`service_call_breakdown_external`/`service_call_breakdown_database`) are
+  all pre-aggregated now. `ServiceDependencyQueryBuilder`'s **edges** query
+  - a self-join keyed by the `peer.service`-overridden "effective service,"
+  producing `(source, target)` pairs - still self-joins raw `spans` on
+  every Map-view load. Not started - deliberately deferred out of
+  ADR-0031's scope: a genuine cross-service edge's parent and child spans
+  come from different processes/exporters, so they routinely land in
+  *different* `SpanFlushWorker` flush batches (confirmed by reading
+  `SpanFlushWorker.FlushAsync` - one flush cycle inserts whatever's in the
+  batch, no per-service scoping, no cross-batch ordering guarantee). A
+  correct pre-aggregate needs a dual-triggered materialized-view self-join
+  (one MV per join direction, joining the new batch against the *full*
+  persisted `spans` table for the other side) to catch that cross-batch
+  case - but same-batch (single-INSERT) parent+child visibility inside a
+  materialized view's join is unverified ClickHouse behavior that needs a
+  live spike before it can be trusted, the same kind of verification
+  ADR-0030 ran for `materialized_views_ignore_errors`. See ADR-0031's
+  Context for the full reasoning. Prior art: SigNoz's `USE_SPAN_METRIC`
+  feature flag sourcing the same page from collector-generated span
+  metrics instead of live trace aggregation
   ([signoz#3134](https://github.com/SigNoz/signoz/commit/433f930956db03c01bcbd72ea61e43bce1eddc57),
   [signoz#3188](https://github.com/SigNoz/signoz/commit/bc4a4edc7f8ac5d2b1bbcca642927df1cc37c9af),
   [signoz#3196](https://github.com/SigNoz/signoz/commit/562621a1171a5cbdb7d11a4e24f0c8fe2199b1da)).
