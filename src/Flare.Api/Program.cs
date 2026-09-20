@@ -3,6 +3,7 @@ using System.Threading.RateLimiting;
 using ClickHouse.Driver;
 using Flare.Api.Alerting;
 using Flare.Api.Auth;
+using Flare.Api.Caching;
 using Flare.Api.DockerResources;
 using Flare.Api.Endpoints;
 using Flare.Api.HostStats;
@@ -167,7 +168,21 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddSingleton<ILogQueryService, LogQueryService>();
+
+// Redis-backed cache seam in front of LogQueryService.SearchAsync/AggregateAsync and
+// MetricQueryService.QueryAsync (the "Query result caching" roadmap entry) - repeated
+// dashboard-panel refreshes and saved-search reruns hit this instead of re-running the
+// underlying ClickHouse query every time. Registered as the concrete class too so the
+// decorators below can depend on the real query service directly rather than resolving
+// ILogQueryService/IMetricQueryService and risking wrapping themselves.
+builder.Services.Configure<QueryCacheOptions>(builder.Configuration.GetSection(QueryCacheOptions.SectionName));
+builder.Services.AddSingleton<ICacheProvider, RedisCacheProvider>();
+builder.Services.AddSingleton<LogQueryService>();
+builder.Services.AddSingleton<ILogQueryService>(sp => new CachingLogQueryService(
+    sp.GetRequiredService<LogQueryService>(),
+    sp.GetRequiredService<ICacheProvider>(),
+    sp.GetRequiredService<IOptions<QueryCacheOptions>>(),
+    sp.GetRequiredService<TimeProvider>()));
 // Factory registration (not a plain AddSingleton<,>) so SpanQueryService's own
 // ClickHouse:ClusterMode-gated optimize_skip_unused_shards can be threaded through -
 // see its TraceByIdQueryOptions remarks. Same flag as IndexingQueryService below.
@@ -175,7 +190,12 @@ builder.Services.AddSingleton<ISpanQueryService>(sp => new SpanQueryService(
     sp.GetRequiredService<IClickHouseClient>(),
     sp.GetRequiredService<TimeProvider>(),
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
-builder.Services.AddSingleton<IMetricQueryService, MetricQueryService>();
+builder.Services.AddSingleton<MetricQueryService>();
+builder.Services.AddSingleton<IMetricQueryService>(sp => new CachingMetricQueryService(
+    sp.GetRequiredService<MetricQueryService>(),
+    sp.GetRequiredService<ICacheProvider>(),
+    sp.GetRequiredService<IOptions<QueryCacheOptions>>(),
+    sp.GetRequiredService<TimeProvider>()));
 builder.Services.AddSingleton<IServiceOverviewQueryService, ServiceOverviewQueryService>();
 builder.Services.AddSingleton<IServiceDependencyQueryService, ServiceDependencyQueryService>();
 builder.Services.AddSingleton<IServiceCallBreakdownQueryService, ServiceCallBreakdownQueryService>();
