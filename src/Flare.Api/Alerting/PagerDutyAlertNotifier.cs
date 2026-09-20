@@ -33,7 +33,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
 {
     private const string EventsApiUrl = "https://events.pagerduty.com/v2/enqueue";
 
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null)
     {
         // Not folded into `summary` below the way the other three notifiers append it to
         // their plain-text message - PagerDuty renders `summary` as a single-line incident
@@ -52,7 +52,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
             client_url = ruleUrl,
             payload = new
             {
-                summary = AlertMessageFormatter.BuildText(rule, observedValue, isTest),
+                summary = AlertMessageFormatter.BuildText(rule, observedValue, isTest, metricUnit: metricUnit),
                 source = "flare",
                 severity = isTest ? "info" : "critical",
                 timestamp = firedAt,

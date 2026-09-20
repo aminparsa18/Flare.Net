@@ -292,7 +292,7 @@ public static class AlertEndpoints
                 return new AlertTestResult { ObservedCount = 0, WouldFire = false, EvaluatedAt = now, WindowSeconds = windowSeconds, ConditionKind = conditionKind, ObservedValue = null };
             }
 
-            var value = await alerts.EvaluateMetricConditionAsync(metricCondition, from, now, cancellationToken);
+            var (value, _) = await alerts.EvaluateMetricConditionAsync(metricCondition, from, now, cancellationToken);
             return new AlertTestResult
             {
                 ObservedCount = 0,
