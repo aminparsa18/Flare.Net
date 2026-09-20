@@ -113,6 +113,25 @@ default caps on any of these. Reviewed against the `clickhouse-best-practices` s
 hour when `From`/`To` are omitted (`LogFilterSqlBuilder.DefaultLookback`), so an
 unfiltered request doesn't scan the whole table.
 
+## Query result caching
+
+`LogQueryService.SearchAsync`/`AggregateAsync` and `MetricQueryService.QueryAsync` sit
+behind a short-TTL Redis cache (`Caching/`) — see ADR-0029. A `CachingLogQueryService`/
+`CachingMetricQueryService` decorator wraps the real query service (registered in
+`Program.cs`), keyed by a SHA-256 hash of the request's own MemoryPack encoding
+(`QueryCacheKey`) so identical filter/time-range/paging fields collide onto the same Redis
+key without hand-listing them. Every other query-service member (patterns, attribute
+lookups, the SQL-query-row surface, metric name/attribute-key discovery) is a plain
+pass-through — they aren't the repeated-poll hot path this exists for.
+
+A query whose time range ends within `QueryCacheOptions.RecentWindow` (default 2 minutes)
+of "now" — including any open-ended range, since `To` omitted means "now" — bypasses the
+cache entirely (`CacheRecencyGuard`): Redis-Streams-buffered events can still be landing in
+ClickHouse for a short while after ingest (ADR-0002), so a window that touches the present
+can't be cached without risking a stale read. Tune via the `QueryCache` config section
+(`Enabled`, `Ttl`, `RecentWindow`) — `Enabled: false` makes every decorator a pure
+pass-through with no Redis round trip.
+
 ## Live-tail streaming
 
 `GET /api/logs/tail` upgrades to a WebSocket. A connection gets no events until it sends
