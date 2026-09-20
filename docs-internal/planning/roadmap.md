@@ -46,18 +46,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Metric unit formatting on dashboard panels.** Metric values in
-  MetricChart/dashboard panels render as raw numbers - no
-  bytes/ms/percent-style unit conversion, so a panel showing
-  `4294967296` instead of `4 GiB` is on the user to mentally convert.
-  Not started. Prior art: SigNoz's per-panel unit selector plus a
-  Grafana-style value formatter
-  ([signoz#2772](https://github.com/SigNoz/signoz/commit/7086f7eafaca00e0e8c695b0b242b41e136081f1),
-  [signoz#2773](https://github.com/SigNoz/signoz/commit/745626f51676eb241468a74edd8df5ae183afa71)).
-  Would need a `unit` field on `MetricAlertCondition`/panel config plus a
-  small formatter module in the dashboard (bytes, duration, percent,
-  count/short-scale) applied at render time only - no query/schema
-  changes.
 - **Service RED metrics pre-aggregated at flush time, not queried live.**
   `ServiceOverviewQueryBuilder`/`ServiceCallBreakdownQueryBuilder` currently
   `GROUP BY ServiceName` over the raw `spans` table on every Services-tab

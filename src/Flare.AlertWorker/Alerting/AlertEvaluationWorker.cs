@@ -131,6 +131,7 @@ public sealed class AlertEvaluationWorker(
         bool breached;
         ulong observedCount = 0;
         double? observedValue = null;
+        string? metricUnit = null;
         if (rule.ConditionKind == AlertConditionKind.MetricThreshold)
         {
             if (rule.MetricCondition is null || rule.MetricThresholdValue is not { } thresholdValue)
@@ -139,7 +140,8 @@ public sealed class AlertEvaluationWorker(
                 return;
             }
 
-            observedValue = await alerts.EvaluateMetricConditionAsync(rule.MetricCondition, from, now, cancellationToken);
+            (var value, metricUnit) = await alerts.EvaluateMetricConditionAsync(rule.MetricCondition, from, now, cancellationToken);
+            observedValue = value;
             breached = rule.Threshold.IsBreachedValue(observedValue.Value, thresholdValue);
         }
         else if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
@@ -178,7 +180,7 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken);
+        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit);
         var channelResults = ruleChannels.Zip(results, (channel, result) => new AlertChannelResult
         {
             ChannelId = channel.Id == NotificationChannelResolver.LegacyChannelId ? null : channel.Id,

@@ -24,25 +24,38 @@ public static class AlertMessageFormatter
     /// client all auto-linkify a plain <c>http(s)://</c> URL, so one plain-text form works
     /// unchanged for every channel <see cref="CompositeAlertNotifier"/> can pick.
     /// </param>
-    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null)
+    /// <param name="metricUnit">
+    /// The evaluated <see cref="AlertRule.MetricCondition"/> metric's declared OTel/UCUM
+    /// unit (from the same <c>Unit</c> column <c>IAlertQueryService.EvaluateMetricConditionAsync</c>
+    /// reads back), only meaningful for <see cref="AlertConditionKind.MetricThreshold"/> rules.
+    /// Formatted through <see cref="MetricUnitFormatter"/> - the same scale table the
+    /// dashboard's <c>lib/metrics/axis.ts</c> uses - so a byte metric reads "4 GiB" rather
+    /// than the raw declared-unit value. Null (unresolved/non-metric rule) falls back to a
+    /// plain dimensionless number, matching this method's behavior before units existed here.
+    /// </param>
+    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null)
     {
         var text = isTest
             ? $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly."
-            : BuildFiredText(rule, observedValue);
+            : BuildFiredText(rule, observedValue, metricUnit);
 
         var ruleUrl = BuildRuleUrl(rule, publicUrl);
         return ruleUrl is null ? text : $"{text}\n{ruleUrl}";
     }
 
-    private static string BuildFiredText(AlertRule rule, double observedValue)
+    private static string BuildFiredText(AlertRule rule, double observedValue, string? metricUnit)
     {
         var comparatorSymbol = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
 
         if (rule.ConditionKind == AlertConditionKind.MetricThreshold)
         {
             var metricName = rule.MetricCondition?.MetricName ?? "?";
-            return $":rotating_light: Alert \"{rule.Name}\" fired: {metricName} = {observedValue:0.##} " +
-                   $"({comparatorSymbol} {rule.MetricThresholdValue:0.##}) over the last {rule.WindowSeconds}s";
+            var thresholdValue = rule.MetricThresholdValue;
+            var peak = Math.Max(Math.Abs(observedValue), Math.Abs(thresholdValue ?? 0));
+            var scale = MetricUnitFormatter.ResolveScale(metricUnit, peak);
+            var thresholdText = thresholdValue is { } tv ? MetricUnitFormatter.Format(tv, scale) : "";
+            return $":rotating_light: Alert \"{rule.Name}\" fired: {metricName} = {MetricUnitFormatter.Format(observedValue, scale)} " +
+                   $"({comparatorSymbol} {thresholdText}) over the last {rule.WindowSeconds}s";
         }
 
         if (rule.ConditionKind == AlertConditionKind.ExceptionCount)

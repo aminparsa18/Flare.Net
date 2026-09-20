@@ -36,9 +36,13 @@ public interface IAlertQueryService
     /// there's no matching data in the window (mirrors ClickHouse's own <c>avg()</c>-of-empty-set
     /// behavior) - deliberate, not mapped to 0: <see cref="AlertThreshold.IsBreachedValue"/>'s
     /// comparisons are both false against <see cref="double.NaN"/>, so "no data" never breaches
-    /// either direction rather than silently reading as a real zero.
+    /// either direction rather than silently reading as a real zero. <c>Unit</c> is the
+    /// matched rows' declared OTel/UCUM unit (<c>any(Unit)</c>, same column
+    /// <c>MetricNamesQueryBuilder</c> reads for the Metrics Explorer) - null when there's no
+    /// matching data, so <see cref="Alerting.AlertMessageFormatter.BuildText"/> can format the
+    /// fired-alert text the same unit-aware way the dashboard charts do.
     /// </summary>
-    Task<double> EvaluateMetricConditionAsync(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
+    Task<(double Value, string? Unit)> EvaluateMetricConditionAsync(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
 
     /// <summary>
     /// The <see cref="AlertConditionKind.ExceptionCount"/> counterpart to
@@ -209,7 +213,7 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
         return ToUInt64(result);
     }
 
-    public async Task<double> EvaluateMetricConditionAsync(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    public async Task<(double Value, string? Unit)> EvaluateMetricConditionAsync(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
         var built = MetricAlertConditionQueryBuilder.Build(condition, from, to);
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, EvaluationSafetyOptions(), cancellationToken);
@@ -218,16 +222,18 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
             // An aggregate query with no GROUP BY always returns exactly one row in
             // ClickHouse even over zero matching source rows - this branch is defensive,
             // not expected to actually run.
-            return double.NaN;
+            return (double.NaN, null);
         }
 
+        // Unit is always the last column MetricAlertConditionQueryBuilder selects, regardless
+        // of type - see that builder's own remarks.
         return built.Type switch
         {
-            MetricPointType.Gauge => reader.GetFieldValue<double>(0),
-            MetricPointType.Sum => condition.Aggregation == MetricAlertAggregation.Count
+            MetricPointType.Gauge => (reader.GetFieldValue<double>(0), NullIfEmpty(reader.GetString(1))),
+            MetricPointType.Sum => (condition.Aggregation == MetricAlertAggregation.Count
                 ? (double)reader.GetFieldValue<ulong>(1)
-                : reader.GetFieldValue<double>(0),
-            MetricPointType.Histogram => ReadHistogramAggregate(reader, condition.Aggregation),
+                : reader.GetFieldValue<double>(0), NullIfEmpty(reader.GetString(2))),
+            MetricPointType.Histogram => (ReadHistogramAggregate(reader, condition.Aggregation), NullIfEmpty(reader.GetString(4))),
             _ => throw new ArgumentOutOfRangeException(nameof(condition), condition.Type, "Unknown metric point type."),
         };
     }

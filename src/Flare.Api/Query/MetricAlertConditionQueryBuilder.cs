@@ -43,11 +43,15 @@ public static class MetricAlertConditionQueryBuilder
         filterSql.Parameters.AddParameter("metricName", condition.MetricName);
 
         var table = MetricTables.For(condition.Type);
+        // `any(Unit)` appended last in every branch, after the type's own aggregate columns
+        // - keeps existing ordinals (0/1 for Gauge, 0-1 for Sum, 0-3 for Histogram) stable
+        // for AlertQueryService.EvaluateMetricConditionAsync's positional reads, with Unit
+        // always the final column regardless of type.
         var selectExpr = condition.Type switch
         {
-            MetricPointType.Gauge => "avg(Value) AS Value",
-            MetricPointType.Sum => "max(Value) - min(Value) AS Value, count() AS Count",
-            MetricPointType.Histogram => "sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds",
+            MetricPointType.Gauge => "avg(Value) AS Value, any(Unit) AS Unit",
+            MetricPointType.Sum => "max(Value) - min(Value) AS Value, count() AS Count, any(Unit) AS Unit",
+            MetricPointType.Histogram => "sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds, any(Unit) AS Unit",
             _ => throw new ArgumentOutOfRangeException(nameof(condition), condition.Type, "Unknown metric point type."),
         };
 

@@ -38,5 +38,10 @@ public interface IAlertNotifier
     /// instead of treating <paramref name="observedValue"/> as a real breach, so a channel
     /// can be verified without anyone reading it mistaking it for a real incident.
     /// </param>
-    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false);
+    /// <param name="metricUnit">
+    /// Passed straight through to <see cref="AlertMessageFormatter.BuildText"/> - see that
+    /// parameter's own doc comment. Null for non-<see cref="AlertConditionKind.MetricThreshold"/>
+    /// rules and every <paramref name="isTest"/> send (test wording never formats <paramref name="observedValue"/>).
+    /// </param>
+    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null);
 }

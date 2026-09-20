@@ -87,6 +87,51 @@ public class AlertMessageFormatterTests
     }
 
     [Fact]
+    public void BuildText_MetricThresholdRule_NoUnit_FormatsAsPlainNumbers()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.MetricThreshold,
+            MetricCondition = new MetricAlertCondition { MetricName = "process.threads", Type = MetricPointType.Gauge },
+            MetricThresholdValue = 500,
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, observedValue: 620);
+
+        Assert.Contains("process.threads = 620 (>= 500)", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildText_MetricThresholdRule_WithUnit_FormatsBothValuesAtSameScale()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.MetricThreshold,
+            MetricCondition = new MetricAlertCondition { MetricName = "process.memory.usage", Type = MetricPointType.Gauge },
+            MetricThresholdValue = 500d * 1024 * 1024,
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, observedValue: 1000d * 1024 * 1024, metricUnit: "By");
+
+        Assert.Contains("process.memory.usage = 1000 MB (>= 500 MB)", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildText_MetricThresholdRule_NullThresholdValue_OmitsThresholdNumber()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.MetricThreshold,
+            MetricCondition = new MetricAlertCondition { MetricName = "process.threads", Type = MetricPointType.Gauge },
+            MetricThresholdValue = null,
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, observedValue: 620, metricUnit: "By");
+
+        Assert.Contains("process.threads = 620 B (>= )", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildText_TestNotification_StillAppendsLink()
     {
         var text = AlertMessageFormatter.BuildText(MakeRule(), observedValue: 0, isTest: true, publicUrl: "https://flare.example.com");
