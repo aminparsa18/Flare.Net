@@ -1,5 +1,6 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -16,7 +17,15 @@ public interface IServiceDependencyQueryService
 /// (a self-join producing edges, not just a <c>GROUP BY</c>), sharing only the window
 /// clamp - see <see cref="ServiceDependencyQueryBuilder"/>'s remarks for the query design.
 /// </summary>
-public sealed class ServiceDependencyQueryService(IClickHouseClient client, TimeProvider timeProvider) : IServiceDependencyQueryService
+/// <remarks>
+/// The <b>nodes</b> half reads one of two tables depending on the request - same
+/// <c>ServiceOverviewQueryService.GetOverviewAsync</c>-style switch ADR-0030
+/// established, now via <see cref="ServiceDependencyMetricsQueryBuilder"/> (see
+/// ADR-0031). The <b>edges</b> half has no pre-aggregated counterpart and always uses
+/// <see cref="ServiceDependencyQueryBuilder"/>'s live self-join - see ADR-0031's
+/// Context for why.
+/// </remarks>
+public sealed class ServiceDependencyQueryService(IClickHouseClient client, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceDependencyQueryService
 {
     public async Task<ServiceDependencyGraphResponse> GetGraphAsync(int requestedWindowMinutes, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes, CancellationToken cancellationToken)
     {
@@ -24,11 +33,35 @@ public sealed class ServiceDependencyQueryService(IClickHouseClient client, Time
         var window = TimeSpan.FromMinutes(windowMinutes);
         var now = timeProvider.GetUtcNow();
 
+        // service_dependency_nodes (ADR-0031) has no dimension for the Map view's
+        // arbitrary resource-attribute filter chips - only queried when none are
+        // present. ServiceDependencyMetricsOptions.Enabled is the instant rollback
+        // valve, same convention as ServiceOverviewQueryService's service_metrics
+        // switch.
+        var useServiceDependencyMetrics = resourceAttributes is not { Count: > 0 } && serviceDependencyMetricsOptions.Value.Enabled;
+
         var built = ServiceDependencyQueryBuilder.Build(window, now, resourceAttributes);
 
         var nodes = new List<ServiceDependencyNode>();
-        await using (var reader = await client.ExecuteReaderAsync(built.NodesSql, built.NodesParameters, SafetyOptions(), cancellationToken))
+        if (useServiceDependencyMetrics)
         {
+            var builtNodes = ServiceDependencyMetricsQueryBuilder.Build(window, now);
+            await using var reader = await client.ExecuteReaderAsync(builtNodes.Sql, builtNodes.Parameters, SafetyOptions(), cancellationToken);
+            while (reader.Read())
+            {
+                nodes.Add(new ServiceDependencyNode
+                {
+                    Service = reader.GetString(0),
+                    SpanCount = reader.GetFieldValue<ulong>(1),
+                    ErrorCount = reader.GetFieldValue<ulong>(2),
+                    TotalDurationNano = reader.GetFieldValue<ulong>(3),
+                    TopOperations = reader.GetFieldValue<string[]>(4),
+                });
+            }
+        }
+        else
+        {
+            await using var reader = await client.ExecuteReaderAsync(built.NodesSql, built.NodesParameters, SafetyOptions(), cancellationToken);
             while (reader.Read())
             {
                 nodes.Add(new ServiceDependencyNode

@@ -1,5 +1,7 @@
 using ClickHouse.Driver;
+using ClickHouse.Driver.ADO.Parameters;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -14,7 +16,15 @@ public interface IServiceCallBreakdownQueryService
 /// <see cref="ServiceDependencyQueryService"/>/<see cref="ServiceOverviewQueryService"/>.
 /// See <see cref="ServiceCallBreakdownQueryBuilder"/>'s remarks for the query design.
 /// </summary>
-public sealed class ServiceCallBreakdownQueryService(IClickHouseClient client, TimeProvider timeProvider) : IServiceCallBreakdownQueryService
+/// <remarks>
+/// Reads from one of two table pairs depending on the request - same
+/// <c>ServiceOverviewQueryService.GetOverviewAsync</c>-style switch ADR-0030
+/// established, now via <see cref="ServiceCallBreakdownMetricsQueryBuilder"/> (see
+/// ADR-0031). Both builders produce column-identical result shapes for each of the
+/// external/database queries, so the reader-mapping code below is shared regardless
+/// of which builder ran.
+/// </remarks>
+public sealed class ServiceCallBreakdownQueryService(IClickHouseClient client, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceCallBreakdownQueryService
 {
     private const double NanosPerMilli = 1_000_000.0;
 
@@ -24,10 +34,33 @@ public sealed class ServiceCallBreakdownQueryService(IClickHouseClient client, T
         var window = TimeSpan.FromMinutes(windowMinutes);
         var now = timeProvider.GetUtcNow();
 
-        var built = ServiceCallBreakdownQueryBuilder.Build(service, window, now, resourceAttributes);
+        // service_call_breakdown_external/database (ADR-0031) have no dimension for
+        // the Services tab's arbitrary resource-attribute filter chips - only queried
+        // when none are present. Same instant rollback valve convention as
+        // ServiceDependencyQueryService's nodes switch.
+        var useServiceDependencyMetrics = resourceAttributes is not { Count: > 0 } && serviceDependencyMetricsOptions.Value.Enabled;
+
+        string externalCallsSql, databaseCallsSql;
+        ClickHouseParameterCollection externalCallsParameters, databaseCallsParameters;
+        if (useServiceDependencyMetrics)
+        {
+            var built = ServiceCallBreakdownMetricsQueryBuilder.Build(service, window, now);
+            externalCallsSql = built.ExternalCallsSql;
+            externalCallsParameters = built.ExternalCallsParameters;
+            databaseCallsSql = built.DatabaseCallsSql;
+            databaseCallsParameters = built.DatabaseCallsParameters;
+        }
+        else
+        {
+            var built = ServiceCallBreakdownQueryBuilder.Build(service, window, now, resourceAttributes);
+            externalCallsSql = built.ExternalCallsSql;
+            externalCallsParameters = built.ExternalCallsParameters;
+            databaseCallsSql = built.DatabaseCallsSql;
+            databaseCallsParameters = built.DatabaseCallsParameters;
+        }
 
         var externalCalls = new List<ExternalCallGroup>();
-        await using (var reader = await client.ExecuteReaderAsync(built.ExternalCallsSql, built.ExternalCallsParameters, SafetyOptions(), cancellationToken))
+        await using (var reader = await client.ExecuteReaderAsync(externalCallsSql, externalCallsParameters, SafetyOptions(), cancellationToken))
         {
             while (reader.Read())
             {
@@ -46,7 +79,7 @@ public sealed class ServiceCallBreakdownQueryService(IClickHouseClient client, T
         }
 
         var databaseCalls = new List<DatabaseCallGroup>();
-        await using (var reader = await client.ExecuteReaderAsync(built.DatabaseCallsSql, built.DatabaseCallsParameters, SafetyOptions(), cancellationToken))
+        await using (var reader = await client.ExecuteReaderAsync(databaseCallsSql, databaseCallsParameters, SafetyOptions(), cancellationToken))
         {
             while (reader.Read())
             {

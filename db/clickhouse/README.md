@@ -99,6 +99,18 @@ first materialized view in this codebase - see
 full decision record, including why a materialized view rather than a second explicit
 write from `SpanFlushWorker`, and why this only covers the Table view.
 
+`0023_service_dependency_breakdown_metrics.sql` - three more `AggregatingMergeTree`
+tables + materialized views attached to `spans`, extending 0022's flush-time
+pre-aggregation to the Services-tab Map view's nodes (`service_dependency_nodes`,
+keyed by effective-service + bucket, including a `topK(3)` sketch state) and the
+per-node call-breakdown drill-down (`service_call_breakdown_external`/
+`service_call_breakdown_database`, keyed by `peer.service`/`db.system`+`db.operation` +
+bucket). Deliberately does **not** cover the Map view's dependency edges - see
+[ADR-0031](../../docs-internal/adr/0031-service-map-breakdown-pre-aggregation.md) for
+why (parent/child spans of a genuine cross-service edge routinely land in different
+flush batches, so a correct edges aggregate needs a self-join design this migration
+hasn't verified against real ClickHouse behavior).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
@@ -119,9 +131,11 @@ nothing about it changes to support that.
   Aspire-based dev; the `docker-compose.yml` v1 roadmap item needs to close this gap for
   non-Aspire environments (probably the same bind-mount trick against the official
   image).
-- No `TTL` clause - see the design decisions below. (Materialized views: one exists now,
-  `service_metrics_mv` - narrowly scoped to the Services tab's RED-metrics rollup, not a
-  general pre-aggregation story for dashboard charts; see the design decisions below.)
+- No `TTL` clause - see the design decisions below. (Materialized views: three exist
+  now, `service_metrics_mv`/`service_dependency_nodes_mv`/`service_call_breakdown_*_mv`
+  - narrowly scoped to the Services tab's RED metrics, Map-view nodes, and call
+  breakdown respectively, not a general pre-aggregation story for dashboard charts; see
+  the design decisions below.)
 
 ## Design decisions
 
