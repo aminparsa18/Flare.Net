@@ -24,6 +24,23 @@ public sealed class ClickHouseSpanWriter(IClickHouseClient client) : IClickHouse
         }
 
         var rows = ClickHouseSpanRowMapper.ToRows(spans);
-        await client.InsertBinaryAsync(TableName, ClickHouseSpanRowMapper.Columns, rows, cancellationToken: cancellationToken);
+        await client.InsertBinaryAsync(TableName, ClickHouseSpanRowMapper.Columns, rows, SpanInsertOptions(), cancellationToken);
     }
+
+    /// <summary>
+    /// <c>materialized_views_ignore_errors</c> keeps a failure in the ADR-0030
+    /// <c>service_metrics_mv</c> materialized view (<c>db/clickhouse/0022_service_metrics.sql</c>)
+    /// from failing this insert into <c>spans</c> itself - ClickHouse's default behavior is
+    /// to fail the whole originating insert if a dependent materialized view's own insert
+    /// fails, which would otherwise couple the Services-tab RED-metrics rollup's failure
+    /// domain to span ingestion. Confirmed via a live spike before shipping (same practice
+    /// this class's own remarks already document for the RowBinary round-trip itself).
+    /// </summary>
+    private static InsertOptions SpanInsertOptions() => new()
+    {
+        CustomSettings = new Dictionary<string, object>
+        {
+            ["materialized_views_ignore_errors"] = 1,
+        },
+    };
 }

@@ -1,5 +1,7 @@
 using ClickHouse.Driver;
+using ClickHouse.Driver.ADO.Parameters;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -17,7 +19,13 @@ public interface IServiceOverviewQueryService
 /// sharing would mean threading a mismatched shape through a common interface for no
 /// real reuse.
 /// </summary>
-public sealed class ServiceOverviewQueryService(IClickHouseClient client, TimeProvider timeProvider) : IServiceOverviewQueryService
+/// <remarks>
+/// Reads from one of two tables depending on the request - see <see cref="GetOverviewAsync"/>.
+/// Both <see cref="ServiceMetricsQueryBuilder"/> (pre-aggregated) and
+/// <see cref="ServiceOverviewQueryBuilder"/> (live) produce the same 6-column result shape,
+/// so <see cref="BuildMetrics"/> maps either one's reader unchanged.
+/// </remarks>
+public sealed class ServiceOverviewQueryService(IClickHouseClient client, TimeProvider timeProvider, IOptions<ServiceMetricsOptions> serviceMetricsOptions) : IServiceOverviewQueryService
 {
     /// <summary>Converts a ClickHouse <c>DurationNano</c> quantile (nanoseconds) to milliseconds for the DTO.</summary>
     private const double NanosPerMilli = 1_000_000.0;
@@ -28,9 +36,28 @@ public sealed class ServiceOverviewQueryService(IClickHouseClient client, TimePr
         var window = TimeSpan.FromMinutes(windowMinutes);
         var now = timeProvider.GetUtcNow();
 
-        var built = ServiceOverviewQueryBuilder.Build(window, now, resourceAttributes);
+        // The pre-aggregated service_metrics table (ADR-0030) has no dimension for the
+        // Services tab's arbitrary resource-attribute filter chips - only queried when
+        // none are present. ServiceMetricsOptions.Enabled is the instant rollback valve:
+        // false always takes the live path below, same as if a filter were always set.
+        var useServiceMetrics = resourceAttributes is not { Count: > 0 } && serviceMetricsOptions.Value.Enabled;
 
-        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+        string sql;
+        ClickHouseParameterCollection parameters;
+        if (useServiceMetrics)
+        {
+            var built = ServiceMetricsQueryBuilder.Build(window, now);
+            sql = built.Sql;
+            parameters = built.Parameters;
+        }
+        else
+        {
+            var built = ServiceOverviewQueryBuilder.Build(window, now, resourceAttributes);
+            sql = built.Sql;
+            parameters = built.Parameters;
+        }
+
+        await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
 
         var services = new List<ServiceMetrics>();
         while (reader.Read())

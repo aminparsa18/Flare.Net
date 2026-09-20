@@ -46,15 +46,19 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Service RED metrics pre-aggregated at flush time, not queried live.**
-  `ServiceOverviewQueryBuilder`/`ServiceCallBreakdownQueryBuilder` currently
-  `GROUP BY ServiceName` over the raw `spans` table on every Services-tab
-  load. Not started. Same shape as an already-shipped Flare pattern -
-  Drain log-pattern clustering computed once at ingest/flush time rather
-  than recomputed per query (ADR-0007) - so this would add an additive
-  `service_metrics` ClickHouse table populated by `SpanFlushWorker`
-  alongside the existing span write, and repoint the Services tab/
-  dependency graph at it instead of re-scanning spans. Prior art: SigNoz's
+- **Dependency graph + call breakdown pre-aggregated at flush time, not
+  queried live.** The Services-tab Table view's RED metrics are now
+  pre-aggregated (`service_metrics` + `service_metrics_mv`, ADR-0030), but
+  `ServiceDependencyQueryBuilder` (Map view nodes/edges, a self-join keyed
+  by the `peer.service`-overridden "effective service") and
+  `ServiceCallBreakdownQueryBuilder` (per-node drill-down, grouped by
+  unbounded-cardinality `peer.service`/`db.system`+`db.operation`) still
+  `GROUP BY`/self-join over raw `spans` on every load. Not started -
+  deliberately deferred out of ADR-0030's scope as a materially bigger
+  effort: edges need a table keyed by `(source, target)` pairs (non-trivial
+  with the effective-service override), and the breakdown's per-peer/
+  per-db-operation cardinality doesn't collapse into a single small
+  aggregate table the way per-service RED metrics did. Prior art: SigNoz's
   `USE_SPAN_METRIC` feature flag sourcing the same page from
   collector-generated span metrics instead of live trace aggregation
   ([signoz#3134](https://github.com/SigNoz/signoz/commit/433f930956db03c01bcbd72ea61e43bce1eddc57),
