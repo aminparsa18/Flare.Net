@@ -196,6 +196,9 @@ builder.Services.AddSingleton<IMetricQueryService>(sp => new CachingMetricQueryS
     sp.GetRequiredService<ICacheProvider>(),
     sp.GetRequiredService<IOptions<QueryCacheOptions>>(),
     sp.GetRequiredService<TimeProvider>()));
+// ServiceMetricsOptions - the ADR-0030 rollback valve for the pre-aggregated
+// service_metrics path; see ServiceOverviewQueryService.GetOverviewAsync.
+builder.Services.Configure<ServiceMetricsOptions>(builder.Configuration.GetSection(ServiceMetricsOptions.SectionName));
 builder.Services.AddSingleton<IServiceOverviewQueryService, ServiceOverviewQueryService>();
 builder.Services.AddSingleton<IServiceDependencyQueryService, ServiceDependencyQueryService>();
 builder.Services.AddSingleton<IServiceCallBreakdownQueryService, ServiceCallBreakdownQueryService>();
