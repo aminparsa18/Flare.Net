@@ -22,6 +22,7 @@ import {
 } from '$lib/metrics-api';
 import { resolveTimeRange, rangeSeconds, previousPeriod, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
+import { parseFormula, evaluateFormula, collectRefs } from './formula';
 
 export interface MetricsFilterState {
 	timeRangePreset: TimeRangePreset;
@@ -51,6 +52,46 @@ export interface MetricsFilterState {
 export const DEFAULT_TOP_N = 20;
 
 /**
+ * Metrics Explorer's two mutually-exclusive display modes - 'single' is everything this file
+ * already did (one selected metric via `MetricPicker`/`selected`); 'formula' (roadmap:
+ * "Cross-query formula expressions for metrics") layers on a second, independent set of
+ * fields below rather than reusing `selected`/`series`/`resultType` - those are wired
+ * throughout `MetricChart.svelte` around a single (metricName, serviceName, type) selection,
+ * and a formula result has none of that (no one metric name/type/unit, possibly several
+ * distinct (letter, series) inputs joined together) - see `FormulaChart.svelte`, a separate
+ * component from `MetricChart.svelte` for the same reason.
+ */
+export type MetricsExplorerMode = 'single' | 'formula';
+
+/** One named query row (`A`, `B`, ...) in Formula mode - a metric selection + its own optional Group by, same shape `MetricsFilterState.groupByAttributeKey` gives the single-metric mode, just per-row instead of page-wide. No TopN/Having here (v1 scope cut, see `FormulaExplorerState.runFormulaQuery`'s remarks) and no service filter beyond the metric's own `serviceName` - same "the picker entry already pins a (metricName, serviceName) pair" convention `runQuery`'s own `filterFor` uses for single mode. */
+export interface FormulaQueryDef {
+	letter: string;
+	metric: MetricNameInfo | null;
+	groupByAttributeKey: string | null;
+	/** This query's own metric's attribute keys - fetched independently per row (unlike `knownAttributeKeys`, which tracks the single-mode `selected` metric), since each formula row can have a completely different metric with a completely different key set. */
+	attributeKeys: MetricAttributeKeyInfo[];
+	attributeKeysLoading: boolean;
+}
+
+/** Formula rows are lettered A, B, C, ... in definition order - a closed, small set (chart lines, not a general-purpose list) same "closed, sane set of choices" call `MetricsToolbar`'s `TOP_N_OPTIONS` already makes. 6 is generous for "combine two named metric queries" (the roadmap's own phrasing) without inviting an unreadable formula. */
+export const MAX_FORMULA_QUERIES = 6;
+
+const FORMULA_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+/** The first letter not already in use by `existing` - `FormulaQueryDef.letter` is assigned once at creation and never renumbered (removing query B while A/C exist leaves a gap, same as removing a mid-list saved item anywhere else in this codebase), so a fresh row always gets the lowest free letter rather than reusing a position. */
+function nextFormulaLetter(existing: readonly FormulaQueryDef[]): string {
+	const used = new Set(existing.map((q) => q.letter));
+	for (const letter of FORMULA_LETTERS) {
+		if (!used.has(letter)) return letter;
+	}
+	throw new Error('No formula letters left.');
+}
+
+function newFormulaQuery(letter: string): FormulaQueryDef {
+	return { letter, metric: null, groupByAttributeKey: null, attributeKeys: [], attributeKeysLoading: false };
+}
+
+/**
  * A saved view's `state` payload for `pageType: 'Metrics'` - `MetricsFilterState` plus the
  * currently-charted metric's identity. Unlike Logs/Traces, "the view" on this page isn't
  * just the filter: which (metricName, serviceName) is selected is equally part of what a
@@ -65,6 +106,15 @@ export const DEFAULT_TOP_N = 20;
 export interface MetricsSavedViewState extends Omit<MetricsFilterState, 'customRange'> {
 	customRange: { from: string; to: string } | null;
 	selectedMetric: { metricName: string; serviceName: string; type: MetricPointType } | null;
+	/** Omitted from older saved views (pre-dates Formula mode) - `applySavedViewState` defaults it to 'single', the only mode that existed then. */
+	mode?: MetricsExplorerMode;
+	formulaExpression?: string;
+	/** `FormulaQueryDef` minus its transient `attributeKeys`/`attributeKeysLoading` fields, and `metric` narrowed to just its identity - same (metricName, serviceName, type) triple `selectedMetric` above already uses, re-resolved against `names` on restore rather than round-tripped as a full `MetricNameInfo` (unit/description/seriesCount could be stale by the time the view is reopened). */
+	formulaQueries?: Array<{
+		letter: string;
+		metric: { metricName: string; serviceName: string; type: MetricPointType } | null;
+		groupByAttributeKey: string | null;
+	}>;
 }
 
 /** Identifies one picker entry/selection - a (metricName, serviceName) pair, since the same metric name can be emitted by more than one service (see MetricNameInfo.serviceName's C# doc comment). */
@@ -190,9 +240,31 @@ export class MetricsExplorerState {
 	 *  series query, not the picker's name list, which changes far less often. */
 	autoRefreshEnabled = $state(false);
 
+	// ---- Formula mode (see MetricsExplorerMode's own remarks for why this is a fully
+	// separate set of fields rather than reusing series/resultType/selected above). ----
+
+	mode = $state<MetricsExplorerMode>('single');
+
+	formulaQueries = $state<FormulaQueryDef[]>([newFormulaQuery('A'), newFormulaQuery('B')]);
+	formulaExpression = $state('A / B');
+	/** Set from `parseFormula` on every `setFormulaExpression` call - a parse error blocks `runFormulaQuery` entirely (there's no partial/best-effort formula to run), same "surface it, don't guess" choice `MetricSeriesQueryBuilder`'s own required fields make. */
+	formulaExpressionError = $state<string | null>(null);
+
+	formulaSeries = $state.raw<MetricSeries[]>([]);
+	formulaLoading = $state(false);
+	/** A hard failure - a query fetch rejected, or a referenced letter has no query/metric. Distinct from `formulaWarning` (a valid-but-empty result) the same way `queryError` and an empty `series` are distinct in single mode. */
+	formulaError = $state<string | null>(null);
+	/** A non-fatal `evaluateFormula` warning (e.g. the join produced zero series) - shown as a hint alongside a valid-but-empty chart, never blocking like `formulaError` does. */
+	formulaWarning = $state<string | null>(null);
+	formulaIntervalSeconds = $state<number | null>(null);
+	formulaRangeFrom = $state<string | null>(null);
+	formulaRangeTo = $state<string | null>(null);
+
 	#namesAbort: AbortController | null = null;
 	#queryAbort: AbortController | null = null;
 	#attributeKeysAbort: AbortController | null = null;
+	#formulaQueryAbort: AbortController | null = null;
+	#formulaAttributeKeysAborts = new Map<string, AbortController>();
 	#pendingSwitchTimeout: ReturnType<typeof setTimeout> | null = null;
 	#autoRefreshHandle: ReturnType<typeof setInterval> | null = null;
 
@@ -460,7 +532,7 @@ export class MetricsExplorerState {
 		// customRange never lingers behind a fixed preset that no longer uses it.
 		if (preset !== 'custom') this.filter.customRange = null;
 		void this.loadNames();
-		void this.runQuery();
+		this.#runActive();
 	}
 
 	/**
@@ -478,14 +550,14 @@ export class MetricsExplorerState {
 		this.filter.timeRangePreset = 'custom';
 		this.filter.customRange = range;
 		void this.loadNames();
-		void this.runQuery();
+		this.#runActive();
 	}
 
 	setServices(services: string[]): void {
 		this.#flushPendingSwitch();
 		this.filter.services = services;
 		void this.loadNames();
-		void this.runQuery();
+		this.#runActive();
 	}
 
 	/** No name-list reload needed, unlike setTimeRangePreset/setServices - which metrics exist doesn't depend on compare mode, only the chart's own query does. */
@@ -531,7 +603,152 @@ export class MetricsExplorerState {
 
 	#startAutoRefresh(): void {
 		this.#stopAutoRefresh();
-		this.#autoRefreshHandle = setInterval(() => void this.runQuery(), AUTO_REFRESH_INTERVAL_MS);
+		this.#autoRefreshHandle = setInterval(() => this.#runActive(), AUTO_REFRESH_INTERVAL_MS);
+	}
+
+	/** Re-runs whichever mode's query is currently on-screen - every filter setter that affects both modes (time range, services, auto-refresh) goes through this instead of calling `runQuery`/`runFormulaQuery` directly, so it stays correct if `mode` flips without every one of those call sites needing its own branch. */
+	#runActive(): void {
+		if (this.mode === 'formula') void this.runFormulaQuery();
+		else void this.runQuery();
+	}
+
+	// ---- Formula mode ----------------------------------------------------------
+
+	/** Switches between single-metric and Formula mode, re-running whichever mode's query is now active - the other mode's fields (series/formulaSeries, etc.) are left exactly as they were, not cleared, so switching back doesn't lose anything already loaded. */
+	setMode(mode: MetricsExplorerMode): void {
+		if (mode === this.mode) return;
+		this.mode = mode;
+		this.#runActive();
+	}
+
+	/** Appends a new, empty query row with the next free letter - a no-op past `MAX_FORMULA_QUERIES` (the "+" control in `FormulaBuilder.svelte` disables itself at the same limit, this is just the defensive floor). Doesn't re-run the formula - an empty row has nothing to contribute until a metric is picked for it. */
+	addFormulaQuery(): void {
+		if (this.formulaQueries.length >= MAX_FORMULA_QUERIES) return;
+		this.formulaQueries = [...this.formulaQueries, newFormulaQuery(nextFormulaLetter(this.formulaQueries))];
+	}
+
+	/** Removes one query row by letter - the row's letter is not reassigned to anything else (see `nextFormulaLetter`'s remarks), so an expression already referencing it just starts failing to parse... no, resolving it: `evaluateFormula` treats it as "referenced letter has no query defined" and surfaces that as `formulaWarning`/`formulaError`, same as any other missing reference, rather than a parse error - the expression text itself is still syntactically valid. */
+	removeFormulaQuery(letter: string): void {
+		this.#formulaAttributeKeysAborts.get(letter)?.abort();
+		this.#formulaAttributeKeysAborts.delete(letter);
+		this.formulaQueries = this.formulaQueries.filter((q) => q.letter !== letter);
+		if (this.mode === 'formula') void this.runFormulaQuery();
+	}
+
+	/** Sets one query row's metric and re-fetches that row's own attribute keys (for its Group by picker) - independent of every other row's keys, unlike `loadKnownAttributeKeys`'s single, page-wide `knownAttributeKeys`. Resets the row's `groupByAttributeKey` (a key valid on the old metric may not exist on the new one - same "reset rather than carry over a possibly-invalid value" call `loadKnownAttributeKeys` makes for single mode). */
+	setFormulaQueryMetric(letter: string, metric: MetricNameInfo | null): void {
+		this.formulaQueries = this.formulaQueries.map((q) => (q.letter === letter ? { ...q, metric, groupByAttributeKey: null, attributeKeys: [] } : q));
+		if (this.mode === 'formula') void this.runFormulaQuery();
+		this.#loadFormulaAttributeKeys(letter, metric);
+	}
+
+	/** Fetches one row's attribute keys without touching `groupByAttributeKey` or re-running the formula - `setFormulaQueryMetric` (a real metric change, resets the row's group-by) and `applySavedViewState` (restoring a saved group-by verbatim) both need the fetch but want different side effects around it, so this is just the fetch. */
+	#loadFormulaAttributeKeys(letter: string, metric: MetricNameInfo | null): void {
+		this.#formulaAttributeKeysAborts.get(letter)?.abort();
+		if (!metric) return;
+		const abort = new AbortController();
+		this.#formulaAttributeKeysAborts.set(letter, abort);
+		this.formulaQueries = this.formulaQueries.map((q) => (q.letter === letter ? { ...q, attributeKeysLoading: true } : q));
+		void (async () => {
+			try {
+				const range = this.#resolvedRange();
+				const res = await getMetricAttributeKeys(
+					{ metricName: metric.metricName, type: metric.type, filter: { from: range.from, to: range.to, services: [metric.serviceName] } },
+					abort.signal
+				);
+				if (abort.signal.aborted) return;
+				this.formulaQueries = this.formulaQueries.map((q) => (q.letter === letter ? { ...q, attributeKeys: res.keys, attributeKeysLoading: false } : q));
+			} catch {
+				if (abort.signal.aborted) return;
+				// Non-critical, same as loadKnownAttributeKeys' own error handling - the row's Group by picker just shows no options until a retry (re-picking the metric).
+				this.formulaQueries = this.formulaQueries.map((q) => (q.letter === letter ? { ...q, attributeKeysLoading: false } : q));
+			}
+		})();
+	}
+
+	setFormulaQueryGroupBy(letter: string, key: string | null): void {
+		this.formulaQueries = this.formulaQueries.map((q) => (q.letter === letter ? { ...q, groupByAttributeKey: key } : q));
+		if (this.mode === 'formula') void this.runFormulaQuery();
+	}
+
+	/** Parses on every keystroke (`FormulaBuilder.svelte`'s input is uncontrolled-debounced upstream of this, same as any other free-text filter field in this codebase) and only re-runs the query once it parses - a syntactically invalid formula has nothing to fetch/join, so `formulaExpressionError` alone carries the failure, `formulaError`/`formulaSeries` are left as whatever they last were. */
+	setFormulaExpression(expression: string): void {
+		this.formulaExpression = expression;
+		const parsed = parseFormula(expression);
+		this.formulaExpressionError = parsed.ok ? null : parsed.error;
+		if (parsed.ok && this.mode === 'formula') void this.runFormulaQuery();
+	}
+
+	/**
+	 * Fetches every query row referenced by the current (already-parsed) formula in
+	 * parallel via the same `queryMetric` single-series endpoint `runQuery` uses - no
+	 * dedicated formula endpoint (see ADR-0036: this is app-side post-processing over
+	 * already-fetched rows, the same shape `HistogramQuantileEstimator` already uses
+	 * server-side), then joins/evaluates via `evaluateFormula`. No TopN/Having override
+	 * per row (v1 scope cut) - every row gets the server's own default cap
+	 * (`MetricSeriesQueryBuilder.DefaultTopN` = 20), which is also why `evaluateFormula`'s
+	 * own defensive `MAX_OUTPUT_SERIES` cap is never expected to bind (an inner join can't
+	 * exceed its smallest input). No compare-period fetch either - see roadmap/ADR-0036 for
+	 * why that's a deliberately separate follow-up, not folded in here.
+	 */
+	async runFormulaQuery(): Promise<void> {
+		this.#formulaQueryAbort?.abort();
+
+		const parsed = parseFormula(this.formulaExpression);
+		if (!parsed.ok) {
+			// setFormulaExpression already set formulaExpressionError for this same failure -
+			// nothing new to surface, just nothing to fetch.
+			return;
+		}
+
+		const abort = new AbortController();
+		this.#formulaQueryAbort = abort;
+
+		this.formulaLoading = true;
+		this.formulaError = null;
+		try {
+			const range = this.#resolvedRange();
+			const bucketWidthSeconds = pickBucketWidthSeconds(rangeSeconds(range));
+
+			const refs = [...collectRefs(parsed.node)];
+			const rows = refs.map((letter) => this.formulaQueries.find((q) => q.letter === letter)).filter((q): q is FormulaQueryDef => q != null);
+			const missingMetric = rows.length < refs.length || rows.some((q) => !q.metric);
+			if (missingMetric) {
+				this.formulaSeries = [];
+				this.formulaWarning = null;
+				this.formulaError = 'Every query referenced by the formula needs a metric selected.';
+				return;
+			}
+
+			const results = await Promise.all(
+				rows.map((row) =>
+					queryMetric(
+						{
+							metricName: row.metric!.metricName,
+							type: row.metric!.type,
+							bucketWidthSeconds,
+							filter: { from: range.from, to: range.to, services: [row.metric!.serviceName] },
+							groupByAttributeKey: row.groupByAttributeKey ?? undefined
+						},
+						abort.signal
+					)
+				)
+			);
+			if (abort.signal.aborted) return;
+
+			const inputs = rows.map((row, i) => ({ letter: row.letter, series: results[i].series }));
+			const evaluated = evaluateFormula(parsed.node, inputs);
+			this.formulaSeries = evaluated.series;
+			this.formulaWarning = evaluated.warning;
+			this.formulaIntervalSeconds = bucketWidthSeconds;
+			this.formulaRangeFrom = range.from;
+			this.formulaRangeTo = range.to;
+		} catch (err) {
+			if (abort.signal.aborted) return;
+			this.formulaError = err instanceof Error ? err.message : String(err);
+		} finally {
+			if (!abort.signal.aborted) this.formulaLoading = false;
+		}
 	}
 
 	#stopAutoRefresh(): void {
@@ -558,7 +775,14 @@ export class MetricsExplorerState {
 			havingValue: this.filter.havingValue,
 			selectedMetric: this.selected
 				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
-				: null
+				: null,
+			mode: this.mode,
+			formulaExpression: this.formulaExpression,
+			formulaQueries: this.formulaQueries.map((q) => ({
+				letter: q.letter,
+				metric: q.metric ? { metricName: q.metric.metricName, serviceName: q.metric.serviceName, type: q.metric.type } : null,
+				groupByAttributeKey: q.groupByAttributeKey
+			}))
 		};
 	}
 
@@ -589,12 +813,34 @@ export class MetricsExplorerState {
 			const match = this.names.find((m) => m.metricName === saved.metricName && m.serviceName === saved.serviceName);
 			if (match) this.selectMetric(match);
 		}
+
+		// Older saved views (pre-Formula mode) carry none of the fields below - defaulted to
+		// 'single' + two empty rows, the same state a fresh page load starts in.
+		this.mode = s.mode ?? 'single';
+		this.formulaExpression = s.formulaExpression ?? 'A / B';
+		const parsedFormula = parseFormula(this.formulaExpression);
+		this.formulaExpressionError = parsedFormula.ok ? null : parsedFormula.error;
+		this.formulaQueries = (s.formulaQueries ?? [newFormulaQuery('A'), newFormulaQuery('B')]).map((q) => {
+			// Re-resolved against the freshly-loaded `names` (not round-tripped as a full
+			// MetricNameInfo - see MetricsSavedViewState.formulaQueries' own remarks); falls
+			// back to no metric selected if it's gone, same soft-fail as selectedMetric above.
+			const match = q.metric ? this.names.find((m) => m.metricName === q.metric!.metricName && m.serviceName === q.metric!.serviceName) : null;
+			return { letter: q.letter, metric: match ?? null, groupByAttributeKey: q.groupByAttributeKey, attributeKeys: [], attributeKeysLoading: false };
+		});
+		// Each row's own attribute-key fetch (for its Group by picker), without disturbing
+		// the groupByAttributeKey just restored above - see #loadFormulaAttributeKeys' remarks.
+		for (const row of this.formulaQueries) {
+			this.#loadFormulaAttributeKeys(row.letter, row.metric);
+		}
+		if (this.mode === 'formula') void this.runFormulaQuery();
 	}
 
 	dispose(): void {
 		this.#namesAbort?.abort();
 		this.#queryAbort?.abort();
 		this.#attributeKeysAbort?.abort();
+		this.#formulaQueryAbort?.abort();
+		for (const abort of this.#formulaAttributeKeysAborts.values()) abort.abort();
 		if (this.#pendingSwitchTimeout) clearTimeout(this.#pendingSwitchTimeout);
 		this.#stopAutoRefresh();
 	}

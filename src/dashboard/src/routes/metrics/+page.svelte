@@ -8,6 +8,8 @@
 	import MetricsToolbar from '$lib/components/metrics/MetricsToolbar.svelte';
 	import MetricPicker from '$lib/components/metrics/MetricPicker.svelte';
 	import MetricChart from '$lib/components/metrics/MetricChart.svelte';
+	import FormulaBuilder from '$lib/components/metrics/FormulaBuilder.svelte';
+	import FormulaChart from '$lib/components/metrics/FormulaChart.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
@@ -119,35 +121,40 @@
 <div class="flex h-full flex-col">
 	<MetricsToolbar />
 	<div class="flex min-h-0 flex-1" bind:this={panelsEl}>
-		<MetricPicker width={pickerWidth} />
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<!-- Svelte's linter treats role="separator" as non-interactive by default, but the
-		     ARIA APG's "Separator (Focusable)" pattern (https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/)
-		     calls for exactly this on a window-splitter/resize-handle: tabindex + arrow-key
-		     handling on the separator itself, plus aria-valuenow/min/max so it reads as a
-		     real control, not decoration - same justified suppression VirtualList.svelte
-		     already uses for its own ARIA APG pattern (a scrollable region). -->
-		<div
-			role="separator"
-			aria-orientation="vertical"
-			aria-label={m.metricsPage_resizeListLabel()}
-			aria-valuenow={pickerWidth}
-			aria-valuemin={MIN_WIDTH}
-			aria-valuemax={MAX_WIDTH}
-			tabindex="0"
-			class="group relative w-1.5 shrink-0 cursor-col-resize touch-none self-stretch outline-none select-none"
-			onpointerdown={startDrag}
-			onpointermove={onDrag}
-			onpointerup={endDrag}
-			onkeydown={handleKeydown}
-		>
+		{#if explorer.mode === 'formula'}
+			<FormulaBuilder />
+			<FormulaChart />
+		{:else}
+			<MetricPicker width={pickerWidth} />
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+			<!-- Svelte's linter treats role="separator" as non-interactive by default, but the
+			     ARIA APG's "Separator (Focusable)" pattern (https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/)
+			     calls for exactly this on a window-splitter/resize-handle: tabindex + arrow-key
+			     handling on the separator itself, plus aria-valuenow/min/max so it reads as a
+			     real control, not decoration - same justified suppression VirtualList.svelte
+			     already uses for its own ARIA APG pattern (a scrollable region). -->
 			<div
-				class="bg-border group-hover:bg-primary/50 absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition-colors {dragging
-					? 'bg-primary'
-					: ''}"
-			></div>
-		</div>
-		<MetricChart />
+				role="separator"
+				aria-orientation="vertical"
+				aria-label={m.metricsPage_resizeListLabel()}
+				aria-valuenow={pickerWidth}
+				aria-valuemin={MIN_WIDTH}
+				aria-valuemax={MAX_WIDTH}
+				tabindex="0"
+				class="group relative w-1.5 shrink-0 cursor-col-resize touch-none self-stretch outline-none select-none"
+				onpointerdown={startDrag}
+				onpointermove={onDrag}
+				onpointerup={endDrag}
+				onkeydown={handleKeydown}
+			>
+				<div
+					class="bg-border group-hover:bg-primary/50 absolute inset-y-0 left-1/2 w-px -translate-x-1/2 transition-colors {dragging
+						? 'bg-primary'
+						: ''}"
+				></div>
+			</div>
+			<MetricChart />
+		{/if}
 	</div>
 </div>
