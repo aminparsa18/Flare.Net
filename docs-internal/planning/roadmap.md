@@ -132,15 +132,6 @@ folders are where "what happened and why" actually lives.
   fired, no schema change. Prior art: SigNoz's `ThresholdRule.Eval`
   building this link the same way
   ([signoz#4446](https://github.com/SigNoz/signoz/commit/00b111fbe367e16ef6920586e64b226b7e1cff4a)).
-- **Deterministic per-series color on MetricChart.** Confirmed
-  index-based today (`color: var(${SERIES_COLOR_VARS[i]})`) - a series'
-  color depends on its position in that response's series list, so the
-  same series can visibly change color across reloads or panels
-  whenever ordering shifts. Not started. Would replace the index lookup
-  with a hash of the series' label (e.g. its compact label string) into
-  the same fixed palette, so a given series always gets the same color.
-  Prior art: SigNoz's per-label color hashing
-  ([signoz#4478](https://github.com/SigNoz/signoz/commit/0f44246795aef0050ffee06dbc17e1f139981726)).
 - **Soft Y-axis min/max on metric charts.** No axis-bound option today.
   Not started; minor. uPlot (already Flare's charting library, per
   MetricChart) natively supports a *soft* min/max mode that still

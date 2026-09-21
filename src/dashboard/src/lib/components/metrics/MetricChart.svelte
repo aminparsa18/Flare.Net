@@ -32,13 +32,33 @@
 	// action) - see handlePointerUp below.
 	let { allowZoom = true }: { allowZoom?: boolean } = $props();
 
-	// Fixed categorical slot order (--chart-1..5, the `dataviz` skill's validated
+	// Fixed categorical palette (--chart-1..5, the `dataviz` skill's validated
 	// palette - see layout.css's chart-1..5 comment) - never cycled past 5 series; a
 	// 6th+ series folds into the "+N not shown" note below instead of reusing a hue,
 	// per the skill's categorical-identity rule ("a 9th series is never a generated
-	// hue").
+	// hue"). Slots are assigned by hashing each series' identity (seriesColor below),
+	// not by its position in visibleSeries - see that function's remarks for why.
 	const SERIES_COLOR_VARS = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5'] as const;
 	const MAX_SERIES = SERIES_COLOR_VARS.length;
+
+	// Deterministic per-series color: hashes the series' full identity (serviceName +
+	// every attribute, i.e. seriesLabel - not compactSeriesLabel, whose text depends on
+	// *which other series are currently visible*, so it isn't a stable identity across
+	// reloads/panels/comparison windows the way seriesLabel is) into a slot in the fixed
+	// palette above. Replaces an earlier index-based `SERIES_COLOR_VARS[i]` lookup, whose
+	// color depended on array position - the same series could visibly change color
+	// across reloads/panels whenever backend ordering shifted. djb2, not because the
+	// distribution matters here (5 buckets, collisions are cosmetic - two series can
+	// legitimately share a hue) but because it's a standard, well-tested string hash.
+	// Prior art: SigNoz's per-label color hashing (signoz#4478).
+	function seriesColor(identity: string): string {
+		let hash = 5381;
+		for (let i = 0; i < identity.length; i++) {
+			hash = (hash * 33) ^ identity.charCodeAt(i);
+		}
+		const index = Math.abs(hash) % SERIES_COLOR_VARS.length;
+		return `var(${SERIES_COLOR_VARS[index]})`;
+	}
 
 	// Histogram percentiles use fixed, meaning-carrying slots (not the general
 	// series-identity order above) - p50/p90/p99 are the same three quantities on
@@ -345,8 +365,8 @@
 			}));
 		}
 
-		return visibleSeries.map((series, i) => ({
-			color: `var(${SERIES_COLOR_VARS[i]})`,
+		return visibleSeries.map((series) => ({
+			color: seriesColor(seriesLabel(series)),
 			label: compactSeriesLabel(series, visibleSeries),
 			detail: seriesLabel(series),
 			points: series.points
