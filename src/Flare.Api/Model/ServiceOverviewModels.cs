@@ -35,6 +35,20 @@ public sealed partial record ServiceMetrics
     public required double P95DurationMs { get; init; }
 
     public required double P99DurationMs { get; init; }
+
+    /// <summary>The standard Apdex ratio (0.0-1.0) for this service's root spans in the
+    /// window, using <see cref="ApdexThresholdMs"/> as T - see
+    /// <see cref="Query.ApdexScoreCalculator"/>. Null when <see cref="RequestCount"/> is 0
+    /// (impossible in practice per this type's own remarks, kept nullable for the same
+    /// integer-vs-double-division defensiveness as <see cref="ErrorRate"/>'s guard).
+    /// Always computed live - see docs-internal/adr/0032-apdex-score-per-service.md for
+    /// why this isn't part of the <c>service_metrics</c> pre-aggregation.</summary>
+    public required double? ApdexScore { get; init; }
+
+    /// <summary>The Apdex threshold (T, milliseconds) actually used for
+    /// <see cref="ApdexScore"/> - either this service's configured override or the
+    /// system default (<see cref="Query.ServiceApdexQueryBuilder.DefaultThresholdMs"/>).</summary>
+    public required int ApdexThresholdMs { get; init; }
 }
 
 /// <summary>

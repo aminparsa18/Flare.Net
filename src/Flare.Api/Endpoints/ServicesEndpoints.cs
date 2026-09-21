@@ -2,6 +2,7 @@ using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Flare.Identity.Apdex;
 
 namespace Flare.Api.Endpoints;
 
@@ -26,6 +27,10 @@ public static class ServicesEndpoints
         endpoints.MapPost("/api/services/overview", HandleGetOverviewAsync);
         endpoints.MapPost("/api/services/dependencies", HandleGetDependenciesAsync);
         endpoints.MapPost("/api/services/breakdown", HandleGetBreakdownAsync);
+        // Viewer-readable, unlike the mutating PUT/DELETE in ApdexThresholdEndpoints
+        // (Admin-only, mapped on adminRoutes) - any Viewer needs the configured
+        // thresholds to render the Services tab's Apdex column tooltip.
+        endpoints.MapGet("/api/services/apdex-thresholds", HandleGetApdexThresholdsAsync);
         return endpoints;
     }
 
@@ -103,5 +108,21 @@ public static class ServicesEndpoints
             request.ResourceAttributes,
             cancellationToken);
         return ApiSerialization.Write(http, response, ServicesJsonContext.Default.ServiceCallBreakdownResponse);
+    }
+
+    private static async Task<IResult> HandleGetApdexThresholdsAsync(
+        HttpContext http,
+        IApdexThresholdStore store,
+        CancellationToken cancellationToken)
+    {
+        var overrides = await store.GetAllAsync(cancellationToken);
+        var response = new ApdexThresholdsResponse
+        {
+            DefaultThresholdMs = ServiceApdexQueryBuilder.DefaultThresholdMs,
+            Overrides = overrides
+                .Select(kvp => new ApdexThresholdDto { ServiceName = kvp.Key, ThresholdMs = kvp.Value })
+                .ToList(),
+        };
+        return ApiSerialization.Write(http, response, ServicesJsonContext.Default.ApdexThresholdsResponse);
     }
 }

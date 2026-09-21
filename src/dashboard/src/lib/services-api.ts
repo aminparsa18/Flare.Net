@@ -1,6 +1,9 @@
 // Client for Flare.Api's Services-tab endpoints: per-service RED metrics overview (Table
 // view) and the aggregate cross-trace dependency graph (Map view) - both surfaced as a tab
-// on the Traces page rather than their own route.
+// on the Traces page rather than their own route. Also the per-service Apdex threshold
+// setting (`ApdexThresholdEndpoints`/`ApdexThresholdsResponse` - see
+// docs-internal/adr/0032-apdex-score-per-service.md): GET is plain-JSON-or-MemoryPack
+// content-negotiated like every other endpoint here, PUT/DELETE are Admin-only.
 //
 // MemoryPack over the wire, same shape as `indexing-api.ts`'s header comment: `ServiceMetrics`
 // has no DateTimeOffset/JsonElement/IReadOnlyList member and is a real generated class;
@@ -19,13 +22,15 @@
 // `ResourceAttributeFilter` itself is a real generated class (no list/DateTimeOffset
 // member of its own).
 
-import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
+import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { ServiceOverviewRequest as GeneratedServiceOverviewRequest } from '$lib/memorypack/ServiceOverviewRequest';
 import { ServiceOverviewResponse as GeneratedServiceOverviewResponse } from '$lib/memorypack/ServiceOverviewResponse';
 import { ServiceDependencyRequest as GeneratedServiceDependencyRequest } from '$lib/memorypack/ServiceDependencyRequest';
 import { ServiceDependencyGraphResponse as GeneratedServiceDependencyGraphResponse } from '$lib/memorypack/ServiceDependencyGraphResponse';
 import { ServiceCallBreakdownRequest as GeneratedServiceCallBreakdownRequest } from '$lib/memorypack/ServiceCallBreakdownRequest';
 import { ServiceCallBreakdownResponse as GeneratedServiceCallBreakdownResponse } from '$lib/memorypack/ServiceCallBreakdownResponse';
+import { ApdexThresholdsResponse as GeneratedApdexThresholdsResponse } from '$lib/memorypack/ApdexThresholdsResponse';
+import { SetApdexThresholdRequest as GeneratedSetApdexThresholdRequest } from '$lib/generated/memorypack/SetApdexThresholdRequest.js';
 import { ResourceAttributeFilter as GeneratedResourceAttributeFilter } from '$lib/generated/memorypack/ResourceAttributeFilter.js';
 import type { ServiceMetrics as GeneratedServiceMetrics } from '$lib/generated/memorypack/ServiceMetrics.js';
 import type { ServiceDependencyNode as GeneratedServiceDependencyNode } from '$lib/memorypack/ServiceDependencyNode';
@@ -59,6 +64,10 @@ export interface ServiceMetrics {
 	p50DurationMs: number;
 	p95DurationMs: number;
 	p99DurationMs: number;
+	/** Null when the service had no requests in the window - see `ApdexScoreCalculator`. */
+	apdexScore: number | null;
+	/** The Apdex threshold (T, milliseconds) actually used for `apdexScore` - this service's override, or the system default. */
+	apdexThresholdMs: number;
 }
 
 export interface ServiceOverviewResponse {
@@ -75,7 +84,9 @@ function toServiceMetrics(dto: GeneratedServiceMetrics): ServiceMetrics {
 		requestsPerSecond: dto.requestsPerSecond,
 		p50DurationMs: dto.p50DurationMs,
 		p95DurationMs: dto.p95DurationMs,
-		p99DurationMs: dto.p99DurationMs
+		p99DurationMs: dto.p99DurationMs,
+		apdexScore: dto.apdexScore,
+		apdexThresholdMs: dto.apdexThresholdMs
 	};
 }
 
@@ -261,4 +272,60 @@ export async function getServiceCallBreakdown(
 		externalCalls: (dto.externalCalls ?? []).map((c) => toExternalCallGroup(c!)),
 		databaseCalls: (dto.databaseCalls ?? []).map((c) => toDatabaseCallGroup(c!))
 	};
+}
+
+/**
+ * Per-service Apdex threshold overrides (`ApdexThresholds` in Identity's SQLite - see
+ * `ApdexThresholdEndpoints`/`SqliteApdexThresholdStore`). Only overridden services are
+ * listed; everything else uses `defaultThresholdMs`.
+ */
+export interface ApdexThresholds {
+	defaultThresholdMs: number;
+	overrides: Record<string, number>;
+}
+
+/** `GET /api/services/apdex-thresholds` - Viewer-readable, same as the rest of the Services tab. */
+export async function getApdexThresholds(signal?: AbortSignal): Promise<ApdexThresholds> {
+	const res = await apiFetch(`${API_BASE_URL}/api/services/apdex-thresholds`, {
+		headers: memoryPackAcceptHeaders(),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`GET /api/services/apdex-thresholds failed: ${res.status} ${res.statusText}`);
+	}
+	const dto = GeneratedApdexThresholdsResponse.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding ApdexThresholdsResponse.');
+	}
+	const overrides: Record<string, number> = {};
+	for (const entry of dto.overrides ?? []) {
+		if (entry?.serviceName != null) {
+			overrides[entry.serviceName] = entry.thresholdMs;
+		}
+	}
+	return { defaultThresholdMs: dto.defaultThresholdMs, overrides };
+}
+
+/** `PUT /api/services/apdex-thresholds/{serviceName}` - Admin-only. */
+export async function setApdexThreshold(serviceName: string, thresholdMs: number): Promise<void> {
+	const request = new GeneratedSetApdexThresholdRequest();
+	request.thresholdMs = thresholdMs;
+	const res = await apiFetch(`${API_BASE_URL}/api/services/apdex-thresholds/${encodeURIComponent(serviceName)}`, {
+		method: 'PUT',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSetApdexThresholdRequest.serialize(request))
+	});
+	if (!res.ok) {
+		throw new Error(`PUT /api/services/apdex-thresholds/${serviceName} failed: ${res.status} ${res.statusText}`);
+	}
+}
+
+/** `DELETE /api/services/apdex-thresholds/{serviceName}` - Admin-only. Reverts the service to `defaultThresholdMs`. */
+export async function resetApdexThreshold(serviceName: string): Promise<void> {
+	const res = await apiFetch(`${API_BASE_URL}/api/services/apdex-thresholds/${encodeURIComponent(serviceName)}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) {
+		throw new Error(`DELETE /api/services/apdex-thresholds/${serviceName} failed: ${res.status} ${res.statusText}`);
+	}
 }

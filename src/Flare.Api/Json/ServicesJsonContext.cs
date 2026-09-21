@@ -21,4 +21,6 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(ServiceDependencyGraphResponse))]
 [JsonSerializable(typeof(ServiceCallBreakdownRequest))]
 [JsonSerializable(typeof(ServiceCallBreakdownResponse))]
+[JsonSerializable(typeof(ApdexThresholdsResponse))]
+[JsonSerializable(typeof(SetApdexThresholdRequest))]
 public sealed partial class ServicesJsonContext : JsonSerializerContext;

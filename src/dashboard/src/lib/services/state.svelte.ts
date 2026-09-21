@@ -6,7 +6,17 @@
 // a "what's happening right now" view, not a point-in-time snapshot - a stale error rate
 // is the one thing this tab must never show silently.
 
-import { getServiceOverview, getServiceDependencyGraph, type ServiceMetrics, type ServiceDependencyGraph, type ResourceAttributeFilter } from '$lib/services-api';
+import {
+	getServiceOverview,
+	getServiceDependencyGraph,
+	getApdexThresholds,
+	setApdexThreshold as setApdexThresholdRequest,
+	resetApdexThreshold as resetApdexThresholdRequest,
+	type ServiceMetrics,
+	type ServiceDependencyGraph,
+	type ResourceAttributeFilter,
+	type ApdexThresholds
+} from '$lib/services-api';
 import * as m from '$lib/paraglide/messages';
 
 export type ServicesWindowPreset = '5m' | '15m' | '1h' | '6h' | '24h';
@@ -37,7 +47,7 @@ export function servicesWindowPresetLabel(preset: ServicesWindowPreset): string 
 	}
 }
 
-export type ServicesSortColumn = 'serviceName' | 'requestsPerSecond' | 'errorRate' | 'p50DurationMs' | 'p95DurationMs' | 'p99DurationMs';
+export type ServicesSortColumn = 'serviceName' | 'requestsPerSecond' | 'errorRate' | 'p50DurationMs' | 'p95DurationMs' | 'p99DurationMs' | 'apdexScore';
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -57,6 +67,16 @@ export class ServicesState {
 	// The dependency map, rendered below the table (not behind a separate tab) - both
 	// views share this one window, so both are fetched together on every load()/poll.
 	graph = $state.raw<ServiceDependencyGraph | null>(null);
+
+	// The configured Apdex threshold default + per-service overrides
+	// (docs-internal/adr/0032-apdex-score-per-service.md) - fetched once (not on every
+	// 10s poll like services/graph above, since it's rarely-changed admin config, not
+	// "what's happening right now" telemetry) and re-fetched after a save/reset via
+	// ApdexThresholdPopover. Each service's own effective score/threshold still comes
+	// from `services` (ServiceMetrics.apdexScore/apdexThresholdMs) on every poll; this is
+	// only needed for the popover's "what's the default" / "does this service have an
+	// override" UI.
+	apdexThresholds = $state.raw<ApdexThresholds | null>(null);
 
 	// The map's per-node drill-down selection - same plain-field-mutated-by-the-clicking-
 	// component, cleared-on-close precedent as TraceDetailState.selectedSpanId (see
@@ -98,7 +118,8 @@ export class ServicesState {
 			const minutes = this.#minutes();
 			const [overview, graph] = await Promise.all([
 				getServiceOverview(minutes, this.resourceAttributes, abort.signal),
-				getServiceDependencyGraph(minutes, this.resourceAttributes, abort.signal)
+				getServiceDependencyGraph(minutes, this.resourceAttributes, abort.signal),
+				this.apdexThresholds == null ? this.#loadApdexThresholds() : Promise.resolve(),
 			]);
 			if (abort.signal.aborted) return;
 			this.services = overview.services;
@@ -129,6 +150,33 @@ export class ServicesState {
 		void this.load();
 	}
 
+	async #loadApdexThresholds(): Promise<void> {
+		try {
+			this.apdexThresholds = await getApdexThresholds();
+		} catch {
+			// Non-fatal - the Apdex column still renders (each row already carries its own
+			// effective apdexScore/apdexThresholdMs from getServiceOverview); only the
+			// per-row edit popover's "what's the default"/"has an override" affordance is
+			// degraded until the next successful load().
+		}
+	}
+
+	/** Saves a per-service Apdex threshold override (Admin-only server-side), then
+	 * refetches both the threshold list and the overview so the table reflects the new
+	 * score immediately rather than waiting for the next poll. */
+	async setApdexThreshold(serviceName: string, thresholdMs: number): Promise<void> {
+		await setApdexThresholdRequest(serviceName, thresholdMs);
+		await this.#loadApdexThresholds();
+		await this.load();
+	}
+
+	/** Reverts a service to the default Apdex threshold - same refetch-immediately shape as {@link setApdexThreshold}. */
+	async resetApdexThreshold(serviceName: string): Promise<void> {
+		await resetApdexThresholdRequest(serviceName);
+		await this.#loadApdexThresholds();
+		await this.load();
+	}
+
 	setSort(column: ServicesSortColumn): void {
 		if (this.sortColumn === column) {
 			this.sortDescending = !this.sortDescending;
@@ -151,7 +199,12 @@ export class ServicesState {
 			if (typeof left === 'string' || typeof right === 'string') {
 				return direction * String(left).localeCompare(String(right));
 			}
-			return direction * ((left as number) - (right as number));
+			// apdexScore is nullable (a service with 0 requests) - sorts as lowest
+			// regardless of direction, same "missing data reads as worst" convention
+			// errorRateClass's own escalation implies for this table.
+			const leftNum = (left as number | null) ?? -1;
+			const rightNum = (right as number | null) ?? -1;
+			return direction * (leftNum - rightNum);
 		});
 	}
 

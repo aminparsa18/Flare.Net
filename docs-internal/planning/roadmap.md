@@ -79,13 +79,6 @@ folders are where "what happened and why" actually lives.
   i.e. computing edges from OTel Collector-side span-to-span-metrics
   connectors before spans ever reach ClickHouse, sidestepping the
   self-join-visibility problem entirely rather than working around it in SQL.
-- **Apdex score per service.** No Apdex support today. Not started. Would
-  need a small per-service threshold (T value) setting - alongside
-  Identity's SQLite, since it's per-installation config, not telemetry -
-  plus a ClickHouse aggregation over existing span durations to compute
-  the standard satisfied/tolerating/frustrated ratio for the Services
-  tab. Prior art: SigNoz's user-configurable per-service Apdex threshold
-  ([signoz#3186](https://github.com/SigNoz/signoz/commit/cac637ac88a2672c2df647c8a1c7308cbe90daf5)).
 - **User-defined field extraction/redaction at ingest.** `Flare.Ingest`
   only does Drain pattern clustering at flush time today - no
   user-configurable regex/JSON field extraction or redaction on log

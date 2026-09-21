@@ -427,5 +427,11 @@ adminRoutes.MapLdapSettingsEndpoints();
 adminRoutes.MapOidcSettingsEndpoints();
 adminRoutes.MapProxyAuthSettingsEndpoints();
 adminRoutes.MapAuthSettingsEndpoints();
+// Mutating a service's Apdex threshold is a global, cross-user setting - same
+// Admin-only reasoning as the settings endpoints above. Reading it (GET
+// /api/services/apdex-thresholds) stays on authenticatedRoutes via MapServicesEndpoints,
+// alongside the rest of the Services tab - any Viewer needs it to render the tab's Apdex
+// column tooltip.
+adminRoutes.MapApdexThresholdEndpoints();
 
 app.Run();
