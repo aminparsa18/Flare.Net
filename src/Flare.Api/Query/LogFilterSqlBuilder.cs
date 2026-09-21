@@ -94,6 +94,14 @@ public static class LogFilterSqlBuilder
             }
         }
 
+        if (filter.BodyJsonFilters is { Count: > 0 } bodyJsonFilters)
+        {
+            for (var i = 0; i < bodyJsonFilters.Count; i++)
+            {
+                clauses.Add(BodyJsonClause(bodyJsonFilters[i], i, parameters));
+            }
+        }
+
         return new LogFilterSql(string.Join(" AND ", clauses), parameters);
     }
 
@@ -164,6 +172,81 @@ public static class LogFilterSqlBuilder
                 var valueParam = $"attrValue{index}";
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"{column}[{{{keyParam}:String}}] = {{{valueParam}:String}}";
+            }
+        }
+    }
+
+    /// <summary>
+    /// One <see cref="BodyJsonFilter"/>'s clause, against <c>Body</c> rather than an
+    /// attribute-bag column. <see cref="BodyJsonFilter.Path"/> is split on <c>.</c> into
+    /// separate <c>String</c> parameters, one per <c>JSONHas</c>/<c>JSONExtractString</c>
+    /// key argument (ClickHouse's variadic-key form, not a single JSONPath-string argument -
+    /// confirmed live against a real ClickHouse instance, including that malformed/non-JSON
+    /// <c>Body</c> makes both functions return their zero value rather than throw, so this
+    /// clause is always safe to evaluate regardless of whether a given row's <c>Body</c> is
+    /// JSON at all). <see cref="BodyJsonFilterOperator.Equals"/> is intentionally left
+    /// unguarded by <c>JSONHas</c> - same as <see cref="AttributeClause"/>'s own default
+    /// (<see cref="AttributeFilterOperator.Equals"/>) case - since <c>JSONExtractString</c>
+    /// already returns <c>''</c> for an absent path, so an unguarded <c>=</c> only matches
+    /// absence when <see cref="BodyJsonFilter.Value"/> is itself empty, exactly like a
+    /// missing map key.
+    /// </summary>
+    private static string BodyJsonClause(BodyJsonFilter filter, int index, ClickHouseParameterCollection parameters)
+    {
+        var segments = filter.Path.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var segmentArgs = new string[segments.Length];
+        for (var s = 0; s < segments.Length; s++)
+        {
+            var segParam = $"jsonPath{index}_{s}";
+            parameters.AddParameter(segParam, segments[s]);
+            segmentArgs[s] = $"{{{segParam}:String}}";
+        }
+
+        var pathArgsSql = string.Join(", ", segmentArgs);
+        var hasSql = $"JSONHas(Body, {pathArgsSql})";
+        var extractSql = $"JSONExtractString(Body, {pathArgsSql})";
+
+        switch (filter.Operator)
+        {
+            case BodyJsonFilterOperator.Exists:
+                return hasSql;
+            case BodyJsonFilterOperator.Absent:
+                return $"NOT {hasSql}";
+            case BodyJsonFilterOperator.NotEquals:
+            {
+                var valueParam = $"jsonValue{index}";
+                parameters.AddParameter(valueParam, filter.Value);
+                return $"NOT ({hasSql} AND {extractSql} = {{{valueParam}:String}})";
+            }
+            case BodyJsonFilterOperator.Regex:
+            {
+                var valueParam = $"jsonValue{index}";
+                parameters.AddParameter(valueParam, filter.Value);
+                return $"({hasSql} AND match({extractSql}, {{{valueParam}:String}}))";
+            }
+            case BodyJsonFilterOperator.NotRegex:
+            {
+                var valueParam = $"jsonValue{index}";
+                parameters.AddParameter(valueParam, filter.Value);
+                return $"NOT ({hasSql} AND match({extractSql}, {{{valueParam}:String}}))";
+            }
+            case BodyJsonFilterOperator.In:
+            {
+                var valuesParam = $"jsonValues{index}";
+                parameters.AddParameter(valuesParam, (filter.Values ?? []).ToArray());
+                return $"({hasSql} AND {extractSql} IN {{{valuesParam}:Array(String)}})";
+            }
+            case BodyJsonFilterOperator.NotIn:
+            {
+                var valuesParam = $"jsonValues{index}";
+                parameters.AddParameter(valuesParam, (filter.Values ?? []).ToArray());
+                return $"NOT ({hasSql} AND {extractSql} IN {{{valuesParam}:Array(String)}})";
+            }
+            default:
+            {
+                var valueParam = $"jsonValue{index}";
+                parameters.AddParameter(valueParam, filter.Value);
+                return $"{extractSql} = {{{valueParam}:String}}";
             }
         }
     }

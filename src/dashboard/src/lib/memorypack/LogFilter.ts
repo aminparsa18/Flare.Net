@@ -10,11 +10,14 @@ import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js'
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
 import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
 import { AttributeFilter } from '$lib/memorypack/AttributeFilter';
+import { BodyJsonFilter } from '$lib/memorypack/BodyJsonFilter';
 import {
 	attributeBagFromString,
 	attributeBagToString,
 	attributeFilterOperatorFromString,
-	attributeFilterOperatorToString
+	attributeFilterOperatorToString,
+	bodyJsonFilterOperatorFromString,
+	bodyJsonFilterOperatorToString
 } from '$lib/memorypack/enums';
 import type { LogFilter as PlainLogFilter } from '$lib/api';
 
@@ -28,6 +31,7 @@ export class LogFilter {
 	patternId: string | null;
 	search: string | null;
 	attributes: (AttributeFilter | null)[] | null;
+	bodyJsonFilters: (BodyJsonFilter | null)[] | null;
 
 	constructor() {
 		this.from = null;
@@ -39,6 +43,7 @@ export class LogFilter {
 		this.patternId = null;
 		this.search = null;
 		this.attributes = null;
+		this.bodyJsonFilters = null;
 	}
 
 	static serialize(value: LogFilter | null): Uint8Array {
@@ -53,7 +58,7 @@ export class LogFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(9);
+		writer.writeObjectHeader(10);
 		writeNullableDateTimeOffset(writer, value.from);
 		writeNullableDateTimeOffset(writer, value.to);
 		writer.writeArray(value.services, (writer, x) => writer.writeString(x));
@@ -63,6 +68,7 @@ export class LogFilter {
 		writer.writeString(value.patternId);
 		writer.writeString(value.search);
 		writer.writeArray(value.attributes, (writer, x) => AttributeFilter.serializeCore(writer, x));
+		writer.writeArray(value.bodyJsonFilters, (writer, x) => BodyJsonFilter.serializeCore(writer, x));
 	}
 
 	static deserialize(buffer: ArrayBuffer): LogFilter | null {
@@ -76,7 +82,7 @@ export class LogFilter {
 		}
 
 		const value = new LogFilter();
-		if (count == 9) {
+		if (count == 10) {
 			value.from = readNullableDateTimeOffset(reader);
 			value.to = readNullableDateTimeOffset(reader);
 			value.services = reader.readArray((reader) => reader.readString());
@@ -86,7 +92,8 @@ export class LogFilter {
 			value.patternId = reader.readString();
 			value.search = reader.readString();
 			value.attributes = reader.readArray((reader) => AttributeFilter.deserializeCore(reader));
-		} else if (count > 9) {
+			value.bodyJsonFilters = reader.readArray((reader) => BodyJsonFilter.deserializeCore(reader));
+		} else if (count > 10) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -108,6 +115,8 @@ export class LogFilter {
 			if (count == 8) return value;
 			value.attributes = reader.readArray((reader) => AttributeFilter.deserializeCore(reader));
 			if (count == 9) return value;
+			value.bodyJsonFilters = reader.readArray((reader) => BodyJsonFilter.deserializeCore(reader));
+			if (count == 10) return value;
 		}
 		return value;
 	}
@@ -133,6 +142,15 @@ export function logFilterToPlain(dto: LogFilter): PlainLogFilter {
 						value: a!.value ?? '',
 						operator: attributeFilterOperatorToString(a!.operator),
 						values: a!.values == null ? undefined : a!.values.map((v) => v ?? '')
+					})),
+		bodyJsonFilters:
+			dto.bodyJsonFilters == null
+				? undefined
+				: dto.bodyJsonFilters.map((f) => ({
+						path: f!.path ?? '',
+						value: f!.value ?? '',
+						operator: bodyJsonFilterOperatorToString(f!.operator),
+						values: f!.values == null ? undefined : f!.values.map((v) => v ?? '')
 					}))
 	};
 }
@@ -160,6 +178,17 @@ export function logFilterFromPlain(filter: PlainLogFilter | undefined): LogFilte
 					attr.operator = attributeFilterOperatorFromString(a.operator ?? 'Equals');
 					attr.values = a.values ?? null;
 					return attr;
+				});
+	dto.bodyJsonFilters =
+		filter.bodyJsonFilters == null
+			? null
+			: filter.bodyJsonFilters.map((f) => {
+					const jsonFilter = new BodyJsonFilter();
+					jsonFilter.path = f.path;
+					jsonFilter.value = f.value;
+					jsonFilter.operator = bodyJsonFilterOperatorFromString(f.operator ?? 'Equals');
+					jsonFilter.values = f.values ?? null;
+					return jsonFilter;
 				});
 	return dto;
 }

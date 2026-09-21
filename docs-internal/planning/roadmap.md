@@ -79,20 +79,6 @@ folders are where "what happened and why" actually lives.
   i.e. computing edges from OTel Collector-side span-to-span-metrics
   connectors before spans ever reach ClickHouse, sidestepping the
   self-join-visibility problem entirely rather than working around it in SQL.
-- **JSON-path filtering inside the raw log `Body`.** Flare's bloom-filter
-  skip indices (`0001_logs.sql`) and `AttributeFilter` path only cover
-  pre-extracted key/value attributes - there's no way to filter on a key
-  nested inside unstructured JSON that landed in `Body` itself (e.g. a
-  Serilog/`System.Text.Json` payload logged as the message rather than
-  promoted to structured attributes), which is common for .NET apps.
-  Distinct from the LogQL attribute-map syntax item below (that one is
-  about the existing attribute maps, this one is about arbitrary nesting
-  inside `Body`). Not started. Would map onto a new `AttributeFilterOperator`
-  (or a `LogQl` function) compiled by `LogFilterSqlBuilder`/`LogQlWhereTranslator`
-  into ClickHouse `JSONExtractString`/`JSONHas` calls against `Body` -
-  no schema migration needed. Prior art: SigNoz's JSON-in-body filtering
-  ([signoz#3534](https://github.com/SigNoz/signoz/commit/17ae197bc340348dc1be9b10b8219cdb6dfd48bd),
-  [signoz#3544](https://github.com/SigNoz/signoz/commit/ed809474d62911bccff90f241a581acf6b551fb6)).
 - **Logs "context" view + permalink to a specific log line.** Clicking a
   log line would show the N lines immediately before/after it in time,
   with a shareable deep link to that exact line. Not started - would
@@ -234,3 +220,22 @@ folders are where "what happened and why" actually lives.
   (e.g. `attributes.foo`) needs a rule for a dotted key that isn't just
   "split on every dot" - SigNoz hit this collision more than once in
   their own attribute-path handling.
+- **LogQL `json()` accessor for JSON-path filtering into `Body`.** The
+  structured filter path now supports this (`LogFilter.BodyJsonFilters`,
+  compiled by `LogFilterSqlBuilder`'s `BodyJsonClause` into ClickHouse
+  `JSONHas`/`JSONExtractString` calls against `Body`, mirrored for
+  live-tail by `LogFilterMatcher`, and exposed in the dashboard as the
+  Logs Explorer's "JSON path filters" row) - but it's unreachable from the
+  LogQL query bar (`LogQlLexer`/`LogQlParser`/`LogQlAst`/
+  `LogQlWhereTranslator`), which only knows the fixed column list. Not
+  started. Would need a new grammar form (e.g. `json(Body, "user.id") =
+  "42"`) rather than a bare column reference, a new AST node, and
+  translator support emitting the same variadic-key `JSONHas`/
+  `JSONExtractString` calls `BodyJsonClause` already uses (confirmed live
+  that ClickHouse's JSON functions take one key/index per argument, not a
+  single JSONPath string - see `BodyJsonFilter`'s own remarks). Same
+  dotted-key collision trap as the attribute-map item above doesn't apply
+  here (JSON object keys aren't OTel semantic-convention attribute keys),
+  but array-index path segments are still unsupported by the structured
+  version and would need their own grammar/translator handling if LogQL
+  wants to support them.

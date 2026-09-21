@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Flare.Api.Model;
 
@@ -13,7 +14,9 @@ namespace Flare.Api.Query;
 /// Mirrors <see cref="LogFilterSqlBuilder"/>'s semantics field-for-field (exact-match
 /// services/severities/traceId, case-insensitive substring search against
 /// <see cref="LogEventDto.Body"/>, per-bag attribute equals/not-equals/exists/absent/
-/// regex/not-regex/in/not-in - regex via <see cref="Regex.IsMatch(string, string)"/> rather
+/// regex/not-regex/in/not-in, and the same operator vocabulary again for
+/// <see cref="LogFilter.BodyJsonFilters"/> against a value parsed out of <c>Body</c>'s own
+/// JSON - regex via <see cref="Regex.IsMatch(string, string)"/> rather
 /// than ClickHouse's RE2-based <c>match()</c>, close enough for live-tail's purposes even
 /// though the two regex engines aren't byte-for-byte identical) with one deliberate
 /// exception: <see cref="LogFilter.From"/>/<see cref="LogFilter.To"/> are ignored - a live
@@ -73,7 +76,80 @@ public static class LogFilterMatcher
             }
         }
 
+        if (filter.BodyJsonFilters is { Count: > 0 } bodyJsonFilters)
+        {
+            foreach (var bodyJsonFilter in bodyJsonFilters)
+            {
+                var exists = TryExtractBodyJsonValue(logEvent.Body, bodyJsonFilter.Path, out var value);
+                var matches = bodyJsonFilter.Operator switch
+                {
+                    BodyJsonFilterOperator.Exists => exists,
+                    BodyJsonFilterOperator.Absent => !exists,
+                    BodyJsonFilterOperator.NotEquals => !(exists && string.Equals(value, bodyJsonFilter.Value, StringComparison.Ordinal)),
+                    BodyJsonFilterOperator.Regex => exists && RegexMatches(value!, bodyJsonFilter.Value),
+                    BodyJsonFilterOperator.NotRegex => !(exists && RegexMatches(value!, bodyJsonFilter.Value)),
+                    BodyJsonFilterOperator.In => exists && InValues(value!, bodyJsonFilter.Values),
+                    BodyJsonFilterOperator.NotIn => !(exists && InValues(value!, bodyJsonFilter.Values)),
+                    _ => exists && string.Equals(value, bodyJsonFilter.Value, StringComparison.Ordinal),
+                };
+                if (!matches)
+                {
+                    return false;
+                }
+            }
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// <see cref="BodyJsonFilter.Path"/> resolved against <paramref name="body"/> -
+    /// mirrors <see cref="LogFilterSqlBuilder"/>'s <c>BodyJsonClause</c> (dot-separated
+    /// object-key segments, no array indices). Fail-closed on non-JSON/malformed
+    /// <c>Body</c> (returns <c>false</c>, same posture <see cref="RegexMatches"/> takes for
+    /// an invalid pattern) rather than letting <see cref="JsonException"/> escape into
+    /// <see cref="Flare.Api.LiveTail.LogTailBroadcaster"/>'s shared matching loop. A found
+    /// path always returns <c>true</c> regardless of its value's kind - including a JSON
+    /// <c>null</c> leaf, matching ClickHouse's <c>JSONHas</c> which also counts a
+    /// present-but-null key as "has". Non-string leaves (number/bool/object/array) render
+    /// via <see cref="JsonElement.GetRawText"/>, matching <c>JSONExtractString</c>'s own
+    /// observed (not just documented) behavior of stringifying non-string JSON values
+    /// rather than returning empty for them.
+    /// </summary>
+    private static bool TryExtractBodyJsonValue(string body, string path, out string? value)
+    {
+        value = null;
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(body);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+
+        using (document)
+        {
+            var element = document.RootElement;
+            foreach (var segment in path.Split('.', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(segment, out element))
+                {
+                    return false;
+                }
+            }
+
+            value = element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString(),
+                JsonValueKind.Null => "",
+                JsonValueKind.True => "true",
+                JsonValueKind.False => "false",
+                _ => element.GetRawText(),
+            };
+            return true;
+        }
     }
 
     /// <summary>

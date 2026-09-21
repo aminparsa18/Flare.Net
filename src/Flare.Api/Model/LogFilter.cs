@@ -96,6 +96,69 @@ public sealed partial record AttributeFilter
 }
 
 /// <summary>
+/// Comparison a <see cref="BodyJsonFilter"/> applies against a value extracted from
+/// <c>Body</c> by <see cref="BodyJsonFilter.Path"/>. Same member set/ordinals as
+/// <see cref="AttributeFilterOperator"/> - kept as its own enum rather than reused, same
+/// "independent evolution" reasoning that enum's own remarks give for not sharing with
+/// <c>SpanAttributeFilterOperator</c>.
+/// </summary>
+public enum BodyJsonFilterOperator
+{
+    /// <summary>Path is present and its extracted value equals <see cref="BodyJsonFilter.Value"/>.</summary>
+    Equals,
+
+    /// <summary>Path is absent, or present with a value other than <see cref="BodyJsonFilter.Value"/>.</summary>
+    NotEquals,
+
+    /// <summary>Path is present in <c>Body</c>'s JSON, whatever its value. <see cref="BodyJsonFilter.Value"/> is ignored.</summary>
+    Exists,
+
+    /// <summary>Path is absent - either the key is missing, or <c>Body</c> isn't valid JSON at all. <see cref="BodyJsonFilter.Value"/> is ignored.</summary>
+    Absent,
+
+    /// <summary>Path is present and its extracted value matches <see cref="BodyJsonFilter.Value"/> as an RE2 pattern (ClickHouse <c>match()</c> semantics).</summary>
+    Regex,
+
+    /// <summary>Path is absent, or present with a value that does not match <see cref="BodyJsonFilter.Value"/> as an RE2 pattern.</summary>
+    NotRegex,
+
+    /// <summary>Path is present and its extracted value is one of <see cref="BodyJsonFilter.Values"/>. <see cref="BodyJsonFilter.Value"/> is ignored.</summary>
+    In,
+
+    /// <summary>Path is absent, or present with a value that is none of <see cref="BodyJsonFilter.Values"/>. <see cref="BodyJsonFilter.Value"/> is ignored.</summary>
+    NotIn,
+}
+
+/// <summary>
+/// Filters on a value nested inside <c>Body</c>'s own JSON text (e.g. a Serilog/
+/// <c>System.Text.Json</c> payload logged as the message rather than promoted to a
+/// structured attribute) - distinct from <see cref="AttributeFilter"/>, which only reaches
+/// pre-extracted key/value attribute bags. See <c>Query.LogFilterSqlBuilder</c>'s
+/// <c>BodyJsonClause</c> for the ClickHouse <c>JSONHas</c>/<c>JSONExtractString</c>
+/// compilation and <c>Query.LogFilterMatcher</c> for live-tail's in-memory equivalent.
+/// </summary>
+[MemoryPackable]
+public sealed partial record BodyJsonFilter
+{
+    /// <summary>
+    /// Dot-separated object-key path into <c>Body</c>'s JSON, e.g. <c>"user.id"</c> for
+    /// <c>{"user":{"id":"42"}}</c>. Object keys only - no array-index segments (ClickHouse's
+    /// <c>JSONHas</c>/<c>JSONExtractString</c> only accept an array index as an actual
+    /// integer argument, not a string parameter, so a purely string-parameterized path
+    /// can't address one; see this type's own PR for the live probe that confirmed this).
+    /// </summary>
+    public required string Path { get; init; }
+
+    /// <summary>Ignored (may be left as an empty string) when <see cref="Operator"/> is <see cref="BodyJsonFilterOperator.Exists"/>, <see cref="BodyJsonFilterOperator.Absent"/>, <see cref="BodyJsonFilterOperator.In"/>, or <see cref="BodyJsonFilterOperator.NotIn"/> - the last two take their operand from <see cref="Values"/> instead.</summary>
+    public required string Value { get; init; }
+
+    public BodyJsonFilterOperator Operator { get; init; } = BodyJsonFilterOperator.Equals;
+
+    /// <summary>Operand for <see cref="BodyJsonFilterOperator.In"/>/<see cref="BodyJsonFilterOperator.NotIn"/> - ignored (may be left null/empty) for every other operator.</summary>
+    public IReadOnlyList<string>? Values { get; init; }
+}
+
+/// <summary>
 /// Structured filter shared by both <c>/api/logs/search</c> and
 /// <c>/api/logs/aggregate</c> - see <see cref="Query.LogFilterSqlBuilder"/> for how this
 /// compiles to a parameterized ClickHouse <c>WHERE</c> clause.
@@ -137,4 +200,13 @@ public sealed partial record LogFilter
 
     /// <summary>Equality filters over the three attribute bags, ANDed together.</summary>
     public IReadOnlyList<AttributeFilter>? Attributes { get; init; }
+
+    /// <summary>
+    /// JSON-path filters into <c>Body</c> itself, ANDed together and with
+    /// <see cref="Attributes"/>. Appended last (member 10), after <see cref="Attributes"/> -
+    /// not inserted earlier, same MemoryPack wire-compatibility reasoning
+    /// <see cref="AttributeFilter.Operator"/>'s own remarks give: an already-deployed
+    /// dashboard still writing only 9 members just takes the default <c>null</c> here.
+    /// </summary>
+    public IReadOnlyList<BodyJsonFilter>? BodyJsonFilters { get; init; }
 }

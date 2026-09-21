@@ -109,6 +109,19 @@ export interface AttributeFilter {
 	values?: string[];
 }
 
+/** See `BodyJsonFilterOperator` (LogFilter.cs) - same vocabulary/semantics as `AttributeFilterOperator`, kept as its own union for the same "independent evolution" reasoning the backend enum's own remarks give. */
+export type BodyJsonFilterOperator = 'Equals' | 'NotEquals' | 'Exists' | 'Absent' | 'Regex' | 'NotRegex' | 'In' | 'NotIn';
+
+/** JSON-path filter into `Body` itself (e.g. `path: "user.id"` against `{"user":{"id":"42"}}`) - distinct from `AttributeFilter`, which only reaches pre-extracted attribute bags. See `BodyJsonFilter` (LogFilter.cs). */
+export interface BodyJsonFilter {
+	path: string;
+	value: string;
+	/** Defaults to `'Equals'` when omitted - matches the backend's own default. */
+	operator?: BodyJsonFilterOperator;
+	/** Operand for `'In'`/`'NotIn'` - ignored (may be omitted) for every other operator. */
+	values?: string[];
+}
+
 export interface LogFilter {
 	from?: string;
 	to?: string;
@@ -119,6 +132,7 @@ export interface LogFilter {
 	patternId?: string;
 	search?: string;
 	attributes?: AttributeFilter[];
+	bodyJsonFilters?: BodyJsonFilter[];
 }
 
 // ---- Log event DTO (LogEventDto.cs) ---------------------------------------
