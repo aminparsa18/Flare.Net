@@ -260,4 +260,76 @@ public class MetricSeriesQueryBuilderTests
         Assert.Contains("AND (ServiceName, DataPointAttributes[{groupByKey:String}]) IN (", result.Sql);
         Assert.Contains("DataPointAttributes[{groupByKey:String}] AS SeriesKey, max(Value) - min(Value) AS RankValue", result.Sql);
     }
+
+    [Fact]
+    public void Build_WithoutHavingOperator_OmitsHavingClause()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60 }, Now);
+
+        Assert.DoesNotContain("HAVING", result.Sql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("havingValue"));
+    }
+
+    [Theory]
+    [InlineData(MetricHavingOperator.GreaterThan, ">")]
+    [InlineData(MetricHavingOperator.GreaterThanOrEqual, ">=")]
+    [InlineData(MetricHavingOperator.LessThan, "<")]
+    [InlineData(MetricHavingOperator.LessThanOrEqual, "<=")]
+    [InlineData(MetricHavingOperator.Equal, "=")]
+    [InlineData(MetricHavingOperator.NotEqual, "!=")]
+    public void Build_WithHavingOperator_AddsHavingClauseToRankingSubquery(MetricHavingOperator op, string sqlOp)
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest
+            {
+                MetricName = "process.threads",
+                Type = MetricPointType.Gauge,
+                BucketWidthSeconds = 60,
+                HavingOperator = op,
+                HavingValue = 42.5,
+            },
+            Now);
+
+        Assert.Contains($"GROUP BY ServiceName, SeriesKey\n  HAVING RankValue {sqlOp} {{havingValue:Float64}}\n  ORDER BY RankValue DESC", result.Sql);
+        Assert.Equal(42.5, result.Parameters.ToDictionary()["havingValue"]);
+    }
+
+    [Fact]
+    public void Build_WithHavingValueButNoOperator_OmitsHavingClause()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60, HavingValue = 10 }, Now);
+
+        Assert.DoesNotContain("HAVING", result.Sql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("havingValue"));
+    }
+
+    [Fact]
+    public void Build_WithHavingOperatorButNoValue_OmitsHavingClause()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60, HavingOperator = MetricHavingOperator.GreaterThan }, Now);
+
+        Assert.DoesNotContain("HAVING", result.Sql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("havingValue"));
+    }
+
+    [Fact]
+    public void Build_WithHavingOperator_AppliesToSumsWindowedRankingSubqueryToo()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest
+            {
+                MetricName = "http.server.request.count",
+                Type = MetricPointType.Sum,
+                BucketWidthSeconds = 60,
+                HavingOperator = MetricHavingOperator.GreaterThanOrEqual,
+                HavingValue = 100,
+            },
+            Now);
+
+        Assert.Contains("HAVING RankValue >= {havingValue:Float64}", result.Sql);
+        Assert.Equal(100d, result.Parameters.ToDictionary()["havingValue"]);
+    }
 }

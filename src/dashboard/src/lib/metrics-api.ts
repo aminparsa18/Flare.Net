@@ -10,7 +10,13 @@
 // `type` converts through `$lib/memorypack/enums.ts`'s `metricPointTypeToString`/`FromString`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
-import { metricPointTypeFromString, metricPointTypeToString, type MetricPointTypeName } from '$lib/memorypack/enums';
+import {
+	metricPointTypeFromString,
+	metricPointTypeToString,
+	type MetricPointTypeName,
+	metricHavingOperatorFromString,
+	type MetricHavingOperatorName
+} from '$lib/memorypack/enums';
 import { MetricFilter as GeneratedMetricFilter } from '$lib/memorypack/MetricFilter';
 import { MetricNamesRequest as GeneratedMetricNamesRequest } from '$lib/memorypack/MetricNamesRequest';
 import { MetricNamesResponse as GeneratedMetricNamesResponse } from '$lib/memorypack/MetricNamesResponse';
@@ -39,6 +45,8 @@ export interface MetricFilter {
 }
 
 export type MetricPointType = MetricPointTypeName;
+
+export type MetricHavingOperator = MetricHavingOperatorName;
 
 // Exported (not module-private) so `alerts-api.ts` can reuse it for
 // `MetricAlertCondition.filter` (a metric-threshold alert rule's condition embeds the same
@@ -193,6 +201,13 @@ export interface MetricQueryRequest {
 	// (same "field exists, no picker yet" state ExceptionGroupsRequest/LogPatternRequest's
 	// own topN started in).
 	topN?: number;
+	// Post-aggregation filter over the same ranking magnitude topN caps by - "only series
+	// where the aggregated value exceeds X" - see MetricQueryRequest.cs' HavingOperator/
+	// HavingValue remarks. Both-or-neither: omitting one drops the filter server-side
+	// (MetricSeriesQueryBuilder.Build's own remarks), so this layer mirrors that instead of
+	// enforcing pairing itself.
+	havingOperator?: MetricHavingOperator;
+	havingValue?: number;
 }
 
 export interface MetricSeriesPoint {
@@ -256,6 +271,8 @@ export async function queryMetric(request: MetricQueryRequest, signal?: AbortSig
 	dto.bucketWidthSeconds = request.bucketWidthSeconds;
 	dto.groupByAttributeKey = request.groupByAttributeKey ?? null;
 	dto.topN = request.topN ?? null;
+	dto.havingOperator = request.havingOperator == null ? null : metricHavingOperatorFromString(request.havingOperator);
+	dto.havingValue = request.havingValue ?? null;
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/query`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),

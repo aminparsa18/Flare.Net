@@ -15,6 +15,7 @@ import {
 	getMetricAttributeKeys,
 	queryMetric,
 	type MetricAttributeKeyInfo,
+	type MetricHavingOperator,
 	type MetricNameInfo,
 	type MetricPointType,
 	type MetricSeries
@@ -33,6 +34,17 @@ export interface MetricsFilterState {
 	groupByAttributeKey: string | null;
 	/** Max series to chart, ranked by magnitude - see MetricQueryRequest.topN's remarks and MetricsToolbar's "Top N" picker. Always a concrete number, never null: unlike groupByAttributeKey there's no "uncapped" option, only which cap - same "real display preference, not a one-off hop" reasoning as compareEnabled/groupByAttributeKey, carried in a saved view too. Defaults to DEFAULT_TOP_N, which mirrors (but doesn't import - no shared config between Flare.Api and the dashboard) MetricSeriesQueryBuilder.DefaultTopN. */
 	topN: number;
+	/**
+	 * Post-aggregation filter over the same ranking magnitude `topN` caps by - "only series
+	 * where the aggregated value exceeds X" (see `MetricQueryRequest.havingOperator`'s
+	 * remarks and `MetricsToolbar`'s "Having" control). Both null together = no filter;
+	 * unlike `topN` there genuinely is an "off" state here, so this stays nullable rather
+	 * than defaulting to some always-on comparison. Same "real display preference, not a
+	 * one-off hop" reasoning as `compareEnabled`/`groupByAttributeKey`/`topN` - carried in a
+	 * saved view too.
+	 */
+	havingOperator: MetricHavingOperator | null;
+	havingValue: number | null;
 }
 
 /** Mirrors `MetricSeriesQueryBuilder.DefaultTopN` on the API side - see `MetricsFilterState.topN`'s own remarks for why this can't just be imported instead. */
@@ -83,7 +95,9 @@ export class MetricsExplorerState {
 		services: [],
 		compareEnabled: false,
 		groupByAttributeKey: null,
-		topN: DEFAULT_TOP_N
+		topN: DEFAULT_TOP_N,
+		havingOperator: null,
+		havingValue: null
 	});
 
 	// Never mutated in place, always a wholesale reassignment - same $state.raw
@@ -358,6 +372,13 @@ export class MetricsExplorerState {
 		const compareEnabled = this.filter.compareEnabled;
 		const groupByAttributeKey = this.filter.groupByAttributeKey ?? undefined;
 		const topN = this.filter.topN;
+		// Both-or-neither at the wire boundary too (see MetricsFilterState.havingOperator's
+		// remarks) - a lone havingValue with no operator (or vice versa) would otherwise send
+		// a half-set pair the server silently ignores anyway (MetricSeriesQueryBuilder.Build's
+		// own remarks), but resolving it here keeps that invariant visible at the one call
+		// site that actually crosses into the API layer.
+		const havingOperator = this.filter.havingOperator && this.filter.havingValue != null ? this.filter.havingOperator : undefined;
+		const havingValue = this.filter.havingOperator && this.filter.havingValue != null ? this.filter.havingValue : undefined;
 
 		// Deliberately doesn't touch series/previousSeries/intervalSeconds here - only
 		// queryError, and only because a stale error message next to fresh-looking
@@ -386,7 +407,9 @@ export class MetricsExplorerState {
 						bucketWidthSeconds,
 						filter: filterFor(range),
 						groupByAttributeKey,
-						topN
+						topN,
+						havingOperator,
+						havingValue
 					},
 					abort.signal
 				),
@@ -398,7 +421,9 @@ export class MetricsExplorerState {
 								bucketWidthSeconds,
 								filter: filterFor(previousPeriod(range)),
 								groupByAttributeKey,
-								topN
+								topN,
+								havingOperator,
+								havingValue
 							},
 							abort.signal
 						).catch(() => null)
@@ -484,6 +509,19 @@ export class MetricsExplorerState {
 		void this.runQuery();
 	}
 
+	/**
+	 * Sets or clears the post-aggregation `HAVING` filter (see `MetricsFilterState.havingOperator`'s
+	 * remarks) - both null together turns the filter off. Same shape as setGroupByAttribute/
+	 * setTopN - no name-list reload, which metrics exist doesn't depend on this filter, only
+	 * the chart's own query does.
+	 */
+	setHaving(operator: MetricHavingOperator | null, value: number | null): void {
+		this.#flushPendingSwitch();
+		this.filter.havingOperator = operator;
+		this.filter.havingValue = value;
+		void this.runQuery();
+	}
+
 	setAutoRefreshEnabled(enabled: boolean): void {
 		if (enabled === this.autoRefreshEnabled) return;
 		this.autoRefreshEnabled = enabled;
@@ -516,6 +554,8 @@ export class MetricsExplorerState {
 			compareEnabled: this.filter.compareEnabled,
 			groupByAttributeKey: this.filter.groupByAttributeKey,
 			topN: this.filter.topN,
+			havingOperator: this.filter.havingOperator,
+			havingValue: this.filter.havingValue,
 			selectedMetric: this.selected
 				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
 				: null
@@ -539,7 +579,9 @@ export class MetricsExplorerState {
 			services: s.services ?? [],
 			compareEnabled: s.compareEnabled ?? false,
 			groupByAttributeKey: s.groupByAttributeKey ?? null,
-			topN: s.topN ?? DEFAULT_TOP_N
+			topN: s.topN ?? DEFAULT_TOP_N,
+			havingOperator: s.havingOperator ?? null,
+			havingValue: s.havingValue ?? null
 		};
 		await this.loadNames();
 		const saved = s.selectedMetric;

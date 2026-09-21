@@ -132,16 +132,6 @@ folders are where "what happened and why" actually lives.
   fired, no schema change. Prior art: SigNoz's `ThresholdRule.Eval`
   building this link the same way
   ([signoz#4446](https://github.com/SigNoz/signoz/commit/00b111fbe367e16ef6920586e64b226b7e1cff4a)).
-- **Post-aggregation value filter (`HAVING`) + top-N order-by on metric
-  queries.** No way today to ask for e.g. "only series where the
-  aggregated value exceeds X" after grouping - only the existing
-  cardinality cap (`TopN`/`MaxTopN`, a pre-aggregation ranking
-  subquery). Not started. Unlike SigNoz's app-side post-filter over
-  in-memory series, this belongs natively in the generated ClickHouse
-  SQL as a real `HAVING` clause in `MetricSeriesQueryBuilder`, consistent
-  with Flare's every-query-is-ClickHouse-native convention - a different
-  implementation shape from the prior art, not a port of it. Prior art:
-  [signoz#4381](https://github.com/SigNoz/signoz/commit/be27a92fc9ae1a51c60be1fe85b92d376a1bdbbe).
 - **OTel `ExponentialHistogram` metric support.** Confirmed deliberately
   unsupported today - `MetricPointRecord`'s own remarks say
   ExponentialHistogram/Summary points are recognized on the wire and

@@ -71,6 +71,8 @@ function defaultQueryFor(panelType: PanelType): unknown {
 				compareEnabled: false,
 				groupByAttributeKey: null,
 				topN: 20,
+				havingOperator: null,
+				havingValue: null,
 				selectedMetric: null
 			} satisfies MetricsSavedViewState;
 	}

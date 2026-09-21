@@ -131,6 +131,18 @@ public sealed record MetricSeriesSql(string Sql, ClickHouseParameterCollection P
 /// the UX half of the same roadmap item ("top 10 hosts by error rate"): series are ranked
 /// by magnitude, not returned in arbitrary (alphabetical) order and truncated.
 /// </para>
+/// <para>
+/// <b>Post-aggregation value filter</b> (<see cref="Model.MetricQueryRequest.HavingOperator"/>/
+/// <see cref="Model.MetricQueryRequest.HavingValue"/>): "only series where the aggregated
+/// value exceeds X" - a real ClickHouse <c>HAVING RankValue &lt;op&gt; {havingValue}</c>
+/// clause appended to the same ranking subquery the series cap above already builds, not an
+/// app-side filter over rows already fetched from ClickHouse (unlike SigNoz's own prior art
+/// for this - see the roadmap gap this closed). Narrows which series even qualify to be
+/// ranked/capped, so it composes with <see cref="Model.MetricQueryRequest.TopN"/> rather than
+/// replacing it: e.g. "top 10 hosts by error rate, but only ones actually erroring" is
+/// <c>HAVING</c> + <c>LIMIT</c> together, in that order. Optional - null <c>HavingOperator</c>
+/// means the subquery is unchanged from before this existed.
+/// </para>
 /// </remarks>
 public static class MetricSeriesQueryBuilder
 {
@@ -174,6 +186,26 @@ public static class MetricSeriesQueryBuilder
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Type, "Unknown metric point type."),
         };
 
+        // Both-or-neither, same convention as AlertRule.MetricCondition/MetricThresholdValue
+        // (see MetricQueryRequest.HavingOperator's remarks) - a HavingValue with no operator,
+        // or vice versa, is simply not a filter rather than an error.
+        var havingSql = "";
+        if (request.HavingOperator is { } havingOperator && request.HavingValue is { } havingValue)
+        {
+            filterSql.Parameters.AddParameter("havingValue", havingValue);
+            var havingOp = havingOperator switch
+            {
+                MetricHavingOperator.GreaterThan => ">",
+                MetricHavingOperator.GreaterThanOrEqual => ">=",
+                MetricHavingOperator.LessThan => "<",
+                MetricHavingOperator.LessThanOrEqual => "<=",
+                MetricHavingOperator.Equal => "=",
+                MetricHavingOperator.NotEqual => "!=",
+                _ => throw new ArgumentOutOfRangeException(nameof(request), havingOperator, "Unknown having operator."),
+            };
+            havingSql = $"  HAVING RankValue {havingOp} {{havingValue:Float64}}\n";
+        }
+
         string seriesKeyExpr;
         string rawSeriesKeyExpr;
         string seriesAttributesExpr;
@@ -208,6 +240,7 @@ public static class MetricSeriesQueryBuilder
             $"  FROM {table}\n" +
             $"  WHERE {whereSql}\n" +
             "  GROUP BY ServiceName, SeriesKey\n" +
+            havingSql +
             "  ORDER BY RankValue DESC\n" +
             "  LIMIT {topN:UInt32}\n" +
             ")";

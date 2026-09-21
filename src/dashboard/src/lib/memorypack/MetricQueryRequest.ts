@@ -2,6 +2,9 @@
 // generated. Mirrors `src/Flare.Api/Model/MetricModels.cs`'s `MetricQueryRequest`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because it
 // nests `MetricFilter` (blocked - see `$lib/memorypack/MetricFilter.ts`'s header comment).
+// `havingOperator`/`havingValue` were appended after every pre-existing field (same
+// versioning convention AlertRuleRequest.ts documents) when the HAVING post-aggregation
+// filter was added - see MetricModels.cs' MetricHavingOperator/MetricQueryRequest remarks.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -14,6 +17,8 @@ export class MetricQueryRequest {
 	bucketWidthSeconds: number;
 	groupByAttributeKey: string | null;
 	topN: number | null;
+	havingOperator: number | null;
+	havingValue: number | null;
 
 	constructor() {
 		this.metricName = null;
@@ -22,6 +27,8 @@ export class MetricQueryRequest {
 		this.bucketWidthSeconds = 0;
 		this.groupByAttributeKey = null;
 		this.topN = null;
+		this.havingOperator = null;
+		this.havingValue = null;
 	}
 
 	static serialize(value: MetricQueryRequest | null): Uint8Array {
@@ -36,13 +43,15 @@ export class MetricQueryRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(6);
+		writer.writeObjectHeader(8);
 		writer.writeString(value.metricName);
 		writer.writeInt32(value.type);
 		MetricFilter.serializeCore(writer, value.filter);
 		writer.writeInt32(value.bucketWidthSeconds);
 		writer.writeString(value.groupByAttributeKey);
 		writer.writeNullableInt32(value.topN);
+		writer.writeNullableInt32(value.havingOperator);
+		writer.writeNullableFloat64(value.havingValue);
 	}
 
 	static deserialize(buffer: ArrayBuffer): MetricQueryRequest | null {
@@ -56,14 +65,16 @@ export class MetricQueryRequest {
 		}
 
 		const value = new MetricQueryRequest();
-		if (count == 6) {
+		if (count == 8) {
 			value.metricName = reader.readString();
 			value.type = reader.readInt32();
 			value.filter = MetricFilter.deserializeCore(reader);
 			value.bucketWidthSeconds = reader.readInt32();
 			value.groupByAttributeKey = reader.readString();
 			value.topN = reader.readNullableInt32();
-		} else if (count > 6) {
+			value.havingOperator = reader.readNullableInt32();
+			value.havingValue = reader.readNullableFloat64();
+		} else if (count > 8) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -79,6 +90,10 @@ export class MetricQueryRequest {
 			if (count == 5) return value;
 			value.topN = reader.readNullableInt32();
 			if (count == 6) return value;
+			value.havingOperator = reader.readNullableInt32();
+			if (count == 7) return value;
+			value.havingValue = reader.readNullableFloat64();
+			if (count == 8) return value;
 		}
 		return value;
 	}

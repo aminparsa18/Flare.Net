@@ -267,3 +267,16 @@ export function logQlResultKindToString(value: number): LogQlResultKindName {
 export function logQlResultKindFromString(value: LogQlResultKindName): number {
 	return LOG_QL_RESULT_KIND_NAMES.indexOf(value);
 }
+
+/** Matches `MetricModels.cs`'s `MetricHavingOperator` member order. Not itself MemoryPack-TS-generated - same reasoning `AlertConditionKindName` gives (`MetricQueryRequest`, its only consumer, is hand-written - it nests `MetricFilter`). */
+const METRIC_HAVING_OPERATOR_NAMES = ['GreaterThan', 'GreaterThanOrEqual', 'LessThan', 'LessThanOrEqual', 'Equal', 'NotEqual'] as const;
+
+export type MetricHavingOperatorName = (typeof METRIC_HAVING_OPERATOR_NAMES)[number];
+
+export function metricHavingOperatorToString(value: number): MetricHavingOperatorName {
+	return METRIC_HAVING_OPERATOR_NAMES[value];
+}
+
+export function metricHavingOperatorFromString(value: MetricHavingOperatorName): number {
+	return METRIC_HAVING_OPERATOR_NAMES.indexOf(value);
+}
