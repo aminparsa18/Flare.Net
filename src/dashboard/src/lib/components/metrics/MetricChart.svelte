@@ -30,7 +30,17 @@
 	// global time range driving every panel" design note. Unlike VolumeChart, a disallowed
 	// drag here has no click fallback to land on (MetricChart has no per-bucket click
 	// action) - see handlePointerUp below.
-	let { allowZoom = true }: { allowZoom?: boolean } = $props();
+	//
+	// yAxisMin/yAxisMax: soft Y-axis floor/ceiling (roadmap's "Soft Y-axis min/max on metric
+	// charts" item, DashboardPanel.yAxisMin/yAxisMax) - only ever set on a dashboard's
+	// Metrics panel, via YAxisBoundsPopover.svelte; `null` on the standalone Metrics
+	// Explorer page's own MetricChart usage, which has no per-panel config to source it
+	// from. See domainMin/domainMax below for how "soft" is actually applied.
+	let {
+		allowZoom = true,
+		yAxisMin = null,
+		yAxisMax = null
+	}: { allowZoom?: boolean; yAxisMin?: number | null; yAxisMax?: number | null } = $props();
 
 	// Fixed categorical palette (--chart-1..5, the `dataviz` skill's validated
 	// palette - see layout.css's chart-1..5 comment) - never cycled past 5 series; a
@@ -593,7 +603,19 @@
 	// either one changed.
 	const FADE_MS = METRIC_SWITCH_FADE_MS;
 
-	const peakValue = $derived(Math.max(0, ...lines.flatMap((l) => l.points.map((p) => p.raw))));
+	const rawValues = $derived(lines.flatMap((l) => l.points.map((p) => p.raw)));
+	const dataMax = $derived(rawValues.length > 0 ? Math.max(...rawValues) : 0);
+	const dataMin = $derived(rawValues.length > 0 ? Math.min(...rawValues) : 0);
+
+	// The chart's actual y-domain, before "nice" rounding - `yAxisMax`/`yAxisMin` narrow the
+	// default (0..data's own peak, same as this chart's behavior before those props existed)
+	// *softly*: Math.max/Math.min against the real data means a configured bound only ever
+	// narrows the default view, never clips a point that actually falls outside it - the
+	// axis silently re-expands to fit instead. `null` (the default on every usage except a
+	// dashboard panel with a saved override) reduces both exactly to the old fixed-at-0
+	// floor / data-peak ceiling.
+	const domainMin = $derived(yAxisMin != null ? Math.min(yAxisMin, dataMin) : 0);
+	const domainMax = $derived(yAxisMax != null ? Math.max(yAxisMax, dataMax) : Math.max(0, dataMax));
 
 	// Rate mode changes the unit, not just the numbers - a Sum declared "By" reads as
 	// "By/s" once every value has been divided by the bucket width. axis.ts already
@@ -610,16 +632,18 @@
 				: explorer.selected?.unit
 	);
 
-	// One scale for the whole chart (e.g. "ms"), picked from the data's raw peak so
-	// every tick/tooltip value reads in the same unit instead of each re-picking its
-	// own ("40 ms" next to "0.03 s").
-	const axisScale = $derived(resolveAxisScale(displayUnit, peakValue));
+	// One scale for the whole chart (e.g. "ms"), picked from the domain's largest magnitude
+	// (either end - a configured yAxisMin can itself be the largest-magnitude bound, e.g. a
+	// -40..0 range) so every tick/tooltip value reads in the same unit instead of each
+	// re-picking its own ("40 ms" next to "0.03 s").
+	const axisScale = $derived(resolveAxisScale(displayUnit, Math.max(Math.abs(domainMin), Math.abs(domainMax))));
 
-	// Round the axis up to a "nice" ceiling in the *displayed* scale (e.g. peak 37ms ->
-	// ticks 0/10/20/30/40 ms) rather than scaling exactly to the data's raw peak, so
-	// the top gridline lands on a number a human would actually pick - see axis.ts.
-	const ticks = $derived(niceAxisTicks(peakValue, axisScale));
-	const maxValue = $derived(Math.max(1e-9, ticks.max));
+	// Round the axis floor/ceiling to "nice" values in the *displayed* scale (e.g. domain
+	// 0..37ms -> ticks 0/10/20/30/40 ms) rather than scaling exactly to domainMin/domainMax,
+	// so the gridlines land on numbers a human would actually pick - see axis.ts.
+	const ticks = $derived(niceAxisTicks(domainMin, domainMax, axisScale));
+	const minValue = $derived(ticks.min);
+	const maxValue = $derived(Math.max(minValue + 1e-9, ticks.max));
 
 	function xFor(time: number): number {
 		const count = bucketTimes.length;
@@ -628,7 +652,7 @@
 	}
 
 	function yFor(raw: number): number {
-		return BASELINE_Y - (raw / maxValue) * (BASELINE_Y - PEAK_Y);
+		return BASELINE_Y - ((raw - minValue) / (maxValue - minValue)) * (BASELINE_Y - PEAK_Y);
 	}
 
 	function pathFor(points: PlotPoint[]): string {

@@ -260,6 +260,7 @@
 				onDuplicate={(id) => viewer.duplicatePanel(id)}
 				onExport={(id) => viewer.exportPanel(id)}
 				onToggleVariable={(id, variableId, excluded) => viewer.setPanelVariableExcluded(id, variableId, excluded)}
+				onSetYAxisBounds={(id, min, max) => viewer.setPanelYAxisBounds(id, min, max)}
 			/>
 		</div>
 	{/if}

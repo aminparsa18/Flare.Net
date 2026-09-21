@@ -68,6 +68,18 @@ Every change saves immediately — there's no separate "Save" step. Click
 **Done editing** to leave edit mode and lock the layout again (view mode
 never risks an accidental drag).
 
+## Setting a Y-axis range on a Metrics panel
+
+In edit mode, a Metrics panel's header also has an **up-down arrow** icon —
+set a **min** and/or **max** to pin the chart's Y-axis instead of letting it
+auto-range to the data's own peak (useful to keep a mostly-flat metric, like
+CPU pinned near 0%, from looking noisier than it is, or to align two panels
+charting the same unit on the same scale). Leave either field blank to keep
+that side auto-ranged. This is a *soft* bound: the axis still expands past a
+set value if the data actually goes further — it narrows the default view,
+it never clips a real point off the chart. Like the rest of a panel's
+definition, it's saved with the dashboard.
+
 ## Overriding the time range for a session
 
 The **time range** picker in a dashboard's header (next to Edit) lets you

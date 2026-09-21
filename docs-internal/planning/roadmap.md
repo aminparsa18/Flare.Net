@@ -132,12 +132,6 @@ folders are where "what happened and why" actually lives.
   fired, no schema change. Prior art: SigNoz's `ThresholdRule.Eval`
   building this link the same way
   ([signoz#4446](https://github.com/SigNoz/signoz/commit/00b111fbe367e16ef6920586e64b226b7e1cff4a)).
-- **Soft Y-axis min/max on metric charts.** No axis-bound option today.
-  Not started; minor. uPlot (already Flare's charting library, per
-  MetricChart) natively supports a *soft* min/max mode that still
-  auto-expands past the bound if data exceeds it, unlike a hard fixed
-  range - a small per-panel chart option, no data/query change. Prior
-  art: [signoz#4287](https://github.com/SigNoz/signoz/commit/5b39dc36d6d788b4fd909c524c8569d0b0d08754).
 - **Post-aggregation value filter (`HAVING`) + top-N order-by on metric
   queries.** No way today to ask for e.g. "only series where the
   aggregated value exceeds X" after grouping - only the existing

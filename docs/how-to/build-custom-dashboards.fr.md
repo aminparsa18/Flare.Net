@@ -80,6 +80,20 @@ Chaque changement est enregistré immédiatement — il n'y a pas d'étape
 et reverrouiller la disposition (le mode affichage ne risque jamais un
 glisser-déposer accidentel).
 
+## Définir une plage d'axe Y sur un panneau Metrics
+
+En mode édition, l'en-tête d'un panneau Metrics comporte aussi une icône
+**flèche haut-bas** — définissez un **min** et/ou un **max** pour figer
+l'axe Y du graphique au lieu de le laisser s'ajuster automatiquement au pic
+des données (utile pour éviter qu'une métrique globalement stable, comme un
+CPU proche de 0 %, ne paraisse plus bruitée qu'elle ne l'est, ou pour aligner
+deux panneaux affichant la même unité sur la même échelle). Laissez un champ
+vide pour garder ce côté ajusté automatiquement. C'est une borne *souple* :
+l'axe continue de s'étendre au-delà d'une valeur définie si les données vont
+plus loin — elle restreint la vue par défaut, elle ne coupe jamais un point
+réel du graphique. Comme le reste de la définition d'un panneau, c'est
+enregistré avec le tableau de bord.
+
 ## Surcharger la plage de temps pour une session
 
 Le sélecteur de **plage de temps** dans l'en-tête d'un tableau de bord

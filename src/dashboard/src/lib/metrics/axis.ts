@@ -178,24 +178,45 @@ function roundFloat(n: number): number {
 }
 
 export interface AxisTicks {
-	/** Raw values (in the metric's declared unit), ascending from 0, to draw gridlines/labels at. */
+	/** Raw values (in the metric's declared unit), ascending, to draw gridlines/labels at. */
 	values: number[];
-	/** The rounded-up ceiling (>= peakAbs, in the metric's declared unit) the top tick lands on - use this as the chart's y-scale max instead of the raw peak, so the top gridline is a round number. */
+	/** The rounded-down floor (<= dataMin, in the metric's declared unit) the bottom tick lands on - use this as the chart's y-scale min instead of the raw domain min, so the bottom gridline is a round number. Usually 0 - see niceAxisTicks' own remarks on when it isn't. */
+	min: number;
+	/** The rounded-up ceiling (>= dataMax, in the metric's declared unit) the top tick lands on - use this as the chart's y-scale max instead of the raw peak, so the top gridline is a round number. */
 	max: number;
 }
 
 /**
- * Picks ~(targetCount + 1) evenly-spaced round tick values from 0 up to (at least)
- * `peakAbs` (raw, in the metric's declared unit) - "nice" in the *displayed* magnitude
+ * Picks ~(targetCount + 1) evenly-spaced round tick values spanning `dataMin`..`dataMax`
+ * (raw, in the metric's declared unit) - "nice" in the *displayed* magnitude
  * (`scale.factor` applied), not the raw unit, so a byte metric reads "0/10/20/30 MB"
  * rather than "0/9.54/19.07/28.61 MB".
+ *
+ * `dataMin` is 0 for the common case (MetricChart's own default domain, no soft-bound
+ * override configured) - this then reduces to the old "always anchor at 0" behavior.
+ * MetricChart's `yAxisMin`/`yAxisMax` panel option is what makes it ever be non-zero (or
+ * `dataMax` negative): see that file's `domainMin`/`domainMax` for how a *soft* bound -
+ * expanding past the configured value if the data itself goes further, never clipping a
+ * real point off the chart - gets folded in before this function ever sees it.
  */
-export function niceAxisTicks(peakAbs: number, scale: AxisScale, targetCount = 4): AxisTicks {
-	const peakDisplay = peakAbs * scale.factor;
-	if (!(peakDisplay > 0)) return { values: [0], max: 1 / scale.factor };
-	const step = niceNumber(peakDisplay / targetCount, true);
-	const count = Math.ceil(peakDisplay / step);
-	const maxDisplay = count * step;
-	const values = Array.from({ length: count + 1 }, (_, i) => roundFloat((i * step) / scale.factor));
-	return { values, max: roundFloat(maxDisplay / scale.factor) };
+export function niceAxisTicks(dataMin: number, dataMax: number, scale: AxisScale, targetCount = 4): AxisTicks {
+	const minDisplay = dataMin * scale.factor;
+	const maxDisplay = dataMax * scale.factor;
+	if (!(maxDisplay > minDisplay)) {
+		// No usable range (no data at all - the common `dataMin === dataMax === 0` case a
+		// metric with an empty series hits - or a degenerate min===max override) - a bare
+		// tick at the floor plus a small default ceiling above it, so the axis is never
+		// zero-height.
+		const max = maxDisplay > 0 ? maxDisplay : minDisplay + 1;
+		return { values: [roundFloat(minDisplay / scale.factor)], min: roundFloat(minDisplay / scale.factor), max: roundFloat(max / scale.factor) };
+	}
+	// Classic two-step "nice scale": round the *range* up to a nice number first, then
+	// derive the step from that - unlike picking the step directly from the raw range, this
+	// keeps the floor/ceiling round even when dataMin isn't 0.
+	const step = niceNumber(niceNumber(maxDisplay - minDisplay, false) / targetCount, true);
+	const niceMinDisplay = Math.floor(minDisplay / step) * step;
+	const niceMaxDisplay = Math.ceil(maxDisplay / step) * step;
+	const count = Math.round((niceMaxDisplay - niceMinDisplay) / step);
+	const values = Array.from({ length: count + 1 }, (_, i) => roundFloat((niceMinDisplay + i * step) / scale.factor));
+	return { values, min: roundFloat(niceMinDisplay / scale.factor), max: roundFloat(niceMaxDisplay / scale.factor) };
 }
