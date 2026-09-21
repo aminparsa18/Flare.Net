@@ -13,6 +13,12 @@
 // `PipelineRule`/`PipelineRuleRequest`/`PipelineRuleListResponse` themselves nest `LogFilter`
 // and/or an `IReadOnlyList<PipelineRuleAction>`, so all three are hand-written
 // (`$lib/memorypack/`), same reasoning `AlertRule.ts` documents.
+//
+// `previewPipelineRule`/`previewDraftPipelineRule` (Phase 2, see
+// docs-internal/adr/0034-pipeline-rules-preview.md) mirror `alerts-api.ts`'s
+// `testAlertRule`/`testDraftAlertRule` saved/draft pair. `PipelineRulePreviewMatch` has its
+// own `DateTimeOffset` `timestamp`, so it and the `PipelineRulePreviewResult` that nests a
+// list of it are both hand-written too, same reasoning as `PipelineRule` above.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
 import { ruleActionKindFromString, ruleActionKindToString, type RuleActionKindName } from '$lib/memorypack/enums';
@@ -23,6 +29,8 @@ import { PipelineRuleAction as GeneratedPipelineRuleAction } from '$lib/generate
 import { PipelineRule as GeneratedPipelineRule } from '$lib/memorypack/PipelineRule';
 import { PipelineRuleRequest as GeneratedPipelineRuleRequest } from '$lib/memorypack/PipelineRuleRequest';
 import { PipelineRuleListResponse as GeneratedPipelineRuleListResponse } from '$lib/memorypack/PipelineRuleListResponse';
+import { PipelineRulePreviewMatch as GeneratedPipelineRulePreviewMatch } from '$lib/memorypack/PipelineRulePreviewMatch';
+import { PipelineRulePreviewResult as GeneratedPipelineRulePreviewResult } from '$lib/memorypack/PipelineRulePreviewResult';
 
 // ---- Shared shapes (PipelineRuleModels.cs) ---------------------------------
 
@@ -74,6 +82,37 @@ export interface PipelineRuleRequest {
 
 export interface PipelineRuleListResponse {
 	rules: PipelineRule[];
+}
+
+/**
+ * One sampled log's before/after preview - see `PipelineRulePreviewResult.matches`.
+ * `beforeAttributes`/`afterAttributes` carry only the `Log` attribute bag, the one an
+ * extraction/redaction action can ever touch.
+ */
+export interface PipelineRulePreviewMatch {
+	eventId: string;
+	timestamp: string;
+	serviceName: string;
+	beforeBody: string;
+	afterBody: string;
+	beforeAttributes: Record<string, string>;
+	afterAttributes: Record<string, string>;
+	/** True when at least one action actually changed `Body` or a `Log` attribute for this event - a rule can match a log without any action having an effect on this particular sample. */
+	changed: boolean;
+}
+
+/**
+ * Dry-run result from `POST /api/pipeline-rules/{id}/preview` or
+ * `POST /api/pipeline-rules/preview`: a saved or draft rule's actions applied (in-process,
+ * nothing written) against a bounded, most-recent-first sample of logs already matching its
+ * own `condition`.
+ */
+export interface PipelineRulePreviewResult {
+	/** How many logs the sample pulled - fewer than the server's cap if the condition (and its default lookback window, when `condition.from`/`to` are unset) doesn't match that many. */
+	sampledCount: number;
+	/** How many of `sampledCount` had at least one `PipelineRulePreviewMatch.changed` effect. */
+	changedCount: number;
+	matches: PipelineRulePreviewMatch[];
 }
 
 // ---- Conversions -------------------------------------------------------------
@@ -199,4 +238,58 @@ export async function deletePipelineRule(id: string): Promise<void> {
 	if (!res.ok) {
 		throw new Error(`DELETE /api/pipeline-rules/${id} failed: ${res.status} ${res.statusText}`);
 	}
+}
+
+// ---- Preview dry-runs --------------------------------------------------------
+
+function toPipelineRulePreviewMatch(dto: GeneratedPipelineRulePreviewMatch): PipelineRulePreviewMatch {
+	return {
+		eventId: dto.eventId,
+		timestamp: dto.timestamp.toISOString(),
+		serviceName: dto.serviceName ?? '',
+		beforeBody: dto.beforeBody ?? '',
+		afterBody: dto.afterBody ?? '',
+		beforeAttributes: dto.beforeAttributes ?? {},
+		afterAttributes: dto.afterAttributes ?? {},
+		changed: dto.changed
+	};
+}
+
+function toPipelineRulePreviewResult(dto: GeneratedPipelineRulePreviewResult): PipelineRulePreviewResult {
+	return {
+		sampledCount: dto.sampledCount,
+		changedCount: dto.changedCount,
+		matches: (dto.matches ?? []).filter((m): m is GeneratedPipelineRulePreviewMatch => m != null).map(toPipelineRulePreviewMatch)
+	};
+}
+
+/** Dry-runs a saved rule by id against a live sample of currently-matching logs - writes nothing. */
+export async function previewPipelineRule(id: string): Promise<PipelineRulePreviewResult> {
+	const res = await apiFetch(`${API_BASE_URL}/api/pipeline-rules/${id}/preview`, { method: 'POST', headers: memoryPackAcceptHeaders() });
+	if (!res.ok) {
+		throw new Error(`POST /api/pipeline-rules/${id}/preview failed: ${res.status} ${res.statusText}`);
+	}
+	const dto = GeneratedPipelineRulePreviewResult.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding PipelineRulePreviewResult.');
+	}
+	return toPipelineRulePreviewResult(dto);
+}
+
+/** Dry-runs an unsaved draft - lets the create/edit form show before/after sample matches before Save. */
+export async function previewDraftPipelineRule(request: PipelineRuleRequest): Promise<PipelineRulePreviewResult> {
+	const dto = toGeneratedPipelineRuleRequest(request);
+	const res = await apiFetch(`${API_BASE_URL}/api/pipeline-rules/preview`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedPipelineRuleRequest.serialize(dto))
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/pipeline-rules/preview failed: ${res.status} ${res.statusText}`);
+	}
+	const dtoResult = GeneratedPipelineRulePreviewResult.deserialize(await res.arrayBuffer());
+	if (dtoResult == null) {
+		throw new Error('Empty response body decoding PipelineRulePreviewResult.');
+	}
+	return toPipelineRulePreviewResult(dtoResult);
 }

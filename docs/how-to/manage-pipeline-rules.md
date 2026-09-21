@@ -6,13 +6,14 @@ fields (like a user ID or status code) out of a log's message into a proper,
 queryable attribute. Use redaction to mask sensitive data (like a credit
 card number or an email address) so it's never stored in the clear. For the
 design behind this, see
-[ADR-0033](../../docs-internal/adr/0033-pipeline-rules-extraction-redaction.md).
+[ADR-0033](../../docs-internal/adr/0033-pipeline-rules-extraction-redaction.md)
+and [ADR-0034](../../docs-internal/adr/0034-pipeline-rules-preview.md)
+(preview mode).
 
 Pipeline rules run once, at ingest — before Drain's pattern clustering, and
-before anything lands in ClickHouse. There's currently no dry-run/preview
-before saving, so test a new pattern against a narrow condition first (see
-[Scope a rule](#scope-a-rule-dont-leave-it-unscoped) below) rather than a
-broad one across all your services.
+before anything lands in ClickHouse. Preview a rule before saving it (see
+[Preview a rule before saving](#preview-a-rule-before-saving) below) to
+confirm it behaves the way you expect, rather than saving it blind.
 
 ## Prerequisites
 
@@ -49,6 +50,23 @@ either.
 Extracted attributes show up like any other log attribute — filterable in
 the Logs Explorer, usable as an alert rule condition, the same as an
 attribute the source application set directly.
+
+## Preview a rule before saving
+
+Click **Preview** in the create/edit dialog at any point while you're
+filling it in — it's not gated on saving first. Flare pulls up to 20 of
+the most recent logs already matching the rule's **Applies to** condition
+and runs the actions you've configured against each one, in-process,
+without saving anything or touching real ingest traffic. You'll see a
+summary ("N of 20 sampled logs would change") and each sampled log's
+before/after text, with changed ones marked.
+
+Preview always runs against the dialog's current, unsaved field values —
+even while editing an already-saved rule — so it reflects whatever pattern
+you're actively typing, not the last-saved version. If no logs currently
+match the condition, preview says so rather than showing an empty list;
+try widening the condition or picking a service you know is actively
+logging.
 
 ## Scope a rule (don't leave it unscoped)
 

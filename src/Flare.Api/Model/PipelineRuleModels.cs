@@ -200,3 +200,54 @@ public sealed partial record PipelineRuleListResponse
 {
     public required IReadOnlyList<PipelineRule> Rules { get; init; }
 }
+
+/// <summary>
+/// One sampled log's before/after preview - see
+/// <see cref="PipelineRulePreviewResult"/>'s remarks. <see cref="BeforeAttributes"/>/
+/// <see cref="AfterAttributes"/> carry only the <c>Log</c> attribute bag, the one
+/// <see cref="RuleActionKind.ExtractRegex"/>/<see cref="RuleActionKind.RedactRegex"/> can
+/// ever touch (see <c>ExtractRegexAction.SourceAttributeKey</c>'s doc comment) - Resource/
+/// Scope attributes are never mutated, so showing them here would only add noise.
+/// </summary>
+[MemoryPackable]
+public sealed partial record PipelineRulePreviewMatch
+{
+    public required Guid EventId { get; init; }
+
+    public required DateTimeOffset Timestamp { get; init; }
+
+    public required string ServiceName { get; init; }
+
+    public required string BeforeBody { get; init; }
+
+    public required string AfterBody { get; init; }
+
+    public required IReadOnlyDictionary<string, string> BeforeAttributes { get; init; }
+
+    public required IReadOnlyDictionary<string, string> AfterAttributes { get; init; }
+
+    /// <summary><see langword="true"/> when at least one action actually changed <c>Body</c> or a <c>Log</c> attribute for this event - a rule can match a log (see <see cref="PipelineRule.Condition"/>) without any action having an effect on it, e.g. a redact pattern that doesn't occur in this particular sample.</summary>
+    public required bool Changed { get; init; }
+}
+
+/// <summary>
+/// Response body for <c>POST /api/pipeline-rules/{id}/preview</c> and
+/// <c>POST /api/pipeline-rules/preview</c> - a dry-run of a saved or draft rule's actions
+/// against a bounded, most-recent-first sample of logs already matching its own
+/// <see cref="PipelineRule.Condition"/> (pulled via
+/// <see cref="Query.LogQueryService.SearchAsync"/>, capped at
+/// <see cref="Endpoints.PipelineRuleEndpoints.PreviewSampleSize"/> rows), so a rule's actions
+/// can be verified before it starts mutating real ingest traffic. Never writes anything -
+/// mirrors <c>AlertEndpoints</c>'s <c>AlertTestResult</c> dry-run shape for the same reason.
+/// </summary>
+[MemoryPackable]
+public sealed partial record PipelineRulePreviewResult
+{
+    /// <summary>How many logs the sample pulled - at most <see cref="Endpoints.PipelineRuleEndpoints.PreviewSampleSize"/>, fewer if the condition (and the search's default lookback window, when <c>Condition.From</c>/<c>To</c> are unset) doesn't match that many.</summary>
+    public required int SampledCount { get; init; }
+
+    /// <summary>How many of <see cref="SampledCount"/> had at least one <see cref="PipelineRulePreviewMatch.Changed"/> effect.</summary>
+    public required int ChangedCount { get; init; }
+
+    public required IReadOnlyList<PipelineRulePreviewMatch> Matches { get; init; }
+}

@@ -1294,6 +1294,13 @@
 	"pipelineRuleForm_replacementPlaceholder": "Replacement (default ***)",
 	"pipelineRuleForm_extractHint": "Named capture groups, e.g. (?<user_id>\\d+), become new log attributes.",
 	"pipelineRuleForm_enabledLabel": "Enabled",
+	"pipelineRuleForm_previewButton": "Preview",
+	"pipelineRuleForm_previewSummary": "{changed} of {sampled} sampled logs would change",
+	"pipelineRuleForm_previewNoMatches": "No logs currently match this rule's condition.",
+	"pipelineRuleForm_previewChangedBadge": "Changed",
+	"pipelineRuleForm_previewUnchangedBadge": "No effect",
+	"pipelineRuleForm_previewBeforeLabel": "Before",
+	"pipelineRuleForm_previewAfterLabel": "After",
 	"pipelineRuleForm_cancel": "Cancel",
 	"pipelineRuleForm_saveChanges": "Save changes",
 	"pipelineRuleForm_createRule": "Create rule"
