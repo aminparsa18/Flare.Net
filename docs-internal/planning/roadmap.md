@@ -54,25 +54,31 @@ folders are where "what happened and why" actually lives.
   all pre-aggregated now. `ServiceDependencyQueryBuilder`'s **edges** query
   - a self-join keyed by the `peer.service`-overridden "effective service,"
   producing `(source, target)` pairs - still self-joins raw `spans` on
-  every Map-view load. Not started - deliberately deferred out of
-  ADR-0031's scope: a genuine cross-service edge's parent and child spans
-  come from different processes/exporters, so they routinely land in
-  *different* `SpanFlushWorker` flush batches (confirmed by reading
-  `SpanFlushWorker.FlushAsync` - one flush cycle inserts whatever's in the
-  batch, no per-service scoping, no cross-batch ordering guarantee). A
-  correct pre-aggregate needs a dual-triggered materialized-view self-join
-  (one MV per join direction, joining the new batch against the *full*
-  persisted `spans` table for the other side) to catch that cross-batch
-  case - but same-batch (single-INSERT) parent+child visibility inside a
-  materialized view's join is unverified ClickHouse behavior that needs a
-  live spike before it can be trusted, the same kind of verification
-  ADR-0030 ran for `materialized_views_ignore_errors`. See ADR-0031's
-  Context for the full reasoning. Prior art: SigNoz's `USE_SPAN_METRIC`
-  feature flag sourcing the same page from collector-generated span
-  metrics instead of live trace aggregation
+  every Map-view load, and stays that way for now. The dual-triggered
+  materialized-view self-join ADR-0031 sketched (one MV per join direction,
+  joining the new batch against the *full* persisted `spans` table for the
+  other side) was live-spiked on 2026-09-21 and found **not viable, not just
+  risky**: see `docs-internal/investigations/service-dependency-edges-mv-selfjoin-spike.md`
+  for the full evidence, but the short version is that a ClickHouse
+  materialized view's self-join resolves *both* sides of the join - the
+  trigger's own `FROM` and any `JOIN` back to the same table - to the single
+  newly-inserted block, never the already-committed table. That means the
+  *common* cross-batch case (parent/child spans from different
+  processes/exporters landing in different `SpanFlushWorker` flush batches -
+  confirmed by reading `SpanFlushWorker.FlushAsync`, and the case ADR-0031's
+  Context calls "the common case, not an edge case") **never produces an
+  edge at all**, while the rarer same-batch case produces a **doubled**
+  count instead of a correct one. Not a tunable edge case - a different
+  design is needed, not a fix to this one. The named prior-art alternative,
+  not yet explored: SigNoz's `USE_SPAN_METRIC` feature flag sources the same
+  page from collector-generated span metrics instead of live trace
+  aggregation
   ([signoz#3134](https://github.com/SigNoz/signoz/commit/433f930956db03c01bcbd72ea61e43bce1eddc57),
   [signoz#3188](https://github.com/SigNoz/signoz/commit/bc4a4edc7f8ac5d2b1bbcca642927df1cc37c9af),
-  [signoz#3196](https://github.com/SigNoz/signoz/commit/562621a1171a5cbdb7d11a4e24f0c8fe2199b1da)).
+  [signoz#3196](https://github.com/SigNoz/signoz/commit/562621a1171a5cbdb7d11a4e24f0c8fe2199b1da)) -
+  i.e. computing edges from OTel Collector-side span-to-span-metrics
+  connectors before spans ever reach ClickHouse, sidestepping the
+  self-join-visibility problem entirely rather than working around it in SQL.
 - **Apdex score per service.** No Apdex support today. Not started. Would
   need a small per-service threshold (T value) setting - alongside
   Identity's SQLite, since it's per-installation config, not telemetry -
