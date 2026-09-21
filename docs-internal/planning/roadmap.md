@@ -79,35 +79,18 @@ folders are where "what happened and why" actually lives.
   i.e. computing edges from OTel Collector-side span-to-span-metrics
   connectors before spans ever reach ClickHouse, sidestepping the
   self-join-visibility problem entirely rather than working around it in SQL.
-- **User-defined field extraction/redaction at ingest.** `Flare.Ingest`
-  only does Drain pattern clustering at flush time today - no
-  user-configurable regex/JSON field extraction or redaction on log
-  bodies/attributes before they hit ClickHouse. Not started; scope TBD.
-  SigNoz's version of this ([signoz#2457](https://github.com/SigNoz/signoz/commit/1a3e46cecd0bc5bd7e32d3830d81e833f59c7be3),
-  [signoz#3185](https://github.com/SigNoz/signoz/commit/2cdafa0564c58499e939dddac404679d912ce6cc))
-  is EE-only and pushes pipeline config out to remote OTel-collector
-  fleets - that doesn't map onto Flare's single self-hosted ingest with
-  no fleet management, so the narrower version worth considering is rules
-  applied locally in `Flare.Ingest` at the same flush-time seam as Drain
-  clustering, not a collector-config-push mechanism. Implementation
-  detail worth reusing when this is built: route which rule applies to
-  an event using Flare's existing `LogFilter` shape as the condition,
-  the same way it's already reused verbatim for search and alert rules,
-  rather than inventing a fourth filter shape - mirrors SigNoz's own
-  later move to reuse its query-builder filter type for pipeline routing
-  ([signoz#3560](https://github.com/SigNoz/signoz/commit/3db8a25eb989c3ac39e54b1dab18c3becda54c4c),
-  [signoz#3587](https://github.com/SigNoz/signoz/commit/8bfb0b5088e1a8c9fe8108ef7e2a30f66d92a70d)).
-  Also worth a dry-run/preview mode before a rule is saved - run the
+- **Pipeline rule dry-run/preview mode.** Phase 1 (the rule engine
+  itself: regex extraction/redaction applied by `Flare.Ingest` at flush
+  time, full CRUD, dashboard management page) shipped - see
+  `docs-internal/adr/0033-pipeline-rules-extraction-redaction.md`. Still
+  open: a dry-run/preview mode before a rule is saved - run the
   candidate extraction/redaction against a sample of recently-matching
-  logs (queried via the same `LogFilter`) and show before/after, rather
-  than deploying blind; doesn't need a real OTel collector in the loop,
-  just running the extraction logic in-process against sampled
-  `LogEvent`s. Prior art: SigNoz's in-memory collector simulator
-  ([signoz#3656](https://github.com/SigNoz/signoz/commit/0ad5d671405ae7e98d61cd68ea4d45d654ef0509))
-  plus a real bug it later hit worth avoiding from the start - a
-  generated rule with no scoping condition silently applies to every
-  log line instead of just the ones it's meant for
-  ([signoz#3870](https://github.com/SigNoz/signoz/commit/626da7533ef693893a787ae20c4bfc1cb42d3ba4)).
+  logs (queried via the rule's own `LogFilter` condition) and show
+  before/after, rather than saving a rule blind. Doesn't need a real
+  OTel collector in the loop, just running `PipelineRuleExecutor`
+  in-process against sampled `LogEvent`s pulled via `/api/logs/search`.
+  Prior art: SigNoz's in-memory collector simulator
+  ([signoz#3656](https://github.com/SigNoz/signoz/commit/0ad5d671405ae7e98d61cd68ea4d45d654ef0509)).
 - **JSON-path filtering inside the raw log `Body`.** Flare's bloom-filter
   skip indices (`0001_logs.sql`) and `AttributeFilter` path only cover
   pre-extracted key/value attributes - there's no way to filter on a key

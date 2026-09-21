@@ -4,6 +4,7 @@ using Flare.Ingest.Auth;
 using Flare.Ingest.Otlp;
 using Flare.Ingest.Patterns;
 using Flare.Ingest.Pipeline;
+using Flare.Ingest.Pipeline.Rules;
 using Flare.Ingest.Prometheus;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
@@ -63,6 +64,20 @@ else
 }
 builder.Services.AddSingleton<ILogPatternMatcher, DrainPatternMatcher>();
 builder.Services.AddSingleton<ILogPatternAnnotator, LogPatternAnnotator>();
+
+// User-defined field extraction/redaction (docs-internal/planning/roadmap.md's
+// extraction/redaction item; see docs-internal/adr/0033-pipeline-rules-extraction-redaction.md).
+// Runs before Drain clustering above - see ClickHouseFlushWorker.FlushAsync's remarks.
+// PipelineRuleCache is both its own hosted service (the poll loop) and the singleton
+// IPipelineRuleCache PipelineRuleAnnotator reads from - same "one instance, two roles"
+// registration as Flare.Api's LogTailBroadcaster.
+builder.Services.Configure<PipelineRuleOptions>(
+    builder.Configuration.GetSection(PipelineRuleOptions.SectionName));
+builder.Services.AddSingleton<IPipelineRuleStore, ClickHousePipelineRuleStore>();
+builder.Services.AddSingleton<PipelineRuleCache>();
+builder.Services.AddSingleton<IPipelineRuleCache>(sp => sp.GetRequiredService<PipelineRuleCache>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PipelineRuleCache>());
+builder.Services.AddSingleton<IPipelineRuleAnnotator, PipelineRuleAnnotator>();
 
 // Spans - a parallel, deliberately un-unified pipeline alongside the logs one above
 // (own Redis stream, own flush worker); see SpanFlushWorker's remarks for why.

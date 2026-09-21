@@ -27,6 +27,7 @@ export function navLinks(auth: AuthState): NavLink[] {
 		{ href: '/ingestion', label: m.nav_ingestion() },
 		{ href: '/indexing', label: m.nav_indexing() },
 		{ href: '/alerts', label: m.nav_alerts() },
+		{ href: '/pipeline-rules', label: m.nav_pipelineRules() },
 		{ href: '/resources', label: m.nav_resources() },
 		{ href: '/dashboards', label: m.nav_dashboards() },
 		{ href: '/views', label: m.nav_views() },
