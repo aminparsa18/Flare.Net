@@ -64,9 +64,30 @@
 	// construction. Bits UI's Select needs string item values, so values round-trip
 	// through Number()/String() at the call sites below.
 	const TOP_N_OPTIONS = [5, 10, 20, 50, 100];
+
+	// Formula mode (roadmap: "Cross-query formula expressions for metrics") replaces the
+	// single-metric picker/chart entirely - see MetricsExplorerState.mode's own remarks for
+	// why. A Select, same widget/pattern the time-range preset picker to its right already
+	// uses, not a dedicated segmented-toggle component - two options doesn't earn a new
+	// primitive when this codebase has no ToggleGroup yet.
+	const MODE_OPTIONS: { value: 'single' | 'formula'; label: () => string }[] = [
+		{ value: 'single', label: m.metricsToolbar_modeSingle },
+		{ value: 'formula', label: m.metricsToolbar_modeFormula }
+	];
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
+	<Select.Root type="single" value={explorer.mode} onValueChange={(v) => v && explorer.setMode(v as 'single' | 'formula')}>
+		<Select.Trigger class="w-auto">
+			{MODE_OPTIONS.find((o) => o.value === explorer.mode)?.label()}
+		</Select.Trigger>
+		<Select.Content>
+			{#each MODE_OPTIONS as option (option.value)}
+				<Select.Item value={option.value} label={option.label()} />
+			{/each}
+		</Select.Content>
+	</Select.Root>
+
 	<Select.Root
 		type="single"
 		value={explorer.filter.timeRangePreset}
@@ -96,7 +117,7 @@
 	     (which only holds pure client-side reshapes like sumMode/histogramMode). Hidden
 	     entirely when the selected metric has no discovered attribute keys, same
 	     graceful-degradation call as every other picker on this page. -->
-	{#if explorer.knownAttributeKeys.length > 0}
+	{#if explorer.mode === 'single' && explorer.knownAttributeKeys.length > 0}
 		<PopoverSingleSelect
 			label={m.metricsToolbar_groupByLabel()}
 			triggerLabel={groupByLabel}
@@ -113,7 +134,7 @@
 	     has enough distinct series for the default cap to matter, so there's nothing
 	     useful for this picker to do until a group-by key narrows the series down to a
 	     rankable set. -->
-	{#if explorer.filter.groupByAttributeKey}
+	{#if explorer.mode === 'single' && explorer.filter.groupByAttributeKey}
 		<Select.Root
 			type="single"
 			value={String(explorer.filter.topN)}
@@ -130,35 +151,40 @@
 		</Select.Root>
 	{/if}
 
-	<!-- Post-aggregation value filter (roadmap's "Post-aggregation value filter (HAVING) +
-	     top-N order-by on metric queries" item) - orthogonal to the series cap above, not
-	     gated on groupByAttributeKey: "only series where the aggregated value exceeds X" is
-	     just as meaningful ungrouped as it is with a group-by key narrowing the series set -
-	     see MetricSeriesQueryBuilder's own remarks on why HAVING and TopN compose rather
-	     than one replacing the other. -->
-	<MetricsHavingPopover
-		havingOperator={explorer.filter.havingOperator}
-		havingValue={explorer.filter.havingValue}
-		onApply={(operator, value) => explorer.setHaving(operator, value)}
-	/>
-
-	<!-- MetricChart itself is the one that decides whether/how comparison actually
-	     renders (unsupported for Histogram's Percentiles view - see its own remarks on
-	     compareActive/compareUnavailable), so this switch stays available regardless of
-	     the currently-selected metric's type rather than disabling/hiding depending on
-	     selection, same "toolbar filter, chart decides what to do with it" split every
-	     other filter here already has. A plain `title`, not a rich Tooltip.* - this is
-	     one static sentence, not something that needs its own Provider/Root/Trigger
-	     wiring (MetricChart's own hover tooltips are for genuinely dynamic content, e.g.
-	     the exact compared dates). -->
-	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.metricsToolbar_compareTitle()}>
-		<Switch
-			checked={explorer.filter.compareEnabled}
-			onCheckedChange={(v) => explorer.setCompareEnabled(v)}
-			size="sm"
+	{#if explorer.mode === 'single'}
+		<!-- Post-aggregation value filter (roadmap's "Post-aggregation value filter (HAVING) +
+		     top-N order-by on metric queries" item) - orthogonal to the series cap above, not
+		     gated on groupByAttributeKey: "only series where the aggregated value exceeds X" is
+		     just as meaningful ungrouped as it is with a group-by key narrowing the series set -
+		     see MetricSeriesQueryBuilder's own remarks on why HAVING and TopN compose rather
+		     than one replacing the other. Formula mode has no single ranking magnitude to filter
+		     on (each row is its own query) - out of scope for v1, same as TopN/compare below. -->
+		<MetricsHavingPopover
+			havingOperator={explorer.filter.havingOperator}
+			havingValue={explorer.filter.havingValue}
+			onApply={(operator, value) => explorer.setHaving(operator, value)}
 		/>
-		{m.metricsToolbar_compareLabel()}
-	</label>
+
+		<!-- MetricChart itself is the one that decides whether/how comparison actually
+		     renders (unsupported for Histogram's Percentiles view - see its own remarks on
+		     compareActive/compareUnavailable), so this switch stays available regardless of
+		     the currently-selected metric's type rather than disabling/hiding depending on
+		     selection, same "toolbar filter, chart decides what to do with it" split every
+		     other filter here already has. A plain `title`, not a rich Tooltip.* - this is
+		     one static sentence, not something that needs its own Provider/Root/Trigger
+		     wiring (MetricChart's own hover tooltips are for genuinely dynamic content, e.g.
+		     the exact compared dates). Formula mode has no previous-period fetch yet (v1 scope
+		     cut, see docs-internal/adr/0036-cross-query-metric-formulas.md) - hidden rather than
+		     shown-and-ignored, same as every other single-mode-only control here. -->
+		<label class="flex items-center gap-1.5 text-xs font-medium" title={m.metricsToolbar_compareTitle()}>
+			<Switch
+				checked={explorer.filter.compareEnabled}
+				onCheckedChange={(v) => explorer.setCompareEnabled(v)}
+				size="sm"
+			/>
+			{m.metricsToolbar_compareLabel()}
+		</label>
+	{/if}
 
 	<!-- Re-runs the chart's current query on an interval while on - see
 	     MetricsExplorerState.autoRefreshEnabled's own remarks. A plain `title`, same
@@ -180,9 +206,17 @@
 		applyState={(s) => explorer.applySavedViewState(s)}
 	/>
 
-	<PinToDashboardButton
-		panelType="Metrics"
-		currentState={() => explorer.toSavedViewState()}
-		defaultTitle={explorer.selected?.metricName ?? m.nav_metrics()}
-	/>
+	{#if explorer.mode === 'single'}
+		<!-- Dashboard Metrics panels (DashboardMetricsPanelBody.svelte) reuse MetricChart
+		     wholesale, which has no Formula-mode rendering (see MetricsExplorerState.mode's
+		     own remarks) - pinning a Formula-mode view would silently produce a panel showing
+		     nothing rather than the joined chart, so this stays single-mode-only rather than
+		     pinning something that can't actually render, same "Explorer only for v1" scope
+		     ADR-0036 documents. -->
+		<PinToDashboardButton
+			panelType="Metrics"
+			currentState={() => explorer.toSavedViewState()}
+			defaultTitle={explorer.selected?.metricName ?? m.nav_metrics()}
+		/>
+	{/if}
 </div>
