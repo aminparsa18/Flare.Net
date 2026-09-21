@@ -1294,6 +1294,13 @@
 	"pipelineRuleForm_replacementPlaceholder": "替换内容（默认 ***）",
 	"pipelineRuleForm_extractHint": "命名捕获组，例如 (?<user_id>\\d+)，会成为新的日志属性。",
 	"pipelineRuleForm_enabledLabel": "已启用",
+	"pipelineRuleForm_previewButton": "预览",
+	"pipelineRuleForm_previewSummary": "抽样的 {sampled} 条日志中有 {changed} 条会发生变化",
+	"pipelineRuleForm_previewNoMatches": "目前没有日志匹配此规则的条件。",
+	"pipelineRuleForm_previewChangedBadge": "已变化",
+	"pipelineRuleForm_previewUnchangedBadge": "无影响",
+	"pipelineRuleForm_previewBeforeLabel": "变化前",
+	"pipelineRuleForm_previewAfterLabel": "变化后",
 	"pipelineRuleForm_cancel": "取消",
 	"pipelineRuleForm_saveChanges": "保存更改",
 	"pipelineRuleForm_createRule": "创建规则"

@@ -8,14 +8,16 @@ véritable attribut interrogeable. Utilisez le masquage pour occulter des
 données sensibles (comme un numéro de carte bancaire ou une adresse e-mail)
 afin qu'elles ne soient jamais stockées en clair. Pour la conception derrière
 cette fonctionnalité, voir
-[ADR-0033](../../docs-internal/adr/0033-pipeline-rules-extraction-redaction.md).
+[ADR-0033](../../docs-internal/adr/0033-pipeline-rules-extraction-redaction.md)
+et [ADR-0034](../../docs-internal/adr/0034-pipeline-rules-preview.md) (mode
+d'aperçu).
 
 Les règles de pipeline s'exécutent une seule fois, à l'ingestion — avant le
 regroupement de motifs de Drain, et avant que quoi que ce soit n'atteigne
-ClickHouse. Il n'existe pour l'instant aucun mode d'aperçu/simulation avant
-l'enregistrement, donc testez un nouveau motif sur une condition restreinte
-d'abord (voir [Cibler une règle](#cibler-une-règle-ne-la-laissez-pas-sans-portée)
-ci-dessous) plutôt que sur une règle large couvrant tous vos services.
+ClickHouse. Aperçu une règle avant de l'enregistrer (voir
+[Aperçu d'une règle avant enregistrement](#aperçu-dune-règle-avant-enregistrement)
+ci-dessous) pour confirmer qu'elle se comporte comme prévu, plutôt que de
+l'enregistrer à l'aveugle.
 
 ## Prérequis
 
@@ -57,6 +59,26 @@ Les attributs extraits apparaissent comme n'importe quel autre attribut de
 log — filtrables dans le Logs Explorer, utilisables comme condition de règle
 d'alerte, au même titre qu'un attribut défini directement par l'application
 source.
+
+## Aperçu d'une règle avant enregistrement
+
+Cliquez sur **Preview** dans la boîte de dialogue de création/édition, à
+tout moment pendant que vous la remplissez — ce n'est pas conditionné à
+l'enregistrement préalable. Flare récupère jusqu'à 20 des logs les plus
+récents correspondant déjà à la condition **Applies to** de la règle et
+exécute les actions que vous avez configurées sur chacun d'eux, en
+mémoire, sans rien enregistrer ni toucher au trafic d'ingestion réel. Vous
+verrez un résumé (« N sur 20 logs échantillonnés changeraient ») ainsi que
+le texte avant/après de chaque log échantillonné, avec ceux qui changent
+marqués.
+
+L'aperçu s'exécute toujours sur les valeurs actuelles, non enregistrées,
+des champs de la boîte de dialogue — même en éditant une règle déjà
+enregistrée — afin de refléter le motif que vous êtes en train de saisir,
+et non la dernière version enregistrée. Si aucun log ne correspond
+actuellement à la condition, l'aperçu l'indique plutôt que d'afficher une
+liste vide ; essayez d'élargir la condition ou de choisir un service dont
+vous savez qu'il produit activement des logs.
 
 ## Cibler une règle (ne la laissez pas sans portée)
 

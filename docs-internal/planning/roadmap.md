@@ -79,18 +79,6 @@ folders are where "what happened and why" actually lives.
   i.e. computing edges from OTel Collector-side span-to-span-metrics
   connectors before spans ever reach ClickHouse, sidestepping the
   self-join-visibility problem entirely rather than working around it in SQL.
-- **Pipeline rule dry-run/preview mode.** Phase 1 (the rule engine
-  itself: regex extraction/redaction applied by `Flare.Ingest` at flush
-  time, full CRUD, dashboard management page) shipped - see
-  `docs-internal/adr/0033-pipeline-rules-extraction-redaction.md`. Still
-  open: a dry-run/preview mode before a rule is saved - run the
-  candidate extraction/redaction against a sample of recently-matching
-  logs (queried via the rule's own `LogFilter` condition) and show
-  before/after, rather than saving a rule blind. Doesn't need a real
-  OTel collector in the loop, just running `PipelineRuleExecutor`
-  in-process against sampled `LogEvent`s pulled via `/api/logs/search`.
-  Prior art: SigNoz's in-memory collector simulator
-  ([signoz#3656](https://github.com/SigNoz/signoz/commit/0ad5d671405ae7e98d61cd68ea4d45d654ef0509)).
 - **JSON-path filtering inside the raw log `Body`.** Flare's bloom-filter
   skip indices (`0001_logs.sql`) and `AttributeFilter` path only cover
   pre-extracted key/value attributes - there's no way to filter on a key

@@ -1241,6 +1241,13 @@
 	"pipelineRuleForm_replacementPlaceholder": "Замена (по умолчанию ***)",
 	"pipelineRuleForm_extractHint": "Именованные группы захвата, например (?<user_id>\\d+), становятся новыми атрибутами лога.",
 	"pipelineRuleForm_enabledLabel": "Включено",
+	"pipelineRuleForm_previewButton": "Предпросмотр",
+	"pipelineRuleForm_previewSummary": "{changed} из {sampled} выбранных логов изменятся",
+	"pipelineRuleForm_previewNoMatches": "Пока нет логов, соответствующих условию этого правила.",
+	"pipelineRuleForm_previewChangedBadge": "Изменено",
+	"pipelineRuleForm_previewUnchangedBadge": "Без изменений",
+	"pipelineRuleForm_previewBeforeLabel": "До",
+	"pipelineRuleForm_previewAfterLabel": "После",
 	"pipelineRuleForm_cancel": "Отмена",
 	"pipelineRuleForm_saveChanges": "Сохранить изменения",
 	"pipelineRuleForm_createRule": "Создать правило"

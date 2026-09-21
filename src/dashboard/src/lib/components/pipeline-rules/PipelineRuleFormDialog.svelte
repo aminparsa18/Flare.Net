@@ -9,9 +9,10 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { Badge } from '$lib/components/ui/badge';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import { pipelineRulesContext } from '$lib/pipeline-rules/context';
-	import type { PipelineRuleRequest, PipelineRuleAction, RuleActionKind } from '$lib/pipeline-rules-api';
+	import { previewDraftPipelineRule, type PipelineRuleRequest, type PipelineRuleAction, type RuleActionKind, type PipelineRulePreviewResult, type PipelineRulePreviewMatch } from '$lib/pipeline-rules-api';
 	import { aggregateLogs } from '$lib/api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
@@ -61,11 +62,18 @@
 	let search = $state('');
 	let actions = $state<ActionDraft[]>([newActionDraft()]);
 
+	let previewing = $state(false);
+	let previewResult = $state<PipelineRulePreviewResult | null>(null);
+	let previewError = $state<string | null>(null);
+
 	// Resets the draft whenever the dialog opens for a different target - same "only
 	// transitions at open/close time" reasoning AlertRuleFormDialog.svelte's own reset
-	// $effect documents.
+	// $effect documents. Preview state resets here too - stale sample matches from a
+	// previous rule/draft shouldn't linger once the target changes.
 	$effect(() => {
 		const target = pipelineRules.formTarget;
+		previewResult = null;
+		previewError = null;
 		if (target === 'new') {
 			name = '';
 			description = '';
@@ -173,6 +181,29 @@
 			await pipelineRules.create(request);
 		}
 	}
+
+	// Always previews the form's current, possibly-unsaved field values via the draft
+	// endpoint - even when editing a saved rule - so previewing an in-progress edit never
+	// falls back to the still-saved version instead. Same reasoning
+	// AlertRuleFormDialog.svelte's handleTest documents for testing a draft.
+	async function handlePreview(): Promise<void> {
+		previewing = true;
+		previewError = null;
+		try {
+			previewResult = await previewDraftPipelineRule(buildRequest());
+		} catch (err) {
+			previewResult = null;
+			previewError = err instanceof Error ? err.message : String(err);
+		} finally {
+			previewing = false;
+		}
+	}
+
+	/** Attribute keys added or changed by the rule's actions for one preview match - `Object.entries(match.afterAttributes)` filtered down to just what differs from `match.beforeAttributes`. */
+	function changedAttributes(match: PipelineRulePreviewMatch): [string, string][] {
+		const keys = new Set([...Object.keys(match.beforeAttributes), ...Object.keys(match.afterAttributes)]);
+		return [...keys].filter((key) => match.beforeAttributes[key] !== match.afterAttributes[key]).map((key) => [key, match.afterAttributes[key] ?? '']);
+	}
 </script>
 
 <Dialog.Root {open} onOpenChange={(next) => !next && pipelineRules.closeForm()}>
@@ -268,6 +299,52 @@
 				<Switch bind:checked={enabled} />
 				<span class="text-xs">{m.pipelineRuleForm_enabledLabel()}</span>
 			</div>
+
+			<div class="flex flex-wrap items-center gap-2 border-t pt-3">
+				<Button variant="outline" size="sm" onclick={handlePreview} disabled={previewing || !actions.some((a) => a.pattern.trim().length > 0)}>
+					{#if previewing}
+						<Spinner class="size-3.5" />
+					{/if}
+					{m.pipelineRuleForm_previewButton()}
+				</Button>
+				{#if previewResult}
+					{#if previewResult.sampledCount === 0}
+						<Badge variant="outline">{m.pipelineRuleForm_previewNoMatches()}</Badge>
+					{:else}
+						<Badge variant={previewResult.changedCount > 0 ? 'warning' : 'outline'}>
+							{m.pipelineRuleForm_previewSummary({ changed: previewResult.changedCount, sampled: previewResult.sampledCount })}
+						</Badge>
+					{/if}
+				{:else if previewError}
+					<span class="text-destructive text-xs">{previewError}</span>
+				{/if}
+			</div>
+
+			{#if previewResult && previewResult.matches.length > 0}
+				<div class="flex max-h-64 flex-col gap-2 overflow-y-auto rounded-md border p-2">
+					{#each previewResult.matches as match (match.eventId)}
+						<div class="flex flex-col gap-1 rounded-md p-1.5 text-xs {match.changed ? 'bg-warning/10' : ''}">
+							<div class="flex items-center gap-2">
+								<span class="text-muted-foreground">{match.serviceName}</span>
+								{#if match.changed}
+									<Badge variant="warning">{m.pipelineRuleForm_previewChangedBadge()}</Badge>
+								{:else}
+									<Badge variant="outline">{m.pipelineRuleForm_previewUnchangedBadge()}</Badge>
+								{/if}
+							</div>
+							<div class="flex flex-col gap-0.5 font-mono">
+								<span class="text-muted-foreground">{m.pipelineRuleForm_previewBeforeLabel()}: <span class="text-foreground">{match.beforeBody}</span></span>
+								{#if match.afterBody !== match.beforeBody}
+									<span class="text-muted-foreground">{m.pipelineRuleForm_previewAfterLabel()}: <span class="text-warning">{match.afterBody}</span></span>
+								{/if}
+								{#each changedAttributes(match) as [key, value] (key)}
+									<span class="text-muted-foreground">{key}: <span class="text-warning">{value}</span></span>
+								{/each}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
 
 			{#if pipelineRules.saveError}
 				<p class="text-destructive text-xs">{pipelineRules.saveError}</p>

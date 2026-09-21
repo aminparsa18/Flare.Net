@@ -17,6 +17,7 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(PipelineRuleRequest))]
 [JsonSerializable(typeof(PipelineRule))]
 [JsonSerializable(typeof(PipelineRuleListResponse))]
+[JsonSerializable(typeof(PipelineRulePreviewResult))]
 [JsonSerializable(typeof(LogFilter))]
 [JsonSerializable(typeof(IReadOnlyList<PipelineRuleAction>))]
 public sealed partial class PipelineRulesJsonContext : JsonSerializerContext;
