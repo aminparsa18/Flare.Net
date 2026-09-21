@@ -196,7 +196,7 @@ public sealed partial record MetricSeriesPoint
 {
     public required DateTimeOffset BucketStart { get; init; }
 
-    /// <summary>Gauge: average value in the bucket. Sum: <c>max(Value) - min(Value)</c> in the bucket - see <see cref="Query.MetricSeriesQueryBuilder"/>'s remarks for the known cumulative-reset caveat.</summary>
+    /// <summary>Gauge: average value in the bucket. Sum: the bucket's <c>increase()</c> - a windowed, reset-aware per-bucket delta sum, not a raw <c>max(Value) - min(Value)</c> - see <see cref="Query.MetricSeriesQueryBuilder"/>'s remarks (ADR-0035) for how it's computed.</summary>
     public double? Value { get; init; }
 
     /// <summary>

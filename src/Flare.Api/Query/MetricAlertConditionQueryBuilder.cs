@@ -20,7 +20,7 @@ public sealed record MetricAlertConditionSql(string Sql, ClickHouseParameterColl
 /// </summary>
 /// <remarks>
 /// <para><b>Gauge:</b> <c>avg(Value)</c> - only <see cref="MetricAlertAggregation.Value"/> is meaningful (see that enum's remarks).</para>
-/// <para><b>Sum:</b> <c>max(Value) - min(Value)</c> for <see cref="MetricAlertAggregation.Value"/>, <c>count()</c> for <see cref="MetricAlertAggregation.Count"/> - same monotonic-counter approximation caveat <see cref="MetricSeriesQueryBuilder"/>'s remarks document.</para>
+/// <para><b>Sum:</b> <c>max(Value) - min(Value)</c> for <see cref="MetricAlertAggregation.Value"/>, <c>count()</c> for <see cref="MetricAlertAggregation.Count"/> - the same v1 approximation <see cref="MetricSeriesQueryBuilder"/> used before ADR-0035 replaced it there with a windowed, reset-aware <c>increase()</c>. Deliberately not ported here yet: ADR-0035's roadmap item was scoped to the metrics explorer chart, not alert evaluation, and this query still has the same counter-reset-mid-window blind spot the chart used to - a real, separate gap, left open rather than silently carried over as if it were fine.</para>
 /// <para>
 /// <b>Histogram:</b> always selects <c>sum(Count)</c>, <c>sum(Sum)</c>, <c>sumForEach(BucketCounts)</c>,
 /// <c>any(ExplicitBounds)</c> regardless of <see cref="MetricAlertCondition.Aggregation"/> - the

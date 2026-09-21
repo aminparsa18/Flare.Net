@@ -60,17 +60,48 @@ public sealed record MetricSeriesSql(string Sql, ClickHouseParameterCollection P
 /// downsample.
 /// </para>
 /// <para>
-/// <b>Sum:</b> <c>max(Value) - min(Value)</c> per bucket, plus <c>count()</c> - the raw
-/// number of <c>metrics_sum</c> rows folded into the bucket, exposed as
+/// <b>Sum:</b> a per-bucket <c>increase()</c>, plus <c>count()</c> - the raw number of
+/// <c>metrics_sum</c> rows folded into the bucket, exposed as
 /// <see cref="Model.MetricSeriesPoint.Count"/> for the chart's "Count" aggregation-mode
-/// option. The <c>max - min</c> delta is the v1 approximation documented in Planning.md's
-/// v6 as a named, deliberately-unresolved limitation: correct for a monotonic, cumulative
-/// counter with no resets inside the bucket (the overwhelmingly common .NET case -
-/// ASP.NET Core/System.Runtime instrumentation), but a process restart or counter reset
-/// mid-bucket will read as a dip rather than the true increase. Not branched on
-/// <c>AggregationTemporality</c>/<c>IsMonotonic</c> in v1 - doing that correctly (delta
-/// sums want <c>sum(Value)</c>, not <c>max - min</c>) is a real, separate piece of work
-/// flagged for a later pass, not silently half-solved here.
+/// option. Dividing the bucket's increase by its width (done client-side, in
+/// <c>MetricChart.svelte</c>'s "Rate" mode) is what turns this into a <c>rate()</c> -
+/// see ADR-0035 for why that division stays a client-side reshape rather than a second
+/// server-side query shape. Superseded the old <c>max(Value) - min(Value)</c> v1
+/// approximation (ADR-0035): that read as a dip, not the true increase, across a counter
+/// reset (process restart) mid-bucket, and never branched on <c>AggregationTemporality</c>
+/// at all, silently treating delta-temporality points as if they were cumulative.
+/// </para>
+/// <para>
+/// <b>Sum query shape</b> (see <see cref="BuildSumSql"/>): unlike Gauge/Histogram, this
+/// isn't a single flat <c>GROUP BY</c> - a per-bucket increase needs each raw row's delta
+/// from its immediately-preceding row first, computed with ClickHouse window functions
+/// (<c>row_number()</c>/<c>lagInFrame()</c>) over a <c>WITH ranked AS (...)</c> CTE, then
+/// summed per bucket in the outer query. <c>PARTITION BY ServiceName,
+/// toString(DataPointAttributes)</c> - always the <em>full, ungrouped</em> attribute map,
+/// never <see cref="Model.MetricQueryRequest.GroupByAttributeKey"/>'s collapsed
+/// <c>SeriesKey</c> - is deliberate: a counter's actual identity (what it resets
+/// independently of) is its full <c>DataPointAttributes</c>, regardless of which key the
+/// request happens to be grouping the chart by. Windowing over the collapsed key instead
+/// would interleave two unrelated counters' values by timestamp and diff across them -
+/// a real correctness bug, not a cosmetic one. Per-row classification, via a single
+/// <c>multiIf</c>:
+/// <list type="bullet">
+/// <item>Delta temporality: the row's own <c>Value</c> is already a delta - summed as-is,
+/// no windowing needed for it (the window columns are computed anyway since temporality is
+/// per-row, not knowable until this far into the query).</item>
+/// <item>The partition's first row (<c>row_number() = 1</c>): contributes 0 - there is no
+/// preceding row in the requested window to diff against, so counting <c>Value</c> itself
+/// here would overcount the very first bucket by the counter's entire lifetime-so-far.</item>
+/// <item>Non-monotonic cumulative (<c>IsMonotonic = 0</c>, an OTel UpDownCounter): the raw
+/// <c>lagInFrame</c> delta as-is, negative or not - a legitimate decrease isn't a reset for
+/// a counter that's allowed to go down.</item>
+/// <item>Monotonic cumulative with a negative delta: treated as a reset - the current
+/// <c>Value</c> is used in place of the (meaningless, negative) delta, the same
+/// reset-compensation heuristic Prometheus/SigNoz's <c>lagInFrame</c> pattern uses (assumes
+/// the counter restarted at/near zero, so its current value approximates the increase
+/// since the reset).</item>
+/// <item>Otherwise: the plain <c>lagInFrame</c> delta.</item>
+/// </list>
 /// </para>
 /// <para>
 /// <b>Histogram:</b> <c>sum(Count)</c>/<c>sum(Sum)</c> per bucket, plus
@@ -126,18 +157,15 @@ public static class MetricSeriesQueryBuilder
         filterSql.Parameters.AddParameter("topN", (uint)topN);
 
         var table = MetricTables.For(request.Type);
-        var valueSelect = request.Type switch
-        {
-            MetricPointType.Gauge => "avg(Value) AS Value",
-            MetricPointType.Sum => "max(Value) - min(Value) AS Value, count() AS Count",
-            MetricPointType.Histogram => "sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds",
-            _ => throw new ArgumentOutOfRangeException(nameof(request), request.Type, "Unknown metric point type."),
-        };
 
-        // Same per-type aggregate valueSelect uses, minus the alias - the magnitude a
-        // series is ranked by for the top-N cap above. Deliberately the whole-window
-        // aggregate (no BucketStart in the ranking subquery's GROUP BY), not a per-bucket
-        // one: "top 10 hosts" means top over the requested range, not top-in-the-first-bucket.
+        // Same per-type aggregate magnitude used both to rank series for the top-N cap
+        // below and (Gauge/Histogram only - see BuildSumSql for Sum) as the bucketed
+        // value itself. Deliberately the whole-window aggregate (no BucketStart in the
+        // ranking subquery's GROUP BY), not a per-bucket one: "top 10 hosts" means top
+        // over the requested range, not top-in-the-first-bucket. Sum's ranking stays the
+        // same rough max-min magnitude as before BuildSumSql's window-function rewrite -
+        // it only decides which series make the top-N cut, not any value a caller sees,
+        // so it doesn't need the same reset-correctness the actual bucketed value now has.
         var rankExpr = request.Type switch
         {
             MetricPointType.Gauge => "avg(Value)",
@@ -184,7 +212,24 @@ public static class MetricSeriesQueryBuilder
             "  LIMIT {topN:UInt32}\n" +
             ")";
 
-        var sql = "SELECT toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
+        var sql = request.Type == MetricPointType.Sum
+            ? BuildSumSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr)
+            : BuildSimpleSql(request.Type, table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr);
+
+        return new MetricSeriesSql(sql, filterSql.Parameters, request.Type);
+    }
+
+    /// <summary>Gauge/Histogram: one flat <c>GROUP BY</c>, unchanged from before <see cref="BuildSumSql"/> split off Sum's own shape.</summary>
+    private static string BuildSimpleSql(MetricPointType type, string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr)
+    {
+        var valueSelect = type switch
+        {
+            MetricPointType.Gauge => "avg(Value) AS Value",
+            MetricPointType.Histogram => "sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds",
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown metric point type."),
+        };
+
+        return "SELECT toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
             $"ServiceName, {seriesKeyExpr}, {seriesAttributesExpr}, " +
             $"{valueSelect}\n" +
             $"FROM {table}\n" +
@@ -192,7 +237,33 @@ public static class MetricSeriesQueryBuilder
             $"  AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n  )\n" +
             "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
             "ORDER BY ServiceName, SeriesKey, BucketStart";
-
-        return new MetricSeriesSql(sql, filterSql.Parameters, request.Type);
     }
+
+    /// <summary>
+    /// Sum's own query shape - a per-bucket <c>increase()</c> via window functions, not a
+    /// flat <c>GROUP BY</c>. See this class's own remarks (the "Sum query shape" paragraph)
+    /// for the full reasoning, and ADR-0035 for the design decision this implements.
+    /// </summary>
+    private static string BuildSumSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr) =>
+        "WITH ranked AS (\n" +
+        $"  SELECT ServiceName, DataPointAttributes, {seriesKeyExpr}, " +
+        "toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
+        "Value, AggregationTemporality, IsMonotonic,\n" +
+        "    row_number() OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS SeriesRowNum,\n" +
+        "    Value - lagInFrame(Value) OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS RawDelta\n" +
+        $"  FROM {table}\n" +
+        $"  WHERE {whereSql}\n" +
+        $"    AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n    )\n" +
+        ")\n" +
+        $"SELECT BucketStart, ServiceName, SeriesKey, {seriesAttributesExpr},\n" +
+        "  sum(multiIf(\n" +
+        "    AggregationTemporality = 'AGGREGATION_TEMPORALITY_DELTA', Value,\n" +
+        "    SeriesRowNum = 1, 0,\n" +
+        "    IsMonotonic = 0, RawDelta,\n" +
+        "    RawDelta < 0, Value,\n" +
+        "    RawDelta\n" +
+        "  )) AS Value, count() AS Count\n" +
+        "FROM ranked\n" +
+        "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
+        "ORDER BY ServiceName, SeriesKey, BucketStart";
 }

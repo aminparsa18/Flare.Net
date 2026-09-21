@@ -31,13 +31,23 @@ public class MetricSeriesQueryBuilderTests
     }
 
     [Fact]
-    public void Build_Sum_SelectsFromSumTable_WithMaxMinusMin()
+    public void Build_Sum_SelectsFromSumTable_WithWindowedIncrease()
     {
         var result = MetricSeriesQueryBuilder.Build(
             new MetricQueryRequest { MetricName = "http.server.request.count", Type = MetricPointType.Sum, BucketWidthSeconds = 60 }, Now);
 
         Assert.Contains("FROM metrics_sum", result.Sql);
-        Assert.Contains("max(Value) - min(Value) AS Value, count() AS Count", result.Sql);
+        // The CTE-based per-bucket increase() shape (ADR-0035), not the old flat
+        // max(Value) - min(Value) GROUP BY.
+        Assert.Contains("WITH ranked AS (", result.Sql);
+        Assert.Contains("row_number() OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS SeriesRowNum", result.Sql);
+        Assert.Contains("Value - lagInFrame(Value) OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS RawDelta", result.Sql);
+        Assert.Contains("sum(multiIf(", result.Sql);
+        Assert.Contains("AggregationTemporality = 'AGGREGATION_TEMPORALITY_DELTA', Value", result.Sql);
+        Assert.Contains("SeriesRowNum = 1, 0", result.Sql);
+        Assert.Contains("IsMonotonic = 0, RawDelta", result.Sql);
+        Assert.Contains("RawDelta < 0, Value", result.Sql);
+        Assert.Contains(")) AS Value, count() AS Count", result.Sql);
     }
 
     [Fact]
@@ -128,9 +138,11 @@ public class MetricSeriesQueryBuilderTests
 
         Assert.Contains("DataPointAttributes[{groupByKey:String}] AS SeriesKey", result.Sql);
         Assert.Contains("map({groupByKey:String}, any(DataPointAttributes[{groupByKey:String}])) AS SeriesAttributes", result.Sql);
-        // Grouping mode doesn't change the per-type value expression - still a true
-        // aggregate, just over a wider group.
-        Assert.Contains("max(Value) - min(Value) AS Value, count() AS Count", result.Sql);
+        // Grouping mode collapses the *output* SeriesKey, but the window functions computing
+        // each counter's per-row delta must still partition by the full, ungrouped attribute
+        // map - windowing over the collapsed key would diff two unrelated counters against
+        // each other (see the builder's "Sum query shape" remarks).
+        Assert.Contains("row_number() OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS SeriesRowNum", result.Sql);
         Assert.Contains("GROUP BY BucketStart, ServiceName, SeriesKey", result.Sql);
         Assert.Contains("ORDER BY ServiceName, SeriesKey, BucketStart", result.Sql);
     }

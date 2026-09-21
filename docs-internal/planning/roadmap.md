@@ -93,18 +93,19 @@ folders are where "what happened and why" actually lives.
   ([signoz#3949](https://github.com/SigNoz/signoz/commit/12819113c14e3a29ac773b22e114f8b879e6e870),
   [signoz#3974](https://github.com/SigNoz/signoz/commit/9333fdcd0b3ba922febcd84dca33662fb08d81ff),
   [signoz#4002](https://github.com/SigNoz/signoz/commit/4009ac83febfd1aee122d2075acb0edde5af4bfd)).
-- **Cumulative-counter `rate()`/`increase()` metric aggregation.** Flare's
-  metrics explorer/`MetricSeriesQueryBuilder` deliberately doesn't
-  compute a rate or increase over a cumulative counter today (a named,
-  unresolved limitation in that file's own remarks: sums want
-  `sum(Value)`, not `max - min`, and a naive running difference breaks
-  on counter resets and on ClickHouse not guaranteeing row order across
-  partitions). Not started; no design chosen yet. Prior art worth
-  copying the shape of, not just the idea: SigNoz's `WINDOW ... PARTITION
-  BY <series> ORDER BY ts` + `lagInFrame` pattern, which explicitly
-  handles negative deltas (counter resets) and doesn't depend on
-  ClickHouse's incidental row order the way `runningDifference` did
-  ([signoz#4166](https://github.com/SigNoz/signoz/commit/29b134455747099fa63292ef1fa0b7f05e13e231)).
+- **Metric-threshold alert evaluation still has the counter-reset blind
+  spot `MetricSeriesQueryBuilder`'s chart query used to have.**
+  `MetricAlertConditionQueryBuilder` (ADR-0020) still computes Sum's
+  `Value` as `max(Value) - min(Value)` over the whole evaluation window,
+  same as `MetricSeriesQueryBuilder` did before ADR-0035 replaced that
+  with a windowed, reset-aware `increase()` there. A counter reset
+  (process restart) mid-window can still read as a dip - or a wrongly
+  negative threshold comparison - for an alert rule, not just a chart.
+  Not started; surfaced as a named, separate gap while shipping
+  ADR-0035, not silently ported alongside it. Same window-function
+  approach that ADR-0035 already validated against real ClickHouse
+  should carry over here, adapted to a single whole-window scalar
+  instead of a bucketed series.
 - **Small dashboard/trace UX polish, worth batching into one PR
   eventually rather than three:** (a) a hover popover on trace waterfall
   spans showing duration/start-time without navigating away
