@@ -8,6 +8,7 @@
 	import StackTraceViewer from './StackTraceViewer.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import { severityVariant } from '$lib/logs/severity';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { formatDurationNano } from '$lib/traces/duration';
@@ -75,12 +76,46 @@
 		{#if explorer.selectedEvent}
 			{@const event = explorer.selectedEvent}
 			<Sheet.Header>
-				<Sheet.Title class="flex flex-wrap items-center gap-2">
+				<!-- pr-12 - Sheet.Content's default close "X" is absolutely positioned
+				     (top-4 right-4, ~24px wide), not part of this header's own flex flow, so
+				     without this the "View context" button below can render directly under
+				     it and steal its clicks (live-verified via playwright-cli). -->
+				<Sheet.Title class="flex flex-wrap items-center gap-2 pr-12">
 					<Badge variant={severityVariant(event.severityNumber)}>{event.severityText || '—'}</Badge>
 					{event.serviceName || '—'}
 					{#if event.eventName}
 						<span class="text-muted-foreground font-normal">· {event.eventName}</span>
 					{/if}
+					<Button
+						variant="outline"
+						size="sm"
+						class="ml-auto"
+						onclick={() => {
+							// Clears selectedEventId (closing this sheet) *before* opening
+							// context - two independent bits-ui Sheet.Root instances open at
+							// once don't compose cleanly (the hidden one's close button stayed
+							// hit-testable *above* the new one, live-verified via
+							// playwright-cli). LogContextSheet's own `open` condition mirrors
+							// this by excluding itself whenever selectedEventId is set, so
+							// clicking a context row to open its detail - then closing that
+							// detail sheet - naturally reopens the context view it came from,
+							// with no extra bookkeeping needed in either direction.
+							explorer.selectedEventId = null;
+							// setTimeout, not a direct call: opening LogContextSheet synchronously
+							// within this still-bubbling click handler let its freshly-mounted
+							// outside-click listener catch the tail of *this same* click and
+							// immediately self-close (live-verified via playwright-cli - the
+							// sheet never appeared and /api/logs/context was never even sent,
+							// since the abort from that self-close raced the fetch). Deferring to
+							// the next tick lets the current click's document-level dispatch
+							// finish first, same fix this class of dialog-library race always
+							// takes.
+							setTimeout(() => void explorer.openContext(event), 0);
+						}}
+					>
+						<ArrowUpDownIcon />
+						{m.eventDetail_viewContext()}
+					</Button>
 				</Sheet.Title>
 				<Sheet.Description>{formatTimestamp(event.timestamp)}</Sheet.Description>
 			</Sheet.Header>

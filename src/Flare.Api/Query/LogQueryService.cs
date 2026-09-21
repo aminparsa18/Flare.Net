@@ -9,6 +9,9 @@ public interface ILogQueryService
 {
     Task<LogSearchResponse> SearchAsync(LogSearchRequest request, CancellationToken cancellationToken);
 
+    /// <summary>The Logs "context" view/permalink: events immediately before/after one anchor event. See <see cref="LogContextQueryBuilder"/>.</summary>
+    Task<LogContextResponse> GetContextAsync(LogContextRequest request, CancellationToken cancellationToken);
+
     Task<LogAggregateResponse> AggregateAsync(LogAggregateRequest request, CancellationToken cancellationToken);
 
     /// <summary>
@@ -141,6 +144,70 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
             durations.TryGetValue((e.TraceId, e.SpanId), out var duration)
                 ? e with { SpanDurationNano = duration }
                 : e);
+    }
+
+    /// <summary>
+    /// Runs <see cref="LogContextQueryBuilder"/>'s three queries sequentially (anchor,
+    /// then before, then after) against the one shared <see cref="client"/> - same
+    /// "single client, sequential awaits" shape <see cref="WithSpanDurationsAsync"/>
+    /// already uses for its own follow-up query, not run concurrently.
+    /// </summary>
+    public async Task<LogContextResponse> GetContextAsync(LogContextRequest request, CancellationToken cancellationToken)
+    {
+        var built = LogContextQueryBuilder.Build(request);
+
+        LogEventDto? anchor = null;
+        await using (var anchorReader = await client.ExecuteReaderAsync(built.Anchor.Sql, built.Anchor.Parameters, SafetyOptions(), cancellationToken))
+        {
+            if (anchorReader.Read())
+            {
+                anchor = ReadLogEvent(anchorReader);
+            }
+        }
+
+        var beforeRows = new List<LogEventDto>();
+        await using (var beforeReader = await client.ExecuteReaderAsync(built.Before.Sql, built.Before.Parameters, SafetyOptions(), cancellationToken))
+        {
+            while (beforeReader.Read())
+            {
+                beforeRows.Add(ReadLogEvent(beforeReader));
+            }
+        }
+
+        var afterRows = new List<LogEventDto>();
+        await using (var afterReader = await client.ExecuteReaderAsync(built.After.Sql, built.After.Parameters, SafetyOptions(), cancellationToken))
+        {
+            while (afterReader.Read())
+            {
+                afterRows.Add(ReadLogEvent(afterReader));
+            }
+        }
+
+        var hasMoreBefore = beforeRows.Count > built.BeforeLimit;
+        var before = hasMoreBefore ? beforeRows.GetRange(0, built.BeforeLimit) : beforeRows;
+
+        var hasMoreAfter = afterRows.Count > built.AfterLimit;
+        var after = hasMoreAfter ? afterRows.GetRange(0, built.AfterLimit) : afterRows;
+        // afterRows came back Timestamp ASC (nearest-to-anchor first) so LIMIT+1 trims the
+        // *furthest* row - reverse back to the response's overall DESC convention.
+        after.Reverse();
+
+        var events = new List<LogEventDto>(before.Count + (anchor != null ? 1 : 0) + after.Count);
+        events.AddRange(before);
+        if (anchor != null)
+        {
+            events.Add(anchor);
+        }
+
+        events.AddRange(after);
+
+        return new LogContextResponse
+        {
+            Events = events,
+            AnchorEventId = request.EventId,
+            HasMoreBefore = hasMoreBefore,
+            HasMoreAfter = hasMoreAfter,
+        };
     }
 
     public async Task<LogAggregateResponse> AggregateAsync(LogAggregateRequest request, CancellationToken cancellationToken)

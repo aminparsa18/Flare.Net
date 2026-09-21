@@ -25,6 +25,7 @@ public static class LogsEndpoints
         endpoints.MapPost("/api/logs/value-distribution", HandleValueDistributionAsync);
         endpoints.MapPost("/api/logs/attribute-values", HandleAttributeValuesAsync);
         endpoints.MapPost("/api/logs/query", HandleQlQueryAsync);
+        endpoints.MapPost("/api/logs/context", HandleContextAsync);
         return endpoints;
     }
 
@@ -217,5 +218,29 @@ public static class LogsEndpoints
             // - reaches SqlQueryRow.svelte verbatim via runLogQlQuery's Problem-body read.
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
+    }
+
+    private static async Task<IResult> HandleContextAsync(
+        HttpContext http,
+        ILogQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        LogContextRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, LogsJsonContext.Default.LogContextRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await queryService.GetContextAsync(request, cancellationToken);
+        return ApiSerialization.Write(http, response, LogsJsonContext.Default.LogContextResponse);
     }
 }

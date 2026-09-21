@@ -79,13 +79,6 @@ folders are where "what happened and why" actually lives.
   i.e. computing edges from OTel Collector-side span-to-span-metrics
   connectors before spans ever reach ClickHouse, sidestepping the
   self-join-visibility problem entirely rather than working around it in SQL.
-- **Logs "context" view + permalink to a specific log line.** Clicking a
-  log line would show the N lines immediately before/after it in time,
-  with a shareable deep link to that exact line. Not started - would
-  layer on the existing keyset-pagination cursor (query rows with
-  `(Timestamp, EventId)` just above/below the clicked row). Prior art:
-  SigNoz's logs-context feature
-  ([signoz#3190](https://github.com/SigNoz/signoz/commit/5f89e84eafa7b34c299c0606783e012d4a76c77d)).
 - **Per-panel visual thresholds / conditional formatting.** Dashboard
   panels have no way to say "color this red above X" - purely visual
   styling (background/text color on Value panels, a horizontal line on

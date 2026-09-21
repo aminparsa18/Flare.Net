@@ -5,7 +5,7 @@
 	import { LogsExplorerState } from '$lib/logs/state.svelte';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
-	import { parseLogsDeepLinkParams } from '$lib/deep-links';
+	import { parseLogsDeepLinkParams, parseLogContextDeepLinkParams } from '$lib/deep-links';
 	import { getHomeDashboardId } from '$lib/dashboards/home-preference';
 	import { dashboardPath } from '$lib/dashboards/page-paths';
 	import LogsToolbar from '$lib/components/logs/LogsToolbar.svelte';
@@ -16,6 +16,7 @@
 	import SqlQueryRow from '$lib/components/logs/SqlQueryRow.svelte';
 	import LogTable from '$lib/components/logs/LogTable.svelte';
 	import EventDetailSheet from '$lib/components/logs/EventDetailSheet.svelte';
+	import LogContextSheet from '$lib/components/logs/LogContextSheet.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.set(new LogsExplorerState());
@@ -60,6 +61,15 @@
 				void explorer.runSearch();
 			}
 			void explorer.loadKnownServices();
+
+			// A `?context=`/`?ts=` permalink (LogContextSheet's "Copy link") opens the
+			// context sheet *on top of* whatever the branches above just loaded, rather
+			// than replacing them - unlike `?view=`/the Metrics deep link, it isn't a
+			// request to change the underlying search at all, see its own remarks.
+			const contextDeepLink = parseLogContextDeepLinkParams(page.url);
+			if (contextDeepLink) {
+				explorer.openContextFromDeepLink(contextDeepLink);
+			}
 		})();
 	});
 
@@ -86,3 +96,4 @@
 	</div>
 </div>
 <EventDetailSheet />
+<LogContextSheet />
