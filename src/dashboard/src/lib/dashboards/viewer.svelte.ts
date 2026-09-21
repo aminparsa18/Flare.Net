@@ -333,6 +333,23 @@ export class DashboardViewerState {
 		}
 	}
 
+	/** Sets/clears `panelId`'s soft Y-axis min/max override (`DashboardPanel.yAxisMin`/
+	 *  `yAxisMax` - roadmap's "Soft Y-axis min/max on metric charts" item) - a layout-level
+	 *  field (persisted per panel, like `title`/`excludedVariableIds`), so it goes through
+	 *  `#saveLayout` the same way `setPanelVariableExcluded` above does rather than
+	 *  local-only state. `null` for either bound means "auto". */
+	async setPanelYAxisBounds(panelId: string, yAxisMin: number | null, yAxisMax: number | null): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, yAxisMin: yAxisMin ?? undefined, yAxisMax: yAxisMax ?? undefined } : p))
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	async removePanel(panelId: string): Promise<void> {
 		const dashboard = this.dashboard;
 		if (!dashboard) return;

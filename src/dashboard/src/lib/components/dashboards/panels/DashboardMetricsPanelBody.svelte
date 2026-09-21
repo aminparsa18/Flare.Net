@@ -34,12 +34,19 @@
 		query,
 		timeRangeOverride,
 		variableOverrides,
-		refreshToken
+		refreshToken,
+		yAxisMin,
+		yAxisMax
 	}: {
 		query: unknown;
 		timeRangeOverride: TimeRangePreset | null;
 		variableOverrides: ResolvedVariableOverrides;
 		refreshToken: number;
+		/** This panel's own `DashboardPanel.yAxisMin`/`yAxisMax` - passed straight through to
+		 *  MetricChart, see its own `domainMin`/`domainMax` remarks for how a soft bound is
+		 *  applied. */
+		yAxisMin?: number | null;
+		yAxisMax?: number | null;
 	} = $props();
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
@@ -86,4 +93,4 @@
 	});
 </script>
 
-<MetricChart allowZoom={false} />
+<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} />

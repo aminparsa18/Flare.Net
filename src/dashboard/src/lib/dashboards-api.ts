@@ -43,6 +43,19 @@ export interface DashboardPanel {
 	 * dependsOnVariableId` already has.
 	 */
 	excludedVariableIds?: string[];
+	/**
+	 * Soft Y-axis floor/ceiling for a `Metrics` panel's chart (roadmap's "Soft Y-axis
+	 * min/max on metric charts" item) - `undefined`/`null` on either means "auto" (the
+	 * chart's own default, floored/ceilinged to the data itself, same as before this field
+	 * existed). *Soft*: the axis still expands past a configured bound if the data actually
+	 * exceeds it - it narrows the default view, it never clips a real point off the chart.
+	 * Meaningless for `Logs`/`Traces` panels (VolumeChart has no configurable axis), same
+	 * "field exists on the shared shape, only one panel type ever sets it" posture
+	 * `excludedVariableIds` predates this with for variable-less dashboards. See
+	 * MetricChart.svelte's `domainMin`/`domainMax` for how this is applied.
+	 */
+	yAxisMin?: number | null;
+	yAxisMax?: number | null;
 }
 
 /**

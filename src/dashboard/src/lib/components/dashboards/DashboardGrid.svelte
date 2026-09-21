@@ -38,7 +38,8 @@
 		onRename,
 		onDuplicate,
 		onExport,
-		onToggleVariable
+		onToggleVariable,
+		onSetYAxisBounds
 	}: {
 		panels: DashboardPanel[];
 		editing: boolean;
@@ -53,6 +54,7 @@
 		onDuplicate: (id: string) => void;
 		onExport: (id: string) => void;
 		onToggleVariable: (id: string, variableId: string, excluded: boolean) => void;
+		onSetYAxisBounds: (id: string, min: number | null, max: number | null) => void;
 	} = $props();
 
 	let container: HTMLDivElement;
@@ -130,6 +132,7 @@
 					onDuplicate={() => onDuplicate(panel.id)}
 					onExport={() => onExport(panel.id)}
 					onToggleVariable={(variableId, excluded) => onToggleVariable(panel.id, variableId, excluded)}
+					onSetYAxisBounds={(min, max) => onSetYAxisBounds(panel.id, min, max)}
 				/>
 			</div>
 		</div>

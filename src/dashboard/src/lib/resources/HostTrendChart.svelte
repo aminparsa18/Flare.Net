@@ -53,7 +53,7 @@
 
 	const peakValue = $derived(Math.max(0, ...points.map((p) => p.raw)));
 	const axisScale = $derived(resolveAxisScale(METRICS[metric].unit, peakValue));
-	const ticks = $derived(niceAxisTicks(peakValue, axisScale));
+	const ticks = $derived(niceAxisTicks(0, peakValue, axisScale));
 	const maxValue = $derived(Math.max(1e-9, ticks.max));
 
 	function xFor(index: number): number {
