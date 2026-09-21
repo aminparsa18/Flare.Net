@@ -1,4 +1,5 @@
 using Flare.Identity;
+using Flare.Identity.Apdex;
 using Flare.Identity.Auth;
 using Flare.Identity.IngestKeys;
 using Flare.Identity.PersonalAccessTokens;
@@ -38,6 +39,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<ILdapSettingsStore, SqliteLdapSettingsStore>();
         builder.Services.AddSingleton<IOidcSettingsStore, SqliteOidcSettingsStore>();
         builder.Services.AddSingleton<IProxyAuthSettingsStore, SqliteProxyAuthSettingsStore>();
+        builder.Services.AddSingleton<IApdexThresholdStore, SqliteApdexThresholdStore>();
         return builder;
     }
 

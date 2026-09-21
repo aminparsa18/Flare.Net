@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using Flare.Api.Model;
+using Flare.Identity.Apdex;
 using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
@@ -24,8 +25,18 @@ public interface IServiceOverviewQueryService
 /// Both <see cref="ServiceMetricsQueryBuilder"/> (pre-aggregated) and
 /// <see cref="ServiceOverviewQueryBuilder"/> (live) produce the same 6-column result shape,
 /// so <see cref="BuildMetrics"/> maps either one's reader unchanged.
+/// <para>
+/// Apdex (<see cref="ServiceApdexQueryBuilder"/>) is a separate, always-live query, run
+/// regardless of which of the two tables above serves the RED metrics - see
+/// docs-internal/adr/0032-apdex-score-per-service.md for why it can't share
+/// <see cref="ServiceMetricsQueryBuilder"/>'s pre-aggregated path.
+/// </para>
 /// </remarks>
-public sealed class ServiceOverviewQueryService(IClickHouseClient client, TimeProvider timeProvider, IOptions<ServiceMetricsOptions> serviceMetricsOptions) : IServiceOverviewQueryService
+public sealed class ServiceOverviewQueryService(
+    IClickHouseClient client,
+    TimeProvider timeProvider,
+    IOptions<ServiceMetricsOptions> serviceMetricsOptions,
+    IApdexThresholdStore apdexThresholdStore) : IServiceOverviewQueryService
 {
     /// <summary>Converts a ClickHouse <c>DurationNano</c> quantile (nanoseconds) to milliseconds for the DTO.</summary>
     private const double NanosPerMilli = 1_000_000.0;
@@ -35,6 +46,9 @@ public sealed class ServiceOverviewQueryService(IClickHouseClient client, TimePr
         var windowMinutes = ServiceOverviewQueryBuilder.ClampWindowMinutes(requestedWindowMinutes);
         var window = TimeSpan.FromMinutes(windowMinutes);
         var now = timeProvider.GetUtcNow();
+
+        var thresholdOverrides = await apdexThresholdStore.GetAllAsync(cancellationToken);
+        var apdexCounts = await GetApdexCountsAsync(window, now, thresholdOverrides, resourceAttributes, cancellationToken);
 
         // The pre-aggregated service_metrics table (ADR-0030) has no dimension for the
         // Services tab's arbitrary resource-attribute filter chips - only queried when
@@ -62,24 +76,50 @@ public sealed class ServiceOverviewQueryService(IClickHouseClient client, TimePr
         var services = new List<ServiceMetrics>();
         while (reader.Read())
         {
+            var serviceName = reader.GetString(0);
+            apdexCounts.TryGetValue(serviceName, out var apdex);
             services.Add(BuildMetrics(
-                serviceName: reader.GetString(0),
+                serviceName: serviceName,
                 requestCount: reader.GetFieldValue<ulong>(1),
                 errorCount: reader.GetFieldValue<ulong>(2),
                 p50DurationNano: reader.GetDouble(3),
                 p95DurationNano: reader.GetDouble(4),
                 p99DurationNano: reader.GetDouble(5),
-                window: window));
+                window: window,
+                apdexSatisfiedCount: apdex.Satisfied,
+                apdexToleratingCount: apdex.Tolerating,
+                apdexThresholdMs: thresholdOverrides.GetValueOrDefault(serviceName, ServiceApdexQueryBuilder.DefaultThresholdMs)));
         }
 
         return new ServiceOverviewResponse { WindowMinutes = windowMinutes, Services = services };
     }
 
+    /// <summary>Runs <see cref="ServiceApdexQueryBuilder"/> and collects its rows into a
+    /// per-service lookup. Always live - see this class's remarks.</summary>
+    private async Task<Dictionary<string, (ulong Satisfied, ulong Tolerating)>> GetApdexCountsAsync(
+        TimeSpan window,
+        DateTimeOffset now,
+        IReadOnlyDictionary<string, int> thresholdOverrides,
+        IReadOnlyList<ResourceAttributeFilter>? resourceAttributes,
+        CancellationToken cancellationToken)
+    {
+        var built = ServiceApdexQueryBuilder.Build(window, now, thresholdOverrides, resourceAttributes);
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var counts = new Dictionary<string, (ulong Satisfied, ulong Tolerating)>();
+        while (reader.Read())
+        {
+            counts[reader.GetString(0)] = (reader.GetFieldValue<ulong>(1), reader.GetFieldValue<ulong>(2));
+        }
+
+        return counts;
+    }
+
     /// <summary>
     /// One ClickHouse row -&gt; <see cref="ServiceMetrics"/>, with no <see cref="IClickHouseClient"/>
     /// dependency - split out purely so the derived-stat math (error rate, requests/sec,
-    /// the nanosecond-&gt;millisecond conversion) is unit-testable directly, same "test the
-    /// pure function" precedent as <c>HistogramQuantileEstimator</c>/
+    /// the nanosecond-&gt;millisecond conversion, Apdex) is unit-testable directly, same
+    /// "test the pure function" precedent as <c>HistogramQuantileEstimator</c>/
     /// <c>IngestionStatsQueryService.BuildBuckets</c>. <c>internal</c>, not <c>private</c> -
     /// see <c>Flare.Api.csproj</c>'s <c>InternalsVisibleTo</c> for
     /// <c>Flare.Api.Tests</c>.
@@ -91,7 +131,10 @@ public sealed class ServiceOverviewQueryService(IClickHouseClient client, TimePr
         double p50DurationNano,
         double p95DurationNano,
         double p99DurationNano,
-        TimeSpan window) =>
+        TimeSpan window,
+        ulong apdexSatisfiedCount,
+        ulong apdexToleratingCount,
+        int apdexThresholdMs) =>
         new()
         {
             ServiceName = serviceName,
@@ -106,6 +149,8 @@ public sealed class ServiceOverviewQueryService(IClickHouseClient client, TimePr
             P50DurationMs = p50DurationNano / NanosPerMilli,
             P95DurationMs = p95DurationNano / NanosPerMilli,
             P99DurationMs = p99DurationNano / NanosPerMilli,
+            ApdexScore = ApdexScoreCalculator.Calculate(apdexSatisfiedCount, apdexToleratingCount, requestCount),
+            ApdexThresholdMs = apdexThresholdMs,
         };
 
     /// <summary>Same scan/time safety cap as <see cref="SpanQueryService.SafetyOptions"/>.</summary>
