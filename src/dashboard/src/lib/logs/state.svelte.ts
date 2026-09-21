@@ -11,7 +11,8 @@ import {
 	type LogFilter,
 	type LiveTailStatus,
 	type LiveTailConnection,
-	type AttributeFilter
+	type AttributeFilter,
+	type BodyJsonFilter
 } from '$lib/api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from './time-range';
 import { addRecentSearch } from './recent-searches';
@@ -59,6 +60,12 @@ export interface LogsFilterState {
 	 * control, not a one-off drill-down.
 	 */
 	attributeFilters: AttributeFilter[];
+	/**
+	 * User-built JSON-path filters into `Body` (BodyJsonFiltersRow.svelte's expandable
+	 * builder section) - ANDed together with everything else (see buildFilter). Same
+	 * "ordinary, editable, part of a saved view" status as `attributeFilters`.
+	 */
+	bodyJsonFilters: BodyJsonFilter[];
 }
 
 /**
@@ -74,6 +81,7 @@ export interface LogsSavedViewState {
 	severityNumbers: number[];
 	search: string;
 	attributeFilters: AttributeFilter[];
+	bodyJsonFilters: BodyJsonFilter[];
 }
 
 export class LogsExplorerState {
@@ -85,7 +93,8 @@ export class LogsExplorerState {
 		search: '',
 		patternId: '',
 		attribute: null,
-		attributeFilters: []
+		attributeFilters: [],
+		bodyJsonFilters: []
 	});
 
 	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
@@ -182,6 +191,7 @@ export class LogsExplorerState {
 		// the resulting parameter names.
 		const attributes = [...(this.filter.attribute ? [this.filter.attribute] : []), ...(attributeFiltersOverride ?? this.filter.attributeFilters)];
 		if (attributes.length) filter.attributes = attributes;
+		if (this.filter.bodyJsonFilters.length) filter.bodyJsonFilters = [...this.filter.bodyJsonFilters];
 		return filter;
 	}
 
@@ -351,6 +361,13 @@ export class LogsExplorerState {
 		this.applyFilterChange();
 	}
 
+	/** Wholesale-replaces the user-built JSON-path filters into Body (BodyJsonFiltersRow.svelte) - same "one setter, caller passes the full next array" shape as setAttributeFilters. */
+	setBodyJsonFilters(bodyJsonFilters: BodyJsonFilter[]): void {
+		this.selectedBucketRange = null;
+		this.filter.bodyJsonFilters = bodyJsonFilters;
+		this.applyFilterChange();
+	}
+
 	setSeverityNumbers(severityNumbers: number[]): void {
 		this.selectedBucketRange = null;
 		this.filter.severityNumbers = severityNumbers;
@@ -374,6 +391,7 @@ export class LogsExplorerState {
 			this.filter.services.length > 0 ||
 			this.filter.severityNumbers.length > 0 ||
 			this.filter.attributeFilters.length > 0 ||
+			this.filter.bodyJsonFilters.length > 0 ||
 			this.filter.patternId !== '' ||
 			this.filter.attribute !== null
 		);
@@ -393,6 +411,7 @@ export class LogsExplorerState {
 		this.filter.services = [];
 		this.filter.severityNumbers = [];
 		this.filter.attributeFilters = [];
+		this.filter.bodyJsonFilters = [];
 		this.filter.patternId = '';
 		this.patternFilterLabel = null;
 		this.filter.attribute = null;
@@ -472,7 +491,8 @@ export class LogsExplorerState {
 			services: [...this.filter.services],
 			severityNumbers: [...this.filter.severityNumbers],
 			search: this.filter.search,
-			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a }))
+			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a })),
+			bodyJsonFilters: this.filter.bodyJsonFilters.map((f) => ({ ...f }))
 		};
 	}
 
@@ -496,7 +516,8 @@ export class LogsExplorerState {
 			search: s.search ?? '',
 			patternId: '', // never part of a saved view - see LogsFilterState.patternId's remarks
 			attribute: null, // never part of a saved view - see LogsFilterState.attribute's own remarks
-			attributeFilters: s.attributeFilters ?? []
+			attributeFilters: s.attributeFilters ?? [],
+			bodyJsonFilters: s.bodyJsonFilters ?? []
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
@@ -544,7 +565,8 @@ export class LogsExplorerState {
 			search: '',
 			patternId: '',
 			attribute: params.attribute,
-			attributeFilters: []
+			attributeFilters: [],
+			bodyJsonFilters: []
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();

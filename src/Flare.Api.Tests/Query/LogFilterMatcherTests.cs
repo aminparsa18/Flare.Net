@@ -296,6 +296,158 @@ public class LogFilterMatcherTests
         Assert.False(LogFilterMatcher.Matches(logEvent, filter));
     }
 
+    [Theory]
+    [InlineData("42", true)]
+    [InlineData("43", false)]
+    public void Matches_BodyJsonFilter_ResolvesNestedPath(string value, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"user":{"id":"42"}}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.id", Value = value }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_BodyJsonFilter_ReturnsFalse_WhenBodyIsNotJson()
+    {
+        var logEvent = MinimalLogEvent() with { Body = "plain text log message" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.id", Value = "42" }] };
+
+        Assert.False(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_BodyJsonFilter_ReturnsFalse_WhenPathIsAbsent()
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"user":{"id":"42"}}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.missing", Value = "anything" }] };
+
+        Assert.False(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData("42", false)] // present, equals -> NotEquals fails
+    [InlineData("43", true)] // present, differs -> NotEquals passes
+    public void Matches_BodyJsonNotEqualsOperator_WhenPathIsPresent(string filterValue, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"user":{"id":"42"}}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.id", Value = filterValue, Operator = BodyJsonFilterOperator.NotEquals }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_BodyJsonNotEqualsOperator_ReturnsTrue_WhenPathIsAbsent()
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"user":{"id":"42"}}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.missing", Value = "anything", Operator = BodyJsonFilterOperator.NotEquals }] };
+
+        Assert.True(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData("user.id", true)]
+    [InlineData("user.missing", false)]
+    public void Matches_BodyJsonExistsOperator_ChecksPathPresence_IgnoringValue(string path, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"user":{"id":"42"}}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = path, Value = "", Operator = BodyJsonFilterOperator.Exists }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_BodyJsonExistsOperator_ReturnsTrue_ForNullLeaf()
+    {
+        // A present-but-null value still counts as "has" - mirrors ClickHouse's JSONHas
+        // (confirmed against a live instance; see BodyJsonFilter's own remarks).
+        var logEvent = MinimalLogEvent() with { Body = """{"user":null}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user", Value = "", Operator = BodyJsonFilterOperator.Exists }] };
+
+        Assert.True(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData("user.id", false)]
+    [InlineData("user.missing", true)]
+    public void Matches_BodyJsonAbsentOperator_ChecksPathAbsence_IgnoringValue(string path, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"user":{"id":"42"}}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = path, Value = "", Operator = BodyJsonFilterOperator.Absent }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData("^[0-9]+$", true)] // matches
+    [InlineData("^[a-z]+$", false)] // doesn't match
+    public void Matches_BodyJsonRegexOperator_WhenPathIsPresent(string pattern, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"user":{"id":"42"}}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.id", Value = pattern, Operator = BodyJsonFilterOperator.Regex }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_BodyJsonRegexOperator_ReturnsFalse_OnInvalidPattern()
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"user":{"id":"42"}}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.id", Value = "(unclosed", Operator = BodyJsonFilterOperator.Regex }] };
+
+        Assert.False(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData(new[] { "failed", "errored" }, true)]
+    [InlineData(new[] { "ok" }, false)]
+    public void Matches_BodyJsonInOperator_WhenPathIsPresent(string[] values, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"status":"failed"}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "status", Value = "", Operator = BodyJsonFilterOperator.In, Values = values }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData(new[] { "failed", "errored" }, false)]
+    [InlineData(new[] { "ok" }, true)]
+    public void Matches_BodyJsonNotInOperator_WhenPathIsPresent(string[] values, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"status":"failed"}""" };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "status", Value = "", Operator = BodyJsonFilterOperator.NotIn, Values = values }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData("""{"count":42}""", "42")] // number leaf stringifies
+    [InlineData("""{"ok":true}""", "true")] // bool leaf stringifies
+    public void Matches_BodyJsonFilter_StringifiesNonStringLeaves(string body, string expectedValue)
+    {
+        var logEvent = MinimalLogEvent() with { Body = body };
+        var key = body.Contains("count") ? "count" : "ok";
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = key, Value = expectedValue }] };
+
+        Assert.True(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_MultipleBodyJsonFilters_AreAnded()
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"user":{"id":"42"},"status":"failed"}""" };
+        var filter = new LogFilter
+        {
+            BodyJsonFilters =
+            [
+                new BodyJsonFilter { Path = "user.id", Value = "42" },
+                new BodyJsonFilter { Path = "status", Value = "ok" }, // doesn't match
+            ],
+        };
+
+        Assert.False(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
     private static LogEventDto MinimalLogEvent() => new()
     {
         EventId = Guid.NewGuid(),

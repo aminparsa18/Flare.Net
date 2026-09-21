@@ -231,4 +231,129 @@ public class LogFilterSqlBuilderTests
         Assert.Equal("http.status_code", parameters["attrKey0"]);
         Assert.Equal(["200", "201"], (string[])parameters["attrValues0"]!);
     }
+
+    [Fact]
+    public void Build_WithBodyJsonFilter_SplitsPathIntoVariadicKeyParameters()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.id", Value = "42" }] },
+            Now);
+
+        Assert.Contains(
+            "JSONExtractString(Body, {jsonPath0_0:String}, {jsonPath0_1:String}) = {jsonValue0:String}",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("user", parameters["jsonPath0_0"]);
+        Assert.Equal("id", parameters["jsonPath0_1"]);
+        Assert.Equal("42", parameters["jsonValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithMultipleBodyJsonFilters_UsesDistinctParameterNamesPerIndex()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter
+            {
+                BodyJsonFilters =
+                [
+                    new BodyJsonFilter { Path = "user.id", Value = "42" },
+                    new BodyJsonFilter { Path = "status", Value = "failed" },
+                ],
+            },
+            Now);
+
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("user", parameters["jsonPath0_0"]);
+        Assert.Equal("id", parameters["jsonPath0_1"]);
+        Assert.Equal("status", parameters["jsonPath1_0"]);
+        Assert.Contains("JSONExtractString(Body, {jsonPath0_0:String}, {jsonPath0_1:String}) = {jsonValue0:String}", result.WhereSql);
+        Assert.Contains("JSONExtractString(Body, {jsonPath1_0:String}) = {jsonValue1:String}", result.WhereSql);
+    }
+
+    [Fact]
+    public void Build_WithBodyJsonNotEqualsOperator_GuardsWithJsonHas_AndBindsValue()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "status", Value = "ok", Operator = BodyJsonFilterOperator.NotEquals }] },
+            Now);
+
+        Assert.Contains(
+            "NOT (JSONHas(Body, {jsonPath0_0:String}) AND JSONExtractString(Body, {jsonPath0_0:String}) = {jsonValue0:String})",
+            result.WhereSql);
+        Assert.Equal("ok", result.Parameters.ToDictionary()["jsonValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithBodyJsonExistsOperator_UsesJsonHas_AndDoesNotBindValue()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.id", Value = "", Operator = BodyJsonFilterOperator.Exists }] },
+            Now);
+
+        Assert.Contains("JSONHas(Body, {jsonPath0_0:String}, {jsonPath0_1:String})", result.WhereSql);
+        Assert.DoesNotContain("jsonValue0", result.WhereSql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("jsonValue0"));
+    }
+
+    [Fact]
+    public void Build_WithBodyJsonAbsentOperator_NegatesJsonHas_AndDoesNotBindValue()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.id", Value = "", Operator = BodyJsonFilterOperator.Absent }] },
+            Now);
+
+        Assert.Contains("NOT JSONHas(Body, {jsonPath0_0:String}, {jsonPath0_1:String})", result.WhereSql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("jsonValue0"));
+    }
+
+    [Fact]
+    public void Build_WithBodyJsonRegexOperator_GuardsWithJsonHas_AndUsesMatch()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "trace.id", Value = "^[0-9a-f]{32}$", Operator = BodyJsonFilterOperator.Regex }] },
+            Now);
+
+        Assert.Contains(
+            "(JSONHas(Body, {jsonPath0_0:String}, {jsonPath0_1:String}) AND match(JSONExtractString(Body, {jsonPath0_0:String}, {jsonPath0_1:String}), {jsonValue0:String}))",
+            result.WhereSql);
+        Assert.Equal("^[0-9a-f]{32}$", result.Parameters.ToDictionary()["jsonValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithBodyJsonNotRegexOperator_GuardsWithJsonHas_AndNegatesMatch()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "status", Value = "^ok$", Operator = BodyJsonFilterOperator.NotRegex }] },
+            Now);
+
+        Assert.Contains(
+            "NOT (JSONHas(Body, {jsonPath0_0:String}) AND match(JSONExtractString(Body, {jsonPath0_0:String}), {jsonValue0:String}))",
+            result.WhereSql);
+    }
+
+    [Fact]
+    public void Build_WithBodyJsonInOperator_GuardsWithJsonHas_AndBindsValuesArray()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "status", Value = "", Operator = BodyJsonFilterOperator.In, Values = ["failed", "errored"] }] },
+            Now);
+
+        Assert.Contains(
+            "(JSONHas(Body, {jsonPath0_0:String}) AND JSONExtractString(Body, {jsonPath0_0:String}) IN {jsonValues0:Array(String)})",
+            result.WhereSql);
+        Assert.Equal(["failed", "errored"], (string[])result.Parameters.ToDictionary()["jsonValues0"]!);
+    }
+
+    [Fact]
+    public void Build_WithBodyJsonNotInOperator_AndNullValues_BindsEmptyArray()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "status", Value = "", Operator = BodyJsonFilterOperator.NotIn }] },
+            Now);
+
+        Assert.Contains(
+            "NOT (JSONHas(Body, {jsonPath0_0:String}) AND JSONExtractString(Body, {jsonPath0_0:String}) IN {jsonValues0:Array(String)})",
+            result.WhereSql);
+        Assert.Equal(Array.Empty<string>(), (string[])result.Parameters.ToDictionary()["jsonValues0"]!);
+    }
 }
