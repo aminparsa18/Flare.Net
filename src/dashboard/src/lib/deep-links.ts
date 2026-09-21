@@ -135,6 +135,33 @@ export function buildAlertDeepLinkHref(draft: AlertPanelDraft): string {
 	return `/alerts?${params.toString()}`;
 }
 
+// Logs "context" view permalink (`?context=<eventId>&ts=<timestamp>`) - a click on
+// LogContextSheet's "Copy link" button is the only producer. Same "plain query params on
+// the existing route" shape as the Metrics -> Logs/Traces links above, but unlike those
+// it's read back by the *same* page rather than only ever a cross-page hop: opening one of
+// these links loads that specific event's context directly (LogsExplorerState.openContext),
+// independent of - and without needing - the search filter that originally found the event.
+// See LogContextRequest.cs's remarks for why the context query itself is unfiltered.
+
+export interface ParsedLogContextDeepLink {
+	eventId: string;
+	/** ISO-8601, exactly as LogEventDto.timestamp serializes it - round-tripped verbatim, never reformatted, so it stays the exact sort-key value the anchor lookup needs. */
+	timestamp: string;
+}
+
+export function buildLogContextDeepLinkHref(event: { eventId: string; timestamp: string }): string {
+	const params = new URLSearchParams({ context: event.eventId, ts: event.timestamp });
+	return `/?${params.toString()}`;
+}
+
+/** Parses `+page.svelte`'s (root, Logs) `?context=`/`?ts=` params - null when this isn't a context-permalink arrival (checked alongside `?view=`/the Metrics deep link, all mutually exclusive). */
+export function parseLogContextDeepLinkParams(url: URL): ParsedLogContextDeepLink | null {
+	const eventId = url.searchParams.get('context');
+	const timestamp = url.searchParams.get('ts');
+	if (!eventId || !timestamp) return null;
+	return { eventId, timestamp };
+}
+
 /** Parses `routes/alerts/+page.svelte`'s deep-link params - null when this isn't a deep-link arrival (a direct visit, or the unrelated `?rule=<id>` history deep-link, checked separately by the caller). */
 export function parseAlertDeepLinkParams(url: URL): AlertPanelDraft | null {
 	const kind = url.searchParams.get('kind');

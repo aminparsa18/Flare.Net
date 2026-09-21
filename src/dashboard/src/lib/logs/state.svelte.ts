@@ -7,6 +7,7 @@ import {
 	searchLogs,
 	aggregateLogs,
 	connectLiveTail,
+	getLogContext,
 	type LogEventDto,
 	type LogFilter,
 	type LiveTailStatus,
@@ -38,6 +39,12 @@ const LIVE_CAP = 2000;
  * session started are the least likely to still matter.
  */
 const PAGINATION_CAP = 5000;
+
+/** Initial before/after size for LogsExplorerState.openContext - mirrors LogContextQueryBuilder.DefaultSize server-side. */
+const CONTEXT_PAGE_SIZE = 50;
+
+/** "Load earlier"/"Load later" grows a direction's size by this much per click, capped at CONTEXT_MAX - mirrors LogContextQueryBuilder.MaxSize server-side. */
+const CONTEXT_MAX = 200;
 
 export interface LogsFilterState {
 	timeRangePreset: TimeRangePreset;
@@ -106,6 +113,28 @@ export class LogsExplorerState {
 	connectionStatus = $state<LiveTailStatus>('closed');
 	droppedCount = $state(0);
 
+	/**
+	 * The Logs "context" view/permalink (LogContextSheet.svelte) - independent of
+	 * `events`/`selectedEventId` below: it's fetched fresh from `/api/logs/context` for
+	 * one anchor event, unfiltered, and can be opened for an event that isn't (or is no
+	 * longer) part of the current search results at all - e.g. a shared `?context=`/`?ts=`
+	 * link opened cold, see `openContextFromDeepLink`. Null when the sheet is closed.
+	 * Declared before `selectedEvent` below, which reads it - TypeScript's class-field
+	 * "used before initialization" check is (correctly) order-sensitive even though the
+	 * actual `$derived` access is always lazy.
+	 */
+	contextView = $state<{
+		anchorEventId: string;
+		anchorTimestamp: string;
+		events: LogEventDto[];
+		hasMoreBefore: boolean;
+		hasMoreAfter: boolean;
+	} | null>(null);
+	contextLoading = $state(false);
+	/** Which end is mid-"Load more" - at most one at a time (both buttons disable while either is set). */
+	contextLoadingMore = $state<'before' | 'after' | null>(null);
+	contextError = $state<string | null>(null);
+
 	// Every update below is a wholesale reassignment (fresh search, page append, or live
 	// prepend via `[event, ...events]`) - never an in-place mutation of an existing
 	// LogEventDto - so $state.raw skips deep-proxying each event (and its three
@@ -118,7 +147,16 @@ export class LogsExplorerState {
 	error = $state<string | null>(null);
 
 	selectedEventId = $state<string | null>(null);
-	selectedEvent = $derived(this.events.find((e) => e.eventId === this.selectedEventId) ?? null);
+	// Falls back to contextView's events (not just `events`, the main search-results page)
+	// so a row clicked inside LogContextSheet - which can easily show an event that isn't
+	// part of the current search at all - still opens in EventDetailSheet. That in turn
+	// lets a viewer re-open "View context" from there to re-center on a different anchor,
+	// browsing outward link by link.
+	selectedEvent = $derived(
+		this.events.find((e) => e.eventId === this.selectedEventId) ??
+			this.contextView?.events.find((e) => e.eventId === this.selectedEventId) ??
+			null
+	);
 
 	/**
 	 * Set by VolumeChart when a histogram bar is clicked - narrows what the log table
@@ -129,6 +167,13 @@ export class LogsExplorerState {
 	 */
 	selectedBucketRange = $state<{ from: string; to: string } | null>(null);
 
+	/**
+	 * The Logs "context" view/permalink (LogContextSheet.svelte) - independent of
+	 * `events`/`selectedEventId` above: it's fetched fresh from `/api/logs/context` for
+	 * one anchor event, unfiltered, and can be opened for an event that isn't (or is no
+	 * longer) part of the current search results at all - e.g. a shared `?context=`/`?ts=`
+	 * link opened cold, see `openContextFromDeepLink`. Null when the sheet is closed.
+	 */
 	// The API has no "list distinct services" endpoint, so the toolbar's service filter
 	// sources its options from a one-off broad aggregate (GroupBy: Service) instead -
 	// independent of the current filter/time-range so switching ranges never empties the
@@ -138,6 +183,13 @@ export class LogsExplorerState {
 	#seenIds = new Set<string>();
 	#connection: LiveTailConnection | null = null;
 	#searchAbort: AbortController | null = null;
+
+	// Current before/after sizes for the open contextView, grown by loadMoreContext{Before,After}
+	// and re-sent as-is on every refetch (see openContext's remarks on why "load more" always
+	// re-fetches the whole window from the same anchor rather than paginating incrementally).
+	#contextBefore = CONTEXT_PAGE_SIZE;
+	#contextAfter = CONTEXT_PAGE_SIZE;
+	#contextAbort: AbortController | null = null;
 
 	/**
 	 * Dedupes a freshly-fetched page against `#seenIds` (cross-page duplicates - e.g. a
@@ -579,6 +631,105 @@ export class LogsExplorerState {
 		this.applyFilterChange();
 	}
 
+	/**
+	 * Opens the Logs "context" view for one anchor event - LogRow's row-menu "View
+	 * context" action and openContextFromDeepLink both call this. Resets the
+	 * before/after window back to CONTEXT_PAGE_SIZE each time (a fresh anchor means a
+	 * fresh window, even if a previous context view had been expanded via "Load more").
+	 */
+	async openContext(event: { eventId: string; timestamp: string }): Promise<void> {
+		this.#contextAbort?.abort();
+		const abort = new AbortController();
+		this.#contextAbort = abort;
+
+		this.#contextBefore = CONTEXT_PAGE_SIZE;
+		this.#contextAfter = CONTEXT_PAGE_SIZE;
+		this.contextLoading = true;
+		this.contextError = null;
+		this.contextView = null;
+		try {
+			const res = await getLogContext(
+				{ eventId: event.eventId, timestamp: event.timestamp, before: this.#contextBefore, after: this.#contextAfter },
+				abort.signal
+			);
+			if (abort.signal.aborted) return;
+			this.contextView = {
+				anchorEventId: event.eventId,
+				anchorTimestamp: event.timestamp,
+				events: res.events,
+				hasMoreBefore: res.hasMoreBefore,
+				hasMoreAfter: res.hasMoreAfter
+			};
+		} catch (err) {
+			if (abort.signal.aborted) return;
+			this.contextError = err instanceof Error ? err.message : String(err);
+		} finally {
+			if (!abort.signal.aborted) this.contextLoading = false;
+		}
+	}
+
+	/** Arrival hook for a `?context=`/`?ts=` permalink (see `$lib/deep-links.ts`) - +page.svelte's onMount is the only caller. */
+	openContextFromDeepLink(params: { eventId: string; timestamp: string }): void {
+		void this.openContext(params);
+	}
+
+	closeContext(): void {
+		this.#contextAbort?.abort();
+		this.contextView = null;
+		this.contextError = null;
+		this.contextLoading = false;
+		this.contextLoadingMore = null;
+	}
+
+	/**
+	 * Grows the requested direction's window by CONTEXT_PAGE_SIZE (capped at CONTEXT_MAX)
+	 * and re-fetches the whole context from the same anchor - simpler than paginating off
+	 * the edge event's own cursor, and cheap enough at these sizes (a context view is
+	 * capped at CONTEXT_MAX events per direction either way).
+	 */
+	async #loadMoreContext(direction: 'before' | 'after'): Promise<void> {
+		const view = this.contextView;
+		if (!view || this.contextLoadingMore) return;
+		if (direction === 'before' ? !view.hasMoreBefore : !view.hasMoreAfter) return;
+
+		this.contextLoadingMore = direction;
+		if (direction === 'before') {
+			this.#contextBefore = Math.min(this.#contextBefore + CONTEXT_PAGE_SIZE, CONTEXT_MAX);
+		} else {
+			this.#contextAfter = Math.min(this.#contextAfter + CONTEXT_PAGE_SIZE, CONTEXT_MAX);
+		}
+
+		try {
+			const res = await getLogContext({
+				eventId: view.anchorEventId,
+				timestamp: view.anchorTimestamp,
+				before: this.#contextBefore,
+				after: this.#contextAfter
+			});
+			// A close() (or a fresh openContext) between the request and its response
+			// would otherwise clobber the newer state with this stale one.
+			if (this.contextView?.anchorEventId !== view.anchorEventId) return;
+			this.contextView = {
+				...view,
+				events: res.events,
+				hasMoreBefore: res.hasMoreBefore,
+				hasMoreAfter: res.hasMoreAfter
+			};
+		} catch (err) {
+			this.contextError = err instanceof Error ? err.message : String(err);
+		} finally {
+			this.contextLoadingMore = null;
+		}
+	}
+
+	loadMoreContextBefore(): void {
+		void this.#loadMoreContext('before');
+	}
+
+	loadMoreContextAfter(): void {
+		void this.#loadMoreContext('after');
+	}
+
 	/** Wired to `document.visibilitychange` from the page - spares the server building up drops for a backgrounded tab. */
 	handleVisibilityChange(hidden: boolean): void {
 		if (!this.live || !this.#connection) return;
@@ -588,6 +739,7 @@ export class LogsExplorerState {
 
 	dispose(): void {
 		this.#searchAbort?.abort();
+		this.#contextAbort?.abort();
 		this.#connection?.close();
 		this.#connection = null;
 	}

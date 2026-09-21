@@ -9,8 +9,8 @@ namespace Flare.Api.Caching;
 /// <see cref="SearchAsync"/>/<see cref="AggregateAsync"/> - the two calls dashboard-panel
 /// refreshes and saved-search reruns repeat verbatim (see the "Query result caching"
 /// roadmap entry). Every other member is a plain pass-through: pattern/attribute/
-/// value-distribution/active-service lookups and the free-form SQL-query-row surface
-/// aren't the repeated-poll hot path this exists for.
+/// value-distribution/active-service/context lookups and the free-form SQL-query-row
+/// surface aren't the repeated-poll hot path this exists for.
 /// </summary>
 public sealed class CachingLogQueryService(
     ILogQueryService inner,
@@ -26,6 +26,9 @@ public sealed class CachingLogQueryService(
 
     public Task<LogQlQueryResponse> RunQlQueryAsync(LogQlQueryRequest request, CancellationToken cancellationToken) =>
         inner.RunQlQueryAsync(request, cancellationToken);
+
+    public Task<LogContextResponse> GetContextAsync(LogContextRequest request, CancellationToken cancellationToken) =>
+        inner.GetContextAsync(request, cancellationToken);
 
     public Task<LogPatternResponse> GetPatternsAsync(LogPatternRequest request, CancellationToken cancellationToken) =>
         inner.GetPatternsAsync(request, cancellationToken);

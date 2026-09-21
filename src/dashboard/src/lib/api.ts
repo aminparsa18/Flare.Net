@@ -24,6 +24,8 @@ import { LogFilter as GeneratedLogFilter, logFilterFromPlain } from '$lib/memory
 import { LogEventDto as GeneratedLogEventDto } from '$lib/memorypack/LogEventDto';
 import { LogSearchRequest as GeneratedLogSearchRequest } from '$lib/memorypack/LogSearchRequest';
 import { LogSearchResponse as GeneratedLogSearchResponse } from '$lib/memorypack/LogSearchResponse';
+import { LogContextRequest as GeneratedLogContextRequest } from '$lib/memorypack/LogContextRequest';
+import { LogContextResponse as GeneratedLogContextResponse } from '$lib/memorypack/LogContextResponse';
 import { LogAggregateRequest as GeneratedLogAggregateRequest } from '$lib/memorypack/LogAggregateRequest';
 import { LogAggregateBucket as GeneratedLogAggregateBucket } from '$lib/memorypack/LogAggregateBucket';
 import { LogAggregateResponse as GeneratedLogAggregateResponse } from '$lib/memorypack/LogAggregateResponse';
@@ -234,6 +236,48 @@ export async function searchLogs(request: LogSearchRequest = {}, signal?: AbortS
 	return {
 		events: (body?.events ?? []).map((e) => toLogEventDto(e!)),
 		nextCursor: body?.nextCursor ?? null
+	};
+}
+
+// ---- POST /api/logs/context (LogContextRequest.cs / LogContextResponse) ---
+
+export interface LogContextRequest {
+	eventId: string;
+	/** ISO-8601 - must be the exact value a prior search/tail returned for this event, not a re-parsed/rounded one. See LogContextRequest.cs's remarks. */
+	timestamp: string;
+	before?: number;
+	after?: number;
+}
+
+export interface LogContextResponse {
+	/** Most-recent-first (Timestamp DESC): older events, then the anchor (if still present), then newer events. */
+	events: LogEventDto[];
+	anchorEventId: string;
+	hasMoreBefore: boolean;
+	hasMoreAfter: boolean;
+}
+
+export async function getLogContext(request: LogContextRequest, signal?: AbortSignal): Promise<LogContextResponse> {
+	const dto = new GeneratedLogContextRequest();
+	dto.eventId = request.eventId;
+	dto.timestamp = new Date(request.timestamp);
+	dto.before = request.before ?? null;
+	dto.after = request.after ?? null;
+	const res = await apiFetch(`${API_BASE_URL}/api/logs/context`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedLogContextRequest.serialize(dto)),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/logs/context failed: ${res.status} ${res.statusText}`);
+	}
+	const body = GeneratedLogContextResponse.deserialize(await res.arrayBuffer());
+	return {
+		events: (body?.events ?? []).map((e) => toLogEventDto(e!)),
+		anchorEventId: body?.anchorEventId ?? request.eventId,
+		hasMoreBefore: body?.hasMoreBefore ?? false,
+		hasMoreAfter: body?.hasMoreAfter ?? false
 	};
 }
 
