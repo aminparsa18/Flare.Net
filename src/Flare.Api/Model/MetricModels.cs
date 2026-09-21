@@ -146,6 +146,26 @@ public sealed partial record MetricAttributeKeysResponse
 }
 
 /// <summary>
+/// Comparison a <see cref="MetricQueryRequest.HavingOperator"/>/<see cref="MetricQueryRequest.HavingValue"/>
+/// pair applies against each candidate series' ranking magnitude (the same per-type
+/// expression <see cref="MetricQueryRequest.TopN"/> already ranks by - see
+/// <see cref="Query.MetricSeriesQueryBuilder"/>'s remarks) - a genuine post-aggregation
+/// filter compiled to a real ClickHouse <c>HAVING</c> clause, not an app-side filter over
+/// already-fetched rows. MemoryPack encodes this enum as its numeric ordinal, so existing
+/// members must keep their ordinals if new ones are ever appended - same convention
+/// <see cref="AttributeFilterOperator"/>'s remarks document.
+/// </summary>
+public enum MetricHavingOperator
+{
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+    Equal,
+    NotEqual,
+}
+
+/// <summary>
 /// Request body for <c>POST /api/metrics/query</c> - the core, genuinely new endpoint:
 /// a time-bucketed series for one metric, one attribute-set per <see cref="MetricSeries"/>.
 /// </summary>
@@ -181,6 +201,21 @@ public sealed partial record MetricQueryRequest
     /// <see cref="ExceptionGroupsRequest.TopN"/>/<see cref="LogPatternRequest.TopN"/>.
     /// </summary>
     public int? TopN { get; init; }
+
+    /// <summary>
+    /// Optional post-aggregation filter paired with <see cref="HavingValue"/>: only series
+    /// whose ranking magnitude (<see cref="Query.MetricSeriesQueryBuilder"/>'s per-type
+    /// <c>RankValue</c> expression - the same one <see cref="TopN"/> already ranks/caps by)
+    /// satisfies this comparison are considered at all, applied as a real ClickHouse
+    /// <c>HAVING</c> on the same ranking subquery <see cref="TopN"/>'s <c>LIMIT</c> already
+    /// operates on. Null = no filter. Ignored unless <see cref="HavingValue"/> is also set -
+    /// same "both null or both set" pairing <see cref="AlertRule.MetricCondition"/>/
+    /// <see cref="AlertRule.MetricThresholdValue"/> already use elsewhere in this codebase.
+    /// </summary>
+    public MetricHavingOperator? HavingOperator { get; init; }
+
+    /// <summary>Threshold compared against the ranking magnitude when <see cref="HavingOperator"/> is set. Ignored (no filter) if <see cref="HavingOperator"/> is null.</summary>
+    public double? HavingValue { get; init; }
 }
 
 /// <summary>

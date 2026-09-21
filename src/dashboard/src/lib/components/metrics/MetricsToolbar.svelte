@@ -2,6 +2,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import PopoverSingleSelect from '$lib/components/logs/PopoverSingleSelect.svelte';
+	import MetricsHavingPopover from '$lib/components/metrics/MetricsHavingPopover.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
 	import { Switch } from '$lib/components/ui/switch';
@@ -128,6 +129,18 @@
 			</Select.Content>
 		</Select.Root>
 	{/if}
+
+	<!-- Post-aggregation value filter (roadmap's "Post-aggregation value filter (HAVING) +
+	     top-N order-by on metric queries" item) - orthogonal to the series cap above, not
+	     gated on groupByAttributeKey: "only series where the aggregated value exceeds X" is
+	     just as meaningful ungrouped as it is with a group-by key narrowing the series set -
+	     see MetricSeriesQueryBuilder's own remarks on why HAVING and TopN compose rather
+	     than one replacing the other. -->
+	<MetricsHavingPopover
+		havingOperator={explorer.filter.havingOperator}
+		havingValue={explorer.filter.havingValue}
+		onApply={(operator, value) => explorer.setHaving(operator, value)}
+	/>
 
 	<!-- MetricChart itself is the one that decides whether/how comparison actually
 	     renders (unsupported for Histogram's Percentiles view - see its own remarks on
