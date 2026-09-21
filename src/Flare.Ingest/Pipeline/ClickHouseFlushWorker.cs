@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Flare.Ingest.Model;
 using Flare.Ingest.Patterns;
+using Flare.Ingest.Pipeline.Rules;
 using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
@@ -47,6 +48,7 @@ public sealed class ClickHouseFlushWorker(
     IClickHouseLogEventWriter writer,
     IOptions<LogEventPipelineOptions> options,
     IFlushHealthTracker flushHealth,
+    IPipelineRuleAnnotator pipelineRuleAnnotator,
     ILogPatternAnnotator patternAnnotator,
     ILogger<ClickHouseFlushWorker> logger) : BackgroundService
 {
@@ -209,13 +211,18 @@ public sealed class ClickHouseFlushWorker(
     {
         var events = batch.Select(b => b.Event).ToArray();
 
-        // Pattern-matching (Drain clustering, see LogPatternAnnotator's remarks for why
-        // it runs here rather than on the OTLP receive path) happens right before the
-        // ClickHouse write, on the batch as a whole. No longer purely CPU-bound/in-process
-        // once LogPatternOptions.SharedStore is on (RedisPatternClusterStore does real
-        // I/O) - still no dedicated try/catch here, though; any exception surfaces through
-        // the same catch block that already handles a failed write.
-        var annotated = await patternAnnotator.AnnotateAsync(events, cancellationToken);
+        // Pipeline rules (user-defined extraction/redaction, see PipelineRuleAnnotator's
+        // remarks) run first, before Drain clustering - a rule that redacts Body needs to
+        // run before LogPatternAnnotator computes a cluster template off it, otherwise
+        // PII could leak into the template even after redaction. Pattern-matching (Drain
+        // clustering, see LogPatternAnnotator's remarks for why it runs here rather than
+        // on the OTLP receive path) happens right before the ClickHouse write, on the
+        // batch as a whole. Neither is purely CPU-bound/in-process once
+        // LogPatternOptions.SharedStore is on (RedisPatternClusterStore does real I/O) -
+        // still no dedicated try/catch around either, though; any exception surfaces
+        // through the same catch block that already handles a failed write.
+        var ruleAnnotated = await pipelineRuleAnnotator.AnnotateAsync(events, cancellationToken);
+        var annotated = await patternAnnotator.AnnotateAsync(ruleAnnotated, cancellationToken);
 
         try
         {

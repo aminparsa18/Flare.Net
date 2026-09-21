@@ -208,6 +208,7 @@ builder.Services.AddSingleton<IServiceDependencyQueryService, ServiceDependencyQ
 builder.Services.AddSingleton<IServiceCallBreakdownQueryService, ServiceCallBreakdownQueryService>();
 builder.Services.AddSingleton<IExceptionQueryService, ExceptionQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
+builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();
@@ -415,6 +416,9 @@ memberRoutes.MapAlertEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a channel holds a live
 // webhook/bot-token/routing-key secret and its "send test" action pages people too.
 memberRoutes.MapNotificationChannelEndpoints();
+// Same Member/Admin-only rationale as MapAlertEndpoints above - a pipeline rule mutates
+// every future log's Body/attributes at ingest, not just something read-only.
+memberRoutes.MapPipelineRuleEndpoints();
 
 // Ingest API key issuance/revocation is Admin-only - a leaked key lets any caller ingest
 // telemetry as this Flare instance, so this isn't something a Member should be able to
