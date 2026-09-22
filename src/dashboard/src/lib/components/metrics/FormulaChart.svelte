@@ -20,6 +20,11 @@
 	import type { MetricSeries } from '$lib/metrics-api';
 	import * as m from '$lib/paraglide/messages';
 
+	// yAxisMin/yAxisMax: same soft Y-axis floor/ceiling MetricChart.svelte's own props of
+	// the same name apply (DashboardPanel.yAxisMin/yAxisMax) - only ever set from a
+	// dashboard panel, never from the Explorer page itself, which never passes them.
+	let { yAxisMin = null, yAxisMax = null }: { yAxisMin?: number | null; yAxisMax?: number | null } = $props();
+
 	const explorer = metricsExplorerContext.get();
 
 	// Same fixed categorical palette + identity-hash slot assignment as MetricChart's own
@@ -66,11 +71,17 @@
 	const dataMax = $derived(rawValues.length > 0 ? Math.max(...rawValues) : 0);
 	const dataMin = $derived(rawValues.length > 0 ? Math.min(0, ...rawValues) : 0);
 
+	// yAxisMin/yAxisMax narrow the "nice" domain the same way MetricChart's own
+	// domainMin/domainMax do - see that file's remarks for how "soft" is applied (the bound
+	// only ever widens the domain outward, never clips data that falls past it).
+	const domainMin = $derived(yAxisMin != null ? Math.min(yAxisMin, dataMin) : dataMin);
+	const domainMax = $derived(yAxisMax != null ? Math.max(yAxisMax, dataMax) : dataMax);
+
 	// Dimensionless - a formula result has no single declared unit of its own (its operands
 	// might each have different, or no, units - e.g. `(A/B)*100` for a ratio-as-percentage
 	// has no meaningful inherited unit either), so this always resolves the "no unit" branch.
-	const axisScale = $derived(resolveAxisScale(null, Math.max(Math.abs(dataMin), Math.abs(dataMax))));
-	const ticks = $derived(niceAxisTicks(dataMin, dataMax, axisScale));
+	const axisScale = $derived(resolveAxisScale(null, Math.max(Math.abs(domainMin), Math.abs(domainMax))));
+	const ticks = $derived(niceAxisTicks(domainMin, domainMax, axisScale));
 	const minValue = $derived(ticks.min);
 	const maxValue = $derived(Math.max(minValue + 1e-9, ticks.max));
 

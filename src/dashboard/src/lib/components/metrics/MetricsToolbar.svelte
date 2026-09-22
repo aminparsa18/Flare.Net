@@ -206,17 +206,12 @@
 		applyState={(s) => explorer.applySavedViewState(s)}
 	/>
 
-	{#if explorer.mode === 'single'}
-		<!-- Dashboard Metrics panels (DashboardMetricsPanelBody.svelte) reuse MetricChart
-		     wholesale, which has no Formula-mode rendering (see MetricsExplorerState.mode's
-		     own remarks) - pinning a Formula-mode view would silently produce a panel showing
-		     nothing rather than the joined chart, so this stays single-mode-only rather than
-		     pinning something that can't actually render, same "Explorer only for v1" scope
-		     ADR-0036 documents. -->
-		<PinToDashboardButton
-			panelType="Metrics"
-			currentState={() => explorer.toSavedViewState()}
-			defaultTitle={explorer.selected?.metricName ?? m.nav_metrics()}
-		/>
-	{/if}
+	<!-- DashboardMetricsPanelBody.svelte now renders FormulaChart for a formula-mode panel
+	     (docs-internal/adr/0037-dashboard-metrics-formula-panels.md, closing the follow-up
+	     ADR-0036 left open) - pinning is available in both modes. -->
+	<PinToDashboardButton
+		panelType="Metrics"
+		currentState={() => explorer.toSavedViewState()}
+		defaultTitle={explorer.mode === 'formula' ? explorer.formulaExpression : (explorer.selected?.metricName ?? m.nav_metrics())}
+	/>
 </div>

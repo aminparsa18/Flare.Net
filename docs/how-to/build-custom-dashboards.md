@@ -23,18 +23,21 @@ There are two ways to get a panel onto a dashboard:
 **From an Explorer page** (Logs, Traces, or Metrics):
 
 1. Build the query you want as a panel — a search term, service filter, time
-   range, or (on Metrics) a specific selected metric.
+   range, or (on Metrics) a specific selected metric, or a Formula-mode
+   expression combining several named metric queries (e.g. `A / B`).
 2. Click **Pin to dashboard** in that page's toolbar.
 3. Pick an existing dashboard from the **Dashboard** dropdown, or leave
    **New dashboard…** selected to create one on the spot (name it there).
 4. Give the panel a title (it's pre-filled with something sensible — the
-   page name, or the selected metric's name on Metrics) and click **Pin**.
+   page name, the selected metric's name, or the formula expression itself
+   on Metrics) and click **Pin**.
 
 **From the dashboard itself**, once it exists:
 
 1. Open the dashboard and click **Edit**.
 2. Click **Add panel**, pick a panel type (Logs, Traces, or Metrics), build
-   the query using the same filter controls as that page's own toolbar, and
+   the query using the same filter controls as that page's own toolbar —
+   including the Single metric/Formula mode toggle on Metrics — and
    confirm — the live preview underneath shows exactly what will be added.
 
 Repeat from either flow, into the same or a different dashboard, for as many

@@ -89,7 +89,12 @@
 </script>
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
-	<Dialog.Content class="sm:max-w-2xl">
+	<!-- sm:max-w-4xl (not the original 2xl) - AddPanelMetricsForm's Formula tab needs room
+	     for FormulaBuilder's fixed w-[420px] query-row column alongside a usable chart
+	     preview (docs-internal/adr/0037-dashboard-metrics-formula-panels.md); 4xl still
+	     comfortably fits Logs/Traces' simpler forms and single-metric Metrics' 220px
+	     MetricPicker + chart. -->
+	<Dialog.Content class="sm:max-w-4xl">
 		<Dialog.Header>
 			<Dialog.Title>{m.addPanelDialog_title()}</Dialog.Title>
 			<Dialog.Description>{m.addPanelDialog_description()}</Dialog.Description>
