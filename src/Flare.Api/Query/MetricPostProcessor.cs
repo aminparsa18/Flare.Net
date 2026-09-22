@@ -11,15 +11,15 @@ namespace Flare.Api.Query;
 /// is excluded entirely.
 /// </summary>
 /// <remarks>
-/// v1 scope (ADR-0038), the metrics half of the roadmap's "Per-query post-processing
-/// functions (metrics and logs)" item: point-wise clamp-min/max/absolute/log2/log10 plus a
-/// running cumulative-sum. Smoothing (EWMA/median-over-N) and time-shift (re-running the
-/// query at an offset for week-over-week/day-over-day overlay) are named,
-/// deliberately-unresolved follow-ups - time-shift in particular needs a second query
-/// dispatch and a result-alignment step, a structurally different feature from this
-/// single-pass pipeline. Logs support is a separate follow-up too, per the roadmap item's
-/// own note that SigNoz shipped metrics first, then extended time-shift to logs
-/// separately.
+/// ADR-0038, the metrics half of the roadmap's "Per-query post-processing functions
+/// (metrics and logs)" item: point-wise clamp-min/max/absolute/log2/log10 plus a running
+/// cumulative-sum. ADR-0039 added the two window-based smoothing functions
+/// (<see cref="MetricPostProcessFunctionType.EwmaSmoothing"/>/<see cref="MetricPostProcessFunctionType.MedianSmoothing"/>).
+/// Time-shift (re-running the query at an offset for week-over-week/day-over-day overlay)
+/// remains a named, deliberately-unresolved follow-up - it needs a second query dispatch
+/// and a result-alignment step, a structurally different feature from this single-pass
+/// pipeline. Logs support is a separate follow-up too, per the roadmap item's own note that
+/// SigNoz shipped metrics first, then extended time-shift to logs separately.
 ///
 /// Log2/Log10 of a non-positive input is mathematically undefined - returns null for that
 /// point rather than NaN/-Infinity, so a bad input doesn't propagate a non-finite value
@@ -30,6 +30,13 @@ namespace Flare.Api.Query;
 /// itself staying null, so the result is a genuine running total end to end, never
 /// punctured by gaps the way a plain per-point transform's null-in/null-out rule would
 /// leave it.
+///
+/// EwmaSmoothing/MedianSmoothing (ADR-0039) share that same "carry forward, don't
+/// re-puncture gaps" philosophy rather than the plain point-wise null-in/null-out rule:
+/// gap-filling small holes is the actual value proposition of a smoothing function, so
+/// both output the smoothed value derived from whatever real data has been seen so far
+/// (EWMA) or falls within the trailing window (median) even when the current bucket itself
+/// is null, and only emit null where no real data is available at all yet.
 /// </remarks>
 public static class MetricPostProcessor
 {
@@ -52,17 +59,14 @@ public static class MetricPostProcessor
 
     private static IReadOnlyList<MetricSeriesPoint> ApplyOne(IReadOnlyList<MetricSeriesPoint> points, MetricPostProcessFunction function)
     {
-        if (function.Type == MetricPostProcessFunctionType.CumulativeSum)
+        switch (function.Type)
         {
-            var running = 0.0;
-            var output = new MetricSeriesPoint[points.Count];
-            for (var i = 0; i < points.Count; i++)
-            {
-                running += points[i].Value ?? 0;
-                output[i] = points[i] with { Value = running };
-            }
-
-            return output;
+            case MetricPostProcessFunctionType.CumulativeSum:
+                return ApplyCumulativeSum(points);
+            case MetricPostProcessFunctionType.EwmaSmoothing:
+                return ApplyEwmaSmoothing(points, RequireWindowSize(function));
+            case MetricPostProcessFunctionType.MedianSmoothing:
+                return ApplyMedianSmoothing(points, RequireWindowSize(function));
         }
 
         var transform = PointwiseTransform(function);
@@ -74,6 +78,80 @@ public static class MetricPostProcessor
         }
 
         return mapped;
+    }
+
+    private static IReadOnlyList<MetricSeriesPoint> ApplyCumulativeSum(IReadOnlyList<MetricSeriesPoint> points)
+    {
+        var running = 0.0;
+        var output = new MetricSeriesPoint[points.Count];
+        for (var i = 0; i < points.Count; i++)
+        {
+            running += points[i].Value ?? 0;
+            output[i] = points[i] with { Value = running };
+        }
+
+        return output;
+    }
+
+    /// <summary>
+    /// N-period EWMA: <c>alpha = 2 / (windowSize + 1)</c>, the standard conversion from a
+    /// "period count" to a decay factor. A null bucket doesn't update the running average
+    /// (no new data to weigh in) but still emits whatever average has accumulated so far,
+    /// so a single missing bucket doesn't punch a hole in an otherwise-smooth line - see
+    /// this class' remarks. Null only before the first real value is seen.
+    /// </summary>
+    private static IReadOnlyList<MetricSeriesPoint> ApplyEwmaSmoothing(IReadOnlyList<MetricSeriesPoint> points, int windowSize)
+    {
+        var alpha = 2.0 / (windowSize + 1);
+        double? ewma = null;
+        var output = new MetricSeriesPoint[points.Count];
+        for (var i = 0; i < points.Count; i++)
+        {
+            var value = points[i].Value;
+            if (value.HasValue)
+            {
+                ewma = ewma.HasValue ? (alpha * value.Value) + ((1 - alpha) * ewma.Value) : value.Value;
+            }
+
+            output[i] = points[i] with { Value = ewma };
+        }
+
+        return output;
+    }
+
+    /// <summary>
+    /// Median of the non-null values in the trailing window of up to <paramref name="windowSize"/>
+    /// buckets ending at (and including) the current one - null only when that window has
+    /// no real data at all. Causal/trailing rather than centered so it never looks ahead of
+    /// the current bucket, same reasoning cumulative-sum only ever runs forward.
+    /// </summary>
+    private static IReadOnlyList<MetricSeriesPoint> ApplyMedianSmoothing(IReadOnlyList<MetricSeriesPoint> points, int windowSize)
+    {
+        var output = new MetricSeriesPoint[points.Count];
+        var window = new List<double>(windowSize);
+        for (var i = 0; i < points.Count; i++)
+        {
+            window.Clear();
+            var start = Math.Max(0, i - windowSize + 1);
+            for (var j = start; j <= i; j++)
+            {
+                if (points[j].Value is { } v)
+                {
+                    window.Add(v);
+                }
+            }
+
+            output[i] = points[i] with { Value = window.Count == 0 ? null : Median(window) };
+        }
+
+        return output;
+    }
+
+    private static double Median(List<double> values)
+    {
+        values.Sort();
+        var mid = values.Count / 2;
+        return values.Count % 2 == 0 ? (values[mid - 1] + values[mid]) / 2.0 : values[mid];
     }
 
     private static Func<double, double?> PointwiseTransform(MetricPostProcessFunction function) => function.Type switch
@@ -89,4 +167,10 @@ public static class MetricPostProcessor
     /// <summary>Surfaced as a caught <see cref="ArgumentOutOfRangeException"/> -&gt; 400 at <c>MetricsEndpoints.HandleQueryAsync</c>, same convention every other malformed-request path in that handler already uses.</summary>
     private static double RequireValue(MetricPostProcessFunction function) =>
         function.Value ?? throw new ArgumentOutOfRangeException(nameof(function), function.Type, $"{function.Type} requires {nameof(MetricPostProcessFunction.Value)}.");
+
+    /// <summary>Same convention as <see cref="RequireValue"/>, for <see cref="MetricPostProcessFunction.WindowSize"/> - null or non-positive both reject, since a zero/negative lookback has no meaningful window.</summary>
+    private static int RequireWindowSize(MetricPostProcessFunction function) =>
+        function.WindowSize is { } windowSize && windowSize >= 1
+            ? windowSize
+            : throw new ArgumentOutOfRangeException(nameof(function), function.WindowSize, $"{function.Type} requires {nameof(MetricPostProcessFunction.WindowSize)} >= 1.");
 }

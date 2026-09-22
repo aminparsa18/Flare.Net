@@ -17,7 +17,7 @@
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
-	import { previousPeriodLabel, resolveTimeRange, previousPeriod } from '$lib/logs/time-range';
+	import { previousPeriodLabel, resolveTimeRange, previousPeriod, shiftRange } from '$lib/logs/time-range';
 	import type { MetricSeries } from '$lib/metrics-api';
 	import * as m from '$lib/paraglide/messages';
 
@@ -230,6 +230,29 @@
 		explorer.filter.compareEnabled && isHistogram && !HISTOGRAM_COMPARABLE_MODES.includes(histogramMode)
 	);
 
+	// Time-shift's mirror of compareActive/compareUnavailable immediately above - same
+	// Histogram Mean/Max-only availability (it reuses the exact same overlay rendering
+	// path, matchingSeries/histogramComparePoints, just with a different shift source -
+	// see buildComparisonLines' own remarks), same "keyed on the result field, not the
+	// live filter, so it never flips mid-fetch" reasoning. Mutually exclusive with
+	// compareActive at the data level (MetricsExplorerState.setTimeShiftSeconds/
+	// setCompareEnabled each clear the other's filter field), so at most one of
+	// compareActive/timeShiftActive is ever true - overlayActive below is never
+	// ambiguous about which shift/label to use.
+	const timeShiftActive = $derived(
+		explorer.resultTimeShiftSeconds != null &&
+			(!isHistogram || HISTOGRAM_COMPARABLE_MODES.includes(histogramMode)) &&
+			explorer.selected != null
+	);
+	const timeShiftUnavailable = $derived(
+		explorer.filter.timeShiftSeconds != null && isHistogram && !HISTOGRAM_COMPARABLE_MODES.includes(histogramMode)
+	);
+	// "Is the chart currently showing the 2-line Current/overlay shape at all" - every
+	// generic overlay-shape decision below (hiddenSeriesCount, lines, chartKey, the
+	// "(summed)" series-count label) branches on this rather than repeating
+	// `compareActive || timeShiftActive` at each site.
+	const overlayActive = $derived(compareActive || timeShiftActive);
+
 	// "View related logs"/"View traces" - cross-links into Logs/Traces pre-filtered to
 	// this metric's service and the explorer's current time range (see $lib/deep-links.ts),
 	// so Metrics -> Logs -> Traces reads as one system rather than three unrelated pages.
@@ -286,10 +309,10 @@
 	const visibleSeries = $derived(
 		isHistogram ? explorer.series.slice(histogramSeriesIndex, histogramSeriesIndex + 1) : explorer.series.slice(0, MAX_SERIES)
 	);
-	// Not applicable in comparison mode - buildComparisonLines sums *every* series
-	// (uncapped), so there's nothing "not shown" to warn about there.
+	// Not applicable in an overlay mode (compare or time-shift) - buildComparisonLines
+	// sums *every* series (uncapped), so there's nothing "not shown" to warn about there.
 	const hiddenSeriesCount = $derived(
-		isHistogram || compareActive ? 0 : Math.max(0, explorer.series.length - MAX_SERIES)
+		isHistogram || overlayActive ? 0 : Math.max(0, explorer.series.length - MAX_SERIES)
 	);
 
 	interface PlotPoint {
@@ -443,83 +466,102 @@
 	}
 
 	/**
-	 * Comparison mode's two lines, "Current" and "Previous", built one of two ways
-	 * depending on type - each matching how that type's *normal* (non-compare) mode
-	 * already scopes its data, so compare mode never shows a different slice than what
-	 * was already on screen before it was switched on:
+	 * The overlay's shift, in ms, and the label its dashed line/legend show - branches on
+	 * which of the two mutually-exclusive overlay modes (see overlayActive's own remarks)
+	 * is actually active:
+	 *
+	 * - Compare: derived from the actually-resolved current range's own duration, not a
+	 *   preset table lookup - for a fixed preset this comes out identical either way (its
+	 *   from/to always differ by exactly its durationMs, whatever "now" happens to be at
+	 *   resolve time), but a drag-to-zoom (MetricsExplorerState.setCustomRange) lands on
+	 *   'custom' with an arbitrary duration no preset table has an entry for. Falls back to
+	 *   a 0 shift (Previous overlays exactly on Current) only for the unreachable case of
+	 *   an unresolvable range, same defensive fallback #resolvedRange() itself documents.
+	 * - Time-shift: a fixed offset (explorer.resultTimeShiftSeconds), independent of the
+	 *   displayed range's own duration entirely - the whole point of the feature (see
+	 *   MetricsFilterState.timeShiftSeconds' own remarks).
+	 */
+	function overlayShiftMsAndLabel(): { shiftMs: number; label: string } {
+		if (compareActive) {
+			const currentRange = resolveTimeRange(explorer.filter.timeRangePreset, explorer.filter.customRange ?? undefined);
+			const shiftMs = currentRange ? new Date(currentRange.to).getTime() - new Date(currentRange.from).getTime() : 0;
+			return { shiftMs, label: m.metricChart_previousLabel() };
+		}
+		const seconds = explorer.resultTimeShiftSeconds ?? 0;
+		return { shiftMs: seconds * 1000, label: m.metricChart_timeShiftAgoLabel({ duration: formatBucketWidthSeconds(seconds) }) };
+	}
+
+	/**
+	 * The active overlay mode's two lines, "Current" and the overlay ("Previous", or "N
+	 * ago" for time-shift - see overlayShiftMsAndLabel), built one of two ways depending
+	 * on type - each matching how that type's *normal* (non-overlay) mode already scopes
+	 * its data, so an overlay never shows a different slice than what was already on
+	 * screen before it was switched on:
 	 *
 	 * - Gauge/Sum: every series summed into one total per bucket (not paired 1:1) -
 	 *   normal mode already overlays every (capped) series as its own line, and the
 	 *   user's own request was "Exceptions: +34%", one headline number, not N current
 	 *   lines next to N previous ones (which doubles an already-busy legend - see item
 	 *   6/7's compactSeriesLabel). For a single-series metric this reduces to exactly
-	 *   that one series' current/previous anyway.
-	 * - Histogram (Mean/Max views only - see compareActive/compareUnavailable/
+	 *   that one series' current/overlay anyway.
+	 * - Histogram (Mean/Max views only - see compareActive/timeShiftActive/
 	 *   HISTOGRAM_COMPARABLE_MODES): normal mode already restricts to the one series
-	 *   picked via histogramSeriesIndex, so compare mode does too - paired to its
-	 *   previous-period counterpart via matchingSeries, not blended with any other
+	 *   picked via histogramSeriesIndex, so an overlay does too - paired to its
+	 *   overlay-period counterpart via matchingSeries, not blended with any other
 	 *   series. histogramComparePoints picks mean-vs-max shaping to match whichever
 	 *   of the two is active.
 	 *
-	 * Previous's `time` values are shifted forward by one full period (in shiftMs, as a
-	 * number - see PlotPoint.time's remarks on why not a re-stringified timestamp) so
-	 * they land on the *same* x-position as their current-period counterpart (an
-	 * overlay, not a second, earlier-in-time set of points) - see previousPeriod's own
-	 * remarks for why this is exact (bucket boundaries are anchored to absolute time,
-	 * and the shift is exactly one period's duration).
+	 * The overlay's `time` values are shifted forward by its shiftMs (a number - see
+	 * PlotPoint.time's remarks on why not a re-stringified timestamp) so they land on the
+	 * *same* x-position as their current-period counterpart (an overlay, not a second,
+	 * earlier-in-time set of points) - exact in both modes, since compare's shiftMs is
+	 * exactly one period's duration and time-shift's is exactly its fixed offset, and
+	 * bucket boundaries are anchored to absolute time either way.
 	 */
 	function buildComparisonLines(): LineSpec[] {
-		// Derived from the actually-resolved current range's own duration, not a preset
-		// table lookup - for a fixed preset this comes out identical either way (its
-		// from/to always differ by exactly its durationMs, whatever "now" happens to be at
-		// resolve time), but a drag-to-zoom (MetricsExplorerState.setCustomRange) lands on
-		// 'custom' with an arbitrary duration no preset table has an entry for. Falls back
-		// to 0 (no shift - Previous overlays exactly on Current) only for the unreachable
-		// case of an unresolvable range, same defensive fallback #resolvedRange() itself
-		// documents.
-		const currentRange = resolveTimeRange(explorer.filter.timeRangePreset, explorer.filter.customRange ?? undefined);
-		const shiftMs = currentRange ? new Date(currentRange.to).getTime() - new Date(currentRange.from).getTime() : 0;
+		const { shiftMs, label: overlayLabel } = overlayShiftMsAndLabel();
 		const currentPoints = isHistogram
 			? histogramComparePoints(visibleSeries[0] ?? null)
 			: sortedPoints(totalsByBucket(explorer.series));
-		const previousPoints = isHistogram
+		const overlayPoints = isHistogram
 			? histogramComparePoints(visibleSeries[0] ? matchingSeries(visibleSeries[0], explorer.previousSeries) : null, shiftMs)
 			: sortedPoints(totalsByBucket(explorer.previousSeries), shiftMs);
 		return [
 			{ color: 'var(--chart-1)', label: m.metricChart_currentLabel(), detail: m.metricChart_currentLabel(), points: currentPoints },
 			{
 				color: 'var(--muted-foreground)',
-				label: m.metricChart_previousLabel(),
-				detail: m.metricChart_previousLabel(),
+				label: overlayLabel,
+				detail: overlayLabel,
 				dashed: true,
-				points: previousPoints
+				points: overlayPoints
 			}
 		];
 	}
 
 	const rateDivisor = $derived(isSum && sumMode === 'rate' ? explorer.intervalSeconds : null);
-	const lines = $derived(compareActive ? buildComparisonLines() : buildLines());
+	const lines = $derived(overlayActive ? buildComparisonLines() : buildLines());
 
-	// Changes exactly when the chart's *shape* changes - a different metric, or
-	// comparison mode actually switching on/off (compareActive, already gated on
-	// resultCompareEnabled so this never fires mid-fetch - see its own remarks). Keys
-	// the {#key} crossfade below: a plain data refresh on the same metric/mode (a
-	// different time range, an added service) morphs the existing lines in place with
-	// no fade at all, which reads as smoothly updated rather than "reloaded"; a real
-	// shape change (N per-series lines <-> 2 aggregate lines, or metric A -> metric B)
-	// gets a quick fade instead of an instant swap.
-	const chartKey = $derived(`${explorer.selected?.metricName ?? ''}|${explorer.selected?.serviceName ?? ''}|${compareActive}`);
+	// Changes exactly when the chart's *shape* changes - a different metric, or an
+	// overlay mode actually switching on/off (overlayActive, already gated on the result
+	// fields rather than the live filter so this never fires mid-fetch - see
+	// compareActive/timeShiftActive's own remarks). Keys the {#key} crossfade below: a
+	// plain data refresh on the same metric/mode (a different time range, an added
+	// service) morphs the existing lines in place with no fade at all, which reads as
+	// smoothly updated rather than "reloaded"; a real shape change (N per-series lines <->
+	// 2 aggregate lines, or metric A -> metric B) gets a quick fade instead of an instant
+	// swap.
+	const chartKey = $derived(`${explorer.selected?.metricName ?? ''}|${explorer.selected?.serviceName ?? ''}|${overlayActive}`);
 
 	// Same reduction buildComparisonLines' two lines are built from, but over the whole
 	// period at once rather than per-bucket - the percentage summary is one number, not
 	// a time series. Independent of `rateDivisor` for the Gauge/Sum case (a plain sum,
 	// not a rate) since a percentage change is identical either way - rate divides both
 	// totals by the same bucket width, which cancels out of the ratio. null when
-	// there's nothing to compare (comparison mode isn't active, or the previous period
-	// has no data at all - can't divide by zero, and "some number vs no baseline" isn't
-	// a percentage).
+	// there's nothing to compare (no overlay mode is active, or the overlay period has no
+	// data at all - can't divide by zero, and "some number vs no baseline" isn't a
+	// percentage).
 	const comparePercent = $derived.by((): number | 'new' | null => {
-		if (!compareActive) return null;
+		if (!overlayActive) return null;
 		let currentTotal: number;
 		let previousTotal: number;
 		if (isHistogram) {
@@ -555,26 +597,35 @@
 		return ((currentTotal - previousTotal) / previousTotal) * 100;
 	});
 
+	// "previous 24 hours" for compare (names the *duration* being compared) vs. "7d ago"
+	// for time-shift (names the fixed offset - there's no preset duration to name, see
+	// overlayShiftMsAndLabel's own remarks).
+	const overlayPeriodLabel = $derived(
+		compareActive
+			? previousPeriodLabel(explorer.filter.timeRangePreset)
+			: m.metricChart_timeShiftAgoLabel({ duration: formatBucketWidthSeconds(explorer.resultTimeShiftSeconds ?? 0) })
+	);
+
 	const compareChangeText = $derived.by(() => {
 		if (comparePercent === null) return null;
-		const period = previousPeriodLabel(explorer.filter.timeRangePreset);
+		const period = overlayPeriodLabel;
 		if (comparePercent === 'new') return m.metricChart_compareNew({ period });
 		const sign = comparePercent > 0 ? '+' : '';
 		return m.metricChart_compareChange({ percent: `${sign}${comparePercent.toFixed(0)}`, period });
 	});
 
-	// "previous 24 hours" names the *duration* being compared, not which 24 hours that
-	// actually is - answers "what does previous period mean" concretely, on hover,
+	// "previous 24 hours"/"7d ago" names the *duration*/offset being compared, not which
+	// actual dates that resolves to - answers "what does that mean, concretely" on hover,
 	// rather than requiring a click into a real date-range picker Metrics doesn't have
 	// (only fixed presets - see MetricsToolbar's own remarks).
 	const compareRangeDetail = $derived.by(() => {
 		if (!compareChangeText) return null;
 		const range = resolveTimeRange(explorer.filter.timeRangePreset, explorer.filter.customRange ?? undefined);
 		if (!range) return null;
-		const previous = previousPeriod(range);
+		const overlayRange = compareActive ? previousPeriod(range) : shiftRange(range, explorer.resultTimeShiftSeconds ?? 0);
 		const fmt = (iso: string) =>
 			new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-		return `${m.metricChart_compareRangeCurrent({ from: fmt(range.from), to: fmt(range.to) })}\n${m.metricChart_compareRangePrevious({ from: fmt(previous.from), to: fmt(previous.to) })}`;
+		return `${m.metricChart_compareRangeCurrent({ from: fmt(range.from), to: fmt(range.to) })}\n${m.metricChart_compareRangePrevious({ from: fmt(overlayRange.from), to: fmt(overlayRange.to) })}`;
 	});
 
 	// Shared x-domain: every distinct bucket across the visible lines, in order - same
@@ -840,14 +891,15 @@
 							<span>{explorer.resultType}</span>
 						{/if}
 						<span aria-hidden="true">·</span>
-						<!-- "(summed)" only for Gauge/Sum comparison - the chart is showing 2
-						     aggregate-across-every-series lines then (see buildComparisonLines),
-						     not one per series, so this count would otherwise look inconsistent
-						     with what's actually drawn. Histogram compare doesn't get this -
-						     it's still the one series histogramSeriesIndex already picks, same
-						     as outside comparison mode, never a cross-series aggregate. -->
+						<!-- "(summed)" for any active overlay's Gauge/Sum case - the chart is
+						     showing 2 aggregate-across-every-series lines then (see
+						     buildComparisonLines), not one per series, so this count would
+						     otherwise look inconsistent with what's actually drawn. Histogram
+						     overlays don't get this - it's still the one series
+						     histogramSeriesIndex already picks, same as outside overlay mode,
+						     never a cross-series aggregate. -->
 						<span>
-							{compareActive && !isHistogram
+							{overlayActive && !isHistogram
 								? m.metricChart_seriesCountSummed({ count: explorer.series.length })
 								: m.metricChart_seriesCount({ count: explorer.series.length })}
 						</span>
@@ -880,6 +932,9 @@
 						{:else if compareUnavailable}
 							<span aria-hidden="true">·</span>
 							<span>{m.metricChart_compareUnavailable()}</span>
+						{:else if timeShiftUnavailable}
+							<span aria-hidden="true">·</span>
+							<span>{m.metricChart_timeShiftUnavailable()}</span>
 						{/if}
 					</div>
 				{/if}
@@ -926,7 +981,7 @@
 			     revalidate (MetricsExplorerState.#resetForNewMetric clears immediately, a
 			     different metric's chart would be actively misleading to leave up - see its
 			     own remarks), so it genuinely passes through the loading branch. Keying on
-			     chartKey (metric + service + compareActive, unchanged by a plain data
+			     chartKey (metric + service + overlayActive, unchanged by a plain data
 			     refresh) rather than a broader key covering every one of the four branches
 			     individually: the fade-out of the *old* metric's chart and the fade-in of
 			     the *new* metric's spinner both play as one transition when chartKey

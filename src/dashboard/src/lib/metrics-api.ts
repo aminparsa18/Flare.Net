@@ -53,10 +53,11 @@ export type MetricHavingOperator = MetricHavingOperatorName;
 
 export type MetricPostProcessFunctionType = MetricPostProcessFunctionTypeName;
 
-/** One step of a `MetricQueryRequest.postProcessFunctions` chain - see MetricModels.cs' `MetricPostProcessFunction` remarks. `value` is required for `ClampMin`/`ClampMax`, ignored otherwise. */
+/** One step of a `MetricQueryRequest.postProcessFunctions` chain - see MetricModels.cs' `MetricPostProcessFunction` remarks. `value` is required for `ClampMin`/`ClampMax`; `windowSize` is required for `EwmaSmoothing`/`MedianSmoothing` (ADR-0039); both ignored otherwise. */
 export interface MetricPostProcessFunction {
 	type: MetricPostProcessFunctionType;
 	value?: number;
+	windowSize?: number;
 }
 
 // Exported (not module-private) so `alerts-api.ts` can reuse it for
@@ -295,6 +296,7 @@ export async function queryMetric(request: MetricQueryRequest, signal?: AbortSig
 					const fn = new GeneratedMetricPostProcessFunction();
 					fn.type = metricPostProcessFunctionTypeFromString(f.type);
 					fn.value = f.value ?? null;
+					fn.windowSize = f.windowSize ?? null;
 					return fn;
 				});
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/query`, {

@@ -4,6 +4,7 @@
 	import PopoverSingleSelect from '$lib/components/logs/PopoverSingleSelect.svelte';
 	import MetricsHavingPopover from '$lib/components/metrics/MetricsHavingPopover.svelte';
 	import MetricsFunctionsPopover from '$lib/components/metrics/MetricsFunctionsPopover.svelte';
+	import MetricsTimeShiftPopover from '$lib/components/metrics/MetricsTimeShiftPopover.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
 	import { Switch } from '$lib/components/ui/switch';
@@ -197,6 +198,20 @@
 			/>
 			{m.metricsToolbar_compareLabel()}
 		</label>
+
+		<!-- Time-shift overlay (roadmap: "Per-query post-processing functions (metrics and
+		     logs)", ADR-0040) - a fixed, arbitrary offset overlay, distinct from Compare's
+		     duration-derived previous period above. Mutually exclusive with Compare (see
+		     MetricsExplorerState.setTimeShiftSeconds/setCompareEnabled's own remarks) -
+		     each control clears the other's state, so the chart only ever shows one overlay
+		     line at a time. Same Histogram availability as Compare (MetricChart decides,
+		     see its own timeShiftActive/timeShiftUnavailable remarks), same "toolbar filter,
+		     chart decides what to do with it" split. Formula mode has no overlay fetch
+		     either, same v1 scope cut Compare's own remarks document. -->
+		<MetricsTimeShiftPopover
+			timeShiftSeconds={explorer.filter.timeShiftSeconds}
+			onApply={(seconds) => explorer.setTimeShiftSeconds(seconds)}
+		/>
 	{/if}
 
 	<!-- Re-runs the chart's current query on an interval while on - see
