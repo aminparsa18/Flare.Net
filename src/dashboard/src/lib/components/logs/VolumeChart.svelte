@@ -90,7 +90,9 @@
 		try {
 			const res = await aggregateLogs({
 				filter: explorer.buildFilter(range),
-				bucketWidthSeconds: width
+				bucketWidthSeconds: width,
+				postProcessFunctions:
+					explorer.filter.postProcessFunctions.length > 0 ? explorer.filter.postProcessFunctions : undefined
 			});
 			buckets = res.buckets;
 			rangeFrom = range.from;
@@ -120,6 +122,7 @@
 		void explorer.filter.services;
 		void explorer.filter.severityNumbers;
 		void explorer.filter.search;
+		void explorer.filter.postProcessFunctions;
 		void explorer.live;
 
 		const timer = setTimeout(refresh, 300);

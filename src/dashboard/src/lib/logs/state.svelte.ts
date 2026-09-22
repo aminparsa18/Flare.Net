@@ -13,7 +13,8 @@ import {
 	type LiveTailStatus,
 	type LiveTailConnection,
 	type AttributeFilter,
-	type BodyJsonFilter
+	type BodyJsonFilter,
+	type LogPostProcessFunction
 } from '$lib/api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from './time-range';
 import { addRecentSearch } from './recent-searches';
@@ -73,6 +74,15 @@ export interface LogsFilterState {
 	 * "ordinary, editable, part of a saved view" status as `attributeFilters`.
 	 */
 	bodyJsonFilters: BodyJsonFilter[];
+	/**
+	 * Chain of app-side transforms (clamp/absolute/log/cumulative-sum, EWMA/median
+	 * smoothing) applied server-side to VolumeChart's bucket counts - the Logs-explorer
+	 * counterpart to `MetricsFilterState.postProcessFunctions` (ADR-0038/0039, extended to
+	 * Logs by ADR-0041). A display preference on the volume chart, not a content filter -
+	 * same "real display preference, carried through a saved view but not `hasActiveFilters`/
+	 * `resetFilters`" category that field's own doc comment documents for Metrics.
+	 */
+	postProcessFunctions: LogPostProcessFunction[];
 }
 
 /**
@@ -89,6 +99,7 @@ export interface LogsSavedViewState {
 	search: string;
 	attributeFilters: AttributeFilter[];
 	bodyJsonFilters: BodyJsonFilter[];
+	postProcessFunctions: LogPostProcessFunction[];
 }
 
 export class LogsExplorerState {
@@ -101,7 +112,8 @@ export class LogsExplorerState {
 		patternId: '',
 		attribute: null,
 		attributeFilters: [],
-		bodyJsonFilters: []
+		bodyJsonFilters: [],
+		postProcessFunctions: []
 	});
 
 	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
@@ -420,6 +432,19 @@ export class LogsExplorerState {
 		this.applyFilterChange();
 	}
 
+	/**
+	 * Replaces the whole post-processing chain (see `LogsFilterState.postProcessFunctions`'s
+	 * remarks) - called by `LogsFunctionsPopover`'s apply()/clear(). Deliberately doesn't
+	 * touch `selectedBucketRange` or call `applyFilterChange` the way the content-filter
+	 * setters above do: it's a display transform on VolumeChart's own bucket counts, not a
+	 * change to what the log table searches for, so it doesn't re-run `runSearch`/live-tail
+	 * - VolumeChart's own `$effect` picks up the change and re-fetches `/api/logs/aggregate`
+	 * with the new chain.
+	 */
+	setPostProcessFunctions(functions: LogPostProcessFunction[]): void {
+		this.filter.postProcessFunctions = functions;
+	}
+
 	setSeverityNumbers(severityNumbers: number[]): void {
 		this.selectedBucketRange = null;
 		this.filter.severityNumbers = severityNumbers;
@@ -544,7 +569,8 @@ export class LogsExplorerState {
 			severityNumbers: [...this.filter.severityNumbers],
 			search: this.filter.search,
 			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a })),
-			bodyJsonFilters: this.filter.bodyJsonFilters.map((f) => ({ ...f }))
+			bodyJsonFilters: this.filter.bodyJsonFilters.map((f) => ({ ...f })),
+			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f }))
 		};
 	}
 
@@ -569,7 +595,8 @@ export class LogsExplorerState {
 			patternId: '', // never part of a saved view - see LogsFilterState.patternId's remarks
 			attribute: null, // never part of a saved view - see LogsFilterState.attribute's own remarks
 			attributeFilters: s.attributeFilters ?? [],
-			bodyJsonFilters: s.bodyJsonFilters ?? []
+			bodyJsonFilters: s.bodyJsonFilters ?? [],
+			postProcessFunctions: s.postProcessFunctions ?? []
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
@@ -618,7 +645,8 @@ export class LogsExplorerState {
 			patternId: '',
 			attribute: params.attribute,
 			attributeFilters: [],
-			bodyJsonFilters: []
+			bodyJsonFilters: [],
+			postProcessFunctions: []
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
