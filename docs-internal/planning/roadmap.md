@@ -147,16 +147,19 @@ folders are where "what happened and why" actually lives.
   merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
   exponential-histogram table + quantile merge
   ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
-- **Per-query post-processing functions (metrics and logs).** No
-  library today for clamp-min/max, absolute, log2/log10, cumulative-sum,
-  smoothing (EWMA/median over N points), or time-shift (re-run a query
-  N seconds earlier for week-over-week/day-over-day overlay) - distinct
-  from the existing drag-to-zoom comparison mode, which is duration-
-  derived, not a reusable shift-and-overlay primitive. Not started.
-  Would be a small set of pure, unit-testable transforms in
-  `Flare.Api`'s Model/Query layer, applicable to both the metrics and
-  logs explorers (SigNoz shipped metrics first, then extended time-shift
-  to logs separately). Prior art:
+- **Per-query post-processing functions - smoothing, time-shift, and Logs
+  support.** ADR-0038 shipped the Metrics-Explorer, point-wise slice
+  (clamp-min/max, absolute, log2/log10, cumulative-sum) backend-side in
+  `Flare.Api`'s Query layer (`MetricPostProcessor`), with a chain-editor
+  popover in `MetricsToolbar.svelte`. Still open: smoothing (EWMA/median
+  over N points - needs a window/lookback parameter this chain shape
+  doesn't have yet), time-shift (re-run a query N seconds earlier for
+  week-over-week/day-over-day overlay - structurally closer to the
+  existing compare-mode previous-period fetch than to a point-wise
+  transform, distinct from the existing drag-to-zoom comparison mode,
+  which is duration-derived, not a reusable shift-and-overlay primitive),
+  and extending any of this to the Logs explorer (SigNoz shipped metrics
+  first, then extended time-shift to logs separately). Prior art:
   [signoz#4445](https://github.com/SigNoz/signoz/commit/3b98073ad4f0fe9825ce7e9ac47de1df16c98865),
   [signoz#4569](https://github.com/SigNoz/signoz/commit/1a62a13aeaa205cae3b474f3ad07ab2944385757),
   [signoz#4607](https://github.com/SigNoz/signoz/commit/d0d10daa442e387fe557ae0bb6c14b19d004ef8d).

@@ -89,6 +89,13 @@ public sealed class MetricQueryService(IClickHouseClient client, TimeProvider ti
             series.Add(new MetricSeries { ServiceName = currentServiceName!, Attributes = currentAttributes!, Points = currentPoints });
         }
 
+        // Histogram excluded - see MetricQueryRequest.PostProcessFunctions' remarks (no
+        // single scalar Value to transform).
+        if (request.PostProcessFunctions is { Count: > 0 } functions && built.Type != MetricPointType.Histogram)
+        {
+            series = series.ConvertAll(s => s with { Points = MetricPostProcessor.Apply(s.Points, functions) });
+        }
+
         return new MetricQueryResponse { Series = series };
     }
 

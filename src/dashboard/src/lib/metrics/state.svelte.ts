@@ -18,6 +18,7 @@ import {
 	type MetricHavingOperator,
 	type MetricNameInfo,
 	type MetricPointType,
+	type MetricPostProcessFunction,
 	type MetricSeries
 } from '$lib/metrics-api';
 import { resolveTimeRange, rangeSeconds, previousPeriod, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
@@ -46,6 +47,16 @@ export interface MetricsFilterState {
 	 */
 	havingOperator: MetricHavingOperator | null;
 	havingValue: number | null;
+	/**
+	 * App-side post-processing chain (ADR-0038, roadmap: "Per-query post-processing
+	 * functions (metrics and logs)") applied, in order, to the queried series' points -
+	 * see `MetricQueryRequest.postProcessFunctions`'s remarks and `MetricsToolbar`'s
+	 * "Functions" control. Empty array = no post-processing. Same "real display
+	 * preference, not a one-off hop" reasoning as `compareEnabled`/`groupByAttributeKey`/
+	 * `topN` - carried in a saved view too. Ignored (and hidden in the toolbar) when the
+	 * selected metric is a Histogram - see `MetricPostProcessor`'s remarks for why.
+	 */
+	postProcessFunctions: MetricPostProcessFunction[];
 }
 
 /** Mirrors `MetricSeriesQueryBuilder.DefaultTopN` on the API side - see `MetricsFilterState.topN`'s own remarks for why this can't just be imported instead. */
@@ -147,7 +158,8 @@ export class MetricsExplorerState {
 		groupByAttributeKey: null,
 		topN: DEFAULT_TOP_N,
 		havingOperator: null,
-		havingValue: null
+		havingValue: null,
+		postProcessFunctions: []
 	});
 
 	// Never mutated in place, always a wholesale reassignment - same $state.raw
@@ -451,6 +463,12 @@ export class MetricsExplorerState {
 		// site that actually crosses into the API layer.
 		const havingOperator = this.filter.havingOperator && this.filter.havingValue != null ? this.filter.havingOperator : undefined;
 		const havingValue = this.filter.havingOperator && this.filter.havingValue != null ? this.filter.havingValue : undefined;
+		// Histogram has no single scalar Value to transform (MetricPostProcessor's own
+		// remarks) - MetricsToolbar already hides the control for it, but this is the one
+		// call site that actually crosses into the API layer, so the exclusion is enforced
+		// here too rather than trusting the toolbar alone.
+		const postProcessFunctions =
+			metric.type !== 'Histogram' && this.filter.postProcessFunctions.length > 0 ? this.filter.postProcessFunctions : undefined;
 
 		// Deliberately doesn't touch series/previousSeries/intervalSeconds here - only
 		// queryError, and only because a stale error message next to fresh-looking
@@ -481,7 +499,8 @@ export class MetricsExplorerState {
 						groupByAttributeKey,
 						topN,
 						havingOperator,
-						havingValue
+						havingValue,
+						postProcessFunctions
 					},
 					abort.signal
 				),
@@ -495,7 +514,8 @@ export class MetricsExplorerState {
 								groupByAttributeKey,
 								topN,
 								havingOperator,
-								havingValue
+								havingValue,
+								postProcessFunctions
 							},
 							abort.signal
 						).catch(() => null)
@@ -591,6 +611,16 @@ export class MetricsExplorerState {
 		this.#flushPendingSwitch();
 		this.filter.havingOperator = operator;
 		this.filter.havingValue = value;
+		void this.runQuery();
+	}
+
+	/**
+	 * Replaces the whole post-processing chain (see `MetricsFilterState.postProcessFunctions`'s
+	 * remarks) - same shape as `setHaving`/`setGroupByAttribute`, no name-list reload.
+	 */
+	setPostProcessFunctions(functions: MetricPostProcessFunction[]): void {
+		this.#flushPendingSwitch();
+		this.filter.postProcessFunctions = functions;
 		void this.runQuery();
 	}
 
@@ -773,6 +803,7 @@ export class MetricsExplorerState {
 			topN: this.filter.topN,
 			havingOperator: this.filter.havingOperator,
 			havingValue: this.filter.havingValue,
+			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
 			selectedMetric: this.selected
 				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
 				: null,
@@ -805,7 +836,10 @@ export class MetricsExplorerState {
 			groupByAttributeKey: s.groupByAttributeKey ?? null,
 			topN: s.topN ?? DEFAULT_TOP_N,
 			havingOperator: s.havingOperator ?? null,
-			havingValue: s.havingValue ?? null
+			havingValue: s.havingValue ?? null,
+			// Absent from older saved views (pre-dates ADR-0038) - defaults to no
+			// post-processing, the only state that existed then.
+			postProcessFunctions: s.postProcessFunctions ?? []
 		};
 		await this.loadNames();
 		const saved = s.selectedMetric;
