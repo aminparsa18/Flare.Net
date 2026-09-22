@@ -3,6 +3,7 @@
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import PopoverSingleSelect from '$lib/components/logs/PopoverSingleSelect.svelte';
 	import MetricsHavingPopover from '$lib/components/metrics/MetricsHavingPopover.svelte';
+	import MetricsFunctionsPopover from '$lib/components/metrics/MetricsFunctionsPopover.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
 	import { Switch } from '$lib/components/ui/switch';
@@ -164,6 +165,18 @@
 			havingValue={explorer.filter.havingValue}
 			onApply={(operator, value) => explorer.setHaving(operator, value)}
 		/>
+
+		<!-- Per-query post-processing (roadmap: "Per-query post-processing functions
+		     (metrics and logs)", ADR-0038) - clamp-min/max/absolute/log2/log10/cumulative-sum
+		     applied server-side to the queried series' points (MetricPostProcessor.cs).
+		     Hidden for Histogram, which has no single scalar Value to transform - same
+		     exclusion ADR-0036 made for Formula-mode operands. -->
+		{#if explorer.selected?.type !== 'Histogram'}
+			<MetricsFunctionsPopover
+				functions={explorer.filter.postProcessFunctions}
+				onApply={(functions) => explorer.setPostProcessFunctions(functions)}
+			/>
+		{/if}
 
 		<!-- MetricChart itself is the one that decides whether/how comparison actually
 		     renders (unsupported for Histogram's Percentiles view - see its own remarks on

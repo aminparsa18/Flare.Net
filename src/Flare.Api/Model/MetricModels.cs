@@ -216,6 +216,48 @@ public sealed partial record MetricQueryRequest
 
     /// <summary>Threshold compared against the ranking magnitude when <see cref="HavingOperator"/> is set. Ignored (no filter) if <see cref="HavingOperator"/> is null.</summary>
     public double? HavingValue { get; init; }
+
+    /// <summary>
+    /// Optional chain of app-side transforms applied, in list order, to each returned
+    /// Gauge/Sum series' <see cref="MetricSeriesPoint.Value"/> after the ClickHouse query
+    /// runs - see <see cref="Query.MetricPostProcessor"/>. Null/empty = no post-processing
+    /// (default). Ignored for Histogram series (<see cref="MetricPointType.Histogram"/> has
+    /// no single scalar <see cref="MetricSeriesPoint.Value"/> to transform - the same v1
+    /// scope cut ADR-0036 made for Formula-mode operands, see that ADR's Context section).
+    /// </summary>
+    public IReadOnlyList<MetricPostProcessFunction>? PostProcessFunctions { get; init; }
+}
+
+/// <summary>
+/// Which per-query post-processing transform a <see cref="MetricPostProcessFunction"/>
+/// applies - the metrics-only v1 slice of the roadmap's "Per-query post-processing
+/// functions (metrics and logs)" item (see ADR-0038; smoothing, time-shift, and Logs
+/// support are named follow-ups, not silently dropped). MemoryPack encodes this as its
+/// numeric ordinal, so existing members must keep their ordinals if new ones are ever
+/// appended - same convention <see cref="MetricHavingOperator"/>'s remarks document.
+/// </summary>
+public enum MetricPostProcessFunctionType
+{
+    ClampMin,
+    ClampMax,
+    Absolute,
+    Log2,
+    Log10,
+    CumulativeSum,
+}
+
+/// <summary>
+/// One step in a <see cref="MetricQueryRequest.PostProcessFunctions"/> chain, applied in
+/// list order (each function's output feeds the next) by <see cref="Query.MetricPostProcessor"/>.
+/// </summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record MetricPostProcessFunction
+{
+    public required MetricPostProcessFunctionType Type { get; init; }
+
+    /// <summary>Threshold for <see cref="MetricPostProcessFunctionType.ClampMin"/>/<see cref="MetricPostProcessFunctionType.ClampMax"/> - required for those two, ignored (may be null) for every other function.</summary>
+    public double? Value { get; init; }
 }
 
 /// <summary>

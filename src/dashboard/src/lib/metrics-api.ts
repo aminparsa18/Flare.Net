@@ -15,7 +15,9 @@ import {
 	metricPointTypeToString,
 	type MetricPointTypeName,
 	metricHavingOperatorFromString,
-	type MetricHavingOperatorName
+	type MetricHavingOperatorName,
+	metricPostProcessFunctionTypeFromString,
+	type MetricPostProcessFunctionTypeName
 } from '$lib/memorypack/enums';
 import { MetricFilter as GeneratedMetricFilter } from '$lib/memorypack/MetricFilter';
 import { MetricNamesRequest as GeneratedMetricNamesRequest } from '$lib/memorypack/MetricNamesRequest';
@@ -25,6 +27,7 @@ import { MetricAttributeKeysResponse as GeneratedMetricAttributeKeysResponse } f
 import { MetricQueryRequest as GeneratedMetricQueryRequest } from '$lib/memorypack/MetricQueryRequest';
 import { MetricQueryResponse as GeneratedMetricQueryResponse } from '$lib/memorypack/MetricQueryResponse';
 import { MetricAttributeFilter as GeneratedMetricAttributeFilter } from '$lib/generated/memorypack/MetricAttributeFilter.js';
+import { MetricPostProcessFunction as GeneratedMetricPostProcessFunction } from '$lib/generated/memorypack/MetricPostProcessFunction.js';
 import type { MetricNameInfo as GeneratedMetricNameInfo } from '$lib/generated/memorypack/MetricNameInfo.js';
 import type { MetricAttributeKeyInfo as GeneratedMetricAttributeKeyInfo } from '$lib/generated/memorypack/MetricAttributeKeyInfo.js';
 import type { MetricSeries as GeneratedMetricSeries } from '$lib/memorypack/MetricSeries';
@@ -47,6 +50,14 @@ export interface MetricFilter {
 export type MetricPointType = MetricPointTypeName;
 
 export type MetricHavingOperator = MetricHavingOperatorName;
+
+export type MetricPostProcessFunctionType = MetricPostProcessFunctionTypeName;
+
+/** One step of a `MetricQueryRequest.postProcessFunctions` chain - see MetricModels.cs' `MetricPostProcessFunction` remarks. `value` is required for `ClampMin`/`ClampMax`, ignored otherwise. */
+export interface MetricPostProcessFunction {
+	type: MetricPostProcessFunctionType;
+	value?: number;
+}
 
 // Exported (not module-private) so `alerts-api.ts` can reuse it for
 // `MetricAlertCondition.filter` (a metric-threshold alert rule's condition embeds the same
@@ -208,6 +219,10 @@ export interface MetricQueryRequest {
 	// enforcing pairing itself.
 	havingOperator?: MetricHavingOperator;
 	havingValue?: number;
+	// App-side transform chain (ADR-0038) applied, in order, to each returned Gauge/Sum
+	// series' points - see MetricQueryRequest.cs' PostProcessFunctions remarks. Omitted/
+	// undefined = no post-processing. Ignored server-side for Histogram series.
+	postProcessFunctions?: MetricPostProcessFunction[];
 }
 
 export interface MetricSeriesPoint {
@@ -273,6 +288,15 @@ export async function queryMetric(request: MetricQueryRequest, signal?: AbortSig
 	dto.topN = request.topN ?? null;
 	dto.havingOperator = request.havingOperator == null ? null : metricHavingOperatorFromString(request.havingOperator);
 	dto.havingValue = request.havingValue ?? null;
+	dto.postProcessFunctions =
+		request.postProcessFunctions == null
+			? null
+			: request.postProcessFunctions.map((f) => {
+					const fn = new GeneratedMetricPostProcessFunction();
+					fn.type = metricPostProcessFunctionTypeFromString(f.type);
+					fn.value = f.value ?? null;
+					return fn;
+				});
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/query`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),

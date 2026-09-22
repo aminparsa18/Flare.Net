@@ -73,6 +73,7 @@ function defaultQueryFor(panelType: PanelType): unknown {
 				topN: 20,
 				havingOperator: null,
 				havingValue: null,
+				postProcessFunctions: [],
 				selectedMetric: null
 			} satisfies MetricsSavedViewState;
 	}
