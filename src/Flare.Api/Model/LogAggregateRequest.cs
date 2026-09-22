@@ -21,6 +21,64 @@ public sealed partial record LogAggregateRequest
     public required int BucketWidthSeconds { get; init; }
 
     public LogAggregateGroupBy GroupBy { get; init; } = LogAggregateGroupBy.None;
+
+    /// <summary>
+    /// Optional chain of app-side transforms applied, in list order, to each returned
+    /// bucket's <see cref="LogAggregateBucket.Count"/> after the ClickHouse query runs -
+    /// see <see cref="Query.LogPostProcessor"/>. Null/empty = no post-processing (default).
+    /// The Logs-explorer counterpart to <c>MetricQueryRequest.PostProcessFunctions</c>
+    /// (ADR-0038/0039) - appended last, same append-only field-versioning convention that
+    /// pair's own remarks document. When <see cref="GroupBy"/> is set, each distinct
+    /// <see cref="LogAggregateBucket.GroupKey"/>'s buckets are processed as their own
+    /// independent series, not run together as one - see <see cref="Query.LogPostProcessor"/>'s
+    /// remarks.
+    /// </summary>
+    public IReadOnlyList<LogPostProcessFunction>? PostProcessFunctions { get; init; }
+}
+
+/// <summary>
+/// Which per-query post-processing transform a <see cref="LogPostProcessFunction"/> applies -
+/// the Logs-explorer counterpart to <c>MetricPostProcessFunctionType</c> (ADR-0038/0039),
+/// shipped for Logs by ADR-0041. Same member set and ordinals - see
+/// <see cref="Query.LogPostProcessor"/>'s remarks for how the semantics diverge from the
+/// metrics version now that there's no nullable <see cref="LogAggregateBucket.Count"/> slot
+/// to carry a "gap" through. MemoryPack encodes this as its numeric ordinal, so existing
+/// members must keep their ordinals if new ones are ever appended.
+/// </summary>
+public enum LogPostProcessFunctionType
+{
+    ClampMin,
+    ClampMax,
+    Absolute,
+    Log2,
+    Log10,
+    CumulativeSum,
+    EwmaSmoothing,
+    MedianSmoothing,
+}
+
+/// <summary>
+/// One step in a <see cref="LogAggregateRequest.PostProcessFunctions"/> chain, applied in
+/// list order (each function's output feeds the next) by <see cref="Query.LogPostProcessor"/>.
+/// Field-for-field identical shape to <c>MetricPostProcessFunction</c>.
+/// </summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record LogPostProcessFunction
+{
+    public required LogPostProcessFunctionType Type { get; init; }
+
+    /// <summary>Threshold for <see cref="LogPostProcessFunctionType.ClampMin"/>/<see cref="LogPostProcessFunctionType.ClampMax"/> - required for those two, ignored (may be null) for every other function.</summary>
+    public double? Value { get; init; }
+
+    /// <summary>
+    /// Trailing lookback, in buckets, for <see cref="LogPostProcessFunctionType.EwmaSmoothing"/>
+    /// (converted to a decay factor via the standard <c>alpha = 2 / (N + 1)</c> N-period
+    /// formula) / <see cref="LogPostProcessFunctionType.MedianSmoothing"/> (a literal
+    /// trailing window of up to N points) - required (&gt;= 1) for those two, ignored (may
+    /// be null) for every other function.
+    /// </summary>
+    public int? WindowSize { get; init; }
 }
 
 /// <summary>

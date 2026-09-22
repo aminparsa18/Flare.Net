@@ -19,7 +19,15 @@
 // comment for its current state.
 
 import { env } from '$env/dynamic/public';
-import { logAggregateGroupByFromString, logQlResultKindToString, resourceHealthToString, resourceStateToString } from '$lib/memorypack/enums';
+import {
+	logAggregateGroupByFromString,
+	logPostProcessFunctionTypeFromString,
+	type LogPostProcessFunctionTypeName,
+	logQlResultKindToString,
+	resourceHealthToString,
+	resourceStateToString
+} from '$lib/memorypack/enums';
+import { LogPostProcessFunction as GeneratedLogPostProcessFunction } from '$lib/generated/memorypack/LogPostProcessFunction.js';
 import { LogFilter as GeneratedLogFilter, logFilterFromPlain } from '$lib/memorypack/LogFilter';
 import { LogEventDto as GeneratedLogEventDto } from '$lib/memorypack/LogEventDto';
 import { LogSearchRequest as GeneratedLogSearchRequest } from '$lib/memorypack/LogSearchRequest';
@@ -285,10 +293,25 @@ export async function getLogContext(request: LogContextRequest, signal?: AbortSi
 
 export type LogAggregateGroupBy = 'None' | 'Service' | 'Level';
 
+export type LogPostProcessFunctionType = LogPostProcessFunctionTypeName;
+
+/** One step of a `LogAggregateRequest.postProcessFunctions` chain - the Logs-explorer counterpart to `metrics-api.ts`'s `MetricPostProcessFunction` (ADR-0041). `value` is required for `ClampMin`/`ClampMax`; `windowSize` is required for `EwmaSmoothing`/`MedianSmoothing`; both ignored otherwise. */
+export interface LogPostProcessFunction {
+	type: LogPostProcessFunctionType;
+	value?: number;
+	windowSize?: number;
+}
+
 export interface LogAggregateRequest {
 	filter?: LogFilter;
 	bucketWidthSeconds: number;
 	groupBy?: LogAggregateGroupBy;
+	/**
+	 * Optional chain of app-side transforms applied, in list order, to each returned
+	 * bucket's `count` - see `LogAggregateRequest.cs`'s `PostProcessFunctions` remarks.
+	 * Omitted/empty = no post-processing (default).
+	 */
+	postProcessFunctions?: LogPostProcessFunction[];
 }
 
 export interface LogAggregateBucket {
@@ -310,6 +333,16 @@ export async function aggregateLogs(request: LogAggregateRequest, signal?: Abort
 	dto.filter = toGeneratedLogFilter(request.filter);
 	dto.bucketWidthSeconds = request.bucketWidthSeconds;
 	dto.groupBy = logAggregateGroupByFromString(request.groupBy ?? 'None');
+	dto.postProcessFunctions =
+		request.postProcessFunctions == null
+			? null
+			: request.postProcessFunctions.map((f) => {
+					const fn = new GeneratedLogPostProcessFunction();
+					fn.type = logPostProcessFunctionTypeFromString(f.type);
+					fn.value = f.value ?? null;
+					fn.windowSize = f.windowSize ?? null;
+					return fn;
+				});
 	const res = await apiFetch(`${API_BASE_URL}/api/logs/aggregate`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),

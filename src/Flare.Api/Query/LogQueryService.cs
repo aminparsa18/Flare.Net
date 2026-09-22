@@ -225,7 +225,11 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
             buckets.Add(new LogAggregateBucket { BucketStart = bucketStart, GroupKey = groupKey, Count = count });
         }
 
-        return new LogAggregateResponse { Buckets = buckets };
+        var processed = request.PostProcessFunctions is { Count: > 0 } functions
+            ? LogPostProcessor.Apply(buckets, functions)
+            : buckets;
+
+        return new LogAggregateResponse { Buckets = processed };
     }
 
     public async Task<LogQlQueryResponse> RunQlQueryAsync(LogQlQueryRequest request, CancellationToken cancellationToken)

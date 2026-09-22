@@ -4,6 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
+	import LogsFunctionsPopover from './LogsFunctionsPopover.svelte';
 	import PatternsModal from './PatternsModal.svelte';
 	import ExportDialog from './ExportDialog.svelte';
 	import ShareViewButton from './ShareViewButton.svelte';
@@ -121,6 +122,11 @@
 			</button>
 		</Badge>
 	{/if}
+
+	<LogsFunctionsPopover
+		functions={explorer.filter.postProcessFunctions}
+		onApply={(fns) => explorer.setPostProcessFunctions(fns)}
+	/>
 
 	<Button variant="ghost" size="sm" onclick={() => explorer.resetFilters()} disabled={!explorer.hasActiveFilters()}>
 		<XIcon data-icon="inline-start" />

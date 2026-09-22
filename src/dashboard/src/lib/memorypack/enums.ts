@@ -21,6 +21,7 @@ import { IngestionSignal } from '$lib/generated/memorypack/IngestionSignal.js';
 import { ThresholdComparator } from '$lib/generated/memorypack/ThresholdComparator.js';
 import { MetricPointType } from '$lib/generated/memorypack/MetricPointType.js';
 import { MetricPostProcessFunctionType } from '$lib/generated/memorypack/MetricPostProcessFunctionType.js';
+import { LogPostProcessFunctionType } from '$lib/generated/memorypack/LogPostProcessFunctionType.js';
 
 /** Matches `AuthModels.cs`'s `Flare.Identity.Users.UserRole` member order exactly - see that file's remarks on why renaming a member is a schema/claims-breaking change, not just a rename (so this order is exactly as stable as the enum itself). */
 const USER_ROLE_NAMES = ['Admin', 'Member', 'Viewer'] as const;
@@ -159,6 +160,28 @@ export function metricPostProcessFunctionTypeToString(value: MetricPostProcessFu
 
 export function metricPostProcessFunctionTypeFromString(value: MetricPostProcessFunctionTypeName): MetricPostProcessFunctionType {
 	return METRIC_POST_PROCESS_FUNCTION_TYPE_NAMES.indexOf(value) as MetricPostProcessFunctionType;
+}
+
+/** Matches `LogAggregateRequest.cs`'s `LogPostProcessFunctionType` member order - the Logs-explorer counterpart to `MetricPostProcessFunctionType` above (ADR-0041). */
+const LOG_POST_PROCESS_FUNCTION_TYPE_NAMES = [
+	'ClampMin',
+	'ClampMax',
+	'Absolute',
+	'Log2',
+	'Log10',
+	'CumulativeSum',
+	'EwmaSmoothing',
+	'MedianSmoothing'
+] as const;
+
+export type LogPostProcessFunctionTypeName = (typeof LOG_POST_PROCESS_FUNCTION_TYPE_NAMES)[number];
+
+export function logPostProcessFunctionTypeToString(value: LogPostProcessFunctionType): LogPostProcessFunctionTypeName {
+	return LOG_POST_PROCESS_FUNCTION_TYPE_NAMES[value];
+}
+
+export function logPostProcessFunctionTypeFromString(value: LogPostProcessFunctionTypeName): LogPostProcessFunctionType {
+	return LOG_POST_PROCESS_FUNCTION_TYPE_NAMES.indexOf(value) as LogPostProcessFunctionType;
 }
 
 /** Matches `AlertModels.cs`'s `AlertConditionKind` member order. Not itself MemoryPack-TS-generated - `AlertRule`/`AlertRuleRequest`, its only consumers, are hand-written (nest `LogFilter`). */
