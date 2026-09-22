@@ -150,6 +150,23 @@ export function previousPeriod(range: ResolvedTimeRange): ResolvedTimeRange {
 	};
 }
 
+/**
+ * Shifts `range` back by exactly `seconds`, both ends moved together, same duration - the
+ * fixed-offset counterpart to `previousPeriod` above (which shifts back by the range's own
+ * duration instead). Used by Metrics' time-shift overlay (roadmap: "Per-query
+ * post-processing functions (metrics and logs)", ADR-0040; see
+ * `MetricsExplorerState.runQuery`) for an arbitrary, user-picked offset - e.g. exactly 7
+ * days back regardless of whether the displayed range itself is 1 hour or 6 hours wide,
+ * something `previousPeriod` can't express (it only ever means "one full period back").
+ */
+export function shiftRange(range: ResolvedTimeRange, seconds: number): ResolvedTimeRange {
+	const shiftMs = seconds * 1000;
+	return {
+		from: new Date(new Date(range.from).getTime() - shiftMs).toISOString(),
+		to: new Date(new Date(range.to).getTime() - shiftMs).toISOString()
+	};
+}
+
 const PREVIOUS_PERIOD_LABELS: Partial<Record<TimeRangePreset, () => string>> = {
 	'5m': m.timeRange_previous5m,
 	'15m': m.timeRange_previous15m,

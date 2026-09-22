@@ -1,10 +1,10 @@
 <script lang="ts">
 	// Per-query post-processing functions (roadmap: "Per-query post-processing functions
-	// (metrics and logs)", ADR-0038) - a chainable list of app-side transforms
-	// (clamp-min/max, absolute, log2/log10, cumulative-sum) applied in order to the
-	// queried series' points server-side (MetricPostProcessor.cs), same "small
-	// icon-triggered popover with a mini form" shape as MetricsHavingPopover.svelte, just
-	// a list of rows instead of one operator/value pair.
+	// (metrics and logs)", ADR-0038 + ADR-0039) - a chainable list of app-side transforms
+	// (clamp-min/max, absolute, log2/log10, cumulative-sum, EWMA/median smoothing) applied
+	// in order to the queried series' points server-side (MetricPostProcessor.cs), same
+	// "small icon-triggered popover with a mini form" shape as MetricsHavingPopover.svelte,
+	// just a list of rows instead of one operator/value pair.
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
@@ -28,17 +28,27 @@
 	// popover from growing unboundedly.
 	const MAX_FUNCTIONS = 5;
 
+	// Same "N-period" default MetricPostProcessor.cs' EWMA conversion (alpha = 2/(N+1))
+	// assumes - a reasonable starting lookback, not a magic number the backend requires.
+	const DEFAULT_WINDOW_SIZE = 5;
+
 	const FUNCTION_OPTIONS: { value: MetricPostProcessFunctionType; label: () => string }[] = [
 		{ value: 'ClampMin', label: m.metricsFunctions_clampMin },
 		{ value: 'ClampMax', label: m.metricsFunctions_clampMax },
 		{ value: 'Absolute', label: m.metricsFunctions_absolute },
 		{ value: 'Log2', label: m.metricsFunctions_log2 },
 		{ value: 'Log10', label: m.metricsFunctions_log10 },
-		{ value: 'CumulativeSum', label: m.metricsFunctions_cumulativeSum }
+		{ value: 'CumulativeSum', label: m.metricsFunctions_cumulativeSum },
+		{ value: 'EwmaSmoothing', label: m.metricsFunctions_ewmaSmoothing },
+		{ value: 'MedianSmoothing', label: m.metricsFunctions_medianSmoothing }
 	];
 
 	function needsValue(type: MetricPostProcessFunctionType): boolean {
 		return type === 'ClampMin' || type === 'ClampMax';
+	}
+
+	function needsWindowSize(type: MetricPostProcessFunctionType): boolean {
+		return type === 'EwmaSmoothing' || type === 'MedianSmoothing';
 	}
 
 	let open = $state(false);
@@ -46,17 +56,21 @@
 	// re-seed MetricsHavingPopover.svelte's own `$effect` uses, for the same
 	// `state_referenced_locally` reason (referencing the prop directly would only
 	// capture its initial value).
-	// `value` starts life as a string but Svelte's native `bind:value` on
-	// `<input type="number">` (inside Input.svelte) coerces it to a real `number` the
+	// `value`/`windowSize` start life as strings but Svelte's native `bind:value` on
+	// `<input type="number">` (inside Input.svelte) coerces them to a real `number` the
 	// moment a valid numeric value lands - same gotcha MetricsHavingPopover.svelte's own
 	// `valueDraft` documents, so `apply()` below always goes through `String(...)` first
-	// rather than assuming it stayed a string.
-	let draft = $state<{ type: MetricPostProcessFunctionType; value: string | number }[]>([]);
+	// rather than assuming either stayed a string.
+	let draft = $state<{ type: MetricPostProcessFunctionType; value: string | number; windowSize: string | number }[]>([]);
 	let error = $state<string | null>(null);
 
 	$effect(() => {
 		if (open) {
-			draft = functions.map((f) => ({ type: f.type, value: f.value != null ? String(f.value) : '' }));
+			draft = functions.map((f) => ({
+				type: f.type,
+				value: f.value != null ? String(f.value) : '',
+				windowSize: f.windowSize != null ? String(f.windowSize) : ''
+			}));
 			error = null;
 		}
 	});
@@ -65,27 +79,46 @@
 
 	function addRow(): void {
 		if (draft.length >= MAX_FUNCTIONS) return;
-		draft = [...draft, { type: 'Absolute', value: '' }];
+		draft = [...draft, { type: 'Absolute', value: '', windowSize: '' }];
 	}
 
 	function removeRow(index: number): void {
 		draft = draft.filter((_, i) => i !== index);
 	}
 
+	function setRowType(index: number, type: MetricPostProcessFunctionType): void {
+		// Pre-fill a sane default the first time a row switches to a smoothing function,
+		// rather than leaving the window-size input blank and forcing every user to know
+		// what number to type there.
+		const windowSize =
+			needsWindowSize(type) && draft[index].windowSize === '' ? DEFAULT_WINDOW_SIZE : draft[index].windowSize;
+		draft[index] = { ...draft[index], type, windowSize };
+	}
+
 	function apply(): void {
 		const resolved: MetricPostProcessFunction[] = [];
 		for (const row of draft) {
-			if (!needsValue(row.type)) {
-				resolved.push({ type: row.type });
+			if (needsValue(row.type)) {
+				const valueText = String(row.value);
+				const parsed = Number(valueText);
+				if (valueText.trim() === '' || !Number.isFinite(parsed)) {
+					error = m.metricsFunctions_invalidValue();
+					return;
+				}
+				resolved.push({ type: row.type, value: parsed });
 				continue;
 			}
-			const valueText = String(row.value);
-			const parsed = Number(valueText);
-			if (valueText.trim() === '' || !Number.isFinite(parsed)) {
-				error = m.metricsFunctions_invalidValue();
-				return;
+			if (needsWindowSize(row.type)) {
+				const windowText = String(row.windowSize);
+				const parsedWindow = Number(windowText);
+				if (windowText.trim() === '' || !Number.isInteger(parsedWindow) || parsedWindow < 1) {
+					error = m.metricsFunctions_invalidWindowSize();
+					return;
+				}
+				resolved.push({ type: row.type, windowSize: parsedWindow });
+				continue;
 			}
-			resolved.push({ type: row.type, value: parsed });
+			resolved.push({ type: row.type });
 		}
 		onApply(resolved);
 		open = false;
@@ -121,7 +154,7 @@
 					<Select.Root
 						type="single"
 						value={row.type}
-						onValueChange={(v) => v && (draft[index] = { ...draft[index], type: v as MetricPostProcessFunctionType })}
+						onValueChange={(v) => v && setRowType(index, v as MetricPostProcessFunctionType)}
 					>
 						<Select.Trigger class="h-8 flex-1">
 							{FUNCTION_OPTIONS.find((o) => o.value === row.type)?.label()}
@@ -138,6 +171,16 @@
 							bind:value={row.value}
 							class="h-8 w-20"
 							placeholder={m.metricsHaving_valuePlaceholder()}
+						/>
+					{:else if needsWindowSize(row.type)}
+						<Input
+							type="number"
+							min="1"
+							step="1"
+							bind:value={row.windowSize}
+							class="h-8 w-20"
+							title={m.metricsFunctions_windowSizeTitle()}
+							placeholder={m.metricsFunctions_windowSizePlaceholder()}
 						/>
 					{/if}
 					<Button variant="ghost" size="icon" class="size-8 shrink-0" onclick={() => removeRow(index)} title={m.metricsFunctions_remove()}>

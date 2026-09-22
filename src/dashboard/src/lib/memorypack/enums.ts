@@ -140,7 +140,16 @@ export function metricPointTypeFromString(value: MetricPointTypeName): MetricPoi
 }
 
 /** Matches `MetricModels.cs`'s `MetricPostProcessFunctionType` member order. */
-const METRIC_POST_PROCESS_FUNCTION_TYPE_NAMES = ['ClampMin', 'ClampMax', 'Absolute', 'Log2', 'Log10', 'CumulativeSum'] as const;
+const METRIC_POST_PROCESS_FUNCTION_TYPE_NAMES = [
+	'ClampMin',
+	'ClampMax',
+	'Absolute',
+	'Log2',
+	'Log10',
+	'CumulativeSum',
+	'EwmaSmoothing',
+	'MedianSmoothing'
+] as const;
 
 export type MetricPostProcessFunctionTypeName = (typeof METRIC_POST_PROCESS_FUNCTION_TYPE_NAMES)[number];
 

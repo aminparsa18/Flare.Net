@@ -21,7 +21,7 @@ import {
 	type MetricPostProcessFunction,
 	type MetricSeries
 } from '$lib/metrics-api';
-import { resolveTimeRange, rangeSeconds, previousPeriod, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
+import { resolveTimeRange, rangeSeconds, previousPeriod, shiftRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
 import { parseFormula, evaluateFormula, collectRefs } from './formula';
 
@@ -57,6 +57,20 @@ export interface MetricsFilterState {
 	 * selected metric is a Histogram - see `MetricPostProcessor`'s remarks for why.
 	 */
 	postProcessFunctions: MetricPostProcessFunction[];
+	/**
+	 * Time-shift overlay (roadmap: "Per-query post-processing functions (metrics and
+	 * logs)", ADR-0040) - re-runs the query at a fixed offset (`timeShiftSeconds` seconds
+	 * earlier than the displayed range, both ends shifted together) and overlays the
+	 * result on the same x-axis as "N ago", e.g. exactly 7 days back regardless of the
+	 * displayed range's own width. Distinct from `compareEnabled`, whose shift is always
+	 * derived from the displayed range's own duration ("one full period back") - see
+	 * `shiftRange`/`previousPeriod` in `$lib/logs/time-range.ts` for the two different
+	 * shift computations this drives in `runQuery`. Mutually exclusive with
+	 * `compareEnabled` - see `setTimeShiftSeconds`/`setCompareEnabled`'s own remarks, only
+	 * one overlay line at a time. `null` = off. Same "real display preference, not a
+	 * one-off hop" reasoning as `compareEnabled` - carried in a saved view too.
+	 */
+	timeShiftSeconds: number | null;
 }
 
 /** Mirrors `MetricSeriesQueryBuilder.DefaultTopN` on the API side - see `MetricsFilterState.topN`'s own remarks for why this can't just be imported instead. */
@@ -159,7 +173,8 @@ export class MetricsExplorerState {
 		topN: DEFAULT_TOP_N,
 		havingOperator: null,
 		havingValue: null,
-		postProcessFunctions: []
+		postProcessFunctions: [],
+		timeShiftSeconds: null
 	});
 
 	// Never mutated in place, always a wholesale reassignment - same $state.raw
@@ -202,6 +217,12 @@ export class MetricsExplorerState {
 	// reads "on" but the previous-period line hasn't loaded yet (a real, shipped
 	// "blink" this field exists to fix, not a hypothetical one).
 	resultCompareEnabled = $state(false);
+	// filter.timeShiftSeconds *as of the query that produced the current series/
+	// previousSeries* - same "as of the query, not the live filter" reasoning
+	// resultCompareEnabled documents immediately above, and for the same "no blink
+	// before the matching fetch resolves" reason. MetricChart reads this (not
+	// filter.timeShiftSeconds) to decide the overlay line's shift/label.
+	resultTimeShiftSeconds = $state<number | null>(null);
 	// The bucketWidthSeconds actually sent with the current `series` - for the chart
 	// header's "1m interval" metadata row. Only reset (along with series/previousSeries/
 	// queryError - see #resetForNewMetric) when the *selected metric itself* changes,
@@ -454,6 +475,7 @@ export class MetricsExplorerState {
 		this.#queryAbort = abort;
 		const metric = this.selected;
 		const compareEnabled = this.filter.compareEnabled;
+		const timeShiftSeconds = this.filter.timeShiftSeconds;
 		const groupByAttributeKey = this.filter.groupByAttributeKey ?? undefined;
 		const topN = this.filter.topN;
 		// Both-or-neither at the wire boundary too (see MetricsFilterState.havingOperator's
@@ -482,14 +504,22 @@ export class MetricsExplorerState {
 			const bucketWidthSeconds = pickBucketWidthSeconds(rangeSeconds(range));
 			const filterFor = (r: ResolvedTimeRange) => ({ from: r.from, to: r.to, services: [metric.serviceName] });
 
-			// Same bucketWidthSeconds for both, not re-picked from the previous range's own
+			// Which overlay (if either - mutually exclusive, see MetricsFilterState.
+			// timeShiftSeconds' own remarks) drives the second parallel fetch below:
+			// compareEnabled shifts back by the range's own duration (previousPeriod, "one
+			// full period back"); timeShiftSeconds shifts back by a fixed, arbitrary offset
+			// (shiftRange) independent of how wide `range` happens to be. null = no overlay
+			// fetch at all.
+			const overlayRange = compareEnabled ? previousPeriod(range) : timeShiftSeconds != null ? shiftRange(range, timeShiftSeconds) : null;
+
+			// Same bucketWidthSeconds for both, not re-picked from the overlay range's own
 			// duration (which would happen to match anyway, same duration) - explicit is
-			// simpler to reason about than "trust it comes out the same". Previous is
-			// best-effort (.catch, not awaited through the outer try/catch) - see
-			// previousSeries' own remarks on why a broken previous fetch never blocks
+			// simpler to reason about than "trust it comes out the same". The overlay fetch
+			// is best-effort (.catch, not awaited through the outer try/catch) - see
+			// previousSeries' own remarks on why a broken overlay fetch never blocks
 			// `series`, the period that actually matters. Run in parallel, not sequenced,
-			// so compare mode doesn't just double the wait.
-			const [current, previous] = await Promise.all([
+			// so an active overlay doesn't just double the wait.
+			const [current, overlay] = await Promise.all([
 				queryMetric(
 					{
 						metricName: metric.metricName,
@@ -504,13 +534,13 @@ export class MetricsExplorerState {
 					},
 					abort.signal
 				),
-				compareEnabled
+				overlayRange
 					? queryMetric(
 							{
 								metricName: metric.metricName,
 								type: metric.type,
 								bucketWidthSeconds,
-								filter: filterFor(previousPeriod(range)),
+								filter: filterFor(overlayRange),
 								groupByAttributeKey,
 								topN,
 								havingOperator,
@@ -523,11 +553,12 @@ export class MetricsExplorerState {
 			]);
 			if (abort.signal.aborted) return;
 			this.series = current.series;
-			this.previousSeries = previous?.series ?? [];
+			this.previousSeries = overlay?.series ?? [];
 			this.intervalSeconds = bucketWidthSeconds;
 			this.queryRangeFrom = range.from;
 			this.queryRangeTo = range.to;
 			this.resultCompareEnabled = compareEnabled;
+			this.resultTimeShiftSeconds = timeShiftSeconds;
 			this.resultType = metric.type;
 		} catch (err) {
 			if (abort.signal.aborted) return;
@@ -580,10 +611,30 @@ export class MetricsExplorerState {
 		this.#runActive();
 	}
 
-	/** No name-list reload needed, unlike setTimeRangePreset/setServices - which metrics exist doesn't depend on compare mode, only the chart's own query does. */
+	/**
+	 * No name-list reload needed, unlike setTimeRangePreset/setServices - which metrics
+	 * exist doesn't depend on compare mode, only the chart's own query does. Mutually
+	 * exclusive with the time-shift overlay (see MetricsFilterState.timeShiftSeconds' own
+	 * remarks) - turning compare on clears any active time-shift, so the chart never has
+	 * to reconcile two different overlay shifts at once.
+	 */
 	setCompareEnabled(enabled: boolean): void {
 		this.#flushPendingSwitch();
 		this.filter.compareEnabled = enabled;
+		if (enabled) this.filter.timeShiftSeconds = null;
+		void this.runQuery();
+	}
+
+	/**
+	 * Sets (or clears, with `null`) the time-shift overlay's offset in seconds - same
+	 * shape as `setCompareEnabled`, no name-list reload. Mutually exclusive with
+	 * `compareEnabled` (see `MetricsFilterState.timeShiftSeconds`' own remarks): setting a
+	 * non-null offset turns compare off, the same "one overlay at a time" rule in reverse.
+	 */
+	setTimeShiftSeconds(seconds: number | null): void {
+		this.#flushPendingSwitch();
+		this.filter.timeShiftSeconds = seconds;
+		if (seconds != null) this.filter.compareEnabled = false;
 		void this.runQuery();
 	}
 
@@ -804,6 +855,7 @@ export class MetricsExplorerState {
 			havingOperator: this.filter.havingOperator,
 			havingValue: this.filter.havingValue,
 			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
+			timeShiftSeconds: this.filter.timeShiftSeconds,
 			selectedMetric: this.selected
 				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
 				: null,
@@ -839,7 +891,10 @@ export class MetricsExplorerState {
 			havingValue: s.havingValue ?? null,
 			// Absent from older saved views (pre-dates ADR-0038) - defaults to no
 			// post-processing, the only state that existed then.
-			postProcessFunctions: s.postProcessFunctions ?? []
+			postProcessFunctions: s.postProcessFunctions ?? [],
+			// Absent from older saved views (pre-dates ADR-0040) - defaults to off, the
+			// only state that existed then.
+			timeShiftSeconds: s.timeShiftSeconds ?? null
 		};
 		await this.loadNames();
 		const saved = s.selectedMetric;

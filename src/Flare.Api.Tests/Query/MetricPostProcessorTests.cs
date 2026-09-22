@@ -124,6 +124,90 @@ public class MetricPostProcessorTests
     }
 
     [Fact]
+    public void Apply_EwmaSmoothing_WeightsRecentPointsMoreHeavily()
+    {
+        // windowSize=3 -> alpha = 2/(3+1) = 0.5. ewma[0]=10, ewma[1]=0.5*20+0.5*10=15,
+        // ewma[2]=0.5*30+0.5*15=22.5.
+        var points = new[] { Point(0, 10), Point(1, 20), Point(2, 30) };
+
+        var result = MetricPostProcessor.Apply(points, [new MetricPostProcessFunction { Type = MetricPostProcessFunctionType.EwmaSmoothing, WindowSize = 3 }]);
+
+        Assert.Equal([10, 15, 22.5], result.Select(p => p.Value));
+    }
+
+    [Fact]
+    public void Apply_EwmaSmoothing_CarriesLastAverageForwardOverGap()
+    {
+        var points = new[] { Point(0, 10), Point(1, null), Point(2, null) };
+
+        var result = MetricPostProcessor.Apply(points, [new MetricPostProcessFunction { Type = MetricPostProcessFunctionType.EwmaSmoothing, WindowSize = 3 }]);
+
+        Assert.Equal([10, 10, 10], result.Select(p => p.Value));
+    }
+
+    [Fact]
+    public void Apply_EwmaSmoothing_NullUntilFirstRealValue()
+    {
+        var points = new[] { Point(0, null), Point(1, 5) };
+
+        var result = MetricPostProcessor.Apply(points, [new MetricPostProcessFunction { Type = MetricPostProcessFunctionType.EwmaSmoothing, WindowSize = 3 }]);
+
+        Assert.Equal([null, 5], result.Select(p => p.Value));
+    }
+
+    [Theory]
+    [InlineData(MetricPostProcessFunctionType.EwmaSmoothing)]
+    [InlineData(MetricPostProcessFunctionType.MedianSmoothing)]
+    public void Apply_SmoothingWithoutWindowSize_Throws(MetricPostProcessFunctionType type)
+    {
+        var points = new[] { Point(0, 1) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => MetricPostProcessor.Apply(points, [new MetricPostProcessFunction { Type = type, WindowSize = null }]));
+    }
+
+    [Theory]
+    [InlineData(MetricPostProcessFunctionType.EwmaSmoothing)]
+    [InlineData(MetricPostProcessFunctionType.MedianSmoothing)]
+    public void Apply_SmoothingWithNonPositiveWindowSize_Throws(MetricPostProcessFunctionType type)
+    {
+        var points = new[] { Point(0, 1) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => MetricPostProcessor.Apply(points, [new MetricPostProcessFunction { Type = type, WindowSize = 0 }]));
+    }
+
+    [Fact]
+    public void Apply_MedianSmoothing_ReturnsMedianOfTrailingWindow()
+    {
+        // window=3, trailing: [1] -> 1; [1,5] -> 3; [1,5,3] -> 3; [5,3,9] -> 5.
+        var points = new[] { Point(0, 1), Point(1, 5), Point(2, 3), Point(3, 9) };
+
+        var result = MetricPostProcessor.Apply(points, [new MetricPostProcessFunction { Type = MetricPostProcessFunctionType.MedianSmoothing, WindowSize = 3 }]);
+
+        Assert.Equal([1, 3, 3, 5], result.Select(p => p.Value));
+    }
+
+    [Fact]
+    public void Apply_MedianSmoothing_SkipsNullsWithinWindowInsteadOfBreakingIt()
+    {
+        // window=3: [10] -> 10; [10,null] -> 10 (null excluded, not counted); [10,null,20] -> 15.
+        var points = new[] { Point(0, 10), Point(1, null), Point(2, 20) };
+
+        var result = MetricPostProcessor.Apply(points, [new MetricPostProcessFunction { Type = MetricPostProcessFunctionType.MedianSmoothing, WindowSize = 3 }]);
+
+        Assert.Equal([10, 10, 15], result.Select(p => p.Value));
+    }
+
+    [Fact]
+    public void Apply_MedianSmoothing_NullWhenWindowHasNoData()
+    {
+        var points = new[] { Point(0, null), Point(1, null) };
+
+        var result = MetricPostProcessor.Apply(points, [new MetricPostProcessFunction { Type = MetricPostProcessFunctionType.MedianSmoothing, WindowSize = 3 }]);
+
+        Assert.All(result, p => Assert.Null(p.Value));
+    }
+
+    [Fact]
     public void Apply_ChainsFunctionsInOrder()
     {
         // abs(-9) = 9, then clampMax(9, 5) = 5 - order matters: clampMax first would give

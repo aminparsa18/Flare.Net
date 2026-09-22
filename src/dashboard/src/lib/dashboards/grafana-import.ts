@@ -74,6 +74,7 @@ function defaultQueryFor(panelType: PanelType): unknown {
 				havingOperator: null,
 				havingValue: null,
 				postProcessFunctions: [],
+				timeShiftSeconds: null,
 				selectedMetric: null
 			} satisfies MetricsSavedViewState;
 	}

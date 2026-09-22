@@ -230,10 +230,11 @@ public sealed partial record MetricQueryRequest
 
 /// <summary>
 /// Which per-query post-processing transform a <see cref="MetricPostProcessFunction"/>
-/// applies - the metrics-only v1 slice of the roadmap's "Per-query post-processing
-/// functions (metrics and logs)" item (see ADR-0038; smoothing, time-shift, and Logs
-/// support are named follow-ups, not silently dropped). MemoryPack encodes this as its
-/// numeric ordinal, so existing members must keep their ordinals if new ones are ever
+/// applies - the metrics-only slice of the roadmap's "Per-query post-processing
+/// functions (metrics and logs)" item (see ADR-0038 for the point-wise/running functions,
+/// ADR-0039 for <see cref="EwmaSmoothing"/>/<see cref="MedianSmoothing"/>; time-shift and
+/// Logs support remain named follow-ups, not silently dropped). MemoryPack encodes this as
+/// its numeric ordinal, so existing members must keep their ordinals if new ones are ever
 /// appended - same convention <see cref="MetricHavingOperator"/>'s remarks document.
 /// </summary>
 public enum MetricPostProcessFunctionType
@@ -244,6 +245,8 @@ public enum MetricPostProcessFunctionType
     Log2,
     Log10,
     CumulativeSum,
+    EwmaSmoothing,
+    MedianSmoothing,
 }
 
 /// <summary>
@@ -258,6 +261,15 @@ public sealed partial record MetricPostProcessFunction
 
     /// <summary>Threshold for <see cref="MetricPostProcessFunctionType.ClampMin"/>/<see cref="MetricPostProcessFunctionType.ClampMax"/> - required for those two, ignored (may be null) for every other function.</summary>
     public double? Value { get; init; }
+
+    /// <summary>
+    /// Trailing lookback, in buckets, for <see cref="MetricPostProcessFunctionType.EwmaSmoothing"/>
+    /// (converted to a decay factor via the standard <c>alpha = 2 / (N + 1)</c> N-period
+    /// formula) / <see cref="MetricPostProcessFunctionType.MedianSmoothing"/> (a literal
+    /// trailing window of up to N points) - required (&gt;= 1) for those two, ignored (may
+    /// be null) for every other function. See ADR-0039.
+    /// </summary>
+    public int? WindowSize { get; init; }
 }
 
 /// <summary>
