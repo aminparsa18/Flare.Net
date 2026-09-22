@@ -31,8 +31,15 @@
 	// ApdexThresholdPopover.svelte's identical `$effect` for why (referencing the props
 	// directly here would only capture their initial value, not stay reactive to later
 	// changes - svelte's `state_referenced_locally`).
-	let minDraft = $state('');
-	let maxDraft = $state('');
+	//
+	// Typed `string | number`, not just `string`: Svelte's `bind:value` on an
+	// `<input type="number">` coerces to an actual `number` once the user edits it (only
+	// the initial `String(...)` reseed below is ever a string), so `apply()` below must
+	// handle both - calling `.trim()` unconditionally threw `TypeError: ....trim is not a
+	// function` the moment a digit was typed, caught live during
+	// docs-internal/adr/0037-dashboard-metrics-formula-panels.md's own verification.
+	let minDraft = $state<string | number>('');
+	let maxDraft = $state<string | number>('');
 	let error = $state<string | null>(null);
 
 	$effect(() => {
@@ -46,8 +53,8 @@
 	const hasOverride = $derived(yAxisMin != null || yAxisMax != null);
 
 	function apply(): void {
-		const min = minDraft.trim() === '' ? null : Number(minDraft);
-		const max = maxDraft.trim() === '' ? null : Number(maxDraft);
+		const min = minDraft === '' ? null : Number(minDraft);
+		const max = maxDraft === '' ? null : Number(maxDraft);
 		if ((min != null && !Number.isFinite(min)) || (max != null && !Number.isFinite(max))) {
 			error = m.yAxisBoundsPopover_invalidValue();
 			return;

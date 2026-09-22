@@ -23,10 +23,16 @@
 	// MetricChart gets `allowZoom={false}` for the same reason DashboardLogsPanelBody passes
 	// it to VolumeChart - see that file's comment and MetricChart.svelte's own remarks on
 	// the prop.
+	//
+	// Formula-mode panels (docs-internal/adr/0037-dashboard-metrics-formula-panels.md,
+	// closing the follow-up ADR-0036 left open) render FormulaChart instead - `explorer.mode`
+	// is restored by applySavedViewState above, same source of truth the Explorer page's own
+	// mode branch (routes/metrics/+page.svelte) reads.
 	import { onMount, untrack } from 'svelte';
 	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import MetricChart from '$lib/components/metrics/MetricChart.svelte';
+	import FormulaChart from '$lib/components/metrics/FormulaChart.svelte';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 
@@ -43,8 +49,8 @@
 		variableOverrides: ResolvedVariableOverrides;
 		refreshToken: number;
 		/** This panel's own `DashboardPanel.yAxisMin`/`yAxisMax` - passed straight through to
-		 *  MetricChart, see its own `domainMin`/`domainMax` remarks for how a soft bound is
-		 *  applied. */
+		 *  whichever chart is active (MetricChart or FormulaChart), see their own
+		 *  `domainMin`/`domainMax` remarks for how a soft bound is applied. */
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
 	} = $props();
@@ -89,8 +95,13 @@
 		const token = refreshToken;
 		if (!ready || token === lastRefreshToken) return;
 		lastRefreshToken = token;
-		void explorer.runQuery();
+		if (explorer.mode === 'formula') void explorer.runFormulaQuery();
+		else void explorer.runQuery();
 	});
 </script>
 
-<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} />
+{#if explorer.mode === 'formula'}
+	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} />
+{:else}
+	<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} />
+{/if}

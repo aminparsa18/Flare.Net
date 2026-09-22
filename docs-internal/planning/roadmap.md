@@ -147,15 +147,6 @@ folders are where "what happened and why" actually lives.
   merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
   exponential-histogram table + quantile merge
   ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
-- **Cross-query formula expressions on dashboard Metrics panels.**
-  Shipped on the Metrics Explorer page itself (ADR-0036): a Formula
-  mode lets you define named queries (`A`, `B`, ...) and an expression
-  combining them (`+ - * /`, `exp`/`log`/`sqrt`), joined app-side by
-  matching (service, attributes) label sets and timestamp - Gauge/Sum
-  metrics only, Histogram excluded (v1 scope cut - no single Value to
-  join on). Still not available as a dashboard panel type -
-  `DashboardMetricsPanelBody.svelte` reuses `MetricChart.svelte`
-  wholesale, which has no Formula-mode rendering.
 - **Per-query post-processing functions (metrics and logs).** No
   library today for clamp-min/max, absolute, log2/log10, cumulative-sum,
   smoothing (EWMA/median over N points), or time-shift (re-run a query
