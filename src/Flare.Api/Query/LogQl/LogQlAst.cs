@@ -94,3 +94,39 @@ public sealed record LogQlComparison(LogQlColumn Column, LogQlOp Op, string Lite
 /// <see cref="LogQlWhereTranslator"/> for the <c>JSONExtractString</c> compilation.
 /// </summary>
 public sealed record LogQlJsonComparison(string Path, LogQlOp Op, string Literal) : LogQlExpr;
+
+/// <summary>
+/// Which of the three arbitrary key/value maps an <c>attr(...)</c> accessor reaches into -
+/// mirrors <see cref="Model.AttributeBag"/> (the structured <c>AttributeFilter</c> path's
+/// own enum) so both entry points agree on what "log"/"resource"/"scope" mean.
+/// </summary>
+public enum LogQlAttributeBag
+{
+    Log,
+    Resource,
+    Scope,
+}
+
+/// <summary>
+/// <c>attr(log|resource|scope, 'key') op 'literal'</c> - a comparison against one entry of
+/// the <c>LogAttributes</c>/<c>ResourceAttributes</c>/<c>ScopeAttributes</c> maps, the
+/// LogQL-reachable form of the structured <see cref="Model.AttributeFilter"/> path.
+/// Deliberately a function-call accessor with the key as a single string-literal token
+/// (same shape as <see cref="LogQlJsonComparison"/>), not a dotted-identifier path like
+/// <c>attributes.foo</c> - OTel semantic-convention attribute keys routinely contain
+/// literal dots themselves (<c>http.status_code</c>, <c>k8s.pod.name</c>), so a
+/// dot-as-path-separator syntax would need its own rule for a dotted key that isn't just
+/// "split on every dot"; a quoted string key sidesteps that collision entirely.
+/// <see cref="Op"/>/<see cref="Literal"/> reuse the same vocabulary <see cref="LogQlComparison"/>
+/// does - see <see cref="LogQlWhereTranslator"/> for the <c>mapContains</c>/subscript
+/// compilation.
+/// </summary>
+public sealed record LogQlAttributeComparison(LogQlAttributeBag Bag, string Key, LogQlOp Op, string Literal) : LogQlExpr;
+
+/// <summary>
+/// <c>attr(log|resource|scope, 'key') has</c> / <c>attr(...) not has</c> - an
+/// existence/absence check (<c>mapContains</c>) with no literal to compare against, the
+/// LogQL-reachable form of <see cref="Model.AttributeFilterOperator.Exists"/>/
+/// <see cref="Model.AttributeFilterOperator.Absent"/>.
+/// </summary>
+public sealed record LogQlAttributeExists(LogQlAttributeBag Bag, string Key, bool Negate) : LogQlExpr;

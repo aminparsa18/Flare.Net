@@ -147,24 +147,3 @@ folders are where "what happened and why" actually lives.
   merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
   exponential-histogram table + quantile merge
   ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
-- **LogQL attribute-map syntax.** The SQL query bar (`LogQlLexer`/
-  `LogQlParser`/`LogQlAst`/`LogQlWhereTranslator` under
-  [`src/Flare.Api/Query/LogQl/`](../../src/Flare.Api/Query/LogQl/)) only
-  knows a fixed column list (`service`, `level`, `body`, `traceId`,
-  `spanId`, `severityNumber`) - it has no syntax for reaching into the
-  arbitrary key/value `LogAttributes`/`ResourceAttributes`/
-  `ScopeAttributes` maps at all, unlike the structured `AttributeFilter`
-  path (which now supports exists/absent/not-equals - see git history).
-  A bigger change than that one: needs new grammar (e.g. `attributes.foo`),
-  a new AST node, and translator support for `mapContains`/map-subscript
-  SQL. Approach TBD (SQL-bar grammar vs. something else entirely) - not
-  started. Should include existence checks (`attr has`/`attr not has`,
-  i.e. `mapContains`) alongside value comparisons, not just equality -
-  one-line addition once the grammar work happens anyway
-  ([signoz#3567](https://github.com/SigNoz/signoz/commit/81b10d126a6d51b3381df1f187b819225f2b3473)).
-  Design trap to check for, whatever grammar is chosen: OTel semantic-
-  convention attribute keys routinely contain literal dots themselves
-  (`http.status_code`, `k8s.pod.name`), so a dot-as-path-separator syntax
-  (e.g. `attributes.foo`) needs a rule for a dotted key that isn't just
-  "split on every dot" - SigNoz hit this collision more than once in
-  their own attribute-path handling.

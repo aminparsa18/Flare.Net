@@ -67,10 +67,16 @@ type Phase =
 	| 'json-arg-body'
 	| 'json-arg-body-done'
 	| 'json-arg-path'
-	| 'json-arg-path-done';
+	| 'json-arg-path-done'
+	| 'awaiting-attr-paren'
+	| 'attr-arg-bag'
+	| 'attr-arg-bag-done'
+	| 'attr-arg-key'
+	| 'attr-arg-key-done'
+	| 'attr-op';
 
 /** What kind of `(` is currently open, so a matching `)` knows which phase to land in. */
-type ParenContext = 'count' | 'avg' | 'sum' | 'time' | 'where-group' | 'json';
+type ParenContext = 'count' | 'avg' | 'sum' | 'time' | 'where-group' | 'json' | 'attr';
 
 export function getLogQlSuggestions(text: string, cursorPos: number): LogQlSuggestionResult {
 	// The word still being typed (if any) right before the cursor is a filter prefix, not
@@ -114,6 +120,9 @@ function walkPhase(tokens: HighlightToken[]): Phase {
 			} else if (phase === 'awaiting-json-paren') {
 				parens.push('json');
 				phase = 'json-arg-body';
+			} else if (phase === 'awaiting-attr-paren') {
+				parens.push('attr');
+				phase = 'attr-arg-bag';
 			} else if (phase === 'where-column') {
 				// A grouping paren around a boolean subexpression - still expecting a
 				// column (or 'not'/another paren) right after it.
@@ -130,6 +139,8 @@ function walkPhase(tokens: HighlightToken[]): Phase {
 				phase = 'after-time';
 			} else if (popped === 'json') {
 				phase = 'where-op';
+			} else if (popped === 'attr') {
+				phase = 'attr-op';
 			} else if (popped === 'where-group') {
 				phase = 'after-value';
 			}
@@ -143,6 +154,8 @@ function walkPhase(tokens: HighlightToken[]): Phase {
 				phase = 'group-secondary';
 			} else if (top === 'json') {
 				phase = 'json-arg-path';
+			} else if (top === 'attr') {
+				phase = 'attr-arg-key';
 			}
 			continue;
 		}
@@ -175,6 +188,7 @@ function walkPhase(tokens: HighlightToken[]): Phase {
 			case 'where-column':
 				if (COLUMN_NAMES.some((c) => c.toLowerCase() === lower)) phase = 'where-op';
 				else if (lower === 'json') phase = 'awaiting-json-paren';
+				else if (lower === 'attr') phase = 'awaiting-attr-paren';
 				break;
 			case 'json-arg-body':
 				if (lower === 'body') phase = 'json-arg-body-done';
@@ -182,8 +196,21 @@ function walkPhase(tokens: HighlightToken[]): Phase {
 			case 'json-arg-path':
 				if (token.type === 'string') phase = 'json-arg-path-done';
 				break;
+			case 'attr-arg-bag':
+				if (lower === 'log' || lower === 'resource' || lower === 'scope') phase = 'attr-arg-bag-done';
+				break;
+			case 'attr-arg-key':
+				if (token.type === 'string') phase = 'attr-arg-key-done';
+				break;
 			case 'where-op':
 				if (lower === 'like' || token.type === 'operator') phase = 'where-value';
+				break;
+			// 'not' between attr(...)'s closing ')' and 'has'/'like' doesn't change phase -
+			// same "no explicit handling, next token's own branch still fires correctly"
+			// trick 'where-op' already relies on for a bare column's "not like".
+			case 'attr-op':
+				if (lower === 'has') phase = 'after-value';
+				else if (lower === 'like' || token.type === 'operator') phase = 'where-value';
 				break;
 			case 'where-value':
 				if (token.type === 'string') phase = 'after-value';
@@ -237,12 +264,25 @@ function suggestionsFor(phase: Phase): LogQlSuggestion[] {
 		case 'where-column':
 			return [
 				...COLUMN_NAMES.map((c) => ({ label: c, insertText: `${c} `, detail: 'column' })),
-				{ label: "json(Body, '...')", insertText: "json(Body, '", detail: 'JSON path filter on Body' }
+				{ label: "json(Body, '...')", insertText: "json(Body, '", detail: 'JSON path filter on Body' },
+				{ label: "attr(log|resource|scope, '...')", insertText: "attr(log, '", detail: 'attribute map filter' }
 			];
 		case 'json-arg-body':
 			return [{ label: 'Body', insertText: "Body, '", detail: '' }];
+		case 'attr-arg-bag':
+			return [
+				{ label: 'log', insertText: "log, '", detail: 'LogAttributes' },
+				{ label: 'resource', insertText: "resource, '", detail: 'ResourceAttributes' },
+				{ label: 'scope', insertText: "scope, '", detail: 'ScopeAttributes' }
+			];
 		case 'where-op':
 			return OPERATOR_SUGGESTIONS;
+		case 'attr-op':
+			return [
+				...OPERATOR_SUGGESTIONS,
+				{ label: 'has', insertText: 'has ', detail: 'attribute key exists' },
+				{ label: 'not has', insertText: 'not has ', detail: 'attribute key absent' }
+			];
 		case 'after-value':
 			return [
 				{ label: 'and', insertText: 'and ', detail: '' },
