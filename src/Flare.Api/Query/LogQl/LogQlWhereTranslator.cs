@@ -34,31 +34,39 @@ public static class LogQlWhereTranslator
                 return $"NOT ({TranslateNode(not.Operand, parameters, ref counter)})";
 
             case LogQlComparison comparison:
-                return TranslateComparison(comparison, parameters, ref counter);
+                return TranslateComparison(ColumnName(comparison.Column), comparison.Op, comparison.Literal, parameters, ref counter);
+
+            case LogQlJsonComparison jsonComparison:
+                return TranslateComparison(JsonExtractSql(jsonComparison.Path, parameters, ref counter), jsonComparison.Op, jsonComparison.Literal, parameters, ref counter);
 
             default:
                 throw new InvalidOperationException($"Unknown LogQl expression node type '{expr.GetType()}'.");
         }
     }
 
-    private static string TranslateComparison(LogQlComparison comparison, ClickHouseParameterCollection parameters, ref int counter)
+    /// <summary>
+    /// Shared by both <see cref="LogQlComparison"/> (<paramref name="lhsSql"/> is a real
+    /// column name) and <see cref="LogQlJsonComparison"/> (<paramref name="lhsSql"/> is a
+    /// <c>JSONExtractString(...)</c> call from <see cref="JsonExtractSql"/>) - once the
+    /// left-hand side is resolved to a SQL fragment, op/literal compilation is identical.
+    /// </summary>
+    private static string TranslateComparison(string lhsSql, LogQlOp op, string literal, ClickHouseParameterCollection parameters, ref int counter)
     {
-        var column = ColumnName(comparison.Column);
         var paramName = $"qlp{counter++}";
 
-        if (comparison.Op is LogQlOp.Like or LogQlOp.NotLike)
+        if (op is LogQlOp.Like or LogQlOp.NotLike)
         {
             // Case-insensitive, same as the existing free-text search's Body match (see
             // LogFilterSqlBuilder.Build) - unlike that one, the literal is bound exactly
             // as written (no auto '%' wrapping): this is a SQL LIKE, so the caller
             // supplies their own wildcards (e.g. "'%timeout%'"), same as real SQL.
-            parameters.AddParameter(paramName, comparison.Literal);
-            var likeSql = $"{column} ILIKE {{{paramName}:String}}";
-            return comparison.Op == LogQlOp.Like ? likeSql : $"NOT ({likeSql})";
+            parameters.AddParameter(paramName, literal);
+            var likeSql = $"{lhsSql} ILIKE {{{paramName}:String}}";
+            return op == LogQlOp.Like ? likeSql : $"NOT ({likeSql})";
         }
 
-        parameters.AddParameter(paramName, comparison.Literal);
-        var sqlOp = comparison.Op switch
+        parameters.AddParameter(paramName, literal);
+        var sqlOp = op switch
         {
             LogQlOp.Eq => "=",
             LogQlOp.NotEq => "!=",
@@ -66,9 +74,36 @@ public static class LogQlWhereTranslator
             LogQlOp.Lte => "<=",
             LogQlOp.Gt => ">",
             LogQlOp.Gte => ">=",
-            _ => throw new InvalidOperationException($"Unhandled LogQlOp '{comparison.Op}'."),
+            _ => throw new InvalidOperationException($"Unhandled LogQlOp '{op}'."),
         };
-        return $"{column} {sqlOp} {{{paramName}:String}}";
+        return $"{lhsSql} {sqlOp} {{{paramName}:String}}";
+    }
+
+    /// <summary>
+    /// <c>JSONExtractString(Body, ...)</c> for a <see cref="LogQlJsonComparison.Path"/> -
+    /// same dot-split, one-parameter-per-segment compilation as
+    /// <see cref="Flare.Api.Query.LogFilterSqlBuilder"/>'s <c>BodyJsonClause</c> (ClickHouse's
+    /// <c>JSONExtractString</c> takes one key/index per argument, not a single JSONPath
+    /// string - see that method's own remarks for the live probe that confirmed this).
+    /// Unlike <c>BodyJsonClause</c>, there's no <c>JSONHas</c> guard on any operator here -
+    /// this mirrors <see cref="TranslateComparison"/>'s existing column-comparison
+    /// semantics (an absent path reads back as ClickHouse's <c>JSONExtractString</c> zero
+    /// value, <c>''</c>, same as a real column never being null), not
+    /// <c>BodyJsonClause</c>'s richer exists/absent/in operator set, which this smaller
+    /// LogQL grammar doesn't expose.
+    /// </summary>
+    private static string JsonExtractSql(string path, ClickHouseParameterCollection parameters, ref int counter)
+    {
+        var segments = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var segmentArgs = new string[segments.Length];
+        for (var s = 0; s < segments.Length; s++)
+        {
+            var segParam = $"qlp{counter++}";
+            parameters.AddParameter(segParam, segments[s]);
+            segmentArgs[s] = $"{{{segParam}:String}}";
+        }
+
+        return $"JSONExtractString(Body, {string.Join(", ", segmentArgs)})";
     }
 
     /// <summary>

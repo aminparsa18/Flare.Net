@@ -168,22 +168,3 @@ folders are where "what happened and why" actually lives.
   (e.g. `attributes.foo`) needs a rule for a dotted key that isn't just
   "split on every dot" - SigNoz hit this collision more than once in
   their own attribute-path handling.
-- **LogQL `json()` accessor for JSON-path filtering into `Body`.** The
-  structured filter path now supports this (`LogFilter.BodyJsonFilters`,
-  compiled by `LogFilterSqlBuilder`'s `BodyJsonClause` into ClickHouse
-  `JSONHas`/`JSONExtractString` calls against `Body`, mirrored for
-  live-tail by `LogFilterMatcher`, and exposed in the dashboard as the
-  Logs Explorer's "JSON path filters" row) - but it's unreachable from the
-  LogQL query bar (`LogQlLexer`/`LogQlParser`/`LogQlAst`/
-  `LogQlWhereTranslator`), which only knows the fixed column list. Not
-  started. Would need a new grammar form (e.g. `json(Body, "user.id") =
-  "42"`) rather than a bare column reference, a new AST node, and
-  translator support emitting the same variadic-key `JSONHas`/
-  `JSONExtractString` calls `BodyJsonClause` already uses (confirmed live
-  that ClickHouse's JSON functions take one key/index per argument, not a
-  single JSONPath string - see `BodyJsonFilter`'s own remarks). Same
-  dotted-key collision trap as the attribute-map item above doesn't apply
-  here (JSON object keys aren't OTel semantic-convention attribute keys),
-  but array-index path segments are still unsupported by the structured
-  version and would need their own grammar/translator handling if LogQL
-  wants to support them.

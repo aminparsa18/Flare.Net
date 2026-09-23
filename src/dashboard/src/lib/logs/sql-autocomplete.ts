@@ -62,10 +62,15 @@ type Phase =
 	| 'awaiting-time-paren'
 	| 'time-arg'
 	| 'after-time'
-	| 'group-secondary';
+	| 'group-secondary'
+	| 'awaiting-json-paren'
+	| 'json-arg-body'
+	| 'json-arg-body-done'
+	| 'json-arg-path'
+	| 'json-arg-path-done';
 
 /** What kind of `(` is currently open, so a matching `)` knows which phase to land in. */
-type ParenContext = 'count' | 'avg' | 'sum' | 'time' | 'where-group';
+type ParenContext = 'count' | 'avg' | 'sum' | 'time' | 'where-group' | 'json';
 
 export function getLogQlSuggestions(text: string, cursorPos: number): LogQlSuggestionResult {
 	// The word still being typed (if any) right before the cursor is a filter prefix, not
@@ -106,6 +111,9 @@ function walkPhase(tokens: HighlightToken[]): Phase {
 			} else if (phase === 'awaiting-time-paren') {
 				parens.push('time');
 				phase = 'time-arg';
+			} else if (phase === 'awaiting-json-paren') {
+				parens.push('json');
+				phase = 'json-arg-body';
 			} else if (phase === 'where-column') {
 				// A grouping paren around a boolean subexpression - still expecting a
 				// column (or 'not'/another paren) right after it.
@@ -120,6 +128,8 @@ function walkPhase(tokens: HighlightToken[]): Phase {
 				phase = 'select-list-done';
 			} else if (popped === 'time') {
 				phase = 'after-time';
+			} else if (popped === 'json') {
+				phase = 'where-op';
 			} else if (popped === 'where-group') {
 				phase = 'after-value';
 			}
@@ -131,6 +141,8 @@ function walkPhase(tokens: HighlightToken[]): Phase {
 				phase = 'select-list';
 			} else if (top === 'time') {
 				phase = 'group-secondary';
+			} else if (top === 'json') {
+				phase = 'json-arg-path';
 			}
 			continue;
 		}
@@ -162,6 +174,13 @@ function walkPhase(tokens: HighlightToken[]): Phase {
 				break;
 			case 'where-column':
 				if (COLUMN_NAMES.some((c) => c.toLowerCase() === lower)) phase = 'where-op';
+				else if (lower === 'json') phase = 'awaiting-json-paren';
+				break;
+			case 'json-arg-body':
+				if (lower === 'body') phase = 'json-arg-body-done';
+				break;
+			case 'json-arg-path':
+				if (token.type === 'string') phase = 'json-arg-path-done';
 				break;
 			case 'where-op':
 				if (lower === 'like' || token.type === 'operator') phase = 'where-value';
@@ -216,7 +235,12 @@ function suggestionsFor(phase: Phase): LogQlSuggestion[] {
 				{ label: 'group by', insertText: 'group by ', detail: 'bucket by time' }
 			];
 		case 'where-column':
-			return COLUMN_NAMES.map((c) => ({ label: c, insertText: `${c} `, detail: 'column' }));
+			return [
+				...COLUMN_NAMES.map((c) => ({ label: c, insertText: `${c} `, detail: 'column' })),
+				{ label: "json(Body, '...')", insertText: "json(Body, '", detail: 'JSON path filter on Body' }
+			];
+		case 'json-arg-body':
+			return [{ label: 'Body', insertText: "Body, '", detail: '' }];
 		case 'where-op':
 			return OPERATOR_SUGGESTIONS;
 		case 'after-value':
