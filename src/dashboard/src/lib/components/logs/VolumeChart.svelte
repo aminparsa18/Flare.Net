@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { aggregateLogs, type LogAggregateBucket } from '$lib/api';
-	import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
-	import { resolveTimeRange } from '$lib/logs/time-range';
+	import { pickBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';
+	import { resolveTimeRange, shiftRange } from '$lib/logs/time-range';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import * as Tooltip from '$lib/components/ui/tooltip';
@@ -59,6 +59,18 @@
 	const collapsed = $derived(accordionValue !== VOLUME_ITEM);
 
 	let buckets = $state<LogAggregateBucket[]>([]);
+	// Time-shift overlay (roadmap: "Per-query post-processing functions (metrics and
+	// logs)", ADR-0042) - a second, best-effort `/api/logs/aggregate` fetch at a fixed
+	// offset (explorer.filter.timeShiftSeconds), rendered as a dashed line over the bars.
+	// `overlayShiftSeconds` is the offset *as of the last fetch attempt*, not the live
+	// filter value - same "as of the query, not the live filter, no blink" pairing
+	// MetricsExplorerState.resultTimeShiftSeconds documents, kept locally here rather than
+	// on LogsExplorerState since VolumeChart's own refresh() is already the one call site
+	// that talks to /api/logs/aggregate (see ADR-0041's "request-building lives in
+	// VolumeChart, not LogsExplorerState" decision, which this follows for the same
+	// reason).
+	let overlayBuckets = $state<LogAggregateBucket[]>([]);
+	let overlayShiftSeconds = $state<number | null>(null);
 	let fetchError = $state<string | null>(null);
 	let hoverIndex = $state<number | null>(null);
 	// The requested window, not derived from bucket boundaries - buckets can undershoot the
@@ -87,14 +99,29 @@
 		const range = currentRange();
 		const rangeSeconds = (new Date(range.to).getTime() - new Date(range.from).getTime()) / 1000;
 		const width = pickBucketWidthSeconds(rangeSeconds);
+		const postProcessFunctions =
+			explorer.filter.postProcessFunctions.length > 0 ? explorer.filter.postProcessFunctions : undefined;
+		// Disabled while live: a live-tailing chart's window is a fixed trailing slice that
+		// keeps sliding forward every poll, so "N hours/days ago" would itself have to keep
+		// re-resolving on every tick for a comparison that doesn't mean much against a
+		// window that's still filling in - same reasoning VolumeChart's drag-to-zoom already
+		// falls back to a plain click while live (see handlePointerUp's own remarks).
+		const shiftSeconds = explorer.live ? null : explorer.filter.timeShiftSeconds;
+		const overlayRange = shiftSeconds != null ? shiftRange(range, shiftSeconds) : null;
 		try {
-			const res = await aggregateLogs({
-				filter: explorer.buildFilter(range),
-				bucketWidthSeconds: width,
-				postProcessFunctions:
-					explorer.filter.postProcessFunctions.length > 0 ? explorer.filter.postProcessFunctions : undefined
-			});
+			const [res, overlayRes] = await Promise.all([
+				aggregateLogs({ filter: explorer.buildFilter(range), bucketWidthSeconds: width, postProcessFunctions }),
+				overlayRange
+					? aggregateLogs({
+							filter: explorer.buildFilter(overlayRange),
+							bucketWidthSeconds: width,
+							postProcessFunctions
+						}).catch(() => null)
+					: Promise.resolve(null)
+			]);
 			buckets = res.buckets;
+			overlayBuckets = overlayRes?.buckets ?? [];
+			overlayShiftSeconds = overlayRes ? shiftSeconds : null;
 			rangeFrom = range.from;
 			rangeTo = range.to;
 			bucketWidthSeconds = width;
@@ -123,6 +150,7 @@
 		void explorer.filter.severityNumbers;
 		void explorer.filter.search;
 		void explorer.filter.postProcessFunctions;
+		void explorer.filter.timeShiftSeconds;
 		void explorer.live;
 
 		const timer = setTimeout(refresh, 300);
@@ -151,11 +179,23 @@
 		return index === -1 ? null : index;
 	});
 
+	// True only once a fetch has actually landed an overlay (see overlayShiftSeconds' own
+	// remarks) - gates every overlay-specific render/scale decision below, same "keyed off
+	// the result, not the live filter" reasoning MetricChart's compareActive/
+	// timeShiftActive give for the identical check.
+	const overlayActive = $derived(overlayShiftSeconds != null);
+
 	// Real peak (for the y-axis labels) vs. the height-calc denominator (never 0, or every
-	// bar in an all-zero window would divide by zero and render full-height).
-	const peakCount = $derived(Math.max(0, ...buckets.map((b) => b.count)));
+	// bar in an all-zero window would divide by zero and render full-height). Includes the
+	// overlay's own counts while active so the bars and the overlay line share one scale -
+	// same reasoning MetricChart's shared y-domain gives for plotting compare/time-shift's
+	// current+overlay lines together (see its own domainMin/domainMax remarks).
+	const peakCount = $derived(
+		Math.max(0, ...buckets.map((b) => b.count), ...(overlayActive ? overlayBuckets.map((b) => b.count) : []))
+	);
 	const maxCount = $derived(Math.max(1, peakCount));
 	const totalCount = $derived(buckets.reduce((sum, b) => sum + b.count, 0));
+	const overlayTotalCount = $derived(overlayBuckets.reduce((sum, b) => sum + b.count, 0));
 
 	const CHART_WIDTH = 800;
 	const CHART_HEIGHT = 100;
@@ -168,6 +208,64 @@
 		if (count === 0) return 0;
 		return Math.max(MIN_BAR_HEIGHT, (count / maxCount) * (BASELINE_Y - PEAK_Y));
 	}
+
+	/**
+	 * Y position for one overlay-line point - unlike barHeight, no MIN_BAR_HEIGHT floor (a
+	 * line's zero should sit exactly on the baseline, not float above it) and no
+	 * `count === 0` special case (the plain formula already lands exactly on BASELINE_Y for
+	 * 0). Clamped into [PEAK_Y, BASELINE_Y] so a post-processed negative/oversized count
+	 * (ADR-0041's own "not specially handled" consequence for bars) draws pinned to an edge
+	 * of the chart instead of off it.
+	 */
+	function overlayY(count: number): number {
+		const y = BASELINE_Y - (count / maxCount) * (BASELINE_Y - PEAK_Y);
+		return Math.min(BASELINE_Y, Math.max(PEAK_Y, y));
+	}
+
+	/**
+	 * Overlay points are spread evenly across the full chart width independently of the
+	 * main bars' own `barWidth` (rather than reused at the same per-bucket x positions) -
+	 * `overlayBuckets` can have a different length than `buckets` (real gaps differ between
+	 * the two windows, or `toStartOfInterval`'s epoch-anchored grid lands a boundary
+	 * differently for a shift that isn't a whole multiple of the bucket width), and this
+	 * codebase's existing "array-index position, not a real time scale" simplification
+	 * (see this file's own remarks on `barWidth`, and MetricChart's identical x-domain
+	 * choice) already accepts that kind of imprecision rather than aligning by timestamp.
+	 */
+	const overlayLinePoints = $derived.by(() => {
+		if (!overlayActive || overlayBuckets.length === 0) return '';
+		return overlayBuckets
+			.map((b, i) => `${((i + 0.5) / overlayBuckets.length) * CHART_WIDTH},${overlayY(b.count)}`)
+			.join(' ');
+	});
+
+	const overlayLabel = $derived(overlayShiftSeconds != null ? formatBucketWidthSeconds(overlayShiftSeconds) : '');
+
+	/** Mirrors MetricChart's comparePercent - null when there's nothing to compare (no
+	 *  overlay, or the overlay period has no data to divide by). */
+	const overlayPercent = $derived.by((): number | 'new' | null => {
+		if (!overlayActive) return null;
+		if (overlayTotalCount === 0) return totalCount === 0 ? null : 'new';
+		return ((totalCount - overlayTotalCount) / overlayTotalCount) * 100;
+	});
+
+	const overlayChangeText = $derived.by(() => {
+		if (overlayPercent === null) return null;
+		const period = m.volumeChart_timeShiftAgoLabel({ duration: overlayLabel });
+		if (overlayPercent === 'new') return m.volumeChart_timeShiftNew({ period });
+		const sign = overlayPercent > 0 ? '+' : '';
+		return m.volumeChart_timeShiftChange({ percent: `${sign}${overlayPercent.toFixed(0)}`, period });
+	});
+
+	/** Names the actual compared dates on hover - "7d ago" only names the offset, not which
+	 *  dates that resolves to. Mirrors MetricChart's compareRangeDetail. */
+	const overlayRangeDetail = $derived.by(() => {
+		if (!overlayChangeText || !rangeFrom || !rangeTo || overlayShiftSeconds == null) return null;
+		const overlay = shiftRange({ from: rangeFrom, to: rangeTo }, overlayShiftSeconds);
+		const fmt = (iso: string) =>
+			new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+		return `${m.volumeChart_timeShiftRangeCurrent({ from: fmt(rangeFrom), to: fmt(rangeTo) })}\n${m.volumeChart_timeShiftRangePrevious({ from: fmt(overlay.from), to: fmt(overlay.to) })}`;
+	});
 
 	const BAR_CORNER_RADIUS = 3;
 
@@ -329,6 +427,30 @@
 					</button>
 				{/if}
 				<span class="text-muted-foreground tabular-nums">{m.logs_eventsCount({ count: formatCount(totalCount) })}</span>
+				{#if overlayChangeText}
+					<Tooltip.Provider>
+						<Tooltip.Root>
+							<Tooltip.Trigger>
+								{#snippet child({ props })}
+									<!-- Same "hoverable, no color-coding" treatment MetricChart's own
+									     compareChangeText gives its percent-change summary - see its
+									     remarks on why "up" isn't judged good or bad here either. -->
+									<span
+										{...props}
+										class="text-muted-foreground decoration-muted-foreground/50 font-medium underline decoration-dotted underline-offset-2"
+									>
+										{overlayChangeText}
+									</span>
+								{/snippet}
+							</Tooltip.Trigger>
+							{#if overlayRangeDetail}
+								<Tooltip.Content>
+									<span class="whitespace-pre-line">{overlayRangeDetail}</span>
+								</Tooltip.Content>
+							{/if}
+						</Tooltip.Root>
+					</Tooltip.Provider>
+				{/if}
 			{/if}
 		</div>
 		<Accordion.Content class="px-4 pb-3">
@@ -429,6 +551,24 @@
 											/>
 										{/each}
 
+										{#if overlayActive}
+											<!-- Time-shift overlay (roadmap: "Per-query post-processing functions
+											     (metrics and logs)", ADR-0042) - a dashed line over the bars, evenly
+											     spread across the chart's full width (see overlayLinePoints' own
+											     remarks on why not the bars' own barWidth-based x positions). Same
+											     dashed/muted styling MetricChart's own "Previous"/time-shift overlay
+											     line uses (var(--muted-foreground), stroke-dasharray). -->
+											<polyline
+												points={overlayLinePoints}
+												fill="none"
+												class="text-muted-foreground"
+												stroke="currentColor"
+												stroke-width="1.5"
+												stroke-dasharray="4,2"
+												vector-effect="non-scaling-stroke"
+											/>
+										{/if}
+
 										{#if isDragging && !explorer.live && allowZoom}
 											<!-- Drag-to-zoom selection overlay - width tracks the pointer live, released ->
 											     handlePointerUp re-fetches this chart zoomed to the dragged window (or, below
@@ -451,10 +591,22 @@
 							</Tooltip.Trigger>
 							{#if hoverIndex !== null && !isDragging && buckets[hoverIndex]}
 								<Tooltip.Content>
-									{m.volumeChart_tooltip({
-										time: formatBucketTime(buckets[hoverIndex].bucketStart),
-										count: formatCount(buckets[hoverIndex].count)
-									})}
+									<span class="whitespace-pre-line">
+										{m.volumeChart_tooltip({
+											time: formatBucketTime(buckets[hoverIndex].bucketStart),
+											count: formatCount(buckets[hoverIndex].count)
+										})}
+										<!-- Same index-based approximation overlayLinePoints itself uses -
+										     overlayBuckets can be a different length than buckets, so this is
+										     "whatever's at the same relative position", not a guaranteed exact
+										     time match. -->
+										{#if overlayActive && overlayBuckets[hoverIndex]}
+											{'\n'}{m.volumeChart_tooltipOverlay({
+												count: formatCount(overlayBuckets[hoverIndex].count),
+												period: m.volumeChart_timeShiftAgoLabel({ duration: overlayLabel })
+											})}
+										{/if}
+									</span>
 								</Tooltip.Content>
 							{/if}
 						</Tooltip.Root>

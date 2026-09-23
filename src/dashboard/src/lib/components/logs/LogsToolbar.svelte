@@ -5,6 +5,7 @@
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
 	import LogsFunctionsPopover from './LogsFunctionsPopover.svelte';
+	import LogsTimeShiftPopover from './LogsTimeShiftPopover.svelte';
 	import PatternsModal from './PatternsModal.svelte';
 	import ExportDialog from './ExportDialog.svelte';
 	import ShareViewButton from './ShareViewButton.svelte';
@@ -126,6 +127,11 @@
 	<LogsFunctionsPopover
 		functions={explorer.filter.postProcessFunctions}
 		onApply={(fns) => explorer.setPostProcessFunctions(fns)}
+	/>
+
+	<LogsTimeShiftPopover
+		timeShiftSeconds={explorer.filter.timeShiftSeconds}
+		onApply={(seconds) => explorer.setTimeShiftSeconds(seconds)}
 	/>
 
 	<Button variant="ghost" size="sm" onclick={() => explorer.resetFilters()} disabled={!explorer.hasActiveFilters()}>
