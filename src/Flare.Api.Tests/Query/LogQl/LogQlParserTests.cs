@@ -284,4 +284,87 @@ public class LogQlParserTests
     {
         Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select * from stream where json(Body 'user.id') = '42'"));
     }
+
+    [Theory]
+    [InlineData("log", LogQlAttributeBag.Log)]
+    [InlineData("resource", LogQlAttributeBag.Resource)]
+    [InlineData("scope", LogQlAttributeBag.Scope)]
+    public void Parse_AttrComparison_ResolvesEachBag(string bagText, LogQlAttributeBag expectedBag)
+    {
+        var query = LogQlParser.Parse($"select * from stream where attr({bagText}, 'http.status_code') = '200'");
+
+        var comparison = Assert.IsType<LogQlAttributeComparison>(query.Where);
+        Assert.Equal(expectedBag, comparison.Bag);
+        Assert.Equal("http.status_code", comparison.Key);
+        Assert.Equal(LogQlOp.Eq, comparison.Op);
+        Assert.Equal("200", comparison.Literal);
+    }
+
+    [Fact]
+    public void Parse_AttrComparisonIsCaseInsensitive_ForAttrKeywordAndBag()
+    {
+        var query = LogQlParser.Parse("select * from stream where ATTR(LOG, 'foo') = 'bar'");
+
+        Assert.IsType<LogQlAttributeComparison>(query.Where);
+    }
+
+    [Fact]
+    public void Parse_AttrComparisonWithLike_ProducesLikeComparison()
+    {
+        var query = LogQlParser.Parse("select * from stream where attr(log, 'user.name') like '%mith%'");
+
+        var comparison = Assert.IsType<LogQlAttributeComparison>(query.Where);
+        Assert.Equal(LogQlOp.Like, comparison.Op);
+        Assert.Equal("%mith%", comparison.Literal);
+    }
+
+    [Fact]
+    public void Parse_AttrHas_ProducesExistsNode_NotNegated()
+    {
+        var query = LogQlParser.Parse("select * from stream where attr(resource, 'k8s.pod.name') has");
+
+        var exists = Assert.IsType<LogQlAttributeExists>(query.Where);
+        Assert.Equal(LogQlAttributeBag.Resource, exists.Bag);
+        Assert.Equal("k8s.pod.name", exists.Key);
+        Assert.False(exists.Negate);
+    }
+
+    [Fact]
+    public void Parse_AttrNotHas_ProducesExistsNode_Negated()
+    {
+        var query = LogQlParser.Parse("select * from stream where attr(scope, 'foo') not has");
+
+        var exists = Assert.IsType<LogQlAttributeExists>(query.Where);
+        Assert.True(exists.Negate);
+    }
+
+    [Fact]
+    public void Parse_AttrComparisonCombinedWithColumnComparison_BuildsExpectedTree()
+    {
+        var query = LogQlParser.Parse("select * from stream where Service = 'checkout' and attr(log, 'foo') has");
+
+        var and = Assert.IsType<LogQlBinary>(query.Where);
+        Assert.IsType<LogQlComparison>(and.Left);
+        Assert.IsType<LogQlAttributeExists>(and.Right);
+    }
+
+    [Fact]
+    public void Parse_AttrComparisonUnknownBag_ThrowsWithBagNameInMessage()
+    {
+        var ex = Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select * from stream where attr(bogus, 'foo') = 'x'"));
+        Assert.Contains("bogus", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_AttrComparisonEmptyKey_Throws()
+    {
+        var ex = Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select * from stream where attr(log, '') = 'x'"));
+        Assert.Contains("must not be empty", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_AttrComparisonMissingComma_Throws()
+    {
+        Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select * from stream where attr(log 'foo') = 'x'"));
+    }
 }

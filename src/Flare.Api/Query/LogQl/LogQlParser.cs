@@ -55,6 +55,14 @@ public static class LogQlParser
             return Advance();
         }
 
+        // Only used by ParseAttrComparison to look past 'not' and decide "not has" vs. "not
+        // like" without consuming either token yet.
+        LogQlToken PeekAt(int offset)
+        {
+            var idx = pos + offset;
+            return idx < tokens.Count ? tokens[idx] : tokens[^1];
+        }
+
         LogQlColumn ResolveColumn(LogQlToken t) => t.Text.ToUpperInvariant() switch
         {
             "SERVICE" => LogQlColumn.Service,
@@ -147,6 +155,52 @@ public static class LogQlParser
             return new LogQlJsonComparison(pathToken.Text, op, literal);
         }
 
+        LogQlAttributeBag ResolveAttributeBag(LogQlToken t) => t.Text.ToUpperInvariant() switch
+        {
+            "LOG" => LogQlAttributeBag.Log,
+            "RESOURCE" => LogQlAttributeBag.Resource,
+            "SCOPE" => LogQlAttributeBag.Scope,
+            _ => throw new LogQlParseException(
+                $"Unknown attribute bag '{t.Text}' at position {t.Position}. Supported bags: log, resource, scope."),
+        };
+
+        // attr(log|resource|scope, 'key') op '...' / attr(...) has / attr(...) not has - the
+        // LogQL-reachable form of Model.AttributeFilter (see LogQlAttributeComparison/
+        // LogQlAttributeExists's own remarks). 'has'/'not has' are checked before falling
+        // through to ParseOpAndLiteral, since that shared helper only ever produces an
+        // op+literal pair and existence checks have no literal to parse.
+        LogQlExpr ParseAttrComparison()
+        {
+            Advance(); // the 'attr' identifier itself (already peeked by ParsePrimary)
+            ExpectKind(LogQlTokenKind.LParen, "'('");
+            var bagToken = ExpectKind(LogQlTokenKind.Identifier, "'log', 'resource', or 'scope'");
+            var bag = ResolveAttributeBag(bagToken);
+            ExpectKind(LogQlTokenKind.Comma, "','");
+            var keyToken = ExpectKind(LogQlTokenKind.String, "a quoted attribute key");
+            if (keyToken.Text.Length == 0)
+            {
+                throw new LogQlParseException($"attr() key at position {keyToken.Position} must not be empty.");
+            }
+
+            ExpectKind(LogQlTokenKind.RParen, "')'");
+
+            if (IsIdentifier(Current(), "has"))
+            {
+                Advance();
+                return new LogQlAttributeExists(bag, keyToken.Text, Negate: false);
+            }
+
+            if (IsIdentifier(Current(), "not") && IsIdentifier(PeekAt(1), "has"))
+            {
+                Advance();
+                Advance();
+                return new LogQlAttributeExists(bag, keyToken.Text, Negate: true);
+            }
+
+            var (op, literal) = ParseOpAndLiteral();
+            return new LogQlAttributeComparison(bag, keyToken.Text, op, literal);
+        }
+
         LogQlExpr ParsePrimary()
         {
             if (Current().Kind == LogQlTokenKind.LParen)
@@ -160,6 +214,11 @@ public static class LogQlParser
             if (IsIdentifier(Current(), "json"))
             {
                 return ParseJsonComparison();
+            }
+
+            if (IsIdentifier(Current(), "attr"))
+            {
+                return ParseAttrComparison();
             }
 
             return ParseComparison();

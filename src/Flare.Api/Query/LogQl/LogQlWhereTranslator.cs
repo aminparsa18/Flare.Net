@@ -39,6 +39,13 @@ public static class LogQlWhereTranslator
             case LogQlJsonComparison jsonComparison:
                 return TranslateComparison(JsonExtractSql(jsonComparison.Path, parameters, ref counter), jsonComparison.Op, jsonComparison.Literal, parameters, ref counter);
 
+            case LogQlAttributeComparison attributeComparison:
+                return TranslateAttributeComparison(attributeComparison.Bag, attributeComparison.Key, attributeComparison.Op, attributeComparison.Literal, parameters, ref counter);
+
+            case LogQlAttributeExists attributeExists:
+                var (attrContainsSql, _) = AttributeAccessorSql(attributeExists.Bag, attributeExists.Key, parameters, ref counter);
+                return attributeExists.Negate ? $"NOT {attrContainsSql}" : attrContainsSql;
+
             default:
                 throw new InvalidOperationException($"Unknown LogQl expression node type '{expr.GetType()}'.");
         }
@@ -105,6 +112,73 @@ public static class LogQlWhereTranslator
 
         return $"JSONExtractString(Body, {string.Join(", ", segmentArgs)})";
     }
+
+    /// <summary>
+    /// Binds the attribute key once and returns both SQL shapes built from it - the
+    /// <c>mapContains(...)</c> presence check and the <c>column[key]</c> subscript -
+    /// so every caller that needs both (see <see cref="TranslateAttributeComparison"/>)
+    /// reuses the same bound parameter instead of adding it twice.
+    /// </summary>
+    private static (string ContainsSql, string SubscriptSql) AttributeAccessorSql(LogQlAttributeBag bag, string key, ClickHouseParameterCollection parameters, ref int counter)
+    {
+        var column = AttributeColumnName(bag);
+        var keyParam = $"qlp{counter++}";
+        parameters.AddParameter(keyParam, key);
+        var keyRef = $"{{{keyParam}:String}}";
+        return ($"mapContains({column}, {keyRef})", $"{column}[{keyRef}]");
+    }
+
+    /// <summary>
+    /// Compiles one <c>attr(bag, 'key') op 'literal'</c> comparison - mirrors
+    /// <see cref="Flare.Api.Query.LogFilterSqlBuilder"/>'s <c>AttributeClause</c>:
+    /// <see cref="LogQlOp.Eq"/> alone is left unguarded (a missing key reads back as the
+    /// map's <c>String</c> zero value, <c>''</c>, so "= ''" still means "absent or
+    /// explicitly empty" the same way a real column would) - every other operator is
+    /// guarded with <c>mapContains</c> first so a missing key never silently satisfies
+    /// "!= x" or a range/LIKE comparison purely off that same empty-string default.
+    /// </summary>
+    private static string TranslateAttributeComparison(LogQlAttributeBag bag, string key, LogQlOp op, string literal, ClickHouseParameterCollection parameters, ref int counter)
+    {
+        var (containsSql, subscriptSql) = AttributeAccessorSql(bag, key, parameters, ref counter);
+        var valueParam = $"qlp{counter++}";
+        parameters.AddParameter(valueParam, literal);
+        var valueRef = $"{{{valueParam}:String}}";
+
+        if (op == LogQlOp.Eq)
+        {
+            return $"{subscriptSql} = {valueRef}";
+        }
+
+        if (op == LogQlOp.NotEq)
+        {
+            return $"NOT ({containsSql} AND {subscriptSql} = {valueRef})";
+        }
+
+        if (op is LogQlOp.Like or LogQlOp.NotLike)
+        {
+            var likeSql = $"({containsSql} AND {subscriptSql} ILIKE {valueRef})";
+            return op == LogQlOp.Like ? likeSql : $"NOT {likeSql}";
+        }
+
+        var sqlOp = op switch
+        {
+            LogQlOp.Lt => "<",
+            LogQlOp.Lte => "<=",
+            LogQlOp.Gt => ">",
+            LogQlOp.Gte => ">=",
+            _ => throw new InvalidOperationException($"Unhandled LogQlOp '{op}'."),
+        };
+        return $"({containsSql} AND {subscriptSql} {sqlOp} {valueRef})";
+    }
+
+    /// <summary>Real ClickHouse column name for every <see cref="LogQlAttributeBag"/> - see <see cref="ColumnName"/> for the equivalent <see cref="LogQlColumn"/> mapping.</summary>
+    private static string AttributeColumnName(LogQlAttributeBag bag) => bag switch
+    {
+        LogQlAttributeBag.Log => "LogAttributes",
+        LogQlAttributeBag.Resource => "ResourceAttributes",
+        LogQlAttributeBag.Scope => "ScopeAttributes",
+        _ => throw new InvalidOperationException($"Unhandled LogQlAttributeBag '{bag}'."),
+    };
 
     /// <summary>
     /// Real ClickHouse column name for every <see cref="LogQlColumn"/>. Used both here

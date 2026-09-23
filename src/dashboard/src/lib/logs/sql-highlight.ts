@@ -12,17 +12,33 @@ export interface HighlightToken {
 	type: LogQlTokenType;
 }
 
-// select/from/where/group/by/and/or/not/like, plus 'stream' (the grammar's one fixed
-// FROM target) - see LogQlParser.Parse's own keyword set.
-const KEYWORDS = new Set(['select', 'from', 'where', 'group', 'by', 'and', 'or', 'not', 'like', 'stream']);
-// count(*)/avg(col)/sum(col), time(...), and json(Body, '...') - see LogQlParser's
-// SELECT-list, GROUP BY, and where-clause json() handling.
-const FUNCTIONS = new Set(['count', 'avg', 'sum', 'time', 'json']);
+// select/from/where/group/by/and/or/not/like/has, plus 'stream' (the grammar's one fixed
+// FROM target) - see LogQlParser.Parse's own keyword set. 'has' is only ever meaningful
+// right after an attr(...) accessor ("attr(...) has" / "attr(...) not has"), same
+// no-context-check-here philosophy as the rest of this tokenizer.
+const KEYWORDS = new Set(['select', 'from', 'where', 'group', 'by', 'and', 'or', 'not', 'like', 'has', 'stream']);
+// count(*)/avg(col)/sum(col), time(...), json(Body, '...'), and attr(log|resource|scope,
+// '...') - see LogQlParser's SELECT-list, GROUP BY, and where-clause json()/attr() handling.
+const FUNCTIONS = new Set(['count', 'avg', 'sum', 'time', 'json', 'attr']);
 // The column allowlist (select list, avg()/sum() argument, where clause) - see
 // LogQlAst.LogQlColumn / LogQlParser.ResolveColumn. severitynumber is select/aggregate-only
 // (LogQlParser rejects it in a where clause) - this tokenizer doesn't enforce that, same
 // "visual approximation, not a second source of truth" reasoning as the rest of this file.
-const COLUMNS = new Set(['service', 'level', 'severity', 'body', 'traceid', 'spanid', 'severitynumber']);
+// log/resource/scope are attr(...)'s own closed bag selector (LogQlAst.LogQlAttributeBag) -
+// reusing the 'column' token type/color since they play the same "which thing am I
+// selecting" role, not because they're real columns.
+const COLUMNS = new Set([
+	'service',
+	'level',
+	'severity',
+	'body',
+	'traceid',
+	'spanid',
+	'severitynumber',
+	'log',
+	'resource',
+	'scope'
+]);
 
 // One alternative per token shape, tried left-to-right at each position (matching
 // LogQlLexer.cs's own precedence: strings, then a digit-led duration run, then a
