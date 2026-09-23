@@ -147,24 +147,6 @@ folders are where "what happened and why" actually lives.
   merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
   exponential-histogram table + quantile merge
   ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
-- **Time-shift overlay for the Logs explorer.** ADR-0040 shipped a
-  fixed-offset ("this time last week") overlay for the Metrics Explorer -
-  a second query dispatch plus a result-alignment step
-  (`MetricsTimeShiftPopover.svelte`), mutually exclusive with the existing
-  duration-derived "Compare with previous period" switch. ADR-0041 then
-  ported the rest of ADR-0038/0039's post-processing chain
-  (clamp-min/max/absolute/log2/log10/cumulative-sum plus EWMA/median
-  smoothing) to the Logs Explorer's volume chart (`LogPostProcessor`,
-  `LogsFunctionsPopover.svelte`), leaving time-shift as the one remaining
-  piece - `VolumeChart.svelte` has no overlay-line rendering concept at all
-  yet, unlike `MetricChart`, so this needs both a shift/alignment step
-  (`ADR-0040`'s `shiftRange`/`overlayRange` is the closest precedent) and
-  new chart rendering, not just a backend port. Not started. Prior art:
-  SigNoz shipped metrics first, then extended time-shift to logs
-  separately -
-  [signoz#4445](https://github.com/SigNoz/signoz/commit/3b98073ad4f0fe9825ce7e9ac47de1df16c98865),
-  [signoz#4569](https://github.com/SigNoz/signoz/commit/1a62a13aeaa205cae3b474f3ad07ab2944385757),
-  [signoz#4607](https://github.com/SigNoz/signoz/commit/d0d10daa442e387fe557ae0bb6c14b19d004ef8d).
 - **LogQL attribute-map syntax.** The SQL query bar (`LogQlLexer`/
   `LogQlParser`/`LogQlAst`/`LogQlWhereTranslator` under
   [`src/Flare.Api/Query/LogQl/`](../../src/Flare.Api/Query/LogQl/)) only

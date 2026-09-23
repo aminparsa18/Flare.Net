@@ -56,7 +56,17 @@ function mapPanelType(type: string | undefined): PanelType | null {
 function defaultQueryFor(panelType: PanelType): unknown {
 	switch (panelType) {
 		case 'Logs':
-			return { timeRangePreset: '1h', customRange: null, services: [], severityNumbers: [], search: '', attributeFilters: [], bodyJsonFilters: [], postProcessFunctions: [] } satisfies LogsSavedViewState;
+			return {
+				timeRangePreset: '1h',
+				customRange: null,
+				services: [],
+				severityNumbers: [],
+				search: '',
+				attributeFilters: [],
+				bodyJsonFilters: [],
+				postProcessFunctions: [],
+				timeShiftSeconds: null
+			} satisfies LogsSavedViewState;
 		case 'Traces':
 			return { timeRangePreset: '1h', services: [], attributeFilters: [] } satisfies TracesSavedViewState;
 		case 'Metrics':

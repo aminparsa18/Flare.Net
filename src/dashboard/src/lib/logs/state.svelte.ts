@@ -83,6 +83,19 @@ export interface LogsFilterState {
 	 * `resetFilters`" category that field's own doc comment documents for Metrics.
 	 */
 	postProcessFunctions: LogPostProcessFunction[];
+	/**
+	 * Fixed-offset ("this time last week") overlay on VolumeChart, re-running its
+	 * `/api/logs/aggregate` fetch at `now - timeShiftSeconds` and drawing the result as a
+	 * dashed line over the bars - the Logs-explorer counterpart to
+	 * `MetricsFilterState.timeShiftSeconds` (ADR-0040, extended to Logs by ADR-0042).
+	 * `null` = off. Same display-preference category as `postProcessFunctions` immediately
+	 * above: carried through a saved view but excluded from `hasActiveFilters`/
+	 * `resetFilters`, and set via its own setter (`setTimeShiftSeconds`) rather than
+	 * `applyFilterChange` since it doesn't change what the log table searches for. Unlike
+	 * Metrics' compare-mode switch, Logs has no existing overlay control to be mutually
+	 * exclusive with, so there's no clearing to do here.
+	 */
+	timeShiftSeconds: number | null;
 }
 
 /**
@@ -100,6 +113,7 @@ export interface LogsSavedViewState {
 	attributeFilters: AttributeFilter[];
 	bodyJsonFilters: BodyJsonFilter[];
 	postProcessFunctions: LogPostProcessFunction[];
+	timeShiftSeconds: number | null;
 }
 
 export class LogsExplorerState {
@@ -113,7 +127,8 @@ export class LogsExplorerState {
 		attribute: null,
 		attributeFilters: [],
 		bodyJsonFilters: [],
-		postProcessFunctions: []
+		postProcessFunctions: [],
+		timeShiftSeconds: null
 	});
 
 	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
@@ -445,6 +460,17 @@ export class LogsExplorerState {
 		this.filter.postProcessFunctions = functions;
 	}
 
+	/**
+	 * Sets/clears the time-shift overlay's fixed offset - called by `LogsTimeShiftPopover`'s
+	 * apply()/clear(). Same "display transform, not a content filter" treatment as
+	 * `setPostProcessFunctions` immediately above: doesn't touch `selectedBucketRange` or
+	 * call `applyFilterChange`, since VolumeChart's own `$effect` picks up the change and
+	 * re-fetches the overlay itself.
+	 */
+	setTimeShiftSeconds(seconds: number | null): void {
+		this.filter.timeShiftSeconds = seconds;
+	}
+
 	setSeverityNumbers(severityNumbers: number[]): void {
 		this.selectedBucketRange = null;
 		this.filter.severityNumbers = severityNumbers;
@@ -570,7 +596,8 @@ export class LogsExplorerState {
 			search: this.filter.search,
 			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a })),
 			bodyJsonFilters: this.filter.bodyJsonFilters.map((f) => ({ ...f })),
-			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f }))
+			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
+			timeShiftSeconds: this.filter.timeShiftSeconds
 		};
 	}
 
@@ -596,7 +623,8 @@ export class LogsExplorerState {
 			attribute: null, // never part of a saved view - see LogsFilterState.attribute's own remarks
 			attributeFilters: s.attributeFilters ?? [],
 			bodyJsonFilters: s.bodyJsonFilters ?? [],
-			postProcessFunctions: s.postProcessFunctions ?? []
+			postProcessFunctions: s.postProcessFunctions ?? [],
+			timeShiftSeconds: s.timeShiftSeconds ?? null
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
@@ -646,7 +674,8 @@ export class LogsExplorerState {
 			attribute: params.attribute,
 			attributeFilters: [],
 			bodyJsonFilters: [],
-			postProcessFunctions: []
+			postProcessFunctions: [],
+			timeShiftSeconds: null
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
