@@ -226,4 +226,62 @@ public class LogQlParserTests
     {
         Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select from stream"));
     }
+
+    [Fact]
+    public void Parse_JsonComparison_ProducesJsonComparisonNode()
+    {
+        var query = LogQlParser.Parse("select * from stream where json(Body, 'user.id') = '42'");
+
+        var comparison = Assert.IsType<LogQlJsonComparison>(query.Where);
+        Assert.Equal("user.id", comparison.Path);
+        Assert.Equal(LogQlOp.Eq, comparison.Op);
+        Assert.Equal("42", comparison.Literal);
+    }
+
+    [Fact]
+    public void Parse_JsonComparisonIsCaseInsensitive_ForJsonKeywordAndBody()
+    {
+        var query = LogQlParser.Parse("select * from stream where JSON(BODY, 'user.id') = '42'");
+
+        Assert.IsType<LogQlJsonComparison>(query.Where);
+    }
+
+    [Fact]
+    public void Parse_JsonComparisonWithLike_ProducesLikeComparison()
+    {
+        var query = LogQlParser.Parse("select * from stream where json(Body, 'user.name') like '%mith%'");
+
+        var comparison = Assert.IsType<LogQlJsonComparison>(query.Where);
+        Assert.Equal(LogQlOp.Like, comparison.Op);
+        Assert.Equal("%mith%", comparison.Literal);
+    }
+
+    [Fact]
+    public void Parse_JsonComparisonCombinedWithColumnComparison_BuildsExpectedTree()
+    {
+        var query = LogQlParser.Parse("select * from stream where Service = 'checkout' and json(Body, 'user.id') = '42'");
+
+        var and = Assert.IsType<LogQlBinary>(query.Where);
+        Assert.IsType<LogQlComparison>(and.Left);
+        Assert.IsType<LogQlJsonComparison>(and.Right);
+    }
+
+    [Fact]
+    public void Parse_JsonComparisonNonBodyColumn_Throws()
+    {
+        Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select * from stream where json(Service, 'user.id') = '42'"));
+    }
+
+    [Fact]
+    public void Parse_JsonComparisonEmptyPath_Throws()
+    {
+        var ex = Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select * from stream where json(Body, '') = '42'"));
+        Assert.Contains("must not be empty", ex.Message);
+    }
+
+    [Fact]
+    public void Parse_JsonComparisonMissingComma_Throws()
+    {
+        Assert.Throws<LogQlParseException>(() => LogQlParser.Parse("select * from stream where json(Body 'user.id') = '42'"));
+    }
 }

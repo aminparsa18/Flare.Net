@@ -107,4 +107,51 @@ public class LogQlWhereTranslatorTests
 
         Assert.Equal("NOT (ServiceName = {qlp0:String})", sql);
     }
+
+    [Fact]
+    public void Translate_JsonComparison_EmitsOneParameterPerPathSegment_ThenTheValue()
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var sql = LogQlWhereTranslator.Translate(new LogQlJsonComparison("user.id", LogQlOp.Eq, "42"), parameters);
+
+        Assert.Equal("JSONExtractString(Body, {qlp0:String}, {qlp1:String}) = {qlp2:String}", sql);
+        var dict = parameters.ToDictionary();
+        Assert.Equal("user", dict["qlp0"]);
+        Assert.Equal("id", dict["qlp1"]);
+        Assert.Equal("42", dict["qlp2"]);
+    }
+
+    [Fact]
+    public void Translate_JsonComparisonSinglePathSegment_EmitsOneKeyArgument()
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var sql = LogQlWhereTranslator.Translate(new LogQlJsonComparison("status", LogQlOp.NotEq, "500"), parameters);
+
+        Assert.Equal("JSONExtractString(Body, {qlp0:String}) != {qlp1:String}", sql);
+    }
+
+    [Fact]
+    public void Translate_JsonComparisonWithLike_UsesIlikeAgainstJsonExtractString()
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var sql = LogQlWhereTranslator.Translate(new LogQlJsonComparison("user.name", LogQlOp.Like, "%mith%"), parameters);
+
+        Assert.Equal("JSONExtractString(Body, {qlp0:String}, {qlp1:String}) ILIKE {qlp2:String}", sql);
+    }
+
+    [Fact]
+    public void Translate_JsonComparisonCombinedWithColumnComparison_UsesUniqueParameterNamesAcrossBoth()
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var expr = new LogQlBinary(
+            LogQlBoolOp.And,
+            new LogQlComparison(LogQlColumn.Service, LogQlOp.Eq, "checkout"),
+            new LogQlJsonComparison("user.id", LogQlOp.Eq, "42"));
+
+        var sql = LogQlWhereTranslator.Translate(expr, parameters);
+
+        Assert.Equal(
+            "(ServiceName = {qlp0:String} AND JSONExtractString(Body, {qlp1:String}, {qlp2:String}) = {qlp3:String})",
+            sql);
+    }
 }

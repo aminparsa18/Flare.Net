@@ -15,8 +15,9 @@ export interface HighlightToken {
 // select/from/where/group/by/and/or/not/like, plus 'stream' (the grammar's one fixed
 // FROM target) - see LogQlParser.Parse's own keyword set.
 const KEYWORDS = new Set(['select', 'from', 'where', 'group', 'by', 'and', 'or', 'not', 'like', 'stream']);
-// count(*)/avg(col)/sum(col) and time(...) - see LogQlParser's SELECT-list and GROUP BY handling.
-const FUNCTIONS = new Set(['count', 'avg', 'sum', 'time']);
+// count(*)/avg(col)/sum(col), time(...), and json(Body, '...') - see LogQlParser's
+// SELECT-list, GROUP BY, and where-clause json() handling.
+const FUNCTIONS = new Set(['count', 'avg', 'sum', 'time', 'json']);
 // The column allowlist (select list, avg()/sum() argument, where clause) - see
 // LogQlAst.LogQlColumn / LogQlParser.ResolveColumn. severitynumber is select/aggregate-only
 // (LogQlParser rejects it in a where clause) - this tokenizer doesn't enforce that, same

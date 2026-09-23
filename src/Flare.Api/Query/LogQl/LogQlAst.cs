@@ -82,3 +82,15 @@ public sealed record LogQlNot(LogQlExpr Operand) : LogQlExpr;
 
 /// <summary><paramref name="Literal"/> is always the raw (unquoted) string value - see <see cref="LogQlParser"/>'s "literals are single-quoted strings only" v1 restriction.</summary>
 public sealed record LogQlComparison(LogQlColumn Column, LogQlOp Op, string Literal) : LogQlExpr;
+
+/// <summary>
+/// <c>json(Body, 'path.segments') op 'literal'</c> - a comparison against a value nested
+/// inside <c>Body</c>'s own JSON text, the LogQL-reachable form of
+/// <see cref="Model.BodyJsonFilter"/>. <paramref name="Path"/> is the raw (unquoted),
+/// dot-separated object-key path exactly as written - see <see cref="Model.BodyJsonFilter.Path"/>
+/// for why array-index segments aren't supported. <paramref name="Op"/>/<paramref name="Literal"/>
+/// reuse the same vocabulary <see cref="LogQlComparison"/> does (this grammar has no
+/// separate exists/absent/regex/in operators the way the structured filter does) - see
+/// <see cref="LogQlWhereTranslator"/> for the <c>JSONExtractString</c> compilation.
+/// </summary>
+public sealed record LogQlJsonComparison(string Path, LogQlOp Op, string Literal) : LogQlExpr;

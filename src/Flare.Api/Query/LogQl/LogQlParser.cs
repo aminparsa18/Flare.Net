@@ -80,6 +80,36 @@ public static class LogQlParser
             _ => throw new LogQlParseException($"Unsupported operator '{opText}'."), // unreachable - the lexer only ever produces one of the above
         };
 
+        // Shared by ParseComparison and ParseJsonComparison - both end the same way once
+        // their left-hand side (a bare column vs. a json(Body, '...') path) is resolved:
+        // "like '...'" / "not like '...'" / one of the = != <> < <= > >= operators followed
+        // by a quoted string.
+        (LogQlOp Op, string Literal) ParseOpAndLiteral()
+        {
+            if (IsIdentifier(Current(), "like"))
+            {
+                Advance();
+                var literal = ExpectKind(LogQlTokenKind.String, "a quoted string");
+                return (LogQlOp.Like, literal.Text);
+            }
+
+            if (IsIdentifier(Current(), "not"))
+            {
+                // Only reachable after a left-hand side has already been consumed, so this
+                // is unambiguously "... NOT LIKE '...'" - the unary-NOT prefix (ParseNot
+                // below) is checked before a comparison is ever entered.
+                Advance();
+                ExpectIdentifier("like");
+                var literal = ExpectKind(LogQlTokenKind.String, "a quoted string");
+                return (LogQlOp.NotLike, literal.Text);
+            }
+
+            var opToken = ExpectKind(LogQlTokenKind.Op, "one of = != <> < <= > >=");
+            var op = ResolveOp(opToken.Text);
+            var value = ExpectKind(LogQlTokenKind.String, "a quoted string");
+            return (op, value.Text);
+        }
+
         LogQlExpr ParseComparison()
         {
             var columnToken = ExpectKind(LogQlTokenKind.Identifier, "a column name");
@@ -90,28 +120,31 @@ public static class LogQlParser
                     $"SeverityNumber isn't supported in 'where' yet at position {columnToken.Position} - only in 'select' and avg()/sum().");
             }
 
-            if (IsIdentifier(Current(), "like"))
+            var (op, literal) = ParseOpAndLiteral();
+            return new LogQlComparison(column, op, literal);
+        }
+
+        // json(Body, 'path.segments') op '...' - the LogQL-reachable form of
+        // Model.BodyJsonFilter (see LogQlJsonComparison's own remarks). Only Body carries
+        // JSON payloads worth path-filtering into, so unlike ParseComparison's general
+        // column name this always expects the literal keyword 'Body'.
+        LogQlExpr ParseJsonComparison()
+        {
+            Advance(); // the 'json' identifier itself (already peeked by ParsePrimary)
+            ExpectKind(LogQlTokenKind.LParen, "'('");
+            ExpectIdentifier("body");
+            ExpectKind(LogQlTokenKind.Comma, "','");
+            var pathToken = ExpectKind(LogQlTokenKind.String, "a quoted JSON path like 'user.id'");
+            var segments = pathToken.Text.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 0)
             {
-                Advance();
-                var literal = ExpectKind(LogQlTokenKind.String, "a quoted string");
-                return new LogQlComparison(column, LogQlOp.Like, literal.Text);
+                throw new LogQlParseException($"json() path at position {pathToken.Position} must not be empty.");
             }
 
-            if (IsIdentifier(Current(), "not"))
-            {
-                // Only reachable after a column has already been consumed above, so this
-                // is unambiguously "col NOT LIKE '...'" - the unary-NOT prefix (ParseNot
-                // below) is checked before a comparison is ever entered.
-                Advance();
-                ExpectIdentifier("like");
-                var literal = ExpectKind(LogQlTokenKind.String, "a quoted string");
-                return new LogQlComparison(column, LogQlOp.NotLike, literal.Text);
-            }
+            ExpectKind(LogQlTokenKind.RParen, "')'");
 
-            var opToken = ExpectKind(LogQlTokenKind.Op, "one of = != <> < <= > >=");
-            var op = ResolveOp(opToken.Text);
-            var value = ExpectKind(LogQlTokenKind.String, "a quoted string");
-            return new LogQlComparison(column, op, value.Text);
+            var (op, literal) = ParseOpAndLiteral();
+            return new LogQlJsonComparison(pathToken.Text, op, literal);
         }
 
         LogQlExpr ParsePrimary()
@@ -122,6 +155,11 @@ public static class LogQlParser
                 var inner = ParseOr();
                 ExpectKind(LogQlTokenKind.RParen, "')'");
                 return inner;
+            }
+
+            if (IsIdentifier(Current(), "json"))
+            {
+                return ParseJsonComparison();
             }
 
             return ParseComparison();
