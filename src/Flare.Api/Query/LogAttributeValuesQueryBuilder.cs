@@ -43,7 +43,7 @@ public static class LogAttributeValuesQueryBuilder
             // Same substring/case-insensitive ILIKE convention LogFilterSqlBuilder.Build
             // uses for LogFilter.Search - the caller's already-typed text narrows candidates
             // rather than requiring it as an exact/anchored match.
-            filterSql.Parameters.AddParameter("valuesPrefix", $"%{request.Prefix}%");
+            filterSql.Parameters.AddParameter("valuesPrefix", LogFilterSqlBuilder.ContainsPattern(request.Prefix));
             whereClauses.Add($"{column}[{{valuesKey:String}}] ILIKE {{valuesPrefix:String}}");
         }
 

@@ -35,6 +35,15 @@ public static class LogFilterSqlBuilder
     /// </summary>
     public static readonly TimeSpan DefaultLookback = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// Builds a <c>%text%</c> substring pattern for <c>ILIKE</c> with the user's own text
+    /// escaped, so a literal <c>%</c>, <c>_</c> or <c>\</c> (e.g. <c>user_id</c>,
+    /// <c>100%</c>, <c>C:\temp</c>) matches itself rather than acting as a LIKE
+    /// wildcard/escape character.
+    /// </summary>
+    public static string ContainsPattern(string text) =>
+        $"%{text.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_")}%";
+
     public static LogFilterSql Build(LogFilter filter, DateTimeOffset now)
     {
         var parameters = new ClickHouseParameterCollection();
@@ -82,7 +91,7 @@ public static class LogFilterSqlBuilder
             // Pattern is fully formed client-side and bound as one parameter value,
             // rather than built server-side via concat('%', {search:String}, '%') -
             // equivalent ILIKE semantics, one fewer moving part.
-            parameters.AddParameter("search", $"%{filter.Search}%");
+            parameters.AddParameter("search", ContainsPattern(filter.Search));
             clauses.Add("Body ILIKE {search:String}");
         }
 

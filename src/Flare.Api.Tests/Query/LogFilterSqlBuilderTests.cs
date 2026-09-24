@@ -88,6 +88,18 @@ public class LogFilterSqlBuilderTests
     }
 
     [Theory]
+    [InlineData("user_id", @"%user\_id%")]
+    [InlineData("100%", @"%100\%%")]
+    [InlineData(@"C:\temp", @"%C:\\temp%")]
+    [InlineData(@"a\_b%", @"%a\\\_b\%%")]
+    public void Build_WithSearch_EscapesLikeMetacharacters(string search, string expected)
+    {
+        var result = LogFilterSqlBuilder.Build(new LogFilter { Search = search }, Now);
+
+        Assert.Equal(expected, result.Parameters.ToDictionary()["search"]);
+    }
+
+    [Theory]
     [InlineData(AttributeBag.Log, "LogAttributes")]
     [InlineData(AttributeBag.Resource, "ResourceAttributes")]
     [InlineData(AttributeBag.Scope, "ScopeAttributes")]
