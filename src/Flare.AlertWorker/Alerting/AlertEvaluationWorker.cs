@@ -7,8 +7,9 @@ using StackExchange.Redis;
 namespace Flare.AlertWorker.Alerting;
 
 /// <summary>
-/// Periodically re-evaluates every enabled <see cref="AlertRule"/>'s saved condition as a
-/// count over its rolling window, and notifies (subject to cooldown) on breach.
+/// Periodically re-evaluates every enabled <see cref="AlertRule"/>'s saved condition over its
+/// rolling window (a count, a metric value, or - for <see cref="AlertConditionKind.Anomaly"/> -
+/// a z-score against its seasonal baseline), and notifies (subject to cooldown) on breach.
 /// </summary>
 /// <remarks>
 /// Runs in its own process (<c>Flare.AlertWorker</c>), not inside <c>Flare.Api</c> - see
@@ -201,13 +202,15 @@ public sealed class AlertEvaluationWorker(
         ulong observedCount = 0;
         double? observedValue = null;
         string? metricUnit = null;
+        AnomalyScore? anomaly = null;
 
         // Absent-data check first (ADR-0045): when the condition matched nothing at all over
         // the no-data window, fire that instead of evaluating the threshold - over an empty
         // window the threshold result is meaningless anyway (NaN for a metric, which never
         // breaches; 0 for a count, which only breaches a LessThan rule and would then report
         // a misleading "0 events" rather than "no data").
-        var noData = await AlertNoDataEvaluator.IsAbsentAsync(alerts, rule.ConditionKind, rule.Condition, rule.MetricCondition, rule.NoDataWindowSeconds, now, cancellationToken);
+        var seriesKind = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition);
+        var noData = await AlertNoDataEvaluator.IsAbsentAsync(alerts, seriesKind, rule.Condition, rule.MetricCondition, rule.NoDataWindowSeconds, now, cancellationToken);
         if (noData)
         {
             breached = true;
@@ -223,6 +226,21 @@ public sealed class AlertEvaluationWorker(
             (var value, metricUnit) = await alerts.EvaluateMetricConditionAsync(rule.MetricCondition, from, now, cancellationToken);
             observedValue = value;
             breached = rule.Threshold.IsBreachedValue(observedValue.Value, thresholdValue);
+        }
+        else if (rule.ConditionKind == AlertConditionKind.Anomaly)
+        {
+            var evaluated = rule.AnomalyCondition is null
+                ? null
+                : await AnomalyEvaluator.EvaluateAsync(alerts, rule.AnomalyCondition, rule.Condition, rule.MetricCondition, rule.ExceptionCondition, rule.WindowSeconds, now, cancellationToken);
+            if (evaluated is not { } result)
+            {
+                logger.LogWarning("Alert rule {RuleId} ({RuleName}) is Anomaly but has no anomaly condition or source condition; skipping.", rule.Id, rule.Name);
+                return;
+            }
+
+            (anomaly, metricUnit) = result;
+            observedValue = anomaly.Current;
+            breached = anomaly.Breached;
         }
         else if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
         {
@@ -260,7 +278,7 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData);
+        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly);
         var channelResults = ruleChannels.Zip(results, (channel, result) => new AlertChannelResult
         {
             ChannelId = channel.Id == NotificationChannelResolver.LegacyChannelId ? null : channel.Id,
@@ -302,9 +320,13 @@ public sealed class AlertEvaluationWorker(
                 NotificationError = failed.Count == 0 ? "" : string.Join("; ", failed.Select(r => $"{r.ChannelName}: {r.Error}")),
                 ConditionKind = rule.ConditionKind,
                 ObservedValue = observedValue,
-                ThresholdValue = rule.MetricThresholdValue,
+                // An anomaly rule has no fixed threshold - its MetricThresholdValue is a
+                // leftover placeholder when the source is a metric, not something to record.
+                ThresholdValue = rule.ConditionKind == AlertConditionKind.Anomaly ? null : rule.MetricThresholdValue,
                 ChannelResults = channelResults,
                 NoData = noData,
+                BaselineMean = anomaly?.BaselineMean,
+                ZScore = anomaly?.ZScore,
             },
             cancellationToken);
     }

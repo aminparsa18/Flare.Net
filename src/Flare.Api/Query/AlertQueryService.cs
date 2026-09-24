@@ -88,7 +88,7 @@ public interface IAlertQueryService
 public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IAlertQueryService
 {
     private const string RuleColumns =
-        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds";
+        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson";
 
     /// <summary>
     /// Resolves <see cref="AlertRuleRequest"/>'s nullable optional members to their real
@@ -142,6 +142,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             ExceptionCondition = request.ExceptionCondition,
             NoDataWindowSeconds = defaults.NoDataWindowSeconds,
             EvaluationIntervalSeconds = defaults.EvaluationIntervalSeconds,
+            AnomalyCondition = request.AnomalyCondition,
         };
 
         await InsertRuleVersionAsync(rule, isDeleted: false, cancellationToken);
@@ -195,6 +196,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             ExceptionCondition = request.ExceptionCondition,
             NoDataWindowSeconds = defaults.NoDataWindowSeconds,
             EvaluationIntervalSeconds = defaults.EvaluationIntervalSeconds,
+            AnomalyCondition = request.AnomalyCondition,
         };
 
         await InsertRuleVersionAsync(updated, isDeleted: false, cancellationToken);
@@ -339,12 +341,14 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("thresholdValue", (object?)entry.ThresholdValue ?? DBNull.Value);
         parameters.AddParameter("channelResultsJson", entry.ChannelResults.Count == 0 ? "" : JsonSerializer.Serialize(entry.ChannelResults, AlertsJsonContext.Default.IReadOnlyListAlertChannelResult));
         parameters.AddParameter("noData", entry.NoData ? (byte)1 : (byte)0);
+        parameters.AddParameter("baselineMean", (object?)entry.BaselineMean ?? DBNull.Value);
+        parameters.AddParameter("zScore", (object?)entry.ZScore ?? DBNull.Value);
 
         const string sql = """
             INSERT INTO alert_events
-                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData)
+                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore)
             VALUES
-                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)}, {channelResultsJson:String}, {noData:UInt8})
+                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)}, {channelResultsJson:String}, {noData:UInt8}, {baselineMean:Nullable(Float64)}, {zScore:Nullable(Float64)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -356,7 +360,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("ruleId", ruleId);
         parameters.AddParameter("limit", (uint)limit);
         const string sql = """
-            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData
+            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore
             FROM alert_events
             WHERE RuleId = {ruleId:UUID}
             ORDER BY FiredAt DESC
@@ -386,6 +390,8 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
                     ? JsonSerializer.Deserialize(channelResultsJson, AlertsJsonContext.Default.IReadOnlyListAlertChannelResult) ?? []
                     : [],
                 NoData = reader.GetByte(14) != 0,
+                BaselineMean = reader.IsDBNull(15) ? null : reader.GetFieldValue<double>(15),
+                ZScore = reader.IsDBNull(16) ? null : reader.GetFieldValue<double>(16),
             });
         }
 
@@ -419,12 +425,13 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("exceptionConditionJson", rule.ExceptionCondition is null ? "" : JsonSerializer.Serialize(rule.ExceptionCondition, AlertsJsonContext.Default.ExceptionCountCondition));
         parameters.AddParameter("noDataWindowSeconds", (uint)rule.NoDataWindowSeconds);
         parameters.AddParameter("evaluationIntervalSeconds", (uint)rule.EvaluationIntervalSeconds);
+        parameters.AddParameter("anomalyConditionJson", rule.AnomalyCondition is null ? "" : JsonSerializer.Serialize(rule.AnomalyCondition, AlertsJsonContext.Default.AnomalyCondition));
 
         const string sql = """
             INSERT INTO alert_rules
-                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds)
+                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)}, {channelIds:Array(UUID)}, {exceptionConditionJson:String}, {noDataWindowSeconds:UInt32}, {evaluationIntervalSeconds:UInt32})
+                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)}, {channelIds:Array(UUID)}, {exceptionConditionJson:String}, {noDataWindowSeconds:UInt32}, {evaluationIntervalSeconds:UInt32}, {anomalyConditionJson:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -473,6 +480,9 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             : null,
         NoDataWindowSeconds = (int)reader.GetFieldValue<uint>(21),
         EvaluationIntervalSeconds = (int)reader.GetFieldValue<uint>(22),
+        AnomalyCondition = NullIfEmpty(reader.GetString(23)) is { } anomalyJson
+            ? JsonSerializer.Deserialize(anomalyJson, AlertsJsonContext.Default.AnomalyCondition)
+            : null,
     };
 
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;

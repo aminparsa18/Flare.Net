@@ -24,7 +24,10 @@
 		type AlertTestResult,
 		type AlertNotificationTestResult,
 		type AlertConditionKind,
-		type MetricAlertAggregation
+		type MetricAlertAggregation,
+		type AnomalyCondition,
+		type AnomalyDirection,
+		type AnomalySeasonality
 	} from '$lib/alerts-api';
 	import { aggregateLogs } from '$lib/api';
 	import { getMetricNames, type MetricNameInfo, type MetricPointType } from '$lib/metrics-api';
@@ -99,6 +102,18 @@
 	let exceptionType = $state('');
 	let exceptionMessage = $state('');
 
+	// Anomaly condition (AlertConditionKind.Anomaly) - see
+	// docs-internal/adr/0048-anomaly-detection-alerting.md. Scores one of the three condition
+	// blocks above (picked by `anomalySource`) against its own seasonal baseline instead of a
+	// fixed threshold, so `seriesKind` - not `conditionKind` - decides which block is shown
+	// and which condition buildRequest() sends.
+	let anomalySource = $state<AnomalyCondition['source']>('LogCount');
+	let anomalySeasonality = $state<AnomalySeasonality>('Daily');
+	let anomalyBaselinePeriodsText = $state('7');
+	let anomalyZScoreText = $state('3');
+	let anomalyDirection = $state<AnomalyDirection>('Both');
+	const seriesKind = $derived<AnomalyCondition['source']>(conditionKind === 'Anomaly' ? anomalySource : conditionKind);
+
 	let testResult = $state<AlertTestResult | null>(null);
 	let testing = $state(false);
 	let testError = $state<string | null>(null);
@@ -147,6 +162,11 @@
 			metricThresholdValueText = '0';
 			exceptionType = '';
 			exceptionMessage = '';
+			anomalySource = 'LogCount';
+			anomalySeasonality = 'Daily';
+			anomalyBaselinePeriodsText = '7';
+			anomalyZScoreText = '3';
+			anomalyDirection = 'Both';
 			// A pending "Create alert from panel" draft (DashboardPanelCard.svelte's "Create
 			// alert" action, routed through the ?kind=.../routes/alerts/+page.svelte's own
 			// onMount) overrides a subset of the blanks just set above. Read once and cleared
@@ -174,7 +194,8 @@
 			// ExceptionCount's own filter scope reuses this same `services` state - see its
 			// declaration's comment - so it's populated from whichever filter this rule's
 			// conditionKind actually uses.
-			services = target.conditionKind === 'ExceptionCount' ? (target.exceptionCondition?.filter?.services ?? []) : (target.condition.services ?? []);
+			const targetSeriesKind = target.conditionKind === 'Anomaly' ? (target.anomalyCondition?.source ?? 'LogCount') : target.conditionKind;
+			services = targetSeriesKind === 'ExceptionCount' ? (target.exceptionCondition?.filter?.services ?? []) : (target.condition.services ?? []);
 			severityNumbers = target.condition.severityNumbers ?? [];
 			search = target.condition.search ?? '';
 			thresholdCountText = String(target.threshold.count);
@@ -208,6 +229,11 @@
 			metricThresholdValueText = String(target.metricThresholdValue ?? 0);
 			exceptionType = target.exceptionCondition?.exceptionType ?? '';
 			exceptionMessage = target.exceptionCondition?.exceptionMessage ?? '';
+			anomalySource = target.anomalyCondition?.source ?? 'LogCount';
+			anomalySeasonality = target.anomalyCondition?.seasonality ?? 'Daily';
+			anomalyBaselinePeriodsText = String(target.anomalyCondition?.baselinePeriods ?? 7);
+			anomalyZScoreText = String(target.anomalyCondition?.zScoreThreshold ?? 3);
+			anomalyDirection = target.anomalyCondition?.direction ?? 'Both';
 		}
 	});
 
@@ -216,7 +242,7 @@
 	const cooldownSeconds = $derived(Number(cooldownSecondsText));
 	const metricThresholdValue = $derived(Number(metricThresholdValueText));
 	const noDataWindowSeconds = $derived(Number(noDataWindowSecondsText));
-	const supportsNoData = $derived(conditionKind !== 'ExceptionCount');
+	const supportsNoData = $derived(seriesKind !== 'ExceptionCount');
 	const noDataActive = $derived(supportsNoData && noDataEnabled);
 	// Mirrors AlertRuleRequest.MinNoDataWindowSeconds on the API side.
 	const MIN_NO_DATA_WINDOW_SECONDS = 60;
@@ -247,12 +273,34 @@
 			: selectedChannelIds.length > 0
 	);
 
+	// Mirrors AnomalyCondition's Min/MaxBaselinePeriods/MaxZScoreThreshold and
+	// AlertRuleRequest.ValidateAnomaly's window-shorter-than-period rule on the API side.
+	const anomalyBaselinePeriods = $derived(Number(anomalyBaselinePeriodsText));
+	const anomalyZScore = $derived(Number(anomalyZScoreText));
+	const anomalyPeriodSeconds = $derived(anomalySeasonality === 'Weekly' ? 7 * 86_400 : 86_400);
+	const anomalyWindowTooLong = $derived(conditionKind === 'Anomaly' && Number.isFinite(windowSeconds) && windowSeconds >= anomalyPeriodSeconds);
+	const anomalyValid = $derived(
+		Number.isInteger(anomalyBaselinePeriods) &&
+			anomalyBaselinePeriods >= 3 &&
+			anomalyBaselinePeriods <= 12 &&
+			anomalyZScore > 0 &&
+			anomalyZScore <= 10 &&
+			!anomalyWindowTooLong
+	);
+
+	// Whether the series condition itself (the block `seriesKind` picks) is filled in -
+	// shared by the fixed-threshold kinds and Anomaly.
+	const hasSeriesCondition = $derived(
+		seriesKind === 'MetricThreshold' ? metricName.trim().length > 0 : seriesKind === 'ExceptionCount' ? exceptionType.trim().length > 0 : true
+	);
+
 	const hasCondition = $derived(
-		conditionKind === 'MetricThreshold'
-			? metricName.trim().length > 0 && Number.isFinite(metricThresholdValue)
-			: conditionKind === 'ExceptionCount'
-				? exceptionType.trim().length > 0 && Number.isFinite(thresholdCount) && thresholdCount > 0
-				: Number.isFinite(thresholdCount) && thresholdCount > 0
+		hasSeriesCondition &&
+			(conditionKind === 'Anomaly'
+				? anomalyValid
+				: conditionKind === 'MetricThreshold'
+					? Number.isFinite(metricThresholdValue)
+					: Number.isFinite(thresholdCount) && thresholdCount > 0)
 	);
 
 	const canSave = $derived(
@@ -337,7 +385,7 @@
 		// LogCount mode, so an ExceptionCount draft's service picks never leak into the
 		// (ignored, but still sent) LogFilter placeholder.
 		const condition: AlertRuleRequest['condition'] = {};
-		if (conditionKind === 'LogCount') {
+		if (seriesKind === 'LogCount') {
 			if (services.length) condition.services = [...services];
 			if (severityNumbers.length) condition.severityNumbers = [...severityNumbers];
 			if (search.trim()) condition.search = search.trim();
@@ -349,7 +397,8 @@
 			condition,
 			// count is a placeholder (ignored server-side) when conditionKind is
 			// MetricThreshold - see AlertThreshold.Count's own doc comment.
-			threshold: { count: conditionKind === 'MetricThreshold' ? 0 : thresholdCount, comparator },
+			// count is a placeholder for Anomaly too - it has no fixed threshold at all.
+			threshold: { count: conditionKind === 'MetricThreshold' || conditionKind === 'Anomaly' ? 0 : thresholdCount, comparator },
 			windowSeconds,
 			cooldownSeconds,
 			// Exactly one notification mode goes out - the legacy inline fields (only when
@@ -367,12 +416,12 @@
 			// same "field present, meaningful only for one mode" shape the channel fields
 			// above already use.
 			metricCondition:
-				conditionKind === 'MetricThreshold'
+				seriesKind === 'MetricThreshold'
 					? { metricName: metricName.trim(), type: metricType, aggregation: metricAggregation }
 					: undefined,
 			metricThresholdValue: conditionKind === 'MetricThreshold' ? metricThresholdValue : undefined,
 			exceptionCondition:
-				conditionKind === 'ExceptionCount'
+				seriesKind === 'ExceptionCount'
 					? {
 							exceptionType: exceptionType.trim(),
 							exceptionMessage: exceptionMessage.trim() || undefined,
@@ -380,8 +429,26 @@
 						}
 					: undefined,
 			noDataWindowSeconds: noDataActive ? noDataWindowSeconds : 0,
-			evaluationIntervalSeconds
+			evaluationIntervalSeconds,
+			anomalyCondition:
+				conditionKind === 'Anomaly'
+					? {
+							source: anomalySource,
+							seasonality: anomalySeasonality,
+							baselinePeriods: anomalyBaselinePeriods,
+							zScoreThreshold: anomalyZScore,
+							direction: anomalyDirection
+						}
+					: undefined
 		};
+	}
+
+	function formatAnomalyNumber(value: number): string {
+		return value.toLocaleString(undefined, { maximumFractionDigits: 3 });
+	}
+
+	function formatZScore(z: number): string {
+		return `${z >= 0 ? '+' : ''}${z.toFixed(1)}`;
 	}
 
 	async function handleTest(): Promise<void> {
@@ -453,17 +520,40 @@
 							? m.alertRuleForm_conditionKindMetricThreshold()
 							: conditionKind === 'ExceptionCount'
 								? m.alertRuleForm_conditionKindExceptionCount()
-								: m.alertRuleForm_conditionKindLogCount()}
+								: conditionKind === 'Anomaly'
+									? m.alertRuleForm_conditionKindAnomaly()
+									: m.alertRuleForm_conditionKindLogCount()}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="LogCount" label={m.alertRuleForm_conditionKindLogCount()} />
 						<Select.Item value="MetricThreshold" label={m.alertRuleForm_conditionKindMetricThreshold()} />
 						<Select.Item value="ExceptionCount" label={m.alertRuleForm_conditionKindExceptionCount()} />
+						<Select.Item value="Anomaly" label={m.alertRuleForm_conditionKindAnomaly()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
 
-			{#if conditionKind === 'LogCount'}
+			{#if conditionKind === 'Anomaly'}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.alertRuleForm_anomalySourceLabel()}</span>
+					<Select.Root type="single" value={anomalySource} onValueChange={(v) => v && (anomalySource = v as AnomalyCondition['source'])}>
+						<Select.Trigger class="w-48">
+							{anomalySource === 'MetricThreshold'
+								? m.alertRuleForm_anomalySourceMetric()
+								: anomalySource === 'ExceptionCount'
+									? m.alertRuleForm_anomalySourceExceptions()
+									: m.alertRuleForm_anomalySourceLogs()}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="LogCount" label={m.alertRuleForm_anomalySourceLogs()} />
+							<Select.Item value="MetricThreshold" label={m.alertRuleForm_anomalySourceMetric()} />
+							<Select.Item value="ExceptionCount" label={m.alertRuleForm_anomalySourceExceptions()} />
+						</Select.Content>
+					</Select.Root>
+				</div>
+			{/if}
+
+			{#if seriesKind === 'LogCount'}
 				<div class="flex flex-wrap items-center gap-2">
 					<PopoverMultiSelect
 						label={m.alertRuleForm_serviceLabel()}
@@ -483,7 +573,7 @@
 					<span class="text-xs font-medium">{m.alertRuleForm_searchLabel()}</span>
 					<Input bind:value={search} placeholder={m.alertRuleForm_optionalPlaceholder()} />
 				</div>
-			{:else if conditionKind === 'ExceptionCount'}
+			{:else if seriesKind === 'ExceptionCount'}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_exceptionTypeLabel()}</span>
 					<Input bind:value={exceptionType} placeholder={m.alertRuleForm_exceptionTypePlaceholder()} />
@@ -533,41 +623,90 @@
 				</div>
 			{/if}
 
-			<div class="flex items-end gap-2">
-				{#if conditionKind === 'LogCount' || conditionKind === 'ExceptionCount'}
-					<div class="flex flex-col gap-1">
-						<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
-						<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>
-							<Select.Trigger class="w-20">
-								{comparator === 'LessThan' ? '<' : '>='}
+			{#if conditionKind === 'Anomaly'}
+				<div class="flex flex-col gap-2">
+					<div class="flex flex-wrap items-end gap-2">
+						<div class="flex flex-col gap-1">
+							<span class="text-xs font-medium">{m.alertRuleForm_anomalyDirectionLabel()}</span>
+							<Select.Root type="single" value={anomalyDirection} onValueChange={(v) => v && (anomalyDirection = v as AnomalyDirection)}>
+								<Select.Trigger class="w-44">
+									{anomalyDirection === 'Above'
+										? m.alertRuleForm_anomalyDirectionAbove()
+										: anomalyDirection === 'Below'
+											? m.alertRuleForm_anomalyDirectionBelow()
+											: m.alertRuleForm_anomalyDirectionBoth()}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="Both" label={m.alertRuleForm_anomalyDirectionBoth()} />
+									<Select.Item value="Above" label={m.alertRuleForm_anomalyDirectionAbove()} />
+									<Select.Item value="Below" label={m.alertRuleForm_anomalyDirectionBelow()} />
+								</Select.Content>
+							</Select.Root>
+						</div>
+						<div class="flex flex-col gap-1">
+							<span class="text-xs font-medium">{m.alertRuleForm_anomalyZScoreLabel()}</span>
+							<Input type="number" min="0.5" max="10" step="0.5" bind:value={anomalyZScoreText} class="w-20" />
+						</div>
+						<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_anomalyOverWindow()}</span>
+						<Input type="number" min="1" bind:value={windowSecondsText} class="w-24" />
+						<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_seconds()}</span>
+					</div>
+					<div class="flex flex-wrap items-center gap-2">
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_anomalyBaselineLabel()}</span>
+						<Input type="number" min="3" max="12" bind:value={anomalyBaselinePeriodsText} class="w-16" />
+						<Select.Root type="single" value={anomalySeasonality} onValueChange={(v) => v && (anomalySeasonality = v as AnomalySeasonality)}>
+							<Select.Trigger class="w-28">
+								{anomalySeasonality === 'Weekly' ? m.alertRuleForm_anomalySeasonalityWeekly() : m.alertRuleForm_anomalySeasonalityDaily()}
 							</Select.Trigger>
 							<Select.Content>
-								<Select.Item value="GreaterThanOrEqual" label=">=" />
-								<Select.Item value="LessThan" label="<" />
+								<Select.Item value="Daily" label={m.alertRuleForm_anomalySeasonalityDaily()} />
+								<Select.Item value="Weekly" label={m.alertRuleForm_anomalySeasonalityWeekly()} />
 							</Select.Content>
 						</Select.Root>
 					</div>
-					<Input type="number" min="1" bind:value={thresholdCountText} class="w-24" />
-					<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_eventsIn()}</span>
-				{:else}
-					<div class="flex flex-col gap-1">
-						<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
-						<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>
-							<Select.Trigger class="w-20">
-								{comparator === 'LessThan' ? '<' : '>='}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="GreaterThanOrEqual" label=">=" />
-								<Select.Item value="LessThan" label="<" />
-							</Select.Content>
-						</Select.Root>
-					</div>
-					<Input type="number" bind:value={metricThresholdValueText} class="w-24" />
-					<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_metricOverLabel()}</span>
-				{/if}
-				<Input type="number" min="1" bind:value={windowSecondsText} class="w-24" />
-				<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_seconds()}</span>
-			</div>
+					{#if anomalyWindowTooLong}
+						<span class="text-destructive text-xs">{m.alertRuleForm_anomalyWindowTooLong()}</span>
+					{:else}
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_anomalyHint()}</span>
+					{/if}
+				</div>
+			{:else}
+				<div class="flex items-end gap-2">
+					{#if conditionKind === 'LogCount' || conditionKind === 'ExceptionCount'}
+						<div class="flex flex-col gap-1">
+							<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
+							<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>
+								<Select.Trigger class="w-20">
+									{comparator === 'LessThan' ? '<' : '>='}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="GreaterThanOrEqual" label=">=" />
+									<Select.Item value="LessThan" label="<" />
+								</Select.Content>
+							</Select.Root>
+						</div>
+						<Input type="number" min="1" bind:value={thresholdCountText} class="w-24" />
+						<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_eventsIn()}</span>
+					{:else}
+						<div class="flex flex-col gap-1">
+							<span class="text-xs font-medium">{m.alertRuleForm_thresholdLabel()}</span>
+							<Select.Root type="single" value={comparator} onValueChange={(v) => v && (comparator = v as ThresholdComparator)}>
+								<Select.Trigger class="w-20">
+									{comparator === 'LessThan' ? '<' : '>='}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="GreaterThanOrEqual" label=">=" />
+									<Select.Item value="LessThan" label="<" />
+								</Select.Content>
+							</Select.Root>
+						</div>
+						<Input type="number" bind:value={metricThresholdValueText} class="w-24" />
+						<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_metricOverLabel()}</span>
+					{/if}
+					<Input type="number" min="1" bind:value={windowSecondsText} class="w-24" />
+					<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_seconds()}</span>
+				</div>
+			{/if}
 
 			<div class="flex flex-col gap-1">
 				<span class="text-xs font-medium">{m.alertRuleForm_cooldownLabel()}</span>
@@ -702,6 +841,13 @@
 					<Badge variant={testResult.wouldFire ? 'warning' : 'outline'}>
 						{#if testResult.noData}
 							{m.alertRuleForm_testResultNoData({ seconds: testResult.windowSeconds })}
+						{:else if testResult.conditionKind === 'Anomaly'}
+							{#if testResult.baselineMean === undefined || testResult.zScore === undefined}
+								{m.alertRuleForm_testResultAnomalyNoHistory({ samples: testResult.baselineSampleCount })}
+							{:else}
+								{@const args = { value: formatAnomalyNumber(testResult.observedValue ?? 0), mean: formatAnomalyNumber(testResult.baselineMean), z: formatZScore(testResult.zScore) }}
+								{testResult.wouldFire ? m.alertRuleForm_testResultAnomalyFiring(args) : m.alertRuleForm_testResultAnomalyNotFiring(args)}
+							{/if}
 						{:else if testResult.conditionKind === 'MetricThreshold'}
 							{testResult.wouldFire
 								? m.alertRuleForm_testResultFiringMetric({ value: testResult.observedValue ?? 0 })

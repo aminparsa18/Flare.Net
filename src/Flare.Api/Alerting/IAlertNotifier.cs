@@ -49,5 +49,11 @@ public interface IAlertNotifier
     /// 0 and every implementation swaps in <see cref="AlertMessageFormatter"/>'s "no data"
     /// wording instead of reporting a threshold breach.
     /// </param>
-    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false);
+    /// <param name="anomaly">
+    /// Set only for an <see cref="AlertConditionKind.Anomaly"/> fire - the baseline the current
+    /// value (<paramref name="observedValue"/>) was scored against. Every implementation swaps
+    /// in <see cref="AlertMessageFormatter"/>'s anomaly wording; the structured payloads also
+    /// carry its mean/z-score.
+    /// </param>
+    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null);
 }

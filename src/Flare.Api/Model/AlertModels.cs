@@ -33,12 +33,41 @@ public enum ThresholdComparator
 /// on non-<see cref="MetricThreshold"/> rules, and for <see cref="AlertRule.ExceptionCondition"/>
 /// on non-<see cref="ExceptionCount"/> rules) - same "field present, meaningful only for one
 /// mode" convention <see cref="AlertRule"/>'s notification-channel fields already use.
+/// <see cref="Anomaly"/> scores one of the other three kinds' series (named by
+/// <see cref="AnomalyCondition.Source"/>, read from that kind's own condition field) against
+/// its own seasonal baseline instead of a fixed threshold - see
+/// <c>docs-internal/adr/0048-anomaly-detection-alerting.md</c>.
 /// </remarks>
 public enum AlertConditionKind
 {
     LogCount,
     MetricThreshold,
     ExceptionCount,
+    Anomaly,
+}
+
+/// <summary>The seasonal period an <see cref="AnomalyCondition"/>'s baseline windows are shifted back by.</summary>
+public enum AnomalySeasonality
+{
+    /// <summary>Same window, same time of day, on each of the previous <see cref="AnomalyCondition.BaselinePeriods"/> days.</summary>
+    Daily,
+
+    /// <summary>Same window, same time of week, on each of the previous <see cref="AnomalyCondition.BaselinePeriods"/> weeks.</summary>
+    Weekly,
+}
+
+/// <summary>Which side of the baseline an <see cref="AnomalyCondition"/> fires on.</summary>
+/// <remarks><see cref="Both"/> is first so an omitted JSON <c>direction</c> (which deserializes as 0 - see <see cref="AnomalyCondition"/>'s remarks) means the intended default.</remarks>
+public enum AnomalyDirection
+{
+    /// <summary>Either side (|z| &gt;= threshold).</summary>
+    Both,
+
+    /// <summary>Only when the current value is unusually high (z &gt;= threshold).</summary>
+    Above,
+
+    /// <summary>Only when the current value is unusually low (z &lt;= -threshold) - "traffic is half what it normally is".</summary>
+    Below,
 }
 
 /// <summary>
@@ -131,6 +160,47 @@ public sealed partial record ExceptionCountCondition
     public string ExceptionMessage { get; init; } = "";
 
     public ExceptionFilter Filter { get; init; } = new();
+}
+
+/// <summary>
+/// The scoring parameters of an <see cref="AlertConditionKind.Anomaly"/> rule. Carries no
+/// series of its own: <see cref="Source"/> names which existing condition kind produces it,
+/// and the rule's matching condition field (<see cref="AlertRule.Condition"/>,
+/// <see cref="AlertRule.MetricCondition"/> or <see cref="AlertRule.ExceptionCondition"/>) is
+/// evaluated once for the current window and once per baseline window - see
+/// <see cref="Alerting.AnomalyEvaluator"/> and <c>docs-internal/adr/0048-anomaly-detection-alerting.md</c>.
+/// <see cref="MemoryPackableAttribute"/> only, with a hand-written TypeScript companion
+/// (<c>$lib/memorypack/AnomalyCondition.ts</c>), so its enums stay the plain
+/// <c>enums.ts</c> name/int converters <see cref="AlertConditionKind"/> already uses.
+/// </summary>
+/// <remarks>
+/// System.Text.Json source-gen resets a member omitted from the JSON body to
+/// <see langword="default"/>, not its C# initializer (see <see cref="AlertRuleRequest"/>'s
+/// remarks). So every enum member's intended default is its 0 value, and the two numeric
+/// members, whose 0 is never valid, are <c>required</c> - an omitted one is a 400, not a
+/// silent 0.
+/// </remarks>
+[MemoryPackable]
+public sealed partial record AnomalyCondition
+{
+    /// <summary><see cref="AlertConditionKind.LogCount"/>, <see cref="AlertConditionKind.MetricThreshold"/> or <see cref="AlertConditionKind.ExceptionCount"/> - never <see cref="AlertConditionKind.Anomaly"/> itself.</summary>
+    public AlertConditionKind Source { get; init; } = AlertConditionKind.LogCount;
+
+    public AnomalySeasonality Seasonality { get; init; } = AnomalySeasonality.Daily;
+
+    /// <summary>How many past periods are sampled for the baseline, between <see cref="MinBaselinePeriods"/> and <see cref="MaxBaselinePeriods"/>.</summary>
+    public required int BaselinePeriods { get; init; }
+
+    /// <summary>How many standard deviations from the baseline mean counts as anomalous, greater than 0 and at most <see cref="MaxZScoreThreshold"/>.</summary>
+    public required double ZScoreThreshold { get; init; }
+
+    public AnomalyDirection Direction { get; init; }
+
+    public const int MinBaselinePeriods = 3;
+
+    public const int MaxBaselinePeriods = 12;
+
+    public const double MaxZScoreThreshold = 10;
 }
 
 /// <summary>The breach condition an <see cref="AlertRule"/> evaluates on every poll tick.</summary>
@@ -301,6 +371,14 @@ public sealed partial record AlertRule
     /// Appended after every pre-existing field, same versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public int EvaluationIntervalSeconds { get; init; }
+
+    /// <summary>
+    /// Set (non-null) only for <see cref="AlertConditionKind.Anomaly"/> rules; null/ignored
+    /// otherwise. The series it scores still comes from <see cref="Condition"/>/<see cref="MetricCondition"/>/<see cref="ExceptionCondition"/>,
+    /// per <see cref="AnomalyCondition.Source"/>. Appended after <see cref="EvaluationIntervalSeconds"/>,
+    /// same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public AnomalyCondition? AnomalyCondition { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -379,6 +457,9 @@ public sealed partial record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.EvaluationIntervalSeconds"/>'s doc comment. Omitted/null means 0 (every poll tick). Appended after <see cref="NoDataWindowSeconds"/>, same versioning reasoning.</summary>
     public int? EvaluationIntervalSeconds { get; init; }
 
+    /// <summary>See <see cref="AlertRule.AnomalyCondition"/>'s doc comment. Appended after <see cref="EvaluationIntervalSeconds"/>, same versioning reasoning.</summary>
+    public AnomalyCondition? AnomalyCondition { get; init; }
+
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
     /// (<see cref="WebhookUrl"/> - covers both a generic webhook consumer and Slack -
@@ -445,6 +526,9 @@ public sealed partial record AlertRuleRequest
     /// <see cref="MinEvaluationIntervalSeconds"/> and <see cref="MaxEvaluationIntervalSeconds"/>,
     /// and never longer than <see cref="WindowSeconds"/> - a 1m window evaluated every 15m
     /// would silently never look at 14 of every 15 minutes.
+    /// <see cref="AlertConditionKind.Anomaly"/> is validated by <see cref="ValidateAnomaly"/>;
+    /// its <see cref="AnomalyCondition.Source"/> then stands in for <c>kind</c> in the no-data
+    /// check, since that's the series actually being queried.
     /// </remarks>
     public string? ValidateCondition()
     {
@@ -455,13 +539,15 @@ public sealed partial record AlertRuleRequest
                 "metricCondition and metricThresholdValue are required when conditionKind is MetricThreshold.",
             AlertConditionKind.ExceptionCount when ExceptionCondition is null =>
                 "exceptionCondition is required when conditionKind is ExceptionCount.",
+            AlertConditionKind.Anomaly => ValidateAnomaly(),
             _ => null,
         };
 
+        var seriesKind = kind == AlertConditionKind.Anomaly && AnomalyCondition is { } anomaly ? anomaly.Source : kind;
         var noDataError = (NoDataWindowSeconds ?? 0) switch
         {
             0 => null,
-            _ when kind == AlertConditionKind.ExceptionCount =>
+            _ when seriesKind == AlertConditionKind.ExceptionCount =>
                 "noDataWindowSeconds is not supported when conditionKind is ExceptionCount - zero exceptions is the healthy state, not missing data.",
             < MinNoDataWindowSeconds =>
                 $"noDataWindowSeconds must be 0 (disabled) or at least {MinNoDataWindowSeconds}.",
@@ -479,6 +565,39 @@ public sealed partial record AlertRuleRequest
         };
 
         return conditionError ?? noDataError ?? intervalError;
+    }
+
+    /// <summary>
+    /// <see cref="AlertConditionKind.Anomaly"/> arm of <see cref="ValidateCondition"/>:
+    /// <see cref="AnomalyCondition"/> set, a non-anomaly <see cref="AnomalyCondition.Source"/>
+    /// whose own condition field is set (a <see cref="AlertConditionKind.MetricThreshold"/>
+    /// source needs <see cref="MetricCondition"/> but not <see cref="MetricThresholdValue"/> -
+    /// there's no fixed threshold), in-range scoring parameters, and a window shorter than
+    /// the seasonal period so the current window never overlaps the first baseline window.
+    /// </summary>
+    private string? ValidateAnomaly()
+    {
+        if (AnomalyCondition is not { } anomaly)
+        {
+            return "anomalyCondition is required when conditionKind is Anomaly.";
+        }
+
+        return anomaly.Source switch
+        {
+            AlertConditionKind.Anomaly =>
+                "anomalyCondition.source must be LogCount, MetricThreshold or ExceptionCount.",
+            AlertConditionKind.MetricThreshold when MetricCondition is null =>
+                "metricCondition is required when anomalyCondition.source is MetricThreshold.",
+            AlertConditionKind.ExceptionCount when ExceptionCondition is null =>
+                "exceptionCondition is required when anomalyCondition.source is ExceptionCount.",
+            _ when anomaly.BaselinePeriods is < Model.AnomalyCondition.MinBaselinePeriods or > Model.AnomalyCondition.MaxBaselinePeriods =>
+                $"anomalyCondition.baselinePeriods must be between {Model.AnomalyCondition.MinBaselinePeriods} and {Model.AnomalyCondition.MaxBaselinePeriods}.",
+            _ when !(anomaly.ZScoreThreshold > 0 && anomaly.ZScoreThreshold <= Model.AnomalyCondition.MaxZScoreThreshold) =>
+                $"anomalyCondition.zScoreThreshold must be greater than 0 and at most {Model.AnomalyCondition.MaxZScoreThreshold}.",
+            _ when TimeSpan.FromSeconds(WindowSeconds) >= Alerting.AnomalyScoring.PeriodOf(anomaly.Seasonality) =>
+                "windowSeconds must be shorter than the anomaly seasonality period (1 day for Daily, 7 days for Weekly).",
+            _ => null,
+        };
     }
 
     /// <summary>The shortest non-zero <see cref="NoDataWindowSeconds"/> <see cref="ValidateCondition"/> accepts.</summary>
@@ -555,6 +674,17 @@ public sealed partial record AlertHistoryEntry
     /// as <see cref="AlertRule.ConditionKind"/>.
     /// </summary>
     public bool NoData { get; init; }
+
+    /// <summary>
+    /// Set only for an <see cref="AlertConditionKind.Anomaly"/> fire: the mean of the baseline
+    /// windows the current value was scored against. <see cref="ObservedValue"/> holds that
+    /// current value for every anomaly source, counts included. Appended after every
+    /// pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
+    /// </summary>
+    public double? BaselineMean { get; init; }
+
+    /// <summary>Set only for an <see cref="AlertConditionKind.Anomaly"/> fire: how many (floored) standard deviations the current value was from <see cref="BaselineMean"/>. Appended after <see cref="BaselineMean"/>.</summary>
+    public double? ZScore { get; init; }
 }
 
 /// <summary>Response body for <c>GET /api/alerts/{id}/history</c>.</summary>
@@ -594,6 +724,20 @@ public sealed partial record AlertTestResult
     /// Appended after every pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
     /// </summary>
     public bool NoData { get; init; }
+
+    /// <summary>Set only for an <see cref="AlertConditionKind.Anomaly"/> rule/draft with enough history to score; null otherwise. Appended after <see cref="NoData"/>, same versioning reasoning.</summary>
+    public double? BaselineMean { get; init; }
+
+    /// <summary>Set only alongside <see cref="BaselineMean"/>.</summary>
+    public double? ZScore { get; init; }
+
+    /// <summary>
+    /// <see cref="AlertConditionKind.Anomaly"/> only: how many baseline windows had data. Below
+    /// <see cref="Alerting.AnomalyScoring.MinBaselineSamples"/> means "not enough history yet"
+    /// (<see cref="BaselineMean"/>/<see cref="ZScore"/> null, <see cref="WouldFire"/> false).
+    /// 0 for every other kind.
+    /// </summary>
+    public int BaselineSampleCount { get; init; }
 }
 
 /// <summary>

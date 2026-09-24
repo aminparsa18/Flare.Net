@@ -302,4 +302,50 @@ public class AlertMessageFormatterTests
 
         Assert.StartsWith(":test_tube:", text);
     }
+
+    [Fact]
+    public void BuildText_Anomaly_LogCountSource_ReportsCurrentBaselineAndZ()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.Anomaly,
+            WindowSeconds = 300,
+            AnomalyCondition = new AnomalyCondition { BaselinePeriods = 7, ZScoreThreshold = 3 },
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, 412, anomaly: new AnomalyScore(412, 7, 1030.4, -4.12, true));
+
+        Assert.Equal(
+            ":chart_with_downwards_trend: Alert \"High error rate\" fired: anomaly - 412 events in the last 300s vs a usual 1030.4 (z = -4.1, same window over the previous 7 days)",
+            text);
+    }
+
+    [Fact]
+    public void BuildText_Anomaly_MetricSource_FormatsInTheMetricsUnit()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.Anomaly,
+            MetricCondition = new MetricAlertCondition { MetricName = "http.server.duration", Type = MetricPointType.Histogram },
+            AnomalyCondition = new AnomalyCondition { Source = AlertConditionKind.MetricThreshold, Seasonality = AnomalySeasonality.Weekly, BaselinePeriods = 4, ZScoreThreshold = 3 },
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, 2.5, metricUnit: "s", anomaly: new AnomalyScore(2.5, 4, 0.5, 8, true));
+
+        Assert.StartsWith(":chart_with_upwards_trend:", text);
+        Assert.Contains("http.server.duration = ", text);
+        Assert.Contains("previous 4 weeks", text);
+    }
+
+    [Fact]
+    public void BuildMatchingLogsUrl_AnomalyOverLogCount_LinksToLogs()
+    {
+        var rule = MakeRule() with { ConditionKind = AlertConditionKind.Anomaly, AnomalyCondition = new AnomalyCondition { BaselinePeriods = 7, ZScoreThreshold = 3 } };
+
+        Assert.NotNull(AlertMessageFormatter.BuildMatchingLogsUrl(rule, "https://flare.example.com", FiredAt));
+        Assert.Null(AlertMessageFormatter.BuildMatchingLogsUrl(
+            rule with { AnomalyCondition = new AnomalyCondition { Source = AlertConditionKind.ExceptionCount, BaselinePeriods = 7, ZScoreThreshold = 3 } },
+            "https://flare.example.com",
+            FiredAt));
+    }
 }

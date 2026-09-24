@@ -60,6 +60,13 @@
 								<p class="text-muted-foreground mt-1">
 									{#if entry.noData}
 										{m.alertHistory_entrySummaryNoData({ window: entry.windowSeconds })}
+									{:else if entry.conditionKind === 'Anomaly'}
+										{m.alertHistory_entrySummaryAnomaly({
+											value: (entry.observedValue ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 }),
+											mean: (entry.baselineMean ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 }),
+											z: (entry.zScore ?? 0).toFixed(1),
+											window: entry.windowSeconds
+										})}
 									{:else if entry.conditionKind === 'MetricThreshold'}
 										{m.alertHistory_entrySummaryMetric({
 											value: entry.observedValue ?? 0,

@@ -46,13 +46,20 @@ public static class AlertMessageFormatter
     /// "no data" over the no-data window instead of a threshold breach, and omits the
     /// matching-logs link (there are none to show). Ignored when <paramref name="isTest"/>.
     /// </param>
-    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null, bool noData = false)
+    /// <param name="anomaly">
+    /// Set for an <see cref="AlertConditionKind.Anomaly"/> fire - reports the current value
+    /// against its seasonal baseline mean and z-score instead of a fixed threshold. Ignored
+    /// when <paramref name="isTest"/> or <paramref name="noData"/>.
+    /// </param>
+    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null, bool noData = false, AnomalyScore? anomaly = null)
     {
         var text = isTest
             ? $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly."
             : noData
                 ? BuildNoDataText(rule)
-                : BuildFiredText(rule, observedValue, metricUnit);
+                : anomaly is not null
+                    ? BuildAnomalyText(rule, anomaly, metricUnit)
+                    : BuildFiredText(rule, observedValue, metricUnit);
 
         if (!noData && firedAt is { } at && BuildMatchingLogsUrl(rule, publicUrl, at) is { } logsUrl)
         {
@@ -65,10 +72,39 @@ public static class AlertMessageFormatter
 
     private static string BuildNoDataText(AlertRule rule)
     {
-        var what = rule.ConditionKind == AlertConditionKind.MetricThreshold
+        var what = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold
             ? $"metric {rule.MetricCondition?.MetricName ?? "?"} reported no data points"
             : "no matching log events";
         return $":warning: Alert \"{rule.Name}\" fired: no data - {what} in the last {rule.NoDataWindowSeconds}s";
+    }
+
+    private static string BuildAnomalyText(AlertRule rule, AnomalyScore anomaly, string? metricUnit)
+    {
+        var mean = anomaly.BaselineMean ?? double.NaN;
+        var z = anomaly.ZScore ?? 0;
+        var source = rule.AnomalyCondition?.Source ?? AlertConditionKind.LogCount;
+
+        string current, usual;
+        if (source == AlertConditionKind.MetricThreshold)
+        {
+            var scale = MetricUnitFormatter.ResolveScale(metricUnit, Math.Max(Math.Abs(anomaly.Current), Math.Abs(mean)));
+            current = $"{rule.MetricCondition?.MetricName ?? "?"} = {MetricUnitFormatter.Format(anomaly.Current, scale)}";
+            usual = MetricUnitFormatter.Format(mean, scale);
+        }
+        else
+        {
+            var count = ((ulong)anomaly.Current).ToString(CultureInfo.InvariantCulture);
+            current = source == AlertConditionKind.ExceptionCount
+                ? $"{rule.ExceptionCondition?.ExceptionType ?? "?"} occurred {count} times"
+                : $"{count} events";
+            usual = mean.ToString("0.#", CultureInfo.InvariantCulture);
+        }
+
+        var periods = rule.AnomalyCondition?.BaselinePeriods ?? 0;
+        var unit = rule.AnomalyCondition?.Seasonality == AnomalySeasonality.Weekly ? "weeks" : "days";
+        var emoji = z < 0 ? ":chart_with_downwards_trend:" : ":chart_with_upwards_trend:";
+        return $"{emoji} Alert \"{rule.Name}\" fired: anomaly - {current} in the last {rule.WindowSeconds}s vs a usual {usual} " +
+               $"(z = {z.ToString("+0.0;-0.0", CultureInfo.InvariantCulture)}, same window over the previous {periods} {unit})";
     }
 
     private static string BuildFiredText(AlertRule rule, double observedValue, string? metricUnit)
@@ -129,8 +165,9 @@ public static class AlertMessageFormatter
     /// </summary>
     /// <remarks>
     /// Null (callers fall back to <see cref="BuildRuleUrl"/> alone) when
-    /// <paramref name="publicUrl"/> is unset, for non-<see cref="AlertConditionKind.LogCount"/>
-    /// rules (neither <c>/errors</c> nor <c>/metrics</c> hydrates filter state from the URL
+    /// <paramref name="publicUrl"/> is unset, for rules whose series isn't a log count (an
+    /// <see cref="AlertConditionKind.Anomaly"/> rule over a <see cref="AlertConditionKind.LogCount"/>
+    /// source does get the link) (neither <c>/errors</c> nor <c>/metrics</c> hydrates filter state from the URL
     /// yet), and when the condition sets <see cref="LogFilter.TraceId"/>/<see cref="LogFilter.SpanId"/>/<see cref="LogFilter.PatternId"/> -
     /// a saved-view state has no slot for those, and a link that silently dropped them would
     /// show a wider result than what fired. No link beats a misleading one.
@@ -142,7 +179,7 @@ public static class AlertMessageFormatter
     {
         var condition = rule.Condition;
         if (string.IsNullOrWhiteSpace(publicUrl)
-            || rule.ConditionKind != AlertConditionKind.LogCount
+            || AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) != AlertConditionKind.LogCount
             || !string.IsNullOrEmpty(condition.TraceId)
             || !string.IsNullOrEmpty(condition.SpanId)
             || !string.IsNullOrEmpty(condition.PatternId))

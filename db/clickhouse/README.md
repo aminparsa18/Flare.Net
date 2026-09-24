@@ -130,6 +130,11 @@ nothing at all, rather than a threshold breach. See
 rule). The per-rule last-evaluated timestamp lives in Redis, not ClickHouse. See
 [ADR-0046](../../docs-internal/adr/0046-per-rule-alert-evaluation-interval.md).
 
+`0028_alert_anomaly.sql` - anomaly-detection alerting: `alert_rules.AnomalyConditionJson`
+(the scoring parameters of a `ConditionKind = 'Anomaly'` rule, empty otherwise) and
+`alert_events.BaselineMean`/`ZScore` (set only for an anomaly fire). See
+[ADR-0048](../../docs-internal/adr/0048-anomaly-detection-alerting.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

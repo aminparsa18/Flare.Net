@@ -129,7 +129,7 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ExceptionCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ExceptionCondition, rule.AnomalyCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -150,7 +150,7 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ExceptionCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ExceptionCondition, request.AnomalyCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -221,6 +221,7 @@ public static class AlertEndpoints
             ExceptionCondition = request.ExceptionCondition,
             NoDataWindowSeconds = defaults.NoDataWindowSeconds,
             EvaluationIntervalSeconds = defaults.EvaluationIntervalSeconds,
+            AnomalyCondition = request.AnomalyCondition,
         };
 
         var result = await SendTestAsync(notifier, channels, draftRule, timeProvider, cancellationToken);
@@ -272,7 +273,8 @@ public static class AlertEndpoints
     /// more lenient, same as it never calls <see cref="Model.AlertRuleRequest.ValidateChannel"/>
     /// either. With <paramref name="noDataWindowSeconds"/> enabled, an absent-data result
     /// (<see cref="AlertNoDataEvaluator"/>) takes precedence over the threshold, same as
-    /// <c>AlertEvaluationWorker</c>.
+    /// <c>AlertEvaluationWorker</c>. An <see cref="AlertConditionKind.Anomaly"/> rule/draft is
+    /// scored through <see cref="AnomalyEvaluator"/>, the same path the worker uses.
     /// </summary>
     private static async Task<AlertTestResult> EvaluateAsync(
         IAlertQueryService alerts,
@@ -283,6 +285,7 @@ public static class AlertEndpoints
         MetricAlertCondition? metricCondition,
         double? metricThresholdValue,
         ExceptionCountCondition? exceptionCondition,
+        AnomalyCondition? anomalyCondition,
         int windowSeconds,
         int noDataWindowSeconds,
         CancellationToken cancellationToken)
@@ -290,7 +293,8 @@ public static class AlertEndpoints
         var now = timeProvider.GetUtcNow();
         var from = now - TimeSpan.FromSeconds(windowSeconds);
 
-        if (await AlertNoDataEvaluator.IsAbsentAsync(alerts, conditionKind, condition, metricCondition, noDataWindowSeconds, now, cancellationToken))
+        var seriesKind = AnomalyScoring.SeriesKind(conditionKind, anomalyCondition);
+        if (await AlertNoDataEvaluator.IsAbsentAsync(alerts, seriesKind, condition, metricCondition, noDataWindowSeconds, now, cancellationToken))
         {
             return new AlertTestResult { ObservedCount = 0, WouldFire = true, EvaluatedAt = now, WindowSeconds = noDataWindowSeconds, ConditionKind = conditionKind, ObservedValue = null, NoData = true };
         }
@@ -311,6 +315,27 @@ public static class AlertEndpoints
                 WindowSeconds = windowSeconds,
                 ConditionKind = conditionKind,
                 ObservedValue = value,
+            };
+        }
+
+        if (conditionKind == AlertConditionKind.Anomaly)
+        {
+            var evaluated = anomalyCondition is null
+                ? null
+                : await AnomalyEvaluator.EvaluateAsync(alerts, anomalyCondition, condition, metricCondition, exceptionCondition, windowSeconds, now, cancellationToken);
+            var score = evaluated?.Score;
+            return new AlertTestResult
+            {
+                ObservedCount = 0,
+                WouldFire = score?.Breached ?? false,
+                EvaluatedAt = now,
+                WindowSeconds = windowSeconds,
+                ConditionKind = conditionKind,
+                // NaN (a metric source with no points) has no JSON representation.
+                ObservedValue = score is null || double.IsNaN(score.Current) ? null : score.Current,
+                BaselineMean = score?.BaselineMean,
+                ZScore = score?.ZScore,
+                BaselineSampleCount = score?.SampleCount ?? 0,
             };
         }
 

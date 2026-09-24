@@ -12,6 +12,8 @@
 // `noDataWindowSeconds` was appended after `exceptionCondition`, same reasoning - see
 // `AlertRule.NoDataWindowSeconds`'s C#-side doc comment. `evaluationIntervalSeconds` was
 // appended after `noDataWindowSeconds`, same reasoning - see `AlertRule.EvaluationIntervalSeconds`.
+// `anomalyCondition` was appended after `evaluationIntervalSeconds`, same reasoning - see
+// `AlertRule.AnomalyCondition` (ADR-0048).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -20,6 +22,7 @@ import { readDateTimeOffset, writeDateTimeOffset } from '$lib/memorypack/date-ti
 import { LogFilter } from '$lib/memorypack/LogFilter';
 import { MetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
 import { ExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
+import { AnomalyCondition } from '$lib/memorypack/AnomalyCondition';
 
 export class AlertRule {
 	id: string;
@@ -44,6 +47,7 @@ export class AlertRule {
 	exceptionCondition: ExceptionCountCondition | null;
 	noDataWindowSeconds: number;
 	evaluationIntervalSeconds: number;
+	anomalyCondition: AnomalyCondition | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -68,6 +72,7 @@ export class AlertRule {
 		this.exceptionCondition = null;
 		this.noDataWindowSeconds = 0;
 		this.evaluationIntervalSeconds = 0;
+		this.anomalyCondition = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -82,7 +87,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(22);
+		writer.writeObjectHeader(23);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -105,6 +110,7 @@ export class AlertRule {
 		ExceptionCountCondition.serializeCore(writer, value.exceptionCondition);
 		writer.writeInt32(value.noDataWindowSeconds);
 		writer.writeInt32(value.evaluationIntervalSeconds);
+		AnomalyCondition.serializeCore(writer, value.anomalyCondition);
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -128,7 +134,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 22) {
+		if (count == 23) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -151,7 +157,8 @@ export class AlertRule {
 			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
 			value.noDataWindowSeconds = reader.readInt32();
 			value.evaluationIntervalSeconds = reader.readInt32();
-		} else if (count > 22) {
+			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
+		} else if (count > 23) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -199,6 +206,8 @@ export class AlertRule {
 			if (count == 21) return value;
 			value.evaluationIntervalSeconds = reader.readInt32();
 			if (count == 22) return value;
+			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
+			if (count == 23) return value;
 		}
 		return value;
 	}

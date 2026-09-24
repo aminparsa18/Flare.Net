@@ -7,7 +7,7 @@ namespace Flare.Api.Json;
 /// Source-generated <see cref="System.Text.Json"/> contract for the alert-rule DTOs
 /// <see cref="Endpoints.AlertEndpoints"/> serves - camelCase, string enums, same
 /// convention as <see cref="LogsJsonContext"/> - and also for the internal
-/// <c>ConditionJson</c>/<c>MetricConditionJson</c>/<c>ExceptionConditionJson</c> round-trips
+/// <c>ConditionJson</c>/<c>MetricConditionJson</c>/<c>ExceptionConditionJson</c>/<c>AnomalyConditionJson</c> round-trips
 /// <see cref="Query.AlertQueryService"/> uses to persist/read back an <see cref="AlertRule"/>'s
 /// <see cref="LogFilter"/>/<see cref="MetricAlertCondition"/>/<see cref="ExceptionCountCondition"/>
 /// condition.
@@ -31,5 +31,6 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(LogFilter))]
 [JsonSerializable(typeof(MetricAlertCondition))]
 [JsonSerializable(typeof(ExceptionCountCondition))]
+[JsonSerializable(typeof(AnomalyCondition))]
 [JsonSerializable(typeof(IReadOnlyList<AlertChannelResult>))]
 public sealed partial class AlertsJsonContext : JsonSerializerContext;
