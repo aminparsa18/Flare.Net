@@ -20,7 +20,20 @@ public sealed record MetricAlertConditionSql(string Sql, ClickHouseParameterColl
 /// </summary>
 /// <remarks>
 /// <para><b>Gauge:</b> <c>avg(Value)</c> - only <see cref="MetricAlertAggregation.Value"/> is meaningful (see that enum's remarks).</para>
-/// <para><b>Sum:</b> <c>max(Value) - min(Value)</c> for <see cref="MetricAlertAggregation.Value"/>, <c>count()</c> for <see cref="MetricAlertAggregation.Count"/> - the same v1 approximation <see cref="MetricSeriesQueryBuilder"/> used before ADR-0035 replaced it there with a windowed, reset-aware <c>increase()</c>. Deliberately not ported here yet: ADR-0035's roadmap item was scoped to the metrics explorer chart, not alert evaluation, and this query still has the same counter-reset-mid-window blind spot the chart used to - a real, separate gap, left open rather than silently carried over as if it were fine.</para>
+/// <para>
+/// <b>Sum:</b> a whole-window, reset-aware <c>increase()</c> for
+/// <see cref="MetricAlertAggregation.Value"/>, <c>count()</c> for
+/// <see cref="MetricAlertAggregation.Count"/> (see <see cref="BuildSumSql"/>). ADR-0044
+/// ports ADR-0035's windowed per-row-delta approach from <see cref="MetricSeriesQueryBuilder"/>'s
+/// chart query, collapsed to one scalar: the same <c>row_number()</c>/<c>lagInFrame()</c>
+/// CTE partitioned by the full (<c>ServiceName</c>, <c>toString(DataPointAttributes)</c>)
+/// counter identity, the same five-way <c>multiIf</c> row classification, then one
+/// <c>sum()</c> over every row instead of per bucket. Replaced the old
+/// <c>max(Value) - min(Value)</c>, which read a counter reset (process restart) mid-window
+/// as a dip or a wrongly-negative value, treated delta-temporality points as cumulative,
+/// and - with no per-series partitioning at all - subtracted one series' minimum from a
+/// different series' maximum whenever the filter matched more than one.
+/// </para>
 /// <para>
 /// <b>Histogram:</b> always selects <c>sum(Count)</c>, <c>sum(Sum)</c>, <c>sumForEach(BucketCounts)</c>,
 /// <c>any(ExplicitBounds)</c> regardless of <see cref="MetricAlertCondition.Aggregation"/> - the
@@ -47,15 +60,41 @@ public static class MetricAlertConditionQueryBuilder
         // - keeps existing ordinals (0/1 for Gauge, 0-1 for Sum, 0-3 for Histogram) stable
         // for AlertQueryService.EvaluateMetricConditionAsync's positional reads, with Unit
         // always the final column regardless of type.
-        var selectExpr = condition.Type switch
+        var whereSql = $"MetricName = {{metricName:String}} AND {filterSql.WhereSql}";
+        var sql = condition.Type switch
         {
-            MetricPointType.Gauge => "avg(Value) AS Value, any(Unit) AS Unit",
-            MetricPointType.Sum => "max(Value) - min(Value) AS Value, count() AS Count, any(Unit) AS Unit",
-            MetricPointType.Histogram => "sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds, any(Unit) AS Unit",
+            MetricPointType.Gauge => $"SELECT avg(Value) AS Value, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
+            MetricPointType.Sum => BuildSumSql(table, whereSql),
+            MetricPointType.Histogram => $"SELECT sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
             _ => throw new ArgumentOutOfRangeException(nameof(condition), condition.Type, "Unknown metric point type."),
         };
 
-        var sql = $"SELECT {selectExpr} FROM {table} WHERE MetricName = {{metricName:String}} AND {filterSql.WhereSql}";
         return new MetricAlertConditionSql(sql, filterSql.Parameters, condition.Type);
     }
+
+    /// <summary>
+    /// Sum's whole-window <c>increase()</c> - <see cref="MetricSeriesQueryBuilder"/>'s
+    /// <c>BuildSumSql</c> (ADR-0035) minus the bucketing, series grouping and top-N cap.
+    /// See that class's "Sum query shape" remarks for why each <c>multiIf</c> branch exists
+    /// and why the window always partitions by the full attribute map. Still no
+    /// <c>GROUP BY</c> in the outer query, so an empty window still yields exactly one row
+    /// (<c>Value</c> 0, <c>Count</c> 0) - same shape the positional reads in
+    /// <c>AlertQueryService.EvaluateMetricConditionAsync</c> already expect.
+    /// </summary>
+    private static string BuildSumSql(string table, string whereSql) =>
+        "WITH ranked AS (\n" +
+        "  SELECT Value, AggregationTemporality, IsMonotonic, Unit,\n" +
+        "    row_number() OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS SeriesRowNum,\n" +
+        "    Value - lagInFrame(Value) OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS RawDelta\n" +
+        $"  FROM {table}\n" +
+        $"  WHERE {whereSql}\n" +
+        ")\n" +
+        "SELECT sum(multiIf(\n" +
+        "    AggregationTemporality = 'AGGREGATION_TEMPORALITY_DELTA', Value,\n" +
+        "    SeriesRowNum = 1, 0,\n" +
+        "    IsMonotonic = 0, RawDelta,\n" +
+        "    RawDelta < 0, Value,\n" +
+        "    RawDelta\n" +
+        "  )) AS Value, count() AS Count, any(Unit) AS Unit\n" +
+        "FROM ranked";
 }

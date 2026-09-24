@@ -46,19 +46,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Metric-threshold alert evaluation still has the counter-reset blind
-  spot `MetricSeriesQueryBuilder`'s chart query used to have.**
-  `MetricAlertConditionQueryBuilder` (ADR-0020) still computes Sum's
-  `Value` as `max(Value) - min(Value)` over the whole evaluation window,
-  same as `MetricSeriesQueryBuilder` did before ADR-0035 replaced that
-  with a windowed, reset-aware `increase()` there. A counter reset
-  (process restart) mid-window can still read as a dip - or a wrongly
-  negative threshold comparison - for an alert rule, not just a chart.
-  Not started; surfaced as a named, separate gap while shipping
-  ADR-0035, not silently ported alongside it. Same window-function
-  approach that ADR-0035 already validated against real ClickHouse
-  should carry over here, adapted to a single whole-window scalar
-  instead of a bucketed series.
 - **Small dashboard/trace UX polish, worth batching into one PR
   eventually rather than three:** (a) a hover popover on trace waterfall
   spans showing duration/start-time without navigating away

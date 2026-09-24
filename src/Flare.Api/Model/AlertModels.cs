@@ -54,7 +54,7 @@ public enum AlertConditionKind
 /// </summary>
 public enum MetricAlertAggregation
 {
-    /// <summary>Gauge: <c>avg(Value)</c> over the window. Sum: <c>max(Value) - min(Value)</c> over the window.</summary>
+    /// <summary>Gauge: <c>avg(Value)</c> over the window. Sum: reset-aware <c>increase()</c> over the window, summed across every matched series (ADR-0044).</summary>
     Value,
 
     /// <summary>Sum: raw sample row count over the window. Histogram: total observation count (<c>sum(Count)</c>) over the window.</summary>
