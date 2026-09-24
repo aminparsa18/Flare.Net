@@ -131,16 +131,58 @@ public class AlertConditionValidationTests
         Assert.Contains("metricCondition", request.ValidateCondition());
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(60)]
+    [InlineData(300)]
+    public void EvaluationInterval_DisabledOrWithinWindow_IsValid(int? evaluationIntervalSeconds)
+    {
+        var request = Build(AlertConditionKind.LogCount, evaluationIntervalSeconds: evaluationIntervalSeconds);
+
+        Assert.Null(request.ValidateCondition());
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(30)]
+    [InlineData(86_401)]
+    public void EvaluationInterval_NegativeOrOutOfRange_IsInvalid(int evaluationIntervalSeconds)
+    {
+        var request = Build(AlertConditionKind.LogCount, evaluationIntervalSeconds: evaluationIntervalSeconds, windowSeconds: 100_000);
+
+        Assert.Contains("evaluationIntervalSeconds", request.ValidateCondition());
+    }
+
+    [Fact]
+    public void EvaluationInterval_LongerThanWindow_IsInvalid()
+    {
+        var request = Build(AlertConditionKind.LogCount, evaluationIntervalSeconds: 900, windowSeconds: 300);
+
+        Assert.Contains("windowSeconds", request.ValidateCondition());
+    }
+
+    [Fact]
+    public void EvaluationInterval_AtMaximumWithWideWindow_IsValid()
+    {
+        var request = Build(AlertConditionKind.LogCount, evaluationIntervalSeconds: AlertRuleRequest.MaxEvaluationIntervalSeconds, windowSeconds: AlertRuleRequest.MaxEvaluationIntervalSeconds);
+
+        Assert.Null(request.ValidateCondition());
+    }
+
     private static AlertRuleRequest Build(
         AlertConditionKind? conditionKind,
         MetricAlertCondition? metricCondition = null,
         double? metricThresholdValue = null,
         ExceptionCountCondition? exceptionCondition = null,
-        int? noDataWindowSeconds = null) => new()
+        int? noDataWindowSeconds = null,
+        int? evaluationIntervalSeconds = null,
+        int windowSeconds = 300) => new()
     {
         Name = "test",
         Threshold = new AlertThreshold { Count = 1 },
-        WindowSeconds = 300,
+        WindowSeconds = windowSeconds,
+        EvaluationIntervalSeconds = evaluationIntervalSeconds,
         WebhookUrl = "https://hooks.slack.com/services/x",
         ConditionKind = conditionKind,
         MetricCondition = metricCondition,

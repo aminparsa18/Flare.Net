@@ -41,6 +41,12 @@ namespace Flare.AlertWorker.Alerting;
 /// not a full Redlock - Flare already has exactly one Redis as a hard dependency, so the
 /// extra complexity of a multi-node lock algorithm buys nothing here.
 /// </para>
+/// <para>
+/// A rule with a non-zero <see cref="AlertRule.EvaluationIntervalSeconds"/> is evaluated only
+/// on ticks where it's due, tracked by a per-rule Redis key (<c>flare:alerts:last-eval:{id}</c>)
+/// rather than per process, for the same moving-lock-holder reason - see
+/// <c>docs-internal/adr/0046-per-rule-alert-evaluation-interval.md</c>.
+/// </para>
 /// </remarks>
 public sealed class AlertEvaluationWorker(
     IAlertQueryService alerts,
@@ -108,10 +114,24 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        foreach (var rule in rules.Take(opts.MaxRulesPerTick))
+        var dueRules = await FilterDueRulesAsync(rules, opts);
+
+        foreach (var rule in dueRules.Take(opts.MaxRulesPerTick))
         {
             try
             {
+                if (rule.EvaluationIntervalSeconds > 0)
+                {
+                    // Marked before evaluating, not after: a slow rule that keeps timing out
+                    // (exactly the kind a longer interval is for) is retried at its own
+                    // interval rather than every tick. The TTL self-cleans deleted rules'
+                    // markers.
+                    await redis.GetDatabase().StringSetAsync(
+                        LastEvaluatedKey(rule.Id),
+                        timeProvider.GetUtcNow().ToUnixTimeMilliseconds(),
+                        TimeSpan.FromSeconds(rule.EvaluationIntervalSeconds));
+                }
+
                 await EvaluateRuleAsync(rule, cancellationToken);
             }
             catch (Exception ex)
@@ -121,6 +141,55 @@ public sealed class AlertEvaluationWorker(
                 logger.LogError(ex, "Alert rule {RuleId} ({RuleName}) evaluation failed.", rule.Id, rule.Name);
             }
         }
+    }
+
+    private static RedisKey LastEvaluatedKey(Guid ruleId) => $"flare:alerts:last-eval:{ruleId:N}";
+
+    /// <summary>
+    /// Drops rules with a per-rule <see cref="AlertRule.EvaluationIntervalSeconds"/> that
+    /// aren't due yet (<see cref="AlertEvaluationSchedule.IsDue"/>), reading every such rule's
+    /// last-evaluated marker in one <c>MGET</c>. Every-tick (0) rules never touch Redis here.
+    /// The markers live in Redis, not an in-memory dictionary, because the tick lock moves
+    /// between replicas - see <c>docs-internal/adr/0046-per-rule-alert-evaluation-interval.md</c>.
+    /// </summary>
+    private async Task<IReadOnlyList<AlertRule>> FilterDueRulesAsync(IReadOnlyList<AlertRule> rules, AlertingOptions opts)
+    {
+        var scheduled = rules.Where(r => r.EvaluationIntervalSeconds > 0).ToList();
+        if (scheduled.Count == 0)
+        {
+            return rules;
+        }
+
+        RedisValue[] markers;
+        try
+        {
+            markers = await redis.GetDatabase().StringGetAsync(scheduled.Select(r => LastEvaluatedKey(r.Id)).ToArray());
+        }
+        catch (Exception ex)
+        {
+            // Fail open: evaluating a slow rule early is far cheaper than silently not
+            // alerting because the schedule couldn't be read.
+            logger.LogWarning(ex, "Failed to read per-rule evaluation markers; evaluating every rule this tick.");
+            return rules;
+        }
+
+        var lastEvaluated = new Dictionary<Guid, DateTimeOffset>(scheduled.Count);
+        for (var i = 0; i < scheduled.Count; i++)
+        {
+            if (markers[i].TryParse(out long unixMs))
+            {
+                lastEvaluated[scheduled[i].Id] = DateTimeOffset.FromUnixTimeMilliseconds(unixMs);
+            }
+        }
+
+        var now = timeProvider.GetUtcNow();
+        return rules
+            .Where(r => AlertEvaluationSchedule.IsDue(
+                r.EvaluationIntervalSeconds,
+                lastEvaluated.TryGetValue(r.Id, out var last) ? last : null,
+                now,
+                opts.PollInterval))
+            .ToList();
     }
 
     private async Task EvaluateRuleAsync(AlertRule rule, CancellationToken cancellationToken)

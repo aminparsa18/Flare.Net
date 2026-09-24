@@ -66,12 +66,6 @@ folders are where "what happened and why" actually lives.
   merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
   exponential-histogram table + quantile merge
   ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
-- **Per-rule alert evaluation frequency.** `Flare.AlertWorker` evaluates
-  every enabled rule on the one global `AlertingOptions.PollInterval`
-  (30s); a per-rule "evaluate every" (e.g. 1m/5m/15m for slow, expensive
-  rules) would need a last-evaluated timestamp per rule so the worker can
-  skip rules not yet due. Not started. Prior art:
-  [signoz#4697](https://github.com/SigNoz/signoz/commit/83f68f13db3dbedf692f7d2b0eb25c4ea99410cb).
 - **Pin attributes in the log event detail view.** Let a user pin chosen
   attribute keys so they render first in `EventDetailSheet` for every
   event (per-browser preference). Frontend-only. Not started. Prior art:

@@ -13,7 +13,11 @@ public sealed class AlertingOptions
 {
     public const string SectionName = "Alerting";
 
-    /// <summary>How often every enabled rule is re-evaluated.</summary>
+    /// <summary>
+    /// How often every enabled rule is re-evaluated - or, for a rule with a non-zero
+    /// <see cref="Flare.Api.Model.AlertRule.EvaluationIntervalSeconds"/>, how often it's
+    /// checked for being due. Also the floor on any rule's effective interval.
+    /// </summary>
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>

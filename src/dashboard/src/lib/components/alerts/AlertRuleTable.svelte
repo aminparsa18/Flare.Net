@@ -171,7 +171,19 @@
 								<p class="text-muted-foreground">{m.alertRuleTable_noDataText({ window: rule.noDataWindowSeconds })}</p>
 							{/if}
 						</Table.Cell>
-						<Table.Cell class="text-muted-foreground">{rule.cooldownSeconds}s</Table.Cell>
+						<Table.Cell class="text-muted-foreground">
+							{rule.cooldownSeconds}s
+							{#if rule.evaluationIntervalSeconds > 0}
+								<p class="text-xs">
+									{m.alertRuleTable_evaluateEveryText({
+										interval:
+											rule.evaluationIntervalSeconds % 60 === 0
+												? m.alertRuleForm_evaluateEveryMinutes({ minutes: rule.evaluationIntervalSeconds / 60 })
+												: m.alertRuleForm_evaluateEverySeconds({ seconds: rule.evaluationIntervalSeconds })
+									})}
+								</p>
+							{/if}
+						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{channelSummary(rule)}</Table.Cell>
 						<Table.Cell>
 							<Badge variant={rule.enabled ? 'secondary' : 'outline'}

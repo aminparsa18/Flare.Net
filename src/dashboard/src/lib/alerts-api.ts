@@ -23,6 +23,7 @@
 // existing filter's conversions" precedent `metricCondition` set for `MetricFilter`.
 // `noDataWindowSeconds`/`noData` were added for absent-data alerting (see
 // docs-internal/adr/0045-absent-data-alerting.md) - plain numbers/booleans, no conversion.
+// `evaluationIntervalSeconds` (per-rule evaluation frequency, ADR-0046) likewise.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
 import {
@@ -131,6 +132,8 @@ export interface AlertRule {
 	 * rules only - the API rejects it for `'ExceptionCount'`.
 	 */
 	noDataWindowSeconds: number;
+	/** How often the alert worker re-evaluates this rule, in seconds. 0 = every poll tick (the default). Never longer than `windowSeconds`. */
+	evaluationIntervalSeconds: number;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -156,6 +159,8 @@ export interface AlertRuleRequest {
 	exceptionCondition?: ExceptionCountCondition;
 	/** See `AlertRule.noDataWindowSeconds`. Omitted/undefined means 0 (disabled). */
 	noDataWindowSeconds?: number;
+	/** See `AlertRule.evaluationIntervalSeconds`. Omitted/undefined means 0 (every poll tick). */
+	evaluationIntervalSeconds?: number;
 }
 
 export interface AlertRuleListResponse {
@@ -295,7 +300,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		metricThresholdValue: dto.metricThresholdValue ?? undefined,
 		channelIds: (dto.channelIds ?? []).filter((id): id is string => id != null),
 		exceptionCondition: toExceptionCountCondition(dto.exceptionCondition),
-		noDataWindowSeconds: dto.noDataWindowSeconds
+		noDataWindowSeconds: dto.noDataWindowSeconds,
+		evaluationIntervalSeconds: dto.evaluationIntervalSeconds
 	};
 }
 
@@ -327,6 +333,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.channelIds = request.channelIds ?? null;
 	dto.exceptionCondition = toGeneratedExceptionCountCondition(request.exceptionCondition);
 	dto.noDataWindowSeconds = request.noDataWindowSeconds ?? null;
+	dto.evaluationIntervalSeconds = request.evaluationIntervalSeconds ?? null;
 	return dto;
 }
 

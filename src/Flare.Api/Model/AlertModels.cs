@@ -288,6 +288,19 @@ public sealed partial record AlertRule
     /// Appended after every pre-existing field, same versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public int NoDataWindowSeconds { get; init; }
+
+    /// <summary>
+    /// How often <c>AlertEvaluationWorker</c> re-evaluates this rule, in seconds. 0 (the
+    /// default, and every rule created before this field existed) means every poll tick
+    /// (<c>Alerting:PollInterval</c>, 30s by default) - the original behavior. A larger value
+    /// (e.g. 300/900) lets a slow or expensive rule run less often; the worker skips it on
+    /// ticks where it isn't yet due, tracked per rule in Redis (not ClickHouse - see
+    /// <c>docs-internal/adr/0046-per-rule-alert-evaluation-interval.md</c>). Never longer than
+    /// <see cref="WindowSeconds"/> (see <see cref="AlertRuleRequest.ValidateCondition"/>), so
+    /// consecutive evaluations' windows always overlap rather than leaving unobserved gaps.
+    /// Appended after every pre-existing field, same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public int EvaluationIntervalSeconds { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -363,6 +376,9 @@ public sealed partial record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.NoDataWindowSeconds"/>'s doc comment. Omitted/null means 0 (disabled). Appended after <see cref="ExceptionCondition"/>, same versioning reasoning.</summary>
     public int? NoDataWindowSeconds { get; init; }
 
+    /// <summary>See <see cref="AlertRule.EvaluationIntervalSeconds"/>'s doc comment. Omitted/null means 0 (every poll tick). Appended after <see cref="NoDataWindowSeconds"/>, same versioning reasoning.</summary>
+    public int? EvaluationIntervalSeconds { get; init; }
+
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
     /// (<see cref="WebhookUrl"/> - covers both a generic webhook consumer and Slack -
@@ -425,6 +441,10 @@ public sealed partial record AlertRuleRequest
     /// <see cref="MinNoDataWindowSeconds"/> - a shorter window would trip on ordinary
     /// ingest/flush latency rather than a genuinely silent source - and never on an
     /// <see cref="AlertConditionKind.ExceptionCount"/> rule (see <see cref="AlertRule.NoDataWindowSeconds"/>).
+    /// And <see cref="EvaluationIntervalSeconds"/>: 0/null (every poll tick), or between
+    /// <see cref="MinEvaluationIntervalSeconds"/> and <see cref="MaxEvaluationIntervalSeconds"/>,
+    /// and never longer than <see cref="WindowSeconds"/> - a 1m window evaluated every 15m
+    /// would silently never look at 14 of every 15 minutes.
     /// </remarks>
     public string? ValidateCondition()
     {
@@ -438,7 +458,7 @@ public sealed partial record AlertRuleRequest
             _ => null,
         };
 
-        return conditionError ?? (NoDataWindowSeconds ?? 0) switch
+        var noDataError = (NoDataWindowSeconds ?? 0) switch
         {
             0 => null,
             _ when kind == AlertConditionKind.ExceptionCount =>
@@ -447,10 +467,28 @@ public sealed partial record AlertRuleRequest
                 $"noDataWindowSeconds must be 0 (disabled) or at least {MinNoDataWindowSeconds}.",
             _ => null,
         };
+
+        var intervalError = (EvaluationIntervalSeconds ?? 0) switch
+        {
+            0 => null,
+            < MinEvaluationIntervalSeconds or > MaxEvaluationIntervalSeconds =>
+                $"evaluationIntervalSeconds must be 0 (every poll tick) or between {MinEvaluationIntervalSeconds} and {MaxEvaluationIntervalSeconds}.",
+            var interval when interval > WindowSeconds =>
+                "evaluationIntervalSeconds must not exceed windowSeconds - otherwise part of every interval is never evaluated.",
+            _ => null,
+        };
+
+        return conditionError ?? noDataError ?? intervalError;
     }
 
     /// <summary>The shortest non-zero <see cref="NoDataWindowSeconds"/> <see cref="ValidateCondition"/> accepts.</summary>
     public const int MinNoDataWindowSeconds = 60;
+
+    /// <summary>The shortest non-zero <see cref="EvaluationIntervalSeconds"/> <see cref="ValidateCondition"/> accepts.</summary>
+    public const int MinEvaluationIntervalSeconds = 60;
+
+    /// <summary>The longest <see cref="EvaluationIntervalSeconds"/> <see cref="ValidateCondition"/> accepts (24h).</summary>
+    public const int MaxEvaluationIntervalSeconds = 86_400;
 }
 
 /// <summary>Response body for <c>GET /api/alerts</c>.</summary>
