@@ -16,7 +16,10 @@ streaming endpoint"** roadmap items, plus the **"Alerting"** item promoted out o
   attribute bags), and free-text substring search against `Body`. Keyset-paginated via
   `(Timestamp, EventId)` — see "Pagination" below.
 - **`POST /api/logs/aggregate`** — bucketed event counts for the dashboard's volume
-  chart, optionally grouped by service or level. Same filter shape as `/search`.
+  chart, optionally grouped by service, level, or one attribute key (`"groupBy":"Attribute"`
+  plus `groupByAttributeBag`/`groupByAttributeKey` — the 5 most frequent values in the
+  window get their own series, the rest come back under a `null` `groupKey`). Same filter
+  shape as `/search`.
 - **`GET /api/logs/tail`** — WebSocket live tail, real-time events filtered by the same
   `LogFilter` shape. See "Live-tail streaming" below.
 - **`/api/alerts/*`** — threshold/query-based alert rule CRUD, fired-alert history, and
@@ -394,6 +397,10 @@ curl -s -X POST "$API/api/logs/search" -H 'Content-Type: application/json' -d \
 # Volume by service, 1-minute buckets
 curl -s -X POST "$API/api/logs/aggregate" -H 'Content-Type: application/json' -d \
   '{"bucketWidthSeconds":60,"groupBy":"Service"}'
+
+# Volume by one attribute's top values (the Logs page's "group volume chart by this attribute")
+curl -s -X POST "$API/api/logs/aggregate" -H 'Content-Type: application/json' -d \
+  '{"bucketWidthSeconds":60,"groupBy":"Attribute","groupByAttributeBag":"Resource","groupByAttributeKey":"service.version"}'
 
 # Live tail (needs a WebSocket client, e.g. websocat: https://github.com/vi/websocat).
 # Connect, then paste a subscribe message and watch events arrive as you send more logs.

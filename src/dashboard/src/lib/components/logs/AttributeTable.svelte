@@ -5,6 +5,7 @@
 	import FunnelXIcon from '@lucide/svelte/icons/funnel-x';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import ChartColumnStackedIcon from '@lucide/svelte/icons/chart-column-stacked';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -12,7 +13,9 @@
 		attributes,
 		isPinned,
 		onTogglePin,
-		onFilter
+		onFilter,
+		onGroupBy,
+		groupedByKey
 	}: {
 		title: string;
 		/** A Map (not just a Record) so a caller can hand over an explicit row order. */
@@ -22,6 +25,10 @@
 		onTogglePin?: (key: string) => void;
 		/** Optional - without it no filter-for/filter-out buttons render (e.g. SpanDetailSheet, which has no Logs explorer filter state to push into). */
 		onFilter?: (key: string, value: string, exclude: boolean) => void;
+		/** Optional - stacks the Logs volume chart by this row's key; without it no group-by button renders. */
+		onGroupBy?: (key: string) => void;
+		/** Key the volume chart is currently grouped by (if it's in this table's bag) - that row's button stays visible and pressed. */
+		groupedByKey?: string | null;
 	} = $props();
 	const entries = $derived(attributes instanceof Map ? [...attributes] : Object.entries(attributes));
 
@@ -101,6 +108,19 @@
 								onclick={() => onFilter(key, value, true)}
 							>
 								<FunnelXIcon class="size-3.5" />
+							</button>
+						{/if}
+						{#if onGroupBy}
+							{@const grouped = groupedByKey === key}
+							<button
+								type="button"
+								class="{actionClass} {grouped ? 'text-foreground' : revealClass}"
+								title={m.eventDetail_groupByAttribute()}
+								aria-label={m.eventDetail_groupByAttribute()}
+								aria-pressed={grouped}
+								onclick={() => onGroupBy(key)}
+							>
+								<ChartColumnStackedIcon class="size-3.5" />
 							</button>
 						{/if}
 						<button

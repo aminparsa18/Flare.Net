@@ -140,13 +140,6 @@ folders are where "what happened and why" actually lives.
   metrics where a collector exports them). Nothing in Flare covers this
   today. Large - its own page and probably its own ADR. Not started. Prior
   art: [signoz 481bb6e](https://github.com/SigNoz/signoz/commit/481bb6e8b8d68b40d5b6706b91bb78b71d59a3c7).
-- **Group the Logs volume chart by an attribute.** The Logs explorer's
-  `VolumeChart` renders a single ungrouped series, and `/api/logs/aggregate`'s
-  `LogAggregateGroupBy` only knows `None`/`Service`/`Level`. Needs an
-  attribute group-by (bag + key) in `LogAggregateRequest`/`LogAggregateQueryBuilder`
-  plus stacked-series rendering in `VolumeChart`, then a "group by" action on
-  `AttributeTable` rows next to the existing filter-for/out/copy actions.
-  Not started. Prior art: group by from log details [signoz#5753](https://github.com/SigNoz/signoz/commit/ab1caf13fc201bf99e0317c2d5f445f485882b10).
 - **More metric-alert match types.** A Gauge `MetricThreshold` rule always
   compares the window's *average* (`MetricAlertAggregation.Value` =
   `avg(Value)`); there's no "last value", "max"/"min", or "every point in
