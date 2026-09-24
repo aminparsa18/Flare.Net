@@ -31,6 +31,32 @@ public class MetricAlertConditionQueryBuilderTests
         Assert.Equal(MetricPointType.Gauge, result.Type);
     }
 
+    [Theory]
+    [InlineData(MetricAlertAggregation.Min, "if(count() = 0, nan, min(Value)) AS Value")]
+    [InlineData(MetricAlertAggregation.Max, "if(count() = 0, nan, max(Value)) AS Value")]
+    public void Build_Gauge_MinMax_GuardEmptyWindowToNaN(MetricAlertAggregation aggregation, string expected)
+    {
+        // min()/max() over zero rows return 0, not NaN - unguarded, a silent "< 5%" rule would fire.
+        var result = MetricAlertConditionQueryBuilder.Build(
+            new MetricAlertCondition { MetricName = "system.filesystem.utilization", Type = MetricPointType.Gauge, Aggregation = aggregation }, From, To);
+
+        Assert.Contains(expected, result.Sql);
+        Assert.Contains("any(Unit) AS Unit FROM metrics_gauge", result.Sql);
+        Assert.DoesNotContain("GROUP BY", result.Sql);
+    }
+
+    [Fact]
+    public void Build_Gauge_Last_TakesEachSeriesLatestPoint_AveragedAcrossSeries()
+    {
+        var result = MetricAlertConditionQueryBuilder.Build(
+            new MetricAlertCondition { MetricName = "system.filesystem.utilization", Type = MetricPointType.Gauge, Aggregation = MetricAlertAggregation.Last }, From, To);
+
+        Assert.Contains("argMax(Value, Time) AS LastValue", result.Sql);
+        Assert.Contains("GROUP BY ServiceName, toString(DataPointAttributes)", result.Sql);
+        Assert.StartsWith("SELECT avg(LastValue) AS Value, any(SeriesUnit) AS Unit FROM (", result.Sql);
+        Assert.Contains("WHERE MetricName = {metricName:String}", result.Sql);
+    }
+
     [Fact]
     public void Build_Sum_UsesWindowedResetAwareIncrease_NotMaxMinusMin()
     {

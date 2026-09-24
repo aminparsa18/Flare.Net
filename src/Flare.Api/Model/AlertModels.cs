@@ -105,6 +105,27 @@ public enum MetricAlertAggregation
 
     /// <summary>Histogram only: approximate max over the window, via <see cref="Query.HistogramQuantileEstimator.EstimateMax"/>.</summary>
     MaxApprox,
+
+    /// <summary>
+    /// Gauge only: each matched series' most recent point in the window
+    /// (<c>argMax(Value, Time)</c>), averaged across series - "right now" rather than the
+    /// window's average. Identical to the latest point when the filter matches one series (ADR-0049).
+    /// </summary>
+    Last,
+
+    /// <summary>
+    /// Gauge only: <c>min(Value)</c> over the window. With <see cref="ThresholdComparator.GreaterThanOrEqual"/>
+    /// this is "every point in the window breached" (all the time); with
+    /// <see cref="ThresholdComparator.LessThan"/> it's "at least once" (ADR-0049).
+    /// </summary>
+    Min,
+
+    /// <summary>
+    /// Gauge only: <c>max(Value)</c> over the window - the mirror of <see cref="Min"/>: "at least
+    /// once" with <see cref="ThresholdComparator.GreaterThanOrEqual"/>, "all the time" with
+    /// <see cref="ThresholdComparator.LessThan"/> (ADR-0049).
+    /// </summary>
+    Max,
 }
 
 /// <summary>

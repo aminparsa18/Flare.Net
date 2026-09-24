@@ -140,15 +140,6 @@ folders are where "what happened and why" actually lives.
   metrics where a collector exports them). Nothing in Flare covers this
   today. Large - its own page and probably its own ADR. Not started. Prior
   art: [signoz 481bb6e](https://github.com/SigNoz/signoz/commit/481bb6e8b8d68b40d5b6706b91bb78b71d59a3c7).
-- **More metric-alert match types.** A Gauge `MetricThreshold` rule always
-  compares the window's *average* (`MetricAlertAggregation.Value` =
-  `avg(Value)`); there's no "last value", "max"/"min", or "every point in
-  the window breached" ("all the time"). So "disk free below 5% right
-  now" or "CPU over 90% for the whole 10 minutes" can't be expressed
-  precisely. New `MetricAlertAggregation` members (additive enum, same
-  shape as ADR-0020/0044) + the worker's query + the form's picker. Not
-  started. Prior art: "last" match type
-  [signoz#5929](https://github.com/SigNoz/signoz/commit/4edc6dbeae834162a64ddce2f575f4d61244f913).
 - **Restore the last-used saved search per explorer.** Reopening Logs /
   Traces / Metrics starts from defaults even if the user was working in a
   saved search; remember the last one per page (per-browser, try/catch'd

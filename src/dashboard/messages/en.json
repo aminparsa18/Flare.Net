@@ -328,6 +328,8 @@
 	"alertRuleForm_metricNameLabel": "Metric",
 	"alertRuleForm_metricNamePlaceholder": "Select a metric…",
 	"alertRuleForm_aggregationLabel": "Aggregation",
+	"alertRuleForm_gaugeMatchHintGreaterOrEqual": "Value = window average · Last = latest point · Min = breached the whole window · Max = breached at least once",
+	"alertRuleForm_gaugeMatchHintLessThan": "Value = window average · Last = latest point · Min = breached at least once · Max = breached the whole window",
 	"alertRuleForm_thresholdLabel": "Threshold",
 	"alertRuleForm_eventsIn": "events in",
 	"alertRuleForm_metricOverLabel": "over",

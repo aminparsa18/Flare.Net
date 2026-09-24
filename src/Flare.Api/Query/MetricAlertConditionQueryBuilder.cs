@@ -19,7 +19,12 @@ public sealed record MetricAlertConditionSql(string Sql, ClickHouseParameterColl
 /// <see cref="MetricSeriesQueryBuilder"/> and <see cref="MetricQueryService"/> already use.
 /// </summary>
 /// <remarks>
-/// <para><b>Gauge:</b> <c>avg(Value)</c> - only <see cref="MetricAlertAggregation.Value"/> is meaningful (see that enum's remarks).</para>
+/// <para>
+/// <b>Gauge:</b> <c>avg(Value)</c> for <see cref="MetricAlertAggregation.Value"/>, <c>min</c>/<c>max</c>
+/// for <see cref="MetricAlertAggregation.Min"/>/<see cref="MetricAlertAggregation.Max"/>, and a
+/// per-series <c>argMax(Value, Time)</c> averaged across series for
+/// <see cref="MetricAlertAggregation.Last"/> (see <see cref="BuildGaugeSql"/>, ADR-0049).
+/// </para>
 /// <para>
 /// <b>Sum:</b> a whole-window, reset-aware <c>increase()</c> for
 /// <see cref="MetricAlertAggregation.Value"/>, <c>count()</c> for
@@ -55,7 +60,7 @@ public static class MetricAlertConditionQueryBuilder
         // always the final column regardless of type.
         var sql = condition.Type switch
         {
-            MetricPointType.Gauge => $"SELECT avg(Value) AS Value, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
+            MetricPointType.Gauge => BuildGaugeSql(condition.Aggregation, table, whereSql),
             MetricPointType.Sum => BuildSumSql(table, whereSql),
             MetricPointType.Histogram => $"SELECT sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
             _ => throw new ArgumentOutOfRangeException(nameof(condition), condition.Type, "Unknown metric point type."),
@@ -89,6 +94,31 @@ public static class MetricAlertConditionQueryBuilder
         filterSql.Parameters.AddParameter("metricName", condition.MetricName);
         return (MetricTables.For(condition.Type), $"MetricName = {{metricName:String}} AND {filterSql.WhereSql}", filterSql.Parameters);
     }
+
+    /// <summary>
+    /// Gauge's single-scalar query, always <c>Value</c> (Float64) then <c>Unit</c> - the shape
+    /// <c>AlertQueryService.EvaluateMetricConditionAsync</c>'s Gauge read expects. An empty window
+    /// must read back as NaN ("no data never breaches"): <c>avg()</c> already does, but ClickHouse's
+    /// <c>min()</c>/<c>max()</c> over zero rows return the type default <c>0</c>, which would breach a
+    /// "disk free below 5%" rule on silence - hence the explicit <c>count() = 0</c> guard.
+    /// <see cref="MetricAlertAggregation.Last"/> groups by the same (<c>ServiceName</c>,
+    /// <c>toString(DataPointAttributes)</c>) series identity <see cref="BuildSumSql"/> partitions by,
+    /// so "last" means each series' latest point rather than whichever series happened to report
+    /// most recently; an empty window yields zero inner rows, so the outer <c>avg()</c> is NaN.
+    /// </summary>
+    private static string BuildGaugeSql(MetricAlertAggregation aggregation, string table, string whereSql) => aggregation switch
+    {
+        MetricAlertAggregation.Min => $"SELECT if(count() = 0, nan, min(Value)) AS Value, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
+        MetricAlertAggregation.Max => $"SELECT if(count() = 0, nan, max(Value)) AS Value, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
+        MetricAlertAggregation.Last =>
+            "SELECT avg(LastValue) AS Value, any(SeriesUnit) AS Unit FROM (\n" +
+            "  SELECT argMax(Value, Time) AS LastValue, any(Unit) AS SeriesUnit\n" +
+            $"  FROM {table}\n" +
+            $"  WHERE {whereSql}\n" +
+            "  GROUP BY ServiceName, toString(DataPointAttributes)\n" +
+            ")",
+        _ => $"SELECT avg(Value) AS Value, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
+    };
 
     /// <summary>
     /// Sum's whole-window <c>increase()</c> - <see cref="MetricSeriesQueryBuilder"/>'s
