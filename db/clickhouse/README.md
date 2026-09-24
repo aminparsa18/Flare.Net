@@ -125,6 +125,11 @@ for the benchmark and the storage trade-off.
 nothing at all, rather than a threshold breach. See
 [ADR-0045](../../docs-internal/adr/0045-absent-data-alerting.md).
 
+`0027_alert_evaluation_interval.sql` - per-rule evaluation frequency: an
+`alert_rules.EvaluationIntervalSeconds` (0 = every poll tick, the default for every existing
+rule). The per-rule last-evaluated timestamp lives in Redis, not ClickHouse. See
+[ADR-0046](../../docs-internal/adr/0046-per-rule-alert-evaluation-interval.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

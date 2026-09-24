@@ -21,6 +21,11 @@ no data at all over the rule's `NoDataWindowSeconds` - see
 [`docs-internal/adr/0045-absent-data-alerting.md`](../../docs-internal/adr/0045-absent-data-alerting.md))
 and the rule isn't in cooldown, notify through whichever
 single channel the rule is configured for and record a new `alert_events` row.
+A rule with `EvaluationIntervalSeconds > 0` is evaluated only on ticks where it's due
+(its last-evaluated marker, a per-rule Redis key `flare:alerts:last-eval:{id}`, is at least
+that old minus half a poll interval), so slow/expensive rules can run every 5m/15m instead
+of every tick - see
+[`docs-internal/adr/0046-per-rule-alert-evaluation-interval.md`](../../docs-internal/adr/0046-per-rule-alert-evaluation-interval.md).
 Every replica coordinates through a single Redis-backed lock (`flare:alerts:eval-lock`)
 so only one replica evaluates per tick even when more than one is running — see
 `AlertEvaluationWorker`'s own remarks for the full mechanism.

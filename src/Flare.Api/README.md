@@ -239,7 +239,10 @@ in the history table itself, not a separate cache), it notifies and inserts a ne
 `LogCount`/`MetricThreshold` only) is first checked for *any* matching data over that
 window, via the shared `Alerting/AlertNoDataEvaluator`; if none, it fires a "no data"
 notification (`alert_events.NoData = 1`) instead of evaluating the threshold — see
-`docs-internal/adr/0045-absent-data-alerting.md`. No streaming/near-real-time evaluation — deliberately out of scope
+`docs-internal/adr/0045-absent-data-alerting.md`. A rule with `EvaluationIntervalSeconds > 0`
+is skipped on ticks where it isn't yet due (per-rule last-evaluated marker in Redis, decided by
+the shared `Alerting/AlertEvaluationSchedule`) - see
+`docs-internal/adr/0046-per-rule-alert-evaluation-interval.md`. No streaming/near-real-time evaluation — deliberately out of scope
 for this pass, since polling matches "threshold/query-based" exactly and is the simplest
 correct implementation.
 

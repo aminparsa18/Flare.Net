@@ -64,6 +64,8 @@
 	// ExceptionCount, where zero exceptions is the healthy state (the API rejects it there).
 	let noDataEnabled = $state(false);
 	let noDataWindowSecondsText = $state('600');
+	// Per-rule evaluation frequency (ADR-0046) - 0 means every AlertWorker poll tick.
+	let evaluationIntervalSeconds = $state(0);
 	let channel = $state<'webhook' | 'telegram' | 'email' | 'pagerduty'>('webhook');
 	let webhookUrl = $state('');
 	let telegramBotToken = $state('');
@@ -127,6 +129,7 @@
 			cooldownSecondsText = '300';
 			noDataEnabled = false;
 			noDataWindowSecondsText = '600';
+			evaluationIntervalSeconds = 0;
 			channel = 'webhook';
 			webhookUrl = '';
 			telegramBotToken = '';
@@ -180,6 +183,7 @@
 			cooldownSecondsText = String(target.cooldownSeconds);
 			noDataEnabled = target.noDataWindowSeconds > 0;
 			noDataWindowSecondsText = target.noDataWindowSeconds > 0 ? String(target.noDataWindowSeconds) : '600';
+			evaluationIntervalSeconds = target.evaluationIntervalSeconds;
 			channel = target.telegramBotToken || target.telegramChatId
 				? 'telegram'
 				: target.emailTo
@@ -216,6 +220,20 @@
 	const noDataActive = $derived(supportsNoData && noDataEnabled);
 	// Mirrors AlertRuleRequest.MinNoDataWindowSeconds on the API side.
 	const MIN_NO_DATA_WINDOW_SECONDS = 60;
+	// A rule saved through the API with an interval outside these presets still shows (and
+	// round-trips) its own value rather than silently snapping to a preset.
+	const EVALUATION_INTERVAL_PRESETS = [0, 60, 300, 900, 1800, 3600];
+	const evaluationIntervalOptions = $derived(
+		EVALUATION_INTERVAL_PRESETS.includes(evaluationIntervalSeconds)
+			? EVALUATION_INTERVAL_PRESETS
+			: [...EVALUATION_INTERVAL_PRESETS, evaluationIntervalSeconds].sort((a, b) => a - b)
+	);
+	function evaluationIntervalLabel(seconds: number): string {
+		if (seconds === 0) return m.alertRuleForm_evaluateEveryTick();
+		return seconds % 60 === 0 ? m.alertRuleForm_evaluateEveryMinutes({ minutes: seconds / 60 }) : m.alertRuleForm_evaluateEverySeconds({ seconds });
+	}
+	// Mirrors AlertRuleRequest.ValidateCondition's evaluationIntervalSeconds <= windowSeconds rule.
+	const evaluationIntervalTooLong = $derived(evaluationIntervalSeconds > 0 && Number.isFinite(windowSeconds) && evaluationIntervalSeconds > windowSeconds);
 
 	const hasChannel = $derived(
 		usingLegacyChannel
@@ -245,7 +263,8 @@
 			windowSeconds > 0 &&
 			Number.isFinite(cooldownSeconds) &&
 			cooldownSeconds >= 0 &&
-			(!noDataActive || (Number.isInteger(noDataWindowSeconds) && noDataWindowSeconds >= MIN_NO_DATA_WINDOW_SECONDS))
+			(!noDataActive || (Number.isInteger(noDataWindowSeconds) && noDataWindowSeconds >= MIN_NO_DATA_WINDOW_SECONDS)) &&
+			!evaluationIntervalTooLong
 	);
 
 	// One-off wide-window aggregate to enumerate service names for the picker, same
@@ -360,7 +379,8 @@
 							filter: services.length ? { services: [...services] } : undefined
 						}
 					: undefined,
-			noDataWindowSeconds: noDataActive ? noDataWindowSeconds : 0
+			noDataWindowSeconds: noDataActive ? noDataWindowSeconds : 0,
+			evaluationIntervalSeconds
 		};
 	}
 
@@ -553,6 +573,27 @@
 				<span class="text-xs font-medium">{m.alertRuleForm_cooldownLabel()}</span>
 				<Input type="number" min="0" bind:value={cooldownSecondsText} class="w-24" />
 				<span class="text-muted-foreground text-xs">{m.alertRuleForm_cooldownHint()}</span>
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-medium">{m.alertRuleForm_evaluateEveryLabel()}</span>
+				<Select.Root
+					type="single"
+					value={String(evaluationIntervalSeconds)}
+					onValueChange={(v) => v && (evaluationIntervalSeconds = Number(v))}
+				>
+					<Select.Trigger class="w-56">{evaluationIntervalLabel(evaluationIntervalSeconds)}</Select.Trigger>
+					<Select.Content>
+						{#each evaluationIntervalOptions as seconds (seconds)}
+							<Select.Item value={String(seconds)} label={evaluationIntervalLabel(seconds)} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				{#if evaluationIntervalTooLong}
+					<span class="text-destructive text-xs">{m.alertRuleForm_evaluateEveryTooLong()}</span>
+				{:else}
+					<span class="text-muted-foreground text-xs">{m.alertRuleForm_evaluateEveryHint()}</span>
+				{/if}
 			</div>
 
 			{#if supportsNoData}

@@ -220,6 +220,7 @@ public static class AlertEndpoints
             ChannelIds = defaults.ChannelIds,
             ExceptionCondition = request.ExceptionCondition,
             NoDataWindowSeconds = defaults.NoDataWindowSeconds,
+            EvaluationIntervalSeconds = defaults.EvaluationIntervalSeconds,
         };
 
         var result = await SendTestAsync(notifier, channels, draftRule, timeProvider, cancellationToken);

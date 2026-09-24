@@ -231,6 +231,9 @@ panneau Cluster — voir
 enregistré (service, niveau, texte de recherche) plus un seuil de comptage
 évalué sur une fenêtre glissante, avec un délai de refroidissement et un
 essai à blanc « tester sur les données actuelles » avant l'enregistrement.
+Chaque règle est vérifiée à chaque cycle d'interrogation du worker d'alertes
+(30 s) par défaut, ou selon son propre intervalle « Evaluate every »
+(1 min à 1 h) pour les règles lentes ou coûteuses.
 Le déclenchement notifie un ou plusieurs canaux de notification, gérés
 depuis l'onglet « Channels » de cette même page — des destinations
 réutilisables et nommées (webhook/Slack, Telegram, e-mail ou PagerDuty)
