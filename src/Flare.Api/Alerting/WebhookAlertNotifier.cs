@@ -21,10 +21,11 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
     public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null)
     {
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
+        var logsUrl = AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var isMetric = rule.ConditionKind == AlertConditionKind.MetricThreshold;
         var payload = new
         {
-            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit),
+            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt),
             ruleId = rule.Id,
             ruleName = rule.Name,
             conditionKind = rule.ConditionKind.ToString(),
@@ -44,6 +45,9 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
             // field (rather than making the generic webhook consumer parse it back out of
             // text) since that consumer reads the flat fields above directly, not text.
             ruleUrl,
+            // The Logs Explorer scoped to the rule's filter over the evaluated window - null
+            // whenever BuildMatchingLogsUrl can't represent the rule faithfully (see its remarks).
+            logsUrl,
         };
 
         try

@@ -302,6 +302,19 @@ it), a dedicated `ruleUrl` field in the generic webhook payload, and PagerDuty's
 this existed. `src/dashboard/src/routes/alerts/+page.svelte` reads the `?rule=` query
 param and opens that rule's history sheet.
 
+`LogCount` rules also get a second link, into the data that fired rather than the rule:
+`AlertMessageFormatter.BuildMatchingLogsUrl` encodes the rule's `LogFilter` plus the evaluated
+window (`[firedAt - WindowSeconds, firedAt]`, the exact range the worker counted over) as a
+Logs saved-view state in `{PublicUrl}/?state={base64 JSON}`, which the Logs page restores
+through the same `applySavedViewState` path as `?view=<id>`. It appears as a
+`Matching logs: <url>` line in the shared text (above the rule link), a `logsUrl` field in
+the generic webhook payload, and a PagerDuty `links` entry (plus `logsUrl` in
+`custom_details`). No link is sent for `MetricThreshold`/`ExceptionCount` rules (`/metrics`
+and `/errors` don't restore filters from the URL yet), or when the condition sets
+`TraceId`/`SpanId`/`PatternId`, which a saved-view state can't hold. A link that dropped
+them would show more than what fired. The payload is standard base64, percent-escaped, not
+base64url: base64url's `_` breaks Telegram's `parse_mode: Markdown`.
+
 ## A known, inherited trade-off
 
 `logs`' `ORDER BY (ServiceName, SeverityNumber, Timestamp, TraceId)` favors "browse one

@@ -43,6 +43,10 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         // PagerDuty tolerates the field's absence/null the same way the other notifiers omit
         // the link entirely.
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
+        // client_url stays the rule link (PagerDuty renders it as the single "View in Flare"
+        // action); the scoped-logs link goes in Events v2's `links` array instead, which
+        // PagerDuty lists separately on the incident.
+        var logsUrl = AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var isMetric = rule.ConditionKind == AlertConditionKind.MetricThreshold;
         var payload = new
         {
@@ -50,6 +54,9 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
             event_action = "trigger",
             client = "Flare",
             client_url = ruleUrl,
+            // Always an array (empty when there's no link) rather than null - `links` is
+            // optional in Events v2, but an explicit JSON null isn't a documented value.
+            links = new[] { new { href = logsUrl, text = "Matching logs in Flare" } }.Where(l => l.href is not null).ToArray(),
             payload = new
             {
                 summary = AlertMessageFormatter.BuildText(rule, observedValue, isTest, metricUnit: metricUnit),
@@ -68,6 +75,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
                     metricName = rule.MetricCondition?.MetricName,
                     windowSeconds = rule.WindowSeconds,
                     ruleUrl,
+                    logsUrl,
                 },
             },
         };

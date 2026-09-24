@@ -5,7 +5,7 @@
 	import { LogsExplorerState } from '$lib/logs/state.svelte';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
-	import { parseLogsDeepLinkParams, parseLogContextDeepLinkParams } from '$lib/deep-links';
+	import { parseLogsDeepLinkParams, parseLogContextDeepLinkParams, parseLogsStateDeepLinkParam } from '$lib/deep-links';
 	import { getHomeDashboardId } from '$lib/dashboards/home-preference';
 	import { dashboardPath } from '$lib/dashboards/page-paths';
 	import LogsToolbar from '$lib/components/logs/LogsToolbar.svelte';
@@ -49,10 +49,15 @@
 			// logs" deep link (`$lib/deep-links.ts`) does need one, since it's a real
 			// cross-route navigation, checked next - same priority position `?view=` sits
 			// in, and mutually exclusive with it (a URL is never both at once).
+			// A fired alert's `?state=` link (`$lib/deep-links.ts`) carries a whole saved-view
+			// state inline, so it restores through the same applySavedViewState path.
 			const view = await resolveRequestedSavedView(page.url, 'Logs');
-			const deepLink = view ? null : parseLogsDeepLinkParams(page.url);
+			const inlineState = view ? null : parseLogsStateDeepLinkParam(page.url);
+			const deepLink = view || inlineState ? null : parseLogsDeepLinkParams(page.url);
 			if (view) {
 				explorer.applySavedViewState(view.state);
+			} else if (inlineState) {
+				explorer.applySavedViewState(inlineState);
 			} else if (deepLink) {
 				explorer.applyDeepLinkFilter(deepLink);
 			} else if (explorer.live) {
