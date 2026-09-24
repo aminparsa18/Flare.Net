@@ -97,8 +97,9 @@ public sealed partial record AttributeFilter
 
 /// <summary>
 /// Comparison a <see cref="BodyJsonFilter"/> applies against a value extracted from
-/// <c>Body</c> by <see cref="BodyJsonFilter.Path"/>. Same member set/ordinals as
-/// <see cref="AttributeFilterOperator"/> - kept as its own enum rather than reused, same
+/// <c>Body</c> by <see cref="BodyJsonFilter.Path"/>. Same first eight members/ordinals as
+/// <see cref="AttributeFilterOperator"/>, plus the array-only <see cref="Has"/>/<see cref="NotHas"/>
+/// (attribute-bag values are always flat strings) - kept as its own enum rather than reused, same
 /// "independent evolution" reasoning that enum's own remarks give for not sharing with
 /// <c>SpanAttributeFilterOperator</c>.
 /// </summary>
@@ -127,6 +128,19 @@ public enum BodyJsonFilterOperator
 
     /// <summary>Path is absent, or present with a value that is none of <see cref="BodyJsonFilter.Values"/>. <see cref="BodyJsonFilter.Value"/> is ignored.</summary>
     NotIn,
+
+    /// <summary>
+    /// Path is a JSON array with an element equal to <see cref="BodyJsonFilter.Value"/>
+    /// (ClickHouse <c>has()</c>). Elements are compared as <c>JSONExtractString</c> renders
+    /// them - a string's unquoted text, any other element's raw JSON text, <c>null</c> as
+    /// <c>''</c>. A missing path, a non-array value, or non-JSON <c>Body</c> never matches.
+    /// Appended after <see cref="NotIn"/>, not inserted earlier - same MemoryPack
+    /// wire-compatibility reasoning <see cref="LogFilter.BodyJsonFilters"/>' own remarks give.
+    /// </summary>
+    Has,
+
+    /// <summary>Negation of <see cref="Has"/>: path is absent, not an array, or an array with no element equal to <see cref="BodyJsonFilter.Value"/>.</summary>
+    NotHas,
 }
 
 /// <summary>
@@ -149,7 +163,7 @@ public sealed partial record BodyJsonFilter
     /// </summary>
     public required string Path { get; init; }
 
-    /// <summary>Ignored (may be left as an empty string) when <see cref="Operator"/> is <see cref="BodyJsonFilterOperator.Exists"/>, <see cref="BodyJsonFilterOperator.Absent"/>, <see cref="BodyJsonFilterOperator.In"/>, or <see cref="BodyJsonFilterOperator.NotIn"/> - the last two take their operand from <see cref="Values"/> instead.</summary>
+    /// <summary>The element to look for when <see cref="Operator"/> is <see cref="BodyJsonFilterOperator.Has"/>/<see cref="BodyJsonFilterOperator.NotHas"/>. Ignored (may be left as an empty string) when <see cref="Operator"/> is <see cref="BodyJsonFilterOperator.Exists"/>, <see cref="BodyJsonFilterOperator.Absent"/>, <see cref="BodyJsonFilterOperator.In"/>, or <see cref="BodyJsonFilterOperator.NotIn"/> - the last two take their operand from <see cref="Values"/> instead.</summary>
     public required string Value { get; init; }
 
     public BodyJsonFilterOperator Operator { get; init; } = BodyJsonFilterOperator.Equals;

@@ -307,6 +307,37 @@ public class LogFilterMatcherTests
         Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
     }
 
+    [Theory]
+    [InlineData("""{"user":{"roles":["admin","dev"]}}""", "admin", true)]
+    [InlineData("""{"user":{"roles":["admin","dev"]}}""", "ops", false)]
+    [InlineData("""{"user":{"roles":[1,2.5,true]}}""", "2.5", true)]
+    [InlineData("""{"user":{"roles":[1,2.5,true]}}""", "true", true)]
+    [InlineData("""{"user":{"roles":[null]}}""", "", true)]
+    [InlineData("""{"user":{"roles":"admin"}}""", "admin", false)]
+    [InlineData("""{"user":{}}""", "admin", false)]
+    [InlineData("not json", "admin", false)]
+    public void Matches_BodyJsonHasOperator_MatchesArrayElement(string body, string value, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { Body = body };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.roles", Value = value, Operator = BodyJsonFilterOperator.Has }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
+    [InlineData("""{"tags":["a","b"]}""", "a", false)]
+    [InlineData("""{"tags":["a","b"]}""", "c", true)]
+    [InlineData("""{"tags":"a"}""", "a", true)]
+    [InlineData("""{}""", "a", true)]
+    [InlineData("not json", "a", true)]
+    public void Matches_BodyJsonNotHasOperator_NegatesHas(string body, string value, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { Body = body };
+        var filter = new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "tags", Value = value, Operator = BodyJsonFilterOperator.NotHas }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
     [Fact]
     public void Matches_BodyJsonFilter_ReturnsFalse_WhenBodyIsNotJson()
     {

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Flare.Api.Model;
@@ -80,6 +81,17 @@ public static class LogFilterMatcher
         {
             foreach (var bodyJsonFilter in bodyJsonFilters)
             {
+                if (bodyJsonFilter.Operator is BodyJsonFilterOperator.Has or BodyJsonFilterOperator.NotHas)
+                {
+                    var has = BodyJsonArrayHas(logEvent.Body, bodyJsonFilter.Path, bodyJsonFilter.Value);
+                    if (has != (bodyJsonFilter.Operator == BodyJsonFilterOperator.Has))
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+
                 var exists = TryExtractBodyJsonValue(logEvent.Body, bodyJsonFilter.Path, out var value);
                 var matches = bodyJsonFilter.Operator switch
                 {
@@ -119,38 +131,92 @@ public static class LogFilterMatcher
     private static bool TryExtractBodyJsonValue(string body, string path, out string? value)
     {
         value = null;
-        JsonDocument document;
-        try
-        {
-            document = JsonDocument.Parse(body);
-        }
-        catch (JsonException)
+        if (!TryParse(body, out var document))
         {
             return false;
         }
 
         using (document)
         {
-            var element = document.RootElement;
-            foreach (var segment in path.Split('.', StringSplitOptions.RemoveEmptyEntries))
+            if (!TryResolvePath(document.RootElement, path, out var element))
             {
-                if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(segment, out element))
-                {
-                    return false;
-                }
+                return false;
             }
 
-            value = element.ValueKind switch
-            {
-                JsonValueKind.String => element.GetString(),
-                JsonValueKind.Null => "",
-                JsonValueKind.True => "true",
-                JsonValueKind.False => "false",
-                _ => element.GetRawText(),
-            };
+            value = Stringify(element);
             return true;
         }
     }
+
+    /// <summary>
+    /// <see cref="BodyJsonFilterOperator.Has"/>'s test - mirrors <see cref="LogFilterSqlBuilder"/>'s
+    /// <c>has(JSONExtract(Body, ..., 'Array(String)'), value)</c>: each element is
+    /// stringified the same way <see cref="TryExtractBodyJsonValue"/> renders a scalar
+    /// leaf, and a missing path, a non-array value, or non-JSON <c>Body</c> is simply
+    /// <c>false</c> (ClickHouse extracts <c>[]</c> for all three).
+    /// </summary>
+    private static bool BodyJsonArrayHas(string body, string path, string value)
+    {
+        if (!TryParse(body, out var document))
+        {
+            return false;
+        }
+
+        using (document)
+        {
+            if (!TryResolvePath(document.RootElement, path, out var element) || element.ValueKind != JsonValueKind.Array)
+            {
+                return false;
+            }
+
+            foreach (var item in element.EnumerateArray())
+            {
+                if (string.Equals(Stringify(item), value, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    private static bool TryParse(string body, [NotNullWhen(true)] out JsonDocument? document)
+    {
+        try
+        {
+            document = JsonDocument.Parse(body);
+            return true;
+        }
+        catch (JsonException)
+        {
+            document = null;
+            return false;
+        }
+    }
+
+    private static bool TryResolvePath(JsonElement root, string path, out JsonElement element)
+    {
+        element = root;
+        foreach (var segment in path.Split('.', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(segment, out element))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string Stringify(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.String => element.GetString()!,
+        JsonValueKind.Null => "",
+        JsonValueKind.True => "true",
+        JsonValueKind.False => "false",
+        _ => element.GetRawText(),
+    };
 
     /// <summary>
     /// <see cref="Regex.IsMatch(string, string)"/>, fail-closed on an invalid pattern

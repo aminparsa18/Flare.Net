@@ -66,11 +66,6 @@ folders are where "what happened and why" actually lives.
   merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
   exponential-histogram table + quantile merge
   ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
-- **`has` / `not has` operators for JSON-array body filters.** The body-JSON
-  filter (`LogFilter`'s `JSONHas`/`JSONExtractString` path) can't express
-  "array at this path contains value" (ClickHouse `has(JSONExtractArrayRaw(...), ...)`).
-  Not started. Prior art:
-  [signoz#4736](https://github.com/SigNoz/signoz/commit/9e557a0ebe526ab04d6e389a49f45f3f10976d06).
 - **Dashboard panel visualization types.** `PanelType` is only the data
   source (`Logs`/`Traces`/`Metrics`), and a Metrics panel always renders
   as a line chart - no bar, pie, single-value stat, or table rendering,

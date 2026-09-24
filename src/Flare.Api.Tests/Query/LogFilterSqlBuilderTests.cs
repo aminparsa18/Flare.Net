@@ -368,4 +368,31 @@ public class LogFilterSqlBuilderTests
             result.WhereSql);
         Assert.Equal(Array.Empty<string>(), (string[])result.Parameters.ToDictionary()["jsonValues0"]!);
     }
+
+    [Fact]
+    public void Build_WithBodyJsonHasOperator_ExtractsArrayOfString_AndUsesHas()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "user.roles", Value = "admin", Operator = BodyJsonFilterOperator.Has }] },
+            Now);
+
+        Assert.Contains(
+            "has(JSONExtract(Body, {jsonPath0_0:String}, {jsonPath0_1:String}, 'Array(String)'), {jsonValue0:String})",
+            result.WhereSql);
+        Assert.DoesNotContain("NOT has(", result.WhereSql);
+        Assert.Equal("admin", result.Parameters.ToDictionary()["jsonValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithBodyJsonNotHasOperator_NegatesHas()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { BodyJsonFilters = [new BodyJsonFilter { Path = "tags", Value = "beta", Operator = BodyJsonFilterOperator.NotHas }] },
+            Now);
+
+        Assert.Contains(
+            "NOT has(JSONExtract(Body, {jsonPath0_0:String}, 'Array(String)'), {jsonValue0:String})",
+            result.WhereSql);
+        Assert.Equal("beta", result.Parameters.ToDictionary()["jsonValue0"]);
+    }
 }
