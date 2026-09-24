@@ -5,11 +5,15 @@
 	import { Lottie } from '$lib/components/ui/lottie';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { logsExplorerContext } from '$lib/logs/context';
+	import { logRowHeight } from '$lib/logs/state.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
 
-	const ROW_HEIGHT = 32;
+	// Uniform per mode, not per row - VirtualList only supports one fixed row height, so
+	// "N lines" means every row is N lines tall and LogRow line-clamps the body to fit.
+	const lines = $derived(explorer.filter.maxLinesPerRow);
+	const ROW_HEIGHT = $derived(logRowHeight(lines));
 	// Shared between the header and every LogRow via CSS custom properties (set once
 	// here, per svelte-best-practices' style:--prop guidance) so the two can never drift
 	// out of alignment the way two hand-copied grid-template-columns strings could.
@@ -82,7 +86,7 @@
 			class="min-h-0 flex-1"
 		>
 			{#snippet children(event)}
-				<LogRow {event} live={explorer.live} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
+				<LogRow {event} {lines} live={explorer.live} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
 			{/snippet}
 		</VirtualList>
 		{#if explorer.loadingMore}

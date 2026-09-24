@@ -96,6 +96,8 @@
 	"logsToolbar_searchPlaceholder": "Поиск по тексту сообщения...",
 	"logsToolbar_live": "Прямой эфир",
 	"logsToolbar_pause": "Пауза",
+	"logsToolbar_linesPerRow": "Строк: {count}",
+	"logsToolbar_linesPerRowHeading": "Строк сообщения в записи",
 	"eventDetail_traceId": "ID трассировки",
 	"eventDetail_spanId": "ID спана",
 	"eventDetail_spanDuration": "Длительность спана",

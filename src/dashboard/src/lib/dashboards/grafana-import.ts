@@ -65,7 +65,8 @@ function defaultQueryFor(panelType: PanelType): unknown {
 				attributeFilters: [],
 				bodyJsonFilters: [],
 				postProcessFunctions: [],
-				timeShiftSeconds: null
+				timeShiftSeconds: null,
+				maxLinesPerRow: 1
 			} satisfies LogsSavedViewState;
 		case 'Traces':
 			return { timeRangePreset: '1h', services: [], attributeFilters: [] } satisfies TracesSavedViewState;
