@@ -211,6 +211,8 @@
 	"bodyJsonFilters_addFilter": "Add filter",
 	"bodyJsonFilters_removeFilter": "Remove filter",
 	"bodyJsonFilters_pathPlaceholder": "JSON path (e.g. user.id)",
+	"bodyJsonFilters_opHas": "Array contains",
+	"bodyJsonFilters_opNotHas": "Array does not contain",
 	"resourceAttributeFilters_label": "Resource attribute filters",
 	"attributeValueCombobox_loading": "Loading…",
 	"volumeChart_label": "Event volume",

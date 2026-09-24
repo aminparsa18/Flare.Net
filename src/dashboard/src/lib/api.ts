@@ -119,8 +119,8 @@ export interface AttributeFilter {
 	values?: string[];
 }
 
-/** See `BodyJsonFilterOperator` (LogFilter.cs) - same vocabulary/semantics as `AttributeFilterOperator`, kept as its own union for the same "independent evolution" reasoning the backend enum's own remarks give. */
-export type BodyJsonFilterOperator = 'Equals' | 'NotEquals' | 'Exists' | 'Absent' | 'Regex' | 'NotRegex' | 'In' | 'NotIn';
+/** See `BodyJsonFilterOperator` (LogFilter.cs) - same vocabulary/semantics as `AttributeFilterOperator` plus the array-only `Has`/`NotHas`, kept as its own union for the same "independent evolution" reasoning the backend enum's own remarks give. */
+export type BodyJsonFilterOperator = 'Equals' | 'NotEquals' | 'Exists' | 'Absent' | 'Regex' | 'NotRegex' | 'In' | 'NotIn' | 'Has' | 'NotHas';
 
 /** JSON-path filter into `Body` itself (e.g. `path: "user.id"` against `{"user":{"id":"42"}}`) - distinct from `AttributeFilter`, which only reaches pre-extracted attribute bags. See `BodyJsonFilter` (LogFilter.cs). */
 export interface BodyJsonFilter {

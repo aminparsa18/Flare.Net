@@ -211,6 +211,8 @@
 	"bodyJsonFilters_addFilter": "添加筛选条件",
 	"bodyJsonFilters_removeFilter": "移除筛选条件",
 	"bodyJsonFilters_pathPlaceholder": "JSON 路径(如 user.id)",
+	"bodyJsonFilters_opHas": "数组包含",
+	"bodyJsonFilters_opNotHas": "数组不包含",
 	"resourceAttributeFilters_label": "资源属性筛选器",
 	"attributeValueCombobox_loading": "加载中…",
 	"volumeChart_label": "事件量",

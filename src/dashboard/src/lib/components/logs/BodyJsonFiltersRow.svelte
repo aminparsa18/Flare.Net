@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Structured builder for BodyJsonFilter's exists/absent/equals/not-equals/regex/
-	// not-regex/in/not-in operators (see LogFilterSqlBuilder.cs's BodyJsonClause) - same
+	// not-regex/in/not-in/has/not-has operators (see LogFilterSqlBuilder.cs's BodyJsonClause) - same
 	// discrete-controls shape AttributeFiltersRow.svelte already establishes for
 	// AttributeFilter, minus the bag selector (BodyJsonFilter always targets Body) and
 	// plus a free-text "path" field (dot-separated object keys, e.g. "user.id") instead of
@@ -59,8 +59,9 @@
 	});
 
 	// Operator labels are reused verbatim from AttributeFiltersRow's own i18n keys - same
-	// text, same meaning (BodyJsonFilterOperator mirrors AttributeFilterOperator's member
-	// set exactly), not worth duplicating across three locale files.
+	// text, same meaning (BodyJsonFilterOperator's first eight members mirror
+	// AttributeFilterOperator's exactly), not worth duplicating across three locale files.
+	// Only the array-only Has/NotHas need their own keys.
 	const OPERATOR_OPTIONS: { value: BodyJsonFilterOperator; label: string }[] = [
 		{ value: 'Equals', label: m.attributeFilters_opEquals() },
 		{ value: 'NotEquals', label: m.attributeFilters_opNotEquals() },
@@ -69,12 +70,21 @@
 		{ value: 'Regex', label: m.attributeFilters_opRegex() },
 		{ value: 'NotRegex', label: m.attributeFilters_opNotRegex() },
 		{ value: 'In', label: m.attributeFilters_opIn() },
-		{ value: 'NotIn', label: m.attributeFilters_opNotIn() }
+		{ value: 'NotIn', label: m.attributeFilters_opNotIn() },
+		{ value: 'Has', label: m.bodyJsonFilters_opHas() },
+		{ value: 'NotHas', label: m.bodyJsonFilters_opNotHas() }
 	];
 
-	/** Exists/Absent ignore BodyJsonFilter.value entirely - see BodyJsonFilterOperator's own remarks (LogFilter.cs); In/NotIn ignore it too, taking their operand from `values` instead (see needsMultiValue). */
+	/** Exists/Absent ignore BodyJsonFilter.value entirely - see BodyJsonFilterOperator's own remarks (LogFilter.cs); In/NotIn ignore it too, taking their operand from `values` instead (see needsMultiValue). Has/NotHas use `value` as the array element to look for. */
 	function needsSingleValue(operator: BodyJsonFilterOperator): boolean {
-		return operator === 'Equals' || operator === 'NotEquals' || operator === 'Regex' || operator === 'NotRegex';
+		return (
+			operator === 'Equals' ||
+			operator === 'NotEquals' ||
+			operator === 'Regex' ||
+			operator === 'NotRegex' ||
+			operator === 'Has' ||
+			operator === 'NotHas'
+		);
 	}
 
 	/** In/NotIn's multi-value operand - AttributeValueListInput's chip editor, rather than a single AttributeValueCombobox. */
@@ -193,7 +203,7 @@
 								commit();
 							}}
 						>
-							<Select.Trigger class="h-7 w-32 text-xs">
+							<Select.Trigger class="h-7 w-40 text-xs">
 								{OPERATOR_OPTIONS.find((o) => o.value === row.operator)?.label}
 							</Select.Trigger>
 							<Select.Content>

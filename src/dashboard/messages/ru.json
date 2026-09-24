@@ -211,6 +211,8 @@
 	"bodyJsonFilters_addFilter": "Добавить фильтр",
 	"bodyJsonFilters_removeFilter": "Удалить фильтр",
 	"bodyJsonFilters_pathPlaceholder": "Путь JSON (например, user.id)",
+	"bodyJsonFilters_opHas": "Массив содержит",
+	"bodyJsonFilters_opNotHas": "Массив не содержит",
 	"resourceAttributeFilters_label": "Фильтры атрибутов ресурса",
 	"attributeValueCombobox_loading": "Загрузка…",
 	"volumeChart_label": "Объём событий",

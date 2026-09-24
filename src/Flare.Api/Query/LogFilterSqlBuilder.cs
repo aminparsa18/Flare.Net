@@ -251,6 +251,21 @@ public static class LogFilterSqlBuilder
                 parameters.AddParameter(valuesParam, (filter.Values ?? []).ToArray());
                 return $"NOT ({hasSql} AND {extractSql} IN {{{valuesParam}:Array(String)}})";
             }
+            // JSONExtract(..., 'Array(String)') stringifies each element the same way
+            // JSONExtractString does a scalar (and returns [] for a missing path, a
+            // non-array value, or non-JSON Body), so no JSONHas guard is needed here.
+            case BodyJsonFilterOperator.Has:
+            {
+                var valueParam = $"jsonValue{index}";
+                parameters.AddParameter(valueParam, filter.Value);
+                return $"has(JSONExtract(Body, {pathArgsSql}, 'Array(String)'), {{{valueParam}:String}})";
+            }
+            case BodyJsonFilterOperator.NotHas:
+            {
+                var valueParam = $"jsonValue{index}";
+                parameters.AddParameter(valueParam, filter.Value);
+                return $"NOT has(JSONExtract(Body, {pathArgsSql}, 'Array(String)'), {{{valueParam}:String}})";
+            }
             default:
             {
                 var valueParam = $"jsonValue{index}";

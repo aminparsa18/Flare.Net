@@ -101,8 +101,8 @@ export function attributeFilterOperatorFromString(value: AttributeFilterOperator
 	return ATTRIBUTE_FILTER_OPERATOR_NAMES.indexOf(value);
 }
 
-/** Matches `LogFilter.cs`'s `BodyJsonFilterOperator` member order. Not itself MemoryPack-TS-generated - same reasoning `AttributeFilterOperatorName` gives (`BodyJsonFilter`, its only consumer, is hand-written). Same member set/order as `AttributeFilterOperatorName` (kept as its own const anyway, mirroring the backend's own separate-enum choice). */
-const BODY_JSON_FILTER_OPERATOR_NAMES = ['Equals', 'NotEquals', 'Exists', 'Absent', 'Regex', 'NotRegex', 'In', 'NotIn'] as const;
+/** Matches `LogFilter.cs`'s `BodyJsonFilterOperator` member order. Not itself MemoryPack-TS-generated - same reasoning `AttributeFilterOperatorName` gives (`BodyJsonFilter`, its only consumer, is hand-written). Same first eight members/order as `AttributeFilterOperatorName`, plus the array-only `Has`/`NotHas` (kept as its own const anyway, mirroring the backend's own separate-enum choice). */
+const BODY_JSON_FILTER_OPERATOR_NAMES = ['Equals', 'NotEquals', 'Exists', 'Absent', 'Regex', 'NotRegex', 'In', 'NotIn', 'Has', 'NotHas'] as const;
 
 export type BodyJsonFilterOperatorName = (typeof BODY_JSON_FILTER_OPERATOR_NAMES)[number];
 
