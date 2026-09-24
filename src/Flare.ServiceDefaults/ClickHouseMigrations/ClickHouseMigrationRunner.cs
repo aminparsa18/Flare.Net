@@ -326,8 +326,14 @@ public static class ClickHouseMigrationRunner
         @"\AALTER\s+TABLE\s+(?<db>\w+)\.(?<name>\w+)\s+ON\s+CLUSTER\s+'(?<cluster>[^']+)'\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+(?<col>\w+)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    // Migration 0025's cluster variant - its MATERIALIZE PROJECTION statement fails on any
+    // node that hasn't received the ADD PROJECTION yet, so this one needs the wait too.
+    private static readonly Regex AlterTableAddProjectionOnClusterPattern = new(
+        @"\AALTER\s+TABLE\s+(?<db>\w+)\.(?<name>\w+)\s+ON\s+CLUSTER\s+'(?<cluster>[^']+)'\s+ADD\s+PROJECTION\s+IF\s+NOT\s+EXISTS\s+(?<projection>\w+)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     /// <summary>
-    /// Recognizes one of the three <c>ON CLUSTER</c> statement shapes this repo's
+    /// Recognizes one of the four <c>ON CLUSTER</c> statement shapes this repo's
     /// migrations use and builds the query that checks whether every node in that
     /// statement's cluster has picked it up yet. Returns <see langword="false"/> (nothing
     /// to wait for) for anything else, including plain non-DDL statements like the
@@ -362,6 +368,21 @@ public static class ClickHouseMigrationRunner
                 $"column '{db}.{name}.{col}'",
                 $"SELECT count(DISTINCT hostName()) FROM clusterAllReplicas('{cluster}', system.columns) " +
                 $"WHERE database = '{db}' AND table = '{name}' AND name = '{col}'");
+            return true;
+        }
+
+        var projectionMatch = AlterTableAddProjectionOnClusterPattern.Match(statement);
+        if (projectionMatch.Success)
+        {
+            var db = projectionMatch.Groups["db"].Value;
+            var name = projectionMatch.Groups["name"].Value;
+            var projection = projectionMatch.Groups["projection"].Value;
+            var cluster = projectionMatch.Groups["cluster"].Value;
+            target = new ClusterDdlTarget(
+                cluster,
+                $"projection '{db}.{name}.{projection}'",
+                $"SELECT count(DISTINCT hostName()) FROM clusterAllReplicas('{cluster}', system.projections) " +
+                $"WHERE database = '{db}' AND table = '{name}' AND name = '{projection}'");
             return true;
         }
 

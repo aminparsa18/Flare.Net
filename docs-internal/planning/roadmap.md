@@ -46,39 +46,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Dependency-graph edges pre-aggregated at flush time, not queried
-  live.** The Services-tab Table view's RED metrics (ADR-0030) and, as of
-  ADR-0031, the Map view's nodes (`service_dependency_nodes` +
-  `service_dependency_nodes_mv`) and the per-node call breakdown
-  (`service_call_breakdown_external`/`service_call_breakdown_database`) are
-  all pre-aggregated now. `ServiceDependencyQueryBuilder`'s **edges** query
-  - a self-join keyed by the `peer.service`-overridden "effective service,"
-  producing `(source, target)` pairs - still self-joins raw `spans` on
-  every Map-view load, and stays that way for now. The dual-triggered
-  materialized-view self-join ADR-0031 sketched (one MV per join direction,
-  joining the new batch against the *full* persisted `spans` table for the
-  other side) was live-spiked on 2026-09-21 and found **not viable, not just
-  risky**: see `docs-internal/investigations/service-dependency-edges-mv-selfjoin-spike.md`
-  for the full evidence, but the short version is that a ClickHouse
-  materialized view's self-join resolves *both* sides of the join - the
-  trigger's own `FROM` and any `JOIN` back to the same table - to the single
-  newly-inserted block, never the already-committed table. That means the
-  *common* cross-batch case (parent/child spans from different
-  processes/exporters landing in different `SpanFlushWorker` flush batches -
-  confirmed by reading `SpanFlushWorker.FlushAsync`, and the case ADR-0031's
-  Context calls "the common case, not an edge case") **never produces an
-  edge at all**, while the rarer same-batch case produces a **doubled**
-  count instead of a correct one. Not a tunable edge case - a different
-  design is needed, not a fix to this one. The named prior-art alternative,
-  not yet explored: SigNoz's `USE_SPAN_METRIC` feature flag sources the same
-  page from collector-generated span metrics instead of live trace
-  aggregation
-  ([signoz#3134](https://github.com/SigNoz/signoz/commit/433f930956db03c01bcbd72ea61e43bce1eddc57),
-  [signoz#3188](https://github.com/SigNoz/signoz/commit/bc4a4edc7f8ac5d2b1bbcca642927df1cc37c9af),
-  [signoz#3196](https://github.com/SigNoz/signoz/commit/562621a1171a5cbdb7d11a4e24f0c8fe2199b1da)) -
-  i.e. computing edges from OTel Collector-side span-to-span-metrics
-  connectors before spans ever reach ClickHouse, sidestepping the
-  self-join-visibility problem entirely rather than working around it in SQL.
 - **Per-panel visual thresholds / conditional formatting.** Dashboard
   panels have no way to say "color this red above X" - purely visual
   styling (background/text color on Value panels, a horizontal line on

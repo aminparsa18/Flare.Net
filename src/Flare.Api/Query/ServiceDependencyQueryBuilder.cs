@@ -53,24 +53,24 @@ public sealed record ServiceDependencyGraphSql(
 /// same <c>from</c>/<c>to</c> names, which would otherwise collide).
 /// </para>
 /// <para>
-/// <b>Known, accepted edge case</b>: the edges query filters the join by the <i>child</i>
-/// span's <c>StartTime</c> only, not the parent's - a parent that started a moment before
-/// the window's <c>from</c> boundary but whose child crossed into the window still counts
-/// (the same "count the response, not the exact request start" latitude
-/// <see cref="ServiceOverviewQueryBuilder"/>'s root-spans convention already takes), while
-/// the reverse (parent's own duration entirely inside the window) is fine either way since
-/// only the child's own duration is summed. Filtering both sides would double the join's
-/// scan cost for a boundary effect that only matters for the handful of calls straddling
-/// the window edge.
+/// <b>Window on both sides of the edges join</b>: the child span must start inside the
+/// window; its parent must start inside the window widened by <see cref="ParentStartSlack"/>
+/// at the <c>from</c> end - a parent that started a moment before <c>from</c> but whose
+/// child crossed into the window still counts (the same "count the response, not the exact
+/// request start" latitude <see cref="ServiceOverviewQueryBuilder"/>'s root-spans
+/// convention already takes). The parent bound isn't there for correctness - it's what
+/// lets the parent side use migration 0025's <c>StartTime</c>-ordered
+/// <c>spans_by_start_time</c> projection instead of reading the whole table to build the
+/// join's hash table (<c>spans</c> itself is <c>TraceId</c>-first, so no <c>StartTime</c>
+/// predicate prunes it). Accepted cost: a call whose parent started more than
+/// <see cref="ParentStartSlack"/> before the window no longer draws an edge. See ADR-0043.
 /// </para>
 /// <para>
-/// <b>No index helps either query</b> - same unfiltered-by-service tradeoff
-/// <see cref="ServiceOverviewQueryBuilder"/>'s remarks document, except the edges query
-/// additionally pays for a self-join with no narrowing predicate beyond the window and
-/// <c>ParentSpanId != ''</c>. Accepted for this first pass the same way; a
-/// <c>StartTime</c>-first projection is the same named follow-up as
-/// <c>0007_spans.sql</c>'s own <c>ORDER BY</c> remarks, addable non-destructively once
-/// real usage shows this is a hot path.
+/// <b>The nodes query's live path still has no index</b> - same unfiltered-by-service
+/// tradeoff <see cref="ServiceOverviewQueryBuilder"/>'s remarks document. It only runs when
+/// ADR-0031's pre-aggregated path is off or a resource-attribute chip is present. The
+/// projection deliberately omits <c>ResourceAttributes</c> (see 0025's remarks), so a
+/// chip-filtered edges query falls back to the base table too - correct, just not faster.
 /// </para>
 /// </remarks>
 public static class ServiceDependencyQueryBuilder
@@ -81,6 +81,9 @@ public static class ServiceDependencyQueryBuilder
 
     /// <summary>Same clamp as <see cref="ServiceOverviewQueryBuilder.ClampWindowMinutes"/> - kept as its own method (rather than callers reaching into that class) so this builder reads standalone.</summary>
     public static int ClampWindowMinutes(int requested) => ServiceOverviewQueryBuilder.ClampWindowMinutes(requested);
+
+    /// <summary>How far before the window's <c>from</c> an edge's parent span may have started and still count - see this class's remarks on why the parent side is bounded at all.</summary>
+    public static readonly TimeSpan ParentStartSlack = TimeSpan.FromHours(1);
 
     /// <summary><c>peer.service</c> override, else the span's own <c>ServiceName</c> - the SQL form of <c>service-map.ts</c>'s <c>effectiveService()</c>. <paramref name="alias"/> is the table alias/prefix (empty for the unqualified nodes query, <c>"parent."</c>/<c>"child."</c> for the self-joined edges query).</summary>
     private static string EffectiveServiceExpr(string alias) =>
@@ -121,10 +124,13 @@ public static class ServiceDependencyQueryBuilder
         edgesParameters.AddParameter("from", (now - window).UtcDateTime);
         edgesParameters.AddParameter("to", now.UtcDateTime);
 
+        edgesParameters.AddParameter("parentFrom", (now - window - ParentStartSlack).UtcDateTime);
+
         var edgesClauses = new List<string>
         {
             "child.StartTime >= {from:DateTime64(9)} AND child.StartTime < {to:DateTime64(9)}",
             "child.ParentSpanId != ''",
+            "parent.StartTime >= {parentFrom:DateTime64(9)} AND parent.StartTime < {to:DateTime64(9)}",
         };
         ResourceAttributeFilterSqlBuilder.AppendClauses(edgesClauses, edgesParameters, resourceAttributes, columnAlias: "parent.", paramPrefix: "parent");
         ResourceAttributeFilterSqlBuilder.AppendClauses(edgesClauses, edgesParameters, resourceAttributes, columnAlias: "child.", paramPrefix: "child");
