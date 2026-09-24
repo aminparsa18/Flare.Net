@@ -5,6 +5,7 @@
 // comment. `conditionKind`/`observedValue`/`noData` were appended after every pre-existing field,
 // same versioning reasoning as `AlertRule.ts`.
 // `baselineMean`/`zScore`/`baselineSampleCount` were appended after `noData`, same reasoning (ADR-0048).
+// `insufficientData`/`dataPointCount` were appended after `baselineSampleCount`, same reasoning (ADR-0050).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -21,6 +22,8 @@ export class AlertTestResult {
 	baselineMean: number | null;
 	zScore: number | null;
 	baselineSampleCount: number;
+	insufficientData: boolean;
+	dataPointCount: bigint | null;
 
 	constructor() {
 		this.observedCount = 0n;
@@ -33,6 +36,8 @@ export class AlertTestResult {
 		this.baselineMean = null;
 		this.zScore = null;
 		this.baselineSampleCount = 0;
+		this.insufficientData = false;
+		this.dataPointCount = null;
 	}
 
 	static serialize(value: AlertTestResult | null): Uint8Array {
@@ -47,7 +52,7 @@ export class AlertTestResult {
 			return;
 		}
 
-		writer.writeObjectHeader(10);
+		writer.writeObjectHeader(12);
 		writer.writeUint64(value.observedCount);
 		writer.writeBoolean(value.wouldFire);
 		writeDateTimeOffset(writer, value.evaluatedAt);
@@ -58,6 +63,8 @@ export class AlertTestResult {
 		writer.writeNullableFloat64(value.baselineMean);
 		writer.writeNullableFloat64(value.zScore);
 		writer.writeInt32(value.baselineSampleCount);
+		writer.writeBoolean(value.insufficientData);
+		writer.writeNullableUint64(value.dataPointCount);
 	}
 
 	static deserialize(buffer: ArrayBuffer): AlertTestResult | null {
@@ -71,7 +78,7 @@ export class AlertTestResult {
 		}
 
 		const value = new AlertTestResult();
-		if (count == 10) {
+		if (count == 12) {
 			value.observedCount = reader.readUint64();
 			value.wouldFire = reader.readBoolean();
 			value.evaluatedAt = readDateTimeOffset(reader);
@@ -82,7 +89,9 @@ export class AlertTestResult {
 			value.baselineMean = reader.readNullableFloat64();
 			value.zScore = reader.readNullableFloat64();
 			value.baselineSampleCount = reader.readInt32();
-		} else if (count > 10) {
+			value.insufficientData = reader.readBoolean();
+			value.dataPointCount = reader.readNullableUint64();
+		} else if (count > 12) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -106,6 +115,10 @@ export class AlertTestResult {
 			if (count == 9) return value;
 			value.baselineSampleCount = reader.readInt32();
 			if (count == 10) return value;
+			value.insufficientData = reader.readBoolean();
+			if (count == 11) return value;
+			value.dataPointCount = reader.readNullableUint64();
+			if (count == 12) return value;
 		}
 		return value;
 	}

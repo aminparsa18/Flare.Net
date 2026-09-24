@@ -223,6 +223,8 @@ level, search text) plus a count threshold evaluated on a rolling window,
 with a cooldown and a "test against current data" dry-run before saving.
 Each rule is checked every alert-worker poll tick (30s) by default, or on its
 own "Evaluate every" interval (1m-1h) for slow, expensive rules.
+A metric rule can also require a minimum number of data points in its
+window; with fewer, it reports insufficient data and doesn't fire.
 Firing notifies one or more notification channels, managed from this
 same page's "Channels" tab — reusable, named webhook/Slack, Telegram,
 email, or PagerDuty destinations a rule references by ID rather than

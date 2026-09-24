@@ -13,7 +13,8 @@
 // `AlertRule.NoDataWindowSeconds`'s C#-side doc comment. `evaluationIntervalSeconds` was
 // appended after `noDataWindowSeconds`, same reasoning - see `AlertRule.EvaluationIntervalSeconds`.
 // `anomalyCondition` was appended after `evaluationIntervalSeconds`, same reasoning - see
-// `AlertRule.AnomalyCondition` (ADR-0048).
+// `AlertRule.AnomalyCondition` (ADR-0048). `minDataPoints` was appended after `anomalyCondition`,
+// same reasoning - see `AlertRule.MinDataPoints` (ADR-0050).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -48,6 +49,7 @@ export class AlertRule {
 	noDataWindowSeconds: number;
 	evaluationIntervalSeconds: number;
 	anomalyCondition: AnomalyCondition | null;
+	minDataPoints: number;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -73,6 +75,7 @@ export class AlertRule {
 		this.noDataWindowSeconds = 0;
 		this.evaluationIntervalSeconds = 0;
 		this.anomalyCondition = null;
+		this.minDataPoints = 0;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -87,7 +90,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(23);
+		writer.writeObjectHeader(24);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -111,6 +114,7 @@ export class AlertRule {
 		writer.writeInt32(value.noDataWindowSeconds);
 		writer.writeInt32(value.evaluationIntervalSeconds);
 		AnomalyCondition.serializeCore(writer, value.anomalyCondition);
+		writer.writeInt32(value.minDataPoints);
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -134,7 +138,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 23) {
+		if (count == 24) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -158,7 +162,8 @@ export class AlertRule {
 			value.noDataWindowSeconds = reader.readInt32();
 			value.evaluationIntervalSeconds = reader.readInt32();
 			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
-		} else if (count > 23) {
+			value.minDataPoints = reader.readInt32();
+		} else if (count > 24) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -208,6 +213,8 @@ export class AlertRule {
 			if (count == 22) return value;
 			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
 			if (count == 23) return value;
+			value.minDataPoints = reader.readInt32();
+			if (count == 24) return value;
 		}
 		return value;
 	}

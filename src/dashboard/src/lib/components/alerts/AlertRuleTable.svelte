@@ -180,6 +180,9 @@
 							{#if rule.noDataWindowSeconds > 0}
 								<p class="text-muted-foreground">{m.alertRuleTable_noDataText({ window: rule.noDataWindowSeconds })}</p>
 							{/if}
+							{#if rule.minDataPoints > 0}
+								<p class="text-muted-foreground">{m.alertRuleTable_minDataPointsText({ points: rule.minDataPoints })}</p>
+							{/if}
 						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">
 							{rule.cooldownSeconds}s
@@ -208,6 +211,8 @@
 								<Badge variant={result.wouldFire ? 'warning' : 'outline'} class="ml-1">
 									{#if result.noData}
 										{m.alertRuleTable_testResultNoData()}
+									{:else if result.insufficientData}
+										{m.alertRuleTable_testResultInsufficientData({ points: result.dataPointCount ?? 0 })}
 									{:else if result.conditionKind === 'Anomaly'}
 										{result.zScore === undefined
 											? m.alertRuleTable_testResultAnomalyNoHistory()

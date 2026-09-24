@@ -234,6 +234,9 @@ essai à blanc « tester sur les données actuelles » avant l'enregistrement.
 Chaque règle est vérifiée à chaque cycle d'interrogation du worker d'alertes
 (30 s) par défaut, ou selon son propre intervalle « Evaluate every »
 (1 min à 1 h) pour les règles lentes ou coûteuses.
+Une règle sur une métrique peut aussi exiger un nombre minimal de points de
+données dans sa fenêtre ; en dessous, elle signale des données insuffisantes
+et ne se déclenche pas.
 Le déclenchement notifie un ou plusieurs canaux de notification, gérés
 depuis l'onglet « Channels » de cette même page — des destinations
 réutilisables et nommées (webhook/Slack, Telegram, e-mail ou PagerDuty)

@@ -129,7 +129,7 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ExceptionCondition, rule.AnomalyCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ExceptionCondition, rule.AnomalyCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, rule.MinDataPoints, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -150,7 +150,7 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ExceptionCondition, request.AnomalyCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ExceptionCondition, request.AnomalyCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, request.MinDataPoints ?? 0, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -222,6 +222,7 @@ public static class AlertEndpoints
             NoDataWindowSeconds = defaults.NoDataWindowSeconds,
             EvaluationIntervalSeconds = defaults.EvaluationIntervalSeconds,
             AnomalyCondition = request.AnomalyCondition,
+            MinDataPoints = defaults.MinDataPoints,
         };
 
         var result = await SendTestAsync(notifier, channels, draftRule, timeProvider, cancellationToken);
@@ -274,7 +275,10 @@ public static class AlertEndpoints
     /// either. With <paramref name="noDataWindowSeconds"/> enabled, an absent-data result
     /// (<see cref="AlertNoDataEvaluator"/>) takes precedence over the threshold, same as
     /// <c>AlertEvaluationWorker</c>. An <see cref="AlertConditionKind.Anomaly"/> rule/draft is
-    /// scored through <see cref="AnomalyEvaluator"/>, the same path the worker uses.
+    /// scored through <see cref="AnomalyEvaluator"/>, the same path the worker uses. A metric
+    /// rule/draft with <paramref name="minDataPoints"/> enabled reports
+    /// <see cref="AlertTestResult.InsufficientData"/> (and never fires) below that many points
+    /// (<see cref="AlertMinDataPointsEvaluator"/>).
     /// </summary>
     private static async Task<AlertTestResult> EvaluateAsync(
         IAlertQueryService alerts,
@@ -288,6 +292,7 @@ public static class AlertEndpoints
         AnomalyCondition? anomalyCondition,
         int windowSeconds,
         int noDataWindowSeconds,
+        int minDataPoints,
         CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
@@ -306,16 +311,20 @@ public static class AlertEndpoints
                 return new AlertTestResult { ObservedCount = 0, WouldFire = false, EvaluatedAt = now, WindowSeconds = windowSeconds, ConditionKind = conditionKind, ObservedValue = null };
             }
 
+            var pointCount = await AlertMinDataPointsEvaluator.CountAsync(alerts, metricCondition, minDataPoints, from, now, cancellationToken);
+            var insufficient = AlertMinDataPointsEvaluator.IsInsufficient(minDataPoints, pointCount);
             var (value, _) = await alerts.EvaluateMetricConditionAsync(metricCondition, from, now, cancellationToken);
             return new AlertTestResult
             {
                 ObservedCount = 0,
-                WouldFire = threshold.IsBreachedValue(value, thresholdValue),
+                WouldFire = !insufficient && threshold.IsBreachedValue(value, thresholdValue),
                 EvaluatedAt = now,
                 WindowSeconds = windowSeconds,
                 ConditionKind = conditionKind,
                 // NaN (empty window) isn't writable as JSON - same null mapping as the Anomaly branch below.
                 ObservedValue = double.IsNaN(value) ? null : value,
+                InsufficientData = insufficient,
+                DataPointCount = pointCount,
             };
         }
 

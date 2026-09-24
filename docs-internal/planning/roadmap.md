@@ -162,12 +162,6 @@ folders are where "what happened and why" actually lives.
   set-password link, expiring) plus a dashboard form on the users page;
   bulk invite is a nice-to-have. Not started. Prior art:
   [signoz#6057](https://github.com/SigNoz/signoz/commit/fc4b55cb34b48fd3f47719be6ad6008b42d7e77d).
-- **Minimum data points for alert evaluation.** An optional per-rule
-  "require at least N points in the window" so a `MetricThreshold`
-  average over one or two sparse samples doesn't fire (treated as
-  "insufficient data", not breach). Pairs with the absent-data item
-  above. Not started. Prior art:
-  [signoz#5242](https://github.com/SigNoz/signoz/commit/4f76e13dbe6a62e394a1b3c583cd1c1d8826af0f).
 - **Per-panel descriptions on dashboards.** Dashboards have a
   description, panels don't; an optional panel description shown via an
   info icon next to the title. Frontend-only (stored panel JSON). Not

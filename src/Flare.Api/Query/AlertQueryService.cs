@@ -88,7 +88,7 @@ public interface IAlertQueryService
 public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IAlertQueryService
 {
     private const string RuleColumns =
-        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson";
+        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints";
 
     /// <summary>
     /// Resolves <see cref="AlertRuleRequest"/>'s nullable optional members to their real
@@ -100,7 +100,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
     /// same reasoning <see cref="LogSearchQueryBuilder.Build"/> is a static pure builder
     /// rather than an instance method.
     /// </summary>
-    internal static (string Description, bool Enabled, int CooldownSeconds, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey, AlertConditionKind ConditionKind, IReadOnlyList<Guid> ChannelIds, int NoDataWindowSeconds, int EvaluationIntervalSeconds) ResolveDefaults(AlertRuleRequest request) => (
+    internal static (string Description, bool Enabled, int CooldownSeconds, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey, AlertConditionKind ConditionKind, IReadOnlyList<Guid> ChannelIds, int NoDataWindowSeconds, int EvaluationIntervalSeconds, int MinDataPoints) ResolveDefaults(AlertRuleRequest request) => (
         Description: request.Description ?? "",
         Enabled: request.Enabled ?? true,
         CooldownSeconds: request.CooldownSeconds ?? 300,
@@ -112,7 +112,8 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         ConditionKind: request.ConditionKind ?? AlertConditionKind.LogCount,
         ChannelIds: request.ChannelIds ?? [],
         NoDataWindowSeconds: request.NoDataWindowSeconds ?? 0,
-        EvaluationIntervalSeconds: request.EvaluationIntervalSeconds ?? 0);
+        EvaluationIntervalSeconds: request.EvaluationIntervalSeconds ?? 0,
+        MinDataPoints: request.MinDataPoints ?? 0);
 
     public async Task<AlertRule> CreateAsync(AlertRuleRequest request, CancellationToken cancellationToken)
     {
@@ -143,6 +144,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             NoDataWindowSeconds = defaults.NoDataWindowSeconds,
             EvaluationIntervalSeconds = defaults.EvaluationIntervalSeconds,
             AnomalyCondition = request.AnomalyCondition,
+            MinDataPoints = defaults.MinDataPoints,
         };
 
         await InsertRuleVersionAsync(rule, isDeleted: false, cancellationToken);
@@ -197,6 +199,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             NoDataWindowSeconds = defaults.NoDataWindowSeconds,
             EvaluationIntervalSeconds = defaults.EvaluationIntervalSeconds,
             AnomalyCondition = request.AnomalyCondition,
+            MinDataPoints = defaults.MinDataPoints,
         };
 
         await InsertRuleVersionAsync(updated, isDeleted: false, cancellationToken);
@@ -426,12 +429,13 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("noDataWindowSeconds", (uint)rule.NoDataWindowSeconds);
         parameters.AddParameter("evaluationIntervalSeconds", (uint)rule.EvaluationIntervalSeconds);
         parameters.AddParameter("anomalyConditionJson", rule.AnomalyCondition is null ? "" : JsonSerializer.Serialize(rule.AnomalyCondition, AlertsJsonContext.Default.AnomalyCondition));
+        parameters.AddParameter("minDataPoints", (uint)rule.MinDataPoints);
 
         const string sql = """
             INSERT INTO alert_rules
-                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson)
+                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)}, {channelIds:Array(UUID)}, {exceptionConditionJson:String}, {noDataWindowSeconds:UInt32}, {evaluationIntervalSeconds:UInt32}, {anomalyConditionJson:String})
+                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)}, {channelIds:Array(UUID)}, {exceptionConditionJson:String}, {noDataWindowSeconds:UInt32}, {evaluationIntervalSeconds:UInt32}, {anomalyConditionJson:String}, {minDataPoints:UInt32})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -483,6 +487,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         AnomalyCondition = NullIfEmpty(reader.GetString(23)) is { } anomalyJson
             ? JsonSerializer.Deserialize(anomalyJson, AlertsJsonContext.Default.AnomalyCondition)
             : null,
+        MinDataPoints = (int)reader.GetFieldValue<uint>(24),
     };
 
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;

@@ -223,6 +223,16 @@ public sealed class AlertEvaluationWorker(
                 return;
             }
 
+            // Minimum sample size (ADR-0050): too few points in the window is "insufficient
+            // data", not a breach - checked after no-data, so zero points still fires no-data
+            // when that's enabled.
+            var pointCount = await AlertMinDataPointsEvaluator.CountAsync(alerts, rule.MetricCondition, rule.MinDataPoints, from, now, cancellationToken);
+            if (AlertMinDataPointsEvaluator.IsInsufficient(rule.MinDataPoints, pointCount))
+            {
+                logger.LogDebug("Alert rule {RuleId} ({RuleName}) has {PointCount}/{MinDataPoints} data points in its window; insufficient data, not evaluating.", rule.Id, rule.Name, pointCount, rule.MinDataPoints);
+                return;
+            }
+
             (var value, metricUnit) = await alerts.EvaluateMetricConditionAsync(rule.MetricCondition, from, now, cancellationToken);
             observedValue = value;
             breached = rule.Threshold.IsBreachedValue(observedValue.Value, thresholdValue);

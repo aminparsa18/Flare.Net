@@ -400,6 +400,20 @@ public sealed partial record AlertRule
     /// same versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public AnomalyCondition? AnomalyCondition { get; init; }
+
+    /// <summary>
+    /// Opt-in minimum sample size for <see cref="AlertConditionKind.MetricThreshold"/> rules:
+    /// when greater than 0, the threshold is only compared if the condition matched at least
+    /// this many raw data points (across every matched series) over <see cref="WindowSeconds"/>.
+    /// Fewer points is "insufficient data" - the rule doesn't fire, rather than e.g. firing on
+    /// an average of one or two sparse samples. 0 (the default, and every rule created before
+    /// this field existed) disables it. Complements <see cref="NoDataWindowSeconds"/>, which is
+    /// what fires on zero points; a rule may use both. Rejected for every other condition kind
+    /// by <see cref="AlertRuleRequest.ValidateCondition"/> - a count rule's observed count <i>is</i>
+    /// its sample size. See <c>docs-internal/adr/0050-alert-minimum-data-points.md</c>. Appended
+    /// after <see cref="AnomalyCondition"/>, same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public int MinDataPoints { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -480,6 +494,9 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.AnomalyCondition"/>'s doc comment. Appended after <see cref="EvaluationIntervalSeconds"/>, same versioning reasoning.</summary>
     public AnomalyCondition? AnomalyCondition { get; init; }
+
+    /// <summary>See <see cref="AlertRule.MinDataPoints"/>'s doc comment. Omitted/null means 0 (disabled). Appended after <see cref="AnomalyCondition"/>, same versioning reasoning.</summary>
+    public int? MinDataPoints { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
@@ -585,7 +602,17 @@ public sealed partial record AlertRuleRequest
             _ => null,
         };
 
-        return conditionError ?? noDataError ?? intervalError;
+        var minDataPointsError = (MinDataPoints ?? 0) switch
+        {
+            0 => null,
+            < 0 or > MaxMinDataPoints =>
+                $"minDataPoints must be 0 (disabled) or between 1 and {MaxMinDataPoints}.",
+            _ when kind != AlertConditionKind.MetricThreshold =>
+                "minDataPoints is only supported when conditionKind is MetricThreshold - a count rule's observed count is already its sample size.",
+            _ => null,
+        };
+
+        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError;
     }
 
     /// <summary>
@@ -629,6 +656,9 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>The longest <see cref="EvaluationIntervalSeconds"/> <see cref="ValidateCondition"/> accepts (24h).</summary>
     public const int MaxEvaluationIntervalSeconds = 86_400;
+
+    /// <summary>The largest <see cref="MinDataPoints"/> <see cref="ValidateCondition"/> accepts.</summary>
+    public const int MaxMinDataPoints = 100_000;
 }
 
 /// <summary>Response body for <c>GET /api/alerts</c>.</summary>
@@ -759,6 +789,17 @@ public sealed partial record AlertTestResult
     /// 0 for every other kind.
     /// </summary>
     public int BaselineSampleCount { get; init; }
+
+    /// <summary>
+    /// True when the rule/draft has <see cref="AlertRule.MinDataPoints"/> enabled and its metric
+    /// condition matched fewer points than that over the window - <see cref="WouldFire"/> is
+    /// then false regardless of the threshold, same as <c>AlertEvaluationWorker</c>. Appended
+    /// after <see cref="BaselineSampleCount"/>, same versioning reasoning.
+    /// </summary>
+    public bool InsufficientData { get; init; }
+
+    /// <summary>The window's raw point count, set only when <see cref="AlertRule.MinDataPoints"/> is enabled (the count is only queried then); null otherwise.</summary>
+    public ulong? DataPointCount { get; init; }
 }
 
 /// <summary>

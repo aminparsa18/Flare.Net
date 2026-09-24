@@ -135,6 +135,11 @@ rule). The per-rule last-evaluated timestamp lives in Redis, not ClickHouse. See
 `alert_events.BaselineMean`/`ZScore` (set only for an anomaly fire). See
 [ADR-0048](../../docs-internal/adr/0048-anomaly-detection-alerting.md).
 
+`0029_alert_min_data_points.sql` - minimum data points for metric alerts:
+`alert_rules.MinDataPoints` (0 = off, the default for every existing rule). A
+`MetricThreshold` rule with fewer points than this in its window is "insufficient data" and
+doesn't fire. See [ADR-0050](../../docs-internal/adr/0050-alert-minimum-data-points.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
