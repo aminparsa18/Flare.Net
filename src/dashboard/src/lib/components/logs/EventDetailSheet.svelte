@@ -11,6 +11,7 @@
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import { severityVariant } from '$lib/logs/severity';
 	import { logsExplorerContext } from '$lib/logs/context';
+	import { pinnedAttributes } from '$lib/logs/pinned-attributes.svelte';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import * as m from '$lib/paraglide/messages';
 
@@ -45,6 +46,30 @@
 		delete rest[EXCEPTION_STACKTRACE_KEY];
 		return rest;
 	});
+
+	// Pinned keys pulled out of whichever bag holds them (log, then resource, then scope)
+	// into one Pinned table, in pin order - and dropped from that one bag's own table so
+	// the row doesn't render twice. A key that also exists in a later bag (rare) stays
+	// visible there, since that's a different value.
+	const attributeSections = $derived.by(() => {
+		const event = explorer.selectedEvent;
+		const log = { ...logAttributesWithoutException };
+		const resource = { ...event?.resourceAttributes };
+		const scope = { ...event?.scopeAttributes };
+		const pinned = new Map<string, string>();
+		for (const key of pinnedAttributes.keys) {
+			const bag = [log, resource, scope].find((b) => key in b);
+			if (!bag) continue;
+			pinned.set(key, bag[key]);
+			delete bag[key];
+		}
+		return { pinned, log, resource, scope };
+	});
+
+	const pinProps = {
+		isPinned: (key: string) => pinnedAttributes.has(key),
+		onTogglePin: (key: string) => pinnedAttributes.toggle(key)
+	};
 
 	function formatTimestamp(iso: string): string {
 		// Every field spelled out: passing fractionalSecondDigits alone switches off toLocaleString's date/time defaults.
@@ -131,7 +156,7 @@
 			</Sheet.Header>
 			<ScrollArea class="min-h-0 flex-1 px-4">
 				<div class="flex flex-col gap-4 pb-8">
-					<p class="text-sm">{event.body}</p>
+					<p class="text-sm break-words whitespace-pre-wrap">{event.body}</p>
 
 					<Separator />
 
@@ -187,9 +212,10 @@
 						</div>
 					{/if}
 
-					<AttributeTable title={m.eventDetail_logAttributes()} attributes={logAttributesWithoutException} />
-					<AttributeTable title={m.eventDetail_resourceAttributes()} attributes={event.resourceAttributes} />
-					<AttributeTable title={m.eventDetail_scopeAttributes()} attributes={event.scopeAttributes} />
+					<AttributeTable title={m.eventDetail_pinnedAttributes()} attributes={attributeSections.pinned} {...pinProps} />
+					<AttributeTable title={m.eventDetail_logAttributes()} attributes={attributeSections.log} {...pinProps} />
+					<AttributeTable title={m.eventDetail_resourceAttributes()} attributes={attributeSections.resource} {...pinProps} />
+					<AttributeTable title={m.eventDetail_scopeAttributes()} attributes={attributeSections.scope} {...pinProps} />
 				</div>
 			</ScrollArea>
 		{/if}

@@ -66,10 +66,6 @@ folders are where "what happened and why" actually lives.
   merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
   exponential-histogram table + quantile merge
   ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
-- **Pin attributes in the log event detail view.** Let a user pin chosen
-  attribute keys so they render first in `EventDetailSheet` for every
-  event (per-browser preference). Frontend-only. Not started. Prior art:
-  [signoz#4692](https://github.com/SigNoz/signoz/commit/9f30bba9a8e50f2403a2f7503f29bd2b01f172f7).
 - **Configurable lines per row in the Logs table.** `LogTable` has no
   density/line-count option (1 line / N lines / full wrap for the body
   column). Frontend-only, likely carried in a saved search like other

@@ -1,6 +1,22 @@
 <script lang="ts">
-	let { title, attributes }: { title: string; attributes: Record<string, string> } = $props();
-	const entries = $derived(Object.entries(attributes));
+	import PinIcon from '@lucide/svelte/icons/pin';
+	import PinOffIcon from '@lucide/svelte/icons/pin-off';
+	import * as m from '$lib/paraglide/messages';
+
+	let {
+		title,
+		attributes,
+		isPinned,
+		onTogglePin
+	}: {
+		title: string;
+		/** A Map (not just a Record) so a caller can hand over an explicit row order. */
+		attributes: Record<string, string> | Map<string, string>;
+		/** Both optional - without onTogglePin no pin button renders (e.g. SpanDetailSheet). */
+		isPinned?: (key: string) => boolean;
+		onTogglePin?: (key: string) => void;
+	} = $props();
+	const entries = $derived(attributes instanceof Map ? [...attributes] : Object.entries(attributes));
 </script>
 
 {#if entries.length > 0}
@@ -16,9 +32,32 @@
 		     out the value column), computed jointly, and rows stay aligned. -->
 		<div class="grid grid-cols-[minmax(0,min(max-content,16rem))_minmax(0,1fr)] rounded-md border text-sm">
 			{#each entries as [key, value] (key)}
-				<div class="col-span-2 grid grid-cols-subgrid gap-2 border-b px-2 py-1 last:border-b-0">
+				<div class="group col-span-2 grid grid-cols-subgrid gap-2 border-b px-2 py-1 last:border-b-0">
 					<span class="text-muted-foreground truncate font-mono text-xs">{key}</span>
-					<span class="truncate font-mono text-xs">{value}</span>
+					<span class="flex min-w-0 items-center gap-1">
+						<span class="flex-1 truncate font-mono text-xs">{value}</span>
+						{#if onTogglePin}
+							{@const pinned = isPinned?.(key) ?? false}
+							<!-- Hover/focus-revealed so an unpinned table isn't a column of icons;
+							     always visible once pinned, as the only visible "this is pinned" cue. -->
+							<button
+								type="button"
+								class="text-muted-foreground hover:text-foreground shrink-0 {pinned
+									? ''
+									: 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}"
+								title={pinned ? m.eventDetail_unpinAttribute() : m.eventDetail_pinAttribute()}
+								aria-label={pinned ? m.eventDetail_unpinAttribute() : m.eventDetail_pinAttribute()}
+								aria-pressed={pinned}
+								onclick={() => onTogglePin(key)}
+							>
+								{#if pinned}
+									<PinOffIcon class="size-3.5" />
+								{:else}
+									<PinIcon class="size-3.5" />
+								{/if}
+							</button>
+						{/if}
+					</span>
 				</div>
 			{/each}
 		</div>
