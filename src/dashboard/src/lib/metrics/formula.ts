@@ -14,11 +14,20 @@ export type FormulaNode =
 	| { kind: 'ref'; letter: string }
 	| { kind: 'unary'; op: '-'; operand: FormulaNode }
 	| { kind: 'binary'; op: '+' | '-' | '*' | '/'; left: FormulaNode; right: FormulaNode }
-	| { kind: 'call'; fn: 'exp' | 'log' | 'sqrt'; arg: FormulaNode };
+	| { kind: 'call'; fn: FormulaFunction; arg: FormulaNode };
+
+/** `exp`/`log`/`sqrt` are pointwise; `runningDiff` is the one series-level function - each point's value minus the previous point's value in the same joined series (see `runningDiff` below). */
+export type FormulaFunction = 'exp' | 'log' | 'sqrt' | 'runningDiff';
 
 export type ParseResult = { ok: true; node: FormulaNode } | { ok: false; error: string };
 
-const FUNCTIONS = new Set(['exp', 'log', 'sqrt']);
+/** Lowercased name -> canonical name, so function names stay case-insensitive (`runningdiff(A)` works) while the AST and error messages use one spelling. */
+const FUNCTIONS = new Map<string, FormulaFunction>([
+	['exp', 'exp'],
+	['log', 'log'],
+	['sqrt', 'sqrt'],
+	['runningdiff', 'runningDiff']
+]);
 
 /** A single query-letter reference is exactly one uppercase ASCII letter (A-Z), same convention `FormulaQueryDef.letter` (state.svelte.ts) assigns them in. */
 function isLetter(ch: string): boolean {
@@ -74,9 +83,9 @@ function tokenize(expr: string): Token[] | { error: string } {
 /**
  * Recursive-descent parser, standard precedence: unary minus > `*`/`/` > `+`/`-`. A bare
  * identifier is a query-letter reference (`A`, `B`, ...) unless it's one of the reserved
- * function names (`exp`/`log`/`sqrt`), which must be followed by a single parenthesized
- * argument - the same three functions the roadmap item names, no others (no `^`/power - not
- * asked for, and it'd need a precedence tier of its own).
+ * function names (`exp`/`log`/`sqrt`/`runningDiff`), which must be followed by a single
+ * parenthesized argument (no `^`/power - not asked for, and it'd need a precedence tier of its
+ * own).
  */
 export function parseFormula(expr: string): ParseResult {
 	const trimmed = expr.trim();
@@ -136,9 +145,9 @@ export function parseFormula(expr: string): ParseResult {
 		}
 		if (tok.type === 'ident') {
 			advance();
-			const fn = tok.value!.toLowerCase();
-			if (!FUNCTIONS.has(fn)) {
-				return { error: `Unknown function "${tok.value}" - supported: ${[...FUNCTIONS].join(', ')}.` };
+			const fn = FUNCTIONS.get(tok.value!.toLowerCase());
+			if (!fn) {
+				return { error: `Unknown function "${tok.value}" - supported: ${[...FUNCTIONS.values()].join(', ')}.` };
 			}
 			if (peek().type !== '(') return { error: `Expected "(" after "${tok.value}".` };
 			advance();
@@ -146,7 +155,7 @@ export function parseFormula(expr: string): ParseResult {
 			if ('error' in arg) return arg;
 			if (peek().type !== ')') return { error: `Expected ")" to close "${tok.value}(".` };
 			advance();
-			return { kind: 'call', fn: fn as 'exp' | 'log' | 'sqrt', arg };
+			return { kind: 'call', fn, arg };
 		}
 		if (tok.type === '(') {
 			advance();
@@ -191,31 +200,72 @@ export function collectRefs(node: FormulaNode): Set<string> {
 	return refs;
 }
 
-/** `null` propagates through every operator/function - a missing/invalid operand makes the whole point undefined rather than a silently wrong number (NaN/Infinity from e.g. `1/0` or `log(-1)` also collapses to `null` here, one honest "no value" outcome instead of a chart secretly plotting a non-finite y). */
-function evaluateNode(node: FormulaNode, bindings: Record<string, number>): number | null {
+type Vector = (number | null)[];
+
+function finiteOrNull(v: number): number | null {
+	return Number.isFinite(v) ? v : null;
+}
+
+function mapVector(v: Vector, f: (x: number) => number): Vector {
+	return v.map((x) => (x == null ? null : finiteOrNull(f(x))));
+}
+
+/**
+ * Point-to-point delta: each defined point minus the previous *defined* point of the same
+ * series; the first defined point has no predecessor and becomes `null` (dropped from the
+ * chart), same as SigNoz's runningDiff. "Previous" is the previous point that exists, not the
+ * previous time bucket - a bucket missing from the inner join (or undefined, e.g. `log(-1)`)
+ * is skipped rather than breaking the chain, so a gap yields one delta spanning it. Computed
+ * here rather than via ClickHouse's `runningDifference`, which resets at data-block boundaries
+ * and so silently produces wrong deltas mid-series.
+ */
+function runningDiff(v: Vector): Vector {
+	let prev: number | null = null;
+	return v.map((x) => {
+		if (x == null) return null;
+		const delta = prev == null ? null : finiteOrNull(x - prev);
+		prev = x;
+		return delta;
+	});
+}
+
+/**
+ * Evaluates a formula over one joined series at once - `bindings[letter][i]` is that letter's
+ * value at the series' i-th common bucket - rather than one bucket at a time, because
+ * `runningDiff` needs each point's predecessor. `null` propagates through every
+ * operator/function - a missing/invalid operand makes that point undefined rather than a
+ * silently wrong number (NaN/Infinity from e.g. `1/0` or `log(-1)` also collapses to `null`
+ * here, one honest "no value" outcome instead of a chart secretly plotting a non-finite y).
+ */
+function evaluateVector(node: FormulaNode, bindings: Record<string, number[]>, length: number): Vector {
 	switch (node.kind) {
 		case 'num':
-			return node.value;
-		case 'ref': {
-			const v = bindings[node.letter];
-			return v == null ? null : v;
-		}
-		case 'unary': {
-			const v = evaluateNode(node.operand, bindings);
-			return v == null ? null : -v;
+			return new Array<number | null>(length).fill(node.value);
+		case 'ref':
+			return bindings[node.letter];
+		case 'unary':
+			return mapVector(evaluateVector(node.operand, bindings, length), (x) => -x);
+		case 'binary': {
+			const l = evaluateVector(node.left, bindings, length);
+			const r = evaluateVector(node.right, bindings, length);
+			return l.map((lv, i) => {
+				const rv = r[i];
+				if (lv == null || rv == null) return null;
+				return finiteOrNull(node.op === '+' ? lv + rv : node.op === '-' ? lv - rv : node.op === '*' ? lv * rv : lv / rv);
+			});
 		}
 		case 'call': {
-			const v = evaluateNode(node.arg, bindings);
-			if (v == null) return null;
-			const result = node.fn === 'exp' ? Math.exp(v) : node.fn === 'sqrt' ? Math.sqrt(v) : Math.log(v);
-			return Number.isFinite(result) ? result : null;
-		}
-		case 'binary': {
-			const l = evaluateNode(node.left, bindings);
-			const r = evaluateNode(node.right, bindings);
-			if (l == null || r == null) return null;
-			const result = node.op === '+' ? l + r : node.op === '-' ? l - r : node.op === '*' ? l * r : l / r;
-			return Number.isFinite(result) ? result : null;
+			const arg = evaluateVector(node.arg, bindings, length);
+			switch (node.fn) {
+				case 'exp':
+					return mapVector(arg, Math.exp);
+				case 'log':
+					return mapVector(arg, Math.log);
+				case 'sqrt':
+					return mapVector(arg, Math.sqrt);
+				case 'runningDiff':
+					return runningDiff(arg);
+			}
 		}
 	}
 }
@@ -293,14 +343,16 @@ export function evaluateFormula(node: FormulaNode, inputs: FormulaSeriesInput[])
 		const perLetterForKey = refs.map((l) => perLetter.get(l)!.get(key)!);
 		const commonBucketsMs = [...intersect(perLetterForKey.map((i) => new Set(i.byBucketMs.keys())))].sort((a, b) => a - b);
 
+		const bindings: Record<string, number[]> = {};
+		for (let i = 0; i < refs.length; i++) bindings[refs[i]] = commonBucketsMs.map((ms) => perLetterForKey[i].byBucketMs.get(ms)!);
+		const values = evaluateVector(node, bindings, commonBucketsMs.length);
+
 		const points: MetricSeriesPoint[] = [];
-		for (const bucketMs of commonBucketsMs) {
-			const bindings: Record<string, number> = {};
-			for (let i = 0; i < refs.length; i++) bindings[refs[i]] = perLetterForKey[i].byBucketMs.get(bucketMs)!;
-			const value = evaluateNode(node, bindings);
+		for (let b = 0; b < commonBucketsMs.length; b++) {
+			const value = values[b];
 			if (value == null) continue;
 			points.push({
-				bucketStart: new Date(bucketMs).toISOString(),
+				bucketStart: new Date(commonBucketsMs[b]).toISOString(),
 				value,
 				count: null,
 				sum: null,

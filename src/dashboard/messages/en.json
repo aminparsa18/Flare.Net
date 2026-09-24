@@ -409,7 +409,7 @@
 	"formulaBuilder_removeQuery": "Remove query {letter}",
 	"formulaBuilder_addQuery": "Add query",
 	"formulaBuilder_expressionLabel": "Formula",
-	"formulaBuilder_expressionHint": "Combine queries with + - * / and exp()/log()/sqrt(), e.g. (A / B) * 100",
+	"formulaBuilder_expressionHint": "Combine queries with + - * / and exp()/log()/sqrt()/runningDiff(), e.g. (A / B) * 100",
 	"formulaChart_errorTitle": "Formula failed",
 	"formulaChart_noDataTitle": "No data",
 	"formulaChart_noDataDescription": "No matching data points for this formula yet.",

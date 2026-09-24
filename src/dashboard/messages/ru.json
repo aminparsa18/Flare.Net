@@ -407,7 +407,7 @@
 	"formulaBuilder_removeQuery": "Удалить запрос {letter}",
 	"formulaBuilder_addQuery": "Добавить запрос",
 	"formulaBuilder_expressionLabel": "Формула",
-	"formulaBuilder_expressionHint": "Комбинируйте запросы с помощью + - * / и exp()/log()/sqrt(), например (A / B) * 100",
+	"formulaBuilder_expressionHint": "Комбинируйте запросы с помощью + - * / и exp()/log()/sqrt()/runningDiff(), например (A / B) * 100",
 	"formulaChart_errorTitle": "Ошибка формулы",
 	"formulaChart_noDataTitle": "Нет данных",
 	"formulaChart_noDataDescription": "Пока нет совпадающих точек данных для этой формулы.",

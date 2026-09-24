@@ -409,7 +409,7 @@
 	"formulaBuilder_removeQuery": "移除查询 {letter}",
 	"formulaBuilder_addQuery": "添加查询",
 	"formulaBuilder_expressionLabel": "公式",
-	"formulaBuilder_expressionHint": "使用 + - * / 以及 exp()/log()/sqrt() 组合查询，例如 (A / B) * 100",
+	"formulaBuilder_expressionHint": "使用 + - * / 以及 exp()/log()/sqrt()/runningDiff() 组合查询，例如 (A / B) * 100",
 	"formulaChart_errorTitle": "公式计算失败",
 	"formulaChart_noDataTitle": "暂无数据",
 	"formulaChart_noDataDescription": "此公式暂无匹配的数据点。",

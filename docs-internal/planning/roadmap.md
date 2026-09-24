@@ -147,12 +147,6 @@ folders are where "what happened and why" actually lives.
   plus stacked-series rendering in `VolumeChart`, then a "group by" action on
   `AttributeTable` rows next to the existing filter-for/out/copy actions.
   Not started. Prior art: group by from log details [signoz#5753](https://github.com/SigNoz/signoz/commit/ab1caf13fc201bf99e0317c2d5f445f485882b10).
-- **`runningDiff` (point-to-point delta) metric function.** Change between
-  consecutive points of a series, e.g. for gauges where the step change
-  matters more than the level. Likely a new function in the Metrics
-  Formula mode (ADR-0036) rather than a ClickHouse `runningDifference`
-  (which misbehaves across block boundaries). Not started. Prior art:
-  [signoz#5667](https://github.com/SigNoz/signoz/commit/4489df6f395fa6ba4e2cbc79011f10fb6c76e628).
 - **More metric-alert match types.** A Gauge `MetricThreshold` rule always
   compares the window's *average* (`MetricAlertAggregation.Value` =
   `avg(Value)`); there's no "last value", "max"/"min", or "every point in
