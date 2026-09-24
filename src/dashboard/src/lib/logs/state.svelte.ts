@@ -12,6 +12,7 @@ import {
 	type LogFilter,
 	type LiveTailStatus,
 	type LiveTailConnection,
+	type AttributeBag,
 	type AttributeFilter,
 	type BodyJsonFilter,
 	type LogPostProcessFunction
@@ -462,6 +463,20 @@ export class LogsExplorerState {
 		this.selectedBucketRange = null;
 		this.filter.attributeFilters = attributeFilters;
 		this.applyFilterChange();
+	}
+
+	/**
+	 * EventDetailSheet's per-attribute "filter for / filter out value" actions - appends an
+	 * Equals (or NotEquals, when `exclude`) filter to the user-built attribute filters,
+	 * first dropping any existing Equals/NotEquals filter on the same bag+key+value so
+	 * clicking the same action twice doesn't stack a duplicate and flipping for<->out
+	 * replaces rather than contradicts it.
+	 */
+	addAttributeValueFilter(bag: AttributeBag, key: string, value: string, exclude: boolean): void {
+		const rest = this.filter.attributeFilters.filter(
+			(f) => !(f.bag === bag && f.key === key && f.value === value && ((f.operator ?? 'Equals') === 'Equals' || f.operator === 'NotEquals'))
+		);
+		this.setAttributeFilters([...rest, { bag, key, value, operator: exclude ? 'NotEquals' : 'Equals' }]);
 	}
 
 	/** Wholesale-replaces the user-built JSON-path filters into Body (BodyJsonFiltersRow.svelte) - same "one setter, caller passes the full next array" shape as setAttributeFilters. */

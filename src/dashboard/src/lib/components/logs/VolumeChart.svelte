@@ -149,6 +149,12 @@
 		void explorer.filter.services;
 		void explorer.filter.severityNumbers;
 		void explorer.filter.search;
+		// Everything else buildFilter reads - without these the chart stayed stale after an
+		// attribute/JSON-path/pattern filter change while the log table re-searched.
+		void explorer.filter.patternId;
+		void explorer.filter.attribute;
+		void explorer.filter.attributeFilters;
+		void explorer.filter.bodyJsonFilters;
 		void explorer.filter.postProcessFunctions;
 		void explorer.filter.timeShiftSeconds;
 		void explorer.live;

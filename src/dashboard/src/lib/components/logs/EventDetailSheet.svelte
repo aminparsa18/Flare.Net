@@ -14,6 +14,7 @@
 	import { pinnedAttributes } from '$lib/logs/pinned-attributes.svelte';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import * as m from '$lib/paraglide/messages';
+	import type { AttributeBag } from '$lib/api';
 
 	const explorer = logsExplorerContext.get();
 
@@ -57,19 +58,36 @@
 		const resource = { ...event?.resourceAttributes };
 		const scope = { ...event?.scopeAttributes };
 		const pinned = new Map<string, string>();
+		// Which bag each pinned row came from - the Pinned table mixes bags, and a
+		// filter-for/out action needs the right one to build its AttributeFilter.
+		const pinnedBags = new Map<string, AttributeBag>();
+		const bags: [AttributeBag, Record<string, string>][] = [
+			['Log', log],
+			['Resource', resource],
+			['Scope', scope]
+		];
 		for (const key of pinnedAttributes.keys) {
-			const bag = [log, resource, scope].find((b) => key in b);
-			if (!bag) continue;
+			const found = bags.find(([, b]) => key in b);
+			if (!found) continue;
+			const [bagName, bag] = found;
 			pinned.set(key, bag[key]);
+			pinnedBags.set(key, bagName);
 			delete bag[key];
 		}
-		return { pinned, log, resource, scope };
+		return { pinned, pinnedBags, log, resource, scope };
 	});
 
 	const pinProps = {
 		isPinned: (key: string) => pinnedAttributes.has(key),
 		onTogglePin: (key: string) => pinnedAttributes.toggle(key)
 	};
+
+	function filterInto(bag: AttributeBag | ((key: string) => AttributeBag | undefined)) {
+		return (key: string, value: string, exclude: boolean) => {
+			const resolved = typeof bag === 'function' ? bag(key) : bag;
+			if (resolved) explorer.addAttributeValueFilter(resolved, key, value, exclude);
+		};
+	}
 
 	function formatTimestamp(iso: string): string {
 		// Every field spelled out: passing fractionalSecondDigits alone switches off toLocaleString's date/time defaults.
@@ -212,10 +230,20 @@
 						</div>
 					{/if}
 
-					<AttributeTable title={m.eventDetail_pinnedAttributes()} attributes={attributeSections.pinned} {...pinProps} />
-					<AttributeTable title={m.eventDetail_logAttributes()} attributes={attributeSections.log} {...pinProps} />
-					<AttributeTable title={m.eventDetail_resourceAttributes()} attributes={attributeSections.resource} {...pinProps} />
-					<AttributeTable title={m.eventDetail_scopeAttributes()} attributes={attributeSections.scope} {...pinProps} />
+					<AttributeTable
+						title={m.eventDetail_pinnedAttributes()}
+						attributes={attributeSections.pinned}
+						{...pinProps}
+						onFilter={filterInto((key) => attributeSections.pinnedBags.get(key))}
+					/>
+					<AttributeTable title={m.eventDetail_logAttributes()} attributes={attributeSections.log} {...pinProps} onFilter={filterInto('Log')} />
+					<AttributeTable
+						title={m.eventDetail_resourceAttributes()}
+						attributes={attributeSections.resource}
+						{...pinProps}
+						onFilter={filterInto('Resource')}
+					/>
+					<AttributeTable title={m.eventDetail_scopeAttributes()} attributes={attributeSections.scope} {...pinProps} onFilter={filterInto('Scope')} />
 				</div>
 			</ScrollArea>
 		{/if}
