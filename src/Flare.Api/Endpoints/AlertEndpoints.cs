@@ -314,7 +314,8 @@ public static class AlertEndpoints
                 EvaluatedAt = now,
                 WindowSeconds = windowSeconds,
                 ConditionKind = conditionKind,
-                ObservedValue = value,
+                // NaN (empty window) isn't writable as JSON - same null mapping as the Anomaly branch below.
+                ObservedValue = double.IsNaN(value) ? null : value,
             };
         }
 
