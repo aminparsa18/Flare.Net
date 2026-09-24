@@ -106,6 +106,27 @@ export interface LogsFilterState {
 	 * one uniform row height - see `logRowHeight`.
 	 */
 	maxLinesPerRow: number;
+	/**
+	 * Attribute VolumeChart splits its bars by (stacked, one series per value - see
+	 * `LogAggregateRequest.cs`'s `GroupByAttributeKey`), set from an event's attribute row
+	 * via `setVolumeGroupBy`. `null` = one ungrouped series. Same display-preference
+	 * category as `timeShiftSeconds`: carried through a saved view, excluded from
+	 * `hasActiveFilters`/`resetFilters`, and never re-runs the log search.
+	 */
+	volumeGroupBy: VolumeGroupBy | null;
+}
+
+/** One attribute (bag + key) VolumeChart can stack its bars by - see `LogsFilterState.volumeGroupBy`. */
+export interface VolumeGroupBy {
+	bag: AttributeBag;
+	key: string;
+}
+
+function normalizeVolumeGroupBy(value: unknown): VolumeGroupBy | null {
+	if (value == null || typeof value !== 'object') return null;
+	const { bag, key } = value as Partial<VolumeGroupBy>;
+	if (typeof key !== 'string' || key.trim() === '') return null;
+	return { bag: bag === 'Resource' || bag === 'Scope' ? bag : 'Log', key };
 }
 
 /** The choices LogsToolbar's "Lines" menu offers - also the whitelist `applySavedViewState` normalizes an untrusted saved payload against. */
@@ -138,6 +159,8 @@ export interface LogsSavedViewState {
 	timeShiftSeconds: number | null;
 	/** Optional (unlike the rest) - saved views written before this field existed simply lack it; `applySavedViewState` falls back to 1. */
 	maxLinesPerRow?: number;
+	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to ungrouped. */
+	volumeGroupBy?: VolumeGroupBy | null;
 }
 
 export class LogsExplorerState {
@@ -153,7 +176,8 @@ export class LogsExplorerState {
 		bodyJsonFilters: [],
 		postProcessFunctions: [],
 		timeShiftSeconds: null,
-		maxLinesPerRow: 1
+		maxLinesPerRow: 1,
+		volumeGroupBy: null
 	});
 
 	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
@@ -515,6 +539,11 @@ export class LogsExplorerState {
 		this.filter.maxLinesPerRow = normalizeMaxLinesPerRow(lines);
 	}
 
+	/** Stacks VolumeChart's bars by one attribute's values (`null` clears it) - a display change on the chart only, so (like `setTimeShiftSeconds`) no `applyFilterChange`/re-search; VolumeChart's own `$effect` re-fetches. */
+	setVolumeGroupBy(groupBy: VolumeGroupBy | null): void {
+		this.filter.volumeGroupBy = normalizeVolumeGroupBy(groupBy);
+	}
+
 	setSeverityNumbers(severityNumbers: number[]): void {
 		this.selectedBucketRange = null;
 		this.filter.severityNumbers = severityNumbers;
@@ -642,7 +671,8 @@ export class LogsExplorerState {
 			bodyJsonFilters: this.filter.bodyJsonFilters.map((f) => ({ ...f })),
 			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
 			timeShiftSeconds: this.filter.timeShiftSeconds,
-			maxLinesPerRow: this.filter.maxLinesPerRow
+			maxLinesPerRow: this.filter.maxLinesPerRow,
+			volumeGroupBy: this.filter.volumeGroupBy ? { ...this.filter.volumeGroupBy } : null
 		};
 	}
 
@@ -670,7 +700,8 @@ export class LogsExplorerState {
 			bodyJsonFilters: s.bodyJsonFilters ?? [],
 			postProcessFunctions: s.postProcessFunctions ?? [],
 			timeShiftSeconds: s.timeShiftSeconds ?? null,
-			maxLinesPerRow: normalizeMaxLinesPerRow(s.maxLinesPerRow)
+			maxLinesPerRow: normalizeMaxLinesPerRow(s.maxLinesPerRow),
+			volumeGroupBy: normalizeVolumeGroupBy(s.volumeGroupBy)
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
@@ -722,7 +753,8 @@ export class LogsExplorerState {
 			bodyJsonFilters: [],
 			postProcessFunctions: [],
 			timeShiftSeconds: null,
-			maxLinesPerRow: this.filter.maxLinesPerRow // a display preference, not part of the deep link - keep whatever the user already chose
+			maxLinesPerRow: this.filter.maxLinesPerRow, // a display preference, not part of the deep link - keep whatever the user already chose
+			volumeGroupBy: null // tied to whatever attributes were being looked at before - a fresh deep-link filter starts ungrouped
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();

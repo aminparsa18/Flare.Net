@@ -8,6 +8,13 @@ public enum LogAggregateGroupBy
     None,
     Service,
     Level,
+
+    /// <summary>
+    /// One attribute key's value - <see cref="LogAggregateRequest.GroupByAttributeBag"/> +
+    /// <see cref="LogAggregateRequest.GroupByAttributeKey"/> name which. Appended last so the
+    /// existing members keep their MemoryPack ordinals.
+    /// </summary>
+    Attribute,
 }
 
 /// <summary>Request body for <c>POST /api/logs/aggregate</c> - volume-over-time chart data.</summary>
@@ -34,6 +41,24 @@ public sealed partial record LogAggregateRequest
     /// remarks.
     /// </summary>
     public IReadOnlyList<LogPostProcessFunction>? PostProcessFunctions { get; init; }
+
+    /// <summary>
+    /// Which attribute bag <see cref="GroupByAttributeKey"/> is looked up in when
+    /// <see cref="GroupBy"/> is <see cref="LogAggregateGroupBy.Attribute"/>; ignored otherwise.
+    /// Appended after <see cref="PostProcessFunctions"/> - same append-only versioning.
+    /// </summary>
+    public AttributeBag GroupByAttributeBag { get; init; } = AttributeBag.Log;
+
+    /// <summary>
+    /// Attribute key to group by when <see cref="GroupBy"/> is
+    /// <see cref="LogAggregateGroupBy.Attribute"/> - required (non-blank) in that case,
+    /// ignored otherwise. Only the <see cref="Query.LogAggregateQueryBuilder.AttributeGroupLimit"/>
+    /// most frequent values in the window get their own series; every other value's events
+    /// come back under a null <see cref="LogAggregateBucket.GroupKey"/> ("other"). Events
+    /// missing the key group under an empty-string key, so the stacked total still matches
+    /// the ungrouped chart.
+    /// </summary>
+    public string? GroupByAttributeKey { get; init; }
 }
 
 /// <summary>
@@ -83,7 +108,8 @@ public sealed partial record LogPostProcessFunction
 
 /// <summary>
 /// One bucketed value. <see cref="GroupKey"/> is null when <see cref="LogAggregateGroupBy.None"/>
-/// was requested. <see cref="Count"/> is <c>double</c> (not <c>long</c>) so the same shape
+/// was requested, or - for <see cref="LogAggregateGroupBy.Attribute"/> - for the rolled-up
+/// "other" series (see <see cref="LogAggregateRequest.GroupByAttributeKey"/>). <see cref="Count"/> is <c>double</c> (not <c>long</c>) so the same shape
 /// can carry a SQL-query-row <c>avg()</c>/<c>sum()</c> result (see
 /// <c>Query.LogQl.LogQlQueryBuilder</c>) as well as this endpoint's own always-integral
 /// <c>count()</c> - a whole-number value still round-trips through JSON exactly (e.g. `25`,

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { aggregateLogs, type LogAggregateBucket } from '$lib/api';
+	import type { VolumeGroupBy } from '$lib/logs/state.svelte';
 	import { pickBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import { resolveTimeRange, shiftRange } from '$lib/logs/time-range';
 	import { logsExplorerContext } from '$lib/logs/context';
@@ -58,7 +59,65 @@
 
 	const collapsed = $derived(accordionValue !== VOLUME_ITEM);
 
-	let buckets = $state<LogAggregateBucket[]>([]);
+	// Raw `/api/logs/aggregate` rows - one per bucket, or one per (bucket, group value)
+	// while grouped. Everything below reads the pivoted `buckets` instead (one entry per
+	// bar), so click/hover/zoom stay bar-indexed whether or not the chart is stacked.
+	let rawBuckets = $state<LogAggregateBucket[]>([]);
+	// The attribute the *last successful fetch* grouped by - same "as of the query, not the
+	// live filter" pairing as overlayShiftSeconds below, so toggling the group-by doesn't
+	// re-colour the old bars as one stack before the new data lands.
+	let resultGroupBy = $state<VolumeGroupBy | null>(null);
+
+	/** One stacked slice of a bar - `key` null is the server's rolled-up "other" series, `''` events missing the attribute. */
+	type Segment = { key: string | null; count: number };
+	type Bar = { bucketStart: string; count: number; segments: Segment[] };
+
+	// Series order for the stack (bottom -> top) and legend: most events first, "other"
+	// always last. Colours are assigned by this rank, not hashed like MetricChart's
+	// seriesColor - the server caps an attribute group-by at 5 values
+	// (LogAggregateQueryBuilder.AttributeGroupLimit), exactly the palette's 5 hues, so rank
+	// guarantees adjacent stacked segments never share a colour, which a hash can't.
+	const seriesKeys = $derived.by((): (string | null)[] => {
+		if (!resultGroupBy) return [];
+		const totals = new Map<string | null, number>();
+		for (const b of rawBuckets) totals.set(b.groupKey, (totals.get(b.groupKey) ?? 0) + b.count);
+		return [...totals.keys()].sort((a, b) => {
+			if (a === null) return 1;
+			if (b === null) return -1;
+			return (totals.get(b) ?? 0) - (totals.get(a) ?? 0);
+		});
+	});
+
+	const SERIES_COLOR_VARS = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5'] as const;
+
+	function segmentColor(key: string | null): string {
+		if (key === null) return 'var(--muted-foreground)';
+		const rank = seriesKeys.indexOf(key);
+		return `var(${SERIES_COLOR_VARS[Math.max(0, rank) % SERIES_COLOR_VARS.length]})`;
+	}
+
+	function segmentLabel(key: string | null): string {
+		if (key === null) return m.volumeChart_groupOther();
+		if (key === '') return m.volumeChart_groupEmpty();
+		return key;
+	}
+
+	const buckets = $derived.by((): Bar[] => {
+		if (!resultGroupBy) return rawBuckets.map((b) => ({ bucketStart: b.bucketStart, count: b.count, segments: [] }));
+		const byStart = new Map<number, { bucketStart: string; counts: Map<string | null, number> }>();
+		for (const b of rawBuckets) {
+			const t = new Date(b.bucketStart).getTime();
+			let bar = byStart.get(t);
+			if (!bar) byStart.set(t, (bar = { bucketStart: b.bucketStart, counts: new Map() }));
+			bar.counts.set(b.groupKey, (bar.counts.get(b.groupKey) ?? 0) + b.count);
+		}
+		return [...byStart.entries()]
+			.sort(([a], [b]) => a - b)
+			.map(([, bar]) => {
+				const segments = seriesKeys.filter((k) => bar.counts.has(k)).map((k) => ({ key: k, count: bar.counts.get(k)! }));
+				return { bucketStart: bar.bucketStart, count: segments.reduce((sum, seg) => sum + seg.count, 0), segments };
+			});
+	});
 	// Time-shift overlay (roadmap: "Per-query post-processing functions (metrics and
 	// logs)", ADR-0042) - a second, best-effort `/api/logs/aggregate` fetch at a fixed
 	// offset (explorer.filter.timeShiftSeconds), rendered as a dashed line over the bars.
@@ -108,9 +167,17 @@
 		// falls back to a plain click while live (see handlePointerUp's own remarks).
 		const shiftSeconds = explorer.live ? null : explorer.filter.timeShiftSeconds;
 		const overlayRange = shiftSeconds != null ? shiftRange(range, shiftSeconds) : null;
+		const groupBy = explorer.filter.volumeGroupBy;
 		try {
 			const [res, overlayRes] = await Promise.all([
-				aggregateLogs({ filter: explorer.buildFilter(range), bucketWidthSeconds: width, postProcessFunctions }),
+				aggregateLogs({
+					filter: explorer.buildFilter(range),
+					bucketWidthSeconds: width,
+					postProcessFunctions,
+					...(groupBy ? { groupBy: 'Attribute' as const, groupByAttribute: { ...groupBy } } : {})
+				}),
+				// The overlay stays ungrouped even while the bars are stacked - it's a single
+				// dashed "total, N ago" line, which is what the percent-change summary compares.
 				overlayRange
 					? aggregateLogs({
 							filter: explorer.buildFilter(overlayRange),
@@ -119,7 +186,8 @@
 						}).catch(() => null)
 					: Promise.resolve(null)
 			]);
-			buckets = res.buckets;
+			rawBuckets = res.buckets;
+			resultGroupBy = groupBy ? { ...groupBy } : null;
 			overlayBuckets = overlayRes?.buckets ?? [];
 			overlayShiftSeconds = overlayRes ? shiftSeconds : null;
 			rangeFrom = range.from;
@@ -157,6 +225,7 @@
 		void explorer.filter.bodyJsonFilters;
 		void explorer.filter.postProcessFunctions;
 		void explorer.filter.timeShiftSeconds;
+		void explorer.filter.volumeGroupBy;
 		void explorer.live;
 
 		const timer = setTimeout(refresh, 300);
@@ -275,10 +344,28 @@
 
 	const BAR_CORNER_RADIUS = 3;
 
+	/**
+	 * Stacked slices for one bar, bottom-up in `seriesKeys` order. Heights are each
+	 * slice's share of the bar's own `barHeight` (so the MIN_BAR_HEIGHT floor applies to
+	 * the whole bar, not per slice); negative post-processed counts contribute nothing.
+	 * Only the topmost slice gets rounded corners.
+	 */
+	function stackedSegments(bar: Bar): { key: string | null; y: number; height: number; top: boolean }[] {
+		const positive = bar.segments.filter((seg) => seg.count > 0);
+		const total = positive.reduce((sum, seg) => sum + seg.count, 0);
+		const full = barHeight(total);
+		let y = BASELINE_Y;
+		return positive.map((seg, i) => {
+			const height = total === 0 ? 0 : (seg.count / total) * full;
+			y -= height;
+			return { key: seg.key, y, height, top: i === positive.length - 1 };
+		});
+	}
+
 	/** Rounds only the top two corners, flush at the bottom - <rect rx> rounds all four,
 	    which opens a visible gap at the baseline where a bar meets the axis. */
-	function barPath(x: number, y: number, width: number, height: number): string {
-		const r = Math.max(0, Math.min(BAR_CORNER_RADIUS, width / 2, height / 2));
+	function barPath(x: number, y: number, width: number, height: number, rounded = true): string {
+		const r = rounded ? Math.max(0, Math.min(BAR_CORNER_RADIUS, width / 2, height / 2)) : 0;
 		if (r === 0) {
 			return `M ${x} ${y + height} L ${x} ${y} L ${x + width} ${y} L ${x + width} ${y + height} Z`;
 		}
@@ -422,6 +509,18 @@
 				{m.volumeChart_label()}
 			</Accordion.Trigger>
 			{#if !collapsed}
+				{#if explorer.filter.volumeGroupBy}
+					<button
+						type="button"
+						class="text-foreground bg-accent hover:bg-accent/70 flex max-w-[20rem] items-center gap-1 rounded px-1.5 py-0.5"
+						title={m.volumeChart_clearGroupBy()}
+						aria-label={m.volumeChart_clearGroupBy()}
+						onclick={() => explorer.setVolumeGroupBy(null)}
+					>
+						<span class="truncate">{m.volumeChart_groupedBy({ key: explorer.filter.volumeGroupBy.key })}</span>
+						<XIcon class="size-3 shrink-0" />
+					</button>
+				{/if}
 				{#if selectedIndex !== null && buckets[selectedIndex]}
 					<button
 						type="button"
@@ -543,18 +642,35 @@
 											     emitting a --color-primary custom property on :root, confirmed empty via
 											     getComputedStyle. --primary itself (layout.css's own :root/.dark block) is the
 											     real runtime variable, so that's what this binds to directly. -->
-											<path
-												d={barPath(
-													i * barWidth + 1,
-													BASELINE_Y - barHeight(bucket.count),
-													Math.max(1, barWidth - 2),
-													barHeight(bucket.count)
-												)}
-												style="fill: var(--primary); fill-opacity: {hoverIndex === i || selectedIndex === i
-													? 1
-													: 0.55}; {selectedIndex === i ? 'stroke: var(--foreground); stroke-width: 1.5;' : ''}"
-												vector-effect={selectedIndex === i ? 'non-scaling-stroke' : undefined}
-											/>
+											{#if resultGroupBy}
+												{#each stackedSegments(bucket) as seg (seg.key)}
+													<path
+														d={barPath(i * barWidth + 1, seg.y, Math.max(1, barWidth - 2), seg.height, seg.top)}
+														style="fill: {segmentColor(seg.key)}; fill-opacity: {hoverIndex === i || selectedIndex === i ? 1 : 0.7};"
+													/>
+												{/each}
+												{#if selectedIndex === i}
+													<!-- Outline the whole stack, not each slice, for the selected bar. -->
+													<path
+														d={barPath(i * barWidth + 1, BASELINE_Y - barHeight(bucket.count), Math.max(1, barWidth - 2), barHeight(bucket.count))}
+														style="fill: none; stroke: var(--foreground); stroke-width: 1.5;"
+														vector-effect="non-scaling-stroke"
+													/>
+												{/if}
+											{:else}
+												<path
+													d={barPath(
+														i * barWidth + 1,
+														BASELINE_Y - barHeight(bucket.count),
+														Math.max(1, barWidth - 2),
+														barHeight(bucket.count)
+													)}
+													style="fill: var(--primary); fill-opacity: {hoverIndex === i || selectedIndex === i
+														? 1
+														: 0.55}; {selectedIndex === i ? 'stroke: var(--foreground); stroke-width: 1.5;' : ''}"
+													vector-effect={selectedIndex === i ? 'non-scaling-stroke' : undefined}
+												/>
+											{/if}
 										{/each}
 
 										{#if overlayActive}
@@ -606,6 +722,12 @@
 										     overlayBuckets can be a different length than buckets, so this is
 										     "whatever's at the same relative position", not a guaranteed exact
 										     time match. -->
+										<!-- Top of the stack first, matching how the bar reads. -->
+										{#if resultGroupBy}
+											{#each [...buckets[hoverIndex].segments].reverse() as seg (seg.key)}
+												{'\n'}{m.volumeChart_tooltipSegment({ label: segmentLabel(seg.key), count: formatCount(seg.count) })}
+											{/each}
+										{/if}
 										{#if overlayActive && overlayBuckets[hoverIndex]}
 											{'\n'}{m.volumeChart_tooltipOverlay({
 												count: formatCount(overlayBuckets[hoverIndex].count),
@@ -623,6 +745,17 @@
 						<span>{rangeFrom ? formatAxisTime(rangeFrom) : ''}</span>
 						<span>{rangeTo ? formatAxisTime(rangeTo) : ''}</span>
 					</div>
+					{#if resultGroupBy && seriesKeys.length > 0}
+						<div></div>
+						<ul class="text-muted-foreground mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+							{#each seriesKeys as key (key)}
+								<li class="flex max-w-[16rem] items-center gap-1.5">
+									<span class="size-2 shrink-0 rounded-sm" style="background: {segmentColor(key)};"></span>
+									<span class="truncate font-mono" title={segmentLabel(key)}>{segmentLabel(key)}</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</div>
 			{/if}
 		</Accordion.Content>

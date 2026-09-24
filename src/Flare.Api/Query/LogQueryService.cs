@@ -221,7 +221,9 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
         while (reader.Read())
         {
             var bucketStart = ReadUtc(reader, 0);
-            var groupKey = built.HasGroupKey ? reader.GetString(1) : null;
+            // Nullable only for GroupBy.Attribute's rolled-up "other" series - see
+            // LogAggregateQueryBuilder.BuildAttributeGrouped.
+            var groupKey = built.HasGroupKey && !reader.IsDBNull(1) ? reader.GetString(1) : null;
             var count = reader.GetFieldValue<ulong>(built.HasGroupKey ? 2 : 1);
             buckets.Add(new LogAggregateBucket { BucketStart = bucketStart, GroupKey = groupKey, Count = count });
         }
@@ -267,7 +269,9 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
                 while (reader.Read())
                 {
                     var bucketStart = ReadUtc(reader, 0);
-                    var groupKey = built.HasGroupKey ? reader.GetString(1) : null;
+                    // Nullable only for GroupBy.Attribute's rolled-up "other" series - see
+            // LogAggregateQueryBuilder.BuildAttributeGrouped.
+            var groupKey = built.HasGroupKey && !reader.IsDBNull(1) ? reader.GetString(1) : null;
                     var value = reader.GetDouble(built.HasGroupKey ? 2 : 1);
                     buckets.Add(new LogAggregateBucket { BucketStart = bucketStart, GroupKey = groupKey, Count = value });
                 }

@@ -9,6 +9,9 @@
 // `postProcessFunctions` append documents - `LogPostProcessFunction` itself has no
 // DateTimeOffset/nesting problem, so it's a real generated class
 // (`$lib/generated/memorypack/LogPostProcessFunction.js`), reused here directly.
+// `groupByAttributeBag`/`groupByAttributeKey` were appended after that, same convention -
+// the bag is a raw `AttributeBag` ordinal (`$lib/memorypack/enums.ts`'s
+// `attributeBagFromString`).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -20,12 +23,16 @@ export class LogAggregateRequest {
 	bucketWidthSeconds: number;
 	groupBy: number;
 	postProcessFunctions: (LogPostProcessFunction | null)[] | null;
+	groupByAttributeBag: number;
+	groupByAttributeKey: string | null;
 
 	constructor() {
 		this.filter = null;
 		this.bucketWidthSeconds = 0;
 		this.groupBy = 0;
 		this.postProcessFunctions = null;
+		this.groupByAttributeBag = 0;
+		this.groupByAttributeKey = null;
 	}
 
 	static serialize(value: LogAggregateRequest | null): Uint8Array {
@@ -40,11 +47,13 @@ export class LogAggregateRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(4);
+		writer.writeObjectHeader(6);
 		LogFilter.serializeCore(writer, value.filter);
 		writer.writeInt32(value.bucketWidthSeconds);
 		writer.writeInt32(value.groupBy);
 		writer.writeArray(value.postProcessFunctions, (writer, x) => LogPostProcessFunction.serializeCore(writer, x));
+		writer.writeInt32(value.groupByAttributeBag);
+		writer.writeString(value.groupByAttributeKey);
 	}
 
 	static deserialize(buffer: ArrayBuffer): LogAggregateRequest | null {
@@ -58,12 +67,14 @@ export class LogAggregateRequest {
 		}
 
 		const value = new LogAggregateRequest();
-		if (count == 4) {
+		if (count == 6) {
 			value.filter = LogFilter.deserializeCore(reader);
 			value.bucketWidthSeconds = reader.readInt32();
 			value.groupBy = reader.readInt32();
 			value.postProcessFunctions = reader.readArray((reader) => LogPostProcessFunction.deserializeCore(reader));
-		} else if (count > 4) {
+			value.groupByAttributeBag = reader.readInt32();
+			value.groupByAttributeKey = reader.readString();
+		} else if (count > 6) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -75,6 +86,10 @@ export class LogAggregateRequest {
 			if (count == 3) return value;
 			value.postProcessFunctions = reader.readArray((reader) => LogPostProcessFunction.deserializeCore(reader));
 			if (count == 4) return value;
+			value.groupByAttributeBag = reader.readInt32();
+			if (count == 5) return value;
+			value.groupByAttributeKey = reader.readString();
+			if (count == 6) return value;
 		}
 		return value;
 	}

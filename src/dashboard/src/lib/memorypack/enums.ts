@@ -315,7 +315,7 @@ export function resourceHealthFromString(value: ResourceHealthName): number {
 }
 
 /** Matches `LogAggregateRequest.cs`'s `LogAggregateGroupBy` member order. Not itself MemoryPack-TS-generated - see `SavedViewPageTypeName`'s comment for why (`LogAggregateRequest`, its only consumer, is hand-written - it nests `LogFilter`). */
-const LOG_AGGREGATE_GROUP_BY_NAMES = ['None', 'Service', 'Level'] as const;
+const LOG_AGGREGATE_GROUP_BY_NAMES = ['None', 'Service', 'Level', 'Attribute'] as const;
 
 export type LogAggregateGroupByName = (typeof LOG_AGGREGATE_GROUP_BY_NAMES)[number];
 

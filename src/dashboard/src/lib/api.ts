@@ -291,7 +291,7 @@ export async function getLogContext(request: LogContextRequest, signal?: AbortSi
 
 // ---- POST /api/logs/aggregate (LogAggregateRequest.cs / LogAggregateResponse) ----
 
-export type LogAggregateGroupBy = 'None' | 'Service' | 'Level';
+export type LogAggregateGroupBy = 'None' | 'Service' | 'Level' | 'Attribute';
 
 export type LogPostProcessFunctionType = LogPostProcessFunctionTypeName;
 
@@ -312,6 +312,8 @@ export interface LogAggregateRequest {
 	 * Omitted/empty = no post-processing (default).
 	 */
 	postProcessFunctions?: LogPostProcessFunction[];
+	/** Required when `groupBy` is `'Attribute'` - which bag + key to group by. The top values get their own series; the rest come back with a `null` `groupKey` ("other"), and events missing the key under `''`. */
+	groupByAttribute?: { bag: AttributeBag; key: string };
 }
 
 export interface LogAggregateBucket {
@@ -333,6 +335,10 @@ export async function aggregateLogs(request: LogAggregateRequest, signal?: Abort
 	dto.filter = toGeneratedLogFilter(request.filter);
 	dto.bucketWidthSeconds = request.bucketWidthSeconds;
 	dto.groupBy = logAggregateGroupByFromString(request.groupBy ?? 'None');
+	if (request.groupByAttribute) {
+		dto.groupByAttributeBag = attributeBagFromString(request.groupByAttribute.bag);
+		dto.groupByAttributeKey = request.groupByAttribute.key;
+	}
 	dto.postProcessFunctions =
 		request.postProcessFunctions == null
 			? null

@@ -83,6 +83,21 @@
 		onTogglePin: (key: string) => pinnedAttributes.toggle(key)
 	};
 
+	/** Clicking the row that's already grouped toggles grouping back off. */
+	function groupByInto(bag: AttributeBag | ((key: string) => AttributeBag | undefined)) {
+		return (key: string) => {
+			const resolved = typeof bag === 'function' ? bag(key) : bag;
+			if (!resolved) return;
+			const current = explorer.filter.volumeGroupBy;
+			explorer.setVolumeGroupBy(current?.bag === resolved && current.key === key ? null : { bag: resolved, key });
+		};
+	}
+
+	function groupedKeyIn(bag: AttributeBag): string | null {
+		const current = explorer.filter.volumeGroupBy;
+		return current?.bag === bag ? current.key : null;
+	}
+
 	function filterInto(bag: AttributeBag | ((key: string) => AttributeBag | undefined)) {
 		return (key: string, value: string, exclude: boolean) => {
 			const resolved = typeof bag === 'function' ? bag(key) : bag;
@@ -236,15 +251,30 @@
 						attributes={attributeSections.pinned}
 						{...pinProps}
 						onFilter={filterInto((key) => attributeSections.pinnedBags.get(key))}
+						onGroupBy={groupByInto((key) => attributeSections.pinnedBags.get(key))}
+						groupedByKey={explorer.filter.volumeGroupBy &&
+						attributeSections.pinnedBags.get(explorer.filter.volumeGroupBy.key) === explorer.filter.volumeGroupBy.bag
+							? explorer.filter.volumeGroupBy.key
+							: null}
 					/>
-					<AttributeTable title={m.eventDetail_logAttributes()} attributes={attributeSections.log} {...pinProps} onFilter={filterInto('Log')} />
+					<AttributeTable title={m.eventDetail_logAttributes()} attributes={attributeSections.log} {...pinProps}
+						onFilter={filterInto('Log')}
+						onGroupBy={groupByInto('Log')}
+						groupedByKey={groupedKeyIn('Log')}
+					/>
 					<AttributeTable
 						title={m.eventDetail_resourceAttributes()}
 						attributes={attributeSections.resource}
 						{...pinProps}
 						onFilter={filterInto('Resource')}
+						onGroupBy={groupByInto('Resource')}
+						groupedByKey={groupedKeyIn('Resource')}
 					/>
-					<AttributeTable title={m.eventDetail_scopeAttributes()} attributes={attributeSections.scope} {...pinProps} onFilter={filterInto('Scope')} />
+					<AttributeTable title={m.eventDetail_scopeAttributes()} attributes={attributeSections.scope} {...pinProps}
+						onFilter={filterInto('Scope')}
+						onGroupBy={groupByInto('Scope')}
+						groupedByKey={groupedKeyIn('Scope')}
+					/>
 				</div>
 			</ScrollArea>
 		{/if}
