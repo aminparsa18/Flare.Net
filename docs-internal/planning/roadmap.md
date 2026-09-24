@@ -219,9 +219,3 @@ folders are where "what happened and why" actually lives.
   retryable status when exceeded, plus current usage shown on the ingest
   keys page. Not started. Prior art:
   [signoz#6430](https://github.com/SigNoz/signoz/commit/504bc0d541210c6fbe9e0a6509c10febf134a217).
-- **Create a notification channel from inside the alert rule form.**
-  Today the form only shows a hint when no channels exist; offer a
-  "create channel" action (opening `NotificationChannelFormDialog`) and
-  re-fetch the channel list when the picker opens. Frontend-only, small.
-  Not started. Prior art:
-  [signoz#6416](https://github.com/SigNoz/signoz/commit/a59e7b9dfb107b79b181735a9b5ec48ffb82f0f3).

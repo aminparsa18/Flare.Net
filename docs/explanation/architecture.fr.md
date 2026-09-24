@@ -238,7 +238,8 @@ Une règle sur une métrique peut aussi exiger un nombre minimal de points de
 données dans sa fenêtre ; en dessous, elle signale des données insuffisantes
 et ne se déclenche pas.
 Le déclenchement notifie un ou plusieurs canaux de notification, gérés
-depuis l'onglet « Channels » de cette même page — des destinations
+depuis l'onglet « Channels » de cette même page (ou créés sur le champ
+via le bouton « New channel » du formulaire de règle) — des destinations
 réutilisables et nommées (webhook/Slack, Telegram, e-mail ou PagerDuty)
 qu'une règle référence par ID plutôt que d'intégrer directement, afin
 qu'un même canal puisse être réutilisé entre plusieurs règles et qu'une

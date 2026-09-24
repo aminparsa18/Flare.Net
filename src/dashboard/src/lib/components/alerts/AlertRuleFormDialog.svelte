@@ -14,6 +14,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { alertsContext } from '$lib/alerts/context';
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
 	import {
@@ -850,12 +851,28 @@
 			{:else}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_channelsLabel()}</span>
-					<PopoverMultiSelect
-						label={m.alertRuleForm_channelsLabel()}
-						options={channelOptions}
-						selected={selectedChannelIds}
-						onChange={(next) => (selectedChannelIds = next)}
-					/>
+					<div class="flex flex-wrap items-center gap-2">
+						<!-- Re-fetch on open so a channel created in another tab/session shows up
+						     without reopening this dialog. -->
+						<PopoverMultiSelect
+							label={m.alertRuleForm_channelsLabel()}
+							options={channelOptions}
+							selected={selectedChannelIds}
+							onChange={(next) => (selectedChannelIds = next)}
+							onOpenChange={(isOpen) => isOpen && void channels.load()}
+						/>
+						<!-- Opens NotificationChannelFormDialog (mounted alongside this dialog in
+						     routes/alerts/+page.svelte) on top of this one; the new channel is
+						     auto-selected once saved. -->
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => channels.openCreate((c) => (selectedChannelIds = [...selectedChannelIds, c.id]))}
+						>
+							<PlusIcon data-icon="inline-start" />
+							{m.alertRuleForm_createChannel()}
+						</Button>
+					</div>
 					{#if channels.channels.length === 0}
 						<span class="text-muted-foreground text-xs">{m.alertRuleForm_channelsEmptyHint()}</span>
 					{/if}

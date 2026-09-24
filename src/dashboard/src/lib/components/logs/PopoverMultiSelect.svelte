@@ -18,12 +18,15 @@
 		label,
 		options,
 		selected,
-		onChange
+		onChange,
+		onOpenChange
 	}: {
 		label: string;
 		options: MultiSelectOption[];
 		selected: string[];
 		onChange: (next: string[]) => void;
+		/** Optional - lets a caller refresh `options` each time the popover opens (AlertRuleFormDialog's channel picker). */
+		onOpenChange?: (open: boolean) => void;
 	} = $props();
 
 	function toggle(value: string) {
@@ -33,7 +36,7 @@
 	const buttonLabel = $derived(selected.length === 0 ? label : `${label} (${selected.length})`);
 </script>
 
-<Popover.Root>
+<Popover.Root {onOpenChange}>
 	<Popover.Trigger>
 		{#snippet child({ props })}
 			<Button {...props} variant="outline" size="sm">
