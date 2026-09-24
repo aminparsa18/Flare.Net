@@ -51,6 +51,25 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+	/* ANSI 16-color palette for console-formatted log bodies (lib/logs/ansi.ts) - 0-7
+	   normal, 8-15 bright. Tuned per theme so no color is illegible on the background:
+	   "black" and "white" are both mid-tone grays rather than literal #000/#fff. */
+	--ansi-0: #3b3b3b;
+	--ansi-1: #cd3131;
+	--ansi-2: #107c10;
+	--ansi-3: #949800;
+	--ansi-4: #0451a5;
+	--ansi-5: #bc05bc;
+	--ansi-6: #0598bc;
+	--ansi-7: #6b6b6b;
+	--ansi-8: #666666;
+	--ansi-9: #cd3131;
+	--ansi-10: #14ce14;
+	--ansi-11: #b5ba00;
+	--ansi-12: #0451a5;
+	--ansi-13: #bc05bc;
+	--ansi-14: #0598bc;
+	--ansi-15: #7a7a7a;
 }
 
 .dark {
@@ -87,6 +106,23 @@
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.556 0 0);
+	/* Dark-mode ANSI palette - see :root's ansi-0..15 comment. */
+	--ansi-0: #8a8a8a;
+	--ansi-1: #f14c4c;
+	--ansi-2: #23d18b;
+	--ansi-3: #e5e510;
+	--ansi-4: #3b8eea;
+	--ansi-5: #d670d6;
+	--ansi-6: #29b8db;
+	--ansi-7: #cccccc;
+	--ansi-8: #9a9a9a;
+	--ansi-9: #f14c4c;
+	--ansi-10: #23d18b;
+	--ansi-11: #f5f543;
+	--ansi-12: #3b8eea;
+	--ansi-13: #d670d6;
+	--ansi-14: #29b8db;
+	--ansi-15: #e5e5e5;
 }
 
 @theme inline {

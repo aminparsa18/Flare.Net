@@ -147,12 +147,6 @@ folders are where "what happened and why" actually lives.
   plus stacked-series rendering in `VolumeChart`, then a "group by" action on
   `AttributeTable` rows next to the existing filter-for/out/copy actions.
   Not started. Prior art: group by from log details [signoz#5753](https://github.com/SigNoz/signoz/commit/ab1caf13fc201bf99e0317c2d5f445f485882b10).
-- **Render ANSI color codes in log bodies.** Console-formatted logs
-  (colored ASP.NET Core console output, CLI tools) show raw
-  `\x1b[31m…` escape sequences in the Logs table and detail sheet;
-  convert them to styled spans (or strip them) client-side, without ever
-  rendering the body as HTML. Frontend-only. Not started. Prior art:
-  [signoz#5749](https://github.com/SigNoz/signoz/commit/22f2e68db2eb628c9a156e9aea788f6c51a20b20).
 - **Configurable ClickHouse query execution caps.** `max_execution_time`
   (30s) and friends are hard-coded per query service in
   `src/Flare.Api/Query/` (15 files set them); larger self-hosted

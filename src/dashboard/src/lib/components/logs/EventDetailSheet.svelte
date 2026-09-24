@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AnsiText from './AnsiText.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Badge } from '$lib/components/ui/badge';
@@ -174,7 +175,7 @@
 			</Sheet.Header>
 			<ScrollArea class="min-h-0 flex-1 px-4">
 				<div class="flex flex-col gap-4 pb-8">
-					<p class="text-sm break-words whitespace-pre-wrap">{event.body}</p>
+					<p class="text-sm break-words whitespace-pre-wrap"><AnsiText text={event.body} /></p>
 
 					<Separator />
 

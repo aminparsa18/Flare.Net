@@ -1,4 +1,6 @@
 <script lang="ts">
+	import AnsiText from './AnsiText.svelte';
+	import { stripAnsi } from '$lib/logs/ansi';
 	// Seq-style SQL query bar: `select count(*)|* from stream [where ...] [group by
 	// time(1h)[, service|level]]`, parsed/translated server-side (see Flare.Api's
 	// Query/LogQl/LogQlParser.cs) - never raw-passed to ClickHouse. Own Accordion
@@ -570,7 +572,7 @@
 										<td class="text-muted-foreground px-2 py-1 whitespace-nowrap tabular-nums">{formatRowTime(event.timestamp)}</td>
 										<td class="px-2 py-1 whitespace-nowrap">{event.serviceName}</td>
 										<td class="px-2 py-1 whitespace-nowrap">{event.severityText}</td>
-										<td class="max-w-0 truncate px-2 py-1" title={event.body}>{event.body}</td>
+										<td class="max-w-0 truncate px-2 py-1" title={stripAnsi(event.body)}><AnsiText text={event.body} /></td>
 									</tr>
 								{/each}
 							</tbody>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AnsiText from '$lib/components/logs/AnsiText.svelte';
 	import { goto } from '$app/navigation';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -185,7 +186,7 @@
 											<Badge variant={severityVariant(log.severityNumber)}>{log.severityText || '—'}</Badge>
 											<span class="text-muted-foreground shrink-0 font-mono text-xs">{formatTimestamp(log.timestamp)}</span>
 										</div>
-										<p class="mt-1 truncate text-sm">{log.body}</p>
+										<p class="mt-1 truncate text-sm"><AnsiText text={log.body} /></p>
 									</div>
 								{/each}
 							</div>

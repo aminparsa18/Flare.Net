@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { LogEventDto } from '$lib/api';
 	import { Badge } from '$lib/components/ui/badge';
+	import AnsiText from './AnsiText.svelte';
 	import { severityVariant } from '$lib/logs/severity';
 	import { formatDurationNano } from '$lib/traces/duration';
 
@@ -62,8 +63,8 @@
 		<span
 			class="overflow-hidden leading-5 break-words whitespace-pre-wrap"
 			style="display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: {lines}; line-clamp: {lines};"
-		>{event.body}</span>
+		><AnsiText text={event.body} /></span>
 	{:else}
-		<span class="truncate leading-5">{event.body}</span>
+		<span class="truncate leading-5"><AnsiText text={event.body} /></span>
 	{/if}
 </button>
