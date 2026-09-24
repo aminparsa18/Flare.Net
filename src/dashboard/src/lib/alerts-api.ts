@@ -27,6 +27,8 @@
 // `anomalyCondition` and the history/dry-run `baselineMean`/`zScore`/`baselineSampleCount`
 // were added for anomaly-detection alerting (docs-internal/adr/0048-anomaly-detection-alerting.md) -
 // `anomalyCondition`'s enums convert through `enums.ts`, same as `conditionKind`.
+// `minDataPoints` and the dry-run `insufficientData`/`dataPointCount` were added for the
+// metric-alert minimum sample size (docs-internal/adr/0050-alert-minimum-data-points.md).
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
 import {
@@ -166,6 +168,8 @@ export interface AlertRule {
 	evaluationIntervalSeconds: number;
 	/** Set only when `conditionKind` is `'Anomaly'`. */
 	anomalyCondition?: AnomalyCondition;
+	/** `'MetricThreshold'` only: fewest raw points the window must hold before the threshold is compared - fewer is "insufficient data" and never fires. 0 disables it. */
+	minDataPoints: number;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -194,6 +198,8 @@ export interface AlertRuleRequest {
 	/** See `AlertRule.evaluationIntervalSeconds`. Omitted/undefined means 0 (every poll tick). */
 	evaluationIntervalSeconds?: number;
 	anomalyCondition?: AnomalyCondition;
+	/** See `AlertRule.minDataPoints`. Omitted/undefined means 0 (disabled). */
+	minDataPoints?: number;
 }
 
 export interface AlertRuleListResponse {
@@ -260,6 +266,10 @@ export interface AlertTestResult {
 	zScore?: number;
 	/** `'Anomaly'` only: how many baseline windows had data. */
 	baselineSampleCount: number;
+	/** True when the rule/draft's `minDataPoints` is enabled and the window held fewer points - `wouldFire` is then false. */
+	insufficientData: boolean;
+	/** The window's raw point count - set only when `minDataPoints` is enabled. */
+	dataPointCount?: number;
 }
 
 /** "Send test alert" result: actually notified through the rule/draft's configured channel - unlike `AlertTestResult`, which never notifies. */
@@ -365,7 +375,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		exceptionCondition: toExceptionCountCondition(dto.exceptionCondition),
 		noDataWindowSeconds: dto.noDataWindowSeconds,
 		evaluationIntervalSeconds: dto.evaluationIntervalSeconds,
-		anomalyCondition: toAnomalyCondition(dto.anomalyCondition)
+		anomalyCondition: toAnomalyCondition(dto.anomalyCondition),
+		minDataPoints: dto.minDataPoints
 	};
 }
 
@@ -399,6 +410,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.noDataWindowSeconds = request.noDataWindowSeconds ?? null;
 	dto.evaluationIntervalSeconds = request.evaluationIntervalSeconds ?? null;
 	dto.anomalyCondition = toGeneratedAnomalyCondition(request.anomalyCondition);
+	dto.minDataPoints = request.minDataPoints ?? null;
 	return dto;
 }
 
@@ -512,7 +524,9 @@ function toAlertTestResult(dto: GeneratedAlertTestResult): AlertTestResult {
 		noData: dto.noData,
 		baselineMean: dto.baselineMean ?? undefined,
 		zScore: dto.zScore ?? undefined,
-		baselineSampleCount: dto.baselineSampleCount
+		baselineSampleCount: dto.baselineSampleCount,
+		insufficientData: dto.insufficientData,
+		dataPointCount: dto.dataPointCount == null ? undefined : Number(dto.dataPointCount)
 	};
 }
 

@@ -200,6 +200,8 @@ internal sealed class AlertsTestCommand : AsyncCommand<AlertsTestCommand.Setting
         AnsiConsole.MarkupLine(result switch
         {
             { NoData: true } => $"[yellow]No data[/]: the condition matched nothing in the last {result.WindowSeconds}s (absent-data alerting)",
+            { InsufficientData: true } =>
+                $"[yellow]Insufficient data[/]: only {result.DataPointCount} data point(s) in the last {result.WindowSeconds}s - below the rule's minimum, so it can't fire",
             { ConditionKind: "Anomaly", ZScore: { } z, BaselineMean: { } mean } =>
                 $"Observed: {FormatNumber(result.ObservedValue)} vs baseline mean {FormatNumber(mean)} (z = {z.ToString("+0.00;-0.00", CultureInfo.InvariantCulture)}, {result.BaselineSampleCount} baseline windows, window: {result.WindowSeconds}s)",
             { ConditionKind: "Anomaly" } =>
@@ -373,6 +375,12 @@ internal sealed class AlertTestResultWire
     public string ConditionKind { get; init; } = "LogCount";
 
     public double? ObservedValue { get; init; }
+
+    /// <summary>True when a metric rule's window had fewer points than its <c>MinDataPoints</c>. Absent from older servers, where it deserializes as false.</summary>
+    public bool InsufficientData { get; init; }
+
+    /// <summary>Set only when the rule has <c>MinDataPoints</c> enabled.</summary>
+    public ulong? DataPointCount { get; init; }
 
     /// <summary>Anomaly rules only: null when there wasn't enough history to score (see <see cref="BaselineSampleCount"/>).</summary>
     public double? BaselineMean { get; init; }

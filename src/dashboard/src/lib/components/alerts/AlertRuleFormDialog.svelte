@@ -69,6 +69,10 @@
 	let noDataWindowSecondsText = $state('600');
 	// Per-rule evaluation frequency (ADR-0046) - 0 means every AlertWorker poll tick.
 	let evaluationIntervalSeconds = $state(0);
+	// Minimum data points (ADR-0050) - MetricThreshold only; fewer points in the window is
+	// "insufficient data" and never fires (the API rejects it for every other kind).
+	let minDataPointsEnabled = $state(false);
+	let minDataPointsText = $state('3');
 	let channel = $state<'webhook' | 'telegram' | 'email' | 'pagerduty'>('webhook');
 	let webhookUrl = $state('');
 	let telegramBotToken = $state('');
@@ -145,6 +149,8 @@
 			noDataEnabled = false;
 			noDataWindowSecondsText = '600';
 			evaluationIntervalSeconds = 0;
+			minDataPointsEnabled = false;
+			minDataPointsText = '3';
 			channel = 'webhook';
 			webhookUrl = '';
 			telegramBotToken = '';
@@ -205,6 +211,8 @@
 			noDataEnabled = target.noDataWindowSeconds > 0;
 			noDataWindowSecondsText = target.noDataWindowSeconds > 0 ? String(target.noDataWindowSeconds) : '600';
 			evaluationIntervalSeconds = target.evaluationIntervalSeconds;
+			minDataPointsEnabled = target.minDataPoints > 0;
+			minDataPointsText = target.minDataPoints > 0 ? String(target.minDataPoints) : '3';
 			channel = target.telegramBotToken || target.telegramChatId
 				? 'telegram'
 				: target.emailTo
@@ -244,6 +252,10 @@
 	const noDataWindowSeconds = $derived(Number(noDataWindowSecondsText));
 	const supportsNoData = $derived(seriesKind !== 'ExceptionCount');
 	const noDataActive = $derived(supportsNoData && noDataEnabled);
+	const minDataPoints = $derived(Number(minDataPointsText));
+	const minDataPointsActive = $derived(conditionKind === 'MetricThreshold' && minDataPointsEnabled);
+	// Mirrors AlertRuleRequest.MaxMinDataPoints on the API side.
+	const MAX_MIN_DATA_POINTS = 100_000;
 	// Mirrors AlertRuleRequest.MinNoDataWindowSeconds on the API side.
 	const MIN_NO_DATA_WINDOW_SECONDS = 60;
 	// A rule saved through the API with an interval outside these presets still shows (and
@@ -312,7 +324,8 @@
 			Number.isFinite(cooldownSeconds) &&
 			cooldownSeconds >= 0 &&
 			(!noDataActive || (Number.isInteger(noDataWindowSeconds) && noDataWindowSeconds >= MIN_NO_DATA_WINDOW_SECONDS)) &&
-			!evaluationIntervalTooLong
+			!evaluationIntervalTooLong &&
+			(!minDataPointsActive || (Number.isInteger(minDataPoints) && minDataPoints >= 1 && minDataPoints <= MAX_MIN_DATA_POINTS))
 	);
 
 	// One-off wide-window aggregate to enumerate service names for the picker, same
@@ -430,6 +443,7 @@
 					: undefined,
 			noDataWindowSeconds: noDataActive ? noDataWindowSeconds : 0,
 			evaluationIntervalSeconds,
+			minDataPoints: minDataPointsActive ? minDataPoints : 0,
 			anomalyCondition:
 				conditionKind === 'Anomaly'
 					? {
@@ -758,6 +772,23 @@
 				</div>
 			{/if}
 
+			{#if conditionKind === 'MetricThreshold'}
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center gap-2">
+						<Switch bind:checked={minDataPointsEnabled} />
+						<span class="text-xs font-medium">{m.alertRuleForm_minDataPointsLabel()}</span>
+					</div>
+					{#if minDataPointsEnabled}
+						<div class="flex items-center gap-2">
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_minDataPointsAtLeast()}</span>
+							<Input type="number" min="1" max={MAX_MIN_DATA_POINTS} step="1" bind:value={minDataPointsText} class="w-24" />
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_minDataPointsUnit()}</span>
+						</div>
+					{/if}
+					<span class="text-muted-foreground text-xs">{m.alertRuleForm_minDataPointsHint()}</span>
+				</div>
+			{/if}
+
 			{#if usingLegacyChannel}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_notifyViaLabel()}</span>
@@ -847,6 +878,8 @@
 					<Badge variant={testResult.wouldFire ? 'warning' : 'outline'}>
 						{#if testResult.noData}
 							{m.alertRuleForm_testResultNoData({ seconds: testResult.windowSeconds })}
+						{:else if testResult.insufficientData}
+							{m.alertRuleForm_testResultInsufficientData({ points: testResult.dataPointCount ?? 0, min: minDataPoints })}
 						{:else if testResult.conditionKind === 'Anomaly'}
 							{#if testResult.baselineMean === undefined || testResult.zScore === undefined}
 								{m.alertRuleForm_testResultAnomalyNoHistory({ samples: testResult.baselineSampleCount })}

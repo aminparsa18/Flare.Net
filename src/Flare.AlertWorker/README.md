@@ -31,6 +31,10 @@ A rule with `EvaluationIntervalSeconds > 0` is evaluated only on ticks where it'
 that old minus half a poll interval), so slow/expensive rules can run every 5m/15m instead
 of every tick - see
 [`docs-internal/adr/0046-per-rule-alert-evaluation-interval.md`](../../docs-internal/adr/0046-per-rule-alert-evaluation-interval.md).
+A `MetricThreshold` rule with `MinDataPoints > 0` first counts the raw points in its window
+(`Alerting/AlertMinDataPointsEvaluator`). Below the minimum it's "insufficient data": no
+notification and no history row - see
+[`docs-internal/adr/0050-alert-minimum-data-points.md`](../../docs-internal/adr/0050-alert-minimum-data-points.md).
 Every replica coordinates through a single Redis-backed lock (`flare:alerts:eval-lock`)
 so only one replica evaluates per tick even when more than one is running — see
 `AlertEvaluationWorker`'s own remarks for the full mechanism.

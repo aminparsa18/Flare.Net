@@ -247,6 +247,44 @@ public class AlertConditionValidationTests
         Assert.Equal(valid, request.ValidateCondition() is null);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(AlertRuleRequest.MaxMinDataPoints)]
+    public void MinDataPoints_DisabledOrInRange_IsValidForMetricThreshold(int? minDataPoints)
+    {
+        var request = Build(AlertConditionKind.MetricThreshold, MakeCondition(), 1.0, minDataPoints: minDataPoints);
+
+        Assert.Null(request.ValidateCondition());
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(AlertRuleRequest.MaxMinDataPoints + 1)]
+    public void MinDataPoints_NegativeOrTooLarge_IsInvalid(int minDataPoints)
+    {
+        var request = Build(AlertConditionKind.MetricThreshold, MakeCondition(), 1.0, minDataPoints: minDataPoints);
+
+        Assert.Contains("minDataPoints", request.ValidateCondition());
+    }
+
+    [Theory]
+    [InlineData(AlertConditionKind.LogCount)]
+    [InlineData(AlertConditionKind.ExceptionCount)]
+    [InlineData(AlertConditionKind.Anomaly)]
+    public void MinDataPoints_OnNonMetricKind_IsInvalid(AlertConditionKind kind)
+    {
+        var request = Build(
+            kind,
+            MakeCondition(),
+            exceptionCondition: MakeExceptionCondition(),
+            anomalyCondition: new AnomalyCondition { Source = AlertConditionKind.MetricThreshold, BaselinePeriods = 7, ZScoreThreshold = 3 },
+            minDataPoints: 3);
+
+        Assert.Contains("minDataPoints", request.ValidateCondition());
+    }
+
     private static AlertRuleRequest Build(
         AlertConditionKind? conditionKind,
         MetricAlertCondition? metricCondition = null,
@@ -255,7 +293,8 @@ public class AlertConditionValidationTests
         int? noDataWindowSeconds = null,
         int? evaluationIntervalSeconds = null,
         int windowSeconds = 300,
-        AnomalyCondition? anomalyCondition = null) => new()
+        AnomalyCondition? anomalyCondition = null,
+        int? minDataPoints = null) => new()
     {
         Name = "test",
         Threshold = new AlertThreshold { Count = 1 },
@@ -268,5 +307,6 @@ public class AlertConditionValidationTests
         ExceptionCondition = exceptionCondition,
         NoDataWindowSeconds = noDataWindowSeconds,
         AnomalyCondition = anomalyCondition,
+        MinDataPoints = minDataPoints,
     };
 }
