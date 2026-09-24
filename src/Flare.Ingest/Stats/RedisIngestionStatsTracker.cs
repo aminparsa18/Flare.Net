@@ -11,9 +11,17 @@ namespace Flare.Ingest.Stats;
 /// regardless of how many counters/list ops it touches, since this runs on the hot ingest
 /// path.
 /// </summary>
+/// <remarks>
+/// Best-effort, per <see cref="IIngestionStatsTracker"/>'s own contract: a failed stats
+/// write is logged and swallowed, never thrown. The receivers call this <em>after</em>
+/// the events are already in the Redis stream, so an exception here used to turn a
+/// successful export into a 500 that the exporter retried, duplicating every event in it
+/// (seen with a HINCRBY overflow on the clock-skew counter - see <c>ClockSkew.Nanos</c>).
+/// </remarks>
 public sealed class RedisIngestionStatsTracker(
     IConnectionMultiplexer connectionMultiplexer,
-    TimeProvider timeProvider) : IIngestionStatsTracker
+    TimeProvider timeProvider,
+    ILogger<RedisIngestionStatsTracker> logger) : IIngestionStatsTracker
 {
     public async ValueTask RecordAcceptedAsync(
         IngestionSignal signal,
@@ -33,7 +41,7 @@ public sealed class RedisIngestionStatsTracker(
         var expire = batch.KeyExpireAsync(key, IngestionStatsKeys.BucketTtl);
         batch.Execute();
 
-        await Task.WhenAll(requests, records, bytes, expire).WaitAsync(cancellationToken);
+        await BestEffortAsync(Task.WhenAll(requests, records, bytes, expire), "accepted counts", cancellationToken);
     }
 
     public async ValueTask RecordRejectedAsync(
@@ -58,7 +66,7 @@ public sealed class RedisIngestionStatsTracker(
         var listExpire = batch.KeyExpireAsync(IngestionStatsKeys.ErrorsListKey, IngestionStatsKeys.BucketTtl);
         batch.Execute();
 
-        await Task.WhenAll(rejected, bucketExpire, push, trim, listExpire).WaitAsync(cancellationToken);
+        await BestEffortAsync(Task.WhenAll(rejected, bucketExpire, push, trim, listExpire), "rejection", cancellationToken);
     }
 
     public async ValueTask RecordServiceBreakdownAsync(
@@ -91,6 +99,18 @@ public sealed class RedisIngestionStatsTracker(
         tasks.Add(batch.KeyExpireAsync(skewKey, IngestionStatsKeys.BucketTtl));
         batch.Execute();
 
-        await Task.WhenAll(tasks).WaitAsync(cancellationToken);
+        await BestEffortAsync(Task.WhenAll(tasks), "per-service breakdown", cancellationToken);
+    }
+
+    private async ValueTask BestEffortAsync(Task writes, string what, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await writes.WaitAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Failed to record ingestion stats ({What}); the export itself is unaffected.", what);
+        }
     }
 }
