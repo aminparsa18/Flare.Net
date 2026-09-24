@@ -39,6 +39,8 @@ There are two ways to get a panel onto a dashboard:
    the query using the same filter controls as that page's own toolbar —
    including the Single metric/Formula mode toggle on Metrics — and
    confirm — the live preview underneath shows exactly what will be added.
+   Closing the dialog after changing the query or title asks before
+   discarding the unsaved panel.
 
 Repeat from either flow, into the same or a different dashboard, for as many
 panels as you want.

@@ -46,18 +46,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Small dashboard/trace UX polish, worth batching into one PR
-  eventually rather than three:** (a) a hover popover on trace waterfall
-  spans showing duration/start-time without navigating away
-  ([signoz#4241](https://github.com/SigNoz/signoz/commit/752688888677389d22b1dcf22ab519a70afc6522));
-  (b) click a `MetricChart` legend entry to isolate that one series,
-  click again to restore all - confirmed Flare's existing `hiddenSeries`
-  count is only the top-N cardinality cap, not a click-to-isolate toggle
-  ([signoz#4226](https://github.com/SigNoz/signoz/commit/55664872bd9d9e2b3fbcce747c55ca7dffa4a717));
-  (c) a discard-confirmation prompt when closing a dashboard panel/widget
-  editor with an un-staged query change, rather than silently losing it
-  ([signoz#4188](https://github.com/SigNoz/signoz/commit/9c1ea0cde9b8d20899c22381dc2f7bd6f0045b63)).
-  None started; none need backend/schema changes.
 - **Alert notification deep-links should scope into the actual fired
   data, not just the rule.** `AlertMessageFormatter` already builds a
   link on every notification, but it only points at
