@@ -32,13 +32,31 @@ public class MetricAlertConditionQueryBuilderTests
     }
 
     [Fact]
-    public void Build_Sum_SelectsFromSumTable_WithMaxMinusMinAndCount()
+    public void Build_Sum_UsesWindowedResetAwareIncrease_NotMaxMinusMin()
     {
         var result = MetricAlertConditionQueryBuilder.Build(
             new MetricAlertCondition { MetricName = "http.server.request.count", Type = MetricPointType.Sum }, From, To);
 
         Assert.Contains("FROM metrics_sum", result.Sql);
-        Assert.Contains("max(Value) - min(Value) AS Value, count() AS Count", result.Sql);
+        Assert.DoesNotContain("max(Value) - min(Value)", result.Sql);
+        Assert.Contains("WITH ranked AS (", result.Sql);
+        Assert.Contains("lagInFrame(Value) OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS RawDelta", result.Sql);
+        Assert.Contains("row_number() OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS SeriesRowNum", result.Sql);
+        Assert.Contains("AggregationTemporality = 'AGGREGATION_TEMPORALITY_DELTA', Value", result.Sql);
+        Assert.Contains("RawDelta < 0, Value", result.Sql);
+        Assert.Contains(")) AS Value, count() AS Count, any(Unit) AS Unit", result.Sql);
+    }
+
+    [Fact]
+    public void Build_Sum_IsSingleScalar_NoGroupBy()
+    {
+        // One whole-window scalar - an empty window must still return exactly one row for
+        // AlertQueryService's positional reads, which a GROUP BY would turn into zero rows.
+        var result = MetricAlertConditionQueryBuilder.Build(
+            new MetricAlertCondition { MetricName = "http.server.request.count", Type = MetricPointType.Sum }, From, To);
+
+        Assert.DoesNotContain("GROUP BY", result.Sql);
+        Assert.Equal(MetricPointType.Sum, result.Type);
     }
 
     [Fact]
