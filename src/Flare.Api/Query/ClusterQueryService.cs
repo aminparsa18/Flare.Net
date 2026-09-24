@@ -1,5 +1,6 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -61,6 +62,7 @@ public interface IClusterStatusService
 /// </remarks>
 public sealed class ClusterQueryService(
     IClickHouseClient client,
+    IOptions<QueryLimitsOptions> queryLimits,
     ILogger<ClusterQueryService> logger,
     bool clusterMode,
     bool sharedPatternStoreEnabled) : IClusterStatusService
@@ -177,12 +179,5 @@ public sealed class ClusterQueryService(
     }
 
     /// <summary>Same query-safety rationale as <see cref="IndexingQueryService"/>'s own copy.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.ExecutionTimeOnly(queryLimits.Value);
 }

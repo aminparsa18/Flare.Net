@@ -3,6 +3,7 @@ using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -30,7 +31,7 @@ public interface INotificationChannelQueryService
 /// rationale, which applies here unchanged) against <c>notification_channels</c> instead
 /// of <c>alert_rules</c>.
 /// </summary>
-public sealed class NotificationChannelQueryService(IClickHouseClient client, TimeProvider timeProvider) : INotificationChannelQueryService
+public sealed class NotificationChannelQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : INotificationChannelQueryService
 {
     private const string ChannelColumns =
         "Id, Name, Description, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt";
@@ -193,15 +194,5 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, Ti
         new(DateTime.SpecifyKind(reader.GetDateTime(ordinal), DateTimeKind.Utc));
 
     /// <summary>Same query-safety rationale as <see cref="LogQueryService.SafetyOptions"/>, used here for channel CRUD.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 }

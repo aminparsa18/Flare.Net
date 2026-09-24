@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -54,7 +55,7 @@ public interface IIndexingQueryService
 /// </description></item>
 /// </list>
 /// </remarks>
-public sealed class IndexingQueryService(IClickHouseClient client, ILogger<IndexingQueryService> logger, bool clusterMode) : IIndexingQueryService
+public sealed class IndexingQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, ILogger<IndexingQueryService> logger, bool clusterMode) : IIndexingQueryService
 {
     // Matches the literal 'flare_cluster' name defined in db/clickhouse-cluster's
     // remote-servers.xml and used by every ON CLUSTER statement in db/clickhouse-cluster/
@@ -348,12 +349,5 @@ public sealed class IndexingQueryService(IClickHouseClient client, ILogger<Index
         new(DateTime.SpecifyKind(reader.GetDateTime(ordinal), DateTimeKind.Utc));
 
     /// <summary>Same query-safety rationale as <see cref="LogQueryService.SafetyOptions"/> - these are system-table reads, not user-filtered data, but the same execution-time/row caps are cheap insurance.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.ExecutionTimeOnly(queryLimits.Value);
 }

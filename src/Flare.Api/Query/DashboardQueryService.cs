@@ -4,6 +4,7 @@ using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -41,7 +42,7 @@ public interface IDashboardQueryService
 /// dashboards FINAL WHERE IsDeleted = 0</c>. See db/clickhouse/0020_dashboards.sql for the
 /// full rationale.
 /// </remarks>
-public sealed class DashboardQueryService(IClickHouseClient client, TimeProvider timeProvider) : IDashboardQueryService
+public sealed class DashboardQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IDashboardQueryService
 {
     private const string DashboardColumns = "Id, Name, Description, OwnerUserId, LayoutJson, CreatedAt, UpdatedAt";
 
@@ -168,15 +169,5 @@ public sealed class DashboardQueryService(IClickHouseClient client, TimeProvider
         new(DateTime.SpecifyKind(reader.GetDateTime(ordinal), DateTimeKind.Utc));
 
     /// <summary>Same query-safety rationale as <see cref="LogQueryService.SafetyOptions"/>, used here for dashboard CRUD.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 }

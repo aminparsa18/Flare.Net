@@ -175,6 +175,10 @@ builder.Services.AddSingleton(TimeProvider.System);
 // underlying ClickHouse query every time. Registered as the concrete class too so the
 // decorators below can depend on the real query service directly rather than resolving
 // ILogQueryService/IMetricQueryService and risking wrapping themselves.
+// QueryLimitsOptions - ClickHouse per-query execution caps (max_execution_time etc.)
+// every query service applies; defaults match the values each used to hard-code, larger
+// installs raise them via Query__MaxExecutionSeconds and friends.
+builder.Services.Configure<QueryLimitsOptions>(builder.Configuration.GetSection(QueryLimitsOptions.SectionName));
 builder.Services.Configure<QueryCacheOptions>(builder.Configuration.GetSection(QueryCacheOptions.SectionName));
 builder.Services.AddSingleton<ICacheProvider, RedisCacheProvider>();
 builder.Services.AddSingleton<LogQueryService>();
@@ -188,6 +192,7 @@ builder.Services.AddSingleton<ILogQueryService>(sp => new CachingLogQueryService
 // see its TraceByIdQueryOptions remarks. Same flag as IndexingQueryService below.
 builder.Services.AddSingleton<ISpanQueryService>(sp => new SpanQueryService(
     sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
     sp.GetRequiredService<TimeProvider>(),
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 builder.Services.AddSingleton<MetricQueryService>();
@@ -219,6 +224,7 @@ builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQuerySe
 // injected dependencies.
 builder.Services.AddSingleton<IIndexingQueryService>(sp => new IndexingQueryService(
     sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
     sp.GetRequiredService<ILogger<IndexingQueryService>>(),
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 
@@ -230,6 +236,7 @@ builder.Services.AddSingleton<IIndexingQueryService>(sp => new IndexingQueryServ
 // api alongside ingest-1/ingest-2 for that reason.
 builder.Services.AddSingleton<IClusterStatusService>(sp => new ClusterQueryService(
     sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
     sp.GetRequiredService<ILogger<ClusterQueryService>>(),
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode"),
     sharedPatternStoreEnabled: builder.Configuration.GetValue<bool>("LogPattern:SharedStore")));

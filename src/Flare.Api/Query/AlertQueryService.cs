@@ -5,6 +5,7 @@ using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
 using Flare.Api.Json;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -84,7 +85,7 @@ public interface IAlertQueryService
 /// back immediately" CRUD). All reads go through <c>FROM alert_rules FINAL WHERE
 /// IsDeleted = 0</c>. See db/clickhouse/0003_alert_rules.sql for the full rationale.
 /// </remarks>
-public sealed class AlertQueryService(IClickHouseClient client, TimeProvider timeProvider) : IAlertQueryService
+public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IAlertQueryService
 {
     private const string RuleColumns =
         "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds";
@@ -488,30 +489,12 @@ public sealed class AlertQueryService(IClickHouseClient client, TimeProvider tim
     };
 
     /// <summary>Same query-safety rationale as <see cref="LogQueryService.SafetyOptions"/>, used here for rule CRUD/history.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 
     /// <summary>
     /// Tighter cap than <see cref="SafetyOptions"/> for the count/last-fired queries
     /// <c>AlertEvaluationWorker</c> runs once per rule on every poll tick - a runaway
     /// query here blocks the whole tick, not just one dashboard request.
     /// </summary>
-    private static QueryOptions EvaluationSafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 10,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-        },
-    };
+    private QueryOptions EvaluationSafetyOptions() => QuerySafety.AlertEvaluation(queryLimits.Value);
 }

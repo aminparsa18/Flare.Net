@@ -24,7 +24,7 @@ public interface IServiceCallBreakdownQueryService
 /// external/database queries, so the reader-mapping code below is shared regardless
 /// of which builder ran.
 /// </remarks>
-public sealed class ServiceCallBreakdownQueryService(IClickHouseClient client, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceCallBreakdownQueryService
+public sealed class ServiceCallBreakdownQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceCallBreakdownQueryService
 {
     private const double NanosPerMilli = 1_000_000.0;
 
@@ -118,15 +118,5 @@ public sealed class ServiceCallBreakdownQueryService(IClickHouseClient client, T
         callCount == 0 ? 0.0 : errorCount / (double)callCount;
 
     /// <summary>Same scan/time safety cap as <see cref="ServiceOverviewQueryService.SafetyOptions"/> - see <see cref="ServiceCallBreakdownQueryBuilder"/>'s remarks on why this pair of queries is cheaper than <see cref="ServiceDependencyQueryService"/>'s.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 }

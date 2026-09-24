@@ -25,7 +25,7 @@ public interface IServiceDependencyQueryService
 /// <see cref="ServiceDependencyQueryBuilder"/>'s live self-join - see ADR-0031's
 /// Context for why.
 /// </remarks>
-public sealed class ServiceDependencyQueryService(IClickHouseClient client, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceDependencyQueryService
+public sealed class ServiceDependencyQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceDependencyQueryService
 {
     public async Task<ServiceDependencyGraphResponse> GetGraphAsync(int requestedWindowMinutes, IReadOnlyList<ResourceAttributeFilter>? resourceAttributes, CancellationToken cancellationToken)
     {
@@ -94,15 +94,5 @@ public sealed class ServiceDependencyQueryService(IClickHouseClient client, Time
     }
 
     /// <summary>Same scan/time safety cap as <see cref="ServiceOverviewQueryService.SafetyOptions"/> - see <see cref="ServiceDependencyQueryBuilder"/>'s remarks on why the edges query in particular has no index to lean on.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 }
