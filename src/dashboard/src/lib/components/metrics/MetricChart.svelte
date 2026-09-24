@@ -19,6 +19,8 @@
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
 	import { previousPeriodLabel, resolveTimeRange, previousPeriod, shiftRange } from '$lib/logs/time-range';
 	import type { MetricSeries } from '$lib/metrics-api';
+	import ThresholdOverlay from './ThresholdOverlay.svelte';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = metricsExplorerContext.get();
@@ -36,11 +38,16 @@
 	// Metrics panel, via YAxisBoundsPopover.svelte; `null` on the standalone Metrics
 	// Explorer page's own MetricChart usage, which has no per-panel config to source it
 	// from. See domainMin/domainMax below for how "soft" is actually applied.
+	//
+	// thresholds: a dashboard panel's visual threshold rules (DashboardPanel.thresholds) -
+	// drawn by ThresholdOverlay.svelte, plus the first matching rule's color on each hovered
+	// tooltip value. `[]` on the Explorer page, same "dashboard-only" posture as yAxisMin/Max.
 	let {
 		allowZoom = true,
 		yAxisMin = null,
-		yAxisMax = null
-	}: { allowZoom?: boolean; yAxisMin?: number | null; yAxisMax?: number | null } = $props();
+		yAxisMax = null,
+		thresholds = []
+	}: { allowZoom?: boolean; yAxisMin?: number | null; yAxisMax?: number | null; thresholds?: PanelThreshold[] } = $props();
 
 	// Fixed categorical palette (--chart-1..5, the `dataviz` skill's validated
 	// palette - see layout.css's chart-1..5 comment) - never cycled past 5 series; a
@@ -1077,6 +1084,16 @@
 											/>
 										{/each}
 
+										<ThresholdOverlay
+											{thresholds}
+											{yFor}
+											{minValue}
+											{maxValue}
+											width={CHART_WIDTH}
+											peakY={PEAK_Y}
+											baselineY={BASELINE_Y}
+										/>
+
 										{#if safeHoverIndex !== null}
 											<line
 												x1={xFor(bucketTimes[safeHoverIndex])}
@@ -1138,9 +1155,13 @@
 										{#each lines as line (line.label)}
 											{@const point = pointAtHover(line)}
 											{#if point}
+												{@const match = matchThreshold(thresholds, point.raw)}
 												<span class="flex items-center gap-1.5">
 													<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-													{line.detail}: {formatValue(point.raw)}
+													{line.detail}:
+													<span class={match ? 'font-semibold' : undefined} style={match ? `color: ${thresholdColorValue(match.color)};` : undefined}>
+														{formatValue(point.raw)}
+													</span>
 												</span>
 											{/if}
 										{/each}

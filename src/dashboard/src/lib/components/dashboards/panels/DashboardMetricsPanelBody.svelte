@@ -35,6 +35,7 @@
 	import FormulaChart from '$lib/components/metrics/FormulaChart.svelte';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
+	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 
 	let {
 		query,
@@ -42,7 +43,8 @@
 		variableOverrides,
 		refreshToken,
 		yAxisMin,
-		yAxisMax
+		yAxisMax,
+		thresholds
 	}: {
 		query: unknown;
 		timeRangeOverride: TimeRangePreset | null;
@@ -53,6 +55,8 @@
 		 *  `domainMin`/`domainMax` remarks for how a soft bound is applied. */
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
+		/** This panel's own `DashboardPanel.thresholds` - passed straight through the same way. */
+		thresholds?: PanelThreshold[];
 	} = $props();
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
@@ -83,6 +87,14 @@
 			void explorer.applySavedViewState(query).then(() => {
 				if (range) explorer.setTimeRangePreset(range);
 				if (overrides.services.length) explorer.setServices(overrides.services);
+				// Neither override above ran a query, so this panel must run its own. The
+				// onMount apply's selectMetric only *scheduled* one (#deferredReset's timer),
+				// and this second apply's leading #flushPendingSwitch cancels that timer
+				// without running it - while its own selectMetric is a no-op (same metric) -
+				// so a single-metric panel on a dashboard with no time-range override and no
+				// applicable variable used to sit on "No data in range" forever. Formula mode
+				// needs nothing here: applySavedViewState already runs runFormulaQuery itself.
+				if (!range && !overrides.services.length && explorer.mode !== 'formula') void explorer.runQuery();
 			});
 		});
 	});
@@ -101,7 +113,7 @@
 </script>
 
 {#if explorer.mode === 'formula'}
-	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} />
+	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else}
-	<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} />
+	<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {/if}

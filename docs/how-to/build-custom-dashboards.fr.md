@@ -96,6 +96,27 @@ plus loin — elle restreint la vue par défaut, elle ne coupe jamais un point
 réel du graphique. Comme le reste de la définition d'un panneau, c'est
 enregistré avec le tableau de bord.
 
+## Ajouter des seuils visuels à un panneau Metrics
+
+En mode édition, l'en-tête d'un panneau Metrics comporte aussi une icône
+**palette**. Elle permet d'ajouter des règles de seuil ordonnées, chacune
+composée d'un opérateur (`>`, `>=`, `<`, `<=`), d'une valeur et d'une
+couleur, par exemple « `> 500` rouge, `> 200` orange ». Chaque règle trace
+une ligne pointillée à sa valeur et ombre légèrement le côté du graphique
+vers lequel pointe son opérateur. Au survol du graphique, toute valeur qui
+correspond à une règle s'affiche dans la couleur de cette règle. Si
+plusieurs règles correspondent à la même valeur, c'est la règle la **plus
+haute** qui l'emporte : placez la règle la plus grave en premier et
+utilisez les flèches pour réordonner. Les valeurs sont dans l'unité propre
+de la métrique, la même que pour la plage d'axe Y ci-dessus.
+
+Les seuils sont purement visuels. Ils ne notifient personne ; pour cela,
+utilisez [une règle d'alerte](#créer-une-alerte-depuis-un-panneau). Ils
+n'élargissent jamais l'axe du graphique non plus : si la valeur d'un seuil
+sort de la plage visible, sa ligne n'est pas tracée. Définissez une plage
+d'axe Y pour l'afficher. Comme le reste de la définition d'un panneau, les
+seuils sont enregistrés avec le tableau de bord.
+
 ## Surcharger la plage de temps pour une session
 
 Le sélecteur de **plage de temps** dans l'en-tête d'un tableau de bord

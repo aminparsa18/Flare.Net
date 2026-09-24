@@ -18,6 +18,7 @@ import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memory
 import { Dashboard as GeneratedDashboard } from '$lib/memorypack/Dashboard';
 import { DashboardRequest as GeneratedDashboardRequest } from '$lib/memorypack/DashboardRequest';
 import { DashboardListResponse as GeneratedDashboardListResponse } from '$lib/memorypack/DashboardListResponse';
+import type { PanelThreshold } from '$lib/dashboards/thresholds';
 
 // ---- Shared shapes (DashboardModels.cs) ------------------------------------
 
@@ -56,6 +57,15 @@ export interface DashboardPanel {
 	 */
 	yAxisMin?: number | null;
 	yAxisMax?: number | null;
+	/**
+	 * Ordered visual threshold rules for a `Metrics` panel's chart (roadmap's "Per-panel
+	 * visual thresholds / conditional formatting" item) - purely styling (a colored line +
+	 * shaded region per rule, and the first matching rule's color on a hovered value),
+	 * never a notification. `undefined`/`[]` means none, same as before this field existed.
+	 * Meaningless for `Logs`/`Traces` panels, same posture as `yAxisMin`/`yAxisMax`. See
+	 * `$lib/dashboards/thresholds.ts` for the shape and the first-match-wins precedence rule.
+	 */
+	thresholds?: PanelThreshold[];
 }
 
 /**

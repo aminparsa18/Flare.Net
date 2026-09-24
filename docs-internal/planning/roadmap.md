@@ -46,20 +46,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Per-panel visual thresholds / conditional formatting.** Dashboard
-  panels have no way to say "color this red above X" - purely visual
-  styling (background/text color on Value panels, a horizontal line on
-  time-series charts, cell coloring in tables) driven by ordered
-  operator+value+color rules, distinct from alert rules (which notify,
-  not style). Not started. Would live entirely in the existing
-  render layer each panel type already has - no backend/schema change,
-  reuses the same value-formatting path as the metric-unit-formatting
-  item above - plus needs a defined precedence rule for when multiple
-  thresholds match on the same value. Prior art: SigNoz's threshold
-  feature across Value/time-series/table panel types
-  ([signoz#3949](https://github.com/SigNoz/signoz/commit/12819113c14e3a29ac773b22e114f8b879e6e870),
-  [signoz#3974](https://github.com/SigNoz/signoz/commit/9333fdcd0b3ba922febcd84dca33662fb08d81ff),
-  [signoz#4002](https://github.com/SigNoz/signoz/commit/4009ac83febfd1aee122d2075acb0edde5af4bfd)).
 - **Metric-threshold alert evaluation still has the counter-reset blind
   spot `MetricSeriesQueryBuilder`'s chart query used to have.**
   `MetricAlertConditionQueryBuilder` (ADR-0020) still computes Sum's
