@@ -30,12 +30,22 @@ internal sealed class FakeIngestApiKeyStore : IIngestApiKeyStore
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<string>> ListActiveKeyHashesAsync(CancellationToken cancellationToken = default)
+    public Task<bool> UpdateLimitsAsync(Guid id, IngestApiKeyLimits limits, CancellationToken cancellationToken = default)
     {
-        var hashes = _keysById.Values
+        if (!_keysById.TryGetValue(id, out var key))
+        {
+            return Task.FromResult(false);
+        }
+        _keysById[id] = key with { Limits = limits };
+        return Task.FromResult(true);
+    }
+
+    public Task<IReadOnlyList<ActiveIngestApiKey>> ListActiveKeysAsync(CancellationToken cancellationToken = default)
+    {
+        var keys = _keysById.Values
             .Where(k => k.IsActive)
-            .Select(k => IngestApiKeyHasher.Hash(_rawKeysById[k.Id]))
+            .Select(k => new ActiveIngestApiKey(k.Id, k.Name, IngestApiKeyHasher.Hash(_rawKeysById[k.Id]), k.Limits))
             .ToList();
-        return Task.FromResult<IReadOnlyList<string>>(hashes);
+        return Task.FromResult<IReadOnlyList<ActiveIngestApiKey>>(keys);
     }
 }

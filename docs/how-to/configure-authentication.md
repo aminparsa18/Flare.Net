@@ -217,7 +217,8 @@ session — this method doesn't authenticate every request ambiently.
 Ingest API keys authenticate OTLP exporters (machines), separate from user
 accounts.
 
-- **Create one**: `Admin`-only, `POST /api/ingest-keys` (name it something
+- **Create one**: `Admin`-only, from the dashboard's **Ingest keys** page
+  (the `⋯` menu, top right) or `POST /api/ingest-keys` (name it something
   like `"prod-collector"`). The raw key is shown **exactly once** — copy
   it somewhere safe immediately.
 - **Use it**: send `Authorization: Bearer <key>` on your OTLP exporter
@@ -226,6 +227,19 @@ accounts.
   seconds — `Flare.Ingest` caches the active-key set in memory and
   refreshes it on a timer rather than hitting SQLite on every ingest
   request.
+- **Limit it** (optional): on the **Ingest keys** page, or
+  `PUT /api/ingest-keys/{id}/limits`, cap a key's events and/or bytes per
+  UTC minute and per UTC day, with an on/off toggle. Events are log
+  records, spans, and metric data points. A key at its cap gets a
+  retryable OTLP throttling response — HTTP `429` with `Retry-After`, or
+  gRPC `RESOURCE_EXHAUSTED` with a `RetryInfo` delay — so exporters back
+  off and retry rather than drop data. The same page shows each key's
+  usage for the current minute and day. Limits only apply while
+  `Auth:IngestKeyRequired=true` (otherwise an exporter could just omit the
+  key), never to `Auth:StaticIngestApiKey`, and a change takes effect
+  within the same 30 seconds as a revocation. They're a soft cap: a batch
+  is admitted while usage is still under the cap, so a window can end up
+  slightly over by the batches already in flight.
 - **Turn on enforcement** once you've migrated every exporter: create at
   least one key, update your exporters to send it, *then* set
   `Auth:IngestKeyRequired=true` (defaults to `false`, so upgrading an

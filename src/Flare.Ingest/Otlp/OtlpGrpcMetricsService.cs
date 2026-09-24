@@ -1,3 +1,4 @@
+using Flare.Ingest.Auth;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Grpc.Core;
@@ -43,6 +44,7 @@ public sealed class OtlpGrpcMetricsService(
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Grpc, result.Points.Count, byteCount, context.CancellationToken);
+        IngestKeyUsageFeature.Add(context.GetHttpContext(), result.Points.Count, byteCount);
         await stats.RecordServiceBreakdownAsync(
             IngestionSignal.Metrics,
             ServiceBreakdown.Build(result.Points.Select(p => (p.ServiceName, ClockSkew.Nanos(ingestedAt, p.Time))), byteCount),

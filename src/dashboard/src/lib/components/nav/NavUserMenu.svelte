@@ -15,6 +15,7 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PlugIcon from '@lucide/svelte/icons/plug';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
+	import KeyIcon from '@lucide/svelte/icons/key';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import LanguagesIcon from '@lucide/svelte/icons/languages';
@@ -63,6 +64,18 @@
 				</a>
 			{/snippet}
 		</DropdownMenu.Item>
+		<!-- Ingest keys (and their ingestion limits, ADR-0051) are Admin-only on the backend -
+		     same gate nav-links.ts applies to /auth, including "everyone while auth is off". -->
+		{#if !auth.authEnabled || auth.currentUser?.role === 'Admin'}
+			<DropdownMenu.Item>
+				{#snippet child({ props })}
+					<a href="/ingest-keys" {...props}>
+						<KeyIcon />
+						{m.ingestKeysPage_heading()}
+					</a>
+				{/snippet}
+			</DropdownMenu.Item>
+		{/if}
 		<DropdownMenu.Separator />
 
 		{#if auth.authEnabled}

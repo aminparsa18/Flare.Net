@@ -2,7 +2,8 @@
 // generated. Mirrors `src/Flare.Api/Model/IngestApiKeyModels.cs`'s `IngestApiKeyDto`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
 // `CreatedAt`/`RevokedAt` are `DateTimeOffset`/`DateTimeOffset?` - see
-// `$lib/memorypack/date-time-offset.ts`'s header comment.
+// `$lib/memorypack/date-time-offset.ts`'s header comment. The limit/usage members
+// (ADR-0051) are `long`/`long?` on the wire, read as `bigint` like the generated classes do.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -14,6 +15,15 @@ export class IngestApiKeyDto {
 	createdAt: Date;
 	revokedAt: Date | null;
 	isActive: boolean;
+	limitsEnabled: boolean;
+	maxEventsPerMinute: bigint | null;
+	maxBytesPerMinute: bigint | null;
+	maxEventsPerDay: bigint | null;
+	maxBytesPerDay: bigint | null;
+	eventsThisMinute: bigint;
+	bytesThisMinute: bigint;
+	eventsToday: bigint;
+	bytesToday: bigint;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -21,6 +31,15 @@ export class IngestApiKeyDto {
 		this.createdAt = new Date(0);
 		this.revokedAt = null;
 		this.isActive = false;
+		this.limitsEnabled = false;
+		this.maxEventsPerMinute = null;
+		this.maxBytesPerMinute = null;
+		this.maxEventsPerDay = null;
+		this.maxBytesPerDay = null;
+		this.eventsThisMinute = 0n;
+		this.bytesThisMinute = 0n;
+		this.eventsToday = 0n;
+		this.bytesToday = 0n;
 	}
 
 	static serialize(value: IngestApiKeyDto | null): Uint8Array {
@@ -35,12 +54,21 @@ export class IngestApiKeyDto {
 			return;
 		}
 
-		writer.writeObjectHeader(5);
+		writer.writeObjectHeader(14);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writeDateTimeOffset(writer, value.createdAt);
 		writeNullableDateTimeOffset(writer, value.revokedAt);
 		writer.writeBoolean(value.isActive);
+		writer.writeBoolean(value.limitsEnabled);
+		writer.writeNullableInt64(value.maxEventsPerMinute);
+		writer.writeNullableInt64(value.maxBytesPerMinute);
+		writer.writeNullableInt64(value.maxEventsPerDay);
+		writer.writeNullableInt64(value.maxBytesPerDay);
+		writer.writeInt64(value.eventsThisMinute);
+		writer.writeInt64(value.bytesThisMinute);
+		writer.writeInt64(value.eventsToday);
+		writer.writeInt64(value.bytesToday);
 	}
 
 	static serializeArray(value: (IngestApiKeyDto | null)[] | null): Uint8Array {
@@ -64,13 +92,22 @@ export class IngestApiKeyDto {
 		}
 
 		const value = new IngestApiKeyDto();
-		if (count == 5) {
+		if (count == 14) {
 			value.id = reader.readGuid();
 			value.name = reader.readString() ?? '';
 			value.createdAt = readDateTimeOffset(reader);
 			value.revokedAt = readNullableDateTimeOffset(reader);
 			value.isActive = reader.readBoolean();
-		} else if (count > 5) {
+			value.limitsEnabled = reader.readBoolean();
+			value.maxEventsPerMinute = reader.readNullableInt64();
+			value.maxBytesPerMinute = reader.readNullableInt64();
+			value.maxEventsPerDay = reader.readNullableInt64();
+			value.maxBytesPerDay = reader.readNullableInt64();
+			value.eventsThisMinute = reader.readInt64();
+			value.bytesThisMinute = reader.readInt64();
+			value.eventsToday = reader.readInt64();
+			value.bytesToday = reader.readInt64();
+		} else if (count > 14) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -84,6 +121,24 @@ export class IngestApiKeyDto {
 			if (count == 4) return value;
 			value.isActive = reader.readBoolean();
 			if (count == 5) return value;
+			value.limitsEnabled = reader.readBoolean();
+			if (count == 6) return value;
+			value.maxEventsPerMinute = reader.readNullableInt64();
+			if (count == 7) return value;
+			value.maxBytesPerMinute = reader.readNullableInt64();
+			if (count == 8) return value;
+			value.maxEventsPerDay = reader.readNullableInt64();
+			if (count == 9) return value;
+			value.maxBytesPerDay = reader.readNullableInt64();
+			if (count == 10) return value;
+			value.eventsThisMinute = reader.readInt64();
+			if (count == 11) return value;
+			value.bytesThisMinute = reader.readInt64();
+			if (count == 12) return value;
+			value.eventsToday = reader.readInt64();
+			if (count == 13) return value;
+			value.bytesToday = reader.readInt64();
+			if (count == 14) return value;
 		}
 		return value;
 	}
