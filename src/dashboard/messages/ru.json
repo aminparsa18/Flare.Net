@@ -328,6 +328,8 @@
 	"alertRuleForm_metricNameLabel": "Метрика",
 	"alertRuleForm_metricNamePlaceholder": "Выберите метрику…",
 	"alertRuleForm_aggregationLabel": "Агрегация",
+	"alertRuleForm_gaugeMatchHintGreaterOrEqual": "Value — среднее за окно · Last — последняя точка · Min — нарушение на протяжении всего окна · Max — нарушение хотя бы раз",
+	"alertRuleForm_gaugeMatchHintLessThan": "Value — среднее за окно · Last — последняя точка · Min — нарушение хотя бы раз · Max — нарушение на протяжении всего окна",
 	"alertRuleForm_thresholdLabel": "Порог",
 	"alertRuleForm_eventsIn": "событий за",
 	"alertRuleForm_metricOverLabel": "за",

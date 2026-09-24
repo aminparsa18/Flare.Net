@@ -39,7 +39,7 @@
 	// same "restrict the choice, don't validate it server-side" convention
 	// MetricQueryRequest.Type's own doc comment documents.
 	const AGGREGATIONS_BY_TYPE: Record<MetricPointType, MetricAlertAggregation[]> = {
-		Gauge: ['Value'],
+		Gauge: ['Value', 'Last', 'Min', 'Max'],
 		Sum: ['Value', 'Count'],
 		Histogram: ['Count', 'Sum', 'P50', 'P75', 'P90', 'P95', 'P99', 'MaxApprox']
 	};
@@ -620,6 +620,12 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
+					{#if conditionKind === 'MetricThreshold' && metricType === 'Gauge'}
+						<!-- Min/Max swap between "all the time" and "at least once" with the comparator's direction (ADR-0049). -->
+						<span class="text-muted-foreground text-xs">
+							{comparator === 'LessThan' ? m.alertRuleForm_gaugeMatchHintLessThan() : m.alertRuleForm_gaugeMatchHintGreaterOrEqual()}
+						</span>
+					{/if}
 				</div>
 			{/if}
 

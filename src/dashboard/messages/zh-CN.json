@@ -328,6 +328,8 @@
 	"alertRuleForm_metricNameLabel": "指标",
 	"alertRuleForm_metricNamePlaceholder": "选择指标…",
 	"alertRuleForm_aggregationLabel": "聚合方式",
+	"alertRuleForm_gaugeMatchHintGreaterOrEqual": "Value = 窗口平均值 · Last = 最新数据点 · Min = 整个窗口内持续超出 · Max = 至少超出一次",
+	"alertRuleForm_gaugeMatchHintLessThan": "Value = 窗口平均值 · Last = 最新数据点 · Min = 至少低于一次 · Max = 整个窗口内持续低于",
 	"alertRuleForm_thresholdLabel": "阈值",
 	"alertRuleForm_eventsIn": "次事件,在",
 	"alertRuleForm_metricOverLabel": "在",

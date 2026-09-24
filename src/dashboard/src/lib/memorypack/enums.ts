@@ -237,7 +237,7 @@ export function notificationChannelTypeFromString(value: NotificationChannelType
 }
 
 /** Matches `AlertModels.cs`'s `MetricAlertAggregation` member order. Not itself MemoryPack-TS-generated - same reason as `AlertConditionKindName` above (`MetricAlertCondition` nests `MetricFilter`, itself ungenerated). */
-const METRIC_ALERT_AGGREGATION_NAMES = ['Value', 'Count', 'Sum', 'P50', 'P75', 'P90', 'P95', 'P99', 'MaxApprox'] as const;
+const METRIC_ALERT_AGGREGATION_NAMES = ['Value', 'Count', 'Sum', 'P50', 'P75', 'P90', 'P95', 'P99', 'MaxApprox', 'Last', 'Min', 'Max'] as const;
 
 export type MetricAlertAggregationName = (typeof METRIC_ALERT_AGGREGATION_NAMES)[number];
 
