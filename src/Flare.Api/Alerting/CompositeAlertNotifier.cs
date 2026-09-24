@@ -25,7 +25,7 @@ public sealed class CompositeAlertNotifier(
     EmailAlertNotifier email,
     PagerDutyAlertNotifier pagerDuty) : IAlertNotifier
 {
-    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null)
+    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false)
     {
         IAlertNotifier notifier = channel.Type switch
         {
@@ -35,13 +35,13 @@ public sealed class CompositeAlertNotifier(
             _ => webhook,
         };
 
-        return notifier.SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit);
+        return notifier.SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit, noData);
     }
 
     /// <summary>See this class's remarks. Sends to every one of <paramref name="channels"/> concurrently - independent I/O against unrelated third-party endpoints, so there's no reason to serialize them.</summary>
-    public async Task<IReadOnlyList<NotificationResult>> SendAllAsync(AlertRule rule, IReadOnlyList<NotificationChannel> channels, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null)
+    public async Task<IReadOnlyList<NotificationResult>> SendAllAsync(AlertRule rule, IReadOnlyList<NotificationChannel> channels, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false)
     {
-        var sends = channels.Select(channel => SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit));
+        var sends = channels.Select(channel => SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit, noData));
         return await Task.WhenAll(sends);
     }
 }

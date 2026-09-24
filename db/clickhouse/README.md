@@ -119,6 +119,12 @@ bound in `ServiceDependencyQueryBuilder`, it reads only the window. See
 [ADR-0043](../../docs-internal/adr/0043-service-dependency-edges-start-time-projection.md)
 for the benchmark and the storage trade-off.
 
+`0026_alert_no_data.sql` - absent-data ("no data") alerting: an opt-in
+`alert_rules.NoDataWindowSeconds` (0 = off, the default for every existing rule) and an
+`alert_events.NoData` flag marking events fired because a rule's condition matched
+nothing at all, rather than a threshold breach. See
+[ADR-0045](../../docs-internal/adr/0045-absent-data-alerting.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

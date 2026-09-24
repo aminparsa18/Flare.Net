@@ -41,19 +41,34 @@ public static class AlertMessageFormatter
     /// <c>AlertEvaluationWorker.EvaluateRuleAsync</c>), passed straight through to
     /// <see cref="BuildMatchingLogsUrl"/> - null omits that link, leaving only the rule link.
     /// </param>
-    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null)
+    /// <param name="noData">
+    /// True for an absent-data fire (<see cref="AlertRule.NoDataWindowSeconds"/>) - reports
+    /// "no data" over the no-data window instead of a threshold breach, and omits the
+    /// matching-logs link (there are none to show). Ignored when <paramref name="isTest"/>.
+    /// </param>
+    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null, bool noData = false)
     {
         var text = isTest
             ? $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly."
-            : BuildFiredText(rule, observedValue, metricUnit);
+            : noData
+                ? BuildNoDataText(rule)
+                : BuildFiredText(rule, observedValue, metricUnit);
 
-        if (firedAt is { } at && BuildMatchingLogsUrl(rule, publicUrl, at) is { } logsUrl)
+        if (!noData && firedAt is { } at && BuildMatchingLogsUrl(rule, publicUrl, at) is { } logsUrl)
         {
             text = $"{text}\nMatching logs: {logsUrl}";
         }
 
         var ruleUrl = BuildRuleUrl(rule, publicUrl);
         return ruleUrl is null ? text : $"{text}\n{ruleUrl}";
+    }
+
+    private static string BuildNoDataText(AlertRule rule)
+    {
+        var what = rule.ConditionKind == AlertConditionKind.MetricThreshold
+            ? $"metric {rule.MetricCondition?.MetricName ?? "?"} reported no data points"
+            : "no matching log events";
+        return $":warning: Alert \"{rule.Name}\" fired: no data - {what} in the last {rule.NoDataWindowSeconds}s";
     }
 
     private static string BuildFiredText(AlertRule rule, double observedValue, string? metricUnit)

@@ -2,7 +2,7 @@
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AlertTestResult`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
 // `EvaluatedAt` is a `DateTimeOffset` - see `$lib/memorypack/date-time-offset.ts`'s header
-// comment. `conditionKind`/`observedValue` were appended after every pre-existing field,
+// comment. `conditionKind`/`observedValue`/`noData` were appended after every pre-existing field,
 // same versioning reasoning as `AlertRule.ts`.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
@@ -16,6 +16,7 @@ export class AlertTestResult {
 	windowSeconds: number;
 	conditionKind: number;
 	observedValue: number | null;
+	noData: boolean;
 
 	constructor() {
 		this.observedCount = 0n;
@@ -24,6 +25,7 @@ export class AlertTestResult {
 		this.windowSeconds = 0;
 		this.conditionKind = 0;
 		this.observedValue = null;
+		this.noData = false;
 	}
 
 	static serialize(value: AlertTestResult | null): Uint8Array {
@@ -38,13 +40,14 @@ export class AlertTestResult {
 			return;
 		}
 
-		writer.writeObjectHeader(6);
+		writer.writeObjectHeader(7);
 		writer.writeUint64(value.observedCount);
 		writer.writeBoolean(value.wouldFire);
 		writeDateTimeOffset(writer, value.evaluatedAt);
 		writer.writeInt32(value.windowSeconds);
 		writer.writeInt32(value.conditionKind);
 		writer.writeNullableFloat64(value.observedValue);
+		writer.writeBoolean(value.noData);
 	}
 
 	static deserialize(buffer: ArrayBuffer): AlertTestResult | null {
@@ -58,14 +61,15 @@ export class AlertTestResult {
 		}
 
 		const value = new AlertTestResult();
-		if (count == 6) {
+		if (count == 7) {
 			value.observedCount = reader.readUint64();
 			value.wouldFire = reader.readBoolean();
 			value.evaluatedAt = readDateTimeOffset(reader);
 			value.windowSeconds = reader.readInt32();
 			value.conditionKind = reader.readInt32();
 			value.observedValue = reader.readNullableFloat64();
-		} else if (count > 6) {
+			value.noData = reader.readBoolean();
+		} else if (count > 7) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -81,6 +85,8 @@ export class AlertTestResult {
 			if (count == 5) return value;
 			value.observedValue = reader.readNullableFloat64();
 			if (count == 6) return value;
+			value.noData = reader.readBoolean();
+			if (count == 7) return value;
 		}
 		return value;
 	}

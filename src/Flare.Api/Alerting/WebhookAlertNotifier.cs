@@ -18,14 +18,15 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false)
     {
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
-        var logsUrl = AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
+        // No scoped-logs link for a no-data fire - by definition there are no matching logs to show.
+        var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var isMetric = rule.ConditionKind == AlertConditionKind.MetricThreshold;
         var payload = new
         {
-            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt),
+            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData),
             ruleId = rule.Id,
             ruleName = rule.Name,
             conditionKind = rule.ConditionKind.ToString(),
@@ -38,7 +39,10 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
             observedValue,
             thresholdValue = rule.MetricThresholdValue,
             metricName = rule.MetricCondition?.MetricName,
-            windowSeconds = rule.WindowSeconds,
+            windowSeconds = noData ? rule.NoDataWindowSeconds : rule.WindowSeconds,
+            // True for an absent-data fire (AlertRule.NoDataWindowSeconds) - the observed
+            // fields above are then 0/placeholders and windowSeconds is the no-data window.
+            noData,
             firedAt,
             // Null when Alerting:PublicUrl isn't configured - same "no link rather than a
             // broken one" contract as the text field's own link line. Kept as a dedicated

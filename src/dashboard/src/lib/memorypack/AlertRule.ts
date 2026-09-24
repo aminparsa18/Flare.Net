@@ -9,6 +9,8 @@
 // comment for why. `channelIds` was appended after those, same reasoning - see
 // `AlertRule.ChannelIds`'s C#-side doc comment. `exceptionCondition` was appended after
 // `channelIds`, same reasoning - see `AlertRule.ExceptionCondition`'s C#-side doc comment.
+// `noDataWindowSeconds` was appended after `exceptionCondition`, same reasoning - see
+// `AlertRule.NoDataWindowSeconds`'s C#-side doc comment.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -39,6 +41,7 @@ export class AlertRule {
 	metricThresholdValue: number | null;
 	channelIds: (string | null)[] | null;
 	exceptionCondition: ExceptionCountCondition | null;
+	noDataWindowSeconds: number;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -61,6 +64,7 @@ export class AlertRule {
 		this.metricThresholdValue = null;
 		this.channelIds = null;
 		this.exceptionCondition = null;
+		this.noDataWindowSeconds = 0;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -75,7 +79,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(20);
+		writer.writeObjectHeader(21);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -96,6 +100,7 @@ export class AlertRule {
 		writer.writeNullableFloat64(value.metricThresholdValue);
 		writer.writeArray(value.channelIds, (writer, x) => writer.writeGuid(x!));
 		ExceptionCountCondition.serializeCore(writer, value.exceptionCondition);
+		writer.writeInt32(value.noDataWindowSeconds);
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -119,7 +124,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 20) {
+		if (count == 21) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -140,7 +145,8 @@ export class AlertRule {
 			value.metricThresholdValue = reader.readNullableFloat64();
 			value.channelIds = reader.readArray((reader) => reader.readGuid());
 			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
-		} else if (count > 20) {
+			value.noDataWindowSeconds = reader.readInt32();
+		} else if (count > 21) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -184,6 +190,8 @@ export class AlertRule {
 			if (count == 19) return value;
 			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
 			if (count == 20) return value;
+			value.noDataWindowSeconds = reader.readInt32();
+			if (count == 21) return value;
 		}
 		return value;
 	}

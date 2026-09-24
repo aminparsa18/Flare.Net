@@ -16,7 +16,10 @@ Runs `AlertEvaluationWorker` (a `BackgroundService`, same poll-loop idiom as
 window - a log-filter row count for a `LogCount` rule, or a metric-query result for a
 `MetricThreshold` rule (see
 [`docs-internal/adr/0020-metric-threshold-alerting.md`](../../docs-internal/adr/0020-metric-threshold-alerting.md)) -
-and if the threshold breaches and the rule isn't in cooldown, notify through whichever
+and if the threshold breaches (or, with absent-data alerting enabled, the condition matched
+no data at all over the rule's `NoDataWindowSeconds` - see
+[`docs-internal/adr/0045-absent-data-alerting.md`](../../docs-internal/adr/0045-absent-data-alerting.md))
+and the rule isn't in cooldown, notify through whichever
 single channel the rule is configured for and record a new `alert_events` row.
 Every replica coordinates through a single Redis-backed lock (`flare:alerts:eval-lock`)
 so only one replica evaluates per tick even when more than one is running — see

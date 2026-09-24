@@ -132,7 +132,18 @@ public sealed class AlertEvaluationWorker(
         ulong observedCount = 0;
         double? observedValue = null;
         string? metricUnit = null;
-        if (rule.ConditionKind == AlertConditionKind.MetricThreshold)
+
+        // Absent-data check first (ADR-0045): when the condition matched nothing at all over
+        // the no-data window, fire that instead of evaluating the threshold - over an empty
+        // window the threshold result is meaningless anyway (NaN for a metric, which never
+        // breaches; 0 for a count, which only breaches a LessThan rule and would then report
+        // a misleading "0 events" rather than "no data").
+        var noData = await AlertNoDataEvaluator.IsAbsentAsync(alerts, rule.ConditionKind, rule.Condition, rule.MetricCondition, rule.NoDataWindowSeconds, now, cancellationToken);
+        if (noData)
+        {
+            breached = true;
+        }
+        else if (rule.ConditionKind == AlertConditionKind.MetricThreshold)
         {
             if (rule.MetricCondition is null || rule.MetricThresholdValue is not { } thresholdValue)
             {
@@ -169,7 +180,7 @@ public sealed class AlertEvaluationWorker(
         var lastFired = await alerts.GetLastFiredAsync(rule.Id, cancellationToken);
         if (lastFired is { } last && now - last < TimeSpan.FromSeconds(rule.CooldownSeconds))
         {
-            logger.LogDebug("Alert rule {RuleId} ({RuleName}) breached but in cooldown; suppressing.", rule.Id, rule.Name);
+            logger.LogDebug("Alert rule {RuleId} ({RuleName}) breached{NoData} but in cooldown; suppressing.", rule.Id, rule.Name, noData ? " (no data)" : "");
             return;
         }
 
@@ -180,7 +191,7 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit);
+        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData);
         var channelResults = ruleChannels.Zip(results, (channel, result) => new AlertChannelResult
         {
             ChannelId = channel.Id == NotificationChannelResolver.LegacyChannelId ? null : channel.Id,
@@ -212,7 +223,7 @@ public sealed class AlertEvaluationWorker(
                 FiredAt = now,
                 ObservedCount = observedCount,
                 ThresholdCount = rule.Threshold.Count,
-                WindowSeconds = rule.WindowSeconds,
+                WindowSeconds = noData ? rule.NoDataWindowSeconds : rule.WindowSeconds,
                 // Backward-compatible summary across every channel - "Sent" only if all
                 // of them succeeded, same contract this field had before fan-out existed
                 // (a single-channel rule's summary is unchanged). ChannelResults below
@@ -224,6 +235,7 @@ public sealed class AlertEvaluationWorker(
                 ObservedValue = observedValue,
                 ThresholdValue = rule.MetricThresholdValue,
                 ChannelResults = channelResults,
+                NoData = noData,
             },
             cancellationToken);
     }

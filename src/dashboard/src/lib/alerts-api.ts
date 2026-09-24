@@ -21,6 +21,8 @@
 // reuses `errors-api.ts`'s `ExceptionFilter` plain type and
 // `toGeneratedExceptionFilter`/`fromGeneratedExceptionFilter` conversions, same "reuse the
 // existing filter's conversions" precedent `metricCondition` set for `MetricFilter`.
+// `noDataWindowSeconds`/`noData` were added for absent-data alerting (see
+// docs-internal/adr/0045-absent-data-alerting.md) - plain numbers/booleans, no conversion.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
 import {
@@ -123,6 +125,12 @@ export interface AlertRule {
 	channelIds: string[];
 	/** Set only when `conditionKind` is `'ExceptionCount'`. */
 	exceptionCondition?: ExceptionCountCondition;
+	/**
+	 * Absent-data ("no data") alerting: when > 0, the rule also fires if its condition matched
+	 * nothing at all over the last this-many seconds. 0 disables it. `'LogCount'`/`'MetricThreshold'`
+	 * rules only - the API rejects it for `'ExceptionCount'`.
+	 */
+	noDataWindowSeconds: number;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -146,6 +154,8 @@ export interface AlertRuleRequest {
 	/** See `AlertRule.channelIds`'s doc comment. */
 	channelIds?: string[];
 	exceptionCondition?: ExceptionCountCondition;
+	/** See `AlertRule.noDataWindowSeconds`. Omitted/undefined means 0 (disabled). */
+	noDataWindowSeconds?: number;
 }
 
 export interface AlertRuleListResponse {
@@ -173,6 +183,8 @@ export interface AlertHistoryEntry {
 	thresholdValue?: number;
 	/** Per-channel outcome of this fire - one entry per channel the rule fanned out to. `notificationStatus`/`notificationStatusCode`/`notificationError` above stay as the backward-compatible summary across all of them. */
 	channelResults: AlertChannelResult[];
+	/** True when this event fired on absent data rather than a threshold breach - `windowSeconds` is then the no-data window. */
+	noData: boolean;
 }
 
 /** One channel's outcome within a fan-out fire - `AlertHistoryEntry.channelResults`'s element shape. */
@@ -200,6 +212,8 @@ export interface AlertTestResult {
 	conditionKind: AlertConditionKind;
 	/** Set only when `conditionKind` is `'MetricThreshold'`. */
 	observedValue?: number;
+	/** True when the rule/draft would fire on absent data - takes precedence over the threshold; `windowSeconds` is then the no-data window. */
+	noData: boolean;
 }
 
 /** "Send test alert" result: actually notified through the rule/draft's configured channel - unlike `AlertTestResult`, which never notifies. */
@@ -280,7 +294,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		metricCondition: toMetricAlertCondition(dto.metricCondition),
 		metricThresholdValue: dto.metricThresholdValue ?? undefined,
 		channelIds: (dto.channelIds ?? []).filter((id): id is string => id != null),
-		exceptionCondition: toExceptionCountCondition(dto.exceptionCondition)
+		exceptionCondition: toExceptionCountCondition(dto.exceptionCondition),
+		noDataWindowSeconds: dto.noDataWindowSeconds
 	};
 }
 
@@ -311,6 +326,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.metricThresholdValue = request.metricThresholdValue ?? null;
 	dto.channelIds = request.channelIds ?? null;
 	dto.exceptionCondition = toGeneratedExceptionCountCondition(request.exceptionCondition);
+	dto.noDataWindowSeconds = request.noDataWindowSeconds ?? null;
 	return dto;
 }
 
@@ -340,7 +356,8 @@ function toAlertHistoryEntry(dto: GeneratedAlertHistoryEntry): AlertHistoryEntry
 		conditionKind: alertConditionKindToString(dto.conditionKind),
 		observedValue: dto.observedValue ?? undefined,
 		thresholdValue: dto.thresholdValue ?? undefined,
-		channelResults: (dto.channelResults ?? []).filter((r): r is GeneratedAlertChannelResult => r != null).map(toAlertChannelResult)
+		channelResults: (dto.channelResults ?? []).filter((r): r is GeneratedAlertChannelResult => r != null).map(toAlertChannelResult),
+		noData: dto.noData
 	};
 }
 
@@ -417,7 +434,8 @@ function toAlertTestResult(dto: GeneratedAlertTestResult): AlertTestResult {
 		evaluatedAt: dto.evaluatedAt.toISOString(),
 		windowSeconds: dto.windowSeconds,
 		conditionKind: alertConditionKindToString(dto.conditionKind),
-		observedValue: dto.observedValue ?? undefined
+		observedValue: dto.observedValue ?? undefined,
+		noData: dto.noData
 	};
 }
 

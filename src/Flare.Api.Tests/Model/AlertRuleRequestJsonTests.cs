@@ -100,6 +100,7 @@ public class AlertQueryServiceDefaultsTests
         Assert.Equal("", defaults.EmailTo);
         Assert.Equal("", defaults.PagerDutyRoutingKey);
         Assert.Equal(AlertConditionKind.LogCount, defaults.ConditionKind);
+        Assert.Equal(0, defaults.NoDataWindowSeconds);
     }
 
     [Fact]

@@ -43,5 +43,11 @@ public interface IAlertNotifier
     /// parameter's own doc comment. Null for non-<see cref="AlertConditionKind.MetricThreshold"/>
     /// rules and every <paramref name="isTest"/> send (test wording never formats <paramref name="observedValue"/>).
     /// </param>
-    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null);
+    /// <param name="noData">
+    /// True when this fire comes from absent-data alerting (<see cref="AlertRule.NoDataWindowSeconds"/>) -
+    /// the condition matched nothing at all, so <paramref name="observedValue"/> is a meaningless
+    /// 0 and every implementation swaps in <see cref="AlertMessageFormatter"/>'s "no data"
+    /// wording instead of reporting a threshold breach.
+    /// </param>
+    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false);
 }

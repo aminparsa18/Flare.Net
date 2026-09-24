@@ -235,7 +235,11 @@ query-safety cap than `LogQueryService`'s (`max_execution_time=10`, since this r
 per rule *every* tick). If the threshold breaches and the rule isn't in cooldown
 (`SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = ...` — cooldown state lives
 in the history table itself, not a separate cache), it notifies and inserts a new
-`alert_events` row. No streaming/near-real-time evaluation — deliberately out of scope
+`alert_events` row. A rule with `NoDataWindowSeconds > 0` (absent-data alerting,
+`LogCount`/`MetricThreshold` only) is first checked for *any* matching data over that
+window, via the shared `Alerting/AlertNoDataEvaluator`; if none, it fires a "no data"
+notification (`alert_events.NoData = 1`) instead of evaluating the threshold — see
+`docs-internal/adr/0045-absent-data-alerting.md`. No streaming/near-real-time evaluation — deliberately out of scope
 for this pass, since polling matches "threshold/query-based" exactly and is the simplest
 correct implementation.
 

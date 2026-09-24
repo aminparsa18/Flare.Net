@@ -60,6 +60,10 @@
 	let comparator = $state<ThresholdComparator>('GreaterThanOrEqual');
 	let windowSecondsText = $state('300');
 	let cooldownSecondsText = $state('300');
+	// Absent-data ("no data") alerting - opt-in, own window (ADR-0045). Not offered for
+	// ExceptionCount, where zero exceptions is the healthy state (the API rejects it there).
+	let noDataEnabled = $state(false);
+	let noDataWindowSecondsText = $state('600');
 	let channel = $state<'webhook' | 'telegram' | 'email' | 'pagerduty'>('webhook');
 	let webhookUrl = $state('');
 	let telegramBotToken = $state('');
@@ -121,6 +125,8 @@
 			comparator = 'GreaterThanOrEqual';
 			windowSecondsText = '300';
 			cooldownSecondsText = '300';
+			noDataEnabled = false;
+			noDataWindowSecondsText = '600';
 			channel = 'webhook';
 			webhookUrl = '';
 			telegramBotToken = '';
@@ -172,6 +178,8 @@
 			comparator = target.threshold.comparator;
 			windowSecondsText = String(target.windowSeconds);
 			cooldownSecondsText = String(target.cooldownSeconds);
+			noDataEnabled = target.noDataWindowSeconds > 0;
+			noDataWindowSecondsText = target.noDataWindowSeconds > 0 ? String(target.noDataWindowSeconds) : '600';
 			channel = target.telegramBotToken || target.telegramChatId
 				? 'telegram'
 				: target.emailTo
@@ -203,6 +211,11 @@
 	const windowSeconds = $derived(Number(windowSecondsText));
 	const cooldownSeconds = $derived(Number(cooldownSecondsText));
 	const metricThresholdValue = $derived(Number(metricThresholdValueText));
+	const noDataWindowSeconds = $derived(Number(noDataWindowSecondsText));
+	const supportsNoData = $derived(conditionKind !== 'ExceptionCount');
+	const noDataActive = $derived(supportsNoData && noDataEnabled);
+	// Mirrors AlertRuleRequest.MinNoDataWindowSeconds on the API side.
+	const MIN_NO_DATA_WINDOW_SECONDS = 60;
 
 	const hasChannel = $derived(
 		usingLegacyChannel
@@ -231,7 +244,8 @@
 			Number.isFinite(windowSeconds) &&
 			windowSeconds > 0 &&
 			Number.isFinite(cooldownSeconds) &&
-			cooldownSeconds >= 0
+			cooldownSeconds >= 0 &&
+			(!noDataActive || (Number.isInteger(noDataWindowSeconds) && noDataWindowSeconds >= MIN_NO_DATA_WINDOW_SECONDS))
 	);
 
 	// One-off wide-window aggregate to enumerate service names for the picker, same
@@ -345,7 +359,8 @@
 							exceptionMessage: exceptionMessage.trim() || undefined,
 							filter: services.length ? { services: [...services] } : undefined
 						}
-					: undefined
+					: undefined,
+			noDataWindowSeconds: noDataActive ? noDataWindowSeconds : 0
 		};
 	}
 
@@ -540,6 +555,23 @@
 				<span class="text-muted-foreground text-xs">{m.alertRuleForm_cooldownHint()}</span>
 			</div>
 
+			{#if supportsNoData}
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center gap-2">
+						<Switch bind:checked={noDataEnabled} />
+						<span class="text-xs font-medium">{m.alertRuleForm_noDataLabel()}</span>
+					</div>
+					{#if noDataEnabled}
+						<div class="flex items-center gap-2">
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_noDataWindowLabel()}</span>
+							<Input type="number" min={MIN_NO_DATA_WINDOW_SECONDS} bind:value={noDataWindowSecondsText} class="w-24" />
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_seconds()}</span>
+						</div>
+					{/if}
+					<span class="text-muted-foreground text-xs">{m.alertRuleForm_noDataHint({ min: MIN_NO_DATA_WINDOW_SECONDS })}</span>
+				</div>
+			{/if}
+
 			{#if usingLegacyChannel}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_notifyViaLabel()}</span>
@@ -627,7 +659,9 @@
 				</Button>
 				{#if testResult}
 					<Badge variant={testResult.wouldFire ? 'warning' : 'outline'}>
-						{#if testResult.conditionKind === 'MetricThreshold'}
+						{#if testResult.noData}
+							{m.alertRuleForm_testResultNoData({ seconds: testResult.windowSeconds })}
+						{:else if testResult.conditionKind === 'MetricThreshold'}
 							{testResult.wouldFire
 								? m.alertRuleForm_testResultFiringMetric({ value: testResult.observedValue ?? 0 })
 								: m.alertRuleForm_testResultNotFiringMetric({ value: testResult.observedValue ?? 0 })}

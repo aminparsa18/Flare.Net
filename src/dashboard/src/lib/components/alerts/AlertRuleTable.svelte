@@ -165,7 +165,12 @@
 							{/if}
 						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{summarizeCondition(rule)}</Table.Cell>
-						<Table.Cell class="font-mono text-xs">{thresholdText(rule)}</Table.Cell>
+						<Table.Cell class="font-mono text-xs">
+							{thresholdText(rule)}
+							{#if rule.noDataWindowSeconds > 0}
+								<p class="text-muted-foreground">{m.alertRuleTable_noDataText({ window: rule.noDataWindowSeconds })}</p>
+							{/if}
+						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{rule.cooldownSeconds}s</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{channelSummary(rule)}</Table.Cell>
 						<Table.Cell>
@@ -179,7 +184,9 @@
 							{:else if testResults[rule.id]}
 								{@const result = testResults[rule.id] as AlertTestResult}
 								<Badge variant={result.wouldFire ? 'warning' : 'outline'} class="ml-1">
-									{#if result.conditionKind === 'MetricThreshold'}
+									{#if result.noData}
+										{m.alertRuleTable_testResultNoData()}
+									{:else if result.conditionKind === 'MetricThreshold'}
 										{result.wouldFire
 											? m.alertRuleTable_testResultFiringMetric({ value: result.observedValue ?? 0 })
 											: m.alertRuleTable_testResultNotFiringMetric({ value: result.observedValue ?? 0 })}
