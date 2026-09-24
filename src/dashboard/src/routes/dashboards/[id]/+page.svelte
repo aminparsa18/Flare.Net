@@ -261,6 +261,7 @@
 				onExport={(id) => viewer.exportPanel(id)}
 				onToggleVariable={(id, variableId, excluded) => viewer.setPanelVariableExcluded(id, variableId, excluded)}
 				onSetYAxisBounds={(id, min, max) => viewer.setPanelYAxisBounds(id, min, max)}
+				onSetThresholds={(id, thresholds) => viewer.setPanelThresholds(id, thresholds)}
 			/>
 		</div>
 	{/if}

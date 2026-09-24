@@ -35,6 +35,7 @@
 	import FormulaChart from '$lib/components/metrics/FormulaChart.svelte';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
+	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 
 	let {
 		query,
@@ -42,7 +43,8 @@
 		variableOverrides,
 		refreshToken,
 		yAxisMin,
-		yAxisMax
+		yAxisMax,
+		thresholds
 	}: {
 		query: unknown;
 		timeRangeOverride: TimeRangePreset | null;
@@ -53,6 +55,8 @@
 		 *  `domainMin`/`domainMax` remarks for how a soft bound is applied. */
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
+		/** This panel's own `DashboardPanel.thresholds` - passed straight through the same way. */
+		thresholds?: PanelThreshold[];
 	} = $props();
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
@@ -101,7 +105,7 @@
 </script>
 
 {#if explorer.mode === 'formula'}
-	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} />
+	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else}
-	<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} />
+	<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {/if}

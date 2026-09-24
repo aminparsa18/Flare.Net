@@ -18,12 +18,19 @@
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import type { MetricSeries } from '$lib/metrics-api';
+	import ThresholdOverlay from './ThresholdOverlay.svelte';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
 	import * as m from '$lib/paraglide/messages';
 
 	// yAxisMin/yAxisMax: same soft Y-axis floor/ceiling MetricChart.svelte's own props of
 	// the same name apply (DashboardPanel.yAxisMin/yAxisMax) - only ever set from a
 	// dashboard panel, never from the Explorer page itself, which never passes them.
-	let { yAxisMin = null, yAxisMax = null }: { yAxisMin?: number | null; yAxisMax?: number | null } = $props();
+	// `thresholds` likewise mirrors MetricChart's own prop of the same name.
+	let {
+		yAxisMin = null,
+		yAxisMax = null,
+		thresholds = []
+	}: { yAxisMin?: number | null; yAxisMax?: number | null; thresholds?: PanelThreshold[] } = $props();
 
 	const explorer = metricsExplorerContext.get();
 
@@ -188,6 +195,8 @@
 										<line x1="0" y1={yFor(tick)} x2={CHART_WIDTH} y2={yFor(tick)} class="text-border" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke" />
 									{/each}
 
+									<ThresholdOverlay {thresholds} {yFor} {minValue} {maxValue} width={CHART_WIDTH} peakY={PEAK_Y} baselineY={BASELINE_Y} />
+
 									{#if safeHoverIndex !== null}
 										<line
 											x1={xFor(bucketTimes[safeHoverIndex])}
@@ -218,9 +227,13 @@
 									{#each lines as line (line.label)}
 										{@const point = pointAtHover(line)}
 										{#if point}
+											{@const match = matchThreshold(thresholds, point.raw)}
 											<span class="flex items-center gap-1.5">
 												<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-												{line.label}: {formatValue(point.raw)}
+												{line.label}:
+												<span class={match ? 'font-semibold' : undefined} style={match ? `color: ${thresholdColorValue(match.color)};` : undefined}>
+													{formatValue(point.raw)}
+												</span>
 											</span>
 										{/if}
 									{/each}

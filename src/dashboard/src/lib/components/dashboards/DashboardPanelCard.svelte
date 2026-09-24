@@ -22,6 +22,8 @@
 	import DashboardTracesPanelBody from './panels/DashboardTracesPanelBody.svelte';
 	import PanelVariablesPopover from './PanelVariablesPopover.svelte';
 	import YAxisBoundsPopover from './YAxisBoundsPopover.svelte';
+	import ThresholdsPopover from './ThresholdsPopover.svelte';
+	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 	import type { DashboardPanel, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
@@ -48,7 +50,8 @@
 		onDuplicate,
 		onExport,
 		onToggleVariable,
-		onSetYAxisBounds
+		onSetYAxisBounds,
+		onSetThresholds
 	}: {
 		panel: DashboardPanel;
 		editing: boolean;
@@ -63,6 +66,7 @@
 		onExport: () => void;
 		onToggleVariable: (variableId: string, excluded: boolean) => void;
 		onSetYAxisBounds: (min: number | null, max: number | null) => void;
+		onSetThresholds: (thresholds: PanelThreshold[]) => void;
 	} = $props();
 
 	/** This panel's own effective overrides - `variables`/`variableValues` narrowed by
@@ -215,6 +219,7 @@
 			{/if}
 			{#if panel.panelType === 'Metrics'}
 				<YAxisBoundsPopover yAxisMin={panel.yAxisMin} yAxisMax={panel.yAxisMax} onApply={onSetYAxisBounds} />
+				<ThresholdsPopover thresholds={panel.thresholds} onApply={onSetThresholds} />
 			{/if}
 			<Button
 				variant="ghost"
@@ -249,6 +254,7 @@
 					{refreshToken}
 					yAxisMin={panel.yAxisMin}
 					yAxisMax={panel.yAxisMax}
+					thresholds={panel.thresholds}
 				/>
 			{:else if panel.panelType === 'Traces'}
 				<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />

@@ -28,6 +28,7 @@ import { nextPanelPosition } from './layout';
 import { slugify } from './state.svelte';
 import { downloadBlob } from '$lib/logs/export';
 import { resolveQueryVariableOptions, type VariableDependency } from './variables';
+import type { PanelThreshold } from './thresholds';
 import * as m from '$lib/paraglide/messages';
 
 export class DashboardViewerState {
@@ -344,6 +345,21 @@ export class DashboardViewerState {
 		try {
 			this.dashboard = await this.#saveLayout({
 				panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, yAxisMin: yAxisMin ?? undefined, yAxisMax: yAxisMax ?? undefined } : p))
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/** Replaces `panelId`'s ordered visual threshold rules (`DashboardPanel.thresholds`) -
+	 *  persisted through `#saveLayout` exactly like `setPanelYAxisBounds` above. An empty
+	 *  list clears the field rather than saving `[]`. */
+	async setPanelThresholds(panelId: string, thresholds: PanelThreshold[]): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, thresholds: thresholds.length ? thresholds : undefined } : p))
 			});
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);

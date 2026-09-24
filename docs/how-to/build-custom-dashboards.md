@@ -83,6 +83,24 @@ set value if the data actually goes further — it narrows the default view,
 it never clips a real point off the chart. Like the rest of a panel's
 definition, it's saved with the dashboard.
 
+## Adding visual thresholds to a Metrics panel
+
+In edit mode, a Metrics panel's header also has a **palette** icon. Use it
+to add ordered threshold rules, each an operator (`>`, `>=`, `<`, `<=`), a
+value and a color, for example "`> 500` red, `> 200` orange". Each rule draws a
+dashed line at its value and faintly shades the side of the chart its
+operator points at. When you hover the chart, any value that matches a rule
+shows in that rule's color. If several rules match the same value, the
+**topmost** rule wins, so put the most severe rule first and use the arrows
+to reorder. Values are in the metric's own unit, the same unit as the
+Y-axis range above.
+
+Thresholds are purely visual. They don't notify anyone; for that, use
+[an alert rule](#creating-an-alert-from-a-panel). They also never widen the
+chart's axis: if a threshold's value falls outside the visible range, its
+line isn't drawn. Set a Y-axis range to bring it into view. Like the rest of
+a panel's definition, thresholds are saved with the dashboard.
+
 ## Overriding the time range for a session
 
 The **time range** picker in a dashboard's header (next to Edit) lets you

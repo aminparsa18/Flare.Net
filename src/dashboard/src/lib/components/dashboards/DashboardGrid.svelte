@@ -24,6 +24,7 @@
 	import DashboardPanelCard from './DashboardPanelCard.svelte';
 	import type { DashboardPanel, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
+	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 
 	let {
 		panels,
@@ -39,7 +40,8 @@
 		onDuplicate,
 		onExport,
 		onToggleVariable,
-		onSetYAxisBounds
+		onSetYAxisBounds,
+		onSetThresholds
 	}: {
 		panels: DashboardPanel[];
 		editing: boolean;
@@ -55,6 +57,7 @@
 		onExport: (id: string) => void;
 		onToggleVariable: (id: string, variableId: string, excluded: boolean) => void;
 		onSetYAxisBounds: (id: string, min: number | null, max: number | null) => void;
+		onSetThresholds: (id: string, thresholds: PanelThreshold[]) => void;
 	} = $props();
 
 	let container: HTMLDivElement;
@@ -133,6 +136,7 @@
 					onExport={() => onExport(panel.id)}
 					onToggleVariable={(variableId, excluded) => onToggleVariable(panel.id, variableId, excluded)}
 					onSetYAxisBounds={(min, max) => onSetYAxisBounds(panel.id, min, max)}
+					onSetThresholds={(thresholds) => onSetThresholds(panel.id, thresholds)}
 				/>
 			</div>
 		</div>
