@@ -51,7 +51,7 @@ public sealed class EmailAlertNotifier(IOptions<EmailOptions> options, IOptions<
         }
 
         message.Subject = isTest ? $"Flare test alert: {rule.Name}" : $"Flare alert: {rule.Name}";
-        message.Body = new TextPart("plain") { Text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit) };
+        message.Body = new TextPart("plain") { Text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt) };
 
         try
         {

@@ -27,7 +27,7 @@ public sealed class TelegramAlertNotifier(HttpClient httpClient, IOptions<AlertL
         var payload = new
         {
             chat_id = channel.TelegramChatId,
-            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit),
+            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt),
             parse_mode = "Markdown",
         };
 

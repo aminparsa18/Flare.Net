@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.Json;
+using Flare.Api.Json;
 using Flare.Api.Model;
 
 namespace Flare.Api.Alerting;
@@ -33,11 +36,21 @@ public static class AlertMessageFormatter
     /// than the raw declared-unit value. Null (unresolved/non-metric rule) falls back to a
     /// plain dimensionless number, matching this method's behavior before units existed here.
     /// </param>
-    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null)
+    /// <param name="firedAt">
+    /// End of the evaluated window (the worker's own <c>now</c>, see
+    /// <c>AlertEvaluationWorker.EvaluateRuleAsync</c>), passed straight through to
+    /// <see cref="BuildMatchingLogsUrl"/> - null omits that link, leaving only the rule link.
+    /// </param>
+    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null)
     {
         var text = isTest
             ? $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly."
             : BuildFiredText(rule, observedValue, metricUnit);
+
+        if (firedAt is { } at && BuildMatchingLogsUrl(rule, publicUrl, at) is { } logsUrl)
+        {
+            text = $"{text}\nMatching logs: {logsUrl}";
+        }
 
         var ruleUrl = BuildRuleUrl(rule, publicUrl);
         return ruleUrl is null ? text : $"{text}\n{ruleUrl}";
@@ -88,4 +101,76 @@ public static class AlertMessageFormatter
 
         return $"{publicUrl.TrimEnd('/')}/alerts?rule={Uri.EscapeDataString(rule.Id.ToString())}";
     }
+
+    /// <summary>
+    /// Builds a deep link from a fired alert straight into the Logs Explorer, scoped to
+    /// exactly what the rule counted: its <see cref="AlertRule.Condition"/> over the
+    /// evaluated window <c>[firedAt - WindowSeconds, firedAt]</c> - the same range
+    /// <c>AlertEvaluationWorker</c> passes to <c>CountMatchingLogsAsync</c>. Serialized as a
+    /// Logs saved-view state payload (<c>LogsSavedViewState</c> in the dashboard's
+    /// <c>lib/logs/state.svelte.ts</c>) in a <c>?state=</c> param, so the dashboard restores
+    /// it through the exact same <c>applySavedViewState</c> path a saved view uses - see
+    /// <c>parseLogsStateDeepLinkParam</c> in <c>lib/deep-links.ts</c>.
+    /// </summary>
+    /// <remarks>
+    /// Null (callers fall back to <see cref="BuildRuleUrl"/> alone) when
+    /// <paramref name="publicUrl"/> is unset, for non-<see cref="AlertConditionKind.LogCount"/>
+    /// rules (neither <c>/errors</c> nor <c>/metrics</c> hydrates filter state from the URL
+    /// yet), and when the condition sets <see cref="LogFilter.TraceId"/>/<see cref="LogFilter.SpanId"/>/<see cref="LogFilter.PatternId"/> -
+    /// a saved-view state has no slot for those, and a link that silently dropped them would
+    /// show a wider result than what fired. No link beats a misleading one.
+    /// Standard (not URL-safe) base64, then percent-escaped: base64url's <c>_</c> is an
+    /// italic marker under <see cref="TelegramAlertNotifier"/>'s <c>parse_mode: Markdown</c>,
+    /// and an unmatched one fails the whole send.
+    /// </remarks>
+    public static string? BuildMatchingLogsUrl(AlertRule rule, string? publicUrl, DateTimeOffset firedAt)
+    {
+        var condition = rule.Condition;
+        if (string.IsNullOrWhiteSpace(publicUrl)
+            || rule.ConditionKind != AlertConditionKind.LogCount
+            || !string.IsNullOrEmpty(condition.TraceId)
+            || !string.IsNullOrEmpty(condition.SpanId)
+            || !string.IsNullOrEmpty(condition.PatternId))
+        {
+            return null;
+        }
+
+        var state = new LogsDeepLinkState
+        {
+            CustomRange = new LogsDeepLinkRange
+            {
+                From = FormatIso(firedAt - TimeSpan.FromSeconds(rule.WindowSeconds)),
+                To = FormatIso(firedAt),
+            },
+            Services = condition.Services ?? [],
+            SeverityNumbers = condition.SeverityNumbers?.Select(n => (int)n).ToList() ?? [],
+            Search = condition.Search ?? "",
+            AttributeFilters = condition.Attributes ?? [],
+            BodyJsonFilters = condition.BodyJsonFilters ?? [],
+        };
+
+        var json = JsonSerializer.SerializeToUtf8Bytes(state, AlertDeepLinkJsonContext.Default.LogsDeepLinkState);
+        return $"{publicUrl.TrimEnd('/')}/?state={Uri.EscapeDataString(Convert.ToBase64String(json))}";
+    }
+
+    private static string FormatIso(DateTimeOffset value) =>
+        value.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+}
+
+/// <summary>Mirrors the dashboard's <c>LogsSavedViewState</c> - only the members a <see cref="LogFilter"/> can populate; the rest take <c>applySavedViewState</c>'s own defaults. See <see cref="AlertMessageFormatter.BuildMatchingLogsUrl"/>.</summary>
+internal sealed record LogsDeepLinkState
+{
+    public string TimeRangePreset { get; init; } = "custom";
+    public required LogsDeepLinkRange CustomRange { get; init; }
+    public required IReadOnlyList<string> Services { get; init; }
+    public required IReadOnlyList<int> SeverityNumbers { get; init; }
+    public required string Search { get; init; }
+    public required IReadOnlyList<AttributeFilter> AttributeFilters { get; init; }
+    public required IReadOnlyList<BodyJsonFilter> BodyJsonFilters { get; init; }
+}
+
+internal sealed record LogsDeepLinkRange
+{
+    public required string From { get; init; }
+    public required string To { get; init; }
 }

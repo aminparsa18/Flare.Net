@@ -162,6 +162,28 @@ export function parseLogContextDeepLinkParams(url: URL): ParsedLogContextDeepLin
 	return { eventId, timestamp };
 }
 
+// Fired-alert notification -> Logs (`?state=<base64 JSON>`) - Flare.Api's
+// AlertMessageFormatter.BuildMatchingLogsUrl is the only producer (Slack/Telegram/email text,
+// the webhook's `logsUrl`, PagerDuty's `links`). The payload is a whole `LogsSavedViewState`
+// (the rule's LogFilter plus the evaluated window as a custom range), so `+page.svelte` hands
+// it straight to `applySavedViewState` - one restore path shared with `?view=<id>`, rather
+// than a third bespoke param set next to the Metrics deep link's. Standard base64 (not
+// base64url) on purpose - see BuildMatchingLogsUrl's remarks on Telegram Markdown.
+
+/** Decodes `+page.svelte`'s (root, Logs) `?state=` param - null when absent or undecodable (a truncated/hand-edited link falls back to the page's normal default, same as an invalid `?view=`). */
+export function parseLogsStateDeepLinkParam(url: URL): unknown | null {
+	const encoded = url.searchParams.get('state');
+	if (!encoded) return null;
+	try {
+		const bytes = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
+		const state: unknown = JSON.parse(new TextDecoder().decode(bytes));
+		return state !== null && typeof state === 'object' ? state : null;
+	} catch (err) {
+		console.error('Ignoring malformed ?state= deep link:', err);
+		return null;
+	}
+}
+
 /** Parses `routes/alerts/+page.svelte`'s deep-link params - null when this isn't a deep-link arrival (a direct visit, or the unrelated `?rule=<id>` history deep-link, checked separately by the caller). */
 export function parseAlertDeepLinkParams(url: URL): AlertPanelDraft | null {
 	const kind = url.searchParams.get('kind');

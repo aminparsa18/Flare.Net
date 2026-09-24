@@ -46,20 +46,11 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Alert notification deep-links should scope into the actual fired
-  data, not just the rule.** `AlertMessageFormatter` already builds a
-  link on every notification, but it only points at
-  `{publicUrl}/alerts?rule={ruleId}` - the rule's own history page, not
-  a pre-filtered view of the logs/traces that actually fired it. Not
-  started. Since an alert rule's condition is already a `LogFilter`,
-  this is cheap: substitute the fired series' actual group-by label
-  values into that filter (or append them as new equals-filters if not
-  already present), serialize it the same way the dashboard's own
-  URL-driven Explorer state does, and append the eval window as the time
-  range - link straight into `/logs` or `/traces` scoped to exactly what
-  fired, no schema change. Prior art: SigNoz's `ThresholdRule.Eval`
-  building this link the same way
-  ([signoz#4446](https://github.com/SigNoz/signoz/commit/00b111fbe367e16ef6920586e64b226b7e1cff4a)).
+- **Scoped "fired data" alert links for `MetricThreshold`/`ExceptionCount`
+  rules.** `LogCount` rules already link into `/?state=` (see
+  `AlertMessageFormatter.BuildMatchingLogsUrl`); the other two kinds still
+  only get the `/alerts?rule=` link, because `/metrics` and `/errors` don't
+  yet restore a filter + custom range from the URL.
 - **OTel `ExponentialHistogram` metric support.** Confirmed deliberately
   unsupported today - `MetricPointRecord`'s own remarks say
   ExponentialHistogram/Summary points are recognized on the wire and
