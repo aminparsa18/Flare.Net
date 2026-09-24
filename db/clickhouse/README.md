@@ -111,6 +111,14 @@ why (parent/child spans of a genuine cross-service edge routinely land in differ
 flush batches, so a correct edges aggregate needs a self-join design this migration
 hasn't verified against real ClickHouse behavior).
 
+`0025_spans_start_time_projection.sql` - a `StartTime`-ordered projection
+(`spans_by_start_time`) on `spans`, covering the columns the Map view's live edges
+self-join reads. `spans`' own `TraceId`-first sort key meant that query read the whole
+table on every load regardless of window; with this projection plus a parent-side time
+bound in `ServiceDependencyQueryBuilder`, it reads only the window. See
+[ADR-0043](../../docs-internal/adr/0043-service-dependency-edges-start-time-projection.md)
+for the benchmark and the storage trade-off.
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

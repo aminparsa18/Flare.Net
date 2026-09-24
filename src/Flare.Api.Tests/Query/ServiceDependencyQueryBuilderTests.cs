@@ -53,6 +53,18 @@ public class ServiceDependencyQueryBuilderTests
         Assert.Equal(Now.UtcDateTime, edgesParameters["to"]);
     }
 
+    [Fact]
+    public void Build_EdgesQuery_BoundsParentStartTime_ToWindowWidenedBySlack()
+    {
+        var result = ServiceDependencyQueryBuilder.Build(TimeSpan.FromMinutes(15), Now);
+
+        // Without a parent-side bound the join's right side reads the whole table - see the
+        // builder's remarks and migration 0025.
+        Assert.Contains("parent.StartTime >= {parentFrom:DateTime64(9)} AND parent.StartTime < {to:DateTime64(9)}", result.EdgesSql);
+        var edgesParameters = result.EdgesParameters.ToDictionary();
+        Assert.Equal(Now.AddMinutes(-15).Subtract(ServiceDependencyQueryBuilder.ParentStartSlack).UtcDateTime, edgesParameters["parentFrom"]);
+    }
+
     [Theory]
     [InlineData(0, ServiceDependencyQueryBuilder.DefaultWindowMinutes)]
     [InlineData(-5, ServiceDependencyQueryBuilder.DefaultWindowMinutes)]
