@@ -37,7 +37,7 @@ public static class SpanAttributeValuesQueryBuilder
         var whereClauses = new List<string> { filterSql.WhereSql, $"mapContains({column}, {{valuesKey:String}})" };
         if (!string.IsNullOrEmpty(request.Prefix))
         {
-            filterSql.Parameters.AddParameter("valuesPrefix", $"%{request.Prefix}%");
+            filterSql.Parameters.AddParameter("valuesPrefix", LogFilterSqlBuilder.ContainsPattern(request.Prefix));
             whereClauses.Add($"{column}[{{valuesKey:String}}] ILIKE {{valuesPrefix:String}}");
         }
 

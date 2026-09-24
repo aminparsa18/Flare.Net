@@ -47,7 +47,17 @@
 	});
 
 	function formatTimestamp(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
+		// Every field spelled out: passing fractionalSecondDigits alone switches off toLocaleString's date/time defaults.
+		return new Date(iso).toLocaleString(undefined, {
+			hour12: false,
+			year: 'numeric',
+			month: 'numeric',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			fractionalSecondDigits: 3
+		});
 	}
 
 	let copied = $state(false);
