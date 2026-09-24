@@ -9,6 +9,7 @@
 	// three small components, mounted/unmounted by the `{#if panelType === ...}` below,
 	// achieve the same "start from a blank query" reset that effect-driven forms like
 	// PinToDashboardDialog get from re-running an `$effect` on `open`.
+	import { untrack } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -57,38 +58,73 @@
 
 	const canSubmit = $derived(panelType !== null && title.trim() !== '' && (panelType !== 'Metrics' || metricsValid));
 
+	function activeFormState(): unknown {
+		return panelType === 'Logs'
+			? logsForm?.currentState()
+			: panelType === 'Traces'
+				? tracesForm?.currentState()
+				: metricsForm?.currentState();
+	}
+
+	// Discard-confirmation baseline (signoz#4188): the freshly-mounted form's own
+	// serialized query, captured once per mount - untracked, so later filter edits don't
+	// move the baseline along with them. Every form's currentState() is a plain
+	// toSavedViewState() of user-driven filter fields only (nothing clock- or
+	// fetch-derived), so "differs from its own starting value" is exactly "the user
+	// changed something". Re-captured on a type switch, since the {#if} below mounts a
+	// fresh form (and a fresh bind:this ref) for the new type.
+	let baseline = $state<string | null>(null);
+	$effect(() => {
+		const form = panelType === 'Logs' ? logsForm : panelType === 'Traces' ? tracesForm : metricsForm;
+		baseline = form ? untrack(() => JSON.stringify(activeFormState())) : null;
+	});
+
+	function isDirty(): boolean {
+		if (panelType === null) return false;
+		if (title.trim() !== panelTypeLabel(panelType)) return true;
+		return baseline !== null && JSON.stringify(activeFormState()) !== baseline;
+	}
+
 	function reset(): void {
 		panelType = null;
 		title = '';
 		metricsValid = false;
 	}
 
+	function close(): void {
+		open = false;
+		reset();
+	}
+
+	// Every dismissal path (Cancel, X, Escape, overlay click) funnels through here via the
+	// function binding on Dialog.Root below - declining the prompt just never writes
+	// `false`, so the getter keeps reporting open and bits-ui stays open with it. Native
+	// confirm(), same as every other destructive-action prompt in this dashboard (e.g.
+	// AlertRuleTable's delete).
 	function handleOpenChange(next: boolean): void {
-		open = next;
-		if (!next) reset();
+		if (next) {
+			open = true;
+			return;
+		}
+		if (isDirty() && !confirm(m.addPanelDialog_discardConfirm())) return;
+		close();
 	}
 
 	function handleSubmit(event: SubmitEvent): void {
 		event.preventDefault();
 		if (!panelType) return;
-		const query =
-			panelType === 'Logs'
-				? logsForm?.currentState()
-				: panelType === 'Traces'
-					? tracesForm?.currentState()
-					: metricsForm?.currentState();
 		onAdd({
 			id: crypto.randomUUID(),
 			panelType,
 			title: title.trim(),
 			layout: nextPanelPosition(existingPanels),
-			query
+			query: activeFormState()
 		});
-		handleOpenChange(false);
+		close(); // submitted, not discarded - no prompt
 	}
 </script>
 
-<Dialog.Root {open} onOpenChange={handleOpenChange}>
+<Dialog.Root bind:open={() => open, handleOpenChange}>
 	<!-- sm:max-w-4xl (not the original 2xl) - AddPanelMetricsForm's Formula tab needs room
 	     for FormulaBuilder's fixed w-[420px] query-row column alongside a usable chart
 	     preview (docs-internal/adr/0037-dashboard-metrics-formula-panels.md); 4xl still

@@ -45,7 +45,9 @@ Il y a deux façons d'ajouter un panneau à un tableau de bord :
    Metrics), construisez la requête avec les mêmes contrôles de filtre que
    la barre d'outils de cette page — y compris le sélecteur de mode Single
    metric/Formula sur Metrics — puis confirmez — l'aperçu en direct
-   en dessous montre exactement ce qui sera ajouté.
+   en dessous montre exactement ce qui sera ajouté. Fermer la boîte de
+   dialogue après avoir modifié la requête ou le titre demande une
+   confirmation avant d'abandonner le panneau non enregistré.
 
 Recommencez depuis l'un ou l'autre flux, vers le même tableau de bord ou un
 autre, pour autant de panneaux que vous voulez.

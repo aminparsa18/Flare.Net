@@ -548,6 +548,23 @@
 	const rateDivisor = $derived(isSum && sumMode === 'rate' ? explorer.intervalSeconds : null);
 	const lines = $derived(overlayActive ? buildComparisonLines() : buildLines());
 
+	// Click-to-isolate (signoz#4226): clicking a legend entry draws only that line, clicking
+	// it again restores all - distinct from hiddenSeriesCount above, which is the fixed
+	// MAX_SERIES cap on what's charted at all, not a viewer toggle. Keyed by LineSpec.label
+	// (already each line's unique {#each} key). View-only and never persisted, same as
+	// sumMode/histogramMode. Falls back to every line whenever the isolated label isn't in
+	// the current set (a refresh that dropped that series, a mode switch that relabeled
+	// everything) rather than drawing an empty chart - and chartKey's own reset below
+	// clears it outright on a metric/overlay switch.
+	let isolatedLabel = $state<string | null>(null);
+	const drawnLines = $derived(
+		isolatedLabel !== null && lines.some((l) => l.label === isolatedLabel) ? lines.filter((l) => l.label === isolatedLabel) : lines
+	);
+
+	function toggleIsolate(label: string): void {
+		isolatedLabel = isolatedLabel === label ? null : label;
+	}
+
 	// Changes exactly when the chart's *shape* changes - a different metric, or an
 	// overlay mode actually switching on/off (overlayActive, already gated on the result
 	// fields rather than the live filter so this never fires mid-fetch - see
@@ -558,6 +575,11 @@
 	// 2 aggregate lines, or metric A -> metric B) gets a quick fade instead of an instant
 	// swap.
 	const chartKey = $derived(`${explorer.selected?.metricName ?? ''}|${explorer.selected?.serviceName ?? ''}|${overlayActive}`);
+
+	$effect(() => {
+		void chartKey;
+		isolatedLabel = null;
+	});
 
 	// Same reduction buildComparisonLines' two lines are built from, but over the whole
 	// period at once rather than per-bucket - the percentage summary is one number, not
@@ -661,7 +683,10 @@
 	// either one changed.
 	const FADE_MS = METRIC_SWITCH_FADE_MS;
 
-	const rawValues = $derived(lines.flatMap((l) => l.points.map((p) => p.raw)));
+	// drawnLines, not lines: isolating a small series should rescale the y-axis to it (the
+	// main reason to isolate one next to a much larger neighbour). bucketTimes above stays on
+	// the full `lines` set so the x-axis doesn't shift sideways on toggle.
+	const rawValues = $derived(drawnLines.flatMap((l) => l.points.map((p) => p.raw)));
 	const dataMax = $derived(rawValues.length > 0 ? Math.max(...rawValues) : 0);
 	const dataMin = $derived(rawValues.length > 0 ? Math.min(...rawValues) : 0);
 
@@ -1108,7 +1133,7 @@
 											/>
 										{/if}
 
-										{#each lines as line (line.label)}
+										{#each drawnLines as line (line.label)}
 											<path
 												d={pathFor(line.points)}
 												fill="none"
@@ -1152,7 +1177,7 @@
 								<Tooltip.Content>
 									<div class="flex flex-col gap-0.5">
 										<span class="font-medium">{formatBucketTime(bucketTimes[safeHoverIndex])}</span>
-										{#each lines as line (line.label)}
+										{#each drawnLines as line (line.label)}
 											{@const point = pointAtHover(line)}
 											{#if point}
 												{@const match = matchThreshold(thresholds, point.raw)}
@@ -1176,11 +1201,22 @@
 					<Tooltip.Provider>
 						<div class="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
 							{#each lines as line (line.label)}
+								<!-- Real <button>s (keyboard-reachable, aria-pressed) - see isolatedLabel's
+								     own remarks. Dimmed while another entry is isolated so the legend
+								     still lists what's one click away from coming back. -->
+								{@const dimmed = drawnLines.length !== lines.length && drawnLines[0]?.label !== line.label}
+								{@const legendClass = `hover:text-foreground flex cursor-pointer items-center gap-1.5 rounded-sm transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${dimmed ? 'opacity-40' : ''}`}
 								{#if line.detail === line.label}
-									<span class="flex items-center gap-1.5">
+									<button
+										type="button"
+										class={legendClass}
+										aria-pressed={isolatedLabel === line.label}
+										title={m.metricChart_legendIsolateHint()}
+										onclick={() => toggleIsolate(line.label)}
+									>
 										<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
 										{line.label}
-									</span>
+									</button>
 								{:else}
 									<!-- compactSeriesLabel hid attributes shared across the visible set
 									     to keep this row readable with many series (e.g. one exception
@@ -1188,14 +1224,26 @@
 									<Tooltip.Root>
 										<Tooltip.Trigger>
 											{#snippet child({ props })}
-												<span {...props} class="flex items-center gap-1.5">
+												<button
+													{...props}
+													type="button"
+													class={legendClass}
+													aria-pressed={isolatedLabel === line.label}
+													onclick={() => toggleIsolate(line.label)}
+												>
 													<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"
 													></span>
 													{line.label}
-												</span>
+												</button>
 											{/snippet}
 										</Tooltip.Trigger>
-										<Tooltip.Content>{line.detail}</Tooltip.Content>
+										<Tooltip.Content>
+											<!-- flex-col: Tooltip.Content's own base is inline-flex (row), which squeezed the hint into a narrow side column. -->
+											<div class="flex flex-col gap-0.5">
+												<span>{line.detail}</span>
+												<span class="opacity-70">{m.metricChart_legendIsolateHint()}</span>
+											</div>
+										</Tooltip.Content>
 									</Tooltip.Root>
 								{/if}
 							{/each}

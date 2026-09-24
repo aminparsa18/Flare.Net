@@ -12,6 +12,7 @@
 	import { kindIcon, kindLabel } from '$lib/traces/status';
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import TimerIcon from '@lucide/svelte/icons/timer';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import * as m from '$lib/paraglide/messages';
 
 	const detail = traceDetailContext.get();
@@ -104,10 +105,26 @@
 	// Floored at 1 so a slowest-of-zero-duration-spans trace doesn't divide by zero.
 	const slowestMaxDurationNano = $derived(Math.max(slowestSpans[0]?.durationNano ?? 1, 1));
 
+	function startOffsetMs(span: SpanDto): number {
+		return new Date(span.startTime).getTime() - traceStartMs;
+	}
+
+	// Absolute wall-clock start for the hover popover - ms precision, the finest a JS Date
+	// carries (the span's own nanosecond startTime string is truncated here, but the
+	// offset/duration lines above it are what carry sub-ms detail anyway).
+	function formatStartTime(iso: string): string {
+		return new Date(iso).toLocaleTimeString(undefined, {
+			hour12: false,
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			fractionalSecondDigits: 3
+		});
+	}
+
 	function barStyle(span: SpanDto): string {
-		const startOffsetMs = new Date(span.startTime).getTime() - traceStartMs;
 		const durationMs = Math.max(new Date(span.endTime).getTime() - new Date(span.startTime).getTime(), 0);
-		const leftPct = (startOffsetMs / totalMs) * 100;
+		const leftPct = (startOffsetMs(span) / totalMs) * 100;
 		// Minimum visible width so a near-zero-duration span (common for cheap internal
 		// operations) still renders a clickable/visible sliver instead of vanishing.
 		const widthPct = Math.max((durationMs / totalMs) * 100, 0.5);
@@ -213,6 +230,7 @@
 				</div>
 			</div>
 
+			<Tooltip.Provider delayDuration={300}>
 			{#each rows as { span, depth } (span.spanId)}
 				{@const KindIcon = kindIcon(span)}
 				<button
@@ -238,23 +256,45 @@
 						<span class="min-w-0 flex-1 truncate">{span.name || '—'}</span>
 						<span class="text-muted-foreground max-w-[40%] shrink truncate text-xs">· {span.serviceName || '—'}</span>
 					</span>
-					<div class="relative h-5">
-						<!-- Critical-path spans render at full color/opacity; everything else fades
-						     back so the handful of spans that actually determined the trace's end
-						     time stand out from the ones that just ran alongside them (see
-						     $lib/traces/critical-path.ts). -->
-						<div
-							class="{barColorClass(span.statusCode)} absolute top-0 h-full min-w-[2px] rounded-sm {criticalSpanIds.has(
-								span.spanId
-							)
-								? 'ring-warning opacity-100 ring-2'
-								: 'opacity-40'}"
-							style={barStyle(span)}
-							title={m.traceWaterfall_barTitle({ name: span.name, duration: formatDurationNano(span.durationNano) })}
-						></div>
-					</div>
+					<!-- Hover popover (signoz#4241): duration/start without opening the span
+					     detail sheet. The whole timeline cell is the hover target, not just the
+					     bar - a near-zero-duration span's bar is a 2px sliver nobody can hit - but
+					     the popover anchors to the bar itself (customAnchor) so it still points at
+					     the span it describes. Attribute selector, not an id: spanIds are hex and
+					     can start with a digit, which a CSS `#id` selector can't. -->
+					<Tooltip.Root>
+						<Tooltip.Trigger>
+							{#snippet child({ props })}
+								<div {...props} class="relative h-5">
+									<!-- Critical-path spans render at full color/opacity; everything else fades
+									     back so the handful of spans that actually determined the trace's end
+									     time stand out from the ones that just ran alongside them (see
+									     $lib/traces/critical-path.ts). -->
+									<div
+										data-waterfall-bar={span.spanId}
+										class="{barColorClass(span.statusCode)} absolute top-0 h-full min-w-[2px] rounded-sm {criticalSpanIds.has(
+											span.spanId
+										)
+											? 'ring-warning opacity-100 ring-2'
+											: 'opacity-40'}"
+										style={barStyle(span)}
+									></div>
+								</div>
+							{/snippet}
+						</Tooltip.Trigger>
+						<Tooltip.Content customAnchor={`[data-waterfall-bar="${span.spanId}"]`}>
+							<div class="flex flex-col gap-0.5">
+								<span class="font-medium">{span.name || '—'}</span>
+								<span class="opacity-70">{span.serviceName || '—'}</span>
+								<span>{m.traceWaterfall_hoverDuration({ duration: formatDurationNano(span.durationNano) })}</span>
+								<span>{m.traceWaterfall_hoverOffset({ offset: formatDurationNano(startOffsetMs(span) * 1_000_000) })}</span>
+								<span class="opacity-70 tabular-nums">{formatStartTime(span.startTime)}</span>
+							</div>
+						</Tooltip.Content>
+					</Tooltip.Root>
 				</button>
 			{/each}
+			</Tooltip.Provider>
 		</div>
 	</div>
 </div>
