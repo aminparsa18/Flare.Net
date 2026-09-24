@@ -211,11 +211,3 @@ folders are where "what happened and why" actually lives.
   filters and drill-down into its metrics, queried from the existing
   metrics tables. Not started. Prior art:
   [signoz#6210](https://github.com/SigNoz/signoz/commit/e4505693b0f88c6e404dd8aaa0efb959259b6ea4).
-- **Per-ingest-key ingestion limits.** `Flare.Ingest` authenticates with
-  ingest API keys but has no rate or volume cap, so one noisy app can
-  flood Redis Streams/ClickHouse for everyone. Optional per-key limits
-  (events or bytes per minute/day, enable toggle) enforced with Redis
-  counters at the OTLP receiver, rejecting with the OTLP-standard
-  retryable status when exceeded, plus current usage shown on the ingest
-  keys page. Not started. Prior art:
-  [signoz#6430](https://github.com/SigNoz/signoz/commit/504bc0d541210c6fbe9e0a6509c10febf134a217).

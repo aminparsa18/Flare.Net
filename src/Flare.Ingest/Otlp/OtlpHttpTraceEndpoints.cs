@@ -1,4 +1,5 @@
 using System.Text;
+using Flare.Ingest.Auth;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Google.Protobuf;
@@ -91,6 +92,7 @@ public static class OtlpHttpTraceEndpoints
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Traces, IngestionProtocol.Http, count, byteCount, cancellationToken);
+        IngestKeyUsageFeature.Add(http, count, byteCount);
         await stats.RecordServiceBreakdownAsync(IngestionSignal.Traces, ServiceBreakdown.Build(records, byteCount), cancellationToken);
 
         logger.LogDebug("Ingested {Count} span(s) via HTTP ({ContentType})", count, isJson ? "json" : "protobuf");

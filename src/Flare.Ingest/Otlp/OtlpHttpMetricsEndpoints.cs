@@ -1,4 +1,5 @@
 using System.Text;
+using Flare.Ingest.Auth;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Google.Protobuf;
@@ -86,6 +87,7 @@ public static class OtlpHttpMetricsEndpoints
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, result.Points.Count, byteCount, cancellationToken);
+        IngestKeyUsageFeature.Add(http, result.Points.Count, byteCount);
         await stats.RecordServiceBreakdownAsync(
             IngestionSignal.Metrics,
             ServiceBreakdown.Build(result.Points.Select(p => (p.ServiceName, ClockSkew.Nanos(ingestedAt, p.Time))), byteCount),

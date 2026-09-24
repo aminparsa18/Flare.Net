@@ -217,6 +217,8 @@ builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryServic
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();
+// Per-ingest-key usage for the Ingest Keys page (ADR-0051) - reads the counters Flare.Ingest writes.
+builder.Services.AddSingleton<IIngestApiKeyUsageQueryService, IngestApiKeyUsageQueryService>();
 // ClickHouse:ClusterMode (same flag ClickHouseMigrationRunner reads below, see
 // docs/clustering.md) - lets IndexingQueryService's system.* introspection queries switch
 // from single-node-scoped to cluster()/clusterAllReplicas()-scoped. Factory registration

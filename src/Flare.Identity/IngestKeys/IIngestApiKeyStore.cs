@@ -10,9 +10,13 @@ public interface IIngestApiKeyStore
 
     Task RevokeAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <summary>Every currently-active key's hash. <c>Flare.Ingest</c> polls this on a
-    /// timer (see docs/auth.md) to build its in-memory validation cache, rather than
-    /// hitting SQLite on every OTLP request - the ingest hot path only ever reads this
-    /// cache, never calls this store directly per-request.</summary>
-    Task<IReadOnlyList<string>> ListActiveKeyHashesAsync(CancellationToken cancellationToken = default);
+    /// <summary>Replaces a key's ingestion limits (ADR-0051). Returns false if no key has
+    /// that id. Allowed on a revoked key too - harmless, and it keeps this a plain update.</summary>
+    Task<bool> UpdateLimitsAsync(Guid id, IngestApiKeyLimits limits, CancellationToken cancellationToken = default);
+
+    /// <summary>Every currently-active key's hash, id, name and limits. <c>Flare.Ingest</c>
+    /// polls this on a timer (see docs/auth.md) to build its in-memory validation cache,
+    /// rather than hitting SQLite on every OTLP request - the ingest hot path only ever
+    /// reads this cache, never calls this store directly per-request.</summary>
+    Task<IReadOnlyList<ActiveIngestApiKey>> ListActiveKeysAsync(CancellationToken cancellationToken = default);
 }

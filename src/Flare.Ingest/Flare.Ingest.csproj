@@ -27,6 +27,9 @@
     <Protobuf Include="Protos/opentelemetry/proto/trace/v1/trace.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
     <Protobuf Include="Protos/opentelemetry/proto/collector/metrics/v1/metrics_service.proto" ProtoRoot="Protos" GrpcServices="Server" Access="Public" />
     <Protobuf Include="Protos/opentelemetry/proto/metrics/v1/metrics.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
+    <!-- Vendored google.rpc Status/RetryInfo for the ingest-key limit rejection body - see Protos/VENDORED.md -->
+    <Protobuf Include="Protos/google/rpc/status.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
+    <Protobuf Include="Protos/google/rpc/error_details.proto" ProtoRoot="Protos" GrpcServices="None" Access="Public" />
   </ItemGroup>
 
 </Project>

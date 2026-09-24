@@ -117,6 +117,10 @@ builder.Services.Configure<IngestAuthOptions>(builder.Configuration.GetSection(I
 builder.Services.AddSingleton<IngestApiKeyCache>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<IngestApiKeyCache>());
 
+// Per-ingest-key usage counters + limit enforcement (ADR-0051) - Redis, not in-process,
+// because ingest can run as several replicas and Flare.Api reads the same counters.
+builder.Services.AddSingleton<IIngestKeyUsageStore, RedisIngestKeyUsageStore>();
+
 var app = builder.Build();
 
 // Apply any pending db/clickhouse/*.sql migrations before starting the flush workers

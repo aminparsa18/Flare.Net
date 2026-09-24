@@ -55,3 +55,23 @@ for f in opentelemetry/proto/common/v1/common.proto \
   curl -sf -o "$f" "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/$TAG/$f"
 done
 ```
+# Vendored: `google.rpc` Status/RetryInfo
+
+`google/rpc/status.proto` and `google/rpc/error_details.proto`, vendored unmodified from
+[googleapis/googleapis](https://github.com/googleapis/googleapis) for the per-ingest-key
+limit rejection path (`Auth/IngestKeyLimitRejection.cs`, ADR-0051): the OTLP spec says an
+HTTP 4xx/5xx body MUST be a protobuf `google.rpc.Status`, and a gRPC `RESOURCE_EXHAUSTED`
+is only retryable when it carries a `RetryInfo` detail. Vendored for the same reason as the
+OTLP protos above - two small message types don't justify pulling in
+`Google.Api.CommonProtos` (and its whole generated `google.api`/`google.type` surface).
+
+- **Commit:** `665784f816da130b27edb566694b2441d0cfddf2`
+- **Vendored:** 2026-09-24
+- **License:** Apache-2.0 (see each file's header)
+
+```bash
+C=<commit>
+for f in google/rpc/status.proto google/rpc/error_details.proto; do
+  curl -sf -o "$f" "https://raw.githubusercontent.com/googleapis/googleapis/$C/$f"
+done
+```

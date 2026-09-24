@@ -1,3 +1,4 @@
+using Flare.Ingest.Auth;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Grpc.Core;
@@ -46,6 +47,7 @@ public sealed class OtlpGrpcTraceService(
         }
 
         await stats.RecordAcceptedAsync(IngestionSignal.Traces, IngestionProtocol.Grpc, count, byteCount, context.CancellationToken);
+        IngestKeyUsageFeature.Add(context.GetHttpContext(), count, byteCount);
         await stats.RecordServiceBreakdownAsync(IngestionSignal.Traces, ServiceBreakdown.Build(records, byteCount), context.CancellationToken);
 
         logger.LogDebug("Ingested {Count} span(s) via gRPC", count);
