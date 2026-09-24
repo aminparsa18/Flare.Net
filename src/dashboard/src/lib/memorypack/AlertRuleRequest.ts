@@ -6,6 +6,7 @@
 // reused here directly. `conditionKind`/`metricCondition`/`metricThresholdValue`/`channelIds`/
 // `exceptionCondition`/`noDataWindowSeconds`/`evaluationIntervalSeconds` were appended after every pre-existing field, same versioning
 // reasoning as `AlertRule.ts`.
+// `anomalyCondition` was appended after `evaluationIntervalSeconds`, same reasoning (ADR-0048).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -13,6 +14,7 @@ import { AlertThreshold } from '$lib/generated/memorypack/AlertThreshold.js';
 import { LogFilter } from '$lib/memorypack/LogFilter';
 import { MetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
 import { ExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
+import { AnomalyCondition } from '$lib/memorypack/AnomalyCondition';
 
 export class AlertRuleRequest {
 	name: string | null;
@@ -34,6 +36,7 @@ export class AlertRuleRequest {
 	exceptionCondition: ExceptionCountCondition | null;
 	noDataWindowSeconds: number | null;
 	evaluationIntervalSeconds: number | null;
+	anomalyCondition: AnomalyCondition | null;
 
 	constructor() {
 		this.name = null;
@@ -55,6 +58,7 @@ export class AlertRuleRequest {
 		this.exceptionCondition = null;
 		this.noDataWindowSeconds = null;
 		this.evaluationIntervalSeconds = null;
+		this.anomalyCondition = null;
 	}
 
 	static serialize(value: AlertRuleRequest | null): Uint8Array {
@@ -69,7 +73,7 @@ export class AlertRuleRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(19);
+		writer.writeObjectHeader(20);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeNullableBoolean(value.enabled);
@@ -89,6 +93,7 @@ export class AlertRuleRequest {
 		ExceptionCountCondition.serializeCore(writer, value.exceptionCondition);
 		writer.writeNullableInt32(value.noDataWindowSeconds);
 		writer.writeNullableInt32(value.evaluationIntervalSeconds);
+		AnomalyCondition.serializeCore(writer, value.anomalyCondition);
 	}
 
 	static deserialize(buffer: ArrayBuffer): AlertRuleRequest | null {
@@ -102,7 +107,7 @@ export class AlertRuleRequest {
 		}
 
 		const value = new AlertRuleRequest();
-		if (count == 19) {
+		if (count == 20) {
 			value.name = reader.readString();
 			value.description = reader.readString();
 			value.enabled = reader.readNullableBoolean();
@@ -122,7 +127,8 @@ export class AlertRuleRequest {
 			value.exceptionCondition = ExceptionCountCondition.deserializeCore(reader);
 			value.noDataWindowSeconds = reader.readNullableInt32();
 			value.evaluationIntervalSeconds = reader.readNullableInt32();
-		} else if (count > 19) {
+			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
+		} else if (count > 20) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -164,6 +170,8 @@ export class AlertRuleRequest {
 			if (count == 18) return value;
 			value.evaluationIntervalSeconds = reader.readNullableInt32();
 			if (count == 19) return value;
+			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
+			if (count == 20) return value;
 		}
 		return value;
 	}

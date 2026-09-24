@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -73,7 +74,7 @@ internal sealed class AlertsListCommand : AsyncCommand<AlertsListCommand.Setting
             table.AddRow(
                 Markup.Escape(rule.Name),
                 enabled,
-                $"{comparator} {rule.Threshold.Count}",
+                rule is { ConditionKind: "Anomaly", AnomalyCondition: { } anomaly } ? DescribeAnomaly(anomaly) : $"{comparator} {rule.Threshold.Count}",
                 FormatWindow(rule.WindowSeconds),
                 DescribeChannel(rule),
                 $"[grey]{rule.Id}[/]");
@@ -81,6 +82,19 @@ internal sealed class AlertsListCommand : AsyncCommand<AlertsListCommand.Setting
 
         AnsiConsole.Write(table);
         return 0;
+    }
+
+    /// <summary>E.g. "|z| >= 3 vs 7 days" - an anomaly rule has no fixed threshold to show.</summary>
+    private static string DescribeAnomaly(AnomalyConditionWire anomaly)
+    {
+        var z = anomaly.Direction switch
+        {
+            "Above" => "z >=",
+            "Below" => "z <= -",
+            _ => "|z| >=",
+        };
+        var unit = anomaly.Seasonality == "Weekly" ? "weeks" : "days";
+        return $"{z}{(anomaly.Direction == "Below" ? "" : " ")}{anomaly.ZScoreThreshold.ToString(CultureInfo.InvariantCulture)} vs {anomaly.BaselinePeriods} {unit}";
     }
 
     private static string FormatWindow(int seconds) => seconds switch
@@ -183,12 +197,20 @@ internal sealed class AlertsTestCommand : AsyncCommand<AlertsTestCommand.Setting
 
         var verdict = result.WouldFire ? "[green]yes[/]" : "[grey]no[/]";
         AnsiConsole.MarkupLine($"Would fire: {verdict}");
-        AnsiConsole.MarkupLine(result.NoData
-            ? $"[yellow]No data[/]: the condition matched nothing in the last {result.WindowSeconds}s (absent-data alerting)"
-            : $"Observed count: {result.ObservedCount} (window: {result.WindowSeconds}s)");
+        AnsiConsole.MarkupLine(result switch
+        {
+            { NoData: true } => $"[yellow]No data[/]: the condition matched nothing in the last {result.WindowSeconds}s (absent-data alerting)",
+            { ConditionKind: "Anomaly", ZScore: { } z, BaselineMean: { } mean } =>
+                $"Observed: {FormatNumber(result.ObservedValue)} vs baseline mean {FormatNumber(mean)} (z = {z.ToString("+0.00;-0.00", CultureInfo.InvariantCulture)}, {result.BaselineSampleCount} baseline windows, window: {result.WindowSeconds}s)",
+            { ConditionKind: "Anomaly" } =>
+                $"[yellow]Not enough history[/]: only {result.BaselineSampleCount} baseline window(s) had data - an anomaly rule needs at least 3 before it can fire",
+            _ => $"Observed count: {result.ObservedCount} (window: {result.WindowSeconds}s)",
+        });
         AnsiConsole.MarkupLine($"[grey]Evaluated at {result.EvaluatedAt.ToLocalTime():HH:mm:ss.fff} - cooldown untouched, no notification sent.[/]");
         return 0;
     }
+
+    private static string FormatNumber(double? value) => value?.ToString("0.###", CultureInfo.InvariantCulture) ?? "n/a";
 }
 
 /// <summary>
@@ -308,6 +330,25 @@ internal sealed class AlertRuleWire
 
     /// <summary>See <c>Flare.Api.Model.AlertRule.ChannelIds</c>'s doc comment - saved notification-channel IDs this rule fans out to, instead of one of the legacy inline fields above. <see cref="AlertsListCommand"/> still only shows the count (see <c>DescribeChannel</c>), not each channel's name - resolving IDs to names via <c>flare notification-channels list</c> (<c>NotificationChannelsCommand.cs</c>) remains a named follow-up.</summary>
     public IReadOnlyList<Guid> ChannelIds { get; init; } = [];
+
+    /// <summary>"LogCount" | "MetricThreshold" | "ExceptionCount" | "Anomaly". Absent from older servers, where it reads as "LogCount".</summary>
+    public string ConditionKind { get; init; } = "LogCount";
+
+    /// <summary>Set only when <see cref="ConditionKind"/> is "Anomaly" - see <c>Flare.Api.Model.AnomalyCondition</c>.</summary>
+    public AnomalyConditionWire? AnomalyCondition { get; init; }
+}
+
+internal sealed class AnomalyConditionWire
+{
+    /// <summary>"Daily" | "Weekly".</summary>
+    public string Seasonality { get; init; } = "Daily";
+
+    public int BaselinePeriods { get; init; }
+
+    public double ZScoreThreshold { get; init; }
+
+    /// <summary>"Both" | "Above" | "Below".</summary>
+    public string Direction { get; init; } = "Both";
 }
 
 internal sealed class AlertRuleListResponseWire
@@ -327,6 +368,18 @@ internal sealed class AlertTestResultWire
 
     /// <summary>True when the rule fired on absent data (<c>AlertRule.NoDataWindowSeconds</c>) - <see cref="WindowSeconds"/> is then the no-data window. Absent from older servers, where it deserializes as false.</summary>
     public bool NoData { get; init; }
+
+    /// <summary>Absent from older servers, where it reads as "LogCount".</summary>
+    public string ConditionKind { get; init; } = "LogCount";
+
+    public double? ObservedValue { get; init; }
+
+    /// <summary>Anomaly rules only: null when there wasn't enough history to score (see <see cref="BaselineSampleCount"/>).</summary>
+    public double? BaselineMean { get; init; }
+
+    public double? ZScore { get; init; }
+
+    public int BaselineSampleCount { get; init; }
 }
 
 internal sealed class AlertNotificationTestResultWire

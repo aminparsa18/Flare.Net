@@ -170,6 +170,83 @@ public class AlertConditionValidationTests
         Assert.Null(request.ValidateCondition());
     }
 
+    [Fact]
+    public void Anomaly_LogCountSource_IsValid()
+    {
+        var request = Build(AlertConditionKind.Anomaly, anomalyCondition: new AnomalyCondition { BaselinePeriods = 7, ZScoreThreshold = 3 });
+
+        Assert.Null(request.ValidateCondition());
+    }
+
+    [Fact]
+    public void Anomaly_MissingAnomalyCondition_IsInvalid()
+    {
+        Assert.NotNull(Build(AlertConditionKind.Anomaly).ValidateCondition());
+    }
+
+    [Fact]
+    public void Anomaly_MetricSource_NeedsMetricConditionButNoThresholdValue()
+    {
+        var anomaly = new AnomalyCondition { Source = AlertConditionKind.MetricThreshold, BaselinePeriods = 7, ZScoreThreshold = 3 };
+
+        Assert.NotNull(Build(AlertConditionKind.Anomaly, anomalyCondition: anomaly).ValidateCondition());
+        Assert.Null(Build(AlertConditionKind.Anomaly, MakeCondition(), anomalyCondition: anomaly).ValidateCondition());
+    }
+
+    [Fact]
+    public void Anomaly_ExceptionSource_NeedsExceptionCondition()
+    {
+        var anomaly = new AnomalyCondition { Source = AlertConditionKind.ExceptionCount, BaselinePeriods = 7, ZScoreThreshold = 3 };
+
+        Assert.NotNull(Build(AlertConditionKind.Anomaly, anomalyCondition: anomaly).ValidateCondition());
+        Assert.Null(Build(AlertConditionKind.Anomaly, exceptionCondition: new ExceptionCountCondition { ExceptionType = "X" }, anomalyCondition: anomaly).ValidateCondition());
+    }
+
+    [Fact]
+    public void Anomaly_AnomalySource_IsInvalid()
+    {
+        Assert.NotNull(Build(AlertConditionKind.Anomaly, anomalyCondition: new AnomalyCondition { Source = AlertConditionKind.Anomaly, BaselinePeriods = 7, ZScoreThreshold = 3 }).ValidateCondition());
+    }
+
+    [Theory]
+    [InlineData(2, 3.0)]
+    [InlineData(13, 3.0)]
+    [InlineData(7, 0.0)]
+    [InlineData(7, -1.0)]
+    [InlineData(7, 10.5)]
+    [InlineData(7, double.NaN)]
+    public void Anomaly_OutOfRangeScoringParameters_AreInvalid(int periods, double z)
+    {
+        var anomaly = new AnomalyCondition { BaselinePeriods = periods, ZScoreThreshold = z };
+
+        Assert.NotNull(Build(AlertConditionKind.Anomaly, anomalyCondition: anomaly).ValidateCondition());
+    }
+
+    [Theory]
+    [InlineData(AnomalySeasonality.Daily, 86_400, false)]
+    [InlineData(AnomalySeasonality.Daily, 86_399, true)]
+    [InlineData(AnomalySeasonality.Weekly, 86_400, true)]
+    public void Anomaly_WindowMustBeShorterThanThePeriod(AnomalySeasonality seasonality, int windowSeconds, bool valid)
+    {
+        var request = Build(AlertConditionKind.Anomaly, windowSeconds: windowSeconds, anomalyCondition: new AnomalyCondition { Seasonality = seasonality, BaselinePeriods = 7, ZScoreThreshold = 3 });
+
+        Assert.Equal(valid, request.ValidateCondition() is null);
+    }
+
+    [Theory]
+    [InlineData(AlertConditionKind.LogCount, true)]
+    [InlineData(AlertConditionKind.ExceptionCount, false)]
+    public void Anomaly_NoDataWindow_FollowsTheSourceKind(AlertConditionKind source, bool valid)
+    {
+        var request = Build(
+            AlertConditionKind.Anomaly,
+            exceptionCondition: new ExceptionCountCondition { ExceptionType = "X" },
+            noDataWindowSeconds: 600,
+            anomalyCondition: new AnomalyCondition { Source = source, BaselinePeriods = 7, ZScoreThreshold = 3 });
+
+        Assert.Equal(valid, request.ValidateCondition() is null);
+    }
+
     private static AlertRuleRequest Build(
         AlertConditionKind? conditionKind,
         MetricAlertCondition? metricCondition = null,
@@ -177,7 +254,8 @@ public class AlertConditionValidationTests
         ExceptionCountCondition? exceptionCondition = null,
         int? noDataWindowSeconds = null,
         int? evaluationIntervalSeconds = null,
-        int windowSeconds = 300) => new()
+        int windowSeconds = 300,
+        AnomalyCondition? anomalyCondition = null) => new()
     {
         Name = "test",
         Threshold = new AlertThreshold { Count = 1 },
@@ -189,5 +267,6 @@ public class AlertConditionValidationTests
         MetricThresholdValue = metricThresholdValue,
         ExceptionCondition = exceptionCondition,
         NoDataWindowSeconds = noDataWindowSeconds,
+        AnomalyCondition = anomalyCondition,
     };
 }

@@ -71,6 +71,33 @@ public class AlertRuleRequestJsonTests
         Assert.Equal("", request.EmailTo);
         Assert.Equal("", request.PagerDutyRoutingKey);
     }
+
+    [Fact]
+    public void Deserialize_AnomalyCondition_OmittedEnumsMeanTheirDefaults()
+    {
+        // Omitted members reset to default(T) here too (see AnomalyCondition's remarks), so
+        // each enum's intended default must be its 0 value.
+        const string json = """{"name":"x","threshold":{"count":0},"windowSeconds":300,"conditionKind":"Anomaly","anomalyCondition":{"baselinePeriods":4,"zScoreThreshold":2.5}}""";
+
+        var anomaly = JsonSerializer.Deserialize(json, AlertsJsonContext.Default.AlertRuleRequest)!.AnomalyCondition!;
+
+        Assert.Equal(AlertConditionKind.LogCount, anomaly.Source);
+        Assert.Equal(AnomalySeasonality.Daily, anomaly.Seasonality);
+        Assert.Equal(AnomalyDirection.Both, anomaly.Direction);
+        Assert.Equal(4, anomaly.BaselinePeriods);
+        Assert.Equal(2.5, anomaly.ZScoreThreshold);
+    }
+
+    [Fact]
+    public void Deserialize_AnomalyCondition_StringEnums_AndMissingNumericsThrow()
+    {
+        const string withEnums = """{"name":"x","threshold":{"count":0},"windowSeconds":300,"anomalyCondition":{"source":"MetricThreshold","seasonality":"Weekly","direction":"Below","baselinePeriods":4,"zScoreThreshold":3}}""";
+        var anomaly = JsonSerializer.Deserialize(withEnums, AlertsJsonContext.Default.AlertRuleRequest)!.AnomalyCondition!;
+        Assert.Equal((AlertConditionKind.MetricThreshold, AnomalySeasonality.Weekly, AnomalyDirection.Below), (anomaly.Source, anomaly.Seasonality, anomaly.Direction));
+
+        const string missingPeriods = """{"name":"x","threshold":{"count":0},"windowSeconds":300,"anomalyCondition":{"zScoreThreshold":3}}""";
+        Assert.ThrowsAny<JsonException>(() => JsonSerializer.Deserialize(missingPeriods, AlertsJsonContext.Default.AlertRuleRequest));
+    }
 }
 
 /// <summary>

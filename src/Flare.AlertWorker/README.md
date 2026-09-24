@@ -21,6 +21,11 @@ no data at all over the rule's `NoDataWindowSeconds` - see
 [`docs-internal/adr/0045-absent-data-alerting.md`](../../docs-internal/adr/0045-absent-data-alerting.md))
 and the rule isn't in cooldown, notify through whichever
 single channel the rule is configured for and record a new `alert_events` row.
+An `Anomaly` rule instead scores its series (the log, metric or exception condition its
+`AnomalyCondition.Source` names) against the same window shifted back 1..N days or weeks, and
+fires on a z-score beyond its threshold - N+1 queries per evaluation, run through the shared
+`Alerting/AnomalyEvaluator` - see
+[`docs-internal/adr/0048-anomaly-detection-alerting.md`](../../docs-internal/adr/0048-anomaly-detection-alerting.md).
 A rule with `EvaluationIntervalSeconds > 0` is evaluated only on ticks where it's due
 (its last-evaluated marker, a per-rule Redis key `flare:alerts:last-eval:{id}`, is at least
 that old minus half a poll interval), so slow/expensive rules can run every 5m/15m instead

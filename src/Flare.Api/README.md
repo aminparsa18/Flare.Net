@@ -254,7 +254,11 @@ notification (`alert_events.NoData = 1`) instead of evaluating the threshold —
 `docs-internal/adr/0045-absent-data-alerting.md`. A rule with `EvaluationIntervalSeconds > 0`
 is skipped on ticks where it isn't yet due (per-rule last-evaluated marker in Redis, decided by
 the shared `Alerting/AlertEvaluationSchedule`) - see
-`docs-internal/adr/0046-per-rule-alert-evaluation-interval.md`. No streaming/near-real-time evaluation — deliberately out of scope
+`docs-internal/adr/0046-per-rule-alert-evaluation-interval.md`. An `Anomaly` rule has no fixed
+threshold: `Alerting/AnomalyEvaluator` evaluates its source series over the current window and
+over the same window 1..N days/weeks back, and `Alerting/AnomalyScoring` fires on a z-score
+beyond the rule's threshold (history rows carry `BaselineMean`/`ZScore`) - see
+`docs-internal/adr/0048-anomaly-detection-alerting.md`. No streaming/near-real-time evaluation — deliberately out of scope
 for this pass, since polling matches "threshold/query-based" exactly and is the simplest
 correct implementation.
 
@@ -447,6 +451,10 @@ proving it parses `Flare.Ingest.Pipeline.LogEventJsonContext`'s exact wire forma
 
 `AlertThresholdTests` covers `AlertThreshold.IsBreached` (both comparators, boundary
 values) — the one piece of pure alerting logic worth a unit test on its own.
+`AnomalyScoringTests` covers the anomaly z-score math (baseline windows, dropped
+zero/`NaN` samples, minimum history, the σ floor, each direction), and
+`AnomalyEvaluatorTests` covers which query each anomaly source runs over which windows,
+against a canned `IAlertQueryService` fake.
 
 `LogQueryService`, `LogTailBroadcaster`, and `AlertQueryService` (real
 `IClickHouseClient`/`IConnectionMultiplexer`/`HttpClient` I/O) are deliberately **not**

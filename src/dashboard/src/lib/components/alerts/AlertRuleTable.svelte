@@ -22,11 +22,13 @@
 	const alerts = alertsContext.get();
 
 	function summarizeCondition(rule: AlertRule): string {
-		if (rule.conditionKind === 'MetricThreshold') {
+		// An Anomaly rule's series is one of the other three kinds' conditions (ADR-0048).
+		const kind = rule.conditionKind === 'Anomaly' ? (rule.anomalyCondition?.source ?? 'LogCount') : rule.conditionKind;
+		if (kind === 'MetricThreshold') {
 			return rule.metricCondition ? `${rule.metricCondition.metricName} (${rule.metricCondition.aggregation})` : m.alertRuleTable_allLogs();
 		}
 
-		if (rule.conditionKind === 'ExceptionCount') {
+		if (kind === 'ExceptionCount') {
 			if (!rule.exceptionCondition) return m.alertRuleTable_allLogs();
 			return rule.exceptionCondition.exceptionMessage
 				? `${rule.exceptionCondition.exceptionType} (${rule.exceptionCondition.exceptionMessage})`
@@ -61,6 +63,14 @@
 	}
 
 	function thresholdText(rule: AlertRule): string {
+		if (rule.conditionKind === 'Anomaly' && rule.anomalyCondition) {
+			const a = rule.anomalyCondition;
+			const z = a.direction === 'Above' ? `z >= ${a.zScoreThreshold}` : a.direction === 'Below' ? `z <= -${a.zScoreThreshold}` : `|z| >= ${a.zScoreThreshold}`;
+			return a.seasonality === 'Weekly'
+				? m.alertRuleTable_anomalyTextWeekly({ z, periods: a.baselinePeriods, window: rule.windowSeconds })
+				: m.alertRuleTable_anomalyTextDaily({ z, periods: a.baselinePeriods, window: rule.windowSeconds });
+		}
+
 		const symbol = rule.threshold.comparator === 'LessThan' ? '<' : '>=';
 		if (rule.conditionKind === 'MetricThreshold') {
 			return m.alertRuleTable_metricThresholdText({ symbol, value: rule.metricThresholdValue ?? 0, window: rule.windowSeconds });
@@ -198,6 +208,12 @@
 								<Badge variant={result.wouldFire ? 'warning' : 'outline'} class="ml-1">
 									{#if result.noData}
 										{m.alertRuleTable_testResultNoData()}
+									{:else if result.conditionKind === 'Anomaly'}
+										{result.zScore === undefined
+											? m.alertRuleTable_testResultAnomalyNoHistory()
+											: result.wouldFire
+												? m.alertRuleTable_testResultAnomalyFiring({ z: result.zScore.toFixed(1) })
+												: m.alertRuleTable_testResultAnomalyNotFiring({ z: result.zScore.toFixed(1) })}
 									{:else if result.conditionKind === 'MetricThreshold'}
 										{result.wouldFire
 											? m.alertRuleTable_testResultFiringMetric({ value: result.observedValue ?? 0 })

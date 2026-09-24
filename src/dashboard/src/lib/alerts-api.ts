@@ -24,6 +24,9 @@
 // `noDataWindowSeconds`/`noData` were added for absent-data alerting (see
 // docs-internal/adr/0045-absent-data-alerting.md) - plain numbers/booleans, no conversion.
 // `evaluationIntervalSeconds` (per-rule evaluation frequency, ADR-0046) likewise.
+// `anomalyCondition` and the history/dry-run `baselineMean`/`zScore`/`baselineSampleCount`
+// were added for anomaly-detection alerting (docs-internal/adr/0048-anomaly-detection-alerting.md) -
+// `anomalyCondition`'s enums convert through `enums.ts`, same as `conditionKind`.
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
 import {
@@ -40,6 +43,12 @@ import {
 	metricPointTypeToString,
 	notificationChannelTypeToString,
 	type NotificationChannelTypeName,
+	anomalySeasonalityFromString,
+	anomalySeasonalityToString,
+	type AnomalySeasonalityName,
+	anomalyDirectionFromString,
+	anomalyDirectionToString,
+	type AnomalyDirectionName,
 } from '$lib/memorypack/enums';
 import { logFilterFromPlain, logFilterToPlain } from '$lib/memorypack/LogFilter';
 import { toGeneratedMetricFilter, fromGeneratedMetricFilter, type MetricFilter, type MetricPointType } from './metrics-api';
@@ -54,6 +63,7 @@ import type { AlertHistoryEntry as GeneratedAlertHistoryEntry } from '$lib/memor
 import { AlertNotificationTestResult as GeneratedAlertNotificationTestResult } from '$lib/generated/memorypack/AlertNotificationTestResult.js';
 import { MetricAlertCondition as GeneratedMetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
 import { ExceptionCountCondition as GeneratedExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
+import { AnomalyCondition as GeneratedAnomalyCondition } from '$lib/memorypack/AnomalyCondition';
 import { type ExceptionFilter, toGeneratedExceptionFilter, fromGeneratedExceptionFilter } from './errors-api';
 
 // ---- Shared shapes (AlertModels.cs) ---------------------------------------
@@ -70,6 +80,26 @@ export interface MetricAlertCondition {
 	type: MetricPointType;
 	filter?: MetricFilter;
 	aggregation: MetricAlertAggregation;
+}
+
+export type AnomalySeasonality = AnomalySeasonalityName;
+
+export type AnomalyDirection = AnomalyDirectionName;
+
+/**
+ * An `'Anomaly'` rule's scoring parameters - see `docs-internal/adr/0048-anomaly-detection-alerting.md`.
+ * The scored series is the rule's own `condition`/`metricCondition`/`exceptionCondition`, picked by
+ * `source`: the current window is compared against the same window 1..`baselinePeriods` days or
+ * weeks back, and fires when it's more than `zScoreThreshold` standard deviations away.
+ */
+export interface AnomalyCondition {
+	source: Exclude<AlertConditionKind, 'Anomaly'>;
+	seasonality: AnomalySeasonality;
+	/** 3-12. */
+	baselinePeriods: number;
+	/** Greater than 0, at most 10. */
+	zScoreThreshold: number;
+	direction: AnomalyDirection;
 }
 
 export interface AlertThreshold {
@@ -134,6 +164,8 @@ export interface AlertRule {
 	noDataWindowSeconds: number;
 	/** How often the alert worker re-evaluates this rule, in seconds. 0 = every poll tick (the default). Never longer than `windowSeconds`. */
 	evaluationIntervalSeconds: number;
+	/** Set only when `conditionKind` is `'Anomaly'`. */
+	anomalyCondition?: AnomalyCondition;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -161,6 +193,7 @@ export interface AlertRuleRequest {
 	noDataWindowSeconds?: number;
 	/** See `AlertRule.evaluationIntervalSeconds`. Omitted/undefined means 0 (every poll tick). */
 	evaluationIntervalSeconds?: number;
+	anomalyCondition?: AnomalyCondition;
 }
 
 export interface AlertRuleListResponse {
@@ -190,6 +223,9 @@ export interface AlertHistoryEntry {
 	channelResults: AlertChannelResult[];
 	/** True when this event fired on absent data rather than a threshold breach - `windowSeconds` is then the no-data window. */
 	noData: boolean;
+	/** Set only for an `'Anomaly'` event - the baseline mean `observedValue` (the current value, for every source) was scored against. */
+	baselineMean?: number;
+	zScore?: number;
 }
 
 /** One channel's outcome within a fan-out fire - `AlertHistoryEntry.channelResults`'s element shape. */
@@ -219,6 +255,11 @@ export interface AlertTestResult {
 	observedValue?: number;
 	/** True when the rule/draft would fire on absent data - takes precedence over the threshold; `windowSeconds` is then the no-data window. */
 	noData: boolean;
+	/** `'Anomaly'` only - undefined when there wasn't enough history (fewer than 3 `baselineSampleCount`). */
+	baselineMean?: number;
+	zScore?: number;
+	/** `'Anomaly'` only: how many baseline windows had data. */
+	baselineSampleCount: number;
 }
 
 /** "Send test alert" result: actually notified through the rule/draft's configured channel - unlike `AlertTestResult`, which never notifies. */
@@ -278,6 +319,28 @@ function toGeneratedExceptionCountCondition(condition: ExceptionCountCondition |
 	return dto;
 }
 
+function toAnomalyCondition(dto: GeneratedAnomalyCondition | null): AnomalyCondition | undefined {
+	if (dto == null) return undefined;
+	return {
+		source: alertConditionKindToString(dto.source) as AnomalyCondition['source'],
+		seasonality: anomalySeasonalityToString(dto.seasonality),
+		baselinePeriods: dto.baselinePeriods,
+		zScoreThreshold: dto.zScoreThreshold,
+		direction: anomalyDirectionToString(dto.direction)
+	};
+}
+
+function toGeneratedAnomalyCondition(condition: AnomalyCondition | undefined): GeneratedAnomalyCondition | null {
+	if (condition == null) return null;
+	const dto = new GeneratedAnomalyCondition();
+	dto.source = alertConditionKindFromString(condition.source);
+	dto.seasonality = anomalySeasonalityFromString(condition.seasonality);
+	dto.baselinePeriods = condition.baselinePeriods;
+	dto.zScoreThreshold = condition.zScoreThreshold;
+	dto.direction = anomalyDirectionFromString(condition.direction);
+	return dto;
+}
+
 function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 	return {
 		id: dto.id,
@@ -301,7 +364,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		channelIds: (dto.channelIds ?? []).filter((id): id is string => id != null),
 		exceptionCondition: toExceptionCountCondition(dto.exceptionCondition),
 		noDataWindowSeconds: dto.noDataWindowSeconds,
-		evaluationIntervalSeconds: dto.evaluationIntervalSeconds
+		evaluationIntervalSeconds: dto.evaluationIntervalSeconds,
+		anomalyCondition: toAnomalyCondition(dto.anomalyCondition)
 	};
 }
 
@@ -334,6 +398,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.exceptionCondition = toGeneratedExceptionCountCondition(request.exceptionCondition);
 	dto.noDataWindowSeconds = request.noDataWindowSeconds ?? null;
 	dto.evaluationIntervalSeconds = request.evaluationIntervalSeconds ?? null;
+	dto.anomalyCondition = toGeneratedAnomalyCondition(request.anomalyCondition);
 	return dto;
 }
 
@@ -364,7 +429,9 @@ function toAlertHistoryEntry(dto: GeneratedAlertHistoryEntry): AlertHistoryEntry
 		observedValue: dto.observedValue ?? undefined,
 		thresholdValue: dto.thresholdValue ?? undefined,
 		channelResults: (dto.channelResults ?? []).filter((r): r is GeneratedAlertChannelResult => r != null).map(toAlertChannelResult),
-		noData: dto.noData
+		noData: dto.noData,
+		baselineMean: dto.baselineMean ?? undefined,
+		zScore: dto.zScore ?? undefined
 	};
 }
 
@@ -442,7 +509,10 @@ function toAlertTestResult(dto: GeneratedAlertTestResult): AlertTestResult {
 		windowSeconds: dto.windowSeconds,
 		conditionKind: alertConditionKindToString(dto.conditionKind),
 		observedValue: dto.observedValue ?? undefined,
-		noData: dto.noData
+		noData: dto.noData,
+		baselineMean: dto.baselineMean ?? undefined,
+		zScore: dto.zScore ?? undefined,
+		baselineSampleCount: dto.baselineSampleCount
 	};
 }
 

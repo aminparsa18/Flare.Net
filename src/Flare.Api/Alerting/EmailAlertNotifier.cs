@@ -35,7 +35,7 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class EmailAlertNotifier(IOptions<EmailOptions> options, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null)
     {
         var opts = options.Value;
         if (string.IsNullOrWhiteSpace(opts.Host))
@@ -50,8 +50,8 @@ public sealed class EmailAlertNotifier(IOptions<EmailOptions> options, IOptions<
             message.To.Add(MailboxAddress.Parse(recipient));
         }
 
-        message.Subject = isTest ? $"Flare test alert: {rule.Name}" : noData ? $"Flare alert (no data): {rule.Name}" : $"Flare alert: {rule.Name}";
-        message.Body = new TextPart("plain") { Text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData) };
+        message.Subject = isTest ? $"Flare test alert: {rule.Name}" : noData ? $"Flare alert (no data): {rule.Name}" : anomaly is not null ? $"Flare alert (anomaly): {rule.Name}" : $"Flare alert: {rule.Name}";
+        message.Body = new TextPart("plain") { Text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly) };
 
         try
         {

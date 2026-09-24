@@ -185,7 +185,7 @@ export function logPostProcessFunctionTypeFromString(value: LogPostProcessFuncti
 }
 
 /** Matches `AlertModels.cs`'s `AlertConditionKind` member order. Not itself MemoryPack-TS-generated - `AlertRule`/`AlertRuleRequest`, its only consumers, are hand-written (nest `LogFilter`). */
-const ALERT_CONDITION_KIND_NAMES = ['LogCount', 'MetricThreshold', 'ExceptionCount'] as const;
+const ALERT_CONDITION_KIND_NAMES = ['LogCount', 'MetricThreshold', 'ExceptionCount', 'Anomaly'] as const;
 
 export type AlertConditionKindName = (typeof ALERT_CONDITION_KIND_NAMES)[number];
 
@@ -195,6 +195,32 @@ export function alertConditionKindToString(value: number): AlertConditionKindNam
 
 export function alertConditionKindFromString(value: AlertConditionKindName): number {
 	return ALERT_CONDITION_KIND_NAMES.indexOf(value);
+}
+
+/** Matches `AlertModels.cs`'s `AnomalySeasonality` member order. Not itself MemoryPack-TS-generated - `AnomalyCondition.ts` is hand-written, same as `AlertConditionKindName` above. */
+const ANOMALY_SEASONALITY_NAMES = ['Daily', 'Weekly'] as const;
+
+export type AnomalySeasonalityName = (typeof ANOMALY_SEASONALITY_NAMES)[number];
+
+export function anomalySeasonalityToString(value: number): AnomalySeasonalityName {
+	return ANOMALY_SEASONALITY_NAMES[value];
+}
+
+export function anomalySeasonalityFromString(value: AnomalySeasonalityName): number {
+	return ANOMALY_SEASONALITY_NAMES.indexOf(value);
+}
+
+/** Matches `AlertModels.cs`'s `AnomalyDirection` member order (`Both` first - it's the intended default). */
+const ANOMALY_DIRECTION_NAMES = ['Both', 'Above', 'Below'] as const;
+
+export type AnomalyDirectionName = (typeof ANOMALY_DIRECTION_NAMES)[number];
+
+export function anomalyDirectionToString(value: number): AnomalyDirectionName {
+	return ANOMALY_DIRECTION_NAMES[value];
+}
+
+export function anomalyDirectionFromString(value: AnomalyDirectionName): number {
+	return ANOMALY_DIRECTION_NAMES.indexOf(value);
 }
 
 /** Matches `NotificationChannelModels.cs`'s `NotificationChannelType` member order. Unlike `AlertConditionKindName` above, this one *is* MemoryPack-TS-generated (`$lib/generated/memorypack/NotificationChannelType.ts`) - this plain string/int converter pair exists anyway so `notification-channels-api.ts`'s plain `NotificationChannel`/`NotificationChannelRequest` interfaces can carry a readable string union, same "plain type at the app boundary, generated numeric enum only at the wire boundary" convention `thresholdComparatorToString`/`FromString` already set for a generated enum. */

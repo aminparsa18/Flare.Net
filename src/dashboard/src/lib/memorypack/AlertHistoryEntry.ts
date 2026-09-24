@@ -7,6 +7,7 @@
 // `channelResults`' element type, `AlertChannelResult`, has no such problem (flat fields
 // only) so it's a real generated class, reused here directly - same shape `threshold`
 // (`AlertThreshold`) already has on `AlertRule.ts`.
+// `baselineMean`/`zScore` were appended after `noData`, same reasoning (ADR-0048).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -29,6 +30,8 @@ export class AlertHistoryEntry {
 	thresholdValue: number | null;
 	channelResults: (AlertChannelResult | null)[] | null;
 	noData: boolean;
+	baselineMean: number | null;
+	zScore: number | null;
 
 	constructor() {
 		this.eventId = '00000000-0000-0000-0000-000000000000';
@@ -46,6 +49,8 @@ export class AlertHistoryEntry {
 		this.thresholdValue = null;
 		this.channelResults = null;
 		this.noData = false;
+		this.baselineMean = null;
+		this.zScore = null;
 	}
 
 	static serialize(value: AlertHistoryEntry | null): Uint8Array {
@@ -60,7 +65,7 @@ export class AlertHistoryEntry {
 			return;
 		}
 
-		writer.writeObjectHeader(15);
+		writer.writeObjectHeader(17);
 		writer.writeGuid(value.eventId);
 		writer.writeGuid(value.ruleId);
 		writer.writeString(value.ruleName);
@@ -76,6 +81,8 @@ export class AlertHistoryEntry {
 		writer.writeNullableFloat64(value.thresholdValue);
 		writer.writeArray(value.channelResults, (writer, x) => AlertChannelResult.serializeCore(writer, x));
 		writer.writeBoolean(value.noData);
+		writer.writeNullableFloat64(value.baselineMean);
+		writer.writeNullableFloat64(value.zScore);
 	}
 
 	static serializeArray(value: (AlertHistoryEntry | null)[] | null): Uint8Array {
@@ -99,7 +106,7 @@ export class AlertHistoryEntry {
 		}
 
 		const value = new AlertHistoryEntry();
-		if (count == 15) {
+		if (count == 17) {
 			value.eventId = reader.readGuid();
 			value.ruleId = reader.readGuid();
 			value.ruleName = reader.readString();
@@ -115,7 +122,9 @@ export class AlertHistoryEntry {
 			value.thresholdValue = reader.readNullableFloat64();
 			value.channelResults = reader.readArray((reader) => AlertChannelResult.deserializeCore(reader));
 			value.noData = reader.readBoolean();
-		} else if (count > 15) {
+			value.baselineMean = reader.readNullableFloat64();
+			value.zScore = reader.readNullableFloat64();
+		} else if (count > 17) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -149,6 +158,10 @@ export class AlertHistoryEntry {
 			if (count == 14) return value;
 			value.noData = reader.readBoolean();
 			if (count == 15) return value;
+			value.baselineMean = reader.readNullableFloat64();
+			if (count == 16) return value;
+			value.zScore = reader.readNullableFloat64();
+			if (count == 17) return value;
 		}
 		return value;
 	}

@@ -18,15 +18,15 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null)
     {
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
         // No scoped-logs link for a no-data fire - by definition there are no matching logs to show.
         var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
-        var isMetric = rule.ConditionKind == AlertConditionKind.MetricThreshold;
+        var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold;
         var payload = new
         {
-            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData),
+            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly),
             ruleId = rule.Id,
             ruleName = rule.Name,
             conditionKind = rule.ConditionKind.ToString(),
@@ -37,12 +37,18 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
             observedCount = isMetric ? 0UL : (ulong)observedValue,
             thresholdCount = rule.Threshold.Count,
             observedValue,
-            thresholdValue = rule.MetricThresholdValue,
+            // An anomaly rule has no fixed threshold - see baselineMean/zScore below instead.
+            thresholdValue = rule.ConditionKind == AlertConditionKind.Anomaly ? null : rule.MetricThresholdValue,
             metricName = rule.MetricCondition?.MetricName,
             windowSeconds = noData ? rule.NoDataWindowSeconds : rule.WindowSeconds,
             // True for an absent-data fire (AlertRule.NoDataWindowSeconds) - the observed
             // fields above are then 0/placeholders and windowSeconds is the no-data window.
             noData,
+            // Set only for an Anomaly fire: the seasonal baseline observedValue was scored
+            // against (ADR-0048). Null for every other kind.
+            baselineMean = anomaly?.BaselineMean,
+            zScore = anomaly?.ZScore,
+            baselineSamples = anomaly?.SampleCount,
             firedAt,
             // Null when Alerting:PublicUrl isn't configured - same "no link rather than a
             // broken one" contract as the text field's own link line. Kept as a dedicated

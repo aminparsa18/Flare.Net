@@ -178,13 +178,6 @@ folders are where "what happened and why" actually lives.
   set-password link, expiring) plus a dashboard form on the users page;
   bulk invite is a nice-to-have. Not started. Prior art:
   [signoz#6057](https://github.com/SigNoz/signoz/commit/fc4b55cb34b48fd3f47719be6ad6008b42d7e77d).
-- **Anomaly-detection alerts.** A fourth `AlertConditionKind` that fires
-  when a series deviates from its own seasonal baseline (z-score against
-  the same window a day/week earlier) instead of crossing a fixed
-  threshold - catches "traffic is half what it normally is at this hour".
-  Large; needs an ADR (baseline window, seasonality, minimum history).
-  Not started. Prior art: rule [signoz#5973](https://github.com/SigNoz/signoz/commit/419d2da363dd01f66b5c24f0e78ff863605b9a2a),
-  UI [signoz#5916](https://github.com/SigNoz/signoz/commit/21801180949459200d5b471d822e5ad08a75215f).
 - **Minimum data points for alert evaluation.** An optional per-rule
   "require at least N points in the window" so a `MetricThreshold`
   average over one or two sparse samples doesn't fire (treated as
