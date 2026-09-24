@@ -87,6 +87,14 @@
 			void explorer.applySavedViewState(query).then(() => {
 				if (range) explorer.setTimeRangePreset(range);
 				if (overrides.services.length) explorer.setServices(overrides.services);
+				// Neither override above ran a query, so this panel must run its own. The
+				// onMount apply's selectMetric only *scheduled* one (#deferredReset's timer),
+				// and this second apply's leading #flushPendingSwitch cancels that timer
+				// without running it - while its own selectMetric is a no-op (same metric) -
+				// so a single-metric panel on a dashboard with no time-range override and no
+				// applicable variable used to sit on "No data in range" forever. Formula mode
+				// needs nothing here: applySavedViewState already runs runFormulaQuery itself.
+				if (!range && !overrides.services.length && explorer.mode !== 'formula') void explorer.runQuery();
 			});
 		});
 	});
