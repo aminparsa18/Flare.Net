@@ -226,7 +226,8 @@ own "Evaluate every" interval (1m-1h) for slow, expensive rules.
 A metric rule can also require a minimum number of data points in its
 window; with fewer, it reports insufficient data and doesn't fire.
 Firing notifies one or more notification channels, managed from this
-same page's "Channels" tab — reusable, named webhook/Slack, Telegram,
+same page's "Channels" tab (or created on the spot with the rule form's
+"New channel" button) — reusable, named webhook/Slack, Telegram,
 email, or PagerDuty destinations a rule references by ID rather than
 embedding inline, so the same channel can be reused across rules and a
 rule can fan out to more than one destination for the same breach (see

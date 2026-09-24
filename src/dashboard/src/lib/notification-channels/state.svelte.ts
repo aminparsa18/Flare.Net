@@ -29,6 +29,9 @@ export class NotificationChannelsState {
 	testingId = $state<string | null>(null);
 	testResult = $state<{ id: string; success: boolean; error: string } | null>(null);
 
+	/** Set by `openCreate(onCreated)` - lets a caller outside the Channels tab (AlertRuleFormDialog's "new channel" action) act on the channel it just created, e.g. auto-select it. Cleared whenever the form closes. */
+	private onCreated: ((channel: NotificationChannel) => void) | null = null;
+
 	async load(): Promise<void> {
 		this.loading = true;
 		this.error = null;
@@ -42,17 +45,20 @@ export class NotificationChannelsState {
 		}
 	}
 
-	openCreate(): void {
+	openCreate(onCreated?: (channel: NotificationChannel) => void): void {
 		this.saveError = null;
+		this.onCreated = onCreated ?? null;
 		this.formTarget = 'new';
 	}
 
 	openEdit(channel: NotificationChannel): void {
 		this.saveError = null;
+		this.onCreated = null;
 		this.formTarget = channel;
 	}
 
 	closeForm(): void {
+		this.onCreated = null;
 		this.formTarget = null;
 	}
 
@@ -60,9 +66,11 @@ export class NotificationChannelsState {
 		this.saving = true;
 		this.saveError = null;
 		try {
-			await createNotificationChannel(request);
-			this.formTarget = null;
+			const created = await createNotificationChannel(request);
+			const onCreated = this.onCreated;
+			this.closeForm();
 			await this.load();
+			onCreated?.(created);
 		} catch (err) {
 			this.saveError = err instanceof Error ? err.message : String(err);
 		} finally {
