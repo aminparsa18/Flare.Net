@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
 using Flare.Api.Query.LogQl;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -66,7 +67,7 @@ public sealed record ActiveService(string ServiceName, DateTimeOffset LastSeenAt
 /// <c>record</c> DTOs cleanly - the reader path has no such registration/shape
 /// requirements. Confirm this still holds during e2e verification (see this project's README).
 /// </remarks>
-public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeProvider) : ILogQueryService
+public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ILogQueryService
 {
     public async Task<LogSearchResponse> SearchAsync(LogSearchRequest request, CancellationToken cancellationToken)
     {
@@ -446,15 +447,5 @@ public sealed class LogQueryService(IClickHouseClient client, TimeProvider timeP
     /// query gets an explicit scan/time cap rather than relying on defaults, which are
     /// unbounded on self-hosted ClickHouse.
     /// </summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 }

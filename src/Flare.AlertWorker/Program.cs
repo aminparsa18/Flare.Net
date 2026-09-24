@@ -15,6 +15,9 @@ builder.AddClickHouseDataSource(connectionName: "clickhousedb");
 builder.AddRedisClient(connectionName: "redis");
 
 builder.Services.AddSingleton(TimeProvider.System);
+// Same Query section Flare.Api binds - AlertQueryService reads its execution caps
+// (incl. AlertEvaluationMaxExecutionSeconds) from it.
+builder.Services.Configure<QueryLimitsOptions>(builder.Configuration.GetSection(QueryLimitsOptions.SectionName));
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
 

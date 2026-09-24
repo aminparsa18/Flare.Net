@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Readers;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -20,7 +21,7 @@ public interface IExceptionQueryService
 /// aggregate vs. a whole-span search) diverge enough to cost more shared-code complexity than
 /// they'd save.
 /// </summary>
-public sealed class ExceptionQueryService(IClickHouseClient client, TimeProvider timeProvider) : IExceptionQueryService
+public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IExceptionQueryService
 {
     public async Task<ExceptionGroupsResponse> GetGroupsAsync(ExceptionGroupsRequest request, CancellationToken cancellationToken)
     {
@@ -78,15 +79,5 @@ public sealed class ExceptionQueryService(IClickHouseClient client, TimeProvider
         new(DateTime.SpecifyKind(reader.GetDateTime(ordinal), DateTimeKind.Utc));
 
     /// <summary>Same scan/time safety cap as <see cref="SpanQueryService.SafetyOptions"/>.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 }

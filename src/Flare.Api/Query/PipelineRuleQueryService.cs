@@ -5,6 +5,7 @@ using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
 using Flare.Api.Json;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -31,7 +32,7 @@ public interface IPipelineRuleQueryService
 /// reference each other's projects, see <c>Flare.Api.Model.LogEventDto</c>'s remarks for
 /// why this boundary mirrors rather than shares types).
 /// </summary>
-public sealed class PipelineRuleQueryService(IClickHouseClient client, TimeProvider timeProvider) : IPipelineRuleQueryService
+public sealed class PipelineRuleQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IPipelineRuleQueryService
 {
     private const string RuleColumns = "Id, Name, Description, Enabled, ConditionJson, ActionsJson, CreatedAt, UpdatedAt";
 
@@ -156,15 +157,5 @@ public sealed class PipelineRuleQueryService(IClickHouseClient client, TimeProvi
         new(DateTime.SpecifyKind(reader.GetDateTime(ordinal), DateTimeKind.Utc));
 
     /// <summary>Same query-safety rationale as <see cref="LogQueryService.SafetyOptions"/>, used here for rule CRUD.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 }

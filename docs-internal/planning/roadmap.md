@@ -147,13 +147,6 @@ folders are where "what happened and why" actually lives.
   plus stacked-series rendering in `VolumeChart`, then a "group by" action on
   `AttributeTable` rows next to the existing filter-for/out/copy actions.
   Not started. Prior art: group by from log details [signoz#5753](https://github.com/SigNoz/signoz/commit/ab1caf13fc201bf99e0317c2d5f445f485882b10).
-- **Configurable ClickHouse query execution caps.** `max_execution_time`
-  (30s) and friends are hard-coded per query service in
-  `src/Flare.Api/Query/` (15 files set them); larger self-hosted
-  installs can't raise them for heavy searches. One bound options class
-  (e.g. `Query__MaxExecutionSeconds`) read by every query service, keeping
-  today's values as defaults. Not started. Prior art:
-  [signoz#5683](https://github.com/SigNoz/signoz/commit/d7fd1d032b831920d40bfc700d058036ce474f66).
 - **`runningDiff` (point-to-point delta) metric function.** Change between
   consecutive points of a series, e.g. for gauges where the step change
   matters more than the level. Likely a new function in the Metrics

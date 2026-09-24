@@ -34,6 +34,7 @@ public interface IServiceOverviewQueryService
 /// </remarks>
 public sealed class ServiceOverviewQueryService(
     IClickHouseClient client,
+    IOptions<QueryLimitsOptions> queryLimits,
     TimeProvider timeProvider,
     IOptions<ServiceMetricsOptions> serviceMetricsOptions,
     IApdexThresholdStore apdexThresholdStore) : IServiceOverviewQueryService
@@ -154,15 +155,5 @@ public sealed class ServiceOverviewQueryService(
         };
 
     /// <summary>Same scan/time safety cap as <see cref="SpanQueryService.SafetyOptions"/>.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 }

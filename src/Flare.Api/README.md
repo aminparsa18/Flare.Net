@@ -105,10 +105,22 @@ is the tiebreaker for the (rare, but real) case of two rows sharing an exact
 
 ## Query safety
 
-Every query `LogQueryService` runs sets ClickHouse's `max_execution_time`,
+Every query the `Query/*QueryService` classes run sets ClickHouse's `max_execution_time`,
 `timeout_before_checking_execution_speed`, `max_rows_to_read`, `max_result_rows`, and
 `result_overflow_mode` via `QueryOptions.CustomSettings` — self-hosted ClickHouse has no
-default caps on any of these. Reviewed against the `clickhouse-best-practices` skill's
+default caps on any of these. The values come from `QueryLimitsOptions` (the `Query`
+config section), built into `QueryOptions` in one place by `QuerySafety`:
+
+| Setting | Env var | Default |
+|---|---|---|
+| `MaxExecutionSeconds` | `Query__MaxExecutionSeconds` | `30` |
+| `MaxRowsToRead` | `Query__MaxRowsToRead` | `1000000000` |
+| `MaxResultRows` | `Query__MaxResultRows` | `10000` (truncates, doesn't error) |
+| `AlertEvaluationMaxExecutionSeconds` | `Query__AlertEvaluationMaxExecutionSeconds` | `10` |
+
+`0` means unlimited (ClickHouse's own meaning for each setting). The alert-evaluation cap
+is read by `Flare.AlertWorker`, which binds the same section; `system.*` introspection
+reads (Indexing/cluster-status pages) apply only the execution-time cap. Reviewed against the `clickhouse-best-practices` skill's
 `agent-query-safety` rule. `/api/logs/search` also defaults the time range to the last
 hour when `From`/`To` are omitted (`LogFilterSqlBuilder.DefaultLookback`), so an
 unfiltered request doesn't scan the whole table.

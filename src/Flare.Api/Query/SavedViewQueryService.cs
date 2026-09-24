@@ -4,6 +4,7 @@ using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
 using Flare.Api.Model;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
 
@@ -36,7 +37,7 @@ public interface ISavedViewQueryService
 /// saved_views FINAL WHERE IsDeleted = 0</c>. See db/clickhouse/0009_saved_views.sql for
 /// the full rationale.
 /// </remarks>
-public sealed class SavedViewQueryService(IClickHouseClient client, TimeProvider timeProvider) : ISavedViewQueryService
+public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ISavedViewQueryService
 {
     private const string ViewColumns = "Id, Name, Description, PageType, StateJson, CreatedAt, UpdatedAt";
 
@@ -171,15 +172,5 @@ public sealed class SavedViewQueryService(IClickHouseClient client, TimeProvider
         new(DateTime.SpecifyKind(reader.GetDateTime(ordinal), DateTimeKind.Utc));
 
     /// <summary>Same query-safety rationale as <see cref="LogQueryService.SafetyOptions"/>, used here for view CRUD.</summary>
-    private static QueryOptions SafetyOptions() => new()
-    {
-        CustomSettings = new Dictionary<string, object>
-        {
-            ["max_execution_time"] = 30,
-            ["timeout_before_checking_execution_speed"] = 0,
-            ["max_rows_to_read"] = 1_000_000_000,
-            ["max_result_rows"] = 10_000,
-            ["result_overflow_mode"] = "break",
-        },
-    };
+    private QueryOptions SafetyOptions() => QuerySafety.Full(queryLimits.Value);
 }
