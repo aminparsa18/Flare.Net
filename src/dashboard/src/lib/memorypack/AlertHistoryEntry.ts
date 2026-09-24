@@ -2,7 +2,7 @@
 // generated. Mirrors `src/Flare.Api/Model/AlertModels.cs`'s `AlertHistoryEntry`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
 // `FiredAt` is a `DateTimeOffset` - see `$lib/memorypack/date-time-offset.ts`'s header
-// comment. `conditionKind`/`observedValue`/`thresholdValue`/`channelResults` were appended
+// comment. `conditionKind`/`observedValue`/`thresholdValue`/`channelResults`/`noData` were appended
 // after every pre-existing field, same versioning reasoning as `AlertRule.ts`.
 // `channelResults`' element type, `AlertChannelResult`, has no such problem (flat fields
 // only) so it's a real generated class, reused here directly - same shape `threshold`
@@ -28,6 +28,7 @@ export class AlertHistoryEntry {
 	observedValue: number | null;
 	thresholdValue: number | null;
 	channelResults: (AlertChannelResult | null)[] | null;
+	noData: boolean;
 
 	constructor() {
 		this.eventId = '00000000-0000-0000-0000-000000000000';
@@ -44,6 +45,7 @@ export class AlertHistoryEntry {
 		this.observedValue = null;
 		this.thresholdValue = null;
 		this.channelResults = null;
+		this.noData = false;
 	}
 
 	static serialize(value: AlertHistoryEntry | null): Uint8Array {
@@ -58,7 +60,7 @@ export class AlertHistoryEntry {
 			return;
 		}
 
-		writer.writeObjectHeader(14);
+		writer.writeObjectHeader(15);
 		writer.writeGuid(value.eventId);
 		writer.writeGuid(value.ruleId);
 		writer.writeString(value.ruleName);
@@ -73,6 +75,7 @@ export class AlertHistoryEntry {
 		writer.writeNullableFloat64(value.observedValue);
 		writer.writeNullableFloat64(value.thresholdValue);
 		writer.writeArray(value.channelResults, (writer, x) => AlertChannelResult.serializeCore(writer, x));
+		writer.writeBoolean(value.noData);
 	}
 
 	static serializeArray(value: (AlertHistoryEntry | null)[] | null): Uint8Array {
@@ -96,7 +99,7 @@ export class AlertHistoryEntry {
 		}
 
 		const value = new AlertHistoryEntry();
-		if (count == 14) {
+		if (count == 15) {
 			value.eventId = reader.readGuid();
 			value.ruleId = reader.readGuid();
 			value.ruleName = reader.readString();
@@ -111,7 +114,8 @@ export class AlertHistoryEntry {
 			value.observedValue = reader.readNullableFloat64();
 			value.thresholdValue = reader.readNullableFloat64();
 			value.channelResults = reader.readArray((reader) => AlertChannelResult.deserializeCore(reader));
-		} else if (count > 14) {
+			value.noData = reader.readBoolean();
+		} else if (count > 15) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -143,6 +147,8 @@ export class AlertHistoryEntry {
 			if (count == 13) return value;
 			value.channelResults = reader.readArray((reader) => AlertChannelResult.deserializeCore(reader));
 			if (count == 14) return value;
+			value.noData = reader.readBoolean();
+			if (count == 15) return value;
 		}
 		return value;
 	}

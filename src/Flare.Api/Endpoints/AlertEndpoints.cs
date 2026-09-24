@@ -129,7 +129,7 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ExceptionCondition, rule.WindowSeconds, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ExceptionCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -150,7 +150,7 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ExceptionCondition, request.WindowSeconds, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ExceptionCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -219,6 +219,7 @@ public static class AlertEndpoints
             MetricThresholdValue = request.MetricThresholdValue,
             ChannelIds = defaults.ChannelIds,
             ExceptionCondition = request.ExceptionCondition,
+            NoDataWindowSeconds = defaults.NoDataWindowSeconds,
         };
 
         var result = await SendTestAsync(notifier, channels, draftRule, timeProvider, cancellationToken);
@@ -268,7 +269,9 @@ public static class AlertEndpoints
     /// "wouldn't fire" rather than throwing - <see cref="Model.AlertRuleRequest.ValidateCondition"/>
     /// is what rejects that shape on create/update; this dry-run endpoint is intentionally
     /// more lenient, same as it never calls <see cref="Model.AlertRuleRequest.ValidateChannel"/>
-    /// either.
+    /// either. With <paramref name="noDataWindowSeconds"/> enabled, an absent-data result
+    /// (<see cref="AlertNoDataEvaluator"/>) takes precedence over the threshold, same as
+    /// <c>AlertEvaluationWorker</c>.
     /// </summary>
     private static async Task<AlertTestResult> EvaluateAsync(
         IAlertQueryService alerts,
@@ -280,10 +283,16 @@ public static class AlertEndpoints
         double? metricThresholdValue,
         ExceptionCountCondition? exceptionCondition,
         int windowSeconds,
+        int noDataWindowSeconds,
         CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         var from = now - TimeSpan.FromSeconds(windowSeconds);
+
+        if (await AlertNoDataEvaluator.IsAbsentAsync(alerts, conditionKind, condition, metricCondition, noDataWindowSeconds, now, cancellationToken))
+        {
+            return new AlertTestResult { ObservedCount = 0, WouldFire = true, EvaluatedAt = now, WindowSeconds = noDataWindowSeconds, ConditionKind = conditionKind, ObservedValue = null, NoData = true };
+        }
 
         if (conditionKind == AlertConditionKind.MetricThreshold)
         {

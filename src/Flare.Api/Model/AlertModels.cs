@@ -271,6 +271,23 @@ public sealed partial record AlertRule
     /// versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public ExceptionCountCondition? ExceptionCondition { get; init; }
+
+    /// <summary>
+    /// Opt-in absent-data ("no data") alerting: when greater than 0, the rule also fires if
+    /// its condition matched <b>nothing at all</b> over the last this-many seconds - a dead
+    /// exporter or a service that stopped emitting, which no threshold comparison can catch
+    /// on its own (a metric over an empty window evaluates to <see cref="double.NaN"/>, which
+    /// never breaches either direction). 0 (the default, and every rule created before this
+    /// field existed) disables it. Its own window rather than reusing <see cref="WindowSeconds"/>,
+    /// so e.g. a 5-minute p99 threshold can pair with a 30-minute "stopped reporting" check.
+    /// Only meaningful for <see cref="AlertConditionKind.LogCount"/>/<see cref="AlertConditionKind.MetricThreshold"/>
+    /// rules - rejected for <see cref="AlertConditionKind.ExceptionCount"/> by
+    /// <see cref="AlertRuleRequest.ValidateCondition"/>, since zero exceptions is the healthy
+    /// state there, not a silent exporter. An opt-in field rather than a fourth
+    /// <see cref="AlertConditionKind"/> - see <c>docs-internal/adr/0045-absent-data-alerting.md</c>.
+    /// Appended after every pre-existing field, same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public int NoDataWindowSeconds { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -343,6 +360,9 @@ public sealed partial record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.ExceptionCondition"/>'s doc comment. Appended after <see cref="ChannelIds"/>, same versioning reasoning as that field.</summary>
     public ExceptionCountCondition? ExceptionCondition { get; init; }
 
+    /// <summary>See <see cref="AlertRule.NoDataWindowSeconds"/>'s doc comment. Omitted/null means 0 (disabled). Appended after <see cref="ExceptionCondition"/>, same versioning reasoning.</summary>
+    public int? NoDataWindowSeconds { get; init; }
+
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
     /// (<see cref="WebhookUrl"/> - covers both a generic webhook consumer and Slack -
@@ -400,14 +420,37 @@ public sealed partial record AlertRuleRequest
     /// fire" rather than a 400 there - same "channel validation is create/update-only"
     /// precedent <see cref="ValidateChannel"/>'s own doc comment already sets.
     /// </summary>
-    public string? ValidateCondition() => (ConditionKind ?? AlertConditionKind.LogCount) switch
+    /// <remarks>
+    /// Also validates <see cref="NoDataWindowSeconds"/>: 0/null (disabled), or at least
+    /// <see cref="MinNoDataWindowSeconds"/> - a shorter window would trip on ordinary
+    /// ingest/flush latency rather than a genuinely silent source - and never on an
+    /// <see cref="AlertConditionKind.ExceptionCount"/> rule (see <see cref="AlertRule.NoDataWindowSeconds"/>).
+    /// </remarks>
+    public string? ValidateCondition()
     {
-        AlertConditionKind.MetricThreshold when MetricCondition is null || MetricThresholdValue is null =>
-            "metricCondition and metricThresholdValue are required when conditionKind is MetricThreshold.",
-        AlertConditionKind.ExceptionCount when ExceptionCondition is null =>
-            "exceptionCondition is required when conditionKind is ExceptionCount.",
-        _ => null,
-    };
+        var kind = ConditionKind ?? AlertConditionKind.LogCount;
+        var conditionError = kind switch
+        {
+            AlertConditionKind.MetricThreshold when MetricCondition is null || MetricThresholdValue is null =>
+                "metricCondition and metricThresholdValue are required when conditionKind is MetricThreshold.",
+            AlertConditionKind.ExceptionCount when ExceptionCondition is null =>
+                "exceptionCondition is required when conditionKind is ExceptionCount.",
+            _ => null,
+        };
+
+        return conditionError ?? (NoDataWindowSeconds ?? 0) switch
+        {
+            0 => null,
+            _ when kind == AlertConditionKind.ExceptionCount =>
+                "noDataWindowSeconds is not supported when conditionKind is ExceptionCount - zero exceptions is the healthy state, not missing data.",
+            < MinNoDataWindowSeconds =>
+                $"noDataWindowSeconds must be 0 (disabled) or at least {MinNoDataWindowSeconds}.",
+            _ => null,
+        };
+    }
+
+    /// <summary>The shortest non-zero <see cref="NoDataWindowSeconds"/> <see cref="ValidateCondition"/> accepts.</summary>
+    public const int MinNoDataWindowSeconds = 60;
 }
 
 /// <summary>Response body for <c>GET /api/alerts</c>.</summary>
@@ -464,6 +507,16 @@ public sealed partial record AlertHistoryEntry
     /// every pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
     /// </summary>
     public IReadOnlyList<AlertChannelResult> ChannelResults { get; init; } = [];
+
+    /// <summary>
+    /// True when this event fired because the rule's condition matched no data at all over
+    /// <see cref="AlertRule.NoDataWindowSeconds"/> (absent-data alerting), rather than a
+    /// threshold breach - <see cref="ObservedCount"/> is 0 and <see cref="ObservedValue"/>
+    /// null in that case, and <see cref="WindowSeconds"/> is the no-data window, not the
+    /// threshold window. Appended after every pre-existing field, same versioning reasoning
+    /// as <see cref="AlertRule.ConditionKind"/>.
+    /// </summary>
+    public bool NoData { get; init; }
 }
 
 /// <summary>Response body for <c>GET /api/alerts/{id}/history</c>.</summary>
@@ -495,6 +548,14 @@ public sealed partial record AlertTestResult
 
     /// <summary>Set only when <see cref="ConditionKind"/> is <see cref="AlertConditionKind.MetricThreshold"/>; null otherwise.</summary>
     public double? ObservedValue { get; init; }
+
+    /// <summary>
+    /// True when the rule/draft has <see cref="AlertRule.NoDataWindowSeconds"/> enabled and
+    /// its condition matched nothing over that window - <see cref="WouldFire"/> is then true
+    /// regardless of the threshold, same precedence <c>AlertEvaluationWorker</c> applies.
+    /// Appended after every pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
+    /// </summary>
+    public bool NoData { get; init; }
 }
 
 /// <summary>

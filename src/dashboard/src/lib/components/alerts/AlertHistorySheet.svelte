@@ -58,7 +58,9 @@
 									</Badge>
 								</div>
 								<p class="text-muted-foreground mt-1">
-									{#if entry.conditionKind === 'MetricThreshold'}
+									{#if entry.noData}
+										{m.alertHistory_entrySummaryNoData({ window: entry.windowSeconds })}
+									{:else if entry.conditionKind === 'MetricThreshold'}
 										{m.alertHistory_entrySummaryMetric({
 											value: entry.observedValue ?? 0,
 											threshold: entry.thresholdValue ?? 0,

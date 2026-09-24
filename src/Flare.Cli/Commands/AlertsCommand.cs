@@ -183,7 +183,9 @@ internal sealed class AlertsTestCommand : AsyncCommand<AlertsTestCommand.Setting
 
         var verdict = result.WouldFire ? "[green]yes[/]" : "[grey]no[/]";
         AnsiConsole.MarkupLine($"Would fire: {verdict}");
-        AnsiConsole.MarkupLine($"Observed count: {result.ObservedCount} (window: {result.WindowSeconds}s)");
+        AnsiConsole.MarkupLine(result.NoData
+            ? $"[yellow]No data[/]: the condition matched nothing in the last {result.WindowSeconds}s (absent-data alerting)"
+            : $"Observed count: {result.ObservedCount} (window: {result.WindowSeconds}s)");
         AnsiConsole.MarkupLine($"[grey]Evaluated at {result.EvaluatedAt.ToLocalTime():HH:mm:ss.fff} - cooldown untouched, no notification sent.[/]");
         return 0;
     }
@@ -322,6 +324,9 @@ internal sealed class AlertTestResultWire
     public required DateTimeOffset EvaluatedAt { get; init; }
 
     public required int WindowSeconds { get; init; }
+
+    /// <summary>True when the rule fired on absent data (<c>AlertRule.NoDataWindowSeconds</c>) - <see cref="WindowSeconds"/> is then the no-data window. Absent from older servers, where it deserializes as false.</summary>
+    public bool NoData { get; init; }
 }
 
 internal sealed class AlertNotificationTestResultWire

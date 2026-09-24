@@ -99,4 +99,36 @@ public class MetricAlertConditionQueryBuilderTests
 
         Assert.Contains("ServiceName IN {services:Array(String)}", result.Sql);
     }
+
+    [Theory]
+    [InlineData(MetricPointType.Gauge, "metrics_gauge")]
+    [InlineData(MetricPointType.Sum, "metrics_sum")]
+    [InlineData(MetricPointType.Histogram, "metrics_histogram")]
+    public void BuildPointCount_CountsRawPointsInTheTypesTable(MetricPointType type, string table)
+    {
+        var result = MetricAlertConditionQueryBuilder.BuildPointCount(
+            new MetricAlertCondition { MetricName = "http.server.request.duration", Type = type }, From, To);
+
+        Assert.StartsWith($"SELECT count() FROM {table} WHERE MetricName = {{metricName:String}} AND ", result.Sql);
+        Assert.Equal(type, result.Type);
+    }
+
+    [Fact]
+    public void BuildPointCount_UsesTheSameWhereAsBuild()
+    {
+        // "No data" must mean exactly "nothing the threshold query could have seen".
+        var condition = new MetricAlertCondition
+        {
+            MetricName = "process.threads",
+            Type = MetricPointType.Gauge,
+            Filter = new MetricFilter { Services = ["checkout"] },
+        };
+
+        var evaluate = MetricAlertConditionQueryBuilder.Build(condition, From, To);
+        var count = MetricAlertConditionQueryBuilder.BuildPointCount(condition, From, To);
+
+        var evaluateWhere = evaluate.Sql[evaluate.Sql.IndexOf(" WHERE ", StringComparison.Ordinal)..];
+        var countWhere = count.Sql[count.Sql.IndexOf(" WHERE ", StringComparison.Ordinal)..];
+        Assert.Equal(evaluateWhere, countWhere);
+    }
 }

@@ -257,4 +257,49 @@ public class AlertMessageFormatterTests
         Assert.Contains("Test notification", text, StringComparison.Ordinal);
         Assert.EndsWith("https://flare.example.com/alerts?rule=11111111-2222-3333-4444-555555555555", text, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void BuildText_NoData_LogCountRule_ReportsNoDataOverTheNoDataWindow()
+    {
+        var rule = MakeRule() with { NoDataWindowSeconds = 900 };
+
+        var text = AlertMessageFormatter.BuildText(rule, observedValue: 0, noData: true);
+
+        Assert.Equal(":warning: Alert \"High error rate\" fired: no data - no matching log events in the last 900s", text);
+    }
+
+    [Fact]
+    public void BuildText_NoData_MetricRule_NamesTheMetric()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.MetricThreshold,
+            MetricCondition = new MetricAlertCondition { MetricName = "process.threads", Type = MetricPointType.Gauge },
+            MetricThresholdValue = 10,
+            NoDataWindowSeconds = 600,
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, observedValue: double.NaN, noData: true);
+
+        Assert.Contains("metric process.threads reported no data points in the last 600s", text);
+    }
+
+    [Fact]
+    public void BuildText_NoData_OmitsMatchingLogsLink_KeepsRuleLink()
+    {
+        var rule = MakeRule() with { NoDataWindowSeconds = 600 };
+
+        var text = AlertMessageFormatter.BuildText(rule, 0, publicUrl: "https://flare.example.com", firedAt: FiredAt, noData: true);
+
+        Assert.DoesNotContain("Matching logs:", text);
+        Assert.EndsWith("https://flare.example.com/alerts?rule=11111111-2222-3333-4444-555555555555", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildText_IsTest_WinsOverNoData()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeRule() with { NoDataWindowSeconds = 600 }, 0, isTest: true, noData: true);
+
+        Assert.StartsWith(":test_tube:", text);
+    }
 }

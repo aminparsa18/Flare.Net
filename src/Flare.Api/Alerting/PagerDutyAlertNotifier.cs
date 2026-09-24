@@ -33,7 +33,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
 {
     private const string EventsApiUrl = "https://events.pagerduty.com/v2/enqueue";
 
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false)
     {
         // Not folded into `summary` below the way the other three notifiers append it to
         // their plain-text message - PagerDuty renders `summary` as a single-line incident
@@ -46,7 +46,8 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         // client_url stays the rule link (PagerDuty renders it as the single "View in Flare"
         // action); the scoped-logs link goes in Events v2's `links` array instead, which
         // PagerDuty lists separately on the incident.
-        var logsUrl = AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
+        // No scoped-logs link for a no-data fire - by definition there are no matching logs to show.
+        var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var isMetric = rule.ConditionKind == AlertConditionKind.MetricThreshold;
         var payload = new
         {
@@ -59,7 +60,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
             links = new[] { new { href = logsUrl, text = "Matching logs in Flare" } }.Where(l => l.href is not null).ToArray(),
             payload = new
             {
-                summary = AlertMessageFormatter.BuildText(rule, observedValue, isTest, metricUnit: metricUnit),
+                summary = AlertMessageFormatter.BuildText(rule, observedValue, isTest, metricUnit: metricUnit, noData: noData),
                 source = "flare",
                 severity = isTest ? "info" : "critical",
                 timestamp = firedAt,
@@ -73,6 +74,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
                     observedValue,
                     thresholdValue = rule.MetricThresholdValue,
                     metricName = rule.MetricCondition?.MetricName,
+                    noData,
                     windowSeconds = rule.WindowSeconds,
                     ruleUrl,
                     logsUrl,

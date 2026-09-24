@@ -48,19 +48,11 @@ public static class MetricAlertConditionQueryBuilder
 {
     public static MetricAlertConditionSql Build(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to)
     {
-        // Same System.Text.Json init-only-property caveat MetricSeriesQueryBuilder guards
-        // against - condition.Filter's `= new()` default doesn't survive deserialization
-        // when the persisted/request JSON omits "filter".
-        var windowedFilter = (condition.Filter ?? new MetricFilter()) with { From = from, To = to };
-        var filterSql = MetricFilterSqlBuilder.Build(windowedFilter, to);
-        filterSql.Parameters.AddParameter("metricName", condition.MetricName);
-
-        var table = MetricTables.For(condition.Type);
+        var (table, whereSql, parameters) = BuildWhere(condition, from, to);
         // `any(Unit)` appended last in every branch, after the type's own aggregate columns
         // - keeps existing ordinals (0/1 for Gauge, 0-1 for Sum, 0-3 for Histogram) stable
         // for AlertQueryService.EvaluateMetricConditionAsync's positional reads, with Unit
         // always the final column regardless of type.
-        var whereSql = $"MetricName = {{metricName:String}} AND {filterSql.WhereSql}";
         var sql = condition.Type switch
         {
             MetricPointType.Gauge => $"SELECT avg(Value) AS Value, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
@@ -69,7 +61,33 @@ public static class MetricAlertConditionQueryBuilder
             _ => throw new ArgumentOutOfRangeException(nameof(condition), condition.Type, "Unknown metric point type."),
         };
 
-        return new MetricAlertConditionSql(sql, filterSql.Parameters, condition.Type);
+        return new MetricAlertConditionSql(sql, parameters, condition.Type);
+    }
+
+    /// <summary>
+    /// A plain <c>count()</c> of the data points <paramref name="condition"/> matches over the
+    /// window, for absent-data alerting (<see cref="AlertRule.NoDataWindowSeconds"/>) - the
+    /// same <c>WHERE</c> <see cref="Build"/> evaluates over, so "no data" means exactly "nothing
+    /// the threshold query could have seen". A dedicated count rather than reading
+    /// <see cref="Build"/>'s result for <see cref="double.NaN"/>: only Gauge's <c>avg()</c> yields
+    /// NaN over an empty window - Sum's <c>sum()</c> and Histogram's <c>sum(Count)</c> both yield
+    /// 0, indistinguishable from a real zero.
+    /// </summary>
+    public static MetricAlertConditionSql BuildPointCount(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to)
+    {
+        var (table, whereSql, parameters) = BuildWhere(condition, from, to);
+        return new MetricAlertConditionSql($"SELECT count() FROM {table} WHERE {whereSql}", parameters, condition.Type);
+    }
+
+    private static (string Table, string WhereSql, ClickHouseParameterCollection Parameters) BuildWhere(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to)
+    {
+        // Same System.Text.Json init-only-property caveat MetricSeriesQueryBuilder guards
+        // against - condition.Filter's `= new()` default doesn't survive deserialization
+        // when the persisted/request JSON omits "filter".
+        var windowedFilter = (condition.Filter ?? new MetricFilter()) with { From = from, To = to };
+        var filterSql = MetricFilterSqlBuilder.Build(windowedFilter, to);
+        filterSql.Parameters.AddParameter("metricName", condition.MetricName);
+        return (MetricTables.For(condition.Type), $"MetricName = {{metricName:String}} AND {filterSql.WhereSql}", filterSql.Parameters);
     }
 
     /// <summary>
