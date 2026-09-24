@@ -6,6 +6,7 @@
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
 	import LogsFunctionsPopover from './LogsFunctionsPopover.svelte';
 	import LogsTimeShiftPopover from './LogsTimeShiftPopover.svelte';
+	import LogsLinesPerRowMenu from './LogsLinesPerRowMenu.svelte';
 	import PatternsModal from './PatternsModal.svelte';
 	import ExportDialog from './ExportDialog.svelte';
 	import ShareViewButton from './ShareViewButton.svelte';
@@ -133,6 +134,8 @@
 		timeShiftSeconds={explorer.filter.timeShiftSeconds}
 		onApply={(seconds) => explorer.setTimeShiftSeconds(seconds)}
 	/>
+
+	<LogsLinesPerRowMenu lines={explorer.filter.maxLinesPerRow} onChange={(lines) => explorer.setMaxLinesPerRow(lines)} />
 
 	<Button variant="ghost" size="sm" onclick={() => explorer.resetFilters()} disabled={!explorer.hasActiveFilters()}>
 		<XIcon data-icon="inline-start" />

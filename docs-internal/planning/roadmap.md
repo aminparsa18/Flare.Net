@@ -66,11 +66,6 @@ folders are where "what happened and why" actually lives.
   merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
   exponential-histogram table + quantile merge
   ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
-- **Configurable lines per row in the Logs table.** `LogTable` has no
-  density/line-count option (1 line / N lines / full wrap for the body
-  column). Frontend-only, likely carried in a saved search like other
-  display preferences. Not started. Prior art:
-  [signoz#4737](https://github.com/SigNoz/signoz/commit/ae0d685b29d0a05c96f92ae66c7e0bf976e97e71).
 - **`has` / `not has` operators for JSON-array body filters.** The body-JSON
   filter (`LogFilter`'s `JSONHas`/`JSONExtractString` path) can't express
   "array at this path contains value" (ClickHouse `has(JSONExtractArrayRaw(...), ...)`).

@@ -96,6 +96,8 @@
 	"logsToolbar_searchPlaceholder": "Search message body...",
 	"logsToolbar_live": "Live",
 	"logsToolbar_pause": "Pause",
+	"logsToolbar_linesPerRow": "Lines: {count}",
+	"logsToolbar_linesPerRowHeading": "Message lines per row",
 	"eventDetail_traceId": "Trace ID",
 	"eventDetail_spanId": "Span ID",
 	"eventDetail_spanDuration": "Span duration",

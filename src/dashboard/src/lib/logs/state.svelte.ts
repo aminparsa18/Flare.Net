@@ -96,6 +96,27 @@ export interface LogsFilterState {
 	 * exclusive with, so there's no clearing to do here.
 	 */
 	timeShiftSeconds: number | null;
+	/**
+	 * How many lines of the Message column each LogTable row shows (1 = today's single
+	 * truncated line). Same display-preference category as `timeShiftSeconds` above:
+	 * carried through a saved view, excluded from `hasActiveFilters`/`resetFilters`, and
+	 * set via its own setter since it doesn't change what gets searched. A fixed line
+	 * count rather than an open-ended "wrap everything" mode because VirtualList assumes
+	 * one uniform row height - see `logRowHeight`.
+	 */
+	maxLinesPerRow: number;
+}
+
+/** The choices LogsToolbar's "Lines" menu offers - also the whitelist `applySavedViewState` normalizes an untrusted saved payload against. */
+export const MAX_LINES_PER_ROW_OPTIONS = [1, 2, 3, 5, 10] as const;
+
+/** Row height (px) for a given line count: 20px per `text-sm` line plus LogRow's 6px top/bottom padding - 1 line gives the original 32px row. */
+export function logRowHeight(lines: number): number {
+	return 12 + 20 * lines;
+}
+
+function normalizeMaxLinesPerRow(value: unknown): number {
+	return (MAX_LINES_PER_ROW_OPTIONS as readonly unknown[]).includes(value) ? (value as number) : 1;
 }
 
 /**
@@ -114,6 +135,8 @@ export interface LogsSavedViewState {
 	bodyJsonFilters: BodyJsonFilter[];
 	postProcessFunctions: LogPostProcessFunction[];
 	timeShiftSeconds: number | null;
+	/** Optional (unlike the rest) - saved views written before this field existed simply lack it; `applySavedViewState` falls back to 1. */
+	maxLinesPerRow?: number;
 }
 
 export class LogsExplorerState {
@@ -128,7 +151,8 @@ export class LogsExplorerState {
 		attributeFilters: [],
 		bodyJsonFilters: [],
 		postProcessFunctions: [],
-		timeShiftSeconds: null
+		timeShiftSeconds: null,
+		maxLinesPerRow: 1
 	});
 
 	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
@@ -471,6 +495,11 @@ export class LogsExplorerState {
 		this.filter.timeShiftSeconds = seconds;
 	}
 
+	/** Sets how many Message-column lines each LogTable row shows - a pure display change, so (like `setTimeShiftSeconds`) no `applyFilterChange`/re-search. */
+	setMaxLinesPerRow(lines: number): void {
+		this.filter.maxLinesPerRow = normalizeMaxLinesPerRow(lines);
+	}
+
 	setSeverityNumbers(severityNumbers: number[]): void {
 		this.selectedBucketRange = null;
 		this.filter.severityNumbers = severityNumbers;
@@ -597,7 +626,8 @@ export class LogsExplorerState {
 			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a })),
 			bodyJsonFilters: this.filter.bodyJsonFilters.map((f) => ({ ...f })),
 			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
-			timeShiftSeconds: this.filter.timeShiftSeconds
+			timeShiftSeconds: this.filter.timeShiftSeconds,
+			maxLinesPerRow: this.filter.maxLinesPerRow
 		};
 	}
 
@@ -624,7 +654,8 @@ export class LogsExplorerState {
 			attributeFilters: s.attributeFilters ?? [],
 			bodyJsonFilters: s.bodyJsonFilters ?? [],
 			postProcessFunctions: s.postProcessFunctions ?? [],
-			timeShiftSeconds: s.timeShiftSeconds ?? null
+			timeShiftSeconds: s.timeShiftSeconds ?? null,
+			maxLinesPerRow: normalizeMaxLinesPerRow(s.maxLinesPerRow)
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
@@ -675,7 +706,8 @@ export class LogsExplorerState {
 			attributeFilters: [],
 			bodyJsonFilters: [],
 			postProcessFunctions: [],
-			timeShiftSeconds: null
+			timeShiftSeconds: null,
+			maxLinesPerRow: this.filter.maxLinesPerRow // a display preference, not part of the deep link - keep whatever the user already chose
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
