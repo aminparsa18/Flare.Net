@@ -38,7 +38,13 @@ public static class OtlpLogMapper
                     yield return new LogEvent
                     {
                         EventId = Guid.NewGuid(),
-                        Timestamp = FromUnixNano(record.TimeUnixNano != 0 ? record.TimeUnixNano : record.ObservedTimeUnixNano),
+                        // Event time, else observed time, else receipt time - the OTLP logs
+                        // data model has receivers treat an unset observed time as "now".
+                        // Without the last fallback a record with neither stamped 1970, where
+                        // search's default lookback never finds it and ClockSkew saw ~56 years.
+                        Timestamp = record.TimeUnixNano != 0 ? FromUnixNano(record.TimeUnixNano)
+                            : record.ObservedTimeUnixNano != 0 ? FromUnixNano(record.ObservedTimeUnixNano)
+                            : ingestedAt,
                         ObservedTimestamp = record.ObservedTimeUnixNano != 0 ? FromUnixNano(record.ObservedTimeUnixNano) : null,
                         SeverityNumber = (int)record.SeverityNumber,
                         SeverityText = EmptyToNull(record.SeverityText),

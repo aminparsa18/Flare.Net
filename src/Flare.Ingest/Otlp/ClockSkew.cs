@@ -19,6 +19,16 @@ public static class ClockSkew
     /// latency). Negative when <paramref name="eventTime"/> claims a time in the
     /// future relative to receipt - the client's clock is ahead of this server's.
     /// </summary>
+    /// <remarks>
+    /// Clamped to <see cref="MaxMagnitude"/> either way. These values are summed per
+    /// (minute, service) in a signed 64-bit Redis counter (<c>HINCRBY</c>), and one bogus
+    /// client timestamp (1970, 2200) contributes ~1.8e18 ns, so a handful of them overflowed
+    /// the counter outright. At a 1-hour cap a single minute's sum stays in range up to ~2.5M
+    /// records per service. Anything past an hour is already "clock broken" as far as the
+    /// average is concerned, so the clamp only costs precision where there's none to lose.
+    /// </remarks>
     public static long Nanos(DateTimeOffset ingestedAt, DateTimeOffset eventTime) =>
-        (ingestedAt - eventTime).Ticks * 100;
+        Math.Clamp((ingestedAt - eventTime).Ticks, -MaxMagnitude.Ticks, MaxMagnitude.Ticks) * 100;
+
+    public static readonly TimeSpan MaxMagnitude = TimeSpan.FromHours(1);
 }

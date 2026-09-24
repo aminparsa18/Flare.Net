@@ -64,6 +64,21 @@ public class OtlpLogMapperTests
     }
 
     [Fact]
+    public void Map_FallsBackToIngestedAt_WhenBothTimestampsAreUnset()
+    {
+        var request = SingleRecordRequest(record =>
+        {
+            record.TimeUnixNano = 0;
+            record.ObservedTimeUnixNano = 0;
+        });
+
+        var logEvent = Assert.Single(OtlpLogMapper.Map(request, TestIngestedAt));
+
+        Assert.Equal(TestIngestedAt, logEvent.Timestamp);
+        Assert.Null(logEvent.ObservedTimestamp);
+    }
+
+    [Fact]
     public void Map_AssignsDistinctEventId_ToEachRecord()
     {
         var request = new ExportLogsServiceRequest
