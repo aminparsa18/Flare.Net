@@ -5,6 +5,7 @@
 	import { LogsExplorerState } from '$lib/logs/state.svelte';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
+	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
 	import { parseLogsDeepLinkParams, parseLogContextDeepLinkParams, parseLogsStateDeepLinkParam } from '$lib/deep-links';
 	import { getHomeDashboardId } from '$lib/dashboards/home-preference';
 	import { dashboardPath } from '$lib/dashboards/page-paths';
@@ -66,8 +67,14 @@
 			const view = await resolveRequestedSavedView(page.url, 'Logs');
 			const inlineState = view ? null : parseLogsStateDeepLinkParam(page.url);
 			const deepLink = view || inlineState ? null : parseLogsDeepLinkParams(page.url);
+			// A bare visit (no params at all, and no home dashboard - that returned above)
+			// restores the saved search last picked here ($lib/saved-views/last-used.ts),
+			// through the same applySavedViewState path as `?view=`.
+			const lastUsed = page.url.searchParams.size === 0 ? await resolveLastUsedSavedView('Logs') : null;
 			if (view) {
 				explorer.applySavedViewState(view.state);
+			} else if (lastUsed) {
+				explorer.applySavedViewState(lastUsed.state);
 			} else if (inlineState) {
 				explorer.applySavedViewState(inlineState);
 			} else if (deepLink) {

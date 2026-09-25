@@ -6,6 +6,7 @@
 	import { ServicesState } from '$lib/services/state.svelte';
 	import { servicesContext } from '$lib/services/context';
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
+	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
 	import { parseTracesDeepLinkParams } from '$lib/deep-links';
 	import TracesToolbar from '$lib/components/traces/TracesToolbar.svelte';
 	import SpanAttributeFiltersRow from '$lib/components/traces/SpanAttributeFiltersRow.svelte';
@@ -66,7 +67,11 @@
 			// no (or an invalid) view id. The deep-link case (?service=&range=) is handled
 			// by the $effect below instead of here - see its own comment for why - so this
 			// only needs to fall back to a plain default search when neither applies.
-			const view = await resolveRequestedSavedView(page.url, 'Traces');
+			// A bare visit restores the saved view last picked here instead
+			// ($lib/saved-views/last-used.ts) - never over a `?view=` or deep link.
+			const view =
+				(await resolveRequestedSavedView(page.url, 'Traces')) ??
+				(page.url.searchParams.size === 0 ? await resolveLastUsedSavedView('Traces') : null);
 			if (view) {
 				explorer.applySavedViewState(view.state);
 			} else if (!parseTracesDeepLinkParams(page.url)) {

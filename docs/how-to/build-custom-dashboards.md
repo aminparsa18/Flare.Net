@@ -347,6 +347,13 @@ Nothing stops you from having both a saved search and a dashboard panel for
 the same query — pinning/adding a panel doesn't consume or remove a saved
 search.
 
+Each page also remembers the saved search you last opened (or saved) from
+its **Views** menu, and reopens it the next time you visit that page
+without a link. The memory is per browser, not per account. **Clear
+filters** on Logs/Traces forgets it, and so does deleting that saved search.
+A shared `?view=` link, a deep link from another page, or a home dashboard
+always takes priority over it.
+
 ## Known gaps, stated plainly
 
 - **Grafana import is structural only** — layout and panel type come over,

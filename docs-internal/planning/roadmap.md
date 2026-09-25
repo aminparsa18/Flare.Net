@@ -108,12 +108,6 @@ folders are where "what happened and why" actually lives.
   metrics where a collector exports them). Nothing in Flare covers this
   today. Large - its own page and probably its own ADR. Not started. Prior
   art: [signoz 481bb6e](https://github.com/SigNoz/signoz/commit/481bb6e8b8d68b40d5b6706b91bb78b71d59a3c7).
-- **Restore the last-used saved search per explorer.** Reopening Logs /
-  Traces / Metrics starts from defaults even if the user was working in a
-  saved search; remember the last one per page (per-browser, try/catch'd
-  localStorage, self-healing if it was deleted - same pattern as the
-  dashboards "set as home page" toggle). Frontend-only. Not started.
-  Prior art: [signoz#5453](https://github.com/SigNoz/signoz/commit/3c151e3adbb2f051f43959594a411658d4cb8c7f).
 - **Create/invite additional local users.** With local auth,
   `/api/auth/bootstrap` creates only the first admin, and
   `UserEndpoints` can list users, change a role and disable a user, but not

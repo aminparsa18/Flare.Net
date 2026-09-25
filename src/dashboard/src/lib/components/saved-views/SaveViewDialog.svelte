@@ -8,7 +8,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { createSavedView, type PageType } from '$lib/saved-views-api';
+	import { createSavedView, type PageType, type SavedView } from '$lib/saved-views-api';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -21,7 +21,7 @@
 		pageType: PageType;
 		/** Called at submit time (not eagerly) so the saved state reflects whatever's current when the user actually clicks Save. */
 		currentState: () => unknown;
-		onSaved: () => void;
+		onSaved: (view: SavedView) => void;
 	} = $props();
 
 	let name = $state('');
@@ -46,9 +46,9 @@
 		saving = true;
 		error = null;
 		try {
-			await createSavedView({ name, description, pageType, state: currentState() });
+			const view = await createSavedView({ name, description, pageType, state: currentState() });
 			open = false;
-			onSaved();
+			onSaved(view);
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
 		} finally {

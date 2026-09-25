@@ -6,6 +6,7 @@
 // view..." action - not from a blank form on this page), so only rename + delete apply.
 
 import { listSavedViews, deleteSavedView, updateSavedView, type SavedView } from '$lib/saved-views-api';
+import { forgetLastUsedViewId } from './last-used';
 
 export class SavedViewsState {
 	views = $state.raw<SavedView[]>([]);
@@ -64,6 +65,7 @@ export class SavedViewsState {
 	async remove(id: string): Promise<void> {
 		try {
 			await deleteSavedView(id);
+			forgetLastUsedViewId(id);
 			await this.load();
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
