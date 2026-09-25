@@ -13,6 +13,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import AddPanelLogsForm from './add-panel/AddPanelLogsForm.svelte';
 	import AddPanelTracesForm from './add-panel/AddPanelTracesForm.svelte';
 	import AddPanelMetricsForm from './add-panel/AddPanelMetricsForm.svelte';
@@ -45,6 +46,7 @@
 
 	let panelType = $state<PanelType | null>(null);
 	let title = $state('');
+	let description = $state('');
 	let metricsValid = $state(false);
 
 	let logsForm: AddPanelLogsForm | undefined = $state();
@@ -82,12 +84,14 @@
 	function isDirty(): boolean {
 		if (panelType === null) return false;
 		if (title.trim() !== panelTypeLabel(panelType)) return true;
+		if (description.trim() !== '') return true;
 		return baseline !== null && JSON.stringify(activeFormState()) !== baseline;
 	}
 
 	function reset(): void {
 		panelType = null;
 		title = '';
+		description = '';
 		metricsValid = false;
 	}
 
@@ -117,6 +121,7 @@
 			id: crypto.randomUUID(),
 			panelType,
 			title: title.trim(),
+			description: description.trim() || undefined,
 			layout: nextPanelPosition(existingPanels),
 			query: activeFormState()
 		});
@@ -161,6 +166,10 @@
 				<div class="space-y-2">
 					<label for="add-panel-title" class="text-sm font-medium">{m.addPanelDialog_titleLabel()}</label>
 					<Input id="add-panel-title" bind:value={title} required />
+				</div>
+				<div class="space-y-2">
+					<label for="add-panel-description" class="text-sm font-medium">{m.addPanelDialog_descriptionLabel()}</label>
+					<Textarea id="add-panel-description" bind:value={description} rows={2} maxlength={1000} placeholder={m.addPanelDialog_descriptionPlaceholder()} />
 				</div>
 			{/if}
 

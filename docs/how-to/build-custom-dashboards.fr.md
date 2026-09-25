@@ -63,6 +63,11 @@ Cliquez sur **Edit** sur un tableau de bord pour :
 - **Glisser** un panneau (par sa poignée) pour le repositionner, et le
   **redimensionner** depuis son coin/bord, sur une grille à 12 colonnes.
 - **Renommer** un panneau — cliquez sur son titre et tapez-en un nouveau.
+- **Décrire** un panneau (l'icône de carnet dans son en-tête) — un texte
+  brut facultatif expliquant ce que montre le panneau. Une fois défini, une
+  icône d'information apparaît à côté du titre, en mode affichage comme en
+  mode édition ; survolez-la pour lire le texte. Vous pouvez aussi saisir une
+  description lors de l'ajout d'un panneau.
 - **Dupliquer** un panneau (l'icône de copie dans son en-tête) — ajoute une
   copie indépendante, nommée « *(copie)* », sous le reste des panneaux du
   tableau de bord, que vous pouvez ensuite modifier ou repositionner
@@ -71,8 +76,8 @@ Cliquez sur **Edit** sur un tableau de bord pour :
 - **Ajouter** un nouveau panneau sur place, selon les étapes ci-dessus.
 
 Indépendamment du mode édition, chaque panneau a aussi une icône
-**d'export** dans son en-tête qui télécharge le type, le titre, la taille et
-la requête de ce seul panneau sous forme de fichier JSON — l'équivalent par
+**d'export** dans son en-tête qui télécharge le type, le titre, la description, la
+taille et la requête de ce seul panneau sous forme de fichier JSON — l'équivalent par
 panneau de l'Export de tableau de bord complet décrit dans « Gérer les
 tableaux de bord » ci-dessous, utile comme instantané plus petit quand seule
 la définition d'un panneau vous intéresse. Il n'y a pas d'import par

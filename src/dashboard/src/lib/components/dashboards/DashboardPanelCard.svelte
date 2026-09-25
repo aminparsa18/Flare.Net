@@ -5,7 +5,7 @@
 	// component only fills whatever cell it's given (`h-full` below), see
 	// docs-internal/adr/0024-custom-dashboards-phase2-editor.md.
 	//
-	// The drag handle, title-edit affordance, duplicate, remove button, per-panel variables
+	// The drag handle, title-edit affordance, description editor, duplicate, remove button, per-panel variables
 	// popover, and "Move to row" menu are all scoped to `editing` - outside edit mode a panel is read-only
 	// chrome, so nothing here risks an accidental drag/rename/duplicate/delete/opt-out while
 	// just looking at a dashboard. Export is the one exception, available in both modes -
@@ -16,6 +16,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { inViewport } from '$lib/actions/in-viewport';
 	import DashboardLogsPanelBody from './panels/DashboardLogsPanelBody.svelte';
 	import DashboardMetricsPanelBody from './panels/DashboardMetricsPanelBody.svelte';
@@ -24,6 +25,7 @@
 	import YAxisBoundsPopover from './YAxisBoundsPopover.svelte';
 	import ThresholdsPopover from './ThresholdsPopover.svelte';
 	import MoveToRowMenu from './MoveToRowMenu.svelte';
+	import PanelDescriptionPopover from './PanelDescriptionPopover.svelte';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
@@ -36,6 +38,7 @@
 	import BellPlusIcon from '@lucide/svelte/icons/bell-plus';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
+	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -48,6 +51,7 @@
 		removing,
 		onRemove,
 		onRename,
+		onSetDescription,
 		onDuplicate,
 		onExport,
 		onToggleVariable,
@@ -66,6 +70,7 @@
 		removing: boolean;
 		onRemove: () => void;
 		onRename: (title: string) => void;
+		onSetDescription: (description: string) => void;
 		onDuplicate: () => void;
 		onExport: () => void;
 		onToggleVariable: (variableId: string, excluded: boolean) => void;
@@ -199,6 +204,23 @@
 					{panel.title}
 				</button>
 			{/if}
+			{#if panel.description}
+				<!-- Shown in both modes - reading a panel's description is the whole point of
+				     having one. Plain text (whitespace-pre-wrap keeps the author's line breaks),
+				     never rendered as HTML. -->
+				<Tooltip.Provider>
+					<Tooltip.Root>
+						<Tooltip.Trigger>
+							{#snippet child({ props })}
+								<span {...props} class="text-muted-foreground hover:text-foreground shrink-0" aria-label={m.dashboardPanelCard_description()}>
+									<InfoIcon class="size-3.5" />
+								</span>
+							{/snippet}
+						</Tooltip.Trigger>
+						<Tooltip.Content class="max-w-xs whitespace-pre-wrap">{panel.description}</Tooltip.Content>
+					</Tooltip.Root>
+				</Tooltip.Provider>
+			{/if}
 			<Badge variant="outline" class="shrink-0">{panelTypeLabel(panel.panelType)}</Badge>
 		</div>
 		{#if alertDraft}
@@ -222,6 +244,7 @@
 			<DownloadIcon />
 		</Button>
 		{#if editing}
+			<PanelDescriptionPopover description={panel.description} onApply={onSetDescription} />
 			{#if variables.length > 0}
 				<PanelVariablesPopover {variables} excludedVariableIds={panel.excludedVariableIds} onToggle={onToggleVariable} />
 			{/if}
