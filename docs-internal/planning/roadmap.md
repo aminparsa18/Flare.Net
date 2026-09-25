@@ -107,13 +107,6 @@ folders are where "what happened and why" actually lives.
   `string[]` selection in the stored variable shape - and deciding how a
   multi-value parent narrows a chained child (ADR-0026). Not started.
   Prior art: [signoz#5191](https://github.com/SigNoz/signoz/commit/a65d5095a0dc1aadbf6b66bae665d25ebddc8bb2).
-- **User-chosen aggregation interval (bucket width / step).** The Logs
-  volume chart auto-picks its bucket width (`lib/logs/bucket-width.ts`)
-  and Metrics has no step control at all; a manual override (e.g. force
-  1m buckets over 24h, or 1h for a smoother trend), carried in saved
-  searches/dashboard panels, would help both. `/api/logs/aggregate`
-  already accepts `bucketWidthSeconds`. Not started. Prior art:
-  [signoz#5074](https://github.com/SigNoz/signoz/commit/dc294ff6d57c3940cba03e07410e22135cd0c2d4).
 - **Research: does the Logs free-text search actually use `idx_body`?**
   `LogFilterSqlBuilder` compiles `Search` to `Body ILIKE '%…%'`, but
   `idx_body` (`db/clickhouse/0001_logs.sql`) is a `tokenbf_v1` index, and

@@ -2,7 +2,8 @@
 	import { browser } from '$app/environment';
 	import { aggregateLogs, type LogAggregateBucket } from '$lib/api';
 	import type { VolumeGroupBy } from '$lib/logs/state.svelte';
-	import { pickBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';
+	import { resolveBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';
+	import BucketIntervalMenu from './BucketIntervalMenu.svelte';
 	import { resolveTimeRange, shiftRange } from '$lib/logs/time-range';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import * as Accordion from '$lib/components/ui/accordion';
@@ -157,7 +158,7 @@
 	async function refresh() {
 		const range = currentRange();
 		const rangeSeconds = (new Date(range.to).getTime() - new Date(range.from).getTime()) / 1000;
-		const width = pickBucketWidthSeconds(rangeSeconds);
+		const width = resolveBucketWidthSeconds(rangeSeconds, explorer.filter.bucketWidthSeconds);
 		const postProcessFunctions =
 			explorer.filter.postProcessFunctions.length > 0 ? explorer.filter.postProcessFunctions : undefined;
 		// Disabled while live: a live-tailing chart's window is a fixed trailing slice that
@@ -227,6 +228,7 @@
 		void explorer.filter.postProcessFunctions;
 		void explorer.filter.timeShiftSeconds;
 		void explorer.filter.volumeGroupBy;
+		void explorer.filter.bucketWidthSeconds;
 		void explorer.live;
 
 		const timer = setTimeout(refresh, 300);
@@ -533,6 +535,17 @@
 					</button>
 				{/if}
 				<span class="text-muted-foreground tabular-nums">{m.logs_eventsCount({ count: formatCount(totalCount) })}</span>
+				<!-- Only once a fetch has landed - bucketWidthSeconds is a placeholder until then. -->
+				{#if rangeFrom && rangeTo}
+					<span class="text-muted-foreground">
+						<BucketIntervalMenu
+							value={explorer.filter.bucketWidthSeconds}
+							effectiveSeconds={bucketWidthSeconds}
+							rangeSeconds={(new Date(rangeTo).getTime() - new Date(rangeFrom).getTime()) / 1000}
+							onChange={(seconds) => explorer.setBucketWidthSeconds(seconds)}
+						/>
+					</span>
+				{/if}
 				{#if overlayChangeText}
 					<Tooltip.Provider>
 						<Tooltip.Root>

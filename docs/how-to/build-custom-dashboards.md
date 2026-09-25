@@ -111,6 +111,23 @@ set value if the data actually goes further — it narrows the default view,
 it never clips a real point off the chart. Like the rest of a panel's
 definition, it's saved with the dashboard.
 
+## Choosing a chart's bucket interval
+
+By default, a Logs panel's event-volume chart and a Metrics panel's chart
+pick their own bucket width (the query step) from the time range, aiming
+for roughly 75 points. The label under the chart title shows it, e.g.
+**Auto (1h) interval**. Click that label to choose a fixed interval instead
+(1s up to 1d). For example, force **1m** buckets over the last 24 hours to
+see short spikes, or **1h** for a smoother trend. **Auto** goes back to
+the default. The same control is on the Logs and Metrics pages, and the
+choice is saved with a saved search or a panel.
+
+A fixed interval is capped at 1,500 buckets for the current range, so
+intervals that would go over it are greyed out in the menu. If a saved
+interval is too fine for a range you switch to later (1m over 7 days, say),
+the chart uses the smallest interval that fits and the label says
+**raised to fit range**.
+
 ## Adding visual thresholds to a Metrics panel
 
 In edit mode, a Metrics panel's header also has a **palette** icon. Use it

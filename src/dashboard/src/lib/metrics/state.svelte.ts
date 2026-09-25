@@ -22,7 +22,7 @@ import {
 	type MetricSeries
 } from '$lib/metrics-api';
 import { resolveTimeRange, rangeSeconds, previousPeriod, shiftRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
-import { pickBucketWidthSeconds } from '$lib/logs/bucket-width';
+import { resolveBucketWidthSeconds, normalizeBucketWidthSeconds } from '$lib/logs/bucket-width';
 import { parseFormula, evaluateFormula, collectRefs } from './formula';
 
 export interface MetricsFilterState {
@@ -71,6 +71,13 @@ export interface MetricsFilterState {
 	 * one-off hop" reasoning as `compareEnabled` - carried in a saved view too.
 	 */
 	timeShiftSeconds: number | null;
+	/**
+	 * User-chosen query step in seconds (IntervalMenu on MetricChart/FormulaChart), or
+	 * `null` for the auto-pick - see `resolveBucketWidthSeconds` for how it's clamped
+	 * against the range. Applies to both single and Formula mode. Same "real display
+	 * preference" reasoning as `compareEnabled` - carried in a saved view too.
+	 */
+	bucketWidthSeconds: number | null;
 }
 
 /** Mirrors `MetricSeriesQueryBuilder.DefaultTopN` on the API side - see `MetricsFilterState.topN`'s own remarks for why this can't just be imported instead. */
@@ -128,8 +135,10 @@ function newFormulaQuery(letter: string): FormulaQueryDef {
  * round-trip through Flare.Api's opaque `JsonElement` storage. Same reasoning
  * `LogsSavedViewState`'s own (standalone, not `extends`-based) declaration documents.
  */
-export interface MetricsSavedViewState extends Omit<MetricsFilterState, 'customRange'> {
+export interface MetricsSavedViewState extends Omit<MetricsFilterState, 'customRange' | 'bucketWidthSeconds'> {
 	customRange: { from: string; to: string } | null;
+	/** Optional - older saved views (pre-dating the interval picker) lack it and fall back to auto. */
+	bucketWidthSeconds?: number | null;
 	selectedMetric: { metricName: string; serviceName: string; type: MetricPointType } | null;
 	/** Omitted from older saved views (pre-dates Formula mode) - `applySavedViewState` defaults it to 'single', the only mode that existed then. */
 	mode?: MetricsExplorerMode;
@@ -174,7 +183,8 @@ export class MetricsExplorerState {
 		havingOperator: null,
 		havingValue: null,
 		postProcessFunctions: [],
-		timeShiftSeconds: null
+		timeShiftSeconds: null,
+		bucketWidthSeconds: null
 	});
 
 	// Never mutated in place, always a wholesale reassignment - same $state.raw
@@ -501,7 +511,7 @@ export class MetricsExplorerState {
 		this.queryError = null;
 		try {
 			const range = this.#resolvedRange();
-			const bucketWidthSeconds = pickBucketWidthSeconds(rangeSeconds(range));
+			const bucketWidthSeconds = resolveBucketWidthSeconds(rangeSeconds(range), this.filter.bucketWidthSeconds);
 			const filterFor = (r: ResolvedTimeRange) => ({ from: r.from, to: r.to, services: [metric.serviceName] });
 
 			// Which overlay (if either - mutually exclusive, see MetricsFilterState.
@@ -675,6 +685,13 @@ export class MetricsExplorerState {
 		void this.runQuery();
 	}
 
+	/** Sets the query step (`null` = auto) - re-runs whichever mode is active, since both single and Formula mode use it; no name-list reload. */
+	setBucketWidthSeconds(seconds: number | null): void {
+		this.#flushPendingSwitch();
+		this.filter.bucketWidthSeconds = normalizeBucketWidthSeconds(seconds);
+		this.#runActive();
+	}
+
 	setAutoRefreshEnabled(enabled: boolean): void {
 		if (enabled === this.autoRefreshEnabled) return;
 		this.autoRefreshEnabled = enabled;
@@ -789,7 +806,7 @@ export class MetricsExplorerState {
 		this.formulaError = null;
 		try {
 			const range = this.#resolvedRange();
-			const bucketWidthSeconds = pickBucketWidthSeconds(rangeSeconds(range));
+			const bucketWidthSeconds = resolveBucketWidthSeconds(rangeSeconds(range), this.filter.bucketWidthSeconds);
 
 			const refs = [...collectRefs(parsed.node)];
 			const rows = refs.map((letter) => this.formulaQueries.find((q) => q.letter === letter)).filter((q): q is FormulaQueryDef => q != null);
@@ -856,6 +873,7 @@ export class MetricsExplorerState {
 			havingValue: this.filter.havingValue,
 			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
 			timeShiftSeconds: this.filter.timeShiftSeconds,
+			bucketWidthSeconds: this.filter.bucketWidthSeconds,
 			selectedMetric: this.selected
 				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
 				: null,
@@ -894,7 +912,8 @@ export class MetricsExplorerState {
 			postProcessFunctions: s.postProcessFunctions ?? [],
 			// Absent from older saved views (pre-dates ADR-0040) - defaults to off, the
 			// only state that existed then.
-			timeShiftSeconds: s.timeShiftSeconds ?? null
+			timeShiftSeconds: s.timeShiftSeconds ?? null,
+			bucketWidthSeconds: normalizeBucketWidthSeconds(s.bucketWidthSeconds)
 		};
 		await this.loadNames();
 		const saved = s.selectedMetric;

@@ -16,6 +16,7 @@
 	import { METRIC_SWITCH_FADE_MS } from '$lib/metrics/state.svelte';
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
+	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
 	import { previousPeriodLabel, resolveTimeRange, previousPeriod, shiftRange } from '$lib/logs/time-range';
 	import type { MetricSeries } from '$lib/metrics-api';
@@ -936,7 +937,12 @@
 								: m.metricChart_seriesCount({ count: explorer.series.length })}
 						</span>
 						<span aria-hidden="true">·</span>
-						<span>{m.metricChart_intervalLabel({ interval: formatBucketWidthSeconds(explorer.intervalSeconds) })}</span>
+						<BucketIntervalMenu
+						value={explorer.filter.bucketWidthSeconds}
+						effectiveSeconds={explorer.intervalSeconds}
+						rangeSeconds={explorer.queryRangeFrom && explorer.queryRangeTo ? (new Date(explorer.queryRangeTo).getTime() - new Date(explorer.queryRangeFrom).getTime()) / 1000 : null}
+						onChange={(seconds) => explorer.setBucketWidthSeconds(seconds)}
+					/>
 						{#if compareChangeText}
 							<span aria-hidden="true">·</span>
 							<Tooltip.Provider>

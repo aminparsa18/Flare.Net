@@ -19,6 +19,7 @@ import {
 } from '$lib/api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from './time-range';
 import { addRecentSearch } from './recent-searches';
+import { normalizeBucketWidthSeconds } from './bucket-width';
 
 const PAGE_SIZE = 100;
 
@@ -116,6 +117,12 @@ export interface LogsFilterState {
 	 * `hasActiveFilters`/`resetFilters`, and never re-runs the log search.
 	 */
 	volumeGroupBy: VolumeGroupBy | null;
+	/**
+	 * User-chosen VolumeChart bucket width in seconds (IntervalMenu), or `null` for the
+	 * auto-pick - see `resolveBucketWidthSeconds` for how it's clamped against the range.
+	 * Same display-preference category as `volumeGroupBy`.
+	 */
+	bucketWidthSeconds: number | null;
 }
 
 /** One attribute (bag + key) VolumeChart can stack its bars by - see `LogsFilterState.volumeGroupBy`. */
@@ -165,6 +172,8 @@ export interface LogsSavedViewState {
 	maxLinesPerRow?: number;
 	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to ungrouped. */
 	volumeGroupBy?: VolumeGroupBy | null;
+	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to auto. */
+	bucketWidthSeconds?: number | null;
 }
 
 export class LogsExplorerState {
@@ -182,7 +191,8 @@ export class LogsExplorerState {
 		postProcessFunctions: [],
 		timeShiftSeconds: null,
 		maxLinesPerRow: 1,
-		volumeGroupBy: null
+		volumeGroupBy: null,
+		bucketWidthSeconds: null
 	});
 
 	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
@@ -575,6 +585,11 @@ export class LogsExplorerState {
 		this.filter.volumeGroupBy = normalizeVolumeGroupBy(groupBy);
 	}
 
+	/** Sets VolumeChart's bucket width (`null` = auto) - chart-only, same no-re-search shape as `setVolumeGroupBy`. */
+	setBucketWidthSeconds(seconds: number | null): void {
+		this.filter.bucketWidthSeconds = normalizeBucketWidthSeconds(seconds);
+	}
+
 	setSeverityNumbers(severityNumbers: number[]): void {
 		this.selectedBucketRange = null;
 		this.filter.severityNumbers = severityNumbers;
@@ -706,7 +721,8 @@ export class LogsExplorerState {
 			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
 			timeShiftSeconds: this.filter.timeShiftSeconds,
 			maxLinesPerRow: this.filter.maxLinesPerRow,
-			volumeGroupBy: this.filter.volumeGroupBy ? { ...this.filter.volumeGroupBy } : null
+			volumeGroupBy: this.filter.volumeGroupBy ? { ...this.filter.volumeGroupBy } : null,
+			bucketWidthSeconds: this.filter.bucketWidthSeconds
 		};
 	}
 
@@ -736,7 +752,8 @@ export class LogsExplorerState {
 			postProcessFunctions: s.postProcessFunctions ?? [],
 			timeShiftSeconds: s.timeShiftSeconds ?? null,
 			maxLinesPerRow: normalizeMaxLinesPerRow(s.maxLinesPerRow),
-			volumeGroupBy: normalizeVolumeGroupBy(s.volumeGroupBy)
+			volumeGroupBy: normalizeVolumeGroupBy(s.volumeGroupBy),
+			bucketWidthSeconds: normalizeBucketWidthSeconds(s.bucketWidthSeconds)
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
@@ -790,7 +807,8 @@ export class LogsExplorerState {
 			postProcessFunctions: [],
 			timeShiftSeconds: null,
 			maxLinesPerRow: this.filter.maxLinesPerRow, // a display preference, not part of the deep link - keep whatever the user already chose
-			volumeGroupBy: null // tied to whatever attributes were being looked at before - a fresh deep-link filter starts ungrouped
+			volumeGroupBy: null, // tied to whatever attributes were being looked at before - a fresh deep-link filter starts ungrouped
+			bucketWidthSeconds: null // the deep link carries its own time range, so start from the auto-pick for it
 		};
 		this.patternFilterLabel = null;
 		this.applyFilterChange();
