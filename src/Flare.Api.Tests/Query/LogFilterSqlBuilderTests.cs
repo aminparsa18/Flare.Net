@@ -52,6 +52,40 @@ public class LogFilterSqlBuilderTests
     }
 
     [Fact]
+    public void Build_WithExactScopeNames_AddsInClause_AndArrayParameter()
+    {
+        var result = LogFilterSqlBuilder.Build(new LogFilter { ScopeNames = ["MyApp.Orders.OrderService", "MyApp.Cart"] }, Now);
+
+        Assert.Contains("(ScopeName IN {scopeNames:Array(String)})", result.WhereSql);
+        Assert.Equal(["MyApp.Orders.OrderService", "MyApp.Cart"], (string[])result.Parameters.ToDictionary()["scopeNames"]!);
+    }
+
+    [Fact]
+    public void Build_WithMixedScopeNames_OrsExactInClauseWithOneStartsWithPerPrefix()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { ScopeNames = ["Microsoft.EntityFrameworkCore.*", "MyApp.Orders.OrderService", "System.Net.Http*"] }, Now);
+
+        Assert.Contains(
+            "(ScopeName IN {scopeNames:Array(String)} OR startsWith(ScopeName, {scopePrefix0:String}) OR startsWith(ScopeName, {scopePrefix1:String}))",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal(["MyApp.Orders.OrderService"], (string[])parameters["scopeNames"]!);
+        Assert.Equal("Microsoft.EntityFrameworkCore.", parameters["scopePrefix0"]);
+        Assert.Equal("System.Net.Http", parameters["scopePrefix1"]);
+    }
+
+    [Fact]
+    public void Build_WithOnlyPrefixScopeNames_BindsNoExactArray()
+    {
+        var result = LogFilterSqlBuilder.Build(new LogFilter { ScopeNames = ["Microsoft.*"] }, Now);
+
+        Assert.Contains("(startsWith(ScopeName, {scopePrefix0:String}))", result.WhereSql);
+        Assert.DoesNotContain("scopeNames", result.WhereSql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("scopeNames"));
+    }
+
+    [Fact]
     public void Build_WithTraceId_AddsEqualityClause()
     {
         var result = LogFilterSqlBuilder.Build(new LogFilter { TraceId = "0102030405060708090a0b0c0d0e0f10" }, Now);

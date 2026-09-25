@@ -4,6 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
+	import ScopeFilterPopover from './ScopeFilterPopover.svelte';
 	import LogsFunctionsPopover from './LogsFunctionsPopover.svelte';
 	import LogsTimeShiftPopover from './LogsTimeShiftPopover.svelte';
 	import LogsLinesPerRowMenu from './LogsLinesPerRowMenu.svelte';
@@ -89,6 +90,7 @@
 		selected={selectedSeverityIds}
 		onChange={handleSeverityChange}
 	/>
+	<ScopeFilterPopover />
 
 	{#if explorer.filter.patternId}
 		<!-- Drill-down from PatternsModal ("View occurrences") - a sticky filter with no

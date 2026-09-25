@@ -75,6 +75,7 @@ public static class LogAggregateQueryBuilder
         {
             LogAggregateGroupBy.Service => "ServiceName",
             LogAggregateGroupBy.Level => "SeverityText",
+            LogAggregateGroupBy.Scope => "ScopeName",
             _ => null,
         };
 

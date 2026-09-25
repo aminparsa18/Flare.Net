@@ -43,6 +43,17 @@ public class LogAggregateQueryBuilderTests
     }
 
     [Fact]
+    public void Build_GroupByScope_SelectsScopeNameAsGroupKey()
+    {
+        var result = LogAggregateQueryBuilder.Build(
+            new LogAggregateRequest { BucketWidthSeconds = 60, GroupBy = LogAggregateGroupBy.Scope }, Now);
+
+        Assert.True(result.HasGroupKey);
+        Assert.Contains("ScopeName AS GroupKey", result.Sql);
+        Assert.Contains("GROUP BY BucketStart, ScopeName", result.Sql);
+    }
+
+    [Fact]
     public void Build_GroupByLevel_SelectsSeverityTextAsGroupKey()
     {
         var result = LogAggregateQueryBuilder.Build(

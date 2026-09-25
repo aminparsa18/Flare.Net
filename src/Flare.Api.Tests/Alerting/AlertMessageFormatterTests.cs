@@ -162,6 +162,7 @@ public class AlertMessageFormatterTests
                 Search = "timeout",
                 Attributes = [new AttributeFilter { Bag = AttributeBag.Resource, Key = "deployment.environment", Value = "prod" }],
                 BodyJsonFilters = [new BodyJsonFilter { Path = "user.id", Value = "", Operator = BodyJsonFilterOperator.In, Values = ["1", "2"] }],
+                ScopeNames = ["Microsoft.EntityFrameworkCore.*"],
             },
         };
 
@@ -176,6 +177,7 @@ public class AlertMessageFormatterTests
         Assert.Equal("checkout", state.GetProperty("services")[0].GetString());
         Assert.Equal([17, 21], state.GetProperty("severityNumbers").EnumerateArray().Select(e => e.GetInt32()));
         Assert.Equal("timeout", state.GetProperty("search").GetString());
+        Assert.Equal("Microsoft.EntityFrameworkCore.*", state.GetProperty("scopeNames")[0].GetString());
 
         var attribute = state.GetProperty("attributeFilters")[0];
         Assert.Equal("Resource", attribute.GetProperty("bag").GetString());

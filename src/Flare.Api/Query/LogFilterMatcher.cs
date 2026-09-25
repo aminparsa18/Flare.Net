@@ -13,7 +13,7 @@ namespace Flare.Api.Query;
 /// </summary>
 /// <remarks>
 /// Mirrors <see cref="LogFilterSqlBuilder"/>'s semantics field-for-field (exact-match
-/// services/severities/traceId, case-insensitive substring search against
+/// services/severities/traceId, exact-or-prefix scope names, case-insensitive substring search against
 /// <see cref="LogEventDto.Body"/>, per-bag attribute equals/not-equals/exists/absent/
 /// regex/not-regex/in/not-in, and the same operator vocabulary again for
 /// <see cref="LogFilter.BodyJsonFilters"/> against a value parsed out of <c>Body</c>'s own
@@ -39,7 +39,12 @@ public static class LogFilterMatcher
             return false;
         }
 
-        if (!string.IsNullOrEmpty(filter.TraceId) && !string.Equals(logEvent.TraceId, filter.TraceId, StringComparison.Ordinal))
+        if (filter.ScopeNames is { Count: > 0 } scopeNames && !ScopeNameMatches(logEvent.ScopeName, scopeNames))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(filter.TraceId) &&!string.Equals(logEvent.TraceId, filter.TraceId, StringComparison.Ordinal))
         {
             return false;
         }
@@ -112,6 +117,14 @@ public static class LogFilterMatcher
         }
 
         return true;
+    }
+
+    /// <summary>Mirrors <see cref="LogFilterSqlBuilder"/>'s <c>ScopeNamesClause</c>: exact (ordinal) match on any plain entry, or an ordinal prefix match on any <c>*</c>-suffixed one.</summary>
+    private static bool ScopeNameMatches(string scopeName, IReadOnlyList<string> scopeNames)
+    {
+        var (exact, prefixes) = LogFilterSqlBuilder.SplitScopeNames(scopeNames);
+        return exact.Contains(scopeName, StringComparer.Ordinal)
+            || prefixes.Exists(prefix => scopeName.StartsWith(prefix, StringComparison.Ordinal));
     }
 
     /// <summary>
