@@ -16,7 +16,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
-	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
+	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
 	import type { MetricSeries } from '$lib/metrics-api';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
@@ -148,7 +148,12 @@
 		<div class="text-muted-foreground mb-2 flex flex-wrap items-center gap-x-1.5 text-xs">
 			<span>{m.metricChart_seriesCount({ count: explorer.formulaSeries.length })}</span>
 			<span aria-hidden="true">·</span>
-			<span>{m.metricChart_intervalLabel({ interval: formatBucketWidthSeconds(explorer.formulaIntervalSeconds) })}</span>
+			<BucketIntervalMenu
+				value={explorer.filter.bucketWidthSeconds}
+				effectiveSeconds={explorer.formulaIntervalSeconds}
+				rangeSeconds={explorer.formulaRangeFrom && explorer.formulaRangeTo ? (new Date(explorer.formulaRangeTo).getTime() - new Date(explorer.formulaRangeFrom).getTime()) / 1000 : null}
+				onChange={(seconds) => explorer.setBucketWidthSeconds(seconds)}
+			/>
 		</div>
 	{/if}
 

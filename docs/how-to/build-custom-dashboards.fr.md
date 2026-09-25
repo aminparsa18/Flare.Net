@@ -131,6 +131,25 @@ plus loin — elle restreint la vue par défaut, elle ne coupe jamais un point
 réel du graphique. Comme le reste de la définition d'un panneau, c'est
 enregistré avec le tableau de bord.
 
+## Choisir l'intervalle d'agrégation d'un graphique
+
+Par défaut, le graphique de volume d'événements d'un panneau Logs et le
+graphique d'un panneau Metrics choisissent eux-mêmes la largeur des
+intervalles (le pas de la requête) selon la plage de temps, en visant
+environ 75 points. Le libellé sous le titre du graphique l'indique, par
+exemple **Auto (1h) interval**. Cliquez sur ce libellé pour choisir un
+intervalle fixe (de 1s à 1d). Par exemple, forcez des intervalles de **1m**
+sur les dernières 24 heures pour voir des pics courts, ou **1h** pour une
+tendance plus lisse. **Auto** rétablit le comportement par défaut. Le même
+contrôle existe sur les pages Logs et Metrics, et le choix est enregistré
+avec une recherche enregistrée ou un panneau.
+
+Un intervalle fixe est limité à 1 500 intervalles sur la plage actuelle :
+les choix qui dépasseraient cette limite sont grisés dans le menu. Si un
+intervalle enregistré est trop fin pour une plage choisie plus tard (1m
+sur 7 jours, par exemple), le graphique utilise le plus petit intervalle
+qui convient et le libellé l'indique (**raised to fit range**).
+
 ## Ajouter des seuils visuels à un panneau Metrics
 
 En mode édition, l'en-tête d'un panneau Metrics comporte aussi une icône
