@@ -8,6 +8,7 @@
 	import AttributeTable from './AttributeTable.svelte';
 	import StackTraceViewer from './StackTraceViewer.svelte';
 	import EventHostMetrics from './EventHostMetrics.svelte';
+	import EventPodMetrics from './EventPodMetrics.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
@@ -52,11 +53,18 @@
 
 	// The host whose CPU/memory to chart - `host.name`, or for a Kubernetes pod the node it
 	// ran on (`k8s.node.name`, set by the collector's k8sattributes processor): a node's own
-	// hostmetrics carry that name as its `host.name`. Pod-level (kubeletstats) metrics aren't
-	// charted - a pod's limits starving it is a different question from the box starving.
+	// hostmetrics carry that name as its `host.name`. A pod's logs also get the pod's own
+	// charts (kubeletstats) - a pod hitting its limits is a different question from the box
+	// starving, so both show.
 	const metricsHost = $derived.by(() => {
 		const resource = explorer.selectedEvent?.resourceAttributes;
 		return resource?.['host.name'] || resource?.['k8s.node.name'] || null;
+	});
+
+	const metricsPod = $derived.by(() => {
+		const resource = explorer.selectedEvent?.resourceAttributes;
+		const name = resource?.['k8s.pod.name'];
+		return name ? { name, namespace: resource?.['k8s.namespace.name'] || null } : null;
 	});
 
 	// Pinned keys pulled out of whichever bag holds them (log, then resource, then scope)
@@ -256,6 +264,9 @@
 						</div>
 					{/if}
 
+					{#if metricsPod}
+						<EventPodMetrics podName={metricsPod.name} namespace={metricsPod.namespace} timestamp={event.timestamp} />
+					{/if}
 					{#if metricsHost}
 						<EventHostMetrics hostName={metricsHost} timestamp={event.timestamp} />
 					{/if}

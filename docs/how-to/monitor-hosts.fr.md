@@ -117,7 +117,29 @@ Pour les logs d'un pod Kubernetes, Flare utilise à la place l'attribut de
 ressource `k8s.node.name` (défini par le processeur `k8sattributes` du
 collecteur) et affiche le nœud sur lequel le pod s'exécutait. Cela fonctionne
 lorsque le collecteur `hostmetrics` du nœud rapporte le nom du nœud comme
-`host.name`. Les métriques propres au pod ne sont pas affichées.
+`host.name`.
+
+Les logs d'un pod ont aussi une section **Pod metrics** : le CPU du pod (en
+cœurs) et son working set mémoire, issus du récepteur `kubeletstats` du
+collecteur. Flare les associe au log par les attributs de ressource
+`k8s.pod.name` et `k8s.namespace.name`, que le processeur `k8sattributes`
+ajoute aux deux. Deux graphiques supplémentaires, le CPU et la mémoire en
+pourcentage des limites du pod, apparaissent si vous activez les métriques de
+limite optionnelles du récepteur :
+
+```yaml
+receivers:
+  kubeletstats:
+    auth_type: serviceAccount
+    endpoint: "https://${env:K8S_NODE_NAME}:10250"
+    metrics:
+      k8s.pod.cpu_limit_utilization:
+        enabled: true
+      k8s.pod.memory_limit_utilization:
+        enabled: true
+```
+
+Elles ne sont rapportées que pour les pods qui ont des limites définies.
 
 Si l'hôte n'a envoyé aucune métrique CPU ou mémoire dans cette fenêtre, la
 section l'indique.

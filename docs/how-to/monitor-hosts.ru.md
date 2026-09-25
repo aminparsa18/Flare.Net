@@ -113,7 +113,28 @@ docker run -v /:/hostfs:ro --hostname "$(hostname)" ... otel/opentelemetry-colle
 Для журналов пода Kubernetes Flare использует атрибут ресурса `k8s.node.name`
 (его задаёт процессор `k8sattributes` коллектора) и показывает узел, на
 котором работал под. Это работает, если коллектор `hostmetrics` на узле
-сообщает имя узла в `host.name`. Метрики уровня пода не отображаются.
+сообщает имя узла в `host.name`.
+
+Журналы пода также получают раздел **Метрики пода**: CPU пода (в ядрах) и его
+рабочий набор памяти, по данным приёмника `kubeletstats` коллектора. Flare
+сопоставляет их с записью по атрибутам ресурса `k8s.pod.name` и
+`k8s.namespace.name`, которые процессор `k8sattributes` добавляет к обоим.
+Ещё два графика, CPU и память в процентах от лимитов пода, появляются, если
+включить необязательные метрики лимитов приёмника:
+
+```yaml
+receivers:
+  kubeletstats:
+    auth_type: serviceAccount
+    endpoint: "https://${env:K8S_NODE_NAME}:10250"
+    metrics:
+      k8s.pod.cpu_limit_utilization:
+        enabled: true
+      k8s.pod.memory_limit_utilization:
+        enabled: true
+```
+
+Они передаются только для подов с заданными лимитами.
 
 Если хост не отправлял метрики CPU или памяти в этом окне, раздел сообщает
 об этом.
