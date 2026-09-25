@@ -12,8 +12,8 @@ OpenTelemetry — если что-то не компилируется прот�
 
 | Пакет | Версия |
 |---|---|
-| `OpenTelemetry.Extensions.Hosting` | 1.17.0 |
-| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.17.0 |
+| `OpenTelemetry.Extensions.Hosting` | 1.19.1 |
+| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.19.1 |
 | `ZLogger` | 2.5.10 |
 | `Serilog.Sinks.OpenTelemetry` | 4.2.0 |
 | `NLog.Targets.OpenTelemetryProtocol` | 1.2.7 |

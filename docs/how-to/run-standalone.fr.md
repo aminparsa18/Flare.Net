@@ -102,8 +102,8 @@ dans
 <summary><strong>Microsoft.Extensions.Logging</strong> (natif — <code>ILogger</code>, sans pont)</summary>
 
 ```sh
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.17.0
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.17.0
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
 ```
 
 ```csharp
@@ -156,8 +156,8 @@ ZLogger comme un fournisseur de logs de plus à ses côtés, pas à sa
 place :
 
 ```sh
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.17.0
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.17.0
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
 dotnet add package ZLogger --version 2.5.10
 ```
 

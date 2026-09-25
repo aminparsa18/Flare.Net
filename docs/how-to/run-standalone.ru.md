@@ -97,8 +97,8 @@ ClickHouse, Redis, приёмник OTLP, API запросов и панель �
 <summary><strong>Microsoft.Extensions.Logging</strong> (нативно — <code>ILogger</code>, без моста)</summary>
 
 ```sh
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.17.0
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.17.0
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
 ```
 
 ```csharp
@@ -150,8 +150,8 @@ ZLogger как ещё одного поставщика логирования �
 него:
 
 ```sh
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.17.0
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.17.0
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
 dotnet add package ZLogger --version 2.5.10
 ```
 

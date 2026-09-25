@@ -198,7 +198,7 @@ public class OtlpLogMapperTests
         Assert.Equal("3.5", logEvent.LogAttributes["double"]);
         Assert.Equal(Convert.ToBase64String([1, 2, 3]), logEvent.LogAttributes["bytes"]);
         Assert.Equal("[1,2]", logEvent.LogAttributes["array"]);
-        Assert.Equal("{nested=v}", logEvent.LogAttributes["kvlist"]);
+        Assert.Equal("""{"nested":"v"}""", logEvent.LogAttributes["kvlist"]);
     }
 
     [Fact]

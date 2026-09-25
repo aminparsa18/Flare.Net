@@ -48,8 +48,8 @@ docker compose up
 <details open> <summary><strong>Microsoft.Extensions.Logging</strong>（本机 — <code>ILogger</code>，无桥）</summary>
 
 ```sh
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.17.0
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.17.0
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
 ```
 
 ```csharp
@@ -91,8 +91,8 @@ logger.LogInformation("hello from {ServiceName}", "my-service");
 与上面的本机 `Microsoft.Extensions.Logging` 相同的接线（相同的两个 OpenTelemetry 包，相同的环境变量） - 将 ZLogger 添加为与它并排的又一个日志记录提供程序，而不是代替它：
 
 ```sh
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.17.0
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.17.0
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
 dotnet add package ZLogger --version 2.5.10
 ```
 

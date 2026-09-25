@@ -89,8 +89,8 @@ versions that were confirmed working are in
 <summary><strong>Microsoft.Extensions.Logging</strong> (native — <code>ILogger</code>, no bridge)</summary>
 
 ```sh
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.17.0
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.17.0
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
 ```
 
 ```csharp
@@ -140,8 +140,8 @@ OpenTelemetry packages, same environment variables) — add ZLogger as one
 more logging provider alongside it, not instead of it:
 
 ```sh
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.17.0
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.17.0
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
 dotnet add package ZLogger --version 2.5.10
 ```
 
