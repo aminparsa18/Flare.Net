@@ -203,11 +203,3 @@ folders are where "what happened and why" actually lives.
   of 0032 (user-visible scoring change). Found while checking
   [signoz#6460](https://github.com/SigNoz/signoz/commit/c93cf1ce9515526eb6a667298fec56d3a068ee69)
   (an unrelated tolerating-halving fix Flare already gets right).
-- **Host list from ingested OTel host metrics.** The Resources page is fed
-  by Flare's own Docker/K8s/host pollers; a host that only ships
-  `hostmetrics`-receiver metrics (`system.cpu.*`, `system.memory.*`,
-  `system.filesystem.*`) over OTLP appears nowhere. A host inventory
-  table (one row per `host.name`: CPU, memory, disk, last seen) with
-  filters and drill-down into its metrics, queried from the existing
-  metrics tables. Not started. Prior art:
-  [signoz#6210](https://github.com/SigNoz/signoz/commit/e4505693b0f88c6e404dd8aaa0efb959259b6ea4).
