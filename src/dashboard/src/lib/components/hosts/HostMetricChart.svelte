@@ -20,9 +20,11 @@
 		/** The requested window, so the x-axis spans it even when data only covers part of it. */
 		fromMs: number;
 		toMs: number;
+		/** Optional epoch-ms instant drawn as a vertical line - the log event detail view marks its log's timestamp with it. */
+		markerMs?: number;
 	}
 
-	let { label, unit, points, fromMs, toMs }: Props = $props();
+	let { label, unit, points, fromMs, toMs, markerMs }: Props = $props();
 
 	const CHART_WIDTH = 400;
 	const CHART_HEIGHT = 96;
@@ -112,6 +114,9 @@
 				{#each ticks.values as tick (tick)}
 					<line x1="0" y1={yFor(tick)} x2={CHART_WIDTH} y2={yFor(tick)} class="text-border" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke" />
 				{/each}
+				{#if markerMs != null && markerMs >= fromMs && markerMs <= toMs}
+					<line x1={xFor(markerMs)} y1="0" x2={xFor(markerMs)} y2={CHART_HEIGHT} class="text-destructive" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+				{/if}
 				<path d={path} fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
 				{#if present.length === 1}
 					<circle cx={xFor(present[0].time)} cy={yFor(present[0].value)} r="3" fill="var(--primary)" />

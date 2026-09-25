@@ -105,6 +105,23 @@ cinq minutes est marqué **stale**.
 La page liste jusqu'à 500 hôtes. S'il y en a davantage, un avis vous invite à
 affiner le filtre.
 
+## Voir les métriques d'un hôte à côté d'un log
+
+Quand un log porte l'attribut de ressource `host.name`, sa vue détaillée sur la
+page **Logs** affiche **Host metrics** : les graphiques CPU et mémoire de
+cet hôte sur les 30 minutes autour du log, l'instant du log étant marqué d'une
+ligne verticale. Vous pouvez ainsi vérifier si la machine était saturée au
+moment d'une erreur, sans quitter le log.
+
+Pour les logs d'un pod Kubernetes, Flare utilise à la place l'attribut de
+ressource `k8s.node.name` (défini par le processeur `k8sattributes` du
+collecteur) et affiche le nœud sur lequel le pod s'exécutait. Cela fonctionne
+lorsque le collecteur `hostmetrics` du nœud rapporte le nom du nœud comme
+`host.name`. Les métriques propres au pod ne sont pas affichées.
+
+Si l'hôte n'a envoyé aucune métrique CPU ou mémoire dans cette fenêtre, la
+section l'indique.
+
 ## Dépannage
 
 **Un hôte n'apparaît pas.** Vérifiez les journaux du collecteur pour des

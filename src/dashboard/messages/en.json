@@ -119,6 +119,8 @@
 	"eventDetail_groupByAttribute": "Group volume chart by this attribute",
 	"eventDetail_copyValue": "Copy value",
 	"eventDetail_openLink": "Open link in a new tab",
+	"eventDetail_hostMetrics": "Host metrics",
+	"eventDetail_hostMetricsNoData": "No CPU or memory data from this host in the 30 minutes around this log. Host charts come from an OpenTelemetry Collector hostmetrics receiver reporting the same host.name.",
 	"logContext_title": "Log context",
 	"logContext_copyLink": "Copy link",
 	"logContext_copied": "Copied",

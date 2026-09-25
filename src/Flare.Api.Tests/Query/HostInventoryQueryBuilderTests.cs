@@ -144,6 +144,36 @@ public class HostInventoryQueryBuilderTests
         Assert.Equal(120u, parameters["bucketWidth"]);
     }
 
+    [Fact]
+    public void BuildHostMetrics_WindowEndsAtTheGivenEnd()
+    {
+        var end = Now.AddDays(-2);
+        var parameters = HostInventoryQueryBuilder.BuildHostMetrics("web-1", 30, 60, end).Parameters.ToDictionary();
+
+        Assert.Equal(end.UtcDateTime, parameters["to"]);
+        Assert.Equal(end.AddMinutes(-30).UtcDateTime, parameters["from"]);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0L)]
+    [InlineData(-5L)]
+    [InlineData(long.MaxValue)]
+    public void ResolveWindowEnd_MissingOrUnrepresentable_FallsBackToNow(long? endUnixMs)
+    {
+        Assert.Equal(Now, HostInventoryQueryBuilder.ResolveWindowEnd(endUnixMs, Now));
+    }
+
+    [Fact]
+    public void ResolveWindowEnd_UsesTheGivenInstant_EvenInTheFuture()
+    {
+        var past = Now.AddHours(-3);
+        var future = Now.AddMinutes(10);
+
+        Assert.Equal(past, HostInventoryQueryBuilder.ResolveWindowEnd(past.ToUnixTimeMilliseconds(), Now));
+        Assert.Equal(future, HostInventoryQueryBuilder.ResolveWindowEnd(future.ToUnixTimeMilliseconds(), Now));
+    }
+
     private static int CountOccurrences(string haystack, string needle)
     {
         var count = 0;
