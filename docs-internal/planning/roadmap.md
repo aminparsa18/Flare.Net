@@ -145,6 +145,3 @@ folders are where "what happened and why" actually lives.
   info icon next to the title. Frontend-only (stored panel JSON). Not
   started. Prior art:
   [signoz#6133](https://github.com/SigNoz/signoz/commit/440fd4e02b2d8c13d8b4827abdfe609755cba990).
-- **Expand/collapse all in the trace waterfall.** `TraceWaterfall` has no
-  expand-all/collapse-all control. Frontend-only, tiny. Not started.
-  Prior art: [signoz#5980](https://github.com/SigNoz/signoz/commit/266ed58908402553898cd7571c03d9810a02ba2a).
