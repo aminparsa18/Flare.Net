@@ -35,6 +35,7 @@ the full rule set on what goes where.
 - [Run in cluster mode](how-to/run-cluster-mode.md)
 - [Build a custom dashboard](how-to/build-custom-dashboards.md)
 - [Extract or redact fields at ingest](how-to/manage-pipeline-rules.md)
+- [Monitor hosts with the OpenTelemetry Collector](how-to/monitor-hosts.md)
 
 **Reference**
 - [CLI commands](reference/cli-commands.md)

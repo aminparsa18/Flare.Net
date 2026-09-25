@@ -1,0 +1,89 @@
+# 如何使用 OpenTelemetry Collector 监控主机
+
+使用 OpenTelemetry Collector 的 `hostmetrics` 接收器，将机器的 CPU、内存、磁盘和负载指标发送到 Flare，并在 **Hosts** 页面查看：每台主机一行，每个指标都有详细图表。
+
+**Hosts** 页面与 **Resources** 不同。Resources 显示 Flare 自行发现的基础设施（Docker 容器、Kubernetes 对象以及运行 Flare 的机器）。Hosts 显示通过 OTLP 主动向 Flare 上报指标的机器。
+
+## 前提条件
+
+- 一个正在运行的 Flare 实例（[独立运行](run-standalone.zh-CN.md)、[Aspire](run-with-aspire.zh-CN.md) 或 [CLI](run-with-cli.zh-CN.md)），且要监控的主机能够访问其 OTLP 端口（gRPC `4317` 或 HTTP `4318`）。
+- 每台主机上安装 [OpenTelemetry Collector Contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib) 发行版（`otelcol-contrib`）。核心发行版不包含 `resourcedetection` 处理器。
+
+## 配置 Collector
+
+在每台主机上，使用以下配置将 Collector 指向 Flare：
+
+```yaml
+receivers:
+  hostmetrics:
+    collection_interval: 60s
+    scrapers:
+      cpu: {}
+      memory: {}
+      load: {}
+      filesystem: {}
+
+processors:
+  resourcedetection:
+    detectors: [system]
+
+exporters:
+  otlp:
+    endpoint: flare.example.internal:4317   # 你的 Flare.Ingest 主机
+    tls:
+      insecure: true                        # 或配置 TLS
+
+service:
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+      processors: [resourcedetection]
+      exporters: [otlp]
+```
+
+`resourcedetection` 处理器是必需的。它设置 `host.name` 和 `os.type` 资源属性，而 Flare 通过 `host.name` 识别主机。缺少该属性的指标不会出现在 Hosts 页面。
+
+如果启用了[摄取 API 密钥](configure-authentication.zh-CN.md#摄取-api-密钥)，请将密钥添加到导出器的 `headers` 中。
+
+### 在容器中运行 Collector
+
+容器化的 Collector 默认报告容器自身的文件系统，除非挂载主机根目录并设置 `root_path`：
+
+```yaml
+receivers:
+  hostmetrics:
+    root_path: /hostfs
+```
+
+```bash
+docker run -v /:/hostfs:ro --hostname "$(hostname)" ... otel/opentelemetry-collector-contrib
+```
+
+否则 **Disk** 列将保持为空（—）。同时传入 `--hostname`，否则 `host.name` 会是容器 ID。
+
+## 查看 Hosts 页面
+
+在顶部导航中打开 **Hosts**。主机会在一个采集间隔内出现。
+
+| 列 | 来源指标 | 含义 |
+|---|---|---|
+| CPU | `system.cpu.time` | 窗口内非空闲 CPU 时间的占比 |
+| Memory | `system.memory.usage` | `used` 占总内存的比例，按窗口平均 |
+| Disk | `system.filesystem.usage` | `used` 占总容量的比例，汇总所有上报的文件系统 |
+| Load (15m) | `system.cpu.load_average.15m` | 15 分钟平均负载，按窗口平均 |
+| Last seen | 任意 `system.*` 指标 | 主机最后一次上报的时间 |
+
+**—** 表示主机在窗口内没有上报该指标，例如 `filesystem` 抓取器被禁用。它永远不会显示为 0%。超过五分钟未上报的主机会被标记为 **stale**。
+
+- **筛选**：按主机名（子串匹配，不区分大小写）或操作系统类型。
+- **排序**：点击任意列标题。
+- **更改窗口**：使用时间选择器（5 分钟到 24 小时）。
+- **下钻**：点击主机名，打开所选窗口内全部四个指标的图表。
+
+页面最多列出 500 台主机。如果匹配更多，会提示你缩小筛选范围。
+
+## 故障排除
+
+**主机没有出现。** 检查 Collector 日志中的导出错误，然后确认其指标带有 `host.name`。只有在所选窗口内至少发送过一个 `system.*` 指标的主机才会出现。
+
+**CPU、Memory 或 Load 始终为空。** Flare 只读取接收器的默认指标，不使用可选的 `system.cpu.utilization`、`system.memory.utilization` 或 `system.filesystem.utilization` 仪表，因此请确认已启用 `cpu`、`memory` 和 `load` 抓取器。
