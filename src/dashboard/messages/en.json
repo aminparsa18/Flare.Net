@@ -920,7 +920,7 @@
 	"servicesTable_noServicesDescription": "Widen the time window, or check that services are sending traces to Flare.",
 	"apdexThresholdPopover_title": "Apdex threshold",
 	"apdexThresholdPopover_titleForService": "Apdex threshold for {serviceName}",
-	"apdexThresholdPopover_description": "Requests at or under this value (T) count as satisfied; up to 4x count as tolerating. Default: {defaultMs}ms.",
+	"apdexThresholdPopover_description": "Requests at or under this value (T) count as satisfied; up to 4x count as tolerating. Errored requests always count as frustrated. Default: {defaultMs}ms.",
 	"apdexThresholdPopover_invalidValue": "Enter a whole number of milliseconds, 1 or greater.",
 	"apdexThresholdPopover_resetToDefault": "Reset to default",
 	"apdexThresholdPopover_save": "Save",

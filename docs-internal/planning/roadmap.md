@@ -185,14 +185,3 @@ folders are where "what happened and why" actually lives.
   index if needed, and a filter control; also a natural facet for the
   Logs facet sidebar item above. Not started. Prior art:
   [signoz#6378](https://github.com/SigNoz/signoz/commit/471803115ed91b1cf6404e4bb02cf3745925fea4).
-- **Decide: should errored requests count as Apdex "frustrated"?**
-  `ServiceApdexQueryBuilder` classifies satisfied/tolerating purely by
-  `DurationNano`, so a request that fails in 5ms counts as satisfied and
-  a service returning fast 500s can show near-perfect Apdex. The original
-  Apdex spec is duration-only, but most APM tools (e.g. New Relic) treat
-  errors as frustrated; [ADR-0032](../adr/0032-apdex-score-per-service.md)
-  never addresses it. If adopted: add `StatusCode != Error` to both
-  `countIf`s + tests, and record it in a new ADR superseding that part
-  of 0032 (user-visible scoring change). Found while checking
-  [signoz#6460](https://github.com/SigNoz/signoz/commit/c93cf1ce9515526eb6a667298fec56d3a068ee69)
-  (an unrelated tolerating-halving fix Flare already gets right).
