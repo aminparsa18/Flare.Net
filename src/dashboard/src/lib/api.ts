@@ -22,6 +22,8 @@ import { env } from '$env/dynamic/public';
 import {
 	logAggregateGroupByFromString,
 	logPostProcessFunctionTypeFromString,
+	logValuesFieldFromString,
+	type LogValuesFieldName,
 	type LogPostProcessFunctionTypeName,
 	logQlResultKindToString,
 	resourceHealthToString,
@@ -449,13 +451,18 @@ export async function getLogValueDistribution(
 // `prefix` (the text already typed). Separate from the key-discovery pair above: this
 // enumerates *values* for a key the caller already picked, not numeric-looking keys.
 
+export type LogValuesField = LogValuesFieldName;
+
 export interface LogAttributeValuesRequest {
 	filter?: LogFilter;
 	bag?: AttributeBag;
+	/** Ignored (may be `''`) unless `field` is `'Attribute'`. */
 	key: string;
 	/** Case-insensitive substring already typed, if any - narrows candidates server-side. */
 	prefix?: string;
 	limit?: number;
+	/** Defaults to `'Attribute'` (bag + key). `'Service'`/`'Severity'` enumerate those built-in columns instead - the facet sidebar's sections; Severity values are SeverityNumber decimal strings. */
+	field?: LogValuesField;
 }
 
 export interface LogAttributeValueInfo {
@@ -477,6 +484,7 @@ export async function getLogAttributeValues(
 	dto.key = request.key;
 	dto.prefix = request.prefix ?? null;
 	dto.limit = request.limit ?? 25;
+	dto.field = logValuesFieldFromString(request.field ?? 'Attribute');
 	const res = await apiFetch(`${API_BASE_URL}/api/logs/attribute-values`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),

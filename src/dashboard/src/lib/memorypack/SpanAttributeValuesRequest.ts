@@ -16,6 +16,7 @@ export class SpanAttributeValuesRequest {
 	key: string | null;
 	prefix: string | null;
 	limit: number;
+	field: number;
 
 	constructor() {
 		this.filter = null;
@@ -23,6 +24,7 @@ export class SpanAttributeValuesRequest {
 		this.key = null;
 		this.prefix = null;
 		this.limit = 0;
+		this.field = 0;
 	}
 
 	static serialize(value: SpanAttributeValuesRequest | null): Uint8Array {
@@ -37,12 +39,13 @@ export class SpanAttributeValuesRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(5);
+		writer.writeObjectHeader(6);
 		SpanFilter.serializeCore(writer, value.filter);
 		writer.writeInt32(value.bag);
 		writer.writeString(value.key);
 		writer.writeString(value.prefix);
 		writer.writeInt32(value.limit);
+		writer.writeInt32(value.field);
 	}
 
 	static deserialize(buffer: ArrayBuffer): SpanAttributeValuesRequest | null {
@@ -56,13 +59,14 @@ export class SpanAttributeValuesRequest {
 		}
 
 		const value = new SpanAttributeValuesRequest();
-		if (count == 5) {
+		if (count == 6) {
 			value.filter = SpanFilter.deserializeCore(reader);
 			value.bag = reader.readInt32();
 			value.key = reader.readString();
 			value.prefix = reader.readString();
 			value.limit = reader.readInt32();
-		} else if (count > 5) {
+			value.field = reader.readInt32();
+		} else if (count > 6) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -76,6 +80,8 @@ export class SpanAttributeValuesRequest {
 			if (count == 4) return value;
 			value.limit = reader.readInt32();
 			if (count == 5) return value;
+			value.field = reader.readInt32();
+			if (count == 6) return value;
 		}
 		return value;
 	}

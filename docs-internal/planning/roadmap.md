@@ -90,15 +90,6 @@ folders are where "what happened and why" actually lives.
   history rather than dropping it silently). Needs an additive ClickHouse
   table + a dashboard page. Not started. Prior art:
   [signoz#4863](https://github.com/SigNoz/signoz/commit/7e79900973da430179292ffc865ad44908763035).
-- **Facet filter sidebar on the Traces and Logs pages.** Both only have
-  the toolbar filter row; a collapsible sidebar listing values per facet
-  (Traces: service, status, operation, duration buckets, chosen span
-  attributes; Logs: service, severity, environment, host, chosen log
-  attributes) with counts and click-to-filter would make exploration much
-  faster, reusing the existing span/log attribute-values endpoints for the
-  lists. One shared sidebar component. Mostly frontend. Not started.
-  Prior art: Traces [signoz#5081](https://github.com/SigNoz/signoz/commit/9733612be8a90ec6bcf8c48ed16df96f1073b0bd),
-  Logs [signoz#5799](https://github.com/SigNoz/signoz/commit/4a9847abdd4cc02d0bac89c1215200203a2133d9).
 - **Multi-value dashboard variables.** A `DashboardVariable` resolves to
   one value or "All" (`defaultValue: string | null`); there's no way to
   scope a dashboard to e.g. two services at once. The underlying filters

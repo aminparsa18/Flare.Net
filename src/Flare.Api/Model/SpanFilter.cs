@@ -141,4 +141,11 @@ public sealed partial record SpanFilter
 
     /// <summary>Equality filters over the three attribute bags, ANDed together.</summary>
     public IReadOnlyList<SpanAttributeFilter>? Attributes { get; init; }
+
+    /// <summary>
+    /// Exact span-name (<c>Name</c> column, the operation) match, any of - the Traces facet
+    /// sidebar's Operation section. Appended last, not grouped with <see cref="Services"/>,
+    /// so older MemoryPack/JSON clients that never send it stay wire-compatible.
+    /// </summary>
+    public IReadOnlyList<string>? Names { get; init; }
 }

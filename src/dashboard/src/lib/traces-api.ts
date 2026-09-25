@@ -11,7 +11,9 @@ import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memory
 import {
 	spanAttributeBagFromString,
 	spanAttributeFilterOperatorFromString,
+	spanValuesFieldFromString,
 	type SpanAttributeBagName,
+	type SpanValuesFieldName,
 	type SpanAttributeFilterOperatorName
 } from '$lib/memorypack/enums';
 import { SpanFilter as GeneratedSpanFilter } from '$lib/memorypack/SpanFilter';
@@ -53,6 +55,8 @@ export interface SpanFilter {
 	minDurationNano?: number;
 	maxDurationNano?: number;
 	attributes?: SpanAttributeFilter[];
+	/** Exact span-name (operation) match, any of. */
+	names?: string[];
 }
 
 function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFilter {
@@ -79,6 +83,7 @@ function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFil
 					attr.values = a.values ?? null;
 					return attr;
 				});
+	dto.names = filter.names ?? null;
 	return dto;
 }
 
@@ -242,13 +247,18 @@ export async function getTrace(traceId: string, signal?: AbortSignal): Promise<T
 // equivalent of `$lib/api.ts`'s `getLogAttributeValues`. Every distinct value observed for
 // one caller-chosen bag+key, most-observed first, optionally narrowed by `prefix`.
 
+export type SpanValuesField = SpanValuesFieldName;
+
 export interface SpanAttributeValuesRequest {
 	filter?: SpanFilter;
 	bag?: SpanAttributeBag;
+	/** Ignored (may be `''`) unless `field` is `'Attribute'`. */
 	key: string;
 	/** Case-insensitive substring already typed, if any - narrows candidates server-side. */
 	prefix?: string;
 	limit?: number;
+	/** Defaults to `'Attribute'` (bag + key). The other fields enumerate built-in columns for the facet sidebar - see `SpanValuesField` in SpanAttributeValuesRequest.cs for each value's string form. */
+	field?: SpanValuesField;
 }
 
 export interface SpanAttributeValueInfo {
@@ -270,6 +280,7 @@ export async function getSpanAttributeValues(
 	dto.key = request.key;
 	dto.prefix = request.prefix ?? null;
 	dto.limit = request.limit ?? 25;
+	dto.field = spanValuesFieldFromString(request.field ?? 'Attribute');
 	const res = await apiFetch(`${API_BASE_URL}/api/spans/attribute-values`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),

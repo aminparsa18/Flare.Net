@@ -352,3 +352,21 @@ export function metricHavingOperatorToString(value: number): MetricHavingOperato
 export function metricHavingOperatorFromString(value: MetricHavingOperatorName): number {
 	return METRIC_HAVING_OPERATOR_NAMES.indexOf(value);
 }
+
+/** Matches `LogAttributeValuesRequest.cs`'s `LogValuesField` member order (append-only). Only sent, never read back, so no `ToString` direction. */
+const LOG_VALUES_FIELD_NAMES = ['Attribute', 'Service', 'Severity'] as const;
+
+export type LogValuesFieldName = (typeof LOG_VALUES_FIELD_NAMES)[number];
+
+export function logValuesFieldFromString(value: LogValuesFieldName): number {
+	return LOG_VALUES_FIELD_NAMES.indexOf(value);
+}
+
+/** Matches `SpanAttributeValuesRequest.cs`'s `SpanValuesField` member order (append-only) - same send-only shape as `LogValuesFieldName`. */
+const SPAN_VALUES_FIELD_NAMES = ['Attribute', 'Service', 'Status', 'Kind', 'Name', 'DurationBucket'] as const;
+
+export type SpanValuesFieldName = (typeof SPAN_VALUES_FIELD_NAMES)[number];
+
+export function spanValuesFieldFromString(value: SpanValuesFieldName): number {
+	return SPAN_VALUES_FIELD_NAMES.indexOf(value);
+}

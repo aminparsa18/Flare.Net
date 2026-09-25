@@ -92,4 +92,17 @@ public class LogAttributeValuesQueryBuilderTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => LogAttributeValuesQueryBuilder.Build(Request(limit: limit), Now));
     }
+
+    [Theory]
+    [InlineData(LogValuesField.Service, "ServiceName")]
+    [InlineData(LogValuesField.Severity, "toString(SeverityNumber)")]
+    public void Build_BuiltInField_SelectsColumn_WithoutKeyOrMapContains(LogValuesField field, string valueSql)
+    {
+        var result = LogAttributeValuesQueryBuilder.Build(new LogAttributeValuesRequest { Field = field, Prefix = "x" }, Now);
+
+        Assert.Contains($"SELECT {valueSql} AS Value", result.Sql);
+        Assert.Contains($"{valueSql} ILIKE {{valuesPrefix:String}}", result.Sql);
+        Assert.DoesNotContain("mapContains", result.Sql);
+        Assert.DoesNotContain("valuesKey", result.Parameters.ToDictionary().Keys);
+    }
 }
