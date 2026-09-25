@@ -94,7 +94,7 @@
 		</div>
 	{:else}
 		<div class="flex gap-2">
-			<div class="text-muted-foreground relative w-10 shrink-0 text-right text-xs tabular-nums" style="height: {CHART_HEIGHT}px">
+			<div class="text-muted-foreground relative w-14 shrink-0 text-right text-xs tabular-nums" style="height: {CHART_HEIGHT}px">
 				{#each ticks.values as tick (tick)}
 					<span class="absolute inset-x-0 -translate-y-1/2 truncate leading-none" style="top: {yFor(tick)}px">
 						{formatAtScale(tick, axisScale)}

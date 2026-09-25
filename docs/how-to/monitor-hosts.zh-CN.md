@@ -90,7 +90,27 @@ docker run -v /:/hostfs:ro --hostname "$(hostname)" ... otel/opentelemetry-colle
 
 对于 Kubernetes Pod 的日志，Flare 改用 `k8s.node.name` 资源属性（由 Collector
 的 `k8sattributes` 处理器设置），显示 Pod 所在节点的图表。前提是该节点的
-`hostmetrics` Collector 以节点名作为 `host.name` 上报。不显示 Pod 级别的指标。
+`hostmetrics` Collector 以节点名作为 `host.name` 上报。
+
+Pod 的日志还会显示 **Pod 指标** 区域：来自 Collector `kubeletstats` 接收器的
+Pod 自身 CPU（以核为单位）和内存工作集。Flare 通过 `k8s.pod.name` 和
+`k8s.namespace.name` 资源属性将其与日志匹配，`k8sattributes` 处理器会为两者
+添加这些属性。启用接收器的可选限制指标后，还会显示 CPU 和内存占 Pod 限制百分比
+的两个图表：
+
+```yaml
+receivers:
+  kubeletstats:
+    auth_type: serviceAccount
+    endpoint: "https://${env:K8S_NODE_NAME}:10250"
+    metrics:
+      k8s.pod.cpu_limit_utilization:
+        enabled: true
+      k8s.pod.memory_limit_utilization:
+        enabled: true
+```
+
+这些指标只针对设置了限制的 Pod 上报。
 
 如果该主机在此时间窗口内没有发送 CPU 或内存指标，该区域会给出提示。
 

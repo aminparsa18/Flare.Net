@@ -146,13 +146,6 @@ folders are where "what happened and why" actually lives.
   localStorage, self-healing if it was deleted - same pattern as the
   dashboards "set as home page" toggle). Frontend-only. Not started.
   Prior art: [signoz#5453](https://github.com/SigNoz/signoz/commit/3c151e3adbb2f051f43959594a411658d4cb8c7f).
-- **Pod-level metrics in the log event detail view.** The detail view's
-  Host metrics section charts `host.name` (or a pod's `k8s.node.name`)
-  from hostmetrics; a pod's own CPU/memory against its limits
-  (`kubeletstats` receiver, keyed by the `k8s.pod.name` resource
-  attribute) isn't charted. Needs a query - the generic metrics filter
-  only matches data-point attributes. Not started. Prior art:
-  [signoz#5771](https://github.com/SigNoz/signoz/commit/c5b5bfe5406d2dc3c59f50977b76fa4d53d7bc23).
 - **Create/invite additional local users.** With local auth,
   `/api/auth/bootstrap` creates only the first admin, and
   `UserEndpoints` can list users, change a role and disable a user, but not

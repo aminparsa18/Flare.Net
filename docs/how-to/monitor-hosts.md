@@ -112,7 +112,28 @@ leaving the log.
 For a Kubernetes pod's logs, Flare uses the `k8s.node.name` resource attribute
 (set by the collector's `k8sattributes` processor) instead, and charts the node
 the pod ran on. This works when the node's `hostmetrics` collector reports the
-node name as its `host.name`. Pod-level metrics aren't charted.
+node name as its `host.name`.
+
+A pod's logs also get a **Pod metrics** section: the pod's own CPU (in cores)
+and memory working set, from the collector's `kubeletstats` receiver. Flare
+matches them to the log by the `k8s.pod.name` and `k8s.namespace.name`
+resource attributes, which the `k8sattributes` processor adds to both. Two more
+charts, CPU and memory as a percentage of the pod's limits, appear when you
+enable the receiver's opt-in limit metrics:
+
+```yaml
+receivers:
+  kubeletstats:
+    auth_type: serviceAccount
+    endpoint: "https://${env:K8S_NODE_NAME}:10250"
+    metrics:
+      k8s.pod.cpu_limit_utilization:
+        enabled: true
+      k8s.pod.memory_limit_utilization:
+        enabled: true
+```
+
+These only report for pods that have limits set.
 
 If the host sent no CPU or memory metrics in that window, the section says so.
 
