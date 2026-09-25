@@ -120,6 +120,8 @@ network, no containers:
 - `OtlpLogMapper` (severity/timestamp handling, all `AnyValue` attribute variants,
   trace/span id hex encoding).
 - `OtlpAnyValue` (array/key-value-list → JSON rendering, escaping, non-finite doubles).
+- `OtlpJson` (OTLP/JSON's hex trace/span ids re-encoded for `JsonParser`, which only
+  knows proto3's base64 mapping; base64 senders still accepted).
 - `ClickHouseRowMapper` (the `LogEvent` → ClickHouse row mapping: empty-string
   coalescing, `ObservedTimestamp` fallback, column order).
 - `LogEventJsonContext` (the Redis Stream wire format round-trips correctly).

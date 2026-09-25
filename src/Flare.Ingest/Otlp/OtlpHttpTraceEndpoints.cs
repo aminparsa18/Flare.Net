@@ -1,4 +1,3 @@
-using System.Text;
 using Flare.Ingest.Auth;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
@@ -53,10 +52,10 @@ public static class OtlpHttpTraceEndpoints
         {
             if (isJson)
             {
-                using var reader = new StreamReader(http.Request.Body);
-                var json = await reader.ReadToEndAsync(cancellationToken);
-                byteCount = Encoding.UTF8.GetByteCount(json);
-                request = JsonParser.Default.Parse<ExportTraceServiceRequest>(json);
+                using var buffer = new MemoryStream();
+                await http.Request.Body.CopyToAsync(buffer, cancellationToken);
+                byteCount = buffer.Length;
+                request = OtlpJson.Parse<ExportTraceServiceRequest>(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
             }
             else
             {

@@ -303,10 +303,13 @@
 				{@const KindIcon = kindIcon(span)}
 				{@const isCollapsed = collapsed.has(span.spanId)}
 				<!-- role="button" div rather than a real <button>: the row nests the
-				     expand/collapse toggle, and a <button> can't contain another. -->
+				     expand/collapse toggle, and a <button> can't contain another. Explicit
+				     aria-label so the row's accessible name isn't prefixed with the nested
+				     toggle's "Collapse children". -->
 				<div
 					role="button"
 					tabindex="0"
+					aria-label="{span.name || '—'} · {span.serviceName || '—'}"
 					class="hover:bg-muted/50 focus-visible:bg-muted/50 grid w-full cursor-pointer items-center border-b text-left focus-visible:outline-none"
 					class:bg-muted={detail.selectedSpanId === span.spanId}
 					style="grid-template-columns: var(--waterfall-label-width) 1fr; height: 32px;"
