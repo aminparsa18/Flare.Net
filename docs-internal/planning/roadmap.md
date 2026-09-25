@@ -175,13 +175,3 @@ folders are where "what happened and why" actually lives.
   indexed. Add `<meta name="robots" content="noindex, nofollow">` in
   `app.html` and a deny-all `static/robots.txt`. Tiny. Not started. Prior
   art: [signoz#5793](https://github.com/SigNoz/signoz/commit/88ace79a644a12a3b32684c524ec81eca1cb137f).
-- **Filter logs by instrumentation scope (the .NET logger category).**
-  The OTel .NET SDK maps an `ILogger<T>` category (e.g.
-  `MyApp.Orders.OrderService`) to the log's instrumentation scope name;
-  Flare already stores and returns it (`LogEventDto.ScopeName`) but
-  `LogFilter` can't filter on it - no "only `OrderService`" or "everything
-  under `Microsoft.EntityFrameworkCore.*`". Add a `ScopeNames` filter
-  (exact + prefix match) to `LogFilter`/`LogFilterSqlBuilder`, a skip
-  index if needed, and a filter control; also a natural facet for the
-  Logs facet sidebar item above. Not started. Prior art:
-  [signoz#6378](https://github.com/SigNoz/signoz/commit/471803115ed91b1cf6404e4bb02cf3745925fea4).

@@ -68,6 +68,11 @@ public static class LogFilterSqlBuilder
             clauses.Add("SeverityNumber IN {severities:Array(UInt8)}");
         }
 
+        if (filter.ScopeNames is { Count: > 0 } scopeNames)
+        {
+            clauses.Add(ScopeNamesClause(scopeNames, parameters));
+        }
+
         if (!string.IsNullOrEmpty(filter.TraceId))
         {
             parameters.AddParameter("traceId", filter.TraceId);
@@ -112,6 +117,56 @@ public static class LogFilterSqlBuilder
         }
 
         return new LogFilterSql(string.Join(" AND ", clauses), parameters);
+    }
+
+    /// <summary>
+    /// <see cref="LogFilter.ScopeNames"/>' clause: exact entries collapse into one
+    /// <c>ScopeName IN</c>, each <c>*</c>-suffixed entry becomes its own
+    /// <c>startsWith(ScopeName, prefix)</c>, all ORed in one parenthesized group. A bare
+    /// <c>*</c> (empty prefix) matches every row, same as omitting the filter.
+    /// </summary>
+    private static string ScopeNamesClause(IReadOnlyList<string> scopeNames, ClickHouseParameterCollection parameters)
+    {
+        var (exact, prefixes) = SplitScopeNames(scopeNames);
+        var alternatives = new List<string>();
+        if (exact.Count > 0)
+        {
+            parameters.AddParameter("scopeNames", exact.ToArray());
+            alternatives.Add("ScopeName IN {scopeNames:Array(String)}");
+        }
+
+        for (var i = 0; i < prefixes.Count; i++)
+        {
+            var prefixParam = $"scopePrefix{i}";
+            parameters.AddParameter(prefixParam, prefixes[i]);
+            alternatives.Add($"startsWith(ScopeName, {{{prefixParam}:String}})");
+        }
+
+        return $"({string.Join(" OR ", alternatives)})";
+    }
+
+    /// <summary>
+    /// Splits <see cref="LogFilter.ScopeNames"/> into exact names and prefixes (the
+    /// <c>*</c>-suffixed entries, with the <c>*</c> stripped). <c>internal</c> so
+    /// <see cref="LogFilterMatcher"/> applies the exact same parsing in memory.
+    /// </summary>
+    internal static (List<string> Exact, List<string> Prefixes) SplitScopeNames(IReadOnlyList<string> scopeNames)
+    {
+        var exact = new List<string>();
+        var prefixes = new List<string>();
+        foreach (var name in scopeNames)
+        {
+            if (name.EndsWith('*'))
+            {
+                prefixes.Add(name[..^1]);
+            }
+            else
+            {
+                exact.Add(name);
+            }
+        }
+
+        return (exact, prefixes);
     }
 
     /// <summary>

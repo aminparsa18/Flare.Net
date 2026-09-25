@@ -64,6 +64,7 @@ function defaultQueryFor(panelType: PanelType): unknown {
 				search: '',
 				attributeFilters: [],
 				bodyJsonFilters: [],
+				scopeNames: [],
 				postProcessFunctions: [],
 				timeShiftSeconds: null,
 				maxLinesPerRow: 1

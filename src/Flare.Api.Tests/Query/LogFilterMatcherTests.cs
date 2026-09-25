@@ -39,6 +39,31 @@ public class LogFilterMatcherTests
     }
 
     [Theory]
+    [InlineData("MyApp.Orders.OrderService", true)]
+    [InlineData("MyApp.Orders", false)]
+    [InlineData("MyApp.Orders.*", true)]
+    [InlineData("MyApp.*", true)]
+    [InlineData("MyApp.Cart.*", false)]
+    [InlineData("myapp.orders.*", false)]
+    [InlineData("*", true)]
+    public void Matches_ScopeNames_IsExactOrStarSuffixedPrefixMatch(string scopeName, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { ScopeName = "MyApp.Orders.OrderService" };
+        var filter = new LogFilter { ScopeNames = [scopeName] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_ScopeNames_AnyEntryMatching_IsEnough()
+    {
+        var logEvent = MinimalLogEvent() with { ScopeName = "Microsoft.EntityFrameworkCore.Database.Command" };
+        var filter = new LogFilter { ScopeNames = ["MyApp.Orders.OrderService", "Microsoft.EntityFrameworkCore.*"] };
+
+        Assert.True(LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
     [InlineData((byte)17, true)]
     [InlineData((byte)9, false)]
     public void Matches_SeverityNumbers_IsExactMatch(byte severityNumber, bool expected)

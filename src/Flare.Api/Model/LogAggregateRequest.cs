@@ -15,6 +15,9 @@ public enum LogAggregateGroupBy
     /// existing members keep their MemoryPack ordinals.
     /// </summary>
     Attribute,
+
+    /// <summary>OTel instrumentation scope name (<c>ScopeName</c> - the .NET logger category). Appended after <see cref="Attribute"/> for the same ordinal-stability reason.</summary>
+    Scope,
 }
 
 /// <summary>Request body for <c>POST /api/logs/aggregate</c> - volume-over-time chart data.</summary>

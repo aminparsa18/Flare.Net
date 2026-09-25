@@ -223,4 +223,15 @@ public sealed partial record LogFilter
     /// dashboard still writing only 9 members just takes the default <c>null</c> here.
     /// </summary>
     public IReadOnlyList<BodyJsonFilter>? BodyJsonFilters { get; init; }
+
+    /// <summary>
+    /// OTel instrumentation scope name (<c>ScopeName</c>) match - for the OTel .NET SDK, the
+    /// <c>ILogger&lt;T&gt;</c> category, e.g. <c>MyApp.Orders.OrderService</c>. An entry ending
+    /// in <c>*</c> is a prefix match on everything before the <c>*</c>
+    /// (<c>Microsoft.EntityFrameworkCore.*</c>); any other entry is exact. Entries are ORed
+    /// together, the whole list ANDed with every other filter. Empty/null = all scopes.
+    /// Appended last (member 11), after <see cref="BodyJsonFilters"/> - same MemoryPack
+    /// wire-compatibility reasoning that member's own remarks give.
+    /// </summary>
+    public IReadOnlyList<string>? ScopeNames { get; init; }
 }

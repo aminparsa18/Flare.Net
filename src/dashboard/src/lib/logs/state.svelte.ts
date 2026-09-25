@@ -52,6 +52,8 @@ export interface LogsFilterState {
 	timeRangePreset: TimeRangePreset;
 	customRange: { from: Date; to: Date } | null;
 	services: string[];
+	/** Instrumentation scope names (the .NET logger category) - exact, or a prefix when ending in `*`. See `LogFilter.scopeNames`. */
+	scopeNames: string[];
 	severityNumbers: number[];
 	search: string;
 	/** Exact PatternId match - set only via applyPatternIdFilter (the Patterns view's "View examples" drill-down), never part of a saved view. */
@@ -151,6 +153,8 @@ export interface LogsSavedViewState {
 	timeRangePreset: TimeRangePreset;
 	customRange: { from: string; to: string } | null;
 	services: string[];
+	/** Optional (unlike `services`) - saved views written before this field existed simply lack it; `applySavedViewState` falls back to `[]`. */
+	scopeNames?: string[];
 	severityNumbers: number[];
 	search: string;
 	attributeFilters: AttributeFilter[];
@@ -168,6 +172,7 @@ export class LogsExplorerState {
 		timeRangePreset: '1h',
 		customRange: null,
 		services: [],
+		scopeNames: [],
 		severityNumbers: [],
 		search: '',
 		patternId: '',
@@ -256,6 +261,9 @@ export class LogsExplorerState {
 	// picklist. Refreshed occasionally (not on every keystroke), not a live subscription.
 	knownServices = $state.raw<string[]>([]);
 
+	/** Same idea as `knownServices`, for the toolbar's Scope filter (GroupBy: Scope) - loaded lazily when that popover opens rather than on page load, since most sessions never touch it. */
+	knownScopes = $state.raw<string[]>([]);
+
 	#seenIds = new Set<string>();
 	#connection: LiveTailConnection | null = null;
 	#searchAbort: AbortController | null = null;
@@ -310,6 +318,7 @@ export class LogsExplorerState {
 			filter.to = range.to;
 		}
 		if (this.filter.services.length) filter.services = [...this.filter.services];
+		if (this.filter.scopeNames.length) filter.scopeNames = [...this.filter.scopeNames];
 		if (this.filter.severityNumbers.length) filter.severityNumbers = [...this.filter.severityNumbers];
 		if (this.filter.search.trim()) filter.search = this.filter.search.trim();
 		if (this.filter.patternId) filter.patternId = this.filter.patternId;
@@ -346,6 +355,22 @@ export class LogsExplorerState {
 			this.knownServices = [...new Set(res.buckets.map((b) => b.groupKey).filter((k): k is string => !!k))].sort();
 		} catch {
 			// Non-critical - the service filter just shows fewer/no options until a retry.
+		}
+	}
+
+	/** `loadKnownServices`' counterpart for `knownScopes` - same wide 7-day, single-bucket, filter-independent aggregate. */
+	async loadKnownScopes(): Promise<void> {
+		try {
+			const to = new Date();
+			const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+			const res = await aggregateLogs({
+				filter: { from: from.toISOString(), to: to.toISOString() },
+				bucketWidthSeconds: 7 * 24 * 60 * 60,
+				groupBy: 'Scope'
+			});
+			this.knownScopes = [...new Set(res.buckets.map((b) => b.groupKey).filter((k): k is string => !!k))].sort();
+		} catch {
+			// Non-critical - the scope filter still accepts typed names/prefixes without suggestions.
 		}
 	}
 
@@ -482,6 +507,12 @@ export class LogsExplorerState {
 		this.applyFilterChange();
 	}
 
+	setScopeNames(scopeNames: string[]): void {
+		this.selectedBucketRange = null;
+		this.filter.scopeNames = scopeNames;
+		this.applyFilterChange();
+	}
+
 	/** Wholesale-replaces the user-built attribute filters (AttributeFiltersRow.svelte) - called on every row add/remove/edit, same "one setter, caller passes the full next array" shape as setServices/setSeverityNumbers. */
 	setAttributeFilters(attributeFilters: AttributeFilter[]): void {
 		this.selectedBucketRange = null;
@@ -565,6 +596,7 @@ export class LogsExplorerState {
 		return (
 			this.filter.search !== '' ||
 			this.filter.services.length > 0 ||
+			this.filter.scopeNames.length > 0 ||
 			this.filter.severityNumbers.length > 0 ||
 			this.filter.attributeFilters.length > 0 ||
 			this.filter.bodyJsonFilters.length > 0 ||
@@ -585,6 +617,7 @@ export class LogsExplorerState {
 		this.selectedBucketRange = null;
 		this.filter.search = '';
 		this.filter.services = [];
+		this.filter.scopeNames = [];
 		this.filter.severityNumbers = [];
 		this.filter.attributeFilters = [];
 		this.filter.bodyJsonFilters = [];
@@ -665,6 +698,7 @@ export class LogsExplorerState {
 				? { from: this.filter.customRange.from.toISOString(), to: this.filter.customRange.to.toISOString() }
 				: null,
 			services: [...this.filter.services],
+			scopeNames: [...this.filter.scopeNames],
 			severityNumbers: [...this.filter.severityNumbers],
 			search: this.filter.search,
 			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a })),
@@ -692,6 +726,7 @@ export class LogsExplorerState {
 			timeRangePreset: s.timeRangePreset ?? '1h',
 			customRange: s.customRange ? { from: new Date(s.customRange.from), to: new Date(s.customRange.to) } : null,
 			services: s.services ?? [],
+			scopeNames: s.scopeNames ?? [],
 			severityNumbers: s.severityNumbers ?? [],
 			search: s.search ?? '',
 			patternId: '', // never part of a saved view - see LogsFilterState.patternId's remarks
@@ -745,6 +780,7 @@ export class LogsExplorerState {
 			timeRangePreset: params.timeRangePreset,
 			customRange: null,
 			services: params.services,
+			scopeNames: [],
 			severityNumbers: [],
 			search: '',
 			patternId: '',

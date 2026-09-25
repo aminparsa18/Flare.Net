@@ -32,6 +32,7 @@ export class LogFilter {
 	search: string | null;
 	attributes: (AttributeFilter | null)[] | null;
 	bodyJsonFilters: (BodyJsonFilter | null)[] | null;
+	scopeNames: (string | null)[] | null;
 
 	constructor() {
 		this.from = null;
@@ -44,6 +45,7 @@ export class LogFilter {
 		this.search = null;
 		this.attributes = null;
 		this.bodyJsonFilters = null;
+		this.scopeNames = null;
 	}
 
 	static serialize(value: LogFilter | null): Uint8Array {
@@ -58,7 +60,7 @@ export class LogFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(10);
+		writer.writeObjectHeader(11);
 		writeNullableDateTimeOffset(writer, value.from);
 		writeNullableDateTimeOffset(writer, value.to);
 		writer.writeArray(value.services, (writer, x) => writer.writeString(x));
@@ -69,6 +71,7 @@ export class LogFilter {
 		writer.writeString(value.search);
 		writer.writeArray(value.attributes, (writer, x) => AttributeFilter.serializeCore(writer, x));
 		writer.writeArray(value.bodyJsonFilters, (writer, x) => BodyJsonFilter.serializeCore(writer, x));
+		writer.writeArray(value.scopeNames, (writer, x) => writer.writeString(x));
 	}
 
 	static deserialize(buffer: ArrayBuffer): LogFilter | null {
@@ -82,7 +85,7 @@ export class LogFilter {
 		}
 
 		const value = new LogFilter();
-		if (count == 10) {
+		if (count == 11) {
 			value.from = readNullableDateTimeOffset(reader);
 			value.to = readNullableDateTimeOffset(reader);
 			value.services = reader.readArray((reader) => reader.readString());
@@ -93,7 +96,8 @@ export class LogFilter {
 			value.search = reader.readString();
 			value.attributes = reader.readArray((reader) => AttributeFilter.deserializeCore(reader));
 			value.bodyJsonFilters = reader.readArray((reader) => BodyJsonFilter.deserializeCore(reader));
-		} else if (count > 10) {
+			value.scopeNames = reader.readArray((reader) => reader.readString());
+		} else if (count > 11) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -117,6 +121,8 @@ export class LogFilter {
 			if (count == 9) return value;
 			value.bodyJsonFilters = reader.readArray((reader) => BodyJsonFilter.deserializeCore(reader));
 			if (count == 10) return value;
+			value.scopeNames = reader.readArray((reader) => reader.readString());
+			if (count == 11) return value;
 		}
 		return value;
 	}
@@ -151,7 +157,8 @@ export function logFilterToPlain(dto: LogFilter): PlainLogFilter {
 						value: f!.value ?? '',
 						operator: bodyJsonFilterOperatorToString(f!.operator),
 						values: f!.values == null ? undefined : f!.values.map((v) => v ?? '')
-					}))
+					})),
+		scopeNames: dto.scopeNames == null ? undefined : dto.scopeNames.map((s) => s ?? '')
 	};
 }
 
@@ -190,5 +197,6 @@ export function logFilterFromPlain(filter: PlainLogFilter | undefined): LogFilte
 					jsonFilter.values = f.values ?? null;
 					return jsonFilter;
 				});
+	dto.scopeNames = filter.scopeNames ?? null;
 	return dto;
 }

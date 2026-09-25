@@ -143,6 +143,8 @@ export interface LogFilter {
 	search?: string;
 	attributes?: AttributeFilter[];
 	bodyJsonFilters?: BodyJsonFilter[];
+	/** Instrumentation scope names (the .NET logger category) - exact, or a prefix when the entry ends in `*` (e.g. `Microsoft.EntityFrameworkCore.*`). See `LogFilter.ScopeNames` (LogFilter.cs). */
+	scopeNames?: string[];
 }
 
 // ---- Log event DTO (LogEventDto.cs) ---------------------------------------
@@ -291,7 +293,7 @@ export async function getLogContext(request: LogContextRequest, signal?: AbortSi
 
 // ---- POST /api/logs/aggregate (LogAggregateRequest.cs / LogAggregateResponse) ----
 
-export type LogAggregateGroupBy = 'None' | 'Service' | 'Level' | 'Attribute';
+export type LogAggregateGroupBy = 'None' | 'Service' | 'Level' | 'Attribute' | 'Scope';
 
 export type LogPostProcessFunctionType = LogPostProcessFunctionTypeName;
 

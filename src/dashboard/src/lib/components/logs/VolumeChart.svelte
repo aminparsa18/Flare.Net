@@ -215,6 +215,7 @@
 		void explorer.filter.timeRangePreset;
 		void explorer.filter.customRange;
 		void explorer.filter.services;
+		void explorer.filter.scopeNames;
 		void explorer.filter.severityNumbers;
 		void explorer.filter.search;
 		// Everything else buildFilter reads - without these the chart stayed stale after an

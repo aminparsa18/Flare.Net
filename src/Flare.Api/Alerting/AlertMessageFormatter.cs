@@ -375,6 +375,7 @@ public static class AlertMessageFormatter
             Search = condition.Search ?? "",
             AttributeFilters = condition.Attributes ?? [],
             BodyJsonFilters = condition.BodyJsonFilters ?? [],
+            ScopeNames = condition.ScopeNames ?? [],
         };
 
         var json = JsonSerializer.SerializeToUtf8Bytes(state, AlertDeepLinkJsonContext.Default.LogsDeepLinkState);
@@ -408,6 +409,7 @@ internal sealed record LogsDeepLinkState
     public required string Search { get; init; }
     public required IReadOnlyList<AttributeFilter> AttributeFilters { get; init; }
     public required IReadOnlyList<BodyJsonFilter> BodyJsonFilters { get; init; }
+    public required IReadOnlyList<string> ScopeNames { get; init; }
 }
 
 internal sealed record LogsDeepLinkRange
