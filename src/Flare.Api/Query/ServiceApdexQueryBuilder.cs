@@ -21,7 +21,9 @@ public sealed record ServiceApdexSql(string Sql, ClickHouseParameterCollection P
 /// threshold T: satisfied (duration &lt;= T), tolerating (T &lt; duration &lt;= 4T),
 /// frustrated (duration &gt; 4T, the implicit remainder - not counted here since the
 /// score only needs satisfied/tolerating counts plus the total <see cref="ServiceOverviewQueryBuilder"/>'s
-/// query already produces as <c>RequestCount</c> for the same predicate).
+/// query already produces as <c>RequestCount</c> for the same predicate). An errored
+/// span (<c>STATUS_CODE_ERROR</c>) is always frustrated regardless of duration - see
+/// docs-internal/adr/0053-apdex-errors-count-as-frustrated.md.
 /// <para>
 /// T varies per <c>ServiceName</c>, so it can't be a single bound parameter - it's
 /// expressed as a ClickHouse <c>multiIf(ServiceName = svc0, t0, ServiceName = svc1, t1,
@@ -48,6 +50,7 @@ public static class ServiceApdexQueryBuilder
         parameters.AddParameter("from", (now - window).UtcDateTime);
         parameters.AddParameter("to", now.UtcDateTime);
         parameters.AddParameter("apdexDefaultThresholdNano", DefaultThresholdMs * NanosPerMilli);
+        parameters.AddParameter("errorStatus", "STATUS_CODE_ERROR");
 
         var clauses = new List<string>
         {
@@ -60,8 +63,8 @@ public static class ServiceApdexQueryBuilder
 
         var sql = "SELECT\n" +
             "    ServiceName,\n" +
-            $"    countIf(DurationNano <= {thresholdExpr}) AS ApdexSatisfiedCount,\n" +
-            $"    countIf(DurationNano > {thresholdExpr} AND DurationNano <= {thresholdExpr} * 4) AS ApdexToleratingCount\n" +
+            $"    countIf(StatusCode != {{errorStatus:String}} AND DurationNano <= {thresholdExpr}) AS ApdexSatisfiedCount,\n" +
+            $"    countIf(StatusCode != {{errorStatus:String}} AND DurationNano > {thresholdExpr} AND DurationNano <= {thresholdExpr} * 4) AS ApdexToleratingCount\n" +
             "FROM spans\n" +
             "WHERE " + string.Join(" AND ", clauses) + "\n" +
             "GROUP BY ServiceName";

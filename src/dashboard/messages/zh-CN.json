@@ -919,7 +919,7 @@
 	"servicesTable_noServicesDescription": "请扩大时间范围，或确认服务正在向 Flare 发送追踪数据。",
 	"apdexThresholdPopover_title": "Apdex 阈值",
 	"apdexThresholdPopover_titleForService": "{serviceName} 的 Apdex 阈值",
-	"apdexThresholdPopover_description": "耗时不超过该值（T）的请求计为满意；不超过其 4 倍计为可容忍。默认值：{defaultMs} 毫秒。",
+	"apdexThresholdPopover_description": "耗时不超过该值（T）的请求计为满意；不超过其 4 倍计为可容忍。出错的请求始终计为不满意。默认值：{defaultMs} 毫秒。",
 	"apdexThresholdPopover_invalidValue": "请输入不小于 1 的整数毫秒数。",
 	"apdexThresholdPopover_resetToDefault": "恢复默认值",
 	"apdexThresholdPopover_save": "保存",

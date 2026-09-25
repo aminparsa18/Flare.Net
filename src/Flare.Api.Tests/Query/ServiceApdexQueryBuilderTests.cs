@@ -13,9 +13,11 @@ public class ServiceApdexQueryBuilderTests
     {
         var result = ServiceApdexQueryBuilder.Build(TimeSpan.FromMinutes(15), Now, new Dictionary<string, int>());
 
-        Assert.Contains("countIf(DurationNano <= {apdexDefaultThresholdNano:UInt64}) AS ApdexSatisfiedCount", result.Sql);
         Assert.Contains(
-            "countIf(DurationNano > {apdexDefaultThresholdNano:UInt64} AND DurationNano <= {apdexDefaultThresholdNano:UInt64} * 4) AS ApdexToleratingCount",
+            "countIf(StatusCode != {errorStatus:String} AND DurationNano <= {apdexDefaultThresholdNano:UInt64}) AS ApdexSatisfiedCount",
+            result.Sql);
+        Assert.Contains(
+            "countIf(StatusCode != {errorStatus:String} AND DurationNano > {apdexDefaultThresholdNano:UInt64} AND DurationNano <= {apdexDefaultThresholdNano:UInt64} * 4) AS ApdexToleratingCount",
             result.Sql);
         Assert.DoesNotContain("multiIf", result.Sql);
 
@@ -42,6 +44,18 @@ public class ServiceApdexQueryBuilderTests
         var boundThresholds = new[] { (ulong)parameters["apdexThreshold0"]!, (ulong)parameters["apdexThreshold1"]! };
         Assert.Contains(250UL * 1_000_000UL, boundThresholds);
         Assert.Contains(1000UL * 1_000_000UL, boundThresholds);
+    }
+
+    [Fact]
+    public void Build_ExcludesErroredSpansFromSatisfiedAndTolerating_SoTheyCountAsFrustrated()
+    {
+        var overrides = new Dictionary<string, int> { ["checkout-api"] = 250 };
+
+        var result = ServiceApdexQueryBuilder.Build(TimeSpan.FromMinutes(15), Now, overrides);
+
+        Assert.Contains("countIf(StatusCode != {errorStatus:String} AND DurationNano <= multiIf(", result.Sql);
+        Assert.Contains("countIf(StatusCode != {errorStatus:String} AND DurationNano > multiIf(", result.Sql);
+        Assert.Equal("STATUS_CODE_ERROR", result.Parameters.ToDictionary()["errorStatus"]);
     }
 
     [Fact]
