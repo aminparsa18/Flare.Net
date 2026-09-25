@@ -46,35 +46,35 @@
     <PackageVersion Include="Aspire.Hosting.Redis" Version="13.5.4" />
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.5.4" />
     <!-- Flare.ServiceDefaults: standard Aspire template observability stack -->
-    <PackageVersion Include="MailKit" Version="4.17.0" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.11" />
+    <PackageVersion Include="MailKit" Version="4.18.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.10.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.12" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
     <!-- Flare.Aspire (project: src/Aspire.Flare/) - the client-side package (v2 roadmap item).
-         Pinned at 10.0.11 to match Microsoft.Extensions.Diagnostics.HealthChecks above (same
+         Pinned at 10.0.12 to match Microsoft.Extensions.Diagnostics.HealthChecks above (same
          .NET 10 servicing train). -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.12" />
     <!-- Flare.Ingest: OTLP receiver -->
-    <PackageVersion Include="Grpc.AspNetCore" Version="2.83.0" />
-    <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.84.0" />
+    <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
     <!-- Flare.Api: query API (search/filter/time-range/aggregate) over the ClickHouse
-         `logs` table. OpenApi pinned at 10.0.11 to match Microsoft.Extensions.Diagnostics.HealthChecks
+         `logs` table. OpenApi pinned at 10.0.12 to match Microsoft.Extensions.Diagnostics.HealthChecks
          above (same .NET 10 servicing train) - gives a browsable /openapi endpoint for
          manually exercising the API before the dashboard (still an open question, see
          Planning.md #1) exists to call it. -->
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
-    <!-- Microsoft.AspNetCore.OpenApi 10.0.11 transitively pulls Microsoft.OpenApi 2.0.0,
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <!-- Microsoft.AspNetCore.OpenApi 10.0.12 transitively pulls Microsoft.OpenApi 2.0.0,
          which has a known high-severity advisory (GHSA-v5pm-xwqc-g5wc, circular schema
          references can hang the parser) fixed in 2.7.5. Pinned directly + referenced
          from Flare.Api.csproj so the direct reference wins over the transitive one. -->
-    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.12.2" />
     <!-- MemoryPack. Originally added for Flare.Api's phase 0 JSON->MemoryPack
          request/response migration (see
          docs-internal/investigations/memorypack-serialization-migration-scope.md) and now
@@ -92,24 +92,24 @@
          handler was split out of the Microsoft.AspNetCore.App shared framework into its
          own NuGet package back in .NET Core 3.0 and never moved back - a real
          FrameworkReference gap, confirmed by the CS0234 this package fixes. Pinned at
-         10.0.11 to match every other .NET-10-servicing-train package above. -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.11" />
+         10.0.12 to match every other .NET-10-servicing-train package above. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.12" />
     <!-- Flare.Api: shares the Data Protection key ring across replicas via Redis (Planning.md's
          "Multi-node scaling" item) so a mid-Entra/OIDC-handshake external cookie survives
-         landing on a different replica than the one that issued it. Pinned at 10.0.11 to
+         landing on a different replica than the one that issued it. Pinned at 10.0.12 to
          match every other .NET-10-servicing-train package above. -->
-    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" Version="10.0.12" />
     <!-- Flare.Api: Active Directory (LDAP) login (Planning.md's "Active Directory auth"
          item, docs/auth.md). Cross-platform LDAP client (works from the Linux container
          this project ships) - unlike classic System.DirectoryServices/ADSI, which is
-         Windows-only. Pinned at 10.0.11 to match every other .NET-10-servicing-train
+         Windows-only. Pinned at 10.0.12 to match every other .NET-10-servicing-train
          package above. -->
-    <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.11" />
+    <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.12" />
     <!-- Flare.Identity: local username/password auth + roles, embedded-SQLite-backed
          (Planning.md's "Auth + multi-user / roles" Later-roadmap item, 2026-08-10 design
          decision - SQLite over a new Postgres container, see docs/auth.md). Pinned at
-         10.0.11 to match every other .NET-10-servicing-train package above. -->
-    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+         10.0.12 to match every other .NET-10-servicing-train package above. -->
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <!-- PasswordHasher<T> (Auth/AspNetPasswordHasher.cs) comes from the ASP.NET Core
          shared framework (Microsoft.AspNetCore.App FrameworkReference) in .NET 10, not a
          separate Microsoft.Extensions.Identity.Core package reference - confirmed via
@@ -120,8 +120,8 @@
          restructured its packages in 3.x, which Microsoft.Data.Sqlite 10.0.x doesn't
          target) - pinned directly + referenced from Flare.Identity.csproj so it wins over
          the transitive 2.1.11 floor, same pattern already used above for Microsoft.OpenApi. -->
-    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
-    <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.13" />
     <!-- Flare.Api: the Kubernetes resource-topology provider (Planning.md's Kubernetes
          resource-topology item) - KubernetesResources.KubernetesResourcePoller uses this to
          talk to the in-cluster Kubernetes API server (bearer-token + CA-trust plumbing via
@@ -140,8 +140,8 @@
          flatcontainer index (next releases are 1.0.0-alpha.*, not yet stable). -->
     <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
     <!-- Tests -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
   </ItemGroup>
 </Project>
