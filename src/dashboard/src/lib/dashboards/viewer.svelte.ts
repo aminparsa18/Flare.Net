@@ -20,11 +20,11 @@
 // API endpoint" shape, just scoped to one panel within `dashboard` instead of a whole
 // dashboard in the list.
 
-import { getDashboard, updateDashboard, type DashboardSummary, type DashboardPanel, type DashboardLayout, type DashboardVariable } from '$lib/dashboards-api';
+import { getDashboard, updateDashboard, type DashboardSummary, type DashboardPanel, type DashboardLayout, type DashboardRow, type DashboardVariable } from '$lib/dashboards-api';
 import type { TimeRangePreset } from '$lib/logs/time-range';
 import { type RefreshInterval, refreshIntervalMs } from './refresh-intervals';
 import { getHomeDashboardId, setHomeDashboardId, clearHomeDashboardIdIfMatching } from './home-preference';
-import { nextPanelPosition } from './layout';
+import { nextPanelPosition, panelsInRow } from './layout';
 import { slugify } from './state.svelte';
 import { downloadBlob } from '$lib/logs/export';
 import { resolveQueryVariableOptions, type VariableDependency } from './variables';
@@ -103,6 +103,19 @@ export class DashboardViewerState {
 	 *  page's own toggleHome()). */
 	isHome = $state(false);
 
+	/**
+	 * Ids of the rows currently collapsed on screen - seeded from each row's saved
+	 * `collapsed` flag on load, then toggled by `toggleRowCollapsed`. Outside edit mode a
+	 * toggle only changes this set (session-only, same rule as `timeRangeOverride`), so
+	 * anyone viewing a dashboard can fold rows away without changing it for everyone else.
+	 */
+	collapsedRowIds = $state<Set<string>>(new Set());
+
+	/** `dashboard.layout.rows`, or `[]` for a dashboard with none. */
+	get rows(): DashboardRow[] {
+		return this.dashboard?.layout.rows ?? [];
+	}
+
 	async load(id: string): Promise<void> {
 		this.loading = true;
 		this.error = null;
@@ -110,6 +123,7 @@ export class DashboardViewerState {
 			this.dashboard = await getDashboard(id);
 			this.isHome = getHomeDashboardId() === id;
 			this.variables = this.dashboard.layout.variables;
+			this.collapsedRowIds = new Set(this.rows.filter((r) => r.collapsed).map((r) => r.id));
 			this.#reseedVariableValues();
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
@@ -257,15 +271,19 @@ export class DashboardViewerState {
 		this.#stopAutoRefresh();
 	}
 
-	/** Persists `layout`, carrying `dashboard.layout.variables` forward untouched unless the
-	 *  caller's `layout` already specifies its own - every layout-mutating method below
-	 *  (updateLayout/addPanel/renamePanel/removePanel) only ever means to touch `panels`, so
-	 *  without this a drag/resize would silently wipe out every variable definition the next
-	 *  time it fired. */
-	async #saveLayout(layout: Pick<DashboardLayout, 'panels'> & Partial<Pick<DashboardLayout, 'variables'>>): Promise<DashboardSummary | null> {
+	/** Persists `layout`, carrying `dashboard.layout.variables`/`rows` forward untouched
+	 *  unless the caller's `layout` already specifies its own - most layout-mutating methods
+	 *  below (updateLayout/addPanel/renamePanel/removePanel) only ever mean to touch `panels`,
+	 *  so without this a drag/resize would silently wipe out every variable definition and
+	 *  row the next time it fired. */
+	async #saveLayout(layout: Pick<DashboardLayout, 'panels'> & Partial<Pick<DashboardLayout, 'variables' | 'rows'>>): Promise<DashboardSummary | null> {
 		const dashboard = this.dashboard;
 		if (!dashboard) return null;
-		const full: DashboardLayout = { panels: layout.panels, variables: layout.variables ?? dashboard.layout.variables };
+		const full: DashboardLayout = {
+			panels: layout.panels,
+			variables: layout.variables ?? dashboard.layout.variables,
+			rows: layout.rows ?? dashboard.layout.rows ?? []
+		};
 		return updateDashboard(dashboard.id, { name: dashboard.name, description: dashboard.description, layout: full });
 	}
 
@@ -284,7 +302,7 @@ export class DashboardViewerState {
 		if (!dashboard) return;
 		const byId = new Map(changes.map((c) => [c.id, c.layout]));
 		const panels = dashboard.layout.panels.map((p) => (byId.has(p.id) ? { ...p, layout: byId.get(p.id)! } : p));
-		this.dashboard = { ...dashboard, layout: { panels, variables: dashboard.layout.variables } };
+		this.dashboard = { ...dashboard, layout: { ...dashboard.layout, panels } };
 		try {
 			await this.#saveLayout({ panels });
 		} catch (err) {
@@ -380,8 +398,8 @@ export class DashboardViewerState {
 	}
 
 	/** Appends an independent copy of `panelId` (new id, "(copy)" title, placed below every
-	 *  existing panel per nextPanelPosition - same placement AddPanelDialog gives a brand-new
-	 *  panel) right after it in the same dashboard. Mirrors DashboardsState.duplicate(), just
+	 *  existing panel in the original's own row per nextPanelPosition - same placement
+	 *  AddPanelDialog gives a brand-new panel) right after it in the same dashboard. Mirrors DashboardsState.duplicate(), just
 	 *  one panel instead of a whole dashboard, and going through addPanel's own PUT rather
 	 *  than a fresh createDashboard() call since there's no new dashboard here. */
 	async duplicatePanel(panelId: string): Promise<void> {
@@ -393,7 +411,7 @@ export class DashboardViewerState {
 			...original,
 			id: crypto.randomUUID(),
 			title: m.dashboardTable_duplicateName({ name: original.title }),
-			layout: nextPanelPosition(dashboard.layout.panels)
+			layout: nextPanelPosition(panelsInRow(dashboard.layout.panels, this.rows, this.#effectiveRowId(original)))
 		});
 	}
 
@@ -408,6 +426,113 @@ export class DashboardViewerState {
 		const body = { panelType: panel.panelType, title: panel.title, layout: { w: panel.layout.w, h: panel.layout.h }, query: panel.query };
 		const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json;charset=utf-8' });
 		downloadBlob(blob, `flare-dashboard-panel_${slugify(panel.title, 'panel')}.json`);
+	}
+
+	// ---- Rows (DashboardRowSection.svelte) ---------------------------------------------
+
+	/** `panel.rowId` if it names a row that still exists, else `null` (ungrouped) - see `panelsInRow`. */
+	#effectiveRowId(panel: DashboardPanel): string | null {
+		return panel.rowId && this.rows.some((r) => r.id === panel.rowId) ? panel.rowId : null;
+	}
+
+	/** Appends a new, empty, expanded row below every existing one. */
+	async addRow(title: string): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels, rows: [...this.rows, { id: crypto.randomUUID(), title }] });
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	async renameRow(rowId: string, title: string): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels, rows: this.rows.map((r) => (r.id === rowId ? { ...r, title } : r)) });
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/** Swaps `rowId` with its neighbor above (`-1`) or below (`1`); a no-op at either end. */
+	async moveRow(rowId: string, direction: -1 | 1): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		const rows = [...this.rows];
+		const index = rows.findIndex((r) => r.id === rowId);
+		const target = index + direction;
+		if (index < 0 || target < 0 || target >= rows.length) return;
+		[rows[index], rows[target]] = [rows[target], rows[index]];
+		try {
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels, rows });
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/**
+	 * Removes a row but never its panels - they move to the ungrouped area, stacked below
+	 * whatever is already there with their relative arrangement kept (every one shifted
+	 * down by the same amount), so deleting a row can't silently delete panels with it.
+	 */
+	async removeRow(rowId: string): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		const ungrouped = panelsInRow(dashboard.layout.panels, this.rows, null);
+		const offset = nextPanelPosition(ungrouped).y;
+		const panels = dashboard.layout.panels.map((p) =>
+			this.#effectiveRowId(p) === rowId ? { ...p, rowId: undefined, layout: { ...p.layout, y: p.layout.y + offset } } : p
+		);
+		try {
+			this.dashboard = await this.#saveLayout({ panels, rows: this.rows.filter((r) => r.id !== rowId) });
+			const collapsed = new Set(this.collapsedRowIds);
+			collapsed.delete(rowId);
+			this.collapsedRowIds = collapsed;
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/** Moves `panelId` into `rowId` (`null` = ungrouped), placed below that row's existing
+	 *  panels at its current size. */
+	async movePanelToRow(panelId: string, rowId: string | null): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		const panel = dashboard.layout.panels.find((p) => p.id === panelId);
+		if (!panel || this.#effectiveRowId(panel) === rowId) return;
+		const { y } = nextPanelPosition(panelsInRow(dashboard.layout.panels, this.rows, rowId));
+		const moved: DashboardPanel = { ...panel, rowId: rowId ?? undefined, layout: { ...panel.layout, x: 0, y } };
+		try {
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels.map((p) => (p.id === panelId ? moved : p)) });
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/**
+	 * Collapses/expands `rowId` on screen. In edit mode the new state is also saved as the
+	 * row's `collapsed` default (what everyone sees on open); outside edit mode it's
+	 * session-only - viewing a dashboard never changes it, same rule drag/resize follows.
+	 */
+	async toggleRowCollapsed(rowId: string): Promise<void> {
+		const collapsed = new Set(this.collapsedRowIds);
+		const next = !collapsed.has(rowId);
+		if (next) collapsed.add(rowId);
+		else collapsed.delete(rowId);
+		this.collapsedRowIds = collapsed;
+
+		const dashboard = this.dashboard;
+		if (!dashboard || !this.editing) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels,
+				rows: this.rows.map((r) => (r.id === rowId ? { ...r, collapsed: next || undefined } : r))
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
 	}
 
 	// ---- Variables (ManageVariablesDialog.svelte) -------------------------------------

@@ -11,7 +11,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { listDashboards, createDashboard, updateDashboard, type DashboardSummary, type PanelType } from '$lib/dashboards-api';
-	import { nextPanelPosition } from '$lib/dashboards/layout';
+	import { nextPanelPosition, panelsInRow } from '$lib/dashboards/layout';
 	import { authContext } from '$lib/auth/context';
 	import * as m from '$lib/paraglide/messages';
 
@@ -82,7 +82,8 @@
 				id: crypto.randomUUID(),
 				panelType,
 				title: panelTitle,
-				layout: nextPanelPosition(existingPanels),
+				// A pinned panel always lands in the ungrouped area above any rows.
+				layout: nextPanelPosition(panelsInRow(existingPanels, target?.layout.rows ?? [], null)),
 				query: currentState()
 			};
 
@@ -92,7 +93,7 @@
 				await updateDashboard(target.id, {
 					name: target.name,
 					description: target.description,
-					layout: { panels: [...existingPanels, panel], variables: target.layout.variables }
+					layout: { panels: [...existingPanels, panel], variables: target.layout.variables, rows: target.layout.rows }
 				});
 			}
 			open = false;

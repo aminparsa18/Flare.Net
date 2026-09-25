@@ -66,6 +66,29 @@ export interface DashboardPanel {
 	 * `$lib/dashboards/thresholds.ts` for the shape and the first-match-wins precedence rule.
 	 */
 	thresholds?: PanelThreshold[];
+	/**
+	 * `id` of the `DashboardRow` this panel sits under, or `undefined`/`null` for the
+	 * ungrouped area above every row (where every panel lived before rows existed).
+	 * `layout.y` is relative to that row's own grid, not the whole dashboard - each row is
+	 * its own gridstack instance (see docs-internal/adr/0054-dashboard-collapsible-rows.md).
+	 * An id naming a since-removed row is treated as ungrouped, same "stale reference,
+	 * silently inert" posture `excludedVariableIds` has.
+	 */
+	rowId?: string | null;
+}
+
+/**
+ * A named, collapsible section of a dashboard owning every panel whose `rowId` names it
+ * (roadmap's "Collapsible rows / panel groups on dashboards" item). Rows render in array
+ * order, below the ungrouped panels. A collapsed row doesn't mount its panels at all, so
+ * none of them run a query until it's expanded.
+ */
+export interface DashboardRow {
+	id: string;
+	title: string;
+	/** Whether the row starts collapsed when the dashboard is opened. Toggling a row outside
+	 *  edit mode is session-only and never changes this - see `DashboardViewerState.toggleRowCollapsed`. */
+	collapsed?: boolean;
 }
 
 /**
@@ -136,6 +159,8 @@ export interface DashboardLayout {
 	panels: DashboardPanel[];
 	/** Defaults to `[]` for any dashboard saved before this field existed - see `parseLayout`. */
 	variables: DashboardVariable[];
+	/** Absent (or `[]`) for a dashboard with no rows, including every one saved before rows existed. */
+	rows?: DashboardRow[];
 }
 
 /** A named, multi-panel dashboard. */
@@ -175,7 +200,11 @@ const EMPTY_LAYOUT: DashboardLayout = { panels: [], variables: [] };
 export function parseLayout(raw: unknown): DashboardLayout {
 	if (raw != null && typeof raw === 'object' && Array.isArray((raw as DashboardLayout).panels)) {
 		const layout = raw as Partial<DashboardLayout>;
-		return { panels: layout.panels!, variables: Array.isArray(layout.variables) ? layout.variables : [] };
+		return {
+			panels: layout.panels!,
+			variables: Array.isArray(layout.variables) ? layout.variables : [],
+			rows: Array.isArray(layout.rows) ? layout.rows : []
+		};
 	}
 	return EMPTY_LAYOUT;
 }

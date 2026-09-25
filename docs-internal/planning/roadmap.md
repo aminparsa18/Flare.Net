@@ -82,14 +82,6 @@ folders are where "what happened and why" actually lives.
   click-to-sort columns [signoz#5114](https://github.com/SigNoz/signoz/commit/0760917a4b54bf6629a5c08d02201407797d00bf),
   in-table search [signoz#5893](https://github.com/SigNoz/signoz/commit/cb1cd3555b3b63bdb441512dacdebf2599db67d7);
   and units on pie-chart values [signoz#5960](https://github.com/SigNoz/signoz/commit/3573c0863c59711d48b28d91d4d775dbc4929666).
-- **Collapsible rows / panel groups on dashboards.** Dashboards are one
-  flat gridstack grid; a named, collapsible row that owns the panels
-  beneath it would keep large dashboards navigable (and, collapsed, skip
-  querying those panels - pairs naturally with the existing lazy-load-on-
-  scroll gating). Frontend-only apart from the stored layout shape. Not
-  started. A collapsed row should show how many panels it holds. Prior
-  art: [signoz#4806](https://github.com/SigNoz/signoz/commit/191d9b0648bc084cf0d4adbfc00ca1238721cf90),
-  panel count on collapsed rows [signoz#5822](https://github.com/SigNoz/signoz/commit/afc97511af366bb6f78408a30c420ade573b6610).
 - **Planned maintenance windows (alert silencing).** No way to mute
   notifications today - a deploy or planned downtime pages everyone. A
   maintenance window = a set of alert rules (or all) + a one-off or

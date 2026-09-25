@@ -4,7 +4,7 @@
 // same "don't overlap what's already there" behavior, so it lives here once rather than
 // being duplicated inline in each dialog.
 
-import type { DashboardPanel } from '$lib/dashboards-api';
+import type { DashboardPanel, DashboardRow } from '$lib/dashboards-api';
 
 /** Columns in the dashboard grid (DashboardGrid.svelte's `GridStack.init({ column })`). */
 export const GRID_COLUMNS = 12;
@@ -22,4 +22,18 @@ const DEFAULT_HEIGHT = 4;
 export function nextPanelPosition(existing: readonly DashboardPanel[]): DashboardPanel['layout'] {
 	const y = existing.reduce((max, p) => Math.max(max, p.layout.y + p.layout.h), 0);
 	return { x: 0, y, w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT };
+}
+
+/**
+ * The panels in one grid section: `rowId === null` is the ungrouped area above every row.
+ * A panel whose `rowId` names no row in `rows` (the row was removed) counts as ungrouped,
+ * so it can never become unreachable. Each section is its own gridstack grid, so
+ * `nextPanelPosition` should only ever be given one section's panels.
+ */
+export function panelsInRow(panels: readonly DashboardPanel[], rows: readonly DashboardRow[], rowId: string | null): DashboardPanel[] {
+	const rowIds = new Set(rows.map((r) => r.id));
+	return panels.filter((p) => {
+		const effective = p.rowId && rowIds.has(p.rowId) ? p.rowId : null;
+		return effective === rowId;
+	});
 }

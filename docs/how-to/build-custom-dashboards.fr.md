@@ -84,6 +84,39 @@ Chaque changement est enregistré immédiatement — il n'y a pas d'étape
 et reverrouiller la disposition (le mode affichage ne risque jamais un
 glisser-déposer accidentel).
 
+## Regrouper des panneaux en lignes
+
+Une ligne est une section nommée et repliable qui contient un groupe de
+panneaux, pratique pour garder un grand tableau de bord lisible. En mode
+édition :
+
+- **Ajouter une ligne** (dans l'en-tête) ajoute une ligne vide en bas.
+  Cliquez sur son titre pour la renommer.
+- L'icône **+** dans l'en-tête d'une ligne ajoute un nouveau panneau
+  directement dans cette ligne.
+- Le menu **Déplacer vers la ligne** de chaque panneau (l'icône de lignes
+  dans son en-tête) le déplace dans n'importe quelle ligne, ou le renvoie
+  en haut du tableau de bord (« Aucune ligne »). Un panneau ne peut pas
+  être glissé d'une ligne à une autre. Chaque ligne est une grille
+  distincte, utilisez donc ce menu.
+- Les icônes **flèche** dans l'en-tête d'une ligne la déplacent vers le
+  haut ou vers le bas.
+- L'icône **corbeille** supprime la ligne. Ses panneaux sont conservés et
+  déplacés en haut du tableau de bord.
+
+Cliquez sur le chevron d'une ligne (ou sur son titre, hors mode édition)
+pour la replier ou la déplier. Une ligne repliée indique combien de
+panneaux elle contient, et **aucun de ses panneaux ne se charge ni
+n'exécute de requête** tant que vous ne la dépliez pas. Replier les
+sections peu consultées est donc un moyen peu coûteux d'alléger un tableau
+de bord chargé.
+
+Replier une ligne hors mode édition ne dure que le temps de votre session
+et ne change rien pour les autres utilisateurs. Replier ou déplier une
+ligne *en* mode édition enregistre cet état comme valeur par défaut de la
+ligne, c'est-à-dire ce que tout le monde voit à l'ouverture du tableau de
+bord.
+
 ## Définir une plage d'axe Y sur un panneau Metrics
 
 En mode édition, l'en-tête d'un panneau Metrics comporte aussi une icône
@@ -362,6 +395,9 @@ consomme ni ne supprime une recherche enregistrée.
   panneau sont conservés, pas les requêtes (voir « Gérer les tableaux de
   bord » ci-dessus pour le pourquoi). Une vraie traduction des requêtes
   n'est pas prévue ; les sources de données n'ont pas d'équivalent.
+  Les lignes Grafana sont aussi aplaties : leurs panneaux sont importés,
+  mais pas sous forme de lignes Flare. Regroupez-les après l'import (voir
+  « Regrouper des panneaux en lignes »).
 - **Pas d'import par panneau** — la duplication et l'export fonctionnent par
   panneau (voir « Modifier la disposition d'un tableau de bord » ci-dessus),
   mais le JSON exporté d'un panneau ne peut pas être réimporté ; seul
