@@ -77,6 +77,7 @@ nunit-*.xml
 
 # graphify knowledge-graph output - regeneratable, not source
 graphify-out/
+.graphifyignore
 
 # Flare.AppHost's local-dev embedded identity SQLite file (Users/Sessions/IngestApiKeys)
 # - see AppHost.cs's identityDbPath. Runtime data, not source, same reasoning as
