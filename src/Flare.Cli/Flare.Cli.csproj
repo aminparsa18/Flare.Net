@@ -105,7 +105,7 @@
   <ItemGroup>
     <!-- Generated stack definition, embedded so `flare start` can materialize it into
          ~/.flare/ on first run without this repo checked out. NOT root docker-compose.yml
-         re-embedded verbatim: references published xracer007/flare-* images (image:), not
+         re-embedded verbatim: references published apardev/flare-* images (image:), not
          local build contexts (build:), since this tool runs from an arbitrary directory,
          not necessarily a Flare.Net checkout. -->
     <EmbeddedResource Include="Templates\docker-compose.flare.yml">

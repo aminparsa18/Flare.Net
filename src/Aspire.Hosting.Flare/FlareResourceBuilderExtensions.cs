@@ -81,7 +81,7 @@ public static class FlareResourceBuilderExtensions
     /// when overriding just an image name/registry - there's no separate per-image tag
     /// override.
     /// <para>
-    /// <c>xracer007/flare-alert-worker</c> has been published on Docker Hub since the
+    /// <c>apardev/flare-alert-worker</c> has been published on Docker Hub since the
     /// <c>v0.5.0</c> Flare release (<c>docs-internal/adr/0018-alert-worker-extraction.md</c>'s
     /// release gate) - any tag from <c>0.5.0</c> onward resolves for all four images,
     /// alert-worker included.
@@ -1199,10 +1199,10 @@ public static class FlareResourceBuilderExtensions
 /// </summary>
 internal static class FlareContainerImageTags
 {
-    internal const string IngestImage = "xracer007/flare-ingest";
-    internal const string ApiImage = "xracer007/flare-api";
-    internal const string DashboardImage = "xracer007/flare-dashboard";
-    internal const string AlertWorkerImage = "xracer007/flare-alert-worker";
+    internal const string IngestImage = "apardev/flare-ingest";
+    internal const string ApiImage = "apardev/flare-api";
+    internal const string DashboardImage = "apardev/flare-dashboard";
+    internal const string AlertWorkerImage = "apardev/flare-alert-worker";
 
     /// <summary>
     /// Third-party image (not one of Flare's own published ones above) for the opt-in

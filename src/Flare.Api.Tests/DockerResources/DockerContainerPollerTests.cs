@@ -36,7 +36,7 @@ public class DockerContainerPollerTests
         {
             Id = id,
             Name = name,
-            Config = new DockerContainerConfig { Image = "xracer007/flare-ingest:edge", Labels = labels },
+            Config = new DockerContainerConfig { Image = "apardev/flare-ingest:edge", Labels = labels },
             State = new DockerContainerState { Status = status, Health = healthStatus is null ? null : new DockerContainerHealth { Status = healthStatus } },
             NetworkSettings = new DockerNetworkSettings { Ports = ports },
         };
@@ -53,7 +53,7 @@ public class DockerContainerPollerTests
         Assert.Equal("abc123def456", node.Id); // Docker's conventional 12-char short ID.
         Assert.Equal("ingest", node.Role);
         Assert.Equal("flare-net-ingest-1", node.Name); // leading "/" stripped.
-        Assert.Equal("xracer007/flare-ingest:edge", node.Image);
+        Assert.Equal("apardev/flare-ingest:edge", node.Image);
         Assert.Equal(ResourceState.Running, node.State);
         Assert.Null(node.Health);
         Assert.Equal("Container", node.Kind);

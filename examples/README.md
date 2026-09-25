@@ -7,7 +7,7 @@ dashboard without having to wire up your own logger first.
 
 - **`ExampleApp.AppHost`** — the whole example. `builder.AddFlare("flare")` brings up
   ClickHouse, Redis, the OTLP ingest receiver, the query API, and the dashboard —
-  pulling Flare's published `xracer007/flare-*` Docker Hub images, not building
+  pulling Flare's published `apardev/flare-*` Docker Hub images, not building
   anything from source. `.WithReference(flare)` on the log generator injects
   `ConnectionStrings__flare` (Flare.Ingest's OTLP/gRPC endpoint).
 - **`ExampleApp.LogGenerator`** — an ASP.NET Core app with one Flare-specific line:

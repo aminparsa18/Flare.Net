@@ -17,7 +17,7 @@ public class KubernetesResourcePollerTests
         string? role,
         string? relationships = null,
         string? phase = "Running",
-        string image = "xracer007/flare-ingest:edge",
+        string image = "apardev/flare-ingest:edge",
         bool? ready = true)
     {
         var labels = new Dictionary<string, string>();
@@ -69,7 +69,7 @@ public class KubernetesResourcePollerTests
         Assert.Equal("flare-net-ingest-abc123", pod.Id);
         Assert.Equal("flare-net-ingest-abc123", pod.Name);
         Assert.Equal("ingest", pod.Role); // Role, not Id - see ResourceNodeDto.Role's remarks.
-        Assert.Equal("xracer007/flare-ingest:edge", pod.Image);
+        Assert.Equal("apardev/flare-ingest:edge", pod.Image);
         Assert.Equal(deployment.Id, pod.ParentId);
         Assert.Equal(ResourceState.Running, pod.State);
         Assert.Equal(ResourceHealth.Healthy, pod.Health);

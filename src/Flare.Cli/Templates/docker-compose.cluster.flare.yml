@@ -6,7 +6,7 @@
 # the two distribution paths stay behaviorally in sync:
 #
 #   1. ingest-1/ingest-2/api/dashboard use published `image:` references
-#      (xracer007/flare-*), not `build: context: .` - this file has to work from an
+#      (apardev/flare-*), not `build: context: .` - this file has to work from an
 #      arbitrary directory on an arbitrary machine with no Flare.Net checkout present,
 #      unlike the repo's own file. keeper-*/clickhouse-*/clickhouse-lb/redis already used
 #      published images in the root file, so those blocks are unchanged.
@@ -203,7 +203,7 @@ services:
   # port mappings since OTLP ports aren't proxied - point OTLP clients at whichever
   # replica, or add a load balancer in front for real use.
   ingest-1:
-    image: xracer007/flare-ingest:${FLARE_IMAGE_TAG:-edge}
+    image: apardev/flare-ingest:${FLARE_IMAGE_TAG:-edge}
     restart: unless-stopped
     labels:
       flare.resource: "true"
@@ -229,7 +229,7 @@ services:
       retries: 20
 
   ingest-2:
-    image: xracer007/flare-ingest:${FLARE_IMAGE_TAG:-edge}
+    image: apardev/flare-ingest:${FLARE_IMAGE_TAG:-edge}
     restart: unless-stopped
     labels:
       flare.resource: "true"
@@ -255,7 +255,7 @@ services:
       retries: 20
 
   api:
-    image: xracer007/flare-api:${FLARE_IMAGE_TAG:-edge}
+    image: apardev/flare-api:${FLARE_IMAGE_TAG:-edge}
     restart: unless-stopped
     labels:
       flare.resource: "true"
@@ -297,7 +297,7 @@ services:
   # traffic for `api`'s own thread pool. Same clickhouse-lb/redis endpoints as `api` -
   # no new backing store.
   alert-worker:
-    image: xracer007/flare-alert-worker:${FLARE_IMAGE_TAG:-edge}
+    image: apardev/flare-alert-worker:${FLARE_IMAGE_TAG:-edge}
     restart: unless-stopped
     labels:
       flare.resource: "true"
@@ -330,7 +330,7 @@ services:
       retries: 20
 
   dashboard:
-    image: xracer007/flare-dashboard:${FLARE_IMAGE_TAG:-edge}
+    image: apardev/flare-dashboard:${FLARE_IMAGE_TAG:-edge}
     labels:
       flare.resource: "true"
       flare.role: "dashboard"

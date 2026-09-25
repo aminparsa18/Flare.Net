@@ -1,5 +1,5 @@
 # Builds and publishes Flare's four distributable images to Docker Hub under the
-# account named by the DOCKERHUB_USERNAME repo variable (currently `xracer007`)
+# account named by the DOCKERHUB_USERNAME repo variable (currently `apardev`)
 # (Planning.md's "Next — v1.1" roadmap item). This is what an
 # eventual `Flare.Hosting.Aspire` package will wrap via AddContainer(...) — see
 # Flare.AppHost/Program.cs for the resource graph that package replicates against

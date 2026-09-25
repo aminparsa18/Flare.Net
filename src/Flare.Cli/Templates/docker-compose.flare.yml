@@ -4,7 +4,7 @@
 # healthchecks, volumes, labels, the docker-proxy opt-in profile) is kept identical on
 # purpose so the two distribution paths stay behaviorally in sync:
 #
-#   1. ingest/api/dashboard use published `image:` references (xracer007/flare-*), not
+#   1. ingest/api/dashboard use published `image:` references (apardev/flare-*), not
 #      `build: context: .` - this file has to work from an arbitrary directory on an
 #      arbitrary machine with no Flare.Net checkout present, unlike the repo's own file.
 #   2. The ClickHouse init scripts bind-mount points at ./db/clickhouse relative to THIS
@@ -50,7 +50,7 @@ services:
       retries: 20
 
   ingest:
-    image: xracer007/flare-ingest:${FLARE_IMAGE_TAG:-edge}
+    image: apardev/flare-ingest:${FLARE_IMAGE_TAG:-edge}
     # Restarts after a crash or a Docker daemon restart, but (unlike `always`) doesn't
     # fight an explicit `docker compose stop`/`flare stop`. Kept in sync with the root
     # docker-compose.yml's identical restart comment on this service.
@@ -80,7 +80,7 @@ services:
       retries: 20
 
   api:
-    image: xracer007/flare-api:${FLARE_IMAGE_TAG:-edge}
+    image: apardev/flare-api:${FLARE_IMAGE_TAG:-edge}
     # See ingest's identical restart comment above.
     restart: unless-stopped
     labels:
@@ -125,7 +125,7 @@ services:
   # depends on - no new backing store. Kept in sync with the root docker-compose.yml's
   # identical alert-worker service.
   alert-worker:
-    image: xracer007/flare-alert-worker:${FLARE_IMAGE_TAG:-edge}
+    image: apardev/flare-alert-worker:${FLARE_IMAGE_TAG:-edge}
     # See ingest's identical restart comment above.
     restart: unless-stopped
     labels:
@@ -160,7 +160,7 @@ services:
       retries: 20
 
   dashboard:
-    image: xracer007/flare-dashboard:${FLARE_IMAGE_TAG:-edge}
+    image: apardev/flare-dashboard:${FLARE_IMAGE_TAG:-edge}
     labels:
       flare.resource: "true"
       flare.role: "dashboard"

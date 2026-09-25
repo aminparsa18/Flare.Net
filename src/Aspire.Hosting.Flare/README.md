@@ -23,12 +23,12 @@ builder.Build().Run();
 
 `AddFlare` wires up ClickHouse (log storage), Redis (the batched-insert buffer), the OTLP
 ingest receiver, the query API, the alert-rule evaluation worker, and the dashboard SPA -
-pulling Flare's published Docker Hub images (`xracer007/flare-ingest`, `xracer007/flare-api`,
-`xracer007/flare-alert-worker`, `xracer007/flare-dashboard`) rather than building from source,
+pulling Flare's published Docker Hub images (`apardev/flare-ingest`, `apardev/flare-api`,
+`apardev/flare-alert-worker`, `apardev/flare-dashboard`) rather than building from source,
 the same way [`docker-compose.yml`](https://github.com/aminparsa18/Flare.Net/blob/main/docker-compose.yml)
 in Flare's own repo does.
 
-> **No published `xracer007/flare-alert-worker` image exists yet.** `AddFlare` unconditionally
+> **No published `apardev/flare-alert-worker` image exists yet.** `AddFlare` unconditionally
 > adds an alert-worker container as of this package version, but until a Flare release actually
 > publishes that image (see [ADR-0018](https://github.com/aminparsa18/Flare.Net/blob/main/docs-internal/adr/0018-alert-worker-extraction.md)'s
 > release gate), the pull for it will fail. Don't bump past this package version's `imageTag`
