@@ -170,8 +170,3 @@ folders are where "what happened and why" actually lives.
 - **Expand/collapse all in the trace waterfall.** `TraceWaterfall` has no
   expand-all/collapse-all control. Frontend-only, tiny. Not started.
   Prior art: [signoz#5980](https://github.com/SigNoz/signoz/commit/266ed58908402553898cd7571c03d9810a02ba2a).
-- **Keep the dashboard out of search indexes.** No `noindex` meta tag or
-  `robots.txt` in `src/dashboard` - an internet-exposed Flare can get
-  indexed. Add `<meta name="robots" content="noindex, nofollow">` in
-  `app.html` and a deny-all `static/robots.txt`. Tiny. Not started. Prior
-  art: [signoz#5793](https://github.com/SigNoz/signoz/commit/88ace79a644a12a3b32684c524ec81eca1cb137f).

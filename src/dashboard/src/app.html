@@ -20,6 +20,11 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="%sveltekit.assets%/favicon-16x16.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<!-- A self-hosted observability UI has nothing a search engine should index, and an
+		     internet-exposed Flare would otherwise leak its login page (and, via any
+		     unauthenticated route, more) into results. static/robots.txt denies crawling;
+		     this covers pages reached by a direct link, which robots.txt alone doesn't. -->
+		<meta name="robots" content="noindex, nofollow" />
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
