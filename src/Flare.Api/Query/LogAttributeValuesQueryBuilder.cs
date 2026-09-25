@@ -21,7 +21,7 @@ public static class LogAttributeValuesQueryBuilder
 {
     public static LogAttributeValuesSql Build(LogAttributeValuesRequest request, DateTimeOffset now)
     {
-        if (string.IsNullOrEmpty(request.Key))
+        if (request.Field == LogValuesField.Attribute && string.IsNullOrEmpty(request.Key))
         {
             throw new ArgumentOutOfRangeException(nameof(request), request.Key, "Key must be non-empty.");
         }
@@ -32,22 +32,36 @@ public static class LogAttributeValuesQueryBuilder
         }
 
         var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now);
-        var column = LogFilterSqlBuilder.ColumnFor(request.Bag);
-
-        filterSql.Parameters.AddParameter("valuesKey", request.Key);
         filterSql.Parameters.AddParameter("valuesLimit", request.Limit);
 
-        var whereClauses = new List<string> { filterSql.WhereSql, $"mapContains({column}, {{valuesKey:String}})" };
+        var whereClauses = new List<string> { filterSql.WhereSql };
+        string valueSql;
+        switch (request.Field)
+        {
+            case LogValuesField.Service:
+                valueSql = "ServiceName";
+                break;
+            case LogValuesField.Severity:
+                valueSql = "toString(SeverityNumber)";
+                break;
+            default:
+                var column = LogFilterSqlBuilder.ColumnFor(request.Bag);
+                filterSql.Parameters.AddParameter("valuesKey", request.Key);
+                valueSql = $"{column}[{{valuesKey:String}}]";
+                whereClauses.Add($"mapContains({column}, {{valuesKey:String}})");
+                break;
+        }
+
         if (!string.IsNullOrEmpty(request.Prefix))
         {
             // Same substring/case-insensitive ILIKE convention LogFilterSqlBuilder.Build
             // uses for LogFilter.Search - the caller's already-typed text narrows candidates
             // rather than requiring it as an exact/anchored match.
             filterSql.Parameters.AddParameter("valuesPrefix", LogFilterSqlBuilder.ContainsPattern(request.Prefix));
-            whereClauses.Add($"{column}[{{valuesKey:String}}] ILIKE {{valuesPrefix:String}}");
+            whereClauses.Add($"{valueSql} ILIKE {{valuesPrefix:String}}");
         }
 
-        var sql = $"SELECT {column}[{{valuesKey:String}}] AS Value, count() AS Cnt\n" +
+        var sql = $"SELECT {valueSql} AS Value, count() AS Cnt\n" +
             "FROM logs\n" +
             $"WHERE {string.Join(" AND ", whereClauses)}\n" +
             "GROUP BY Value\n" +

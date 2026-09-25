@@ -19,6 +19,7 @@ export class SpanFilter {
 	minDurationNano: bigint | null;
 	maxDurationNano: bigint | null;
 	attributes: (SpanAttributeFilter | null)[] | null;
+	names: (string | null)[] | null;
 
 	constructor() {
 		this.from = null;
@@ -31,6 +32,7 @@ export class SpanFilter {
 		this.minDurationNano = null;
 		this.maxDurationNano = null;
 		this.attributes = null;
+		this.names = null;
 	}
 
 	static serialize(value: SpanFilter | null): Uint8Array {
@@ -45,7 +47,7 @@ export class SpanFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(10);
+		writer.writeObjectHeader(11);
 		writeNullableDateTimeOffset(writer, value.from);
 		writeNullableDateTimeOffset(writer, value.to);
 		writer.writeArray(value.services, (writer, x) => writer.writeString(x));
@@ -56,6 +58,7 @@ export class SpanFilter {
 		writer.writeNullableUint64(value.minDurationNano);
 		writer.writeNullableUint64(value.maxDurationNano);
 		writer.writeArray(value.attributes, (writer, x) => SpanAttributeFilter.serializeCore(writer, x));
+		writer.writeArray(value.names, (writer, x) => writer.writeString(x));
 	}
 
 	static deserialize(buffer: ArrayBuffer): SpanFilter | null {
@@ -69,7 +72,7 @@ export class SpanFilter {
 		}
 
 		const value = new SpanFilter();
-		if (count == 10) {
+		if (count == 11) {
 			value.from = readNullableDateTimeOffset(reader);
 			value.to = readNullableDateTimeOffset(reader);
 			value.services = reader.readArray((reader) => reader.readString());
@@ -80,7 +83,8 @@ export class SpanFilter {
 			value.minDurationNano = reader.readNullableUint64();
 			value.maxDurationNano = reader.readNullableUint64();
 			value.attributes = reader.readArray((reader) => SpanAttributeFilter.deserializeCore(reader));
-		} else if (count > 10) {
+			value.names = reader.readArray((reader) => reader.readString());
+		} else if (count > 11) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -104,6 +108,8 @@ export class SpanFilter {
 			if (count == 9) return value;
 			value.attributes = reader.readArray((reader) => SpanAttributeFilter.deserializeCore(reader));
 			if (count == 10) return value;
+			value.names = reader.readArray((reader) => reader.readString());
+			if (count == 11) return value;
 		}
 		return value;
 	}

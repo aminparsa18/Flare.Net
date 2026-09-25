@@ -83,4 +83,29 @@ public class SpanAttributeValuesQueryBuilderTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => SpanAttributeValuesQueryBuilder.Build(Request(limit: limit), Now));
     }
+
+    [Theory]
+    [InlineData(SpanValuesField.Service, "ServiceName")]
+    [InlineData(SpanValuesField.Status, "toString(StatusCode)")]
+    [InlineData(SpanValuesField.Kind, "toString(Kind)")]
+    [InlineData(SpanValuesField.Name, "Name")]
+    public void Build_BuiltInField_SelectsColumn_WithoutKeyOrMapContains(SpanValuesField field, string valueSql)
+    {
+        var result = SpanAttributeValuesQueryBuilder.Build(new SpanAttributeValuesRequest { Field = field }, Now);
+
+        Assert.Contains($"SELECT {valueSql} AS Value", result.Sql);
+        Assert.DoesNotContain("mapContains", result.Sql);
+        Assert.DoesNotContain("valuesKey", result.Parameters.ToDictionary().Keys);
+    }
+
+    [Fact]
+    public void Build_DurationBucket_MapsEachBoundToItsLowerBound_WithOpenEndedLastBucket()
+    {
+        var result = SpanAttributeValuesQueryBuilder.Build(new SpanAttributeValuesRequest { Field = SpanValuesField.DurationBucket }, Now);
+
+        Assert.Contains(
+            "SELECT toString(multiIf(DurationNano < 1000000, 0, DurationNano < 10000000, 1000000, DurationNano < 100000000, 10000000, " +
+            "DurationNano < 500000000, 100000000, DurationNano < 1000000000, 500000000, DurationNano < 5000000000, 1000000000, 5000000000)) AS Value",
+            result.Sql);
+    }
 }

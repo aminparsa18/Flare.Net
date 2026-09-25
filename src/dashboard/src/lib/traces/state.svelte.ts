@@ -7,6 +7,7 @@
 
 import { searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter } from '$lib/traces-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
+import { durationBucketRange } from './duration-buckets';
 
 const PAGE_SIZE = 100;
 
@@ -18,17 +19,26 @@ export interface TracesFilterState {
 	services: string[];
 	/** User-built attribute filters (SpanAttributeFiltersRow.svelte's expandable builder section) - ANDed together, same shape LogsFilterState.attributeFilters documents for Logs. */
 	attributeFilters: SpanAttributeFilter[];
+	/** Root-span status labels (`STATUS_CODE_*`), any of - set from the facet sidebar. */
+	statusCodes: string[];
+	/** Root-span OTel SpanKind numbers, any of - set from the facet sidebar. */
+	kinds: number[];
+	/** Root-span names (the operation), any of - set from the facet sidebar. */
+	names: string[];
+	/** Lower bound (ns) of the facet sidebar's selected duration bucket, `null` = any - see `$lib/traces/duration-buckets.ts`. */
+	durationBucketNano: number | null;
 }
 
-/** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). */
-export type TracesSavedViewState = TracesFilterState;
+/** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). The facet fields are optional: views saved before they existed simply lack them. */
+export type TracesSavedViewState = Omit<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano'> &
+	Partial<Pick<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano'>>;
+
+function emptyFilter(timeRangePreset: TimeRangePreset, services: string[] = [], attributeFilters: SpanAttributeFilter[] = []): TracesFilterState {
+	return { timeRangePreset, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null };
+}
 
 export class TracesExplorerState {
-	filter = $state<TracesFilterState>({
-		timeRangePreset: '1h',
-		services: [],
-		attributeFilters: []
-	});
+	filter = $state<TracesFilterState>(emptyFilter('1h'));
 
 	// One row per trace (root spans only) - never mutated in place, always a wholesale
 	// reassignment (fresh search or page append), same $state.raw rationale
@@ -98,6 +108,14 @@ export class TracesExplorerState {
 			filter.to = range.to;
 		}
 		if (this.filter.services.length) filter.services = [...this.filter.services];
+		if (this.filter.statusCodes.length) filter.statusCodes = [...this.filter.statusCodes];
+		if (this.filter.kinds.length) filter.kinds = [...this.filter.kinds];
+		if (this.filter.names.length) filter.names = [...this.filter.names];
+		if (this.filter.durationBucketNano !== null) {
+			const { min, max } = durationBucketRange(this.filter.durationBucketNano);
+			filter.minDurationNano = min;
+			if (max !== undefined) filter.maxDurationNano = max;
+		}
 		const attributes = overrides?.attributeFilters ?? this.filter.attributeFilters;
 		if (attributes.length) filter.attributes = [...attributes];
 		return filter;
@@ -202,19 +220,45 @@ export class TracesExplorerState {
 		void this.runSearch();
 	}
 
+	setStatusCodes(statusCodes: string[]): void {
+		this.filter.statusCodes = statusCodes;
+		void this.runSearch();
+	}
+
+	setKinds(kinds: number[]): void {
+		this.filter.kinds = kinds;
+		void this.runSearch();
+	}
+
+	setNames(names: string[]): void {
+		this.filter.names = names;
+		void this.runSearch();
+	}
+
+	setDurationBucketNano(lowerBoundNano: number | null): void {
+		this.filter.durationBucketNano = lowerBoundNano;
+		void this.runSearch();
+	}
+
 	/** Whether the toolbar's "Clear filters" button has anything to do - same fields `resetFilters` zeroes out. */
 	hasActiveFilters(): boolean {
-		return this.filter.services.length > 0 || this.filter.attributeFilters.length > 0;
+		return (
+			this.filter.services.length > 0 ||
+			this.filter.attributeFilters.length > 0 ||
+			this.filter.statusCodes.length > 0 ||
+			this.filter.kinds.length > 0 ||
+			this.filter.names.length > 0 ||
+			this.filter.durationBucketNano !== null
+		);
 	}
 
 	/**
-	 * Toolbar's "Clear filters" button - same "services + attribute filters, leave the
-	 * time range alone" scope LogsExplorerState.resetFilters documents for itself (this
-	 * page has no search/severity/sticky-drilldown fields to also reset).
+	 * Toolbar's "Clear filters" button - every content filter (services, attribute
+	 * filters, the facet sidebar's status/kind/operation/duration), leaving the time range
+	 * alone - same scope LogsExplorerState.resetFilters documents for itself.
 	 */
 	resetFilters(): void {
-		this.filter.services = [];
-		this.filter.attributeFilters = [];
+		this.filter = emptyFilter(this.filter.timeRangePreset);
 		void this.runSearch();
 	}
 
@@ -223,14 +267,24 @@ export class TracesExplorerState {
 		return {
 			timeRangePreset: this.filter.timeRangePreset,
 			services: [...this.filter.services],
-			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a }))
+			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a })),
+			statusCodes: [...this.filter.statusCodes],
+			kinds: [...this.filter.kinds],
+			names: [...this.filter.names],
+			durationBucketNano: this.filter.durationBucketNano
 		};
 	}
 
 	/** Restores a saved view's filter (defensively narrowed - see `LogsExplorerState.applySavedViewState`'s identical caveat) and re-runs the search. */
 	applySavedViewState(state: unknown): void {
 		const s = (state ?? {}) as Partial<TracesSavedViewState>;
-		this.filter = { timeRangePreset: s.timeRangePreset ?? '1h', services: s.services ?? [], attributeFilters: s.attributeFilters ?? [] };
+		this.filter = {
+			...emptyFilter(s.timeRangePreset ?? '1h', s.services ?? [], s.attributeFilters ?? []),
+			statusCodes: s.statusCodes ?? [],
+			kinds: s.kinds ?? [],
+			names: s.names ?? [],
+			durationBucketNano: typeof s.durationBucketNano === 'number' ? s.durationBucketNano : null
+		};
 		void this.runSearch();
 	}
 
@@ -243,7 +297,7 @@ export class TracesExplorerState {
 	 * reset fields.
 	 */
 	applyDeepLinkFilter(params: { services: string[]; timeRangePreset: TimeRangePreset }): void {
-		this.filter = { timeRangePreset: params.timeRangePreset, services: params.services, attributeFilters: [] };
+		this.filter = emptyFilter(params.timeRangePreset, params.services);
 		void this.runSearch();
 	}
 

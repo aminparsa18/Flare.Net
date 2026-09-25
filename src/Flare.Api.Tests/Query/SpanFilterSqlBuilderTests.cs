@@ -61,6 +61,15 @@ public class SpanFilterSqlBuilderTests
     }
 
     [Fact]
+    public void Build_WithNames_AddsInClause_AndArrayParameter()
+    {
+        var result = SpanFilterSqlBuilder.Build(new SpanFilter { Names = ["GET /orders"] }, Now);
+
+        Assert.Contains("Name IN {names:Array(String)}", result.WhereSql);
+        Assert.Equal(["GET /orders"], (string[])result.Parameters.ToDictionary()["names"]!);
+    }
+
+    [Fact]
     public void Build_WithTraceId_AddsEqualityClause()
     {
         var result = SpanFilterSqlBuilder.Build(new SpanFilter { TraceId = "0102030405060708090a0b0c0d0e0f10" }, Now);

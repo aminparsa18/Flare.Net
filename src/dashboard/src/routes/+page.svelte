@@ -17,9 +17,21 @@
 	import LogTable from '$lib/components/logs/LogTable.svelte';
 	import EventDetailSheet from '$lib/components/logs/EventDetailSheet.svelte';
 	import LogContextSheet from '$lib/components/logs/LogContextSheet.svelte';
+	import FacetSidebar from '$lib/components/facets/FacetSidebar.svelte';
+	import { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
+	import { DEFAULT_LOG_ATTRIBUTE_FACETS, LOG_FACET_BAGS, logFacetDefinitions, logFacetReloadKey } from '$lib/logs/facets';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.set(new LogsExplorerState());
+
+	const facetPrefs = new FacetSidebarPrefs('flare.logs.facetSidebar', DEFAULT_LOG_ATTRIBUTE_FACETS, LOG_FACET_BAGS);
+	const facets = $derived(logFacetDefinitions(explorer, facetPrefs));
+	const facetReloadKey = $derived(logFacetReloadKey(explorer));
+	const facetBagOptions = [
+		{ value: 'Log' as const, label: m.attributeFilters_bagLog() },
+		{ value: 'Resource' as const, label: m.attributeFilters_bagResource() },
+		{ value: 'Scope' as const, label: m.attributeFilters_bagScope() }
+	];
 
 	function handleVisibilityChange() {
 		explorer.handleVisibilityChange(document.hidden);
@@ -91,13 +103,18 @@
 
 <div class="flex h-full flex-col">
 	<LogsToolbar />
-	<VolumeChart />
-	<ValueDistributionChart />
-	<AttributeFiltersRow />
-	<BodyJsonFiltersRow />
-	<SqlQueryRow />
-	<div class="flex min-h-0 flex-1 flex-col">
-		<LogTable />
+	<div class="flex min-h-0 flex-1">
+		<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
+		<div class="flex min-w-0 flex-1 flex-col">
+			<VolumeChart />
+			<ValueDistributionChart />
+			<AttributeFiltersRow />
+			<BodyJsonFiltersRow />
+			<SqlQueryRow />
+			<div class="flex min-h-0 flex-1 flex-col">
+				<LogTable />
+			</div>
+		</div>
 	</div>
 </div>
 <EventDetailSheet />

@@ -56,6 +56,12 @@ public static class SpanFilterSqlBuilder
             clauses.Add("StatusCode IN {statusCodes:Array(String)}");
         }
 
+        if (filter.Names is { Count: > 0 } names)
+        {
+            parameters.AddParameter("names", names.ToArray());
+            clauses.Add("Name IN {names:Array(String)}");
+        }
+
         if (!string.IsNullOrEmpty(filter.TraceId))
         {
             parameters.AddParameter("traceId", filter.TraceId);

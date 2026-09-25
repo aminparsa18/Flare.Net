@@ -21,8 +21,8 @@ public sealed partial record LogAttributeValuesRequest
     /// <summary>Which bag <see cref="Key"/> is looked up in - same three bags <see cref="AttributeFilter.Bag"/> targets.</summary>
     public AttributeBag Bag { get; init; } = AttributeBag.Log;
 
-    /// <summary>The attribute key to enumerate observed values for.</summary>
-    public required string Key { get; init; }
+    /// <summary>The attribute key to enumerate observed values for. Ignored (may be empty) unless <see cref="Field"/> is <see cref="LogValuesField.Attribute"/>.</summary>
+    public string Key { get; init; } = "";
 
     /// <summary>
     /// Case-insensitive substring the caller has already typed, if any - narrows candidates
@@ -34,6 +34,26 @@ public sealed partial record LogAttributeValuesRequest
 
     /// <summary>Max distinct values returned, most-observed first.</summary>
     public int Limit { get; init; } = 25;
+
+    /// <summary>
+    /// What to enumerate: an attribute (<see cref="Bag"/> + <see cref="Key"/>, the default)
+    /// or one of the built-in columns - the Logs facet sidebar's Service/Severity sections.
+    /// Appended last so older clients that never send it stay wire-compatible.
+    /// </summary>
+    public LogValuesField Field { get; init; } = LogValuesField.Attribute;
+}
+
+/// <summary>Source column for <see cref="LogAttributeValuesRequest.Field"/>.</summary>
+public enum LogValuesField
+{
+    /// <summary><see cref="LogAttributeValuesRequest.Bag"/>[<see cref="LogAttributeValuesRequest.Key"/>].</summary>
+    Attribute,
+
+    /// <summary><c>ServiceName</c>.</summary>
+    Service,
+
+    /// <summary><c>SeverityNumber</c>, as its decimal string (<c>"0"</c>-<c>"24"</c>) - the caller buckets it.</summary>
+    Severity,
 }
 
 /// <summary>One distinct value observed for a <see cref="LogAttributeValuesRequest.Key"/>, with how many in-scope events carry it.</summary>

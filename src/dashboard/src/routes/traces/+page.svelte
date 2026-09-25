@@ -16,10 +16,22 @@
 	import ServicesTable from '$lib/components/services/ServicesTable.svelte';
 	import ServiceDependencyGraph from '$lib/components/services/ServiceDependencyGraph.svelte';
 	import ServiceCallBreakdownDialog from '$lib/components/services/ServiceCallBreakdownDialog.svelte';
+	import FacetSidebar from '$lib/components/facets/FacetSidebar.svelte';
+	import { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
+	import { TRACE_FACET_BAGS, traceFacetDefinitions, traceFacetReloadKey } from '$lib/traces/facets';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = tracesExplorerContext.set(new TracesExplorerState());
 	const services = servicesContext.set(new ServicesState());
+
+	const facetPrefs = new FacetSidebarPrefs('flare.traces.facetSidebar', [], TRACE_FACET_BAGS);
+	const facets = $derived(traceFacetDefinitions(explorer, facetPrefs));
+	const facetReloadKey = $derived(traceFacetReloadKey(explorer));
+	const facetBagOptions = [
+		{ value: 'Span' as const, label: m.attributeFilters_bagSpan() },
+		{ value: 'Resource' as const, label: m.attributeFilters_bagResource() },
+		{ value: 'Scope' as const, label: m.attributeFilters_bagScope() }
+	];
 
 	// Local, page-only UI state - same "doesn't belong on a shared state class" call the
 	// trace-detail page's own activeTab already makes. Defaults to 'traces' (the search
@@ -106,9 +118,14 @@
 <div class="flex h-full flex-col">
 	{#if activeTab === 'traces'}
 		<TracesToolbar {activeTab} onTabChange={setActiveTab} />
-		<SpanAttributeFiltersRow />
-		<div class="flex min-h-0 flex-1 flex-col">
-			<TraceList />
+		<div class="flex min-h-0 flex-1">
+			<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
+			<div class="flex min-w-0 flex-1 flex-col">
+				<SpanAttributeFiltersRow />
+				<div class="flex min-h-0 flex-1 flex-col">
+					<TraceList />
+				</div>
+			</div>
 		</div>
 	{:else}
 		<ServicesToolbar {activeTab} onTabChange={setActiveTab} />
