@@ -1,0 +1,3 @@
+# Flare dashboard - a self-hosted observability UI, not public content.
+User-agent: *
+Disallow: /
