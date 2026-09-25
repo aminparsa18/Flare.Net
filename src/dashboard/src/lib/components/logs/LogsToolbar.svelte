@@ -19,6 +19,7 @@
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { setActiveLogsExplorer } from '$lib/logs/active-explorer.svelte';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
+	import { setLastUsedViewId } from '$lib/saved-views/last-used';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
@@ -139,7 +140,17 @@
 
 	<LogsLinesPerRowMenu lines={explorer.filter.maxLinesPerRow} onChange={(lines) => explorer.setMaxLinesPerRow(lines)} />
 
-	<Button variant="ghost" size="sm" onclick={() => explorer.resetFilters()} disabled={!explorer.hasActiveFilters()}>
+	<!-- Clearing filters also leaves whatever saved view was loaded, so the next visit
+	     starts from defaults rather than restoring it ($lib/saved-views/last-used.ts). -->
+	<Button
+		variant="ghost"
+		size="sm"
+		onclick={() => {
+			explorer.resetFilters();
+			setLastUsedViewId('Logs', null);
+		}}
+		disabled={!explorer.hasActiveFilters()}
+	>
 		<XIcon data-icon="inline-start" />
 		{m.logsToolbar_clearFilters()}
 	</Button>

@@ -11,6 +11,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import SaveSearchDialog from './SaveSearchDialog.svelte';
 	import { listSavedViews, deleteSavedView, type SavedView } from '$lib/saved-views-api';
+	import { forgetLastUsedViewId, setLastUsedViewId } from '$lib/saved-views/last-used';
 	import StarIcon from '@lucide/svelte/icons/star';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import SaveIcon from '@lucide/svelte/icons/save';
@@ -53,7 +54,14 @@
 
 	async function handleSelect(view: SavedView): Promise<void> {
 		open = false;
+		setLastUsedViewId('Logs', view.id);
 		await applyState(view.state);
+	}
+
+	// Same "remember what was just saved" as ViewsMenu's handleSaved.
+	function handleSaved(view: SavedView): void {
+		setLastUsedViewId('Logs', view.id);
+		void loadViews();
 	}
 
 	function handleSaveClick(): void {
@@ -67,6 +75,7 @@
 		deleteError = null;
 		try {
 			await deleteSavedView(view.id);
+			forgetLastUsedViewId(view.id);
 			views = views.filter((v) => v.id !== view.id); // local update - no refetch/close needed
 		} catch (err) {
 			deleteError = err instanceof Error ? err.message : String(err);
@@ -141,4 +150,4 @@
 	</Popover.Content>
 </Popover.Root>
 
-<SaveSearchDialog bind:open={saveDialogOpen} {currentState} onSaved={loadViews} />
+<SaveSearchDialog bind:open={saveDialogOpen} {currentState} onSaved={handleSaved} />

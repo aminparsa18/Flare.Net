@@ -14,6 +14,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { tracesExplorerContext } from '$lib/traces/context';
 	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
+	import { setLastUsedViewId } from '$lib/saved-views/last-used';
 	import * as m from '$lib/paraglide/messages';
 
 	interface Props {
@@ -82,7 +83,17 @@
 		onChange={(next) => explorer.setServices(next)}
 	/>
 
-	<Button variant="ghost" size="sm" onclick={() => explorer.resetFilters()} disabled={!explorer.hasActiveFilters()}>
+	<!-- Clearing filters also leaves whatever saved view was loaded, so the next visit
+	     starts from defaults rather than restoring it ($lib/saved-views/last-used.ts). -->
+	<Button
+		variant="ghost"
+		size="sm"
+		onclick={() => {
+			explorer.resetFilters();
+			setLastUsedViewId('Traces', null);
+		}}
+		disabled={!explorer.hasActiveFilters()}
+	>
 		<XIcon data-icon="inline-start" />
 		{m.tracesToolbar_clearFilters()}
 	</Button>

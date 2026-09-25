@@ -10,6 +10,7 @@
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import SaveViewDialog from './SaveViewDialog.svelte';
 	import { listSavedViews, type PageType, type SavedView } from '$lib/saved-views-api';
+	import { setLastUsedViewId } from '$lib/saved-views/last-used';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import SaveIcon from '@lucide/svelte/icons/save';
@@ -51,7 +52,15 @@
 
 	async function handleSelect(view: SavedView): Promise<void> {
 		open = false;
+		setLastUsedViewId(pageType, view.id);
 		await applyState(view.state);
+	}
+
+	// Saving captures the current state, so the page is now "in" that view - remember it
+	// the same as picking it (see $lib/saved-views/last-used.ts).
+	function handleSaved(view: SavedView): void {
+		setLastUsedViewId(pageType, view.id);
+		void loadViews();
 	}
 
 	function handleSaveClick(): void {
@@ -99,4 +108,4 @@
 	</Popover.Content>
 </Popover.Root>
 
-<SaveViewDialog bind:open={saveDialogOpen} {pageType} {currentState} onSaved={loadViews} />
+<SaveViewDialog bind:open={saveDialogOpen} {pageType} {currentState} onSaved={handleSaved} />

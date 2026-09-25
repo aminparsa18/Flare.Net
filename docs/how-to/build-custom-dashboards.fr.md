@@ -413,6 +413,14 @@ Rien n'empêche d'avoir à la fois une recherche enregistrée et un panneau de
 tableau de bord pour la même requête — épingler/ajouter un panneau ne
 consomme ni ne supprime une recherche enregistrée.
 
+Chaque page retient aussi la dernière recherche enregistrée que vous avez
+ouverte (ou enregistrée) depuis son menu **Views**, et la rouvre à votre
+prochaine visite sur cette page sans lien. Ce souvenir est propre au
+navigateur, pas au compte. **Clear filters** sur Logs/Traces l'oublie, tout
+comme la suppression de cette recherche enregistrée. Un lien partagé
+`?view=`, un lien profond depuis une autre page ou un tableau de bord
+d'accueil passent toujours avant.
+
 ## Limites connues, dites clairement
 
 - **L'import Grafana n'est que structurel** — la disposition et le type de

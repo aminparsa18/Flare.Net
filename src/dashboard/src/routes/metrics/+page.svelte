@@ -5,6 +5,7 @@
 	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
+	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
 	import MetricsToolbar from '$lib/components/metrics/MetricsToolbar.svelte';
 	import MetricPicker from '$lib/components/metrics/MetricPicker.svelte';
 	import MetricChart from '$lib/components/metrics/MetricChart.svelte';
@@ -66,7 +67,11 @@
 			// ?view=<id> (a saved view's shareable link) takes priority - applySavedViewState
 			// already loads names + re-selects the saved metric itself, so loadNames() below
 			// is only reached with no (or an invalid) view id.
-			const view = await resolveRequestedSavedView(page.url, 'Metrics');
+			// A bare visit restores the saved view last picked here instead
+			// ($lib/saved-views/last-used.ts) - never over a `?view=` link.
+			const view =
+				(await resolveRequestedSavedView(page.url, 'Metrics')) ??
+				(page.url.searchParams.size === 0 ? await resolveLastUsedSavedView('Metrics') : null);
 			if (view) {
 				await explorer.applySavedViewState(view.state);
 			} else {
