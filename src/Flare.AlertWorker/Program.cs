@@ -20,6 +20,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<QueryLimitsOptions>(builder.Configuration.GetSection(QueryLimitsOptions.SectionName));
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
+builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
 
 builder.Services.Configure<AlertingOptions>(builder.Configuration.GetSection(AlertingOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));

@@ -145,6 +145,12 @@ doesn't fire. See [ADR-0050](../../docs-internal/adr/0050-alert-minimum-data-poi
 the default for every existing rule). See
 [ADR-0052](../../docs-internal/adr/0052-alert-notification-templates.md).
 
+`0031_maintenance_windows.sql` - planned maintenance windows (alert silencing): a new
+`maintenance_windows` table (same CRUD-via-tombstone `ReplacingMergeTree` as
+`notification_channels`) and `alert_events.SuppressedByWindow` (`''` for every event that
+notified normally). See
+[ADR-0055](../../docs-internal/adr/0055-alert-maintenance-windows.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

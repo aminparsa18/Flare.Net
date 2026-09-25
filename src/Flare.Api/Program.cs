@@ -328,6 +328,9 @@ builder.Services.AddSingleton<EmailAlertNotifier>();
 builder.Services.AddSingleton<CompositeAlertNotifier>();
 builder.Services.AddSingleton<IAlertNotifier>(sp => sp.GetRequiredService<CompositeAlertNotifier>());
 builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
+// Maintenance windows (ADR-0055) - CRUD here; AlertEvaluationWorker reads the same table to
+// suppress notifications while one is active.
+builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
 
 builder.Services.AddOpenApi();
 
@@ -429,6 +432,9 @@ memberRoutes.MapAlertEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a channel holds a live
 // webhook/bot-token/routing-key secret and its "send test" action pages people too.
 memberRoutes.MapNotificationChannelEndpoints();
+// Same Member/Admin-only rationale as MapAlertEndpoints above - a maintenance window silences
+// alert notifications.
+memberRoutes.MapMaintenanceWindowEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a pipeline rule mutates
 // every future log's Body/attributes at ingest, not just something read-only.
 memberRoutes.MapPipelineRuleEndpoints();

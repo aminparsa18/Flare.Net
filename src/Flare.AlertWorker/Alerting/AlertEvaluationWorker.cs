@@ -48,10 +48,16 @@ namespace Flare.AlertWorker.Alerting;
 /// rather than per process, for the same moving-lock-holder reason - see
 /// <c>docs-internal/adr/0046-per-rule-alert-evaluation-interval.md</c>.
 /// </para>
+/// <para>
+/// A breach while a <see cref="MaintenanceWindow"/> covering the rule is active is still
+/// recorded in history, as "Suppressed", but not notified - see
+/// <c>docs-internal/adr/0055-alert-maintenance-windows.md</c>.
+/// </para>
 /// </remarks>
 public sealed class AlertEvaluationWorker(
     IAlertQueryService alerts,
     INotificationChannelQueryService channels,
+    IMaintenanceWindowQueryService maintenanceWindows,
     CompositeAlertNotifier notifier,
     IConnectionMultiplexer redis,
     IOptions<AlertingOptions> options,
@@ -116,6 +122,7 @@ public sealed class AlertEvaluationWorker(
         }
 
         var dueRules = await FilterDueRulesAsync(rules, opts);
+        var windows = await LoadMaintenanceWindowsAsync(cancellationToken);
 
         foreach (var rule in dueRules.Take(opts.MaxRulesPerTick))
         {
@@ -133,7 +140,7 @@ public sealed class AlertEvaluationWorker(
                         TimeSpan.FromSeconds(rule.EvaluationIntervalSeconds));
                 }
 
-                await EvaluateRuleAsync(rule, cancellationToken);
+                await EvaluateRuleAsync(rule, windows, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -193,7 +200,25 @@ public sealed class AlertEvaluationWorker(
             .ToList();
     }
 
-    private async Task EvaluateRuleAsync(AlertRule rule, CancellationToken cancellationToken)
+    /// <summary>
+    /// Every maintenance window, read once per tick. Fails open to none: paging during a
+    /// planned window is far cheaper than silently dropping a real alert because the windows
+    /// couldn't be read - same trade-off as <see cref="FilterDueRulesAsync"/>.
+    /// </summary>
+    private async Task<IReadOnlyList<MaintenanceWindow>> LoadMaintenanceWindowsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await maintenanceWindows.ListAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Failed to load maintenance windows; notifying as if none were active this tick.");
+            return [];
+        }
+    }
+
+    private async Task EvaluateRuleAsync(AlertRule rule, IReadOnlyList<MaintenanceWindow> windows, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         var from = now - TimeSpan.FromSeconds(rule.WindowSeconds);
@@ -274,10 +299,27 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        var lastFired = await alerts.GetLastFiredAsync(rule.Id, cancellationToken);
+        // Inside a maintenance window, cooldown counts suppressed events too - one suppressed
+        // history row per cooldown, not one per tick. Outside, it ignores them, so a breach
+        // that outlasts the window notifies as soon as the window ends.
+        var window = MaintenanceWindowSchedule.FindActive(windows, rule.Id, now);
+        var lastFired = await alerts.GetLastFiredAsync(rule.Id, includeSuppressed: window is not null, cancellationToken);
         if (lastFired is { } last && now - last < TimeSpan.FromSeconds(rule.CooldownSeconds))
         {
             logger.LogDebug("Alert rule {RuleId} ({RuleName}) breached{NoData} but in cooldown; suppressing.", rule.Id, rule.Name, noData ? " (no data)" : "");
+            return;
+        }
+
+        if (window is not null)
+        {
+            logger.LogInformation("Alert rule {RuleId} ({RuleName}) breached{NoData} during maintenance window {WindowName}; recording without notifying.", rule.Id, rule.Name, noData ? " (no data)" : "", window.Name);
+            await alerts.InsertEventAsync(
+                BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly) with
+                {
+                    NotificationStatus = "Suppressed",
+                    SuppressedByWindow = window.Name,
+                },
+                cancellationToken);
             return;
         }
 
@@ -312,15 +354,8 @@ public sealed class AlertEvaluationWorker(
         }
 
         await alerts.InsertEventAsync(
-            new AlertHistoryEntry
+            BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly) with
             {
-                EventId = Guid.NewGuid(),
-                RuleId = rule.Id,
-                RuleName = rule.Name,
-                FiredAt = now,
-                ObservedCount = observedCount,
-                ThresholdCount = rule.Threshold.Count,
-                WindowSeconds = noData ? rule.NoDataWindowSeconds : rule.WindowSeconds,
                 // Backward-compatible summary across every channel - "Sent" only if all
                 // of them succeeded, same contract this field had before fan-out existed
                 // (a single-channel rule's summary is unchanged). ChannelResults below
@@ -328,16 +363,29 @@ public sealed class AlertEvaluationWorker(
                 NotificationStatus = failed.Count == 0 ? "Sent" : "Failed",
                 NotificationStatusCode = channelResults[0].StatusCode,
                 NotificationError = failed.Count == 0 ? "" : string.Join("; ", failed.Select(r => $"{r.ChannelName}: {r.Error}")),
-                ConditionKind = rule.ConditionKind,
-                ObservedValue = observedValue,
-                // An anomaly rule has no fixed threshold - its MetricThresholdValue is a
-                // leftover placeholder when the source is a metric, not something to record.
-                ThresholdValue = rule.ConditionKind == AlertConditionKind.Anomaly ? null : rule.MetricThresholdValue,
                 ChannelResults = channelResults,
-                NoData = noData,
-                BaselineMean = anomaly?.BaselineMean,
-                ZScore = anomaly?.ZScore,
             },
             cancellationToken);
     }
+
+    /// <summary>The fire's observation fields, shared by a notified and a maintenance-suppressed history row; the caller sets the notification outcome.</summary>
+    private static AlertHistoryEntry BuildHistoryEntry(AlertRule rule, DateTimeOffset now, bool noData, ulong observedCount, double? observedValue, AnomalyScore? anomaly) => new()
+    {
+        EventId = Guid.NewGuid(),
+        RuleId = rule.Id,
+        RuleName = rule.Name,
+        FiredAt = now,
+        ObservedCount = observedCount,
+        ThresholdCount = rule.Threshold.Count,
+        WindowSeconds = noData ? rule.NoDataWindowSeconds : rule.WindowSeconds,
+        NotificationStatus = "",
+        ConditionKind = rule.ConditionKind,
+        ObservedValue = observedValue,
+        // An anomaly rule has no fixed threshold - its MetricThresholdValue is a
+        // leftover placeholder when the source is a metric, not something to record.
+        ThresholdValue = rule.ConditionKind == AlertConditionKind.Anomaly ? null : rule.MetricThresholdValue,
+        NoData = noData,
+        BaselineMean = anomaly?.BaselineMean,
+        ZScore = anomaly?.ZScore,
+    };
 }

@@ -728,7 +728,7 @@ public sealed partial record AlertHistoryEntry
 
     public required int WindowSeconds { get; init; }
 
-    /// <summary>"Sent" | "Failed".</summary>
+    /// <summary>"Sent" | "Failed" | "Suppressed" (a maintenance window was active - nothing was sent; see <see cref="SuppressedByWindow"/>).</summary>
     public required string NotificationStatus { get; init; }
 
     /// <summary>Webhook response HTTP status; 0 if the POST never completed.</summary>
@@ -777,6 +777,14 @@ public sealed partial record AlertHistoryEntry
 
     /// <summary>Set only for an <see cref="AlertConditionKind.Anomaly"/> fire: how many (floored) standard deviations the current value was from <see cref="BaselineMean"/>. Appended after <see cref="BaselineMean"/>.</summary>
     public double? ZScore { get; init; }
+
+    /// <summary>
+    /// Name (snapshot at fire time, like <see cref="RuleName"/>) of the maintenance window that
+    /// suppressed this event's notification - "" for every event that wasn't suppressed. See
+    /// <c>docs-internal/adr/0055-alert-maintenance-windows.md</c>. Appended after every
+    /// pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
+    /// </summary>
+    public string SuppressedByWindow { get; init; } = "";
 }
 
 /// <summary>Response body for <c>GET /api/alerts/{id}/history</c>.</summary>

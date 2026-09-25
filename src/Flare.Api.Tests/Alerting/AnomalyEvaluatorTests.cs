@@ -111,7 +111,7 @@ public class AnomalyEvaluatorTests
 
         public Task<IReadOnlyList<AlertRule>> GetEnabledRulesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, bool includeSuppressed, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken) => throw new NotSupportedException();
 

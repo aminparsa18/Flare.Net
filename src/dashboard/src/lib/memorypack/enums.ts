@@ -370,3 +370,16 @@ export type SpanValuesFieldName = (typeof SPAN_VALUES_FIELD_NAMES)[number];
 export function spanValuesFieldFromString(value: SpanValuesFieldName): number {
 	return SPAN_VALUES_FIELD_NAMES.indexOf(value);
 }
+
+/** Matches `MaintenanceWindowModels.cs`'s `MaintenanceWindowRecurrence` member order. Hand-coded ordinal mapping, like `IngestionProtocol` above - no generated type references it. */
+const MAINTENANCE_WINDOW_RECURRENCE_NAMES = ['None', 'Daily', 'Weekly'] as const;
+
+export type MaintenanceWindowRecurrenceName = (typeof MAINTENANCE_WINDOW_RECURRENCE_NAMES)[number];
+
+export function maintenanceWindowRecurrenceToString(value: number): MaintenanceWindowRecurrenceName {
+	return MAINTENANCE_WINDOW_RECURRENCE_NAMES[value];
+}
+
+export function maintenanceWindowRecurrenceFromString(value: MaintenanceWindowRecurrenceName): number {
+	return MAINTENANCE_WINDOW_RECURRENCE_NAMES.indexOf(value);
+}

@@ -228,6 +228,10 @@ window; with fewer, it reports insufficient data and doesn't fire.
 A rule can also override its notification title/body with a template
 using placeholders such as `{{value}}`, `{{threshold}}`, `{{logs_url}}`,
 or `{{labels.service.name}}`, previewed live in the rule form.
+The "Maintenance" tab schedules one-off, daily or weekly maintenance windows
+(in a chosen time zone) for every rule or selected ones. During a window,
+rules still evaluate, but a breach is recorded in the rule's history as
+suppressed instead of notifying (see [ADR-0055](../../docs-internal/adr/0055-alert-maintenance-windows.md)).
 Firing notifies one or more notification channels, managed from this
 same page's "Channels" tab (or created on the spot with the rule form's
 "New channel" button) — reusable, named webhook/Slack, Telegram,
