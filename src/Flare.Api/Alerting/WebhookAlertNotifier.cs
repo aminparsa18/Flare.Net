@@ -24,9 +24,13 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
         // No scoped-logs link for a no-data fire - by definition there are no matching logs to show.
         var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold;
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly);
         var payload = new
         {
-            text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly),
+            // Slack renders only `text`, so a custom title goes in as its first line; `title`
+            // repeats it on its own for a generic consumer (null without a title template).
+            text = message.Combined,
+            title = message.Title,
             ruleId = rule.Id,
             ruleName = rule.Name,
             conditionKind = rule.ConditionKind.ToString(),

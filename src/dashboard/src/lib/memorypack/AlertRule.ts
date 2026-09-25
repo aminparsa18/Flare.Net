@@ -14,7 +14,8 @@
 // appended after `noDataWindowSeconds`, same reasoning - see `AlertRule.EvaluationIntervalSeconds`.
 // `anomalyCondition` was appended after `evaluationIntervalSeconds`, same reasoning - see
 // `AlertRule.AnomalyCondition` (ADR-0048). `minDataPoints` was appended after `anomalyCondition`,
-// same reasoning - see `AlertRule.MinDataPoints` (ADR-0050).
+// same reasoning - see `AlertRule.MinDataPoints` (ADR-0050). `notificationTitleTemplate`/
+// `notificationBodyTemplate` were appended after `minDataPoints`, same reasoning (ADR-0052).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -50,6 +51,8 @@ export class AlertRule {
 	evaluationIntervalSeconds: number;
 	anomalyCondition: AnomalyCondition | null;
 	minDataPoints: number;
+	notificationTitleTemplate: string | null;
+	notificationBodyTemplate: string | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -76,6 +79,8 @@ export class AlertRule {
 		this.evaluationIntervalSeconds = 0;
 		this.anomalyCondition = null;
 		this.minDataPoints = 0;
+		this.notificationTitleTemplate = null;
+		this.notificationBodyTemplate = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -90,7 +95,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(24);
+		writer.writeObjectHeader(26);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -115,6 +120,8 @@ export class AlertRule {
 		writer.writeInt32(value.evaluationIntervalSeconds);
 		AnomalyCondition.serializeCore(writer, value.anomalyCondition);
 		writer.writeInt32(value.minDataPoints);
+		writer.writeString(value.notificationTitleTemplate);
+		writer.writeString(value.notificationBodyTemplate);
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -138,7 +145,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 24) {
+		if (count == 26) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -163,7 +170,9 @@ export class AlertRule {
 			value.evaluationIntervalSeconds = reader.readInt32();
 			value.anomalyCondition = AnomalyCondition.deserializeCore(reader);
 			value.minDataPoints = reader.readInt32();
-		} else if (count > 24) {
+			value.notificationTitleTemplate = reader.readString();
+			value.notificationBodyTemplate = reader.readString();
+		} else if (count > 26) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -215,6 +224,10 @@ export class AlertRule {
 			if (count == 23) return value;
 			value.minDataPoints = reader.readInt32();
 			if (count == 24) return value;
+			value.notificationTitleTemplate = reader.readString();
+			if (count == 25) return value;
+			value.notificationBodyTemplate = reader.readString();
+			if (count == 26) return value;
 		}
 		return value;
 	}

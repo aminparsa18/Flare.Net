@@ -20,6 +20,9 @@
 	import {
 		testDraftAlertRule,
 		sendTestDraftAlertRule,
+		previewAlertNotification,
+		NOTIFICATION_TEMPLATE_PLACEHOLDERS,
+		type AlertNotificationPreview,
 		type AlertRuleRequest,
 		type ThresholdComparator,
 		type AlertTestResult,
@@ -74,6 +77,13 @@
 	// "insufficient data" and never fires (the API rejects it for every other kind).
 	let minDataPointsEnabled = $state(false);
 	let minDataPointsText = $state('3');
+	// Custom notification templates (ADR-0052) - off sends '' for both, i.e. the built-in wording.
+	let templatesEnabled = $state(false);
+	let notificationTitleTemplate = $state('');
+	let notificationBodyTemplate = $state('');
+	// Filled by the debounced live-preview $effect further down.
+	let notificationPreview = $state<AlertNotificationPreview | null>(null);
+	let notificationPreviewError = $state<string | null>(null);
 	let channel = $state<'webhook' | 'telegram' | 'email' | 'pagerduty'>('webhook');
 	let webhookUrl = $state('');
 	let telegramBotToken = $state('');
@@ -152,6 +162,9 @@
 			evaluationIntervalSeconds = 0;
 			minDataPointsEnabled = false;
 			minDataPointsText = '3';
+			templatesEnabled = false;
+			notificationTitleTemplate = '';
+			notificationBodyTemplate = '';
 			channel = 'webhook';
 			webhookUrl = '';
 			telegramBotToken = '';
@@ -214,6 +227,9 @@
 			evaluationIntervalSeconds = target.evaluationIntervalSeconds;
 			minDataPointsEnabled = target.minDataPoints > 0;
 			minDataPointsText = target.minDataPoints > 0 ? String(target.minDataPoints) : '3';
+			templatesEnabled = target.notificationTitleTemplate !== '' || target.notificationBodyTemplate !== '';
+			notificationTitleTemplate = target.notificationTitleTemplate;
+			notificationBodyTemplate = target.notificationBodyTemplate;
 			channel = target.telegramBotToken || target.telegramChatId
 				? 'telegram'
 				: target.emailTo
@@ -326,7 +342,8 @@
 			cooldownSeconds >= 0 &&
 			(!noDataActive || (Number.isInteger(noDataWindowSeconds) && noDataWindowSeconds >= MIN_NO_DATA_WINDOW_SECONDS)) &&
 			!evaluationIntervalTooLong &&
-			(!minDataPointsActive || (Number.isInteger(minDataPoints) && minDataPoints >= 1 && minDataPoints <= MAX_MIN_DATA_POINTS))
+			(!minDataPointsActive || (Number.isInteger(minDataPoints) && minDataPoints >= 1 && minDataPoints <= MAX_MIN_DATA_POINTS)) &&
+			!(templatesEnabled && notificationPreview?.error)
 	);
 
 	// One-off wide-window aggregate to enumerate service names for the picker, same
@@ -445,6 +462,8 @@
 			noDataWindowSeconds: noDataActive ? noDataWindowSeconds : 0,
 			evaluationIntervalSeconds,
 			minDataPoints: minDataPointsActive ? minDataPoints : 0,
+			notificationTitleTemplate: templatesEnabled ? notificationTitleTemplate.trim() : '',
+			notificationBodyTemplate: templatesEnabled ? notificationBodyTemplate.trim() : '',
 			anomalyCondition:
 				conditionKind === 'Anomaly'
 					? {
@@ -495,6 +514,35 @@
 			sendingTest = false;
 		}
 	}
+
+	// Live notification preview - rendered server-side (POST /api/alerts/notification-preview)
+	// so it can't drift from a real send. Re-runs, debounced, on any change to the draft
+	// (buildRequest() reads every field), since placeholders like {{value}}/{{labels.*}}
+	// depend on the condition, not just the template text. Never sends or queries ClickHouse.
+	$effect(() => {
+		if (!open || !templatesEnabled) {
+			notificationPreview = null;
+			notificationPreviewError = null;
+			return;
+		}
+		const request = buildRequest();
+		const target = alerts.formTarget;
+		const ruleId = target && target !== 'new' ? target.id : undefined;
+		const controller = new AbortController();
+		const timer = setTimeout(async () => {
+			try {
+				notificationPreview = await previewAlertNotification(request, ruleId, controller.signal);
+				notificationPreviewError = null;
+			} catch (err) {
+				if (controller.signal.aborted) return;
+				notificationPreviewError = err instanceof Error ? err.message : String(err);
+			}
+		}, 300);
+		return () => {
+			clearTimeout(timer);
+			controller.abort();
+		};
+	});
 
 	async function handleSave(): Promise<void> {
 		const target = alerts.formTarget;
@@ -878,6 +926,56 @@
 					{/if}
 				</div>
 			{/if}
+
+			<div class="flex flex-col gap-2 border-t pt-3">
+				<div class="flex items-center gap-2">
+					<Switch bind:checked={templatesEnabled} />
+					<span class="text-xs font-medium">{m.alertRuleForm_templatesLabel()}</span>
+				</div>
+				{#if templatesEnabled}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_templateTitleLabel()}</span>
+						<Input bind:value={notificationTitleTemplate} placeholder={'[{{status}}] {{rule_name}}'} maxlength={256} />
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_templateTitleHint()}</span>
+					</div>
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_templateBodyLabel()}</span>
+						<Textarea
+							bind:value={notificationBodyTemplate}
+							placeholder={'{{labels.service.name}}: {{value}} ({{comparator}} {{threshold}}) over {{window}}\n{{logs_url}}'}
+							rows={4}
+							maxlength={2000}
+							class="font-mono text-xs"
+						/>
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_templateBodyHint()}</span>
+					</div>
+					<p class="text-muted-foreground text-xs">
+						{m.alertRuleForm_templatePlaceholdersLabel()}
+						{#each NOTIFICATION_TEMPLATE_PLACEHOLDERS as name (name)}
+							<code class="bg-muted mr-1 rounded px-1">{`{{${name}}}`}</code>
+						{/each}
+						{m.alertRuleForm_templateLabelsHint()}
+					</p>
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_templatePreviewLabel()}</span>
+						{#if notificationPreviewError}
+							<span class="text-destructive text-xs">{m.alertRuleForm_templatePreviewFailed({ error: notificationPreviewError })}</span>
+						{:else if notificationPreview}
+							<div class="bg-muted/50 rounded-md border p-2 text-xs">
+								<div class="font-medium" class:text-muted-foreground={!notificationPreview.title}>
+									{notificationPreview.title || m.alertRuleForm_templatePreviewBuiltInTitle()}
+								</div>
+								<div class="mt-1 font-mono break-words whitespace-pre-wrap">{notificationPreview.text}</div>
+							</div>
+							{#if notificationPreview.error}
+								<span class="text-destructive text-xs">{notificationPreview.error}</span>
+							{/if}
+						{:else}
+							<Spinner class="size-3.5" />
+						{/if}
+					</div>
+				{/if}
+			</div>
 
 			<div class="flex items-center gap-2">
 				<Switch bind:checked={enabled} />

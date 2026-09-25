@@ -132,7 +132,7 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 ### 警报
 
-`/alerts` — 基于阈值/查询的警报规则：保存的过滤器（服务、级别、搜索文本）加上在滚动窗口上评估的计数阈值，在保存之前有冷却时间和“针对当前数据进行测试”的试运行。默认情况下，每条规则在告警 worker 的每个轮询周期（30 秒）都会被检查；对于较慢或开销较大的规则，可以设置其自身的“Evaluate every”间隔（1 分钟到 1 小时）。指标规则还可以要求窗口内至少有一定数量的数据点；数据点不足时，规则会报告数据不足且不会触发。触发会通知一个或多个通知渠道，这些渠道在同一页面的“Channels”标签页中管理（也可以通过规则表单中的“New channel”按钮当场创建）—— 可复用的命名目标（webhook/Slack、Telegram、电子邮件或 PagerDuty），规则通过 ID 引用它们而不是直接内联，因此同一个渠道可以在多条规则间复用，一条规则也可以针对同一次告警同时通知多个目标（参见 [ADR-0021](../../docs-internal/adr/0021-reusable-notification-channels.md)）。在此功能上线前创建的规则仍会通过其自身的内联渠道通知，行为不变。请参阅 [`../../src/Flare.Api/README.md`](../../src/Flare.Api/README.md#alerting) 了解每种渠道类型需要在服务器端配置的内容。
+`/alerts` — 基于阈值/查询的警报规则：保存的过滤器（服务、级别、搜索文本）加上在滚动窗口上评估的计数阈值，在保存之前有冷却时间和“针对当前数据进行测试”的试运行。默认情况下，每条规则在告警 worker 的每个轮询周期（30 秒）都会被检查；对于较慢或开销较大的规则，可以设置其自身的“Evaluate every”间隔（1 分钟到 1 小时）。指标规则还可以要求窗口内至少有一定数量的数据点；数据点不足时，规则会报告数据不足且不会触发。规则还可以用模板覆盖通知的标题和正文，模板可使用 `{{value}}`、`{{threshold}}`、`{{logs_url}}` 或 `{{labels.service.name}}` 等占位符，并在规则表单中实时预览。触发会通知一个或多个通知渠道，这些渠道在同一页面的“Channels”标签页中管理（也可以通过规则表单中的“New channel”按钮当场创建）—— 可复用的命名目标（webhook/Slack、Telegram、电子邮件或 PagerDuty），规则通过 ID 引用它们而不是直接内联，因此同一个渠道可以在多条规则间复用，一条规则也可以针对同一次告警同时通知多个目标（参见 [ADR-0021](../../docs-internal/adr/0021-reusable-notification-channels.md)）。在此功能上线前创建的规则仍会通过其自身的内联渠道通知，行为不变。请参阅 [`../../src/Flare.Api/README.md`](../../src/Flare.Api/README.md#alerting) 了解每种渠道类型需要在服务器端配置的内容。
 
 ![Alerts](../screenshots/alerts.png) ![New alert](../screenshots/alerts-ch.webp)
 

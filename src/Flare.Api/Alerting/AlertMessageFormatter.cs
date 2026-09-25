@@ -70,6 +70,182 @@ public static class AlertMessageFormatter
         return ruleUrl is null ? text : $"{text}\n{ruleUrl}";
     }
 
+    /// <summary>
+    /// What every notifier actually sends: <see cref="BuildText"/>'s built-in wording, unless
+    /// the rule sets <see cref="AlertRule.NotificationTitleTemplate"/>/<see cref="AlertRule.NotificationBodyTemplate"/>,
+    /// in which case those are rendered through <see cref="AlertTemplateRenderer"/> instead.
+    /// A custom body replaces the whole text, links included - it carries
+    /// <c>{{rule_url}}</c>/<c>{{logs_url}}</c> itself wherever the author wants them. A test
+    /// send keeps the custom wording (that's what's being tested) but prefixes
+    /// <see cref="TestPrefix"/> to the title (or the body, without a title template), so
+    /// nobody mistakes it for a real incident.
+    /// </summary>
+    /// <param name="appendLinks">
+    /// False for <see cref="PagerDutyAlertNotifier"/>, whose built-in summary never carried
+    /// link lines (it has <c>client_url</c>/<c>links</c> for those). Only affects the built-in
+    /// text - the <c>{{rule_url}}</c>/<c>{{logs_url}}</c> placeholders resolve either way.
+    /// </param>
+    public static AlertMessage BuildMessage(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool appendLinks = true)
+    {
+        var titleTemplate = rule.NotificationTitleTemplate;
+        var bodyTemplate = rule.NotificationBodyTemplate;
+        if (string.IsNullOrEmpty(titleTemplate) && string.IsNullOrEmpty(bodyTemplate))
+        {
+            return new AlertMessage(null, BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly), IsCustom: false);
+        }
+
+        var values = BuildTemplateValues(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly);
+        var labels = BuildTemplateLabels(rule);
+        var prefix = isTest ? TestPrefix : "";
+
+        var title = string.IsNullOrEmpty(titleTemplate) ? null : prefix + AlertTemplateRenderer.Render(titleTemplate, values, labels);
+        // Only one of the two carries the prefix - with a title it's already the first thing
+        // every channel shows, and a second "[Test]" on the body line would just be noise.
+        var text = string.IsNullOrEmpty(bodyTemplate)
+            ? BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly)
+            : (title is null ? prefix : "") + AlertTemplateRenderer.Render(bodyTemplate, values, labels);
+        return new AlertMessage(title, text, IsCustom: true);
+    }
+
+    /// <summary>Prefixed to a custom-templated title/body on a test send - see <see cref="BuildMessage"/>.</summary>
+    public const string TestPrefix = "[Test] ";
+
+    /// <summary>
+    /// The value behind every <see cref="AlertTemplateRenderer.Names"/> placeholder. Numbers
+    /// go through the same formatting the built-in text uses (unit-scaled for metrics, whole
+    /// counts otherwise), so <c>{{value}}</c> reads the same as it would in the default message.
+    /// A placeholder that doesn't apply to this rule/fire (<c>{{metric}}</c> on a log-count rule,
+    /// <c>{{threshold}}</c> on an anomaly rule, <c>{{logs_url}}</c> without a public URL) is "".
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string> BuildTemplateValues(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly)
+    {
+        var seriesKind = RuleSeriesKind(rule);
+        var isAnomaly = rule.ConditionKind == AlertConditionKind.Anomaly;
+
+        string value, threshold = "", comparator = "";
+        if (seriesKind == AlertConditionKind.MetricThreshold)
+        {
+            var current = anomaly?.Current ?? observedValue;
+            var reference = isAnomaly ? anomaly?.BaselineMean ?? 0 : rule.MetricThresholdValue ?? 0;
+            var scale = MetricUnitFormatter.ResolveScale(metricUnit, Math.Max(Math.Abs(current), Math.Abs(reference)));
+            value = double.IsNaN(current) ? "" : MetricUnitFormatter.Format(current, scale);
+            if (!isAnomaly && rule.MetricThresholdValue is { } tv)
+            {
+                threshold = MetricUnitFormatter.Format(tv, scale);
+            }
+        }
+        else
+        {
+            value = ((ulong)(anomaly?.Current ?? observedValue)).ToString(CultureInfo.InvariantCulture);
+            if (!isAnomaly)
+            {
+                threshold = rule.Threshold.Count.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        if (!isAnomaly)
+        {
+            comparator = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
+        }
+
+        if (noData && !isTest)
+        {
+            value = "no data";
+        }
+
+        var windowSeconds = noData && !isTest ? rule.NoDataWindowSeconds : rule.WindowSeconds;
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["rule_name"] = rule.Name,
+            ["rule_id"] = rule.Id.ToString(),
+            ["description"] = rule.Description,
+            ["status"] = isTest ? "test" : noData ? "no data" : anomaly is not null ? "anomaly" : "firing",
+            ["condition_kind"] = rule.ConditionKind.ToString(),
+            ["value"] = value,
+            ["threshold"] = threshold,
+            ["comparator"] = comparator,
+            ["window"] = $"{windowSeconds}s",
+            ["window_seconds"] = windowSeconds.ToString(CultureInfo.InvariantCulture),
+            ["metric"] = seriesKind == AlertConditionKind.MetricThreshold ? rule.MetricCondition?.MetricName ?? "" : "",
+            ["exception_type"] = seriesKind == AlertConditionKind.ExceptionCount ? rule.ExceptionCondition?.ExceptionType ?? "" : "",
+            ["baseline_mean"] = anomaly?.BaselineMean is { } mean ? mean.ToString("0.##", CultureInfo.InvariantCulture) : "",
+            ["z_score"] = anomaly?.ZScore is { } z ? z.ToString("+0.0;-0.0", CultureInfo.InvariantCulture) : "",
+            ["fired_at"] = FormatIso(firedAt),
+            ["rule_url"] = BuildRuleUrl(rule, publicUrl) ?? "",
+            ["logs_url"] = noData && !isTest ? "" : BuildMatchingLogsUrl(rule, publicUrl, firedAt) ?? "",
+            // The built-in wording without its link lines - lets a template wrap rather than
+            // replace it ("{{message}} - runbook: https://...").
+            ["message"] = BuildText(rule, observedValue, isTest, publicUrl: null, metricUnit, firedAt: null, noData, anomaly),
+        };
+    }
+
+    /// <summary>
+    /// The <c>{{labels.&lt;key&gt;}}</c> values: what the rule is scoped to, read from its
+    /// condition's equality filters - <c>service.name</c> from the service filter, plus each
+    /// log attribute filter using <see cref="AttributeFilterOperator.Equals"/> (other operators
+    /// don't pin a single value) or metric attribute filter (always an equality). Alert rules
+    /// evaluate one aggregate series, not one per group, so these are the rule's own scope,
+    /// not per-series group labels. Several values for one key are joined with ", ".
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string> BuildTemplateLabels(AlertRule rule)
+    {
+        var labels = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        void Add(string key, string value)
+        {
+            if (!labels.TryGetValue(key, out var list))
+            {
+                labels[key] = list = [];
+            }
+
+            if (!list.Contains(value))
+            {
+                list.Add(value);
+            }
+        }
+
+        switch (RuleSeriesKind(rule))
+        {
+            case AlertConditionKind.MetricThreshold when rule.MetricCondition is { } metric:
+                foreach (var service in metric.Filter.Services ?? [])
+                {
+                    Add("service.name", service);
+                }
+
+                foreach (var attribute in metric.Filter.Attributes ?? [])
+                {
+                    Add(attribute.Key, attribute.Value);
+                }
+
+                break;
+            case AlertConditionKind.ExceptionCount when rule.ExceptionCondition is { } exception:
+                foreach (var service in exception.Filter.Services ?? [])
+                {
+                    Add("service.name", service);
+                }
+
+                break;
+            case AlertConditionKind.LogCount:
+                foreach (var service in rule.Condition.Services ?? [])
+                {
+                    Add("service.name", service);
+                }
+
+                foreach (var attribute in rule.Condition.Attributes ?? [])
+                {
+                    if (attribute.Operator == AttributeFilterOperator.Equals)
+                    {
+                        Add(attribute.Key, attribute.Value);
+                    }
+                }
+
+                break;
+        }
+
+        return labels.ToDictionary(kv => kv.Key, kv => string.Join(", ", kv.Value), StringComparer.Ordinal);
+    }
+
+    private static AlertConditionKind RuleSeriesKind(AlertRule rule) => AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition);
+
     private static string BuildNoDataText(AlertRule rule)
     {
         var what = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold
@@ -207,6 +383,19 @@ public static class AlertMessageFormatter
 
     private static string FormatIso(DateTimeOffset value) =>
         value.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+}
+
+/// <summary>
+/// A notification's rendered content - see <see cref="AlertMessageFormatter.BuildMessage"/>.
+/// <see cref="Title"/> is null unless the rule sets a title template, in which case each
+/// notifier uses its own built-in subject/heading (Email's subject line, etc.).
+/// <see cref="IsCustom"/> is true when either template was applied - <see cref="TelegramAlertNotifier"/>
+/// then sends plain text, since user-authored text isn't guaranteed to be valid Telegram Markdown.
+/// </summary>
+public sealed record AlertMessage(string? Title, string Text, bool IsCustom)
+{
+    /// <summary>Title and text as one plain-text message, for channels with no separate subject field.</summary>
+    public string Combined => Title is null ? Text : $"{Title}\n{Text}";
 }
 
 /// <summary>Mirrors the dashboard's <c>LogsSavedViewState</c> - only the members a <see cref="LogFilter"/> can populate; the rest take <c>applySavedViewState</c>'s own defaults. See <see cref="AlertMessageFormatter.BuildMatchingLogsUrl"/>.</summary>

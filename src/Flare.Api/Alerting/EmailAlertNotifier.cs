@@ -50,8 +50,10 @@ public sealed class EmailAlertNotifier(IOptions<EmailOptions> options, IOptions<
             message.To.Add(MailboxAddress.Parse(recipient));
         }
 
-        message.Subject = isTest ? $"Flare test alert: {rule.Name}" : noData ? $"Flare alert (no data): {rule.Name}" : anomaly is not null ? $"Flare alert (anomaly): {rule.Name}" : $"Flare alert: {rule.Name}";
-        message.Body = new TextPart("plain") { Text = AlertMessageFormatter.BuildText(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly) };
+        var content = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly);
+        message.Subject = content.Title
+            ?? (isTest ? $"Flare test alert: {rule.Name}" : noData ? $"Flare alert (no data): {rule.Name}" : anomaly is not null ? $"Flare alert (anomaly): {rule.Name}" : $"Flare alert: {rule.Name}");
+        message.Body = new TextPart("plain") { Text = content.Text };
 
         try
         {

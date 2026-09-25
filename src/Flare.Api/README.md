@@ -205,6 +205,7 @@ POST   /api/alerts/{id}/test               dry-run the saved rule (ignores coold
 POST   /api/alerts/test                    dry-run an unsaved draft (same body shape as create/update)
 POST   /api/alerts/{id}/send-test          send a real test notification through the saved rule's channel(s) (ignores cooldown, writes nothing to alert_events)
 POST   /api/alerts/send-test               send a real test notification through an unsaved draft's channel(s)
+POST   /api/alerts/notification-preview[?ruleId=]  render an unsaved draft's notification title/body with illustrative values (never sends, never queries ClickHouse)
 
 POST   /api/notification-channels                CRUD for reusable, named notification channels - see below
 GET    /api/notification-channels
@@ -220,6 +221,12 @@ address, PagerDuty routing key) can be verified before relying on it in a real i
 it calls the same `IAlertNotifier.SendAsync` a real breach would, with `isTest: true` so
 `AlertMessageFormatter` sends distinct "test notification" wording instead of a fake
 breach count - see `AlertNotificationTestResult`.
+
+A rule's optional `notificationTitleTemplate`/`notificationBodyTemplate` replace the built-in
+notification wording (`AlertMessageFormatter.BuildMessage`) with `{{placeholder}}` text -
+plain substitution via `AlertTemplateRenderer`, no template engine; unknown placeholders are
+rejected on save. `/notification-preview` renders a draft's templates server-side for the rule
+form's live preview. See `docs-internal/adr/0052-alert-notification-templates.md`.
 
 **Storage: `alert_rules` (ReplacingMergeTree) + `alert_events` (append-only MergeTree) +
 `notification_channels` (ReplacingMergeTree)**, `db/clickhouse/0003_alert_rules.sql` /
