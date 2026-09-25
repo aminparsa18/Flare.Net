@@ -6,12 +6,16 @@
 	import { parseAlertDeepLinkParams } from '$lib/deep-links';
 	import { NotificationChannelsState } from '$lib/notification-channels/state.svelte';
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
+	import { MaintenanceWindowsState } from '$lib/maintenance-windows/state.svelte';
+	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
 	import { Button } from '$lib/components/ui/button';
 	import AlertRuleTable from '$lib/components/alerts/AlertRuleTable.svelte';
 	import AlertRuleFormDialog from '$lib/components/alerts/AlertRuleFormDialog.svelte';
 	import AlertHistorySheet from '$lib/components/alerts/AlertHistorySheet.svelte';
 	import NotificationChannelTable from '$lib/components/notification-channels/NotificationChannelTable.svelte';
 	import NotificationChannelFormDialog from '$lib/components/notification-channels/NotificationChannelFormDialog.svelte';
+	import MaintenanceWindowTable from '$lib/components/maintenance-windows/MaintenanceWindowTable.svelte';
+	import MaintenanceWindowFormDialog from '$lib/components/maintenance-windows/MaintenanceWindowFormDialog.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	// Notification channels (docs-internal/adr/0021-reusable-notification-channels.md)
@@ -22,11 +26,15 @@
 	// NotificationChannelsState-loaded data even while the Rules tab is showing.
 	const alerts = alertsContext.set(new AlertsState());
 	const channels = notificationChannelsContext.set(new NotificationChannelsState());
+	// Maintenance windows (ADR-0055) are a third tab for the same reason - and loaded up front
+	// too, since the Rules tab badges rules an active window is muting.
+	const maintenance = maintenanceWindowsContext.set(new MaintenanceWindowsState());
 
-	let tab = $state<'rules' | 'channels'>('rules');
+	let tab = $state<'rules' | 'channels' | 'maintenance'>('rules');
 
 	onMount(() => {
 		void channels.load();
+		void maintenance.load();
 
 		// "Create alert" from a dashboard Logs/Metrics panel (DashboardPanelCard.svelte) -
 		// checked before the rule list even loads (unlike ?rule= below, which needs
@@ -65,13 +73,19 @@
 		<Button variant={tab === 'channels' ? 'secondary' : 'ghost'} size="sm" onclick={() => (tab = 'channels')}>
 			{m.notificationChannelTable_heading()}
 		</Button>
+		<Button variant={tab === 'maintenance' ? 'secondary' : 'ghost'} size="sm" onclick={() => (tab = 'maintenance')}>
+			{m.maintenanceWindowTable_heading()}
+		</Button>
 	</div>
 	{#if tab === 'rules'}
 		<AlertRuleTable />
-	{:else}
+	{:else if tab === 'channels'}
 		<NotificationChannelTable />
+	{:else}
+		<MaintenanceWindowTable />
 	{/if}
 </div>
 <AlertRuleFormDialog />
 <AlertHistorySheet />
 <NotificationChannelFormDialog />
+<MaintenanceWindowFormDialog />

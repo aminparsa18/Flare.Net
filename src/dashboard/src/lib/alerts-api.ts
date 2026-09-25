@@ -217,7 +217,8 @@ export interface AlertRuleListResponse {
 	rules: AlertRule[];
 }
 
-export type NotificationStatus = 'Sent' | 'Failed';
+/** `'Suppressed'`: a maintenance window was active, so nothing was sent - see `suppressedByWindow`. */
+export type NotificationStatus = 'Sent' | 'Failed' | 'Suppressed';
 
 export interface AlertHistoryEntry {
 	eventId: string;
@@ -243,6 +244,8 @@ export interface AlertHistoryEntry {
 	/** Set only for an `'Anomaly'` event - the baseline mean `observedValue` (the current value, for every source) was scored against. */
 	baselineMean?: number;
 	zScore?: number;
+	/** Name of the maintenance window that suppressed this event's notification; '' when it wasn't suppressed. */
+	suppressedByWindow: string;
 }
 
 /** One channel's outcome within a fan-out fire - `AlertHistoryEntry.channelResults`'s element shape. */
@@ -475,7 +478,8 @@ function toAlertHistoryEntry(dto: GeneratedAlertHistoryEntry): AlertHistoryEntry
 		channelResults: (dto.channelResults ?? []).filter((r): r is GeneratedAlertChannelResult => r != null).map(toAlertChannelResult),
 		noData: dto.noData,
 		baselineMean: dto.baselineMean ?? undefined,
-		zScore: dto.zScore ?? undefined
+		zScore: dto.zScore ?? undefined,
+		suppressedByWindow: dto.suppressedByWindow ?? ''
 	};
 }
 

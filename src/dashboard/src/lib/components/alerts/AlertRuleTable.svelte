@@ -8,6 +8,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { alertsContext } from '$lib/alerts/context';
+	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
 	import { testAlertRule, sendTestAlertRule, type AlertRule, type AlertTestResult, type AlertNotificationTestResult } from '$lib/alerts-api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
@@ -20,6 +21,7 @@
 	import BellIcon from '@lucide/svelte/icons/bell';
 
 	const alerts = alertsContext.get();
+	const maintenance = maintenanceWindowsContext.get();
 
 	function summarizeCondition(rule: AlertRule): string {
 		// An Anomaly rule's series is one of the other three kinds' conditions (ADR-0048).
@@ -202,6 +204,9 @@
 							<Badge variant={rule.enabled ? 'secondary' : 'outline'}
 								>{rule.enabled ? m.alertRuleTable_enabled() : m.alertRuleTable_disabled()}</Badge
 							>
+							{#if rule.enabled && maintenance.isRuleMuted(rule.id)}
+								<Badge variant="outline" class="ml-1" title={m.alertRuleTable_mutedHint()}>{m.alertRuleTable_muted()}</Badge>
+							{/if}
 							{#if testResults[rule.id] === 'loading'}
 								<Badge variant="outline" class="ml-1">{m.alertRuleTable_testing()}</Badge>
 							{:else if testResults[rule.id] === 'error'}

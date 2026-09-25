@@ -63,8 +63,13 @@ public interface IAlertQueryService
     /// </summary>
     Task<ulong> CountMatchingMetricPointsAsync(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
 
-    /// <summary>Null if the rule has never fired.</summary>
-    Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, CancellationToken cancellationToken);
+    /// <summary>
+    /// Null if the rule has never fired. <paramref name="includeSuppressed"/> false ignores
+    /// events a maintenance window suppressed, so a breach that outlasts the window notifies
+    /// as soon as it ends rather than waiting out a cooldown nobody was paged for - see
+    /// <c>docs-internal/adr/0055-alert-maintenance-windows.md</c>.
+    /// </summary>
+    Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, bool includeSuppressed, CancellationToken cancellationToken);
 
     Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken);
 
@@ -319,7 +324,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         return ToUInt64(result);
     }
 
-    public async Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, CancellationToken cancellationToken)
+    public async Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, bool includeSuppressed, CancellationToken cancellationToken)
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("ruleId", ruleId);
@@ -327,7 +332,9 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         // (the DateTime64 epoch) for zero matching rows rather than NULL, which would be
         // indistinguishable from "fired at the epoch" - the -OrNull combinator gives a
         // real NULL for "never fired" instead.
-        const string sql = "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID}";
+        var sql = includeSuppressed
+            ? "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID}"
+            : "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID} AND NotificationStatus != 'Suppressed'";
         var result = await client.ExecuteScalarAsync(sql, parameters, EvaluationSafetyOptions(), cancellationToken);
         return result is DateTime dt ? new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)) : null;
     }
@@ -352,12 +359,13 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("noData", entry.NoData ? (byte)1 : (byte)0);
         parameters.AddParameter("baselineMean", (object?)entry.BaselineMean ?? DBNull.Value);
         parameters.AddParameter("zScore", (object?)entry.ZScore ?? DBNull.Value);
+        parameters.AddParameter("suppressedByWindow", entry.SuppressedByWindow);
 
         const string sql = """
             INSERT INTO alert_events
-                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore)
+                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow)
             VALUES
-                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)}, {channelResultsJson:String}, {noData:UInt8}, {baselineMean:Nullable(Float64)}, {zScore:Nullable(Float64)})
+                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)}, {channelResultsJson:String}, {noData:UInt8}, {baselineMean:Nullable(Float64)}, {zScore:Nullable(Float64)}, {suppressedByWindow:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -369,7 +377,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("ruleId", ruleId);
         parameters.AddParameter("limit", (uint)limit);
         const string sql = """
-            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore
+            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow
             FROM alert_events
             WHERE RuleId = {ruleId:UUID}
             ORDER BY FiredAt DESC
@@ -401,6 +409,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
                 NoData = reader.GetByte(14) != 0,
                 BaselineMean = reader.IsDBNull(15) ? null : reader.GetFieldValue<double>(15),
                 ZScore = reader.IsDBNull(16) ? null : reader.GetFieldValue<double>(16),
+                SuppressedByWindow = reader.GetString(17),
             });
         }
 

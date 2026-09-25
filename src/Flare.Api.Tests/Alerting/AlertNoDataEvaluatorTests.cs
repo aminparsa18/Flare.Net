@@ -110,7 +110,7 @@ public class AlertNoDataEvaluatorTests
 
         public Task<ulong> CountMatchingExceptionsAsync(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, bool includeSuppressed, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken) => throw new NotSupportedException();
 

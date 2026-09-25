@@ -50,7 +50,9 @@
 							<div class="rounded-md border p-3 text-xs">
 								<div class="flex items-center justify-between">
 									<span class="font-medium">{formatTimestamp(entry.firedAt)}</span>
-									<Badge variant={entry.notificationStatus === 'Sent' ? 'secondary' : 'destructive'}>
+									<Badge
+										variant={entry.notificationStatus === 'Sent' ? 'secondary' : entry.notificationStatus === 'Suppressed' ? 'outline' : 'destructive'}
+									>
 										{entry.notificationStatus}
 										{#if entry.notificationStatus === 'Sent'}
 											({entry.notificationStatusCode})
@@ -81,6 +83,9 @@
 										})}
 									{/if}
 								</p>
+								{#if entry.suppressedByWindow}
+									<p class="text-muted-foreground mt-1">{m.alertHistory_suppressedBy({ window: entry.suppressedByWindow })}</p>
+								{/if}
 								{#if entry.notificationError}
 									<p class="text-destructive mt-1">{entry.notificationError}</p>
 								{/if}

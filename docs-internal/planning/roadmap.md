@@ -82,14 +82,6 @@ folders are where "what happened and why" actually lives.
   click-to-sort columns [signoz#5114](https://github.com/SigNoz/signoz/commit/0760917a4b54bf6629a5c08d02201407797d00bf),
   in-table search [signoz#5893](https://github.com/SigNoz/signoz/commit/cb1cd3555b3b63bdb441512dacdebf2599db67d7);
   and units on pie-chart values [signoz#5960](https://github.com/SigNoz/signoz/commit/3573c0863c59711d48b28d91d4d775dbc4929666).
-- **Planned maintenance windows (alert silencing).** No way to mute
-  notifications today - a deploy or planned downtime pages everyone. A
-  maintenance window = a set of alert rules (or all) + a one-off or
-  recurring time range during which `Flare.AlertWorker` still evaluates
-  but suppresses notifications (recording the suppressed firing in alert
-  history rather than dropping it silently). Needs an additive ClickHouse
-  table + a dashboard page. Not started. Prior art:
-  [signoz#4863](https://github.com/SigNoz/signoz/commit/7e79900973da430179292ffc865ad44908763035).
 - **Multi-value dashboard variables.** A `DashboardVariable` resolves to
   one value or "All" (`defaultValue: string | null`); there's no way to
   scope a dashboard to e.g. two services at once. The underlying filters

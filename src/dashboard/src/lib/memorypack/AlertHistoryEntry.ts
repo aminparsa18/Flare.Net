@@ -8,6 +8,7 @@
 // only) so it's a real generated class, reused here directly - same shape `threshold`
 // (`AlertThreshold`) already has on `AlertRule.ts`.
 // `baselineMean`/`zScore` were appended after `noData`, same reasoning (ADR-0048).
+// `suppressedByWindow` was appended after `zScore`, same reasoning (ADR-0055).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -32,6 +33,7 @@ export class AlertHistoryEntry {
 	noData: boolean;
 	baselineMean: number | null;
 	zScore: number | null;
+	suppressedByWindow: string | null;
 
 	constructor() {
 		this.eventId = '00000000-0000-0000-0000-000000000000';
@@ -51,6 +53,7 @@ export class AlertHistoryEntry {
 		this.noData = false;
 		this.baselineMean = null;
 		this.zScore = null;
+		this.suppressedByWindow = null;
 	}
 
 	static serialize(value: AlertHistoryEntry | null): Uint8Array {
@@ -65,7 +68,7 @@ export class AlertHistoryEntry {
 			return;
 		}
 
-		writer.writeObjectHeader(17);
+		writer.writeObjectHeader(18);
 		writer.writeGuid(value.eventId);
 		writer.writeGuid(value.ruleId);
 		writer.writeString(value.ruleName);
@@ -83,6 +86,7 @@ export class AlertHistoryEntry {
 		writer.writeBoolean(value.noData);
 		writer.writeNullableFloat64(value.baselineMean);
 		writer.writeNullableFloat64(value.zScore);
+		writer.writeString(value.suppressedByWindow);
 	}
 
 	static serializeArray(value: (AlertHistoryEntry | null)[] | null): Uint8Array {
@@ -106,7 +110,7 @@ export class AlertHistoryEntry {
 		}
 
 		const value = new AlertHistoryEntry();
-		if (count == 17) {
+		if (count == 18) {
 			value.eventId = reader.readGuid();
 			value.ruleId = reader.readGuid();
 			value.ruleName = reader.readString();
@@ -124,7 +128,8 @@ export class AlertHistoryEntry {
 			value.noData = reader.readBoolean();
 			value.baselineMean = reader.readNullableFloat64();
 			value.zScore = reader.readNullableFloat64();
-		} else if (count > 17) {
+			value.suppressedByWindow = reader.readString();
+		} else if (count > 18) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -162,6 +167,8 @@ export class AlertHistoryEntry {
 			if (count == 16) return value;
 			value.zScore = reader.readNullableFloat64();
 			if (count == 17) return value;
+			value.suppressedByWindow = reader.readString();
+			if (count == 18) return value;
 		}
 		return value;
 	}

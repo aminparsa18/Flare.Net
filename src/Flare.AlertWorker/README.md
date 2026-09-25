@@ -35,6 +35,10 @@ A `MetricThreshold` rule with `MinDataPoints > 0` first counts the raw points in
 (`Alerting/AlertMinDataPointsEvaluator`). Below the minimum it's "insufficient data": no
 notification and no history row - see
 [`docs-internal/adr/0050-alert-minimum-data-points.md`](../../docs-internal/adr/0050-alert-minimum-data-points.md).
+A breach while a maintenance window covering the rule is active (`maintenance_windows`, read
+once per tick, decided by `Alerting/MaintenanceWindowSchedule`) is recorded as a `Suppressed`
+`alert_events` row with `SuppressedByWindow` set, and nothing is sent - see
+[`docs-internal/adr/0055-alert-maintenance-windows.md`](../../docs-internal/adr/0055-alert-maintenance-windows.md).
 Every replica coordinates through a single Redis-backed lock (`flare:alerts:eval-lock`)
 so only one replica evaluates per tick even when more than one is running — see
 `AlertEvaluationWorker`'s own remarks for the full mechanism.
