@@ -119,6 +119,8 @@
 	"eventDetail_groupByAttribute": "Группировать график объёма по этому атрибуту",
 	"eventDetail_copyValue": "Копировать значение",
 	"eventDetail_openLink": "Открыть ссылку в новой вкладке",
+	"eventDetail_hostMetrics": "Метрики хоста",
+	"eventDetail_hostMetricsNoData": "Нет данных о CPU или памяти этого хоста за 30 минут вокруг этой записи. Графики хоста строятся по метрикам приёмника hostmetrics OpenTelemetry Collector с тем же host.name.",
 	"logContext_title": "Контекст журнала",
 	"logContext_copyLink": "Копировать ссылку",
 	"logContext_copied": "Скопировано",

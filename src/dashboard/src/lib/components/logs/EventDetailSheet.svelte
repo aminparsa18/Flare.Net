@@ -7,6 +7,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import AttributeTable from './AttributeTable.svelte';
 	import StackTraceViewer from './StackTraceViewer.svelte';
+	import EventHostMetrics from './EventHostMetrics.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
@@ -47,6 +48,15 @@
 		delete rest[EXCEPTION_MESSAGE_KEY];
 		delete rest[EXCEPTION_STACKTRACE_KEY];
 		return rest;
+	});
+
+	// The host whose CPU/memory to chart - `host.name`, or for a Kubernetes pod the node it
+	// ran on (`k8s.node.name`, set by the collector's k8sattributes processor): a node's own
+	// hostmetrics carry that name as its `host.name`. Pod-level (kubeletstats) metrics aren't
+	// charted - a pod's limits starving it is a different question from the box starving.
+	const metricsHost = $derived.by(() => {
+		const resource = explorer.selectedEvent?.resourceAttributes;
+		return resource?.['host.name'] || resource?.['k8s.node.name'] || null;
 	});
 
 	// Pinned keys pulled out of whichever bag holds them (log, then resource, then scope)
@@ -244,6 +254,10 @@
 								<StackTraceViewer trace={exceptionInfo.stacktrace} class="mt-2" />
 							{/if}
 						</div>
+					{/if}
+
+					{#if metricsHost}
+						<EventHostMetrics hostName={metricsHost} timestamp={event.timestamp} />
 					{/if}
 
 					<AttributeTable

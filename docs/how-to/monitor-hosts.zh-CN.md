@@ -82,6 +82,18 @@ docker run -v /:/hostfs:ro --hostname "$(hostname)" ... otel/opentelemetry-colle
 
 页面最多列出 500 台主机。如果匹配更多，会提示你缩小筛选范围。
 
+## 在日志旁查看主机指标
+
+当日志带有 `host.name` 资源属性时，**Logs** 页面上该日志的详情视图会显示
+**主机指标**：该主机在日志前后 30 分钟内的 CPU 和内存图表，并用一条竖线标出
+日志的时间点。无需离开日志，即可判断出错时机器是否资源不足。
+
+对于 Kubernetes Pod 的日志，Flare 改用 `k8s.node.name` 资源属性（由 Collector
+的 `k8sattributes` 处理器设置），显示 Pod 所在节点的图表。前提是该节点的
+`hostmetrics` Collector 以节点名作为 `host.name` 上报。不显示 Pod 级别的指标。
+
+如果该主机在此时间窗口内没有发送 CPU 或内存指标，该区域会给出提示。
+
 ## 故障排除
 
 **主机没有出现。** 检查 Collector 日志中的导出错误，然后确认其指标带有 `host.name`。只有在所选窗口内至少发送过一个 `system.*` 指标的主机才会出现。

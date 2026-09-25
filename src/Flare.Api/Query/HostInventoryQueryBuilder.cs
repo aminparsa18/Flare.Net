@@ -77,6 +77,18 @@ public static class HostInventoryQueryBuilder
         Math.Clamp(requested is > 0 ? requested.Value : DefaultWindowMinutes, MinWindowMinutes, MaxWindowMinutes);
 
     /// <summary>
+    /// The drill-down window's end: <see cref="HostMetricsRequest.EndUnixMs"/> when it's a
+    /// representable instant, otherwise <paramref name="now"/> - lenient like
+    /// <see cref="ClampWindowMinutes"/>, rather than failing the request. A future end is
+    /// allowed (a window centred on a log from a minute ago extends past now); the empty
+    /// tail just has no buckets.
+    /// </summary>
+    public static DateTimeOffset ResolveWindowEnd(long? endUnixMs, DateTimeOffset now) =>
+        endUnixMs is { } ms && ms > 0 && ms <= DateTimeOffset.MaxValue.ToUnixTimeMilliseconds()
+            ? DateTimeOffset.FromUnixTimeMilliseconds(ms)
+            : now;
+
+    /// <summary>
     /// Bucket width for the drill-down: about <see cref="TargetBuckets"/> buckets, rounded up
     /// to a whole minute and never under 60s - the <c>hostmetrics</c> receiver's default
     /// collection interval, below which buckets would just alternate between one scrape and
@@ -140,10 +152,10 @@ public static class HostInventoryQueryBuilder
             time.Parameters);
     }
 
-    /// <summary>One host's four figures per time bucket, as <c>(Key = BucketStart, Kind, Value)</c> rows.</summary>
-    public static HostInventorySql BuildHostMetrics(string hostName, int windowMinutes, int bucketWidthSeconds, DateTimeOffset now)
+    /// <summary>One host's four figures per time bucket over the <paramref name="windowMinutes"/> ending at <paramref name="end"/>, as <c>(Key = BucketStart, Kind, Value)</c> rows.</summary>
+    public static HostInventorySql BuildHostMetrics(string hostName, int windowMinutes, int bucketWidthSeconds, DateTimeOffset end)
     {
-        var time = TimeFilter(windowMinutes, now);
+        var time = TimeFilter(windowMinutes, end);
         time.Parameters.AddParameter("hostName", hostName);
         time.Parameters.AddParameter("bucketWidth", (uint)bucketWidthSeconds);
 

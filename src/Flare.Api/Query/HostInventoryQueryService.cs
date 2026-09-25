@@ -83,7 +83,8 @@ public sealed class HostInventoryQueryService(IClickHouseClient client, IOptions
     {
         var windowMinutes = HostInventoryQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
         var bucketWidthSeconds = HostInventoryQueryBuilder.BucketWidthSecondsFor(windowMinutes);
-        var built = HostInventoryQueryBuilder.BuildHostMetrics(request.HostName, windowMinutes, bucketWidthSeconds, timeProvider.GetUtcNow());
+        var end = HostInventoryQueryBuilder.ResolveWindowEnd(request.EndUnixMs, timeProvider.GetUtcNow());
+        var built = HostInventoryQueryBuilder.BuildHostMetrics(request.HostName, windowMinutes, bucketWidthSeconds, end);
 
         var byBucket = new SortedDictionary<DateTimeOffset, HostMetricsPoint>();
         await using (var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken))

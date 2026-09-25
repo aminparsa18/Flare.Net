@@ -146,12 +146,12 @@ folders are where "what happened and why" actually lives.
   localStorage, self-healing if it was deleted - same pattern as the
   dashboards "set as home page" toggle). Frontend-only. Not started.
   Prior art: [signoz#5453](https://github.com/SigNoz/signoz/commit/3c151e3adbb2f051f43959594a411658d4cb8c7f).
-- **Host/pod metrics tab in the log event detail view.** When a log
-  carries `host.name` / `k8s.pod.name`, show that host's or pod's CPU and
-  memory charts for a window around the log's timestamp, reusing the
-  existing metrics queries and the Resources page's host data - "was the
-  box starved when this error happened" without leaving the log.
-  Frontend-only. Not started. Prior art:
+- **Pod-level metrics in the log event detail view.** The detail view's
+  Host metrics section charts `host.name` (or a pod's `k8s.node.name`)
+  from hostmetrics; a pod's own CPU/memory against its limits
+  (`kubeletstats` receiver, keyed by the `k8s.pod.name` resource
+  attribute) isn't charted. Needs a query - the generic metrics filter
+  only matches data-point attributes. Not started. Prior art:
   [signoz#5771](https://github.com/SigNoz/signoz/commit/c5b5bfe5406d2dc3c59f50977b76fa4d53d7bc23).
 - **Create/invite additional local users.** With local auth,
   `/api/auth/bootstrap` creates only the first admin, and

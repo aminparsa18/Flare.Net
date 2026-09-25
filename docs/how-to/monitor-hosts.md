@@ -101,6 +101,21 @@ A host that hasn't reported for more than five minutes is marked **stale**.
 The page lists up to 500 hosts. If more match, a notice asks you to narrow the
 filter.
 
+## See a host's metrics next to a log
+
+When a log carries a `host.name` resource attribute, its detail view on the
+**Logs** page shows **Host metrics**: that host's CPU and memory charts for the
+30 minutes around the log, with the log's time marked by a vertical line. Use
+it to check whether the machine was starved when an error happened, without
+leaving the log.
+
+For a Kubernetes pod's logs, Flare uses the `k8s.node.name` resource attribute
+(set by the collector's `k8sattributes` processor) instead, and charts the node
+the pod ran on. This works when the node's `hostmetrics` collector reports the
+node name as its `host.name`. Pod-level metrics aren't charted.
+
+If the host sent no CPU or memory metrics in that window, the section says so.
+
 ## Troubleshooting
 
 **A host doesn't appear.** Check the collector's logs for export errors, then

@@ -119,6 +119,8 @@
 	"eventDetail_groupByAttribute": "按此属性对事件量图表分组",
 	"eventDetail_copyValue": "复制值",
 	"eventDetail_openLink": "在新标签页中打开链接",
+	"eventDetail_hostMetrics": "主机指标",
+	"eventDetail_hostMetricsNoData": "此日志前后 30 分钟内没有该主机的 CPU 或内存数据。主机图表来自上报相同 host.name 的 OpenTelemetry Collector hostmetrics 接收器。",
 	"logContext_title": "日志上下文",
 	"logContext_copyLink": "复制链接",
 	"logContext_copied": "已复制",

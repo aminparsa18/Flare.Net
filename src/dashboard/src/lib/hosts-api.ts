@@ -90,10 +90,12 @@ export async function listHosts(windowMinutes: number, filter: HostListFilter, s
 	};
 }
 
-export async function getHostMetrics(hostName: string, windowMinutes: number, signal?: AbortSignal): Promise<HostMetricsResponse> {
+/** `endMs` (epoch ms) anchors the window's end - omitted = now. The log event detail view passes one to chart a window around a past log's timestamp. */
+export async function getHostMetrics(hostName: string, windowMinutes: number, signal?: AbortSignal, endMs?: number): Promise<HostMetricsResponse> {
 	const request = new GeneratedHostMetricsRequest();
 	request.hostName = hostName;
 	request.windowMinutes = windowMinutes;
+	request.endUnixMs = endMs == null ? null : BigInt(Math.round(endMs));
 
 	const res = await apiFetch(`${API_BASE_URL}/api/hosts/metrics`, {
 		method: 'POST',

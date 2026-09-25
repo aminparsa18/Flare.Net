@@ -80,6 +80,14 @@ public sealed partial record HostMetricsRequest
 
     /// <summary>Same default/clamp as <see cref="HostListRequest.WindowMinutes"/>. The bucket width is derived from it server-side (<see cref="Query.HostInventoryQueryBuilder.BucketWidthSecondsFor"/>).</summary>
     public int? WindowMinutes { get; init; }
+
+    /// <summary>
+    /// Where the window ends, as Unix epoch milliseconds; null = now. Lets the log event
+    /// detail view chart a window around a past log's timestamp rather than only "the last
+    /// N minutes". Epoch milliseconds rather than a <c>DateTimeOffset</c> so this type stays
+    /// <c>[GenerateTypeScript]</c>-able - see <see cref="Query.HostInventoryQueryBuilder.ResolveWindowEnd"/>.
+    /// </summary>
+    public long? EndUnixMs { get; init; }
 }
 
 /// <summary>One time bucket of <see cref="HostMetricsResponse"/> - same per-column meaning and null semantics as <see cref="HostSummary"/>, scoped to the bucket instead of the whole window.</summary>
