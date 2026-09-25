@@ -330,6 +330,20 @@ export class DashboardViewerState {
 		}
 	}
 
+	/** Sets/clears `panelId`'s `DashboardPanel.description` - persisted through `#saveLayout`
+	 *  the same way renamePanel does. Blank (after trimming) clears the field rather than
+	 *  saving `''`. */
+	async setPanelDescription(panelId: string, description: string): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		const next = description.trim() || undefined;
+		try {
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, description: next } : p)) });
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	/** Toggles whether `panelId` opts out of `variableId`'s narrowing (see
 	 *  `DashboardPanel.excludedVariableIds`) - the per-panel counterpart to `setVariableValue`
 	 *  below, but a layout-level field (persisted per panel, like `title`) rather than a
@@ -415,7 +429,7 @@ export class DashboardViewerState {
 		});
 	}
 
-	/** Downloads `panelId`'s definition (type/title/size/query - never any cached query
+	/** Downloads `panelId`'s definition (type/title/description/size/query - never any cached query
 	 *  result, same "definitions only" rule exportDashboard() follows) as a JSON file.
 	 *  Position (x/y) is deliberately omitted - it's only meaningful within this dashboard's
 	 *  own grid, not something a copy elsewhere could reuse. No import path for this file
@@ -423,7 +437,7 @@ export class DashboardViewerState {
 	exportPanel(panelId: string): void {
 		const panel = this.dashboard?.layout.panels.find((p) => p.id === panelId);
 		if (!panel) return;
-		const body = { panelType: panel.panelType, title: panel.title, layout: { w: panel.layout.w, h: panel.layout.h }, query: panel.query };
+		const body = { panelType: panel.panelType, title: panel.title, description: panel.description, layout: { w: panel.layout.w, h: panel.layout.h }, query: panel.query };
 		const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json;charset=utf-8' });
 		downloadBlob(blob, `flare-dashboard-panel_${slugify(panel.title, 'panel')}.json`);
 	}

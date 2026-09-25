@@ -39,6 +39,7 @@
 		onLayoutChange,
 		onRemove,
 		onRename,
+		onSetDescription,
 		onDuplicate,
 		onExport,
 		onToggleVariable,
@@ -61,6 +62,7 @@
 		onLayoutChange: (next: { id: string; layout: DashboardPanel['layout'] }[]) => void;
 		onRemove: (id: string) => void;
 		onRename: (id: string, title: string) => void;
+		onSetDescription: (id: string, description: string) => void;
 		onDuplicate: (id: string) => void;
 		onExport: (id: string) => void;
 		onToggleVariable: (id: string, variableId: string, excluded: boolean) => void;
@@ -141,6 +143,7 @@
 					removing={removingPanelId === panel.id}
 					onRemove={() => onRemove(panel.id)}
 					onRename={(title) => onRename(panel.id, title)}
+					onSetDescription={(description) => onSetDescription(panel.id, description)}
 					onDuplicate={() => onDuplicate(panel.id)}
 					onExport={() => onExport(panel.id)}
 					onToggleVariable={(variableId, excluded) => onToggleVariable(panel.id, variableId, excluded)}

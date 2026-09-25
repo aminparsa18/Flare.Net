@@ -140,8 +140,3 @@ folders are where "what happened and why" actually lives.
   set-password link, expiring) plus a dashboard form on the users page;
   bulk invite is a nice-to-have. Not started. Prior art:
   [signoz#6057](https://github.com/SigNoz/signoz/commit/fc4b55cb34b48fd3f47719be6ad6008b42d7e77d).
-- **Per-panel descriptions on dashboards.** Dashboards have a
-  description, panels don't; an optional panel description shown via an
-  info icon next to the title. Frontend-only (stored panel JSON). Not
-  started. Prior art:
-  [signoz#6133](https://github.com/SigNoz/signoz/commit/440fd4e02b2d8c13d8b4827abdfe609755cba990).

@@ -56,6 +56,10 @@ Click **Edit** on a dashboard to:
 - **Drag** a panel (by its grip handle) to reposition it, and **resize** it
   from its corner/edge, on a 12-column grid.
 - **Rename** a panel — click its title and type a new one.
+- **Describe** a panel (the notebook icon in its header) — optional plain
+  text explaining what the panel shows. Once set, an info icon appears next
+  to the title in both view and edit mode; hover it to read the text. You
+  can also enter a description when adding a panel.
 - **Duplicate** a panel (the copy icon in its header) — adds an independent
   copy, named "*(copy)*", below the rest of the dashboard's panels, that you
   can then edit or reposition separately.
@@ -63,7 +67,7 @@ Click **Edit** on a dashboard to:
 - **Add** a new panel in place, per the steps above.
 
 Independent of edit mode, every panel also has an **export** icon in its
-header that downloads that one panel's type, title, size, and query as a
+header that downloads that one panel's type, title, description, size, and query as a
 JSON file — the per-panel equivalent of the whole-dashboard Export described
 under "Managing dashboards" below, useful as a smaller snapshot when you
 only care about one panel's definition. There's no per-panel import — bring

@@ -30,6 +30,13 @@ export interface DashboardPanel {
 	id: string;
 	panelType: PanelType;
 	title: string;
+	/**
+	 * Optional free-text explanation of what this panel shows (roadmap's "Per-panel
+	 * descriptions on dashboards" item) - rendered as an info icon next to the title, with
+	 * the text in its tooltip. `undefined`/empty means none, same as before this field
+	 * existed. Plain text, never rendered as HTML/Markdown.
+	 */
+	description?: string;
 	layout: { x: number; y: number; w: number; h: number };
 	query: unknown;
 	/**
