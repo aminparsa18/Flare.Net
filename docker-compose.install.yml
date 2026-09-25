@@ -58,7 +58,7 @@ services:
     # instead). FLARE_IMAGE_TAG defaults to "latest" - the first stable images were
     # published at v0.1.3 (see .github/workflows/docker-publish.yml); "edge" tracks
     # main instead, for whoever explicitly wants that.
-    image: ${DOCKERHUB_USERNAME:-xracer007}/flare-ingest:${FLARE_IMAGE_TAG:-latest}
+    image: ${DOCKERHUB_USERNAME:-apardev}/flare-ingest:${FLARE_IMAGE_TAG:-latest}
     restart: unless-stopped
     labels:
       flare.resource: "true"
@@ -85,7 +85,7 @@ services:
       retries: 20
 
   api:
-    image: ${DOCKERHUB_USERNAME:-xracer007}/flare-api:${FLARE_IMAGE_TAG:-latest}
+    image: ${DOCKERHUB_USERNAME:-apardev}/flare-api:${FLARE_IMAGE_TAG:-latest}
     restart: unless-stopped
     labels:
       flare.resource: "true"
@@ -119,7 +119,7 @@ services:
       retries: 20
 
   dashboard:
-    image: ${DOCKERHUB_USERNAME:-xracer007}/flare-dashboard:${FLARE_IMAGE_TAG:-latest}
+    image: ${DOCKERHUB_USERNAME:-apardev}/flare-dashboard:${FLARE_IMAGE_TAG:-latest}
     labels:
       flare.resource: "true"
       flare.role: "dashboard"

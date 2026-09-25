@@ -174,11 +174,11 @@ fi
 
 cd "$FLARE_INSTALL_DIR"
 log "Pulling images (tag: $FLARE_IMAGE_TAG)"
-DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-xracer007}" FLARE_IMAGE_TAG="$FLARE_IMAGE_TAG" \
+DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-apardev}" FLARE_IMAGE_TAG="$FLARE_IMAGE_TAG" \
 	"${DOCKER[@]}" compose pull
 
 log "Starting the stack (docker compose up -d)"
-DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-xracer007}" FLARE_IMAGE_TAG="$FLARE_IMAGE_TAG" \
+DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-apardev}" FLARE_IMAGE_TAG="$FLARE_IMAGE_TAG" \
 	"${DOCKER[@]}" compose up -d
 
 log "Waiting for the api service to report healthy..."
