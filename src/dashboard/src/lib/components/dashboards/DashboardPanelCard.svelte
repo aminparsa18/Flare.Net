@@ -5,8 +5,8 @@
 	// component only fills whatever cell it's given (`h-full` below), see
 	// docs-internal/adr/0024-custom-dashboards-phase2-editor.md.
 	//
-	// The drag handle, title-edit affordance, duplicate, remove button, and per-panel
-	// variables popover are all scoped to `editing` - outside edit mode a panel is read-only
+	// The drag handle, title-edit affordance, duplicate, remove button, per-panel variables
+	// popover, and "Move to row" menu are all scoped to `editing` - outside edit mode a panel is read-only
 	// chrome, so nothing here risks an accidental drag/rename/duplicate/delete/opt-out while
 	// just looking at a dashboard. Export is the one exception, available in both modes -
 	// same "read-only, no reason to gate it" call DashboardTable.svelte's own per-dashboard
@@ -23,8 +23,9 @@
 	import PanelVariablesPopover from './PanelVariablesPopover.svelte';
 	import YAxisBoundsPopover from './YAxisBoundsPopover.svelte';
 	import ThresholdsPopover from './ThresholdsPopover.svelte';
+	import MoveToRowMenu from './MoveToRowMenu.svelte';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
-	import type { DashboardPanel, DashboardVariable } from '$lib/dashboards-api';
+	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
 	import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
@@ -51,7 +52,10 @@
 		onExport,
 		onToggleVariable,
 		onSetYAxisBounds,
-		onSetThresholds
+		onSetThresholds,
+		rows,
+		rowId,
+		onMoveToRow
 	}: {
 		panel: DashboardPanel;
 		editing: boolean;
@@ -67,6 +71,10 @@
 		onToggleVariable: (variableId: string, excluded: boolean) => void;
 		onSetYAxisBounds: (min: number | null, max: number | null) => void;
 		onSetThresholds: (thresholds: PanelThreshold[]) => void;
+		rows: DashboardRow[];
+		/** The row this panel currently sits in, or `null` for the ungrouped area. */
+		rowId: string | null;
+		onMoveToRow: (rowId: string | null) => void;
 	} = $props();
 
 	/** This panel's own effective overrides - `variables`/`variableValues` narrowed by
@@ -220,6 +228,9 @@
 			{#if panel.panelType === 'Metrics'}
 				<YAxisBoundsPopover yAxisMin={panel.yAxisMin} yAxisMax={panel.yAxisMax} onApply={onSetYAxisBounds} />
 				<ThresholdsPopover thresholds={panel.thresholds} onApply={onSetThresholds} />
+			{/if}
+			{#if rows.length > 0}
+				<MoveToRowMenu {rows} {rowId} onMove={onMoveToRow} />
 			{/if}
 			<Button
 				variant="ghost"

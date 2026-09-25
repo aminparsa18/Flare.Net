@@ -73,6 +73,32 @@ Every change saves immediately — there's no separate "Save" step. Click
 **Done editing** to leave edit mode and lock the layout again (view mode
 never risks an accidental drag).
 
+## Grouping panels into rows
+
+A row is a named, collapsible section that holds a group of panels, which
+helps keep a large dashboard navigable. In edit mode:
+
+- **Add row** (in the header) appends an empty row at the bottom. Click
+  its title to rename it.
+- The **+** icon on a row's header adds a new panel directly into that row.
+- Each panel's **Move to row** menu (the rows icon in its header) moves it
+  into any row, or back to the top of the dashboard ("No row"). Panels
+  can't be dragged from one row into another. Each row is its own grid, so
+  use this menu instead.
+- The **arrow** icons on a row's header move it up or down.
+- The **trash** icon removes the row. Its panels are kept and moved to the
+  top of the dashboard.
+
+Click a row's chevron (or its title, outside edit mode) to collapse or
+expand it. A collapsed row shows how many panels it holds, and **none of
+its panels load or run a query** until you expand it. That makes collapsing
+rarely used sections a cheap way to speed up a heavy dashboard.
+
+Collapsing a row outside edit mode lasts only for your session and doesn't
+change the dashboard for anyone else. Collapsing or expanding a row *in*
+edit mode saves that as the row's default, which is how everyone sees it
+when they open the dashboard.
+
 ## Setting a Y-axis range on a Metrics panel
 
 In edit mode, a Metrics panel's header also has an **up-down arrow** icon —
@@ -305,6 +331,8 @@ search.
 - **Grafana import is structural only** — layout and panel type come over,
   queries don't (see "Managing dashboards" above for why). There's no plan
   to build real query translation; the datasources don't correspond.
+  Grafana rows are flattened too: their panels come over, but not as Flare
+  rows. Regroup them after importing (see "Grouping panels into rows").
 - **No per-panel import** — duplicate and export work per-panel (see
   "Editing a dashboard's layout" above), but a panel's exported JSON can't
   be read back in; only a whole dashboard's export/import round-trips.

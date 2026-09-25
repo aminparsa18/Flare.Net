@@ -22,12 +22,14 @@
 	import { GridStack, type GridStackNode } from 'gridstack';
 	import 'gridstack/dist/gridstack.min.css';
 	import DashboardPanelCard from './DashboardPanelCard.svelte';
-	import type { DashboardPanel, DashboardVariable } from '$lib/dashboards-api';
+	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 
 	let {
 		panels,
+		rows,
+		rowId,
 		editing,
 		timeRangeOverride,
 		variables,
@@ -41,9 +43,15 @@
 		onExport,
 		onToggleVariable,
 		onSetYAxisBounds,
-		onSetThresholds
+		onSetThresholds,
+		onMoveToRow
 	}: {
+		/** Only this grid's own section's panels - the ungrouped area and each row are separate grids (see `panelsInRow`). */
 		panels: DashboardPanel[];
+		/** Every row on the dashboard - the targets offered by each panel's "Move to row" menu. */
+		rows: DashboardRow[];
+		/** The row this grid renders, or `null` for the ungrouped area. */
+		rowId: string | null;
 		editing: boolean;
 		timeRangeOverride: TimeRangePreset | null;
 		variables: DashboardVariable[];
@@ -58,6 +66,7 @@
 		onToggleVariable: (id: string, variableId: string, excluded: boolean) => void;
 		onSetYAxisBounds: (id: string, min: number | null, max: number | null) => void;
 		onSetThresholds: (id: string, thresholds: PanelThreshold[]) => void;
+		onMoveToRow: (id: string, rowId: string | null) => void;
 	} = $props();
 
 	let container: HTMLDivElement;
@@ -137,6 +146,9 @@
 					onToggleVariable={(variableId, excluded) => onToggleVariable(panel.id, variableId, excluded)}
 					onSetYAxisBounds={(min, max) => onSetYAxisBounds(panel.id, min, max)}
 					onSetThresholds={(thresholds) => onSetThresholds(panel.id, thresholds)}
+					{rows}
+					{rowId}
+					onMoveToRow={(target) => onMoveToRow(panel.id, target)}
 				/>
 			</div>
 		</div>

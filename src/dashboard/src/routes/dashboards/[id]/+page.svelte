@@ -6,6 +6,8 @@
 	import { REFRESH_INTERVALS, refreshIntervalLabel, type RefreshInterval } from '$lib/dashboards/refresh-intervals';
 	import { getChromeVisibilityContext } from '$lib/chrome/context.svelte';
 	import DashboardGrid from '$lib/components/dashboards/DashboardGrid.svelte';
+	import DashboardRowSection from '$lib/components/dashboards/DashboardRowSection.svelte';
+	import { panelsInRow } from '$lib/dashboards/layout';
 	import AddPanelDialog from '$lib/components/dashboards/AddPanelDialog.svelte';
 	import ManageVariablesDialog from '$lib/components/dashboards/ManageVariablesDialog.svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -17,17 +19,22 @@
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import Rows3Icon from '@lucide/svelte/icons/rows-3';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
 	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
+	import type { DashboardPanel } from '$lib/dashboards-api';
 	import * as m from '$lib/paraglide/messages';
 
 	const auth = authContext.get();
 	const viewer = new DashboardViewerState();
 	let addPanelOpen = $state(false);
+	/** Which section AddPanelDialog adds into - `null` for the ungrouped area (the toolbar's
+	 *  "Add panel"), a row id when opened from that row's own header. */
+	let addPanelRowId = $state<string | null>(null);
 	let manageVariablesOpen = $state(false);
 
 	// Full-screen/TV mode: hides AppNav (via the layout-provided chrome signal - see
@@ -100,6 +107,18 @@
 	function handleRefreshIntervalChange(value: string): void {
 		viewer.setRefreshInterval(value as RefreshInterval);
 	}
+
+	function openAddPanel(rowId: string | null): void {
+		addPanelRowId = rowId;
+		addPanelOpen = true;
+	}
+
+	function handleAddRow(): void {
+		void viewer.addRow(m.dashboardRow_defaultTitle({ number: viewer.rows.length + 1 }));
+	}
+
+	const allPanels = $derived(viewer.dashboard?.layout.panels ?? []);
+	const ungroupedPanels = $derived(panelsInRow(allPanels, viewer.rows, null));
 </script>
 
 <svelte:head>
@@ -180,7 +199,12 @@
 							{m.dashboardViewer_manageVariables()}
 						</Button>
 
-						<Button variant="outline" size="sm" onclick={() => (addPanelOpen = true)}>
+						<Button variant="outline" size="sm" onclick={handleAddRow}>
+							<Rows3Icon data-icon="inline-start" />
+							{m.dashboardViewer_addRow()}
+						</Button>
+
+						<Button variant="outline" size="sm" onclick={() => openAddPanel(null)}>
 							<PlusIcon data-icon="inline-start" />
 							{m.dashboardViewer_addPanel()}
 						</Button>
@@ -226,7 +250,7 @@
 		<div class="flex flex-1 items-center justify-center">
 			<p class="text-muted-foreground text-sm">{m.dashboardViewer_notFound()}</p>
 		</div>
-	{:else if viewer.dashboard.layout.panels.length === 0}
+	{:else if allPanels.length === 0 && viewer.rows.length === 0}
 		<Empty.Root class="flex-1">
 			<Empty.Header>
 				<Empty.Media>
@@ -237,7 +261,7 @@
 			</Empty.Header>
 			<Empty.Content>
 				{#if auth.canMutateDashboard(viewer.dashboard.ownerUserId)}
-					<Button size="sm" onclick={() => (addPanelOpen = true)}>
+					<Button size="sm" onclick={() => openAddPanel(null)}>
 						<PlusIcon data-icon="inline-start" />
 						{m.dashboardViewer_addPanel()}
 					</Button>
@@ -246,26 +270,59 @@
 		</Empty.Root>
 	{:else}
 		<div class="min-h-0 flex-1 overflow-y-auto p-4">
-			<DashboardGrid
-				panels={viewer.dashboard.layout.panels}
-				editing={viewer.editing}
-				timeRangeOverride={viewer.timeRangeOverride}
-				variables={viewer.variables}
-				variableValues={viewer.variableValues}
-				refreshToken={viewer.refreshToken}
-				removingPanelId={viewer.removingPanelId}
-				onLayoutChange={(changes) => viewer.updateLayout(changes)}
-				onRemove={(id) => viewer.removePanel(id)}
-				onRename={(id, title) => viewer.renamePanel(id, title)}
-				onDuplicate={(id) => viewer.duplicatePanel(id)}
-				onExport={(id) => viewer.exportPanel(id)}
-				onToggleVariable={(id, variableId, excluded) => viewer.setPanelVariableExcluded(id, variableId, excluded)}
-				onSetYAxisBounds={(id, min, max) => viewer.setPanelYAxisBounds(id, min, max)}
-				onSetThresholds={(id, thresholds) => viewer.setPanelThresholds(id, thresholds)}
-			/>
+			{#if ungroupedPanels.length > 0}
+				{@render grid(ungroupedPanels, null)}
+			{/if}
+			{#each viewer.rows as row, index (row.id)}
+				{@const rowPanels = panelsInRow(allPanels, viewer.rows, row.id)}
+				<DashboardRowSection
+					{row}
+					panelCount={rowPanels.length}
+					collapsed={viewer.collapsedRowIds.has(row.id)}
+					editing={viewer.editing}
+					isFirst={index === 0}
+					isLast={index === viewer.rows.length - 1}
+					onToggle={() => viewer.toggleRowCollapsed(row.id)}
+					onRename={(title) => viewer.renameRow(row.id, title)}
+					onMove={(direction) => viewer.moveRow(row.id, direction)}
+					onRemove={() => viewer.removeRow(row.id)}
+					onAddPanel={() => openAddPanel(row.id)}
+				>
+					{@render grid(rowPanels, row.id)}
+				</DashboardRowSection>
+			{/each}
 		</div>
 	{/if}
 </div>
 
-<AddPanelDialog bind:open={addPanelOpen} existingPanels={viewer.dashboard?.layout.panels ?? []} onAdd={(panel) => viewer.addPanel(panel)} />
+<!-- The ungrouped area and every row are each their own DashboardGrid (one gridstack
+     instance per section, see panelsInRow), so this is shared rather than repeated. -->
+{#snippet grid(panels: DashboardPanel[], rowId: string | null)}
+	<DashboardGrid
+		{panels}
+		rows={viewer.rows}
+		{rowId}
+		editing={viewer.editing}
+		timeRangeOverride={viewer.timeRangeOverride}
+		variables={viewer.variables}
+		variableValues={viewer.variableValues}
+		refreshToken={viewer.refreshToken}
+		removingPanelId={viewer.removingPanelId}
+		onLayoutChange={(changes) => viewer.updateLayout(changes)}
+		onRemove={(id) => viewer.removePanel(id)}
+		onRename={(id, title) => viewer.renamePanel(id, title)}
+		onDuplicate={(id) => viewer.duplicatePanel(id)}
+		onExport={(id) => viewer.exportPanel(id)}
+		onToggleVariable={(id, variableId, excluded) => viewer.setPanelVariableExcluded(id, variableId, excluded)}
+		onSetYAxisBounds={(id, min, max) => viewer.setPanelYAxisBounds(id, min, max)}
+		onSetThresholds={(id, thresholds) => viewer.setPanelThresholds(id, thresholds)}
+		onMoveToRow={(id, target) => viewer.movePanelToRow(id, target)}
+	/>
+{/snippet}
+
+<AddPanelDialog
+	bind:open={addPanelOpen}
+	existingPanels={panelsInRow(allPanels, viewer.rows, addPanelRowId)}
+	onAdd={(panel) => viewer.addPanel({ ...panel, rowId: addPanelRowId ?? undefined })}
+/>
 <ManageVariablesDialog bind:open={manageVariablesOpen} {viewer} />
