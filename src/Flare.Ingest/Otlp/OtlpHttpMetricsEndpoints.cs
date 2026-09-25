@@ -69,6 +69,13 @@ public static class OtlpHttpMetricsEndpoints
                 request = ExportMetricsServiceRequest.Parser.ParseFrom(buffer);
             }
         }
+        catch (BadHttpRequestException ex) when (ex.StatusCode == StatusCodes.Status413PayloadTooLarge)
+        {
+            // Body exceeded Otlp:MaxRequestSizeBytes (Kestrel's MaxRequestBodySize, set in
+            // Program.cs). 413, not 400: it's a size limit, not a malformed payload.
+            await stats.RecordRejectedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, "payload-too-large", cancellationToken);
+            return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Rejected malformed OTLP metrics export via HTTP ({ContentType})", isJson ? "json" : "protobuf");

@@ -18,13 +18,25 @@ builder.AddServiceDefaults();
 // Two Kestrel listeners in one process, matching OTLP's conventional ports:
 //   4317 - gRPC (cleartext HTTP/2, no ALPN negotiation needed since the protocol is pinned per-listener)
 //   4318 - HTTP/1.1, both application/x-protobuf and application/json bodies on POST /v1/logs
+//
+// Both transports' default size caps (gRPC 4 MB, Kestrel ~30 MB) sit below the 64 MiB an
+// OTel SDK exporter sends by default - see OtlpReceiverOptions.MaxRequestSizeBytes.
+var otlpReceiverOptions = builder.Configuration.GetSection(OtlpReceiverOptions.SectionName).Get<OtlpReceiverOptions>()
+    ?? new OtlpReceiverOptions();
+if (otlpReceiverOptions.MaxRequestSizeBytes is <= 0 or > int.MaxValue)
+{
+    throw new InvalidOperationException(
+        $"{OtlpReceiverOptions.SectionName}:{nameof(OtlpReceiverOptions.MaxRequestSizeBytes)} must be between 1 and {int.MaxValue}.");
+}
+
 builder.WebHost.ConfigureKestrel(options =>
 {
+    options.Limits.MaxRequestBodySize = otlpReceiverOptions.MaxRequestSizeBytes;
     options.ListenAnyIP(4317, o => o.Protocols = HttpProtocols.Http2);
     options.ListenAnyIP(4318, o => o.Protocols = HttpProtocols.Http1AndHttp2);
 });
 
-builder.Services.AddGrpc();
+builder.Services.AddGrpc(options => options.MaxReceiveMessageSize = (int)otlpReceiverOptions.MaxRequestSizeBytes);
 
 builder.Services.Configure<LogEventPipelineOptions>(
     builder.Configuration.GetSection(LogEventPipelineOptions.SectionName));

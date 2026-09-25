@@ -1,4 +1,3 @@
-using System.Globalization;
 using Flare.Ingest.Model;
 using OpenTelemetry.Proto.Collector.Trace.V1;
 using OpenTelemetry.Proto.Common.V1;
@@ -12,10 +11,10 @@ namespace Flare.Ingest.Otlp;
 /// same shape as <see cref="OtlpLogMapper"/>.
 /// </summary>
 /// <remarks>
-/// Deliberately duplicates <see cref="OtlpLogMapper"/>'s attribute-flattening helpers
-/// (<c>EmptyToNull</c>/<c>AnyValueToString</c>/<c>Flatten</c>) rather than extracting a
-/// shared utility - same "duplicate now, extract only on a third instance" call made for
-/// the flush-worker pipeline (see <c>Pipeline/SpanFlushWorker.cs</c>'s remarks).
+/// Attribute flattening lives in <see cref="OtlpAnyValue"/>, extracted once the metrics
+/// mapper made it a third copy - the "duplicate now, extract only on a third instance"
+/// call also made for the flush-worker pipeline (see <c>Pipeline/SpanFlushWorker.cs</c>'s
+/// remarks). The trivial <c>EmptyToNull</c> stays duplicated per mapper.
 /// </remarks>
 public static class OtlpTraceMapper
 {
@@ -29,13 +28,13 @@ public static class OtlpTraceMapper
     {
         foreach (var resourceSpans in request.ResourceSpans)
         {
-            var resourceAttributes = Flatten(resourceSpans.Resource?.Attributes);
+            var resourceAttributes = OtlpAnyValue.Flatten(resourceSpans.Resource?.Attributes);
             var serviceName = resourceAttributes.GetValueOrDefault("service.name");
             var resourceSchemaUrl = EmptyToNull(resourceSpans.SchemaUrl);
 
             foreach (var scopeSpans in resourceSpans.ScopeSpans)
             {
-                var scopeAttributes = Flatten(scopeSpans.Scope?.Attributes);
+                var scopeAttributes = OtlpAnyValue.Flatten(scopeSpans.Scope?.Attributes);
                 var scopeSchemaUrl = EmptyToNull(scopeSpans.SchemaUrl);
 
                 foreach (var span in scopeSpans.Spans)
@@ -64,7 +63,7 @@ public static class OtlpTraceMapper
                         ScopeName = EmptyToNull(scopeSpans.Scope?.Name),
                         ScopeVersion = EmptyToNull(scopeSpans.Scope?.Version),
                         ScopeAttributes = scopeAttributes,
-                        SpanAttributes = Flatten(span.Attributes),
+                        SpanAttributes = OtlpAnyValue.Flatten(span.Attributes),
                         Events = [.. span.Events.Select(MapEvent)],
                         Links = [.. span.Links.Select(MapLink)],
                         IngestedAt = ingestedAt,
@@ -78,7 +77,7 @@ public static class OtlpTraceMapper
     {
         Timestamp = FromUnixNano(evt.TimeUnixNano),
         Name = EmptyToNull(evt.Name),
-        Attributes = Flatten(evt.Attributes),
+        Attributes = OtlpAnyValue.Flatten(evt.Attributes),
     };
 
     private static SpanLink MapLink(Span.Types.Link link) => new()
@@ -86,7 +85,7 @@ public static class OtlpTraceMapper
         TraceId = Convert.ToHexStringLower(link.TraceId.Span),
         SpanId = Convert.ToHexStringLower(link.SpanId.Span),
         TraceState = EmptyToNull(link.TraceState),
-        Attributes = Flatten(link.Attributes),
+        Attributes = OtlpAnyValue.Flatten(link.Attributes),
     };
 
     private static DateTimeOffset FromUnixNano(ulong unixNano) =>
@@ -98,36 +97,4 @@ public static class OtlpTraceMapper
     /// both as "absent" for every nullable string field on <see cref="SpanRecord"/>.
     /// </summary>
     private static string? EmptyToNull(string? value) => string.IsNullOrEmpty(value) ? null : value;
-
-    private static Dictionary<string, string> Flatten(IEnumerable<KeyValue>? attributes)
-    {
-        var result = new Dictionary<string, string>();
-        if (attributes is null)
-        {
-            return result;
-        }
-
-        foreach (var kv in attributes)
-        {
-            var value = AnyValueToString(kv.Value);
-            if (value is not null)
-            {
-                result[kv.Key] = value;
-            }
-        }
-
-        return result;
-    }
-
-    private static string? AnyValueToString(AnyValue? value) => value?.ValueCase switch
-    {
-        AnyValue.ValueOneofCase.StringValue => value.StringValue,
-        AnyValue.ValueOneofCase.BoolValue => value.BoolValue ? "true" : "false",
-        AnyValue.ValueOneofCase.IntValue => value.IntValue.ToString(CultureInfo.InvariantCulture),
-        AnyValue.ValueOneofCase.DoubleValue => value.DoubleValue.ToString(CultureInfo.InvariantCulture),
-        AnyValue.ValueOneofCase.BytesValue => Convert.ToBase64String(value.BytesValue.Span),
-        AnyValue.ValueOneofCase.ArrayValue => "[" + string.Join(",", value.ArrayValue.Values.Select(AnyValueToString)) + "]",
-        AnyValue.ValueOneofCase.KvlistValue => "{" + string.Join(",", value.KvlistValue.Values.Select(kv => $"{kv.Key}={AnyValueToString(kv.Value)}")) + "}",
-        _ => null,
-    };
 }

@@ -18,6 +18,10 @@ pipeline"**. Concretely, it:
 2. Maps parsed OTLP log records into a minimal internal [`LogEvent`](Model/LogEvent.cs)
    via [`OtlpLogMapper`](Otlp/OtlpLogMapper.cs) — shared by both transports, so a log
    sent over gRPC and the same log sent over HTTP/JSON produce identical output.
+   Attribute and body values go through [`OtlpAnyValue`](Otlp/OtlpAnyValue.cs): scalars
+   become their plain text, while arrays and key/value lists become compact JSON
+   (`{"id":42,"tags":["a","b"]}`). That covers dictionary-valued log attributes, which the
+   .NET SDK sends as key/value lists since 1.18, and the body-JSON filters can query them.
 3. Hands each `LogEvent` to an [`ILogEventSink`](Sinks/ILogEventSink.cs), implemented by
    [`RedisStreamLogEventSink`](Sinks/RedisStreamLogEventSink.cs), which buffers it into a
    Redis Stream (`XADD`) — durably, so events survive `Flare.Ingest` restarting before
@@ -68,6 +72,23 @@ Or standalone:
 dotnet run --project .
 ```
 
+## Request size limit
+
+`OtlpReceiverOptions` (the `Otlp` config section) sets the largest single export Flare
+accepts. The same value applies to gRPC (`MaxReceiveMessageSize`) and HTTP (Kestrel's
+`MaxRequestBodySize`):
+
+| Setting | Env var | Default |
+|---|---|---|
+| `MaxRequestSizeBytes` | `Otlp__MaxRequestSizeBytes` | `67108864` (64 MiB) |
+
+64 MiB is the OpenTelemetry spec's recommended cap and the .NET SDK exporter's own default.
+An exporter treats a size rejection as non-retryable and drops the **whole** batch, so
+don't set this below what your exporters send. Without this setting, gRPC's built-in 4 MB
+cap applied. An oversized HTTP body gets `413` and counts as `payload-too-large` on the
+Ingestion page. The HTTP receivers hold each body in memory, so this is also the
+per-request memory ceiling. It's read once at startup.
+
 ## Smoke-testing manually
 
 **HTTP + JSON** (easiest - no OTel SDK needed, just `curl`):
@@ -98,6 +119,7 @@ network, no containers:
 
 - `OtlpLogMapper` (severity/timestamp handling, all `AnyValue` attribute variants,
   trace/span id hex encoding).
+- `OtlpAnyValue` (array/key-value-list → JSON rendering, escaping, non-finite doubles).
 - `ClickHouseRowMapper` (the `LogEvent` → ClickHouse row mapping: empty-string
   coalescing, `ObservedTimestamp` fallback, column order).
 - `LogEventJsonContext` (the Redis Stream wire format round-trips correctly).

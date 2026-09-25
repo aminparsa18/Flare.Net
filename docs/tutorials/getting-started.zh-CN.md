@@ -35,8 +35,8 @@ docker compose up
 ```sh
 mkdir flare-hello && cd flare-hello
 dotnet new console
-dotnet add package OpenTelemetry.Extensions.Hosting --version 1.17.0
-dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.17.0
+dotnet add package OpenTelemetry.Extensions.Hosting --version 1.19.1
+dotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol --version 1.19.1
 ```
 
 将 `Program.cs` 替换为：

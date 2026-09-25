@@ -1,4 +1,3 @@
-using System.Globalization;
 using Flare.Ingest.Model;
 using OpenTelemetry.Proto.Collector.Metrics.V1;
 using OpenTelemetry.Proto.Common.V1;
@@ -26,10 +25,7 @@ public sealed record MetricMapResult(IReadOnlyList<MetricPointRecord> Points, IR
 /// v1 scope: only <see cref="Metric.DataOneofCase.Gauge"/>/<see cref="Metric.DataOneofCase.Sum"/>/
 /// <see cref="Metric.DataOneofCase.Histogram"/> are mapped - see
 /// <see cref="MetricPointRecord"/>'s remarks for why ExponentialHistogram/Summary are
-/// deliberately out of scope. Deliberately duplicates <see cref="OtlpTraceMapper"/>'s
-/// attribute-flattening helpers rather than extracting a shared utility - same
-/// "duplicate now, extract only on a third instance" call already made twice over
-/// (<see cref="OtlpLogMapper"/>, <see cref="OtlpTraceMapper"/>).
+/// deliberately out of scope. Attribute flattening is shared via <see cref="OtlpAnyValue"/>.
 /// </remarks>
 public static class OtlpMetricsMapper
 {
@@ -46,13 +42,13 @@ public static class OtlpMetricsMapper
 
         foreach (var resourceMetrics in request.ResourceMetrics)
         {
-            var resourceAttributes = Flatten(resourceMetrics.Resource?.Attributes);
+            var resourceAttributes = OtlpAnyValue.Flatten(resourceMetrics.Resource?.Attributes);
             var serviceName = resourceAttributes.GetValueOrDefault("service.name");
             var resourceSchemaUrl = EmptyToNull(resourceMetrics.SchemaUrl);
 
             foreach (var scopeMetrics in resourceMetrics.ScopeMetrics)
             {
-                var scopeAttributes = Flatten(scopeMetrics.Scope?.Attributes);
+                var scopeAttributes = OtlpAnyValue.Flatten(scopeMetrics.Scope?.Attributes);
                 var scopeSchemaUrl = EmptyToNull(scopeMetrics.SchemaUrl);
                 var scopeName = EmptyToNull(scopeMetrics.Scope?.Name);
                 var scopeVersion = EmptyToNull(scopeMetrics.Scope?.Version);
@@ -80,7 +76,7 @@ public static class OtlpMetricsMapper
                                     ScopeName = scopeName,
                                     ScopeVersion = scopeVersion,
                                     ScopeAttributes = scopeAttributes,
-                                    DataPointAttributes = Flatten(dp.Attributes),
+                                    DataPointAttributes = OtlpAnyValue.Flatten(dp.Attributes),
                                     StartTime = dp.StartTimeUnixNano == 0 ? null : FromUnixNano(dp.StartTimeUnixNano),
                                     Time = FromUnixNano(dp.TimeUnixNano),
                                     Value = NumberValue(dp),
@@ -104,7 +100,7 @@ public static class OtlpMetricsMapper
                                     ScopeName = scopeName,
                                     ScopeVersion = scopeVersion,
                                     ScopeAttributes = scopeAttributes,
-                                    DataPointAttributes = Flatten(dp.Attributes),
+                                    DataPointAttributes = OtlpAnyValue.Flatten(dp.Attributes),
                                     StartTime = dp.StartTimeUnixNano == 0 ? null : FromUnixNano(dp.StartTimeUnixNano),
                                     Time = FromUnixNano(dp.TimeUnixNano),
                                     Value = NumberValue(dp),
@@ -130,7 +126,7 @@ public static class OtlpMetricsMapper
                                     ScopeName = scopeName,
                                     ScopeVersion = scopeVersion,
                                     ScopeAttributes = scopeAttributes,
-                                    DataPointAttributes = Flatten(dp.Attributes),
+                                    DataPointAttributes = OtlpAnyValue.Flatten(dp.Attributes),
                                     StartTime = dp.StartTimeUnixNano == 0 ? null : FromUnixNano(dp.StartTimeUnixNano),
                                     Time = FromUnixNano(dp.TimeUnixNano),
                                     AggregationTemporality = (int)metric.Histogram.AggregationTemporality,
@@ -172,36 +168,4 @@ public static class OtlpMetricsMapper
     /// both as "absent" for every nullable string field on <see cref="MetricPointRecord"/>.
     /// </summary>
     private static string? EmptyToNull(string? value) => string.IsNullOrEmpty(value) ? null : value;
-
-    private static Dictionary<string, string> Flatten(IEnumerable<KeyValue>? attributes)
-    {
-        var result = new Dictionary<string, string>();
-        if (attributes is null)
-        {
-            return result;
-        }
-
-        foreach (var kv in attributes)
-        {
-            var value = AnyValueToString(kv.Value);
-            if (value is not null)
-            {
-                result[kv.Key] = value;
-            }
-        }
-
-        return result;
-    }
-
-    private static string? AnyValueToString(AnyValue? value) => value?.ValueCase switch
-    {
-        AnyValue.ValueOneofCase.StringValue => value.StringValue,
-        AnyValue.ValueOneofCase.BoolValue => value.BoolValue ? "true" : "false",
-        AnyValue.ValueOneofCase.IntValue => value.IntValue.ToString(CultureInfo.InvariantCulture),
-        AnyValue.ValueOneofCase.DoubleValue => value.DoubleValue.ToString(CultureInfo.InvariantCulture),
-        AnyValue.ValueOneofCase.BytesValue => Convert.ToBase64String(value.BytesValue.Span),
-        AnyValue.ValueOneofCase.ArrayValue => "[" + string.Join(",", value.ArrayValue.Values.Select(AnyValueToString)) + "]",
-        AnyValue.ValueOneofCase.KvlistValue => "{" + string.Join(",", value.KvlistValue.Values.Select(kv => $"{kv.Key}={AnyValueToString(kv.Value)}")) + "}",
-        _ => null,
-    };
 }
