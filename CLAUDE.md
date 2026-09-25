@@ -35,7 +35,7 @@ Solution file is **`Flare.slnx`** (not `.sln`).
 
 ## Commands
 
-**.NET** (targets `net10.0`, SDK pinned via `global.json` to `10.0.100`, Aspire SDK `13.4.6`):
+**.NET** (targets `net10.0`, SDK pinned via `global.json` to `10.0.100`, Aspire SDK `13.5.4`):
 ```bash
 dotnet build Flare.slnx
 dotnet test                          # run from repo root, or inside a specific src/*.Tests project

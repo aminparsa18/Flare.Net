@@ -8,7 +8,7 @@
          package references Aspire.Hosting directly (not Aspire.Hosting.AppHost - that's the
          AppHost-executable meta-package), per Aspire's own "Create custom hosting integrations"
          doc pattern. -->
-    <PackageVersion Include="Aspire.Hosting" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting" Version="13.5.4" />
     <!-- Aspire.Hosting.Docker: only needed for PublishAsDockerComposeService, which AddFlare
          uses to mirror its Docker-driven-Resources-page labels onto the generated Docker
          Compose service definitions (docs/aspire-hosting.md's "Publishing / deploying via
@@ -16,7 +16,7 @@
          AddDockerComposeEnvironment never touches this, but the extension method itself has
          to be in scope at compile time regardless. Pinned to match every other Aspire package
          here. -->
-    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.5.4" />
     <!-- Aspire.Hosting.Kubernetes: only needed for PublishAsKubernetesService, the Kubernetes
          counterpart to the Aspire.Hosting.Docker reference above - AddFlare uses it to mirror
          the Docker-driven-Resources-page labels (as pod-template labels) onto the generated
@@ -26,23 +26,25 @@
          behalf, extension method just has to be in scope" story as Aspire.Hosting.Docker.
          Unlike every other Aspire package pinned here, this one has never had a stable
          release on nuget.org (confirmed live: only *-preview.* versions exist across its
-         whole history, 9.2.0 through 13.5.3) - pinned to the preview build matching the
-         13.4.6 train the rest of this repo's Aspire packages use. -->
-    <PackageVersion Include="Aspire.Hosting.Kubernetes" Version="13.5.3-preview.1.26425.3" />
+         whole history, 9.2.0 through 13.5.4) - pinned to the preview build matching the
+         13.5.4 train the rest of this repo's Aspire packages use. -->
+    <PackageVersion Include="Aspire.Hosting.Kubernetes" Version="13.5.4-preview.1.26464.4" />
     <!-- ClickHouse: schema in db/clickhouse/, see db/clickhouse/README.md.
          Aspire.Hosting.ClickHouse is referenced by Flare.AppHost today.
          Aspire.ClickHouse.Driver is referenced by Flare.Ingest/Flare.Api (the batched
-         insert pipeline and query API) and Flare.ServiceDefaults (ClickHouseMigrationRunner). -->
+         insert pipeline and query API) and Flare.ServiceDefaults (ClickHouseMigrationRunner).
+         Deliberately one patch behind the rest (13.5.3, not 13.5.4): the 13.5.4 patch release
+         didn't republish these two, so 13.5.3 is the newest that exists on nuget.org. -->
     <PackageVersion Include="Aspire.Hosting.ClickHouse" Version="13.5.3" />
     <PackageVersion Include="Aspire.ClickHouse.Driver" Version="13.5.3" />
     <!-- Redis: durable Redis-Streams buffer for the batched ClickHouse insert pipeline
-         (Planning.md's "Buffering layer" decision, 2026-08-07). Pinned at 13.4.6 to match
+         (Planning.md's "Buffering layer" decision, 2026-08-07). Pinned at 13.5.4 to match
          every other Aspire package here / global.json's Aspire.AppHost.Sdk - the locally
          cached 13.3.1 build of these two is stale and would silently downgrade if picked
          instead; first restore of these two needs to go online, same one-time situation
          already accepted above for Aspire.ClickHouse.Driver. -->
-    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.5.3" />
-    <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.5.4" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.5.4" />
     <!-- Flare.ServiceDefaults: standard Aspire template observability stack -->
     <PackageVersion Include="MailKit" Version="4.17.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
