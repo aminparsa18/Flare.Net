@@ -29,6 +29,8 @@
 // `anomalyCondition`'s enums convert through `enums.ts`, same as `conditionKind`.
 // `minDataPoints` and the dry-run `insufficientData`/`dataPointCount` were added for the
 // metric-alert minimum sample size (docs-internal/adr/0050-alert-minimum-data-points.md).
+// `notificationTitleTemplate`/`notificationBodyTemplate` and `previewAlertNotification` were
+// added for custom notification templates (docs-internal/adr/0052-alert-notification-templates.md).
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type LogFilter } from './api';
 import {
@@ -63,6 +65,7 @@ import { AlertHistoryResponse as GeneratedAlertHistoryResponse } from '$lib/memo
 import { AlertTestResult as GeneratedAlertTestResult } from '$lib/memorypack/AlertTestResult';
 import type { AlertHistoryEntry as GeneratedAlertHistoryEntry } from '$lib/memorypack/AlertHistoryEntry';
 import { AlertNotificationTestResult as GeneratedAlertNotificationTestResult } from '$lib/generated/memorypack/AlertNotificationTestResult.js';
+import { AlertNotificationPreview as GeneratedAlertNotificationPreview } from '$lib/generated/memorypack/AlertNotificationPreview.js';
 import { MetricAlertCondition as GeneratedMetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
 import { ExceptionCountCondition as GeneratedExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
 import { AnomalyCondition as GeneratedAnomalyCondition } from '$lib/memorypack/AnomalyCondition';
@@ -170,6 +173,10 @@ export interface AlertRule {
 	anomalyCondition?: AnomalyCondition;
 	/** `'MetricThreshold'` only: fewest raw points the window must hold before the threshold is compared - fewer is "insufficient data" and never fires. 0 disables it. */
 	minDataPoints: number;
+	/** Custom `{{placeholder}}` notification title - '' keeps each channel's built-in subject/heading. */
+	notificationTitleTemplate: string;
+	/** Custom `{{placeholder}}` notification body - '' keeps the built-in wording. Replaces the whole text, links included. */
+	notificationBodyTemplate: string;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -200,6 +207,10 @@ export interface AlertRuleRequest {
 	anomalyCondition?: AnomalyCondition;
 	/** See `AlertRule.minDataPoints`. Omitted/undefined means 0 (disabled). */
 	minDataPoints?: number;
+	/** See `AlertRule.notificationTitleTemplate`. Omitted/undefined means '' (built-in). */
+	notificationTitleTemplate?: string;
+	/** See `AlertRule.notificationBodyTemplate`. Omitted/undefined means '' (built-in). */
+	notificationBodyTemplate?: string;
 }
 
 export interface AlertRuleListResponse {
@@ -279,6 +290,23 @@ export interface AlertNotificationTestResult {
 	statusCode: number;
 	error: string;
 }
+
+/** A draft's notification rendered with illustrative values - see `previewAlertNotification`. */
+export interface AlertNotificationPreview {
+	/** '' when the draft has no title template (channels use their built-in subject/heading). */
+	title: string;
+	text: string;
+	/** Why the templates can't be saved as-is - '' when valid. */
+	error: string;
+}
+
+/** Placeholder names a notification template may use, besides `labels.<key>` - mirrors `AlertTemplateRenderer.Names`. */
+export const NOTIFICATION_TEMPLATE_PLACEHOLDERS = [
+	'rule_name', 'rule_id', 'description', 'status', 'condition_kind',
+	'value', 'threshold', 'comparator', 'window', 'window_seconds',
+	'metric', 'exception_type', 'baseline_mean', 'z_score',
+	'fired_at', 'rule_url', 'logs_url', 'message'
+] as const;
 
 function toAlertThreshold(dto: GeneratedAlertThreshold): AlertThreshold {
 	return { count: Number(dto.count), comparator: thresholdComparatorToString(dto.comparator) };
@@ -376,7 +404,9 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		noDataWindowSeconds: dto.noDataWindowSeconds,
 		evaluationIntervalSeconds: dto.evaluationIntervalSeconds,
 		anomalyCondition: toAnomalyCondition(dto.anomalyCondition),
-		minDataPoints: dto.minDataPoints
+		minDataPoints: dto.minDataPoints,
+		notificationTitleTemplate: dto.notificationTitleTemplate ?? '',
+		notificationBodyTemplate: dto.notificationBodyTemplate ?? ''
 	};
 }
 
@@ -411,6 +441,8 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.evaluationIntervalSeconds = request.evaluationIntervalSeconds ?? null;
 	dto.anomalyCondition = toGeneratedAnomalyCondition(request.anomalyCondition);
 	dto.minDataPoints = request.minDataPoints ?? null;
+	dto.notificationTitleTemplate = request.notificationTitleTemplate ?? null;
+	dto.notificationBodyTemplate = request.notificationBodyTemplate ?? null;
 	return dto;
 }
 
@@ -600,4 +632,29 @@ export async function sendTestDraftAlertRule(request: AlertRuleRequest): Promise
 		throw new Error('Empty response body decoding AlertNotificationTestResult.');
 	}
 	return toAlertNotificationTestResult(dtoResult);
+}
+
+/**
+ * Renders a draft's notification title/body with illustrative values, without sending
+ * anything or querying ClickHouse - the rule form's live template preview. `ruleId` (when
+ * editing a saved rule) only makes `{{rule_id}}`/`{{rule_url}}` resolve to that rule. Rendering is
+ * server-side so the preview can never drift from what a real notification says.
+ */
+export async function previewAlertNotification(request: AlertRuleRequest, ruleId?: string, signal?: AbortSignal): Promise<AlertNotificationPreview> {
+	const dto = toGeneratedAlertRuleRequest(request);
+	const query = ruleId ? `?ruleId=${encodeURIComponent(ruleId)}` : '';
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/notification-preview${query}`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedAlertRuleRequest.serialize(dto)),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/alerts/notification-preview failed: ${res.status} ${res.statusText}`);
+	}
+	const dtoResult = GeneratedAlertNotificationPreview.deserialize(await res.arrayBuffer());
+	if (dtoResult == null) {
+		throw new Error('Empty response body decoding AlertNotificationPreview.');
+	}
+	return { title: dtoResult.title ?? '', text: dtoResult.text ?? '', error: dtoResult.error ?? '' };
 }

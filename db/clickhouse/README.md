@@ -140,6 +140,11 @@ rule). The per-rule last-evaluated timestamp lives in Redis, not ClickHouse. See
 `MetricThreshold` rule with fewer points than this in its window is "insufficient data" and
 doesn't fire. See [ADR-0050](../../docs-internal/adr/0050-alert-minimum-data-points.md).
 
+`0030_alert_notification_templates.sql` - custom alert notification templates:
+`alert_rules.NotificationTitleTemplate`/`NotificationBodyTemplate` (`''` = built-in wording,
+the default for every existing rule). See
+[ADR-0052](../../docs-internal/adr/0052-alert-notification-templates.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

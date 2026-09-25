@@ -49,6 +49,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         // No scoped-logs link for a no-data fire - by definition there are no matching logs to show.
         var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold;
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false);
         var payload = new
         {
             routing_key = channel.PagerDutyRoutingKey,
@@ -60,7 +61,9 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
             links = new[] { new { href = logsUrl, text = "Matching logs in Flare" } }.Where(l => l.href is not null).ToArray(),
             payload = new
             {
-                summary = AlertMessageFormatter.BuildText(rule, observedValue, isTest, metricUnit: metricUnit, noData: noData, anomaly: anomaly),
+                // A custom title is the natural one-line incident title; the (possibly
+                // multi-line) text then rides along in custom_details.message.
+                summary = message.Title ?? message.Text,
                 source = "flare",
                 severity = isTest ? "info" : "critical",
                 timestamp = firedAt,
@@ -81,6 +84,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
                     windowSeconds = rule.WindowSeconds,
                     ruleUrl,
                     logsUrl,
+                    message = message.Title is null ? null : message.Text,
                 },
             },
         };

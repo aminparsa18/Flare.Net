@@ -3,6 +3,7 @@ using Flare.Api.Alerting;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Endpoints;
 
@@ -32,6 +33,11 @@ public static class AlertEndpoints
         // reason as the dry-run pair.
         endpoints.MapPost("/api/alerts/{id:guid}/send-test", HandleSendTestSavedAsync);
         endpoints.MapPost("/api/alerts/send-test", HandleSendTestDraftAsync);
+
+        // Renders a draft's notification title/body (custom templates or the built-in
+        // wording) with illustrative values - the rule form's live preview. Never sends and
+        // never queries ClickHouse, so it's cheap enough to call on every (debounced) edit.
+        endpoints.MapPost("/api/alerts/notification-preview", HandleNotificationPreviewAsync);
         return endpoints;
     }
 
@@ -195,9 +201,20 @@ public static class AlertEndpoints
             return Results.Problem(conditionError, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var now = timeProvider.GetUtcNow();
+        var draftRule = ToDraftRule(request, timeProvider.GetUtcNow());
+        var result = await SendTestAsync(notifier, channels, draftRule, timeProvider, cancellationToken);
+        return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertNotificationTestResult);
+    }
+
+    /// <summary>
+    /// An unsaved <see cref="AlertRule"/> built from a request body (<see cref="Guid.Empty"/>
+    /// id) - what the draft send-test and notification-preview endpoints hand to the notifier/
+    /// formatter, so both see exactly the rule create/update would persist.
+    /// </summary>
+    private static AlertRule ToDraftRule(AlertRuleRequest request, DateTimeOffset now)
+    {
         var defaults = AlertQueryService.ResolveDefaults(request);
-        var draftRule = new AlertRule
+        return new AlertRule
         {
             Id = Guid.Empty,
             Name = request.Name,
@@ -223,10 +240,62 @@ public static class AlertEndpoints
             EvaluationIntervalSeconds = defaults.EvaluationIntervalSeconds,
             AnomalyCondition = request.AnomalyCondition,
             MinDataPoints = defaults.MinDataPoints,
+            NotificationTitleTemplate = defaults.NotificationTitleTemplate,
+            NotificationBodyTemplate = defaults.NotificationBodyTemplate,
         };
+    }
 
-        var result = await SendTestAsync(notifier, channels, draftRule, timeProvider, cancellationToken);
-        return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertNotificationTestResult);
+    private static async Task<IResult> HandleNotificationPreviewAsync(Guid? ruleId, HttpContext http, IOptions<AlertLinkOptions> linkOptions, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        AlertRuleRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AlertsJsonContext.Default.AlertRuleRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // Only the templates are validated - the rest of the draft may still be half-filled
+        // while the user types, and an invalid template is reported in-band (Error) so the
+        // form can show it next to the preview rather than as a failed request.
+        // ?ruleId= (the form sends it when editing a saved rule) only makes {{rule_id}}/
+        // {{rule_url}} show the real rule rather than the empty draft GUID.
+        var rule = ToDraftRule(request, timeProvider.GetUtcNow()) with { Id = ruleId ?? Guid.Empty };
+        var (observedValue, anomaly) = PreviewSample(rule);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest: false, linkOptions.Value.PublicUrl, metricUnit: null, rule.UpdatedAt, noData: false, anomaly);
+        var preview = new AlertNotificationPreview
+        {
+            Title = message.Title ?? "",
+            Text = message.Text,
+            Error = request.ValidateTemplates() ?? "",
+        };
+        return ApiSerialization.Write(http, preview, AlertsJsonContext.Default.AlertNotificationPreview);
+    }
+
+    /// <summary>
+    /// Illustrative values for the notification preview: a value sitting right on the
+    /// threshold (so it reads as a breach), and for an anomaly rule a made-up baseline three
+    /// standard deviations away. The preview never queries ClickHouse - the dry-run "Test"
+    /// action is what shows a rule's real current value.
+    /// </summary>
+    internal static (double ObservedValue, AnomalyScore? Anomaly) PreviewSample(AlertRule rule)
+    {
+        if (rule.ConditionKind == AlertConditionKind.Anomaly)
+        {
+            return (150, new AnomalyScore(Current: 150, SampleCount: rule.AnomalyCondition?.BaselinePeriods ?? 0, BaselineMean: 100, ZScore: 3, Breached: true));
+        }
+
+        var breaches = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual;
+        return rule.ConditionKind == AlertConditionKind.MetricThreshold
+            ? (rule.MetricThresholdValue ?? 0, null)
+            : (breaches ? rule.Threshold.Count : 0, null);
     }
 
     /// <summary>

@@ -130,6 +130,8 @@ public class AlertQueryServiceDefaultsTests
         Assert.Equal(0, defaults.NoDataWindowSeconds);
         Assert.Equal(0, defaults.EvaluationIntervalSeconds);
         Assert.Equal(0, defaults.MinDataPoints);
+        Assert.Equal("", defaults.NotificationTitleTemplate);
+        Assert.Equal("", defaults.NotificationBodyTemplate);
     }
 
     [Fact]

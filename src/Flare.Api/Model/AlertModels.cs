@@ -414,6 +414,25 @@ public sealed partial record AlertRule
     /// after <see cref="AnomalyCondition"/>, same versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public int MinDataPoints { get; init; }
+
+    /// <summary>
+    /// Optional custom notification title - <c>{{placeholder}}</c> text rendered by
+    /// <c>Alerting.AlertTemplateRenderer</c> (see <c>AlertTemplateRenderer.Names</c> for the
+    /// supported set). Empty (the default, and every rule created before this field existed)
+    /// keeps each channel's built-in subject/heading. Used as Email's subject and PagerDuty's
+    /// summary; prepended as the first line on channels with no subject field. See
+    /// <c>docs-internal/adr/0052-alert-notification-templates.md</c>. Appended after
+    /// <see cref="MinDataPoints"/>, same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public string NotificationTitleTemplate { get; init; } = "";
+
+    /// <summary>
+    /// Optional custom notification body, same placeholder syntax as <see cref="NotificationTitleTemplate"/>.
+    /// Empty keeps <c>AlertMessageFormatter.BuildText</c>'s built-in wording. A custom body
+    /// replaces the whole text, deep links included - place <c>{{rule_url}}</c>/<c>{{logs_url}}</c>
+    /// where wanted. Appended after <see cref="NotificationTitleTemplate"/>.
+    /// </summary>
+    public string NotificationBodyTemplate { get; init; } = "";
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -497,6 +516,12 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.MinDataPoints"/>'s doc comment. Omitted/null means 0 (disabled). Appended after <see cref="AnomalyCondition"/>, same versioning reasoning.</summary>
     public int? MinDataPoints { get; init; }
+
+    /// <summary>See <see cref="AlertRule.NotificationTitleTemplate"/>'s doc comment. Omitted/null means "" (built-in title). Appended after <see cref="MinDataPoints"/>, same versioning reasoning.</summary>
+    public string? NotificationTitleTemplate { get; init; }
+
+    /// <summary>See <see cref="AlertRule.NotificationBodyTemplate"/>'s doc comment. Omitted/null means "" (built-in text). Appended after <see cref="NotificationTitleTemplate"/>.</summary>
+    public string? NotificationBodyTemplate { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
@@ -612,7 +637,7 @@ public sealed partial record AlertRuleRequest
             _ => null,
         };
 
-        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError;
+        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateTemplates();
     }
 
     /// <summary>
@@ -659,6 +684,22 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>The largest <see cref="MinDataPoints"/> <see cref="ValidateCondition"/> accepts.</summary>
     public const int MaxMinDataPoints = 100_000;
+
+    /// <summary>
+    /// Null when <see cref="NotificationTitleTemplate"/>/<see cref="NotificationBodyTemplate"/>
+    /// only use known placeholders and fit their length caps - an unknown placeholder is almost
+    /// always a typo, better rejected on save than rendered verbatim into a real incident.
+    /// Also called on its own by the notification-preview endpoint.
+    /// </summary>
+    public string? ValidateTemplates() =>
+        Alerting.AlertTemplateRenderer.Validate(NotificationTitleTemplate, "notificationTitleTemplate", MaxNotificationTitleLength)
+        ?? Alerting.AlertTemplateRenderer.Validate(NotificationBodyTemplate, "notificationBodyTemplate", MaxNotificationBodyLength);
+
+    /// <summary>The longest <see cref="NotificationTitleTemplate"/> accepted - a subject line, and PagerDuty's summary caps at 1024.</summary>
+    public const int MaxNotificationTitleLength = 256;
+
+    /// <summary>The longest <see cref="NotificationBodyTemplate"/> accepted - under Telegram's 4096-character message cap with room for rendered values.</summary>
+    public const int MaxNotificationBodyLength = 2_000;
 }
 
 /// <summary>Response body for <c>GET /api/alerts</c>.</summary>
@@ -800,6 +841,26 @@ public sealed partial record AlertTestResult
 
     /// <summary>The window's raw point count, set only when <see cref="AlertRule.MinDataPoints"/> is enabled (the count is only queried then); null otherwise.</summary>
     public ulong? DataPointCount { get; init; }
+}
+
+/// <summary>
+/// Response body for <c>POST /api/alerts/notification-preview</c> - a draft rule's
+/// notification rendered with illustrative values, without sending anything (see
+/// <c>AlertEndpoints.HandleNotificationPreviewAsync</c>). No nested/<see cref="DateTimeOffset"/>
+/// member, so <c>[GenerateTypeScript]</c> directly.
+/// </summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record AlertNotificationPreview
+{
+    /// <summary>The rendered custom title - "" when the draft has no title template (each channel then uses its built-in subject/heading).</summary>
+    public string Title { get; init; } = "";
+
+    /// <summary>The rendered body - the built-in wording when the draft has no body template.</summary>
+    public string Text { get; init; } = "";
+
+    /// <summary>Why the templates can't be saved as-is (unknown placeholder, too long) - "" when they're valid. <see cref="Title"/>/<see cref="Text"/> still carry a best-effort render.</summary>
+    public string Error { get; init; } = "";
 }
 
 /// <summary>

@@ -237,6 +237,10 @@ Chaque règle est vérifiée à chaque cycle d'interrogation du worker d'alertes
 Une règle sur une métrique peut aussi exiger un nombre minimal de points de
 données dans sa fenêtre ; en dessous, elle signale des données insuffisantes
 et ne se déclenche pas.
+Une règle peut aussi remplacer le titre et le corps de sa notification par un
+modèle utilisant des variables comme `{{value}}`, `{{threshold}}`,
+`{{logs_url}}` ou `{{labels.service.name}}`, avec un aperçu en direct dans le
+formulaire de la règle.
 Le déclenchement notifie un ou plusieurs canaux de notification, gérés
 depuis l'onglet « Channels » de cette même page (ou créés sur le champ
 via le bouton « New channel » du formulaire de règle) — des destinations

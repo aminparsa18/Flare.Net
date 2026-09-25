@@ -185,13 +185,6 @@ folders are where "what happened and why" actually lives.
   index if needed, and a filter control; also a natural facet for the
   Logs facet sidebar item above. Not started. Prior art:
   [signoz#6378](https://github.com/SigNoz/signoz/commit/471803115ed91b1cf6404e4bb02cf3745925fea4).
-- **Custom alert notification templates.** Notification text is fixed by
-  `AlertMessageFormatter`; allow an optional per-rule title/body template
-  with placeholders (rule name, observed value, threshold, window, group
-  labels incl. dotted keys like `service.name`, deep links) - a small,
-  safe placeholder substitution, not a general template engine - plus a
-  live preview in the rule form reusing the send-test path. Not started.
-  Prior art: [signoz#6282](https://github.com/SigNoz/signoz/commit/68d25a89894e141f208b62ca3c2c220a37cbc013).
 - **Decide: should errored requests count as Apdex "frustrated"?**
   `ServiceApdexQueryBuilder` classifies satisfied/tolerating purely by
   `DurationNano`, so a request that fails in 5ms counts as satisfied and
