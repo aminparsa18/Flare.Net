@@ -13,7 +13,12 @@
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import TimerIcon from '@lucide/svelte/icons/timer';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import ChevronsDownUpIcon from '@lucide/svelte/icons/chevrons-down-up';
+	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import * as m from '$lib/paraglide/messages';
+	import { tick } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	const detail = traceDetailContext.get();
 
@@ -31,14 +36,38 @@
 		};
 	}
 
-	function jumpToSpan(spanId: string) {
+	// Span ids whose subtrees are hidden. Per-view UI state only - not persisted, not in
+	// the URL.
+	const collapsed = new SvelteSet<string>();
+
+	async function jumpToSpan(spanId: string) {
 		detail.selectedSpanId = spanId;
+		// The target may sit inside a collapsed subtree - expand its ancestors first so
+		// it actually has a row to scroll to.
+		const parentOf = new Map((detail.trace?.spans ?? []).map((s) => [s.spanId, s.parentSpanId]));
+		const seen = new Set<string>();
+		for (let p = parentOf.get(spanId); p && !seen.has(p); p = parentOf.get(p)) {
+			seen.add(p);
+			collapsed.delete(p);
+		}
+		await tick();
 		rowEls.get(spanId)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+	}
+
+	function toggleCollapsed(spanId: string) {
+		if (collapsed.has(spanId)) collapsed.delete(spanId);
+		else collapsed.add(spanId);
+	}
+
+	function collapseAll() {
+		for (const row of tree) if (row.descendants > 0) collapsed.add(row.span.spanId);
 	}
 
 	interface WaterfallRow {
 		span: SpanDto;
 		depth: number;
+		/** Total spans in this row's subtree, excluding itself. */
+		descendants: number;
 	}
 
 	/**
@@ -50,7 +79,7 @@
 	 * malformed/cyclic parent reference looping forever - real OTLP data never does
 	 * this, but nothing upstream validates it either.
 	 */
-	const rows = $derived.by((): WaterfallRow[] => {
+	const tree = $derived.by((): WaterfallRow[] => {
 		const spans = detail.trace?.spans ?? [];
 		if (spans.length === 0) return [];
 
@@ -71,10 +100,27 @@
 		function visit(span: SpanDto, depth: number) {
 			if (visited.has(span.spanId)) return;
 			visited.add(span.spanId);
-			result.push({ span, depth });
+			const row: WaterfallRow = { span, depth, descendants: 0 };
+			const index = result.push(row);
 			for (const child of byParent.get(span.spanId) ?? []) visit(child, depth + 1);
+			row.descendants = result.length - index;
 		}
 		for (const root of byParent.get('') ?? []) visit(root, 0);
+		return result;
+	});
+
+	const hasNesting = $derived(tree.some((row) => row.descendants > 0));
+
+	// `tree` is in pre-order, so a collapsed row's subtree is exactly the next
+	// `descendants` entries - skip past them.
+	const rows = $derived.by((): WaterfallRow[] => {
+		if (collapsed.size === 0) return tree;
+		const result: WaterfallRow[] = [];
+		for (let i = 0; i < tree.length; i++) {
+			const row = tree[i];
+			result.push(row);
+			if (collapsed.has(row.span.spanId)) i += row.descendants;
+		}
 		return result;
 	});
 
@@ -213,7 +259,29 @@
 					class="bg-muted/30 text-muted-foreground grid items-center border-b text-xs font-medium"
 					style="grid-template-columns: var(--waterfall-label-width) 1fr; height: 28px;"
 				>
-					<span class="px-3">{m.traceWaterfall_spanColumnHeader()}</span>
+					<span class="flex items-center gap-1 px-3">
+						<span class="flex-1">{m.traceWaterfall_spanColumnHeader()}</span>
+						{#if hasNesting}
+							<button
+								type="button"
+								class="hover:bg-muted hover:text-foreground rounded p-0.5"
+								title={m.traceWaterfall_expandAll()}
+								aria-label={m.traceWaterfall_expandAll()}
+								onclick={() => collapsed.clear()}
+							>
+								<ChevronsUpDownIcon class="size-3.5" />
+							</button>
+							<button
+								type="button"
+								class="hover:bg-muted hover:text-foreground rounded p-0.5"
+								title={m.traceWaterfall_collapseAll()}
+								aria-label={m.traceWaterfall_collapseAll()}
+								onclick={collapseAll}
+							>
+								<ChevronsDownUpIcon class="size-3.5" />
+							</button>
+						{/if}
+					</span>
 					<!-- pr-3 + the last tick's own -translate-x-full keep the "total duration" label
 					     flush with, not overflowing past, the container's right edge - a left-anchored
 					     0% tick needs no such adjustment, so only the last one gets it. -->
@@ -231,14 +299,23 @@
 			</div>
 
 			<Tooltip.Provider delayDuration={300}>
-			{#each rows as { span, depth } (span.spanId)}
+			{#each rows as { span, depth, descendants } (span.spanId)}
 				{@const KindIcon = kindIcon(span)}
-				<button
-					type="button"
-					class="hover:bg-muted/50 focus-visible:bg-muted/50 grid w-full items-center border-b text-left focus-visible:outline-none"
+				{@const isCollapsed = collapsed.has(span.spanId)}
+				<!-- role="button" div rather than a real <button>: the row nests the
+				     expand/collapse toggle, and a <button> can't contain another. -->
+				<div
+					role="button"
+					tabindex="0"
+					class="hover:bg-muted/50 focus-visible:bg-muted/50 grid w-full cursor-pointer items-center border-b text-left focus-visible:outline-none"
 					class:bg-muted={detail.selectedSpanId === span.spanId}
 					style="grid-template-columns: var(--waterfall-label-width) 1fr; height: 32px;"
 					onclick={() => (detail.selectedSpanId = span.spanId)}
+					onkeydown={(e) => {
+						if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+						e.preventDefault();
+						detail.selectedSpanId = span.spanId;
+					}}
 					use:registerRow={span.spanId}
 				>
 					<!-- min-w-0 on the flex row + flex-1/min-w-0 on the name span is required for the
@@ -248,12 +325,38 @@
 					     chars) pushed the name span's rendered width to ~0. The service name gets a
 					     capped max-width instead of shrink-0 so it truncates too rather than
 					     dominating the row. -->
-					<span class="flex min-w-0 items-center gap-1 px-3 text-sm" style="padding-left: {12 + depth * 16}px;">
+					<span class="flex min-w-0 items-center gap-1 px-3 text-sm" style="padding-left: {8 + depth * 16}px;">
+						<!-- Fixed-width slot on every row (empty for leaves) so names stay aligned
+						     at the same depth whether or not a sibling has children. -->
+						{#if descendants > 0}
+							<button
+								type="button"
+								class="text-muted-foreground hover:bg-muted hover:text-foreground -my-1 flex size-4 shrink-0 items-center justify-center rounded"
+								aria-expanded={!isCollapsed}
+								aria-label={isCollapsed ? m.traceWaterfall_expandSpan() : m.traceWaterfall_collapseSpan()}
+								onclick={(e) => {
+									e.stopPropagation();
+									toggleCollapsed(span.spanId);
+								}}
+							>
+								<ChevronRightIcon class="size-3.5 transition-transform {isCollapsed ? '' : 'rotate-90'}" />
+							</button>
+						{:else}
+							<span class="size-4 shrink-0"></span>
+						{/if}
 						<KindIcon class="text-muted-foreground size-3.5 shrink-0" title={kindLabel(span.kind)} />
 						{#if criticalSpanIds.has(span.spanId)}
 							<ZapIcon class="text-warning size-3 shrink-0" />
 						{/if}
 						<span class="min-w-0 flex-1 truncate">{span.name || '—'}</span>
+						{#if isCollapsed}
+							<span
+								class="bg-muted text-muted-foreground shrink-0 rounded px-1 text-xs tabular-nums"
+								title={m.traceWaterfall_hiddenSpans({ count: descendants })}
+							>
+								+{descendants}
+							</span>
+						{/if}
 						<span class="text-muted-foreground max-w-[40%] shrink truncate text-xs">· {span.serviceName || '—'}</span>
 					</span>
 					<!-- Hover popover (signoz#4241): duration/start without opening the span
@@ -292,7 +395,7 @@
 							</div>
 						</Tooltip.Content>
 					</Tooltip.Root>
-				</button>
+				</div>
 			{/each}
 			</Tooltip.Provider>
 		</div>
