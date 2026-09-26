@@ -13,16 +13,30 @@ import {
 	type ExceptionOccurrencesResponse
 } from '$lib/errors-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
+import type { ErrorsDeepLinkState } from '$lib/deep-links';
 
 export interface ErrorsFilterState {
 	timeRangePreset: TimeRangePreset;
+	/** Set only while timeRangePreset === 'custom' - same shape as MetricsFilterState.customRange. The toolbar never offers 'custom'; the only producer is a fired exception alert's `?state=` link (applyDeepLinkState). */
+	customRange: { from: Date; to: Date } | null;
 	services: string[];
+	/**
+	 * Narrows the groups table to one exception type (and, when non-empty, one exact message) -
+	 * what an ExceptionCount alert rule counts. Client-side over the fetched groups, like the
+	 * table's sort: the API's ExceptionFilter has no type field, and the rule's own services +
+	 * window already bound the fetch. '' = no narrowing. Only set by applyDeepLinkState.
+	 */
+	exceptionType: string;
+	exceptionMessage: string;
 }
+
+/** Mirrors `ExceptionGroupQueryBuilder.MaxTopN` on the API side. */
+const MAX_GROUPS = 1_000;
 
 export type ErrorsSortColumn = 'exceptionType' | 'exceptionMessage' | 'occurrenceCount' | 'affectedServices' | 'firstSeen' | 'lastSeen';
 
 export class ErrorsExplorerState {
-	filter = $state<ErrorsFilterState>({ timeRangePreset: '1h', services: [] });
+	filter = $state<ErrorsFilterState>({ timeRangePreset: '1h', customRange: null, services: [], exceptionType: '', exceptionMessage: '' });
 
 	// Never mutated in place, always a wholesale reassignment on each search - same
 	// $state.raw rationale TracesExplorerState.traces documents for its own field.
@@ -58,7 +72,7 @@ export class ErrorsExplorerState {
 	#occurrencesAbort: AbortController | null = null;
 
 	#resolvedRange(): ResolvedTimeRange | null {
-		return resolveTimeRange(this.filter.timeRangePreset);
+		return resolveTimeRange(this.filter.timeRangePreset, this.filter.customRange ?? undefined);
 	}
 
 	buildFilter(range: ResolvedTimeRange | null): ExceptionFilter {
@@ -79,7 +93,11 @@ export class ErrorsExplorerState {
 		this.loading = true;
 		this.error = null;
 		try {
-			const res = await getExceptionGroups({ filter: this.buildFilter(this.#resolvedRange()) }, abort.signal);
+			// The type narrowing is client-side (see ErrorsFilterState.exceptionType), so fetch
+			// the API's max rather than the default top 200 - the narrowed type mustn't fall
+			// off the end of a busy window's ranking.
+			const topN = this.filter.exceptionType ? MAX_GROUPS : undefined;
+			const res = await getExceptionGroups({ filter: this.buildFilter(this.#resolvedRange()), topN }, abort.signal);
 			if (abort.signal.aborted) return;
 			this.groups = res.groups;
 			this.knownServices = [...new Set([...this.knownServices, ...res.groups.flatMap((g) => g.affectedServices)])].sort();
@@ -93,7 +111,42 @@ export class ErrorsExplorerState {
 
 	setTimeRangePreset(preset: TimeRangePreset): void {
 		this.filter.timeRangePreset = preset;
+		if (preset !== 'custom') this.filter.customRange = null;
 		void this.runSearch();
+	}
+
+	/**
+	 * Restores a fired exception alert's scope (`?state=`, see `parseErrorsStateDeepLinkParam`)
+	 * - the rule's services, type/message and evaluated window - then opens the occurrences
+	 * of the one group it matches, when exactly one does (always, for a rule that narrows to
+	 * one message; the table otherwise lists every message of that type).
+	 */
+	async applyDeepLinkState(state: ErrorsDeepLinkState): Promise<void> {
+		this.filter = {
+			timeRangePreset: 'custom',
+			customRange: state.customRange,
+			services: state.services,
+			exceptionType: state.exceptionType,
+			exceptionMessage: state.exceptionMessage
+		};
+		await this.runSearch();
+		const matches = this.visibleGroups();
+		if (matches.length === 1) this.selectGroup(matches[0]);
+	}
+
+	/** Clears just the type/message narrowing (the toolbar chip's remove button). */
+	clearExceptionType(): void {
+		this.filter.exceptionType = '';
+		this.filter.exceptionMessage = '';
+	}
+
+	/** `groups` minus anything outside the type/message narrowing - what the table shows, before sorting. */
+	visibleGroups(): ExceptionGroup[] {
+		const { exceptionType, exceptionMessage } = this.filter;
+		if (!exceptionType) return this.groups;
+		return this.groups.filter(
+			(g) => g.exceptionType === exceptionType && (!exceptionMessage || g.exceptionMessage === exceptionMessage)
+		);
 	}
 
 	setServices(services: string[]): void {
@@ -101,14 +154,15 @@ export class ErrorsExplorerState {
 		void this.runSearch();
 	}
 
-	/** Whether the toolbar's "Clear filters" button has anything to do - this page only has one content filter. */
+	/** Whether the toolbar's "Clear filters" button has anything to do. */
 	hasActiveFilters(): boolean {
-		return this.filter.services.length > 0;
+		return this.filter.services.length > 0 || this.filter.exceptionType !== '';
 	}
 
 	/** Toolbar's "Clear filters" button - same "leave the time range alone" scope LogsExplorerState.resetFilters documents for itself. */
 	resetFilters(): void {
 		this.filter.services = [];
+		this.clearExceptionType();
 		void this.runSearch();
 	}
 
@@ -127,7 +181,7 @@ export class ErrorsExplorerState {
 	sorted(): ExceptionGroup[] {
 		const column = this.sortColumn;
 		const direction = this.sortDescending ? -1 : 1;
-		return [...this.groups].sort((a, b) => {
+		return [...this.visibleGroups()].sort((a, b) => {
 			switch (column) {
 				case 'exceptionType':
 					return direction * a.exceptionType.localeCompare(b.exceptionType);

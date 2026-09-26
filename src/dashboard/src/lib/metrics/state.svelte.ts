@@ -139,7 +139,14 @@ export interface MetricsSavedViewState extends Omit<MetricsFilterState, 'customR
 	customRange: { from: string; to: string } | null;
 	/** Optional - older saved views (pre-dating the interval picker) lack it and fall back to auto. */
 	bucketWidthSeconds?: number | null;
-	selectedMetric: { metricName: string; serviceName: string; type: MetricPointType } | null;
+	/**
+	 * `serviceName` is omitted only by a fired metric alert's `?state=` link (Flare.Api's
+	 * `AlertMessageFormatter.BuildMetricChartUrl`): the rule aggregates every service in
+	 * `services` (all of them when empty), which one explorer selection can't show, so
+	 * `applySavedViewState` picks the first matching entry and narrows the picker to the
+	 * metric name so the other services' entries sit beside it.
+	 */
+	selectedMetric: { metricName: string; serviceName?: string; type: MetricPointType } | null;
 	/** Omitted from older saved views (pre-dates Formula mode) - `applySavedViewState` defaults it to 'single', the only mode that existed then. */
 	mode?: MetricsExplorerMode;
 	formulaExpression?: string;
@@ -194,6 +201,9 @@ export class MetricsExplorerState {
 	namesError = $state<string | null>(null);
 
 	selected = $state<MetricNameInfo | null>(null);
+
+	/** MetricPicker's search box text - on the state (not the picker) only so a fired-alert link can pre-fill it, see `MetricsSavedViewState.selectedMetric`. */
+	pickerSearch = $state('');
 
 	series = $state.raw<MetricSeries[]>([]);
 	queryLoading = $state(false);
@@ -918,8 +928,11 @@ export class MetricsExplorerState {
 		await this.loadNames();
 		const saved = s.selectedMetric;
 		if (saved) {
-			const match = this.names.find((m) => m.metricName === saved.metricName && m.serviceName === saved.serviceName);
+			const match = this.names.find(
+				(m) => m.metricName === saved.metricName && (saved.serviceName == null ? m.type === saved.type : m.serviceName === saved.serviceName)
+			);
 			if (match) this.selectMetric(match);
+			if (saved.serviceName == null) this.pickerSearch = saved.metricName;
 		}
 
 		// Older saved views (pre-Formula mode) carry none of the fields below - defaulted to

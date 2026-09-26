@@ -349,10 +349,26 @@ Logs saved-view state in `{PublicUrl}/?state={base64 JSON}`, which the Logs page
 through the same `applySavedViewState` path as `?view=<id>`. It appears as a
 `Matching logs: <url>` line in the shared text (above the rule link), a `logsUrl` field in
 the generic webhook payload, and a PagerDuty `links` entry (plus `logsUrl` in
-`custom_details`). No link is sent for `MetricThreshold`/`ExceptionCount` rules (`/metrics`
-and `/errors` don't restore filters from the URL yet), or when the condition sets
-`TraceId`/`SpanId`/`PatternId`, which a saved-view state can't hold. A link that dropped
-them would show more than what fired. The payload is standard base64, percent-escaped, not
+`custom_details`). No link is sent when the condition sets `TraceId`/`SpanId`/`PatternId`,
+which a saved-view state can't hold. A link that dropped them would show more than what fired.
+
+The other two kinds get the same kind of link through `AlertMessageFormatter.BuildFiredDataUrl`,
+which dispatches on the rule's series kind (an `Anomaly` rule follows its source):
+
+- `MetricThreshold` → `{PublicUrl}/metrics?state=`, a Metrics saved-view state with the
+  window, the rule's services and the metric, without a `serviceName`. The explorer charts
+  one (metric, service) pair, but a rule with no service filter aggregates every service,
+  so the page selects the first matching pair and pre-fills the picker search with the metric
+  name, leaving the other services one click away. No link when the condition has attribute
+  filters, since the explorer has nowhere to restore them.
+- `ExceptionCount` → `{PublicUrl}/errors?state=` with the window, services, exception type
+  and message. The Exceptions page narrows its groups table to that type client-side
+  (removable chip) and opens the occurrences when exactly one group matches.
+
+That link is the `Metric chart:`/`Matching exceptions:`/`Matching logs:` line in the text,
+the webhook's `dataUrl`, PagerDuty's `links` entry and `custom_details.dataUrl`, and the
+`{{data_url}}` template placeholder. `logsUrl`/`{{logs_url}}` keep their logs-only meaning
+for existing consumers. The payload is standard base64, percent-escaped, not
 base64url: base64url's `_` breaks Telegram's `parse_mode: Markdown`.
 
 ## A known, inherited trade-off

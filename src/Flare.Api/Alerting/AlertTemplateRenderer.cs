@@ -27,7 +27,7 @@ public static partial class AlertTemplateRenderer
         "rule_name", "rule_id", "description", "status", "condition_kind",
         "value", "threshold", "comparator", "window", "window_seconds",
         "metric", "exception_type", "baseline_mean", "z_score",
-        "fired_at", "rule_url", "logs_url", "message",
+        "fired_at", "rule_url", "logs_url", "data_url", "message",
     ];
 
     private static readonly HashSet<string> NameSet = new(Names, StringComparer.Ordinal);

@@ -228,6 +228,9 @@ window; with fewer, it reports insufficient data and doesn't fire.
 A rule can also override its notification title/body with a template
 using placeholders such as `{{value}}`, `{{threshold}}`, `{{logs_url}}`,
 or `{{labels.service.name}}`, previewed live in the rule form.
+With a public URL configured, each notification links to the data that
+fired: the matching logs, the metric's chart, or the matching exceptions,
+scoped to the rule's filter over the evaluated window (`{{data_url}}` in a template).
 The "Maintenance" tab schedules one-off, daily or weekly maintenance windows
 (in a chosen time zone) for every rule or selected ones. During a window,
 rules still evaluate, but a breach is recorded in the rule's history as

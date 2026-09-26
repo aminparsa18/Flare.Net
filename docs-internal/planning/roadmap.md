@@ -46,11 +46,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Scoped "fired data" alert links for `MetricThreshold`/`ExceptionCount`
-  rules.** `LogCount` rules already link into `/?state=` (see
-  `AlertMessageFormatter.BuildMatchingLogsUrl`); the other two kinds still
-  only get the `/alerts?rule=` link, because `/metrics` and `/errors` don't
-  yet restore a filter + custom range from the URL.
 - **OTel `ExponentialHistogram` metric support.** Confirmed deliberately
   unsupported today - `MetricPointRecord`'s own remarks say
   ExponentialHistogram/Summary points are recognized on the wire and

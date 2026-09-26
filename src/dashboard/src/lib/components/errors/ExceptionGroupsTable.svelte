@@ -49,7 +49,7 @@
 				<Empty.Description>{errors.error}</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
-	{:else if errors.groups.length === 0}
+	{:else if errors.visibleGroups().length === 0}
 		<Empty.Root>
 			<Empty.Header>
 				<Empty.Media variant="icon"><BugIcon /></Empty.Media>
