@@ -13,8 +13,9 @@
 // `selectedMetric: null` already renders MetricChart's own "pick a metric" empty state, so
 // this is a real, supported state, not a hack) - and the caller surfaces a summary asking
 // the user to open each panel and set what it shows. What *does* carry over structurally:
-// panel titles, panel type (mapped to the nearest of Flare's three), and grid position/size
-// (rescaled from Grafana's 24-column grid to GRID_COLUMNS below).
+// panel titles, panel type (mapped to the nearest of Flare's three), a Metrics panel's
+// visualization (stat -> value, piechart -> pie, ... - see METRICS_VISUALIZATIONS), and grid
+// position/size (rescaled from Grafana's 24-column grid to GRID_COLUMNS below).
 //
 // Grafana's schema wraps a dashboard two ways depending on where the JSON came from: a
 // straight "Export as JSON" from the UI is the dashboard object itself (`{title, panels,
@@ -33,12 +34,21 @@ import type { DashboardLayout, DashboardPanel, PanelType } from '$lib/dashboards
 import type { LogsSavedViewState } from '$lib/logs/state.svelte';
 import type { TracesSavedViewState } from '$lib/traces/state.svelte';
 import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
+import type { PanelVisualization } from './visualization';
 
 /** Grafana's dashboard grid is always 24 columns wide, regardless of screen size - fixed in its own schema, unlike GRID_COLUMNS which is this app's own gridstack config. */
 const GRAFANA_GRID_COLUMNS = 24;
 
 /** Grafana panel `type` values that are fundamentally a metric/number/time-series chart - the only shape Flare's own "Metrics" panel (a ClickHouse metric query + chart) can stand in for. */
 const METRICS_TYPES = new Set(['timeseries', 'graph', 'stat', 'gauge', 'bargauge', 'barchart', 'piechart']);
+/** Closest Flare visualization for a Metrics-mapped Grafana panel type - anything not listed (`timeseries`, `graph`) keeps the default line chart. */
+const METRICS_VISUALIZATIONS: Partial<Record<string, PanelVisualization>> = {
+	stat: 'value',
+	gauge: 'value',
+	bargauge: 'value',
+	barchart: 'bar',
+	piechart: 'pie'
+};
 /** `table` is a guess, not a sure thing - Grafana table panels can be backed by any datasource, but in an observability dashboard they're most often a raw list of log rows, which is what Flare's own "Logs" panel shows. */
 const LOGS_TYPES = new Set(['logs', 'table']);
 /** Only newer Grafana (Tempo's trace panel) has a dedicated type for this - most Grafana dashboards predate it and have no trace panel at all. */
@@ -178,7 +188,8 @@ export function parseGrafanaDashboard(parsed: unknown): GrafanaImportResult | nu
 			panelType,
 			title: typeof raw.title === 'string' && raw.title.trim() ? raw.title : panelType,
 			layout: convertGridPos(raw.gridPos, panels),
-			query: defaultQueryFor(panelType)
+			query: defaultQueryFor(panelType),
+			visualization: panelType === 'Metrics' && rawType ? METRICS_VISUALIZATIONS[rawType] : undefined
 		});
 	}
 

@@ -327,6 +327,7 @@
 		onToggleVariable={(id, variableId, excluded) => viewer.setPanelVariableExcluded(id, variableId, excluded)}
 		onSetYAxisBounds={(id, min, max) => viewer.setPanelYAxisBounds(id, min, max)}
 		onSetThresholds={(id, thresholds) => viewer.setPanelThresholds(id, thresholds)}
+		onSetVisualization={(id, visualization, reducer) => viewer.setPanelVisualization(id, visualization, reducer)}
 		onMoveToRow={(id, target) => viewer.movePanelToRow(id, target)}
 	/>
 {/snippet}

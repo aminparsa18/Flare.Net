@@ -17,7 +17,8 @@
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
-	import type { MetricSeries } from '$lib/metrics-api';
+	import { seriesColor } from '$lib/metrics/chart-colors';
+	import { seriesLabel } from '$lib/dashboards/visualization';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
 	import * as m from '$lib/paraglide/messages';
@@ -33,29 +34,6 @@
 	}: { yAxisMin?: number | null; yAxisMax?: number | null; thresholds?: PanelThreshold[] } = $props();
 
 	const explorer = metricsExplorerContext.get();
-
-	// Same fixed categorical palette + identity-hash slot assignment as MetricChart's own
-	// seriesColor - duplicated rather than imported/extracted, since MetricChart is a large,
-	// deliberately-untouched file for this change (see this file's header comment) and the
-	// function itself is a handful of lines; a shared `$lib/metrics/chart-utils.ts` is a
-	// reasonable follow-up if a third chart ever needs it too.
-	const SERIES_COLOR_VARS = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5'] as const;
-
-	function seriesColor(identity: string): string {
-		let hash = 5381;
-		for (let i = 0; i < identity.length; i++) {
-			hash = (hash * 33) ^ identity.charCodeAt(i);
-		}
-		const index = Math.abs(hash) % SERIES_COLOR_VARS.length;
-		return `var(${SERIES_COLOR_VARS[index]})`;
-	}
-
-	function seriesLabel(series: MetricSeries): string {
-		const attrs = Object.entries(series.attributes)
-			.map(([k, v]) => `${k}=${v}`)
-			.join(', ');
-		return attrs ? `${series.serviceName} (${attrs})` : series.serviceName;
-	}
 
 	interface LineSpec {
 		label: string;

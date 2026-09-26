@@ -25,6 +25,7 @@
 	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
+	import type { PanelReducer, PanelVisualization } from '$lib/dashboards/visualization';
 
 	let {
 		panels,
@@ -45,6 +46,7 @@
 		onToggleVariable,
 		onSetYAxisBounds,
 		onSetThresholds,
+		onSetVisualization,
 		onMoveToRow
 	}: {
 		/** Only this grid's own section's panels - the ungrouped area and each row are separate grids (see `panelsInRow`). */
@@ -68,6 +70,7 @@
 		onToggleVariable: (id: string, variableId: string, excluded: boolean) => void;
 		onSetYAxisBounds: (id: string, min: number | null, max: number | null) => void;
 		onSetThresholds: (id: string, thresholds: PanelThreshold[]) => void;
+		onSetVisualization: (id: string, visualization: PanelVisualization, reducer: PanelReducer | null) => void;
 		onMoveToRow: (id: string, rowId: string | null) => void;
 	} = $props();
 
@@ -149,6 +152,7 @@
 					onToggleVariable={(variableId, excluded) => onToggleVariable(panel.id, variableId, excluded)}
 					onSetYAxisBounds={(min, max) => onSetYAxisBounds(panel.id, min, max)}
 					onSetThresholds={(thresholds) => onSetThresholds(panel.id, thresholds)}
+					onSetVisualization={(visualization, reducer) => onSetVisualization(panel.id, visualization, reducer)}
 					{rows}
 					{rowId}
 					onMoveToRow={(target) => onMoveToRow(panel.id, target)}

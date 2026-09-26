@@ -15,6 +15,7 @@
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { METRIC_SWITCH_FADE_MS } from '$lib/metrics/state.svelte';
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
+	import { SERIES_COLOR_VARS, seriesColor } from '$lib/metrics/chart-colors';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
@@ -55,28 +56,11 @@
 	// 6th+ series folds into the "+N not shown" note below instead of reusing a hue,
 	// per the skill's categorical-identity rule ("a 9th series is never a generated
 	// hue"). Slots are assigned by hashing each series' identity (seriesColor below),
-	// not by its position in visibleSeries - see that function's remarks for why.
-	const SERIES_COLOR_VARS = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5'] as const;
+	// not by its position in visibleSeries - see chart-colors.ts for why.
+	// seriesColor is always called with seriesLabel (serviceName + every attribute), not
+	// compactSeriesLabel, whose text depends on *which other series are currently visible*,
+	// so it isn't a stable identity across reloads/panels/comparison windows.
 	const MAX_SERIES = SERIES_COLOR_VARS.length;
-
-	// Deterministic per-series color: hashes the series' full identity (serviceName +
-	// every attribute, i.e. seriesLabel - not compactSeriesLabel, whose text depends on
-	// *which other series are currently visible*, so it isn't a stable identity across
-	// reloads/panels/comparison windows the way seriesLabel is) into a slot in the fixed
-	// palette above. Replaces an earlier index-based `SERIES_COLOR_VARS[i]` lookup, whose
-	// color depended on array position - the same series could visibly change color
-	// across reloads/panels whenever backend ordering shifted. djb2, not because the
-	// distribution matters here (5 buckets, collisions are cosmetic - two series can
-	// legitimately share a hue) but because it's a standard, well-tested string hash.
-	// Prior art: SigNoz's per-label color hashing (signoz#4478).
-	function seriesColor(identity: string): string {
-		let hash = 5381;
-		for (let i = 0; i < identity.length; i++) {
-			hash = (hash * 33) ^ identity.charCodeAt(i);
-		}
-		const index = Math.abs(hash) % SERIES_COLOR_VARS.length;
-		return `var(${SERIES_COLOR_VARS[index]})`;
-	}
 
 	// Histogram percentiles use fixed, meaning-carrying slots (not the general
 	// series-identity order above) - p50/p90/p99 are the same three quantities on

@@ -28,6 +28,11 @@
 	// closing the follow-up ADR-0036 left open) render FormulaChart instead - `explorer.mode`
 	// is restored by applySavedViewState above, same source of truth the Explorer page's own
 	// mode branch (routes/metrics/+page.svelte) reads.
+	//
+	// `visualization` (docs-internal/adr/0059-dashboard-panel-visualizations.md) picks how the
+	// fetched result is drawn - the default `timeSeries` keeps the line charts above; every
+	// other value hands the same explorer's result to MetricsVisualization instead. The
+	// query path here is identical either way, so switching never re-runs anything.
 	import { onMount, untrack } from 'svelte';
 	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
 	import { metricsExplorerContext } from '$lib/metrics/context';
@@ -36,6 +41,8 @@
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
+	import type { PanelVisualization } from '$lib/dashboards/visualization';
+	import MetricsVisualization from './visualizations/MetricsVisualization.svelte';
 
 	let {
 		query,
@@ -44,7 +51,10 @@
 		refreshToken,
 		yAxisMin,
 		yAxisMax,
-		thresholds
+		thresholds,
+		visualization = 'timeSeries',
+		reducer,
+		title = ''
 	}: {
 		query: unknown;
 		timeRangeOverride: TimeRangePreset | null;
@@ -57,6 +67,12 @@
 		yAxisMax?: number | null;
 		/** This panel's own `DashboardPanel.thresholds` - passed straight through the same way. */
 		thresholds?: PanelThreshold[];
+		/** This panel's own (already-parsed) `DashboardPanel.visualization`. */
+		visualization?: PanelVisualization;
+		/** This panel's own `DashboardPanel.reducer`, unvalidated - see MetricsVisualization. */
+		reducer?: unknown;
+		/** The panel's title - only used to name a Table visualization's CSV download. */
+		title?: string;
 	} = $props();
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
@@ -112,7 +128,9 @@
 	});
 </script>
 
-{#if explorer.mode === 'formula'}
+{#if visualization !== 'timeSeries'}
+	<MetricsVisualization {visualization} {reducer} {title} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
+{:else if explorer.mode === 'formula'}
 	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else}
 	<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
