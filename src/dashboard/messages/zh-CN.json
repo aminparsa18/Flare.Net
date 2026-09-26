@@ -111,6 +111,7 @@
 	"logsToolbar_pause": "暂停",
 	"logsToolbar_linesPerRow": "行数：{count}",
 	"logsToolbar_linesPerRowHeading": "每行显示的消息行数",
+	"logsToolbar_columnsHeading": "列",
 	"eventDetail_traceId": "追踪 ID",
 	"eventDetail_spanId": "Span ID",
 	"eventDetail_spanDuration": "Span 耗时",

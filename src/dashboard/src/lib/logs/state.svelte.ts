@@ -110,6 +110,14 @@ export interface LogsFilterState {
 	 */
 	maxLinesPerRow: number;
 	/**
+	 * Whether LogTable shows its Time / Message columns (e.g. hide the body when only
+	 * Level/Service matter). Same display-preference category as `maxLinesPerRow`:
+	 * carried through a saved view, excluded from `hasActiveFilters`/`resetFilters`, and
+	 * set via its own setter since it doesn't change what gets searched.
+	 */
+	showTimestampColumn: boolean;
+	showBodyColumn: boolean;
+	/**
 	 * Attribute VolumeChart splits its bars by (stacked, one series per value - see
 	 * `LogAggregateRequest.cs`'s `GroupByAttributeKey`), set from an event's attribute row
 	 * via `setVolumeGroupBy`. `null` = one ungrouped series. Same display-preference
@@ -170,6 +178,9 @@ export interface LogsSavedViewState {
 	timeShiftSeconds: number | null;
 	/** Optional (unlike the rest) - saved views written before this field existed simply lack it; `applySavedViewState` falls back to 1. */
 	maxLinesPerRow?: number;
+	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to shown. */
+	showTimestampColumn?: boolean;
+	showBodyColumn?: boolean;
 	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to ungrouped. */
 	volumeGroupBy?: VolumeGroupBy | null;
 	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to auto. */
@@ -191,6 +202,8 @@ export class LogsExplorerState {
 		postProcessFunctions: [],
 		timeShiftSeconds: null,
 		maxLinesPerRow: 1,
+		showTimestampColumn: true,
+		showBodyColumn: true,
 		volumeGroupBy: null,
 		bucketWidthSeconds: null
 	});
@@ -580,6 +593,12 @@ export class LogsExplorerState {
 		this.filter.maxLinesPerRow = normalizeMaxLinesPerRow(lines);
 	}
 
+	/** Shows/hides LogTable's Time and Message columns - display-only, same no-re-search shape as `setMaxLinesPerRow`. */
+	setColumnVisibility(column: 'timestamp' | 'body', visible: boolean): void {
+		if (column === 'timestamp') this.filter.showTimestampColumn = visible;
+		else this.filter.showBodyColumn = visible;
+	}
+
 	/** Stacks VolumeChart's bars by one attribute's values (`null` clears it) - a display change on the chart only, so (like `setTimeShiftSeconds`) no `applyFilterChange`/re-search; VolumeChart's own `$effect` re-fetches. */
 	setVolumeGroupBy(groupBy: VolumeGroupBy | null): void {
 		this.filter.volumeGroupBy = normalizeVolumeGroupBy(groupBy);
@@ -721,6 +740,8 @@ export class LogsExplorerState {
 			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
 			timeShiftSeconds: this.filter.timeShiftSeconds,
 			maxLinesPerRow: this.filter.maxLinesPerRow,
+			showTimestampColumn: this.filter.showTimestampColumn,
+			showBodyColumn: this.filter.showBodyColumn,
 			volumeGroupBy: this.filter.volumeGroupBy ? { ...this.filter.volumeGroupBy } : null,
 			bucketWidthSeconds: this.filter.bucketWidthSeconds
 		};
@@ -752,6 +773,8 @@ export class LogsExplorerState {
 			postProcessFunctions: s.postProcessFunctions ?? [],
 			timeShiftSeconds: s.timeShiftSeconds ?? null,
 			maxLinesPerRow: normalizeMaxLinesPerRow(s.maxLinesPerRow),
+			showTimestampColumn: s.showTimestampColumn !== false,
+			showBodyColumn: s.showBodyColumn !== false,
 			volumeGroupBy: normalizeVolumeGroupBy(s.volumeGroupBy),
 			bucketWidthSeconds: normalizeBucketWidthSeconds(s.bucketWidthSeconds)
 		};
@@ -807,6 +830,8 @@ export class LogsExplorerState {
 			postProcessFunctions: [],
 			timeShiftSeconds: null,
 			maxLinesPerRow: this.filter.maxLinesPerRow, // a display preference, not part of the deep link - keep whatever the user already chose
+			showTimestampColumn: this.filter.showTimestampColumn, // same
+			showBodyColumn: this.filter.showBodyColumn, // same
 			volumeGroupBy: null, // tied to whatever attributes were being looked at before - a fresh deep-link filter starts ungrouped
 			bucketWidthSeconds: null // the deep link carries its own time range, so start from the auto-pick for it
 		};

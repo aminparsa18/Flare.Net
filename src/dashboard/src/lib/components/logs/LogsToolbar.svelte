@@ -138,7 +138,13 @@
 		onApply={(seconds) => explorer.setTimeShiftSeconds(seconds)}
 	/>
 
-	<LogsLinesPerRowMenu lines={explorer.filter.maxLinesPerRow} onChange={(lines) => explorer.setMaxLinesPerRow(lines)} />
+	<LogsLinesPerRowMenu
+		lines={explorer.filter.maxLinesPerRow}
+		showTime={explorer.filter.showTimestampColumn}
+		showBody={explorer.filter.showBodyColumn}
+		onChange={(lines) => explorer.setMaxLinesPerRow(lines)}
+		onColumnChange={(column, visible) => explorer.setColumnVisibility(column, visible)}
+	/>
 
 	<!-- Clearing filters also leaves whatever saved view was loaded, so the next visit
 	     starts from defaults rather than restoring it ($lib/saved-views/last-used.ts). -->

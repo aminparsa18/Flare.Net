@@ -12,12 +12,17 @@
 		event,
 		live,
 		lines = 1,
+		showTime = true,
+		showBody = true,
 		onSelect
 	}: {
 		event: LogEventDto;
 		live: boolean;
 		/** Message-column line count (LogsFilterState.maxLinesPerRow) - the row's own height comes from LogTable's --log-row-height, sized to match via logRowHeight. */
 		lines?: number;
+		/** LogsFilterState.showTimestampColumn/showBodyColumn - must match LogTable's header, which also drops the column from --log-row-columns. */
+		showTime?: boolean;
+		showBody?: boolean;
 		onSelect: (event: LogEventDto) => void;
 	} = $props();
 
@@ -37,7 +42,9 @@
 	style="grid-template-columns: var(--log-row-columns); height: var(--log-row-height); min-height: var(--log-row-height); max-height: var(--log-row-height);"
 	onclick={() => onSelect(event)}
 >
-	<span class="text-muted-foreground truncate font-mono text-xs leading-5">{formatRowTimestamp(event.timestamp)}</span>
+	{#if showTime}
+		<span class="text-muted-foreground truncate font-mono text-xs leading-5">{formatRowTimestamp(event.timestamp)}</span>
+	{/if}
 	<span class="flex h-5 items-center"><Badge variant={severityVariant(event.severityNumber)}>{event.severityText || '—'}</Badge></span>
 	<span class="truncate leading-5">{event.serviceName || '—'}</span>
 	{#if !live}
@@ -48,7 +55,7 @@
 			{event.spanDurationNano != null ? formatDurationNano(event.spanDurationNano) : '—'}
 		</span>
 	{/if}
-	{#if multiline}
+	{#if showBody && multiline}
 		<!-- pre-wrap keeps the body's own newlines (stack traces, pretty-printed JSON) rather
 		     than collapsing them; line-clamp cuts it at exactly `lines` lines so it can never
 		     outgrow the fixed row height VirtualList positions rows by. -->
@@ -56,7 +63,7 @@
 			class="overflow-hidden leading-5 break-words whitespace-pre-wrap"
 			style="display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: {lines}; line-clamp: {lines};"
 		><AnsiText text={event.body} /></span>
-	{:else}
+	{:else if showBody}
 		<span class="truncate leading-5"><AnsiText text={event.body} /></span>
 	{/if}
 </button>
