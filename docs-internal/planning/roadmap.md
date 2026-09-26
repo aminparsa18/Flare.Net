@@ -112,3 +112,9 @@ folders are where "what happened and why" actually lives.
   set-password link, expiring) plus a dashboard form on the users page;
   bulk invite is a nice-to-have. Not started. Prior art:
   [signoz#6057](https://github.com/SigNoz/signoz/commit/fc4b55cb34b48fd3f47719be6ad6008b42d7e77d).
+- **OpenAPI.NET v3 (`Microsoft.OpenApi` 3.x, OpenAPI spec 3.2).** Blocked on
+  `Microsoft.AspNetCore.OpenApi`: 10.0.x caps it at `[2.12.0, 3.0.0)`, so the
+  direct pin in `Directory.Packages.props` stays on 2.x. The first release
+  that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
+  `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
+  See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
