@@ -12,6 +12,7 @@
 
 import {
 	getMetricNames,
+	isHistogramType,
 	getMetricAttributeKeys,
 	queryMetric,
 	type MetricAttributeKeyInfo,
@@ -510,7 +511,7 @@ export class MetricsExplorerState {
 		// call site that actually crosses into the API layer, so the exclusion is enforced
 		// here too rather than trusting the toolbar alone.
 		const postProcessFunctions =
-			metric.type !== 'Histogram' && this.filter.postProcessFunctions.length > 0 ? this.filter.postProcessFunctions : undefined;
+			!isHistogramType(metric.type) && this.filter.postProcessFunctions.length > 0 ? this.filter.postProcessFunctions : undefined;
 
 		// Deliberately doesn't touch series/previousSeries/intervalSeconds here - only
 		// queryError, and only because a stale error message next to fresh-looking

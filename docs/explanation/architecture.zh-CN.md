@@ -112,7 +112,7 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 ### 指标
 
-`/metrics` — 您的服务报告的每个 OTLP 度量工具（总和、仪表、直方图），可从可搜索侧边栏浏览，并呈现为每个工具的时间序列图表。涵盖免费的 `AddAspNetCoreInstrumentation()`/`AddRuntimeInstrumentation()` 数据（.NET GC、线程池、Kestrel、HTTP 客户端/服务器）以及您自己的 `Meter` 发出的任何内容。
+`/metrics` — 您的服务报告的每个 OTLP 度量工具（总和、仪表、直方图、指数直方图），可从可搜索侧边栏浏览，并呈现为每个工具的时间序列图表。涵盖免费的 `AddAspNetCoreInstrumentation()`/`AddRuntimeInstrumentation()` 数据（.NET GC、线程池、Kestrel、HTTP 客户端/服务器）以及您自己的 `Meter` 发出的任何内容。
 
 ![Metrics browser](../screenshots/metrics-ch.webp)
 

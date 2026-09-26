@@ -40,13 +40,22 @@ public sealed record MetricAlertConditionSql(string Sql, ClickHouseParameterColl
 /// different series' maximum whenever the filter matched more than one.
 /// </para>
 /// <para>
-/// <b>Histogram:</b> always selects <c>sum(Count)</c>, <c>sum(Sum)</c>, <c>sumForEach(BucketCounts)</c>,
-/// <c>any(ExplicitBounds)</c> regardless of <see cref="MetricAlertCondition.Aggregation"/> - the
+/// <b>Histogram:</b> always selects the window's temporality-aware count, sum, element-wise bucket
+/// counts and <c>any(ExplicitBounds)</c> (<see cref="HistogramTemporalitySql.ExplicitAggregates"/> -
+/// cumulative rows contribute their difference from the series' previous row, ADR-0060)
+/// regardless of <see cref="MetricAlertCondition.Aggregation"/> - the
 /// percentile/max-approx aggregations need the raw arrays, not a single column, so
 /// <c>IAlertQueryService.EvaluateMetricConditionAsync</c> feeds them through
 /// <see cref="HistogramQuantileEstimator.Estimate"/>/<see cref="HistogramQuantileEstimator.EstimateMax"/>
 /// in C# afterward, the same "query returns arrays, estimate in C#" split
 /// <see cref="MetricQueryService.ReadPoint"/> already uses.
+/// </para>
+/// <para>
+/// <b>ExponentialHistogram:</b> <see cref="HistogramTemporalitySql.ExponentialAggregates"/> over the
+/// signed per-row contributions, grouped by <c>Scale</c> - so, unlike every other branch, this returns one row per distinct
+/// scale in the window (zero rows over an empty window) rather than exactly one. The reader
+/// merges them with <see cref="ExponentialHistogramEstimator.Merge"/>, same split as the chart
+/// query (ADR-0060).
 /// </para>
 /// </remarks>
 public static class MetricAlertConditionQueryBuilder
@@ -55,14 +64,20 @@ public static class MetricAlertConditionQueryBuilder
     {
         var (table, whereSql, parameters) = BuildWhere(condition, from, to);
         // `any(Unit)` appended last in every branch, after the type's own aggregate columns
-        // - keeps existing ordinals (0/1 for Gauge, 0-1 for Sum, 0-3 for Histogram) stable
+        // - keeps existing ordinals (0/1 for Gauge, 0-1 for Sum, 0-3 for Histogram, 0-10 for
+        // ExponentialHistogram) stable
         // for AlertQueryService.EvaluateMetricConditionAsync's positional reads, with Unit
         // always the final column regardless of type.
         var sql = condition.Type switch
         {
             MetricPointType.Gauge => BuildGaugeSql(condition.Aggregation, table, whereSql),
             MetricPointType.Sum => BuildSumSql(table, whereSql),
-            MetricPointType.Histogram => $"SELECT sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
+            MetricPointType.Histogram =>
+                HistogramTemporalitySql.ExplicitRankedCte(table, whereSql, "Unit") +
+                $"SELECT {HistogramTemporalitySql.ExplicitAggregates}, any(Unit) AS Unit FROM ranked",
+            MetricPointType.ExponentialHistogram =>
+                HistogramTemporalitySql.ExponentialContributionsCte(table, whereSql, "Unit", "Unit") +
+                $"SELECT {HistogramTemporalitySql.ExponentialAggregates}, any(Unit) AS Unit FROM contributions GROUP BY Scale",
             _ => throw new ArgumentOutOfRangeException(nameof(condition), condition.Type, "Unknown metric point type."),
         };
 
@@ -76,7 +91,7 @@ public static class MetricAlertConditionQueryBuilder
     /// the threshold query could have seen". A dedicated count rather than reading
     /// <see cref="Build"/>'s result for <see cref="double.NaN"/>: only Gauge's <c>avg()</c> yields
     /// NaN over an empty window - Sum's <c>sum()</c> and Histogram's <c>sum(Count)</c> both yield
-    /// 0, indistinguishable from a real zero.
+    /// 0, indistinguishable from a real zero (ExponentialHistogram's count reads as 0 too).
     /// </summary>
     public static MetricAlertConditionSql BuildPointCount(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to)
     {

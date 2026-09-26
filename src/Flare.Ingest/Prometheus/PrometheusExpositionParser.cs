@@ -41,7 +41,7 @@ public sealed record PrometheusParseResult(
 /// client library and exporter emits by default). OpenMetrics-only features - exemplars,
 /// the <c>&#35; EOF</c> terminator, UTF-8 quoted metric names, native histograms - are
 /// deliberately out of scope, same "v1 doesn't cover X" precedent
-/// <see cref="Otlp.OtlpMetricsMapper"/> already set for ExponentialHistogram/Summary.
+/// <see cref="Otlp.OtlpMetricsMapper"/> already set for Summary.
 /// </summary>
 /// <remarks>
 /// Tolerant by design: a line this parser can't make sense of is skipped, not thrown -

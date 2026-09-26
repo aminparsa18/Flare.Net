@@ -45,7 +45,8 @@
 	const AGGREGATIONS_BY_TYPE: Record<MetricPointType, MetricAlertAggregation[]> = {
 		Gauge: ['Value', 'Last', 'Min', 'Max'],
 		Sum: ['Value', 'Count'],
-		Histogram: ['Count', 'Sum', 'P50', 'P75', 'P90', 'P95', 'P99', 'MaxApprox']
+		Histogram: ['Count', 'Sum', 'P50', 'P75', 'P90', 'P95', 'P99', 'MaxApprox'],
+		ExponentialHistogram: ['Count', 'Sum', 'P50', 'P75', 'P90', 'P95', 'P99', 'MaxApprox']
 	};
 
 	const alerts = alertsContext.get();

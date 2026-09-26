@@ -153,7 +153,7 @@ Deux différences avec la courbe :
 
 - Les barres et les nombres d'une métrique Sum sont des comptages bruts par
   intervalle, pas le **Taux** par seconde que la courbe affiche par défaut.
-- Une métrique Histogram utilise la **moyenne** de chaque intervalle
+- Une métrique Histogram (à intervalles explicites ou exponentielle) utilise la **moyenne** de chaque intervalle
   (somme ÷ nombre). Les percentiles ne peuvent pas être moyennés d'un
   intervalle à l'autre, ils ne sont donc pas utilisés ici.
 

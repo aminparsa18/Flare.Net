@@ -3,9 +3,9 @@ using MemoryPack;
 namespace Flare.Api.Model;
 
 /// <summary>
-/// Which of the three v1 point-type tables (<c>metrics_gauge</c>/<c>metrics_sum</c>/
-/// <c>metrics_histogram</c>) a metric name lives in - see
-/// <c>db/clickhouse/0008_metrics.sql</c>. Carried explicitly on <see cref="MetricQueryRequest"/>
+/// Which point-type table (<c>metrics_gauge</c>/<c>metrics_sum</c>/<c>metrics_histogram</c>
+/// from <c>db/clickhouse/0008_metrics.sql</c>, <c>metrics_exponential_histogram</c> from
+/// <c>0032_metrics_exponential_histogram.sql</c>) a metric name lives in. Carried explicitly on <see cref="MetricQueryRequest"/>
 /// rather than looked up server-side: the dashboard always gets a metric's type from a
 /// prior <c>/api/metrics/names</c> response before querying it, so there's no ambiguity
 /// to resolve and no extra round-trip to save the caller from stating what it already
@@ -16,6 +16,14 @@ public enum MetricPointType
     Gauge,
     Sum,
     Histogram,
+
+    /// <summary>
+    /// OTLP ExponentialHistogram (ADR-0060). Returns the same <see cref="MetricSeriesPoint"/>
+    /// fields as <see cref="Histogram"/> (count/sum/percentiles/max), so every consumer that
+    /// handles a Histogram series handles this one the same way - only the storage and the
+    /// merge/estimation behind those fields differ.
+    /// </summary>
+    ExponentialHistogram,
 }
 
 /// <summary>
@@ -221,8 +229,8 @@ public sealed partial record MetricQueryRequest
     /// Optional chain of app-side transforms applied, in list order, to each returned
     /// Gauge/Sum series' <see cref="MetricSeriesPoint.Value"/> after the ClickHouse query
     /// runs - see <see cref="Query.MetricPostProcessor"/>. Null/empty = no post-processing
-    /// (default). Ignored for Histogram series (<see cref="MetricPointType.Histogram"/> has
-    /// no single scalar <see cref="MetricSeriesPoint.Value"/> to transform - the same v1
+    /// (default). Ignored for Histogram/ExponentialHistogram series (neither has
+    /// a single scalar <see cref="MetricSeriesPoint.Value"/> to transform - the same v1
     /// scope cut ADR-0036 made for Formula-mode operands, see that ADR's Context section).
     /// </summary>
     public IReadOnlyList<MetricPostProcessFunction>? PostProcessFunctions { get; init; }
@@ -275,7 +283,7 @@ public sealed partial record MetricPostProcessFunction
 /// <summary>
 /// One bucket's value for one series. Only the fields matching the series' <see cref="MetricQueryRequest.Type"/>
 /// are populated - <see cref="Value"/> for Gauge/Sum, <see cref="Count"/>/<see cref="Sum"/>/
-/// the percentiles for Histogram. Left as one shape rather than a per-type hierarchy
+/// the percentiles for Histogram/ExponentialHistogram. Left as one shape rather than a per-type hierarchy
 /// (unlike <c>Flare.Ingest</c>'s <see cref="Ingest.Model.MetricPointRecord"/>tree) since a
 /// response caller already knows the type from the request it sent - a discriminated
 /// response type would just be overhead here, not disambiguation.
@@ -289,8 +297,8 @@ public sealed partial record MetricSeriesPoint
     public double? Value { get; init; }
 
     /// <summary>
-    /// Sum: raw sample row count in the bucket (<c>count()</c>). Histogram: total
-    /// observation count in the bucket (<c>sum(Count)</c>, a real OTLP field). Same JSON
+    /// Sum: raw sample row count in the bucket (<c>count()</c>). Histogram/ExponentialHistogram:
+    /// total observation count in the bucket (from the OTLP <c>Count</c> field; cumulative points contribute their increase since the previous point - see <see cref="Query.HistogramTemporalitySql"/>). Same JSON
     /// field, two different computations depending on <see cref="MetricQueryRequest.Type"/> -
     /// same pattern <see cref="Value"/> already uses.
     /// </summary>
@@ -299,7 +307,7 @@ public sealed partial record MetricSeriesPoint
     /// <summary>Histogram only: total of observed values in the bucket.</summary>
     public double? Sum { get; init; }
 
-    /// <summary>Histogram only: approximate percentiles, via <see cref="Query.HistogramQuantileEstimator.Estimate"/>. Null if the bucket has no data.</summary>
+    /// <summary>Histogram/ExponentialHistogram only: approximate percentiles, via <see cref="Query.HistogramQuantileEstimator.Estimate"/> or <see cref="Query.ExponentialHistogramEstimator.Estimate"/>. Null if the bucket has no data.</summary>
     public double? P50 { get; init; }
 
     public double? P75 { get; init; }
@@ -315,7 +323,9 @@ public sealed partial record MetricSeriesPoint
     /// the true observed max, via <see cref="Query.HistogramQuantileEstimator.EstimateMax"/>.
     /// The real OTLP <c>HistogramDataPoint.Max</c> is optional and not captured by the
     /// ingest pipeline. Not a real max - present as "Max (approx.)" in the UI, never bare
-    /// "Max". Null if the bucket has no data.
+    /// "Max". Null if the bucket has no data. ExponentialHistogram: the real OTLP max when the
+    /// exporter sent one (the .NET SDK does), otherwise the same bucket-boundary approximation
+    /// via <see cref="Query.ExponentialHistogramEstimator.EstimateMax"/>.
     /// </summary>
     public double? MaxApprox { get; init; }
 }

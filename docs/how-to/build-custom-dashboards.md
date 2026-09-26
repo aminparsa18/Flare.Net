@@ -133,7 +133,7 @@ Two things differ from the line chart:
 
 - A Sum metric's bars and numbers are raw per-bucket counts, not the
   per-second **Rate** the line chart shows by default.
-- A Histogram metric uses each bucket's **mean** (sum ÷ count). Percentiles
+- A Histogram metric (explicit-bucket or exponential) uses each bucket's **mean** (sum ÷ count). Percentiles
   can't be averaged across buckets, so they aren't used here.
 
 In a table, click a column header to sort by it (click again to reverse),

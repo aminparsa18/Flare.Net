@@ -5,7 +5,7 @@ namespace Flare.Api.Query;
 /// interpolation within the bucket containing the target rank - the same method
 /// Prometheus/Grafana's <c>histogram_quantile</c> uses for classic histograms. Pure,
 /// no ClickHouse dependency - <see cref="MetricQueryService"/> is the only caller,
-/// feeding it the per-bucket <c>sumForEach(BucketCounts)</c>/<c>any(ExplicitBounds)</c>
+/// feeding it the per-bucket temporality-aware bucket counts (<see cref="HistogramTemporalitySql.ExplicitAggregates"/>)/<c>any(ExplicitBounds)</c>
 /// results <see cref="MetricSeriesQueryBuilder"/> selects for histogram series.
 /// </summary>
 /// <remarks>

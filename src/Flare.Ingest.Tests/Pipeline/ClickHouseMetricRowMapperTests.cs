@@ -47,6 +47,53 @@ public class ClickHouseMetricRowMapperTests
     }
 
     [Fact]
+    public void ExponentialHistogramColumns_MatchMetricsExponentialHistogramTableColumnOrder()
+    {
+        Assert.Equal(
+            [
+                "MetricName", "Description", "Unit", "ServiceName", "ResourceSchemaUrl",
+                "ResourceAttributes", "ScopeSchemaUrl", "ScopeName", "ScopeVersion",
+                "ScopeAttributes", "DataPointAttributes", "StartTime", "Time",
+                "AggregationTemporality", "Count", "Sum", "Scale", "ZeroCount", "ZeroThreshold",
+                "PositiveOffset", "PositiveBucketCounts", "NegativeOffset", "NegativeBucketCounts",
+                "Min", "Max", "IngestedAt",
+            ],
+            ClickHouseMetricRowMapper.ExponentialHistogramColumns);
+    }
+
+    [Fact]
+    public void ToRow_ExponentialHistogram_HasOneValuePerColumn()
+    {
+        var row = ClickHouseMetricRowMapper.ToRow(MinimalExponentialHistogram());
+
+        Assert.Equal(ClickHouseMetricRowMapper.ExponentialHistogramColumns.Count, row.Length);
+    }
+
+    [Fact]
+    public void ToRow_ExponentialHistogram_MapsBucketsAndKeepsNullMinMaxNull()
+    {
+        var row = ClickHouseMetricRowMapper.ToRow(MinimalExponentialHistogram() with
+        {
+            Scale = -2,
+            PositiveOffset = 5,
+            PositiveBucketCounts = [4, 1],
+            NegativeOffset = -1,
+            NegativeBucketCounts = [2],
+        });
+        var columns = ClickHouseMetricRowMapper.ExponentialHistogramColumns;
+        object Column(string name) => row[columns.ToList().IndexOf(name)];
+
+        Assert.Equal(-2, Column("Scale"));
+        Assert.Equal(5, Column("PositiveOffset"));
+        Assert.Equal(new ulong[] { 4, 1 }, Column("PositiveBucketCounts"));
+        Assert.Equal(-1, Column("NegativeOffset"));
+        Assert.Equal(new ulong[] { 2 }, Column("NegativeBucketCounts"));
+        Assert.Equal(0d, Column("Sum"));
+        Assert.Null(Column("Min"));
+        Assert.Null(Column("Max"));
+    }
+
+    [Fact]
     public void ToRow_Gauge_PassesThroughIngestedAt_AsTheLastColumn()
     {
         var ingestedAt = new DateTimeOffset(2026, 8, 10, 12, 0, 5, TimeSpan.Zero);
@@ -262,5 +309,24 @@ public class ClickHouseMetricRowMapperTests
         Count = 0,
         BucketCounts = [],
         ExplicitBounds = [],
+    };
+
+    private static ExponentialHistogramPointRecord MinimalExponentialHistogram() => new()
+    {
+        MetricName = "http.server.request.duration",
+        ResourceAttributes = new Dictionary<string, string>(),
+        ScopeAttributes = new Dictionary<string, string>(),
+        DataPointAttributes = new Dictionary<string, string>(),
+        Time = DateTimeOffset.UnixEpoch,
+        IngestedAt = DateTimeOffset.UnixEpoch,
+        AggregationTemporality = 1,
+        Count = 0,
+        Scale = 0,
+        ZeroCount = 0,
+        ZeroThreshold = 0,
+        PositiveOffset = 0,
+        PositiveBucketCounts = [],
+        NegativeOffset = 0,
+        NegativeBucketCounts = [],
     };
 }

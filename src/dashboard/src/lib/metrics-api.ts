@@ -49,6 +49,14 @@ export interface MetricFilter {
 
 export type MetricPointType = MetricPointTypeName;
 
+/**
+ * Histogram and ExponentialHistogram return the same point shape (count/sum/percentiles/max -
+ * see MetricModels.cs' `MetricPointType.ExponentialHistogram`), so every view treats them alike.
+ */
+export function isHistogramType(type: MetricPointType | null | undefined): boolean {
+	return type === 'Histogram' || type === 'ExponentialHistogram';
+}
+
 export type MetricHavingOperator = MetricHavingOperatorName;
 
 export type MetricPostProcessFunctionType = MetricPostProcessFunctionTypeName;

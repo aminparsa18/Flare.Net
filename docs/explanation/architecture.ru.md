@@ -198,7 +198,7 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 
 ### Метрики
 
-`/metrics` — каждый OTLP-инструмент метрик (Sum, Gauge, Histogram),
+`/metrics` — каждый OTLP-инструмент метрик (Sum, Gauge, Histogram, экспоненциальная Histogram),
 передаваемый вашими сервисами, доступный для просмотра в боковой панели с
 поиском и отображаемый как график временного ряда для каждого
 инструмента. Охватывает как бесплатные данные

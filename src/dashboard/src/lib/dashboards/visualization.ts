@@ -8,7 +8,7 @@
 // Only Metrics panels have alternatives: a Logs panel is a volume chart and a Traces panel a
 // trace list, neither of which is a numeric series set these reshapes apply to.
 
-import type { MetricPointType, MetricSeries, MetricSeriesPoint } from '$lib/metrics-api';
+import { isHistogramType, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
 import { formatAtScale, resolveAxisScale } from '$lib/metrics/axis';
 
 /** One standalone reading (a Value panel's number, a table cell, a pie legend entry), scaled
@@ -65,7 +65,7 @@ export function resolveReducer(raw: unknown, resultType: MetricPointType | null)
  * unlike a percentile (an average of p95s is not a p95). `null` = no data in this bucket.
  */
 export function pointValue(point: MetricSeriesPoint, resultType: MetricPointType | null): number | null {
-	if (resultType === 'Histogram') {
+	if (isHistogramType(resultType)) {
 		return point.sum != null && point.count != null && point.count > 0 ? point.sum / point.count : null;
 	}
 	return point.value;

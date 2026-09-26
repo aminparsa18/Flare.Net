@@ -128,7 +128,7 @@ export function thresholdComparatorFromString(value: ThresholdComparatorName): T
 }
 
 /** Matches `MetricModels.cs`'s `MetricPointType` member order. */
-const METRIC_POINT_TYPE_NAMES = ['Gauge', 'Sum', 'Histogram'] as const;
+const METRIC_POINT_TYPE_NAMES = ['Gauge', 'Sum', 'Histogram', 'ExponentialHistogram'] as const;
 
 export type MetricPointTypeName = (typeof METRIC_POINT_TYPE_NAMES)[number];
 

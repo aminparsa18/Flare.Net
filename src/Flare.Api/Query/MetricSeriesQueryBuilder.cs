@@ -104,8 +104,12 @@ public sealed record MetricSeriesSql(string Sql, ClickHouseParameterCollection P
 /// </list>
 /// </para>
 /// <para>
-/// <b>Histogram:</b> <c>sum(Count)</c>/<c>sum(Sum)</c> per bucket, plus
-/// <c>sumForEach(BucketCounts)</c> - the aggregate-combinator that sums arrays
+/// <b>Histogram</b> (see <see cref="BuildHistogramSql"/>): each row's count, sum and bucket
+/// counts are first turned into what happened since the series' previous row - as-is for
+/// delta temporality, a windowed difference for cumulative (see
+/// <see cref="HistogramTemporalitySql"/>, ADR-0060; summing cumulative rows as-is used to
+/// over-count). Those per-row contributions are summed per bucket, the bucket counts with
+/// <c>sumForEach</c> - the aggregate-combinator that sums arrays
 /// element-wise across the grouped rows (requires every row in a group to share the same
 /// bucket layout, which holds for one metric name's histogram in practice) - and
 /// <c>any(ExplicitBounds)</c> (assumed stable across the group, same assumption the
@@ -113,6 +117,19 @@ public sealed record MetricSeriesSql(string Sql, ClickHouseParameterCollection P
 /// per-bucket arrays through <see cref="HistogramQuantileEstimator"/> to derive
 /// p50/p75/p90/p95/p99 and an approximate max - the second named, deliberately-unresolved
 /// v1 limitation (assumes bucket boundaries don't change mid-window).
+/// </para>
+/// <para>
+/// <b>ExponentialHistogram</b> (see <see cref="BuildExponentialHistogramSql"/>, ADR-0060): its
+/// bucket layout is implied by a per-row <c>Scale</c> the SDK lowers on its own, so the
+/// Histogram branch's element-wise <c>sumForEach</c> would add unrelated buckets together.
+/// Instead the query also groups by <c>Scale</c> and adds signed bucket-count contributions by
+/// absolute index with <c>sumMap</c> (<see cref="HistogramTemporalitySql.ExponentialAggregates"/> -
+/// a cumulative row contributes itself plus its negated previous row, each at its own scale),
+/// returning one row per (bucket, series, scale) - usually one or two scales.
+/// <see cref="MetricQueryService"/> folds consecutive same-bucket rows with
+/// <see cref="ExponentialHistogramEstimator.Merge"/>, which downscales to the lowest scale
+/// before adding (so the signed contributions cancel), then estimates percentiles from the
+/// merged buckets.
 /// </para>
 /// <para>
 /// <b>Series cap</b> (<see cref="Model.MetricQueryRequest.TopN"/>): a high-cardinality
@@ -182,7 +199,7 @@ public static class MetricSeriesQueryBuilder
         {
             MetricPointType.Gauge => "avg(Value)",
             MetricPointType.Sum => "max(Value) - min(Value)",
-            MetricPointType.Histogram => "sum(Count)",
+            MetricPointType.Histogram or MetricPointType.ExponentialHistogram => "sum(Count)",
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.Type, "Unknown metric point type."),
         };
 
@@ -245,32 +262,58 @@ public static class MetricSeriesQueryBuilder
             "  LIMIT {topN:UInt32}\n" +
             ")";
 
-        var sql = request.Type == MetricPointType.Sum
-            ? BuildSumSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr)
-            : BuildSimpleSql(request.Type, table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr);
+        var sql = request.Type switch
+        {
+            MetricPointType.Sum => BuildSumSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
+            MetricPointType.Histogram => BuildHistogramSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
+            MetricPointType.ExponentialHistogram => BuildExponentialHistogramSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
+            _ => BuildGaugeSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
+        };
 
         return new MetricSeriesSql(sql, filterSql.Parameters, request.Type);
     }
 
-    /// <summary>Gauge/Histogram: one flat <c>GROUP BY</c>, unchanged from before <see cref="BuildSumSql"/> split off Sum's own shape.</summary>
-    private static string BuildSimpleSql(MetricPointType type, string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr)
-    {
-        var valueSelect = type switch
-        {
-            MetricPointType.Gauge => "avg(Value) AS Value",
-            MetricPointType.Histogram => "sum(Count) AS Count, sum(Sum) AS SumTotal, sumForEach(BucketCounts) AS BucketCounts, any(ExplicitBounds) AS ExplicitBounds",
-            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown metric point type."),
-        };
+    /// <summary>Gauge: one flat <c>GROUP BY</c> - a level needs no per-row differencing.</summary>
+    private static string BuildGaugeSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr) =>
+        "SELECT toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
+        $"ServiceName, {seriesKeyExpr}, {seriesAttributesExpr}, " +
+        "avg(Value) AS Value\n" +
+        $"FROM {table}\n" +
+        $"WHERE {whereSql}\n" +
+        $"  AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n  )\n" +
+        "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
+        "ORDER BY ServiceName, SeriesKey, BucketStart";
 
-        return "SELECT toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
-            $"ServiceName, {seriesKeyExpr}, {seriesAttributesExpr}, " +
-            $"{valueSelect}\n" +
-            $"FROM {table}\n" +
-            $"WHERE {whereSql}\n" +
-            $"  AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n  )\n" +
-            "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
-            "ORDER BY ServiceName, SeriesKey, BucketStart";
-    }
+    /// <summary>
+    /// Explicit-bucket Histogram: per-row temporality-aware contributions
+    /// (<see cref="HistogramTemporalitySql"/>) summed per bucket. See this class's remarks.
+    /// </summary>
+    private static string BuildHistogramSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr) =>
+        HistogramTemporalitySql.ExplicitRankedCte(
+            table,
+            $"{whereSql}\n    AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n    )",
+            $"ServiceName, DataPointAttributes, {seriesKeyExpr}, toStartOfInterval(Time, INTERVAL {{bucketWidth:UInt32}} SECOND) AS BucketStart") +
+        $"SELECT BucketStart, ServiceName, SeriesKey, {seriesAttributesExpr}, {HistogramTemporalitySql.ExplicitAggregates}\n" +
+        "FROM ranked\n" +
+        "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
+        "ORDER BY ServiceName, SeriesKey, BucketStart";
+
+    /// <summary>
+    /// ExponentialHistogram: signed per-row contributions (<see cref="HistogramTemporalitySql"/>)
+    /// grouped by bucket, series and <c>Scale</c>, with <c>Scale</c> last in the <c>ORDER BY</c> so a
+    /// bucket's per-scale rows arrive adjacent for <see cref="MetricQueryService"/> to merge.
+    /// See this class's remarks.
+    /// </summary>
+    private static string BuildExponentialHistogramSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr) =>
+        HistogramTemporalitySql.ExponentialContributionsCte(
+            table,
+            $"{whereSql}\n    AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n    )",
+            $"ServiceName, DataPointAttributes, {seriesKeyExpr}, toStartOfInterval(Time, INTERVAL {{bucketWidth:UInt32}} SECOND) AS BucketStart",
+            "ServiceName, DataPointAttributes, SeriesKey, BucketStart") +
+        $"SELECT BucketStart, ServiceName, SeriesKey, {seriesAttributesExpr}, {HistogramTemporalitySql.ExponentialAggregates}\n" +
+        "FROM contributions\n" +
+        "GROUP BY BucketStart, ServiceName, SeriesKey, Scale\n" +
+        "ORDER BY ServiceName, SeriesKey, BucketStart, Scale";
 
     /// <summary>
     /// Sum's own query shape - a per-bucket <c>increase()</c> via window functions, not a

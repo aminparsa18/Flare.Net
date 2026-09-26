@@ -92,10 +92,19 @@ public class MetricAlertConditionQueryBuilderTests
             new MetricAlertCondition { MetricName = "http.server.request.duration", Type = MetricPointType.Histogram }, From, To);
 
         Assert.Contains("FROM metrics_histogram", result.Sql);
-        Assert.Contains("sum(Count) AS Count", result.Sql);
-        Assert.Contains("sum(Sum) AS SumTotal", result.Sql);
-        Assert.Contains("sumForEach(BucketCounts) AS BucketCounts", result.Sql);
-        Assert.Contains("any(ExplicitBounds) AS ExplicitBounds", result.Sql);
+        Assert.Contains($"SELECT {HistogramTemporalitySql.ExplicitAggregates}, any(Unit) AS Unit FROM ranked", result.Sql);
+    }
+
+    [Fact]
+    public void Build_ExponentialHistogram_MergesBucketsByAbsoluteIndex_GroupedByScale()
+    {
+        var result = MetricAlertConditionQueryBuilder.Build(
+            new MetricAlertCondition { MetricName = "http.server.request.duration", Type = MetricPointType.ExponentialHistogram, Aggregation = MetricAlertAggregation.P99 }, From, To);
+
+        Assert.Contains("FROM metrics_exponential_histogram", result.Sql);
+        Assert.Contains($"SELECT {HistogramTemporalitySql.ExponentialAggregates}, any(Unit) AS Unit FROM contributions GROUP BY Scale", result.Sql);
+        Assert.DoesNotContain("sumForEach", result.Sql);
+        Assert.Contains("any(Unit) AS Unit", result.Sql);
     }
 
     [Fact]
@@ -130,6 +139,7 @@ public class MetricAlertConditionQueryBuilderTests
     [InlineData(MetricPointType.Gauge, "metrics_gauge")]
     [InlineData(MetricPointType.Sum, "metrics_sum")]
     [InlineData(MetricPointType.Histogram, "metrics_histogram")]
+    [InlineData(MetricPointType.ExponentialHistogram, "metrics_exponential_histogram")]
     public void BuildPointCount_CountsRawPointsInTheTypesTable(MetricPointType type, string table)
     {
         var result = MetricAlertConditionQueryBuilder.BuildPointCount(

@@ -21,14 +21,23 @@
 	}
 
 	// Fixed per-type colors, not the chart's own categorical series palette - this
-	// badge identifies a metric's *kind*, a closed 3-value set completely unrelated to
+	// badge identifies a metric's *kind*, a closed 4-value set completely unrelated to
 	// which color a given chart line gets (MetricChart assigns series colors
 	// independently, per selected metric, from --chart-1.. in a fixed slot order - see
 	// its own remarks).
 	const TYPE_BADGE_VARIANT: Record<MetricPointType, 'secondary' | 'outline' | 'default'> = {
 		Gauge: 'secondary',
 		Sum: 'outline',
-		Histogram: 'default'
+		Histogram: 'default',
+		ExponentialHistogram: 'default'
+	};
+
+	// Short enough for the picker's badge column; the full name reads fine everywhere else.
+	const TYPE_BADGE_LABEL: Record<MetricPointType, string> = {
+		Gauge: 'Gauge',
+		Sum: 'Sum',
+		Histogram: 'Histogram',
+		ExponentialHistogram: 'Exp. Histogram'
 	};
 </script>
 
@@ -79,7 +88,7 @@
 									{metric.serviceName}{metric.unit ? ` · ${metric.unit}` : ''}
 								</span>
 							</div>
-							<Badge variant={TYPE_BADGE_VARIANT[metric.type]} class="mt-0.5 shrink-0">{metric.type}</Badge>
+							<Badge variant={TYPE_BADGE_VARIANT[metric.type]} class="mt-0.5 shrink-0">{TYPE_BADGE_LABEL[metric.type]}</Badge>
 						</Command.Item>
 					{/each}
 				</Command.Group>

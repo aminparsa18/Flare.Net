@@ -250,6 +250,11 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
     {
         var built = MetricAlertConditionQueryBuilder.Build(condition, from, to);
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, EvaluationSafetyOptions(), cancellationToken);
+        if (built.Type == MetricPointType.ExponentialHistogram)
+        {
+            return ReadExponentialHistogramAggregate(reader, condition.Aggregation);
+        }
+
         if (!reader.Read())
         {
             // An aggregate query with no GROUP BY always returns exactly one row in
@@ -308,6 +313,40 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         };
 
         return estimate ?? double.NaN;
+    }
+
+    /// <summary>
+    /// <see cref="MetricAlertConditionQueryBuilder"/>'s ExponentialHistogram branch returns one
+    /// row per distinct <c>Scale</c> in the window - merged here before estimating. Zero rows
+    /// (an empty window) reads as a 0 count/sum and NaN for everything else, same contract as
+    /// <see cref="ReadHistogramAggregate"/>.
+    /// </summary>
+    private static (double Value, string? Unit) ReadExponentialHistogramAggregate(ClickHouseDataReader reader, MetricAlertAggregation aggregation)
+    {
+        var slices = new List<ExponentialHistogramBuckets>();
+        string? unit = null;
+        while (reader.Read())
+        {
+            slices.Add(ExponentialHistogramRowReader.Read(reader, 0));
+            unit ??= NullIfEmpty(reader.GetString(ExponentialHistogramRowReader.ColumnCount));
+        }
+
+        var merged = ExponentialHistogramEstimator.Merge(slices);
+        var value = aggregation switch
+        {
+            MetricAlertAggregation.Count => merged?.Count ?? 0,
+            MetricAlertAggregation.Sum => merged?.Sum ?? 0,
+            _ when merged is null => null,
+            MetricAlertAggregation.P50 => ExponentialHistogramEstimator.Estimate(merged, 0.5),
+            MetricAlertAggregation.P75 => ExponentialHistogramEstimator.Estimate(merged, 0.75),
+            MetricAlertAggregation.P90 => ExponentialHistogramEstimator.Estimate(merged, 0.9),
+            MetricAlertAggregation.P95 => ExponentialHistogramEstimator.Estimate(merged, 0.95),
+            MetricAlertAggregation.P99 => ExponentialHistogramEstimator.Estimate(merged, 0.99),
+            MetricAlertAggregation.MaxApprox => ExponentialHistogramEstimator.EstimateMax(merged),
+            _ => (double?)null,
+        };
+
+        return (value ?? double.NaN, unit);
     }
 
     public async Task<ulong> CountMatchingExceptionsAsync(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)

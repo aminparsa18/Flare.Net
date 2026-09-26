@@ -5,11 +5,12 @@ namespace Flare.Ingest.Pipeline;
 /// <summary>
 /// Pure <see cref="MetricPointRecord"/> → ClickHouse row mapping for the
 /// <c>clickhousedb.metrics_gauge</c>/<c>metrics_sum</c>/<c>metrics_histogram</c> tables
-/// (<c>db/clickhouse/0008_metrics.sql</c>). Deliberately has no ClickHouse connection
+/// (<c>db/clickhouse/0008_metrics.sql</c>) and <c>metrics_exponential_histogram</c>
+/// (<c>0032_metrics_exponential_histogram.sql</c>). Deliberately has no ClickHouse connection
 /// dependency, same style as <see cref="ClickHouseSpanRowMapper"/>.
 /// </summary>
 /// <remarks>
-/// One mapper covering all three point types, not three separate classes: they share
+/// One mapper covering every point type, not one class per type: they share
 /// every column up through <c>Time</c>, so <see cref="CommonValues"/> builds that shared
 /// prefix once and each <c>To*Row</c> method appends its own type-specific tail - avoids
 /// tripling the shared-column boilerplate for what's still one signal (see
@@ -32,7 +33,7 @@ public static class ClickHouseMetricRowMapper
         "AGGREGATION_TEMPORALITY_CUMULATIVE",
     ];
 
-    /// <summary>Columns shared by all three tables, in DDL declaration order - the prefix every row starts with.</summary>
+    /// <summary>Columns shared by every metrics table, in DDL declaration order - the prefix every row starts with.</summary>
     private static readonly string[] CommonColumns =
     [
         "MetricName",
@@ -63,6 +64,26 @@ public static class ClickHouseMetricRowMapper
     public static readonly IReadOnlyList<string> HistogramColumns =
         [.. CommonColumns, "AggregationTemporality", "Count", "Sum", "BucketCounts", "ExplicitBounds", "IngestedAt"];
 
+    // metrics_exponential_histogram was created with IngestedAt already in place (migration
+    // 0032), but it's still listed last here to match the table's own column order.
+    public static readonly IReadOnlyList<string> ExponentialHistogramColumns =
+    [
+        .. CommonColumns,
+        "AggregationTemporality",
+        "Count",
+        "Sum",
+        "Scale",
+        "ZeroCount",
+        "ZeroThreshold",
+        "PositiveOffset",
+        "PositiveBucketCounts",
+        "NegativeOffset",
+        "NegativeBucketCounts",
+        "Min",
+        "Max",
+        "IngestedAt",
+    ];
+
     public static object[] ToRow(GaugePointRecord point) => [.. CommonValues(point), point.Value, point.IngestedAt.UtcDateTime];
 
     public static object[] ToRow(SumPointRecord point) =>
@@ -85,11 +106,33 @@ public static class ClickHouseMetricRowMapper
         point.IngestedAt.UtcDateTime,
     ];
 
+    public static object[] ToRow(ExponentialHistogramPointRecord point) =>
+    [
+        .. CommonValues(point),
+        AggregationTemporalityLabel(point.AggregationTemporality),
+        point.Count,
+        point.Sum ?? 0d,
+        point.Scale,
+        point.ZeroCount,
+        point.ZeroThreshold,
+        point.PositiveOffset,
+        point.PositiveBucketCounts.ToArray(),
+        point.NegativeOffset,
+        point.NegativeBucketCounts.ToArray(),
+        // Nullable(Float64) columns - null stays null rather than coalescing, see
+        // 0032_metrics_exponential_histogram.sql.
+        point.Min!,
+        point.Max!,
+        point.IngestedAt.UtcDateTime,
+    ];
+
     public static IReadOnlyList<object[]> ToRows(IReadOnlyList<GaugePointRecord> points) => [.. points.Select(ToRow)];
 
     public static IReadOnlyList<object[]> ToRows(IReadOnlyList<SumPointRecord> points) => [.. points.Select(ToRow)];
 
     public static IReadOnlyList<object[]> ToRows(IReadOnlyList<HistogramPointRecord> points) => [.. points.Select(ToRow)];
+
+    public static IReadOnlyList<object[]> ToRows(IReadOnlyList<ExponentialHistogramPointRecord> points) => [.. points.Select(ToRow)];
 
     /// <summary>Builds the shared column-prefix values, positionally matching <see cref="CommonColumns"/>.</summary>
     private static object[] CommonValues(MetricPointRecord point) =>

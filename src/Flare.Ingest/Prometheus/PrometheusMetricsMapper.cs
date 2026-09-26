@@ -25,8 +25,8 @@ namespace Flare.Ingest.Prometheus;
 /// itself makes no such assumption, this mapper does). histogram -&gt;
 /// <see cref="HistogramPointRecord"/>, converting Prometheus's cumulative
 /// <c>_bucket{le=...}</c> counts into OTLP's non-cumulative <see cref="HistogramPointRecord.BucketCounts"/>.
-/// summary is dropped (same "not in v1 scope" treatment <see cref="OtlpMetricsMapper"/>
-/// already gives ExponentialHistogram/Summary on the OTLP side).
+/// summary is dropped (same treatment <see cref="OtlpMetricsMapper"/> gives Summary on the
+/// OTLP side).
 ///
 /// <c>scrapeTime</c> (see <see cref="Map"/> below) does double duty here in a way it
 /// doesn't for the OTLP mappers: it's both the fallback <c>Time</c> for a sample with no

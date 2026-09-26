@@ -20,7 +20,7 @@
 	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
 	import { buildLogsDeepLinkHref, buildTracesDeepLinkHref } from '$lib/deep-links';
 	import { previousPeriodLabel, resolveTimeRange, previousPeriod, shiftRange } from '$lib/logs/time-range';
-	import type { MetricSeries } from '$lib/metrics-api';
+	import { isHistogramType, type MetricSeries } from '$lib/metrics-api';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
 	import * as m from '$lib/paraglide/messages';
@@ -196,7 +196,7 @@
 	// actually *is*, would misinterpret one type's points as the other's mid-outro -
 	// a second, independent route to the same "content changes before the fade even
 	// starts" bug the deferral exists to fix.
-	const isHistogram = $derived(explorer.resultType === 'Histogram');
+	const isHistogram = $derived(isHistogramType(explorer.resultType));
 	const isSum = $derived(explorer.resultType === 'Sum');
 
 	// Comparison mode supports Gauge/Sum (always) and Histogram's Mean/Max views

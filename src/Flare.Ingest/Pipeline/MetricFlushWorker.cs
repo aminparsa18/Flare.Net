@@ -198,6 +198,7 @@ public sealed class MetricFlushWorker(
         var gauges = new List<GaugePointRecord>();
         var sums = new List<SumPointRecord>();
         var histograms = new List<HistogramPointRecord>();
+        var exponentialHistograms = new List<ExponentialHistogramPointRecord>();
         foreach (var (_, point) in batch)
         {
             switch (point)
@@ -211,17 +212,20 @@ public sealed class MetricFlushWorker(
                 case HistogramPointRecord histogram:
                     histograms.Add(histogram);
                     break;
+                case ExponentialHistogramPointRecord exponentialHistogram:
+                    exponentialHistograms.Add(exponentialHistogram);
+                    break;
             }
         }
 
         try
         {
-            await writer.WriteBatchAsync(gauges, sums, histograms);
+            await writer.WriteBatchAsync(gauges, sums, histograms, exponentialHistograms);
             var ids = batch.Select(b => b.Id).ToArray();
             await db.StreamAcknowledgeAsync(opts.StreamKey, opts.ConsumerGroup, ids);
             logger.LogDebug(
-                "Flushed {Count} metric data points to ClickHouse ({Gauges} gauge, {Sums} sum, {Histograms} histogram).",
-                batch.Count, gauges.Count, sums.Count, histograms.Count);
+                "Flushed {Count} metric data points to ClickHouse ({Gauges} gauge, {Sums} sum, {Histograms} histogram, {ExponentialHistograms} exponential histogram).",
+                batch.Count, gauges.Count, sums.Count, histograms.Count, exponentialHistograms.Count);
             await flushHealth.RecordSuccessAsync(IngestionSignal.Metrics, batch.Count);
         }
         catch (Exception ex)

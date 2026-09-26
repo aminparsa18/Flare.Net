@@ -116,13 +116,14 @@ internal sealed class MetricsCommand : AsyncCommand<MetricsCommand.Settings>
         "Gauge" => "[cyan]Gauge[/]",
         "Sum" => "[yellow]Sum[/]",
         "Histogram" => "[magenta]Histogram[/]",
+        "ExponentialHistogram" => "[magenta]Exp. Histogram[/]",
         _ => Markup.Escape(type),
     };
 }
 
 // ---- Wire DTOs - hand-mirror of Flare.Api's Model/MetricModels.cs (see
 // MetricsJsonContext's camelCase-properties/PascalCase-string-enum-values convention -
-// MetricPointType serializes as "Gauge"/"Sum"/"Histogram" verbatim). Kept as plain
+// MetricPointType serializes as "Gauge"/"Sum"/"Histogram"/"ExponentialHistogram" verbatim). Kept as plain
 // strings here (not a C# enum) for the same reason SpanDtoWire.StatusCode is a string -
 // this file never needs to do anything with a type value beyond compare/display it.
 // Shared by MetricsCommand and MetricCommand (metrics/names + metrics/query DTOs live
@@ -143,7 +144,7 @@ internal sealed class MetricNameInfoWire
 
     public required string ServiceName { get; init; }
 
-    /// <summary>"Gauge" | "Sum" | "Histogram" - see MetricPointType.</summary>
+    /// <summary>"Gauge" | "Sum" | "Histogram" | "ExponentialHistogram" - see MetricPointType.</summary>
     public required string Type { get; init; }
 
     public string? Unit { get; init; }

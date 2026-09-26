@@ -9,7 +9,7 @@ public class MetricNamesQueryBuilderTests
     private static readonly DateTimeOffset Now = new(2026, 8, 10, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void Build_UnionsAllThreeTables_WithTheirOwnTypeDiscriminator()
+    public void Build_UnionsEveryTable_WithTheirOwnTypeDiscriminator()
     {
         var result = MetricNamesQueryBuilder.Build(new MetricNamesRequest(), Now);
 
@@ -19,7 +19,9 @@ public class MetricNamesQueryBuilderTests
         Assert.Contains("'sum' AS Type", result.Sql);
         Assert.Contains("FROM metrics_histogram", result.Sql);
         Assert.Contains("'histogram' AS Type", result.Sql);
-        Assert.Equal(2, CountOccurrences(result.Sql, "UNION ALL"));
+        Assert.Contains("FROM metrics_exponential_histogram", result.Sql);
+        Assert.Contains("'exponential_histogram' AS Type", result.Sql);
+        Assert.Equal(3, CountOccurrences(result.Sql, "UNION ALL"));
     }
 
     [Fact]
@@ -30,7 +32,7 @@ public class MetricNamesQueryBuilderTests
         // Not MetricName alone - the same metric name can be emitted by more than one
         // service (see the builder's remarks), so ServiceName is part of the group key
         // too, in every branch.
-        Assert.Equal(3, CountOccurrences(result.Sql, "GROUP BY MetricName, ServiceName"));
+        Assert.Equal(4, CountOccurrences(result.Sql, "GROUP BY MetricName, ServiceName"));
     }
 
     [Fact]
@@ -38,7 +40,7 @@ public class MetricNamesQueryBuilderTests
     {
         var result = MetricNamesQueryBuilder.Build(new MetricNamesRequest(), Now);
 
-        Assert.Equal(3, CountOccurrences(result.Sql, "SELECT MetricName, ServiceName,"));
+        Assert.Equal(4, CountOccurrences(result.Sql, "SELECT MetricName, ServiceName,"));
     }
 
     [Fact]
@@ -49,7 +51,7 @@ public class MetricNamesQueryBuilderTests
         // Same toString(DataPointAttributes) key MetricSeriesQueryBuilder groups series
         // by (see its own remarks) - counting distinct values of it here tells the
         // picker up front how many chart lines this metric will produce.
-        Assert.Equal(3, CountOccurrences(result.Sql, "count(DISTINCT toString(DataPointAttributes)) AS SeriesCount"));
+        Assert.Equal(4, CountOccurrences(result.Sql, "count(DISTINCT toString(DataPointAttributes)) AS SeriesCount"));
     }
 
     [Fact]
@@ -61,13 +63,13 @@ public class MetricNamesQueryBuilderTests
     }
 
     [Fact]
-    public void Build_ReusesTimeAndServiceFilter_AcrossAllThreeBranches()
+    public void Build_ReusesTimeAndServiceFilter_AcrossEveryBranch()
     {
         var result = MetricNamesQueryBuilder.Build(
             new MetricNamesRequest { Services = ["payments-api"] }, Now);
 
-        Assert.Equal(3, CountOccurrences(result.Sql, "ServiceName IN {services:Array(String)}"));
-        // Bound once, not once per branch - same named parameter reused across all three
+        Assert.Equal(4, CountOccurrences(result.Sql, "ServiceName IN {services:Array(String)}"));
+        // Bound once, not once per branch - same named parameter reused across all four
         // UNION ALL SELECTs.
         Assert.Equal(["payments-api"], (string[])result.Parameters.ToDictionary()["services"]!);
     }
