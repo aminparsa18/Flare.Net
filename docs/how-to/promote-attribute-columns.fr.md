@@ -1,37 +1,43 @@
-# Comment accélérer les filtres sur un attribut de log fréquemment utilisé
+# Comment accélérer les filtres sur un attribut de log ou de span fréquemment utilisé
 
-Si vous filtrez sans cesse les logs sur le même attribut (par exemple
-`http.route`, `tenant.id` ou `k8s.namespace.name`), promouvez cette clé en
-colonne dédiée. Flare lit alors une seule colonne avec son propre index de
-saut, au lieu de toute la map d'attributs de chaque ligne. La recherche, les
-graphiques et les règles d'alerte qui filtrent sur cette clé deviennent plus
-rapides. Les résultats ne changent pas.
+Si vous filtrez sans cesse les logs ou les traces sur le même attribut (par
+exemple `http.route`, `tenant.id` ou `k8s.namespace.name`), promouvez cette clé
+en colonne dédiée. Flare lit alors une seule colonne avec son propre index de
+saut, au lieu de toute la map d'attributs de chaque ligne. La recherche de
+logs, les graphiques et les règles d'alerte qui filtrent sur cette clé
+deviennent plus rapides, tout comme la recherche de traces et la barre de
+filtres de Traces. Les résultats ne changent pas.
 
 ## Prérequis
 
 - Un compte **Admin** (ou l'authentification désactivée). Les autres rôles
   voient la liste des attributs promus mais ne peuvent pas la modifier.
+- La table que vous filtrez : **Logs** ou **Spans**. Les logs et les spans
+  sont promus séparément : une clé filtrée aux deux endroits doit être promue
+  sur les deux tables.
 - La clé d'attribut exacte et l'ensemble auquel elle appartient : **Log**
-  (attributs de l'enregistrement de log), **Resource** (par exemple
-  `service.namespace`, `k8s.namespace.name`) ou **Scope**.
+  (attributs de l'enregistrement de log, table Logs), **Span** (attributs du
+  span, table Spans), **Resource** (par exemple `service.namespace`,
+  `k8s.namespace.name`) ou **Scope**.
 
 ## Promouvoir une clé
 
 1. Ouvrez **Indexing** et faites défiler jusqu'à **Promoted attributes**.
-2. Choisissez l'ensemble (**Log**, **Resource** ou **Scope**) et saisissez la
-   clé, par exemple `http.route`.
-3. Laissez **Backfill existing data** activé, sauf si votre table `logs` est
-   très volumineuse et que ses anciennes données expirent bientôt. Voir
+2. Choisissez la table (**Logs** ou **Spans**), puis l'ensemble (**Log** ou
+   **Span**, **Resource** ou **Scope**), et saisissez la clé, par exemple
+   `http.route`.
+3. Laissez **Backfill existing data** activé, sauf si la table est très
+   volumineuse et que ses anciennes données expirent bientôt. Voir
    [Remplissage](#remplissage).
 4. Cliquez sur **Promote**.
 
-La clé apparaît dans le tableau avec son nom de colonne, par exemple
-`attr_log_http_route`. Sur l'instance Flare.Api utilisée, les filtres sur la
+La clé apparaît dans la liste avec son nom de colonne, par exemple
+`attr_log_http_route` sur Logs ou `attr_span_http_route` sur Spans. Sur l'instance Flare.Api utilisée, les filtres sur la
 clé utilisent immédiatement la nouvelle colonne. Les autres instances
 Flare.Api et le worker d'alertes la prennent en compte sous 30 secondes.
 
 Les clés peuvent contenir des lettres, des chiffres et `. _ - : / @`, jusqu'à
-200 caractères. Vous pouvez promouvoir jusqu'à 50 clés.
+200 caractères. Vous pouvez promouvoir jusqu'à 50 clés par table.
 
 ## Remplissage
 
@@ -63,10 +69,12 @@ d'une valeur vide.
 
 Cliquez sur **Demote** sur sa ligne et confirmez. Flare supprime la colonne et
 son index de saut, et les filtres sur la clé relisent la map d'attributs.
-Aucune donnée de log n'est perdue : l'attribut reste stocké dans la map.
+Aucune donnée n'est perdue : l'attribut reste stocké dans la map.
 
 ## Voir aussi
 
 - [ADR-0062 : Promoted attribute columns](../../docs-internal/adr/0062-promoted-attribute-columns.md)
   décrit la conception : nommage, DDL en mode cluster, et pourquoi le schéma de
   la table sert lui-même de registre.
+- [ADR-0063 : Promoted span attribute columns](../../docs-internal/adr/0063-promoted-span-attribute-columns.md)
+  décrit ce qui change pour les spans.

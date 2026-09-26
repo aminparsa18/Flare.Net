@@ -37,7 +37,7 @@ the full rule set on what goes where.
 - [Extract or redact fields at ingest](how-to/manage-pipeline-rules.md)
 - [Monitor hosts with the OpenTelemetry Collector](how-to/monitor-hosts.md)
 - [Monitor message queues](how-to/monitor-message-queues.md)
-- [Speed up filters on a frequently used log attribute](how-to/promote-attribute-columns.md)
+- [Speed up filters on a frequently used log or span attribute](how-to/promote-attribute-columns.md)
 
 **Reference**
 - [CLI commands](reference/cli-commands.md)

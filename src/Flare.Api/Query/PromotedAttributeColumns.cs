@@ -5,11 +5,13 @@ using Flare.Api.Model;
 namespace Flare.Api.Query;
 
 /// <summary>
-/// Immutable snapshot of which log attribute keys have been promoted to their own
-/// <c>MATERIALIZED</c> column (ADR-0062), plus the pure naming/DDL/parsing rules behind
-/// promotion. <see cref="LogFilterSqlBuilder"/> consults a snapshot to read
-/// <c>attr_log_http_route</c> instead of <c>LogAttributes['http.route']</c>; the snapshot
-/// itself comes from <c>system.columns</c> (see <see cref="PromotedAttributeRegistry"/>) -
+/// Immutable snapshot of which attribute keys of one table (<c>logs</c> or <c>spans</c>)
+/// have been promoted to their own <c>MATERIALIZED</c> column (ADR-0062, ADR-0063), plus
+/// the pure naming/DDL/parsing rules behind promotion. <see cref="LogFilterSqlBuilder"/>
+/// consults the <c>logs</c> snapshot to read <c>attr_log_http_route</c> instead of
+/// <c>LogAttributes['http.route']</c>, <see cref="SpanFilterSqlBuilder"/> the <c>spans</c>
+/// one to read <c>attr_span_http_route</c> instead of <c>SpanAttributes['http.route']</c>.
+/// Each snapshot comes from <c>system.columns</c> (see <see cref="PromotedAttributeRegistry"/>) -
 /// the table's own schema is the registry, so it can never disagree with the DDL that
 /// actually ran.
 /// </summary>
@@ -55,7 +57,7 @@ public sealed partial class PromotedAttributeColumns
 
     // ClickHouse's canonical formatting of the MATERIALIZED expression, as system.columns'
     // default_expression reports it (confirmed live): LogAttributes['http.route'].
-    [GeneratedRegex(@"^(LogAttributes|ResourceAttributes|ScopeAttributes)\['([^'\\]+)'\]$")]
+    [GeneratedRegex(@"^(LogAttributes|SpanAttributes|ResourceAttributes|ScopeAttributes)\['([^'\\]+)'\]$")]
     private static partial Regex ExpressionPattern();
 
     public static bool IsValidKey(string? key) =>
@@ -63,13 +65,14 @@ public sealed partial class PromotedAttributeColumns
 
     /// <summary>
     /// <c>attr_{bag}_{key}</c> with every character outside <c>[A-Za-z0-9_]</c> replaced by
-    /// <c>_</c>: <c>(Log, "http.route")</c> -> <c>attr_log_http_route</c>. Not injective
+    /// <c>_</c>: <c>(Logs, Log, "http.route")</c> -> <c>attr_log_http_route</c>,
+    /// <c>(Spans, Log, "http.route")</c> -> <c>attr_span_http_route</c>. Not injective
     /// (<c>http.route</c> and <c>http_route</c> collide) - the promote endpoint rejects a
-    /// key whose name is already taken by a different key.
+    /// key whose name is already taken by a different key on the same table.
     /// </summary>
-    public static string ColumnNameFor(AttributeBag bag, string key)
+    public static string ColumnNameFor(PromotedAttributeTable table, AttributeBag bag, string key)
     {
-        var sb = new StringBuilder(ColumnPrefix).Append(BagPrefix(bag)).Append('_');
+        var sb = new StringBuilder(ColumnPrefix).Append(BagPrefix(table, bag)).Append('_');
         foreach (var c in key)
         {
             sb.Append(char.IsAsciiLetterOrDigit(c) || c == '_' ? c : '_');
@@ -82,46 +85,70 @@ public sealed partial class PromotedAttributeColumns
 
     /// <summary>
     /// Reverses the <c>MATERIALIZED</c> expression <see cref="PromoteStatements"/> writes,
-    /// from a <c>system.columns.default_expression</c> value. False for anything else, so a
-    /// hand-added <c>attr_*</c> column with a different expression is ignored rather than
-    /// misread as a promotion.
+    /// from a <c>system.columns.default_expression</c> value on <paramref name="table"/>.
+    /// False for anything else - including the other table's own map
+    /// (<c>SpanAttributes</c> on <c>logs</c>) - so a hand-added <c>attr_*</c> column with a
+    /// different expression is ignored rather than misread as a promotion.
     /// </summary>
-    public static bool TryParseExpression(string expression, out AttributeBag bag, out string key)
+    public static bool TryParseExpression(PromotedAttributeTable table, string expression, out AttributeBag bag, out string key)
     {
+        bag = default;
+        key = string.Empty;
         var match = ExpressionPattern().Match(expression.Trim());
         if (!match.Success)
         {
-            bag = default;
-            key = string.Empty;
             return false;
         }
 
-        bag = match.Groups[1].Value switch
+        var parsedBag = match.Groups[1].Value switch
         {
             "ResourceAttributes" => AttributeBag.Resource,
             "ScopeAttributes" => AttributeBag.Scope,
             _ => AttributeBag.Log,
         };
+        if (MapColumnFor(table, parsedBag) != match.Groups[1].Value)
+        {
+            return false;
+        }
+
+        bag = parsedBag;
         key = match.Groups[2].Value;
         return true;
     }
 
     /// <summary>
+    /// The <c>Map</c> column a promoted column materializes from: <see cref="AttributeBag.Log"/>
+    /// is the table's own attribute map (<c>LogAttributes</c>/<c>SpanAttributes</c>).
+    /// </summary>
+    public static string MapColumnFor(PromotedAttributeTable table, AttributeBag bag) => (table, bag) switch
+    {
+        (_, AttributeBag.Resource) => "ResourceAttributes",
+        (_, AttributeBag.Scope) => "ScopeAttributes",
+        (PromotedAttributeTable.Spans, _) => "SpanAttributes",
+        _ => "LogAttributes",
+    };
+
+    /// <summary>The queried table's name - the Distributed table in cluster mode.</summary>
+    public static string TableName(PromotedAttributeTable table) =>
+        table == PromotedAttributeTable.Spans ? "spans" : "logs";
+
+    /// <summary>
     /// The <c>ALTER</c> statements that promote <paramref name="key"/>, in execution order.
-    /// Single-node: one <c>ALTER</c> on <c>logs</c> adding the column and its skip index
-    /// together. Cluster mode (ADR-0062): the same on <c>logs_local</c> <c>ON CLUSTER</c>,
-    /// then the column alone on the <c>logs</c> Distributed table - local first so the
+    /// Single-node: one <c>ALTER</c> on <c>logs</c>/<c>spans</c> adding the column and its
+    /// skip index together. Cluster mode (ADR-0062): the same on <c>logs_local</c>/<c>spans_local</c>
+    /// <c>ON CLUSTER</c>, then the column alone on the Distributed table - local first so the
     /// Distributed table never exposes a column its shards don't have yet (same two-table
     /// shape as <c>db/clickhouse-cluster/0010_logs_pattern.sql</c>). The optional
     /// <c>MATERIALIZE</c> mutations go last and run asynchronously.
     /// </summary>
-    public static IReadOnlyList<string> PromoteStatements(AttributeBag bag, string key, bool clusterMode, bool backfill)
+    public static IReadOnlyList<string> PromoteStatements(PromotedAttributeTable table, AttributeBag bag, string key, bool clusterMode, bool backfill)
     {
         EnsureValidKey(key);
-        var column = ColumnNameFor(bag, key);
+        var column = ColumnNameFor(table, bag, key);
         var index = IndexNameFor(column);
-        var columnDef = $"{column} String MATERIALIZED {LogFilterSqlBuilder.ColumnFor(bag)}['{key}'] CODEC(ZSTD(1))";
-        var storage = clusterMode ? "logs_local ON CLUSTER 'flare_cluster'" : "logs";
+        var columnDef = $"{column} String MATERIALIZED {MapColumnFor(table, bag)}['{key}'] CODEC(ZSTD(1))";
+        var distributed = TableName(table);
+        var storage = StorageTable(table, clusterMode);
 
         var statements = new List<string>
         {
@@ -130,7 +157,7 @@ public sealed partial class PromotedAttributeColumns
         };
         if (clusterMode)
         {
-            statements.Add($"ALTER TABLE logs ON CLUSTER 'flare_cluster' ADD COLUMN IF NOT EXISTS {columnDef}");
+            statements.Add($"ALTER TABLE {distributed} ON CLUSTER 'flare_cluster' ADD COLUMN IF NOT EXISTS {columnDef}");
         }
 
         if (backfill)
@@ -147,14 +174,14 @@ public sealed partial class PromotedAttributeColumns
     /// then the index before the column it's built on. <paramref name="columnName"/> must
     /// already be a known promoted column - it's spliced into DDL.
     /// </summary>
-    public static IReadOnlyList<string> DemoteStatements(string columnName, bool clusterMode)
+    public static IReadOnlyList<string> DemoteStatements(PromotedAttributeTable table, string columnName, bool clusterMode)
     {
         var index = IndexNameFor(columnName);
-        var storage = clusterMode ? "logs_local ON CLUSTER 'flare_cluster'" : "logs";
+        var storage = StorageTable(table, clusterMode);
         var statements = new List<string>();
         if (clusterMode)
         {
-            statements.Add($"ALTER TABLE logs ON CLUSTER 'flare_cluster' DROP COLUMN IF EXISTS {columnName}");
+            statements.Add($"ALTER TABLE {TableName(table)} ON CLUSTER 'flare_cluster' DROP COLUMN IF EXISTS {columnName}");
         }
 
         statements.Add($"ALTER TABLE {storage} DROP INDEX IF EXISTS {index}");
@@ -170,10 +197,15 @@ public sealed partial class PromotedAttributeColumns
         }
     }
 
-    private static string BagPrefix(AttributeBag bag) => bag switch
+    // The MergeTree table the column, index and mutations live on.
+    private static string StorageTable(PromotedAttributeTable table, bool clusterMode) =>
+        clusterMode ? $"{TableName(table)}_local ON CLUSTER 'flare_cluster'" : TableName(table);
+
+    private static string BagPrefix(PromotedAttributeTable table, AttributeBag bag) => (table, bag) switch
     {
-        AttributeBag.Resource => "res",
-        AttributeBag.Scope => "scope",
+        (_, AttributeBag.Resource) => "res",
+        (_, AttributeBag.Scope) => "scope",
+        (PromotedAttributeTable.Spans, _) => "span",
         _ => "log",
     };
 }

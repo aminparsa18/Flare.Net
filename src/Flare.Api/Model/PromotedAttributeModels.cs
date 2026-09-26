@@ -3,7 +3,21 @@ using MemoryPack;
 namespace Flare.Api.Model;
 
 /// <summary>
-/// One attribute key promoted to its own <c>MATERIALIZED</c> column on <c>logs</c> (ADR-0062).
+/// Which table a promoted attribute column lives on - <c>logs</c> (ADR-0062) or
+/// <c>spans</c> (ADR-0063). Paired with <see cref="AttributeBag"/>, whose <c>Log</c> member
+/// means "the signal's own attribute map": <c>LogAttributes</c> on <c>logs</c>,
+/// <c>SpanAttributes</c> on <c>spans</c>. <c>Logs</c> is 0 so a request that omits the
+/// field keeps its pre-ADR-0063 meaning.
+/// </summary>
+public enum PromotedAttributeTable
+{
+    Logs,
+    Spans,
+}
+
+/// <summary>
+/// One attribute key promoted to its own <c>MATERIALIZED</c> column on <c>logs</c> or
+/// <c>spans</c> (ADR-0062, ADR-0063).
 /// <see cref="Backfilling"/> is true while a <c>MATERIALIZE COLUMN</c>/<c>MATERIALIZE INDEX</c>
 /// mutation for this column is still running - filters on the key are already correct then
 /// (ClickHouse computes the column from its expression for parts that don't store it yet),
@@ -17,7 +31,8 @@ public sealed partial record PromotedAttributeInfo(
     string Key,
     string ColumnName,
     string IndexName,
-    bool Backfilling);
+    bool Backfilling,
+    PromotedAttributeTable Table);
 
 /// <summary>
 /// <c>GET /api/indexing/promoted-attributes</c> response. Hand-written on the MemoryPack TS
@@ -33,8 +48,9 @@ public sealed partial record PromotedAttributesResponse(
 /// <c>POST /api/indexing/promoted-attributes</c> body. <see cref="Backfill"/> false skips the
 /// <c>MATERIALIZE COLUMN</c>/<c>MATERIALIZE INDEX</c> mutations - only newly written parts
 /// (and parts merged afterwards) get the physical column and skip index; worth it on a large
-/// table whose older data ages out by TTL soon anyway.
+/// table whose older data ages out by TTL soon anyway. <see cref="Table"/> is last so a JSON
+/// body without it still means <c>logs</c>.
 /// </summary>
 [MemoryPackable]
 [GenerateTypeScript]
-public sealed partial record PromoteAttributeRequest(AttributeBag Bag, string Key, bool Backfill);
+public sealed partial record PromoteAttributeRequest(AttributeBag Bag, string Key, bool Backfill, PromotedAttributeTable Table = PromotedAttributeTable.Logs);

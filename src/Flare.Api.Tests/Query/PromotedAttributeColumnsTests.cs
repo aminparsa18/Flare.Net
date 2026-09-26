@@ -22,7 +22,7 @@ public class PromotedAttributeColumnsTests
     [InlineData(AttributeBag.Scope, "my-lib/version:1@x", "attr_scope_my_lib_version_1_x")]
     public void ColumnNameFor_PrefixesBag_AndReplacesNonIdentifierCharacters(AttributeBag bag, string key, string expected)
     {
-        Assert.Equal(expected, PromotedAttributeColumns.ColumnNameFor(bag, key));
+        Assert.Equal(expected, PromotedAttributeColumns.ColumnNameFor(PromotedAttributeTable.Logs, bag, key));
     }
 
     [Theory]
@@ -52,7 +52,7 @@ public class PromotedAttributeColumnsTests
     [InlineData("ScopeAttributes['lib']", AttributeBag.Scope, "lib")]
     public void TryParseExpression_ReversesThePromotionExpression(string expression, AttributeBag bag, string key)
     {
-        Assert.True(PromotedAttributeColumns.TryParseExpression(expression, out var parsedBag, out var parsedKey));
+        Assert.True(PromotedAttributeColumns.TryParseExpression(PromotedAttributeTable.Logs, expression, out var parsedBag, out var parsedKey));
         Assert.Equal(bag, parsedBag);
         Assert.Equal(key, parsedKey);
     }
@@ -63,13 +63,13 @@ public class PromotedAttributeColumnsTests
     [InlineData("LogAttributes['a'] || LogAttributes['b']")]
     public void TryParseExpression_IgnoresAnythingElse(string expression)
     {
-        Assert.False(PromotedAttributeColumns.TryParseExpression(expression, out _, out _));
+        Assert.False(PromotedAttributeColumns.TryParseExpression(PromotedAttributeTable.Logs, expression, out _, out _));
     }
 
     [Fact]
     public void PromoteStatements_SingleNode_AddsColumnAndIndexTogether_ThenBackfills()
     {
-        var statements = PromotedAttributeColumns.PromoteStatements(AttributeBag.Log, "http.route", clusterMode: false, backfill: true);
+        var statements = PromotedAttributeColumns.PromoteStatements(PromotedAttributeTable.Logs, AttributeBag.Log, "http.route", clusterMode: false, backfill: true);
 
         Assert.Equal(
         [
@@ -83,7 +83,7 @@ public class PromotedAttributeColumnsTests
     [Fact]
     public void PromoteStatements_WithoutBackfill_SkipsMutations()
     {
-        var statements = PromotedAttributeColumns.PromoteStatements(AttributeBag.Log, "http.route", clusterMode: false, backfill: false);
+        var statements = PromotedAttributeColumns.PromoteStatements(PromotedAttributeTable.Logs, AttributeBag.Log, "http.route", clusterMode: false, backfill: false);
 
         Assert.Single(statements);
     }
@@ -91,7 +91,7 @@ public class PromotedAttributeColumnsTests
     [Fact]
     public void PromoteStatements_ClusterMode_AltersLocalTableFirst_ThenDistributed()
     {
-        var statements = PromotedAttributeColumns.PromoteStatements(AttributeBag.Resource, "k8s.pod.name", clusterMode: true, backfill: true);
+        var statements = PromotedAttributeColumns.PromoteStatements(PromotedAttributeTable.Logs, AttributeBag.Resource, "k8s.pod.name", clusterMode: true, backfill: true);
 
         Assert.Equal(4, statements.Count);
         Assert.StartsWith("ALTER TABLE logs_local ON CLUSTER 'flare_cluster' ADD COLUMN IF NOT EXISTS attr_res_k8s_pod_name String MATERIALIZED ResourceAttributes['k8s.pod.name']", statements[0]);
@@ -106,7 +106,7 @@ public class PromotedAttributeColumnsTests
     public void PromoteStatements_RejectsUnsafeKey()
     {
         Assert.Throws<ArgumentException>(() =>
-            PromotedAttributeColumns.PromoteStatements(AttributeBag.Log, "x'] FROM", clusterMode: false, backfill: false));
+            PromotedAttributeColumns.PromoteStatements(PromotedAttributeTable.Logs, AttributeBag.Log, "x'] FROM", clusterMode: false, backfill: false));
     }
 
     [Fact]
@@ -116,14 +116,14 @@ public class PromotedAttributeColumnsTests
         [
             "ALTER TABLE logs DROP INDEX IF EXISTS idx_attr_log_http_route",
             "ALTER TABLE logs DROP COLUMN IF EXISTS attr_log_http_route",
-        ], PromotedAttributeColumns.DemoteStatements("attr_log_http_route", clusterMode: false));
+        ], PromotedAttributeColumns.DemoteStatements(PromotedAttributeTable.Logs, "attr_log_http_route", clusterMode: false));
 
         Assert.Equal(
         [
             "ALTER TABLE logs ON CLUSTER 'flare_cluster' DROP COLUMN IF EXISTS attr_log_http_route",
             "ALTER TABLE logs_local ON CLUSTER 'flare_cluster' DROP INDEX IF EXISTS idx_attr_log_http_route",
             "ALTER TABLE logs_local ON CLUSTER 'flare_cluster' DROP COLUMN IF EXISTS attr_log_http_route",
-        ], PromotedAttributeColumns.DemoteStatements("attr_log_http_route", clusterMode: true));
+        ], PromotedAttributeColumns.DemoteStatements(PromotedAttributeTable.Logs, "attr_log_http_route", clusterMode: true));
     }
 
     [Fact]
@@ -199,5 +199,136 @@ public class PromotedAttributeColumnsTests
 
         Assert.Contains("mapContains(LogAttributes, {attrKey0:String})", result.WhereSql);
         Assert.DoesNotContain("attr_log_http_route", result.WhereSql);
+    }
+
+    // ---- spans (ADR-0063) ----
+
+    private static readonly PromotedAttributeColumns PromotedSpans = new([
+        (AttributeBag.Log, "http.route", "attr_span_http_route"),
+        (AttributeBag.Resource, "k8s.namespace.name", "attr_res_k8s_namespace_name"),
+    ]);
+
+    private static SpanFilterSql BuildSpansWith(SpanAttributeFilter filter) =>
+        SpanFilterSqlBuilder.Build(new SpanFilter { Attributes = [filter] }, Now, PromotedSpans);
+
+    [Theory]
+    [InlineData(AttributeBag.Log, "http.route", "attr_span_http_route")]
+    [InlineData(AttributeBag.Resource, "k8s.namespace.name", "attr_res_k8s_namespace_name")]
+    [InlineData(AttributeBag.Scope, "lib", "attr_scope_lib")]
+    public void ColumnNameFor_Spans_UsesSpanPrefixForOwnBag(AttributeBag bag, string key, string expected)
+    {
+        Assert.Equal(expected, PromotedAttributeColumns.ColumnNameFor(PromotedAttributeTable.Spans, bag, key));
+    }
+
+    [Theory]
+    [InlineData(PromotedAttributeTable.Spans, "SpanAttributes['http.route']", true)]
+    [InlineData(PromotedAttributeTable.Spans, "ResourceAttributes['k8s.pod.name']", true)]
+    [InlineData(PromotedAttributeTable.Spans, "LogAttributes['http.route']", false)]
+    [InlineData(PromotedAttributeTable.Logs, "SpanAttributes['http.route']", false)]
+    public void TryParseExpression_OnlyAcceptsTheTablesOwnMap(PromotedAttributeTable table, string expression, bool expected)
+    {
+        Assert.Equal(expected, PromotedAttributeColumns.TryParseExpression(table, expression, out _, out _));
+    }
+
+    [Fact]
+    public void TryParseExpression_Spans_MapsSpanAttributesToLogBag()
+    {
+        Assert.True(PromotedAttributeColumns.TryParseExpression(PromotedAttributeTable.Spans, "SpanAttributes['http.route']", out var bag, out var key));
+        Assert.Equal(AttributeBag.Log, bag);
+        Assert.Equal("http.route", key);
+    }
+
+    [Fact]
+    public void PromoteStatements_Spans_SingleNode_TargetsSpansTable()
+    {
+        var statements = PromotedAttributeColumns.PromoteStatements(PromotedAttributeTable.Spans, AttributeBag.Log, "http.route", clusterMode: false, backfill: true);
+
+        Assert.Equal(
+        [
+            "ALTER TABLE spans ADD COLUMN IF NOT EXISTS attr_span_http_route String MATERIALIZED SpanAttributes['http.route'] CODEC(ZSTD(1)), " +
+            "ADD INDEX IF NOT EXISTS idx_attr_span_http_route attr_span_http_route TYPE bloom_filter(0.01) GRANULARITY 1",
+            "ALTER TABLE spans MATERIALIZE COLUMN attr_span_http_route",
+            "ALTER TABLE spans MATERIALIZE INDEX idx_attr_span_http_route",
+        ], statements);
+    }
+
+    [Fact]
+    public void PromoteStatements_Spans_ClusterMode_AltersSpansLocalThenDistributed()
+    {
+        var statements = PromotedAttributeColumns.PromoteStatements(PromotedAttributeTable.Spans, AttributeBag.Resource, "k8s.pod.name", clusterMode: true, backfill: false);
+
+        Assert.Equal(2, statements.Count);
+        Assert.StartsWith("ALTER TABLE spans_local ON CLUSTER 'flare_cluster' ADD COLUMN IF NOT EXISTS attr_res_k8s_pod_name String MATERIALIZED ResourceAttributes['k8s.pod.name']", statements[0]);
+        Assert.StartsWith("ALTER TABLE spans ON CLUSTER 'flare_cluster' ADD COLUMN IF NOT EXISTS attr_res_k8s_pod_name", statements[1]);
+    }
+
+    [Fact]
+    public void DemoteStatements_Spans_ClusterMode()
+    {
+        Assert.Equal(
+        [
+            "ALTER TABLE spans ON CLUSTER 'flare_cluster' DROP COLUMN IF EXISTS attr_span_http_route",
+            "ALTER TABLE spans_local ON CLUSTER 'flare_cluster' DROP INDEX IF EXISTS idx_attr_span_http_route",
+            "ALTER TABLE spans_local ON CLUSTER 'flare_cluster' DROP COLUMN IF EXISTS attr_span_http_route",
+        ], PromotedAttributeColumns.DemoteStatements(PromotedAttributeTable.Spans, "attr_span_http_route", clusterMode: true));
+    }
+
+    [Fact]
+    public void BuildSpans_Equals_OnPromotedKey_ReadsColumnInsteadOfMap()
+    {
+        var result = BuildSpansWith(new SpanAttributeFilter { Key = "http.route", Value = "/orders" });
+
+        Assert.Contains("attr_span_http_route = {attrValue0:String}", result.WhereSql);
+        Assert.DoesNotContain("SpanAttributes", result.WhereSql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("attrKey0"));
+    }
+
+    [Fact]
+    public void BuildSpans_PromotionIsPerBag()
+    {
+        var result = BuildSpansWith(new SpanAttributeFilter { Key = "http.route", Value = "/orders", Bag = SpanAttributeBag.Resource });
+
+        Assert.Contains("ResourceAttributes[{attrKey0:String}] = {attrValue0:String}", result.WhereSql);
+    }
+
+    [Fact]
+    public void BuildSpans_NotEquals_NonEmptyValue_DropsGuard()
+    {
+        var result = BuildSpansWith(new SpanAttributeFilter { Key = "http.route", Value = "/health", Operator = SpanAttributeFilterOperator.NotEquals });
+
+        Assert.Contains("attr_span_http_route != {attrValue0:String}", result.WhereSql);
+        Assert.DoesNotContain("mapContains", result.WhereSql);
+    }
+
+    [Fact]
+    public void BuildSpans_NotEquals_EmptyValue_FallsBackToGuardedMapForm()
+    {
+        var result = BuildSpansWith(new SpanAttributeFilter { Key = "http.route", Value = "", Operator = SpanAttributeFilterOperator.NotEquals });
+
+        Assert.Contains("NOT (mapContains(SpanAttributes, {attrKey0:String})", result.WhereSql);
+    }
+
+    [Theory]
+    [InlineData(SpanAttributeFilterOperator.In, "attr_res_k8s_namespace_name IN {attrValues0:Array(String)}")]
+    [InlineData(SpanAttributeFilterOperator.NotIn, "attr_res_k8s_namespace_name NOT IN {attrValues0:Array(String)}")]
+    public void BuildSpans_InNotIn_WithoutEmptyValue_ReadsColumn(SpanAttributeFilterOperator op, string expected)
+    {
+        var result = BuildSpansWith(new SpanAttributeFilter { Key = "k8s.namespace.name", Value = "", Operator = op, Values = ["prod", "staging"], Bag = SpanAttributeBag.Resource });
+
+        Assert.Contains(expected, result.WhereSql);
+        Assert.DoesNotContain("mapContains", result.WhereSql);
+    }
+
+    [Theory]
+    [InlineData(SpanAttributeFilterOperator.Exists)]
+    [InlineData(SpanAttributeFilterOperator.Absent)]
+    [InlineData(SpanAttributeFilterOperator.Regex)]
+    [InlineData(SpanAttributeFilterOperator.NotRegex)]
+    public void BuildSpans_PresenceSensitiveOperators_KeepMapForm(SpanAttributeFilterOperator op)
+    {
+        var result = BuildSpansWith(new SpanAttributeFilter { Key = "http.route", Value = ".*", Operator = op });
+
+        Assert.Contains("mapContains(SpanAttributes, {attrKey0:String})", result.WhereSql);
+        Assert.DoesNotContain("attr_span_http_route", result.WhereSql);
     }
 }

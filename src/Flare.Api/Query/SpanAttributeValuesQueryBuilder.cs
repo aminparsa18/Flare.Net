@@ -33,7 +33,7 @@ public static class SpanAttributeValuesQueryBuilder
         5_000_000_000, // 5s
     ];
 
-    public static SpanAttributeValuesSql Build(SpanAttributeValuesRequest request, DateTimeOffset now)
+    public static SpanAttributeValuesSql Build(SpanAttributeValuesRequest request, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
         if (request.Field == SpanValuesField.Attribute && string.IsNullOrEmpty(request.Key))
         {
@@ -45,7 +45,7 @@ public static class SpanAttributeValuesQueryBuilder
             throw new ArgumentOutOfRangeException(nameof(request), request.Limit, "Limit must be positive.");
         }
 
-        var filterSql = SpanFilterSqlBuilder.Build(request.Filter ?? new SpanFilter(), now);
+        var filterSql = SpanFilterSqlBuilder.Build(request.Filter ?? new SpanFilter(), now, promoted);
         filterSql.Parameters.AddParameter("valuesLimit", request.Limit);
 
         var whereClauses = new List<string> { filterSql.WhereSql };

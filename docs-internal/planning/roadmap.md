@@ -90,9 +90,6 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Promote span attribute keys to materialized columns.** ADR-0062
-  promoted keys on `logs` only; `SpanFilterSqlBuilder` still reads
-  `SpanAttributes`. Same design against `spans`/`spans_local`. Not started.
 - **Kubernetes infrastructure views from OTel k8s metrics.**
   `KubernetesResourcePoller` only lists Flare's *own* pods
   (`flare.resource=true`) and services - it's a view of Flare's stack,

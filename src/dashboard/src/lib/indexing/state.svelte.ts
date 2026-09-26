@@ -13,7 +13,8 @@ import {
 	demoteAttribute,
 	type IndexingStatsResponse,
 	type ClusterStatusResponse,
-	type PromotedAttributesResponse
+	type PromotedAttributesResponse,
+	type PromotedAttributeTable
 } from '$lib/indexing-api';
 import type { AttributeBag } from '$lib/api';
 
@@ -26,7 +27,7 @@ export class IndexingState {
 	 * first; IndexingClusterStatus.svelte just renders nothing when it's false.
 	 */
 	clusterStatus = $state.raw<ClusterStatusResponse | null>(null);
-	/** Promoted attribute columns (ADR-0062) - loaded with the rest, reloaded after each promote/demote. */
+	/** Promoted attribute columns (ADR-0062, ADR-0063) - loaded with the rest, reloaded after each promote/demote. */
 	promoted = $state.raw<PromotedAttributesResponse | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
@@ -59,13 +60,13 @@ export class IndexingState {
 	}
 
 	/** Throws the API's error message on failure - the caller shows it next to the form. */
-	async promote(bag: AttributeBag, key: string, backfill: boolean): Promise<void> {
-		await promoteAttribute(bag, key, backfill);
+	async promote(table: PromotedAttributeTable, bag: AttributeBag, key: string, backfill: boolean): Promise<void> {
+		await promoteAttribute(table, bag, key, backfill);
 		await this.load();
 	}
 
-	async demote(columnName: string): Promise<void> {
-		await demoteAttribute(columnName);
+	async demote(table: PromotedAttributeTable, columnName: string): Promise<void> {
+		await demoteAttribute(table, columnName);
 		await this.load();
 	}
 

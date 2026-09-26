@@ -10,8 +10,8 @@ namespace Flare.Api.Endpoints;
 /// <c>GET /api/indexing/cluster</c>. No query params on either - see
 /// <see cref="IndexingQueryService"/>/<see cref="ClusterQueryService"/>'s remarks for why
 /// there's no filter to accept. <c>GET /api/indexing/promoted-attributes</c> lists promoted
-/// attribute columns (ADR-0062) for any authenticated user; promoting/demoting one is
-/// schema DDL on the whole <c>logs</c> table, so those live in
+/// attribute columns (ADR-0062, ADR-0063) for any authenticated user; promoting/demoting one
+/// is schema DDL on the whole <c>logs</c>/<c>spans</c> table, so those live in
 /// <see cref="MapPromotedAttributeAdminEndpoints"/>, mapped onto Program.cs's Admin-only group.
 /// </summary>
 public static class IndexingEndpoints
@@ -65,10 +65,10 @@ public static class IndexingEndpoints
             PromoteAttributeOutcome.Promoted => Results.NoContent(),
             PromoteAttributeOutcome.AlreadyPromoted => Results.Problem($"'{request.Key}' is already promoted.", statusCode: StatusCodes.Status409Conflict),
             PromoteAttributeOutcome.NameConflict => Results.Problem(
-                $"Column '{PromotedAttributeColumns.ColumnNameFor(request.Bag, request.Key)}' is already used by another promoted key.",
+                $"Column '{PromotedAttributeColumns.ColumnNameFor(request.Table, request.Bag, request.Key)}' is already used by another promoted key.",
                 statusCode: StatusCodes.Status409Conflict),
             PromoteAttributeOutcome.LimitReached => Results.Problem(
-                $"At most {PromotedAttributeColumns.MaxPromotedAttributes} attributes can be promoted; demote one first.",
+                $"At most {PromotedAttributeColumns.MaxPromotedAttributes} attributes can be promoted per table; demote one first.",
                 statusCode: StatusCodes.Status409Conflict),
             _ => Results.Problem(
                 $"Key must be 1-{PromotedAttributeColumns.MaxKeyLength} characters of letters, digits, and . _ - : / @.",
@@ -76,11 +76,25 @@ public static class IndexingEndpoints
         };
     }
 
+    /// <summary>
+    /// <c>?table=spans</c> selects the <c>spans</c> table (ADR-0063); omitted means <c>logs</c>,
+    /// the only table before that. Needed because <c>attr_res_*</c>/<c>attr_scope_*</c> names
+    /// can exist on both tables at once.
+    /// </summary>
     private static async Task<IResult> HandleDemoteAsync(
         string columnName,
+        string? table,
         IPromotedAttributeAdminService service,
-        CancellationToken cancellationToken) =>
-        await service.DemoteAsync(columnName, cancellationToken) ? Results.NoContent() : Results.NotFound();
+        CancellationToken cancellationToken)
+    {
+        var parsedTable = PromotedAttributeTable.Logs;
+        if (!string.IsNullOrEmpty(table) && (!Enum.TryParse(table, ignoreCase: true, out parsedTable) || !Enum.IsDefined(parsedTable)))
+        {
+            return Results.Problem("table must be 'logs' or 'spans'.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        return await service.DemoteAsync(parsedTable, columnName, cancellationToken) ? Results.NoContent() : Results.NotFound();
+    }
 
     private static async Task<IResult> HandleGetStatsAsync(
         HttpContext http,
