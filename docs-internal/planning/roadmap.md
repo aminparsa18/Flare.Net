@@ -99,17 +99,14 @@ folders are where "what happened and why" actually lives.
   art: [signoz#4787](https://github.com/SigNoz/signoz/commit/1585065fff9b7853d63e64abebf2887ecc42cc72).
 - **Data-sources guides for more message brokers.** The Messaging page
   (ADR-0056) already picks up any broker whose .NET client emits OTel
-  `messaging.*` spans, but the Data sources page only has a Kafka guide.
-  Candidates: RabbitMQ (RabbitMQ.Client 7+ has built-in tracing,
-  `AddSource("RabbitMQ.Client.*")`; v6 has none. Its spans and the
-  collector `rabbitmq` receiver were already verified live for ADR-0057,
-  so the guide can pair both), MassTransit (built-in
-  `MassTransit` activity source, `messaging.system` = the transport), and
-  Azure Service Bus (Azure SDK activity sources, probably behind the SDK's
-  experimental tracing switch; check). Verify each against a real
-  broker before writing its guide (RabbitMQ image, MassTransit over RabbitMQ,
-  the Service Bus emulator image). Kafka's live run caught a receive+process
-  double count that synthetic spans didn't. Not started.
+  `messaging.*` spans, but the Data sources page only has Kafka and
+  RabbitMQ guides. Candidates: MassTransit (built-in `MassTransit`
+  activity source, `messaging.system` = the transport), and Azure Service
+  Bus (Azure SDK activity sources, probably behind the SDK's experimental
+  tracing switch; check). Verify each against a real broker before writing
+  its guide (MassTransit over RabbitMQ, the Service Bus emulator image).
+  Kafka's live run caught a receive+process double count that synthetic
+  spans didn't. Not started.
 - **Backlog for more brokers on the Messaging page.** Kafka (consumer lag)
   and RabbitMQ (queue depth, ADR-0057) fill the `Backlog` column. Next:
   Service Bus active/dead-letter counts via the collector's Azure Monitor
