@@ -95,6 +95,36 @@ public class SpanFilterSqlBuilderTests
     }
 
     [Fact]
+    public void Build_WithEntrySpansOnly_ExcludesSpansWithASameServiceParentInTheSlackWidenedWindow()
+    {
+        var result = SpanFilterSqlBuilder.Build(new SpanFilter { EntrySpansOnly = true }, Now);
+
+        Assert.Contains(
+            "(ParentSpanId = '' OR (TraceId, ParentSpanId, ServiceName) GLOBAL NOT IN " +
+            "(SELECT TraceId, SpanId, ServiceName FROM spans WHERE StartTime >= {entryParentFrom:DateTime64(9)} AND StartTime < {to:DateTime64(9)}))",
+            result.WhereSql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal((Now - SpanFilterSqlBuilder.DefaultLookback - SpanFilterSqlBuilder.EntryParentStartSlack).UtcDateTime, parameters["entryParentFrom"]);
+    }
+
+    [Fact]
+    public void Build_WithEntrySpansOnlyAndServices_NarrowsTheParentSubqueryToThoseServices()
+    {
+        var result = SpanFilterSqlBuilder.Build(new SpanFilter { EntrySpansOnly = true, Services = ["checkout"] }, Now);
+
+        Assert.Contains("StartTime < {to:DateTime64(9)} AND ServiceName IN {services:Array(String)}))", result.WhereSql);
+    }
+
+    [Fact]
+    public void Build_WithoutEntrySpansOnly_OmitsTheParentSubquery()
+    {
+        var result = SpanFilterSqlBuilder.Build(new SpanFilter { RootSpansOnly = true }, Now);
+
+        Assert.DoesNotContain("NOT IN", result.WhereSql);
+        Assert.DoesNotContain("entryParentFrom", result.Parameters.ToDictionary().Keys);
+    }
+
+    [Fact]
     public void Build_WithDurationRange_AddsBothBoundsAsSeparateClauses()
     {
         var result = SpanFilterSqlBuilder.Build(new SpanFilter { MinDurationNano = 1_000_000, MaxDurationNano = 500_000_000 }, Now);

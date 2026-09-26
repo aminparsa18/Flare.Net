@@ -66,6 +66,10 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         [Description("Inclusive upper bound on trace duration, e.g. 500ms, 2s, 1.5m.")]
         public string? MaxDuration { get; init; }
 
+        [CommandOption("--entry")]
+        [Description("List each service's entry spans (no parent, or a parent in another service) instead of one root span per trace.")]
+        public bool Entry { get; init; }
+
         [CommandOption("--since <RANGE>")]
         [Description("How far back to search: 15m, 1h, 6h, 24h, 7d. Default 1h.")]
         public string Since { get; init; } = "1h";
@@ -142,7 +146,8 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         {
             From = from,
             To = to,
-            RootSpansOnly = true,
+            RootSpansOnly = !settings.Entry,
+            EntrySpansOnly = settings.Entry,
             Services = settings.Service.Length > 0 ? settings.Service : null,
             Kinds = kinds.Count > 0 ? kinds : null,
             StatusCodes = statusCodes.Count > 0 ? statusCodes : null,
@@ -405,6 +410,8 @@ internal sealed class SpanFilterWire
     public ulong? MaxDurationNano { get; init; }
 
     public IReadOnlyList<SpanAttributeFilterWire>? Attributes { get; init; }
+
+    public bool EntrySpansOnly { get; init; }
 }
 
 /// <summary>

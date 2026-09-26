@@ -148,4 +148,15 @@ public sealed partial record SpanFilter
     /// so older MemoryPack/JSON clients that never send it stay wire-compatible.
     /// </summary>
     public IReadOnlyList<string>? Names { get; init; }
+
+    /// <summary>
+    /// When set, only each service's <em>entry</em> spans match - a span with no parent, or
+    /// whose parent was emitted by a different <c>ServiceName</c> (or wasn't ingested at
+    /// all). <see cref="RootSpansOnly"/> gives one row per trace; this gives one row per
+    /// request each service handled, which in a microservice chain is mostly not the trace
+    /// root. Evaluated at query time by <see cref="Query.SpanFilterSqlBuilder"/> - see its
+    /// <c>EntrySpanClause</c> remarks for the cost and the parent-window caveat. Appended
+    /// last for the same wire-compatibility reason as <see cref="Names"/>.
+    /// </summary>
+    public bool EntrySpansOnly { get; init; }
 }

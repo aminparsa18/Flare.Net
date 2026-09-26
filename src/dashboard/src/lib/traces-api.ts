@@ -57,6 +57,8 @@ export interface SpanFilter {
 	attributes?: SpanAttributeFilter[];
 	/** Exact span-name (operation) match, any of. */
 	names?: string[];
+	/** Each service's entry spans only (no parent, or a parent in another service) - see `SpanFilter.EntrySpansOnly` (SpanFilter.cs). */
+	entrySpansOnly?: boolean;
 }
 
 function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFilter {
@@ -84,6 +86,7 @@ function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFil
 					return attr;
 				});
 	dto.names = filter.names ?? null;
+	dto.entrySpansOnly = filter.entrySpansOnly ?? false;
 	return dto;
 }
 
@@ -128,7 +131,7 @@ export interface SpanDto {
 	scopeAttributes: Record<string, string>;
 	spanAttributes: Record<string, string>;
 	events: SpanEventDto[];
-	/** Total spans sharing this row's traceId - only populated for `SpanFilter.rootSpansOnly` searches (Flare's trace list view). See SpanDto.SpanCount's C# remarks. */
+	/** Total spans sharing this row's traceId - only populated for `SpanFilter.rootSpansOnly`/`entrySpansOnly` searches (Flare's trace list view). See SpanDto.SpanCount's C# remarks. */
 	spanCount?: number;
 	/** Whether any span sharing this row's traceId - not just this row's own `statusCode` - carries "STATUS_CODE_ERROR". Same populated-when as `spanCount`. See SpanDto.HasError's C# remarks. */
 	hasError?: boolean;

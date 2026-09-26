@@ -510,6 +510,8 @@
 	"tracesToolbar_serviceLabel": "Сервис",
 	"tracesToolbar_autoRefreshTitle": "Автоматически повторяет поиск каждые 30 секунд",
 	"tracesToolbar_autoRefreshLabel": "Автообновление",
+	"tracesToolbar_entrySpansLabel": "Входные спаны",
+	"tracesToolbar_entrySpansTitle": "Показывать входные спаны каждого сервиса (без родителя или вызванные из другого сервиса) вместо одного корневого спана на трассу",
 	"tracesToolbar_clearFilters": "Очистить фильтры",
 	"tracesToolbar_goToTracePlaceholder": "Перейти к трассировке по ID…",
 	"errorsToolbar_serviceLabel": "Сервис",

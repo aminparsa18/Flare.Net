@@ -20,6 +20,7 @@ export class SpanFilter {
 	maxDurationNano: bigint | null;
 	attributes: (SpanAttributeFilter | null)[] | null;
 	names: (string | null)[] | null;
+	entrySpansOnly: boolean;
 
 	constructor() {
 		this.from = null;
@@ -33,6 +34,7 @@ export class SpanFilter {
 		this.maxDurationNano = null;
 		this.attributes = null;
 		this.names = null;
+		this.entrySpansOnly = false;
 	}
 
 	static serialize(value: SpanFilter | null): Uint8Array {
@@ -47,7 +49,7 @@ export class SpanFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(11);
+		writer.writeObjectHeader(12);
 		writeNullableDateTimeOffset(writer, value.from);
 		writeNullableDateTimeOffset(writer, value.to);
 		writer.writeArray(value.services, (writer, x) => writer.writeString(x));
@@ -59,6 +61,7 @@ export class SpanFilter {
 		writer.writeNullableUint64(value.maxDurationNano);
 		writer.writeArray(value.attributes, (writer, x) => SpanAttributeFilter.serializeCore(writer, x));
 		writer.writeArray(value.names, (writer, x) => writer.writeString(x));
+		writer.writeBoolean(value.entrySpansOnly);
 	}
 
 	static deserialize(buffer: ArrayBuffer): SpanFilter | null {
@@ -72,7 +75,7 @@ export class SpanFilter {
 		}
 
 		const value = new SpanFilter();
-		if (count == 11) {
+		if (count == 12) {
 			value.from = readNullableDateTimeOffset(reader);
 			value.to = readNullableDateTimeOffset(reader);
 			value.services = reader.readArray((reader) => reader.readString());
@@ -84,7 +87,8 @@ export class SpanFilter {
 			value.maxDurationNano = reader.readNullableUint64();
 			value.attributes = reader.readArray((reader) => SpanAttributeFilter.deserializeCore(reader));
 			value.names = reader.readArray((reader) => reader.readString());
-		} else if (count > 11) {
+			value.entrySpansOnly = reader.readBoolean();
+		} else if (count > 12) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -110,6 +114,8 @@ export class SpanFilter {
 			if (count == 10) return value;
 			value.names = reader.readArray((reader) => reader.readString());
 			if (count == 11) return value;
+			value.entrySpansOnly = reader.readBoolean();
+			if (count == 12) return value;
 		}
 		return value;
 	}
