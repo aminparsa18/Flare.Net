@@ -111,6 +111,7 @@
 	"logsToolbar_pause": "Pause",
 	"logsToolbar_linesPerRow": "Lines: {count}",
 	"logsToolbar_linesPerRowHeading": "Message lines per row",
+	"logsToolbar_columnsHeading": "Columns",
 	"eventDetail_traceId": "Trace ID",
 	"eventDetail_spanId": "Span ID",
 	"eventDetail_spanDuration": "Span duration",

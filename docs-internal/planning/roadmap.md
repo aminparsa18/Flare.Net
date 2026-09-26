@@ -102,12 +102,6 @@ folders are where "what happened and why" actually lives.
   started. Prior art: deployments/clusters/namespaces
   [signoz#6786](https://github.com/SigNoz/signoz/commit/403043e076bf60aa4b77a7df45eed06b286f5be0),
   statefulsets/daemonsets/jobs/volumes [signoz#6629](https://github.com/SigNoz/signoz/commit/813ca8bc230268d8904a786b18da8659045b18ce).
-- **Show/hide the timestamp and body columns in the Logs table.** Next
-  to the existing lines-per-row option: toggle the timestamp and body
-  columns (e.g. hide body when only a few pinned attributes matter),
-  carried in saved searches like the other display preferences.
-  Frontend-only, small. Not started. Prior art:
-  [signoz#6903](https://github.com/SigNoz/signoz/commit/98cdbcd711e8e32df8ad1283a87d1c90ca055546).
 - **"Resolved" alert notifications.** Alerting is fire-only today:
   `AlertEvaluationWorker` checks a breach against the rule's cooldown and
   notifies, but when the condition recovers nothing is sent and there's

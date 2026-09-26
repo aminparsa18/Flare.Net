@@ -111,6 +111,7 @@
 	"logsToolbar_pause": "Пауза",
 	"logsToolbar_linesPerRow": "Строк: {count}",
 	"logsToolbar_linesPerRowHeading": "Строк сообщения в записи",
+	"logsToolbar_columnsHeading": "Столбцы",
 	"eventDetail_traceId": "ID трассировки",
 	"eventDetail_spanId": "ID спана",
 	"eventDetail_spanDuration": "Длительность спана",

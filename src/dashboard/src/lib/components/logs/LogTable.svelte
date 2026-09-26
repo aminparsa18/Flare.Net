@@ -22,11 +22,21 @@
 	// LogRow's own remarks), so their spanDurationNano is always absent - a column of
 	// nothing but "—" for every visible row is worse than no column at all. $derived
 	// (not const) so toggling live re-flows both the header and every row together.
-	let COLUMNS = $derived(
-		explorer.live
-			? '170px 90px 160px 1fr' // 170px fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width
-			: '170px 90px 160px 90px 1fr' // 90px fits Duration's widest realistic value (e.g. "12.34s")
-	);
+	// Time and Message can also be hidden (LogsFilterState.showTimestampColumn/
+	// showBodyColumn); whichever column ends up last takes the remaining width (1fr).
+	const showTime = $derived(explorer.filter.showTimestampColumn);
+	const showBody = $derived(explorer.filter.showBodyColumn);
+	let COLUMNS = $derived.by(() => {
+		const cols = [
+			showTime && '170px', // fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width
+			'90px',
+			'160px',
+			!explorer.live && '90px', // fits Duration's widest realistic value (e.g. "12.34s")
+			showBody && '1fr'
+		].filter((c): c is string => !!c);
+		if (!showBody) cols[cols.length - 1] = `minmax(${cols[cols.length - 1]}, 1fr)`;
+		return cols.join(' ');
+	});
 </script>
 
 <div
@@ -42,13 +52,17 @@
 		class="bg-muted/30 text-muted-foreground grid shrink-0 items-center gap-3 overflow-y-hidden border-b px-3 text-xs font-medium"
 		style="grid-template-columns: var(--log-row-columns); height: 28px; scrollbar-gutter: stable;"
 	>
-		<span>{m.logsTable_colTime()}</span>
+		{#if showTime}
+			<span>{m.logsTable_colTime()}</span>
+		{/if}
 		<span>{m.logsTable_colLevel()}</span>
 		<span>{m.logsTable_colService()}</span>
 		{#if !explorer.live}
 			<span>{m.logsTable_colDuration()}</span>
 		{/if}
-		<span>{m.logsTable_colMessage()}</span>
+		{#if showBody}
+			<span>{m.logsTable_colMessage()}</span>
+		{/if}
 	</div>
 
 	{#if explorer.events.length === 0 && !explorer.loading}
@@ -86,7 +100,7 @@
 			class="min-h-0 flex-1"
 		>
 			{#snippet children(event)}
-				<LogRow {event} {lines} live={explorer.live} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
+				<LogRow {event} {lines} {showTime} {showBody} live={explorer.live} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
 			{/snippet}
 		</VirtualList>
 		{#if explorer.loadingMore}
