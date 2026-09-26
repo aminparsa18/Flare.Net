@@ -14,6 +14,7 @@
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import type { HostStatsHistoryPoint } from '$lib/api';
 	import * as m from '$lib/paraglide/messages';
+	import { formatChartTime } from '$lib/time/format';
 
 	let { history }: { history: HostStatsHistoryPoint[] } = $props();
 
@@ -77,14 +78,7 @@
 	}
 
 	function formatPointTime(time: number): string {
-		return new Date(time).toLocaleString(undefined, {
-			hour12: false,
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit'
-		});
+		return formatChartTime(time);
 	}
 
 	function formatValue(n: number): string {

@@ -2,7 +2,8 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import { Button } from '$lib/components/ui/button';
 	import { RangeCalendar } from '$lib/components/ui/range-calendar';
-	import { getLocalTimeZone, type DateValue } from '@internationalized/date';
+	import type { DateValue } from '@internationalized/date';
+	import { displayTimeZone } from '$lib/time/display-zone.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -55,7 +56,8 @@
 
 	function applyCustomRange() {
 		if (!calendarValue.start || !calendarValue.end) return;
-		const tz = getLocalTimeZone();
+		// Picked calendar days are days in the display time zone, same as every timestamp shown.
+		const tz = displayTimeZone.resolved;
 		explorer.setCustomRange({ from: calendarValue.start.toDate(tz), to: calendarValue.end.toDate(tz) });
 		open = false;
 		showCustom = false;

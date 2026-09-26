@@ -22,6 +22,7 @@
 	import { formatBytes, formatCount, signalLabel } from '$lib/ingestion/format';
 	import type { IngestionBucketPoint, IngestionSignal } from '$lib/ingestion-api';
 	import * as m from '$lib/paraglide/messages';
+	import { formatChartTime } from '$lib/time/format';
 
 	const ingestion = ingestionContext.get();
 
@@ -142,7 +143,7 @@
 	}
 
 	function formatBucketTime(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false, hour: '2-digit', minute: '2-digit' });
+		return formatChartTime(iso, 60_000); // per-minute buckets
 	}
 </script>
 

@@ -31,6 +31,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import * as m from '$lib/paraglide/messages';
+	import { formatAxisTime, formatChartRange } from '$lib/time/format';
 
 	const explorer = logsExplorerContext.get();
 
@@ -285,8 +286,8 @@
 		explorer.focusBucketRange({ from, to });
 	}
 
-	function formatAxisTime(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false, hour: '2-digit', minute: '2-digit' });
+	function axisLabel(iso: string): string {
+		return formatAxisTime(iso, rangeFrom && rangeTo ? new Date(rangeTo).getTime() - new Date(rangeFrom).getTime() : 0);
 	}
 
 	const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
@@ -299,7 +300,7 @@
 		if (!rangeFrom) return '';
 		const from = new Date(new Date(rangeFrom).getTime() + timeIndex * bucketWidthSeconds * 1000);
 		const to = new Date(from.getTime() + bucketWidthSeconds * 1000);
-		return `${from.toLocaleString(undefined, { hour12: false, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} – ${to.toLocaleTimeString(undefined, { hour12: false, hour: '2-digit', minute: '2-digit' })}`;
+		return formatChartRange(from, to, bucketWidthSeconds * 1000);
 	}
 
 	function bucketValueLabel(valueIndex: number): string {
@@ -438,8 +439,8 @@
 
 					<div></div>
 					<div class="text-muted-foreground mt-1 flex justify-between text-[10px]">
-						<span>{rangeFrom ? formatAxisTime(rangeFrom) : ''}</span>
-						<span>{rangeTo ? formatAxisTime(rangeTo) : ''}</span>
+						<span>{rangeFrom ? axisLabel(rangeFrom) : ''}</span>
+						<span>{rangeTo ? axisLabel(rangeTo) : ''}</span>
 					</div>
 				</div>
 			{/if}

@@ -7,6 +7,7 @@
 
 import { listAlertRules, testAlertRule, type AlertRule } from '$lib/alerts-api';
 import type { TerminalCommand, TerminalWriter } from '../types';
+import { formatTimeOfDay } from '$lib/time/format';
 
 function formatWindow(seconds: number): string {
 	if (seconds >= 3600 && seconds % 3600 === 0) return `${seconds / 3600}h`;
@@ -70,7 +71,7 @@ async function runTest(id: string | undefined, term: TerminalWriter): Promise<vo
 	term.writeLine(`Would fire: ${result.wouldFire ? 'yes' : 'no'}`, result.wouldFire ? 'output' : 'info');
 	term.writeLine(`Observed count: ${result.observedCount} (window: ${result.windowSeconds}s)`, 'output');
 	term.writeLine(
-		`Evaluated at ${new Date(result.evaluatedAt).toLocaleTimeString()} - cooldown untouched, no notification sent.`,
+		`Evaluated at ${formatTimeOfDay(result.evaluatedAt)} - cooldown untouched, no notification sent.`,
 		'info'
 	);
 }

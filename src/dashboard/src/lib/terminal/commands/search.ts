@@ -13,6 +13,7 @@ import { searchLogs, type AttributeFilter, type LogEventDto, type LogFilter } fr
 import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
 import { parseAttrBareKey, parseAttrKeyValue, type AttrFlagEntry } from './attr-flags';
 import type { TerminalCommand } from '../types';
+import { formatTimeOfDay } from '$lib/time/format';
 
 export class UsageError extends Error {}
 
@@ -161,9 +162,7 @@ function lineKindFor(severityNumber: number): 'output' | 'error' {
 }
 
 function formatTime(iso: string): string {
-	const d = new Date(iso);
-	const pad = (n: number, len = 2) => String(n).padStart(len, '0');
-	return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+	return formatTimeOfDay(iso, 'ms');
 }
 
 function truncate(text: string, maxLength: number): string {

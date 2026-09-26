@@ -25,6 +25,7 @@
 	import { ingestionContext } from '$lib/ingestion/context';
 	import { protocolLabel, signalLabel } from '$lib/ingestion/format';
 	import * as m from '$lib/paraglide/messages';
+	import { formatTimestamp } from '$lib/time/format';
 
 	const ingestion = ingestionContext.get();
 
@@ -35,9 +36,6 @@
 		)
 	);
 
-	function formatTime(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 </script>
 
 <div id="ingestion-log" class="border-t px-4 py-3">
@@ -79,7 +77,7 @@
 				<Table.Body>
 					{#each errors as entry, i (entry.timestamp + i)}
 						<Table.Row>
-							<Table.Cell class="text-muted-foreground whitespace-nowrap text-xs">{formatTime(entry.timestamp)}</Table.Cell>
+							<Table.Cell class="text-muted-foreground whitespace-nowrap text-xs">{formatTimestamp(entry.timestamp)}</Table.Cell>
 							<Table.Cell>
 								<Badge variant="outline">{signalLabel(entry.signal)} · {protocolLabel(entry.protocol)}</Badge>
 							</Table.Cell>

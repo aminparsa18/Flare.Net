@@ -14,14 +14,11 @@
 	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import * as m from '$lib/paraglide/messages';
+	import { formatTimestamp } from '$lib/time/format';
 
 	const errors = errorsExplorerContext.get();
 
 	const open = $derived(errors.selectedGroup !== null);
-
-	function formatTimestamp(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 
 	function handleOpenChange(next: boolean): void {
 		if (!next) errors.selectGroup(null);

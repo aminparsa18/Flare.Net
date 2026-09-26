@@ -4,22 +4,13 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { statusVariant, statusLabel, rolledUpStatusCode } from '$lib/traces/status';
 	import { formatDurationNano } from '$lib/traces/duration';
+	import { formatRowTimestamp } from '$lib/time/format';
 
 	let { trace }: { trace: SpanDto } = $props();
 
 	// Rolled up across every span in the trace, not just this root row's own statusCode -
 	// see rolledUpStatusCode's remarks.
 	let displayStatusCode = $derived(rolledUpStatusCode(trace));
-
-	// Same hand-formatted, fixed-width time convention as LogRow.formatTime - a
-	// monospace technical column shouldn't jitter row to row with locale-varying widths.
-	function formatTime(iso: string): string {
-		const d = new Date(iso);
-		const pad = (n: number, len = 2) => String(n).padStart(len, '0');
-		const date = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-		const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
-		return `${date} ${time}`;
-	}
 </script>
 
 <button
@@ -28,7 +19,7 @@
 	style="grid-template-columns: var(--trace-row-columns); height: var(--trace-row-height);"
 	onclick={() => goto(`/traces/${trace.traceId}`)}
 >
-	<span class="text-muted-foreground truncate font-mono text-xs">{formatTime(trace.startTime)}</span>
+	<span class="text-muted-foreground truncate font-mono text-xs">{formatRowTimestamp(trace.startTime)}</span>
 	<span><Badge variant={statusVariant(displayStatusCode)}>{statusLabel(displayStatusCode)}</Badge></span>
 	<span class="truncate">{trace.serviceName || '—'}</span>
 	<span class="truncate">{trace.name || '—'}</span>

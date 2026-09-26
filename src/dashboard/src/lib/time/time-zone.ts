@@ -1,7 +1,9 @@
-// Wall-clock <-> instant conversion for an arbitrary IANA time zone, for the maintenance
-// window form: a window's start/end are edited as local times in the window's own
-// `timeZone` (which needn't be the browser's), but sent to the API as absolute instants.
-// Built on `Intl.DateTimeFormat` alone - no date library in this dashboard.
+// Wall-clock <-> instant conversion for an arbitrary IANA time zone. Used by the
+// maintenance window form (a window's start/end are edited as local times in the window's
+// own `timeZone`, which needn't be the browser's, but sent to the API as absolute instants)
+// and by the display time zone setting (./display-zone.svelte.ts) for "Today"/"This week"
+// and custom-range bounds. Built on `Intl.DateTimeFormat` alone - no date library in this
+// dashboard.
 
 /** `timeZone`'s offset from UTC, in ms, at `date`. */
 function offsetMs(date: Date, timeZone: string): number {

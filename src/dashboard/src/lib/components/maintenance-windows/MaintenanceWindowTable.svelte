@@ -7,13 +7,14 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
-	import { instantToZoned } from '$lib/maintenance-windows/time-zone';
+	import { instantToZoned } from '$lib/time/time-zone';
 	import type { MaintenanceWindow } from '$lib/maintenance-windows-api';
 	import * as m from '$lib/paraglide/messages';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import MoonIcon from '@lucide/svelte/icons/moon';
+	import { formatDateTimeMinutes } from '$lib/time/format';
 
 	const maintenance = maintenanceWindowsContext.get();
 
@@ -22,13 +23,9 @@
 		new Date(Date.UTC(2023, 0, 1 + i)).toLocaleDateString(undefined, { weekday: 'short', timeZone: 'UTC' })
 	);
 
-	function formatInstant(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false, dateStyle: 'medium', timeStyle: 'short' });
-	}
-
 	function schedule(mw: MaintenanceWindow): string {
 		if (mw.recurrence === 'None') {
-			return `${formatInstant(mw.startsAt)} → ${formatInstant(mw.endsAt)}`;
+			return `${formatDateTimeMinutes(mw.startsAt)} → ${formatDateTimeMinutes(mw.endsAt)}`;
 		}
 
 		const start = instantToZoned(new Date(mw.startsAt), mw.timeZone).slice(11);

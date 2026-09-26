@@ -6,6 +6,7 @@
 	// LanguageSwitcher.svelte's Select-based picker is gone; its locale-endonym convention
 	// moved here unchanged.
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Command from '$lib/components/ui/command';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { authContext } from '$lib/auth/context';
@@ -19,6 +20,10 @@
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import LanguagesIcon from '@lucide/svelte/icons/languages';
+	import GlobeIcon from '@lucide/svelte/icons/globe';
+	import { displayTimeZone } from '$lib/time/display-zone.svelte';
+	import { browserTimeZone, timeZoneOptions } from '$lib/time/time-zone';
+	import { formatUtcOffset } from '$lib/time/format';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 
 	const auth = authContext.get();
@@ -31,6 +36,24 @@
 		'zh-CN': '中文',
 		ru: 'Русский'
 	};
+
+	// Browser zone and UTC cover the common cases (local debugging, correlating with UTC
+	// server logs) one click away; any other IANA zone goes through the searchable dialog
+	// below - a ~400-entry radio submenu isn't usable. A named zone picked there stays
+	// listed here while it's the active one.
+	let zoneDialogOpen = $state(false);
+	const namedZone = $derived(
+		displayTimeZone.zone !== 'local' && displayTimeZone.zone !== 'UTC' ? displayTimeZone.zone : null
+	);
+	// Only built while the dialog is open - one Intl lookup per zone for its offset.
+	const zoneChoices = $derived(
+		zoneDialogOpen ? timeZoneOptions().map((zone) => ({ zone, offset: formatUtcOffset(zone) })) : []
+	);
+
+	function pickZone(zone: string) {
+		displayTimeZone.set(zone);
+		zoneDialogOpen = false;
+	}
 
 	async function handleLogout() {
 		// No goto() needed here - auth.currentUser flipping to null is itself what
@@ -130,6 +153,25 @@
 			</DropdownMenu.SubContent>
 		</DropdownMenu.Sub>
 
+		<DropdownMenu.Sub>
+			<DropdownMenu.SubTrigger>
+				<GlobeIcon />
+				{m.nav_timeZoneLabel()}
+				<span class="text-muted-foreground ml-auto">{formatUtcOffset(displayTimeZone.resolved)}</span>
+			</DropdownMenu.SubTrigger>
+			<DropdownMenu.SubContent>
+				<DropdownMenu.RadioGroup value={displayTimeZone.zone} onValueChange={(v) => v && displayTimeZone.set(v)}>
+					<DropdownMenu.RadioItem value="local">{m.nav_timeZoneBrowser({ zone: browserTimeZone() })}</DropdownMenu.RadioItem>
+					<DropdownMenu.RadioItem value="UTC">UTC</DropdownMenu.RadioItem>
+					{#if namedZone}
+						<DropdownMenu.RadioItem value={namedZone}>{namedZone}</DropdownMenu.RadioItem>
+					{/if}
+				</DropdownMenu.RadioGroup>
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item onSelect={() => (zoneDialogOpen = true)}>{m.nav_timeZoneOther()}</DropdownMenu.Item>
+			</DropdownMenu.SubContent>
+		</DropdownMenu.Sub>
+
 		<DropdownMenu.Separator />
 
 		{#if auth.authEnabled}
@@ -146,3 +188,16 @@
 		{/if}
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
+
+<Command.Dialog bind:open={zoneDialogOpen} title={m.nav_timeZoneDialogTitle()} description={m.nav_timeZoneDialogDescription()}>
+	<Command.Input placeholder={m.nav_timeZoneSearchPlaceholder()} />
+	<Command.List>
+		<Command.Empty>{m.nav_timeZoneNoResults()}</Command.Empty>
+		{#each zoneChoices as choice (choice.zone)}
+			<Command.Item value={choice.zone} onSelect={() => pickZone(choice.zone)}>
+				{choice.zone}
+				<span class="text-muted-foreground ml-auto text-xs tabular-nums">{choice.offset}</span>
+			</Command.Item>
+		{/each}
+	</Command.List>
+</Command.Dialog>

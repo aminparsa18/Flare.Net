@@ -10,6 +10,7 @@
 	import type { HostsSortColumn } from '$lib/hosts/state.svelte';
 	import { formatPercent } from '$lib/indexing/format';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDateTime } from '$lib/time/format';
 
 	const hosts = hostsContext.get();
 
@@ -137,7 +138,7 @@
 								{host.loadAverage15m.toFixed(2)}
 							{/if}
 						</Table.Cell>
-						<Table.Cell class="text-right tabular-nums" title={new Date(host.lastSeen).toLocaleString()}>
+						<Table.Cell class="text-right tabular-nums" title={formatDateTime(host.lastSeen)}>
 							{formatAgo(host.lastSeen)}
 							{#if stale}
 								<span class="text-warning ml-1">· {m.hostsPage_stale()}</span>

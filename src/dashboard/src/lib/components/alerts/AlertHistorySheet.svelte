@@ -9,12 +9,10 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { alertsContext } from '$lib/alerts/context';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDateTime } from '$lib/time/format';
 
 	const alerts = alertsContext.get();
 
-	function formatTimestamp(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 </script>
 
 <Sheet.Root
@@ -49,7 +47,7 @@
 						{#each alerts.history as entry (entry.eventId)}
 							<div class="rounded-md border p-3 text-xs">
 								<div class="flex items-center justify-between">
-									<span class="font-medium">{formatTimestamp(entry.firedAt)}</span>
+									<span class="font-medium">{formatDateTime(entry.firedAt)}</span>
 									<Badge
 										variant={entry.notificationStatus === 'Sent' ? 'secondary' : entry.notificationStatus === 'Suppressed' ? 'outline' : 'destructive'}
 									>

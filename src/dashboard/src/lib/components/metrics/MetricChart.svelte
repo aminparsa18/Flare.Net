@@ -24,6 +24,7 @@
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
 	import * as m from '$lib/paraglide/messages';
+	import { formatChartTime } from '$lib/time/format';
 
 	const explorer = metricsExplorerContext.get();
 
@@ -637,8 +638,7 @@
 		const range = resolveTimeRange(explorer.filter.timeRangePreset, explorer.filter.customRange ?? undefined);
 		if (!range) return null;
 		const overlayRange = compareActive ? previousPeriod(range) : shiftRange(range, explorer.resultTimeShiftSeconds ?? 0);
-		const fmt = (iso: string) =>
-			new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+		const fmt = (iso: string) => formatChartTime(iso);
 		return `${m.metricChart_compareRangeCurrent({ from: fmt(range.from), to: fmt(range.to) })}\n${m.metricChart_compareRangePrevious({ from: fmt(overlayRange.from), to: fmt(overlayRange.to) })}`;
 	});
 
@@ -820,13 +820,7 @@
 	}
 
 	function formatBucketTime(time: number): string {
-		return new Date(time).toLocaleString(undefined, {
-			hour12: false,
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return formatChartTime(time);
 	}
 
 	// Tooltip values share the axis's scale (not each point re-picking its own) so a

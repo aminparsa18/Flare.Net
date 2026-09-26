@@ -10,6 +10,7 @@
 
 import { createAccessToken, listAccessTokens, revokeAccessToken } from '$lib/personal-access-tokens-api';
 import type { TerminalCommand } from '../types';
+import { formatDateTime } from '$lib/time/format';
 
 export const tokenCommand: TerminalCommand = {
 	name: 'token',
@@ -45,8 +46,8 @@ export const tokenCommand: TerminalCommand = {
 				return;
 			}
 
-			const created = new Date(response.token.createdAt).toLocaleString();
-			const expiry = response.token.expiresAt ? `, expires: ${new Date(response.token.expiresAt).toLocaleString()}` : ' (never expires)';
+			const created = formatDateTime(response.token.createdAt);
+			const expiry = response.token.expiresAt ? `, expires: ${formatDateTime(response.token.expiresAt)}` : ' (never expires)';
 			term.writeLine(`Created access token ${response.token.name} (id: ${response.token.id}, created: ${created}${expiry}).`, 'output');
 			term.writeLine(response.rawToken, 'output');
 			term.writeLine('Copy this now - Flare never stores or shows the raw token again.', 'info');
@@ -69,7 +70,7 @@ export const tokenCommand: TerminalCommand = {
 
 			for (const t of tokens) {
 				const status = t.revokedAt ? 'revoked' : t.isActive ? 'active' : 'expired';
-				term.writeLine(`${t.id}  ${t.name}  [${status}]  created: ${new Date(t.createdAt).toLocaleString()}`, 'output');
+				term.writeLine(`${t.id}  ${t.name}  [${status}]  created: ${formatDateTime(t.createdAt)}`, 'output');
 			}
 			return;
 		}

@@ -22,6 +22,8 @@
 	import { savedViewPath } from '$lib/saved-views/page-paths';
 	import { presetLabel } from '$lib/logs/time-range';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDateTime, formatUtcOffset } from '$lib/time/format';
+	import { displayTimeZone } from '$lib/time/display-zone.svelte';
 
 	const explorer = logsExplorerContext.get();
 
@@ -29,14 +31,19 @@
 	let copied = $state(false);
 	let copiedTimeout: ReturnType<typeof setTimeout> | undefined;
 
+	// This text is saved into the view's description and read by whoever opens the link,
+	// possibly in another zone - so it names the offset it was written in.
+	function zoneSuffix(): string {
+		return `(${formatUtcOffset(displayTimeZone.resolved)})`;
+	}
+
 	function rangeLabel(): string {
 		const { timeRangePreset, customRange } = explorer.filter;
 		if (timeRangePreset !== 'custom') {
 			return presetLabel(timeRangePreset);
 		}
 		if (!customRange) return m.shareView_customRangeFallback();
-		const fmt = (d: Date) => d.toLocaleString(undefined, { hour12: false });
-		return `${fmt(customRange.from)} – ${fmt(customRange.to)}`;
+		return `${formatDateTime(customRange.from)} – ${formatDateTime(customRange.to)} ${zoneSuffix()}`;
 	}
 
 	async function handleShare(): Promise<void> {
@@ -47,7 +54,7 @@
 			const view = await createSavedView({
 				name: search ? m.shareView_sharedSearchName({ search }) : m.shareView_sharedViewName(),
 				description: m.shareView_sharedDescription({
-					timestamp: new Date().toLocaleString(undefined, { hour12: false }),
+					timestamp: `${formatDateTime(new Date())} ${zoneSuffix()}`,
 					range: rangeLabel()
 				}),
 				pageType: 'Logs',

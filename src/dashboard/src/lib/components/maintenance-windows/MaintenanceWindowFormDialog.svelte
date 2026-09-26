@@ -2,7 +2,7 @@
 	// Create/edit a maintenance window. Same Dialog + reset-on-open $effect shape as
 	// NotificationChannelFormDialog.svelte. Start/end/repeat-until are edited as wall-clock
 	// times in the window's own time zone and converted to instants on save (see
-	// $lib/maintenance-windows/time-zone.ts); the client-side checks mirror
+	// $lib/time/time-zone.ts); the client-side checks mirror
 	// MaintenanceWindowRequest.Validate so the Save button can't submit a request the API rejects.
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
@@ -13,7 +13,7 @@
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import { alertsContext } from '$lib/alerts/context';
 	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
-	import { browserTimeZone, instantToZoned, timeZoneOptions, zonedToInstant } from '$lib/maintenance-windows/time-zone';
+	import { browserTimeZone, instantToZoned, timeZoneOptions, zonedToInstant } from '$lib/time/time-zone';
 	import type { MaintenanceWindowRecurrence, MaintenanceWindowRequest } from '$lib/maintenance-windows-api';
 	import * as m from '$lib/paraglide/messages';
 

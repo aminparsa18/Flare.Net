@@ -19,6 +19,7 @@
 	import * as m from '$lib/paraglide/messages';
 	import { tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { formatTimeOfDay } from '$lib/time/format';
 
 	const detail = traceDetailContext.get();
 
@@ -159,13 +160,7 @@
 	// carries (the span's own nanosecond startTime string is truncated here, but the
 	// offset/duration lines above it are what carry sub-ms detail anyway).
 	function formatStartTime(iso: string): string {
-		return new Date(iso).toLocaleTimeString(undefined, {
-			hour12: false,
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			fractionalSecondDigits: 3
-		});
+		return formatTimeOfDay(iso, 'ms');
 	}
 
 	function barStyle(span: SpanDto): string {

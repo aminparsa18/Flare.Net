@@ -22,6 +22,7 @@
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
 	import * as m from '$lib/paraglide/messages';
+	import { formatChartTime } from '$lib/time/format';
 
 	// yAxisMin/yAxisMax: same soft Y-axis floor/ceiling MetricChart.svelte's own props of
 	// the same name apply (DashboardPanel.yAxisMin/yAxisMax) - only ever set from a
@@ -106,7 +107,7 @@
 	}
 
 	function formatBucketTime(time: number): string {
-		return new Date(time).toLocaleString(undefined, { hour12: false, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+		return formatChartTime(time);
 	}
 
 	function formatValue(n: number): string {

@@ -8,6 +8,7 @@
 import { connectLiveTail, type LogEventDto, type LogFilter } from '$lib/api';
 import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
 import type { TerminalCommand, TerminalHandle, TerminalLineKind } from '../types';
+import { formatRowTimestamp } from '$lib/time/format';
 
 // Flags mirror Flare.Cli/Commands/TailCommand.cs's Settings 1:1 (same short/long
 // names, same repeatability) so anyone who knows the real CLI's `tail` already knows
@@ -78,12 +79,9 @@ function buildFilter(parsed: ParsedArgs): LogFilter {
 	return filter;
 }
 
+// Same formatter as LogRow.svelte, so timestamps read identically here and in the Logs Explorer.
 function formatTime(iso: string): string {
-	// Same hand-formatted convention as LogRow.svelte's own formatTime - kept in sync
-	// deliberately so timestamps read identically here and in the Logs Explorer.
-	const d = new Date(iso);
-	const pad = (n: number, len = 2) => String(n).padStart(len, '0');
-	return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+	return formatRowTimestamp(iso);
 }
 
 /** Terminal-line kind for a log event, coarser than severity.ts's 6 buckets/badge variants - just enough to color errors/warnings differently from the rest. */

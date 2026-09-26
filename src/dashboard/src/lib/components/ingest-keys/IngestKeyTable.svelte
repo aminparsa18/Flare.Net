@@ -16,12 +16,9 @@
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDateTime } from '$lib/time/format';
 
 	const keys = ingestKeysContext.get();
-
-	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 
 	function enforced(key: IngestApiKeyDto): boolean {
 		return (
@@ -119,7 +116,7 @@
 								<Badge variant="destructive">{m.ingestKeyTable_statusRevoked()}</Badge>
 							{/if}
 						</Table.Cell>
-						<Table.Cell class="text-muted-foreground">{formatDate(key.createdAt)}</Table.Cell>
+						<Table.Cell class="text-muted-foreground">{formatDateTime(key.createdAt)}</Table.Cell>
 						<Table.Cell>
 							{#if active}
 								<Badge variant="secondary">{m.ingestKeyTable_limitsEnforced()}</Badge>

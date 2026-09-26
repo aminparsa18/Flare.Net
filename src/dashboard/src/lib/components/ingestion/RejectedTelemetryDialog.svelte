@@ -18,6 +18,7 @@
 	import { formatCount, protocolLabel, signalLabel } from '$lib/ingestion/format';
 	import type { IngestionProtocol, IngestionSignal } from '$lib/ingestion-api';
 	import * as m from '$lib/paraglide/messages';
+	import { formatTimestamp } from '$lib/time/format';
 
 	let {
 		open = $bindable(false),
@@ -73,10 +74,6 @@
 		return [...counts.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
 	});
 
-	function formatTime(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
-
 	function viewLog(): void {
 		ingestion.setLogFilter(signal, protocol);
 		open = false;
@@ -120,11 +117,11 @@
 				</div>
 				<div>
 					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">{m.rejectedTelemetryDialog_firstSeenLabel()}</div>
-					<div class="tabular-nums">{firstSeen ? formatTime(firstSeen) : '—'}</div>
+					<div class="tabular-nums">{firstSeen ? formatTimestamp(firstSeen) : '—'}</div>
 				</div>
 				<div>
 					<div class="text-muted-foreground text-xs font-medium tracking-wide uppercase">{m.rejectedTelemetryDialog_lastSeenLabel()}</div>
-					<div class="tabular-nums">{lastSeen ? formatTime(lastSeen) : '—'}</div>
+					<div class="tabular-nums">{lastSeen ? formatTimestamp(lastSeen) : '—'}</div>
 				</div>
 			</div>
 
