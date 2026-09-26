@@ -65,7 +65,7 @@
 		editing: boolean;
 		timeRangeOverride: TimeRangePreset | null;
 		variables: DashboardVariable[];
-		variableValues: Record<string, string | null>;
+		variableValues: Record<string, string[]>;
 		refreshToken: number;
 		removing: boolean;
 		onRemove: () => void;

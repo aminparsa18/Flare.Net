@@ -77,14 +77,6 @@ folders are where "what happened and why" actually lives.
   click-to-sort columns [signoz#5114](https://github.com/SigNoz/signoz/commit/0760917a4b54bf6629a5c08d02201407797d00bf),
   in-table search [signoz#5893](https://github.com/SigNoz/signoz/commit/cb1cd3555b3b63bdb441512dacdebf2599db67d7);
   and units on pie-chart values [signoz#5960](https://github.com/SigNoz/signoz/commit/3573c0863c59711d48b28d91d4d775dbc4929666).
-- **Multi-value dashboard variables.** A `DashboardVariable` resolves to
-  one value or "All" (`defaultValue: string | null`); there's no way to
-  scope a dashboard to e.g. two services at once. The underlying filters
-  are already list-shaped (service lists etc.), so this is mostly a
-  checkbox picker (with "only this" / "all" shortcuts) plus a
-  `string[]` selection in the stored variable shape - and deciding how a
-  multi-value parent narrows a chained child (ADR-0026). Not started.
-  Prior art: [signoz#5191](https://github.com/SigNoz/signoz/commit/a65d5095a0dc1aadbf6b66bae665d25ebddc8bb2).
 - **Research: does the Logs free-text search actually use `idx_body`?**
   `LogFilterSqlBuilder` compiles `Search` to `Body ILIKE '%…%'`, but
   `idx_body` (`db/clickhouse/0001_logs.sql`) is a `tokenbf_v1` index, and

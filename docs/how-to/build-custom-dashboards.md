@@ -203,10 +203,14 @@ yourself, and any number of them can exist on one dashboard:
      resolved automatically (the same lookup Logs'/Traces' own attribute
      filter builders already use for autocomplete).
    - **Custom list** — a fixed, comma-separated list you type in yourself.
-4. Optionally set a **default value**, preselected whenever the dashboard
+4. Optionally tick **Allow multiple values** to let viewers pick several
+   values at once (for example, two services) instead of just one — see
+   "Multi-value variables" below.
+5. Optionally set a **default value**, preselected whenever the dashboard
    is opened. Leave it blank for "All" (the variable doesn't narrow
-   anything until you pick a value).
-5. Optionally set **Depends on** (only shown for "From query" variables) to
+   anything until you pick a value). For a multi-value variable, enter
+   several defaults separated by commas.
+6. Optionally set **Depends on** (only shown for "From query" variables) to
    chain this variable off another one already defined on the dashboard —
    see "Variable chaining" below.
 
@@ -224,13 +228,25 @@ opens the dashboard sees the same dropdowns but can pick their own values.
 Each panel can also individually opt out of a variable — see "Per-panel
 opt-out" below.
 
+### Multi-value variables
+
+A variable with **Allow multiple values** ticked shows a checkbox list
+instead of a single-value dropdown. Tick as many values as you like: panels
+then match *any* of them (a Service variable filters on all the selected
+services, an attribute variable matches events whose attribute is any of
+the selected values). **All** clears the selection, and hovering a value
+shows an **Only** shortcut that selects just that one. The header shows the
+first selected value plus how many more are selected (for example,
+`Service: checkout +2`).
+
 ### Variable chaining
 
 A "From query" variable can optionally **depend on** another variable
 already defined on the dashboard: pick one in its **Depends on** dropdown
 (only offered for other variables that wouldn't create a dependency
 cycle). Once chained, its own value list is resolved narrowed by whichever
-value its parent is *currently* set to, instead of the unfiltered 7-day
+value its parent is *currently* set to (or, for a multi-value parent, any
+of its selected values), instead of the unfiltered 7-day
 window every independent variable's values are drawn from — for example, a
 "Host" variable backing a Resource attribute can depend on a "Service"
 variable, so its dropdown only offers hosts actually seen for the
@@ -239,10 +255,10 @@ currently-selected service, not every host across every service. Picking
 without ever picking a parent value) falls back to the same unfiltered
 window a variable with no dependency uses. Changing a parent's selected
 value re-resolves every variable chained off it (and, transitively,
-anything chained off *those*) automatically; if a dependent's own current
-selection is no longer among its freshly-resolved options, it resets to
-"All" rather than silently keep narrowing panels by a value that's no
-longer actually offered. Like every other variable relationship, only the
+anything chained off *those*) automatically; any value in a dependent's
+own current selection that's no longer among its freshly-resolved options
+is dropped (a single-value dependent resets to "All") rather than silently
+keep narrowing panels by a value that's no longer actually offered. Like every other variable relationship, only the
 *chain itself* (which variable depends on which) is part of the saved
 dashboard — which values are currently selected stays session-only, same
 as an unchained variable's own selection.

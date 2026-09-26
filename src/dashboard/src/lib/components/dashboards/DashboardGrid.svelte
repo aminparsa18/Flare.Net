@@ -56,7 +56,7 @@
 		editing: boolean;
 		timeRangeOverride: TimeRangePreset | null;
 		variables: DashboardVariable[];
-		variableValues: Record<string, string | null>;
+		variableValues: Record<string, string[]>;
 		refreshToken: number;
 		removingPanelId: string | null;
 		onLayoutChange: (next: { id: string; layout: DashboardPanel['layout'] }[]) => void;

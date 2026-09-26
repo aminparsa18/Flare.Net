@@ -11,8 +11,8 @@
 // `/api/spans/attribute-values` endpoints AttributeFiltersRow/SpanAttributeFiltersRow's own
 // value autocomplete already calls.
 
-import { aggregateLogs, getLogAttributeValues, type AttributeBag } from '$lib/api';
-import { getSpanAttributeValues } from '$lib/traces-api';
+import { aggregateLogs, getLogAttributeValues, type AttributeBag, type AttributeFilter } from '$lib/api';
+import { getSpanAttributeValues, type SpanAttributeBag, type SpanAttributeFilter } from '$lib/traces-api';
 import type { DashboardAttributeBag, DashboardVariable } from '$lib/dashboards-api';
 
 /** Same wide window `loadKnownServices`/AlertRuleFormDialog's own copy use to enumerate
@@ -35,11 +35,25 @@ function logsAttributeBag(bag: DashboardAttributeBag): AttributeBag {
 }
 
 /** A resolved parent for a chained (`dependsOnVariableId`) variable - the parent's own
- *  definition plus its currently-selected value (a `null`/"All" parent selection is never
- *  passed in here; the caller resolves to `undefined` instead, same as having no parent). */
+ *  definition plus its currently-selected values (never empty: an "All" parent selection is
+ *  never passed in here; the caller resolves to `undefined` instead, same as having no
+ *  parent). More than one value only for a `multi` parent. */
 export interface VariableDependency {
 	variable: DashboardVariable;
-	value: string;
+	values: string[];
+}
+
+/** A variable's session-start selection - `defaultValues` for a `multi` variable,
+ *  `defaultValue` otherwise, `[]` ("All") when neither is set. */
+export function defaultSelection(variable: DashboardVariable): string[] {
+	if (variable.multi) return [...(variable.defaultValues ?? [])];
+	return variable.defaultValue ? [variable.defaultValue] : [];
+}
+
+/** One attribute constraint matching any of `values` - a plain `Equals` for a single value
+ *  (the exact shape every filter had before multi-value variables existed), `In` for more. */
+function attributeMatch<B>(bag: B, key: string, values: string[]): { bag: B; key: string; value: string; operator?: 'In'; values?: string[] } {
+	return values.length > 1 ? { bag, key, value: '', operator: 'In', values } : { bag, key, value: values[0] };
 }
 
 /**
@@ -54,16 +68,16 @@ export interface VariableDependency {
 function dependencyNarrowing(
 	dependency: VariableDependency | undefined,
 	endpoint: 'Logs' | 'Traces'
-): { services?: string[]; attributes?: { bag: DashboardAttributeBag; key: string; value: string }[] } {
+): { services?: string[]; attributes?: ResolvedAttributeOverride[] } {
 	if (!dependency) return {};
-	const { variable, value } = dependency;
-	if (variable.target === 'Service') return { services: [value] };
+	const { variable, values } = dependency;
+	if (variable.target === 'Service') return { services: values };
 	const bag = variable.attributeBag;
 	const key = variable.attributeKey?.trim();
 	if (!bag || !key) return {};
 	if (endpoint === 'Logs' && bag === 'Span') return {};
 	if (endpoint === 'Traces' && bag === 'Log') return {};
-	return { attributes: [{ bag, key, value }] };
+	return { attributes: [{ bag, key, values }] };
 }
 
 /**
@@ -85,7 +99,7 @@ export async function resolveQueryVariableOptions(variable: DashboardVariable, d
 			// dependency here is narrowed the same "Logs endpoint" way an Attribute/Log|Resource|
 			// Scope variable's own query below is.
 			const narrowing = dependencyNarrowing(dep, 'Logs');
-			const filter = { ...wideRange(), services: narrowing.services, attributes: narrowing.attributes?.map((a) => ({ bag: a.bag as AttributeBag, key: a.key, value: a.value })) };
+			const filter = { ...wideRange(), services: narrowing.services, attributes: narrowing.attributes?.map((a) => attributeMatch(a.bag as AttributeBag, a.key, a.values)) };
 			const res = await aggregateLogs({ filter, bucketWidthSeconds: WINDOW_MS / 1000, groupBy: 'Service' });
 			return [...new Set(res.buckets.map((b) => b.groupKey).filter((k): k is string => !!k))].sort();
 		}
@@ -97,7 +111,7 @@ export async function resolveQueryVariableOptions(variable: DashboardVariable, d
 			const filter = {
 				...wideRange(),
 				services: narrowing.services,
-				attributes: narrowing.attributes?.map((a) => ({ bag: a.bag as 'Span' | 'Resource' | 'Scope', key: a.key, value: a.value }))
+				attributes: narrowing.attributes?.map((a) => attributeMatch(a.bag as 'Span' | 'Resource' | 'Scope', a.key, a.values))
 			};
 			const res = await getSpanAttributeValues({ filter, bag: 'Span', key, limit: 50 });
 			return res.values.map((v) => v.value);
@@ -106,7 +120,7 @@ export async function resolveQueryVariableOptions(variable: DashboardVariable, d
 		const filter = {
 			...wideRange(),
 			services: narrowing.services,
-			attributes: narrowing.attributes?.map((a) => ({ bag: logsAttributeBag(a.bag), key: a.key, value: a.value }))
+			attributes: narrowing.attributes?.map((a) => attributeMatch(logsAttributeBag(a.bag), a.key, a.values))
 		};
 		const res = await getLogAttributeValues({ filter, bag: logsAttributeBag(bag), key, limit: 50 });
 		return res.values.map((v) => v.value);
@@ -115,14 +129,14 @@ export async function resolveQueryVariableOptions(variable: DashboardVariable, d
 	}
 }
 
-/** One resolved attribute-equality constraint ready to append to a panel's own
- *  `attributeFilters` - `bag` already narrowed to that panel type's own bag enum by
- *  `resolvedAttributesFor` below, never `Log`/`Span` mismatched against the wrong panel
- *  type. */
+/** One resolved attribute constraint ready to append to a panel's own `attributeFilters` -
+ *  matches any of `values` (never empty; more than one only for a `multi` variable). Turned
+ *  into a concrete `Equals`/`In` filter by `attributesForLogsPanel`/`attributesForTracesPanel`
+ *  below, each of which also drops bags its own panel type can't express. */
 export interface ResolvedAttributeOverride {
 	bag: DashboardAttributeBag;
 	key: string;
-	value: string;
+	values: string[];
 }
 
 /** Every currently-active override a dashboard's variables produce for one panel, already
@@ -131,20 +145,21 @@ export interface ResolvedAttributeOverride {
  *  straight down to that panel's own body, replacing Phase 4's single
  *  `serviceOverride: string | null` prop. */
 export interface ResolvedVariableOverrides {
-	/** Every `Service`-target variable with a selected (non-"All") value, in definition
-	 *  order - passed to `explorer.setServices` as-is, so more than one such variable
-	 *  behaves as an OR-list rather than one silently clobbering another. */
+	/** Every selected value of every `Service`-target variable, in definition order - passed
+	 *  to `explorer.setServices` as-is, so more than one selected service (from one `multi`
+	 *  variable or from several variables) behaves as an OR-list rather than one silently
+	 *  clobbering another. */
 	services: string[];
-	/** Every `Attribute`-target variable with a selected (non-"All") value - a panel body
+	/** Every `Attribute`-target variable with a selection (not "All") - a panel body
 	 *  further filters this by which bags its own panel type actually supports (see
 	 *  `attributesForLogsPanel`/`attributesForTracesPanel` below) before applying it. */
 	attributes: ResolvedAttributeOverride[];
 }
 
 /** Builds `ResolvedVariableOverrides` from a dashboard's variable definitions plus the
- *  viewer's session-only selection map (`DashboardViewerState.variableValues`) - `null`/
- *  missing/`'__all__'` all mean "not selected", same "off means don't touch this filter at
- *  all" rule the old `serviceOverride` used.
+ *  viewer's session-only selection map (`DashboardViewerState.variableValues`) - a missing
+ *  or empty selection means "All", same "off means don't touch this filter at all" rule the
+ *  old `serviceOverride` used.
  *
  *  `excludedVariableIds` (a panel's own `DashboardPanel.excludedVariableIds`, or `[]` for
  *  the dashboard-wide "every applicable variable narrows this panel" default) drops the
@@ -154,7 +169,7 @@ export interface ResolvedVariableOverrides {
  *  feature existed. */
 export function resolveVariableOverrides(
 	variables: DashboardVariable[],
-	values: Record<string, string | null>,
+	selections: Record<string, string[]>,
 	excludedVariableIds: readonly string[] = []
 ): ResolvedVariableOverrides {
 	const excluded = excludedVariableIds.length ? new Set(excludedVariableIds) : null;
@@ -162,12 +177,12 @@ export function resolveVariableOverrides(
 	const attributes: ResolvedAttributeOverride[] = [];
 	for (const variable of variables) {
 		if (excluded?.has(variable.id)) continue;
-		const value = values[variable.id];
-		if (!value) continue;
+		const values = selections[variable.id];
+		if (!values?.length) continue;
 		if (variable.target === 'Service') {
-			services.push(value);
+			services.push(...values);
 		} else if (variable.attributeBag && variable.attributeKey?.trim()) {
-			attributes.push({ bag: variable.attributeBag, key: variable.attributeKey.trim(), value });
+			attributes.push({ bag: variable.attributeBag, key: variable.attributeKey.trim(), values });
 		}
 	}
 	return { services, attributes };
@@ -176,13 +191,13 @@ export function resolveVariableOverrides(
 /** Narrows `overrides.attributes` to the ones a Logs panel's `AttributeFilter[]` can
  *  actually express - `Log`/`Resource`/`Scope` map straight onto Logs' own `AttributeBag`,
  *  `Span` is dropped (a Traces-only bag, see `DashboardAttributeBag`'s own remarks). */
-export function attributesForLogsPanel(overrides: ResolvedVariableOverrides): { bag: AttributeBag; key: string; value: string }[] {
-	return overrides.attributes.filter((a) => a.bag !== 'Span').map((a) => ({ bag: a.bag as AttributeBag, key: a.key, value: a.value }));
+export function attributesForLogsPanel(overrides: ResolvedVariableOverrides): AttributeFilter[] {
+	return overrides.attributes.filter((a) => a.bag !== 'Span').map((a) => attributeMatch(a.bag as AttributeBag, a.key, a.values));
 }
 
 /** Narrows `overrides.attributes` to the ones a Traces panel's `SpanAttributeFilter[]` can
  *  actually express - `Span`/`Resource`/`Scope` map straight onto Traces' own
  *  `SpanAttributeBag`, `Log` is dropped (a Logs-only bag). */
-export function attributesForTracesPanel(overrides: ResolvedVariableOverrides): { bag: 'Span' | 'Resource' | 'Scope'; key: string; value: string }[] {
-	return overrides.attributes.filter((a) => a.bag !== 'Log').map((a) => ({ bag: a.bag as 'Span' | 'Resource' | 'Scope', key: a.key, value: a.value }));
+export function attributesForTracesPanel(overrides: ResolvedVariableOverrides): SpanAttributeFilter[] {
+	return overrides.attributes.filter((a) => a.bag !== 'Log').map((a) => attributeMatch(a.bag as SpanAttributeBag, a.key, a.values));
 }

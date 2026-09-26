@@ -144,11 +144,22 @@ export interface DashboardVariable {
 	sourceKind: DashboardVariableSourceKind;
 	/** Required when `sourceKind === 'Custom'`; ignored (a query resolves the list instead) when `sourceKind === 'Query'`. */
 	customValues?: string[];
-	/** Preselected value when the dashboard is first opened in a session, or `null`/omitted for "All" (no filter from this variable) by default. */
+	/** Preselected value when the dashboard is first opened in a session, or `null`/omitted for "All" (no filter from this variable) by default. Ignored when `multi` is set - see `defaultValues`. */
 	defaultValue?: string | null;
 	/**
+	 * Lets the viewer pick more than one value at once (a checkbox picker instead of a
+	 * single-value dropdown) - e.g. scoping a dashboard to two services. Several selected
+	 * values OR together: a `Service` variable passes all of them as the panel's `services`
+	 * list, an `Attribute` variable becomes one `In` filter. Omitted/`false` for every
+	 * variable saved before this existed. See docs-internal/adr/0058-multi-value-dashboard-variables.md.
+	 */
+	multi?: boolean;
+	/** `multi` counterpart to `defaultValue` - preselected values, or omitted/`[]` for "All". */
+	defaultValues?: string[];
+	/**
 	 * `id` of another variable in the same `DashboardLayout.variables` whose *currently
-	 * selected* value this variable's own `Query`-sourced options are resolved narrowed by
+	 * selected* value(s) this variable's own `Query`-sourced options are resolved narrowed by
+	 * (a `multi` parent with several values selected narrows by *any* of them)
 	 * (chaining - see docs-internal/adr/0025-dashboard-variables.md's "not built" note and
 	 * the roadmap item this closes). Ignored when `sourceKind === 'Custom'` (a fixed list has
 	 * nothing to narrow) or when the referenced variable is currently unselected ("All") -
