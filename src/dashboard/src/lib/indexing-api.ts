@@ -192,12 +192,18 @@ export async function getClusterStatus(signal?: AbortSignal): Promise<ClusterSta
 	};
 }
 
-// Promoted attribute columns (ADR-0062) - a log attribute key promoted to its own
-// MATERIALIZED column + skip index, which every log filter on that key then reads instead
-// of the whole attribute map. Listing is open to any signed-in user; promote/demote are
-// Admin-only server-side.
+// Promoted attribute columns (ADR-0062, ADR-0063) - a log or span attribute key promoted to
+// its own MATERIALIZED column + skip index, which every filter on that key then reads
+// instead of the whole attribute map. Listing is open to any signed-in user; promote/demote
+// are Admin-only server-side.
+
+/** Which table a promoted column lives on. With `table: 'Spans'`, bag `'Log'` means `SpanAttributes`. */
+export type PromotedAttributeTable = 'Logs' | 'Spans';
+
+const PROMOTED_TABLES: PromotedAttributeTable[] = ['Logs', 'Spans'];
 
 export interface PromotedAttribute {
+	table: PromotedAttributeTable;
 	bag: AttributeBag;
 	key: string;
 	columnName: string;
@@ -222,6 +228,7 @@ export async function getPromotedAttributes(signal?: AbortSignal): Promise<Promo
 	}
 	return {
 		attributes: (dto.attributes ?? []).map((a) => ({
+			table: PROMOTED_TABLES[a!.table] ?? 'Logs',
 			bag: attributeBagToString(a!.bag),
 			key: a!.key ?? '',
 			columnName: a!.columnName ?? '',
@@ -233,11 +240,12 @@ export async function getPromotedAttributes(signal?: AbortSignal): Promise<Promo
 }
 
 /** Throws with the API's problem `detail` (e.g. "already promoted", invalid key) as the message. */
-export async function promoteAttribute(bag: AttributeBag, key: string, backfill: boolean): Promise<void> {
+export async function promoteAttribute(table: PromotedAttributeTable, bag: AttributeBag, key: string, backfill: boolean): Promise<void> {
 	const dto = new GeneratedPromoteAttributeRequest();
 	dto.bag = attributeBagFromString(bag);
 	dto.key = key;
 	dto.backfill = backfill;
+	dto.table = PROMOTED_TABLES.indexOf(table);
 	const res = await apiFetch(`${API_BASE_URL}/api/indexing/promoted-attributes`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),
@@ -248,8 +256,9 @@ export async function promoteAttribute(bag: AttributeBag, key: string, backfill:
 	}
 }
 
-export async function demoteAttribute(columnName: string): Promise<void> {
-	const res = await apiFetch(`${API_BASE_URL}/api/indexing/promoted-attributes/${encodeURIComponent(columnName)}`, { method: 'DELETE' });
+export async function demoteAttribute(table: PromotedAttributeTable, columnName: string): Promise<void> {
+	const url = `${API_BASE_URL}/api/indexing/promoted-attributes/${encodeURIComponent(columnName)}?table=${table.toLowerCase()}`;
+	const res = await apiFetch(url, { method: 'DELETE' });
 	if (!res.ok) {
 		throw new Error(await problemDetail(res, `DELETE /api/indexing/promoted-attributes/${columnName}`));
 	}

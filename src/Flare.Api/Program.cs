@@ -194,6 +194,7 @@ builder.Services.AddSingleton<ISpanQueryService>(sp => new SpanQueryService(
     sp.GetRequiredService<IClickHouseClient>(),
     sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
     sp.GetRequiredService<TimeProvider>(),
+    sp.GetRequiredService<IPromotedAttributeRegistry>(),
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 builder.Services.AddSingleton<MetricQueryService>();
 builder.Services.AddSingleton<IMetricQueryService>(sp => new CachingMetricQueryService(
@@ -233,8 +234,8 @@ builder.Services.AddSingleton<IIndexingQueryService>(sp => new IndexingQueryServ
     sp.GetRequiredService<ILogger<IndexingQueryService>>(),
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 
-// Promoted attribute columns (ADR-0062): the registry snapshot every log query builder
-// reads, refreshed from system.columns at startup and every 30s so a promotion made
+// Promoted attribute columns (ADR-0062, ADR-0063): the registry snapshots every log and
+// span filter builder reads, refreshed from system.columns at startup and every 30s so a promotion made
 // through another Flare.Api instance reaches this one too. Flare.AlertWorker registers the
 // same pair - alert conditions are LogFilters too.
 builder.Services.AddSingleton<IPromotedAttributeRegistry, PromotedAttributeRegistry>();
@@ -470,7 +471,7 @@ adminRoutes.MapAuthSettingsEndpoints();
 // alongside the rest of the Services tab - any Viewer needs it to render the tab's Apdex
 // column tooltip.
 adminRoutes.MapApdexThresholdEndpoints();
-// Promoting/demoting an attribute column is ALTER TABLE on logs - schema DDL affecting
+// Promoting/demoting an attribute column is ALTER TABLE on logs/spans - schema DDL affecting
 // every user's queries and every future insert, so Admin-only. Listing stays on
 // authenticatedRoutes via MapIndexingEndpoints.
 adminRoutes.MapPromotedAttributeAdminEndpoints();

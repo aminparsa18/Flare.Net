@@ -15,12 +15,12 @@ public static class SpanSearchQueryBuilder
     public const int DefaultPageSize = 200;
     public const int MaxPageSize = 1000;
 
-    public static SpanSearchSql Build(SpanSearchRequest request, DateTimeOffset now)
+    public static SpanSearchSql Build(SpanSearchRequest request, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
         // Same System.Text.Json init-only-property caveat LogSearchQueryBuilder guards
         // against - request.Filter's `= new()` default doesn't survive deserialization
         // when the JSON body omits "filter".
-        var filterSql = SpanFilterSqlBuilder.Build(request.Filter ?? new SpanFilter(), now);
+        var filterSql = SpanFilterSqlBuilder.Build(request.Filter ?? new SpanFilter(), now, promoted);
         var clauses = new List<string> { filterSql.WhereSql };
 
         if (SpanSearchCursor.TryDecode(request.Cursor) is { } cursor)

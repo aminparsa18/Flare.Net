@@ -1,35 +1,39 @@
-# How to speed up filters on a frequently used log attribute
+# How to speed up filters on a frequently used log or span attribute
 
-If you filter logs by the same attribute all the time (for example
+If you filter logs or traces by the same attribute all the time (for example
 `http.route`, `tenant.id` or `k8s.namespace.name`), promote that key to its own
 column. Flare then reads a single column with its own skip index, not the whole
-attribute map on every row. Search, charts and alert rules that filter on the
-key all get faster. Results don't change.
+attribute map on every row. Log search, charts and alert rules that filter on
+the key get faster, and so do trace search and the Traces filter sidebar.
+Results don't change.
 
 ## Prerequisites
 
 - An **Admin** account (or authentication turned off). Other roles can see the
   list of promoted attributes but can't change it.
+- The table you filter: **Logs** or **Spans**. Logs and spans are promoted
+  separately, so a key you filter on in both places needs promoting on both.
 - The exact attribute key and which set it's in: **Log** (log record
-  attributes), **Resource** (for example `service.namespace`,
-  `k8s.namespace.name`) or **Scope**.
+  attributes, on the Logs table), **Span** (span attributes, on the Spans
+  table), **Resource** (for example `service.namespace`, `k8s.namespace.name`)
+  or **Scope**.
 
 ## Promote a key
 
 1. Open **Indexing** and scroll to **Promoted attributes**.
-2. Pick the set (**Log**, **Resource** or **Scope**) and type the key, for
-   example `http.route`.
-3. Leave **Backfill existing data** on unless your `logs` table is very large
-   and its older data expires soon. See [Backfill](#backfill).
+2. Pick the table (**Logs** or **Spans**), then the set (**Log** or **Span**,
+   **Resource** or **Scope**), and type the key, for example `http.route`.
+3. Leave **Backfill existing data** on unless the table is very large and its
+   older data expires soon. See [Backfill](#backfill).
 4. Click **Promote**.
 
-The key appears in the table with its column name, for example
-`attr_log_http_route`. Filters on the key use the new column right away on the
+The key appears in the list with its column name, for example
+`attr_log_http_route` on Logs or `attr_span_http_route` on Spans. Filters on the key use the new column right away on the
 Flare.Api instance you used. Other Flare.Api instances and the alert worker
 pick it up within 30 seconds.
 
 Keys may contain letters, digits and `. _ - : / @`, up to 200 characters. You
-can promote up to 50 keys.
+can promote up to 50 keys per table.
 
 ## Backfill
 
@@ -57,11 +61,13 @@ because the column can't tell a missing key from an empty value.
 ## Demote a key
 
 Click **Demote** on its row and confirm. Flare drops the column and its skip
-index, and filters on the key go back to reading the attribute map. No log
-data is lost: the attribute is still stored in the map.
+index, and filters on the key go back to reading the attribute map. No data is
+lost: the attribute is still stored in the map.
 
 ## Related
 
 - [ADR-0062: Promoted attribute columns](../../docs-internal/adr/0062-promoted-attribute-columns.md)
   covers the design: naming, cluster-mode DDL, and why the table schema itself
   is the registry.
+- [ADR-0063: Promoted span attribute columns](../../docs-internal/adr/0063-promoted-span-attribute-columns.md)
+  covers what's different for spans.

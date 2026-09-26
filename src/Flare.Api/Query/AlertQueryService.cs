@@ -240,7 +240,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
     public async Task<ulong> CountMatchingLogsAsync(LogFilter condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
         var windowed = condition with { From = from, To = to };
-        var built = LogFilterSqlBuilder.Build(windowed, to, promotedAttributes.Current);
+        var built = LogFilterSqlBuilder.Build(windowed, to, promotedAttributes.Logs);
         var sql = $"SELECT count() FROM logs WHERE {built.WhereSql}";
         var result = await client.ExecuteScalarAsync(sql, built.Parameters, EvaluationSafetyOptions(), cancellationToken);
         return ToUInt64(result);

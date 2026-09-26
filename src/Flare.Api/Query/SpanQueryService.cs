@@ -40,11 +40,11 @@ public interface ISpanQueryService
 /// <see cref="TraceByIdQueryOptions"/>.
 /// </para>
 /// </remarks>
-public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, bool clusterMode) : ISpanQueryService
+public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes, bool clusterMode) : ISpanQueryService
 {
     public async Task<SpanSearchResponse> SearchAsync(SpanSearchRequest request, CancellationToken cancellationToken)
     {
-        var built = SpanSearchQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = SpanSearchQueryBuilder.Build(request, timeProvider.GetUtcNow(), promotedAttributes.Spans);
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
@@ -113,7 +113,7 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
 
     public async Task<SpanAttributeValuesResponse> GetAttributeValuesAsync(SpanAttributeValuesRequest request, CancellationToken cancellationToken)
     {
-        var built = SpanAttributeValuesQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = SpanAttributeValuesQueryBuilder.Build(request, timeProvider.GetUtcNow(), promotedAttributes.Spans);
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 

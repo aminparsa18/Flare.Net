@@ -26,7 +26,12 @@ public static class SpanFilterSqlBuilder
     /// <summary>Default lookback applied when <see cref="SpanFilter.From"/> is omitted. Same rationale as <see cref="LogFilterSqlBuilder.DefaultLookback"/>.</summary>
     public static readonly TimeSpan DefaultLookback = TimeSpan.FromHours(1);
 
-    public static SpanFilterSql Build(SpanFilter filter, DateTimeOffset now)
+    /// <param name="promoted">
+    /// Promoted <c>spans</c> attribute columns (ADR-0063) to read instead of a map lookup -
+    /// null/empty keeps every attribute filter on its <c>Map</c> column. Never changes which
+    /// rows match, only how fast.
+    /// </param>
+    public static SpanFilterSql Build(SpanFilter filter, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
         var parameters = new ClickHouseParameterCollection();
         var clauses = new List<string>();
@@ -89,7 +94,7 @@ public static class SpanFilterSqlBuilder
         {
             for (var i = 0; i < attributes.Count; i++)
             {
-                clauses.Add(AttributeClause(attributes[i], i, parameters));
+                clauses.Add(AttributeClause(attributes[i], i, parameters, promoted));
             }
         }
 
@@ -108,8 +113,14 @@ public static class SpanFilterSqlBuilder
     /// <c>Array(String)</c> parameter, empty when <c>Values</c> is null) instead of <c>=</c>
     /// against <c>Value</c>, guarded the same way too.
     /// </summary>
-    private static string AttributeClause(SpanAttributeFilter attribute, int index, ClickHouseParameterCollection parameters)
+    private static string AttributeClause(SpanAttributeFilter attribute, int index, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
     {
+        if (promoted is not null && promoted.TryGetColumn(PromotedBag(attribute.Bag), attribute.Key, out var promotedColumn)
+            && PromotedClause(attribute, index, parameters, promotedColumn) is { } promotedSql)
+        {
+            return promotedSql;
+        }
+
         var column = ColumnFor(attribute.Bag);
         var keyParam = $"attrKey{index}";
         parameters.AddParameter(keyParam, attribute.Key);
@@ -159,6 +170,54 @@ public static class SpanFilterSqlBuilder
             }
         }
     }
+
+    /// <summary>
+    /// <see cref="AttributeClause"/> against a promoted column - same operator rules as
+    /// <see cref="LogFilterSqlBuilder"/>'s <c>PromotedClause</c> (ADR-0062): the column holds
+    /// <c>Map[key]</c>, <c>''</c> for a missing key, so only <c>Equals</c> always switches,
+    /// <c>NotEquals</c>/<c>In</c>/<c>NotIn</c> switch when no compared value is <c>''</c>, and
+    /// every presence-sensitive operator returns null to keep the guarded map form.
+    /// </summary>
+    private static string? PromotedClause(SpanAttributeFilter attribute, int index, ClickHouseParameterCollection parameters, string column)
+    {
+        switch (attribute.Operator)
+        {
+            case SpanAttributeFilterOperator.Equals:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"{column} = {{{valueParam}:String}}";
+            }
+            case SpanAttributeFilterOperator.NotEquals when !string.IsNullOrEmpty(attribute.Value):
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"{column} != {{{valueParam}:String}}";
+            }
+            case SpanAttributeFilterOperator.In or SpanAttributeFilterOperator.NotIn
+                when attribute.Values is { Count: > 0 } values && !values.Any(string.IsNullOrEmpty):
+            {
+                var valuesParam = $"attrValues{index}";
+                parameters.AddParameter(valuesParam, values.ToArray());
+                var op = attribute.Operator == SpanAttributeFilterOperator.In ? "IN" : "NOT IN";
+                return $"{column} {op} {{{valuesParam}:Array(String)}}";
+            }
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// A <see cref="SpanAttributeBag"/> as the promoted-column snapshot keys it: promotion
+    /// shares <see cref="AttributeBag"/> across tables, with <see cref="AttributeBag.Log"/>
+    /// meaning the table's own attribute map (<c>SpanAttributes</c> here).
+    /// </summary>
+    internal static AttributeBag PromotedBag(SpanAttributeBag bag) => bag switch
+    {
+        SpanAttributeBag.Resource => AttributeBag.Resource,
+        SpanAttributeBag.Scope => AttributeBag.Scope,
+        _ => AttributeBag.Log,
+    };
 
     /// <summary>
     /// The <c>Map(LowCardinality(String), String)</c> column a bag reads/writes.

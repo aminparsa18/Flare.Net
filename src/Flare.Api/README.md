@@ -493,10 +493,10 @@ zero/`NaN` samples, minimum history, the σ floor, each direction), and
 `AnomalyEvaluatorTests` covers which query each anomaly source runs over which windows,
 against a canned `IAlertQueryService` fake.
 
-`PromotedAttributeColumnsTests` covers promoted attribute columns (ADR-0062): key
-validation, column naming, parsing `system.columns`' expression back, the promote/demote
-DDL for single-node and cluster mode, and which `LogFilterSqlBuilder` operators switch to
-the column. `PromotedAttributeRegistry`/`PromotedAttributeAdminService` run DDL and
+`PromotedAttributeColumnsTests` covers promoted attribute columns (ADR-0062, ADR-0063 for
+`spans`): key validation, column naming per table, parsing `system.columns`' expression
+back, the promote/demote DDL for single-node and cluster mode on both tables, and which
+`LogFilterSqlBuilder`/`SpanFilterSqlBuilder` operators switch to the column. `PromotedAttributeRegistry`/`PromotedAttributeAdminService` run DDL and
 `system.*` reads, so they're verified end to end instead, like the classes below.
 
 `LogQueryService`, `LogTailBroadcaster`, and `AlertQueryService` (real
