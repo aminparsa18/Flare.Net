@@ -113,7 +113,12 @@ internal sealed class MetricCommand : AsyncCommand<MetricCommand.Settings>
             return 1;
         }
 
-        if (!TryResolveMode(metric.Type, settings.Mode, out var mode, out var modeError))
+        // ExponentialHistogram series come back in exactly Histogram's point shape (ADR-0060),
+        // so every mode/render rule below keys off this rather than the raw type. The query
+        // itself still sends metric.Type - that's what picks the table server-side.
+        var renderType = metric.Type == "ExponentialHistogram" ? "Histogram" : metric.Type;
+
+        if (!TryResolveMode(renderType, settings.Mode, out var mode, out var modeError))
         {
             AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(modeError!)}");
             return 1;
@@ -157,7 +162,7 @@ internal sealed class MetricCommand : AsyncCommand<MetricCommand.Settings>
         }
 
         AnsiConsole.MarkupLine(
-            $"[grey]{series.Count} series · {FormatBucketWidthSeconds(bucketWidthSeconds)} interval · mode: {ModeLabel(metric.Type, mode)}[/]");
+            $"[grey]{series.Count} series · {FormatBucketWidthSeconds(bucketWidthSeconds)} interval · mode: {ModeLabel(renderType, mode)}[/]");
         AnsiConsole.WriteLine();
 
         if (series.Count == 0)
@@ -168,7 +173,7 @@ internal sealed class MetricCommand : AsyncCommand<MetricCommand.Settings>
 
         foreach (var s in series.Take(MaxSeries))
         {
-            RenderSeries(s, metric.Type, mode, bucketWidthSeconds, metric.Unit);
+            RenderSeries(s, renderType, mode, bucketWidthSeconds, metric.Unit);
         }
 
         if (series.Count > MaxSeries)

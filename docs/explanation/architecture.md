@@ -192,7 +192,7 @@ per-queue depth. See [`../how-to/monitor-message-queues.md`](../how-to/monitor-m
 
 ### Metrics
 
-`/metrics` — every OTLP metric instrument (Sum, Gauge, Histogram) reported
+`/metrics` — every OTLP metric instrument (Sum, Gauge, Histogram, exponential Histogram) reported
 by your services, browsable from a searchable sidebar and rendered as a
 time-series chart per instrument. Covers both the free
 `AddAspNetCoreInstrumentation()`/`AddRuntimeInstrumentation()` data (.NET

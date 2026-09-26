@@ -4,7 +4,8 @@ namespace Flare.Ingest.Pipeline;
 
 /// <summary>
 /// Writes a batch of metric data points to ClickHouse, split by point type across the
-/// three tables (<c>metrics_gauge</c>/<c>metrics_sum</c>/<c>metrics_histogram</c>).
+/// four tables (<c>metrics_gauge</c>/<c>metrics_sum</c>/<c>metrics_histogram</c>/
+/// <c>metrics_exponential_histogram</c>).
 /// Abstracted behind an interface so <see cref="MetricFlushWorker"/>'s batching/flush
 /// logic is unit-testable against a fake, same shape as <see cref="IClickHouseSpanWriter"/>.
 /// </summary>
@@ -20,5 +21,6 @@ public interface IClickHouseMetricWriter
         IReadOnlyList<GaugePointRecord> gauges,
         IReadOnlyList<SumPointRecord> sums,
         IReadOnlyList<HistogramPointRecord> histograms,
+        IReadOnlyList<ExponentialHistogramPointRecord> exponentialHistograms,
         CancellationToken cancellationToken = default);
 }

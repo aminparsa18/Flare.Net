@@ -190,21 +190,71 @@ public class OtlpMetricsMapperTests
     }
 
     [Fact]
-    public void Map_ReportsUnsupportedMetricName_ForExponentialHistogram()
+    public void Map_MapsExponentialHistogramDataPoint()
     {
         var metric = new Metric
         {
-            Name = "http.server.request.duration.exp",
+            Name = "http.server.request.duration",
+            Unit = "s",
+            ExponentialHistogram = new ExponentialHistogram
+            {
+                AggregationTemporality = AggregationTemporality.Delta,
+                DataPoints =
+                {
+                    new ExponentialHistogramDataPoint
+                    {
+                        TimeUnixNano = 1_700_000_000_000_000_000UL,
+                        Count = 7,
+                        Sum = 1.25,
+                        Scale = 3,
+                        ZeroCount = 1,
+                        ZeroThreshold = 1e-9,
+                        Positive = new ExponentialHistogramDataPoint.Types.Buckets { Offset = -4, BucketCounts = { 2, 0, 3 } },
+                        Negative = new ExponentialHistogramDataPoint.Types.Buckets { Offset = 2, BucketCounts = { 1 } },
+                        Min = -0.5,
+                        Max = 0.9,
+                    },
+                },
+            },
+        };
+
+        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt);
+
+        var record = Assert.IsType<ExponentialHistogramPointRecord>(Assert.Single(result.Points));
+        Assert.Empty(result.UnsupportedMetricNames);
+        Assert.Equal((int)AggregationTemporality.Delta, record.AggregationTemporality);
+        Assert.Equal(7UL, record.Count);
+        Assert.Equal(1.25, record.Sum);
+        Assert.Equal(3, record.Scale);
+        Assert.Equal(1UL, record.ZeroCount);
+        Assert.Equal(1e-9, record.ZeroThreshold);
+        Assert.Equal(-4, record.PositiveOffset);
+        Assert.Equal([2UL, 0UL, 3UL], record.PositiveBucketCounts);
+        Assert.Equal(2, record.NegativeOffset);
+        Assert.Equal([1UL], record.NegativeBucketCounts);
+        Assert.Equal(-0.5, record.Min);
+        Assert.Equal(0.9, record.Max);
+    }
+
+    [Fact]
+    public void Map_ExponentialHistogram_LeavesUnsetOptionalFieldsNull_AndMissingRangesEmpty()
+    {
+        var metric = new Metric
+        {
+            Name = "sparse.exp",
             ExponentialHistogram = new ExponentialHistogram
             {
                 DataPoints = { new ExponentialHistogramDataPoint { TimeUnixNano = 1_700_000_000_000_000_000UL } },
             },
         };
 
-        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt);
+        var record = Assert.IsType<ExponentialHistogramPointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points));
 
-        Assert.Empty(result.Points);
-        Assert.Equal(["http.server.request.duration.exp"], result.UnsupportedMetricNames);
+        Assert.Null(record.Sum);
+        Assert.Null(record.Min);
+        Assert.Null(record.Max);
+        Assert.Empty(record.PositiveBucketCounts);
+        Assert.Empty(record.NegativeBucketCounts);
     }
 
     [Fact]

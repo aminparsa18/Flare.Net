@@ -8,7 +8,7 @@
 // directly for unit formatting/bucket-width picking, so values read with the exact same
 // ms<->s/B<->MB scaling the chart itself uses, not a "declared unit as-is" approximation.
 
-import { getMetricNames, queryMetric, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
+import { getMetricNames, isHistogramType, queryMetric, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
 import { pickBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 import { resolveAxisScale, formatAtScale } from '$lib/metrics/axis';
 import type { TerminalCommand, TerminalWriter } from '../types';
@@ -72,7 +72,7 @@ function requireValue(args: string[], index: number, flag: string): string {
 // own TryResolveMode for the identical rules.
 function resolveMode(type: string, requested: string | undefined): string {
 	const normalized = requested?.trim().toLowerCase();
-	switch (type) {
+	switch (isHistogramType(type as MetricPointType) ? 'Histogram' : type) {
 		case 'Gauge':
 			if (normalized !== undefined) throw new UsageError("metric: Gauge metrics have no aggregation mode - --mode isn't valid here.");
 			return 'value';
@@ -93,7 +93,7 @@ function resolveMode(type: string, requested: string | undefined): string {
 
 function modeLabel(type: string, mode: string): string {
 	if (type === 'Sum') return mode === 'sum' ? 'Sum' : mode === 'count' ? 'Count' : 'Rate';
-	if (type === 'Histogram') {
+	if (isHistogramType(type as MetricPointType)) {
 		switch (mode) {
 			case 'mean':
 				return 'Mean';
@@ -131,13 +131,13 @@ function extractValues(points: MetricSeriesPoint[], type: string, mode: string, 
 			return points.map((p) => p.count);
 		case type === 'Sum' && mode === 'rate':
 			return points.map((p) => (p.value != null ? p.value / Math.max(bucketWidthSeconds, 1) : null));
-		case type === 'Histogram' && mode === 'mean':
+		case isHistogramType(type as MetricPointType) && mode === 'mean':
 			return points.map((p) => (p.sum != null && p.count != null && p.count > 0 ? p.sum / p.count : null));
-		case type === 'Histogram' && mode === 'p75':
+		case isHistogramType(type as MetricPointType) && mode === 'p75':
 			return points.map((p) => p.p75);
-		case type === 'Histogram' && mode === 'p95':
+		case isHistogramType(type as MetricPointType) && mode === 'p95':
 			return points.map((p) => p.p95);
-		case type === 'Histogram' && mode === 'max':
+		case isHistogramType(type as MetricPointType) && mode === 'max':
 			return points.map((p) => p.maxApprox);
 		default:
 			return points.map((p) => p.value); // Gauge, and Sum's "sum" mode.
@@ -263,7 +263,7 @@ export const metricCommand: TerminalCommand = {
 
 		for (const s of series.slice(0, MAX_SERIES)) {
 			const points = [...s.points].sort((a, b) => a.bucketStart.localeCompare(b.bucketStart));
-			if (metric.type === 'Histogram' && mode === 'percentiles') {
+			if (isHistogramType(metric.type) && mode === 'percentiles') {
 				term.writeLine(seriesLabel(s), 'info');
 				formatRow('  p50', points.map((p) => p.p50), metric.unit, term);
 				formatRow('  p90', points.map((p) => p.p90), metric.unit, term);

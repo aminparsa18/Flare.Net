@@ -6,10 +6,10 @@ using OpenTelemetry.Proto.Metrics.V1;
 namespace Flare.Ingest.Otlp;
 
 /// <summary>Result of mapping one OTLP export: the mapped points, plus any metric names whose point type v1 doesn't support.</summary>
-/// <param name="Points">Every Gauge/Sum/Histogram data point in the export, mapped to Flare's internal model.</param>
+/// <param name="Points">Every Gauge/Sum/Histogram/ExponentialHistogram data point in the export, mapped to Flare's internal model.</param>
 /// <param name="UnsupportedMetricNames">
-/// Distinct names of metrics in this export that used an ExponentialHistogram or Summary
-/// point (or no point type at all) - their data points were dropped, not stored. Callers
+/// Distinct names of metrics in this export that used a Summary point (or no point type at
+/// all) - their data points were dropped, not stored. Callers
 /// log this rather than the mapper itself doing so, since <see cref="OtlpMetricsMapper"/>
 /// stays a pure static mapper with no logger dependency, same style as
 /// <see cref="OtlpTraceMapper"/>.
@@ -22,10 +22,8 @@ public sealed record MetricMapResult(IReadOnlyList<MetricPointRecord> Points, IR
 /// receivers, same shape as <see cref="OtlpTraceMapper"/>.
 /// </summary>
 /// <remarks>
-/// v1 scope: only <see cref="Metric.DataOneofCase.Gauge"/>/<see cref="Metric.DataOneofCase.Sum"/>/
-/// <see cref="Metric.DataOneofCase.Histogram"/> are mapped - see
-/// <see cref="MetricPointRecord"/>'s remarks for why ExponentialHistogram/Summary are
-/// deliberately out of scope. Attribute flattening is shared via <see cref="OtlpAnyValue"/>.
+/// Every point type except <see cref="Metric.DataOneofCase.Summary"/> is mapped - see
+/// <see cref="MetricPointRecord"/>'s remarks for why Summary is deliberately out of scope. Attribute flattening is shared via <see cref="OtlpAnyValue"/>.
 /// </remarks>
 public static class OtlpMetricsMapper
 {
@@ -139,9 +137,44 @@ public static class OtlpMetricsMapper
                             }
                             break;
 
+                        case Metric.DataOneofCase.ExponentialHistogram:
+                            foreach (var dp in metric.ExponentialHistogram.DataPoints)
+                            {
+                                points.Add(new ExponentialHistogramPointRecord
+                                {
+                                    MetricName = name,
+                                    Description = description,
+                                    Unit = unit,
+                                    ServiceName = serviceName,
+                                    ResourceSchemaUrl = resourceSchemaUrl,
+                                    ResourceAttributes = resourceAttributes,
+                                    ScopeSchemaUrl = scopeSchemaUrl,
+                                    ScopeName = scopeName,
+                                    ScopeVersion = scopeVersion,
+                                    ScopeAttributes = scopeAttributes,
+                                    DataPointAttributes = OtlpAnyValue.Flatten(dp.Attributes),
+                                    StartTime = dp.StartTimeUnixNano == 0 ? null : FromUnixNano(dp.StartTimeUnixNano),
+                                    Time = FromUnixNano(dp.TimeUnixNano),
+                                    AggregationTemporality = (int)metric.ExponentialHistogram.AggregationTemporality,
+                                    Count = dp.Count,
+                                    Sum = dp.HasSum ? dp.Sum : null,
+                                    Scale = dp.Scale,
+                                    ZeroCount = dp.ZeroCount,
+                                    ZeroThreshold = dp.ZeroThreshold,
+                                    PositiveOffset = dp.Positive?.Offset ?? 0,
+                                    PositiveBucketCounts = dp.Positive is null ? [] : [.. dp.Positive.BucketCounts],
+                                    NegativeOffset = dp.Negative?.Offset ?? 0,
+                                    NegativeBucketCounts = dp.Negative is null ? [] : [.. dp.Negative.BucketCounts],
+                                    Min = dp.HasMin ? dp.Min : null,
+                                    Max = dp.HasMax ? dp.Max : null,
+                                    IngestedAt = ingestedAt,
+                                });
+                            }
+                            break;
+
                         default:
-                            // ExponentialHistogram, Summary, or no data set at all (Metric.DataOneofCase.None) -
-                            // see MetricPointRecord's remarks for why these are out of v1 scope.
+                            // Summary, or no data set at all (Metric.DataOneofCase.None) - see
+                            // MetricPointRecord's remarks for why Summary is out of scope.
                             unsupported.Add(name);
                             break;
                     }

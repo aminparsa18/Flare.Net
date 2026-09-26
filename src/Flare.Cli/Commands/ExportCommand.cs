@@ -758,7 +758,7 @@ internal sealed class IncidentMetricWire
 
     public required string ServiceName { get; init; }
 
-    /// <summary>"Gauge" | "Sum" | "Histogram" - see MetricPointType.</summary>
+    /// <summary>"Gauge" | "Sum" | "Histogram" | "ExponentialHistogram" - see MetricPointType.</summary>
     public required string Type { get; init; }
 
     public string? Unit { get; init; }

@@ -46,21 +46,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **OTel `ExponentialHistogram` metric support.** Confirmed deliberately
-  unsupported today - `MetricPointRecord`'s own remarks say
-  ExponentialHistogram/Summary points are recognized on the wire and
-  dropped, "no feature in this roadmap slice consumes them, [use the]
-  add it when a concrete need exists precedent" (the same precedent
-  Span Links followed before it later got built). .NET's OpenTelemetry
-  SDK commonly emits exponential histograms (`Base2ExponentialBucketHistogram`
-  is a standard `Meter` aggregation choice), so real .NET metrics can
-  silently vanish from ingest today. Not started - would need a new
-  `metrics_exponential_histogram`-shaped additive ClickHouse table (own
-  bucket/scale representation, distinct from the existing explicit-bucket
-  `metrics_histogram`) plus a DDSketch-style or scale-aware quantile
-  merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
-  exponential-histogram table + quantile merge
-  ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
 - **Dashboard visualization follow-ups.** Metrics panels can switch
   between line/bar/stacked bar/value/pie/table
   ([ADR-0059](../adr/0059-dashboard-panel-visualizations.md)); two

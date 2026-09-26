@@ -16,7 +16,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { MAX_FORMULA_QUERIES, type FormulaQueryDef } from '$lib/metrics/state.svelte';
-	import type { MetricNameInfo } from '$lib/metrics-api';
+	import { isHistogramType, type MetricNameInfo } from '$lib/metrics-api';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = metricsExplorerContext.get();
@@ -30,7 +30,7 @@
 	// Histogram's per-bucket shape is percentiles/sum/count, not a single Value, and picking
 	// which one a formula should use is a real, separate design question (docs-internal/adr/0036
 	// names it as explicit follow-up scope, not something to guess a default for here).
-	const eligibleMetrics = $derived(explorer.names.filter((mn) => mn.type !== 'Histogram'));
+	const eligibleMetrics = $derived(explorer.names.filter((mn) => !isHistogramType(mn.type)));
 	const metricOptions = $derived(eligibleMetrics.map((mn) => ({ value: metricKey(mn), label: `${mn.metricName} · ${mn.serviceName}` })));
 	const metricByKey = $derived(new Map(eligibleMetrics.map((mn) => [metricKey(mn), mn])));
 

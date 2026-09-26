@@ -86,7 +86,7 @@ public enum MetricAlertAggregation
     /// <summary>Gauge: <c>avg(Value)</c> over the window. Sum: reset-aware <c>increase()</c> over the window, summed across every matched series (ADR-0044).</summary>
     Value,
 
-    /// <summary>Sum: raw sample row count over the window. Histogram: total observation count (<c>sum(Count)</c>) over the window.</summary>
+    /// <summary>Sum: raw sample row count over the window. Histogram: total observation count over the window (temporality-aware - cumulative points contribute their increase, see <see cref="Query.HistogramTemporalitySql"/>).</summary>
     Count,
 
     /// <summary>Histogram only: <c>sum(Sum)</c> over the window.</summary>

@@ -151,6 +151,12 @@ the default for every existing rule). See
 notified normally). See
 [ADR-0055](../../docs-internal/adr/0055-alert-maintenance-windows.md).
 
+`0032_metrics_exponential_histogram.sql` - a fourth metrics table,
+`metrics_exponential_histogram`, for OTLP ExponentialHistogram points (previously dropped
+at ingest): the wire's own `Scale`/offset/bucket-count shape plus `Nullable` `Min`/`Max`,
+not a conversion into `metrics_histogram`. See
+[ADR-0060](../../docs-internal/adr/0060-exponential-histogram-metrics.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
@@ -366,14 +372,12 @@ out specifically (also documented inline in `0008_metrics.sql`):
   most rows. Adapted from the OTel Collector's own ClickHouse exporter default schema,
   which likewise uses one table per point type - same vendored-schema lineage as
   `logs`/`spans`.
-- **v1 covers Gauge/Sum/Histogram only** - no `metrics_exponential_histogram` or
-  `metrics_summary` table. Same "add it when a concrete need exists" precedent `spans`'
-  `Links` column followed before migration 0013 added it: ExponentialHistogram is
-  opt-in and rare in .NET's default instrumentation, Summary is legacy
-  Prometheus-client-style quantiles. `OtlpMetricsMapper`
-  recognizes both point types on the wire and drops their data points (logging a
-  per-export warning with the affected metric names) rather than erroring the whole
-  export over an unsupported metric mixed in with supported ones.
+- **0008 covered Gauge/Sum/Histogram only.** ExponentialHistogram got its own table
+  later, in migration 0032 (see below). Summary still has no `metrics_summary` table: it
+  is legacy Prometheus-client-style precomputed quantiles, which can't be merged across
+  series or time buckets. `OtlpMetricsMapper` recognizes it on the wire and drops its
+  data points (logging a per-export warning with the affected metric names) rather than
+  erroring the whole export over an unsupported metric mixed in with supported ones.
 - **`ORDER BY (MetricName, ServiceName, Time)`, not `(ServiceName, ...)` like `logs` or
   `(TraceId, ...)` like `spans`.** A metric's natural access pattern is "this metric,
   this service, over time" (picking one metric to chart) - what the Query API roadmap
@@ -402,6 +406,23 @@ out specifically (also documented inline in `0008_metrics.sql`):
   Nested columns used before that migration was written: both round-trip as plain .NET
   `ulong[]`/`double[]` through `InsertBinaryAsync`/`ExecuteReaderAsync`, no special
   handling needed.
+
+**`metrics_exponential_histogram` (migration 0032), plain `MergeTree`.** Same common
+columns, `PARTITION BY`, `ORDER BY` and bloom-filter indexes as the 0008 tables, with
+`IngestedAt` in the `CREATE` rather than added later. Design decisions (full rationale in
+[ADR-0060](../../docs-internal/adr/0060-exponential-histogram-metrics.md)):
+
+- **Own table, not converted to explicit buckets.** An exponential point's bucket bounds
+  come from its `Scale`, which the SDK lowers on its own as the observed range widens, so
+  one series' rows can have different layouts. `metrics_histogram`'s element-wise
+  `sumForEach(BucketCounts)` would add unrelated buckets together.
+- **`PositiveOffset`/`PositiveBucketCounts` and `NegativeOffset`/`NegativeBucketCounts`**
+  store the wire shape as-is: element `k` counts absolute bucket `Offset + k`. Queries add
+  them by absolute index with `sumMap`, grouped by `Scale`, and Flare.Api downscales across
+  scales in C#.
+- **`Min`/`Max` are `Nullable(Float64)`**, unlike `metrics_histogram` (which omits them)
+  and unlike this table's `Sum` (0 when absent): there's no neutral default for a min/max,
+  and the .NET SDK does send them for exponential histograms.
 
 **`saved_views` (migration 0009), `ReplacingMergeTree(UpdatedAt)`.** Reuses `alert_rules`'
 tombstone-CRUD pattern verbatim
@@ -510,7 +531,7 @@ filtering or event ordering in the dashboard needs.
 
 ## `MetricPointRecord` field → column mapping
 
-Common columns (all three tables):
+Common columns (every metrics table):
 
 | `MetricPointRecord` field (C#)   | Column                | Notes |
 |-----------------------------------|------------------------|-------|
@@ -541,6 +562,13 @@ Per point type, in addition to the common columns above:
 | `HistogramPointRecord` | `Sum` | `Sum` | Nullable in C#, defaults to 0 when absent. |
 | `HistogramPointRecord` | `BucketCounts` | `BucketCounts` | |
 | `HistogramPointRecord` | `ExplicitBounds` | `ExplicitBounds` | |
+| `ExponentialHistogramPointRecord` | `AggregationTemporality` | `AggregationTemporality` | `int` (0-2) → `Enum8` label string. |
+| `ExponentialHistogramPointRecord` | `Count` / `Sum` | `Count` / `Sum` | `Sum` nullable in C#, defaults to 0 when absent. |
+| `ExponentialHistogramPointRecord` | `Scale` | `Scale` | |
+| `ExponentialHistogramPointRecord` | `ZeroCount` / `ZeroThreshold` | `ZeroCount` / `ZeroThreshold` | |
+| `ExponentialHistogramPointRecord` | `PositiveOffset` / `PositiveBucketCounts` | `PositiveOffset` / `PositiveBucketCounts` | |
+| `ExponentialHistogramPointRecord` | `NegativeOffset` / `NegativeBucketCounts` | `NegativeOffset` / `NegativeBucketCounts` | |
+| `ExponentialHistogramPointRecord` | `Min` / `Max` | `Min` / `Max` | `Nullable(Float64)` - NULL when absent on the wire. |
 
 ## Migration convention
 

@@ -58,12 +58,25 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
         // Rows arrive ordered by ServiceName, SeriesKey, BucketStart (see
         // MetricSeriesQueryBuilder) - fold consecutive rows sharing a
         // (ServiceName, SeriesKey) pair into one MetricSeries in a single pass, no
-        // grouping dictionary needed.
+        // grouping dictionary needed. ExponentialHistogram rows are additionally split per
+        // Scale (then ordered by it), so one bucket can span several consecutive rows -
+        // collected in pendingSlices and merged into one point once the bucket changes.
         var series = new List<MetricSeries>();
         string? currentServiceName = null;
         string? currentSeriesKey = null;
         IReadOnlyDictionary<string, string>? currentAttributes = null;
         List<MetricSeriesPoint>? currentPoints = null;
+        var pendingSlices = new List<ExponentialHistogramBuckets>();
+        var pendingBucketStart = default(DateTimeOffset);
+
+        void FlushPendingSlices()
+        {
+            if (pendingSlices.Count > 0)
+            {
+                currentPoints!.Add(ToExponentialHistogramPoint(pendingBucketStart, pendingSlices));
+                pendingSlices.Clear();
+            }
+        }
 
         while (reader.Read())
         {
@@ -73,6 +86,7 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
             {
                 if (currentPoints is not null)
                 {
+                    FlushPendingSlices();
                     series.Add(new MetricSeries { ServiceName = currentServiceName!, Attributes = currentAttributes!, Points = currentPoints });
                 }
 
@@ -82,17 +96,32 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
                 currentPoints = [];
             }
 
+            if (built.Type == MetricPointType.ExponentialHistogram)
+            {
+                var bucketStart = ReadUtc(reader, 0);
+                if (bucketStart != pendingBucketStart)
+                {
+                    FlushPendingSlices();
+                }
+
+                pendingBucketStart = bucketStart;
+                pendingSlices.Add(ExponentialHistogramRowReader.Read(reader, 4));
+                continue;
+            }
+
             currentPoints!.Add(ReadPoint(reader, built.Type));
         }
 
         if (currentPoints is not null)
         {
+            FlushPendingSlices();
             series.Add(new MetricSeries { ServiceName = currentServiceName!, Attributes = currentAttributes!, Points = currentPoints });
         }
 
-        // Histogram excluded - see MetricQueryRequest.PostProcessFunctions' remarks (no
-        // single scalar Value to transform).
-        if (request.PostProcessFunctions is { Count: > 0 } functions && built.Type != MetricPointType.Histogram)
+        // Histogram/ExponentialHistogram excluded - see MetricQueryRequest.PostProcessFunctions'
+        // remarks (no single scalar Value to transform).
+        if (request.PostProcessFunctions is { Count: > 0 } functions
+            && built.Type is not (MetricPointType.Histogram or MetricPointType.ExponentialHistogram))
         {
             series = series.ConvertAll(s => s with { Points = MetricPostProcessor.Apply(s.Points, functions) });
         }
@@ -157,12 +186,34 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
         return new MetricSeriesPoint { BucketStart = bucketStart, Value = reader.GetFieldValue<double>(4) };
     }
 
+    /// <summary>
+    /// One bucket's point from its per-scale slices - the same fields
+    /// <see cref="ReadPoint"/> fills for Histogram, via <see cref="ExponentialHistogramEstimator"/>.
+    /// </summary>
+    internal static MetricSeriesPoint ToExponentialHistogramPoint(DateTimeOffset bucketStart, IReadOnlyList<ExponentialHistogramBuckets> slices)
+    {
+        var merged = ExponentialHistogramEstimator.Merge(slices)!;
+        return new MetricSeriesPoint
+        {
+            BucketStart = bucketStart,
+            Count = (long)merged.Count,
+            Sum = merged.Sum,
+            P50 = ExponentialHistogramEstimator.Estimate(merged, 0.5),
+            P75 = ExponentialHistogramEstimator.Estimate(merged, 0.75),
+            P90 = ExponentialHistogramEstimator.Estimate(merged, 0.9),
+            P95 = ExponentialHistogramEstimator.Estimate(merged, 0.95),
+            P99 = ExponentialHistogramEstimator.Estimate(merged, 0.99),
+            MaxApprox = ExponentialHistogramEstimator.EstimateMax(merged),
+        };
+    }
+
     /// <summary>Parses <see cref="MetricNamesQueryBuilder"/>'s literal <c>Type</c> discriminator back into the enum.</summary>
     private static MetricPointType ParseType(string type) => type switch
     {
         "gauge" => MetricPointType.Gauge,
         "sum" => MetricPointType.Sum,
         "histogram" => MetricPointType.Histogram,
+        "exponential_histogram" => MetricPointType.ExponentialHistogram,
         _ => throw new InvalidOperationException($"Unrecognized metric point type '{type}' returned by the query."),
     };
 

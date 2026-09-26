@@ -7,25 +7,26 @@ namespace Flare.Ingest.Model;
 /// Internal representation of a single OTLP metric data point, after mapping from OTLP.
 /// </summary>
 /// <remarks>
-/// v1 covers three of OTLP's five point types - <see cref="GaugePointRecord"/>,
-/// <see cref="SumPointRecord"/>, <see cref="HistogramPointRecord"/> - mirroring the
+/// Covers four of OTLP's five point types - <see cref="GaugePointRecord"/>,
+/// <see cref="SumPointRecord"/>, <see cref="HistogramPointRecord"/>,
+/// <see cref="ExponentialHistogramPointRecord"/> - mirroring the
 /// <c>metrics_gauge</c>/<c>metrics_sum</c>/<c>metrics_histogram</c> tables
-/// (<c>db/clickhouse/0008_metrics.sql</c>) 1:1, keep them in sync.
-/// ExponentialHistogram and Summary are deliberately not represented: no feature in this
-/// roadmap slice consumes them, same "add it when a concrete need exists" precedent
-/// <see cref="SpanRecord"/> used to omit Span Links. <see cref="OtlpMetricsMapper"/>
-/// recognizes both point types on the wire and drops them rather than erroring.
+/// (<c>db/clickhouse/0008_metrics.sql</c>) and <c>metrics_exponential_histogram</c>
+/// (<c>0032_metrics_exponential_histogram.sql</c>) 1:1, keep them in sync. Summary (legacy
+/// Prometheus-client-style precomputed quantiles) is deliberately not represented:
+/// <see cref="OtlpMetricsMapper"/> recognizes it on the wire and drops it rather than
+/// erroring.
 ///
-/// The three concrete types share every field up to their own value shape, so unlike
+/// The concrete types share every field up to their own value shape, so unlike
 /// <see cref="LogEvent"/>/<see cref="SpanRecord"/> (unrelated entities, no shared base)
 /// this uses one abstract base for the ~12 fields that are genuinely identical across
-/// all three - avoiding tripling that boilerplate for what's still one signal
+/// all of them - avoiding repeating that boilerplate for what's still one signal
 /// (see Planning.md's v6 "Pipeline shape" decision, which made the same "one signal"
 /// call for the ingest pipeline).
 ///
 /// Polymorphic - <see cref="Pipeline.MetricEventJsonContext"/> is the matching
 /// source-generated System.Text.Json contract that lets a single Redis stream/flush
-/// worker carry all three point types together, discriminated by the
+/// worker carry every point type together, discriminated by the
 /// <see cref="JsonDerivedTypeAttribute"/> tags below. <see cref="Pipeline.MetricFlushWorker"/>
 /// only ever reads that contract back for entries buffered before ADR-0017's MemoryPack
 /// migration - the <see cref="MemoryPackUnionAttribute"/> tags below are the wire format
@@ -41,10 +42,12 @@ namespace Flare.Ingest.Model;
 [JsonDerivedType(typeof(GaugePointRecord), "gauge")]
 [JsonDerivedType(typeof(SumPointRecord), "sum")]
 [JsonDerivedType(typeof(HistogramPointRecord), "histogram")]
+[JsonDerivedType(typeof(ExponentialHistogramPointRecord), "exponentialHistogram")]
 [MemoryPackable]
 [MemoryPackUnion(0, typeof(GaugePointRecord))]
 [MemoryPackUnion(1, typeof(SumPointRecord))]
 [MemoryPackUnion(2, typeof(HistogramPointRecord))]
+[MemoryPackUnion(3, typeof(ExponentialHistogramPointRecord))]
 public abstract partial record MetricPointRecord
 {
     /// <summary>The metric's name, e.g. <c>http.server.request.duration</c>.</summary>
@@ -134,4 +137,46 @@ public sealed partial record HistogramPointRecord : MetricPointRecord
 
     /// <summary>Strictly increasing bucket upper bounds.</summary>
     public required IReadOnlyList<double> ExplicitBounds { get; init; }
+}
+
+/// <summary>
+/// An OTLP ExponentialHistogram data point - a bucketed distribution whose bucket bounds are
+/// implied by <see cref="Scale"/> rather than listed: bucket <c>i</c> covers
+/// <c>(base^i, base^(i+1)]</c> with <c>base = 2^(2^-Scale)</c>. See ADR-0060.
+/// </summary>
+[MemoryPackable]
+public sealed partial record ExponentialHistogramPointRecord : MetricPointRecord
+{
+    /// <summary>OTLP AggregationTemporality (0=unspecified, 1=delta, 2=cumulative).</summary>
+    public required int AggregationTemporality { get; init; }
+
+    public required ulong Count { get; init; }
+
+    /// <summary>Optional per the OTLP spec - same null-maps-to-0 convention as <see cref="HistogramPointRecord.Sum"/>.</summary>
+    public double? Sum { get; init; }
+
+    /// <summary>Bucket resolution. The SDK lowers it on its own as the observed range widens, so it can differ between points of one series.</summary>
+    public required int Scale { get; init; }
+
+    /// <summary>Count of values whose absolute value is at most <see cref="ZeroThreshold"/>.</summary>
+    public required ulong ZeroCount { get; init; }
+
+    /// <summary>Width of the zero bucket; 0 (the wire default) means exact zeros only.</summary>
+    public required double ZeroThreshold { get; init; }
+
+    /// <summary>Bucket index of <see cref="PositiveBucketCounts"/>' first element.</summary>
+    public required int PositiveOffset { get; init; }
+
+    public required IReadOnlyList<ulong> PositiveBucketCounts { get; init; }
+
+    /// <summary>Bucket index of <see cref="NegativeBucketCounts"/>' first element, indexed on the absolute value.</summary>
+    public required int NegativeOffset { get; init; }
+
+    public required IReadOnlyList<ulong> NegativeBucketCounts { get; init; }
+
+    /// <summary>Optional per the OTLP spec; stored as NULL when absent.</summary>
+    public double? Min { get; init; }
+
+    /// <summary>Optional per the OTLP spec; stored as NULL when absent.</summary>
+    public double? Max { get; init; }
 }

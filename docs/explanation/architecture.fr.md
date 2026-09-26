@@ -204,7 +204,7 @@ file. Voir [`../how-to/monitor-message-queues.fr.md`](../how-to/monitor-message-
 
 ### Métriques
 
-`/metrics` — chaque instrument de métrique OTLP (Sum, Gauge, Histogram)
+`/metrics` — chaque instrument de métrique OTLP (Sum, Gauge, Histogram, Histogram exponentiel)
 rapporté par vos services, consultable depuis une barre latérale avec
 recherche et rendu sous forme de graphique de série temporelle par
 instrument. Couvre à la fois les données gratuites de

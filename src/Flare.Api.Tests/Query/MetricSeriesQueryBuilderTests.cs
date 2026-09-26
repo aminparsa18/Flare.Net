@@ -31,6 +31,24 @@ public class MetricSeriesQueryBuilderTests
     }
 
     [Fact]
+    public void Build_ExponentialHistogram_GroupsByScale_AndOrdersScaleLast()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "http.server.request.duration", Type = MetricPointType.ExponentialHistogram, BucketWidthSeconds = 60 }, Now);
+
+        Assert.Contains("FROM metrics_exponential_histogram", result.Sql);
+        Assert.Contains(HistogramTemporalitySql.ExponentialAggregates, result.Sql);
+        Assert.Contains("FROM contributions\nGROUP BY BucketStart, ServiceName, SeriesKey, Scale", result.Sql);
+        // The windowed previous-row values are per full series identity, not per SeriesKey.
+        Assert.Contains("WINDOW w AS (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time)", result.Sql);
+        // Scale last, so MetricQueryService sees one bucket's per-scale rows back to back.
+        Assert.EndsWith("ORDER BY ServiceName, SeriesKey, BucketStart, Scale", result.Sql);
+        // Same whole-window magnitude as explicit-bucket Histogram for the top-N ranking.
+        Assert.Contains("sum(Count) AS RankValue", result.Sql);
+        Assert.Equal(MetricPointType.ExponentialHistogram, result.Type);
+    }
+
+    [Fact]
     public void Build_Sum_SelectsFromSumTable_WithWindowedIncrease()
     {
         var result = MetricSeriesQueryBuilder.Build(
@@ -51,16 +69,17 @@ public class MetricSeriesQueryBuilderTests
     }
 
     [Fact]
-    public void Build_Histogram_SelectsFromHistogramTable_WithSumForEachBucketCounts()
+    public void Build_Histogram_SumsTemporalityAwareContributions_PerBucket()
     {
         var result = MetricSeriesQueryBuilder.Build(
             new MetricQueryRequest { MetricName = "http.server.request.duration", Type = MetricPointType.Histogram, BucketWidthSeconds = 60 }, Now);
 
         Assert.Contains("FROM metrics_histogram", result.Sql);
-        Assert.Contains("sum(Count) AS Count", result.Sql);
-        Assert.Contains("sum(Sum) AS SumTotal", result.Sql);
-        Assert.Contains("sumForEach(BucketCounts) AS BucketCounts", result.Sql);
-        Assert.Contains("any(ExplicitBounds) AS ExplicitBounds", result.Sql);
+        Assert.Contains(HistogramTemporalitySql.ExplicitAggregates, result.Sql);
+        Assert.Contains("FROM ranked\nGROUP BY BucketStart, ServiceName, SeriesKey", result.Sql);
+        Assert.Contains("WINDOW w AS (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time)", result.Sql);
+        // Summing raw cumulative Count/BucketCounts over-counted (ADR-0060).
+        Assert.DoesNotContain("sumForEach(BucketCounts) AS", result.Sql);
     }
 
     [Fact]

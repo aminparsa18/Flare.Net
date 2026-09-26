@@ -7,8 +7,8 @@ namespace Flare.Api.Query;
 /// <c>db/clickhouse/0008_metrics.sql</c>'s "three tables, not one" design decision).
 /// Used by <see cref="MetricSeriesQueryBuilder"/> and
 /// <see cref="MetricAttributeKeysQueryBuilder"/>, both of which query one table per
-/// request. <see cref="MetricNamesQueryBuilder"/> doesn't use this - it queries all three
-/// tables at once via <c>UNION ALL</c>, one literal table name per branch, not a
+/// request. <see cref="MetricNamesQueryBuilder"/> doesn't use this - it queries every
+/// table at once via <c>UNION ALL</c>, one literal table name per branch, not a
 /// request-driven single choice.
 /// </summary>
 internal static class MetricTables
@@ -18,6 +18,7 @@ internal static class MetricTables
         MetricPointType.Gauge => "metrics_gauge",
         MetricPointType.Sum => "metrics_sum",
         MetricPointType.Histogram => "metrics_histogram",
+        MetricPointType.ExponentialHistogram => "metrics_exponential_histogram",
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown metric point type."),
     };
 }

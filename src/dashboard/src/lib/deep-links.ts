@@ -119,7 +119,7 @@ export interface AlertDraftFromMetricsPanel {
 export type AlertPanelDraft = AlertDraftFromLogsPanel | AlertDraftFromMetricsPanel;
 
 function isMetricPointType(value: string | null): value is MetricPointType {
-	return value === 'Gauge' || value === 'Sum' || value === 'Histogram';
+	return value === 'Gauge' || value === 'Sum' || value === 'Histogram' || value === 'ExponentialHistogram';
 }
 
 export function buildAlertDeepLinkHref(draft: AlertPanelDraft): string {

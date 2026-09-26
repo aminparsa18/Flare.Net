@@ -53,7 +53,7 @@ public sealed class OtlpGrpcMetricsService(
         if (result.UnsupportedMetricNames.Count > 0)
         {
             logger.LogWarning(
-                "Dropped data points for {Count} metric(s) with an unsupported point type (ExponentialHistogram/Summary not yet supported): {Names}",
+                "Dropped data points for {Count} metric(s) with an unsupported point type (Summary is not supported): {Names}",
                 result.UnsupportedMetricNames.Count,
                 string.Join(", ", result.UnsupportedMetricNames));
         }

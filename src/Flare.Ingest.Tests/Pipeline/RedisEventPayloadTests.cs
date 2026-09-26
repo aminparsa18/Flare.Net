@@ -129,6 +129,14 @@ public class RedisEventPayloadTests
                 Assert.Equal(o.BucketCounts, d.BucketCounts);
                 Assert.Equal(o.ExplicitBounds, d.ExplicitBounds);
                 break;
+            case (ExponentialHistogramPointRecord o, ExponentialHistogramPointRecord d):
+                Assert.Equal(o.Scale, d.Scale);
+                Assert.Equal(o.PositiveOffset, d.PositiveOffset);
+                Assert.Equal(o.PositiveBucketCounts, d.PositiveBucketCounts);
+                Assert.Equal(o.NegativeBucketCounts, d.NegativeBucketCounts);
+                Assert.Equal(o.Min, d.Min);
+                Assert.Equal(o.Max, d.Max);
+                break;
             default:
                 Assert.Fail($"Unexpected point type {decoded.GetType()}.");
                 break;
@@ -172,6 +180,27 @@ public class RedisEventPayloadTests
             Sum = 15.5,
             BucketCounts = [1, 2, 0],
             ExplicitBounds = [1.0, 5.0],
+        },
+        new ExponentialHistogramPointRecord
+        {
+            MetricName = "http.server.request.duration.exp",
+            ResourceAttributes = new Dictionary<string, string>(),
+            ScopeAttributes = new Dictionary<string, string>(),
+            DataPointAttributes = new Dictionary<string, string>(),
+            Time = new DateTimeOffset(2026, 9, 4, 12, 0, 0, TimeSpan.Zero),
+            IngestedAt = new DateTimeOffset(2026, 9, 4, 12, 0, 1, TimeSpan.Zero),
+            AggregationTemporality = 1,
+            Count = 4,
+            Sum = 2.5,
+            Scale = 4,
+            ZeroCount = 0,
+            ZeroThreshold = 0,
+            PositiveOffset = -3,
+            PositiveBucketCounts = [1, 3],
+            NegativeOffset = 0,
+            NegativeBucketCounts = [],
+            Min = 0.1,
+            Max = null,
         },
     };
 

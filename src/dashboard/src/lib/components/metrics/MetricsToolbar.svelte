@@ -11,6 +11,7 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { metricsExplorerContext } from '$lib/metrics/context';
+	import { isHistogramType } from '$lib/metrics-api';
 	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import * as m from '$lib/paraglide/messages';
 
@@ -172,7 +173,7 @@
 		     applied server-side to the queried series' points (MetricPostProcessor.cs).
 		     Hidden for Histogram, which has no single scalar Value to transform - same
 		     exclusion ADR-0036 made for Formula-mode operands. -->
-		{#if explorer.selected?.type !== 'Histogram'}
+		{#if !isHistogramType(explorer.selected?.type)}
 			<MetricsFunctionsPopover
 				functions={explorer.filter.postProcessFunctions}
 				onApply={(functions) => explorer.setPostProcessFunctions(functions)}
