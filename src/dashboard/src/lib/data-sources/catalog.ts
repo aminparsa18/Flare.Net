@@ -24,7 +24,9 @@
 // A second non-logs exception: the "kafka" item (Message queues tab) sends producer/consumer
 // *spans* plus the kafkametrics receiver's consumer-lag *metrics* - what the /messaging page
 // reads (ADR-0056). Both snippets are the ones verified in that feature's live e2e run
-// against a real broker, not transcribed from upstream READMEs.
+// against a real broker, not transcribed from upstream READMEs. The "rabbitmq" item is the
+// same shape - RabbitMQ.Client 7's built-in spans plus the Collector rabbitmq receiver's
+// queue-depth metrics - verified live the same way for ADR-0057.
 //
 // Ingest auth: IngestApiKeyValidationMiddleware (src/Flare.Ingest/Auth/) only enforces a
 // Bearer token when IngestAuthOptions.IngestKeyRequired is turned on - off by default, so
@@ -67,6 +69,8 @@ import FlameIcon from '@lucide/svelte/icons/flame';
 // Kafka's logo is a node graph - no brand logos in lucide, so the generic "workflow"-style
 // network icon is the closest match.
 import NetworkIcon from '@lucide/svelte/icons/network';
+// RabbitMQ's logo is a rabbit, and lucide happens to ship one.
+import RabbitIcon from '@lucide/svelte/icons/rabbit';
 
 export interface GuideStep {
 	heading: string;
@@ -706,6 +710,63 @@ service:
 				}
 			]
 		},
+		rabbitmq: {
+			id: 'rabbitmq',
+			title: m.dataSourceCatalog_rabbitmqTitle(),
+			icon: RabbitIcon,
+			intro: m.dataSourceCatalog_rabbitmqIntro(),
+			steps: [
+				{
+					heading: m.dataSourceCatalog_rabbitmqStep1Heading(),
+					body: m.dataSourceCatalog_rabbitmqStep1Body(),
+					code: {
+						text: 'dotnet add package RabbitMQ.Client\ndotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol'
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_rabbitmqStep2Heading(),
+					body: m.dataSourceCatalog_rabbitmqStep2Body(),
+					code: {
+						label: 'Program.cs',
+						text: `using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("your-service"))
+    .WithTracing(tracing => tracing
+        .AddSource("RabbitMQ.Client.*")
+        .AddOtlpExporter(otlp => otlp.Endpoint = new Uri("${ep.grpcUri}")));`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_rabbitmqStep3Heading(),
+					body: m.dataSourceCatalog_rabbitmqStep3Body(),
+					code: {
+						label: 'config.yaml',
+						text: `receivers:
+  rabbitmq:
+    endpoint: http://rabbitmq:15672
+    username: otel
+    password: \${env:RABBITMQ_PASSWORD}
+    collection_interval: 30s
+exporters:
+  otlp/flare:
+    endpoint: ${ep.grpcHostPort}
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [rabbitmq]
+      exporters: [otlp/flare]`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_rabbitmqStep4Heading(),
+					body: m.dataSourceCatalog_rabbitmqStep4Body()
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: m.dataSourceCatalog_customTitle(),
@@ -756,7 +817,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 		{ id: 'platforms', label: m.dataSourceCatalog_categoryPlatforms(), itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
 		{ id: 'shippers', label: m.dataSourceCatalog_categoryShippers(), itemIds: ['vector', 'fluent-bit', 'syslog'] },
 		{ id: 'metrics', label: m.dataSourceCatalog_categoryMetrics(), itemIds: ['prometheus'] },
-		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka'] },
+		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka', 'rabbitmq'] },
 		{
 			id: 'languages',
 			label: m.dataSourceCatalog_categoryLanguages(),
