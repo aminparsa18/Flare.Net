@@ -102,17 +102,6 @@ folders are where "what happened and why" actually lives.
   started. Prior art: deployments/clusters/namespaces
   [signoz#6786](https://github.com/SigNoz/signoz/commit/403043e076bf60aa4b77a7df45eed06b286f5be0),
   statefulsets/daemonsets/jobs/volumes [signoz#6629](https://github.com/SigNoz/signoz/commit/813ca8bc230268d8904a786b18da8659045b18ce).
-- **"Entry-point spans only" trace filter.** `SpanFilter.RootSpansOnly`
-  gives each trace's single root span, but "the requests service X
-  handled" needs each service's *entry* span - a span with no parent or
-  whose parent belongs to a different service - since in a microservice
-  chain most of those aren't the trace root. A filter flag (self-join or
-  pre-computed at flush time, alongside the existing span rollups) plus
-  a toggle next to the root-spans one. Not started. Prior art:
-  [signoz#6910](https://github.com/SigNoz/signoz/commit/cc3d78cd716b1c926d6e0a07c8e7a0269a2ff560),
-  per-query scope [signoz#6810](https://github.com/SigNoz/signoz/commit/044a124cc1b8735fcd4e3225e9fba2a1d357e533);
-  also offer the same toggle on the service overview's top-operations
-  table [signoz#8175](https://github.com/SigNoz/signoz/commit/41661a5e288fb396ea31a1b8040db0bbcb605357).
 - **Show/hide the timestamp and body columns in the Logs table.** Next
   to the existing lines-per-row option: toggle the timestamp and body
   columns (e.g. hide body when only a few pinned attributes matter),

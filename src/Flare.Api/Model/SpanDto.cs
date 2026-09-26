@@ -101,8 +101,8 @@ public sealed partial record SpanDto
     /// <summary>
     /// Total spans sharing this row's <see cref="TraceId"/> - a trace with a 200ms
     /// duration and 2 spans reads very differently from one with the same duration and
-    /// 80. Populated only for <see cref="SpanFilter.RootSpansOnly"/> searches (Flare's
-    /// "trace list" view; see <see cref="Query.SpanQueryService.SearchAsync"/>'s
+    /// 80. Populated only for <see cref="SpanFilter.RootSpansOnly"/>/<see cref="SpanFilter.EntrySpansOnly"/>
+    /// searches (Flare's "trace list" view; see <see cref="Query.SpanQueryService.SearchAsync"/>'s
     /// follow-up count query) - <see langword="null"/> for every other
     /// <c>/api/spans/search</c> result and for <c>GetTraceAsync</c>'s per-span rows,
     /// where every span of the trace is already in hand and a count would be redundant.

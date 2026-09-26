@@ -78,6 +78,11 @@ public static class SpanFilterSqlBuilder
             clauses.Add("ParentSpanId = ''");
         }
 
+        if (filter.EntrySpansOnly)
+        {
+            clauses.Add(EntrySpanClause(from, to, filter.Services is { Count: > 0 }, parameters));
+        }
+
         if (filter.MinDurationNano is { } minDuration)
         {
             parameters.AddParameter("minDuration", minDuration);
@@ -99,6 +104,44 @@ public static class SpanFilterSqlBuilder
         }
 
         return new SpanFilterSql(string.Join(" AND ", clauses), parameters);
+    }
+
+    /// <summary>
+    /// How far before the window's <c>from</c> a same-service parent may have started and
+    /// still disqualify its child as an entry span - same value and rationale as
+    /// <see cref="ServiceDependencyQueryBuilder.ParentStartSlack"/>.
+    /// </summary>
+    public static readonly TimeSpan EntryParentStartSlack = ServiceDependencyQueryBuilder.ParentStartSlack;
+
+    /// <summary>
+    /// <see cref="SpanFilter.EntrySpansOnly"/>'s clause: no parent, or no span in the
+    /// (slack-widened) window with the parent's <c>(TraceId, SpanId)</c> <em>and</em> this
+    /// span's own <c>ServiceName</c>. The 3-tuple <c>NOT IN</c> is the uncorrelated form of
+    /// "the parent belongs to a different service" - the same self-join
+    /// <see cref="ServiceDependencyQueryBuilder"/>'s edges query does, reduced to a set
+    /// membership test. A parent that was never ingested (partial instrumentation, sampled
+    /// out) counts as "different service": the span is where Flare first sees that request.
+    /// </summary>
+    /// <remarks>
+    /// Evaluated at query time, not pre-computed at flush time: a child and its parent are
+    /// routinely flushed in different batches (the parent ends, and is exported, last), so
+    /// the flush worker can't see the parent's service. The subquery's <c>StartTime</c>
+    /// bound lets it use migration 0025's <c>spans_by_start_time</c> projection (it only
+    /// touches <c>TraceId</c>/<c>SpanId</c>/<c>ServiceName</c>/<c>StartTime</c>) - the cost
+    /// is a second pass over the window, not the table. A <see cref="SpanFilter.Services"/>
+    /// filter narrows the subquery too, since a disqualifying parent must share the child's
+    /// service. <c>GLOBAL</c> so a cluster-mode <c>Distributed</c> <c>spans</c> builds the set
+    /// once rather than per shard (a harmless no-op on a single node). Accepted gap: a
+    /// same-service parent that started more than <see cref="EntryParentStartSlack"/> before
+    /// the window leaves its child counted as an entry span.
+    /// </remarks>
+    private static string EntrySpanClause(DateTimeOffset from, DateTimeOffset to, bool hasServices, ClickHouseParameterCollection parameters)
+    {
+        parameters.AddParameter("entryParentFrom", (from - EntryParentStartSlack).UtcDateTime);
+        var parentClauses = "StartTime >= {entryParentFrom:DateTime64(9)} AND StartTime < {to:DateTime64(9)}" +
+            (hasServices ? " AND ServiceName IN {services:Array(String)}" : string.Empty);
+        return "(ParentSpanId = '' OR (TraceId, ParentSpanId, ServiceName) GLOBAL NOT IN " +
+            $"(SELECT TraceId, SpanId, ServiceName FROM spans WHERE {parentClauses}))";
     }
 
     /// <summary>

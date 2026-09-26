@@ -27,20 +27,27 @@ export interface TracesFilterState {
 	names: string[];
 	/** Lower bound (ns) of the facet sidebar's selected duration bucket, `null` = any - see `$lib/traces/duration-buckets.ts`. */
 	durationBucketNano: number | null;
+	/**
+	 * List each service's entry spans (no parent, or a parent in another service) instead of
+	 * one root span per trace - see `SpanFilter.EntrySpansOnly` (SpanFilter.cs). A list mode
+	 * rather than a content filter, so "Clear filters" keeps it, same as the time range.
+	 */
+	entrySpansOnly: boolean;
 }
 
 /** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). The facet fields are optional: views saved before they existed simply lack them. */
-export type TracesSavedViewState = Omit<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano'> &
-	Partial<Pick<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano'>>;
+export type TracesSavedViewState = Omit<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly'> &
+	Partial<Pick<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly'>>;
 
 function emptyFilter(timeRangePreset: TimeRangePreset, services: string[] = [], attributeFilters: SpanAttributeFilter[] = []): TracesFilterState {
-	return { timeRangePreset, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null };
+	return { timeRangePreset, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null, entrySpansOnly: false };
 }
 
 export class TracesExplorerState {
 	filter = $state<TracesFilterState>(emptyFilter('1h'));
 
-	// One row per trace (root spans only) - never mutated in place, always a wholesale
+	// One row per trace (root spans), or per service request in `entrySpansOnly` mode -
+	// see `rowKey`. Never mutated in place, always a wholesale
 	// reassignment (fresh search or page append), same $state.raw rationale
 	// LogsExplorerState documents for its own `events` field.
 	traces = $state.raw<SpanDto[]>([]);
@@ -66,7 +73,7 @@ export class TracesExplorerState {
 	 *  view reproduces, same call Logs' own `live` field makes for itself. */
 	autoRefreshEnabled = $state(false);
 
-	#seenTraceIds = new Set<string>();
+	#seenRowKeys = new Set<string>();
 	#searchAbort: AbortController | null = null;
 	#autoRefreshHandle: ReturnType<typeof setInterval> | null = null;
 
@@ -81,11 +88,21 @@ export class TracesExplorerState {
 	#dedupeAgainstSeen(spans: SpanDto[]): SpanDto[] {
 		const fresh: SpanDto[] = [];
 		for (const s of spans) {
-			if (this.#seenTraceIds.has(s.traceId)) continue;
-			this.#seenTraceIds.add(s.traceId);
+			const key = this.rowKey(s);
+			if (this.#seenRowKeys.has(key)) continue;
+			this.#seenRowKeys.add(key);
 			fresh.push(s);
 		}
 		return fresh;
+	}
+
+	/**
+	 * A `traces` row's identity - the trace id in root-span mode (one row per trace), the
+	 * span too in `entrySpansOnly` mode, where one trace legitimately yields a row per
+	 * service it passed through.
+	 */
+	rowKey(span: SpanDto): string {
+		return this.filter.entrySpansOnly ? `${span.traceId}:${span.spanId}` : span.traceId;
 	}
 
 	/**
@@ -94,7 +111,8 @@ export class TracesExplorerState {
 	 * (SpanAttributeFiltersRow's value autocomplete needs the same "exclude the row being
 	 * typed" exclusion).
 	 * @param overrides.rootSpansOnly Defaults to `true` (this page's own trace-list search
-	 * only ever wants root spans - see `SpanDto.SpanCount`'s remarks). SpanAttributeFiltersRow's
+	 * wants root spans - see `SpanDto.SpanCount`'s remarks - or, with `filter.entrySpansOnly`,
+	 * entry spans instead; `false` drops both). SpanAttributeFiltersRow's
 	 * value autocomplete overrides it to `false`: live-verified an attribute like
 	 * `peer.service` typically lives on a *child* span (an outbound call a root span like
 	 * `handle-request` merely triggers, not one it carries itself), so leaving this `true`
@@ -102,7 +120,8 @@ export class TracesExplorerState {
 	 * to help with.
 	 */
 	buildFilter(range: ResolvedTimeRange | null, overrides?: { attributeFilters?: SpanAttributeFilter[]; rootSpansOnly?: boolean }): SpanFilter {
-		const filter: SpanFilter = { rootSpansOnly: overrides?.rootSpansOnly ?? true };
+		const scoped = overrides?.rootSpansOnly ?? true;
+		const filter: SpanFilter = scoped && this.filter.entrySpansOnly ? { entrySpansOnly: true } : { rootSpansOnly: scoped };
 		if (range) {
 			filter.from = range.from;
 			filter.to = range.to;
@@ -155,7 +174,7 @@ export class TracesExplorerState {
 		try {
 			const res = await searchSpans({ filter: this.buildFilter(this.#resolvedRange()), pageSize: PAGE_SIZE }, abort.signal);
 			if (abort.signal.aborted) return;
-			this.#seenTraceIds = new Set();
+			this.#seenRowKeys = new Set();
 			this.traces = this.#dedupeAgainstSeen(res.spans);
 			this.nextCursor = res.nextCursor;
 		} catch (err) {
@@ -240,6 +259,12 @@ export class TracesExplorerState {
 		void this.runSearch();
 	}
 
+	setEntrySpansOnly(entrySpansOnly: boolean): void {
+		if (entrySpansOnly === this.filter.entrySpansOnly) return;
+		this.filter.entrySpansOnly = entrySpansOnly;
+		void this.runSearch();
+	}
+
 	/** Whether the toolbar's "Clear filters" button has anything to do - same fields `resetFilters` zeroes out. */
 	hasActiveFilters(): boolean {
 		return (
@@ -258,7 +283,7 @@ export class TracesExplorerState {
 	 * alone - same scope LogsExplorerState.resetFilters documents for itself.
 	 */
 	resetFilters(): void {
-		this.filter = emptyFilter(this.filter.timeRangePreset);
+		this.filter = { ...emptyFilter(this.filter.timeRangePreset), entrySpansOnly: this.filter.entrySpansOnly };
 		void this.runSearch();
 	}
 
@@ -271,7 +296,8 @@ export class TracesExplorerState {
 			statusCodes: [...this.filter.statusCodes],
 			kinds: [...this.filter.kinds],
 			names: [...this.filter.names],
-			durationBucketNano: this.filter.durationBucketNano
+			durationBucketNano: this.filter.durationBucketNano,
+			entrySpansOnly: this.filter.entrySpansOnly
 		};
 	}
 
@@ -283,7 +309,8 @@ export class TracesExplorerState {
 			statusCodes: s.statusCodes ?? [],
 			kinds: s.kinds ?? [],
 			names: s.names ?? [],
-			durationBucketNano: typeof s.durationBucketNano === 'number' ? s.durationBucketNano : null
+			durationBucketNano: typeof s.durationBucketNano === 'number' ? s.durationBucketNano : null,
+			entrySpansOnly: s.entrySpansOnly === true
 		};
 		void this.runSearch();
 	}

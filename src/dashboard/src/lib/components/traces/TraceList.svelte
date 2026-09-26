@@ -42,7 +42,7 @@
 		<VirtualList
 			items={explorer.traces}
 			itemHeight={ROW_HEIGHT}
-			getKey={(trace) => trace.traceId}
+			getKey={(trace) => explorer.rowKey(trace)}
 			ariaLabel={m.traceList_ariaLabel()}
 			onEndReached={() => void explorer.loadMore()}
 			class="min-h-0 flex-1"

@@ -63,9 +63,10 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
             : null;
 
         // Root-span search doubles as Flare's "trace list" view (see SpanDto.SpanCount's
-        // remarks) - only that mode needs the count/error rollup, so only that mode pays
-        // for the follow-up query.
-        if (request.Filter is { RootSpansOnly: true } && spans.Count > 0)
+        // remarks), and entry-span search is that same list scoped to each service's
+        // requests - only those modes need the count/error rollup, so only they pay for
+        // the follow-up query.
+        if (request.Filter is { RootSpansOnly: true } or { EntrySpansOnly: true } && spans.Count > 0)
         {
             spans = await WithRollupsAsync(spans, cancellationToken);
         }

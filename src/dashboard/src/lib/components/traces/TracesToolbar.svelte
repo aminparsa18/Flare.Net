@@ -9,6 +9,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import TracesViewTabs from './TracesViewTabs.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
+	import LogInIcon from '@lucide/svelte/icons/log-in';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -109,6 +110,18 @@
 			onkeydown={(e) => e.key === 'Enter' && goToTrace()}
 		/>
 	</div>
+
+	<!-- Root spans (one row per trace) vs. each service's entry spans - see
+	     TracesFilterState.entrySpansOnly. -->
+	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.tracesToolbar_entrySpansTitle()}>
+		<Switch
+			checked={explorer.filter.entrySpansOnly}
+			onCheckedChange={(v) => explorer.setEntrySpansOnly(v)}
+			size="sm"
+		/>
+		<LogInIcon class="size-3.5" />
+		{m.tracesToolbar_entrySpansLabel()}
+	</label>
 
 	<!-- Re-runs the trace search on an interval while on - see
 	     TracesExplorerState.autoRefreshEnabled's own remarks. A plain `title`, same "one
