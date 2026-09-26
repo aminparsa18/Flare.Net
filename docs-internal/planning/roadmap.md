@@ -97,6 +97,26 @@ folders are where "what happened and why" actually lives.
   an additive `ngrambf_v1` index on `lower(Body)` with the search rewritten
   as `lower(Body) LIKE lower(…)` (new migration + probably an ADR). Prior
   art: [signoz#4787](https://github.com/SigNoz/signoz/commit/1585065fff9b7853d63e64abebf2887ecc42cc72).
+- **Data-sources guides for more message brokers.** The Messaging page
+  (ADR-0056) already picks up any broker whose .NET client emits OTel
+  `messaging.*` spans, but the Data sources page only has a Kafka guide.
+  Candidates: RabbitMQ (RabbitMQ.Client 7+ has built-in tracing,
+  `AddSource("RabbitMQ.Client.*")`; v6 has none), MassTransit (built-in
+  `MassTransit` activity source, `messaging.system` = the transport), and
+  Azure Service Bus (Azure SDK activity sources, probably behind the SDK's
+  experimental tracing switch; check). Verify each against a real
+  broker before writing its guide (RabbitMQ image, MassTransit over RabbitMQ,
+  the Service Bus emulator image). Kafka's live run caught a receive+process
+  double count that synthetic spans didn't. Not started.
+- **Queue depth for non-Kafka brokers on the Messaging page.** Kafka gets
+  consumer lag from `kafka.consumer_group.lag`, and other systems show
+  nothing. The RabbitMQ counterpart is the collector `rabbitmq` receiver's
+  ready/unacknowledged message counts per queue. It needs a second metric
+  lookup next to `MessagingQueryBuilder.BuildConsumerLag`, and a
+  "backlog" column that isn't Kafka-specific. Later: Service Bus
+  active/dead-letter counts via the collector's Azure Monitor receiver,
+  Amazon SQS (`OpenTelemetry.Instrumentation.AWS` spans + CloudWatch
+  depth), and NATS (NATS.Net v2 activity source). Not started.
 - **Create/invite additional local users.** With local auth,
   `/api/auth/bootstrap` creates only the first admin, and
   `UserEndpoints` can list users, change a role and disable a user, but not

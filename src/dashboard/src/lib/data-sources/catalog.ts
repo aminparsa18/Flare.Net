@@ -21,6 +21,11 @@
 // "how do I send metrics" page since there's exactly one such item - not enough to justify
 // a parallel guide, and this page is the only ingestion-help surface that exists.
 //
+// A second non-logs exception: the "kafka" item (Message queues tab) sends producer/consumer
+// *spans* plus the kafkametrics receiver's consumer-lag *metrics* - what the /messaging page
+// reads (ADR-0056). Both snippets are the ones verified in that feature's live e2e run
+// against a real broker, not transcribed from upstream READMEs.
+//
 // Ingest auth: IngestApiKeyValidationMiddleware (src/Flare.Ingest/Auth/) only enforces a
 // Bearer token when IngestAuthOptions.IngestKeyRequired is turned on - off by default, so
 // every snippet below is written for the common anonymous-ingest case. The "custom" item's
@@ -59,6 +64,9 @@ import RadioTowerIcon from '@lucide/svelte/icons/radio-tower';
 // Prometheus's own logo is a flame/torch - closest generic-icon match, same "closest
 // generic icon to the real thing" convention the language icons above already use.
 import FlameIcon from '@lucide/svelte/icons/flame';
+// Kafka's logo is a node graph - no brand logos in lucide, so the generic "workflow"-style
+// network icon is the closest match.
+import NetworkIcon from '@lucide/svelte/icons/network';
 
 export interface GuideStep {
 	heading: string;
@@ -631,6 +639,73 @@ service:
 				}
 			]
 		},
+		kafka: {
+			id: 'kafka',
+			title: m.dataSourceCatalog_kafkaTitle(),
+			icon: NetworkIcon,
+			intro: m.dataSourceCatalog_kafkaIntro(),
+			steps: [
+				{
+					heading: m.dataSourceCatalog_kafkaStep1Heading(),
+					code: {
+						text: 'dotnet add package OpenTelemetry.Instrumentation.ConfluentKafka --prerelease\ndotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol'
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_kafkaStep2Heading(),
+					body: m.dataSourceCatalog_kafkaStep2Body(),
+					code: {
+						label: 'Program.cs',
+						text: `using Confluent.Kafka;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+var producerBuilder = new InstrumentedProducerBuilder<string, string>(
+    new ProducerConfig { BootstrapServers = "localhost:9092" });
+var consumerBuilder = new InstrumentedConsumerBuilder<string, string>(
+    new ConsumerConfig { BootstrapServers = "localhost:9092", GroupId = "your-group" });
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("your-service"))
+    .WithTracing(tracing => tracing
+        .AddKafkaProducerInstrumentation(producerBuilder)
+        .AddKafkaConsumerInstrumentation(consumerBuilder)
+        .AddOtlpExporter(otlp => otlp.Endpoint = new Uri("${ep.grpcUri}")));
+
+// After the host starts - build clients from these same builders:
+using var producer = producerBuilder.Build();
+using var consumer = consumerBuilder.Build();`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_kafkaStep3Heading(),
+					body: m.dataSourceCatalog_kafkaStep3Body(),
+					code: {
+						label: 'config.yaml',
+						text: `receivers:
+  kafkametrics:
+    brokers: [kafka:9092]
+    protocol_version: 2.0.0
+    scrapers: [consumers]
+    collection_interval: 30s
+exporters:
+  otlp/flare:
+    endpoint: ${ep.grpcHostPort}
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [kafkametrics]
+      exporters: [otlp/flare]`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_kafkaStep4Heading(),
+					body: m.dataSourceCatalog_kafkaStep4Body()
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: m.dataSourceCatalog_customTitle(),
@@ -681,6 +756,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 		{ id: 'platforms', label: m.dataSourceCatalog_categoryPlatforms(), itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
 		{ id: 'shippers', label: m.dataSourceCatalog_categoryShippers(), itemIds: ['vector', 'fluent-bit', 'syslog'] },
 		{ id: 'metrics', label: m.dataSourceCatalog_categoryMetrics(), itemIds: ['prometheus'] },
+		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka'] },
 		{
 			id: 'languages',
 			label: m.dataSourceCatalog_categoryLanguages(),
