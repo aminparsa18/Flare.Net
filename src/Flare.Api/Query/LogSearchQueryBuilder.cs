@@ -15,7 +15,7 @@ public static class LogSearchQueryBuilder
     public const int DefaultPageSize = 200;
     public const int MaxPageSize = 1000;
 
-    public static LogSearchSql Build(LogSearchRequest request, DateTimeOffset now)
+    public static LogSearchSql Build(LogSearchRequest request, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
         // request.Filter's `= new()` property initializer is a compile-time default
         // for C# callers - it does NOT survive System.Text.Json deserialization when
@@ -24,7 +24,7 @@ public static class LogSearchQueryBuilder
         // `default(T)` for anything absent from the payload, which overwrites the
         // initializer-set default back to null). Coalesce defensively rather than
         // trust the property default once JSON is in the picture.
-        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now);
+        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now, promoted);
         return BuildFromFilterSql(filterSql, request.Cursor, request.PageSize);
     }
 

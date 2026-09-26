@@ -493,6 +493,12 @@ zero/`NaN` samples, minimum history, the σ floor, each direction), and
 `AnomalyEvaluatorTests` covers which query each anomaly source runs over which windows,
 against a canned `IAlertQueryService` fake.
 
+`PromotedAttributeColumnsTests` covers promoted attribute columns (ADR-0062): key
+validation, column naming, parsing `system.columns`' expression back, the promote/demote
+DDL for single-node and cluster mode, and which `LogFilterSqlBuilder` operators switch to
+the column. `PromotedAttributeRegistry`/`PromotedAttributeAdminService` run DDL and
+`system.*` reads, so they're verified end to end instead, like the classes below.
+
 `LogQueryService`, `LogTailBroadcaster`, and `AlertQueryService` (real
 `IClickHouseClient`/`IConnectionMultiplexer`/`HttpClient` I/O) are deliberately **not**
 unit-tested against a fake, same reasoning `Flare.Ingest.Tests` documents for its own

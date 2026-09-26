@@ -233,6 +233,18 @@ builder.Services.AddSingleton<IIndexingQueryService>(sp => new IndexingQueryServ
     sp.GetRequiredService<ILogger<IndexingQueryService>>(),
     clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
 
+// Promoted attribute columns (ADR-0062): the registry snapshot every log query builder
+// reads, refreshed from system.columns at startup and every 30s so a promotion made
+// through another Flare.Api instance reaches this one too. Flare.AlertWorker registers the
+// same pair - alert conditions are LogFilters too.
+builder.Services.AddSingleton<IPromotedAttributeRegistry, PromotedAttributeRegistry>();
+builder.Services.AddHostedService<PromotedAttributeRefreshWorker>();
+builder.Services.AddSingleton<IPromotedAttributeAdminService>(sp => new PromotedAttributeAdminService(
+    sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<IPromotedAttributeRegistry>(),
+    sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
+    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
+
 // Indexing page's cluster-status panel (Planning.md's "Multi-node scaling" follow-up).
 // LogPattern:SharedStore here is display-only - Flare.Api never touches Drain pattern
 // matching itself (that's Flare.Ingest's job), this just mirrors the same env var so the
@@ -458,5 +470,9 @@ adminRoutes.MapAuthSettingsEndpoints();
 // alongside the rest of the Services tab - any Viewer needs it to render the tab's Apdex
 // column tooltip.
 adminRoutes.MapApdexThresholdEndpoints();
+// Promoting/demoting an attribute column is ALTER TABLE on logs - schema DDL affecting
+// every user's queries and every future insert, so Admin-only. Listing stays on
+// authenticatedRoutes via MapIndexingEndpoints.
+adminRoutes.MapPromotedAttributeAdminEndpoints();
 
 app.Run();

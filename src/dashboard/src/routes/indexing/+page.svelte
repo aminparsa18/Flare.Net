@@ -10,6 +10,7 @@
 	import IndexingTablesTable from '$lib/components/indexing/IndexingTablesTable.svelte';
 	import IndexingQueryOptimization from '$lib/components/indexing/IndexingQueryOptimization.svelte';
 	import IndexingSkipIndexesTable from '$lib/components/indexing/IndexingSkipIndexesTable.svelte';
+	import IndexingPromotedAttributes from '$lib/components/indexing/IndexingPromotedAttributes.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const indexing = indexingContext.set(new IndexingState());
@@ -40,5 +41,6 @@
 		<IndexingTablesTable />
 		<IndexingQueryOptimization />
 		<IndexingSkipIndexesTable />
+		<IndexingPromotedAttributes />
 	</div>
 </div>

@@ -5,7 +5,17 @@
 // the way live throughput does; a manual refresh button covers the "I just generated
 // traffic and want to see it reflected" case instead.
 
-import { getIndexingStats, getClusterStatus, type IndexingStatsResponse, type ClusterStatusResponse } from '$lib/indexing-api';
+import {
+	getIndexingStats,
+	getClusterStatus,
+	getPromotedAttributes,
+	promoteAttribute,
+	demoteAttribute,
+	type IndexingStatsResponse,
+	type ClusterStatusResponse,
+	type PromotedAttributesResponse
+} from '$lib/indexing-api';
+import type { AttributeBag } from '$lib/api';
 
 export class IndexingState {
 	stats = $state.raw<IndexingStatsResponse | null>(null);
@@ -16,6 +26,8 @@ export class IndexingState {
 	 * first; IndexingClusterStatus.svelte just renders nothing when it's false.
 	 */
 	clusterStatus = $state.raw<ClusterStatusResponse | null>(null);
+	/** Promoted attribute columns (ADR-0062) - loaded with the rest, reloaded after each promote/demote. */
+	promoted = $state.raw<PromotedAttributesResponse | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
 
@@ -29,16 +41,32 @@ export class IndexingState {
 		this.loading = true;
 		this.error = null;
 		try {
-			const [stats, clusterStatus] = await Promise.all([getIndexingStats(abort.signal), getClusterStatus(abort.signal)]);
+			const [stats, clusterStatus, promoted] = await Promise.all([
+				getIndexingStats(abort.signal),
+				getClusterStatus(abort.signal),
+				getPromotedAttributes(abort.signal)
+			]);
 			if (abort.signal.aborted) return;
 			this.stats = stats;
 			this.clusterStatus = clusterStatus;
+			this.promoted = promoted;
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.error = err instanceof Error ? err.message : String(err);
 		} finally {
 			if (!abort.signal.aborted) this.loading = false;
 		}
+	}
+
+	/** Throws the API's error message on failure - the caller shows it next to the form. */
+	async promote(bag: AttributeBag, key: string, backfill: boolean): Promise<void> {
+		await promoteAttribute(bag, key, backfill);
+		await this.load();
+	}
+
+	async demote(columnName: string): Promise<void> {
+		await demoteAttribute(columnName);
+		await this.load();
 	}
 
 	dispose(): void {

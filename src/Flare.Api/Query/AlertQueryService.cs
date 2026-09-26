@@ -90,7 +90,7 @@ public interface IAlertQueryService
 /// back immediately" CRUD). All reads go through <c>FROM alert_rules FINAL WHERE
 /// IsDeleted = 0</c>. See db/clickhouse/0003_alert_rules.sql for the full rationale.
 /// </remarks>
-public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IAlertQueryService
+public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes) : IAlertQueryService
 {
     private const string RuleColumns =
         "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate";
@@ -240,7 +240,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
     public async Task<ulong> CountMatchingLogsAsync(LogFilter condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
         var windowed = condition with { From = from, To = to };
-        var built = LogFilterSqlBuilder.Build(windowed, to);
+        var built = LogFilterSqlBuilder.Build(windowed, to, promotedAttributes.Current);
         var sql = $"SELECT count() FROM logs WHERE {built.WhereSql}";
         var result = await client.ExecuteScalarAsync(sql, built.Parameters, EvaluationSafetyOptions(), cancellationToken);
         return ToUInt64(result);

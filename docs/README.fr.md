@@ -37,6 +37,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Exécution en mode cluster](how-to/run-cluster-mode.fr.md)
 - [Surveiller des hôtes avec l'OpenTelemetry Collector](how-to/monitor-hosts.fr.md)
 - [Surveiller des files de messages](how-to/monitor-message-queues.fr.md)
+- [Accélérer les filtres sur un attribut de log fréquemment utilisé](how-to/promote-attribute-columns.fr.md)
 
 **Référence**
 - [Commandes CLI](reference/cli-commands.fr.md)

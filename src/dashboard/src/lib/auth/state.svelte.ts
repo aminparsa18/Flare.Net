@@ -47,6 +47,13 @@ export class AuthState {
 		return !this.authEnabled || this.currentUser?.role !== 'Viewer';
 	}
 
+	/** Admin-only controls (e.g. promoting attribute columns on the Indexing page, ADR-0062).
+	 *  Same fail-open-while-auth-is-off convention and "UI-only, the API's RequireAdmin is
+	 *  the real boundary" caveat as {@link canMutate}. */
+	get isAdmin(): boolean {
+		return !this.authEnabled || this.currentUser?.role === 'Admin';
+	}
+
 	/** Per-dashboard narrowing of {@link canMutate} for dashboard ownership (ADR-0027) - a
 	 *  Member who isn't a given dashboard's own `ownerUserId` (and isn't an Admin) can't
 	 *  rename/edit/delete it, even though {@link canMutate} alone says Member-and-up may

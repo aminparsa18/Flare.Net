@@ -44,7 +44,12 @@ public static class LogFilterSqlBuilder
     public static string ContainsPattern(string text) =>
         $"%{text.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_")}%";
 
-    public static LogFilterSql Build(LogFilter filter, DateTimeOffset now)
+    /// <param name="promoted">
+    /// Promoted attribute columns (ADR-0062) to read instead of a map lookup - null/empty
+    /// keeps every attribute filter on its <c>Map</c> column. Never changes which rows
+    /// match, only how fast.
+    /// </param>
+    public static LogFilterSql Build(LogFilter filter, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
         var parameters = new ClickHouseParameterCollection();
         var clauses = new List<string>();
@@ -104,7 +109,7 @@ public static class LogFilterSqlBuilder
         {
             for (var i = 0; i < attributes.Count; i++)
             {
-                clauses.Add(AttributeClause(attributes[i], i, parameters));
+                clauses.Add(AttributeClause(attributes[i], i, parameters, promoted));
             }
         }
 
@@ -188,8 +193,14 @@ public static class LogFilterSqlBuilder
     /// empty when <c>Values</c> is null) instead of <c>=</c> against <c>Value</c>, guarded by
     /// <c>mapContains</c> the same way as every other multi-branch operator here.
     /// </summary>
-    private static string AttributeClause(AttributeFilter attribute, int index, ClickHouseParameterCollection parameters)
+    private static string AttributeClause(AttributeFilter attribute, int index, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
     {
+        if (promoted is not null && promoted.TryGetColumn(attribute.Bag, attribute.Key, out var promotedColumn)
+            && PromotedClause(attribute, index, parameters, promotedColumn) is { } promotedSql)
+        {
+            return promotedSql;
+        }
+
         var column = ColumnFor(attribute.Bag);
         var keyParam = $"attrKey{index}";
         parameters.AddParameter(keyParam, attribute.Key);
@@ -237,6 +248,46 @@ public static class LogFilterSqlBuilder
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"{column}[{{{keyParam}:String}}] = {{{valueParam}:String}}";
             }
+        }
+    }
+
+    /// <summary>
+    /// <see cref="AttributeClause"/> against a promoted column (ADR-0062), for the operators
+    /// where that column alone is exactly equivalent to the map form - null for every other
+    /// case, which falls back to the map form unchanged. The column holds
+    /// <c>Map[key]</c>, i.e. <c>''</c> for a missing key, so it can't tell "absent" from
+    /// "present but empty": <c>Exists</c>/<c>Absent</c>/<c>Regex</c>/<c>NotRegex</c> (a
+    /// pattern may match <c>''</c>) keep their <c>mapContains</c> guard, and
+    /// <c>NotEquals</c>/<c>In</c>/<c>NotIn</c> only drop it when no compared value is
+    /// <c>''</c> - then <c>col = v</c> already implies the key is present. <c>Equals</c>
+    /// never had a guard, so it always qualifies.
+    /// </summary>
+    private static string? PromotedClause(AttributeFilter attribute, int index, ClickHouseParameterCollection parameters, string column)
+    {
+        switch (attribute.Operator)
+        {
+            case AttributeFilterOperator.Equals:
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"{column} = {{{valueParam}:String}}";
+            }
+            case AttributeFilterOperator.NotEquals when !string.IsNullOrEmpty(attribute.Value):
+            {
+                var valueParam = $"attrValue{index}";
+                parameters.AddParameter(valueParam, attribute.Value);
+                return $"{column} != {{{valueParam}:String}}";
+            }
+            case AttributeFilterOperator.In or AttributeFilterOperator.NotIn
+                when attribute.Values is { Count: > 0 } values && !values.Any(string.IsNullOrEmpty):
+            {
+                var valuesParam = $"attrValues{index}";
+                parameters.AddParameter(valuesParam, values.ToArray());
+                var op = attribute.Operator == AttributeFilterOperator.In ? "IN" : "NOT IN";
+                return $"{column} {op} {{{valuesParam}:Array(String)}}";
+            }
+            default:
+                return null;
         }
     }
 
