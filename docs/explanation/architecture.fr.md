@@ -191,14 +191,16 @@ Jaeger/Zipkin mais connectée directement au reste du tableau de bord.
 
 `/messaging` — une ligne par topic Kafka, file RabbitMQ ou entité Service
 Bus, avec les débits de publication et de consommation, le taux d'erreur,
-la latence p99 et, pour Kafka, le retard des consommateurs. Tout est
-calculé au moment de la requête à partir des attributs OTel `messaging.*`
-des spans producteurs et consommateurs : ni agent ni table
-supplémentaires. Le retard provient du récepteur `kafkametrics` du
-collecteur lorsqu'il est présent. Cliquez sur un topic pour voir ses
-producteurs, ses consommateurs, ses partitions et le retard par groupe.
-Voir [`../how-to/monitor-message-queues.fr.md`](../how-to/monitor-message-queues.fr.md)
-et [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md).
+la latence p99 et un backlog : retard des consommateurs Kafka ou
+profondeur des files RabbitMQ. Débits et latences sont calculés au moment
+de la requête à partir des attributs OTel `messaging.*` des spans
+producteurs et consommateurs : ni agent ni table supplémentaires. Le
+backlog provient du récepteur `kafkametrics` ou `rabbitmq` du collecteur
+lorsqu'il est présent. Cliquez sur une ligne pour voir ses producteurs, ses
+consommateurs, ses partitions, le retard par groupe ou la profondeur par
+file. Voir [`../how-to/monitor-message-queues.fr.md`](../how-to/monitor-message-queues.fr.md),
+[ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) et
+[ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md).
 
 ### Métriques
 

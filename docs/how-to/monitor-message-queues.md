@@ -57,7 +57,7 @@ Open **Messaging** in the top nav. Each row is one topic or queue:
 | Error rate | Share of publish and consume spans with an error status |
 | Publish p99 / Consume p99 | 99th-percentile span duration |
 | Producers / consumers | How many services published to and consumed from it |
-| Consumer lag | Kafka only, see [below](#see-kafka-consumer-lag) |
+| Backlog | Messages waiting: Kafka consumer lag or RabbitMQ queue depth, see [Kafka](#see-kafka-consumer-lag) and [RabbitMQ](#see-rabbitmq-queue-depth) |
 
 Consume latency is the consume span's own duration: the handling time for a
 `process` span, or the fetch time for a consumer that only emits `receive`
@@ -123,9 +123,49 @@ service:
 Collector releases from 0.161 on name the receiver `kafka_metrics`. The old
 `kafkametrics` name still works but logs a deprecation warning.
 
-The **Consumer lag** column shows each topic's latest lag in the window,
+For a Kafka topic, the **Backlog** column shows the latest lag in the window,
 summed over all consumer groups and partitions. A **—** means the metric isn't
 being collected for that topic. It is never shown as 0.
+
+## See RabbitMQ queue depth
+
+RabbitMQ.Client names each row after the exchange it published to, not
+the queue. Messages sent through the default exchange are the exception:
+Flare shows each of them under its routing key, which is the queue name.
+
+Queue depth comes from the `rabbitmq.message.current` metric, which the
+OpenTelemetry Collector's `rabbitmq` receiver exports. It reads RabbitMQ's
+management API, so enable the `rabbitmq_management` plugin and give the
+receiver a user with the `monitoring` tag:
+
+```yaml
+receivers:
+  rabbitmq:
+    endpoint: http://rabbitmq:15672
+    username: otel
+    password: ${env:RABBITMQ_PASSWORD}
+    collection_interval: 30s
+
+exporters:
+  otlp:
+    endpoint: flare.example.internal:4317   # your Flare.Ingest host
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [rabbitmq]
+      exporters: [otlp]
+```
+
+Flare matches queues to a row by name. It uses the row's own name and every
+routing key its spans carried. That covers queues published to directly,
+exchanges named after their queue (MassTransit's convention), and direct
+exchanges whose routing key is the queue name. The **Backlog** column is
+the latest ready + unacknowledged count of the matched queues. Open the
+row to see each queue's ready and unacked counts. A topic or fanout exchange
+whose routing keys don't name a queue shows **—**.
 
 ## Troubleshooting
 
@@ -134,5 +174,4 @@ producer or consumer span's attributes. It needs `messaging.system`, and
 either an operation attribute or a `PRODUCER`/`CONSUMER` span kind.
 
 **The topic or queue name is "(unnamed)".** The instrumentation didn't set
-`messaging.destination.name`, for example when publishing to RabbitMQ's
-default exchange.
+`messaging.destination.name`.

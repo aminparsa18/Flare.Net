@@ -101,22 +101,22 @@ folders are where "what happened and why" actually lives.
   (ADR-0056) already picks up any broker whose .NET client emits OTel
   `messaging.*` spans, but the Data sources page only has a Kafka guide.
   Candidates: RabbitMQ (RabbitMQ.Client 7+ has built-in tracing,
-  `AddSource("RabbitMQ.Client.*")`; v6 has none), MassTransit (built-in
+  `AddSource("RabbitMQ.Client.*")`; v6 has none. Its spans and the
+  collector `rabbitmq` receiver were already verified live for ADR-0057,
+  so the guide can pair both), MassTransit (built-in
   `MassTransit` activity source, `messaging.system` = the transport), and
   Azure Service Bus (Azure SDK activity sources, probably behind the SDK's
   experimental tracing switch; check). Verify each against a real
   broker before writing its guide (RabbitMQ image, MassTransit over RabbitMQ,
   the Service Bus emulator image). Kafka's live run caught a receive+process
   double count that synthetic spans didn't. Not started.
-- **Queue depth for non-Kafka brokers on the Messaging page.** Kafka gets
-  consumer lag from `kafka.consumer_group.lag`, and other systems show
-  nothing. The RabbitMQ counterpart is the collector `rabbitmq` receiver's
-  ready/unacknowledged message counts per queue. It needs a second metric
-  lookup next to `MessagingQueryBuilder.BuildConsumerLag`, and a
-  "backlog" column that isn't Kafka-specific. Later: Service Bus
-  active/dead-letter counts via the collector's Azure Monitor receiver,
-  Amazon SQS (`OpenTelemetry.Instrumentation.AWS` spans + CloudWatch
-  depth), and NATS (NATS.Net v2 activity source). Not started.
+- **Backlog for more brokers on the Messaging page.** Kafka (consumer lag)
+  and RabbitMQ (queue depth, ADR-0057) fill the `Backlog` column. Next:
+  Service Bus active/dead-letter counts via the collector's Azure Monitor
+  receiver, Amazon SQS (`OpenTelemetry.Instrumentation.AWS` spans +
+  CloudWatch depth), and NATS (NATS.Net v2 activity source). Each is one
+  more metric lookup next to `MessagingQueryBuilder.BuildQueueDepth`. Not
+  started.
 - **Create/invite additional local users.** With local auth,
   `/api/auth/bootstrap` creates only the first admin, and
   `UserEndpoints` can list users, change a role and disable a user, but not

@@ -24,9 +24,13 @@
 		return '';
 	}
 
-	// Any Kafka row without lag means the collector's kafkametrics receiver isn't feeding it -
-	// worth one hint under the table rather than a tooltip on every dash.
-	const lagHint = $derived((messaging.destinations ?? []).some((d) => d.system === 'kafka' && d.consumerLag == null));
+	// A Kafka/RabbitMQ row without backlog means the collector receiver for that broker isn't
+	// feeding it - worth one hint under the table rather than a tooltip on every dash.
+	function missingBacklog(system: string): boolean {
+		return (messaging.destinations ?? []).some((d) => d.system === system && d.backlog == null);
+	}
+	const lagHint = $derived(missingBacklog('kafka'));
+	const queueDepthHint = $derived(missingBacklog('rabbitmq'));
 
 	interface ColumnDef {
 		column: MessagingSortColumn | null;
@@ -43,7 +47,7 @@
 		{ column: 'publishP99Ms', label: m.messagingPage_publishP99Column(), align: 'right' },
 		{ column: 'consumeP99Ms', label: m.messagingPage_consumeP99Column(), align: 'right' },
 		{ column: null, label: m.messagingPage_servicesColumn(), align: 'right' },
-		{ column: 'consumerLag', label: m.messagingPage_lagColumn(), align: 'right' }
+		{ column: 'backlog', label: m.messagingPage_backlogColumn(), align: 'right' }
 	]);
 </script>
 
@@ -139,10 +143,10 @@
 							{m.messagingPage_servicesValue({ producers: row.producerServiceCount, consumers: row.consumerServiceCount })}
 						</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">
-							{#if row.consumerLag == null}
-								{@render dash(m.messagingPage_noLagTooltip())}
+							{#if row.backlog == null}
+								{@render dash(m.messagingPage_noBacklogTooltip())}
 							{:else}
-								{formatCount(row.consumerLag)}
+								{formatCount(row.backlog)}
 							{/if}
 						</Table.Cell>
 					</Table.Row>
@@ -151,6 +155,9 @@
 		</Table.Root>
 		{#if lagHint}
 			<p class="text-muted-foreground pt-3 text-xs">{m.messagingPage_lagHint()}</p>
+		{/if}
+		{#if queueDepthHint}
+			<p class="text-muted-foreground pt-3 text-xs">{m.messagingPage_queueDepthHint()}</p>
 		{/if}
 	{/if}
 </div>

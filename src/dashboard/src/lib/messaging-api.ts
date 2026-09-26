@@ -1,8 +1,9 @@
 // Client for Flare.Api's /messaging page endpoints (src/Flare.Api/Endpoints/
 // MessagingEndpoints.cs): the topic/queue list (`POST /api/messaging/destinations`) and one
 // destination's drill-down (`POST /api/messaging/destination-detail`), derived from spans'
-// OTel `messaging.*` attributes plus the `kafka.consumer_group.lag` gauge - see
-// MessagingQueryBuilder.cs and docs-internal/adr/0056-messaging-queue-monitoring.md.
+// OTel `messaging.*` attributes plus broker metrics for backlog (`kafka.consumer_group.lag`,
+// `rabbitmq.message.current`) - see MessagingQueryBuilder.cs and
+// docs-internal/adr/0056-messaging-queue-monitoring.md / 0057-rabbitmq-queue-depth.md.
 //
 // MemoryPack over the wire, same shape as `hosts-api.ts`: both requests and every row type
 // are real generated classes; the two responses carry `IReadOnlyList` members, so those are
@@ -15,7 +16,7 @@ import type { MessagingServiceStats as GeneratedServiceStats } from '$lib/genera
 import { MessagingDestinationsResponse as GeneratedDestinationsResponse } from '$lib/memorypack/MessagingDestinationsResponse';
 import { MessagingDestinationDetailResponse as GeneratedDetailResponse } from '$lib/memorypack/MessagingDestinationDetailResponse';
 
-/** One `(system, destination)` row. Latencies are milliseconds and 0 when that side has no spans; `consumerLag` is null when the lag metric isn't collected - never 0. */
+/** One `(system, destination)` row. Latencies are milliseconds and 0 when that side has no spans; `backlog` (Kafka consumer lag, RabbitMQ ready + unacked) is null when no broker metric is collected for it - never 0. */
 export interface MessagingDestination {
 	system: string;
 	destination: string;
@@ -32,7 +33,7 @@ export interface MessagingDestination {
 	producerServiceCount: number;
 	consumerServiceCount: number;
 	avgMessageBytes: number | null;
-	consumerLag: number | null;
+	backlog: number | null;
 }
 
 export interface MessagingDestinationsResponse {
@@ -69,6 +70,13 @@ export interface MessagingConsumerLag {
 	lag: number;
 }
 
+export interface MessagingQueueDepth {
+	vhost: string;
+	queue: string;
+	ready: number;
+	unacknowledged: number;
+}
+
 export interface MessagingDestinationDetailResponse {
 	system: string;
 	destination: string;
@@ -77,6 +85,8 @@ export interface MessagingDestinationDetailResponse {
 	consumers: MessagingServiceStats[];
 	partitions: MessagingPartitionStats[];
 	consumerLag: MessagingConsumerLag[];
+	/** RabbitMQ only; empty when the collector's rabbitmq receiver isn't feeding this destination. */
+	queueDepth: MessagingQueueDepth[];
 }
 
 export interface MessagingFilter {
@@ -148,7 +158,7 @@ export async function getMessagingDestinations(
 				producerServiceCount: Number(d.producerServiceCount),
 				consumerServiceCount: Number(d.consumerServiceCount),
 				avgMessageBytes: d.avgMessageBytes,
-				consumerLag: d.consumerLag == null ? null : Number(d.consumerLag)
+				backlog: d.backlog == null ? null : Number(d.backlog)
 			}))
 	};
 }
@@ -197,6 +207,9 @@ export async function getMessagingDestinationDetail(
 			})),
 		consumerLag: (dto.consumerLag ?? [])
 			.filter((l) => l != null)
-			.map((l) => ({ consumerGroup: l.consumerGroup ?? '', partition: l.partition ?? '', lag: Number(l.lag) }))
+			.map((l) => ({ consumerGroup: l.consumerGroup ?? '', partition: l.partition ?? '', lag: Number(l.lag) })),
+		queueDepth: (dto.queueDepth ?? [])
+			.filter((q) => q != null)
+			.map((q) => ({ vhost: q.vhost ?? '', queue: q.queue ?? '', ready: Number(q.ready), unacknowledged: Number(q.unacknowledged) }))
 	};
 }
