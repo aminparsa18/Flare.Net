@@ -26,6 +26,8 @@
 	import ThresholdsPopover from './ThresholdsPopover.svelte';
 	import MoveToRowMenu from './MoveToRowMenu.svelte';
 	import PanelDescriptionPopover from './PanelDescriptionPopover.svelte';
+	import VisualizationMenu from './VisualizationMenu.svelte';
+	import { parseVisualization, usesYAxis, type PanelReducer, type PanelVisualization } from '$lib/dashboards/visualization';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
@@ -57,6 +59,7 @@
 		onToggleVariable,
 		onSetYAxisBounds,
 		onSetThresholds,
+		onSetVisualization,
 		rows,
 		rowId,
 		onMoveToRow
@@ -76,6 +79,7 @@
 		onToggleVariable: (variableId: string, excluded: boolean) => void;
 		onSetYAxisBounds: (min: number | null, max: number | null) => void;
 		onSetThresholds: (thresholds: PanelThreshold[]) => void;
+		onSetVisualization: (visualization: PanelVisualization, reducer: PanelReducer | null) => void;
 		rows: DashboardRow[];
 		/** The row this panel currently sits in, or `null` for the ungrouped area. */
 		rowId: string | null;
@@ -97,6 +101,8 @@
 	 *  page load regardless of whether it's ever seen. Once true, stays true - see
 	 *  in-viewport.ts's own remarks on why this isn't a continuous show/hide. */
 	let visible = $state(false);
+
+	const visualization = $derived(parseVisualization(panel.visualization));
 
 	function panelTypeLabel(panelType: DashboardPanel['panelType']): string {
 		switch (panelType) {
@@ -249,7 +255,10 @@
 				<PanelVariablesPopover {variables} excludedVariableIds={panel.excludedVariableIds} onToggle={onToggleVariable} />
 			{/if}
 			{#if panel.panelType === 'Metrics'}
-				<YAxisBoundsPopover yAxisMin={panel.yAxisMin} yAxisMax={panel.yAxisMax} onApply={onSetYAxisBounds} />
+				<VisualizationMenu {visualization} reducer={panel.reducer ?? null} onChange={onSetVisualization} />
+				{#if usesYAxis(visualization)}
+					<YAxisBoundsPopover yAxisMin={panel.yAxisMin} yAxisMax={panel.yAxisMax} onApply={onSetYAxisBounds} />
+				{/if}
 				<ThresholdsPopover thresholds={panel.thresholds} onApply={onSetThresholds} />
 			{/if}
 			{#if rows.length > 0}
@@ -289,6 +298,9 @@
 					yAxisMin={panel.yAxisMin}
 					yAxisMax={panel.yAxisMax}
 					thresholds={panel.thresholds}
+					{visualization}
+					reducer={panel.reducer}
+					title={panel.title}
 				/>
 			{:else if panel.panelType === 'Traces'}
 				<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />

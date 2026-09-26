@@ -61,22 +61,13 @@ folders are where "what happened and why" actually lives.
   merge distinct from `HistogramQuantileEstimator`. Prior art: SigNoz's
   exponential-histogram table + quantile merge
   ([signoz#4525](https://github.com/SigNoz/signoz/commit/f734142419e928151a0f021d9febf7a2e6db5621)).
-- **Dashboard panel visualization types.** `PanelType` is only the data
-  source (`Logs`/`Traces`/`Metrics`), and a Metrics panel always renders
-  as a line chart - no bar, pie, single-value stat, or table rendering,
-  and no way to switch an existing panel's visualization in place
-  (keeping its query). Mostly frontend: a per-panel `visualization` field
-  alongside `panelType` in the dashboard's stored panel JSON. Not started.
-  Prior art: pie chart panel [signoz#4751](https://github.com/SigNoz/signoz/commit/a54b7baa7d4754fb752cc61a048f2f8ff167241c),
-  change panel type in place [signoz#4759](https://github.com/SigNoz/signoz/commit/6815a96d29e1c6ca0059621bf56b2949f7af378a).
-  Related per-visualization options worth folding in when built: value
-  histogram [signoz#4858](https://github.com/SigNoz/signoz/commit/7e9bf2d48da640b7203e4cd19cdf91575dedfde2),
-  stacked bars [signoz#5138](https://github.com/SigNoz/signoz/commit/f2aba5035a2f106be45848e5eee9e012da6ed5f4),
-  and for the table visualization: CSV download [signoz#5067](https://github.com/SigNoz/signoz/commit/76b1e40cbc2182165abbb538f32481265bd35b75),
-  per-column unit [signoz#5134](https://github.com/SigNoz/signoz/commit/2145e353c81ab22ef60b09e4f71b8917a3f16709),
-  click-to-sort columns [signoz#5114](https://github.com/SigNoz/signoz/commit/0760917a4b54bf6629a5c08d02201407797d00bf),
-  in-table search [signoz#5893](https://github.com/SigNoz/signoz/commit/cb1cd3555b3b63bdb441512dacdebf2599db67d7);
-  and units on pie-chart values [signoz#5960](https://github.com/SigNoz/signoz/commit/3573c0863c59711d48b28d91d4d775dbc4929666).
+- **Dashboard visualization follow-ups.** Metrics panels can switch
+  between line/bar/stacked bar/value/pie/table
+  ([ADR-0059](../adr/0059-dashboard-panel-visualizations.md)); two
+  per-visualization options are still missing. A value-distribution
+  histogram visualization [signoz#4858](https://github.com/SigNoz/signoz/commit/7e9bf2d48da640b7203e4cd19cdf91575dedfde2),
+  and a per-column unit override for the table [signoz#5134](https://github.com/SigNoz/signoz/commit/2145e353c81ab22ef60b09e4f71b8917a3f16709)
+  (today every column uses the metric's own unit).
 - **Research: does the Logs free-text search actually use `idx_body`?**
   `LogFilterSqlBuilder` compiles `Search` to `Body ILIKE '%…%'`, but
   `idx_body` (`db/clickhouse/0001_logs.sql`) is a `tokenbf_v1` index, and

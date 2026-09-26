@@ -122,6 +122,61 @@ ligne *en* mode édition enregistre cet état comme valeur par défaut de la
 ligne, c'est-à-dire ce que tout le monde voit à l'ouverture du tableau de
 bord.
 
+## Choisir la visualisation d'un panneau Metrics
+
+Par défaut, un panneau Metrics trace sa requête sous forme de courbe. En
+mode édition, son en-tête comporte une icône **graphique** qui change la
+façon dont ce même résultat est dessiné, sans toucher à la requête :
+
+| Visualisation | Affiche |
+|---|---|
+| **Série temporelle** | Une courbe par série dans le temps (par défaut). |
+| **Diagramme en barres** | Une barre par série dans chaque intervalle, côte à côte. |
+| **Barres empilées** | Les séries de chaque intervalle empilées en une seule barre, dont la hauteur est le total de l'intervalle. |
+| **Valeur** | Un seul grand nombre pour toute la requête. |
+| **Camembert** | La part de chaque série dans le total. |
+| **Tableau** | Une ligne par série, avec sa dernière valeur, son min, sa moyenne et son max (plus la somme pour une métrique Sum). |
+
+Les diagrammes en barres affichent au plus cinq séries, les cinq plus grandes ; la
+légende indique combien sont masquées. Un camembert affiche les quatre plus
+grandes séries et regroupe les autres dans **Autre**.
+
+Valeur, Camembert et Tableau réduisent chaque série à un seul nombre.
+Choisissez comment sous **Calcul** dans le même menu : **Dernière**,
+**Moyenne**, **Somme**, **Min** ou **Max**. **Auto** utilise **Somme** pour
+une métrique Sum (ses intervalles sont des comptages, donc les additionner
+donne le total de la plage) et **Moyenne** pour tout le reste. Un panneau
+Valeur dont la requête renvoie plusieurs séries additionne d'abord les
+séries dans chaque intervalle, pour que le nombre couvre toute la requête.
+
+Deux différences avec la courbe :
+
+- Les barres et les nombres d'une métrique Sum sont des comptages bruts par
+  intervalle, pas le **Taux** par seconde que la courbe affiche par défaut.
+- Une métrique Histogram utilise la **moyenne** de chaque intervalle
+  (somme ÷ nombre). Les percentiles ne peuvent pas être moyennés d'un
+  intervalle à l'autre, ils ne sont donc pas utilisés ici.
+
+Dans un tableau, cliquez sur un en-tête de colonne pour trier (cliquez à
+nouveau pour inverser), tapez dans le champ de recherche pour filtrer les
+séries par nom, et utilisez l'icône de **téléchargement** pour enregistrer
+ce qui est affiché en CSV. Le CSV contient les valeurs brutes dans l'unité
+propre de la métrique, sans suffixe d'unité, pour qu'un tableur puisse
+calculer dessus.
+
+Les [seuils visuels](#ajouter-des-seuils-visuels-à-un-panneau-metrics)
+fonctionnent sur toutes les visualisations sauf le camembert. Sur un panneau
+Valeur, ils colorent le nombre, et dans un tableau, ils colorent les
+cellules correspondantes. La
+[plage d'axe Y](#définir-une-plage-daxe-y-sur-un-panneau-metrics) ne
+s'applique qu'à la courbe et aux diagrammes en barres. Les barres partent toujours
+de zéro : une plage peut abaisser le plancher sous zéro, mais pas le
+relever.
+
+Les panneaux Logs et Traces n'ont qu'une visualisation fixe chacun (le
+graphique de volume d'événements et la liste des traces), ils n'ont donc
+pas ce menu.
+
 ## Définir une plage d'axe Y sur un panneau Metrics
 
 En mode édition, l'en-tête d'un panneau Metrics comporte aussi une icône
@@ -390,7 +445,10 @@ Depuis la page **Dashboards**, vous pouvez :
     panneaux) et les titres sont conservés, et le type de chaque panneau est
     mappé vers le plus proche des trois de Flare (panneaux de type
     série temporelle/stat/jauge → Metrics, panneaux logs/table → Logs,
-    panneaux de traces → Traces). **Les requêtes, elles, ne le sont pas** —
+    panneaux de traces → Traces). Un panneau Metrics conserve
+    aussi la visualisation la plus proche : les panneaux stat, gauge et bar
+    gauge deviennent **Valeur**, les bar charts deviennent **Diagramme en barres** et
+    les pie charts deviennent **Camembert**. **Les requêtes, elles, ne le sont pas** —
     la requête d'un panneau Grafana est écrite pour la source de données
     qu'il cible (PromQL, LogQL, ...), qui n'a aucun équivalent dans les
     formats de requête propres à Flare (logs/traces/métriques), donc la
@@ -450,6 +508,11 @@ d'accueil passent toujours avant.
   Les lignes Grafana sont aussi aplaties : leurs panneaux sont importés,
   mais pas sous forme de lignes Flare. Regroupez-les après l'import (voir
   « Regrouper des panneaux en lignes »).
+- **Les visualisations sont réservées aux panneaux Metrics, sans réglage par
+  colonne** — les panneaux Logs et Traces ne peuvent pas changer de
+  visualisation. Toutes les colonnes d'un tableau partagent l'unité de la
+  métrique (pas d'unité par colonne), et il n'existe pas encore de
+  visualisation en histogramme de distribution des valeurs.
 - **Pas d'import par panneau** — la duplication et l'export fonctionnent par
   panneau (voir « Modifier la disposition d'un tableau de bord » ci-dessus),
   mais le JSON exporté d'un panneau ne peut pas être réimporté ; seul

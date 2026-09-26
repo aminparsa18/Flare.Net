@@ -29,6 +29,7 @@ import { slugify } from './state.svelte';
 import { downloadBlob } from '$lib/logs/export';
 import { defaultSelection, resolveQueryVariableOptions, type VariableDependency } from './variables';
 import type { PanelThreshold } from './thresholds';
+import type { PanelReducer, PanelVisualization } from './visualization';
 import * as m from '$lib/paraglide/messages';
 
 export class DashboardViewerState {
@@ -398,6 +399,24 @@ export class DashboardViewerState {
 		try {
 			this.dashboard = await this.#saveLayout({
 				panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, thresholds: thresholds.length ? thresholds : undefined } : p))
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/** Switches `panelId`'s visualization and/or reducer in place (`DashboardPanel.
+	 *  visualization`/`reducer`) - the panel's `query` is untouched, so this is purely how the
+	 *  same result is drawn. Persisted through `#saveLayout` like `setPanelThresholds` above.
+	 *  The defaults (`timeSeries`, `null` reducer) clear the field rather than saving it. */
+	async setPanelVisualization(panelId: string, visualization: PanelVisualization, reducer: PanelReducer | null): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels.map((p) =>
+					p.id === panelId ? { ...p, visualization: visualization === 'timeSeries' ? undefined : visualization, reducer: reducer ?? undefined } : p
+				)
 			});
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);

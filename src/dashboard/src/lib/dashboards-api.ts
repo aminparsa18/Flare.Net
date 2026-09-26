@@ -19,6 +19,7 @@ import { Dashboard as GeneratedDashboard } from '$lib/memorypack/Dashboard';
 import { DashboardRequest as GeneratedDashboardRequest } from '$lib/memorypack/DashboardRequest';
 import { DashboardListResponse as GeneratedDashboardListResponse } from '$lib/memorypack/DashboardListResponse';
 import type { PanelThreshold } from '$lib/dashboards/thresholds';
+import type { PanelReducer, PanelVisualization } from '$lib/dashboards/visualization';
 
 // ---- Shared shapes (DashboardModels.cs) ------------------------------------
 
@@ -73,6 +74,22 @@ export interface DashboardPanel {
 	 * `$lib/dashboards/thresholds.ts` for the shape and the first-match-wins precedence rule.
 	 */
 	thresholds?: PanelThreshold[];
+	/**
+	 * How a `Metrics` panel's result is drawn (roadmap's "Dashboard panel visualization
+	 * types" item) - `panelType` stays the data source, this is switchable in place without
+	 * touching `query`. `undefined` means `'timeSeries'` (the line chart every panel had before
+	 * this existed); read it through `parseVisualization`, which also maps an unknown value to
+	 * that default. Meaningless for `Logs`/`Traces` panels. See
+	 * `$lib/dashboards/visualization.ts` and docs-internal/adr/0059-dashboard-panel-visualizations.md.
+	 */
+	visualization?: PanelVisualization;
+	/**
+	 * How each series collapses to one number for the `value`/`pie`/`table` visualizations.
+	 * `undefined` means the result type's default (`sum` for a Sum metric, `avg` otherwise -
+	 * see `defaultReducer`). Kept when switching to a visualization that doesn't use it, so
+	 * switching back restores it.
+	 */
+	reducer?: PanelReducer;
 	/**
 	 * `id` of the `DashboardRow` this panel sits under, or `undefined`/`null` for the
 	 * ungrouped area above every row (where every panel lived before rows existed).
