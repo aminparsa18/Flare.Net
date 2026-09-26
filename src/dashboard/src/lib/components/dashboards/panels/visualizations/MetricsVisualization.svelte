@@ -9,11 +9,12 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
-	import { reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelVisualization } from '$lib/dashboards/visualization';
+	import { parseColumnUnits, reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelVisualization } from '$lib/dashboards/visualization';
 	import BarVisualization from './BarVisualization.svelte';
 	import ValueVisualization from './ValueVisualization.svelte';
 	import PieVisualization from './PieVisualization.svelte';
 	import TableVisualization from './TableVisualization.svelte';
+	import HistogramVisualization from './HistogramVisualization.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -22,7 +23,8 @@
 		title,
 		yAxisMin = null,
 		yAxisMax = null,
-		thresholds = []
+		thresholds = [],
+		columnUnits: rawColumnUnits
 	}: {
 		visualization: Exclude<PanelVisualization, 'timeSeries'>;
 		/** The panel's stored `reducer` - unvalidated; resolved against the result type below. */
@@ -31,6 +33,8 @@
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
 		thresholds?: PanelThreshold[];
+		/** The panel's stored `columnUnits` - unvalidated; only the Table reads it. */
+		columnUnits?: unknown;
 	} = $props();
 
 	const explorer = metricsExplorerContext.get();
@@ -42,6 +46,7 @@
 	const unit = $derived(isFormula ? null : (explorer.selected?.unit ?? null));
 	const series = $derived(toVizSeries(isFormula ? explorer.formulaSeries : explorer.series, resultType));
 	const reducer = $derived(resolveReducer(rawReducer, resultType));
+	const columnUnits = $derived(parseColumnUnits(rawColumnUnits));
 	const loading = $derived(isFormula ? explorer.formulaLoading : explorer.queryLoading);
 	const error = $derived(isFormula ? explorer.formulaError : explorer.queryError);
 	const hasData = $derived(series.some((s) => s.points.length > 0));
@@ -73,6 +78,8 @@
 	{:else if visualization === 'pie'}
 		<PieVisualization {entries} {unit} />
 	{:else if visualization === 'table'}
-		<TableVisualization {series} {unit} {reducer} includeSum={resultType === 'Sum'} {title} {thresholds} />
+		<TableVisualization {series} {unit} {columnUnits} {reducer} includeSum={resultType === 'Sum'} {title} {thresholds} />
+	{:else if visualization === 'histogram'}
+		<HistogramVisualization {series} {unit} {thresholds} />
 	{/if}
 </div>

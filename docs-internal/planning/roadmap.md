@@ -46,13 +46,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Dashboard visualization follow-ups.** Metrics panels can switch
-  between line/bar/stacked bar/value/pie/table
-  ([ADR-0059](../adr/0059-dashboard-panel-visualizations.md)); two
-  per-visualization options are still missing. A value-distribution
-  histogram visualization [signoz#4858](https://github.com/SigNoz/signoz/commit/7e9bf2d48da640b7203e4cd19cdf91575dedfde2),
-  and a per-column unit override for the table [signoz#5134](https://github.com/SigNoz/signoz/commit/2145e353c81ab22ef60b09e4f71b8917a3f16709)
-  (today every column uses the metric's own unit).
 - **Research: does the Logs free-text search actually use `idx_body`?**
   `LogFilterSqlBuilder` compiles `Search` to `Body ILIKE '%…%'`, but
   `idx_body` (`db/clickhouse/0001_logs.sql`) is a `tokenbf_v1` index, and

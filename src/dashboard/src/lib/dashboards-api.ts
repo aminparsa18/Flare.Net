@@ -91,6 +91,12 @@ export interface DashboardPanel {
 	 */
 	reducer?: PanelReducer;
 	/**
+	 * Per-column unit overrides for the `table` visualization, keyed by the column's reducer
+	 * (`{ sum: 'By', avg: 'ms' }`). A missing key uses the metric's own unit. Read through
+	 * `parseColumnUnits`. Kept when switching visualization, like `reducer`.
+	 */
+	columnUnits?: Partial<Record<PanelReducer, string>>;
+	/**
 	 * `id` of the `DashboardRow` this panel sits under, or `undefined`/`null` for the
 	 * ungrouped area above every row (where every panel lived before rows existed).
 	 * `layout.y` is relative to that row's own grid, not the whole dashboard - each row is

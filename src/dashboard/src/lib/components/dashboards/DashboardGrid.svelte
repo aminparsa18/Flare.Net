@@ -47,6 +47,7 @@
 		onSetYAxisBounds,
 		onSetThresholds,
 		onSetVisualization,
+		onSetColumnUnits,
 		onMoveToRow
 	}: {
 		/** Only this grid's own section's panels - the ungrouped area and each row are separate grids (see `panelsInRow`). */
@@ -71,6 +72,7 @@
 		onSetYAxisBounds: (id: string, min: number | null, max: number | null) => void;
 		onSetThresholds: (id: string, thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (id: string, visualization: PanelVisualization, reducer: PanelReducer | null) => void;
+		onSetColumnUnits: (id: string, columnUnits: Partial<Record<PanelReducer, string>>) => void;
 		onMoveToRow: (id: string, rowId: string | null) => void;
 	} = $props();
 
@@ -153,6 +155,7 @@
 					onSetYAxisBounds={(min, max) => onSetYAxisBounds(panel.id, min, max)}
 					onSetThresholds={(thresholds) => onSetThresholds(panel.id, thresholds)}
 					onSetVisualization={(visualization, reducer) => onSetVisualization(panel.id, visualization, reducer)}
+					onSetColumnUnits={(columnUnits) => onSetColumnUnits(panel.id, columnUnits)}
 					{rows}
 					{rowId}
 					onMoveToRow={(target) => onMoveToRow(panel.id, target)}

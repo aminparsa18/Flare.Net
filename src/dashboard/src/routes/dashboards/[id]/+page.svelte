@@ -328,6 +328,7 @@
 		onSetYAxisBounds={(id, min, max) => viewer.setPanelYAxisBounds(id, min, max)}
 		onSetThresholds={(id, thresholds) => viewer.setPanelThresholds(id, thresholds)}
 		onSetVisualization={(id, visualization, reducer) => viewer.setPanelVisualization(id, visualization, reducer)}
+		onSetColumnUnits={(id, columnUnits) => viewer.setPanelColumnUnits(id, columnUnits)}
 		onMoveToRow={(id, target) => viewer.movePanelToRow(id, target)}
 	/>
 {/snippet}

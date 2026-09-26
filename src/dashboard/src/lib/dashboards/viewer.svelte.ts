@@ -423,6 +423,20 @@ export class DashboardViewerState {
 		}
 	}
 
+	/** Replaces `panelId`'s Table-visualization per-column unit overrides
+	 *  (`DashboardPanel.columnUnits`) through `#saveLayout`. An empty map clears the field. */
+	async setPanelColumnUnits(panelId: string, columnUnits: Partial<Record<PanelReducer, string>>): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, columnUnits: Object.keys(columnUnits).length ? columnUnits : undefined } : p))
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	async removePanel(panelId: string): Promise<void> {
 		const dashboard = this.dashboard;
 		if (!dashboard) return;

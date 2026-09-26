@@ -3,13 +3,14 @@
 // Explorer's query a panel embeds); `visualization` is how that query's result is drawn,
 // switchable in place without touching the query. Frontend-only, persisted inside the
 // dashboard's opaque `layoutJson` like `thresholds`/`yAxisMin` - no backend/schema change.
-// See docs-internal/adr/0059-dashboard-panel-visualizations.md.
+// See docs-internal/adr/0059-dashboard-panel-visualizations.md (and 0061 for the histogram
+// visualization and per-column table units).
 //
 // Only Metrics panels have alternatives: a Logs panel is a volume chart and a Traces panel a
 // trace list, neither of which is a numeric series set these reshapes apply to.
 
 import { isHistogramType, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
-import { formatAtScale, resolveAxisScale } from '$lib/metrics/axis';
+import { formatAtScale, niceAxisTicks, resolveAxisScale, type AxisScale } from '$lib/metrics/axis';
 
 /** One standalone reading (a Value panel's number, a table cell, a pie legend entry), scaled
  *  on its own magnitude - "1.2 s" next to "300 ms" - unlike a chart axis, where every tick
@@ -18,9 +19,9 @@ export function formatValue(raw: number, unit: string | null | undefined): strin
 	return formatAtScale(raw, resolveAxisScale(unit, Math.abs(raw)));
 }
 
-export type PanelVisualization = 'timeSeries' | 'bar' | 'stackedBar' | 'value' | 'pie' | 'table';
+export type PanelVisualization = 'timeSeries' | 'bar' | 'stackedBar' | 'value' | 'pie' | 'table' | 'histogram';
 
-export const PANEL_VISUALIZATIONS: readonly PanelVisualization[] = ['timeSeries', 'bar', 'stackedBar', 'value', 'pie', 'table'];
+export const PANEL_VISUALIZATIONS: readonly PanelVisualization[] = ['timeSeries', 'bar', 'stackedBar', 'value', 'pie', 'table', 'histogram'];
 
 /** How a series' per-bucket values collapse into the one number a Value/Pie panel (and the
  *  Table's highlighted column) shows. */
@@ -188,6 +189,56 @@ export function pieSlicePath(cx: number, cy: number, r: number, startFraction: n
 	const [x2, y2] = point(endFraction);
 	const largeArc = endFraction - startFraction > 0.5 ? 1 : 0;
 	return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+}
+
+/** One value-distribution histogram bin: `[from, to)`, except the last bin, which also holds `to`. */
+export interface HistogramBin {
+	from: number;
+	to: number;
+	count: number;
+}
+
+/**
+ * Value-distribution histogram (the `histogram` visualization): every bucket reading of
+ * every series pooled, then counted into equal-width bins - "how often was the value in
+ * this range", not "what was the value at this time". Bin edges are `niceAxisTicks`' round
+ * values in the display scale ("0 / 100 / 200 ms", not "0 / 97.3 / 194.6"), aiming for
+ * Sturges' ceil(log2 n) + 1 bins, clamped to 5..30 so a handful of readings still spreads
+ * out and a long range doesn't turn into slivers. All readings equal = one bin holding them.
+ */
+export function histogramBins(values: readonly number[], unit: string | null): { bins: HistogramBin[]; scale: AxisScale } {
+	const finite = values.filter((v) => Number.isFinite(v));
+	if (finite.length === 0) return { bins: [], scale: resolveAxisScale(unit, 0) };
+	const lo = Math.min(...finite);
+	const hi = Math.max(...finite);
+	const scale = resolveAxisScale(unit, Math.max(Math.abs(lo), Math.abs(hi)));
+	if (lo === hi) return { bins: [{ from: lo, to: hi, count: finite.length }], scale };
+	const target = Math.min(30, Math.max(5, Math.ceil(Math.log2(finite.length)) + 1));
+	const edges = niceAxisTicks(lo, hi, scale, target).values;
+	const step = edges[1] - edges[0];
+	const bins: HistogramBin[] = edges.slice(0, -1).map((from, i) => ({ from, to: edges[i + 1], count: 0 }));
+	for (const v of finite) {
+		// The epsilon keeps a value sitting exactly on an edge (0.3 with a 0.1 step) out of the bin below it.
+		const index = Math.min(bins.length - 1, Math.max(0, Math.floor((v - edges[0]) / step + 1e-9)));
+		bins[index].count++;
+	}
+	return { bins, scale };
+}
+
+/**
+ * A Table panel's per-column unit overrides (`DashboardPanel.columnUnits`), keyed by the
+ * column's reducer. Lenient like `parseVisualization`: unknown keys and blank/non-string
+ * values are dropped, so a column falls back to the metric's own unit.
+ */
+export function parseColumnUnits(raw: unknown): Partial<Record<PanelReducer, string>> {
+	const out: Partial<Record<PanelReducer, string>> = {};
+	if (raw == null || typeof raw !== 'object') return out;
+	for (const [key, value] of Object.entries(raw)) {
+		if (PANEL_REDUCERS.includes(key as PanelReducer) && typeof value === 'string' && value.trim()) {
+			out[key as PanelReducer] = value.trim();
+		}
+	}
+	return out;
 }
 
 function csvEscape(value: string): string {

@@ -117,6 +117,7 @@ without touching the query:
 | **Value** | One big number for the whole query. |
 | **Pie chart** | Each series' share of the total. |
 | **Table** | One row per series, with its last, min, average and max (plus sum for a Sum metric). |
+| **Histogram** | How often the query's values fell in each range: value ranges along the bottom, number of readings up the side. |
 
 Bar charts show at most five series, the five largest; the legend says how
 many are hidden. A pie chart shows the four largest series and folds the
@@ -141,9 +142,25 @@ type in the search box to filter series by name, and use the **download**
 icon to save what's shown as CSV. The CSV holds raw values in the metric's
 own unit, with no unit suffix, so a spreadsheet can do arithmetic on them.
 
+A table column shows the metric's own unit unless you override it. In edit
+mode, a Table panel's header has a **ruler** icon: type a unit for any
+column (for example `ms`, `s`, `By` or `By/s`) and click **Apply**. The unit
+says what the raw number is in, and Flare scales it from there, so `ms`
+reads 1500 as "1.5 s". This is how you give units to a Formula panel, whose
+result has none, or fix a metric that doesn't declare one. An unrecognized
+unit is shown as a plain suffix. Leave a column blank (or click **Clear**)
+to go back to the metric's unit.
+
+A histogram pools every time-bucket reading of every series into one
+distribution (each reading is the same one-number-per-bucket value the other
+visualizations use, so a Histogram metric contributes its bucket means). The
+value ranges are round numbers ("0 / 50 / 100 ms"), with fewer, wider ranges
+when there are only a few readings. Hover a bar to see its range and count.
+
 [Visual thresholds](#adding-visual-thresholds-to-a-metrics-panel) work on
-every visualization except Pie. On a Value panel they color the number, and
-in a table they color matching cells. The
+every visualization except Pie. On a Value panel they color the number, in
+a table they color matching cells, and on a histogram they color the bars
+whose range matches (a "> 300 ms" rule turns the slow tail red). The
 [Y-axis range](#setting-a-y-axis-range-on-a-metrics-panel) only applies to
 the line and bar charts. Bars always start at zero, so a range can lower the
 floor below zero but not raise it.
@@ -374,8 +391,8 @@ From the **Dashboards** page you can:
     type maps to the closest of Flare's three (time-series/stat/gauge-style
     panels → Metrics, logs/table panels → Logs, trace panels → Traces). A
     Metrics panel also keeps the nearest visualization: stat, gauge and bar
-    gauge panels become **Value**, bar charts become **Bar chart**, and pie
-    charts become **Pie chart**.
+    gauge panels become **Value**, bar charts become **Bar chart**, pie
+    charts become **Pie chart**, and histogram panels become **Histogram**.
     **Queries don't** — a Grafana panel's query is written against whatever
     datasource it points at (PromQL, LogQL, ...), which has no equivalent in
     Flare's own log/trace/metric query shapes, so every imported panel's
@@ -428,10 +445,9 @@ always takes priority over it.
   to build real query translation; the datasources don't correspond.
   Grafana rows are flattened too: their panels come over, but not as Flare
   rows. Regroup them after importing (see "Grouping panels into rows").
-- **Visualizations are Metrics-only, with no per-column settings** — Logs
-  and Traces panels can't switch visualization. Table columns all share the
-  metric's unit (no per-column unit override), and there's no value
-  histogram (distribution) visualization yet.
+- **Visualizations are Metrics-only** — Logs and Traces panels can't switch
+  visualization. The histogram pools all series into one distribution;
+  there's no per-series breakdown.
 - **No per-panel import** — duplicate and export work per-panel (see
   "Editing a dashboard's layout" above), but a panel's exported JSON can't
   be read back in; only a whole dashboard's export/import round-trips.
