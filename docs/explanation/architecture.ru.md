@@ -182,6 +182,18 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 
 ![Trace detail waterfall](../screenshots/traces-ru.webp)
 
+### Очереди сообщений
+
+`/messaging` — по строке на каждый топик Kafka, очередь RabbitMQ или
+сущность Service Bus: скорость публикации и потребления, доля ошибок,
+задержка p99 и, для Kafka, отставание потребителей. Всё вычисляется во
+время запроса из атрибутов OTel `messaging.*` спанов производителей и
+потребителей, поэтому отдельный агент или таблица не нужны; отставание
+берётся из ресивера `kafkametrics` коллектора, если он настроен. Нажмите на
+топик, чтобы увидеть его производителей, потребителей, партиции и
+отставание по группам. См. [`../how-to/monitor-message-queues.ru.md`](../how-to/monitor-message-queues.ru.md)
+и [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md).
+
 ### Метрики
 
 `/metrics` — каждый OTLP-инструмент метрик (Sum, Gauge, Histogram),

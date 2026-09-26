@@ -177,6 +177,17 @@ a service's trace entry points, the same convention the trace list itself
 uses for "one row per trace". Click a service name to jump back into the
 trace list, pre-filtered to that service and window.
 
+### Messaging
+
+`/messaging` — one row per Kafka topic, RabbitMQ queue or Service Bus
+entity, with publish and consume rates, error rate, p99 latency and, for
+Kafka, consumer lag. It is computed from producer and consumer spans'
+OTel `messaging.*` attributes at query time, so there's no extra agent or
+table; lag comes from the collector's `kafkametrics` receiver when it's
+present. Click a topic for its producers, consumers, partitions and
+per-group lag. See [`../how-to/monitor-message-queues.md`](../how-to/monitor-message-queues.md)
+and [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md).
+
 ### Metrics
 
 `/metrics` — every OTLP metric instrument (Sum, Gauge, Histogram) reported

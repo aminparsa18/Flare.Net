@@ -36,6 +36,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Configurer l'authentification](how-to/configure-authentication.fr.md)
 - [Exécution en mode cluster](how-to/run-cluster-mode.fr.md)
 - [Surveiller des hôtes avec l'OpenTelemetry Collector](how-to/monitor-hosts.fr.md)
+- [Surveiller des files de messages](how-to/monitor-message-queues.fr.md)
 
 **Référence**
 - [Commandes CLI](reference/cli-commands.fr.md)

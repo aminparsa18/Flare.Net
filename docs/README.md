@@ -36,6 +36,7 @@ the full rule set on what goes where.
 - [Build a custom dashboard](how-to/build-custom-dashboards.md)
 - [Extract or redact fields at ingest](how-to/manage-pipeline-rules.md)
 - [Monitor hosts with the OpenTelemetry Collector](how-to/monitor-hosts.md)
+- [Monitor message queues](how-to/monitor-message-queues.md)
 
 **Reference**
 - [CLI commands](reference/cli-commands.md)

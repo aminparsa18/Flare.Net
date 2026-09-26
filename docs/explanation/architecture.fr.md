@@ -187,6 +187,19 @@ Jaeger/Zipkin mais connectée directement au reste du tableau de bord.
 
 ![Trace detail waterfall](../screenshots/trace-detail.png)
 
+### Messagerie
+
+`/messaging` — une ligne par topic Kafka, file RabbitMQ ou entité Service
+Bus, avec les débits de publication et de consommation, le taux d'erreur,
+la latence p99 et, pour Kafka, le retard des consommateurs. Tout est
+calculé au moment de la requête à partir des attributs OTel `messaging.*`
+des spans producteurs et consommateurs : ni agent ni table
+supplémentaires. Le retard provient du récepteur `kafkametrics` du
+collecteur lorsqu'il est présent. Cliquez sur un topic pour voir ses
+producteurs, ses consommateurs, ses partitions et le retard par groupe.
+Voir [`../how-to/monitor-message-queues.fr.md`](../how-to/monitor-message-queues.fr.md)
+et [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md).
+
 ### Métriques
 
 `/metrics` — chaque instrument de métrique OTLP (Sum, Gauge, Histogram)

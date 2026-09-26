@@ -214,6 +214,7 @@ builder.Services.AddSingleton<IServiceCallBreakdownQueryService, ServiceCallBrea
 builder.Services.AddSingleton<IHostInventoryQueryService, HostInventoryQueryService>();
 builder.Services.AddSingleton<IPodMetricsQueryService, PodMetricsQueryService>();
 builder.Services.AddSingleton<IExceptionQueryService, ExceptionQueryService>();
+builder.Services.AddSingleton<IMessagingQueryService, MessagingQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
@@ -412,6 +413,7 @@ authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapHostInventoryEndpoints();
 authenticatedRoutes.MapPodMetricsEndpoints();
 authenticatedRoutes.MapExceptionEndpoints();
+authenticatedRoutes.MapMessagingEndpoints();
 authenticatedRoutes.MapSavedViewEndpoints();
 authenticatedRoutes.MapDashboardEndpoints();
 authenticatedRoutes.MapIngestionEndpoints();
