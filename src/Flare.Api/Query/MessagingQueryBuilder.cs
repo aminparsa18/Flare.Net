@@ -10,9 +10,10 @@ public sealed record MessagingSql(string Sql, ClickHouseParameterCollection Para
 /// <summary>
 /// Pure SQL builder for the <c>/messaging</c> page (<c>POST /api/messaging/destinations</c>
 /// and <c>POST /api/messaging/destination-detail</c>) - producer/consumer figures derived
-/// from spans' OTel <c>messaging.*</c> attributes at query time, plus consumer lag from the
-/// <c>kafka.consumer_group.lag</c> gauge. No new table; see
-/// docs-internal/adr/0056-messaging-queue-monitoring.md.
+/// from spans' OTel <c>messaging.*</c> attributes at query time, plus backlog from broker
+/// metrics: Kafka consumer lag from the <c>kafka.consumer_group.lag</c> gauge, RabbitMQ queue
+/// depth from <c>rabbitmq.message.current</c>. No new table; see
+/// docs-internal/adr/0056-messaging-queue-monitoring.md and 0057-rabbitmq-queue-depth.md.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -61,8 +62,25 @@ public static class MessagingQueryBuilder
     public const string PublishRole = "publish";
     public const string ConsumeRole = "consume";
 
+    /// <summary>The OTel Collector <c>rabbitmq</c> receiver's per-queue message count (resource attributes <c>rabbitmq.vhost.name</c>/<c>rabbitmq.queue.name</c>, datapoint attribute <c>state</c> = <c>ready</c>/<c>unacknowledged</c>). A non-monotonic sum, so it lands in <c>metrics_sum</c>.</summary>
+    public const string QueueDepthMetric = "rabbitmq.message.current";
+
     public const string SystemExpr = "SpanAttributes['messaging.system']";
-    public const string DestinationExpr = "SpanAttributes['messaging.destination.name']";
+
+    public const string RoutingKeyExpr = "SpanAttributes['messaging.rabbitmq.destination.routing_key']";
+
+    /// <summary>
+    /// <c>messaging.destination.name</c>, except for RabbitMQ's default exchange: RabbitMQ.Client
+    /// 7 sets the destination to the exchange and reports the default one as
+    /// <c>amq.default</c>, which would fold every directly-addressed queue into one row. The
+    /// default exchange routes by queue name, so the routing key is the queue - the destination
+    /// the semantic conventions ask for when the exchange is empty. See ADR-0057.
+    /// </summary>
+    public const string DestinationExpr =
+        $"if({SystemExpr} = 'rabbitmq' AND {RawDestinationExpr} IN ('', 'amq.default') AND {RoutingKeyExpr} != '', " +
+        $"{RoutingKeyExpr}, {RawDestinationExpr})";
+
+    public const string RawDestinationExpr = "SpanAttributes['messaging.destination.name']";
 
     public const string OperationExpr =
         "if(SpanAttributes['messaging.operation.type'] != '', SpanAttributes['messaging.operation.type'], SpanAttributes['messaging.operation'])";
@@ -106,7 +124,8 @@ public static class MessagingQueryBuilder
             $"    quantilesIf(0.5, 0.99)(DurationNano, Role = '{ConsumeRole}') AS ConsumeQuantiles,\n" +
             $"    uniqExactIf(ServiceName, Role = '{PublishRole}') AS ProducerServiceCount,\n" +
             $"    uniqExactIf(ServiceName, Role = '{ConsumeRole}') AS ConsumerServiceCount,\n" +
-            "    avg(BodySize) AS AvgMessageBytes\n" +
+            "    avg(BodySize) AS AvgMessageBytes,\n" +
+            $"    {RoutingKeysAgg} AS RoutingKeys\n" +
             $"FROM {SpanSource(where)}\n" +
             "GROUP BY MsgSystem, MsgDestination\n" +
             "ORDER BY PublishCount + ConsumeCount DESC, MsgSystem, MsgDestination\n" +
@@ -223,6 +242,73 @@ public static class MessagingQueryBuilder
         return new MessagingSql(sql, parameters);
     }
 
+    /// <summary>One destination's distinct routing keys (one row, one sorted array) - the queue-matching input for the drill-down, same as <see cref="BuildDestinations"/>'s <c>RoutingKeys</c> column.</summary>
+    public static MessagingSql BuildRoutingKeys(MessagingDestinationDetailRequest request, int windowMinutes, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = SpanWhere(parameters, windowMinutes, end, request.Service, request.System, request.Destination);
+
+        return new MessagingSql($"SELECT {RoutingKeysAgg} AS RoutingKeys\nFROM {SpanSource(where)}", parameters);
+    }
+
+    /// <summary>
+    /// Latest <see cref="QueueDepthMetric"/> per queue in the window, restricted to
+    /// <paramref name="queues"/> (columns: Vhost, Queue, Ready, Unacknowledged). <c>argMax</c>
+    /// per <c>(vhost, queue, state)</c> - deliberately not per node, so a queue whose leader
+    /// moved mid-window isn't counted once per node.
+    /// </summary>
+    public static MessagingSql BuildQueueDepth(int windowMinutes, DateTimeOffset end, IReadOnlyCollection<string> queues)
+    {
+        var parameters = TimeParameters(windowMinutes, end);
+        parameters.AddParameter("depthMetric", QueueDepthMetric);
+        parameters.AddParameter("queues", queues.ToArray());
+        parameters.AddParameter("limit", (uint)(MaxDestinations + 1));
+
+        var sql = "SELECT Vhost, Queue,\n" +
+            "    toInt64(round(sumIf(Value, State = 'ready'))) AS Ready,\n" +
+            "    toInt64(round(sumIf(Value, State = 'unacknowledged'))) AS Unacknowledged\n" +
+            "FROM (\n" +
+            "    SELECT\n" +
+            "        ResourceAttributes['rabbitmq.vhost.name'] AS Vhost,\n" +
+            "        ResourceAttributes['rabbitmq.queue.name'] AS Queue,\n" +
+            "        DataPointAttributes['state'] AS State,\n" +
+            "        argMax(Value, Time) AS Value\n" +
+            "    FROM metrics_sum\n" +
+            "    WHERE MetricName = {depthMetric:String} AND Time >= {from:DateTime64(9)} AND Time < {to:DateTime64(9)}\n" +
+            "        AND ResourceAttributes['rabbitmq.queue.name'] IN {queues:Array(String)}\n" +
+            "    GROUP BY Vhost, Queue, State\n" +
+            ")\n" +
+            "GROUP BY Vhost, Queue\n" +
+            "ORDER BY Queue, Vhost\n" +
+            "LIMIT {limit:UInt32}";
+
+        return new MessagingSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// The RabbitMQ queue names a destination row stands for: the destination itself (a queue
+    /// addressed directly, or an exchange named after its queue - MassTransit's convention) plus
+    /// each routing key its spans carried (a direct exchange routes a key to the queue bound
+    /// under that name). Topic/fanout routing that doesn't name a queue simply doesn't match -
+    /// the row's backlog stays null rather than guessing.
+    /// </summary>
+    public static IReadOnlyList<string> QueueCandidates(string destination, IEnumerable<string> routingKeys)
+    {
+        var candidates = new List<string>();
+        foreach (var name in routingKeys.Prepend(destination))
+        {
+            if (name.Length > 0 && !candidates.Contains(name, StringComparer.Ordinal))
+            {
+                candidates.Add(name);
+            }
+        }
+
+        return candidates;
+    }
+
+    /// <summary>Distinct non-empty routing keys, capped at 20 - past a handful they're topic-exchange keys that won't name a queue anyway.</summary>
+    private const string RoutingKeysAgg = "arraySort(groupUniqArrayIf(20)(MsgRoutingKey, MsgRoutingKey != ''))";
+
     /// <summary>
     /// The per-span projection every spans query here aggregates over, filtered to classified
     /// spans: the inner level classifies each span (<c>SpanRole</c>) and derives the attribute
@@ -247,6 +333,7 @@ public static class MessagingQueryBuilder
         $"            {DestinationExpr} AS MsgDestination,\n" +
         $"            {PartitionExpr} AS MsgPartition,\n" +
         $"            {ConsumerGroupExpr} AS MsgGroup,\n" +
+        $"            {RoutingKeyExpr} AS MsgRoutingKey,\n" +
         "            toUInt64OrNull(SpanAttributes['messaging.message.body.size']) AS BodySize,\n" +
         $"            {SpanRoleExpr} AS SpanRole\n" +
         "        FROM spans\n" +
@@ -283,8 +370,11 @@ public static class MessagingQueryBuilder
 
         if (destination is not null)
         {
+            // The raw attribute comparison can use idx_span_attr_value; the RabbitMQ-normalizing
+            // if() can't, so it's only paid for where it can change the answer.
             parameters.AddParameter("destination", destination);
-            clauses.Add($"{DestinationExpr} = {{destination:String}}");
+            var destinationExpr = system == "rabbitmq" ? DestinationExpr : RawDestinationExpr;
+            clauses.Add($"{destinationExpr} = {{destination:String}}");
         }
 
         return string.Join(" AND ", clauses);

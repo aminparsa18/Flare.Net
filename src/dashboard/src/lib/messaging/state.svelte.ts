@@ -25,7 +25,7 @@ export type MessagingSortColumn =
 	| 'errorRate'
 	| 'publishP99Ms'
 	| 'consumeP99Ms'
-	| 'consumerLag';
+	| 'backlog';
 
 /** Publish + consume errors over publish + consume spans, 0-1. */
 export function destinationErrorRate(d: MessagingDestination): number {
@@ -131,12 +131,12 @@ export class MessagingState {
 					return direction * (a.destination.localeCompare(b.destination) || a.system.localeCompare(b.system));
 				case 'errorRate':
 					return direction * (destinationErrorRate(a) - destinationErrorRate(b));
-				case 'consumerLag': {
-					// No lag metric sorts last either way - "not collected" isn't a value between two readings.
-					if (a.consumerLag == null && b.consumerLag == null) return 0;
-					if (a.consumerLag == null) return 1;
-					if (b.consumerLag == null) return -1;
-					return direction * (a.consumerLag - b.consumerLag);
+				case 'backlog': {
+					// No backlog metric sorts last either way - "not collected" isn't a value between two readings.
+					if (a.backlog == null && b.backlog == null) return 0;
+					if (a.backlog == null) return 1;
+					if (b.backlog == null) return -1;
+					return direction * (a.backlog - b.backlog);
 				}
 				default:
 					return direction * (a[column] - b[column]);

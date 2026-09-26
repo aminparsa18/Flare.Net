@@ -22,6 +22,9 @@
 	// a column of zeros that reads as "nothing was published".
 	const partitionPublishKnown = $derived((detail?.partitions ?? []).some((p) => p.publishCount > 0));
 	const totalLag = $derived((detail?.consumerLag ?? []).reduce((sum, l) => sum + l.lag, 0));
+	const totalDepth = $derived((detail?.queueDepth ?? []).reduce((sum, q) => sum + q.ready + q.unacknowledged, 0));
+	// Only worth a column when the same queue name exists in more than one vhost.
+	const showVhost = $derived(new Set((detail?.queueDepth ?? []).map((q) => q.vhost)).size > 1);
 
 	function rate(perSecond: number): string {
 		return m.servicesTable_requestRateValue({ rate: formatRequestRate(perSecond) });
@@ -159,6 +162,45 @@
 												<Table.Cell>{l.consumerGroup}</Table.Cell>
 												<Table.Cell class="tabular-nums">{l.partition}</Table.Cell>
 												<Table.Cell class="text-right tabular-nums">{formatCount(l.lag)}</Table.Cell>
+											</Table.Row>
+										{/each}
+									</Table.Body>
+								</Table.Root>
+							{/if}
+						</section>
+					{/if}
+
+					{#if detail.system === 'rabbitmq'}
+						<section class="space-y-2">
+							<h2 class="text-sm font-medium">
+								{m.messagingPage_queueDepthHeading()}
+								{#if detail.queueDepth.length > 0}
+									<span class="text-muted-foreground font-normal"> · {m.messagingPage_lagTotal({ lag: formatCount(totalDepth) })}</span>
+								{/if}
+							</h2>
+							{#if detail.queueDepth.length === 0}
+								<p class="text-muted-foreground text-sm">{m.messagingPage_queueDepthHint()}</p>
+							{:else}
+								<Table.Root>
+									<Table.Header>
+										<Table.Row>
+											<Table.Head>{m.messagingPage_queueColumn()}</Table.Head>
+											{#if showVhost}
+												<Table.Head>{m.messagingPage_vhostColumn()}</Table.Head>
+											{/if}
+											<Table.Head class="text-right">{m.messagingPage_readyColumn()}</Table.Head>
+											<Table.Head class="text-right">{m.messagingPage_unackedColumn()}</Table.Head>
+										</Table.Row>
+									</Table.Header>
+									<Table.Body>
+										{#each detail.queueDepth as q (q.vhost + '\u0000' + q.queue)}
+											<Table.Row>
+												<Table.Cell>{q.queue}</Table.Cell>
+												{#if showVhost}
+													<Table.Cell>{q.vhost}</Table.Cell>
+												{/if}
+												<Table.Cell class="text-right tabular-nums">{formatCount(q.ready)}</Table.Cell>
+												<Table.Cell class="text-right tabular-nums">{formatCount(q.unacknowledged)}</Table.Cell>
 											</Table.Row>
 										{/each}
 									</Table.Body>

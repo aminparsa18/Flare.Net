@@ -45,7 +45,7 @@ using var consumer = consumerBuilder.Build();
 | Error rate | 带错误状态的发布和消费 span 所占比例 |
 | Publish p99 / Consume p99 | span 时长的第 99 百分位 |
 | Producers / consumers | 向其发布和从中消费的服务数量 |
-| Consumer lag | 仅限 Kafka，见[下文](#查看-kafka-消费者延迟) |
+| Backlog | 等待处理的消息：Kafka 消费者延迟或 RabbitMQ 队列深度，见 [Kafka](#查看-kafka-消费者延迟) 和 [RabbitMQ](#查看-rabbitmq-队列深度) |
 
 消费延迟是消费 span 自身的时长：对 `process` span 是处理时间，对只发出 `receive` span 的消费者是拉取时间。它不是消息在队列中等待的时间。
 
@@ -91,10 +91,39 @@ service:
 
 从 0.161 版本起，Collector 将该接收器命名为 `kafka_metrics`。旧名称 `kafkametrics` 仍然可用，但会记录弃用警告。
 
-**Consumer lag** 列显示每个主题在时间窗口内的最新延迟，按所有消费者组和分区求和。**—** 表示该主题的指标未被采集，绝不会显示为 0。
+对于 Kafka 主题，**Backlog** 列显示时间窗口内的最新延迟，按所有消费者组和分区求和。**—** 表示该主题的指标未被采集，绝不会显示为 0。
+
+## 查看 RabbitMQ 队列深度
+
+RabbitMQ.Client 按发布到的 exchange 而不是队列为每一行命名。通过默认 exchange 发送的消息例外：Flare 会把它们分别显示在各自的路由键下，也就是队列名。
+
+队列深度来自 `rabbitmq.message.current` 指标，由 OpenTelemetry Collector 的 `rabbitmq` 接收器导出。该接收器读取 RabbitMQ 的管理 API，因此需要启用 `rabbitmq_management` 插件，并为接收器提供一个带 `monitoring` 标签的用户：
+
+```yaml
+receivers:
+  rabbitmq:
+    endpoint: http://rabbitmq:15672
+    username: otel
+    password: ${env:RABBITMQ_PASSWORD}
+    collection_interval: 30s
+
+exporters:
+  otlp:
+    endpoint: flare.example.internal:4317   # 你的 Flare.Ingest 主机
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [rabbitmq]
+      exporters: [otlp]
+```
+
+Flare 按名称把队列匹配到某一行：使用该行自身的名称以及其 span 携带的每个路由键。这涵盖了直接发布到的队列、以其队列命名的 exchange（MassTransit 的约定），以及路由键等于队列名的 direct exchange。**Backlog** 列显示匹配队列最新的就绪 + 未确认消息数。打开该行可查看每个队列的这两个计数。路由键不对应任何队列的 topic 或 fanout exchange 显示 **—**。
 
 ## 故障排查
 
 **某个主题或队列没有出现。** 打开它的一条追踪，检查生产者或消费者 span 的属性。它需要 `messaging.system`，以及操作属性或 `PRODUCER`/`CONSUMER` span 类型之一。
 
-**主题或队列名称显示为 “(unnamed)”。** 插桩没有设置 `messaging.destination.name`，例如发布到 RabbitMQ 默认 exchange 时。
+**主题或队列名称显示为 “(unnamed)”。** 插桩没有设置 `messaging.destination.name`。

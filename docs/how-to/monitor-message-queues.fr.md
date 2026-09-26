@@ -61,7 +61,7 @@ topic ou à une file :
 | Error rate | Part des spans de publication et de consommation en erreur |
 | Publish p99 / Consume p99 | Durée de span au 99e centile |
 | Producers / consumers | Nombre de services qui y ont publié et qui l'ont consommé |
-| Consumer lag | Kafka uniquement, voir [plus bas](#voir-le-retard-des-consommateurs-kafka) |
+| Backlog | Messages en attente : retard des consommateurs Kafka ou profondeur des files RabbitMQ, voir [Kafka](#voir-le-retard-des-consommateurs-kafka) et [RabbitMQ](#voir-la-profondeur-des-files-rabbitmq) |
 
 La latence de consommation est la durée du span de consommation lui-même : le
 temps de traitement pour un span `process`, ou le temps de récupération pour un
@@ -130,10 +130,52 @@ service:
 `kafka_metrics`. L'ancien nom `kafkametrics` fonctionne toujours mais journalise
 un avertissement de dépréciation.
 
-La colonne **Consumer lag** affiche le dernier retard de chaque topic sur la
+Pour un topic Kafka, la colonne **Backlog** affiche le dernier retard sur la
 fenêtre, additionné sur tous les groupes de consommateurs et partitions. Un
 **—** signifie que la métrique n'est pas collectée pour ce topic. Elle n'est
 jamais affichée comme 0.
+
+## Voir la profondeur des files RabbitMQ
+
+RabbitMQ.Client nomme chaque ligne d'après l'exchange sur lequel il a
+publié, pas d'après la file. Les messages envoyés par l'exchange par défaut
+font exception : Flare affiche chacun d'eux sous sa clé de routage, qui est
+le nom de la file.
+
+La profondeur des files provient de la métrique `rabbitmq.message.current`,
+exportée par le récepteur `rabbitmq` de l'OpenTelemetry Collector. Il lit
+l'API de gestion de RabbitMQ : activez le plugin `rabbitmq_management` et
+donnez au récepteur un utilisateur doté du tag `monitoring` :
+
+```yaml
+receivers:
+  rabbitmq:
+    endpoint: http://rabbitmq:15672
+    username: otel
+    password: ${env:RABBITMQ_PASSWORD}
+    collection_interval: 30s
+
+exporters:
+  otlp:
+    endpoint: flare.example.internal:4317   # votre hôte Flare.Ingest
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [rabbitmq]
+      exporters: [otlp]
+```
+
+Flare associe les files à une ligne par leur nom. Il utilise le nom de la
+ligne et chaque clé de routage portée par ses spans. Cela couvre les files
+sur lesquelles on publie directement, les exchanges nommés d'après leur file
+(la convention de MassTransit) et les exchanges directs dont la clé de
+routage est le nom de la file. La colonne **Backlog** affiche le dernier
+total prêts + non acquittés des files associées. Ouvrez la ligne pour voir
+ces deux compteurs pour chaque file. Un exchange topic ou fanout dont les
+clés de routage ne nomment aucune file affiche **—**.
 
 ## Dépannage
 
@@ -143,5 +185,4 @@ les attributs du span producteur ou consommateur. Il lui faut
 `PRODUCER`/`CONSUMER`.
 
 **Le nom du topic ou de la file est « (unnamed) ».** L'instrumentation n'a pas
-défini `messaging.destination.name`, par exemple lors d'une publication sur
-l'exchange par défaut de RabbitMQ.
+défini `messaging.destination.name`.

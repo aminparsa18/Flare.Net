@@ -76,12 +76,15 @@ public sealed partial record MessagingDestination
     public required double? AvgMessageBytes { get; init; }
 
     /// <summary>
-    /// Kafka only: the sum over every consumer group and partition of the latest
-    /// <c>kafka.consumer_group.lag</c> gauge value in the window (the OTel Collector's
-    /// <c>kafkametrics</c> receiver). Null when that metric isn't being collected for this
-    /// topic - not the same as 0.
+    /// Messages waiting on this destination, from broker metrics rather than spans. Kafka: the
+    /// sum over every consumer group and partition of the latest <c>kafka.consumer_group.lag</c>
+    /// value in the window (the OTel Collector's <c>kafkametrics</c> receiver). RabbitMQ: the
+    /// latest ready + unacknowledged <c>rabbitmq.message.current</c> of every queue matched to
+    /// this destination (the Collector's <c>rabbitmq</c> receiver; see
+    /// <see cref="Query.MessagingQueryBuilder.QueueCandidates"/>). Null when no such metric is
+    /// being collected for this destination - not the same as 0.
     /// </summary>
-    public required long? ConsumerLag { get; init; }
+    public required long? Backlog { get; init; }
 }
 
 /// <summary>
@@ -183,6 +186,24 @@ public sealed partial record MessagingConsumerLag
     public required long Lag { get; init; }
 }
 
+/// <summary>The latest <c>rabbitmq.message.current</c> values in the window for one RabbitMQ queue.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record MessagingQueueDepth
+{
+    /// <summary><c>rabbitmq.vhost.name</c> resource attribute.</summary>
+    public required string Vhost { get; init; }
+
+    /// <summary><c>rabbitmq.queue.name</c> resource attribute.</summary>
+    public required string Queue { get; init; }
+
+    /// <summary>Messages waiting to be delivered (<c>state</c> = <c>ready</c>).</summary>
+    public required long Ready { get; init; }
+
+    /// <summary>Messages delivered but not yet acked (<c>state</c> = <c>unacknowledged</c>).</summary>
+    public required long Unacknowledged { get; init; }
+}
+
 /// <summary>Response body for <c>POST /api/messaging/destination-detail</c>. Hand-written on the MemoryPack TS side, same reason as <see cref="MessagingDestinationsResponse"/>.</summary>
 [MemoryPackable]
 public sealed partial record MessagingDestinationDetailResponse
@@ -205,4 +226,7 @@ public sealed partial record MessagingDestinationDetailResponse
 
     /// <summary>Empty when <c>kafka.consumer_group.lag</c> isn't collected for this topic (or the destination isn't Kafka).</summary>
     public required IReadOnlyList<MessagingConsumerLag> ConsumerLag { get; init; }
+
+    /// <summary>RabbitMQ only: the queues matched to this destination. Empty when the <c>rabbitmq</c> receiver's metrics aren't collected (or the destination isn't RabbitMQ).</summary>
+    public required IReadOnlyList<MessagingQueueDepth> QueueDepth { get; init; }
 }

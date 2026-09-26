@@ -8,6 +8,7 @@ import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js'
 import { MessagingServiceStats } from '$lib/generated/memorypack/MessagingServiceStats.js';
 import { MessagingPartitionStats } from '$lib/generated/memorypack/MessagingPartitionStats.js';
 import { MessagingConsumerLag } from '$lib/generated/memorypack/MessagingConsumerLag.js';
+import { MessagingQueueDepth } from '$lib/generated/memorypack/MessagingQueueDepth.js';
 
 export class MessagingDestinationDetailResponse {
 	system: string | null;
@@ -17,6 +18,7 @@ export class MessagingDestinationDetailResponse {
 	consumers: (MessagingServiceStats | null)[] | null;
 	partitions: (MessagingPartitionStats | null)[] | null;
 	consumerLag: (MessagingConsumerLag | null)[] | null;
+	queueDepth: (MessagingQueueDepth | null)[] | null;
 
 	constructor() {
 		this.system = null;
@@ -26,6 +28,7 @@ export class MessagingDestinationDetailResponse {
 		this.consumers = null;
 		this.partitions = null;
 		this.consumerLag = null;
+		this.queueDepth = null;
 	}
 
 	static serialize(value: MessagingDestinationDetailResponse | null): Uint8Array {
@@ -40,7 +43,7 @@ export class MessagingDestinationDetailResponse {
 			return;
 		}
 
-		writer.writeObjectHeader(7);
+		writer.writeObjectHeader(8);
 		writer.writeString(value.system);
 		writer.writeString(value.destination);
 		writer.writeInt32(value.windowMinutes);
@@ -48,6 +51,7 @@ export class MessagingDestinationDetailResponse {
 		writer.writeArray(value.consumers, (writer, x) => MessagingServiceStats.serializeCore(writer, x));
 		writer.writeArray(value.partitions, (writer, x) => MessagingPartitionStats.serializeCore(writer, x));
 		writer.writeArray(value.consumerLag, (writer, x) => MessagingConsumerLag.serializeCore(writer, x));
+		writer.writeArray(value.queueDepth, (writer, x) => MessagingQueueDepth.serializeCore(writer, x));
 	}
 
 	static deserialize(buffer: ArrayBuffer): MessagingDestinationDetailResponse | null {
@@ -61,7 +65,7 @@ export class MessagingDestinationDetailResponse {
 		}
 
 		const value = new MessagingDestinationDetailResponse();
-		if (count > 7) {
+		if (count > 8) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		}
 		if (count == 0) return value;
@@ -78,6 +82,8 @@ export class MessagingDestinationDetailResponse {
 		value.partitions = reader.readArray((reader) => MessagingPartitionStats.deserializeCore(reader));
 		if (count == 6) return value;
 		value.consumerLag = reader.readArray((reader) => MessagingConsumerLag.deserializeCore(reader));
+		if (count == 7) return value;
+		value.queueDepth = reader.readArray((reader) => MessagingQueueDepth.deserializeCore(reader));
 		return value;
 	}
 }

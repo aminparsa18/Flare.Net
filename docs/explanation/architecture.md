@@ -180,13 +180,15 @@ trace list, pre-filtered to that service and window.
 ### Messaging
 
 `/messaging` — one row per Kafka topic, RabbitMQ queue or Service Bus
-entity, with publish and consume rates, error rate, p99 latency and, for
-Kafka, consumer lag. It is computed from producer and consumer spans'
-OTel `messaging.*` attributes at query time, so there's no extra agent or
-table; lag comes from the collector's `kafkametrics` receiver when it's
-present. Click a topic for its producers, consumers, partitions and
-per-group lag. See [`../how-to/monitor-message-queues.md`](../how-to/monitor-message-queues.md)
-and [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md).
+entity, with publish and consume rates, error rate, p99 latency and a
+backlog: Kafka consumer lag or RabbitMQ queue depth. The rates and latencies
+are computed from producer and consumer spans' OTel `messaging.*` attributes
+at query time, so there's no extra agent or table. The backlog comes from
+the collector's `kafkametrics` or `rabbitmq` receiver when one is present.
+Click a row for its producers, consumers, partitions, per-group lag or
+per-queue depth. See [`../how-to/monitor-message-queues.md`](../how-to/monitor-message-queues.md),
+[ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) and
+[ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md).
 
 ### Metrics
 

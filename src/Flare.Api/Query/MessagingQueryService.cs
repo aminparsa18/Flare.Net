@@ -19,8 +19,11 @@ public interface IMessagingQueryService
 /// </summary>
 public sealed class MessagingQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IMessagingQueryService
 {
-    /// <summary>The <c>messaging.system</c> value Kafka instrumentations set - the only system consumer lag is looked up for.</summary>
+    /// <summary>The <c>messaging.system</c> value Kafka instrumentations set - the system consumer lag is looked up for.</summary>
     private const string KafkaSystem = "kafka";
+
+    /// <summary>The <c>messaging.system</c> value RabbitMQ instrumentations set - the system queue depth is looked up for.</summary>
+    private const string RabbitMqSystem = "rabbitmq";
 
     public async Task<MessagingDestinationsResponse> GetDestinationsAsync(MessagingDestinationsRequest request, CancellationToken cancellationToken)
     {
@@ -29,6 +32,7 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
         var seconds = windowMinutes * 60.0;
 
         var destinations = new List<MessagingDestination>();
+        var routingKeys = new List<string[]>();
         var built = MessagingQueryBuilder.BuildDestinations(request, windowMinutes, end);
         await using (var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken))
         {
@@ -55,8 +59,9 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
                     ProducerServiceCount = reader.GetFieldValue<ulong>(8),
                     ConsumerServiceCount = reader.GetFieldValue<ulong>(9),
                     AvgMessageBytes = ReadNullableDouble(reader, 10),
-                    ConsumerLag = null,
+                    Backlog = null,
                 });
+                routingKeys.Add(reader.GetFieldValue<string[]>(11));
             }
         }
 
@@ -76,7 +81,45 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
             {
                 if (destinations[i].System == KafkaSystem && lagByTopic.TryGetValue(destinations[i].Destination, out var lag))
                 {
-                    destinations[i] = destinations[i] with { ConsumerLag = lag };
+                    destinations[i] = destinations[i] with { Backlog = lag };
+                }
+            }
+        }
+
+        if (destinations.Exists(d => d.System == RabbitMqSystem))
+        {
+            var candidates = new List<IReadOnlyList<string>?>(destinations.Count);
+            var allQueues = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < destinations.Count; i++)
+            {
+                var queues = destinations[i].System == RabbitMqSystem
+                    ? MessagingQueryBuilder.QueueCandidates(destinations[i].Destination, routingKeys[i])
+                    : null;
+                candidates.Add(queues);
+                allQueues.UnionWith(queues ?? []);
+            }
+
+            // A queue name can repeat across vhosts; destinations don't carry a vhost, so those add up.
+            var depthByQueue = new Dictionary<string, long>(StringComparer.Ordinal);
+            foreach (var depth in await ReadQueueDepthAsync(windowMinutes, end, allQueues, cancellationToken))
+            {
+                depthByQueue[depth.Queue] = depthByQueue.GetValueOrDefault(depth.Queue) + depth.Ready + depth.Unacknowledged;
+            }
+
+            for (var i = 0; i < destinations.Count; i++)
+            {
+                long? backlog = null;
+                foreach (var queue in candidates[i] ?? [])
+                {
+                    if (depthByQueue.TryGetValue(queue, out var depth))
+                    {
+                        backlog = (backlog ?? 0) + depth;
+                    }
+                }
+
+                if (backlog is not null)
+                {
+                    destinations[i] = destinations[i] with { Backlog = backlog };
                 }
             }
         }
@@ -168,6 +211,22 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
             }
         }
 
+        IReadOnlyList<MessagingQueueDepth> queueDepth = [];
+        if (request.System == RabbitMqSystem)
+        {
+            string[] routingKeys = [];
+            var keysSql = MessagingQueryBuilder.BuildRoutingKeys(request, windowMinutes, end);
+            await using (var reader = await client.ExecuteReaderAsync(keysSql.Sql, keysSql.Parameters, SafetyOptions(), cancellationToken))
+            {
+                if (reader.Read())
+                {
+                    routingKeys = reader.GetFieldValue<string[]>(0);
+                }
+            }
+
+            queueDepth = await ReadQueueDepthAsync(windowMinutes, end, MessagingQueryBuilder.QueueCandidates(request.Destination, routingKeys), cancellationToken);
+        }
+
         return new MessagingDestinationDetailResponse
         {
             System = request.System,
@@ -177,7 +236,32 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
             Consumers = Cap(consumers),
             Partitions = partitions,
             ConsumerLag = lag,
+            QueueDepth = queueDepth,
         };
+    }
+
+    private async Task<List<MessagingQueueDepth>> ReadQueueDepthAsync(int windowMinutes, DateTimeOffset end, IReadOnlyCollection<string> queues, CancellationToken cancellationToken)
+    {
+        var rows = new List<MessagingQueueDepth>();
+        if (queues.Count == 0)
+        {
+            return rows;
+        }
+
+        var depthSql = MessagingQueryBuilder.BuildQueueDepth(windowMinutes, end, queues);
+        await using var reader = await client.ExecuteReaderAsync(depthSql.Sql, depthSql.Parameters, SafetyOptions(), cancellationToken);
+        while (reader.Read() && rows.Count < MessagingQueryBuilder.MaxDestinations)
+        {
+            rows.Add(new MessagingQueueDepth
+            {
+                Vhost = reader.GetString(0),
+                Queue = reader.GetString(1),
+                Ready = reader.GetFieldValue<long>(2),
+                Unacknowledged = reader.GetFieldValue<long>(3),
+            });
+        }
+
+        return rows;
     }
 
     /// <summary><c>quantilesIf</c> yields <c>nan</c> for a side with no matching spans - reported as 0, which the dashboard shows as "-" off the zero count anyway.</summary>

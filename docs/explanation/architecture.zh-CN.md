@@ -108,7 +108,7 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 ### 消息队列
 
-`/messaging` — 每个 Kafka 主题、RabbitMQ 队列或 Service Bus 实体一行，显示发布和消费速率、错误率、p99 延迟，以及 Kafka 的消费者延迟。这些数据在查询时根据生产者和消费者 span 的 OTel `messaging.*` 属性计算，无需额外的代理或数据表；消费者延迟在配置了 Collector 的 `kafkametrics` 接收器时从中读取。点击主题可查看其生产者、消费者、分区以及按消费者组的延迟。参见 [`../how-to/monitor-message-queues.zh-CN.md`](../how-to/monitor-message-queues.zh-CN.md) 和 [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md)。
+`/messaging` — 每个 Kafka 主题、RabbitMQ 队列或 Service Bus 实体一行，显示发布和消费速率、错误率、p99 延迟，以及积压（Kafka 消费者延迟或 RabbitMQ 队列深度）。速率和延迟在查询时根据生产者和消费者 span 的 OTel `messaging.*` 属性计算，无需额外的代理或数据表；积压在配置了 Collector 的 `kafkametrics` 或 `rabbitmq` 接收器时从中读取。点击一行可查看其生产者、消费者、分区、按消费者组的延迟或按队列的深度。参见 [`../how-to/monitor-message-queues.zh-CN.md`](../how-to/monitor-message-queues.zh-CN.md)、[ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) 和 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md)。
 
 ### 指标
 

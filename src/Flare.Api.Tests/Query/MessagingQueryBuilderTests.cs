@@ -150,4 +150,60 @@ public class MessagingQueryBuilderTests
         Assert.Contains("GROUP BY Topic", result.Sql);
         Assert.DoesNotContain("{topic:String}", result.Sql);
     }
+
+    [Fact]
+    public void DestinationExpr_UsesRoutingKeyForRabbitMqDefaultExchangeOnly()
+    {
+        var expr = MessagingQueryBuilder.DestinationExpr;
+
+        Assert.StartsWith("if(SpanAttributes['messaging.system'] = 'rabbitmq' AND SpanAttributes['messaging.destination.name'] IN ('', 'amq.default')", expr);
+        Assert.Contains($"AND {MessagingQueryBuilder.RoutingKeyExpr} != '', {MessagingQueryBuilder.RoutingKeyExpr}, SpanAttributes['messaging.destination.name'])", expr);
+    }
+
+    [Fact]
+    public void BuildDestinations_ReturnsRoutingKeysAsTheLastColumn()
+    {
+        var result = MessagingQueryBuilder.BuildDestinations(new MessagingDestinationsRequest(), 60, End);
+
+        Assert.Contains("arraySort(groupUniqArrayIf(20)(MsgRoutingKey, MsgRoutingKey != '')) AS RoutingKeys\nFROM", result.Sql);
+        Assert.Contains($"{MessagingQueryBuilder.RoutingKeyExpr} AS MsgRoutingKey", result.Sql);
+    }
+
+    [Fact]
+    public void BuildRoutingKeys_FiltersToTheDestination()
+    {
+        var request = new MessagingDestinationDetailRequest { System = "rabbitmq", Destination = "orders-ex" };
+
+        var result = MessagingQueryBuilder.BuildRoutingKeys(request, 60, End);
+
+        Assert.StartsWith("SELECT arraySort(groupUniqArrayIf(20)(MsgRoutingKey, MsgRoutingKey != '')) AS RoutingKeys", result.Sql);
+        Assert.Contains($"{MessagingQueryBuilder.DestinationExpr} = {{destination:String}}", result.Sql);
+        Assert.Equal("orders-ex", result.Parameters.ToDictionary()["destination"]);
+    }
+
+    [Fact]
+    public void BuildQueueDepth_TakesLatestPerQueueAndState_NotPerNode()
+    {
+        var result = MessagingQueryBuilder.BuildQueueDepth(60, End, ["orders", "payments"]);
+
+        Assert.Contains("FROM metrics_sum", result.Sql);
+        Assert.Contains("ResourceAttributes['rabbitmq.queue.name'] IN {queues:Array(String)}", result.Sql);
+        Assert.Contains("GROUP BY Vhost, Queue, State\n", result.Sql);
+        Assert.DoesNotContain("rabbitmq.node.name", result.Sql);
+        Assert.Contains("sumIf(Value, State = 'ready')", result.Sql);
+        Assert.Contains("sumIf(Value, State = 'unacknowledged')", result.Sql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal(MessagingQueryBuilder.QueueDepthMetric, parameters["depthMetric"]);
+        Assert.Equal(new[] { "orders", "payments" }, parameters["queues"]);
+    }
+
+    [Theory]
+    [InlineData("orders-ex", new[] { "orders" }, new[] { "orders-ex", "orders" })]
+    [InlineData("payments", new[] { "payments" }, new[] { "payments" })]
+    [InlineData("", new[] { "a", "", "b" }, new[] { "a", "b" })]
+    [InlineData("", new string[0], new string[0])]
+    public void QueueCandidates_IsDestinationPlusRoutingKeys_DistinctAndNonEmpty(string destination, string[] routingKeys, string[] expected)
+    {
+        Assert.Equal(expected, MessagingQueryBuilder.QueueCandidates(destination, routingKeys));
+    }
 }
