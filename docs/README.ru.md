@@ -36,6 +36,7 @@
 - [Настройка аутентификации](how-to/configure-authentication.ru.md)
 - [Запуск в кластерном режиме](how-to/run-cluster-mode.ru.md)
 - [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor-hosts.ru.md)
+- [Мониторинг очередей сообщений](how-to/monitor-message-queues.ru.md)
 
 **Справочник**
 - [Команды CLI](reference/cli-commands.ru.md)

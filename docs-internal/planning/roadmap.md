@@ -97,12 +97,6 @@ folders are where "what happened and why" actually lives.
   an additive `ngrambf_v1` index on `lower(Body)` with the search rewritten
   as `lower(Body) LIKE lower(…)` (new migration + probably an ADR). Prior
   art: [signoz#4787](https://github.com/SigNoz/signoz/commit/1585065fff9b7853d63e64abebf2887ecc42cc72).
-- **Messaging-queue (Kafka etc.) monitoring.** Per-topic/partition producer
-  and consumer throughput, latency and consumer lag, derived from spans'
-  OTel `messaging.*` semantic-convention attributes (plus Kafka consumer-lag
-  metrics where a collector exports them). Nothing in Flare covers this
-  today. Large - its own page and probably its own ADR. Not started. Prior
-  art: [signoz 481bb6e](https://github.com/SigNoz/signoz/commit/481bb6e8b8d68b40d5b6706b91bb78b71d59a3c7).
 - **Create/invite additional local users.** With local auth,
   `/api/auth/bootstrap` creates only the first admin, and
   `UserEndpoints` can list users, change a role and disable a user, but not

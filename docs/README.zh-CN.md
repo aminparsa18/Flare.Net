@@ -36,6 +36,7 @@
 -[Configure authentication](how-to/configure-authentication.zh-CN.md)
 -[Run in cluster mode](how-to/run-cluster-mode.zh-CN.md)
 -[使用 OpenTelemetry Collector 监控主机](how-to/monitor-hosts.zh-CN.md)
+- [监控消息队列](how-to/monitor-message-queues.zh-CN.md)
 
 **参考**
 -[CLI commands](reference/cli-commands.zh-CN.md)
