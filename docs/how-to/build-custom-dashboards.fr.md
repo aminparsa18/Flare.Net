@@ -136,6 +136,7 @@ façon dont ce même résultat est dessiné, sans toucher à la requête :
 | **Valeur** | Un seul grand nombre pour toute la requête. |
 | **Camembert** | La part de chaque série dans le total. |
 | **Tableau** | Une ligne par série, avec sa dernière valeur, son min, sa moyenne et son max (plus la somme pour une métrique Sum). |
+| **Histogramme** | La fréquence à laquelle les valeurs de la requête tombent dans chaque plage : les plages de valeurs en bas, le nombre de mesures sur le côté. |
 
 Les diagrammes en barres affichent au plus cinq séries, les cinq plus grandes ; la
 légende indique combien sont masquées. Un camembert affiche les quatre plus
@@ -164,10 +165,30 @@ ce qui est affiché en CSV. Le CSV contient les valeurs brutes dans l'unité
 propre de la métrique, sans suffixe d'unité, pour qu'un tableur puisse
 calculer dessus.
 
+Une colonne de tableau affiche l'unité propre de la métrique, sauf si vous
+la remplacez. En mode édition, l'en-tête d'un panneau Tableau a une icône de
+**règle** : saisissez une unité pour n'importe quelle colonne (par exemple
+`ms`, `s`, `By` ou `By/s`) et cliquez sur **Appliquer**. L'unité indique dans
+quelle unité est exprimé le nombre brut, et Flare le met à l'échelle à partir
+de là : avec `ms`, 1500 s'affiche « 1.5 s ». C'est ainsi qu'on donne une
+unité à un panneau Formule, dont le résultat n'en a pas, ou qu'on corrige une
+métrique qui n'en déclare pas. Une unité non reconnue s'affiche telle quelle
+en suffixe. Laissez une colonne vide (ou cliquez sur **Effacer**) pour revenir
+à l'unité de la métrique.
+
+Un histogramme regroupe toutes les mesures par intervalle de temps de toutes
+les séries en une seule distribution (chaque mesure est la même valeur « un
+nombre par intervalle » qu'utilisent les autres visualisations ; une
+métrique Histogram contribue donc ses moyennes par intervalle). Les plages de
+valeurs sont des nombres ronds (« 0 / 50 / 100 ms »), moins nombreuses et
+plus larges quand il y a peu de mesures. Survolez une barre pour voir sa
+plage et son effectif.
+
 Les [seuils visuels](#ajouter-des-seuils-visuels-à-un-panneau-metrics)
 fonctionnent sur toutes les visualisations sauf le camembert. Sur un panneau
-Valeur, ils colorent le nombre, et dans un tableau, ils colorent les
-cellules correspondantes. La
+Valeur, ils colorent le nombre, dans un tableau, les cellules
+correspondantes, et sur un histogramme, les barres dont la plage correspond
+(une règle « > 300 ms » colore la traîne lente en rouge). La
 [plage d'axe Y](#définir-une-plage-daxe-y-sur-un-panneau-metrics) ne
 s'applique qu'à la courbe et aux diagrammes en barres. Les barres partent toujours
 de zéro : une plage peut abaisser le plancher sous zéro, mais pas le
@@ -447,8 +468,9 @@ Depuis la page **Dashboards**, vous pouvez :
     série temporelle/stat/jauge → Metrics, panneaux logs/table → Logs,
     panneaux de traces → Traces). Un panneau Metrics conserve
     aussi la visualisation la plus proche : les panneaux stat, gauge et bar
-    gauge deviennent **Valeur**, les bar charts deviennent **Diagramme en barres** et
-    les pie charts deviennent **Camembert**. **Les requêtes, elles, ne le sont pas** —
+    gauge deviennent **Valeur**, les bar charts deviennent **Diagramme en barres**,
+    les pie charts deviennent **Camembert** et les panneaux histogram
+    deviennent **Histogramme**. **Les requêtes, elles, ne le sont pas** —
     la requête d'un panneau Grafana est écrite pour la source de données
     qu'il cible (PromQL, LogQL, ...), qui n'a aucun équivalent dans les
     formats de requête propres à Flare (logs/traces/métriques), donc la
@@ -508,11 +530,10 @@ d'accueil passent toujours avant.
   Les lignes Grafana sont aussi aplaties : leurs panneaux sont importés,
   mais pas sous forme de lignes Flare. Regroupez-les après l'import (voir
   « Regrouper des panneaux en lignes »).
-- **Les visualisations sont réservées aux panneaux Metrics, sans réglage par
-  colonne** — les panneaux Logs et Traces ne peuvent pas changer de
-  visualisation. Toutes les colonnes d'un tableau partagent l'unité de la
-  métrique (pas d'unité par colonne), et il n'existe pas encore de
-  visualisation en histogramme de distribution des valeurs.
+- **Les visualisations sont réservées aux panneaux Metrics** — les panneaux
+  Logs et Traces ne peuvent pas changer de visualisation. L'histogramme
+  regroupe toutes les séries en une seule distribution ; il n'y a pas de
+  détail par série.
 - **Pas d'import par panneau** — la duplication et l'export fonctionnent par
   panneau (voir « Modifier la disposition d'un tableau de bord » ci-dessus),
   mais le JSON exporté d'un panneau ne peut pas être réimporté ; seul

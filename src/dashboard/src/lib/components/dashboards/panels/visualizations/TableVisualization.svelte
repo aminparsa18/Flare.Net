@@ -5,7 +5,9 @@
 	// initial sort, largest first. The search box filters rows by series label; the download
 	// button exports exactly what's shown (filtered + sorted) as CSV with raw, unscaled
 	// values. Cells matching a threshold rule take its color. Sort/search are session-only
-	// view state, never saved to the panel.
+	// view state, never saved to the panel. A column's unit is the metric's own unless the
+	// panel's `columnUnits` overrides it (ColumnUnitsPopover.svelte) - e.g. giving a
+	// unit-less formula result "ms", or reading a Sum column as bytes.
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
@@ -22,6 +24,7 @@
 	let {
 		series,
 		unit,
+		columnUnits = {},
 		reducer,
 		includeSum,
 		title,
@@ -29,6 +32,8 @@
 	}: {
 		series: VizSeries[];
 		unit: string | null;
+		/** Already-parsed per-column overrides (`parseColumnUnits`); a missing key uses `unit`. */
+		columnUnits?: Partial<Record<PanelReducer, string>>;
 		reducer: PanelReducer;
 		/** Whether a Sum column makes sense for this data (a Sum metric's increments) - see the header comment. */
 		includeSum: boolean;
@@ -128,7 +133,7 @@
 								style={match ? `color: ${thresholdColorValue(match.color)};` : undefined}
 								title={v == null ? undefined : String(v)}
 							>
-								{v == null ? '-' : formatValue(v, unit)}
+								{v == null ? '-' : formatValue(v, columnUnits[c] ?? unit)}
 							</td>
 						{/each}
 					</tr>

@@ -27,6 +27,7 @@
 	import MoveToRowMenu from './MoveToRowMenu.svelte';
 	import PanelDescriptionPopover from './PanelDescriptionPopover.svelte';
 	import VisualizationMenu from './VisualizationMenu.svelte';
+	import ColumnUnitsPopover from './ColumnUnitsPopover.svelte';
 	import { parseVisualization, usesYAxis, type PanelReducer, type PanelVisualization } from '$lib/dashboards/visualization';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
@@ -60,6 +61,7 @@
 		onSetYAxisBounds,
 		onSetThresholds,
 		onSetVisualization,
+		onSetColumnUnits,
 		rows,
 		rowId,
 		onMoveToRow
@@ -80,6 +82,7 @@
 		onSetYAxisBounds: (min: number | null, max: number | null) => void;
 		onSetThresholds: (thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (visualization: PanelVisualization, reducer: PanelReducer | null) => void;
+		onSetColumnUnits: (columnUnits: Partial<Record<PanelReducer, string>>) => void;
 		rows: DashboardRow[];
 		/** The row this panel currently sits in, or `null` for the ungrouped area. */
 		rowId: string | null;
@@ -259,6 +262,9 @@
 				{#if usesYAxis(visualization)}
 					<YAxisBoundsPopover yAxisMin={panel.yAxisMin} yAxisMax={panel.yAxisMax} onApply={onSetYAxisBounds} />
 				{/if}
+				{#if visualization === 'table'}
+					<ColumnUnitsPopover columnUnits={panel.columnUnits} onApply={onSetColumnUnits} />
+				{/if}
 				<ThresholdsPopover thresholds={panel.thresholds} onApply={onSetThresholds} />
 			{/if}
 			{#if rows.length > 0}
@@ -300,6 +306,7 @@
 					thresholds={panel.thresholds}
 					{visualization}
 					reducer={panel.reducer}
+					columnUnits={panel.columnUnits}
 					title={panel.title}
 				/>
 			{:else if panel.panelType === 'Traces'}

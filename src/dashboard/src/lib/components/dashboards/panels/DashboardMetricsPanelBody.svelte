@@ -54,6 +54,7 @@
 		thresholds,
 		visualization = 'timeSeries',
 		reducer,
+		columnUnits,
 		title = ''
 	}: {
 		query: unknown;
@@ -71,6 +72,8 @@
 		visualization?: PanelVisualization;
 		/** This panel's own `DashboardPanel.reducer`, unvalidated - see MetricsVisualization. */
 		reducer?: unknown;
+		/** This panel's own `DashboardPanel.columnUnits`, unvalidated - only a Table visualization reads it. */
+		columnUnits?: unknown;
 		/** The panel's title - only used to name a Table visualization's CSV download. */
 		title?: string;
 	} = $props();
@@ -129,7 +132,7 @@
 </script>
 
 {#if visualization !== 'timeSeries'}
-	<MetricsVisualization {visualization} {reducer} {title} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
+	<MetricsVisualization {visualization} {reducer} {columnUnits} {title} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else if explorer.mode === 'formula'}
 	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else}

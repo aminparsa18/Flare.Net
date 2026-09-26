@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Per-panel "Visualization" menu (roadmap's "Dashboard panel visualization types" item) -
-	// switches a Metrics panel between line/bar/stacked bar/value/pie/table in place, keeping
+	// switches a Metrics panel between line/bar/stacked bar/value/pie/table/histogram in place, keeping
 	// its query, plus the reducer the single-number visualizations collapse each series with.
 	// Only rendered by DashboardPanelCard.svelte for Metrics panels while `editing`, same
 	// gating as YAxisBoundsPopover/ThresholdsPopover. See
@@ -21,6 +21,7 @@
 	import HashIcon from '@lucide/svelte/icons/hash';
 	import ChartPieIcon from '@lucide/svelte/icons/chart-pie';
 	import TableIcon from '@lucide/svelte/icons/table';
+	import HistogramIcon from '@lucide/svelte/icons/chart-no-axes-column';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -40,7 +41,8 @@
 		stackedBar: ChartColumnStackedIcon,
 		value: HashIcon,
 		pie: ChartPieIcon,
-		table: TableIcon
+		table: TableIcon,
+		histogram: HistogramIcon
 	} as const;
 
 	// bits-ui's RadioGroup value is a string, so "default reducer" (`null`) needs a sentinel.
