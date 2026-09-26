@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Flare.Api.Json;
+using Flare.Api.Model;
 using Flare.Api.Query;
 
 namespace Flare.Api.Endpoints;
@@ -7,7 +9,10 @@ namespace Flare.Api.Endpoints;
 /// The Indexing page's endpoints: <c>GET /api/indexing/stats</c> and
 /// <c>GET /api/indexing/cluster</c>. No query params on either - see
 /// <see cref="IndexingQueryService"/>/<see cref="ClusterQueryService"/>'s remarks for why
-/// there's no filter to accept.
+/// there's no filter to accept. <c>GET /api/indexing/promoted-attributes</c> lists promoted
+/// attribute columns (ADR-0062) for any authenticated user; promoting/demoting one is
+/// schema DDL on the whole <c>logs</c> table, so those live in
+/// <see cref="MapPromotedAttributeAdminEndpoints"/>, mapped onto Program.cs's Admin-only group.
 /// </summary>
 public static class IndexingEndpoints
 {
@@ -15,8 +20,67 @@ public static class IndexingEndpoints
     {
         endpoints.MapGet("/api/indexing/stats", HandleGetStatsAsync);
         endpoints.MapGet("/api/indexing/cluster", HandleGetClusterStatusAsync);
+        endpoints.MapGet("/api/indexing/promoted-attributes", HandleListPromotedAsync);
         return endpoints;
     }
+
+    public static IEndpointRouteBuilder MapPromotedAttributeAdminEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapPost("/api/indexing/promoted-attributes", HandlePromoteAsync);
+        endpoints.MapDelete("/api/indexing/promoted-attributes/{columnName}", HandleDemoteAsync);
+        return endpoints;
+    }
+
+    private static async Task<IResult> HandleListPromotedAsync(
+        HttpContext http,
+        IPromotedAttributeAdminService service,
+        CancellationToken cancellationToken)
+    {
+        var response = await service.ListAsync(cancellationToken);
+        return ApiSerialization.Write(http, response, IndexingJsonContext.Default.PromotedAttributesResponse);
+    }
+
+    private static async Task<IResult> HandlePromoteAsync(
+        HttpContext http,
+        IPromotedAttributeAdminService service,
+        CancellationToken cancellationToken)
+    {
+        PromoteAttributeRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, IndexingJsonContext.Default.PromoteAttributeRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        return await service.PromoteAsync(request, cancellationToken) switch
+        {
+            PromoteAttributeOutcome.Promoted => Results.NoContent(),
+            PromoteAttributeOutcome.AlreadyPromoted => Results.Problem($"'{request.Key}' is already promoted.", statusCode: StatusCodes.Status409Conflict),
+            PromoteAttributeOutcome.NameConflict => Results.Problem(
+                $"Column '{PromotedAttributeColumns.ColumnNameFor(request.Bag, request.Key)}' is already used by another promoted key.",
+                statusCode: StatusCodes.Status409Conflict),
+            PromoteAttributeOutcome.LimitReached => Results.Problem(
+                $"At most {PromotedAttributeColumns.MaxPromotedAttributes} attributes can be promoted; demote one first.",
+                statusCode: StatusCodes.Status409Conflict),
+            _ => Results.Problem(
+                $"Key must be 1-{PromotedAttributeColumns.MaxKeyLength} characters of letters, digits, and . _ - : / @.",
+                statusCode: StatusCodes.Status400BadRequest),
+        };
+    }
+
+    private static async Task<IResult> HandleDemoteAsync(
+        string columnName,
+        IPromotedAttributeAdminService service,
+        CancellationToken cancellationToken) =>
+        await service.DemoteAsync(columnName, cancellationToken) ? Results.NoContent() : Results.NotFound();
 
     private static async Task<IResult> HandleGetStatsAsync(
         HttpContext http,

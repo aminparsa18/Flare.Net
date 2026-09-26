@@ -19,7 +19,7 @@ public sealed record LogAttributeValuesSql(string Sql, ClickHouseParameterCollec
 /// </summary>
 public static class LogAttributeValuesQueryBuilder
 {
-    public static LogAttributeValuesSql Build(LogAttributeValuesRequest request, DateTimeOffset now)
+    public static LogAttributeValuesSql Build(LogAttributeValuesRequest request, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
         if (request.Field == LogValuesField.Attribute && string.IsNullOrEmpty(request.Key))
         {
@@ -31,7 +31,7 @@ public static class LogAttributeValuesQueryBuilder
             throw new ArgumentOutOfRangeException(nameof(request), request.Limit, "Limit must be positive.");
         }
 
-        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now);
+        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now, promoted);
         filterSql.Parameters.AddParameter("valuesLimit", request.Limit);
 
         var whereClauses = new List<string> { filterSql.WhereSql };

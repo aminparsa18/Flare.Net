@@ -29,7 +29,7 @@ public sealed record LogValueDistributionSql(string Sql, ClickHouseParameterColl
 /// </remarks>
 public static class LogValueDistributionQueryBuilder
 {
-    public static LogValueDistributionSql Build(LogValueDistributionRequest request, DateTimeOffset now)
+    public static LogValueDistributionSql Build(LogValueDistributionRequest request, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
         if (string.IsNullOrEmpty(request.AttributeKey))
         {
@@ -41,7 +41,7 @@ public static class LogValueDistributionQueryBuilder
             throw new ArgumentOutOfRangeException(nameof(request), request.SampleSize, "SampleSize must be positive.");
         }
 
-        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now);
+        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now, promoted);
         filterSql.Parameters.AddParameter("attributeKey", request.AttributeKey);
         filterSql.Parameters.AddParameter("sampleSize", request.SampleSize);
 

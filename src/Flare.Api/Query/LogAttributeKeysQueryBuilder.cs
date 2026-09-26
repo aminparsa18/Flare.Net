@@ -23,9 +23,9 @@ public sealed record LogAttributeKeysSql(string Sql, ClickHouseParameterCollecti
 /// </remarks>
 public static class LogAttributeKeysQueryBuilder
 {
-    public static LogAttributeKeysSql Build(LogAttributeKeysRequest request, DateTimeOffset now)
+    public static LogAttributeKeysSql Build(LogAttributeKeysRequest request, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
-        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now);
+        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now, promoted);
 
         var sql = "SELECT Key, count() AS NumericCount\n" +
             "FROM (\n" +

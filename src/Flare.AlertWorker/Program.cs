@@ -18,6 +18,10 @@ builder.Services.AddSingleton(TimeProvider.System);
 // Same Query section Flare.Api binds - AlertQueryService reads its execution caps
 // (incl. AlertEvaluationMaxExecutionSeconds) from it.
 builder.Services.Configure<QueryLimitsOptions>(builder.Configuration.GetSection(QueryLimitsOptions.SectionName));
+// Promoted attribute columns (ADR-0062) - log-count conditions are LogFilters, so they
+// read the same promoted columns Flare.Api's queries do. Refreshed from system.columns.
+builder.Services.AddSingleton<IPromotedAttributeRegistry, PromotedAttributeRegistry>();
+builder.Services.AddHostedService<PromotedAttributeRefreshWorker>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();

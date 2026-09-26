@@ -8,13 +8,16 @@
 // (both IReadOnlyList-of-object members - see `PipelineServiceBreakdown.ts`'s header comment
 // for why that alone blocks `[GenerateTypeScript]`) are hand-written (`$lib/memorypack/`).
 
-import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders } from './api';
+import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders, type AttributeBag } from './api';
 import { IndexingStatsResponse as GeneratedIndexingStatsResponse } from '$lib/memorypack/IndexingStatsResponse';
 import { ClusterStatusResponse as GeneratedClusterStatusResponse } from '$lib/memorypack/ClusterStatusResponse';
 import type { TableStorageInfo as GeneratedTableStorageInfo } from '$lib/generated/memorypack/TableStorageInfo.js';
 import type { SkipIndexInfo as GeneratedSkipIndexInfo } from '$lib/generated/memorypack/SkipIndexInfo.js';
 import type { StorageGrowthPoint as GeneratedStorageGrowthPoint } from '$lib/memorypack/StorageGrowthPoint';
 import type { ClusterNodeInfo as GeneratedClusterNodeInfo } from '$lib/generated/memorypack/ClusterNodeInfo.js';
+import { PromotedAttributesResponse as GeneratedPromotedAttributesResponse } from '$lib/memorypack/PromotedAttributesResponse';
+import { PromoteAttributeRequest as GeneratedPromoteAttributeRequest } from '$lib/generated/memorypack/PromoteAttributeRequest.js';
+import { attributeBagFromString, attributeBagToString } from '$lib/memorypack/enums';
 
 export interface TableStorageInfo {
 	tableName: string;
@@ -187,4 +190,77 @@ export async function getClusterStatus(signal?: AbortSignal): Promise<ClusterSta
 		replicationInfoAvailable: dto.replicationInfoAvailable,
 		nodes: (dto.nodes ?? []).map((n) => toClusterNodeInfo(n!))
 	};
+}
+
+// Promoted attribute columns (ADR-0062) - a log attribute key promoted to its own
+// MATERIALIZED column + skip index, which every log filter on that key then reads instead
+// of the whole attribute map. Listing is open to any signed-in user; promote/demote are
+// Admin-only server-side.
+
+export interface PromotedAttribute {
+	bag: AttributeBag;
+	key: string;
+	columnName: string;
+	indexName: string;
+	/** A MATERIALIZE COLUMN/INDEX mutation for this column is still running on older data. */
+	backfilling: boolean;
+}
+
+export interface PromotedAttributesResponse {
+	attributes: PromotedAttribute[];
+	maxPromotedAttributes: number;
+}
+
+export async function getPromotedAttributes(signal?: AbortSignal): Promise<PromotedAttributesResponse> {
+	const res = await apiFetch(`${API_BASE_URL}/api/indexing/promoted-attributes`, { headers: memoryPackAcceptHeaders(), signal });
+	if (!res.ok) {
+		throw new Error(`GET /api/indexing/promoted-attributes failed: ${res.status} ${res.statusText}`);
+	}
+	const dto = GeneratedPromotedAttributesResponse.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding PromotedAttributesResponse.');
+	}
+	return {
+		attributes: (dto.attributes ?? []).map((a) => ({
+			bag: attributeBagToString(a!.bag),
+			key: a!.key ?? '',
+			columnName: a!.columnName ?? '',
+			indexName: a!.indexName ?? '',
+			backfilling: a!.backfilling
+		})),
+		maxPromotedAttributes: dto.maxPromotedAttributes
+	};
+}
+
+/** Throws with the API's problem `detail` (e.g. "already promoted", invalid key) as the message. */
+export async function promoteAttribute(bag: AttributeBag, key: string, backfill: boolean): Promise<void> {
+	const dto = new GeneratedPromoteAttributeRequest();
+	dto.bag = attributeBagFromString(bag);
+	dto.key = key;
+	dto.backfill = backfill;
+	const res = await apiFetch(`${API_BASE_URL}/api/indexing/promoted-attributes`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedPromoteAttributeRequest.serialize(dto))
+	});
+	if (!res.ok) {
+		throw new Error(await problemDetail(res, 'POST /api/indexing/promoted-attributes'));
+	}
+}
+
+export async function demoteAttribute(columnName: string): Promise<void> {
+	const res = await apiFetch(`${API_BASE_URL}/api/indexing/promoted-attributes/${encodeURIComponent(columnName)}`, { method: 'DELETE' });
+	if (!res.ok) {
+		throw new Error(await problemDetail(res, `DELETE /api/indexing/promoted-attributes/${columnName}`));
+	}
+}
+
+async function problemDetail(res: Response, what: string): Promise<string> {
+	try {
+		const body = (await res.json()) as { detail?: string };
+		if (body.detail) return body.detail;
+	} catch {
+		// Not a problem+json body - fall through to the status line.
+	}
+	return `${what} failed: ${res.status} ${res.statusText}`;
 }

@@ -26,11 +26,11 @@ public static class LogAggregateQueryBuilder
     /// </summary>
     public const int AttributeGroupLimit = 5;
 
-    public static LogAggregateSql Build(LogAggregateRequest request, DateTimeOffset now)
+    public static LogAggregateSql Build(LogAggregateRequest request, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
         // See LogSearchQueryBuilder's equivalent comment: request.Filter's default
         // doesn't survive JSON deserialization when "filter" is omitted from the body.
-        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now);
+        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now, promoted);
         return BuildFromFilterSql(
             filterSql,
             request.BucketWidthSeconds,

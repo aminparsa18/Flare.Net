@@ -67,11 +67,11 @@ public sealed record ActiveService(string ServiceName, DateTimeOffset LastSeenAt
 /// <c>record</c> DTOs cleanly - the reader path has no such registration/shape
 /// requirements. Confirm this still holds during e2e verification (see this project's README).
 /// </remarks>
-public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ILogQueryService
+public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes) : ILogQueryService
 {
     public async Task<LogSearchResponse> SearchAsync(LogSearchRequest request, CancellationToken cancellationToken)
     {
-        var built = LogSearchQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = LogSearchQueryBuilder.Build(request, timeProvider.GetUtcNow(), promotedAttributes.Current);
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
@@ -213,7 +213,7 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
 
     public async Task<LogAggregateResponse> AggregateAsync(LogAggregateRequest request, CancellationToken cancellationToken)
     {
-        var built = LogAggregateQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = LogAggregateQueryBuilder.Build(request, timeProvider.GetUtcNow(), promotedAttributes.Current);
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
@@ -329,7 +329,7 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
 
     public async Task<LogPatternResponse> GetPatternsAsync(LogPatternRequest request, CancellationToken cancellationToken)
     {
-        var built = LogPatternQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = LogPatternQueryBuilder.Build(request, timeProvider.GetUtcNow(), promotedAttributes.Current);
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
@@ -352,7 +352,7 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
 
     public async Task<LogAttributeKeysResponse> GetNumericAttributeKeysAsync(LogAttributeKeysRequest request, CancellationToken cancellationToken)
     {
-        var built = LogAttributeKeysQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = LogAttributeKeysQueryBuilder.Build(request, timeProvider.GetUtcNow(), promotedAttributes.Current);
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
@@ -367,7 +367,7 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
 
     public async Task<LogValueDistributionResponse> GetValueDistributionAsync(LogValueDistributionRequest request, CancellationToken cancellationToken)
     {
-        var built = LogValueDistributionQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = LogValueDistributionQueryBuilder.Build(request, timeProvider.GetUtcNow(), promotedAttributes.Current);
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
@@ -382,7 +382,7 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
 
     public async Task<LogAttributeValuesResponse> GetAttributeValuesAsync(LogAttributeValuesRequest request, CancellationToken cancellationToken)
     {
-        var built = LogAttributeValuesQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var built = LogAttributeValuesQueryBuilder.Build(request, timeProvider.GetUtcNow(), promotedAttributes.Current);
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 

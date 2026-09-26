@@ -90,15 +90,9 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Promote hot attribute keys to materialized columns.** Every attribute
-  filter reads the whole `Attributes` map; an admin action on the
-  Indexing page to "promote" a key (e.g. `http.route`) would add
-  `ALTER TABLE ... ADD COLUMN attr_http_route String MATERIALIZED
-  Attributes['http.route']` plus a skip index, recorded in a small
-  registry the query builders consult to use the column instead of the
-  map lookup. Needs an ADR (naming, backfill via `MATERIALIZE COLUMN`,
-  cluster-mode DDL, demotion). Not started. Prior art:
-  [signoz#6646](https://github.com/SigNoz/signoz/commit/67e822e23ef5744618b5a7d9e516c3c30a35e6c3).
+- **Promote span attribute keys to materialized columns.** ADR-0062
+  promoted keys on `logs` only; `SpanFilterSqlBuilder` still reads
+  `SpanAttributes`. Same design against `spans`/`spans_local`. Not started.
 - **Kubernetes infrastructure views from OTel k8s metrics.**
   `KubernetesResourcePoller` only lists Flare's *own* pods
   (`flare.resource=true`) and services - it's a view of Flare's stack,

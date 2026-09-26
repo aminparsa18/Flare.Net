@@ -5,10 +5,13 @@ namespace Flare.Api.Json;
 
 /// <summary>
 /// Source-generated <see cref="System.Text.Json"/> contract for <see cref="Endpoints.IndexingEndpoints"/>'s
-/// responses - same camelCase convention as <see cref="IngestionJsonContext"/>. No string
-/// enums here (no enum-typed field in either response).
+/// request/response DTOs - same camelCase convention as <see cref="IngestionJsonContext"/>.
+/// String enums for the promoted-attribute DTOs' <see cref="AttributeBag"/>, same as
+/// <see cref="LogsJsonContext"/> serializes it inside a <see cref="LogFilter"/>.
 /// </summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UseStringEnumConverter = true)]
 [JsonSerializable(typeof(IndexingStatsResponse))]
 [JsonSerializable(typeof(ClusterStatusResponse))]
+[JsonSerializable(typeof(PromotedAttributesResponse))]
+[JsonSerializable(typeof(PromoteAttributeRequest))]
 public sealed partial class IndexingJsonContext : JsonSerializerContext;

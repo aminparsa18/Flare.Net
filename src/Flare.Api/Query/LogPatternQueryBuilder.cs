@@ -22,13 +22,13 @@ public static class LogPatternQueryBuilder
     /// <summary>OTel's ERROR severity floor (TRACE 1-4, DEBUG 5-8, INFO 9-12, WARN 13-16, ERROR 17-20, FATAL 21-24).</summary>
     private const int ErrorSeverityFloor = 17;
 
-    public static LogPatternSql Build(LogPatternRequest request, DateTimeOffset now)
+    public static LogPatternSql Build(LogPatternRequest request, DateTimeOffset now, PromotedAttributeColumns? promoted = null)
     {
         var topN = Math.Clamp(request.TopN is > 0 ? request.TopN.Value : DefaultTopN, 1, MaxTopN);
 
         // See LogAggregateQueryBuilder's equivalent comment: request.Filter's default
         // doesn't survive JSON deserialization when "filter" is omitted from the body.
-        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now);
+        var filterSql = LogFilterSqlBuilder.Build(request.Filter ?? new LogFilter(), now, promoted);
         filterSql.Parameters.AddParameter("topN", topN);
         filterSql.Parameters.AddParameter("errorSeverityFloor", ErrorSeverityFloor);
         filterSql.Parameters.AddParameter("emptyPattern", string.Empty);
