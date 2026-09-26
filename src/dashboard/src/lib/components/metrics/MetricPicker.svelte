@@ -34,7 +34,7 @@
 
 <div class="flex min-w-0 shrink-0 flex-col border-r" style="width: {width}px">
 	<Command.Root class="flex min-h-0 flex-1 flex-col rounded-none bg-transparent">
-		<Command.Input placeholder={m.metricPicker_filterPlaceholder()} />
+		<Command.Input placeholder={m.metricPicker_filterPlaceholder()} bind:value={explorer.pickerSearch} />
 		<Command.List class="min-h-0 max-h-none flex-1">
 			{#if explorer.namesLoading && explorer.names.length === 0}
 				<div class="flex justify-center py-8">

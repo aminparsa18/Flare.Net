@@ -134,7 +134,7 @@ public class AlertMessageFormatterTests
 
     private static readonly DateTimeOffset FiredAt = new(2026, 9, 24, 10, 0, 0, TimeSpan.Zero);
 
-    /// <summary>Reverses <see cref="AlertMessageFormatter.BuildMatchingLogsUrl"/>'s encoding the same way the dashboard's <c>parseLogsStateDeepLinkParam</c> does.</summary>
+    /// <summary>Reverses <see cref="AlertMessageFormatter.BuildMatchingLogsUrl"/>'s encoding the same way the dashboard's <c>parseStateDeepLinkParam</c> does.</summary>
     private static JsonElement DecodeState(string url)
     {
         var query = new Uri(url).Query;
@@ -235,20 +235,104 @@ public class AlertMessageFormatterTests
         Assert.Equal("https://flare.example.com/alerts?rule=11111111-2222-3333-4444-555555555555", lines[2]);
     }
 
-    [Fact]
-    public void BuildText_MetricRuleWithFiredAt_KeepsOnlyRuleLink()
+    private static AlertRule MakeMetricRule(MetricFilter? filter = null) => MakeRule() with
     {
-        var rule = MakeRule() with
+        ConditionKind = AlertConditionKind.MetricThreshold,
+        MetricCondition = new MetricAlertCondition { MetricName = "process.threads", Type = MetricPointType.Sum, Filter = filter ?? new MetricFilter() },
+        MetricThresholdValue = 500,
+        WindowSeconds = 300,
+    };
+
+    private static AlertRule MakeExceptionRule(string message = "") => MakeRule() with
+    {
+        ConditionKind = AlertConditionKind.ExceptionCount,
+        ExceptionCondition = new ExceptionCountCondition
         {
-            ConditionKind = AlertConditionKind.MetricThreshold,
-            MetricCondition = new MetricAlertCondition { MetricName = "process.threads", Type = MetricPointType.Gauge },
-            MetricThresholdValue = 500,
+            ExceptionType = "System.TimeoutException",
+            ExceptionMessage = message,
+            Filter = new ExceptionFilter { Services = ["checkout"] },
+        },
+        WindowSeconds = 300,
+    };
+
+    [Fact]
+    public void BuildText_MetricRuleWithFiredAt_PutsMetricChartLineBeforeRuleLink()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeMetricRule(), observedValue: 620, publicUrl: "https://flare.example.com", firedAt: FiredAt);
+
+        var lines = text.Split('\n');
+        Assert.Equal(3, lines.Length);
+        Assert.StartsWith("Metric chart: https://flare.example.com/metrics?state=", lines[1], StringComparison.Ordinal);
+        Assert.Equal("https://flare.example.com/alerts?rule=11111111-2222-3333-4444-555555555555", lines[2]);
+    }
+
+    [Fact]
+    public void BuildText_ExceptionRuleWithFiredAt_PutsMatchingExceptionsLine()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeExceptionRule(), observedValue: 7, publicUrl: "https://flare.example.com", firedAt: FiredAt);
+
+        Assert.StartsWith("Matching exceptions: https://flare.example.com/errors?state=", text.Split('\n')[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildMetricChartUrl_EncodesMetricServicesAndEvaluatedWindow()
+    {
+        var url = AlertMessageFormatter.BuildMetricChartUrl(MakeMetricRule(new MetricFilter { Services = ["checkout"] }), "https://flare.example.com/", FiredAt);
+
+        Assert.NotNull(url);
+        var state = DecodeState(url);
+        Assert.Equal("custom", state.GetProperty("timeRangePreset").GetString());
+        Assert.Equal("2026-09-24T09:55:00.000Z", state.GetProperty("customRange").GetProperty("from").GetString());
+        Assert.Equal("2026-09-24T10:00:00.000Z", state.GetProperty("customRange").GetProperty("to").GetString());
+        Assert.Equal("checkout", state.GetProperty("services")[0].GetString());
+        var metric = state.GetProperty("selectedMetric");
+        Assert.Equal("process.threads", metric.GetProperty("metricName").GetString());
+        Assert.Equal("Sum", metric.GetProperty("type").GetString());
+        // No serviceName - the dashboard picks within `services` (see BuildMetricChartUrl's remarks).
+        Assert.False(metric.TryGetProperty("serviceName", out _));
+    }
+
+    [Fact]
+    public void BuildMetricChartUrl_AttributeFilters_ReturnsNull()
+    {
+        var rule = MakeMetricRule(new MetricFilter { Attributes = [new MetricAttributeFilter { Key = "host", Value = "a" }] });
+
+        Assert.Null(AlertMessageFormatter.BuildMetricChartUrl(rule, "https://flare.example.com", FiredAt));
+    }
+
+    [Fact]
+    public void BuildMatchingExceptionsUrl_EncodesTypeMessageServicesAndWindow()
+    {
+        var url = AlertMessageFormatter.BuildMatchingExceptionsUrl(MakeExceptionRule("Request timed out"), "https://flare.example.com", FiredAt);
+
+        Assert.NotNull(url);
+        Assert.StartsWith("https://flare.example.com/errors?state=", url, StringComparison.Ordinal);
+        var state = DecodeState(url);
+        Assert.Equal("2026-09-24T09:55:00.000Z", state.GetProperty("customRange").GetProperty("from").GetString());
+        Assert.Equal("checkout", state.GetProperty("services")[0].GetString());
+        Assert.Equal("System.TimeoutException", state.GetProperty("exceptionType").GetString());
+        Assert.Equal("Request timed out", state.GetProperty("exceptionMessage").GetString());
+    }
+
+    [Fact]
+    public void BuildFiredDataUrl_AnomalyRule_FollowsItsSourceKind()
+    {
+        var rule = MakeExceptionRule() with
+        {
+            ConditionKind = AlertConditionKind.Anomaly,
+            AnomalyCondition = new AnomalyCondition { Source = AlertConditionKind.ExceptionCount, BaselinePeriods = 4, ZScoreThreshold = 3 },
         };
 
-        var text = AlertMessageFormatter.BuildText(rule, observedValue: 620, publicUrl: "https://flare.example.com", firedAt: FiredAt);
+        Assert.StartsWith("https://flare.example.com/errors?state=", AlertMessageFormatter.BuildFiredDataUrl(rule, "https://flare.example.com", FiredAt), StringComparison.Ordinal);
+        Assert.Equal("Matching exceptions", AlertMessageFormatter.FiredDataLabel(rule));
+    }
 
-        Assert.DoesNotContain("Matching logs", text, StringComparison.Ordinal);
-        Assert.Equal(2, text.Split('\n').Length);
+    [Fact]
+    public void BuildFiredDataUrl_NullPublicUrl_ReturnsNullForEveryKind()
+    {
+        Assert.Null(AlertMessageFormatter.BuildFiredDataUrl(MakeRule(), null, FiredAt));
+        Assert.Null(AlertMessageFormatter.BuildFiredDataUrl(MakeMetricRule(), null, FiredAt));
+        Assert.Null(AlertMessageFormatter.BuildFiredDataUrl(MakeExceptionRule(), null, FiredAt));
     }
 
     [Fact]

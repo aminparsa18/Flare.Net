@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { page } from '$app/state';
+	import { parseErrorsStateDeepLinkParam } from '$lib/deep-links';
 	import { ErrorsExplorerState } from '$lib/errors/state.svelte';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import ErrorsToolbar from '$lib/components/errors/ErrorsToolbar.svelte';
@@ -10,7 +12,10 @@
 	const errors = errorsExplorerContext.set(new ErrorsExplorerState());
 
 	onMount(() => {
-		void errors.runSearch();
+		// A fired exception alert's `?state=` link ($lib/deep-links.ts) scopes the page to
+		// the rule's type, services and evaluated window instead of the default last hour.
+		const deepLink = parseErrorsStateDeepLinkParam(page.url);
+		void (deepLink ? errors.applyDeepLinkState(deepLink) : errors.runSearch());
 	});
 
 	onDestroy(() => {

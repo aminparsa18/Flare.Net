@@ -241,6 +241,10 @@ Une règle peut aussi remplacer le titre et le corps de sa notification par un
 modèle utilisant des variables comme `{{value}}`, `{{threshold}}`,
 `{{logs_url}}` ou `{{labels.service.name}}`, avec un aperçu en direct dans le
 formulaire de la règle.
+Si une URL publique est configurée, chaque notification renvoie vers les
+données qui l'ont déclenchée : les logs correspondants, le graphique de la
+métrique ou les exceptions correspondantes, limités au filtre de la règle sur
+la fenêtre évaluée (`{{data_url}}` dans un modèle).
 L'onglet « Maintenance » planifie des fenêtres de maintenance ponctuelles,
 quotidiennes ou hebdomadaires (dans un fuseau horaire choisi) pour toutes les
 règles ou une sélection. Pendant une fenêtre, les règles sont toujours

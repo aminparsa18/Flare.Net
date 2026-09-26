@@ -942,7 +942,7 @@
 						<span class="text-xs font-medium">{m.alertRuleForm_templateBodyLabel()}</span>
 						<Textarea
 							bind:value={notificationBodyTemplate}
-							placeholder={'{{labels.service.name}}: {{value}} ({{comparator}} {{threshold}}) over {{window}}\n{{logs_url}}'}
+							placeholder={'{{labels.service.name}}: {{value}} ({{comparator}} {{threshold}}) over {{window}}\n{{data_url}}'}
 							rows={4}
 							maxlength={2000}
 							class="font-mono text-xs"

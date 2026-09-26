@@ -39,7 +39,7 @@ public static class AlertMessageFormatter
     /// <param name="firedAt">
     /// End of the evaluated window (the worker's own <c>now</c>, see
     /// <c>AlertEvaluationWorker.EvaluateRuleAsync</c>), passed straight through to
-    /// <see cref="BuildMatchingLogsUrl"/> - null omits that link, leaving only the rule link.
+    /// <see cref="BuildFiredDataUrl"/> - null omits that link, leaving only the rule link.
     /// </param>
     /// <param name="noData">
     /// True for an absent-data fire (<see cref="AlertRule.NoDataWindowSeconds"/>) - reports
@@ -61,9 +61,9 @@ public static class AlertMessageFormatter
                     ? BuildAnomalyText(rule, anomaly, metricUnit)
                     : BuildFiredText(rule, observedValue, metricUnit);
 
-        if (!noData && firedAt is { } at && BuildMatchingLogsUrl(rule, publicUrl, at) is { } logsUrl)
+        if (!noData && firedAt is { } at && BuildFiredDataUrl(rule, publicUrl, at) is { } dataUrl)
         {
-            text = $"{text}\nMatching logs: {logsUrl}";
+            text = $"{text}\n{FiredDataLabel(rule)}: {dataUrl}";
         }
 
         var ruleUrl = BuildRuleUrl(rule, publicUrl);
@@ -115,7 +115,9 @@ public static class AlertMessageFormatter
     /// go through the same formatting the built-in text uses (unit-scaled for metrics, whole
     /// counts otherwise), so <c>{{value}}</c> reads the same as it would in the default message.
     /// A placeholder that doesn't apply to this rule/fire (<c>{{metric}}</c> on a log-count rule,
-    /// <c>{{threshold}}</c> on an anomaly rule, <c>{{logs_url}}</c> without a public URL) is "".
+    /// <c>{{threshold}}</c> on an anomaly rule, <c>{{logs_url}}</c> on a metric rule or without a
+    /// public URL) is "". <c>{{data_url}}</c> is the kind-appropriate <see cref="BuildFiredDataUrl"/>
+    /// link; <c>{{logs_url}}</c> stays logs-only, as it was before metric/exception links existed.
     /// </summary>
     internal static IReadOnlyDictionary<string, string> BuildTemplateValues(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly)
     {
@@ -173,6 +175,7 @@ public static class AlertMessageFormatter
             ["fired_at"] = FormatIso(firedAt),
             ["rule_url"] = BuildRuleUrl(rule, publicUrl) ?? "",
             ["logs_url"] = noData && !isTest ? "" : BuildMatchingLogsUrl(rule, publicUrl, firedAt) ?? "",
+            ["data_url"] = noData && !isTest ? "" : BuildFiredDataUrl(rule, publicUrl, firedAt) ?? "",
             // The built-in wording without its link lines - lets a template wrap rather than
             // replace it ("{{message}} - runbook: https://...").
             ["message"] = BuildText(rule, observedValue, isTest, publicUrl: null, metricUnit, firedAt: null, noData, anomaly),
@@ -337,14 +340,14 @@ public static class AlertMessageFormatter
     /// Logs saved-view state payload (<c>LogsSavedViewState</c> in the dashboard's
     /// <c>lib/logs/state.svelte.ts</c>) in a <c>?state=</c> param, so the dashboard restores
     /// it through the exact same <c>applySavedViewState</c> path a saved view uses - see
-    /// <c>parseLogsStateDeepLinkParam</c> in <c>lib/deep-links.ts</c>.
+    /// <c>parseStateDeepLinkParam</c> in <c>lib/deep-links.ts</c>.
     /// </summary>
     /// <remarks>
     /// Null (callers fall back to <see cref="BuildRuleUrl"/> alone) when
     /// <paramref name="publicUrl"/> is unset, for rules whose series isn't a log count (an
     /// <see cref="AlertConditionKind.Anomaly"/> rule over a <see cref="AlertConditionKind.LogCount"/>
-    /// source does get the link) (neither <c>/errors</c> nor <c>/metrics</c> hydrates filter state from the URL
-    /// yet), and when the condition sets <see cref="LogFilter.TraceId"/>/<see cref="LogFilter.SpanId"/>/<see cref="LogFilter.PatternId"/> -
+    /// source does get the link; metric/exception rules get theirs from <see cref="BuildFiredDataUrl"/>),
+    /// and when the condition sets <see cref="LogFilter.TraceId"/>/<see cref="LogFilter.SpanId"/>/<see cref="LogFilter.PatternId"/> -
     /// a saved-view state has no slot for those, and a link that silently dropped them would
     /// show a wider result than what fired. No link beats a misleading one.
     /// Standard (not URL-safe) base64, then percent-escaped: base64url's <c>_</c> is an
@@ -355,7 +358,7 @@ public static class AlertMessageFormatter
     {
         var condition = rule.Condition;
         if (string.IsNullOrWhiteSpace(publicUrl)
-            || AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) != AlertConditionKind.LogCount
+            || RuleSeriesKind(rule) != AlertConditionKind.LogCount
             || !string.IsNullOrEmpty(condition.TraceId)
             || !string.IsNullOrEmpty(condition.SpanId)
             || !string.IsNullOrEmpty(condition.PatternId))
@@ -365,11 +368,7 @@ public static class AlertMessageFormatter
 
         var state = new LogsDeepLinkState
         {
-            CustomRange = new LogsDeepLinkRange
-            {
-                From = FormatIso(firedAt - TimeSpan.FromSeconds(rule.WindowSeconds)),
-                To = FormatIso(firedAt),
-            },
+            CustomRange = EvaluatedWindow(rule, firedAt),
             Services = condition.Services ?? [],
             SeverityNumbers = condition.SeverityNumbers?.Select(n => (int)n).ToList() ?? [],
             Search = condition.Search ?? "",
@@ -378,9 +377,105 @@ public static class AlertMessageFormatter
             ScopeNames = condition.ScopeNames ?? [],
         };
 
-        var json = JsonSerializer.SerializeToUtf8Bytes(state, AlertDeepLinkJsonContext.Default.LogsDeepLinkState);
-        return $"{publicUrl.TrimEnd('/')}/?state={Uri.EscapeDataString(Convert.ToBase64String(json))}";
+        return BuildStateUrl(publicUrl, "/", JsonSerializer.SerializeToUtf8Bytes(state, AlertDeepLinkJsonContext.Default.LogsDeepLinkState));
     }
+
+    /// <summary>
+    /// The "show me what fired" link for any rule kind: <see cref="BuildMatchingLogsUrl"/> for a
+    /// log-count series, <see cref="BuildMetricChartUrl"/> for a metric one,
+    /// <see cref="BuildMatchingExceptionsUrl"/> for an exception-count one (an
+    /// <see cref="AlertConditionKind.Anomaly"/> rule follows its source's kind). Null whenever
+    /// the matching builder is - see each one's remarks. <see cref="FiredDataLabel"/> names it.
+    /// </summary>
+    public static string? BuildFiredDataUrl(AlertRule rule, string? publicUrl, DateTimeOffset firedAt) =>
+        RuleSeriesKind(rule) switch
+        {
+            AlertConditionKind.MetricThreshold => BuildMetricChartUrl(rule, publicUrl, firedAt),
+            AlertConditionKind.ExceptionCount => BuildMatchingExceptionsUrl(rule, publicUrl, firedAt),
+            _ => BuildMatchingLogsUrl(rule, publicUrl, firedAt),
+        };
+
+    /// <summary>What <see cref="BuildFiredDataUrl"/>'s link opens, for the text line in front of it and PagerDuty's link text.</summary>
+    public static string FiredDataLabel(AlertRule rule) =>
+        RuleSeriesKind(rule) switch
+        {
+            AlertConditionKind.MetricThreshold => "Metric chart",
+            AlertConditionKind.ExceptionCount => "Matching exceptions",
+            _ => "Matching logs",
+        };
+
+    /// <summary>
+    /// Deep link into the Metrics Explorer charting the rule's metric over the evaluated window,
+    /// as a Metrics saved-view state (<c>MetricsSavedViewState</c> in the dashboard's
+    /// <c>lib/metrics/state.svelte.ts</c>) in <c>/metrics?state=</c> - same encoding and restore
+    /// path as <see cref="BuildMatchingLogsUrl"/>.
+    /// </summary>
+    /// <remarks>
+    /// <c>selectedMetric</c> carries no <c>serviceName</c>: the explorer charts one
+    /// (metric, service) pair at a time, but a rule with no service filter (all the rule form
+    /// creates) aggregates every service. The dashboard picks the first matching pair within
+    /// the rule's own services and narrows the picker to that metric name, so the other
+    /// services' entries sit right beside it. Null when the condition has attribute filters -
+    /// the explorer has no attribute filter to restore them into, and the chart would show a
+    /// wider series than what fired.
+    /// </remarks>
+    public static string? BuildMetricChartUrl(AlertRule rule, string? publicUrl, DateTimeOffset firedAt)
+    {
+        if (string.IsNullOrWhiteSpace(publicUrl)
+            || RuleSeriesKind(rule) != AlertConditionKind.MetricThreshold
+            || rule.MetricCondition is not { } metric
+            || metric.Filter.Attributes is { Count: > 0 })
+        {
+            return null;
+        }
+
+        var state = new MetricsDeepLinkState
+        {
+            CustomRange = EvaluatedWindow(rule, firedAt),
+            Services = metric.Filter.Services ?? [],
+            SelectedMetric = new MetricsDeepLinkMetric { MetricName = metric.MetricName, Type = metric.Type },
+        };
+
+        return BuildStateUrl(publicUrl, "/metrics", JsonSerializer.SerializeToUtf8Bytes(state, AlertDeepLinkJsonContext.Default.MetricsDeepLinkState));
+    }
+
+    /// <summary>
+    /// Deep link into the Exceptions page scoped to the rule's exception type (and message, when
+    /// the rule narrows to one) and services over the evaluated window, in <c>/errors?state=</c> -
+    /// read by <c>parseErrorsStateDeepLinkParam</c> in the dashboard's <c>lib/deep-links.ts</c>.
+    /// Every <see cref="ExceptionCountCondition"/> field has a slot there, so this is never null
+    /// for an exception-count rule with a public URL.
+    /// </summary>
+    public static string? BuildMatchingExceptionsUrl(AlertRule rule, string? publicUrl, DateTimeOffset firedAt)
+    {
+        if (string.IsNullOrWhiteSpace(publicUrl)
+            || RuleSeriesKind(rule) != AlertConditionKind.ExceptionCount
+            || rule.ExceptionCondition is not { } exception)
+        {
+            return null;
+        }
+
+        var state = new ErrorsDeepLinkState
+        {
+            CustomRange = EvaluatedWindow(rule, firedAt),
+            Services = exception.Filter.Services ?? [],
+            ExceptionType = exception.ExceptionType,
+            ExceptionMessage = exception.ExceptionMessage,
+        };
+
+        return BuildStateUrl(publicUrl, "/errors", JsonSerializer.SerializeToUtf8Bytes(state, AlertDeepLinkJsonContext.Default.ErrorsDeepLinkState));
+    }
+
+    /// <summary><c>[firedAt - WindowSeconds, firedAt]</c> - the range <c>AlertEvaluationWorker</c> evaluated over.</summary>
+    private static DeepLinkRange EvaluatedWindow(AlertRule rule, DateTimeOffset firedAt) => new()
+    {
+        From = FormatIso(firedAt - TimeSpan.FromSeconds(rule.WindowSeconds)),
+        To = FormatIso(firedAt),
+    };
+
+    /// <summary>See <see cref="BuildMatchingLogsUrl"/>'s remarks for why standard base64 + percent-escaping.</summary>
+    private static string BuildStateUrl(string publicUrl, string path, byte[] json) =>
+        $"{publicUrl.TrimEnd('/')}{path}?state={Uri.EscapeDataString(Convert.ToBase64String(json))}";
 
     private static string FormatIso(DateTimeOffset value) =>
         value.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
@@ -403,7 +498,7 @@ public sealed record AlertMessage(string? Title, string Text, bool IsCustom)
 internal sealed record LogsDeepLinkState
 {
     public string TimeRangePreset { get; init; } = "custom";
-    public required LogsDeepLinkRange CustomRange { get; init; }
+    public required DeepLinkRange CustomRange { get; init; }
     public required IReadOnlyList<string> Services { get; init; }
     public required IReadOnlyList<int> SeverityNumbers { get; init; }
     public required string Search { get; init; }
@@ -412,7 +507,31 @@ internal sealed record LogsDeepLinkState
     public required IReadOnlyList<string> ScopeNames { get; init; }
 }
 
-internal sealed record LogsDeepLinkRange
+/// <summary>Mirrors the dashboard's <c>MetricsSavedViewState</c> - just the range, services and metric; the rest take <c>applySavedViewState</c>'s defaults. See <see cref="AlertMessageFormatter.BuildMetricChartUrl"/>.</summary>
+internal sealed record MetricsDeepLinkState
+{
+    public string TimeRangePreset { get; init; } = "custom";
+    public required DeepLinkRange CustomRange { get; init; }
+    public required IReadOnlyList<string> Services { get; init; }
+    public required MetricsDeepLinkMetric SelectedMetric { get; init; }
+}
+
+internal sealed record MetricsDeepLinkMetric
+{
+    public required string MetricName { get; init; }
+    public required MetricPointType Type { get; init; }
+}
+
+/// <summary>Mirrors the dashboard's <c>ErrorsDeepLinkState</c> (<c>lib/deep-links.ts</c>). See <see cref="AlertMessageFormatter.BuildMatchingExceptionsUrl"/>.</summary>
+internal sealed record ErrorsDeepLinkState
+{
+    public required DeepLinkRange CustomRange { get; init; }
+    public required IReadOnlyList<string> Services { get; init; }
+    public required string ExceptionType { get; init; }
+    public required string ExceptionMessage { get; init; }
+}
+
+internal sealed record DeepLinkRange
 {
     public required string From { get; init; }
     public required string To { get; init; }

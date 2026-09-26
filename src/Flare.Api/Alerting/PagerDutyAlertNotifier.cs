@@ -44,10 +44,12 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         // the link entirely.
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
         // client_url stays the rule link (PagerDuty renders it as the single "View in Flare"
-        // action); the scoped-logs link goes in Events v2's `links` array instead, which
-        // PagerDuty lists separately on the incident.
-        // No scoped-logs link for a no-data fire - by definition there are no matching logs to show.
+        // action); the fired-data link (Logs, metric chart or exceptions - see
+        // AlertMessageFormatter.BuildFiredDataUrl) goes in Events v2's `links` array instead,
+        // which PagerDuty lists separately on the incident.
+        // No fired-data link for a no-data fire - by definition there is no matching data to show.
         var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
+        var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold;
         var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false);
         var payload = new
@@ -58,7 +60,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
             client_url = ruleUrl,
             // Always an array (empty when there's no link) rather than null - `links` is
             // optional in Events v2, but an explicit JSON null isn't a documented value.
-            links = new[] { new { href = logsUrl, text = "Matching logs in Flare" } }.Where(l => l.href is not null).ToArray(),
+            links = new[] { new { href = dataUrl, text = $"{AlertMessageFormatter.FiredDataLabel(rule)} in Flare" } }.Where(l => l.href is not null).ToArray(),
             payload = new
             {
                 // A custom title is the natural one-line incident title; the (possibly
@@ -84,6 +86,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
                     windowSeconds = rule.WindowSeconds,
                     ruleUrl,
                     logsUrl,
+                    dataUrl,
                     message = message.Title is null ? null : message.Text,
                 },
             },

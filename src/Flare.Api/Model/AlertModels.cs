@@ -429,7 +429,7 @@ public sealed partial record AlertRule
     /// <summary>
     /// Optional custom notification body, same placeholder syntax as <see cref="NotificationTitleTemplate"/>.
     /// Empty keeps <c>AlertMessageFormatter.BuildText</c>'s built-in wording. A custom body
-    /// replaces the whole text, deep links included - place <c>{{rule_url}}</c>/<c>{{logs_url}}</c>
+    /// replaces the whole text, deep links included - place <c>{{rule_url}}</c>/<c>{{data_url}}</c>
     /// where wanted. Appended after <see cref="NotificationTitleTemplate"/>.
     /// </summary>
     public string NotificationBodyTemplate { get; init; } = "";

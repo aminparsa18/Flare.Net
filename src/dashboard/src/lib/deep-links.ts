@@ -162,16 +162,18 @@ export function parseLogContextDeepLinkParams(url: URL): ParsedLogContextDeepLin
 	return { eventId, timestamp };
 }
 
-// Fired-alert notification -> Logs (`?state=<base64 JSON>`) - Flare.Api's
-// AlertMessageFormatter.BuildMatchingLogsUrl is the only producer (Slack/Telegram/email text,
-// the webhook's `logsUrl`, PagerDuty's `links`). The payload is a whole `LogsSavedViewState`
-// (the rule's LogFilter plus the evaluated window as a custom range), so `+page.svelte` hands
-// it straight to `applySavedViewState` - one restore path shared with `?view=<id>`, rather
-// than a third bespoke param set next to the Metrics deep link's. Standard base64 (not
-// base64url) on purpose - see BuildMatchingLogsUrl's remarks on Telegram Markdown.
+// Fired-alert notification -> Logs/Metrics/Exceptions (`?state=<base64 JSON>`) - Flare.Api's
+// AlertMessageFormatter.BuildFiredDataUrl is the only producer (Slack/Telegram/email text,
+// the webhook's `logsUrl`/`dataUrl`, PagerDuty's `links`). For Logs and Metrics the payload is
+// a whole saved-view state (`LogsSavedViewState`/`MetricsSavedViewState`: the rule's filter plus
+// the evaluated window as a custom range), so the page hands it straight to its own
+// `applySavedViewState` - one restore path shared with `?view=<id>`, rather than a bespoke
+// param set next to the Metrics deep link's. Exceptions has no saved views, so its payload is
+// the small `ErrorsDeepLinkState` below. Standard base64 (not base64url) on purpose - see
+// BuildMatchingLogsUrl's remarks on Telegram Markdown.
 
-/** Decodes `+page.svelte`'s (root, Logs) `?state=` param - null when absent or undecodable (a truncated/hand-edited link falls back to the page's normal default, same as an invalid `?view=`). */
-export function parseLogsStateDeepLinkParam(url: URL): unknown | null {
+/** Decodes a page's `?state=` param - null when absent or undecodable (a truncated/hand-edited link falls back to the page's normal default, same as an invalid `?view=`). */
+export function parseStateDeepLinkParam(url: URL): unknown | null {
 	const encoded = url.searchParams.get('state');
 	if (!encoded) return null;
 	try {
@@ -182,6 +184,35 @@ export function parseLogsStateDeepLinkParam(url: URL): unknown | null {
 		console.error('Ignoring malformed ?state= deep link:', err);
 		return null;
 	}
+}
+
+/** `/errors?state=` - mirrors Flare.Api's `ErrorsDeepLinkState` (AlertMessageFormatter.BuildMatchingExceptionsUrl). */
+export interface ErrorsDeepLinkState {
+	customRange: { from: Date; to: Date };
+	services: string[];
+	exceptionType: string;
+	/** '' = every message for `exceptionType`, same as `ExceptionCountCondition.exceptionMessage`. */
+	exceptionMessage: string;
+}
+
+/** Parses `errors/+page.svelte`'s `?state=` param, defensively narrowed - null when absent, undecodable, or missing the fields a scoped view needs. */
+export function parseErrorsStateDeepLinkParam(url: URL): ErrorsDeepLinkState | null {
+	const s = parseStateDeepLinkParam(url) as Partial<{
+		customRange: { from: string; to: string };
+		services: string[];
+		exceptionType: string;
+		exceptionMessage: string;
+	}> | null;
+	if (!s || typeof s.exceptionType !== 'string' || !s.exceptionType) return null;
+	const from = new Date(s.customRange?.from ?? '');
+	const to = new Date(s.customRange?.to ?? '');
+	if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null;
+	return {
+		customRange: { from, to },
+		services: Array.isArray(s.services) ? s.services.filter((v): v is string => typeof v === 'string') : [],
+		exceptionType: s.exceptionType,
+		exceptionMessage: typeof s.exceptionMessage === 'string' ? s.exceptionMessage : ''
+	};
 }
 
 /** Parses `routes/alerts/+page.svelte`'s deep-link params - null when this isn't a deep-link arrival (a direct visit, or the unrelated `?rule=<id>` history deep-link, checked separately by the caller). */

@@ -23,6 +23,7 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
         // No scoped-logs link for a no-data fire - by definition there are no matching logs to show.
         var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
+        var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold;
         var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly);
         var payload = new
@@ -61,7 +62,11 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
             ruleUrl,
             // The Logs Explorer scoped to the rule's filter over the evaluated window - null
             // whenever BuildMatchingLogsUrl can't represent the rule faithfully (see its remarks).
+            // Logs-only, unchanged for existing consumers - dataUrl below covers every kind.
             logsUrl,
+            // The fired data for any rule kind (Logs, the metric's chart, or the matching
+            // exceptions) - see AlertMessageFormatter.BuildFiredDataUrl. Equals logsUrl for LogCount.
+            dataUrl,
         };
 
         try
