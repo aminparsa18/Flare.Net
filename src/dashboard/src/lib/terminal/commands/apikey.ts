@@ -6,6 +6,7 @@
 
 import { createIngestApiKey } from '$lib/ingest-keys-api';
 import type { TerminalCommand } from '../types';
+import { formatDateTime } from '$lib/time/format';
 
 export const apikeyCommand: TerminalCommand = {
 	name: 'apikey',
@@ -32,7 +33,7 @@ export const apikeyCommand: TerminalCommand = {
 			return;
 		}
 
-		const created = new Date(response.key.createdAt).toLocaleString();
+		const created = formatDateTime(response.key.createdAt);
 		term.writeLine(`Created ingest key ${response.key.name} (id: ${response.key.id}, created: ${created}).`, 'output');
 		term.writeLine(response.rawKey, 'output');
 		term.writeLine('Copy this now - Flare never stores or shows the raw key again.', 'info');

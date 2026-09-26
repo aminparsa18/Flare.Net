@@ -34,15 +34,12 @@
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDateTime } from '$lib/time/format';
 
 	const auth = authContext.get();
 	const dashboards = dashboardsContext.get();
 
 	let importInput: HTMLInputElement | undefined = $state();
-
-	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 
 	async function handleDelete(dashboard: DashboardSummary): Promise<void> {
 		if (!confirm(m.dashboardTable_confirmDelete({ name: dashboard.name }))) return;
@@ -144,7 +141,7 @@
 							{/if}
 						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{dashboard.layout.panels.length}</Table.Cell>
-						<Table.Cell class="text-muted-foreground">{formatDate(dashboard.updatedAt)}</Table.Cell>
+						<Table.Cell class="text-muted-foreground">{formatDateTime(dashboard.updatedAt)}</Table.Cell>
 						<Table.Cell class="text-right">
 							<Button variant="ghost" size="sm" href={dashboardPath(dashboard)}>{m.dashboardTable_open()}</Button>
 							{#if auth.canMutate}

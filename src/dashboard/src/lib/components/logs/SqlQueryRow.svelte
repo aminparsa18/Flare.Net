@@ -22,6 +22,7 @@
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as m from '$lib/paraglide/messages';
+	import { formatChartTime, formatRowTimestamp } from '$lib/time/format';
 
 	const explorer = logsExplorerContext.get();
 
@@ -348,24 +349,7 @@
 	}
 
 	function formatBucketTime(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, {
-			hour12: false,
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
-
-	function formatRowTime(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, {
-			hour12: false,
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit'
-		});
+		return formatChartTime(iso);
 	}
 
 	// maximumFractionDigits caps avg()'s fractional results (e.g. avg(SeverityNumber) ->
@@ -569,7 +553,7 @@
 							<tbody>
 								{#each result.events ?? [] as event (event.eventId)}
 									<tr class="border-t">
-										<td class="text-muted-foreground px-2 py-1 whitespace-nowrap tabular-nums">{formatRowTime(event.timestamp)}</td>
+										<td class="text-muted-foreground px-2 py-1 whitespace-nowrap tabular-nums">{formatRowTimestamp(event.timestamp)}</td>
 										<td class="px-2 py-1 whitespace-nowrap">{event.serviceName}</td>
 										<td class="px-2 py-1 whitespace-nowrap">{event.severityText}</td>
 										<td class="max-w-0 truncate px-2 py-1" title={stripAnsi(event.body)}><AnsiText text={event.body} /></td>

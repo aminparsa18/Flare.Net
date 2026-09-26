@@ -13,6 +13,7 @@
 	import { formatBytes, formatCount } from '$lib/indexing/format';
 	import { matchesBreakdown, type GrowthBreakdown } from '$lib/indexing/growth';
 	import * as m from '$lib/paraglide/messages';
+	import { formatCalendarDay } from '$lib/time/format';
 
 	const indexing = indexingContext.get();
 
@@ -126,8 +127,9 @@
 		hoverIndex = Math.min(days.length - 1, Math.max(0, Math.round(fraction * (days.length - 1))));
 	}
 
+	// A ClickHouse toDate() calendar day, not an instant - see formatCalendarDay.
 	function formatDay(iso: string): string {
-		return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+		return formatCalendarDay(iso);
 	}
 </script>
 

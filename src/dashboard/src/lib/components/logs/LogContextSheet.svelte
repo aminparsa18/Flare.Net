@@ -21,6 +21,7 @@
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { buildLogContextDeepLinkHref } from '$lib/deep-links';
 	import * as m from '$lib/paraglide/messages';
+	import { formatTimestamp } from '$lib/time/format';
 
 	const explorer = logsExplorerContext.get();
 
@@ -37,9 +38,6 @@
 		copiedTimeout = setTimeout(() => (copied = false), 1500);
 	}
 
-	function formatTimestamp(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 </script>
 
 <Sheet.Root

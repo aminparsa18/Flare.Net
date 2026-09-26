@@ -12,6 +12,7 @@ import { searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter } 
 import { formatDurationNano } from '$lib/traces/duration';
 import { parseAttrBareKey, parseAttrKeyValue, type AttrFlagEntry } from './attr-flags';
 import type { TerminalCommand } from '../types';
+import { formatTimeOfDay } from '$lib/time/format';
 
 class UsageError extends Error {}
 
@@ -183,9 +184,7 @@ function rolledUpStatusCode(span: SpanDto): string {
 // formatting - not tail.ts's formatTime (which prefixes month-day for log rows), a
 // different command with a different real-CLI output to stay faithful to.
 function formatTime(iso: string): string {
-	const d = new Date(iso);
-	const pad = (n: number, len = 2) => String(n).padStart(len, '0');
-	return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+	return formatTimeOfDay(iso, 'ms');
 }
 
 function formatRow(span: SpanDto): string {

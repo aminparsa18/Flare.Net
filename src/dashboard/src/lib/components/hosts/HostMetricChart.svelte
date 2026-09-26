@@ -6,6 +6,7 @@
 	// with no data, and drawing straight through either would invent readings.
 	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
 	import * as m from '$lib/paraglide/messages';
+	import { formatTimeOfDay } from '$lib/time/format';
 
 	interface Point {
 		time: number; // epoch ms
@@ -74,7 +75,7 @@
 	const shown = $derived(hover ?? latest);
 
 	function formatTime(time: number): string {
-		return new Date(time).toLocaleTimeString(undefined, { hour12: false, hour: '2-digit', minute: '2-digit' });
+		return formatTimeOfDay(time, 'minute');
 	}
 </script>
 

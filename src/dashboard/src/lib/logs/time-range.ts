@@ -11,6 +11,8 @@
 // directly off these arrays (see MetricsToolbar.svelte/TracesToolbar.svelte for the
 // correct pattern).
 import * as m from '$lib/paraglide/messages';
+import { startOfDisplayDay, startOfDisplayWeek } from '$lib/time/display-zone.svelte';
+import { formatTimestamp } from '$lib/time/format';
 
 export type TimeRangePreset =
 	| '5m'
@@ -111,20 +113,15 @@ export function resolveTimeRange(
 		return custom ? { from: custom.from.toISOString(), to: custom.to.toISOString() } : null;
 	}
 	if (preset === 'all') return { from: new Date(0).toISOString(), to: new Date().toISOString() };
+	// Calendar-relative presets start at midnight in the display time zone (see
+	// $lib/time/display-zone.svelte), not necessarily the browser's.
 	if (preset === 'today') {
 		const to = new Date();
-		const from = new Date(to);
-		from.setHours(0, 0, 0, 0);
-		return { from: from.toISOString(), to: to.toISOString() };
+		return { from: startOfDisplayDay(to).toISOString(), to: to.toISOString() };
 	}
 	if (preset === 'thisWeek') {
 		const to = new Date();
-		const from = new Date(to);
-		from.setHours(0, 0, 0, 0);
-		// Monday-based week start (ISO 8601), not locale-dependent - getDay() is 0=Sun..6=Sat.
-		const day = from.getDay();
-		from.setDate(from.getDate() - (day === 0 ? 6 : day - 1));
-		return { from: from.toISOString(), to: to.toISOString() };
+		return { from: startOfDisplayWeek(to).toISOString(), to: to.toISOString() };
 	}
 	const durationMs = TIME_RANGE_PRESETS.find((p) => p.value === preset)?.durationMs;
 	if (!durationMs) return null;
@@ -199,26 +196,15 @@ export function previousPeriodLabel(preset: TimeRangePreset): string {
 }
 
 /**
- * Full-precision "20 Aug 2026 14:00:00.000 to 21 Aug 2026 09:15:00.000"-style label for an
+ * Full-precision "2026-08-20 14:00:00.000 to 2026-08-21 09:15:00.000"-style label for an
  * explicit custom range - shared by TimeRangePicker.svelte (Logs' calendar picker) and
  * MetricsToolbar.svelte (which never offers 'custom' as a pickable preset, but can land on
- * one via MetricChart's drag-to-zoom - see MetricsExplorerState.setCustomRange). Day/month/
- * year plus 24h time down to the millisecond, not the coarser "Aug 20 - Aug 21" this used to
+ * one via MetricChart's drag-to-zoom - see MetricsExplorerState.setCustomRange). Full date
+ * plus 24h time down to the millisecond, not the coarser "Aug 20 - Aug 21" this used to
  * be - see TimeRangePicker's original remarks (still applicable) on why a short pan/zoom
- * that doesn't cross midnight needs to visibly show *something* moved. Built from plain Date
- * getters (not toLocaleTimeString) so the separators/24h-ness are guaranteed regardless of
- * locale, same reasoning VolumeChart's own axis-label formatting keeps to toLocaleString
- * only where locale variance is actually fine.
+ * that doesn't cross midnight needs to visibly show *something* moved.
  */
 export function formatCustomRangeLabel(range: { from: Date; to: Date } | null): string {
 	if (!range) return m.timeRange_custom();
-	const pad = (n: number, len = 2) => n.toString().padStart(len, '0');
-	const fmt = (d: Date) => {
-		const day = pad(d.getDate());
-		const month = d.toLocaleDateString(undefined, { month: 'short' });
-		const year = d.getFullYear();
-		const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
-		return `${day} ${month} ${year} ${time}`;
-	};
-	return m.timeRangePicker_customRangeFormat({ from: fmt(range.from), to: fmt(range.to) });
+	return m.timeRangePicker_customRangeFormat({ from: formatTimestamp(range.from), to: formatTimestamp(range.to) });
 }

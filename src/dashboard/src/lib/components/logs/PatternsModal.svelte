@@ -10,6 +10,7 @@
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { cn } from '$lib/utils';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDateTime } from '$lib/time/format';
 
 	// Embedded in the Logs page's toolbar (an icon-button trigger next to the search box)
 	// rather than a standalone `/patterns` route - patterns are always "patterns within
@@ -28,10 +29,6 @@
 	let error = $state<string | null>(null);
 
 	const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
-
-	function formatTimestamp(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 
 	// Dialog.Content is portalled and unmounted while closed (bits-ui doesn't keep closed
 	// content in the tree) - this component only exists in the DOM while open, so onMount
@@ -116,8 +113,8 @@
 								<Table.Cell class={cn('text-right tabular-nums', row.errorCount > 0 && 'text-destructive')}>
 									{compactNumber.format(row.errorCount)}
 								</Table.Cell>
-								<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatTimestamp(row.firstSeen)}</Table.Cell>
-								<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatTimestamp(row.lastSeen)}</Table.Cell>
+								<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(row.firstSeen)}</Table.Cell>
+								<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(row.lastSeen)}</Table.Cell>
 								<Table.Cell class="text-right">
 									<Button variant="ghost" size="sm" onclick={() => selectPattern(row)}>{m.patterns_viewOccurrences()}</Button>
 								</Table.Cell>

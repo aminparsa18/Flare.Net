@@ -9,16 +9,11 @@
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import type { ErrorsSortColumn } from '$lib/errors/state.svelte';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDateTime } from '$lib/time/format';
 
 	const errors = errorsExplorerContext.get();
 
 	const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
-
-	// Same local, component-only timestamp formatter as PatternsModal.svelte/
-	// SpanDetailSheet.svelte - not shared, it's a one-line wrapper.
-	function formatTimestamp(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 
 	interface ColumnDef {
 		column: ErrorsSortColumn;
@@ -98,8 +93,8 @@
 						</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{compactNumber.format(group.occurrenceCount)}</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{group.affectedServices.length}</Table.Cell>
-						<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatTimestamp(group.firstSeen)}</Table.Cell>
-						<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatTimestamp(group.lastSeen)}</Table.Cell>
+						<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(group.firstSeen)}</Table.Cell>
+						<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(group.lastSeen)}</Table.Cell>
 					</Table.Row>
 				{/each}
 			</Table.Body>

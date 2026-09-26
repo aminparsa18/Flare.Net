@@ -12,12 +12,9 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDateTime } from '$lib/time/format';
 
 	const tokens = accessTokensContext.get();
-
-	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 
 	type Status = 'active' | 'expired' | 'revoked';
 
@@ -112,12 +109,12 @@
 					<Table.Row>
 						<Table.Cell class="font-medium">{token.name}</Table.Cell>
 						<Table.Cell><Badge variant={statusVariant(tokenStatus)}>{statusLabel(tokenStatus)}</Badge></Table.Cell>
-						<Table.Cell class="text-muted-foreground">{formatDate(token.createdAt)}</Table.Cell>
+						<Table.Cell class="text-muted-foreground">{formatDateTime(token.createdAt)}</Table.Cell>
 						<Table.Cell class="text-muted-foreground">
-							{token.expiresAt ? formatDate(token.expiresAt) : m.accessTokenTable_neverExpires()}
+							{token.expiresAt ? formatDateTime(token.expiresAt) : m.accessTokenTable_neverExpires()}
 						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">
-							{token.lastUsedAt ? formatDate(token.lastUsedAt) : m.accessTokenTable_neverUsed()}
+							{token.lastUsedAt ? formatDateTime(token.lastUsedAt) : m.accessTokenTable_neverUsed()}
 						</Table.Cell>
 						<Table.Cell class="text-right">
 							<Button

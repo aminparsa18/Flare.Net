@@ -10,6 +10,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as m from '$lib/paraglide/messages';
+	import { formatAxisTime, formatChartTime } from '$lib/time/format';
 
 	const explorer = logsExplorerContext.get();
 
@@ -340,8 +341,7 @@
 	const overlayRangeDetail = $derived.by(() => {
 		if (!overlayChangeText || !rangeFrom || !rangeTo || overlayShiftSeconds == null) return null;
 		const overlay = shiftRange({ from: rangeFrom, to: rangeTo }, overlayShiftSeconds);
-		const fmt = (iso: string) =>
-			new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+		const fmt = (iso: string) => formatChartTime(iso);
 		return `${m.volumeChart_timeShiftRangeCurrent({ from: fmt(rangeFrom), to: fmt(rangeTo) })}\n${m.volumeChart_timeShiftRangePrevious({ from: fmt(overlay.from), to: fmt(overlay.to) })}`;
 	});
 
@@ -484,17 +484,11 @@
 	}
 
 	function formatBucketTime(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, {
-			hour12: false,
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return formatChartTime(iso, bucketWidthSeconds * 1000);
 	}
 
-	function formatAxisTime(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false, hour: '2-digit', minute: '2-digit' });
+	function axisLabel(iso: string): string {
+		return formatAxisTime(iso, rangeFrom && rangeTo ? new Date(rangeTo).getTime() - new Date(rangeFrom).getTime() : 0);
 	}
 
 	const compactCount = new Intl.NumberFormat(undefined, { notation: 'compact' });
@@ -756,8 +750,8 @@
 
 					<div></div>
 					<div class="text-muted-foreground mt-1 flex justify-between text-[10px]">
-						<span>{rangeFrom ? formatAxisTime(rangeFrom) : ''}</span>
-						<span>{rangeTo ? formatAxisTime(rangeTo) : ''}</span>
+						<span>{rangeFrom ? axisLabel(rangeFrom) : ''}</span>
+						<span>{rangeTo ? axisLabel(rangeTo) : ''}</span>
 					</div>
 					{#if resultGroupBy && seriesKeys.length > 0}
 						<div></div>

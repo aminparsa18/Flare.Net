@@ -4,6 +4,9 @@
 	import AnsiText from './AnsiText.svelte';
 	import { severityVariant } from '$lib/logs/severity';
 	import { formatDurationNano } from '$lib/traces/duration';
+	// Fixed-width MM-DD HH:mm:ss.SSS - this is a monospace column (font-mono below) that
+	// mustn't jitter row to row; see $lib/time/format.
+	import { formatRowTimestamp } from '$lib/time/format';
 
 	let {
 		event,
@@ -20,17 +23,6 @@
 
 	const multiline = $derived(lines > 1);
 
-	// Hand-formatted rather than toLocaleString/toLocaleDateString - this is a monospace
-	// technical column (font-mono below), and locale date formats vary in width (e.g. "Aug 9"
-	// vs "Aug 12"), which would make the column jitter row to row. Fixed-width zero-padded
-	// MM-DD keeps every row exactly the same character count.
-	function formatTime(iso: string): string {
-		const d = new Date(iso);
-		const pad = (n: number, len = 2) => String(n).padStart(len, '0');
-		const date = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-		const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
-		return `${date} ${time}`;
-	}
 </script>
 
 <button
@@ -45,7 +37,7 @@
 	style="grid-template-columns: var(--log-row-columns); height: var(--log-row-height); min-height: var(--log-row-height); max-height: var(--log-row-height);"
 	onclick={() => onSelect(event)}
 >
-	<span class="text-muted-foreground truncate font-mono text-xs leading-5">{formatTime(event.timestamp)}</span>
+	<span class="text-muted-foreground truncate font-mono text-xs leading-5">{formatRowTimestamp(event.timestamp)}</span>
 	<span class="flex h-5 items-center"><Badge variant={severityVariant(event.severityNumber)}>{event.severityText || '—'}</Badge></span>
 	<span class="truncate leading-5">{event.serviceName || '—'}</span>
 	{#if !live}

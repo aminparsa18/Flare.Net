@@ -14,6 +14,7 @@
 	import { searchLogs, type LogEventDto } from '$lib/api';
 	import { severityVariant } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
+	import { formatTimestamp } from '$lib/time/format';
 
 	const detail = traceDetailContext.get();
 
@@ -28,10 +29,6 @@
 		const rest = { ...attributes };
 		delete rest[EXCEPTION_STACKTRACE_KEY];
 		return rest;
-	}
-
-	function formatTimestamp(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
 	}
 
 	// Linked logs: view-local, transient data for whichever span is currently selected -

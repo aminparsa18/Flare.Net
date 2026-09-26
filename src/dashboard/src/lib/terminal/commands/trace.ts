@@ -10,6 +10,7 @@
 import { getTrace, type SpanDto } from '$lib/traces-api';
 import { formatDurationNano } from '$lib/traces/duration';
 import type { TerminalCommand, TerminalLineKind } from '../types';
+import { formatTimeOfDay } from '$lib/time/format';
 
 const LABEL_WIDTH = 46;
 const BAR_WIDTH = 36;
@@ -103,10 +104,6 @@ function formatRow(span: SpanDto, depth: number, traceStartMs: number, totalMs: 
 	return `${label} ${bar} ${duration}`;
 }
 
-function pad(n: number, len = 2): string {
-	return String(n).padStart(len, '0');
-}
-
 export const traceCommand: TerminalCommand = {
 	name: 'trace',
 	summary: 'Renders one trace as a text waterfall (same view as the trace-detail page).',
@@ -143,8 +140,7 @@ export const traceCommand: TerminalCommand = {
 		const errorCount = trace.spans.filter((s) => s.statusCode === 'STATUS_CODE_ERROR').length;
 
 		term.writeLine(`Trace ${trace.traceId}`, 'info');
-		const started = new Date(traceStartMs);
-		const startedLabel = `${pad(started.getHours())}:${pad(started.getMinutes())}:${pad(started.getSeconds())}.${pad(started.getMilliseconds(), 3)}`;
+		const startedLabel = formatTimeOfDay(traceStartMs, 'ms');
 		const summary = `${trace.spans.length} span(s) · ${serviceCount} service(s) · ${formatDurationNano(totalMs * 1_000_000)} total · started ${startedLabel}`;
 		const summaryKind: TerminalLineKind = errorCount > 0 ? 'error' : 'info';
 		term.writeLine(errorCount > 0 ? `${summary} · ${errorCount} error(s)` : summary, summaryKind);

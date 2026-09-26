@@ -14,12 +14,9 @@
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import * as m from '$lib/paraglide/messages';
+	import { formatDateTime } from '$lib/time/format';
 
 	const views = savedViewsContext.get();
-
-	function formatDate(iso: string): string {
-		return new Date(iso).toLocaleString(undefined, { hour12: false });
-	}
 
 	// Reuses the nav_* labels rather than a fourth copy of "Logs"/"Traces"/"Metrics" -
 	// same concept, same translated text, and PageType's exact values are drawn from the
@@ -101,7 +98,7 @@
 							{/if}
 						</Table.Cell>
 						<Table.Cell><Badge variant="outline">{pageTypeLabel(view.pageType)}</Badge></Table.Cell>
-						<Table.Cell class="text-muted-foreground">{formatDate(view.updatedAt)}</Table.Cell>
+						<Table.Cell class="text-muted-foreground">{formatDateTime(view.updatedAt)}</Table.Cell>
 						<Table.Cell class="text-right">
 							<Button variant="ghost" size="sm" href={savedViewPath(view)}>{m.savedViewTable_open()}</Button>
 							<Button variant="ghost" size="icon-sm" title={m.savedViewTable_copyLink()} onclick={() => handleCopyLink(view)}>

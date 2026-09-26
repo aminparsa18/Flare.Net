@@ -18,6 +18,7 @@
 	import { formatDurationNano } from '$lib/traces/duration';
 	import * as m from '$lib/paraglide/messages';
 	import type { AttributeBag } from '$lib/api';
+	import { formatTimestamp } from '$lib/time/format';
 
 	const explorer = logsExplorerContext.get();
 
@@ -121,20 +122,6 @@
 			const resolved = typeof bag === 'function' ? bag(key) : bag;
 			if (resolved) explorer.addAttributeValueFilter(resolved, key, value, exclude);
 		};
-	}
-
-	function formatTimestamp(iso: string): string {
-		// Every field spelled out: passing fractionalSecondDigits alone switches off toLocaleString's date/time defaults.
-		return new Date(iso).toLocaleString(undefined, {
-			hour12: false,
-			year: 'numeric',
-			month: 'numeric',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			fractionalSecondDigits: 3
-		});
 	}
 
 	let copied = $state(false);
