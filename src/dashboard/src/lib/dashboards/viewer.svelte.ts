@@ -27,7 +27,7 @@ import { getHomeDashboardId, setHomeDashboardId, clearHomeDashboardIdIfMatching 
 import { nextPanelPosition, panelsInRow } from './layout';
 import { slugify } from './state.svelte';
 import { downloadBlob } from '$lib/logs/export';
-import { resolveQueryVariableOptions, type VariableDependency } from './variables';
+import { defaultSelection, resolveQueryVariableOptions, type VariableDependency } from './variables';
 import type { PanelThreshold } from './thresholds';
 import * as m from '$lib/paraglide/messages';
 
@@ -71,11 +71,12 @@ export class DashboardViewerState {
 
 	/**
 	 * Session-only selection for each of `variables` - keyed by `DashboardVariable.id`,
-	 * `null`/absent meaning "All" (that variable isn't currently narrowing anything). Never
-	 * persisted - see this file's header comment. Seeded from each variable's own
-	 * `defaultValue` in `load()`/whenever a variable is added.
+	 * `[]`/absent meaning "All" (that variable isn't currently narrowing anything). At most
+	 * one value unless the variable is `multi`. Never persisted - see this file's header
+	 * comment. Seeded from each variable's own default (see `defaultSelection`) in `load()`/
+	 * whenever a variable is added.
 	 */
-	variableValues = $state<Record<string, string | null>>({});
+	variableValues = $state<Record<string, string[]>>({});
 
 	/** Resolved selectable values for each of `variables`, keyed by id - `Custom` variables'
 	 *  own `customValues` verbatim, `Query` variables resolved live via
@@ -139,13 +140,16 @@ export class DashboardViewerState {
 
 	/** Seeds `variableValues` for every variable that doesn't have a selection yet - called
 	 *  on load and after adding a variable, so a freshly-added variable starts at its own
-	 *  `defaultValue` (or "All") instead of `undefined`. Never overwrites an existing
-	 *  selection (editing/removing other variables shouldn't reset ones the user already
-	 *  picked a value for). */
+	 *  default (or "All") instead of `undefined`. Never overwrites an existing selection
+	 *  (editing/removing other variables shouldn't reset ones the user already picked a value
+	 *  for) - except to trim it to one value when a variable was just switched from `multi`
+	 *  back to single-value, which can't hold more. */
 	#reseedVariableValues(): void {
 		const next = { ...this.variableValues };
 		for (const variable of this.variables) {
-			if (!(variable.id in next)) next[variable.id] = variable.defaultValue ?? null;
+			const current = next[variable.id];
+			if (!current) next[variable.id] = defaultSelection(variable);
+			else if (!variable.multi && current.length > 1) next[variable.id] = current.slice(0, 1);
 		}
 		this.variableValues = next;
 	}
@@ -200,8 +204,8 @@ export class DashboardViewerState {
 		} finally {
 			resolvingIds.delete(variable.id);
 		}
-		const value = this.variableValues[parentId];
-		return value ? { variable: parent, value } : undefined;
+		const values = this.variableValues[parentId];
+		return values?.length ? { variable: parent, values } : undefined;
 	}
 
 	setEditing(v: boolean): void {
@@ -212,28 +216,30 @@ export class DashboardViewerState {
 		this.timeRangeOverride = preset;
 	}
 
-	setVariableValue(variableId: string, value: string | null): void {
-		this.variableValues = { ...this.variableValues, [variableId]: value };
+	/** `values` is `[]` for "All"; a single-value variable only ever gets 0 or 1. */
+	setVariableValues(variableId: string, values: string[]): void {
+		this.variableValues = { ...this.variableValues, [variableId]: values };
 		void this.#refreshDependentsOf(variableId);
 	}
 
 	/** Re-resolves the option list of every variable that directly `dependsOnVariableId`
 	 *  `changedId` (and, recursively, theirs) after `changedId`'s own selected value changes -
-	 *  chaining's whole point (see `DashboardVariable.dependsOnVariableId`). A dependent whose
-	 *  current selection is no longer among its freshly-resolved options is reset to "All",
-	 *  same as any other out-of-range selection elsewhere in this class, rather than left
-	 *  silently narrowing a panel by a value that's no longer actually offered. */
+	 *  chaining's whole point (see `DashboardVariable.dependsOnVariableId`). Any value of a
+	 *  dependent's current selection that's no longer among its freshly-resolved options is
+	 *  dropped (a single-value dependent thus resets to "All"), rather than left silently
+	 *  narrowing a panel by a value that's no longer actually offered. */
 	async #refreshDependentsOf(changedId: string): Promise<void> {
 		const parent = this.variables.find((v) => v.id === changedId);
-		const parentValue = this.variableValues[changedId];
-		const dependency: VariableDependency | undefined = parent && parentValue ? { variable: parent, value: parentValue } : undefined;
+		const parentValues = this.variableValues[changedId];
+		const dependency: VariableDependency | undefined = parent && parentValues?.length ? { variable: parent, values: parentValues } : undefined;
 		const dependents = this.variables.filter((v) => v.dependsOnVariableId === changedId && v.sourceKind === 'Query');
 		for (const dependent of dependents) {
 			const options = await resolveQueryVariableOptions(dependent, dependency);
 			this.variableOptions = { ...this.variableOptions, [dependent.id]: options };
-			const current = this.variableValues[dependent.id];
-			if (current && !options.includes(current)) {
-				this.variableValues = { ...this.variableValues, [dependent.id]: null };
+			const current = this.variableValues[dependent.id] ?? [];
+			const kept = current.filter((v) => options.includes(v));
+			if (kept.length !== current.length) {
+				this.variableValues = { ...this.variableValues, [dependent.id]: kept };
 			}
 			await this.#refreshDependentsOf(dependent.id);
 		}

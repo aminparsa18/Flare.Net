@@ -8,6 +8,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Select from '$lib/components/ui/select';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import type { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
 	import type { DashboardAttributeBag, DashboardVariable, DashboardVariableSourceKind, DashboardVariableTarget } from '$lib/dashboards-api';
 	import * as m from '$lib/paraglide/messages';
@@ -30,7 +31,9 @@
 	let sourceKind = $state<DashboardVariableSourceKind>('Query');
 	/** Comma-separated draft for a `Custom` variable's value list - parsed into `customValues` on submit, same "freeform text, split on submit" shape a URL param list might use elsewhere in this app. */
 	let customValuesDraft = $state('');
+	/** One value, or (when `multi`) a comma-separated list - see `splitList`. */
 	let defaultValue = $state('');
+	let multi = $state(false);
 	/** `NONE` means "independent" (no `dependsOnVariableId`) - see the field's own remarks on `DashboardVariable`. Only meaningful (and only shown) for a `Query`-sourced variable. */
 	let dependsOnVariableId = $state(NONE);
 
@@ -67,6 +70,7 @@
 			sourceKind = 'Query';
 			customValuesDraft = '';
 			defaultValue = '';
+			multi = false;
 			dependsOnVariableId = NONE;
 		} else if (t) {
 			name = t.name;
@@ -75,7 +79,8 @@
 			attributeKey = t.attributeKey ?? '';
 			sourceKind = t.sourceKind;
 			customValuesDraft = (t.customValues ?? []).join(', ');
-			defaultValue = t.defaultValue ?? '';
+			multi = t.multi ?? false;
+			defaultValue = multi ? (t.defaultValues ?? []).join(', ') : (t.defaultValue ?? '');
 			dependsOnVariableId = t.dependsOnVariableId ?? NONE;
 		}
 	});
@@ -88,6 +93,13 @@
 	];
 
 	const canSubmit = $derived(name.trim() !== '' && (target !== 'Attribute' || attributeKey.trim() !== ''));
+
+	function splitList(draft: string): string[] {
+		return draft
+			.split(',')
+			.map((v) => v.trim())
+			.filter(Boolean);
+	}
 
 	function handleOpenChange(next: boolean): void {
 		if (!next) viewer.closeVariableForm();
@@ -104,14 +116,10 @@
 			attributeBag: target === 'Attribute' ? attributeBag : undefined,
 			attributeKey: target === 'Attribute' ? attributeKey.trim() : undefined,
 			sourceKind,
-			customValues:
-				sourceKind === 'Custom'
-					? customValuesDraft
-							.split(',')
-							.map((v) => v.trim())
-							.filter(Boolean)
-					: undefined,
-			defaultValue: defaultValue.trim() || null,
+			customValues: sourceKind === 'Custom' ? splitList(customValuesDraft) : undefined,
+			multi: multi || undefined,
+			defaultValue: multi ? null : defaultValue.trim() || null,
+			defaultValues: multi ? [...new Set(splitList(defaultValue))] : undefined,
 			// Meaningless for a Custom variable (its list is fixed, nothing to narrow) even if a
 			// dependency was picked before switching Values to Custom - dropped here rather than
 			// left stale in the saved definition.
@@ -210,9 +218,21 @@
 				</div>
 			{/if}
 
+			<div class="space-y-1">
+				<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+					<Checkbox bind:checked={multi} />
+					{m.variableForm_multiLabel()}
+				</label>
+				<p class="text-muted-foreground text-xs">{m.variableForm_multiHint()}</p>
+			</div>
+
 			<div class="space-y-2">
-				<label for="variable-form-default" class="text-sm font-medium">{m.variableForm_defaultValueLabel()}</label>
-				<Input id="variable-form-default" bind:value={defaultValue} placeholder={m.variableForm_defaultValuePlaceholder()} />
+				<label for="variable-form-default" class="text-sm font-medium">{multi ? m.variableForm_defaultValuesLabel() : m.variableForm_defaultValueLabel()}</label>
+				<Input
+					id="variable-form-default"
+					bind:value={defaultValue}
+					placeholder={multi ? m.variableForm_defaultValuesPlaceholder() : m.variableForm_defaultValuePlaceholder()}
+				/>
 			</div>
 
 			<Dialog.Footer>

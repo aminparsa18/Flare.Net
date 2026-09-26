@@ -241,10 +241,15 @@ bord :
      pour l'auto-complétion).
    - **Liste personnalisée** — une liste fixe, séparée par des virgules,
      que vous saisissez vous-même.
-4. Définissez éventuellement une **valeur par défaut**, présélectionnée à
+4. Cochez éventuellement **Autoriser plusieurs valeurs** pour permettre de
+   choisir plusieurs valeurs à la fois (par exemple, deux services) au lieu
+   d'une seule — voir « Variables à valeurs multiples » ci-dessous.
+5. Définissez éventuellement une **valeur par défaut**, présélectionnée à
    chaque ouverture du tableau de bord. Laissez vide pour « Tous » (la
-   variable ne restreint rien tant qu'aucune valeur n'est choisie).
-5. Définissez éventuellement **Dépend de** (proposé uniquement pour les
+   variable ne restreint rien tant qu'aucune valeur n'est choisie). Pour
+   une variable à valeurs multiples, saisissez plusieurs valeurs par défaut
+   séparées par des virgules.
+6. Définissez éventuellement **Dépend de** (proposé uniquement pour les
    variables « Depuis une requête ») pour chaîner cette variable à une
    autre déjà définie sur le tableau de bord — voir « Chaînage de
    variables » ci-dessous.
@@ -266,6 +271,19 @@ choisir ses propres valeurs.
 Chaque panneau peut aussi désactiver individuellement une variable — voir
 « Désactivation par panneau » ci-dessous.
 
+### Variables à valeurs multiples
+
+Une variable pour laquelle **Autoriser plusieurs valeurs** est coché
+affiche une liste de cases à cocher au lieu d'une liste déroulante à valeur
+unique. Cochez autant de valeurs que vous voulez : les panneaux
+correspondent alors à *n'importe laquelle* d'entre elles (une variable
+Service filtre sur tous les services sélectionnés, une variable d'attribut
+retient les événements dont l'attribut vaut l'une des valeurs
+sélectionnées). **Tous** vide la sélection, et survoler une valeur affiche
+un raccourci **Uniquement** qui ne sélectionne que celle-ci. L'en-tête
+affiche la première valeur sélectionnée suivie du nombre d'autres valeurs
+sélectionnées (par exemple, `Service: checkout +2`).
+
 ### Chaînage de variables
 
 Une variable « Depuis une requête » peut optionnellement **dépendre** d'une
@@ -273,7 +291,8 @@ autre variable déjà définie sur le tableau de bord : choisissez-en une dans
 sa liste déroulante **Dépend de** (seules les variables qui ne créeraient
 pas de cycle de dépendance sont proposées). Une fois chaînée, sa propre
 liste de valeurs est résolue restreinte à la valeur *actuellement*
-sélectionnée pour sa variable parente, au lieu de la fenêtre non filtrée de
+sélectionnée pour sa variable parente (ou, pour un parent à valeurs
+multiples, à n'importe laquelle de ses valeurs sélectionnées), au lieu de la fenêtre non filtrée de
 7 jours utilisée par une variable indépendante — par exemple, une variable
 « Hôte » qui restreint un attribut de ressource peut dépendre d'une
 variable « Service », de sorte que sa liste déroulante ne propose que les
@@ -283,9 +302,10 @@ parente (ou ne jamais choisir de valeur pour le parent d'une variable
 chaînée) revient à la même fenêtre non filtrée qu'une variable sans
 dépendance. Changer la valeur sélectionnée d'une variable parente
 re-résout automatiquement chaque variable qui en dépend (et, par
-transitivité, tout ce qui en dépend à son tour) ; si la sélection actuelle
-d'une variable dépendante ne fait plus partie de ses options
-fraîchement résolues, elle revient à « Tous » plutôt que de continuer à
+transitivité, tout ce qui en dépend à son tour) ; toute valeur de la
+sélection actuelle d'une variable dépendante qui ne fait plus partie de ses
+options fraîchement résolues est retirée (une variable dépendante à valeur
+unique revient à « Tous ») plutôt que de continuer à
 restreindre silencieusement des panneaux avec une valeur qui n'est plus
 réellement proposée. Comme toute autre relation entre variables, seule la
 *chaîne elle-même* (quelle variable dépend de laquelle) fait partie du

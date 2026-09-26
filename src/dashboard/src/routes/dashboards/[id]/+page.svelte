@@ -10,6 +10,7 @@
 	import { panelsInRow } from '$lib/dashboards/layout';
 	import AddPanelDialog from '$lib/components/dashboards/AddPanelDialog.svelte';
 	import ManageVariablesDialog from '$lib/components/dashboards/ManageVariablesDialog.svelte';
+	import VariableMultiPicker from '$lib/components/dashboards/VariableMultiPicker.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
@@ -93,15 +94,15 @@
 	// Dashboard variables (docs-internal/adr/0025-dashboard-variables.md) - any number of
 	// them, each rendering its own dropdown with the same OVERRIDE_OFF-sentinel shape as the
 	// time-range override above ("All" meaning this variable isn't currently narrowing
-	// anything).
+	// anything). A `multi` variable (ADR-0058) gets VariableMultiPicker's checkbox list instead.
 	const VARIABLE_OFF = '__all__';
 
 	function variableLabel(variableId: string): string {
-		return viewer.variableValues[variableId] ?? m.dashboardViewer_variableAll();
+		return viewer.variableValues[variableId]?.[0] ?? m.dashboardViewer_variableAll();
 	}
 
 	function handleVariableChange(variableId: string, value: string): void {
-		viewer.setVariableValue(variableId, value === VARIABLE_OFF ? null : value);
+		viewer.setVariableValues(variableId, value === VARIABLE_OFF ? [] : [value]);
 	}
 
 	function handleRefreshIntervalChange(value: string): void {
@@ -174,22 +175,31 @@
 				</Select.Root>
 
 				{#each viewer.variables as variable (variable.id)}
-					<Select.Root
-						type="single"
-						value={viewer.variableValues[variable.id] ?? VARIABLE_OFF}
-						onValueChange={(v) => v && handleVariableChange(variable.id, v)}
-					>
-						<Select.Trigger class="w-auto" title={variable.name}>
-							<SlidersHorizontalIcon data-icon="inline-start" />
-							{variable.name}: {variableLabel(variable.id)}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value={VARIABLE_OFF} label={m.dashboardViewer_variableAll()} />
-							{#each viewer.variableOptions[variable.id] ?? [] as option (option)}
-								<Select.Item value={option} label={option} />
-							{/each}
-						</Select.Content>
-					</Select.Root>
+					{#if variable.multi}
+						<VariableMultiPicker
+							{variable}
+							options={viewer.variableOptions[variable.id] ?? []}
+							selected={viewer.variableValues[variable.id] ?? []}
+							onChange={(values) => viewer.setVariableValues(variable.id, values)}
+						/>
+					{:else}
+						<Select.Root
+							type="single"
+							value={viewer.variableValues[variable.id]?.[0] ?? VARIABLE_OFF}
+							onValueChange={(v) => v && handleVariableChange(variable.id, v)}
+						>
+							<Select.Trigger class="w-auto" title={variable.name}>
+								<SlidersHorizontalIcon data-icon="inline-start" />
+								{variable.name}: {variableLabel(variable.id)}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value={VARIABLE_OFF} label={m.dashboardViewer_variableAll()} />
+								{#each viewer.variableOptions[variable.id] ?? [] as option (option)}
+									<Select.Item value={option} label={option} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					{/if}
 				{/each}
 
 				{#if auth.canMutateDashboard(viewer.dashboard?.ownerUserId ?? null)}
