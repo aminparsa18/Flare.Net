@@ -18,6 +18,8 @@ import {
 } from '$lib/memorypack/enums';
 import { SpanFilter as GeneratedSpanFilter } from '$lib/memorypack/SpanFilter';
 import { SpanAttributeFilter as GeneratedSpanAttributeFilter } from '$lib/memorypack/SpanAttributeFilter';
+import { TraceSpanCondition as GeneratedTraceSpanCondition } from '$lib/memorypack/TraceSpanCondition';
+import { TraceStructureFilter as GeneratedTraceStructureFilter } from '$lib/memorypack/TraceStructureFilter';
 import { SpanSearchRequest as GeneratedSpanSearchRequest } from '$lib/memorypack/SpanSearchRequest';
 import { SpanSearchResponse as GeneratedSpanSearchResponse } from '$lib/memorypack/SpanSearchResponse';
 import { TraceDto as GeneratedTraceDto } from '$lib/memorypack/TraceDto';
@@ -59,6 +61,77 @@ export interface SpanFilter {
 	names?: string[];
 	/** Each service's entry spans only (no parent, or a parent in another service) - see `SpanFilter.EntrySpansOnly` (SpanFilter.cs). */
 	entrySpansOnly?: boolean;
+	/** Only spans of traces whose span tree matches - see `SpanFilter.Structure` (SpanFilter.cs) and `TraceStructureSqlBuilder`. */
+	structure?: TraceStructureFilter;
+}
+
+/** One lettered span condition of a structural trace query - see `TraceSpanCondition` (TraceStructureModels.cs). Unset/empty fields match anything. */
+export interface TraceSpanCondition {
+	/** `A`-`Z`, what the expression refers to it by. */
+	name: string;
+	serviceName?: string;
+	spanName?: string;
+	/** `STATUS_CODE_*` label. */
+	statusCode?: string;
+	minDurationNano?: number;
+	attributes?: SpanAttributeFilter[];
+}
+
+/** Conditions plus an expression over them, e.g. `A -> B AND NOT C` - see `TraceStructureFilter` (TraceStructureModels.cs). */
+export interface TraceStructureFilter {
+	conditions: TraceSpanCondition[];
+	expression: string;
+}
+
+/** The most conditions one structure takes - `TraceStructureSqlBuilder.MaxConditions`. */
+export const MAX_STRUCTURE_CONDITIONS = 6;
+
+function toGeneratedSpanAttributeFilter(a: SpanAttributeFilter): GeneratedSpanAttributeFilter {
+	const attr = new GeneratedSpanAttributeFilter();
+	attr.bag = spanAttributeBagFromString(a.bag);
+	attr.key = a.key;
+	attr.value = a.value;
+	attr.operator = spanAttributeFilterOperatorFromString(a.operator ?? 'Equals');
+	attr.values = a.values ?? null;
+	return attr;
+}
+
+function toGeneratedStructure(structure: TraceStructureFilter): GeneratedTraceStructureFilter {
+	const dto = new GeneratedTraceStructureFilter();
+	dto.expression = structure.expression;
+	dto.conditions = structure.conditions.map((c) => {
+		const condition = new GeneratedTraceSpanCondition();
+		condition.name = c.name;
+		condition.serviceName = c.serviceName || null;
+		condition.spanName = c.spanName || null;
+		condition.statusCode = c.statusCode || null;
+		condition.minDurationNano = c.minDurationNano == null ? null : BigInt(c.minDurationNano);
+		condition.attributes = c.attributes?.length ? c.attributes.map(toGeneratedSpanAttributeFilter) : null;
+		return condition;
+	});
+	return dto;
+}
+
+/**
+ * Checks a structure server-side (`POST /api/traces/structure/validate`, parse + validate
+ * only, no query) - resolves to `null` when it's valid, or the reason it isn't.
+ */
+export async function validateTraceStructure(structure: TraceStructureFilter, signal?: AbortSignal): Promise<string | null> {
+	const res = await apiFetch(`${API_BASE_URL}/api/traces/structure/validate`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedTraceStructureFilter.serialize(toGeneratedStructure(structure))),
+		signal
+	});
+	if (res.ok) return null;
+	let message = `POST /api/traces/structure/validate failed: ${res.status} ${res.statusText}`;
+	try {
+		const problem = await res.json();
+		message = problem?.detail || problem?.title || message;
+	} catch {
+		// Not JSON - keep the generic message.
+	}
+	return message;
 }
 
 function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFilter {
@@ -73,20 +146,10 @@ function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFil
 	dto.rootSpansOnly = filter.rootSpansOnly ?? false;
 	dto.minDurationNano = filter.minDurationNano == null ? null : BigInt(filter.minDurationNano);
 	dto.maxDurationNano = filter.maxDurationNano == null ? null : BigInt(filter.maxDurationNano);
-	dto.attributes =
-		filter.attributes == null
-			? null
-			: filter.attributes.map((a) => {
-					const attr = new GeneratedSpanAttributeFilter();
-					attr.bag = spanAttributeBagFromString(a.bag);
-					attr.key = a.key;
-					attr.value = a.value;
-					attr.operator = spanAttributeFilterOperatorFromString(a.operator ?? 'Equals');
-					attr.values = a.values ?? null;
-					return attr;
-				});
+	dto.attributes = filter.attributes == null ? null : filter.attributes.map(toGeneratedSpanAttributeFilter);
 	dto.names = filter.names ?? null;
 	dto.entrySpansOnly = filter.entrySpansOnly ?? false;
+	dto.structure = filter.structure == null ? null : toGeneratedStructure(filter.structure);
 	return dto;
 }
 
@@ -219,7 +282,19 @@ export async function searchSpans(request: SpanSearchRequest = {}, signal?: Abor
 		signal
 	});
 	if (!res.ok) {
-		throw new Error(`POST /api/spans/search failed: ${res.status} ${res.statusText}`);
+		// A 400 carries a ProblemDetails `detail` worth showing verbatim (an invalid
+		// `filter.structure`, e.g. "The expression uses condition D, which isn't defined") -
+		// same handling as api.ts's runLogQlQuery.
+		let message = `POST /api/spans/search failed: ${res.status} ${res.statusText}`;
+		if (res.status === 400) {
+			try {
+				const problem = await res.json();
+				message = problem?.detail || problem?.title || message;
+			} catch {
+				// Not JSON - keep the generic message.
+			}
+		}
+		throw new Error(message);
 	}
 	const body = GeneratedSpanSearchResponse.deserialize(await res.arrayBuffer());
 	return {

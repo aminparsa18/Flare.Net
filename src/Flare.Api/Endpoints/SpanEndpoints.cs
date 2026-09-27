@@ -20,6 +20,7 @@ public static class SpanEndpoints
         endpoints.MapPost("/api/spans/search", HandleSearchAsync);
         endpoints.MapGet("/api/traces/{traceId}", HandleGetTraceAsync);
         endpoints.MapPost("/api/spans/attribute-values", HandleAttributeValuesAsync);
+        endpoints.MapPost("/api/traces/structure/validate", HandleValidateStructureAsync);
         return endpoints;
     }
 
@@ -40,8 +41,16 @@ public static class SpanEndpoints
 
         request ??= new SpanSearchRequest();
 
-        var response = await queryService.SearchAsync(request, cancellationToken);
-        return ApiSerialization.Write(http, response, SpansJsonContext.Default.SpanSearchResponse);
+        try
+        {
+            var response = await queryService.SearchAsync(request, cancellationToken);
+            return ApiSerialization.Write(http, response, SpansJsonContext.Default.SpanSearchResponse);
+        }
+        catch (ArgumentException ex)
+        {
+            // An invalid SpanFilter.Structure (TraceStructureSqlBuilder.Validate).
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
     }
 
     private static async Task<IResult> HandleGetTraceAsync(
@@ -82,7 +91,31 @@ public static class SpanEndpoints
             ApiSerialization.SetAutocompleteCacheControl(http);
             return ApiSerialization.Write(http, response, SpansJsonContext.Default.SpanAttributeValuesResponse);
         }
-        catch (ArgumentOutOfRangeException ex)
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+    }
+
+    /// <summary>
+    /// Checks a <see cref="TraceStructureFilter"/> without querying anything - 204, or 400
+    /// with the reason. The dashboard calls it before applying a structure, so an invalid one
+    /// never reaches the search and facet requests that all share the filter.
+    /// </summary>
+    private static async Task<IResult> HandleValidateStructureAsync(HttpContext http, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var structure = await ApiSerialization.ReadAsync(http, SpansJsonContext.Default.TraceStructureFilter, cancellationToken);
+            if (structure is null)
+            {
+                return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            TraceStructureSqlBuilder.Validate(structure);
+            return Results.NoContent();
+        }
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
         {
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }

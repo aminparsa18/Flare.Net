@@ -70,6 +70,14 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         [Description("List each service's entry spans (no parent, or a parent in another service) instead of one root span per trace.")]
         public bool Entry { get; init; }
 
+        [CommandOption("--span <SPEC>")]
+        [Description("A structural span condition for --where: LETTER:key=value,... with keys service, name, status (ok/error/unset), min-duration. E.g. \"B:service=payment,status=error\". Repeatable.")]
+        public string[] Span { get; init; } = [];
+
+        [CommandOption("--where <EXPR>")]
+        [Description("Only traces whose spans match this expression over the --span letters: A -> B (direct child), A => B (any descendant), AND, OR, NOT, parentheses.")]
+        public string? Where { get; init; }
+
         [CommandOption("--since <RANGE>")]
         [Description("How far back to search: 15m, 1h, 6h, 24h, 7d. Default 1h.")]
         public string Since { get; init; } = "1h";
@@ -153,6 +161,16 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
             return 1;
         }
 
+        TraceStructureWire? structure = null;
+        if (settings.Where is not null || settings.Span.Length > 0)
+        {
+            if (!TryParseStructure(settings.Span, settings.Where, out structure, out var structureError))
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(structureError)}");
+                return 1;
+            }
+        }
+
         var to = DateTimeOffset.UtcNow;
         var from = to - since;
 
@@ -171,6 +189,7 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
             Attributes = parsedAttrs.Count > 0
                 ? parsedAttrs.Select(a => new SpanAttributeFilterWire { Key = a.Key, Value = a.Value, Operator = a.Operator }).ToList()
                 : null,
+            Structure = structure,
         };
 
         var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
@@ -187,7 +206,11 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
 
             if (!httpResponse.IsSuccessStatusCode)
             {
-                AnsiConsole.MarkupLine($"[red]✗[/] POST /api/spans/search failed: {(int)httpResponse.StatusCode} {httpResponse.ReasonPhrase}");
+                // A 400 is an invalid --where/--span; its ProblemDetails says why.
+                var detail = httpResponse.StatusCode == System.Net.HttpStatusCode.BadRequest
+                    ? await ProblemDetailAsync(httpResponse, cancellationToken)
+                    : null;
+                AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(detail ?? $"POST /api/spans/search failed: {(int)httpResponse.StatusCode} {httpResponse.ReasonPhrase}")}");
                 return 1;
             }
 
@@ -238,6 +261,84 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         }
 
         return 0;
+    }
+
+    private static async Task<string?> ProblemDetailAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+            return doc.RootElement.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String ? detail.GetString() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// <c>--span</c>/<c>--where</c> into a <c>SpanFilter.Structure</c>. Only the spec syntax is
+    /// checked here - the expression itself (and which letters it may use) is validated by
+    /// the API, whose 400 message the caller prints.
+    /// </summary>
+    internal static bool TryParseStructure(IReadOnlyList<string> specs, string? where, out TraceStructureWire? structure, out string error)
+    {
+        structure = null;
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(where))
+        {
+            error = "--span needs --where, e.g. --where \"A => B\".";
+            return false;
+        }
+
+        if (specs.Count == 0)
+        {
+            error = "--where needs at least one --span condition, e.g. --span \"A:service=checkout\".";
+            return false;
+        }
+
+        var conditions = new List<TraceSpanConditionWire>();
+        foreach (var spec in specs)
+        {
+            var colon = spec.IndexOf(':');
+            if (colon <= 0)
+            {
+                error = $"Couldn't parse --span '{spec}' - expected LETTER:key=value,..., e.g. A:service=checkout.";
+                return false;
+            }
+
+            string? service = null, name = null, status = null;
+            ulong? minDuration = null;
+            foreach (var pair in spec[(colon + 1)..].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var eq = pair.IndexOf('=');
+                var key = eq > 0 ? pair[..eq].Trim().ToLowerInvariant() : string.Empty;
+                var value = eq > 0 ? pair[(eq + 1)..].Trim() : string.Empty;
+                switch (key)
+                {
+                    case "service":
+                        service = value;
+                        break;
+                    case "name":
+                        name = value;
+                        break;
+                    case "status" when TryExpandStatus(value, out var code):
+                        status = code;
+                        break;
+                    case "min-duration" when TryParseDurationNano(value, out var nanos):
+                        minDuration = nanos;
+                        break;
+                    default:
+                        error = $"Couldn't parse '{pair}' in --span '{spec}' - keys are service, name, status (ok/error/unset), min-duration (e.g. 500ms).";
+                        return false;
+                }
+            }
+
+            conditions.Add(new TraceSpanConditionWire { Name = spec[..colon].Trim(), ServiceName = service, SpanName = name, StatusCode = status, MinDurationNano = minDuration });
+        }
+
+        structure = new TraceStructureWire { Conditions = conditions, Expression = where };
+        return true;
     }
 
     private static bool TryExpandStatus(string status, out string code)
@@ -439,6 +540,30 @@ internal sealed class SpanFilterWire
     public IReadOnlyList<SpanAttributeFilterWire>? Attributes { get; init; }
 
     public bool EntrySpansOnly { get; init; }
+
+    public TraceStructureWire? Structure { get; init; }
+}
+
+/// <summary>Hand-mirror of <c>Model/TraceStructureModels.cs</c>'s <c>TraceStructureFilter</c>.</summary>
+internal sealed class TraceStructureWire
+{
+    public required IReadOnlyList<TraceSpanConditionWire> Conditions { get; init; }
+
+    public required string Expression { get; init; }
+}
+
+/// <summary>Hand-mirror of <c>TraceSpanCondition</c>, minus <c>Attributes</c> (no CLI flag for those yet).</summary>
+internal sealed class TraceSpanConditionWire
+{
+    public required string Name { get; init; }
+
+    public string? ServiceName { get; init; }
+
+    public string? SpanName { get; init; }
+
+    public string? StatusCode { get; init; }
+
+    public ulong? MinDurationNano { get; init; }
 }
 
 /// <summary>
