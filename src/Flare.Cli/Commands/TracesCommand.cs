@@ -77,6 +77,14 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         [CommandOption("--limit <COUNT>")]
         [Description("Max traces to print. Default 20.")]
         public int Limit { get; init; } = 20;
+
+        [CommandOption("--sort <KEY>")]
+        [Description("Order by: time (default, newest first), duration (slowest first), spans (most spans first).")]
+        public string Sort { get; init; } = "time";
+
+        [CommandOption("--asc")]
+        [Description("Reverse --sort to ascending: oldest, fastest, or fewest spans first.")]
+        public bool Asc { get; init; }
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
@@ -133,6 +141,12 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
             return 1;
         }
 
+        if (!TryExpandSort(settings.Sort, out var sortBy))
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] Unknown --sort '{Markup.Escape(settings.Sort)}' - expected one of: time, duration, spans.");
+            return 1;
+        }
+
         if (!AttributeFlagParsing.TryParse(settings.Attr, settings.AttrNot, settings.AttrExists, settings.AttrAbsent, out var parsedAttrs, out var attrError))
         {
             AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(attrError)}");
@@ -167,7 +181,7 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
         {
             using var httpResponse = await http.PostAsJsonAsync(
                 "/api/spans/search",
-                new SpanSearchRequestWire { Filter = filter, PageSize = Math.Clamp(settings.Limit, 1, 500) },
+                new SpanSearchRequestWire { Filter = filter, PageSize = Math.Clamp(settings.Limit, 1, 500), SortBy = sortBy, SortAscending = settings.Asc },
                 WireJsonOptions.Instance,
                 cancellationToken);
 
@@ -246,6 +260,19 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
     }
 
     // Mirrors dashboard/src/lib/traces/status.ts's KIND_LABELS (OTel Span.SpanKind, spec-fixed 0-5).
+    /// <summary>Maps <c>--sort</c>'s friendly names onto <c>SpanSortKey</c> member names (the wire's string-enum values).</summary>
+    private static bool TryExpandSort(string sort, out string sortBy)
+    {
+        sortBy = sort.Trim().ToLowerInvariant() switch
+        {
+            "time" => "StartTime",
+            "duration" => "Duration",
+            "spans" => "SpanCount",
+            _ => "",
+        };
+        return sortBy.Length > 0;
+    }
+
     private static bool TryExpandKind(string kind, out byte number)
     {
         switch (kind.Trim().ToLowerInvariant())
@@ -440,6 +467,11 @@ internal sealed class SpanSearchRequestWire
     public string? Cursor { get; init; }
 
     public int? PageSize { get; init; }
+
+    /// <summary><c>SpanSortKey</c> member name - <c>StartTime</c>/<c>Duration</c>/<c>SpanCount</c>. Plain string, same convention as <see cref="SpanAttributeFilterWire.Operator"/>.</summary>
+    public string SortBy { get; init; } = "StartTime";
+
+    public bool SortAscending { get; init; }
 }
 
 internal sealed class SpanDtoWire

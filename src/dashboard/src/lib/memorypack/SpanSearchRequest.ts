@@ -11,11 +11,16 @@ export class SpanSearchRequest {
 	filter: SpanFilter | null;
 	cursor: string | null;
 	pageSize: number | null;
+	/** `SpanSortKey` ordinal - 0 StartTime, 1 Duration, 2 SpanCount (SpanSearchRequest.cs's member order). */
+	sortBy: number;
+	sortAscending: boolean;
 
 	constructor() {
 		this.filter = null;
 		this.cursor = null;
 		this.pageSize = null;
+		this.sortBy = 0;
+		this.sortAscending = false;
 	}
 
 	static serialize(value: SpanSearchRequest | null): Uint8Array {
@@ -30,10 +35,12 @@ export class SpanSearchRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(3);
+		writer.writeObjectHeader(5);
 		SpanFilter.serializeCore(writer, value.filter);
 		writer.writeString(value.cursor);
 		writer.writeNullableInt32(value.pageSize);
+		writer.writeInt32(value.sortBy);
+		writer.writeBoolean(value.sortAscending);
 	}
 
 	static deserialize(buffer: ArrayBuffer): SpanSearchRequest | null {
@@ -47,11 +54,13 @@ export class SpanSearchRequest {
 		}
 
 		const value = new SpanSearchRequest();
-		if (count == 3) {
+		if (count == 5) {
 			value.filter = SpanFilter.deserializeCore(reader);
 			value.cursor = reader.readString();
 			value.pageSize = reader.readNullableInt32();
-		} else if (count > 3) {
+			value.sortBy = reader.readInt32();
+			value.sortAscending = reader.readBoolean();
+		} else if (count > 5) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -61,6 +70,9 @@ export class SpanSearchRequest {
 			if (count == 2) return value;
 			value.pageSize = reader.readNullableInt32();
 			if (count == 3) return value;
+			value.sortBy = reader.readInt32();
+			if (count == 4) return value;
+			value.sortAscending = reader.readBoolean();
 		}
 		return value;
 	}

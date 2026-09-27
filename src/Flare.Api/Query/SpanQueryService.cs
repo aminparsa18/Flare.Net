@@ -48,30 +48,49 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
+        // A SpanCount sort already joined the rollup in (see SpanSearchQueryBuilder's
+        // remarks) - its two trailing columns fill SpanCount/HasError directly.
+        var sortBy = Enum.IsDefined(request.SortBy) ? request.SortBy : SpanSortKey.StartTime;
         var rows = new List<SpanDto>();
         while (reader.Read())
         {
-            rows.Add(ReadSpan(reader));
+            var span = ReadSpan(reader);
+            if (sortBy == SpanSortKey.SpanCount)
+            {
+                var first = SpanColumns.Names.Count;
+                span = span with { SpanCount = reader.GetFieldValue<ulong>(first), HasError = reader.GetByte(first + 1) != 0 };
+            }
+
+            rows.Add(span);
         }
 
         // A PageSize+1'th row means another page exists - same trim-and-derive-cursor
         // trick as LogQueryService.SearchAsync.
         var hasMore = rows.Count > built.PageSize;
         var spans = hasMore ? rows.GetRange(0, built.PageSize) : rows;
-        var nextCursor = hasMore
-            ? new SpanSearchCursor(spans[^1].StartTime, spans[^1].TraceId, spans[^1].SpanId).Encode()
-            : null;
+        var nextCursor = hasMore ? CursorFor(spans[^1], sortBy, request.SortAscending).Encode() : null;
 
         // Root-span search doubles as Flare's "trace list" view (see SpanDto.SpanCount's
         // remarks), and entry-span search is that same list scoped to each service's
         // requests - only those modes need the count/error rollup, so only they pay for
         // the follow-up query.
-        if (request.Filter is { RootSpansOnly: true } or { EntrySpansOnly: true } && spans.Count > 0)
+        if (sortBy != SpanSortKey.SpanCount && request.Filter is { RootSpansOnly: true } or { EntrySpansOnly: true } && spans.Count > 0)
         {
             spans = await WithRollupsAsync(spans, cancellationToken);
         }
 
         return new SpanSearchResponse { Spans = spans, NextCursor = nextCursor };
+    }
+
+    private static SpanSearchCursor CursorFor(SpanDto last, SpanSortKey sortBy, bool ascending)
+    {
+        var value = sortBy switch
+        {
+            SpanSortKey.Duration => last.DurationNano,
+            SpanSortKey.SpanCount => last.SpanCount ?? 0,
+            _ => (ulong)last.StartTime.UtcTicks,
+        };
+        return new SpanSearchCursor(sortBy, ascending, value, last.TraceId, last.SpanId);
     }
 
     private async Task<List<SpanDto>> WithRollupsAsync(List<SpanDto> roots, CancellationToken cancellationToken)

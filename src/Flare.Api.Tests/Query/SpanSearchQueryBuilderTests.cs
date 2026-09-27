@@ -85,6 +85,66 @@ public class SpanSearchQueryBuilderTests
         Assert.DoesNotContain("cursorTs", result.Sql);
     }
 
+    [Theory]
+    [InlineData(SpanSortKey.StartTime, false, "ORDER BY StartTime DESC, TraceId DESC, SpanId DESC")]
+    [InlineData(SpanSortKey.StartTime, true, "ORDER BY StartTime ASC, TraceId ASC, SpanId ASC")]
+    [InlineData(SpanSortKey.Duration, false, "ORDER BY DurationNano DESC, TraceId DESC, SpanId DESC")]
+    [InlineData(SpanSortKey.SpanCount, false, "ORDER BY rollup.SpanCount DESC, TraceId DESC, SpanId DESC")]
+    public void Build_OrdersBy_RequestedSortKeyAndDirection(SpanSortKey sortBy, bool ascending, string expectedOrderBy)
+    {
+        var result = SpanSearchQueryBuilder.Build(new SpanSearchRequest { SortBy = sortBy, SortAscending = ascending }, Now);
+
+        Assert.Contains(expectedOrderBy, result.Sql);
+    }
+
+    [Fact]
+    public void Build_SortByDuration_WithCursor_ComparesDurationTuple()
+    {
+        var cursor = new SpanSearchCursor(SpanSortKey.Duration, false, 5_000_000UL, "0102030405060708090a0b0c0d0e0f10", "a1a2a3a4a5a6a7a8").Encode();
+
+        var result = SpanSearchQueryBuilder.Build(new SpanSearchRequest { SortBy = SpanSortKey.Duration, Cursor = cursor }, Now);
+
+        Assert.Contains(
+            "(DurationNano, TraceId, SpanId) < ({cursorValue:UInt64}, {cursorTraceId:String}, {cursorSpanId:String})",
+            result.Sql);
+        Assert.Equal(5_000_000UL, result.Parameters.ToDictionary()["cursorValue"]);
+    }
+
+    [Fact]
+    public void Build_Ascending_WithCursor_ComparesGreaterThan()
+    {
+        var cursor = new SpanSearchCursor(SpanSortKey.Duration, true, 5UL, "01", "a1").Encode();
+
+        var result = SpanSearchQueryBuilder.Build(new SpanSearchRequest { SortBy = SpanSortKey.Duration, SortAscending = true, Cursor = cursor }, Now);
+
+        Assert.Contains("(DurationNano, TraceId, SpanId) > (", result.Sql);
+    }
+
+    [Theory]
+    [InlineData(SpanSortKey.Duration, false)] // re-sorted by another key
+    [InlineData(SpanSortKey.StartTime, true)] // same key, flipped direction
+    public void Build_WithCursorFromAnotherSort_TreatsRequestAsFirstPage(SpanSortKey sortBy, bool ascending)
+    {
+        var cursor = new SpanSearchCursor(Now, "0102030405060708090a0b0c0d0e0f10", "a1a2a3a4a5a6a7a8").Encode();
+
+        var result = SpanSearchQueryBuilder.Build(new SpanSearchRequest { SortBy = sortBy, SortAscending = ascending, Cursor = cursor }, Now);
+
+        Assert.DoesNotContain("cursorTraceId", result.Sql);
+    }
+
+    [Fact]
+    public void Build_SortBySpanCount_JoinsPerTraceRollup_RestrictedToMatchingTraces()
+    {
+        var result = SpanSearchQueryBuilder.Build(
+            new SpanSearchRequest { Filter = new SpanFilter { RootSpansOnly = true }, SortBy = SpanSortKey.SpanCount },
+            Now);
+
+        Assert.Contains(", rollup.SpanCount, rollup.HasError\nFROM spans\nGLOBAL INNER JOIN", result.Sql);
+        Assert.Contains("count() AS SpanCount, countIf(StatusCode = {errorStatus:String}) > 0 AS HasError", result.Sql);
+        Assert.Contains("WHERE TraceId GLOBAL IN (SELECT TraceId FROM spans WHERE StartTime >= {from:DateTime64(9)}", result.Sql);
+        Assert.Contains(") AS rollup USING (TraceId)", result.Sql);
+    }
+
     [Fact]
     public void Build_WithRootSpansOnly_IncludesItInTheWhereClause()
     {

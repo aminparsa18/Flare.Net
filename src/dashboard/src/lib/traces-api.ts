@@ -186,10 +186,18 @@ function toSpanDto(dto: GeneratedSpanDto): SpanDto {
 
 // ---- POST /api/spans/search (SpanSearchRequest.cs / SpanSearchResponse) ---
 
+/** Mirrors `SpanSortKey` (SpanSearchRequest.cs) - order matters, the wire carries the ordinal. */
+export const SPAN_SORT_KEYS = ['StartTime', 'Duration', 'SpanCount'] as const;
+export type SpanSortKey = (typeof SPAN_SORT_KEYS)[number];
+
 export interface SpanSearchRequest {
 	filter?: SpanFilter;
 	cursor?: string;
 	pageSize?: number;
+	/** Defaults to `StartTime`. Each key breaks ties on (traceId, spanId). */
+	sortBy?: SpanSortKey;
+	/** Defaults to `false` - newest / slowest / most-spans first. */
+	sortAscending?: boolean;
 }
 
 export interface SpanSearchResponse {
@@ -202,6 +210,8 @@ export async function searchSpans(request: SpanSearchRequest = {}, signal?: Abor
 	dto.filter = toGeneratedSpanFilter(request.filter);
 	dto.cursor = request.cursor ?? null;
 	dto.pageSize = request.pageSize ?? null;
+	dto.sortBy = Math.max(0, SPAN_SORT_KEYS.indexOf(request.sortBy ?? 'StartTime'));
+	dto.sortAscending = request.sortAscending ?? false;
 	const res = await apiFetch(`${API_BASE_URL}/api/spans/search`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),

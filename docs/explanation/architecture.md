@@ -158,6 +158,9 @@ row to expand its full structured payload, scopes, and exception details.
 `/traces` — every OTLP trace Flare has received, filterable by service and
 time range. Auto-instrumented spans (ASP.NET Core, HttpClient, …) and
 anything your own code emits via `ActivitySource` show up side by side.
+The list is newest-first by default; click the Time, Duration, or Spans
+column header to sort by that column instead (click again to reverse), e.g.
+the slowest requests in the window, or the traces with the most spans.
 
 ![Traces list](../screenshots/traces.png)
 
