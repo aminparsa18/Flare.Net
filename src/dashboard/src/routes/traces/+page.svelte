@@ -10,6 +10,7 @@
 	import { parseStateDeepLinkParam, parseTracesDeepLinkParams } from '$lib/deep-links';
 	import TracesToolbar from '$lib/components/traces/TracesToolbar.svelte';
 	import SpanAttributeFiltersRow from '$lib/components/traces/SpanAttributeFiltersRow.svelte';
+	import TraceStructureEditor from '$lib/components/traces/TraceStructureEditor.svelte';
 	import TraceList from '$lib/components/traces/TraceList.svelte';
 	import ServicesToolbar from '$lib/components/services/ServicesToolbar.svelte';
 	import ResourceAttributeFiltersRow from '$lib/components/services/ResourceAttributeFiltersRow.svelte';
@@ -133,6 +134,9 @@
 			<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
 			<div class="flex min-w-0 flex-1 flex-col">
 				<SpanAttributeFiltersRow />
+				{#if explorer.structureEditorOpen}
+					<TraceStructureEditor />
+				{/if}
 				<div class="flex min-h-0 flex-1 flex-col">
 					<TraceList />
 				</div>

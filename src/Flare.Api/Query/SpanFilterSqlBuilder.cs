@@ -103,6 +103,12 @@ public static class SpanFilterSqlBuilder
             }
         }
 
+        // GLOBAL for the same build-the-set-once reason as EntrySpanClause.
+        if (filter.Structure is { } structure)
+        {
+            clauses.Add($"TraceId GLOBAL IN ({TraceStructureSqlBuilder.BuildTraceIdQuery(structure, parameters, promoted)})");
+        }
+
         return new SpanFilterSql(string.Join(" AND ", clauses), parameters);
     }
 
@@ -156,7 +162,8 @@ public static class SpanFilterSqlBuilder
     /// <c>Array(String)</c> parameter, empty when <c>Values</c> is null) instead of <c>=</c>
     /// against <c>Value</c>, guarded the same way too. <paramref name="suffix"/> makes the
     /// bound parameter names unique - <c>internal</c> so <see cref="TraceFunnelQueryBuilder"/>
-    /// can compile several steps' attribute filters into one query.
+    /// and <see cref="TraceStructureSqlBuilder"/> can compile several steps' or conditions'
+    /// attribute filters into one query.
     /// </summary>
     internal static string AttributeClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
     {

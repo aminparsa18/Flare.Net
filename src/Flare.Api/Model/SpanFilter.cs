@@ -159,4 +159,13 @@ public sealed partial record SpanFilter
     /// last for the same wire-compatibility reason as <see cref="Names"/>.
     /// </summary>
     public bool EntrySpansOnly { get; init; }
+
+    /// <summary>
+    /// When set, only spans of traces whose span tree matches it - e.g. "a <c>checkout</c>
+    /// span with a descendant <c>payment</c> span that errored". Evaluated at query time
+    /// as a <c>TraceId GLOBAL IN</c> subquery by <see cref="Query.TraceStructureSqlBuilder"/>
+    /// over the same time window. Appended last for the same wire-compatibility reason as
+    /// <see cref="Names"/>.
+    /// </summary>
+    public TraceStructureFilter? Structure { get; init; }
 }

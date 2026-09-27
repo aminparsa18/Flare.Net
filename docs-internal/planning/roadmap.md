@@ -121,16 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Structural trace queries (trace operators).** `SpanFilter` matches
-  single spans only; add relationship operators across span conditions -
-  `A => B` (A has descendant B), `A -> B` (direct child), plus
-  AND/OR/NOT - e.g. "traces where `checkout` calls `payment` and
-  `payment` errored", returning matching traces. Large; needs an ADR
-  (ClickHouse evaluation strategy - per-trace `groupArray` + parent-id
-  walk vs. a self-join bounded by `TraceId` - cost at scale, query
-  syntax). Trace funnels (ADR-0067, `TraceFunnelQueryBuilder`) already do
-  a per-trace `groupArray` walk, for ordering only. Not started.
-  Prior art: [signoz#8165](https://github.com/SigNoz/signoz/commit/eeb2ab3212f20a7b6e8edda0a8a60c074469d0e6).
 - **`ParseJson` (flatten) pipeline-rule action.** Many apps log a JSON
   string as the body (Serilog JSON formatter, Console JSON, Node/Python
   loggers); Flare can *query* it (body-JSON filters) but pipeline rules

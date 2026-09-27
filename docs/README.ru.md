@@ -38,6 +38,7 @@
 - [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor-hosts.ru.md)
 - [Мониторинг очередей сообщений](how-to/monitor-message-queues.ru.md)
 - [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/analyze-trace-funnels.ru.md)
+- [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
 - [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)
 - [Ускорить фильтры по часто используемому атрибуту лога или спана](how-to/promote-attribute-columns.ru.md)
 

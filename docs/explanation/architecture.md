@@ -193,6 +193,15 @@ the stored spans, and saved as ordinary saved views. See
 [`../how-to/analyze-trace-funnels.md`](../how-to/analyze-trace-funnels.md)
 and [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md).
 
+A "Structure" button in the trace list's toolbar filters by how a trace's
+spans relate: lettered span conditions combined with `A -> B` (direct
+child), `A => B` (any descendant), AND, OR and NOT, for example "a
+`checkout` span with a descendant `payment` span that errored". It's a
+`SpanFilter` field, evaluated at query time as a `TraceId` subquery, so
+the list, facets, saved views and dashboard panels all respect it. See
+[`../how-to/find-traces-by-structure.md`](../how-to/find-traces-by-structure.md)
+and [ADR-0069](../../docs-internal/adr/0069-structural-trace-queries.md).
+
 ### Messaging
 
 `/messaging` — one row per Kafka topic, RabbitMQ queue or Service Bus
