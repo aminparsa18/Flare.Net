@@ -30,6 +30,7 @@ import { downloadBlob } from '$lib/logs/export';
 import { defaultSelection, resolveQueryVariableOptions, type VariableDependency } from './variables';
 import type { PanelThreshold } from './thresholds';
 import type { PanelReducer, PanelVisualization } from './visualization';
+import type { YAxisScale } from '$lib/metrics/axis';
 import * as m from '$lib/paraglide/messages';
 
 export class DashboardViewerState {
@@ -377,13 +378,15 @@ export class DashboardViewerState {
 	 *  `yAxisMax` - roadmap's "Soft Y-axis min/max on metric charts" item) - a layout-level
 	 *  field (persisted per panel, like `title`/`excludedVariableIds`), so it goes through
 	 *  `#saveLayout` the same way `setPanelVariableExcluded` above does rather than
-	 *  local-only state. `null` for either bound means "auto". */
-	async setPanelYAxisBounds(panelId: string, yAxisMin: number | null, yAxisMax: number | null): Promise<void> {
+	 *  local-only state. `null` for either bound means "auto". `yAxisScale` is always written
+	 *  explicitly (never left to the query's own value) once the popover is applied, so the
+	 *  panel's choice sticks even if the underlying query is later re-pinned. */
+	async setPanelYAxisBounds(panelId: string, yAxisMin: number | null, yAxisMax: number | null, yAxisScale: YAxisScale): Promise<void> {
 		const dashboard = this.dashboard;
 		if (!dashboard) return;
 		try {
 			this.dashboard = await this.#saveLayout({
-				panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, yAxisMin: yAxisMin ?? undefined, yAxisMax: yAxisMax ?? undefined } : p))
+				panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, yAxisMin: yAxisMin ?? undefined, yAxisMax: yAxisMax ?? undefined, yAxisScale } : p))
 			});
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);

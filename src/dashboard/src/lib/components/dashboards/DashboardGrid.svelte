@@ -26,6 +26,7 @@
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 	import type { PanelReducer, PanelVisualization } from '$lib/dashboards/visualization';
+	import type { YAxisScale } from '$lib/metrics/axis';
 
 	let {
 		panels,
@@ -69,7 +70,7 @@
 		onDuplicate: (id: string) => void;
 		onExport: (id: string) => void;
 		onToggleVariable: (id: string, variableId: string, excluded: boolean) => void;
-		onSetYAxisBounds: (id: string, min: number | null, max: number | null) => void;
+		onSetYAxisBounds: (id: string, min: number | null, max: number | null, scale: YAxisScale) => void;
 		onSetThresholds: (id: string, thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (id: string, visualization: PanelVisualization, reducer: PanelReducer | null) => void;
 		onSetColumnUnits: (id: string, columnUnits: Partial<Record<PanelReducer, string>>) => void;
@@ -152,7 +153,7 @@
 					onDuplicate={() => onDuplicate(panel.id)}
 					onExport={() => onExport(panel.id)}
 					onToggleVariable={(variableId, excluded) => onToggleVariable(panel.id, variableId, excluded)}
-					onSetYAxisBounds={(min, max) => onSetYAxisBounds(panel.id, min, max)}
+					onSetYAxisBounds={(min, max, scale) => onSetYAxisBounds(panel.id, min, max, scale)}
 					onSetThresholds={(thresholds) => onSetThresholds(panel.id, thresholds)}
 					onSetVisualization={(visualization, reducer) => onSetVisualization(panel.id, visualization, reducer)}
 					onSetColumnUnits={(columnUnits) => onSetColumnUnits(panel.id, columnUnits)}

@@ -15,11 +15,12 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { metricsExplorerContext } from '$lib/metrics/context';
-	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
+	import { axisFraction, formatAtScale, formatAutoScaled, logAxisTicks, niceAxisTicks, resolveAxisScale, type YAxisScale } from '$lib/metrics/axis';
 	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
 	import { seriesColor } from '$lib/metrics/chart-colors';
 	import { seriesLabel } from '$lib/dashboards/visualization';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
+	import YAxisScaleToggle from './YAxisScaleToggle.svelte';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
 	import * as m from '$lib/paraglide/messages';
 	import { formatChartTime } from '$lib/time/format';
@@ -27,12 +28,13 @@
 	// yAxisMin/yAxisMax: same soft Y-axis floor/ceiling MetricChart.svelte's own props of
 	// the same name apply (DashboardPanel.yAxisMin/yAxisMax) - only ever set from a
 	// dashboard panel, never from the Explorer page itself, which never passes them.
-	// `thresholds` likewise mirrors MetricChart's own prop of the same name.
+	// `thresholds` and `yAxisScale` likewise mirror MetricChart's own props of the same name.
 	let {
 		yAxisMin = null,
 		yAxisMax = null,
-		thresholds = []
-	}: { yAxisMin?: number | null; yAxisMax?: number | null; thresholds?: PanelThreshold[] } = $props();
+		thresholds = [],
+		yAxisScale
+	}: { yAxisMin?: number | null; yAxisMax?: number | null; thresholds?: PanelThreshold[]; yAxisScale?: YAxisScale } = $props();
 
 	const explorer = metricsExplorerContext.get();
 
@@ -67,7 +69,16 @@
 	// might each have different, or no, units - e.g. `(A/B)*100` for a ratio-as-percentage
 	// has no meaningful inherited unit either), so this always resolves the "no unit" branch.
 	const axisScale = $derived(resolveAxisScale(null, Math.max(Math.abs(domainMin), Math.abs(domainMax))));
-	const ticks = $derived(niceAxisTicks(domainMin, domainMax, axisScale));
+	// Log scale - same decade ticks and "positive values only, else stay linear" fallback as
+	// MetricChart's own `logActive`/`ticks`; see there.
+	const positiveValues = $derived(rawValues.filter((v) => v > 0));
+	const logActive = $derived((yAxisScale ?? explorer.filter.yAxisScale) === 'log' && positiveValues.length > 0);
+	const ticks = $derived.by(() => {
+		if (!logActive) return niceAxisTicks(domainMin, domainMax, axisScale);
+		const lo = Math.min(...positiveValues, yAxisMin != null && yAxisMin > 0 ? yAxisMin : Infinity);
+		const hi = Math.max(dataMax, yAxisMax != null && yAxisMax > 0 ? yAxisMax : 0);
+		return logAxisTicks(lo, hi, null);
+	});
 	const minValue = $derived(ticks.min);
 	const maxValue = $derived(Math.max(minValue + 1e-9, ticks.max));
 
@@ -83,11 +94,26 @@
 	}
 
 	function yFor(raw: number): number {
-		return BASELINE_Y - ((raw - minValue) / (maxValue - minValue)) * (BASELINE_Y - PEAK_Y);
+		return BASELINE_Y - (axisFraction(raw, minValue, maxValue, logActive) ?? 0) * (BASELINE_Y - PEAK_Y);
 	}
 
+	function plotted(points: LineSpec['points']): LineSpec['points'] {
+		return logActive ? points.filter((p) => p.raw > 0) : points;
+	}
+
+	// Breaks the line at a point log can't place - see MetricChart's own pathFor.
 	function pathFor(points: LineSpec['points']): string {
-		return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.time)} ${yFor(p.raw)}`).join(' ');
+		let d = '';
+		let pen = 'M';
+		for (const p of points) {
+			if (logActive && !(p.raw > 0)) {
+				pen = 'M';
+				continue;
+			}
+			d += `${pen} ${xFor(p.time)} ${yFor(p.raw)} `;
+			pen = 'L';
+		}
+		return d.trimEnd();
 	}
 
 	let hoverIndex = $state<number | null>(null);
@@ -111,7 +137,7 @@
 	}
 
 	function formatValue(n: number): string {
-		return formatAtScale(n, axisScale);
+		return logActive ? formatAutoScaled(n, null) : formatAtScale(n, axisScale);
 	}
 </script>
 
@@ -133,6 +159,10 @@
 				rangeSeconds={explorer.formulaRangeFrom && explorer.formulaRangeTo ? (new Date(explorer.formulaRangeTo).getTime() - new Date(explorer.formulaRangeFrom).getTime()) / 1000 : null}
 				onChange={(seconds) => explorer.setBucketWidthSeconds(seconds)}
 			/>
+			{#if yAxisScale === undefined}
+				<span aria-hidden="true">·</span>
+				<YAxisScaleToggle value={explorer.filter.yAxisScale} onChange={(scale) => explorer.setYAxisScale(scale)} />
+			{/if}
 		</div>
 	{/if}
 
@@ -155,7 +185,7 @@
 			<div class="relative flex-1">
 				<div class="text-muted-foreground pointer-events-none absolute inset-y-0 left-0 w-10 text-[10px]" style="height: {CHART_HEIGHT}px">
 					{#each ticks.values as tick (tick)}
-						{@const label = formatAtScale(tick, axisScale)}
+						{@const label = formatValue(tick)}
 						<span class="absolute inset-x-1 -translate-y-1/2 truncate leading-none" style="top: {yFor(tick)}px" title={label}>
 							{label}
 						</span>
@@ -197,7 +227,7 @@
 
 									{#each lines as line (line.label)}
 										<path d={pathFor(line.points)} fill="none" stroke={line.color} stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
-										{#each line.points as point (point.time)}
+										{#each plotted(line.points) as point (point.time)}
 											<circle cx={xFor(point.time)} cy={yFor(point.raw)} r={bucketTimes.length > 60 ? 0 : 2.5} fill={line.color} />
 										{/each}
 									{/each}

@@ -180,6 +180,16 @@ set value if the data actually goes further — it narrows the default view,
 it never clips a real point off the chart. Like the rest of a panel's
 definition, it's saved with the dashboard.
 
+The same popover has a **Linear / Log** scale switch for line charts. Pick
+**Log** when series of very different sizes share one panel (a 10 ms and a
+10 s latency, say): each power of ten gets the same height, so the small
+series no longer lies flat along the bottom. Zero and negative values can't
+be placed on a log axis, so they're left out and the line breaks there. A
+min set while on **Log** has to be above 0. On the Metrics page, the same
+choice is the **Linear axis** / **Log axis** label under the chart title. It's
+saved with a saved view, and a panel pinned from that view starts on the
+same scale.
+
 ## Choosing a chart's bucket interval
 
 By default, a Logs panel's event-volume chart and a Metrics panel's chart

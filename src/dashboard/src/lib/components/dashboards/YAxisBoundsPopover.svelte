@@ -8,22 +8,30 @@
 	//
 	// *Soft*: either bound narrows the chart's default auto-ranged view, but never clips a
 	// real point off it - MetricChart.svelte's `domainMin`/`domainMax` still expand past a
-	// configured bound if the data actually goes further. `onApply(null, null)` (the Clear
-	// button) restores that fully-auto default.
+	// configured bound if the data actually goes further. `onApply(null, null, 'linear')` (the
+	// Clear button) restores that fully-auto default.
+	//
+	// Also carries the panel's linear/log scale (DashboardPanel.yAxisScale) when `showScale`
+	// is set - line charts only, see `usesYAxisScale`.
 	import * as Popover from '$lib/components/ui/popover';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import MoveVerticalIcon from '@lucide/svelte/icons/move-vertical';
+	import type { YAxisScale } from '$lib/metrics/axis';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
 		yAxisMin,
 		yAxisMax,
+		yAxisScale = 'linear',
+		showScale = false,
 		onApply
 	}: {
 		yAxisMin: number | null | undefined;
 		yAxisMax: number | null | undefined;
-		onApply: (min: number | null, max: number | null) => void;
+		yAxisScale?: YAxisScale;
+		showScale?: boolean;
+		onApply: (min: number | null, max: number | null, scale: YAxisScale) => void;
 	} = $props();
 
 	let open = $state(false);
@@ -40,17 +48,19 @@
 	// docs-internal/adr/0037-dashboard-metrics-formula-panels.md's own verification.
 	let minDraft = $state<string | number>('');
 	let maxDraft = $state<string | number>('');
+	let scaleDraft = $state<YAxisScale>('linear');
 	let error = $state<string | null>(null);
 
 	$effect(() => {
 		if (open) {
 			minDraft = yAxisMin != null ? String(yAxisMin) : '';
 			maxDraft = yAxisMax != null ? String(yAxisMax) : '';
+			scaleDraft = yAxisScale;
 			error = null;
 		}
 	});
 
-	const hasOverride = $derived(yAxisMin != null || yAxisMax != null);
+	const hasOverride = $derived(yAxisMin != null || yAxisMax != null || yAxisScale === 'log');
 
 	function apply(): void {
 		const min = minDraft === '' ? null : Number(minDraft);
@@ -63,12 +73,16 @@
 			error = m.yAxisBoundsPopover_minNotLessThanMax();
 			return;
 		}
-		onApply(min, max);
+		if (scaleDraft === 'log' && min != null && min <= 0) {
+			error = m.yAxisScale_minMustBePositive();
+			return;
+		}
+		onApply(min, max, scaleDraft);
 		open = false;
 	}
 
 	function clear(): void {
-		onApply(null, null);
+		onApply(null, null, 'linear');
 		open = false;
 	}
 </script>
@@ -91,6 +105,28 @@
 		<p class="mb-1 text-sm font-medium">{m.yAxisBoundsPopover_title()}</p>
 		<p class="text-muted-foreground mb-3 text-xs">{m.yAxisBoundsPopover_description()}</p>
 		<div class="space-y-2">
+			{#if showScale}
+				<div class="flex items-center justify-between gap-2 text-xs">
+					<span class="text-muted-foreground shrink-0">{m.yAxisScale_label()}</span>
+					<div class="flex w-28" role="radiogroup" aria-label={m.yAxisScale_label()}>
+						{#each [['linear', m.yAxisScale_linear()], ['log', m.yAxisScale_log()]] as [value, label], i (value)}
+							<Button
+								variant={scaleDraft === value ? 'default' : 'outline'}
+								size="sm"
+								class="h-8 flex-1 px-1 text-xs {i === 0 ? 'rounded-r-none' : 'rounded-l-none border-l-0'}"
+								role="radio"
+								aria-checked={scaleDraft === value}
+								onclick={() => (scaleDraft = value as YAxisScale)}
+							>
+								{label}
+							</Button>
+						{/each}
+					</div>
+				</div>
+				{#if scaleDraft === 'log'}
+					<p class="text-muted-foreground text-xs">{m.yAxisScale_logNote()}</p>
+				{/if}
+			{/if}
 			<label class="flex items-center justify-between gap-2 text-xs">
 				<span class="text-muted-foreground shrink-0">{m.yAxisBoundsPopover_min()}</span>
 				<Input type="number" bind:value={minDraft} placeholder={m.yAxisBoundsPopover_auto()} class="h-8 w-28" />

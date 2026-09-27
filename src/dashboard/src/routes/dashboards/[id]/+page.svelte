@@ -325,7 +325,7 @@
 		onDuplicate={(id) => viewer.duplicatePanel(id)}
 		onExport={(id) => viewer.exportPanel(id)}
 		onToggleVariable={(id, variableId, excluded) => viewer.setPanelVariableExcluded(id, variableId, excluded)}
-		onSetYAxisBounds={(id, min, max) => viewer.setPanelYAxisBounds(id, min, max)}
+		onSetYAxisBounds={(id, min, max, scale) => viewer.setPanelYAxisBounds(id, min, max, scale)}
 		onSetThresholds={(id, thresholds) => viewer.setPanelThresholds(id, thresholds)}
 		onSetVisualization={(id, visualization, reducer) => viewer.setPanelVisualization(id, visualization, reducer)}
 		onSetColumnUnits={(id, columnUnits) => viewer.setPanelColumnUnits(id, columnUnits)}

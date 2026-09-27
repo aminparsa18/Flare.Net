@@ -69,10 +69,15 @@ const BYTE_SCALES: ScaleStep[] = [
 
 const compactFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1, notation: 'compact' });
 const preciseFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+const tinyFormat = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 2 });
+const scientificFormat = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 2, notation: 'scientific' });
 
-/** Compact notation ("1.4k") from the thousands up; up to 2 decimals below that so sub-1 values ("0.03") stay legible. */
+/** Compact notation ("1.4k") from the thousands up; up to 2 decimals below that so sub-1 values ("0.03") stay legible; significant digits under 0.01 ("0.002"), scientific under 0.0001 ("1E-6"), so a log axis's lower decades don't all read "0". */
 function formatMagnitude(n: number): string {
-	return Math.abs(n) >= 1000 ? compactFormat.format(n) : preciseFormat.format(n);
+	const abs = Math.abs(n);
+	if (abs >= 1000) return compactFormat.format(n);
+	if (abs > 0 && abs < 1e-4) return scientificFormat.format(n);
+	return abs > 0 && abs < 0.01 ? tinyFormat.format(n) : preciseFormat.format(n);
 }
 
 /** "{exception}" -> "exception"; null if `unit` isn't a UCUM curly-brace annotation. */
@@ -219,4 +224,75 @@ export function niceAxisTicks(dataMin: number, dataMax: number, scale: AxisScale
 	const count = Math.round((niceMaxDisplay - niceMinDisplay) / step);
 	const values = Array.from({ length: count + 1 }, (_, i) => roundFloat((niceMinDisplay + i * step) / scale.factor));
 	return { values, min: roundFloat(niceMinDisplay / scale.factor), max: roundFloat(niceMaxDisplay / scale.factor) };
+}
+
+/**
+ * Linear or logarithmic Y axis - a per-chart display preference (MetricsFilterState.yAxisScale
+ * on the Explorer, DashboardPanel.yAxisScale on a dashboard panel). Log lets a 10ms and a 10s
+ * series share one readable chart. Log can't place zero or negative values, so a chart on
+ * log skips those points (breaking the line there) rather than clamping them onto the floor
+ * and faking a value.
+ */
+export type YAxisScale = 'linear' | 'log';
+
+/** Lenient read of a stored value - anything but `'log'` is the linear default. */
+export function parseYAxisScale(raw: unknown): YAxisScale {
+	return raw === 'log' ? 'log' : 'linear';
+}
+
+/**
+ * The base-unit multiplier and tick ratio a log axis steps by for `unit`: powers of 10
+ * *seconds* for a time unit (so a "ms" metric still gets ticks at 1 ms / 10 ms / 1 s, and
+ * an "s" metric at 100 µs / 1 ms), powers of 1024 *bytes* for a byte unit (1 KB / 1 MB /
+ * 1 GB, not 0.95 KB-ish decades), plain powers of 10 otherwise. A rate ("By/s") follows
+ * its numerator, same as `resolveAxisScale`.
+ */
+function logStepFor(unit: string | null | undefined): { toBase: number; ratio: number } {
+	let u = (unit ?? '').trim();
+	const slash = u.indexOf('/');
+	if (slash > 0) u = u.slice(0, slash).trim();
+	if (TIME_UNIT_TO_SECONDS[u] !== undefined) return { toBase: TIME_UNIT_TO_SECONDS[u], ratio: 10 };
+	if (BYTE_UNIT_TO_BYTES[u] !== undefined) return { toBase: BYTE_UNIT_TO_BYTES[u], ratio: 1024 };
+	return { toBase: 1, ratio: 10 };
+}
+
+/**
+ * Log-scale counterpart of `niceAxisTicks`: one tick per power of `ratio` in the unit
+ * family's base (see `logStepFor`), returned as raw values in the metric's declared unit.
+ * `positiveMin`/`dataMax` must both be > 0 (the caller falls back to linear when there's no
+ * positive data). Floor/ceiling snap outward to whole steps, always at least one step
+ * apart; past `maxTicks` steps, ticks skip every n-th so a 1ns..1h axis doesn't get a
+ * label per decade. Label ticks with `formatAutoScaled`, not one chart-wide scale.
+ */
+export function logAxisTicks(positiveMin: number, dataMax: number, unit: string | null | undefined, maxTicks = 6): AxisTicks {
+	const { toBase, ratio } = logStepFor(unit);
+	const logR = (v: number) => Math.log(v * toBase) / Math.log(ratio);
+	// Tiny epsilon so float noise (log10(1000) = 2.9999999999999996) doesn't push an exact
+	// power one step out.
+	const lo = Math.floor(logR(positiveMin) + 1e-9);
+	const hi = Math.max(lo + 1, Math.ceil(logR(dataMax) - 1e-9));
+	const stride = Math.ceil((hi - lo + 1) / maxTicks);
+	const values: number[] = [];
+	for (let e = lo; e <= hi; e += stride) values.push(ratio ** e / toBase);
+	return { values, min: ratio ** lo / toBase, max: ratio ** hi / toBase };
+}
+
+/**
+ * Formats one value in whichever scale suits *it* ("1 ms", "10 s", "1 h") rather than the
+ * chart-wide one - what a log axis needs, since its decades can span ns to hours and one
+ * shared scale would print the low end as "0.0000001 h".
+ */
+export function formatAutoScaled(raw: number, unit: string | null | undefined): string {
+	return formatAtScale(raw, resolveAxisScale(unit, Math.abs(raw)));
+}
+
+/**
+ * Where `raw` sits between the axis floor and ceiling, as 0 (floor) to 1 (ceiling) -
+ * linear, or in log space when `log` is set. `null` for a value log can't place (<= 0);
+ * the caller decides whether that's a skipped point or a line pinned to the floor.
+ */
+export function axisFraction(raw: number, min: number, max: number, log: boolean): number | null {
+	if (!log) return (raw - min) / (max - min);
+	if (!(raw > 0)) return null;
+	return (Math.log(raw) - Math.log(min)) / (Math.log(max) - Math.log(min));
 }

@@ -26,6 +26,7 @@ import {
 import { resolveTimeRange, rangeSeconds, previousPeriod, shiftRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { resolveBucketWidthSeconds, normalizeBucketWidthSeconds } from '$lib/logs/bucket-width';
 import { parseFormula, evaluateFormula, collectRefs } from './formula';
+import { parseYAxisScale, type YAxisScale } from './axis';
 
 export interface MetricsFilterState {
 	timeRangePreset: TimeRangePreset;
@@ -80,6 +81,12 @@ export interface MetricsFilterState {
 	 * preference" reasoning as `compareEnabled` - carried in a saved view too.
 	 */
 	bucketWidthSeconds: number | null;
+	/**
+	 * Linear or log Y axis for MetricChart/FormulaChart - purely a rendering choice, so
+	 * changing it never re-queries. Same "real display preference" reasoning as
+	 * `compareEnabled` - carried in a saved view too, and so into a panel pinned from one.
+	 */
+	yAxisScale: YAxisScale;
 }
 
 /** Mirrors `MetricSeriesQueryBuilder.DefaultTopN` on the API side - see `MetricsFilterState.topN`'s own remarks for why this can't just be imported instead. */
@@ -137,10 +144,12 @@ function newFormulaQuery(letter: string): FormulaQueryDef {
  * round-trip through Flare.Api's opaque `JsonElement` storage. Same reasoning
  * `LogsSavedViewState`'s own (standalone, not `extends`-based) declaration documents.
  */
-export interface MetricsSavedViewState extends Omit<MetricsFilterState, 'customRange' | 'bucketWidthSeconds'> {
+export interface MetricsSavedViewState extends Omit<MetricsFilterState, 'customRange' | 'bucketWidthSeconds' | 'yAxisScale'> {
 	customRange: { from: string; to: string } | null;
 	/** Optional - older saved views (pre-dating the interval picker) lack it and fall back to auto. */
 	bucketWidthSeconds?: number | null;
+	/** Optional - older saved views (pre-dating the log axis) lack it and fall back to linear. */
+	yAxisScale?: YAxisScale;
 	/**
 	 * `serviceName` is omitted only by a fired metric alert's `?state=` link (Flare.Api's
 	 * `AlertMessageFormatter.BuildMetricChartUrl`): the rule aggregates every service in
@@ -193,7 +202,8 @@ export class MetricsExplorerState {
 		havingValue: null,
 		postProcessFunctions: [],
 		timeShiftSeconds: null,
-		bucketWidthSeconds: null
+		bucketWidthSeconds: null,
+		yAxisScale: 'linear'
 	});
 
 	// Never mutated in place, always a wholesale reassignment - same $state.raw
@@ -706,6 +716,11 @@ export class MetricsExplorerState {
 		this.#runActive();
 	}
 
+	/** Switches the chart's Y axis between linear and log - display-only, no re-query. */
+	setYAxisScale(scale: YAxisScale): void {
+		this.filter.yAxisScale = scale;
+	}
+
 	setAutoRefreshEnabled(enabled: boolean): void {
 		if (enabled === this.autoRefreshEnabled) return;
 		this.autoRefreshEnabled = enabled;
@@ -888,6 +903,7 @@ export class MetricsExplorerState {
 			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
 			timeShiftSeconds: this.filter.timeShiftSeconds,
 			bucketWidthSeconds: this.filter.bucketWidthSeconds,
+			yAxisScale: this.filter.yAxisScale,
 			selectedMetric: this.selected
 				? { metricName: this.selected.metricName, serviceName: this.selected.serviceName, type: this.selected.type }
 				: null,
@@ -927,7 +943,8 @@ export class MetricsExplorerState {
 			// Absent from older saved views (pre-dates ADR-0040) - defaults to off, the
 			// only state that existed then.
 			timeShiftSeconds: s.timeShiftSeconds ?? null,
-			bucketWidthSeconds: normalizeBucketWidthSeconds(s.bucketWidthSeconds)
+			bucketWidthSeconds: normalizeBucketWidthSeconds(s.bucketWidthSeconds),
+			yAxisScale: parseYAxisScale(s.yAxisScale)
 		};
 		await this.loadNames();
 		const saved = s.selectedMetric;
