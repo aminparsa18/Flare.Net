@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import type { SpanDto } from '$lib/traces-api';
 	import { Badge } from '$lib/components/ui/badge';
 	import { statusVariant, statusLabel, rolledUpStatusCode } from '$lib/traces/status';
@@ -13,11 +12,11 @@
 	let displayStatusCode = $derived(rolledUpStatusCode(trace));
 </script>
 
-<button
-	type="button"
+<!-- A real link, not a button + goto(), so Ctrl/Cmd/middle-click and "Open in new tab" work. -->
+<a
+	href="/traces/{trace.traceId}"
 	class="hover:bg-muted/50 focus-visible:bg-muted/50 grid w-full items-center gap-3 border-b px-3 text-left text-sm focus-visible:outline-none"
 	style="grid-template-columns: var(--trace-row-columns); height: var(--trace-row-height);"
-	onclick={() => goto(`/traces/${trace.traceId}`)}
 >
 	<span class="text-muted-foreground truncate font-mono text-xs">{formatRowTimestamp(trace.startTime)}</span>
 	<span><Badge variant={statusVariant(displayStatusCode)}>{statusLabel(displayStatusCode)}</Badge></span>
@@ -28,4 +27,4 @@
 	     SpanDto.spanCount's remarks. Only absent for pre-rollout cached data, hence the
 	     "—" fallback rather than assuming it's always present. -->
 	<span class="text-muted-foreground truncate text-right font-mono text-xs">{trace.spanCount ?? '—'}</span>
-</button>
+</a>

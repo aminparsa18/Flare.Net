@@ -135,7 +135,7 @@
 				{#each dashboards.dashboards as dashboard (dashboard.id)}
 					<Table.Row>
 						<Table.Cell class="font-medium">
-							{dashboard.name}
+							<a href={dashboardPath(dashboard)} class="hover:underline">{dashboard.name}</a>
 							{#if dashboard.description}
 								<p class="text-muted-foreground font-normal">{dashboard.description}</p>
 							{/if}

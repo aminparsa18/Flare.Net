@@ -14,7 +14,7 @@ import {
 } from '$lib/errors-api';
 import type { ResourceAttributeFilter } from '$lib/services-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
-import type { ErrorsDeepLinkState } from '$lib/deep-links';
+import { buildErrorsDeepLinkHref, type ErrorsDeepLinkState } from '$lib/deep-links';
 
 export interface ErrorsFilterState {
 	timeRangePreset: TimeRangePreset;
@@ -54,6 +54,9 @@ export class ErrorsExplorerState {
 
 	loading = $state(false);
 	error = $state<string | null>(null);
+
+	/** The window `groups` was fetched over - pinned per search (a relative preset's "now" moves on), so a row's new-tab link (`groupHref`) reopens exactly what the table shows. */
+	searchedRange = $state.raw<ResolvedTimeRange | null>(null);
 
 	// No dedicated "list distinct services" endpoint here either (same gap
 	// TracesExplorerState.knownServices documents for spans) - accumulated across every
@@ -109,9 +112,11 @@ export class ErrorsExplorerState {
 			// the API's max rather than the default top 200 - the narrowed type mustn't fall
 			// off the end of a busy window's ranking.
 			const topN = this.filter.exceptionType ? MAX_GROUPS : undefined;
-			const res = await getExceptionGroups({ filter: this.buildFilter(this.currentRange()), topN }, abort.signal);
+			const range = this.currentRange();
+			const res = await getExceptionGroups({ filter: this.buildFilter(range), topN }, abort.signal);
 			if (abort.signal.aborted) return;
 			this.groups = res.groups;
+			this.searchedRange = range;
 			this.knownServices = [...new Set([...this.knownServices, ...res.groups.flatMap((g) => g.affectedServices)])].sort();
 		} catch (err) {
 			if (abort.signal.aborted) return;
@@ -145,6 +150,19 @@ export class ErrorsExplorerState {
 		await this.runSearch();
 		const matches = this.visibleGroups();
 		if (matches.length === 1) this.selectGroup(matches[0]);
+	}
+
+	/** `/errors?state=` scoped to one group over the searched window - opens straight into its occurrences (applyDeepLinkState). Null before the first search resolves. */
+	groupHref(group: ExceptionGroup): string | null {
+		const range = this.searchedRange;
+		if (!range) return null;
+		return buildErrorsDeepLinkHref({
+			customRange: { from: new Date(range.from), to: new Date(range.to) },
+			services: this.filter.services,
+			resourceAttributes: this.filter.resourceAttributes,
+			exceptionType: group.exceptionType,
+			exceptionMessage: group.exceptionMessage
+		});
 	}
 
 	/** Clears just the type/message narrowing (the toolbar chip's remove button). */

@@ -45,8 +45,8 @@
 	);
 
 	// A direct id lookup, not another filter on TracesExplorerState - jumping to a trace
-	// navigates away to the trace-detail route (same `goto(`/traces/${traceId}`)` TraceRow
-	// and SpanDetailSheet's link-jumps already use) rather than narrowing the list, so it
+	// navigates away to the trace-detail route (same `/traces/${traceId}` TraceRow and
+	// SpanDetailSheet's link-jumps already point at) rather than narrowing the list, so it
 	// has no reason to live on shared explorer state. Local draft + Enter-to-go, same shape
 	// as LogsToolbar's search box, minus the debounce (this doesn't fire a query per
 	// keystroke).
