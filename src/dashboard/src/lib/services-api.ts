@@ -45,7 +45,8 @@ export interface ResourceAttributeFilter {
 	value: string;
 }
 
-function toGeneratedResourceAttributes(resourceAttributes: ResourceAttributeFilter[] | undefined): (GeneratedResourceAttributeFilter | null)[] | null {
+/** Exported for `errors-api.ts`'s `ExceptionFilter`, which reuses the same filter-chip shape. */
+export function toGeneratedResourceAttributes(resourceAttributes: ResourceAttributeFilter[] | undefined): (GeneratedResourceAttributeFilter | null)[] | null {
 	if (resourceAttributes == null || resourceAttributes.length === 0) return null;
 	return resourceAttributes.map((a) => {
 		const attr = new GeneratedResourceAttributeFilter();
@@ -53,6 +54,11 @@ function toGeneratedResourceAttributes(resourceAttributes: ResourceAttributeFilt
 		attr.value = a.value;
 		return attr;
 	});
+}
+
+/** The read-direction counterpart to `toGeneratedResourceAttributes` - for `errors-api.ts`'s `fromGeneratedExceptionFilter`. */
+export function fromGeneratedResourceAttributes(dtos: (GeneratedResourceAttributeFilter | null)[] | null): ResourceAttributeFilter[] {
+	return (dtos ?? []).filter((a): a is GeneratedResourceAttributeFilter => a != null).map((a) => ({ key: a.key ?? '', value: a.value ?? '' }));
 }
 
 export interface ServiceMetrics {

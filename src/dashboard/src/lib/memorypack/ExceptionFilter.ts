@@ -2,20 +2,24 @@
 // generated. Mirrors `src/Flare.Api/Model/ErrorModels.cs`'s `ExceptionFilter` field-for-field,
 // in declared order. Can't carry `[GenerateTypeScript]` itself because `From`/`To` are
 // `DateTimeOffset?` - see `$lib/memorypack/date-time-offset.ts`'s header comment.
+// `resourceAttributes`' element type is generated - same split as `ServiceOverviewRequest.ts`.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
+import { ResourceAttributeFilter } from '$lib/generated/memorypack/ResourceAttributeFilter.js';
 import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
 
 export class ExceptionFilter {
 	from: Date | null;
 	to: Date | null;
 	services: (string | null)[] | null;
+	resourceAttributes: (ResourceAttributeFilter | null)[] | null;
 
 	constructor() {
 		this.from = null;
 		this.to = null;
 		this.services = null;
+		this.resourceAttributes = null;
 	}
 
 	static serialize(value: ExceptionFilter | null): Uint8Array {
@@ -30,10 +34,11 @@ export class ExceptionFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(3);
+		writer.writeObjectHeader(4);
 		writeNullableDateTimeOffset(writer, value.from);
 		writeNullableDateTimeOffset(writer, value.to);
 		writer.writeArray(value.services, (writer, x) => writer.writeString(x));
+		writer.writeArray(value.resourceAttributes, (writer, x) => ResourceAttributeFilter.serializeCore(writer, x));
 	}
 
 	static deserialize(buffer: ArrayBuffer): ExceptionFilter | null {
@@ -47,11 +52,12 @@ export class ExceptionFilter {
 		}
 
 		const value = new ExceptionFilter();
-		if (count == 3) {
+		if (count == 4) {
 			value.from = readNullableDateTimeOffset(reader);
 			value.to = readNullableDateTimeOffset(reader);
 			value.services = reader.readArray((reader) => reader.readString());
-		} else if (count > 3) {
+			value.resourceAttributes = reader.readArray((reader) => ResourceAttributeFilter.deserializeCore(reader));
+		} else if (count > 4) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -61,6 +67,8 @@ export class ExceptionFilter {
 			if (count == 2) return value;
 			value.services = reader.readArray((reader) => reader.readString());
 			if (count == 3) return value;
+			value.resourceAttributes = reader.readArray((reader) => ResourceAttributeFilter.deserializeCore(reader));
+			if (count == 4) return value;
 		}
 		return value;
 	}

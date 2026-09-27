@@ -16,6 +16,7 @@
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import { alertsContext } from '$lib/alerts/context';
+	import type { ResourceAttributeFilter } from '$lib/services-api';
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
 	import {
 		testDraftAlertRule,
@@ -117,6 +118,9 @@
 	// collision with LogCount's own use of `services`.
 	let exceptionType = $state('');
 	let exceptionMessage = $state('');
+	// No form control yet - carried through from the edited rule so saving it doesn't drop
+	// resource-attribute filters set via the API (ExceptionFilter.ResourceAttributes).
+	let exceptionResourceAttributes = $state<ResourceAttributeFilter[]>([]);
 
 	// Anomaly condition (AlertConditionKind.Anomaly) - see
 	// docs-internal/adr/0048-anomaly-detection-alerting.md. Scores one of the three condition
@@ -183,6 +187,7 @@
 			metricThresholdValueText = '0';
 			exceptionType = '';
 			exceptionMessage = '';
+			exceptionResourceAttributes = [];
 			anomalySource = 'LogCount';
 			anomalySeasonality = 'Daily';
 			anomalyBaselinePeriodsText = '7';
@@ -255,6 +260,7 @@
 			metricThresholdValueText = String(target.metricThresholdValue ?? 0);
 			exceptionType = target.exceptionCondition?.exceptionType ?? '';
 			exceptionMessage = target.exceptionCondition?.exceptionMessage ?? '';
+			exceptionResourceAttributes = target.exceptionCondition?.filter?.resourceAttributes ?? [];
 			anomalySource = target.anomalyCondition?.source ?? 'LogCount';
 			anomalySeasonality = target.anomalyCondition?.seasonality ?? 'Daily';
 			anomalyBaselinePeriodsText = String(target.anomalyCondition?.baselinePeriods ?? 7);
@@ -457,7 +463,13 @@
 					? {
 							exceptionType: exceptionType.trim(),
 							exceptionMessage: exceptionMessage.trim() || undefined,
-							filter: services.length ? { services: [...services] } : undefined
+							filter:
+								services.length || exceptionResourceAttributes.length
+									? {
+											services: services.length ? [...services] : undefined,
+											resourceAttributes: exceptionResourceAttributes.length ? [...exceptionResourceAttributes] : undefined
+										}
+									: undefined
 						}
 					: undefined,
 			noDataWindowSeconds: noDataActive ? noDataWindowSeconds : 0,

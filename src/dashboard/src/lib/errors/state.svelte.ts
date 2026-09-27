@@ -12,6 +12,7 @@ import {
 	type ExceptionGroup,
 	type ExceptionOccurrencesResponse
 } from '$lib/errors-api';
+import type { ResourceAttributeFilter } from '$lib/services-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import type { ErrorsDeepLinkState } from '$lib/deep-links';
 
@@ -20,6 +21,8 @@ export interface ErrorsFilterState {
 	/** Set only while timeRangePreset === 'custom' - same shape as MetricsFilterState.customRange. The toolbar never offers 'custom'; the only producer is a fired exception alert's `?state=` link (applyDeepLinkState). */
 	customRange: { from: Date; to: Date } | null;
 	services: string[];
+	/** Resource-attribute equality filters (e.g. `deployment.environment=production`), ANDed server-side - see ExceptionFilter.ResourceAttributes. */
+	resourceAttributes: ResourceAttributeFilter[];
 	/**
 	 * Narrows the groups table to one exception type (and, when non-empty, one exact message) -
 	 * what an ExceptionCount alert rule counts. Client-side over the fetched groups, like the
@@ -36,7 +39,14 @@ const MAX_GROUPS = 1_000;
 export type ErrorsSortColumn = 'exceptionType' | 'exceptionMessage' | 'occurrenceCount' | 'affectedServices' | 'firstSeen' | 'lastSeen';
 
 export class ErrorsExplorerState {
-	filter = $state<ErrorsFilterState>({ timeRangePreset: '1h', customRange: null, services: [], exceptionType: '', exceptionMessage: '' });
+	filter = $state<ErrorsFilterState>({
+		timeRangePreset: '1h',
+		customRange: null,
+		services: [],
+		resourceAttributes: [],
+		exceptionType: '',
+		exceptionMessage: ''
+	});
 
 	// Never mutated in place, always a wholesale reassignment on each search - same
 	// $state.raw rationale TracesExplorerState.traces documents for its own field.
@@ -82,6 +92,7 @@ export class ErrorsExplorerState {
 			filter.to = range.to;
 		}
 		if (this.filter.services.length) filter.services = [...this.filter.services];
+		if (this.filter.resourceAttributes.length) filter.resourceAttributes = this.filter.resourceAttributes.map((a) => ({ ...a }));
 		return filter;
 	}
 
@@ -126,6 +137,7 @@ export class ErrorsExplorerState {
 			timeRangePreset: 'custom',
 			customRange: state.customRange,
 			services: state.services,
+			resourceAttributes: state.resourceAttributes,
 			exceptionType: state.exceptionType,
 			exceptionMessage: state.exceptionMessage
 		};
@@ -154,14 +166,20 @@ export class ErrorsExplorerState {
 		void this.runSearch();
 	}
 
+	setResourceAttributes(resourceAttributes: ResourceAttributeFilter[]): void {
+		this.filter.resourceAttributes = resourceAttributes;
+		void this.runSearch();
+	}
+
 	/** Whether the toolbar's "Clear filters" button has anything to do. */
 	hasActiveFilters(): boolean {
-		return this.filter.services.length > 0 || this.filter.exceptionType !== '';
+		return this.filter.services.length > 0 || this.filter.resourceAttributes.length > 0 || this.filter.exceptionType !== '';
 	}
 
 	/** Toolbar's "Clear filters" button - same "leave the time range alone" scope LogsExplorerState.resetFilters documents for itself. */
 	resetFilters(): void {
 		this.filter.services = [];
+		this.filter.resourceAttributes = [];
 		this.clearExceptionType();
 		void this.runSearch();
 	}

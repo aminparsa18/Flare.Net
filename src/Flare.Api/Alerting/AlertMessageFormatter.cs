@@ -505,6 +505,7 @@ public static class AlertMessageFormatter
         {
             CustomRange = EvaluatedWindow(rule, firedAt),
             Services = exception.Filter.Services ?? [],
+            ResourceAttributes = exception.Filter.ResourceAttributes ?? [],
             ExceptionType = exception.ExceptionType,
             ExceptionMessage = exception.ExceptionMessage,
         };
@@ -573,6 +574,7 @@ internal sealed record ErrorsDeepLinkState
 {
     public required DeepLinkRange CustomRange { get; init; }
     public required IReadOnlyList<string> Services { get; init; }
+    public required IReadOnlyList<ResourceAttributeFilter> ResourceAttributes { get; init; }
     public required string ExceptionType { get; init; }
     public required string ExceptionMessage { get; init; }
 }

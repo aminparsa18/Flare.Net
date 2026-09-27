@@ -140,7 +140,11 @@
 		</div>
 	{:else}
 		<ServicesToolbar {activeTab} onTabChange={setActiveTab} />
-		<ResourceAttributeFiltersRow />
+		<ResourceAttributeFiltersRow
+			filters={services.resourceAttributes}
+			onChange={(filters) => services.setResourceAttributes(filters)}
+			collapseStorageKey="flare.services.resourceAttributeFiltersCollapsed"
+		/>
 		<!-- Table then map, stacked in one scrollable column - not a Table/Map tab switch
 		     (dropped after feedback that a toggle was unnecessary indirection for two views
 		     that share one window and are both cheap enough to just show together). The

@@ -7,8 +7,9 @@ namespace Flare.Api.Query;
 /// <summary>
 /// Pure <see cref="ResourceAttributeFilter"/> list → parameterized <c>WHERE</c>-clause
 /// fragments, shared by <see cref="ServiceOverviewQueryBuilder"/>,
-/// <see cref="ServiceDependencyQueryBuilder"/>, and
-/// <see cref="ServiceCallBreakdownQueryBuilder"/> - the one place this clause shape is
+/// <see cref="ServiceDependencyQueryBuilder"/>,
+/// <see cref="ServiceCallBreakdownQueryBuilder"/>, and <see cref="ExceptionFilterSqlBuilder"/>
+/// (the /errors page and exception-count alerts) - the one place this clause shape is
 /// written, rather than each of the three builders (and, for
 /// <see cref="ServiceDependencyQueryBuilder"/>'s self-joined edges query, each of its two
 /// aliased sides) re-deriving it. Same "pure function, no ClickHouse dependency" style as

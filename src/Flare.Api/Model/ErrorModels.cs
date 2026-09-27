@@ -3,13 +3,20 @@ using MemoryPack;
 namespace Flare.Api.Model;
 
 /// <summary>
-/// Window/service scope shared by both <c>/api/errors/*</c> endpoints - same
+/// Window/service/resource scope shared by both <c>/api/errors/*</c> endpoints - same
 /// "one filter type reused across a family of endpoints that belong together" precedent
 /// <see cref="LogFilter"/> sets (not a copy of <see cref="SpanFilter"/>, which diverges too
 /// much - span kind/status/duration/attribute filters have no meaning here). Deliberately
-/// narrower than <see cref="SpanFilter"/>: exception grouping only ever needs a time window
-/// plus an optional service scope, nothing else in that type applies to an event-level query.
+/// narrower than <see cref="SpanFilter"/>: exception grouping only needs a time window, an
+/// optional service scope, and optional resource-attribute equality filters (e.g. "production
+/// only", "only <c>service.version</c> 2.3") - nothing else in that type applies to an
+/// event-level query.
 /// </summary>
+/// <remarks>
+/// <see cref="ResourceAttributes"/> is the last member on purpose: MemoryPack tolerates a
+/// member appended at the end (an older client's 3-member payload still deserializes), and
+/// persisted <see cref="ExceptionCountCondition"/> JSON without the field reads it back as null.
+/// </remarks>
 [MemoryPackable]
 public sealed partial record ExceptionFilter
 {
@@ -19,6 +26,9 @@ public sealed partial record ExceptionFilter
 
     /// <summary>Exact <c>ServiceName</c> match, ANDed with the time window. Empty/null = all services.</summary>
     public IReadOnlyList<string>? Services { get; init; }
+
+    /// <summary>Equality filters against the span's <c>ResourceAttributes</c>, ANDed together - same <see cref="ResourceAttributeFilter"/> shape (and SQL, via <see cref="Query.ResourceAttributeFilterSqlBuilder"/>) as the Traces &gt; Services tab's filter chips. Null/empty = no narrowing.</summary>
+    public IReadOnlyList<ResourceAttributeFilter>? ResourceAttributes { get; init; }
 }
 
 /// <summary>Request body for <c>POST /api/errors/groups</c>.</summary>

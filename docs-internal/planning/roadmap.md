@@ -121,13 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Resource-attribute filter on the Errors page.** `ExceptionFilter` only
-  has time range + services - no "exceptions in production only" or
-  "only on `service.version` 2.3". Reuse the `ResourceAttributeFilter`
-  shape Logs/Traces already use in `ExceptionFilterSqlBuilder` and add
-  the control to the /errors toolbar (plus a facet-sidebar entry). Not
-  started. Prior art:
-  [signoz#7589](https://github.com/SigNoz/signoz/commit/f11b9644cf4818f8ddbc87442202eb7e9b6081f9).
 - **Deep link to a specific span.** `/traces/[traceId]` has no span
   parameter, so a shared link lands at the top of the waterfall. Accept
   `?span=<spanId>` (select it, expand its ancestors, scroll into view)
