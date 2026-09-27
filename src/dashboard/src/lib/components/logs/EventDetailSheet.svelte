@@ -124,6 +124,32 @@
 		};
 	}
 
+	// A multi-MB body (a dumped payload, a serialized blob) rendered whole through AnsiText
+	// can freeze the tab, so only the first BODY_PREVIEW_CHARS render until "Show full body".
+	// Keyed by eventId, so opening another event collapses back to the preview.
+	const BODY_PREVIEW_CHARS = 64 * 1024;
+	let fullBodyEventId = $state<string | null>(null);
+	let bodyCopied = $state(false);
+	let bodyCopyResetTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const bodyView = $derived.by(() => {
+		const event = explorer.selectedEvent;
+		const body = event?.body ?? '';
+		if (!event || body.length <= BODY_PREVIEW_CHARS || fullBodyEventId === event.eventId) return { text: body, truncated: false };
+		return { text: body.slice(0, BODY_PREVIEW_CHARS), truncated: true };
+	});
+
+	function formatSize(chars: number): string {
+		return chars >= 1024 * 1024 ? `${(chars / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(chars / 1024)} KB`;
+	}
+
+	async function copyBody(body: string): Promise<void> {
+		await navigator.clipboard.writeText(body);
+		bodyCopied = true;
+		clearTimeout(bodyCopyResetTimer);
+		bodyCopyResetTimer = setTimeout(() => (bodyCopied = false), 1500);
+	}
+
 	let copied = $state(false);
 	let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -195,7 +221,21 @@
 			</Sheet.Header>
 			<ScrollArea class="min-h-0 flex-1 px-4">
 				<div class="flex flex-col gap-4 pb-8">
-					<p class="text-sm break-words whitespace-pre-wrap"><AnsiText text={event.body} /></p>
+					<p class="text-sm break-words whitespace-pre-wrap"><AnsiText text={bodyView.text} /></p>
+					{#if bodyView.truncated}
+						<div class="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+							<span>
+								{m.eventDetail_bodyTruncated({ shown: formatSize(BODY_PREVIEW_CHARS), total: formatSize(event.body?.length ?? 0) })}
+							</span>
+							<Button variant="outline" size="xs" onclick={() => (fullBodyEventId = event.eventId)}>
+								{m.eventDetail_showFullBody()}
+							</Button>
+							<Button variant="outline" size="xs" onclick={() => copyBody(event.body ?? '')}>
+								{#if bodyCopied}<CheckIcon />{:else}<CopyIcon />{/if}
+								{m.eventDetail_copyBody()}
+							</Button>
+						</div>
+					{/if}
 
 					<Separator />
 

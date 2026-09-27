@@ -216,6 +216,11 @@ export interface ErrorsDeepLinkState {
 	exceptionMessage: string;
 }
 
+/** `/errors?state=` for one exception group - the groups table's row link, so Ctrl/Cmd/middle-click opens that group's occurrences in a new tab (the inverse of `parseErrorsStateDeepLinkParam`). */
+export function buildErrorsDeepLinkHref(state: ErrorsDeepLinkState): string {
+	return `/errors?state=${encodeStateDeepLinkParam(state)}`;
+}
+
 /** Parses `errors/+page.svelte`'s `?state=` param, defensively narrowed - null when absent, undecodable, or missing the fields a scoped view needs. */
 export function parseErrorsStateDeepLinkParam(url: URL): ErrorsDeepLinkState | null {
 	const s = parseStateDeepLinkParam(url) as Partial<{

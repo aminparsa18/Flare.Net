@@ -133,18 +133,6 @@ folders are where "what happened and why" actually lives.
   executor and the Api preview mirror (ADR-0033/0034). Medium. Not
   started. Prior art: [signoz#8227](https://github.com/SigNoz/signoz/commit/d6eed8e79dae5281839b461f46c1fbffe44b8bca),
   UI [signoz#8331](https://github.com/SigNoz/signoz/commit/ddb08b388362c339e3d152d43ead6f1df235f35a).
-- **Dashboard UX batch: system theme, real links, huge-body guard.**
-  (a) The user menu offers only Light/Dark (`NavUserMenu.svelte`); add
-  "System" (mode-watcher already supports it). (b) Clickable rows
-  navigate via `onclick={() => goto(...)}` (e.g. `TraceRow.svelte`), so
-  Ctrl/Cmd+click, middle-click and "Open in new tab" don't work - make
-  them real `<a href>` links (traces, alerts, dashboards list, exception
-  groups). (c) `EventDetailSheet` renders the full body through
-  `AnsiText` with no cap, so a multi-MB body can freeze the tab - render
-  the first ~64 KB with "Show full body"/"Copy". Frontend-only, small.
-  Not started. Prior art: system theme [signoz#8567](https://github.com/SigNoz/signoz/commit/a57698249738b7773e18b3ba7b9a2602526a3d44),
-  new-tab clicks [signoz#8607](https://github.com/SigNoz/signoz/commit/d7fdbcd90dafde4e783ee6e5c0eb8959d5efb6c3),
-  large-body safeguard [signoz#8560](https://github.com/SigNoz/signoz/commit/b40fda02cfb7b7d57724a3cf3044790e2995b841).
 - **Attribute actions in the span detail view.** The log event detail
   view got filter-for/filter-out/copy (+ pinning) on `AttributeTable`
   (PR #309), but `SpanDetailSheet` renders the same component with only

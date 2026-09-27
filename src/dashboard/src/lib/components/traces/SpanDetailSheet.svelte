@@ -1,6 +1,5 @@
 <script lang="ts">
 	import AnsiText from '$lib/components/logs/AnsiText.svelte';
-	import { goto } from '$app/navigation';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Badge } from '$lib/components/ui/badge';
@@ -186,7 +185,7 @@
 											<span class="truncate font-mono text-xs">
 												{link.traceId} / {link.spanId}
 											</span>
-											<Button variant="ghost" size="xs" class="shrink-0" onclick={() => goto(`/traces/${link.traceId}`)}>
+											<Button variant="ghost" size="xs" class="shrink-0" href="/traces/{link.traceId}">
 												{m.spanDetail_viewLinkedTrace()}
 											</Button>
 										</div>

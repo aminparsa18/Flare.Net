@@ -29,6 +29,15 @@
 		{ column: 'firstSeen', label: m.exceptionGroupsTable_firstSeenColumn(), align: 'left' },
 		{ column: 'lastSeen', label: m.exceptionGroupsTable_lastSeenColumn(), align: 'left' }
 	]);
+
+	// The type cell is a real link (groupHref) so Ctrl/Cmd/Shift-click, middle-click and
+	// "Open in new tab" work. A plain click stays in-page: the default is cancelled and the
+	// click bubbles to the row's own selectGroup, same as clicking anywhere else on the row.
+	// A modified click is left to the browser and kept from also opening the sheet here.
+	function onGroupLinkClick(e: MouseEvent): void {
+		if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) e.stopPropagation();
+		else e.preventDefault();
+	}
 </script>
 
 <div class="px-4 pb-4">
@@ -87,7 +96,9 @@
 			<Table.Body>
 				{#each errors.sorted() as group (group.exceptionType + ' ' + group.exceptionMessage)}
 					<Table.Row class="cursor-pointer" onclick={() => errors.selectGroup(group)}>
-						<Table.Cell class="max-w-xs truncate font-mono text-xs" title={group.exceptionType}>{group.exceptionType}</Table.Cell>
+						<Table.Cell class="max-w-xs truncate font-mono text-xs" title={group.exceptionType}>
+							<a href={errors.groupHref(group)} class="hover:underline" onclick={onGroupLinkClick}>{group.exceptionType}</a>
+						</Table.Cell>
 						<Table.Cell class="text-muted-foreground max-w-md truncate text-xs" title={group.exceptionMessage}>
 							{group.exceptionMessage || m.exceptionGroupsTable_noMessage()}
 						</Table.Cell>

@@ -10,7 +10,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { authContext } from '$lib/auth/context';
-	import { mode, setMode } from 'mode-watcher';
+	import { setMode, userPrefersMode } from 'mode-watcher';
 	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
 	import * as m from '$lib/paraglide/messages';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
@@ -19,6 +19,7 @@
 	import KeyIcon from '@lucide/svelte/icons/key';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
+	import MonitorIcon from '@lucide/svelte/icons/monitor';
 	import LanguagesIcon from '@lucide/svelte/icons/languages';
 	import GlobeIcon from '@lucide/svelte/icons/globe';
 	import { displayTimeZone } from '$lib/time/display-zone.svelte';
@@ -122,12 +123,13 @@
 			<DropdownMenu.Separator />
 		{/if}
 
-		<!-- mode.current is undefined during SSR (mode-watcher's isBrowser guard) - no radio
-		     item shows as selected for one frame, corrected the instant the client hydrates.
+		<!-- userPrefersMode (not mode, the resolved light/dark) so "System" shows as the
+		     selection while it's following the OS. It reads localStorage, so during SSR it's
+		     the default ("system") for one frame, corrected the instant the client hydrates.
 		     Harmless: the anti-FOUC script in +layout.svelte already set the *page's* actual
 		     theme correctly before paint, this only affects this menu's own selected state. -->
 		<DropdownMenu.Label>{m.nav_appearance()}</DropdownMenu.Label>
-		<DropdownMenu.RadioGroup value={mode.current} onValueChange={(v) => setMode(v as 'light' | 'dark')}>
+		<DropdownMenu.RadioGroup value={userPrefersMode.current} onValueChange={(v) => setMode(v as 'light' | 'dark' | 'system')}>
 			<DropdownMenu.RadioItem value="light">
 				<SunIcon />
 				{m.nav_themeLight()}
@@ -135,6 +137,10 @@
 			<DropdownMenu.RadioItem value="dark">
 				<MoonIcon />
 				{m.nav_themeDark()}
+			</DropdownMenu.RadioItem>
+			<DropdownMenu.RadioItem value="system">
+				<MonitorIcon />
+				{m.nav_themeSystem()}
 			</DropdownMenu.RadioItem>
 		</DropdownMenu.RadioGroup>
 
