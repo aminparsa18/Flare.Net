@@ -8,7 +8,8 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { metricsExplorerContext } from '$lib/metrics/context';
-	import type { PanelThreshold } from '$lib/dashboards/thresholds';
+	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
+	import type { LegendPosition } from '$lib/dashboards/legend';
 	import { parseColumnUnits, reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelVisualization } from '$lib/dashboards/visualization';
 	import BarVisualization from './BarVisualization.svelte';
 	import ValueVisualization from './ValueVisualization.svelte';
@@ -24,7 +25,9 @@
 		yAxisMin = null,
 		yAxisMax = null,
 		thresholds = [],
-		columnUnits: rawColumnUnits
+		columnUnits: rawColumnUnits,
+		legendPosition,
+		seriesColors = {}
 	}: {
 		visualization: Exclude<PanelVisualization, 'timeSeries'>;
 		/** The panel's stored `reducer` - unvalidated; resolved against the result type below. */
@@ -35,6 +38,9 @@
 		thresholds?: PanelThreshold[];
 		/** The panel's stored `columnUnits` - unvalidated; only the Table reads it. */
 		columnUnits?: unknown;
+		/** `DashboardPanel.legendPosition`/`seriesColors`, already parsed - only Bar and Pie draw a legend. */
+		legendPosition?: LegendPosition;
+		seriesColors?: Record<string, ThresholdColor>;
 	} = $props();
 
 	const explorer = metricsExplorerContext.get();
@@ -52,7 +58,9 @@
 	const hasData = $derived(series.some((s) => s.points.length > 0));
 
 	const entries = $derived(
-		series.map((s) => ({ label: s.displayLabel, value: reduceValues(s.points.map((p) => p.value), reducer) })).filter((e): e is { label: string; value: number } => e.value != null)
+		series
+			.map((s) => ({ label: s.displayLabel, key: s.label, value: reduceValues(s.points.map((p) => p.value), reducer) }))
+			.filter((e): e is { label: string; key: string; value: number } => e.value != null)
 	);
 	const total = $derived(reduceValues(totalsByBucket(series), reducer));
 </script>
@@ -72,11 +80,11 @@
 	{:else if !hasData}
 		<div class="text-muted-foreground flex flex-1 items-center justify-center text-xs">{m.metricChart_noDataInRange()}</div>
 	{:else if visualization === 'bar' || visualization === 'stackedBar'}
-		<BarVisualization {series} stacked={visualization === 'stackedBar'} {unit} {yAxisMin} {yAxisMax} {thresholds} />
+		<BarVisualization {series} stacked={visualization === 'stackedBar'} {unit} {yAxisMin} {yAxisMax} {thresholds} {legendPosition} {seriesColors} />
 	{:else if visualization === 'value' && total != null}
 		<ValueVisualization value={total} {unit} {reducer} seriesCount={series.length} {thresholds} />
 	{:else if visualization === 'pie'}
-		<PieVisualization {entries} {unit} />
+		<PieVisualization {entries} {unit} {legendPosition} {seriesColors} />
 	{:else if visualization === 'table'}
 		<TableVisualization {series} {unit} {columnUnits} {reducer} includeSum={resultType === 'Sum'} {title} {thresholds} />
 	{:else if visualization === 'histogram'}

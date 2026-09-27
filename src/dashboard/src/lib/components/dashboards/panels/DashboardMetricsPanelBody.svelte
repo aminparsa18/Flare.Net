@@ -41,7 +41,9 @@
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
-	import type { PanelVisualization } from '$lib/dashboards/visualization';
+	import { seriesLabel, type PanelVisualization } from '$lib/dashboards/visualization';
+	import type { LegendPosition } from '$lib/dashboards/legend';
+	import type { ThresholdColor } from '$lib/dashboards/thresholds';
 	import type { YAxisScale } from '$lib/metrics/axis';
 	import MetricsVisualization from './visualizations/MetricsVisualization.svelte';
 	import { metricPointWindow } from '$lib/dashboards/explore-links';
@@ -58,6 +60,9 @@
 		visualization = 'timeSeries',
 		reducer,
 		columnUnits,
+		legendPosition,
+		seriesColors = {},
+		seriesKeys = $bindable([]),
 		title = '',
 		onOpenRange
 	}: {
@@ -80,6 +85,12 @@
 		reducer?: unknown;
 		/** This panel's own `DashboardPanel.columnUnits`, unvalidated - only a Table visualization reads it. */
 		columnUnits?: unknown;
+		/** This panel's own (already-parsed) `DashboardPanel.legendPosition` - `undefined` keeps each chart's default. */
+		legendPosition?: LegendPosition;
+		/** This panel's own (already-parsed) `DashboardPanel.seriesColors`. */
+		seriesColors?: Record<string, ThresholdColor>;
+		/** Written, not read: the current result's series keys (`seriesLabel`), for the card's LegendPopover. */
+		seriesKeys?: string[];
 		/** The panel's title - only used to name a Table visualization's CSV download. */
 		title?: string;
 		/** A point click on the single-metric line chart - opens the Metrics Explorer around it, see DashboardPanelCard. */
@@ -134,6 +145,12 @@
 		});
 	});
 
+	// Reports the current result's series up to DashboardPanelCard, whose LegendPopover lists
+	// them - the explorer (and so the result) lives here, not in the card.
+	$effect(() => {
+		seriesKeys = (explorer.mode === 'formula' ? explorer.formulaSeries : explorer.series).map(seriesLabel);
+	});
+
 	// See DashboardLogsPanelBody.svelte's identical block for why this compares against a
 	// snapshot rather than reacting to every refreshToken value unconditionally.
 	let lastRefreshToken = untrack(() => refreshToken);
@@ -148,9 +165,9 @@
 </script>
 
 {#if visualization !== 'timeSeries'}
-	<MetricsVisualization {visualization} {reducer} {columnUnits} {title} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
+	<MetricsVisualization {visualization} {reducer} {columnUnits} {title} {legendPosition} {seriesColors} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else if explorer.mode === 'formula'}
-	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} />
+	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} {legendPosition} {seriesColors} />
 {:else}
 	<MetricChart
 		allowZoom={false}
@@ -158,6 +175,8 @@
 		yAxisMax={yAxisMax ?? null}
 		{yAxisScale}
 		thresholds={thresholds ?? []}
+		{legendPosition}
+		{seriesColors}
 		onPointClick={openAroundPoint}
 	/>
 {/if}

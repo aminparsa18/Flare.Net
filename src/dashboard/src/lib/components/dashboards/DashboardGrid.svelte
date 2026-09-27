@@ -24,7 +24,8 @@
 	import DashboardPanelCard from './DashboardPanelCard.svelte';
 	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
-	import type { PanelThreshold } from '$lib/dashboards/thresholds';
+	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
+	import type { LegendPosition } from '$lib/dashboards/legend';
 	import type { PanelReducer, PanelVisualization } from '$lib/dashboards/visualization';
 	import type { YAxisScale } from '$lib/metrics/axis';
 
@@ -49,6 +50,7 @@
 		onSetThresholds,
 		onSetVisualization,
 		onSetColumnUnits,
+		onSetLegend,
 		onMoveToRow
 	}: {
 		/** Only this grid's own section's panels - the ungrouped area and each row are separate grids (see `panelsInRow`). */
@@ -74,6 +76,7 @@
 		onSetThresholds: (id: string, thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (id: string, visualization: PanelVisualization, reducer: PanelReducer | null) => void;
 		onSetColumnUnits: (id: string, columnUnits: Partial<Record<PanelReducer, string>>) => void;
+		onSetLegend: (id: string, legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>) => void;
 		onMoveToRow: (id: string, rowId: string | null) => void;
 	} = $props();
 
@@ -157,6 +160,7 @@
 					onSetThresholds={(thresholds) => onSetThresholds(panel.id, thresholds)}
 					onSetVisualization={(visualization, reducer) => onSetVisualization(panel.id, visualization, reducer)}
 					onSetColumnUnits={(columnUnits) => onSetColumnUnits(panel.id, columnUnits)}
+					onSetLegend={(legendPosition, seriesColors) => onSetLegend(panel.id, legendPosition, seriesColors)}
 					{rows}
 					{rowId}
 					onMoveToRow={(target) => onMoveToRow(panel.id, target)}

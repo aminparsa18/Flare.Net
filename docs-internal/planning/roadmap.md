@@ -121,14 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Panel legend placement + per-series colors.** Series colors come
-  from the fixed 5-slot palette hashed by series identity
-  (`lib/metrics/chart-colors`), with no per-panel override and the legend
-  always below the chart. Add a legend position option (bottom/right/
-  hidden) and optional per-series color overrides (keyed by series
-  label), stored in the panel JSON. Frontend-only, small. Not started.
-  Prior art: legend options [signoz#8035](https://github.com/SigNoz/signoz/commit/aaeffae1bd53a2f5f8b805dd7aef993b5cef10f2),
-  custom colors [signoz#8063](https://github.com/SigNoz/signoz/commit/8990fb7a7300dff265d3c3a83bb042388951c11e).
 - **Span event markers on the waterfall.** Span events (incl. exceptions)
   are only listed in `SpanDetailSheet`; the waterfall doesn't show where
   in a span an event happened, or which spans had one at all. Draw a dot

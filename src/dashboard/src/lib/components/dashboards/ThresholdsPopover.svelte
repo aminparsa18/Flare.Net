@@ -19,6 +19,7 @@
 		type ThresholdColor,
 		type ThresholdOperator
 	} from '$lib/dashboards/thresholds';
+	import { thresholdColorLabel } from './threshold-color-label';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -45,23 +46,6 @@
 	}
 
 	const colorNames = Object.keys(THRESHOLD_COLORS) as ThresholdColor[];
-
-	function colorLabel(color: ThresholdColor): string {
-		switch (color) {
-			case 'red':
-				return m.thresholdsPopover_colorRed();
-			case 'orange':
-				return m.thresholdsPopover_colorOrange();
-			case 'yellow':
-				return m.thresholdsPopover_colorYellow();
-			case 'green':
-				return m.thresholdsPopover_colorGreen();
-			case 'blue':
-				return m.thresholdsPopover_colorBlue();
-			case 'purple':
-				return m.thresholdsPopover_colorPurple();
-		}
-	}
 
 	let open = $state(false);
 	let rows = $state<DraftRow[]>([]);
@@ -152,9 +136,9 @@
 							</Select.Trigger>
 							<Select.Content>
 								{#each colorNames as color (color)}
-									<Select.Item value={color} label={colorLabel(color)}>
+									<Select.Item value={color} label={thresholdColorLabel(color)}>
 										<span class="inline-block size-3 rounded-full" style="background: {thresholdColorValue(color)};"></span>
-										{colorLabel(color)}
+										{thresholdColorLabel(color)}
 									</Select.Item>
 								{/each}
 							</Select.Content>

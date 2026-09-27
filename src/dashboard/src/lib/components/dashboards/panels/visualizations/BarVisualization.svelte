@@ -8,11 +8,15 @@
 	// Bars always anchor at zero (a bar's length *is* its value - a non-zero floor would
 	// misstate it), so a soft `yAxisMin` above zero can't raise the floor here, only a
 	// negative one can lower it. Capped at the palette's 5 series like MetricChart.
+	//
+	// `legendPosition`/`seriesColors`: the panel's legend placement and per-series color
+	// overrides - see `$lib/dashboards/legend.ts`.
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { niceAxisTicks, resolveAxisScale, formatAtScale } from '$lib/metrics/axis';
 	import { SERIES_COLOR_VARS, seriesColor } from '$lib/metrics/chart-colors';
 	import ThresholdOverlay from '$lib/components/metrics/ThresholdOverlay.svelte';
-	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
+	import { legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
 	import { byMagnitude, type VizSeries } from '$lib/dashboards/visualization';
 	import * as m from '$lib/paraglide/messages';
 	import { formatChartTime } from '$lib/time/format';
@@ -23,7 +27,9 @@
 		unit,
 		yAxisMin = null,
 		yAxisMax = null,
-		thresholds = []
+		thresholds = [],
+		legendPosition = 'bottom',
+		seriesColors = {}
 	}: {
 		series: VizSeries[];
 		stacked: boolean;
@@ -31,11 +37,18 @@
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
 		thresholds?: PanelThreshold[];
+		legendPosition?: LegendPosition;
+		seriesColors?: Record<string, ThresholdColor>;
 	} = $props();
 
 	const MAX_SERIES = SERIES_COLOR_VARS.length;
 	const visible = $derived(byMagnitude(series).slice(0, MAX_SERIES));
 	const hiddenCount = $derived(Math.max(0, series.length - MAX_SERIES));
+	const layout = $derived(legendLayout(legendPosition === 'right' ? 'right' : 'bottom'));
+
+	function colorOf(s: VizSeries): string {
+		return seriesColorOverride(seriesColors, s.label) ?? seriesColor(s.label);
+	}
 
 	const bucketTimes = $derived([...new Set(visible.flatMap((s) => s.points.map((p) => p.time)))].sort((a, b) => a - b));
 
@@ -116,14 +129,14 @@
 					else neg = to;
 					const y1 = yFor(from);
 					const y2 = yFor(to);
-					out.push({ key: `${b}:${s}`, x: slotX, y: Math.min(y1, y2), width: inner, height: Math.abs(y1 - y2), color: seriesColor(visible[s].label) });
+					out.push({ key: `${b}:${s}`, x: slotX, y: Math.min(y1, y2), width: inner, height: Math.abs(y1 - y2), color: colorOf(visible[s]) });
 				});
 			} else {
 				const barWidth = inner / Math.max(1, visible.length);
 				row.forEach((v, s) => {
 					if (v == null) return;
 					const y = yFor(v);
-					out.push({ key: `${b}:${s}`, x: slotX + s * barWidth, y: Math.min(y, zeroY), width: barWidth, height: Math.abs(zeroY - y), color: seriesColor(visible[s].label) });
+					out.push({ key: `${b}:${s}`, x: slotX + s * barWidth, y: Math.min(y, zeroY), width: barWidth, height: Math.abs(zeroY - y), color: colorOf(visible[s]) });
 				});
 			}
 		});
@@ -145,8 +158,8 @@
 	}
 </script>
 
-<div class="flex min-w-0 flex-1 flex-col">
-	<div class="relative">
+<div class="flex min-w-0 flex-1 {layout.wrapper}">
+	<div class="relative {layout.plot}">
 		<div class="text-muted-foreground pointer-events-none absolute inset-y-0 left-0 w-10 text-[10px]" style="height: {CHART_HEIGHT}px">
 			{#each ticks.values as tick (tick)}
 				{@const label = formatAtScale(tick, axisScale)}
@@ -189,7 +202,7 @@
 								{#if v != null}
 									{@const match = matchThreshold(thresholds, v)}
 									<span class="flex items-center gap-1.5">
-										<span class="inline-block h-2 w-2 shrink-0 rounded-sm" style="background: {seriesColor(s.label)};"></span>
+										<span class="inline-block h-2 w-2 shrink-0 rounded-sm" style="background: {colorOf(s)};"></span>
 										{s.displayLabel}:
 										<span class={match ? 'font-semibold' : undefined} style={match ? `color: ${thresholdColorValue(match.color)};` : undefined}>
 											{formatAtScale(v, axisScale)}
@@ -204,11 +217,15 @@
 		</Tooltip.Provider>
 	</div>
 
-	{#if visible.length > 1 || hiddenCount > 0}
-		<div class="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+	{#if legendPosition === 'hidden'}
+		{#if hiddenCount > 0}
+			<p class="text-muted-foreground mt-2 text-xs">{m.panelVisualization_hiddenSeries({ count: hiddenCount })}</p>
+		{/if}
+	{:else if visible.length > 1 || hiddenCount > 0}
+		<div class="text-muted-foreground text-xs {layout.legend}">
 			{#each visible as s (s.label)}
 				<span class="flex min-w-0 items-center gap-1.5">
-					<span class="inline-block h-2 w-2 shrink-0 rounded-sm" style="background: {seriesColor(s.label)};"></span>
+					<span class="inline-block h-2 w-2 shrink-0 rounded-sm" style="background: {colorOf(s)};"></span>
 					<span class="truncate" title={s.label}>{s.displayLabel}</span>
 				</span>
 			{/each}

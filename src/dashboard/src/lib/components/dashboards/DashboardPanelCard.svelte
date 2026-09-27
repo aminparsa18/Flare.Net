@@ -28,9 +28,11 @@
 	import PanelTitleInput from './PanelTitleInput.svelte';
 	import VisualizationMenu from './VisualizationMenu.svelte';
 	import ColumnUnitsPopover from './ColumnUnitsPopover.svelte';
-	import { effectivePanelYAxisScale, parseVisualization, usesYAxis, usesYAxisScale, type PanelReducer, type PanelVisualization } from '$lib/dashboards/visualization';
+	import LegendPopover from './LegendPopover.svelte';
+	import { effectivePanelYAxisScale, parseVisualization, usesLegend, usesYAxis, usesYAxisScale, type PanelReducer, type PanelVisualization } from '$lib/dashboards/visualization';
 	import type { YAxisScale } from '$lib/metrics/axis';
-	import type { PanelThreshold } from '$lib/dashboards/thresholds';
+	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
+	import { parseLegendPosition, parseSeriesColors, type LegendPosition } from '$lib/dashboards/legend';
 	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
@@ -65,6 +67,7 @@
 		onSetThresholds,
 		onSetVisualization,
 		onSetColumnUnits,
+		onSetLegend,
 		rows,
 		rowId,
 		onMoveToRow
@@ -86,6 +89,7 @@
 		onSetThresholds: (thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (visualization: PanelVisualization, reducer: PanelReducer | null) => void;
 		onSetColumnUnits: (columnUnits: Partial<Record<PanelReducer, string>>) => void;
+		onSetLegend: (legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>) => void;
 		rows: DashboardRow[];
 		/** The row this panel currently sits in, or `null` for the ungrouped area. */
 		rowId: string | null;
@@ -116,6 +120,12 @@
 
 	const visualization = $derived(parseVisualization(panel.visualization));
 	const yAxisScale = $derived(effectivePanelYAxisScale(panel));
+	const legendPosition = $derived(parseLegendPosition(panel.legendPosition));
+	const seriesColors = $derived(parseSeriesColors(panel.seriesColors));
+
+	/** The series the Metrics body last fetched (`seriesLabel` keys) - reported up from
+	 *  DashboardMetricsPanelBody so LegendPopover can list them without owning the query. */
+	let seriesKeys = $state<string[]>([]);
 
 	function panelTypeLabel(panelType: DashboardPanel['panelType']): string {
 		switch (panelType) {
@@ -312,6 +322,9 @@
 				{#if visualization === 'table'}
 					<ColumnUnitsPopover columnUnits={panel.columnUnits} onApply={onSetColumnUnits} />
 				{/if}
+				{#if usesLegend(visualization)}
+					<LegendPopover {legendPosition} {seriesColors} {seriesKeys} onApply={onSetLegend} />
+				{/if}
 				<ThresholdsPopover thresholds={panel.thresholds} onApply={onSetThresholds} />
 			{/if}
 			{#if rows.length > 0}
@@ -355,6 +368,9 @@
 					{visualization}
 					reducer={panel.reducer}
 					columnUnits={panel.columnUnits}
+					{legendPosition}
+					{seriesColors}
+					bind:seriesKeys
 					title={displayTitle}
 					onOpenRange={openRange}
 				/>
