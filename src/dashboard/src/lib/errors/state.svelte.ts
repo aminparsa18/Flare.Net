@@ -81,7 +81,8 @@ export class ErrorsExplorerState {
 	#searchAbort: AbortController | null = null;
 	#occurrencesAbort: AbortController | null = null;
 
-	#resolvedRange(): ResolvedTimeRange | null {
+	/** The window the current filter resolves to right now - public for `$lib/errors/facets.ts`, same as TracesExplorerState.currentRange. */
+	currentRange(): ResolvedTimeRange | null {
 		return resolveTimeRange(this.filter.timeRangePreset, this.filter.customRange ?? undefined);
 	}
 
@@ -108,7 +109,7 @@ export class ErrorsExplorerState {
 			// the API's max rather than the default top 200 - the narrowed type mustn't fall
 			// off the end of a busy window's ranking.
 			const topN = this.filter.exceptionType ? MAX_GROUPS : undefined;
-			const res = await getExceptionGroups({ filter: this.buildFilter(this.#resolvedRange()), topN }, abort.signal);
+			const res = await getExceptionGroups({ filter: this.buildFilter(this.currentRange()), topN }, abort.signal);
 			if (abort.signal.aborted) return;
 			this.groups = res.groups;
 			this.knownServices = [...new Set([...this.knownServices, ...res.groups.flatMap((g) => g.affectedServices)])].sort();
@@ -235,7 +236,7 @@ export class ErrorsExplorerState {
 
 		getExceptionOccurrences(
 			{
-				filter: this.buildFilter(this.#resolvedRange()),
+				filter: this.buildFilter(this.currentRange()),
 				exceptionType: group.exceptionType,
 				exceptionMessage: group.exceptionMessage
 			},

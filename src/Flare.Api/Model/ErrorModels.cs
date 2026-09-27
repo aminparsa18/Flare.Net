@@ -140,3 +140,52 @@ public sealed partial record ExceptionOccurrencesResponse
     /// <summary>Most recent first, bounded to <see cref="Query.ExceptionOccurrenceQueryBuilder.MaxOccurrences"/> - a click-through detail list, not a paginated explorer (same scope <see cref="ServiceCallBreakdownResponse"/>'s call-group lists keep).</summary>
     public required IReadOnlyList<ExceptionOccurrence> Occurrences { get; init; }
 }
+
+/// <summary>What <see cref="ExceptionFacetValuesRequest"/> enumerates - the /errors facet sidebar's two section kinds.</summary>
+public enum ExceptionFacetField
+{
+    /// <summary><c>ServiceName</c> - same form <see cref="ExceptionFilter.Services"/> takes.</summary>
+    Service,
+
+    /// <summary><c>ResourceAttributes[<see cref="ExceptionFacetValuesRequest.Key"/>]</c> - same form a <see cref="ResourceAttributeFilter.Value"/> takes.</summary>
+    ResourceAttribute,
+}
+
+/// <summary>
+/// Request body for <c>POST /api/errors/facet-values</c> - distinct values of one field over
+/// the exception events <see cref="Filter"/> matches, with how many exceptions carry each. The
+/// /errors page's equivalent of <see cref="SpanAttributeValuesRequest"/>, a separate type for
+/// the same reason <see cref="ExceptionFilter"/> is: counts are exception events (an
+/// <c>ARRAY JOIN</c> over <c>Events</c>), not spans. See <see cref="Query.ExceptionFacetValuesQueryBuilder"/>.
+/// </summary>
+[MemoryPackable]
+public sealed partial record ExceptionFacetValuesRequest
+{
+    /// <summary>See <see cref="ExceptionGroupsRequest.Filter"/> - same JSON-deserialization caveat. The caller strips the facet's own selection from this, so a section lists its alternatives rather than only what's already picked.</summary>
+    public ExceptionFilter Filter { get; init; } = new();
+
+    public ExceptionFacetField Field { get; init; } = ExceptionFacetField.Service;
+
+    /// <summary>The resource-attribute key to enumerate. Required when <see cref="Field"/> is <see cref="ExceptionFacetField.ResourceAttribute"/>, ignored otherwise.</summary>
+    public string Key { get; init; } = "";
+
+    /// <summary>Max distinct values returned, most-frequent first. Clamped server-side; null (or a JSON body that omits it) uses the default.</summary>
+    public int? Limit { get; init; }
+}
+
+/// <summary>One distinct value of <see cref="ExceptionFacetValuesRequest.Field"/>, with how many in-scope exception events carry it.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record ExceptionFacetValue
+{
+    public required string Value { get; init; }
+
+    public required long Count { get; init; }
+}
+
+/// <summary>Response body for <c>POST /api/errors/facet-values</c>, ordered by <see cref="ExceptionFacetValue.Count"/> descending.</summary>
+[MemoryPackable]
+public sealed partial record ExceptionFacetValuesResponse
+{
+    public required IReadOnlyList<ExceptionFacetValue> Values { get; init; }
+}

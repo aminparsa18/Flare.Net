@@ -10,6 +10,8 @@ public interface IExceptionQueryService
     Task<ExceptionGroupsResponse> GetGroupsAsync(ExceptionGroupsRequest request, CancellationToken cancellationToken);
 
     Task<ExceptionOccurrencesResponse> GetOccurrencesAsync(ExceptionOccurrencesRequest request, CancellationToken cancellationToken);
+
+    Task<ExceptionFacetValuesResponse> GetFacetValuesAsync(ExceptionFacetValuesRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -72,6 +74,21 @@ public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<Que
             ExceptionMessage = request.ExceptionMessage,
             Occurrences = occurrences,
         };
+    }
+
+    public async Task<ExceptionFacetValuesResponse> GetFacetValuesAsync(ExceptionFacetValuesRequest request, CancellationToken cancellationToken)
+    {
+        var built = ExceptionFacetValuesQueryBuilder.Build(request, timeProvider.GetUtcNow());
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        var values = new List<ExceptionFacetValue>();
+        while (reader.Read())
+        {
+            values.Add(new ExceptionFacetValue { Value = reader.GetString(0), Count = (long)reader.GetFieldValue<ulong>(1) });
+        }
+
+        return new ExceptionFacetValuesResponse { Values = values };
     }
 
     /// <summary>Same UTC re-tagging rationale as <see cref="LogQueryService"/>/<see cref="SpanQueryService"/>'s own <c>ReadUtc</c> - <c>Flare.Ingest</c> always writes UTC wall-clock values.</summary>
