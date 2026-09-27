@@ -147,6 +147,25 @@ can't be cached without risking a stale read. Tune via the `QueryCache` config s
 (`Enabled`, `Ttl`, `RecentWindow`) — `Enabled: false` makes every decorator a pure
 pass-through with no Redis round trip.
 
+## Update check
+
+`GET /api/version` returns the running version and, when a newer Flare release exists,
+that release — the dashboard's "new version available" notice (ADR-0068).
+`ReleaseCheckService` (`Updates/`) asks GitHub's `/releases/latest` lazily, at most once
+per `Interval`, falling back to the highest `vX.Y.Z` tag when no Release is published. The
+running version is the assembly's `InformationalVersion`: `dev` unless the image was built
+with `--build-arg FLARE_VERSION=<version>` (the release workflow does this), and a `dev`
+build skips the lookup entirely.
+
+| Option | Env var | Default |
+|---|---|---|
+| `Enabled` | `UpdateCheck__Enabled` | `true` |
+| `Interval` | `UpdateCheck__Interval` | `1.00:00:00` (24h) |
+| `Repository` | `UpdateCheck__Repository` | `aminparsa18/Flare.Net` |
+
+`SemanticVersion` (parsing, SemVer ordering, tag selection) is unit-tested; the GitHub
+call itself is verified against the real API.
+
 ## Live-tail streaming
 
 `GET /api/logs/tail` upgrades to a WebSocket. A connection gets no events until it sends

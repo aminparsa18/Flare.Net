@@ -121,12 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **"New version available" notice.** Self-hosted users get no signal
-  that they're behind. `Flare.Api` checks the latest GitHub release
-  (cached, e.g. daily; opt-out config for air-gapped installs), and the
-  dashboard shows a dismissible notice with the release notes when the
-  running version is older. Small. Not started. Prior art:
-  [signoz#8270](https://github.com/SigNoz/signoz/commit/3b1bf34d3e8faf850eb551d62914c85569d3a468).
 - **`ParseJson` (flatten) pipeline-rule action.** Many apps log a JSON
   string as the body (Serilog JSON formatter, Console JSON, Node/Python
   loggers); Flare can *query* it (body-JSON filters) but pipeline rules

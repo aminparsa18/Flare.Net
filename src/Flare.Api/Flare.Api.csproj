@@ -54,6 +54,14 @@
          required-string member. false keeps every generated string field `string | null`
          uniformly, matching what readString() can actually return - verified working. -->
     <MemoryPackGenerator_TypeScriptEnableNullableTypes>false</MemoryPackGenerator_TypeScriptEnableNullableTypes>
+    <!-- The version /api/version reports and the update check compares against the latest
+         GitHub release (ADR-0068). A release image build overrides this with
+         `-p:InformationalVersion=<tag version>` (see this project's Dockerfile and
+         docker-publish.yml); any other build - Aspire/`dotnet run`, an `edge` image - stays
+         "dev", which isn't a version, so the update check skips itself. Without this default
+         the SDK would report Version's 1.0.0, which would compare as newer than every
+         real release. -->
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">dev</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

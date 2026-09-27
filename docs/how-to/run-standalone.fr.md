@@ -297,6 +297,24 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 (`flare` est le mot de passe ClickHouse par défaut de compose — voir
 [`.env.example`](../../.env.example) si vous l'avez changé.)
 
+## Désactiver la vérification des mises à jour (installations isolées)
+
+Quand une nouvelle version de Flare est publiée, le tableau de bord affiche un
+avis sous la barre de navigation avec les notes de version, et le menu
+utilisateur (**⋯**) indique la version en cours. Pour cela, `Flare.Api`
+interroge l'API GitHub pour obtenir la dernière version, au plus une fois par
+jour et seulement quand quelqu'un utilise le tableau de bord. Pour le
+désactiver — par exemple sur un hôte sans accès à Internet — définissez ceci
+sur le service `api` :
+
+```yaml
+environment:
+  UpdateCheck__Enabled: "false"
+```
+
+Une image construite localement (`docker compose up --build`) indique la
+version `dev` et ne vérifie jamais.
+
 ## Activer la page Resources (accès Docker optionnel)
 
 La page **Resources** du tableau de bord affiche les propres conteneurs
