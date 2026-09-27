@@ -186,6 +186,19 @@ export function parseStateDeepLinkParam(url: URL): unknown | null {
 	}
 }
 
+/**
+ * `/metrics?state=` opening one metric in the explorer - the Metrics catalog's "Open in
+ * explorer". Same payload shape as a fired metric alert's link (Flare.Api's
+ * `AlertMessageFormatter.BuildMetricChartUrl`): no `serviceName`, so the explorer picks the
+ * first service emitting it and narrows the picker to the name, leaving the rest beside it.
+ * `timeRangePreset` must be one of the explorer's own presets.
+ */
+export function buildMetricsExplorerHref(metricName: string, type: MetricPointType, timeRangePreset: string): string {
+	const state = { timeRangePreset, customRange: null, services: [], selectedMetric: { metricName, type } };
+	const bytes = new TextEncoder().encode(JSON.stringify(state));
+	return `/metrics?state=${encodeURIComponent(btoa(String.fromCharCode(...bytes)))}`;
+}
+
 /** `/errors?state=` - mirrors Flare.Api's `ErrorsDeepLinkState` (AlertMessageFormatter.BuildMatchingExceptionsUrl). */
 export interface ErrorsDeepLinkState {
 	customRange: { from: Date; to: Date };

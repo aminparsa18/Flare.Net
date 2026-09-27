@@ -5,7 +5,7 @@ namespace Flare.Api.Json;
 
 /// <summary>
 /// Source-generated <see cref="System.Text.Json"/> contract for the request/response
-/// DTOs <see cref="Endpoints.MetricsEndpoints"/> serves - same camelCase/string-enum
+/// DTOs <see cref="Endpoints.MetricsEndpoints"/> and <see cref="Endpoints.MetricCatalogEndpoints"/> serve - same camelCase/string-enum
 /// conventions as <see cref="SpansJsonContext"/>. Nested types reachable from the roots
 /// below (<see cref="MetricFilter"/>, <see cref="MetricAttributeFilter"/>,
 /// <see cref="MetricNameInfo"/>, <see cref="MetricAttributeKeyInfo"/>,
@@ -21,4 +21,8 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(MetricAttributeKeysResponse))]
 [JsonSerializable(typeof(MetricQueryRequest))]
 [JsonSerializable(typeof(MetricQueryResponse))]
+[JsonSerializable(typeof(MetricCatalogRequest))]
+[JsonSerializable(typeof(MetricCatalogResponse))]
+[JsonSerializable(typeof(MetricCatalogDetailRequest))]
+[JsonSerializable(typeof(MetricCatalogDetailResponse))]
 public sealed partial class MetricsJsonContext : JsonSerializerContext;

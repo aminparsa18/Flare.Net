@@ -37,6 +37,7 @@
 - [Запуск в кластерном режиме](how-to/run-cluster-mode.ru.md)
 - [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor-hosts.ru.md)
 - [Мониторинг очередей сообщений](how-to/monitor-message-queues.ru.md)
+- [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)
 - [Ускорить фильтры по часто используемому атрибуту лога или спана](how-to/promote-attribute-columns.ru.md)
 
 **Справочник**

@@ -10,6 +10,8 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import LibraryIcon from '@lucide/svelte/icons/library';
+	import { Button } from '$lib/components/ui/button';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { isHistogramType } from '$lib/metrics-api';
 	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
@@ -228,6 +230,11 @@
 		<RefreshCwIcon class="size-3.5" />
 		{m.metricsToolbar_autoRefreshLabel()}
 	</label>
+
+	<Button variant="ghost" size="sm" href="/metrics/catalog" title={m.metricCatalog_openTitle()}>
+		<LibraryIcon data-icon="inline-start" />
+		{m.metricCatalog_openLabel()}
+	</Button>
 
 	<ViewsMenu
 		pageType="Metrics"
