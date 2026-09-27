@@ -121,15 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Trace funnels.** Define an ordered set of steps (span A → span B →
-  span C, each a service + span-name/attribute match, e.g. checkout →
-  payment → confirmation) and measure across traces in a window: how
-  many traces reach each step, drop-off, step-to-step latency and error
-  rate, with drill-down into traces that dropped at a given step. Large;
-  needs an ADR (step matching, same-trace ordering semantics, query cost
-  at scale). SigNoz's first attempt was reverted, so spike first. Not
-  started. Prior art: [signoz#7315](https://github.com/SigNoz/signoz/commit/3100d602c43f12b2b7b5f029d2c8ea29531adda7),
-  list page [signoz#7324](https://github.com/SigNoz/signoz/commit/2c87d96d753e9a786234e707783413f9de25e672).
 - **Open a dashboard panel in its explorer.** `DashboardPanelCard` only
   deep-links to alert creation; add "Open in Logs/Traces/Metrics" (the
   panel's query + the dashboard's effective time range and variable
@@ -214,7 +205,8 @@ folders are where "what happened and why" actually lives.
   `payment` errored", returning matching traces. Large; needs an ADR
   (ClickHouse evaluation strategy - per-trace `groupArray` + parent-id
   walk vs. a self-join bounded by `TraceId` - cost at scale, query
-  syntax). Shares machinery with the trace funnels item. Not started.
+  syntax). Trace funnels (ADR-0067, `TraceFunnelQueryBuilder`) already do
+  a per-trace `groupArray` walk, for ordering only. Not started.
   Prior art: [signoz#8165](https://github.com/SigNoz/signoz/commit/eeb2ab3212f20a7b6e8edda0a8a60c074469d0e6).
 - **"New version available" notice.** Self-hosted users get no signal
   that they're behind. `Flare.Api` checks the latest GitHub release

@@ -15,6 +15,8 @@ export function pageTypeBasePath(pageType: PageType): string {
 			return '/traces';
 		case 'Metrics':
 			return '/metrics';
+		case 'Funnels':
+			return '/traces/funnels';
 	}
 }
 
