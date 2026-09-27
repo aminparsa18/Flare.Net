@@ -28,7 +28,8 @@
 	import PanelDescriptionPopover from './PanelDescriptionPopover.svelte';
 	import VisualizationMenu from './VisualizationMenu.svelte';
 	import ColumnUnitsPopover from './ColumnUnitsPopover.svelte';
-	import { parseVisualization, usesYAxis, type PanelReducer, type PanelVisualization } from '$lib/dashboards/visualization';
+	import { effectivePanelYAxisScale, parseVisualization, usesYAxis, usesYAxisScale, type PanelReducer, type PanelVisualization } from '$lib/dashboards/visualization';
+	import type { YAxisScale } from '$lib/metrics/axis';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
@@ -79,7 +80,7 @@
 		onDuplicate: () => void;
 		onExport: () => void;
 		onToggleVariable: (variableId: string, excluded: boolean) => void;
-		onSetYAxisBounds: (min: number | null, max: number | null) => void;
+		onSetYAxisBounds: (min: number | null, max: number | null, scale: YAxisScale) => void;
 		onSetThresholds: (thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (visualization: PanelVisualization, reducer: PanelReducer | null) => void;
 		onSetColumnUnits: (columnUnits: Partial<Record<PanelReducer, string>>) => void;
@@ -106,6 +107,7 @@
 	let visible = $state(false);
 
 	const visualization = $derived(parseVisualization(panel.visualization));
+	const yAxisScale = $derived(effectivePanelYAxisScale(panel));
 
 	function panelTypeLabel(panelType: DashboardPanel['panelType']): string {
 		switch (panelType) {
@@ -260,7 +262,13 @@
 			{#if panel.panelType === 'Metrics'}
 				<VisualizationMenu {visualization} reducer={panel.reducer ?? null} onChange={onSetVisualization} />
 				{#if usesYAxis(visualization)}
-					<YAxisBoundsPopover yAxisMin={panel.yAxisMin} yAxisMax={panel.yAxisMax} onApply={onSetYAxisBounds} />
+					<YAxisBoundsPopover
+						yAxisMin={panel.yAxisMin}
+						yAxisMax={panel.yAxisMax}
+						{yAxisScale}
+						showScale={usesYAxisScale(visualization)}
+						onApply={onSetYAxisBounds}
+					/>
 				{/if}
 				{#if visualization === 'table'}
 					<ColumnUnitsPopover columnUnits={panel.columnUnits} onApply={onSetColumnUnits} />
@@ -303,6 +311,7 @@
 					{refreshToken}
 					yAxisMin={panel.yAxisMin}
 					yAxisMax={panel.yAxisMax}
+					{yAxisScale}
 					thresholds={panel.thresholds}
 					{visualization}
 					reducer={panel.reducer}

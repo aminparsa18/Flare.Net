@@ -128,13 +128,6 @@ folders are where "what happened and why" actually lives.
   around that point (and that series' group, if grouped). Frontend-only
   - the explorers already restore from `?state=`. Not started. Prior
   art: [signoz#7141](https://github.com/SigNoz/signoz/commit/0320285a251eaa89a45f5336620c5bfd8143b6bb).
-- **Logarithmic y-axis for charts and panels.** Only
-  `ValueDistributionChart` offers a log scale; Metrics charts and
-  dashboard panels can't, so a 10ms and a 10s series can't share a
-  readable chart. A per-chart/per-panel linear/log toggle (carried in
-  saved views and panel JSON), handling zero/negative values. Frontend-
-  only, small. Not started. Prior art:
-  [signoz#7413](https://github.com/SigNoz/signoz/commit/bc17a10550228152e2f8456a0e18ef0c1d084e79).
 - **Resource-attribute filter on the Errors page.** `ExceptionFilter` only
   has time range + services - no "exceptions in production only" or
   "only on `service.version` 2.3". Reuse the `ResourceAttributeFilter`

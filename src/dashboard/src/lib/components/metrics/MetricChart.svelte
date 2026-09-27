@@ -14,7 +14,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import { METRIC_SWITCH_FADE_MS } from '$lib/metrics/state.svelte';
-	import { formatAtScale, niceAxisTicks, resolveAxisScale } from '$lib/metrics/axis';
+	import { axisFraction, formatAtScale, formatAutoScaled, logAxisTicks, niceAxisTicks, resolveAxisScale, type YAxisScale } from '$lib/metrics/axis';
 	import { SERIES_COLOR_VARS, seriesColor } from '$lib/metrics/chart-colors';
 	import { formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
@@ -22,6 +22,7 @@
 	import { previousPeriodLabel, resolveTimeRange, previousPeriod, shiftRange } from '$lib/logs/time-range';
 	import { isHistogramType, type MetricSeries } from '$lib/metrics-api';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
+	import YAxisScaleToggle from './YAxisScaleToggle.svelte';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
 	import * as m from '$lib/paraglide/messages';
 	import { formatChartTime } from '$lib/time/format';
@@ -45,12 +46,23 @@
 	// thresholds: a dashboard panel's visual threshold rules (DashboardPanel.thresholds) -
 	// drawn by ThresholdOverlay.svelte, plus the first matching rule's color on each hovered
 	// tooltip value. `[]` on the Explorer page, same "dashboard-only" posture as yAxisMin/Max.
+	//
+	// yAxisScale: linear/log Y axis. A dashboard panel passes its own setting (edited through
+	// YAxisBoundsPopover); left undefined, the chart follows the Explorer's own
+	// `filter.yAxisScale` and shows its Log toggle in the header.
 	let {
 		allowZoom = true,
 		yAxisMin = null,
 		yAxisMax = null,
-		thresholds = []
-	}: { allowZoom?: boolean; yAxisMin?: number | null; yAxisMax?: number | null; thresholds?: PanelThreshold[] } = $props();
+		thresholds = [],
+		yAxisScale
+	}: {
+		allowZoom?: boolean;
+		yAxisMin?: number | null;
+		yAxisMax?: number | null;
+		thresholds?: PanelThreshold[];
+		yAxisScale?: YAxisScale;
+	} = $props();
 
 	// Fixed categorical palette (--chart-1..5, the `dataviz` skill's validated
 	// palette - see layout.css's chart-1..5 comment) - never cycled past 5 series; a
@@ -709,7 +721,18 @@
 	// Round the axis floor/ceiling to "nice" values in the *displayed* scale (e.g. domain
 	// 0..37ms -> ticks 0/10/20/30/40 ms) rather than scaling exactly to domainMin/domainMax,
 	// so the gridlines land on numbers a human would actually pick - see axis.ts.
-	const ticks = $derived(niceAxisTicks(domainMin, domainMax, axisScale));
+	//
+	// Log scale: ticks on whole decades instead, over the positive part of the data only (a
+	// soft bound <= 0 has no place on a log axis and is ignored). With no positive value at
+	// all there's nothing log can draw, so the chart quietly stays linear.
+	const positiveValues = $derived(rawValues.filter((v) => v > 0));
+	const logActive = $derived((yAxisScale ?? explorer.filter.yAxisScale) === 'log' && positiveValues.length > 0);
+	const ticks = $derived.by(() => {
+		if (!logActive) return niceAxisTicks(domainMin, domainMax, axisScale);
+		const lo = Math.min(...positiveValues, yAxisMin != null && yAxisMin > 0 ? yAxisMin : Infinity);
+		const hi = Math.max(dataMax, yAxisMax != null && yAxisMax > 0 ? yAxisMax : 0);
+		return logAxisTicks(lo, hi, displayUnit);
+	});
 	const minValue = $derived(ticks.min);
 	const maxValue = $derived(Math.max(minValue + 1e-9, ticks.max));
 
@@ -719,12 +742,30 @@
 		return (bucketIndexOf.get(time)! / (count - 1)) * CHART_WIDTH;
 	}
 
+	// A value log can't place (<= 0) lands on the floor here - only ThresholdOverlay ever
+	// asks for one; data points that can't be placed are skipped by pathFor/`plotted` instead.
 	function yFor(raw: number): number {
-		return BASELINE_Y - ((raw - minValue) / (maxValue - minValue)) * (BASELINE_Y - PEAK_Y);
+		return BASELINE_Y - (axisFraction(raw, minValue, maxValue, logActive) ?? 0) * (BASELINE_Y - PEAK_Y);
 	}
 
+	function plotted(points: PlotPoint[]): PlotPoint[] {
+		return logActive ? points.filter((p) => p.raw > 0) : points;
+	}
+
+	// Under log, a skipped point breaks the line (a fresh `M`) rather than joining its
+	// neighbours across the gap as if the value in between were known.
 	function pathFor(points: PlotPoint[]): string {
-		return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.time)} ${yFor(p.raw)}`).join(' ');
+		let d = '';
+		let pen = 'M';
+		for (const p of points) {
+			if (logActive && !(p.raw > 0)) {
+				pen = 'M';
+				continue;
+			}
+			d += `${pen} ${xFor(p.time)} ${yFor(p.raw)} `;
+			pen = 'L';
+		}
+		return d.trimEnd();
 	}
 
 	let hoverIndex = $state<number | null>(null);
@@ -826,7 +867,7 @@
 	// Tooltip values share the axis's scale (not each point re-picking its own) so a
 	// hovered point never reads in a different unit than the gridline it sits next to.
 	function formatValue(n: number): string {
-		return formatAtScale(n, axisScale);
+		return logActive ? formatAutoScaled(n, displayUnit) : formatAtScale(n, axisScale);
 	}
 
 	// The `{#key chartKey}` fade below only animates opacity, which doesn't stop the
@@ -921,6 +962,10 @@
 						rangeSeconds={explorer.queryRangeFrom && explorer.queryRangeTo ? (new Date(explorer.queryRangeTo).getTime() - new Date(explorer.queryRangeFrom).getTime()) / 1000 : null}
 						onChange={(seconds) => explorer.setBucketWidthSeconds(seconds)}
 					/>
+						{#if yAxisScale === undefined}
+							<span aria-hidden="true">·</span>
+							<YAxisScaleToggle value={explorer.filter.yAxisScale} onChange={(scale) => explorer.setYAxisScale(scale)} />
+						{/if}
 						{#if compareChangeText}
 							<span aria-hidden="true">·</span>
 							<Tooltip.Provider>
@@ -1056,7 +1101,7 @@
 						style="height: {CHART_HEIGHT}px"
 					>
 						{#each ticks.values as tick (tick)}
-							{@const label = formatAtScale(tick, axisScale)}
+							{@const label = formatValue(tick)}
 							<span class="absolute inset-x-1 -translate-y-1/2 truncate leading-none" style="top: {yFor(tick)}px" title={label}>
 								{label}
 							</span>
@@ -1128,7 +1173,7 @@
 												stroke-dasharray={line.dashed ? '5,4' : undefined}
 												vector-effect="non-scaling-stroke"
 											/>
-											{#each line.points as point (point.time)}
+											{#each plotted(line.points) as point (point.time)}
 												<circle
 													cx={xFor(point.time)}
 													cy={yFor(point.raw)}

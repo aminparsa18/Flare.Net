@@ -42,6 +42,7 @@
 	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
 	import type { PanelVisualization } from '$lib/dashboards/visualization';
+	import type { YAxisScale } from '$lib/metrics/axis';
 	import MetricsVisualization from './visualizations/MetricsVisualization.svelte';
 
 	let {
@@ -51,6 +52,7 @@
 		refreshToken,
 		yAxisMin,
 		yAxisMax,
+		yAxisScale = 'linear',
 		thresholds,
 		visualization = 'timeSeries',
 		reducer,
@@ -66,6 +68,8 @@
 		 *  `domainMin`/`domainMax` remarks for how a soft bound is applied. */
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
+		/** This panel's effective scale (`effectivePanelYAxisScale`) - line charts only. */
+		yAxisScale?: YAxisScale;
 		/** This panel's own `DashboardPanel.thresholds` - passed straight through the same way. */
 		thresholds?: PanelThreshold[];
 		/** This panel's own (already-parsed) `DashboardPanel.visualization`. */
@@ -134,7 +138,7 @@
 {#if visualization !== 'timeSeries'}
 	<MetricsVisualization {visualization} {reducer} {columnUnits} {title} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else if explorer.mode === 'formula'}
-	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
+	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} />
 {:else}
-	<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
+	<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} />
 {/if}

@@ -10,7 +10,7 @@
 // trace list, neither of which is a numeric series set these reshapes apply to.
 
 import { isHistogramType, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
-import { formatAtScale, niceAxisTicks, resolveAxisScale, type AxisScale } from '$lib/metrics/axis';
+import { formatAtScale, niceAxisTicks, parseYAxisScale, resolveAxisScale, type AxisScale, type YAxisScale } from '$lib/metrics/axis';
 
 /** One standalone reading (a Value panel's number, a table cell, a pie legend entry), scaled
  *  on its own magnitude - "1.2 s" next to "300 ms" - unlike a chart axis, where every tick
@@ -37,6 +37,19 @@ export function usesReducer(visualization: PanelVisualization): boolean {
 /** Visualizations drawn against a Y axis, and so honour `yAxisMin`/`yAxisMax`. */
 export function usesYAxis(visualization: PanelVisualization): boolean {
 	return visualization === 'timeSeries' || visualization === 'bar' || visualization === 'stackedBar';
+}
+
+/** Visualizations that can switch to a log Y axis - the line chart only; a bar grows from
+ *  zero, which a log axis has no place for. */
+export function usesYAxisScale(visualization: PanelVisualization): boolean {
+	return visualization === 'timeSeries';
+}
+
+/** A panel's own `yAxisScale` if set, else the one saved in its query (the Explorer view it
+ *  was pinned from), else linear - see `DashboardPanel.yAxisScale`. */
+export function effectivePanelYAxisScale(panel: { yAxisScale?: unknown; query: unknown }): YAxisScale {
+	if (panel.yAxisScale != null) return parseYAxisScale(panel.yAxisScale);
+	return parseYAxisScale((panel.query as { yAxisScale?: unknown } | null)?.yAxisScale);
 }
 
 /** Lenient read of a stored value - anything unrecognised (a hand-edited import, a value

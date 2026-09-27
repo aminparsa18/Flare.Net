@@ -212,6 +212,17 @@ plus loin — elle restreint la vue par défaut, elle ne coupe jamais un point
 réel du graphique. Comme le reste de la définition d'un panneau, c'est
 enregistré avec le tableau de bord.
 
+La même fenêtre propose un choix d'échelle **Linéaire / Log** pour les
+graphiques en courbes. Choisissez **Log** quand des séries d'ordres de
+grandeur très différents partagent un panneau (une latence de 10 ms et une de
+10 s, par exemple) : chaque puissance de dix occupe la même hauteur, et la
+petite série ne reste plus collée en bas. Une échelle log ne peut pas placer
+les valeurs nulles ou négatives : elles sont omises et la courbe s'interrompt
+à cet endroit. En **Log**, un minimum doit être supérieur à 0. Sur la page
+Metrics, le même choix est le libellé **Linear axis** / **Log axis** sous le
+titre du graphique. Il est enregistré avec une vue enregistrée, et un
+panneau épinglé depuis cette vue reprend la même échelle.
+
 ## Choisir l'intervalle d'agrégation d'un graphique
 
 Par défaut, le graphique de volume d'événements d'un panneau Logs et le
