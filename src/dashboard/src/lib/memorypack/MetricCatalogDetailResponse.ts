@@ -21,6 +21,9 @@ export class MetricCatalogDetailResponse {
 	services: (MetricCatalogServiceInfo | null)[] | null;
 	attributes: (MetricCatalogAttributeInfo | null)[] | null;
 	related: (MetricCatalogRelatedMetric | null)[] | null;
+	emittedUnit: string | null;
+	emittedDescription: string | null;
+	hasMetadataOverride: boolean;
 
 	constructor() {
 		this.metricName = '';
@@ -31,6 +34,9 @@ export class MetricCatalogDetailResponse {
 		this.services = null;
 		this.attributes = null;
 		this.related = null;
+		this.emittedUnit = null;
+		this.emittedDescription = null;
+		this.hasMetadataOverride = false;
 	}
 
 	static serialize(value: MetricCatalogDetailResponse | null): Uint8Array {
@@ -45,7 +51,7 @@ export class MetricCatalogDetailResponse {
 			return;
 		}
 
-		writer.writeObjectHeader(8);
+		writer.writeObjectHeader(11);
 		writer.writeString(value.metricName);
 		writer.writeInt32(value.type);
 		writer.writeString(value.unit);
@@ -54,6 +60,9 @@ export class MetricCatalogDetailResponse {
 		writer.writeArray(value.services, (writer, x) => MetricCatalogServiceInfo.serializeCore(writer, x));
 		writer.writeArray(value.attributes, (writer, x) => MetricCatalogAttributeInfo.serializeCore(writer, x));
 		writer.writeArray(value.related, (writer, x) => MetricCatalogRelatedMetric.serializeCore(writer, x));
+		writer.writeString(value.emittedUnit);
+		writer.writeString(value.emittedDescription);
+		writer.writeBoolean(value.hasMetadataOverride);
 	}
 
 	static deserialize(buffer: ArrayBuffer): MetricCatalogDetailResponse | null {
@@ -67,7 +76,7 @@ export class MetricCatalogDetailResponse {
 		}
 
 		const value = new MetricCatalogDetailResponse();
-		if (count == 8) {
+		if (count == 11) {
 			value.metricName = reader.readString() ?? '';
 			value.type = reader.readInt32();
 			value.unit = reader.readString();
@@ -76,7 +85,10 @@ export class MetricCatalogDetailResponse {
 			value.services = reader.readArray((reader) => MetricCatalogServiceInfo.deserializeCore(reader));
 			value.attributes = reader.readArray((reader) => MetricCatalogAttributeInfo.deserializeCore(reader));
 			value.related = reader.readArray((reader) => MetricCatalogRelatedMetric.deserializeCore(reader));
-		} else if (count > 8) {
+			value.emittedUnit = reader.readString();
+			value.emittedDescription = reader.readString();
+			value.hasMetadataOverride = reader.readBoolean();
+		} else if (count > 11) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -95,6 +107,12 @@ export class MetricCatalogDetailResponse {
 			value.attributes = reader.readArray((reader) => MetricCatalogAttributeInfo.deserializeCore(reader));
 			if (count == 7) return value;
 			value.related = reader.readArray((reader) => MetricCatalogRelatedMetric.deserializeCore(reader));
+			if (count == 8) return value;
+			value.emittedUnit = reader.readString();
+			if (count == 9) return value;
+			value.emittedDescription = reader.readString();
+			if (count == 10) return value;
+			value.hasMetadataOverride = reader.readBoolean();
 		}
 		return value;
 	}

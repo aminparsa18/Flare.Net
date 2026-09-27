@@ -3,7 +3,16 @@
 // background polling, unlike the Hosts page: this is an occasional audit view, and each
 // load reads every metric table, so it refreshes on demand instead.
 
-import { getMetricCatalogDetail, listMetricCatalog, type MetricCatalogDetail, type MetricCatalogEntry } from '$lib/metric-catalog-api';
+import {
+	getMetricCatalogDetail,
+	inspectMetric,
+	listMetricCatalog,
+	resetMetricMetadataOverride,
+	setMetricMetadataOverride,
+	type MetricCatalogDetail,
+	type MetricCatalogEntry,
+	type MetricInspectResult
+} from '$lib/metric-catalog-api';
 import type { MetricPointType } from '$lib/metrics-api';
 import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
 
@@ -16,6 +25,13 @@ export const METRIC_CATALOG_WINDOW_PRESETS = SERVICES_WINDOW_PRESETS;
 export type MetricCatalogSortColumn = 'metricName' | 'type' | 'serviceCount' | 'seriesCount' | 'sampleCount' | 'lastReceivedMs';
 
 const SEARCH_DEBOUNCE_MS = 300;
+
+export type MetricCatalogDetailView = 'overview' | 'inspect';
+
+// The inspect view is per-sample, so its window is short and separate from the catalog's -
+// the server clamps to 5m-1h (MetricInspectQueryBuilder).
+export const METRIC_INSPECT_WINDOWS = [5, 15, 30, 60] as const;
+export const METRIC_INSPECT_BUCKETS = [10, 30, 60, 300] as const;
 
 export class MetricCatalogState {
 	windowPreset = $state<MetricCatalogWindowPreset>('1h');
@@ -39,8 +55,20 @@ export class MetricCatalogState {
 	detailLoading = $state(false);
 	detailError = $state<string | null>(null);
 
+	detailView = $state<MetricCatalogDetailView>('overview');
+
+	inspectWindowMinutes = $state<number>(15);
+	inspectBucketSeconds = $state<number>(60);
+	/** Null = every service. Defaults to the metric's busiest service on first open. */
+	inspectService = $state<string | null>(null);
+	inspect = $state.raw<MetricInspectResult | null>(null);
+	inspectLoading = $state(false);
+	inspectError = $state<string | null>(null);
+
 	#abort: AbortController | null = null;
 	#detailAbort: AbortController | null = null;
+	#inspectAbort: AbortController | null = null;
+	#inspectServiceChosen = false;
 	#searchHandle: ReturnType<typeof setTimeout> | null = null;
 
 	windowMinutes(): number {
@@ -72,6 +100,7 @@ export class MetricCatalogState {
 	refresh(): void {
 		void this.load();
 		if (this.selected != null) void this.#loadDetail();
+		if (this.selected != null && this.detailView === 'inspect') void this.#loadInspect();
 	}
 
 	setWindowPreset(preset: MetricCatalogWindowPreset): void {
@@ -115,17 +144,87 @@ export class MetricCatalogState {
 	}
 
 	openMetric(metricName: string, type: MetricPointType): void {
+		this.#inspectAbort?.abort();
 		this.selected = { metricName, type };
 		this.detail = null;
+		this.detailView = 'overview';
+		this.inspect = null;
+		this.inspectError = null;
+		this.inspectLoading = false;
+		this.inspectService = null;
+		this.#inspectServiceChosen = false;
 		void this.#loadDetail();
 	}
 
 	closeMetric(): void {
 		this.#detailAbort?.abort();
+		this.#inspectAbort?.abort();
 		this.selected = null;
 		this.detail = null;
 		this.detailError = null;
 		this.detailLoading = false;
+		this.inspect = null;
+	}
+
+	setDetailView(view: MetricCatalogDetailView): void {
+		this.detailView = view;
+		if (view !== 'inspect') return;
+		// Default to the busiest service: merging series is only what a chart does within one
+		// service, so that's the representative starting point.
+		if (!this.#inspectServiceChosen) {
+			this.inspectService = this.detail?.services[0]?.serviceName ?? null;
+			this.#inspectServiceChosen = true;
+		}
+		if (this.inspect == null) void this.#loadInspect();
+	}
+
+	setInspectOptions(options: { windowMinutes?: number; bucketSeconds?: number; service?: string | null }): void {
+		if (options.windowMinutes !== undefined) this.inspectWindowMinutes = options.windowMinutes;
+		if (options.bucketSeconds !== undefined) this.inspectBucketSeconds = options.bucketSeconds;
+		if (options.service !== undefined) this.inspectService = options.service;
+		void this.#loadInspect();
+	}
+
+	/** Admin-only on the server. Reloads the list and drill-down so both show the new values. */
+	async saveMetadataOverride(unit: string | null, description: string | null): Promise<void> {
+		const selected = this.selected;
+		if (selected == null) return;
+		await setMetricMetadataOverride(selected.metricName, unit, description);
+		this.refresh();
+	}
+
+	async resetMetadataOverride(): Promise<void> {
+		const selected = this.selected;
+		if (selected == null) return;
+		await resetMetricMetadataOverride(selected.metricName);
+		this.refresh();
+	}
+
+	async #loadInspect(): Promise<void> {
+		const selected = this.selected;
+		if (selected == null) return;
+
+		this.#inspectAbort?.abort();
+		const abort = new AbortController();
+		this.#inspectAbort = abort;
+
+		this.inspectLoading = true;
+		this.inspectError = null;
+		try {
+			const result = await inspectMetric(
+				selected.metricName,
+				selected.type,
+				{ windowMinutes: this.inspectWindowMinutes, bucketWidthSeconds: this.inspectBucketSeconds, serviceName: this.inspectService },
+				abort.signal
+			);
+			if (abort.signal.aborted) return;
+			this.inspect = result;
+		} catch (err) {
+			if (abort.signal.aborted) return;
+			this.inspectError = err instanceof Error ? err.message : String(err);
+		} finally {
+			if (!abort.signal.aborted) this.inspectLoading = false;
+		}
 	}
 
 	/** The open metric's catalog row, when it's in the current (possibly search-filtered) list. */
@@ -161,5 +260,6 @@ export class MetricCatalogState {
 		if (this.#searchHandle !== null) clearTimeout(this.#searchHandle);
 		this.#abort?.abort();
 		this.#detailAbort?.abort();
+		this.#inspectAbort?.abort();
 	}
 }

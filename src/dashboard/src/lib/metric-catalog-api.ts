@@ -1,7 +1,9 @@
 // Client for Flare.Api's Metrics catalog endpoints (src/Flare.Api/Endpoints/
 // MetricCatalogEndpoints.cs): every ingested metric with its cardinality
-// (`POST /api/metrics/catalog`) and one metric's drill-down (`POST /api/metrics/catalog/detail`)
-// - see MetricCatalogQueryBuilder.cs for the SQL.
+// (`POST /api/metrics/catalog`), one metric's drill-down (`POST /api/metrics/catalog/detail`),
+// its inspect view (`POST /api/metrics/catalog/inspect`) - see MetricCatalogQueryBuilder.cs /
+// MetricInspectReducer.cs - and the Admin-only unit/description overrides
+// (`PUT`/`DELETE /api/metrics/metadata-overrides`, ADR-0065).
 //
 // MemoryPack over the wire, same shape as `hosts-api.ts`: both requests and the per-row
 // entry/service/related types are real generated classes (timestamps travel as epoch ms to
@@ -15,6 +17,9 @@ import { MetricCatalogRequest as GeneratedMetricCatalogRequest } from '$lib/gene
 import { MetricCatalogDetailRequest as GeneratedMetricCatalogDetailRequest } from '$lib/generated/memorypack/MetricCatalogDetailRequest.js';
 import { MetricCatalogResponse as GeneratedMetricCatalogResponse } from '$lib/memorypack/MetricCatalogResponse';
 import { MetricCatalogDetailResponse as GeneratedMetricCatalogDetailResponse } from '$lib/memorypack/MetricCatalogDetailResponse';
+import { MetricCatalogInspectRequest as GeneratedMetricCatalogInspectRequest } from '$lib/generated/memorypack/MetricCatalogInspectRequest.js';
+import { MetricCatalogInspectResponse as GeneratedMetricCatalogInspectResponse } from '$lib/memorypack/MetricCatalogInspectResponse';
+import { SetMetricMetadataOverrideRequest as GeneratedSetMetricMetadataOverrideRequest } from '$lib/generated/memorypack/SetMetricMetadataOverrideRequest.js';
 
 export interface MetricCatalogEntry {
 	metricName: string;
@@ -26,6 +31,8 @@ export interface MetricCatalogEntry {
 	seriesCount: number;
 	sampleCount: number;
 	lastReceivedMs: number;
+	/** Unit/description come (at least partly) from an admin override. */
+	hasMetadataOverride: boolean;
 }
 
 export interface MetricCatalogResponse {
@@ -68,6 +75,51 @@ export interface MetricCatalogDetail {
 	services: MetricCatalogServiceInfo[];
 	attributes: MetricCatalogAttributeInfo[];
 	related: MetricCatalogRelatedMetric[];
+	/** What the instrumentation sent, before any override. */
+	emittedUnit: string | null;
+	emittedDescription: string | null;
+	hasMetadataOverride: boolean;
+}
+
+/** How a raw sample feeds its bucket - mirrors MetricSeriesQueryBuilder's Sum classification (ADR-0035). */
+export type MetricInspectSampleKind = 'Level' | 'Delta' | 'First' | 'Difference' | 'Reset';
+const SAMPLE_KINDS: MetricInspectSampleKind[] = ['Level', 'Delta', 'First', 'Difference', 'Reset'];
+
+export interface MetricInspectSample {
+	timeMs: number;
+	/** For a histogram: the point's observation count. */
+	value: number;
+	kind: MetricInspectSampleKind;
+	/** What the sample adds to its bucket. */
+	contribution: number;
+}
+
+export interface MetricInspectBucket {
+	bucketStartMs: number;
+	value: number;
+	sampleCount: number;
+}
+
+export interface MetricInspectSeries {
+	serviceName: string;
+	attributes: Record<string, string>;
+	/** Oldest first. */
+	samples: MetricInspectSample[];
+	/** The series had more samples than returned; the oldest were dropped. */
+	samplesTruncated: boolean;
+	/** Step 1 - time aggregation. */
+	buckets: MetricInspectBucket[];
+}
+
+export interface MetricInspectResult {
+	metricName: string;
+	type: MetricPointType;
+	windowMinutes: number;
+	bucketWidthSeconds: number;
+	totalSeriesCount: number;
+	series: MetricInspectSeries[];
+	/** Step 2 - space aggregation across `series`. */
+	merged: MetricInspectBucket[];
 }
 
 export async function listMetricCatalog(windowMinutes: number, search: string, signal?: AbortSignal): Promise<MetricCatalogResponse> {
@@ -101,7 +153,8 @@ export async function listMetricCatalog(windowMinutes: number, search: string, s
 				serviceCount: Number(e.serviceCount),
 				seriesCount: Number(e.seriesCount),
 				sampleCount: Number(e.sampleCount),
-				lastReceivedMs: Number(e.lastReceivedUnixMs)
+				lastReceivedMs: Number(e.lastReceivedUnixMs),
+				hasMetadataOverride: e.hasMetadataOverride
 			}))
 	};
 }
@@ -160,6 +213,100 @@ export async function getMetricCatalogDetail(
 				sharedNamePrefix: r.sharedNamePrefix || null,
 				sharedAttributeKeyCount: r.sharedAttributeKeyCount,
 				sharedServiceCount: r.sharedServiceCount
-			}))
+			})),
+		emittedUnit: dto.emittedUnit || null,
+		emittedDescription: dto.emittedDescription || null,
+		hasMetadataOverride: dto.hasMetadataOverride
 	};
+}
+
+export interface MetricInspectOptions {
+	windowMinutes: number;
+	bucketWidthSeconds: number;
+	/** Null = every service. */
+	serviceName: string | null;
+}
+
+export async function inspectMetric(
+	metricName: string,
+	type: MetricPointType,
+	options: MetricInspectOptions,
+	signal?: AbortSignal
+): Promise<MetricInspectResult> {
+	const request = new GeneratedMetricCatalogInspectRequest();
+	request.metricName = metricName;
+	request.type = metricPointTypeFromString(type);
+	request.windowMinutes = options.windowMinutes;
+	request.bucketWidthSeconds = options.bucketWidthSeconds;
+	request.serviceName = options.serviceName;
+
+	const res = await apiFetch(`${API_BASE_URL}/api/metrics/catalog/inspect`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedMetricCatalogInspectRequest.serialize(request)),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/metrics/catalog/inspect failed: ${res.status} ${res.statusText}`);
+	}
+	const dto = GeneratedMetricCatalogInspectResponse.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding MetricCatalogInspectResponse.');
+	}
+	const bucket = (b: { bucketStartUnixMs: bigint; value: number; sampleCount: number }): MetricInspectBucket => ({
+		bucketStartMs: Number(b.bucketStartUnixMs),
+		value: b.value,
+		sampleCount: b.sampleCount
+	});
+	return {
+		metricName: dto.metricName ?? '',
+		type: metricPointTypeToString(dto.type),
+		windowMinutes: dto.windowMinutes,
+		bucketWidthSeconds: dto.bucketWidthSeconds,
+		totalSeriesCount: Number(dto.totalSeriesCount),
+		series: (dto.series ?? [])
+			.filter((s) => s != null)
+			.map((s) => ({
+				serviceName: s.serviceName ?? '',
+				attributes: s.attributes ?? {},
+				samples: (s.samples ?? [])
+					.filter((x) => x != null)
+					.map((x) => ({
+						timeMs: Number(x.timeUnixMs),
+						value: x.value,
+						kind: SAMPLE_KINDS[x.kind] ?? 'Level',
+						contribution: x.contribution
+					})),
+				samplesTruncated: s.samplesTruncated,
+				buckets: (s.buckets ?? []).filter((b) => b != null).map(bucket)
+			})),
+		merged: (dto.merged ?? []).filter((b) => b != null).map(bucket)
+	};
+}
+
+/** `PUT /api/metrics/metadata-overrides` - Admin-only. A null member shows the emitted value. */
+export async function setMetricMetadataOverride(metricName: string, unit: string | null, description: string | null): Promise<void> {
+	const request = new GeneratedSetMetricMetadataOverrideRequest();
+	request.metricName = metricName;
+	request.unit = unit;
+	request.description = description;
+
+	const res = await apiFetch(`${API_BASE_URL}/api/metrics/metadata-overrides`, {
+		method: 'PUT',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSetMetricMetadataOverrideRequest.serialize(request))
+	});
+	if (!res.ok) {
+		throw new Error(`PUT /api/metrics/metadata-overrides failed: ${res.status} ${res.statusText}`);
+	}
+}
+
+/** `DELETE /api/metrics/metadata-overrides` - Admin-only. Reverts the metric to its emitted unit/description. */
+export async function resetMetricMetadataOverride(metricName: string): Promise<void> {
+	const res = await apiFetch(`${API_BASE_URL}/api/metrics/metadata-overrides?metricName=${encodeURIComponent(metricName)}`, {
+		method: 'DELETE'
+	});
+	if (!res.ok) {
+		throw new Error(`DELETE /api/metrics/metadata-overrides failed: ${res.status} ${res.statusText}`);
+	}
 }

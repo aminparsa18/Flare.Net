@@ -2,6 +2,7 @@ using Flare.Identity;
 using Flare.Identity.Apdex;
 using Flare.Identity.Auth;
 using Flare.Identity.IngestKeys;
+using Flare.Identity.MetricMetadata;
 using Flare.Identity.PersonalAccessTokens;
 using Flare.Identity.Users;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<IOidcSettingsStore, SqliteOidcSettingsStore>();
         builder.Services.AddSingleton<IProxyAuthSettingsStore, SqliteProxyAuthSettingsStore>();
         builder.Services.AddSingleton<IApdexThresholdStore, SqliteApdexThresholdStore>();
+        builder.Services.AddSingleton<IMetricMetadataOverrideStore, SqliteMetricMetadataOverrideStore>();
         return builder;
     }
 

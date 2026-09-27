@@ -107,7 +107,9 @@
 							{/if}
 						</Table.Cell>
 						<Table.Cell><Badge variant="outline">{TYPE_LABEL[metric.type]}</Badge></Table.Cell>
-						<Table.Cell class="text-muted-foreground">{metric.unit ?? '—'}</Table.Cell>
+						<Table.Cell class="text-muted-foreground" title={metric.hasMetadataOverride ? m.metricMetadata_overriddenTitle() : undefined}>
+							{metric.unit ?? '—'}{#if metric.hasMetadataOverride}<span class="text-primary" aria-label={m.metricMetadata_overridden()}>*</span>{/if}
+						</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{metric.serviceCount}</Table.Cell>
 						<Table.Cell class="text-right tabular-nums {cardinalityClass(metric.seriesCount)}" title={metric.seriesCount.toLocaleString()}>
 							{formatCount(metric.seriesCount)}

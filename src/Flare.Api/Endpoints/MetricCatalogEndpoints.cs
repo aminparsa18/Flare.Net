@@ -9,7 +9,9 @@ namespace Flare.Api.Endpoints;
 /// The Metrics catalog page: <c>POST /api/metrics/catalog</c> (every metric in a window with
 /// its series count, sample volume, and last-received time) and
 /// <c>POST /api/metrics/catalog/detail</c> (one metric's services, per-attribute cardinality,
-/// and related metrics) - see <see cref="MetricCatalogQueryBuilder"/>.
+/// and related metrics), and <c>POST /api/metrics/catalog/inspect</c> (a few series' raw
+/// samples and their time/space reduction - see <see cref="MetricInspectReducer"/>) - see
+/// <see cref="MetricCatalogQueryBuilder"/>.
 /// </summary>
 /// <remarks>POST + JSON body, same rationale as <see cref="MetricsEndpoints"/>.</remarks>
 public static class MetricCatalogEndpoints
@@ -18,6 +20,7 @@ public static class MetricCatalogEndpoints
     {
         endpoints.MapPost("/api/metrics/catalog", HandleListAsync);
         endpoints.MapPost("/api/metrics/catalog/detail", HandleDetailAsync);
+        endpoints.MapPost("/api/metrics/catalog/inspect", HandleInspectAsync);
         return endpoints;
     }
 
@@ -62,5 +65,29 @@ public static class MetricCatalogEndpoints
 
         var response = await queryService.GetDetailAsync(request, cancellationToken);
         return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricCatalogDetailResponse);
+    }
+
+    private static async Task<IResult> HandleInspectAsync(
+        HttpContext http,
+        IMetricCatalogQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        MetricCatalogInspectRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, MetricsJsonContext.Default.MetricCatalogInspectRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (string.IsNullOrWhiteSpace(request?.MetricName))
+        {
+            return Results.Problem("metricName is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await queryService.InspectAsync(request, cancellationToken);
+        return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricCatalogInspectResponse);
     }
 }
