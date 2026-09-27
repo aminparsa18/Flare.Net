@@ -257,6 +257,45 @@ public class OtlpMetricsMapperTests
         Assert.Empty(record.NegativeBucketCounts);
     }
 
+    public static TheoryData<Metric> NoRecordedValueMetrics()
+    {
+        const uint noValue = (uint)DataPointFlags.NoRecordedValueMask;
+        const ulong t = 1_700_000_000_000_000_000UL;
+        return new TheoryData<Metric>
+        {
+            new Metric { Name = "g", Gauge = new Gauge { DataPoints = { new NumberDataPoint { AsDouble = 5, TimeUnixNano = t }, new NumberDataPoint { Flags = noValue, TimeUnixNano = t + 1 } } } },
+            new Metric { Name = "s", Sum = new Sum { DataPoints = { new NumberDataPoint { AsDouble = 5, TimeUnixNano = t }, new NumberDataPoint { Flags = noValue, TimeUnixNano = t + 1 } } } },
+            new Metric { Name = "h", Histogram = new Histogram { DataPoints = { new HistogramDataPoint { Count = 1, TimeUnixNano = t }, new HistogramDataPoint { Flags = noValue, TimeUnixNano = t + 1 } } } },
+            new Metric { Name = "e", ExponentialHistogram = new ExponentialHistogram { DataPoints = { new ExponentialHistogramDataPoint { Count = 1, TimeUnixNano = t }, new ExponentialHistogramDataPoint { Flags = noValue, TimeUnixNano = t + 1 } } } },
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(NoRecordedValueMetrics))]
+    public void Map_SkipsDataPoints_FlaggedNoRecordedValue(Metric metric)
+    {
+        var result = OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt);
+
+        // Only the real point survives; the staleness marker isn't stored as a fake 0.
+        var record = Assert.Single(result.Points);
+        Assert.Equal(DateTimeOffset.UnixEpoch.AddTicks(1_700_000_000_000_000_000L / 100), record.Time);
+        Assert.Empty(result.UnsupportedMetricNames);
+    }
+
+    [Fact]
+    public void Map_KeepsDataPoints_WithOtherFlagBitsSet()
+    {
+        var metric = new Metric
+        {
+            Name = "g",
+            Gauge = new Gauge { DataPoints = { new NumberDataPoint { AsDouble = 3, Flags = 2, TimeUnixNano = 1_700_000_000_000_000_000UL } } },
+        };
+
+        var record = Assert.IsType<GaugePointRecord>(Assert.Single(OtlpMetricsMapper.Map(SingleMetricRequest(metric), TestIngestedAt).Points));
+
+        Assert.Equal(3d, record.Value);
+    }
+
     [Fact]
     public void Map_ReportsUnsupportedMetricName_ForSummary()
     {
