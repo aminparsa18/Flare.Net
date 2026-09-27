@@ -121,12 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Flame graph view for traces.** Only the waterfall exists; a flame
-  graph (span width = duration, stacked by depth, colored by service)
-  shows where time goes in a large trace at a glance. A toggle on the
-  trace detail page over the already-loaded spans, sharing selection
-  with the span detail sheet. Frontend-only, medium. Not started. Prior
-  art: [signoz#7889](https://github.com/SigNoz/signoz/commit/3fc6f7ee63d7a6c6e6c47e25d72964241b203e7a).
 - **Structural trace queries (trace operators).** `SpanFilter` matches
   single spans only; add relationship operators across span conditions -
   `A => B` (A has descendant B), `A -> B` (direct child), plus

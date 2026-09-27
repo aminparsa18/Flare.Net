@@ -4,6 +4,7 @@
 	import { TraceDetailState } from '$lib/traces/trace-state.svelte';
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import TraceWaterfall from '$lib/components/traces/TraceWaterfall.svelte';
+	import TraceFlameGraph from '$lib/components/traces/TraceFlameGraph.svelte';
 	import ServiceMap from '$lib/components/traces/ServiceMap.svelte';
 	import SpanDetailSheet from '$lib/components/traces/SpanDetailSheet.svelte';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
@@ -18,7 +19,7 @@
 	// Local to this page, not TraceDetailState - view-local UI state with no other
 	// consumer, same "doesn't belong on the shared state class" call SpanDetailSheet's
 	// own linked-logs state made (see v5's Planning.md entry).
-	let activeTab = $state<'waterfall' | 'service-map'>('waterfall');
+	let activeTab = $state<'waterfall' | 'flame-graph' | 'service-map'>('waterfall');
 
 	// page.params.traceId is fixed for this component's lifetime - SvelteKit remounts
 	// (not just re-renders) a dynamic-segment route when the param changes, since the
@@ -56,6 +57,13 @@
 				</button>
 				<button
 					type="button"
+					class={cn(buttonVariants({ variant: activeTab === 'flame-graph' ? 'secondary' : 'ghost', size: 'sm' }))}
+					onclick={() => (activeTab = 'flame-graph')}
+				>
+					{m.tracePage_flameGraphTab()}
+				</button>
+				<button
+					type="button"
 					class={cn(buttonVariants({ variant: activeTab === 'service-map' ? 'secondary' : 'ghost', size: 'sm' }))}
 					onclick={() => (activeTab = 'service-map')}
 				>
@@ -85,6 +93,8 @@
 		</Empty.Root>
 	{:else if activeTab === 'waterfall'}
 		<TraceWaterfall />
+	{:else if activeTab === 'flame-graph'}
+		<TraceFlameGraph />
 	{:else}
 		<ServiceMap spans={detail.trace?.spans ?? []} />
 	{/if}
