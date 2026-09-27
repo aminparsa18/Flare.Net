@@ -16,7 +16,13 @@ export class TraceDetailState {
 
 	#loadAbort: AbortController | null = null;
 
-	async load(traceId: string): Promise<void> {
+	/**
+	 * `initialSpanId` is the `?span=` deep-link param - selected in the same update that
+	 * lands the trace (not afterwards by the caller), so the waterfall's first render
+	 * already sees it and can scroll it into view on mount. Ignored if it isn't a span
+	 * of this trace.
+	 */
+	async load(traceId: string, initialSpanId?: string | null): Promise<void> {
 		this.#loadAbort?.abort();
 		const abort = new AbortController();
 		this.#loadAbort = abort;
@@ -31,6 +37,7 @@ export class TraceDetailState {
 				this.notFound = true;
 			} else {
 				this.trace = result;
+				if (initialSpanId && result.spans.some((s) => s.spanId === initialSpanId)) this.selectedSpanId = initialSpanId;
 			}
 		} catch (err) {
 			if (abort.signal.aborted) return;

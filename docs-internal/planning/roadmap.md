@@ -121,12 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Deep link to a specific span.** `/traces/[traceId]` has no span
-  parameter, so a shared link lands at the top of the waterfall. Accept
-  `?span=<spanId>` (select it, expand its ancestors, scroll into view)
-  and add "Copy link to span" in the span detail sheet. Frontend-only,
-  small. Not started. Prior art:
-  [signoz 0944af3](https://github.com/SigNoz/signoz/commit/0944af3d31e38481b7ae549a3c253f3c4090554c).
 - **Sort traces by duration or span count.** The trace list is always
   newest-first (`SpanSearchQueryBuilder`'s `ORDER BY StartTime DESC,
   TraceId DESC, SpanId DESC`, keyset-paged on `StartTime`); "slowest

@@ -713,6 +713,8 @@
 	"traceKind_fallback": "Kind {kind}",
 	"spanDetail_traceId": "Trace ID",
 	"spanDetail_spanId": "Span ID",
+	"spanDetail_copyLink": "Copy link to span",
+	"spanDetail_linkCopied": "Link copied",
 	"spanDetail_parentSpanId": "Parent span ID",
 	"spanDetail_rootSpanFallback": "— (root span)",
 	"spanDetail_traceState": "Trace state",

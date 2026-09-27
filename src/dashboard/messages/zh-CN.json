@@ -713,6 +713,8 @@
 	"traceKind_fallback": "类型 {kind}",
 	"spanDetail_traceId": "追踪 ID",
 	"spanDetail_spanId": "Span ID",
+	"spanDetail_copyLink": "复制 Span 链接",
+	"spanDetail_linkCopied": "链接已复制",
 	"spanDetail_parentSpanId": "父 Span ID",
 	"spanDetail_rootSpanFallback": "— (根 Span)",
 	"spanDetail_traceState": "追踪状态",

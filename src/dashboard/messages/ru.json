@@ -711,6 +711,8 @@
 	"traceKind_fallback": "Тип {kind}",
 	"spanDetail_traceId": "ID трассировки",
 	"spanDetail_spanId": "ID спана",
+	"spanDetail_copyLink": "Копировать ссылку на спан",
+	"spanDetail_linkCopied": "Ссылка скопирована",
 	"spanDetail_parentSpanId": "ID родительского спана",
 	"spanDetail_rootSpanFallback": "— (корневой спан)",
 	"spanDetail_traceState": "Состояние трассировки",

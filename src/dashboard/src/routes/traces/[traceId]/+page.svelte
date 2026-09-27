@@ -26,7 +26,7 @@
 	// re-running on param change) is enough here, same as every other page in this app
 	// fetching its own data client-side in onMount.
 	onMount(() => {
-		void detail.load(page.params.traceId!);
+		void detail.load(page.params.traceId!, page.url.searchParams.get('span'));
 	});
 
 	onDestroy(() => {
