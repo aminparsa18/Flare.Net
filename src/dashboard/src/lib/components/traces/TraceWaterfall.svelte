@@ -17,7 +17,7 @@
 	import ChevronsDownUpIcon from '@lucide/svelte/icons/chevrons-down-up';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import * as m from '$lib/paraglide/messages';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { formatTimeOfDay } from '$lib/time/format';
 
@@ -41,7 +41,7 @@
 	// the URL.
 	const collapsed = new SvelteSet<string>();
 
-	async function jumpToSpan(spanId: string) {
+	async function jumpToSpan(spanId: string, behavior: ScrollBehavior = 'smooth') {
 		detail.selectedSpanId = spanId;
 		// The target may sit inside a collapsed subtree - expand its ancestors first so
 		// it actually has a row to scroll to.
@@ -52,8 +52,15 @@
 			collapsed.delete(p);
 		}
 		await tick();
-		rowEls.get(spanId)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		rowEls.get(spanId)?.scrollIntoView({ block: 'center', behavior });
 	}
+
+	// A `?span=` deep link (see TraceDetailState.load) - or a span still selected when
+	// switching back from the Service Map tab - lands already scrolled to that row
+	// rather than at the top of the waterfall.
+	onMount(() => {
+		if (detail.selectedSpanId) void jumpToSpan(detail.selectedSpanId, 'instant');
+	});
 
 	function toggleCollapsed(spanId: string) {
 		if (collapsed.has(spanId)) collapsed.delete(spanId);

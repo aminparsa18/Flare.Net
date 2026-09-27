@@ -15,6 +15,8 @@
 	import { severityVariant } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
 	import { formatTimestamp } from '$lib/time/format';
+	import LinkIcon from '@lucide/svelte/icons/link';
+	import CheckIcon from '@lucide/svelte/icons/check';
 
 	const detail = traceDetailContext.get();
 
@@ -68,6 +70,20 @@
 
 		return () => abort.abort();
 	});
+
+	let linkCopied = $state(false);
+	let linkCopiedResetTimer: ReturnType<typeof setTimeout> | undefined;
+
+	// `?span=` is read back by the trace page (TraceDetailState.load) - selects the span,
+	// expands its ancestors and scrolls it into view.
+	async function copySpanLink(traceId: string, spanId: string): Promise<void> {
+		const url = new URL(`/traces/${encodeURIComponent(traceId)}`, window.location.origin);
+		url.searchParams.set('span', spanId);
+		await navigator.clipboard.writeText(url.toString());
+		linkCopied = true;
+		clearTimeout(linkCopiedResetTimer);
+		linkCopiedResetTimer = setTimeout(() => (linkCopied = false), 1500);
+	}
 </script>
 
 <Sheet.Root
@@ -90,6 +106,17 @@
 				<Sheet.Description>
 					{formatTimestamp(span.startTime)} · {kindLabel(span.kind)} · {formatDurationNano(span.durationNano)}
 				</Sheet.Description>
+				<div>
+					<Button variant="outline" size="sm" onclick={() => copySpanLink(span.traceId, span.spanId)}>
+						{#if linkCopied}
+							<CheckIcon data-icon="inline-start" />
+							{m.spanDetail_linkCopied()}
+						{:else}
+							<LinkIcon data-icon="inline-start" />
+							{m.spanDetail_copyLink()}
+						{/if}
+					</Button>
+				</div>
 			</Sheet.Header>
 			<ScrollArea class="min-h-0 flex-1 px-4">
 				<div class="flex flex-col gap-4 pb-8">
