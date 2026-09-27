@@ -11,6 +11,9 @@
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import { searchLogs, type LogEventDto } from '$lib/api';
+	import type { SpanAttributeBag, SpanDto } from '$lib/traces-api';
+	import { buildTracesAttributeFilterHref } from '$lib/deep-links';
+	import { goto } from '$app/navigation';
 	import { severityVariant } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
 	import { formatTimestamp } from '$lib/time/format';
@@ -83,6 +86,13 @@
 		clearTimeout(linkCopiedResetTimer);
 		linkCopiedResetTimer = setTimeout(() => (linkCopied = false), 1500);
 	}
+
+	// Leaves the trace for the Traces list filtered to this value - see
+	// buildTracesAttributeFilterHref for how a root vs. child span's attribute goes in.
+	// Span event/link attributes get no filter: SpanFilter has no bag for them.
+	function filterInto(span: SpanDto, bag: SpanAttributeBag) {
+		return (key: string, value: string, exclude: boolean) => goto(buildTracesAttributeFilterHref(span, { bag, key, value }, exclude));
+	}
 </script>
 
 <Sheet.Root
@@ -96,6 +106,7 @@
 	<Sheet.Content class="flex w-full flex-col sm:max-w-5xl">
 		{#if detail.selectedSpan}
 			{@const span = detail.selectedSpan}
+			{@const canFilterOut = !span.parentSpanId}
 			<Sheet.Header>
 				<Sheet.Title class="flex flex-wrap items-center gap-2">
 					<Badge variant={statusVariant(span.statusCode)}>{statusLabel(span.statusCode)}</Badge>
@@ -146,13 +157,13 @@
 
 					<Separator />
 
-					<AttributeTable title={m.spanDetail_spanAttributesTitle()} attributes={span.spanAttributes} />
-					<AttributeTable title={m.spanDetail_resourceAttributesTitle()} attributes={span.resourceAttributes} />
-					<AttributeTable title={m.spanDetail_scopeAttributesTitle()} attributes={span.scopeAttributes} />
+					<AttributeTable title={m.spanDetail_spanAttributesTitle()} attributes={span.spanAttributes} onFilter={filterInto(span, 'Span')} {canFilterOut} />
+					<AttributeTable title={m.spanDetail_resourceAttributesTitle()} attributes={span.resourceAttributes} onFilter={filterInto(span, 'Resource')} {canFilterOut} />
+					<AttributeTable title={m.spanDetail_scopeAttributesTitle()} attributes={span.scopeAttributes} onFilter={filterInto(span, 'Scope')} {canFilterOut} />
 
 					{#if span.events.length > 0}
 						<div>
-							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">{m.spanDetail_eventsTitle()}</h3>
+							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">{m.spanDetail_eventsTitle()} ({span.events.length})</h3>
 							<div class="flex flex-col gap-2">
 								{#each span.events as event, i (i)}
 									<div class="rounded-md border p-2">
@@ -177,7 +188,7 @@
 
 					{#if span.links.length > 0}
 						<div>
-							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">{m.spanDetail_linksTitle()}</h3>
+							<h3 class="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">{m.spanDetail_linksTitle()} ({span.links.length})</h3>
 							<div class="flex flex-col gap-2">
 								{#each span.links as link, i (i)}
 									<div class="rounded-md border p-2">

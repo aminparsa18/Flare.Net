@@ -133,14 +133,3 @@ folders are where "what happened and why" actually lives.
   executor and the Api preview mirror (ADR-0033/0034). Medium. Not
   started. Prior art: [signoz#8227](https://github.com/SigNoz/signoz/commit/d6eed8e79dae5281839b461f46c1fbffe44b8bca),
   UI [signoz#8331](https://github.com/SigNoz/signoz/commit/ddb08b388362c339e3d152d43ead6f1df235f35a).
-- **Attribute actions in the span detail view.** The log event detail
-  view got filter-for/filter-out/copy (+ pinning) on `AttributeTable`
-  (PR #309), but `SpanDetailSheet` renders the same component with only
-  `title`/`attributes`, so span and resource attributes are display-only
-  - `http.route=/checkout` on a slow span can't jump to "all traces with
-  that route". Wire the same actions into the Traces explorer's filter
-  state (`SpanFilter` attribute filters, span vs. resource bag), and
-  optionally add count badges on the span detail tabs. Frontend-only,
-  small. Not started. Prior art: span actionables
-  [signoz#8761](https://github.com/SigNoz/signoz/commit/fdcad997f58145da462a57672c4a1d74f15baad5),
-  tab count badges [signoz#8702](https://github.com/SigNoz/signoz/commit/5412e7f70b1b859928dca053b3f6a0552e941d17).

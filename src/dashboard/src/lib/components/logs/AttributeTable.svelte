@@ -14,6 +14,7 @@
 		isPinned,
 		onTogglePin,
 		onFilter,
+		canFilterOut = true,
 		onGroupBy,
 		groupedByKey
 	}: {
@@ -23,8 +24,10 @@
 		/** Both optional - without onTogglePin no pin button renders (e.g. SpanDetailSheet). */
 		isPinned?: (key: string) => boolean;
 		onTogglePin?: (key: string) => void;
-		/** Optional - without it no filter-for/filter-out buttons render (e.g. SpanDetailSheet, which has no Logs explorer filter state to push into). */
+		/** Optional - without it no filter-for/filter-out buttons render (e.g. a span event's attributes, which no filter can target). */
 		onFilter?: (key: string, value: string, exclude: boolean) => void;
+		/** False drops just the filter-out button - SpanDetailSheet on a child span, whose filter has no exclude form. */
+		canFilterOut?: boolean;
 		/** Optional - stacks the Logs volume chart by this row's key; without it no group-by button renders. */
 		onGroupBy?: (key: string) => void;
 		/** Key the volume chart is currently grouped by (if it's in this table's bag) - that row's button stays visible and pressed. */
@@ -100,15 +103,17 @@
 							>
 								<FunnelPlusIcon class="size-3.5" />
 							</button>
-							<button
-								type="button"
-								class="{actionClass} {revealClass}"
-								title={m.eventDetail_filterOutValue()}
-								aria-label={m.eventDetail_filterOutValue()}
-								onclick={() => onFilter(key, value, true)}
-							>
-								<FunnelXIcon class="size-3.5" />
-							</button>
+							{#if canFilterOut}
+								<button
+									type="button"
+									class="{actionClass} {revealClass}"
+									title={m.eventDetail_filterOutValue()}
+									aria-label={m.eventDetail_filterOutValue()}
+									onclick={() => onFilter(key, value, true)}
+								>
+									<FunnelXIcon class="size-3.5" />
+								</button>
+							{/if}
 						{/if}
 						{#if onGroupBy}
 							{@const grouped = groupedByKey === key}
