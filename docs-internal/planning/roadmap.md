@@ -121,13 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Span event markers on the waterfall.** Span events (incl. exceptions)
-  are only listed in `SpanDetailSheet`; the waterfall doesn't show where
-  in a span an event happened, or which spans had one at all. Draw a dot
-  per event at its timestamp on the span bar (exceptions in the error
-  color) with a hover preview (name, time offset, key attributes).
-  Frontend-only, small. Not started. Prior art:
-  [signoz#7889](https://github.com/SigNoz/signoz/commit/3fc6f7ee63d7a6c6e6c47e25d72964241b203e7a).
 - **Flame graph view for traces.** Only the waterfall exists; a flame
   graph (span width = duration, stacked by depth, colored by service)
   shows where time goes in a large trace at a glance. A toggle on the

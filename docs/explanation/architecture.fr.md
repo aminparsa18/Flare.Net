@@ -188,6 +188,9 @@ spans.
 Cliquez sur une trace pour la vue en cascade (waterfall) — spans
 parent/enfant disposés par heure de début et durée, la même forme que
 Jaeger/Zipkin mais connectée directement au reste du tableau de bord.
+Les événements de span apparaissent comme des points sur la barre du
+span à l'instant où ils se sont produits (les exceptions en rouge) ;
+survolez-en un pour voir son nom, son décalage et ses attributs clés.
 
 ![Trace detail waterfall](../screenshots/trace-detail.png)
 

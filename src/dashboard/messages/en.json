@@ -754,6 +754,8 @@
 	"traceWaterfall_spanColumnHeader": "Span",
 	"traceWaterfall_hoverDuration": "Duration: {duration}",
 	"traceWaterfall_hoverOffset": "Starts at +{offset}",
+	"traceWaterfall_hoverEventCount": "Events: {count}",
+	"traceWaterfall_hoverEventOffset": "Event at +{offset}",
 	"traceWaterfall_expandAll": "Expand all",
 	"traceWaterfall_collapseAll": "Collapse all",
 	"traceWaterfall_expandSpan": "Expand children",

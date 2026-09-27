@@ -166,7 +166,9 @@ the slowest requests in the window, or the traces with the most spans.
 
 Click into a trace for the waterfall view — parent/child spans laid out by
 start time and duration, the same shape as Jaeger/Zipkin but wired
-straight into the rest of the dashboard.
+straight into the rest of the dashboard. Span events show up as dots on
+the span's bar at the moment they happened (exceptions in red); hover one
+for its name, offset, and key attributes.
 
 ![Trace detail waterfall](../screenshots/traces-en.webp)
 

@@ -754,6 +754,8 @@
 	"traceWaterfall_spanColumnHeader": "跨度",
 	"traceWaterfall_hoverDuration": "耗时:{duration}",
 	"traceWaterfall_hoverOffset": "开始于 +{offset}",
+	"traceWaterfall_hoverEventCount": "事件:{count}",
+	"traceWaterfall_hoverEventOffset": "事件发生于 +{offset}",
 	"traceWaterfall_expandAll": "全部展开",
 	"traceWaterfall_collapseAll": "全部折叠",
 	"traceWaterfall_expandSpan": "展开子跨度",

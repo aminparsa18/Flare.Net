@@ -750,6 +750,8 @@
 	"traceWaterfall_spanColumnHeader": "Спан",
 	"traceWaterfall_hoverDuration": "Длительность: {duration}",
 	"traceWaterfall_hoverOffset": "Начало: +{offset}",
+	"traceWaterfall_hoverEventCount": "События: {count}",
+	"traceWaterfall_hoverEventOffset": "Событие: +{offset}",
 	"traceWaterfall_expandAll": "Развернуть все",
 	"traceWaterfall_collapseAll": "Свернуть все",
 	"traceWaterfall_expandSpan": "Развернуть дочерние",
