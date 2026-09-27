@@ -13,6 +13,8 @@
 import type { AttributeFilter } from './api';
 import { TIME_RANGE_PRESETS, type TimeRangePreset } from './logs/time-range';
 import type { MetricPointType } from './metrics-api';
+import type { SpanAttributeBag, SpanAttributeFilter } from './traces-api';
+import type { TracesSavedViewState } from './traces/state.svelte';
 
 export interface DeepLinkTarget {
 	serviceName: string;
@@ -192,6 +194,31 @@ export function encodeStateDeepLinkParam(state: unknown): string {
 	let binary = '';
 	for (const b of bytes) binary += String.fromCharCode(b);
 	return encodeURIComponent(btoa(binary));
+}
+
+/**
+ * `/traces?state=` for a span detail attribute's filter-for/filter-out (SpanDetailSheet).
+ * The Traces list's attribute filters match the listed root span's own row, so they only
+ * fit an attribute read off the root span; one read off a child span (`db.statement`,
+ * `peer.service`) goes in as a one-condition structural query instead - "traces with a
+ * span carrying this" - which has no exclude form (`NOT A` alone is rejected, see
+ * TraceStructureSqlBuilder), hence `exclude` only applies to a root span. The range is
+ * the smallest fixed preset still reaching back to the span, so an old trace isn't
+ * filtered out by the default 1h.
+ */
+export function buildTracesAttributeFilterHref(
+	span: { parentSpanId: string; startTime: string },
+	attribute: { bag: SpanAttributeBag; key: string; value: string },
+	exclude: boolean
+): string {
+	const ageMs = Date.now() - new Date(span.startTime).getTime();
+	const fixed = TIME_RANGE_PRESETS.filter((p) => p.durationMs != null);
+	const timeRangePreset = (fixed.find((p) => p.durationMs! >= ageMs) ?? fixed[fixed.length - 1]).value;
+	const filter: SpanAttributeFilter = { ...attribute, operator: exclude ? 'NotEquals' : 'Equals' };
+	const state: TracesSavedViewState = span.parentSpanId
+		? { timeRangePreset, services: [], attributeFilters: [], structure: { expression: 'A', conditions: [{ name: 'A', attributes: [filter] }] } }
+		: { timeRangePreset, services: [], attributeFilters: [filter] };
+	return `/traces?state=${encodeStateDeepLinkParam(state)}`;
 }
 
 /**
