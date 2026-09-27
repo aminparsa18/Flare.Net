@@ -121,13 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Open a dashboard panel in its explorer.** `DashboardPanelCard` only
-  deep-links to alert creation; add "Open in Logs/Traces/Metrics" (the
-  panel's query + the dashboard's effective time range and variable
-  values) and click-a-chart-point → the explorer narrowed to a window
-  around that point (and that series' group, if grouped). Frontend-only
-  - the explorers already restore from `?state=`. Not started. Prior
-  art: [signoz#7141](https://github.com/SigNoz/signoz/commit/0320285a251eaa89a45f5336620c5bfd8143b6bb).
 - **Resource-attribute filter on the Errors page.** `ExceptionFilter` only
   has time range + services - no "exceptions in production only" or
   "only on `service.version` 2.3". Reuse the `ResourceAttributeFilter`

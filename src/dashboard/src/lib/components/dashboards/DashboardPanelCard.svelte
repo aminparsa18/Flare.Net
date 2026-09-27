@@ -37,7 +37,9 @@
 	import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
 	import { resolveVariableOverrides } from '$lib/dashboards/variables';
 	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '$lib/deep-links';
+	import { panelExplorerHref, panelExplorerState, withCustomRange, withLogsGroup } from '$lib/dashboards/explore-links';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import TelescopeIcon from '@lucide/svelte/icons/telescope';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
 	import BellPlusIcon from '@lucide/svelte/icons/bell-plus';
 	import CopyIcon from '@lucide/svelte/icons/copy';
@@ -188,6 +190,31 @@
 	function handleCreateAlert(): void {
 		if (alertDraft) void goto(buildAlertDeepLinkHref(alertDraft));
 	}
+
+	// "Open in Logs/Traces/Metrics" - the panel's query as it's currently shown (the
+	// dashboard's time-range override and this panel's variable selections applied, see
+	// $lib/dashboards/explore-links.ts), in its full explorer. A chart click opens the same
+	// state narrowed to the clicked window (and, on a grouped Logs chart, that series). Both
+	// modes, same "never risks losing anything" reasoning as "Create alert" above.
+	const explorerState = $derived(panelExplorerState(panel, timeRangeOverride, variableOverrides));
+	const explorerHref = $derived(panelExplorerHref(panel.panelType, explorerState));
+
+	function explorerLabel(panelType: DashboardPanel['panelType']): string {
+		switch (panelType) {
+			case 'Logs':
+				return m.dashboardPanelCard_openInLogs();
+			case 'Traces':
+				return m.dashboardPanelCard_openInTraces();
+			case 'Metrics':
+				return m.dashboardPanelCard_openInMetrics();
+		}
+	}
+
+	function openRange(range: { from: Date; to: Date }, groupKey?: string | null): void {
+		let state = withCustomRange(explorerState, range.from, range.to);
+		if (groupKey !== undefined) state = withLogsGroup(state, groupKey);
+		void goto(panelExplorerHref(panel.panelType, state));
+	}
 </script>
 
 <div class="flex h-full flex-col rounded-lg border">
@@ -234,6 +261,16 @@
 			{/if}
 			<Badge variant="outline" class="shrink-0">{panelTypeLabel(panel.panelType)}</Badge>
 		</div>
+		<Button
+			variant="ghost"
+			size="icon-sm"
+			class="text-muted-foreground hover:text-foreground shrink-0"
+			title={explorerLabel(panel.panelType)}
+			aria-label={explorerLabel(panel.panelType)}
+			href={explorerHref}
+		>
+			<TelescopeIcon />
+		</Button>
 		{#if alertDraft}
 			<Button
 				variant="ghost"
@@ -302,7 +339,7 @@
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden" use:inViewport={() => (visible = true)}>
 		{#if visible}
 			{#if panel.panelType === 'Logs'}
-				<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
+				<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} onOpenRange={openRange} />
 			{:else if panel.panelType === 'Metrics'}
 				<DashboardMetricsPanelBody
 					query={panel.query}
@@ -317,6 +354,7 @@
 					reducer={panel.reducer}
 					columnUnits={panel.columnUnits}
 					title={panel.title}
+					onOpenRange={openRange}
 				/>
 			{:else if panel.panelType === 'Traces'}
 				<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />

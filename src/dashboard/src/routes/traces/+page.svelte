@@ -7,7 +7,7 @@
 	import { servicesContext } from '$lib/services/context';
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
 	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
-	import { parseTracesDeepLinkParams } from '$lib/deep-links';
+	import { parseStateDeepLinkParam, parseTracesDeepLinkParams } from '$lib/deep-links';
 	import TracesToolbar from '$lib/components/traces/TracesToolbar.svelte';
 	import SpanAttributeFiltersRow from '$lib/components/traces/SpanAttributeFiltersRow.svelte';
 	import TraceList from '$lib/components/traces/TraceList.svelte';
@@ -69,11 +69,13 @@
 			// only needs to fall back to a plain default search when neither applies.
 			// A bare visit restores the saved view last picked here instead
 			// ($lib/saved-views/last-used.ts) - never over a `?view=` or deep link.
-			const view =
-				(await resolveRequestedSavedView(page.url, 'Traces')) ??
-				(page.url.searchParams.size === 0 ? await resolveLastUsedSavedView('Traces') : null);
-			if (view) {
-				explorer.applySavedViewState(view.state);
+			// A dashboard panel's "Open in Traces" link ($lib/dashboards/explore-links.ts) carries
+			// a whole saved-view state inline as `?state=`, restored through the same path.
+			const requested = await resolveRequestedSavedView(page.url, 'Traces');
+			const inlineState = requested ? null : parseStateDeepLinkParam(page.url);
+			const view = requested ?? (page.url.searchParams.size === 0 ? await resolveLastUsedSavedView('Traces') : null);
+			if (view || inlineState) {
+				explorer.applySavedViewState(view ? view.state : inlineState);
 			} else if (!parseTracesDeepLinkParams(page.url)) {
 				void explorer.runSearch();
 			}

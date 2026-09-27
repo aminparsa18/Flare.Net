@@ -21,7 +21,19 @@
 	// Only gates the *range-mutating* drag-zoom gesture below - the harmless click-to-
 	// highlight-a-bucket path (filterToBucketAt, which never touches the fetched range)
 	// still works everywhere.
-	let { allowZoom = true }: { allowZoom?: boolean } = $props();
+	//
+	// `onBucketClick` replaces a plain click's in-place bucket highlight - a dashboard panel
+	// has no log table for that highlight to filter, so it opens the Logs Explorer at the
+	// clicked bucket instead (DashboardPanelCard.svelte). `groupKey` is the stacked segment
+	// under the pointer while grouped (`undefined` when ungrouped or between segments) - same
+	// key convention as `Segment.key` below.
+	let {
+		allowZoom = true,
+		onBucketClick
+	}: {
+		allowZoom?: boolean;
+		onBucketClick?: (range: { from: Date; to: Date }, groupKey: string | null | undefined) => void;
+	} = $props();
 
 	const LIVE_POLL_MS = 15_000; // not per-event recompute - a burst could mean dozens of /aggregate calls/sec for a visual that doesn't need per-event resolution
 	const LIVE_TRAILING_WINDOW_MS = 60 * 60 * 1000; // matches LogFilterSqlBuilder.DefaultLookback (1h) so live mode's window feels consistent with the unfiltered-search default
@@ -405,14 +417,22 @@
 	 * handlePointerUp for a plain click (see DRAG_THRESHOLD_PX) - a real drag zooms instead
 	 * (see handlePointerUp).
 	 */
-	function filterToBucketAt(svg: SVGSVGElement, clientX: number) {
+	function filterToBucketAt(svg: SVGSVGElement, clientX: number, clientY: number) {
 		if (buckets.length === 0) return;
 		const index = bucketIndexAt(svg, clientX);
 		const bucket = buckets[index];
 		if (!bucket) return;
 		const from = new Date(bucket.bucketStart);
 		const to = new Date(from.getTime() + bucketWidthSeconds * 1000);
-		explorer.focusBucketRange({ from, to });
+		if (onBucketClick) onBucketClick({ from, to }, resultGroupBy ? segmentKeyAt(svg, clientY, bucket) : undefined);
+		else explorer.focusBucketRange({ from, to });
+	}
+
+	/** The stacked segment of `bar` under `clientY`, if any - the viewBox is stretched non-uniformly, so this maps through its own height. */
+	function segmentKeyAt(svg: SVGSVGElement, clientY: number, bar: Bar): string | null | undefined {
+		const rect = svg.getBoundingClientRect();
+		const y = ((clientY - rect.top) / rect.height) * CHART_HEIGHT;
+		return stackedSegments(bar).find((seg) => y >= seg.y && y <= seg.y + seg.height)?.key;
 	}
 
 	// Drag-to-zoom (brush-select) state. Fractions (0-1 along the chart's width), not pixel
@@ -468,7 +488,7 @@
 		// fallback for the same reason - a real drag still highlights whatever bucket the
 		// pointer was released over instead of doing nothing.
 		if (!allowZoom || dragPx < DRAG_THRESHOLD_PX || !rangeFrom || !rangeTo || explorer.live) {
-			filterToBucketAt(svg, e.clientX);
+			filterToBucketAt(svg, e.clientX, e.clientY);
 			return;
 		}
 
@@ -586,7 +606,7 @@
 										{...props}
 										viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
 										preserveAspectRatio="none"
-										class="h-[100px] w-full cursor-crosshair"
+										class="h-[100px] w-full {onBucketClick ? 'cursor-pointer' : 'cursor-crosshair'}"
 										role="img"
 										aria-label={m.volumeChart_chartAriaLabel()}
 										onpointermove={handlePointerMove}

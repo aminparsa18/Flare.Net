@@ -427,6 +427,35 @@ fonction — il n'existe aujourd'hui aucune condition d'alerte basée sur les
 traces (les règles d'alerte ne prennent en charge que les conditions par
 nombre de logs, seuil de métrique et nombre d'exceptions).
 
+## Ouvrir un panneau dans son explorateur
+
+Cliquez sur l'icône **télescope** dans l'en-tête de n'importe quel panneau
+pour ouvrir sa requête dans l'explorateur Logs, Traces ou Metrics complet,
+telle que le panneau l'affiche actuellement. La plage de temps imposée par
+le tableau de bord et les sélections de variables en cours sont appliquées
+(sauf les variables dont le panneau
+[se désactive](#désactivation-par-panneau)). Vous pouvez ensuite affiner
+la requête, l'enregistrer comme vue ou l'épingler à nouveau à un tableau
+de bord.
+
+Vous pouvez aussi cliquer sur un point du graphique d'un panneau :
+
+- **Logs** — un clic sur une barre ouvre l'explorateur Logs sur
+  l'intervalle de cette barre. Si le graphique est groupé par un attribut,
+  un clic sur un segment coloré filtre aussi sur cette valeur. Un segment
+  « (not set) » filtre les événements qui n'ont pas l'attribut. Le segment
+  regroupé « Other » n'ajoute aucun filtre.
+- **Metrics** (graphiques en lignes) — un clic sur un point ouvre
+  l'explorateur Metrics sur une fenêtre de cinq intervalles de part et
+  d'autre, bornée à la plage interrogée par le panneau. L'explorateur
+  choisit un intervalle plus fin pour cette fenêtre plus étroite. Il n'y a
+  pas de filtrage par série, car l'explorateur Metrics n'a pas de filtre
+  d'attribut pour le porter.
+
+Les panneaux de formule et les visualisations autres qu'en lignes (barres,
+secteurs, tableau, etc.) n'offrent que le bouton d'en-tête. Les panneaux
+Traces sont une liste : il n'y a rien à cliquer.
+
 ## Mode plein écran / TV
 
 Cliquez sur l'icône **plein écran** dans l'en-tête d'un tableau de bord

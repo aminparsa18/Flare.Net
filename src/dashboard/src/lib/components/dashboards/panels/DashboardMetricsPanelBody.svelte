@@ -44,6 +44,7 @@
 	import type { PanelVisualization } from '$lib/dashboards/visualization';
 	import type { YAxisScale } from '$lib/metrics/axis';
 	import MetricsVisualization from './visualizations/MetricsVisualization.svelte';
+	import { metricPointWindow } from '$lib/dashboards/explore-links';
 
 	let {
 		query,
@@ -57,7 +58,8 @@
 		visualization = 'timeSeries',
 		reducer,
 		columnUnits,
-		title = ''
+		title = '',
+		onOpenRange
 	}: {
 		query: unknown;
 		timeRangeOverride: TimeRangePreset | null;
@@ -80,7 +82,17 @@
 		columnUnits?: unknown;
 		/** The panel's title - only used to name a Table visualization's CSV download. */
 		title?: string;
+		/** A point click on the single-metric line chart - opens the Metrics Explorer around it, see DashboardPanelCard. */
+		onOpenRange: (range: { from: Date; to: Date }) => void;
 	} = $props();
+
+	function openAroundPoint(time: number): void {
+		const queried =
+			explorer.queryRangeFrom && explorer.queryRangeTo
+				? { from: new Date(explorer.queryRangeFrom).getTime(), to: new Date(explorer.queryRangeTo).getTime() }
+				: null;
+		onOpenRange(metricPointWindow(time, explorer.intervalSeconds ?? 60, queried));
+	}
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
 	let ready = $state(false);
@@ -140,5 +152,12 @@
 {:else if explorer.mode === 'formula'}
 	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} />
 {:else}
-	<MetricChart allowZoom={false} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} />
+	<MetricChart
+		allowZoom={false}
+		yAxisMin={yAxisMin ?? null}
+		yAxisMax={yAxisMax ?? null}
+		{yAxisScale}
+		thresholds={thresholds ?? []}
+		onPointClick={openAroundPoint}
+	/>
 {/if}

@@ -186,6 +186,14 @@ export function parseStateDeepLinkParam(url: URL): unknown | null {
 	}
 }
 
+/** Encodes a `?state=` value - the inverse of `parseStateDeepLinkParam` (UTF-8 JSON, standard base64, URI-escaped). */
+export function encodeStateDeepLinkParam(state: unknown): string {
+	const bytes = new TextEncoder().encode(JSON.stringify(state));
+	let binary = '';
+	for (const b of bytes) binary += String.fromCharCode(b);
+	return encodeURIComponent(btoa(binary));
+}
+
 /**
  * `/metrics?state=` opening one metric in the explorer - the Metrics catalog's "Open in
  * explorer". Same payload shape as a fired metric alert's link (Flare.Api's
@@ -195,8 +203,7 @@ export function parseStateDeepLinkParam(url: URL): unknown | null {
  */
 export function buildMetricsExplorerHref(metricName: string, type: MetricPointType, timeRangePreset: string): string {
 	const state = { timeRangePreset, customRange: null, services: [], selectedMetric: { metricName, type } };
-	const bytes = new TextEncoder().encode(JSON.stringify(state));
-	return `/metrics?state=${encodeURIComponent(btoa(String.fromCharCode(...bytes)))}`;
+	return `/metrics?state=${encodeStateDeepLinkParam(state)}`;
 }
 
 /** `/errors?state=` - mirrors Flare.Api's `ErrorsDeepLinkState` (AlertMessageFormatter.BuildMatchingExceptionsUrl). */
