@@ -121,18 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Bug: metric points flagged "no recorded value" are ingested as real
-  values.** OTLP data points carry `DataPointFlags.FLAG_NO_RECORDED_VALUE`
-  (bit 1) meaning "no value - this series went stale"; `OtlpMetricsMapper`
-  never reads `Flags`, so such points land with their empty value
-  (usually `0`). Common behind an OTel Collector's Prometheus receiver,
-  which emits them as staleness markers whenever a scrape target goes
-  away (pod replaced, rollout): gauges dip to 0 on every deploy,
-  averages get dragged down, and Gauge Last/Min alerts (ADR-0049) can
-  false-fire. Fix: skip points with `(Flags & 1) != 0` in the number,
-  histogram and exponential-histogram paths, plus mapper unit tests.
-  Small. Not started. Prior art:
-  [signoz#7674](https://github.com/SigNoz/signoz/commit/74bbb260331b9ca53107f1b85ad656a10a932db1).
 - **Dashboard variables in panel titles + variable descriptions.** Panel
   titles are plain text; allow `$variable` references (e.g. "Latency –
   $service") resolved against the current selection (multi-value joined,

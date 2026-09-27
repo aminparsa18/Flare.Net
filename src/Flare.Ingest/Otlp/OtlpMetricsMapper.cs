@@ -62,6 +62,8 @@ public static class OtlpMetricsMapper
                         case Metric.DataOneofCase.Gauge:
                             foreach (var dp in metric.Gauge.DataPoints)
                             {
+                                if (IsNoRecordedValue(dp.Flags)) continue;
+
                                 points.Add(new GaugePointRecord
                                 {
                                     MetricName = name,
@@ -86,6 +88,8 @@ public static class OtlpMetricsMapper
                         case Metric.DataOneofCase.Sum:
                             foreach (var dp in metric.Sum.DataPoints)
                             {
+                                if (IsNoRecordedValue(dp.Flags)) continue;
+
                                 points.Add(new SumPointRecord
                                 {
                                     MetricName = name,
@@ -112,6 +116,8 @@ public static class OtlpMetricsMapper
                         case Metric.DataOneofCase.Histogram:
                             foreach (var dp in metric.Histogram.DataPoints)
                             {
+                                if (IsNoRecordedValue(dp.Flags)) continue;
+
                                 points.Add(new HistogramPointRecord
                                 {
                                     MetricName = name,
@@ -140,6 +146,8 @@ public static class OtlpMetricsMapper
                         case Metric.DataOneofCase.ExponentialHistogram:
                             foreach (var dp in metric.ExponentialHistogram.DataPoints)
                             {
+                                if (IsNoRecordedValue(dp.Flags)) continue;
+
                                 points.Add(new ExponentialHistogramPointRecord
                                 {
                                     MetricName = name,
@@ -184,6 +192,16 @@ public static class OtlpMetricsMapper
 
         return new MetricMapResult(points, [.. unsupported]);
     }
+
+    /// <summary>
+    /// OTLP <c>DataPointFlags.FLAG_NO_RECORDED_VALUE</c> (bit 0 of <c>flags</c>): the point
+    /// is a staleness marker ("this series went away"), not a measurement - its value
+    /// fields are empty. An OTel Collector's Prometheus receiver emits one whenever a scrape
+    /// target disappears (pod replaced, rollout); storing it would record a fake <c>0</c>,
+    /// dipping gauges on every deploy and false-firing Gauge Last/Min alerts. Dropped.
+    /// </summary>
+    private static bool IsNoRecordedValue(uint flags) =>
+        (flags & (uint)DataPointFlags.NoRecordedValueMask) != 0;
 
     private static double NumberValue(NumberDataPoint dp) => dp.ValueCase switch
     {
