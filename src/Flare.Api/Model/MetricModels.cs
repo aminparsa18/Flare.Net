@@ -234,6 +234,16 @@ public sealed partial record MetricQueryRequest
     /// scope cut ADR-0036 made for Formula-mode operands, see that ADR's Context section).
     /// </summary>
     public IReadOnlyList<MetricPostProcessFunction>? PostProcessFunctions { get; init; }
+
+    /// <summary>
+    /// Chart a Gauge like a counter: the Sum query's reset-aware per-bucket increase over
+    /// <c>metrics_gauge</c> instead of a per-bucket average - see
+    /// <see cref="Query.MetricSeriesQueryBuilder"/>'s remarks and ADR-0066. Null (default) =
+    /// the metric's admin "treat as counter" setting, resolved by the endpoint before the
+    /// cache so the cache key carries the effective value. Ignored for non-Gauge types.
+    /// Appended last, same MemoryPack versioning convention as <see cref="HavingOperator"/>.
+    /// </summary>
+    public bool? TreatAsCounter { get; init; }
 }
 
 /// <summary>
@@ -362,4 +372,12 @@ public sealed partial record MetricSeries
 public sealed partial record MetricQueryResponse
 {
     public required IReadOnlyList<MetricSeries> Series { get; init; }
+
+    /// <summary>
+    /// True when a Gauge request was charted as a counter (<see cref="MetricQueryRequest.TreatAsCounter"/>):
+    /// the points are shaped like a Sum's (<see cref="MetricSeriesPoint.Value"/> is the bucket's
+    /// increase, <see cref="MetricSeriesPoint.Count"/> is set), so the dashboard offers Sum's
+    /// Rate/Increase/Count modes.
+    /// </summary>
+    public bool TreatedAsCounter { get; init; }
 }

@@ -8,7 +8,7 @@ public sealed class SqliteMetricMetadataOverrideStore(IdentityDbConnectionFactor
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT MetricName, Unit, Description FROM MetricMetadataOverrides";
+        command.CommandText = "SELECT MetricName, Unit, Description, TreatAsCounter FROM MetricMetadataOverrides";
 
         var result = new Dictionary<string, MetricMetadataOverride>(StringComparer.Ordinal);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -18,7 +18,8 @@ public sealed class SqliteMetricMetadataOverrideStore(IdentityDbConnectionFactor
             result[metricName] = new MetricMetadataOverride(
                 metricName,
                 reader.IsDBNull(1) ? null : reader.GetString(1),
-                reader.IsDBNull(2) ? null : reader.GetString(2));
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.GetInt64(3) != 0);
         }
 
         return result;
@@ -30,16 +31,18 @@ public sealed class SqliteMetricMetadataOverrideStore(IdentityDbConnectionFactor
         await using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO MetricMetadataOverrides (MetricName, Unit, Description, UpdatedAt)
-            VALUES ($metricName, $unit, $description, $updatedAt)
+            INSERT INTO MetricMetadataOverrides (MetricName, Unit, Description, TreatAsCounter, UpdatedAt)
+            VALUES ($metricName, $unit, $description, $treatAsCounter, $updatedAt)
             ON CONFLICT(MetricName) DO UPDATE SET
                 Unit = excluded.Unit,
                 Description = excluded.Description,
+                TreatAsCounter = excluded.TreatAsCounter,
                 UpdatedAt = excluded.UpdatedAt
             """;
         command.Parameters.AddWithValue("$metricName", metadataOverride.MetricName);
         command.Parameters.AddWithValue("$unit", (object?)metadataOverride.Unit ?? DBNull.Value);
         command.Parameters.AddWithValue("$description", (object?)metadataOverride.Description ?? DBNull.Value);
+        command.Parameters.AddWithValue("$treatAsCounter", metadataOverride.TreatAsCounter ? 1 : 0);
         command.Parameters.AddWithValue("$updatedAt", timeProvider.GetUtcNow().ToString("O"));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }

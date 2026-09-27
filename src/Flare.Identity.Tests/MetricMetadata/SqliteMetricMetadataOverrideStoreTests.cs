@@ -58,6 +58,27 @@ public class SqliteMetricMetadataOverrideStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SetAsync_WithOnlyTreatAsCounter_RoundTripsTheFlag()
+    {
+        await _store.SetAsync(new MetricMetadataOverride("http_requests_total", Unit: null, Description: null, TreatAsCounter: true));
+
+        var stored = (await _store.GetAllAsync())["http_requests_total"];
+
+        Assert.True(stored.TreatAsCounter);
+        Assert.Null(stored.Unit);
+        Assert.Null(stored.Description);
+    }
+
+    [Fact]
+    public async Task SetAsync_WithoutTreatAsCounter_ClearsAPreviouslySetFlag()
+    {
+        await _store.SetAsync(new MetricMetadataOverride("http_requests_total", "{request}", null, TreatAsCounter: true));
+        await _store.SetAsync(new MetricMetadataOverride("http_requests_total", "{request}", null));
+
+        Assert.False((await _store.GetAllAsync())["http_requests_total"].TreatAsCounter);
+    }
+
+    [Fact]
     public async Task ResetAsync_RemovesOnlyThatMetricsOverride()
     {
         await _store.SetAsync(new MetricMetadataOverride("queue.depth", "{message}", null));

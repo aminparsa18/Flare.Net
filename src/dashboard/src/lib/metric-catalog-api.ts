@@ -3,7 +3,7 @@
 // (`POST /api/metrics/catalog`), one metric's drill-down (`POST /api/metrics/catalog/detail`),
 // its inspect view (`POST /api/metrics/catalog/inspect`) - see MetricCatalogQueryBuilder.cs /
 // MetricInspectReducer.cs - and the Admin-only unit/description overrides
-// (`PUT`/`DELETE /api/metrics/metadata-overrides`, ADR-0065).
+// (`PUT`/`DELETE /api/metrics/metadata-overrides`, ADR-0065) with "treat as counter" (ADR-0066).
 //
 // MemoryPack over the wire, same shape as `hosts-api.ts`: both requests and the per-row
 // entry/service/related types are real generated classes (timestamps travel as epoch ms to
@@ -79,6 +79,8 @@ export interface MetricCatalogDetail {
 	emittedUnit: string | null;
 	emittedDescription: string | null;
 	hasMetadataOverride: boolean;
+	/** Admin "treat as counter" setting (ADR-0066) - only meaningful for a Gauge. */
+	treatAsCounter: boolean;
 }
 
 /** How a raw sample feeds its bucket - mirrors MetricSeriesQueryBuilder's Sum classification (ADR-0035). */
@@ -216,7 +218,8 @@ export async function getMetricCatalogDetail(
 			})),
 		emittedUnit: dto.emittedUnit || null,
 		emittedDescription: dto.emittedDescription || null,
-		hasMetadataOverride: dto.hasMetadataOverride
+		hasMetadataOverride: dto.hasMetadataOverride,
+		treatAsCounter: dto.treatAsCounter
 	};
 }
 
@@ -284,12 +287,21 @@ export async function inspectMetric(
 	};
 }
 
-/** `PUT /api/metrics/metadata-overrides` - Admin-only. A null member shows the emitted value. */
-export async function setMetricMetadataOverride(metricName: string, unit: string | null, description: string | null): Promise<void> {
+/**
+ * `PUT /api/metrics/metadata-overrides` - Admin-only. A null member shows the emitted value;
+ * `treatAsCounter` charts a Gauge like a counter (ADR-0066).
+ */
+export async function setMetricMetadataOverride(
+	metricName: string,
+	unit: string | null,
+	description: string | null,
+	treatAsCounter: boolean
+): Promise<void> {
 	const request = new GeneratedSetMetricMetadataOverrideRequest();
 	request.metricName = metricName;
 	request.unit = unit;
 	request.description = description;
+	request.treatAsCounter = treatAsCounter;
 
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/metadata-overrides`, {
 		method: 'PUT',
@@ -301,7 +313,7 @@ export async function setMetricMetadataOverride(metricName: string, unit: string
 	}
 }
 
-/** `DELETE /api/metrics/metadata-overrides` - Admin-only. Reverts the metric to its emitted unit/description. */
+/** `DELETE /api/metrics/metadata-overrides` - Admin-only. Reverts the metric to its emitted unit/description and clears "treat as counter". */
 export async function resetMetricMetadataOverride(metricName: string): Promise<void> {
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/metadata-overrides?metricName=${encodeURIComponent(metricName)}`, {
 		method: 'DELETE'

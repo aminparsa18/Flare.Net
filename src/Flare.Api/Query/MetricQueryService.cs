@@ -126,7 +126,11 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
             series = series.ConvertAll(s => s with { Points = MetricPostProcessor.Apply(s.Points, functions) });
         }
 
-        return new MetricQueryResponse { Series = series };
+        return new MetricQueryResponse
+        {
+            Series = series,
+            TreatedAsCounter = request.Type == MetricPointType.Gauge && built.Type == MetricPointType.Sum,
+        };
     }
 
     public async Task<MetricAttributeKeysResponse> GetAttributeKeysAsync(MetricAttributeKeysRequest request, CancellationToken cancellationToken)

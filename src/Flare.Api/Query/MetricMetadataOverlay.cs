@@ -24,6 +24,15 @@ public static class MetricMetadataOverlay
             ? (emittedUnit, emittedDescription)
             : (metadataOverride.Unit ?? emittedUnit, metadataOverride.Description ?? emittedDescription);
 
+    /// <summary>
+    /// Resolves <see cref="MetricQueryRequest.TreatAsCounter"/>: an explicit value wins, null takes
+    /// the metric's admin setting (ADR-0066). Run before the query cache so the key carries it.
+    /// </summary>
+    public static MetricQueryRequest ResolveTreatAsCounter(MetricQueryRequest request, IReadOnlyDictionary<string, MetricMetadataOverride> overrides) =>
+        request.TreatAsCounter is not null || request.Type != MetricPointType.Gauge
+            ? request
+            : request with { TreatAsCounter = overrides.TryGetValue(request.MetricName, out var o) && o.TreatAsCounter };
+
     public static MetricNamesResponse Apply(MetricNamesResponse response, IReadOnlyDictionary<string, MetricMetadataOverride> overrides)
     {
         if (overrides.Count == 0)
@@ -50,22 +59,23 @@ public static class MetricMetadataOverlay
 
     /// <summary>
     /// Trims an incoming override: blank means "not overridden". Returns an error message when
-    /// both are blank or either is too long, otherwise null.
+    /// both are blank with <see cref="SetMetricMetadataOverrideRequest.TreatAsCounter"/> off, or
+    /// either is too long, otherwise null.
     /// </summary>
     public static string? Validate(SetMetricMetadataOverrideRequest request, out MetricMetadataOverride normalized)
     {
         var unit = string.IsNullOrWhiteSpace(request.Unit) ? null : request.Unit.Trim();
         var description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
-        normalized = new MetricMetadataOverride(request.MetricName?.Trim() ?? "", unit, description);
+        normalized = new MetricMetadataOverride(request.MetricName?.Trim() ?? "", unit, description, request.TreatAsCounter);
 
         if (normalized.MetricName.Length == 0)
         {
             return "metricName is required.";
         }
 
-        if (unit is null && description is null)
+        if (unit is null && description is null && !request.TreatAsCounter)
         {
-            return "Set a unit or a description - to remove an override, DELETE it instead.";
+            return "Set a unit, a description or treatAsCounter - to remove an override, DELETE it instead.";
         }
 
         if (unit?.Length > MaxUnitLength)

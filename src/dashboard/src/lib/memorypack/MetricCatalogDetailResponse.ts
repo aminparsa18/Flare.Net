@@ -24,6 +24,7 @@ export class MetricCatalogDetailResponse {
 	emittedUnit: string | null;
 	emittedDescription: string | null;
 	hasMetadataOverride: boolean;
+	treatAsCounter: boolean;
 
 	constructor() {
 		this.metricName = '';
@@ -37,6 +38,7 @@ export class MetricCatalogDetailResponse {
 		this.emittedUnit = null;
 		this.emittedDescription = null;
 		this.hasMetadataOverride = false;
+		this.treatAsCounter = false;
 	}
 
 	static serialize(value: MetricCatalogDetailResponse | null): Uint8Array {
@@ -51,7 +53,7 @@ export class MetricCatalogDetailResponse {
 			return;
 		}
 
-		writer.writeObjectHeader(11);
+		writer.writeObjectHeader(12);
 		writer.writeString(value.metricName);
 		writer.writeInt32(value.type);
 		writer.writeString(value.unit);
@@ -63,6 +65,7 @@ export class MetricCatalogDetailResponse {
 		writer.writeString(value.emittedUnit);
 		writer.writeString(value.emittedDescription);
 		writer.writeBoolean(value.hasMetadataOverride);
+		writer.writeBoolean(value.treatAsCounter);
 	}
 
 	static deserialize(buffer: ArrayBuffer): MetricCatalogDetailResponse | null {
@@ -76,7 +79,7 @@ export class MetricCatalogDetailResponse {
 		}
 
 		const value = new MetricCatalogDetailResponse();
-		if (count == 11) {
+		if (count == 12) {
 			value.metricName = reader.readString() ?? '';
 			value.type = reader.readInt32();
 			value.unit = reader.readString();
@@ -88,7 +91,8 @@ export class MetricCatalogDetailResponse {
 			value.emittedUnit = reader.readString();
 			value.emittedDescription = reader.readString();
 			value.hasMetadataOverride = reader.readBoolean();
-		} else if (count > 11) {
+			value.treatAsCounter = reader.readBoolean();
+		} else if (count > 12) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -113,6 +117,8 @@ export class MetricCatalogDetailResponse {
 			value.emittedDescription = reader.readString();
 			if (count == 10) return value;
 			value.hasMetadataOverride = reader.readBoolean();
+			if (count == 11) return value;
+			value.treatAsCounter = reader.readBoolean();
 		}
 		return value;
 	}

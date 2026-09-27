@@ -69,6 +69,49 @@ public class MetricSeriesQueryBuilderTests
     }
 
     [Fact]
+    public void Build_GaugeTreatedAsCounter_RunsSumShapeOverGaugeTable()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "http_requests_total", Type = MetricPointType.Gauge, BucketWidthSeconds = 60, TreatAsCounter = true }, Now);
+
+        Assert.Contains("FROM metrics_gauge", result.Sql);
+        Assert.DoesNotContain("metrics_sum", result.Sql);
+        Assert.Contains("WITH ranked AS (", result.Sql);
+        Assert.Contains("SeriesRowNum = 1, 0", result.Sql);
+        Assert.Contains("RawDelta < 0, Value", result.Sql);
+        Assert.Contains(")) AS Value, count() AS Count", result.Sql);
+        Assert.Contains("max(Value) - min(Value) AS RankValue", result.Sql);
+        // metrics_gauge has neither column - every row is a monotonic cumulative sample.
+        Assert.DoesNotContain("AggregationTemporality", result.Sql);
+        Assert.DoesNotContain("IsMonotonic", result.Sql);
+        Assert.DoesNotContain("avg(Value)", result.Sql);
+        Assert.Equal(MetricPointType.Sum, result.Type);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(null)]
+    public void Build_GaugeNotTreatedAsCounter_KeepsTheAverage(bool? treatAsCounter)
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60, TreatAsCounter = treatAsCounter }, Now);
+
+        Assert.Contains("avg(Value) AS Value", result.Sql);
+        Assert.Equal(MetricPointType.Gauge, result.Type);
+    }
+
+    [Fact]
+    public void Build_TreatAsCounter_IsIgnoredForNonGaugeTypes()
+    {
+        var result = MetricSeriesQueryBuilder.Build(
+            new MetricQueryRequest { MetricName = "http.server.request.count", Type = MetricPointType.Sum, BucketWidthSeconds = 60, TreatAsCounter = true }, Now);
+
+        Assert.Contains("FROM metrics_sum", result.Sql);
+        Assert.Contains("IsMonotonic = 0, RawDelta", result.Sql);
+        Assert.Equal(MetricPointType.Sum, result.Type);
+    }
+
+    [Fact]
     public void Build_Histogram_SumsTemporalityAwareContributions_PerBucket()
     {
         var result = MetricSeriesQueryBuilder.Build(

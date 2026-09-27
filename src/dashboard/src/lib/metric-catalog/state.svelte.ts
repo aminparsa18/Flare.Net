@@ -186,10 +186,10 @@ export class MetricCatalogState {
 	}
 
 	/** Admin-only on the server. Reloads the list and drill-down so both show the new values. */
-	async saveMetadataOverride(unit: string | null, description: string | null): Promise<void> {
+	async saveMetadataOverride(unit: string | null, description: string | null, treatAsCounter: boolean): Promise<void> {
 		const selected = this.selected;
 		if (selected == null) return;
-		await setMetricMetadataOverride(selected.metricName, unit, description);
+		await setMetricMetadataOverride(selected.metricName, unit, description, treatAsCounter);
 		this.refresh();
 	}
 

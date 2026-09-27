@@ -149,6 +149,7 @@ public sealed class MetricCatalogQueryService(
             EmittedUnit = unit,
             EmittedDescription = description,
             HasMetadataOverride = metadataOverride is not null,
+            TreatAsCounter = metadataOverride?.TreatAsCounter ?? false,
         };
     }
 

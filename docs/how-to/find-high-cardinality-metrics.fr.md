@@ -103,3 +103,17 @@ l'un des champs et enregistrez. Un champ vide conserve la valeur envoyée. Les
 nouvelles valeurs s'affichent pour tous dans le catalogue et l'explorateur de
 métriques, et la métrique est marquée **Edited**. **Reset to sent values**
 annule la modification.
+
+## Tracer une jauge comme un compteur
+
+Certains compteurs arrivent sous forme de Gauge. Une métrique Prometheus
+`*_total` sans type en est un cas courant. Son graphique montre alors le total
+cumulé au lieu de sa hausse. Pour corriger cela, un administrateur ouvre le
+panneau de la métrique, clique sur **Edit unit & description**, coche **Chart
+as a counter** et enregistre.
+
+Les graphiques de cette métrique fonctionnent alors comme ceux d'une Sum.
+Chaque intervalle montre la hausse, avec les modes **Rate**, **Sum** et
+**Count**. Une baisse de la valeur compte comme un redémarrage, pas comme une
+diminution. La métrique est marquée **Counter**. Les alertes sur cette
+métrique utilisent toujours sa valeur de jauge.

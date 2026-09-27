@@ -232,6 +232,9 @@ export interface MetricQueryRequest {
 	// series' points - see MetricQueryRequest.cs' PostProcessFunctions remarks. Omitted/
 	// undefined = no post-processing. Ignored server-side for Histogram series.
 	postProcessFunctions?: MetricPostProcessFunction[];
+	// Chart a Gauge like a counter (ADR-0066). Omitted = the metric's admin "treat as
+	// counter" setting, resolved server-side - callers normally leave it unset.
+	treatAsCounter?: boolean;
 }
 
 export interface MetricSeriesPoint {
@@ -262,6 +265,14 @@ export interface MetricSeries {
 
 export interface MetricQueryResponse {
 	series: MetricSeries[];
+	// A Gauge charted as a counter (ADR-0066): points are Sum-shaped, so callers should
+	// treat the result as 'Sum' (Rate/Increase/Count modes, sum reducer).
+	treatedAsCounter: boolean;
+}
+
+/** The type a query's points are shaped as - 'Sum' for a Gauge charted as a counter (ADR-0066). */
+export function effectiveResultType(requested: MetricPointType, response: MetricQueryResponse): MetricPointType {
+	return response.treatedAsCounter ? 'Sum' : requested;
 }
 
 function toMetricSeriesPoint(dto: GeneratedMetricSeriesPoint): MetricSeriesPoint {
@@ -307,6 +318,7 @@ export async function queryMetric(request: MetricQueryRequest, signal?: AbortSig
 					fn.windowSize = f.windowSize ?? null;
 					return fn;
 				});
+	dto.treatAsCounter = request.treatAsCounter ?? null;
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/query`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),
@@ -317,5 +329,5 @@ export async function queryMetric(request: MetricQueryRequest, signal?: AbortSig
 		throw new Error(`POST /api/metrics/query failed: ${res.status} ${res.statusText}`);
 	}
 	const body = GeneratedMetricQueryResponse.deserialize(await res.arrayBuffer());
-	return { series: (body?.series ?? []).map((s) => toMetricSeries(s!)) };
+	return { series: (body?.series ?? []).map((s) => toMetricSeries(s!)), treatedAsCounter: body?.treatedAsCounter ?? false };
 }

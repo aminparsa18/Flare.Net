@@ -8,7 +8,7 @@
 // directly for unit formatting/bucket-width picking, so values read with the exact same
 // ms<->s/B<->MB scaling the chart itself uses, not a "declared unit as-is" approximation.
 
-import { getMetricNames, isHistogramType, queryMetric, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
+import { effectiveResultType, getMetricNames, isHistogramType, queryMetric, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
 import { pickBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 import { resolveAxisScale, formatAtScale } from '$lib/metrics/axis';
 import type { TerminalCommand, TerminalWriter } from '../types';
@@ -250,10 +250,14 @@ export const metricCommand: TerminalCommand = {
 		}
 
 		const series = queryResponse.series;
+		// A Gauge the admin marked "treat as counter" comes back Sum-shaped (ADR-0066) - render
+		// it like a counter, in Sum's default mode (--mode was already rejected for a Gauge).
+		const type = effectiveResultType(metric.type, queryResponse);
+		if (type !== metric.type) mode = 'rate';
 
 		term.writeLine(`${metric.metricName} (${metric.type})`, 'info');
 		if (metric.description) term.writeLine(metric.description, 'info');
-		term.writeLine(`${series.length} series · ${formatBucketWidthSeconds(bucketWidthSeconds)} interval · mode: ${modeLabel(metric.type, mode)}`, 'info');
+		term.writeLine(`${series.length} series · ${formatBucketWidthSeconds(bucketWidthSeconds)} interval · mode: ${modeLabel(type, mode)}`, 'info');
 		term.writeLine('');
 
 		if (series.length === 0) {
@@ -263,7 +267,7 @@ export const metricCommand: TerminalCommand = {
 
 		for (const s of series.slice(0, MAX_SERIES)) {
 			const points = [...s.points].sort((a, b) => a.bucketStart.localeCompare(b.bucketStart));
-			if (isHistogramType(metric.type) && mode === 'percentiles') {
+			if (isHistogramType(type) && mode === 'percentiles') {
 				term.writeLine(seriesLabel(s), 'info');
 				formatRow('  p50', points.map((p) => p.p50), metric.unit, term);
 				formatRow('  p90', points.map((p) => p.p90), metric.unit, term);
@@ -271,8 +275,8 @@ export const metricCommand: TerminalCommand = {
 				continue;
 			}
 
-			const values = extractValues(points, metric.type, mode, bucketWidthSeconds);
-			formatRow(seriesLabel(s), values, modeUnit(metric.type, mode, metric.unit), term);
+			const values = extractValues(points, type, mode, bucketWidthSeconds);
+			formatRow(seriesLabel(s), values, modeUnit(type, mode, metric.unit), term);
 		}
 
 		if (series.length > MAX_SERIES) {

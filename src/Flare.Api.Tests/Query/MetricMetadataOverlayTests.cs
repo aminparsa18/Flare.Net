@@ -90,6 +90,44 @@ public class MetricMetadataOverlayTests
             new SetMetricMetadataOverrideRequest { MetricName = "m", Description = new string('d', MetricMetadataOverlay.MaxDescriptionLength + 1) }, out _));
     }
 
+    [Fact]
+    public void Validate_AcceptsTreatAsCounterAlone()
+    {
+        var error = MetricMetadataOverlay.Validate(
+            new SetMetricMetadataOverrideRequest { MetricName = "http_requests_total", TreatAsCounter = true }, out var normalized);
+
+        Assert.Null(error);
+        Assert.Equal(new MetricMetadataOverride("http_requests_total", null, null, TreatAsCounter: true), normalized);
+    }
+
+    [Fact]
+    public void ResolveTreatAsCounter_NullTakesTheAdminSetting()
+    {
+        var overrides = new Dictionary<string, MetricMetadataOverride>
+        {
+            ["http_requests_total"] = new("http_requests_total", null, null, TreatAsCounter: true),
+            ["queue.depth"] = new("queue.depth", "{message}", null),
+        };
+
+        Assert.True(MetricMetadataOverlay.ResolveTreatAsCounter(Query("http_requests_total", null), overrides).TreatAsCounter);
+        Assert.False(MetricMetadataOverlay.ResolveTreatAsCounter(Query("queue.depth", null), overrides).TreatAsCounter);
+        Assert.False(MetricMetadataOverlay.ResolveTreatAsCounter(Query("no.override", null), overrides).TreatAsCounter);
+    }
+
+    [Fact]
+    public void ResolveTreatAsCounter_ExplicitValueWins()
+    {
+        var overrides = new Dictionary<string, MetricMetadataOverride>
+        {
+            ["http_requests_total"] = new("http_requests_total", null, null, TreatAsCounter: true),
+        };
+
+        Assert.False(MetricMetadataOverlay.ResolveTreatAsCounter(Query("http_requests_total", false), overrides).TreatAsCounter);
+    }
+
+    private static MetricQueryRequest Query(string metric, bool? treatAsCounter) =>
+        new() { MetricName = metric, Type = MetricPointType.Gauge, BucketWidthSeconds = 60, TreatAsCounter = treatAsCounter };
+
     private static MetricNameInfo Name(string metric, string service) =>
         new() { MetricName = metric, ServiceName = service, Type = MetricPointType.Gauge, Unit = "1", Description = "emitted", SeriesCount = 1 };
 }

@@ -1935,5 +1935,9 @@
 	"metricMetadata_reset": "恢复为上报值",
 	"metricMetadata_save": "保存",
 	"metricMetadata_overridden": "已编辑",
-	"metricMetadata_overriddenTitle": "单位或描述已由管理员编辑"
+	"metricMetadata_overriddenTitle": "单位或描述已由管理员编辑",
+	"metricMetadata_treatAsCounter": "按计数器绘制",
+	"metricMetadata_treatAsCounterHint": "适用于以仪表（Gauge）上报的计数器，例如无类型的 Prometheus *_total 指标。图表显示每个区间的增量，而不是累计总数。",
+	"metricMetadata_counter": "计数器",
+	"metricMetadata_counterTitle": "已由管理员设置为按计数器绘制"
 }

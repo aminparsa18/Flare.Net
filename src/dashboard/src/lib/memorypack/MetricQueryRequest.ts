@@ -9,6 +9,7 @@
 // `MetricPostProcessFunction` itself has no DateTimeOffset/nesting problem, so it's a real
 // generated class (`$lib/generated/memorypack/MetricPostProcessFunction.js`), reused here
 // directly the same way MetricFilter.ts reuses the generated `MetricAttributeFilter`.
+// `treatAsCounter` was appended the same way for ADR-0066 (null = the metric's admin setting).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -25,6 +26,7 @@ export class MetricQueryRequest {
 	havingOperator: number | null;
 	havingValue: number | null;
 	postProcessFunctions: (MetricPostProcessFunction | null)[] | null;
+	treatAsCounter: boolean | null;
 
 	constructor() {
 		this.metricName = null;
@@ -36,6 +38,7 @@ export class MetricQueryRequest {
 		this.havingOperator = null;
 		this.havingValue = null;
 		this.postProcessFunctions = null;
+		this.treatAsCounter = null;
 	}
 
 	static serialize(value: MetricQueryRequest | null): Uint8Array {
@@ -50,7 +53,7 @@ export class MetricQueryRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(9);
+		writer.writeObjectHeader(10);
 		writer.writeString(value.metricName);
 		writer.writeInt32(value.type);
 		MetricFilter.serializeCore(writer, value.filter);
@@ -60,6 +63,7 @@ export class MetricQueryRequest {
 		writer.writeNullableInt32(value.havingOperator);
 		writer.writeNullableFloat64(value.havingValue);
 		writer.writeArray(value.postProcessFunctions, (writer, x) => MetricPostProcessFunction.serializeCore(writer, x));
+		writer.writeNullableBoolean(value.treatAsCounter);
 	}
 
 	static deserialize(buffer: ArrayBuffer): MetricQueryRequest | null {
@@ -73,7 +77,7 @@ export class MetricQueryRequest {
 		}
 
 		const value = new MetricQueryRequest();
-		if (count == 9) {
+		if (count == 10) {
 			value.metricName = reader.readString();
 			value.type = reader.readInt32();
 			value.filter = MetricFilter.deserializeCore(reader);
@@ -83,7 +87,8 @@ export class MetricQueryRequest {
 			value.havingOperator = reader.readNullableInt32();
 			value.havingValue = reader.readNullableFloat64();
 			value.postProcessFunctions = reader.readArray((reader) => MetricPostProcessFunction.deserializeCore(reader));
-		} else if (count > 9) {
+			value.treatAsCounter = reader.readNullableBoolean();
+		} else if (count > 10) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -105,6 +110,8 @@ export class MetricQueryRequest {
 			if (count == 8) return value;
 			value.postProcessFunctions = reader.readArray((reader) => MetricPostProcessFunction.deserializeCore(reader));
 			if (count == 9) return value;
+			value.treatAsCounter = reader.readNullableBoolean();
+			if (count == 10) return value;
 		}
 		return value;
 	}

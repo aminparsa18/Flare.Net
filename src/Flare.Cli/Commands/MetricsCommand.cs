@@ -220,6 +220,9 @@ internal sealed class MetricSeriesWire
 internal sealed class MetricQueryResponseWire
 {
     public List<MetricSeriesWire> Series { get; init; } = [];
+
+    /// <summary>A Gauge the admin marked "treat as counter" (ADR-0066) - its points are Sum-shaped.</summary>
+    public bool TreatedAsCounter { get; init; }
 }
 
 internal static class MetricsWireJsonOptions

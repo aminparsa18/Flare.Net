@@ -1882,5 +1882,9 @@
 	"metricMetadata_reset": "Вернуть присланные",
 	"metricMetadata_save": "Сохранить",
 	"metricMetadata_overridden": "Изменено",
-	"metricMetadata_overriddenTitle": "Единица или описание изменены администратором"
+	"metricMetadata_overriddenTitle": "Единица или описание изменены администратором",
+	"metricMetadata_treatAsCounter": "Строить как счётчик",
+	"metricMetadata_treatAsCounterHint": "Для счётчика, присланного как gauge, например нетипизированной метрики Prometheus *_total. Графики показывают прирост за интервал, а не накопленное значение.",
+	"metricMetadata_counter": "Счётчик",
+	"metricMetadata_counterTitle": "Администратор включил построение как счётчика"
 }

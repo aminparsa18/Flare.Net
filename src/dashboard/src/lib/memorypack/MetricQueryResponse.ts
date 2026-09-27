@@ -9,9 +9,11 @@ import { MetricSeries } from '$lib/memorypack/MetricSeries';
 
 export class MetricQueryResponse {
 	series: (MetricSeries | null)[] | null;
+	treatedAsCounter: boolean;
 
 	constructor() {
 		this.series = null;
+		this.treatedAsCounter = false;
 	}
 
 	static serialize(value: MetricQueryResponse | null): Uint8Array {
@@ -26,8 +28,9 @@ export class MetricQueryResponse {
 			return;
 		}
 
-		writer.writeObjectHeader(1);
+		writer.writeObjectHeader(2);
 		writer.writeArray(value.series, (writer, x) => MetricSeries.serializeCore(writer, x));
+		writer.writeBoolean(value.treatedAsCounter);
 	}
 
 	static deserialize(buffer: ArrayBuffer): MetricQueryResponse | null {
@@ -41,13 +44,16 @@ export class MetricQueryResponse {
 		}
 
 		const value = new MetricQueryResponse();
-		if (count == 1) {
+		if (count == 2) {
 			value.series = reader.readArray((reader) => MetricSeries.deserializeCore(reader));
-		} else if (count > 1) {
+			value.treatedAsCounter = reader.readBoolean();
+		} else if (count > 2) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
 			value.series = reader.readArray((reader) => MetricSeries.deserializeCore(reader));
+			if (count == 1) return value;
+			value.treatedAsCounter = reader.readBoolean();
 		}
 		return value;
 	}

@@ -15,6 +15,7 @@ import {
 	isHistogramType,
 	getMetricAttributeKeys,
 	queryMetric,
+	effectiveResultType,
 	type MetricAttributeKeyInfo,
 	type MetricHavingOperator,
 	type MetricNameInfo,
@@ -580,7 +581,9 @@ export class MetricsExplorerState {
 			this.queryRangeTo = range.to;
 			this.resultCompareEnabled = compareEnabled;
 			this.resultTimeShiftSeconds = timeShiftSeconds;
-			this.resultType = metric.type;
+			// 'Sum' for a Gauge the admin marked "treat as counter" (ADR-0066), so the chart
+			// offers Sum's Rate/Increase/Count modes.
+			this.resultType = effectiveResultType(metric.type, current);
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.queryError = err instanceof Error ? err.message : String(err);
