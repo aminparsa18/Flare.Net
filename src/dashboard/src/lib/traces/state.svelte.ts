@@ -5,7 +5,7 @@
 // waterfall/detail view is the value being built, not a live span firehose), so this is
 // simpler than LogsExplorerState: no connection/live/dropped-count fields at all.
 
-import { SPAN_SORT_KEYS, searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey } from '$lib/traces-api';
+import { SPAN_SORT_KEYS, searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey, type TraceStructureFilter } from '$lib/traces-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { durationBucketRange } from './duration-buckets';
 
@@ -36,14 +36,19 @@ export interface TracesFilterState {
 	/** List order (TraceList's clickable column headers) - like `entrySpansOnly`, a list setting "Clear filters" keeps. */
 	sortBy: SpanSortKey;
 	sortAscending: boolean;
+	/**
+	 * The applied structural query (TraceStructureEditor.svelte), `null` = none - only
+	 * traces whose span tree matches it are listed. See `SpanFilter.Structure` (SpanFilter.cs).
+	 */
+	structure: TraceStructureFilter | null;
 }
 
 /** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). The facet fields are optional: views saved before they existed simply lack them. */
-export type TracesSavedViewState = Omit<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly' | 'sortBy' | 'sortAscending'> &
-	Partial<Pick<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly' | 'sortBy' | 'sortAscending'>>;
+type OptionalSavedField = 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly' | 'sortBy' | 'sortAscending' | 'structure';
+export type TracesSavedViewState = Omit<TracesFilterState, OptionalSavedField> & Partial<Pick<TracesFilterState, OptionalSavedField>>;
 
 function emptyFilter(timeRangePreset: TimeRangePreset, services: string[] = [], attributeFilters: SpanAttributeFilter[] = []): TracesFilterState {
-	return { timeRangePreset, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null, entrySpansOnly: false, sortBy: 'StartTime', sortAscending: false };
+	return { timeRangePreset, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null, entrySpansOnly: false, sortBy: 'StartTime', sortAscending: false, structure: null };
 }
 
 export class TracesExplorerState {
@@ -75,6 +80,9 @@ export class TracesExplorerState {
 	 *  per-session UI preference ("keep this open and watch it"), not part of what a saved
 	 *  view reproduces, same call Logs' own `live` field makes for itself. */
 	autoRefreshEnabled = $state(false);
+
+	/** Whether TraceStructureEditor.svelte is shown - UI only, not saved (the applied `filter.structure` is). */
+	structureEditorOpen = $state(false);
 
 	#seenRowKeys = new Set<string>();
 	#searchAbort: AbortController | null = null;
@@ -140,6 +148,7 @@ export class TracesExplorerState {
 		}
 		const attributes = overrides?.attributeFilters ?? this.filter.attributeFilters;
 		if (attributes.length) filter.attributes = [...attributes];
+		if (this.filter.structure) filter.structure = this.filter.structure;
 		return filter;
 	}
 
@@ -267,6 +276,12 @@ export class TracesExplorerState {
 		void this.runSearch();
 	}
 
+	/** Applies (or, with `null`, removes) the structural query - TraceStructureEditor.svelte's Apply/Remove buttons. */
+	setStructure(structure: TraceStructureFilter | null): void {
+		this.filter.structure = structure;
+		void this.runSearch();
+	}
+
 	setEntrySpansOnly(entrySpansOnly: boolean): void {
 		if (entrySpansOnly === this.filter.entrySpansOnly) return;
 		this.filter.entrySpansOnly = entrySpansOnly;
@@ -295,7 +310,8 @@ export class TracesExplorerState {
 			this.filter.statusCodes.length > 0 ||
 			this.filter.kinds.length > 0 ||
 			this.filter.names.length > 0 ||
-			this.filter.durationBucketNano !== null
+			this.filter.durationBucketNano !== null ||
+			this.filter.structure !== null
 		);
 	}
 
@@ -326,7 +342,8 @@ export class TracesExplorerState {
 			durationBucketNano: this.filter.durationBucketNano,
 			entrySpansOnly: this.filter.entrySpansOnly,
 			sortBy: this.filter.sortBy,
-			sortAscending: this.filter.sortAscending
+			sortAscending: this.filter.sortAscending,
+			structure: this.filter.structure ? cloneStructure(this.filter.structure) : null
 		};
 	}
 
@@ -341,7 +358,8 @@ export class TracesExplorerState {
 			durationBucketNano: typeof s.durationBucketNano === 'number' ? s.durationBucketNano : null,
 			entrySpansOnly: s.entrySpansOnly === true,
 			sortBy: s.sortBy && SPAN_SORT_KEYS.includes(s.sortBy) ? s.sortBy : 'StartTime',
-			sortAscending: s.sortAscending === true
+			sortAscending: s.sortAscending === true,
+			structure: isStructure(s.structure) ? cloneStructure(s.structure) : null
 		};
 		void this.runSearch();
 	}
@@ -363,4 +381,17 @@ export class TracesExplorerState {
 		this.#searchAbort?.abort();
 		this.#stopAutoRefresh();
 	}
+}
+
+function cloneStructure(structure: TraceStructureFilter): TraceStructureFilter {
+	return {
+		expression: structure.expression,
+		conditions: structure.conditions.map((c) => ({ ...c, attributes: c.attributes?.map((a) => ({ ...a })) }))
+	};
+}
+
+/** A saved view's `structure`, defensively narrowed - views saved before it existed lack it. */
+function isStructure(value: unknown): value is TraceStructureFilter {
+	const v = value as Partial<TraceStructureFilter> | null | undefined;
+	return v != null && typeof v.expression === 'string' && Array.isArray(v.conditions);
 }

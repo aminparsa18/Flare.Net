@@ -9,6 +9,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import TracesViewTabs from './TracesViewTabs.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
+	import GitForkIcon from '@lucide/svelte/icons/git-fork';
 	import LogInIcon from '@lucide/svelte/icons/log-in';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import SearchIcon from '@lucide/svelte/icons/search';
@@ -110,6 +111,22 @@
 			onkeydown={(e) => e.key === 'Enter' && goToTrace()}
 		/>
 	</div>
+
+	<!-- Opens TraceStructureEditor under the filter row; the applied expression shows on the
+	     button so it's visible while the editor is closed. -->
+	<Button
+		variant={explorer.filter.structure ? 'secondary' : 'ghost'}
+		size="sm"
+		aria-pressed={explorer.structureEditorOpen}
+		title={m.tracesToolbar_structureTitle()}
+		onclick={() => (explorer.structureEditorOpen = !explorer.structureEditorOpen)}
+	>
+		<GitForkIcon data-icon="inline-start" />
+		{m.tracesToolbar_structureLabel()}
+		{#if explorer.filter.structure}
+			<code class="max-w-28 truncate font-mono text-xs">{explorer.filter.structure.expression}</code>
+		{/if}
+	</Button>
 
 	<!-- Root spans (one row per trace) vs. each service's entry spans - see
 	     TracesFilterState.entrySpansOnly. -->

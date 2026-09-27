@@ -208,6 +208,17 @@ vues enregistrées ordinaires. Voir
 [`../how-to/analyze-trace-funnels.fr.md`](../how-to/analyze-trace-funnels.fr.md)
 et [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md).
 
+Un bouton « Structure » dans la barre d'outils de la liste de traces filtre
+selon les relations entre les spans d'une trace : des conditions lettrées
+combinées avec `A -> B` (enfant direct), `A => B` (descendant à toute
+profondeur), AND, OR et NOT, par exemple « un span `checkout` avec un
+descendant `payment` en erreur ». C'est un champ de `SpanFilter`, évalué au
+moment de la requête comme une sous-requête sur `TraceId` : la liste, les
+facettes, les vues enregistrées et les panneaux de tableaux de bord le
+respectent tous. Voir
+[`../how-to/find-traces-by-structure.fr.md`](../how-to/find-traces-by-structure.fr.md)
+et [ADR-0069](../../docs-internal/adr/0069-structural-trace-queries.md).
+
 ### Messagerie
 
 `/messaging` — une ligne par topic Kafka, file RabbitMQ ou entité Service

@@ -202,6 +202,16 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 [`../how-to/analyze-trace-funnels.ru.md`](../how-to/analyze-trace-funnels.ru.md)
 и [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md).
 
+Кнопка «Структура» на панели инструментов списка трассировок фильтрует по
+связям между спанами трассировки: условия с буквами объединяются операторами
+`A -> B` (прямой потомок), `A => B` (потомок на любой глубине), AND, OR и
+NOT — например, «спан `checkout` с потомком `payment`, завершившимся
+ошибкой». Это поле `SpanFilter`, которое вычисляется во время запроса как
+подзапрос по `TraceId`, поэтому его учитывают список, фасеты, сохранённые
+представления и панели дашбордов. См.
+[`../how-to/find-traces-by-structure.ru.md`](../how-to/find-traces-by-structure.ru.md)
+и [ADR-0069](../../docs-internal/adr/0069-structural-trace-queries.md).
+
 ### Очереди сообщений
 
 `/messaging` — по строке на каждый топик Kafka, очередь RabbitMQ или

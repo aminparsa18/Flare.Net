@@ -7,6 +7,7 @@ import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js'
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
 import { readNullableDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
 import { SpanAttributeFilter } from '$lib/memorypack/SpanAttributeFilter';
+import { TraceStructureFilter } from '$lib/memorypack/TraceStructureFilter';
 
 export class SpanFilter {
 	from: Date | null;
@@ -21,6 +22,7 @@ export class SpanFilter {
 	attributes: (SpanAttributeFilter | null)[] | null;
 	names: (string | null)[] | null;
 	entrySpansOnly: boolean;
+	structure: TraceStructureFilter | null;
 
 	constructor() {
 		this.from = null;
@@ -35,6 +37,7 @@ export class SpanFilter {
 		this.attributes = null;
 		this.names = null;
 		this.entrySpansOnly = false;
+		this.structure = null;
 	}
 
 	static serialize(value: SpanFilter | null): Uint8Array {
@@ -49,7 +52,7 @@ export class SpanFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(12);
+		writer.writeObjectHeader(13);
 		writeNullableDateTimeOffset(writer, value.from);
 		writeNullableDateTimeOffset(writer, value.to);
 		writer.writeArray(value.services, (writer, x) => writer.writeString(x));
@@ -62,6 +65,7 @@ export class SpanFilter {
 		writer.writeArray(value.attributes, (writer, x) => SpanAttributeFilter.serializeCore(writer, x));
 		writer.writeArray(value.names, (writer, x) => writer.writeString(x));
 		writer.writeBoolean(value.entrySpansOnly);
+		TraceStructureFilter.serializeCore(writer, value.structure);
 	}
 
 	static deserialize(buffer: ArrayBuffer): SpanFilter | null {
@@ -75,7 +79,7 @@ export class SpanFilter {
 		}
 
 		const value = new SpanFilter();
-		if (count == 12) {
+		if (count == 13) {
 			value.from = readNullableDateTimeOffset(reader);
 			value.to = readNullableDateTimeOffset(reader);
 			value.services = reader.readArray((reader) => reader.readString());
@@ -88,7 +92,8 @@ export class SpanFilter {
 			value.attributes = reader.readArray((reader) => SpanAttributeFilter.deserializeCore(reader));
 			value.names = reader.readArray((reader) => reader.readString());
 			value.entrySpansOnly = reader.readBoolean();
-		} else if (count > 12) {
+			value.structure = TraceStructureFilter.deserializeCore(reader);
+		} else if (count > 13) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -116,6 +121,8 @@ export class SpanFilter {
 			if (count == 11) return value;
 			value.entrySpansOnly = reader.readBoolean();
 			if (count == 12) return value;
+			value.structure = TraceStructureFilter.deserializeCore(reader);
+			if (count == 13) return value;
 		}
 		return value;
 	}
