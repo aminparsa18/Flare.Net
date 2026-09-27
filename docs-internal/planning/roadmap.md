@@ -121,15 +121,3 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **`ParseJson` (flatten) pipeline-rule action.** Many apps log a JSON
-  string as the body (Serilog JSON formatter, Console JSON, Node/Python
-  loggers); Flare can *query* it (body-JSON filters) but pipeline rules
-  only have `ExtractRegex`/`RedactRegex`, so those fields never become
-  real attributes (no facets, group-by, pinned attributes or attribute
-  actions on them). Add a `ParseJson` action that parses the body and
-  flattens nested keys into attributes (`{"user":{"id":7}}` →
-  `user.id=7`), with optional key prefix, max depth and max key count
-  so a huge body can't blow up the attribute map - in both the ingest
-  executor and the Api preview mirror (ADR-0033/0034). Medium. Not
-  started. Prior art: [signoz#8227](https://github.com/SigNoz/signoz/commit/d6eed8e79dae5281839b461f46c1fbffe44b8bca),
-  UI [signoz#8331](https://github.com/SigNoz/signoz/commit/ddb08b388362c339e3d152d43ead6f1df235f35a).

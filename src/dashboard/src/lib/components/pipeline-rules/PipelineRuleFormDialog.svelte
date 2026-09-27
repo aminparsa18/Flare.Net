@@ -20,33 +20,64 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 
-	/** A form-editable draft of one `PipelineRuleAction` - flat fields regardless of `kind`, converted to the kind-specific wire shape in `buildRequest()`. `replacement` is only meaningful for `RedactRegex`. */
+	/** A form-editable draft of one `PipelineRuleAction` - flat fields regardless of `kind`, converted to the kind-specific wire shape in `buildRequest()`. `pattern` is only meaningful for the regex kinds, `replacement` only for `RedactRegex`, `keyPrefix`/`maxDepth`/`maxKeys` only for `ParseJson` (null = server default). */
 	interface ActionDraft {
 		kind: RuleActionKind;
 		sourceAttributeKey: string;
 		pattern: string;
 		replacement: string;
+		keyPrefix: string;
+		maxDepth: number | null;
+		maxKeys: number | null;
 	}
 
 	function newActionDraft(): ActionDraft {
-		return { kind: 'ExtractRegex', sourceAttributeKey: '', pattern: '', replacement: '***' };
+		return { kind: 'ExtractRegex', sourceAttributeKey: '', pattern: '', replacement: '***', keyPrefix: '', maxDepth: null, maxKeys: null };
 	}
 
 	function draftFromAction(action: PipelineRuleAction): ActionDraft {
+		const draft = newActionDraft();
 		if (action.kind === 'RedactRegex') {
 			return {
+				...draft,
 				kind: 'RedactRegex',
 				sourceAttributeKey: action.redactRegex?.sourceAttributeKey ?? '',
 				pattern: action.redactRegex?.pattern ?? '',
 				replacement: action.redactRegex?.replacement ?? '***'
 			};
 		}
+		if (action.kind === 'ParseJson') {
+			return {
+				...draft,
+				kind: 'ParseJson',
+				sourceAttributeKey: action.parseJson?.sourceAttributeKey ?? '',
+				keyPrefix: action.parseJson?.keyPrefix ?? '',
+				maxDepth: action.parseJson?.maxDepth ?? null,
+				maxKeys: action.parseJson?.maxKeys ?? null
+			};
+		}
 		return {
+			...draft,
 			kind: 'ExtractRegex',
 			sourceAttributeKey: action.extractRegex?.sourceAttributeKey ?? '',
-			pattern: action.extractRegex?.pattern ?? '',
-			replacement: '***'
+			pattern: action.extractRegex?.pattern ?? ''
 		};
+	}
+
+	/** `ParseJson` needs no pattern; the regex kinds do. Limits aren't checked here - the server's `Validate` rejects out-of-range ones with a specific message. */
+	function isActionComplete(action: ActionDraft): boolean {
+		return action.kind === 'ParseJson' || action.pattern.trim().length > 0;
+	}
+
+	function kindLabel(kind: RuleActionKind): string {
+		if (kind === 'RedactRegex') return m.pipelineRuleForm_kindRedact();
+		if (kind === 'ParseJson') return m.pipelineRuleForm_kindParseJson();
+		return m.pipelineRuleForm_kindExtract();
+	}
+
+	/** A cleared `<input type="number">` binds `null` (or `undefined`); anything non-finite goes back to "use the server default." */
+	function optionalLimit(value: number | null | undefined): number | undefined {
+		return value != null && Number.isFinite(value) ? value : undefined;
 	}
 
 	const pipelineRules = pipelineRulesContext.get();
@@ -140,7 +171,7 @@
 	}
 
 	const canSave = $derived(
-		name.trim().length > 0 && actions.length > 0 && actions.every((a) => a.pattern.trim().length > 0)
+		name.trim().length > 0 && actions.length > 0 && actions.every(isActionComplete)
 	);
 
 	function buildRequest(): PipelineRuleRequest {
@@ -153,22 +184,24 @@
 				severityNumbers: severityNumbers.length ? [...severityNumbers] : undefined,
 				search: search.trim() || undefined
 			},
-			actions: actions.map(
-				(a): PipelineRuleAction =>
-					a.kind === 'RedactRegex'
-						? {
-								kind: 'RedactRegex',
-								redactRegex: {
-									sourceAttributeKey: a.sourceAttributeKey.trim() || undefined,
-									pattern: a.pattern.trim(),
-									replacement: a.replacement
-								}
-							}
-						: {
-								kind: 'ExtractRegex',
-								extractRegex: { sourceAttributeKey: a.sourceAttributeKey.trim() || undefined, pattern: a.pattern.trim() }
-							}
-			)
+			actions: actions.map((a): PipelineRuleAction => {
+				const sourceAttributeKey = a.sourceAttributeKey.trim() || undefined;
+				if (a.kind === 'RedactRegex') {
+					return { kind: 'RedactRegex', redactRegex: { sourceAttributeKey, pattern: a.pattern.trim(), replacement: a.replacement } };
+				}
+				if (a.kind === 'ParseJson') {
+					return {
+						kind: 'ParseJson',
+						parseJson: {
+							sourceAttributeKey,
+							keyPrefix: a.keyPrefix.trim() || undefined,
+							maxDepth: optionalLimit(a.maxDepth),
+							maxKeys: optionalLimit(a.maxKeys)
+						}
+					};
+				}
+				return { kind: 'ExtractRegex', extractRegex: { sourceAttributeKey, pattern: a.pattern.trim() } };
+			})
 		};
 	}
 
@@ -262,11 +295,12 @@
 						<div class="flex items-center gap-2">
 							<Select.Root type="single" value={action.kind} onValueChange={(v) => v && (action.kind = v as RuleActionKind)}>
 								<Select.Trigger class="w-40">
-									{action.kind === 'RedactRegex' ? m.pipelineRuleForm_kindRedact() : m.pipelineRuleForm_kindExtract()}
+									{kindLabel(action.kind)}
 								</Select.Trigger>
 								<Select.Content>
 									<Select.Item value="ExtractRegex" label={m.pipelineRuleForm_kindExtract()} />
 									<Select.Item value="RedactRegex" label={m.pipelineRuleForm_kindRedact()} />
+									<Select.Item value="ParseJson" label={m.pipelineRuleForm_kindParseJson()} />
 								</Select.Content>
 							</Select.Root>
 							<Input bind:value={action.sourceAttributeKey} placeholder={m.pipelineRuleForm_sourcePlaceholder()} class="flex-1" />
@@ -281,15 +315,40 @@
 								<Trash2Icon />
 							</Button>
 						</div>
-						<Input
-							bind:value={action.pattern}
-							placeholder={action.kind === 'ExtractRegex' ? m.pipelineRuleForm_patternExtractPlaceholder() : m.pipelineRuleForm_patternRedactPlaceholder()}
-							class="font-mono text-xs"
-						/>
-						{#if action.kind === 'ExtractRegex'}
-							<span class="text-muted-foreground text-xs">{m.pipelineRuleForm_extractHint()}</span>
+						{#if action.kind === 'ParseJson'}
+							<div class="flex items-center gap-2">
+								<Input bind:value={action.keyPrefix} placeholder={m.pipelineRuleForm_keyPrefixPlaceholder()} class="flex-1 font-mono text-xs" />
+								<Input
+									type="number"
+									min={1}
+									max={10}
+									bind:value={action.maxDepth}
+									placeholder={m.pipelineRuleForm_maxDepthPlaceholder()}
+									title={m.pipelineRuleForm_maxDepthPlaceholder()}
+									class="w-24 text-xs"
+								/>
+								<Input
+									type="number"
+									min={1}
+									max={500}
+									bind:value={action.maxKeys}
+									placeholder={m.pipelineRuleForm_maxKeysPlaceholder()}
+									title={m.pipelineRuleForm_maxKeysPlaceholder()}
+									class="w-24 text-xs"
+								/>
+							</div>
+							<span class="text-muted-foreground text-xs">{m.pipelineRuleForm_parseJsonHint()}</span>
 						{:else}
-							<Input bind:value={action.replacement} placeholder={m.pipelineRuleForm_replacementPlaceholder()} class="font-mono text-xs" />
+							<Input
+								bind:value={action.pattern}
+								placeholder={action.kind === 'ExtractRegex' ? m.pipelineRuleForm_patternExtractPlaceholder() : m.pipelineRuleForm_patternRedactPlaceholder()}
+								class="font-mono text-xs"
+							/>
+							{#if action.kind === 'ExtractRegex'}
+								<span class="text-muted-foreground text-xs">{m.pipelineRuleForm_extractHint()}</span>
+							{:else}
+								<Input bind:value={action.replacement} placeholder={m.pipelineRuleForm_replacementPlaceholder()} class="font-mono text-xs" />
+							{/if}
 						{/if}
 					</div>
 				{/each}
@@ -301,7 +360,7 @@
 			</div>
 
 			<div class="flex flex-wrap items-center gap-2 border-t pt-3">
-				<Button variant="outline" size="sm" onclick={handlePreview} disabled={previewing || !actions.some((a) => a.pattern.trim().length > 0)}>
+				<Button variant="outline" size="sm" onclick={handlePreview} disabled={previewing || !actions.some(isActionComplete)}>
 					{#if previewing}
 						<Spinner class="size-3.5" />
 					{/if}

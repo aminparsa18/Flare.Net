@@ -135,6 +135,74 @@ public class PipelineRuleActionExecutorTests
         Assert.Equal("card **** for user_id=42", result.Body);
     }
 
+    [Fact]
+    public void Apply_ParseJson_FromBody_FlattensNestedKeys()
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"msg":"login","user":{"id":7,"name":"ada","admin":true},"missing":null}""" };
+
+        var result = PipelineRuleActionExecutor.Apply(logEvent, [ParseJson(new ParseJsonAction())]);
+
+        Assert.Equal("login", result.LogAttributes["msg"]);
+        Assert.Equal("7", result.LogAttributes["user.id"]);
+        Assert.Equal("ada", result.LogAttributes["user.name"]);
+        Assert.Equal("true", result.LogAttributes["user.admin"]);
+        Assert.False(result.LogAttributes.ContainsKey("missing")); // null is skipped, not written as "null".
+        Assert.Equal(logEvent.Body, result.Body); // Parsing never mutates the source.
+    }
+
+    [Fact]
+    public void Apply_ParseJson_ArraysAndObjectsPastMaxDepth_KeptAsRawJson()
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"tags":["a","b"],"a":{"b":{"c":1}}}""" };
+
+        var result = PipelineRuleActionExecutor.Apply(logEvent, [ParseJson(new ParseJsonAction { MaxDepth = 2 })]);
+
+        Assert.Equal("""["a","b"]""", result.LogAttributes["tags"]);
+        Assert.Equal("""{"c":1}""", result.LogAttributes["a.b"]);
+        Assert.False(result.LogAttributes.ContainsKey("a.b.c"));
+    }
+
+    [Fact]
+    public void Apply_ParseJson_KeyPrefixAndMaxKeys()
+    {
+        var logEvent = MinimalLogEvent() with { Body = """{"a":1,"b":2,"c":3}""" };
+
+        var result = PipelineRuleActionExecutor.Apply(logEvent, [ParseJson(new ParseJsonAction { KeyPrefix = "json.", MaxKeys = 2 })]);
+
+        Assert.Equal("1", result.LogAttributes["json.a"]);
+        Assert.Equal("2", result.LogAttributes["json.b"]);
+        Assert.Equal(2, result.LogAttributes.Count); // Document order - "c" is the one cut off.
+    }
+
+    [Fact]
+    public void Apply_ParseJson_FromAttribute_OverwritesExistingKey()
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["payload"] = """{"status":"ok"}""", ["status"] = "old" },
+        };
+
+        var result = PipelineRuleActionExecutor.Apply(logEvent, [ParseJson(new ParseJsonAction { SourceAttributeKey = "payload" })]);
+
+        Assert.Equal("ok", result.LogAttributes["status"]);
+    }
+
+    [Theory]
+    [InlineData("plain text body")]
+    [InlineData("{not json")]
+    [InlineData("[1,2,3]")]
+    [InlineData("{}")]
+    public void Apply_ParseJson_NonObjectOrEmpty_LeavesEventUnchanged(string body)
+    {
+        var logEvent = MinimalLogEvent() with { Body = body };
+
+        var result = PipelineRuleActionExecutor.Apply(logEvent, [ParseJson(new ParseJsonAction())]);
+
+        Assert.Same(logEvent, result);
+    }
+
+    private static PipelineRuleAction ParseJson(ParseJsonAction parse) => new() { Kind = RuleActionKind.ParseJson, ParseJson = parse };
+
     private static LogEventDto MinimalLogEvent() => new()
     {
         EventId = Guid.NewGuid(),

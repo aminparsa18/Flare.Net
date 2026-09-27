@@ -32,7 +32,13 @@
 
 	function summarizeActions(rule: PipelineRule): string {
 		return rule.actions
-			.map((a) => (a.kind === 'ExtractRegex' ? m.pipelineRuleTable_actionExtract() : m.pipelineRuleTable_actionRedact()))
+			.map((a) =>
+				a.kind === 'ExtractRegex'
+					? m.pipelineRuleTable_actionExtract()
+					: a.kind === 'ParseJson'
+						? m.pipelineRuleTable_actionParseJson()
+						: m.pipelineRuleTable_actionRedact()
+			)
 			.join(', ');
 	}
 

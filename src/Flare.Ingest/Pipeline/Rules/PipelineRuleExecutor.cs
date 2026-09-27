@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Flare.Ingest.Model;
 
@@ -13,6 +14,9 @@ namespace Flare.Ingest.Pipeline.Rules;
 /// via immutable <c>with</c> copies" style as <c>Patterns.LogPatternAnnotator</c>.
 /// </summary>
 /// <remarks>
+/// A <see cref="RuleActionKind.ParseJson"/> source that isn't a JSON object (plain text,
+/// malformed, an array/scalar at the root, or nested past <see cref="JsonDocument"/>'s own
+/// 64-level limit) is likewise a no-op for that event.
 /// A pattern that fails to compile or exceeds its match timeout is skipped (the action is
 /// a no-op for that event) rather than throwing - same fail-closed posture
 /// <c>LogFilterMatcher.RegexMatches</c> documents, and doubly redundant here since
@@ -49,6 +53,7 @@ public static class PipelineRuleExecutor
     {
         RuleActionKind.ExtractRegex when action.ExtractRegex is { } extract => ApplyExtract(logEvent, extract),
         RuleActionKind.RedactRegex when action.RedactRegex is { } redact => ApplyRedact(logEvent, redact),
+        RuleActionKind.ParseJson when action.ParseJson is { } parse => ApplyParseJson(logEvent, parse),
         _ => logEvent,
     };
 
@@ -121,6 +126,76 @@ public static class PipelineRuleExecutor
         }
 
         return WriteSource(logEvent, redact.SourceAttributeKey, redacted);
+    }
+
+    private static LogEvent ApplyParseJson(LogEvent logEvent, ParseJsonAction parse)
+    {
+        var source = ReadSource(logEvent, parse.SourceAttributeKey);
+        if (source is null || !source.AsSpan().TrimStart().StartsWith("{"))
+        {
+            return logEvent; // Cheap pre-check - most bodies are plain text, not worth a parse attempt.
+        }
+
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(source);
+        }
+        catch (JsonException)
+        {
+            return logEvent;
+        }
+
+        using (document)
+        {
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return logEvent;
+            }
+
+            var maxDepth = Math.Clamp(parse.MaxDepth ?? ParseJsonAction.DefaultMaxDepth, 1, ParseJsonAction.MaxDepthLimit);
+            var maxKeys = Math.Clamp(parse.MaxKeys ?? ParseJsonAction.DefaultMaxKeys, 1, ParseJsonAction.MaxKeysLimit);
+            var attributes = new Dictionary<string, string>(logEvent.LogAttributes);
+            var written = 0;
+            Flatten(document.RootElement, parse.KeyPrefix ?? "", 1, maxDepth, maxKeys, attributes, ref written);
+            return written == 0 ? logEvent : logEvent with { LogAttributes = attributes };
+        }
+    }
+
+    /// <summary>Depth-first, document order - so when <paramref name="maxKeys"/> cuts off, it's the later keys that are dropped.</summary>
+    private static void Flatten(JsonElement obj, string prefix, int depth, int maxDepth, int maxKeys, Dictionary<string, string> into, ref int written)
+    {
+        foreach (var property in obj.EnumerateObject())
+        {
+            if (written >= maxKeys)
+            {
+                return;
+            }
+
+            if (property.Name.Length == 0)
+            {
+                continue;
+            }
+
+            var key = prefix + property.Name;
+            var value = property.Value;
+            switch (value.ValueKind)
+            {
+                case JsonValueKind.Object when depth < maxDepth:
+                    Flatten(value, key + ".", depth + 1, maxDepth, maxKeys, into, ref written);
+                    break;
+                case JsonValueKind.Null:
+                    break;
+                case JsonValueKind.String:
+                    into[key] = value.GetString()!;
+                    written++;
+                    break;
+                default: // Number/True/False, arrays, and objects past maxDepth - raw JSON text.
+                    into[key] = value.GetRawText();
+                    written++;
+                    break;
+            }
+        }
     }
 
     /// <summary><see langword="null"/> = <c>Body</c>, matching <see cref="ExtractRegexAction.SourceAttributeKey"/>/<see cref="RedactRegexAction.SourceAttributeKey"/>'s own doc comments.</summary>

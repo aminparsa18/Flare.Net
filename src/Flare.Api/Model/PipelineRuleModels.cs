@@ -11,6 +11,9 @@ public enum RuleActionKind
 
     /// <summary>Replaces every regex match in a source field with a fixed mask. See <see cref="PipelineRuleAction.RedactRegex"/>.</summary>
     RedactRegex,
+
+    /// <summary>Parses a source field as a JSON object and flattens its keys into <c>LogAttributes</c>. See <see cref="PipelineRuleAction.ParseJson"/>.</summary>
+    ParseJson,
 }
 
 /// <summary>
@@ -49,6 +52,46 @@ public sealed partial record RedactRegexAction
 }
 
 /// <summary>
+/// <see cref="RuleActionKind.ParseJson"/>'s config: parse <see cref="SourceAttributeKey"/>
+/// (or <c>Body</c> when null) as a JSON object and flatten it into <c>LogAttributes</c> -
+/// nested object keys are joined with <c>.</c> (<c>{"user":{"id":7}}</c> → <c>user.id=7</c>),
+/// strings are written unquoted, numbers/booleans as their JSON text, <c>null</c> is
+/// skipped, and arrays (plus any object nested deeper than <see cref="MaxDepth"/>) are kept
+/// whole as their raw JSON text rather than index-flattened. A source that isn't a JSON
+/// object is left alone. Flattened keys overwrite an existing attribute of the same name,
+/// same as <see cref="ExtractRegexAction"/>'s named groups do - set
+/// <see cref="KeyPrefix"/> to keep them apart. See
+/// docs-internal/adr/0070-pipeline-rules-parse-json.md.
+/// </summary>
+/// <remarks>
+/// <see cref="MaxDepth"/>/<see cref="MaxKeys"/> are nullable rather than defaulted with a C#
+/// initializer - same "omitted vs explicit" reasoning as <see cref="PipelineRuleRequest"/>'s
+/// remarks - and resolved against <see cref="DefaultMaxDepth"/>/<see cref="DefaultMaxKeys"/>
+/// by the executors.
+/// </remarks>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record ParseJsonAction
+{
+    public const int DefaultMaxDepth = 5;
+    public const int MaxDepthLimit = 10;
+    public const int DefaultMaxKeys = 100;
+    public const int MaxKeysLimit = 500;
+
+    /// <summary>Attribute key in the <c>Log</c> bag to parse; <see langword="null"/> (the default) parses <c>Body</c> instead.</summary>
+    public string? SourceAttributeKey { get; init; }
+
+    /// <summary>Prepended verbatim to every flattened key, e.g. <c>json.</c> → <c>json.user.id</c>. Null/empty = no prefix.</summary>
+    public string? KeyPrefix { get; init; }
+
+    /// <summary>How many object levels to flatten (1 = top-level keys only); a deeper object is kept as raw JSON text. Null = <see cref="DefaultMaxDepth"/>, at most <see cref="MaxDepthLimit"/>.</summary>
+    public int? MaxDepth { get; init; }
+
+    /// <summary>Stop after writing this many attributes, so a huge body can't blow up the attribute map. Null = <see cref="DefaultMaxKeys"/>, at most <see cref="MaxKeysLimit"/>.</summary>
+    public int? MaxKeys { get; init; }
+}
+
+/// <summary>
 /// One step of a <see cref="PipelineRule"/>'s ordered action list. One flat record with
 /// nullable kind-specific groups gated by <see cref="Kind"/>, same discriminator shape
 /// <see cref="AlertRule"/>'s <see cref="AlertConditionKind"/>/<see cref="AlertRule.MetricCondition"/>/
@@ -65,6 +108,9 @@ public sealed partial record PipelineRuleAction
 
     /// <summary>Set (non-null) only when <see cref="Kind"/> is <see cref="RuleActionKind.RedactRegex"/>; null/ignored otherwise.</summary>
     public RedactRegexAction? RedactRegex { get; init; }
+
+    /// <summary>Set (non-null) only when <see cref="Kind"/> is <see cref="RuleActionKind.ParseJson"/>; null/ignored otherwise. Last member so older MemoryPack payloads (3 members) still deserialize.</summary>
+    public ParseJsonAction? ParseJson { get; init; }
 }
 
 /// <summary>
@@ -127,9 +173,10 @@ public sealed partial record PipelineRuleRequest
 
     /// <summary>
     /// At least one action, each with exactly its <see cref="RuleActionKind"/>'s matching
-    /// group set, a syntactically valid <see cref="Regex"/> pattern, and (for
+    /// group set, a syntactically valid <see cref="Regex"/> pattern (regex kinds), (for
     /// <see cref="RuleActionKind.ExtractRegex"/>) at least one named capture group - a
-    /// pattern with only positional groups would silently extract nothing. Called from
+    /// pattern with only positional groups would silently extract nothing - and (for
+    /// <see cref="RuleActionKind.ParseJson"/>) in-range depth/key limits. Called from
     /// <c>PipelineRuleEndpoints</c>'s create/update handlers. Returns an error message, or
     /// null when this request is valid.
     /// </summary>
@@ -143,11 +190,12 @@ public sealed partial record PipelineRuleRequest
         for (var i = 0; i < Actions.Count; i++)
         {
             var action = Actions[i];
+            var groupsSet = (action.ExtractRegex is null ? 0 : 1) + (action.RedactRegex is null ? 0 : 1) + (action.ParseJson is null ? 0 : 1);
             if (action.Kind == RuleActionKind.ExtractRegex)
             {
-                if (action.ExtractRegex is null || action.RedactRegex is not null)
+                if (action.ExtractRegex is null || groupsSet != 1)
                 {
-                    return $"actions[{i}]: extractRegex must be set (and redactRegex unset) when kind is ExtractRegex.";
+                    return $"actions[{i}]: extractRegex must be set (and every other action group unset) when kind is ExtractRegex.";
                 }
 
                 if (!TryCompile(action.ExtractRegex.Pattern, out var regex, out var error))
@@ -162,14 +210,31 @@ public sealed partial record PipelineRuleRequest
             }
             else if (action.Kind == RuleActionKind.RedactRegex)
             {
-                if (action.RedactRegex is null || action.ExtractRegex is not null)
+                if (action.RedactRegex is null || groupsSet != 1)
                 {
-                    return $"actions[{i}]: redactRegex must be set (and extractRegex unset) when kind is RedactRegex.";
+                    return $"actions[{i}]: redactRegex must be set (and every other action group unset) when kind is RedactRegex.";
                 }
 
                 if (!TryCompile(action.RedactRegex.Pattern, out _, out var error))
                 {
                     return $"actions[{i}]: {error}";
+                }
+            }
+            else if (action.Kind == RuleActionKind.ParseJson)
+            {
+                if (action.ParseJson is null || groupsSet != 1)
+                {
+                    return $"actions[{i}]: parseJson must be set (and every other action group unset) when kind is ParseJson.";
+                }
+
+                if (action.ParseJson.MaxDepth is < 1 or > ParseJsonAction.MaxDepthLimit)
+                {
+                    return $"actions[{i}]: maxDepth must be between 1 and {ParseJsonAction.MaxDepthLimit}.";
+                }
+
+                if (action.ParseJson.MaxKeys is < 1 or > ParseJsonAction.MaxKeysLimit)
+                {
+                    return $"actions[{i}]: maxKeys must be between 1 and {ParseJsonAction.MaxKeysLimit}.";
                 }
             }
         }
@@ -205,8 +270,9 @@ public sealed partial record PipelineRuleListResponse
 /// One sampled log's before/after preview - see
 /// <see cref="PipelineRulePreviewResult"/>'s remarks. <see cref="BeforeAttributes"/>/
 /// <see cref="AfterAttributes"/> carry only the <c>Log</c> attribute bag, the one
-/// <see cref="RuleActionKind.ExtractRegex"/>/<see cref="RuleActionKind.RedactRegex"/> can
-/// ever touch (see <c>ExtractRegexAction.SourceAttributeKey</c>'s doc comment) - Resource/
+/// <see cref="RuleActionKind.ExtractRegex"/>/<see cref="RuleActionKind.RedactRegex"/>/
+/// <see cref="RuleActionKind.ParseJson"/> can ever touch (see
+/// <c>ExtractRegexAction.SourceAttributeKey</c>'s doc comment) - Resource/
 /// Scope attributes are never mutated, so showing them here would only add noise.
 /// </summary>
 [MemoryPackable]
