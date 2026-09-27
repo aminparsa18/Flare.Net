@@ -225,6 +225,25 @@ chart's axis: if a threshold's value falls outside the visible range, its
 line isn't drawn. Set a Y-axis range to bring it into view. Like the rest of
 a panel's definition, thresholds are saved with the dashboard.
 
+## Placing the legend and pinning series colors
+
+In edit mode, a Metrics panel whose visualization draws a legend (time
+series, bar, stacked bar, or pie) has a **list** icon in its header. Use it
+to set where the legend sits: **Bottom**, **Right** (a scrollable column
+beside the chart), or **Hidden**. **Default** keeps the visualization's
+usual place, which is below the chart for lines and bars and beside it for
+a pie.
+
+The same popover lists the series the panel is currently showing, so you
+can pin any of them to a fixed color (red, orange, yellow, green, blue, or
+purple). For example, you can always draw the `/checkout` route in red. Series
+you leave on **Default** keep their automatic palette color. An override
+is keyed by the series' full label (service name plus every attribute), so
+it applies in every visualization of that panel. If a series with an
+override drops out of the result, the popover shows it struck through so
+you can reset it. **Reset** clears both the position and every color
+override.
+
 ## Overriding the time range for a session
 
 The **time range** picker in a dashboard's header (next to Edit) lets you

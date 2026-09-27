@@ -21,20 +21,31 @@
 	import { seriesLabel } from '$lib/dashboards/visualization';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import YAxisScaleToggle from './YAxisScaleToggle.svelte';
-	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
+	import { legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
 	import * as m from '$lib/paraglide/messages';
 	import { formatChartTime } from '$lib/time/format';
 
 	// yAxisMin/yAxisMax: same soft Y-axis floor/ceiling MetricChart.svelte's own props of
 	// the same name apply (DashboardPanel.yAxisMin/yAxisMax) - only ever set from a
 	// dashboard panel, never from the Explorer page itself, which never passes them.
-	// `thresholds` and `yAxisScale` likewise mirror MetricChart's own props of the same name.
+	// `thresholds`, `yAxisScale`, `legendPosition` and `seriesColors` likewise mirror
+	// MetricChart's own props of the same name.
 	let {
 		yAxisMin = null,
 		yAxisMax = null,
 		thresholds = [],
-		yAxisScale
-	}: { yAxisMin?: number | null; yAxisMax?: number | null; thresholds?: PanelThreshold[]; yAxisScale?: YAxisScale } = $props();
+		yAxisScale,
+		legendPosition = 'bottom',
+		seriesColors = {}
+	}: {
+		yAxisMin?: number | null;
+		yAxisMax?: number | null;
+		thresholds?: PanelThreshold[];
+		yAxisScale?: YAxisScale;
+		legendPosition?: LegendPosition;
+		seriesColors?: Record<string, ThresholdColor>;
+	} = $props();
 
 	const explorer = metricsExplorerContext.get();
 
@@ -47,10 +58,12 @@
 	const lines = $derived<LineSpec[]>(
 		explorer.formulaSeries.map((series) => ({
 			label: seriesLabel(series),
-			color: seriesColor(seriesLabel(series)),
+			color: seriesColorOverride(seriesColors, seriesLabel(series)) ?? seriesColor(seriesLabel(series)),
 			points: series.points.filter((p): p is typeof p & { value: number } => p.value != null).map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p.value }))
 		}))
 	);
+
+	const layout = $derived(legendLayout(legendPosition === 'right' ? 'right' : 'bottom'));
 
 	const bucketTimes = $derived([...new Set(lines.flatMap((l) => l.points.map((p) => p.time)))].sort((a, b) => a - b));
 	const bucketIndexOf = $derived(new Map(bucketTimes.map((t, i) => [t, i])));
@@ -181,8 +194,8 @@
 			</Empty.Header>
 		</Empty.Root>
 	{:else}
-		<div class="flex min-w-0 flex-1 flex-col">
-			<div class="relative flex-1">
+		<div class="flex min-w-0 flex-1 {layout.wrapper}">
+			<div class="relative flex-1 {layout.plot}">
 				<div class="text-muted-foreground pointer-events-none absolute inset-y-0 left-0 w-10 text-[10px]" style="height: {CHART_HEIGHT}px">
 					{#each ticks.values as tick (tick)}
 						{@const label = formatValue(tick)}
@@ -258,12 +271,12 @@
 				</Tooltip.Provider>
 			</div>
 
-			{#if lines.length > 1}
-				<div class="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+			{#if lines.length > 1 && legendPosition !== 'hidden'}
+				<div class="text-muted-foreground text-xs {layout.legend}">
 					{#each lines as line (line.label)}
-						<span class="flex items-center gap-1.5">
+						<span class="flex min-w-0 items-center gap-1.5">
 							<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-							{line.label}
+							<span class="truncate" title={line.label}>{line.label}</span>
 						</span>
 					{/each}
 				</div>

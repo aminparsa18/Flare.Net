@@ -23,7 +23,9 @@
 	import { isHistogramType, type MetricSeries } from '$lib/metrics-api';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import YAxisScaleToggle from './YAxisScaleToggle.svelte';
-	import { matchThreshold, thresholdColorValue, type PanelThreshold } from '$lib/dashboards/thresholds';
+	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
+	import { legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
+	import { seriesLabel as seriesColorKey } from '$lib/dashboards/visualization';
 	import * as m from '$lib/paraglide/messages';
 	import { formatChartTime } from '$lib/time/format';
 
@@ -51,6 +53,13 @@
 	// YAxisBoundsPopover); left undefined, the chart follows the Explorer's own
 	// `filter.yAxisScale` and shows its Log toggle in the header.
 	//
+	// legendPosition/seriesColors: a dashboard panel's legend placement and per-series color
+	// overrides (DashboardPanel.legendPosition/seriesColors, `$lib/dashboards/legend.ts`).
+	// Overrides are keyed by visualization.ts's `seriesLabel` (imported as seriesColorKey), not
+	// this file's own differently-formatted seriesLabel, so one key works across every
+	// visualization. Only Gauge/Sum series lines take an override - histogram percentile and
+	// comparison lines aren't series. Defaults (bottom, none) on the Explorer page.
+	//
 	// onPointClick: a plain click (not a drag) reports the bucket under the pointer (epoch ms)
 	// - a dashboard panel opens the Metrics Explorer around it (DashboardPanelCard.svelte).
 	// Unset on the Explorer page, where a click still does nothing.
@@ -60,6 +69,8 @@
 		yAxisMax = null,
 		thresholds = [],
 		yAxisScale,
+		legendPosition = 'bottom',
+		seriesColors = {},
 		onPointClick
 	}: {
 		allowZoom?: boolean;
@@ -67,6 +78,8 @@
 		yAxisMax?: number | null;
 		thresholds?: PanelThreshold[];
 		yAxisScale?: YAxisScale;
+		legendPosition?: LegendPosition;
+		seriesColors?: Record<string, ThresholdColor>;
 		onPointClick?: (time: number) => void;
 	} = $props();
 
@@ -410,7 +423,7 @@
 		}
 
 		return visibleSeries.map((series) => ({
-			color: seriesColor(seriesLabel(series)),
+			color: seriesColorOverride(seriesColors, seriesColorKey(series)) ?? seriesColor(seriesLabel(series)),
 			label: compactSeriesLabel(series, visibleSeries),
 			detail: seriesLabel(series),
 			points: series.points
@@ -551,6 +564,7 @@
 
 	const rateDivisor = $derived(isSum && sumMode === 'rate' ? explorer.intervalSeconds : null);
 	const lines = $derived(overlayActive ? buildComparisonLines() : buildLines());
+	const layout = $derived(legendLayout(legendPosition === 'right' ? 'right' : 'bottom'));
 
 	// Click-to-isolate (signoz#4226): clicking a legend entry draws only that line, clicking
 	// it again restores all - distinct from hiddenSeriesCount above, which is the fixed
@@ -1089,7 +1103,8 @@
 			{:else if bucketTimes.length === 0}
 				<div class="text-muted-foreground flex h-[180px] items-center justify-center text-xs">{m.metricChart_noDataInRange()}</div>
 			{:else}
-				<div class="flex gap-2">
+				<div class="flex {layout.wrapper}">
+				<div class="flex gap-2 {layout.plot}">
 					<!-- Rendered as real DOM text, not SVG <text>, deliberately: the chart's
 					     viewBox is stretched non-uniformly (preserveAspectRatio="none", see
 					     below) to fill whatever width the container has, which would otherwise
@@ -1236,15 +1251,15 @@
 					</Tooltip.Provider>
 				</div>
 
-				{#if lines.length > 1}
+				{#if lines.length > 1 && legendPosition !== 'hidden'}
 					<Tooltip.Provider>
-						<div class="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+						<div class="text-muted-foreground text-xs {layout.legend}">
 							{#each lines as line (line.label)}
 								<!-- Real <button>s (keyboard-reachable, aria-pressed) - see isolatedLabel's
 								     own remarks. Dimmed while another entry is isolated so the legend
 								     still lists what's one click away from coming back. -->
 								{@const dimmed = drawnLines.length !== lines.length && drawnLines[0]?.label !== line.label}
-								{@const legendClass = `hover:text-foreground flex cursor-pointer items-center gap-1.5 rounded-sm transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${dimmed ? 'opacity-40' : ''}`}
+								{@const legendClass = `hover:text-foreground flex min-w-0 cursor-pointer items-center gap-1.5 rounded-sm transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${dimmed ? 'opacity-40' : ''}`}
 								{#if line.detail === line.label}
 									<button
 										type="button"
@@ -1254,7 +1269,7 @@
 										onclick={() => toggleIsolate(line.label)}
 									>
 										<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"></span>
-										{line.label}
+										<span class="truncate">{line.label}</span>
 									</button>
 								{:else}
 									<!-- compactSeriesLabel hid attributes shared across the visible set
@@ -1272,7 +1287,7 @@
 												>
 													<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {line.color};"
 													></span>
-													{line.label}
+													<span class="truncate">{line.label}</span>
 												</button>
 											{/snippet}
 										</Tooltip.Trigger>
@@ -1289,6 +1304,7 @@
 						</div>
 					</Tooltip.Provider>
 				{/if}
+				</div>
 
 				{#if hiddenSeriesCount > 0}
 					<p class="text-muted-foreground mt-2 text-xs">

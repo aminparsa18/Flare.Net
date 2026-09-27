@@ -28,7 +28,8 @@ import { nextPanelPosition, panelsInRow } from './layout';
 import { slugify } from './state.svelte';
 import { downloadBlob } from '$lib/logs/export';
 import { defaultSelection, resolveQueryVariableOptions, type VariableDependency } from './variables';
-import type { PanelThreshold } from './thresholds';
+import type { PanelThreshold, ThresholdColor } from './thresholds';
+import type { LegendPosition } from './legend';
 import type { PanelReducer, PanelVisualization } from './visualization';
 import type { YAxisScale } from '$lib/metrics/axis';
 import * as m from '$lib/paraglide/messages';
@@ -434,6 +435,23 @@ export class DashboardViewerState {
 		try {
 			this.dashboard = await this.#saveLayout({
 				panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, columnUnits: Object.keys(columnUnits).length ? columnUnits : undefined } : p))
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/** Replaces `panelId`'s legend placement and per-series color overrides
+	 *  (`DashboardPanel.legendPosition`/`seriesColors`) through `#saveLayout`. `undefined` and
+	 *  an empty map clear their fields rather than saving the default. */
+	async setPanelLegend(panelId: string, legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels.map((p) =>
+					p.id === panelId ? { ...p, legendPosition, seriesColors: Object.keys(seriesColors).length ? seriesColors : undefined } : p
+				)
 			});
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);

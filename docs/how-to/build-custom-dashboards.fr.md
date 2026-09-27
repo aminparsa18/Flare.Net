@@ -263,6 +263,26 @@ sort de la plage visible, sa ligne n'est pas tracée. Définissez une plage
 d'axe Y pour l'afficher. Comme le reste de la définition d'un panneau, les
 seuils sont enregistrés avec le tableau de bord.
 
+## Placer la légende et fixer les couleurs des séries
+
+En mode édition, un panneau Metrics dont la visualisation dessine une
+légende (série temporelle, barres, barres empilées ou camembert) a une
+icône **liste** dans son en-tête. Elle permet de choisir la position de la
+légende : **Bottom**, **Right** (une colonne défilante à côté du graphique) ou
+**Hidden**. **Default** garde l'emplacement habituel de la
+visualisation : sous le graphique pour les lignes et les barres, à côté
+pour un camembert.
+
+La même fenêtre liste les séries que le panneau affiche actuellement, et
+vous pouvez fixer l'une d'elles à une couleur (rouge, orange, jaune, vert,
+bleu ou violet), par exemple toujours dessiner la route `/checkout` en
+rouge. Les séries laissées sur **Default** gardent leur couleur
+automatique de la palette. Une surcharge est associée au libellé complet
+de la série (nom du service plus chaque attribut) et s'applique donc dans
+toutes les visualisations de ce panneau. Si une série surchargée disparaît
+du résultat, elle apparaît barrée pour que vous puissiez la réinitialiser.
+**Reset** efface la position et toutes les surcharges de couleur.
+
 ## Surcharger la plage de temps pour une session
 
 Le sélecteur de **plage de temps** dans l'en-tête d'un tableau de bord

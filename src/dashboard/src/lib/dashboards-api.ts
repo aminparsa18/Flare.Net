@@ -18,7 +18,8 @@ import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memory
 import { Dashboard as GeneratedDashboard } from '$lib/memorypack/Dashboard';
 import { DashboardRequest as GeneratedDashboardRequest } from '$lib/memorypack/DashboardRequest';
 import { DashboardListResponse as GeneratedDashboardListResponse } from '$lib/memorypack/DashboardListResponse';
-import type { PanelThreshold } from '$lib/dashboards/thresholds';
+import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
+import type { LegendPosition } from '$lib/dashboards/legend';
 import type { YAxisScale } from '$lib/metrics/axis';
 import type { PanelReducer, PanelVisualization } from '$lib/dashboards/visualization';
 
@@ -105,6 +106,19 @@ export interface DashboardPanel {
 	 * `parseColumnUnits`. Kept when switching visualization, like `reducer`.
 	 */
 	columnUnits?: Partial<Record<PanelReducer, string>>;
+	/**
+	 * Where a `Metrics` panel's series legend sits - below the chart, to its right, or not
+	 * shown. `undefined` keeps the visualization's own default (below for line/bar charts,
+	 * beside it for a pie). Read through `parseLegendPosition`. See `$lib/dashboards/legend.ts`.
+	 */
+	legendPosition?: LegendPosition;
+	/**
+	 * Per-series color overrides for a `Metrics` panel, keyed by the series' full label
+	 * (`seriesLabel` - service name plus every attribute). A series without an entry keeps
+	 * its hashed palette color; an entry for a series no longer in the result is inert. Read
+	 * through `parseSeriesColors`. See `$lib/dashboards/legend.ts`.
+	 */
+	seriesColors?: Record<string, ThresholdColor>;
 	/**
 	 * `id` of the `DashboardRow` this panel sits under, or `undefined`/`null` for the
 	 * ungrouped area above every row (where every panel lived before rows existed).

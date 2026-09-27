@@ -39,6 +39,12 @@ export function usesYAxis(visualization: PanelVisualization): boolean {
 	return visualization === 'timeSeries' || visualization === 'bar' || visualization === 'stackedBar';
 }
 
+/** Visualizations that draw a per-series legend, and so honour `legendPosition`/`seriesColors`
+ *  (see `$lib/dashboards/legend.ts`). Value/Table/Histogram have no per-series marks to key. */
+export function usesLegend(visualization: PanelVisualization): boolean {
+	return visualization === 'timeSeries' || visualization === 'bar' || visualization === 'stackedBar' || visualization === 'pie';
+}
+
 /** Visualizations that can switch to a log Y axis - the line chart only; a bar grows from
  *  zero, which a log axis has no place for. */
 export function usesYAxisScale(visualization: PanelVisualization): boolean {
@@ -171,6 +177,8 @@ export function totalsByBucket(series: readonly VizSeries[]): number[] {
 export interface PieSlice {
 	label: string;
 	value: number;
+	/** The series' full identity (`seriesLabel`) - what a color override is keyed by. `null` for "Other". */
+	key: string | null;
 	/** `true` for the folded "Other" slice. */
 	other: boolean;
 }
@@ -180,12 +188,12 @@ export interface PieSlice {
  * slice rather than cycling the 5-colour categorical palette. Non-positive values are
  * dropped: a pie can't draw a negative share, and a zero one is invisible anyway.
  */
-export function pieSlices(entries: readonly { label: string; value: number }[], maxSlices: number, otherLabel: string): PieSlice[] {
+export function pieSlices(entries: readonly { label: string; value: number; key: string }[], maxSlices: number, otherLabel: string): PieSlice[] {
 	const positive = entries.filter((e) => e.value > 0).sort((a, b) => b.value - a.value);
 	if (positive.length <= maxSlices) return positive.map((e) => ({ ...e, other: false }));
 	const named = positive.slice(0, maxSlices - 1).map((e) => ({ ...e, other: false }));
 	const rest = positive.slice(maxSlices - 1).reduce((sum, e) => sum + e.value, 0);
-	return [...named, { label: otherLabel, value: rest, other: true }];
+	return [...named, { label: otherLabel, value: rest, key: null, other: true }];
 }
 
 /** SVG path for one pie slice between two fractions (0-1) of the full circle, clockwise from 12 o'clock. */
