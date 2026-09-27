@@ -34,16 +34,17 @@ public interface INotificationChannelQueryService
 public sealed class NotificationChannelQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : INotificationChannelQueryService
 {
     private const string ChannelColumns =
-        "Id, Name, Description, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt";
+        "Id, Name, Description, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, SendResolved";
 
     /// <summary>See <see cref="AlertQueryService.ResolveDefaults"/>'s remarks - same nullable-optional-field coalescing, for <see cref="NotificationChannelRequest"/> instead of <see cref="AlertRuleRequest"/>.</summary>
-    internal static (string Description, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey) ResolveDefaults(NotificationChannelRequest request) => (
+    internal static (string Description, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey, bool SendResolved) ResolveDefaults(NotificationChannelRequest request) => (
         Description: request.Description ?? "",
         WebhookUrl: request.WebhookUrl ?? "",
         TelegramBotToken: request.TelegramBotToken ?? "",
         TelegramChatId: request.TelegramChatId ?? "",
         EmailTo: request.EmailTo ?? "",
-        PagerDutyRoutingKey: request.PagerDutyRoutingKey ?? "");
+        PagerDutyRoutingKey: request.PagerDutyRoutingKey ?? "",
+        SendResolved: request.SendResolved ?? true);
 
     public async Task<NotificationChannel> CreateAsync(NotificationChannelRequest request, CancellationToken cancellationToken)
     {
@@ -60,6 +61,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
             TelegramChatId = defaults.TelegramChatId,
             EmailTo = defaults.EmailTo,
             PagerDutyRoutingKey = defaults.PagerDutyRoutingKey,
+            SendResolved = defaults.SendResolved,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -117,6 +119,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
             TelegramChatId = defaults.TelegramChatId,
             EmailTo = defaults.EmailTo,
             PagerDutyRoutingKey = defaults.PagerDutyRoutingKey,
+            SendResolved = defaults.SendResolved,
             UpdatedAt = timeProvider.GetUtcNow(),
         };
 
@@ -150,14 +153,15 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
         parameters.AddParameter("telegramChatId", channel.TelegramChatId);
         parameters.AddParameter("emailTo", channel.EmailTo);
         parameters.AddParameter("pagerDutyRoutingKey", channel.PagerDutyRoutingKey);
+        parameters.AddParameter("sendResolved", channel.SendResolved ? (byte)1 : (byte)0);
         parameters.AddParameter("createdAt", channel.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", channel.UpdatedAt.UtcDateTime);
 
         const string sql = """
             INSERT INTO notification_channels
-                (Id, Name, Description, IsDeleted, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt)
+                (Id, Name, Description, IsDeleted, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, SendResolved, CreatedAt, UpdatedAt)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {type:String}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {type:String}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {sendResolved:UInt8}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -187,6 +191,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
         PagerDutyRoutingKey = reader.GetString(8),
         CreatedAt = ReadUtc(reader, 9),
         UpdatedAt = ReadUtc(reader, 10),
+        SendResolved = reader.GetByte(11) != 0,
     };
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>

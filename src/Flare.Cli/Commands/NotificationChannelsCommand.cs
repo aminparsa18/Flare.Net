@@ -67,6 +67,7 @@ internal sealed class NotificationChannelsListCommand : AsyncCommand<Notificatio
         table.AddColumn("Name");
         table.AddColumn("Type");
         table.AddColumn("Destination");
+        table.AddColumn("Resolved");
         table.AddColumn("Id");
 
         foreach (var channel in channels)
@@ -75,6 +76,7 @@ internal sealed class NotificationChannelsListCommand : AsyncCommand<Notificatio
                 Markup.Escape(channel.Name),
                 channel.Type,
                 Markup.Escape(DestinationSummary(channel)),
+                channel.SendResolved ? "yes" : "[grey]no[/]",
                 $"[grey]{channel.Id}[/]");
         }
 
@@ -142,6 +144,10 @@ internal sealed class NotificationChannelsCreateCommand : AsyncCommand<Notificat
         [CommandOption("--pagerduty-routing-key <KEY>")]
         [Description("Required when --type pagerduty.")]
         public string? PagerDutyRoutingKey { get; init; }
+
+        [CommandOption("--send-resolved <BOOL>")]
+        [Description("Send a \"Resolved\" notification when a firing rule recovers (for PagerDuty, auto-resolves the incident): true or false. Defaults to true.")]
+        public bool? SendResolved { get; init; }
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
@@ -180,6 +186,7 @@ internal sealed class NotificationChannelsCreateCommand : AsyncCommand<Notificat
             TelegramChatId = settings.TelegramChatId,
             EmailTo = settings.EmailTo,
             PagerDutyRoutingKey = settings.PagerDutyRoutingKey,
+            SendResolved = settings.SendResolved,
         };
 
         NotificationChannelWire? channel;
@@ -259,6 +266,10 @@ internal sealed class NotificationChannelsUpdateCommand : AsyncCommand<Notificat
 
         [CommandOption("--pagerduty-routing-key <KEY>")]
         public string? PagerDutyRoutingKey { get; init; }
+
+        [CommandOption("--send-resolved <BOOL>")]
+        [Description("Send a \"Resolved\" notification when a firing rule recovers (for PagerDuty, auto-resolves the incident): true or false. Unchanged when omitted.")]
+        public bool? SendResolved { get; init; }
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
@@ -333,6 +344,8 @@ internal sealed class NotificationChannelsUpdateCommand : AsyncCommand<Notificat
             TelegramChatId = Carry(settings.TelegramChatId, existing.TelegramChatId),
             EmailTo = Carry(settings.EmailTo, existing.EmailTo),
             PagerDutyRoutingKey = Carry(settings.PagerDutyRoutingKey, existing.PagerDutyRoutingKey),
+            // Always sent - PUT replaces the whole channel, and an omitted value means true.
+            SendResolved = settings.SendResolved ?? existing.SendResolved,
         };
 
         NotificationChannelWire? updated;
@@ -605,6 +618,8 @@ internal sealed class NotificationChannelWire
     public DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset UpdatedAt { get; init; }
+
+    public bool SendResolved { get; init; } = true;
 }
 
 internal sealed class NotificationChannelListResponseWire
@@ -630,4 +645,7 @@ internal sealed class NotificationChannelRequestWire
     public string? EmailTo { get; init; }
 
     public string? PagerDutyRoutingKey { get; init; }
+
+    /// <summary>Null means true (the API's default).</summary>
+    public bool? SendResolved { get; init; }
 }

@@ -248,6 +248,10 @@ The "Maintenance" tab schedules one-off, daily or weekly maintenance windows
 (in a chosen time zone) for every rule or selected ones. During a window,
 rules still evaluate, but a breach is recorded in the rule's history as
 suppressed instead of notifying (see [ADR-0055](../../docs-internal/adr/0055-alert-maintenance-windows.md)).
+When a firing rule recovers, its channels get a "Resolved" notification, and PagerDuty
+incidents close automatically. Each channel can opt out with its "Send resolved
+notifications" switch. The rule's history records the resolution next to the fire
+(see [ADR-0064](../../docs-internal/adr/0064-alert-resolved-notifications.md)).
 Firing notifies one or more notification channels, managed from this
 same page's "Channels" tab (or created on the spot with the rule form's
 "New channel" button) — reusable, named webhook/Slack, Telegram,

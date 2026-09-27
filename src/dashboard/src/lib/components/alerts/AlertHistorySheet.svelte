@@ -47,9 +47,19 @@
 						{#each alerts.history as entry (entry.eventId)}
 							<div class="rounded-md border p-3 text-xs">
 								<div class="flex items-center justify-between">
-									<span class="font-medium">{formatDateTime(entry.firedAt)}</span>
+									<span class="flex items-center gap-2 font-medium">
+										{formatDateTime(entry.firedAt)}
+										{#if entry.resolved}
+											<!-- A resolution (the rule recovered after firing), not a fire - ADR-0064. -->
+											<Badge variant="outline" class="border-emerald-600/40 text-emerald-700 dark:text-emerald-400">{m.alertHistory_resolvedBadge()}</Badge>
+										{/if}
+									</span>
 									<Badge
-										variant={entry.notificationStatus === 'Sent' ? 'secondary' : entry.notificationStatus === 'Suppressed' ? 'outline' : 'destructive'}
+										variant={entry.notificationStatus === 'Sent'
+											? 'secondary'
+											: entry.notificationStatus === 'Suppressed' || entry.notificationStatus === 'Skipped'
+												? 'outline'
+												: 'destructive'}
 									>
 										{entry.notificationStatus}
 										{#if entry.notificationStatus === 'Sent'}
@@ -58,7 +68,7 @@
 									</Badge>
 								</div>
 								<p class="text-muted-foreground mt-1">
-									{#if entry.noData}
+									{#if entry.noData && !entry.resolved}
 										{m.alertHistory_entrySummaryNoData({ window: entry.windowSeconds })}
 									{:else if entry.conditionKind === 'Anomaly'}
 										{m.alertHistory_entrySummaryAnomaly({
@@ -81,6 +91,9 @@
 										})}
 									{/if}
 								</p>
+								{#if entry.resolved && entry.notificationStatus === 'Skipped'}
+									<p class="text-muted-foreground mt-1">{m.alertHistory_resolvedSkipped()}</p>
+								{/if}
 								{#if entry.suppressedByWindow}
 									<p class="text-muted-foreground mt-1">{m.alertHistory_suppressedBy({ window: entry.suppressedByWindow })}</p>
 								{/if}

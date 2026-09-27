@@ -157,6 +157,12 @@ at ingest): the wire's own `Scale`/offset/bucket-count shape plus `Nullable` `Mi
 not a conversion into `metrics_histogram`. See
 [ADR-0060](../../docs-internal/adr/0060-exponential-histogram-metrics.md).
 
+`0033_alert_resolved_notifications.sql` - "Resolved" alert notifications:
+`alert_events.Resolved` (1 = a resolution event, 0 = a fire; a rule's firing/ok state is
+derived from its latest of each) and `notification_channels.SendResolved` (per-channel
+opt-out, `1` for every existing channel). See
+[ADR-0064](../../docs-internal/adr/0064-alert-resolved-notifications.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

@@ -299,7 +299,7 @@ inspects `NotificationChannel.Type` and delegates to one of:
   incoming-webhook parser renders) plus flat structured fields (`ruleId`,
   `observedCount`, `thresholdCount`, `windowSeconds`, `firedAt`) a generic webhook
   consumer can read directly — Slack ignores unrecognized top-level keys, so one shape
-  serves both.
+  serves both. `status` is `"firing"` or `"resolved"` (Alertmanager's vocabulary).
 - `TelegramAlertNotifier` — POSTs `{chat_id, text, parse_mode}` to
   `https://api.telegram.org/bot{TelegramBotToken}/sendMessage`. Telegram returns HTTP 200
   with `{"ok":false,"description":"..."}` for most delivery failures (bad chat ID, bot
@@ -318,9 +318,10 @@ inspects `NotificationChannel.Type` and delegates to one of:
   Events API v2 endpoint (`https://events.pagerduty.com/v2/enqueue`) using
   `PagerDutyRoutingKey` alone - like Email there's no per-rule server URL, but unlike
   Email there's also no app-wide server config to go with it: the routing key addresses a
-  fixed PagerDuty endpoint directly. No `dedup_key` is sent, so every breach (or test
-  send) opens a new PagerDuty incident rather than deduplicating/auto-resolving against a
-  prior one - a named follow-up, not built now. PagerDuty reliably reports failure via a
+  fixed PagerDuty endpoint directly. A real trigger carries `dedup_key =
+  flare-alert-{ruleId:N}`, so a re-fire while the incident is open folds into it, and a
+  recovery sends `event_action: "resolve"` with the same key, which auto-closes it; a test
+  send gets a one-off key. PagerDuty reliably reports failure via a
   non-2xx status (unlike Telegram's HTTP-200-with-`ok:false`), so `IsSuccessStatusCode`
   alone decides success; the response body is only parsed for a clearer error message.
 
@@ -331,6 +332,15 @@ named/typed `HttpClient`s (`AddHttpClient<WebhookAlertNotifier>`,
 inherit `Flare.ServiceDefaults`' resilience handler (retries/circuit-breaking) for free.
 `EmailAlertNotifier` has no `HttpClient` — MailKit's `SmtpClient` is its own socket-based
 client, not HTTP.
+
+**Resolved notifications.** When a firing rule evaluates as not breached, `Flare.AlertWorker`
+sends a "Resolved" notification (every notifier's `resolved: true` path) to the rule's
+channels with `NotificationChannel.SendResolved` set, and records the resolution as an
+`alert_events` row with `Resolved = 1` (`NotificationStatus` `Skipped` when nothing needed
+sending). Firing/ok state is derived from those rows - latest fire vs latest resolution -
+by `IAlertQueryService.GetFiringStatesAsync`, one query per tick; the firing→ok decision
+itself is the pure `AlertResolutionPolicy` (deferred while a maintenance window is active).
+See `docs-internal/adr/0064-alert-resolved-notifications.md`.
 
 When `AlertLinkOptions.PublicUrl` is configured (bound from the same `Alerting`
 configuration section as `Flare.AlertWorker`'s own `AlertingOptions` — `Alerting__PublicUrl`
