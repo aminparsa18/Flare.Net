@@ -2,6 +2,7 @@ using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Flare.Identity.MetricMetadata;
 
 namespace Flare.Api.Endpoints;
 
@@ -27,6 +28,7 @@ public static class MetricsEndpoints
     private static async Task<IResult> HandleNamesAsync(
         HttpContext http,
         IMetricQueryService queryService,
+        IMetricMetadataOverrideStore overrideStore,
         CancellationToken cancellationToken)
     {
         MetricNamesRequest? request;
@@ -41,7 +43,11 @@ public static class MetricsEndpoints
 
         request ??= new MetricNamesRequest();
 
-        var response = await queryService.GetNamesAsync(request, cancellationToken);
+        // Overlaid after the (cached) query, so an admin's override shows without waiting out
+        // the cache - see MetricMetadataOverlay.
+        var response = MetricMetadataOverlay.Apply(
+            await queryService.GetNamesAsync(request, cancellationToken),
+            await overrideStore.GetAllAsync(cancellationToken));
         ApiSerialization.SetAutocompleteCacheControl(http);
         return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricNamesResponse);
     }

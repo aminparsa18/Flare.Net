@@ -509,6 +509,14 @@ back, the promote/demote DDL for single-node and cluster mode on both tables, an
 `LogFilterSqlBuilder`/`SpanFilterSqlBuilder` operators switch to the column. `PromotedAttributeRegistry`/`PromotedAttributeAdminService` run DDL and
 `system.*` reads, so they're verified end to end instead, like the classes below.
 
+`MetricInspectReducerTests` covers the Metrics catalog's inspect view: per-sample
+classification (delta, first, difference, reset), per-bucket time aggregation, and the
+cross-series merge, which follow `MetricSeriesQueryBuilder`'s rules and are kept in step
+with them by hand. `MetricInspectQueryBuilderTests` covers the raw-sample SQL, and
+`MetricMetadataOverlayTests` covers merging admin unit/description overrides (ADR-0065).
+The per-bucket match with `/api/metrics/query` is checked end to end against real
+ClickHouse, not in unit tests.
+
 `LogQueryService`, `LogTailBroadcaster`, and `AlertQueryService` (real
 `IClickHouseClient`/`IConnectionMultiplexer`/`HttpClient` I/O) are deliberately **not**
 unit-tested against a fake, same reasoning `Flare.Ingest.Tests` documents for its own

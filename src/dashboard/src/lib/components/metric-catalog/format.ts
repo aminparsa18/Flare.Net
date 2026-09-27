@@ -30,3 +30,16 @@ export function formatAgo(timestampMs: number, nowMs: number): string {
 	if (minutes < 60) return m.metricCatalog_minutesAgo({ minutes });
 	return m.metricCatalog_hoursAgo({ hours: Math.floor(minutes / 60) });
 }
+
+/** A raw sample/bucket value: integers as-is with separators, fractions to at most 4 decimals. */
+export function formatSampleValue(value: number): string {
+	return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+
+/** A signed contribution - "+10", "-6", "0". */
+export function formatContribution(value: number): string {
+	const formatted = formatSampleValue(Math.abs(value));
+	if (value > 0) return `+${formatted}`;
+	if (value < 0) return `−${formatted}`;
+	return formatted;
+}

@@ -65,3 +65,31 @@ can't change the application, drop or rewrite the attribute in an
 OpenTelemetry Collector processor (for example `attributes` or `transform`)
 before it reaches Flare. Series that stop being reported leave the catalog
 once they fall outside the selected window.
+
+## See how a metric's samples become a chart
+
+In the metric's panel, switch from **Overview** to **Inspect**. It shows the
+raw samples of the metric's busiest series (up to five) and the two steps the
+Metrics explorer applies to them:
+
+1. **Time aggregation**: each series' samples are grouped into buckets. For a
+   Gauge, a bucket is the average of its samples. For a Sum or histogram, it's
+   the increase: delta samples are added as sent, cumulative samples add their
+   change since the previous sample, and a drop in a monotonic counter is
+   treated as a restart. **How it counts** says which rule applied to each
+   sample. For a histogram, the sample value is its observation count.
+2. **Space aggregation**: the series are merged per bucket, the way a chart
+   grouped by an attribute merges them. Increases are summed; Gauge samples
+   are averaged across all series.
+
+Pick the service, window (5 minutes to 1 hour), and bucket width at the top.
+It starts on the service with the most series. A series with more samples
+than can be shown keeps its most recent ones and is marked **Latest only**.
+
+## Correct a metric's unit or description
+
+Admins can replace what the instrumentation sends. In the metric's panel,
+click **Edit unit & description**, fill in either field, and save. Leave a
+field blank to keep showing the value the sender reports. The new values show
+for everyone in the catalog and the Metrics explorer, and the metric is marked
+**Edited**. **Reset to sent values** removes the change.

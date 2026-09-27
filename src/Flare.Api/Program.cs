@@ -473,6 +473,10 @@ adminRoutes.MapAuthSettingsEndpoints();
 // alongside the rest of the Services tab - any Viewer needs it to render the tab's Apdex
 // column tooltip.
 adminRoutes.MapApdexThresholdEndpoints();
+// Same reasoning for a metric's unit/description override - it changes what every user sees
+// for that metric. Reading needs no route of its own: the catalog and /api/metrics/names
+// return the overridden values (ADR-0065).
+adminRoutes.MapMetricMetadataOverrideEndpoints();
 // Promoting/demoting an attribute column is ALTER TABLE on logs/spans - schema DDL affecting
 // every user's queries and every future insert, so Admin-only. Listing stays on
 // authenticatedRoutes via MapIndexingEndpoints.

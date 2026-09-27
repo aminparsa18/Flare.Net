@@ -71,3 +71,35 @@ réécrivez l'attribut dans un processeur de l'OpenTelemetry Collector (par
 exemple `attributes` ou `transform`) avant qu'il n'atteigne Flare. Les séries
 qui ne sont plus émises quittent le catalogue une fois sorties de la fenêtre
 choisie.
+
+## Voir comment les échantillons d'une métrique deviennent un graphique
+
+Dans le panneau de la métrique, passez de **Overview** à **Inspect**. Il
+affiche les échantillons bruts des séries les plus actives de la métrique
+(jusqu'à cinq) et les deux étapes que l'explorateur de métriques leur applique :
+
+1. **Agrégation temporelle** : les échantillons de chaque série sont regroupés
+   par intervalle. Pour une Gauge, un intervalle vaut la moyenne de ses
+   échantillons. Pour une Sum ou un histogramme, c'est l'augmentation : les
+   échantillons delta sont ajoutés tels quels, les échantillons cumulatifs
+   ajoutent leur variation depuis l'échantillon précédent, et une baisse d'un
+   compteur monotone est traitée comme un redémarrage. **How it counts** indique
+   la règle appliquée à chaque échantillon. Pour un histogramme, la valeur de
+   l'échantillon est son nombre d'observations.
+2. **Agrégation spatiale** : les séries sont fusionnées par intervalle, comme
+   dans un graphique groupé par attribut. Les augmentations sont additionnées ;
+   les échantillons de Gauge sont moyennés sur toutes les séries.
+
+Choisissez en haut le service, la fenêtre (5 minutes à 1 heure) et la largeur
+d'intervalle. Le service par défaut est celui qui a le plus de séries. Une
+série qui a plus d'échantillons que ce qui peut être affiché garde les plus
+récents et porte la mention **Latest only**.
+
+## Corriger l'unité ou la description d'une métrique
+
+Les administrateurs peuvent remplacer ce qu'envoie l'instrumentation. Dans le
+panneau de la métrique, cliquez sur **Edit unit & description**, remplissez
+l'un des champs et enregistrez. Un champ vide conserve la valeur envoyée. Les
+nouvelles valeurs s'affichent pour tous dans le catalogue et l'explorateur de
+métriques, et la métrique est marquée **Edited**. **Reset to sent values**
+annule la modification.

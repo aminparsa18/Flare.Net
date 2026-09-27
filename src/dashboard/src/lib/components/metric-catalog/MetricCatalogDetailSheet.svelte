@@ -6,6 +6,9 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ChartLineIcon from '@lucide/svelte/icons/chart-line';
 	import { metricCatalogContext } from '$lib/metric-catalog/context';
+	import { authContext } from '$lib/auth/context';
+	import MetricInspectPanel from './MetricInspectPanel.svelte';
+	import MetricMetadataOverridePopover from './MetricMetadataOverridePopover.svelte';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
 	import { buildMetricsExplorerHref } from '$lib/deep-links';
 	import { formatCount } from '$lib/ingestion/format';
@@ -15,6 +18,7 @@
 	import * as m from '$lib/paraglide/messages';
 
 	const catalog = metricCatalogContext.get();
+	const auth = authContext.get();
 
 	const detail = $derived(catalog.detail);
 
@@ -53,19 +57,51 @@
 					{#if detail?.unit}
 						<Badge variant="secondary">{detail.unit}</Badge>
 					{/if}
+					{#if detail?.hasMetadataOverride}
+						<Badge variant="outline" title={m.metricMetadata_overriddenTitle()}>{m.metricMetadata_overridden()}</Badge>
+					{/if}
 				</Sheet.Title>
 				<Sheet.Description>
 					{#if detail?.description}{`${detail.description} · `}{/if}{servicesWindowPresetLabel(catalog.windowPreset)}
 				</Sheet.Description>
-				<div>
+				<div class="flex flex-wrap items-center gap-2">
 					<Button variant="outline" size="sm" href={buildMetricsExplorerHref(selected.metricName, selected.type, catalog.windowPreset)}>
 						<ChartLineIcon data-icon="inline-start" />
 						{m.metricCatalog_openInExplorer()}
 					</Button>
+					{#if auth.isAdmin && detail}
+						<MetricMetadataOverridePopover
+							unit={detail.unit}
+							description={detail.description}
+							emittedUnit={detail.emittedUnit}
+							emittedDescription={detail.emittedDescription}
+							hasOverride={detail.hasMetadataOverride}
+							onSave={(unit, description) => catalog.saveMetadataOverride(unit, description)}
+							onReset={() => catalog.resetMetadataOverride()}
+						/>
+					{/if}
+					{#if detail && detail.services.length > 0}
+						<div class="ml-auto flex rounded-md border p-0.5" role="tablist">
+							{#each [{ view: 'overview', label: m.metricCatalog_overviewTab() }, { view: 'inspect', label: m.metricCatalog_inspectTab() }] as const as tab (tab.view)}
+								<Button
+									variant={catalog.detailView === tab.view ? 'secondary' : 'ghost'}
+									size="sm"
+									class="h-7"
+									role="tab"
+									aria-selected={catalog.detailView === tab.view}
+									onclick={() => catalog.setDetailView(tab.view)}
+								>
+									{tab.label}
+								</Button>
+							{/each}
+						</div>
+					{/if}
 				</div>
 			</Sheet.Header>
 			<div class="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-8">
-				{#if catalog.detailLoading && !detail}
+				{#if catalog.detailView === 'inspect' && detail && detail.services.length > 0}
+					<MetricInspectPanel />
+				{:else if catalog.detailLoading && !detail}
 					<div class="flex h-32 items-center justify-center"><Spinner /></div>
 				{:else if catalog.detailError}
 					<p class="text-destructive text-sm">{catalog.detailError}</p>
