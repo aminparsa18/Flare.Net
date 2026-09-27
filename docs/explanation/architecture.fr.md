@@ -177,7 +177,11 @@ l'exception.
 `/traces` — chaque trace OTLP reçue par Flare, filtrable par service et
 plage temporelle. Les spans auto-instrumentés (ASP.NET Core, HttpClient,
 …) et tout ce que votre propre code émet via `ActivitySource` apparaissent
-côte à côte.
+côte à côte. La liste est triée de la plus récente à la plus ancienne par
+défaut ; cliquez sur l'en-tête de colonne Heure, Durée ou Spans pour trier
+par cette colonne (un second clic inverse l'ordre) — par exemple les
+requêtes les plus lentes de la période, ou les traces comptant le plus de
+spans.
 
 ![Traces list](../screenshots/traces.png)
 

@@ -5,7 +5,7 @@
 // waterfall/detail view is the value being built, not a live span firehose), so this is
 // simpler than LogsExplorerState: no connection/live/dropped-count fields at all.
 
-import { searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter } from '$lib/traces-api';
+import { SPAN_SORT_KEYS, searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey } from '$lib/traces-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { durationBucketRange } from './duration-buckets';
 
@@ -33,14 +33,17 @@ export interface TracesFilterState {
 	 * rather than a content filter, so "Clear filters" keeps it, same as the time range.
 	 */
 	entrySpansOnly: boolean;
+	/** List order (TraceList's clickable column headers) - like `entrySpansOnly`, a list setting "Clear filters" keeps. */
+	sortBy: SpanSortKey;
+	sortAscending: boolean;
 }
 
 /** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). The facet fields are optional: views saved before they existed simply lack them. */
-export type TracesSavedViewState = Omit<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly'> &
-	Partial<Pick<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly'>>;
+export type TracesSavedViewState = Omit<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly' | 'sortBy' | 'sortAscending'> &
+	Partial<Pick<TracesFilterState, 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly' | 'sortBy' | 'sortAscending'>>;
 
 function emptyFilter(timeRangePreset: TimeRangePreset, services: string[] = [], attributeFilters: SpanAttributeFilter[] = []): TracesFilterState {
-	return { timeRangePreset, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null, entrySpansOnly: false };
+	return { timeRangePreset, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null, entrySpansOnly: false, sortBy: 'StartTime', sortAscending: false };
 }
 
 export class TracesExplorerState {
@@ -164,6 +167,10 @@ export class TracesExplorerState {
 		}
 	}
 
+	#sort(): { sortBy: SpanSortKey; sortAscending: boolean } {
+		return { sortBy: this.filter.sortBy, sortAscending: this.filter.sortAscending };
+	}
+
 	async runSearch(): Promise<void> {
 		this.#searchAbort?.abort();
 		const abort = new AbortController();
@@ -172,7 +179,7 @@ export class TracesExplorerState {
 		this.loading = true;
 		this.error = null;
 		try {
-			const res = await searchSpans({ filter: this.buildFilter(this.#resolvedRange()), pageSize: PAGE_SIZE }, abort.signal);
+			const res = await searchSpans({ filter: this.buildFilter(this.#resolvedRange()), pageSize: PAGE_SIZE, ...this.#sort() }, abort.signal);
 			if (abort.signal.aborted) return;
 			this.#seenRowKeys = new Set();
 			this.traces = this.#dedupeAgainstSeen(res.spans);
@@ -192,7 +199,8 @@ export class TracesExplorerState {
 			const res = await searchSpans({
 				filter: this.buildFilter(this.#resolvedRange()),
 				cursor: this.nextCursor,
-				pageSize: PAGE_SIZE
+				pageSize: PAGE_SIZE,
+				...this.#sort()
 			});
 			const fresh = this.#dedupeAgainstSeen(res.spans);
 			this.traces = [...this.traces, ...fresh];
@@ -265,6 +273,20 @@ export class TracesExplorerState {
 		void this.runSearch();
 	}
 
+	/**
+	 * A column header click: the active column flips direction; any other column becomes
+	 * active, descending first (newest / slowest / most spans - the useful end of each).
+	 */
+	toggleSort(sortBy: SpanSortKey): void {
+		if (this.filter.sortBy === sortBy) {
+			this.filter.sortAscending = !this.filter.sortAscending;
+		} else {
+			this.filter.sortBy = sortBy;
+			this.filter.sortAscending = false;
+		}
+		void this.runSearch();
+	}
+
 	/** Whether the toolbar's "Clear filters" button has anything to do - same fields `resetFilters` zeroes out. */
 	hasActiveFilters(): boolean {
 		return (
@@ -283,7 +305,12 @@ export class TracesExplorerState {
 	 * alone - same scope LogsExplorerState.resetFilters documents for itself.
 	 */
 	resetFilters(): void {
-		this.filter = { ...emptyFilter(this.filter.timeRangePreset), entrySpansOnly: this.filter.entrySpansOnly };
+		this.filter = {
+			...emptyFilter(this.filter.timeRangePreset),
+			entrySpansOnly: this.filter.entrySpansOnly,
+			sortBy: this.filter.sortBy,
+			sortAscending: this.filter.sortAscending
+		};
 		void this.runSearch();
 	}
 
@@ -297,7 +324,9 @@ export class TracesExplorerState {
 			kinds: [...this.filter.kinds],
 			names: [...this.filter.names],
 			durationBucketNano: this.filter.durationBucketNano,
-			entrySpansOnly: this.filter.entrySpansOnly
+			entrySpansOnly: this.filter.entrySpansOnly,
+			sortBy: this.filter.sortBy,
+			sortAscending: this.filter.sortAscending
 		};
 	}
 
@@ -310,7 +339,9 @@ export class TracesExplorerState {
 			kinds: s.kinds ?? [],
 			names: s.names ?? [],
 			durationBucketNano: typeof s.durationBucketNano === 'number' ? s.durationBucketNano : null,
-			entrySpansOnly: s.entrySpansOnly === true
+			entrySpansOnly: s.entrySpansOnly === true,
+			sortBy: s.sortBy && SPAN_SORT_KEYS.includes(s.sortBy) ? s.sortBy : 'StartTime',
+			sortAscending: s.sortAscending === true
 		};
 		void this.runSearch();
 	}

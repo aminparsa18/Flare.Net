@@ -121,15 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Sort traces by duration or span count.** The trace list is always
-  newest-first (`SpanSearchQueryBuilder`'s `ORDER BY StartTime DESC,
-  TraceId DESC, SpanId DESC`, keyset-paged on `StartTime`); "slowest
-  requests in the last hour" is only approximable with `MinDurationNano`
-  plus scrolling. Add sortable columns (duration, span count) to
-  `TraceList`, with a matching keyset cursor per sort key (e.g.
-  `(Duration, SpanId)`), span count coming from the trace rollups. Not
-  started. Prior art:
-  [signoz#7842](https://github.com/SigNoz/signoz/commit/503e4cdf00c9c767228a075a43b2a09298e17334).
 - **Bug: metric points flagged "no recorded value" are ingested as real
   values.** OTLP data points carry `DataPointFlags.FLAG_NO_RECORDED_VALUE`
   (bit 1) meaning "no value - this series went stale"; `OtlpMetricsMapper`

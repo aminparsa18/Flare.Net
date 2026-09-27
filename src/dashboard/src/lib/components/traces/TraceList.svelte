@@ -3,7 +3,11 @@
 	import TraceRow from './TraceRow.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import { tracesExplorerContext } from '$lib/traces/context';
+	import type { SpanSortKey } from '$lib/traces-api';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = tracesExplorerContext.get();
@@ -14,6 +18,31 @@
 	const COLUMNS = '170px 90px 160px 1fr 90px 70px'; // Time | Status | Service | Name | Duration | Spans
 </script>
 
+<!-- Server-side sort (SpanSearchRequest.sortBy), not a client-side sort of the loaded
+     page - a list that pages in 100 rows at a time can't sort what it hasn't fetched.
+     Same chevron/arrow affordance as HostsTable's headers. -->
+{#snippet sortHeader(key: SpanSortKey, label: string, alignRight = false)}
+	{@const active = explorer.filter.sortBy === key}
+	<button
+		type="button"
+		class="hover:text-foreground inline-flex items-center gap-1 {alignRight ? 'flex-row-reverse justify-self-end' : ''} {active
+			? 'text-foreground'
+			: ''}"
+		onclick={() => explorer.toggleSort(key)}
+	>
+		{label}
+		{#if active}
+			{#if explorer.filter.sortAscending}
+				<ChevronUpIcon class="size-3" />
+			{:else}
+				<ChevronDownIcon class="size-3" />
+			{/if}
+		{:else}
+			<ArrowUpDownIcon class="text-muted-foreground/50 size-3" />
+		{/if}
+	</button>
+{/snippet}
+
 <div
 	class="flex min-h-0 flex-1 flex-col"
 	style:--trace-row-columns={COLUMNS}
@@ -23,12 +52,12 @@
 		class="bg-muted/30 text-muted-foreground grid shrink-0 items-center gap-3 overflow-y-hidden border-b px-3 text-xs font-medium"
 		style="grid-template-columns: var(--trace-row-columns); height: 28px; scrollbar-gutter: stable;"
 	>
-		<span>{m.traceList_colTime()}</span>
+		<span>{@render sortHeader('StartTime', m.traceList_colTime())}</span>
 		<span>{m.traceList_colStatus()}</span>
 		<span>{m.traceList_colService()}</span>
 		<span>{m.traceList_colName()}</span>
-		<span>{m.traceList_colDuration()}</span>
-		<span class="text-right">{m.traceList_colSpans()}</span>
+		<span>{@render sortHeader('Duration', m.traceList_colDuration())}</span>
+		<span class="text-right">{@render sortHeader('SpanCount', m.traceList_colSpans(), true)}</span>
 	</div>
 
 	{#if explorer.traces.length === 0 && !explorer.loading}

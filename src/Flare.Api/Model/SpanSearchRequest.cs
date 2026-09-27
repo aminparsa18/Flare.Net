@@ -19,13 +19,44 @@ public sealed partial record SpanSearchRequest
 
     /// <summary>Rows to return. Defaults/caps applied by <see cref="Query.SpanSearchQueryBuilder"/> - see its remarks.</summary>
     public int? PageSize { get; init; }
+
+    /// <summary>
+    /// Row order - <see cref="SpanSortKey.StartTime"/> (newest first) by default. Appended
+    /// after the existing members, not inserted between them, so MemoryPack's positional
+    /// wire format stays compatible with clients that only send the first three.
+    /// </summary>
+    public SpanSortKey SortBy { get; init; }
+
+    /// <summary>
+    /// Flips <see cref="SortBy"/> to ascending. Phrased as "ascending" rather than
+    /// "descending" so the omitted/default <see langword="false"/> keeps the historical
+    /// newest-first (and slowest-first, most-spans-first) order.
+    /// </summary>
+    public bool SortAscending { get; init; }
+}
+
+/// <summary>What <see cref="SpanSearchRequest.SortBy"/> orders by. Every key breaks ties on <c>(TraceId, SpanId)</c>.</summary>
+public enum SpanSortKey
+{
+    /// <summary>The span's own <c>StartTime</c>.</summary>
+    StartTime,
+
+    /// <summary>The span's own <c>DurationNano</c> - for a root span, the trace's duration.</summary>
+    Duration,
+
+    /// <summary>
+    /// Span count of the row's whole trace (<see cref="SpanDto.SpanCount"/>) - computed at
+    /// query time, so costlier than the other two: see
+    /// <see cref="Query.SpanSearchQueryBuilder"/>'s remarks.
+    /// </summary>
+    SpanCount,
 }
 
 /// <summary>Response body for <c>POST /api/spans/search</c>.</summary>
 [MemoryPackable]
 public sealed partial record SpanSearchResponse
 {
-    /// <summary>Most-recent-first (<c>StartTime DESC</c>).</summary>
+    /// <summary>In <see cref="SpanSearchRequest.SortBy"/> order - most-recent-first (<c>StartTime DESC</c>) by default.</summary>
     public required IReadOnlyList<SpanDto> Spans { get; init; }
 
     /// <summary>Pass back as the next request's <see cref="SpanSearchRequest.Cursor"/>. Null when this page was the last.</summary>

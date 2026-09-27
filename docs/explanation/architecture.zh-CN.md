@@ -98,7 +98,7 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 ### 追踪
 
-`/traces` — 每个 OTLP 跟踪 Flare 已收到，可按服务和时间范围进行过滤。自动检测跨度（ASP.NET Core、HttpClient，...）以及您自己的代码通过 `ActivitySource` 发出的任何内容并排显示。
+`/traces` — 每个 OTLP 跟踪 Flare 已收到，可按服务和时间范围进行过滤。自动检测跨度（ASP.NET Core、HttpClient，...）以及您自己的代码通过 `ActivitySource` 发出的任何内容并排显示。列表默认按时间从新到旧排列；点击“时间”“耗时”或“跨度数”列标题即可按该列排序（再次点击反转顺序），例如查看时间范围内最慢的请求，或跨度最多的跟踪。
 
 ![Traces list](../screenshots/traces.png)
 
