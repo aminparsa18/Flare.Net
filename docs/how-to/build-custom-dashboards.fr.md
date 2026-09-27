@@ -309,7 +309,9 @@ et n'importe quel nombre d'entre elles peut exister sur un même tableau de
 bord :
 
 1. Cliquez sur **Ajouter une variable** et donnez-lui un **nom** (affiché
-   comme libellé de sa liste déroulante dans l'en-tête).
+   comme libellé de sa liste déroulante dans l'en-tête) et, si vous le
+   souhaitez, une **description** (affichée en info-bulle au survol de
+   cette liste déroulante).
 2. Choisissez ce qu'elle **affecte** :
    - **Service** — restreint le filtre de service de chaque panneau
      Logs/Traces/Metrics, comme l'ancienne surcharge fixe Service de la
@@ -357,6 +359,25 @@ choisir ses propres valeurs.
 
 Chaque panneau peut aussi désactiver individuellement une variable — voir
 « Désactivation par panneau » ci-dessous.
+
+### Variables dans les titres de panneau
+
+Un titre de panneau peut faire référence à une variable par son nom ; le
+titre affiche alors la sélection courante de cette variable :
+`Latence – $service` se lit « Latence – checkout » tant que `checkout`
+est sélectionné. Écrivez `$nom` pour un nom composé de lettres, de
+chiffres et de tirets bas, ou `${nom}` pour un nom contenant des espaces
+ou d'autres caractères (`${Environnement de déploiement}`). Plusieurs
+valeurs sélectionnées sont séparées par des virgules, et l'absence de
+sélection s'affiche « All » (le libellé du sélecteur). Les noms sont comparés sans tenir compte de
+la casse. Une référence qui ne nomme aucune variable du tableau de bord
+(`Coût en $USD`) reste telle quelle.
+
+Pendant le renommage d'un panneau, tapez `$` pour obtenir la liste des
+variables du tableau de bord ; choisissez-en une à la souris, ou avec les
+flèches puis Entrée/Tab, pour insérer sa référence. Le titre enregistré
+conserve les références : en mode édition, survoler le titre affiche le
+titre tel que vous l'avez écrit.
 
 ### Variables à valeurs multiples
 

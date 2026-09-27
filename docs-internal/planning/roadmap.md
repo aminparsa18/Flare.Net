@@ -121,14 +121,6 @@ folders are where "what happened and why" actually lives.
   selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
   [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
   top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
-- **Dashboard variables in panel titles + variable descriptions.** Panel
-  titles are plain text; allow `$variable` references (e.g. "Latency –
-  $service") resolved against the current selection (multi-value joined,
-  "All" rendered as such), with `$`-triggered suggestions in the title
-  field; and an optional per-variable description shown as a tooltip on
-  the variable picker. Frontend-only, small. Not started. Prior art:
-  titles [signoz#7898](https://github.com/SigNoz/signoz/commit/f10f7a806f102d53d4f66e88542afd98707c1f2d),
-  descriptions [signoz#7897](https://github.com/SigNoz/signoz/commit/9383b6576d3e287b6aff8ae66980ea3ae12a0ed5).
 - **Panel legend placement + per-series colors.** Series colors come
   from the fixed 5-slot palette hashed by series identity
   (`lib/metrics/chart-colors`), with no per-panel override and the legend

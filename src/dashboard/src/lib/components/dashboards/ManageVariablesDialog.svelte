@@ -59,6 +59,9 @@
 								{/if}
 							</div>
 							<p class="text-muted-foreground truncate text-xs">{targetSummary(variable)}</p>
+							{#if variable.description}
+								<p class="text-muted-foreground truncate text-xs" title={variable.description}>{variable.description}</p>
+							{/if}
 						</div>
 						<div class="flex shrink-0 items-center gap-1">
 							<Button variant="ghost" size="icon-sm" title={m.manageVariables_edit()} onclick={() => viewer.openEditVariable(variable)}>

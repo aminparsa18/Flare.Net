@@ -14,7 +14,6 @@
 	import { goto } from '$app/navigation';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { inViewport } from '$lib/actions/in-viewport';
@@ -26,6 +25,7 @@
 	import ThresholdsPopover from './ThresholdsPopover.svelte';
 	import MoveToRowMenu from './MoveToRowMenu.svelte';
 	import PanelDescriptionPopover from './PanelDescriptionPopover.svelte';
+	import PanelTitleInput from './PanelTitleInput.svelte';
 	import VisualizationMenu from './VisualizationMenu.svelte';
 	import ColumnUnitsPopover from './ColumnUnitsPopover.svelte';
 	import { effectivePanelYAxisScale, parseVisualization, usesYAxis, usesYAxisScale, type PanelReducer, type PanelVisualization } from '$lib/dashboards/visualization';
@@ -35,7 +35,7 @@
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
 	import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
-	import { resolveVariableOverrides } from '$lib/dashboards/variables';
+	import { resolvePanelTitle, resolveVariableOverrides } from '$lib/dashboards/variables';
 	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '$lib/deep-links';
 	import { panelExplorerHref, panelExplorerState, withCustomRange, withLogsGroup } from '$lib/dashboards/explore-links';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -108,6 +108,12 @@
 	 *  in-viewport.ts's own remarks on why this isn't a continuous show/hide. */
 	let visible = $state(false);
 
+	/** `panel.title` with its `$variable` references filled in from the current selection -
+	 *  what's shown, and what a drafted alert / Table CSV download are named after. Not
+	 *  narrowed by `excludedVariableIds`: that opt-out is about the panel's query, while a
+	 *  title reference is something the author typed on purpose. */
+	const displayTitle = $derived(resolvePanelTitle(panel.title, variables, variableValues, m.dashboardViewer_variableAll()));
+
 	const visualization = $derived(parseVisualization(panel.visualization));
 	const yAxisScale = $derived(effectivePanelYAxisScale(panel));
 
@@ -168,7 +174,7 @@
 			const q = (panel.query ?? {}) as Partial<LogsSavedViewState>;
 			return {
 				kind: 'LogCount',
-				name: m.dashboardPanelCard_alertNameFromPanel({ title: panel.title }),
+				name: m.dashboardPanelCard_alertNameFromPanel({ title: displayTitle }),
 				services: q.services ?? [],
 				severityNumbers: q.severityNumbers ?? [],
 				search: q.search ?? ''
@@ -179,7 +185,7 @@
 			if (!q.selectedMetric) return null;
 			return {
 				kind: 'MetricThreshold',
-				name: m.dashboardPanelCard_alertNameFromPanel({ title: panel.title }),
+				name: m.dashboardPanelCard_alertNameFromPanel({ title: displayTitle }),
 				metricName: q.selectedMetric.metricName,
 				metricType: q.selectedMetric.type
 			};
@@ -226,20 +232,16 @@
 				</span>
 			{/if}
 			{#if renaming}
-				<Input
-					class="h-7 text-sm"
-					autofocus
-					bind:value={titleDraft}
-					aria-label={m.dashboardPanelCard_renameLabel()}
-					onblur={commitRename}
-					onkeydown={(e) => {
-						if (e.key === 'Enter') commitRename();
-						else if (e.key === 'Escape') cancelRename();
-					}}
-				/>
+				<PanelTitleInput bind:value={titleDraft} {variables} onCommit={commitRename} onCancel={cancelRename} />
 			{:else}
-				<button type="button" class="truncate text-left text-sm font-medium" disabled={!editing} onclick={startRename}>
-					{panel.title}
+				<button
+					type="button"
+					class="truncate text-left text-sm font-medium"
+					disabled={!editing}
+					title={displayTitle !== panel.title ? panel.title : undefined}
+					onclick={startRename}
+				>
+					{displayTitle}
 				</button>
 			{/if}
 			{#if panel.description}
@@ -353,7 +355,7 @@
 					{visualization}
 					reducer={panel.reducer}
 					columnUnits={panel.columnUnits}
-					title={panel.title}
+					title={displayTitle}
 					onOpenRange={openRange}
 				/>
 			{:else if panel.panelType === 'Traces'}

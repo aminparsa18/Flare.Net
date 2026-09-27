@@ -166,8 +166,10 @@ export type DashboardVariableSourceKind = 'Query' | 'Custom';
  */
 export interface DashboardVariable {
 	id: string;
-	/** Display label shown in both the viewer's dropdown and the manage-variables list - freeform, not a token (no panel query is ever textually templated, so there's nothing for a `$name`-style identifier to be substituted into). */
+	/** Display label shown in both the viewer's dropdown and the manage-variables list - freeform, not a token (no panel query is ever textually templated). Panel *titles* can still reference it by name as `$name`/`${name}` - see `resolvePanelTitle` in `$lib/dashboards/variables.ts`. */
 	name: string;
+	/** Optional help text shown as the viewer picker's tooltip. Omitted for every variable saved before this existed. */
+	description?: string;
 	target: DashboardVariableTarget;
 	/** Required when `target === 'Attribute'`; meaningless otherwise. */
 	attributeBag?: DashboardAttributeBag;

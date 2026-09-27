@@ -263,7 +263,8 @@ which are fixed built-in controls, a variable is something you define
 yourself, and any number of them can exist on one dashboard:
 
 1. Click **Add variable** and give it a **name** (shown as its dropdown's
-   label in the header).
+   label in the header) and, optionally, a **description** (shown as a
+   tooltip when hovering over that dropdown).
 2. Choose what it **backs**:
    - **Service** — narrows every Logs/Traces/Metrics panel's service
      filter, the same thing Phase 4's old fixed Service override did.
@@ -302,6 +303,23 @@ opens the dashboard sees the same dropdowns but can pick their own values.
 
 Each panel can also individually opt out of a variable — see "Per-panel
 opt-out" below.
+
+### Variables in panel titles
+
+A panel title can reference a variable by name, and the title then shows
+that variable's current selection: `Latency – $service` reads
+"Latency – checkout" while `checkout` is selected. Write `$name` for a
+name made of letters, digits and underscores, or `${name}` for a name
+with spaces or other characters (`${Deployment env}`). Several selected
+values are joined with commas, and no selection shows as "All". Names
+match case-insensitively. A reference that names no variable on the
+dashboard (`Cost in $USD`) stays as typed.
+
+While renaming a panel, type `$` to get a list of the dashboard's
+variables; pick one with the mouse, or with the arrow keys and
+Enter/Tab, to insert its reference. The saved title keeps the
+references, so hovering over the title in edit mode shows the title as
+you wrote it.
 
 ### Multi-value variables
 

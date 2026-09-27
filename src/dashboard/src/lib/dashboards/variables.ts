@@ -201,3 +201,52 @@ export function attributesForLogsPanel(overrides: ResolvedVariableOverrides): At
 export function attributesForTracesPanel(overrides: ResolvedVariableOverrides): SpanAttributeFilter[] {
 	return overrides.attributes.filter((a) => a.bag !== 'Log').map((a) => attributeMatch(a.bag as SpanAttributeBag, a.key, a.values));
 }
+
+/** `$name` - a variable name made only of letters, digits and `_` - or `${any name}` for a
+ *  name with spaces or punctuation. Names are freeform labels (see `DashboardVariable.name`),
+ *  so the braced form is the one that can reference every variable. */
+const TITLE_REFERENCE = /\$\{([^}]+)\}|\$([\p{L}\p{N}_]+)/gu;
+const BARE_NAME = /^[\p{L}\p{N}_]+$/u;
+
+function findVariableByName(variables: readonly DashboardVariable[], name: string): DashboardVariable | undefined {
+	const trimmed = name.trim();
+	return variables.find((v) => v.name === trimmed) ?? variables.find((v) => v.name.toLowerCase() === trimmed.toLowerCase());
+}
+
+/** What a panel title's reference to `variable` is written as - the bare `$name` form when the
+ *  name allows it, `${name}` otherwise. Inserted by the title field's `$` suggestions. */
+export function variableReference(variable: DashboardVariable): string {
+	return BARE_NAME.test(variable.name) ? `$${variable.name}` : `\${${variable.name}}`;
+}
+
+/**
+ * Substitutes every `$name`/`${name}` reference in a panel title with that variable's current
+ * selection - several values joined with ", ", no selection rendered as `allLabel` (the
+ * picker's own "All"). Matching is by name, exact first then case-insensitive; a reference
+ * naming no variable (e.g. "Cost in $USD" on a dashboard without a `USD` variable) is left
+ * as typed. Display-only: the saved title keeps its references.
+ */
+export function resolvePanelTitle(
+	title: string,
+	variables: readonly DashboardVariable[],
+	selections: Record<string, string[]>,
+	allLabel: string
+): string {
+	if (!variables.length || !title.includes('$')) return title;
+	return title.replace(TITLE_REFERENCE, (match, braced: string | undefined, bare: string | undefined) => {
+		const variable = findVariableByName(variables, braced ?? bare ?? '');
+		if (!variable) return match;
+		const values = selections[variable.id];
+		return values?.length ? values.join(', ') : allLabel;
+	});
+}
+
+/** The `$`-reference the caret is currently inside of in a title being typed - `start` is the
+ *  `$`'s index, `query` what follows it up to the caret (without a leading `{`). `null` when
+ *  the caret isn't right after a `$` + name characters. Drives the title field's suggestions. */
+export function titleReferenceAtCaret(text: string, caret: number): { start: number; query: string } | null {
+	const before = text.slice(0, caret);
+	const match = /\$(\{[^}$]*|[\p{L}\p{N}_]*)$/u.exec(before);
+	if (!match) return null;
+	return { start: match.index, query: match[1].replace(/^\{/, '') };
+}

@@ -188,7 +188,7 @@
 							value={viewer.variableValues[variable.id]?.[0] ?? VARIABLE_OFF}
 							onValueChange={(v) => v && handleVariableChange(variable.id, v)}
 						>
-							<Select.Trigger class="w-auto" title={variable.name}>
+							<Select.Trigger class="w-auto" title={variable.description || variable.name}>
 								<SlidersHorizontalIcon data-icon="inline-start" />
 								{variable.name}: {variableLabel(variable.id)}
 							</Select.Trigger>

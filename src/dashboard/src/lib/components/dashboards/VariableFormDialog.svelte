@@ -25,6 +25,7 @@
 	const isEdit = $derived(viewer.variableFormTarget !== null && viewer.variableFormTarget !== 'new');
 
 	let name = $state('');
+	let description = $state('');
 	let target = $state<DashboardVariableTarget>('Service');
 	let attributeBag = $state<DashboardAttributeBag>('Log');
 	let attributeKey = $state('');
@@ -64,6 +65,7 @@
 		const t = viewer.variableFormTarget;
 		if (t === 'new') {
 			name = '';
+			description = '';
 			target = 'Service';
 			attributeBag = 'Log';
 			attributeKey = '';
@@ -74,6 +76,7 @@
 			dependsOnVariableId = NONE;
 		} else if (t) {
 			name = t.name;
+			description = t.description ?? '';
 			target = t.target;
 			attributeBag = t.attributeBag ?? 'Log';
 			attributeKey = t.attributeKey ?? '';
@@ -112,6 +115,7 @@
 		const variable: DashboardVariable = {
 			id: current === 'new' ? crypto.randomUUID() : current.id,
 			name: name.trim(),
+			description: description.trim() || undefined,
 			target,
 			attributeBag: target === 'Attribute' ? attributeBag : undefined,
 			attributeKey: target === 'Attribute' ? attributeKey.trim() : undefined,
@@ -139,6 +143,11 @@
 			<div class="space-y-2">
 				<label for="variable-form-name" class="text-sm font-medium">{m.variableForm_nameLabel()}</label>
 				<Input id="variable-form-name" bind:value={name} required />
+			</div>
+
+			<div class="space-y-2">
+				<label for="variable-form-description" class="text-sm font-medium">{m.variableForm_descriptionLabel()}</label>
+				<Textarea id="variable-form-description" bind:value={description} rows={2} placeholder={m.variableForm_descriptionPlaceholder()} />
 			</div>
 
 			<div class="space-y-2">
