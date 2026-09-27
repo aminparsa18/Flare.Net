@@ -187,6 +187,16 @@ Jaeger/Zipkin mais connectée directement au reste du tableau de bord.
 
 ![Trace detail waterfall](../screenshots/trace-detail.png)
 
+Un onglet « Entonnoirs » (`/traces/funnels`) suit les traces à travers une
+liste ordonnée d'étapes, chacune correspondant à des spans (service, nom de
+span, filtres d'attributs). Il indique combien de traces atteignent chaque
+étape, où elles décrochent, les erreurs par étape et la latence d'une étape à
+l'autre. Chaque chiffre ouvre les traces correspondantes. Le calcul se fait à
+la requête sur les spans stockés, et les entonnoirs s'enregistrent comme des
+vues enregistrées ordinaires. Voir
+[`../how-to/analyze-trace-funnels.fr.md`](../how-to/analyze-trace-funnels.fr.md)
+et [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md).
+
 ### Messagerie
 
 `/messaging` — une ligne par topic Kafka, file RabbitMQ ou entité Service

@@ -29,6 +29,8 @@
 				return m.nav_traces();
 			case 'Metrics':
 				return m.nav_metrics();
+			case 'Funnels':
+				return m.tracesPage_funnelsTab();
 		}
 	}
 

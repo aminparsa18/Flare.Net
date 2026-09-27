@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { TracesExplorerState } from '$lib/traces/state.svelte';
 	import { tracesExplorerContext } from '$lib/traces/context';
@@ -102,6 +102,10 @@
 	let lastAppliedDeepLinkKey: string | null = null;
 	$effect(() => {
 		const url = page.url;
+		// ?tab=services - the Services tab link on /traces/funnels (TracesViewTabs.svelte).
+		// untrack: setActiveTab reads activeTab, and tracking it would snap a later click on
+		// the Traces tab straight back to Services while the URL still says so.
+		if (url.searchParams.get('tab') === 'services') untrack(() => setActiveTab('services'));
 		const deepLink = parseTracesDeepLinkParams(url);
 		if (deepLink && url.search !== lastAppliedDeepLinkKey) {
 			lastAppliedDeepLinkKey = url.search;

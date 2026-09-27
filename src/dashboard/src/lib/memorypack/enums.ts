@@ -63,7 +63,7 @@ export function ingestionProtocolFromString(value: IngestionProtocolName): numbe
 }
 
 /** Matches `SavedViewModels.cs`'s `SavedViewPageType` member order. Not itself MemoryPack-TS-generated (no generated type references it - every consumer, `SavedView`/`SavedViewRequest`, is hand-written because of `State`'s `JsonElement` member - see `SavedView.ts`'s header comment), so this is a plain hand-coded ordinal mapping. */
-const SAVED_VIEW_PAGE_TYPE_NAMES = ['Logs', 'Traces', 'Metrics'] as const;
+const SAVED_VIEW_PAGE_TYPE_NAMES = ['Logs', 'Traces', 'Metrics', 'Funnels'] as const;
 
 export type SavedViewPageTypeName = (typeof SAVED_VIEW_PAGE_TYPE_NAMES)[number];
 
@@ -382,4 +382,13 @@ export function maintenanceWindowRecurrenceToString(value: number): MaintenanceW
 
 export function maintenanceWindowRecurrenceFromString(value: MaintenanceWindowRecurrenceName): number {
 	return MAINTENANCE_WINDOW_RECURRENCE_NAMES.indexOf(value);
+}
+
+/** Matches `TraceFunnelModels.cs`'s `TraceFunnelOutcome` member order. Hand-coded - its only consumer, `TraceFunnelTracesRequest`, is hand-written. */
+const TRACE_FUNNEL_OUTCOME_NAMES = ['Reached', 'Dropped', 'Errored'] as const;
+
+export type TraceFunnelOutcomeName = (typeof TRACE_FUNNEL_OUTCOME_NAMES)[number];
+
+export function traceFunnelOutcomeFromString(value: TraceFunnelOutcomeName): number {
+	return TRACE_FUNNEL_OUTCOME_NAMES.indexOf(value);
 }

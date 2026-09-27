@@ -217,6 +217,7 @@ builder.Services.AddSingleton<IMetricCatalogQueryService, MetricCatalogQueryServ
 builder.Services.AddSingleton<IPodMetricsQueryService, PodMetricsQueryService>();
 builder.Services.AddSingleton<IExceptionQueryService, ExceptionQueryService>();
 builder.Services.AddSingleton<IMessagingQueryService, MessagingQueryService>();
+builder.Services.AddSingleton<ITraceFunnelQueryService, TraceFunnelQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
@@ -429,6 +430,7 @@ authenticatedRoutes.MapMetricCatalogEndpoints();
 authenticatedRoutes.MapPodMetricsEndpoints();
 authenticatedRoutes.MapExceptionEndpoints();
 authenticatedRoutes.MapMessagingEndpoints();
+authenticatedRoutes.MapTraceFunnelEndpoints();
 authenticatedRoutes.MapSavedViewEndpoints();
 authenticatedRoutes.MapDashboardEndpoints();
 authenticatedRoutes.MapIngestionEndpoints();

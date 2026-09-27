@@ -177,6 +177,14 @@ a service's trace entry points, the same convention the trace list itself
 uses for "one row per trace". Click a service name to jump back into the
 trace list, pre-filtered to that service and window.
 
+A "Funnels" tab (`/traces/funnels`) follows traces through an ordered list
+of span-match steps (service, span name, attribute filters) and shows how
+many reach each step, where they drop off, errors per step and step-to-step
+latency. Each figure opens the traces behind it. Computed at query time from
+the stored spans, and saved as ordinary saved views. See
+[`../how-to/analyze-trace-funnels.md`](../how-to/analyze-trace-funnels.md)
+and [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md).
+
 ### Messaging
 
 `/messaging` — one row per Kafka topic, RabbitMQ queue or Service Bus

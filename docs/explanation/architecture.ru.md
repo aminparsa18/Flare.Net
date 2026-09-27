@@ -182,6 +182,16 @@ SvelteKit (Svelte 5) + Tailwind + shadcn-svelte, Docker Compose. RustFS —
 
 ![Trace detail waterfall](../screenshots/traces-ru.webp)
 
+Вкладка «Воронки» (`/traces/funnels`) проводит трассировки через
+упорядоченный список шагов, каждый из которых задаётся условием на span
+(сервис, имя span, фильтры по атрибутам). Она показывает, сколько трассировок
+дошло до каждого шага, где они отсеялись, ошибки на каждом шаге и задержку
+между шагами. Каждое число открывает соответствующие трассировки. Всё
+вычисляется при запросе по сохранённым span, а воронки сохраняются как
+обычные сохранённые представления. См.
+[`../how-to/analyze-trace-funnels.ru.md`](../how-to/analyze-trace-funnels.ru.md)
+и [ADR-0067](../../docs-internal/adr/0067-trace-funnels.md).
+
 ### Очереди сообщений
 
 `/messaging` — по строке на каждый топик Kafka, очередь RabbitMQ или

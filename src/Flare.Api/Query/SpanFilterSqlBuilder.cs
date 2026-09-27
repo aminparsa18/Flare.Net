@@ -99,7 +99,7 @@ public static class SpanFilterSqlBuilder
         {
             for (var i = 0; i < attributes.Count; i++)
             {
-                clauses.Add(AttributeClause(attributes[i], i, parameters, promoted));
+                clauses.Add(AttributeClause(attributes[i], i.ToString(System.Globalization.CultureInfo.InvariantCulture), parameters, promoted));
             }
         }
 
@@ -154,18 +154,20 @@ public static class SpanFilterSqlBuilder
     /// instead of <c>=</c>, guarded by <c>mapContains</c> the same way. <c>In</c>/<c>NotIn</c>
     /// compile to <c>IN</c> against <see cref="SpanAttributeFilter.Values"/> (bound as an
     /// <c>Array(String)</c> parameter, empty when <c>Values</c> is null) instead of <c>=</c>
-    /// against <c>Value</c>, guarded the same way too.
+    /// against <c>Value</c>, guarded the same way too. <paramref name="suffix"/> makes the
+    /// bound parameter names unique - <c>internal</c> so <see cref="TraceFunnelQueryBuilder"/>
+    /// can compile several steps' attribute filters into one query.
     /// </summary>
-    private static string AttributeClause(SpanAttributeFilter attribute, int index, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
+    internal static string AttributeClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
     {
         if (promoted is not null && promoted.TryGetColumn(PromotedBag(attribute.Bag), attribute.Key, out var promotedColumn)
-            && PromotedClause(attribute, index, parameters, promotedColumn) is { } promotedSql)
+            && PromotedClause(attribute, suffix, parameters, promotedColumn) is { } promotedSql)
         {
             return promotedSql;
         }
 
         var column = ColumnFor(attribute.Bag);
-        var keyParam = $"attrKey{index}";
+        var keyParam = $"attrKey{suffix}";
         parameters.AddParameter(keyParam, attribute.Key);
         var containsSql = $"mapContains({column}, {{{keyParam}:String}})";
 
@@ -177,37 +179,37 @@ public static class SpanFilterSqlBuilder
                 return $"NOT {containsSql}";
             case SpanAttributeFilterOperator.NotEquals:
             {
-                var valueParam = $"attrValue{index}";
+                var valueParam = $"attrValue{suffix}";
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] = {{{valueParam}:String}})";
             }
             case SpanAttributeFilterOperator.Regex:
             {
-                var valueParam = $"attrValue{index}";
+                var valueParam = $"attrValue{suffix}";
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"({containsSql} AND match({column}[{{{keyParam}:String}}], {{{valueParam}:String}}))";
             }
             case SpanAttributeFilterOperator.NotRegex:
             {
-                var valueParam = $"attrValue{index}";
+                var valueParam = $"attrValue{suffix}";
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"NOT ({containsSql} AND match({column}[{{{keyParam}:String}}], {{{valueParam}:String}}))";
             }
             case SpanAttributeFilterOperator.In:
             {
-                var valuesParam = $"attrValues{index}";
+                var valuesParam = $"attrValues{suffix}";
                 parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
                 return $"({containsSql} AND {column}[{{{keyParam}:String}}] IN {{{valuesParam}:Array(String)}})";
             }
             case SpanAttributeFilterOperator.NotIn:
             {
-                var valuesParam = $"attrValues{index}";
+                var valuesParam = $"attrValues{suffix}";
                 parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
                 return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] IN {{{valuesParam}:Array(String)}})";
             }
             default:
             {
-                var valueParam = $"attrValue{index}";
+                var valueParam = $"attrValue{suffix}";
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"{column}[{{{keyParam}:String}}] = {{{valueParam}:String}}";
             }
@@ -221,26 +223,26 @@ public static class SpanFilterSqlBuilder
     /// <c>NotEquals</c>/<c>In</c>/<c>NotIn</c> switch when no compared value is <c>''</c>, and
     /// every presence-sensitive operator returns null to keep the guarded map form.
     /// </summary>
-    private static string? PromotedClause(SpanAttributeFilter attribute, int index, ClickHouseParameterCollection parameters, string column)
+    private static string? PromotedClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters, string column)
     {
         switch (attribute.Operator)
         {
             case SpanAttributeFilterOperator.Equals:
             {
-                var valueParam = $"attrValue{index}";
+                var valueParam = $"attrValue{suffix}";
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"{column} = {{{valueParam}:String}}";
             }
             case SpanAttributeFilterOperator.NotEquals when !string.IsNullOrEmpty(attribute.Value):
             {
-                var valueParam = $"attrValue{index}";
+                var valueParam = $"attrValue{suffix}";
                 parameters.AddParameter(valueParam, attribute.Value);
                 return $"{column} != {{{valueParam}:String}}";
             }
             case SpanAttributeFilterOperator.In or SpanAttributeFilterOperator.NotIn
                 when attribute.Values is { Count: > 0 } values && !values.Any(string.IsNullOrEmpty):
             {
-                var valuesParam = $"attrValues{index}";
+                var valuesParam = $"attrValues{suffix}";
                 parameters.AddParameter(valuesParam, values.ToArray());
                 var op = attribute.Operator == SpanAttributeFilterOperator.In ? "IN" : "NOT IN";
                 return $"{column} {op} {{{valuesParam}:Array(String)}}";

@@ -12,7 +12,7 @@
 import { browser } from '$app/environment';
 import { listSavedViews, type PageType, type SavedView } from '$lib/saved-views-api';
 
-const PAGE_TYPES: readonly PageType[] = ['Logs', 'Traces', 'Metrics'];
+const PAGE_TYPES: readonly PageType[] = ['Logs', 'Traces', 'Metrics', 'Funnels'];
 
 function storageKey(pageType: PageType): string {
 	return `flare.savedViews.lastUsed.${pageType}`;

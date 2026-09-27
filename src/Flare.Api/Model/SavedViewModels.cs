@@ -9,6 +9,9 @@ public enum SavedViewPageType
     Logs,
     Traces,
     Metrics,
+
+    /// <summary>A trace funnel's steps (the <c>/traces/funnels</c> page) - appended last so existing ordinals keep their meaning. See ADR-0067.</summary>
+    Funnels,
 }
 
 /// <summary>
