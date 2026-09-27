@@ -5,7 +5,7 @@
 	// package.json but unused anywhere in this app and isn't a good fit for a strictly
 	// time-axis layout), the same "hand-roll it, no charting library" precedent
 	// VolumeChart.svelte already set for this dashboard.
-	import type { SpanDto } from '$lib/traces-api';
+	import type { SpanDto, SpanEventDto } from '$lib/traces-api';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import { computeCriticalPath } from '$lib/traces/critical-path';
@@ -177,6 +177,36 @@
 		// operations) still renders a clickable/visible sliver instead of vanishing.
 		const widthPct = Math.max((durationMs / totalMs) * 100, 0.5);
 		return `left: ${leftPct}%; width: ${widthPct}%;`;
+	}
+
+	// Event markers are positioned on the trace-wide axis (same as the bars), clamped to
+	// it - an SDK can stamp an event slightly outside its span's own [start, end], and a
+	// dot drawn past the edge of the cell would just be clipped away.
+	function eventOffsetMs(event: SpanEventDto): number {
+		return new Date(event.timestamp).getTime() - traceStartMs;
+	}
+
+	function eventLeftPct(event: SpanEventDto): number {
+		return Math.min(Math.max((eventOffsetMs(event) / totalMs) * 100, 0), 100);
+	}
+
+	// OTel semantic conventions: exceptions are recorded as a span event named
+	// "exception" carrying exception.type/message/stacktrace attributes.
+	function isExceptionEvent(event: SpanEventDto): boolean {
+		return event.name === 'exception';
+	}
+
+	// A hover preview, not the full attribute table (that's SpanDetailSheet's job) - an
+	// exception shows its type + message; anything else its first few attributes. The
+	// stack trace is never readable at tooltip size, so it's always left out.
+	const EVENT_PREVIEW_ATTRIBUTES = 3;
+	function eventPreviewAttributes(event: SpanEventDto): [string, string][] {
+		const entries = Object.entries(event.attributes).filter(([key]) => key !== 'exception.stacktrace');
+		if (isExceptionEvent(event)) {
+			const preferred = entries.filter(([key]) => key === 'exception.type' || key === 'exception.message');
+			if (preferred.length > 0) return preferred;
+		}
+		return entries.slice(0, EVENT_PREVIEW_ATTRIBUTES);
 	}
 
 	function barColorClass(statusCode: string): string {
@@ -370,10 +400,11 @@
 					     the popover anchors to the bar itself (customAnchor) so it still points at
 					     the span it describes. Attribute selector, not an id: spanIds are hex and
 					     can start with a digit, which a CSS `#id` selector can't. -->
+					<div class="relative h-5">
 					<Tooltip.Root>
 						<Tooltip.Trigger>
 							{#snippet child({ props })}
-								<div {...props} class="relative h-5">
+								<div {...props} class="relative h-full">
 									<!-- Critical-path spans render at full color/opacity; everything else fades
 									     back so the handful of spans that actually determined the trace's end
 									     time stand out from the ones that just ran alongside them (see
@@ -397,9 +428,51 @@
 								<span>{m.traceWaterfall_hoverDuration({ duration: formatDurationNano(span.durationNano) })}</span>
 								<span>{m.traceWaterfall_hoverOffset({ offset: formatDurationNano(startOffsetMs(span) * 1_000_000) })}</span>
 								<span class="opacity-70 tabular-nums">{formatStartTime(span.startTime)}</span>
+								{#if span.events.length > 0}
+									<span>{m.traceWaterfall_hoverEventCount({ count: span.events.length })}</span>
+								{/if}
 							</div>
 						</Tooltip.Content>
 					</Tooltip.Root>
+					<!-- Span event markers (signoz#7889): one dot per event at its timestamp, on
+					     top of the bar. A sibling overlay rather than children of the bar's
+					     tooltip trigger, so hovering a dot swaps the span popover for the
+					     event's own instead of nesting two tooltips. The layer ignores the
+					     pointer so the span hover target underneath still works everywhere
+					     except the dots themselves; a click on a dot bubbles to the row and
+					     selects the span, whose detail sheet lists the full event. -->
+					{#if span.events.length > 0}
+						<div class="pointer-events-none absolute inset-0">
+							{#each span.events as event, i (i)}
+								{@const isException = isExceptionEvent(event)}
+								<Tooltip.Root>
+									<Tooltip.Trigger>
+										{#snippet child({ props })}
+											<span
+												{...props}
+												class="{isException
+													? 'bg-destructive'
+													: 'bg-foreground'} ring-background pointer-events-auto absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-1"
+												style="left: {eventLeftPct(event)}%;"
+												aria-label={event.name || '—'}
+											></span>
+										{/snippet}
+									</Tooltip.Trigger>
+									<Tooltip.Content>
+										<div class="flex max-w-80 flex-col gap-0.5">
+											<span class="font-medium">{event.name || '—'}</span>
+											<span>{m.traceWaterfall_hoverEventOffset({ offset: formatDurationNano(eventOffsetMs(event) * 1_000_000) })}</span>
+											<span class="opacity-70 tabular-nums">{formatStartTime(event.timestamp)}</span>
+											{#each eventPreviewAttributes(event) as [key, value] (key)}
+												<span class="line-clamp-2 break-all"><span class="opacity-70">{key}:</span> {value}</span>
+											{/each}
+										</div>
+									</Tooltip.Content>
+								</Tooltip.Root>
+							{/each}
+						</div>
+					{/if}
+					</div>
 				</div>
 			{/each}
 			</Tooltip.Provider>
