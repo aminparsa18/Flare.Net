@@ -12,6 +12,7 @@ import type { ExceptionGroup as GeneratedExceptionGroup } from '$lib/memorypack/
 import { ExceptionOccurrencesRequest as GeneratedExceptionOccurrencesRequest } from '$lib/memorypack/ExceptionOccurrencesRequest';
 import { ExceptionOccurrencesResponse as GeneratedExceptionOccurrencesResponse } from '$lib/memorypack/ExceptionOccurrencesResponse';
 import type { ExceptionOccurrence as GeneratedExceptionOccurrence } from '$lib/memorypack/ExceptionOccurrence';
+import { type ResourceAttributeFilter, toGeneratedResourceAttributes, fromGeneratedResourceAttributes } from './services-api';
 
 // ---- Shared filter shape (ErrorModels.cs's ExceptionFilter) ----------------
 
@@ -19,6 +20,8 @@ export interface ExceptionFilter {
 	from?: string;
 	to?: string;
 	services?: string[];
+	/** Equality filters against the span's resource attributes, ANDed - same shape as the Traces > Services tab's filter chips. */
+	resourceAttributes?: ResourceAttributeFilter[];
 }
 
 /** Exported for `alerts-api.ts`'s `ExceptionCountCondition` - see `fromGeneratedExceptionFilter`'s doc comment below. */
@@ -28,6 +31,7 @@ export function toGeneratedExceptionFilter(filter: ExceptionFilter | undefined):
 	dto.from = filter.from == null ? null : new Date(filter.from);
 	dto.to = filter.to == null ? null : new Date(filter.to);
 	dto.services = filter.services ?? null;
+	dto.resourceAttributes = toGeneratedResourceAttributes(filter.resourceAttributes);
 	return dto;
 }
 
@@ -42,7 +46,8 @@ export function fromGeneratedExceptionFilter(dto: GeneratedExceptionFilter | nul
 	return {
 		from: dto.from?.toISOString(),
 		to: dto.to?.toISOString(),
-		services: (dto.services ?? []).filter((s): s is string => s != null)
+		services: (dto.services ?? []).filter((s): s is string => s != null),
+		resourceAttributes: fromGeneratedResourceAttributes(dto.resourceAttributes)
 	};
 }
 

@@ -250,7 +250,11 @@ public class AlertMessageFormatterTests
         {
             ExceptionType = "System.TimeoutException",
             ExceptionMessage = message,
-            Filter = new ExceptionFilter { Services = ["checkout"] },
+            Filter = new ExceptionFilter
+            {
+                Services = ["checkout"],
+                ResourceAttributes = [new ResourceAttributeFilter { Key = "deployment.environment", Value = "production" }],
+            },
         },
         WindowSeconds = 300,
     };
@@ -301,7 +305,7 @@ public class AlertMessageFormatterTests
     }
 
     [Fact]
-    public void BuildMatchingExceptionsUrl_EncodesTypeMessageServicesAndWindow()
+    public void BuildMatchingExceptionsUrl_EncodesTypeMessageServicesResourceAttributesAndWindow()
     {
         var url = AlertMessageFormatter.BuildMatchingExceptionsUrl(MakeExceptionRule("Request timed out"), "https://flare.example.com", FiredAt);
 
@@ -310,6 +314,8 @@ public class AlertMessageFormatterTests
         var state = DecodeState(url);
         Assert.Equal("2026-09-24T09:55:00.000Z", state.GetProperty("customRange").GetProperty("from").GetString());
         Assert.Equal("checkout", state.GetProperty("services")[0].GetString());
+        Assert.Equal("deployment.environment", state.GetProperty("resourceAttributes")[0].GetProperty("key").GetString());
+        Assert.Equal("production", state.GetProperty("resourceAttributes")[0].GetProperty("value").GetString());
         Assert.Equal("System.TimeoutException", state.GetProperty("exceptionType").GetString());
         Assert.Equal("Request timed out", state.GetProperty("exceptionMessage").GetString());
     }

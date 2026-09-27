@@ -1,23 +1,22 @@
 <script lang="ts">
-	// The Services tab's filter chips (docs-internal/planning/roadmap.md's now-removed
-	// "Resource-attribute filtering on the Traces > Services tab" item) - narrows the
-	// Table view, Map view, and per-node drill-down together via ServicesState's one
-	// `resourceAttributes` field. Same Accordion-row shape as Logs'
-	// AttributeFiltersRow.svelte / the Traces tab's own SpanAttributeFiltersRow.svelte,
-	// simplified: no bag selector (always the Resource bag - see
-	// `ResourceAttributeFilter`'s own remarks on why that's the only bag this endpoint
-	// shape supports) and no operator selector (equality-only, same reasoning), and a
-	// plain text input for the value rather than those two's AttributeValueCombobox -
-	// there's no `/api/services/*` attribute-value-autocomplete endpoint yet to back one.
+	// Resource-attribute filter chips (e.g. `deployment.environment=production`) - used by
+	// the Traces > Services tab (narrows the Table view, Map view, and per-node drill-down
+	// together via ServicesState.resourceAttributes) and the /errors page
+	// (ErrorsExplorerState.filter.resourceAttributes). Props-driven so each page owns its own
+	// state. Same Accordion-row shape as Logs' AttributeFiltersRow.svelte / the Traces tab's
+	// own SpanAttributeFiltersRow.svelte, simplified: no bag selector (always the Resource bag
+	// - see `ResourceAttributeFilter`'s own remarks on why that's the only bag these endpoints
+	// support) and no operator selector (equality-only, same reasoning), and a plain text
+	// input for the value rather than those two's AttributeValueCombobox - there's no
+	// resource-attribute-value autocomplete endpoint for these pages yet to back one.
 	//
 	// Rows are local, ephemeral UI state (each needs a stable key for {#each} that
-	// ResourceAttributeFilter itself has no field for) - committed into
-	// services.resourceAttributes (and re-fetched) via services.setResourceAttributes
-	// whenever a row's committed shape actually changes. Add/remove commit immediately;
-	// key/value text inputs debounce (300ms) - same "typing shouldn't fire a request per
-	// keystroke" reasoning the two sibling rows already document.
+	// ResourceAttributeFilter itself has no field for) - committed via `onChange` whenever a
+	// row's committed shape actually changes. Add/remove commit immediately; key/value text
+	// inputs debounce (300ms) - same "typing shouldn't fire a request per keystroke"
+	// reasoning the two sibling rows already document.
+	import { untrack } from 'svelte';
 	import { browser } from '$app/environment';
-	import { servicesContext } from '$lib/services/context';
 	import type { ResourceAttributeFilter } from '$lib/services-api';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import { Input } from '$lib/components/ui/input';
@@ -26,15 +25,21 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as m from '$lib/paraglide/messages';
 
-	const services = servicesContext.get();
+	interface Props {
+		filters: ResourceAttributeFilter[];
+		onChange: (filters: ResourceAttributeFilter[]) => void;
+		/** localStorage key remembering the accordion's collapsed state, per page. */
+		collapseStorageKey: string;
+	}
+
+	let { filters, onChange, collapseStorageKey }: Props = $props();
 
 	const ITEM = 'resource-attribute-filters';
-	const COLLAPSE_STORAGE_KEY = 'flare.services.resourceAttributeFiltersCollapsed';
 
 	function loadStoredValue(): string {
-		if (!browser) return ''; // collapsed by default - see this file's own header remarks
+		if (!browser) return ''; // collapsed by default
 		try {
-			return localStorage.getItem(COLLAPSE_STORAGE_KEY) === 'false' ? ITEM : '';
+			return localStorage.getItem(collapseStorageKey) === 'false' ? ITEM : '';
 		} catch {
 			return ''; // storage disabled (e.g. private browsing) - fall back to collapsed
 		}
@@ -46,7 +51,7 @@
 		const value = accordionValue;
 		if (!browser) return;
 		try {
-			localStorage.setItem(COLLAPSE_STORAGE_KEY, String(value !== ITEM));
+			localStorage.setItem(collapseStorageKey, String(value !== ITEM));
 		} catch {
 			// Non-critical - the next reload just falls back to collapsed instead.
 		}
@@ -64,30 +69,31 @@
 		return filters.map((f) => ({ id: nextId++, key: f.key, value: f.value }));
 	}
 
-	let rows = $state<Row[]>(toRows(services.resourceAttributes));
+	// Initial snapshot only - the resync $effect below follows later `filters` changes.
+	let rows = $state<Row[]>(untrack(() => toRows(filters)));
 
 	/** Cheap content snapshot for the resync guard below - same purpose as AttributeFiltersRow.svelte's own `snapshotOf`. */
 	function snapshotOf(filters: ResourceAttributeFilter[]): string {
 		return JSON.stringify(filters.map((f) => [f.key, f.value]));
 	}
 
-	// Tells "services.resourceAttributes changed because of my own commit()" apart from
+	// Tells "filters changed because of my own commit()" apart from
 	// "changed from outside this component" - same guard, same reason (dropping a
 	// mid-edit row otherwise) as AttributeFiltersRow.svelte's own `lastAppliedSnapshot`.
-	let lastAppliedSnapshot = snapshotOf(services.resourceAttributes);
+	let lastAppliedSnapshot = untrack(() => snapshotOf(filters));
 
 	$effect(() => {
-		const snapshot = snapshotOf(services.resourceAttributes);
+		const snapshot = snapshotOf(filters);
 		if (snapshot === lastAppliedSnapshot) return;
 		lastAppliedSnapshot = snapshot;
-		rows = toRows(services.resourceAttributes);
+		rows = toRows(filters);
 	});
 
 	/** Only rows with a non-empty key are sent - a row mid-edit (key not typed yet) shouldn't turn into a nonsensical `""` key filter. */
 	function commit(): void {
-		const filters: ResourceAttributeFilter[] = rows.filter((r) => r.key.trim()).map((r) => ({ key: r.key.trim(), value: r.value }));
-		lastAppliedSnapshot = snapshotOf(filters);
-		services.setResourceAttributes(filters);
+		const next: ResourceAttributeFilter[] = rows.filter((r) => r.key.trim()).map((r) => ({ key: r.key.trim(), value: r.value }));
+		lastAppliedSnapshot = snapshotOf(next);
+		onChange(next);
 	}
 
 	let commitDebounce: ReturnType<typeof setTimeout> | undefined;
@@ -110,7 +116,7 @@
 		rows = rows.map((r) => (r.id === id ? { ...r, ...patch } : r));
 	}
 
-	const activeCount = $derived(services.resourceAttributes.length);
+	const activeCount = $derived(filters.length);
 </script>
 
 <Accordion.Root type="single" bind:value={accordionValue} class="w-full flex-col rounded-none border-0 border-b">

@@ -210,6 +210,7 @@ export function buildMetricsExplorerHref(metricName: string, type: MetricPointTy
 export interface ErrorsDeepLinkState {
 	customRange: { from: Date; to: Date };
 	services: string[];
+	resourceAttributes: { key: string; value: string }[];
 	exceptionType: string;
 	/** '' = every message for `exceptionType`, same as `ExceptionCountCondition.exceptionMessage`. */
 	exceptionMessage: string;
@@ -220,6 +221,7 @@ export function parseErrorsStateDeepLinkParam(url: URL): ErrorsDeepLinkState | n
 	const s = parseStateDeepLinkParam(url) as Partial<{
 		customRange: { from: string; to: string };
 		services: string[];
+		resourceAttributes: { key: unknown; value: unknown }[];
 		exceptionType: string;
 		exceptionMessage: string;
 	}> | null;
@@ -230,6 +232,12 @@ export function parseErrorsStateDeepLinkParam(url: URL): ErrorsDeepLinkState | n
 	return {
 		customRange: { from, to },
 		services: Array.isArray(s.services) ? s.services.filter((v): v is string => typeof v === 'string') : [],
+		// Absent on links fired before resource-attribute filters existed - treat as none.
+		resourceAttributes: Array.isArray(s.resourceAttributes)
+			? s.resourceAttributes.flatMap((a) =>
+					a && typeof a.key === 'string' && a.key && typeof a.value === 'string' ? [{ key: a.key, value: a.value }] : []
+				)
+			: [],
 		exceptionType: s.exceptionType,
 		exceptionMessage: typeof s.exceptionMessage === 'string' ? s.exceptionMessage : ''
 	};

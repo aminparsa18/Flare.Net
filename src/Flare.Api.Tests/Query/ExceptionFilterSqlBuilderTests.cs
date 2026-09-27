@@ -52,4 +52,38 @@ public class ExceptionFilterSqlBuilderTests
 
         Assert.DoesNotContain("ServiceName", result.WhereSql);
     }
+
+    [Fact]
+    public void Build_WithResourceAttributes_AddsOneEqualityClausePerFilter()
+    {
+        var result = ExceptionFilterSqlBuilder.Build(
+            new ExceptionFilter
+            {
+                ResourceAttributes =
+                [
+                    new ResourceAttributeFilter { Key = "deployment.environment", Value = "production" },
+                    new ResourceAttributeFilter { Key = "service.version", Value = "2.3" },
+                ],
+            },
+            Now);
+
+        Assert.EndsWith(
+            " AND ResourceAttributes[{ResAttrKey0:String}] = {ResAttrValue0:String}" +
+            " AND ResourceAttributes[{ResAttrKey1:String}] = {ResAttrValue1:String}",
+            result.WhereSql);
+
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("deployment.environment", parameters["ResAttrKey0"]);
+        Assert.Equal("production", parameters["ResAttrValue0"]);
+        Assert.Equal("service.version", parameters["ResAttrKey1"]);
+        Assert.Equal("2.3", parameters["ResAttrValue1"]);
+    }
+
+    [Fact]
+    public void Build_WithNoResourceAttributes_OmitsResourceClause()
+    {
+        var result = ExceptionFilterSqlBuilder.Build(new ExceptionFilter { ResourceAttributes = [] }, Now);
+
+        Assert.DoesNotContain("ResourceAttributes", result.WhereSql);
+    }
 }
