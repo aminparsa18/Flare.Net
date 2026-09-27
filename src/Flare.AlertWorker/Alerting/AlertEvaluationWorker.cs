@@ -53,6 +53,13 @@ namespace Flare.AlertWorker.Alerting;
 /// recorded in history, as "Suppressed", but not notified - see
 /// <c>docs-internal/adr/0055-alert-maintenance-windows.md</c>.
 /// </para>
+/// <para>
+/// When a firing rule evaluates as not breached, a "Resolved" notification goes to its
+/// channels that opted in (<see cref="NotificationChannel.SendResolved"/>) and a resolution
+/// row is recorded - firing/ok state is derived from those <c>alert_events</c> rows, read once
+/// per tick (<see cref="IAlertQueryService.GetFiringStatesAsync"/>). See
+/// <see cref="AlertResolutionPolicy"/> and <c>docs-internal/adr/0064-alert-resolved-notifications.md</c>.
+/// </para>
 /// </remarks>
 public sealed class AlertEvaluationWorker(
     IAlertQueryService alerts,
@@ -121,10 +128,11 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        var dueRules = await FilterDueRulesAsync(rules, opts);
+        var dueRules = (await FilterDueRulesAsync(rules, opts)).Take(opts.MaxRulesPerTick).ToList();
         var windows = await LoadMaintenanceWindowsAsync(cancellationToken);
+        var firingStates = await LoadFiringStatesAsync(dueRules, cancellationToken);
 
-        foreach (var rule in dueRules.Take(opts.MaxRulesPerTick))
+        foreach (var rule in dueRules)
         {
             try
             {
@@ -140,7 +148,7 @@ public sealed class AlertEvaluationWorker(
                         TimeSpan.FromSeconds(rule.EvaluationIntervalSeconds));
                 }
 
-                await EvaluateRuleAsync(rule, windows, cancellationToken);
+                await EvaluateRuleAsync(rule, windows, firingStates?.GetValueOrDefault(rule.Id), firingStates is not null, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -218,7 +226,27 @@ public sealed class AlertEvaluationWorker(
         }
     }
 
-    private async Task EvaluateRuleAsync(AlertRule rule, IReadOnlyList<MaintenanceWindow> windows, CancellationToken cancellationToken)
+    /// <summary>
+    /// Which of <paramref name="rules"/> are currently firing, read once per tick. Null when it
+    /// couldn't be read - recovery handling is skipped for the tick (a resolution is retried on
+    /// the next ok tick), rather than guessing every rule is ok or firing.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<Guid, AlertFiringState>?> LoadFiringStatesAsync(IReadOnlyList<AlertRule> rules, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await alerts.GetFiringStatesAsync(rules.Select(r => r.Id).ToList(), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Failed to load alert firing states; skipping resolved notifications this tick.");
+            return null;
+        }
+    }
+
+    /// <param name="firingState">The rule's firing state from <see cref="LoadFiringStatesAsync"/>; null when it's ok.</param>
+    /// <param name="firingStateKnown">False when the firing states couldn't be read this tick - no recovery is handled then.</param>
+    private async Task EvaluateRuleAsync(AlertRule rule, IReadOnlyList<MaintenanceWindow> windows, AlertFiringState? firingState, bool firingStateKnown, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         var from = now - TimeSpan.FromSeconds(rule.WindowSeconds);
@@ -296,6 +324,11 @@ public sealed class AlertEvaluationWorker(
 
         if (!breached)
         {
+            if (firingStateKnown)
+            {
+                await ResolveIfFiringAsync(rule, firingState, windows, now, observedCount, observedValue, metricUnit, anomaly, cancellationToken);
+            }
+
             return;
         }
 
@@ -331,6 +364,52 @@ public sealed class AlertEvaluationWorker(
         }
 
         var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly);
+        await alerts.InsertEventAsync(
+            WithNotificationOutcome(BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly), rule, ruleChannels, results, "fired"),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The firing→ok transition: sends "Resolved" to the rule's opted-in channels and records a
+    /// resolution row, per <see cref="AlertResolutionPolicy.Decide"/>. A rule that wasn't firing,
+    /// or whose resolution waits out a maintenance window, records nothing.
+    /// </summary>
+    private async Task ResolveIfFiringAsync(AlertRule rule, AlertFiringState? firingState, IReadOnlyList<MaintenanceWindow> windows, DateTimeOffset now, ulong observedCount, double? observedValue, string? metricUnit, AnomalyScore? anomaly, CancellationToken cancellationToken)
+    {
+        var window = MaintenanceWindowSchedule.FindActive(windows, rule.Id, now);
+        var action = AlertResolutionPolicy.Decide(firingState, window is not null);
+        if (action == AlertResolutionAction.None)
+        {
+            return;
+        }
+
+        if (action == AlertResolutionAction.Defer)
+        {
+            logger.LogDebug("Alert rule {RuleId} ({RuleName}) recovered during maintenance window {WindowName}; resolving once it ends.", rule.Id, rule.Name, window!.Name);
+            return;
+        }
+
+        var entry = BuildHistoryEntry(rule, now, noData: false, observedCount, observedValue, anomaly) with { Resolved = true };
+        var ruleChannels = action == AlertResolutionAction.Notify
+            ? (await NotificationChannelResolver.ResolveAsync(rule, channels, cancellationToken)).Where(c => c.SendResolved).ToList()
+            : [];
+        if (ruleChannels.Count == 0)
+        {
+            // Nobody was paged, or every channel opted out - still recorded, so the rule reads
+            // as ok and the next breach starts a new incident.
+            logger.LogInformation("Alert rule {RuleId} ({RuleName}) resolved; no resolved notification to send.", rule.Id, rule.Name);
+            await alerts.InsertEventAsync(entry with { NotificationStatus = "Skipped" }, cancellationToken);
+            return;
+        }
+
+        logger.LogInformation("Alert rule {RuleId} ({RuleName}) resolved; notifying {ChannelCount} channel(s).", rule.Id, rule.Name, ruleChannels.Count);
+        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, anomaly: anomaly, resolved: true);
+        await alerts.InsertEventAsync(WithNotificationOutcome(entry, rule, ruleChannels, results, "resolved"), cancellationToken);
+    }
+
+    /// <summary>Folds a fan-out's per-channel results into <paramref name="entry"/>, logging any failures - shared by a fire and a resolution.</summary>
+    private AlertHistoryEntry WithNotificationOutcome(AlertHistoryEntry entry, AlertRule rule, IReadOnlyList<NotificationChannel> ruleChannels, IReadOnlyList<NotificationResult> results, string verb)
+    {
         var channelResults = ruleChannels.Zip(results, (channel, result) => new AlertChannelResult
         {
             ChannelId = channel.Id == NotificationChannelResolver.LegacyChannelId ? null : channel.Id,
@@ -345,30 +424,29 @@ public sealed class AlertEvaluationWorker(
         if (failed.Count > 0)
         {
             logger.LogWarning(
-                "Alert rule {RuleId} ({RuleName}) fired but {FailedCount}/{TotalCount} channel notification(s) failed: {Errors}",
+                "Alert rule {RuleId} ({RuleName}) {Verb} but {FailedCount}/{TotalCount} channel notification(s) failed: {Errors}",
                 rule.Id,
                 rule.Name,
+                verb,
                 failed.Count,
                 channelResults.Count,
                 string.Join("; ", failed.Select(r => $"{r.ChannelName}: {r.Error}")));
         }
 
-        await alerts.InsertEventAsync(
-            BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly) with
-            {
-                // Backward-compatible summary across every channel - "Sent" only if all
-                // of them succeeded, same contract this field had before fan-out existed
-                // (a single-channel rule's summary is unchanged). ChannelResults below
-                // carries the per-channel detail.
-                NotificationStatus = failed.Count == 0 ? "Sent" : "Failed",
-                NotificationStatusCode = channelResults[0].StatusCode,
-                NotificationError = failed.Count == 0 ? "" : string.Join("; ", failed.Select(r => $"{r.ChannelName}: {r.Error}")),
-                ChannelResults = channelResults,
-            },
-            cancellationToken);
+        return entry with
+        {
+            // Backward-compatible summary across every channel - "Sent" only if all
+            // of them succeeded, same contract this field had before fan-out existed
+            // (a single-channel rule's summary is unchanged). ChannelResults below
+            // carries the per-channel detail.
+            NotificationStatus = failed.Count == 0 ? "Sent" : "Failed",
+            NotificationStatusCode = channelResults[0].StatusCode,
+            NotificationError = failed.Count == 0 ? "" : string.Join("; ", failed.Select(r => $"{r.ChannelName}: {r.Error}")),
+            ChannelResults = channelResults,
+        };
     }
 
-    /// <summary>The fire's observation fields, shared by a notified and a maintenance-suppressed history row; the caller sets the notification outcome.</summary>
+    /// <summary>The evaluation's observation fields, shared by a notified fire, a maintenance-suppressed fire and a resolution; the caller sets the notification outcome.</summary>
     private static AlertHistoryEntry BuildHistoryEntry(AlertRule rule, DateTimeOffset now, bool noData, ulong observedCount, double? observedValue, AnomalyScore? anomaly) => new()
     {
         EventId = Guid.NewGuid(),

@@ -16,11 +16,13 @@ namespace Flare.Api.Alerting;
 /// <remarks>
 /// Unlike <see cref="EmailOptions"/>, there's no app-wide server config here: the routing
 /// key alone addresses <see cref="EventsApiUrl"/>, a fixed PagerDuty endpoint, not a
-/// per-deployment server. Every send is an <c>event_action: "trigger"</c> with no
-/// <c>dedup_key</c> - each breach (or test send) opens a new PagerDuty incident rather
-/// than deduplicating/auto-resolving against a prior one; a follow-up if that's ever
-/// wanted, not built now (same "smallest thing that satisfies the four-channel shape"
-/// scope as the other three notifiers).
+/// per-deployment server. A real fire is an <c>event_action: "trigger"</c> with a
+/// per-rule <c>dedup_key</c> (<see cref="DedupKey"/>): a re-fire after cooldown while the
+/// incident is still open folds into it rather than opening a second one, and a recovery
+/// sends <c>event_action: "resolve"</c> with the same key, which auto-closes it (PagerDuty
+/// opens a fresh incident for a trigger on a resolved key). A test send gets a one-off
+/// <c>dedup_key</c>, so it never merges into a real incident. See
+/// <c>docs-internal/adr/0064-alert-resolved-notifications.md</c>.
 /// <para/>
 /// PagerDuty returns HTTP 202 with <c>{"status":"success",...}</c> on success and a 4xx
 /// with <c>{"status":"invalid event","errors":[...]}</c> on a malformed payload/bad
@@ -33,8 +35,17 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
 {
     private const string EventsApiUrl = "https://events.pagerduty.com/v2/enqueue";
 
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null)
+    /// <summary>The Events API v2 <c>dedup_key</c> a rule's triggers and its resolve share - see this class's remarks.</summary>
+    public static string DedupKey(AlertRule rule) => $"flare-alert-{rule.Id:N}";
+
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false)
     {
+        if (resolved && !isTest)
+        {
+            // A resolve only needs the key - PagerDuty ignores a payload on it.
+            return await PostAsync(new { routing_key = channel.PagerDutyRoutingKey, event_action = "resolve", dedup_key = DedupKey(rule) }, cancellationToken);
+        }
+
         // Not folded into `summary` below the way the other three notifiers append it to
         // their plain-text message - PagerDuty renders `summary` as a single-line incident
         // title (truncated in list views), not a place for a trailing URL line. `client_url`
@@ -56,6 +67,8 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         {
             routing_key = channel.PagerDutyRoutingKey,
             event_action = "trigger",
+            // A fresh key per test send rather than a JSON null (not a documented value).
+            dedup_key = isTest ? $"flare-test-{Guid.NewGuid():N}" : DedupKey(rule),
             client = "Flare",
             client_url = ruleUrl,
             // Always an array (empty when there's no link) rather than null - `links` is
@@ -92,6 +105,11 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
             },
         };
 
+        return await PostAsync(payload, cancellationToken);
+    }
+
+    private async Task<NotificationResult> PostAsync(object payload, CancellationToken cancellationToken)
+    {
         try
         {
             using var response = await httpClient.PostAsJsonAsync(EventsApiUrl, payload, cancellationToken);

@@ -785,7 +785,32 @@ public sealed partial record AlertHistoryEntry
     /// pre-existing field, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
     /// </summary>
     public string SuppressedByWindow { get; init; } = "";
+
+    /// <summary>
+    /// True for a resolution event - the rule's condition recovered after it had fired - rather
+    /// than a fire. <see cref="FiredAt"/> is then when the recovery was observed,
+    /// <see cref="ObservedCount"/>/<see cref="ObservedValue"/> the recovered value, and
+    /// <see cref="NotificationStatus"/> "Sent"/"Failed", or "Skipped" when nothing needed sending
+    /// (nobody was paged for the fire, or every channel opted out via
+    /// <see cref="NotificationChannel.SendResolved"/>). A rule is firing while its latest fire is
+    /// newer than its latest resolution - see <c>docs-internal/adr/0064-alert-resolved-notifications.md</c>.
+    /// Appended after <see cref="SuppressedByWindow"/>, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
+    /// </summary>
+    public bool Resolved { get; init; }
 }
+
+/// <summary>
+/// A currently-firing rule's state, derived from its <c>alert_events</c> history by
+/// <c>IAlertQueryService.GetFiringStatesAsync</c>: its latest fire is newer than its latest
+/// resolution (or it has never resolved). See <c>docs-internal/adr/0064-alert-resolved-notifications.md</c>.
+/// </summary>
+/// <param name="LastFiredAt">The latest fire, notified or suppressed.</param>
+/// <param name="Notified">
+/// True when at least one fire since the last resolution actually notified ("Sent"/"Failed",
+/// not a maintenance-window "Suppressed") - i.e. someone was paged, so the recovery owes them a
+/// "Resolved" notification. False when every fire since was suppressed.
+/// </param>
+public sealed record AlertFiringState(DateTimeOffset LastFiredAt, bool Notified);
 
 /// <summary>Response body for <c>GET /api/alerts/{id}/history</c>.</summary>
 [MemoryPackable]

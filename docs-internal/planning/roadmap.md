@@ -102,19 +102,6 @@ folders are where "what happened and why" actually lives.
   started. Prior art: deployments/clusters/namespaces
   [signoz#6786](https://github.com/SigNoz/signoz/commit/403043e076bf60aa4b77a7df45eed06b286f5be0),
   statefulsets/daemonsets/jobs/volumes [signoz#6629](https://github.com/SigNoz/signoz/commit/813ca8bc230268d8904a786b18da8659045b18ce).
-- **"Resolved" alert notifications.** Alerting is fire-only today:
-  `AlertEvaluationWorker` checks a breach against the rule's cooldown and
-  notifies, but when the condition recovers nothing is sent and there's
-  no per-rule firing/ok state at all - on-call hears "it broke", never
-  "it's fixed", and PagerDuty incidents stay open until closed by hand.
-  Track firing/ok per rule (and per group for grouped rules), send a
-  "Resolved" notification on the firing→ok transition, make it
-  per-channel opt-out (`sendResolved`), and for PagerDuty send the
-  Events API v2 `resolve` action with the same `dedup_key` so incidents
-  auto-close; interaction with maintenance windows and absent-data rules
-  to decide. Needs an ADR + an additive migration for the state. Not
-  started. Prior art: per-channel `send_resolved`
-  [signoz#7240](https://github.com/SigNoz/signoz/commit/8abba261a86692d5331e0cce283df572259193d8).
 - **Metrics catalog with cardinality.** `/api/metrics/names` only feeds
   the Metrics picker (name, service, type, unit, description); there's
   no overview of what's being ingested. A catalog page: every metric with

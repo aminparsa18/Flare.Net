@@ -55,5 +55,13 @@ public interface IAlertNotifier
     /// in <see cref="AlertMessageFormatter"/>'s anomaly wording; the structured payloads also
     /// carry its mean/z-score.
     /// </param>
-    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null);
+    /// <param name="resolved">
+    /// True for a "Resolved" notification - the rule recovered after firing (see
+    /// <see cref="AlertResolutionPolicy"/>). <paramref name="observedValue"/> is the recovered
+    /// value and <paramref name="firedAt"/> when the recovery was observed; every implementation
+    /// swaps in <see cref="AlertMessageFormatter"/>'s resolved wording, and
+    /// <see cref="PagerDutyAlertNotifier"/> sends an Events API v2 <c>resolve</c> instead of a
+    /// <c>trigger</c>. Only sent to channels with <see cref="NotificationChannel.SendResolved"/>.
+    /// </param>
+    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false);
 }

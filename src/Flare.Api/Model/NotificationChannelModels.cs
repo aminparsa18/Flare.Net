@@ -57,6 +57,16 @@ public sealed partial record NotificationChannel
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>
+    /// Whether a rule's recovery after firing sends a "Resolved" notification through this
+    /// channel (for PagerDuty, an Events API v2 <c>resolve</c> that auto-closes the incident).
+    /// True by default, and for every channel created before this field existed and every
+    /// legacy inline channel - an opt-out, not an opt-in. See
+    /// <c>docs-internal/adr/0064-alert-resolved-notifications.md</c>. Appended after
+    /// <see cref="UpdatedAt"/>, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
+    /// </summary>
+    public bool SendResolved { get; init; } = true;
 }
 
 /// <summary>
@@ -86,6 +96,9 @@ public sealed partial record NotificationChannelRequest
     public string? EmailTo { get; init; }
 
     public string? PagerDutyRoutingKey { get; init; }
+
+    /// <summary>See <see cref="NotificationChannel.SendResolved"/>'s doc comment. Omitted/null means true - nullable for the same "omitted vs explicitly false" reason <see cref="AlertRuleRequest.Enabled"/> is.</summary>
+    public bool? SendResolved { get; init; }
 
     /// <summary>
     /// Requires exactly the destination field(s) matching <see cref="Type"/> to be set,

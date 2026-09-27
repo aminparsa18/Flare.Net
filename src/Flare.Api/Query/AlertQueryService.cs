@@ -71,6 +71,14 @@ public interface IAlertQueryService
     /// </summary>
     Task<DateTimeOffset?> GetLastFiredAsync(Guid ruleId, bool includeSuppressed, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The subset of <paramref name="ruleIds"/> currently firing - latest fire newer than latest
+    /// resolution - keyed by rule ID; a rule that's ok (or has never fired) is absent. One query
+    /// for every rule, read once per <c>AlertEvaluationWorker</c> tick. See
+    /// <c>docs-internal/adr/0064-alert-resolved-notifications.md</c>.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, AlertFiringState>> GetFiringStatesAsync(IReadOnlyList<Guid> ruleIds, CancellationToken cancellationToken);
+
     Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<AlertHistoryEntry>> GetHistoryAsync(Guid ruleId, int limit, CancellationToken cancellationToken);
@@ -372,10 +380,48 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         // indistinguishable from "fired at the epoch" - the -OrNull combinator gives a
         // real NULL for "never fired" instead.
         var sql = includeSuppressed
-            ? "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID}"
-            : "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID} AND NotificationStatus != 'Suppressed'";
+            ? "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID} AND Resolved = 0"
+            : "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID} AND Resolved = 0 AND NotificationStatus != 'Suppressed'";
         var result = await client.ExecuteScalarAsync(sql, parameters, EvaluationSafetyOptions(), cancellationToken);
         return result is DateTime dt ? new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)) : null;
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, AlertFiringState>> GetFiringStatesAsync(IReadOnlyList<Guid> ruleIds, CancellationToken cancellationToken)
+    {
+        var states = new Dictionary<Guid, AlertFiringState>();
+        if (ruleIds.Count == 0)
+        {
+            return states;
+        }
+
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("ruleIds", ruleIds.ToArray());
+        // -IfOrNull for the same "never happened" vs epoch reason as GetLastFiredAsync; a NULL
+        // comparison is NULL, hence the explicit IS NULL arms. Rows sit in (RuleId, FiredAt)
+        // order, so this only reads the given rules' granules.
+        const string sql = """
+            SELECT RuleId, lastFired, lastNotified IS NOT NULL AND (lastResolved IS NULL OR lastNotified > lastResolved) AS notified
+            FROM
+            (
+                SELECT
+                    RuleId,
+                    maxIfOrNull(FiredAt, Resolved = 0) AS lastFired,
+                    maxIfOrNull(FiredAt, Resolved = 0 AND NotificationStatus != 'Suppressed') AS lastNotified,
+                    maxIfOrNull(FiredAt, Resolved = 1) AS lastResolved
+                FROM alert_events
+                WHERE RuleId IN {ruleIds:Array(UUID)}
+                GROUP BY RuleId
+            )
+            WHERE lastFired IS NOT NULL AND (lastResolved IS NULL OR lastFired > lastResolved)
+            """;
+
+        await using var reader = await client.ExecuteReaderAsync(sql, parameters, EvaluationSafetyOptions(), cancellationToken);
+        while (reader.Read())
+        {
+            states[reader.GetGuid(0)] = new AlertFiringState(ReadUtc(reader, 1), Convert.ToBoolean(reader.GetValue(2)));
+        }
+
+        return states;
     }
 
     public async Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken)
@@ -399,12 +445,13 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("baselineMean", (object?)entry.BaselineMean ?? DBNull.Value);
         parameters.AddParameter("zScore", (object?)entry.ZScore ?? DBNull.Value);
         parameters.AddParameter("suppressedByWindow", entry.SuppressedByWindow);
+        parameters.AddParameter("resolved", entry.Resolved ? (byte)1 : (byte)0);
 
         const string sql = """
             INSERT INTO alert_events
-                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow)
+                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow, Resolved)
             VALUES
-                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)}, {channelResultsJson:String}, {noData:UInt8}, {baselineMean:Nullable(Float64)}, {zScore:Nullable(Float64)}, {suppressedByWindow:String})
+                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)}, {channelResultsJson:String}, {noData:UInt8}, {baselineMean:Nullable(Float64)}, {zScore:Nullable(Float64)}, {suppressedByWindow:String}, {resolved:UInt8})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -416,7 +463,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("ruleId", ruleId);
         parameters.AddParameter("limit", (uint)limit);
         const string sql = """
-            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow
+            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow, Resolved
             FROM alert_events
             WHERE RuleId = {ruleId:UUID}
             ORDER BY FiredAt DESC
@@ -449,6 +496,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
                 BaselineMean = reader.IsDBNull(15) ? null : reader.GetFieldValue<double>(15),
                 ZScore = reader.IsDBNull(16) ? null : reader.GetFieldValue<double>(16),
                 SuppressedByWindow = reader.GetString(17),
+                Resolved = reader.GetByte(18) != 0,
             });
         }
 

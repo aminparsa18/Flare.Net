@@ -434,4 +434,83 @@ public class AlertMessageFormatterTests
             "https://flare.example.com",
             FiredAt));
     }
+    [Fact]
+    public void BuildText_Resolved_LogCountRule_ReportsRecoveredCountAgainstThreshold()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeRule(), observedValue: 3, resolved: true);
+
+        Assert.Equal(":white_check_mark: Alert \"High error rate\" resolved: 3 events (threshold >= 10) in the last 60s", text);
+    }
+
+    [Fact]
+    public void BuildText_Resolved_MetricRule_FormatsInTheMetricsUnit()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.MetricThreshold,
+            MetricCondition = new MetricAlertCondition { MetricName = "process.memory.usage", Type = MetricPointType.Gauge },
+            MetricThresholdValue = 500d * 1024 * 1024,
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, observedValue: 200d * 1024 * 1024, metricUnit: "By", resolved: true);
+
+        Assert.Contains("resolved: process.memory.usage = 200 MB (threshold >= 500 MB) over the last 60s", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildText_Resolved_ExceptionRule_NamesTheExceptionType()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.ExceptionCount,
+            ExceptionCondition = new ExceptionCountCondition { ExceptionType = "System.TimeoutException" },
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, observedValue: 0, resolved: true);
+
+        Assert.Contains("resolved: System.TimeoutException occurred 0 times (threshold >= 10)", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildText_Resolved_AnomalyRule_ReportsBackInRange()
+    {
+        var rule = MakeRule() with
+        {
+            ConditionKind = AlertConditionKind.Anomaly,
+            AnomalyCondition = new AnomalyCondition { BaselinePeriods = 7, ZScoreThreshold = 3 },
+        };
+
+        var text = AlertMessageFormatter.BuildText(rule, observedValue: 12, anomaly: new AnomalyScore(12, SampleCount: 7, BaselineMean: 10, ZScore: 0.5, Breached: false), resolved: true);
+
+        Assert.Contains("resolved: back within its usual range in the last 60s (z = +0.5)", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildText_Resolved_WinsOverNoData()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeRule() with { NoDataWindowSeconds = 600 }, observedValue: 3, noData: true, resolved: true);
+
+        Assert.Contains("resolved", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("no data", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildMessage_Resolved_CustomTemplate_GetsResolvedPrefixAndStatus()
+    {
+        var rule = MakeRule() with { NotificationTitleTemplate = "{{rule_name}} is {{status}}" };
+
+        var message = AlertMessageFormatter.BuildMessage(rule, 3, isTest: false, null, null, FiredAt, noData: false, anomaly: null, resolved: true);
+
+        Assert.Equal("[Resolved] High error rate is resolved", message.Title);
+    }
+
+    [Fact]
+    public void BuildMessage_TestSend_IgnoresResolved()
+    {
+        var rule = MakeRule() with { NotificationTitleTemplate = "{{status}}" };
+
+        var message = AlertMessageFormatter.BuildMessage(rule, 3, isTest: true, null, null, FiredAt, noData: false, anomaly: null, resolved: true);
+
+        Assert.Equal("[Test] test", message.Title);
+    }
 }

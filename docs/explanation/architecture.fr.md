@@ -265,6 +265,11 @@ quotidiennes ou hebdomadaires (dans un fuseau horaire choisi) pour toutes les
 règles ou une sélection. Pendant une fenêtre, les règles sont toujours
 évaluées, mais un dépassement est enregistré comme supprimé dans l'historique
 de la règle au lieu de notifier (voir [ADR-0055](../../docs-internal/adr/0055-alert-maintenance-windows.md)).
+Quand une règle déclenchée revient à la normale, ses canaux reçoivent une
+notification « Resolved », et les incidents PagerDuty se ferment
+automatiquement. Chaque canal peut s'en désabonner avec son interrupteur
+« Send resolved notifications ». L'historique de la règle enregistre la
+résolution à côté du déclenchement (voir [ADR-0064](../../docs-internal/adr/0064-alert-resolved-notifications.md)).
 Le déclenchement notifie un ou plusieurs canaux de notification, gérés
 depuis l'onglet « Channels » de cette même page (ou créés sur le champ
 via le bouton « New channel » du formulaire de règle) — des destinations

@@ -3,6 +3,7 @@
 // `NotificationChannel` field-for-field, in declared order. Can't carry
 // `[GenerateTypeScript]` itself: it has its own `DateTimeOffset` `CreatedAt`/`UpdatedAt` -
 // same reason `AlertRule.ts` is hand-written instead of generated.
+// `sendResolved` was appended after `updatedAt`, same versioning reasoning as `AlertRule.ts` (ADR-0064).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -21,6 +22,7 @@ export class NotificationChannel {
 	pagerDutyRoutingKey: string | null;
 	createdAt: Date;
 	updatedAt: Date;
+	sendResolved: boolean;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -34,6 +36,7 @@ export class NotificationChannel {
 		this.pagerDutyRoutingKey = null;
 		this.createdAt = new Date(0);
 		this.updatedAt = new Date(0);
+		this.sendResolved = true;
 	}
 
 	static serialize(value: NotificationChannel | null): Uint8Array {
@@ -48,7 +51,7 @@ export class NotificationChannel {
 			return;
 		}
 
-		writer.writeObjectHeader(11);
+		writer.writeObjectHeader(12);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -60,6 +63,7 @@ export class NotificationChannel {
 		writer.writeString(value.pagerDutyRoutingKey);
 		writeDateTimeOffset(writer, value.createdAt);
 		writeDateTimeOffset(writer, value.updatedAt);
+		writer.writeBoolean(value.sendResolved);
 	}
 
 	static serializeArray(value: (NotificationChannel | null)[] | null): Uint8Array {
@@ -83,7 +87,7 @@ export class NotificationChannel {
 		}
 
 		const value = new NotificationChannel();
-		if (count == 11) {
+		if (count == 12) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -95,7 +99,8 @@ export class NotificationChannel {
 			value.pagerDutyRoutingKey = reader.readString();
 			value.createdAt = readDateTimeOffset(reader);
 			value.updatedAt = readDateTimeOffset(reader);
-		} else if (count > 11) {
+			value.sendResolved = reader.readBoolean();
+		} else if (count > 12) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -121,6 +126,8 @@ export class NotificationChannel {
 			if (count == 10) return value;
 			value.updatedAt = readDateTimeOffset(reader);
 			if (count == 11) return value;
+			value.sendResolved = reader.readBoolean();
+			if (count == 12) return value;
 		}
 		return value;
 	}

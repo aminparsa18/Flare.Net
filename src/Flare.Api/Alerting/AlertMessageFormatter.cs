@@ -51,15 +51,23 @@ public static class AlertMessageFormatter
     /// against its seasonal baseline mean and z-score instead of a fixed threshold. Ignored
     /// when <paramref name="isTest"/> or <paramref name="noData"/>.
     /// </param>
-    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null, bool noData = false, AnomalyScore? anomaly = null)
+    /// <param name="resolved">
+    /// True for a "Resolved" notification - the rule's condition recovered after it fired
+    /// (see <see cref="AlertResolutionPolicy"/>). Reports the recovered value instead of a
+    /// breach; <paramref name="firedAt"/> is then when the recovery was observed. Ignored when
+    /// <paramref name="isTest"/>.
+    /// </param>
+    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false)
     {
         var text = isTest
             ? $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly."
-            : noData
-                ? BuildNoDataText(rule)
-                : anomaly is not null
-                    ? BuildAnomalyText(rule, anomaly, metricUnit)
-                    : BuildFiredText(rule, observedValue, metricUnit);
+            : resolved
+                ? BuildResolvedText(rule, observedValue, metricUnit, anomaly)
+                : noData
+                    ? BuildNoDataText(rule)
+                    : anomaly is not null
+                        ? BuildAnomalyText(rule, anomaly, metricUnit)
+                        : BuildFiredText(rule, observedValue, metricUnit);
 
         if (!noData && firedAt is { } at && BuildFiredDataUrl(rule, publicUrl, at) is { } dataUrl)
         {
@@ -78,37 +86,44 @@ public static class AlertMessageFormatter
     /// <c>{{rule_url}}</c>/<c>{{logs_url}}</c> itself wherever the author wants them. A test
     /// send keeps the custom wording (that's what's being tested) but prefixes
     /// <see cref="TestPrefix"/> to the title (or the body, without a title template), so
-    /// nobody mistakes it for a real incident.
+    /// nobody mistakes it for a real incident. A resolved send does the same with
+    /// <see cref="ResolvedPrefix"/>, so a template written for the firing case ("checkout is
+    /// down") can't read as a new incident; <c>{{status}}</c> is "resolved" for a template that
+    /// wants to word it itself.
     /// </summary>
     /// <param name="appendLinks">
     /// False for <see cref="PagerDutyAlertNotifier"/>, whose built-in summary never carried
     /// link lines (it has <c>client_url</c>/<c>links</c> for those). Only affects the built-in
     /// text - the <c>{{rule_url}}</c>/<c>{{logs_url}}</c> placeholders resolve either way.
     /// </param>
-    public static AlertMessage BuildMessage(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool appendLinks = true)
+    public static AlertMessage BuildMessage(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool appendLinks = true, bool resolved = false)
     {
+        resolved = resolved && !isTest;
         var titleTemplate = rule.NotificationTitleTemplate;
         var bodyTemplate = rule.NotificationBodyTemplate;
         if (string.IsNullOrEmpty(titleTemplate) && string.IsNullOrEmpty(bodyTemplate))
         {
-            return new AlertMessage(null, BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly), IsCustom: false);
+            return new AlertMessage(null, BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved), IsCustom: false);
         }
 
-        var values = BuildTemplateValues(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly);
+        var values = BuildTemplateValues(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, resolved);
         var labels = BuildTemplateLabels(rule);
-        var prefix = isTest ? TestPrefix : "";
+        var prefix = isTest ? TestPrefix : resolved ? ResolvedPrefix : "";
 
         var title = string.IsNullOrEmpty(titleTemplate) ? null : prefix + AlertTemplateRenderer.Render(titleTemplate, values, labels);
         // Only one of the two carries the prefix - with a title it's already the first thing
         // every channel shows, and a second "[Test]" on the body line would just be noise.
         var text = string.IsNullOrEmpty(bodyTemplate)
-            ? BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly)
+            ? BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved)
             : (title is null ? prefix : "") + AlertTemplateRenderer.Render(bodyTemplate, values, labels);
         return new AlertMessage(title, text, IsCustom: true);
     }
 
     /// <summary>Prefixed to a custom-templated title/body on a test send - see <see cref="BuildMessage"/>.</summary>
     public const string TestPrefix = "[Test] ";
+
+    /// <summary>Prefixed to a custom-templated title/body on a resolved send - see <see cref="BuildMessage"/>.</summary>
+    public const string ResolvedPrefix = "[Resolved] ";
 
     /// <summary>
     /// The value behind every <see cref="AlertTemplateRenderer.Names"/> placeholder. Numbers
@@ -119,7 +134,7 @@ public static class AlertMessageFormatter
     /// public URL) is "". <c>{{data_url}}</c> is the kind-appropriate <see cref="BuildFiredDataUrl"/>
     /// link; <c>{{logs_url}}</c> stays logs-only, as it was before metric/exception links existed.
     /// </summary>
-    internal static IReadOnlyDictionary<string, string> BuildTemplateValues(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly)
+    internal static IReadOnlyDictionary<string, string> BuildTemplateValues(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool resolved = false)
     {
         var seriesKind = RuleSeriesKind(rule);
         var isAnomaly = rule.ConditionKind == AlertConditionKind.Anomaly;
@@ -161,7 +176,7 @@ public static class AlertMessageFormatter
             ["rule_name"] = rule.Name,
             ["rule_id"] = rule.Id.ToString(),
             ["description"] = rule.Description,
-            ["status"] = isTest ? "test" : noData ? "no data" : anomaly is not null ? "anomaly" : "firing",
+            ["status"] = isTest ? "test" : resolved ? "resolved" : noData ? "no data" : anomaly is not null ? "anomaly" : "firing",
             ["condition_kind"] = rule.ConditionKind.ToString(),
             ["value"] = value,
             ["threshold"] = threshold,
@@ -178,7 +193,7 @@ public static class AlertMessageFormatter
             ["data_url"] = noData && !isTest ? "" : BuildFiredDataUrl(rule, publicUrl, firedAt) ?? "",
             // The built-in wording without its link lines - lets a template wrap rather than
             // replace it ("{{message}} - runbook: https://...").
-            ["message"] = BuildText(rule, observedValue, isTest, publicUrl: null, metricUnit, firedAt: null, noData, anomaly),
+            ["message"] = BuildText(rule, observedValue, isTest, publicUrl: null, metricUnit, firedAt: null, noData, anomaly, resolved),
         };
     }
 
@@ -284,6 +299,37 @@ public static class AlertMessageFormatter
         var emoji = z < 0 ? ":chart_with_downwards_trend:" : ":chart_with_upwards_trend:";
         return $"{emoji} Alert \"{rule.Name}\" fired: anomaly - {current} in the last {rule.WindowSeconds}s vs a usual {usual} " +
                $"(z = {z.ToString("+0.0;-0.0", CultureInfo.InvariantCulture)}, same window over the previous {periods} {unit})";
+    }
+
+    /// <summary>
+    /// The recovered value in the same terms the fired text used ("3 events (threshold >= 10)"),
+    /// so the pair reads as one incident. An anomaly rule reports its current z-score instead,
+    /// when there was enough history to score one.
+    /// </summary>
+    private static string BuildResolvedText(AlertRule rule, double observedValue, string? metricUnit, AnomalyScore? anomaly)
+    {
+        var head = $":white_check_mark: Alert \"{rule.Name}\" resolved";
+        if (rule.ConditionKind == AlertConditionKind.Anomaly)
+        {
+            return anomaly?.ZScore is { } z
+                ? $"{head}: back within its usual range in the last {rule.WindowSeconds}s (z = {z.ToString("+0.0;-0.0", CultureInfo.InvariantCulture)})"
+                : $"{head}: back within its usual range in the last {rule.WindowSeconds}s";
+        }
+
+        var comparatorSymbol = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
+        if (rule.ConditionKind == AlertConditionKind.MetricThreshold)
+        {
+            var thresholdValue = rule.MetricThresholdValue;
+            var scale = MetricUnitFormatter.ResolveScale(metricUnit, Math.Max(Math.Abs(observedValue), Math.Abs(thresholdValue ?? 0)));
+            var thresholdText = thresholdValue is { } tv ? MetricUnitFormatter.Format(tv, scale) : "";
+            return $"{head}: {rule.MetricCondition?.MetricName ?? "?"} = {MetricUnitFormatter.Format(observedValue, scale)} " +
+                   $"(threshold {comparatorSymbol} {thresholdText}) over the last {rule.WindowSeconds}s";
+        }
+
+        var what = rule.ConditionKind == AlertConditionKind.ExceptionCount
+            ? $"{rule.ExceptionCondition?.ExceptionType ?? "?"} occurred {(ulong)observedValue} times"
+            : $"{(ulong)observedValue} events";
+        return $"{head}: {what} (threshold {comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s";
     }
 
     private static string BuildFiredText(AlertRule rule, double observedValue, string? metricUnit)

@@ -217,8 +217,11 @@ export interface AlertRuleListResponse {
 	rules: AlertRule[];
 }
 
-/** `'Suppressed'`: a maintenance window was active, so nothing was sent - see `suppressedByWindow`. */
-export type NotificationStatus = 'Sent' | 'Failed' | 'Suppressed';
+/**
+ * `'Suppressed'`: a maintenance window was active, so nothing was sent - see `suppressedByWindow`.
+ * `'Skipped'`: a resolution with nothing to send (nobody was paged, or every channel opted out).
+ */
+export type NotificationStatus = 'Sent' | 'Failed' | 'Suppressed' | 'Skipped';
 
 export interface AlertHistoryEntry {
 	eventId: string;
@@ -246,6 +249,8 @@ export interface AlertHistoryEntry {
 	zScore?: number;
 	/** Name of the maintenance window that suppressed this event's notification; '' when it wasn't suppressed. */
 	suppressedByWindow: string;
+	/** True for a resolution - the rule recovered after firing - rather than a fire. `firedAt` is then when the recovery was observed. */
+	resolved: boolean;
 }
 
 /** One channel's outcome within a fan-out fire - `AlertHistoryEntry.channelResults`'s element shape. */
@@ -479,7 +484,8 @@ function toAlertHistoryEntry(dto: GeneratedAlertHistoryEntry): AlertHistoryEntry
 		noData: dto.noData,
 		baselineMean: dto.baselineMean ?? undefined,
 		zScore: dto.zScore ?? undefined,
-		suppressedByWindow: dto.suppressedByWindow ?? ''
+		suppressedByWindow: dto.suppressedByWindow ?? '',
+		resolved: dto.resolved
 	};
 }
 

@@ -9,6 +9,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { Switch } from '$lib/components/ui/switch';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
@@ -29,6 +30,7 @@
 	let telegramChatId = $state('');
 	let emailTo = $state('');
 	let pagerDutyRoutingKey = $state('');
+	let sendResolved = $state(true);
 
 	let sendTestResult = $state<AlertNotificationTestResult | null>(null);
 	let sendingTest = $state(false);
@@ -47,6 +49,7 @@
 			telegramChatId = '';
 			emailTo = '';
 			pagerDutyRoutingKey = '';
+			sendResolved = true;
 		} else if (target) {
 			name = target.name;
 			description = target.description;
@@ -56,6 +59,7 @@
 			telegramChatId = target.telegramChatId;
 			emailTo = target.emailTo;
 			pagerDutyRoutingKey = target.pagerDutyRoutingKey;
+			sendResolved = target.sendResolved;
 		}
 	});
 
@@ -84,7 +88,8 @@
 			telegramBotToken: type === 'Telegram' ? telegramBotToken.trim() : '',
 			telegramChatId: type === 'Telegram' ? telegramChatId.trim() : '',
 			emailTo: type === 'Email' ? emailTo.trim() : '',
-			pagerDutyRoutingKey: type === 'PagerDuty' ? pagerDutyRoutingKey.trim() : ''
+			pagerDutyRoutingKey: type === 'PagerDuty' ? pagerDutyRoutingKey.trim() : '',
+			sendResolved
 		};
 	}
 
@@ -186,6 +191,14 @@
 					<span class="text-muted-foreground text-xs">{m.alertRuleForm_pagerDutyRoutingKeyHint()}</span>
 				</div>
 			{/if}
+
+			<div class="flex flex-col gap-1">
+				<div class="flex items-center gap-2">
+					<Switch bind:checked={sendResolved} />
+					<span class="text-xs font-medium">{m.notificationChannelForm_sendResolvedLabel()}</span>
+				</div>
+				<span class="text-muted-foreground text-xs">{m.notificationChannelForm_sendResolvedHint()}</span>
+			</div>
 
 			{#if isEdit}
 				<div class="flex flex-wrap items-center gap-2 border-t pt-3">

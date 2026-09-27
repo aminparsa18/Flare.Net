@@ -38,6 +38,8 @@ export interface NotificationChannel {
 	pagerDutyRoutingKey: string;
 	createdAt: string;
 	updatedAt: string;
+	/** Whether a firing rule's recovery sends a "Resolved" notification through this channel (PagerDuty: auto-resolves the incident). */
+	sendResolved: boolean;
 }
 
 /** Create/update request body - requires exactly the destination field(s) matching `type`. */
@@ -50,6 +52,8 @@ export interface NotificationChannelRequest {
 	telegramChatId?: string;
 	emailTo?: string;
 	pagerDutyRoutingKey?: string;
+	/** Omitted means true. */
+	sendResolved?: boolean;
 }
 
 export interface NotificationChannelListResponse {
@@ -68,7 +72,8 @@ function toNotificationChannel(dto: GeneratedNotificationChannel): NotificationC
 		emailTo: dto.emailTo ?? '',
 		pagerDutyRoutingKey: dto.pagerDutyRoutingKey ?? '',
 		createdAt: dto.createdAt.toISOString(),
-		updatedAt: dto.updatedAt.toISOString()
+		updatedAt: dto.updatedAt.toISOString(),
+		sendResolved: dto.sendResolved
 	};
 }
 
@@ -82,6 +87,7 @@ function toGeneratedNotificationChannelRequest(request: NotificationChannelReque
 	dto.telegramChatId = request.telegramChatId ?? null;
 	dto.emailTo = request.emailTo ?? null;
 	dto.pagerDutyRoutingKey = request.pagerDutyRoutingKey ?? null;
+	dto.sendResolved = request.sendResolved ?? null;
 	return dto;
 }
 
