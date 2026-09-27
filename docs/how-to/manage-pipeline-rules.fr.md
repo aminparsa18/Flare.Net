@@ -1,7 +1,7 @@
 # Comment extraire ou masquer des champs à l'ingestion
 
 Configurez des **règles de pipeline** — extraction et masquage par expression
-régulière appliqués aux logs avant leur écriture dans le stockage. Utilisez
+régulière, ainsi que l'analyse de corps JSON, appliqués aux logs avant leur écriture dans le stockage. Utilisez
 l'extraction pour transformer un champ structuré (comme un identifiant
 utilisateur ou un code de statut) contenu dans le message d'un log en un
 véritable attribut interrogeable. Utilisez le masquage pour occulter des
@@ -59,6 +59,38 @@ Les attributs extraits apparaissent comme n'importe quel autre attribut de
 log — filtrables dans le Logs Explorer, utilisables comme condition de règle
 d'alerte, au même titre qu'un attribut défini directement par l'application
 source.
+
+## Transformer un corps de log JSON en attributs
+
+Si une application écrit une chaîne JSON comme corps de log (le
+formateur JSON de Serilog, le formateur JSON de la console .NET, la
+plupart des loggers structurés Node et Python), une seule règle
+transforme chaque champ en attribut de log. Aucune regex n'est
+nécessaire.
+
+1. Ouvrez **Pipeline Rules** → **New rule**, et limitez la règle aux
+   services qui écrivent du JSON.
+2. Sous **Actions**, choisissez **Parse JSON**. Laissez le champ source
+   vide pour analyser `Body`, ou saisissez une clé d'attribut dont la
+   valeur est du JSON.
+3. Facultativement, définissez :
+   - **Key prefix** — ajouté devant chaque clé (par ex. `json.` donne
+     `json.user.id`). Sans préfixe, une clé analysée écrase un attribut
+     du même nom.
+   - **Max depth** — le nombre de niveaux d'objets à aplatir (5 par
+     défaut, 10 au maximum).
+   - **Max keys** — le nombre maximal d'attributs écrits par log (100 par
+     défaut, 500 au maximum).
+4. Cliquez sur **Create rule**.
+
+Un corps comme `{"msg":"login","user":{"id":7,"name":"ada"},"tags":["a","b"]}`
+ajoute `msg=login`, `user.id=7`, `user.name=ada` et `tags=["a","b"]`.
+Les clés imbriquées sont jointes par `.`. Les tableaux, et les objets
+plus profonds que **Max depth**, sont conservés entiers sous forme de
+texte JSON. Les valeurs `null` sont ignorées. Un corps qui n'est pas un
+objet JSON est laissé tel quel, et le corps lui-même n'est jamais
+modifié. Pour la conception, voir
+[ADR-0070](../../docs-internal/adr/0070-pipeline-rules-parse-json.md).
 
 ## Aperçu d'une règle avant enregistrement
 

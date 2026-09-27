@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Flare.Api.Model;
 
@@ -7,8 +8,8 @@ namespace Flare.Api.Query;
 /// <summary>
 /// Pure <see cref="LogEventDto"/> → <see cref="LogEventDto"/> action application - the
 /// preview endpoint's counterpart to <c>Flare.Ingest.Pipeline.Rules.PipelineRuleExecutor</c>,
-/// mirroring its <see cref="RuleActionKind.ExtractRegex"/>/<see cref="RuleActionKind.RedactRegex"/>
-/// semantics field-for-field against <see cref="Flare.Api.Model.LogEventDto"/> instead of
+/// mirroring its <see cref="RuleActionKind.ExtractRegex"/>/<see cref="RuleActionKind.RedactRegex"/>/
+/// <see cref="RuleActionKind.ParseJson"/> semantics field-for-field against <see cref="Flare.Api.Model.LogEventDto"/> instead of
 /// <c>Flare.Ingest.Model.LogEvent</c>.
 /// </summary>
 /// <remarks>
@@ -45,6 +46,7 @@ public static class PipelineRuleActionExecutor
     {
         RuleActionKind.ExtractRegex when action.ExtractRegex is { } extract => ApplyExtract(logEvent, extract),
         RuleActionKind.RedactRegex when action.RedactRegex is { } redact => ApplyRedact(logEvent, redact),
+        RuleActionKind.ParseJson when action.ParseJson is { } parse => ApplyParseJson(logEvent, parse),
         _ => logEvent,
     };
 
@@ -117,6 +119,76 @@ public static class PipelineRuleActionExecutor
         }
 
         return WriteSource(logEvent, redact.SourceAttributeKey, redacted);
+    }
+
+    private static LogEventDto ApplyParseJson(LogEventDto logEvent, ParseJsonAction parse)
+    {
+        var source = ReadSource(logEvent, parse.SourceAttributeKey);
+        if (source is null || !source.AsSpan().TrimStart().StartsWith("{"))
+        {
+            return logEvent; // Cheap pre-check - most bodies are plain text, not worth a parse attempt.
+        }
+
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(source);
+        }
+        catch (JsonException)
+        {
+            return logEvent;
+        }
+
+        using (document)
+        {
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return logEvent;
+            }
+
+            var maxDepth = Math.Clamp(parse.MaxDepth ?? ParseJsonAction.DefaultMaxDepth, 1, ParseJsonAction.MaxDepthLimit);
+            var maxKeys = Math.Clamp(parse.MaxKeys ?? ParseJsonAction.DefaultMaxKeys, 1, ParseJsonAction.MaxKeysLimit);
+            var attributes = new Dictionary<string, string>(logEvent.LogAttributes);
+            var written = 0;
+            Flatten(document.RootElement, parse.KeyPrefix ?? "", 1, maxDepth, maxKeys, attributes, ref written);
+            return written == 0 ? logEvent : logEvent with { LogAttributes = attributes };
+        }
+    }
+
+    /// <summary>Depth-first, document order - so when <paramref name="maxKeys"/> cuts off, it's the later keys that are dropped.</summary>
+    private static void Flatten(JsonElement obj, string prefix, int depth, int maxDepth, int maxKeys, Dictionary<string, string> into, ref int written)
+    {
+        foreach (var property in obj.EnumerateObject())
+        {
+            if (written >= maxKeys)
+            {
+                return;
+            }
+
+            if (property.Name.Length == 0)
+            {
+                continue;
+            }
+
+            var key = prefix + property.Name;
+            var value = property.Value;
+            switch (value.ValueKind)
+            {
+                case JsonValueKind.Object when depth < maxDepth:
+                    Flatten(value, key + ".", depth + 1, maxDepth, maxKeys, into, ref written);
+                    break;
+                case JsonValueKind.Null:
+                    break;
+                case JsonValueKind.String:
+                    into[key] = value.GetString()!;
+                    written++;
+                    break;
+                default: // Number/True/False, arrays, and objects past maxDepth - raw JSON text.
+                    into[key] = value.GetRawText();
+                    written++;
+                    break;
+            }
+        }
     }
 
     /// <summary><see langword="null"/> = <c>Body</c>, matching <see cref="ExtractRegexAction.SourceAttributeKey"/>/<see cref="RedactRegexAction.SourceAttributeKey"/>'s own doc comments.</summary>

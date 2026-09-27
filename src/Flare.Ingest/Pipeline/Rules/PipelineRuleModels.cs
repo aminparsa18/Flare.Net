@@ -62,6 +62,7 @@ public enum RuleActionKind
 {
     ExtractRegex,
     RedactRegex,
+    ParseJson,
 }
 
 /// <summary>Mirrors <c>Flare.Api.Model.ExtractRegexAction</c>.</summary>
@@ -82,6 +83,23 @@ public sealed record RedactRegexAction
     public string Replacement { get; init; } = "***";
 }
 
+/// <summary>Mirrors <c>Flare.Api.Model.ParseJsonAction</c> - see that type's doc comment for the flattening rules, and its constants for the defaults/limits mirrored here.</summary>
+public sealed record ParseJsonAction
+{
+    public const int DefaultMaxDepth = 5;
+    public const int MaxDepthLimit = 10;
+    public const int DefaultMaxKeys = 100;
+    public const int MaxKeysLimit = 500;
+
+    public string? SourceAttributeKey { get; init; }
+
+    public string? KeyPrefix { get; init; }
+
+    public int? MaxDepth { get; init; }
+
+    public int? MaxKeys { get; init; }
+}
+
 /// <summary>Mirrors <c>Flare.Api.Model.PipelineRuleAction</c>.</summary>
 public sealed record PipelineRuleAction
 {
@@ -90,6 +108,8 @@ public sealed record PipelineRuleAction
     public ExtractRegexAction? ExtractRegex { get; init; }
 
     public RedactRegexAction? RedactRegex { get; init; }
+
+    public ParseJsonAction? ParseJson { get; init; }
 }
 
 /// <summary>

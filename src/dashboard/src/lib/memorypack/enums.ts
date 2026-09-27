@@ -250,7 +250,7 @@ export function metricAlertAggregationFromString(value: MetricAlertAggregationNa
 }
 
 /** Matches `PipelineRuleModels.cs`'s `RuleActionKind` member order. Unlike `AlertConditionKindName` above, this one *is* MemoryPack-TS-generated (`$lib/generated/memorypack/RuleActionKind.ts`) - this plain string/int converter pair exists anyway so `pipeline-rules-api.ts`'s plain `PipelineRuleAction` interface can carry a readable string union, same "plain type at the app boundary, generated numeric enum only at the wire boundary" convention `notificationChannelTypeToString`/`FromString` already set. */
-const RULE_ACTION_KIND_NAMES = ['ExtractRegex', 'RedactRegex'] as const;
+const RULE_ACTION_KIND_NAMES = ['ExtractRegex', 'RedactRegex', 'ParseJson'] as const;
 
 export type RuleActionKindName = (typeof RULE_ACTION_KIND_NAMES)[number];
 

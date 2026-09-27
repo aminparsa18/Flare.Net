@@ -6,8 +6,8 @@
 // MemoryPack over the wire, same shape as `alerts-api.ts`'s header comment describes.
 // `condition` reuses `$lib/memorypack/LogFilter.ts`'s existing `LogFilter`/`logFilterFromPlain`/
 // `logFilterToPlain` directly, same as `alerts-api.ts` does for `AlertRule.condition`.
-// `ExtractRegexAction`/`RedactRegexAction`/`PipelineRuleAction` have no `DateTimeOffset`/
-// `IReadOnlyList<T>` member (even nested), so all three are real MemoryPack-TS-*generated*
+// `ExtractRegexAction`/`RedactRegexAction`/`ParseJsonAction`/`PipelineRuleAction` have no `DateTimeOffset`/
+// `IReadOnlyList<T>` member (even nested), so all four are real MemoryPack-TS-*generated*
 // classes, reused here directly - `kind` converts through `$lib/memorypack/enums.ts`'s
 // `ruleActionKindToString`/`FromString`, same pattern `alerts-api.ts` uses for `conditionKind`.
 // `PipelineRule`/`PipelineRuleRequest`/`PipelineRuleListResponse` themselves nest `LogFilter`
@@ -25,6 +25,7 @@ import { ruleActionKindFromString, ruleActionKindToString, type RuleActionKindNa
 import { logFilterFromPlain, logFilterToPlain } from '$lib/memorypack/LogFilter';
 import { ExtractRegexAction as GeneratedExtractRegexAction } from '$lib/generated/memorypack/ExtractRegexAction.js';
 import { RedactRegexAction as GeneratedRedactRegexAction } from '$lib/generated/memorypack/RedactRegexAction.js';
+import { ParseJsonAction as GeneratedParseJsonAction } from '$lib/generated/memorypack/ParseJsonAction.js';
 import { PipelineRuleAction as GeneratedPipelineRuleAction } from '$lib/generated/memorypack/PipelineRuleAction.js';
 import { PipelineRule as GeneratedPipelineRule } from '$lib/memorypack/PipelineRule';
 import { PipelineRuleRequest as GeneratedPipelineRuleRequest } from '$lib/memorypack/PipelineRuleRequest';
@@ -51,11 +52,24 @@ export interface RedactRegexAction {
 	replacement: string;
 }
 
+/** `RuleActionKind.ParseJson`'s config - see `ParseJsonAction.cs`'s doc comment for the flattening rules. */
+export interface ParseJsonAction {
+	/** Attribute key in the Log bag to parse; undefined parses Body instead. */
+	sourceAttributeKey?: string;
+	/** Prepended verbatim to every flattened key, e.g. `json.`. */
+	keyPrefix?: string;
+	/** Object levels to flatten; undefined = server default (5), at most 10. */
+	maxDepth?: number;
+	/** Attributes written at most; undefined = server default (100), at most 500. */
+	maxKeys?: number;
+}
+
 /** One step of a `PipelineRule`'s ordered action list - meaningful sub-object depends on `kind`, same discriminator shape `AlertRule.conditionKind` uses. */
 export interface PipelineRuleAction {
 	kind: RuleActionKind;
 	extractRegex?: ExtractRegexAction;
 	redactRegex?: RedactRegexAction;
+	parseJson?: ParseJsonAction;
 }
 
 /** A saved field-extraction/redaction rule, applied by Flare.Ingest at flush time. `condition` reuses the same `LogFilter` shape the Logs Explorer/Alert rules already use - an empty condition deliberately matches every log (see the create/edit form's "matches all logs" notice). */
@@ -140,11 +154,30 @@ function toGeneratedRedactRegexAction(action: RedactRegexAction): GeneratedRedac
 	return dto;
 }
 
+function toParseJsonAction(dto: GeneratedParseJsonAction): ParseJsonAction {
+	return {
+		sourceAttributeKey: dto.sourceAttributeKey ?? undefined,
+		keyPrefix: dto.keyPrefix ?? undefined,
+		maxDepth: dto.maxDepth ?? undefined,
+		maxKeys: dto.maxKeys ?? undefined
+	};
+}
+
+function toGeneratedParseJsonAction(action: ParseJsonAction): GeneratedParseJsonAction {
+	const dto = new GeneratedParseJsonAction();
+	dto.sourceAttributeKey = action.sourceAttributeKey ?? null;
+	dto.keyPrefix = action.keyPrefix ?? null;
+	dto.maxDepth = action.maxDepth ?? null;
+	dto.maxKeys = action.maxKeys ?? null;
+	return dto;
+}
+
 function toPipelineRuleAction(dto: GeneratedPipelineRuleAction): PipelineRuleAction {
 	return {
 		kind: ruleActionKindToString(dto.kind),
 		extractRegex: dto.extractRegex == null ? undefined : toExtractRegexAction(dto.extractRegex),
-		redactRegex: dto.redactRegex == null ? undefined : toRedactRegexAction(dto.redactRegex)
+		redactRegex: dto.redactRegex == null ? undefined : toRedactRegexAction(dto.redactRegex),
+		parseJson: dto.parseJson == null ? undefined : toParseJsonAction(dto.parseJson)
 	};
 }
 
@@ -153,6 +186,7 @@ function toGeneratedPipelineRuleAction(action: PipelineRuleAction): GeneratedPip
 	dto.kind = ruleActionKindFromString(action.kind);
 	dto.extractRegex = action.extractRegex == null ? null : toGeneratedExtractRegexAction(action.extractRegex);
 	dto.redactRegex = action.redactRegex == null ? null : toGeneratedRedactRegexAction(action.redactRegex);
+	dto.parseJson = action.parseJson == null ? null : toGeneratedParseJsonAction(action.parseJson);
 	return dto;
 }
 

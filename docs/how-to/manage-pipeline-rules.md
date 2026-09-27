@@ -1,7 +1,7 @@
 # How to extract or redact fields at ingest
 
-Set up **pipeline rules** — regex-based extraction and redaction applied to
-logs before they're written to storage. Use extraction to pull structured
+Set up **pipeline rules** — regex-based extraction and redaction, and JSON
+body parsing, applied to logs before they're written to storage. Use extraction to pull structured
 fields (like a user ID or status code) out of a log's message into a proper,
 queryable attribute. Use redaction to mask sensitive data (like a credit
 card number or an email address) so it's never stored in the clear. For the
@@ -50,6 +50,34 @@ either.
 Extracted attributes show up like any other log attribute — filterable in
 the Logs Explorer, usable as an alert rule condition, the same as an
 attribute the source application set directly.
+
+## Turn a JSON log body into attributes
+
+If an app logs a JSON string as its body (Serilog's JSON formatter, the
+.NET console JSON formatter, most Node and Python structured loggers),
+one rule turns every field into a log attribute. You don't need a regex.
+
+1. Open **Pipeline Rules** → **New rule**, and scope it to the services
+   that log JSON.
+2. Under **Actions**, pick **Parse JSON**. Leave the source field blank
+   to parse `Body`, or enter an attribute key whose value is JSON.
+3. Optionally set:
+   - **Key prefix** — prepended to every key (e.g. `json.` gives
+     `json.user.id`). Without one, a parsed key overwrites an attribute
+     of the same name.
+   - **Max depth** — how many object levels to flatten (default 5, at
+     most 10).
+   - **Max keys** — the most attributes to write per log (default 100,
+     at most 500).
+4. Click **Create rule**.
+
+A body like `{"msg":"login","user":{"id":7,"name":"ada"},"tags":["a","b"]}`
+adds `msg=login`, `user.id=7`, `user.name=ada` and `tags=["a","b"]`.
+Nested keys are joined with `.`. Arrays, and objects deeper than
+**Max depth**, are kept whole as JSON text. `null` values are skipped.
+A body that isn't a JSON object is left alone, and the body itself is
+never changed. For the design behind this, see
+[ADR-0070](../../docs-internal/adr/0070-pipeline-rules-parse-json.md).
 
 ## Preview a rule before saving
 
