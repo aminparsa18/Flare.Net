@@ -34,8 +34,8 @@
 	// diverge its query window from the dashboard-wide time-range override; see
 	// VolumeChart.svelte's identical prop for the fuller reasoning and the roadmap's "one
 	// global time range driving every panel" design note. Unlike VolumeChart, a disallowed
-	// drag here has no click fallback to land on (MetricChart has no per-bucket click
-	// action) - see handlePointerUp below.
+	// drag here has no click fallback to land on - only a real click (below
+	// DRAG_THRESHOLD_PX) reaches `onPointClick` - see handlePointerUp below.
 	//
 	// yAxisMin/yAxisMax: soft Y-axis floor/ceiling (roadmap's "Soft Y-axis min/max on metric
 	// charts" item, DashboardPanel.yAxisMin/yAxisMax) - only ever set on a dashboard's
@@ -50,18 +50,24 @@
 	// yAxisScale: linear/log Y axis. A dashboard panel passes its own setting (edited through
 	// YAxisBoundsPopover); left undefined, the chart follows the Explorer's own
 	// `filter.yAxisScale` and shows its Log toggle in the header.
+	//
+	// onPointClick: a plain click (not a drag) reports the bucket under the pointer (epoch ms)
+	// - a dashboard panel opens the Metrics Explorer around it (DashboardPanelCard.svelte).
+	// Unset on the Explorer page, where a click still does nothing.
 	let {
 		allowZoom = true,
 		yAxisMin = null,
 		yAxisMax = null,
 		thresholds = [],
-		yAxisScale
+		yAxisScale,
+		onPointClick
 	}: {
 		allowZoom?: boolean;
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
 		thresholds?: PanelThreshold[];
 		yAxisScale?: YAxisScale;
+		onPointClick?: (time: number) => void;
 	} = $props();
 
 	// Fixed categorical palette (--chart-1..5, the `dataviz` skill's validated
@@ -781,9 +787,9 @@
 	let dragStartFraction = $state(0);
 	let dragEndFraction = $state(0);
 
-	// Below this many screen pixels of movement, a press-release is a plain click (nothing
-	// to do here - unlike VolumeChart, MetricChart has no per-bucket click-to-filter
-	// action), not a drag (zoom) - without a threshold, the tiniest hand tremor on what was
+	// Below this many screen pixels of movement, a press-release is a plain click (handed to
+	// `onPointClick` when set, otherwise nothing), not a drag (zoom) - without a threshold,
+	// the tiniest hand tremor on what was
 	// meant as a hover/click would zoom into a near-zero-width range instead.
 	const DRAG_THRESHOLD_PX = 4;
 
@@ -827,6 +833,10 @@
 
 		const rect = svg.getBoundingClientRect();
 		const dragPx = Math.abs(dragEndFraction - dragStartFraction) * rect.width;
+		if (dragPx < DRAG_THRESHOLD_PX && onPointClick && safeHoverIndex !== null) {
+			onPointClick(bucketTimes[safeHoverIndex]);
+			return;
+		}
 		if (!allowZoom || dragPx < DRAG_THRESHOLD_PX || !explorer.queryRangeFrom || !explorer.queryRangeTo) return;
 
 		const fromMs = new Date(explorer.queryRangeFrom).getTime();
@@ -1115,7 +1125,7 @@
 										{...props}
 										viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
 										preserveAspectRatio="none"
-										class="h-[180px] w-full min-w-0 cursor-crosshair"
+										class="h-[180px] w-full min-w-0 {onPointClick ? 'cursor-pointer' : 'cursor-crosshair'}"
 										role="img"
 										aria-label={m.metricChart_chartAriaLabel({ metric: explorer.selected!.metricName })}
 										onpointermove={handlePointerMove}

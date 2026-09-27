@@ -44,12 +44,15 @@
 		query,
 		timeRangeOverride,
 		variableOverrides,
-		refreshToken
+		refreshToken,
+		onOpenRange
 	}: {
 		query: unknown;
 		timeRangeOverride: TimeRangePreset | null;
 		variableOverrides: ResolvedVariableOverrides;
 		refreshToken: number;
+		/** A bar click - opens the Logs Explorer at that bucket (and stacked segment's group), see DashboardPanelCard. */
+		onOpenRange: (range: { from: Date; to: Date }, groupKey: string | null | undefined) => void;
 	} = $props();
 
 	const explorer = logsExplorerContext.set(new LogsExplorerState());
@@ -103,7 +106,7 @@
 </script>
 
 {#if ready}
-	<VolumeChart allowZoom={false} />
+	<VolumeChart allowZoom={false} onBucketClick={onOpenRange} />
 {:else}
 	<div class="flex items-center justify-center py-8"><Spinner /></div>
 {/if}

@@ -361,6 +361,32 @@ channel, then save as usual. Traces panels don't offer this — there's no
 trace-based alert condition today (alert rules only support log-count,
 metric-threshold, and exception-count conditions).
 
+## Opening a panel in its explorer
+
+Click the **telescope** icon in any panel's header to open that panel's
+query in the full Logs, Traces, or Metrics explorer, as the panel
+currently shows it. The dashboard's time-range override and the current
+variable selections are applied (except for variables the panel
+[opts out of](#per-panel-opt-out)). From there you can narrow the query,
+save it as a view, or pin it back to a dashboard.
+
+You can also click a point on a panel's chart:
+
+- **Logs** — clicking a bar opens the Logs explorer on that bar's time
+  bucket. If the chart is grouped by an attribute, clicking a coloured
+  segment also filters to that value. A "(not set)" segment filters to
+  events that don't have the attribute. The rolled-up "Other" segment
+  adds no filter.
+- **Metrics** (line charts) — clicking a point opens the Metrics
+  explorer on a window of five buckets either side of it, clamped to the
+  range the panel queried. The explorer picks a finer interval for the
+  narrower window. There's no per-series narrowing, because the Metrics
+  explorer has no attribute filter to carry it.
+
+Formula panels and non-line visualizations (bar, pie, table, and so on)
+only offer the header button. Traces panels are a list, so they have
+nothing to click.
+
 ## Full-screen / TV mode
 
 Click the **full screen** icon in a dashboard's header (next to Edit) to
