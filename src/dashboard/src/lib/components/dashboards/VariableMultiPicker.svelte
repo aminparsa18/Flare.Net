@@ -52,7 +52,7 @@
 <Popover.Root onOpenChange={(open) => !open && (filter = '')}>
 	<Popover.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="sm" class="max-w-72 font-normal" title={variable.name}>
+			<Button {...props} variant="outline" size="sm" class="max-w-72 font-normal" title={variable.description || variable.name}>
 				<SlidersHorizontalIcon data-icon="inline-start" />
 				<span class="truncate">{variable.name}: {label}</span>
 			</Button>
