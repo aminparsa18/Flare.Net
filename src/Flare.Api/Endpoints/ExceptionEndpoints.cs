@@ -8,7 +8,8 @@ namespace Flare.Api.Endpoints;
 /// <summary>
 /// The <c>/errors</c> page's Query API: <c>POST /api/errors/groups</c> (the ranked
 /// exception-type/message rollup) and <c>POST /api/errors/occurrences</c> (one group's
-/// click-through drill-down - sample traces + stack traces). Same POST+JSON-body-for-
+/// click-through drill-down - sample traces + stack traces), plus
+/// <c>POST /api/errors/facet-values</c> (the facet sidebar's per-value counts). Same POST+JSON-body-for-
 /// structured-filters convention as <see cref="SpanEndpoints"/>/<see cref="LogsEndpoints"/> -
 /// both bodies carry an <see cref="ExceptionFilter"/>, not just a couple of scalars.
 /// </summary>
@@ -18,6 +19,7 @@ public static class ExceptionEndpoints
     {
         endpoints.MapPost("/api/errors/groups", HandleGetGroupsAsync);
         endpoints.MapPost("/api/errors/occurrences", HandleGetOccurrencesAsync);
+        endpoints.MapPost("/api/errors/facet-values", HandleGetFacetValuesAsync);
         return endpoints;
     }
 
@@ -64,5 +66,33 @@ public static class ExceptionEndpoints
 
         var response = await queryService.GetOccurrencesAsync(request, cancellationToken);
         return ApiSerialization.Write(http, response, ErrorsJsonContext.Default.ExceptionOccurrencesResponse);
+    }
+
+    private static async Task<IResult> HandleGetFacetValuesAsync(
+        HttpContext http,
+        IExceptionQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        ExceptionFacetValuesRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, ErrorsJsonContext.Default.ExceptionFacetValuesRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        request ??= new ExceptionFacetValuesRequest();
+
+        try
+        {
+            var response = await queryService.GetFacetValuesAsync(request, cancellationToken);
+            return ApiSerialization.Write(http, response, ErrorsJsonContext.Default.ExceptionFacetValuesResponse);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
     }
 }

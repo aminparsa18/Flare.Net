@@ -12,6 +12,8 @@ import type { ExceptionGroup as GeneratedExceptionGroup } from '$lib/memorypack/
 import { ExceptionOccurrencesRequest as GeneratedExceptionOccurrencesRequest } from '$lib/memorypack/ExceptionOccurrencesRequest';
 import { ExceptionOccurrencesResponse as GeneratedExceptionOccurrencesResponse } from '$lib/memorypack/ExceptionOccurrencesResponse';
 import type { ExceptionOccurrence as GeneratedExceptionOccurrence } from '$lib/memorypack/ExceptionOccurrence';
+import { ExceptionFacetValuesRequest as GeneratedExceptionFacetValuesRequest } from '$lib/memorypack/ExceptionFacetValuesRequest';
+import { ExceptionFacetValuesResponse as GeneratedExceptionFacetValuesResponse } from '$lib/memorypack/ExceptionFacetValuesResponse';
 import { type ResourceAttributeFilter, toGeneratedResourceAttributes, fromGeneratedResourceAttributes } from './services-api';
 
 // ---- Shared filter shape (ErrorModels.cs's ExceptionFilter) ----------------
@@ -159,5 +161,45 @@ export async function getExceptionOccurrences(
 		exceptionType: body?.exceptionType ?? request.exceptionType,
 		exceptionMessage: body?.exceptionMessage ?? request.exceptionMessage,
 		occurrences: (body?.occurrences ?? []).map((o) => toExceptionOccurrence(o!))
+	};
+}
+
+// ---- POST /api/errors/facet-values (ExceptionFacetValuesRequest/Response) --
+// The facet sidebar's per-value exception counts - see `$lib/errors/facets.ts`.
+
+/** Mirrors `ExceptionFacetField` - declaration order is the MemoryPack wire ordinal. */
+const EXCEPTION_FACET_FIELDS = ['Service', 'ResourceAttribute'] as const;
+export type ExceptionFacetField = (typeof EXCEPTION_FACET_FIELDS)[number];
+
+export interface ExceptionFacetValuesRequest {
+	filter?: ExceptionFilter;
+	field: ExceptionFacetField;
+	/** Required for `ResourceAttribute`, ignored for `Service`. */
+	key?: string;
+	limit?: number;
+}
+
+export interface ExceptionFacetValuesResponse {
+	values: { value: string; count: number }[];
+}
+
+export async function getExceptionFacetValues(request: ExceptionFacetValuesRequest, signal?: AbortSignal): Promise<ExceptionFacetValuesResponse> {
+	const dto = new GeneratedExceptionFacetValuesRequest();
+	dto.filter = toGeneratedExceptionFilter(request.filter);
+	dto.field = EXCEPTION_FACET_FIELDS.indexOf(request.field);
+	dto.key = request.key ?? '';
+	dto.limit = request.limit ?? null;
+	const res = await apiFetch(`${API_BASE_URL}/api/errors/facet-values`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedExceptionFacetValuesRequest.serialize(dto)),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/errors/facet-values failed: ${res.status} ${res.statusText}`);
+	}
+	const body = GeneratedExceptionFacetValuesResponse.deserialize(await res.arrayBuffer());
+	return {
+		values: (body?.values ?? []).map((v) => ({ value: v!.value ?? '', count: Number(v!.count) }))
 	};
 }
