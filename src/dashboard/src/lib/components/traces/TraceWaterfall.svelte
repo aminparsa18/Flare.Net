@@ -441,6 +441,8 @@
 					     pointer so the span hover target underneath still works everywhere
 					     except the dots themselves; a click on a dot bubbles to the row and
 					     selects the span, whose detail sheet lists the full event. -->
+					<!-- Exception dots get a bigger, thicker ring: on an error span the bar is
+					     already bg-destructive, so a red dot is visible only by its ring. -->
 					{#if span.events.length > 0}
 						<div class="pointer-events-none absolute inset-0">
 							{#each span.events as event, i (i)}
@@ -451,8 +453,8 @@
 											<span
 												{...props}
 												class="{isException
-													? 'bg-destructive'
-													: 'bg-foreground'} ring-background pointer-events-auto absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-1"
+													? 'bg-destructive size-2.5 ring-2'
+													: 'bg-foreground size-2 ring-1'} ring-background pointer-events-auto absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
 												style="left: {eventLeftPct(event)}%;"
 												aria-label={event.name || '—'}
 											></span>
@@ -464,7 +466,7 @@
 											<span>{m.traceWaterfall_hoverEventOffset({ offset: formatDurationNano(eventOffsetMs(event) * 1_000_000) })}</span>
 											<span class="opacity-70 tabular-nums">{formatStartTime(event.timestamp)}</span>
 											{#each eventPreviewAttributes(event) as [key, value] (key)}
-												<span class="line-clamp-2 break-all"><span class="opacity-70">{key}:</span> {value}</span>
+												<span class="line-clamp-2 break-words"><span class="opacity-70">{key}:</span> {value}</span>
 											{/each}
 										</div>
 									</Tooltip.Content>
