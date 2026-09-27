@@ -1935,5 +1935,9 @@
 	"metricMetadata_reset": "Reset to sent values",
 	"metricMetadata_save": "Save",
 	"metricMetadata_overridden": "Edited",
-	"metricMetadata_overriddenTitle": "Unit or description edited by an admin"
+	"metricMetadata_overriddenTitle": "Unit or description edited by an admin",
+	"metricMetadata_treatAsCounter": "Chart as a counter",
+	"metricMetadata_treatAsCounterHint": "For a counter sent as a gauge, such as an untyped Prometheus *_total metric. Charts show the increase per interval instead of the running total.",
+	"metricMetadata_counter": "Counter",
+	"metricMetadata_counterTitle": "Charted as a counter by an admin"
 }

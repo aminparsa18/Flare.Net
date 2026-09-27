@@ -102,13 +102,6 @@ folders are where "what happened and why" actually lives.
   started. Prior art: deployments/clusters/namespaces
   [signoz#6786](https://github.com/SigNoz/signoz/commit/403043e076bf60aa4b77a7df45eed06b286f5be0),
   statefulsets/daemonsets/jobs/volumes [signoz#6629](https://github.com/SigNoz/signoz/commit/813ca8bc230268d8904a786b18da8659045b18ce).
-- **Treat a gauge as a counter.** Untyped Prometheus metrics arrive as
-  Gauges even when they're counters (`*_total`), so charts show the raw
-  running total instead of an increase. Add a per-metric option that charts a
-  `metrics_gauge` series with the Sum query's reset-aware differencing. A
-  metric's type can't simply be overridden like its unit/description can,
-  because the type picks the table (see ADR-0065). Prior art:
-  [signoz#7235](https://github.com/SigNoz/signoz/commit/5b6b5bf359a5940c21681639e7f1094a2fa3a5d9).
 - **External API monitoring by domain.** `ServiceCallBreakdownQueryBuilder`
   groups external calls by `peer.service` only, but .NET's `HttpClient`
   instrumentation doesn't set it - it sets `server.address`, `url.full`,

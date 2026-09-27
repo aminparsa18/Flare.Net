@@ -93,3 +93,15 @@ click **Edit unit & description**, fill in either field, and save. Leave a
 field blank to keep showing the value the sender reports. The new values show
 for everyone in the catalog and the Metrics explorer, and the metric is marked
 **Edited**. **Reset to sent values** removes the change.
+
+## Chart a gauge as a counter
+
+Some counters arrive as Gauges. An untyped Prometheus `*_total` metric is a
+common case. Its chart then shows the running total instead of how much it
+went up. To fix that, an admin opens the Gauge's panel, clicks **Edit unit &
+description**, checks **Chart as a counter**, and saves.
+
+Charts of that metric then work like a Sum's. Each interval shows the
+increase, with **Rate**, **Sum** and **Count** modes. A drop in the value
+counts as a restart, not a decrease. The metric is marked **Counter**. Alerts
+on the metric still use its gauge value.

@@ -179,12 +179,16 @@ public sealed partial record MetricCatalogDetailResponse
 
     /// <summary>True when an admin override exists for this metric name.</summary>
     public required bool HasMetadataOverride { get; init; }
+
+    /// <summary>The admin's "treat as counter" setting (ADR-0066) - only meaningful for a Gauge.</summary>
+    public bool TreatAsCounter { get; init; }
 }
 
 /// <summary>
 /// Request body for <c>PUT /api/metrics/metadata-overrides</c> (Admin only) - replaces the
-/// metric's override. A null/blank member means "show the emitted value"; both null is
-/// rejected, that's <c>DELETE</c>. See docs-internal/adr/0065-metric-metadata-overrides.md.
+/// metric's override. A null/blank member means "show the emitted value"; both null with
+/// <see cref="TreatAsCounter"/> off is rejected, that's <c>DELETE</c>. See
+/// docs-internal/adr/0065-metric-metadata-overrides.md and 0066-treat-gauge-as-counter.md.
 /// </summary>
 [MemoryPackable]
 [GenerateTypeScript]
@@ -195,6 +199,9 @@ public sealed partial record SetMetricMetadataOverrideRequest
     public string? Unit { get; init; }
 
     public string? Description { get; init; }
+
+    /// <summary>Chart the metric's Gauge points like a counter (ADR-0066). Enough on its own to make an override.</summary>
+    public bool TreatAsCounter { get; init; }
 }
 
 /// <summary>

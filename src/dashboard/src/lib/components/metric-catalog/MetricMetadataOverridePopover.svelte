@@ -2,10 +2,12 @@
 	// Admin-only editor for a metric's unit/description override (ADR-0065) - gated by the
 	// caller. Same icon-triggered mini-form shape as ApdexThresholdPopover.svelte. A blank
 	// field means "show what the instrumentation sent", so each field overrides on its own.
+	// "Chart as a counter" (ADR-0066) is offered only for a Gauge - it's what it changes.
 	import * as Popover from '$lib/components/ui/popover';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import * as m from '$lib/paraglide/messages';
 
@@ -15,6 +17,8 @@
 		emittedUnit,
 		emittedDescription,
 		hasOverride,
+		isGauge,
+		treatAsCounter,
 		onSave,
 		onReset
 	}: {
@@ -23,13 +27,16 @@
 		emittedUnit: string | null;
 		emittedDescription: string | null;
 		hasOverride: boolean;
-		onSave: (unit: string | null, description: string | null) => Promise<void>;
+		isGauge: boolean;
+		treatAsCounter: boolean;
+		onSave: (unit: string | null, description: string | null, treatAsCounter: boolean) => Promise<void>;
 		onReset: () => Promise<void>;
 	} = $props();
 
 	let open = $state(false);
 	let unitValue = $state('');
 	let descriptionValue = $state('');
+	let counterValue = $state(false);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 
@@ -39,6 +46,7 @@
 		if (open) {
 			unitValue = unit != null && unit !== emittedUnit ? unit : '';
 			descriptionValue = description != null && description !== emittedDescription ? description : '';
+			counterValue = treatAsCounter;
 			error = null;
 		}
 	});
@@ -59,11 +67,12 @@
 	function save(): Promise<void> {
 		const nextUnit = unitValue.trim() || null;
 		const nextDescription = descriptionValue.trim() || null;
-		if (nextUnit == null && nextDescription == null) {
+		const nextCounter = isGauge && counterValue;
+		if (nextUnit == null && nextDescription == null && !nextCounter) {
 			// Nothing left to override - that's a reset, not an empty override.
 			return hasOverride ? run(onReset) : Promise.resolve(void (open = false));
 		}
-		return run(() => onSave(nextUnit, nextDescription));
+		return run(() => onSave(nextUnit, nextDescription, nextCounter));
 	}
 </script>
 
@@ -97,6 +106,15 @@
 			bind:value={descriptionValue}
 			disabled={saving}
 		/>
+		{#if isGauge}
+			<div class="mt-3 flex items-start gap-2">
+				<Checkbox id="metric-metadata-counter" class="mt-0.5" bind:checked={counterValue} disabled={saving} />
+				<div>
+					<label class="block text-xs font-medium" for="metric-metadata-counter">{m.metricMetadata_treatAsCounter()}</label>
+					<p class="text-muted-foreground text-xs">{m.metricMetadata_treatAsCounterHint()}</p>
+				</div>
+			</div>
+		{/if}
 		{#if error}
 			<p class="text-destructive mt-2 text-xs">{error}</p>
 		{/if}

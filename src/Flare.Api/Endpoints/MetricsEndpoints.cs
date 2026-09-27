@@ -80,6 +80,7 @@ public static class MetricsEndpoints
     private static async Task<IResult> HandleQueryAsync(
         HttpContext http,
         IMetricQueryService queryService,
+        IMetricMetadataOverrideStore overrideStore,
         CancellationToken cancellationToken)
     {
         MetricQueryRequest? request;
@@ -95,6 +96,13 @@ public static class MetricsEndpoints
         if (request is null)
         {
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // Resolved before the (cached) query so the cache key carries the effective value -
+        // toggling "treat as counter" shows on the next request (ADR-0066).
+        if (request.Type == MetricPointType.Gauge && request.TreatAsCounter is null)
+        {
+            request = MetricMetadataOverlay.ResolveTreatAsCounter(request, await overrideStore.GetAllAsync(cancellationToken));
         }
 
         try

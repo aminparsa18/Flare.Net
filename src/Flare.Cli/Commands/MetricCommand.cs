@@ -155,6 +155,14 @@ internal sealed class MetricCommand : AsyncCommand<MetricCommand.Settings>
 
         var series = queryResponse.Series ?? [];
 
+        // A Gauge the admin marked "treat as counter" comes back Sum-shaped (ADR-0066) - render
+        // it like a counter, in Sum's default mode (--mode was already rejected for a Gauge).
+        if (queryResponse.TreatedAsCounter)
+        {
+            renderType = "Sum";
+            mode = "rate";
+        }
+
         AnsiConsole.MarkupLine($"[bold]{Markup.Escape(metric.MetricName)}[/] [grey]({metric.Type})[/]");
         if (!string.IsNullOrEmpty(metric.Description))
         {

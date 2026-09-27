@@ -60,6 +60,9 @@
 					{#if detail?.hasMetadataOverride}
 						<Badge variant="outline" title={m.metricMetadata_overriddenTitle()}>{m.metricMetadata_overridden()}</Badge>
 					{/if}
+					{#if detail?.treatAsCounter && selected.type === 'Gauge'}
+						<Badge variant="outline" title={m.metricMetadata_counterTitle()}>{m.metricMetadata_counter()}</Badge>
+					{/if}
 				</Sheet.Title>
 				<Sheet.Description>
 					{#if detail?.description}{`${detail.description} · `}{/if}{servicesWindowPresetLabel(catalog.windowPreset)}
@@ -76,7 +79,9 @@
 							emittedUnit={detail.emittedUnit}
 							emittedDescription={detail.emittedDescription}
 							hasOverride={detail.hasMetadataOverride}
-							onSave={(unit, description) => catalog.saveMetadataOverride(unit, description)}
+							isGauge={selected.type === 'Gauge'}
+							treatAsCounter={detail.treatAsCounter}
+							onSave={(unit, description, treatAsCounter) => catalog.saveMetadataOverride(unit, description, treatAsCounter)}
 							onReset={() => catalog.resetMetadataOverride()}
 						/>
 					{/if}

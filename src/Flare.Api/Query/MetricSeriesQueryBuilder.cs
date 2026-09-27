@@ -132,6 +132,15 @@ public sealed record MetricSeriesSql(string Sql, ClickHouseParameterCollection P
 /// merged buckets.
 /// </para>
 /// <para>
+/// <b>Gauge treated as a counter</b> (<see cref="Model.MetricQueryRequest.TreatAsCounter"/>,
+/// ADR-0066): untyped Prometheus counters (<c>*_total</c>) arrive as Gauges, so the Gauge
+/// average would chart their raw running total. With the flag set, a Gauge request runs the
+/// Sum query shape against <c>metrics_gauge</c> and reports <see cref="MetricSeriesSql.Type"/>
+/// as Sum, so the response reads like any counter's. <c>metrics_gauge</c> has no
+/// <c>AggregationTemporality</c>/<c>IsMonotonic</c> columns, so every row is taken as a
+/// monotonic cumulative sample - the first row contributes 0 and a negative delta is a reset.
+/// </para>
+/// <para>
 /// <b>Series cap</b> (<see cref="Model.MetricQueryRequest.TopN"/>): a high-cardinality
 /// <see cref="Model.MetricQueryRequest.GroupByAttributeKey"/> (or even an ungrouped query
 /// over a metric with many distinct <c>DataPointAttributes</c> maps) can otherwise produce
@@ -187,6 +196,11 @@ public static class MetricSeriesQueryBuilder
 
         var table = MetricTables.For(request.Type);
 
+        // A Gauge charted as a counter reads metrics_gauge but is shaped (and ranked) like a
+        // Sum from here on - see this class's "Gauge treated as a counter" remarks.
+        var gaugeAsCounter = request.Type == MetricPointType.Gauge && request.TreatAsCounter == true;
+        var shape = gaugeAsCounter ? MetricPointType.Sum : request.Type;
+
         // Same per-type aggregate magnitude used both to rank series for the top-N cap
         // below and (Gauge/Histogram only - see BuildSumSql for Sum) as the bucketed
         // value itself. Deliberately the whole-window aggregate (no BucketStart in the
@@ -195,7 +209,7 @@ public static class MetricSeriesQueryBuilder
         // same rough max-min magnitude as before BuildSumSql's window-function rewrite -
         // it only decides which series make the top-N cut, not any value a caller sees,
         // so it doesn't need the same reset-correctness the actual bucketed value now has.
-        var rankExpr = request.Type switch
+        var rankExpr = shape switch
         {
             MetricPointType.Gauge => "avg(Value)",
             MetricPointType.Sum => "max(Value) - min(Value)",
@@ -262,15 +276,15 @@ public static class MetricSeriesQueryBuilder
             "  LIMIT {topN:UInt32}\n" +
             ")";
 
-        var sql = request.Type switch
+        var sql = shape switch
         {
-            MetricPointType.Sum => BuildSumSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
+            MetricPointType.Sum => BuildSumSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr, hasTemporality: !gaugeAsCounter),
             MetricPointType.Histogram => BuildHistogramSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
             MetricPointType.ExponentialHistogram => BuildExponentialHistogramSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
             _ => BuildGaugeSql(table, whereSql, topSeriesSql, rawSeriesKeyExpr, seriesKeyExpr, seriesAttributesExpr),
         };
 
-        return new MetricSeriesSql(sql, filterSql.Parameters, request.Type);
+        return new MetricSeriesSql(sql, filterSql.Parameters, shape);
     }
 
     /// <summary>Gauge: one flat <c>GROUP BY</c> - a level needs no per-row differencing.</summary>
@@ -319,12 +333,15 @@ public static class MetricSeriesQueryBuilder
     /// Sum's own query shape - a per-bucket <c>increase()</c> via window functions, not a
     /// flat <c>GROUP BY</c>. See this class's own remarks (the "Sum query shape" paragraph)
     /// for the full reasoning, and ADR-0035 for the design decision this implements.
+    /// <paramref name="hasTemporality"/> is false for a Gauge treated as a counter:
+    /// <c>metrics_gauge</c> has no temporality/monotonic columns, so the delta and
+    /// non-monotonic branches drop out and every row is a monotonic cumulative sample.
     /// </summary>
-    private static string BuildSumSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr) =>
+    private static string BuildSumSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr, bool hasTemporality) =>
         "WITH ranked AS (\n" +
         $"  SELECT ServiceName, DataPointAttributes, {seriesKeyExpr}, " +
         "toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS BucketStart, " +
-        "Value, AggregationTemporality, IsMonotonic,\n" +
+        (hasTemporality ? "Value, AggregationTemporality, IsMonotonic,\n" : "Value,\n") +
         "    row_number() OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS SeriesRowNum,\n" +
         "    Value - lagInFrame(Value) OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS RawDelta\n" +
         $"  FROM {table}\n" +
@@ -333,9 +350,9 @@ public static class MetricSeriesQueryBuilder
         ")\n" +
         $"SELECT BucketStart, ServiceName, SeriesKey, {seriesAttributesExpr},\n" +
         "  sum(multiIf(\n" +
-        "    AggregationTemporality = 'AGGREGATION_TEMPORALITY_DELTA', Value,\n" +
+        (hasTemporality ? "    AggregationTemporality = 'AGGREGATION_TEMPORALITY_DELTA', Value,\n" : "") +
         "    SeriesRowNum = 1, 0,\n" +
-        "    IsMonotonic = 0, RawDelta,\n" +
+        (hasTemporality ? "    IsMonotonic = 0, RawDelta,\n" : "") +
         "    RawDelta < 0, Value,\n" +
         "    RawDelta\n" +
         "  )) AS Value, count() AS Count\n" +
