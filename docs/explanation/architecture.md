@@ -168,7 +168,10 @@ Click into a trace for the waterfall view — parent/child spans laid out by
 start time and duration, the same shape as Jaeger/Zipkin but wired
 straight into the rest of the dashboard. Span events show up as dots on
 the span's bar at the moment they happened (exceptions in red); hover one
-for its name, offset, and key attributes.
+for its name, offset, and key attributes. The "Flame graph" toggle shows
+the same spans as a flame graph (width = duration, stacked by depth,
+colored by service) to see where time went in a large trace at a glance;
+click a span for its details, double-click to zoom into it.
 
 ![Trace detail waterfall](../screenshots/traces-en.webp)
 

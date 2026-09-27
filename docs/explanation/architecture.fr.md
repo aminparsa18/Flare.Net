@@ -191,6 +191,10 @@ Jaeger/Zipkin mais connectée directement au reste du tableau de bord.
 Les événements de span apparaissent comme des points sur la barre du
 span à l'instant où ils se sont produits (les exceptions en rouge) ;
 survolez-en un pour voir son nom, son décalage et ses attributs clés.
+Le bouton « Flame graph » affiche les mêmes spans en flame graph
+(largeur = durée, empilés par profondeur, colorés par service) pour voir
+d'un coup d'œil où le temps est passé dans une grande trace ; cliquez sur
+un span pour ses détails, double-cliquez pour zoomer dessus.
 
 ![Trace detail waterfall](../screenshots/trace-detail.png)
 
