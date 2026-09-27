@@ -208,7 +208,7 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
     }
 
     /// <summary>Parses <see cref="MetricNamesQueryBuilder"/>'s literal <c>Type</c> discriminator back into the enum.</summary>
-    private static MetricPointType ParseType(string type) => type switch
+    internal static MetricPointType ParseType(string type) => type switch
     {
         "gauge" => MetricPointType.Gauge,
         "sum" => MetricPointType.Sum,

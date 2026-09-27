@@ -213,6 +213,7 @@ builder.Services.AddSingleton<IServiceOverviewQueryService, ServiceOverviewQuery
 builder.Services.AddSingleton<IServiceDependencyQueryService, ServiceDependencyQueryService>();
 builder.Services.AddSingleton<IServiceCallBreakdownQueryService, ServiceCallBreakdownQueryService>();
 builder.Services.AddSingleton<IHostInventoryQueryService, HostInventoryQueryService>();
+builder.Services.AddSingleton<IMetricCatalogQueryService, MetricCatalogQueryService>();
 builder.Services.AddSingleton<IPodMetricsQueryService, PodMetricsQueryService>();
 builder.Services.AddSingleton<IExceptionQueryService, ExceptionQueryService>();
 builder.Services.AddSingleton<IMessagingQueryService, MessagingQueryService>();
@@ -424,6 +425,7 @@ authenticatedRoutes.MapSpanEndpoints();
 authenticatedRoutes.MapMetricsEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapHostInventoryEndpoints();
+authenticatedRoutes.MapMetricCatalogEndpoints();
 authenticatedRoutes.MapPodMetricsEndpoints();
 authenticatedRoutes.MapExceptionEndpoints();
 authenticatedRoutes.MapMessagingEndpoints();

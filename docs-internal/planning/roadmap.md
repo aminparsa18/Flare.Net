@@ -102,23 +102,13 @@ folders are where "what happened and why" actually lives.
   started. Prior art: deployments/clusters/namespaces
   [signoz#6786](https://github.com/SigNoz/signoz/commit/403043e076bf60aa4b77a7df45eed06b286f5be0),
   statefulsets/daemonsets/jobs/volumes [signoz#6629](https://github.com/SigNoz/signoz/commit/813ca8bc230268d8904a786b18da8659045b18ce).
-- **Metrics catalog with cardinality.** `/api/metrics/names` only feeds
-  the Metrics picker (name, service, type, unit, description); there's
-  no overview of what's being ingested. A catalog page: every metric with
-  type, unit, description, active series count (cardinality), sample
-  volume and last-received time, sortable to spot a cardinality
-  explosion (e.g. a user id as an attribute) before ClickHouse feels it;
-  a detail view with per-attribute distinct-value counts, and "related
-  metrics" (same service / shared attributes). Queried from the existing
-  metric tables with bounded `uniq`/`count` over a recent window. Not
-  started. Prior art: summary [signoz#7200](https://github.com/SigNoz/signoz/commit/c2d038c025e9eaa5bd6773d2804ad9cfbffcd905),
-  details [signoz#7238](https://github.com/SigNoz/signoz/commit/1b758a088c2f3ea224bacb2dcee5376d25bda0db),
-  related metrics [signoz#7193](https://github.com/SigNoz/signoz/commit/735b56599233cd87af8216ae443cc93dc2b0e4e0).
-  Worth folding in: an "inspect metric" view stepping through one
-  series' raw samples and how time/space aggregation reduces them
+- **Metrics catalog follow-ups.** The catalog (`/metrics/catalog`) ships
+  the summary, per-attribute cardinality, and related metrics. Still open:
+  an "inspect metric" view stepping through one series' raw samples and how
+  time/space aggregation reduces them
   [signoz#7197](https://github.com/SigNoz/signoz/commit/9df23bc1ed85c0933a389726fbc74d6ac97c7ae7),
-  and admin overrides for a metric's unit/description/type
-  [signoz#7235](https://github.com/SigNoz/signoz/commit/5b6b5bf359a5940c21681639e7f1094a2fa3a5d9).
+  and admin overrides for a metric's unit/description/type (needs its own
+  storage) [signoz#7235](https://github.com/SigNoz/signoz/commit/5b6b5bf359a5940c21681639e7f1094a2fa3a5d9).
 - **External API monitoring by domain.** `ServiceCallBreakdownQueryBuilder`
   groups external calls by `peer.service` only, but .NET's `HttpClient`
   instrumentation doesn't set it - it sets `server.address`, `url.full`,
