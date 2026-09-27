@@ -131,12 +131,6 @@ folders are where "what happened and why" actually lives.
   syntax). Trace funnels (ADR-0067, `TraceFunnelQueryBuilder`) already do
   a per-trace `groupArray` walk, for ordering only. Not started.
   Prior art: [signoz#8165](https://github.com/SigNoz/signoz/commit/eeb2ab3212f20a7b6e8edda0a8a60c074469d0e6).
-- **"New version available" notice.** Self-hosted users get no signal
-  that they're behind. `Flare.Api` checks the latest GitHub release
-  (cached, e.g. daily; opt-out config for air-gapped installs), and the
-  dashboard shows a dismissible notice with the release notes when the
-  running version is older. Small. Not started. Prior art:
-  [signoz#8270](https://github.com/SigNoz/signoz/commit/3b1bf34d3e8faf850eb551d62914c85569d3a468).
 - **`ParseJson` (flatten) pipeline-rule action.** Many apps log a JSON
   string as the body (Serilog JSON formatter, Console JSON, Node/Python
   loggers); Flare can *query* it (body-JSON filters) but pipeline rules

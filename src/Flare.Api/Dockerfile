@@ -41,9 +41,15 @@ COPY db/clickhouse/ db/clickhouse/
 # of ClickHouse:ClusterMode. A local Aspire/`dotnet run` process never hit this - only a
 # container built from this Dockerfile did.
 COPY db/clickhouse-cluster/ db/clickhouse-cluster/
+# The version /api/version reports and the "new version available" notice compares against
+# GitHub releases (ADR-0068). docker-publish.yml passes the tag's version on a release build
+# (`edge` on a main push); a local `docker compose up --build` keeps "dev", which the update
+# check skips. Declared here, after the COPYs, so changing it doesn't bust the restore cache.
+ARG FLARE_VERSION=dev
 RUN dotnet publish src/Flare.Api/Flare.Api.csproj \
     --no-restore \
     -c Release \
+    -p:InformationalVersion=${FLARE_VERSION} \
     -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final

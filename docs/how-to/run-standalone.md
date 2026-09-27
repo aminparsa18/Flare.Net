@@ -277,6 +277,23 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 (`flare` is the compose-default ClickHouse password — see
 [`.env.example`](../../.env.example) if you changed it.)
 
+## Turn off the update check (air-gapped installs)
+
+When a newer Flare release is out, the dashboard shows a notice under the nav
+bar with its release notes, and the user menu (**⋯**) shows the running
+version. To get this, `Flare.Api` asks GitHub's API for the latest release at
+most once a day, and only while someone is using the dashboard. To turn that
+off — for example on a host without internet access — set this on the `api`
+service:
+
+```yaml
+environment:
+  UpdateCheck__Enabled: "false"
+```
+
+A locally built image (`docker compose up --build`) reports version `dev` and
+never checks.
+
 ## Enable the Resources page (optional Docker access)
 
 The dashboard's **Resources** page shows Flare's own containers

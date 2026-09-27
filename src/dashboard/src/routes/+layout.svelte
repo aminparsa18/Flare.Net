@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import AppNav from '$lib/components/nav/AppNav.svelte';
 	import CommandPalette from '$lib/components/nav/CommandPalette.svelte';
+	import UpdateNotice from '$lib/components/nav/UpdateNotice.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Alert, AlertTitle, AlertDescription } from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -138,6 +139,7 @@
 	<div class="flex h-screen flex-col">
 		{#if showChrome}
 			<AppNav bind:commandPaletteOpen />
+			<UpdateNotice />
 			<CommandPalette bind:open={commandPaletteOpen} />
 		{/if}
 		<div class="min-h-0 flex-1">

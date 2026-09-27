@@ -214,6 +214,17 @@ curl -s "http://localhost:8123/?database=clickhousedb&user=default&password=flar
 
 （`flare` 是撰写默认的 ClickHouse 密码 - 如果您更改了它，请参阅 [`.env.example`](../../.env.example)。）
 
+## 关闭更新检查（离线部署）
+
+当有新版 Flare 发布时，仪表盘会在导航栏下方显示提示并附带发行说明，用户菜单（**⋯**）中也会显示当前运行的版本。为此，`Flare.Api` 会通过 GitHub API 查询最新版本——每天最多一次，且仅在有人使用仪表盘时进行。如需关闭（例如在无法访问互联网的主机上），请在 `api` 服务上设置：
+
+```yaml
+environment:
+  UpdateCheck__Enabled: "false"
+```
+
+本地构建的镜像（`docker compose up --build`）报告的版本为 `dev`，不会进行检查。
+
 ## 启用资源页面（可选 Docker 访问）
 
 仪表板的 **资源** 页面将 Flare 自己的容器（ClickHouse、Redis、摄取、api、alert-worker、仪表板）显示为实时图表 - 状态、运行状况、URL 以及它们之间的关系 - 源自 Docker 引擎 API。 **默认情况下关闭**并且需要两个显式选择加入，因为这意味着 `flare-api` 获得某种形式的 Docker 访问权限 - 请参阅 [ADR-0005](../../docs-internal/adr/0005-docker-socket-proxy-for-resources-page.md) 了解为什么这样设计（作用域只读代理，从不直接套接字安装）。

@@ -12,6 +12,7 @@ using Flare.Api.LiveTail;
 using Flare.Api.Pipeline;
 using Flare.Api.Query;
 using Flare.Api.ResourceGraph;
+using Flare.Api.Updates;
 using Flare.Identity;
 using Flare.Identity.Auth;
 using Flare.Identity.Users;
@@ -343,6 +344,19 @@ builder.Services.AddSingleton<EmailAlertNotifier>();
 // entrypoint isn't part of the IAlertNotifier interface AlertEvaluationWorker depends on.
 builder.Services.AddSingleton<CompositeAlertNotifier>();
 builder.Services.AddSingleton<IAlertNotifier>(sp => sp.GetRequiredService<CompositeAlertNotifier>());
+
+// "New version available" notice (ADR-0068) - the one outbound call Flare.Api makes on its
+// own, lazily and at most once per UpdateCheck:Interval; UpdateCheck__Enabled=false turns it
+// off. GitHub's REST API rejects requests without a User-Agent.
+builder.Services.Configure<UpdateCheckOptions>(builder.Configuration.GetSection(UpdateCheckOptions.SectionName));
+builder.Services.AddHttpClient(ReleaseCheckService.HttpClientName, client =>
+{
+    client.BaseAddress = new Uri("https://api.github.com/");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd($"Flare/{ReleaseCheckService.CurrentVersion}");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+});
+builder.Services.AddSingleton<ReleaseCheckService>();
 builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
 // Maintenance windows (ADR-0055) - CRUD here; AlertEvaluationWorker reads the same table to
 // suppress notifications while one is active.
@@ -438,6 +452,7 @@ authenticatedRoutes.MapPipelineEndpoints();
 authenticatedRoutes.MapIndexingEndpoints();
 authenticatedRoutes.MapResourceGraphEndpoints();
 authenticatedRoutes.MapHostStatsEndpoints();
+authenticatedRoutes.MapVersionEndpoints();
 
 // Self-service, unlike ingest API keys below - see PersonalAccessTokenEndpoints' own
 // remarks for why any authenticated Viewer-and-up (not RequireMember/RequireAdmin) can

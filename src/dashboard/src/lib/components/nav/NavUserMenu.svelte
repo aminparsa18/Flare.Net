@@ -25,6 +25,8 @@
 	import { browserTimeZone, timeZoneOptions } from '$lib/time/time-zone';
 	import { formatUtcOffset } from '$lib/time/format';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
+	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import { updateNotice } from '$lib/version/update-notice.svelte';
 
 	const auth = authContext.get();
 
@@ -185,6 +187,21 @@
 					<a href="/auth" {...props}>{m.nav_authOff()}</a>
 				{/snippet}
 			</DropdownMenu.Item>
+		{/if}
+
+		<!-- Running version (ADR-0068). A newer release stays reachable here after its banner
+		     was dismissed - the item opens UpdateNotice.svelte's release-notes dialog. -->
+		{#if updateNotice.info}
+			<DropdownMenu.Separator />
+			{#if updateNotice.availableRelease}
+				<DropdownMenu.Item onSelect={() => (updateNotice.notesOpen = true)}>
+					<SparklesIcon class="text-primary" />
+					{m.nav_updateAvailable({ latest: updateNotice.availableRelease.version })}
+				</DropdownMenu.Item>
+			{/if}
+			<DropdownMenu.Label class="text-xs font-normal text-muted-foreground">
+				{m.nav_version({ version: updateNotice.info.current })}
+			</DropdownMenu.Label>
 		{/if}
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
