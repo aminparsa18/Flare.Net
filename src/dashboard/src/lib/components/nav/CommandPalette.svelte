@@ -38,6 +38,7 @@
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import NetworkIcon from '@lucide/svelte/icons/network';
 	import ServerIcon from '@lucide/svelte/icons/server';
+	import ContainerIcon from '@lucide/svelte/icons/container';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import ShieldIcon from '@lucide/svelte/icons/shield';
@@ -60,6 +61,7 @@
 		'/alerts': BellIcon,
 		'/resources': NetworkIcon,
 		'/hosts': ServerIcon,
+		'/kubernetes': ContainerIcon,
 		'/dashboards': LayoutDashboardIcon,
 		'/views': LayoutGridIcon,
 		'/auth': ShieldIcon

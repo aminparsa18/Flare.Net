@@ -1,0 +1,189 @@
+// Client for Flare.Api's Kubernetes page endpoints (src/Flare.Api/Endpoints/
+// KubernetesInventoryEndpoints.cs): the Nodes table (`POST /api/kubernetes/nodes`), one
+// node's drill-down (`POST /api/kubernetes/nodes/metrics`) and the Pods table
+// (`POST /api/kubernetes/pods`), all derived from ingested OTel kubeletstats/k8s_cluster
+// metrics - see KubernetesInventoryQueryBuilder.cs for which metric feeds which field. A
+// pod's drill-down is `pods-api.ts`' getPodMetrics.
+//
+// MemoryPack over the wire, same shape as `hosts-api.ts`: the requests are generated
+// classes; the responses carry a DateTimeOffset inside an IReadOnlyList, so they're
+// hand-written under `$lib/memorypack/`.
+
+import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
+import { KubernetesNodeListRequest as GeneratedNodeListRequest } from '$lib/generated/memorypack/KubernetesNodeListRequest.js';
+import { KubernetesNodeMetricsRequest as GeneratedNodeMetricsRequest } from '$lib/generated/memorypack/KubernetesNodeMetricsRequest.js';
+import { KubernetesPodListRequest as GeneratedPodListRequest } from '$lib/generated/memorypack/KubernetesPodListRequest.js';
+import { KubernetesNodeListResponse as GeneratedNodeListResponse } from '$lib/memorypack/KubernetesNodeListResponse';
+import { KubernetesNodeMetricsResponse as GeneratedNodeMetricsResponse } from '$lib/memorypack/KubernetesNodeMetricsResponse';
+import { KubernetesPodListResponse as GeneratedPodListResponse } from '$lib/memorypack/KubernetesPodListResponse';
+
+/** Usage figures are window averages; null = no data for that metric (never 0). */
+export interface KubernetesNodeSummary {
+	nodeName: string;
+	clusterName: string | null;
+	/** Latest `k8s.node.condition_ready`; null = unknown or not reported. */
+	ready: boolean | null;
+	cpuCores: number | null;
+	/** Of allocatable CPU - null unless the k8s_cluster receiver reports allocatable CPU. */
+	cpuPercent: number | null;
+	memoryWorkingSetBytes: number | null;
+	memoryPercent: number | null;
+	podCount: number | null;
+	lastSeen: string;
+}
+
+export interface KubernetesNodeListResponse {
+	windowMinutes: number;
+	nodes: KubernetesNodeSummary[];
+	truncated: boolean;
+}
+
+export interface KubernetesNodeMetricsPoint {
+	bucketStart: string;
+	cpuCores: number | null;
+	cpuPercent: number | null;
+	memoryWorkingSetBytes: number | null;
+	memoryPercent: number | null;
+}
+
+export interface KubernetesNodeMetricsResponse {
+	nodeName: string;
+	windowMinutes: number;
+	bucketWidthSeconds: number;
+	allocatableCpuCores: number | null;
+	points: KubernetesNodeMetricsPoint[];
+}
+
+/** Phase/restarts are the latest readings (k8s_cluster receiver); usage figures are window averages (kubeletstats). */
+export interface KubernetesPodSummary {
+	podName: string;
+	namespace: string;
+	nodeName: string | null;
+	workloadKind: string | null;
+	workloadName: string | null;
+	phase: string | null;
+	restarts: number | null;
+	cpuCores: number | null;
+	memoryWorkingSetBytes: number | null;
+	cpuLimitPercent: number | null;
+	memoryLimitPercent: number | null;
+	lastSeen: string;
+}
+
+export interface KubernetesPodListResponse {
+	windowMinutes: number;
+	pods: KubernetesPodSummary[];
+	truncated: boolean;
+}
+
+export interface KubernetesNodeFilter {
+	search?: string;
+	clusterName?: string;
+}
+
+export interface KubernetesPodFilter {
+	search?: string;
+	namespace?: string;
+	nodeName?: string;
+}
+
+async function post(path: string, body: Uint8Array, signal?: AbortSignal): Promise<ArrayBuffer> {
+	const res = await apiFetch(`${API_BASE_URL}${path}`, {
+		method: 'POST',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(body),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST ${path} failed: ${res.status} ${res.statusText}`);
+	}
+	return res.arrayBuffer();
+}
+
+export async function listKubernetesNodes(windowMinutes: number, filter: KubernetesNodeFilter, signal?: AbortSignal): Promise<KubernetesNodeListResponse> {
+	const request = new GeneratedNodeListRequest();
+	request.windowMinutes = windowMinutes;
+	request.search = filter.search?.trim() || null;
+	request.clusterName = filter.clusterName || null;
+
+	const dto = GeneratedNodeListResponse.deserialize(await post('/api/kubernetes/nodes', GeneratedNodeListRequest.serialize(request), signal));
+	if (dto == null) {
+		throw new Error('Empty response body decoding KubernetesNodeListResponse.');
+	}
+	return {
+		windowMinutes: dto.windowMinutes,
+		truncated: dto.truncated,
+		nodes: (dto.nodes ?? [])
+			.filter((n) => n != null)
+			.map((n) => ({
+				nodeName: n.nodeName,
+				clusterName: n.clusterName,
+				ready: n.ready,
+				cpuCores: n.cpuCores,
+				cpuPercent: n.cpuPercent,
+				memoryWorkingSetBytes: n.memoryWorkingSetBytes,
+				memoryPercent: n.memoryPercent,
+				podCount: n.podCount,
+				lastSeen: n.lastSeen.toISOString()
+			}))
+	};
+}
+
+export async function getKubernetesNodeMetrics(nodeName: string, windowMinutes: number, signal?: AbortSignal): Promise<KubernetesNodeMetricsResponse> {
+	const request = new GeneratedNodeMetricsRequest();
+	request.nodeName = nodeName;
+	request.windowMinutes = windowMinutes;
+
+	const dto = GeneratedNodeMetricsResponse.deserialize(await post('/api/kubernetes/nodes/metrics', GeneratedNodeMetricsRequest.serialize(request), signal));
+	if (dto == null) {
+		throw new Error('Empty response body decoding KubernetesNodeMetricsResponse.');
+	}
+	return {
+		nodeName: dto.nodeName,
+		windowMinutes: dto.windowMinutes,
+		bucketWidthSeconds: dto.bucketWidthSeconds,
+		allocatableCpuCores: dto.allocatableCpuCores,
+		points: (dto.points ?? [])
+			.filter((p) => p != null)
+			.map((p) => ({
+				bucketStart: p.bucketStart.toISOString(),
+				cpuCores: p.cpuCores,
+				cpuPercent: p.cpuPercent,
+				memoryWorkingSetBytes: p.memoryWorkingSetBytes,
+				memoryPercent: p.memoryPercent
+			}))
+	};
+}
+
+export async function listKubernetesPods(windowMinutes: number, filter: KubernetesPodFilter, signal?: AbortSignal): Promise<KubernetesPodListResponse> {
+	const request = new GeneratedPodListRequest();
+	request.windowMinutes = windowMinutes;
+	request.search = filter.search?.trim() || null;
+	request.namespace = filter.namespace || null;
+	request.nodeName = filter.nodeName || null;
+
+	const dto = GeneratedPodListResponse.deserialize(await post('/api/kubernetes/pods', GeneratedPodListRequest.serialize(request), signal));
+	if (dto == null) {
+		throw new Error('Empty response body decoding KubernetesPodListResponse.');
+	}
+	return {
+		windowMinutes: dto.windowMinutes,
+		truncated: dto.truncated,
+		pods: (dto.pods ?? [])
+			.filter((p) => p != null)
+			.map((p) => ({
+				podName: p.podName,
+				namespace: p.namespace,
+				nodeName: p.nodeName,
+				workloadKind: p.workloadKind,
+				workloadName: p.workloadName,
+				phase: p.phase,
+				restarts: p.restarts,
+				cpuCores: p.cpuCores,
+				memoryWorkingSetBytes: p.memoryWorkingSetBytes,
+				cpuLimitPercent: p.cpuLimitPercent,
+				memoryLimitPercent: p.memoryLimitPercent,
+				lastSeen: p.lastSeen.toISOString()
+			}))
+	};
+}
