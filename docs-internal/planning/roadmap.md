@@ -90,14 +90,3 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Kubernetes workload views (deployments, statefulsets, daemonsets,
-  jobs, volumes, namespaces).** Nodes + pods shipped as `/kubernetes`
-  (`KubernetesInventoryQueryBuilder`, no migration). Remaining: list +
-  drill-down tabs for the workload kinds and volumes (desired vs. available
-  replicas, job success/failure, volume usage) from `k8s_cluster`'s
-  `k8s.deployment.*`/`k8s.statefulset.*`/`k8s.daemonset.*`/`k8s.job.*` and
-  `kubeletstats`' `k8s.volume.*` metrics, same two-statement list shape; plus
-  a pod -> Logs link (needs `deep-links.ts` to accept a resource-attribute
-  filter without a service). Prior art: deployments/clusters/namespaces
-  [signoz#6786](https://github.com/SigNoz/signoz/commit/403043e076bf60aa4b77a7df45eed06b286f5be0),
-  statefulsets/daemonsets/jobs/volumes [signoz#6629](https://github.com/SigNoz/signoz/commit/813ca8bc230268d8904a786b18da8659045b18ce).

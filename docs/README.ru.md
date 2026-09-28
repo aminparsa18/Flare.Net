@@ -36,7 +36,7 @@
 - [Настройка аутентификации](how-to/configure-authentication.ru.md)
 - [Запуск в кластерном режиме](how-to/run-cluster-mode.ru.md)
 - [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor-hosts.ru.md)
-- [Мониторинг узлов и подов Kubernetes с OpenTelemetry Collector](how-to/monitor-kubernetes.ru.md)
+- [Мониторинг кластеров Kubernetes (узлы, рабочие нагрузки, поды, тома) с OpenTelemetry Collector](how-to/monitor-kubernetes.ru.md)
 - [Мониторинг очередей сообщений](how-to/monitor-message-queues.ru.md)
 - [Мониторинг внешних API](how-to/monitor-external-apis.ru.md)
 - [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/analyze-trace-funnels.ru.md)

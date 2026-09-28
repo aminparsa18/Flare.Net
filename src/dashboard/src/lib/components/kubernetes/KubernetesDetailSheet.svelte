@@ -1,13 +1,15 @@
 <script lang="ts">
-	// One node's or one pod's drill-down charts - whichever KubernetesState has selected.
-	// Same four-small-charts layout as HostDetailSheet, reusing its HostMetricChart.
+	// One node's, pod's, workload's or volume's drill-down charts - whichever KubernetesState
+	// has selected. Same small-charts layout as HostDetailSheet, reusing its HostMetricChart.
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import HostMetricChart from '$lib/components/hosts/HostMetricChart.svelte';
+	import KubernetesWorkloadStatus from './KubernetesWorkloadStatus.svelte';
 	import { kubernetesContext } from '$lib/kubernetes/context';
-	import { formatCores, phaseVariant } from '$lib/kubernetes/format';
+	import { formatBytes, formatCores, isReplicatedKind, phaseVariant } from '$lib/kubernetes/format';
+	import { buildKubernetesPodLogsHref } from '$lib/deep-links';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
 	import * as m from '$lib/paraglide/messages';
 
@@ -23,8 +25,22 @@
 	const pod = $derived(
 		k8s.selectedPod ? (k8s.pods?.find((p) => p.namespace === k8s.selectedPod!.namespace && p.podName === k8s.selectedPod!.podName) ?? null) : null
 	);
+	const workload = $derived.by(() => {
+		const selected = k8s.selectedWorkload;
+		if (!selected || k8s.workloadsKind !== selected.kind) return null;
+		return k8s.workloads?.find((w) => w.namespace === selected.namespace && w.name === selected.name) ?? null;
+	});
+	const volume = $derived.by(() => {
+		const selected = k8s.selectedVolume;
+		if (!selected) return null;
+		return (
+			k8s.volumes?.find((v) => v.namespace === selected.namespace && v.podName === selected.podName && v.volumeName === selected.volumeName) ?? null
+		);
+	});
 
-	const detail = $derived(k8s.selectedNode ? k8s.nodeDetail : k8s.selectedPod ? k8s.podDetail : null);
+	const detail = $derived(
+		k8s.selectedNode ? k8s.nodeDetail : k8s.selectedPod ? k8s.podDetail : k8s.selectedWorkload ? k8s.workloadDetail : k8s.selectedVolume ? k8s.volumeDetail : null
+	);
 
 	// The x-axis ends at the newest bucket's end rather than "now" - same reasoning as HostDetailSheet.
 	const range = $derived.by(() => {
@@ -56,10 +72,44 @@
 				{ label: m.eventDetail_podMemoryOfLimit(), unit: '%', points: series(points, (p) => p.memoryLimitPercent) }
 			];
 		}
+		if (k8s.selectedWorkload && k8s.workloadDetail) {
+			const kind = k8s.selectedWorkload.kind;
+			const points = k8s.workloadDetail.points;
+			const counts: Chart[] = isReplicatedKind(kind)
+				? [
+						{ label: m.kubernetesPage_readyLabel(), unit: null, points: series(points, (p) => p.ready) },
+						{ label: m.kubernetesPage_desiredLabel(), unit: null, points: series(points, (p) => p.desired) },
+						...(kind === 'Deployment' ? [] : [{ label: m.kubernetesPage_currentLabel(), unit: null, points: series(points, (p) => p.current) }])
+					]
+				: kind === 'Job'
+					? [
+							{ label: m.kubernetesPage_activeLabel(), unit: null, points: series(points, (p) => p.active) },
+							{ label: m.kubernetesPage_succeededLabel(), unit: null, points: series(points, (p) => p.succeeded) },
+							{ label: m.kubernetesPage_failedLabel(), unit: null, points: series(points, (p) => p.failed) }
+						]
+					: [{ label: m.kubernetesPage_activeLabel(), unit: null, points: series(points, (p) => p.active) }];
+			return [
+				...counts,
+				{ label: m.kubernetesPage_cpuCoresChart(), unit: null, points: series(points, (p) => p.cpuCores) },
+				{ label: m.kubernetesPage_memoryChart(), unit: 'By', points: series(points, (p) => p.memoryWorkingSetBytes) }
+			];
+		}
+		if (k8s.selectedVolume && k8s.volumeDetail) {
+			const points = k8s.volumeDetail.points;
+			return [
+				{ label: m.kubernetesPage_usedChart(), unit: 'By', points: series(points, (p) => p.usedBytes) },
+				{ label: m.kubernetesPage_usedPercentChart(), unit: '%', points: series(points, (p) => p.usedPercent) },
+				{ label: m.kubernetesPage_inodesChart(), unit: '%', points: series(points, (p) => p.inodesUsedPercent) }
+			];
+		}
 		return [];
 	});
 
-	const title = $derived(k8s.selectedNode ?? k8s.selectedPod?.podName ?? null);
+	const title = $derived(
+		k8s.selectedNode ?? k8s.selectedPod?.podName ?? k8s.selectedWorkload?.name ?? k8s.selectedVolume?.volumeName ?? null
+	);
+	/** The pod whose namespace/node/logs the header shows - the selected pod, or a selected volume's pod. */
+	const podRef = $derived(k8s.selectedPod ?? (k8s.selectedVolume ? { namespace: k8s.selectedVolume.namespace, podName: k8s.selectedVolume.podName } : null));
 </script>
 
 <Sheet.Root
@@ -72,6 +122,9 @@
 		{#if title}
 			<Sheet.Header>
 				<Sheet.Title class="flex flex-wrap items-center gap-2 break-all">
+					{#if k8s.selectedWorkload}
+						<span class="text-muted-foreground text-sm font-normal">{k8s.selectedWorkload.kind}</span>
+					{/if}
 					{title}
 					{#if node?.ready === true}
 						<Badge variant="outline">{m.kubernetesPage_ready()}</Badge>
@@ -80,6 +133,9 @@
 					{/if}
 					{#if pod?.phase}
 						<Badge variant={phaseVariant(pod.phase)}>{pod.phase}</Badge>
+					{/if}
+					{#if k8s.selectedWorkload && workload}
+						<KubernetesWorkloadStatus kind={k8s.selectedWorkload.kind} counts={workload} />
 					{/if}
 				</Sheet.Title>
 				<Sheet.Description>{servicesWindowPresetLabel(k8s.windowPreset)}</Sheet.Description>
@@ -92,9 +148,29 @@
 						<dt>{m.kubernetesPage_allocatableCpuLabel()}</dt>
 						<dd class="text-foreground tabular-nums">{formatCores(k8s.nodeDetail.allocatableCpuCores)}</dd>
 					{/if}
-					{#if k8s.selectedPod}
+					{#if podRef ?? k8s.selectedWorkload}
 						<dt>{m.kubernetesPage_namespaceColumn()}</dt>
-						<dd class="text-foreground">{k8s.selectedPod.namespace}</dd>
+						<dd class="text-foreground">{(podRef ?? k8s.selectedWorkload)!.namespace}</dd>
+					{/if}
+					{#if k8s.selectedVolume}
+						<dt>{m.kubernetesPage_podColumn()}</dt>
+						<dd>
+							<button type="button" class="text-foreground hover:underline" onclick={() => podRef && k8s.openPod(podRef)}>
+								{k8s.selectedVolume.podName}
+							</button>
+						</dd>
+						{#if volume?.claimName}
+							<dt>{m.kubernetesPage_claimColumn()}</dt>
+							<dd class="text-foreground">{volume.claimName}</dd>
+						{/if}
+						{#if volume?.volumeType}
+							<dt>{m.kubernetesPage_typeColumn()}</dt>
+							<dd class="text-foreground">{volume.volumeType}</dd>
+						{/if}
+						{#if volume?.capacityBytes != null}
+							<dt>{m.kubernetesPage_capacityColumn()}</dt>
+							<dd class="text-foreground tabular-nums">{formatBytes(volume.capacityBytes)}</dd>
+						{/if}
 					{/if}
 					{#if pod?.workloadName}
 						<dt>{m.kubernetesPage_workloadColumn()}</dt>
@@ -111,13 +187,23 @@
 						<dd class="tabular-nums {pod.restarts ? 'text-warning' : 'text-foreground'}">{pod.restarts}</dd>
 					{/if}
 				</dl>
-				{#if k8s.selectedNode}
-					<div>
-						<Button variant="outline" size="sm" class="mt-2" onclick={() => k8s.showPodsOnNode(k8s.selectedNode!)}>
+				<div class="mt-2 flex flex-wrap gap-2">
+					{#if k8s.selectedNode}
+						<Button variant="outline" size="sm" onclick={() => k8s.showPodsOnNode(k8s.selectedNode!)}>
 							{m.kubernetesPage_viewPodsOnNode()}
 						</Button>
-					</div>
-				{/if}
+					{/if}
+					{#if k8s.selectedWorkload}
+						<Button variant="outline" size="sm" onclick={() => k8s.showPodsForWorkload(k8s.selectedWorkload!)}>
+							{m.kubernetesPage_viewPods()}
+						</Button>
+					{/if}
+					{#if k8s.selectedPod}
+						<a class={buttonVariants({ variant: 'outline', size: 'sm' })} href={buildKubernetesPodLogsHref(k8s.selectedPod, k8s.windowPreset)}>
+							{m.kubernetesPage_viewLogs()}
+						</a>
+					{/if}
+				</div>
 			</Sheet.Header>
 			<div class="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
 				{#if k8s.detailLoading && !detail}

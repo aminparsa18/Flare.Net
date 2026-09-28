@@ -133,6 +133,18 @@ public sealed partial record KubernetesPodListRequest
 
     /// <summary>Exact match against the pod's latest <c>k8s.node.name</c>. Null/empty = every node (including pods with no node attribute).</summary>
     public string? NodeName { get; init; }
+
+    /// <summary>
+    /// With <see cref="WorkloadName"/>: only pods that carried this workload kind's name
+    /// attribute (<c>k8s.deployment.name</c>, ...) with that value on any data point in the
+    /// window - the Workloads tab's "View pods". Matches the attribute itself rather than the
+    /// row's resolved <see cref="KubernetesPodSummary.WorkloadKind"/>, so a Job's pods are found
+    /// even though a CronJob-owned pod resolves to its CronJob. Same kinds as
+    /// <see cref="KubernetesWorkloadListRequest.Kind"/>; an unknown kind is ignored.
+    /// </summary>
+    public string? WorkloadKind { get; init; }
+
+    public string? WorkloadName { get; init; }
 }
 
 /// <summary>
