@@ -411,13 +411,16 @@ real query latency data says it's needed.
 
 ## Free-text search vs. the `Body` index
 
-`Search` compiles to `Body ILIKE '%term%'` — case-insensitive substring match, the UX a
-search box implies. The `tokenbf_v1` skip index already on `Body` is tuned for
-token-aligned, case-sensitive matches instead, so it mostly won't prune granules for an
-`ILIKE` query; the scan happens within whatever granules survive the other filters
-(time range/service/level, which usually already narrow a lot). Named follow-up if this
-is slow on real data: switch to token-based search (`hasToken`, case-sensitive) or swap
-the index to `ngrambf_v1`.
+`Search` compiles to `lowerUTF8(Body) LIKE lowerUTF8('%term%')`, a case-insensitive
+substring match, which is what a search box implies. It matches the same rows as
+`Body ILIKE`, but in a form ClickHouse can serve from `idx_body_ngram` (migration 0036), an
+`ngrambf_v1` index on exactly `lowerUTF8(Body)`. `ILIKE` never uses a skip index, and
+0001's `tokenbf_v1` `idx_body` can't serve `%term%` at all, so the old form scanned every
+row in the time window. A search for a rare word now reads a handful of granules. Search
+strings under 4 bytes, and terms found in most granules, still scan. LogQL `Body LIKE '…'`
+uses the same form. `LogFilterSqlBuilder.BodyIndexExpr` is the one source for the indexed
+expression, and a unit test checks the migration against it. See
+[ADR-0073](../../docs-internal/adr/0073-logs-body-ngram-search-index.md).
 
 ## Running it
 

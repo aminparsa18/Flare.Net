@@ -46,18 +46,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Research: does the Logs free-text search actually use `idx_body`?**
-  `LogFilterSqlBuilder` compiles `Search` to `Body ILIKE '%…%'`, but
-  `idx_body` (`db/clickhouse/0001_logs.sql`) is a `tokenbf_v1` index, and
-  ClickHouse's bloom-filter skip indexes aren't documented as usable for
-  `ILIKE` - so every search may be full-scanning `Body` within the time
-  window, and pattern (e) in
-  [`../investigations/benchmark-ingest-and-query.md`](../investigations/benchmark-ingest-and-query.md)
-  may be measuring a scan, not the index. First step: `EXPLAIN indexes = 1`
-  on a real search against a live ClickHouse. If confirmed, likely fix is
-  an additive `ngrambf_v1` index on `lower(Body)` with the search rewritten
-  as `lower(Body) LIKE lower(…)` (new migration + probably an ADR). Prior
-  art: [signoz#4787](https://github.com/SigNoz/signoz/commit/1585065fff9b7853d63e64abebf2887ecc42cc72).
 - **Data-sources guides for more message brokers.** The Messaging page
   (ADR-0056) already picks up any broker whose .NET client emits OTel
   `messaging.*` spans, but the Data sources page only has Kafka and

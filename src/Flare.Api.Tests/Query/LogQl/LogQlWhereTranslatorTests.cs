@@ -34,22 +34,22 @@ public class LogQlWhereTranslatorTests
     }
 
     [Fact]
-    public void Translate_Like_UsesIlike_AndBindsLiteralAsWritten_NoAutoWildcards()
+    public void Translate_BodyLike_UsesLowerUtf8Like_AndBindsLiteralAsWritten_NoAutoWildcards()
     {
         var parameters = new ClickHouseParameterCollection();
         var sql = LogQlWhereTranslator.Translate(new LogQlComparison(LogQlColumn.Body, LogQlOp.Like, "%timeout%"), parameters);
 
-        Assert.Equal("Body ILIKE {qlp0:String}", sql);
+        Assert.Equal("lowerUTF8(Body) LIKE lowerUTF8({qlp0:String})", sql);
         Assert.Equal("%timeout%", parameters.ToDictionary()["qlp0"]);
     }
 
     [Fact]
-    public void Translate_NotLike_NegatesTheIlikeFragment()
+    public void Translate_BodyNotLike_NegatesTheLikeFragment()
     {
         var parameters = new ClickHouseParameterCollection();
         var sql = LogQlWhereTranslator.Translate(new LogQlComparison(LogQlColumn.Body, LogQlOp.NotLike, "%ok%"), parameters);
 
-        Assert.Equal("NOT (Body ILIKE {qlp0:String})", sql);
+        Assert.Equal("NOT (lowerUTF8(Body) LIKE lowerUTF8({qlp0:String}))", sql);
     }
 
     [Theory]

@@ -176,6 +176,13 @@ The Services Map anti-joins it against spans' `(TraceId, ParentSpanId)` to find
 external-host leaf nodes without scanning `spans`. New rows only. See
 [ADR-0072](../../docs-internal/adr/0072-external-host-map-leaves.md).
 
+`0036_logs_body_ngram_index.sql` - `idx_body_ngram`, an `ngrambf_v1` skip index on
+`lowerUTF8(Body)`, which the Logs free-text search now queries as
+`lowerUTF8(Body) LIKE lowerUTF8('%term%')` instead of `Body ILIKE`. No skip index was
+ever used for `ILIKE`, so every search scanned its whole time window. Not
+materialized: existing parts are indexed only as they merge. See
+[ADR-0073](../../docs-internal/adr/0073-logs-body-ngram-search-index.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
@@ -276,7 +283,9 @@ up against real benchmark data.
 `LogAttributes` map keys+values, `tokenbf_v1` on `Body`) cover the filters that fall
 outside the `ORDER BY` prefix: trace/span correlation lookups, arbitrary structured
 attribute filtering, and body substring search - all named in Planning.md's dashboard
-section.
+section. In practice `idx_body` never served the dashboard's substring search, which
+compiled to `ILIKE`. Migration 0036's `ngrambf_v1` index on `lowerUTF8(Body)` does that
+job now (ADR-0073), and `idx_body` is kept for `hasToken`.
 
 **Reviewed against the ClickHouse `clickhouse-best-practices` agent skill** (installed
 from [`ClickHouse/agent-skills`](https://github.com/ClickHouse/agent-skills)) before

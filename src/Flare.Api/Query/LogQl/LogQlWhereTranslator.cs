@@ -33,6 +33,14 @@ public static class LogQlWhereTranslator
             case LogQlNot not:
                 return $"NOT ({TranslateNode(not.Operand, parameters, ref counter)})";
 
+            case LogQlComparison { Column: LogQlColumn.Body, Op: LogQlOp.Like or LogQlOp.NotLike } bodyLike:
+                // Same index-friendly form as the structured Search filter, not Body ILIKE -
+                // see LogFilterSqlBuilder.BodyLikeSql.
+                var bodyParam = $"qlp{counter++}";
+                parameters.AddParameter(bodyParam, bodyLike.Literal);
+                var bodyLikeSql = LogFilterSqlBuilder.BodyLikeSql($"{{{bodyParam}:String}}");
+                return bodyLike.Op == LogQlOp.Like ? bodyLikeSql : $"NOT ({bodyLikeSql})";
+
             case LogQlComparison comparison:
                 return TranslateComparison(ColumnName(comparison.Column), comparison.Op, comparison.Literal, parameters, ref counter);
 
@@ -64,7 +72,8 @@ public static class LogQlWhereTranslator
         if (op is LogQlOp.Like or LogQlOp.NotLike)
         {
             // Case-insensitive, same as the existing free-text search's Body match (see
-            // LogFilterSqlBuilder.Build) - unlike that one, the literal is bound exactly
+            // LogFilterSqlBuilder.Build; a bare Body LIKE is handled above, in the
+            // index-friendly lowerUTF8 form) - unlike that one, the literal is bound exactly
             // as written (no auto '%' wrapping): this is a SQL LIKE, so the caller
             // supplies their own wildcards (e.g. "'%timeout%'"), same as real SQL.
             parameters.AddParameter(paramName, literal);
