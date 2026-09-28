@@ -163,6 +163,13 @@ derived from its latest of each) and `notification_channels.SendResolved` (per-c
 opt-out, `1` for every existing channel). See
 [ADR-0064](../../docs-internal/adr/0064-alert-resolved-notifications.md).
 
+`0034_service_call_breakdown_external_domain.sql` - `ALTER TABLE ... MODIFY QUERY` on
+0023's `service_call_breakdown_external_mv`: the Services breakdown's External-calls rows
+now fall back to the called domain (`server.address`, else `net.peer.name`, else the URL's
+host) when a client span has no `peer.service` - which .NET's `HttpClient` spans never do.
+Same `PeerService` column, new rows only. See
+[ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

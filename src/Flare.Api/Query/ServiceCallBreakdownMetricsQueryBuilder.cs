@@ -20,7 +20,9 @@ public sealed record ServiceCallBreakdownMetricsSql(
 /// (<c>PeerService</c>/<c>CallCount</c>/<c>ErrorCount</c>/<c>P50</c>/<c>P95DurationNano</c>
 /// and <c>DbSystem</c>/<c>DbOperation</c>/... respectively) so
 /// <see cref="ServiceCallBreakdownQueryService"/> can map either builder's readers the
-/// same way.
+/// same way. <c>PeerService</c> there is the same peer.service-else-domain key as the live
+/// query's (<see cref="ServiceCallBreakdownQueryBuilder.ExternalTargetExpr"/>) since
+/// migration 0034; rows aggregated before it ran are keyed by <c>peer.service</c> alone.
 /// </summary>
 /// <remarks>
 /// No <see cref="Model.ResourceAttributeFilter"/> parameter, unlike its sibling - same

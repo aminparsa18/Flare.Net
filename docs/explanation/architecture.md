@@ -215,6 +215,19 @@ per-queue depth. See [`../how-to/monitor-message-queues.md`](../how-to/monitor-m
 [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) and
 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md).
 
+### External APIs
+
+`/external-apis` — one row per external domain your services call, with
+rate, error rate, p95/p99 latency, endpoint count and last seen. It's
+computed at query time from `CLIENT` spans' `server.address` (else
+`net.peer.name`, else the URL's host), leaving out database and messaging
+calls. Click a domain for its endpoints (method plus `url.template`, or the
+URL path with id-like segments collapsed to `{id}`), status codes, top
+errors and calling services, each linking to matching traces. The Services
+breakdown's External-calls tab falls back to the same domain when a span
+has no `peer.service`. See [`../how-to/monitor-external-apis.md`](../how-to/monitor-external-apis.md)
+and [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md).
+
 ### Metrics
 
 `/metrics` — every OTLP metric instrument (Sum, Gauge, Histogram, exponential Histogram) reported

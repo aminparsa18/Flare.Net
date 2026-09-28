@@ -192,6 +192,7 @@ export async function getServiceDependencyGraph(
 }
 
 export interface ExternalCallGroup {
+	/** `peer.service`, else the domain an outbound client call went to (ADR-0071). */
 	peerService: string;
 	callCount: number;
 	errorCount: number;

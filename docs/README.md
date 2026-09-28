@@ -37,6 +37,7 @@ the full rule set on what goes where.
 - [Extract or redact fields at ingest](how-to/manage-pipeline-rules.md)
 - [Monitor hosts with the OpenTelemetry Collector](how-to/monitor-hosts.md)
 - [Monitor message queues](how-to/monitor-message-queues.md)
+- [Monitor external APIs](how-to/monitor-external-apis.md)
 - [Find where requests drop off with trace funnels](how-to/analyze-trace-funnels.md)
 - [Find traces by how their spans relate](how-to/find-traces-by-structure.md)
 - [Find high-cardinality metrics](how-to/find-high-cardinality-metrics.md)

@@ -13,7 +13,8 @@
 import type { AttributeFilter } from './api';
 import { TIME_RANGE_PRESETS, type TimeRangePreset } from './logs/time-range';
 import type { MetricPointType } from './metrics-api';
-import type { SpanAttributeBag, SpanAttributeFilter } from './traces-api';
+import type { SpanAttributeBag, SpanAttributeFilter, TraceSpanCondition } from './traces-api';
+import type { ExternalEndpointSource } from './external-apis-api';
 import type { TracesSavedViewState } from './traces/state.svelte';
 
 export interface DeepLinkTarget {
@@ -218,6 +219,70 @@ export function buildTracesAttributeFilterHref(
 	const state: TracesSavedViewState = span.parentSpanId
 		? { timeRangePreset, services: [], attributeFilters: [], structure: { expression: 'A', conditions: [{ name: 'A', attributes: [filter] }] } }
 		: { timeRangePreset, services: [], attributeFilters: [filter] };
+	return `/traces?state=${encodeStateDeepLinkParam(state)}`;
+}
+
+/** What an External APIs page row narrows a trace drill-down to - see `buildExternalCallTracesHref`. */
+export interface ExternalCallTarget {
+	domain: string;
+	/** The page's caller filter; '' = any service. */
+	service: string;
+	method?: string;
+	endpoint?: string;
+	endpointSource?: ExternalEndpointSource;
+	/** HTTP status code, for a top-errors row. */
+	statusCode?: string;
+	errorsOnly?: boolean;
+}
+
+function escapeRegex(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * `/traces?state=` for an External APIs page row: traces containing an outbound call to the
+ * domain (and endpoint/status, when given). Always a one-condition structural query, since
+ * the call is a child span and the list's own attribute filters only match the root
+ * (see `buildTracesAttributeFilterHref`). Filters on `server.address`, so a call that only
+ * named its domain via `net.peer.name`/the URL won't match. A derived (`UrlPath`) endpoint
+ * turns back into a `url.full` regex with each `{id}` as one path segment.
+ */
+export function buildExternalCallTracesHref(target: ExternalCallTarget, timeRangePreset: TimeRangePreset): string {
+	const attributes: SpanAttributeFilter[] = [{ bag: 'Span', key: 'server.address', value: target.domain }];
+	const condition: TraceSpanCondition = { name: 'A', attributes };
+	if (target.service) condition.serviceName = target.service;
+	if (target.errorsOnly) condition.statusCode = 'STATUS_CODE_ERROR';
+	if (target.method) attributes.push({ bag: 'Span', key: 'http.request.method', value: target.method });
+	if (target.statusCode) attributes.push({ bag: 'Span', key: 'http.response.status_code', value: target.statusCode });
+
+	const endpoint = target.endpoint;
+	if (endpoint) {
+		switch (target.endpointSource) {
+			case 'UrlTemplate':
+				attributes.push({ bag: 'Span', key: 'url.template', value: endpoint });
+				break;
+			case 'UrlPath': {
+				const path = endpoint === '/' ? '/?' : escapeRegex(endpoint).replaceAll(escapeRegex('{id}'), '[^/]+');
+				attributes.push({ bag: 'Span', key: 'url.full', value: `^[a-zA-Z][a-zA-Z0-9+.-]*://[^/]*${path}([?#].*)?$`, operator: 'Regex' });
+				break;
+			}
+			case 'Rpc': {
+				const slash = endpoint.lastIndexOf('/');
+				attributes.push({ bag: 'Span', key: 'rpc.method', value: endpoint.slice(slash + 1) });
+				break;
+			}
+			case 'SpanName':
+				condition.spanName = endpoint;
+				break;
+		}
+	}
+
+	const state: TracesSavedViewState = {
+		timeRangePreset,
+		services: [],
+		attributeFilters: [],
+		structure: { expression: 'A', conditions: [condition] }
+	};
 	return `/traces?state=${encodeStateDeepLinkParam(state)}`;
 }
 
