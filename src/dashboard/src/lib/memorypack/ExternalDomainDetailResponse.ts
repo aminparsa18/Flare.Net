@@ -9,6 +9,7 @@ import { ExternalEndpointStats } from '$lib/generated/memorypack/ExternalEndpoin
 import { ExternalStatusCodeCount } from '$lib/generated/memorypack/ExternalStatusCodeCount.js';
 import { ExternalCallerStats } from '$lib/generated/memorypack/ExternalCallerStats.js';
 import { ExternalErrorGroup } from '$lib/generated/memorypack/ExternalErrorGroup.js';
+import { ExternalSeriesPoint } from '$lib/generated/memorypack/ExternalSeriesPoint.js';
 
 export class ExternalDomainDetailResponse {
 	domain: string | null;
@@ -17,6 +18,8 @@ export class ExternalDomainDetailResponse {
 	statusCodes: (ExternalStatusCodeCount | null)[] | null;
 	callers: (ExternalCallerStats | null)[] | null;
 	topErrors: (ExternalErrorGroup | null)[] | null;
+	bucketWidthSeconds: number;
+	series: (ExternalSeriesPoint | null)[] | null;
 
 	constructor() {
 		this.domain = null;
@@ -25,6 +28,8 @@ export class ExternalDomainDetailResponse {
 		this.statusCodes = null;
 		this.callers = null;
 		this.topErrors = null;
+		this.bucketWidthSeconds = 0;
+		this.series = null;
 	}
 
 	static serialize(value: ExternalDomainDetailResponse | null): Uint8Array {
@@ -39,13 +44,15 @@ export class ExternalDomainDetailResponse {
 			return;
 		}
 
-		writer.writeObjectHeader(6);
+		writer.writeObjectHeader(8);
 		writer.writeString(value.domain);
 		writer.writeInt32(value.windowMinutes);
 		writer.writeArray(value.endpoints, (writer, x) => ExternalEndpointStats.serializeCore(writer, x));
 		writer.writeArray(value.statusCodes, (writer, x) => ExternalStatusCodeCount.serializeCore(writer, x));
 		writer.writeArray(value.callers, (writer, x) => ExternalCallerStats.serializeCore(writer, x));
 		writer.writeArray(value.topErrors, (writer, x) => ExternalErrorGroup.serializeCore(writer, x));
+		writer.writeInt32(value.bucketWidthSeconds);
+		writer.writeArray(value.series, (writer, x) => ExternalSeriesPoint.serializeCore(writer, x));
 	}
 
 	static deserialize(buffer: ArrayBuffer): ExternalDomainDetailResponse | null {
@@ -59,7 +66,7 @@ export class ExternalDomainDetailResponse {
 		}
 
 		const value = new ExternalDomainDetailResponse();
-		if (count > 6) {
+		if (count > 8) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		}
 		if (count == 0) return value;
@@ -74,6 +81,10 @@ export class ExternalDomainDetailResponse {
 		value.callers = reader.readArray((reader) => ExternalCallerStats.deserializeCore(reader));
 		if (count == 5) return value;
 		value.topErrors = reader.readArray((reader) => ExternalErrorGroup.deserializeCore(reader));
+		if (count == 6) return value;
+		value.bucketWidthSeconds = reader.readInt32();
+		if (count == 7) return value;
+		value.series = reader.readArray((reader) => ExternalSeriesPoint.deserializeCore(reader));
 		return value;
 	}
 }

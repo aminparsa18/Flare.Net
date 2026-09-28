@@ -37,7 +37,7 @@ export function panelExplorerState(
 	if (timeRangeOverride) {
 		state.timeRangePreset = timeRangeOverride;
 		// Same rule every explorer's setTimeRangePreset applies - a custom range never lingers behind a preset.
-		if (timeRangeOverride !== 'custom' && panel.panelType !== 'Traces') state.customRange = null;
+		if (timeRangeOverride !== 'custom') state.customRange = null;
 	}
 	if (overrides.services.length) state.services = [...overrides.services];
 	if (panel.panelType === 'Metrics') {
@@ -53,7 +53,7 @@ export function panelExplorerState(
 	return state;
 }
 
-/** `state` narrowed to an explicit window - Logs/Metrics only (Traces has no custom range). */
+/** `state` narrowed to an explicit window. */
 export function withCustomRange(state: SavedState, from: Date, to: Date): SavedState {
 	return { ...state, timeRangePreset: 'custom', customRange: { from: from.toISOString(), to: to.toISOString() } };
 }

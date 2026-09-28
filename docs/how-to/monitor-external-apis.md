@@ -42,6 +42,7 @@ Open **External APIs** in the top navigation. Each row is one domain:
 | Column | Meaning |
 |---|---|
 | Domain | `server.address`, else `net.peer.name`, else the host in the URL. |
+| Port | The ports called: `server.port`, else `net.peer.port`, else the port in the URL, else 443 for `https` and 80 for `http`. At most five are listed. |
 | Rate | Calls per second over the window. Hover for the total. |
 | Error rate | Share of calls whose span status is `Error`. |
 | p95 / p99 | Call duration percentiles, as the caller measured them. |
@@ -62,6 +63,11 @@ in the Services breakdown's **Database calls** tab and on the
 
 Select a domain to open its details:
 
+- **Over time**: three charts across the window: requests per second,
+  errors, and p95 latency. Select a point to open **Traces** for the calls
+  in that one bucket. From the p95 chart, the traces are listed slowest
+  first. Buckets are about a minute wide for a one-hour window and scale
+  with the window (10 seconds at 5 minutes, 24 minutes at 24 hours).
 - **Status codes**: calls per HTTP status code (`http.response.status_code`,
   else `http.status_code`).
 - **Endpoints**: rate, error rate, p50/p95/p99 and last seen per method

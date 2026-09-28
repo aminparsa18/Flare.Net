@@ -16,6 +16,13 @@ const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 export interface TracesFilterState {
 	timeRangePreset: TimeRangePreset;
+	/**
+	 * The explicit window when `timeRangePreset` is `'custom'`, as ISO 8601 strings (not
+	 * `Date`s, unlike Logs/Metrics, so this shape stays its own saved-view payload). Only
+	 * reachable through a link - the External APIs page's chart click - since the toolbar
+	 * offers presets only; picking one clears it. `null` otherwise.
+	 */
+	customRange: { from: string; to: string } | null;
 	services: string[];
 	/** User-built attribute filters (SpanAttributeFiltersRow.svelte's expandable builder section) - ANDed together, same shape LogsFilterState.attributeFilters documents for Logs. */
 	attributeFilters: SpanAttributeFilter[];
@@ -43,12 +50,12 @@ export interface TracesFilterState {
 	structure: TraceStructureFilter | null;
 }
 
-/** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). The facet fields are optional: views saved before they existed simply lack them. */
-type OptionalSavedField = 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly' | 'sortBy' | 'sortAscending' | 'structure';
+/** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). The facet fields and `customRange` are optional: views saved before they existed simply lack them. */
+type OptionalSavedField = 'customRange' | 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly' | 'sortBy' | 'sortAscending' | 'structure';
 export type TracesSavedViewState = Omit<TracesFilterState, OptionalSavedField> & Partial<Pick<TracesFilterState, OptionalSavedField>>;
 
 function emptyFilter(timeRangePreset: TimeRangePreset, services: string[] = [], attributeFilters: SpanAttributeFilter[] = []): TracesFilterState {
-	return { timeRangePreset, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null, entrySpansOnly: false, sortBy: 'StartTime', sortAscending: false, structure: null };
+	return { timeRangePreset, customRange: null, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null, entrySpansOnly: false, sortBy: 'StartTime', sortAscending: false, structure: null };
 }
 
 export class TracesExplorerState {
@@ -153,7 +160,8 @@ export class TracesExplorerState {
 	}
 
 	#resolvedRange(): ResolvedTimeRange | null {
-		return resolveTimeRange(this.filter.timeRangePreset);
+		const custom = this.filter.customRange;
+		return resolveTimeRange(this.filter.timeRangePreset, custom ? { from: new Date(custom.from), to: new Date(custom.to) } : undefined);
 	}
 
 	/** Public wrapper around #resolvedRange - same "the window currently in scope" rationale as LogsExplorerState.currentRange. Used by SpanAttributeFiltersRow's value autocomplete to scope its suggestions to what's actually being searched. */
@@ -242,6 +250,7 @@ export class TracesExplorerState {
 
 	setTimeRangePreset(preset: TimeRangePreset): void {
 		this.filter.timeRangePreset = preset;
+		if (preset !== 'custom') this.filter.customRange = null;
 		void this.runSearch();
 	}
 
@@ -323,6 +332,7 @@ export class TracesExplorerState {
 	resetFilters(): void {
 		this.filter = {
 			...emptyFilter(this.filter.timeRangePreset),
+			customRange: this.filter.customRange,
 			entrySpansOnly: this.filter.entrySpansOnly,
 			sortBy: this.filter.sortBy,
 			sortAscending: this.filter.sortAscending
@@ -334,6 +344,7 @@ export class TracesExplorerState {
 	toSavedViewState(): TracesSavedViewState {
 		return {
 			timeRangePreset: this.filter.timeRangePreset,
+			customRange: this.filter.customRange ? { ...this.filter.customRange } : null,
 			services: [...this.filter.services],
 			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a })),
 			statusCodes: [...this.filter.statusCodes],
@@ -350,8 +361,12 @@ export class TracesExplorerState {
 	/** Restores a saved view's filter (defensively narrowed - see `LogsExplorerState.applySavedViewState`'s identical caveat) and re-runs the search. */
 	applySavedViewState(state: unknown): void {
 		const s = (state ?? {}) as Partial<TracesSavedViewState>;
+		// A 'custom' preset without a usable range would search with no time bound at all.
+		const customRange = isCustomRange(s.customRange) ? { from: s.customRange.from, to: s.customRange.to } : null;
+		const preset = s.timeRangePreset === 'custom' && !customRange ? '1h' : (s.timeRangePreset ?? '1h');
 		this.filter = {
-			...emptyFilter(s.timeRangePreset ?? '1h', s.services ?? [], s.attributeFilters ?? []),
+			...emptyFilter(preset, s.services ?? [], s.attributeFilters ?? []),
+			customRange: preset === 'custom' ? customRange : null,
 			statusCodes: s.statusCodes ?? [],
 			kinds: s.kinds ?? [],
 			names: s.names ?? [],
@@ -388,6 +403,18 @@ function cloneStructure(structure: TraceStructureFilter): TraceStructureFilter {
 		expression: structure.expression,
 		conditions: structure.conditions.map((c) => ({ ...c, attributes: c.attributes?.map((a) => ({ ...a })) }))
 	};
+}
+
+/** A saved view's `customRange`, defensively narrowed - both ends must parse as dates. */
+function isCustomRange(value: unknown): value is { from: string; to: string } {
+	const v = value as { from?: unknown; to?: unknown } | null | undefined;
+	return (
+		v != null &&
+		typeof v.from === 'string' &&
+		typeof v.to === 'string' &&
+		!Number.isNaN(Date.parse(v.from)) &&
+		!Number.isNaN(Date.parse(v.to))
+	);
 }
 
 /** A saved view's `structure`, defensively narrowed - views saved before it existed lack it. */

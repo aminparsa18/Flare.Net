@@ -1,16 +1,20 @@
 <script lang="ts">
-	// One domain's drill-down: status codes, endpoints, top errors and the services calling
-	// it. Every row links to /traces narrowed to the matching calls - see
-	// buildExternalCallTracesHref for how an endpoint turns back into a span filter.
+	// One domain's drill-down: rate/error/p95 charts, status codes, endpoints, top errors and
+	// the services calling it. Every row links to /traces narrowed to the matching calls - see
+	// buildExternalCallTracesHref for how an endpoint turns back into a span filter - and a
+	// chart click to the calls in that one bucket.
+	import { goto } from '$app/navigation';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import SortableHead from './SortableHead.svelte';
+	import HostMetricChart from '$lib/components/hosts/HostMetricChart.svelte';
 	import { externalApisContext } from '$lib/external-apis/context';
 	import { errorRate, type ExternalEndpointSortColumn } from '$lib/external-apis/state.svelte';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import { buildExternalCallTracesHref, type ExternalCallTarget } from '$lib/deep-links';
+	import { buildExternalCallTracesHref, type ExternalCallTarget, type ExternalCallWindow } from '$lib/deep-links';
+	import type { ExternalSeriesPoint } from '$lib/external-apis-api';
 	import { formatPercent } from '$lib/indexing/format';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { formatRequestRate } from '$lib/services/format';
@@ -25,8 +29,64 @@
 	const nowMs = $derived(detail ? Date.now() : 0);
 	const totalStatusCalls = $derived((detail?.statusCodes ?? []).reduce((sum, s) => sum + s.callCount, 0));
 
-	function tracesHref(target: Omit<ExternalCallTarget, 'domain' | 'service'>): string {
-		return buildExternalCallTracesHref({ domain: externalApis.selected?.domain ?? '', service: externalApis.service, ...target }, externalApis.windowPreset);
+	function tracesHref(target: Omit<ExternalCallTarget, 'domain' | 'service'>, window?: ExternalCallWindow): string {
+		return buildExternalCallTracesHref({ domain: externalApis.selected?.domain ?? '', service: externalApis.service, ...target }, externalApis.windowPreset, window);
+	}
+
+	// The server omits empty buckets, so every bucket in the window is laid out here: no
+	// calls is a real zero for rate and errors, but no latency at all (a gap) for p95.
+	const buckets = $derived.by(() => {
+		if (!detail || detail.bucketWidthSeconds <= 0) return null;
+		const widthMs = detail.bucketWidthSeconds * 1000;
+		const toMs = nowMs;
+		const fromMs = toMs - detail.windowMinutes * 60_000;
+		const byStart = new Map(detail.series.map((p) => [p.bucketStartUnixMs, p]));
+		const slots: { time: number; point: ExternalSeriesPoint | undefined }[] = [];
+		for (let t = Math.floor(fromMs / widthMs) * widthMs; t < toMs; t += widthMs) {
+			slots.push({ time: t, point: byStart.get(t) });
+		}
+		return { fromMs, toMs, widthMs, slots };
+	});
+
+	interface ChartSpec {
+		label: string;
+		unit: string | null;
+		points: { time: number; value: number | null }[];
+		target: Omit<ExternalCallTarget, 'domain' | 'service'>;
+		/** p95: open the bucket's traces slowest first. */
+		sortByDuration?: boolean;
+	}
+
+	const charts = $derived.by<ChartSpec[]>(() => {
+		const b = buckets;
+		if (!b) return [];
+		const seconds = b.widthMs / 1000;
+		return [
+			{
+				label: m.externalApisPage_chartRequests(),
+				unit: '/s',
+				points: b.slots.map((s) => ({ time: s.time, value: (s.point?.callCount ?? 0) / seconds })),
+				target: {}
+			},
+			{
+				label: m.externalApisPage_chartErrors(),
+				unit: null,
+				points: b.slots.map((s) => ({ time: s.time, value: s.point?.errorCount ?? 0 })),
+				target: { errorsOnly: true }
+			},
+			{
+				label: m.externalApisPage_chartP95(),
+				unit: 'ms',
+				points: b.slots.map((s) => ({ time: s.time, value: s.point ? s.point.p95Ms : null })),
+				target: {},
+				sortByDuration: true
+			}
+		];
+	});
+
+	function openBucket(time: number, chart: ChartSpec): void {
+		if (!buckets) return;
+		void goto(tracesHref(chart.target, { fromMs: time, toMs: time + buckets.widthMs, sortByDuration: chart.sortByDuration }));
 	}
 
 	function rate(perSecond: number): string {
@@ -81,6 +141,25 @@
 				{:else if externalApis.detailError}
 					<p class="text-destructive text-sm">{externalApis.detailError}</p>
 				{:else if detail}
+					{#if buckets}
+						<section class="space-y-2">
+							<h2 class="text-sm font-medium">{m.externalApisPage_chartsHeading()}</h2>
+							<div class="grid gap-3 md:grid-cols-3">
+								{#each charts as chart (chart.label)}
+									<HostMetricChart
+										label={chart.label}
+										unit={chart.unit}
+										points={chart.points}
+										fromMs={buckets.fromMs}
+										toMs={buckets.toMs}
+										onPointClick={(time) => openBucket(time, chart)}
+									/>
+								{/each}
+							</div>
+							<p class="text-muted-foreground text-xs">{m.externalApisPage_chartClickHint()}</p>
+						</section>
+					{/if}
+
 					<section class="space-y-2">
 						<h2 class="text-sm font-medium">{m.externalApisPage_statusCodesHeading()}</h2>
 						{#if detail.statusCodes.length === 0}

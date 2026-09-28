@@ -65,6 +65,9 @@
 							descending={externalApis.sortDescending}
 							onSort={() => externalApis.setSort(col.column)}
 						/>
+						{#if col.column === 'domain'}
+							<Table.Head>{m.externalApisPage_portColumn()}</Table.Head>
+						{/if}
 					{/each}
 					<Table.Head class="text-right">{m.externalApisPage_servicesColumn()}</Table.Head>
 				</Table.Row>
@@ -76,6 +79,7 @@
 						<Table.Cell class="font-medium">
 							<button type="button" class="hover:underline" onclick={() => externalApis.open(row)}>{row.domain}</button>
 						</Table.Cell>
+						<Table.Cell class="text-muted-foreground tabular-nums">{row.ports || '\u2014'}</Table.Cell>
 						<Table.Cell class="text-right tabular-nums" title={formatCount(row.callCount)}>
 							{m.servicesTable_requestRateValue({ rate: formatRequestRate(row.perSecond) })}
 						</Table.Cell>

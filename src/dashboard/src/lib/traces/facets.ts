@@ -17,9 +17,9 @@ const FACET_LIMIT = 50;
 
 export const TRACE_FACET_BAGS = ['Span', 'Resource', 'Scope'] as const satisfies readonly SpanAttributeBag[];
 
-/** See `logFacetReloadKey` - the content filter plus the time-range preset. */
+/** See `logFacetReloadKey` - the content filter plus the time range. */
 export function traceFacetReloadKey(explorer: TracesExplorerState): string {
-	return JSON.stringify([explorer.buildFilter(null), explorer.filter.timeRangePreset]);
+	return JSON.stringify([explorer.buildFilter(null), explorer.filter.timeRangePreset, explorer.filter.customRange]);
 }
 
 export function traceFacetDefinitions(explorer: TracesExplorerState, prefs: FacetSidebarPrefs<SpanAttributeBag>): FacetDefinition[] {
