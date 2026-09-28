@@ -32,6 +32,7 @@ export function navLinks(auth: AuthState): NavLink[] {
 		{ href: '/pipeline-rules', label: m.nav_pipelineRules() },
 		{ href: '/resources', label: m.nav_resources() },
 		{ href: '/hosts', label: m.nav_hosts() },
+		{ href: '/kubernetes', label: m.nav_kubernetes() },
 		{ href: '/dashboards', label: m.nav_dashboards() },
 		{ href: '/views', label: m.nav_views() },
 		...(!auth.authEnabled || auth.currentUser?.role === 'Admin' ? [{ href: '/auth', label: m.nav_auth() }] : [])

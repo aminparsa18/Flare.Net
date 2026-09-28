@@ -216,6 +216,7 @@ builder.Services.AddSingleton<IServiceCallBreakdownQueryService, ServiceCallBrea
 builder.Services.AddSingleton<IHostInventoryQueryService, HostInventoryQueryService>();
 builder.Services.AddSingleton<IMetricCatalogQueryService, MetricCatalogQueryService>();
 builder.Services.AddSingleton<IPodMetricsQueryService, PodMetricsQueryService>();
+builder.Services.AddSingleton<IKubernetesInventoryQueryService, KubernetesInventoryQueryService>();
 builder.Services.AddSingleton<IExceptionQueryService, ExceptionQueryService>();
 builder.Services.AddSingleton<IMessagingQueryService, MessagingQueryService>();
 builder.Services.AddSingleton<IExternalApiQueryService, ExternalApiQueryService>();
@@ -443,6 +444,7 @@ authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapHostInventoryEndpoints();
 authenticatedRoutes.MapMetricCatalogEndpoints();
 authenticatedRoutes.MapPodMetricsEndpoints();
+authenticatedRoutes.MapKubernetesInventoryEndpoints();
 authenticatedRoutes.MapExceptionEndpoints();
 authenticatedRoutes.MapMessagingEndpoints();
 authenticatedRoutes.MapExternalApiEndpoints();
