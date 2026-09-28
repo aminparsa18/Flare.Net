@@ -4,12 +4,23 @@ using Flare.Api.Model;
 
 namespace Flare.Api.Query;
 
-/// <summary>A parameterized nodes+edges query pair plus their bound parameters (one collection per query - see this class's remarks on why they aren't shared).</summary>
+/// <summary>The parameterized nodes, edges and external-leaves queries plus their bound parameters (one collection per query - see this class's remarks on why they aren't shared).</summary>
 public sealed record ServiceDependencyGraphSql(
     string NodesSql,
     ClickHouseParameterCollection NodesParameters,
     string EdgesSql,
-    ClickHouseParameterCollection EdgesParameters);
+    ClickHouseParameterCollection EdgesParameters,
+    string ExternalLeavesSql,
+    ClickHouseParameterCollection ExternalLeavesParameters);
+
+/// <summary>One row of <see cref="ServiceDependencyGraphSql.ExternalLeavesSql"/>: a service's outbound calls to one external host that no instrumented span answered.</summary>
+public sealed record ServiceDependencyExternalLeaf(
+    string Source,
+    string Target,
+    ulong CallCount,
+    ulong ErrorCount,
+    ulong TotalDurationNano,
+    IReadOnlyList<string> TopOperations);
 
 /// <summary>
 /// Pure window → parameterized SQL builder for the Traces page's Services-tab "Map" view -
@@ -72,6 +83,27 @@ public sealed record ServiceDependencyGraphSql(
 /// projection deliberately omits <c>ResourceAttributes</c> (see 0025's remarks), so a
 /// chip-filtered edges query falls back to the base table too - correct, just not faster.
 /// </para>
+/// <para>
+/// <b>External leaves</b>: .NET's <c>HttpClient</c> never sets <c>peer.service</c>, so a
+/// call to Stripe is attributed to the caller itself and draws no edge. The third query
+/// finds outbound calls (<see cref="ExternalApiQueryBuilder.OutboundCallCondition"/>, no
+/// <c>peer.service</c>) that have <b>no child span</b>, via a <c>LEFT ANTI JOIN</c> against
+/// every span's <c>(TraceId, ParentSpanId)</c>, and groups them by caller and
+/// <see cref="ExternalApiQueryBuilder.DomainExpr"/>. The no-child check is what keeps
+/// internal traffic off the Map: a call to another instrumented service is answered by
+/// that service's server span, which the edges query already draws as a service-to-service
+/// edge. The child side is bounded by the window widened by <see cref="ChildStartSkew"/> on
+/// both ends (a callee's clock can run a little behind or ahead of the caller's), which
+/// lets it read the <c>StartTime</c>-ordered projection the same way the edges query's
+/// parent side does. The client side can't: the projection has no <c>Kind</c>,
+/// <c>Name</c> or <c>StatusCode</c>, so over <c>spans</c> it reads the whole table. That
+/// live form only runs with filter chips or <see cref="ServiceDependencyMetricsOptions"/>
+/// off; otherwise <see cref="BuildExternalLeavesFromOutboundCalls"/> reads migration 0035's
+/// <c>outbound_calls</c> table instead. Known false leaves: a call whose callee's span was sampled out, or
+/// hadn't been flushed yet when the query ran (the last few seconds of the window), shows
+/// as a hostname node. Capped at <see cref="MaxExternalLeaves"/> rows so a service calling
+/// many per-tenant hosts can't flood the graph. See ADR-0072.
+/// </para>
 /// </remarks>
 public static class ServiceDependencyQueryBuilder
 {
@@ -84,6 +116,12 @@ public static class ServiceDependencyQueryBuilder
 
     /// <summary>How far before the window's <c>from</c> an edge's parent span may have started and still count - see this class's remarks on why the parent side is bounded at all.</summary>
     public static readonly TimeSpan ParentStartSlack = TimeSpan.FromHours(1);
+
+    /// <summary>How far outside the window the external-leaves query looks for a client span's child - clock skew between caller and callee, not a latency bound.</summary>
+    public static readonly TimeSpan ChildStartSkew = TimeSpan.FromMinutes(5);
+
+    /// <summary>Most (caller, host) leaf edges the Map shows, busiest first.</summary>
+    public const int MaxExternalLeaves = 50;
 
     /// <summary><c>peer.service</c> override, else the span's own <c>ServiceName</c> - the SQL form of <c>service-map.ts</c>'s <c>effectiveService()</c>. <paramref name="alias"/> is the table alias/prefix (empty for the unqualified nodes query, <c>"parent."</c>/<c>"child."</c> for the self-joined edges query).</summary>
     private static string EffectiveServiceExpr(string alias) =>
@@ -147,6 +185,133 @@ public static class ServiceDependencyQueryBuilder
             "HAVING Source != Target\n" +
             "ORDER BY CallCount DESC";
 
-        return new ServiceDependencyGraphSql(nodesSql, nodesParameters, edgesSql, edgesParameters);
+        var leavesParameters = ExternalLeavesParameters(window, now);
+
+        // DomainExpr/OutboundCallCondition are unqualified; they resolve to the client side
+        // because the child subquery only exposes TraceId and ParentSpanId.
+        var leavesClauses = new List<string>
+        {
+            "client.StartTime >= {from:DateTime64(9)} AND client.StartTime < {to:DateTime64(9)}",
+            ExternalApiQueryBuilder.OutboundCallCondition,
+            "client.SpanAttributes['peer.service'] = ''",
+        };
+        ResourceAttributeFilterSqlBuilder.AppendClauses(leavesClauses, leavesParameters, resourceAttributes, columnAlias: "client.", paramPrefix: "client");
+
+        var leavesSql = "SELECT\n" +
+            "    client.ServiceName AS Source,\n" +
+            $"    {ExternalApiQueryBuilder.DomainExpr} AS Target,\n" +
+            "    count() AS CallCount,\n" +
+            "    countIf(client.StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
+            "    sum(client.DurationNano) AS TotalDurationNano,\n" +
+            "    topK(3)(client.Name) AS TopOperations\n" +
+            "FROM spans AS client\n" +
+            UnansweredCallsJoin +
+            "WHERE " + string.Join(" AND ", leavesClauses) + "\n" +
+            "GROUP BY Source, Target\n" +
+            "HAVING Target != ''\n" +
+            "ORDER BY CallCount DESC\n" +
+            $"LIMIT {MaxExternalLeaves}";
+
+        return new ServiceDependencyGraphSql(nodesSql, nodesParameters, edgesSql, edgesParameters, leavesSql, leavesParameters);
+    }
+
+    /// <summary>
+    /// The external-leaves query over migration 0035's <c>outbound_calls</c> instead of
+    /// <c>spans</c> - same result shape as <see cref="ServiceDependencyGraphSql.ExternalLeavesSql"/>.
+    /// The table already holds only outbound calls without <c>peer.service</c>, with the
+    /// domain computed, and is <c>StartTime</c>-ordered, so the window prunes it. No
+    /// resource-attribute chips (the table has no <c>ResourceAttributes</c>); a request
+    /// with chips uses the live query.
+    /// </summary>
+    public static (string Sql, ClickHouseParameterCollection Parameters) BuildExternalLeavesFromOutboundCalls(TimeSpan window, DateTimeOffset now)
+    {
+        var sql = "SELECT\n" +
+            "    client.ServiceName AS Source,\n" +
+            "    client.Domain AS Target,\n" +
+            "    count() AS CallCount,\n" +
+            "    countIf(client.StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
+            "    sum(client.DurationNano) AS TotalDurationNano,\n" +
+            "    topK(3)(client.Name) AS TopOperations\n" +
+            "FROM outbound_calls AS client\n" +
+            UnansweredCallsJoin +
+            "WHERE client.StartTime >= {from:DateTime64(9)} AND client.StartTime < {to:DateTime64(9)}\n" +
+            "GROUP BY Source, Target\n" +
+            "ORDER BY CallCount DESC\n" +
+            $"LIMIT {MaxExternalLeaves}";
+
+        return (sql, ExternalLeavesParameters(window, now));
+    }
+
+    /// <summary>Keeps only client spans no span in the (skew-widened) window names as its parent. The subquery reads only projection columns, so it uses <c>spans_by_start_time</c>.</summary>
+    private const string UnansweredCallsJoin =
+        "LEFT ANTI JOIN (\n" +
+        "    SELECT TraceId, ParentSpanId FROM spans\n" +
+        "    WHERE StartTime >= {childFrom:DateTime64(9)} AND StartTime < {childTo:DateTime64(9)} AND ParentSpanId != ''\n" +
+        ") AS child ON child.TraceId = client.TraceId AND child.ParentSpanId = client.SpanId\n";
+
+    private static ClickHouseParameterCollection ExternalLeavesParameters(TimeSpan window, DateTimeOffset now)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("from", (now - window).UtcDateTime);
+        parameters.AddParameter("to", now.UtcDateTime);
+        parameters.AddParameter("childFrom", (now - window - ChildStartSkew).UtcDateTime);
+        parameters.AddParameter("childTo", (now + ChildStartSkew).UtcDateTime);
+        parameters.AddParameter("errorStatus", "STATUS_CODE_ERROR");
+        return parameters;
+    }
+
+    /// <summary>
+    /// Adds each leaf's edge, and one <see cref="ServiceDependencyNode.IsExternal"/> node per
+    /// host summed across its callers. A host whose name matches an existing service node
+    /// only gets the edge - that service's own node already stands for it. An edge that
+    /// already exists (the same name collision) has the leaf's calls added to it.
+    /// </summary>
+    public static (List<ServiceDependencyNode> Nodes, List<ServiceDependencyEdge> Edges) MergeExternalLeaves(
+        IReadOnlyList<ServiceDependencyNode> nodes,
+        IReadOnlyList<ServiceDependencyEdge> edges,
+        IReadOnlyList<ServiceDependencyExternalLeaf> leaves)
+    {
+        var mergedNodes = nodes.ToList();
+        var mergedEdges = edges.ToList();
+        var serviceNames = nodes.Select(n => n.Service).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var leaf in leaves)
+        {
+            var existing = mergedEdges.FindIndex(e => e.Source == leaf.Source && e.Target == leaf.Target);
+            if (existing >= 0)
+            {
+                var edge = mergedEdges[existing];
+                mergedEdges[existing] = edge with
+                {
+                    CallCount = edge.CallCount + leaf.CallCount,
+                    TotalDurationNano = edge.TotalDurationNano + leaf.TotalDurationNano,
+                };
+            }
+            else
+            {
+                mergedEdges.Add(new ServiceDependencyEdge
+                {
+                    Source = leaf.Source,
+                    Target = leaf.Target,
+                    CallCount = leaf.CallCount,
+                    TotalDurationNano = leaf.TotalDurationNano,
+                });
+            }
+        }
+
+        foreach (var host in leaves.Where(l => !serviceNames.Contains(l.Target)).GroupBy(l => l.Target, StringComparer.Ordinal))
+        {
+            mergedNodes.Add(new ServiceDependencyNode
+            {
+                Service = host.Key,
+                SpanCount = host.Aggregate(0UL, (sum, l) => sum + l.CallCount),
+                ErrorCount = host.Aggregate(0UL, (sum, l) => sum + l.ErrorCount),
+                TotalDurationNano = host.Aggregate(0UL, (sum, l) => sum + l.TotalDurationNano),
+                TopOperations = host.OrderByDescending(l => l.CallCount).SelectMany(l => l.TopOperations).Distinct().Take(3).ToList(),
+                IsExternal = true,
+            });
+        }
+
+        return (mergedNodes, mergedEdges);
     }
 }

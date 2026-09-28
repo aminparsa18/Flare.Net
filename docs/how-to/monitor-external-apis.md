@@ -114,6 +114,26 @@ didn't appear in that tab at all. Only calls stored after the upgrade are
 grouped by domain in the breakdown's pre-aggregated data; older rows keep
 their `peer.service`-only grouping until they age out.
 
+## External hosts on the Service Map
+
+**Traces > Services > Map** also draws external hosts, as leaf nodes with
+a globe icon marked **External**. A host gets a node when your services
+call it and no instrumented span answers the call. A call to one of your
+own instrumented services is answered by that service's server span, so
+it stays a normal service-to-service edge and never becomes a hostname
+node. Calls that set `peer.service` keep appearing under that name, as
+before.
+
+A host node counts the calls to it, which are also counted in the calling
+service's own node. Select it to open the host on the **External APIs**
+page for the same window. The Map shows at most 50 caller-to-host edges,
+busiest first.
+
+Only calls stored after the upgrade appear, so the Map's 24-hour window
+fills in over the first day. With resource attribute filters set, the Map
+finds hosts by scanning `spans` directly, which is slower on a large
+store.
+
 ## Troubleshooting
 
 - **The page is empty.** Check that your calls produce `CLIENT` spans:
@@ -127,3 +147,7 @@ their `peer.service`-only grouping until they age out.
 - **Calls to my own services are listed.** That's expected. The page lists
   every host your services call, including internal ones. The Service Map
   shows the service-to-service view.
+- **An internal service appears as a host on the Service Map.** Its server
+  span was missing for those calls: it was sampled out, it wasn't flushed
+  yet (calls in the last few seconds of the window), or the callee isn't
+  instrumented.

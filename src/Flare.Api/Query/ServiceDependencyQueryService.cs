@@ -23,7 +23,8 @@ public interface IServiceDependencyQueryService
 /// established, now via <see cref="ServiceDependencyMetricsQueryBuilder"/> (see
 /// ADR-0031). The <b>edges</b> half has no pre-aggregated counterpart and always uses
 /// <see cref="ServiceDependencyQueryBuilder"/>'s live self-join - see ADR-0031's
-/// Context for why.
+/// Context for why. The <b>external leaves</b> (ADR-0072) are a third live query, merged
+/// into both lists by <see cref="ServiceDependencyQueryBuilder.MergeExternalLeaves"/>.
 /// </remarks>
 public sealed class ServiceDependencyQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IOptions<ServiceDependencyMetricsOptions> serviceDependencyMetricsOptions) : IServiceDependencyQueryService
 {
@@ -90,7 +91,28 @@ public sealed class ServiceDependencyQueryService(IClickHouseClient client, IOpt
             }
         }
 
-        return new ServiceDependencyGraphResponse { WindowMinutes = windowMinutes, Nodes = nodes, Edges = edges };
+        var leaves = new List<ServiceDependencyExternalLeaf>();
+        // outbound_calls (0035) has no ResourceAttributes either - same switch as the nodes.
+        var (leavesSql, leavesParameters) = useServiceDependencyMetrics
+            ? ServiceDependencyQueryBuilder.BuildExternalLeavesFromOutboundCalls(window, now)
+            : (built.ExternalLeavesSql, built.ExternalLeavesParameters);
+        await using (var reader = await client.ExecuteReaderAsync(leavesSql, leavesParameters, SafetyOptions(), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                leaves.Add(new ServiceDependencyExternalLeaf(
+                    Source: reader.GetString(0),
+                    Target: reader.GetString(1),
+                    CallCount: reader.GetFieldValue<ulong>(2),
+                    ErrorCount: reader.GetFieldValue<ulong>(3),
+                    TotalDurationNano: reader.GetFieldValue<ulong>(4),
+                    TopOperations: reader.GetFieldValue<string[]>(5)));
+            }
+        }
+
+        var (mergedNodes, mergedEdges) = ServiceDependencyQueryBuilder.MergeExternalLeaves(nodes, edges, leaves);
+
+        return new ServiceDependencyGraphResponse { WindowMinutes = windowMinutes, Nodes = mergedNodes, Edges = mergedEdges };
     }
 
     /// <summary>Same scan/time safety cap as <see cref="ServiceOverviewQueryService.SafetyOptions"/> - see <see cref="ServiceDependencyQueryBuilder"/>'s remarks on why the edges query in particular has no index to lean on.</summary>

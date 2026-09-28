@@ -800,6 +800,7 @@
 	"serviceMapNode_spanPlural": "{count} 个跨度",
 	"serviceMapNode_errorSingular": "{count} 个错误",
 	"serviceMapNode_errorPlural": "{count} 个错误",
+	"serviceMapNode_external": "外部",
 	"serviceMapNode_moreOperations": "还有 {count} 个",
 	"traceWaterfall_slowestSpansHeading": "最慢的跨度",
 	"traceWaterfall_criticalPathLabel": "关键路径",

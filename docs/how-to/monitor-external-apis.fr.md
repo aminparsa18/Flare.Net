@@ -124,6 +124,27 @@ dans les données pré-agrégées de la ventilation ; les lignes plus
 anciennes gardent leur regroupement par `peer.service` jusqu'à leur
 expiration.
 
+## Les hôtes externes sur la Service Map
+
+**Traces > Services > Map** affiche aussi les hôtes externes, sous forme
+de nœuds feuilles avec une icône de globe et la mention **External**. Un
+hôte obtient un nœud quand vos services l'appellent et qu'aucun span
+instrumenté ne répond à l'appel. Un appel vers l'un de vos propres
+services instrumentés reçoit la réponse du span serveur de ce service : il
+reste donc une arête de service à service normale et ne devient jamais un
+nœud de nom d'hôte. Les appels qui définissent `peer.service` apparaissent
+toujours sous ce nom, comme avant.
+
+Un nœud d'hôte compte les appels qu'il reçoit, qui sont aussi comptés dans
+le nœud du service appelant. Sélectionnez-le pour ouvrir l'hôte sur la page
+**External APIs** avec la même fenêtre. La Map affiche au plus 50 arêtes
+appelant-hôte, les plus actives d'abord.
+
+Seuls les appels stockés après la mise à jour apparaissent : la fenêtre de
+24 heures de la Map se remplit au cours du premier jour. Avec des filtres
+d'attributs de ressource, la Map trouve les hôtes en parcourant directement
+`spans`, ce qui est plus lent sur un gros volume.
+
 ## Dépannage
 
 - **La page est vide.** Vérifiez que vos appels produisent des spans
@@ -138,3 +159,7 @@ expiration.
 - **Les appels vers mes propres services sont listés.** C'est normal. La
   page liste tous les hôtes qu'appellent vos services, internes compris.
   La Service Map montre la vue de service à service.
+- **Un service interne apparaît comme hôte sur la Service Map.** Son span
+  serveur manquait pour ces appels : il a été écarté par l'échantillonnage,
+  il n'était pas encore écrit (appels des dernières secondes de la
+  fenêtre), ou le service appelé n'est pas instrumenté.

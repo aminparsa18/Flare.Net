@@ -7,6 +7,7 @@
 	// ServiceMap.svelte in where its nodes/edges come from (already-aggregated data off
 	// `ServicesState.graph`, not a client-side walk over one trace's spans).
 	import { SvelteFlow, Background, Controls, type Edge } from '@xyflow/svelte';
+	import { goto } from '$app/navigation';
 	import '@xyflow/svelte/dist/style.css';
 	import type { ServiceDependencyGraph } from '$lib/services-api';
 	import type { ServiceMapFlowNode } from '$lib/traces/service-map-flow-types';
@@ -22,6 +23,17 @@
 	const services = servicesContext.get();
 
 	const nodeTypes = { 'service-map': ServiceMapNode };
+
+	// An external host has no spans of its own to break down - its drill-down is the
+	// /external-apis page's domain sheet, for the same window.
+	function openNode(node: ServiceMapFlowNode): void {
+		if (node.data.service.external) {
+			const params = new URLSearchParams({ domain: node.id, window: services.windowPreset });
+			void goto(`/external-apis?${params}`);
+		} else {
+			services.selectedService = node.id;
+		}
+	}
 
 	let nodes = $state.raw<ServiceMapFlowNode[]>([]);
 	let edges = $state.raw<Edge[]>([]);
@@ -85,7 +97,7 @@
 			{nodeTypes}
 			colorMode="dark"
 			fitView
-			onnodeclick={({ node }) => (services.selectedService = node.id)}
+			onnodeclick={({ node }) => openNode(node)}
 		>
 			<Background />
 			<Controls />

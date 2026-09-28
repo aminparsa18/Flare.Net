@@ -108,4 +108,115 @@ public class ServiceDependencyQueryBuilderTests
         Assert.Equal("deployment.environment", edgesParameters["childResAttrKey0"]);
         Assert.Equal("production", edgesParameters["childResAttrValue0"]);
     }
+
+    [Fact]
+    public void Build_ExternalLeavesQuery_AntiJoinsChildSpans_GroupsByCallerAndDomain()
+    {
+        var result = ServiceDependencyQueryBuilder.Build(TimeSpan.FromMinutes(15), Now);
+
+        Assert.Contains("client.ServiceName AS Source", result.ExternalLeavesSql);
+        Assert.Contains($"{ExternalApiQueryBuilder.DomainExpr} AS Target", result.ExternalLeavesSql);
+        Assert.Contains(ExternalApiQueryBuilder.OutboundCallCondition, result.ExternalLeavesSql);
+        Assert.Contains("client.SpanAttributes['peer.service'] = ''", result.ExternalLeavesSql);
+        Assert.Contains("LEFT ANTI JOIN (", result.ExternalLeavesSql);
+        Assert.Contains("ON child.TraceId = client.TraceId AND child.ParentSpanId = client.SpanId", result.ExternalLeavesSql);
+        Assert.Contains("HAVING Target != ''", result.ExternalLeavesSql);
+        Assert.EndsWith($"LIMIT {ServiceDependencyQueryBuilder.MaxExternalLeaves}", result.ExternalLeavesSql);
+
+        var parameters = result.ExternalLeavesParameters.ToDictionary();
+        Assert.Equal(Now.AddMinutes(-15).UtcDateTime, parameters["from"]);
+        Assert.Equal((Now - TimeSpan.FromMinutes(15) - ServiceDependencyQueryBuilder.ChildStartSkew).UtcDateTime, parameters["childFrom"]);
+        Assert.Equal((Now + ServiceDependencyQueryBuilder.ChildStartSkew).UtcDateTime, parameters["childTo"]);
+    }
+
+    [Fact]
+    public void Build_ExternalLeavesQuery_AppliesResourceAttributesToCallerOnly()
+    {
+        var resourceAttributes = new[] { new ResourceAttributeFilter { Key = "deployment.environment", Value = "production" } };
+
+        var result = ServiceDependencyQueryBuilder.Build(TimeSpan.FromMinutes(15), Now, resourceAttributes);
+
+        // The child side must stay unfiltered: a callee in another environment still
+        // answers the call, so it isn't an external host.
+        Assert.Contains("client.ResourceAttributes[{clientResAttrKey0:String}] = {clientResAttrValue0:String}", result.ExternalLeavesSql);
+        Assert.DoesNotContain("child.ResourceAttributes", result.ExternalLeavesSql);
+    }
+
+    [Fact]
+    public void BuildExternalLeavesFromOutboundCalls_ReadsOutboundCallsTable_WithTheSameAntiJoin()
+    {
+        var live = ServiceDependencyQueryBuilder.Build(TimeSpan.FromMinutes(15), Now);
+        var (sql, parameters) = ServiceDependencyQueryBuilder.BuildExternalLeavesFromOutboundCalls(TimeSpan.FromMinutes(15), Now);
+
+        Assert.Contains("client.Domain AS Target", sql);
+        Assert.Contains("FROM outbound_calls AS client\n", sql);
+        Assert.Contains("WHERE client.StartTime >= {from:DateTime64(9)} AND client.StartTime < {to:DateTime64(9)}", sql);
+        var antiJoin = sql[sql.IndexOf("LEFT ANTI JOIN", StringComparison.Ordinal)..sql.IndexOf("WHERE client.", StringComparison.Ordinal)];
+        Assert.Contains(antiJoin, live.ExternalLeavesSql);
+        Assert.Equal(live.ExternalLeavesParameters.ToDictionary(), parameters.ToDictionary());
+    }
+
+    [Theory]
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.Sql.0035_outbound_calls.sql")]
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.0035_outbound_calls.sql")]
+    public void Migration0035_FiltersAndKeysOutboundCallsLikeTheLiveQuery(string resourceName)
+    {
+        // The outbound_calls path and the live path must pick the same calls and domains,
+        // or adding a filter chip would change the Map's leaves.
+        var assembly = typeof(Flare.ServiceDefaults.ClickHouseMigrations.ClickHouseMigrationRunner).Assembly;
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        Assert.NotNull(stream);
+        var sql = new StreamReader(stream).ReadToEnd();
+
+        Assert.Contains($"{ExternalApiQueryBuilder.DomainExpr} AS Domain", sql);
+        Assert.Contains($"WHERE {ExternalApiQueryBuilder.OutboundCallCondition} AND SpanAttributes['peer.service'] = '' AND Domain != ''", sql);
+    }
+
+    [Fact]
+    public void MergeExternalLeaves_AddsOneExternalNodePerHost_SummedAcrossCallers()
+    {
+        var nodes = new[] { Node("checkout"), Node("billing") };
+        var leaves = new[]
+        {
+            new ServiceDependencyExternalLeaf("checkout", "api.stripe.com", 10, 2, 1000, ["POST", "GET"]),
+            new ServiceDependencyExternalLeaf("billing", "api.stripe.com", 5, 1, 500, ["GET", "DELETE"]),
+        };
+
+        var (mergedNodes, mergedEdges) = ServiceDependencyQueryBuilder.MergeExternalLeaves(nodes, [], leaves);
+
+        var stripe = Assert.Single(mergedNodes, n => n.IsExternal);
+        Assert.Equal("api.stripe.com", stripe.Service);
+        Assert.Equal(15UL, stripe.SpanCount);
+        Assert.Equal(3UL, stripe.ErrorCount);
+        Assert.Equal(1500UL, stripe.TotalDurationNano);
+        Assert.Equal(["POST", "GET", "DELETE"], stripe.TopOperations);
+        Assert.Equal(2, mergedEdges.Count);
+        Assert.Contains(mergedEdges, e => e is { Source: "checkout", Target: "api.stripe.com", CallCount: 10 });
+        Assert.Contains(mergedEdges, e => e is { Source: "billing", Target: "api.stripe.com", CallCount: 5 });
+    }
+
+    [Fact]
+    public void MergeExternalLeaves_HostNamedLikeAService_AddsCallsToExistingEdge_NoDuplicateNode()
+    {
+        var nodes = new[] { Node("checkout"), Node("orders") };
+        var edges = new[] { new ServiceDependencyEdge { Source = "checkout", Target = "orders", CallCount = 7, TotalDurationNano = 70 } };
+        var leaves = new[] { new ServiceDependencyExternalLeaf("checkout", "orders", 3, 0, 30, ["GET"]) };
+
+        var (mergedNodes, mergedEdges) = ServiceDependencyQueryBuilder.MergeExternalLeaves(nodes, edges, leaves);
+
+        Assert.Equal(2, mergedNodes.Count);
+        Assert.DoesNotContain(mergedNodes, n => n.IsExternal);
+        var edge = Assert.Single(mergedEdges);
+        Assert.Equal(10UL, edge.CallCount);
+        Assert.Equal(100UL, edge.TotalDurationNano);
+    }
+
+    private static ServiceDependencyNode Node(string service) => new()
+    {
+        Service = service,
+        SpanCount = 1,
+        ErrorCount = 0,
+        TotalDurationNano = 1,
+        TopOperations = [],
+    };
 }

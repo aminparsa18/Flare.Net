@@ -145,7 +145,8 @@ function toServiceMapNode(dto: GeneratedServiceDependencyNode): ServiceMapNode {
 		spanCount: Number(dto.spanCount),
 		errorCount: Number(dto.errorCount),
 		totalDurationNano: Number(dto.totalDurationNano),
-		operations: (dto.topOperations ?? []).filter((op): op is string => op != null)
+		operations: (dto.topOperations ?? []).filter((op): op is string => op != null),
+		external: dto.isExternal
 	};
 }
 

@@ -31,6 +31,9 @@ public sealed partial record ServiceDependencyNode
 
     /// <summary>Up to 3 of this service's most frequent span names in the window, via ClickHouse's <c>topK(3)</c> - an approximate sketch, not an exact top-3 (same accepted-approximation precedent as this codebase's <c>quantile()</c> percentiles), standing in for <c>service-map.ts</c>'s exact-but-per-trace "first-seen operations" list.</summary>
     public required IReadOnlyList<string> TopOperations { get; init; }
+
+    /// <summary>True for an external host (<c>server.address</c> and fallbacks) that outbound calls reached with no instrumented span answering them - see <see cref="Query.ServiceDependencyQueryBuilder"/>'s external-leaves remarks. Its counts are those calls, which are also counted in the caller's own node.</summary>
+    public bool IsExternal { get; init; }
 }
 
 /// <summary>
