@@ -800,6 +800,7 @@
 	"serviceMapNode_spanPlural": "{count} spans",
 	"serviceMapNode_errorSingular": "{count} error",
 	"serviceMapNode_errorPlural": "{count} errors",
+	"serviceMapNode_external": "External",
 	"serviceMapNode_moreOperations": "+{count} more",
 	"traceWaterfall_slowestSpansHeading": "Slowest spans",
 	"traceWaterfall_criticalPathLabel": "Critical path",

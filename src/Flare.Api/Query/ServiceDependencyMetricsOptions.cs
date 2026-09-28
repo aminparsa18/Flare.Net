@@ -10,7 +10,9 @@ namespace Flare.Api.Query;
 /// query and <see cref="ServiceCallBreakdownQueryService"/>'s external/database
 /// queries always use their live <c>spans</c> builders, exactly as if a
 /// resource-attribute filter were always present, no redeploy or migration rollback
-/// needed. Does not affect <see cref="ServiceDependencyQueryBuilder"/>'s edges query,
+/// needed. Also switches the Map's external leaves between migration 0035's
+/// <c>outbound_calls</c> table and their live query (ADR-0072). Does not affect
+/// <see cref="ServiceDependencyQueryBuilder"/>'s edges query,
 /// which has no pre-aggregated path (see ADR-0031's Context).
 /// </summary>
 public sealed class ServiceDependencyMetricsOptions

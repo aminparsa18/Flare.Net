@@ -15,6 +15,8 @@ export interface ServiceMapNode {
 	totalDurationNano: number;
 	/** Distinct span names attributed to this service, first-seen order - the operations it performed in this trace. */
 	operations: string[];
+	/** Aggregate Map view only: an external host that outbound calls reached with no instrumented span answering them (ADR-0072). Never set by the per-trace walk. */
+	external?: boolean;
 }
 
 export interface ServiceMapEdge {

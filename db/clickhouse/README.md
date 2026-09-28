@@ -170,6 +170,12 @@ host) when a client span has no `peer.service` - which .NET's `HttpClient` spans
 Same `PeerService` column, new rows only. See
 [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md).
 
+`0035_outbound_calls.sql` - `outbound_calls`, a `StartTime`-ordered copy of each outbound
+client call that names a domain and has no `peer.service`, filled by `outbound_calls_mv`.
+The Services Map anti-joins it against spans' `(TraceId, ParentSpanId)` to find
+external-host leaf nodes without scanning `spans`. New rows only. See
+[ADR-0072](../../docs-internal/adr/0072-external-host-map-leaves.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

@@ -8,6 +8,7 @@
 	import type { ServiceMapFlowNode } from '$lib/traces/service-map-flow-types';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import NetworkIcon from '@lucide/svelte/icons/network';
+	import GlobeIcon from '@lucide/svelte/icons/globe';
 	import * as m from '$lib/paraglide/messages';
 
 	let { data }: NodeProps<ServiceMapFlowNode> = $props();
@@ -23,10 +24,19 @@
 </script>
 
 <Handle type="target" position={Position.Left} />
-<div class="bg-card text-card-foreground w-[220px] rounded-lg border p-3 shadow-sm">
+<div class="bg-card text-card-foreground w-[220px] rounded-lg border p-3 shadow-sm" class:border-dashed={service.external}>
 	<div class="flex items-center gap-2">
-		<NetworkIcon class="text-muted-foreground size-4 shrink-0" />
+		{#if service.external}
+			<GlobeIcon class="text-muted-foreground size-4 shrink-0" />
+		{:else}
+			<NetworkIcon class="text-muted-foreground size-4 shrink-0" />
+		{/if}
 		<span class="truncate text-sm font-medium" title={service.service}>{service.service}</span>
+		<!-- In the header, not the badge row: an extra badge wraps that row, and dagre
+		     lays nodes out at a fixed height. -->
+		{#if service.external}
+			<span class="text-muted-foreground ml-auto shrink-0 text-xs">{m.serviceMapNode_external()}</span>
+		{/if}
 	</div>
 	<div class="mt-2 flex flex-wrap items-center gap-1">
 		<Badge variant="outline">

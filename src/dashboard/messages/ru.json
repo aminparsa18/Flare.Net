@@ -796,6 +796,7 @@
 	"serviceMapNode_spanPlural": "{count} спанов",
 	"serviceMapNode_errorSingular": "{count} ошибка",
 	"serviceMapNode_errorPlural": "{count} ошибок",
+	"serviceMapNode_external": "Внешний",
 	"serviceMapNode_moreOperations": "ещё +{count}",
 	"traceWaterfall_slowestSpansHeading": "Самые медленные спаны",
 	"traceWaterfall_criticalPathLabel": "Критический путь",

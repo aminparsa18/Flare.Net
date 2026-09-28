@@ -2,6 +2,7 @@
 	// Every external domain our services call, from client spans' `server.address`/`url.full`
 	// attributes - see docs-internal/adr/0071-external-api-monitoring.md.
 	import { onMount, onDestroy } from 'svelte';
+	import { page } from '$app/state';
 	import { ExternalApisState } from '$lib/external-apis/state.svelte';
 	import { externalApisContext } from '$lib/external-apis/context';
 	import ExternalApisToolbar from '$lib/components/external-apis/ExternalApisToolbar.svelte';
@@ -11,8 +12,12 @@
 
 	const externalApis = externalApisContext.set(new ExternalApisState());
 
-	onMount(() => {
-		void externalApis.load();
+	// ?domain=&window= - the Services Map's external-host nodes link here.
+	onMount(async () => {
+		externalApis.applyWindowParam(page.url.searchParams.get('window'));
+		await externalApis.load();
+		const domain = page.url.searchParams.get('domain');
+		if (domain) externalApis.openByName(domain);
 	});
 
 	onDestroy(() => {

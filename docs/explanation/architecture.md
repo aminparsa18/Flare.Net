@@ -225,8 +225,12 @@ calls. Click a domain for its endpoints (method plus `url.template`, or the
 URL path with id-like segments collapsed to `{id}`), status codes, top
 errors and calling services, each linking to matching traces. The Services
 breakdown's External-calls tab falls back to the same domain when a span
-has no `peer.service`. See [`../how-to/monitor-external-apis.md`](../how-to/monitor-external-apis.md)
-and [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md).
+has no `peer.service`. The Service Map adds a leaf node for each host that
+outbound calls reached with no instrumented child span, read from the
+`outbound_calls` table (migration 0035) anti-joined against spans' parent
+ids. See [`../how-to/monitor-external-apis.md`](../how-to/monitor-external-apis.md),
+[ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md) and
+[ADR-0072](../../docs-internal/adr/0072-external-host-map-leaves.md).
 
 ### Metrics
 

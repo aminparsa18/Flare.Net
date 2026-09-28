@@ -15,6 +15,7 @@ export class ServiceDependencyNode {
 	errorCount: bigint;
 	totalDurationNano: bigint;
 	topOperations: (string | null)[] | null;
+	isExternal: boolean;
 
 	constructor() {
 		this.service = null;
@@ -22,6 +23,7 @@ export class ServiceDependencyNode {
 		this.errorCount = 0n;
 		this.totalDurationNano = 0n;
 		this.topOperations = null;
+		this.isExternal = false;
 	}
 
 	static serialize(value: ServiceDependencyNode | null): Uint8Array {
@@ -36,12 +38,13 @@ export class ServiceDependencyNode {
 			return;
 		}
 
-		writer.writeObjectHeader(5);
+		writer.writeObjectHeader(6);
 		writer.writeString(value.service);
 		writer.writeUint64(value.spanCount);
 		writer.writeUint64(value.errorCount);
 		writer.writeUint64(value.totalDurationNano);
 		writer.writeArray(value.topOperations, (writer, x) => writer.writeString(x));
+		writer.writeBoolean(value.isExternal);
 	}
 
 	static deserialize(buffer: ArrayBuffer): ServiceDependencyNode | null {
@@ -55,13 +58,14 @@ export class ServiceDependencyNode {
 		}
 
 		const value = new ServiceDependencyNode();
-		if (count == 5) {
+		if (count == 6) {
 			value.service = reader.readString();
 			value.spanCount = reader.readUint64();
 			value.errorCount = reader.readUint64();
 			value.totalDurationNano = reader.readUint64();
 			value.topOperations = reader.readArray((reader) => reader.readString());
-		} else if (count > 5) {
+			value.isExternal = reader.readBoolean();
+		} else if (count > 6) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -75,6 +79,8 @@ export class ServiceDependencyNode {
 			if (count == 4) return value;
 			value.topOperations = reader.readArray((reader) => reader.readString());
 			if (count == 5) return value;
+			value.isExternal = reader.readBoolean();
+			if (count == 6) return value;
 		}
 		return value;
 	}

@@ -152,6 +152,18 @@ export class ExternalApisState {
 		});
 	}
 
+	/** A deep link's `?window=`, ignored when it isn't a known preset. */
+	applyWindowParam(value: string | null): void {
+		const preset = EXTERNAL_APIS_WINDOW_PRESETS.find((p) => p.value === value);
+		if (preset) this.windowPreset = preset.value;
+	}
+
+	/** Opens a deep link's `?domain=` once the table has loaded; a domain with no calls in the window just leaves the table showing. */
+	openByName(name: string): void {
+		const domain = this.domains?.find((d) => d.domain === name);
+		if (domain) this.open(domain);
+	}
+
 	open(domain: ExternalDomain): void {
 		this.selected = domain;
 		this.detail = null;
