@@ -16,6 +16,7 @@ import type { MetricPointType } from './metrics-api';
 import type { SpanAttributeBag, SpanAttributeFilter, TraceSpanCondition } from './traces-api';
 import type { ExternalEndpointSource } from './external-apis-api';
 import type { TracesSavedViewState } from './traces/state.svelte';
+import type { LogsSavedViewState } from './logs/state.svelte';
 
 export interface DeepLinkTarget {
 	serviceName: string;
@@ -377,4 +378,18 @@ export function parseAlertDeepLinkParams(url: URL): AlertPanelDraft | null {
 			: [],
 		search: url.searchParams.get('search') ?? ''
 	};
+}
+/**
+ * `/?state=` (Logs) for a Kubernetes pod: its logs by the `k8s.namespace.name`/`k8s.pod.name`
+ * resource attributes - the same pair the collector's k8sattributes processor stamps on both
+ * the pod's metrics and its logs - with no service filter, since a pod's service name is
+ * whatever its app set (or nothing). Only matches logs that actually carry those attributes.
+ */
+export function buildKubernetesPodLogsHref(pod: { namespace: string; podName: string }, timeRangePreset: TimeRangePreset): string {
+	const attributeFilters: AttributeFilter[] = [
+		{ bag: 'Resource', key: 'k8s.namespace.name', value: pod.namespace },
+		{ bag: 'Resource', key: 'k8s.pod.name', value: pod.podName }
+	];
+	const state: Partial<LogsSavedViewState> = { timeRangePreset, customRange: null, services: [], attributeFilters };
+	return `/?state=${encodeStateDeepLinkParam(state)}`;
 }

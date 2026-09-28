@@ -1,9 +1,10 @@
-# How to monitor Kubernetes nodes and pods
+# How to monitor Kubernetes clusters
 
-Send node and pod metrics from your cluster to Flare with the OpenTelemetry
-Collector's `kubeletstats` and `k8s_cluster` receivers, and see them on the
-**Kubernetes** page: a **Nodes** table and a **Pods** table, each with
-drill-down charts.
+Send cluster metrics to Flare with the OpenTelemetry Collector's `kubeletstats`
+and `k8s_cluster` receivers, and see them on the **Kubernetes** page. The page
+has five tabs: **Nodes**, **Namespaces**, **Workloads** (Deployments,
+StatefulSets, DaemonSets, Jobs, and CronJobs), **Pods**, and **Volumes**. Nodes,
+workloads, pods, and volumes each have drill-down charts.
 
 The **Kubernetes** page is separate from **Resources**. Resources polls the
 Kubernetes API and lists only Flare's own pods. The Kubernetes page shows your
@@ -24,8 +25,8 @@ The two receivers report different things, and each fills different columns:
 
 | Receiver | Runs as | Reports |
 |---|---|---|
-| `kubeletstats` | A DaemonSet (one collector per node) | Node and pod CPU and memory usage |
-| `k8s_cluster` | A single-replica Deployment | Node readiness, allocatable CPU, pod phase, container restarts |
+| `kubeletstats` | A DaemonSet (one collector per node) | Node and pod CPU and memory usage, pod volume usage |
+| `k8s_cluster` | A single-replica Deployment | Node readiness, allocatable CPU, pod phase, container restarts, workload replica and job counts, namespace phase |
 
 With the Helm chart, the `kubeletMetrics` preset adds `kubeletstats` to a
 DaemonSet collector, and the `clusterMetrics` preset adds `k8s_cluster` to a
@@ -41,6 +42,7 @@ receivers:
     endpoint: "https://${env:K8S_NODE_NAME}:10250"
     insecure_skip_verify: true
     collection_interval: 60s
+    metric_groups: [node, pod, container, volume]
 
 processors:
   k8sattributes: {}
@@ -61,7 +63,11 @@ service:
 
 The `k8sattributes` processor is recommended. It adds each pod's node name and
 owning workload (Deployment, StatefulSet, DaemonSet, Job, or CronJob), which the
-Pods table shows in its **Node** and **Workload** columns.
+Pods table shows in its **Node** and **Workload** columns. The Workloads table
+also needs it to count a workload's pods and sum their CPU and memory.
+
+`metric_groups` is optional. The `volume` group is off by default; add it to
+fill the **Volumes** tab.
 
 ### Deployment collector (`k8s_cluster`)
 
@@ -131,6 +137,71 @@ for how to enable them.
 Filter pods by name (substring, case-insensitive), namespace, or node. Click a
 pod name for its CPU and memory charts.
 
+**View logs** in a pod's drill-down opens **Logs** filtered to that pod's
+`k8s.namespace.name` and `k8s.pod.name` resource attributes. It finds only logs
+that carry those attributes, so run the `k8sattributes` processor in your logs
+pipeline too.
+
+## Read the Namespaces table
+
+Switch to the **Namespaces** tab, or open `/kubernetes?tab=namespaces`. A
+namespace appears when any `k8s.*` metric carries its `k8s.namespace.name`.
+
+| Column | Source metric | Meaning |
+|---|---|---|
+| Status | `k8s.namespace.phase` | Active or Terminating |
+| Pods | any `k8s.pod.*` metric | Distinct pods that reported in the namespace during the window |
+| CPU, Memory | `k8s.pod.cpu.usage`, `k8s.pod.memory.working_set` | The namespace's pods' total usage (see below) |
+
+Click a namespace to open the Pods tab filtered to it. The Workloads, Pods, and
+Volumes tabs share one namespace filter.
+
+## Read the Workloads table
+
+Switch to the **Workloads** tab, or open `/kubernetes?tab=workloads`, and pick a
+kind. The **Status** column depends on the kind:
+
+| Kind | Status | Source metrics |
+|---|---|---|
+| Deployment | Available of desired replicas | `k8s.deployment.available`, `k8s.deployment.desired` |
+| StatefulSet | Ready of desired pods | `k8s.statefulset.ready_pods`, `k8s.statefulset.desired_pods` |
+| DaemonSet | Ready of desired nodes | `k8s.daemonset.ready_nodes`, `k8s.daemonset.desired_scheduled_nodes` |
+| Job | Succeeded of desired pods, failed pods, active pods | `k8s.job.successful_pods`, `k8s.job.desired_successful_pods`, `k8s.job.failed_pods`, `k8s.job.active_pods` |
+| CronJob | Active jobs | `k8s.cronjob.active_jobs` |
+
+All of these come from the `k8s_cluster` receiver and show the latest reading
+in the window. Flare also reads the newer semantic-convention names, such as
+`k8s.deployment.pod.desired`. Sort by **Status** to put the most degraded
+workloads first: the most replicas short of desired, or the most failed pods.
+
+**Pods**, **CPU**, and **Memory** come from the pods that carry the workload's
+name, which the `k8sattributes` processor adds. CPU and memory are the pods'
+total usage: summed across pods at each moment, then averaged over the window.
+Old and new pods of a rolling update only add up while both actually run.
+
+Click a workload name for charts of its counts, CPU, and memory. **View pods**
+opens the Pods tab filtered to that workload. A Job's pods are found even when
+a CronJob owns the Job.
+
+## Read the Volumes table
+
+Switch to the **Volumes** tab, or open `/kubernetes?tab=volumes`. Each row is
+one volume mounted by one pod, from the `kubeletstats` receiver's `volume`
+metric group.
+
+| Column | Source metric | Meaning |
+|---|---|---|
+| Volume | `k8s.volume.name`, `k8s.persistentvolumeclaim.name` | The volume, and its claim for a PVC-backed volume |
+| Type | `k8s.volume.type` | For example `persistentVolumeClaim`, `emptyDir`, or `configMap` |
+| Used, Capacity | `k8s.volume.capacity`, `k8s.volume.available` | Capacity minus available, and capacity |
+| Used % | the same | Used as a share of capacity |
+| Inodes % | `k8s.volume.inodes`, `k8s.volume.inodes.used` (or `.free`) | Used inodes as a share of all inodes |
+
+Volume figures are the latest reading in the window, not an average, so a
+filling volume shows its current level. The table sorts by **Used %**, fullest
+first. Search matches the volume or claim name. Click a volume for charts of
+its used bytes, used %, and inodes %.
+
 ## Limits and staleness
 
 A **—** means Flare received no data for that metric in the window. It is
@@ -140,8 +211,9 @@ A node or pod that hasn't reported for more than five minutes is marked
 **stale**. A deleted pod stays in the list, marked stale, until it falls out of
 the selected window.
 
-The Nodes table lists up to 500 nodes and the Pods table up to 1,000 pods. If
-more match, a notice asks you to narrow the filter.
+The Nodes and Namespaces tables list up to 500 rows; the Workloads, Pods, and
+Volumes tables list up to 1,000. If more match, a notice asks you to narrow the
+filter.
 
 ## Troubleshooting
 
@@ -155,3 +227,14 @@ set a pod's node or owner itself. Add the `k8sattributes` processor, or run the
 
 **Status, Restarts, and CPU % alloc. are empty.** These come from the
 `k8s_cluster` receiver. Deploy it as described above.
+
+**A workload's Status is empty, but its Pods, CPU, and Memory are filled.** The
+workload was found through its pods' attributes only. Deploy the `k8s_cluster`
+receiver for replica and job counts.
+
+**A workload's Pods, CPU, and Memory are empty.** Its pods don't carry the
+workload's name. Add the `k8sattributes` processor to the `kubeletstats`
+pipeline.
+
+**The Volumes tab is empty.** Add `volume` to the `kubeletstats` receiver's
+`metric_groups`.

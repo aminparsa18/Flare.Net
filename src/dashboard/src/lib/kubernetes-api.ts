@@ -1,9 +1,11 @@
 // Client for Flare.Api's Kubernetes page endpoints (src/Flare.Api/Endpoints/
 // KubernetesInventoryEndpoints.cs): the Nodes table (`POST /api/kubernetes/nodes`), one
-// node's drill-down (`POST /api/kubernetes/nodes/metrics`) and the Pods table
-// (`POST /api/kubernetes/pods`), all derived from ingested OTel kubeletstats/k8s_cluster
-// metrics - see KubernetesInventoryQueryBuilder.cs for which metric feeds which field. A
-// pod's drill-down is `pods-api.ts`' getPodMetrics.
+// node's drill-down (`POST /api/kubernetes/nodes/metrics`), the Pods table
+// (`POST /api/kubernetes/pods`) and the Workloads/Namespaces/Volumes tables and their
+// drill-downs (`/api/kubernetes/workloads`, `/namespaces`, `/volumes`), all derived from
+// ingested OTel kubeletstats/k8s_cluster metrics - see KubernetesInventoryQueryBuilder.cs and
+// KubernetesWorkloadQueryBuilder.cs for which metric feeds which field. A pod's drill-down is
+// `pods-api.ts`' getPodMetrics.
 //
 // MemoryPack over the wire, same shape as `hosts-api.ts`: the requests are generated
 // classes; the responses carry a DateTimeOffset inside an IReadOnlyList, so they're
@@ -16,6 +18,16 @@ import { KubernetesPodListRequest as GeneratedPodListRequest } from '$lib/genera
 import { KubernetesNodeListResponse as GeneratedNodeListResponse } from '$lib/memorypack/KubernetesNodeListResponse';
 import { KubernetesNodeMetricsResponse as GeneratedNodeMetricsResponse } from '$lib/memorypack/KubernetesNodeMetricsResponse';
 import { KubernetesPodListResponse as GeneratedPodListResponse } from '$lib/memorypack/KubernetesPodListResponse';
+import { KubernetesWorkloadListRequest as GeneratedWorkloadListRequest } from '$lib/generated/memorypack/KubernetesWorkloadListRequest.js';
+import { KubernetesWorkloadMetricsRequest as GeneratedWorkloadMetricsRequest } from '$lib/generated/memorypack/KubernetesWorkloadMetricsRequest.js';
+import { KubernetesNamespaceListRequest as GeneratedNamespaceListRequest } from '$lib/generated/memorypack/KubernetesNamespaceListRequest.js';
+import { KubernetesVolumeListRequest as GeneratedVolumeListRequest } from '$lib/generated/memorypack/KubernetesVolumeListRequest.js';
+import { KubernetesVolumeMetricsRequest as GeneratedVolumeMetricsRequest } from '$lib/generated/memorypack/KubernetesVolumeMetricsRequest.js';
+import { KubernetesWorkloadListResponse as GeneratedWorkloadListResponse } from '$lib/memorypack/KubernetesWorkloadListResponse';
+import { KubernetesWorkloadMetricsResponse as GeneratedWorkloadMetricsResponse } from '$lib/memorypack/KubernetesWorkloadMetricsResponse';
+import { KubernetesNamespaceListResponse as GeneratedNamespaceListResponse } from '$lib/memorypack/KubernetesNamespaceListResponse';
+import { KubernetesVolumeListResponse as GeneratedVolumeListResponse } from '$lib/memorypack/KubernetesVolumeListResponse';
+import { KubernetesVolumeMetricsResponse as GeneratedVolumeMetricsResponse } from '$lib/memorypack/KubernetesVolumeMetricsResponse';
 
 /** Usage figures are window averages; null = no data for that metric (never 0). */
 export interface KubernetesNodeSummary {
@@ -85,6 +97,122 @@ export interface KubernetesPodFilter {
 	search?: string;
 	namespace?: string;
 	nodeName?: string;
+	/** Pods carrying this workload's name attribute - see KubernetesPodListRequest.WorkloadKind. */
+	workload?: KubernetesWorkloadRef | null;
+}
+
+/** KubernetesWorkloadQueryBuilder.Kinds - ReplicaSets deliberately excluded. */
+export const KUBERNETES_WORKLOAD_KINDS = ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob'] as const;
+export type KubernetesWorkloadKind = (typeof KUBERNETES_WORKLOAD_KINDS)[number];
+
+export interface KubernetesWorkloadRef {
+	kind: KubernetesWorkloadKind;
+	namespace: string;
+	name: string;
+}
+
+/**
+ * Counts are the latest k8s_cluster readings and only the ones the kind reports are ever set
+ * (desired/ready for Deployment, + current for StatefulSet/DaemonSet, desired/active/
+ * succeeded/failed for Job, active for CronJob); pod count and usage need kubeletstats plus
+ * the k8sattributes processor tagging pods with their workload.
+ */
+export interface KubernetesWorkloadCounts {
+	desired: number | null;
+	ready: number | null;
+	current: number | null;
+	active: number | null;
+	succeeded: number | null;
+	failed: number | null;
+}
+
+export interface KubernetesWorkloadSummary extends KubernetesWorkloadCounts {
+	name: string;
+	namespace: string;
+	podCount: number | null;
+	cpuCores: number | null;
+	memoryWorkingSetBytes: number | null;
+	lastSeen: string;
+}
+
+export interface KubernetesWorkloadListResponse {
+	kind: string;
+	windowMinutes: number;
+	workloads: KubernetesWorkloadSummary[];
+	truncated: boolean;
+}
+
+export interface KubernetesWorkloadMetricsPoint extends KubernetesWorkloadCounts {
+	bucketStart: string;
+	cpuCores: number | null;
+	memoryWorkingSetBytes: number | null;
+}
+
+export interface KubernetesWorkloadMetricsResponse {
+	windowMinutes: number;
+	bucketWidthSeconds: number;
+	points: KubernetesWorkloadMetricsPoint[];
+}
+
+export interface KubernetesNamespaceSummary {
+	namespace: string;
+	/** Active/Terminating - null when k8s_cluster doesn't report it. */
+	phase: string | null;
+	podCount: number | null;
+	cpuCores: number | null;
+	memoryWorkingSetBytes: number | null;
+	lastSeen: string;
+}
+
+export interface KubernetesNamespaceListResponse {
+	windowMinutes: number;
+	namespaces: KubernetesNamespaceSummary[];
+	truncated: boolean;
+}
+
+/** Latest readings in the window (a fill level, not an average); used figures need both capacity and available. */
+export interface KubernetesVolumeSummary {
+	volumeName: string;
+	namespace: string;
+	podName: string;
+	volumeType: string | null;
+	claimName: string | null;
+	capacityBytes: number | null;
+	availableBytes: number | null;
+	usedBytes: number | null;
+	usedPercent: number | null;
+	inodesUsedPercent: number | null;
+	lastSeen: string;
+}
+
+export interface KubernetesVolumeListResponse {
+	windowMinutes: number;
+	volumes: KubernetesVolumeSummary[];
+	truncated: boolean;
+}
+
+export interface KubernetesVolumeRef {
+	namespace: string;
+	podName: string;
+	volumeName: string;
+}
+
+export interface KubernetesVolumeMetricsPoint {
+	bucketStart: string;
+	usedBytes: number | null;
+	usedPercent: number | null;
+	inodesUsedPercent: number | null;
+}
+
+export interface KubernetesVolumeMetricsResponse {
+	windowMinutes: number;
+	bucketWidthSeconds: number;
+	points: KubernetesVolumeMetricsPoint[];
+}
+
+export interface KubernetesListFilter {
+	search?: string;
+	namespace?: string;
 }
 
 async function post(path: string, body: Uint8Array, signal?: AbortSignal): Promise<ArrayBuffer> {
@@ -161,6 +289,8 @@ export async function listKubernetesPods(windowMinutes: number, filter: Kubernet
 	request.search = filter.search?.trim() || null;
 	request.namespace = filter.namespace || null;
 	request.nodeName = filter.nodeName || null;
+	request.workloadKind = filter.workload?.kind ?? null;
+	request.workloadName = filter.workload?.name ?? null;
 
 	const dto = GeneratedPodListResponse.deserialize(await post('/api/kubernetes/pods', GeneratedPodListRequest.serialize(request), signal));
 	if (dto == null) {
@@ -184,6 +314,156 @@ export async function listKubernetesPods(windowMinutes: number, filter: Kubernet
 				cpuLimitPercent: p.cpuLimitPercent,
 				memoryLimitPercent: p.memoryLimitPercent,
 				lastSeen: p.lastSeen.toISOString()
+			}))
+	};
+}
+
+function counts(c: KubernetesWorkloadCounts): KubernetesWorkloadCounts {
+	return { desired: c.desired, ready: c.ready, current: c.current, active: c.active, succeeded: c.succeeded, failed: c.failed };
+}
+
+export async function listKubernetesWorkloads(
+	kind: KubernetesWorkloadKind,
+	windowMinutes: number,
+	filter: KubernetesListFilter,
+	signal?: AbortSignal
+): Promise<KubernetesWorkloadListResponse> {
+	const request = new GeneratedWorkloadListRequest();
+	request.kind = kind;
+	request.windowMinutes = windowMinutes;
+	request.search = filter.search?.trim() || null;
+	request.namespace = filter.namespace || null;
+
+	const dto = GeneratedWorkloadListResponse.deserialize(await post('/api/kubernetes/workloads', GeneratedWorkloadListRequest.serialize(request), signal));
+	if (dto == null) {
+		throw new Error('Empty response body decoding KubernetesWorkloadListResponse.');
+	}
+	return {
+		kind: dto.kind,
+		windowMinutes: dto.windowMinutes,
+		truncated: dto.truncated,
+		workloads: (dto.workloads ?? [])
+			.filter((w) => w != null)
+			.map((w) => ({
+				name: w.name,
+				namespace: w.namespace,
+				...counts(w),
+				podCount: w.podCount,
+				cpuCores: w.cpuCores,
+				memoryWorkingSetBytes: w.memoryWorkingSetBytes,
+				lastSeen: w.lastSeen.toISOString()
+			}))
+	};
+}
+
+export async function getKubernetesWorkloadMetrics(
+	workload: KubernetesWorkloadRef,
+	windowMinutes: number,
+	signal?: AbortSignal
+): Promise<KubernetesWorkloadMetricsResponse> {
+	const request = new GeneratedWorkloadMetricsRequest();
+	request.kind = workload.kind;
+	request.namespace = workload.namespace;
+	request.name = workload.name;
+	request.windowMinutes = windowMinutes;
+
+	const dto = GeneratedWorkloadMetricsResponse.deserialize(
+		await post('/api/kubernetes/workloads/metrics', GeneratedWorkloadMetricsRequest.serialize(request), signal)
+	);
+	if (dto == null) {
+		throw new Error('Empty response body decoding KubernetesWorkloadMetricsResponse.');
+	}
+	return {
+		windowMinutes: dto.windowMinutes,
+		bucketWidthSeconds: dto.bucketWidthSeconds,
+		points: (dto.points ?? [])
+			.filter((p) => p != null)
+			.map((p) => ({
+				bucketStart: p.bucketStart.toISOString(),
+				...counts(p),
+				cpuCores: p.cpuCores,
+				memoryWorkingSetBytes: p.memoryWorkingSetBytes
+			}))
+	};
+}
+
+export async function listKubernetesNamespaces(windowMinutes: number, search: string, signal?: AbortSignal): Promise<KubernetesNamespaceListResponse> {
+	const request = new GeneratedNamespaceListRequest();
+	request.windowMinutes = windowMinutes;
+	request.search = search.trim() || null;
+
+	const dto = GeneratedNamespaceListResponse.deserialize(await post('/api/kubernetes/namespaces', GeneratedNamespaceListRequest.serialize(request), signal));
+	if (dto == null) {
+		throw new Error('Empty response body decoding KubernetesNamespaceListResponse.');
+	}
+	return {
+		windowMinutes: dto.windowMinutes,
+		truncated: dto.truncated,
+		namespaces: (dto.namespaces ?? [])
+			.filter((n) => n != null)
+			.map((n) => ({
+				namespace: n.namespace,
+				phase: n.phase,
+				podCount: n.podCount,
+				cpuCores: n.cpuCores,
+				memoryWorkingSetBytes: n.memoryWorkingSetBytes,
+				lastSeen: n.lastSeen.toISOString()
+			}))
+	};
+}
+
+export async function listKubernetesVolumes(windowMinutes: number, filter: KubernetesListFilter, signal?: AbortSignal): Promise<KubernetesVolumeListResponse> {
+	const request = new GeneratedVolumeListRequest();
+	request.windowMinutes = windowMinutes;
+	request.search = filter.search?.trim() || null;
+	request.namespace = filter.namespace || null;
+
+	const dto = GeneratedVolumeListResponse.deserialize(await post('/api/kubernetes/volumes', GeneratedVolumeListRequest.serialize(request), signal));
+	if (dto == null) {
+		throw new Error('Empty response body decoding KubernetesVolumeListResponse.');
+	}
+	return {
+		windowMinutes: dto.windowMinutes,
+		truncated: dto.truncated,
+		volumes: (dto.volumes ?? [])
+			.filter((v) => v != null)
+			.map((v) => ({
+				volumeName: v.volumeName,
+				namespace: v.namespace,
+				podName: v.podName,
+				volumeType: v.volumeType,
+				claimName: v.claimName,
+				capacityBytes: v.capacityBytes,
+				availableBytes: v.availableBytes,
+				usedBytes: v.usedBytes,
+				usedPercent: v.usedPercent,
+				inodesUsedPercent: v.inodesUsedPercent,
+				lastSeen: v.lastSeen.toISOString()
+			}))
+	};
+}
+
+export async function getKubernetesVolumeMetrics(volume: KubernetesVolumeRef, windowMinutes: number, signal?: AbortSignal): Promise<KubernetesVolumeMetricsResponse> {
+	const request = new GeneratedVolumeMetricsRequest();
+	request.namespace = volume.namespace;
+	request.podName = volume.podName;
+	request.volumeName = volume.volumeName;
+	request.windowMinutes = windowMinutes;
+
+	const dto = GeneratedVolumeMetricsResponse.deserialize(await post('/api/kubernetes/volumes/metrics', GeneratedVolumeMetricsRequest.serialize(request), signal));
+	if (dto == null) {
+		throw new Error('Empty response body decoding KubernetesVolumeMetricsResponse.');
+	}
+	return {
+		windowMinutes: dto.windowMinutes,
+		bucketWidthSeconds: dto.bucketWidthSeconds,
+		points: (dto.points ?? [])
+			.filter((p) => p != null)
+			.map((p) => ({
+				bucketStart: p.bucketStart.toISOString(),
+				usedBytes: p.usedBytes,
+				usedPercent: p.usedPercent,
+				inodesUsedPercent: p.inodesUsedPercent
 			}))
 	};
 }

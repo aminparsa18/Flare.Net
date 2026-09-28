@@ -204,12 +204,25 @@ public static class KubernetesInventoryQueryBuilder
 
         // The node filter applies to the pod's *latest* node (HAVING), not per row - a row
         // without k8s.node.name (kubeletstats without k8sattributes) mustn't drop the pod.
-        var having = "";
+        var havings = new List<string>();
         if (!string.IsNullOrWhiteSpace(request.NodeName))
         {
             parameters.AddParameter("nodeName", request.NodeName.Trim());
-            having = "HAVING LatestNode = {nodeName:String}\n";
+            havings.Add("LatestNode = {nodeName:String}");
         }
+
+        // Same reasoning, and the attribute rather than the resolved WorkloadKind - see
+        // KubernetesPodListRequest.WorkloadKind. The attribute name comes from the fixed kind
+        // table, never from the request.
+        var workloadHits = "";
+        if (KubernetesWorkloadQueryBuilder.ResolveKind(request.WorkloadKind) is { } filterKind && !string.IsNullOrWhiteSpace(request.WorkloadName))
+        {
+            parameters.AddParameter("workloadName", request.WorkloadName.Trim());
+            workloadHits = $",\n    countIf(ResourceAttributes['{filterKind.NameAttribute}'] = {{workloadName:String}}) AS WorkloadHits";
+            havings.Add("sum(WorkloadHits) > 0");
+        }
+
+        var having = havings.Count == 0 ? "" : $"HAVING {string.Join(" AND ", havings)}\n";
 
         // CronJob before Job: a CronJob's pods carry both names, and the CronJob is the
         // workload a user thinks in. ReplicaSet last: a Deployment's pods carry both.
@@ -232,7 +245,7 @@ public static class KubernetesInventoryQueryBuilder
             $"  SELECT {NamespaceExpr} AS Namespace, {PodExpr} AS Pod, {NodeExpr} AS Node,\n" +
             $"    {workloadKind} AS WorkloadKind,\n" +
             $"    {workloadName} AS WorkloadName,\n" +
-            "    max(Time) AS LastSeen\n" +
+            $"    max(Time) AS LastSeen{workloadHits}\n" +
             $"  FROM {table}\n" +
             $"  WHERE MetricName LIKE 'k8s.pod.%' AND {time.WhereSql} AND Pod != ''{extra}\n" +
             "  GROUP BY Namespace, Pod, Node, WorkloadKind, WorkloadName\n";

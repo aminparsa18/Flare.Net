@@ -149,6 +149,29 @@ public class KubernetesInventoryQueryBuilderTests
     }
 
     [Fact]
+    public void BuildPodList_WorkloadFilter_MatchesTheKindsAttribute_AcrossRows()
+    {
+        var result = KubernetesInventoryQueryBuilder.BuildPodList(
+            new KubernetesPodListRequest { NodeName = "worker-1", WorkloadKind = "job", WorkloadName = " nightly " }, 60, Now);
+
+        Assert.Equal("nightly", result.Parameters.ToDictionary()["workloadName"]);
+        Assert.Equal(2, CountOccurrences(result.Sql, "countIf(ResourceAttributes['k8s.job.name'] = {workloadName:String}) AS WorkloadHits"));
+        Assert.Contains("HAVING LatestNode = {nodeName:String} AND sum(WorkloadHits) > 0", result.Sql);
+    }
+
+    [Theory]
+    [InlineData("ReplicaSet", "web")]
+    [InlineData("Deployment", " ")]
+    [InlineData(null, "web")]
+    public void BuildPodList_UnknownKindOrBlankName_AddsNoWorkloadFilter(string? kind, string name)
+    {
+        var result = KubernetesInventoryQueryBuilder.BuildPodList(new KubernetesPodListRequest { WorkloadKind = kind, WorkloadName = name }, 60, Now);
+
+        Assert.DoesNotContain("WorkloadHits", result.Sql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("workloadName"));
+    }
+
+    [Fact]
     public void BuildPodValues_KeysByNamespaceSlashPod_AndSumsLatestRestartsPerContainer()
     {
         var result = KubernetesInventoryQueryBuilder.BuildPodValues([KubernetesInventoryQueryBuilder.PodKey("shop", "web-0")], 60, Now);

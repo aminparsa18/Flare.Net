@@ -36,7 +36,7 @@
 -[Configure authentication](how-to/configure-authentication.zh-CN.md)
 -[Run in cluster mode](how-to/run-cluster-mode.zh-CN.md)
 -[使用 OpenTelemetry Collector 监控主机](how-to/monitor-hosts.zh-CN.md)
-- [使用 OpenTelemetry Collector 监控 Kubernetes 节点和 Pod](how-to/monitor-kubernetes.zh-CN.md)
+- [使用 OpenTelemetry Collector 监控 Kubernetes 集群（节点、工作负载、Pod、卷）](how-to/monitor-kubernetes.zh-CN.md)
 - [监控消息队列](how-to/monitor-message-queues.zh-CN.md)
 - [监控外部 API](how-to/monitor-external-apis.zh-CN.md)
 - [使用追踪漏斗找出请求流失的环节](how-to/analyze-trace-funnels.zh-CN.md)

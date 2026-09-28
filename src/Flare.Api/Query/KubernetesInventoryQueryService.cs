@@ -12,11 +12,22 @@ public interface IKubernetesInventoryQueryService
     Task<KubernetesNodeMetricsResponse> GetNodeMetricsAsync(KubernetesNodeMetricsRequest request, CancellationToken cancellationToken);
 
     Task<KubernetesPodListResponse> ListPodsAsync(KubernetesPodListRequest request, CancellationToken cancellationToken);
+
+    Task<KubernetesWorkloadListResponse> ListWorkloadsAsync(KubernetesWorkloadKind kind, KubernetesWorkloadListRequest request, CancellationToken cancellationToken);
+
+    Task<KubernetesWorkloadMetricsResponse> GetWorkloadMetricsAsync(KubernetesWorkloadKind kind, KubernetesWorkloadMetricsRequest request, CancellationToken cancellationToken);
+
+    Task<KubernetesNamespaceListResponse> ListNamespacesAsync(KubernetesNamespaceListRequest request, CancellationToken cancellationToken);
+
+    Task<KubernetesVolumeListResponse> ListVolumesAsync(KubernetesVolumeListRequest request, CancellationToken cancellationToken);
+
+    Task<KubernetesVolumeMetricsResponse> GetVolumeMetricsAsync(KubernetesVolumeMetricsRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>
-/// The one component holding an <see cref="IClickHouseClient"/> for the Kubernetes page's
-/// Nodes/Pods tables - see <see cref="KubernetesInventoryQueryBuilder"/> for the SQL. Same
+/// The one component holding an <see cref="IClickHouseClient"/> for the Kubernetes page - see
+/// <see cref="KubernetesInventoryQueryBuilder"/> (Nodes/Pods) and
+/// <see cref="KubernetesWorkloadQueryBuilder"/> (Workloads/Namespaces/Volumes) for the SQL. Same
 /// two-statement list shape and ordinal-read style as <see cref="HostInventoryQueryService"/>.
 /// </summary>
 public sealed class KubernetesInventoryQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IKubernetesInventoryQueryService
@@ -198,6 +209,265 @@ public sealed class KubernetesInventoryQueryService(IClickHouseClient client, IO
             Truncated = truncated,
         };
     }
+
+    public async Task<KubernetesWorkloadListResponse> ListWorkloadsAsync(KubernetesWorkloadKind kind, KubernetesWorkloadListRequest request, CancellationToken cancellationToken)
+    {
+        var windowMinutes = HostInventoryQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
+        var now = timeProvider.GetUtcNow();
+
+        var listSql = KubernetesWorkloadQueryBuilder.BuildWorkloadList(kind, request, windowMinutes, now);
+        var workloads = new List<KubernetesWorkloadSummary>();
+        await using (var reader = await client.ExecuteReaderAsync(listSql.Sql, listSql.Parameters, SafetyOptions(), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                workloads.Add(new KubernetesWorkloadSummary
+                {
+                    Namespace = reader.GetString(0),
+                    Name = reader.GetString(1),
+                    LastSeen = ReadUtc(reader, 2),
+                });
+            }
+        }
+
+        var truncated = Truncate(workloads, KubernetesWorkloadQueryBuilder.MaxWorkloads);
+        if (workloads.Count > 0)
+        {
+            static string KeyOf(KubernetesWorkloadSummary w) => KubernetesWorkloadQueryBuilder.WorkloadKey(w.Namespace, w.Name);
+
+            var valuesSql = KubernetesWorkloadQueryBuilder.BuildWorkloadValues(
+                kind, workloads.ConvertAll(KeyOf), windowMinutes, HostInventoryQueryBuilder.BucketWidthSecondsFor(windowMinutes), now);
+            var byKey = workloads.ToDictionary(KeyOf, StringComparer.Ordinal);
+            await using (var reader = await client.ExecuteReaderAsync(valuesSql.Sql, valuesSql.Parameters, SafetyOptions(), cancellationToken))
+            {
+                while (reader.Read())
+                {
+                    var key = reader.GetString(0);
+                    if (byKey.TryGetValue(key, out var summary) && ReadFigure(reader) is { } value)
+                    {
+                        byKey[key] = ApplyWorkloadFigure(summary, reader.GetString(1), value);
+                    }
+                }
+            }
+
+            workloads = workloads.ConvertAll(w => byKey[KeyOf(w)]);
+        }
+
+        return new KubernetesWorkloadListResponse { Kind = kind.Kind, WindowMinutes = windowMinutes, Workloads = workloads, Truncated = truncated };
+    }
+
+    public async Task<KubernetesWorkloadMetricsResponse> GetWorkloadMetricsAsync(KubernetesWorkloadKind kind, KubernetesWorkloadMetricsRequest request, CancellationToken cancellationToken)
+    {
+        var windowMinutes = HostInventoryQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
+        var bucketWidthSeconds = HostInventoryQueryBuilder.BucketWidthSecondsFor(windowMinutes);
+        var built = KubernetesWorkloadQueryBuilder.BuildWorkloadMetrics(kind, request.Namespace, request.Name, windowMinutes, bucketWidthSeconds, timeProvider.GetUtcNow());
+
+        var byBucket = new SortedDictionary<DateTimeOffset, KubernetesWorkloadMetricsPoint>();
+        await using (var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                if (ReadFigure(reader) is not { } value)
+                {
+                    continue;
+                }
+
+                var bucket = ReadUtc(reader, 0);
+                var point = byBucket.GetValueOrDefault(bucket) ?? new KubernetesWorkloadMetricsPoint { BucketStart = bucket };
+                var kindName = reader.GetString(1);
+                byBucket[bucket] = kindName switch
+                {
+                    KubernetesWorkloadQueryBuilder.DesiredKind => point with { Desired = (int)value },
+                    KubernetesWorkloadQueryBuilder.ReadyKind => point with { Ready = (int)value },
+                    KubernetesWorkloadQueryBuilder.CurrentKind => point with { Current = (int)value },
+                    KubernetesWorkloadQueryBuilder.ActiveKind => point with { Active = (int)value },
+                    KubernetesWorkloadQueryBuilder.SucceededKind => point with { Succeeded = (int)value },
+                    KubernetesWorkloadQueryBuilder.FailedKind => point with { Failed = (int)value },
+                    KubernetesWorkloadQueryBuilder.CpuKind => point with { CpuCores = value },
+                    KubernetesWorkloadQueryBuilder.MemoryKind => point with { MemoryWorkingSetBytes = value },
+                    _ => point,
+                };
+            }
+        }
+
+        return new KubernetesWorkloadMetricsResponse
+        {
+            Kind = kind.Kind,
+            Namespace = request.Namespace,
+            Name = request.Name,
+            WindowMinutes = windowMinutes,
+            BucketWidthSeconds = bucketWidthSeconds,
+            Points = [.. byBucket.Values],
+        };
+    }
+
+    public async Task<KubernetesNamespaceListResponse> ListNamespacesAsync(KubernetesNamespaceListRequest request, CancellationToken cancellationToken)
+    {
+        var windowMinutes = HostInventoryQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
+        var now = timeProvider.GetUtcNow();
+
+        var listSql = KubernetesWorkloadQueryBuilder.BuildNamespaceList(request, windowMinutes, now);
+        var namespaces = new List<KubernetesNamespaceSummary>();
+        await using (var reader = await client.ExecuteReaderAsync(listSql.Sql, listSql.Parameters, SafetyOptions(), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                namespaces.Add(new KubernetesNamespaceSummary { Namespace = reader.GetString(0), LastSeen = ReadUtc(reader, 1) });
+            }
+        }
+
+        var truncated = Truncate(namespaces, KubernetesWorkloadQueryBuilder.MaxNamespaces);
+        if (namespaces.Count > 0)
+        {
+            var valuesSql = KubernetesWorkloadQueryBuilder.BuildNamespaceValues(
+                namespaces.ConvertAll(n => n.Namespace), windowMinutes, HostInventoryQueryBuilder.BucketWidthSecondsFor(windowMinutes), now);
+            var byName = namespaces.ToDictionary(n => n.Namespace, StringComparer.Ordinal);
+            await using (var reader = await client.ExecuteReaderAsync(valuesSql.Sql, valuesSql.Parameters, SafetyOptions(), cancellationToken))
+            {
+                while (reader.Read())
+                {
+                    var name = reader.GetString(0);
+                    if (byName.TryGetValue(name, out var summary) && ReadFigure(reader) is { } value)
+                    {
+                        byName[name] = reader.GetString(1) switch
+                        {
+                            KubernetesWorkloadQueryBuilder.NamespacePhaseKind => summary with { Phase = KubernetesWorkloadQueryBuilder.DecodeNamespacePhase(value) },
+                            KubernetesWorkloadQueryBuilder.PodCountKind => summary with { PodCount = (int)value },
+                            KubernetesWorkloadQueryBuilder.CpuKind => summary with { CpuCores = value },
+                            KubernetesWorkloadQueryBuilder.MemoryKind => summary with { MemoryWorkingSetBytes = value },
+                            _ => summary,
+                        };
+                    }
+                }
+            }
+
+            namespaces = namespaces.ConvertAll(n => byName[n.Namespace]);
+        }
+
+        return new KubernetesNamespaceListResponse { WindowMinutes = windowMinutes, Namespaces = namespaces, Truncated = truncated };
+    }
+
+    public async Task<KubernetesVolumeListResponse> ListVolumesAsync(KubernetesVolumeListRequest request, CancellationToken cancellationToken)
+    {
+        var windowMinutes = HostInventoryQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
+        var now = timeProvider.GetUtcNow();
+
+        var listSql = KubernetesWorkloadQueryBuilder.BuildVolumeList(request, windowMinutes, now);
+        var volumes = new List<KubernetesVolumeSummary>();
+        await using (var reader = await client.ExecuteReaderAsync(listSql.Sql, listSql.Parameters, SafetyOptions(), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                volumes.Add(new KubernetesVolumeSummary
+                {
+                    Namespace = reader.GetString(0),
+                    PodName = reader.GetString(1),
+                    VolumeName = reader.GetString(2),
+                    VolumeType = NullIfEmpty(reader.GetString(3)),
+                    ClaimName = NullIfEmpty(reader.GetString(4)),
+                    LastSeen = ReadUtc(reader, 5),
+                });
+            }
+        }
+
+        var truncated = Truncate(volumes, KubernetesWorkloadQueryBuilder.MaxVolumes);
+        if (volumes.Count > 0)
+        {
+            static string KeyOf(KubernetesVolumeSummary v) => KubernetesWorkloadQueryBuilder.VolumeKey(v.Namespace, v.PodName, v.VolumeName);
+
+            var valuesSql = KubernetesWorkloadQueryBuilder.BuildVolumeValues(volumes.ConvertAll(KeyOf), windowMinutes, now);
+            var figures = await ReadVolumeFiguresAsync(valuesSql, reader => reader.GetString(0), cancellationToken);
+            volumes = volumes.ConvertAll(v => figures.TryGetValue(KeyOf(v), out var f)
+                ? v with
+                {
+                    CapacityBytes = f.Capacity,
+                    AvailableBytes = f.Available,
+                    UsedBytes = KubernetesWorkloadQueryBuilder.UsedBytes(f.Capacity, f.Available),
+                    UsedPercent = KubernetesWorkloadQueryBuilder.UsedPercent(f.Capacity, f.Available),
+                    InodesUsedPercent = KubernetesWorkloadQueryBuilder.InodesUsedPercent(f.Inodes, f.InodesUsed, f.InodesFree),
+                }
+                : v);
+        }
+
+        return new KubernetesVolumeListResponse { WindowMinutes = windowMinutes, Volumes = volumes, Truncated = truncated };
+    }
+
+    public async Task<KubernetesVolumeMetricsResponse> GetVolumeMetricsAsync(KubernetesVolumeMetricsRequest request, CancellationToken cancellationToken)
+    {
+        var windowMinutes = HostInventoryQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
+        var bucketWidthSeconds = HostInventoryQueryBuilder.BucketWidthSecondsFor(windowMinutes);
+        var built = KubernetesWorkloadQueryBuilder.BuildVolumeMetrics(
+            request.Namespace, request.PodName, request.VolumeName, windowMinutes, bucketWidthSeconds, timeProvider.GetUtcNow());
+
+        var figures = await ReadVolumeFiguresAsync(built, reader => ReadUtc(reader, 0), cancellationToken);
+
+        return new KubernetesVolumeMetricsResponse
+        {
+            Namespace = request.Namespace,
+            PodName = request.PodName,
+            VolumeName = request.VolumeName,
+            WindowMinutes = windowMinutes,
+            BucketWidthSeconds = bucketWidthSeconds,
+            Points =
+            [
+                .. figures
+                    .Select(pair => new KubernetesVolumeMetricsPoint
+                    {
+                        BucketStart = pair.Key,
+                        UsedBytes = KubernetesWorkloadQueryBuilder.UsedBytes(pair.Value.Capacity, pair.Value.Available),
+                        UsedPercent = KubernetesWorkloadQueryBuilder.UsedPercent(pair.Value.Capacity, pair.Value.Available),
+                        InodesUsedPercent = KubernetesWorkloadQueryBuilder.InodesUsedPercent(pair.Value.Inodes, pair.Value.InodesUsed, pair.Value.InodesFree),
+                    })
+                    .OrderBy(p => p.BucketStart),
+            ],
+        };
+    }
+
+    private sealed record VolumeFigures(double? Capacity, double? Available, double? Inodes, double? InodesUsed, double? InodesFree);
+
+    /// <summary>A volume values/metrics statement's rows folded per <paramref name="keyOf"/> - a volume key for the list, a bucket start for the drill-down.</summary>
+    private async Task<Dictionary<TKey, VolumeFigures>> ReadVolumeFiguresAsync<TKey>(
+        HostInventorySql sql, Func<ClickHouseDataReader, TKey> keyOf, CancellationToken cancellationToken)
+        where TKey : notnull
+    {
+        var byKey = new Dictionary<TKey, VolumeFigures>();
+        await using var reader = await client.ExecuteReaderAsync(sql.Sql, sql.Parameters, SafetyOptions(), cancellationToken);
+        while (reader.Read())
+        {
+            if (ReadFigure(reader) is not { } value)
+            {
+                continue;
+            }
+
+            var key = keyOf(reader);
+            var figures = byKey.GetValueOrDefault(key) ?? new VolumeFigures(null, null, null, null, null);
+            byKey[key] = reader.GetString(1) switch
+            {
+                KubernetesWorkloadQueryBuilder.CapacityKind => figures with { Capacity = value },
+                KubernetesWorkloadQueryBuilder.AvailableKind => figures with { Available = value },
+                KubernetesWorkloadQueryBuilder.InodesKind => figures with { Inodes = value },
+                KubernetesWorkloadQueryBuilder.InodesUsedKind => figures with { InodesUsed = value },
+                KubernetesWorkloadQueryBuilder.InodesFreeKind => figures with { InodesFree = value },
+                _ => figures,
+            };
+        }
+
+        return byKey;
+    }
+
+    private static KubernetesWorkloadSummary ApplyWorkloadFigure(KubernetesWorkloadSummary summary, string kind, double value) => kind switch
+    {
+        KubernetesWorkloadQueryBuilder.DesiredKind => summary with { Desired = (int)value },
+        KubernetesWorkloadQueryBuilder.ReadyKind => summary with { Ready = (int)value },
+        KubernetesWorkloadQueryBuilder.CurrentKind => summary with { Current = (int)value },
+        KubernetesWorkloadQueryBuilder.ActiveKind => summary with { Active = (int)value },
+        KubernetesWorkloadQueryBuilder.SucceededKind => summary with { Succeeded = (int)value },
+        KubernetesWorkloadQueryBuilder.FailedKind => summary with { Failed = (int)value },
+        KubernetesWorkloadQueryBuilder.PodCountKind => summary with { PodCount = (int)value },
+        KubernetesWorkloadQueryBuilder.CpuKind => summary with { CpuCores = value },
+        KubernetesWorkloadQueryBuilder.MemoryKind => summary with { MemoryWorkingSetBytes = value },
+        _ => summary,
+    };
 
     /// <summary>Drops the extra row the list query fetches past <paramref name="max"/>, reporting whether there was one.</summary>
     private static bool Truncate<T>(List<T> items, int max)
