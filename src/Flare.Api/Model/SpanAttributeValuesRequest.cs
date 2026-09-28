@@ -13,8 +13,8 @@ namespace Flare.Api.Model;
 [MemoryPackable]
 public sealed partial record SpanAttributeValuesRequest
 {
-    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
-    public SpanFilter Filter { get; init; } = new();
+    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
+    public SpanFilter Filter { get; init => field = value ?? new(); } = new();
 
     /// <summary>Which bag <see cref="Key"/> is looked up in - same three bags <see cref="SpanAttributeFilter.Bag"/> targets.</summary>
     public SpanAttributeBag Bag { get; init; } = SpanAttributeBag.Span;

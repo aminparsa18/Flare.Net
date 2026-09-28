@@ -6,8 +6,8 @@ namespace Flare.Api.Model;
 [MemoryPackable]
 public sealed partial record LogAttributeKeysRequest
 {
-    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
-    public LogFilter Filter { get; init; } = new();
+    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
+    public LogFilter Filter { get; init => field = value ?? new(); } = new();
 }
 
 /// <summary>One <c>LogAttributes</c> key that parses as numeric on at least one in-scope event, with how many do.</summary>
@@ -31,8 +31,8 @@ public sealed partial record LogAttributeKeysResponse
 [MemoryPackable]
 public sealed partial record LogValueDistributionRequest
 {
-    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
-    public LogFilter Filter { get; init; } = new();
+    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
+    public LogFilter Filter { get; init => field = value ?? new(); } = new();
 
     /// <summary>The <c>LogAttributes</c> key to sample - one of <see cref="LogAttributeKeyInfo.Key"/> from a prior <c>/api/logs/numeric-attribute-keys</c> call.</summary>
     public required string AttributeKey { get; init; }

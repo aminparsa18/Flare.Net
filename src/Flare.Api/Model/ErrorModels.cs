@@ -36,13 +36,10 @@ public sealed partial record ExceptionFilter
 public sealed partial record ExceptionGroupsRequest
 {
     /// <summary>
-    /// Defaults via <c>= new()</c>, which - same caveat <see cref="LogPatternRequest.Filter"/>
-    /// documents - doesn't survive System.Text.Json deserialization when the request body
-    /// omits <c>"filter"</c> entirely; <see cref="Query.ExceptionGroupQueryBuilder.Build"/>
-    /// null-coalesces against a fresh <see cref="ExceptionFilter"/> for that reason, same as
-    /// every other filter-bearing request in this codebase.
+    /// Never null. See <see cref="LogSearchRequest.Filter"/> for why the <c>init</c> accessor
+    /// replaces a null (an omitted <c>"filter"</c>) with an empty filter.
     /// </summary>
-    public ExceptionFilter Filter { get; init; } = new();
+    public ExceptionFilter Filter { get; init => field = value ?? new(); } = new();
 
     /// <summary>Max groups to return, ranked by <see cref="ExceptionGroup.OccurrenceCount"/> descending. Clamped server-side - see <see cref="Query.ExceptionGroupQueryBuilder"/>; null uses the default.</summary>
     public int? TopN { get; init; }
@@ -91,8 +88,8 @@ public sealed partial record ExceptionGroupsResponse
 [MemoryPackable]
 public sealed partial record ExceptionOccurrencesRequest
 {
-    /// <summary>Same deserialization caveat as <see cref="ExceptionGroupsRequest.Filter"/>.</summary>
-    public ExceptionFilter Filter { get; init; } = new();
+    /// <summary>Never null, same as <see cref="ExceptionGroupsRequest.Filter"/>.</summary>
+    public ExceptionFilter Filter { get; init => field = value ?? new(); } = new();
 
     public required string ExceptionType { get; init; }
 
@@ -161,8 +158,8 @@ public enum ExceptionFacetField
 [MemoryPackable]
 public sealed partial record ExceptionFacetValuesRequest
 {
-    /// <summary>See <see cref="ExceptionGroupsRequest.Filter"/> - same JSON-deserialization caveat. The caller strips the facet's own selection from this, so a section lists its alternatives rather than only what's already picked.</summary>
-    public ExceptionFilter Filter { get; init; } = new();
+    /// <summary>See <see cref="ExceptionGroupsRequest.Filter"/> - never null, same reason. The caller strips the facet's own selection from this, so a section lists its alternatives rather than only what's already picked.</summary>
+    public ExceptionFilter Filter { get; init => field = value ?? new(); } = new();
 
     public ExceptionFacetField Field { get; init; } = ExceptionFacetField.Service;
 

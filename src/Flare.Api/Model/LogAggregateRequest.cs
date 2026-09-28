@@ -24,8 +24,8 @@ public enum LogAggregateGroupBy
 [MemoryPackable]
 public sealed partial record LogAggregateRequest
 {
-    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
-    public LogFilter Filter { get; init; } = new();
+    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
+    public LogFilter Filter { get; init => field = value ?? new(); } = new();
 
     /// <summary>Bucket width, e.g. 60 for 1-minute buckets. Compiles to <c>toStartOfInterval(Timestamp, INTERVAL n SECOND)</c>.</summary>
     public required int BucketWidthSeconds { get; init; }

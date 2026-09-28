@@ -6,8 +6,8 @@ namespace Flare.Api.Model;
 [MemoryPackable]
 public sealed partial record LogPatternRequest
 {
-    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
-    public LogFilter Filter { get; init; } = new();
+    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
+    public LogFilter Filter { get; init => field = value ?? new(); } = new();
 
     /// <summary>Max rows to return, ranked by <see cref="LogPatternRow.Count"/> descending. Clamped server-side (see <see cref="Query.LogPatternQueryBuilder"/>); null uses the default.</summary>
     public int? TopN { get; init; }

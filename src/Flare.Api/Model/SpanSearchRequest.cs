@@ -7,12 +7,10 @@ namespace Flare.Api.Model;
 public sealed partial record SpanSearchRequest
 {
     /// <summary>
-    /// Same System.Text.Json init-only-property caveat as <c>LogSearchRequest.Filter</c>
-    /// - this <c>= new()</c> default doesn't survive deserialization when the JSON body
-    /// omits <c>"filter"</c>; <see cref="Query.SpanSearchQueryBuilder"/> coalesces
-    /// defensively rather than trust it.
+    /// Never null. See <c>LogSearchRequest.Filter</c> for why the <c>init</c> accessor
+    /// replaces a null (an omitted <c>"filter"</c>) with an empty filter.
     /// </summary>
-    public SpanFilter Filter { get; init; } = new();
+    public SpanFilter Filter { get; init => field = value ?? new(); } = new();
 
     /// <summary>Opaque cursor from a previous <see cref="SpanSearchResponse.NextCursor"/>; omit for the first page.</summary>
     public string? Cursor { get; init; }
