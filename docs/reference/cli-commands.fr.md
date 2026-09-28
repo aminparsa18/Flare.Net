@@ -129,8 +129,8 @@ initialisée) échoue avec une erreur claire. Pointez `--cluster` vers un
 `--name` frais (ou d'abord `flare destroy --purge-config`) pour changer
 le mode d'une instance.
 
-**Par défaut `FLARE_IMAGE_TAG=0.5.0`**, gardé comme son propre épinglage,
-indépendant du propre défaut de l'instance autonome (aussi `0.5.0`
+**Par défaut `FLARE_IMAGE_TAG=0.5.1`**, gardé comme son propre épinglage,
+indépendant du propre défaut de l'instance autonome (aussi `0.5.1`
 actuellement) — le support du mode cluster a été fusionné après que
 `v0.2.0` a été taguée, et `v0.3.0` fut la première release stable qui
 l'incluait ; les deux épinglages ont depuis rattrapé `v0.5.0`, la première
@@ -171,7 +171,7 @@ Ce qui diffère d'une instance autonome :
 
 `~/.flare/.env` règle par défaut `FLARE_IMAGE_TAG` sur la dernière
 release stable de Flare contre laquelle cette version du CLI a été
-testée (actuellement `0.5.0` à la fois pour l'autonome et le mode
+testée (actuellement `0.5.1` à la fois pour l'autonome et le mode
 cluster — voir [Mode cluster](#cluster-mode) ci-dessus ; voir
 [`../../.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml)
 pour comment les tags `vX.Y.Z` sont coupés). Délibérément pas les tags
@@ -196,3 +196,4 @@ Historique des versions (propre défaut de l'instance autonome) :
 | 0.1.4 (2026-08-23) | `0.2.0` (inchangé — cette release a ajouté le mode cluster, dont le propre défaut séparé commençait à `edge` puisqu'aucune release stable ne l'incluait encore) |
 | 0.1.5 (2026-08-23) | `0.2.0` (inchangé — le propre défaut du mode cluster est passé d'`edge` à `0.3.0` le même jour, une fois cette première release stable compatible cluster livrée) |
 | 0.1.6 (2026-09-10) | `0.5.0` (les deux épinglages, autonome et cluster, relevés ensemble, une fois `v0.5.0` livrée avec la première image `flare-alert-worker` publiée) |
+| 0.1.7 (2026-09-28) | `0.5.1` (les deux épinglages ; le `0.5.0` de la 0.1.6 visait des images `apardev/*` qui n'existent qu'à partir de `0.5.1`, donc une nouvelle installation échouait au pull) |
