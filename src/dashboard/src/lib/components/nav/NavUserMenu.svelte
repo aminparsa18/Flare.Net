@@ -28,8 +28,28 @@
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { updateNotice } from '$lib/version/update-notice.svelte';
+	import { page } from '$app/state';
+	import { navLinks } from './nav-links';
+	import type { Component } from 'svelte';
+	import EarthIcon from '@lucide/svelte/icons/earth';
+	import WorkflowIcon from '@lucide/svelte/icons/workflow';
+	import ServerIcon from '@lucide/svelte/icons/server';
+	import ContainerIcon from '@lucide/svelte/icons/container';
 
 	const auth = authContext.get();
+
+	const menuLinks = $derived(navLinks(auth).filter((link) => link.inMenu));
+
+	const MENU_LINK_ICONS: Record<string, Component> = {
+		'/external-apis': EarthIcon,
+		'/pipeline-rules': WorkflowIcon,
+		'/hosts': ServerIcon,
+		'/kubernetes': ContainerIcon
+	};
+
+	function isActive(href: string): boolean {
+		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
+	}
 
 	// Language names are always shown in their own language (endonyms), never translated
 	// through m.*() - a "中文" option shouldn't turn into "Chinese" just because the UI is
@@ -72,12 +92,31 @@
 			<!-- Icon-only "more" affordance, not a status readout - a trigger that showed the
 			     username/"Auth is off" here read as a label rather than something clickable.
 			     Auth status still shows first thing inside the menu itself, below. -->
-			<Button {...props} variant="outline" size="icon-sm" aria-label={m.nav_moreOptions()}>
+			<!-- Secondary while on one of its `inMenu` pages - the top bar has no link to highlight then. -->
+			<Button
+				{...props}
+				variant={menuLinks.some((link) => isActive(link.href)) ? 'secondary' : 'outline'}
+				size="icon-sm"
+				aria-label={m.nav_moreOptions()}
+			>
 				<EllipsisIcon />
 			</Button>
 		{/snippet}
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content class="w-56" align="end">
+		<!-- Page links nav-links.ts flags `inMenu` - moved off AppNav's top bar for width. -->
+		{#each menuLinks as link (link.href)}
+			{@const Icon = MENU_LINK_ICONS[link.href]}
+			<DropdownMenu.Item>
+				{#snippet child({ props })}
+					<a href={link.href} {...props} aria-current={isActive(link.href) ? 'page' : undefined}>
+						{#if Icon}<Icon />{/if}
+						{link.label}
+					</a>
+				{/snippet}
+			</DropdownMenu.Item>
+		{/each}
+		<DropdownMenu.Separator />
 		<!-- /data-sources (the ingest-catalog "how do I get data in" page) is deliberately
 		     NOT in nav-links.ts's persistent top bar - see that page's own comment - but a
 		     click-to-reveal row here is a fine middle ground between that and its other only

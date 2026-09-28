@@ -31,7 +31,8 @@
 	// while auth is off entirely, when everyone has full access (opt-in auth, see
 	// docs/auth.md) and needs a way to actually find where to turn it on. Shared with
 	// CommandPalette.svelte's "Navigate" group via nav-links.ts - one source of truth.
-	const links = $derived(navLinks(auth));
+	// Links flagged `inMenu` live in NavUserMenu's dropdown instead of this bar.
+	const links = $derived(navLinks(auth).filter((link) => !link.inMenu));
 
 	// Exact match for every link except "/" (which would otherwise match every route,
 	// since every pathname starts with "/") - first needed now that /traces/[traceId]
