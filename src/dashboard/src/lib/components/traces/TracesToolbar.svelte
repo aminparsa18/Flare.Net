@@ -15,7 +15,7 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { tracesExplorerContext } from '$lib/traces/context';
-	import { TIME_RANGE_PRESETS, presetLabel, type TimeRangePreset } from '$lib/logs/time-range';
+	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import { setLastUsedViewId } from '$lib/saved-views/last-used';
 	import * as m from '$lib/paraglide/messages';
 
@@ -29,20 +29,23 @@
 	const explorer = tracesExplorerContext.get();
 
 	// No live-tail / custom-range calendar for traces (see state.svelte.ts's remarks) -
-	// only the fixed-duration presets make sense here, so 'custom' is filtered out
-	// rather than reusing TimeRangePicker.svelte (which is tightly coupled to
-	// LogsExplorerState's live/custom-range fields).
+	// only the fixed-duration presets are offered, so 'custom' is filtered out rather than
+	// reusing TimeRangePicker.svelte (which is tightly coupled to LogsExplorerState's
+	// live/custom-range fields). The filter can still arrive on 'custom' through a link
+	// (TracesFilterState.customRange), which activeLabel below renders.
 	const presets = TIME_RANGE_PRESETS.filter((p) => p.value !== 'custom');
 
 	const serviceOptions = $derived(explorer.knownServices.map((s) => ({ value: s, label: s })));
 
 	// presetLabel(), not a static `.label` field - see time-range.ts's own remarks on why
 	// that field was removed (a module-scope const can't reflect a per-request locale).
-	const activeLabel = $derived(
-		presets.some((p) => p.value === explorer.filter.timeRangePreset)
-			? presetLabel(explorer.filter.timeRangePreset)
-			: m.timeRange_label()
-	);
+	const activeLabel = $derived.by(() => {
+		const custom = explorer.filter.customRange;
+		if (explorer.filter.timeRangePreset === 'custom' && custom) {
+			return formatCustomRangeLabel({ from: new Date(custom.from), to: new Date(custom.to) });
+		}
+		return presets.some((p) => p.value === explorer.filter.timeRangePreset) ? presetLabel(explorer.filter.timeRangePreset) : m.timeRange_label();
+	});
 
 	// A direct id lookup, not another filter on TracesExplorerState - jumping to a trace
 	// navigates away to the trace-detail route (same `/traces/${traceId}` TraceRow and

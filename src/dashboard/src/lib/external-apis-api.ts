@@ -25,6 +25,8 @@ export interface ExternalDomain {
 	serviceCount: number;
 	endpointCount: number;
 	lastSeenUnixMs: number;
+	/** The ports called, numeric order, comma-joined (`"443, 8443"`); '' when none was known. */
+	ports: string;
 }
 
 export interface ExternalDomainsResponse {
@@ -89,6 +91,14 @@ export interface ExternalErrorGroup {
 	sampleMessage: string;
 }
 
+/** One time bucket of one domain's calls. Buckets with no calls are absent. */
+export interface ExternalSeriesPoint {
+	bucketStartUnixMs: number;
+	callCount: number;
+	errorCount: number;
+	p95Ms: number;
+}
+
 export interface ExternalDomainDetailResponse {
 	domain: string;
 	windowMinutes: number;
@@ -96,6 +106,9 @@ export interface ExternalDomainDetailResponse {
 	statusCodes: ExternalStatusCodeCount[];
 	callers: ExternalCaller[];
 	topErrors: ExternalErrorGroup[];
+	bucketWidthSeconds: number;
+	/** Oldest first. */
+	series: ExternalSeriesPoint[];
 }
 
 export async function getExternalDomains(windowMinutes: number, service: string, signal?: AbortSignal): Promise<ExternalDomainsResponse> {
@@ -131,7 +144,8 @@ export async function getExternalDomains(windowMinutes: number, service: string,
 				p99Ms: d.p99Ms,
 				serviceCount: Number(d.serviceCount),
 				endpointCount: Number(d.endpointCount),
-				lastSeenUnixMs: Number(d.lastSeenUnixMs)
+				lastSeenUnixMs: Number(d.lastSeenUnixMs),
+				ports: d.ports ?? ''
 			}))
 	};
 }
@@ -202,6 +216,15 @@ export async function getExternalDomainDetail(
 				callCount: Number(e.callCount),
 				lastSeenUnixMs: Number(e.lastSeenUnixMs),
 				sampleMessage: e.sampleMessage ?? ''
+			})),
+		bucketWidthSeconds: dto.bucketWidthSeconds,
+		series: (dto.series ?? [])
+			.filter((p) => p != null)
+			.map((p) => ({
+				bucketStartUnixMs: Number(p.bucketStartUnixMs),
+				callCount: Number(p.callCount),
+				errorCount: Number(p.errorCount),
+				p95Ms: p.p95Ms
 			}))
 	};
 }

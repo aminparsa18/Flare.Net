@@ -51,6 +51,13 @@ public sealed partial record ExternalDomain
 
     /// <summary>Start of the latest call in the window, Unix epoch milliseconds.</summary>
     public required long LastSeenUnixMs { get; init; }
+
+    /// <summary>
+    /// The ports called on this domain, numeric order, joined with <c>", "</c> - see
+    /// <see cref="Query.ExternalApiQueryBuilder.PortExpr"/>. A string rather than a list so
+    /// this row keeps its generated TypeScript. Empty when no call named one.
+    /// </summary>
+    public required string Ports { get; init; }
 }
 
 /// <summary>
@@ -184,6 +191,21 @@ public sealed partial record ExternalErrorGroup
     public required string SampleMessage { get; init; }
 }
 
+/// <summary>One time bucket of one domain's calls - a point on the drill-down's rate/error/p95 charts.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record ExternalSeriesPoint
+{
+    /// <summary>Bucket start, Unix epoch milliseconds.</summary>
+    public required long BucketStartUnixMs { get; init; }
+
+    public required ulong CallCount { get; init; }
+
+    public required ulong ErrorCount { get; init; }
+
+    public required double P95Ms { get; init; }
+}
+
 /// <summary>Response body for <c>POST /api/external-apis/domain-detail</c>. Hand-written on the MemoryPack TS side, same reason as <see cref="ExternalDomainsResponse"/>.</summary>
 [MemoryPackable]
 public sealed partial record ExternalDomainDetailResponse
@@ -204,4 +226,10 @@ public sealed partial record ExternalDomainDetailResponse
 
     /// <summary>Most frequent first, at most <see cref="Query.ExternalApiQueryBuilder.MaxErrorGroups"/>.</summary>
     public required IReadOnlyList<ExternalErrorGroup> TopErrors { get; init; }
+
+    /// <summary>Width of each <see cref="Series"/> bucket - see <see cref="Query.ExternalApiQueryBuilder.BucketWidthSecondsFor"/>.</summary>
+    public required int BucketWidthSeconds { get; init; }
+
+    /// <summary>Oldest first. Buckets with no calls are omitted.</summary>
+    public required IReadOnlyList<ExternalSeriesPoint> Series { get; init; }
 }

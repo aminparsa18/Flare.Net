@@ -1,5 +1,6 @@
 <script lang="ts">
-	// One of the host drill-down sheet's four small charts. Same hand-rolled SVG approach
+	// One of the host drill-down sheet's four small charts - also the External APIs domain
+	// sheet's, which passes `onPointClick` to drill into one bucket's traces. Same hand-rolled SVG approach
 	// and $lib/metrics/axis.ts scaling as resources/HostTrendChart.svelte (this dashboard has
 	// no charting library), but plotted against real time rather than array index, and with
 	// gaps where a bucket has no value - the server omits empty buckets and nulls a column
@@ -23,9 +24,11 @@
 		toMs: number;
 		/** Optional epoch-ms instant drawn as a vertical line - the log event detail view marks its log's timestamp with it. */
 		markerMs?: number;
+		/** Makes the chart clickable: called with the hovered point's time (or the latest point's, from the keyboard). */
+		onPointClick?: (time: number) => void;
 	}
 
-	let { label, unit, points, fromMs, toMs, markerMs }: Props = $props();
+	let { label, unit, points, fromMs, toMs, markerMs, onPointClick }: Props = $props();
 
 	const CHART_WIDTH = 400;
 	const CHART_HEIGHT = 96;
@@ -72,6 +75,11 @@
 	}
 
 	const latest = $derived(present.at(-1) ?? null);
+
+	function handleClick() {
+		const point = hover ?? latest;
+		if (point) onPointClick?.(point.time);
+	}
 	const shown = $derived(hover ?? latest);
 
 	function formatTime(time: number): string {
@@ -102,13 +110,19 @@
 					</span>
 				{/each}
 			</div>
+			<!-- The role is 'button' whenever the tabindex applies; the checker can't see through the conditional. -->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<svg
 				viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}"
 				preserveAspectRatio="none"
 				class="w-full min-w-0"
 				style="height: {CHART_HEIGHT}px"
-				role="img"
+				class:cursor-pointer={onPointClick}
+				role={onPointClick ? 'button' : 'img'}
+				tabindex={onPointClick ? 0 : undefined}
 				aria-label={label}
+				onclick={onPointClick ? handleClick : undefined}
+				onkeydown={onPointClick ? (e) => (e.key === 'Enter' || e.key === ' ') && handleClick() : undefined}
 				onpointermove={handlePointerMove}
 				onpointerleave={() => (hover = null)}
 			>

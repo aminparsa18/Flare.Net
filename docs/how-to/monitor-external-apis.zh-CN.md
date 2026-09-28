@@ -37,6 +37,7 @@ defaults 模板，`HttpClient` 插桩已默认启用。基于 `HttpClient` 的 g
 | 列 | 含义 |
 |---|---|
 | Domain | `server.address`，否则取 `net.peer.name`，再否则取 URL 中的主机名。 |
+| Port | 调用的端口：`server.port`，否则取 `net.peer.port`，再否则取 URL 中的端口，都没有时 `https` 为 443、`http` 为 80。最多列出五个。 |
 | Rate | 时间窗口内每秒调用次数。悬停可查看总数。 |
 | Error rate | span 状态为 `Error` 的调用占比。 |
 | p95 / p99 | 调用方测得的调用耗时百分位数。 |
@@ -55,6 +56,9 @@ defaults 模板，`HttpClient` 插桩已默认启用。基于 `HttpClient` 的 g
 
 选择一个域名以打开其详情：
 
+- **Over time**：窗口内的三张图表：每秒请求数、错误数和 p95 延迟。点击某个数据点，
+  即可在 **Traces** 中查看该时间段内的调用；从 p95 图表进入时按耗时从长到短排序。
+  一小时窗口的时间段约为一分钟，并随窗口缩放（5 分钟为 10 秒，24 小时为 24 分钟）。
 - **Status codes**：按 HTTP 状态码统计的调用数（`http.response.status_code`，
   否则取 `http.status_code`）。
 - **Endpoints**：按方法和端点统计的速率、错误率、p50/p95/p99 和最近出现时间。

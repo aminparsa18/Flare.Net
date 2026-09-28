@@ -102,11 +102,8 @@ folders are where "what happened and why" actually lives.
   started. Prior art: deployments/clusters/namespaces
   [signoz#6786](https://github.com/SigNoz/signoz/commit/403043e076bf60aa4b77a7df45eed06b286f5be0),
   statefulsets/daemonsets/jobs/volumes [signoz#6629](https://github.com/SigNoz/signoz/commit/813ca8bc230268d8904a786b18da8659045b18ce).
-- **External API follow-ups.** The `/external-apis` page and the
-  breakdown's domain fallback shipped (ADR-0071). Remaining: per-domain
-  time-series charts (rate/errors/p95), with trace drill-down scoped to a
-  window around a clicked point (needs a custom range in the trace
-  explorer), and a port column. Also external-host leaf nodes on the
-  Service Map. Those need a client span to be known to have no
-  instrumented child span, or every internal `HttpClient` call gains a
-  hostname node; see ADR-0071 for why the Map was left unchanged.
+- **External-host leaf nodes on the Service Map.** The `/external-apis`
+  page covers "which hosts do we call" (ADR-0071). Map leaves need a
+  client span to be known to have no instrumented child span, or every
+  internal `HttpClient` call gains a hostname node; see ADR-0071 for why
+  the Map was left unchanged.

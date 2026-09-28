@@ -44,6 +44,7 @@ public sealed class ExternalApiQueryService(IClickHouseClient client, IOptions<Q
                     ServiceCount = reader.GetFieldValue<ulong>(4),
                     EndpointCount = reader.GetFieldValue<ulong>(5),
                     LastSeenUnixMs = reader.GetFieldValue<long>(6),
+                    Ports = reader.GetString(7),
                 });
             }
         }
@@ -151,6 +152,24 @@ public sealed class ExternalApiQueryService(IClickHouseClient client, IOptions<Q
             }
         }
 
+        var bucketWidthSeconds = ExternalApiQueryBuilder.BucketWidthSecondsFor(windowMinutes);
+        var series = new List<ExternalSeriesPoint>();
+        var seriesSql = ExternalApiQueryBuilder.BuildSeries(request, windowMinutes, bucketWidthSeconds, end);
+        await using (var reader = await client.ExecuteReaderAsync(seriesSql.Sql, seriesSql.Parameters, SafetyOptions(), cancellationToken))
+        {
+            while (reader.Read())
+            {
+                var p95 = reader.GetFieldValue<double>(3);
+                series.Add(new ExternalSeriesPoint
+                {
+                    BucketStartUnixMs = reader.GetFieldValue<long>(0),
+                    CallCount = reader.GetFieldValue<ulong>(1),
+                    ErrorCount = reader.GetFieldValue<ulong>(2),
+                    P95Ms = double.IsFinite(p95) ? p95 / 1_000_000.0 : 0,
+                });
+            }
+        }
+
         return new ExternalDomainDetailResponse
         {
             Domain = request.Domain,
@@ -159,6 +178,8 @@ public sealed class ExternalApiQueryService(IClickHouseClient client, IOptions<Q
             StatusCodes = statusCodes,
             Callers = callers,
             TopErrors = topErrors,
+            BucketWidthSeconds = bucketWidthSeconds,
+            Series = series,
         };
     }
 

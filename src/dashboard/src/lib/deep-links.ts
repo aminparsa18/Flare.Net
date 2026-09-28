@@ -235,6 +235,13 @@ export interface ExternalCallTarget {
 	errorsOnly?: boolean;
 }
 
+/** Where an External APIs chart click lands: one bucket's window (epoch ms), optionally slowest first. */
+export interface ExternalCallWindow {
+	fromMs: number;
+	toMs: number;
+	sortByDuration?: boolean;
+}
+
 function escapeRegex(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -247,7 +254,7 @@ function escapeRegex(value: string): string {
  * named its domain via `net.peer.name`/the URL won't match. A derived (`UrlPath`) endpoint
  * turns back into a `url.full` regex with each `{id}` as one path segment.
  */
-export function buildExternalCallTracesHref(target: ExternalCallTarget, timeRangePreset: TimeRangePreset): string {
+export function buildExternalCallTracesHref(target: ExternalCallTarget, timeRangePreset: TimeRangePreset, window?: ExternalCallWindow): string {
 	const attributes: SpanAttributeFilter[] = [{ bag: 'Span', key: 'server.address', value: target.domain }];
 	const condition: TraceSpanCondition = { name: 'A', attributes };
 	if (target.service) condition.serviceName = target.service;
@@ -283,6 +290,11 @@ export function buildExternalCallTracesHref(target: ExternalCallTarget, timeRang
 		attributeFilters: [],
 		structure: { expression: 'A', conditions: [condition] }
 	};
+	if (window) {
+		state.timeRangePreset = 'custom';
+		state.customRange = { from: new Date(window.fromMs).toISOString(), to: new Date(window.toMs).toISOString() };
+		if (window.sortByDuration) state.sortBy = 'Duration';
+	}
 	return `/traces?state=${encodeStateDeepLinkParam(state)}`;
 }
 

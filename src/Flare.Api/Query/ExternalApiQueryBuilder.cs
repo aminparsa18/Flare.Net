@@ -83,6 +83,32 @@ public static class ExternalApiQueryBuilder
     public const string StatusCodeExpr =
         "if(SpanAttributes['http.response.status_code'] != '', SpanAttributes['http.response.status_code'], SpanAttributes['http.status_code'])";
 
+    /// <summary>
+    /// <c>server.port</c>, else <c>net.peer.port</c>, else the URL's explicit port, else the
+    /// scheme's default (443/80). Empty when none of those apply (a gRPC call without
+    /// <c>server.port</c>, a bare span name).
+    /// </summary>
+    public const string PortExpr =
+        "multiIf(SpanAttributes['server.port'] != '', SpanAttributes['server.port'], " +
+        "SpanAttributes['net.peer.port'] != '', SpanAttributes['net.peer.port'], " +
+        $"port({UrlExpr}) != 0, toString(port({UrlExpr})), " +
+        $"protocol({UrlExpr}) = 'https', '443', " +
+        $"protocol({UrlExpr}) = 'http', '80', '')";
+
+    /// <summary>Distinct ports shown per domain - more than a handful means something odd, and the column would just overflow.</summary>
+    public const int MaxPortsPerDomain = 5;
+
+    /// <summary>The domain drill-down's charts target roughly this many buckets.</summary>
+    private const int TargetBuckets = 60;
+
+    /// <summary>
+    /// Bucket width for the drill-down's charts: about <see cref="TargetBuckets"/> buckets,
+    /// rounded up to a 10-second multiple so bucket edges land on readable times (5m = 10s,
+    /// 1h = 60s, 24h = 24m).
+    /// </summary>
+    public static int BucketWidthSecondsFor(int windowMinutes) =>
+        Math.Max(10, (int)Math.Ceiling(windowMinutes * 60.0 / TargetBuckets / 10.0) * 10);
+
     /// <summary>Which rule produced <see cref="EndpointExpr"/>'s value - <see cref="ExternalEndpointSource"/>'s ordinals.</summary>
     public const string EndpointSourceExpr =
         "multiIf(SpanAttributes['url.template'] != '', 0, " +
@@ -110,7 +136,9 @@ public static class ExternalApiQueryBuilder
 
     /// <summary>
     /// One row per domain. Columns: Domain, CallCount, ErrorCount, Quantiles (p50/p95/p99
-    /// nanoseconds), ServiceCount, EndpointCount, LastSeenUnixMs.
+    /// nanoseconds), ServiceCount, EndpointCount, LastSeenUnixMs, Ports (up to
+    /// <see cref="MaxPortsPerDomain"/> distinct <see cref="PortExpr"/> values in numeric order,
+    /// joined with <c>", "</c>).
     /// </summary>
     public static ExternalApiSql BuildDomains(ExternalDomainsRequest request, int windowMinutes, DateTimeOffset end)
     {
@@ -126,7 +154,8 @@ public static class ExternalApiQueryBuilder
             "    quantiles(0.5, 0.95, 0.99)(DurationNano) AS Quantiles,\n" +
             "    uniqExact(ServiceName) AS ServiceCount,\n" +
             "    uniqExact(ExtMethod, ExtEndpoint) AS EndpointCount,\n" +
-            "    toUnixTimestamp64Milli(max(StartTime)) AS LastSeenUnixMs\n" +
+            "    toUnixTimestamp64Milli(max(StartTime)) AS LastSeenUnixMs,\n" +
+            $"    arrayStringConcat(arraySort(p -> toUInt32OrZero(p), groupUniqArrayIf({MaxPortsPerDomain})(ExtPort, ExtPort != '')), ', ') AS Ports\n" +
             $"FROM {SpanSource(where, withEndpoint: true)}\n" +
             "GROUP BY ExtDomain\n" +
             "ORDER BY CallCount DESC, ExtDomain\n" +
@@ -193,6 +222,29 @@ public static class ExternalApiQueryBuilder
             "GROUP BY ExtStatusCode\n" +
             "ORDER BY toUInt16OrNull(ExtStatusCode) ASC NULLS LAST, ExtStatusCode\n" +
             "LIMIT {limit:UInt32}";
+
+        return new ExternalApiSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// One domain's calls per <paramref name="bucketWidthSeconds"/> bucket - the drill-down's
+    /// rate/error/p95 charts. Columns: BucketStartUnixMs, CallCount, ErrorCount, P95 (nanoseconds).
+    /// Buckets with no calls are omitted; the dashboard fills them in.
+    /// </summary>
+    public static ExternalApiSql BuildSeries(ExternalDomainDetailRequest request, int windowMinutes, int bucketWidthSeconds, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = SpanWhere(parameters, windowMinutes, end, request.Service, request.Domain);
+        parameters.AddParameter("bucketWidth", (uint)bucketWidthSeconds);
+
+        var sql = "SELECT\n" +
+            "    toInt64(toUnixTimestamp(toStartOfInterval(toDateTime(StartTime), INTERVAL {bucketWidth:UInt32} SECOND))) * 1000 AS BucketStartUnixMs,\n" +
+            "    count() AS CallCount,\n" +
+            "    countIf(IsError) AS ErrorCount,\n" +
+            "    quantile(0.95)(DurationNano) AS P95\n" +
+            $"FROM {SpanSource(where, withEndpoint: false)}\n" +
+            "GROUP BY BucketStartUnixMs\n" +
+            "ORDER BY BucketStartUnixMs";
 
         return new ExternalApiSql(sql, parameters);
     }
@@ -268,6 +320,7 @@ public static class ExternalApiQueryBuilder
         $"        {DomainExpr} AS ExtDomain,\n" +
         $"        {MethodExpr} AS ExtMethod,\n" +
         $"        {StatusCodeExpr} AS ExtStatusCode,\n" +
+        $"        {PortExpr} AS ExtPort,\n" +
         (withEndpoint
             ? $"        {EndpointExpr} AS ExtEndpoint,\n" +
               $"        {EndpointSourceExpr} AS ExtEndpointSource,\n"

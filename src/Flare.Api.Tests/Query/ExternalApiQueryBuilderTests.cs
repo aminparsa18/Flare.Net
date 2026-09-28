@@ -85,6 +85,8 @@ public class ExternalApiQueryBuilderTests
         Assert.Contains("uniqExact(ExtMethod, ExtEndpoint) AS EndpointCount", result.Sql);
         Assert.Contains("toUnixTimestamp64Milli(max(StartTime)) AS LastSeenUnixMs", result.Sql);
         Assert.Contains("GROUP BY ExtDomain", result.Sql);
+        Assert.Contains($"{ExternalApiQueryBuilder.PortExpr} AS ExtPort", result.Sql);
+        Assert.Contains($"arrayStringConcat(arraySort(p -> toUInt32OrZero(p), groupUniqArrayIf({ExternalApiQueryBuilder.MaxPortsPerDomain})(ExtPort, ExtPort != '')), ', ') AS Ports", result.Sql);
         Assert.DoesNotContain("{service:String}", result.Sql);
 
         var parameters = result.Parameters.ToDictionary();
@@ -124,6 +126,7 @@ public class ExternalApiQueryBuilderTests
             ExternalApiQueryBuilder.BuildStatusCodes(request, 60, End),
             ExternalApiQueryBuilder.BuildCallers(request, 60, End),
             ExternalApiQueryBuilder.BuildTopErrors(request, 60, End),
+            ExternalApiQueryBuilder.BuildSeries(request, 60, 60, End),
         })
         {
             Assert.Contains($"{ExternalApiQueryBuilder.DomainExpr} = {{domain:String}}", built.Sql);
@@ -174,5 +177,43 @@ public class ExternalApiQueryBuilderTests
         Assert.Contains("SpanAttributes['error.type'] AS ExtErrorType", result.Sql);
         Assert.Contains("anyIf(StatusMessage, StatusMessage != '') AS SampleMessage", result.Sql);
         Assert.Equal((uint)ExternalApiQueryBuilder.MaxErrorGroups, result.Parameters.ToDictionary()["limit"]);
+    }
+
+    [Fact]
+    public void PortExpr_FallsBackToOlderName_ThenUrlPort_ThenSchemeDefault()
+    {
+        var expr = ExternalApiQueryBuilder.PortExpr;
+
+        var server = expr.IndexOf("SpanAttributes['server.port']", StringComparison.Ordinal);
+        var net = expr.IndexOf("SpanAttributes['net.peer.port']", StringComparison.Ordinal);
+        var url = expr.IndexOf("port(if(", StringComparison.Ordinal);
+        var https = expr.IndexOf("= 'https', '443'", StringComparison.Ordinal);
+        var http = expr.IndexOf("= 'http', '80'", StringComparison.Ordinal);
+        Assert.True(server >= 0 && server < net && net < url && url < https && https < http);
+        Assert.EndsWith(", '')", expr);
+    }
+
+    [Theory]
+    [InlineData(5, 10)]
+    [InlineData(15, 20)]
+    [InlineData(60, 60)]
+    [InlineData(360, 360)]
+    [InlineData(1440, 1440)]
+    public void BucketWidthSecondsFor_TargetsAboutSixtyBuckets_InTenSecondSteps(int windowMinutes, int expected)
+    {
+        Assert.Equal(expected, ExternalApiQueryBuilder.BucketWidthSecondsFor(windowMinutes));
+    }
+
+    [Fact]
+    public void BuildSeries_BucketsCallsErrorsAndP95_OldestFirst()
+    {
+        var result = ExternalApiQueryBuilder.BuildSeries(Detail, 60, 60, End);
+
+        Assert.Contains("toStartOfInterval(toDateTime(StartTime), INTERVAL {bucketWidth:UInt32} SECOND)", result.Sql);
+        Assert.Contains("quantile(0.95)(DurationNano) AS P95", result.Sql);
+        Assert.Contains("GROUP BY BucketStartUnixMs", result.Sql);
+        Assert.Contains("ORDER BY BucketStartUnixMs", result.Sql);
+        Assert.DoesNotContain("ExtEndpoint", result.Sql);
+        Assert.Equal(60u, result.Parameters.ToDictionary()["bucketWidth"]);
     }
 }

@@ -44,6 +44,7 @@ correspond à un domaine :
 | Colonne | Signification |
 |---|---|
 | Domain | `server.address`, sinon `net.peer.name`, sinon l'hôte de l'URL. |
+| Port | Les ports appelés : `server.port`, sinon `net.peer.port`, sinon le port de l'URL, sinon 443 pour `https` et 80 pour `http`. Cinq au plus sont affichés. |
 | Rate | Appels par seconde sur la fenêtre. Survolez pour voir le total. |
 | Error rate | Part des appels dont le statut du span est `Error`. |
 | p95 / p99 | Percentiles de durée des appels, mesurés côté appelant. |
@@ -66,6 +67,12 @@ ventilation des services et sur la
 
 Sélectionnez un domaine pour ouvrir son détail :
 
+- **Over time** : trois graphiques sur la fenêtre : requêtes par
+  seconde, erreurs et latence p95. Sélectionnez un point pour ouvrir
+  **Traces** sur les appels de cet intervalle. Depuis le graphique p95,
+  les traces sont triées de la plus lente à la plus rapide. Un intervalle
+  dure environ une minute pour une fenêtre d'une heure et suit la fenêtre
+  (10 secondes pour 5 minutes, 24 minutes pour 24 heures).
 - **Status codes** : appels par code de statut HTTP
   (`http.response.status_code`, sinon `http.status_code`).
 - **Endpoints** : débit, taux d'erreur, p50/p95/p99 et dernier appel par
