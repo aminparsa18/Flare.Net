@@ -8,6 +8,9 @@ import * as m from '$lib/paraglide/messages';
 export interface NavLink {
 	href: string;
 	label: string;
+	/** Shown in NavUserMenu's "more" dropdown instead of AppNav's top bar - the bar was
+	 *  outgrowing its width. CommandPalette still lists every link either way. */
+	inMenu?: boolean;
 }
 
 /** /auth (the consolidated enable-auth/configure-methods/manage-users screen) is
@@ -24,15 +27,15 @@ export function navLinks(auth: AuthState): NavLink[] {
 		{ href: '/traces', label: m.nav_traces() },
 		{ href: '/errors', label: m.nav_errors() },
 		{ href: '/messaging', label: m.nav_messaging() },
-		{ href: '/external-apis', label: m.nav_externalApis() },
+		{ href: '/external-apis', label: m.nav_externalApis(), inMenu: true },
 		{ href: '/metrics', label: m.nav_metrics() },
 		{ href: '/ingestion', label: m.nav_ingestion() },
 		{ href: '/indexing', label: m.nav_indexing() },
 		{ href: '/alerts', label: m.nav_alerts() },
-		{ href: '/pipeline-rules', label: m.nav_pipelineRules() },
+		{ href: '/pipeline-rules', label: m.nav_pipelineRules(), inMenu: true },
 		{ href: '/resources', label: m.nav_resources() },
-		{ href: '/hosts', label: m.nav_hosts() },
-		{ href: '/kubernetes', label: m.nav_kubernetes() },
+		{ href: '/hosts', label: m.nav_hosts(), inMenu: true },
+		{ href: '/kubernetes', label: m.nav_kubernetes(), inMenu: true },
 		{ href: '/dashboards', label: m.nav_dashboards() },
 		{ href: '/views', label: m.nav_views() },
 		...(!auth.authEnabled || auth.currentUser?.role === 'Admin' ? [{ href: '/auth', label: m.nav_auth() }] : [])
