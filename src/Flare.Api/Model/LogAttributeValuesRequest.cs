@@ -15,8 +15,8 @@ namespace Flare.Api.Model;
 [MemoryPackable]
 public sealed partial record LogAttributeValuesRequest
 {
-    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization caveat applies here.</summary>
-    public LogFilter Filter { get; init; } = new();
+    /// <summary>See <see cref="LogSearchRequest.Filter"/>'s doc comment - never null, for the same reason.</summary>
+    public LogFilter Filter { get; init => field = value ?? new(); } = new();
 
     /// <summary>Which bag <see cref="Key"/> is looked up in - same three bags <see cref="AttributeFilter.Bag"/> targets.</summary>
     public AttributeBag Bag { get; init; } = AttributeBag.Log;

@@ -166,8 +166,8 @@ public sealed partial record PipelineRuleRequest
 
     public bool? Enabled { get; init; }
 
-    /// <summary>See <see cref="Model.LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization default caveat applies here.</summary>
-    public LogFilter Condition { get; init; } = new();
+    /// <summary>See <see cref="Model.LogSearchRequest.Filter"/> - never null, same reason.</summary>
+    public LogFilter Condition { get; init => field = value ?? new(); } = new();
 
     public IReadOnlyList<PipelineRuleAction>? Actions { get; init; }
 

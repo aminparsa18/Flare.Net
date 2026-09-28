@@ -127,7 +127,7 @@ public sealed partial record MetricAttributeKeysRequest
 
     public required MetricPointType Type { get; init; }
 
-    public MetricFilter Filter { get; init; } = new();
+    public MetricFilter Filter { get; init => field = value ?? new(); } = new();
 }
 
 /// <summary>
@@ -184,7 +184,7 @@ public sealed partial record MetricQueryRequest
 
     public required MetricPointType Type { get; init; }
 
-    public MetricFilter Filter { get; init; } = new();
+    public MetricFilter Filter { get; init => field = value ?? new(); } = new();
 
     /// <summary>Bucket width, e.g. 60 for 1-minute buckets. Compiles to <c>toStartOfInterval(Time, INTERVAL n SECOND)</c>, same convention as <c>LogAggregateRequest.BucketWidthSeconds</c>.</summary>
     public required int BucketWidthSeconds { get; init; }

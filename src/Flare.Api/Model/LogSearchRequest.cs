@@ -7,14 +7,15 @@ namespace Flare.Api.Model;
 public sealed partial record LogSearchRequest
 {
     /// <summary>
-    /// The <c>= new()</c> default only applies to callers constructing this in C#
-    /// directly - confirmed live that <see cref="System.Text.Json.JsonSerializer"/>
-    /// overwrites it back to <see langword="null"/> when a JSON body omits
-    /// <c>"filter"</c> entirely (it always assigns init-only properties via
-    /// object-initializer during deserialization). <see cref="Query.LogSearchQueryBuilder"/>
-    /// coalesces defensively rather than trust this default once JSON is involved.
+    /// Never null. A JSON body that omits <c>"filter"</c> (or sends <c>null</c>) means "no
+    /// filter". <see cref="System.Text.Json.JsonSerializer"/> assigns every init-only
+    /// property through the object initializer, so a missing <c>"filter"</c> arrives as an
+    /// explicit <see langword="null"/> and overwrites the <c>= new()</c> default. The
+    /// <c>init</c> accessor turns that back into an empty filter. Without it, any code that
+    /// read <c>Filter</c> without coalescing (e.g. <c>CachingLogQueryService</c>) threw a
+    /// <see cref="NullReferenceException"/>, returned as a 500.
     /// </summary>
-    public LogFilter Filter { get; init; } = new();
+    public LogFilter Filter { get; init => field = value ?? new(); } = new();
 
     /// <summary>Opaque cursor from a previous <see cref="LogSearchResponse.NextCursor"/>; omit for the first page.</summary>
     public string? Cursor { get; init; }

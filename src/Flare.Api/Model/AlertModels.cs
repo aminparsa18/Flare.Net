@@ -145,7 +145,7 @@ public sealed partial record MetricAlertCondition
 
     public required MetricPointType Type { get; init; }
 
-    public MetricFilter Filter { get; init; } = new();
+    public MetricFilter Filter { get; init => field = value ?? new(); } = new();
 
     public MetricAlertAggregation Aggregation { get; init; } = MetricAlertAggregation.Value;
 }
@@ -180,7 +180,7 @@ public sealed partial record ExceptionCountCondition
     /// </summary>
     public string ExceptionMessage { get; init; } = "";
 
-    public ExceptionFilter Filter { get; init; } = new();
+    public ExceptionFilter Filter { get; init => field = value ?? new(); } = new();
 }
 
 /// <summary>
@@ -466,8 +466,8 @@ public sealed partial record AlertRuleRequest
 
     public bool? Enabled { get; init; }
 
-    /// <summary>See <see cref="Model.LogSearchRequest.Filter"/>'s doc comment - the same JSON-deserialization default caveat applies here.</summary>
-    public LogFilter Condition { get; init; } = new();
+    /// <summary>See <see cref="Model.LogSearchRequest.Filter"/> - never null, same reason.</summary>
+    public LogFilter Condition { get; init => field = value ?? new(); } = new();
 
     public required AlertThreshold Threshold { get; init; }
 
