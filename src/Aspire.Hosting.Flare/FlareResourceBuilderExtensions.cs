@@ -68,7 +68,7 @@ public static class FlareResourceBuilderExtensions
     /// <param name="builder">The <see cref="IDistributedApplicationBuilder"/>.</param>
     /// <param name="name">The name of the Flare resource group.</param>
     /// <param name="imageTag">
-    /// The tag to pull for all four Flare images. Defaults to <c>"0.5.0"</c>, the latest
+    /// The tag to pull for all four Flare images. Defaults to <c>"0.5.1"</c>, the latest
     /// stable Flare release this package version was tested against - deliberately NOT
     /// Docker Hub's floating <c>latest</c>/<c>edge</c> tags, so a given
     /// <c>Flare.Hosting.Aspire</c> NuGet version keeps pulling the same images forever
@@ -81,10 +81,11 @@ public static class FlareResourceBuilderExtensions
     /// when overriding just an image name/registry - there's no separate per-image tag
     /// override.
     /// <para>
-    /// <c>apardev/flare-alert-worker</c> has been published on Docker Hub since the
-    /// <c>v0.5.0</c> Flare release (<c>docs-internal/adr/0018-alert-worker-extraction.md</c>'s
-    /// release gate) - any tag from <c>0.5.0</c> onward resolves for all four images,
-    /// alert-worker included.
+    /// <c>flare-alert-worker</c> has been published on Docker Hub since the <c>v0.5.0</c>
+    /// Flare release (<c>docs-internal/adr/0018-alert-worker-extraction.md</c>'s release
+    /// gate), but the <c>apardev/*</c> images this package pulls start at <c>0.5.1</c>
+    /// (earlier releases were published as <c>xracer007/*</c>) - any tag from <c>0.5.1</c>
+    /// onward resolves for all four images, alert-worker included.
     /// </para>
     /// </param>
     /// <param name="enableResourceGraph">
@@ -151,7 +152,7 @@ public static class FlareResourceBuilderExtensions
     public static IResourceBuilder<FlareResource> AddFlare(
         this IDistributedApplicationBuilder builder,
         [ResourceName] string name = "flare",
-        string imageTag = "0.5.0",
+        string imageTag = "0.5.1",
         bool enableResourceGraph = false)
     {
         ArgumentNullException.ThrowIfNull(builder);

@@ -117,8 +117,8 @@ machine. Decided once at an instance's first `flare start` and persisted —
 with a clear error. Point `--cluster` at a fresh `--name` (or
 `flare destroy --purge-config` first) to switch an instance's mode.
 
-**Defaults to `FLARE_IMAGE_TAG=0.5.0`**, kept as its own pin, independent of
-the standalone instance's own default (currently also `0.5.0`) —
+**Defaults to `FLARE_IMAGE_TAG=0.5.1`**, kept as its own pin, independent of
+the standalone instance's own default (currently also `0.5.1`) —
 cluster-mode support merged after `v0.2.0` was tagged, and `v0.3.0` was the
 first stable release that included it; both pins have since caught up to
 `v0.5.0`, the first release with a published `flare-alert-worker` image.
@@ -154,7 +154,7 @@ What's different from a standalone instance:
 ## Image tag policy
 
 `~/.flare/.env` defaults `FLARE_IMAGE_TAG` to the latest stable Flare
-release this CLI version was tested against (currently `0.5.0` for both
+release this CLI version was tested against (currently `0.5.1` for both
 standalone and cluster mode — see
 [Cluster mode](#cluster-mode) above; see
 [`../../.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml)
@@ -178,3 +178,4 @@ Version history (standalone instance's own default):
 | 0.1.4 (2026-08-23) | `0.2.0` (unchanged — this release added cluster mode, whose own separate default started at `edge` since no stable release included it yet) |
 | 0.1.5 (2026-08-23) | `0.2.0` (unchanged — cluster mode's own default moved `edge` → `0.3.0` the same day, once that first cluster-capable stable release shipped) |
 | 0.1.6 (2026-09-10) | `0.5.0` (both standalone and cluster pins bumped together, once `v0.5.0` shipped the first published `flare-alert-worker` image) |
+| 0.1.7 (2026-09-28) | `0.5.1` (both pins; 0.1.6's `0.5.0` pointed at `apardev/*` images that only exist from `0.5.1`, so a fresh install failed to pull) |
