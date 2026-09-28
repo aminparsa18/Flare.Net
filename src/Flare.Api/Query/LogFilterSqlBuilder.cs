@@ -36,6 +36,23 @@ public static class LogFilterSqlBuilder
     public static readonly TimeSpan DefaultLookback = TimeSpan.FromHours(1);
 
     /// <summary>
+    /// Case-insensitive <c>LIKE</c> against <c>Body</c>, written so ClickHouse can use
+    /// <c>idx_body_ngram</c> (migration 0036, ADR-0073). <c>Body ILIKE</c> matches the same
+    /// rows but no skip index is ever consulted for it. <c>lowerUTF8</c> rather than
+    /// <c>lower</c>: <c>lower</c> folds ASCII only, so a Cyrillic search would silently
+    /// stop matching.
+    /// </summary>
+    /// <param name="patternParameter">A bound pattern placeholder, e.g. <c>{search:String}</c>.</param>
+    public static string BodyLikeSql(string patternParameter) =>
+        $"{BodyIndexExpr} LIKE lowerUTF8({patternParameter})";
+
+    /// <summary>
+    /// <c>idx_body_ngram</c>'s indexed expression. ClickHouse only uses a skip index when
+    /// the query's expression matches it exactly; a unit test checks migration 0036 uses this.
+    /// </summary>
+    public const string BodyIndexExpr = "lowerUTF8(Body)";
+
+    /// <summary>
     /// Builds a <c>%text%</c> substring pattern for <c>ILIKE</c> with the user's own text
     /// escaped, so a literal <c>%</c>, <c>_</c> or <c>\</c> (e.g. <c>user_id</c>,
     /// <c>100%</c>, <c>C:\temp</c>) matches itself rather than acting as a LIKE
@@ -100,9 +117,9 @@ public static class LogFilterSqlBuilder
         {
             // Pattern is fully formed client-side and bound as one parameter value,
             // rather than built server-side via concat('%', {search:String}, '%') -
-            // equivalent ILIKE semantics, one fewer moving part.
+            // same match, one fewer moving part.
             parameters.AddParameter("search", ContainsPattern(filter.Search));
-            clauses.Add("Body ILIKE {search:String}");
+            clauses.Add(BodyLikeSql("{search:String}"));
         }
 
         if (filter.Attributes is { Count: > 0 } attributes)

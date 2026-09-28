@@ -1,0 +1,24 @@
+-- Index-backed Logs free-text search, migration 0036.
+--
+-- `Flare.Api`'s `LogFilterSqlBuilder` used to compile `LogFilter.Search` to
+-- `Body ILIKE '%term%'`. ClickHouse never consults a skip index for `ILIKE`, and 0001's
+-- `idx_body` (`tokenbf_v1`) can't serve a `%term%` substring even case-sensitively, so
+-- every search read every row in its time window. The search now compiles to
+-- `lowerUTF8(Body) LIKE lowerUTF8('%term%')`, which this index serves. The expression
+-- must match the query's exactly (a unit test checks it against
+-- `LogFilterSqlBuilder.BodyIndexExpr`). `lowerUTF8`, not `lower`: `lower` folds ASCII
+-- only, so a Cyrillic search would stop matching. See
+-- docs-internal/adr/0073-logs-body-ngram-search-index.md and
+-- docs-internal/investigations/logs-body-search-skip-index.md.
+--
+-- `ngrambf_v1(4, 32768, 3, 0)`: 4-byte ngrams, 32 KB bloom filter per granule (the same
+-- budget as `idx_body`), 3 hashes. Measured at about 35% of `Body`'s compressed size, with
+-- the same pruning as SigNoz's `(4, 60000, 5, 0)` for word and phrase searches. `idx_body`
+-- stays: dropping it isn't additive, and it still serves `hasToken`.
+--
+-- No MATERIALIZE INDEX: that would rewrite index data for the whole table at the next
+-- startup. New parts are indexed as they're written, and merged parts as they merge.
+-- Older parts are scanned as before (searches default to a 1-hour lookback). An
+-- operator who wants old data indexed now can run
+-- `ALTER TABLE clickhousedb.logs MATERIALIZE INDEX idx_body_ngram`.
+ALTER TABLE clickhousedb.logs ADD INDEX IF NOT EXISTS idx_body_ngram lowerUTF8(Body) TYPE ngrambf_v1(4, 32768, 3, 0) GRANULARITY 1;

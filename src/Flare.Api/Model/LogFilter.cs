@@ -206,9 +206,9 @@ public sealed partial record LogFilter
 
     /// <summary>
     /// Free-text, case-insensitive substring match against <c>Body</c>
-    /// (<c>ILIKE '%term%'</c>). See <c>Flare.Api</c>'s README for why this is
-    /// substring/case-insensitive rather than token-aligned, and what that costs against
-    /// the <c>Body</c> column's <c>tokenbf_v1</c> skip index.
+    /// (<c>lowerUTF8(Body) LIKE lowerUTF8('%term%')</c>, served by the
+    /// <c>idx_body_ngram</c> skip index). See <c>Flare.Api</c>'s README for why it's
+    /// written that way rather than as <c>ILIKE</c>.
     /// </summary>
     public string? Search { get; init; }
 

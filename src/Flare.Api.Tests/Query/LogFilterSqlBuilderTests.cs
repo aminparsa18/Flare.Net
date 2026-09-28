@@ -113,12 +113,28 @@ public class LogFilterSqlBuilderTests
     }
 
     [Fact]
-    public void Build_WithSearch_WrapsTermInWildcards_ForIlike()
+    public void Build_WithSearch_WrapsTermInWildcards_ForLowerUtf8Like()
     {
         var result = LogFilterSqlBuilder.Build(new LogFilter { Search = "boom" }, Now);
 
-        Assert.Contains("Body ILIKE {search:String}", result.WhereSql);
+        Assert.Contains("lowerUTF8(Body) LIKE lowerUTF8({search:String})", result.WhereSql);
+        Assert.DoesNotContain("ILIKE", result.WhereSql);
         Assert.Equal("%boom%", result.Parameters.ToDictionary()["search"]);
+    }
+
+    [Theory]
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.Sql.0036_logs_body_ngram_index.sql")]
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.0036_logs_body_ngram_index.sql")]
+    public void Migration0036_IndexesTheSameExpressionTheSearchFilterQueries(string resourceName)
+    {
+        // ClickHouse ignores a skip index unless the WHERE expression matches it exactly, so
+        // drifting either side silently turns every search back into a full scan.
+        var assembly = typeof(Flare.ServiceDefaults.ClickHouseMigrations.ClickHouseMigrationRunner).Assembly;
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        Assert.NotNull(stream);
+        var sql = new StreamReader(stream).ReadToEnd();
+
+        Assert.Contains($"idx_body_ngram {LogFilterSqlBuilder.BodyIndexExpr} TYPE ngrambf_v1", sql);
     }
 
     [Theory]
