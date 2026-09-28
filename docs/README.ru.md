@@ -37,6 +37,7 @@
 - [Запуск в кластерном режиме](how-to/run-cluster-mode.ru.md)
 - [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor-hosts.ru.md)
 - [Мониторинг очередей сообщений](how-to/monitor-message-queues.ru.md)
+- [Мониторинг внешних API](how-to/monitor-external-apis.ru.md)
 - [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/analyze-trace-funnels.ru.md)
 - [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
 - [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)

@@ -9,21 +9,48 @@ public class ServiceCallBreakdownQueryBuilderTests
     private static readonly DateTimeOffset Now = new(2026, 9, 9, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void Build_ExternalCallsQuery_GroupsByPeerService_FilteredToRequestedService()
+    public void Build_ExternalCallsQuery_GroupsByExternalTarget_FilteredToRequestedService()
     {
         var result = ServiceCallBreakdownQueryBuilder.Build("checkout-api", TimeSpan.FromMinutes(15), Now);
 
-        Assert.Contains("SpanAttributes['peer.service'] AS PeerService", result.ExternalCallsSql);
+        Assert.Contains($"{ServiceCallBreakdownQueryBuilder.ExternalTargetExpr} AS PeerService", result.ExternalCallsSql);
         Assert.Contains("count() AS CallCount", result.ExternalCallsSql);
         Assert.Contains("countIf(StatusCode = {errorStatus:String}) AS ErrorCount", result.ExternalCallsSql);
         Assert.Contains("quantile(0.5)(DurationNano) AS P50DurationNano", result.ExternalCallsSql);
         Assert.Contains("quantile(0.95)(DurationNano) AS P95DurationNano", result.ExternalCallsSql);
-        Assert.Contains("WHERE ServiceName = {service:String} AND SpanAttributes['peer.service'] != ''", result.ExternalCallsSql);
+        Assert.Contains($"WHERE ServiceName = {{service:String}} AND {ServiceCallBreakdownQueryBuilder.ExternalTargetExpr} != ''", result.ExternalCallsSql);
         Assert.Contains("GROUP BY PeerService", result.ExternalCallsSql);
         Assert.Contains("ORDER BY CallCount DESC", result.ExternalCallsSql);
 
         var parameters = result.ExternalCallsParameters.ToDictionary();
         Assert.Equal("checkout-api", parameters["service"]);
+    }
+
+    [Fact]
+    public void ExternalTargetExpr_PrefersPeerService_ThenFallsBackToTheDomainOfOutboundClientCallsOnly()
+    {
+        var expr = ServiceCallBreakdownQueryBuilder.ExternalTargetExpr;
+
+        Assert.StartsWith("if(SpanAttributes['peer.service'] != '', SpanAttributes['peer.service'], ", expr);
+        Assert.Contains($"if({ExternalApiQueryBuilder.OutboundCallCondition}, {ExternalApiQueryBuilder.DomainExpr}, '')", expr);
+        Assert.Contains("Kind = 3", ExternalApiQueryBuilder.OutboundCallCondition);
+        Assert.Contains("SpanAttributes['db.system'] = ''", ExternalApiQueryBuilder.OutboundCallCondition);
+        Assert.Contains("SpanAttributes['messaging.system'] = ''", ExternalApiQueryBuilder.OutboundCallCondition);
+    }
+
+    [Theory]
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.Sql.0034_service_call_breakdown_external_domain.sql")]
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.0034_service_call_breakdown_external_domain.sql")]
+    public void Migration0034_KeysTheExternalMaterializedViewByTheSameExpressionAsTheLiveQuery(string resourceName)
+    {
+        // The pre-aggregated and live paths must group identically, or toggling
+        // ServiceDependencyMetrics (or adding a filter chip) would change the rows.
+        var assembly = typeof(Flare.ServiceDefaults.ClickHouseMigrations.ClickHouseMigrationRunner).Assembly;
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        Assert.NotNull(stream);
+        var sql = new StreamReader(stream).ReadToEnd();
+
+        Assert.Contains($"{ServiceCallBreakdownQueryBuilder.ExternalTargetExpr} AS PeerService", sql);
     }
 
     [Fact]

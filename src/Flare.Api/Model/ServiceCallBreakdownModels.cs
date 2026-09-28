@@ -14,7 +14,7 @@ namespace Flare.Api.Model;
 [GenerateTypeScript]
 public sealed partial record ExternalCallGroup
 {
-    /// <summary>The <c>peer.service</c> span attribute value - the external target's name, as the calling service itself labeled it. Never empty (the query only groups spans that set this attribute).</summary>
+    /// <summary>The <c>peer.service</c> span attribute value - the external target's name, as the calling service itself labeled it - else, for an outbound client call without one, the domain it went to (<see cref="Query.ServiceCallBreakdownQueryBuilder.ExternalTargetExpr"/>, ADR-0071). Never empty. Name kept for wire compatibility.</summary>
     public required string PeerService { get; init; }
 
     public required ulong CallCount { get; init; }

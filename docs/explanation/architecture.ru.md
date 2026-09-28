@@ -226,6 +226,20 @@ NOT — например, «спан `checkout` с потомком `payment`, �
 [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) и
 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md).
 
+### Внешние API
+
+`/external-apis` — по строке на каждый внешний домен, который вызывают
+ваши сервисы: частота, доля ошибок, задержка p95/p99, число эндпоинтов и
+время последнего вызова. Всё вычисляется во время запроса из
+`server.address` спанов `CLIENT` (иначе `net.peer.name`, иначе хост из
+URL), без вызовов баз данных и брокеров сообщений. Нажмите на домен, чтобы
+увидеть его эндпоинты (метод плюс `url.template` или путь URL, где
+сегменты-идентификаторы заменены на `{id}`), коды ответа, частые ошибки и
+вызывающие сервисы - со ссылками на соответствующие трейсы. Вкладка
+External calls в разбивке сервиса использует тот же домен, если у span
+нет `peer.service`. См. [`../how-to/monitor-external-apis.ru.md`](../how-to/monitor-external-apis.ru.md)
+и [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md).
+
 ### Метрики
 
 `/metrics` — каждый OTLP-инструмент метрик (Sum, Gauge, Histogram, экспоненциальная Histogram),

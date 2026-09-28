@@ -102,22 +102,11 @@ folders are where "what happened and why" actually lives.
   started. Prior art: deployments/clusters/namespaces
   [signoz#6786](https://github.com/SigNoz/signoz/commit/403043e076bf60aa4b77a7df45eed06b286f5be0),
   statefulsets/daemonsets/jobs/volumes [signoz#6629](https://github.com/SigNoz/signoz/commit/813ca8bc230268d8904a786b18da8659045b18ce).
-- **External API monitoring by domain.** `ServiceCallBreakdownQueryBuilder`
-  groups external calls by `peer.service` only, but .NET's `HttpClient`
-  instrumentation doesn't set it - it sets `server.address`, `url.full`,
-  `http.request.method` - so a typical .NET app's calls to Stripe/Twilio/
-  another team's API likely don't appear in the per-service call
-  breakdown or as Service Map external nodes at all. Step 1 (small,
-  arguably a bug fix): fall back to `server.address` when `peer.service`
-  is empty, in the breakdown and the Service Map rollups. Step 2
-  (medium): a dedicated page listing every external domain with
-  per-endpoint (method + templated path) request rate, latency
-  percentiles and error rate, drilling into matching traces. Not
-  started. For the page's shape, SigNoz's later iterations settled on:
-  sortable domain and endpoint tables (with port and last-seen columns),
-  per-endpoint error rate, a status-code breakdown, a "top errors" tab
-  per domain, a "dependent services" table (which of *our* services call
-  this domain), and trace drill-down scoped to a window around the
-  selected point. Prior art: [signoz#7308](https://github.com/SigNoz/signoz/commit/02f3dfefb90b75ccee7ef07b14f903c1dfce5359),
-  [signoz#7432](https://github.com/SigNoz/signoz/commit/0b7cd4c1a74b8cee2c844f1b6c1374c1f84be447),
-  top errors per domain [signoz b86e65d](https://github.com/SigNoz/signoz/commit/b86e65d2ca78a1f1a4e39680aaf47faa9055a547).
+- **External API follow-ups.** The `/external-apis` page and the
+  breakdown's domain fallback shipped (ADR-0071). Remaining: per-domain
+  time-series charts (rate/errors/p95), with trace drill-down scoped to a
+  window around a clicked point (needs a custom range in the trace
+  explorer), and a port column. Also external-host leaf nodes on the
+  Service Map. Those need a client span to be known to have no
+  instrumented child span, or every internal `HttpClient` call gains a
+  hostname node; see ADR-0071 for why the Map was left unchanged.

@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The Services tab Map view's per-node drill-down - "what does this service call, and
-	// how slow/erroring is each one," split into External calls (grouped by peer.service)
-	// and Database calls (grouped by db.system/db.operation). Opened by clicking a node in
+	// how slow/erroring is each one," split into External calls (grouped by peer.service,
+	// else the called domain - ADR-0071) and Database calls (grouped by db.system/db.operation). Opened by clicking a node in
 	// ServiceDependencyGraph.svelte; same open-derived-from-a-shared-selection-field,
 	// onOpenChange-clears-it precedent as SpanDetailSheet.svelte reading
 	// TraceDetailState.selectedSpanId - see ServicesState.selectedService's own remarks for

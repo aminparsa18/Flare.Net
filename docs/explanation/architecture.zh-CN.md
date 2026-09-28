@@ -114,6 +114,10 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 `/messaging` — 每个 Kafka 主题、RabbitMQ 队列或 Service Bus 实体一行，显示发布和消费速率、错误率、p99 延迟，以及积压（Kafka 消费者延迟或 RabbitMQ 队列深度）。速率和延迟在查询时根据生产者和消费者 span 的 OTel `messaging.*` 属性计算，无需额外的代理或数据表；积压在配置了 Collector 的 `kafkametrics` 或 `rabbitmq` 接收器时从中读取。点击一行可查看其生产者、消费者、分区、按消费者组的延迟或按队列的深度。参见 [`../how-to/monitor-message-queues.zh-CN.md`](../how-to/monitor-message-queues.zh-CN.md)、[ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) 和 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md)。
 
+### 外部 API
+
+`/external-apis` — 你的服务调用的每个外部域名一行，显示速率、错误率、p95/p99 延迟、端点数和最近出现时间。数据在查询时根据 `CLIENT` span 的 `server.address`（否则取 `net.peer.name`，再否则取 URL 的主机名）计算，不含数据库和消息调用。点击域名可查看其端点（方法加 `url.template`，或将类似 ID 的路径段合并为 `{id}` 的 URL 路径）、状态码、主要错误和调用方服务，每项都链接到匹配的链路。当 span 没有 `peer.service` 时，服务分解的 External calls 标签页也回退到同一域名。参见 [`../how-to/monitor-external-apis.zh-CN.md`](../how-to/monitor-external-apis.zh-CN.md) 和 [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md)。
+
 ### 指标
 
 `/metrics` — 您的服务报告的每个 OTLP 度量工具（总和、仪表、直方图、指数直方图），可从可搜索侧边栏浏览，并呈现为每个工具的时间序列图表。涵盖免费的 `AddAspNetCoreInstrumentation()`/`AddRuntimeInstrumentation()` 数据（.NET GC、线程池、Kestrel、HTTP 客户端/服务器）以及您自己的 `Meter` 发出的任何内容。

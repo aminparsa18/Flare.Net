@@ -234,6 +234,21 @@ file. Voir [`../how-to/monitor-message-queues.fr.md`](../how-to/monitor-message-
 [ADR-0056](../../docs-internal/adr/0056-messaging-queue-monitoring.md) et
 [ADR-0057](../../docs-internal/adr/0057-rabbitmq-queue-depth.md).
 
+### API externes
+
+`/external-apis` — une ligne par domaine externe appelé par vos services,
+avec le débit, le taux d'erreur, la latence p95/p99, le nombre d'endpoints
+et le dernier appel. Tout est calculé au moment de la requête à partir de
+`server.address` des spans `CLIENT` (sinon `net.peer.name`, sinon l'hôte de
+l'URL), hors appels de base de données et de messagerie. Cliquez sur un
+domaine pour voir ses endpoints (méthode plus `url.template`, ou le chemin
+de l'URL où les segments ressemblant à des identifiants deviennent `{id}`),
+ses codes de statut, ses erreurs principales et les services appelants,
+chacun renvoyant vers les traces correspondantes. L'onglet External calls
+de la ventilation des services se rabat sur le même domaine quand un span
+n'a pas de `peer.service`. Voir [`../how-to/monitor-external-apis.fr.md`](../how-to/monitor-external-apis.fr.md)
+et [ADR-0071](../../docs-internal/adr/0071-external-api-monitoring.md).
+
 ### Métriques
 
 `/metrics` — chaque instrument de métrique OTLP (Sum, Gauge, Histogram, Histogram exponentiel)

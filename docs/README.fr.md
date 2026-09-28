@@ -37,6 +37,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Exécution en mode cluster](how-to/run-cluster-mode.fr.md)
 - [Surveiller des hôtes avec l'OpenTelemetry Collector](how-to/monitor-hosts.fr.md)
 - [Surveiller des files de messages](how-to/monitor-message-queues.fr.md)
+- [Surveiller les API externes](how-to/monitor-external-apis.fr.md)
 - [Trouver où les requêtes décrochent avec les entonnoirs de traces](how-to/analyze-trace-funnels.fr.md)
 - [Trouver des traces selon les relations entre leurs spans](how-to/find-traces-by-structure.fr.md)
 - [Trouver les métriques à forte cardinalité](how-to/find-high-cardinality-metrics.fr.md)

@@ -33,8 +33,12 @@ public sealed record ServiceCallBreakdownSql(
 /// process of its own ever reporting spans under that name - this correctly comes back
 /// empty rather than fabricating a breakdown for a system Flare has no visibility into.
 /// <para>
-/// <b>External calls</b>: every span this service emitted that carries a non-empty
-/// <c>peer.service</c> attribute, grouped by that attribute's value. <b>Database calls</b>:
+/// <b>External calls</b>: every span this service emitted with a non-empty
+/// <see cref="ExternalTargetExpr"/> - its <c>peer.service</c> attribute, else, for an
+/// outbound client call, the domain it went to (<c>server.address</c> and fallbacks, see
+/// <see cref="ExternalApiQueryBuilder.DomainExpr"/>) - grouped by that value. .NET's
+/// <c>HttpClient</c> instrumentation never sets <c>peer.service</c>, so without the fallback
+/// its calls wouldn't show up here at all; see ADR-0071. <b>Database calls</b>:
 /// every span this service emitted that carries a non-empty <c>db.system</c> attribute,
 /// grouped by <c>(db.system, db.operation)</c> - <c>db.operation</c> is optional in the OTel
 /// semantic conventions (unlike <c>db.system</c>), so it can legitimately group as an empty
@@ -59,6 +63,17 @@ public static class ServiceCallBreakdownQueryBuilder
     public const int MinWindowMinutes = ServiceOverviewQueryBuilder.MinWindowMinutes;
     public const int MaxWindowMinutes = ServiceOverviewQueryBuilder.MaxWindowMinutes;
 
+    /// <summary>
+    /// What an External-calls row is keyed by: <c>peer.service</c> when set, else the domain
+    /// of an outbound client call that isn't a database or messaging call
+    /// (<see cref="ExternalApiQueryBuilder.OutboundCallCondition"/>), else empty (not an
+    /// external call). Migration 0034 puts the same expression in
+    /// <c>service_call_breakdown_external_mv</c> - keep the two in step.
+    /// </summary>
+    public const string ExternalTargetExpr =
+        "if(SpanAttributes['peer.service'] != '', SpanAttributes['peer.service'], " +
+        $"if({ExternalApiQueryBuilder.OutboundCallCondition}, {ExternalApiQueryBuilder.DomainExpr}, ''))";
+
     /// <summary>Same clamp as <see cref="ServiceOverviewQueryBuilder.ClampWindowMinutes"/> - kept as its own method so this builder reads standalone, same precedent as <see cref="ServiceDependencyQueryBuilder.ClampWindowMinutes"/>.</summary>
     public static int ClampWindowMinutes(int requested) => ServiceOverviewQueryBuilder.ClampWindowMinutes(requested);
 
@@ -79,13 +94,13 @@ public static class ServiceCallBreakdownQueryBuilder
         var externalCallsClauses = new List<string>
         {
             "ServiceName = {service:String}",
-            "SpanAttributes['peer.service'] != ''",
+            $"{ExternalTargetExpr} != ''",
             "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}",
         };
         ResourceAttributeFilterSqlBuilder.AppendClauses(externalCallsClauses, externalCallsParameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
 
         var externalCallsSql = "SELECT\n" +
-            "    SpanAttributes['peer.service'] AS PeerService,\n" +
+            $"    {ExternalTargetExpr} AS PeerService,\n" +
             "    count() AS CallCount,\n" +
             "    countIf(StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
             "    quantile(0.5)(DurationNano) AS P50DurationNano,\n" +
