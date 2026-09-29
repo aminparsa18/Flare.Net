@@ -83,7 +83,7 @@
 								{pod.workloadName}
 							{:else}{@render noData()}{/if}
 						</Table.Cell>
-						<Table.Cell>
+						<Table.Cell class="max-w-48 truncate" title={pod.nodeName ?? undefined}>
 							{#if pod.nodeName}
 								<button type="button" class="hover:underline" onclick={() => k8s.openNode(pod.nodeName!)}>{pod.nodeName}</button>
 							{:else}{@render noData()}{/if}
