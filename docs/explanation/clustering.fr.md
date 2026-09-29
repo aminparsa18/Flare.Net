@@ -146,6 +146,8 @@ pour les clés de configuration exactes.
 
 ## Tableau de bord : statut du cluster sur la page Indexing
 
+![Panneau de statut du cluster sur la page Indexing](../screenshots/clustering-en.webp)
+
 `GET /api/indexing/cluster` alimente un panneau sur la page **Indexing**
 (`/indexing`, pas `/resources` — les pollers basés sur Docker de
 Resources sont explicitement des concepts mono-hôte, sans rapport avec

@@ -265,7 +265,12 @@ public static class MetricSeriesQueryBuilder
         // (see this project's own "no fake ClickHouse in unit tests" convention), not the
         // Assert.Contains SQL-substring tests this file already has, which never execute
         // the generated SQL.
-        var topSeriesSql = "SELECT ServiceName, SeriesKey FROM (\n" +
+        //
+        // Every `IN (topSeriesSql)` below is GLOBAL IN: in cluster mode both sides read
+        // Distributed tables, and a plain IN is a double-distributed subquery ClickHouse
+        // denies (Code: 288, DISTRIBUTED_IN_JOIN_SUBQUERY_DENIED). GLOBAL is a no-op on a
+        // single node - same reasoning as SpanFilterSqlBuilder's GLOBAL IN.
+        var topSeriesSql ="SELECT ServiceName, SeriesKey FROM (\n" +
             "  SELECT ServiceName, " +
             $"{rawSeriesKeyExpr} AS SeriesKey, {rankExpr} AS RankValue\n" +
             $"  FROM {table}\n" +
@@ -294,7 +299,7 @@ public static class MetricSeriesQueryBuilder
         "avg(Value) AS Value\n" +
         $"FROM {table}\n" +
         $"WHERE {whereSql}\n" +
-        $"  AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n  )\n" +
+        $"  AND (ServiceName, {rawSeriesKeyExpr}) GLOBAL IN (\n{topSeriesSql}\n  )\n" +
         "GROUP BY BucketStart, ServiceName, SeriesKey\n" +
         "ORDER BY ServiceName, SeriesKey, BucketStart";
 
@@ -305,7 +310,7 @@ public static class MetricSeriesQueryBuilder
     private static string BuildHistogramSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr) =>
         HistogramTemporalitySql.ExplicitRankedCte(
             table,
-            $"{whereSql}\n    AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n    )",
+            $"{whereSql}\n    AND (ServiceName, {rawSeriesKeyExpr}) GLOBAL IN (\n{topSeriesSql}\n    )",
             $"ServiceName, DataPointAttributes, {seriesKeyExpr}, toStartOfInterval(Time, INTERVAL {{bucketWidth:UInt32}} SECOND) AS BucketStart") +
         $"SELECT BucketStart, ServiceName, SeriesKey, {seriesAttributesExpr}, {HistogramTemporalitySql.ExplicitAggregates}\n" +
         "FROM ranked\n" +
@@ -321,7 +326,7 @@ public static class MetricSeriesQueryBuilder
     private static string BuildExponentialHistogramSql(string table, string whereSql, string topSeriesSql, string rawSeriesKeyExpr, string seriesKeyExpr, string seriesAttributesExpr) =>
         HistogramTemporalitySql.ExponentialContributionsCte(
             table,
-            $"{whereSql}\n    AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n    )",
+            $"{whereSql}\n    AND (ServiceName, {rawSeriesKeyExpr}) GLOBAL IN (\n{topSeriesSql}\n    )",
             $"ServiceName, DataPointAttributes, {seriesKeyExpr}, toStartOfInterval(Time, INTERVAL {{bucketWidth:UInt32}} SECOND) AS BucketStart",
             "ServiceName, DataPointAttributes, SeriesKey, BucketStart") +
         $"SELECT BucketStart, ServiceName, SeriesKey, {seriesAttributesExpr}, {HistogramTemporalitySql.ExponentialAggregates}\n" +
@@ -346,7 +351,7 @@ public static class MetricSeriesQueryBuilder
         "    Value - lagInFrame(Value) OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS RawDelta\n" +
         $"  FROM {table}\n" +
         $"  WHERE {whereSql}\n" +
-        $"    AND (ServiceName, {rawSeriesKeyExpr}) IN (\n{topSeriesSql}\n    )\n" +
+        $"    AND (ServiceName, {rawSeriesKeyExpr}) GLOBAL IN (\n{topSeriesSql}\n    )\n" +
         ")\n" +
         $"SELECT BucketStart, ServiceName, SeriesKey, {seriesAttributesExpr},\n" +
         "  sum(multiIf(\n" +

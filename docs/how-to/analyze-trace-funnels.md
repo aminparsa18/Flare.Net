@@ -32,7 +32,11 @@ instrumentation, and a funnel works on spans stored before you defined it.
 3. Use **Add step** for up to six steps, and the arrows to reorder them.
 4. Pick a window (5 minutes to 24 hours) and click **Run**.
 
+![Funnel steps: storefront, checkout, payment and order confirmation](../screenshots/analyze-trace-funnels-en.webp)
+
 ## Read the results
+
+![Funnel results with drop-off, errors and transition latency per step](../screenshots/analyze-trace-funnels-2-en.webp)
 
 | Column | Meaning |
 |---|---|
@@ -45,6 +49,8 @@ instrumentation, and a funnel works on spans stored before you defined it.
 Click a number under **Traces**, **Dropped after** or **Errors** to list
 those traces, most recent first (up to 100). Click a trace ID to open its
 waterfall.
+
+![Traces that reached the payment step but not order confirmation](../screenshots/analyze-trace-funnels-3-en.webp)
 
 The funnel doesn't re-run as you edit the steps. Click **Run** again after
 changing them. Changing the window re-runs it.

@@ -49,7 +49,11 @@ Open **Dashboards** in the top nav to see every dashboard you've created,
 and click **Open** on one to view all its panels together, each showing
 live data.
 
+![A dashboard with value, pie, time series and stacked bar panels](../screenshots/build-custom-dashboards-en.webp)
+
 ## Editing a dashboard's layout
+
+![A dashboard in edit mode, with drag handles and per-panel actions](../screenshots/build-custom-dashboards-4-en.webp)
 
 Click **Edit** on a dashboard to:
 
@@ -78,6 +82,8 @@ Every change saves immediately — there's no separate "Save" step. Click
 never risks an accidental drag).
 
 ## Grouping panels into rows
+
+![Panels grouped into collapsible rows](../screenshots/build-custom-dashboards-2-en.webp)
 
 A row is a named, collapsible section that holds a group of panels, which
 helps keep a large dashboard navigable. In edit mode:
@@ -273,6 +279,8 @@ anyone else sees) — if the dashboard is later deleted, Flare falls back to
 the Logs Explorer next time rather than showing a broken page.
 
 ## Dashboard variables
+
+![Picking a value for a dashboard variable](../screenshots/build-custom-dashboards-3-en.webp)
 
 Click **Variables** in a dashboard's header (in edit mode) to define
 dropdowns that temporarily narrow every panel that can use them, for this

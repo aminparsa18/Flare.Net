@@ -260,7 +260,7 @@ public class MetricSeriesQueryBuilderTests
         var result = MetricSeriesQueryBuilder.Build(
             new MetricQueryRequest { MetricName = "process.threads", Type = MetricPointType.Gauge, BucketWidthSeconds = 60 }, Now);
 
-        Assert.Contains("AND (ServiceName, toString(DataPointAttributes)) IN (", result.Sql);
+        Assert.Contains("AND (ServiceName, toString(DataPointAttributes)) GLOBAL IN (", result.Sql);
         Assert.Contains("LIMIT {topN:UInt32}", result.Sql);
         Assert.Equal((uint)MetricSeriesQueryBuilder.DefaultTopN, result.Parameters.ToDictionary()["topN"]);
     }
@@ -319,7 +319,7 @@ public class MetricSeriesQueryBuilderTests
             },
             Now);
 
-        Assert.Contains("AND (ServiceName, DataPointAttributes[{groupByKey:String}]) IN (", result.Sql);
+        Assert.Contains("AND (ServiceName, DataPointAttributes[{groupByKey:String}]) GLOBAL IN (", result.Sql);
         Assert.Contains("DataPointAttributes[{groupByKey:String}] AS SeriesKey, max(Value) - min(Value) AS RankValue", result.Sql);
     }
 

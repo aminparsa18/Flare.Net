@@ -364,7 +364,10 @@ services:
 
   dashboard:
     build:
-      context: ./src/dashboard
+      # Repo root, not ./src/dashboard - see the base docker-compose.yml's dashboard
+      # service (the Dockerfile's codegen stage needs Flare.Api's source).
+      context: .
+      dockerfile: src/dashboard/Dockerfile
     labels:
       flare.resource: "true"
       flare.role: "dashboard"

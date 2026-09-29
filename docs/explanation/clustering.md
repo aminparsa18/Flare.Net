@@ -123,6 +123,8 @@ the exact config keys.
 
 ## Dashboard: cluster status on the Indexing page
 
+![Cluster status panel on the Indexing page](../screenshots/clustering-en.webp)
+
 `GET /api/indexing/cluster` backs a panel on the **Indexing** page
 (`/indexing`, not `/resources` — Resources' Docker-based pollers are
 explicitly single-host concepts, unrelated to ClickHouse cluster state).
