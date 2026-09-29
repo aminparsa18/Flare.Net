@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Brings up the whole Flare v1 stack (ClickHouse, Redis, Flare.Ingest, Flare.Api,
-# dockerized dashboard) via docker compose, waits for it to be healthy, then runs
-# the example log generator for a bit so there's actual data to see.
+# dockerized dashboard) via docker compose, waits for it to be healthy, then backfills
+# an hour of sample data with examples/ExampleApp.Seeder so there's something to see.
 #
 # Usage: ./scripts/run-full-stack.sh
 set -euo pipefail
@@ -24,38 +24,27 @@ for i in $(seq 1 60); do
 	sleep 2
 done
 
-echo "==> building the log generator"
-# Built once, then launched by invoking the DLL directly - not `dotnet run &`, which
-# forks a child process for the actual app and leaves it orphaned (still generating
-# logs) when the wrapper's own PID gets killed below.
-generator_dll="$(mktemp -d)/loggen"
-dotnet build examples/ExampleApp.LogGenerator -c Release -o "$generator_dll" --nologo -v quiet
-
-echo "==> generating sample log traffic for 30s"
-# ExampleApp.LogGenerator normally gets ConnectionStrings__flare injected by Aspire's
-# .WithReference(flare) on the AppHost side; running it standalone (outside Aspire, against
-# this docker-compose stack) needs that env var set by hand, pointing at Flare.Ingest's
-# host-exposed OTLP/gRPC port - AddFlareOtlpExporter throws on startup without it.
-# `timeout` is a GNU coreutils command, not available on macOS by default - backgrounding
-# + sleep + kill is the portable equivalent.
-ConnectionStrings__flare="http://localhost:${FLARE_INGEST_GRPC_PORT:-4317}" \
-	dotnet "$generator_dll/ExampleApp.LogGenerator.dll" &
-generator_pid=$!
-sleep 30
-kill "$generator_pid" 2>/dev/null || true
-wait "$generator_pid" 2>/dev/null || true
+echo "==> backfilling an hour of sample data"
+# Every seeder scenario except `pipeline`, whose rules persist and would rewrite everything
+# ingested afterwards - see examples/README.md. The seeder's defaults match this compose
+# stack's published ports; the flags just follow any port overrides.
+scenarios="overview funnel structure external cardinality messaging hosts kubernetes"
+dotnet run --project examples/ExampleApp.Seeder -- $scenarios \
+	--otlp "http://localhost:${FLARE_INGEST_HTTP_PORT:-4318}" \
+	--api "http://localhost:${FLARE_API_PORT:-8080}" \
+	--clickhouse "http://localhost:${CLICKHOUSE_HTTP_PORT:-8123}"
 
 cat <<EOF
 
 ==> Done. Open the dashboard:
 
-    http://localhost:3000
+    http://localhost:${FLARE_DASHBOARD_PORT:-7777}
 
 To stop everything:
 
     docker compose down
 
-To re-run the log generator any time for more traffic:
+To re-seed (replaces the previous run's data rather than adding to it):
 
-    ConnectionStrings__flare="http://localhost:${FLARE_INGEST_GRPC_PORT:-4317}" dotnet run --project examples/ExampleApp.LogGenerator
+    dotnet run --project examples/ExampleApp.Seeder -- $scenarios
 EOF

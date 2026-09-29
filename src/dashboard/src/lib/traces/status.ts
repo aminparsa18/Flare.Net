@@ -80,9 +80,8 @@ export function kindLabel(kind: number): string {
  * OTel SpanKind as an icon - "another opportunity to make the waterfall immediately
  * understandable" without reading every row's name/service pair first. Takes the whole
  * span, not just `kind`, because CLIENT additionally special-cases the `db.system`
- * semantic-convention attribute (a real OTel key, not a Flare invention - see
- * ExampleApp.LogGenerator's EmitWaterfall remarks) to a database icon rather than a
- * generic outbound-call arrow, when present.
+ * semantic-convention attribute (a real OTel key, not a Flare invention) to a database
+ * icon rather than a generic outbound-call arrow, when present.
  */
 export function kindIcon(span: SpanDto): LucideIcon {
 	switch (span.kind) {

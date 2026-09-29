@@ -4,7 +4,7 @@
 
 如果您自己的应用程序已使用 .NET Aspire 进行编排，则 `Flare.Hosting.Aspire` 通过一次调用将整个 Flare 堆栈（ClickHouse、Redis、OTLP 摄取接收器、查询 API 和仪表板）添加到您的 AppHost，拉动 Flare 发布的 Docker Hub 图像，而不是您自己构建的任何图像。有关确切的 API 和每个部署事实，请参阅 [`../reference/aspire-hosting.md`](../reference/aspire-hosting.zh-CN.md)。
 
-> **状态：** 在 nuget.org 上发布为 `Flare.Hosting.Aspire`（当前 > `0.3.2`） — `dotnet add package Flare.Hosting.Aspire` 现已运行。请参阅 > [`../../examples/`](../../examples) 以获取完整的可运行演示，该演示 > 将包引用为 `ProjectReference`（对于 > 在发布之前尝试 Flare 的 `main` 很有用）。
+> **状态：** 在 nuget.org 上发布为 `Flare.Hosting.Aspire`（当前 > `0.3.2`） — `dotnet add package Flare.Hosting.Aspire` 现已运行。请参阅 [`../../examples/`](../../examples) 以获取完整的可运行演示：一个包含 Kafka、RabbitMQ、Postgres 和 OpenTelemetry Collector 的多服务商店，为仪表板除 Kubernetes 以外的每个页面提供实时数据，另附一个可回填一小时历史数据的工具。该演示将包引用为 `ProjectReference`（便于在发布之前试用 Flare 的 `main`）。
 
 ## 1. 将 Flare 添加到您的 AppHost
 

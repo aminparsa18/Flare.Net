@@ -1,0 +1,52 @@
+# otelcol-contrib config for ExampleApp.AppHost's `otel-collector` resource - see Program.cs.
+# The ${env:...} values are set by the AppHost (container-network addresses).
+#
+# Receiver/exporter names are the long-standing ones (kafkametrics, otlp). 0.161 also accepts
+# the newer kafka_metrics / otlp_grpc names; the old ones still work there.
+receivers:
+  # The Hosts page reads system.cpu.time, system.memory.usage, system.filesystem.usage and
+  # system.cpu.load_average.* - all default-enabled metrics of these scrapers.
+  hostmetrics:
+    root_path: /hostfs
+    collection_interval: 30s
+    scrapers:
+      cpu: {}
+      memory: {}
+      load: {}
+      network: {}
+      filesystem:
+        exclude_fs_types:
+          fs_types: [autofs, binfmt_misc, bpf, cgroup2, configfs, debugfs, devpts, devtmpfs, fusectl, hugetlbfs, mqueue, nsfs, overlay, proc, procfs, pstore, rpc_pipefs, securityfs, sysfs, tracefs, tmpfs]
+          match_type: strict
+
+  # kafka.consumer_group.lag for the Message queues page's Backlog column.
+  kafkametrics:
+    brokers: ["${env:KAFKA_BROKERS}"]
+    protocol_version: 2.1.0
+    collection_interval: 30s
+    scrapers: [brokers, topics, consumers]
+
+processors:
+  # host.name / os.type on the hostmetrics resource - the Hosts page keys on host.name.
+  resourcedetection:
+    detectors: [system]
+    system:
+      hostname_sources: [os]
+  batch: {}
+
+exporters:
+  otlp:
+    endpoint: ${env:FLARE_OTLP_ENDPOINT}
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics/host:
+      receivers: [hostmetrics]
+      processors: [resourcedetection, batch]
+      exporters: [otlp]
+    metrics/kafka:
+      receivers: [kafkametrics]
+      processors: [batch]
+      exporters: [otlp]

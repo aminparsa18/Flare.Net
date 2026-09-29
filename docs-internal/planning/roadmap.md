@@ -100,3 +100,14 @@ folders are where "what happened and why" actually lives.
   delete) takes the whole header: the title shrinks to nothing and the
   panel-type badge overlaps the icons. Needs an overflow menu or a
   wrapping header in edit mode.
+- **Recognize the stable DB semconv (`db.system.name`, `db.operation.name`).**
+  Npgsql 10 emits only these; Flare keys database spans on `db.system`/
+  `db.operation` (Services → Database tab MV, External APIs' "not a
+  database call" filter), so such spans read as external calls to
+  `localhost`. The example shop works around it with an Npgsql enrichment
+  callback (`examples/ExampleApp.Shop/ShopDatabase.cs`); drop that once
+  Flare reads both.
+- **`ExampleApp.Seeder --clear` in cluster mode.** It deletes by
+  `ALTER TABLE ... DELETE` on the plain tables and refuses when they're
+  `Distributed`; cluster mode needs `ON CLUSTER` mutations on the
+  `*_local` tables plus the aggregate rebuild run against them.
