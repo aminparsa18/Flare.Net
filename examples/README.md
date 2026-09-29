@@ -136,7 +136,7 @@ dotnet run --project examples/ExampleApp.Seeder -- all --dry-run    # generate a
 | `structure` | Structural trace queries | Traces that differ only by shape: payment direct or via fraud-check, cache hit or miss |
 | `external` | External APIs | Calls to six providers with declines, rate limits, timeouts, a Stripe latency spike and a partner outage |
 | `cardinality` | Metrics catalog → high cardinality | A `user.id`-tagged counter (~12,500 series), a raw-`url.path` histogram (~1,600 series), and a few well-behaved metrics |
-| `messaging` | Message queues | Kafka and RabbitMQ spans, consumer lag with one group falling behind, one queue growing |
+| `messaging` | Message queues | Kafka publish/process spans across four topics, and consumer lag with one group falling behind |
 | `hosts` | Hosts | Seven hosts: one saturated, one stale, one macOS |
 | `kubernetes` | Kubernetes | A three-node cluster with a crash-looping pod, a Pending pod, a 2/3 Deployment and a failed Job |
 | `pipeline` | Pipeline rules | Four rules (one paused), then the card-number, `user_id=` and JSON-body logs they act on |

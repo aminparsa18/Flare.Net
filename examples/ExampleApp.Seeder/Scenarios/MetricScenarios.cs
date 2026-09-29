@@ -99,16 +99,15 @@ public sealed class CardinalityScenario : Scenario
 }
 
 /// <summary>
-/// Kafka publish/process spans (partitions, consumer groups) and RabbitMQ publish/deliver spans
-/// in RabbitMQ.Client 7's shape (default exchange, queue in the routing key), plus the collector
-/// metrics behind the Backlog column - <c>kafka.consumer_group.lag</c> with one group falling
-/// behind, <c>rabbitmq.message.current</c> with one queue growing. For the Message queues docs.
+/// Kafka publish/process spans (partitions, consumer groups) plus the collector metric behind
+/// the Backlog column - <c>kafka.consumer_group.lag</c>, with one group falling behind. For the
+/// Message queues docs. Kafka only, same as the live demo.
 /// </summary>
 public sealed class MessagingScenario : Scenario
 {
     public override string Name => "messaging";
 
-    public override string Description => "Kafka + RabbitMQ spans, consumer lag and queue depth";
+    public override string Description => "Kafka spans and consumer lag (one group falling behind)";
 
     public override void Generate(SeedContext c)
     {
@@ -140,28 +139,7 @@ public sealed class MessagingScenario : Scenario
             }
         }
 
-        (string Producer, string Consumer, string Exchange, string RoutingKey, double PerHour, double P50)[] rabbit =
-        [
-            ("billing-service", "worker-invoices", "amq.default", "invoice-generation", 930, 140),
-            ("notification-service", "mailer", "amq.default", "email-dispatch", 1240, 35),
-            ("order-service", "audit-service", "order-events", "order.#", 830, 6),
-        ];
-        foreach (var (producer, consumer, exchange, routingKey, perHour, p50) in rabbit)
-        {
-            for (var n = 0; n < c.PerHour(perHour); n++)
-            {
-                var traceId = Otlp.TraceId(c.Ids);
-                var t = c.RandomTime();
-                JsonArray Base(string operation) => Otlp.Attrs(("messaging.system", "rabbitmq"), ("messaging.destination.name", exchange),
-                    ("messaging.rabbitmq.destination.routing_key", routingKey), ("messaging.operation.type", operation));
-                var publish = c.Span(c.Batch.Service(producer), "RabbitMQ.Client.Publisher", traceId, null, $"{exchange} publish", KindProducer, t, c.LogNormal(2, 0.4), Base("publish"), okStatus: 0);
-                var failed = routingKey == "invoice-generation" && c.Rng.NextDouble() < 0.03;
-                c.Span(c.Batch.Service(consumer), "RabbitMQ.Client.Subscriber", traceId, publish, $"{routingKey} deliver", KindConsumer, t + c.Rng.Next(3, 900) * Otlp.NanosPerMs,
-                    c.LogNormal(p50, 0.5), Base("deliver"), error: failed ? "PDF renderer timed out" : null, okStatus: 0);
-            }
-        }
-
-        // Backlog: what otelcol-contrib's kafkametrics and rabbitmq receivers report, every 30 s.
+        // Backlog: what otelcol-contrib's kafkametrics receiver reports, every 30 s.
         var ticks = c.Ticks(30).ToArray();
         var lag = new List<JsonObject>();
         (string Topic, string Group, double Base, bool Growing)[] groups =
@@ -183,20 +161,6 @@ public sealed class MessagingScenario : Scenario
         }
 
         c.Batch.AddMetric(c.Batch.Service("otelcol-kafka"), "kafkametricsreceiver", Gauge("kafka.consumer_group.lag", "1", "Current approximate lag of consumer group at partition of topic", lag));
-
-        foreach (var (queue, ready, unacked, growth) in (ReadOnlySpan<(string, int, int, double)>)[("invoice-generation", 340, 12, 2.5), ("email-dispatch", 8, 3, 0)])
-        {
-            var points = new List<JsonObject>();
-            for (var k = 0; k < ticks.Length; k++)
-            {
-                var grow = 1 + (double)k / ticks.Length * growth;
-                points.Add(Point(ticks[k], (int)(ready * grow * (c.Rng.NextDouble() * 0.4 + 0.8)), Otlp.Attrs(("state", "ready")), asInt: true));
-                points.Add(Point(ticks[k], (int)(unacked * (c.Rng.NextDouble() + 0.5)), Otlp.Attrs(("state", "unacknowledged")), asInt: true));
-            }
-
-            var resource = c.Batch.Resource(("service.name", "otelcol-rabbitmq"), ("rabbitmq.queue.name", queue), ("rabbitmq.vhost.name", "/"));
-            c.Batch.AddMetric(resource, "rabbitmqreceiver", Sum("rabbitmq.message.current", "{messages}", "The total number of messages currently in the queue", points, monotonic: false));
-        }
     }
 }
 
