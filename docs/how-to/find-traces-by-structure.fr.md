@@ -35,6 +35,8 @@ compris ceux stockés avant l'écriture de la requête.
    **Condition** ajoute une carte, jusqu'à six. Les champs de service et de
    nom de span suggèrent des valeurs de la plage de temps sélectionnée.
 
+![Éditeur de structure : A = checkout, B = payment en erreur, expression A => B AND NOT A -> B](../screenshots/find-traces-by-structure-en.webp)
+
 ## Écrire l'expression
 
 Combinez les lettres dans le champ **Expression** :
@@ -57,6 +59,8 @@ facettes et le filtre Service ne couvrent plus que les traces
 correspondantes. L'expression reste affichée sur le bouton **Structure**
 une fois l'éditeur fermé. Cliquez sur **Remove** dans l'éditeur, ou sur
 **Clear filters**, pour la retirer.
+
+![Liste des traces filtrée par la structure appliquée, affichée sur le bouton Structure](../screenshots/find-traces-by-structure-2-en.webp)
 
 ### Exemples
 

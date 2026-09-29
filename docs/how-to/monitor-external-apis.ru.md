@@ -37,7 +37,9 @@ builder.Services.AddOpenTelemetry()
 
 ## Страница External APIs
 
-Откройте **External APIs** в верхней навигации. Каждая строка - один
+![Список External APIs: Stripe, Google Maps, партнёрский API, SendGrid, Twilio и Slack с частотой, долей ошибок и задержкой](../screenshots/monitor-external-apis-ru.webp)
+
+Откройте меню **⋯** в правом верхнем углу и выберите **External APIs**. Каждая строка - один
 домен:
 
 | Столбец | Значение |
@@ -62,6 +64,8 @@ builder.Services.AddOpenTelemetry()
 
 ### Детали домена
 
+![Детали api.stripe.com: запросы, ошибки и задержка p95 во времени, коды статуса и эндпоинты](../screenshots/monitor-external-apis-2-ru.webp)
+
 Выберите домен, чтобы открыть подробности:
 
 - **Over time**: три графика за выбранное окно: запросы в секунду,
@@ -85,6 +89,8 @@ builder.Services.AddOpenTelemetry()
 соответствующие вызовы. Это структурный запрос (**Structure A**), потому
 что вызов - дочерний span в трейсе. См.
 [Поиск трейсов по структуре](find-traces-by-structure.ru.md).
+
+![Частые ошибки api.stripe.com: отклонённые карты, лимиты запросов и таймауты без кода статуса](../screenshots/monitor-external-apis-3-ru.webp)
 
 ### Как называются эндпоинты
 
@@ -118,6 +124,8 @@ Flare называет эндпоинт по первому подходящем
 `peer.service`, пока не устареют.
 
 ## Внешние хосты на Service Map
+
+![Service Map с внешними хостами в виде листовых узлов с меткой «Внешний»](../screenshots/monitor-external-apis-4-ru.webp)
 
 **Traces > Services > Map** также показывает внешние хосты: листовые узлы
 со значком глобуса и пометкой **Внешний**. Хост получает узел, когда ваши

@@ -32,7 +32,9 @@ defaults 模板，`HttpClient` 插桩已默认启用。基于 `HttpClient` 的 g
 
 ## 阅读 External APIs 页面
 
-在顶部导航中打开 **External APIs**。每一行是一个域名：
+![外部 API 列表：Stripe、Google Maps、合作方 API、SendGrid、Twilio 和 Slack 的速率、错误率和延迟](../screenshots/monitor-external-apis-ch.webp)
+
+打开右上角的 **⋯** 菜单，选择 **External APIs**。每一行是一个域名：
 
 | 列 | 含义 |
 |---|---|
@@ -54,6 +56,8 @@ defaults 模板，`HttpClient` 插桩已默认启用。基于 `HttpClient` 的 g
 
 ### 查看域名详情
 
+![api.stripe.com 详情：随时间变化的请求数、错误数和 p95 延迟，以及状态码和端点](../screenshots/monitor-external-apis-2-ch.webp)
+
 选择一个域名以打开其详情：
 
 - **Over time**：窗口内的三张图表：每秒请求数、错误数和 p95 延迟。点击某个数据点，
@@ -70,6 +74,8 @@ defaults 模板，`HttpClient` 插桩已默认启用。基于 `HttpClient` 的 g
 点击域名、端点、状态码、错误率、错误行或服务，即可打开 **Traces**，并筛选出
 包含匹配调用的链路。该筛选是一个结构化查询（**Structure A**），因为调用是链路
 中的子 span。参见[按结构查找链路](find-traces-by-structure.zh-CN.md)。
+
+![api.stripe.com 的主要错误：卡被拒、速率限制和没有状态码的超时](../screenshots/monitor-external-apis-3-ch.webp)
 
 ### 端点如何命名
 
@@ -97,6 +103,8 @@ Flare 按第一条适用的规则为端点命名：
 才按域名分组；较早的行保持仅按 `peer.service` 分组，直到过期。
 
 ## Service Map 上的外部主机
+
+![Service Map 中以标记为外部的叶子节点显示的外部主机](../screenshots/monitor-external-apis-4-ch.webp)
 
 **Traces > Services > Map** 也会显示外部主机：带地球图标、标有**外部**的叶子节点。
 当你的服务调用某个主机，且没有任何已插桩的 span 响应该调用时，该主机就会获得一个节点。

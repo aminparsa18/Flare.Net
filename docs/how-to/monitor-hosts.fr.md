@@ -79,7 +79,9 @@ sinon `host.name` est l'identifiant du conteneur.
 
 ## Lire la page Hosts
 
-Ouvrez **Hosts** dans la navigation supérieure. Les hôtes apparaissent en un
+![Page Hosts : sept hôtes avec CPU, mémoire, disque et charge sur 15 minutes, dont un marqué stale](../screenshots/monitor-hosts-en.webp)
+
+Ouvrez le menu **⋯** en haut à droite et choisissez **Hosts**. Les hôtes apparaissent en un
 intervalle de collecte.
 
 | Colonne | Métrique source | Signification |
@@ -105,7 +107,11 @@ cinq minutes est marqué **stale**.
 La page liste jusqu'à 500 hôtes. S'il y en a davantage, un avis vous invite à
 affiner le filtre.
 
+![Détail de web-02 : graphiques CPU, mémoire, disque et charge sur la fenêtre](../screenshots/monitor-hosts-2-en.webp)
+
 ## Voir les métriques d'un hôte à côté d'un log
+
+![Détail d'un log avec les Host metrics de web-02, l'heure du log marquée par une ligne verticale](../screenshots/monitor-hosts-3-en.webp)
 
 Quand un log porte l'attribut de ressource `host.name`, sa vue détaillée sur la
 page **Logs** affiche **Host metrics** : les graphiques CPU et mémoire de

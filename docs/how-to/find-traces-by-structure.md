@@ -32,6 +32,8 @@ stored before you wrote the query.
    **Condition** to add a card, up to six. The service and span-name boxes
    suggest values from the selected time range.
 
+![Structure editor: A = checkout, B = payment with Error status, expression A => B AND NOT A -> B](../screenshots/find-traces-by-structure-en.webp)
+
 ## Write the expression
 
 Combine the letters in the **Expression** box:
@@ -52,6 +54,8 @@ Click **Apply** or press Enter. The list, the facet counts and the Service
 filter now cover only the matching traces. The expression stays on the
 **Structure** button after you close the editor. Click **Remove** in the
 editor, or **Clear filters**, to drop it.
+
+![Traces list filtered by the applied structure, shown on the Structure button](../screenshots/find-traces-by-structure-2-en.webp)
 
 ### Examples
 

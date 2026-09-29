@@ -23,7 +23,9 @@ confirm it behaves the way you expect, rather than saving it blind.
 
 ## Create a redaction rule
 
-1. Open **Pipeline Rules** in the top nav.
+![Pipeline Rules list with redaction, extraction and Parse JSON rules, one disabled](../screenshots/manage-pipeline-rules-en.webp)
+
+1. Open the **⋯** menu at the top right and pick **Pipeline Rules**.
 2. Click **New rule**. Give it a name (e.g. "Redact card numbers").
 3. Under **Applies to**, optionally narrow the rule to specific services or
    log levels, or leave it unscoped (see [Scope a rule](#scope-a-rule-dont-leave-it-unscoped)).
@@ -37,6 +39,8 @@ From here on, any log matching this rule has the matched text replaced
 before it's written — including the pattern template Drain's log-clustering
 feature computes, so a redacted body never leaks into a cluster template
 either.
+
+![Editing a redaction rule that masks card numbers](../screenshots/manage-pipeline-rules-2-en.webp)
 
 ## Create an extraction rule
 
@@ -80,6 +84,8 @@ never changed. For the design behind this, see
 [ADR-0070](../../docs-internal/adr/0070-pipeline-rules-parse-json.md).
 
 ## Preview a rule before saving
+
+![Preview: 20 of 20 sampled logs would change, with each log's before and after text](../screenshots/manage-pipeline-rules-3-en.webp)
 
 Click **Preview** in the create/edit dialog at any point while you're
 filling it in — it's not gated on saving first. Flare pulls up to 20 of

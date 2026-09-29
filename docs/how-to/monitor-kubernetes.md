@@ -96,7 +96,7 @@ to the exporter's `headers`.
 
 ## Read the Nodes table
 
-Open **Kubernetes** in the top nav. Nodes appear within one collection interval.
+Open the **⋯** menu at the top right and pick **Kubernetes**. Nodes appear within one collection interval.
 
 | Column | Source metric | Meaning |
 |---|---|---|
