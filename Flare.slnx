@@ -6,7 +6,8 @@
   </Configurations>
   <Folder Name="/examples/">
     <Project Path="examples/ExampleApp.AppHost/ExampleApp.AppHost.csproj" />
-    <Project Path="examples/ExampleApp.LogGenerator/ExampleApp.LogGenerator.csproj" />
+    <Project Path="examples/ExampleApp.Seeder/ExampleApp.Seeder.csproj" />
+    <Project Path="examples/ExampleApp.Shop/ExampleApp.Shop.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Aspire.Flare/Aspire.Flare.csproj" />

@@ -24,7 +24,8 @@ src/website               Next.js marketing site (separate from the dashboard ap
 src/*.Tests               xUnit unit tests, one per testable project (Flare.Ingest.Tests, Flare.Api.Tests, Flare.Identity.Tests)
 db/clickhouse             Numbered .sql migrations, mounted at container init (docker-entrypoint-initdb.d convention)
 db/clickhouse-cluster     Same migrations, cluster-mode variant
-examples/                 ExampleApp.AppHost + ExampleApp.LogGenerator — a runnable OTLP-emitting sample
+examples/                 ExampleApp.AppHost (live demo: Flare + multi-role ExampleApp.Shop + Kafka/Postgres/otelcol),
+                          ExampleApp.Seeder (backdated per-docs-page OTLP/JSON backfill)
 docs/                     User-facing docs (Diátaxis: tutorials/how-to/reference/explanation)
 docs-internal/            Maintainer docs: adr/, investigations/, planning/roadmap.md
 ```

@@ -13,9 +13,13 @@ vous-même. Pour l'API exacte et tous les faits de déploiement, voir
 > **État actuel :** publié sur nuget.org sous le nom
 > `Flare.Hosting.Aspire` (actuellement `0.3.2`) — `dotnet add package
 > Flare.Hosting.Aspire` fonctionne dès aujourd'hui. Voir
-> [`../../examples/`](../../examples) pour une démo complète exécutable,
-> qui référence le paquet comme une `ProjectReference` à la place (utile
-> pour essayer la branche `main` de Flare avant une release).
+> [`../../examples/`](../../examples) pour une démo complète exécutable :
+> une boutique multi-services avec Kafka, RabbitMQ, Postgres et un
+> OpenTelemetry Collector, qui alimente chaque page du tableau de bord
+> (sauf Kubernetes) en données en direct, plus un outil qui pré-remplit
+> une heure d'historique. Elle référence le paquet comme une `ProjectReference` à
+> la place (utile pour essayer la branche `main` de Flare avant une
+> release).
 
 ## 1. Ajoutez Flare à votre AppHost
 

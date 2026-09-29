@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <!-- Same two references ExampleApp.LogGenerator makes - see that project's .csproj for why
+         they're ProjectReferences rather than PackageReferences. -->
+    <ProjectReference Include="..\..\src\Flare.ServiceDefaults\Flare.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\src\Aspire.Flare\Aspire.Flare.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.ConfluentKafka" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+
+</Project>

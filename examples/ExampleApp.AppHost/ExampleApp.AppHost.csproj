@@ -12,6 +12,10 @@
          against this AppHost). Purely a deployment target: registering it has no effect on
          the default `aspire run`/`dotnet run` inner loop. -->
     <PackageReference Include="Aspire.Hosting.Docker" />
+    <!-- The shop demo's backing services (see Program.cs): Kafka for the Message queues
+         page, Postgres for the Services breakdown's Database tab. -->
+    <PackageReference Include="Aspire.Hosting.Kafka" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,7 +30,7 @@
          Aspire's own "Create custom hosting integrations" doc uses for a hosting-library
          reference from an AppHost. -->
     <ProjectReference Include="..\..\src\Aspire.Hosting.Flare\Aspire.Hosting.Flare.csproj" IsAspireProjectResource="false" />
-    <ProjectReference Include="..\ExampleApp.LogGenerator\ExampleApp.LogGenerator.csproj" />
+    <ProjectReference Include="..\ExampleApp.Shop\ExampleApp.Shop.csproj" />
   </ItemGroup>
 
 </Project>

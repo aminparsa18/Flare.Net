@@ -139,6 +139,19 @@
          rendering library. 0.55.0 confirmed as latest stable via nuget.org's
          flatcontainer index (next releases are 1.0.0-alpha.*, not yet stable). -->
     <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
+    <!-- examples/: the multi-service shop demo (ExampleApp.Shop) and its AppHost's backing
+         containers. Hosting packages pinned to the same 13.5.4 train as every other Aspire
+         package above. The shop uses the raw clients plus their real OTel instrumentation
+         rather than the Aspire.* client integrations, so what it emits is exactly what a
+         plain app instrumented per each library's own README emits:
+         OpenTelemetry.Instrumentation.ConfluentKafka is still alpha-only on nuget.org (never
+         had a stable release), and Npgsql 10 carries its own ActivitySource, so it needs no
+         instrumentation package at all. -->
+    <PackageVersion Include="Aspire.Hosting.Kafka" Version="13.5.4" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.4" />
+    <PackageVersion Include="Confluent.Kafka" Version="2.15.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.ConfluentKafka" Version="0.3.0-alpha.2" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

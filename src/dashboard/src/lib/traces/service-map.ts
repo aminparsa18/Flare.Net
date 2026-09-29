@@ -39,8 +39,8 @@ export interface ServiceMapResult {
  * present: the spec-correct way for a span to say "this call went out to service X,"
  * used by CLIENT spans representing a call into a system that isn't itself sending
  * Flare its own separately-instrumented spans (a real downstream dependency with no
- * OTel SDK of its own, or - see ExampleApp.LogGenerator's EmitWaterfall remarks - a
- * single-process demo simulating what a multi-service trace looks like).
+ * OTel SDK of its own, or a single-process demo simulating what a multi-service trace
+ * looks like).
  */
 function effectiveService(span: SpanDto): string {
 	return span.spanAttributes['peer.service'] || span.serviceName || 'unknown';

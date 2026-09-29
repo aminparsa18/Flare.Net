@@ -9,7 +9,10 @@ see [`../reference/aspire-hosting.md`](../reference/aspire-hosting.md).
 
 > **Status:** published on nuget.org as `Flare.Hosting.Aspire` (currently
 > `0.3.2`) — `dotnet add package Flare.Hosting.Aspire` works today. See
-> [`../../examples/`](../../examples) for a full runnable demo, which
+> [`../../examples/`](../../examples) for a full runnable demo: a
+> multi-service shop with Kafka, RabbitMQ, Postgres and an OpenTelemetry
+> Collector that puts live data on every dashboard page except
+> Kubernetes, plus a seeder that backfills an hour of history. It
 > references the package as a `ProjectReference` instead (useful for
 > trying Flare's `main` before a release).
 

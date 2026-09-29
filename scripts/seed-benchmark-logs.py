@@ -6,8 +6,8 @@ Bypasses Flare.Ingest/Redis Streams entirely and talks straight to ClickHouse's 
 interface, on purpose: seeding millions of rows through the real ingest pipeline
 one-by-one would conflate seeding cost with the thing the benchmark actually measures,
 and would take far longer than necessary. This script is not a substitute for the
-ingest-throughput benchmark (see examples/ExampleApp.LogGenerator's /generate-throughput
-endpoint for that) - it's purely a way to get a realistic-sized, realistically-shaped
+ingest-throughput benchmark (docs-internal/investigations/benchmark-ingest-and-query.md
+records how that one was run) - it's purely a way to get a realistic-sized, realistically-shaped
 dataset in place fast so query latency can be measured against real row counts.
 
 Every seeded row's ServiceName is prefixed "benchmark-seed-" specifically so cleanup is

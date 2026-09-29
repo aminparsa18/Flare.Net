@@ -117,7 +117,7 @@ public sealed partial record ExceptionOccurrence
     /// <summary>The exception event's own timestamp (<c>Events.TimeUnixNano</c>), not the span's <c>StartTime</c> - same distinction <see cref="ExceptionGroup.FirstSeen"/> documents.</summary>
     public required DateTimeOffset Timestamp { get; init; }
 
-    /// <summary><c>exception.stacktrace</c>. May be empty - OTel's semantic conventions don't require it, and a merely-constructed-but-never-thrown exception has a null <c>StackTrace</c> in .NET (same caveat <c>ExampleApp.LogGenerator</c>'s own log-level exception sampling documents).</summary>
+    /// <summary><c>exception.stacktrace</c>. May be empty - OTel's semantic conventions don't require it, and a merely-constructed-but-never-thrown exception has a null <c>StackTrace</c> in .NET.</summary>
     public required string Stacktrace { get; init; }
 }
 
