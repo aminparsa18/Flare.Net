@@ -63,7 +63,9 @@ docker run -v /:/hostfs:ro --hostname "$(hostname)" ... otel/opentelemetry-colle
 
 ## 查看 Hosts 页面
 
-在顶部导航中打开 **Hosts**。主机会在一个采集间隔内出现。
+![主机页面：七台主机的 CPU、内存、磁盘和 15 分钟负载，其中一台标记为已过期](../screenshots/monitor-hosts-ch.webp)
+
+打开右上角的 **⋯** 菜单，选择 **Hosts**。主机会在一个采集间隔内出现。
 
 | 列 | 来源指标 | 含义 |
 |---|---|---|
@@ -82,7 +84,11 @@ docker run -v /:/hostfs:ro --hostname "$(hostname)" ... otel/opentelemetry-colle
 
 页面最多列出 500 台主机。如果匹配更多，会提示你缩小筛选范围。
 
+![web-02 详情：时间窗口内的 CPU、内存、磁盘和负载图表](../screenshots/monitor-hosts-2-ch.webp)
+
 ## 在日志旁查看主机指标
+
+![日志详情中 web-02 的主机指标，竖线标出日志时间](../screenshots/monitor-hosts-3-ch.webp)
 
 当日志带有 `host.name` 资源属性时，**Logs** 页面上该日志的详情视图会显示
 **主机指标**：该主机在日志前后 30 分钟内的 CPU 和内存图表，并用一条竖线标出

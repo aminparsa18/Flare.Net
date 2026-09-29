@@ -78,7 +78,9 @@ otherwise `host.name` is the container ID.
 
 ## Read the Hosts page
 
-Open **Hosts** in the top nav. Hosts appear within one collection interval.
+![Hosts page: seven hosts with CPU, memory, disk and 15-minute load, one marked stale](../screenshots/monitor-hosts-en.webp)
+
+Open the **⋯** menu at the top right and pick **Hosts**. Hosts appear within one collection interval.
 
 | Column | Source metric | Meaning |
 |---|---|---|
@@ -101,7 +103,11 @@ A host that hasn't reported for more than five minutes is marked **stale**.
 The page lists up to 500 hosts. If more match, a notice asks you to narrow the
 filter.
 
+![Drill-down for web-02: CPU, memory, disk and load charts over the window](../screenshots/monitor-hosts-2-en.webp)
+
 ## See a host's metrics next to a log
+
+![A log's detail view with Host metrics for web-02, the log's time marked by a vertical line](../screenshots/monitor-hosts-3-en.webp)
 
 When a log carries a `host.name` resource attribute, its detail view on the
 **Logs** page shows **Host metrics**: that host's CPU and memory charts for the

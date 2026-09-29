@@ -40,7 +40,11 @@ Counts are exact for small values and approximate above a few thousand.
 The catalog lists up to 1,000 metrics. If more match, the lowest-cardinality
 ones are left out, so the metrics worth checking are always shown.
 
+![Metrics catalog with one metric at 19.9K series (red) and one at 1.6K (amber)](../screenshots/find-high-cardinality-metrics-en.webp)
+
 ## Find the attribute behind a high series count
+
+![Metric panel: user.id has 12.5K distinct values](../screenshots/find-high-cardinality-metrics-2-en.webp)
 
 Click a metric name. The panel that opens shows:
 
@@ -67,6 +71,8 @@ before it reaches Flare. Series that stop being reported leave the catalog
 once they fall outside the selected window.
 
 ## See how a metric's samples become a chart
+
+![Inspect tab: raw samples grouped into buckets](../screenshots/find-high-cardinality-metrics-3-en.webp)
 
 In the metric's panel, switch from **Overview** to **Inspect**. It shows the
 raw samples of the metric's busiest series (up to five) and the two steps the

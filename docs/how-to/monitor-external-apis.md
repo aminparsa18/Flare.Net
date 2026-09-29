@@ -37,7 +37,9 @@ already on. gRPC clients built on `HttpClient`
 
 ## Read the External APIs page
 
-Open **External APIs** in the top navigation. Each row is one domain:
+![External APIs list: Stripe, Google Maps, a partner API, SendGrid, Twilio and Slack with rate, error rate and latency](../screenshots/monitor-external-apis-en.webp)
+
+Open the **⋯** menu at the top right and pick **External APIs**. Each row is one domain:
 
 | Column | Meaning |
 |---|---|
@@ -60,6 +62,8 @@ in the Services breakdown's **Database calls** tab and on the
 [Messaging page](monitor-message-queues.md).
 
 ### Drill into a domain
+
+![api.stripe.com details: requests, errors and p95 latency over time, status codes and endpoints](../screenshots/monitor-external-apis-2-en.webp)
 
 Select a domain to open its details:
 
@@ -84,6 +88,8 @@ or service to open **Traces** filtered to traces containing matching
 calls. The filter is a structural query (**Structure A**), because the
 call is a child span of each trace. See
 [Find traces by structure](find-traces-by-structure.md).
+
+![Top errors for api.stripe.com: card declines, rate limits and timeouts with no status code](../screenshots/monitor-external-apis-3-en.webp)
 
 ### How endpoints are named
 
@@ -115,6 +121,8 @@ grouped by domain in the breakdown's pre-aggregated data; older rows keep
 their `peer.service`-only grouping until they age out.
 
 ## External hosts on the Service Map
+
+![Service Map with external hosts drawn as leaf nodes marked External](../screenshots/monitor-external-apis-4-en.webp)
 
 **Traces > Services > Map** also draws external hosts, as leaf nodes with
 a globe icon marked **External**. A host gets a node when your services

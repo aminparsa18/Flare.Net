@@ -27,7 +27,9 @@ l'enregistrer à l'aveugle.
 
 ## Créer une règle de masquage
 
-1. Ouvrez **Pipeline Rules** dans la navigation supérieure.
+![Liste des règles de pipeline : masquage, extraction et Parse JSON, dont une désactivée](../screenshots/manage-pipeline-rules-en.webp)
+
+1. Ouvrez le menu **⋯** en haut à droite et choisissez **Pipeline Rules**.
 2. Cliquez sur **New rule**. Donnez-lui un nom (par ex. « Masquer les
    numéros de carte »).
 3. Sous **Applies to**, restreignez éventuellement la règle à certains
@@ -44,6 +46,8 @@ l'enregistrer à l'aveugle.
 correspondant remplacé avant son écriture — y compris le modèle de motif que
 calcule la fonctionnalité de regroupement de logs de Drain, de sorte qu'un
 corps masqué ne fuite jamais non plus dans un modèle de cluster.
+
+![Modification d'une règle qui masque les numéros de carte](../screenshots/manage-pipeline-rules-2-en.webp)
 
 ## Créer une règle d'extraction
 
@@ -93,6 +97,8 @@ modifié. Pour la conception, voir
 [ADR-0070](../../docs-internal/adr/0070-pipeline-rules-parse-json.md).
 
 ## Aperçu d'une règle avant enregistrement
+
+![Aperçu : 20 journaux échantillonnés sur 20 seraient modifiés, avec le texte avant et après](../screenshots/manage-pipeline-rules-3-en.webp)
 
 Cliquez sur **Preview** dans la boîte de dialogue de création/édition, à
 tout moment pendant que vous la remplissez — ce n'est pas conditionné à

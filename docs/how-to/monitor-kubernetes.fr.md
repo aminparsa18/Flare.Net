@@ -99,7 +99,7 @@ ajoutez la clé aux `headers` de l'exportateur.
 
 ## Lire le tableau Nodes
 
-Ouvrez **Kubernetes** dans la barre de navigation. Les nœuds apparaissent en
+Ouvrez le menu **⋯** en haut à droite et choisissez **Kubernetes**. Les nœuds apparaissent en
 un intervalle de collecte.
 
 | Colonne | Métrique source | Signification |

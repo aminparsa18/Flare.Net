@@ -38,7 +38,9 @@ instrumentation.
 
 ## Lire la page External APIs
 
-Ouvrez **External APIs** dans la barre de navigation. Chaque ligne
+![Liste External APIs : Stripe, Google Maps, une API partenaire, SendGrid, Twilio et Slack avec débit, taux d'erreur et latence](../screenshots/monitor-external-apis-en.webp)
+
+Ouvrez le menu **⋯** en haut à droite et choisissez **External APIs**. Chaque ligne
 correspond à un domaine :
 
 | Colonne | Signification |
@@ -65,6 +67,8 @@ ventilation des services et sur la
 
 ### Explorer un domaine
 
+![Détails de api.stripe.com : requêtes, erreurs et latence p95 dans le temps, codes de statut et endpoints](../screenshots/monitor-external-apis-2-en.webp)
+
 Sélectionnez un domaine pour ouvrir son détail :
 
 - **Over time** : trois graphiques sur la fenêtre : requêtes par
@@ -90,6 +94,8 @@ sur les traces contenant des appels correspondants. Le filtre est une
 requête structurelle (**Structure A**), car l'appel est un span enfant de
 chaque trace. Voir
 [Trouver des traces par leur structure](find-traces-by-structure.fr.md).
+
+![Principales erreurs de api.stripe.com : cartes refusées, limites de débit et délais dépassés sans code de statut](../screenshots/monitor-external-apis-3-en.webp)
 
 ### Comment les endpoints sont nommés
 
@@ -125,6 +131,8 @@ anciennes gardent leur regroupement par `peer.service` jusqu'à leur
 expiration.
 
 ## Les hôtes externes sur la Service Map
+
+![Service Map avec les hôtes externes en nœuds feuilles marqués External](../screenshots/monitor-external-apis-4-en.webp)
 
 **Traces > Services > Map** affiche aussi les hôtes externes, sous forme
 de nœuds feuilles avec une icône de globe et la mention **External**. Un

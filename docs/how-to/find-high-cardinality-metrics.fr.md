@@ -44,7 +44,11 @@ Le catalogue affiche jusqu'à 1 000 métriques. S'il y en a davantage, celles à
 plus faible cardinalité sont écartées : les métriques à surveiller restent
 toujours visibles.
 
+![Catalogue de métriques : une métrique à 19,9 K séries (rouge) et une à 1,6 K (orange)](../screenshots/find-high-cardinality-metrics-en.webp)
+
 ## Trouver l'attribut à l'origine d'un nombre de séries élevé
+
+![Panneau de la métrique : user.id a 12,5 K valeurs distinctes](../screenshots/find-high-cardinality-metrics-2-en.webp)
 
 Cliquez sur le nom d'une métrique. Le panneau qui s'ouvre affiche :
 
@@ -73,6 +77,8 @@ qui ne sont plus émises quittent le catalogue une fois sorties de la fenêtre
 choisie.
 
 ## Voir comment les échantillons d'une métrique deviennent un graphique
+
+![Onglet Inspect : échantillons bruts regroupés en intervalles](../screenshots/find-high-cardinality-metrics-3-en.webp)
 
 Dans le panneau de la métrique, passez de **Overview** à **Inspect**. Il
 affiche les échantillons bruts des séries les plus actives de la métrique

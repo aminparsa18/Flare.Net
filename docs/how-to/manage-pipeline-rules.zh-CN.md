@@ -19,7 +19,9 @@ ClickHouse 之前。保存规则前先预览它（见下文[保存前预览规�
 
 ## 创建脱敏规则
 
-1. 在顶部导航中打开 **Pipeline Rules**。
+![管道规则列表：脱敏、提取和解析 JSON 规则，其中一条已停用](../screenshots/manage-pipeline-rules-ch.webp)
+
+1. 打开右上角的 **⋯** 菜单，选择 **Pipeline Rules**。
 2. 点击 **New rule**，为其命名（例如「脱敏信用卡号」）。
 3. 在 **Applies to** 下，可选择将规则限定到特定服务或日志级别，或保持
    不受限制（见下文[限定规则范围](#限定规则范围不要让它不受限制)）。
@@ -30,6 +32,8 @@ ClickHouse 之前。保存规则前先预览它（见下文[保存前预览规�
 
 从此以后，任何匹配此规则的日志在写入前都会替换匹配到的文本——包括 Drain
 日志聚类功能计算的模式模板，这样脱敏后的正文也不会泄漏到聚类模板中。
+
+![编辑屏蔽银行卡号的脱敏规则](../screenshots/manage-pipeline-rules-2-ch.webp)
 
 ## 创建提取规则
 
@@ -67,6 +71,8 @@ ClickHouse 之前。保存规则前先预览它（见下文[保存前预览规�
 [ADR-0070](../../docs-internal/adr/0070-pipeline-rules-parse-json.md)。
 
 ## 保存前预览规则
+
+![预览：抽样的 20 条日志中有 20 条会发生变化，并显示每条日志变化前后的文本](../screenshots/manage-pipeline-rules-3-ch.webp)
 
 在创建/编辑对话框中随时点击 **Preview**——无需先保存规则。Flare 会拉取
 最多 20 条已经匹配该规则 **Applies to** 条件的最新日志，并在进程内对每
