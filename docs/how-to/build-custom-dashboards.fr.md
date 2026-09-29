@@ -56,7 +56,11 @@ Ouvrez **Dashboards** dans la navigation en haut pour voir tous les tableaux
 de bord que vous avez créés, et cliquez sur **Open** sur l'un d'eux pour
 voir tous ses panneaux ensemble, chacun affichant des données en direct.
 
+![Un tableau de bord avec des panneaux valeur, secteurs, série temporelle et barres empilées](../screenshots/build-custom-dashboards-en.webp)
+
 ## Modifier la disposition d'un tableau de bord
+
+![Un tableau de bord en mode édition, avec poignées de déplacement et actions par panneau](../screenshots/build-custom-dashboards-4-en.webp)
 
 Cliquez sur **Edit** sur un tableau de bord pour :
 
@@ -90,6 +94,8 @@ et reverrouiller la disposition (le mode affichage ne risque jamais un
 glisser-déposer accidentel).
 
 ## Regrouper des panneaux en lignes
+
+![Panneaux regroupés en lignes repliables](../screenshots/build-custom-dashboards-2-en.webp)
 
 Une ligne est une section nommée et repliable qui contient un groupe de
 panneaux, pratique pour garder un grand tableau de bord lisible. En mode
@@ -317,6 +323,8 @@ les autres) — si le tableau de bord est ensuite supprimé, Flare revient au
 Logs Explorer la prochaine fois plutôt que d'afficher une page cassée.
 
 ## Variables de tableau de bord
+
+![Choix d'une valeur pour une variable de tableau de bord](../screenshots/build-custom-dashboards-3-en.webp)
 
 Cliquez sur **Variables** dans l'en-tête d'un tableau de bord (en mode
 édition) pour définir des listes déroulantes qui restreignent

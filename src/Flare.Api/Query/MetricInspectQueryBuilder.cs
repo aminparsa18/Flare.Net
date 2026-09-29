@@ -85,7 +85,7 @@ public static class MetricInspectQueryBuilder
         var sql = $"SELECT ServiceName, toString(DataPointAttributes) AS SeriesKey, DataPointAttributes, Time, {value} AS Value, toUInt8({isDelta}) AS IsDelta, toUInt8({isMonotonic}) AS IsMonotonic\n" +
             $"FROM {table}\n" +
             $"WHERE {where}\n" +
-            "  AND (ServiceName, toString(DataPointAttributes)) IN (\n" +
+            "  AND (ServiceName, toString(DataPointAttributes)) GLOBAL IN (\n" +
             "    SELECT ServiceName, SeriesKey FROM (\n" +
             "      SELECT ServiceName, toString(DataPointAttributes) AS SeriesKey, count() AS Samples\n" +
             $"      FROM {table}\n" +

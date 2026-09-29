@@ -36,7 +36,11 @@ stockés avant sa définition.
    les réordonner.
 4. Choisissez une fenêtre (de 5 minutes à 24 heures) et cliquez sur **Run**.
 
+![Étapes de l'entonnoir : vitrine, commande, paiement et confirmation](../screenshots/analyze-trace-funnels-en.webp)
+
 ## Lire les résultats
+
+![Résultats de l'entonnoir : abandons, erreurs et latence de transition par étape](../screenshots/analyze-trace-funnels-2-en.webp)
 
 | Colonne | Signification |
 |---|---|
@@ -49,6 +53,8 @@ stockés avant sa définition.
 Cliquez sur un nombre sous **Traces**, **Dropped after** ou **Errors** pour
 lister ces traces, des plus récentes aux plus anciennes (jusqu'à 100).
 Cliquez sur un identifiant de trace pour ouvrir sa cascade.
+
+![Traces ayant atteint l'étape de paiement mais pas la confirmation de commande](../screenshots/analyze-trace-funnels-3-en.webp)
 
 L'entonnoir ne se relance pas pendant que vous modifiez les étapes. Cliquez à
 nouveau sur **Run** après les avoir changées. Changer la fenêtre le relance.

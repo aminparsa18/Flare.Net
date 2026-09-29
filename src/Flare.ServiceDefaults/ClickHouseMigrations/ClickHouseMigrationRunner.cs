@@ -363,11 +363,14 @@ public static class ClickHouseMigrationRunner
             var name = alterMatch.Groups["name"].Value;
             var col = alterMatch.Groups["col"].Value;
             var cluster = alterMatch.Groups["cluster"].Value;
+            // A Nested column (e.g. spans.Links) never appears under its own name in
+            // system.columns - flatten_nested (on by default) stores it as `Links.TraceId`,
+            // `Links.SpanId`, ... - so an exact name match alone would never see it land.
             target = new ClusterDdlTarget(
                 cluster,
                 $"column '{db}.{name}.{col}'",
                 $"SELECT count(DISTINCT hostName()) FROM clusterAllReplicas('{cluster}', system.columns) " +
-                $"WHERE database = '{db}' AND table = '{name}' AND name = '{col}'");
+                $"WHERE database = '{db}' AND table = '{name}' AND (name = '{col}' OR startsWith(name, '{col}.'))");
             return true;
         }
 
