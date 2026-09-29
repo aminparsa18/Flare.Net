@@ -96,6 +96,8 @@ service:
 
 ## Чтение таблицы Nodes
 
+![Таблица узлов: три узла в состоянии Ready с ЦП, долей от выделяемого ЦП, памятью, долей памяти и числом подов](../screenshots/monitor-kubernetes-ru.webp)
+
 Откройте меню **⋯** в правом верхнем углу и выберите **Kubernetes**. Узлы появляются в течение одного
 интервала сбора.
 
@@ -117,7 +119,11 @@ Flare также читает `k8s.node.cpu.utilization` — прежнее им
 - **Поды узла**: щёлкните число в столбце **Pods** или кнопку **View pods on
   this node** в детализации.
 
+![Детали узла: графики ЦП, доли выделяемого ЦП, рабочего набора памяти и доли памяти](../screenshots/monitor-kubernetes-2-ru.webp)
+
 ## Чтение таблицы Pods
+
+![Таблица подов: рабочая нагрузка, узел, фаза, перезапуски, ЦП и память с долей от лимита](../screenshots/monitor-kubernetes-3-ru.webp)
 
 Переключитесь на вкладку **Pods** или откройте `/kubernetes?tab=pods`.
 
@@ -159,6 +165,8 @@ Flare также читает `k8s.node.cpu.utilization` — прежнее им
 имён.
 
 ## Чтение таблицы Workloads
+
+![Таблица рабочих нагрузок Deployment: payment-service готов на 2 из 3](../screenshots/monitor-kubernetes-4-ru.webp)
 
 Переключитесь на вкладку **Workloads** или откройте `/kubernetes?tab=workloads`
 и выберите тип. Столбец **Status** зависит от типа:

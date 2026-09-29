@@ -39,6 +39,8 @@ Flare.Api et le worker d'alertes la prennent en compte sous 30 secondes.
 Les clés peuvent contenir des lettres, des chiffres et `. _ - : / @`, jusqu'à
 200 caractères. Vous pouvez promouvoir jusqu'à 50 clés par table.
 
+![Panneau Promoted attributes de la page Indexing : le formulaire de promotion et quatre clés promues sur les tables Logs et Spans](../screenshots/promote-attribute-columns-en.webp)
+
 ## Remplissage
 
 Avec **Backfill existing data** activé, ClickHouse réécrit les données

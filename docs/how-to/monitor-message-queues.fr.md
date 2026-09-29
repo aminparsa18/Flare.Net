@@ -52,6 +52,8 @@ Pour RabbitMQ.Client 7+, ajoutez plutôt ses sources d'activités :
 
 ## Lire la page Messaging
 
+![Page Messaging : topics Kafka et files RabbitMQ avec débits de publication et de consommation, taux d'erreur, p99 et backlog](../screenshots/monitor-message-queues-en.webp)
+
 Ouvrez **Messaging** dans la barre de navigation. Chaque ligne correspond à un
 topic ou à une file :
 
@@ -77,6 +79,8 @@ consommateur qui n'émet que des spans `receive`. Ce n'est pas le temps passé p
 
 La page ne se rafraîchit pas d'elle-même. Cliquez sur **Refresh** pour la
 recharger.
+
+![Détail de payments.completed : producteur, consommateurs avec leurs groupes et trafic par partition](../screenshots/monitor-message-queues-2-en.webp)
 
 ### Comment les spans sont classés
 
@@ -134,6 +138,8 @@ Pour un topic Kafka, la colonne **Backlog** affiche le dernier retard sur la
 fenêtre, additionné sur tous les groupes de consommateurs et partitions. Un
 **—** signifie que la métrique n'est pas collectée pour ce topic. Elle n'est
 jamais affichée comme 0.
+
+![Retard des consommateurs de payments.completed par groupe et partition, 658 au total](../screenshots/monitor-message-queues-3-en.webp)
 
 ## Voir la profondeur des files RabbitMQ
 

@@ -99,6 +99,8 @@ ajoutez la clé aux `headers` de l'exportateur.
 
 ## Lire le tableau Nodes
 
+![Tableau Nodes : trois nœuds Ready avec CPU, CPU % de l'allouable, mémoire, mémoire % et nombre de pods](../screenshots/monitor-kubernetes-en.webp)
+
 Ouvrez le menu **⋯** en haut à droite et choisissez **Kubernetes**. Les nœuds apparaissent en
 un intervalle de collecte.
 
@@ -120,7 +122,11 @@ qu'envoient les collecteurs plus anciens.
 - **Voyez les pods d'un nœud** en cliquant sur son nombre de **Pods**, ou sur
   **View pods on this node** dans le détail.
 
+![Détail d'un nœud : graphiques CPU, CPU % de l'allouable, working set mémoire et mémoire %](../screenshots/monitor-kubernetes-2-en.webp)
+
 ## Lire le tableau Pods
+
+![Tableau Pods : workload, nœud, phase, redémarrages, CPU et mémoire avec leur part de la limite](../screenshots/monitor-kubernetes-3-en.webp)
 
 Passez à l'onglet **Pods**, ou ouvrez `/kubernetes?tab=pods`.
 
@@ -161,6 +167,8 @@ Cliquez sur un namespace pour ouvrir l'onglet Pods filtré sur celui-ci. Les
 onglets Workloads, Pods et Volumes partagent un même filtre de namespace.
 
 ## Lire le tableau Workloads
+
+![Tableau Workloads pour les Deployments : payment-service à 2 sur 3 prêts](../screenshots/monitor-kubernetes-4-en.webp)
 
 Passez à l'onglet **Workloads**, ou ouvrez `/kubernetes?tab=workloads`, et
 choisissez un type. La colonne **Status** dépend du type :

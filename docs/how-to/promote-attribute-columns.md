@@ -35,6 +35,8 @@ pick it up within 30 seconds.
 Keys may contain letters, digits and `. _ - : / @`, up to 200 characters. You
 can promote up to 50 keys per table.
 
+![Promoted attributes panel on the Indexing page: the promote form and four promoted keys on the Logs and Spans tables](../screenshots/promote-attribute-columns-en.webp)
+
 ## Backfill
 
 With **Backfill existing data** on, ClickHouse rewrites existing data in the

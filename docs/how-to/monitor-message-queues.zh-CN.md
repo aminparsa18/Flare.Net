@@ -37,6 +37,8 @@ using var consumer = consumerBuilder.Build();
 
 ## 查看 Messaging 页面
 
+![消息队列页面：Kafka 主题和 RabbitMQ 队列的发布与消费速率、错误率、p99 和积压](../screenshots/monitor-message-queues-ch.webp)
+
 在顶部导航中打开 **Messaging**。每一行对应一个主题或队列：
 
 | 列 | 含义 |
@@ -55,6 +57,8 @@ using var consumer = consumerBuilder.Build();
 - **下钻**：点击主题或队列名称。面板会列出生产者服务、消费者服务及其消费者组、各分区的流量，以及按消费者组和分区的延迟。点击服务名称可打开其追踪。
 
 页面不会自动刷新。点击 **Refresh** 重新加载。
+
+![payments.completed 详情：生产者、消费者及其消费者组，以及各分区流量](../screenshots/monitor-message-queues-2-ch.webp)
 
 ### span 如何分类
 
@@ -92,6 +96,8 @@ service:
 从 0.161 版本起，Collector 将该接收器命名为 `kafka_metrics`。旧名称 `kafkametrics` 仍然可用，但会记录弃用警告。
 
 对于 Kafka 主题，**Backlog** 列显示时间窗口内的最新延迟，按所有消费者组和分区求和。**—** 表示该主题的指标未被采集，绝不会显示为 0。
+
+![payments.completed 按消费者组和分区的消费者延迟，共 658](../screenshots/monitor-message-queues-3-ch.webp)
 
 ## 查看 RabbitMQ 队列深度
 
