@@ -49,6 +49,8 @@ For RabbitMQ.Client 7+, add its activity sources instead:
 
 ## Read the Messaging page
 
+![Messaging page: Kafka topics and RabbitMQ queues with publish and consume rates, error rate, p99 and backlog](../screenshots/monitor-message-queues-en.webp)
+
 Open **Messaging** in the top nav. Each row is one topic or queue:
 
 | Column | Meaning |
@@ -73,6 +75,8 @@ message spent waiting in the queue.
   service name to open its traces.
 
 The page doesn't refresh on its own. Click **Refresh** to reload it.
+
+![payments.completed drill-down: producer, consumers with their consumer groups, and traffic per partition](../screenshots/monitor-message-queues-2-en.webp)
 
 ### How spans are classified
 
@@ -126,6 +130,8 @@ Collector releases from 0.161 on name the receiver `kafka_metrics`. The old
 For a Kafka topic, the **Backlog** column shows the latest lag in the window,
 summed over all consumer groups and partitions. A **—** means the metric isn't
 being collected for that topic. It is never shown as 0.
+
+![Consumer lag for payments.completed per consumer group and partition, 658 in total](../screenshots/monitor-message-queues-3-en.webp)
 
 ## See RabbitMQ queue depth
 

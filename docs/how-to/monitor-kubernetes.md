@@ -96,6 +96,8 @@ to the exporter's `headers`.
 
 ## Read the Nodes table
 
+![Nodes table: three Ready nodes with CPU, CPU % of allocatable, memory, memory % and pod count](../screenshots/monitor-kubernetes-en.webp)
+
 Open the **⋯** menu at the top right and pick **Kubernetes**. Nodes appear within one collection interval.
 
 | Column | Source metric | Meaning |
@@ -116,7 +118,11 @@ figure that older collectors send.
 - **See a node's pods** by clicking its **Pods** count, or **View pods on this
   node** in the drill-down.
 
+![Node drill-down: CPU, CPU % of allocatable, memory working set and memory % charts](../screenshots/monitor-kubernetes-2-en.webp)
+
 ## Read the Pods table
+
+![Pods table: workload, node, phase, restarts, and CPU and memory with their share of the limit](../screenshots/monitor-kubernetes-3-en.webp)
 
 Switch to the **Pods** tab, or open `/kubernetes?tab=pods`.
 
@@ -157,6 +163,8 @@ Click a namespace to open the Pods tab filtered to it. The Workloads, Pods, and
 Volumes tabs share one namespace filter.
 
 ## Read the Workloads table
+
+![Workloads table for Deployments: payment-service at 2 of 3 ready](../screenshots/monitor-kubernetes-4-en.webp)
 
 Switch to the **Workloads** tab, or open `/kubernetes?tab=workloads`, and pick a
 kind. The **Status** column depends on the kind:

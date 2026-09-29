@@ -75,6 +75,8 @@ service:
 
 ## 查看 Nodes 表
 
+![节点表：三个 Ready 节点的 CPU、可分配 CPU 占比、内存、内存占比和 Pod 数](../screenshots/monitor-kubernetes-ch.webp)
+
 打开右上角的 **⋯** 菜单，选择 **Kubernetes**。节点会在一个采集间隔内出现。
 
 | 列 | 来源指标 | 含义 |
@@ -92,7 +94,11 @@ Flare 也会读取 `k8s.node.cpu.utilization`，这是旧版 Collector 发送的
 - **下钻**：点击节点名称，打开所选窗口内 CPU、CPU %、内存和内存 % 的图表。
 - **查看节点上的 Pod**：点击其 **Pods** 数量，或在下钻视图中点击 **View pods on this node**。
 
+![节点详情：CPU、可分配 CPU 占比、内存工作集和内存占比图表](../screenshots/monitor-kubernetes-2-ch.webp)
+
 ## 查看 Pods 表
+
+![Pod 表：工作负载、节点、阶段、重启次数，以及 CPU 和内存及其占限制的比例](../screenshots/monitor-kubernetes-3-ch.webp)
 
 切换到 **Pods** 标签页，或打开 `/kubernetes?tab=pods`。
 
@@ -124,6 +130,8 @@ Pod 下钻视图中的 **View logs** 会打开 **Logs**，并按该 Pod 的 `k8s
 点击命名空间会打开按其筛选的 Pods 标签页。Workloads、Pods 和 Volumes 标签页共用同一个命名空间筛选器。
 
 ## 查看 Workloads 表
+
+![Deployment 的工作负载表：payment-service 就绪 2/3](../screenshots/monitor-kubernetes-4-ch.webp)
 
 切换到 **Workloads** 标签页，或打开 `/kubernetes?tab=workloads`，然后选择类型。**Status** 列取决于类型：
 
