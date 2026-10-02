@@ -424,7 +424,7 @@ internal sealed class TracesCommand : AsyncCommand<TracesCommand.Settings>
 
     // Inverse of dashboard/src/lib/traces/duration.ts's formatDurationNano - accepts a
     // bare number (nanoseconds) or a number with a us/ms/s/m unit suffix.
-    private static bool TryParseDurationNano(string text, out ulong? nanos)
+    internal static bool TryParseDurationNano(string text, out ulong? nanos)
     {
         nanos = null;
         var trimmed = text.Trim();

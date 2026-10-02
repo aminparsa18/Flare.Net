@@ -19,6 +19,8 @@ import {
 	bodyJsonFilterOperatorFromString,
 	bodyJsonFilterOperatorToString
 } from '$lib/memorypack/enums';
+import { SpanFilter } from '$lib/memorypack/SpanFilter';
+import { toGeneratedSpanFilter } from '$lib/traces-api';
 import type { LogFilter as PlainLogFilter } from '$lib/api';
 
 export class LogFilter {
@@ -33,6 +35,7 @@ export class LogFilter {
 	attributes: (AttributeFilter | null)[] | null;
 	bodyJsonFilters: (BodyJsonFilter | null)[] | null;
 	scopeNames: (string | null)[] | null;
+	traceSpanFilter: SpanFilter | null;
 
 	constructor() {
 		this.from = null;
@@ -46,6 +49,7 @@ export class LogFilter {
 		this.attributes = null;
 		this.bodyJsonFilters = null;
 		this.scopeNames = null;
+		this.traceSpanFilter = null;
 	}
 
 	static serialize(value: LogFilter | null): Uint8Array {
@@ -60,7 +64,7 @@ export class LogFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(11);
+		writer.writeObjectHeader(12);
 		writeNullableDateTimeOffset(writer, value.from);
 		writeNullableDateTimeOffset(writer, value.to);
 		writer.writeArray(value.services, (writer, x) => writer.writeString(x));
@@ -72,6 +76,7 @@ export class LogFilter {
 		writer.writeArray(value.attributes, (writer, x) => AttributeFilter.serializeCore(writer, x));
 		writer.writeArray(value.bodyJsonFilters, (writer, x) => BodyJsonFilter.serializeCore(writer, x));
 		writer.writeArray(value.scopeNames, (writer, x) => writer.writeString(x));
+		SpanFilter.serializeCore(writer, value.traceSpanFilter);
 	}
 
 	static deserialize(buffer: ArrayBuffer): LogFilter | null {
@@ -85,7 +90,7 @@ export class LogFilter {
 		}
 
 		const value = new LogFilter();
-		if (count == 11) {
+		if (count == 12) {
 			value.from = readNullableDateTimeOffset(reader);
 			value.to = readNullableDateTimeOffset(reader);
 			value.services = reader.readArray((reader) => reader.readString());
@@ -97,7 +102,8 @@ export class LogFilter {
 			value.attributes = reader.readArray((reader) => AttributeFilter.deserializeCore(reader));
 			value.bodyJsonFilters = reader.readArray((reader) => BodyJsonFilter.deserializeCore(reader));
 			value.scopeNames = reader.readArray((reader) => reader.readString());
-		} else if (count > 11) {
+			value.traceSpanFilter = SpanFilter.deserializeCore(reader);
+		} else if (count > 12) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -123,6 +129,8 @@ export class LogFilter {
 			if (count == 10) return value;
 			value.scopeNames = reader.readArray((reader) => reader.readString());
 			if (count == 11) return value;
+			value.traceSpanFilter = SpanFilter.deserializeCore(reader);
+			if (count == 12) return value;
 		}
 		return value;
 	}
@@ -158,7 +166,22 @@ export function logFilterToPlain(dto: LogFilter): PlainLogFilter {
 						operator: bodyJsonFilterOperatorToString(f!.operator),
 						values: f!.values == null ? undefined : f!.values.map((v) => v ?? '')
 					})),
-		scopeNames: dto.scopeNames == null ? undefined : dto.scopeNames.map((s) => s ?? '')
+		scopeNames: dto.scopeNames == null ? undefined : dto.scopeNames.map((s) => s ?? ''),
+		// Only the fields the Logs Explorer's "Trace spans" popover writes (and that every
+		// other client can express without a structure/attribute editor) round-trip here.
+		traceSpanFilter:
+			dto.traceSpanFilter == null
+				? undefined
+				: {
+						services: dto.traceSpanFilter.services == null ? undefined : dto.traceSpanFilter.services.map((s) => s ?? ''),
+						statusCodes:
+							dto.traceSpanFilter.statusCodes == null ? undefined : dto.traceSpanFilter.statusCodes.map((s) => s ?? ''),
+						names: dto.traceSpanFilter.names == null ? undefined : dto.traceSpanFilter.names.map((s) => s ?? ''),
+						minDurationNano:
+							dto.traceSpanFilter.minDurationNano == null ? undefined : Number(dto.traceSpanFilter.minDurationNano),
+						maxDurationNano:
+							dto.traceSpanFilter.maxDurationNano == null ? undefined : Number(dto.traceSpanFilter.maxDurationNano)
+					}
 	};
 }
 
@@ -198,5 +221,6 @@ export function logFilterFromPlain(filter: PlainLogFilter | undefined): LogFilte
 					return jsonFilter;
 				});
 	dto.scopeNames = filter.scopeNames ?? null;
+	dto.traceSpanFilter = filter.traceSpanFilter == null ? null : toGeneratedSpanFilter(filter.traceSpanFilter);
 	return dto;
 }

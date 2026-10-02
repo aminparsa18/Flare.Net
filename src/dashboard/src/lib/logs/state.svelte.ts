@@ -3,6 +3,7 @@
 // svelte-best-practices skill ("use classes with $state fields... instead of stores",
 // "consider context instead of a shared module").
 
+import type { SpanFilter } from '$lib/traces-api';
 import {
 	searchLogs,
 	aggregateLogs,
@@ -49,12 +50,44 @@ const CONTEXT_PAGE_SIZE = 50;
 /** "Load earlier"/"Load later" grows a direction's size by this much per click, capped at CONTEXT_MAX - mirrors LogContextQueryBuilder.MaxSize server-side. */
 const CONTEXT_MAX = 200;
 
+/**
+ * The Logs Explorer's "Trace spans" filter: keep only logs of traces that contain at least
+ * one span matching all the set fields - see `LogFilter.traceSpanFilter`. All fields empty
+ * means inactive.
+ */
+export interface TraceSpanFilterState {
+	services: string[];
+	errorsOnly: boolean;
+	spanName: string;
+	/** Spans at least this long, in milliseconds; null = no minimum. */
+	minDurationMs: number | null;
+}
+
+export function emptyTraceSpanFilter(): TraceSpanFilterState {
+	return { services: [], errorsOnly: false, spanName: '', minDurationMs: null };
+}
+
+export function isTraceSpanFilterActive(f: TraceSpanFilterState): boolean {
+	return f.services.length > 0 || f.errorsOnly || f.spanName.trim() !== '' || f.minDurationMs != null;
+}
+
+function toTraceSpanFilter(f: TraceSpanFilterState): SpanFilter {
+	const span: SpanFilter = {};
+	if (f.services.length) span.services = [...f.services];
+	if (f.errorsOnly) span.statusCodes = ['STATUS_CODE_ERROR'];
+	if (f.spanName.trim()) span.names = [f.spanName.trim()];
+	if (f.minDurationMs != null) span.minDurationNano = Math.round(f.minDurationMs * 1_000_000);
+	return span;
+}
+
 export interface LogsFilterState {
 	timeRangePreset: TimeRangePreset;
 	customRange: { from: Date; to: Date } | null;
 	services: string[];
 	/** Instrumentation scope names (the .NET logger category) - exact, or a prefix when ending in `*`. See `LogFilter.scopeNames`. */
 	scopeNames: string[];
+	/** Logs of traces containing a matching span - see `TraceSpanFilterState`. */
+	traceSpan: TraceSpanFilterState;
 	severityNumbers: number[];
 	search: string;
 	/** Exact PatternId match - set only via applyPatternIdFilter (the Patterns view's "View examples" drill-down), never part of a saved view. */
@@ -174,6 +207,8 @@ export interface LogsSavedViewState {
 	traceId?: string;
 	/** Optional (unlike `services`) - saved views written before this field existed simply lack it; `applySavedViewState` falls back to `[]`. */
 	scopeNames?: string[];
+	/** Optional for the same reason as `scopeNames` - older saved views fall back to inactive. */
+	traceSpan?: TraceSpanFilterState;
 	severityNumbers: number[];
 	search: string;
 	attributeFilters: AttributeFilter[];
@@ -197,6 +232,7 @@ export class LogsExplorerState {
 		customRange: null,
 		services: [],
 		scopeNames: [],
+		traceSpan: emptyTraceSpanFilter(),
 		severityNumbers: [],
 		search: '',
 		patternId: '',
@@ -375,6 +411,7 @@ export class LogsExplorerState {
 		}
 		if (this.filter.services.length) filter.services = [...this.filter.services];
 		if (this.filter.scopeNames.length) filter.scopeNames = [...this.filter.scopeNames];
+		if (isTraceSpanFilterActive(this.filter.traceSpan)) filter.traceSpanFilter = toTraceSpanFilter(this.filter.traceSpan);
 		if (this.filter.severityNumbers.length) filter.severityNumbers = [...this.filter.severityNumbers];
 		if (this.filter.search.trim()) filter.search = this.filter.search.trim();
 		if (this.filter.patternId) filter.patternId = this.filter.patternId;
@@ -570,6 +607,17 @@ export class LogsExplorerState {
 		this.applyFilterChange();
 	}
 
+	/** Sets the trace-span filter. Live tail can't evaluate it (no spans in memory), so activating it leaves live mode. */
+	setTraceSpanFilter(traceSpan: TraceSpanFilterState): void {
+		this.selectedBucketRange = null;
+		this.filter.traceSpan = traceSpan;
+		if (this.live && isTraceSpanFilterActive(traceSpan)) {
+			this.live = false;
+			this.#connection?.pause();
+		}
+		this.applyFilterChange();
+	}
+
 	/** Wholesale-replaces the user-built attribute filters (AttributeFiltersRow.svelte) - called on every row add/remove/edit, same "one setter, caller passes the full next array" shape as setServices/setSeverityNumbers. */
 	setAttributeFilters(attributeFilters: AttributeFilter[]): void {
 		this.selectedBucketRange = null;
@@ -665,6 +713,7 @@ export class LogsExplorerState {
 			this.filter.search !== '' ||
 			this.filter.services.length > 0 ||
 			this.filter.scopeNames.length > 0 ||
+			isTraceSpanFilterActive(this.filter.traceSpan) ||
 			this.filter.severityNumbers.length > 0 ||
 			this.filter.attributeFilters.length > 0 ||
 			this.filter.bodyJsonFilters.length > 0 ||
@@ -692,6 +741,7 @@ export class LogsExplorerState {
 		this.filter.search = '';
 		this.filter.services = [];
 		this.filter.scopeNames = [];
+		this.filter.traceSpan = emptyTraceSpanFilter();
 		this.filter.severityNumbers = [];
 		this.filter.attributeFilters = [];
 		this.filter.bodyJsonFilters = [];
@@ -733,6 +783,7 @@ export class LogsExplorerState {
 
 	setLive(next: boolean): void {
 		if (next === this.live) return;
+		if (next && isTraceSpanFilterActive(this.filter.traceSpan)) return; // live tail can't evaluate a trace-span filter
 		this.live = next;
 
 		if (next) {
@@ -773,6 +824,7 @@ export class LogsExplorerState {
 				: null,
 			services: [...this.filter.services],
 			scopeNames: [...this.filter.scopeNames],
+			traceSpan: { ...this.filter.traceSpan, services: [...this.filter.traceSpan.services] },
 			severityNumbers: [...this.filter.severityNumbers],
 			search: this.filter.search,
 			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a })),
@@ -804,6 +856,7 @@ export class LogsExplorerState {
 			customRange: s.customRange ? { from: new Date(s.customRange.from), to: new Date(s.customRange.to) } : null,
 			services: s.services ?? [],
 			scopeNames: s.scopeNames ?? [],
+			traceSpan: s.traceSpan ? { ...emptyTraceSpanFilter(), ...s.traceSpan } : emptyTraceSpanFilter(),
 			severityNumbers: s.severityNumbers ?? [],
 			search: s.search ?? '',
 			patternId: '', // never part of a saved view - see LogsFilterState.patternId's remarks
@@ -893,6 +946,7 @@ export class LogsExplorerState {
 			customRange: null,
 			services: params.services,
 			scopeNames: [],
+			traceSpan: emptyTraceSpanFilter(),
 			severityNumbers: [],
 			search: '',
 			patternId: '',

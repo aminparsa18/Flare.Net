@@ -120,6 +120,9 @@ public static class LogTailEndpoints
 
         switch (message.Type)
         {
+            case LogTailClientMessageType.Subscribe when message.Filter?.TraceSpanFilter is not null:
+                subscription.TryPublishError("Live tail can't evaluate a trace span filter (traceSpanFilter); use search instead.");
+                break;
             case LogTailClientMessageType.Subscribe:
                 subscription.Filter = message.Filter ?? new LogFilter();
                 subscription.Paused = false;

@@ -134,7 +134,7 @@ export async function validateTraceStructure(structure: TraceStructureFilter, si
 	return message;
 }
 
-function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFilter {
+export function toGeneratedSpanFilter(filter: SpanFilter | undefined): GeneratedSpanFilter {
 	const dto = new GeneratedSpanFilter();
 	if (filter == null) return dto;
 	dto.from = filter.from == null ? null : new Date(filter.from);

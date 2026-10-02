@@ -171,15 +171,6 @@ folders are where "what happened and why" actually lives.
   common models, overridable). Consider pre-aggregation like ADR-0031 if
   volumes warrant it. Needs an ADR. Not started. Prior art:
   [signoz#10908](https://github.com/SigNoz/signoz/commit/755390c4b5b2456a7c5c44d98fe8fcb18671616b).
-- **Filter logs by properties of their trace.** `LogFilter` only matches an
-  exact `TraceId`/`SpanId`, so "logs from traces where a `payments` span
-  errored or took > 2s" isn't expressible. Add an optional `SpanFilter` on
-  `LogFilter`, compiled to `TraceId GLOBAL IN (SELECT TraceId FROM spans
-  WHERE …)` over the same time window via `SpanFilterSqlBuilder` (structural
-  queries included). It then works for search, volume/group-by and LogCount
-  alerts. Live tail can't evaluate it in memory, so reject it there or
-  ignore it with a notice. Not started. Prior art:
-  [signoz#11394](https://github.com/SigNoz/signoz/commit/ceb1b4871b332657c241b425572b400828ca3323).
 - **User-defined alert rule labels + label-scoped maintenance windows.**
   Maintenance windows match only an explicit `RuleIds` list (empty = all),
   and rules have no user labels: `{{labels.<key>}}` in templates comes from
