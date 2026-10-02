@@ -34,6 +34,13 @@ public sealed partial record LogContextRequest
 
     /// <summary>Events to fetch strictly after the anchor. Defaults/caps applied by <see cref="Query.LogContextQueryBuilder"/>.</summary>
     public int? After { get; init; }
+
+    /// <summary>
+    /// When true, only events from the same source as the anchor are returned: the anchor's
+    /// first present resource attribute in <see cref="Query.LogContextQueryBuilder.SourcePriority"/>
+    /// order. Still time-unbounded. Ignored if the anchor row no longer exists.
+    /// </summary>
+    public bool SameSource { get; init; }
 }
 
 /// <summary>Response body for <c>POST /api/logs/context</c>.</summary>
@@ -63,4 +70,10 @@ public sealed partial record LogContextResponse
 
     /// <summary>True if more events exist strictly after the newest row in <see cref="Events"/>.</summary>
     public bool HasMoreAfter { get; init; }
+
+    /// <summary>Resource attribute key the neighbors were scoped to (<see cref="LogContextRequest.SameSource"/>); null when unscoped.</summary>
+    public string? SourceKey { get; init; }
+
+    /// <summary>Value of <see cref="SourceKey"/> on the anchor; null when unscoped.</summary>
+    public string? SourceValue { get; init; }
 }

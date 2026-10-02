@@ -111,14 +111,6 @@ folders are where "what happened and why" actually lives.
   ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
   how-to/reference pages yet. Document it there, with the `.ru`/`.fr`/`.zh-CN`
   siblings hand-translated. Not started.
-- **"Same source" scope for the log context view.** `/api/logs/context` is
-  deliberately global (see `LogContextRequest`'s remarks), so on a busy
-  cluster the surrounding lines are mostly unrelated services. Keep global as
-  one option and add a "same source" toggle in `LogContextSheet`. It scopes to
-  the first resource attribute the anchor event has, in priority order
-  `k8s.pod.name` → `container.id` → `host.name` → `service.name`, while
-  staying time-unbounded. Not started. Prior art:
-  [signoz#9303](https://github.com/SigNoz/signoz/commit/44d1d0f994e9446d4cfa5ee9a4ff8c4472aeb383).
 - **Per-panel decimal precision.** Axis, tooltip, value and table
   formatting fix the precision (`maximumFractionDigits: 2` in
   `$lib/metrics/axis.ts`), so e.g. a ratio panel can't show 0.0042 usefully.

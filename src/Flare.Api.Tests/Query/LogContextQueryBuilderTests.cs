@@ -93,4 +93,65 @@ public class LogContextQueryBuilderTests
         Assert.Equal(10, result.BeforeLimit);
         Assert.Equal(90, result.AfterLimit);
     }
+
+    [Fact]
+    public void Build_WithResourceAttributeSource_ScopesBeforeAndAfterOnly()
+    {
+        var result = LogContextQueryBuilder.Build(Request(), ("k8s.pod.name", "pod-a"));
+
+        Assert.Contains("AND ResourceAttributes[{srcKey:String}] = {srcVal:String}", result.Before.Sql);
+        Assert.Contains("AND ResourceAttributes[{srcKey:String}] = {srcVal:String}", result.After.Sql);
+        Assert.DoesNotContain("srcVal", result.Anchor.Sql);
+        var parameters = result.Before.Parameters.ToDictionary();
+        Assert.Equal("k8s.pod.name", parameters["srcKey"]);
+        Assert.Equal("pod-a", parameters["srcVal"]);
+    }
+
+    [Fact]
+    public void Build_WithServiceNameSource_UsesServiceNameColumn()
+    {
+        var result = LogContextQueryBuilder.Build(Request(), ("service.name", "api"));
+
+        Assert.Contains("AND ServiceName = {srcVal:String}", result.After.Sql);
+        Assert.DoesNotContain("srcKey", result.After.Sql);
+    }
+
+    [Fact]
+    public void Build_WithoutSource_HasNoSourceClause() =>
+        Assert.DoesNotContain("srcVal", LogContextQueryBuilder.Build(Request()).Before.Sql);
+
+    private static LogEventDto Anchor(string service, params (string, string)[] resource) => new()
+    {
+        EventId = AnchorEventId,
+        Timestamp = AnchorTimestamp,
+        ObservedTimestamp = AnchorTimestamp,
+        IngestedAt = AnchorTimestamp,
+        TraceId = "",
+        SpanId = "",
+        TraceFlags = 0,
+        SeverityText = "",
+        SeverityNumber = 0,
+        ServiceName = service,
+        Body = "",
+        ResourceSchemaUrl = "",
+        ResourceAttributes = resource.ToDictionary(r => r.Item1, r => r.Item2),
+        ScopeSchemaUrl = "",
+        ScopeName = "",
+        ScopeVersion = "",
+        ScopeAttributes = new Dictionary<string, string>(),
+        LogAttributes = new Dictionary<string, string>(),
+        EventName = "",
+        PatternId = "",
+        PatternTemplate = "",
+    };
+
+    [Fact]
+    public void ResolveSource_PrefersPodThenContainerThenHostThenService()
+    {
+        Assert.Equal(("k8s.pod.name", "p"), LogContextQueryBuilder.ResolveSource(Anchor("svc", ("host.name", "h"), ("container.id", "c"), ("k8s.pod.name", "p"))));
+        Assert.Equal(("container.id", "c"), LogContextQueryBuilder.ResolveSource(Anchor("svc", ("host.name", "h"), ("container.id", "c"))));
+        Assert.Equal(("host.name", "h"), LogContextQueryBuilder.ResolveSource(Anchor("svc", ("host.name", "h"))));
+        Assert.Equal(("service.name", "svc"), LogContextQueryBuilder.ResolveSource(Anchor("svc")));
+        Assert.Null(LogContextQueryBuilder.ResolveSource(Anchor("")));
+    }
 }

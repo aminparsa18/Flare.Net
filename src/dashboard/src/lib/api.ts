@@ -259,6 +259,8 @@ export interface LogContextRequest {
 	timestamp: string;
 	before?: number;
 	after?: number;
+	/** Scope neighbors to the anchor's source (pod → container → host → service). See LogContextRequest.SameSource. */
+	sameSource?: boolean;
 }
 
 export interface LogContextResponse {
@@ -267,6 +269,9 @@ export interface LogContextResponse {
 	anchorEventId: string;
 	hasMoreBefore: boolean;
 	hasMoreAfter: boolean;
+	/** Resource attribute the neighbors were scoped to; null when unscoped. */
+	sourceKey: string | null;
+	sourceValue: string | null;
 }
 
 export async function getLogContext(request: LogContextRequest, signal?: AbortSignal): Promise<LogContextResponse> {
@@ -275,6 +280,7 @@ export async function getLogContext(request: LogContextRequest, signal?: AbortSi
 	dto.timestamp = new Date(request.timestamp);
 	dto.before = request.before ?? null;
 	dto.after = request.after ?? null;
+	dto.sameSource = request.sameSource ?? false;
 	const res = await apiFetch(`${API_BASE_URL}/api/logs/context`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),
@@ -289,7 +295,9 @@ export async function getLogContext(request: LogContextRequest, signal?: AbortSi
 		events: (body?.events ?? []).map((e) => toLogEventDto(e!)),
 		anchorEventId: body?.anchorEventId ?? request.eventId,
 		hasMoreBefore: body?.hasMoreBefore ?? false,
-		hasMoreAfter: body?.hasMoreAfter ?? false
+		hasMoreAfter: body?.hasMoreAfter ?? false,
+		sourceKey: body?.sourceKey ?? null,
+		sourceValue: body?.sourceValue ?? null
 	};
 }
 

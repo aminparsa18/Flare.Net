@@ -166,6 +166,14 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
             }
         }
 
+        // The anchor row is only known after its lookup, so same-source scoping rebuilds
+        // the neighbor queries with the source it resolves to.
+        var source = request.SameSource && anchor != null ? LogContextQueryBuilder.ResolveSource(anchor) : null;
+        if (source != null)
+        {
+            built = LogContextQueryBuilder.Build(request, source);
+        }
+
         var beforeRows = new List<LogEventDto>();
         await using (var beforeReader = await client.ExecuteReaderAsync(built.Before.Sql, built.Before.Parameters, SafetyOptions(), cancellationToken))
         {
@@ -208,6 +216,8 @@ public sealed class LogQueryService(IClickHouseClient client, IOptions<QueryLimi
             AnchorEventId = request.EventId,
             HasMoreBefore = hasMoreBefore,
             HasMoreAfter = hasMoreAfter,
+            SourceKey = source?.Key,
+            SourceValue = source?.Value,
         };
     }
 
