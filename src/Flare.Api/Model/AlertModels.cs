@@ -12,6 +12,20 @@ public enum ThresholdComparator
     LessThan,
 }
 
+/// <summary>
+/// How urgent an <see cref="AlertRule"/>'s notifications are. Critical is the 0 value (and so the
+/// default) on purpose: MemoryPack serializes enums by number, and every rule created before
+/// severity existed was paged as PagerDuty "critical". Names match PagerDuty's Events API v2
+/// <c>severity</c> values once lowercased. See <c>docs-internal/adr/0077-alert-rule-severity.md</c>.
+/// </summary>
+public enum AlertSeverity
+{
+    Critical,
+    Error,
+    Warning,
+    Info,
+}
+
 /// <summary>Which condition an <see cref="AlertRule"/> evaluates on every poll tick.</summary>
 /// <remarks>
 /// <see cref="LogCount"/> is the default/original behavior (<see cref="AlertRule.Condition"/>
@@ -461,6 +475,15 @@ public sealed partial record AlertRule
     /// Appended after <see cref="NotificationBodyTemplate"/>, same versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public double? RecoveryThreshold { get; init; }
+
+    /// <summary>
+    /// How urgent this rule is. Defaults to <see cref="AlertSeverity.Critical"/> (every rule
+    /// created before this field existed). Sent as PagerDuty's <c>severity</c>, shown in the
+    /// other channels' built-in text and as the <c>{{severity}}</c> template placeholder, and
+    /// listed on the alerts page. A test send still reports PagerDuty severity "info". See
+    /// <c>docs-internal/adr/0077-alert-rule-severity.md</c>. Appended after <see cref="RecoveryThreshold"/>, same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public AlertSeverity Severity { get; init; } = AlertSeverity.Critical;
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -553,6 +576,9 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.RecoveryThreshold"/>'s doc comment. Omitted/null means no hysteresis. Appended after <see cref="NotificationBodyTemplate"/>.</summary>
     public double? RecoveryThreshold { get; init; }
+
+    /// <summary>See <see cref="AlertRule.Severity"/>'s doc comment. Omitted/null means <see cref="AlertSeverity.Critical"/>. Appended after <see cref="RecoveryThreshold"/>.</summary>
+    public AlertSeverity? Severity { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel

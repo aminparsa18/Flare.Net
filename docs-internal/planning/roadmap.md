@@ -106,13 +106,6 @@ folders are where "what happened and why" actually lives.
   `?var-service=a,b&range=1h`), hydrate from the URL first on load, and use
   `replaceState` on change. Not started. Prior art:
   [signoz#8874](https://github.com/SigNoz/signoz/commit/437d0d134502b5bd124471606674080a040a2090).
-- **Alert rule severity.** Rules have no severity, and `PagerDutyAlertNotifier`
-  hard-codes `severity = "critical"`, so every Flare page looks equally
-  urgent. Add a rule-level severity (critical/error/warning/info). Map it to
-  PagerDuty's severity field, include it in the other channels' messages and
-  as a `{{severity}}` template variable, and show it in the alerts list. Not
-  started. Prior art:
-  [signoz#9538](https://github.com/SigNoz/signoz/commit/9f089e0784eee3b0aec817a82fa55c7411f8e8c0).
 - **Span duration percentile in span details.** `SpanDetailSheet` shows the
   raw duration only, with no sense of whether it's normal. Show "p97 of
   `GET /orders` in `shop-api`" from a `quantiles(...)`/rank query over spans

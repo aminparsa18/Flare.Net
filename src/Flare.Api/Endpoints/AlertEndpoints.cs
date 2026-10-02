@@ -243,6 +243,7 @@ public static class AlertEndpoints
             NotificationTitleTemplate = defaults.NotificationTitleTemplate,
             NotificationBodyTemplate = defaults.NotificationBodyTemplate,
             RecoveryThreshold = request.RecoveryThreshold,
+            Severity = defaults.Severity,
         };
     }
 

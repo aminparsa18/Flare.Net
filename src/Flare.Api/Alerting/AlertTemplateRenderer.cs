@@ -24,7 +24,7 @@ public static partial class AlertTemplateRenderer
     /// <summary>Every non-label placeholder a template may use - also what the rule form lists.</summary>
     public static readonly IReadOnlyList<string> Names =
     [
-        "rule_name", "rule_id", "description", "status", "condition_kind",
+        "rule_name", "rule_id", "description", "severity", "status", "condition_kind",
         "value", "threshold", "comparator", "window", "window_seconds",
         "metric", "exception_type", "baseline_mean", "z_score",
         "fired_at", "rule_url", "logs_url", "data_url", "message",

@@ -69,6 +69,13 @@ public static class AlertMessageFormatter
                         ? BuildAnomalyText(rule, anomaly, metricUnit)
                         : BuildFiredText(rule, observedValue, metricUnit);
 
+        // Critical is the unlabeled default - only a rule that opted into a lower severity says so,
+        // so existing rules' messages read exactly as they did before severity existed.
+        if (!isTest && !resolved && rule.Severity != AlertSeverity.Critical)
+        {
+            text = $"[{rule.Severity.ToString().ToUpperInvariant()}] {text}";
+        }
+
         if (!noData && firedAt is { } at && BuildFiredDataUrl(rule, publicUrl, at) is { } dataUrl)
         {
             text = $"{text}\n{FiredDataLabel(rule)}: {dataUrl}";
@@ -176,6 +183,7 @@ public static class AlertMessageFormatter
             ["rule_name"] = rule.Name,
             ["rule_id"] = rule.Id.ToString(),
             ["description"] = rule.Description,
+            ["severity"] = rule.Severity.ToString().ToLowerInvariant(),
             ["status"] = isTest ? "test" : resolved ? "resolved" : noData ? "no data" : anomaly is not null ? "anomaly" : "firing",
             ["condition_kind"] = rule.ConditionKind.ToString(),
             ["value"] = value,

@@ -33,6 +33,16 @@ public class AlertTemplateRendererTests
     };
 
     [Fact]
+    public void BuildMessage_SeverityPlaceholder_RendersLowercasedRuleSeverity()
+    {
+        var rule = MakeRule() with { Severity = AlertSeverity.Error, NotificationTitleTemplate = "[{{severity}}] {{rule_name}}" };
+
+        var message = AlertMessageFormatter.BuildMessage(rule, 12, isTest: false, publicUrl: null, metricUnit: null, DateTimeOffset.UnixEpoch, noData: false, anomaly: null);
+
+        Assert.Equal("[error] High error rate", message.Title);
+    }
+
+    [Fact]
     public void Render_SubstitutesKnownPlaceholders_ToleratingInnerWhitespace()
     {
         var text = AlertTemplateRenderer.Render("{{rule_name}} = {{ value }}", new Dictionary<string, string> { ["rule_name"] = "r", ["value"] = "5" }, NoLabels);

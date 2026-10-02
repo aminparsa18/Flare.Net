@@ -287,6 +287,9 @@ window; with fewer, it reports insufficient data and doesn't fire.
 A rule can also set a recovery threshold (for example, fire at 90%, recover
 below 80%) so a value hovering around the threshold doesn't flap between firing
 and resolved.
+Every rule has a severity (critical, error, warning or info; critical by
+default), sent as PagerDuty's severity, shown on other channels' notifications,
+and available to templates as `{{severity}}`.
 A rule can also override its notification title/body with a template
 using placeholders such as `{{value}}`, `{{threshold}}`, `{{logs_url}}`,
 or `{{labels.service.name}}`, previewed live in the rule form.

@@ -40,6 +40,9 @@ import {
 	alertConditionKindFromString,
 	alertConditionKindToString,
 	type AlertConditionKindName,
+	alertSeverityFromString,
+	alertSeverityToString,
+	type AlertSeverityName,
 	metricAlertAggregationFromString,
 	metricAlertAggregationToString,
 	type MetricAlertAggregationName,
@@ -76,6 +79,7 @@ import { type ExceptionFilter, toGeneratedExceptionFilter, fromGeneratedExceptio
 export type ThresholdComparator = ThresholdComparatorName;
 
 export type AlertConditionKind = AlertConditionKindName;
+export type AlertSeverity = AlertSeverityName;
 
 export type MetricAlertAggregation = MetricAlertAggregationName;
 
@@ -179,6 +183,8 @@ export interface AlertRule {
 	notificationBodyTemplate: string;
 	/** Hysteresis: once firing, resolve only after the value crosses this back past the threshold. null disables it. Not for `'Anomaly'`. */
 	recoveryThreshold: number | null;
+	/** How urgent the rule is - sent as PagerDuty's severity, shown in other channels' text and as `{{severity}}`. */
+	severity: AlertSeverity;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -215,6 +221,8 @@ export interface AlertRuleRequest {
 	notificationBodyTemplate?: string;
 	/** See `AlertRule.recoveryThreshold`. Omitted/undefined means no hysteresis. */
 	recoveryThreshold?: number;
+	/** See `AlertRule.severity`. Omitted/undefined means `'Critical'`. */
+	severity?: AlertSeverity;
 }
 
 export interface AlertRuleListResponse {
@@ -314,7 +322,7 @@ export interface AlertNotificationPreview {
 
 /** Placeholder names a notification template may use, besides `labels.<key>` - mirrors `AlertTemplateRenderer.Names`. */
 export const NOTIFICATION_TEMPLATE_PLACEHOLDERS = [
-	'rule_name', 'rule_id', 'description', 'status', 'condition_kind',
+	'rule_name', 'rule_id', 'description', 'severity', 'status', 'condition_kind',
 	'value', 'threshold', 'comparator', 'window', 'window_seconds',
 	'metric', 'exception_type', 'baseline_mean', 'z_score',
 	'fired_at', 'rule_url', 'logs_url', 'data_url', 'message'
@@ -419,7 +427,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		minDataPoints: dto.minDataPoints,
 		notificationTitleTemplate: dto.notificationTitleTemplate ?? '',
 		notificationBodyTemplate: dto.notificationBodyTemplate ?? '',
-		recoveryThreshold: dto.recoveryThreshold
+		recoveryThreshold: dto.recoveryThreshold,
+		severity: alertSeverityToString(dto.severity)
 	};
 }
 
@@ -457,6 +466,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.notificationTitleTemplate = request.notificationTitleTemplate ?? null;
 	dto.notificationBodyTemplate = request.notificationBodyTemplate ?? null;
 	dto.recoveryThreshold = request.recoveryThreshold ?? null;
+	dto.severity = request.severity == null ? null : alertSeverityFromString(request.severity);
 	return dto;
 }
 

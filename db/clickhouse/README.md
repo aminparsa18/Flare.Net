@@ -196,6 +196,10 @@ New rows only.
 existing rule). Once firing, a rule resolves only after its value crosses this back past the
 threshold. See [ADR-0076](../../docs-internal/adr/0076-alert-recovery-threshold.md).
 
+`0039_alert_rule_severity.sql` - rule-level severity: `alert_rules.Severity`
+(`LowCardinality(String)`, default `'Critical'` so existing rules keep paging as before).
+See [ADR-0077](../../docs-internal/adr/0077-alert-rule-severity.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

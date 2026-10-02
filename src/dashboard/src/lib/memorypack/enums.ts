@@ -197,6 +197,21 @@ export function alertConditionKindFromString(value: AlertConditionKindName): num
 	return ALERT_CONDITION_KIND_NAMES.indexOf(value);
 }
 
+/** Matches `AlertModels.cs`'s `AlertSeverity` member order (`Critical` first - it's the intended default). Not itself MemoryPack-TS-generated, same reason as `AlertConditionKindName` above. */
+const ALERT_SEVERITY_NAMES = ['Critical', 'Error', 'Warning', 'Info'] as const;
+
+export type AlertSeverityName = (typeof ALERT_SEVERITY_NAMES)[number];
+
+export const ALERT_SEVERITIES: readonly AlertSeverityName[] = ALERT_SEVERITY_NAMES;
+
+export function alertSeverityToString(value: number): AlertSeverityName {
+	return ALERT_SEVERITY_NAMES[value] ?? 'Critical';
+}
+
+export function alertSeverityFromString(value: AlertSeverityName): number {
+	return ALERT_SEVERITY_NAMES.indexOf(value);
+}
+
 /** Matches `AlertModels.cs`'s `AnomalySeasonality` member order. Not itself MemoryPack-TS-generated - `AnomalyCondition.ts` is hand-written, same as `AlertConditionKindName` above. */
 const ANOMALY_SEASONALITY_NAMES = ['Daily', 'Weekly'] as const;
 

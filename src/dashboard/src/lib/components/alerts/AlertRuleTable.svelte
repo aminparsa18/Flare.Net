@@ -11,6 +11,7 @@
 	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
 	import { testAlertRule, sendTestAlertRule, type AlertRule, type AlertTestResult, type AlertNotificationTestResult } from '$lib/alerts-api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
+	import { severityBadgeVariant, severityLabel } from '$lib/alerts/severity';
 	import * as m from '$lib/paraglide/messages';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -159,6 +160,7 @@
 			<Table.Header>
 				<Table.Row>
 					<Table.Head>{m.alertRuleTable_colName()}</Table.Head>
+					<Table.Head>{m.alertRuleTable_colSeverity()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colCondition()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colThreshold()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colCooldown()}</Table.Head>
@@ -176,6 +178,7 @@
 								<p class="text-muted-foreground font-normal">{rule.description}</p>
 							{/if}
 						</Table.Cell>
+						<Table.Cell><Badge variant={severityBadgeVariant(rule.severity)}>{severityLabel(rule.severity)}</Badge></Table.Cell>
 						<Table.Cell class="text-muted-foreground">{summarizeCondition(rule)}</Table.Cell>
 						<Table.Cell class="font-mono text-xs">
 							{thresholdText(rule)}
