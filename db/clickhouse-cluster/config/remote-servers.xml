@@ -20,12 +20,20 @@
   value, or its default, at all). Not a sensitive credential in the way
   CLICKHOUSE_PASSWORD is - only used for inter-node handshakes on a network no client
   ever reaches directly.
+
+  <internal_replication>true</internal_replication>: every *_local table is Replicated*, so a
+  Distributed insert must write ONE replica per shard and let replication copy it. With the
+  default (false) the Distributed table writes each replica itself, and each replica's
+  materialized views fire on their own copy - every span was counted twice in
+  service_metrics/service_dependency_nodes/service_call_breakdown_*/outbound_calls (found
+  2026-10-02: one control span, two RequestCount=1 rows on shard 1).
 -->
 <clickhouse>
     <remote_servers>
         <flare_cluster>
             <secret>flare-cluster-secret</secret>
             <shard>
+                <internal_replication>true</internal_replication>
                 <replica>
                     <host>clickhouse-1</host>
                     <port>9000</port>
@@ -36,6 +44,7 @@
                 </replica>
             </shard>
             <shard>
+                <internal_replication>true</internal_replication>
                 <replica>
                     <host>clickhouse-3</host>
                     <port>9000</port>

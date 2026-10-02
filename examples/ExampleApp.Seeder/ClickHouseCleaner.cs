@@ -21,9 +21,14 @@ namespace ExampleApp.Seeder;
 /// seconds' buckets - fine for a demo database, not something to run against production.
 /// </para>
 /// <para>
-/// Single-node only: in cluster mode (db/clickhouse-cluster) the tables are Distributed over
-/// <c>*_local</c> ReplicatedMergeTree tables, which need <c>ON CLUSTER</c> mutations. The
-/// cleaner refuses rather than half-deleting there.
+/// In cluster mode (db/clickhouse-cluster) each table is a <c>Distributed</c> table over
+/// <c>*_local</c> Replicated tables, and mutations don't go through <c>Distributed</c>, so
+/// deletes run as <c>ALTER TABLE &lt;local&gt; ON CLUSTER</c>. The materialized views there read
+/// <c>spans_local</c> and write each shard's <c>*_local</c> target; the rebuild instead selects
+/// from the <c>Distributed</c> <c>spans</c> and inserts through the <c>Distributed</c> target.
+/// That puts rebuilt rows on a different shard than the view would have, which is fine: the
+/// views already write by span shard rather than by the target's sharding key, so every
+/// reader merges across shards and none relies on placement.
 /// </para>
 /// </remarks>
 public sealed partial class ClickHouseCleaner(HttpClient http, Uri url, string user, string password, string database)
@@ -36,15 +41,15 @@ public sealed partial class ClickHouseCleaner(HttpClient http, Uri url, string u
 
     public async Task ClearAsync(IReadOnlyCollection<string> scenarios, CancellationToken ct)
     {
-        var tables = (await QueryAsync($"SELECT name, engine FROM system.tables WHERE database = '{database}' FORMAT TabSeparated", ct))
+        var tables = (await QueryAsync($"SELECT name, engine_full FROM system.tables WHERE database = '{database}' FORMAT TabSeparatedRaw", ct))
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.Split('\t'))
             .ToDictionary(cols => cols[0], cols => cols[1]);
-        if (tables.GetValueOrDefault("spans") == "Distributed")
-        {
-            throw new InvalidOperationException(
-                "This Flare runs in ClickHouse cluster mode (Distributed tables) - --clear only supports single-node. Seed with --append instead.");
-        }
+        // Distributed table -> (cluster, local table); empty in single-node mode.
+        var distributed = tables
+            .Select(t => (t.Key, Match: DistributedEngine().Match(t.Value)))
+            .Where(t => t.Match.Success)
+            .ToDictionary(t => t.Key, t => (Cluster: t.Match.Groups[1].Value, Local: t.Match.Groups[2].Value));
 
         var marker = string.Join(", ", scenarios.Select(s => $"'{s}'"));
         var seeded = $"ResourceAttributes['{OtlpBatch.SeedAttribute}'] IN ({marker})";
@@ -55,16 +60,20 @@ public sealed partial class ClickHouseCleaner(HttpClient http, Uri url, string u
 
         foreach (var (table, _) in RawTables.Where(t => tables.ContainsKey(t.Table)))
         {
-            await MutateAsync($"ALTER TABLE {database}.{table} DELETE WHERE {seeded}", ct);
+            await MutateAsync($"ALTER TABLE {MutationTarget(table, distributed)} DELETE WHERE {seeded}", ct);
         }
 
         if (hadSpans)
         {
-            await RebuildSpanAggregatesAsync(fromUnixSeconds, ct);
+            await RebuildSpanAggregatesAsync(fromUnixSeconds, distributed, ct);
         }
     }
 
-    private async Task RebuildSpanAggregatesAsync(long fromUnixSeconds, CancellationToken ct)
+    /// <summary>The table a mutation must name: the plain table, or its <c>*_local</c> table <c>ON CLUSTER</c>.</summary>
+    private string MutationTarget(string table, Dictionary<string, (string Cluster, string Local)> distributed) =>
+        distributed.TryGetValue(table, out var d) ? $"{database}.{d.Local} ON CLUSTER '{d.Cluster}'" : $"{database}.{table}";
+
+    private async Task RebuildSpanAggregatesAsync(long fromUnixSeconds, Dictionary<string, (string Cluster, string Local)> distributed, CancellationToken ct)
     {
         var from = $"toStartOfMinute(toDateTime({fromUnixSeconds}))";
         var views = (await QueryAsync(
@@ -84,16 +93,19 @@ public sealed partial class ClickHouseCleaner(HttpClient http, Uri url, string u
                 continue;
             }
 
-            var targetTable = target.Groups[1].Value;
+            // In cluster mode the view writes a *_local table; delete and insert go through its
+            // Distributed table instead (see the remarks).
+            var targetName = target.Groups[1].Value.Split('.')[1].Trim('`');
+            var tableName = distributed.FirstOrDefault(d => d.Value.Local == targetName).Key ?? targetName;
             var columns = (await QueryAsync(
-                    $"SELECT name FROM system.columns WHERE database || '.' || table = '{targetTable}' ORDER BY position FORMAT TabSeparated", ct))
+                    $"SELECT name FROM system.columns WHERE database = '{database}' AND table = '{tableName}' ORDER BY position FORMAT TabSeparated", ct))
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries);
             var timeColumn = columns.Contains("TimeBucket") ? "TimeBucket" : "StartTime";
             var columnList = string.Join(", ", columns);
             var windowed = select[..source.Index] + $"FROM (SELECT * FROM {database}.spans WHERE StartTime >= {from})" + select[(source.Index + source.Length)..];
 
-            await MutateAsync($"ALTER TABLE {targetTable} DELETE WHERE {timeColumn} >= {from}", ct);
-            await QueryAsync($"INSERT INTO {targetTable} ({columnList}) SELECT {columnList} FROM ({windowed})", ct);
+            await MutateAsync($"ALTER TABLE {MutationTarget(tableName, distributed)} DELETE WHERE {timeColumn} >= {from}", ct);
+            await QueryAsync($"INSERT INTO {database}.{tableName} ({columnList}) SELECT {columnList} FROM ({windowed})", ct);
         }
     }
 
@@ -113,6 +125,10 @@ public sealed partial class ClickHouseCleaner(HttpClient http, Uri url, string u
     [GeneratedRegex(@"\bTO\s+(\S+\.\S+)", RegexOptions.IgnoreCase)]
     private static partial Regex TargetTable();
 
+    [GeneratedRegex(@"^Distributed\('([^']+)',\s*'[^']+',\s*'([^']+)'")]
+    private static partial Regex DistributedEngine();
+
+    // spans in single-node mode, spans_local in cluster mode.
     private static Regex SpansSource(string database) =>
-        new($@"\bFROM\s+`?{Regex.Escape(database)}`?\.`?spans`?(?![\w_])", RegexOptions.IgnoreCase);
+        new($@"\bFROM\s+`?{Regex.Escape(database)}`?\.`?spans(_local)?`?(?![\w_])", RegexOptions.IgnoreCase);
 }
