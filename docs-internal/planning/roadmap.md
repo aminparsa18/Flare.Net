@@ -155,21 +155,13 @@ folders are where "what happened and why" actually lives.
   server-side preview. Probably a short follow-up ADR to 0052. Not started.
   Prior art:
   [signoz#10682](https://github.com/SigNoz/signoz/commit/30d3f754b56b39c4660ca18bdf8e4d8d0a38b845).
-- **MCP server for AI assistants.** There's no way for Claude Code, Cursor or
-  VS Code agents to query Flare directly. The `flare` CLI already wraps
-  log/trace/metric/exception/alert search over the API, so add a small MCP
-  server (stdio via `flare mcp`, optionally streamable HTTP in `Flare.Api`)
-  exposing read-only tools on top of the same clients: search logs, get
-  trace, query metric, list exceptions, list firing alerts. Results are
-  capped and summarized for context size. Authenticate with a PAT (or a
-  service account once that exists), plus a docs page with per-client setup
-  snippets. Aim it at the Aspire dev loop first, where Flare is strongest:
-  a coding agent runs the app, reproduces a bug, reads the telemetry, fixes
-  the code and verifies. So add "last run" scoping (telemetry since the
-  AppHost/resource last started), no-auth on a loopback-only standing
-  instance, and a before/after trace-diff tool (same endpoint, two runs:
-  spans added/removed, duration and error changes). Not started. Prior art:
-  [signoz#11025](https://github.com/SigNoz/signoz/commit/bb10f51cc549321e16937d9dd4f6eec351f57637).
+- **MCP server: streamable HTTP and service accounts.** `flare mcp` (stdio,
+  read-only tools, PAT via `--token`/`FLARE_API_TOKEN`, last-run scoping,
+  trace diff) shipped; what's left is hosting the same tools as a streamable
+  HTTP endpoint in `Flare.Api` so a remote or shared Flare needs no local
+  `flare` install, and authenticating with a service account once those
+  exist instead of a personal token. Needs the tool classes moved out of
+  `Flare.Cli` into a shared library first. Not started.
 - **LLM observability from GenAI semconv.** Nothing reads `gen_ai.*` span
   attributes today, though .NET apps using Microsoft.Extensions.AI or
   Semantic Kernel emit them. Add a page built from `gen_ai.*` spans: calls,

@@ -35,6 +35,7 @@
 - [Запуск через CLI](how-to/run-with-cli.ru.md)
 - [Настройка аутентификации](how-to/configure-authentication.ru.md)
 - [Запуск в кластерном режиме](how-to/run-cluster-mode.ru.md)
+- [Дать ИИ-ассистенту доступ к Flare](how-to/connect-ai-assistants.ru.md)
 - [Работа по вложенному пути](how-to/serve-under-a-sub-path.ru.md)
 - [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor-hosts.ru.md)
 - [Мониторинг кластеров Kubernetes (узлы, рабочие нагрузки, поды, тома) с OpenTelemetry Collector](how-to/monitor-kubernetes.ru.md)

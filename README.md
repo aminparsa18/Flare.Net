@@ -40,6 +40,7 @@ Your application → **OTLP** → Flare. That's the whole ingestion story — no
 | **Indexing** | ClickHouse index and query/storage diagnostics |
 | **Auth** | Local accounts, Entra ID, Active Directory/LDAP, OIDC, and reverse-proxy trusted headers |
 | **Views** | Saved searches and reusable views |
+| **AI assistants** | Read-only MCP server (`flare mcp`) so Claude Code, Cursor and VS Code can query logs, traces, metrics and alerts |
 
 ## Why Flare?
 
@@ -85,6 +86,8 @@ Whichever path you pick, the dashboard comes up at [http://localhost:7777](http:
 Then point a logger at it — copy-paste OTLP snippets for Serilog, NLog, ZLogger, and `Microsoft.Extensions.Logging` live in [docs/how-to/run-standalone.md](docs/how-to/run-standalone.md#point-your-logger-at-it) (or [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.md#2-point-your-logger-at-it) on Aspire). For anything else — Python, Node.js, Java, Go, Kubernetes, DevOps pipelines, a log shipper, or Prometheus scrape — the dashboard's own **Data sources** page (nav dropdown, or the Logs page's empty state) has the same kind of copy-paste snippets; see the [architecture tour](docs/explanation/architecture.md#data-sources) for a preview.
 
 Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup — see [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.md).
+
+Want your AI assistant to read your telemetry? `flare mcp` is a read-only [MCP](https://modelcontextprotocol.io) server — see [docs/how-to/connect-ai-assistants.md](docs/how-to/connect-ai-assistants.md).
 
 ## Local development
 

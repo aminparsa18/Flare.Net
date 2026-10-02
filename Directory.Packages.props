@@ -139,6 +139,10 @@
          rendering library. 0.55.0 confirmed as latest stable via nuget.org's
          flatcontainer index (next releases are 1.0.0-alpha.*, not yet stable). -->
     <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
+    <!-- Flare.Cli's `flare mcp` stdio MCP server: the official C# SDK plus the generic host
+         it runs on (Hosting pinned at 10.0.12 to match the other Microsoft.Extensions.* pins). -->
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <!-- examples/: the multi-service shop demo (ExampleApp.Shop) and its AppHost's backing
          containers. Hosting packages pinned to the same 13.5.4 train as every other Aspire
          package above. The shop uses the raw clients plus their real OTel instrumentation

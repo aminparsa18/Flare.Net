@@ -18,6 +18,7 @@
     <Project Path="src/Flare.AppHost/Flare.AppHost.csproj" />
     <Project Path="src/Flare.Benchmarks/Flare.Benchmarks.csproj" />
     <Project Path="src/Flare.Cli/Flare.Cli.csproj" />
+    <Project Path="src/Flare.Cli.Tests/Flare.Cli.Tests.csproj" />
     <Project Path="src/Flare.Identity.Tests/Flare.Identity.Tests.csproj" />
     <Project Path="src/Flare.Identity/Flare.Identity.csproj" />
     <Project Path="src/Flare.Ingest.Tests/Flare.Ingest.Tests.csproj" />

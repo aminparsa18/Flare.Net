@@ -24,6 +24,8 @@ app.Configure(config =>
         .WithDescription("Show OTLP ingestion health: verdict, rates, receivers, pipeline buffers/flush workers.");
     config.AddCommand<OpenCommand>("open")
         .WithDescription("Open the dashboard in your default browser.");
+    config.AddCommand<McpCommand>("mcp")
+        .WithDescription("Run a Model Context Protocol server over stdio so AI assistants (Claude Code, Cursor, VS Code) can query Flare.");
     config.AddCommand<TailCommand>("tail")
         .WithDescription("Live-tail structured log events (filterable by service/level/trace/search).");
     config.AddCommand<SearchCommand>("search")
