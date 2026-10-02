@@ -14,6 +14,9 @@ public interface ISpanQueryService
 
     /// <summary>Every distinct value observed for one attribute key, most-observed first - the Attribute filters builder's value autocomplete. See <see cref="SpanAttributeValuesQueryBuilder"/>.</summary>
     Task<SpanAttributeValuesResponse> GetAttributeValuesAsync(SpanAttributeValuesRequest request, CancellationToken cancellationToken);
+
+    /// <summary>Where one span's duration ranks among same service + name spans around it - see <see cref="SpanDurationPercentileQueryBuilder"/>.</summary>
+    Task<SpanDurationPercentileResponse> GetDurationPercentileAsync(SpanDurationPercentileRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -145,6 +148,33 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
 
         return new SpanAttributeValuesResponse { Values = values };
     }
+
+    public async Task<SpanDurationPercentileResponse> GetDurationPercentileAsync(SpanDurationPercentileRequest request, CancellationToken cancellationToken)
+    {
+        var built = SpanDurationPercentileQueryBuilder.Build(request);
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+
+        // An aggregate without GROUP BY always yields one row, even with no matches.
+        if (!reader.Read())
+        {
+            return new SpanDurationPercentileResponse { SampleCount = 0, Percentile = 0, P50Nano = 0, P95Nano = 0, P99Nano = 0 };
+        }
+
+        var total = (long)reader.GetFieldValue<ulong>(0);
+        var atOrBelow = (long)reader.GetFieldValue<ulong>(1);
+        return new SpanDurationPercentileResponse
+        {
+            SampleCount = total,
+            Percentile = total == 0 ? 0 : 100.0 * atOrBelow / total,
+            P50Nano = SafeDouble(reader.GetDouble(2)),
+            P95Nano = SafeDouble(reader.GetDouble(3)),
+            P99Nano = SafeDouble(reader.GetDouble(4)),
+        };
+    }
+
+    // quantile() over zero rows is NaN, which JSON can't carry.
+    private static double SafeDouble(double value) => double.IsFinite(value) ? value : 0;
 
     private static SpanDto ReadSpan(ClickHouseDataReader reader)
     {

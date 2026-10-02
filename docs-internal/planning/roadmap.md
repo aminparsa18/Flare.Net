@@ -106,13 +106,6 @@ folders are where "what happened and why" actually lives.
   `?var-service=a,b&range=1h`), hydrate from the URL first on load, and use
   `replaceState` on change. Not started. Prior art:
   [signoz#8874](https://github.com/SigNoz/signoz/commit/437d0d134502b5bd124471606674080a040a2090).
-- **Span duration percentile in span details.** `SpanDetailSheet` shows the
-  raw duration only, with no sense of whether it's normal. Show "p97 of
-  `GET /orders` in `shop-api`" from a `quantiles(...)`/rank query over spans
-  with the same service + name in a window around the span (e.g. ±1h).
-  Click-through opens the Traces explorer with that service/name filter.
-  Not started. Prior art:
-  [signoz#8955](https://github.com/SigNoz/signoz/commit/e90bb016f7df1c70fc9a0433f387d8045449faba).
 - **Host/pod metrics in span details.** Log event details already show
   `EventHostMetrics`/`EventPodMetrics` around the event's timestamp, but
   `SpanDetailSheet` doesn't. Reuse both components with the span's resource

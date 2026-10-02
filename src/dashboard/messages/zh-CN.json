@@ -864,6 +864,8 @@
 	"spanDetail_spanId": "Span ID",
 	"spanDetail_copyLink": "复制 Span 链接",
 	"spanDetail_linkCopied": "链接已复制",
+	"spanDetail_percentileLabel": "{service} 中 {name} 的 p{percentile}",
+	"spanDetail_percentileTitle": "与前后 ±1 小时内 {count} 个同服务同名跨度比较。p50 {p50} · p95 {p95} · p99 {p99}。点击按耗时从慢到快查看。",
 	"spanDetail_parentSpanId": "父 Span ID",
 	"spanDetail_rootSpanFallback": "— (根 Span)",
 	"spanDetail_traceState": "追踪状态",

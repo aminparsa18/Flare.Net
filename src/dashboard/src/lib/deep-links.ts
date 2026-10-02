@@ -223,6 +223,28 @@ export function buildTracesAttributeFilterHref(
 	return `/traces?state=${encodeStateDeepLinkParam(state)}`;
 }
 
+/**
+ * `/traces?state=` for the spans sharing this one's service + name, slowest first - the
+ * click-through from SpanDetailSheet's duration percentile. A one-condition structural
+ * query for the same reason as `buildTracesAttributeFilterHref` (the span may be a child).
+ * The range reaches back to the span, like that builder's.
+ */
+export function buildSpanNameTracesHref(span: { serviceName: string; name: string; startTime: string }): string {
+	const ageMs = Date.now() - new Date(span.startTime).getTime();
+	const fixed = TIME_RANGE_PRESETS.filter((p) => p.durationMs != null);
+	const timeRangePreset = (fixed.find((p) => p.durationMs! >= ageMs) ?? fixed[fixed.length - 1]).value;
+	const condition: TraceSpanCondition = { name: 'A', spanName: span.name };
+	if (span.serviceName) condition.serviceName = span.serviceName;
+	const state: TracesSavedViewState = {
+		timeRangePreset,
+		services: [],
+		attributeFilters: [],
+		sortBy: 'Duration',
+		structure: { expression: 'A', conditions: [condition] }
+	};
+	return `/traces?state=${encodeStateDeepLinkParam(state)}`;
+}
+
 /** What an External APIs page row narrows a trace drill-down to - see `buildExternalCallTracesHref`. */
 export interface ExternalCallTarget {
 	domain: string;

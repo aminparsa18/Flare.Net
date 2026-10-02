@@ -864,6 +864,8 @@
 	"spanDetail_spanId": "Span ID",
 	"spanDetail_copyLink": "Copy link to span",
 	"spanDetail_linkCopied": "Link copied",
+	"spanDetail_percentileLabel": "p{percentile} of {name} in {service}",
+	"spanDetail_percentileTitle": "Compared with {count} spans of the same service and name within ±1h. p50 {p50} · p95 {p95} · p99 {p99}. Click to see them slowest first.",
 	"spanDetail_parentSpanId": "Parent span ID",
 	"spanDetail_rootSpanFallback": "— (root span)",
 	"spanDetail_traceState": "Trace state",
