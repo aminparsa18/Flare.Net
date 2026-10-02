@@ -168,12 +168,6 @@ folders are where "what happened and why" actually lives.
   retention bound. The service-accounts item's "audit trail" would use it.
   Needs an ADR. Not started. Prior art:
   [signoz#10791](https://github.com/SigNoz/signoz/commit/42415e08739c4e8237e7856c0661f30638d68cd1).
-- **Export traces from the dashboard.** Logs have `ExportDialog` and the CLI
-  has `flare export --trace-id`, but the Traces explorer and trace detail page
-  have no download. Add export of the current trace-list results (CSV/NDJSON,
-  chosen columns, capped like log export) and a "Download trace JSON" button
-  on `/traces/[traceId]`. Not started. Prior art:
-  [signoz#9991](https://github.com/SigNoz/signoz/commit/c95523c747026f7b28562392ce81bc5cee4c5ca0).
 - **Serve Flare under a sub-path behind a reverse proxy.** There's no
   base-path support: the dashboard sets no SvelteKit `paths.base` and the API
   has no `UsePathBase`, so `https://example.com/flare/` doesn't work and

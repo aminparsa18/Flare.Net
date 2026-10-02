@@ -8,6 +8,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import { Button } from '$lib/components/ui/button';
 	import TracesViewTabs from './TracesViewTabs.svelte';
+	import TracesExportDialog from './TracesExportDialog.svelte';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import GitForkIcon from '@lucide/svelte/icons/git-fork';
 	import LogInIcon from '@lucide/svelte/icons/log-in';
@@ -156,6 +157,10 @@
 		<RefreshCwIcon class="size-3.5" />
 		{m.tracesToolbar_autoRefreshLabel()}
 	</label>
+
+	{#if activeTab === 'traces'}
+		<TracesExportDialog />
+	{/if}
 
 	<ViewsMenu pageType="Traces" currentState={() => explorer.toSavedViewState()} applyState={(s) => explorer.applySavedViewState(s)} />
 
