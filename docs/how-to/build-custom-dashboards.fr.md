@@ -278,6 +278,20 @@ permet pas d'afficher utilement un ratio comme 0,0042. Saisissez un nombre de
 valeurs, pour toutes les visualisations. Laissez vide (ou **Effacer**) pour
 revenir à l'automatique. Ce réglage est enregistré avec le tableau de bord.
 
+## Télécharger les données d'un graphique en CSV
+
+Les graphiques de séries temporelles (Metrics, Formula et le graphique de
+volume d'événements de Logs) ont un lien **CSV** dans la ligne sous le titre
+du graphique, aussi bien sur les panneaux de tableau de bord que sur les
+pages Logs et Metrics. Il enregistre exactement ce que le graphique affiche :
+le mode Sum/Histogram, la superposition de comparaison ou le regroupement
+en cours sont donc pris en compte. Il y a une ligne par intervalle : un
+horodatage ISO UTC, le même instant dans votre fuseau d'affichage, puis une
+colonne par série, nommée comme dans la légende. Une série sans point dans un
+intervalle laisse la cellule vide. Les valeurs sont brutes, sans mise à
+l'échelle d'unité. Le fichier porte le titre du panneau (ou la métrique/formule
+sur les pages d'exploration).
+
 ## Placer la légende et fixer les couleurs des séries
 
 En mode édition, un panneau Metrics dont la visualisation dessine une

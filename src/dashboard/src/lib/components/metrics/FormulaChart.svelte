@@ -21,6 +21,8 @@
 	import { seriesLabel } from '$lib/dashboards/visualization';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import YAxisScaleToggle from './YAxisScaleToggle.svelte';
+	import ChartCsvButton from './ChartCsvButton.svelte';
+	import { downloadTimeSeriesCsv } from '$lib/dashboards/chart-csv';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
 	import { legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
 	import * as m from '$lib/paraglide/messages';
@@ -38,7 +40,8 @@
 		thresholds = [],
 		yAxisScale,
 		legendPosition = 'bottom',
-		seriesColors = {}
+		seriesColors = {},
+		title = ''
 	}: {
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
@@ -48,6 +51,8 @@
 		yAxisScale?: YAxisScale;
 		legendPosition?: LegendPosition;
 		seriesColors?: Record<string, ThresholdColor>;
+		/** The panel's title - names the downloaded CSV; the formula itself on the Explorer page. */
+		title?: string;
 	} = $props();
 
 	const explorer = metricsExplorerContext.get();
@@ -152,6 +157,13 @@
 		return formatChartTime(time);
 	}
 
+	function downloadCsv(): void {
+		downloadTimeSeriesCsv(
+			lines.map((l) => ({ label: l.label, points: l.points.map((p) => ({ time: p.time, value: p.raw })) })),
+			title || explorer.formulaExpression
+		);
+	}
+
 	function formatValue(n: number): string {
 		return logActive ? formatAutoScaled(n, null, decimals) : formatAtScale(n, axisScale, decimals);
 	}
@@ -175,6 +187,10 @@
 				rangeSeconds={explorer.formulaRangeFrom && explorer.formulaRangeTo ? (new Date(explorer.formulaRangeTo).getTime() - new Date(explorer.formulaRangeFrom).getTime()) / 1000 : null}
 				onChange={(seconds) => explorer.setBucketWidthSeconds(seconds)}
 			/>
+			{#if lines.length > 0}
+				<span aria-hidden="true">·</span>
+				<ChartCsvButton onclick={downloadCsv} />
+			{/if}
 			{#if yAxisScale === undefined}
 				<span aria-hidden="true">·</span>
 				<YAxisScaleToggle value={explorer.filter.yAxisScale} onChange={(scale) => explorer.setYAxisScale(scale)} />

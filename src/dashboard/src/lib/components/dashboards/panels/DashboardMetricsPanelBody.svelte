@@ -170,9 +170,10 @@
 {#if visualization !== 'timeSeries'}
 	<MetricsVisualization {visualization} {reducer} {columnUnits} {decimals} {title} {legendPosition} {seriesColors} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else if explorer.mode === 'formula'}
-	<FormulaChart decimals={parseDecimals(decimals)} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} {legendPosition} {seriesColors} />
+	<FormulaChart {title} decimals={parseDecimals(decimals)} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} {legendPosition} {seriesColors} />
 {:else}
 	<MetricChart
+		{title}
 		allowZoom={false}
 		decimals={parseDecimals(decimals)}
 		yAxisMin={yAxisMin ?? null}

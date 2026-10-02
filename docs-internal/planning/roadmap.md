@@ -215,14 +215,6 @@ folders are where "what happened and why" actually lives.
   dashboards' layout JSON by metric name (respecting dashboard visibility),
   listed with deep links to each dashboard/panel. Not started. Prior art:
   [signoz#11784](https://github.com/SigNoz/signoz/commit/5ab6636863aa3cab0b5b0a7e260be8c3f206841c).
-- **Export chart data as CSV.** Logs/traces have row exports and the Table
-  visualization has a CSV download, but time-series charts (`MetricChart`,
-  `FormulaChart`, `VolumeChart`) and dashboard chart panels can't export the
-  data they plot. The panel's export button exports its definition. Add
-  "Download CSV" to the chart/panel menu that writes the already-loaded
-  series client-side: a timestamp column (UTC ISO, plus the display zone)
-  and one column per series, labeled like the legend. Not started. Prior art:
-  [signoz#12055](https://github.com/SigNoz/signoz/commit/466edf1f1c9a7814ff944ebe60ed35b817c64027).
 - **Bug: metric unit/description read from an arbitrary row.**
   `MetricNamesQueryBuilder` uses `any(Unit)`/`any(Description)`,
   `MetricAlertConditionQueryBuilder` `any(Unit)` (8 places), and the catalog
