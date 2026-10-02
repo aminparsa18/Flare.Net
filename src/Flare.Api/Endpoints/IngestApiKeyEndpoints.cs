@@ -97,9 +97,14 @@ public static class IngestApiKeyEndpoints
             request.MaxEventsPerDay,
             request.MaxBytesPerDay);
 
-        return await keys.UpdateLimitsAsync(id, limits, cancellationToken)
-            ? Results.NoContent()
-            : Results.NotFound();
+        var before = (await keys.ListAsync(cancellationToken)).FirstOrDefault(k => k.Id == id)?.Limits;
+        if (!await keys.UpdateLimitsAsync(id, limits, cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        AuditContext.SetChange(http, before, limits);
+        return Results.NoContent();
     }
 
     /// <summary>Null means "no cap"; a set cap must be positive - a zero cap would just be a

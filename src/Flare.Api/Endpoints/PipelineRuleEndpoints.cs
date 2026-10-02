@@ -80,7 +80,13 @@ public static class PipelineRuleEndpoints
             return Results.Problem(validationError, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        var before = await rules.GetAsync(id, cancellationToken);
         var rule = await rules.UpdateAsync(id, request, cancellationToken);
+        if (rule is not null)
+        {
+            AuditContext.SetChange(http, PipelineRulesJsonContext.Default.PipelineRule, before, rule);
+        }
+
         return rule is null ? Results.NotFound() : ApiSerialization.Write(http, rule, PipelineRulesJsonContext.Default.PipelineRule);
     }
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Audit;
@@ -53,9 +54,27 @@ public static class AuditLogEndpoints
                 Route = e.Route,
                 StatusCode = e.StatusCode,
                 SourceIp = e.SourceIp,
+                Changes = ParseChanges(e.Changes),
             }).ToList(),
             NextBefore = rows.Count > take ? page[^1].Id : null,
         };
         return Results.Json(response, AuditJsonContext.Default.AuditEventListResponse);
+    }
+
+    private static IReadOnlyList<AuditFieldChangeDto> ParseChanges(string? json)
+    {
+        if (string.IsNullOrEmpty(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(json, AuditJsonContext.Default.ListAuditFieldChangeDto) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 }

@@ -2237,5 +2237,8 @@
 	"auditLogPage_resourceColumn": "Resource",
 	"auditLogPage_sourceColumn": "Source IP",
 	"auditLogPage_viaToken": "token",
-	"auditLogPage_loadMore": "Load more"
+	"auditLogPage_loadMore": "Load more",
+	"auditLogPage_changesColumn": "Changes",
+	"auditLogPage_changesCount": "{count} changed",
+	"auditLogPage_changeEmptyValue": "(empty)"
 }

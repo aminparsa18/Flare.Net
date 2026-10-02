@@ -49,8 +49,7 @@ page.**
 
 ## Not included
 
-- **Before/after diff.** Needs per-resource field comparison and secret
-  redaction; tracked in the roadmap.
+- **Before/after diff.** Added by [ADR-0081](0081-audit-log-field-diff.md).
 - **Sign-ins and failed attempts.** Different question (security events, not
   config changes); login throttling already has its own store.
 - **Cluster-wide ordering.** Identity SQLite is single-writer by design

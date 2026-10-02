@@ -16,9 +16,9 @@ public sealed class SqliteAuditEventStore(IdentityDbConnectionFactory connection
         command.CommandText =
             """
             INSERT INTO AuditEvents
-                (Timestamp, ActorId, ActorName, ActorKind, Action, ResourceType, ResourceId, Route, StatusCode, SourceIp)
+                (Timestamp, ActorId, ActorName, ActorKind, Action, ResourceType, ResourceId, Route, StatusCode, SourceIp, Changes)
             VALUES
-                ($timestamp, $actorId, $actorName, $actorKind, $action, $resourceType, $resourceId, $route, $statusCode, $sourceIp)
+                ($timestamp, $actorId, $actorName, $actorKind, $action, $resourceType, $resourceId, $route, $statusCode, $sourceIp, $changes)
             """;
         command.Parameters.AddWithValue("$timestamp", ToText(auditEvent.Timestamp));
         command.Parameters.AddWithValue("$actorId", (object?)auditEvent.ActorId?.ToString() ?? DBNull.Value);
@@ -30,6 +30,7 @@ public sealed class SqliteAuditEventStore(IdentityDbConnectionFactory connection
         command.Parameters.AddWithValue("$route", auditEvent.Route);
         command.Parameters.AddWithValue("$statusCode", auditEvent.StatusCode);
         command.Parameters.AddWithValue("$sourceIp", (object?)auditEvent.SourceIp ?? DBNull.Value);
+        command.Parameters.AddWithValue("$changes", (object?)auditEvent.Changes ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -80,7 +81,7 @@ public sealed class SqliteAuditEventStore(IdentityDbConnectionFactory connection
         }
 
         command.CommandText =
-            "SELECT Id, Timestamp, ActorId, ActorName, ActorKind, Action, ResourceType, ResourceId, Route, StatusCode, SourceIp FROM AuditEvents"
+            "SELECT Id, Timestamp, ActorId, ActorName, ActorKind, Action, ResourceType, ResourceId, Route, StatusCode, SourceIp, Changes FROM AuditEvents"
             + (where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : string.Empty)
             + " ORDER BY Id DESC LIMIT $limit";
         command.Parameters.AddWithValue("$limit", limit);
@@ -100,7 +101,8 @@ public sealed class SqliteAuditEventStore(IdentityDbConnectionFactory connection
                 reader.IsDBNull(7) ? null : reader.GetString(7),
                 reader.GetString(8),
                 reader.GetInt32(9),
-                reader.IsDBNull(10) ? null : reader.GetString(10)));
+                reader.IsDBNull(10) ? null : reader.GetString(10),
+                reader.IsDBNull(11) ? null : reader.GetString(11)));
         }
 
         return result;

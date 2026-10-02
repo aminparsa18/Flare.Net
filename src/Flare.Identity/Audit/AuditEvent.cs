@@ -1,6 +1,6 @@
 namespace Flare.Identity.Audit;
 
-/// <summary>One recorded state change (ADR-0079).</summary>
+/// <summary>One recorded state change (ADR-0079). <c>Changes</c> is a JSON array of {field, before, after}, already redacted (ADR-0081).</summary>
 public sealed record AuditEvent(
     long Id,
     DateTimeOffset Timestamp,
@@ -12,7 +12,8 @@ public sealed record AuditEvent(
     string? ResourceId,
     string Route,
     int StatusCode,
-    string? SourceIp);
+    string? SourceIp,
+    string? Changes = null);
 
 /// <summary>An <see cref="AuditEvent"/> before the store assigns its id.</summary>
 public sealed record NewAuditEvent(
@@ -25,7 +26,8 @@ public sealed record NewAuditEvent(
     string? ResourceId,
     string Route,
     int StatusCode,
-    string? SourceIp);
+    string? SourceIp,
+    string? Changes = null);
 
 /// <summary>Filters for <see cref="IAuditEventStore.QueryAsync"/>; every member is optional.</summary>
 public sealed record AuditEventFilter

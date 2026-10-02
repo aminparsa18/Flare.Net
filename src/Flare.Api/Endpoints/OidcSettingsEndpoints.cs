@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Api.Auth;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
@@ -73,6 +74,7 @@ public static class OidcSettingsEndpoints
             }
         }
 
+        var before = await oidcSettings.GetAsync(cancellationToken);
         var saved = await oidcSettings.SaveAsync(
             request.Enabled,
             request.DisplayName,
@@ -83,6 +85,7 @@ public static class OidcSettingsEndpoints
             request.RoleClaimName,
             request.DefaultRole,
             cancellationToken);
+        AuditContext.SetChange(http, before, saved);
         return ApiSerialization.Write(http, ToDto(saved, http), OidcSettingsJsonContext.Default.OidcSettingsDto);
     }
 

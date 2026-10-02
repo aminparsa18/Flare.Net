@@ -14,6 +14,15 @@ public sealed class AuditEventDto
     public string Route { get; init; } = string.Empty;
     public int StatusCode { get; init; }
     public string? SourceIp { get; init; }
+    /// <summary>Changed fields for an update (secrets already redacted); empty when none were reported.</summary>
+    public IReadOnlyList<AuditFieldChangeDto> Changes { get; init; } = [];
+}
+
+public sealed class AuditFieldChangeDto
+{
+    public string Field { get; init; } = string.Empty;
+    public string? Before { get; init; }
+    public string? After { get; init; }
 }
 
 public sealed class AuditEventListResponse

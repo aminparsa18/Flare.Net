@@ -343,6 +343,8 @@ Flare enregistre qui a modifié quoi. Chaque modification réussie d'une règle 
 
 Les administrateurs le consultent via **Journal d'audit** dans le menu utilisateur (`/audit-log`), du plus récent au plus ancien, filtrable par type de ressource, ou via `GET /api/audit-events` (filtres `from`, `to`, `actorId`, `resourceType`, `action` ; pagination avec `before`). Les événements sont en ajout seul et supprimés après `Audit:RetentionDays` jours (365 par défaut ; `0` les conserve indéfiniment), voir la [référence de configuration](../reference/authentication-config.fr.md).
 
+Les modifications d'une règle d'alerte, d'un canal de notification, d'une fenêtre de maintenance, d'une règle de pipeline, d'un tableau de bord, d'une vue enregistrée, d'un utilisateur, des limites d'une clé d'ingestion ou d'un paramètre d'authentification enregistrent aussi **les champs modifiés**, sous forme de paires `avant → après` affichées dans la colonne **Modifications** de la page et dans le tableau `changes` de `GET /api/audit-events`. Les valeurs des champs secrets (tout nom évoquant une URL, une clé, un jeton, un secret ou un mot de passe) sont remplacées par `[redacted]` : le journal indique qu'une URL de webhook ou un secret client a changé, jamais sa valeur. Les valeurs longues sont coupées à 300 caractères. Les créations, suppressions et les autres changements audités n'enregistrent pas de liste de champs.
+
 Les lectures, envois de test, aperçus et connexions ne sont pas enregistrés. Les événements ne contiennent pas encore de différence avant/après.
 
 ## Sauvegardes

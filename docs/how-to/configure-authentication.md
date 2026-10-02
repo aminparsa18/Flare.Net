@@ -294,6 +294,8 @@ Flare records who changed what. Every successful change to an alert rule, notifi
 
 Admins read it from **Audit log** in the user menu (`/audit-log`), newest first, filterable by resource type, or via `GET /api/audit-events` (filters `from`, `to`, `actorId`, `resourceType`, `action`; page with `before`). Events are append-only and are deleted after `Audit:RetentionDays` (default 365; `0` keeps them forever) - see the [configuration reference](../reference/authentication-config.md#configuration-reference).
 
+Updates to an alert rule, notification channel, maintenance window, pipeline rule, dashboard, saved view, user, ingest-key limits or auth setting also record **which fields changed**, as `before → after` pairs shown under **Changes** on the page and in the `changes` array of `GET /api/audit-events`. Values of secret fields (anything named like a URL, key, token, secret or password) are replaced by `[redacted]`: the log shows that a webhook URL or client secret changed, never what it was. Long values are cut at 300 characters. Creates, deletes and the other audited changes record no field list.
+
 Reads, test sends and previews are not recorded, nor are sign-ins. Events don't yet include a before/after diff of the change.
 
 ## Backups

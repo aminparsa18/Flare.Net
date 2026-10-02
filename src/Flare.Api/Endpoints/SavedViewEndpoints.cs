@@ -75,7 +75,13 @@ public static class SavedViewEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        var before = await views.GetAsync(id, cancellationToken);
         var view = await views.UpdateAsync(id, request, cancellationToken);
+        if (view is not null)
+        {
+            AuditContext.SetChange(http, SavedViewsJsonContext.Default.SavedView, before, view);
+        }
+
         return view is null ? Results.NotFound() : ApiSerialization.Write(http, view, SavedViewsJsonContext.Default.SavedView);
     }
 

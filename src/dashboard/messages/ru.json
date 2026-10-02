@@ -2237,5 +2237,8 @@
 	"auditLogPage_resourceColumn": "Ресурс",
 	"auditLogPage_sourceColumn": "IP-адрес",
 	"auditLogPage_viaToken": "токен",
-	"auditLogPage_loadMore": "Загрузить ещё"
+	"auditLogPage_loadMore": "Загрузить ещё",
+	"auditLogPage_changesColumn": "Изменения",
+	"auditLogPage_changesCount": "изменено: {count}",
+	"auditLogPage_changeEmptyValue": "(пусто)"
 }

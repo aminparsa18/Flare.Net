@@ -119,6 +119,11 @@ public static class DashboardEndpoints
         }
 
         var dashboard = await dashboards.UpdateAsync(id, request, cancellationToken);
+        if (dashboard is not null)
+        {
+            AuditContext.SetChange(http, DashboardsJsonContext.Default.Dashboard, existing, dashboard);
+        }
+
         return dashboard is null ? Results.NotFound() : ApiSerialization.Write(http, dashboard, DashboardsJsonContext.Default.Dashboard);
     }
 
