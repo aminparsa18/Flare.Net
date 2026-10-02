@@ -222,13 +222,6 @@ folders are where "what happened and why" actually lives.
   because those branches can't use the body ngram index (ADR-0073), and
   mirror it in `LogFilterMatcher` for live tail. Not started. Prior art:
   [signoz#12244](https://github.com/SigNoz/signoz/commit/77c1b601be2a1baf49b2e69fcfdcb8d4119c84a6).
-- **Show the message for a lone-message JSON body.** Bodies like
-  `{"message":"…"}` (common from JSON console formatters) render as raw JSON
-  in the log table. In the display layer only, when the body parses as an
-  object whose single field is a `message`/`msg` string, show that text in
-  rows. Keep the raw JSON in log details and leave stored data, body filters
-  and exports untouched. Not started. Prior art:
-  [signoz#12206](https://github.com/SigNoz/signoz/commit/31cb4d7520866b5e1defd6ebb166353bf1b218e5).
 - **Microsoft Teams and Discord notification channels.** Channel types are
   Webhook/Telegram/Email/PagerDuty. The generic webhook's top-level `text`
   covers Slack and (probably; verify live) Google Chat incoming webhooks, but
