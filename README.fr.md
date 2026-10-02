@@ -42,6 +42,7 @@ Votre application → **OTLP** → Flare. C'est toute l'histoire de l'ingestion 
 | **Indexation** | Index ClickHouse et diagnostics de requêtes/stockage |
 | **Authentification** | Comptes locaux, Entra ID, Active Directory/LDAP, OIDC et en-têtes de confiance de proxy inverse |
 | **Vues** | Recherches enregistrées et vues réutilisables |
+| **Assistants IA** | Serveur MCP en lecture seule (`flare mcp`) pour que Claude Code, Cursor et VS Code interrogent logs, traces, métriques et alertes |
 
 ## Pourquoi Flare ?
 
@@ -87,6 +88,8 @@ Quel que soit le chemin choisi, le tableau de bord démarre sur [http://localhos
 Ensuite, pointez un logger vers Flare — des extraits OTLP prêts à copier-coller pour Serilog, NLog, ZLogger et `Microsoft.Extensions.Logging` se trouvent dans [docs/how-to/run-standalone.md](docs/how-to/run-standalone.fr.md#pointer-votre-logger-vers-flare) (ou [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.fr.md#2-pointez-votre-logger-vers-flare) avec Aspire). Pour tout le reste — Python, Node.js, Java, Go, Kubernetes, pipelines DevOps, un agent de collecte de logs, ou le scraping Prometheus — la page **Data sources** du tableau de bord (menu déroulant de navigation, ou l'état vide de la page Logs) propose le même genre d'extraits prêts à copier-coller.
 
 Vous dépassez les capacités d'un seul nœud ClickHouse ? Il existe une configuration de cluster multi-nœuds optionnelle — voir [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.fr.md).
+
+Vous voulez que votre assistant IA lise votre télémétrie ? `flare mcp` est un serveur [MCP](https://modelcontextprotocol.io) en lecture seule — voir [docs/how-to/connect-ai-assistants.fr.md](docs/how-to/connect-ai-assistants.fr.md).
 
 ## Développement local
 

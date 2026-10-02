@@ -42,6 +42,7 @@
 | **Индексация** | Индекс ClickHouse и диагностика запросов/хранилища |
 | **Аутентификация** | Локальные учётные записи, Entra ID, Active Directory/LDAP, OIDC и доверенные заголовки обратного прокси |
 | **Представления** | Сохранённые поисковые запросы и переиспользуемые представления |
+| **ИИ-ассистенты** | MCP-сервер только для чтения (`flare mcp`): Claude Code, Cursor и VS Code могут запрашивать логи, трассировки, метрики и алерты |
 
 ## Почему Flare?
 
@@ -87,6 +88,8 @@
 Затем направьте логгер на Flare — готовые фрагменты кода OTLP для Serilog, NLog, ZLogger и `Microsoft.Extensions.Logging` находятся в [docs/how-to/run-standalone.md](docs/how-to/run-standalone.ru.md#направьте-на-него-ваш-логгер) (или [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.ru.md#2-направьте-на-него-ваш-логгер) для Aspire). Для всего остального — Python, Node.js, Java, Go, Kubernetes, DevOps-конвейеров, инструментов пересылки логов или опроса Prometheus — на странице **Источники данных** самого дашборда (выпадающее меню навигации или пустой экран страницы Logs) есть такие же готовые фрагменты; см. [обзор архитектуры](docs/explanation/architecture.ru.md#источники-данных).
 
 Переросли один узел ClickHouse? Есть опциональная настройка многоузлового кластера — см. [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.ru.md).
+
+Хотите, чтобы ИИ-ассистент читал вашу телеметрию? `flare mcp` — это [MCP](https://modelcontextprotocol.io)-сервер только для чтения; см. [docs/how-to/connect-ai-assistants.ru.md](docs/how-to/connect-ai-assistants.ru.md).
 
 ## Локальная разработка
 

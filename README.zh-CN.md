@@ -42,6 +42,7 @@
 | **索引** | ClickHouse 索引和查询/存储诊断 |
 | **身份验证** | 本地帐户、Entra ID、Active Directory/LDAP、OIDC 和反向代理可信标头 |
 | **视图** | 保存的搜索和可重复使用的视图 |
+| **AI 助手** | 只读 MCP 服务器（`flare mcp`），让 Claude Code、Cursor 和 VS Code 查询日志、追踪、指标和告警 |
 
 ## 为什么是Flare？
 
@@ -87,6 +88,8 @@
 然后将记录器指向它 — 将 Serilog、NLog、ZLogger 和 `Microsoft.Extensions.Logging` 的 OTLP 片段复制粘贴到 [docs/how-to/run-standalone.md](docs/how-to/run-standalone.zh-CN.md#将记录器指向它)（或 Aspire 上的 [docs/how-to/run-with-aspire.md](docs/how-to/run-with-aspire.zh-CN.md#2-将记录器指向它)）中。对于其他情况 — Python、Node.js、Java、Go、Kubernetes、DevOps 流水线、日志转发工具或 Prometheus 抓取 — 仪表板自带的**数据源**页面（导航栏下拉菜单，或日志页面的空状态）有同类的复制粘贴片段；预览见[架构之旅](docs/explanation/architecture.zh-CN.md#数据源)。
 
 单个 ClickHouse 节点的增长是否超出了限制？有一个选择加入的多节点集群设置 - 请参阅 [docs/how-to/run-cluster-mode.md](docs/how-to/run-cluster-mode.zh-CN.md)。
+
+想让 AI 助手读取你的遥测数据？`flare mcp` 是一个只读的 [MCP](https://modelcontextprotocol.io) 服务器，参见 [docs/how-to/connect-ai-assistants.zh-CN.md](docs/how-to/connect-ai-assistants.zh-CN.md)。
 
 ## 本地开发
 

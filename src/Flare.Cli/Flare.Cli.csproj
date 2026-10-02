@@ -75,9 +75,12 @@
          duplicating them. Bumped 0.1.6 to 0.1.7: both
          FLARE_IMAGE_TAG pins moved 0.5.0 -> 0.5.1 - 0.1.6 pinned 0.5.0 while already
          pulling apardev/*, which only exists from 0.5.1, so a fresh `flare start` failed
-         to pull. Tag on release: flare-cli-v{Version}
+         to pull. Bumped 0.1.7 to 0.1.8: new `flare mcp` command (Commands/McpCommand.cs,
+         FlareMcpTools.cs, FlareMcpRuns.cs) - a read-only stdio MCP server for AI assistants,
+         built on the ModelContextProtocol SDK; the api-url and token options point it at a remote
+         Flare.Api with a personal access token. No backend changes. Tag on release: flare-cli-v{Version}
          (see .github/workflows/nuget-publish.yml). -->
-    <Version>0.1.7</Version>
+    <Version>0.1.8</Version>
     <Authors>Amin Parsa</Authors>
     <Description>Standalone lifecycle manager for Flare's non-Aspire Docker stack (start/stop/status/update/open/logs/doctor/destroy). Not an Aspire integration - see Flare.Hosting.Aspire/Flare.Aspire for that path; `aspire start` already covers Aspire-wired Flare.</Description>
     <PackageTags>flare;cli;dotnet-tool;docker;opentelemetry;logging;observability</PackageTags>
@@ -102,7 +105,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Flare.Cli.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Spectre.Console.Cli" />
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
   <ItemGroup>

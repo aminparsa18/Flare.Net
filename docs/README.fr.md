@@ -35,6 +35,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Exécution avec le CLI](how-to/run-with-cli.fr.md)
 - [Configurer l'authentification](how-to/configure-authentication.fr.md)
 - [Exécution en mode cluster](how-to/run-cluster-mode.fr.md)
+- [Laisser un assistant IA interroger Flare](how-to/connect-ai-assistants.fr.md)
 - [Servir sous un sous-chemin](how-to/serve-under-a-sub-path.fr.md)
 - [Surveiller des hôtes avec l'OpenTelemetry Collector](how-to/monitor-hosts.fr.md)
 - [Surveiller les clusters Kubernetes (nœuds, charges de travail, pods, volumes) avec l'OpenTelemetry Collector](how-to/monitor-kubernetes.fr.md)

@@ -542,6 +542,9 @@ internal sealed class SpanFilterWire
     public bool EntrySpansOnly { get; init; }
 
     public TraceStructureWire? Structure { get; init; }
+
+    /// <summary>Exact span-name match (the facet sidebar's Name filter); used by the MCP run-comparison tool.</summary>
+    public IReadOnlyList<string>? Names { get; init; }
 }
 
 /// <summary>Hand-mirror of <c>Model/TraceStructureModels.cs</c>'s <c>TraceStructureFilter</c>.</summary>
