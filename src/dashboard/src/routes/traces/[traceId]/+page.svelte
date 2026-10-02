@@ -11,7 +11,12 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { cn } from '$lib/utils';
+	import { Input } from '$lib/components/ui/input';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import XIcon from '@lucide/svelte/icons/x';
 	import * as m from '$lib/paraglide/messages';
 
 	const detail = traceDetailContext.set(new TraceDetailState());
@@ -47,7 +52,71 @@
 		</Button>
 		<span class="text-muted-foreground truncate font-mono text-xs">{page.params.traceId}</span>
 		{#if !detail.loading && !detail.notFound && !detail.error}
-			<div class="ml-auto flex items-center gap-1">
+			<!-- Span search over the waterfall and flame graph (the service map has no
+			     per-span rows to highlight). Enter / Shift+Enter step through matches,
+			     Escape clears. -->
+			{#if activeTab !== 'service-map'}
+				<div class="ml-auto flex items-center gap-1">
+					<div class="relative w-56">
+						<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+						<Input
+							class="h-8 pr-7 pl-8"
+							placeholder={m.traceSearch_placeholder()}
+							aria-label={m.traceSearch_placeholder()}
+							value={detail.spanSearch}
+							oninput={(e) => detail.setSpanSearch(e.currentTarget.value)}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') {
+									e.preventDefault();
+									detail.stepSpanSearch(e.shiftKey ? -1 : 1);
+								} else if (e.key === 'Escape' && detail.spanSearch) {
+									e.preventDefault();
+									detail.setSpanSearch('');
+								}
+							}}
+						/>
+						{#if detail.spanSearch}
+							<button
+								type="button"
+								class="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+								aria-label={m.traceSearch_clear()}
+								title={m.traceSearch_clear()}
+								onclick={() => detail.setSpanSearch('')}
+							>
+								<XIcon class="size-3.5" />
+							</button>
+						{/if}
+					</div>
+					{#if detail.spanSearchActive}
+						<span class="text-muted-foreground px-1 text-xs whitespace-nowrap tabular-nums" aria-live="polite">
+							{detail.spanSearchMatches.length === 0
+								? m.traceSearch_noMatches()
+								: m.traceSearch_matchCount({ current: detail.spanSearchIndex + 1, count: detail.spanSearchMatches.length })}
+						</span>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							aria-label={m.traceSearch_previous()}
+							title={m.traceSearch_previous()}
+							disabled={detail.spanSearchMatches.length === 0}
+							onclick={() => detail.stepSpanSearch(-1)}
+						>
+							<ChevronUpIcon />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							aria-label={m.traceSearch_next()}
+							title={m.traceSearch_next()}
+							disabled={detail.spanSearchMatches.length === 0}
+							onclick={() => detail.stepSpanSearch(1)}
+						>
+							<ChevronDownIcon />
+						</Button>
+					{/if}
+				</div>
+			{/if}
+			<div class="flex items-center gap-1 {activeTab === 'service-map' ? 'ml-auto' : ''}">
 				<button
 					type="button"
 					class={cn(buttonVariants({ variant: activeTab === 'waterfall' ? 'secondary' : 'ghost', size: 'sm' }))}

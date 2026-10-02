@@ -194,7 +194,11 @@ survolez-en un pour voir son nom, son décalage et ses attributs clés.
 Le bouton « Flame graph » affiche les mêmes spans en flame graph
 (largeur = durée, empilés par profondeur, colorés par service) pour voir
 d'un coup d'œil où le temps est passé dans une grande trace ; cliquez sur
-un span pour ses détails, double-cliquez pour zoomer dessus.
+un span pour ses détails, double-cliquez pour zoomer dessus. Dans les deux
+vues, la zone « Search spans » trouve les spans par nom, service, id de span
+ou attribut (`clé=valeur` fonctionne aussi) : les correspondances sont mises
+en évidence, le reste est estompé, et Entrée / Maj+Entrée les parcourent en
+dépliant au passage les parents repliés.
 
 ![Trace detail waterfall](../screenshots/trace-detail.png)
 
