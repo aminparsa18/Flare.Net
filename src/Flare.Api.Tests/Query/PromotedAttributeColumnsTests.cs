@@ -181,6 +181,15 @@ public class PromotedAttributeColumnsTests
     }
 
     [Fact]
+    public void Build_NumericOperator_OnPromotedColumn_ComparesColumnAsFloat64()
+    {
+        var result = BuildWith(new AttributeFilter { Key = "http.route", Value = "5", Operator = AttributeFilterOperator.GreaterThanOrEqual });
+
+        Assert.Contains("ifNull(toFloat64OrNull(attr_log_http_route) >= {attrValue0:Float64}, 0)", result.WhereSql);
+        Assert.DoesNotContain("mapContains", result.WhereSql);
+    }
+
+    [Fact]
     public void Build_In_WithEmptyValue_FallsBackToGuardedMapForm()
     {
         var result = BuildWith(new AttributeFilter { Key = "http.route", Value = "", Operator = AttributeFilterOperator.In, Values = ["/a", ""] });

@@ -62,6 +62,8 @@ La colonne remplace la lecture de la map d'attributs pour :
 - **égal**
 - **différent**, **dans** et **pas dans**, sauf si l'une des valeurs comparées
   est vide
+- les comparaisons numériques (**supérieur à**, **inférieur à** et leurs formes
+  « ou égal »)
 
 **Existe**, **absent** et les opérateurs d'expression régulière lisent
 toujours la map d'attributs, car la colonne ne distingue pas une clé absente

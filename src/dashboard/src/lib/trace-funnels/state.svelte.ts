@@ -228,6 +228,18 @@ export function stepLabel(step: TraceFunnelStep): string {
 			case 'NotIn':
 				parts.push(`${a.key} ∉ [${(a.values ?? []).join(', ')}]`);
 				break;
+			case 'GreaterThan':
+				parts.push(`${a.key} > ${a.value}`);
+				break;
+			case 'GreaterThanOrEqual':
+				parts.push(`${a.key} ≥ ${a.value}`);
+				break;
+			case 'LessThan':
+				parts.push(`${a.key} < ${a.value}`);
+				break;
+			case 'LessThanOrEqual':
+				parts.push(`${a.key} ≤ ${a.value}`);
+				break;
 			default:
 				parts.push(`${a.key} = ${a.value}`);
 		}

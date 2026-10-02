@@ -259,6 +259,8 @@ public static class LogFilterSqlBuilder
                 parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
                 return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] IN {{{valuesParam}:Array(String)}})";
             }
+            case AttributeFilterOperator.GreaterThan or AttributeFilterOperator.GreaterThanOrEqual or AttributeFilterOperator.LessThan or AttributeFilterOperator.LessThanOrEqual:
+                return NumericAttributeComparison.Clause($"{column}[{{{keyParam}:String}}]", NumericSymbol(attribute.Operator), attribute.Value, $"attrValue{index}", parameters);
             default:
             {
                 var valueParam = $"attrValue{index}";
@@ -267,6 +269,14 @@ public static class LogFilterSqlBuilder
             }
         }
     }
+
+    private static string NumericSymbol(AttributeFilterOperator op) => op switch
+    {
+        AttributeFilterOperator.GreaterThan => ">",
+        AttributeFilterOperator.GreaterThanOrEqual => ">=",
+        AttributeFilterOperator.LessThan => "<",
+        _ => "<=",
+    };
 
     /// <summary>
     /// <see cref="AttributeClause"/> against a promoted column (ADR-0062), for the operators
@@ -303,6 +313,8 @@ public static class LogFilterSqlBuilder
                 var op = attribute.Operator == AttributeFilterOperator.In ? "IN" : "NOT IN";
                 return $"{column} {op} {{{valuesParam}:Array(String)}}";
             }
+            case AttributeFilterOperator.GreaterThan or AttributeFilterOperator.GreaterThanOrEqual or AttributeFilterOperator.LessThan or AttributeFilterOperator.LessThanOrEqual:
+                return NumericAttributeComparison.Clause(column, NumericSymbol(attribute.Operator), attribute.Value, $"attrValue{index}", parameters);
             default:
                 return null;
         }

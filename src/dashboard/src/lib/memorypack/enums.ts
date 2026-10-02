@@ -88,8 +88,8 @@ export function attributeBagFromString(value: AttributeBagName): number {
 	return ATTRIBUTE_BAG_NAMES.indexOf(value);
 }
 
-/** Matches `LogFilter.cs`'s `AttributeFilterOperator` member order. Not itself MemoryPack-TS-generated - same reasoning `AttributeBagName` gives (`AttributeFilter`, its only consumer, is hand-written). `Regex`/`NotRegex`/`In`/`NotIn` are appended, matching the C# enum's own append-only ordinal-stability requirement. */
-const ATTRIBUTE_FILTER_OPERATOR_NAMES = ['Equals', 'NotEquals', 'Exists', 'Absent', 'Regex', 'NotRegex', 'In', 'NotIn'] as const;
+/** Matches `LogFilter.cs`'s `AttributeFilterOperator` member order. Not itself MemoryPack-TS-generated - same reasoning `AttributeBagName` gives (`AttributeFilter`, its only consumer, is hand-written). `Regex`/`NotRegex`/`In`/`NotIn`/`GreaterThan`/`GreaterThanOrEqual`/`LessThan`/`LessThanOrEqual` are appended, matching the C# enum's own append-only ordinal-stability requirement. */
+const ATTRIBUTE_FILTER_OPERATOR_NAMES = ['Equals', 'NotEquals', 'Exists', 'Absent', 'Regex', 'NotRegex', 'In', 'NotIn', 'GreaterThan', 'GreaterThanOrEqual', 'LessThan', 'LessThanOrEqual'] as const;
 
 export type AttributeFilterOperatorName = (typeof ATTRIBUTE_FILTER_OPERATOR_NAMES)[number];
 
@@ -275,8 +275,8 @@ export function spanAttributeBagFromString(value: SpanAttributeBagName): number 
 	return SPAN_ATTRIBUTE_BAG_NAMES.indexOf(value);
 }
 
-/** Matches `SpanFilter.cs`'s `SpanAttributeFilterOperator` member order. Not itself MemoryPack-TS-generated - same reasoning `SpanAttributeBagName` gives (`SpanAttributeFilter`, its only consumer, is hand-written). `Regex`/`NotRegex`/`In`/`NotIn` are appended, matching the C# enum's own append-only ordinal-stability requirement. */
-const SPAN_ATTRIBUTE_FILTER_OPERATOR_NAMES = ['Equals', 'NotEquals', 'Exists', 'Absent', 'Regex', 'NotRegex', 'In', 'NotIn'] as const;
+/** Matches `SpanFilter.cs`'s `SpanAttributeFilterOperator` member order. Not itself MemoryPack-TS-generated - same reasoning `SpanAttributeBagName` gives (`SpanAttributeFilter`, its only consumer, is hand-written). `Regex`/`NotRegex`/`In`/`NotIn`/`GreaterThan`/`GreaterThanOrEqual`/`LessThan`/`LessThanOrEqual` are appended, matching the C# enum's own append-only ordinal-stability requirement. */
+const SPAN_ATTRIBUTE_FILTER_OPERATOR_NAMES = ['Equals', 'NotEquals', 'Exists', 'Absent', 'Regex', 'NotRegex', 'In', 'NotIn', 'GreaterThan', 'GreaterThanOrEqual', 'LessThan', 'LessThanOrEqual'] as const;
 
 export type SpanAttributeFilterOperatorName = (typeof SPAN_ATTRIBUTE_FILTER_OPERATOR_NAMES)[number];
 

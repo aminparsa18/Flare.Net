@@ -45,7 +45,7 @@ public static class LogQlWhereTranslator
                 return TranslateComparison(ColumnName(comparison.Column), comparison.Op, comparison.Literal, parameters, ref counter);
 
             case LogQlJsonComparison jsonComparison:
-                return TranslateComparison(JsonExtractSql(jsonComparison.Path, parameters, ref counter), jsonComparison.Op, jsonComparison.Literal, parameters, ref counter);
+                return TranslateComparison(JsonExtractSql(jsonComparison.Path, parameters, ref counter), jsonComparison.Op, jsonComparison.Literal, parameters, ref counter, numericRange: true);
 
             case LogQlAttributeComparison attributeComparison:
                 return TranslateAttributeComparison(attributeComparison.Bag, attributeComparison.Key, attributeComparison.Op, attributeComparison.Literal, parameters, ref counter);
@@ -65,8 +65,13 @@ public static class LogQlWhereTranslator
     /// <c>JSONExtractString(...)</c> call from <see cref="JsonExtractSql"/>) - once the
     /// left-hand side is resolved to a SQL fragment, op/literal compilation is identical.
     /// </summary>
-    private static string TranslateComparison(string lhsSql, LogQlOp op, string literal, ClickHouseParameterCollection parameters, ref int counter)
+    private static string TranslateComparison(string lhsSql, LogQlOp op, string literal, ClickHouseParameterCollection parameters, ref int counter, bool numericRange = false)
     {
+        if (numericRange && IsRange(op) && NumericAttributeComparison.IsNumber(literal))
+        {
+            return NumericAttributeComparison.Clause(lhsSql, RangeSymbol(op), literal, $"qlp{counter++}", parameters);
+        }
+
         var paramName = $"qlp{counter++}";
 
         if (op is LogQlOp.Like or LogQlOp.NotLike)
@@ -149,6 +154,13 @@ public static class LogQlWhereTranslator
     private static string TranslateAttributeComparison(LogQlAttributeBag bag, string key, LogQlOp op, string literal, ClickHouseParameterCollection parameters, ref int counter)
     {
         var (containsSql, subscriptSql) = AttributeAccessorSql(bag, key, parameters, ref counter);
+        if (IsRange(op) && NumericAttributeComparison.IsNumber(literal))
+        {
+            // A numeric literal compares numerically (so '10' > '9'), same as the structured
+            // GreaterThan/LessThan attribute operators; a non-numeric stored value never matches.
+            return NumericAttributeComparison.Clause(subscriptSql, RangeSymbol(op), literal, $"qlp{counter++}", parameters);
+        }
+
         var valueParam = $"qlp{counter++}";
         parameters.AddParameter(valueParam, literal);
         var valueRef = $"{{{valueParam}:String}}";
@@ -179,6 +191,16 @@ public static class LogQlWhereTranslator
         };
         return $"({containsSql} AND {subscriptSql} {sqlOp} {valueRef})";
     }
+
+    private static bool IsRange(LogQlOp op) => op is LogQlOp.Lt or LogQlOp.Lte or LogQlOp.Gt or LogQlOp.Gte;
+
+    private static string RangeSymbol(LogQlOp op) => op switch
+    {
+        LogQlOp.Lt => "<",
+        LogQlOp.Lte => "<=",
+        LogQlOp.Gt => ">",
+        _ => ">=",
+    };
 
     /// <summary>Real ClickHouse column name for every <see cref="LogQlAttributeBag"/> - see <see cref="ColumnName"/> for the equivalent <see cref="LogQlColumn"/> mapping.</summary>
     private static string AttributeColumnName(LogQlAttributeBag bag) => bag switch

@@ -214,6 +214,8 @@ public static class SpanFilterSqlBuilder
                 parameters.AddParameter(valuesParam, (attribute.Values ?? []).ToArray());
                 return $"NOT ({containsSql} AND {column}[{{{keyParam}:String}}] IN {{{valuesParam}:Array(String)}})";
             }
+            case SpanAttributeFilterOperator.GreaterThan or SpanAttributeFilterOperator.GreaterThanOrEqual or SpanAttributeFilterOperator.LessThan or SpanAttributeFilterOperator.LessThanOrEqual:
+                return NumericAttributeComparison.Clause($"{column}[{{{keyParam}:String}}]", NumericSymbol(attribute.Operator), attribute.Value, $"attrValue{suffix}", parameters);
             default:
             {
                 var valueParam = $"attrValue{suffix}";
@@ -222,6 +224,14 @@ public static class SpanFilterSqlBuilder
             }
         }
     }
+
+    private static string NumericSymbol(SpanAttributeFilterOperator op) => op switch
+    {
+        SpanAttributeFilterOperator.GreaterThan => ">",
+        SpanAttributeFilterOperator.GreaterThanOrEqual => ">=",
+        SpanAttributeFilterOperator.LessThan => "<",
+        _ => "<=",
+    };
 
     /// <summary>
     /// <see cref="AttributeClause"/> against a promoted column - same operator rules as
@@ -254,6 +264,8 @@ public static class SpanFilterSqlBuilder
                 var op = attribute.Operator == SpanAttributeFilterOperator.In ? "IN" : "NOT IN";
                 return $"{column} {op} {{{valuesParam}:Array(String)}}";
             }
+            case SpanAttributeFilterOperator.GreaterThan or SpanAttributeFilterOperator.GreaterThanOrEqual or SpanAttributeFilterOperator.LessThan or SpanAttributeFilterOperator.LessThanOrEqual:
+                return NumericAttributeComparison.Clause(column, NumericSymbol(attribute.Operator), attribute.Value, $"attrValue{suffix}", parameters);
             default:
                 return null;
         }

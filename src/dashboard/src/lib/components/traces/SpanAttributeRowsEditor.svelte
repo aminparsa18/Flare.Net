@@ -35,11 +35,20 @@
 		{ value: 'Regex', label: m.attributeFilters_opRegex() },
 		{ value: 'NotRegex', label: m.attributeFilters_opNotRegex() },
 		{ value: 'In', label: m.attributeFilters_opIn() },
-		{ value: 'NotIn', label: m.attributeFilters_opNotIn() }
+		{ value: 'NotIn', label: m.attributeFilters_opNotIn() },
+		{ value: 'GreaterThan', label: m.attributeFilters_opGreaterThan() },
+		{ value: 'GreaterThanOrEqual', label: m.attributeFilters_opGreaterThanOrEqual() },
+		{ value: 'LessThan', label: m.attributeFilters_opLessThan() },
+		{ value: 'LessThanOrEqual', label: m.attributeFilters_opLessThanOrEqual() }
 	];
 
 	function needsSingleValue(operator: SpanAttributeFilterOperator | undefined): boolean {
-		return operator == null || operator === 'Equals' || operator === 'NotEquals' || operator === 'Regex' || operator === 'NotRegex';
+		return operator == null || operator === 'Equals' || operator === 'NotEquals' || operator === 'Regex' || operator === 'NotRegex' || isNumericOperator(operator);
+	}
+
+	/** GreaterThan/GreaterThanOrEqual/LessThan/LessThanOrEqual - the value is parsed as a number server-side. */
+	function isNumericOperator(operator: SpanAttributeFilterOperator | undefined): boolean {
+		return operator === 'GreaterThan' || operator === 'GreaterThanOrEqual' || operator === 'LessThan' || operator === 'LessThanOrEqual';
 	}
 
 	function needsMultiValue(operator: SpanAttributeFilterOperator | undefined): boolean {

@@ -189,11 +189,34 @@ public class LogQlWhereTranslatorTests
     public void Translate_AttributeComparisonRangeOperators_GuardWithMapContains(LogQlOp op, string expectedSqlOp)
     {
         var parameters = new ClickHouseParameterCollection();
-        var sql = LogQlWhereTranslator.Translate(new LogQlAttributeComparison(LogQlAttributeBag.Log, "foo", op, "5"), parameters);
+        var sql = LogQlWhereTranslator.Translate(new LogQlAttributeComparison(LogQlAttributeBag.Log, "foo", op, "abc"), parameters);
 
         Assert.Equal(
             $"(mapContains(LogAttributes, {{qlp0:String}}) AND LogAttributes[{{qlp0:String}}] {expectedSqlOp} {{qlp1:String}})",
             sql);
+    }
+
+    [Theory]
+    [InlineData(LogQlOp.Lt, "<")]
+    [InlineData(LogQlOp.Lte, "<=")]
+    [InlineData(LogQlOp.Gt, ">")]
+    [InlineData(LogQlOp.Gte, ">=")]
+    public void Translate_AttributeComparisonRangeOperators_WithNumericLiteral_CompareAsFloat64(LogQlOp op, string expectedSqlOp)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var sql = LogQlWhereTranslator.Translate(new LogQlAttributeComparison(LogQlAttributeBag.Log, "foo", op, "5"), parameters);
+
+        Assert.Equal($"ifNull(toFloat64OrNull(LogAttributes[{{qlp0:String}}]) {expectedSqlOp} {{qlp1:Float64}}, 0)", sql);
+        Assert.Equal(5d, parameters.ToDictionary()["qlp1"]);
+    }
+
+    [Fact]
+    public void Translate_JsonComparisonGt_WithNumericLiteral_CompareAsFloat64()
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var sql = LogQlWhereTranslator.Translate(new LogQlJsonComparison("user.age", LogQlOp.Gt, "18"), parameters);
+
+        Assert.Equal("ifNull(toFloat64OrNull(JSONExtractString(Body, {qlp0:String}, {qlp1:String})) > {qlp2:Float64}, 0)", sql);
     }
 
     [Fact]

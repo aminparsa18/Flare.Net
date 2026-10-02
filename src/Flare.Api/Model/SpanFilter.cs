@@ -55,6 +55,18 @@ public enum SpanAttributeFilterOperator
 
     /// <summary>Attribute is absent, or present with a value that is none of <see cref="SpanAttributeFilter.Values"/>. <see cref="SpanAttributeFilter.Value"/> is ignored; an empty/null <see cref="SpanAttributeFilter.Values"/> matches everything (same as negating an empty ClickHouse <c>IN</c> list).</summary>
     NotIn,
+
+    /// <summary>Attribute is present, numeric, and greater than <see cref="SpanAttributeFilter.Value"/> parsed as a number. A non-numeric value never matches, and numbers compare numerically (<c>"10"</c> &gt; <c>"9"</c>). Appended after <see cref="NotIn"/> - same ordinal-stability reasoning <see cref="AttributeFilterOperator.Regex"/> documents.</summary>
+    GreaterThan,
+
+    /// <summary>As <see cref="GreaterThan"/>, but inclusive (<c>&gt;=</c>).</summary>
+    GreaterThanOrEqual,
+
+    /// <summary>As <see cref="GreaterThan"/>, but <c>&lt;</c>.</summary>
+    LessThan,
+
+    /// <summary>As <see cref="GreaterThan"/>, but <c>&lt;=</c>.</summary>
+    LessThanOrEqual,
 }
 
 /// <summary>

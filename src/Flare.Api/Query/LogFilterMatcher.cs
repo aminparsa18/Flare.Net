@@ -73,6 +73,10 @@ public static class LogFilterMatcher
                     AttributeFilterOperator.NotRegex => !(exists && RegexMatches(value!, attribute.Value)),
                     AttributeFilterOperator.In => exists && InValues(value!, attribute.Values),
                     AttributeFilterOperator.NotIn => !(exists && InValues(value!, attribute.Values)),
+                    AttributeFilterOperator.GreaterThan => NumericAttributeComparison.Matches(value, attribute.Value, c => c > 0),
+                    AttributeFilterOperator.GreaterThanOrEqual => NumericAttributeComparison.Matches(value, attribute.Value, c => c >= 0),
+                    AttributeFilterOperator.LessThan => NumericAttributeComparison.Matches(value, attribute.Value, c => c < 0),
+                    AttributeFilterOperator.LessThanOrEqual => NumericAttributeComparison.Matches(value, attribute.Value, c => c <= 0),
                     _ => exists && string.Equals(value, attribute.Value, StringComparison.Ordinal),
                 };
                 if (!matches)
