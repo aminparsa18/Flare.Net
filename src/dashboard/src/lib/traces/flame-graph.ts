@@ -6,7 +6,6 @@
 // child always sits below its parent. Pure and DOM-free, same as critical-path.ts.
 
 import type { SpanDto } from '$lib/traces-api';
-import { SERIES_COLOR_VARS } from '$lib/metrics/chart-colors';
 
 export interface FlameBar {
 	span: SpanDto;
@@ -76,29 +75,4 @@ export function computeFlameLayout(spans: SpanDto[]): FlameLayout {
 	for (const root of byParent.get('') ?? []) place(root, 0);
 
 	return { bars, levels: occupied.length, traceStartMs, totalMs: Math.max(1, traceEndMs - traceStartMs) };
-}
-
-export interface ServiceColor {
-	service: string;
-	/** A CSS color expression (`var(--chart-N)`), or null for the folded "other services" bucket. */
-	color: string | null;
-	spanCount: number;
-}
-
-/**
- * One palette slot per service, busiest (most spans) first - rank rather than hash, so
- * within one trace the first five services are always five distinct hues. Services past
- * the palette's five fold into a neutral bucket (color null) rather than cycling, per
- * chart-colors.ts's "never invent a 6th hue" rule.
- */
-export function serviceColors(spans: SpanDto[]): ServiceColor[] {
-	const counts = new Map<string, number>();
-	for (const span of spans) counts.set(span.serviceName, (counts.get(span.serviceName) ?? 0) + 1);
-	return [...counts.entries()]
-		.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-		.map(([service, spanCount], i) => ({
-			service,
-			spanCount,
-			color: i < SERIES_COLOR_VARS.length ? `var(${SERIES_COLOR_VARS[i]})` : null
-		}));
 }

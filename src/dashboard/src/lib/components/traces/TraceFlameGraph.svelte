@@ -1,15 +1,16 @@
 <script lang="ts">
 	// Flame graph over the already-loaded trace (signoz#7889 prior art): span width =
-	// duration, stacked by depth, colored by service - "where did the time go" for a trace
+	// duration, stacked by depth, colored by service or any field (TraceColorLegend) - "where did the time go" for a trace
 	// too large to read row by row in the waterfall. Same hand-rolled absolutely-positioned
 	// divs as TraceWaterfall, no charting library. Selection is TraceDetailState's
 	// selectedSpanId, so clicking a bar opens the same SpanDetailSheet the waterfall does.
 	import type { SpanDto } from '$lib/traces-api';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
-	import { computeFlameLayout, serviceColors, type FlameBar } from '$lib/traces/flame-graph';
+	import { computeFlameLayout, type FlameBar } from '$lib/traces/flame-graph';
 	import { statusLabel } from '$lib/traces/status';
 	import { formatTimeOfDay } from '$lib/time/format';
+	import TraceColorLegend from './TraceColorLegend.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
 	import * as m from '$lib/paraglide/messages';
@@ -21,10 +22,6 @@
 	const ROW_GAP = 2;
 
 	const layout = $derived(computeFlameLayout(detail.trace?.spans ?? []));
-	const colors = $derived(serviceColors(detail.trace?.spans ?? []));
-	const colorByService = $derived(new Map(colors.map((c) => [c.service, c.color])));
-	const namedColors = $derived(colors.filter((c) => c.color !== null));
-	const otherServiceCount = $derived(colors.length - namedColors.length);
 
 	// Visible time window, in ms since trace start. null = the whole trace. Double-clicking
 	// a bar zooms to that span; per-view UI state only, same as the waterfall's collapse set.
@@ -45,7 +42,7 @@
 		const right = Math.min(bar.endMs, viewEnd);
 		const leftPct = ((left - viewStart) / viewMs) * 100;
 		const widthPct = ((right - left) / viewMs) * 100;
-		const color = colorByService.get(bar.span.serviceName);
+		const color = detail.colorOf(bar.span);
 		const fill = color
 			? `background: color-mix(in oklab, ${color} 35%, var(--background)); border-color: ${color};`
 			: '';
@@ -100,18 +97,7 @@
 
 <div class="flex min-h-0 flex-1 flex-col">
 	<div class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 text-xs">
-		{#each namedColors as { service, color } (service)}
-			<span class="flex min-w-0 items-center gap-1.5">
-				<span class="size-2.5 shrink-0 rounded-sm" style="background: {color};"></span>
-				<span class="max-w-48 truncate" title={service}>{service || '—'}</span>
-			</span>
-		{/each}
-		{#if otherServiceCount > 0}
-			<span class="flex items-center gap-1.5">
-				<span class="bg-muted-foreground/40 size-2.5 shrink-0 rounded-sm"></span>
-				<span>{m.traceFlameGraph_otherServices({ count: otherServiceCount })}</span>
-			</span>
-		{/if}
+		<TraceColorLegend />
 		<span class="text-muted-foreground ml-auto">{m.traceFlameGraph_hint()}</span>
 		{#if zoom}
 			<Button variant="outline" size="sm" class="h-6 text-xs" onclick={() => (zoom = null)}>
@@ -151,7 +137,7 @@
 					type="button"
 					data-flame-bar={bar.span.spanId}
 					class="text-foreground absolute min-w-px truncate rounded-sm border px-1 text-left text-[11px] leading-[18px] hover:brightness-110 focus-visible:outline-none
-						{colorByService.get(bar.span.serviceName) ? '' : 'bg-muted border-muted-foreground/40'}
+						{detail.colorOf(bar.span) ? '' : 'bg-muted border-muted-foreground/40'}
 						{isError ? 'ring-destructive ring-2 ring-inset' : ''}
 						{detail.selectedSpanId === bar.span.spanId ? 'outline-foreground z-10 outline-2' : ''}
 						{detail.focusedMatchId === bar.span.spanId ? 'outline-primary z-10 outline-2 outline-offset-1' : ''}
