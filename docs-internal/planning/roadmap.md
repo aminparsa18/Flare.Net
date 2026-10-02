@@ -111,13 +111,6 @@ folders are where "what happened and why" actually lives.
   ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
   how-to/reference pages yet. Document it there, with the `.ru`/`.fr`/`.zh-CN`
   siblings hand-translated. Not started.
-- **JSON body tree view in log details.** `EventDetailSheet` renders the body
-  as plain/ANSI text only, so a JSON body is one long string. When the body
-  parses as JSON, offer a collapsible pretty-printed tree (keeping the raw
-  view as a toggle and the 64 KB preview guard). Each node gets copy-value /
-  copy-path and "filter by this path = value", which writes into the
-  existing `BodyJsonFilters`. Not started. Prior art:
-  [signoz#9657](https://github.com/SigNoz/signoz/commit/1078f983882760964dd6fa6e6784d2dee3dd3c2c).
 - **Path/value suggestions for JSON body filters.** `BodyJsonFiltersRow` has
   no suggestion source (its fetcher always resolves empty), so users must
   know the exact JSON path. Add an endpoint that samples recent JSON bodies
