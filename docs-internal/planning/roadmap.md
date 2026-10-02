@@ -206,18 +206,6 @@ folders are where "what happened and why" actually lives.
   dashboards' layout JSON by metric name (respecting dashboard visibility),
   listed with deep links to each dashboard/panel. Not started. Prior art:
   [signoz#11784](https://github.com/SigNoz/signoz/commit/5ab6636863aa3cab0b5b0a7e260be8c3f206841c).
-- **Bug: metric unit/description read from an arbitrary row.**
-  `MetricNamesQueryBuilder` uses `any(Unit)`/`any(Description)`,
-  `MetricAlertConditionQueryBuilder` `any(Unit)` (8 places), and the catalog
-  `anyIf(Unit, Unit != '')`. When a metric's unit changes inside the queried
-  window, ClickHouse returns whichever value it reads first, so the unit can
-  flip between queries and mis-scale axes, Value panels and (with the
-  threshold-unit item) alert comparisons. That's a real case for .NET:
-  `http.server.request.duration` moved from `ms` to `s` across ASP.NET Core
-  / semconv versions. Use `argMax(Unit, TimeUnix)` (`argMaxIf(..., Unit !=
-  '')` where empties should be skipped) and the same for `Description`. A
-  unit test can pin the generated SQL. Not started. Prior art:
-  [signoz#12205](https://github.com/SigNoz/signoz/commit/fe101a183575adf89bf16fdd16ae61daf4f300b4).
 - **DaemonSet "misscheduled" column on the Kubernetes Workloads tab.** The
   DaemonSet row shows desired/ready/current from `k8s_cluster` metrics but
   not `k8s.daemonset.misscheduled_nodes`, which signals nodes running a pod

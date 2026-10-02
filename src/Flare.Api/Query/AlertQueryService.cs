@@ -38,7 +38,7 @@ public interface IAlertQueryService
     /// behavior) - deliberate, not mapped to 0: <see cref="AlertThreshold.IsBreachedValue"/>'s
     /// comparisons are both false against <see cref="double.NaN"/>, so "no data" never breaches
     /// either direction rather than silently reading as a real zero. <c>Unit</c> is the
-    /// matched rows' declared OTel/UCUM unit (<c>any(Unit)</c>, same column
+    /// matched rows' declared OTel/UCUM unit (<c>argMax(Unit, Time)</c>, same column
     /// <c>MetricNamesQueryBuilder</c> reads for the Metrics Explorer) - null when there's no
     /// matching data, so <see cref="Alerting.AlertMessageFormatter.BuildText"/> can format the
     /// fired-alert text the same unit-aware way the dashboard charts do.

@@ -41,7 +41,7 @@ public class MetricAlertConditionQueryBuilderTests
             new MetricAlertCondition { MetricName = "system.filesystem.utilization", Type = MetricPointType.Gauge, Aggregation = aggregation }, From, To);
 
         Assert.Contains(expected, result.Sql);
-        Assert.Contains("any(Unit) AS Unit FROM metrics_gauge", result.Sql);
+        Assert.Contains("argMax(Unit, Time) AS Unit FROM metrics_gauge", result.Sql);
         Assert.DoesNotContain("GROUP BY", result.Sql);
     }
 
@@ -70,7 +70,7 @@ public class MetricAlertConditionQueryBuilderTests
         Assert.Contains("row_number() OVER (PARTITION BY ServiceName, toString(DataPointAttributes) ORDER BY Time) AS SeriesRowNum", result.Sql);
         Assert.Contains("AggregationTemporality = 'AGGREGATION_TEMPORALITY_DELTA', Value", result.Sql);
         Assert.Contains("RawDelta < 0, Value", result.Sql);
-        Assert.Contains(")) AS Value, count() AS Count, any(Unit) AS Unit", result.Sql);
+        Assert.Contains(")) AS Value, count() AS Count, argMax(Unit, Time) AS Unit", result.Sql);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class MetricAlertConditionQueryBuilderTests
             new MetricAlertCondition { MetricName = "http.server.request.duration", Type = MetricPointType.Histogram }, From, To);
 
         Assert.Contains("FROM metrics_histogram", result.Sql);
-        Assert.Contains($"SELECT {HistogramTemporalitySql.ExplicitAggregates}, any(Unit) AS Unit FROM ranked", result.Sql);
+        Assert.Contains($"SELECT {HistogramTemporalitySql.ExplicitAggregates}, argMax(Unit, Time) AS Unit FROM ranked", result.Sql);
     }
 
     [Fact]
@@ -102,9 +102,9 @@ public class MetricAlertConditionQueryBuilderTests
             new MetricAlertCondition { MetricName = "http.server.request.duration", Type = MetricPointType.ExponentialHistogram, Aggregation = MetricAlertAggregation.P99 }, From, To);
 
         Assert.Contains("FROM metrics_exponential_histogram", result.Sql);
-        Assert.Contains($"SELECT {HistogramTemporalitySql.ExponentialAggregates}, any(Unit) AS Unit FROM contributions GROUP BY Scale", result.Sql);
+        Assert.Contains($"SELECT {HistogramTemporalitySql.ExponentialAggregates}, argMax(Unit, Time) AS Unit FROM contributions GROUP BY Scale", result.Sql);
         Assert.DoesNotContain("sumForEach", result.Sql);
-        Assert.Contains("any(Unit) AS Unit", result.Sql);
+        Assert.Contains("argMax(Unit, Time) AS Unit", result.Sql);
     }
 
     [Fact]
