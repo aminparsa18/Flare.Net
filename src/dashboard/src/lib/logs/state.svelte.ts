@@ -170,6 +170,8 @@ export interface LogsSavedViewState {
 	timeRangePreset: TimeRangePreset;
 	customRange: { from: string; to: string } | null;
 	services: string[];
+	/** Read-only on restore (never written by `toSavedViewState`) - set by hand-built deep links such as SpanDetailSheet's "Open in Logs Explorer". */
+	traceId?: string;
 	/** Optional (unlike `services`) - saved views written before this field existed simply lack it; `applySavedViewState` falls back to `[]`. */
 	scopeNames?: string[];
 	severityNumbers: number[];
@@ -805,7 +807,7 @@ export class LogsExplorerState {
 			severityNumbers: s.severityNumbers ?? [],
 			search: s.search ?? '',
 			patternId: '', // never part of a saved view - see LogsFilterState.patternId's remarks
-			traceId: '', // same
+			traceId: s.traceId ?? '', // only ever set by deep links, see LogsSavedViewState.traceId
 			attribute: null, // never part of a saved view - see LogsFilterState.attribute's own remarks
 			attributeFilters: s.attributeFilters ?? [],
 			bodyJsonFilters: s.bodyJsonFilters ?? [],

@@ -901,6 +901,7 @@
 	"spanDetail_linksTitle": "Ссылки",
 	"spanDetail_viewLinkedTrace": "Открыть трассировку",
 	"spanDetail_linkedLogsTitle": "Связанные логи",
+	"spanDetail_openInLogs": "Открыть в обозревателе логов",
 	"traceList_colTime": "Время",
 	"traceList_colStatus": "Статус",
 	"traceList_colService": "Сервис",

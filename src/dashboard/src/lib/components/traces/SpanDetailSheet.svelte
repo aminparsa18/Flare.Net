@@ -15,7 +15,7 @@
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import { searchLogs, type LogEventDto } from '$lib/api';
 	import { getSpanDurationPercentile, type SpanAttributeBag, type SpanDto, type SpanDurationPercentile } from '$lib/traces-api';
-	import { buildSpanNameTracesHref, buildTracesAttributeFilterHref } from '$lib/deep-links';
+	import { buildSpanLogsHref, buildSpanNameTracesHref, buildTracesAttributeFilterHref } from '$lib/deep-links';
 	import { goto } from '$app/navigation';
 	import { pinnedSpanAttributes } from '$lib/logs/pinned-attributes.svelte';
 	import { severityVariant } from '$lib/logs/severity';
@@ -42,6 +42,16 @@
 	// Linked logs: view-local, transient data for whichever span is currently selected -
 	// no other consumer needs it, so it doesn't belong on TraceDetailState. Re-fetched
 	// (not accumulated) every time the selected span changes.
+	// Without an explicit From/To the backend applies its 1h-before-now DefaultLookback, so
+	// logs of any older span would come back empty. Padded because logs are often flushed
+	// slightly after the span ends (same +-5m as the CLI incident bundle's --margin default).
+	const LINKED_LOGS_MARGIN_MS = 5 * 60_000;
+	function linkedLogsWindow(span: SpanDto): { from: string; to: string } {
+		return {
+			from: new Date(new Date(span.startTime).getTime() - LINKED_LOGS_MARGIN_MS).toISOString(),
+			to: new Date(new Date(span.endTime).getTime() + LINKED_LOGS_MARGIN_MS).toISOString()
+		};
+	}
 	let linkedLogs = $state<LogEventDto[]>([]);
 	let linkedLogsLoading = $state(false);
 	let linkedLogsAbort: AbortController | null = null;
@@ -60,7 +70,8 @@
 		linkedLogsAbort = abort;
 		linkedLogsLoading = true;
 
-		searchLogs({ filter: { traceId: span.traceId, spanId: span.spanId }, pageSize: 20 }, abort.signal)
+		const window = linkedLogsWindow(span);
+		searchLogs({ filter: { traceId: span.traceId, spanId: span.spanId, from: window.from, to: window.to }, pageSize: 20 }, abort.signal)
 			.then((result) => {
 				if (abort.signal.aborted) return;
 				linkedLogs = result.events;
@@ -313,6 +324,9 @@
 									</div>
 								{/each}
 							</div>
+							<Button variant="link" size="sm" class="mt-1 h-auto px-0" href={buildSpanLogsHref(span, LINKED_LOGS_MARGIN_MS)}>
+								{m.spanDetail_openInLogs()}
+							</Button>
 						</div>
 					{/if}
 				</div>

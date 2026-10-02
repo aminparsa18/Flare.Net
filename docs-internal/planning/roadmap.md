@@ -198,19 +198,6 @@ folders are where "what happened and why" actually lives.
   stored in Identity that floats pinned dashboards to the top of the list
   and the command palette. Not started. Prior art:
   [signoz#11219](https://github.com/SigNoz/signoz/commit/b22eef6a65211f66f5f0a50c6ce3b019fee4b532).
-- **Bug: span details show no linked logs for spans older than 1 hour.**
-  `SpanDetailSheet` calls `searchLogs({ filter: { traceId, spanId } })` with
-  no `From`/`To`, so `LogFilterSqlBuilder` applies `DefaultLookback` (the last
-  hour before *now*) and any older span's logs come back empty even though
-  they exist. Send `From`/`To` = span start/end padded by a few minutes (logs
-  are often flushed slightly after the span ends; ±5m matches the CLI
-  incident bundle's `--margin` default), and audit other traceId-scoped log
-  lookups for the same omission. While there: the section shows at most 20
-  logs with no way to see the rest, so add an "Open in Logs Explorer" link
-  (traceId + spanId filter over the same padded window)
-  ([signoz#11941](https://github.com/SigNoz/signoz/commit/ca5d8889700508055abbbb6465caaad27faad320)).
-  Not started. Prior art:
-  [signoz#11800](https://github.com/SigNoz/signoz/commit/c5c1913f97cfc877e553d65e8ca36e4233e4e553).
 - **Per-metric attribute reduction at ingest.** Pipeline rules only apply to
   logs, so there's no way to stop a high-cardinality data-point attribute
   (`http.url`, `user.id`, a request ID) from exploding a metric's series
