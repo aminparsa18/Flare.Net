@@ -81,4 +81,28 @@ public class AlertThresholdTests
         Assert.False(gte.IsBreachedValue(double.NaN, 500.0));
         Assert.False(lessThan.IsBreachedValue(double.NaN, 500.0));
     }
+
+    [Theory]
+    [InlineData(ThresholdComparator.GreaterThanOrEqual, 85.0, 80.0, true)]
+    [InlineData(ThresholdComparator.GreaterThanOrEqual, 80.0, 80.0, true)]
+    [InlineData(ThresholdComparator.GreaterThanOrEqual, 79.9, 80.0, false)]
+    [InlineData(ThresholdComparator.LessThan, 15.0, 20.0, true)]
+    [InlineData(ThresholdComparator.LessThan, 20.0, 20.0, true)]
+    [InlineData(ThresholdComparator.LessThan, 20.1, 20.0, false)]
+    public void HoldsFiring_StaysFiringUntilRecoveryValueIsCrossed(ThresholdComparator comparator, double observed, double recovery, bool expected)
+    {
+        var threshold = new AlertThreshold { Count = 0, Comparator = comparator };
+
+        Assert.Equal(expected, threshold.HoldsFiring(observed, recovery));
+    }
+
+    [Theory]
+    [InlineData(ThresholdComparator.GreaterThanOrEqual)]
+    [InlineData(ThresholdComparator.LessThan)]
+    public void HoldsFiring_NaNObserved_Recovers(ThresholdComparator comparator)
+    {
+        var threshold = new AlertThreshold { Count = 0, Comparator = comparator };
+
+        Assert.False(threshold.HoldsFiring(double.NaN, 80.0));
+    }
 }

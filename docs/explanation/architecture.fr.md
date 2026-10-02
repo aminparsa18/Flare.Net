@@ -302,7 +302,9 @@ Chaque règle est vérifiée à chaque cycle d'interrogation du worker d'alertes
 (1 min à 1 h) pour les règles lentes ou coûteuses.
 Une règle sur une métrique peut aussi exiger un nombre minimal de points de
 données dans sa fenêtre ; en dessous, elle signale des données insuffisantes
-et ne se déclenche pas.
+et ne se déclenche pas. Une règle peut aussi définir un seuil de rétablissement
+(par exemple, se déclencher à 90 %, se rétablir sous 80 %) pour qu'une valeur
+oscillant autour du seuil ne passe pas sans cesse de déclenchée à résolue.
 Une règle peut aussi remplacer le titre et le corps de sa notification par un
 modèle utilisant des variables comme `{{value}}`, `{{threshold}}`,
 `{{logs_url}}` ou `{{labels.service.name}}`, avec un aperçu en direct dans le

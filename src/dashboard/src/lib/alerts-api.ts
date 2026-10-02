@@ -177,6 +177,8 @@ export interface AlertRule {
 	notificationTitleTemplate: string;
 	/** Custom `{{placeholder}}` notification body - '' keeps the built-in wording. Replaces the whole text, links included. */
 	notificationBodyTemplate: string;
+	/** Hysteresis: once firing, resolve only after the value crosses this back past the threshold. null disables it. Not for `'Anomaly'`. */
+	recoveryThreshold: number | null;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -211,6 +213,8 @@ export interface AlertRuleRequest {
 	notificationTitleTemplate?: string;
 	/** See `AlertRule.notificationBodyTemplate`. Omitted/undefined means '' (built-in). */
 	notificationBodyTemplate?: string;
+	/** See `AlertRule.recoveryThreshold`. Omitted/undefined means no hysteresis. */
+	recoveryThreshold?: number;
 }
 
 export interface AlertRuleListResponse {
@@ -414,7 +418,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		anomalyCondition: toAnomalyCondition(dto.anomalyCondition),
 		minDataPoints: dto.minDataPoints,
 		notificationTitleTemplate: dto.notificationTitleTemplate ?? '',
-		notificationBodyTemplate: dto.notificationBodyTemplate ?? ''
+		notificationBodyTemplate: dto.notificationBodyTemplate ?? '',
+		recoveryThreshold: dto.recoveryThreshold
 	};
 }
 
@@ -451,6 +456,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.minDataPoints = request.minDataPoints ?? null;
 	dto.notificationTitleTemplate = request.notificationTitleTemplate ?? null;
 	dto.notificationBodyTemplate = request.notificationBodyTemplate ?? null;
+	dto.recoveryThreshold = request.recoveryThreshold ?? null;
 	return dto;
 }
 

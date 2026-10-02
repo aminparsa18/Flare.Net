@@ -284,6 +284,9 @@ Each rule is checked every alert-worker poll tick (30s) by default, or on its
 own "Evaluate every" interval (1m-1h) for slow, expensive rules.
 A metric rule can also require a minimum number of data points in its
 window; with fewer, it reports insufficient data and doesn't fire.
+A rule can also set a recovery threshold (for example, fire at 90%, recover
+below 80%) so a value hovering around the threshold doesn't flap between firing
+and resolved.
 A rule can also override its notification title/body with a template
 using placeholders such as `{{value}}`, `{{threshold}}`, `{{logs_url}}`,
 or `{{labels.service.name}}`, previewed live in the rule form.

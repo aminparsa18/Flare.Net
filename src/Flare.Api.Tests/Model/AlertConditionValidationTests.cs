@@ -285,6 +285,66 @@ public class AlertConditionValidationTests
         Assert.Contains("minDataPoints", request.ValidateCondition());
     }
 
+    [Theory]
+    [InlineData(AlertConditionKind.MetricThreshold, 5.0, true)]
+    [InlineData(AlertConditionKind.MetricThreshold, 10.0, true)]
+    [InlineData(AlertConditionKind.MetricThreshold, 10.5, false)]
+    [InlineData(AlertConditionKind.LogCount, 4.0, true)]
+    [InlineData(AlertConditionKind.ExceptionCount, 4.0, true)]
+    [InlineData(AlertConditionKind.LogCount, 11.0, false)]
+    public void RecoveryThreshold_MustBeAtOrBelowThreshold_ForDefaultComparator(AlertConditionKind kind, double recovery, bool valid)
+    {
+        var request = BuildRecovery(kind, recovery, ThresholdComparator.GreaterThanOrEqual);
+
+        Assert.Equal(valid, request.ValidateCondition() is null);
+    }
+
+    [Theory]
+    [InlineData(AlertConditionKind.MetricThreshold, 10.0, true)]
+    [InlineData(AlertConditionKind.MetricThreshold, 20.0, true)]
+    [InlineData(AlertConditionKind.MetricThreshold, 9.0, false)]
+    [InlineData(AlertConditionKind.LogCount, 15.0, true)]
+    [InlineData(AlertConditionKind.LogCount, 9.0, false)]
+    public void RecoveryThreshold_MustBeAtOrAboveThreshold_ForLessThan(AlertConditionKind kind, double recovery, bool valid)
+    {
+        var request = BuildRecovery(kind, recovery, ThresholdComparator.LessThan);
+
+        Assert.Equal(valid, request.ValidateCondition() is null);
+    }
+
+    [Fact]
+    public void RecoveryThreshold_OnAnomaly_IsInvalid()
+    {
+        var request = Build(
+            AlertConditionKind.Anomaly,
+            MakeCondition(),
+            anomalyCondition: new AnomalyCondition { Source = AlertConditionKind.LogCount, BaselinePeriods = 7, ZScoreThreshold = 3 }) with { RecoveryThreshold = 1 };
+
+        Assert.Contains("recoveryThreshold", request.ValidateCondition());
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.NegativeInfinity)]
+    public void RecoveryThreshold_NotFinite_IsInvalid(double recovery)
+    {
+        var request = BuildRecovery(AlertConditionKind.MetricThreshold, recovery, ThresholdComparator.GreaterThanOrEqual);
+
+        Assert.Contains("recoveryThreshold", request.ValidateCondition());
+    }
+
+    [Fact]
+    public void RecoveryThreshold_Null_IsValid() =>
+        Assert.Null(Build(AlertConditionKind.MetricThreshold, MakeCondition(), 1.0).ValidateCondition());
+
+    /// <summary>A rule with threshold 10 (count 10 for count kinds, metric value 10 otherwise).</summary>
+    private static AlertRuleRequest BuildRecovery(AlertConditionKind kind, double recovery, ThresholdComparator comparator) =>
+        Build(kind, MakeCondition(), 10.0, exceptionCondition: MakeExceptionCondition()) with
+        {
+            Threshold = new AlertThreshold { Count = 10, Comparator = comparator },
+            RecoveryThreshold = recovery,
+        };
+
     private static AlertRuleRequest Build(
         AlertConditionKind? conditionKind,
         MetricAlertCondition? metricCondition = null,

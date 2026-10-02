@@ -326,6 +326,16 @@ public sealed class AlertEvaluationWorker(
         {
             if (firingStateKnown)
             {
+                // Hysteresis (ADR-0076): a firing rule whose value is inside the band between
+                // the threshold and its recovery threshold stays firing - no resolution, and no
+                // new notification either (it isn't breached).
+                if (firingState is not null && rule.RecoveryThreshold is { } recovery && rule.ConditionKind != AlertConditionKind.Anomaly
+                    && rule.Threshold.HoldsFiring(observedValue ?? observedCount, recovery))
+                {
+                    logger.LogDebug("Alert rule {RuleId} ({RuleName}) is below its threshold but hasn't crossed its recovery threshold {RecoveryThreshold}; staying firing.", rule.Id, rule.Name, recovery);
+                    return;
+                }
+
                 await ResolveIfFiringAsync(rule, firingState, windows, now, observedCount, observedValue, metricUnit, anomaly, cancellationToken);
             }
 

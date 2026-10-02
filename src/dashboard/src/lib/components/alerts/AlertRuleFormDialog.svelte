@@ -79,6 +79,10 @@
 	// "insufficient data" and never fires (the API rejects it for every other kind).
 	let minDataPointsEnabled = $state(false);
 	let minDataPointsText = $state('3');
+	// Recovery threshold / hysteresis (ADR-0076) - once firing, resolve only after the value
+	// crosses this back past the threshold. Not offered for Anomaly (the API rejects it there).
+	let recoveryEnabled = $state(false);
+	let recoveryThresholdText = $state('');
 	// Custom notification templates (ADR-0052) - off sends '' for both, i.e. the built-in wording.
 	let templatesEnabled = $state(false);
 	let notificationTitleTemplate = $state('');
@@ -167,6 +171,8 @@
 			evaluationIntervalSeconds = 0;
 			minDataPointsEnabled = false;
 			minDataPointsText = '3';
+			recoveryEnabled = false;
+			recoveryThresholdText = '';
 			templatesEnabled = false;
 			notificationTitleTemplate = '';
 			notificationBodyTemplate = '';
@@ -233,6 +239,8 @@
 			evaluationIntervalSeconds = target.evaluationIntervalSeconds;
 			minDataPointsEnabled = target.minDataPoints > 0;
 			minDataPointsText = target.minDataPoints > 0 ? String(target.minDataPoints) : '3';
+			recoveryEnabled = target.recoveryThreshold !== null;
+			recoveryThresholdText = target.recoveryThreshold !== null ? String(target.recoveryThreshold) : '';
 			templatesEnabled = target.notificationTitleTemplate !== '' || target.notificationBodyTemplate !== '';
 			notificationTitleTemplate = target.notificationTitleTemplate;
 			notificationBodyTemplate = target.notificationBodyTemplate;
@@ -278,6 +286,15 @@
 	const noDataActive = $derived(supportsNoData && noDataEnabled);
 	const minDataPoints = $derived(Number(minDataPointsText));
 	const minDataPointsActive = $derived(conditionKind === 'MetricThreshold' && minDataPointsEnabled);
+	const recoveryThreshold = $derived(Number(recoveryThresholdText));
+	const recoveryActive = $derived(conditionKind !== 'Anomaly' && recoveryEnabled);
+	// The value the recovery threshold sits on the recovering side of: a metric rule's value, or a count rule's count.
+	const recoveryReference = $derived(conditionKind === 'MetricThreshold' ? metricThresholdValue : thresholdCount);
+	const recoveryValid = $derived(
+		recoveryThresholdText.trim() !== '' &&
+			Number.isFinite(recoveryThreshold) &&
+			(comparator === 'LessThan' ? recoveryThreshold >= recoveryReference : recoveryThreshold <= recoveryReference)
+	);
 	// Mirrors AlertRuleRequest.MaxMinDataPoints on the API side.
 	const MAX_MIN_DATA_POINTS = 100_000;
 	// Mirrors AlertRuleRequest.MinNoDataWindowSeconds on the API side.
@@ -349,6 +366,7 @@
 			cooldownSeconds >= 0 &&
 			(!noDataActive || (Number.isInteger(noDataWindowSeconds) && noDataWindowSeconds >= MIN_NO_DATA_WINDOW_SECONDS)) &&
 			!evaluationIntervalTooLong &&
+			(!recoveryActive || recoveryValid) &&
 			(!minDataPointsActive || (Number.isInteger(minDataPoints) && minDataPoints >= 1 && minDataPoints <= MAX_MIN_DATA_POINTS)) &&
 			!(templatesEnabled && notificationPreview?.error)
 	);
@@ -475,6 +493,7 @@
 			noDataWindowSeconds: noDataActive ? noDataWindowSeconds : 0,
 			evaluationIntervalSeconds,
 			minDataPoints: minDataPointsActive ? minDataPoints : 0,
+			recoveryThreshold: recoveryActive ? recoveryThreshold : undefined,
 			notificationTitleTemplate: templatesEnabled ? notificationTitleTemplate.trim() : '',
 			notificationBodyTemplate: templatesEnabled ? notificationBodyTemplate.trim() : '',
 			anomalyCondition:
@@ -848,6 +867,25 @@
 						</div>
 					{/if}
 					<span class="text-muted-foreground text-xs">{m.alertRuleForm_minDataPointsHint()}</span>
+				</div>
+			{/if}
+
+			{#if conditionKind !== 'Anomaly'}
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center gap-2">
+						<Switch bind:checked={recoveryEnabled} />
+						<span class="text-xs font-medium">{m.alertRuleForm_recoveryLabel()}</span>
+					</div>
+					{#if recoveryEnabled}
+						<div class="flex items-center gap-2">
+							<span class="text-muted-foreground text-xs">{comparator === 'LessThan' ? m.alertRuleForm_recoveryAtOrAbove() : m.alertRuleForm_recoveryBelow()}</span>
+							<Input type="number" step="any" bind:value={recoveryThresholdText} class="w-28" />
+						</div>
+						{#if recoveryThresholdText.trim() !== '' && !recoveryValid}
+							<span class="text-destructive text-xs">{comparator === 'LessThan' ? m.alertRuleForm_recoveryInvalidLessThan({ threshold: recoveryReference }) : m.alertRuleForm_recoveryInvalid({ threshold: recoveryReference })}</span>
+						{/if}
+					{/if}
+					<span class="text-muted-foreground text-xs">{m.alertRuleForm_recoveryHint()}</span>
 				</div>
 			{/if}
 

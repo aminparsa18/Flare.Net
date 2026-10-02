@@ -191,6 +191,11 @@ or the older `db.system`, and the Database tab's operation falls back from
 Npgsql 10's spans (stable attributes only) read as external calls to the database host.
 New rows only.
 
+`0038_alert_recovery_threshold.sql` - recovery threshold (hysteresis) for alerts:
+`alert_rules.RecoveryThreshold` (`Nullable(Float64)`, NULL = off, the default for every
+existing rule). Once firing, a rule resolves only after its value crosses this back past the
+threshold. See [ADR-0076](../../docs-internal/adr/0076-alert-recovery-threshold.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the
