@@ -416,3 +416,21 @@ export function buildKubernetesPodLogsHref(pod: { namespace: string; podName: st
 	const state: Partial<LogsSavedViewState> = { timeRangePreset, customRange: null, services: [], attributeFilters };
 	return withBase(`/?state=${encodeStateDeepLinkParam(state)}`);
 }
+
+/**
+ * `/?state=` (Logs) for one span's trace over the span's own window padded by `marginMs` -
+ * SpanDetailSheet's "Open in Logs Explorer". The explorer has no span-id filter, so it
+ * narrows to the trace; the window is what keeps older spans' logs from falling outside
+ * the default lookback.
+ */
+export function buildSpanLogsHref(span: { traceId: string; startTime: string; endTime: string }, marginMs: number): string {
+	const from = new Date(new Date(span.startTime).getTime() - marginMs).toISOString();
+	const to = new Date(new Date(span.endTime).getTime() + marginMs).toISOString();
+	const state: Partial<LogsSavedViewState> = {
+		timeRangePreset: 'custom',
+		customRange: { from, to },
+		services: [],
+		traceId: span.traceId
+	};
+	return withBase(`/?state=${encodeStateDeepLinkParam(state)}`);
+}

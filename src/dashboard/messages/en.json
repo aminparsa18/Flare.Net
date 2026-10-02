@@ -901,6 +901,7 @@
 	"spanDetail_linksTitle": "Links",
 	"spanDetail_viewLinkedTrace": "View trace",
 	"spanDetail_linkedLogsTitle": "Linked logs",
+	"spanDetail_openInLogs": "Open in Logs Explorer",
 	"traceList_colTime": "Time",
 	"traceList_colStatus": "Status",
 	"traceList_colService": "Service",
