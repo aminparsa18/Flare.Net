@@ -80,13 +80,14 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
                 // multi-line) text then rides along in custom_details.message.
                 summary = message.Title ?? message.Text,
                 source = "flare",
-                severity = isTest ? "info" : "critical",
+                severity = isTest ? "info" : rule.Severity.ToString().ToLowerInvariant(),
                 timestamp = firedAt,
                 custom_details = new
                 {
                     ruleId = rule.Id,
                     ruleName = rule.Name,
                     conditionKind = rule.ConditionKind.ToString(),
+                    severity = rule.Severity.ToString().ToLowerInvariant(),
                     observedCount = isMetric ? 0UL : (ulong)observedValue,
                     thresholdCount = rule.Threshold.Count,
                     observedValue,

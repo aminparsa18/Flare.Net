@@ -36,15 +36,35 @@ public class PagerDutyAlertNotifierTests
         UpdatedAt = DateTimeOffset.UnixEpoch,
     };
 
-    private static async Task<JsonElement> SendAsync(bool isTest = false, bool resolved = false)
+    private static async Task<JsonElement> SendAsync(bool isTest = false, bool resolved = false, AlertRule? rule = null)
     {
         var handler = new CapturingHandler();
         var notifier = new PagerDutyAlertNotifier(new HttpClient(handler), Options.Create(new AlertLinkOptions()));
 
-        var result = await notifier.SendAsync(Rule, Channel, 42, DateTimeOffset.UnixEpoch, CancellationToken.None, isTest: isTest, resolved: resolved);
+        var result = await notifier.SendAsync(rule ?? Rule, Channel, 42, DateTimeOffset.UnixEpoch, CancellationToken.None, isTest: isTest, resolved: resolved);
 
         Assert.True(result.Success);
         return JsonDocument.Parse(handler.Body!).RootElement;
+    }
+
+    [Theory]
+    [InlineData(AlertSeverity.Critical, "critical")]
+    [InlineData(AlertSeverity.Error, "error")]
+    [InlineData(AlertSeverity.Warning, "warning")]
+    [InlineData(AlertSeverity.Info, "info")]
+    public async Task Trigger_MapsRuleSeverityToPagerDutySeverity(AlertSeverity severity, string expected)
+    {
+        var body = await SendAsync(rule: Rule with { Severity = severity });
+
+        Assert.Equal(expected, body.GetProperty("payload").GetProperty("severity").GetString());
+    }
+
+    [Fact]
+    public async Task TestSend_IsAlwaysInfoSeverity()
+    {
+        var body = await SendAsync(isTest: true, rule: Rule with { Severity = AlertSeverity.Critical });
+
+        Assert.Equal("info", body.GetProperty("payload").GetProperty("severity").GetString());
     }
 
     [Fact]

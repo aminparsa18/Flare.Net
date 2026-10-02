@@ -305,6 +305,9 @@ données dans sa fenêtre ; en dessous, elle signale des données insuffisantes
 et ne se déclenche pas. Une règle peut aussi définir un seuil de rétablissement
 (par exemple, se déclencher à 90 %, se rétablir sous 80 %) pour qu'une valeur
 oscillant autour du seuil ne passe pas sans cesse de déclenchée à résolue.
+Chaque règle a une gravité (critical, error, warning ou info ; critical par défaut),
+transmise comme severity à PagerDuty, affichée dans les notifications des autres
+canaux et disponible pour les modèles via `{{severity}}`.
 Une règle peut aussi remplacer le titre et le corps de sa notification par un
 modèle utilisant des variables comme `{{value}}`, `{{threshold}}`,
 `{{logs_url}}` ou `{{labels.service.name}}`, avec un aperçu en direct dans le

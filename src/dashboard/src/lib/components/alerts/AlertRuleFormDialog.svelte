@@ -29,6 +29,7 @@
 		type AlertTestResult,
 		type AlertNotificationTestResult,
 		type AlertConditionKind,
+		type AlertSeverity,
 		type MetricAlertAggregation,
 		type AnomalyCondition,
 		type AnomalyDirection,
@@ -37,6 +38,8 @@
 	import { aggregateLogs } from '$lib/api';
 	import { getMetricNames, type MetricNameInfo, type MetricPointType } from '$lib/metrics-api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
+	import { ALERT_SEVERITIES } from '$lib/memorypack/enums';
+	import { severityLabel } from '$lib/alerts/severity';
 	import * as m from '$lib/paraglide/messages';
 
 	// Which MetricAlertAggregation values are meaningful for each MetricPointType - see
@@ -81,6 +84,7 @@
 	let minDataPointsText = $state('3');
 	// Recovery threshold / hysteresis (ADR-0076) - once firing, resolve only after the value
 	// crosses this back past the threshold. Not offered for Anomaly (the API rejects it there).
+	let ruleSeverity = $state<AlertSeverity>('Critical');
 	let recoveryEnabled = $state(false);
 	let recoveryThresholdText = $state('');
 	// Custom notification templates (ADR-0052) - off sends '' for both, i.e. the built-in wording.
@@ -171,6 +175,7 @@
 			evaluationIntervalSeconds = 0;
 			minDataPointsEnabled = false;
 			minDataPointsText = '3';
+			ruleSeverity = 'Critical';
 			recoveryEnabled = false;
 			recoveryThresholdText = '';
 			templatesEnabled = false;
@@ -239,6 +244,7 @@
 			evaluationIntervalSeconds = target.evaluationIntervalSeconds;
 			minDataPointsEnabled = target.minDataPoints > 0;
 			minDataPointsText = target.minDataPoints > 0 ? String(target.minDataPoints) : '3';
+			ruleSeverity = target.severity;
 			recoveryEnabled = target.recoveryThreshold !== null;
 			recoveryThresholdText = target.recoveryThreshold !== null ? String(target.recoveryThreshold) : '';
 			templatesEnabled = target.notificationTitleTemplate !== '' || target.notificationBodyTemplate !== '';
@@ -494,6 +500,7 @@
 			evaluationIntervalSeconds,
 			minDataPoints: minDataPointsActive ? minDataPoints : 0,
 			recoveryThreshold: recoveryActive ? recoveryThreshold : undefined,
+			severity: ruleSeverity,
 			notificationTitleTemplate: templatesEnabled ? notificationTitleTemplate.trim() : '',
 			notificationBodyTemplate: templatesEnabled ? notificationBodyTemplate.trim() : '',
 			anomalyCondition:
@@ -626,6 +633,19 @@
 						<Select.Item value="Anomaly" label={m.alertRuleForm_conditionKindAnomaly()} />
 					</Select.Content>
 				</Select.Root>
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-medium">{m.alertRuleForm_severityLabel()}</span>
+				<Select.Root type="single" value={ruleSeverity} onValueChange={(v) => v && (ruleSeverity = v as AlertSeverity)}>
+					<Select.Trigger class="w-48">{severityLabel(ruleSeverity)}</Select.Trigger>
+					<Select.Content>
+						{#each ALERT_SEVERITIES as option (option)}
+							<Select.Item value={option} label={severityLabel(option)} />
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<span class="text-muted-foreground text-xs">{m.alertRuleForm_severityHint()}</span>
 			</div>
 
 			{#if conditionKind === 'Anomaly'}

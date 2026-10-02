@@ -27,6 +27,29 @@ public class AlertMessageFormatterTests
     };
 
     [Fact]
+    public void BuildText_CriticalSeverity_IsUnlabeled()
+    {
+        Assert.StartsWith(":rotating_light: Alert", AlertMessageFormatter.BuildText(MakeRule(), 12));
+    }
+
+    [Fact]
+    public void BuildText_LowerSeverity_IsTagged()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeRule() with { Severity = AlertSeverity.Warning }, 12);
+
+        Assert.StartsWith("[WARNING] :rotating_light: Alert", text);
+    }
+
+    [Fact]
+    public void BuildText_ResolvedAndTest_AreNotSeverityTagged()
+    {
+        var rule = MakeRule() with { Severity = AlertSeverity.Warning };
+
+        Assert.DoesNotContain("[WARNING]", AlertMessageFormatter.BuildText(rule, 1, resolved: true));
+        Assert.DoesNotContain("[WARNING]", AlertMessageFormatter.BuildText(rule, 1, isTest: true));
+    }
+
+    [Fact]
     public void BuildRuleUrl_NullPublicUrl_ReturnsNull()
     {
         Assert.Null(AlertMessageFormatter.BuildRuleUrl(MakeRule(), null));
