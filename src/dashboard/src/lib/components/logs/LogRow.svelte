@@ -2,6 +2,7 @@
 	import type { LogEventDto } from '$lib/api';
 	import { Badge } from '$lib/components/ui/badge';
 	import AnsiText from './AnsiText.svelte';
+	import { displayBody } from '$lib/logs/json-body';
 	import { severityVariant } from '$lib/logs/severity';
 	import { formatDurationNano } from '$lib/traces/duration';
 	// Fixed-width MM-DD HH:mm:ss.SSS - this is a monospace column (font-mono below) that
@@ -62,8 +63,8 @@
 		<span
 			class="overflow-hidden leading-5 break-words whitespace-pre-wrap"
 			style="display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: {lines}; line-clamp: {lines};"
-		><AnsiText text={event.body} /></span>
+		><AnsiText text={displayBody(event.body)} /></span>
 	{:else if showBody}
-		<span class="truncate leading-5"><AnsiText text={event.body} /></span>
+		<span class="truncate leading-5"><AnsiText text={displayBody(event.body)} /></span>
 	{/if}
 </button>

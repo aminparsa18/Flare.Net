@@ -33,3 +33,18 @@ export function displayJsonPath(segments: (string | number)[]): string {
 		''
 	);
 }
+
+/**
+ * Row display only: a body like `{"message":"…"}` (JSON console formatters) shows just the text.
+ * Applies when the body is an object with exactly one field, `message` or `msg`, holding a string;
+ * anything else returns the body unchanged. Stored data, filters, exports and the detail sheet keep the raw JSON.
+ */
+export function displayBody(body: string): string {
+	if (!body || body.length > 4096 || body.trimStart()[0] !== '{') return body;
+	const parsed = parseJsonBody(body);
+	if (parsed === null || Array.isArray(parsed)) return body;
+	const keys = Object.keys(parsed);
+	if (keys.length !== 1 || (keys[0] !== 'message' && keys[0] !== 'msg')) return body;
+	const value = (parsed as Record<string, JsonValue>)[keys[0]];
+	return typeof value === 'string' ? value : body;
+}
