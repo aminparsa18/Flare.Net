@@ -106,11 +106,6 @@ folders are where "what happened and why" actually lives.
   `?var-service=a,b&range=1h`), hydrate from the URL first on load, and use
   `replaceState` on change. Not started. Prior art:
   [signoz#8874](https://github.com/SigNoz/signoz/commit/437d0d134502b5bd124471606674080a040a2090).
-- **`abs()` (and `ceil`/`floor`) in metric formulas.** `FormulaFunction` in
-  `$lib/metrics/formula.ts` is only `exp`/`log`/`sqrt`/`runningDiff`, so
-  "absolute difference between A and B" can't be expressed. Add `abs`, plus
-  `ceil`/`floor` while there. Not started. Prior art:
-  [signoz#9315](https://github.com/SigNoz/signoz/commit/43a6c7dcd618974347a4bcefb48f355ef373ba46).
 - **Recovery threshold for alerts (hysteresis).** A rule has one threshold,
   and a firing alert resolves as soon as one evaluation isn't breached. A
   value hovering around the threshold therefore flaps fire/resolve and

@@ -16,8 +16,8 @@ export type FormulaNode =
 	| { kind: 'binary'; op: '+' | '-' | '*' | '/'; left: FormulaNode; right: FormulaNode }
 	| { kind: 'call'; fn: FormulaFunction; arg: FormulaNode };
 
-/** `exp`/`log`/`sqrt` are pointwise; `runningDiff` is the one series-level function - each point's value minus the previous point's value in the same joined series (see `runningDiff` below). */
-export type FormulaFunction = 'exp' | 'log' | 'sqrt' | 'runningDiff';
+/** `exp`/`log`/`sqrt`/`abs`/`ceil`/`floor` are pointwise; `runningDiff` is the one series-level function - each point's value minus the previous point's value in the same joined series (see `runningDiff` below). */
+export type FormulaFunction = 'exp' | 'log' | 'sqrt' | 'abs' | 'ceil' | 'floor' | 'runningDiff';
 
 export type ParseResult = { ok: true; node: FormulaNode } | { ok: false; error: string };
 
@@ -26,6 +26,9 @@ const FUNCTIONS = new Map<string, FormulaFunction>([
 	['exp', 'exp'],
 	['log', 'log'],
 	['sqrt', 'sqrt'],
+	['abs', 'abs'],
+	['ceil', 'ceil'],
+	['floor', 'floor'],
 	['runningdiff', 'runningDiff']
 ]);
 
@@ -83,7 +86,7 @@ function tokenize(expr: string): Token[] | { error: string } {
 /**
  * Recursive-descent parser, standard precedence: unary minus > `*`/`/` > `+`/`-`. A bare
  * identifier is a query-letter reference (`A`, `B`, ...) unless it's one of the reserved
- * function names (`exp`/`log`/`sqrt`/`runningDiff`), which must be followed by a single
+ * function names (`exp`/`log`/`sqrt`/`abs`/`ceil`/`floor`/`runningDiff`), which must be followed by a single
  * parenthesized argument (no `^`/power - not asked for, and it'd need a precedence tier of its
  * own).
  */
@@ -263,6 +266,12 @@ function evaluateVector(node: FormulaNode, bindings: Record<string, number[]>, l
 					return mapVector(arg, Math.log);
 				case 'sqrt':
 					return mapVector(arg, Math.sqrt);
+				case 'abs':
+					return mapVector(arg, Math.abs);
+				case 'ceil':
+					return mapVector(arg, Math.ceil);
+				case 'floor':
+					return mapVector(arg, Math.floor);
 				case 'runningDiff':
 					return runningDiff(arg);
 			}
