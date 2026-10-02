@@ -5,11 +5,13 @@
 
 import {
 	listAlertRules,
+	listAlertRuleStatuses,
 	createAlertRule,
 	updateAlertRule,
 	deleteAlertRule,
 	getAlertHistory,
 	type AlertRule,
+	type AlertRuleStatus,
 	type AlertRuleRequest,
 	type AlertHistoryEntry
 } from '$lib/alerts-api';
@@ -17,6 +19,8 @@ import type { AlertPanelDraft } from '$lib/deep-links';
 
 export class AlertsState {
 	rules = $state.raw<AlertRule[]>([]);
+	/** Firing state + last fire per rule id; a never-fired rule is absent. Best-effort - a failed fetch just leaves it empty. */
+	statuses = $state.raw<ReadonlyMap<string, AlertRuleStatus>>(new Map());
 	loading = $state(false);
 	error = $state<string | null>(null);
 
@@ -52,10 +56,19 @@ export class AlertsState {
 		try {
 			const res = await listAlertRules();
 			this.rules = res.rules;
+			void this.loadStatuses();
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 		} finally {
 			this.loading = false;
+		}
+	}
+
+	async loadStatuses(): Promise<void> {
+		try {
+			this.statuses = new Map((await listAlertRuleStatuses()).map((s) => [s.ruleId, s]));
+		} catch {
+			// Status only drives filter/sort/badges; the list itself stays usable without it.
 		}
 	}
 

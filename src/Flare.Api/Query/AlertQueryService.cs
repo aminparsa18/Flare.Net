@@ -79,6 +79,12 @@ public interface IAlertQueryService
     /// </summary>
     Task<IReadOnlyDictionary<Guid, AlertFiringState>> GetFiringStatesAsync(IReadOnlyList<Guid> ruleIds, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Firing/ok state and last fire for every rule that has ever fired (a never-fired rule is
+    /// absent) - what the dashboard's rules list searches/filters/sorts on.
+    /// </summary>
+    Task<IReadOnlyList<AlertRuleStatus>> GetRuleStatusesAsync(CancellationToken cancellationToken);
+
     Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<AlertHistoryEntry>> GetHistoryAsync(Guid ruleId, int limit, CancellationToken cancellationToken);
@@ -430,6 +436,36 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         }
 
         return states;
+    }
+
+    public async Task<IReadOnlyList<AlertRuleStatus>> GetRuleStatusesAsync(CancellationToken cancellationToken)
+    {
+        // Same latest-fire-vs-latest-resolution derivation as GetFiringStatesAsync (ADR-0064),
+        // but unfiltered by rule and keeping lastFired for the ok rules too.
+        const string sql = """
+            SELECT RuleId, lastFired, lastFired IS NOT NULL AND (lastResolved IS NULL OR lastFired > lastResolved) AS firing
+            FROM
+            (
+                SELECT
+                    RuleId,
+                    maxIfOrNull(FiredAt, Resolved = 0) AS lastFired,
+                    maxIfOrNull(FiredAt, Resolved = 1) AS lastResolved
+                FROM alert_events
+                GROUP BY RuleId
+            )
+            """;
+
+        var statuses = new List<AlertRuleStatus>();
+        await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
+        while (reader.Read())
+        {
+            statuses.Add(new AlertRuleStatus(
+                reader.GetGuid(0),
+                Convert.ToBoolean(reader.GetValue(2)),
+                reader.IsDBNull(1) ? null : ReadUtc(reader, 1)));
+        }
+
+        return statuses;
     }
 
     public async Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken)

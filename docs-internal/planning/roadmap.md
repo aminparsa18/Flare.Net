@@ -288,14 +288,6 @@ folders are where "what happened and why" actually lives.
   from the current explorer state (LogCount for Logs, metric threshold for
   Metrics), reusing the panel's drafting code. Not started. Prior art:
   [signoz#12981](https://github.com/SigNoz/signoz/commit/adfcebf855bf792c74acfd4b01f7a0fcf29a3831).
-- **Search, filter and sort on the alert rules list.** `AlertRuleTable` has
-  no search box or sortable columns, so with many rules there's no way to
-  find one by name or show only firing/disabled ones. Add client-side search
-  by name; filters for state (firing/OK/disabled/muted by maintenance) and
-  condition kind; and sorting by name/state/last fired, persisted in the URL.
-  Rule-label filtering lands here once the labels item ships. Not started.
-  Prior art:
-  [signoz#12780](https://github.com/SigNoz/signoz/commit/ee35fc351f5619362a31e1614a21b4f3abde66b5).
 - **Exception → source code.** Exceptions show a stack trace but nothing
   links a frame to the code that ran. Use `code.filepath`/`code.lineno` (and
   the stack trace's own `in File:line` frames) plus the app's commit

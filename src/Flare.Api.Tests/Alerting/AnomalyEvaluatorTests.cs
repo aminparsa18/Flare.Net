@@ -115,6 +115,8 @@ public class AnomalyEvaluatorTests
 
         public Task<IReadOnlyDictionary<Guid, AlertFiringState>> GetFiringStatesAsync(IReadOnlyList<Guid> ruleIds, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<IReadOnlyList<AlertRuleStatus>> GetRuleStatusesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyList<AlertHistoryEntry>> GetHistoryAsync(Guid ruleId, int limit, CancellationToken cancellationToken) => throw new NotSupportedException();

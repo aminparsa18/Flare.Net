@@ -6,6 +6,21 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Input } from '$lib/components/ui/input';
+	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
+	import { formatDateTime } from '$lib/time/format';
+	import {
+		applyAlertListView,
+		buildAlertListSearch,
+		isAlertListViewActive,
+		parseAlertListView,
+		ruleState,
+		RULE_KIND_FILTERS,
+		RULE_STATE_FILTERS,
+		type AlertListView,
+		type RuleSortKey
+	} from '$lib/alerts/list-view';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { alertsContext } from '$lib/alerts/context';
 	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
@@ -20,9 +35,39 @@
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import BellIcon from '@lucide/svelte/icons/bell';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 
 	const alerts = alertsContext.get();
 	const maintenance = maintenanceWindowsContext.get();
+
+	// Search/filter/sort live in the URL so a filtered view survives reload and can be shared;
+	// hydrated once from the initial URL, then written back with replaceState on every change.
+	let view = $state<AlertListView>(parseAlertListView(page.url.searchParams));
+	$effect(() => {
+		const search = buildAlertListSearch(page.url.searchParams, view);
+		if (search !== page.url.search) replaceState(page.url.pathname + search, page.state);
+	});
+
+	const visibleRules = $derived(applyAlertListView(alerts.rules, alerts.statuses, (id) => maintenance.isRuleMuted(id), view));
+
+	function toggleSort(key: RuleSortKey): void {
+		view = view.sort === key ? { ...view, direction: view.direction === 'asc' ? 'desc' : 'asc' } : { ...view, sort: key, direction: key === 'lastFired' ? 'desc' : 'asc' };
+	}
+
+	function stateLabel(state: (typeof RULE_STATE_FILTERS)[number]): string {
+		return { all: m.alertRuleTable_stateAll(), firing: m.alertRuleTable_stateFiring(), ok: m.alertRuleTable_stateOk(), disabled: m.alertRuleTable_stateDisabled(), muted: m.alertRuleTable_stateMuted() }[state];
+	}
+
+	function kindLabel(kind: (typeof RULE_KIND_FILTERS)[number]): string {
+		return {
+			LogCount: m.alertRuleForm_conditionKindLogCount(),
+			MetricThreshold: m.alertRuleForm_conditionKindMetricThreshold(),
+			ExceptionCount: m.alertRuleForm_conditionKindExceptionCount(),
+			Anomaly: m.alertRuleForm_conditionKindAnomaly()
+		}[kind];
+	}
 
 	function summarizeCondition(rule: AlertRule): string {
 		// An Anomaly rule's series is one of the other three kinds' conditions (ADR-0048).
@@ -155,22 +200,66 @@
 		</Empty.Content>
 	</Empty.Root>
 {:else}
+	<div class="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+		<div class="relative w-64">
+			<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
+			<Input class="h-8 pl-8" placeholder={m.alertRuleTable_searchPlaceholder()} bind:value={view.query} />
+		</div>
+		<select class="border-input bg-background h-8 rounded-md border px-2 text-sm" bind:value={view.state}>
+			{#each RULE_STATE_FILTERS as state (state)}
+				<option value={state}>{stateLabel(state)}</option>
+			{/each}
+		</select>
+		<select class="border-input bg-background h-8 rounded-md border px-2 text-sm" bind:value={view.kind}>
+			<option value="all">{m.alertRuleTable_kindAll()}</option>
+			{#each RULE_KIND_FILTERS as kind (kind)}
+				<option value={kind}>{kindLabel(kind)}</option>
+			{/each}
+		</select>
+		{#if isAlertListViewActive(view)}
+			<Button variant="ghost" size="sm" onclick={() => (view = { ...view, query: '', state: 'all', kind: 'all' })}>
+				{m.alertRuleTable_clearFilters()}
+			</Button>
+		{/if}
+	</div>
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		<Table.Root>
 			<Table.Header>
 				<Table.Row>
-					<Table.Head>{m.alertRuleTable_colName()}</Table.Head>
+					<Table.Head>
+						<button type="button" class="inline-flex items-center gap-1" onclick={() => toggleSort('name')}>
+							{m.alertRuleTable_colName()}
+							{#if view.sort === 'name'}
+								{#if view.direction === 'asc'}<ArrowUpIcon class="size-3" />{:else}<ArrowDownIcon class="size-3" />{/if}
+							{/if}
+						</button>
+					</Table.Head>
 					<Table.Head>{m.alertRuleTable_colSeverity()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colCondition()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colThreshold()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colCooldown()}</Table.Head>
 					<Table.Head>{m.alertRuleTable_colChannel()}</Table.Head>
-					<Table.Head>{m.alertRuleTable_colStatus()}</Table.Head>
+					<Table.Head>
+						<button type="button" class="inline-flex items-center gap-1" onclick={() => toggleSort('state')}>
+							{m.alertRuleTable_colStatus()}
+							{#if view.sort === 'state'}
+								{#if view.direction === 'asc'}<ArrowUpIcon class="size-3" />{:else}<ArrowDownIcon class="size-3" />{/if}
+							{/if}
+						</button>
+					</Table.Head>
+					<Table.Head>
+						<button type="button" class="inline-flex items-center gap-1" onclick={() => toggleSort('lastFired')}>
+							{m.alertRuleTable_colLastFired()}
+							{#if view.sort === 'lastFired'}
+								{#if view.direction === 'asc'}<ArrowUpIcon class="size-3" />{:else}<ArrowDownIcon class="size-3" />{/if}
+							{/if}
+						</button>
+					</Table.Head>
 					<Table.Head class="text-right">{m.alertRuleTable_colActions()}</Table.Head>
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
-				{#each alerts.rules as rule (rule.id)}
+				{#each visibleRules as rule (rule.id)}
 					<Table.Row>
 						<Table.Cell class="font-medium">
 							{rule.name}
@@ -204,6 +293,9 @@
 						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{channelSummary(rule)}</Table.Cell>
 						<Table.Cell>
+							{#if ruleState(rule, alerts.statuses.get(rule.id)) === 'firing'}
+								<Badge variant="destructive" class="mr-1">{m.alertRuleTable_stateFiring()}</Badge>
+							{/if}
 							<Badge variant={rule.enabled ? 'secondary' : 'outline'}
 								>{rule.enabled ? m.alertRuleTable_enabled() : m.alertRuleTable_disabled()}</Badge
 							>
@@ -249,6 +341,9 @@
 								</Badge>
 							{/if}
 						</Table.Cell>
+						<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">
+							{alerts.statuses.get(rule.id)?.lastFiredAt ? formatDateTime(alerts.statuses.get(rule.id)!.lastFiredAt!) : m.alertRuleTable_neverFired()}
+						</Table.Cell>
 						<Table.Cell class="text-right">
 							<Button
 								variant="ghost"
@@ -286,5 +381,8 @@
 				{/each}
 			</Table.Body>
 		</Table.Root>
+		{#if visibleRules.length === 0}
+			<p class="text-muted-foreground p-6 text-center text-sm">{m.alertRuleTable_noMatches()}</p>
+		{/if}
 	</div>
 {/if}
