@@ -28,12 +28,6 @@ pulling Flare's published Docker Hub images (`apardev/flare-ingest`, `apardev/fl
 the same way [`docker-compose.yml`](https://github.com/aminparsa18/Flare.Net/blob/main/docker-compose.yml)
 in Flare's own repo does.
 
-> **No published `apardev/flare-alert-worker` image exists yet.** `AddFlare` unconditionally
-> adds an alert-worker container as of this package version, but until a Flare release actually
-> publishes that image (see [ADR-0018](https://github.com/aminparsa18/Flare.Net/blob/main/docs-internal/adr/0018-alert-worker-extraction.md)'s
-> release gate), the pull for it will fail. Don't bump past this package version's `imageTag`
-> default until that's resolved.
-
 Pair `.WithReference(flare)` above with the [`Flare.Aspire`](https://www.nuget.org/packages/Flare.Aspire)
 client package's `builder.AddFlareOtlpExporter("flare")` in the consuming project - it reads
 the injected `ConnectionStrings__flare` and registers an OTLP log exporter pointed at it. Or
