@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { stripBase, withBase } from '$lib/paths';
 	// Folds what used to be three separate top-level AppNav controls (theme toggle button,
 	// LanguageSwitcher's Select, and the raw auth status/logout block) into one dropdown -
 	// the page-link row was outgrowing the bar (see nav-links.ts's ever-growing list), and
@@ -48,7 +49,8 @@
 	};
 
 	function isActive(href: string): boolean {
-		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
+		const pathname = stripBase(page.url.pathname);
+		return pathname === href || pathname.startsWith(`${href}/`);
 	}
 
 	// Language names are always shown in their own language (endonyms), never translated
@@ -109,7 +111,7 @@
 			{@const Icon = MENU_LINK_ICONS[link.href]}
 			<DropdownMenu.Item>
 				{#snippet child({ props })}
-					<a href={link.href} {...props} aria-current={isActive(link.href) ? 'page' : undefined}>
+					<a href={withBase(link.href)} {...props} aria-current={isActive(link.href) ? 'page' : undefined}>
 						{#if Icon}<Icon />{/if}
 						{link.label}
 					</a>
@@ -123,7 +125,7 @@
 		     entry point (the Logs empty state's "See how to ingest data" link). -->
 		<DropdownMenu.Item>
 			{#snippet child({ props })}
-				<a href="/data-sources" {...props}>
+				<a href={withBase('/data-sources')} {...props}>
 					<PlugIcon />
 					{m.dataSourcesPage_heading()}
 				</a>
@@ -134,7 +136,7 @@
 		{#if !auth.authEnabled || auth.currentUser?.role === 'Admin'}
 			<DropdownMenu.Item>
 				{#snippet child({ props })}
-					<a href="/ingest-keys" {...props}>
+					<a href={withBase('/ingest-keys')} {...props}>
 						<KeyIcon />
 						{m.ingestKeysPage_heading()}
 					</a>
@@ -153,7 +155,7 @@
 			     above, unlike /data-sources' link below which is unconditional. -->
 			<DropdownMenu.Item>
 				{#snippet child({ props })}
-					<a href="/access-tokens" {...props}>
+					<a href={withBase('/access-tokens')} {...props}>
 						<KeyRoundIcon />
 						{m.accessTokensPage_heading()}
 					</a>
@@ -229,7 +231,7 @@
 		{:else}
 			<DropdownMenu.Item>
 				{#snippet child({ props })}
-					<a href="/auth" {...props}>{m.nav_authOff()}</a>
+					<a href={withBase('/auth')} {...props}>{m.nav_authOff()}</a>
 				{/snippet}
 			</DropdownMenu.Item>
 		{/if}

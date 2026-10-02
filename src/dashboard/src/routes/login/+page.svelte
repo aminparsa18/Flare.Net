@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	// +layout.svelte's route guard is what actually sends an unauthenticated visitor
 	// here whenever auth is on and there's no session - this page itself decides,
 	// from GET /api/auth/bootstrap/status, whether to show the first-run "create admin"
@@ -45,7 +46,7 @@
 					await auth.loginViaProxy();
 					proxyAuthAttempted = true;
 					if (auth.currentUser) {
-						await goto('/');
+						await goto(withBase('/'));
 					}
 				}
 			})
@@ -98,7 +99,7 @@
 			await auth.login(username, password);
 		}
 		if (auth.currentUser) {
-			await goto('/');
+			await goto(withBase('/'));
 		}
 	}
 </script>
@@ -109,11 +110,11 @@
 
 <div
 	class="flex h-full items-center justify-center bg-cover bg-center p-4"
-	style="background-image: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)), url('/login.webp');"
+	style="background-image: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)), url('{withBase('/login.webp')}');"
 >
 	<Card.Root class="w-full max-w-sm backdrop-blur-sm supports-backdrop-filter:bg-card/90">
 		<Card.Header>
-			<img src="/logo.png" alt="Flare" class="mx-auto mb-2 h-24 w-auto shrink-0" />
+			<img src={withBase('/logo.png')} alt="Flare" class="mx-auto mb-2 h-24 w-auto shrink-0" />
 			{#if showBootstrap}
 				<Card.Title>{m.login_createAdminTitle()}</Card.Title>
 				<Card.Description>{m.login_createAdminDescription()}</Card.Description>

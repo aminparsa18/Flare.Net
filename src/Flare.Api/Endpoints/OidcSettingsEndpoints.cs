@@ -96,6 +96,6 @@ public static class OidcSettingsEndpoints
         Scopes = settings.Scopes,
         RoleClaimName = settings.RoleClaimName,
         DefaultRole = settings.DefaultRole,
-        RedirectUri = $"{http.Request.Scheme}://{http.Request.Host}{OidcAuthenticationDefaults.CallbackPath}",
+        RedirectUri = $"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}{OidcAuthenticationDefaults.CallbackPath}",
     };
 }

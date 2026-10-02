@@ -18,7 +18,19 @@
 // docker-compose.yml, so nothing is lost by not wiring them here. If that changes, either
 // wire the missing knob here too or drop this file and go back to build/index.js.
 import { createServer } from 'node:http';
-import { handler } from './build/handler.js';
+import { applyBasePath, hasPlaceholderBase, normalizeBasePath } from './apply-base-path.mjs';
+
+// Sub-path hosting: the image's build/ carries a placeholder base path that has to be
+// resolved to FLARE_BASE_PATH before the handler is loaded - see apply-base-path.mjs. A
+// build/ without the placeholder (a plain `npm run build`, possibly with FLARE_BASE_PATH
+// set at build time instead) is served as-is.
+const basePath = normalizeBasePath(process.env.FLARE_BASE_PATH);
+let buildDir = './build';
+if (hasPlaceholderBase(buildDir)) {
+	buildDir = './build-runtime';
+	applyBasePath('./build', buildDir, basePath);
+}
+const { handler } = await import(`${buildDir}/handler.js`);
 
 // Deliberately NOT content-hashed like the immutable bundle, so a short-ish max-age (not
 // `immutable`) - a stale favicon/logo for up to a day after a redeploy is a non-issue,
@@ -30,7 +42,11 @@ const STATIC_ASSET_MAX_AGE_SECONDS = 86400; // 1 day
 // accidentally cache something SvelteKit-managed and non-immutable, like _app/version.json
 // (polled by the client to detect a new deploy - caching that would break update
 // detection). Extend this list if new files are added under static/.
-const CACHEABLE_STATIC_ASSET = /^\/(?:favicon(?:-16x16|-32x32)?\.(?:ico|png|svg)|logo\.png|no_log\.json)$/;
+// The base path (already validated to [A-Za-z0-9._~/-] by normalizeBasePath) is the only
+// part needing escaping, and only for ".".
+const CACHEABLE_STATIC_ASSET = new RegExp(
+	`^${basePath.replaceAll('.', '\\.')}/(?:favicon(?:-16x16|-32x32)?\\.(?:ico|png|svg)|logo\\.png|no_log\\.json)$`
+);
 
 const port = process.env.PORT ?? 3000;
 const host = process.env.HOST ?? '0.0.0.0';

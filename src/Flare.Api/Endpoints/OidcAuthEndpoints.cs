@@ -36,7 +36,7 @@ public static class OidcAuthEndpoints
         return endpoints;
     }
 
-    internal static async Task<IResult> HandleLoginAsync(string? returnUrl, IConfiguration configuration, IOidcSettingsStore oidcSettings, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleLoginAsync(HttpContext http, string? returnUrl, IConfiguration configuration, IOidcSettingsStore oidcSettings, CancellationToken cancellationToken)
     {
         var settings = await oidcSettings.GetAsync(cancellationToken);
         if (!settings.Enabled)
@@ -54,7 +54,7 @@ public static class OidcAuthEndpoints
             return Results.Problem("returnUrl is missing or is not an allowed origin.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var properties = new AuthenticationProperties { RedirectUri = "/api/auth/oidc/complete" };
+        var properties = new AuthenticationProperties { RedirectUri = $"{http.Request.PathBase}/api/auth/oidc/complete" };
         properties.Items["returnUrl"] = validatedReturnUrl;
         return Results.Challenge(properties, [OidcAuthenticationDefaults.SchemeName]);
     }

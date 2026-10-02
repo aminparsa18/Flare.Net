@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import * as Select from '$lib/components/ui/select';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
@@ -17,7 +18,7 @@
 </script>
 
 <div class="bg-background sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b px-4 py-2">
-	<Button variant="ghost" size="sm" href="/metrics">
+	<Button variant="ghost" size="sm" href={withBase('/metrics')}>
 		<ArrowLeftIcon data-icon="inline-start" />
 		{m.metricCatalog_backToExplorer()}
 	</Button>

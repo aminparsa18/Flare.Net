@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	// The Services tab's "Map" view - the aggregate, cross-trace counterpart to the
 	// trace-detail page's own ServiceMap.svelte. Same SvelteFlow + dagre (`layoutGraph`)
 	// pairing and the very same `ServiceMapNode.svelte` card, since `services-api.ts`
@@ -29,7 +30,7 @@
 	function openNode(node: ServiceMapFlowNode): void {
 		if (node.data.service.external) {
 			const params = new URLSearchParams({ domain: node.id, window: services.windowPreset });
-			void goto(`/external-apis?${params}`);
+			void goto(withBase(`/external-apis?${params}`));
 		} else {
 			services.selectedService = node.id;
 		}

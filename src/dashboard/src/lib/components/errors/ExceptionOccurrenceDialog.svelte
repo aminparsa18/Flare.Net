@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	// The exception-groups table row's click-through drill-down - sample occurrences
 	// (service, timestamp, a link to the existing /traces/{traceId} waterfall route) plus
 	// each occurrence's own stack trace. Opened by clicking a row in ExceptionGroupsTable;
@@ -68,7 +69,7 @@
 								</Table.Cell>
 								<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatTimestamp(occurrence.timestamp)}</Table.Cell>
 								<Table.Cell class="text-right">
-									<a class="text-primary text-xs hover:underline" href="/traces/{occurrence.traceId}">
+									<a class="text-primary text-xs hover:underline" href={withBase(`/traces/${occurrence.traceId}`)}>
 										{m.exceptionOccurrenceDialog_viewTrace()}
 									</a>
 								</Table.Cell>

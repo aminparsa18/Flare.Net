@@ -1,3 +1,4 @@
+import { appOrigin } from '$lib/paths';
 // Client for Flare.Api's auth endpoints (src/Flare.Api/Endpoints/AuthEndpoints.cs).
 //
 // Migrated (Phase 2 of docs-internal/investigations/memorypack-serialization-migration-scope.md)
@@ -207,7 +208,7 @@ export async function getCurrentUser(signal?: AbortSignal): Promise<AuthUser | n
  * redirecting back to it. */
 export function startEntraLogin(): void {
 	const url = new URL(`${API_BASE_URL}/api/auth/entra/login`);
-	url.searchParams.set('returnUrl', window.location.origin);
+	url.searchParams.set('returnUrl', appOrigin());
 	window.location.href = url.toString();
 }
 
@@ -215,7 +216,7 @@ export function startEntraLogin(): void {
  * as {@link startEntraLogin}, just the generic OIDC scheme (see OidcAuthEndpoints). */
 export function startOidcLogin(): void {
 	const url = new URL(`${API_BASE_URL}/api/auth/oidc/login`);
-	url.searchParams.set('returnUrl', window.location.origin);
+	url.searchParams.set('returnUrl', appOrigin());
 	window.location.href = url.toString();
 }
 

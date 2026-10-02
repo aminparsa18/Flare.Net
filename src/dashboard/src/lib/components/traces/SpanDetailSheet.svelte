@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import AnsiText from '$lib/components/logs/AnsiText.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -113,7 +114,7 @@
 	// `?span=` is read back by the trace page (TraceDetailState.load) - selects the span,
 	// expands its ancestors and scrolls it into view.
 	async function copySpanLink(traceId: string, spanId: string): Promise<void> {
-		const url = new URL(`/traces/${encodeURIComponent(traceId)}`, window.location.origin);
+		const url = new URL(withBase(`/traces/${encodeURIComponent(traceId)}`), window.location.origin);
 		url.searchParams.set('span', spanId);
 		await navigator.clipboard.writeText(url.toString());
 		linkCopied = true;
@@ -284,7 +285,7 @@
 											<span class="truncate font-mono text-xs">
 												{link.traceId} / {link.spanId}
 											</span>
-											<Button variant="ghost" size="xs" class="shrink-0" href="/traces/{link.traceId}">
+											<Button variant="ghost" size="xs" class="shrink-0" href={withBase(`/traces/${link.traceId}`)}>
 												{m.spanDetail_viewLinkedTrace()}
 											</Button>
 										</div>

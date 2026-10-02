@@ -13,6 +13,7 @@ import { encodeStateDeepLinkParam } from '$lib/deep-links';
 import { attributesForLogsPanel, attributesForTracesPanel, type ResolvedVariableOverrides } from './variables';
 import { effectivePanelYAxisScale } from './visualization';
 import type { AttributeFilter } from '$lib/api';
+import { withBase } from '$lib/paths';
 import type { DashboardPanel } from '$lib/dashboards-api';
 import type { TimeRangePreset } from '$lib/logs/time-range';
 
@@ -91,5 +92,5 @@ export function metricPointWindow(
 }
 
 export function panelExplorerHref(panelType: DashboardPanel['panelType'], state: SavedState): string {
-	return `${EXPLORER_PATH[panelType]}?state=${encodeStateDeepLinkParam(state)}`;
+	return withBase(`${EXPLORER_PATH[panelType]}?state=${encodeStateDeepLinkParam(state)}`);
 }

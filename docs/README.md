@@ -33,6 +33,7 @@ the full rule set on what goes where.
 - [Run with the CLI](how-to/run-with-cli.md)
 - [Configure authentication](how-to/configure-authentication.md)
 - [Run in cluster mode](how-to/run-cluster-mode.md)
+- [Serve under a sub-path](how-to/serve-under-a-sub-path.md)
 - [Build a custom dashboard](how-to/build-custom-dashboards.md)
 - [Extract or redact fields at ingest](how-to/manage-pipeline-rules.md)
 - [Monitor hosts with the OpenTelemetry Collector](how-to/monitor-hosts.md)

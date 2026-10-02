@@ -1,3 +1,4 @@
+using Flare.Api.Hosting;
 using System.Globalization;
 using System.Threading.RateLimiting;
 using ClickHouse.Driver;
@@ -403,6 +404,10 @@ await IdentityMigrationRunner.ApplyAsync(
     app.Services.GetRequiredService<IdentityDbConnectionFactory>(),
     app.Logger,
     CancellationToken.None);
+
+// Sub-path hosting (Flare:BasePath / Flare__BasePath, e.g. /flare) - first, so every later
+// middleware and endpoint sees the request already split into PathBase + Path. No-op unset.
+app.UseFlareBasePath(BasePath.Normalize(builder.Configuration[BasePath.ConfigurationKey]));
 
 app.UseCors();
 app.UseWebSockets();

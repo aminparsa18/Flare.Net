@@ -17,6 +17,7 @@ import type { SpanAttributeBag, SpanAttributeFilter, TraceSpanCondition } from '
 import type { ExternalEndpointSource } from './external-apis-api';
 import type { TracesSavedViewState } from './traces/state.svelte';
 import type { LogsSavedViewState } from './logs/state.svelte';
+import { withBase } from '$lib/paths';
 
 export interface DeepLinkTarget {
 	serviceName: string;
@@ -46,12 +47,12 @@ export function buildLogsDeepLinkHref(target: LogsDeepLinkTarget): string {
 		params.set('attrKey', target.attribute.key);
 		params.set('attrValue', target.attribute.value);
 	}
-	return `/?${params.toString()}`;
+	return withBase(`/?${params.toString()}`);
 }
 
 export function buildTracesDeepLinkHref(target: DeepLinkTarget): string {
 	const params = new URLSearchParams({ service: target.serviceName, range: target.timeRangePreset });
-	return `/traces?${params.toString()}`;
+	return withBase(`/traces?${params.toString()}`);
 }
 
 export interface ParsedLogsDeepLink {
@@ -136,7 +137,7 @@ export function buildAlertDeepLinkHref(draft: AlertPanelDraft): string {
 		params.set('metricName', draft.metricName);
 		params.set('metricType', draft.metricType);
 	}
-	return `/alerts?${params.toString()}`;
+	return withBase(`/alerts?${params.toString()}`);
 }
 
 // Logs "context" view permalink (`?context=<eventId>&ts=<timestamp>`) - a click on
@@ -155,7 +156,7 @@ export interface ParsedLogContextDeepLink {
 
 export function buildLogContextDeepLinkHref(event: { eventId: string; timestamp: string }): string {
 	const params = new URLSearchParams({ context: event.eventId, ts: event.timestamp });
-	return `/?${params.toString()}`;
+	return withBase(`/?${params.toString()}`);
 }
 
 /** Parses `+page.svelte`'s (root, Logs) `?context=`/`?ts=` params - null when this isn't a context-permalink arrival (checked alongside `?view=`/the Metrics deep link, all mutually exclusive). */
@@ -220,7 +221,7 @@ export function buildTracesAttributeFilterHref(
 	const state: TracesSavedViewState = span.parentSpanId
 		? { timeRangePreset, services: [], attributeFilters: [], structure: { expression: 'A', conditions: [{ name: 'A', attributes: [filter] }] } }
 		: { timeRangePreset, services: [], attributeFilters: [filter] };
-	return `/traces?state=${encodeStateDeepLinkParam(state)}`;
+	return withBase(`/traces?state=${encodeStateDeepLinkParam(state)}`);
 }
 
 /**
@@ -242,7 +243,7 @@ export function buildSpanNameTracesHref(span: { serviceName: string; name: strin
 		sortBy: 'Duration',
 		structure: { expression: 'A', conditions: [condition] }
 	};
-	return `/traces?state=${encodeStateDeepLinkParam(state)}`;
+	return withBase(`/traces?state=${encodeStateDeepLinkParam(state)}`);
 }
 
 /** What an External APIs page row narrows a trace drill-down to - see `buildExternalCallTracesHref`. */
@@ -318,7 +319,7 @@ export function buildExternalCallTracesHref(target: ExternalCallTarget, timeRang
 		state.customRange = { from: new Date(window.fromMs).toISOString(), to: new Date(window.toMs).toISOString() };
 		if (window.sortByDuration) state.sortBy = 'Duration';
 	}
-	return `/traces?state=${encodeStateDeepLinkParam(state)}`;
+	return withBase(`/traces?state=${encodeStateDeepLinkParam(state)}`);
 }
 
 /**
@@ -330,7 +331,7 @@ export function buildExternalCallTracesHref(target: ExternalCallTarget, timeRang
  */
 export function buildMetricsExplorerHref(metricName: string, type: MetricPointType, timeRangePreset: string): string {
 	const state = { timeRangePreset, customRange: null, services: [], selectedMetric: { metricName, type } };
-	return `/metrics?state=${encodeStateDeepLinkParam(state)}`;
+	return withBase(`/metrics?state=${encodeStateDeepLinkParam(state)}`);
 }
 
 /** `/errors?state=` - mirrors Flare.Api's `ErrorsDeepLinkState` (AlertMessageFormatter.BuildMatchingExceptionsUrl). */
@@ -345,7 +346,7 @@ export interface ErrorsDeepLinkState {
 
 /** `/errors?state=` for one exception group - the groups table's row link, so Ctrl/Cmd/middle-click opens that group's occurrences in a new tab (the inverse of `parseErrorsStateDeepLinkParam`). */
 export function buildErrorsDeepLinkHref(state: ErrorsDeepLinkState): string {
-	return `/errors?state=${encodeStateDeepLinkParam(state)}`;
+	return withBase(`/errors?state=${encodeStateDeepLinkParam(state)}`);
 }
 
 /** Parses `errors/+page.svelte`'s `?state=` param, defensively narrowed - null when absent, undecodable, or missing the fields a scoped view needs. */
@@ -413,5 +414,5 @@ export function buildKubernetesPodLogsHref(pod: { namespace: string; podName: st
 		{ bag: 'Resource', key: 'k8s.pod.name', value: pod.podName }
 	];
 	const state: Partial<LogsSavedViewState> = { timeRangePreset, customRange: null, services: [], attributeFilters };
-	return `/?state=${encodeStateDeepLinkParam(state)}`;
+	return withBase(`/?state=${encodeStateDeepLinkParam(state)}`);
 }

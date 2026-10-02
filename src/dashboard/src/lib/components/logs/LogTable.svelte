@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
 	import LogRow from './LogRow.svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -72,7 +73,7 @@
 				     so a non-live "no match" state would render blank without at least one
 				     play-through. Only *loop* while live: a filtered/no-match search isn't
 				     "waiting for something to happen", so it plays once and rests on the last frame. -->
-				<Lottie src="/no_log.json" loop={explorer.live} autoplay class="size-full" />
+				<Lottie src={withBase('/no_log.json')} loop={explorer.live} autoplay class="size-full" />
 			</Empty.Media>
 			<Empty.Header>
 				<Empty.Title>{explorer.live ? m.logsTable_waitingTitle() : m.logsTable_noEventsTitle()}</Empty.Title>
@@ -84,7 +85,7 @@
 				<!-- Only for the live/nothing-has-arrived-yet case, not the filtered/no-match one -
 				     a search that just doesn't match anything isn't a "how do I send logs" moment. -->
 				<Empty.Content>
-					<a href="/data-sources" class="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4">
+					<a href={withBase('/data-sources')} class="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4">
 						{m.logsTable_seeHowToIngest()}
 					</a>
 				</Empty.Content>

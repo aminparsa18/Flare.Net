@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	// The traces behind one step's reached/dropped/errored figure - most recent first, capped
 	// server-side (TraceFunnelQueryBuilder.MaxTraces). Each row opens the trace waterfall.
 	import * as Sheet from '$lib/components/ui/sheet';
@@ -65,7 +66,7 @@
 							{#each funnel.drillTraces as trace (trace.traceId)}
 								<Table.Row>
 									<Table.Cell class="font-mono text-xs">
-										<a class="hover:underline" href="/traces/{encodeURIComponent(trace.traceId)}">{trace.traceId}</a>
+										<a class="hover:underline" href={withBase(`/traces/${encodeURIComponent(trace.traceId)}`)}>{trace.traceId}</a>
 									</Table.Cell>
 									<Table.Cell class="text-xs whitespace-nowrap">{formatDateTime(trace.startUnixMs)}</Table.Cell>
 									<Table.Cell class="text-right tabular-nums">{trace.reachedSteps} / {stepCount}</Table.Cell>

@@ -72,6 +72,6 @@ public static class EntraSettingsEndpoints
         TenantId = settings.TenantId,
         ClientId = settings.ClientId,
         HasClientSecret = !string.IsNullOrEmpty(settings.ClientSecret),
-        RedirectUri = $"{http.Request.Scheme}://{http.Request.Host}/signin-oidc",
+        RedirectUri = $"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}/signin-oidc",
     };
 }
