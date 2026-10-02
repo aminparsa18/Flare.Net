@@ -115,6 +115,15 @@
 		};
 	}
 
+	function replaceInto(bag: AttributeBag | ((key: string) => AttributeBag | undefined)) {
+		return (key: string, value: string) => {
+			const resolved = typeof bag === 'function' ? bag(key) : bag;
+			if (!resolved) return;
+			explorer.replaceFiltersWithAttribute(resolved, key, value);
+			explorer.selectedEventId = null;
+		};
+	}
+
 	function groupedKeyIn(bag: AttributeBag): string | null {
 		const current = explorer.filter.volumeGroupBy;
 		return current?.bag === bag ? current.key : null;
@@ -274,6 +283,16 @@
 										{event.traceId}
 									</a>
 								</p>
+								<button
+									type="button"
+									class="text-primary mt-0.5 underline-offset-2 hover:underline"
+									onclick={() => {
+										explorer.applyTraceIdFilter(event.traceId);
+										explorer.selectedEventId = null;
+									}}
+								>
+									{m.eventDetail_logsForTrace()}
+								</button>
 							{:else}
 								<p class="truncate font-mono">—</p>
 							{/if}
@@ -329,6 +348,7 @@
 						attributes={attributeSections.pinned}
 						{...pinProps}
 						onFilter={filterInto((key) => attributeSections.pinnedBags.get(key))}
+						onReplace={replaceInto((key) => attributeSections.pinnedBags.get(key))}
 						onGroupBy={groupByInto((key) => attributeSections.pinnedBags.get(key))}
 						groupedByKey={explorer.filter.volumeGroupBy &&
 						attributeSections.pinnedBags.get(explorer.filter.volumeGroupBy.key) === explorer.filter.volumeGroupBy.bag
@@ -337,6 +357,7 @@
 					/>
 					<AttributeTable title={m.eventDetail_logAttributes()} attributes={attributeSections.log} {...pinProps}
 						onFilter={filterInto('Log')}
+						onReplace={replaceInto('Log')}
 						onGroupBy={groupByInto('Log')}
 						groupedByKey={groupedKeyIn('Log')}
 					/>
@@ -345,11 +366,13 @@
 						attributes={attributeSections.resource}
 						{...pinProps}
 						onFilter={filterInto('Resource')}
+						onReplace={replaceInto('Resource')}
 						onGroupBy={groupByInto('Resource')}
 						groupedByKey={groupedKeyIn('Resource')}
 					/>
 					<AttributeTable title={m.eventDetail_scopeAttributes()} attributes={attributeSections.scope} {...pinProps}
 						onFilter={filterInto('Scope')}
+						onReplace={replaceInto('Scope')}
 						onGroupBy={groupByInto('Scope')}
 						groupedByKey={groupedKeyIn('Scope')}
 					/>

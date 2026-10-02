@@ -126,14 +126,6 @@ folders are where "what happened and why" actually lives.
   other variables. It works with `$name` substitution and URL state. Not
   started. Prior art:
   [signoz#9843](https://github.com/SigNoz/signoz/commit/31e9e896ec84b2bfa48ae64dde5ba35896f8518c).
-- **"Replace filters with this" attribute action + logs for this trace.**
-  `AttributeTable` actions only add an include/exclude filter, and a log's
-  `traceId` only links to the trace view, so seeing every log line of the
-  same trace means clearing filters by hand. Add a "replace filters with
-  this" action (and a direct "Logs for this trace" link next to the trace
-  ID) that resets the explorer to just that one filter, keeping the time
-  range. Not started. Prior art:
-  [signoz#10242](https://github.com/SigNoz/signoz/commit/0c660f86186328f9fc4ca280d3be05c3506058b4).
 - **Provision the admin account from configuration.** The first admin can
   only be created interactively via `/api/auth/bootstrap`, so headless
   installs (compose, the `flare` CLI, Kubernetes/Helm) can't come up with a
