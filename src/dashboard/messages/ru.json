@@ -151,6 +151,7 @@
 	"eventDetail_logsForTrace": "Логи этой трассировки",
 	"eventDetail_filterOutValue": "Исключить значение",
 	"eventDetail_groupByAttribute": "Группировать график объёма по этому атрибуту",
+	"eventDetail_groupByJsonField": "Группировать график объёма по этому полю",
 	"eventDetail_copyValue": "Копировать значение",
 	"eventDetail_openLink": "Открыть ссылку в новой вкладке",
 	"eventDetail_hostMetrics": "Метрики хоста",

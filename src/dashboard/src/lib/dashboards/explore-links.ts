@@ -66,8 +66,14 @@ export function withCustomRange(state: SavedState, from: Date, to: Date): SavedS
  * so it narrows nothing.
  */
 export function withLogsGroup(state: SavedState, groupKey: string | null): SavedState {
-	const groupBy = state.volumeGroupBy as { bag?: AttributeFilter['bag']; key?: string } | null | undefined;
+	const groupBy = state.volumeGroupBy as { bag?: AttributeFilter['bag'] | 'BodyJson'; key?: string } | null | undefined;
 	if (groupKey === null || !groupBy?.key) return state;
+	if (groupBy.bag === 'BodyJson') {
+		const saved = Array.isArray(state.bodyJsonFilters) ? (state.bodyJsonFilters as unknown[]) : [];
+		const jsonFilter =
+			groupKey === '' ? { path: groupBy.key, operator: 'Absent', value: '' } : { path: groupBy.key, operator: 'Equals', value: groupKey };
+		return { ...state, bodyJsonFilters: [...saved, jsonFilter] };
+	}
 	const bag = groupBy.bag ?? 'Log';
 	const filter: AttributeFilter =
 		groupKey === '' ? { bag, key: groupBy.key, value: '', operator: 'Absent' } : { bag, key: groupBy.key, value: groupKey };

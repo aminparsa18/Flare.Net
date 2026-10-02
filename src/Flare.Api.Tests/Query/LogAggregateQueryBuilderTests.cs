@@ -128,6 +128,44 @@ public class LogAggregateQueryBuilderTests
         Assert.False(result.Parameters.ToDictionary().ContainsKey("groupByKey"));
     }
 
+    [Fact]
+    public void Build_GroupByBodyJson_BindsEachPathSegmentAndCapsToTopValues()
+    {
+        var result = LogAggregateQueryBuilder.Build(
+            new LogAggregateRequest { BucketWidthSeconds = 60, GroupBy = LogAggregateGroupBy.BodyJson, GroupByBodyJsonPath = "http.status" }, Now);
+
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("http", parameters["groupByJsonPath_0"]);
+        Assert.Equal("status", parameters["groupByJsonPath_1"]);
+        Assert.Contains("JSONType(Body, {groupByJsonPath_0:String}, {groupByJsonPath_1:String}) = 'String'", result.Sql);
+        Assert.Contains("JSONExtractRaw(Body, {groupByJsonPath_0:String}, {groupByJsonPath_1:String})", result.Sql);
+        Assert.Contains($"LIMIT {LogAggregateQueryBuilder.AttributeGroupLimit}", result.Sql);
+        Assert.Contains("has(TopGroupValues,", result.Sql);
+        Assert.True(result.HasGroupKey);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("...")]
+    public void Build_GroupByBodyJson_WithoutPath_Throws(string? path)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            LogAggregateQueryBuilder.Build(
+                new LogAggregateRequest { BucketWidthSeconds = 60, GroupBy = LogAggregateGroupBy.BodyJson, GroupByBodyJsonPath = path }, Now));
+    }
+
+    [Fact]
+    public void Build_NonBodyJsonGroupBy_IgnoresBodyJsonPath()
+    {
+        var result = LogAggregateQueryBuilder.Build(
+            new LogAggregateRequest { BucketWidthSeconds = 60, GroupBy = LogAggregateGroupBy.Level, GroupByBodyJsonPath = "a.b" }, Now);
+
+        Assert.DoesNotContain("TopGroupValues", result.Sql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("groupByJsonPath_0"));
+    }
+
     private static int CountOccurrences(string haystack, string needle)
     {
         var count = 0;

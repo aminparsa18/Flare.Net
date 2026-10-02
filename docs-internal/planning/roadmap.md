@@ -155,13 +155,6 @@ folders are where "what happened and why" actually lives.
   server-side preview. Probably a short follow-up ADR to 0052. Not started.
   Prior art:
   [signoz#10682](https://github.com/SigNoz/signoz/commit/30d3f754b56b39c4660ca18bdf8e4d8d0a38b845).
-- **Group logs by a JSON body field.** `LogAggregateGroupBy` is
-  `None`/`Service`/`Level`/`Attribute`/`Scope`. JSON body paths can be
-  filtered on (`BodyJsonFilters`) but not grouped by in the volume chart or
-  Logs dashboard panels. Add a `BodyJson` group-by carrying a path, compiled
-  with the same `JSONExtract` SQL the body filters use, under the existing
-  top-N + "other" cap. Not started. Prior art:
-  [signoz#11042](https://github.com/SigNoz/signoz/commit/a4266fa703cac3dd1d67399a433868d5da52dd2f).
 - **MCP server for AI assistants.** There's no way for Claude Code, Cursor or
   VS Code agents to query Flare directly. The `flare` CLI already wraps
   log/trace/metric/exception/alert search over the API, so add a small MCP

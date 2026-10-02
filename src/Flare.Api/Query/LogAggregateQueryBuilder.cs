@@ -36,7 +36,8 @@ public static class LogAggregateQueryBuilder
             request.BucketWidthSeconds,
             request.GroupBy,
             attributeBag: request.GroupByAttributeBag,
-            attributeKey: request.GroupByAttributeKey);
+            attributeKey: request.GroupByAttributeKey,
+            bodyJsonPath: request.GroupByBodyJsonPath);
     }
 
     /// <summary>
@@ -54,7 +55,8 @@ public static class LogAggregateQueryBuilder
         LogAggregateGroupBy groupBy,
         string aggregateSql = "count()",
         AttributeBag attributeBag = AttributeBag.Log,
-        string? attributeKey = null)
+        string? attributeKey = null,
+        string? bodyJsonPath = null)
     {
         if (bucketWidthSeconds <= 0)
         {
@@ -65,7 +67,32 @@ public static class LogAggregateQueryBuilder
 
         if (groupBy == LogAggregateGroupBy.Attribute)
         {
-            return BuildAttributeGrouped(filterSql, aggregateSql, attributeBag, attributeKey);
+            if (string.IsNullOrWhiteSpace(attributeKey))
+            {
+                throw new ArgumentOutOfRangeException(nameof(attributeKey), attributeKey, "GroupByAttributeKey is required when GroupBy is Attribute.");
+            }
+
+            filterSql.Parameters.AddParameter("groupByKey", attributeKey);
+            // Column name comes from the closed AttributeBag enum (LogFilterSqlBuilder.ColumnFor),
+            // the key is a bound parameter - nothing from request text is interpolated.
+            return BuildTopNGrouped(filterSql, aggregateSql, $"{LogFilterSqlBuilder.ColumnFor(attributeBag)}[{{groupByKey:String}}]");
+        }
+
+        if (groupBy == LogAggregateGroupBy.BodyJson)
+        {
+            if (string.IsNullOrWhiteSpace(bodyJsonPath) || bodyJsonPath.Split('.', StringSplitOptions.RemoveEmptyEntries).Length == 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(bodyJsonPath), bodyJsonPath, "GroupByBodyJsonPath is required when GroupBy is BodyJson.");
+            }
+
+            var pathArgs = LogFilterSqlBuilder.BodyJsonPathArgs(bodyJsonPath, "groupByJsonPath", filterSql.Parameters);
+            // JSONExtractString alone returns '' for non-string values (numbers, booleans), so
+            // those fall back to their raw JSON text; an absent path / non-JSON body yields ''
+            // from both, the same "not set" bucket a missing attribute key gets.
+            return BuildTopNGrouped(
+                filterSql,
+                aggregateSql,
+                $"if(JSONType(Body, {pathArgs}) = 'String', JSONExtractString(Body, {pathArgs}), JSONExtractRaw(Body, {pathArgs}))");
         }
 
         // GroupBy only ever comes from this closed enum, never request text - safe to
@@ -100,32 +127,19 @@ public static class LogAggregateQueryBuilder
     }
 
     /// <summary>
-    /// <see cref="LogAggregateGroupBy.Attribute"/> variant: a scalar <c>WITH</c> subquery first
-    /// picks the <see cref="AttributeGroupLimit"/> most frequent values of the key under the
-    /// same filter, then the bucketed query keeps those values as-is and maps every other
-    /// value to NULL (the "other" series). Two scans of the filtered window rather than one,
-    /// accepted to keep the result bounded - both are subject to the same execution caps.
-    /// A missing key reads as <c>''</c> (ClickHouse's map-subscript default), so events
-    /// without it still count - under an empty-string group - rather than silently vanishing
-    /// from the stacked total.
+    /// Top-N variant shared by <see cref="LogAggregateGroupBy.Attribute"/> and
+    /// <see cref="LogAggregateGroupBy.BodyJson"/>: a scalar <c>WITH</c> subquery first
+    /// picks the <see cref="AttributeGroupLimit"/> most frequent values of
+    /// <paramref name="valueSql"/> under the same filter, then the bucketed query keeps those
+    /// values as-is and maps every other value to NULL (the "other" series). Two scans of the
+    /// filtered window rather than one, accepted to keep the result bounded - both are subject
+    /// to the same execution caps. A missing key reads as <c>''</c> (ClickHouse's map-subscript
+    /// / JSON-extract default), so events without it still count - under an empty-string
+    /// group - rather than silently vanishing from the stacked total. <paramref name="valueSql"/>
+    /// is built by the caller from a closed enum + bound parameters only.
     /// </summary>
-    private static LogAggregateSql BuildAttributeGrouped(
-        LogFilterSql filterSql,
-        string aggregateSql,
-        AttributeBag attributeBag,
-        string? attributeKey)
+    private static LogAggregateSql BuildTopNGrouped(LogFilterSql filterSql, string aggregateSql, string valueSql)
     {
-        if (string.IsNullOrWhiteSpace(attributeKey))
-        {
-            throw new ArgumentOutOfRangeException(nameof(attributeKey), attributeKey, "GroupByAttributeKey is required when GroupBy is Attribute.");
-        }
-
-        filterSql.Parameters.AddParameter("groupByKey", attributeKey);
-
-        // Column name comes from the closed AttributeBag enum (LogFilterSqlBuilder.ColumnFor),
-        // the key is a bound parameter - nothing from request text is interpolated.
-        var valueSql = $"{LogFilterSqlBuilder.ColumnFor(attributeBag)}[{{groupByKey:String}}]";
-
         var sql = "WITH (\n" +
             "    SELECT groupArray(GroupValue) FROM (\n" +
             $"        SELECT {valueSql} AS GroupValue\n" +

@@ -166,6 +166,12 @@
 		explorer.setBodyJsonFilters([...explorer.filter.bodyJsonFilters, { path, operator, value }]);
 	}
 
+	/** Clicking the JSON field the chart is already grouped by toggles grouping back off. */
+	function toggleBodyJsonGroupBy(path: string): void {
+		const current = explorer.filter.volumeGroupBy;
+		explorer.setVolumeGroupBy(current?.bag === 'BodyJson' && current.key === path ? null : { bag: 'BodyJson', key: path });
+	}
+
 	function formatSize(chars: number): string {
 		return chars >= 1024 * 1024 ? `${(chars / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(chars / 1024)} KB`;
 	}
@@ -294,7 +300,12 @@
 						</div>
 					{/if}
 					{#if showTree && bodyJson !== null}
-						<JsonTree value={bodyJson} onFilter={addBodyJsonFilter} />
+						<JsonTree
+							value={bodyJson}
+							onFilter={addBodyJsonFilter}
+							onGroupBy={toggleBodyJsonGroupBy}
+							groupedPath={explorer.filter.volumeGroupBy?.bag === 'BodyJson' ? explorer.filter.volumeGroupBy.key : null}
+						/>
 					{:else}
 						<p class="text-sm break-words whitespace-pre-wrap"><AnsiText text={bodyView.text} /></p>
 					{/if}
