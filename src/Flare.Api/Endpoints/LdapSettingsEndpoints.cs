@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Flare.Api.Auth;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
@@ -114,6 +115,7 @@ public static class LdapSettingsEndpoints
             }
         }
 
+        var before = await ldapSettings.GetAsync(cancellationToken);
         var saved = await ldapSettings.SaveAsync(
             request.Enabled,
             request.Host,
@@ -130,6 +132,7 @@ public static class LdapSettingsEndpoints
             request.ViewerGroupDn,
             request.DefaultRole,
             cancellationToken);
+        AuditContext.SetChange(http, before, saved);
         return ApiSerialization.Write(http, ToDto(saved), LdapSettingsJsonContext.Default.LdapSettingsDto);
     }
 

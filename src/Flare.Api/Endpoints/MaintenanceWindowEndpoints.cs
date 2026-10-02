@@ -63,7 +63,13 @@ public static class MaintenanceWindowEndpoints
             return problem;
         }
 
+        var before = await windows.GetAsync(id, cancellationToken);
         var window = await windows.UpdateAsync(id, request!, cancellationToken);
+        if (window is not null)
+        {
+            AuditContext.SetChange(http, MaintenanceWindowsJsonContext.Default.MaintenanceWindow, before, window);
+        }
+
         return window is null ? Results.NotFound() : ApiSerialization.Write(http, window, MaintenanceWindowsJsonContext.Default.MaintenanceWindow);
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
@@ -71,7 +72,9 @@ public static class AuthSettingsEndpoints
             }
         }
 
+        var before = await authSettings.GetAsync(cancellationToken);
         var saved = await authSettings.SaveAsync(request.Enabled, request.LocalEnabled, cancellationToken);
+        AuditContext.SetChange(http, before, saved);
         return ApiSerialization.Write(http, ToDto(saved), AuthSettingsJsonContext.Default.AuthSettingsDto);
     }
 

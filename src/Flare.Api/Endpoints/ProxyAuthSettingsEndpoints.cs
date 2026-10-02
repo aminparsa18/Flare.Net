@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Api.Auth;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
@@ -87,6 +88,7 @@ public static class ProxyAuthSettingsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        var before = await proxySettings.GetAsync(cancellationToken);
         var saved = await proxySettings.SaveAsync(
             request.Enabled,
             request.HeaderName,
@@ -98,6 +100,7 @@ public static class ProxyAuthSettingsEndpoints
             request.DefaultRole,
             request.LogoutRedirectUrl,
             cancellationToken);
+        AuditContext.SetChange(http, before, saved);
         return ApiSerialization.Write(http, ToDto(saved), ProxyAuthJsonContext.Default.ProxyAuthSettingsDto);
     }
 

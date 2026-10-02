@@ -113,7 +113,13 @@ public static class AlertEndpoints
             return Results.Problem(conditionError, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        var before = await alerts.GetAsync(id, cancellationToken);
         var rule = await alerts.UpdateAsync(id, request, cancellationToken);
+        if (rule is not null)
+        {
+            AuditContext.SetChange(http, AlertsJsonContext.Default.AlertRule, before, rule);
+        }
+
         return rule is null ? Results.NotFound() : ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule);
     }
 

@@ -2237,5 +2237,8 @@
 	"auditLogPage_resourceColumn": "资源",
 	"auditLogPage_sourceColumn": "来源 IP",
 	"auditLogPage_viaToken": "令牌",
-	"auditLogPage_loadMore": "加载更多"
+	"auditLogPage_loadMore": "加载更多",
+	"auditLogPage_changesColumn": "变更",
+	"auditLogPage_changesCount": "已更改 {count} 项",
+	"auditLogPage_changeEmptyValue": "（空）"
 }

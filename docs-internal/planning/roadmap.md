@@ -144,10 +144,6 @@ folders are where "what happened and why" actually lives.
   keyed on the full series identity, not the rendered text. Not started.
   Prior art:
   [signoz#10529](https://github.com/SigNoz/signoz/commit/6fb92880cc4390838f372ccea2773b4e0e33b403).
-- **Audit log before/after diff.** Audit events (ADR-0079) record who changed
-  what and when, but not what the change was. Add a small before/after diff of
-  the changed fields, with secrets (channel URLs, auth client secrets, ingest
-  and access tokens) redacted. Not started.
 - **Markdown in alert notification templates, rendered per channel.**
   Custom templates (ADR-0052) are sent as plain text. Telegram drops
   `parse_mode` for user text because it can't be guaranteed valid, and email

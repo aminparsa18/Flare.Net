@@ -4,6 +4,13 @@
 
 import { API_BASE_URL, apiFetch } from './api';
 
+/** One changed field of an update. Secret values arrive already redacted (`[redacted]`). */
+export interface AuditFieldChange {
+	field: string;
+	before: string | null;
+	after: string | null;
+}
+
 export interface AuditEvent {
 	id: number;
 	timestamp: string;
@@ -18,6 +25,8 @@ export interface AuditEvent {
 	route: string;
 	statusCode: number;
 	sourceIp: string | null;
+	/** Changed fields for an update; empty for creates, deletes and unreported updates. */
+	changes: AuditFieldChange[];
 }
 
 export interface AuditEventPage {

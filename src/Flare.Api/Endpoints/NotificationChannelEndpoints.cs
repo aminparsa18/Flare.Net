@@ -89,7 +89,13 @@ public static class NotificationChannelEndpoints
             return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        var before = await channels.GetAsync(id, cancellationToken);
         var channel = await channels.UpdateAsync(id, request, cancellationToken);
+        if (channel is not null)
+        {
+            AuditContext.SetChange(http, NotificationChannelsJsonContext.Default.NotificationChannel, before, channel);
+        }
+
         return channel is null ? Results.NotFound() : ApiSerialization.Write(http, channel, NotificationChannelsJsonContext.Default.NotificationChannel);
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Users;
@@ -64,6 +65,7 @@ public static class UserEndpoints
 
         await users.SetRoleAsync(id, request.Role, cancellationToken);
         var updated = await users.FindByIdAsync(id, cancellationToken);
+        AuditContext.SetChange(http, UsersJsonContext.Default.UserSummaryDto, ToDto(target), ToDto(updated!));
         return ApiSerialization.Write(http, ToDto(updated!), UsersJsonContext.Default.UserSummaryDto);
     }
 
@@ -98,6 +100,7 @@ public static class UserEndpoints
 
         await users.SetDisabledAsync(id, request.IsDisabled, cancellationToken);
         var updated = await users.FindByIdAsync(id, cancellationToken);
+        AuditContext.SetChange(http, UsersJsonContext.Default.UserSummaryDto, ToDto(target), ToDto(updated!));
         return ApiSerialization.Write(http, ToDto(updated!), UsersJsonContext.Default.UserSummaryDto);
     }
 

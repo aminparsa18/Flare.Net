@@ -89,6 +89,7 @@
 						<Table.Head>{m.auditLogPage_actorColumn()}</Table.Head>
 						<Table.Head>{m.auditLogPage_actionColumn()}</Table.Head>
 						<Table.Head>{m.auditLogPage_resourceColumn()}</Table.Head>
+						<Table.Head>{m.auditLogPage_changesColumn()}</Table.Head>
 						<Table.Head>{m.auditLogPage_sourceColumn()}</Table.Head>
 					</Table.Row>
 				</Table.Header>
@@ -104,6 +105,27 @@
 							<Table.Cell>
 								<span>{event.resourceType}</span>
 								{#if event.resourceId}<span class="text-muted-foreground ml-1 font-mono text-xs">{event.resourceId}</span>{/if}
+							</Table.Cell>
+							<Table.Cell class="align-top">
+								{#if event.changes.length > 0}
+									<details class="text-xs">
+										<summary class="text-muted-foreground cursor-pointer select-none">
+											{m.auditLogPage_changesCount({ count: event.changes.length })}
+										</summary>
+										<ul class="mt-1 space-y-1">
+											{#each event.changes as change (change.field)}
+												<li>
+													<span class="font-mono font-medium">{change.field}</span>
+													<span class="text-muted-foreground font-mono break-all">
+														{change.before ?? m.auditLogPage_changeEmptyValue()} → {change.after ?? m.auditLogPage_changeEmptyValue()}
+													</span>
+												</li>
+											{/each}
+										</ul>
+									</details>
+								{:else}
+									<span class="text-muted-foreground">—</span>
+								{/if}
 							</Table.Cell>
 							<Table.Cell class="text-muted-foreground font-mono text-xs">{event.sourceIp ?? '—'}</Table.Cell>
 						</Table.Row>

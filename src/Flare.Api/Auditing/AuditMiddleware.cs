@@ -46,7 +46,8 @@ public sealed class AuditMiddleware(RequestDelegate next, ILogger<AuditMiddlewar
                     resourceId,
                     $"{context.Request.Method.ToUpperInvariant()} {template}",
                     context.Response.StatusCode,
-                    context.Connection.RemoteIpAddress?.ToString()),
+                    context.Connection.RemoteIpAddress?.ToString(),
+                    AuditContext.GetChanges(context)),
                 context.RequestAborted);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

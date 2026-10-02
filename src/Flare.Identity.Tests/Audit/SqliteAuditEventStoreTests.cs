@@ -44,6 +44,19 @@ public class SqliteAuditEventStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AppendAsync_RoundTripsChanges_AndNullWhenAbsent()
+    {
+        const string changes = """[{"field":"threshold","before":"5","after":"10"}]""";
+        await _store.AppendAsync(Event(T0) with { Changes = changes });
+        await _store.AppendAsync(Event(T0.AddMinutes(1)));
+
+        var rows = await _store.QueryAsync(new AuditEventFilter(), null, 10);
+
+        Assert.Null(rows[0].Changes);
+        Assert.Equal(changes, rows[1].Changes);
+    }
+
+    [Fact]
     public async Task QueryAsync_ReturnsNewestFirst_AndPagesByBeforeId()
     {
         for (var i = 0; i < 5; i++)

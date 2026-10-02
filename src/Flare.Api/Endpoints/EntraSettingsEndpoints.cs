@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
@@ -62,7 +63,9 @@ public static class EntraSettingsEndpoints
             }
         }
 
+        var before = await entraSettings.GetAsync(cancellationToken);
         var saved = await entraSettings.SaveAsync(request.Enabled, request.TenantId, request.ClientId, request.ClientSecret, cancellationToken);
+        AuditContext.SetChange(http, before, saved);
         return ApiSerialization.Write(http, ToDto(saved, http), EntraSettingsJsonContext.Default.EntraSettingsDto);
     }
 

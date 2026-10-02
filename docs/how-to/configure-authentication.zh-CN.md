@@ -118,6 +118,8 @@ Flare 会记录谁更改了什么。对告警规则、通知渠道、维护窗�
 
 管理员可在用户菜单的**审计日志**（`/audit-log`）中查看，按时间倒序并可按资源类型筛选，也可通过 `GET /api/audit-events` 查询（过滤参数 `from`、`to`、`actorId`、`resourceType`、`action`；用 `before` 翻页）。事件仅可追加，并在 `Audit:RetentionDays` 天后删除（默认 365；`0` 表示永久保留），参见[配置参考](../reference/authentication-config.zh-CN.md)。
 
+对告警规则、通知渠道、维护窗口、管道规则、仪表盘、已保存视图、用户、摄取密钥限额和认证设置的更新，还会记录**哪些字段发生了变化**，以 `之前 → 之后` 的形式显示在页面的**变更**列以及 `GET /api/audit-events` 返回的 `changes` 数组中。机密字段（名称类似 URL、key、token、secret 或 password 的字段）的值会被替换为 `[redacted]`：日志只显示 Webhook URL 或客户端密钥发生了变化，不会显示其内容。过长的值会截断为 300 个字符。创建、删除以及其他被审计的变更不记录字段列表。
+
 读取、测试发送、预览以及登录不会被记录。事件目前还不包含更改前后的差异。
 
 ## 备份
