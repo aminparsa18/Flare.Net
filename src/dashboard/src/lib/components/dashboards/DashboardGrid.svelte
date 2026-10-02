@@ -50,6 +50,7 @@
 		onSetThresholds,
 		onSetVisualization,
 		onSetColumnUnits,
+		onSetDecimals,
 		onSetLegend,
 		onMoveToRow
 	}: {
@@ -76,6 +77,7 @@
 		onSetThresholds: (id: string, thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (id: string, visualization: PanelVisualization, reducer: PanelReducer | null) => void;
 		onSetColumnUnits: (id: string, columnUnits: Partial<Record<PanelReducer, string>>) => void;
+		onSetDecimals: (id: string, decimals: number | undefined) => void;
 		onSetLegend: (id: string, legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>) => void;
 		onMoveToRow: (id: string, rowId: string | null) => void;
 	} = $props();
@@ -160,6 +162,7 @@
 					onSetThresholds={(thresholds) => onSetThresholds(panel.id, thresholds)}
 					onSetVisualization={(visualization, reducer) => onSetVisualization(panel.id, visualization, reducer)}
 					onSetColumnUnits={(columnUnits) => onSetColumnUnits(panel.id, columnUnits)}
+					onSetDecimals={(decimals) => onSetDecimals(panel.id, decimals)}
 					onSetLegend={(legendPosition, seriesColors) => onSetLegend(panel.id, legendPosition, seriesColors)}
 					{rows}
 					{rowId}

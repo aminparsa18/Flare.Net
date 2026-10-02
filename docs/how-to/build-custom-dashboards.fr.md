@@ -269,6 +269,15 @@ sort de la plage visible, sa ligne n'est pas tracée. Définissez une plage
 d'axe Y pour l'afficher. Comme le reste de la définition d'un panneau, les
 seuils sont enregistrés avec le tableau de bord.
 
+## Fixer le nombre de décimales d'un panneau Metrics
+
+En mode édition, un panneau Metrics a un bouton **Décimales** (l'icône `#`).
+Par défaut, Flare choisit la précision selon l'ordre de grandeur, ce qui ne
+permet pas d'afficher utilement un ratio comme 0,0042. Saisissez un nombre de
+0 à 6 pour fixer les décimales des graduations d'axe, des infobulles et des
+valeurs, pour toutes les visualisations. Laissez vide (ou **Effacer**) pour
+revenir à l'automatique. Ce réglage est enregistré avec le tableau de bord.
+
 ## Placer la légende et fixer les couleurs des séries
 
 En mode édition, un panneau Metrics dont la visualisation dessine une

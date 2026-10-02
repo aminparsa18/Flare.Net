@@ -111,12 +111,6 @@ folders are where "what happened and why" actually lives.
   ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
   how-to/reference pages yet. Document it there, with the `.ru`/`.fr`/`.zh-CN`
   siblings hand-translated. Not started.
-- **Per-panel decimal precision.** Axis, tooltip, value and table
-  formatting fix the precision (`maximumFractionDigits: 2` in
-  `$lib/metrics/axis.ts`), so e.g. a ratio panel can't show 0.0042 usefully.
-  Add an optional `decimals` setting (auto, or 0–6) to Metrics panels next to
-  units, threaded through all visualizations. Not started. Prior art:
-  [signoz#9054](https://github.com/SigNoz/signoz/commit/6db74a55858ae0b43c9842b931e84f4c62de799e).
 - **JSON body tree view in log details.** `EventDetailSheet` renders the body
   as plain/ANSI text only, so a JSON body is one long string. When the body
   parses as JSON, offer a collapsible pretty-printed tree (keeping the raw

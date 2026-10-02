@@ -15,8 +15,8 @@ import { formatAtScale, niceAxisTicks, parseYAxisScale, resolveAxisScale, type A
 /** One standalone reading (a Value panel's number, a table cell, a pie legend entry), scaled
  *  on its own magnitude - "1.2 s" next to "300 ms" - unlike a chart axis, where every tick
  *  shares one scale. */
-export function formatValue(raw: number, unit: string | null | undefined): string {
-	return formatAtScale(raw, resolveAxisScale(unit, Math.abs(raw)));
+export function formatValue(raw: number, unit: string | null | undefined, decimals?: number): string {
+	return formatAtScale(raw, resolveAxisScale(unit, Math.abs(raw)), decimals);
 }
 
 export type PanelVisualization = 'timeSeries' | 'bar' | 'stackedBar' | 'value' | 'pie' | 'table' | 'histogram';

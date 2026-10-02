@@ -12,12 +12,15 @@
 	let {
 		value,
 		unit,
+		decimals,
 		reducer,
 		seriesCount,
 		thresholds = []
 	}: {
 		value: number;
 		unit: string | null;
+		/** `DashboardPanel.decimals`, already parsed - `undefined` is auto. */
+		decimals?: number;
 		reducer: PanelReducer;
 		seriesCount: number;
 		thresholds?: PanelThreshold[];
@@ -32,7 +35,7 @@
 		style={match ? `color: ${thresholdColorValue(match.color)};` : undefined}
 		title={String(value)}
 	>
-		{formatValue(value, unit)}
+		{formatValue(value, unit, decimals)}
 	</span>
 	<span class="text-muted-foreground text-xs">
 		{reducerLabel(reducer)}{#if seriesCount > 1}{' · '}{m.panelVisualization_valueAcrossSeries({ count: seriesCount })}{/if}

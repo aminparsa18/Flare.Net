@@ -34,6 +34,7 @@
 	let {
 		yAxisMin = null,
 		yAxisMax = null,
+		decimals,
 		thresholds = [],
 		yAxisScale,
 		legendPosition = 'bottom',
@@ -41,6 +42,8 @@
 	}: {
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
+		/** `DashboardPanel.decimals` - fixed fraction digits; `undefined` is auto. */
+		decimals?: number;
 		thresholds?: PanelThreshold[];
 		yAxisScale?: YAxisScale;
 		legendPosition?: LegendPosition;
@@ -150,7 +153,7 @@
 	}
 
 	function formatValue(n: number): string {
-		return logActive ? formatAutoScaled(n, null) : formatAtScale(n, axisScale);
+		return logActive ? formatAutoScaled(n, null, decimals) : formatAtScale(n, axisScale, decimals);
 	}
 </script>
 

@@ -10,6 +10,7 @@
 	import { metricsExplorerContext } from '$lib/metrics/context';
 	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
 	import type { LegendPosition } from '$lib/dashboards/legend';
+	import { parseDecimals } from '$lib/metrics/axis';
 	import { parseColumnUnits, reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelVisualization } from '$lib/dashboards/visualization';
 	import BarVisualization from './BarVisualization.svelte';
 	import ValueVisualization from './ValueVisualization.svelte';
@@ -26,6 +27,7 @@
 		yAxisMax = null,
 		thresholds = [],
 		columnUnits: rawColumnUnits,
+		decimals: rawDecimals,
 		legendPosition,
 		seriesColors = {}
 	}: {
@@ -38,6 +40,8 @@
 		thresholds?: PanelThreshold[];
 		/** The panel's stored `columnUnits` - unvalidated; only the Table reads it. */
 		columnUnits?: unknown;
+		/** The panel's stored `decimals` - unvalidated; every visualization honours it. */
+		decimals?: unknown;
 		/** `DashboardPanel.legendPosition`/`seriesColors`, already parsed - only Bar and Pie draw a legend. */
 		legendPosition?: LegendPosition;
 		seriesColors?: Record<string, ThresholdColor>;
@@ -53,6 +57,7 @@
 	const series = $derived(toVizSeries(isFormula ? explorer.formulaSeries : explorer.series, resultType));
 	const reducer = $derived(resolveReducer(rawReducer, resultType));
 	const columnUnits = $derived(parseColumnUnits(rawColumnUnits));
+	const decimals = $derived(parseDecimals(rawDecimals));
 	const loading = $derived(isFormula ? explorer.formulaLoading : explorer.queryLoading);
 	const error = $derived(isFormula ? explorer.formulaError : explorer.queryError);
 	const hasData = $derived(series.some((s) => s.points.length > 0));
@@ -80,14 +85,14 @@
 	{:else if !hasData}
 		<div class="text-muted-foreground flex flex-1 items-center justify-center text-xs">{m.metricChart_noDataInRange()}</div>
 	{:else if visualization === 'bar' || visualization === 'stackedBar'}
-		<BarVisualization {series} stacked={visualization === 'stackedBar'} {unit} {yAxisMin} {yAxisMax} {thresholds} {legendPosition} {seriesColors} />
+		<BarVisualization {series} stacked={visualization === 'stackedBar'} {unit} {decimals} {yAxisMin} {yAxisMax} {thresholds} {legendPosition} {seriesColors} />
 	{:else if visualization === 'value' && total != null}
-		<ValueVisualization value={total} {unit} {reducer} seriesCount={series.length} {thresholds} />
+		<ValueVisualization value={total} {unit} {decimals} {reducer} seriesCount={series.length} {thresholds} />
 	{:else if visualization === 'pie'}
-		<PieVisualization {entries} {unit} {legendPosition} {seriesColors} />
+		<PieVisualization {entries} {unit} {decimals} {legendPosition} {seriesColors} />
 	{:else if visualization === 'table'}
-		<TableVisualization {series} {unit} {columnUnits} {reducer} includeSum={resultType === 'Sum'} {title} {thresholds} />
+		<TableVisualization {series} {unit} {decimals} {columnUnits} {reducer} includeSum={resultType === 'Sum'} {title} {thresholds} />
 	{:else if visualization === 'histogram'}
-		<HistogramVisualization {series} {unit} {thresholds} />
+		<HistogramVisualization {series} {unit} {decimals} {thresholds} />
 	{/if}
 </div>

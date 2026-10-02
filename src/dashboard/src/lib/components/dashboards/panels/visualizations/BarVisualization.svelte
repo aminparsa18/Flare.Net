@@ -25,6 +25,7 @@
 		series,
 		stacked,
 		unit,
+		decimals,
 		yAxisMin = null,
 		yAxisMax = null,
 		thresholds = [],
@@ -34,6 +35,8 @@
 		series: VizSeries[];
 		stacked: boolean;
 		unit: string | null;
+		/** `DashboardPanel.decimals`, already parsed - `undefined` is auto. */
+		decimals?: number;
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
 		thresholds?: PanelThreshold[];
@@ -162,7 +165,7 @@
 	<div class="relative {layout.plot}">
 		<div class="text-muted-foreground pointer-events-none absolute inset-y-0 left-0 w-10 text-[10px]" style="height: {CHART_HEIGHT}px">
 			{#each ticks.values as tick (tick)}
-				{@const label = formatAtScale(tick, axisScale)}
+				{@const label = formatAtScale(tick, axisScale, decimals)}
 				<span class="absolute inset-x-1 -translate-y-1/2 truncate leading-none" style="top: {yFor(tick)}px" title={label}>{label}</span>
 			{/each}
 		</div>
@@ -205,7 +208,7 @@
 										<span class="inline-block h-2 w-2 shrink-0 rounded-sm" style="background: {colorOf(s)};"></span>
 										{s.displayLabel}:
 										<span class={match ? 'font-semibold' : undefined} style={match ? `color: ${thresholdColorValue(match.color)};` : undefined}>
-											{formatAtScale(v, axisScale)}
+											{formatAtScale(v, axisScale, decimals)}
 										</span>
 									</span>
 								{/if}

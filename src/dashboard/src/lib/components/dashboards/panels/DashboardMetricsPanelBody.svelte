@@ -44,7 +44,7 @@
 	import { seriesLabel, type PanelVisualization } from '$lib/dashboards/visualization';
 	import type { LegendPosition } from '$lib/dashboards/legend';
 	import type { ThresholdColor } from '$lib/dashboards/thresholds';
-	import type { YAxisScale } from '$lib/metrics/axis';
+	import { parseDecimals, type YAxisScale } from '$lib/metrics/axis';
 	import MetricsVisualization from './visualizations/MetricsVisualization.svelte';
 	import { metricPointWindow } from '$lib/dashboards/explore-links';
 
@@ -60,6 +60,7 @@
 		visualization = 'timeSeries',
 		reducer,
 		columnUnits,
+		decimals,
 		legendPosition,
 		seriesColors = {},
 		seriesKeys = $bindable([]),
@@ -85,6 +86,8 @@
 		reducer?: unknown;
 		/** This panel's own `DashboardPanel.columnUnits`, unvalidated - only a Table visualization reads it. */
 		columnUnits?: unknown;
+		/** This panel's own `DashboardPanel.decimals`, unvalidated - read through `parseDecimals`. */
+		decimals?: unknown;
 		/** This panel's own (already-parsed) `DashboardPanel.legendPosition` - `undefined` keeps each chart's default. */
 		legendPosition?: LegendPosition;
 		/** This panel's own (already-parsed) `DashboardPanel.seriesColors`. */
@@ -165,12 +168,13 @@
 </script>
 
 {#if visualization !== 'timeSeries'}
-	<MetricsVisualization {visualization} {reducer} {columnUnits} {title} {legendPosition} {seriesColors} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
+	<MetricsVisualization {visualization} {reducer} {columnUnits} {decimals} {title} {legendPosition} {seriesColors} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else if explorer.mode === 'formula'}
-	<FormulaChart yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} {legendPosition} {seriesColors} />
+	<FormulaChart decimals={parseDecimals(decimals)} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} {legendPosition} {seriesColors} />
 {:else}
 	<MetricChart
 		allowZoom={false}
+		decimals={parseDecimals(decimals)}
 		yAxisMin={yAxisMin ?? null}
 		yAxisMax={yAxisMax ?? null}
 		{yAxisScale}

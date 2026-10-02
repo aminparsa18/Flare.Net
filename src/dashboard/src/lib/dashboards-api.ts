@@ -107,6 +107,12 @@ export interface DashboardPanel {
 	 */
 	columnUnits?: Partial<Record<PanelReducer, string>>;
 	/**
+	 * Fixed number of fraction digits (0-6) a `Metrics` panel formats values with - axis ticks,
+	 * tooltips, `value`/`table`/`pie`/`bar`/`histogram` readouts. `undefined` is auto
+	 * (`formatMagnitude` in `$lib/metrics/axis.ts` picks by magnitude). Read through `parseDecimals`.
+	 */
+	decimals?: number;
+	/**
 	 * Where a `Metrics` panel's series legend sits - below the chart, to its right, or not
 	 * shown. `undefined` keeps the visualization's own default (below for line/bar charts,
 	 * beside it for a pie). Read through `parseLegendPosition`. See `$lib/dashboards/legend.ts`.
