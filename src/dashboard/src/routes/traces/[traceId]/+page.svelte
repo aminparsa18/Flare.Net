@@ -13,6 +13,8 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { cn } from '$lib/utils';
 	import { Input } from '$lib/components/ui/input';
+	import DownloadIcon from '@lucide/svelte/icons/download';
+	import { downloadBlob, traceJsonFilename, traceToJson } from '$lib/traces/export';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
@@ -36,6 +38,13 @@
 	onMount(() => {
 		void detail.load(page.params.traceId!, page.url.searchParams.get('span'));
 	});
+
+	function downloadJson(): void {
+		const trace = detail.trace;
+		if (!trace) return;
+		const json = traceToJson(trace, detail.partialSpanIds);
+		downloadBlob(new Blob([json], { type: 'application/json;charset=utf-8' }), traceJsonFilename(trace.traceId));
+	}
 
 	onDestroy(() => {
 		detail.dispose();
@@ -141,6 +150,15 @@
 					{m.tracePage_serviceMapTab()}
 				</button>
 			</div>
+			<Button
+				variant="outline"
+				size="icon-sm"
+				aria-label={m.tracePage_downloadJson()}
+				title={detail.partialSpanIds.size > 0 ? m.tracePage_downloadJsonPartial({ count: detail.trace?.spans.length ?? 0 }) : m.tracePage_downloadJson()}
+				onclick={downloadJson}
+			>
+				<DownloadIcon />
+			</Button>
 		{/if}
 	</div>
 
