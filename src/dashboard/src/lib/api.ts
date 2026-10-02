@@ -19,6 +19,7 @@
 // comment for its current state.
 
 import { env } from '$env/dynamic/public';
+import type { SpanFilter } from '$lib/traces-api';
 import {
 	logAggregateGroupByFromString,
 	logPostProcessFunctionTypeFromString,
@@ -147,6 +148,8 @@ export interface LogFilter {
 	bodyJsonFilters?: BodyJsonFilter[];
 	/** Instrumentation scope names (the .NET logger category) - exact, or a prefix when the entry ends in `*` (e.g. `Microsoft.EntityFrameworkCore.*`). See `LogFilter.ScopeNames` (LogFilter.cs). */
 	scopeNames?: string[];
+	/** Only logs of traces containing a span matching this - see `LogFilter.TraceSpanFilter` (LogFilter.cs). Its `from`/`to` are ignored server-side; not supported by live tail. */
+	traceSpanFilter?: SpanFilter;
 }
 
 // ---- Log event DTO (LogEventDto.cs) ---------------------------------------

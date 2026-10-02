@@ -65,6 +65,22 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
         [Description("Log attribute key is absent.")]
         public string[] AttrAbsent { get; init; } = [];
 
+        [CommandOption("--trace-span-service <NAME>")]
+        [Description("Only logs of traces containing a span from this service. Repeatable (any of). Combine with the other --trace-span-* flags: one span must match all.")]
+        public string[] TraceSpanService { get; init; } = [];
+
+        [CommandOption("--trace-span-error")]
+        [Description("Only logs of traces containing a span with error status.")]
+        public bool TraceSpanError { get; init; }
+
+        [CommandOption("--trace-span-name <NAME>")]
+        [Description("Only logs of traces containing a span with this exact name. Repeatable (any of).")]
+        public string[] TraceSpanName { get; init; } = [];
+
+        [CommandOption("--trace-span-min-duration <DURATION>")]
+        [Description("Only logs of traces containing a span at least this long, e.g. 500ms, 2s, 1.5m.")]
+        public string? TraceSpanMinDuration { get; init; }
+
         [CommandOption("--since <RANGE>")]
         [Description("How far back to search: 15m, 1h, 6h, 24h, 7d. Default 1h.")]
         public string Since { get; init; } = "1h";
@@ -108,6 +124,25 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
             return 1;
         }
 
+        ulong? traceSpanMinDurationNano = null;
+        if (settings.TraceSpanMinDuration is not null && !TracesCommand.TryParseDurationNano(settings.TraceSpanMinDuration, out traceSpanMinDurationNano))
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] Couldn't parse --trace-span-min-duration '{Markup.Escape(settings.TraceSpanMinDuration)}' - expected e.g. 500ms, 2s, 1.5m.");
+            return 1;
+        }
+
+        SpanFilterWire? traceSpanFilter = null;
+        if (settings.TraceSpanService.Length > 0 || settings.TraceSpanError || settings.TraceSpanName.Length > 0 || traceSpanMinDurationNano is not null)
+        {
+            traceSpanFilter = new SpanFilterWire
+            {
+                Services = settings.TraceSpanService.Length > 0 ? settings.TraceSpanService : null,
+                StatusCodes = settings.TraceSpanError ? ["STATUS_CODE_ERROR"] : null,
+                Names = settings.TraceSpanName.Length > 0 ? settings.TraceSpanName : null,
+                MinDurationNano = traceSpanMinDurationNano,
+            };
+        }
+
         var to = DateTimeOffset.UtcNow;
         var from = to - since;
 
@@ -124,6 +159,7 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
             Attributes = parsedAttrs.Count > 0
                 ? parsedAttrs.Select(a => new AttributeFilterWire { Key = a.Key, Value = a.Value, Operator = a.Operator }).ToList()
                 : null,
+            TraceSpanFilter = traceSpanFilter,
         };
 
         var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
@@ -220,6 +256,8 @@ internal sealed class LogFilterWire
     public string? Search { get; init; }
 
     public IReadOnlyList<AttributeFilterWire>? Attributes { get; init; }
+
+    public SpanFilterWire? TraceSpanFilter { get; init; }
 }
 
 /// <summary>

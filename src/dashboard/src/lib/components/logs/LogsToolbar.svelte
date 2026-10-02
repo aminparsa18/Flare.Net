@@ -5,6 +5,7 @@
 	import TimeRangePicker from './TimeRangePicker.svelte';
 	import PopoverMultiSelect from './PopoverMultiSelect.svelte';
 	import ScopeFilterPopover from './ScopeFilterPopover.svelte';
+	import TraceSpanFilterPopover from './TraceSpanFilterPopover.svelte';
 	import LogsFunctionsPopover from './LogsFunctionsPopover.svelte';
 	import LogsTimeShiftPopover from './LogsTimeShiftPopover.svelte';
 	import LogsLinesPerRowMenu from './LogsLinesPerRowMenu.svelte';
@@ -17,6 +18,7 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { logsExplorerContext } from '$lib/logs/context';
+	import { isTraceSpanFilterActive } from '$lib/logs/state.svelte';
 	import { setActiveLogsExplorer } from '$lib/logs/active-explorer.svelte';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import { setLastUsedViewId } from '$lib/saved-views/last-used';
@@ -92,6 +94,7 @@
 		onChange={handleSeverityChange}
 	/>
 	<ScopeFilterPopover />
+	<TraceSpanFilterPopover />
 
 	{#if explorer.filter.patternId}
 		<!-- Drill-down from PatternsModal ("View occurrences") - a sticky filter with no
@@ -203,6 +206,8 @@
 	<Button
 		variant={explorer.live ? 'default' : 'outline'}
 		size="sm"
+		disabled={!explorer.live && isTraceSpanFilterActive(explorer.filter.traceSpan)}
+		title={!explorer.live && isTraceSpanFilterActive(explorer.filter.traceSpan) ? m.logsToolbar_liveDisabledTraceSpan() : undefined}
 		onclick={() => explorer.setLive(!explorer.live)}
 	>
 		<RadioIcon data-icon="inline-start" />

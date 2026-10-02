@@ -246,4 +246,16 @@ public sealed partial record LogFilter
     /// wire-compatibility reasoning that member's own remarks give.
     /// </summary>
     public IReadOnlyList<string>? ScopeNames { get; init; }
+
+    /// <summary>
+    /// Keeps only logs whose <c>TraceId</c> belongs to a trace containing at least one span
+    /// matching this filter ("logs from traces where a <c>payments</c> span errored"), compiled
+    /// to <c>TraceId GLOBAL IN (SELECT TraceId FROM spans WHERE ...)</c>. Its
+    /// <see cref="SpanFilter.From"/>/<see cref="SpanFilter.To"/> are ignored: the subquery
+    /// always uses this filter's own window. Not supported by live tail (no spans in memory) -
+    /// the tail endpoint rejects a subscription carrying it. Appended last (member 12), after
+    /// <see cref="ScopeNames"/> - same MemoryPack wire-compatibility reasoning that member's
+    /// own remarks give.
+    /// </summary>
+    public SpanFilter? TraceSpanFilter { get; init; }
 }

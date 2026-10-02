@@ -138,7 +138,37 @@ public static class LogFilterSqlBuilder
             }
         }
 
+        if (filter.TraceSpanFilter is { } traceSpanFilter)
+        {
+            clauses.Add(TraceSpanFilterClause(traceSpanFilter, from, to, now, parameters));
+        }
+
         return new LogFilterSql(string.Join(" AND ", clauses), parameters);
+    }
+
+    private const string TraceParameterPrefix = "tsf_";
+
+    private static readonly System.Text.RegularExpressions.Regex PlaceholderRegex =
+        new(@"\{(\w+):", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// <see cref="LogFilter.TraceSpanFilter"/>'s clause: <c>TraceId GLOBAL IN (SELECT TraceId
+    /// FROM spans WHERE ...)</c> over the log filter's own window. The span WHERE comes from
+    /// <see cref="SpanFilterSqlBuilder"/> unchanged (structural queries included), then every
+    /// placeholder and bound parameter is renamed with <see cref="TraceParameterPrefix"/> so
+    /// its <c>from</c>/<c>services</c>/<c>traceId</c>/... can't collide with this builder's.
+    /// <c>GLOBAL</c> builds the set once in cluster mode (no-op on a single node).
+    /// </summary>
+    private static string TraceSpanFilterClause(SpanFilter spanFilter, DateTimeOffset from, DateTimeOffset to, DateTimeOffset now, ClickHouseParameterCollection parameters)
+    {
+        var spanSql = SpanFilterSqlBuilder.Build(spanFilter with { From = from, To = to }, now);
+        foreach (ClickHouseDbParameter parameter in spanSql.Parameters)
+        {
+            parameters.AddParameter(TraceParameterPrefix + parameter.ParameterName, parameter.Value);
+        }
+
+        var where = PlaceholderRegex.Replace(spanSql.WhereSql, m => $"{{{TraceParameterPrefix}{m.Groups[1].Value}:");
+        return $"TraceId != '' AND TraceId GLOBAL IN (SELECT TraceId FROM spans WHERE {where})";
     }
 
     /// <summary>

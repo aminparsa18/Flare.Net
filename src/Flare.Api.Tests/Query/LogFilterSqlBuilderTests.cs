@@ -473,4 +473,39 @@ public class LogFilterSqlBuilderTests
             result.WhereSql);
         Assert.Equal("beta", result.Parameters.ToDictionary()["jsonValue0"]);
     }
+
+    [Fact]
+    public void Build_WithTraceSpanFilter_AddsNamespacedTraceIdSubquery_OverTheLogWindow()
+    {
+        var from = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var to = new DateTimeOffset(2026, 1, 2, 0, 0, 0, TimeSpan.Zero);
+        var filter = new LogFilter
+        {
+            From = from,
+            To = to,
+            Services = ["web"],
+            TraceSpanFilter = new SpanFilter
+            {
+                // Its own window must be ignored in favour of the log filter's.
+                From = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero),
+                Services = ["payments"],
+                StatusCodes = ["Error"],
+                MinDurationNano = 2_000_000_000,
+            },
+        };
+
+        var result = LogFilterSqlBuilder.Build(filter, Now);
+
+        Assert.Contains("TraceId GLOBAL IN (SELECT TraceId FROM spans WHERE StartTime >= {tsf_from:DateTime64(9)}", result.WhereSql);
+        Assert.Contains("ServiceName IN {tsf_services:Array(String)}", result.WhereSql);
+        Assert.Contains("DurationNano >= {tsf_minDuration:UInt64}", result.WhereSql);
+        // The log filter's own placeholders are untouched.
+        Assert.Contains("ServiceName IN {services:Array(String)}", result.WhereSql);
+
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal(from.UtcDateTime, parameters["tsf_from"]);
+        Assert.Equal(to.UtcDateTime, parameters["tsf_to"]);
+        Assert.Equal(new[] { "payments" }, (string[])parameters["tsf_services"]!);
+        Assert.Equal(new[] { "web" }, (string[])parameters["services"]!);
+    }
 }
