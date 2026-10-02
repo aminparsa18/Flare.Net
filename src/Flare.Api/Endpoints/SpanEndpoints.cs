@@ -20,6 +20,7 @@ public static class SpanEndpoints
         endpoints.MapPost("/api/spans/search", HandleSearchAsync);
         endpoints.MapGet("/api/traces/{traceId}", HandleGetTraceAsync);
         endpoints.MapPost("/api/spans/attribute-values", HandleAttributeValuesAsync);
+        endpoints.MapPost("/api/spans/duration-percentile", HandleDurationPercentileAsync);
         endpoints.MapPost("/api/traces/structure/validate", HandleValidateStructureAsync);
         return endpoints;
     }
@@ -95,6 +96,30 @@ public static class SpanEndpoints
         {
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
+    }
+
+    private static async Task<IResult> HandleDurationPercentileAsync(
+        HttpContext http,
+        ISpanQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        SpanDurationPercentileRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, SpansJsonContext.Default.SpanDurationPercentileRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null || string.IsNullOrEmpty(request.Name))
+        {
+            return Results.Problem("Name is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await queryService.GetDurationPercentileAsync(request, cancellationToken);
+        return Results.Json(response, SpansJsonContext.Default.SpanDurationPercentileResponse);
     }
 
     /// <summary>

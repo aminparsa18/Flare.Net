@@ -383,3 +383,32 @@ export async function getSpanAttributeValues(
 		values: (body?.values ?? []).map((v) => ({ value: v!.value ?? '', count: Number(v!.count) }))
 	};
 }
+
+// ---- POST /api/spans/duration-percentile (SpanDurationPercentileRequest.cs) -----------
+// Where one span's duration ranks among spans with the same service + name within +/-1h of
+// it - SpanDetailSheet's "p97 of GET /orders" line. JSON both ways (no MemoryPack twin).
+
+export interface SpanDurationPercentile {
+	sampleCount: number;
+	/** Share of compared spans no longer than this one, 0-100. */
+	percentile: number;
+	p50Nano: number;
+	p95Nano: number;
+	p99Nano: number;
+}
+
+export async function getSpanDurationPercentile(
+	span: { serviceName: string; name: string; durationNano: number; startTime: string },
+	signal?: AbortSignal
+): Promise<SpanDurationPercentile> {
+	const res = await apiFetch(`${API_BASE_URL}/api/spans/duration-percentile`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(span),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/spans/duration-percentile failed: ${res.status} ${res.statusText}`);
+	}
+	return res.json();
+}

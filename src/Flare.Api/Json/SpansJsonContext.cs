@@ -19,4 +19,6 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(SpanAttributeValuesRequest))]
 [JsonSerializable(typeof(SpanAttributeValuesResponse))]
 [JsonSerializable(typeof(TraceStructureFilter))]
+[JsonSerializable(typeof(SpanDurationPercentileRequest))]
+[JsonSerializable(typeof(SpanDurationPercentileResponse))]
 public sealed partial class SpansJsonContext : JsonSerializerContext;

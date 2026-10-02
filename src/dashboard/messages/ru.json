@@ -864,6 +864,8 @@
 	"spanDetail_spanId": "ID спана",
 	"spanDetail_copyLink": "Копировать ссылку на спан",
 	"spanDetail_linkCopied": "Ссылка скопирована",
+	"spanDetail_percentileLabel": "p{percentile} для {name} в {service}",
+	"spanDetail_percentileTitle": "Сравнение с {count} спанами того же сервиса и имени в пределах ±1 ч. p50 {p50} · p95 {p95} · p99 {p99}. Нажмите, чтобы увидеть их от самых медленных.",
 	"spanDetail_parentSpanId": "ID родительского спана",
 	"spanDetail_rootSpanFallback": "— (корневой спан)",
 	"spanDetail_traceState": "Состояние трассировки",

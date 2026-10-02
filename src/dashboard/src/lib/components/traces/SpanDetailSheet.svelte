@@ -7,12 +7,14 @@
 	import { Button } from '$lib/components/ui/button';
 	import AttributeTable from '$lib/components/logs/AttributeTable.svelte';
 	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
+	import EventHostMetrics from '$lib/components/logs/EventHostMetrics.svelte';
+	import EventPodMetrics from '$lib/components/logs/EventPodMetrics.svelte';
 	import { statusVariant, statusLabel, kindLabel } from '$lib/traces/status';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import { searchLogs, type LogEventDto } from '$lib/api';
-	import type { SpanAttributeBag, SpanDto } from '$lib/traces-api';
-	import { buildTracesAttributeFilterHref } from '$lib/deep-links';
+	import { getSpanDurationPercentile, type SpanAttributeBag, type SpanDto, type SpanDurationPercentile } from '$lib/traces-api';
+	import { buildSpanNameTracesHref, buildTracesAttributeFilterHref } from '$lib/deep-links';
 	import { goto } from '$app/navigation';
 	import { pinnedSpanAttributes } from '$lib/logs/pinned-attributes.svelte';
 	import { severityVariant } from '$lib/logs/severity';
@@ -72,6 +74,37 @@
 			});
 
 		return () => abort.abort();
+	});
+
+	// Duration percentile: same view-local, refetch-on-selection shape as linked logs. A
+	// failed lookup just hides the line - it's context, not something the sheet depends on.
+	// Below MIN_PERCENTILE_SAMPLES similar spans a rank means nothing, so none is shown.
+	const MIN_PERCENTILE_SAMPLES = 10;
+	let percentile = $state<SpanDurationPercentile | null>(null);
+
+	$effect(() => {
+		const span = detail.selectedSpan;
+		percentile = null;
+		if (!span || !span.name) return;
+
+		const abort = new AbortController();
+		getSpanDurationPercentile(span, abort.signal)
+			.then((result) => {
+				if (!abort.signal.aborted) percentile = result;
+			})
+			.catch((err) => {
+				if (!abort.signal.aborted) console.error('Failed to load span duration percentile', err);
+			});
+		return () => abort.abort();
+	});
+
+	// Same host/pod resolution as EventDetailSheet: `host.name`, else the pod's node, plus
+	// the pod's own kubeletstats charts - windowed around the span's start time.
+	const metricsHost = $derived(detail.selectedSpan?.resourceAttributes['host.name'] || detail.selectedSpan?.resourceAttributes['k8s.node.name'] || null);
+	const metricsPod = $derived.by(() => {
+		const resource = detail.selectedSpan?.resourceAttributes;
+		const name = resource?.['k8s.pod.name'];
+		return name ? { name, namespace: resource?.['k8s.namespace.name'] || null } : null;
 	});
 
 	let linkCopied = $state(false);
@@ -143,6 +176,20 @@
 				<Sheet.Description>
 					{formatTimestamp(span.startTime)} · {kindLabel(span.kind)} · {formatDurationNano(span.durationNano)}
 				</Sheet.Description>
+				{#if percentile && percentile.sampleCount >= MIN_PERCENTILE_SAMPLES}
+					<a
+						href={buildSpanNameTracesHref(span)}
+						class="text-muted-foreground hover:text-foreground w-fit text-xs underline-offset-2 hover:underline"
+						title={m.spanDetail_percentileTitle({
+							count: percentile.sampleCount,
+							p50: formatDurationNano(percentile.p50Nano),
+							p95: formatDurationNano(percentile.p95Nano),
+							p99: formatDurationNano(percentile.p99Nano)
+						})}
+					>
+						{m.spanDetail_percentileLabel({ percentile: Math.round(percentile.percentile), name: span.name, service: span.serviceName || '—' })}
+					</a>
+				{/if}
 				<div>
 					<Button variant="outline" size="sm" onclick={() => copySpanLink(span.traceId, span.spanId)}>
 						{#if linkCopied}
@@ -181,6 +228,13 @@
 							<p class="truncate font-mono">{span.traceState || '—'}</p>
 						</div>
 					</div>
+
+					{#if metricsPod}
+						<EventPodMetrics podName={metricsPod.name} namespace={metricsPod.namespace} timestamp={span.startTime} />
+					{/if}
+					{#if metricsHost}
+						<EventHostMetrics hostName={metricsHost} timestamp={span.startTime} />
+					{/if}
 
 					<Separator />
 
