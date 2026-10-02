@@ -106,14 +106,6 @@ folders are where "what happened and why" actually lives.
   `?var-service=a,b&range=1h`), hydrate from the URL first on load, and use
   `replaceState` on change. Not started. Prior art:
   [signoz#8874](https://github.com/SigNoz/signoz/commit/437d0d134502b5bd124471606674080a040a2090).
-- **Treat old/new semconv keys as one in span filters.** Filtering spans on
-  `server.address` misses spans that only carry `net.peer.name`, and the same
-  goes for `url.full`/`http.url`. That's common with mixed .NET
-  instrumentation versions. Expand a filter on either key of a known pair to
-  match both, in `SpanFilterSqlBuilder` and in the facet/attribute-values
-  lookups. Migration 0034 already uses this fallback, but only for the
-  external-domain column. Not started. Prior art:
-  [signoz#9208](https://github.com/SigNoz/signoz/commit/ecd9498970d45f244a936d86341377399568e965).
 - **`abs()` (and `ceil`/`floor`) in metric formulas.** `FormulaFunction` in
   `$lib/metrics/formula.ts` is only `exp`/`log`/`sqrt`/`runningDiff`, so
   "absolute difference between A and B" can't be expressed. Add `abs`, plus

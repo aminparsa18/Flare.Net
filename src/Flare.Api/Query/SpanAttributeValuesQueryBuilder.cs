@@ -69,9 +69,22 @@ public static class SpanAttributeValuesQueryBuilder
                 break;
             default:
                 var column = SpanFilterSqlBuilder.ColumnFor(request.Bag);
-                filterSql.Parameters.AddParameter("valuesKey", request.Key);
-                valueSql = $"{column}[{{valuesKey:String}}]";
-                whereClauses.Add($"mapContains({column}, {{valuesKey:String}})");
+                var keys = request.Bag == SpanAttributeBag.Span ? SemconvAliases.Group(request.Key) ?? [request.Key] : [request.Key];
+                var values = new List<string>();
+                var present = new List<string>();
+                for (var i = 0; i < keys.Count; i++)
+                {
+                    var param = i == 0 ? "valuesKey" : $"valuesKey{i}";
+                    filterSql.Parameters.AddParameter(param, keys[i]);
+                    values.Add($"{column}[{{{param}:String}}]");
+                    present.Add($"mapContains({column}, {{{param}:String}})");
+                }
+
+                // First spelling that is set wins, same precedence as migration 0034's fallback.
+                valueSql = values.Count == 1
+                    ? values[0]
+                    : $"multiIf({string.Join(", ", present.Zip(values, (p, v) => $"{p}, {v}"))}, '')";
+                whereClauses.Add(present.Count == 1 ? present[0] : $"({string.Join(" OR ", present)})");
                 break;
         }
 
