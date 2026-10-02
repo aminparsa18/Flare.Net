@@ -290,6 +290,9 @@ and resolved.
 Every rule has a severity (critical, error, warning or info; critical by
 default), sent as PagerDuty's severity, shown on other channels' notifications,
 and available to templates as `{{severity}}`.
+A metric rule's threshold can be typed in a different unit than the metric's
+(`500 ms` against a metric recorded in seconds); it is converted before each
+comparison (see [ADR-0080](../../docs-internal/adr/0080-alert-threshold-unit.md)).
 A rule can also override its notification title/body with a template
 using placeholders such as `{{value}}`, `{{threshold}}`, `{{logs_url}}`,
 or `{{labels.service.name}}`, previewed live in the rule form.

@@ -36,6 +36,7 @@
 		type AnomalySeasonality
 	} from '$lib/alerts-api';
 	import { aggregateLogs } from '$lib/api';
+	import { compatibleUnits } from '$lib/metrics/axis';
 	import { getMetricNames, type MetricNameInfo, type MetricPointType } from '$lib/metrics-api';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import { ALERT_SEVERITIES } from '$lib/memorypack/enums';
@@ -87,6 +88,8 @@
 	let ruleSeverity = $state<AlertSeverity>('Critical');
 	let recoveryEnabled = $state(false);
 	let recoveryThresholdText = $state('');
+	// Unit the metric threshold (and recovery threshold) is typed in; '' = the metric's own unit.
+	let thresholdUnit = $state('');
 	// Custom notification templates (ADR-0052) - off sends '' for both, i.e. the built-in wording.
 	let templatesEnabled = $state(false);
 	let notificationTitleTemplate = $state('');
@@ -178,6 +181,7 @@
 			ruleSeverity = 'Critical';
 			recoveryEnabled = false;
 			recoveryThresholdText = '';
+			thresholdUnit = '';
 			templatesEnabled = false;
 			notificationTitleTemplate = '';
 			notificationBodyTemplate = '';
@@ -247,6 +251,7 @@
 			ruleSeverity = target.severity;
 			recoveryEnabled = target.recoveryThreshold !== null;
 			recoveryThresholdText = target.recoveryThreshold !== null ? String(target.recoveryThreshold) : '';
+			thresholdUnit = target.thresholdUnit;
 			templatesEnabled = target.notificationTitleTemplate !== '' || target.notificationBodyTemplate !== '';
 			notificationTitleTemplate = target.notificationTitleTemplate;
 			notificationBodyTemplate = target.notificationBodyTemplate;
@@ -426,6 +431,10 @@
 	}
 
 	const serviceOptions = $derived(knownServices.map((s) => ({ value: s, label: s })));
+	// Units the threshold can be typed in: the selected metric's time/byte family. Falls back to the
+	// saved unit's own family while the metric list hasn't loaded, so editing never drops a unit.
+	const selectedMetricUnit = $derived(knownMetrics.find((mi) => mi.metricName === metricName)?.unit ?? null);
+	const thresholdUnitOptions = $derived(compatibleUnits(selectedMetricUnit ?? thresholdUnit));
 	const metricNameOptions = $derived(knownMetrics.map((mi) => ({ value: mi.metricName, label: mi.metricName })));
 	const aggregationOptions = $derived(AGGREGATIONS_BY_TYPE[metricType]);
 	const severityOptions = $derived(SEVERITY_BUCKETS.map((b) => ({ value: b.id, label: severityBucketLabel(b) })));
@@ -500,6 +509,7 @@
 			evaluationIntervalSeconds,
 			minDataPoints: minDataPointsActive ? minDataPoints : 0,
 			recoveryThreshold: recoveryActive ? recoveryThreshold : undefined,
+			thresholdUnit: conditionKind === 'MetricThreshold' && thresholdUnitOptions.includes(thresholdUnit) ? thresholdUnit : undefined,
 			severity: ruleSeverity,
 			notificationTitleTemplate: templatesEnabled ? notificationTitleTemplate.trim() : '',
 			notificationBodyTemplate: templatesEnabled ? notificationBodyTemplate.trim() : '',
@@ -822,6 +832,19 @@
 							</Select.Root>
 						</div>
 						<Input type="number" bind:value={metricThresholdValueText} class="w-24" />
+						{#if thresholdUnitOptions.length}
+							<Select.Root type="single" value={thresholdUnit} onValueChange={(v) => (thresholdUnit = v ?? '')}>
+								<Select.Trigger class="w-24">
+									{thresholdUnit || selectedMetricUnit || m.alertRuleForm_thresholdUnitDefault()}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="" label={selectedMetricUnit ? m.alertRuleForm_thresholdUnitOwn({ unit: selectedMetricUnit }) : m.alertRuleForm_thresholdUnitDefault()} />
+									{#each thresholdUnitOptions as unit (unit)}
+										<Select.Item value={unit} label={unit} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						{/if}
 						<span class="text-muted-foreground pb-1.5 text-xs">{m.alertRuleForm_metricOverLabel()}</span>
 					{/if}
 					<Input type="number" min="1" bind:value={windowSecondsText} class="w-24" />
@@ -900,6 +923,9 @@
 						<div class="flex items-center gap-2">
 							<span class="text-muted-foreground text-xs">{comparator === 'LessThan' ? m.alertRuleForm_recoveryAtOrAbove() : m.alertRuleForm_recoveryBelow()}</span>
 							<Input type="number" step="any" bind:value={recoveryThresholdText} class="w-28" />
+							{#if conditionKind === 'MetricThreshold' && thresholdUnitOptions.includes(thresholdUnit)}
+								<span class="text-muted-foreground text-xs">{thresholdUnit}</span>
+							{/if}
 						</div>
 						{#if recoveryThresholdText.trim() !== '' && !recoveryValid}
 							<span class="text-destructive text-xs">{comparator === 'LessThan' ? m.alertRuleForm_recoveryInvalidLessThan({ threshold: recoveryReference }) : m.alertRuleForm_recoveryInvalid({ threshold: recoveryReference })}</span>

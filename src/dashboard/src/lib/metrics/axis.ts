@@ -114,6 +114,14 @@ function pickScale(scales: ScaleStep[], peakInBase: number): ScaleStep {
 	return scales[scales.length - 1];
 }
 
+/** The selectable units in `unit`'s time or byte family (what an alert's threshold unit can convert between); empty for any other unit. */
+export function compatibleUnits(unit: string | null | undefined): string[] {
+	const u = (unit ?? '').trim();
+	if (u in TIME_UNIT_TO_SECONDS) return ['ns', 'us', 'ms', 's', 'min', 'h', 'd'];
+	if (u in BYTE_UNIT_TO_BYTES) return Object.keys(BYTE_UNIT_TO_BYTES);
+	return [];
+}
+
 export interface AxisScale {
 	/** Multiply a raw value (in the metric's declared unit) by this to get this scale's display magnitude. */
 	factor: number;

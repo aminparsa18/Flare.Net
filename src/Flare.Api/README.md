@@ -292,7 +292,9 @@ points (`Alerting/AlertMinDataPointsEvaluator`, shared with the dry-run endpoint
 its value crosses it, validated to sit on the recovering side of the threshold - see
 `docs-internal/adr/0076-alert-recovery-threshold.md`. `Severity` (Critical default / Error / Warning / Info) is
 sent as PagerDuty's `severity` (a test send stays `info`), tags non-Critical fired texts (`[WARNING] ...`),
-and is the `{{severity}}` placeholder - see `docs-internal/adr/0077-alert-rule-severity.md`. An `Anomaly` rule has no fixed
+and is the `{{severity}}` placeholder - see `docs-internal/adr/0077-alert-rule-severity.md`. `ThresholdUnit` (metric rules, time/byte units only) is the unit
+`MetricThresholdValue`/`RecoveryThreshold` were typed in; `Alerting/MetricUnitConverter` converts them to the series' unit at
+evaluation - see `docs-internal/adr/0080-alert-threshold-unit.md`. An `Anomaly` rule has no fixed
 threshold: `Alerting/AnomalyEvaluator` evaluates its source series over the current window and
 over the same window 1..N days/weeks back, and `Alerting/AnomalyScoring` fires on a z-score
 beyond the rule's threshold (history rows carry `BaselineMean`/`ZScore`) - see

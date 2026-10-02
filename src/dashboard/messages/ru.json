@@ -388,6 +388,8 @@
 	"alertRuleForm_gaugeMatchHintLessThan": "Value — среднее за окно · Last — последняя точка · Min — нарушение хотя бы раз · Max — нарушение на протяжении всего окна",
 	"alertRuleForm_thresholdLabel": "Порог",
 	"alertRuleForm_eventsIn": "событий за",
+	"alertRuleForm_thresholdUnitDefault": "Единица метрики",
+	"alertRuleForm_thresholdUnitOwn": "{unit} (единица метрики)",
 	"alertRuleForm_metricOverLabel": "за",
 	"alertRuleForm_seconds": "секунд",
 	"alertRuleForm_cooldownLabel": "Задержка (секунд)",

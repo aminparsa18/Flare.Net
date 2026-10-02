@@ -308,6 +308,9 @@ oscillant autour du seuil ne passe pas sans cesse de déclenchée à résolue.
 Chaque règle a une gravité (critical, error, warning ou info ; critical par défaut),
 transmise comme severity à PagerDuty, affichée dans les notifications des autres
 canaux et disponible pour les modèles via `{{severity}}`.
+Le seuil d'une règle de métrique peut être saisi dans une autre unité que celle de la
+métrique (`500 ms` pour une métrique enregistrée en secondes) ; il est converti avant
+chaque comparaison (voir [ADR-0080](../../docs-internal/adr/0080-alert-threshold-unit.md)).
 Une règle peut aussi remplacer le titre et le corps de sa notification par un
 modèle utilisant des variables comme `{{value}}`, `{{threshold}}`,
 `{{logs_url}}` ou `{{labels.service.name}}`, avec un aperçu en direct dans le

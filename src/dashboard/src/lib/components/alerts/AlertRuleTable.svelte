@@ -76,7 +76,7 @@
 
 		const symbol = rule.threshold.comparator === 'LessThan' ? '<' : '>=';
 		if (rule.conditionKind === 'MetricThreshold') {
-			return m.alertRuleTable_metricThresholdText({ symbol, value: rule.metricThresholdValue ?? 0, window: rule.windowSeconds });
+			return m.alertRuleTable_metricThresholdText({ symbol, value: rule.thresholdUnit ? `${rule.metricThresholdValue ?? 0} ${rule.thresholdUnit}` : (rule.metricThresholdValue ?? 0), window: rule.windowSeconds });
 		}
 
 		return m.alertRuleTable_thresholdText({ symbol, count: rule.threshold.count, window: rule.windowSeconds });

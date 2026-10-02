@@ -15,7 +15,7 @@ public static class MetricUnitFormatter
 
     private readonly record struct ScaleStep(double PerBase, string Label);
 
-    private static readonly IReadOnlyDictionary<string, double> TimeUnitToSeconds = new Dictionary<string, double>
+    internal static readonly IReadOnlyDictionary<string, double> TimeUnitToSeconds = new Dictionary<string, double>
     {
         ["ns"] = 1e-9,
         ["µs"] = 1e-6,
@@ -27,7 +27,7 @@ public static class MetricUnitFormatter
         ["d"] = 86400,
     };
 
-    private static readonly IReadOnlyDictionary<string, double> ByteUnitToBytes = new Dictionary<string, double>
+    internal static readonly IReadOnlyDictionary<string, double> ByteUnitToBytes = new Dictionary<string, double>
     {
         ["By"] = 1,
         ["kBy"] = 1e3,

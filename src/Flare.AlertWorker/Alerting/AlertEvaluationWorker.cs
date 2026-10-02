@@ -288,6 +288,26 @@ public sealed class AlertEvaluationWorker(
 
             (var value, metricUnit) = await alerts.EvaluateMetricConditionAsync(rule.MetricCondition, from, now, cancellationToken);
             observedValue = value;
+
+            // Threshold unit (ADR-0080): the rule's threshold and recovery threshold were typed
+            // in rule.ThresholdUnit; express them in the unit the points were recorded in. The
+            // converted rule is what the notification and history below read, so they format the
+            // threshold at the series' own unit like the observed value.
+            if (!string.IsNullOrEmpty(rule.ThresholdUnit))
+            {
+                if (!MetricUnitConverter.TryConvert(thresholdValue, rule.ThresholdUnit, metricUnit, out _))
+                {
+                    logger.LogWarning("Alert rule {RuleId} ({RuleName}) has threshold unit {ThresholdUnit} but its metric reports unit {MetricUnit}; comparing the threshold as typed.", rule.Id, rule.Name, rule.ThresholdUnit, metricUnit ?? "(none)");
+                }
+
+                thresholdValue = MetricUnitConverter.ToSeriesUnit(thresholdValue, rule.ThresholdUnit, metricUnit);
+                rule = rule with
+                {
+                    MetricThresholdValue = thresholdValue,
+                    RecoveryThreshold = rule.RecoveryThreshold is { } rawRecovery ? MetricUnitConverter.ToSeriesUnit(rawRecovery, rule.ThresholdUnit, metricUnit) : null,
+                };
+            }
+
             breached = rule.Threshold.IsBreachedValue(observedValue.Value, thresholdValue);
         }
         else if (rule.ConditionKind == AlertConditionKind.Anomaly)
