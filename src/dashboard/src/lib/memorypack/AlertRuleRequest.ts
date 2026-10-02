@@ -9,6 +9,7 @@
 // `anomalyCondition` was appended after `evaluationIntervalSeconds`, same reasoning (ADR-0048).
 // `minDataPoints` was appended after `anomalyCondition`, same reasoning (ADR-0050).
 // `notificationTitleTemplate`/`notificationBodyTemplate` were appended after `minDataPoints`, same reasoning (ADR-0052).
+// `recoveryThreshold` was appended after `notificationBodyTemplate`, same reasoning (ADR-0076).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -42,6 +43,7 @@ export class AlertRuleRequest {
 	minDataPoints: number | null;
 	notificationTitleTemplate: string | null;
 	notificationBodyTemplate: string | null;
+	recoveryThreshold: number | null;
 
 	constructor() {
 		this.name = null;
@@ -67,6 +69,7 @@ export class AlertRuleRequest {
 		this.minDataPoints = null;
 		this.notificationTitleTemplate = null;
 		this.notificationBodyTemplate = null;
+		this.recoveryThreshold = null;
 	}
 
 	static serialize(value: AlertRuleRequest | null): Uint8Array {
@@ -81,7 +84,7 @@ export class AlertRuleRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(23);
+		writer.writeObjectHeader(24);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeNullableBoolean(value.enabled);
@@ -105,6 +108,7 @@ export class AlertRuleRequest {
 		writer.writeNullableInt32(value.minDataPoints);
 		writer.writeString(value.notificationTitleTemplate);
 		writer.writeString(value.notificationBodyTemplate);
+		writer.writeNullableFloat64(value.recoveryThreshold);
 	}
 
 	static deserialize(buffer: ArrayBuffer): AlertRuleRequest | null {
@@ -118,7 +122,7 @@ export class AlertRuleRequest {
 		}
 
 		const value = new AlertRuleRequest();
-		if (count == 23) {
+		if (count == 24) {
 			value.name = reader.readString();
 			value.description = reader.readString();
 			value.enabled = reader.readNullableBoolean();
@@ -142,7 +146,8 @@ export class AlertRuleRequest {
 			value.minDataPoints = reader.readNullableInt32();
 			value.notificationTitleTemplate = reader.readString();
 			value.notificationBodyTemplate = reader.readString();
-		} else if (count > 23) {
+			value.recoveryThreshold = reader.readNullableFloat64();
+		} else if (count > 24) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -192,6 +197,8 @@ export class AlertRuleRequest {
 			if (count == 22) return value;
 			value.notificationBodyTemplate = reader.readString();
 			if (count == 23) return value;
+			value.recoveryThreshold = reader.readNullableFloat64();
+			if (count == 24) return value;
 		}
 		return value;
 	}

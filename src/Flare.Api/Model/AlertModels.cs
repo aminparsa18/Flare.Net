@@ -256,6 +256,21 @@ public sealed partial record AlertThreshold
         ThresholdComparator.LessThan => observedValue < thresholdValue,
         _ => observedValue >= thresholdValue,
     };
+
+    /// <summary>
+    /// Whether a firing rule whose threshold is no longer breached must keep firing because
+    /// <paramref name="observedValue"/> hasn't yet crossed <paramref name="recoveryValue"/> -
+    /// the hysteresis band between the threshold and the recovery value. For the default
+    /// "at or above" comparator that's <c>observed &gt;= recovery</c> (fire at &gt; 90, recover
+    /// below 80); for <see cref="ThresholdComparator.LessThan"/> it's <c>observed &lt;= recovery</c>.
+    /// NaN (an empty metric window) never holds - it recovers, same as without hysteresis.
+    /// See <c>docs-internal/adr/0076-alert-recovery-threshold.md</c>.
+    /// </summary>
+    public bool HoldsFiring(double observedValue, double recoveryValue) => Comparator switch
+    {
+        ThresholdComparator.LessThan => observedValue <= recoveryValue,
+        _ => observedValue >= recoveryValue,
+    };
 }
 
 /// <summary>A saved threshold/query-based alert rule.</summary>
@@ -433,6 +448,19 @@ public sealed partial record AlertRule
     /// where wanted. Appended after <see cref="NotificationTitleTemplate"/>.
     /// </summary>
     public string NotificationBodyTemplate { get; init; } = "";
+
+    /// <summary>
+    /// Opt-in recovery threshold (hysteresis). Null (the default, and every rule created before
+    /// this field existed) means a firing rule resolves on the first evaluation that isn't
+    /// breached. When set, a firing rule instead resolves only once its observed value - the
+    /// count for a log/exception rule, the metric value for a metric rule - has crossed this
+    /// value back past the threshold (fire at &gt;= 90, recover below 80), so a value hovering at
+    /// the threshold doesn't flap fire/resolve. In between, the rule stays firing without
+    /// re-notifying. Not supported for <see cref="AlertConditionKind.Anomaly"/> rules, whose
+    /// breach is a z-score, not a threshold. See <c>docs-internal/adr/0076-alert-recovery-threshold.md</c>.
+    /// Appended after <see cref="NotificationBodyTemplate"/>, same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public double? RecoveryThreshold { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -522,6 +550,9 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.NotificationBodyTemplate"/>'s doc comment. Omitted/null means "" (built-in text). Appended after <see cref="NotificationTitleTemplate"/>.</summary>
     public string? NotificationBodyTemplate { get; init; }
+
+    /// <summary>See <see cref="AlertRule.RecoveryThreshold"/>'s doc comment. Omitted/null means no hysteresis. Appended after <see cref="NotificationBodyTemplate"/>.</summary>
+    public double? RecoveryThreshold { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
@@ -637,7 +668,7 @@ public sealed partial record AlertRuleRequest
             _ => null,
         };
 
-        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateTemplates();
+        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateRecoveryThreshold(kind) ?? ValidateTemplates();
     }
 
     /// <summary>
@@ -671,6 +702,40 @@ public sealed partial record AlertRuleRequest
                 "windowSeconds must be shorter than the anomaly seasonality period (1 day for Daily, 7 days for Weekly).",
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// <see cref="RecoveryThreshold"/> arm of <see cref="ValidateCondition"/>: finite, not for
+    /// <see cref="AlertConditionKind.Anomaly"/>, and on the recovering side of the threshold -
+    /// below it for the default "at or above" comparator, above it for
+    /// <see cref="ThresholdComparator.LessThan"/> (equal is allowed and is a no-op). A log/exception
+    /// rule compares against <see cref="AlertThreshold.Count"/>, a metric rule against
+    /// <see cref="MetricThresholdValue"/>.
+    /// </summary>
+    private string? ValidateRecoveryThreshold(AlertConditionKind kind)
+    {
+        if (RecoveryThreshold is not { } recovery)
+        {
+            return null;
+        }
+
+        if (!double.IsFinite(recovery))
+        {
+            return "recoveryThreshold must be a finite number.";
+        }
+
+        if (kind == AlertConditionKind.Anomaly)
+        {
+            return "recoveryThreshold is not supported when conditionKind is Anomaly - an anomaly rule has no fixed threshold to recover from.";
+        }
+
+        var threshold = kind == AlertConditionKind.MetricThreshold ? MetricThresholdValue ?? 0 : Threshold.Count;
+        var lessThan = Threshold.Comparator == ThresholdComparator.LessThan;
+        return lessThan && recovery < threshold
+            ? $"recoveryThreshold must be at or above the threshold ({threshold}) for a LessThan rule."
+            : !lessThan && recovery > threshold
+                ? $"recoveryThreshold must be at or below the threshold ({threshold})."
+                : null;
     }
 
     /// <summary>The shortest non-zero <see cref="NoDataWindowSeconds"/> <see cref="ValidateCondition"/> accepts.</summary>

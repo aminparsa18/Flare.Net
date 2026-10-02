@@ -106,15 +106,6 @@ folders are where "what happened and why" actually lives.
   `?var-service=a,b&range=1h`), hydrate from the URL first on load, and use
   `replaceState` on change. Not started. Prior art:
   [signoz#8874](https://github.com/SigNoz/signoz/commit/437d0d134502b5bd124471606674080a040a2090).
-- **Recovery threshold for alerts (hysteresis).** A rule has one threshold,
-  and a firing alert resolves as soon as one evaluation isn't breached. A
-  value hovering around the threshold therefore flaps fire/resolve and
-  pages repeatedly. Add an optional recovery threshold: once firing, the
-  alert resolves only after the value crosses it (e.g. fire at > 90%,
-  recover at < 80%). This applies to LogCount, metric and exception rules,
-  and resolved-notification derivation (ADR-0064) honors it. Not started.
-  Prior art:
-  [signoz#9428](https://github.com/SigNoz/signoz/commit/52228bc6c41daec311887fd69db12cf0a4cd0a66).
 - **Alert rule severity.** Rules have no severity, and `PagerDutyAlertNotifier`
   hard-codes `severity = "critical"`, so every Flare page looks equally
   urgent. Add a rule-level severity (critical/error/warning/info). Map it to

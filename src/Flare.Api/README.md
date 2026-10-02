@@ -288,7 +288,9 @@ the shared `Alerting/AlertEvaluationSchedule`) - see
 `docs-internal/adr/0046-per-rule-alert-evaluation-interval.md`. A `MetricThreshold` rule with
 `MinDataPoints > 0` doesn't compare its threshold unless its window holds at least that many raw
 points (`Alerting/AlertMinDataPointsEvaluator`, shared with the dry-run endpoints, which report
-`insufficientData`) - see `docs-internal/adr/0050-alert-minimum-data-points.md`. An `Anomaly` rule has no fixed
+`insufficientData`) - see `docs-internal/adr/0050-alert-minimum-data-points.md`. An optional `RecoveryThreshold` (hysteresis; not for `Anomaly`) keeps a firing rule firing until
+its value crosses it, validated to sit on the recovering side of the threshold - see
+`docs-internal/adr/0076-alert-recovery-threshold.md`. An `Anomaly` rule has no fixed
 threshold: `Alerting/AnomalyEvaluator` evaluates its source series over the current window and
 over the same window 1..N days/weeks back, and `Alerting/AnomalyScoring` fires on a z-score
 beyond the rule's threshold (history rows carry `BaselineMean`/`ZScore`) - see

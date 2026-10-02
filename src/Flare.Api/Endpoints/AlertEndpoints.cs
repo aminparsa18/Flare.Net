@@ -242,6 +242,7 @@ public static class AlertEndpoints
             MinDataPoints = defaults.MinDataPoints,
             NotificationTitleTemplate = defaults.NotificationTitleTemplate,
             NotificationBodyTemplate = defaults.NotificationBodyTemplate,
+            RecoveryThreshold = request.RecoveryThreshold,
         };
     }
 

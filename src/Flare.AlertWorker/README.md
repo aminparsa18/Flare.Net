@@ -35,6 +35,10 @@ A `MetricThreshold` rule with `MinDataPoints > 0` first counts the raw points in
 (`Alerting/AlertMinDataPointsEvaluator`). Below the minimum it's "insufficient data": no
 notification and no history row - see
 [`docs-internal/adr/0050-alert-minimum-data-points.md`](../../docs-internal/adr/0050-alert-minimum-data-points.md).
+A firing rule with a `RecoveryThreshold` that evaluates as not breached keeps firing, with no
+resolution and no notification, until its value crosses the recovery threshold
+(`AlertThreshold.HoldsFiring`) - see
+[`docs-internal/adr/0076-alert-recovery-threshold.md`](../../docs-internal/adr/0076-alert-recovery-threshold.md).
 A breach while a maintenance window covering the rule is active (`maintenance_windows`, read
 once per tick, decided by `Alerting/MaintenanceWindowSchedule`) is recorded as a `Suppressed`
 `alert_events` row with `SuppressedByWindow` set, and nothing is sent - see
