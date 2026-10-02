@@ -158,6 +158,7 @@
 	"logContext_loadEarlier": "加载更早的记录",
 	"logContext_loadLater": "加载更晚的记录",
 	"logContext_start": "上下文起点",
+	"logContext_sameSource": "仅相同来源",
 	"logContext_end": "上下文终点",
 	"exportDialog_export": "导出",
 	"exportDialog_title": "导出日志",

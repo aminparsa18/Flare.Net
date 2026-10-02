@@ -158,6 +158,7 @@
 	"logContext_loadEarlier": "Load earlier",
 	"logContext_loadLater": "Load later",
 	"logContext_start": "Start of context",
+	"logContext_sameSource": "Same source only",
 	"logContext_end": "End of context",
 	"exportDialog_export": "Export",
 	"exportDialog_title": "Export logs",

@@ -15,6 +15,7 @@
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import LogRow from './LogRow.svelte';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -77,6 +78,22 @@
 			</Sheet.Title>
 			{#if explorer.contextView}
 				<Sheet.Description>{formatTimestamp(explorer.contextView.anchorTimestamp)}</Sheet.Description>
+			{/if}
+			{#if explorer.contextView || explorer.contextLoading}
+				<div class="flex items-center gap-2 text-sm">
+					<Checkbox
+						id="log-context-same-source"
+						checked={explorer.contextSameSource}
+						disabled={explorer.contextLoading}
+						onCheckedChange={(next) => explorer.setContextSameSource(next === true)}
+					/>
+					<label for="log-context-same-source">{m.logContext_sameSource()}</label>
+					{#if explorer.contextSameSource && explorer.contextView?.sourceKey}
+						<span class="text-muted-foreground truncate font-mono text-xs">
+							{explorer.contextView.sourceKey}={explorer.contextView.sourceValue}
+						</span>
+					{/if}
+				</div>
 			{/if}
 		</Sheet.Header>
 

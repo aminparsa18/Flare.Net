@@ -13,12 +13,16 @@ export class LogContextResponse {
 	anchorEventId: string;
 	hasMoreBefore: boolean;
 	hasMoreAfter: boolean;
+	sourceKey: string | null;
+	sourceValue: string | null;
 
 	constructor() {
 		this.events = null;
 		this.anchorEventId = '00000000-0000-0000-0000-000000000000';
 		this.hasMoreBefore = false;
 		this.hasMoreAfter = false;
+		this.sourceKey = null;
+		this.sourceValue = null;
 	}
 
 	static serialize(value: LogContextResponse | null): Uint8Array {
@@ -33,11 +37,13 @@ export class LogContextResponse {
 			return;
 		}
 
-		writer.writeObjectHeader(4);
+		writer.writeObjectHeader(6);
 		writer.writeArray(value.events, (writer, x) => LogEventDto.serializeCore(writer, x));
 		writer.writeGuid(value.anchorEventId);
 		writer.writeBoolean(value.hasMoreBefore);
 		writer.writeBoolean(value.hasMoreAfter);
+		writer.writeString(value.sourceKey);
+		writer.writeString(value.sourceValue);
 	}
 
 	static deserialize(buffer: ArrayBuffer): LogContextResponse | null {
@@ -51,12 +57,14 @@ export class LogContextResponse {
 		}
 
 		const value = new LogContextResponse();
-		if (count == 4) {
+		if (count == 6) {
 			value.events = reader.readArray((reader) => LogEventDto.deserializeCore(reader));
 			value.anchorEventId = reader.readGuid();
 			value.hasMoreBefore = reader.readBoolean();
 			value.hasMoreAfter = reader.readBoolean();
-		} else if (count > 4) {
+			value.sourceKey = reader.readString();
+			value.sourceValue = reader.readString();
+		} else if (count > 6) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -68,6 +76,10 @@ export class LogContextResponse {
 			if (count == 3) return value;
 			value.hasMoreAfter = reader.readBoolean();
 			if (count == 4) return value;
+			value.sourceKey = reader.readString();
+			if (count == 5) return value;
+			value.sourceValue = reader.readString();
+			if (count == 6) return value;
 		}
 		return value;
 	}

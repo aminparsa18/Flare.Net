@@ -233,7 +233,12 @@ export class LogsExplorerState {
 		events: LogEventDto[];
 		hasMoreBefore: boolean;
 		hasMoreAfter: boolean;
+		/** Resource attribute the neighbors were scoped to by `contextSameSource`; null when unscoped. */
+		sourceKey: string | null;
+		sourceValue: string | null;
 	} | null>(null);
+	/** "Same source" toggle in LogContextSheet - resets to global when the sheet closes. */
+	contextSameSource = $state(false);
 	contextLoading = $state(false);
 	/** Which end is mid-"Load more" - at most one at a time (both buttons disable while either is set). */
 	contextLoadingMore = $state<'before' | 'after' | null>(null);
@@ -864,7 +869,10 @@ export class LogsExplorerState {
 		this.contextView = null;
 		try {
 			const res = await getLogContext(
-				{ eventId: event.eventId, timestamp: event.timestamp, before: this.#contextBefore, after: this.#contextAfter },
+				{ eventId: event.eventId, timestamp: event.timestamp, before: this.#contextBefore,
+					after: this.#contextAfter,
+					sameSource: this.contextSameSource
+				},
 				abort.signal
 			);
 			if (abort.signal.aborted) return;
@@ -873,7 +881,9 @@ export class LogsExplorerState {
 				anchorTimestamp: event.timestamp,
 				events: res.events,
 				hasMoreBefore: res.hasMoreBefore,
-				hasMoreAfter: res.hasMoreAfter
+				hasMoreAfter: res.hasMoreAfter,
+				sourceKey: res.sourceKey,
+				sourceValue: res.sourceValue
 			};
 		} catch (err) {
 			if (abort.signal.aborted) return;
@@ -888,8 +898,17 @@ export class LogsExplorerState {
 		void this.openContext(params);
 	}
 
+	/** Flips the "same source" scope and re-fetches the window around the current anchor. */
+	setContextSameSource(next: boolean): void {
+		const view = this.contextView;
+		if (!view || this.contextSameSource === next) return;
+		this.contextSameSource = next;
+		void this.openContext({ eventId: view.anchorEventId, timestamp: view.anchorTimestamp });
+	}
+
 	closeContext(): void {
 		this.#contextAbort?.abort();
+		this.contextSameSource = false;
 		this.contextView = null;
 		this.contextError = null;
 		this.contextLoading = false;
@@ -919,7 +938,8 @@ export class LogsExplorerState {
 				eventId: view.anchorEventId,
 				timestamp: view.anchorTimestamp,
 				before: this.#contextBefore,
-				after: this.#contextAfter
+				after: this.#contextAfter,
+				sameSource: this.contextSameSource
 			});
 			// A close() (or a fresh openContext) between the request and its response
 			// would otherwise clobber the newer state with this stale one.
@@ -928,7 +948,9 @@ export class LogsExplorerState {
 				...view,
 				events: res.events,
 				hasMoreBefore: res.hasMoreBefore,
-				hasMoreAfter: res.hasMoreAfter
+				hasMoreAfter: res.hasMoreAfter,
+				sourceKey: res.sourceKey,
+				sourceValue: res.sourceValue
 			};
 		} catch (err) {
 			this.contextError = err instanceof Error ? err.message : String(err);

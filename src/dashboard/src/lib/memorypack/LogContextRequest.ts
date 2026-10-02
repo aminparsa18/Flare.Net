@@ -12,12 +12,14 @@ export class LogContextRequest {
 	timestamp: Date;
 	before: number | null;
 	after: number | null;
+	sameSource: boolean;
 
 	constructor() {
 		this.eventId = '00000000-0000-0000-0000-000000000000';
 		this.timestamp = new Date(0);
 		this.before = null;
 		this.after = null;
+		this.sameSource = false;
 	}
 
 	static serialize(value: LogContextRequest | null): Uint8Array {
@@ -32,11 +34,12 @@ export class LogContextRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(4);
+		writer.writeObjectHeader(5);
 		writer.writeGuid(value.eventId);
 		writeDateTimeOffset(writer, value.timestamp);
 		writer.writeNullableInt32(value.before);
 		writer.writeNullableInt32(value.after);
+		writer.writeBoolean(value.sameSource);
 	}
 
 	static deserialize(buffer: ArrayBuffer): LogContextRequest | null {
@@ -50,12 +53,13 @@ export class LogContextRequest {
 		}
 
 		const value = new LogContextRequest();
-		if (count == 4) {
+		if (count == 5) {
 			value.eventId = reader.readGuid();
 			value.timestamp = readDateTimeOffset(reader);
 			value.before = reader.readNullableInt32();
 			value.after = reader.readNullableInt32();
-		} else if (count > 4) {
+			value.sameSource = reader.readBoolean();
+		} else if (count > 5) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -67,6 +71,8 @@ export class LogContextRequest {
 			if (count == 3) return value;
 			value.after = reader.readNullableInt32();
 			if (count == 4) return value;
+			value.sameSource = reader.readBoolean();
+			if (count == 5) return value;
 		}
 		return value;
 	}

@@ -158,6 +158,7 @@
 	"logContext_loadEarlier": "Загрузить более ранние",
 	"logContext_loadLater": "Загрузить более поздние",
 	"logContext_start": "Начало контекста",
+	"logContext_sameSource": "Только тот же источник",
 	"logContext_end": "Конец контекста",
 	"exportDialog_export": "Экспорт",
 	"exportDialog_title": "Экспорт логов",
