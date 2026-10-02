@@ -11,6 +11,7 @@
 	import { computeCriticalPath } from '$lib/traces/critical-path';
 	import type { SpanTreeRow } from '$lib/traces/span-tree';
 	import { kindIcon, kindLabel } from '$lib/traces/status';
+	import TraceColorLegend from './TraceColorLegend.svelte';
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import TimerIcon from '@lucide/svelte/icons/timer';
 	import * as Tooltip from '$lib/components/ui/tooltip';
@@ -262,6 +263,9 @@
 			     first once both are pinned) - same trick as `--waterfall-label-width`, just
 			     for stacking order instead of column alignment. -->
 			<div class="sticky top-0 z-10 flex shrink-0 flex-col">
+				<div class="bg-background border-b px-3 py-1.5 text-xs">
+					<TraceColorLegend />
+				</div>
 				<!-- Critical-path callout: which spans actually determined when this trace
 				     finished, as opposed to work that ran concurrently and simply lost the
 				     race. Only worth a row when there's more than one span to distinguish - a
@@ -428,12 +432,16 @@
 									     $lib/traces/critical-path.ts). -->
 									<div
 										data-waterfall-bar={span.spanId}
-										class="{barColorClass(span.statusCode)} absolute top-0 h-full min-w-[2px] rounded-sm {criticalSpanIds.has(
+										class="{detail.colorOf(span) ? '' : 'bg-muted-foreground/50'} absolute top-0 h-full min-w-[2px] rounded-sm {criticalSpanIds.has(
 											span.spanId
 										)
 											? 'ring-warning opacity-100 ring-2'
-											: 'opacity-40'}"
-										style={barStyle(span)}
+											: span.statusCode === 'STATUS_CODE_ERROR'
+												? 'opacity-80'
+												: 'opacity-40'} {span.statusCode === 'STATUS_CODE_ERROR'
+											? 'shadow-[inset_0_0_0_4px_var(--destructive)]'
+											: ''}"
+										style="{barStyle(span)} {detail.colorOf(span) ? `background: ${detail.colorOf(span)};` : ''}"
 									></div>
 								</div>
 							{/snippet}

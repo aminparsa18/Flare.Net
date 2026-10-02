@@ -2,8 +2,9 @@
 // TracesExplorerState (the list page), same "one state class per route" convention as
 // the rest of this app; the two pages have no shared fields worth forcing together.
 
-import { getTrace, getTraceChildren, type TraceDto } from '$lib/traces-api';
+import { getTrace, getTraceChildren, type SpanDto, type TraceDto } from '$lib/traces-api';
 import { buildSpanTree, spanMatchesSearch } from '$lib/traces/span-tree';
+import { COLOR_BY_SERVICE, colorByOptions, colorValue, computeColorGroups, type ColorBy } from '$lib/traces/span-colors';
 
 export class TraceDetailState {
 	trace = $state<TraceDto | null>(null);
@@ -49,6 +50,20 @@ export class TraceDetailState {
 		const n = this.spanSearchMatches.length;
 		if (n === 0) return;
 		this.spanSearchIndex = (this.spanSearchIndex + delta + n) % n;
+	}
+
+	// Span coloring, shared by the waterfall and flame graph so the choice survives
+	// switching tabs. Service by default; any span/resource attribute via the legend menu.
+	colorBy = $state<ColorBy>(COLOR_BY_SERVICE);
+	colorOptions = $derived(colorByOptions(this.trace?.spans ?? []));
+	/** The selected field can vanish when lazily loaded spans change the trace; fall back to service. */
+	effectiveColorBy = $derived(this.colorOptions.some((o) => o.value === this.colorBy) ? this.colorBy : COLOR_BY_SERVICE);
+	colorGroups = $derived(computeColorGroups(this.trace?.spans ?? [], this.effectiveColorBy));
+	#colorByValue = $derived(new Map(this.colorGroups.map((g) => [g.value, g.color])));
+
+	/** The span's group color (`var(--chart-N)`), or null in the folded "other" bucket. */
+	colorOf(span: SpanDto): string | null {
+		return this.#colorByValue.get(colorValue(span, this.effectiveColorBy)) ?? null;
 	}
 
 	#loadAbort: AbortController | null = null;

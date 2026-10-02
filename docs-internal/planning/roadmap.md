@@ -155,15 +155,6 @@ folders are where "what happened and why" actually lives.
   server-side preview. Probably a short follow-up ADR to 0052. Not started.
   Prior art:
   [signoz#10682](https://github.com/SigNoz/signoz/commit/30d3f754b56b39c4660ca18bdf8e4d8d0a38b845).
-- **Color waterfall/flame-graph spans by service or any field.** Waterfall
-  bars are colored by OTel status only (`barColorClass`), so in a
-  multi-service trace you can't see which service owns which span without
-  reading labels. Add a color-by menu: service by default, or any
-  span/resource attribute. Use a stable palette per value, and a legend that
-  lists each group's total self-time (time not covered by child spans) in
-  the trace. Keep errors visible via an outline or marker rather than the
-  fill. Not started. Prior art:
-  [signoz#11092](https://github.com/SigNoz/signoz/commit/9a3e79fb54b84b1fba251d321c0032d9ab1b7bcb).
 - **Group logs by a JSON body field.** `LogAggregateGroupBy` is
   `None`/`Service`/`Level`/`Attribute`/`Scope`. JSON body paths can be
   filtered on (`BodyJsonFilters`) but not grouped by in the volume chart or
