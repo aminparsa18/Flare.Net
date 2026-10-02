@@ -3,6 +3,7 @@
 // the rest of this app; the two pages have no shared fields worth forcing together.
 
 import { getTrace, type TraceDto } from '$lib/traces-api';
+import { buildSpanTree, spanMatchesSearch } from '$lib/traces/span-tree';
 
 export class TraceDetailState {
 	trace = $state<TraceDto | null>(null);
@@ -13,6 +14,35 @@ export class TraceDetailState {
 
 	selectedSpanId = $state<string | null>(null);
 	selectedSpan = $derived(this.trace?.spans.find((s) => s.spanId === this.selectedSpanId) ?? null);
+
+	/** Pre-order (waterfall) render order - shared so search steps through matches top to bottom. */
+	spanTree = $derived(buildSpanTree(this.trace?.spans ?? []));
+
+	// Span search box over the waterfall and flame graph. Lives here rather than in either
+	// view so the query and the current match survive switching between the two tabs.
+	// Stepping through matches only scrolls/highlights - it doesn't set selectedSpanId,
+	// because selecting opens the modal SpanDetailSheet, which would cover the next match.
+	spanSearch = $state('');
+	/** Matching span ids, in waterfall order. Empty when the box is empty. */
+	spanSearchMatches = $derived(
+		this.spanSearch.trim() ? this.spanTree.filter((r) => spanMatchesSearch(r.span, this.spanSearch)).map((r) => r.span.spanId) : []
+	);
+	spanSearchMatchSet = $derived(new Set(this.spanSearchMatches));
+	spanSearchActive = $derived(this.spanSearch.trim() !== '');
+	/** Index into spanSearchMatches of the "current" match the views scroll to; reset to the first match whenever the query changes. */
+	spanSearchIndex = $state(0);
+	focusedMatchId = $derived(this.spanSearchMatches[this.spanSearchIndex] ?? null);
+
+	setSpanSearch(query: string): void {
+		this.spanSearch = query;
+		this.spanSearchIndex = 0;
+	}
+
+	stepSpanSearch(delta: 1 | -1): void {
+		const n = this.spanSearchMatches.length;
+		if (n === 0) return;
+		this.spanSearchIndex = (this.spanSearchIndex + delta + n) % n;
+	}
 
 	#loadAbort: AbortController | null = null;
 

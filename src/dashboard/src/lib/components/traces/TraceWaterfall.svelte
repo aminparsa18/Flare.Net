@@ -9,6 +9,7 @@
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import { computeCriticalPath } from '$lib/traces/critical-path';
+	import type { SpanTreeRow } from '$lib/traces/span-tree';
 	import { kindIcon, kindLabel } from '$lib/traces/status';
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import TimerIcon from '@lucide/svelte/icons/timer';
@@ -17,7 +18,7 @@
 	import ChevronsDownUpIcon from '@lucide/svelte/icons/chevrons-down-up';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import * as m from '$lib/paraglide/messages';
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { formatTimeOfDay } from '$lib/time/format';
 
@@ -41,19 +42,41 @@
 	// the URL.
 	const collapsed = new SvelteSet<string>();
 
-	async function jumpToSpan(spanId: string, behavior: ScrollBehavior = 'smooth') {
-		detail.selectedSpanId = spanId;
-		// The target may sit inside a collapsed subtree - expand its ancestors first so
-		// it actually has a row to scroll to.
+	// A target may sit inside a collapsed subtree - expand its ancestors so it actually
+	// has a row to scroll to.
+	function expandAncestors(spanIds: Iterable<string>) {
 		const parentOf = new Map((detail.trace?.spans ?? []).map((s) => [s.spanId, s.parentSpanId]));
 		const seen = new Set<string>();
-		for (let p = parentOf.get(spanId); p && !seen.has(p); p = parentOf.get(p)) {
-			seen.add(p);
-			collapsed.delete(p);
+		for (const spanId of spanIds) {
+			for (let p = parentOf.get(spanId); p && !seen.has(p); p = parentOf.get(p)) {
+				seen.add(p);
+				collapsed.delete(p);
+			}
 		}
+	}
+
+	async function scrollToSpan(spanId: string, behavior: ScrollBehavior = 'smooth') {
+		expandAncestors([spanId]);
 		await tick();
 		rowEls.get(spanId)?.scrollIntoView({ block: 'center', behavior });
 	}
+
+	function jumpToSpan(spanId: string, behavior: ScrollBehavior = 'smooth') {
+		detail.selectedSpanId = spanId;
+		return scrollToSpan(spanId, behavior);
+	}
+
+	// Span search: every match gets a visible row (ancestors of collapsed matches are
+	// expanded once per query), and the current match scrolls into view as the user
+	// steps through them.
+	$effect(() => {
+		const matches = detail.spanSearchMatches;
+		untrack(() => expandAncestors(matches));
+	});
+	$effect(() => {
+		const id = detail.focusedMatchId;
+		if (id) untrack(() => void scrollToSpan(id));
+	});
 
 	// A `?span=` deep link (see TraceDetailState.load) - or a span still selected when
 	// switching back from the Service Map tab - lands already scrolled to that row
@@ -71,59 +94,16 @@
 		for (const row of tree) if (row.descendants > 0) collapsed.add(row.span.spanId);
 	}
 
-	interface WaterfallRow {
-		span: SpanDto;
-		depth: number;
-		/** Total spans in this row's subtree, excluding itself. */
-		descendants: number;
-	}
-
-	/**
-	 * Flattens the trace's spans into parent-before-children render order with a depth
-	 * per row, via a straightforward tree walk. A span whose `parentSpanId` doesn't
-	 * point at another span in this trace (absent, or - defensively - a parent that
-	 * hasn't landed/was dropped) is treated as a root rather than silently omitted, so
-	 * every fetched span always renders somewhere. `visited` guards against a
-	 * malformed/cyclic parent reference looping forever - real OTLP data never does
-	 * this, but nothing upstream validates it either.
-	 */
-	const tree = $derived.by((): WaterfallRow[] => {
-		const spans = detail.trace?.spans ?? [];
-		if (spans.length === 0) return [];
-
-		const spanIds = new Set(spans.map((s) => s.spanId));
-		const byParent = new Map<string, SpanDto[]>();
-		for (const span of spans) {
-			const parentKey = span.parentSpanId && spanIds.has(span.parentSpanId) ? span.parentSpanId : '';
-			const siblings = byParent.get(parentKey);
-			if (siblings) siblings.push(span);
-			else byParent.set(parentKey, [span]);
-		}
-		for (const siblings of byParent.values()) {
-			siblings.sort((a, b) => a.startTime.localeCompare(b.startTime));
-		}
-
-		const result: WaterfallRow[] = [];
-		const visited = new Set<string>();
-		function visit(span: SpanDto, depth: number) {
-			if (visited.has(span.spanId)) return;
-			visited.add(span.spanId);
-			const row: WaterfallRow = { span, depth, descendants: 0 };
-			const index = result.push(row);
-			for (const child of byParent.get(span.spanId) ?? []) visit(child, depth + 1);
-			row.descendants = result.length - index;
-		}
-		for (const root of byParent.get('') ?? []) visit(root, 0);
-		return result;
-	});
+	// Same pre-order list the span search steps through - see $lib/traces/span-tree.ts.
+	const tree = $derived(detail.spanTree);
 
 	const hasNesting = $derived(tree.some((row) => row.descendants > 0));
 
 	// `tree` is in pre-order, so a collapsed row's subtree is exactly the next
 	// `descendants` entries - skip past them.
-	const rows = $derived.by((): WaterfallRow[] => {
+	const rows = $derived.by((): SpanTreeRow[] => {
 		if (collapsed.size === 0) return tree;
-		const result: WaterfallRow[] = [];
+		const result: SpanTreeRow[] = [];
 		for (let i = 0; i < tree.length; i++) {
 			const row = tree[i];
 			result.push(row);
@@ -334,6 +314,7 @@
 			{#each rows as { span, depth, descendants } (span.spanId)}
 				{@const KindIcon = kindIcon(span)}
 				{@const isCollapsed = collapsed.has(span.spanId)}
+				{@const isMatch = detail.spanSearchMatchSet.has(span.spanId)}
 				<!-- role="button" div rather than a real <button>: the row nests the
 				     expand/collapse toggle, and a <button> can't contain another. Explicit
 				     aria-label so the row's accessible name isn't prefixed with the nested
@@ -342,8 +323,10 @@
 					role="button"
 					tabindex="0"
 					aria-label="{span.name || '—'} · {span.serviceName || '—'}"
-					class="hover:bg-muted/50 focus-visible:bg-muted/50 grid w-full cursor-pointer items-center border-b text-left focus-visible:outline-none"
-					class:bg-muted={detail.selectedSpanId === span.spanId}
+					class="hover:bg-muted/50 focus-visible:bg-muted/50 grid w-full cursor-pointer items-center border-b text-left focus-visible:outline-none
+						{detail.selectedSpanId === span.spanId ? 'bg-muted' : isMatch ? 'bg-primary/10' : ''}
+						{detail.spanSearchActive && !isMatch ? 'opacity-40' : ''}
+						{detail.focusedMatchId === span.spanId ? 'ring-primary ring-2 ring-inset' : ''}"
 					style="grid-template-columns: var(--waterfall-label-width) 1fr; height: 32px;"
 					onclick={() => (detail.selectedSpanId = span.spanId)}
 					onkeydown={(e) => {

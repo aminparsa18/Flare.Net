@@ -13,7 +13,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import ZoomOutIcon from '@lucide/svelte/icons/zoom-out';
 	import * as m from '$lib/paraglide/messages';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 
 	const detail = traceDetailContext.get();
 
@@ -77,12 +77,24 @@
 	// Lands a `?span=` deep link (or a span selected in the waterfall before switching
 	// tabs) already scrolled to its bar, same as the waterfall does for its row.
 	let scroller = $state<HTMLElement>();
-	onMount(async () => {
-		if (!detail.selectedSpanId) return;
+	async function scrollToBar(spanId: string, behavior: ScrollBehavior) {
 		await tick();
-		scroller
-			?.querySelector(`[data-flame-bar="${detail.selectedSpanId}"]`)
-			?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+		scroller?.querySelector(`[data-flame-bar="${spanId}"]`)?.scrollIntoView({ block: 'center', inline: 'nearest', behavior });
+	}
+	onMount(() => {
+		if (detail.selectedSpanId) void scrollToBar(detail.selectedSpanId, 'instant');
+	});
+
+	// Span search: scroll the current match into view as the user steps through them,
+	// dropping the zoom first if it sits outside the zoomed window (it has no bar there).
+	$effect(() => {
+		const id = detail.focusedMatchId;
+		if (!id) return;
+		untrack(() => {
+			const bar = layout.bars.find((b) => b.span.spanId === id);
+			if (bar && (bar.endMs < viewStart || bar.startMs > viewEnd)) zoom = null;
+			void scrollToBar(id, 'smooth');
+		});
 	});
 </script>
 
@@ -141,7 +153,9 @@
 					class="text-foreground absolute min-w-px truncate rounded-sm border px-1 text-left text-[11px] leading-[18px] hover:brightness-110 focus-visible:outline-none
 						{colorByService.get(bar.span.serviceName) ? '' : 'bg-muted border-muted-foreground/40'}
 						{isError ? 'ring-destructive ring-2 ring-inset' : ''}
-						{detail.selectedSpanId === bar.span.spanId ? 'outline-foreground z-10 outline-2' : ''}"
+						{detail.selectedSpanId === bar.span.spanId ? 'outline-foreground z-10 outline-2' : ''}
+						{detail.focusedMatchId === bar.span.spanId ? 'outline-primary z-10 outline-2 outline-offset-1' : ''}
+						{detail.spanSearchActive && !detail.spanSearchMatchSet.has(bar.span.spanId) ? 'opacity-25' : ''}"
 					style={barStyle(bar)}
 					aria-label="{bar.span.name || '—'} · {bar.span.serviceName || '—'} · {formatDurationNano(bar.span.durationNano)}"
 					onclick={(e) => onBarClick(e, bar)}

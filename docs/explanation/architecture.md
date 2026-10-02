@@ -171,7 +171,11 @@ the span's bar at the moment they happened (exceptions in red); hover one
 for its name, offset, and key attributes. The "Flame graph" toggle shows
 the same spans as a flame graph (width = duration, stacked by depth,
 colored by service) to see where time went in a large trace at a glance;
-click a span for its details, double-click to zoom into it.
+click a span for its details, double-click to zoom into it. On either view,
+the "Search spans" box finds spans by name, service, span id, or attribute
+(`key=value` works too): matches are highlighted, everything else is dimmed,
+and Enter / Shift+Enter step through them, expanding collapsed parents on
+the way.
 
 ![Trace detail waterfall](../screenshots/traces-en.webp)
 
