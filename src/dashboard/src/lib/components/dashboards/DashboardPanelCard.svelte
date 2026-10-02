@@ -28,6 +28,7 @@
 	import PanelTitleInput from './PanelTitleInput.svelte';
 	import VisualizationMenu from './VisualizationMenu.svelte';
 	import ColumnUnitsPopover from './ColumnUnitsPopover.svelte';
+	import DecimalsPopover from './DecimalsPopover.svelte';
 	import LegendPopover from './LegendPopover.svelte';
 	import { effectivePanelYAxisScale, parseVisualization, usesLegend, usesYAxis, usesYAxisScale, type PanelReducer, type PanelVisualization } from '$lib/dashboards/visualization';
 	import type { YAxisScale } from '$lib/metrics/axis';
@@ -67,6 +68,7 @@
 		onSetThresholds,
 		onSetVisualization,
 		onSetColumnUnits,
+		onSetDecimals,
 		onSetLegend,
 		rows,
 		rowId,
@@ -89,6 +91,7 @@
 		onSetThresholds: (thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (visualization: PanelVisualization, reducer: PanelReducer | null) => void;
 		onSetColumnUnits: (columnUnits: Partial<Record<PanelReducer, string>>) => void;
+		onSetDecimals: (decimals: number | undefined) => void;
 		onSetLegend: (legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>) => void;
 		rows: DashboardRow[];
 		/** The row this panel currently sits in, or `null` for the ungrouped area. */
@@ -322,6 +325,7 @@
 				{#if visualization === 'table'}
 					<ColumnUnitsPopover columnUnits={panel.columnUnits} onApply={onSetColumnUnits} />
 				{/if}
+				<DecimalsPopover decimals={panel.decimals} onApply={onSetDecimals} />
 				{#if usesLegend(visualization)}
 					<LegendPopover {legendPosition} {seriesColors} {seriesKeys} onApply={onSetLegend} />
 				{/if}
@@ -368,6 +372,7 @@
 					{visualization}
 					reducer={panel.reducer}
 					columnUnits={panel.columnUnits}
+					decimals={panel.decimals}
 					{legendPosition}
 					{seriesColors}
 					bind:seriesKeys

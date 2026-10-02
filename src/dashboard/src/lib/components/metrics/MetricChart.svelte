@@ -67,6 +67,7 @@
 		allowZoom = true,
 		yAxisMin = null,
 		yAxisMax = null,
+		decimals,
 		thresholds = [],
 		yAxisScale,
 		legendPosition = 'bottom',
@@ -76,6 +77,8 @@
 		allowZoom?: boolean;
 		yAxisMin?: number | null;
 		yAxisMax?: number | null;
+		/** `DashboardPanel.decimals` - fixed fraction digits; `undefined` is auto. */
+		decimals?: number;
 		thresholds?: PanelThreshold[];
 		yAxisScale?: YAxisScale;
 		legendPosition?: LegendPosition;
@@ -891,7 +894,7 @@
 	// Tooltip values share the axis's scale (not each point re-picking its own) so a
 	// hovered point never reads in a different unit than the gridline it sits next to.
 	function formatValue(n: number): string {
-		return logActive ? formatAutoScaled(n, displayUnit) : formatAtScale(n, axisScale);
+		return logActive ? formatAutoScaled(n, displayUnit, decimals) : formatAtScale(n, axisScale, decimals);
 	}
 
 	// The `{#key chartKey}` fade below only animates opacity, which doesn't stop the

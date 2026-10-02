@@ -441,6 +441,20 @@ export class DashboardViewerState {
 		}
 	}
 
+	/** Sets/clears `panelId`'s fixed decimal precision (`DashboardPanel.decimals`) through
+	 *  `#saveLayout`. `undefined` means auto. */
+	async setPanelDecimals(panelId: string, decimals: number | undefined): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels.map((p) => (p.id === panelId ? { ...p, decimals } : p))
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	/** Replaces `panelId`'s legend placement and per-series color overrides
 	 *  (`DashboardPanel.legendPosition`/`seriesColors`) through `#saveLayout`. `undefined` and
 	 *  an empty map clear their fields rather than saving the default. */

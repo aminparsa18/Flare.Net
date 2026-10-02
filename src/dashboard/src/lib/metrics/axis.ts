@@ -72,8 +72,28 @@ const preciseFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 
 const tinyFormat = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 2 });
 const scientificFormat = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 2, notation: 'scientific' });
 
+const fixedFormats = new Map<string, Intl.NumberFormat>();
+
+/** Per-panel `decimals` override: exactly `decimals` fraction digits, compact ("1.40k") from the thousands up. No tiny/scientific fallback - the user chose the precision. */
+function formatFixed(n: number, decimals: number): string {
+	const compact = Math.abs(n) >= 1000;
+	const key = `${compact ? 'c' : 'p'}${decimals}`;
+	let fmt = fixedFormats.get(key);
+	if (!fmt) {
+		fmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals, ...(compact ? { notation: 'compact' as const } : {}) });
+		fixedFormats.set(key, fmt);
+	}
+	return fmt.format(n);
+}
+
+/** Lenient read of `DashboardPanel.decimals` - an integer 0-6, else `undefined` (auto). */
+export function parseDecimals(raw: unknown): number | undefined {
+	return typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw <= 6 ? raw : undefined;
+}
+
 /** Compact notation ("1.4k") from the thousands up; up to 2 decimals below that so sub-1 values ("0.03") stay legible; significant digits under 0.01 ("0.002"), scientific under 0.0001 ("1E-6"), so a log axis's lower decades don't all read "0". */
-function formatMagnitude(n: number): string {
+function formatMagnitude(n: number, decimals?: number): string {
+	if (decimals !== undefined) return formatFixed(n, decimals);
 	const abs = Math.abs(n);
 	if (abs >= 1000) return compactFormat.format(n);
 	if (abs > 0 && abs < 1e-4) return scientificFormat.format(n);
@@ -150,9 +170,9 @@ export function resolveAxisScale(unit: string | null | undefined, peakAbs: numbe
 	return { factor: 1, suffix: u };
 }
 
-/** Formats a raw value (in the metric's declared unit) at a scale from `resolveAxisScale`. */
-export function formatAtScale(raw: number, scale: AxisScale): string {
-	const magnitude = formatMagnitude(raw * scale.factor);
+/** Formats a raw value (in the metric's declared unit) at a scale from `resolveAxisScale`. `decimals` pins the fraction digits (auto when omitted). */
+export function formatAtScale(raw: number, scale: AxisScale, decimals?: number): string {
+	const magnitude = formatMagnitude(raw * scale.factor, decimals);
 	if (!scale.suffix) return magnitude;
 	return scale.suffix === '%' ? `${magnitude}%` : `${magnitude} ${scale.suffix}`;
 }
@@ -282,8 +302,8 @@ export function logAxisTicks(positiveMin: number, dataMax: number, unit: string 
  * chart-wide one - what a log axis needs, since its decades can span ns to hours and one
  * shared scale would print the low end as "0.0000001 h".
  */
-export function formatAutoScaled(raw: number, unit: string | null | undefined): string {
-	return formatAtScale(raw, resolveAxisScale(unit, Math.abs(raw)));
+export function formatAutoScaled(raw: number, unit: string | null | undefined, decimals?: number): string {
+	return formatAtScale(raw, resolveAxisScale(unit, Math.abs(raw)), decimals);
 }
 
 /**

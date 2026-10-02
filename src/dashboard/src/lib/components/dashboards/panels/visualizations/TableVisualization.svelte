@@ -24,6 +24,7 @@
 	let {
 		series,
 		unit,
+		decimals,
 		columnUnits = {},
 		reducer,
 		includeSum,
@@ -32,6 +33,8 @@
 	}: {
 		series: VizSeries[];
 		unit: string | null;
+		/** `DashboardPanel.decimals`, already parsed - `undefined` is auto. */
+		decimals?: number;
 		/** Already-parsed per-column overrides (`parseColumnUnits`); a missing key uses `unit`. */
 		columnUnits?: Partial<Record<PanelReducer, string>>;
 		reducer: PanelReducer;
@@ -133,7 +136,7 @@
 								style={match ? `color: ${thresholdColorValue(match.color)};` : undefined}
 								title={v == null ? undefined : String(v)}
 							>
-								{v == null ? '-' : formatValue(v, columnUnits[c] ?? unit)}
+								{v == null ? '-' : formatValue(v, columnUnits[c] ?? unit, decimals)}
 							</td>
 						{/each}
 					</tr>

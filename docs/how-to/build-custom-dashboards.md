@@ -231,6 +231,14 @@ chart's axis: if a threshold's value falls outside the visible range, its
 line isn't drawn. Set a Y-axis range to bring it into view. Like the rest of
 a panel's definition, thresholds are saved with the dashboard.
 
+## Fixing the decimal places on a Metrics panel
+
+In edit mode, a Metrics panel has a **Decimal places** button (the `#` icon).
+By default Flare picks the precision by magnitude, which can't show a ratio
+like 0.0042 usefully. Enter a number from 0 to 6 to pin the decimals on axis
+ticks, tooltips and values, for every visualization. Leave it blank (or
+**Clear**) to go back to automatic. It's saved with the dashboard.
+
 ## Placing the legend and pinning series colors
 
 In edit mode, a Metrics panel whose visualization draws a legend (time

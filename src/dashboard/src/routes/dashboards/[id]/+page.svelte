@@ -329,6 +329,7 @@
 		onSetThresholds={(id, thresholds) => viewer.setPanelThresholds(id, thresholds)}
 		onSetVisualization={(id, visualization, reducer) => viewer.setPanelVisualization(id, visualization, reducer)}
 		onSetColumnUnits={(id, columnUnits) => viewer.setPanelColumnUnits(id, columnUnits)}
+		onSetDecimals={(id, decimals) => viewer.setPanelDecimals(id, decimals)}
 		onSetLegend={(id, legendPosition, seriesColors) => viewer.setPanelLegend(id, legendPosition, seriesColors)}
 		onMoveToRow={(id, target) => viewer.movePanelToRow(id, target)}
 	/>

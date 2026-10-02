@@ -18,12 +18,15 @@
 	let {
 		entries,
 		unit,
+		decimals,
 		legendPosition = 'right',
 		seriesColors = {}
 	}: {
 		/** `key` is the series' full identity (`seriesLabel`) - what a color override is keyed by. */
 		entries: { label: string; value: number; key: string }[];
 		unit: string | null;
+		/** `DashboardPanel.decimals`, already parsed - `undefined` is auto. */
+		decimals?: number;
 		legendPosition?: LegendPosition;
 		seriesColors?: Record<string, ThresholdColor>;
 	} = $props();
@@ -86,7 +89,7 @@
 				</Tooltip.Trigger>
 				{#if hoveredArc}
 					<Tooltip.Content>
-						<span class="font-medium">{hoveredArc.label}</span>: {formatValue(hoveredArc.value, unit)} ({formatPercent(hoveredArc.percent)})
+						<span class="font-medium">{hoveredArc.label}</span>: {formatValue(hoveredArc.value, unit, decimals)} ({formatPercent(hoveredArc.percent)})
 					</Tooltip.Content>
 				{/if}
 			</Tooltip.Root>
@@ -97,7 +100,7 @@
 					<li class="flex min-w-0 items-center gap-1.5" onpointerenter={() => (hovered = i)} onpointerleave={() => (hovered = null)}>
 						<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background: {arc.color};"></span>
 						<span class="min-w-0 flex-1 truncate" title={arc.label}>{arc.label}</span>
-						<span class="shrink-0 tabular-nums">{formatValue(arc.value, unit)}</span>
+						<span class="shrink-0 tabular-nums">{formatValue(arc.value, unit, decimals)}</span>
 						<span class="text-muted-foreground w-12 shrink-0 text-right tabular-nums">{formatPercent(arc.percent)}</span>
 					</li>
 				{/each}

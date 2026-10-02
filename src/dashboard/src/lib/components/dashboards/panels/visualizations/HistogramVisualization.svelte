@@ -18,10 +18,13 @@
 	let {
 		series,
 		unit,
+		decimals,
 		thresholds = []
 	}: {
 		series: VizSeries[];
 		unit: string | null;
+		/** `DashboardPanel.decimals`, already parsed - `undefined` is auto. */
+		decimals?: number;
 		thresholds?: PanelThreshold[];
 	} = $props();
 
@@ -53,7 +56,7 @@
 	}
 
 	function binLabel(from: number, to: number): string {
-		return from === to ? formatAtScale(from, histogram.scale) : `${formatAtScale(from, histogram.scale)} – ${formatAtScale(to, histogram.scale)}`;
+		return from === to ? formatAtScale(from, histogram.scale, decimals) : `${formatAtScale(from, histogram.scale, decimals)} – ${formatAtScale(to, histogram.scale, decimals)}`;
 	}
 
 	/** Label every edge only while they fit; past ~10 bins, every other one. */
@@ -122,11 +125,11 @@
 	<div class="text-muted-foreground relative mt-1 ml-10 h-3 text-[10px]">
 		{#each bins as bin, i (i)}
 			{#if i % labelEvery === 0}
-				<span class="absolute leading-none whitespace-nowrap {i === 0 ? '' : '-translate-x-1/2'}" style="left: {(i / bins.length) * 100}%">{formatAtScale(bin.from, histogram.scale)}</span>
+				<span class="absolute leading-none whitespace-nowrap {i === 0 ? '' : '-translate-x-1/2'}" style="left: {(i / bins.length) * 100}%">{formatAtScale(bin.from, histogram.scale, decimals)}</span>
 			{/if}
 		{/each}
 		{#if bins.length > 0 && bins.length % labelEvery === 0}
-			<span class="absolute -translate-x-full leading-none whitespace-nowrap" style="left: 100%">{formatAtScale(bins[bins.length - 1].to, histogram.scale)}</span>
+			<span class="absolute -translate-x-full leading-none whitespace-nowrap" style="left: 100%">{formatAtScale(bins[bins.length - 1].to, histogram.scale, decimals)}</span>
 		{/if}
 	</div>
 	<p class="text-muted-foreground mt-1 text-xs">{m.panelVisualization_histogramReadings({ count: readings.length })}</p>
