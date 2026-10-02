@@ -3,6 +3,7 @@
 	import PinOffIcon from '@lucide/svelte/icons/pin-off';
 	import FunnelPlusIcon from '@lucide/svelte/icons/funnel-plus';
 	import FunnelXIcon from '@lucide/svelte/icons/funnel-x';
+	import FilterIcon from '@lucide/svelte/icons/list-filter';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ChartColumnStackedIcon from '@lucide/svelte/icons/chart-column-stacked';
@@ -15,6 +16,7 @@
 		onTogglePin,
 		onFilter,
 		canFilterOut = true,
+		onReplace,
 		onGroupBy,
 		groupedByKey
 	}: {
@@ -26,6 +28,8 @@
 		onTogglePin?: (key: string) => void;
 		/** Optional - without it no filter-for/filter-out buttons render (e.g. a span event's attributes, which no filter can target). */
 		onFilter?: (key: string, value: string, exclude: boolean) => void;
+		/** Optional - "replace all filters with this one" (keeps the time range); without it no such button renders. */
+		onReplace?: (key: string, value: string) => void;
 		/** False drops just the filter-out button - SpanDetailSheet on a child span, whose filter has no exclude form. */
 		canFilterOut?: boolean;
 		/** Optional - stacks the Logs volume chart by this row's key; without it no group-by button renders. */
@@ -114,6 +118,17 @@
 									<FunnelXIcon class="size-3.5" />
 								</button>
 							{/if}
+						{/if}
+						{#if onReplace}
+							<button
+								type="button"
+								class="{actionClass} {revealClass}"
+								title={m.eventDetail_replaceFilters()}
+								aria-label={m.eventDetail_replaceFilters()}
+								onclick={() => onReplace(key, value)}
+							>
+								<FilterIcon class="size-3.5" />
+							</button>
 						{/if}
 						{#if onGroupBy}
 							{@const grouped = groupedByKey === key}

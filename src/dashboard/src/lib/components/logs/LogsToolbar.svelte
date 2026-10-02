@@ -110,6 +110,21 @@
 		</Badge>
 	{/if}
 
+	{#if explorer.filter.traceId}
+		<!-- "Logs for this trace" drill-down (EventDetailSheet) - same sticky-filter chip as above. -->
+		<Badge variant="secondary" class="max-w-64 gap-1">
+			<span class="truncate font-mono" title={explorer.filter.traceId}>trace = {explorer.filter.traceId}</span>
+			<button
+				type="button"
+				class="hover:text-foreground shrink-0"
+				onclick={() => explorer.clearTraceIdFilter()}
+				aria-label={m.logsToolbar_clearTraceFilter()}
+			>
+				<XIcon class="size-3" />
+			</button>
+		</Badge>
+	{/if}
+
 	{#if explorer.filter.attribute}
 		<!-- "View related logs" deep link from a Metrics chart (see MetricChart.svelte /
 		     $lib/deep-links.ts) - same "sticky filter, needs its own dismissible chip"

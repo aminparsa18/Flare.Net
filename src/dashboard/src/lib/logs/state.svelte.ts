@@ -59,6 +59,8 @@ export interface LogsFilterState {
 	search: string;
 	/** Exact PatternId match - set only via applyPatternIdFilter (the Patterns view's "View examples" drill-down), never part of a saved view. */
 	patternId: string;
+	/** Exact TraceId match - set only via applyTraceIdFilter (EventDetailSheet's "Logs for this trace"), never part of a saved view, same reasoning as patternId. */
+	traceId: string;
 	/**
 	 * Exact attribute-value match - set only via applyDeepLinkFilter (the "View related
 	 * logs" action on a Metrics chart, see MetricChart.svelte), same "sticky filter, not
@@ -196,6 +198,7 @@ export class LogsExplorerState {
 		severityNumbers: [],
 		search: '',
 		patternId: '',
+		traceId: '',
 		attribute: null,
 		attributeFilters: [],
 		bodyJsonFilters: [],
@@ -350,6 +353,7 @@ export class LogsExplorerState {
 		if (this.filter.severityNumbers.length) filter.severityNumbers = [...this.filter.severityNumbers];
 		if (this.filter.search.trim()) filter.search = this.filter.search.trim();
 		if (this.filter.patternId) filter.patternId = this.filter.patternId;
+		if (this.filter.traceId) filter.traceId = this.filter.traceId;
 		// The deep-link `attribute` (if any) always leads, followed by the user-built
 		// `attributeFilters` - order doesn't affect matching (every entry is ANDed - see
 		// LogFilterSqlBuilder.Build/LogFilterMatcher.Matches), it's just a stable order for
@@ -640,6 +644,7 @@ export class LogsExplorerState {
 			this.filter.attributeFilters.length > 0 ||
 			this.filter.bodyJsonFilters.length > 0 ||
 			this.filter.patternId !== '' ||
+			this.filter.traceId !== '' ||
 			this.filter.attribute !== null
 		);
 	}
@@ -653,6 +658,11 @@ export class LogsExplorerState {
 	 * targets - same distinction `clearSelectedBucket` draws for the chart selection.
 	 */
 	resetFilters(): void {
+		this.#clearContentFilters();
+		this.applyFilterChange();
+	}
+
+	#clearContentFilters(): void {
 		this.selectedBucketRange = null;
 		this.filter.search = '';
 		this.filter.services = [];
@@ -662,8 +672,8 @@ export class LogsExplorerState {
 		this.filter.bodyJsonFilters = [];
 		this.filter.patternId = '';
 		this.patternFilterLabel = null;
+		this.filter.traceId = '';
 		this.filter.attribute = null;
-		this.applyFilterChange();
 	}
 
 	#prependLive(event: LogEventDto): void {
@@ -772,6 +782,7 @@ export class LogsExplorerState {
 			severityNumbers: s.severityNumbers ?? [],
 			search: s.search ?? '',
 			patternId: '', // never part of a saved view - see LogsFilterState.patternId's remarks
+			traceId: '', // same
 			attribute: null, // never part of a saved view - see LogsFilterState.attribute's own remarks
 			attributeFilters: s.attributeFilters ?? [],
 			bodyJsonFilters: s.bodyJsonFilters ?? [],
@@ -798,6 +809,37 @@ export class LogsExplorerState {
 		this.selectedBucketRange = null;
 		this.filter.patternId = patternId;
 		this.patternFilterLabel = label || patternId;
+		this.applyFilterChange();
+	}
+
+	/**
+	 * EventDetailSheet's "Logs for this trace" - drops every content filter and narrows to
+	 * one trace id, keeping the time range (and display prefs) so the trace's lines are
+	 * visible without clearing filters by hand. Live tail off, same as the other drill-downs.
+	 */
+	applyTraceIdFilter(traceId: string): void {
+		this.live = false;
+		this.#clearContentFilters();
+		this.filter.traceId = traceId;
+		this.applyFilterChange();
+	}
+
+	/** Clears the trace-id drill-down - the dismissible badge in LogsToolbar. */
+	clearTraceIdFilter(): void {
+		if (!this.filter.traceId) return;
+		this.filter.traceId = '';
+		this.applyFilterChange();
+	}
+
+	/**
+	 * AttributeTable's "replace filters with this" - like `addAttributeValueFilter` but
+	 * first drops every other content filter, so the explorer shows only this one
+	 * attribute match within the current time range.
+	 */
+	replaceFiltersWithAttribute(bag: AttributeBag, key: string, value: string): void {
+		this.live = false;
+		this.#clearContentFilters();
+		this.filter.attributeFilters = [{ bag, key, value, operator: 'Equals' }];
 		this.applyFilterChange();
 	}
 
@@ -829,6 +871,7 @@ export class LogsExplorerState {
 			severityNumbers: [],
 			search: '',
 			patternId: '',
+			traceId: '',
 			attribute: params.attribute,
 			attributeFilters: [],
 			bodyJsonFilters: [],
