@@ -167,6 +167,23 @@ public static class SpanFilterSqlBuilder
     /// </summary>
     internal static string AttributeClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
     {
+        // Old/new semconv spellings of one attribute count as the same key: a positive
+        // operator matches if any spelling does, a negative one only if none does.
+        if (attribute.Bag == SpanAttributeBag.Span && SemconvAliases.Group(attribute.Key) is { } group)
+        {
+            var parts = group
+                .Select((key, i) => SingleKeyClause(attribute with { Key = key }, $"{suffix}x{i}", parameters, promoted))
+                .ToList();
+            var negative = attribute.Operator is SpanAttributeFilterOperator.NotEquals or SpanAttributeFilterOperator.NotRegex
+                or SpanAttributeFilterOperator.NotIn or SpanAttributeFilterOperator.Absent;
+            return $"({string.Join(negative ? " AND " : " OR ", parts)})";
+        }
+
+        return SingleKeyClause(attribute, suffix, parameters, promoted);
+    }
+
+    private static string SingleKeyClause(SpanAttributeFilter attribute, string suffix, ClickHouseParameterCollection parameters, PromotedAttributeColumns? promoted)
+    {
         if (promoted is not null && promoted.TryGetColumn(PromotedBag(attribute.Bag), attribute.Key, out var promotedColumn)
             && PromotedClause(attribute, suffix, parameters, promotedColumn) is { } promotedSql)
         {
