@@ -141,6 +141,8 @@
 	"eventDetail_resourceAttributes": "Атрибуты ресурса",
 	"eventDetail_scopeAttributes": "Атрибуты области видимости",
 	"eventDetail_viewContext": "Показать контекст",
+	"eventDetail_previous": "Предыдущее событие (k)",
+	"eventDetail_next": "Следующее событие (j)",
 	"eventDetail_pinnedAttributes": "Закреплённые атрибуты",
 	"eventDetail_pinAttribute": "Закрепить атрибут",
 	"eventDetail_unpinAttribute": "Открепить атрибут",

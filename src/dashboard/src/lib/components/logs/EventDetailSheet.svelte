@@ -10,6 +10,8 @@
 	import StackTraceViewer from './StackTraceViewer.svelte';
 	import EventHostMetrics from './EventHostMetrics.svelte';
 	import EventPodMetrics from './EventPodMetrics.svelte';
+	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import JsonTree from './JsonTree.svelte';
@@ -185,7 +187,21 @@
 		clearTimeout(copyResetTimer);
 		copyResetTimer = setTimeout(() => (copied = false), 1500);
 	}
+
+	// j/k and ↑/↓ step through the result list while the drawer is open; ignored while typing
+	// in a field or when a modifier is held.
+	function onNavKey(e: KeyboardEvent) {
+		if (explorer.selectedIndex < 0 || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+		const t = e.target as HTMLElement | null;
+		if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+		const delta = e.key === 'j' || e.key === 'ArrowDown' ? 1 : e.key === 'k' || e.key === 'ArrowUp' ? -1 : 0;
+		if (!delta) return;
+		e.preventDefault();
+		void explorer.selectAdjacent(delta);
+	}
 </script>
+
+<svelte:window onkeydown={onNavKey} />
 
 <Sheet.Root
 	open={explorer.selectedEvent !== null}
@@ -211,10 +227,34 @@
 					{#if event.eventName}
 						<span class="text-muted-foreground font-normal">· {event.eventName}</span>
 					{/if}
+					{#if explorer.selectedIndex >= 0}
+						<span class="ml-auto flex items-center gap-1">
+							<Button
+								variant="outline"
+								size="icon-sm"
+								title={m.eventDetail_previous()}
+								aria-label={m.eventDetail_previous()}
+								disabled={explorer.selectedIndex === 0}
+								onclick={() => void explorer.selectAdjacent(-1)}
+							>
+								<ChevronUpIcon />
+							</Button>
+							<Button
+								variant="outline"
+								size="icon-sm"
+								title={m.eventDetail_next()}
+								aria-label={m.eventDetail_next()}
+								disabled={explorer.selectedIndex >= explorer.events.length - 1 && !explorer.nextCursor}
+								onclick={() => void explorer.selectAdjacent(1)}
+							>
+								<ChevronDownIcon />
+							</Button>
+						</span>
+					{/if}
 					<Button
 						variant="outline"
 						size="sm"
-						class="ml-auto"
+						class={explorer.selectedIndex >= 0 ? '' : 'ml-auto'}
 						onclick={() => {
 							// Clears selectedEventId (closing this sheet) *before* opening
 							// context - two independent bits-ui Sheet.Root instances open at

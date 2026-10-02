@@ -141,6 +141,8 @@
 	"eventDetail_resourceAttributes": "Resource attributes",
 	"eventDetail_scopeAttributes": "Scope attributes",
 	"eventDetail_viewContext": "View context",
+	"eventDetail_previous": "Previous event (k)",
+	"eventDetail_next": "Next event (j)",
 	"eventDetail_pinnedAttributes": "Pinned attributes",
 	"eventDetail_pinAttribute": "Pin attribute",
 	"eventDetail_unpinAttribute": "Unpin attribute",

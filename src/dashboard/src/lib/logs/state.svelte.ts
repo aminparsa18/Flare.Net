@@ -270,6 +270,29 @@ export class LogsExplorerState {
 			null
 	);
 
+	/** Position of the open event in the main results list; -1 when closed or opened from the context view. */
+	selectedIndex = $derived(
+		this.selectedEventId === null ? -1 : this.events.findIndex((e) => e.eventId === this.selectedEventId)
+	);
+
+	/**
+	 * Moves the detail drawer to the adjacent row in `events` (+1 = next/older, -1 = previous).
+	 * Stepping past the loaded end fetches the next page first. No-op for a context-view event.
+	 */
+	async selectAdjacent(delta: 1 | -1): Promise<void> {
+		const i = this.selectedIndex;
+		if (i < 0) return;
+		let target = i + delta;
+		if (target >= this.events.length) {
+			await this.loadMore();
+			if (target >= this.events.length) return;
+			// loadMore may have evicted rows from the front; re-anchor on the open event.
+			target = this.selectedIndex + delta;
+		}
+		const next = this.events[target];
+		if (next) this.selectedEventId = next.eventId;
+	}
+
 	/**
 	 * Set by VolumeChart when a histogram bar is clicked - narrows what the log table
 	 * searches for without touching `filter.timeRangePreset`/`customRange`. Those two stay
