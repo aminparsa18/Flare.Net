@@ -14,6 +14,7 @@
 	import type { SpanAttributeBag, SpanDto } from '$lib/traces-api';
 	import { buildTracesAttributeFilterHref } from '$lib/deep-links';
 	import { goto } from '$app/navigation';
+	import { pinnedSpanAttributes } from '$lib/logs/pinned-attributes.svelte';
 	import { severityVariant } from '$lib/logs/severity';
 	import * as m from '$lib/paraglide/messages';
 	import { formatTimestamp } from '$lib/time/format';
@@ -93,6 +94,31 @@
 	function filterInto(span: SpanDto, bag: SpanAttributeBag) {
 		return (key: string, value: string, exclude: boolean) => goto(buildTracesAttributeFilterHref(span, { bag, key, value }, exclude));
 	}
+
+	const pinProps = {
+		isPinned: (key: string) => pinnedSpanAttributes.has(key),
+		onTogglePin: (key: string) => pinnedSpanAttributes.toggle(key)
+	};
+
+	// Pinned keys pulled out of whichever bag holds them (span, then resource, then scope)
+	// into one Pinned table, in pin order, and dropped from that bag's own table.
+	function splitPinned(span: SpanDto) {
+		const bags: [SpanAttributeBag, Record<string, string>][] = [
+			['Span', { ...span.spanAttributes }],
+			['Resource', { ...span.resourceAttributes }],
+			['Scope', { ...span.scopeAttributes }]
+		];
+		const pinned: Record<string, string> = {};
+		const pinnedBags = new Map<string, SpanAttributeBag>();
+		for (const key of pinnedSpanAttributes.keys) {
+			const found = bags.find(([, b]) => key in b);
+			if (!found) continue;
+			pinned[key] = found[1][key];
+			pinnedBags.set(key, found[0]);
+			delete found[1][key];
+		}
+		return { pinned, pinnedBags, span: bags[0][1], resource: bags[1][1], scope: bags[2][1] };
+	}
 </script>
 
 <Sheet.Root
@@ -107,6 +133,7 @@
 		{#if detail.selectedSpan}
 			{@const span = detail.selectedSpan}
 			{@const canFilterOut = !span.parentSpanId}
+			{@const sections = splitPinned(span)}
 			<Sheet.Header>
 				<Sheet.Title class="flex flex-wrap items-center gap-2">
 					<Badge variant={statusVariant(span.statusCode)}>{statusLabel(span.statusCode)}</Badge>
@@ -157,9 +184,16 @@
 
 					<Separator />
 
-					<AttributeTable title={m.spanDetail_spanAttributesTitle()} attributes={span.spanAttributes} onFilter={filterInto(span, 'Span')} {canFilterOut} />
-					<AttributeTable title={m.spanDetail_resourceAttributesTitle()} attributes={span.resourceAttributes} onFilter={filterInto(span, 'Resource')} {canFilterOut} />
-					<AttributeTable title={m.spanDetail_scopeAttributesTitle()} attributes={span.scopeAttributes} onFilter={filterInto(span, 'Scope')} {canFilterOut} />
+					<AttributeTable
+						title={m.eventDetail_pinnedAttributes()}
+						attributes={sections.pinned}
+						{...pinProps}
+						onFilter={(key, value, exclude) => filterInto(span, sections.pinnedBags.get(key) ?? 'Span')(key, value, exclude)}
+						{canFilterOut}
+					/>
+					<AttributeTable title={m.spanDetail_spanAttributesTitle()} attributes={sections.span} {...pinProps} onFilter={filterInto(span, 'Span')} {canFilterOut} />
+					<AttributeTable title={m.spanDetail_resourceAttributesTitle()} attributes={sections.resource} {...pinProps} onFilter={filterInto(span, 'Resource')} {canFilterOut} />
+					<AttributeTable title={m.spanDetail_scopeAttributesTitle()} attributes={sections.scope} {...pinProps} onFilter={filterInto(span, 'Scope')} {canFilterOut} />
 
 					{#if span.events.length > 0}
 						<div>

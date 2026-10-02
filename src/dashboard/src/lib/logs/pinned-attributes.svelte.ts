@@ -8,12 +8,10 @@
 // re-render the open sheet immediately.
 import { browser } from '$app/environment';
 
-const STORAGE_KEY = 'flare.logs.pinnedAttributeKeys';
-
-function load(): string[] {
+function load(storageKey: string): string[] {
 	if (!browser) return [];
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
+		const raw = localStorage.getItem(storageKey);
 		if (!raw) return [];
 		const parsed: unknown = JSON.parse(raw);
 		return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
@@ -24,7 +22,11 @@ function load(): string[] {
 
 class PinnedAttributes {
 	/** Pin order, oldest first - the Pinned table renders in this order. */
-	keys = $state<string[]>(load());
+	keys = $state<string[]>([]);
+
+	constructor(private readonly storageKey: string) {
+		this.keys = load(storageKey);
+	}
 
 	has(key: string): boolean {
 		return this.keys.includes(key);
@@ -34,7 +36,7 @@ class PinnedAttributes {
 		this.keys = this.has(key) ? this.keys.filter((k) => k !== key) : [...this.keys, key];
 		if (!browser) return;
 		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(this.keys));
+			localStorage.setItem(this.storageKey, JSON.stringify(this.keys));
 		} catch {
 			// Storage full/disabled (e.g. private browsing) - the pin still applies for this
 			// session, it just won't survive a reload.
@@ -42,4 +44,8 @@ class PinnedAttributes {
 	}
 }
 
-export const pinnedAttributes = new PinnedAttributes();
+export const pinnedAttributes = new PinnedAttributes('flare.logs.pinnedAttributeKeys');
+
+// Same mechanism for the trace span detail sheet, with its own key set - span attribute
+// keys (http.*, db.*) rarely overlap with what's worth pinning on a log.
+export const pinnedSpanAttributes = new PinnedAttributes('flare.traces.pinnedSpanAttributeKeys');
