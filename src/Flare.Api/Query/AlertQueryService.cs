@@ -95,8 +95,8 @@ public interface IAlertQueryService
 /// <c>logs</c> - every create/update here INSERTs a brand-new row for the same
 /// <see cref="AlertRule.Id"/> rather than mutating in place (<c>ALTER TABLE ...
 /// UPDATE/DELETE</c> are async ClickHouse *mutations*, the wrong tool for "write, read
-/// back immediately" CRUD). All reads go through <c>FROM alert_rules FINAL WHERE
-/// IsDeleted = 0</c>. See db/clickhouse/0003_alert_rules.sql for the full rationale.
+/// back immediately" CRUD). All reads go through <see cref="LatestVersionSql"/>
+/// (latest version per Id, then <c>IsDeleted = 0</c>). See db/clickhouse/0003_alert_rules.sql for the full rationale.
 /// </remarks>
 public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes) : IAlertQueryService
 {
@@ -170,7 +170,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
 
     public async Task<IReadOnlyList<AlertRule>> ListAsync(CancellationToken cancellationToken)
     {
-        var sql = $"SELECT {RuleColumns} FROM alert_rules FINAL WHERE IsDeleted = 0 ORDER BY Name";
+        var sql = LatestVersionSql.Select("alert_rules", RuleColumns, orderBy: "Name");
         await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
         return ReadRules(reader);
     }
@@ -179,7 +179,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("id", id);
-        var sql = $"SELECT {RuleColumns} FROM alert_rules FINAL WHERE Id = {{id:UUID}} AND IsDeleted = 0";
+        var sql = LatestVersionSql.Select("alert_rules", RuleColumns, idWhere: "Id = {id:UUID}");
         await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
         return reader.Read() ? ReadRule(reader) : null;
     }
@@ -240,7 +240,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
 
     public async Task<IReadOnlyList<AlertRule>> GetEnabledRulesAsync(CancellationToken cancellationToken)
     {
-        var sql = $"SELECT {RuleColumns} FROM alert_rules FINAL WHERE IsDeleted = 0 AND Enabled = 1";
+        var sql = LatestVersionSql.Select("alert_rules", RuleColumns, latestWhere: "Enabled = 1");
         await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
         return ReadRules(reader);
     }

@@ -61,7 +61,7 @@ Query/      LogFilterSqlBuilder (LogFilter -> parameterized WHERE clause, shared
             queries ../Flare.AlertWorker's AlertEvaluationWorker runs - the alerting
             equivalent of LogQueryService, reusing LogFilterSqlBuilder for its threshold
             count query), NotificationChannelQueryService (channel CRUD, same
-            ReplacingMergeTree/FINAL shape as AlertQueryService).
+            ReplacingMergeTree/latest-version read as AlertQueryService).
 Endpoints/  LogsEndpoints - the two /api/logs POST routes. LogTailEndpoints - the
             WebSocket route. AlertEndpoints - /api/alerts CRUD + history + test-run routes.
             NotificationChannelEndpoints - /api/notification-channels CRUD + send-test.
@@ -257,8 +257,10 @@ form's live preview. See `docs-internal/adr/0052-alert-notification-templates.md
 + `AlertHistoryEntry.ChannelResults` - see
 `docs-internal/adr/0021-reusable-notification-channels.md`). Rule/channel CRUD is
 INSERT-only — every create/update inserts a new version, delete inserts an `IsDeleted=1`
-tombstone, and every read goes through `FROM alert_rules FINAL WHERE IsDeleted = 0` (same
-shape for `notification_channels`). See those migrations' own comments and
+tombstone, and every read picks the latest version per `Id` and then drops tombstones, via
+`LatestVersionSql` (same shape for `notification_channels`; not `FINAL`, which only collapses
+versions within one shard in cluster mode - see
+`docs-internal/adr/0074-config-tables-latest-version-reads.md`). See those migrations' own comments and
 `db/clickhouse/README.md`'s "Design decisions" for the full rationale (`ALTER TABLE ...
 UPDATE/DELETE` are async mutations, the wrong tool for "write, read back immediately"
 CRUD).

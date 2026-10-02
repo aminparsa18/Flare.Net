@@ -26,7 +26,7 @@ public interface IDashboardQueryService
 
 /// <summary>
 /// The ClickHouse seam for dashboard CRUD - mirrors <see cref="SavedViewQueryService"/>'s
-/// role (down to the tombstone-versioning and <c>FINAL</c>-read mechanics) against
+/// role (down to the tombstone-versioning and latest-version-read mechanics) against
 /// <c>dashboards</c> instead of <c>saved_views</c>. See
 /// <c>docs-internal/adr/0023-custom-dashboards.md</c> for why a dashboard is its own
 /// table rather than a <see cref="SavedView"/> page type, and why <see cref="Dashboard.LayoutJson"/>
@@ -38,8 +38,8 @@ public interface IDashboardQueryService
 /// <c>dashboards</c> is a <c>ReplacingMergeTree</c>, not a plain <c>MergeTree</c> like
 /// <c>logs</c> - every create/update here INSERTs a brand-new row for the same
 /// <see cref="Dashboard.Id"/> rather than mutating in place, same reasoning
-/// <see cref="SavedViewQueryService"/>'s own remarks give. All reads go through <c>FROM
-/// dashboards FINAL WHERE IsDeleted = 0</c>. See db/clickhouse/0020_dashboards.sql for the
+/// <see cref="SavedViewQueryService"/>'s own remarks give. All reads go through
+/// <see cref="LatestVersionSql"/>. See db/clickhouse/0020_dashboards.sql for the
 /// full rationale.
 /// </remarks>
 public sealed class DashboardQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IDashboardQueryService
@@ -66,7 +66,7 @@ public sealed class DashboardQueryService(IClickHouseClient client, IOptions<Que
 
     public async Task<IReadOnlyList<Dashboard>> ListAsync(CancellationToken cancellationToken)
     {
-        var sql = $"SELECT {DashboardColumns} FROM dashboards FINAL WHERE IsDeleted = 0 ORDER BY Name";
+        var sql = LatestVersionSql.Select("dashboards", DashboardColumns, orderBy: "Name");
         await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
         return ReadDashboards(reader);
     }
@@ -75,7 +75,7 @@ public sealed class DashboardQueryService(IClickHouseClient client, IOptions<Que
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("id", id);
-        var sql = $"SELECT {DashboardColumns} FROM dashboards FINAL WHERE Id = {{id:UUID}} AND IsDeleted = 0";
+        var sql = LatestVersionSql.Select("dashboards", DashboardColumns, idWhere: "Id = {id:UUID}");
         await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
         return reader.Read() ? ReadDashboard(reader) : null;
     }

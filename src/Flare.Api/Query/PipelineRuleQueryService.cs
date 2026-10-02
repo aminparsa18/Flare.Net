@@ -57,7 +57,7 @@ public sealed class PipelineRuleQueryService(IClickHouseClient client, IOptions<
 
     public async Task<IReadOnlyList<PipelineRule>> ListAsync(CancellationToken cancellationToken)
     {
-        var sql = $"SELECT {RuleColumns} FROM pipeline_rules FINAL WHERE IsDeleted = 0 ORDER BY Name";
+        var sql = LatestVersionSql.Select("pipeline_rules", RuleColumns, orderBy: "Name");
         await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
         return ReadRules(reader);
     }
@@ -66,7 +66,7 @@ public sealed class PipelineRuleQueryService(IClickHouseClient client, IOptions<
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("id", id);
-        var sql = $"SELECT {RuleColumns} FROM pipeline_rules FINAL WHERE Id = {{id:UUID}} AND IsDeleted = 0";
+        var sql = LatestVersionSql.Select("pipeline_rules", RuleColumns, idWhere: "Id = {id:UUID}");
         await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
         return reader.Read() ? ReadRule(reader) : null;
     }

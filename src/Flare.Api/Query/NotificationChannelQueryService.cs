@@ -27,7 +27,7 @@ public interface INotificationChannelQueryService
 /// <summary>
 /// The ClickHouse seam for notification-channel CRUD - mirrors <see cref="AlertQueryService"/>'s
 /// role/shape (including its <c>ReplacingMergeTree(UpdatedAt)</c> / tombstone-delete /
-/// <c>FINAL WHERE IsDeleted = 0</c> CRUD pattern - see that class's remarks for the full
+/// <see cref="LatestVersionSql"/> CRUD pattern - see that class's remarks for the full
 /// rationale, which applies here unchanged) against <c>notification_channels</c> instead
 /// of <c>alert_rules</c>.
 /// </summary>
@@ -72,7 +72,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
 
     public async Task<IReadOnlyList<NotificationChannel>> ListAsync(CancellationToken cancellationToken)
     {
-        var sql = $"SELECT {ChannelColumns} FROM notification_channels FINAL WHERE IsDeleted = 0 ORDER BY Name";
+        var sql = LatestVersionSql.Select("notification_channels", ChannelColumns, orderBy: "Name");
         await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
         return ReadChannels(reader);
     }
@@ -81,7 +81,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("id", id);
-        var sql = $"SELECT {ChannelColumns} FROM notification_channels FINAL WHERE Id = {{id:UUID}} AND IsDeleted = 0";
+        var sql = LatestVersionSql.Select("notification_channels", ChannelColumns, idWhere: "Id = {id:UUID}");
         await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
         return reader.Read() ? ReadChannel(reader) : null;
     }
@@ -95,7 +95,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
 
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("ids", ids.ToArray());
-        var sql = $"SELECT {ChannelColumns} FROM notification_channels FINAL WHERE Id IN {{ids:Array(UUID)}} AND IsDeleted = 0";
+        var sql = LatestVersionSql.Select("notification_channels", ChannelColumns, idWhere: "Id IN {ids:Array(UUID)}");
         await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
         return ReadChannels(reader);
     }

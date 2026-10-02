@@ -33,8 +33,8 @@ public interface ISavedViewQueryService
 /// <c>saved_views</c> is a <c>ReplacingMergeTree</c>, not a plain <c>MergeTree</c> like
 /// <c>logs</c> - every create/update here INSERTs a brand-new row for the same
 /// <see cref="SavedView.Id"/> rather than mutating in place, same reasoning
-/// <see cref="AlertQueryService"/>'s own remarks give. All reads go through <c>FROM
-/// saved_views FINAL WHERE IsDeleted = 0</c>. See db/clickhouse/0009_saved_views.sql for
+/// <see cref="AlertQueryService"/>'s own remarks give. All reads go through
+/// <see cref="LatestVersionSql"/>. See db/clickhouse/0009_saved_views.sql for
 /// the full rationale.
 /// </remarks>
 public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ISavedViewQueryService
@@ -63,7 +63,7 @@ public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<Que
     {
         if (pageType is null)
         {
-            var sql = $"SELECT {ViewColumns} FROM saved_views FINAL WHERE IsDeleted = 0 ORDER BY Name";
+            var sql = LatestVersionSql.Select("saved_views", ViewColumns, orderBy: "Name");
             await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
             return ReadViews(reader);
         }
@@ -71,7 +71,7 @@ public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<Que
         {
             var parameters = new ClickHouseParameterCollection();
             parameters.AddParameter("pageType", pageType.Value.ToString());
-            var sql = $"SELECT {ViewColumns} FROM saved_views FINAL WHERE IsDeleted = 0 AND PageType = {{pageType:String}} ORDER BY Name";
+            var sql = LatestVersionSql.Select("saved_views", ViewColumns, latestWhere: "PageType = {pageType:String}", orderBy: "Name");
             await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
             return ReadViews(reader);
         }
@@ -81,7 +81,7 @@ public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<Que
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("id", id);
-        var sql = $"SELECT {ViewColumns} FROM saved_views FINAL WHERE Id = {{id:UUID}} AND IsDeleted = 0";
+        var sql = LatestVersionSql.Select("saved_views", ViewColumns, idWhere: "Id = {id:UUID}");
         await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
         return reader.Read() ? ReadView(reader) : null;
     }
