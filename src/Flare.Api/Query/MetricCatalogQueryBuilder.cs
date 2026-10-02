@@ -87,7 +87,7 @@ public static class MetricCatalogQueryBuilder
         }
 
         var branches = Tables.Select(t =>
-            $"  SELECT MetricName, '{t.Type}' AS Type, anyIf(Unit, Unit != '') AS Unit, anyIf(Description, Description != '') AS Description, " +
+            $"  SELECT MetricName, '{t.Type}' AS Type, argMaxIf(Unit, Time, Unit != '') AS Unit, argMaxIf(Description, Time, Description != '') AS Description, " +
             "uniq(ServiceName) AS ServiceCount, uniq(ServiceName, toString(DataPointAttributes)) AS SeriesCount, count() AS SampleCount, max(Time) AS LastReceived\n" +
             $"  FROM {t.Table}\n" +
             $"  WHERE {where}\n" +
@@ -109,7 +109,7 @@ public static class MetricCatalogQueryBuilder
         var (where, parameters) = MetricScope(request, windowMinutes, now);
         parameters.AddParameter("serviceLimit", (uint)MaxServices);
 
-        var sql = "SELECT ServiceName, anyIf(Unit, Unit != '') AS Unit, anyIf(Description, Description != '') AS Description, " +
+        var sql = "SELECT ServiceName, argMaxIf(Unit, Time, Unit != '') AS Unit, argMaxIf(Description, Time, Description != '') AS Description, " +
             "uniq(toString(DataPointAttributes)) AS SeriesCount, count() AS SampleCount, max(Time) AS LastReceived\n" +
             $"FROM {MetricTables.For(request.Type)}\n" +
             $"WHERE {where}\n" +

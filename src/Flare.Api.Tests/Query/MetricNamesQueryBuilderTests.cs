@@ -25,6 +25,16 @@ public class MetricNamesQueryBuilderTests
     }
 
     [Fact]
+    public void Build_ReadsLatestUnitAndDescription_NotAnArbitraryRow()
+    {
+        var result = MetricNamesQueryBuilder.Build(new MetricNamesRequest(), Now);
+
+        Assert.Equal(4, CountOccurrences(result.Sql, "argMax(Unit, Time) AS Unit"));
+        Assert.Equal(4, CountOccurrences(result.Sql, "argMax(Description, Time) AS Description"));
+        Assert.DoesNotContain("any(", result.Sql);
+    }
+
+    [Fact]
     public void Build_GroupsByMetricNameAndServiceName_PerTable()
     {
         var result = MetricNamesQueryBuilder.Build(new MetricNamesRequest(), Now);

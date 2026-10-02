@@ -63,7 +63,7 @@ public static class MetricAlertConditionQueryBuilder
     public static MetricAlertConditionSql Build(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to)
     {
         var (table, whereSql, parameters) = BuildWhere(condition, from, to);
-        // `any(Unit)` appended last in every branch, after the type's own aggregate columns
+        // `argMax(Unit, Time)` appended last in every branch, after the type's own aggregate columns
         // - keeps existing ordinals (0/1 for Gauge, 0-1 for Sum, 0-3 for Histogram, 0-10 for
         // ExponentialHistogram) stable
         // for AlertQueryService.EvaluateMetricConditionAsync's positional reads, with Unit
@@ -73,11 +73,11 @@ public static class MetricAlertConditionQueryBuilder
             MetricPointType.Gauge => BuildGaugeSql(condition.Aggregation, table, whereSql),
             MetricPointType.Sum => BuildSumSql(table, whereSql),
             MetricPointType.Histogram =>
-                HistogramTemporalitySql.ExplicitRankedCte(table, whereSql, "Unit") +
-                $"SELECT {HistogramTemporalitySql.ExplicitAggregates}, any(Unit) AS Unit FROM ranked",
+                HistogramTemporalitySql.ExplicitRankedCte(table, whereSql, "Unit, Time") +
+                $"SELECT {HistogramTemporalitySql.ExplicitAggregates}, argMax(Unit, Time) AS Unit FROM ranked",
             MetricPointType.ExponentialHistogram =>
-                HistogramTemporalitySql.ExponentialContributionsCte(table, whereSql, "Unit", "Unit") +
-                $"SELECT {HistogramTemporalitySql.ExponentialAggregates}, any(Unit) AS Unit FROM contributions GROUP BY Scale",
+                HistogramTemporalitySql.ExponentialContributionsCte(table, whereSql, "Unit, Time", "Unit, Time") +
+                $"SELECT {HistogramTemporalitySql.ExponentialAggregates}, argMax(Unit, Time) AS Unit FROM contributions GROUP BY Scale",
             _ => throw new ArgumentOutOfRangeException(nameof(condition), condition.Type, "Unknown metric point type."),
         };
 
@@ -123,16 +123,16 @@ public static class MetricAlertConditionQueryBuilder
     /// </summary>
     private static string BuildGaugeSql(MetricAlertAggregation aggregation, string table, string whereSql) => aggregation switch
     {
-        MetricAlertAggregation.Min => $"SELECT if(count() = 0, nan, min(Value)) AS Value, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
-        MetricAlertAggregation.Max => $"SELECT if(count() = 0, nan, max(Value)) AS Value, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
+        MetricAlertAggregation.Min => $"SELECT if(count() = 0, nan, min(Value)) AS Value, argMax(Unit, Time) AS Unit FROM {table} WHERE {whereSql}",
+        MetricAlertAggregation.Max => $"SELECT if(count() = 0, nan, max(Value)) AS Value, argMax(Unit, Time) AS Unit FROM {table} WHERE {whereSql}",
         MetricAlertAggregation.Last =>
             "SELECT avg(LastValue) AS Value, any(SeriesUnit) AS Unit FROM (\n" +
-            "  SELECT argMax(Value, Time) AS LastValue, any(Unit) AS SeriesUnit\n" +
+            "  SELECT argMax(Value, Time) AS LastValue, argMax(Unit, Time) AS SeriesUnit\n" +
             $"  FROM {table}\n" +
             $"  WHERE {whereSql}\n" +
             "  GROUP BY ServiceName, toString(DataPointAttributes)\n" +
             ")",
-        _ => $"SELECT avg(Value) AS Value, any(Unit) AS Unit FROM {table} WHERE {whereSql}",
+        _ => $"SELECT avg(Value) AS Value, argMax(Unit, Time) AS Unit FROM {table} WHERE {whereSql}",
     };
 
     /// <summary>
@@ -158,6 +158,6 @@ public static class MetricAlertConditionQueryBuilder
         "    IsMonotonic = 0, RawDelta,\n" +
         "    RawDelta < 0, Value,\n" +
         "    RawDelta\n" +
-        "  )) AS Value, count() AS Count, any(Unit) AS Unit\n" +
+        "  )) AS Value, count() AS Count, argMax(Unit, Time) AS Unit\n" +
         "FROM ranked";
 }
