@@ -8,18 +8,25 @@ namespace Flare.Ingest.Pipeline.Rules;
 /// <see cref="IPipelineRuleStore"/> backed by <c>Aspire.ClickHouse.Driver</c>'s
 /// <see cref="IClickHouseClient"/> - the first read use of the client on the
 /// <c>Flare.Ingest</c> side, which otherwise only ever writes (see
-/// <see cref="ClickHouseLogEventWriter"/>). Same <c>SELECT ... FINAL WHERE IsDeleted = 0</c>
-/// query shape <c>Flare.Api</c>'s <c>AlertQueryService.GetEnabledRulesAsync</c> uses against
-/// <c>alert_rules</c>, here against <c>pipeline_rules</c> - a separate, mirrored
-/// implementation rather than a <c>ProjectReference</c> to <c>Flare.Api</c>, consistent with
-/// this boundary never sharing types (see <see cref="PipelineRuleCondition"/>'s remarks).
+/// <see cref="ClickHouseLogEventWriter"/>). Same latest-version-per-Id query shape
+/// <c>Flare.Api</c>'s <c>LatestVersionSql</c> builds for <c>alert_rules</c>, here against
+/// <c>pipeline_rules</c> - a separate, mirrored implementation rather than a
+/// <c>ProjectReference</c> to <c>Flare.Api</c>, consistent with this boundary never sharing
+/// types (see <see cref="PipelineRuleCondition"/>'s remarks). Not <c>FINAL</c>: in cluster
+/// mode one rule's versions can sit on different <c>rand()</c>-sharded shards, and
+/// <c>FINAL</c> only collapses within a shard, so an edited or disabled rule could keep
+/// running in its old form - see <c>LatestVersionSql</c>'s remarks.
 /// </summary>
 public sealed class ClickHousePipelineRuleStore(IClickHouseClient client) : IPipelineRuleStore
 {
     private const string Sql = """
         SELECT Id, Name, ConditionJson, ActionsJson
-        FROM pipeline_rules
-        FINAL
+        FROM (
+            SELECT Id, Name, ConditionJson, ActionsJson, Enabled, IsDeleted, CreatedAt
+            FROM pipeline_rules
+            ORDER BY UpdatedAt DESC
+            LIMIT 1 BY Id
+        )
         WHERE IsDeleted = 0 AND Enabled = 1
         ORDER BY CreatedAt
         """;

@@ -78,22 +78,6 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Cluster mode: edited config rows read back as a stale version.**
-  `dashboards`, `saved_views`, `alert_rules`, `maintenance_windows` and
-  `notification_channels` store one row per edit and read the latest via
-  `FROM <table> FINAL`, but in `db/clickhouse-cluster/` their `Distributed`
-  tables shard by `rand()`. `FINAL` only collapses versions within a shard,
-  so once a row's versions span shards a read returns one per shard and the
-  caller takes whichever arrives first. Seen live while taking the
-  custom-dashboards screenshots: an edited dashboard alternated between old
-  and new names across reloads. For alert rules this means an edited
-  threshold or a disabled rule can be evaluated in its old form. Fix options:
-  pick the latest at query time (`ORDER BY UpdatedAt DESC LIMIT 1 BY Id`,
-  or `argMax` over the Distributed table), or shard these tables by
-  `cityHash64(Id)`. The second is a sharding-key change, which
-  [ADR-0003](../adr/0003-distributed-tables-plain-names-and-sharding.md)
-  flags as a data-correctness hazard for existing rows. Single-node mode is
-  unaffected.
 - **Dashboard edit mode hides narrow panels' titles.** On panels ≤ 4 grid
   columns wide at a ~1300 px viewport, the per-panel edit toolbar (move,
   alert, export, edit, filter, visualization, colors, row, duplicate,

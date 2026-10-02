@@ -25,8 +25,8 @@ public interface IMaintenanceWindowQueryService
 /// <summary>
 /// The ClickHouse seam for maintenance-window CRUD - same role/shape as
 /// <see cref="NotificationChannelQueryService"/> (and <see cref="AlertQueryService"/>'s
-/// <c>ReplacingMergeTree(UpdatedAt)</c> / tombstone-delete / <c>FINAL WHERE IsDeleted = 0</c>
-/// pattern), against <c>maintenance_windows</c>.
+/// <c>ReplacingMergeTree(UpdatedAt)</c> / tombstone-delete / <see cref="LatestVersionSql"/>
+/// read pattern), against <c>maintenance_windows</c>.
 /// </summary>
 public sealed class MaintenanceWindowQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IMaintenanceWindowQueryService
 {
@@ -73,7 +73,7 @@ public sealed class MaintenanceWindowQueryService(IClickHouseClient client, IOpt
 
     public async Task<IReadOnlyList<MaintenanceWindow>> ListAsync(CancellationToken cancellationToken)
     {
-        var sql = $"SELECT {WindowColumns} FROM maintenance_windows FINAL WHERE IsDeleted = 0 ORDER BY StartsAt DESC";
+        var sql = LatestVersionSql.Select("maintenance_windows", WindowColumns, orderBy: "StartsAt DESC");
         await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
         var windows = new List<MaintenanceWindow>();
         while (reader.Read())
@@ -88,7 +88,7 @@ public sealed class MaintenanceWindowQueryService(IClickHouseClient client, IOpt
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("id", id);
-        var sql = $"SELECT {WindowColumns} FROM maintenance_windows FINAL WHERE Id = {{id:UUID}} AND IsDeleted = 0";
+        var sql = LatestVersionSql.Select("maintenance_windows", WindowColumns, idWhere: "Id = {id:UUID}");
         await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
         return reader.Read() ? ReadWindow(reader) : null;
     }

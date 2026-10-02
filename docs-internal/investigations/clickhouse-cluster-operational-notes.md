@@ -60,6 +60,13 @@ applied via `ClickHouseMigrationRunner`.
    been flagged as an unverified risk in earlier migration comments; it
    isn't one.
 
+   **Correction (2026-10-02): this finding was wrong.** Both versions in that
+   test happened to land on the same shard (`rand()` sharding, 50/50 for two
+   rows). With versions written directly to different shards' `_local`
+   tables, `FINAL` returned one row per shard, and a tombstoned row still
+   showed up. See
+   [ADR-0074](../adr/0074-config-tables-latest-version-reads.md).
+
 6. **A shard-connectivity blip during a synchronous `Distributed` insert can
    duplicate rows.** Observed while finding #3 above was still unresolved:
    an `INSERT INTO logs` with `insert_distributed_sync = 1` returned
