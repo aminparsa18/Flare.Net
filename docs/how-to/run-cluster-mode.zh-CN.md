@@ -90,3 +90,8 @@ row/`PatternId` 表示重复模板，而不是两个碎片行，并且
 必须首先销毁并重新创建现有的集群卷 - 这是
 与初始设置相同的“仅限新卷”规则，但故障模式
 跳过它是默默地错误的查询结果，而不是错误。
+
+2026-10-02 之前创建的集群会在基于 span 的聚合（Services、Map、External APIs）中
+将每个 span 计数两次：分片未设置 `internal_replication`，因此每个副本都会在自己那份
+插入数据上运行物化视图。`db/clickhouse-cluster/config/remote-servers.xml` 现已设置该项，
+新数据因此正确。已写入的行仍是双倍计数，直到您重新创建集群卷。

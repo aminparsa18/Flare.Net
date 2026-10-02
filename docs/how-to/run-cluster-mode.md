@@ -88,3 +88,10 @@ if you ever need to change how a table is sharded (see
 existing cluster volumes must be destroyed and recreated first — this is
 the same "fresh volumes only" rule as initial setup, but the failure mode
 for skipping it is silently wrong query results, not an error.
+
+Clusters created before 2026-10-02 count every span twice in the
+span-derived aggregates (Services, Map, External APIs): the shards didn't
+set `internal_replication`, so each replica ran the materialized views on
+its own copy of every insert. `db/clickhouse-cluster/config/remote-servers.xml`
+now sets it, which fixes new data. Rows already written stay doubled until
+you recreate the cluster volumes.

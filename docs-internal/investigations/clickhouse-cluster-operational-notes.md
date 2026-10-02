@@ -161,6 +161,17 @@ applied via `ClickHouseMigrationRunner`.
     Confirmed via `DESCRIBE TABLE system.clusters` against a running node.
     Fixed: read as `uint`, matching `errors_count`/`slowdowns_count`.
 
+13. **Span-derived aggregates counted every span twice** (found 2026-10-02).
+    `remote-servers.xml` didn't set `internal_replication`, so it defaulted
+    to `false`. A `Distributed` insert into `spans` then wrote to both
+    replicas of the target shard itself, and each replica's materialized
+    views fired on their own copy. One control span gave two
+    `service_metrics` rows with `RequestCount = 1`, created at the same
+    second by clickhouse-1 and clickhouse-2 according to `system.part_log`.
+    Fixed: `<internal_replication>true</internal_replication>` on both
+    shards, so the insert goes to one replica and replication copies it.
+    Rows written before the fix stay doubled.
+
 ## Conclusion
 
 After findings #10–#12 were fixed, the full failure/recovery path was

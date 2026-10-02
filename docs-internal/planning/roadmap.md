@@ -91,7 +91,3 @@ folders are where "what happened and why" actually lives.
   `localhost`. The example shop works around it with an Npgsql enrichment
   callback (`examples/ExampleApp.Shop/ShopDatabase.cs`); drop that once
   Flare reads both.
-- **`ExampleApp.Seeder --clear` in cluster mode.** It deletes by
-  `ALTER TABLE ... DELETE` on the plain tables and refuses when they're
-  `Distributed`; cluster mode needs `ON CLUSTER` mutations on the
-  `*_local` tables plus the aggregate rebuild run against them.

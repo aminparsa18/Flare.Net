@@ -98,3 +98,11 @@ les volumes de cluster existants doivent d'abord être détruits et
 recréés — c'est la même règle « volumes frais uniquement » que pour la
 configuration initiale, mais le mode d'échec si on l'ignore est des
 résultats de requête silencieusement faux, pas une erreur.
+
+Les clusters créés avant le 2026-10-02 comptent chaque span deux fois dans
+les agrégats dérivés des spans (Services, Map, External APIs) : les shards
+ne définissaient pas `internal_replication`, donc chaque réplica exécutait
+les vues matérialisées sur sa propre copie de chaque insertion.
+`db/clickhouse-cluster/config/remote-servers.xml` le définit désormais, ce
+qui corrige les nouvelles données. Les lignes déjà écrites restent
+doublées tant que vous ne recréez pas les volumes du cluster.

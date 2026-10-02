@@ -171,8 +171,9 @@ non-default endpoints, and `--seed` to change the data's random shape. Run with 
 the full list. Against the Aspire demo, the ports are on `aspire describe`'s `flare-ingest`,
 `flare-api` and `flare-clickhouse` rows.
 
-`--clear` supports single-node ClickHouse only. In cluster mode the tables are Distributed,
-and the seeder refuses rather than half-deleting. Use `--append` there.
+Clearing also works against cluster mode (`docker-compose.cluster.yml`). There it deletes
+with `ON CLUSTER` mutations on the `*_local` tables. Point `--clickhouse` at any node's HTTP
+port or at `clickhouse-lb`; that file doesn't publish either, so add a `ports:` entry first.
 
 ## Tests
 
