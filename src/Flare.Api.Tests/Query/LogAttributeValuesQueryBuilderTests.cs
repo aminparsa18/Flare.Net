@@ -105,4 +105,51 @@ public class LogAttributeValuesQueryBuilderTests
         Assert.DoesNotContain("mapContains", result.Sql);
         Assert.DoesNotContain("valuesKey", result.Parameters.ToDictionary().Keys);
     }
+
+    [Fact]
+    public void Build_BodyJsonPath_EnumeratesChildKeysUnderParentPath_FromABoundedNewestFirstSample()
+    {
+        var request = Request(key: "user.address", prefix: "ci") with { Field = LogValuesField.BodyJsonPath };
+
+        var result = LogAttributeValuesQueryBuilder.Build(request, Now);
+
+        Assert.Contains("arrayJoin(JSONExtractKeys(Body, {valuesJsonPath0:String}, {valuesJsonPath1:String})) AS Value", result.Sql);
+        Assert.Contains("Body LIKE '{%'", result.Sql);
+        Assert.Contains("ORDER BY Timestamp DESC LIMIT {valuesSample:UInt32}", result.Sql);
+        Assert.Contains("Value ILIKE {valuesPrefix:String}", result.Sql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal("user", parameters["valuesJsonPath0"]);
+        Assert.Equal("address", parameters["valuesJsonPath1"]);
+        Assert.Equal(LogAttributeValuesQueryBuilder.BodyJsonSampleSize, parameters["valuesSample"]);
+    }
+
+    [Fact]
+    public void Build_BodyJsonPath_WithEmptyKey_EnumeratesTopLevelKeys()
+    {
+        var request = Request(key: "") with { Field = LogValuesField.BodyJsonPath };
+
+        var result = LogAttributeValuesQueryBuilder.Build(request, Now);
+
+        Assert.Contains("arrayJoin(JSONExtractKeys(Body)) AS Value", result.Sql);
+    }
+
+    [Fact]
+    public void Build_BodyJsonValue_ExtractsScalarAtPath_GuardedByJsonHas()
+    {
+        var request = Request(key: "user.id") with { Field = LogValuesField.BodyJsonValue };
+
+        var result = LogAttributeValuesQueryBuilder.Build(request, Now);
+
+        Assert.Contains("JSONExtractString(Body, {valuesJsonPath0:String}, {valuesJsonPath1:String}) AS Value", result.Sql);
+        Assert.Contains("JSONHas(Body, {valuesJsonPath0:String}, {valuesJsonPath1:String})", result.Sql);
+        Assert.Contains("GROUP BY Value", result.Sql);
+    }
+
+    [Fact]
+    public void Build_BodyJsonValue_WithEmptyKey_Throws()
+    {
+        var request = Request(key: "") with { Field = LogValuesField.BodyJsonValue };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => LogAttributeValuesQueryBuilder.Build(request, Now));
+    }
 }

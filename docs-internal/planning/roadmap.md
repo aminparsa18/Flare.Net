@@ -111,14 +111,6 @@ folders are where "what happened and why" actually lives.
   ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
   how-to/reference pages yet. Document it there, with the `.ru`/`.fr`/`.zh-CN`
   siblings hand-translated. Not started.
-- **Path/value suggestions for JSON body filters.** `BodyJsonFiltersRow` has
-  no suggestion source (its fetcher always resolves empty), so users must
-  know the exact JSON path. Add an endpoint that samples recent JSON bodies
-  in the current time range/service filter (`JSONAllPaths`/`JSONExtractKeys`
-  over a capped `LIMIT`, under the usual query caps), cached, plus a matching
-  value lookup for a chosen path. That's preferable to an ingest-maintained
-  key table. Not started. Prior art:
-  [signoz#9593](https://github.com/SigNoz/signoz/commit/e66bfe59618917ed947135ba73bb00086e47a1e4).
 - **Unit on metric-alert thresholds.** A metric rule's threshold is always
   in the series' native unit, so "alert when p95 > 500 ms" against
   `http.server.request.duration` (recorded in seconds) has to be typed as

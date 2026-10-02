@@ -21,7 +21,7 @@ public sealed partial record LogAttributeValuesRequest
     /// <summary>Which bag <see cref="Key"/> is looked up in - same three bags <see cref="AttributeFilter.Bag"/> targets.</summary>
     public AttributeBag Bag { get; init; } = AttributeBag.Log;
 
-    /// <summary>The attribute key to enumerate observed values for. Ignored (may be empty) unless <see cref="Field"/> is <see cref="LogValuesField.Attribute"/>.</summary>
+    /// <summary>The attribute key to enumerate observed values for. Ignored (may be empty) unless <see cref="Field"/> is <see cref="LogValuesField.Attribute"/>; for the <c>BodyJson*</c> fields it is a dot-separated JSON path.</summary>
     public string Key { get; init; } = "";
 
     /// <summary>
@@ -54,6 +54,17 @@ public enum LogValuesField
 
     /// <summary><c>SeverityNumber</c>, as its decimal string (<c>"0"</c>-<c>"24"</c>) - the caller buckets it.</summary>
     Severity,
+
+    /// <summary>
+    /// Child object keys under the <see cref="LogAttributeValuesRequest.Key"/> JSON path in
+    /// <c>Body</c> (empty = top level), sampled from recent in-scope events - the Body JSON
+    /// filters builder's path autocomplete. <see cref="LogAttributeValueInfo.Value"/> is the
+    /// bare key, not the full path; <see cref="LogAttributeValuesRequest.Prefix"/> narrows it.
+    /// </summary>
+    BodyJsonPath,
+
+    /// <summary>The scalar values at the <see cref="LogAttributeValuesRequest.Key"/> JSON path in <c>Body</c>, sampled from recent in-scope events.</summary>
+    BodyJsonValue,
 }
 
 /// <summary>One distinct value observed for a <see cref="LogAttributeValuesRequest.Key"/>, with how many in-scope events carry it.</summary>

@@ -7,11 +7,9 @@
 	// an attribute key. Own Accordion section, same collapsed-by-default/
 	// localStorage-remembered pattern AttributeFiltersRow/SqlQueryRow already use.
 	//
-	// Unlike AttributeFiltersRow, there's no server-side value-suggestion endpoint for a
-	// JSON path (getLogAttributeValues is keyed to a bag+key pair, not a Body path) - the
-	// value/values inputs still reuse AttributeValueCombobox/AttributeValueListInput for
-	// their input-and-chip behavior (Enter/comma to commit, etc.), just wired to a
-	// suggestion source that always resolves empty rather than a real lookup.
+	// The path and value inputs use AttributeValueCombobox/AttributeValueListInput for
+	// server-backed suggestions (suggestPaths/suggestValues below) - the path combobox lists
+	// the child keys of whatever precedes the last `.` typed so far.
 	//
 	// Rows are local, ephemeral UI state (each needs a stable key for {#each} that
 	// BodyJsonFilter itself has no field for) - committed into
@@ -21,12 +19,11 @@
 	// AttributeFiltersRow's own header gives.
 	import { browser } from '$app/environment';
 	import { logsExplorerContext } from '$lib/logs/context';
-	import type { BodyJsonFilter, BodyJsonFilterOperator } from '$lib/api';
+	import { getLogAttributeValues, type BodyJsonFilter, type BodyJsonFilterOperator } from '$lib/api';
 	import * as Accordion from '$lib/components/ui/accordion';
 	import * as Select from '$lib/components/ui/select';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
-	import AttributeValueCombobox from './AttributeValueCombobox.svelte';
+		import { Button } from '$lib/components/ui/button';
+	import AttributeValueCombobox, { type AttributeValueSuggestion } from './AttributeValueCombobox.svelte';
 	import AttributeValueListInput from './AttributeValueListInput.svelte';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -92,9 +89,46 @@
 		return operator === 'In' || operator === 'NotIn';
 	}
 
-	/** No suggestion source exists for a JSON path's value (unlike AttributeFiltersRow's getLogAttributeValues) - AttributeValueCombobox/AttributeValueListInput still need a `fetchSuggestions` prop, so this always resolves empty rather than a real lookup. */
-	async function noSuggestions() {
-		return [];
+	/**
+	 * Path/value autocomplete (`BodyJsonPath`/`BodyJsonValue` on /api/logs/attribute-values) -
+	 * sampled from the newest in-scope JSON bodies, not an exhaustive index. Scoped to the
+	 * same filter/time window as the log table minus the body-JSON filters themselves, so a
+	 * sibling row's `Equals` doesn't hide the keys it was meant to be chosen alongside.
+	 * Best-effort: a failed lookup resolves to no suggestions rather than an error.
+	 */
+	function suggestionFilter() {
+		const { bodyJsonFilters: _omitted, ...filter } = explorer.buildFilter(explorer.currentRange());
+		return filter;
+	}
+
+	/** Splits the typed path at its last `.` into the parent whose child keys are listed and the partial segment narrowing them. Returned values are full paths. */
+	async function suggestPaths(text: string, signal: AbortSignal): Promise<AttributeValueSuggestion[]> {
+		const dot = text.lastIndexOf('.');
+		const parent = dot >= 0 ? text.slice(0, dot) : '';
+		const partial = dot >= 0 ? text.slice(dot + 1) : text;
+		try {
+			const res = await getLogAttributeValues(
+				{ filter: suggestionFilter(), key: parent, field: 'BodyJsonPath', prefix: partial.trim() || undefined, limit: 20 },
+				signal
+			);
+			return res.values.map((v) => ({ value: parent ? `${parent}.${v.value}` : v.value, count: v.count }));
+		} catch {
+			return [];
+		}
+	}
+
+	async function suggestValues(row: Row, text: string, signal: AbortSignal): Promise<AttributeValueSuggestion[]> {
+		const key = row.path.trim();
+		if (!key) return [];
+		try {
+			const res = await getLogAttributeValues(
+				{ filter: suggestionFilter(), key, field: 'BodyJsonValue', prefix: text.trim() || undefined, limit: 20 },
+				signal
+			);
+			return res.values;
+		} catch {
+			return [];
+		}
 	}
 
 	interface Row {
@@ -184,14 +218,15 @@
 			<div class="flex flex-col gap-2">
 				{#each rows as row (row.id)}
 					<div class="flex flex-wrap items-center gap-1.5">
-						<Input
+						<AttributeValueCombobox
 							class="h-7 w-48 text-xs"
 							placeholder={m.bodyJsonFilters_pathPlaceholder()}
 							value={row.path}
-							oninput={(e) => {
-								updateRow(row.id, { path: e.currentTarget.value });
+							oninput={(v) => {
+								updateRow(row.id, { path: v });
 								commitDebounced();
 							}}
+							fetchSuggestions={suggestPaths}
 						/>
 
 						<Select.Root
@@ -222,7 +257,7 @@
 									updateRow(row.id, { value: v });
 									commitDebounced();
 								}}
-								fetchSuggestions={noSuggestions}
+								fetchSuggestions={(text, signal) => suggestValues(row, text, signal)}
 							/>
 						{:else if needsMultiValue(row.operator)}
 							<AttributeValueListInput
@@ -231,7 +266,7 @@
 									updateRow(row.id, { values: next });
 									commit();
 								}}
-								fetchSuggestions={noSuggestions}
+								fetchSuggestions={(text, signal) => suggestValues(row, text, signal)}
 							/>
 						{/if}
 
