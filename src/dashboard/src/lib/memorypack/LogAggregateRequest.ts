@@ -11,7 +11,7 @@
 // (`$lib/generated/memorypack/LogPostProcessFunction.js`), reused here directly.
 // `groupByAttributeBag`/`groupByAttributeKey` were appended after that, same convention -
 // the bag is a raw `AttributeBag` ordinal (`$lib/memorypack/enums.ts`'s
-// `attributeBagFromString`).
+// `attributeBagFromString`). `groupByBodyJsonPath` was appended last the same way.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -25,6 +25,7 @@ export class LogAggregateRequest {
 	postProcessFunctions: (LogPostProcessFunction | null)[] | null;
 	groupByAttributeBag: number;
 	groupByAttributeKey: string | null;
+	groupByBodyJsonPath: string | null;
 
 	constructor() {
 		this.filter = null;
@@ -33,6 +34,7 @@ export class LogAggregateRequest {
 		this.postProcessFunctions = null;
 		this.groupByAttributeBag = 0;
 		this.groupByAttributeKey = null;
+		this.groupByBodyJsonPath = null;
 	}
 
 	static serialize(value: LogAggregateRequest | null): Uint8Array {
@@ -47,13 +49,14 @@ export class LogAggregateRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(6);
+		writer.writeObjectHeader(7);
 		LogFilter.serializeCore(writer, value.filter);
 		writer.writeInt32(value.bucketWidthSeconds);
 		writer.writeInt32(value.groupBy);
 		writer.writeArray(value.postProcessFunctions, (writer, x) => LogPostProcessFunction.serializeCore(writer, x));
 		writer.writeInt32(value.groupByAttributeBag);
 		writer.writeString(value.groupByAttributeKey);
+		writer.writeString(value.groupByBodyJsonPath);
 	}
 
 	static deserialize(buffer: ArrayBuffer): LogAggregateRequest | null {
@@ -67,14 +70,15 @@ export class LogAggregateRequest {
 		}
 
 		const value = new LogAggregateRequest();
-		if (count == 6) {
+		if (count == 7) {
 			value.filter = LogFilter.deserializeCore(reader);
 			value.bucketWidthSeconds = reader.readInt32();
 			value.groupBy = reader.readInt32();
 			value.postProcessFunctions = reader.readArray((reader) => LogPostProcessFunction.deserializeCore(reader));
 			value.groupByAttributeBag = reader.readInt32();
 			value.groupByAttributeKey = reader.readString();
-		} else if (count > 6) {
+			value.groupByBodyJsonPath = reader.readString();
+		} else if (count > 7) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -90,6 +94,8 @@ export class LogAggregateRequest {
 			if (count == 5) return value;
 			value.groupByAttributeKey = reader.readString();
 			if (count == 6) return value;
+			value.groupByBodyJsonPath = reader.readString();
+			if (count == 7) return value;
 		}
 		return value;
 	}

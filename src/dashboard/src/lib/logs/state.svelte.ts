@@ -135,9 +135,9 @@ export interface LogsFilterState {
 	bucketWidthSeconds: number | null;
 }
 
-/** One attribute (bag + key) VolumeChart can stack its bars by - see `LogsFilterState.volumeGroupBy`. */
+/** One attribute (bag + key) VolumeChart can stack its bars by - see `LogsFilterState.volumeGroupBy`. `bag: 'BodyJson'` instead groups by a JSON body field, with `key` the dot-separated path. */
 export interface VolumeGroupBy {
-	bag: AttributeBag;
+	bag: AttributeBag | 'BodyJson';
 	key: string;
 }
 
@@ -145,7 +145,7 @@ function normalizeVolumeGroupBy(value: unknown): VolumeGroupBy | null {
 	if (value == null || typeof value !== 'object') return null;
 	const { bag, key } = value as Partial<VolumeGroupBy>;
 	if (typeof key !== 'string' || key.trim() === '') return null;
-	return { bag: bag === 'Resource' || bag === 'Scope' ? bag : 'Log', key };
+	return { bag: bag === 'Resource' || bag === 'Scope' || bag === 'BodyJson' ? bag : 'Log', key };
 }
 
 /** The choices LogsToolbar's "Lines" menu offers - also the whitelist `applySavedViewState` normalizes an untrusted saved payload against. */

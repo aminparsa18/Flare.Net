@@ -321,6 +321,26 @@ public static class LogFilterSqlBuilder
     }
 
     /// <summary>
+    /// Splits a dot-separated <c>Body</c> JSON path into one bound <c>String</c> parameter per
+    /// segment (<c>{prefix}_{n}</c>) and returns the comma-joined placeholders - the variadic-key
+    /// argument list <c>JSONHas</c>/<c>JSONExtract*</c> take. Shared by <see cref="BodyJsonClause"/>
+    /// and the Logs volume chart's group-by-JSON-field query.
+    /// </summary>
+    internal static string BodyJsonPathArgs(string path, string parameterPrefix, ClickHouseParameterCollection parameters)
+    {
+        var segments = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var segmentArgs = new string[segments.Length];
+        for (var s = 0; s < segments.Length; s++)
+        {
+            var segParam = $"{parameterPrefix}_{s}";
+            parameters.AddParameter(segParam, segments[s]);
+            segmentArgs[s] = $"{{{segParam}:String}}";
+        }
+
+        return string.Join(", ", segmentArgs);
+    }
+
+    /// <summary>
     /// One <see cref="BodyJsonFilter"/>'s clause, against <c>Body</c> rather than an
     /// attribute-bag column. <see cref="BodyJsonFilter.Path"/> is split on <c>.</c> into
     /// separate <c>String</c> parameters, one per <c>JSONHas</c>/<c>JSONExtractString</c>
@@ -337,16 +357,7 @@ public static class LogFilterSqlBuilder
     /// </summary>
     private static string BodyJsonClause(BodyJsonFilter filter, int index, ClickHouseParameterCollection parameters)
     {
-        var segments = filter.Path.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        var segmentArgs = new string[segments.Length];
-        for (var s = 0; s < segments.Length; s++)
-        {
-            var segParam = $"jsonPath{index}_{s}";
-            parameters.AddParameter(segParam, segments[s]);
-            segmentArgs[s] = $"{{{segParam}:String}}";
-        }
-
-        var pathArgsSql = string.Join(", ", segmentArgs);
+        var pathArgsSql = BodyJsonPathArgs(filter.Path, $"jsonPath{index}", parameters);
         var hasSql = $"JSONHas(Body, {pathArgsSql})";
         var extractSql = $"JSONExtractString(Body, {pathArgsSql})";
 

@@ -11,6 +11,7 @@
 	import FunnelXIcon from '@lucide/svelte/icons/funnel-x';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import ChartColumnStackedIcon from '@lucide/svelte/icons/chart-column-stacked';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -19,7 +20,9 @@
 		segments = [],
 		objectPath = [],
 		depth = 0,
-		onFilter
+		onFilter,
+		onGroupBy,
+		groupedPath = null
 	}: {
 		value: JsonValue;
 		/** Key (object member) or index (array element); undefined for the root. */
@@ -30,6 +33,10 @@
 		objectPath?: string[] | null;
 		depth?: number;
 		onFilter?: (path: string, operator: BodyJsonFilterOperator, value: string) => void;
+		/** Toggles grouping the volume chart by the JSON field at `path` - offered on scalar object members only (array elements have no stable path). */
+		onGroupBy?: (path: string) => void;
+		/** Path the volume chart is currently grouped by, so that row's button shows as active. */
+		groupedPath?: string | null;
 	} = $props();
 
 	const isContainer = $derived(typeof value === 'object' && value !== null);
@@ -51,6 +58,9 @@
 		const path = objectPath ? bodyJsonPath(objectPath) : null;
 		return path ? { path, element: false } : null;
 	});
+
+	// Group-by target: a scalar that's a direct object member on an addressable path.
+	const groupPath = $derived(!isContainer && typeof label !== 'number' && objectPath ? bodyJsonPath(objectPath) : null);
 
 	let copied = $state<'value' | 'path' | null>(null);
 	let resetTimer: ReturnType<typeof setTimeout> | undefined;
@@ -117,6 +127,18 @@
 					<FunnelXIcon class="size-3" />
 				</button>
 			{/if}
+			{#if onGroupBy && groupPath}
+				<button
+					type="button"
+					class={groupedPath === groupPath ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}
+					title={m.eventDetail_groupByJsonField()}
+					aria-label={m.eventDetail_groupByJsonField()}
+					aria-pressed={groupedPath === groupPath}
+					onclick={() => onGroupBy(groupPath)}
+				>
+					<ChartColumnStackedIcon class="size-3" />
+				</button>
+			{/if}
 			<button type="button" class="text-muted-foreground hover:text-foreground" title={m.eventDetail_jsonCopyValue()} onclick={() => copy('value')}>
 				{#if copied === 'value'}<CheckIcon class="size-3" />{:else}<CopyIcon class="size-3" />{/if}
 			</button>
@@ -136,6 +158,8 @@
 				objectPath={childObjectPath(key)}
 				depth={depth + 1}
 				{onFilter}
+				{onGroupBy}
+				{groupedPath}
 			/>
 		{/each}
 	{/if}

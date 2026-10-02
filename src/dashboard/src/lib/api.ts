@@ -303,7 +303,7 @@ export async function getLogContext(request: LogContextRequest, signal?: AbortSi
 
 // ---- POST /api/logs/aggregate (LogAggregateRequest.cs / LogAggregateResponse) ----
 
-export type LogAggregateGroupBy = 'None' | 'Service' | 'Level' | 'Attribute' | 'Scope';
+export type LogAggregateGroupBy = 'None' | 'Service' | 'Level' | 'Attribute' | 'Scope' | 'BodyJson';
 
 export type LogPostProcessFunctionType = LogPostProcessFunctionTypeName;
 
@@ -326,6 +326,8 @@ export interface LogAggregateRequest {
 	postProcessFunctions?: LogPostProcessFunction[];
 	/** Required when `groupBy` is `'Attribute'` - which bag + key to group by. The top values get their own series; the rest come back with a `null` `groupKey` ("other"), and events missing the key under `''`. */
 	groupByAttribute?: { bag: AttributeBag; key: string };
+	/** Required when `groupBy` is `'BodyJson'` - dot-separated path into the JSON body (same syntax as a `BodyJsonFilter` path). Same top-N + `null` "other" series shape as `'Attribute'`; events without the path come back under `''`. */
+	groupByBodyJsonPath?: string;
 }
 
 export interface LogAggregateBucket {
@@ -351,6 +353,7 @@ export async function aggregateLogs(request: LogAggregateRequest, signal?: Abort
 		dto.groupByAttributeBag = attributeBagFromString(request.groupByAttribute.bag);
 		dto.groupByAttributeKey = request.groupByAttribute.key;
 	}
+	dto.groupByBodyJsonPath = request.groupByBodyJsonPath ?? null;
 	dto.postProcessFunctions =
 		request.postProcessFunctions == null
 			? null

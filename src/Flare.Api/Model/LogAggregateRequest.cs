@@ -18,6 +18,12 @@ public enum LogAggregateGroupBy
 
     /// <summary>OTel instrumentation scope name (<c>ScopeName</c> - the .NET logger category). Appended after <see cref="Attribute"/> for the same ordinal-stability reason.</summary>
     Scope,
+
+    /// <summary>
+    /// A JSON field of <c>Body</c> - <see cref="LogAggregateRequest.GroupByBodyJsonPath"/> names which.
+    /// Appended after <see cref="Scope"/> for the same ordinal-stability reason.
+    /// </summary>
+    BodyJson,
 }
 
 /// <summary>Request body for <c>POST /api/logs/aggregate</c> - volume-over-time chart data.</summary>
@@ -62,6 +68,16 @@ public sealed partial record LogAggregateRequest
     /// the ungrouped chart.
     /// </summary>
     public string? GroupByAttributeKey { get; init; }
+
+    /// <summary>
+    /// Dot-separated path into the JSON <c>Body</c> (same syntax as <see cref="BodyJsonFilter.Path"/>)
+    /// to group by when <see cref="GroupBy"/> is <see cref="LogAggregateGroupBy.BodyJson"/> - required
+    /// (non-blank) in that case, ignored otherwise. Same top-N + null-keyed "other" cap as
+    /// <see cref="GroupByAttributeKey"/>; events whose body lacks the path (or isn't JSON) group under
+    /// an empty-string key. Strings group by their text, numbers/booleans/objects by their raw JSON.
+    /// Appended after <see cref="GroupByAttributeKey"/> - same append-only versioning.
+    /// </summary>
+    public string? GroupByBodyJsonPath { get; init; }
 }
 
 /// <summary>
@@ -112,7 +128,7 @@ public sealed partial record LogPostProcessFunction
 /// <summary>
 /// One bucketed value. <see cref="GroupKey"/> is null when <see cref="LogAggregateGroupBy.None"/>
 /// was requested, or - for <see cref="LogAggregateGroupBy.Attribute"/> - for the rolled-up
-/// "other" series (see <see cref="LogAggregateRequest.GroupByAttributeKey"/>). <see cref="Count"/> is <c>double</c> (not <c>long</c>) so the same shape
+/// "other" series (see <see cref="LogAggregateRequest.GroupByAttributeKey"/>; <see cref="LogAggregateGroupBy.BodyJson"/> rolls up the same way). <see cref="Count"/> is <c>double</c> (not <c>long</c>) so the same shape
 /// can carry a SQL-query-row <c>avg()</c>/<c>sum()</c> result (see
 /// <c>Query.LogQl.LogQlQueryBuilder</c>) as well as this endpoint's own always-integral
 /// <c>count()</c> - a whole-number value still round-trips through JSON exactly (e.g. `25`,

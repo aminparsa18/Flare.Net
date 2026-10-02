@@ -151,6 +151,7 @@
 	"eventDetail_logsForTrace": "Logs for this trace",
 	"eventDetail_filterOutValue": "Filter out value",
 	"eventDetail_groupByAttribute": "Group volume chart by this attribute",
+	"eventDetail_groupByJsonField": "Group volume chart by this field",
 	"eventDetail_copyValue": "Copy value",
 	"eventDetail_openLink": "Open link in a new tab",
 	"eventDetail_hostMetrics": "Host metrics",

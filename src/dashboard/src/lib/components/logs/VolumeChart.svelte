@@ -188,7 +188,11 @@
 					filter: explorer.buildFilter(range),
 					bucketWidthSeconds: width,
 					postProcessFunctions,
-					...(groupBy ? { groupBy: 'Attribute' as const, groupByAttribute: { ...groupBy } } : {})
+					...(groupBy?.bag === 'BodyJson'
+						? { groupBy: 'BodyJson' as const, groupByBodyJsonPath: groupBy.key }
+						: groupBy
+							? { groupBy: 'Attribute' as const, groupByAttribute: { bag: groupBy.bag, key: groupBy.key } }
+							: {})
 				}),
 				// The overlay stays ungrouped even while the bars are stacked - it's a single
 				// dashed "total, N ago" line, which is what the percent-change summary compares.

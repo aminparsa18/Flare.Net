@@ -151,6 +151,7 @@
 	"eventDetail_logsForTrace": "查看此追踪的日志",
 	"eventDetail_filterOutValue": "排除此值",
 	"eventDetail_groupByAttribute": "按此属性对事件量图表分组",
+	"eventDetail_groupByJsonField": "按此字段对体量图分组",
 	"eventDetail_copyValue": "复制值",
 	"eventDetail_openLink": "在新标签页中打开链接",
 	"eventDetail_hostMetrics": "主机指标",
