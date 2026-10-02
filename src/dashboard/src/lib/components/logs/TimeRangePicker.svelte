@@ -115,6 +115,16 @@
 							</Button>
 						{/each}
 					</div>
+						{#if recentRanges.length > 0}
+							<div class="mt-1 flex flex-col gap-1 border-t pt-1">
+								<span class="text-muted-foreground px-2 text-xs">{m.timeRangePicker_recent()}</span>
+								{#each recentRanges as range (range.from.getTime() + '-' + range.to.getTime())}
+									<Button variant="ghost" size="sm" class="justify-start" onclick={() => applyRange(range)}>
+										{formatCustomRangeLabel(range)}
+									</Button>
+								{/each}
+							</div>
+						{/if}
 				{:else}
 					<RangeCalendar bind:value={calendarValue} />
 					<div class="flex justify-end gap-2 pt-2">
