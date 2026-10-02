@@ -239,6 +239,18 @@ like 0.0042 usefully. Enter a number from 0 to 6 to pin the decimals on axis
 ticks, tooltips and values, for every visualization. Leave it blank (or
 **Clear**) to go back to automatic. It's saved with the dashboard.
 
+## Downloading a chart's data as CSV
+
+Time-series charts (Metrics, Formula and the Logs event-volume chart) have a
+**CSV** link in the row under the chart title, on dashboard panels and on the
+Logs and Metrics pages alike. It saves exactly what the chart is plotting, so
+the current Sum/Histogram mode, comparison overlay or group-by is reflected.
+There is one row per bucket: a UTC ISO timestamp, the same instant in your
+display time zone, then one column per series, named like the legend. A series
+with no point in a bucket leaves that cell empty. Values are raw, without unit
+scaling. The file is named after the panel's title (or the metric/formula on
+the explorer pages).
+
 ## Placing the legend and pinning series colors
 
 In edit mode, a Metrics panel whose visualization draws a legend (time

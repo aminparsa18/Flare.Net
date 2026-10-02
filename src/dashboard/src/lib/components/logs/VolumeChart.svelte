@@ -4,6 +4,8 @@
 	import type { VolumeGroupBy } from '$lib/logs/state.svelte';
 	import { resolveBucketWidthSeconds, formatBucketWidthSeconds } from '$lib/logs/bucket-width';
 	import BucketIntervalMenu from './BucketIntervalMenu.svelte';
+	import ChartCsvButton from '$lib/components/metrics/ChartCsvButton.svelte';
+	import { downloadTimeSeriesCsv } from '$lib/dashboards/chart-csv';
 	import { resolveTimeRange, shiftRange } from '$lib/logs/time-range';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import * as Accordion from '$lib/components/ui/accordion';
@@ -289,6 +291,25 @@
 		Math.max(0, ...buckets.map((b) => b.count), ...(overlayActive ? overlayBuckets.map((b) => b.count) : []))
 	);
 	const maxCount = $derived(Math.max(1, peakCount));
+	// Grouped: one column per group (segment key); ungrouped: a single "count" column.
+	function downloadCsv(): void {
+		const ungrouped = buckets.every((b) => b.segments.length === 0);
+		const keys = ungrouped ? [] : seriesKeys;
+		const time = (b: Bar) => new Date(b.bucketStart).getTime();
+		downloadTimeSeriesCsv(
+			ungrouped
+				? [{ label: 'count', points: buckets.map((b) => ({ time: time(b), value: b.count })) }]
+				: keys.map((k) => ({
+						label: k ?? '(none)',
+						points: buckets.flatMap((b) => {
+							const seg = b.segments.find((s) => s.key === k);
+							return seg ? [{ time: time(b), value: seg.count }] : [];
+						})
+					})),
+			'log-volume'
+		);
+	}
+
 	const totalCount = $derived(buckets.reduce((sum, b) => sum + b.count, 0));
 	const overlayTotalCount = $derived(overlayBuckets.reduce((sum, b) => sum + b.count, 0));
 
@@ -556,6 +577,8 @@
 				<!-- Only once a fetch has landed - bucketWidthSeconds is a placeholder until then. -->
 				{#if rangeFrom && rangeTo}
 					<span class="text-muted-foreground">
+						<ChartCsvButton onclick={downloadCsv} />
+						<span aria-hidden="true">·</span>
 						<BucketIntervalMenu
 							value={explorer.filter.bucketWidthSeconds}
 							effectiveSeconds={bucketWidthSeconds}

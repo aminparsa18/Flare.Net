@@ -23,6 +23,8 @@
 	import { isHistogramType, type MetricSeries } from '$lib/metrics-api';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import YAxisScaleToggle from './YAxisScaleToggle.svelte';
+	import ChartCsvButton from './ChartCsvButton.svelte';
+	import { downloadTimeSeriesCsv } from '$lib/dashboards/chart-csv';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
 	import { legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
 	import { seriesLabel as seriesColorKey } from '$lib/dashboards/visualization';
@@ -72,6 +74,7 @@
 		yAxisScale,
 		legendPosition = 'bottom',
 		seriesColors = {},
+		title = '',
 		onPointClick
 	}: {
 		allowZoom?: boolean;
@@ -83,6 +86,8 @@
 		yAxisScale?: YAxisScale;
 		legendPosition?: LegendPosition;
 		seriesColors?: Record<string, ThresholdColor>;
+		/** The panel's title - names the downloaded CSV; the metric name on the Explorer page. */
+		title?: string;
 		onPointClick?: (time: number) => void;
 	} = $props();
 
@@ -684,6 +689,14 @@
 	// than breaking - acceptable for the sparse-gap case this is meant to handle, not
 	// meant to imply interpolated data across a large hole. Epoch ms (see
 	// PlotPoint.time's remarks), not the API's bucketStart string.
+	// Exactly what's plotted (the active Sum/Histogram mode, comparison overlay included).
+	function downloadCsv(): void {
+		downloadTimeSeriesCsv(
+			lines.map((l) => ({ label: l.label, points: l.points.map((p) => ({ time: p.time, value: p.raw })) })),
+			title || explorer.selected?.metricName || ''
+		);
+	}
+
 	const bucketTimes = $derived([...new Set(lines.flatMap((l) => l.points.map((p) => p.time)))].sort((a, b) => a - b));
 	const bucketIndexOf = $derived(new Map(bucketTimes.map((t, i) => [t, i])));
 
@@ -989,6 +1002,10 @@
 						rangeSeconds={explorer.queryRangeFrom && explorer.queryRangeTo ? (new Date(explorer.queryRangeTo).getTime() - new Date(explorer.queryRangeFrom).getTime()) / 1000 : null}
 						onChange={(seconds) => explorer.setBucketWidthSeconds(seconds)}
 					/>
+						{#if lines.length > 0}
+							<span aria-hidden="true">·</span>
+							<ChartCsvButton onclick={downloadCsv} />
+						{/if}
 						{#if yAxisScale === undefined}
 							<span aria-hidden="true">·</span>
 							<YAxisScaleToggle value={explorer.filter.yAxisScale} onChange={(scale) => explorer.setYAxisScale(scale)} />
