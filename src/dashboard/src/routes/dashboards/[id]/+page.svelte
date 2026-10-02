@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { withBase } from '$lib/paths';
 	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
+	import { buildDashboardUrlSearch } from '$lib/dashboards/url-state';
 	import { onMount, onDestroy } from 'svelte';
 	import { authContext } from '$lib/auth/context';
 	import { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
@@ -65,8 +67,18 @@
 		}
 	}
 
+	// Mirror variable selections + the time-range override into the URL (url-state.ts) so a
+	// shared link reproduces this view. Held back until load() has hydrated from the URL,
+	// otherwise the first write would wipe the incoming params.
+	let urlSyncReady = $state(false);
+	$effect(() => {
+		if (!urlSyncReady) return;
+		const search = buildDashboardUrlSearch(page.url.searchParams, viewer.timeRangeOverride, viewer.variables, viewer.variableValues);
+		if (search !== page.url.search) replaceState(page.url.pathname + search, page.state);
+	});
+
 	onMount(() => {
-		void viewer.load(page.params.id!);
+		void viewer.load(page.params.id!, page.url.searchParams).then(() => (urlSyncReady = true));
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
 	});
 

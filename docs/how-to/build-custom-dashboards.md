@@ -268,6 +268,15 @@ the page) to go back to each panel showing whatever range it was saved
 with. This override is per-browser-session only: it's never saved to the
 dashboard, so it never changes what anyone else sees when they open it.
 
+## Sharing a dashboard view
+
+The time-range override and every variable selection are mirrored into the page URL
+(for example `/dashboards/<id>?range=1h&var-<variableId>=checkout`), so copying the
+address bar shares exactly what you're looking at. Opening the link applies those
+values over the dashboard's own defaults; an empty `var-<variableId>=` means an
+explicit "All". Only values that differ from the defaults are written, and the URL is
+updated in place, so Back doesn't step through every change.
+
 ## Auto-refreshing a dashboard
 
 The **refresh** picker in a dashboard's header (next to the time-range
