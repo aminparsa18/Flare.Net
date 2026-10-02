@@ -10,10 +10,14 @@ import { SpanDto } from '$lib/memorypack/SpanDto';
 export class TraceDto {
 	traceId: string | null;
 	spans: (SpanDto | null)[] | null;
+	truncated: boolean;
+	partialSpanIds: (string | null)[] | null;
 
 	constructor() {
 		this.traceId = null;
 		this.spans = null;
+		this.truncated = false;
+		this.partialSpanIds = null;
 	}
 
 	static serialize(value: TraceDto | null): Uint8Array {
@@ -28,9 +32,11 @@ export class TraceDto {
 			return;
 		}
 
-		writer.writeObjectHeader(2);
+		writer.writeObjectHeader(4);
 		writer.writeString(value.traceId);
 		writer.writeArray(value.spans, (writer, x) => SpanDto.serializeCore(writer, x));
+		writer.writeBoolean(value.truncated);
+		writer.writeArray(value.partialSpanIds, (writer, x) => writer.writeString(x));
 	}
 
 	static deserialize(buffer: ArrayBuffer): TraceDto | null {
@@ -44,10 +50,12 @@ export class TraceDto {
 		}
 
 		const value = new TraceDto();
-		if (count == 2) {
+		if (count == 4) {
 			value.traceId = reader.readString();
 			value.spans = reader.readArray((reader) => SpanDto.deserializeCore(reader));
-		} else if (count > 2) {
+			value.truncated = reader.readBoolean();
+			value.partialSpanIds = reader.readArray((reader) => reader.readString());
+		} else if (count > 4) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -55,6 +63,10 @@ export class TraceDto {
 			if (count == 1) return value;
 			value.spans = reader.readArray((reader) => SpanDto.deserializeCore(reader));
 			if (count == 2) return value;
+			value.truncated = reader.readBoolean();
+			if (count == 3) return value;
+			value.partialSpanIds = reader.readArray((reader) => reader.readString());
+			if (count == 4) return value;
 		}
 		return value;
 	}

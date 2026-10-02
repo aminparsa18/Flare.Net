@@ -12,6 +12,12 @@ public interface ISpanQueryService
     /// <summary>Every span sharing <paramref name="traceId"/>, for the waterfall view. Returns <see langword="null"/> if no spans match.</summary>
     Task<TraceDto?> GetTraceAsync(string traceId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The next depth levels below one span of a trace loaded lazily (<see cref="TraceDto.Truncated"/>),
+    /// merged by the caller into what it already holds.
+    /// </summary>
+    Task<TraceDto> GetSubtreeAsync(string traceId, string parentSpanId, CancellationToken cancellationToken);
+
     /// <summary>Every distinct value observed for one attribute key, most-observed first - the Attribute filters builder's value autocomplete. See <see cref="SpanAttributeValuesQueryBuilder"/>.</summary>
     Task<SpanAttributeValuesResponse> GetAttributeValuesAsync(SpanAttributeValuesRequest request, CancellationToken cancellationToken);
 
@@ -121,17 +127,79 @@ public sealed class SpanQueryService(IClickHouseClient client, IOptions<QueryLim
 
     public async Task<TraceDto?> GetTraceAsync(string traceId, CancellationToken cancellationToken)
     {
-        var built = TraceByIdQueryBuilder.Build(traceId);
+        var spans = await ReadLevelAsync(TraceByIdQueryBuilder.Build(traceId), cancellationToken);
 
+        if (spans.Count == 0)
+        {
+            return null;
+        }
+
+        // The query fetches MaxSpans + 1; the extra row only proves the cap was hit. Rather
+        // than keep a cut-off-by-time slice (which orphans children), load by depth instead.
+        if (spans.Count > TraceByIdQueryBuilder.MaxSpans)
+        {
+            return await LoadLevelsAsync(traceId, TraceLevelQueryBuilder.BuildRoots(traceId), cancellationToken);
+        }
+
+        return new TraceDto { TraceId = traceId, Spans = spans };
+    }
+
+    public Task<TraceDto> GetSubtreeAsync(string traceId, string parentSpanId, CancellationToken cancellationToken) =>
+        LoadLevelsAsync(traceId, TraceLevelQueryBuilder.BuildChildren(traceId, [parentSpanId]), cancellationToken);
+
+    /// <summary>
+    /// Breadth-first by depth from <paramref name="firstLevel"/>, stopping before a level that
+    /// would push past <see cref="TraceLevelQueryBuilder.LazyBudget"/> (the first level is
+    /// always kept). Each level is fetched before deciding, so when a level is dropped its
+    /// distinct <c>ParentSpanId</c>s are exactly the loaded spans that still have children -
+    /// no separate child-count query (except when the dropped level hit the row cap, see below).
+    /// </summary>
+    private async Task<TraceDto> LoadLevelsAsync(string traceId, TraceByIdSql firstLevel, CancellationToken cancellationToken)
+    {
+        var spans = new List<SpanDto>();
+        var partial = new List<string>();
+        var level = firstLevel;
+        var first = true;
+        List<string> previousIds = [];
+
+        while (true)
+        {
+            var next = await ReadLevelAsync(level, cancellationToken);
+            if (next.Count == 0)
+            {
+                break;
+            }
+
+            if (!first && spans.Count + next.Count > TraceLevelQueryBuilder.LazyBudget)
+            {
+                // A level that hit the row cap is itself cut off, so its distinct parents would
+                // miss some; fall back to every span of the previous level (the few childless
+                // ones just come back empty when expanded).
+                partial.AddRange(next.Count >= TraceByIdQueryBuilder.MaxSpans
+                    ? previousIds
+                    : next.Select(s => s.ParentSpanId).Distinct());
+                break;
+            }
+
+            first = false;
+            spans.AddRange(next);
+            previousIds = next.Select(s => s.SpanId).ToList();
+            level = TraceLevelQueryBuilder.BuildChildren(traceId, previousIds);
+        }
+
+        return new TraceDto { TraceId = traceId, Spans = spans, Truncated = true, PartialSpanIds = partial };
+    }
+
+    private async Task<List<SpanDto>> ReadLevelAsync(TraceByIdSql built, CancellationToken cancellationToken)
+    {
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, TraceByIdQueryOptions(), cancellationToken);
-
         var spans = new List<SpanDto>();
         while (reader.Read())
         {
             spans.Add(ReadSpan(reader));
         }
 
-        return spans.Count == 0 ? null : new TraceDto { TraceId = traceId, Spans = spans };
+        return spans;
     }
 
     public async Task<SpanAttributeValuesResponse> GetAttributeValuesAsync(SpanAttributeValuesRequest request, CancellationToken cancellationToken)

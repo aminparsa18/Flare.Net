@@ -159,15 +159,6 @@ folders are where "what happened and why" actually lives.
   keyed on the full series identity, not the rendered text. Not started.
   Prior art:
   [signoz#10529](https://github.com/SigNoz/signoz/commit/6fb92880cc4390838f372ccea2773b4e0e33b403).
-- **Large traces: surface truncation, then load lazily.** `TraceByIdQueryBuilder`
-  caps a trace at `MaxSpans = 10_000`, and nothing says so. A 15k-span
-  batch-job trace silently loses spans, and their orphaned children get
-  hoisted to the root of the waterfall. First step (S): return a `Truncated`
-  flag (query `MaxSpans + 1`) and show a banner on `/traces/[traceId]`.
-  Second step (M): for traces above the cap, return the first N depth levels
-  and fetch a span's subtree when it's expanded, keeping full fetch for small
-  traces. Not started. Prior art:
-  [signoz#10399](https://github.com/SigNoz/signoz/commit/58dabf9a6c45fb21eb5975af7cf85c11aa307d05).
 - **Audit log.** There's no record of who changed an alert rule, notification
   channel, dashboard, pipeline rule, maintenance window, user role, PAT or
   auth setting, or when. Add an append-only `audit_events` table (actor,

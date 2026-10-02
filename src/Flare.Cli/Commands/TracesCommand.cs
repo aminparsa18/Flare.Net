@@ -649,6 +649,9 @@ internal sealed class TraceDtoWire
 
     /// <summary>Ascending by StartTime - same ordering guarantee traces-api.ts documents.</summary>
     public List<SpanDtoWire> Spans { get; init; } = [];
+
+    /// <summary>True when the API hit its per-trace span cap and <see cref="Spans"/> is only the earliest ones.</summary>
+    public bool Truncated { get; init; }
 }
 
 internal static class WireJsonOptions

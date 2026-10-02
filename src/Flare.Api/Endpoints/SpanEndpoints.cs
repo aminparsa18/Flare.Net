@@ -19,6 +19,7 @@ public static class SpanEndpoints
     {
         endpoints.MapPost("/api/spans/search", HandleSearchAsync);
         endpoints.MapGet("/api/traces/{traceId}", HandleGetTraceAsync);
+        endpoints.MapGet("/api/traces/{traceId}/spans/{spanId}/children", HandleGetSubtreeAsync);
         endpoints.MapPost("/api/spans/attribute-values", HandleAttributeValuesAsync);
         endpoints.MapPost("/api/spans/duration-percentile", HandleDurationPercentileAsync);
         endpoints.MapPost("/api/traces/structure/validate", HandleValidateStructureAsync);
@@ -64,6 +65,17 @@ public static class SpanEndpoints
         return trace is null
             ? Results.NotFound()
             : ApiSerialization.Write(http, trace, SpansJsonContext.Default.TraceDto);
+    }
+
+    private static async Task<IResult> HandleGetSubtreeAsync(
+        string traceId,
+        string spanId,
+        HttpContext http,
+        ISpanQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        var subtree = await queryService.GetSubtreeAsync(traceId, spanId, cancellationToken);
+        return ApiSerialization.Write(http, subtree, SpansJsonContext.Default.TraceDto);
     }
 
     private static async Task<IResult> HandleAttributeValuesAsync(

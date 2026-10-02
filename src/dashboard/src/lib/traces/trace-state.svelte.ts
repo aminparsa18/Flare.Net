@@ -2,7 +2,7 @@
 // TracesExplorerState (the list page), same "one state class per route" convention as
 // the rest of this app; the two pages have no shared fields worth forcing together.
 
-import { getTrace, type TraceDto } from '$lib/traces-api';
+import { getTrace, getTraceChildren, type TraceDto } from '$lib/traces-api';
 import { buildSpanTree, spanMatchesSearch } from '$lib/traces/span-tree';
 
 export class TraceDetailState {
@@ -11,6 +11,13 @@ export class TraceDetailState {
 	/** Distinguishes "still loading" / "a real fetch error" / "confirmed no such trace" (404) - three different empty-state messages in the page. */
 	notFound = $state(false);
 	error = $state<string | null>(null);
+
+	/** Span ids with children not loaded yet (large traces load lazily by depth). */
+	partialSpanIds = $state<Set<string>>(new Set());
+	/** Span ids whose children are being fetched right now. */
+	loadingChildIds = $state<Set<string>>(new Set());
+	/** A failed `loadChildren` - shown inline rather than replacing the whole page like `error`. */
+	childLoadError = $state<string | null>(null);
 
 	selectedSpanId = $state<string | null>(null);
 	selectedSpan = $derived(this.trace?.spans.find((s) => s.spanId === this.selectedSpanId) ?? null);
@@ -67,6 +74,8 @@ export class TraceDetailState {
 				this.notFound = true;
 			} else {
 				this.trace = result;
+				this.partialSpanIds = new Set(result.partialSpanIds);
+				this.loadingChildIds = new Set();
 				if (initialSpanId && result.spans.some((s) => s.spanId === initialSpanId)) this.selectedSpanId = initialSpanId;
 			}
 		} catch (err) {
@@ -74,6 +83,35 @@ export class TraceDetailState {
 			this.error = err instanceof Error ? err.message : String(err);
 		} finally {
 			if (!abort.signal.aborted) this.loading = false;
+		}
+	}
+
+	/** Fetches the next levels below a partially loaded span and merges them into the trace. */
+	async loadChildren(spanId: string): Promise<void> {
+		const trace = this.trace;
+		if (!trace || !this.partialSpanIds.has(spanId) || this.loadingChildIds.has(spanId)) return;
+		this.loadingChildIds = new Set(this.loadingChildIds).add(spanId);
+		this.childLoadError = null;
+		try {
+			const result = await getTraceChildren(trace.traceId, spanId, this.#loadAbort?.signal);
+			if (this.trace !== trace) return; // a different trace was loaded meanwhile
+			const have = new Set(trace.spans.map((s) => s.spanId));
+			const merged = [...trace.spans, ...result.spans.filter((s) => !have.has(s.spanId))];
+			merged.sort((a, b) => a.startTime.localeCompare(b.startTime));
+			this.trace = { ...trace, spans: merged };
+			const partial = new Set(this.partialSpanIds);
+			partial.delete(spanId);
+			for (const id of result.partialSpanIds) partial.add(id);
+			this.partialSpanIds = partial;
+		} catch (err) {
+			if (this.trace !== trace) return;
+			this.childLoadError = err instanceof Error ? err.message : String(err);
+		} finally {
+			if (this.trace === trace) {
+				const loading = new Set(this.loadingChildIds);
+				loading.delete(spanId);
+				this.loadingChildIds = loading;
+			}
 		}
 	}
 
