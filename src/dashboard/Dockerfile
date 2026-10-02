@@ -46,7 +46,12 @@ COPY --from=codegen /source/src/dashboard/src/lib/generated ./src/lib/generated
 # so running it here would fail exactly the way it originally did in CI: `npm run build`
 # invoking a nonexistent `dotnet` binary (exit 127) - confirmed live via a real
 # `docker-publish.yml` run before this multi-stage split existed.
-RUN npx vite build
+#
+# FLARE_BASE_PATH is a build-time constant in SvelteKit (paths.base), so the image is
+# built with a placeholder that apply-base-path.mjs - called from server.js at every
+# container start - rewrites to the operator's real FLARE_BASE_PATH ("" = served at the
+# root, the default). See docs/how-to/serve-under-a-sub-path.md.
+RUN FLARE_BASE_PATH=/__FLARE_BASE_PATH__ npx vite build
 
 # `npm ci --omit=dev` after the build (not before): svelte-kit sync / vite build need
 # the devDependencies (svelte, vite, the adapter, tailwind, etc.) to run, but the
@@ -67,6 +72,7 @@ COPY --from=build /app/package.json ./package.json
 # hooks.server.ts hook (sirv serves these before SvelteKit's own request pipeline ever
 # sees them).
 COPY --from=build /app/server.js ./server.js
+COPY --from=build /app/apply-base-path.mjs ./apply-base-path.mjs
 
 # adapter-node's own defaults (see https://svelte.dev/docs/kit/adapter-node) - listens
 # on 0.0.0.0:3000 unless PORT/HOST are overridden.
@@ -77,7 +83,9 @@ EXPOSE 3000
 # `.State.Health` is populated regardless of orchestrator, matching Aspire's own
 # .WithHttpHealthCheck("/") for this resource. No bash/`/dev/tcp` trick needed here:
 # node:22-alpine's busybox includes wget, unlike the .NET images above.
-HEALTHCHECK --interval=5s --timeout=5s --retries=20 CMD wget -q --spider http://127.0.0.1:3000/ || exit 1
+# Shell form so ${FLARE_BASE_PATH} (the sub-path, when set) is expanded - with one set, "/"
+# itself 404s and the app lives at "<base>/".
+HEALTHCHECK --interval=5s --timeout=5s --retries=20 CMD wget -q --spider "http://127.0.0.1:3000${FLARE_BASE_PATH%/}/" || exit 1
 
 # server.js, not adapter-node's own generated build/index.js - see server.js's header
 # comment for why (Cache-Control on static/ files that adapter-node itself leaves

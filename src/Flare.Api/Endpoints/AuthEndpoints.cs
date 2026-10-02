@@ -139,7 +139,7 @@ public static class AuthEndpoints
             await sessions.DeleteAsync(token, cancellationToken);
         }
 
-        http.Response.Cookies.Delete(authOptions.Value.CookieName, new CookieOptions { Path = "/" });
+        http.Response.Cookies.Delete(authOptions.Value.CookieName, new CookieOptions { Path = CookiePath(http) });
         return ApiSerialization.Write(http, new LogoutResponse { RedirectUrl = redirectUrl }, AuthJsonContext.Default.LogoutResponse);
     }
 
@@ -275,9 +275,12 @@ public static class AuthEndpoints
             Secure = authOptions.CookieSecure,
             SameSite = authOptions.CookieSameSite,
             Expires = session.ExpiresAt,
-            Path = "/",
+            Path = CookiePath(http),
         });
     }
+
+    /// <summary>The session cookie's scope - the sub-path Flare is hosted under (<c>Flare:BasePath</c>), or <c>/</c> at the root.</summary>
+    private static string CookiePath(HttpContext http) => http.Request.PathBase.HasValue ? http.Request.PathBase.Value! : "/";
 
     internal static AuthUserDto ToDto(User user) => new() { Id = user.Id, Username = user.Username, Role = user.Role, AuthProvider = user.AuthProvider };
 }

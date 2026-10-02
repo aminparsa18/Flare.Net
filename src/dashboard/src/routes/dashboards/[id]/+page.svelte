@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import { page } from '$app/state';
 	import { onMount, onDestroy } from 'svelte';
 	import { authContext } from '$lib/auth/context';
@@ -128,7 +129,7 @@
 
 <div class="flex h-full flex-col" bind:this={rootEl}>
 	<div class="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-		<Button variant="ghost" size="icon-sm" href="/dashboards" title={m.dashboardViewer_back()}>
+		<Button variant="ghost" size="icon-sm" href={withBase('/dashboards')} title={m.dashboardViewer_back()}>
 			<ArrowLeftIcon />
 		</Button>
 		<div class="min-w-0">

@@ -5,6 +5,7 @@
 // routes/metrics/+page.svelte) agree on it without duplicating the switch.
 
 import type { PageType } from '$lib/saved-views-api';
+import { withBase } from '$lib/paths';
 
 /** Logs is the app's default route ('/'), not '/logs' - see AppNav.svelte's own `links` array. */
 export function pageTypeBasePath(pageType: PageType): string {
@@ -22,5 +23,5 @@ export function pageTypeBasePath(pageType: PageType): string {
 
 /** A path-relative `?view=<id>` URL for `view` - prefix with `location.origin` to get a copy-pasteable absolute link. */
 export function savedViewPath(view: { id: string; pageType: PageType }): string {
-	return `${pageTypeBasePath(view.pageType)}?view=${view.id}`;
+	return withBase(`${pageTypeBasePath(view.pageType)}?view=${view.id}`);
 }

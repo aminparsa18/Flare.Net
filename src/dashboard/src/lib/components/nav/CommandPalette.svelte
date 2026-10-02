@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	// Global Cmd+K/Ctrl+K command palette - "Navigate" (every page AppNav links to),
 	// "Actions" (Toggle Live Mode + Export Logs, Logs-page-only - see below), "Recently
 	// Searched" (last couple of raw search-box terms, also Logs-page-only, see
@@ -100,7 +101,7 @@
 
 	function selectNav(href: string): void {
 		open = false;
-		void goto(href);
+		void goto(withBase(href));
 	}
 
 	function selectView(view: SavedView): void {

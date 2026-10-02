@@ -156,6 +156,10 @@ services:
       # service's comment) keeps both in sync automatically. AllowCredentials() means
       # this can't be a wildcard - the session cookie won't cross origins otherwise.
       Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
+      # Sub-path hosting behind a reverse proxy (docs/how-to/serve-under-a-sub-path.md) -
+      # e.g. FLARE_BASE_PATH=/flare for https://example.com/flare/. Blank (the default) =
+      # served at the root. Same value as the dashboard service's own FLARE_BASE_PATH below.
+      Flare__BasePath: "${FLARE_BASE_PATH:-}"
       # Same dashboard URL as Cors__AllowedOrigins__0 above - used to build the deep link
       # a fired alert's notification (Slack/Telegram/email/PagerDuty) carries back to the
       # rule that fired it (AlertLinkOptions/AlertMessageFormatter). `api` only needs this
@@ -251,6 +255,9 @@ services:
       # dashboard from a different host than the one running `docker compose up`.
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
       ORIGIN: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
+      # Sub-path hosting - see `api`'s Flare__BasePath above. Resolved at container start
+      # (the image is built with a placeholder), so no rebuild is needed to change it.
+      FLARE_BASE_PATH: "${FLARE_BASE_PATH:-}"
     ports:
       - "${FLARE_DASHBOARD_PORT:-7777}:3000"
 

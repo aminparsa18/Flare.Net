@@ -39,7 +39,16 @@ export default defineConfig({
 			// PUBLIC_API_URL) is resolved per-request at runtime, which only a running
 			// server can do; a static prerender would bake in whatever value happened to be
 			// set at build time instead of at `docker compose up` time.
-			adapter: adapter()
+			adapter: adapter(),
+
+			// Sub-path hosting (docs/how-to/serve-under-a-sub-path.md). `paths.base` is a
+			// build-time constant in SvelteKit - it's baked into the server bundle, the client
+			// bundle and adapter-node's static-file directory name - so the published image is
+			// built with a placeholder (FLARE_BASE_PATH=/__FLARE_BASE_PATH__, see the
+			// Dockerfile) that scripts/apply-base-path.mjs rewrites to the real value at
+			// container start. Unset (local dev, a plain `npm run build`) means served at the
+			// root, exactly as before. Must start with "/" and not end with one.
+			paths: { base: (process.env.FLARE_BASE_PATH ?? '') as '' | `/${string}` }
 		})
 	]
 });

@@ -168,16 +168,6 @@ folders are where "what happened and why" actually lives.
   retention bound. The service-accounts item's "audit trail" would use it.
   Needs an ADR. Not started. Prior art:
   [signoz#10791](https://github.com/SigNoz/signoz/commit/42415e08739c4e8237e7856c0661f30638d68cd1).
-- **Serve Flare under a sub-path behind a reverse proxy.** There's no
-  base-path support: the dashboard sets no SvelteKit `paths.base` and the API
-  has no `UsePathBase`, so `https://example.com/flare/` doesn't work and
-  Flare needs its own (sub)domain. Add one setting (e.g. `Flare__BasePath`)
-  that applies to API routes, auth/OIDC callback URLs, generated deep links
-  in notifications, and the dashboard. `paths.base` is build-time in
-  SvelteKit, so the published image needs a runtime approach (e.g. build
-  with a placeholder base and rewrite it at container start). Not started.
-  Prior art:
-  [signoz#10943](https://github.com/SigNoz/signoz/commit/ef298af3885b4a0f4f38e49241e6316367721a9e).
 - **Markdown in alert notification templates, rendered per channel.**
   Custom templates (ADR-0052) are sent as plain text. Telegram drops
   `parse_mode` for user text because it can't be guaranteed valid, and email

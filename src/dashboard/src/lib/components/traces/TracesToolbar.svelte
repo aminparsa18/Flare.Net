@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import { goto } from '$app/navigation';
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
@@ -60,7 +61,7 @@
 		const id = traceIdDraft.trim();
 		if (!id) return;
 		traceIdDraft = '';
-		void goto(`/traces/${encodeURIComponent(id)}`);
+		void goto(withBase(`/traces/${encodeURIComponent(id)}`));
 	}
 </script>
 

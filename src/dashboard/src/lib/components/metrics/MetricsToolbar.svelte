@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import * as Select from '$lib/components/ui/select';
 	import PopoverMultiSelect from '$lib/components/logs/PopoverMultiSelect.svelte';
 	import PopoverSingleSelect from '$lib/components/logs/PopoverSingleSelect.svelte';
@@ -231,7 +232,7 @@
 		{m.metricsToolbar_autoRefreshLabel()}
 	</label>
 
-	<Button variant="ghost" size="sm" href="/metrics/catalog" title={m.metricCatalog_openTitle()}>
+	<Button variant="ghost" size="sm" href={withBase('/metrics/catalog')} title={m.metricCatalog_openTitle()}>
 		<LibraryIcon data-icon="inline-start" />
 		{m.metricCatalog_openLabel()}
 	</Button>

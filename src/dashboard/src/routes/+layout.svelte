@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { stripBase, withBase } from '$lib/paths';
 	import './layout.css';
 	import { ModeWatcher } from 'mode-watcher';
 	import { goto } from '$app/navigation';
@@ -43,7 +44,7 @@
 		auth.initialize();
 	});
 
-	const onAuthRoute = $derived(AUTH_ROUTES.includes(page.url.pathname));
+	const onAuthRoute = $derived(AUTH_ROUTES.includes(stripBase(page.url.pathname)));
 
 	// /auth (the consolidated enable-auth/configure-methods/manage-users screen) is the
 	// one Admin-only route (server-side enforcement lives in the endpoints it calls -
@@ -53,7 +54,7 @@
 	// depth" on top of server checks that already exist. Not gated at all while auth is
 	// off (see below) - anyone needs to be able to reach it to turn auth on.
 	const ADMIN_ONLY_ROUTES = ['/auth'];
-	const onAdminOnlyRoute = $derived(ADMIN_ONLY_ROUTES.includes(page.url.pathname));
+	const onAdminOnlyRoute = $derived(ADMIN_ONLY_ROUTES.includes(stripBase(page.url.pathname)));
 
 	// Route guard: bounces between the app and /login based on session state - but only
 	// when auth.authEnabled is true. Opt-in auth (docs/auth.md): a fresh Flare instance
@@ -65,13 +66,13 @@
 		if (auth.initializing) return;
 
 		if (!auth.authEnabled) {
-			if (onAuthRoute) void goto('/');
+			if (onAuthRoute) void goto(withBase('/'));
 			return;
 		}
 
 		if (auth.currentUser) {
-			if (onAuthRoute) void goto('/');
-			else if (onAdminOnlyRoute && auth.currentUser.role !== 'Admin') void goto('/');
+			if (onAuthRoute) void goto(withBase('/'));
+			else if (onAdminOnlyRoute && auth.currentUser.role !== 'Admin') void goto(withBase('/'));
 			return;
 		}
 
@@ -96,7 +97,7 @@
 			// decided by /login's own fresh fetch of this same endpoint on mount, not
 			// here, now that both live on the same route.
 			await getBootstrapStatus();
-			await goto('/login');
+			await goto(withBase('/login'));
 		} catch (err) {
 			redirectError = err instanceof Error ? err.message : String(err);
 		}

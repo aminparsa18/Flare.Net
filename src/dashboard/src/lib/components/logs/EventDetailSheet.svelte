@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import AnsiText from './AnsiText.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
@@ -279,7 +280,7 @@
 							<span class="text-muted-foreground">{m.eventDetail_traceId()}</span>
 							{#if event.traceId}
 								<p class="truncate">
-									<a href="/traces/{event.traceId}" class="hover:text-primary font-mono underline-offset-2 hover:underline">
+									<a href={withBase(`/traces/${event.traceId}`)} class="hover:text-primary font-mono underline-offset-2 hover:underline">
 										{event.traceId}
 									</a>
 								</p>

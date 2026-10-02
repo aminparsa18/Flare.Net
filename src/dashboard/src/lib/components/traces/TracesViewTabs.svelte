@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	// Switches the /traces page between the trace list (search over individual traces)
 	// and the Services RED-metrics rollup (Rate/Errors/Duration aggregated by
 	// ServiceName) - folded into this page rather than given its own top-level route,
@@ -27,8 +28,8 @@
 	let { activeTab, onTabChange }: Props = $props();
 
 	const tabs: { tab: Tab; href: string; label: () => string }[] = [
-		{ tab: 'traces', href: '/traces', label: m.tracesPage_tracesTab },
-		{ tab: 'services', href: '/traces?tab=services', label: m.tracesPage_servicesTab }
+		{ tab: 'traces', href: withBase('/traces'), label: m.tracesPage_tracesTab },
+		{ tab: 'services', href: withBase('/traces?tab=services'), label: m.tracesPage_servicesTab }
 	];
 
 	function tabClass(active: boolean): string {
@@ -46,7 +47,7 @@
 			<a class={tabClass(activeTab === tab)} {href}>{label()}</a>
 		{/if}
 	{/each}
-	<a class={tabClass(activeTab === 'funnels')} href="/traces/funnels" aria-current={activeTab === 'funnels' ? 'page' : undefined}>
+	<a class={tabClass(activeTab === 'funnels')} href={withBase('/traces/funnels')} aria-current={activeTab === 'funnels' ? 'page' : undefined}>
 		{m.tracesPage_funnelsTab()}
 	</a>
 </div>

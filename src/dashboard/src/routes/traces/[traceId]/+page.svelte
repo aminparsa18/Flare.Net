@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { TraceDetailState } from '$lib/traces/trace-state.svelte';
@@ -57,7 +58,7 @@
 
 <div class="flex h-full flex-col">
 	<div class="bg-background sticky top-0 z-10 flex items-center gap-2 border-b px-4 py-2">
-		<Button variant="ghost" size="sm" href="/traces">
+		<Button variant="ghost" size="sm" href={withBase('/traces')}>
 			<ArrowLeftIcon data-icon="inline-start" />
 			{m.tracePage_backToTraces()}
 		</Button>

@@ -38,7 +38,7 @@ public static class EntraAuthEndpoints
         return endpoints;
     }
 
-    internal static async Task<IResult> HandleLoginAsync(string? returnUrl, IConfiguration configuration, IEntraSettingsStore entraSettings, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleLoginAsync(HttpContext http, string? returnUrl, IConfiguration configuration, IEntraSettingsStore entraSettings, CancellationToken cancellationToken)
     {
         var settings = await entraSettings.GetAsync(cancellationToken);
         if (!settings.Enabled)
@@ -56,7 +56,7 @@ public static class EntraAuthEndpoints
             return Results.Problem("returnUrl is missing or is not an allowed origin.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var properties = new AuthenticationProperties { RedirectUri = "/api/auth/entra/complete" };
+        var properties = new AuthenticationProperties { RedirectUri = $"{http.Request.PathBase}/api/auth/entra/complete" };
         properties.Items["returnUrl"] = validatedReturnUrl;
         return Results.Challenge(properties, [EntraAuthenticationDefaults.SchemeName]);
     }

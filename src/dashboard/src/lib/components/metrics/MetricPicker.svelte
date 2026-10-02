@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import * as Command from '$lib/components/ui/command';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -61,7 +62,7 @@
 					     here, not for a search/filter that just doesn't match anything real. -->
 					<p class="pb-4 text-center">
 						<a
-							href="/data-sources"
+							href={withBase('/data-sources')}
 							class="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4"
 						>
 							{m.metricPicker_ingestLink()}

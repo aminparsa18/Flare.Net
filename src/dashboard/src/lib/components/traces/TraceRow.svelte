@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { withBase } from '$lib/paths';
 	import type { SpanDto } from '$lib/traces-api';
 	import { Badge } from '$lib/components/ui/badge';
 	import { statusVariant, statusLabel, rolledUpStatusCode } from '$lib/traces/status';
@@ -14,7 +15,7 @@
 
 <!-- A real link, not a button + goto(), so Ctrl/Cmd/middle-click and "Open in new tab" work. -->
 <a
-	href="/traces/{trace.traceId}"
+	href={withBase(`/traces/${trace.traceId}`)}
 	class="hover:bg-muted/50 focus-visible:bg-muted/50 grid w-full items-center gap-3 border-b px-3 text-left text-sm focus-visible:outline-none"
 	style="grid-template-columns: var(--trace-row-columns); height: var(--trace-row-height);"
 >
