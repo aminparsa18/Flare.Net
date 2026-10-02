@@ -11,6 +11,9 @@
 	import EventPodMetrics from './EventPodMetrics.svelte';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import JsonTree from './JsonTree.svelte';
+	import { parseJsonBody } from '$lib/logs/json-body';
+	import type { BodyJsonFilterOperator } from '$lib/api';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import { severityVariant } from '$lib/logs/severity';
 	import { logsExplorerContext } from '$lib/logs/context';
@@ -139,6 +142,18 @@
 		return { text: body.slice(0, BODY_PREVIEW_CHARS), truncated: true };
 	});
 
+	// JSON tree only when the whole body is on screen (a truncated preview can't parse) and parses
+	// to an object/array. `bodyRaw` flips back to the plain/ANSI text; it resets per event.
+	let rawBodyEventId = $state<string | null>(null);
+	const bodyJson = $derived(bodyView.truncated ? null : parseJsonBody(bodyView.text));
+	const showTree = $derived(bodyJson !== null && rawBodyEventId !== explorer.selectedEvent?.eventId);
+
+	function addBodyJsonFilter(path: string, operator: BodyJsonFilterOperator, value: string): void {
+		const exists = explorer.filter.bodyJsonFilters.some((f) => f.path === path && f.operator === operator && f.value === value);
+		if (exists) return;
+		explorer.setBodyJsonFilters([...explorer.filter.bodyJsonFilters, { path, operator, value }]);
+	}
+
 	function formatSize(chars: number): string {
 		return chars >= 1024 * 1024 ? `${(chars / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(chars / 1024)} KB`;
 	}
@@ -221,7 +236,18 @@
 			</Sheet.Header>
 			<ScrollArea class="min-h-0 flex-1 px-4">
 				<div class="flex flex-col gap-4 pb-8">
-					<p class="text-sm break-words whitespace-pre-wrap"><AnsiText text={bodyView.text} /></p>
+					{#if bodyJson !== null}
+						<div class="flex justify-end">
+							<Button variant="outline" size="xs" onclick={() => (rawBodyEventId = showTree ? event.eventId : null)}>
+								{showTree ? m.eventDetail_jsonShowRaw() : m.eventDetail_jsonShowTree()}
+							</Button>
+						</div>
+					{/if}
+					{#if showTree && bodyJson !== null}
+						<JsonTree value={bodyJson} onFilter={addBodyJsonFilter} />
+					{:else}
+						<p class="text-sm break-words whitespace-pre-wrap"><AnsiText text={bodyView.text} /></p>
+					{/if}
 					{#if bodyView.truncated}
 						<div class="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
 							<span>
