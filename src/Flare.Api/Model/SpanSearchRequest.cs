@@ -69,4 +69,13 @@ public sealed partial record TraceDto
 
     /// <summary>Ascending by <c>StartTime</c> - the order a waterfall renders top-to-bottom.</summary>
     public required IReadOnlyList<SpanDto> Spans { get; init; }
+
+    /// <summary>True when the trace has more than <c>TraceByIdQueryBuilder.MaxSpans</c> spans, so <see cref="Spans"/> holds only its top depth levels (see <see cref="PartialSpanIds"/>).</summary>
+    public bool Truncated { get; init; }
+
+    /// <summary>
+    /// When <see cref="Truncated"/>, the trace is loaded lazily by depth: these loaded spans
+    /// have children that were not loaded. Fetch them with <c>GET /api/traces/{traceId}/spans/{spanId}/children</c>.
+    /// </summary>
+    public IReadOnlyList<string> PartialSpanIds { get; init; } = [];
 }

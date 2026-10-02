@@ -89,6 +89,11 @@ internal sealed class TraceCommand : AsyncCommand<TraceCommand.Settings>
         var errorSuffix = errorCount > 0 ? $" [red]· {errorCount} error(s)[/]" : "";
         AnsiConsole.MarkupLine(
             $"[grey]{spans.Count} span(s) · {serviceCount} service(s) · {TracesCommand.FormatDurationNano((ulong)(totalMs * 1_000_000))} total · started {spans.Min(s => s.StartTime).ToLocalTime():HH:mm:ss.fff}[/]{errorSuffix}");
+        if (trace.Truncated)
+        {
+            AnsiConsole.MarkupLine($"[yellow]![/] Large trace: showing only the top {spans.Count} span(s) by depth; deeper spans are not loaded (the dashboard can expand them).");
+        }
+
         AnsiConsole.WriteLine();
 
         AnsiConsole.MarkupLine($"{"Span".PadRight(LabelWidth)} {BuildAxisHeader(totalMs)}");

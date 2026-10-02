@@ -309,6 +309,19 @@ export interface TraceDto {
 	traceId: string;
 	/** Ascending by startTime - the order a waterfall renders top-to-bottom. */
 	spans: SpanDto[];
+	/** True when the trace exceeded the server's span cap and `spans` holds only the earliest ones. */
+	truncated: boolean;
+	/** When `truncated`, loaded spans whose children are not loaded yet - fetch them with `getTraceChildren`. */
+	partialSpanIds: string[];
+}
+
+function toTraceDto(dto: GeneratedTraceDto): TraceDto {
+	return {
+		traceId: dto.traceId ?? '',
+		spans: (dto.spans ?? []).map((s) => toSpanDto(s!)),
+		truncated: dto.truncated,
+		partialSpanIds: (dto.partialSpanIds ?? []).map((id) => id ?? '')
+	};
 }
 
 /** Returns `null` for a 404 (no spans found for that trace id) rather than throwing - a normal, expected outcome the caller renders as "not found," not an error state. */
@@ -324,10 +337,21 @@ export async function getTrace(traceId: string, signal?: AbortSignal): Promise<T
 	if (dto == null) {
 		throw new Error('Empty response body decoding TraceDto.');
 	}
-	return {
-		traceId: dto.traceId ?? '',
-		spans: (dto.spans ?? []).map((s) => toSpanDto(s!))
-	};
+	return toTraceDto(dto);
+}
+
+/** The next depth levels below one span of a lazily loaded (`truncated`) trace. */
+export async function getTraceChildren(traceId: string, spanId: string, signal?: AbortSignal): Promise<TraceDto> {
+	const url = `${API_BASE_URL}/api/traces/${encodeURIComponent(traceId)}/spans/${encodeURIComponent(spanId)}/children`;
+	const res = await apiFetch(url, { headers: memoryPackAcceptHeaders(), signal });
+	if (!res.ok) {
+		throw new Error(`GET ${url} failed: ${res.status} ${res.statusText}`);
+	}
+	const dto = GeneratedTraceDto.deserialize(await res.arrayBuffer());
+	if (dto == null) {
+		throw new Error('Empty response body decoding TraceDto.');
+	}
+	return toTraceDto(dto);
 }
 
 // ---- POST /api/spans/attribute-values (SpanAttributeValuesRequest.cs) -----------------

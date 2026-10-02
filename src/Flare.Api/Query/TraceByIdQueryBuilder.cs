@@ -18,7 +18,8 @@ public sealed record TraceByIdSql(string Sql, ClickHouseParameterCollection Para
 /// keyset pagination needed, just a safety <see cref="MaxSpans"/> cap in case a
 /// pathological trace has an unbounded number of spans, mirroring
 /// <see cref="LogQueryService"/>'s <c>max_result_rows</c> safety setting rather than
-/// trusting the caller or the data to stay small.
+/// trusting the caller or the data to stay small. The query asks for <c>MaxSpans + 1</c>
+/// rows so <see cref="SpanQueryService.GetTraceAsync"/> can detect truncation and trim.
 /// </remarks>
 public static class TraceByIdQueryBuilder
 {
@@ -28,7 +29,8 @@ public static class TraceByIdQueryBuilder
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("traceId", traceId);
-        parameters.AddParameter("limit", MaxSpans);
+        // One past the cap, so the caller can tell "exactly MaxSpans" from "more than MaxSpans".
+        parameters.AddParameter("limit", (ulong)MaxSpans + 1);
 
         var sql = $"SELECT {SpanColumns.SelectList}\n" +
             "FROM spans\n" +

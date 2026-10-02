@@ -9,6 +9,7 @@
 	import SpanDetailSheet from '$lib/components/traces/SpanDetailSheet.svelte';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { cn } from '$lib/utils';
 	import { Input } from '$lib/components/ui/input';
@@ -17,6 +18,7 @@
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import XIcon from '@lucide/svelte/icons/x';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import * as m from '$lib/paraglide/messages';
 
 	const detail = traceDetailContext.set(new TraceDetailState());
@@ -160,12 +162,23 @@
 				<Empty.Description>{detail.error}</Empty.Description>
 			</Empty.Header>
 		</Empty.Root>
-	{:else if activeTab === 'waterfall'}
+	{:else}
+		{#if detail.trace?.truncated}
+			<Alert.Root class="mx-4 mt-3 w-auto">
+				<TriangleAlertIcon />
+				<Alert.Title>{m.tracePage_truncatedTitle()}</Alert.Title>
+				<Alert.Description>{m.tracePage_truncatedDescription({ count: detail.trace.spans.length.toLocaleString() })}
+					{#if detail.childLoadError}<span class="text-destructive"> {detail.childLoadError}</span>{/if}
+				</Alert.Description>
+			</Alert.Root>
+		{/if}
+		{#if activeTab === 'waterfall'}
 		<TraceWaterfall />
 	{:else if activeTab === 'flame-graph'}
 		<TraceFlameGraph />
 	{:else}
 		<ServiceMap spans={detail.trace?.spans ?? []} />
+		{/if}
 	{/if}
 </div>
 <SpanDetailSheet />

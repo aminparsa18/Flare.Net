@@ -24,12 +24,12 @@ public class TraceByIdQueryBuilderTests
     }
 
     [Fact]
-    public void Build_AppliesTheMaxSpansSafetyCap()
+    public void Build_AppliesTheMaxSpansSafetyCap_PlusOneToDetectTruncation()
     {
         var result = TraceByIdQueryBuilder.Build("0102030405060708090a0b0c0d0e0f10");
 
         Assert.Contains("LIMIT {limit:UInt64}", result.Sql);
-        Assert.Equal(TraceByIdQueryBuilder.MaxSpans, result.Parameters.ToDictionary()["limit"]);
+        Assert.Equal((ulong)TraceByIdQueryBuilder.MaxSpans + 1, result.Parameters.ToDictionary()["limit"]);
     }
 
     [Fact]

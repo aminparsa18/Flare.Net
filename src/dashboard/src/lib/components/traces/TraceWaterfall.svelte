@@ -14,6 +14,7 @@
 	import ZapIcon from '@lucide/svelte/icons/zap';
 	import TimerIcon from '@lucide/svelte/icons/timer';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronsDownUpIcon from '@lucide/svelte/icons/chevrons-down-up';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
@@ -372,6 +373,25 @@
 								}}
 							>
 								<ChevronRightIcon class="size-3.5 transition-transform {isCollapsed ? '' : 'rotate-90'}" />
+							</button>
+						{:else if detail.partialSpanIds.has(span.spanId)}
+							<!-- Large trace loaded lazily by depth: this span has children not fetched yet. -->
+							<button
+								type="button"
+								class="text-muted-foreground hover:bg-muted hover:text-foreground -my-1 flex size-4 shrink-0 items-center justify-center rounded"
+								aria-label={m.traceWaterfall_loadChildren()}
+								title={m.traceWaterfall_loadChildren()}
+								disabled={detail.loadingChildIds.has(span.spanId)}
+								onclick={(e) => {
+									e.stopPropagation();
+									void detail.loadChildren(span.spanId);
+								}}
+							>
+								{#if detail.loadingChildIds.has(span.spanId)}
+									<Spinner class="size-3" />
+								{:else}
+									<ChevronRightIcon class="size-3.5" />
+								{/if}
 							</button>
 						{:else}
 							<span class="size-4 shrink-0"></span>
