@@ -87,6 +87,12 @@ folders are where "what happened and why" actually lives.
   SQLite access. Email the link when SMTP is configured, otherwise let an
   admin generate one
   ([signoz#10073](https://github.com/SigNoz/signoz/commit/e1ac992e5a65b49678187303840e79b568feea87)).
+  Also missing: local users can't change their own password at all
+  (`AuthEndpoints` has only login/logout/bootstrap), and `ISessionStore` can't
+  drop a user's sessions. Add `POST /api/auth/password` (current + new, same
+  strength rules as bootstrap) that revokes the user's other sessions, and
+  make any reset (forgot-password or admin) revoke all of them
+  ([signoz#12531](https://github.com/SigNoz/signoz/commit/faaed20dbd08c320fcda4f9cc004d2091c4045de)).
 - **OpenAPI.NET v3 (`Microsoft.OpenApi` 3.x, OpenAPI spec 3.2).** Blocked on
   `Microsoft.AspNetCore.OpenApi`: 10.0.x caps it at `[2.12.0, 3.0.0)`, so the
   direct pin in `Directory.Packages.props` stays on 2.x. The first release
@@ -99,13 +105,6 @@ folders are where "what happened and why" actually lives.
   delete) takes the whole header: the title shrinks to nothing and the
   panel-type badge overlaps the icons. Needs an overflow menu or a
   wrapping header in edit mode.
-- **Dashboard variable values and time range in the URL.** The dashboard
-  viewer keeps variable selections and the time-range override in memory or
-  localStorage only, so a shared `/dashboards/<id>` link opens with the
-  recipient's own values. Mirror them into query params (e.g.
-  `?var-service=a,b&range=1h`), hydrate from the URL first on load, and use
-  `replaceState` on change. Not started. Prior art:
-  [signoz#8874](https://github.com/SigNoz/signoz/commit/437d0d134502b5bd124471606674080a040a2090).
 - **Docs for the span duration percentile.** The "pN of `<name>` in
   `<service>`" line in `SpanDetailSheet` (`POST /api/spans/duration-percentile`,
   ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
@@ -160,3 +159,269 @@ folders are where "what happened and why" actually lives.
   server-side preview. Probably a short follow-up ADR to 0052. Not started.
   Prior art:
   [signoz#10682](https://github.com/SigNoz/signoz/commit/30d3f754b56b39c4660ca18bdf8e4d8d0a38b845).
+- **Color waterfall/flame-graph spans by service or any field.** Waterfall
+  bars are colored by OTel status only (`barColorClass`), so in a
+  multi-service trace you can't see which service owns which span without
+  reading labels. Add a color-by menu: service by default, or any
+  span/resource attribute. Use a stable palette per value, and a legend that
+  lists each group's total self-time (time not covered by child spans) in
+  the trace. Keep errors visible via an outline or marker rather than the
+  fill. Not started. Prior art:
+  [signoz#11092](https://github.com/SigNoz/signoz/commit/9a3e79fb54b84b1fba251d321c0032d9ab1b7bcb).
+- **Group logs by a JSON body field.** `LogAggregateGroupBy` is
+  `None`/`Service`/`Level`/`Attribute`/`Scope`. JSON body paths can be
+  filtered on (`BodyJsonFilters`) but not grouped by in the volume chart or
+  Logs dashboard panels. Add a `BodyJson` group-by carrying a path, compiled
+  with the same `JSONExtract` SQL the body filters use, under the existing
+  top-N + "other" cap. Not started. Prior art:
+  [signoz#11042](https://github.com/SigNoz/signoz/commit/a4266fa703cac3dd1d67399a433868d5da52dd2f).
+- **MCP server for AI assistants.** There's no way for Claude Code, Cursor or
+  VS Code agents to query Flare directly. The `flare` CLI already wraps
+  log/trace/metric/exception/alert search over the API, so add a small MCP
+  server (stdio via `flare mcp`, optionally streamable HTTP in `Flare.Api`)
+  exposing read-only tools on top of the same clients: search logs, get
+  trace, query metric, list exceptions, list firing alerts. Results are
+  capped and summarized for context size. Authenticate with a PAT (or a
+  service account once that exists), plus a docs page with per-client setup
+  snippets. Aim it at the Aspire dev loop first, where Flare is strongest:
+  a coding agent runs the app, reproduces a bug, reads the telemetry, fixes
+  the code and verifies. So add "last run" scoping (telemetry since the
+  AppHost/resource last started), no-auth on a loopback-only standing
+  instance, and a before/after trace-diff tool (same endpoint, two runs:
+  spans added/removed, duration and error changes). Not started. Prior art:
+  [signoz#11025](https://github.com/SigNoz/signoz/commit/bb10f51cc549321e16937d9dd4f6eec351f57637).
+- **LLM observability from GenAI semconv.** Nothing reads `gen_ai.*` span
+  attributes today, though .NET apps using Microsoft.Extensions.AI or
+  Semantic Kernel emit them. Add a page built from `gen_ai.*` spans: calls,
+  latency, error rate, and input/output tokens by `gen_ai.request.model`,
+  `gen_ai.system`/provider and service, with drill-down to traces. Add an
+  editable model → price-per-token table for estimated cost (seeded with
+  common models, overridable). Consider pre-aggregation like ADR-0031 if
+  volumes warrant it. Needs an ADR. Not started. Prior art:
+  [signoz#10908](https://github.com/SigNoz/signoz/commit/755390c4b5b2456a7c5c44d98fe8fcb18671616b).
+- **Filter logs by properties of their trace.** `LogFilter` only matches an
+  exact `TraceId`/`SpanId`, so "logs from traces where a `payments` span
+  errored or took > 2s" isn't expressible. Add an optional `SpanFilter` on
+  `LogFilter`, compiled to `TraceId GLOBAL IN (SELECT TraceId FROM spans
+  WHERE …)` over the same time window via `SpanFilterSqlBuilder` (structural
+  queries included). It then works for search, volume/group-by and LogCount
+  alerts. Live tail can't evaluate it in memory, so reject it there or
+  ignore it with a notice. Not started. Prior art:
+  [signoz#11394](https://github.com/SigNoz/signoz/commit/ceb1b4871b332657c241b425572b400828ca3323).
+- **User-defined alert rule labels + label-scoped maintenance windows.**
+  Maintenance windows match only an explicit `RuleIds` list (empty = all),
+  and rules have no user labels: `{{labels.<key>}}` in templates comes from
+  series attributes, not tags set on the rule. Add `Labels` (key/value) to
+  alert rules, filterable in the alerts list and exposed to templates and
+  webhook payloads. Add a label matcher on maintenance windows (e.g.
+  `team=payments`) as an alternative to picking rules, so new rules are
+  covered automatically. This also gives the "Alert rule severity" item and
+  any future label-based channel routing a natural home. Not started. Prior
+  art:
+  [signoz#11186](https://github.com/SigNoz/signoz/commit/6cf22e98ddc86f1f1a28eaebbd4d1cab2007a252).
+- **Pin and tag dashboards.** Dashboards have no tags and no pinning: the only
+  per-user ordering is the single home dashboard (`home-preference.ts`), which
+  gets painful past a few dozen dashboards. Add free-form tags on dashboards
+  (filter chips + search on the list page) and a per-user pin/favourite
+  stored in Identity that floats pinned dashboards to the top of the list
+  and the command palette. Not started. Prior art:
+  [signoz#11219](https://github.com/SigNoz/signoz/commit/b22eef6a65211f66f5f0a50c6ce3b019fee4b532).
+- **Bug: span details show no linked logs for spans older than 1 hour.**
+  `SpanDetailSheet` calls `searchLogs({ filter: { traceId, spanId } })` with
+  no `From`/`To`, so `LogFilterSqlBuilder` applies `DefaultLookback` (the last
+  hour before *now*) and any older span's logs come back empty even though
+  they exist. Send `From`/`To` = span start/end padded by a few minutes (logs
+  are often flushed slightly after the span ends; ±5m matches the CLI
+  incident bundle's `--margin` default), and audit other traceId-scoped log
+  lookups for the same omission. While there: the section shows at most 20
+  logs with no way to see the rest, so add an "Open in Logs Explorer" link
+  (traceId + spanId filter over the same padded window)
+  ([signoz#11941](https://github.com/SigNoz/signoz/commit/ca5d8889700508055abbbb6465caaad27faad320)).
+  Not started. Prior art:
+  [signoz#11800](https://github.com/SigNoz/signoz/commit/c5c1913f97cfc877e553d65e8ca36e4233e4e553).
+- **Per-metric attribute reduction at ingest.** Pipeline rules only apply to
+  logs, so there's no way to stop a high-cardinality data-point attribute
+  (`http.url`, `user.id`, a request ID) from exploding a metric's series
+  count before it reaches ClickHouse. Add per-metric rules (metric name or
+  prefix → attributes to drop or keep-only) applied in the metric write
+  path. Points that collapse onto the same series are re-aggregated (sum for
+  delta Sum/histogram buckets, last-value for gauges/cumulative). The metrics
+  catalog shows each metric's series count to pick candidates. Needs an ADR.
+  Not started. Prior art:
+  [signoz#11849](https://github.com/SigNoz/signoz/commit/d5221a6ff3b1b7a9b55492218c9f589845bcbc28).
+- **"Dashboards using this metric" in the metrics catalog.** The catalog's
+  inspect view doesn't show which dashboard panels (including formula
+  panels) reference a metric, so before renaming, dropping or overriding a
+  metric there's no way to see what breaks. Add a lookup over saved
+  dashboards' layout JSON by metric name (respecting dashboard visibility),
+  listed with deep links to each dashboard/panel. Not started. Prior art:
+  [signoz#11784](https://github.com/SigNoz/signoz/commit/5ab6636863aa3cab0b5b0a7e260be8c3f206841c).
+- **Export chart data as CSV.** Logs/traces have row exports and the Table
+  visualization has a CSV download, but time-series charts (`MetricChart`,
+  `FormulaChart`, `VolumeChart`) and dashboard chart panels can't export the
+  data they plot. The panel's export button exports its definition. Add
+  "Download CSV" to the chart/panel menu that writes the already-loaded
+  series client-side: a timestamp column (UTC ISO, plus the display zone)
+  and one column per series, labeled like the legend. Not started. Prior art:
+  [signoz#12055](https://github.com/SigNoz/signoz/commit/466edf1f1c9a7814ff944ebe60ed35b817c64027).
+- **Bug: metric unit/description read from an arbitrary row.**
+  `MetricNamesQueryBuilder` uses `any(Unit)`/`any(Description)`,
+  `MetricAlertConditionQueryBuilder` `any(Unit)` (8 places), and the catalog
+  `anyIf(Unit, Unit != '')`. When a metric's unit changes inside the queried
+  window, ClickHouse returns whichever value it reads first, so the unit can
+  flip between queries and mis-scale axes, Value panels and (with the
+  threshold-unit item) alert comparisons. That's a real case for .NET:
+  `http.server.request.duration` moved from `ms` to `s` across ASP.NET Core
+  / semconv versions. Use `argMax(Unit, TimeUnix)` (`argMaxIf(..., Unit !=
+  '')` where empties should be skipped) and the same for `Description`. A
+  unit test can pin the generated SQL. Not started. Prior art:
+  [signoz#12205](https://github.com/SigNoz/signoz/commit/fe101a183575adf89bf16fdd16ae61daf4f300b4).
+- **DaemonSet "misscheduled" column on the Kubernetes Workloads tab.** The
+  DaemonSet row shows desired/ready/current from `k8s_cluster` metrics but
+  not `k8s.daemonset.misscheduled_nodes`, which signals nodes running a pod
+  they shouldn't. Add it as a fourth `Count(...)` entry in
+  `KubernetesWorkloadQueryBuilder` (old and new metric names, like the
+  others) plus the column. Not started. Prior art:
+  [signoz#12102](https://github.com/SigNoz/signoz/commit/3cd0c2170365bbc60cc43e0c719dbf9f4cddc857).
+- **Free-text log search across all fields.** The free-text filter is a
+  case-insensitive substring match on `Body` only, so an order ID that lives
+  only in an attribute isn't found unless you know its key. Add an opt-in
+  "search all fields" toggle that also matches attribute and resource values:
+  `arrayExists(v -> positionCaseInsensitive(v, {q}) > 0,
+  mapValues(LogAttributes))`, same for `ResourceAttributes`. Keep it opt-in
+  because those branches can't use the body ngram index (ADR-0073), and
+  mirror it in `LogFilterMatcher` for live tail. Not started. Prior art:
+  [signoz#12244](https://github.com/SigNoz/signoz/commit/77c1b601be2a1baf49b2e69fcfdcb8d4119c84a6).
+- **Show the message for a lone-message JSON body.** Bodies like
+  `{"message":"…"}` (common from JSON console formatters) render as raw JSON
+  in the log table. In the display layer only, when the body parses as an
+  object whose single field is a `message`/`msg` string, show that text in
+  rows. Keep the raw JSON in log details and leave stored data, body filters
+  and exports untouched. Not started. Prior art:
+  [signoz#12206](https://github.com/SigNoz/signoz/commit/31cb4d7520866b5e1defd6ebb166353bf1b218e5).
+- **Microsoft Teams and Discord notification channels.** Channel types are
+  Webhook/Telegram/Email/PagerDuty. The generic webhook's top-level `text`
+  covers Slack and (probably; verify live) Google Chat incoming webhooks, but
+  Teams Workflows webhooks need an Adaptive Card payload and Discord needs
+  `content`, so neither works today. Add both as native types with send-test
+  and template support (ADR-0052), and a docs line that Slack/Google Chat use
+  the plain Webhook type. Lower-priority further targets once the per-type
+  notifier shape exists: Jira / JSM Ops (create an issue/alert, resolve on
+  recovery)
+  ([signoz#12478](https://github.com/SigNoz/signoz/commit/160a1b018cd9cd7396ff8b6906be158ed16cfb0b))
+  and incident.io
+  ([signoz#12644](https://github.com/SigNoz/signoz/commit/e84a61d43f7f5a7b10a955f0e2b4444b7443d4e7)).
+  Not started. Prior art:
+  [signoz#12314](https://github.com/SigNoz/signoz/commit/e9726776ab7a1adfc50540925ae016f183bf7cbc).
+- **JSON body fields as log table columns.** Log table columns are
+  Time/Message plus pinned attributes. A JSON body path (e.g. `$.order.id`)
+  can be filtered on but not shown as a column. Allow adding a body path as a
+  column, using the same path syntax as `BodyJsonFilters`, extracted
+  client-side from the already-loaded body (no extra query; empty when the
+  body isn't JSON or lacks the path), and persisted like other column
+  choices. Not started. Prior art:
+  [signoz#12503](https://github.com/SigNoz/signoz/commit/a355996a5d1eddeec7416859daec4a570a56a126).
+- **Text/Markdown dashboard panel.** `PanelType` is only
+  `Logs`/`Traces`/`Metrics`, so a dashboard can't carry notes, runbook links
+  or section headers (panel descriptions are plain text by design). Add a
+  `Text` panel type holding Markdown, rendered through a sanitizer (no raw
+  HTML, links only http(s)), with `$variable` substitution like panel titles.
+  No query, so it's excluded from refresh/lazy-load. Not started. Prior art:
+  [signoz#12712](https://github.com/SigNoz/signoz/commit/851abd2c93af8b9dba28224e36e0e3ffa0a01309).
+- **Heatmap visualization for histogram metrics.** The `histogram`
+  visualization shows one distribution for the whole range, not how it moves
+  over time, the standard view for latency. The per-time-bucket bucket
+  arrays already come back (`sumForEach` in `MetricSeriesQueryBuilder`, plus
+  exponential histograms via ADR-0060), so add a `heatmap` visualization
+  (x = time bucket, y = histogram bucket, color = count, log color scale
+  option) with a hover readout. Mostly a renderer. Not started. Prior art:
+  [signoz#12764](https://github.com/SigNoz/signoz/commit/fd032291f95ed6d7db248c946aa149b28ee8c116).
+- **Percent (100%) stacking.** Only `stackedBar` exists, in absolute values,
+  and time series can't stack. Add a stacking option (none/normal/percent) to
+  `timeSeries` and `bar`, folding `stackedBar` into `bar` + normal with a
+  migration of saved panels. Percent mode divides each bucket by its total
+  and shows the y-axis as 0–100%. Not started. Prior art:
+  [signoz#12632](https://github.com/SigNoz/signoz/commit/485aed0e1ae0928661f452df6ad058331cd5501a).
+- **Built-in dashboard templates.** Flare ships no dashboards: users start
+  empty or import Grafana JSON. Ship a few templates for what .NET apps emit
+  by default (ASP.NET Core `http.server.*`, HttpClient `http.client.*`, .NET
+  runtime GC/threadpool/exceptions, hostmetrics, Kubernetes), each using
+  service/host variables. Install with one click as normal editable
+  dashboards (not locked "system" ones), and validate them against the
+  example shop's real metric names. Not started. Prior art:
+  [signoz#12620](https://github.com/SigNoz/signoz/commit/7eb610287e81e4bd7f812507d6baba28efa20ec7).
+- **"Create alert" from the Logs and Metrics explorers.** Dashboard panels
+  can draft an alert from their query (`DashboardPanelCard`) and explorers
+  can pin to a dashboard, but there's no "Create alert from this query" in
+  the explorers themselves, so the filter has to be rebuilt by hand in the
+  alert form. Add a toolbar action that opens `AlertRuleFormDialog` prefilled
+  from the current explorer state (LogCount for Logs, metric threshold for
+  Metrics), reusing the panel's drafting code. Not started. Prior art:
+  [signoz#12981](https://github.com/SigNoz/signoz/commit/adfcebf855bf792c74acfd4b01f7a0fcf29a3831).
+- **Search, filter and sort on the alert rules list.** `AlertRuleTable` has
+  no search box or sortable columns, so with many rules there's no way to
+  find one by name or show only firing/disabled ones. Add client-side search
+  by name; filters for state (firing/OK/disabled/muted by maintenance) and
+  condition kind; and sorting by name/state/last fired, persisted in the URL.
+  Rule-label filtering lands here once the labels item ships. Not started.
+  Prior art:
+  [signoz#12780](https://github.com/SigNoz/signoz/commit/ee35fc351f5619362a31e1614a21b4f3abde66b5).
+- **Exception → source code.** Exceptions show a stack trace but nothing
+  links a frame to the code that ran. Use `code.filepath`/`code.lineno` (and
+  the stack trace's own `in File:line` frames) plus the app's commit
+  (`service.version` or a `vcs.revision`-style resource attribute, which
+  SourceLink-enabled builds can stamp) to show the failing lines inline and
+  link to the repo at that commit (GitHub/GitLab/Azure DevOps URL patterns,
+  repo URL configured per service). Optional follow-up: an "explain this
+  exception" LLM action with the real source in context, under the AI
+  constraints below. Not started.
+- **AI incident summary on alerts (opt-in).** When a rule fires, run the
+  same data `flare export --trace-id` bundles (a representative failing
+  trace, its logs, the rule's metric window) through an LLM. Add the summary
+  to the notification and alert history: first error, failing span/service,
+  what changed vs. the previous window. Constraints for every AI feature:
+  off by default; bring-your-own model (OpenAI-compatible endpoint,
+  including local Ollama); attribute/body redaction before anything leaves
+  the box; record what was sent (feeds the audit-log item); bounded token
+  budget per alert; never blocks or delays the plain notification. Needs an
+  ADR. Not started.
+- **Natural language → typed filters.** Let users type "5xx on checkout in
+  the last hour, excluding health checks" and have an LLM produce a
+  `LogFilter`/`SpanFilter` (incl. structural trace queries) as JSON, checked
+  by the existing validators before it runs. That's safer than text-to-SQL,
+  since the model can never issue arbitrary ClickHouse queries. Show the
+  generated filter as normal editable chips so users learn the UI. Same AI
+  constraints as the incident-summary item. Not started.
+- **N+1 query detection.** The classic EF Core problem is detectable from
+  spans Flare already stores: within one trace, the same normalized
+  `db.query.text` (or `db.operation.name` + `db.collection.name`) repeated ≥ N
+  times (default 10) under one parent span. Show it as a badge on the parent
+  in the waterfall ("N+1: 48× SELECT … FROM Orders"), as a trace-list filter,
+  and as a per-service "worst offenders" list over a time range (query-time
+  `GROUP BY TraceId, ParentSpanId, statement` with caps; pre-aggregate only if
+  needed). Not started.
+- **.NET runtime health detectors.** Turn `System.Runtime` metrics into
+  findings on the service page rather than charts to interpret. Thread-pool
+  starvation: queue length rising while completed work items flatline. GC
+  pause spikes / time-in-GC above a threshold. Lock contention rate jumps.
+  Exception-rate jumps. Each finding links to the window and related
+  traces. Pairs with the built-in dashboards item, which shows the raw
+  metrics. Not started.
+- **Deploy / version comparison view.** "Did my deploy break anything?" in
+  one screen: pick a service and two `service.version` values (default: the
+  latest vs the previous). Compare new Drain log patterns (ADR-0007),
+  error-rate and p95 latency per endpoint, new exception types, and new
+  outbound dependencies. Each row links into the explorers scoped to that
+  version. Versions are detected from first-seen timestamps. No new storage
+  is needed for v1. Not started.
+- **SLOs with error budgets and burn-rate alerts.** Define SLOs on span data
+  (availability: non-error ratio of a service/endpoint; latency: % of
+  requests under a threshold) with a target and window (e.g. 99.5% over
+  28d). Show remaining error budget, plus multi-window burn-rate alerting
+  (e.g. 1h/5m fast burn, 6h/30m slow burn) through the existing alert
+  pipeline and channels. Likely needs a pre-aggregated per-minute
+  good/total table for long windows. Needs an ADR. Not started.
+- **Continuous profiling (later).** Ingest the OTLP profiles signal once it
+  stabilizes, store per-service profiles, and link spans to flame graphs of
+  what the code was doing during that span. Placeholder for when the spec
+  and .NET support settle. Not started.

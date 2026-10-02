@@ -20,6 +20,7 @@
 // API endpoint" shape, just scoped to one panel within `dashboard` instead of a whole
 // dashboard in the list.
 
+import { parseDashboardUrlState } from './url-state';
 import { getDashboard, updateDashboard, type DashboardSummary, type DashboardPanel, type DashboardLayout, type DashboardRow, type DashboardVariable } from '$lib/dashboards-api';
 import type { TimeRangePreset } from '$lib/logs/time-range';
 import { type RefreshInterval, refreshIntervalMs } from './refresh-intervals';
@@ -120,7 +121,9 @@ export class DashboardViewerState {
 		return this.dashboard?.layout.rows ?? [];
 	}
 
-	async load(id: string): Promise<void> {
+	/** `urlSearch` (the page's `?range=&var-<id>=` params, see url-state.ts) seeds the time-range
+	 *  override and variable selections from a shared link, taking precedence over defaults. */
+	async load(id: string, urlSearch?: URLSearchParams): Promise<void> {
 		this.loading = true;
 		this.error = null;
 		try {
@@ -129,6 +132,11 @@ export class DashboardViewerState {
 			this.variables = this.dashboard.layout.variables;
 			this.collapsedRowIds = new Set(this.rows.filter((r) => r.collapsed).map((r) => r.id));
 			this.#reseedVariableValues();
+			if (urlSearch) {
+				const fromUrl = parseDashboardUrlState(urlSearch, this.variables);
+				if (fromUrl.range) this.timeRangeOverride = fromUrl.range;
+				this.variableValues = { ...this.variableValues, ...fromUrl.variableValues };
+			}
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 			clearHomeDashboardIdIfMatching(id);

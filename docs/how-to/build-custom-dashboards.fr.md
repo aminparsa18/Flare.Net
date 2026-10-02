@@ -311,6 +311,16 @@ navigateur uniquement : elle n'est jamais enregistrée sur le tableau de
 bord, donc elle ne change jamais ce que voient les autres personnes qui
 l'ouvrent.
 
+## Partager une vue de tableau de bord
+
+La surcharge de plage de temps et chaque sélection de variable sont reflétées dans l'URL
+de la page (par exemple `/dashboards/<id>?range=1h&var-<variableId>=checkout`) : copier
+la barre d'adresse partage exactement ce que vous voyez. Ouvrir le lien applique ces
+valeurs par-dessus les valeurs par défaut du tableau de bord ; un `var-<variableId>=`
+vide signifie « Tous » explicitement. Seules les valeurs différentes des valeurs par
+défaut sont écrites, et l'URL est mise à jour sur place, donc le bouton Retour ne
+parcourt pas chaque changement.
+
 ## Actualisation automatique d'un tableau de bord
 
 Le sélecteur d'**actualisation** dans l'en-tête d'un tableau de bord (à côté
