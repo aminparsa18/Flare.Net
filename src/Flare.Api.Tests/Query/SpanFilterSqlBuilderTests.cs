@@ -265,6 +265,23 @@ public class SpanFilterSqlBuilderTests
         Assert.Equal(Array.Empty<string>(), (string[])result.Parameters.ToDictionary()["attrValues0"]!);
     }
 
+    [Theory]
+    [InlineData(SpanAttributeFilterOperator.GreaterThan, ">")]
+    [InlineData(SpanAttributeFilterOperator.GreaterThanOrEqual, ">=")]
+    [InlineData(SpanAttributeFilterOperator.LessThan, "<")]
+    [InlineData(SpanAttributeFilterOperator.LessThanOrEqual, "<=")]
+    public void Build_WithNumericOperator_ComparesAsFloat64(SpanAttributeFilterOperator op, string symbol)
+    {
+        var result = SpanFilterSqlBuilder.Build(
+            new SpanFilter { Attributes = [new SpanAttributeFilter { Key = "http.response.status_code", Value = "500", Operator = op }] },
+            Now);
+
+        Assert.Contains(
+            $"ifNull(toFloat64OrNull(SpanAttributes[{{attrKey0:String}}]) {symbol} {{attrValue0:Float64}}, 0)",
+            result.WhereSql);
+        Assert.Equal(500d, result.Parameters.ToDictionary()["attrValue0"]);
+    }
+
     [Fact]
     public void Build_WithNotInOperator_GuardsWithMapContains_AndNegatesInClause()
     {

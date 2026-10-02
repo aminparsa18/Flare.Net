@@ -55,6 +55,10 @@ public static class PipelineRuleConditionMatcher
                     AttributeConditionOperator.NotRegex => !(exists && RegexMatches(value!, attribute.Value)),
                     AttributeConditionOperator.In => exists && InValues(value!, attribute.Values),
                     AttributeConditionOperator.NotIn => !(exists && InValues(value!, attribute.Values)),
+                    AttributeConditionOperator.GreaterThan => NumericMatches(value, attribute.Value, c => c > 0),
+                    AttributeConditionOperator.GreaterThanOrEqual => NumericMatches(value, attribute.Value, c => c >= 0),
+                    AttributeConditionOperator.LessThan => NumericMatches(value, attribute.Value, c => c < 0),
+                    AttributeConditionOperator.LessThanOrEqual => NumericMatches(value, attribute.Value, c => c <= 0),
                     _ => exists && string.Equals(value, attribute.Value, StringComparison.Ordinal),
                 };
                 if (!matches)
@@ -66,6 +70,12 @@ public static class PipelineRuleConditionMatcher
 
         return true;
     }
+
+    /// <summary>Numeric comparison of an attribute value against the condition operand - mirrors <c>LogFilterMatcher</c>: both sides must parse as numbers, otherwise no match.</summary>
+    private static bool NumericMatches(string? value, string operand, Func<int, bool> accept) =>
+        double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lhs) && !double.IsNaN(lhs)
+        && double.TryParse(operand, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var rhs) && !double.IsNaN(rhs)
+        && accept(lhs.CompareTo(rhs));
 
     /// <summary>Fail-closed on an invalid pattern (returns <see langword="false"/>) - same posture as <c>LogFilterMatcher.RegexMatches</c>: a rule with a bad attribute-condition pattern shouldn't take down annotation for every other event in the batch.</summary>
     private static bool RegexMatches(string value, string pattern)

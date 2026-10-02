@@ -56,6 +56,8 @@ The column replaces the attribute-map lookup for:
 - **equals**
 - **not equals**, **in** and **not in**, unless one of the compared values is
   empty
+- the numeric comparisons (**greater than**, **less than**, and their
+  or-equal forms)
 
 **exists**, **absent** and the regex operators still read the attribute map,
 because the column can't tell a missing key from an empty value.

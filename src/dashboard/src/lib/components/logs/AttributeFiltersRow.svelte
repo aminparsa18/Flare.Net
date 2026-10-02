@@ -68,15 +68,24 @@
 		{ value: 'Regex', label: m.attributeFilters_opRegex() },
 		{ value: 'NotRegex', label: m.attributeFilters_opNotRegex() },
 		{ value: 'In', label: m.attributeFilters_opIn() },
-		{ value: 'NotIn', label: m.attributeFilters_opNotIn() }
+		{ value: 'NotIn', label: m.attributeFilters_opNotIn() },
+		{ value: 'GreaterThan', label: m.attributeFilters_opGreaterThan() },
+		{ value: 'GreaterThanOrEqual', label: m.attributeFilters_opGreaterThanOrEqual() },
+		{ value: 'LessThan', label: m.attributeFilters_opLessThan() },
+		{ value: 'LessThanOrEqual', label: m.attributeFilters_opLessThanOrEqual() }
 	];
 
 	/** Exists/Absent ignore AttributeFilter.value entirely - see AttributeFilterOperator's own remarks (LogFilter.cs); In/NotIn ignore it too, taking their operand from `values` instead (see needsMultiValue). */
 	function needsSingleValue(operator: AttributeFilterOperator): boolean {
-		return operator === 'Equals' || operator === 'NotEquals' || operator === 'Regex' || operator === 'NotRegex';
+		return operator === 'Equals' || operator === 'NotEquals' || operator === 'Regex' || operator === 'NotRegex' || isNumericOperator(operator);
 	}
 
 	/** In/NotIn's multi-value operand - AttributeValueListInput's chip editor, rather than a single AttributeValueCombobox. */
+	/** GreaterThan/GreaterThanOrEqual/LessThan/LessThanOrEqual - the value is parsed as a number server-side. */
+	function isNumericOperator(operator: AttributeFilterOperator | undefined): boolean {
+		return operator === 'GreaterThan' || operator === 'GreaterThanOrEqual' || operator === 'LessThan' || operator === 'LessThanOrEqual';
+	}
+
 	function needsMultiValue(operator: AttributeFilterOperator): boolean {
 		return operator === 'In' || operator === 'NotIn';
 	}

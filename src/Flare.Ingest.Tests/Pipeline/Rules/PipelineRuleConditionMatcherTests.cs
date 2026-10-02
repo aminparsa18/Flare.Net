@@ -110,6 +110,23 @@ public class PipelineRuleConditionMatcherTests
         Assert.True(PipelineRuleConditionMatcher.Matches(logEvent, condition));
     }
 
+    [Theory]
+    [InlineData(AttributeConditionOperator.GreaterThan, "99", true)] // 100 > 99 numerically (lexicographically "100" < "99")
+    [InlineData(AttributeConditionOperator.GreaterThanOrEqual, "100", true)]
+    [InlineData(AttributeConditionOperator.LessThan, "100", false)]
+    [InlineData(AttributeConditionOperator.LessThanOrEqual, "100", true)]
+    [InlineData(AttributeConditionOperator.GreaterThan, "abc", false)]
+    public void Matches_Attributes_NumericOperators(AttributeConditionOperator op, string operand, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with { LogAttributes = new Dictionary<string, string> { ["retry.count"] = "100" } };
+        var condition = new PipelineRuleCondition
+        {
+            Attributes = [new AttributeCondition { Key = "retry.count", Operator = op, Value = operand }],
+        };
+
+        Assert.Equal(expected, PipelineRuleConditionMatcher.Matches(logEvent, condition));
+    }
+
     [Fact]
     public void Matches_Attributes_RegexOperator_InvalidPattern_FailsClosed()
     {

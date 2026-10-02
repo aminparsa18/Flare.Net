@@ -302,6 +302,35 @@ public class LogFilterMatcherTests
         Assert.True(LogFilterMatcher.Matches(logEvent, filter));
     }
 
+    [Theory]
+    [InlineData(AttributeFilterOperator.GreaterThan, "10", "9", true)] // numeric, not lexicographic
+    [InlineData(AttributeFilterOperator.GreaterThan, "9", "10", false)]
+    [InlineData(AttributeFilterOperator.GreaterThan, "10", "10", false)]
+    [InlineData(AttributeFilterOperator.GreaterThanOrEqual, "10", "10", true)]
+    [InlineData(AttributeFilterOperator.LessThan, "9", "10", true)]
+    [InlineData(AttributeFilterOperator.LessThanOrEqual, "10.5", "10.5", true)]
+    [InlineData(AttributeFilterOperator.LessThanOrEqual, "11", "10.5", false)]
+    [InlineData(AttributeFilterOperator.GreaterThan, "abc", "1", false)] // non-numeric attribute never matches
+    [InlineData(AttributeFilterOperator.LessThan, "1", "abc", false)] // non-numeric operand never matches
+    public void Matches_NumericOperators(AttributeFilterOperator op, string attributeValue, string operand, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            LogAttributes = new Dictionary<string, string> { ["retry.count"] = attributeValue },
+        };
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "retry.count", Value = operand, Operator = op }] };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Fact]
+    public void Matches_NumericOperator_ReturnsFalse_WhenKeyIsAbsent()
+    {
+        var filter = new LogFilter { Attributes = [new AttributeFilter { Key = "missing.key", Value = "0", Operator = AttributeFilterOperator.GreaterThanOrEqual }] };
+
+        Assert.False(LogFilterMatcher.Matches(MinimalLogEvent(), filter));
+    }
+
     [Fact]
     public void Matches_MultipleAttributeFilters_AreAnded()
     {

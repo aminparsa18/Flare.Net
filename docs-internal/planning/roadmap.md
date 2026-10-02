@@ -99,15 +99,6 @@ folders are where "what happened and why" actually lives.
   delete) takes the whole header: the title shrinks to nothing and the
   panel-type badge overlaps the icons. Needs an overflow menu or a
   wrapping header in edit mode.
-- **Numeric comparison operators for attribute filters.** `AttributeFilterOperator`
-  has no `>`/`>=`/`<`/`<=`, so "`http.response.status_code` >= 500" or
-  "`retry.count` > 3" needs a regex or an `In` list. Add the four operators to
-  log and span attribute filters (and `LogFilterMatcher` for live tail).
-  Compile them to `toFloat64OrNull(map[key]) > {v:Float64}` so string-stored
-  numbers compare numerically, not lexicographically, and a non-numeric
-  value never matches. Promoted typed columns compare directly. Not started.
-  Prior art:
-  [signoz#9154](https://github.com/SigNoz/signoz/commit/8c29debb529738d2e90b50125c91200e36b114d8).
 - **Dashboard variable values and time range in the URL.** The dashboard
   viewer keeps variable selections and the time-range override in memory or
   localStorage only, so a shared `/dashboards/<id>` link opens with the

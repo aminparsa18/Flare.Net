@@ -294,6 +294,34 @@ public class LogFilterSqlBuilderTests
         Assert.Equal(["200", "201"], (string[])parameters["attrValues0"]!);
     }
 
+    [Theory]
+    [InlineData(AttributeFilterOperator.GreaterThan, ">")]
+    [InlineData(AttributeFilterOperator.GreaterThanOrEqual, ">=")]
+    [InlineData(AttributeFilterOperator.LessThan, "<")]
+    [InlineData(AttributeFilterOperator.LessThanOrEqual, "<=")]
+    public void Build_WithNumericOperator_ComparesAsFloat64(AttributeFilterOperator op, string symbol)
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "http.response.status_code", Value = "500", Operator = op }] },
+            Now);
+
+        Assert.Contains(
+            $"ifNull(toFloat64OrNull(LogAttributes[{{attrKey0:String}}]) {symbol} {{attrValue0:Float64}}, 0)",
+            result.WhereSql);
+        Assert.Equal(500d, result.Parameters.ToDictionary()["attrValue0"]);
+    }
+
+    [Fact]
+    public void Build_WithNumericOperator_AndNonNumericOperand_MatchesNothing()
+    {
+        var result = LogFilterSqlBuilder.Build(
+            new LogFilter { Attributes = [new AttributeFilter { Key = "retry.count", Value = "abc", Operator = AttributeFilterOperator.GreaterThan }] },
+            Now);
+
+        Assert.DoesNotContain("attrValue0", result.WhereSql);
+        Assert.False(result.Parameters.ToDictionary().ContainsKey("attrValue0"));
+    }
+
     [Fact]
     public void Build_WithBodyJsonFilter_SplitsPathIntoVariadicKeyParameters()
     {

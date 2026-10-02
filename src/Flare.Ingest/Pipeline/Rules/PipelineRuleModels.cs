@@ -21,6 +21,10 @@ public enum AttributeConditionOperator
     NotRegex,
     In,
     NotIn,
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
 }
 
 /// <summary>Mirrors <c>Flare.Api.Model.AttributeFilter</c> - one condition against a <see cref="Model.LogEvent"/> attribute bag.</summary>
