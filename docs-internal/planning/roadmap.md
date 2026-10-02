@@ -106,6 +106,11 @@ folders are where "what happened and why" actually lives.
   `?var-service=a,b&range=1h`), hydrate from the URL first on load, and use
   `replaceState` on change. Not started. Prior art:
   [signoz#8874](https://github.com/SigNoz/signoz/commit/437d0d134502b5bd124471606674080a040a2090).
+- **Docs for the span duration percentile.** The "pN of `<name>` in
+  `<service>`" line in `SpanDetailSheet` (`POST /api/spans/duration-percentile`,
+  ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
+  how-to/reference pages yet. Document it there, with the `.ru`/`.fr`/`.zh-CN`
+  siblings hand-translated. Not started.
 - **Host/pod metrics in span details.** Log event details already show
   `EventHostMetrics`/`EventPodMetrics` around the event's timestamp, but
   `SpanDetailSheet` doesn't. Reuse both components with the span's resource
