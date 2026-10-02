@@ -157,12 +157,13 @@ public class ServiceDependencyQueryBuilderTests
     }
 
     [Theory]
-    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.Sql.0035_outbound_calls.sql")]
-    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.0035_outbound_calls.sql")]
-    public void Migration0035_FiltersAndKeysOutboundCallsLikeTheLiveQuery(string resourceName)
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.Sql.0037_db_stable_semconv.sql")]
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.0037_db_stable_semconv.sql")]
+    public void Migration0037_FiltersAndKeysOutboundCallsLikeTheLiveQuery(string resourceName)
     {
         // The outbound_calls path and the live path must pick the same calls and domains,
-        // or adding a filter chip would change the Map's leaves.
+        // or adding a filter chip would change the Map's leaves. 0037 is outbound_calls_mv's
+        // latest definition (0035 created it).
         var assembly = typeof(Flare.ServiceDefaults.ClickHouseMigrations.ClickHouseMigrationRunner).Assembly;
         using var stream = assembly.GetManifestResourceStream(resourceName);
         Assert.NotNull(stream);

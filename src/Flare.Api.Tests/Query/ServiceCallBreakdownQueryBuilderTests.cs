@@ -34,23 +34,46 @@ public class ServiceCallBreakdownQueryBuilderTests
         Assert.StartsWith("if(SpanAttributes['peer.service'] != '', SpanAttributes['peer.service'], ", expr);
         Assert.Contains($"if({ExternalApiQueryBuilder.OutboundCallCondition}, {ExternalApiQueryBuilder.DomainExpr}, '')", expr);
         Assert.Contains("Kind = 3", ExternalApiQueryBuilder.OutboundCallCondition);
+        Assert.Contains("SpanAttributes['db.system.name'] = ''", ExternalApiQueryBuilder.OutboundCallCondition);
         Assert.Contains("SpanAttributes['db.system'] = ''", ExternalApiQueryBuilder.OutboundCallCondition);
         Assert.Contains("SpanAttributes['messaging.system'] = ''", ExternalApiQueryBuilder.OutboundCallCondition);
     }
 
     [Theory]
-    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.Sql.0034_service_call_breakdown_external_domain.sql")]
-    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.0034_service_call_breakdown_external_domain.sql")]
-    public void Migration0034_KeysTheExternalMaterializedViewByTheSameExpressionAsTheLiveQuery(string resourceName)
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.Sql.0037_db_stable_semconv.sql")]
+    [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.0037_db_stable_semconv.sql")]
+    public void Migration0037_KeysTheBreakdownMaterializedViewsByTheSameExpressionsAsTheLiveQuery(string resourceName)
     {
         // The pre-aggregated and live paths must group identically, or toggling
-        // ServiceDependencyMetrics (or adding a filter chip) would change the rows.
+        // ServiceDependencyMetrics (or adding a filter chip) would change the rows. 0037 is
+        // the latest definition of both views (0023 created them, 0034 re-keyed the external one).
+        var sql = ReadMigration(resourceName);
+
+        Assert.Contains($"{ServiceCallBreakdownQueryBuilder.ExternalTargetExpr} AS PeerService", sql);
+        Assert.Contains($"{ServiceCallBreakdownQueryBuilder.DbSystemExpr} AS DbSystem", sql);
+        Assert.Contains($"{ServiceCallBreakdownQueryBuilder.DbOperationExpr} AS DbOperation", sql);
+        Assert.Contains("WHERE DbSystem != ''", sql);
+    }
+
+    [Fact]
+    public void DbSystemAndOperationExprs_PreferTheStableAttributes_ThenTheOlderOnes()
+    {
+        Assert.StartsWith("if(SpanAttributes['db.system.name'] != '', SpanAttributes['db.system.name'], SpanAttributes['db.system'])", ServiceCallBreakdownQueryBuilder.DbSystemExpr);
+
+        var op = ServiceCallBreakdownQueryBuilder.DbOperationExpr;
+        Assert.True(op.IndexOf("'db.operation.name'", StringComparison.Ordinal) < op.IndexOf("'db.operation'", StringComparison.Ordinal));
+        Assert.True(op.IndexOf("'db.operation'", StringComparison.Ordinal) < op.IndexOf("'db.query.text'", StringComparison.Ordinal));
+        Assert.Contains("SpanAttributes['db.statement']", op);
+        // No backslashes: they'd need escaping once for C# and again for the SQL string literal.
+        Assert.DoesNotContain("\\", op);
+    }
+
+    private static string ReadMigration(string resourceName)
+    {
         var assembly = typeof(Flare.ServiceDefaults.ClickHouseMigrations.ClickHouseMigrationRunner).Assembly;
         using var stream = assembly.GetManifestResourceStream(resourceName);
         Assert.NotNull(stream);
-        var sql = new StreamReader(stream).ReadToEnd();
-
-        Assert.Contains($"{ServiceCallBreakdownQueryBuilder.ExternalTargetExpr} AS PeerService", sql);
+        return new StreamReader(stream).ReadToEnd();
     }
 
     [Fact]
@@ -58,9 +81,9 @@ public class ServiceCallBreakdownQueryBuilderTests
     {
         var result = ServiceCallBreakdownQueryBuilder.Build("checkout-api", TimeSpan.FromMinutes(15), Now);
 
-        Assert.Contains("SpanAttributes['db.system'] AS DbSystem", result.DatabaseCallsSql);
-        Assert.Contains("SpanAttributes['db.operation'] AS DbOperation", result.DatabaseCallsSql);
-        Assert.Contains("WHERE ServiceName = {service:String} AND SpanAttributes['db.system'] != ''", result.DatabaseCallsSql);
+        Assert.Contains($"{ServiceCallBreakdownQueryBuilder.DbSystemExpr} AS DbSystem", result.DatabaseCallsSql);
+        Assert.Contains($"{ServiceCallBreakdownQueryBuilder.DbOperationExpr} AS DbOperation", result.DatabaseCallsSql);
+        Assert.Contains($"WHERE ServiceName = {{service:String}} AND {ServiceCallBreakdownQueryBuilder.DbSystemExpr} != ''", result.DatabaseCallsSql);
         Assert.Contains("GROUP BY DbSystem, DbOperation", result.DatabaseCallsSql);
         Assert.Contains("ORDER BY CallCount DESC", result.DatabaseCallsSql);
 

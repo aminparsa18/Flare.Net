@@ -39,10 +39,11 @@ public sealed record ServiceCallBreakdownSql(
 /// <see cref="ExternalApiQueryBuilder.DomainExpr"/>) - grouped by that value. .NET's
 /// <c>HttpClient</c> instrumentation never sets <c>peer.service</c>, so without the fallback
 /// its calls wouldn't show up here at all; see ADR-0071. <b>Database calls</b>:
-/// every span this service emitted that carries a non-empty <c>db.system</c> attribute,
-/// grouped by <c>(db.system, db.operation)</c> - <c>db.operation</c> is optional in the OTel
-/// semantic conventions (unlike <c>db.system</c>), so it can legitimately group as an empty
-/// string when a span sets the system but not the operation. A span could in principle
+/// every span this service emitted that names a database system (<see cref="DbSystemExpr"/>
+/// - <c>db.system.name</c> or the older <c>db.system</c>), grouped by system and
+/// <see cref="DbOperationExpr"/> - the operation is optional in the OTel semantic
+/// conventions (unlike the system), so it can legitimately group as an empty string when
+/// neither an operation attribute nor a query text names one. A span could in principle
 /// carry both attributes at once (an HTTP call to a hosted database's REST API, say); both
 /// queries would then count it once each, in their own tab - deliberately not
 /// mutually exclusive, since "did this get counted as an external call" and "did this get
@@ -73,6 +74,30 @@ public static class ServiceCallBreakdownQueryBuilder
     public const string ExternalTargetExpr =
         "if(SpanAttributes['peer.service'] != '', SpanAttributes['peer.service'], " +
         $"if({ExternalApiQueryBuilder.OutboundCallCondition}, {ExternalApiQueryBuilder.DomainExpr}, ''))";
+
+    /// <summary>
+    /// A span's database system: the stable semantic conventions' <c>db.system.name</c>, else
+    /// the pre-1.26 <c>db.system</c>. Instrumentations emit one generation or the other (Npgsql
+    /// 10 only the stable one), so a span is a database call when either is set. Migration
+    /// 0037 puts the same expression in <c>service_call_breakdown_database_mv</c> - keep the
+    /// two in step.
+    /// </summary>
+    public const string DbSystemExpr =
+        "if(SpanAttributes['db.system.name'] != '', SpanAttributes['db.system.name'], SpanAttributes['db.system'])";
+
+    /// <summary>
+    /// A span's database operation: <c>db.operation.name</c>, else the older
+    /// <c>db.operation</c>, else the leading keyword of the query text (<c>db.query.text</c>,
+    /// else <c>db.statement</c>), upper-cased. The stable conventions only require
+    /// <c>db.operation.name</c> when the client knows it without parsing, so Npgsql 10 sets it
+    /// for stored procedures but not for plain SQL; the keyword keeps those spans from all
+    /// grouping as an empty operation. Empty when none of these yield anything. Migration
+    /// 0037 uses the same expression - keep the two in step.
+    /// </summary>
+    public const string DbOperationExpr =
+        "multiIf(SpanAttributes['db.operation.name'] != '', SpanAttributes['db.operation.name'], " +
+        "SpanAttributes['db.operation'] != '', SpanAttributes['db.operation'], " +
+        "upperUTF8(extract(if(SpanAttributes['db.query.text'] != '', SpanAttributes['db.query.text'], SpanAttributes['db.statement']), '^[[:space:]]*([A-Za-z]+)')))";
 
     /// <summary>Same clamp as <see cref="ServiceOverviewQueryBuilder.ClampWindowMinutes"/> - kept as its own method so this builder reads standalone, same precedent as <see cref="ServiceDependencyQueryBuilder.ClampWindowMinutes"/>.</summary>
     public static int ClampWindowMinutes(int requested) => ServiceOverviewQueryBuilder.ClampWindowMinutes(requested);
@@ -119,14 +144,14 @@ public static class ServiceCallBreakdownQueryBuilder
         var databaseCallsClauses = new List<string>
         {
             "ServiceName = {service:String}",
-            "SpanAttributes['db.system'] != ''",
+            $"{DbSystemExpr} != ''",
             "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}",
         };
         ResourceAttributeFilterSqlBuilder.AppendClauses(databaseCallsClauses, databaseCallsParameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
 
         var databaseCallsSql = "SELECT\n" +
-            "    SpanAttributes['db.system'] AS DbSystem,\n" +
-            "    SpanAttributes['db.operation'] AS DbOperation,\n" +
+            $"    {DbSystemExpr} AS DbSystem,\n" +
+            $"    {DbOperationExpr} AS DbOperation,\n" +
             "    count() AS CallCount,\n" +
             "    countIf(StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
             "    quantile(0.5)(DurationNano) AS P50DurationNano,\n" +

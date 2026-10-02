@@ -10,7 +10,7 @@ namespace ExampleApp.Shop;
 /// Service discovery rewrites <c>http://checkout-api/...</c> to <c>http://localhost:&lt;port&gt;</c>
 /// before the HttpClient span starts, so without this every service-to-service call would
 /// read as a call to an external host named <c>localhost</c> - Flare's External APIs page
-/// counts any <c>CLIENT</c> span with a <c>server.address</c> and no <c>db.system</c>/
+/// counts any <c>CLIENT</c> span with a <c>server.address</c> and no <c>db.system.name</c>/<c>db.system</c>/
 /// <c>messaging.system</c>/<c>peer.service</c> (ADR-0071). <c>peer.service</c> is the OTel
 /// attribute for exactly this ("the logical name of the remote service"), and is what the
 /// Services page's dependency breakdown groups by. The address-to-name map is built from the

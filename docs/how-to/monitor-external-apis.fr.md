@@ -59,7 +59,7 @@ et le sélecteur de fenêtre pour choisir entre 5 minutes et 24 heures. La
 page se charge à la demande ; sélectionnez **Refresh** pour la mettre à
 jour.
 
-Les appels de base de données (`db.system` renseigné) et de messagerie
+Les appels de base de données (`db.system.name` ou `db.system` renseigné) et de messagerie
 (`messaging.system` renseigné) ne sont pas listés, même s'ils portent
 `server.address`. Ils apparaissent dans l'onglet **Database calls** de la
 ventilation des services et sur la

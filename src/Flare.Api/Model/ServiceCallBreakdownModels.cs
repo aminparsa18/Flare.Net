@@ -30,17 +30,17 @@ public sealed partial record ExternalCallGroup
 }
 
 /// <summary>
-/// One <c>db.system</c>/<c>db.operation</c> pair a service issues, aggregated across the
+/// One database system/operation pair a service issues, aggregated across the
 /// window - the "Database" tab of the same per-node drill-down.
 /// </summary>
 [MemoryPackable]
 [GenerateTypeScript]
 public sealed partial record DatabaseCallGroup
 {
-    /// <summary>The <c>db.system</c> span attribute value (e.g. <c>"postgresql"</c>, <c>"clickhouse"</c>) - never empty (the query only groups spans that set this attribute).</summary>
+    /// <summary>The span's <c>db.system.name</c>, else <c>db.system</c> (e.g. <c>"postgresql"</c>, <c>"clickhouse"</c>) - never empty (the query only groups spans that set one of them). See <see cref="Query.ServiceCallBreakdownQueryBuilder.DbSystemExpr"/>.</summary>
     public required string DbSystem { get; init; }
 
-    /// <summary>The <c>db.operation</c> span attribute value (e.g. <c>"SELECT"</c>) - empty string when the instrumenting library didn't set it (unlike <see cref="DbSystem"/>, this attribute is optional in the OTel semantic conventions), same empty-string-means-absent convention as <c>ParentSpanId</c>.</summary>
+    /// <summary>The span's <c>db.operation.name</c>, else <c>db.operation</c>, else its query text's leading keyword (e.g. <c>"SELECT"</c>; see <see cref="Query.ServiceCallBreakdownQueryBuilder.DbOperationExpr"/>) - empty string when none of those yield one (unlike <see cref="DbSystem"/>, this attribute is optional in the OTel semantic conventions), same empty-string-means-absent convention as <c>ParentSpanId</c>.</summary>
     public required string DbOperation { get; init; }
 
     public required ulong CallCount { get; init; }

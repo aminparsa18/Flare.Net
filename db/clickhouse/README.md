@@ -183,6 +183,14 @@ ever used for `ILIKE`, so every search scanned its whole time window. Not
 materialized: existing parts are indexed only as they merge. See
 [ADR-0073](../../docs-internal/adr/0073-logs-body-ngram-search-index.md).
 
+`0037_db_stable_semconv.sql` - `ALTER TABLE ... MODIFY QUERY` on
+`service_call_breakdown_database_mv`, `service_call_breakdown_external_mv` and
+`outbound_calls_mv`: a span is a database call when it sets the stable `db.system.name`
+or the older `db.system`, and the Database tab's operation falls back from
+`db.operation.name` to `db.operation` to the query text's leading keyword. Before this,
+Npgsql 10's spans (stable attributes only) read as external calls to the database host.
+New rows only.
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

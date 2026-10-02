@@ -59,7 +59,7 @@ Where each dashboard page gets its data:
 | --- | --- |
 | Logs, Patterns | Every shop service |
 | Traces, Services, service map, funnels, structural queries | ASP.NET Core + HttpClient spans across the seven services |
-| Services → Database tab | Npgsql spans from inventory-service and order-service (`db.system=postgresql`) |
+| Services → Database tab | Npgsql spans from inventory-service and order-service (`db.system.name=postgresql`) |
 | Errors | Real unhandled exceptions: an expired promo code hits a `NullReferenceException` in checkout-api, and a replayed order id makes Postgres throw 23505 in order-service. Card declines are recorded on payment-service's span too |
 | External APIs | HttpClient calls to api.stripe.com, api.twilio.com, api.sendgrid.com, hooks.slack.com, maps.googleapis.com and inventory.partner-corp.com, including 402/429/503s, dropped connections, and timeouts with no status code |
 | Message queues | Confluent.Kafka publish/process spans; the collector's kafkametrics receiver supplies consumer lag |
