@@ -20,6 +20,7 @@ public static class AlertEndpoints
     {
         endpoints.MapPost("/api/alerts", HandleCreateAsync);
         endpoints.MapGet("/api/alerts", HandleListAsync);
+        endpoints.MapGet("/api/alerts/states", HandleStatesAsync);
         endpoints.MapGet("/api/alerts/{id:guid}", HandleGetAsync);
         endpoints.MapPut("/api/alerts/{id:guid}", HandleUpdateAsync);
         endpoints.MapDelete("/api/alerts/{id:guid}", HandleDeleteAsync);
@@ -78,6 +79,13 @@ public static class AlertEndpoints
     {
         var rules = await alerts.ListAsync(cancellationToken);
         return ApiSerialization.Write(http, new AlertRuleListResponse { Rules = rules }, AlertsJsonContext.Default.AlertRuleListResponse);
+    }
+
+    // JSON only: a small per-rule status list for the rules table, not worth a MemoryPack type.
+    private static async Task<IResult> HandleStatesAsync(IAlertQueryService alerts, CancellationToken cancellationToken)
+    {
+        var statuses = await alerts.GetRuleStatusesAsync(cancellationToken);
+        return Results.Json(new AlertRuleStatusResponse(statuses), AlertsJsonContext.Default.AlertRuleStatusResponse);
     }
 
     private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)

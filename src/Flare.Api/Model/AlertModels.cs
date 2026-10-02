@@ -936,6 +936,17 @@ public sealed partial record AlertHistoryEntry
 /// </param>
 public sealed record AlertFiringState(DateTimeOffset LastFiredAt, bool Notified);
 
+/// <summary>
+/// One rule's firing/ok state and last fire, for the dashboard's rules list (search/filter/sort).
+/// A rule that has never fired is <c>Firing = false</c> with a null <see cref="LastFiredAt"/>.
+/// </summary>
+/// <param name="Firing">Latest fire is newer than latest resolution (ADR-0064), whether or not it was notified.</param>
+/// <param name="LastFiredAt">Latest non-resolution event, suppressed or not; null if the rule never fired.</param>
+public sealed record AlertRuleStatus(Guid RuleId, bool Firing, DateTimeOffset? LastFiredAt);
+
+/// <summary>Response body for <c>GET /api/alerts/states</c> (JSON only - not MemoryPack'd).</summary>
+public sealed record AlertRuleStatusResponse(IReadOnlyList<AlertRuleStatus> Statuses);
+
 /// <summary>Response body for <c>GET /api/alerts/{id}/history</c>.</summary>
 [MemoryPackable]
 public sealed partial record AlertHistoryResponse

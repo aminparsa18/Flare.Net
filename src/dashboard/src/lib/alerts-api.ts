@@ -522,6 +522,22 @@ export async function listAlertRules(signal?: AbortSignal): Promise<AlertRuleLis
 	return { rules: (dto?.rules ?? []).map((r) => toAlertRule(r!)) };
 }
 
+/** One rule's firing state and last fire, from `GET /api/alerts/states` (JSON only). A never-fired rule has no entry. */
+export interface AlertRuleStatus {
+	ruleId: string;
+	firing: boolean;
+	lastFiredAt?: string;
+}
+
+export async function listAlertRuleStatuses(signal?: AbortSignal): Promise<AlertRuleStatus[]> {
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/states`, { signal });
+	if (!res.ok) {
+		throw new Error(`GET /api/alerts/states failed: ${res.status} ${res.statusText}`);
+	}
+	const body = (await res.json()) as { statuses?: { ruleId: string; firing: boolean; lastFiredAt?: string | null }[] };
+	return (body.statuses ?? []).map((s) => ({ ruleId: s.ruleId, firing: s.firing, lastFiredAt: s.lastFiredAt ?? undefined }));
+}
+
 export async function getAlertRule(id: string, signal?: AbortSignal): Promise<AlertRule> {
 	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}`, { headers: memoryPackAcceptHeaders(), signal });
 	if (!res.ok) {
