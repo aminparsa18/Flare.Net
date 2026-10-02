@@ -2219,5 +2219,19 @@
 	"funnelsPage_startedColumn": "Entered",
 	"funnelsPage_reachedColumn": "Steps reached",
 	"funnelsPage_elapsedColumn": "Elapsed",
-	"funnelsPage_elapsedTitle": "From the step 1 span's start to the last reached step's span start"
+	"funnelsPage_elapsedTitle": "From the step 1 span's start to the last reached step's span start",
+	"auditLogPage_title": "Audit log · Flare",
+	"auditLogPage_heading": "Audit log",
+	"auditLogPage_description": "Who changed what, and when. Alert rules, channels, dashboards, users, tokens, keys and auth settings.",
+	"auditLogPage_resourceFilter": "Filter by resource type",
+	"auditLogPage_allResources": "All resources",
+	"auditLogPage_emptyTitle": "No audit events",
+	"auditLogPage_emptyDescription": "Changes made from now on are recorded here.",
+	"auditLogPage_timeColumn": "Time",
+	"auditLogPage_actorColumn": "Actor",
+	"auditLogPage_actionColumn": "Action",
+	"auditLogPage_resourceColumn": "Resource",
+	"auditLogPage_sourceColumn": "Source IP",
+	"auditLogPage_viaToken": "token",
+	"auditLogPage_loadMore": "Load more"
 }

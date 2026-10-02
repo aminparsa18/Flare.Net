@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Api.Alerting;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
@@ -50,6 +51,7 @@ public static class NotificationChannelEndpoints
         }
 
         var channel = await channels.CreateAsync(request, cancellationToken);
+        AuditContext.SetResourceId(http, channel.Id);
         return ApiSerialization.Write(http, channel, NotificationChannelsJsonContext.Default.NotificationChannel, statusCode: StatusCodes.Status201Created);
     }
 

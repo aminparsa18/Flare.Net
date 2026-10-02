@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Api.Alerting;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
@@ -32,6 +33,7 @@ public static class MaintenanceWindowEndpoints
         }
 
         var window = await windows.CreateAsync(request!, cancellationToken);
+        AuditContext.SetResourceId(http, window.Id);
         return ApiSerialization.Write(http, window, MaintenanceWindowsJsonContext.Default.MaintenanceWindow, statusCode: StatusCodes.Status201Created);
     }
 

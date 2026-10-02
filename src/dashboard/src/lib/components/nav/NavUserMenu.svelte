@@ -17,6 +17,7 @@
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PlugIcon from '@lucide/svelte/icons/plug';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
+	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import KeyIcon from '@lucide/svelte/icons/key';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
@@ -139,6 +140,14 @@
 					<a href={withBase('/ingest-keys')} {...props}>
 						<KeyIcon />
 						{m.ingestKeysPage_heading()}
+					</a>
+				{/snippet}
+			</DropdownMenu.Item>
+			<DropdownMenu.Item>
+				{#snippet child({ props })}
+					<a href={withBase('/audit-log')} {...props}>
+						<ScrollTextIcon />
+						{m.auditLogPage_heading()}
 					</a>
 				{/snippet}
 			</DropdownMenu.Item>

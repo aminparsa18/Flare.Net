@@ -288,6 +288,14 @@ waiting for someone to remove their group/role assignment upstream. Flare
 refuses to demote or disable the **last enabled Admin** — that would be a
 lockout recoverable only by editing the SQLite file directly.
 
+## Audit log
+
+Flare records who changed what. Every successful change to an alert rule, notification channel, maintenance window, pipeline rule, dashboard, saved view, user role or disabled flag, personal access token, ingest key, auth setting, Apdex threshold, metric metadata override or promoted attribute becomes one audit event: time, actor, action, resource type and id, route, source IP, and whether the actor used a session or a personal access token.
+
+Admins read it from **Audit log** in the user menu (`/audit-log`), newest first, filterable by resource type, or via `GET /api/audit-events` (filters `from`, `to`, `actorId`, `resourceType`, `action`; page with `before`). Events are append-only and are deleted after `Audit:RetentionDays` (default 365; `0` keeps them forever) - see the [configuration reference](../reference/authentication-config.md#configuration-reference).
+
+Reads, test sends and previews are not recorded, nor are sign-ins. Events don't yet include a before/after diff of the change.
+
 ## Backups
 
 The identity SQLite file isn't backed up by any special tooling — include

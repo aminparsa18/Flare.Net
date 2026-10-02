@@ -148,7 +148,8 @@ folders are where "what happened and why" actually lives.
   `ServiceAccount` principal in Identity (name, role, disabled flag) that can
   own PATs and go through the same auth handler and per-token rate limits
   (ADR-0028), plus admin-only management UI and an audit trail of who
-  created/rotated which token. Needs an ADR. Not started. Prior art:
+  created/rotated which token (audit events from ADR-0079 already cover PAT
+  create/revoke). Needs an ADR. Not started. Prior art:
   [signoz#10436](https://github.com/SigNoz/signoz/commit/37cd1ab84b2c40aabcc2390b354fe87e64e91a7b).
 - **Custom legend format template for Metrics panels.** Series labels are
   automatic only (service + every attribute, compacted). Per-series color
@@ -159,15 +160,10 @@ folders are where "what happened and why" actually lives.
   keyed on the full series identity, not the rendered text. Not started.
   Prior art:
   [signoz#10529](https://github.com/SigNoz/signoz/commit/6fb92880cc4390838f372ccea2773b4e0e33b403).
-- **Audit log.** There's no record of who changed an alert rule, notification
-  channel, dashboard, pipeline rule, maintenance window, user role, PAT or
-  auth setting, or when. Add an append-only `audit_events` table (actor,
-  action, resource type/id, timestamp, a small before/after diff, source IP),
-  written from the state-changing endpoints via endpoint metadata or a filter
-  rather than ad hoc calls. Add an admin-only page with filters and a
-  retention bound. The service-accounts item's "audit trail" would use it.
-  Needs an ADR. Not started. Prior art:
-  [signoz#10791](https://github.com/SigNoz/signoz/commit/42415e08739c4e8237e7856c0661f30638d68cd1).
+- **Audit log before/after diff.** Audit events (ADR-0079) record who changed
+  what and when, but not what the change was. Add a small before/after diff of
+  the changed fields, with secrets (channel URLs, auth client secrets, ingest
+  and access tokens) redacted. Not started.
 - **Markdown in alert notification templates, rendered per channel.**
   Custom templates (ADR-0052) are sent as plain text. Telegram drops
   `parse_mode` for user text because it can't be guaranteed valid, and email

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
@@ -50,6 +51,7 @@ public static class PipelineRuleEndpoints
         }
 
         var rule = await rules.CreateAsync(request, cancellationToken);
+        AuditContext.SetResourceId(http, rule.Id);
         return ApiSerialization.Write(http, rule, PipelineRulesJsonContext.Default.PipelineRule, statusCode: StatusCodes.Status201Created);
     }
 

@@ -2219,5 +2219,19 @@
 	"funnelsPage_startedColumn": "进入时间",
 	"funnelsPage_reachedColumn": "到达步骤数",
 	"funnelsPage_elapsedColumn": "耗时",
-	"funnelsPage_elapsedTitle": "从步骤 1 span 的开始到最后到达步骤 span 的开始"
+	"funnelsPage_elapsedTitle": "从步骤 1 span 的开始到最后到达步骤 span 的开始",
+	"auditLogPage_title": "审计日志 · Flare",
+	"auditLogPage_heading": "审计日志",
+	"auditLogPage_description": "谁在何时更改了什么：告警规则、通知渠道、仪表板、用户、令牌、密钥和认证设置。",
+	"auditLogPage_resourceFilter": "按资源类型筛选",
+	"auditLogPage_allResources": "所有资源",
+	"auditLogPage_emptyTitle": "暂无审计事件",
+	"auditLogPage_emptyDescription": "从现在起所做的更改将记录在此。",
+	"auditLogPage_timeColumn": "时间",
+	"auditLogPage_actorColumn": "操作者",
+	"auditLogPage_actionColumn": "操作",
+	"auditLogPage_resourceColumn": "资源",
+	"auditLogPage_sourceColumn": "来源 IP",
+	"auditLogPage_viaToken": "令牌",
+	"auditLogPage_loadMore": "加载更多"
 }

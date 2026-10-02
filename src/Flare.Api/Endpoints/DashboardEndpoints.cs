@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
@@ -73,6 +74,7 @@ public static class DashboardEndpoints
         // own TryGetCurrentUserId remarks explain.
         var ownerUserId = TryGetCurrentUserId(principal, out var userId) ? userId : (Guid?)null;
         var dashboard = await dashboards.CreateAsync(request, ownerUserId, cancellationToken);
+        AuditContext.SetResourceId(http, dashboard.Id);
         return ApiSerialization.Write(http, dashboard, DashboardsJsonContext.Default.Dashboard, statusCode: StatusCodes.Status201Created);
     }
 
