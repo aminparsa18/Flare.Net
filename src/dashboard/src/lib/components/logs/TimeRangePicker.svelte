@@ -15,6 +15,7 @@
 		formatCustomRangeLabel,
 		type TimeRangePreset
 	} from '$lib/logs/time-range';
+	import { loadRecentRanges, pushRecentRange, type RecentRange } from '$lib/logs/recent-custom-ranges';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
@@ -31,6 +32,7 @@
 
 	let open = $state(false);
 	let showCustom = $state(false);
+	let recentRanges = $state<RecentRange[]>(loadRecentRanges());
 	let calendarValue = $state<{ start: DateValue | undefined; end: DateValue | undefined }>({
 		start: undefined,
 		end: undefined
@@ -58,7 +60,12 @@
 		if (!calendarValue.start || !calendarValue.end) return;
 		// Picked calendar days are days in the display time zone, same as every timestamp shown.
 		const tz = displayTimeZone.resolved;
-		explorer.setCustomRange({ from: calendarValue.start.toDate(tz), to: calendarValue.end.toDate(tz) });
+		applyRange({ from: calendarValue.start.toDate(tz), to: calendarValue.end.toDate(tz) });
+	}
+
+	function applyRange(range: RecentRange) {
+		explorer.setCustomRange(range);
+		recentRanges = pushRecentRange(range);
 		open = false;
 		showCustom = false;
 	}
