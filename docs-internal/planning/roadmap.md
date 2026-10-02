@@ -135,13 +135,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **Previous/next navigation in the log details drawer.** `EventDetailSheet`
-  only closes, so reading consecutive log lines means close → click →
-  reopen. Add chevrons plus ↑/↓ (or j/k) keys that move
-  `explorer.selectedEventId` to the adjacent row in the current result list,
-  scrolling the table to keep it in view and loading the next page at the
-  end. Not started. Prior art:
-  [signoz#10250](https://github.com/SigNoz/signoz/commit/3aa0d8a7fd5616f46504b58c477adb726f599ce1).
 - **Service accounts.** Personal access tokens (ADR-0019) are owned by a
   user, so CI, a Grafana datasource or a script has to borrow a human
   account and breaks when that person is disabled or leaves. Add a

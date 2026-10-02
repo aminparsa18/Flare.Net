@@ -6,10 +6,18 @@
 	import { Lottie } from '$lib/components/ui/lottie';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { logsExplorerContext } from '$lib/logs/context';
+	import type { LogEventDto } from '$lib/api';
 	import { logRowHeight } from '$lib/logs/state.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
+
+	let list = $state<ReturnType<typeof VirtualList<LogEventDto>> | null>(null);
+	// Keeps the row behind the details drawer in view as prev/next moves the selection.
+	$effect(() => {
+		const i = explorer.selectedIndex;
+		if (i >= 0) list?.scrollToIndex(i);
+	});
 
 	// Uniform per mode, not per row - VirtualList only supports one fixed row height, so
 	// "N lines" means every row is N lines tall and LogRow line-clamps the body to fit.
@@ -93,6 +101,7 @@
 		</Empty.Root>
 	{:else}
 		<VirtualList
+			bind:this={list}
 			items={explorer.events}
 			itemHeight={ROW_HEIGHT}
 			getKey={(event) => event.eventId}

@@ -119,6 +119,17 @@
 		containerEl.scrollTop = value;
 	}
 
+	/** Scrolls the minimum distance that brings row `index` fully into view (no-op if it already is). */
+	export function scrollToIndex(index: number) {
+		if (!containerEl || index < 0 || index >= items.length) return;
+		const top = index * safeItemHeight;
+		const bottom = top + safeItemHeight;
+		const viewTop = containerEl.scrollTop;
+		const viewBottom = viewTop + containerEl.clientHeight;
+		if (top < viewTop) writeScrollTop(top);
+		else if (bottom > viewBottom) writeScrollTop(bottom - containerEl.clientHeight);
+	}
+
 	// Fixed px line-scroll step for arrow keys - deliberately *not* derived from
 	// itemHeight (e.g. "one row per press"), same reasoning native scroll containers use
 	// a constant line-height step regardless of what's actually rendered inside them.
