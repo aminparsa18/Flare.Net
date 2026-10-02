@@ -99,11 +99,6 @@ folders are where "what happened and why" actually lives.
   delete) takes the whole header: the title shrinks to nothing and the
   panel-type badge overlaps the icons. Needs an overflow menu or a
   wrapping header in edit mode.
-- **Pin span attributes.** Logs' `EventDetailSheet` can pin attributes to
-  the top, but `SpanDetailSheet` doesn't pass `isPinned`/`onTogglePin` to
-  `AttributeTable`, so spans get no pin buttons. Reuse the pinned-log-attributes
-  storage with a separate span key set. Not started. Prior art:
-  [signoz#8769](https://github.com/SigNoz/signoz/commit/3999a64c6445844867ebd6aa9a5c73f11902a656).
 - **Recent custom time ranges in the time picker.** `TimeRangePicker` keeps
   no history, so an incident window has to be re-entered on every page. Keep
   the last ~5 applied custom absolute ranges in localStorage and list them

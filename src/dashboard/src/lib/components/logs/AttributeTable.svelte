@@ -21,7 +21,7 @@
 		title: string;
 		/** A Map (not just a Record) so a caller can hand over an explicit row order. */
 		attributes: Record<string, string> | Map<string, string>;
-		/** Both optional - without onTogglePin no pin button renders (e.g. SpanDetailSheet). */
+		/** Both optional - without onTogglePin no pin button renders (e.g. span event/link attribute tables). */
 		isPinned?: (key: string) => boolean;
 		onTogglePin?: (key: string) => void;
 		/** Optional - without it no filter-for/filter-out buttons render (e.g. a span event's attributes, which no filter can target). */
