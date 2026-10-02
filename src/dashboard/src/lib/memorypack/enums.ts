@@ -369,7 +369,7 @@ export function metricHavingOperatorFromString(value: MetricHavingOperatorName):
 }
 
 /** Matches `LogAttributeValuesRequest.cs`'s `LogValuesField` member order (append-only). Only sent, never read back, so no `ToString` direction. */
-const LOG_VALUES_FIELD_NAMES = ['Attribute', 'Service', 'Severity'] as const;
+const LOG_VALUES_FIELD_NAMES = ['Attribute', 'Service', 'Severity', 'BodyJsonPath', 'BodyJsonValue'] as const;
 
 export type LogValuesFieldName = (typeof LOG_VALUES_FIELD_NAMES)[number];
 
