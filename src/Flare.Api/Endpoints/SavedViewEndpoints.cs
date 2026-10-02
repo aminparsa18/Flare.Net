@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
@@ -41,6 +42,7 @@ public static class SavedViewEndpoints
         }
 
         var view = await views.CreateAsync(request, cancellationToken);
+        AuditContext.SetResourceId(http, view.Id);
         return ApiSerialization.Write(http, view, SavedViewsJsonContext.Default.SavedView, statusCode: StatusCodes.Status201Created);
     }
 

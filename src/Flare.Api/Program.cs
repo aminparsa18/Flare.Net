@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using ClickHouse.Driver;
 using Flare.Api.Alerting;
+using Flare.Api.Auditing;
 using Flare.Api.Auth;
 using Flare.Api.Caching;
 using Flare.Api.DockerResources;
@@ -170,6 +171,8 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<AuditOptions>(builder.Configuration.GetSection(AuditOptions.SectionName));
+builder.Services.AddHostedService<AuditRetentionService>();
 
 // Redis-backed cache seam in front of LogQueryService.SearchAsync/AggregateAsync and
 // MetricQueryService.QueryAsync (the "Query result caching" roadmap entry) - repeated
@@ -419,6 +422,9 @@ app.UseAuthorization();
 // After UseAuthorization() - the PatRateLimit policy's partition-key factory reads
 // HttpContext.User, which only authentication middleware populates.
 app.UseRateLimiter();
+// After authentication + authorization so the actor is known and rejected requests are never
+// recorded; wraps the endpoint so it can read the final status code (ADR-0079).
+app.UseMiddleware<AuditMiddleware>();
 
 app.MapDefaultEndpoints();
 
@@ -487,6 +493,7 @@ memberRoutes.MapPipelineRuleEndpoints();
 // self-service.
 var adminRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireAdmin);
 adminRoutes.MapIngestApiKeyEndpoints();
+adminRoutes.MapAuditLogEndpoints();
 adminRoutes.MapUserEndpoints();
 adminRoutes.MapEntraSettingsEndpoints();
 adminRoutes.MapLdapSettingsEndpoints();

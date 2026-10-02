@@ -2,7 +2,7 @@
 
 # 如何配置身份验证
 
-打开登录并设置 Flare 的五种身份验证方法中的一种或多种。有关每个方法的实际用途以及为什么以这种方式构建，请参阅 [`../explanation/authentication-model.md`](../explanation/authentication-model.zh-CN.md)；有关确切的配置键和角色表，请参阅 [`../reference/authentication-config.md`](../reference/authentication-config.zh-CN.md)。
+打开登录并设置 Flare 的五种身份验证方法中的一种或多种。有关每个方法的实际用途以及为什么以这种方式构建，请参阅 [`../explanation/authentication-model.md`](../explanation/authentication-model.zh-CN.md)；有关确切的配置键和角色表，请参阅 [`../reference/authentication-config.md`](../reference/authentication-config.zh-CN.md#配置参考)。
 
 以下所有内容都发生在一个仅限管理员的页面 **`/auth`** 上：
 
@@ -111,6 +111,14 @@
 ## 管理用户
 
 仅 `Admin`，在 `/auth` (`GET`/`PATCH /api/users/*`) 的用户部分中 — 列出每个帐户（任何提供商）、更改角色或启用/禁用帐户。您也可以在此处将新自动配置的 Entra/AD/OIDC/反向代理帐户升级到其初始角色，或者禁用一个帐户，而无需等待某人删除其上游的组/角色分配。 Flare 拒绝降级或禁用**最后启用的管理员** - 这将是只能通过直接编辑 SQLite 文件才能恢复的锁定。
+
+## 审计日志
+
+Flare 会记录谁更改了什么。对告警规则、通知渠道、维护窗口、管道规则、仪表板、已保存视图、用户角色或禁用标志、个人访问令牌、摄取密钥、认证设置、Apdex 阈值、指标元数据覆盖或提升属性所做的每一次成功更改，都会生成一条审计事件：时间、操作者、操作、资源类型和 ID、路由、来源 IP，以及操作者使用的是会话还是个人访问令牌。
+
+管理员可在用户菜单的**审计日志**（`/audit-log`）中查看，按时间倒序并可按资源类型筛选，也可通过 `GET /api/audit-events` 查询（过滤参数 `from`、`to`、`actorId`、`resourceType`、`action`；用 `before` 翻页）。事件仅可追加，并在 `Audit:RetentionDays` 天后删除（默认 365；`0` 表示永久保留），参见[配置参考](../reference/authentication-config.zh-CN.md)。
+
+读取、测试发送、预览以及登录不会被记录。事件目前还不包含更改前后的差异。
 
 ## 备份
 

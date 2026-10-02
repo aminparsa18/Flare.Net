@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.PersonalAccessTokens;
@@ -71,6 +72,7 @@ public static class PersonalAccessTokenEndpoints
 
         var expiresAt = request.ExpiresInDays is { } days ? timeProvider.GetUtcNow().AddDays(days) : (DateTimeOffset?)null;
         var (token, rawToken) = await tokens.CreateAsync(userId, request.Name, expiresAt, cancellationToken);
+        AuditContext.SetResourceId(http, token.Id);
         var response = new CreateAccessTokenResponse { Token = ToDto(token, timeProvider), RawToken = rawToken };
         return ApiSerialization.Write(http, response, PersonalAccessTokensJsonContext.Default.CreateAccessTokenResponse, statusCode: StatusCodes.Status201Created);
     }

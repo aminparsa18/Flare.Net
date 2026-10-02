@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
@@ -42,6 +43,7 @@ public static class IngestApiKeyEndpoints
         }
 
         var (key, rawKey) = await keys.CreateAsync(request.Name, cancellationToken);
+        AuditContext.SetResourceId(http, key.Id);
         var response = new CreateIngestApiKeyResponse { Key = ToDto(key, default), RawKey = rawKey };
         return ApiSerialization.Write(http, response, IngestApiKeysJsonContext.Default.CreateIngestApiKeyResponse, statusCode: StatusCodes.Status201Created);
     }

@@ -2219,5 +2219,19 @@
 	"funnelsPage_startedColumn": "Вход",
 	"funnelsPage_reachedColumn": "Пройдено шагов",
 	"funnelsPage_elapsedColumn": "Прошло",
-	"funnelsPage_elapsedTitle": "От начала span шага 1 до начала span последнего достигнутого шага"
+	"funnelsPage_elapsedTitle": "От начала span шага 1 до начала span последнего достигнутого шага",
+	"auditLogPage_title": "Журнал аудита · Flare",
+	"auditLogPage_heading": "Журнал аудита",
+	"auditLogPage_description": "Кто, что и когда изменил: правила оповещений, каналы, дашборды, пользователи, токены, ключи и настройки аутентификации.",
+	"auditLogPage_resourceFilter": "Фильтр по типу ресурса",
+	"auditLogPage_allResources": "Все ресурсы",
+	"auditLogPage_emptyTitle": "Нет событий аудита",
+	"auditLogPage_emptyDescription": "Здесь записываются изменения, сделанные с этого момента.",
+	"auditLogPage_timeColumn": "Время",
+	"auditLogPage_actorColumn": "Исполнитель",
+	"auditLogPage_actionColumn": "Действие",
+	"auditLogPage_resourceColumn": "Ресурс",
+	"auditLogPage_sourceColumn": "IP-адрес",
+	"auditLogPage_viaToken": "токен",
+	"auditLogPage_loadMore": "Загрузить ещё"
 }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Api.Alerting;
+using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
@@ -69,6 +70,7 @@ public static class AlertEndpoints
         }
 
         var rule = await alerts.CreateAsync(request, cancellationToken);
+        AuditContext.SetResourceId(http, rule.Id);
         return ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule, statusCode: StatusCodes.Status201Created);
     }
 

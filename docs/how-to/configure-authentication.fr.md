@@ -7,7 +7,7 @@ d'authentification de Flare. Pour ce que fait réellement chaque méthode et
 pourquoi elle est conçue ainsi, voir
 [`../explanation/authentication-model.md`](../explanation/authentication-model.fr.md) ;
 pour les clés de configuration exactes et le tableau des rôles, voir
-[`../reference/authentication-config.md`](../reference/authentication-config.fr.md).
+[`../reference/authentication-config.md`](../reference/authentication-config.fr.md#référence-de-configuration).
 
 Tout ce qui suit se passe sur une seule page réservée aux administrateurs,
 **`/auth`** :
@@ -336,6 +336,14 @@ désactivez un sans attendre que quelqu'un retire son attribution de
 groupe/rôle en amont. Flare refuse de rétrograder ou de désactiver le
 **dernier Admin activé** — cela entraînerait un verrouillage récupérable
 uniquement en modifiant directement le fichier SQLite.
+
+## Journal d'audit
+
+Flare enregistre qui a modifié quoi. Chaque modification réussie d'une règle d'alerte, d'un canal de notification, d'une fenêtre de maintenance, d'une règle de pipeline, d'un tableau de bord, d'une vue enregistrée, du rôle ou de l'état désactivé d'un utilisateur, d'un jeton d'accès personnel, d'une clé d'ingestion, d'un paramètre d'authentification, d'un seuil Apdex, d'un remplacement de métadonnées de métrique ou d'un attribut promu devient un événement d'audit : heure, acteur, action, type et identifiant de la ressource, route, adresse IP source, et si l'acteur a utilisé une session ou un jeton d'accès personnel.
+
+Les administrateurs le consultent via **Journal d'audit** dans le menu utilisateur (`/audit-log`), du plus récent au plus ancien, filtrable par type de ressource, ou via `GET /api/audit-events` (filtres `from`, `to`, `actorId`, `resourceType`, `action` ; pagination avec `before`). Les événements sont en ajout seul et supprimés après `Audit:RetentionDays` jours (365 par défaut ; `0` les conserve indéfiniment), voir la [référence de configuration](../reference/authentication-config.fr.md).
+
+Les lectures, envois de test, aperçus et connexions ne sont pas enregistrés. Les événements ne contiennent pas encore de différence avant/après.
 
 ## Sauvegardes
 
