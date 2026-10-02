@@ -56,7 +56,7 @@ Use **Calling service** to show only one service's calls, and the window
 picker to choose 5 minutes to 24 hours. The page loads on demand; select
 **Refresh** to update it.
 
-Database calls (`db.system` set) and messaging calls (`messaging.system`
+Database calls (`db.system.name` or `db.system` set) and messaging calls (`messaging.system`
 set) aren't listed, even though they carry `server.address`. They appear
 in the Services breakdown's **Database calls** tab and on the
 [Messaging page](monitor-message-queues.md).

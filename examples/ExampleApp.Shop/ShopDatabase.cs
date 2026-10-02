@@ -7,14 +7,6 @@ namespace ExampleApp.Shop;
 /// decrements, and an <c>orders</c> table order-service writes. Npgsql 10's own ActivitySource
 /// traces every command.
 /// </summary>
-/// <remarks>
-/// Npgsql 10 follows the stable OTel database semantic conventions, so its spans carry
-/// <c>db.system.name</c>/<c>db.operation.name</c> - but Flare still keys database spans on the
-/// older <c>db.system</c>/<c>db.operation</c> (the Services page's Database tab, and the
-/// External APIs page's "not a database call" filter). The enrichment callback below adds
-/// the older pair alongside; without it these spans would show up as external calls to
-/// <c>localhost</c>. See docs-internal/planning/roadmap.md's db.system.name item.
-/// </remarks>
 public static class ShopDatabase
 {
     public const int ProductCount = 500;
@@ -25,22 +17,9 @@ public static class ShopDatabase
         {
             var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("shopdb")
                 ?? throw new InvalidOperationException("No 'shopdb' connection string - reference the Postgres database from the AppHost (.WithReference(shopdb)).");
-            var dataSource = new NpgsqlDataSourceBuilder(connectionString);
-            dataSource.ConfigureTracing(tracing => tracing.ConfigureCommandEnrichmentCallback((activity, command) =>
-            {
-                activity.SetTag("db.system", "postgresql");
-                activity.SetTag("db.operation", activity.GetTagItem("db.operation.name") as string ?? FirstKeyword(command.CommandText));
-            }));
-            return dataSource.Build();
+            return NpgsqlDataSource.Create(connectionString);
         });
         builder.Services.AddHostedService<SchemaInitializer>();
-    }
-
-    private static string FirstKeyword(string sql)
-    {
-        var trimmed = sql.TrimStart();
-        var end = trimmed.IndexOfAny([' ', '\n', '\r', '\t']);
-        return (end < 0 ? trimmed : trimmed[..end]).ToUpperInvariant();
     }
 
     /// <summary>Creates and seeds the tables before the host starts serving. Both roles that use the database run it; it's idempotent.</summary>

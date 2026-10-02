@@ -73,9 +73,9 @@ public static class ExternalApiQueryBuilder
         "SpanAttributes['net.peer.name'] != '', SpanAttributes['net.peer.name'], " +
         $"domain({UrlExpr}))";
 
-    /// <summary>A client span that isn't a database or messaging call - see the class remarks.</summary>
+    /// <summary>A client span that isn't a database or messaging call - see the class remarks. Database spans may carry either the stable <c>db.system.name</c> or the older <c>db.system</c> (<see cref="ServiceCallBreakdownQueryBuilder.DbSystemExpr"/>).</summary>
     public const string OutboundCallCondition =
-        "Kind = 3 AND SpanAttributes['db.system'] = '' AND SpanAttributes['messaging.system'] = ''";
+        "Kind = 3 AND SpanAttributes['db.system.name'] = '' AND SpanAttributes['db.system'] = '' AND SpanAttributes['messaging.system'] = ''";
 
     public const string MethodExpr =
         "if(SpanAttributes['http.request.method'] != '', SpanAttributes['http.request.method'], SpanAttributes['http.method'])";

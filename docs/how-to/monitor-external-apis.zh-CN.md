@@ -50,7 +50,7 @@ defaults 模板，`HttpClient` 插桩已默认启用。基于 `HttpClient` 的 g
 使用 **Calling service** 只显示某个服务的调用，使用时间窗口选择器在 5 分钟到
 24 小时之间选择。页面按需加载；点击 **Refresh** 更新数据。
 
-数据库调用（设置了 `db.system`）和消息调用（设置了 `messaging.system`）即使带有
+数据库调用（设置了 `db.system.name` 或 `db.system`）和消息调用（设置了 `messaging.system`）即使带有
 `server.address` 也不会列出。它们显示在服务分解的 **Database calls** 标签页和
 [Messaging 页面](monitor-message-queues.zh-CN.md)中。
 

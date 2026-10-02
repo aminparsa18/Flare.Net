@@ -79,9 +79,9 @@ export function kindLabel(kind: number): string {
 /**
  * OTel SpanKind as an icon - "another opportunity to make the waterfall immediately
  * understandable" without reading every row's name/service pair first. Takes the whole
- * span, not just `kind`, because CLIENT additionally special-cases the `db.system`
- * semantic-convention attribute (a real OTel key, not a Flare invention) to a database
- * icon rather than a generic outbound-call arrow, when present.
+ * span, not just `kind`, because CLIENT additionally special-cases the `db.system.name`
+ * semantic-convention attribute (or the older `db.system` - real OTel keys, not Flare
+ * inventions) to a database icon rather than a generic outbound-call arrow, when present.
  */
 export function kindIcon(span: SpanDto): LucideIcon {
 	switch (span.kind) {
@@ -90,7 +90,7 @@ export function kindIcon(span: SpanDto): LucideIcon {
 		case 2: // Server
 			return GlobeIcon;
 		case 3: // Client
-			return span.spanAttributes['db.system'] ? DatabaseIcon : ArrowRightIcon;
+			return span.spanAttributes['db.system.name'] || span.spanAttributes['db.system'] ? DatabaseIcon : ArrowRightIcon;
 		case 4: // Producer
 			return SendIcon;
 		case 5: // Consumer

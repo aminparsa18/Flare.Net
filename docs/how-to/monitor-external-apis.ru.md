@@ -57,7 +57,7 @@ builder.Services.AddOpenTelemetry()
 выбор окна позволяет задать от 5 минут до 24 часов. Страница загружается
 по запросу; нажмите **Refresh**, чтобы обновить её.
 
-Вызовы баз данных (задан `db.system`) и брокеров сообщений (задан
+Вызовы баз данных (задан `db.system.name` или `db.system`) и брокеров сообщений (задан
 `messaging.system`) здесь не показываются, хотя и несут `server.address`.
 Они видны на вкладке **Database calls** разбивки сервиса и на
 [странице Messaging](monitor-message-queues.ru.md).
