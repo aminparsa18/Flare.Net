@@ -484,6 +484,17 @@ public sealed partial record AlertRule
     /// <c>docs-internal/adr/0077-alert-rule-severity.md</c>. Appended after <see cref="RecoveryThreshold"/>, same versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public AlertSeverity Severity { get; init; } = AlertSeverity.Critical;
+
+    /// <summary>
+    /// The unit <see cref="MetricThresholdValue"/> and <see cref="RecoveryThreshold"/> are typed
+    /// in, for a <see cref="AlertConditionKind.MetricThreshold"/> rule: a "p95 &gt; 500" against a
+    /// metric recorded in seconds is stored as <c>500</c> + <c>"ms"</c>, and the alert worker
+    /// converts both to the series' own unit (<see cref="Alerting.MetricUnitConverter"/>) before
+    /// comparing. Empty (the default, and every rule created before this field existed) means
+    /// the values are already in the series' unit. See <c>docs-internal/adr/0080-alert-threshold-unit.md</c>.
+    /// Appended after <see cref="Severity"/>, same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public string ThresholdUnit { get; init; } = "";
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -579,6 +590,9 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.Severity"/>'s doc comment. Omitted/null means <see cref="AlertSeverity.Critical"/>. Appended after <see cref="RecoveryThreshold"/>.</summary>
     public AlertSeverity? Severity { get; init; }
+
+    /// <summary>See <see cref="AlertRule.ThresholdUnit"/>'s doc comment. Omitted/null means "" (the series' own unit). Appended after <see cref="Severity"/>.</summary>
+    public string? ThresholdUnit { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
@@ -694,7 +708,7 @@ public sealed partial record AlertRuleRequest
             _ => null,
         };
 
-        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateRecoveryThreshold(kind) ?? ValidateTemplates();
+        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateRecoveryThreshold(kind) ?? ValidateThresholdUnit(kind) ?? ValidateTemplates();
     }
 
     /// <summary>
@@ -762,6 +776,25 @@ public sealed partial record AlertRuleRequest
             : !lessThan && recovery > threshold
                 ? $"recoveryThreshold must be at or below the threshold ({threshold})."
                 : null;
+    }
+
+    /// <summary>
+    /// <see cref="ThresholdUnit"/> arm of <see cref="ValidateCondition"/>: only for
+    /// <see cref="AlertConditionKind.MetricThreshold"/> (the one kind with a value in a metric's
+    /// unit), and a unit <see cref="Alerting.MetricUnitConverter"/> can convert - a time or
+    /// byte unit. Whether it matches the metric's own unit family is checked at evaluation, when
+    /// the unit the points were recorded in is known.
+    /// </summary>
+    private string? ValidateThresholdUnit(AlertConditionKind kind)
+    {
+        var unit = ThresholdUnit?.Trim();
+        return string.IsNullOrEmpty(unit)
+            ? null
+            : kind != AlertConditionKind.MetricThreshold
+                ? "thresholdUnit is only supported when conditionKind is MetricThreshold."
+                : Alerting.MetricUnitConverter.IsConvertible(unit)
+                    ? null
+                    : $"thresholdUnit '{unit}' isn't a convertible unit - use a time (ns, us, ms, s, min, h, d) or byte (By, kBy, MBy, GBy, TBy, KiBy, MiBy, GiBy, TiBy) unit.";
     }
 
     /// <summary>The shortest non-zero <see cref="NoDataWindowSeconds"/> <see cref="ValidateCondition"/> accepts.</summary>

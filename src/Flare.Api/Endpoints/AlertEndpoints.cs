@@ -137,7 +137,7 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ExceptionCondition, rule.AnomalyCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, rule.MinDataPoints, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ThresholdUnit, rule.ExceptionCondition, rule.AnomalyCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, rule.MinDataPoints, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -158,7 +158,7 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ExceptionCondition, request.AnomalyCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, request.MinDataPoints ?? 0, cancellationToken);
+        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ThresholdUnit, request.ExceptionCondition, request.AnomalyCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, request.MinDataPoints ?? 0, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -246,6 +246,7 @@ public static class AlertEndpoints
             NotificationBodyTemplate = defaults.NotificationBodyTemplate,
             RecoveryThreshold = request.RecoveryThreshold,
             Severity = defaults.Severity,
+            ThresholdUnit = defaults.ThresholdUnit,
         };
     }
 
@@ -273,7 +274,7 @@ public static class AlertEndpoints
         // {{rule_url}} show the real rule rather than the empty draft GUID.
         var rule = ToDraftRule(request, timeProvider.GetUtcNow()) with { Id = ruleId ?? Guid.Empty };
         var (observedValue, anomaly) = PreviewSample(rule);
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest: false, linkOptions.Value.PublicUrl, metricUnit: null, rule.UpdatedAt, noData: false, anomaly);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest: false, linkOptions.Value.PublicUrl, metricUnit: string.IsNullOrEmpty(rule.ThresholdUnit) ? null : rule.ThresholdUnit, rule.UpdatedAt, noData: false, anomaly);
         var preview = new AlertNotificationPreview
         {
             Title = message.Title ?? "",
@@ -361,6 +362,7 @@ public static class AlertEndpoints
         AlertThreshold threshold,
         MetricAlertCondition? metricCondition,
         double? metricThresholdValue,
+        string? thresholdUnit,
         ExceptionCountCondition? exceptionCondition,
         AnomalyCondition? anomalyCondition,
         int windowSeconds,
@@ -386,11 +388,11 @@ public static class AlertEndpoints
 
             var pointCount = await AlertMinDataPointsEvaluator.CountAsync(alerts, metricCondition, minDataPoints, from, now, cancellationToken);
             var insufficient = AlertMinDataPointsEvaluator.IsInsufficient(minDataPoints, pointCount);
-            var (value, _) = await alerts.EvaluateMetricConditionAsync(metricCondition, from, now, cancellationToken);
+            var (value, seriesUnit) = await alerts.EvaluateMetricConditionAsync(metricCondition, from, now, cancellationToken);
             return new AlertTestResult
             {
                 ObservedCount = 0,
-                WouldFire = !insufficient && threshold.IsBreachedValue(value, thresholdValue),
+                WouldFire = !insufficient && threshold.IsBreachedValue(value, MetricUnitConverter.ToSeriesUnit(thresholdValue, thresholdUnit, seriesUnit)),
                 EvaluatedAt = now,
                 WindowSeconds = windowSeconds,
                 ConditionKind = conditionKind,

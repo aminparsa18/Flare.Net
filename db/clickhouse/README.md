@@ -200,6 +200,10 @@ threshold. See [ADR-0076](../../docs-internal/adr/0076-alert-recovery-threshold.
 (`LowCardinality(String)`, default `'Critical'` so existing rules keep paging as before).
 See [ADR-0077](../../docs-internal/adr/0077-alert-rule-severity.md).
 
+`0040_alert_threshold_unit.sql` - threshold unit for metric alert rules: `alert_rules.ThresholdUnit`
+(`String`, default `''` meaning "already in the series' unit", so existing rules are unchanged).
+See [ADR-0080](../../docs-internal/adr/0080-alert-threshold-unit.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

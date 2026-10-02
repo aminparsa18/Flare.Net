@@ -185,6 +185,8 @@ export interface AlertRule {
 	recoveryThreshold: number | null;
 	/** How urgent the rule is - sent as PagerDuty's severity, shown in other channels' text and as `{{severity}}`. */
 	severity: AlertSeverity;
+	/** Unit `metricThresholdValue`/`recoveryThreshold` were typed in (e.g. `ms`); empty means the metric's own unit. */
+	thresholdUnit: string;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -223,6 +225,8 @@ export interface AlertRuleRequest {
 	recoveryThreshold?: number;
 	/** See `AlertRule.severity`. Omitted/undefined means `'Critical'`. */
 	severity?: AlertSeverity;
+	/** See `AlertRule.thresholdUnit`. Omitted/undefined means the metric's own unit. */
+	thresholdUnit?: string;
 }
 
 export interface AlertRuleListResponse {
@@ -428,7 +432,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		notificationTitleTemplate: dto.notificationTitleTemplate ?? '',
 		notificationBodyTemplate: dto.notificationBodyTemplate ?? '',
 		recoveryThreshold: dto.recoveryThreshold,
-		severity: alertSeverityToString(dto.severity)
+		severity: alertSeverityToString(dto.severity),
+		thresholdUnit: dto.thresholdUnit ?? ''
 	};
 }
 
@@ -467,6 +472,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.notificationBodyTemplate = request.notificationBodyTemplate ?? null;
 	dto.recoveryThreshold = request.recoveryThreshold ?? null;
 	dto.severity = request.severity == null ? null : alertSeverityFromString(request.severity);
+	dto.thresholdUnit = request.thresholdUnit || null;
 	return dto;
 }
 

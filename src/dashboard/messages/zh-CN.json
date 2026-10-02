@@ -388,6 +388,8 @@
 	"alertRuleForm_gaugeMatchHintLessThan": "Value = 窗口平均值 · Last = 最新数据点 · Min = 至少低于一次 · Max = 整个窗口内持续低于",
 	"alertRuleForm_thresholdLabel": "阈值",
 	"alertRuleForm_eventsIn": "次事件,在",
+	"alertRuleForm_thresholdUnitDefault": "指标单位",
+	"alertRuleForm_thresholdUnitOwn": "{unit}（指标单位）",
 	"alertRuleForm_metricOverLabel": "在",
 	"alertRuleForm_seconds": "秒内",
 	"alertRuleForm_cooldownLabel": "冷却时间(秒)",

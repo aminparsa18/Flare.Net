@@ -337,6 +337,27 @@ public class AlertConditionValidationTests
     public void RecoveryThreshold_Null_IsValid() =>
         Assert.Null(Build(AlertConditionKind.MetricThreshold, MakeCondition(), 1.0).ValidateCondition());
 
+    [Theory]
+    [InlineData("ms", true)]
+    [InlineData("MiBy", true)]
+    [InlineData("", true)]
+    [InlineData("Cel", false)]
+    [InlineData("%", false)]
+    public void ThresholdUnit_OnMetricRule_MustBeConvertible(string unit, bool valid)
+    {
+        var request = Build(AlertConditionKind.MetricThreshold, MakeCondition(), 500.0) with { ThresholdUnit = unit };
+
+        Assert.Equal(valid, request.ValidateCondition() is null);
+    }
+
+    [Fact]
+    public void ThresholdUnit_OnNonMetricRule_IsInvalid()
+    {
+        var request = Build(AlertConditionKind.LogCount, metricCondition: null, metricThresholdValue: null) with { ThresholdUnit = "ms" };
+
+        Assert.Contains("thresholdUnit", request.ValidateCondition());
+    }
+
     /// <summary>A rule with threshold 10 (count 10 for count kinds, metric value 10 otherwise).</summary>
     private static AlertRuleRequest BuildRecovery(AlertConditionKind kind, double recovery, ThresholdComparator comparator) =>
         Build(kind, MakeCondition(), 10.0, exceptionCondition: MakeExceptionCondition()) with

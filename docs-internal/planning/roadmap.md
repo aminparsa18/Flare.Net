@@ -111,14 +111,6 @@ folders are where "what happened and why" actually lives.
   ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
   how-to/reference pages yet. Document it there, with the `.ru`/`.fr`/`.zh-CN`
   siblings hand-translated. Not started.
-- **Unit on metric-alert thresholds.** A metric rule's threshold is always
-  in the series' native unit, so "alert when p95 > 500 ms" against
-  `http.server.request.duration` (recorded in seconds) has to be typed as
-  `0.5`. That's easy to get wrong silently. Add an optional threshold unit
-  from the same unit family as the metric's (catalog unit or override,
-  ADR-0065), converted to the native unit before evaluation, and shown with
-  its unit in notifications and on the alert chart. Not started. Prior art:
-  [signoz#10020](https://github.com/SigNoz/signoz/commit/8cabaafc584d1aa92a603d85b2c4d021dff9e911).
 - **Textbox dashboard variable.** `DashboardVariableSourceKind` is only
   `Query`/`Custom`, so there's no way to type a free value (a user ID, order
   ID, tenant) and have every panel filter on it. Add a `Textbox` kind with an
