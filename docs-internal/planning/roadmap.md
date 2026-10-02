@@ -111,12 +111,6 @@ folders are where "what happened and why" actually lives.
   ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
   how-to/reference pages yet. Document it there, with the `.ru`/`.fr`/`.zh-CN`
   siblings hand-translated. Not started.
-- **Host/pod metrics in span details.** Log event details already show
-  `EventHostMetrics`/`EventPodMetrics` around the event's timestamp, but
-  `SpanDetailSheet` doesn't. Reuse both components with the span's resource
-  attributes (`host.name`, `k8s.pod.name`) and start time. Not started.
-  Prior art:
-  [signoz#8911](https://github.com/SigNoz/signoz/commit/155a44a25ddfaa4e71eb2c257a5256ae86c1b929).
 - **"Same source" scope for the log context view.** `/api/logs/context` is
   deliberately global (see `LogContextRequest`'s remarks), so on a busy
   cluster the surrounding lines are mostly unrelated services. Keep global as

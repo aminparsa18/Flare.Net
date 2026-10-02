@@ -7,6 +7,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import AttributeTable from '$lib/components/logs/AttributeTable.svelte';
 	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
+	import EventHostMetrics from '$lib/components/logs/EventHostMetrics.svelte';
+	import EventPodMetrics from '$lib/components/logs/EventPodMetrics.svelte';
 	import { statusVariant, statusLabel, kindLabel } from '$lib/traces/status';
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
@@ -94,6 +96,15 @@
 				if (!abort.signal.aborted) console.error('Failed to load span duration percentile', err);
 			});
 		return () => abort.abort();
+	});
+
+	// Same host/pod resolution as EventDetailSheet: `host.name`, else the pod's node, plus
+	// the pod's own kubeletstats charts - windowed around the span's start time.
+	const metricsHost = $derived(detail.selectedSpan?.resourceAttributes['host.name'] || detail.selectedSpan?.resourceAttributes['k8s.node.name'] || null);
+	const metricsPod = $derived.by(() => {
+		const resource = detail.selectedSpan?.resourceAttributes;
+		const name = resource?.['k8s.pod.name'];
+		return name ? { name, namespace: resource?.['k8s.namespace.name'] || null } : null;
 	});
 
 	let linkCopied = $state(false);
@@ -217,6 +228,13 @@
 							<p class="truncate font-mono">{span.traceState || '—'}</p>
 						</div>
 					</div>
+
+					{#if metricsPod}
+						<EventPodMetrics podName={metricsPod.name} namespace={metricsPod.namespace} timestamp={span.startTime} />
+					{/if}
+					{#if metricsHost}
+						<EventHostMetrics hostName={metricsHost} timestamp={span.startTime} />
+					{/if}
 
 					<Separator />
 
