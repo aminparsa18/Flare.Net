@@ -189,6 +189,20 @@
 		return entries.slice(0, EVENT_PREVIEW_ATTRIBUTES);
 	}
 
+	/** Stable semconv key first, then the pre-1.21 one; non-numeric values are ignored. */
+	function httpStatus(attrs: Record<string, string>): number | null {
+		const raw = attrs['http.response.status_code'] ?? attrs['http.status_code'];
+		const code = raw ? Number(raw) : NaN;
+		return Number.isInteger(code) && code >= 100 && code <= 599 ? code : null;
+	}
+
+	function httpStatusClass(code: number): string {
+		if (code >= 500) return 'bg-destructive/15 text-destructive';
+		if (code >= 400) return 'bg-warning/15 text-warning';
+		if (code >= 300) return 'bg-muted text-muted-foreground';
+		return 'bg-primary/15 text-primary';
+	}
+
 	function barColorClass(statusCode: string): string {
 		switch (statusCode) {
 			case 'STATUS_CODE_ERROR':
