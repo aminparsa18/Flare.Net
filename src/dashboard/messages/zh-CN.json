@@ -208,6 +208,7 @@
 	"timeRangePicker_shiftForward": "前进",
 	"timeRangePicker_back": "返回",
 	"timeRangePicker_apply": "应用",
+	"timeRangePicker_recent": "最近的自定义范围",
 	"timeRangePicker_customRangeFormat": "{from} 至 {to}",
 	"sqlQuery_label": "SQL 查询",
 	"sqlQuery_clearQuery": "清除查询",

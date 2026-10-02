@@ -208,6 +208,7 @@
 	"timeRangePicker_shiftForward": "Shift forward",
 	"timeRangePicker_back": "Back",
 	"timeRangePicker_apply": "Apply",
+	"timeRangePicker_recent": "Recent custom ranges",
 	"timeRangePicker_customRangeFormat": "{from} to {to}",
 	"sqlQuery_label": "SQL query",
 	"sqlQuery_clearQuery": "Clear query",

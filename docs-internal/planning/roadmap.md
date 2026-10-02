@@ -99,11 +99,6 @@ folders are where "what happened and why" actually lives.
   delete) takes the whole header: the title shrinks to nothing and the
   panel-type badge overlaps the icons. Needs an overflow menu or a
   wrapping header in edit mode.
-- **Recent custom time ranges in the time picker.** `TimeRangePicker` keeps
-  no history, so an incident window has to be re-entered on every page. Keep
-  the last ~5 applied custom absolute ranges in localStorage and list them
-  under the presets. Not started. Prior art:
-  [signoz#8886](https://github.com/SigNoz/signoz/commit/2a5fb9fd6f89c30ed41cbb2081f85d2a4fb743dc).
 - **Numeric comparison operators for attribute filters.** `AttributeFilterOperator`
   has no `>`/`>=`/`<`/`<=`, so "`http.response.status_code` >= 500" or
   "`retry.count` > 3" needs a regex or an `In` list. Add the four operators to

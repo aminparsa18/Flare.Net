@@ -208,6 +208,7 @@
 	"timeRangePicker_shiftForward": "Сдвинуть вперёд",
 	"timeRangePicker_back": "Назад",
 	"timeRangePicker_apply": "Применить",
+	"timeRangePicker_recent": "Недавние интервалы",
 	"timeRangePicker_customRangeFormat": "{from} — {to}",
 	"sqlQuery_label": "SQL-запрос",
 	"sqlQuery_clearQuery": "Очистить запрос",
