@@ -56,6 +56,7 @@ public static class KubernetesWorkloadQueryBuilder
     public const string DesiredKind = "desired";
     public const string ReadyKind = "ready";
     public const string CurrentKind = "current";
+    public const string MisscheduledKind = "misscheduled";
     public const string ActiveKind = "active";
     public const string SucceededKind = "succeeded";
     public const string FailedKind = "failed";
@@ -100,6 +101,7 @@ public static class KubernetesWorkloadQueryBuilder
             Count(DesiredKind, "k8s.daemonset.desired_scheduled_nodes", "k8s.daemonset.node.desired_scheduled"),
             Count(ReadyKind, "k8s.daemonset.ready_nodes", "k8s.daemonset.node.ready"),
             Count(CurrentKind, "k8s.daemonset.current_scheduled_nodes", "k8s.daemonset.node.current_scheduled"),
+            Count(MisscheduledKind, "k8s.daemonset.misscheduled_nodes", "k8s.daemonset.node.misscheduled"),
         ]),
         new("Job", "k8s.job.name", "k8s.job.%",
         [

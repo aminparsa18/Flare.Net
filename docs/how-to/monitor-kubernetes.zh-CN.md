@@ -139,7 +139,7 @@ Pod 下钻视图中的 **View logs** 会打开 **Logs**，并按该 Pod 的 `k8s
 |---|---|---|
 | Deployment | 可用副本数 / 期望副本数 | `k8s.deployment.available`、`k8s.deployment.desired` |
 | StatefulSet | 就绪 Pod 数 / 期望 Pod 数 | `k8s.statefulset.ready_pods`、`k8s.statefulset.desired_pods` |
-| DaemonSet | 就绪节点数 / 期望节点数 | `k8s.daemonset.ready_nodes`、`k8s.daemonset.desired_scheduled_nodes` |
+| DaemonSet | 就绪节点数 / 期望节点数，调度错误的节点数大于 0 时显示红色徽标 | `k8s.daemonset.ready_nodes`、`k8s.daemonset.desired_scheduled_nodes`, `k8s.daemonset.misscheduled_nodes` |
 | Job | 成功 Pod 数 / 期望数、失败 Pod 数、活跃 Pod 数 | `k8s.job.successful_pods`、`k8s.job.desired_successful_pods`、`k8s.job.failed_pods`、`k8s.job.active_pods` |
 | CronJob | 活跃 Job 数 | `k8s.cronjob.active_jobs` |
 

@@ -29,6 +29,9 @@
 			{:else if counts.desired != null}
 				<span class="text-xs">{m.kubernetesPage_desiredLabel()} {counts.desired}</span>
 			{/if}
+			{#if kind === 'DaemonSet' && counts.misscheduled}
+				<Badge variant="destructive">{m.kubernetesPage_misscheduledCount({ count: counts.misscheduled })}</Badge>
+			{/if}
 		{:else}
 			{#if counts.succeeded != null && counts.desired != null}
 				<Badge variant="outline">{m.kubernetesPage_succeededOfDesired({ succeeded: counts.succeeded, desired: counts.desired })}</Badge>

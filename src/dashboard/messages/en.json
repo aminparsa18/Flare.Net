@@ -583,6 +583,8 @@
 	"kubernetesPage_activeCount": "{count} active",
 	"kubernetesPage_desiredLabel": "Desired",
 	"kubernetesPage_readyLabel": "Ready",
+	"kubernetesPage_misscheduledCount": "{count} misscheduled",
+	"kubernetesPage_misscheduledLabel": "Misscheduled",
 	"kubernetesPage_currentLabel": "Current",
 	"kubernetesPage_activeLabel": "Active",
 	"kubernetesPage_succeededLabel": "Succeeded",

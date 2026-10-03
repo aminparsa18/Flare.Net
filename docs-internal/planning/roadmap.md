@@ -186,13 +186,6 @@ folders are where "what happened and why" actually lives.
   dashboards' layout JSON by metric name (respecting dashboard visibility),
   listed with deep links to each dashboard/panel. Not started. Prior art:
   [signoz#11784](https://github.com/SigNoz/signoz/commit/5ab6636863aa3cab0b5b0a7e260be8c3f206841c).
-- **DaemonSet "misscheduled" column on the Kubernetes Workloads tab.** The
-  DaemonSet row shows desired/ready/current from `k8s_cluster` metrics but
-  not `k8s.daemonset.misscheduled_nodes`, which signals nodes running a pod
-  they shouldn't. Add it as a fourth `Count(...)` entry in
-  `KubernetesWorkloadQueryBuilder` (old and new metric names, like the
-  others) plus the column. Not started. Prior art:
-  [signoz#12102](https://github.com/SigNoz/signoz/commit/3cd0c2170365bbc60cc43e0c719dbf9f4cddc857).
 - **Free-text log search across all fields.** The free-text filter is a
   case-insensitive substring match on `Body` only, so an order ID that lives
   only in an attribute isn't found unless you know its key. Add an opt-in

@@ -175,7 +175,7 @@ Flare также читает `k8s.node.cpu.utilization` — прежнее им
 |---|---|---|
 | Deployment | Доступные реплики из желаемых | `k8s.deployment.available`, `k8s.deployment.desired` |
 | StatefulSet | Готовые поды из желаемых | `k8s.statefulset.ready_pods`, `k8s.statefulset.desired_pods` |
-| DaemonSet | Готовые узлы из желаемых | `k8s.daemonset.ready_nodes`, `k8s.daemonset.desired_scheduled_nodes` |
+| DaemonSet | Готовые узлы из желаемых, плюс красный бейдж, если есть неверно размещённые узлы | `k8s.daemonset.ready_nodes`, `k8s.daemonset.desired_scheduled_nodes`, `k8s.daemonset.misscheduled_nodes` |
 | Job | Успешные поды из желаемых, сбойные поды, активные поды | `k8s.job.successful_pods`, `k8s.job.desired_successful_pods`, `k8s.job.failed_pods`, `k8s.job.active_pods` |
 | CronJob | Активные задания | `k8s.cronjob.active_jobs` |
 

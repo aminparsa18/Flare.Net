@@ -49,6 +49,9 @@ public sealed partial record KubernetesWorkloadSummary
     /// <summary>Current pods (StatefulSet), currently scheduled nodes (DaemonSet).</summary>
     public int? Current { get; init; }
 
+    /// <summary>Nodes running a DaemonSet pod they shouldn't (DaemonSet).</summary>
+    public int? Misscheduled { get; init; }
+
     /// <summary>Active pods (Job), active jobs (CronJob).</summary>
     public int? Active { get; init; }
 
@@ -109,6 +112,8 @@ public sealed partial record KubernetesWorkloadMetricsPoint
     public int? Ready { get; init; }
 
     public int? Current { get; init; }
+
+    public int? Misscheduled { get; init; }
 
     public int? Active { get; init; }
 

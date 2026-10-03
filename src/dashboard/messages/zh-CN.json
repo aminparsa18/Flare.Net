@@ -583,6 +583,8 @@
 	"kubernetesPage_activeCount": "{count} 活跃",
 	"kubernetesPage_desiredLabel": "期望",
 	"kubernetesPage_readyLabel": "就绪",
+	"kubernetesPage_misscheduledCount": "{count} 调度错误",
+	"kubernetesPage_misscheduledLabel": "调度错误",
 	"kubernetesPage_currentLabel": "当前",
 	"kubernetesPage_activeLabel": "活跃",
 	"kubernetesPage_succeededLabel": "成功",

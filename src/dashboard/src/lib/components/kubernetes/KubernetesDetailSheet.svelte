@@ -79,7 +79,8 @@
 				? [
 						{ label: m.kubernetesPage_readyLabel(), unit: null, points: series(points, (p) => p.ready) },
 						{ label: m.kubernetesPage_desiredLabel(), unit: null, points: series(points, (p) => p.desired) },
-						...(kind === 'Deployment' ? [] : [{ label: m.kubernetesPage_currentLabel(), unit: null, points: series(points, (p) => p.current) }])
+						...(kind === 'Deployment' ? [] : [{ label: m.kubernetesPage_currentLabel(), unit: null, points: series(points, (p) => p.current) }]),
+						...(kind === 'DaemonSet' ? [{ label: m.kubernetesPage_misscheduledLabel(), unit: null, points: series(points, (p) => p.misscheduled) }] : [])
 					]
 				: kind === 'Job'
 					? [

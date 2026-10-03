@@ -13,6 +13,7 @@ export class KubernetesWorkloadSummary {
 	desired: number | null;
 	ready: number | null;
 	current: number | null;
+	misscheduled: number | null;
 	active: number | null;
 	succeeded: number | null;
 	failed: number | null;
@@ -27,6 +28,7 @@ export class KubernetesWorkloadSummary {
 		this.desired = null;
 		this.ready = null;
 		this.current = null;
+		this.misscheduled = null;
 		this.active = null;
 		this.succeeded = null;
 		this.failed = null;
@@ -48,12 +50,13 @@ export class KubernetesWorkloadSummary {
 			return;
 		}
 
-		writer.writeObjectHeader(12);
+		writer.writeObjectHeader(13);
 		writer.writeString(value.name);
 		writer.writeString(value.namespace);
 		writer.writeNullableInt32(value.desired);
 		writer.writeNullableInt32(value.ready);
 		writer.writeNullableInt32(value.current);
+		writer.writeNullableInt32(value.misscheduled);
 		writer.writeNullableInt32(value.active);
 		writer.writeNullableInt32(value.succeeded);
 		writer.writeNullableInt32(value.failed);
@@ -74,12 +77,13 @@ export class KubernetesWorkloadSummary {
 		}
 
 		const value = new KubernetesWorkloadSummary();
-		if (count == 12) {
+		if (count == 13) {
 			value.name = reader.readString() ?? '';
 			value.namespace = reader.readString() ?? '';
 			value.desired = reader.readNullableInt32();
 			value.ready = reader.readNullableInt32();
 			value.current = reader.readNullableInt32();
+			value.misscheduled = reader.readNullableInt32();
 			value.active = reader.readNullableInt32();
 			value.succeeded = reader.readNullableInt32();
 			value.failed = reader.readNullableInt32();
@@ -87,7 +91,7 @@ export class KubernetesWorkloadSummary {
 			value.cpuCores = reader.readNullableFloat64();
 			value.memoryWorkingSetBytes = reader.readNullableFloat64();
 			value.lastSeen = readDateTimeOffset(reader);
-		} else if (count > 12) {
+		} else if (count > 13) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -101,18 +105,20 @@ export class KubernetesWorkloadSummary {
 			if (count == 4) return value;
 			value.current = reader.readNullableInt32();
 			if (count == 5) return value;
-			value.active = reader.readNullableInt32();
+			value.misscheduled = reader.readNullableInt32();
 			if (count == 6) return value;
-			value.succeeded = reader.readNullableInt32();
+			value.active = reader.readNullableInt32();
 			if (count == 7) return value;
-			value.failed = reader.readNullableInt32();
+			value.succeeded = reader.readNullableInt32();
 			if (count == 8) return value;
-			value.podCount = reader.readNullableInt32();
+			value.failed = reader.readNullableInt32();
 			if (count == 9) return value;
-			value.cpuCores = reader.readNullableFloat64();
+			value.podCount = reader.readNullableInt32();
 			if (count == 10) return value;
-			value.memoryWorkingSetBytes = reader.readNullableFloat64();
+			value.cpuCores = reader.readNullableFloat64();
 			if (count == 11) return value;
+			value.memoryWorkingSetBytes = reader.readNullableFloat64();
+			if (count == 12) return value;
 			value.lastSeen = readDateTimeOffset(reader);
 		}
 		return value;
