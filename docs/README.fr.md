@@ -42,6 +42,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Surveiller des files de messages](how-to/monitor-message-queues.fr.md)
 - [Surveiller les API externes](how-to/monitor-external-apis.fr.md)
 - [Trouver où les requêtes décrochent avec les entonnoirs de traces](how-to/analyze-trace-funnels.fr.md)
+- [Trouver les requêtes N+1](how-to/find-n-plus-one-queries.fr.md)
 - [Trouver des traces selon les relations entre leurs spans](how-to/find-traces-by-structure.fr.md)
 - [Relier les traces de pile d'exception à votre code source](how-to/link-exceptions-to-source-code.fr.md)
 - [Savoir si un span était lent par rapport à ses semblables](how-to/compare-span-duration.fr.md)

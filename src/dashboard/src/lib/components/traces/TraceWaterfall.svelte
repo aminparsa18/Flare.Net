@@ -9,6 +9,8 @@
 	import { formatDurationNano } from '$lib/traces/duration';
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import { computeCriticalPath } from '$lib/traces/critical-path';
+	import { detectNPlusOne } from '$lib/traces/n-plus-one';
+	import DatabaseZapIcon from '@lucide/svelte/icons/database-zap';
 	import type { SpanTreeRow } from '$lib/traces/span-tree';
 	import { kindIcon, kindLabel } from '$lib/traces/status';
 	import TraceColorLegend from './TraceColorLegend.svelte';
@@ -113,6 +115,8 @@
 		}
 		return result;
 	});
+
+	const nPlusOne = $derived(detectNPlusOne(detail.trace?.spans ?? []));
 
 	const criticalPath = $derived(computeCriticalPath(detail.trace?.spans ?? []));
 	const criticalSpanIds = $derived(new Set(criticalPath?.contributionMs.keys() ?? []));
@@ -334,6 +338,7 @@
 				{@const KindIcon = kindIcon(span)}
 				{@const isCollapsed = collapsed.has(span.spanId)}
 				{@const isMatch = detail.spanSearchMatchSet.has(span.spanId)}
+				{@const finding = nPlusOne.get(span.spanId)}
 				<!-- role="button" div rather than a real <button>: the row nests the
 				     expand/collapse toggle, and a <button> can't contain another. Explicit
 				     aria-label so the row's accessible name isn't prefixed with the nested
@@ -405,6 +410,16 @@
 							<ZapIcon class="text-warning size-3 shrink-0" />
 						{/if}
 						<span class="min-w-0 flex-1 truncate">{span.name || '—'}</span>
+						{#if finding}
+							{@const label = m.traceWaterfall_nPlusOne({ count: finding.count, statement: finding.statement })}
+							<span
+								class="bg-warning/15 text-warning flex max-w-[45%] shrink-0 items-center gap-1 rounded px-1 text-xs"
+								title={label}
+							>
+								<DatabaseZapIcon class="size-3 shrink-0" />
+								<span class="truncate">{label}</span>
+							</span>
+						{/if}
 						{#if isCollapsed}
 							<span
 								class="bg-muted text-muted-foreground shrink-0 rounded px-1 text-xs tabular-nums"

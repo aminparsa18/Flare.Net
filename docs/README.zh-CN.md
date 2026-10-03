@@ -42,6 +42,7 @@
 - [监控消息队列](how-to/monitor-message-queues.zh-CN.md)
 - [监控外部 API](how-to/monitor-external-apis.zh-CN.md)
 - [使用追踪漏斗找出请求流失的环节](how-to/analyze-trace-funnels.zh-CN.md)
+- [查找 N+1 查询](how-to/find-n-plus-one-queries.zh-CN.md)
 - [按 span 之间的关系查找追踪](how-to/find-traces-by-structure.zh-CN.md)
 - [将异常堆栈跟踪链接到源代码](how-to/link-exceptions-to-source-code.zh-CN.md)
 - [判断 span 相对同类是否偏慢](how-to/compare-span-duration.zh-CN.md)

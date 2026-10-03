@@ -42,6 +42,7 @@ the full rule set on what goes where.
 - [Monitor message queues](how-to/monitor-message-queues.md)
 - [Monitor external APIs](how-to/monitor-external-apis.md)
 - [Find where requests drop off with trace funnels](how-to/analyze-trace-funnels.md)
+- [Find N+1 queries](how-to/find-n-plus-one-queries.md)
 - [Find traces by how their spans relate](how-to/find-traces-by-structure.md)
 - [Link exception stack traces to your source code](how-to/link-exceptions-to-source-code.md)
 - [Tell whether a span was slow for what it is](how-to/compare-span-duration.md)
