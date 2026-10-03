@@ -99,11 +99,6 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Docs for the span duration percentile.** The "pN of `<name>` in
-  `<service>`" line in `SpanDetailSheet` (`POST /api/spans/duration-percentile`,
-  ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
-  how-to/reference pages yet. Document it there, with the `.ru`/`.fr`/`.zh-CN`
-  siblings hand-translated. Not started.
 - **Provision the admin account from configuration.** The first admin can
   only be created interactively via `/api/auth/bootstrap`, so headless
   installs (compose, the `flare` CLI, Kubernetes/Helm) can't come up with a

@@ -43,6 +43,7 @@
 - [Мониторинг внешних API](how-to/monitor-external-apis.ru.md)
 - [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/analyze-trace-funnels.ru.md)
 - [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
+- [Как понять, был ли спан медленным для своего типа](how-to/compare-span-duration.ru.md)
 - [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)
 - [Ускорить фильтры по часто используемому атрибуту лога или спана](how-to/promote-attribute-columns.ru.md)
 
