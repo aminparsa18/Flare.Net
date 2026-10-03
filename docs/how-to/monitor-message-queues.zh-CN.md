@@ -37,6 +37,8 @@ using var consumer = consumerBuilder.Build();
 
 对于 MassTransit 8（Apache 许可），添加它的活动源：`tracing.AddSource("MassTransit")`。无需其他配置。尽管 MassTransit 只在发送 span 上设置 `messaging.system`，Flare 会从 MassTransit 的端点地址推断系统和目标。每种消息类型对应一行，以 MassTransit 发布它所用的 exchange 命名（例如 `Orders.Contracts:SubmitOrder`），生产者和消费者合并显示。消费者故障会发布到 `MassTransit:Fault--...` 行。Backlog 列保持为空，因为队列名与行名不同。MassTransit 9 是商业版，需要许可证密钥，未经测试。
 
+对于 NATS，添加 NATS.Net 的活动源：`tracing.AddSource("NATS.Net")`。Flare 会忽略客户端自身的流量（JetStream API 调用、逐条消息确认和临时回复收件箱），因此每一行都是你应用的主题（subject）。已在 NATS.Net 3.3 配合 nats-server 2.x 上验证。
+
 对于 Azure Service Bus，添加 Azure SDK 的活动源：`tracing.AddSource("Azure.Messaging.ServiceBus.*")`。SDK 将追踪功能放在实验性开关之后，因此需要在启动时调用 `AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)`，或设置环境变量 `AZURE_EXPERIMENTAL_ENABLE_ACTIVITY_SOURCE=true`。否则 SDK 不会产生任何 span。每个队列或主题（topic）对应一行。SDK 为每条消息生成的 `Message` span 与 `send` span 描述的是同一次发布，因此 Flare 只统计 `send` span：批量发送按调用次数计一次，而不是按消息数。当处理程序抛出异常时，SDK 不会把 span 标记为失败，因此消费错误数保持为 0，重试会表现为额外的消费。已在 Azure.Messaging.ServiceBus 7.21 配合微软 Service Bus 模拟器上验证。
 
 ## 查看 Messaging 页面
@@ -51,7 +53,7 @@ using var consumer = consumerBuilder.Build();
 | Error rate | 带错误状态的发布和消费 span 所占比例 |
 | Publish p99 / Consume p99 | span 时长的第 99 百分位 |
 | Producers / consumers | 向其发布和从中消费的服务数量 |
-| Backlog | 等待处理的消息：Kafka 消费者延迟或 RabbitMQ 队列深度，见 [Kafka](#查看-kafka-消费者延迟) 和 [RabbitMQ](#查看-rabbitmq-队列深度) |
+| Backlog | 等待处理的消息：Kafka 消费者延迟、RabbitMQ 队列深度或 NATS JetStream 待处理消息，见 [Kafka](#查看-kafka-消费者延迟)、[RabbitMQ](#查看-rabbitmq-队列深度) 和 [NATS](#查看-nats-jetstream-积压) |
 
 消费延迟是消费 span 自身的时长：对 `process` span 是处理时间，对只发出 `receive` span 的消费者是拉取时间。它不是消息在队列中等待的时间。
 
@@ -131,6 +133,37 @@ service:
 ```
 
 Flare 按名称把队列匹配到某一行：使用该行自身的名称以及其 span 携带的每个路由键。这涵盖了直接发布到的队列、以其队列命名的 exchange，以及路由键等于队列名的 direct exchange。**Backlog** 列显示匹配队列最新的就绪 + 未确认消息数。打开该行可查看每个队列的这两个计数。路由键不对应任何队列的 topic 或 fanout exchange 显示 **—**。
+
+## 查看 NATS JetStream 积压
+
+JetStream 消费者的积压不在 span 中。`prometheus-nats-exporter` 将其发布为 `jetstream_consumer_num_pending` 和 `jetstream_consumer_num_ack_pending`，OpenTelemetry Collector 的 `prometheus` 接收器可以抓取该 exporter 并把指标发送到 Flare。在服务器旁运行 exporter，并加上 `-jsz=all` 让它上报消费者：
+
+```bash
+prometheus-nats-exporter -jsz=all -varz http://nats:8222
+```
+
+```yaml
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: nats
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['natsexp:7777']
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      exporters: [otlp_grpc/flare]
+```
+
+Flare 通过主题的接收 span 找到它的消费者：NATS.Net 会在每条 JetStream 消息上带上确认主题，其中包含流和消费者的名称。**Backlog** 列是该消费者待投递加待确认的消息数。打开该行可查看每个流和消费者，表中的 “Ready” 表示待投递（尚未投递），“Unacked” 表示已投递但未确认。服务多个主题的消费者会在每个主题上显示它唯一的积压。核心 NATS 订阅没有积压，这些行显示 **—**。
 
 ## 故障排查
 

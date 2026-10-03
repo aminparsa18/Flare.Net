@@ -183,11 +183,11 @@ public class MessagingQueryBuilderTests
     }
 
     [Fact]
-    public void BuildDestinations_ReturnsRoutingKeysAsTheLastColumn()
+    public void BuildDestinations_ReturnsRoutingKeysAndJetStreamConsumersAsTheLastColumns()
     {
         var result = MessagingQueryBuilder.BuildDestinations(new MessagingDestinationsRequest(), 60, End);
 
-        Assert.Contains("arraySort(groupUniqArrayIf(20)(MsgRoutingKey, MsgRoutingKey != '')) AS RoutingKeys\nFROM", result.Sql);
+        Assert.Contains("arraySort(groupUniqArrayIf(20)(MsgRoutingKey, MsgRoutingKey != '')) AS RoutingKeys,\n    arraySort(groupUniqArrayIf(20)(MsgJsConsumer, MsgJsConsumer != '')) AS JetStreamConsumers\nFROM", result.Sql);
         Assert.Contains($"{MessagingQueryBuilder.RoutingKeyExpr} AS MsgRoutingKey", result.Sql);
     }
 
@@ -227,5 +227,39 @@ public class MessagingQueryBuilderTests
     public void QueueCandidates_IsDestinationPlusRoutingKeys_DistinctAndNonEmpty(string destination, string[] routingKeys, string[] expected)
     {
         Assert.Equal(expected, MessagingQueryBuilder.QueueCandidates(destination, routingKeys));
+    }
+
+    [Fact]
+    public void NatsNoise_IsExcludedFromEverySpanQuery()
+    {
+        var result = MessagingQueryBuilder.BuildDestinations(new MessagingDestinationsRequest(), 60, End);
+
+        Assert.Contains($"NOT {MessagingQueryBuilder.NatsNoiseExpr}", result.Sql);
+        Assert.Contains("startsWith(SpanAttributes['messaging.destination.name'], '$')", MessagingQueryBuilder.NatsNoiseExpr);
+        Assert.Contains("SpanAttributes['messaging.destination.temporary'] = 'true'", MessagingQueryBuilder.NatsNoiseExpr);
+    }
+
+    [Fact]
+    public void JetStreamConsumerExpr_ReadsStreamAndConsumerFromTheAckSubject()
+    {
+        var expr = MessagingQueryBuilder.JetStreamConsumerExpr;
+
+        Assert.StartsWith("if(startsWith(SpanAttributes['messaging.nats.message.reply_to'], '$JS.ACK.'), ", expr);
+        Assert.Contains(">= 12, 5, 3)]", expr);
+        Assert.Contains(">= 12, 6, 4)]", expr);
+    }
+
+    [Fact]
+    public void BuildJetStreamBacklog_TakesTheLeadersLatestValuePerConsumer()
+    {
+        var result = MessagingQueryBuilder.BuildJetStreamBacklog(60, End, ["ORDERS/worker"]);
+
+        Assert.Contains("FROM metrics_gauge", result.Sql);
+        Assert.Contains("argMax(Value, Time) AS Value", result.Sql);
+        Assert.Contains("DataPointAttributes['is_consumer_leader'] != 'false'", result.Sql);
+        Assert.Contains("concat(DataPointAttributes['stream_name'], '/', DataPointAttributes['consumer_name']) IN {consumers:Array(String)}", result.Sql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal(MessagingQueryBuilder.JetStreamPendingMetric, parameters["pendingMetric"]);
+        Assert.Equal(MessagingQueryBuilder.JetStreamAckPendingMetric, parameters["ackPendingMetric"]);
     }
 }

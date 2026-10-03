@@ -25,6 +25,9 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
     /// <summary>The <c>messaging.system</c> value RabbitMQ instrumentations set - the system queue depth is looked up for.</summary>
     private const string RabbitMqSystem = "rabbitmq";
 
+    /// <summary>The <c>messaging.system</c> value NATS.Net sets - the system JetStream consumer backlog is looked up for.</summary>
+    private const string NatsSystem = "nats";
+
     public async Task<MessagingDestinationsResponse> GetDestinationsAsync(MessagingDestinationsRequest request, CancellationToken cancellationToken)
     {
         var windowMinutes = MessagingQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
@@ -33,6 +36,7 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
 
         var destinations = new List<MessagingDestination>();
         var routingKeys = new List<string[]>();
+        var jetStreamConsumers = new List<string[]>();
         var built = MessagingQueryBuilder.BuildDestinations(request, windowMinutes, end);
         await using (var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken))
         {
@@ -62,6 +66,7 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
                     Backlog = null,
                 });
                 routingKeys.Add(reader.GetFieldValue<string[]>(11));
+                jetStreamConsumers.Add(reader.GetFieldValue<string[]>(12));
             }
         }
 
@@ -114,6 +119,42 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
                     if (depthByQueue.TryGetValue(queue, out var depth))
                     {
                         backlog = (backlog ?? 0) + depth;
+                    }
+                }
+
+                if (backlog is not null)
+                {
+                    destinations[i] = destinations[i] with { Backlog = backlog };
+                }
+            }
+        }
+
+        if (jetStreamConsumers.Exists(c => c.Length > 0))
+        {
+            var allConsumers = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < destinations.Count; i++)
+            {
+                if (destinations[i].System == NatsSystem)
+                {
+                    allConsumers.UnionWith(jetStreamConsumers[i]);
+                }
+            }
+
+            var backlogByConsumer = new Dictionary<string, long>(StringComparer.Ordinal);
+            foreach (var row in await ReadJetStreamBacklogAsync(windowMinutes, end, allConsumers, cancellationToken))
+            {
+                backlogByConsumer[row.Vhost + "/" + row.Queue] = row.Ready + row.Unacknowledged;
+            }
+
+            // A consumer that serves several subjects reports one backlog, shown on each of them, not split.
+            for (var i = 0; i < destinations.Count; i++)
+            {
+                long? backlog = null;
+                foreach (var consumer in destinations[i].System == NatsSystem ? jetStreamConsumers[i] : [])
+                {
+                    if (backlogByConsumer.TryGetValue(consumer, out var pending))
+                    {
+                        backlog = (backlog ?? 0) + pending;
                     }
                 }
 
@@ -227,6 +268,21 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
             queueDepth = await ReadQueueDepthAsync(windowMinutes, end, MessagingQueryBuilder.QueueCandidates(request.Destination, routingKeys), cancellationToken);
         }
 
+        if (request.System == NatsSystem)
+        {
+            string[] streamConsumers = [];
+            var consumersSql = MessagingQueryBuilder.BuildJetStreamConsumers(request, windowMinutes, end);
+            await using (var reader = await client.ExecuteReaderAsync(consumersSql.Sql, consumersSql.Parameters, SafetyOptions(), cancellationToken))
+            {
+                if (reader.Read())
+                {
+                    streamConsumers = reader.GetFieldValue<string[]>(0);
+                }
+            }
+
+            queueDepth = await ReadJetStreamBacklogAsync(windowMinutes, end, streamConsumers, cancellationToken);
+        }
+
         return new MessagingDestinationDetailResponse
         {
             System = request.System,
@@ -238,6 +294,35 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
             ConsumerLag = lag,
             QueueDepth = queueDepth,
         };
+    }
+
+    /// <summary>
+    /// JetStream consumer backlog, in the shape the queue-depth table already renders:
+    /// <c>Vhost</c> = stream, <c>Queue</c> = consumer, <c>Ready</c> = pending (not yet
+    /// delivered), <c>Unacknowledged</c> = delivered and awaiting an ack. No new wire field.
+    /// </summary>
+    private async Task<List<MessagingQueueDepth>> ReadJetStreamBacklogAsync(int windowMinutes, DateTimeOffset end, IReadOnlyCollection<string> consumers, CancellationToken cancellationToken)
+    {
+        var rows = new List<MessagingQueueDepth>();
+        if (consumers.Count == 0)
+        {
+            return rows;
+        }
+
+        var sql = MessagingQueryBuilder.BuildJetStreamBacklog(windowMinutes, end, consumers);
+        await using var reader = await client.ExecuteReaderAsync(sql.Sql, sql.Parameters, SafetyOptions(), cancellationToken);
+        while (reader.Read() && rows.Count < MessagingQueryBuilder.MaxDestinations)
+        {
+            rows.Add(new MessagingQueueDepth
+            {
+                Vhost = reader.GetString(0),
+                Queue = reader.GetString(1),
+                Ready = reader.GetFieldValue<long>(2),
+                Unacknowledged = reader.GetFieldValue<long>(3),
+            });
+        }
+
+        return rows;
     }
 
     private async Task<List<MessagingQueueDepth>> ReadQueueDepthAsync(int windowMinutes, DateTimeOffset end, IReadOnlyCollection<string> queues, CancellationToken cancellationToken)

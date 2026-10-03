@@ -57,6 +57,11 @@ together. Consumer faults are published to a `MassTransit:Fault--...` row.
 The Backlog column stays empty, because the queue's name differs from the
 row's. MassTransit 9 is commercial and needs a license key; it was not tested.
 
+For NATS, add NATS.Net's activity source: `tracing.AddSource("NATS.Net")`.
+Flare leaves out the client's own traffic (JetStream API calls, per-message
+acks and temporary reply inboxes), so rows are your application's subjects.
+Verified on NATS.Net 3.3 against nats-server 2.x.
+
 For Azure Service Bus, add the Azure SDK's activity sources:
 `tracing.AddSource("Azure.Messaging.ServiceBus.*")`. The SDK keeps its tracing
 behind an experimental switch, so set
@@ -82,7 +87,7 @@ Open **Messaging** in the top nav. Each row is one topic or queue:
 | Error rate | Share of publish and consume spans with an error status |
 | Publish p99 / Consume p99 | 99th-percentile span duration |
 | Producers / consumers | How many services published to and consumed from it |
-| Backlog | Messages waiting: Kafka consumer lag or RabbitMQ queue depth, see [Kafka](#see-kafka-consumer-lag) and [RabbitMQ](#see-rabbitmq-queue-depth) |
+| Backlog | Messages waiting: Kafka consumer lag, RabbitMQ queue depth or NATS JetStream pending messages, see [Kafka](#see-kafka-consumer-lag), [RabbitMQ](#see-rabbitmq-queue-depth) and [NATS](#see-nats-jetstream-backlog) |
 
 Consume latency is the consume span's own duration: the handling time for a
 `process` span, or the fetch time for a consumer that only emits `receive`
@@ -195,6 +200,47 @@ exchanges whose routing key is the queue name. The **Backlog** column is
 the latest ready + unacknowledged count of the matched queues. Open the
 row to see each queue's ready and unacked counts. A topic or fanout exchange
 whose routing keys don't name a queue shows **—**.
+
+## See NATS JetStream backlog
+
+A JetStream consumer's backlog isn't in spans. The `prometheus-nats-exporter`
+publishes it as `jetstream_consumer_num_pending` and
+`jetstream_consumer_num_ack_pending`, and the OpenTelemetry Collector's
+`prometheus` receiver can scrape the exporter and send the metrics to Flare.
+Run the exporter next to the server, with `-jsz=all` so it reports consumers:
+
+```bash
+prometheus-nats-exporter -jsz=all -varz http://nats:8222
+```
+
+```yaml
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: nats
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['natsexp:7777']
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      exporters: [otlp_grpc/flare]
+```
+
+Flare finds a subject's consumers from its receive spans: NATS.Net puts the
+ack subject, which names the stream and consumer, on every JetStream message.
+The **Backlog** column is the consumer's pending plus ack-pending messages.
+Open the row to see each stream and consumer; the table's "Ready" is pending
+(not yet delivered) and "Unacked" is delivered but not acknowledged. A consumer
+that serves several subjects shows its one backlog on each of them. Core NATS
+subscriptions have no backlog, so those rows show **—**.
 
 ## Troubleshooting
 

@@ -85,6 +85,33 @@ public static class MessagingQueryBuilder
     /// scheme of its endpoint address (<c>sb</c> reported as the semantic convention's
     /// <c>servicebus</c>).
     /// </summary>
+    /// <summary>The <c>prometheus-nats-exporter</c> per-consumer gauges (data-point attributes <c>stream_name</c>/<c>consumer_name</c>), scraped by the Collector's <c>prometheus</c> receiver. See ADR-0093.</summary>
+    public const string JetStreamPendingMetric = "jetstream_consumer_num_pending";
+
+    public const string JetStreamAckPendingMetric = "jetstream_consumer_num_ack_pending";
+
+    /// <summary>
+    /// <c>stream/consumer</c> of the JetStream consumer a NATS receive span came from, read
+    /// from the ack subject NATS.Net puts in <c>messaging.nats.message.reply_to</c>:
+    /// <c>$JS.ACK.&lt;stream&gt;.&lt;consumer&gt;.…</c> (9 tokens), or with a domain and account
+    /// hash first, <c>$JS.ACK.&lt;domain&gt;.&lt;hash&gt;.&lt;stream&gt;.&lt;consumer&gt;.…</c>
+    /// (12 tokens). Empty for anything else, including core NATS subscriptions.
+    /// </summary>
+    public const string JetStreamConsumerExpr =
+        "if(startsWith(SpanAttributes['messaging.nats.message.reply_to'], '$JS.ACK.'), " +
+        "concat(splitByChar('.', SpanAttributes['messaging.nats.message.reply_to'])[if(length(splitByChar('.', SpanAttributes['messaging.nats.message.reply_to'])) >= 12, 5, 3)], '/', " +
+        "splitByChar('.', SpanAttributes['messaging.nats.message.reply_to'])[if(length(splitByChar('.', SpanAttributes['messaging.nats.message.reply_to'])) >= 12, 6, 4)]), '')";
+
+    /// <summary>
+    /// NATS.Net's own traffic: JetStream API calls and per-message acks (<c>$JS.…</c>, whose
+    /// subject carries the delivery sequence, so every message would be its own row), and
+    /// receives on the client's temporary reply inbox. Excluded so only the application's
+    /// subjects show up. See ADR-0093.
+    /// </summary>
+    public const string NatsNoiseExpr =
+        "(SpanAttributes['messaging.system'] = 'nats' AND (startsWith(SpanAttributes['messaging.destination.name'], '$') " +
+        "OR SpanAttributes['messaging.destination.temporary'] = 'true'))";
+
     public const string SystemExpr =
         "if(SpanAttributes['messaging.system'] != '' OR " + MassTransitAddressExpr + " = '', SpanAttributes['messaging.system'], " +
         "if(extract(" + MassTransitAddressExpr + ", '^([A-Za-z][A-Za-z0-9+.-]*)://') = 'sb', 'servicebus', " +
@@ -161,7 +188,8 @@ public static class MessagingQueryBuilder
             $"    uniqExactIf(ServiceName, Role = '{PublishRole}') AS ProducerServiceCount,\n" +
             $"    uniqExactIf(ServiceName, Role = '{ConsumeRole}') AS ConsumerServiceCount,\n" +
             "    avg(BodySize) AS AvgMessageBytes,\n" +
-            $"    {RoutingKeysAgg} AS RoutingKeys\n" +
+            $"    {RoutingKeysAgg} AS RoutingKeys,\n" +
+            $"    {JetStreamConsumersAgg} AS JetStreamConsumers\n" +
             $"FROM {SpanSource(where)}\n" +
             "GROUP BY MsgSystem, MsgDestination\n" +
             "ORDER BY PublishCount + ConsumeCount DESC, MsgSystem, MsgDestination\n" +
@@ -287,6 +315,51 @@ public static class MessagingQueryBuilder
         return new MessagingSql($"SELECT {RoutingKeysAgg} AS RoutingKeys\nFROM {SpanSource(where)}", parameters);
     }
 
+    /// <summary>One destination's JetStream consumers (<c>stream/consumer</c>, one row, one sorted array) - the backlog-matching input for the drill-down, same as <see cref="BuildDestinations"/>'s <c>JetStreamConsumers</c> column.</summary>
+    public static MessagingSql BuildJetStreamConsumers(MessagingDestinationDetailRequest request, int windowMinutes, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = SpanWhere(parameters, windowMinutes, end, request.Service, request.System, request.Destination);
+
+        return new MessagingSql($"SELECT {JetStreamConsumersAgg} AS JetStreamConsumers\nFROM {SpanSource(where)}", parameters);
+    }
+
+    /// <summary>
+    /// Latest pending and ack-pending message counts per JetStream consumer in the window,
+    /// restricted to <paramref name="consumers"/> as <c>stream/consumer</c> (columns: Stream,
+    /// Consumer, Pending, AckPending). <c>argMax</c> per <c>(stream, consumer, metric)</c>, and
+    /// only the consumer leader's series, so a replicated consumer isn't counted once per server.
+    /// </summary>
+    public static MessagingSql BuildJetStreamBacklog(int windowMinutes, DateTimeOffset end, IReadOnlyCollection<string> consumers)
+    {
+        var parameters = TimeParameters(windowMinutes, end);
+        parameters.AddParameter("pendingMetric", JetStreamPendingMetric);
+        parameters.AddParameter("ackPendingMetric", JetStreamAckPendingMetric);
+        parameters.AddParameter("consumers", consumers.ToArray());
+        parameters.AddParameter("limit", (uint)(MaxDestinations + 1));
+
+        var sql = "SELECT Stream, Consumer,\n" +
+            "    toInt64(round(sumIf(Value, MetricName = {pendingMetric:String}))) AS Pending,\n" +
+            "    toInt64(round(sumIf(Value, MetricName = {ackPendingMetric:String}))) AS AckPending\n" +
+            "FROM (\n" +
+            "    SELECT\n" +
+            "        MetricName,\n" +
+            "        DataPointAttributes['stream_name'] AS Stream,\n" +
+            "        DataPointAttributes['consumer_name'] AS Consumer,\n" +
+            "        argMax(Value, Time) AS Value\n" +
+            "    FROM metrics_gauge\n" +
+            "    WHERE MetricName IN ({pendingMetric:String}, {ackPendingMetric:String}) AND Time >= {from:DateTime64(9)} AND Time < {to:DateTime64(9)}\n" +
+            "        AND concat(DataPointAttributes['stream_name'], '/', DataPointAttributes['consumer_name']) IN {consumers:Array(String)}\n" +
+            "        AND DataPointAttributes['is_consumer_leader'] != 'false'\n" +
+            "    GROUP BY MetricName, Stream, Consumer\n" +
+            ")\n" +
+            "GROUP BY Stream, Consumer\n" +
+            "ORDER BY Stream, Consumer\n" +
+            "LIMIT {limit:UInt32}";
+
+        return new MessagingSql(sql, parameters);
+    }
+
     /// <summary>
     /// Latest <see cref="QueueDepthMetric"/> per queue in the window, restricted to
     /// <paramref name="queues"/> (columns: Vhost, Queue, Ready, Unacknowledged). <c>argMax</c>
@@ -343,6 +416,8 @@ public static class MessagingQueryBuilder
     }
 
     /// <summary>Distinct non-empty routing keys, capped at 20 - past a handful they're topic-exchange keys that won't name a queue anyway.</summary>
+    private const string JetStreamConsumersAgg = "arraySort(groupUniqArrayIf(20)(MsgJsConsumer, MsgJsConsumer != ''))";
+
     private const string RoutingKeysAgg = "arraySort(groupUniqArrayIf(20)(MsgRoutingKey, MsgRoutingKey != ''))";
 
     /// <summary>
@@ -371,6 +446,7 @@ public static class MessagingQueryBuilder
         $"            {PartitionExpr} AS MsgPartition,\n" +
         $"            {ConsumerGroupExpr} AS MsgGroup,\n" +
         $"            {RoutingKeyExpr} AS MsgRoutingKey,\n" +
+        $"            {JetStreamConsumerExpr} AS MsgJsConsumer,\n" +
         "            toUInt64OrNull(SpanAttributes['messaging.message.body.size']) AS BodySize,\n" +
         $"            {SpanRoleExpr} AS SpanRole,\n" +
         $"            ({OperationExpr} = '' AND Kind = 4) AS PublishByKind\n" +
@@ -393,6 +469,7 @@ public static class MessagingQueryBuilder
             "StartTime >= {from:DateTime64(9)}",
             "StartTime < {to:DateTime64(9)}",
             MessagingSpanExpr,
+            $"NOT {NatsNoiseExpr}",
         };
 
         if (!string.IsNullOrWhiteSpace(service))
