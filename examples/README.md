@@ -115,6 +115,89 @@ on, set `Shop__HighCardinalityMetrics` to `true` on `checkout-api` in
 aspire stop
 ```
 
+## Hosting the demo on a k3s server
+
+The [Deploy demo to Debian/k3s](../.github/workflows/deploy-demo.yml) workflow publishes
+the same AppHost to a single-node k3s cluster with `aspire deploy`: Flare, the shop, Kafka,
+Postgres and an OpenTelemetry Collector, served over HTTPS with Let's Encrypt certificates.
+It is manual-dispatch only, because a deploy rebuilds about nine images on the server.
+
+### What the server needs
+
+- A Debian/Ubuntu box with k3s, Docker, the .NET SDK (see `global.json`), Helm 4.2 or newer
+  (Aspire 13.6 requires it) and the Aspire CLI, all installed for the user the runner runs as.
+- A GitHub Actions runner on that box with the label `flare-demo`. Its environment needs
+  `KUBECONFIG` pointing at the cluster, `DOTNET_ROOT`, and the Aspire CLI on `PATH`. Don't run
+  it as root.
+- Two DNS A records pointing at the server: `<host>` for the dashboard and `api.<host>` for the
+  API.
+- Ports 80 and 443 open to the internet. 4 GB of RAM is enough to run it, but tight, so add
+  swap.
+
+### Repository settings
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Variable | `DEMO_HOST` | The dashboard hostname, with no scheme or slash, e.g. `demo.example.com`. The API is served on `api.<DEMO_HOST>`. |
+| Secret | `GHCR_PULL_TOKEN` | A classic PAT with `read:packages`, so k3s can pull the private GHCR images. |
+
+The job runs in the `production` environment.
+
+### Traefik and Let's Encrypt
+
+k3s ships Traefik. The two ingresses ask for the `letsencrypt` certificate resolver, which you
+define once on the server in `/var/lib/rancher/k3s/server/manifests/traefik-config.yaml`:
+
+```yaml
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    additionalArguments:
+      - "--certificatesresolvers.letsencrypt.acme.email=you@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--entrypoints.web.http.redirections.entrypoint.to=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    persistence:
+      enabled: true
+      path: /data
+      size: 128Mi
+    podSecurityContext:
+      fsGroup: 65532
+      fsGroupChangePolicy: OnRootMismatch
+```
+
+- `persistence` keeps `acme.json` across Traefik restarts, so certificates aren't re-requested
+  (Let's Encrypt rate-limits that).
+- The redirect arguments send plain HTTP to HTTPS. Without them, typing the bare hostname into a
+  browser hits port 80, where no router exists, and gets Traefik's `404 page not found`.
+  Use `:443`, not `websecure`: the latter redirects to Traefik's internal port 8443.
+- The certificate is requested on the first HTTPS request for each host, so DNS has to resolve
+  before then.
+
+### Check it
+
+```sh
+curl -sI https://<host> | head -1
+curl -s -o /dev/null -w '%{http_code}\n' https://api.<host>/health
+curl -vI https://<host> 2>&1 | grep issuer
+```
+
+You want `HTTP/2 200`, `200` and an issuer of Let's Encrypt. If the issuer is `TRAEFIK DEFAULT
+CERT`, read `kubectl -n kube-system logs deploy/traefik | grep -i acme`.
+
+### Known limits
+
+- The Hosts page is empty. The collector runs without the `hostmetrics` receiver.
+- On 4 GB of RAM, Kafka and the traffic generator (1 request per second) are the first things to
+  trim if pods get OOM-killed.
+- Hostnames that are on a network blocklist (some wildcard-DNS services such as `sslip.io`) can
+  be unreachable from restricted networks. Use a real domain for a public demo.
+
 ## The backfill seeder
 
 Point it at a running Flare. The defaults match `docker compose up` from the repo root:
