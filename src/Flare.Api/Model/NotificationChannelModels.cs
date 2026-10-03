@@ -3,7 +3,7 @@ using MemoryPack;
 namespace Flare.Api.Model;
 
 /// <summary>
-/// Which of the four channels a <see cref="NotificationChannel"/> sends through - the
+/// Which channel a <see cref="NotificationChannel"/> sends through - the
 /// same four <see cref="AlertRule"/>'s legacy inline fields
 /// (<see cref="AlertRule.WebhookUrl"/>/<see cref="AlertRule.TelegramBotToken"/>+
 /// <see cref="AlertRule.TelegramChatId"/>/<see cref="AlertRule.EmailTo"/>/
@@ -17,6 +17,10 @@ public enum NotificationChannelType
     Telegram,
     Email,
     PagerDuty,
+    // Appended (MemoryPack encodes the enum as its int). Both reuse WebhookUrl as their
+    // destination - a Teams Workflows webhook / Discord webhook URL.
+    Teams,
+    Discord,
 }
 
 /// <summary>
@@ -119,6 +123,8 @@ public sealed partial record NotificationChannelRequest
 
         return Type switch
         {
+            NotificationChannelType.Teams or NotificationChannelType.Discord when !hasWebhook => $"webhookUrl is required when type is {Type}.",
+            NotificationChannelType.Teams or NotificationChannelType.Discord when hasBotToken || hasChatId || hasEmail || hasPagerDuty => $"Only webhookUrl may be set when type is {Type}.",
             NotificationChannelType.Webhook when !hasWebhook => "webhookUrl is required when type is Webhook.",
             NotificationChannelType.Webhook when hasBotToken || hasChatId || hasEmail || hasPagerDuty => "Only webhookUrl may be set when type is Webhook.",
             NotificationChannelType.Telegram when !hasBotToken || !hasChatId => "telegramBotToken and telegramChatId are both required when type is Telegram.",

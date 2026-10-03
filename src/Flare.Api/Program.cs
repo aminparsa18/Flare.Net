@@ -347,6 +347,8 @@ builder.Services.AddFlareMcp(builder.Configuration);
 builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
+builder.Services.AddHttpClient<TeamsAlertNotifier>("alert-teams");
+builder.Services.AddHttpClient<DiscordAlertNotifier>("alert-discord");
 builder.Services.AddSingleton<EmailAlertNotifier>();
 // Registered as its own concrete type (not just IAlertNotifier) so NotificationChannelEndpoints/
 // AlertEndpoints's send-test handlers can inject it directly for SendAllAsync - the fan-out

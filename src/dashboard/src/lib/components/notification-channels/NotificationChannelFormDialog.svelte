@@ -64,7 +64,7 @@
 	});
 
 	const hasDestination = $derived(
-		type === 'Webhook'
+		type === 'Webhook' || type === 'Teams' || type === 'Discord'
 			? webhookUrl.trim().length > 0
 			: type === 'Telegram'
 				? telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
@@ -84,7 +84,7 @@
 			// the API's destination validation (NotificationChannelRequest.ValidateDestination)
 			// sees a clean single choice even if the user typed into a field before
 			// switching the type selector.
-			webhookUrl: type === 'Webhook' ? webhookUrl.trim() : '',
+			webhookUrl: type === 'Webhook' || type === 'Teams' || type === 'Discord' ? webhookUrl.trim() : '',
 			telegramBotToken: type === 'Telegram' ? telegramBotToken.trim() : '',
 			telegramChatId: type === 'Telegram' ? telegramChatId.trim() : '',
 			emailTo: type === 'Email' ? emailTo.trim() : '',
@@ -150,22 +150,30 @@
 								? m.alertRuleForm_channelEmail()
 								: type === 'PagerDuty'
 									? m.alertRuleForm_channelPagerDuty()
-									: m.alertRuleForm_channelWebhook()}
+									: type === 'Teams'
+										? m.notificationChannelForm_teamsLabel()
+										: type === 'Discord'
+											? m.notificationChannelForm_discordLabel()
+											: m.alertRuleForm_channelWebhook()}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="Webhook" label={m.alertRuleForm_channelWebhook()} />
 						<Select.Item value="Telegram" label={m.alertRuleForm_channelTelegram()} />
 						<Select.Item value="Email" label={m.alertRuleForm_channelEmail()} />
 						<Select.Item value="PagerDuty" label={m.alertRuleForm_channelPagerDuty()} />
+						<Select.Item value="Teams" label={m.notificationChannelForm_teamsLabel()} />
+						<Select.Item value="Discord" label={m.notificationChannelForm_discordLabel()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
 
-			{#if type === 'Webhook'}
+			{#if type === 'Webhook' || type === 'Teams' || type === 'Discord'}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_webhookUrlLabel()}</span>
-					<Input bind:value={webhookUrl} placeholder={m.alertRuleForm_webhookUrlPlaceholder()} />
-					<span class="text-muted-foreground text-xs">{m.alertRuleForm_webhookUrlHint()}</span>
+					<Input bind:value={webhookUrl} placeholder={type === 'Webhook' ? m.alertRuleForm_webhookUrlPlaceholder() : 'https://...'} />
+					<span class="text-muted-foreground text-xs">
+						{type === 'Teams' ? m.notificationChannelForm_teamsHint() : type === 'Discord' ? m.notificationChannelForm_discordHint() : m.alertRuleForm_webhookUrlHint()}
+					</span>
 				</div>
 			{:else if type === 'Telegram'}
 				<div class="flex flex-col gap-1">

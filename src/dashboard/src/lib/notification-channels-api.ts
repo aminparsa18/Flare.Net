@@ -27,7 +27,7 @@ export interface NotificationChannel {
 	name: string;
 	description: string;
 	type: NotificationChannelType;
-	/** Meaningful only when `type` is `'Webhook'`. */
+	/** Meaningful only when `type` is `'Webhook'`, `'Teams'` or `'Discord'`. */
 	webhookUrl: string;
 	/** Meaningful only when `type` is `'Telegram'`. */
 	telegramBotToken: string;

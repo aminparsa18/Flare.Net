@@ -239,7 +239,7 @@ export function anomalyDirectionFromString(value: AnomalyDirectionName): number 
 }
 
 /** Matches `NotificationChannelModels.cs`'s `NotificationChannelType` member order. Unlike `AlertConditionKindName` above, this one *is* MemoryPack-TS-generated (`$lib/generated/memorypack/NotificationChannelType.ts`) - this plain string/int converter pair exists anyway so `notification-channels-api.ts`'s plain `NotificationChannel`/`NotificationChannelRequest` interfaces can carry a readable string union, same "plain type at the app boundary, generated numeric enum only at the wire boundary" convention `thresholdComparatorToString`/`FromString` already set for a generated enum. */
-const NOTIFICATION_CHANNEL_TYPE_NAMES = ['Webhook', 'Telegram', 'Email', 'PagerDuty'] as const;
+const NOTIFICATION_CHANNEL_TYPE_NAMES = ['Webhook', 'Telegram', 'Email', 'PagerDuty', 'Teams', 'Discord'] as const;
 
 export type NotificationChannelTypeName = (typeof NOTIFICATION_CHANNEL_TYPE_NAMES)[number];
 

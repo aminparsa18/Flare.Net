@@ -94,7 +94,7 @@ internal sealed class NotificationChannelsListCommand : AsyncCommand<Notificatio
     /// </summary>
     private static string DestinationSummary(NotificationChannelWire channel) => channel.Type switch
     {
-        "Webhook" => channel.WebhookUrl,
+        "Webhook" or "Teams" or "Discord" => channel.WebhookUrl,
         "Telegram" => string.IsNullOrEmpty(channel.TelegramChatId) ? "" : $"chat {channel.TelegramChatId}",
         "Email" => channel.EmailTo,
         "PagerDuty" => string.IsNullOrEmpty(channel.PagerDutyRoutingKey) ? "" : $"{channel.PagerDutyRoutingKey[..Math.Min(6, channel.PagerDutyRoutingKey.Length)]}…",
@@ -119,7 +119,7 @@ internal sealed class NotificationChannelsCreateCommand : AsyncCommand<Notificat
         public required string Name { get; init; }
 
         [CommandOption("--type <TYPE>")]
-        [Description("Destination type: webhook, telegram, email, or pagerduty. Required.")]
+        [Description("Destination type: webhook, telegram, email, pagerduty, teams, or discord. Required.")]
         public string? Type { get; init; }
 
         [CommandOption("--description <DESCRIPTION>")]
@@ -127,7 +127,7 @@ internal sealed class NotificationChannelsCreateCommand : AsyncCommand<Notificat
         public string? Description { get; init; }
 
         [CommandOption("--webhook-url <URL>")]
-        [Description("Required when --type webhook.")]
+        [Description("Required when --type webhook, teams, or discord.")]
         public string? WebhookUrl { get; init; }
 
         [CommandOption("--telegram-bot-token <TOKEN>")]
@@ -247,7 +247,7 @@ internal sealed class NotificationChannelsUpdateCommand : AsyncCommand<Notificat
         public string? Rename { get; init; }
 
         [CommandOption("--type <TYPE>")]
-        [Description("Destination type: webhook, telegram, email, or pagerduty.")]
+        [Description("Destination type: webhook, telegram, email, pagerduty, teams, or discord.")]
         public string? Type { get; init; }
 
         [CommandOption("--description <DESCRIPTION>")]
@@ -564,7 +564,7 @@ internal sealed class NotificationChannelsSendTestCommand : AsyncCommand<Notific
 /// </summary>
 internal static class NotificationChannelTypeParsing
 {
-    public const string ValidValues = "webhook, telegram, email, pagerduty";
+    public const string ValidValues = "webhook, telegram, email, pagerduty, teams, discord";
 
     public static string? Normalize(string? type) => type?.Trim().ToLowerInvariant() switch
     {
@@ -572,6 +572,8 @@ internal static class NotificationChannelTypeParsing
         "telegram" => "Telegram",
         "email" => "Email",
         "pagerduty" or "pager-duty" => "PagerDuty",
+        "teams" or "msteams" => "Teams",
+        "discord" => "Discord",
         _ => null,
     };
 
@@ -603,7 +605,7 @@ internal sealed class NotificationChannelWire
 
     public string Description { get; init; } = "";
 
-    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty".</summary>
+    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord".</summary>
     public required string Type { get; init; }
 
     public string WebhookUrl { get; init; } = "";
@@ -634,7 +636,7 @@ internal sealed class NotificationChannelRequestWire
 
     public string? Description { get; init; }
 
-    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty".</summary>
+    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord".</summary>
     public required string Type { get; init; }
 
     public string? WebhookUrl { get; init; }
