@@ -244,6 +244,15 @@ public sealed partial record MetricQueryRequest
     /// Appended last, same MemoryPack versioning convention as <see cref="HavingOperator"/>.
     /// </summary>
     public bool? TreatAsCounter { get; init; }
+
+    /// <summary>
+    /// Histogram/ExponentialHistogram only: also return each point's per-bucket counts
+    /// (<see cref="MetricSeriesPoint.BucketLowers"/>/<see cref="MetricSeriesPoint.BucketUppers"/>/
+    /// <see cref="Metr icSeriesPoint.BucketCounts"/>) - what the dashboard's heatmap visualization
+    /// draws. Opt-in because it multiplies the payload by the bucket count. Null/false = omitted.
+    /// Appended last, same MemoryPack versioning convention as <see cref="HavingOperator"/>.
+    /// </summary>
+    public bool? IncludeBuckets { get; init; }
 }
 
 /// <summary>
@@ -338,6 +347,19 @@ public sealed partial record MetricSeriesPoint
     /// via <see cref="Query.ExponentialHistogramEstimator.EstimateMax"/>.
     /// </summary>
     public double? MaxApprox { get; init; }
+
+    /// <summary>
+    /// Only when <see cref="MetricQueryRequest.IncludeBuckets"/> is set: the non-empty buckets
+    /// behind this point, as three parallel lists (<c>BucketLowers[i] .. BucketUppers[i]</c>
+    /// holds <c>BucketCounts[i]</c> observations), ascending by value. Open-ended buckets are
+    /// closed off - see <see cref="Query.HistogramBucketExpander"/>. Appended last, same
+    /// MemoryPack versioning convention as <see cref="MetricQueryRequest.HavingOperator"/>.
+    /// </summary>
+    public IReadOnlyList<double>? BucketLowers { get; init; }
+
+    public IReadOnlyList<double>? BucketUppers { get; init; }
+
+    public IReadOnlyList<double>? BucketCounts { get; init; }
 }
 
 /// <summary>

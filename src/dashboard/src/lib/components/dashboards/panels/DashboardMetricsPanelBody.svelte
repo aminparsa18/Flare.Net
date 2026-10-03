@@ -32,7 +32,8 @@
 	// `visualization` (docs-internal/adr/0059-dashboard-panel-visualizations.md) picks how the
 	// fetched result is drawn - the default `timeSeries` keeps the line charts above; every
 	// other value hands the same explorer's result to MetricsVisualization instead. The
-	// query path here is identical either way, so switching never re-runs anything.
+	// query path here is identical either way, so switching never re-runs anything - except
+	// into or out of `heatmap`, which needs per-bucket counts (see the effect below).
 	import { onMount, untrack } from 'svelte';
 	import { MetricsExplorerState } from '$lib/metrics/state.svelte';
 	import { metricsExplorerContext } from '$lib/metrics/context';
@@ -41,7 +42,7 @@
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
-	import { seriesLabel, type PanelVisualization } from '$lib/dashboards/visualization';
+	import { needsBuckets, seriesLabel, type PanelVisualization } from '$lib/dashboards/visualization';
 	import type { LegendPosition } from '$lib/dashboards/legend';
 	import type { ThresholdColor } from '$lib/dashboards/thresholds';
 	import { parseDecimals, type YAxisScale } from '$lib/metrics/axis';
@@ -109,7 +110,21 @@
 	}
 
 	const explorer = metricsExplorerContext.set(new MetricsExplorerState());
+	// Set before the first query (onMount below) so a heatmap panel's initial fetch already asks
+	// for per-bucket counts; the effect below handles the visualization changing afterwards.
+	explorer.includeBuckets = untrack(() => needsBuckets(visualization));
 	let ready = $state(false);
+
+	// The heatmap draws per-bucket counts the other visualizations don't need (ADR-0085), so
+	// switching into or out of it is the one visualization change that re-fetches.
+	$effect(() => {
+		const want = needsBuckets(visualization);
+		if (!ready || explorer.includeBuckets === want) return;
+		explorer.includeBuckets = want;
+		untrack(() => {
+			if (explorer.mode !== 'formula') void explorer.runQuery();
+		});
+	});
 
 	onMount(() => {
 		void explorer.applySavedViewState(query).then(() => {

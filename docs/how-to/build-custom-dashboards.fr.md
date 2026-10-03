@@ -143,6 +143,7 @@ façon dont ce même résultat est dessiné, sans toucher à la requête :
 | **Camembert** | La part de chaque série dans le total. |
 | **Tableau** | Une ligne par série, avec sa dernière valeur, son min, sa moyenne et son max (plus la somme pour une métrique Sum). |
 | **Histogramme** | La fréquence à laquelle les valeurs de la requête tombent dans chaque plage : les plages de valeurs en bas, le nombre de mesures sur le côté. |
+| **Carte de chaleur** | L'évolution dans le temps de la distribution d'une métrique Histogram : le temps en bas, les plages de valeurs sur le côté, la couleur indiquant le nombre d'observations. |
 
 Les diagrammes en barres affichent au plus cinq séries, les cinq plus grandes ; la
 légende indique combien sont masquées. Un camembert affiche les quatre plus
@@ -195,6 +196,16 @@ fonctionnent sur toutes les visualisations sauf le camembert. Sur un panneau
 Valeur, ils colorent le nombre, dans un tableau, les cellules
 correspondantes, et sur un histogramme, les barres dont la plage correspond
 (une règle « > 300 ms » colore la traîne lente en rouge). La
+Une carte de chaleur exige une métrique Histogram (à intervalles explicites ou exponentielle) ; sur toute autre
+métrique, elle l'indique. Elle trace les observations elles-mêmes, et non les moyennes par intervalle des autres
+visualisations, toutes séries confondues. Un histogramme classique à intervalles explicites obtient une ligne par
+intervalle ; un histogramme aux nombreuses bornes distinctes (un histogramme exponentiel) est découpé en 40 lignes,
+logarithmiques si toutes les valeurs sont positives. La couleur est logarithmique par défaut, pour qu'une ligne
+calme reste visible à côté d'une ligne chargée ; cliquez sur l'échelle sous le graphique pour passer en linéaire
+(ce choix n'est pas enregistré avec le panneau). Survolez une cellule pour voir son heure, sa plage et son effectif.
+Le premier intervalle d'un histogramme explicite part de 0 et le dernier, ouvert, est refermé une largeur
+d'intervalle après la dernière borne.
+
 [plage d'axe Y](#définir-une-plage-daxe-y-sur-un-panneau-metrics) ne
 s'applique qu'à la courbe et aux diagrammes en barres. Les barres partent toujours
 de zéro : une plage peut abaisser le plancher sous zéro, mais pas le
@@ -592,7 +603,7 @@ Depuis la page **Dashboards**, vous pouvez :
     aussi la visualisation la plus proche : les panneaux stat, gauge et bar
     gauge deviennent **Valeur**, les bar charts deviennent **Diagramme en barres**,
     les pie charts deviennent **Camembert** et les panneaux histogram
-    deviennent **Histogramme**. **Les requêtes, elles, ne le sont pas** —
+    deviennent **Histogramme**, et les panneaux heatmap deviennent **Carte de chaleur**. **Les requêtes, elles, ne le sont pas** —
     la requête d'un panneau Grafana est écrite pour la source de données
     qu'il cible (PromQL, LogQL, ...), qui n'a aucun équivalent dans les
     formats de requête propres à Flare (logs/traces/métriques), donc la

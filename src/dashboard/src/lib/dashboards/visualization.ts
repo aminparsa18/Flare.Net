@@ -19,9 +19,9 @@ export function formatValue(raw: number, unit: string | null | undefined, decima
 	return formatAtScale(raw, resolveAxisScale(unit, Math.abs(raw)), decimals);
 }
 
-export type PanelVisualization = 'timeSeries' | 'bar' | 'stackedBar' | 'value' | 'pie' | 'table' | 'histogram';
+export type PanelVisualization = 'timeSeries' | 'bar' | 'stackedBar' | 'value' | 'pie' | 'table' | 'histogram' | 'heatmap';
 
-export const PANEL_VISUALIZATIONS: readonly PanelVisualization[] = ['timeSeries', 'bar', 'stackedBar', 'value', 'pie', 'table', 'histogram'];
+export const PANEL_VISUALIZATIONS: readonly PanelVisualization[] = ['timeSeries', 'bar', 'stackedBar', 'value', 'pie', 'table', 'histogram', 'heatmap'];
 
 /** How a series' per-bucket values collapse into the one number a Value/Pie panel (and the
  *  Table's highlighted column) shows. */
@@ -34,13 +34,18 @@ export function usesReducer(visualization: PanelVisualization): boolean {
 	return visualization === 'value' || visualization === 'pie' || visualization === 'table';
 }
 
+/** Visualizations that need each histogram point's per-bucket counts (`includeBuckets`) rather than the percentiles. */
+export function needsBuckets(visualization: PanelVisualization): boolean {
+	return visualization === 'heatmap';
+}
+
 /** Visualizations drawn against a Y axis, and so honour `yAxisMin`/`yAxisMax`. */
 export function usesYAxis(visualization: PanelVisualization): boolean {
 	return visualization === 'timeSeries' || visualization === 'bar' || visualization === 'stackedBar';
 }
 
 /** Visualizations that draw a per-series legend, and so honour `legendPosition`/`seriesColors`
- *  (see `$lib/dashboards/legend.ts`). Value/Table/Histogram have no per-series marks to key. */
+ *  (see `$lib/dashboards/legend.ts`). Value/Table/Histogram/Heatmap have no per-series marks to key. */
 export function usesLegend(visualization: PanelVisualization): boolean {
 	return visualization === 'timeSeries' || visualization === 'bar' || visualization === 'stackedBar' || visualization === 'pie';
 }
@@ -269,4 +274,92 @@ function csvEscape(value: string): string {
 /** RFC 4180 CSV. Values are written raw (unscaled, no unit suffix) so a spreadsheet can do arithmetic on them. */
 export function toCsv(header: readonly string[], rows: readonly (readonly (string | number | null)[])[]): string {
 	return [header, ...rows].map((row) => row.map((cell) => csvEscape(cell == null ? '' : String(cell))).join(',')).join('\r\n');
+}
+
+/** A heatmap's time-by-value grid: `cells[col][row]` observations in column `times[col]`, row `[edges[row], edges[row + 1])`. */
+export interface HeatmapGrid {
+	times: number[];
+	edges: number[];
+	cells: number[][];
+	/** The largest cell, for scaling color. */
+	peak: number;
+}
+
+const HEATMAP_MAX_ROWS = 40;
+
+/**
+ * The `heatmap` visualization's grid: each time bucket's histogram buckets (every series pooled
+ * - like `histogram`, the question is "what values occurred when", not "which series") laid on
+ * shared value rows. When the histograms' own bucket edges are few they become the rows as-is, so
+ * a classic explicit histogram draws one row per bucket with exact counts; past
+ * `HEATMAP_MAX_ROWS` distinct edges (exponential histograms, whose edges differ per scale) the
+ * range is cut into that many rows - log-spaced when it is all positive - and each bucket's count
+ * is split across the rows it overlaps in proportion to the overlap. `null` = no bucket data
+ * (a non-histogram result, or a query that didn't set `includeBuckets`).
+ */
+export function heatmapGrid(series: readonly MetricSeries[]): HeatmapGrid | null {
+	const byTime = new Map<number, { lower: number; upper: number; count: number }[]>();
+	let lo = Infinity;
+	let hi = -Infinity;
+	const distinct = new Set<number>();
+	for (const s of series) {
+		for (const p of s.points) {
+			if (!p.bucketLowers || !p.bucketUppers || !p.bucketCounts) continue;
+			const time = new Date(p.bucketStart).getTime();
+			const list = byTime.get(time) ?? [];
+			for (let i = 0; i < p.bucketCounts.length; i++) {
+				const lower = p.bucketLowers[i];
+				const upper = p.bucketUppers[i];
+				const count = p.bucketCounts[i];
+				if (!(count > 0) || !Number.isFinite(lower) || !Number.isFinite(upper)) continue;
+				list.push({ lower, upper, count });
+				lo = Math.min(lo, lower);
+				hi = Math.max(hi, upper);
+				distinct.add(lower);
+				distinct.add(upper);
+			}
+			if (list.length > 0) byTime.set(time, list);
+		}
+	}
+	if (byTime.size === 0) return null;
+
+	let edges = [...distinct].sort((a, b) => a - b);
+	let logRows = false;
+	if (edges.length > HEATMAP_MAX_ROWS + 1) {
+		logRows = lo > 0;
+		const rows = HEATMAP_MAX_ROWS;
+		edges = Array.from({ length: rows + 1 }, (_, i) => (logRows ? lo * Math.pow(hi / lo, i / rows) : lo + ((hi - lo) * i) / rows));
+	} else if (edges.length === 1) {
+		// Every observation on one value (zero-width buckets): give the single row some height.
+		edges = [edges[0], edges[0] + (edges[0] === 0 ? 1 : Math.abs(edges[0]) * 0.1)];
+	}
+	const rowCount = edges.length - 1;
+
+	const times = [...byTime.keys()].sort((a, b) => a - b);
+	const cells: number[][] = [];
+	let peak = 0;
+	for (const time of times) {
+		const column = new Array<number>(rowCount).fill(0);
+		for (const b of byTime.get(time)!) {
+			if (b.upper <= b.lower) {
+				// A zero-width bucket is a point: it lands in the row holding it.
+				let row = edges.findIndex((e, i) => i < rowCount && b.lower >= e && b.lower < edges[i + 1]);
+				if (row < 0) row = rowCount - 1;
+				column[row] += b.count;
+				continue;
+			}
+			const logSplit = logRows && b.lower > 0;
+			const span = logSplit ? Math.log(b.upper / b.lower) : b.upper - b.lower;
+			for (let r = 0; r < rowCount; r++) {
+				const from = Math.max(b.lower, edges[r]);
+				const to = Math.min(b.upper, edges[r + 1]);
+				if (to <= from) continue;
+				const share = (logSplit ? Math.log(to / from) : to - from) / span;
+				column[r] += b.count * share;
+			}
+		}
+		for (const v of column) peak = Math.max(peak, v);
+		cells.push(column);
+	}
+	return { times, edges, cells, peak };
 }

@@ -235,6 +235,8 @@ export interface MetricQueryRequest {
 	// Chart a Gauge like a counter (ADR-0066). Omitted = the metric's admin "treat as
 	// counter" setting, resolved server-side - callers normally leave it unset.
 	treatAsCounter?: boolean;
+	// Histogram only: also return each point's per-bucket counts (the heatmap visualization, ADR-0085).
+	includeBuckets?: boolean;
 }
 
 export interface MetricSeriesPoint {
@@ -252,6 +254,10 @@ export interface MetricSeriesPoint {
 	p99: number | null;
 	/** Histogram only. Approximate - upper bound of the highest non-empty bucket, not the true OTLP max. */
 	maxApprox: number | null;
+	/** Histogram only, and only when the request set `includeBuckets`: the non-empty buckets as parallel lists, `bucketLowers[i]..bucketUppers[i]` holding `bucketCounts[i]` observations. */
+	bucketLowers: number[] | null;
+	bucketUppers: number[] | null;
+	bucketCounts: number[] | null;
 }
 
 export interface MetricSeries {
@@ -286,7 +292,10 @@ function toMetricSeriesPoint(dto: GeneratedMetricSeriesPoint): MetricSeriesPoint
 		p90: dto.p90,
 		p95: dto.p95,
 		p99: dto.p99,
-		maxApprox: dto.maxApprox
+		maxApprox: dto.maxApprox,
+		bucketLowers: dto.bucketLowers ? dto.bucketLowers.map(Number) : null,
+		bucketUppers: dto.bucketUppers ? dto.bucketUppers.map(Number) : null,
+		bucketCounts: dto.bucketCounts ? dto.bucketCounts.map(Number) : null
 	};
 }
 
@@ -319,6 +328,7 @@ export async function queryMetric(request: MetricQueryRequest, signal?: AbortSig
 					return fn;
 				});
 	dto.treatAsCounter = request.treatAsCounter ?? null;
+	dto.includeBuckets = request.includeBuckets ?? null;
 	const res = await apiFetch(`${API_BASE_URL}/api/metrics/query`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),

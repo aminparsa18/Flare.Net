@@ -2,7 +2,8 @@
 // generated. Mirrors `src/Flare.Api/Model/MetricModels.cs`'s `MetricSeriesPoint`
 // field-for-field, in declared order. Can't carry `[GenerateTypeScript]` itself because
 // `BucketStart` is a `DateTimeOffset` - see `$lib/memorypack/date-time-offset.ts`'s header
-// comment.
+// comment. `bucketLowers`/`bucketUppers`/`bucketCounts` were appended for ADR-0085's heatmap
+// (null unless the request set `includeBuckets`).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -19,6 +20,9 @@ export class MetricSeriesPoint {
 	p95: number | null;
 	p99: number | null;
 	maxApprox: number | null;
+	bucketLowers: (number)[] | null;
+	bucketUppers: (number)[] | null;
+	bucketCounts: (number)[] | null;
 
 	constructor() {
 		this.bucketStart = new Date(0);
@@ -31,6 +35,9 @@ export class MetricSeriesPoint {
 		this.p95 = null;
 		this.p99 = null;
 		this.maxApprox = null;
+		this.bucketLowers = null;
+		this.bucketUppers = null;
+		this.bucketCounts = null;
 	}
 
 	static serialize(value: MetricSeriesPoint | null): Uint8Array {
@@ -45,7 +52,7 @@ export class MetricSeriesPoint {
 			return;
 		}
 
-		writer.writeObjectHeader(10);
+		writer.writeObjectHeader(13);
 		writeDateTimeOffset(writer, value.bucketStart);
 		writer.writeNullableFloat64(value.value);
 		writer.writeNullableInt64(value.count);
@@ -56,6 +63,9 @@ export class MetricSeriesPoint {
 		writer.writeNullableFloat64(value.p95);
 		writer.writeNullableFloat64(value.p99);
 		writer.writeNullableFloat64(value.maxApprox);
+		writer.writeArray(value.bucketLowers, (writer, x) => writer.writeFloat64(x));
+		writer.writeArray(value.bucketUppers, (writer, x) => writer.writeFloat64(x));
+		writer.writeArray(value.bucketCounts, (writer, x) => writer.writeFloat64(x));
 	}
 
 	static serializeArray(value: (MetricSeriesPoint | null)[] | null): Uint8Array {
@@ -79,7 +89,7 @@ export class MetricSeriesPoint {
 		}
 
 		const value = new MetricSeriesPoint();
-		if (count == 10) {
+		if (count == 13) {
 			value.bucketStart = readDateTimeOffset(reader);
 			value.value = reader.readNullableFloat64();
 			value.count = reader.readNullableInt64();
@@ -90,7 +100,10 @@ export class MetricSeriesPoint {
 			value.p95 = reader.readNullableFloat64();
 			value.p99 = reader.readNullableFloat64();
 			value.maxApprox = reader.readNullableFloat64();
-		} else if (count > 10) {
+			value.bucketLowers = reader.readArray((reader) => reader.readFloat64());
+			value.bucketUppers = reader.readArray((reader) => reader.readFloat64());
+			value.bucketCounts = reader.readArray((reader) => reader.readFloat64());
+		} else if (count > 13) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -114,6 +127,12 @@ export class MetricSeriesPoint {
 			if (count == 9) return value;
 			value.maxApprox = reader.readNullableFloat64();
 			if (count == 10) return value;
+			value.bucketLowers = reader.readArray((reader) => reader.readFloat64());
+			if (count == 11) return value;
+			value.bucketUppers = reader.readArray((reader) => reader.readFloat64());
+			if (count == 12) return value;
+			value.bucketCounts = reader.readArray((reader) => reader.readFloat64());
+			if (count == 13) return value;
 		}
 		return value;
 	}

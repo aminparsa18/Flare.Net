@@ -240,6 +240,8 @@ export class MetricsExplorerState {
 	// it's always describing what `series` actually *is*, never what's merely
 	// targeted next.
 	resultType = $state<MetricPointType | null>(null);
+	/** Ask the API for each histogram point's per-bucket counts (the dashboard heatmap visualization, ADR-0085). Set by DashboardMetricsPanelBody before it runs the query; the Explorer page never does. */
+	includeBuckets = false;
 	// filter.compareEnabled *as of the query that produced the current series/
 	// previousSeries* - deliberately not the same as filter.compareEnabled itself,
 	// which flips the instant the toolbar switch is clicked, well before the matching
@@ -510,6 +512,7 @@ export class MetricsExplorerState {
 		const timeShiftSeconds = this.filter.timeShiftSeconds;
 		const groupByAttributeKey = this.filter.groupByAttributeKey ?? undefined;
 		const topN = this.filter.topN;
+		const includeBuckets = this.includeBuckets && isHistogramType(metric.type);
 		// Both-or-neither at the wire boundary too (see MetricsFilterState.havingOperator's
 		// remarks) - a lone havingValue with no operator (or vice versa) would otherwise send
 		// a half-set pair the server silently ignores anyway (MetricSeriesQueryBuilder.Build's
@@ -562,7 +565,8 @@ export class MetricsExplorerState {
 						topN,
 						havingOperator,
 						havingValue,
-						postProcessFunctions
+						postProcessFunctions,
+						includeBuckets: includeBuckets || undefined
 					},
 					abort.signal
 				),

@@ -52,6 +52,7 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
     public async Task<MetricQueryResponse> QueryAsync(MetricQueryRequest request, CancellationToken cancellationToken)
     {
         var built = MetricSeriesQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var includeBuckets = request.IncludeBuckets == true;
 
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
 
@@ -73,7 +74,7 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
         {
             if (pendingSlices.Count > 0)
             {
-                currentPoints!.Add(ToExponentialHistogramPoint(pendingBucketStart, pendingSlices));
+                currentPoints!.Add(ToExponentialHistogramPoint(pendingBucketStart, pendingSlices, includeBuckets));
                 pendingSlices.Clear();
             }
         }
@@ -109,7 +110,7 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
                 continue;
             }
 
-            currentPoints!.Add(ReadPoint(reader, built.Type));
+            currentPoints!.Add(ReadPoint(reader, built.Type, includeBuckets));
         }
 
         if (currentPoints is not null)
@@ -152,7 +153,7 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
         return new MetricAttributeKeysResponse { Keys = keys };
     }
 
-    private static MetricSeriesPoint ReadPoint(ClickHouseDataReader reader, MetricPointType type)
+    private static MetricSeriesPoint ReadPoint(ClickHouseDataReader reader, MetricPointType type, bool includeBuckets)
     {
         var bucketStart = ReadUtc(reader, 0);
 
@@ -174,7 +175,7 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
                 P95 = HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.95),
                 P99 = HistogramQuantileEstimator.Estimate(bucketCounts, explicitBounds, 0.99),
                 MaxApprox = HistogramQuantileEstimator.EstimateMax(bucketCounts, explicitBounds),
-            };
+            }.WithBuckets(includeBuckets ? HistogramBucketExpander.Expand(bucketCounts, explicitBounds) : null);
         }
 
         if (type == MetricPointType.Sum)
@@ -194,7 +195,7 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
     /// One bucket's point from its per-scale slices - the same fields
     /// <see cref="ReadPoint"/> fills for Histogram, via <see cref="ExponentialHistogramEstimator"/>.
     /// </summary>
-    internal static MetricSeriesPoint ToExponentialHistogramPoint(DateTimeOffset bucketStart, IReadOnlyList<ExponentialHistogramBuckets> slices)
+    internal static MetricSeriesPoint ToExponentialHistogramPoint(DateTimeOffset bucketStart, IReadOnlyList<ExponentialHistogramBuckets> slices, bool includeBuckets = false)
     {
         var merged = ExponentialHistogramEstimator.Merge(slices)!;
         return new MetricSeriesPoint
@@ -208,7 +209,7 @@ public sealed class MetricQueryService(IClickHouseClient client, IOptions<QueryL
             P95 = ExponentialHistogramEstimator.Estimate(merged, 0.95),
             P99 = ExponentialHistogramEstimator.Estimate(merged, 0.99),
             MaxApprox = ExponentialHistogramEstimator.EstimateMax(merged),
-        };
+        }.WithBuckets(includeBuckets ? HistogramBucketExpander.Expand(merged) : null);
     }
 
     /// <summary>Parses <see cref="MetricNamesQueryBuilder"/>'s literal <c>Type</c> discriminator back into the enum.</summary>

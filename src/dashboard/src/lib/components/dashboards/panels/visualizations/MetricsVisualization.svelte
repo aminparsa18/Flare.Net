@@ -11,12 +11,13 @@
 	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
 	import type { LegendPosition } from '$lib/dashboards/legend';
 	import { parseDecimals } from '$lib/metrics/axis';
-	import { parseColumnUnits, reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelVisualization } from '$lib/dashboards/visualization';
+	import { heatmapGrid, parseColumnUnits, reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelVisualization } from '$lib/dashboards/visualization';
 	import BarVisualization from './BarVisualization.svelte';
 	import ValueVisualization from './ValueVisualization.svelte';
 	import PieVisualization from './PieVisualization.svelte';
 	import TableVisualization from './TableVisualization.svelte';
 	import HistogramVisualization from './HistogramVisualization.svelte';
+	import HeatmapVisualization from './HeatmapVisualization.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	let {
@@ -67,6 +68,9 @@
 			.map((s) => ({ label: s.displayLabel, key: s.label, value: reduceValues(s.points.map((p) => p.value), reducer) }))
 			.filter((e): e is { label: string; key: string; value: number } => e.value != null)
 	);
+	// Only the heatmap reads this: per-bucket counts come back for histogram metrics when the
+	// query asked for them (DashboardMetricsPanelBody), otherwise there is nothing to draw.
+	const grid = $derived(visualization === 'heatmap' && !isFormula ? heatmapGrid(explorer.series) : null);
 	const total = $derived(reduceValues(totalsByBucket(series), reducer));
 </script>
 
@@ -94,5 +98,13 @@
 		<TableVisualization {series} {unit} {decimals} {columnUnits} {reducer} includeSum={resultType === 'Sum'} {title} {thresholds} />
 	{:else if visualization === 'histogram'}
 		<HistogramVisualization {series} {unit} {decimals} {thresholds} />
+	{:else if visualization === 'heatmap'}
+		{#if grid}
+			<HeatmapVisualization {grid} {unit} {decimals} />
+		{:else if loading}
+			<div class="flex flex-1 items-center justify-center"><Spinner /></div>
+		{:else}
+			<div class="text-muted-foreground flex flex-1 items-center justify-center p-2 text-center text-xs">{m.panelVisualization_heatmapNeedsHistogram()}</div>
+		{/if}
 	{/if}
 </div>
