@@ -766,6 +766,8 @@
 	"tracesToolbar_serviceLabel": "Service",
 	"tracesToolbar_autoRefreshTitle": "Automatically re-runs the search every 30 seconds",
 	"tracesToolbar_autoRefreshLabel": "Auto-refresh",
+	"tracesToolbar_nPlusOneLabel": "N+1 only",
+	"tracesToolbar_nPlusOneTitle": "Only traces containing an N+1 query pattern (one parent span repeating the same database statement 10 or more times)",
 	"tracesToolbar_entrySpansLabel": "Entry spans",
 	"tracesToolbar_entrySpansTitle": "List each service's entry spans (no parent, or called from another service) instead of one root span per trace",
 	"tracesToolbar_clearFilters": "Clear filters",

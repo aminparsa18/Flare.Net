@@ -19,6 +19,7 @@
 	import { tracesExplorerContext } from '$lib/traces/context';
 	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
 	import { setLastUsedViewId } from '$lib/saved-views/last-used';
+	import DatabaseZapIcon from '@lucide/svelte/icons/database-zap';
 	import * as m from '$lib/paraglide/messages';
 
 	interface Props {
@@ -132,6 +133,12 @@
 			<code class="max-w-28 truncate font-mono text-xs">{explorer.filter.structure.expression}</code>
 		{/if}
 	</Button>
+
+	<label class="flex items-center gap-1.5 text-xs font-medium" title={m.tracesToolbar_nPlusOneTitle()}>
+		<Switch checked={explorer.filter.nPlusOneOnly} onCheckedChange={(v) => explorer.setNPlusOneOnly(v)} size="sm" />
+		<DatabaseZapIcon class="size-3.5" />
+		{m.tracesToolbar_nPlusOneLabel()}
+	</label>
 
 	<!-- Root spans (one row per trace) vs. each service's entry spans - see
 	     TracesFilterState.entrySpansOnly. -->

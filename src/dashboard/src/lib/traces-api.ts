@@ -63,6 +63,8 @@ export interface SpanFilter {
 	entrySpansOnly?: boolean;
 	/** Only spans of traces whose span tree matches - see `SpanFilter.Structure` (SpanFilter.cs) and `TraceStructureSqlBuilder`. */
 	structure?: TraceStructureFilter;
+	/** Only traces containing an N+1 pattern - see `SpanFilter.NPlusOneOnly` (SpanFilter.cs). */
+	nPlusOneOnly?: boolean;
 }
 
 /** One lettered span condition of a structural trace query - see `TraceSpanCondition` (TraceStructureModels.cs). Unset/empty fields match anything. */
@@ -150,6 +152,7 @@ export function toGeneratedSpanFilter(filter: SpanFilter | undefined): Generated
 	dto.names = filter.names ?? null;
 	dto.entrySpansOnly = filter.entrySpansOnly ?? false;
 	dto.structure = filter.structure == null ? null : toGeneratedStructure(filter.structure);
+	dto.nPlusOneOnly = filter.nPlusOneOnly ?? false;
 	return dto;
 }
 

@@ -23,6 +23,7 @@ export class SpanFilter {
 	names: (string | null)[] | null;
 	entrySpansOnly: boolean;
 	structure: TraceStructureFilter | null;
+	nPlusOneOnly: boolean;
 
 	constructor() {
 		this.from = null;
@@ -38,6 +39,7 @@ export class SpanFilter {
 		this.names = null;
 		this.entrySpansOnly = false;
 		this.structure = null;
+		this.nPlusOneOnly = false;
 	}
 
 	static serialize(value: SpanFilter | null): Uint8Array {
@@ -52,7 +54,7 @@ export class SpanFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(13);
+		writer.writeObjectHeader(14);
 		writeNullableDateTimeOffset(writer, value.from);
 		writeNullableDateTimeOffset(writer, value.to);
 		writer.writeArray(value.services, (writer, x) => writer.writeString(x));
@@ -66,6 +68,7 @@ export class SpanFilter {
 		writer.writeArray(value.names, (writer, x) => writer.writeString(x));
 		writer.writeBoolean(value.entrySpansOnly);
 		TraceStructureFilter.serializeCore(writer, value.structure);
+		writer.writeBoolean(value.nPlusOneOnly);
 	}
 
 	static deserialize(buffer: ArrayBuffer): SpanFilter | null {
@@ -79,7 +82,7 @@ export class SpanFilter {
 		}
 
 		const value = new SpanFilter();
-		if (count == 13) {
+		if (count == 14) {
 			value.from = readNullableDateTimeOffset(reader);
 			value.to = readNullableDateTimeOffset(reader);
 			value.services = reader.readArray((reader) => reader.readString());
@@ -93,7 +96,8 @@ export class SpanFilter {
 			value.names = reader.readArray((reader) => reader.readString());
 			value.entrySpansOnly = reader.readBoolean();
 			value.structure = TraceStructureFilter.deserializeCore(reader);
-		} else if (count > 13) {
+			value.nPlusOneOnly = reader.readBoolean();
+		} else if (count > 14) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -123,6 +127,8 @@ export class SpanFilter {
 			if (count == 12) return value;
 			value.structure = TraceStructureFilter.deserializeCore(reader);
 			if (count == 13) return value;
+			value.nPlusOneOnly = reader.readBoolean();
+			if (count == 14) return value;
 		}
 		return value;
 	}

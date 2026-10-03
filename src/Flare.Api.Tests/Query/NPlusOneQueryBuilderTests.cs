@@ -43,6 +43,18 @@ public class NPlusOneQueryBuilderTests
         Assert.Contains("db.collection.name", NPlusOneQueryBuilder.StatementExpr);
     }
 
+    [Fact]
+    public void SpanFilter_NPlusOneOnly_AddsGlobalTraceIdSubquery()
+    {
+        var off = SpanFilterSqlBuilder.Build(new SpanFilter(), End);
+        Assert.DoesNotContain("n1MinRepeats", off.WhereSql);
+
+        var on = SpanFilterSqlBuilder.Build(new SpanFilter { NPlusOneOnly = true }, End);
+        Assert.Contains("TraceId GLOBAL IN (SELECT TraceId FROM spans WHERE", on.WhereSql);
+        Assert.Contains("count() >= {n1MinRepeats:UInt64}", on.WhereSql);
+        Assert.Equal((ulong)NPlusOneQueryBuilder.DefaultMinRepeats, on.Parameters.ToDictionary()["n1MinRepeats"]);
+    }
+
     [Theory]
     [InlineData(null, 60)]
     [InlineData(0, 60)]

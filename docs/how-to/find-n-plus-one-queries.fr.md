@@ -15,6 +15,10 @@ Flare regroupe les spans de base de données d'une trace par span parent et par 
 1. Ouvrez une trace depuis **Traces**.
 2. Dans l'onglet **Cascade**, un span parent qui a exécuté un motif N+1 affiche un badge tel que `N+1: 48× SELECT * FROM orders WHERE customer_id = ?`.
 
+## Filtrer la liste des traces
+
+Activez **N+1 uniquement** dans la barre d'outils Traces pour ne lister que les traces contenant un motif N+1. Ce filtre se combine avec tous les autres et est enregistré dans les vues enregistrées.
+
 ## Trouver les pires cas
 
 1. Ouvrez **Traces**, puis l'onglet **N+1**.

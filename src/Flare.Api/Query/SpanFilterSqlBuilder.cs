@@ -109,6 +109,11 @@ public static class SpanFilterSqlBuilder
             clauses.Add($"TraceId GLOBAL IN ({TraceStructureSqlBuilder.BuildTraceIdQuery(structure, parameters, promoted)})");
         }
 
+        if (filter.NPlusOneOnly)
+        {
+            clauses.Add($"TraceId GLOBAL IN ({NPlusOneQueryBuilder.BuildTraceIdQuery(parameters)})");
+        }
+
         return new SpanFilterSql(string.Join(" AND ", clauses), parameters);
     }
 
