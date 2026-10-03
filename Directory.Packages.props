@@ -158,6 +158,10 @@
     <PackageVersion Include="Confluent.Kafka" Version="2.15.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.ConfluentKafka" Version="0.3.0-alpha.2" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <!-- The shop's LLM calls (examples/ExampleApp.Shop/LlmClients.cs): the real
+         Microsoft.Extensions.AI abstractions and its UseOpenTelemetry() decorator over an
+         in-process fake model, so the demo emits the same gen_ai.* spans a real app would. -->
+    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.10.0" />
     <!-- Tests -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

@@ -11,6 +11,7 @@ namespace ExampleApp.Shop;
 ///     └──kafka clickstream.events           kafka orders.created / payments.completed / inventory.reserved
 ///                                           ──▶ order-service, notification-service consumer groups
 /// notification-service (order-notifier group) ──▶ api.twilio.com, api.sendgrid.com
+/// (fake models, see <see cref="LlmClients"/>: fraud-check and notification-service chat, storefront embeddings)
 /// </code>
 /// </summary>
 public enum ShopRole

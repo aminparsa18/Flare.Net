@@ -224,6 +224,7 @@ builder.Services.AddSingleton<IKubernetesInventoryQueryService, KubernetesInvent
 builder.Services.AddSingleton<IExceptionQueryService, ExceptionQueryService>();
 builder.Services.AddSingleton<IMessagingQueryService, MessagingQueryService>();
 builder.Services.AddSingleton<IExternalApiQueryService, ExternalApiQueryService>();
+builder.Services.AddSingleton<ILlmQueryService, LlmQueryService>();
 builder.Services.AddSingleton<ITraceFunnelQueryService, TraceFunnelQueryService>();
 builder.Services.AddSingleton<INPlusOneQueryService, NPlusOneQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
@@ -473,6 +474,7 @@ authenticatedRoutes.MapKubernetesInventoryEndpoints();
 authenticatedRoutes.MapExceptionEndpoints();
 authenticatedRoutes.MapMessagingEndpoints();
 authenticatedRoutes.MapExternalApiEndpoints();
+authenticatedRoutes.MapLlmEndpoints();
 authenticatedRoutes.MapTraceFunnelEndpoints();
 authenticatedRoutes.MapNPlusOneEndpoints();
 authenticatedRoutes.MapSavedViewEndpoints();

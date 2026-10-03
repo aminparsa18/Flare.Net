@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using Confluent.Kafka;
+using Microsoft.Extensions.AI;
 
 namespace ExampleApp.Shop;
 
@@ -92,14 +93,31 @@ public sealed class PaymentDeclinedException(Guid orderId, string declineCode)
     public string DeclineCode { get; } = declineCode;
 }
 
-/// <summary>Scores a payment for fraud risk - a slow-ish model call, and the optional hop in the payment path.</summary>
+/// <summary>
+/// Scores a payment for fraud risk - a slow-ish model call, and the optional hop in the payment
+/// path. A chat model writes the rationale shown to reviewers; when the provider rate-limits it
+/// the score still goes out, just without one.
+/// </summary>
 public static class FraudCheck
 {
     public static void Map(WebApplication app) =>
-        app.MapPost("/fraud/score", async (ChargeRequest request, CancellationToken ct) =>
+        app.MapPost("/fraud/score", async (ChargeRequest request, IChatClient chat, ILoggerFactory loggers, CancellationToken ct) =>
         {
             await Latency.DelayAsync(180, ct);
             // Mostly low scores, a thin tail of high ones.
-            return Results.Ok(new FraudScore(Math.Pow(Random.Shared.NextDouble(), 6)));
+            var score = Math.Pow(Random.Shared.NextDouble(), 6);
+
+            try
+            {
+                await chat.GetResponseAsync(
+                    $"Explain in one sentence why a {request.Amount} {request.Currency} card payment (order {request.OrderId}) scored {score:F2} for fraud risk.",
+                    new ChatOptions { ModelId = LlmClients.FraudModel, MaxOutputTokens = 120 }, ct);
+            }
+            catch (HttpRequestException ex)
+            {
+                loggers.CreateLogger(typeof(FraudCheck)).LogWarning(ex, "Fraud rationale unavailable for order {OrderId}", request.OrderId);
+            }
+
+            return Results.Ok(new FraudScore(score));
         });
 }

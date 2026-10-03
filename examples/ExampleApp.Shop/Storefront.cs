@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Confluent.Kafka;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.AI;
 using OpenTelemetry;
 
 namespace ExampleApp.Shop;
@@ -14,6 +15,7 @@ public static class Storefront
     {
         builder.Services.AddShopServiceClient("checkout-api").AddShopServiceClient("inventory-service");
         builder.AddKafkaProducer();
+        builder.Services.AddCartEmbeddings();
         builder.Services.AddHostedService<TrafficWorker>();
     }
 
@@ -49,9 +51,11 @@ public static class Storefront
             return Results.Ok(new { items = Random.Shared.Next(0, 5) });
         });
 
-        app.MapGet("/search", async (string q, IHttpClientFactory clients, IProducer<string, string> kafka, CancellationToken ct) =>
+        app.MapGet("/search", async (string q, IHttpClientFactory clients, IProducer<string, string> kafka, IEmbeddingGenerator<string, Embedding<float>> embeddings, CancellationToken ct) =>
         {
             await TrackAsync(kafka, "search", ct);
+            // Embeds the query for the semantic half of search.
+            await embeddings.GenerateAsync([q], new EmbeddingGenerationOptions { ModelId = LlmClients.EmbeddingModel }, ct);
             using var response = await clients.CreateClient("inventory-service").GetAsync($"/inventory/search?q={Uri.EscapeDataString(q)}", ct);
             return Results.Content(await response.Content.ReadAsStringAsync(ct), "application/json", statusCode: (int)response.StatusCode);
         });

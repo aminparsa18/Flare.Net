@@ -28,6 +28,7 @@ export function navLinks(auth: AuthState): NavLink[] {
 		{ href: '/errors', label: m.nav_errors() },
 		{ href: '/messaging', label: m.nav_messaging() },
 		{ href: '/external-apis', label: m.nav_externalApis(), inMenu: true },
+		{ href: '/llm', label: m.nav_llm(), inMenu: true },
 		{ href: '/metrics', label: m.nav_metrics() },
 		{ href: '/ingestion', label: m.nav_ingestion() },
 		{ href: '/indexing', label: m.nav_indexing() },

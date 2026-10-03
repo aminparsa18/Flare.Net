@@ -323,6 +323,25 @@ export function buildExternalCallTracesHref(target: ExternalCallTarget, timeRang
 }
 
 /**
+ * `/traces?state=` listing one model's calls on the LLM page - a one-condition structural
+ * query (the call is a child span, so the list's own attribute filters would only match the
+ * root; see `buildTracesAttributeFilterHref`). Filters on `gen_ai.request.model`, so a call
+ * that only set `gen_ai.response.model` won't match.
+ */
+export function buildLlmCallTracesHref(target: { model: string; service?: string; errorsOnly?: boolean }, timeRangePreset: TimeRangePreset): string {
+	const condition: TraceSpanCondition = { name: 'A', attributes: [{ bag: 'Span', key: 'gen_ai.request.model', value: target.model }] };
+	if (target.service) condition.serviceName = target.service;
+	if (target.errorsOnly) condition.statusCode = 'STATUS_CODE_ERROR';
+	const state: TracesSavedViewState = {
+		timeRangePreset,
+		services: [],
+		attributeFilters: [],
+		structure: { expression: 'A', conditions: [condition] }
+	};
+	return withBase(`/traces?state=${encodeStateDeepLinkParam(state)}`);
+}
+
+/**
  * `/metrics?state=` opening one metric in the explorer - the Metrics catalog's "Open in
  * explorer". Same payload shape as a fired metric alert's link (Flare.Api's
  * `AlertMessageFormatter.BuildMetricChartUrl`): no `serviceName`, so the explorer picks the
