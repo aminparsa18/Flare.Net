@@ -76,3 +76,38 @@ export async function deleteMetricAttributeRule(id: string): Promise<void> {
 export function ruleMatchesMetric(rule: MetricAttributeRule, metricName: string): boolean {
 	return rule.metricName.endsWith('*') ? metricName.startsWith(rule.metricName.slice(0, -1)) : rule.metricName === metricName;
 }
+
+export interface MetricAttributeRulePreviewMetric {
+	metricName: string;
+	seriesBefore: number;
+	seriesAfter: number;
+}
+
+export interface MetricAttributeRulePreview {
+	windowMinutes: number;
+	metrics: MetricAttributeRulePreviewMetric[];
+	seriesBefore: number;
+	seriesAfter: number;
+	truncated: boolean;
+}
+
+/** Dry run: series per matched metric before/after the draft rule, over stored data in the window. */
+export async function previewMetricAttributeRule(
+	input: Pick<MetricAttributeRuleInput, 'metricName' | 'mode' | 'attributes'>,
+	windowMinutes?: number
+): Promise<MetricAttributeRulePreview> {
+	const res = await apiFetch(`${BASE}/preview`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ ...input, windowMinutes })
+	});
+	if (!res.ok) throw await failure(res, 'POST /api/metric-attribute-rules/preview');
+	return (await res.json()) as MetricAttributeRulePreview;
+}
+
+/** Ids of rules matching no metric ingested in the window (default: the longest, 24 h). */
+export async function listUnmatchedMetricAttributeRules(windowMinutes = 1440): Promise<{ windowMinutes: number; ruleIds: string[] }> {
+	const res = await apiFetch(`${BASE}/unmatched?windowMinutes=${windowMinutes}`);
+	if (!res.ok) throw await failure(res, 'GET /api/metric-attribute-rules/unmatched');
+	return (await res.json()) as { windowMinutes: number; ruleIds: string[] };
+}

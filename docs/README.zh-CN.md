@@ -45,6 +45,7 @@
 - [按 span 之间的关系查找追踪](how-to/find-traces-by-structure.zh-CN.md)
 - [判断 span 相对同类是否偏慢](how-to/compare-span-duration.zh-CN.md)
 - [找出高基数指标](how-to/find-high-cardinality-metrics.zh-CN.md)
+- [在摄取时精简指标的属性](how-to/reduce-metric-attributes.zh-CN.md)
 - [加速对常用日志或 Span 属性的过滤](how-to/promote-attribute-columns.zh-CN.md)
 
 **参考**

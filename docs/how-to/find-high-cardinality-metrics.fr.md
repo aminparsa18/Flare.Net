@@ -76,6 +76,10 @@ exemple `attributes` ou `transform`) avant qu'il n'atteigne Flare. Les séries
 qui ne sont plus émises quittent le catalogue une fois sorties de la fenêtre
 choisie.
 
+Vous pouvez aussi retirer des attributs dans Flare avec une
+[règle d'ingestion](reduce-metric-attributes.fr.md), qui affiche un aperçu des
+séries supprimées avant l'enregistrement.
+
 ## Voir comment les échantillons d'une métrique deviennent un graphique
 
 ![Onglet Inspect : échantillons bruts regroupés en intervalles](../screenshots/find-high-cardinality-metrics-3-en.webp)

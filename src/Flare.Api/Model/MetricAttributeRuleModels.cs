@@ -97,3 +97,62 @@ public sealed partial record MetricAttributeRuleRequest
         return null;
     }
 }
+
+/// <summary>Request body for <c>POST /api/metric-attribute-rules/preview</c>: a draft rule (no name needed) and the window to measure it over.</summary>
+[MemoryPackable]
+public sealed partial record MetricAttributeRulePreviewRequest
+{
+    public required string MetricName { get; init; }
+
+    public required MetricAttributeRuleMode Mode { get; init; }
+
+    public IReadOnlyList<string>? Attributes { get; init; }
+
+    /// <summary>Lookback window; null/non-positive = <see cref="Query.MetricCatalogQueryBuilder.DefaultWindowMinutes"/>, clamped server-side.</summary>
+    public int? WindowMinutes { get; init; }
+
+    /// <summary>Same metric-name/attribute checks as <see cref="MetricAttributeRuleRequest.Validate"/>.</summary>
+    public string? Validate() =>
+        new MetricAttributeRuleRequest { Name = "preview", MetricName = MetricName, Mode = Mode, Attributes = Attributes }.Validate();
+}
+
+/// <summary>One metric a previewed rule would touch: its active series now, and after the rule's attributes are stripped.</summary>
+[MemoryPackable]
+public sealed partial record MetricAttributeRulePreviewMetric
+{
+    public required string MetricName { get; init; }
+
+    public required long SeriesBefore { get; init; }
+
+    public required long SeriesAfter { get; init; }
+}
+
+/// <summary>
+/// What a draft rule would do to data already stored in the window. Computed against the
+/// stored attributes, so metrics an existing rule already reduced show up as unchanged.
+/// Series counts are ClickHouse <c>uniq</c> (approximate past a few thousand).
+/// </summary>
+[MemoryPackable]
+public sealed partial record MetricAttributeRulePreviewResponse
+{
+    public required int WindowMinutes { get; init; }
+
+    /// <summary>Matched metrics, most series removed first; capped, see <see cref="Truncated"/>.</summary>
+    public required IReadOnlyList<MetricAttributeRulePreviewMetric> Metrics { get; init; }
+
+    /// <summary>Totals over <see cref="Metrics"/> only.</summary>
+    public required long SeriesBefore { get; init; }
+
+    public required long SeriesAfter { get; init; }
+
+    public required bool Truncated { get; init; }
+}
+
+/// <summary>Rules that matched no metric ingested within <see cref="WindowMinutes"/>: typos, renamed metrics, or ones that stopped being emitted.</summary>
+[MemoryPackable]
+public sealed partial record MetricAttributeRuleUnmatchedResponse
+{
+    public required int WindowMinutes { get; init; }
+
+    public required IReadOnlyList<Guid> RuleIds { get; init; }
+}

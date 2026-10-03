@@ -8,9 +8,12 @@
 	import { metricCatalogContext } from '$lib/metric-catalog/context';
 	import MetricCatalogToolbar from '$lib/components/metric-catalog/MetricCatalogToolbar.svelte';
 	import MetricCatalogTable from '$lib/components/metric-catalog/MetricCatalogTable.svelte';
+	import MetricAttributeRulesUnmatched from '$lib/components/metric-catalog/MetricAttributeRulesUnmatched.svelte';
+	import { authContext } from '$lib/auth/context';
 	import MetricCatalogDetailSheet from '$lib/components/metric-catalog/MetricCatalogDetailSheet.svelte';
 	import * as m from '$lib/paraglide/messages';
 
+	const auth = authContext.get();
 	const catalog = metricCatalogContext.set(new MetricCatalogState());
 
 	onMount(() => {
@@ -28,6 +31,9 @@
 
 <div class="flex h-full flex-col overflow-y-auto">
 	<MetricCatalogToolbar />
+	{#if auth.canMutate}
+		<MetricAttributeRulesUnmatched />
+	{/if}
 	<MetricCatalogTable />
 	<MetricCatalogDetailSheet />
 </div>

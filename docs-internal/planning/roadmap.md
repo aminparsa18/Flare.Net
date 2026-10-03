@@ -117,12 +117,6 @@ folders are where "what happened and why" actually lives.
   common models, overridable). Consider pre-aggregation like ADR-0031 if
   volumes warrant it. Needs an ADR. Not started. Prior art:
   [signoz#10908](https://github.com/SigNoz/signoz/commit/755390c4b5b2456a7c5c44d98fe8fcb18671616b).
-- **Metric attribute reduction: preview and docs.** The ingest engine,
-  `/api/metric-attribute-rules` CRUD and the catalog's "Reduce attributes"
-  section shipped (ADR-0083), but there's no dry-run preview of how many
-  series a rule would remove, no page listing prefix rules that match no
-  currently-ingested metric, and no user-facing how-to in `docs/`. Prior art:
-  [signoz#11849](https://github.com/SigNoz/signoz/commit/d5221a6ff3b1b7a9b55492218c9f589845bcbc28).
 - **Microsoft Teams and Discord notification channels.** Channel types are
   Webhook/Telegram/Email/PagerDuty. The generic webhook's top-level `text`
   covers Slack and (probably; verify live) Google Chat incoming webhooks, but

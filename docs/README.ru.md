@@ -45,6 +45,7 @@
 - [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
 - [Как понять, был ли спан медленным для своего типа](how-to/compare-span-duration.ru.md)
 - [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)
+- [Как сократить атрибуты метрики при приёме](how-to/reduce-metric-attributes.ru.md)
 - [Ускорить фильтры по часто используемому атрибуту лога или спана](how-to/promote-attribute-columns.ru.md)
 
 **Справочник**
