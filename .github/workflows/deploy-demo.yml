@@ -72,7 +72,9 @@ jobs:
           Parameters__api_host: api.${{ vars.DEMO_HOST }}
           Parameters__public_dashboard_url: https://${{ vars.DEMO_HOST }}
           Parameters__public_api_url: https://api.${{ vars.DEMO_HOST }}
-        run: aspire deploy --environment production --non-interactive
+        # --clear-cache: without it Aspire reuses the parameter values saved by the first deploy
+        # and ignores the env vars above, so changing DEMO_HOST would keep serving the old hosts.
+        run: aspire deploy --environment production --non-interactive --clear-cache
 
       - name: Show rollout status
         run: kubectl get pods --namespace "$DEMO_NAMESPACE"
