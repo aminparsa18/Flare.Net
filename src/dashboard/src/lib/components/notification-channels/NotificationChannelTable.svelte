@@ -24,6 +24,8 @@
 	function destinationSummary(channel: NotificationChannel): string {
 		switch (channel.type) {
 			case 'Webhook':
+			case 'Teams':
+			case 'Discord':
 				return channel.webhookUrl;
 			case 'Telegram':
 				return channel.telegramChatId ? `chat ${channel.telegramChatId}` : '';

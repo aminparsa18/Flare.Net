@@ -109,20 +109,13 @@ folders are where "what happened and why" actually lives.
   common models, overridable). Consider pre-aggregation like ADR-0031 if
   volumes warrant it. Needs an ADR. Not started. Prior art:
   [signoz#10908](https://github.com/SigNoz/signoz/commit/755390c4b5b2456a7c5c44d98fe8fcb18671616b).
-- **Microsoft Teams and Discord notification channels.** Channel types are
-  Webhook/Telegram/Email/PagerDuty. The generic webhook's top-level `text`
-  covers Slack and (probably; verify live) Google Chat incoming webhooks, but
-  Teams Workflows webhooks need an Adaptive Card payload and Discord needs
-  `content`, so neither works today. Add both as native types with send-test
-  and template support (ADR-0052), and a docs line that Slack/Google Chat use
-  the plain Webhook type. Lower-priority further targets once the per-type
-  notifier shape exists: Jira / JSM Ops (create an issue/alert, resolve on
-  recovery)
+- **Jira and incident.io notification channels.** Channel types are
+  Webhook/Telegram/Email/PagerDuty/Teams/Discord (ADR-0094). Add per-type
+  notifiers for Jira / JSM Ops (create an issue/alert, resolve on recovery)
   ([signoz#12478](https://github.com/SigNoz/signoz/commit/160a1b018cd9cd7396ff8b6906be158ed16cfb0b))
   and incident.io
   ([signoz#12644](https://github.com/SigNoz/signoz/commit/e84a61d43f7f5a7b10a955f0e2b4444b7443d4e7)).
-  Not started. Prior art:
-  [signoz#12314](https://github.com/SigNoz/signoz/commit/e9726776ab7a1adfc50540925ae016f183bf7cbc).
+  Not started.
 - **Exception → source code.** Exceptions show a stack trace but nothing
   links a frame to the code that ran. Use `code.filepath`/`code.lineno` (and
   the stack trace's own `in File:line` frames) plus the app's commit

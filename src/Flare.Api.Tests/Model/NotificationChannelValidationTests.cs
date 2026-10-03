@@ -86,6 +86,30 @@ public class NotificationChannelValidationTests
         Assert.NotNull(request.ValidateDestination());
     }
 
+    [Theory]
+    [InlineData(NotificationChannelType.Teams)]
+    [InlineData(NotificationChannelType.Discord)]
+    public void WebhookBasedTypes_WithWebhookUrl_AreValid(NotificationChannelType type)
+    {
+        Assert.Null(Build(type, webhookUrl: "https://example.com/hook").ValidateDestination());
+    }
+
+    [Theory]
+    [InlineData(NotificationChannelType.Teams)]
+    [InlineData(NotificationChannelType.Discord)]
+    public void WebhookBasedTypes_WithoutWebhookUrl_AreInvalid(NotificationChannelType type)
+    {
+        Assert.NotNull(Build(type).ValidateDestination());
+    }
+
+    [Theory]
+    [InlineData(NotificationChannelType.Teams)]
+    [InlineData(NotificationChannelType.Discord)]
+    public void WebhookBasedTypes_WithAnotherDestination_AreInvalid(NotificationChannelType type)
+    {
+        Assert.NotNull(Build(type, webhookUrl: "https://example.com/hook", emailTo: "oncall@example.com").ValidateDestination());
+    }
+
     private static NotificationChannelRequest Build(
         NotificationChannelType type,
         string webhookUrl = "",
