@@ -13,6 +13,7 @@
 	import { panelsInRow } from '$lib/dashboards/layout';
 	import AddPanelDialog from '$lib/components/dashboards/AddPanelDialog.svelte';
 	import ManageVariablesDialog from '$lib/components/dashboards/ManageVariablesDialog.svelte';
+	import VariableTextbox from '$lib/components/dashboards/VariableTextbox.svelte';
 	import VariableMultiPicker from '$lib/components/dashboards/VariableMultiPicker.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Select from '$lib/components/ui/select';
@@ -188,7 +189,9 @@
 				</Select.Root>
 
 				{#each viewer.variables as variable (variable.id)}
-					{#if variable.multi}
+					{#if variable.sourceKind === 'Textbox'}
+						<VariableTextbox {variable} value={viewer.variableValues[variable.id]?.[0] ?? ''} onCommit={(v) => viewer.setVariableValues(variable.id, v ? [v] : [])} />
+					{:else if variable.multi}
 						<VariableMultiPicker
 							{variable}
 							options={viewer.variableOptions[variable.id] ?? []}

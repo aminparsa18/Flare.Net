@@ -180,6 +180,10 @@ export class DashboardViewerState {
 		const resolveOne = async (variable: DashboardVariable): Promise<string[]> => {
 			const cached = resolved.get(variable.id);
 			if (cached) return cached;
+			if (variable.sourceKind === 'Textbox') {
+				resolved.set(variable.id, []);
+				return [];
+			}
 			if (variable.sourceKind === 'Custom') {
 				const options = variable.customValues ?? [];
 				resolved.set(variable.id, options);

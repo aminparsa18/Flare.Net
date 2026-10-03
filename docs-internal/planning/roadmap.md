@@ -110,13 +110,6 @@ folders are where "what happened and why" actually lives.
   ±1h window, hidden under 10 similar spans) isn't mentioned in the traces
   how-to/reference pages yet. Document it there, with the `.ru`/`.fr`/`.zh-CN`
   siblings hand-translated. Not started.
-- **Textbox dashboard variable.** `DashboardVariableSourceKind` is only
-  `Query`/`Custom`, so there's no way to type a free value (a user ID, order
-  ID, tenant) and have every panel filter on it. Add a `Textbox` kind with an
-  optional default, where empty means "All"/don't touch the filter, same as
-  other variables. It works with `$name` substitution and URL state. Not
-  started. Prior art:
-  [signoz#9843](https://github.com/SigNoz/signoz/commit/31e9e896ec84b2bfa48ae64dde5ba35896f8518c).
 - **Provision the admin account from configuration.** The first admin can
   only be created interactively via `/api/auth/bootstrap`, so headless
   installs (compose, the `flare` CLI, Kubernetes/Helm) can't come up with a
