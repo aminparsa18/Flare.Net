@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Read-only MCP tools shared by `flare mcp` (stdio, Flare.Cli) and Flare.Api's streamable
+       HTTP /mcp endpoint. The tools are plain HTTP clients over Flare.Api's own REST surface,
+       so they carry the wire DTOs (hand-mirrors of Flare.Api models) and the FlareApiClient
+       seam that each host fills in differently. Internal on purpose - hosts get
+       InternalsVisibleTo rather than a public API. -->
+  <PropertyGroup>
+    <RootNamespace>Flare.Mcp</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Flare.Cli" />
+    <InternalsVisibleTo Include="Flare.Cli.Tests" />
+    <InternalsVisibleTo Include="Flare.Api" />
+    <InternalsVisibleTo Include="Flare.Api.Tests" />
+  </ItemGroup>
+
+</Project>

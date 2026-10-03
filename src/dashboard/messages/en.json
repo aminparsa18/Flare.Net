@@ -2267,5 +2267,13 @@
 	"auditLogPage_loadMore": "Load more",
 	"auditLogPage_changesColumn": "Changes",
 	"auditLogPage_changesCount": "{count} changed",
-	"auditLogPage_changeEmptyValue": "(empty)"
+	"auditLogPage_changeEmptyValue": "(empty)",
+	"serviceAccounts_title": "Service accounts",
+	"serviceAccounts_description": "Non-human accounts for CI, scripts and integrations like the MCP endpoint. They sign in only with access tokens that an Admin issues here; change a role or disable one in the Users table above.",
+	"serviceAccounts_namePlaceholder": "e.g. ci-pipeline",
+	"serviceAccounts_create": "Create service account",
+	"serviceAccounts_empty": "No service accounts yet.",
+	"serviceAccounts_tokens": "Tokens",
+	"serviceAccounts_noTokens": "No tokens yet.",
+	"serviceAccounts_revoke": "Revoke"
 }

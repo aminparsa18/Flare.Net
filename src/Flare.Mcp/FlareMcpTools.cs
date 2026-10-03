@@ -2,11 +2,10 @@ using System.ComponentModel;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using Flare.Cli.Internal;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
-namespace Flare.Cli.Commands;
+namespace Flare.Mcp;
 
 /// <summary>
 /// Read-only MCP tools exposed by `flare mcp`. Each returns compact plain text (not raw
@@ -167,7 +166,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
             sb.Append(s.StartTime.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"))
               .Append(' ').Append(s.ServiceName)
               .Append(' ').Append(s.Name)
-              .Append(' ').Append(TracesCommand.FormatDurationNano(s.DurationNano))
+              .Append(' ').Append(WireFormat.FormatDurationNano(s.DurationNano))
               .Append(' ').Append(s.SpanCount ?? 1).Append(" spans")
               .Append(failed ? " ERROR" : " ok")
               .Append(" trace=").AppendLine(s.TraceId);
@@ -222,7 +221,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
 
         var errors = spans.Count(x => x.StatusCode == "STATUS_CODE_ERROR");
         var sb = new StringBuilder();
-        sb.AppendLine($"trace {trace!.TraceId}: {spans.Count} spans, {spans.Select(x => x.ServiceName).Distinct().Count()} services, {errors} errors, total {TracesCommand.FormatDurationNano((ulong)(spans.Max(x => x.EndTime) - start).TotalMilliseconds * 1_000_000UL)}");
+        sb.AppendLine($"trace {trace!.TraceId}: {spans.Count} spans, {spans.Select(x => x.ServiceName).Distinct().Count()} services, {errors} errors, total {WireFormat.FormatDurationNano((ulong)(spans.Max(x => x.EndTime) - start).TotalMilliseconds * 1_000_000UL)}");
 
         var visited = new HashSet<string>();
         var printed = 0;
@@ -244,7 +243,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
                 sb.Append(' ', depth * 2)
                   .Append(k.ServiceName).Append(' ').Append(k.Name)
                   .Append(" +").Append((long)(k.StartTime - start).TotalMilliseconds).Append("ms ")
-                  .Append(TracesCommand.FormatDurationNano(k.DurationNano))
+                  .Append(WireFormat.FormatDurationNano(k.DurationNano))
                   .AppendLine(k.StatusCode == "STATUS_CODE_ERROR" ? " ERROR" : "");
                 Walk(k.SpanId, depth + 1);
             }
@@ -273,7 +272,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
             throw new McpException(notReady);
         }
 
-        if (!TracesCommand.TryParseSince(since, out var span))
+        if (!WireFormat.TryParseSince(since, out var span))
         {
             throw new McpException($"Couldn't parse since '{since}' - expected e.g. 15m, 1h, 6h, 24h, 7d.");
         }
@@ -326,7 +325,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
             throw new McpException(notReady);
         }
 
-        if (!TracesCommand.TryParseSince(since, out var span))
+        if (!WireFormat.TryParseSince(since, out var span))
         {
             throw new McpException($"Couldn't parse since '{since}' - expected e.g. 15m, 1h, 6h, 24h, 7d.");
         }
@@ -524,7 +523,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
     {
         if (!lastRun)
         {
-            return TracesCommand.TryParseSince(since, out var span)
+            return WireFormat.TryParseSince(since, out var span)
                 ? (DateTimeOffset.UtcNow - span, null)
                 : throw new McpException($"Couldn't parse since '{since}' - expected e.g. 15m, 1h, 6h, 24h, 7d.");
         }
@@ -688,7 +687,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
     private static string Fmt(double? v) => v is null ? "-" : v.Value.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
 
     private string? NotReady() =>
-        api.InstanceInitialized ? null : "Flare is not initialized on this machine - run `flare start` first.";
+        api.NotReadyMessage;
 
     private string FailureMessage(Exception ex) => ex switch
     {
@@ -701,7 +700,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
 
     private static string StatusText(string what, int code, string reason) => code switch
     {
-        401 => $"{what} failed: 401 Unauthorized - this Flare requires sign-in. Pass a personal access token with --token or the FLARE_API_TOKEN environment variable.",
+        401 => $"{what} failed: 401 Unauthorized - this Flare requires sign-in. Supply a personal access token (flr_pat_...) as a Bearer token (`flare mcp`: --token or FLARE_API_TOKEN).",
         403 => $"{what} failed: 403 Forbidden - the token's user lacks permission for this call.",
         _ => $"{what} failed: {code} {reason}",
     };

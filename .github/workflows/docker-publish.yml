@@ -40,6 +40,7 @@ on:
       - 'src/Flare.AlertWorker/**'
       - 'src/Flare.ServiceDefaults/**'
       - 'src/Flare.Identity/**'
+      - 'src/Flare.Mcp/**'
       - 'src/dashboard/**'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
@@ -95,6 +96,7 @@ jobs:
               - 'src/Flare.Api/**'
               - 'src/Flare.ServiceDefaults/**'
               - 'src/Flare.Identity/**'
+              - 'src/Flare.Mcp/**'
             alert_worker:
               - 'src/Flare.AlertWorker/**'
               # Flare.AlertWorker reuses AlertQueryService/CompositeAlertNotifier from
@@ -105,6 +107,7 @@ jobs:
               - 'src/Flare.Api/**'
               - 'src/Flare.ServiceDefaults/**'
               - 'src/Flare.Identity/**'
+              - 'src/Flare.Mcp/**'
             dashboard:
               - 'src/dashboard/**'
               # The codegen stage builds Flare.Api for its side effect (MemoryPack
@@ -113,6 +116,7 @@ jobs:
               - 'src/Flare.Api/**'
               - 'src/Flare.ServiceDefaults/**'
               - 'src/Flare.Identity/**'
+              - 'src/Flare.Mcp/**'
 
       - name: Determine images to build
         id: images

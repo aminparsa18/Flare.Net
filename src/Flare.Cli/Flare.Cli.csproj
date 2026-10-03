@@ -109,6 +109,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Flare.Mcp\Flare.Mcp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Spectre.Console.Cli" />
     <PackageReference Include="ModelContextProtocol" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />

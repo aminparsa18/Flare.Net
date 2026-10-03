@@ -11,6 +11,7 @@ COPY Directory.Build.props Directory.Packages.props global.json ./
 COPY src/Flare.AlertWorker/Flare.AlertWorker.csproj src/Flare.AlertWorker/
 COPY src/Flare.ServiceDefaults/Flare.ServiceDefaults.csproj src/Flare.ServiceDefaults/
 COPY src/Flare.Identity/Flare.Identity.csproj src/Flare.Identity/
+COPY src/Flare.Mcp/Flare.Mcp.csproj src/Flare.Mcp/
 # Flare.Api.csproj - this project's own AlertEvaluationWorker is the only thing that
 # moved out of Flare.Api; AlertQueryService/CompositeAlertNotifier/the four channel
 # notifiers/EmailOptions/the alerting Model types all stay defined there and are reused
@@ -26,6 +27,7 @@ COPY src/Flare.ServiceDefaults/ src/Flare.ServiceDefaults/
 # See Flare.Api/Dockerfile's identical comment for why missing this copy fails silently
 # at restore (MSB9008 warning) and loudly at compile.
 COPY src/Flare.Identity/ src/Flare.Identity/
+COPY src/Flare.Mcp/ src/Flare.Mcp/
 COPY src/Flare.Api/ src/Flare.Api/
 # Flare.ServiceDefaults.csproj embeds this directory's *.sql files
 # (EmbeddedResource Include="..\..\db\clickhouse\*.sql") for ClickHouseMigrationRunner -

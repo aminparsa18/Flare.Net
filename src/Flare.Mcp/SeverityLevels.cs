@@ -1,4 +1,4 @@
-namespace Flare.Cli.Internal;
+namespace Flare.Mcp;
 
 /// <summary>
 /// OTel <c>SeverityNumber</c> (0-24) bucket boundaries for the CLI's <c>--level</c>

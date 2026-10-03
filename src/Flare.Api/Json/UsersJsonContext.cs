@@ -14,4 +14,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(UserSummaryDto))]
 [JsonSerializable(typeof(SetUserRoleRequest))]
 [JsonSerializable(typeof(SetUserDisabledRequest))]
+[JsonSerializable(typeof(CreateServiceAccountRequest))]
 public sealed partial class UsersJsonContext : JsonSerializerContext;

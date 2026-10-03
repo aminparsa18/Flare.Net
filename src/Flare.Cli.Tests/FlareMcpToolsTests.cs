@@ -1,3 +1,4 @@
+using Flare.Mcp;
 using System.Net;
 using System.Text;
 using Flare.Cli.Commands;
@@ -24,7 +25,7 @@ public class FlareMcpToolsTests
         new(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
 
     private static FlareMcpTools Tools(StubHandler handler, bool initialized = true) =>
-        new(new FlareApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://flare.test") }, initialized));
+        new(new FlareApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://flare.test") }, initialized ? null : "Flare is not initialized on this machine - run `flare start` first."));
 
     [Fact]
     public async Task NotInitialized_ThrowsMcpExceptionWithoutCallingApi()

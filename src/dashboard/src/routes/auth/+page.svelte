@@ -24,6 +24,7 @@
 	import OidcSecurityForm from '$lib/components/auth/OidcSecurityForm.svelte';
 	import ProxyAuthSecurityForm from '$lib/components/auth/ProxyAuthSecurityForm.svelte';
 	import UserTable from '$lib/components/auth/UserTable.svelte';
+	import ServiceAccountsCard from '$lib/components/auth/ServiceAccountsCard.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const authSettings = authSettingsContext.set(new AuthSettingsState());
@@ -81,6 +82,7 @@
 				<ProxyAuthSecurityForm />
 			</div>
 			<UserTable />
+			<ServiceAccountsCard />
 		</div>
 	</div>
 </div>

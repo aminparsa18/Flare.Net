@@ -2,7 +2,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
-namespace Flare.Cli.Commands;
+namespace Flare.Mcp;
 
 /// <summary>
 /// "Run" detection for the MCP tools: a run of a service is one process start, identified by

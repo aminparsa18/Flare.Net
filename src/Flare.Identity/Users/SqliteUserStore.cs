@@ -83,6 +83,12 @@ public sealed class SqliteUserStore(
         return await InsertAsync(username, passwordHash, role, authProvider, externalId, cancellationToken);
     }
 
+    public async Task<User> CreateServiceAccountAsync(string name, UserRole role, CancellationToken cancellationToken = default)
+    {
+        var passwordHash = passwordHasher.HashPassword($"{Guid.NewGuid():N}{Guid.NewGuid():N}");
+        return await InsertAsync(name, passwordHash, role, User.ServiceAccountProvider, externalId: null, cancellationToken);
+    }
+
     private async Task<User> InsertAsync(string username, string passwordHash, UserRole role, string authProvider, string? externalId, CancellationToken cancellationToken)
     {
         var id = Guid.NewGuid();

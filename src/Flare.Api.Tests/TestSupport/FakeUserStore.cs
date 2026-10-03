@@ -45,6 +45,13 @@ internal sealed class FakeUserStore : IUserStore
         return Task.FromResult(user);
     }
 
+    public Task<User> CreateServiceAccountAsync(string name, UserRole role, CancellationToken cancellationToken = default)
+    {
+        var user = new User(Guid.NewGuid(), name, role, DateTimeOffset.UtcNow, IsDisabled: false, AuthProvider: User.ServiceAccountProvider);
+        _usersById[user.Id] = (user, _hasher.HashPassword($"{Guid.NewGuid():N}"));
+        return Task.FromResult(user);
+    }
+
     public Task<User?> VerifyPasswordAsync(string username, string password, CancellationToken cancellationToken = default)
     {
         var entry = _usersById.Values.SingleOrDefault(e => string.Equals(e.User.Username, username, StringComparison.OrdinalIgnoreCase));

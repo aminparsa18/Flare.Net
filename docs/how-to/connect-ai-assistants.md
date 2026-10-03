@@ -94,7 +94,22 @@ inherits your own role, so a `Viewer` token can't change anything even though
 the tools are read-only anyway. The standing local instance has authentication
 off by default and listens on loopback, so it needs no token.
 
+## Connect over HTTP
+
+Flare.Api also serves the same tools as a [streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http) endpoint at `/mcp`, so a shared or remote Flare needs no local `flare` install. Send your personal access token as a Bearer header.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http flare https://flare.example.com/mcp \
+  --header "Authorization: Bearer flr_pat_..."
+```
+
+**Cursor** or **VS Code**: use `"type": "http"` (Cursor: just `"url"`) with the same URL and an `Authorization` header.
+
+The endpoint is stateless and each tool call runs as the token's user, so role checks and the per-token rate limit apply exactly as for the REST API. Session cookies are not accepted, only Bearer tokens (or nothing, when authentication is off). If Flare.Api can't reach its own listening address, set `Mcp__SelfUrl`.
+
 ## Limits
 
-- stdio only: there's no streamable-HTTP endpoint on Flare.Api yet.
+- For shared or CI use, authenticate with a [service account](configure-authentication.md#service-accounts) token rather than a person's.
 - No write tools (creating alerts, silencing, etc.) by design.

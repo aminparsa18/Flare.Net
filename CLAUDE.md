@@ -16,6 +16,7 @@ src/Flare.Api             Query API over ClickHouse: search/aggregate/live-tail 
 src/Flare.Identity        Auth: local accounts, Entra ID, LDAP, OIDC, reverse-proxy trusted headers (embedded SQLite)
 src/Flare.AppHost         .NET Aspire local orchestration (the dev inner loop)
 src/Flare.Cli             Global dotnet tool ("flare start/stop/status/...") managing a standing standalone stack
+src/Flare.Mcp             Read-only MCP tools shared by `flare mcp` (stdio) and Flare.Api's `/mcp` streamable HTTP endpoint; carries the CLI/MCP wire DTOs
 src/Aspire.Hosting.Flare  NuGet PackageId Flare.Hosting.Aspire — AddFlare() hosting integration for consumer AppHosts
 src/Aspire.Flare          NuGet PackageId Flare.Aspire — shared client-side integration bits
 src/Flare.ServiceDefaults Shared Aspire service defaults + ClickHouseMigrations runner

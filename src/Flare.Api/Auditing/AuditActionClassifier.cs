@@ -49,6 +49,9 @@ public static class AuditActionClassifier
         new("PATCH", "/api/users/{id:guid}/role", "user", "set-role", "id"),
         new("PATCH", "/api/users/{id:guid}/disabled", "user", "set-disabled", "id"),
 
+        new("POST", "/api/service-accounts", "service-account", "create", null),
+        new("POST", "/api/service-accounts/{id:guid}/access-tokens", "service-account", "create-token", "id"),
+
         new("POST", "/api/access-tokens", "access-token", "create", null),
         new("DELETE", "/api/access-tokens/{id:guid}", "access-token", "revoke", "id"),
 

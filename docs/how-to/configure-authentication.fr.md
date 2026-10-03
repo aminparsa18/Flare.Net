@@ -325,6 +325,27 @@ utilisateur connecté (`Viewer` et au-dessus) peut créer le sien ; aucune
   Utilisez une session (c'est-à-dire restez connecté) pour le live tail ;
   les PAT sont pour les appels requête/réponse classiques.
 
+## Comptes de service
+
+Un compte de service est un compte non humain pour la CI, les scripts et les
+intégrations partagées (comme le [point d'accès `/mcp`](connect-ai-assistants.fr.md)),
+afin qu'ils ne dépendent pas du jeton d'une personne. Réservé aux `Admin`, dans
+la section Comptes de service de `/auth` :
+
+- **En créer un** : nom et rôle (`POST /api/service-accounts`). Il ne peut pas
+  se connecter par mot de passe ni SSO.
+- **Émettre un jeton** : `POST /api/service-accounts/{id}/access-tokens`
+  (`{"name": "ci", "expiresInDays": 90}`), ou le bouton **Jetons** du tableau de
+  bord. Le jeton brut n'est affiché qu'une fois. Il s'utilise comme n'importe
+  quel [jeton d'accès personnel](#jetons-daccès-personnels) et porte le rôle du
+  compte.
+- **Renouveler ou révoquer** : émettez un nouveau jeton, puis
+  `DELETE /api/access-tokens/{id}` sur l'ancien. Un compte de service ne peut
+  pas créer de jetons lui-même : chaque émission apparaît dans le
+  [journal d'audit](#journal-daudit) sous un Admin.
+- **Changer le rôle ou désactiver** : dans le tableau Utilisateurs, comme pour
+  tout utilisateur. La désactivation coupe ses jetons immédiatement.
+
 ## Gérer les utilisateurs
 
 Réservé à `Admin`, dans la section Users de `/auth`

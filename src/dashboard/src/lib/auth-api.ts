@@ -22,7 +22,7 @@ import * as m from '$lib/paraglide/messages';
 
 export type UserRole = UserRoleName;
 
-export type AuthProvider = 'Local' | 'Entra' | 'ActiveDirectory' | 'Oidc' | 'ReverseProxy';
+export type AuthProvider = 'Local' | 'Entra' | 'ActiveDirectory' | 'Oidc' | 'ReverseProxy' | 'ServiceAccount';
 
 export interface AuthUser {
 	id: string;

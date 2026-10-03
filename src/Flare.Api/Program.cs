@@ -341,6 +341,7 @@ builder.Services.Configure<AlertLinkOptions>(builder.Configuration.GetSection(Al
 // CompositeAlertNotifier (the one actually registered as IAlertNotifier below) holds all
 // four and picks per-rule which one to delegate to. EmailAlertNotifier gets no typed
 // HttpClient - MailKit's SmtpClient is its own socket-based client, not HTTP.
+builder.Services.AddFlareMcp(builder.Configuration);
 builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
@@ -474,6 +475,11 @@ authenticatedRoutes.MapVersionEndpoints();
 // mint one of these for themselves.
 authenticatedRoutes.MapPersonalAccessTokenEndpoints();
 
+// MCP over streamable HTTP. Authenticated like the REST routes it wraps but deliberately NOT
+// in authenticatedRoutes: each tool call re-enters /api/* over loopback with the caller's
+// Bearer token, so that inner request is what the PAT rate limit should count.
+app.MapGroup("").RequireAuthorization().MapFlareMcp();
+
 // Alert rule CRUD/test-fire is mutating and can page people - Member/Admin only, unlike
 // every other (read-only) endpoint group above which just needs any authenticated user.
 var memberRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireMember);
@@ -495,6 +501,7 @@ var adminRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.Re
 adminRoutes.MapIngestApiKeyEndpoints();
 adminRoutes.MapAuditLogEndpoints();
 adminRoutes.MapUserEndpoints();
+adminRoutes.MapServiceAccountEndpoints();
 adminRoutes.MapEntraSettingsEndpoints();
 adminRoutes.MapLdapSettingsEndpoints();
 adminRoutes.MapOidcSettingsEndpoints();
