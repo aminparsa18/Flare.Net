@@ -56,15 +56,6 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Data-sources guide for Azure Service Bus.** The Messaging page
-  (ADR-0056) picks up any broker whose .NET client emits OTel `messaging.*`
-  spans, but the Data sources page has Kafka, RabbitMQ and MassTransit
-  guides only. Service Bus uses the Azure SDK activity sources, probably
-  behind the SDK's experimental tracing switch (check). Verify against the
-  Service Bus emulator image (needs a SQL Server container; no Azure
-  subscription) before writing the guide. Live runs have caught real
-  gaps each time (Kafka's receive+process double count, MassTransit's
-  missing system on receive/process spans). Not started.
 - **Backlog for more brokers on the Messaging page.** Kafka (consumer lag)
   and RabbitMQ (queue depth, ADR-0057) fill the `Backlog` column. Next:
   Service Bus active/dead-letter counts via the collector's Azure Monitor

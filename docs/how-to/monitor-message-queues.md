@@ -57,6 +57,19 @@ together. Consumer faults are published to a `MassTransit:Fault--...` row.
 The Backlog column stays empty, because the queue's name differs from the
 row's. MassTransit 9 is commercial and needs a license key; it was not tested.
 
+For Azure Service Bus, add the Azure SDK's activity sources:
+`tracing.AddSource("Azure.Messaging.ServiceBus.*")`. The SDK keeps its tracing
+behind an experimental switch, so set
+`AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)` at
+startup, or the environment variable
+`AZURE_EXPERIMENTAL_ENABLE_ACTIVITY_SOURCE=true`. Without it the SDK emits no
+spans. Each queue, or topic, is one row. The SDK's per-message `Message` span
+and its `send` span describe the same publish, so Flare counts only the `send`
+spans; a batched send therefore counts once per call, not once per message.
+The SDK doesn't mark a span as failed when your handler throws, so the consume
+error count stays at 0; retries show up as extra consumes. Verified on
+Azure.Messaging.ServiceBus 7.21 against Microsoft's Service Bus emulator.
+
 ## Read the Messaging page
 
 ![Messaging page: Kafka topics and RabbitMQ queues with publish and consume rates, error rate, p99 and backlog](../screenshots/monitor-message-queues-en.webp)

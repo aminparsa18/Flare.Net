@@ -37,6 +37,8 @@ using var consumer = consumerBuilder.Build();
 
 对于 MassTransit 8（Apache 许可），添加它的活动源：`tracing.AddSource("MassTransit")`。无需其他配置。尽管 MassTransit 只在发送 span 上设置 `messaging.system`，Flare 会从 MassTransit 的端点地址推断系统和目标。每种消息类型对应一行，以 MassTransit 发布它所用的 exchange 命名（例如 `Orders.Contracts:SubmitOrder`），生产者和消费者合并显示。消费者故障会发布到 `MassTransit:Fault--...` 行。Backlog 列保持为空，因为队列名与行名不同。MassTransit 9 是商业版，需要许可证密钥，未经测试。
 
+对于 Azure Service Bus，添加 Azure SDK 的活动源：`tracing.AddSource("Azure.Messaging.ServiceBus.*")`。SDK 将追踪功能放在实验性开关之后，因此需要在启动时调用 `AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)`，或设置环境变量 `AZURE_EXPERIMENTAL_ENABLE_ACTIVITY_SOURCE=true`。否则 SDK 不会产生任何 span。每个队列或主题（topic）对应一行。SDK 为每条消息生成的 `Message` span 与 `send` span 描述的是同一次发布，因此 Flare 只统计 `send` span：批量发送按调用次数计一次，而不是按消息数。当处理程序抛出异常时，SDK 不会把 span 标记为失败，因此消费错误数保持为 0，重试会表现为额外的消费。已在 Azure.Messaging.ServiceBus 7.21 配合微软 Service Bus 模拟器上验证。
+
 ## 查看 Messaging 页面
 
 ![消息队列页面：Kafka 主题和 RabbitMQ 队列的发布与消费速率、错误率、p99 和积压](../screenshots/monitor-message-queues-ch.webp)
