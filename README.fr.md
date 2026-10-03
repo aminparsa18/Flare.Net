@@ -28,6 +28,8 @@ Une plateforme d'observabilité auto-hébergée, native OpenTelemetry, pour .NET
 
 Votre application → **OTLP** → Flare. C'est toute l'histoire de l'ingestion — pas de format propriétaire, pas d'agent démon. Si vous êtes déjà instrumenté avec OpenTelemetry, Flare peut le consommer directement.
 
+**[Essayer la démo en ligne →](https://demo.flarenet.live)** — un Flare en fonctionnement qui reçoit les logs, traces et métriques d'une boutique d'exemple.
+
 ![Logs Explorer](docs/screenshots/logs.png)
 
 ## Ce que propose Flare

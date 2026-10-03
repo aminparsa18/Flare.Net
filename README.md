@@ -26,6 +26,8 @@ A self-hosted, OpenTelemetry-native observability platform for .NET — logs, tr
 
 Your application → **OTLP** → Flare. That's the whole ingestion story — no proprietary wire format, no agent daemon. If you're already instrumented with OpenTelemetry, Flare can consume it directly.
 
+**[Try the live demo →](https://demo.flarenet.live)** — a running Flare with a sample shop sending it logs, traces and metrics.
+
 ![Logs Explorer](docs/screenshots/logs-en.webp)
 
 ## What Flare provides
