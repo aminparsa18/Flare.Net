@@ -151,7 +151,13 @@
 			// applySavedViewState is async here (unlike Logs/Traces - it reloads the metric name
 			// list first) - `services` must be applied only after that resolves, or setServices
 			// would just be clobbered once the saved state lands.
-			void explorer.applySavedViewState(query).then(() => {
+			// A service-less `selectedMetric` (a built-in template's panels - see
+			// $lib/dashboards/templates.ts) resolves to the first picker entry matching the name,
+			// narrowed by the saved `services` - so the Service variable has to go into the saved
+			// state itself, or the metric would stay pinned to whichever service sorted first.
+			const q = query as { selectedMetric?: { serviceName?: string } | null };
+			const pickByService = overrides.services.length > 0 && q?.selectedMetric != null && q.selectedMetric.serviceName == null;
+			void explorer.applySavedViewState(pickByService ? { ...(query as object), services: overrides.services } : query).then(() => {
 				if (range) explorer.setTimeRangePreset(range);
 				if (overrides.services.length) explorer.setServices(overrides.services);
 				// Neither override above ran a query, so this panel must run its own. The

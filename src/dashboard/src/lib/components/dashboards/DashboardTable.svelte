@@ -13,12 +13,15 @@
 	// fresh, currently-unowned dashboard) and Duplicate (creates a new one, doesn't touch
 	// the source) only need the coarser `auth.canMutate`.
 	//
+	// "From template" installs one of the built-in templates ($lib/dashboards/templates.ts).
+	//
 	// Import accepts either a Flare export or a Grafana dashboard export from the same file
 	// picker - DashboardsState.importDashboard() sniffs which shape it got. See that method
 	// and $lib/dashboards/grafana-import.ts.
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
+	import DashboardTemplatesDialog from './DashboardTemplatesDialog.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { goto } from '$app/navigation';
@@ -29,6 +32,7 @@
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UploadIcon from '@lucide/svelte/icons/upload';
+	import LayoutTemplateIcon from '@lucide/svelte/icons/layout-template';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
@@ -40,6 +44,7 @@
 	const dashboards = dashboardsContext.get();
 
 	let importInput: HTMLInputElement | undefined = $state();
+	let templatesOpen = $state(false);
 
 	async function handleDelete(dashboard: DashboardSummary): Promise<void> {
 		if (!confirm(m.dashboardTable_confirmDelete({ name: dashboard.name }))) return;
@@ -72,6 +77,10 @@
 	{#if auth.canMutate}
 		<div class="flex items-center gap-2">
 			<input bind:this={importInput} type="file" accept="application/json" class="hidden" onchange={handleImportFileChange} />
+			<Button size="sm" variant="outline" title={m.dashboardTable_fromTemplateTitle()} onclick={() => (templatesOpen = true)}>
+				<LayoutTemplateIcon data-icon="inline-start" />
+				{m.dashboardTable_fromTemplate()}
+			</Button>
 			<Button size="sm" variant="outline" title={m.dashboardTable_importTitle()} onclick={() => importInput?.click()}>
 				<UploadIcon data-icon="inline-start" />
 				{m.dashboardTable_import()}
@@ -83,6 +92,8 @@
 		</div>
 	{/if}
 </div>
+
+<DashboardTemplatesDialog bind:open={templatesOpen} />
 
 {#if dashboards.importError}
 	<Alert variant="destructive" class="mx-4 mt-3">

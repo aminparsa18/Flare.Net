@@ -12,6 +12,7 @@
 // value autocomplete already calls.
 
 import { aggregateLogs, getLogAttributeValues, type AttributeBag, type AttributeFilter } from '$lib/api';
+import { getMetricNames } from '$lib/metrics-api';
 import { getSpanAttributeValues, type SpanAttributeBag, type SpanAttributeFilter } from '$lib/traces-api';
 import type { DashboardAttributeBag, DashboardVariable } from '$lib/dashboards-api';
 
@@ -101,7 +102,19 @@ export async function resolveQueryVariableOptions(variable: DashboardVariable, d
 			const narrowing = dependencyNarrowing(dep, 'Logs');
 			const filter = { ...wideRange(), services: narrowing.services, attributes: narrowing.attributes?.map((a) => attributeMatch(a.bag as AttributeBag, a.key, a.values)) };
 			const res = await aggregateLogs({ filter, bucketWidthSeconds: WINDOW_MS / 1000, groupBy: 'Service' });
-			return [...new Set(res.buckets.map((b) => b.groupKey).filter((k): k is string => !!k))].sort();
+			const services = new Set(res.buckets.map((b) => b.groupKey).filter((k): k is string => !!k));
+			// Also services that only emit metrics (a hostmetrics collector, kubeletstats), which a
+			// Logs aggregate never sees - without them a metrics-only dashboard has an empty picker.
+			// Skipped when chained to a parent: the metric names call can't be narrowed the same way.
+			if (!dep) {
+				try {
+					const names = await getMetricNames(wideRange());
+					for (const metric of names.metrics) if (metric.serviceName) services.add(metric.serviceName);
+				} catch {
+					// Best-effort: the Logs-derived list above still stands.
+				}
+			}
+			return [...services].sort();
 		}
 		const key = variable.attributeKey?.trim();
 		const bag = variable.attributeBag;

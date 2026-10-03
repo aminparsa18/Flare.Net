@@ -205,14 +205,6 @@ folders are where "what happened and why" actually lives.
   HTML, links only http(s)), with `$variable` substitution like panel titles.
   No query, so it's excluded from refresh/lazy-load. Not started. Prior art:
   [signoz#12712](https://github.com/SigNoz/signoz/commit/851abd2c93af8b9dba28224e36e0e3ffa0a01309).
-- **Built-in dashboard templates.** Flare ships no dashboards: users start
-  empty or import Grafana JSON. Ship a few templates for what .NET apps emit
-  by default (ASP.NET Core `http.server.*`, HttpClient `http.client.*`, .NET
-  runtime GC/threadpool/exceptions, hostmetrics, Kubernetes), each using
-  service/host variables. Install with one click as normal editable
-  dashboards (not locked "system" ones), and validate them against the
-  example shop's real metric names. Not started. Prior art:
-  [signoz#12620](https://github.com/SigNoz/signoz/commit/7eb610287e81e4bd7f812507d6baba28efa20ec7).
 - **"Create alert" from the Logs and Metrics explorers.** Dashboard panels
   can draft an alert from their query (`DashboardPanelCard`) and explorers
   can pin to a dashboard, but there's no "Create alert from this query" in

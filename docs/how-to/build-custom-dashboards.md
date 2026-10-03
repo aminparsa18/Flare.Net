@@ -501,6 +501,16 @@ Member can still change it, same as before.
 From the **Dashboards** page you can:
 
 - **Create** a blank dashboard (then add panels to it, per the steps above).
+- **Create from template** — start from a built-in dashboard for what
+  common OpenTelemetry sources emit: **ASP.NET Core** (`http.server.*`,
+  `kestrel.*`), **HttpClient** (`http.client.*`), **.NET runtime**
+  (`dotnet.*`: GC, thread pool, exceptions, process), **Host metrics**
+  (the collector's hostmetrics receiver, `system.*`) and **Kubernetes**
+  (`k8s.*`). Each is a set of Metrics panels with a **Service** variable
+  that picks which service's metrics they show. Installing creates an
+  ordinary dashboard — edit, rename or delete it like any other. A panel
+  stays empty until a service actually emits its metric, so a template
+  only fills in for the instrumentation you have enabled.
 - **Rename** a dashboard's name or description.
 - **Duplicate** a dashboard — creates an independent copy with the same
   panels, named "*(copy)*", that you can then edit separately.

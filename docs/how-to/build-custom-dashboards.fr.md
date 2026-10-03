@@ -586,6 +586,18 @@ Depuis la page **Dashboards**, vous pouvez :
 
 - **Créer** un tableau de bord vide (puis y ajouter des panneaux, selon les
   étapes ci-dessus).
+- **Créer à partir d'un modèle** — partez d'un tableau de bord intégré
+  pour ce que les sources OpenTelemetry courantes émettent : **ASP.NET
+  Core** (`http.server.*`, `kestrel.*`), **HttpClient** (`http.client.*`),
+  **runtime .NET** (`dotnet.*` : GC, pool de threads, exceptions,
+  processus), **métriques hôte** (récepteur hostmetrics du collecteur,
+  `system.*`) et **Kubernetes** (`k8s.*`). Chacun est un ensemble de
+  panneaux Metrics avec une variable **Service** qui choisit les métriques
+  de quel service afficher. L'installation crée un tableau de bord
+  ordinaire — modifiez-le, renommez-le ou supprimez-le comme n'importe quel
+  autre. Un panneau reste vide tant qu'aucun service n'émet sa métrique :
+  un modèle ne se remplit donc que pour l'instrumentation que vous avez
+  activée.
 - **Renommer** le nom ou la description d'un tableau de bord.
 - **Dupliquer** un tableau de bord — crée une copie indépendante avec les
   mêmes panneaux, nommée « *(copie)* », que vous pouvez ensuite modifier
