@@ -74,7 +74,10 @@ Microsoft.Extensions.AI 的 `IEmbeddingGenerator`。
 
 - **智能体和工具 span。** `invoke_agent`、`create_agent` 和 `execute_tool` span
   不计入。智能体 span 可能重复其内部模型调用的 token，两者都计会使总数翻倍。
-- **费用。** 页面显示 token，而不是预估费用。
+- **实际账单费用。** **Est. cost** 用 token 数乘以每百万 token 的价格：常见 OpenAI、
+  Anthropic 和 Gemini 模型使用内置标价（`gpt-4o-2024-08-06` 这类带日期的快照沿用其
+  系列价格），也可以由管理员通过费用旁的铅笔图标设置。两者都没有的模型显示
+  **No price**。Flare 看不到缓存和折扣的 token，因此请把该数字当作上限估算。
 - **按请求模型匹配。** **View traces** 按 `gen_ai.request.model` 过滤，因此只设置了
   `gen_ai.response.model` 的调用会出现在表中，但不会出现在该链路列表里。
 - **提示词和响应。** 它们的内容不做聚合。打开链路即可查看你的埋点记录在 span

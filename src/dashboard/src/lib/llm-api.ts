@@ -7,6 +7,7 @@
 
 import { API_BASE_URL, apiFetch, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { LlmModelsRequest as GeneratedModelsRequest } from '$lib/generated/memorypack/LlmModelsRequest.js';
+import { SetLlmModelPriceRequest as GeneratedSetPriceRequest } from '$lib/generated/memorypack/SetLlmModelPriceRequest.js';
 import { LlmModelsResponse as GeneratedModelsResponse } from '$lib/memorypack/LlmModelsResponse';
 
 /** One model's calls over the window. Latencies are milliseconds. */
@@ -24,6 +25,13 @@ export interface LlmModel {
 	outputTokens: number;
 	serviceCount: number;
 	lastSeenUnixMs: number;
+	/** USD per million tokens used for the estimate; null when no price is known. */
+	inputPricePerMillion: number | null;
+	outputPricePerMillion: number | null;
+	/** True for an admin override, false for a built-in default price. */
+	priceIsCustom: boolean;
+	/** Estimated USD cost over the window; null when no price is known. */
+	estimatedCost: number | null;
 }
 
 export interface LlmModelsResponse {
@@ -68,7 +76,36 @@ export async function getLlmModels(windowMinutes: number, service: string, signa
 				inputTokens: Number(d.inputTokens),
 				outputTokens: Number(d.outputTokens),
 				serviceCount: Number(d.serviceCount),
-				lastSeenUnixMs: Number(d.lastSeenUnixMs)
+				lastSeenUnixMs: Number(d.lastSeenUnixMs),
+				inputPricePerMillion: d.inputPricePerMillion,
+				outputPricePerMillion: d.outputPricePerMillion,
+				priceIsCustom: d.priceIsCustom,
+				estimatedCost: d.estimatedCost
 			}))
 	};
+}
+
+/** `PUT /api/llm/prices` - Admin-only. USD per million tokens for one model name, replacing the built-in default. */
+export async function setLlmModelPrice(model: string, inputPerMillion: number, outputPerMillion: number): Promise<void> {
+	const request = new GeneratedSetPriceRequest();
+	request.model = model;
+	request.inputPerMillion = inputPerMillion;
+	request.outputPerMillion = outputPerMillion;
+
+	const res = await apiFetch(`${API_BASE_URL}/api/llm/prices`, {
+		method: 'PUT',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSetPriceRequest.serialize(request))
+	});
+	if (!res.ok) {
+		throw new Error(`PUT /api/llm/prices failed: ${res.status} ${res.statusText}`);
+	}
+}
+
+/** `DELETE /api/llm/prices` - Admin-only. Reverts the model to its built-in default price (or none). */
+export async function resetLlmModelPrice(model: string): Promise<void> {
+	const res = await apiFetch(`${API_BASE_URL}/api/llm/prices?model=${encodeURIComponent(model)}`, { method: 'DELETE' });
+	if (!res.ok) {
+		throw new Error(`DELETE /api/llm/prices failed: ${res.status} ${res.statusText}`);
+	}
 }

@@ -2460,5 +2460,16 @@
 	"llmPage_viewTraces": "View traces",
 	"llmPage_emptyTitle": "No model calls in this window",
 	"llmPage_emptyDescription": "This page lists calls to language models, from spans carrying the OpenTelemetry GenAI attributes (gen_ai.operation.name, gen_ai.request.model, gen_ai.usage.*) - which Microsoft.Extensions.AI's UseOpenTelemetry(), Semantic Kernel and most provider SDKs emit. Agent and tool spans are left out.",
-	"llmPage_hint": "Rows are grouped by provider and model. The model is gen_ai.request.model (else gen_ai.response.model); tokens are summed from gen_ai.usage.input_tokens and output_tokens. Estimated cost is not shown yet."
+	"llmPage_hint": "Rows are grouped by provider and model. The model is gen_ai.request.model (else gen_ai.response.model); tokens are summed from gen_ai.usage.input_tokens and output_tokens. Estimated cost uses built-in list prices that an admin can override per model.",
+	"llmPage_costColumn": "Est. cost",
+	"llmPage_costUnpriced": "No price",
+	"llmPage_priceCustom": "Custom price",
+	"llmPage_priceTitle": "Price per million tokens",
+	"llmPage_priceHint": "USD, for everyone. Used to estimate cost from the token counts; cached or discounted tokens aren't visible, so treat it as an upper-bound estimate.",
+	"llmPage_priceInput": "Input",
+	"llmPage_priceOutput": "Output",
+	"llmPage_priceEdit": "Edit price",
+	"llmPage_priceSave": "Save",
+	"llmPage_priceReset": "Reset to default",
+	"llmPage_priceInvalid": "Enter prices of 0 or more."
 }

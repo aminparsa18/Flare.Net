@@ -83,7 +83,12 @@ filtered to calls to that model.
 - **Agent and tool spans.** `invoke_agent`, `create_agent` and
   `execute_tool` spans aren't counted. Agent spans can repeat the tokens of
   the model calls inside them, so counting both would double the totals.
-- **Cost.** The page shows tokens, not estimated cost.
+- **Billed cost.** **Est. cost** multiplies the token counts by a price per
+  million tokens: a built-in list price for common OpenAI, Anthropic and
+  Gemini models (dated snapshots such as `gpt-4o-2024-08-06` take their
+  family's price), or one an admin sets with the pencil icon next to a cost.
+  Models with neither show **No price**. Cached and discounted tokens aren't
+  visible to Flare, so treat the figure as an upper-bound estimate.
 - **Request-model matches.** **View traces** filters on
   `gen_ai.request.model`, so a call that set only `gen_ai.response.model`
   appears in the table but not in that trace list.

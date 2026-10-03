@@ -13,4 +13,5 @@ namespace Flare.Api.Json;
     UseStringEnumConverter = true)]
 [JsonSerializable(typeof(LlmModelsRequest))]
 [JsonSerializable(typeof(LlmModelsResponse))]
+[JsonSerializable(typeof(SetLlmModelPriceRequest))]
 public sealed partial class LlmJsonContext : JsonSerializerContext;
