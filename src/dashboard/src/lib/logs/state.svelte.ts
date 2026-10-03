@@ -153,6 +153,12 @@ export interface LogsFilterState {
 	showTimestampColumn: boolean;
 	showBodyColumn: boolean;
 	/**
+	 * JSON body paths (BodyJsonFilter path syntax, e.g. `order.id`) LogTable shows as extra
+	 * columns, extracted client-side from each already-loaded body. Display-preference
+	 * category as `showBodyColumn`.
+	 */
+	bodyColumns: string[];
+	/**
 	 * Attribute VolumeChart splits its bars by (stacked, one series per value - see
 	 * `LogAggregateRequest.cs`'s `GroupByAttributeKey`), set from an event's attribute row
 	 * via `setVolumeGroupBy`. `null` = one ungrouped series. Same display-preference
@@ -189,6 +195,15 @@ export function logRowHeight(lines: number): number {
 	return 12 + 20 * lines;
 }
 
+/** Caps the extra columns so the grid can't outgrow the row; untrusted saved payloads are filtered to unique non-empty strings. */
+export const MAX_BODY_COLUMNS = 4;
+
+function normalizeBodyColumns(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+	const paths = value.filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
+	return [...new Set(paths)].slice(0, MAX_BODY_COLUMNS);
+}
+
 function normalizeMaxLinesPerRow(value: unknown): number {
 	return (MAX_LINES_PER_ROW_OPTIONS as readonly unknown[]).includes(value) ? (value as number) : 1;
 }
@@ -220,6 +235,8 @@ export interface LogsSavedViewState {
 	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to shown. */
 	showTimestampColumn?: boolean;
 	showBodyColumn?: boolean;
+	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to none. */
+	bodyColumns?: string[];
 	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to ungrouped. */
 	volumeGroupBy?: VolumeGroupBy | null;
 	/** Optional for the same reason as `maxLinesPerRow` - older saved views fall back to auto. */
@@ -245,6 +262,7 @@ export class LogsExplorerState {
 		maxLinesPerRow: 1,
 		showTimestampColumn: true,
 		showBodyColumn: true,
+		bodyColumns: [],
 		volumeGroupBy: null,
 		bucketWidthSeconds: null
 	});
@@ -681,6 +699,11 @@ export class LogsExplorerState {
 		else this.filter.showBodyColumn = visible;
 	}
 
+	/** Sets the JSON body paths shown as extra LogTable columns - display-only, no re-search. */
+	setBodyColumns(paths: string[]): void {
+		this.filter.bodyColumns = normalizeBodyColumns(paths);
+	}
+
 	/** Stacks VolumeChart's bars by one attribute's values (`null` clears it) - a display change on the chart only, so (like `setTimeShiftSeconds`) no `applyFilterChange`/re-search; VolumeChart's own `$effect` re-fetches. */
 	setVolumeGroupBy(groupBy: VolumeGroupBy | null): void {
 		this.filter.volumeGroupBy = normalizeVolumeGroupBy(groupBy);
@@ -834,6 +857,7 @@ export class LogsExplorerState {
 			maxLinesPerRow: this.filter.maxLinesPerRow,
 			showTimestampColumn: this.filter.showTimestampColumn,
 			showBodyColumn: this.filter.showBodyColumn,
+			bodyColumns: [...this.filter.bodyColumns],
 			volumeGroupBy: this.filter.volumeGroupBy ? { ...this.filter.volumeGroupBy } : null,
 			bucketWidthSeconds: this.filter.bucketWidthSeconds
 		};
@@ -869,6 +893,7 @@ export class LogsExplorerState {
 			maxLinesPerRow: normalizeMaxLinesPerRow(s.maxLinesPerRow),
 			showTimestampColumn: s.showTimestampColumn !== false,
 			showBodyColumn: s.showBodyColumn !== false,
+			bodyColumns: normalizeBodyColumns(s.bodyColumns),
 			volumeGroupBy: normalizeVolumeGroupBy(s.volumeGroupBy),
 			bucketWidthSeconds: normalizeBucketWidthSeconds(s.bucketWidthSeconds)
 		};
@@ -959,6 +984,7 @@ export class LogsExplorerState {
 			maxLinesPerRow: this.filter.maxLinesPerRow, // a display preference, not part of the deep link - keep whatever the user already chose
 			showTimestampColumn: this.filter.showTimestampColumn, // same
 			showBodyColumn: this.filter.showBodyColumn, // same
+			bodyColumns: [...this.filter.bodyColumns], // same
 			volumeGroupBy: null, // tied to whatever attributes were being looked at before - a fresh deep-link filter starts ungrouped
 			bucketWidthSeconds: null // the deep link carries its own time range, so start from the auto-pick for it
 		};

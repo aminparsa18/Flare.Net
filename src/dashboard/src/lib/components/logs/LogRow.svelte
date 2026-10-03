@@ -2,7 +2,7 @@
 	import type { LogEventDto } from '$lib/api';
 	import { Badge } from '$lib/components/ui/badge';
 	import AnsiText from './AnsiText.svelte';
-	import { displayBody } from '$lib/logs/json-body';
+	import { displayBody, extractBodyPath, parseJsonBody } from '$lib/logs/json-body';
 	import { severityVariant } from '$lib/logs/severity';
 	import { formatDurationNano } from '$lib/traces/duration';
 	// Fixed-width MM-DD HH:mm:ss.SSS - this is a monospace column (font-mono below) that
@@ -15,6 +15,7 @@
 		lines = 1,
 		showTime = true,
 		showBody = true,
+		bodyColumns = [],
 		onSelect
 	}: {
 		event: LogEventDto;
@@ -24,10 +25,18 @@
 		/** LogsFilterState.showTimestampColumn/showBodyColumn - must match LogTable's header, which also drops the column from --log-row-columns. */
 		showTime?: boolean;
 		showBody?: boolean;
+		/** LogsFilterState.bodyColumns - one extra cell per path, between Duration and Message. */
+		bodyColumns?: string[];
 		onSelect: (event: LogEventDto) => void;
 	} = $props();
 
 	const multiline = $derived(lines > 1);
+	// Only parsed when a body column is on - most rows never pay for the JSON.parse.
+	const bodyCells = $derived.by(() => {
+		if (bodyColumns.length === 0) return [];
+		const parsed = event.body.length > 65536 ? null : parseJsonBody(event.body);
+		return bodyColumns.map((path) => extractBodyPath(parsed, path));
+	});
 
 </script>
 
@@ -56,6 +65,9 @@
 			{event.spanDurationNano != null ? formatDurationNano(event.spanDurationNano) : '—'}
 		</span>
 	{/if}
+	{#each bodyCells as cell, i (bodyColumns[i])}
+		<span class="truncate font-mono text-xs leading-5" title={cell}>{cell}</span>
+	{/each}
 	{#if showBody && multiline}
 		<!-- pre-wrap keeps the body's own newlines (stack traces, pretty-printed JSON) rather
 		     than collapsing them; line-clamp cuts it at exactly `lines` lines so it can never
