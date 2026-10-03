@@ -22,7 +22,8 @@ type SavedState = Record<string, unknown>;
 /** A clicked metric point opens this many buckets either side of it - a single bucket would be one lone point, not a chart. */
 export const METRIC_POINT_WINDOW_BUCKETS = 5;
 
-const EXPLORER_PATH: Record<DashboardPanel['panelType'], string> = {
+/** A `Text` panel has no explorer, so it's the one panel type absent here. */
+const EXPLORER_PATH: Record<Exclude<DashboardPanel['panelType'], 'Text'>, string> = {
 	Logs: '/',
 	Traces: '/traces',
 	Metrics: '/metrics'
@@ -97,6 +98,6 @@ export function metricPointWindow(
 	return { from: new Date(from), to: new Date(Math.max(to, from + widthMs)) };
 }
 
-export function panelExplorerHref(panelType: DashboardPanel['panelType'], state: SavedState): string {
+export function panelExplorerHref(panelType: Exclude<DashboardPanel['panelType'], 'Text'>, state: SavedState): string {
 	return withBase(`${EXPLORER_PATH[panelType]}?state=${encodeStateDeepLinkParam(state)}`);
 }

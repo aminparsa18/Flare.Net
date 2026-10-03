@@ -17,6 +17,7 @@
 	import AddPanelLogsForm from './add-panel/AddPanelLogsForm.svelte';
 	import AddPanelTracesForm from './add-panel/AddPanelTracesForm.svelte';
 	import AddPanelMetricsForm from './add-panel/AddPanelMetricsForm.svelte';
+	import { TEXT_PANEL_MAX_LENGTH } from '$lib/dashboards/text-panel';
 	import { nextPanelPosition } from '$lib/dashboards/layout';
 	import type { DashboardPanel, PanelType } from '$lib/dashboards-api';
 	import * as m from '$lib/paraglide/messages';
@@ -31,7 +32,7 @@
 		onAdd: (panel: DashboardPanel) => void;
 	} = $props();
 
-	const PANEL_TYPES: PanelType[] = ['Logs', 'Traces', 'Metrics'];
+	const PANEL_TYPES: PanelType[] = ['Logs', 'Traces', 'Metrics', 'Text'];
 
 	function panelTypeLabel(type: PanelType): string {
 		switch (type) {
@@ -41,6 +42,8 @@
 				return m.nav_traces();
 			case 'Metrics':
 				return m.nav_metrics();
+			case 'Text':
+				return m.dashboardPanelType_text();
 		}
 	}
 
@@ -48,6 +51,7 @@
 	let title = $state('');
 	let description = $state('');
 	let metricsValid = $state(false);
+	let markdown = $state('');
 
 	let logsForm: AddPanelLogsForm | undefined = $state();
 	let tracesForm: AddPanelTracesForm | undefined = $state();
@@ -58,9 +62,10 @@
 		title = panelTypeLabel(type); // a sensible starting point - freely editable below, same "prefilled, not locked" convention PinToDashboardDialog's own title input uses
 	}
 
-	const canSubmit = $derived(panelType !== null && title.trim() !== '' && (panelType !== 'Metrics' || metricsValid));
+	const canSubmit = $derived(panelType !== null && title.trim() !== '' && (panelType !== 'Metrics' || metricsValid) && (panelType !== 'Text' || markdown.trim() !== ''));
 
 	function activeFormState(): unknown {
+		if (panelType === 'Text') return { markdown };
 		return panelType === 'Logs'
 			? logsForm?.currentState()
 			: panelType === 'Traces'
@@ -77,14 +82,14 @@
 	// fresh form (and a fresh bind:this ref) for the new type.
 	let baseline = $state<string | null>(null);
 	$effect(() => {
-		const form = panelType === 'Logs' ? logsForm : panelType === 'Traces' ? tracesForm : metricsForm;
+		const form = panelType === 'Logs' ? logsForm : panelType === 'Traces' ? tracesForm : panelType === 'Metrics' ? metricsForm : undefined;
 		baseline = form ? untrack(() => JSON.stringify(activeFormState())) : null;
 	});
 
 	function isDirty(): boolean {
 		if (panelType === null) return false;
 		if (title.trim() !== panelTypeLabel(panelType)) return true;
-		if (description.trim() !== '') return true;
+		if (description.trim() !== '' || markdown.trim() !== '') return true;
 		return baseline !== null && JSON.stringify(activeFormState()) !== baseline;
 	}
 
@@ -93,6 +98,7 @@
 		title = '';
 		description = '';
 		metricsValid = false;
+		markdown = '';
 	}
 
 	function close(): void {
@@ -160,6 +166,11 @@
 				<AddPanelTracesForm bind:this={tracesForm} />
 			{:else if panelType === 'Metrics'}
 				<AddPanelMetricsForm bind:this={metricsForm} bind:valid={metricsValid} />
+			{:else if panelType === 'Text'}
+				<div class="space-y-2">
+					<label for="add-panel-markdown" class="text-sm font-medium">{m.addPanelDialog_markdownLabel()}</label>
+					<Textarea id="add-panel-markdown" bind:value={markdown} rows={8} maxlength={TEXT_PANEL_MAX_LENGTH} class="font-mono text-xs" placeholder={m.addPanelDialog_markdownPlaceholder()} />
+				</div>
 			{/if}
 
 			{#if panelType}

@@ -361,6 +361,17 @@ export class DashboardViewerState {
 		}
 	}
 
+	/** Replaces a `Text` panel's Markdown (`query.markdown`) - persisted through `#saveLayout` like setPanelDescription. */
+	async setPanelText(panelId: string, markdown: string): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels.map((p) => (p.id === panelId && p.panelType === 'Text' ? { ...p, query: { markdown } } : p)) });
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	/** Toggles whether `panelId` opts out of `variableId`'s narrowing (see
 	 *  `DashboardPanel.excludedVariableIds`) - the per-panel counterpart to `setVariableValue`
 	 *  below, but a layout-level field (persisted per panel, like `title`) rather than a

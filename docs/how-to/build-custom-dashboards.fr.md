@@ -93,6 +93,26 @@ Chaque changement est enregistré immédiatement — il n'y a pas d'étape
 et reverrouiller la disposition (le mode affichage ne risque jamais un
 glisser-déposer accidentel).
 
+## Ajouter un panneau de texte
+
+Un panneau **Text** contient des notes en Markdown au lieu d'une requête :
+un lien vers un runbook, un titre de section ou un rappel du responsable du
+service. Choisissez **Text** dans la boîte de dialogue d'ajout de panneau et
+écrivez le Markdown. En mode édition, l'icône crayon de l'en-tête du panneau
+permet de le modifier ensuite.
+
+Markdown pris en charge : titres, paragraphes, listes à puces et numérotées,
+citations, filets horizontaux, blocs de code, **gras**, *italique*, `code en
+ligne` et liens. Les liens doivent commencer par `http://` ou `https://` et
+s'ouvrent dans un nouvel onglet. Le HTML brut n'est jamais interprété :
+`<b>x</b>` s'affiche comme du texte littéral. Les références `$name` /
+`${name}` sont remplacées par les variables du tableau de bord, comme dans
+les titres de panneaux. Un panneau de texte n'exécute aucune requête : le
+rafraîchissement, le remplacement de plage de temps et l'exclusion de
+variables ne s'y appliquent donc pas, et il s'affiche immédiatement sans
+attendre d'entrer dans la zone visible. Il n'a ni action « Ouvrir dans
+l'explorateur » ni « Créer une alerte ».
+
 ## Regrouper des panneaux en lignes
 
 ![Panneaux regroupés en lignes repliables](../screenshots/build-custom-dashboards-2-en.webp)

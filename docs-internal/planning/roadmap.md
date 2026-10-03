@@ -155,13 +155,6 @@ folders are where "what happened and why" actually lives.
   ([signoz#12644](https://github.com/SigNoz/signoz/commit/e84a61d43f7f5a7b10a955f0e2b4444b7443d4e7)).
   Not started. Prior art:
   [signoz#12314](https://github.com/SigNoz/signoz/commit/e9726776ab7a1adfc50540925ae016f183bf7cbc).
-- **Text/Markdown dashboard panel.** `PanelType` is only
-  `Logs`/`Traces`/`Metrics`, so a dashboard can't carry notes, runbook links
-  or section headers (panel descriptions are plain text by design). Add a
-  `Text` panel type holding Markdown, rendered through a sanitizer (no raw
-  HTML, links only http(s)), with `$variable` substitution like panel titles.
-  No query, so it's excluded from refresh/lazy-load. Not started. Prior art:
-  [signoz#12712](https://github.com/SigNoz/signoz/commit/851abd2c93af8b9dba28224e36e0e3ffa0a01309).
 - **"Create alert" from the Logs and Metrics explorers.** Dashboard panels
   can draft an alert from their query (`DashboardPanelCard`) and explorers
   can pin to a dashboard, but there's no "Create alert from this query" in
