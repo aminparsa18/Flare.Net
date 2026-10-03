@@ -180,4 +180,13 @@ public sealed partial record SpanFilter
     /// <see cref="Names"/>.
     /// </summary>
     public TraceStructureFilter? Structure { get; init; }
+
+    /// <summary>
+    /// When set, only spans of traces containing an N+1 pattern - some parent span repeating
+    /// one database statement at least <see cref="Query.NPlusOneQueryBuilder.DefaultMinRepeats"/>
+    /// times. Evaluated at query time as a <c>TraceId GLOBAL IN</c> subquery by
+    /// <see cref="Query.NPlusOneQueryBuilder.BuildTraceIdQuery"/> over the same time window.
+    /// Appended last for the same wire-compatibility reason as <see cref="Names"/>.
+    /// </summary>
+    public bool NPlusOneOnly { get; init; }
 }

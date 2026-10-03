@@ -130,11 +130,6 @@ folders are where "what happened and why" actually lives.
   since the model can never issue arbitrary ClickHouse queries. Show the
   generated filter as normal editable chips so users learn the UI. Same AI
   constraints as the incident-summary item. Not started.
-- **N+1 trace-list filter.** The waterfall badge, the N+1 tab's worst-offenders
-  list and `POST /api/traces/n-plus-one` have shipped. Still open: a Traces
-  explorer filter for "traces containing an N+1 pattern", which needs the
-  per-trace grouping from `NPlusOneQueryBuilder` as a `SpanFilter` condition
-  (query-time, same caps; pre-aggregate only if it proves too slow). Not started.
 - **.NET runtime health detectors.** Turn `System.Runtime` metrics into
   findings on the service page rather than charts to interpret. Thread-pool
   starvation: queue length rising while completed work items flatline. GC

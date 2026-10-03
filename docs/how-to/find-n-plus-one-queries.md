@@ -15,6 +15,10 @@ Flare groups the database spans of one trace by parent span and statement. A gro
 1. Open a trace from **Traces**.
 2. In the **Waterfall** tab, a parent span that ran an N+1 pattern shows a badge such as `N+1: 48× SELECT * FROM orders WHERE customer_id = ?`.
 
+## Filter the trace list
+
+Turn on **N+1 only** in the Traces toolbar to list only traces that contain an N+1 pattern. It combines with every other filter and is saved with saved views.
+
 ## Find the worst offenders
 
 1. Open **Traces**, then the **N+1** tab.

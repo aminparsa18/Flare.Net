@@ -56,6 +56,27 @@ public static class NPlusOneQueryBuilder
     public static int ClampMinRepeats(int? requested) =>
         requested is > 0 ? Math.Clamp(requested.Value, MinMinRepeats, MaxMinRepeats) : DefaultMinRepeats;
 
+    /// <summary>
+    /// Subquery selecting the ids of traces with an N+1 pattern in the filter window - the
+    /// <see cref="SpanFilter.NPlusOneOnly"/> clause. Reads the <c>from</c>/<c>to</c>
+    /// parameters <see cref="SpanFilterSqlBuilder"/> already bound; adds <c>n1MinRepeats</c>.
+    /// </summary>
+    public static string BuildTraceIdQuery(ClickHouseParameterCollection parameters)
+    {
+        parameters.AddParameter("n1MinRepeats", (ulong)DefaultMinRepeats);
+        return "SELECT TraceId FROM spans WHERE " + string.Join(" AND ", BaseClauses()) + "\n" +
+            "GROUP BY TraceId, ParentSpanId, " + StatementExpr + "\n" +
+            "HAVING " + StatementExpr + " != '' AND count() >= {n1MinRepeats:UInt64}";
+    }
+
+    private static List<string> BaseClauses() =>
+    [
+        "StartTime >= {from:DateTime64(9)}",
+        "StartTime < {to:DateTime64(9)}",
+        "ParentSpanId != ''",
+        $"{ServiceCallBreakdownQueryBuilder.DbSystemExpr} != ''",
+    ];
+
     public static NPlusOneSql Build(NPlusOneRequest request, int windowMinutes, int minRepeats, DateTimeOffset end)
     {
         var parameters = new ClickHouseParameterCollection();
@@ -64,13 +85,7 @@ public static class NPlusOneQueryBuilder
         parameters.AddParameter("minRepeats", (ulong)minRepeats);
         parameters.AddParameter("limit", (uint)MaxRows);
 
-        var clauses = new List<string>
-        {
-            "StartTime >= {from:DateTime64(9)}",
-            "StartTime < {to:DateTime64(9)}",
-            "ParentSpanId != ''",
-            $"{ServiceCallBreakdownQueryBuilder.DbSystemExpr} != ''",
-        };
+        var clauses = BaseClauses();
 
         if (!string.IsNullOrWhiteSpace(request.Service))
         {

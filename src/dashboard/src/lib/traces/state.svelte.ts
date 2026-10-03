@@ -48,14 +48,16 @@ export interface TracesFilterState {
 	 * traces whose span tree matches it are listed. See `SpanFilter.Structure` (SpanFilter.cs).
 	 */
 	structure: TraceStructureFilter | null;
+	/** Only traces containing an N+1 pattern - see `SpanFilter.NPlusOneOnly` (SpanFilter.cs). A content filter, so "Clear filters" resets it. */
+	nPlusOneOnly: boolean;
 }
 
 /** A saved view's `state` payload for `pageType: 'Traces'` - identical to `TracesFilterState` (no `Date`-typed fields here, unlike Logs' `customRange`, so no separate serialized shape is needed). The facet fields and `customRange` are optional: views saved before they existed simply lack them. */
-type OptionalSavedField = 'customRange' | 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly' | 'sortBy' | 'sortAscending' | 'structure';
+type OptionalSavedField = 'customRange' | 'statusCodes' | 'kinds' | 'names' | 'durationBucketNano' | 'entrySpansOnly' | 'sortBy' | 'sortAscending' | 'structure' | 'nPlusOneOnly';
 export type TracesSavedViewState = Omit<TracesFilterState, OptionalSavedField> & Partial<Pick<TracesFilterState, OptionalSavedField>>;
 
 function emptyFilter(timeRangePreset: TimeRangePreset, services: string[] = [], attributeFilters: SpanAttributeFilter[] = []): TracesFilterState {
-	return { timeRangePreset, customRange: null, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null, entrySpansOnly: false, sortBy: 'StartTime', sortAscending: false, structure: null };
+	return { timeRangePreset, customRange: null, services, attributeFilters, statusCodes: [], kinds: [], names: [], durationBucketNano: null, entrySpansOnly: false, sortBy: 'StartTime', sortAscending: false, structure: null, nPlusOneOnly: false };
 }
 
 export class TracesExplorerState {
@@ -156,6 +158,7 @@ export class TracesExplorerState {
 		const attributes = overrides?.attributeFilters ?? this.filter.attributeFilters;
 		if (attributes.length) filter.attributes = [...attributes];
 		if (this.filter.structure) filter.structure = this.filter.structure;
+		if (this.filter.nPlusOneOnly) filter.nPlusOneOnly = true;
 		return filter;
 	}
 
@@ -291,6 +294,12 @@ export class TracesExplorerState {
 		void this.runSearch();
 	}
 
+	setNPlusOneOnly(nPlusOneOnly: boolean): void {
+		if (nPlusOneOnly === this.filter.nPlusOneOnly) return;
+		this.filter.nPlusOneOnly = nPlusOneOnly;
+		void this.runSearch();
+	}
+
 	setEntrySpansOnly(entrySpansOnly: boolean): void {
 		if (entrySpansOnly === this.filter.entrySpansOnly) return;
 		this.filter.entrySpansOnly = entrySpansOnly;
@@ -320,7 +329,8 @@ export class TracesExplorerState {
 			this.filter.kinds.length > 0 ||
 			this.filter.names.length > 0 ||
 			this.filter.durationBucketNano !== null ||
-			this.filter.structure !== null
+			this.filter.structure !== null ||
+			this.filter.nPlusOneOnly
 		);
 	}
 
@@ -354,7 +364,8 @@ export class TracesExplorerState {
 			entrySpansOnly: this.filter.entrySpansOnly,
 			sortBy: this.filter.sortBy,
 			sortAscending: this.filter.sortAscending,
-			structure: this.filter.structure ? cloneStructure(this.filter.structure) : null
+			structure: this.filter.structure ? cloneStructure(this.filter.structure) : null,
+			nPlusOneOnly: this.filter.nPlusOneOnly
 		};
 	}
 
@@ -374,7 +385,8 @@ export class TracesExplorerState {
 			entrySpansOnly: s.entrySpansOnly === true,
 			sortBy: s.sortBy && SPAN_SORT_KEYS.includes(s.sortBy) ? s.sortBy : 'StartTime',
 			sortAscending: s.sortAscending === true,
-			structure: isStructure(s.structure) ? cloneStructure(s.structure) : null
+			structure: isStructure(s.structure) ? cloneStructure(s.structure) : null,
+			nPlusOneOnly: s.nPlusOneOnly === true
 		};
 		void this.runSearch();
 	}
