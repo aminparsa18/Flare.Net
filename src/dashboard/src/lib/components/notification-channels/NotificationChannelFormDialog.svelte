@@ -35,6 +35,7 @@
 	let jiraApiToken = $state('');
 	let jiraProjectKey = $state('');
 	let jiraIssueType = $state('');
+	let incidentIoToken = $state('');
 	let sendResolved = $state(true);
 
 	let sendTestResult = $state<AlertNotificationTestResult | null>(null);
@@ -59,6 +60,7 @@
 			jiraApiToken = '';
 			jiraProjectKey = '';
 			jiraIssueType = '';
+			incidentIoToken = '';
 			sendResolved = true;
 		} else if (target) {
 			name = target.name;
@@ -74,6 +76,7 @@
 			jiraApiToken = target.jiraApiToken;
 			jiraProjectKey = target.jiraProjectKey;
 			jiraIssueType = target.jiraIssueType;
+			incidentIoToken = target.incidentIoToken;
 			sendResolved = target.sendResolved;
 		}
 	});
@@ -81,6 +84,8 @@
 	const hasDestination = $derived(
 		type === 'Webhook' || type === 'Teams' || type === 'Discord'
 			? webhookUrl.trim().length > 0
+			: type === 'IncidentIo'
+				? webhookUrl.trim().length > 0 && incidentIoToken.trim().length > 0
 			: type === 'Telegram'
 				? telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
 				: type === 'Email'
@@ -101,7 +106,7 @@
 			// the API's destination validation (NotificationChannelRequest.ValidateDestination)
 			// sees a clean single choice even if the user typed into a field before
 			// switching the type selector.
-			webhookUrl: type === 'Webhook' || type === 'Teams' || type === 'Discord' ? webhookUrl.trim() : '',
+			webhookUrl: type === 'Webhook' || type === 'Teams' || type === 'Discord' || type === 'IncidentIo' ? webhookUrl.trim() : '',
 			telegramBotToken: type === 'Telegram' ? telegramBotToken.trim() : '',
 			telegramChatId: type === 'Telegram' ? telegramChatId.trim() : '',
 			emailTo: type === 'Email' ? emailTo.trim() : '',
@@ -111,6 +116,7 @@
 			jiraApiToken: type === 'Jira' ? jiraApiToken.trim() : '',
 			jiraProjectKey: type === 'Jira' ? jiraProjectKey.trim() : '',
 			jiraIssueType: type === 'Jira' ? jiraIssueType.trim() : '',
+			incidentIoToken: type === 'IncidentIo' ? incidentIoToken.trim() : '',
 			sendResolved
 		};
 	}
@@ -178,7 +184,9 @@
 											? m.notificationChannelForm_discordLabel()
 											: type === 'Jira'
 												? m.notificationChannelForm_jiraLabel()
-												: m.alertRuleForm_channelWebhook()}
+												: type === 'IncidentIo'
+													? m.notificationChannelForm_incidentIoLabel()
+													: m.alertRuleForm_channelWebhook()}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="Webhook" label={m.alertRuleForm_channelWebhook()} />
@@ -188,18 +196,25 @@
 						<Select.Item value="Teams" label={m.notificationChannelForm_teamsLabel()} />
 						<Select.Item value="Discord" label={m.notificationChannelForm_discordLabel()} />
 						<Select.Item value="Jira" label={m.notificationChannelForm_jiraLabel()} />
+						<Select.Item value="IncidentIo" label={m.notificationChannelForm_incidentIoLabel()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
 
-			{#if type === 'Webhook' || type === 'Teams' || type === 'Discord'}
+			{#if type === 'Webhook' || type === 'Teams' || type === 'Discord' || type === 'IncidentIo'}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_webhookUrlLabel()}</span>
 					<Input bind:value={webhookUrl} placeholder={type === 'Webhook' ? m.alertRuleForm_webhookUrlPlaceholder() : 'https://...'} />
 					<span class="text-muted-foreground text-xs">
-						{type === 'Teams' ? m.notificationChannelForm_teamsHint() : type === 'Discord' ? m.notificationChannelForm_discordHint() : m.alertRuleForm_webhookUrlHint()}
+						{type === 'Teams' ? m.notificationChannelForm_teamsHint() : type === 'Discord' ? m.notificationChannelForm_discordHint() : type === 'IncidentIo' ? m.notificationChannelForm_incidentIoHint() : m.alertRuleForm_webhookUrlHint()}
 					</span>
 				</div>
+				{#if type === 'IncidentIo'}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.notificationChannelForm_incidentIoTokenLabel()}</span>
+						<Input type="password" bind:value={incidentIoToken} />
+					</div>
+				{/if}
 			{:else if type === 'Telegram'}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_botTokenLabel()}</span>

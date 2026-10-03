@@ -23,6 +23,8 @@ public enum NotificationChannelType
     Discord,
     // Appended after Discord. Uses the Jira* fields below; see ADR-0097.
     Jira,
+    // Appended after Jira. Uses WebhookUrl (the alert source URL) plus IncidentIoToken; see ADR-0098.
+    IncidentIo,
 }
 
 /// <summary>
@@ -88,6 +90,9 @@ public sealed partial record NotificationChannel
 
     /// <summary>Issue type name, e.g. <c>Bug</c>. Empty means <c>Task</c>. Jira channels only.</summary>
     public string JiraIssueType { get; init; } = "";
+
+    /// <summary>Bearer token of the incident.io HTTP alert source (its URL is <see cref="WebhookUrl"/>). Meaningful only when <see cref="Type"/> is <see cref="NotificationChannelType.IncidentIo"/>. Appended after <see cref="JiraIssueType"/> (MemoryPack versioning).</summary>
+    public string IncidentIoToken { get; init; } = "";
 }
 
 /// <summary>
@@ -131,6 +136,8 @@ public sealed partial record NotificationChannelRequest
 
     public string? JiraIssueType { get; init; }
 
+    public string? IncidentIoToken { get; init; }
+
     /// <summary>
     /// Requires exactly the destination field(s) matching <see cref="Type"/> to be set,
     /// and none of the others - the <see cref="NotificationChannel"/> counterpart to
@@ -147,11 +154,17 @@ public sealed partial record NotificationChannelRequest
         var hasChatId = !string.IsNullOrWhiteSpace(TelegramChatId);
         var hasEmail = !string.IsNullOrWhiteSpace(EmailTo);
         var hasPagerDuty = !string.IsNullOrWhiteSpace(PagerDutyRoutingKey);
+        var hasIncidentIoToken = !string.IsNullOrWhiteSpace(IncidentIoToken);
         var hasJiraField = !string.IsNullOrWhiteSpace(JiraBaseUrl) || !string.IsNullOrWhiteSpace(JiraEmail) || !string.IsNullOrWhiteSpace(JiraApiToken)
             || !string.IsNullOrWhiteSpace(JiraProjectKey) || !string.IsNullOrWhiteSpace(JiraIssueType);
 
         return Type switch
         {
+            NotificationChannelType.IncidentIo when !hasWebhook || !hasIncidentIoToken => "webhookUrl and incidentIoToken are both required when type is IncidentIo.",
+            NotificationChannelType.IncidentIo when !Uri.TryCreate(WebhookUrl, UriKind.Absolute, out var incidentUri) || incidentUri.Scheme is not ("https" or "http") => "webhookUrl must be an absolute http(s) URL.",
+            NotificationChannelType.IncidentIo when hasBotToken || hasChatId || hasEmail || hasPagerDuty || hasJiraField => "Only webhookUrl and incidentIoToken may be set when type is IncidentIo.",
+            NotificationChannelType.IncidentIo => null,
+            _ when hasIncidentIoToken => "incidentIoToken may only be set when type is IncidentIo.",
             NotificationChannelType.Jira when string.IsNullOrWhiteSpace(JiraBaseUrl) || string.IsNullOrWhiteSpace(JiraEmail) || string.IsNullOrWhiteSpace(JiraApiToken) || string.IsNullOrWhiteSpace(JiraProjectKey)
                 => "jiraBaseUrl, jiraEmail, jiraApiToken and jiraProjectKey are all required when type is Jira.",
             NotificationChannelType.Jira when !Uri.TryCreate(JiraBaseUrl, UriKind.Absolute, out var jiraUri) || jiraUri.Scheme is not ("https" or "http")
