@@ -21,7 +21,7 @@ import { DashboardListResponse as GeneratedDashboardListResponse } from '$lib/me
 import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
 import type { LegendPosition } from '$lib/dashboards/legend';
 import type { YAxisScale } from '$lib/metrics/axis';
-import type { PanelReducer, PanelVisualization } from '$lib/dashboards/visualization';
+import type { PanelReducer, PanelStacking, PanelVisualization } from '$lib/dashboards/visualization';
 
 // ---- Shared shapes (DashboardModels.cs) ------------------------------------
 
@@ -93,6 +93,13 @@ export interface DashboardPanel {
 	 * `$lib/dashboards/visualization.ts` and docs-internal/adr/0059-dashboard-panel-visualizations.md.
 	 */
 	visualization?: PanelVisualization;
+	/**
+	 * How a multi-series `bar` visualization combines its series per bucket: `none` (side by
+	 * side), `normal` (stacked to the total) or `percent` (stacked, each bucket scaled to
+	 * 0-100%). `undefined` is `none`, except on a legacy `visualization: 'stackedBar'` panel,
+	 * which reads as `normal`. Read through `parseStacking`. Meaningless for other visualizations.
+	 */
+	stacking?: PanelStacking;
 	/**
 	 * How each series collapses to one number for the `value`/`pie`/`table` visualizations.
 	 * `undefined` means the result type's default (`sum` for a Sum metric, `avg` otherwise -

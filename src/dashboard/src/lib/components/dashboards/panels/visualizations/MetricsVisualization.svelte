@@ -11,7 +11,7 @@
 	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
 	import type { LegendPosition } from '$lib/dashboards/legend';
 	import { parseDecimals } from '$lib/metrics/axis';
-	import { heatmapGrid, parseColumnUnits, reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelVisualization } from '$lib/dashboards/visualization';
+	import { heatmapGrid, parseColumnUnits, reduceValues, resolveReducer, toVizSeries, totalsByBucket, type PanelStacking, type PanelVisualization } from '$lib/dashboards/visualization';
 	import BarVisualization from './BarVisualization.svelte';
 	import ValueVisualization from './ValueVisualization.svelte';
 	import PieVisualization from './PieVisualization.svelte';
@@ -22,6 +22,7 @@
 
 	let {
 		visualization,
+		stacking = 'none',
 		reducer: rawReducer,
 		title,
 		yAxisMin = null,
@@ -33,6 +34,7 @@
 		seriesColors = {}
 	}: {
 		visualization: Exclude<PanelVisualization, 'timeSeries'>;
+		stacking?: PanelStacking;
 		/** The panel's stored `reducer` - unvalidated; resolved against the result type below. */
 		reducer: unknown;
 		title: string;
@@ -88,8 +90,8 @@
 		<p class="text-destructive p-2 text-xs">{error}</p>
 	{:else if !hasData}
 		<div class="text-muted-foreground flex flex-1 items-center justify-center text-xs">{m.metricChart_noDataInRange()}</div>
-	{:else if visualization === 'bar' || visualization === 'stackedBar'}
-		<BarVisualization {series} stacked={visualization === 'stackedBar'} {unit} {decimals} {yAxisMin} {yAxisMax} {thresholds} {legendPosition} {seriesColors} />
+	{:else if visualization === 'bar'}
+		<BarVisualization {series} {stacking} {unit} {decimals} {yAxisMin} {yAxisMax} {thresholds} {legendPosition} {seriesColors} />
 	{:else if visualization === 'value' && total != null}
 		<ValueVisualization value={total} {unit} {decimals} {reducer} seriesCount={series.length} {thresholds} />
 	{:else if visualization === 'pie'}

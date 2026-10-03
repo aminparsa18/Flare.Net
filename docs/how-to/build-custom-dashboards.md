@@ -119,12 +119,18 @@ without touching the query:
 |---|---|
 | **Time series** | One line per series over time (the default). |
 | **Bar chart** | One bar per series in each time bucket, side by side. |
-| **Stacked bar chart** | Each bucket's series stacked into one bar, so its height is the bucket's total. |
 | **Value** | One big number for the whole query. |
 | **Pie chart** | Each series' share of the total. |
 | **Table** | One row per series, with its last, min, average and max (plus sum for a Sum metric). |
 | **Histogram** | How often the query's values fell in each range: value ranges along the bottom, number of readings up the side. |
 | **Heatmap** | How a Histogram metric's distribution moves over time: time along the bottom, value ranges up the side, color for how many observations fell there. |
+
+A bar chart's **Stacking** setting (in the same menu) changes how its series
+combine in each bucket: **None** puts them side by side, **Stacked** piles
+them into one bar whose height is the bucket's total, and **Stacked (100%)**
+rescales every bucket to fill 0-100% so each series shows its share. Hovering
+a 100% bar still shows the real values. Soft Y-axis bounds and thresholds are
+in the metric's unit, so they don't apply to a 100% chart.
 
 Bar charts show at most five series, the five largest; the legend says how
 many are hidden. A pie chart shows the four largest series and folds the

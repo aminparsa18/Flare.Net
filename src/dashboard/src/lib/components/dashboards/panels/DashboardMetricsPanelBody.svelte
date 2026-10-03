@@ -42,7 +42,7 @@
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { ResolvedVariableOverrides } from '$lib/dashboards/variables';
 	import type { PanelThreshold } from '$lib/dashboards/thresholds';
-	import { needsBuckets, seriesLabel, type PanelVisualization } from '$lib/dashboards/visualization';
+	import { needsBuckets, seriesLabel, type PanelStacking, type PanelVisualization } from '$lib/dashboards/visualization';
 	import type { LegendPosition } from '$lib/dashboards/legend';
 	import type { ThresholdColor } from '$lib/dashboards/thresholds';
 	import { parseDecimals, type YAxisScale } from '$lib/metrics/axis';
@@ -59,6 +59,7 @@
 		yAxisScale = 'linear',
 		thresholds,
 		visualization = 'timeSeries',
+		stacking = 'none',
 		reducer,
 		columnUnits,
 		decimals,
@@ -83,6 +84,8 @@
 		thresholds?: PanelThreshold[];
 		/** This panel's own (already-parsed) `DashboardPanel.visualization`. */
 		visualization?: PanelVisualization;
+		/** This panel's own (already-parsed) stacking - only the bar visualization reads it. */
+		stacking?: PanelStacking;
 		/** This panel's own `DashboardPanel.reducer`, unvalidated - see MetricsVisualization. */
 		reducer?: unknown;
 		/** This panel's own `DashboardPanel.columnUnits`, unvalidated - only a Table visualization reads it. */
@@ -183,7 +186,7 @@
 </script>
 
 {#if visualization !== 'timeSeries'}
-	<MetricsVisualization {visualization} {reducer} {columnUnits} {decimals} {title} {legendPosition} {seriesColors} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
+	<MetricsVisualization {visualization} {stacking} {reducer} {columnUnits} {decimals} {title} {legendPosition} {seriesColors} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else if explorer.mode === 'formula'}
 	<FormulaChart {title} decimals={parseDecimals(decimals)} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} {legendPosition} {seriesColors} />
 {:else}

@@ -138,12 +138,19 @@ façon dont ce même résultat est dessiné, sans toucher à la requête :
 |---|---|
 | **Série temporelle** | Une courbe par série dans le temps (par défaut). |
 | **Diagramme en barres** | Une barre par série dans chaque intervalle, côte à côte. |
-| **Barres empilées** | Les séries de chaque intervalle empilées en une seule barre, dont la hauteur est le total de l'intervalle. |
 | **Valeur** | Un seul grand nombre pour toute la requête. |
 | **Camembert** | La part de chaque série dans le total. |
 | **Tableau** | Une ligne par série, avec sa dernière valeur, son min, sa moyenne et son max (plus la somme pour une métrique Sum). |
 | **Histogramme** | La fréquence à laquelle les valeurs de la requête tombent dans chaque plage : les plages de valeurs en bas, le nombre de mesures sur le côté. |
 | **Carte de chaleur** | L'évolution dans le temps de la distribution d'une métrique Histogram : le temps en bas, les plages de valeurs sur le côté, la couleur indiquant le nombre d'observations. |
+
+Le réglage **Empilement** d'un diagramme en barres (dans le même menu) change la
+façon dont ses séries se combinent dans chaque intervalle : **Aucun** les place côte
+à côte, **Empilé** les empile en une barre dont la hauteur est le total de
+l'intervalle, et **Empilé (100 %)** ramène chaque intervalle à 0-100 % pour montrer
+la part de chaque série. Le survol d'une barre à 100 % affiche toujours les valeurs
+réelles. Les bornes souples de l'axe Y et les seuils sont dans l'unité de la
+métrique ; ils ne s'appliquent donc pas à un graphique à 100 %.
 
 Les diagrammes en barres affichent au plus cinq séries, les cinq plus grandes ; la
 légende indique combien sont masquées. Un camembert affiche les quatre plus

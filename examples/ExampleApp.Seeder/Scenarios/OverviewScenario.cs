@@ -205,7 +205,7 @@ public sealed class OverviewScenario : Scenario
                 Panel("p5", new("Payment latency", "Задержка платежей", "支付延迟"), 6, 0, 6, 4,
                     MetricQuery("http.server.request.duration", "payment-service", "Histogram"), row: "r1"),
                 Panel("p6", new("Storefront requests by status", "Запросы витрины по статусу", "按状态划分的店面请求"), 0, 4, 12, 4,
-                    MetricQuery("http.server.request.count", "storefront", "Sum", "http.response.status_code"), row: "r1", extra: ("visualization", "stackedBar")),
+                    MetricQuery("http.server.request.count", "storefront", "Sum", "http.response.status_code"), row: "r1", extra: [("visualization", "bar"), ("stacking", "normal")]),
                 Panel("p7", new("Warnings and errors", "Предупреждения и ошибки", "警告与错误"), 0, 0, 12, 5, logsQuery, panelType: "Logs", row: "r2")),
             ["rows"] = new JsonArray(
                 new JsonObject { ["id"] = "r1", ["title"] = c.T(new("Traffic", "Трафик", "流量")) },

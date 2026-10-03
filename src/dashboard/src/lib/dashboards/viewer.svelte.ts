@@ -31,7 +31,7 @@ import { downloadBlob } from '$lib/logs/export';
 import { defaultSelection, resolveQueryVariableOptions, type VariableDependency } from './variables';
 import type { PanelThreshold, ThresholdColor } from './thresholds';
 import type { LegendPosition } from './legend';
-import type { PanelReducer, PanelVisualization } from './visualization';
+import { parseStacking, parseVisualization, type PanelReducer, type PanelStacking, type PanelVisualization } from './visualization';
 import type { YAxisScale } from '$lib/metrics/axis';
 import * as m from '$lib/paraglide/messages';
 
@@ -427,7 +427,31 @@ export class DashboardViewerState {
 		try {
 			this.dashboard = await this.#saveLayout({
 				panels: dashboard.layout.panels.map((p) =>
-					p.id === panelId ? { ...p, visualization: visualization === 'timeSeries' ? undefined : visualization, reducer: reducer ?? undefined } : p
+					p.id === panelId
+						? {
+								...p,
+								visualization: visualization === 'timeSeries' ? undefined : visualization,
+								reducer: reducer ?? undefined,
+								// Saving a legacy `stackedBar` panel rewrites it as `bar`, so carry its stacking along.
+								stacking: parseStacking(p.stacking, p.visualization) === 'none' ? undefined : parseStacking(p.stacking, p.visualization)
+							}
+						: p
+				)
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/** Sets `panelId`'s bar stacking (`DashboardPanel.stacking`) through `#saveLayout`;
+	 *  `none` clears the field. A legacy `stackedBar` is rewritten to `bar` in the same save. */
+	async setPanelStacking(panelId: string, stacking: PanelStacking): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels.map((p) =>
+					p.id === panelId ? { ...p, visualization: parseVisualization(p.visualization) === 'timeSeries' ? undefined : parseVisualization(p.visualization), stacking: stacking === 'none' ? undefined : stacking } : p
 				)
 			});
 		} catch (err) {

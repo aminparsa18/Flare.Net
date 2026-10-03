@@ -26,7 +26,7 @@
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
 	import type { LegendPosition } from '$lib/dashboards/legend';
-	import type { PanelReducer, PanelVisualization } from '$lib/dashboards/visualization';
+	import type { PanelReducer, PanelStacking, PanelVisualization } from '$lib/dashboards/visualization';
 	import type { YAxisScale } from '$lib/metrics/axis';
 
 	let {
@@ -49,6 +49,7 @@
 		onSetYAxisBounds,
 		onSetThresholds,
 		onSetVisualization,
+		onSetStacking,
 		onSetColumnUnits,
 		onSetDecimals,
 		onSetLegend,
@@ -76,6 +77,7 @@
 		onSetYAxisBounds: (id: string, min: number | null, max: number | null, scale: YAxisScale) => void;
 		onSetThresholds: (id: string, thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (id: string, visualization: PanelVisualization, reducer: PanelReducer | null) => void;
+		onSetStacking: (id: string, stacking: PanelStacking) => void;
 		onSetColumnUnits: (id: string, columnUnits: Partial<Record<PanelReducer, string>>) => void;
 		onSetDecimals: (id: string, decimals: number | undefined) => void;
 		onSetLegend: (id: string, legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>) => void;
@@ -161,6 +163,7 @@
 					onSetYAxisBounds={(min, max, scale) => onSetYAxisBounds(panel.id, min, max, scale)}
 					onSetThresholds={(thresholds) => onSetThresholds(panel.id, thresholds)}
 					onSetVisualization={(visualization, reducer) => onSetVisualization(panel.id, visualization, reducer)}
+					onSetStacking={(stacking) => onSetStacking(panel.id, stacking)}
 					onSetColumnUnits={(columnUnits) => onSetColumnUnits(panel.id, columnUnits)}
 					onSetDecimals={(decimals) => onSetDecimals(panel.id, decimals)}
 					onSetLegend={(legendPosition, seriesColors) => onSetLegend(panel.id, legendPosition, seriesColors)}

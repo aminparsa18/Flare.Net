@@ -1,6 +1,6 @@
 // Localized display names for panel visualizations/reducers - functions, not a lookup
 // object built once, so a live locale switch is reflected (see time-range.ts's remarks).
-import type { PanelReducer, PanelVisualization } from '$lib/dashboards/visualization';
+import type { PanelReducer, PanelStacking, PanelVisualization } from '$lib/dashboards/visualization';
 import * as m from '$lib/paraglide/messages';
 
 export function visualizationLabel(visualization: PanelVisualization): string {
@@ -9,8 +9,6 @@ export function visualizationLabel(visualization: PanelVisualization): string {
 			return m.panelVisualization_timeSeries();
 		case 'bar':
 			return m.panelVisualization_bar();
-		case 'stackedBar':
-			return m.panelVisualization_stackedBar();
 		case 'value':
 			return m.panelVisualization_value();
 		case 'pie':
@@ -21,6 +19,17 @@ export function visualizationLabel(visualization: PanelVisualization): string {
 			return m.panelVisualization_histogram();
 		case 'heatmap':
 			return m.panelVisualization_heatmap();
+	}
+}
+
+export function stackingLabel(stacking: PanelStacking): string {
+	switch (stacking) {
+		case 'none':
+			return m.panelVisualization_stackingNone();
+		case 'normal':
+			return m.panelVisualization_stackingNormal();
+		case 'percent':
+			return m.panelVisualization_stackingPercent();
 	}
 }
 
