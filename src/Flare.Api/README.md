@@ -439,6 +439,11 @@ uses the same form. `LogFilterSqlBuilder.BodyIndexExpr` is the one source for th
 expression, and a unit test checks the migration against it. See
 [ADR-0073](../../docs-internal/adr/0073-logs-body-ngram-search-index.md).
 
+`SearchAllFields` (opt-in, the Logs Explorer's "All fields" toggle) ORs that body match with
+`arrayExists(v -> lowerUTF8(v) LIKE lowerUTF8('%term%'), mapValues(LogAttributes))` and the same
+over `ResourceAttributes`. Those branches can't use a skip index, so every row in the window is
+read; that's why it's off by default. `LogFilterMatcher` mirrors it for live tail.
+
 ## Running it
 
 Via the Aspire AppHost (recommended — wires the ClickHouse connection and health checks):

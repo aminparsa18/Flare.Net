@@ -258,4 +258,14 @@ public sealed partial record LogFilter
     /// own remarks give.
     /// </summary>
     public SpanFilter? TraceSpanFilter { get; init; }
+
+    /// <summary>
+    /// Opt-in: also match <see cref="Search"/> against every log-attribute and
+    /// resource-attribute value, not just <c>Body</c> (<c>arrayExists</c> over
+    /// <c>mapValues(...)</c>). Off by default because those branches can't use the body ngram
+    /// index (ADR-0073), so the scan is full-column. No effect without <see cref="Search"/>.
+    /// Appended last (member 13), after <see cref="TraceSpanFilter"/> - same MemoryPack
+    /// wire-compatibility reasoning that member's own remarks give.
+    /// </summary>
+    public bool SearchAllFields { get; init; }
 }

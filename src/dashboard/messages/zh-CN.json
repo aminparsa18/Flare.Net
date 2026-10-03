@@ -129,6 +129,8 @@
 	"logsToolbar_clearAttributeFilter": "清除属性筛选",
 	"logsToolbar_clearFilters": "清除筛选条件",
 	"logsToolbar_searchPlaceholder": "搜索消息内容…",
+	"logsToolbar_searchAllFields": "所有字段",
+	"logsToolbar_searchAllFieldsHint": "同时匹配属性和资源值，而不仅是消息内容（较慢）",
 	"logsToolbar_live": "实时",
 	"logsToolbar_pause": "暂停",
 	"logsToolbar_linesPerRow": "行数：{count}",

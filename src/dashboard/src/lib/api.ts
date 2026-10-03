@@ -150,6 +150,8 @@ export interface LogFilter {
 	scopeNames?: string[];
 	/** Only logs of traces containing a span matching this - see `LogFilter.TraceSpanFilter` (LogFilter.cs). Its `from`/`to` are ignored server-side; not supported by live tail. */
 	traceSpanFilter?: SpanFilter;
+	/** Also match `search` against attribute/resource values, not just the body - see `LogFilter.SearchAllFields` (LogFilter.cs). Full-column scan, so opt-in. */
+	searchAllFields?: boolean;
 }
 
 // ---- Log event DTO (LogEventDto.cs) ---------------------------------------

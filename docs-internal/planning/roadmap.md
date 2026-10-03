@@ -141,15 +141,6 @@ folders are where "what happened and why" actually lives.
   series a rule would remove, no page listing prefix rules that match no
   currently-ingested metric, and no user-facing how-to in `docs/`. Prior art:
   [signoz#11849](https://github.com/SigNoz/signoz/commit/d5221a6ff3b1b7a9b55492218c9f589845bcbc28).
-- **Free-text log search across all fields.** The free-text filter is a
-  case-insensitive substring match on `Body` only, so an order ID that lives
-  only in an attribute isn't found unless you know its key. Add an opt-in
-  "search all fields" toggle that also matches attribute and resource values:
-  `arrayExists(v -> positionCaseInsensitive(v, {q}) > 0,
-  mapValues(LogAttributes))`, same for `ResourceAttributes`. Keep it opt-in
-  because those branches can't use the body ngram index (ADR-0073), and
-  mirror it in `LogFilterMatcher` for live tail. Not started. Prior art:
-  [signoz#12244](https://github.com/SigNoz/signoz/commit/77c1b601be2a1baf49b2e69fcfdcb8d4119c84a6).
 - **Microsoft Teams and Discord notification channels.** Channel types are
   Webhook/Telegram/Email/PagerDuty. The generic webhook's top-level `text`
   covers Slack and (probably; verify live) Google Chat incoming webhooks, but

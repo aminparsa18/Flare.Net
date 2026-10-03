@@ -24,6 +24,8 @@ internal sealed class TailFilter
     public string? TraceId { get; init; }
 
     public string? Search { get; init; }
+
+    public bool SearchAllFields { get; init; }
 }
 
 /// <summary>
@@ -55,6 +57,7 @@ internal sealed class LogTailClient : IAsyncDisposable
                 severityNumbers = filter.SeverityNumbers.Count > 0 ? filter.SeverityNumbers : null,
                 traceId = filter.TraceId,
                 search = filter.Search,
+                searchAllFields = filter.SearchAllFields ? true : (bool?)null,
             },
         });
 
