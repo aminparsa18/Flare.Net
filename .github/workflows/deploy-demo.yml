@@ -63,10 +63,6 @@ jobs:
           kubectl patch serviceaccount default --namespace "$DEMO_NAMESPACE" \
             -p '{"imagePullSecrets":[{"name":"ghcr"}]}'
 
-      - name: Preview deployment steps
-        working-directory: examples/ExampleApp.AppHost
-        run: aspire deploy --list-steps --non-interactive
-
       - name: Deploy with Aspire
         working-directory: examples/ExampleApp.AppHost
         env:
