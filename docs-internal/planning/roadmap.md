@@ -205,14 +205,6 @@ folders are where "what happened and why" actually lives.
   HTML, links only http(s)), with `$variable` substitution like panel titles.
   No query, so it's excluded from refresh/lazy-load. Not started. Prior art:
   [signoz#12712](https://github.com/SigNoz/signoz/commit/851abd2c93af8b9dba28224e36e0e3ffa0a01309).
-- **Heatmap visualization for histogram metrics.** The `histogram`
-  visualization shows one distribution for the whole range, not how it moves
-  over time, the standard view for latency. The per-time-bucket bucket
-  arrays already come back (`sumForEach` in `MetricSeriesQueryBuilder`, plus
-  exponential histograms via ADR-0060), so add a `heatmap` visualization
-  (x = time bucket, y = histogram bucket, color = count, log color scale
-  option) with a hover readout. Mostly a renderer. Not started. Prior art:
-  [signoz#12764](https://github.com/SigNoz/signoz/commit/fd032291f95ed6d7db248c946aa149b28ee8c116).
 - **Percent (100%) stacking.** Only `stackedBar` exists, in absolute values,
   and time series can't stack. Add a stacking option (none/normal/percent) to
   `timeSeries` and `bar`, folding `stackedBar` into `bar` + normal with a

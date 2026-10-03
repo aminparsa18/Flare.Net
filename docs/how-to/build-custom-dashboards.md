@@ -124,6 +124,7 @@ without touching the query:
 | **Pie chart** | Each series' share of the total. |
 | **Table** | One row per series, with its last, min, average and max (plus sum for a Sum metric). |
 | **Histogram** | How often the query's values fell in each range: value ranges along the bottom, number of readings up the side. |
+| **Heatmap** | How a Histogram metric's distribution moves over time: time along the bottom, value ranges up the side, color for how many observations fell there. |
 
 Bar charts show at most five series, the five largest; the legend says how
 many are hidden. A pie chart shows the four largest series and folds the
@@ -162,6 +163,14 @@ distribution (each reading is the same one-number-per-bucket value the other
 visualizations use, so a Histogram metric contributes its bucket means). The
 value ranges are round numbers ("0 / 50 / 100 ms"), with fewer, wider ranges
 when there are only a few readings. Hover a bar to see its range and count.
+
+A heatmap needs a Histogram metric (explicit-bucket or exponential); on any other metric it says so. It draws the
+observations themselves, not the per-bucket means the other visualizations use, with every series pooled. A
+classic explicit-bucket histogram gets one row per bucket; a histogram with many distinct bucket edges (an
+exponential one) is cut into 40 rows, log-spaced when all values are positive. Color is logarithmic by default,
+so a quiet row stays visible next to a busy one; click the scale label under the chart to switch to linear (the
+choice isn't saved with the panel). Hover a cell for its time, range and count. The first bucket of an
+explicit histogram is drawn from 0 and the last open-ended one is closed at one bucket-width past the final bound.
 
 [Visual thresholds](#adding-visual-thresholds-to-a-metrics-panel) work on
 every visualization except Pie. On a Value panel they color the number, in
@@ -502,7 +511,7 @@ From the **Dashboards** page you can:
     panels → Metrics, logs/table panels → Logs, trace panels → Traces). A
     Metrics panel also keeps the nearest visualization: stat, gauge and bar
     gauge panels become **Value**, bar charts become **Bar chart**, pie
-    charts become **Pie chart**, and histogram panels become **Histogram**.
+    charts become **Pie chart**, and histogram panels become **Histogram**, and heatmap panels become **Heatmap**.
     **Queries don't** — a Grafana panel's query is written against whatever
     datasource it points at (PromQL, LogQL, ...), which has no equivalent in
     Flare's own log/trace/metric query shapes, so every imported panel's

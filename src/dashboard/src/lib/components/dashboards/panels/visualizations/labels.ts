@@ -19,6 +19,8 @@ export function visualizationLabel(visualization: PanelVisualization): string {
 			return m.panelVisualization_table();
 		case 'histogram':
 			return m.panelVisualization_histogram();
+		case 'heatmap':
+			return m.panelVisualization_heatmap();
 	}
 }
 

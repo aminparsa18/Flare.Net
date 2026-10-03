@@ -370,7 +370,10 @@ export function evaluateFormula(node: FormulaNode, inputs: FormulaSeriesInput[])
 				p90: null,
 				p95: null,
 				p99: null,
-				maxApprox: null
+				maxApprox: null,
+				bucketLowers: null,
+				bucketUppers: null,
+				bucketCounts: null
 			});
 		}
 

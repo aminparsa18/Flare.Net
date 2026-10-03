@@ -40,7 +40,7 @@ import type { PanelVisualization } from './visualization';
 const GRAFANA_GRID_COLUMNS = 24;
 
 /** Grafana panel `type` values that are fundamentally a metric/number/time-series chart - the only shape Flare's own "Metrics" panel (a ClickHouse metric query + chart) can stand in for. */
-const METRICS_TYPES = new Set(['timeseries', 'graph', 'stat', 'gauge', 'bargauge', 'barchart', 'piechart', 'histogram']);
+const METRICS_TYPES = new Set(['timeseries', 'graph', 'stat', 'gauge', 'bargauge', 'barchart', 'piechart', 'histogram', 'heatmap']);
 /** Closest Flare visualization for a Metrics-mapped Grafana panel type - anything not listed (`timeseries`, `graph`) keeps the default line chart. */
 const METRICS_VISUALIZATIONS: Partial<Record<string, PanelVisualization>> = {
 	stat: 'value',
@@ -48,7 +48,8 @@ const METRICS_VISUALIZATIONS: Partial<Record<string, PanelVisualization>> = {
 	bargauge: 'value',
 	barchart: 'bar',
 	piechart: 'pie',
-	histogram: 'histogram'
+	histogram: 'histogram',
+	heatmap: 'heatmap'
 };
 /** `table` is a guess, not a sure thing - Grafana table panels can be backed by any datasource, but in an observability dashboard they're most often a raw list of log rows, which is what Flare's own "Logs" panel shows. */
 const LOGS_TYPES = new Set(['logs', 'table']);
