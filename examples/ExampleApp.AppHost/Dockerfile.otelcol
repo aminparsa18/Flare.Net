@@ -1,0 +1,4 @@
+# Used only when publishing to Kubernetes (see Program.cs): the K8s publisher rejects bind mounts,
+# so the collector config is baked in instead of mounted.
+FROM otel/opentelemetry-collector-contrib:0.161.0
+COPY otelcol.k8s.yaml /etc/otelcol-contrib/config.yaml

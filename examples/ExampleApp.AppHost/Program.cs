@@ -1,15 +1,34 @@
+using Aspire.Hosting.Kubernetes;
 using Aspire.Hosting.ApplicationModel;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Registers Docker Compose as a deployment target - inert for the default `aspire run`/
-// `dotnet run` inner loop, but makes `aspire publish`/`aspire do prepare-compose`/`aspire
-// deploy` produce a real docker-compose.yaml for this whole AppHost (Flare included). See
-// docs/aspire-hosting.md's "Publishing / deploying via aspire publish" section - this is
-// its worked example. AddFlare's WithPublicApiUrl/WithPublicDashboardUrl chain methods
-// (not used below) only matter once actually deploying off this machine; leave them
-// uncalled for `aspire run`.
-builder.AddDockerComposeEnvironment("env");
+// Kubernetes is the deployment target for the standing demo (.github/workflows/deploy-demo.yml:
+// `aspire deploy` against a k3s box). Everything Kubernetes-specific is gated on IsPublishMode, so
+// `aspire run`/`dotnet run` keeps behaving exactly as before. See docs/reference/aspire-hosting.md's
+// Kubernetes section for why persistent storage, the registry and the public URLs are each required.
+#pragma warning disable ASPIRECOMPUTE002, ASPIRECOMPUTE003 // AddPersistentVolume / AddContainerRegistry are preview APIs
+var publishing = builder.ExecutionContext.IsPublishMode;
+
+// No in-cluster Aspire dashboard: it costs RAM on a small box and would be one more public surface.
+var k8s = builder.AddKubernetesEnvironment("k8s").WithDashboard(false);
+
+// Parameters are only declared when publishing: declared-but-unused parameters would still be
+// prompted for under `aspire run`.
+IResourceBuilder<ParameterResource>? publicApiUrl = null, publicDashboardUrl = null;
+if (publishing)
+{
+    // Images for the shop services (and the generated ClickHouse-init image) are pushed here.
+    var registryEndpoint = builder.AddParameter("registry-endpoint");
+    var registryRepository = builder.AddParameter("registry-repository");
+    k8s.WithContainerRegistry(builder.AddContainerRegistry("registry", registryEndpoint, registryRepository));
+
+    // Browser-facing URLs for the dashboard and the API. Left unset the dashboard would point at
+    // in-cluster Service DNS names. With no domain yet, the workflow passes <server-ip>.sslip.io
+    // (wildcard DNS: any name under it resolves to the IP).
+    publicApiUrl = builder.AddParameter("public-api-url");
+    publicDashboardUrl = builder.AddParameter("public-dashboard-url");
+}
 
 // enableResourceGraph defaults to false (see its doc comment on AddFlare) - left off here
 // too, so this example's default footprint doesn't grow a Docker-socket-proxy sidecar for
@@ -21,6 +40,48 @@ builder.AddDockerComposeEnvironment("env");
 // project's .csproj), so it should always validate against main-tip images, not whatever
 // stable version the published NuGet package currently pins.
 var flare = builder.AddFlare("flare", imageTag: "edge");
+
+if (publishing)
+{
+    flare.WithPublicApiUrl(publicApiUrl!)
+        .WithPublicDashboardUrl(publicDashboardUrl!)
+        // k3s ships the local-path storage class; ReadWriteOnce is all it offers (single node, so
+        // the shared identity volume is fine - see the reference doc's caveat about multi-node).
+        .WithPersistentStorage(
+            clickHouseVolume: k8s.AddPersistentVolume("flare-clickhouse-data")
+                .WithStorageClass("local-path").WithCapacity("20Gi")
+                .WithAccessMode(PersistentVolumeAccessMode.ReadWriteOnce),
+            redisVolume: k8s.AddPersistentVolume("flare-redis-data")
+                .WithStorageClass("local-path").WithCapacity("2Gi")
+                .WithAccessMode(PersistentVolumeAccessMode.ReadWriteOnce),
+            identityVolume: k8s.AddPersistentVolume("flare-identity-data")
+                .WithStorageClass("local-path").WithCapacity("1Gi")
+                .WithAccessMode(PersistentVolumeAccessMode.ReadWriteOnce));
+
+    // Ingress (k3s ships Traefik). AddFlare doesn't hand back its dashboard/api builders, so look
+    // them up by the names it gives them. The hostnames are read from configuration (the same
+    // Parameters__* env vars) rather than declared as parameters: in this Aspire.Hosting.Kubernetes
+    // preview WithHostname(parameter) silently emits no `host:` rule, and so does WithHostname(string)
+    // combined with the host-less WithPath; only the host-scoped WithPath(host, ...) overload does.
+    // An ingress with no host matches every host, so the two would collide on "/".
+    string RequiredSetting(string key) =>
+        builder.Configuration[$"Parameters:{key}"] is { Length: > 0 } v ? v : throw new InvalidOperationException($"Set Parameters__{key} (the {key.Replace('_', ' ')} the ingress should match).");
+    var dashboardHost = RequiredSetting("dashboard_host");
+    var apiHost = RequiredSetting("api_host");
+
+    // The ingress also requires the routed endpoint to be marked external.
+    EndpointReference FlareEndpoint(string resourceName)
+    {
+        var resource = builder.CreateResourceBuilder(builder.Resources.OfType<ContainerResource>().Single(r => r.Name == resourceName));
+        resource.WithExternalHttpEndpoints();
+        return resource.GetEndpoint("http");
+    }
+
+    k8s.AddIngress("flare-dashboard-ingress").WithIngressClass("traefik")
+        .WithPath(dashboardHost, "/", FlareEndpoint("flare-dashboard"));
+    k8s.AddIngress("flare-api-ingress").WithIngressClass("traefik")
+        .WithPath(apiHost, "/", FlareEndpoint("flare-api"));
+}
 
 // ---------------------------------------------------------------------------------------
 // The shop: seven services plus a fake third-party upstream, all one project
@@ -94,7 +155,8 @@ var storefront = AddShopService("storefront")
     .WithReference(notification)
     .WithReference(fakeUpstream)
     .WithReference(kafka).WaitFor(kafka)
-    .WithEnvironment("Shop__Traffic__RequestsPerSecond", "3")
+    // The standing demo runs on a small box, so it gets a third of the local traffic.
+    .WithEnvironment("Shop__Traffic__RequestsPerSecond", publishing ? "1" : "3")
     // Failure-mode switches in the Aspire dashboard's resource menu - the same endpoints
     // examples/README.md shows with curl.
     .WithHttpCommand("/scenario/latency-spike/on", "Scenario: latency spike", commandName: "scenario-latency-spike")
@@ -108,20 +170,36 @@ var storefront = AddShopService("storefront")
 // the Hosts page, and Kafka consumer lag for the Message queues page's Backlog column. Config
 // in otelcol.yaml next to this file.
 // ---------------------------------------------------------------------------------------
-builder.AddContainer("otel-collector", "otel/opentelemetry-collector-contrib", "0.161.0")
-    .WithBindMount("otelcol.yaml", "/etc/otelcol-contrib/config.yaml", isReadOnly: true)
-    // hostmetrics reads /proc, /sys and the mount table under root_path - without the host's
-    // root filesystem mounted there, the filesystem scraper reports nothing. On Docker
-    // Desktop "the host" is Docker's Linux VM, not macOS/Windows itself.
-    .WithBindMount("/", "/hostfs", isReadOnly: true)
-    // resourcedetection's `os` hostname source reads the container's hostname - pin it, so
-    // the Hosts page shows one stable host instead of a new container id per restart.
-    .WithContainerRuntimeArgs("--hostname", "shop-docker-host")
-    // Endpoint references resolve in the container network here (flare-ingest:4317,
-    // kafka:9093), not to the host-mapped localhost ports.
-    .WithEnvironment("FLARE_OTLP_ENDPOINT", flare.Resource.OtlpGrpcEndpoint)
-    .WithEnvironment("KAFKA_BROKERS", ReferenceExpression.Create($"{kafka.Resource.InternalEndpoint.Property(EndpointProperty.HostAndPort)}"))
-    .WaitFor(kafka)
-    .WaitForFlare(flare);
+if (publishing)
+{
+    // The Kubernetes publisher rejects bind mounts, so on the cluster the config is baked into a
+    // tiny image Aspire builds and pushes (Dockerfile.otelcol). That variant has no hostmetrics
+    // receiver: it needs the node's root filesystem, which isn't expressible here, so the Hosts
+    // page stays empty on the standing demo (use ExampleApp.Seeder's `hosts` scenario for it).
+    builder.AddDockerfile("otel-collector", ".", "Dockerfile.otelcol")
+        .WithEnvironment("FLARE_OTLP_ENDPOINT", flare.Resource.OtlpGrpcEndpoint)
+        .WithEnvironment("KAFKA_BROKERS", ReferenceExpression.Create($"{kafka.Resource.InternalEndpoint.Property(EndpointProperty.HostAndPort)}"))
+        .WaitFor(kafka)
+        .WaitForFlare(flare);
+}
+else
+{
+    builder.AddContainer("otel-collector", "otel/opentelemetry-collector-contrib", "0.161.0")
+        .WithBindMount("otelcol.yaml", "/etc/otelcol-contrib/config.yaml", isReadOnly: true)
+        // hostmetrics reads /proc, /sys and the mount table under root_path - without the host's
+        // root filesystem mounted there, the filesystem scraper reports nothing. On Docker
+        // Desktop "the host" is Docker's Linux VM, not macOS/Windows itself.
+        .WithBindMount("/", "/hostfs", isReadOnly: true)
+        // resourcedetection's `os` hostname source reads the container's hostname - pin it, so
+        // the Hosts page shows one stable host instead of a new container id per restart.
+        .WithContainerRuntimeArgs("--hostname", "shop-docker-host")
+        // Endpoint references resolve in the container network here (flare-ingest:4317,
+        // kafka:9093), not to the host-mapped localhost ports.
+        .WithEnvironment("FLARE_OTLP_ENDPOINT", flare.Resource.OtlpGrpcEndpoint)
+        .WithEnvironment("KAFKA_BROKERS", ReferenceExpression.Create($"{kafka.Resource.InternalEndpoint.Property(EndpointProperty.HostAndPort)}"))
+        .WaitFor(kafka)
+        .WaitForFlare(flare);
+
+}
 
 builder.Build().Run();

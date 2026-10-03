@@ -1,0 +1,82 @@
+name: Deploy demo to Debian/k3s
+
+# Standing live demo (examples/ExampleApp.AppHost) on a k3s box. Runs on a self-hosted runner
+# installed on that box, so `aspire deploy` talks to the local cluster over the runner user's
+# kubeconfig and builds/pushes the shop images to GHCR from the same machine.
+#
+# Manual only: a deploy rebuilds ~9 images on a small server, so it shouldn't fire on every push.
+#
+# One-time setup (repo Settings):
+#   Variable  DEMO_HOST          base hostname the dashboard is served on; the API is served on
+#                                api.<DEMO_HOST>. With no domain yet use <server-ip>.sslip.io, e.g.
+#                                203.0.113.10.sslip.io (wildcard DNS: every name under it resolves
+#                                to that IP). Once there is a domain, set it to e.g. demo.example.com.
+#   Secret    GHCR_PULL_TOKEN    a PAT with read:packages, so k3s can pull the private GHCR images
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, flare-demo]
+    environment: production
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      DOTNET_NOLOGO: true
+      ASPIRE_CLI_TELEMETRY_OPTOUT: 1
+      # Namespace `aspire deploy` installs into and the pull secret goes into.
+      DEMO_NAMESPACE: default
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore and build AppHost
+        run: |
+          dotnet restore examples/ExampleApp.AppHost/ExampleApp.AppHost.csproj
+          dotnet build examples/ExampleApp.AppHost/ExampleApp.AppHost.csproj --no-restore
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase the repository name for GHCR
+        run: echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Let the cluster pull from GHCR
+        run: |
+          kubectl create secret docker-registry ghcr \
+            --namespace "$DEMO_NAMESPACE" \
+            --docker-server=ghcr.io \
+            --docker-username="${{ github.repository_owner }}" \
+            --docker-password="${{ secrets.GHCR_PULL_TOKEN }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl patch serviceaccount default --namespace "$DEMO_NAMESPACE" \
+            -p '{"imagePullSecrets":[{"name":"ghcr"}]}'
+
+      - name: Preview deployment steps
+        working-directory: examples/ExampleApp.AppHost
+        run: aspire deploy --list-steps --non-interactive
+
+      - name: Deploy with Aspire
+        working-directory: examples/ExampleApp.AppHost
+        env:
+          Parameters__registry_endpoint: ghcr.io
+          Parameters__registry_repository: ${{ env.REPO_LOWER }}
+          Parameters__dashboard_host: ${{ vars.DEMO_HOST }}
+          Parameters__api_host: api.${{ vars.DEMO_HOST }}
+          Parameters__public_dashboard_url: http://${{ vars.DEMO_HOST }}
+          Parameters__public_api_url: http://api.${{ vars.DEMO_HOST }}
+        run: aspire deploy --environment production --non-interactive
+
+      - name: Show rollout status
+        run: kubectl get pods --namespace "$DEMO_NAMESPACE"

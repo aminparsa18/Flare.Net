@@ -1,0 +1,29 @@
+# Kubernetes variant of otelcol.yaml (baked in by Dockerfile.otelcol): no hostmetrics receiver, since
+# the K8s publisher can't mount the node's root filesystem. Keep the rest in sync with otelcol.yaml.
+# The ${env:...} values are set by the AppHost (container-network addresses).
+#
+# Receiver/exporter names are the long-standing ones (kafkametrics, otlp). 0.161 also accepts
+# the newer kafka_metrics / otlp_grpc names; the old ones still work there.
+receivers:
+  # kafka.consumer_group.lag for the Message queues page's Backlog column.
+  kafkametrics:
+    brokers: ["${env:KAFKA_BROKERS}"]
+    protocol_version: 2.1.0
+    collection_interval: 30s
+    scrapers: [brokers, topics, consumers]
+
+processors:
+  batch: {}
+
+exporters:
+  otlp:
+    endpoint: ${env:FLARE_OTLP_ENDPOINT}
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics/kafka:
+      receivers: [kafkametrics]
+      processors: [batch]
+      exporters: [otlp]
