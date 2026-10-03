@@ -42,6 +42,7 @@
 - [Мониторинг очередей сообщений](how-to/monitor-message-queues.ru.md)
 - [Мониторинг внешних API](how-to/monitor-external-apis.ru.md)
 - [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/analyze-trace-funnels.ru.md)
+- [Как найти N+1 запросы](how-to/find-n-plus-one-queries.ru.md)
 - [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
 - [Связать трассировки стека исключений с исходным кодом](how-to/link-exceptions-to-source-code.ru.md)
 - [Как понять, был ли спан медленным для своего типа](how-to/compare-span-duration.ru.md)

@@ -130,14 +130,11 @@ folders are where "what happened and why" actually lives.
   since the model can never issue arbitrary ClickHouse queries. Show the
   generated filter as normal editable chips so users learn the UI. Same AI
   constraints as the incident-summary item. Not started.
-- **N+1 query detection.** The classic EF Core problem is detectable from
-  spans Flare already stores: within one trace, the same normalized
-  `db.query.text` (or `db.operation.name` + `db.collection.name`) repeated ≥ N
-  times (default 10) under one parent span. Show it as a badge on the parent
-  in the waterfall ("N+1: 48× SELECT … FROM Orders"), as a trace-list filter,
-  and as a per-service "worst offenders" list over a time range (query-time
-  `GROUP BY TraceId, ParentSpanId, statement` with caps; pre-aggregate only if
-  needed). Not started.
+- **N+1 trace-list filter.** The waterfall badge, the N+1 tab's worst-offenders
+  list and `POST /api/traces/n-plus-one` have shipped. Still open: a Traces
+  explorer filter for "traces containing an N+1 pattern", which needs the
+  per-trace grouping from `NPlusOneQueryBuilder` as a `SpanFilter` condition
+  (query-time, same caps; pre-aggregate only if it proves too slow). Not started.
 - **.NET runtime health detectors.** Turn `System.Runtime` metrics into
   findings on the service page rather than charts to interpret. Thread-pool
   starvation: queue length rising while completed work items flatline. GC
