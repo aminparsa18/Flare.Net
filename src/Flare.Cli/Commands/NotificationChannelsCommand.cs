@@ -98,6 +98,7 @@ internal sealed class NotificationChannelsListCommand : AsyncCommand<Notificatio
         "Telegram" => string.IsNullOrEmpty(channel.TelegramChatId) ? "" : $"chat {channel.TelegramChatId}",
         "Email" => channel.EmailTo,
         "PagerDuty" => string.IsNullOrEmpty(channel.PagerDutyRoutingKey) ? "" : $"{channel.PagerDutyRoutingKey[..Math.Min(6, channel.PagerDutyRoutingKey.Length)]}…",
+        "Jira" => string.IsNullOrEmpty(channel.JiraProjectKey) ? "" : $"{channel.JiraBaseUrl} ({channel.JiraProjectKey})",
         _ => "",
     };
 }
@@ -146,6 +147,23 @@ internal sealed class NotificationChannelsCreateCommand : AsyncCommand<Notificat
         [Description("Required when --type pagerduty.")]
         public string? PagerDutyRoutingKey { get; init; }
 
+        [CommandOption("--jira-base-url <URL>")]
+        [Description("Jira Cloud site URL (https://acme.atlassian.net). Required (with the other --jira-* options except --jira-issue-type) when --type jira.")]
+        public string? JiraBaseUrl { get; init; }
+
+        [CommandOption("--jira-email <EMAIL>")]
+        public string? JiraEmail { get; init; }
+
+        [CommandOption("--jira-api-token <TOKEN>")]
+        public string? JiraApiToken { get; init; }
+
+        [CommandOption("--jira-project-key <KEY>")]
+        public string? JiraProjectKey { get; init; }
+
+        [CommandOption("--jira-issue-type <NAME>")]
+        [Description("Issue type name; defaults to Task.")]
+        public string? JiraIssueType { get; init; }
+
         [CommandOption("--send-resolved <BOOL>")]
         [Description("Send a \"Resolved\" notification when a firing rule recovers (for PagerDuty, auto-resolves the incident): true or false. Defaults to true.")]
         public bool? SendResolved { get; init; }
@@ -187,6 +205,11 @@ internal sealed class NotificationChannelsCreateCommand : AsyncCommand<Notificat
             TelegramChatId = settings.TelegramChatId,
             EmailTo = settings.EmailTo,
             PagerDutyRoutingKey = settings.PagerDutyRoutingKey,
+            JiraBaseUrl = settings.JiraBaseUrl,
+            JiraEmail = settings.JiraEmail,
+            JiraApiToken = settings.JiraApiToken,
+            JiraProjectKey = settings.JiraProjectKey,
+            JiraIssueType = settings.JiraIssueType,
             SendResolved = settings.SendResolved,
         };
 
@@ -268,6 +291,23 @@ internal sealed class NotificationChannelsUpdateCommand : AsyncCommand<Notificat
         [CommandOption("--pagerduty-routing-key <KEY>")]
         public string? PagerDutyRoutingKey { get; init; }
 
+        [CommandOption("--jira-base-url <URL>")]
+        [Description("Jira Cloud site URL (https://acme.atlassian.net).")]
+        public string? JiraBaseUrl { get; init; }
+
+        [CommandOption("--jira-email <EMAIL>")]
+        public string? JiraEmail { get; init; }
+
+        [CommandOption("--jira-api-token <TOKEN>")]
+        public string? JiraApiToken { get; init; }
+
+        [CommandOption("--jira-project-key <KEY>")]
+        public string? JiraProjectKey { get; init; }
+
+        [CommandOption("--jira-issue-type <NAME>")]
+        [Description("Issue type name; defaults to Task.")]
+        public string? JiraIssueType { get; init; }
+
         [CommandOption("--send-resolved <BOOL>")]
         [Description("Send a \"Resolved\" notification when a firing rule recovers (for PagerDuty, auto-resolves the incident): true or false. Unchanged when omitted.")]
         public bool? SendResolved { get; init; }
@@ -345,6 +385,11 @@ internal sealed class NotificationChannelsUpdateCommand : AsyncCommand<Notificat
             TelegramChatId = Carry(settings.TelegramChatId, existing.TelegramChatId),
             EmailTo = Carry(settings.EmailTo, existing.EmailTo),
             PagerDutyRoutingKey = Carry(settings.PagerDutyRoutingKey, existing.PagerDutyRoutingKey),
+            JiraBaseUrl = Carry(settings.JiraBaseUrl, existing.JiraBaseUrl),
+            JiraEmail = Carry(settings.JiraEmail, existing.JiraEmail),
+            JiraApiToken = Carry(settings.JiraApiToken, existing.JiraApiToken),
+            JiraProjectKey = Carry(settings.JiraProjectKey, existing.JiraProjectKey),
+            JiraIssueType = Carry(settings.JiraIssueType, existing.JiraIssueType),
             // Always sent - PUT replaces the whole channel, and an omitted value means true.
             SendResolved = settings.SendResolved ?? existing.SendResolved,
         };
@@ -564,7 +609,7 @@ internal sealed class NotificationChannelsSendTestCommand : AsyncCommand<Notific
 /// </summary>
 internal static class NotificationChannelTypeParsing
 {
-    public const string ValidValues = "webhook, telegram, email, pagerduty, teams, discord";
+    public const string ValidValues = "webhook, telegram, email, pagerduty, teams, discord, jira";
 
     public static string? Normalize(string? type) => type?.Trim().ToLowerInvariant() switch
     {
@@ -572,6 +617,7 @@ internal static class NotificationChannelTypeParsing
         "telegram" => "Telegram",
         "email" => "Email",
         "pagerduty" or "pager-duty" => "PagerDuty",
+        "jira" => "Jira",
         "teams" or "msteams" => "Teams",
         "discord" => "Discord",
         _ => null,
@@ -605,7 +651,7 @@ internal sealed class NotificationChannelWire
 
     public string Description { get; init; } = "";
 
-    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord".</summary>
+    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord" | "Jira".</summary>
     public required string Type { get; init; }
 
     public string WebhookUrl { get; init; } = "";
@@ -617,6 +663,16 @@ internal sealed class NotificationChannelWire
     public string EmailTo { get; init; } = "";
 
     public string PagerDutyRoutingKey { get; init; } = "";
+
+    public string JiraBaseUrl { get; init; } = "";
+
+    public string JiraEmail { get; init; } = "";
+
+    public string JiraApiToken { get; init; } = "";
+
+    public string JiraProjectKey { get; init; } = "";
+
+    public string JiraIssueType { get; init; } = "";
 
     public DateTimeOffset CreatedAt { get; init; }
 
@@ -636,7 +692,7 @@ internal sealed class NotificationChannelRequestWire
 
     public string? Description { get; init; }
 
-    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord".</summary>
+    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord" | "Jira".</summary>
     public required string Type { get; init; }
 
     public string? WebhookUrl { get; init; }
@@ -648,6 +704,16 @@ internal sealed class NotificationChannelRequestWire
     public string? EmailTo { get; init; }
 
     public string? PagerDutyRoutingKey { get; init; }
+
+    public string? JiraBaseUrl { get; init; }
+
+    public string? JiraEmail { get; init; }
+
+    public string? JiraApiToken { get; init; }
+
+    public string? JiraProjectKey { get; init; }
+
+    public string? JiraIssueType { get; init; }
 
     /// <summary>Null means true (the API's default).</summary>
     public bool? SendResolved { get; init; }

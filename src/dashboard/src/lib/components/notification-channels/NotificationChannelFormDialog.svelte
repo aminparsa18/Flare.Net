@@ -30,6 +30,11 @@
 	let telegramChatId = $state('');
 	let emailTo = $state('');
 	let pagerDutyRoutingKey = $state('');
+	let jiraBaseUrl = $state('');
+	let jiraEmail = $state('');
+	let jiraApiToken = $state('');
+	let jiraProjectKey = $state('');
+	let jiraIssueType = $state('');
 	let sendResolved = $state(true);
 
 	let sendTestResult = $state<AlertNotificationTestResult | null>(null);
@@ -49,6 +54,11 @@
 			telegramChatId = '';
 			emailTo = '';
 			pagerDutyRoutingKey = '';
+			jiraBaseUrl = '';
+			jiraEmail = '';
+			jiraApiToken = '';
+			jiraProjectKey = '';
+			jiraIssueType = '';
 			sendResolved = true;
 		} else if (target) {
 			name = target.name;
@@ -59,6 +69,11 @@
 			telegramChatId = target.telegramChatId;
 			emailTo = target.emailTo;
 			pagerDutyRoutingKey = target.pagerDutyRoutingKey;
+			jiraBaseUrl = target.jiraBaseUrl;
+			jiraEmail = target.jiraEmail;
+			jiraApiToken = target.jiraApiToken;
+			jiraProjectKey = target.jiraProjectKey;
+			jiraIssueType = target.jiraIssueType;
 			sendResolved = target.sendResolved;
 		}
 	});
@@ -70,7 +85,9 @@
 				? telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
 				: type === 'Email'
 					? emailTo.trim().length > 0
-					: pagerDutyRoutingKey.trim().length > 0
+					: type === 'Jira'
+						? [jiraBaseUrl, jiraEmail, jiraApiToken, jiraProjectKey].every((v) => v.trim().length > 0)
+						: pagerDutyRoutingKey.trim().length > 0
 	);
 
 	const canSave = $derived(name.trim().length > 0 && hasDestination);
@@ -89,6 +106,11 @@
 			telegramChatId: type === 'Telegram' ? telegramChatId.trim() : '',
 			emailTo: type === 'Email' ? emailTo.trim() : '',
 			pagerDutyRoutingKey: type === 'PagerDuty' ? pagerDutyRoutingKey.trim() : '',
+			jiraBaseUrl: type === 'Jira' ? jiraBaseUrl.trim() : '',
+			jiraEmail: type === 'Jira' ? jiraEmail.trim() : '',
+			jiraApiToken: type === 'Jira' ? jiraApiToken.trim() : '',
+			jiraProjectKey: type === 'Jira' ? jiraProjectKey.trim() : '',
+			jiraIssueType: type === 'Jira' ? jiraIssueType.trim() : '',
 			sendResolved
 		};
 	}
@@ -154,7 +176,9 @@
 										? m.notificationChannelForm_teamsLabel()
 										: type === 'Discord'
 											? m.notificationChannelForm_discordLabel()
-											: m.alertRuleForm_channelWebhook()}
+											: type === 'Jira'
+												? m.notificationChannelForm_jiraLabel()
+												: m.alertRuleForm_channelWebhook()}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="Webhook" label={m.alertRuleForm_channelWebhook()} />
@@ -163,6 +187,7 @@
 						<Select.Item value="PagerDuty" label={m.alertRuleForm_channelPagerDuty()} />
 						<Select.Item value="Teams" label={m.notificationChannelForm_teamsLabel()} />
 						<Select.Item value="Discord" label={m.notificationChannelForm_discordLabel()} />
+						<Select.Item value="Jira" label={m.notificationChannelForm_jiraLabel()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
@@ -192,6 +217,30 @@
 					<Input bind:value={emailTo} placeholder={m.alertRuleForm_emailToPlaceholder()} />
 					<span class="text-muted-foreground text-xs">{m.alertRuleForm_emailToHint()}</span>
 				</div>
+			{:else if type === 'Jira'}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.notificationChannelForm_jiraBaseUrlLabel()}</span>
+					<Input bind:value={jiraBaseUrl} placeholder="https://acme.atlassian.net" />
+				</div>
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.notificationChannelForm_jiraEmailLabel()}</span>
+					<Input bind:value={jiraEmail} placeholder="you@example.com" />
+				</div>
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.notificationChannelForm_jiraApiTokenLabel()}</span>
+					<Input type="password" bind:value={jiraApiToken} />
+				</div>
+				<div class="flex gap-2">
+					<div class="flex flex-1 flex-col gap-1">
+						<span class="text-xs font-medium">{m.notificationChannelForm_jiraProjectKeyLabel()}</span>
+						<Input bind:value={jiraProjectKey} placeholder="OPS" />
+					</div>
+					<div class="flex flex-1 flex-col gap-1">
+						<span class="text-xs font-medium">{m.notificationChannelForm_jiraIssueTypeLabel()}</span>
+						<Input bind:value={jiraIssueType} placeholder="Task" />
+					</div>
+				</div>
+				<span class="text-muted-foreground text-xs">{m.notificationChannelForm_jiraHint()}</span>
 			{:else}
 				<div class="flex flex-col gap-1">
 					<span class="text-xs font-medium">{m.alertRuleForm_pagerDutyRoutingKeyLabel()}</span>
