@@ -25,8 +25,11 @@ import type { PanelReducer, PanelStacking, PanelVisualization } from '$lib/dashb
 
 // ---- Shared shapes (DashboardModels.cs) ------------------------------------
 
-/** Which Explorer page a panel's embedded `query` came from - same three values as `SavedViewPageType`. */
-export type PanelType = 'Logs' | 'Traces' | 'Metrics';
+/**
+ * Which Explorer page a panel's embedded `query` came from - same three values as `SavedViewPageType` -
+ * or `'Text'`, a query-less Markdown note (`query` is a `TextPanelQuery`, see `$lib/dashboards/text-panel.ts`).
+ */
+export type PanelType = 'Logs' | 'Traces' | 'Metrics' | 'Text';
 
 /** One widget on a dashboard. `query` is that panel type's own `*FilterState` shape (see `$lib/logs/state.svelte.ts` etc.) - opaque here, exactly as a `SavedView.state` is opaque to this client too. */
 export interface DashboardPanel {

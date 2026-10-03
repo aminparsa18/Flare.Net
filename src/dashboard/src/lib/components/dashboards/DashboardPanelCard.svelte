@@ -20,6 +20,8 @@
 	import DashboardLogsPanelBody from './panels/DashboardLogsPanelBody.svelte';
 	import DashboardMetricsPanelBody from './panels/DashboardMetricsPanelBody.svelte';
 	import DashboardTracesPanelBody from './panels/DashboardTracesPanelBody.svelte';
+	import DashboardTextPanelBody from './panels/DashboardTextPanelBody.svelte';
+	import TextPanelEditPopover from './TextPanelEditPopover.svelte';
 	import PanelVariablesPopover from './PanelVariablesPopover.svelte';
 	import YAxisBoundsPopover from './YAxisBoundsPopover.svelte';
 	import ThresholdsPopover from './ThresholdsPopover.svelte';
@@ -34,6 +36,7 @@
 	import type { YAxisScale } from '$lib/metrics/axis';
 	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
 	import { parseLegendFormat, parseLegendPosition, parseSeriesColors, type LegendPosition } from '$lib/dashboards/legend';
+	import { textPanelMarkdown } from '$lib/dashboards/text-panel';
 	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
@@ -61,6 +64,7 @@
 		onRemove,
 		onRename,
 		onSetDescription,
+		onSetText,
 		onDuplicate,
 		onExport,
 		onToggleVariable,
@@ -85,6 +89,7 @@
 		onRemove: () => void;
 		onRename: (title: string) => void;
 		onSetDescription: (description: string) => void;
+		onSetText: (markdown: string) => void;
 		onDuplicate: () => void;
 		onExport: () => void;
 		onToggleVariable: (variableId: string, excluded: boolean) => void;
@@ -142,6 +147,8 @@
 				return m.nav_traces();
 			case 'Metrics':
 				return m.nav_metrics();
+			case 'Text':
+				return m.dashboardPanelType_text();
 		}
 	}
 
@@ -220,9 +227,10 @@
 	// state narrowed to the clicked window (and, on a grouped Logs chart, that series). Both
 	// modes, same "never risks losing anything" reasoning as "Create alert" above.
 	const explorerState = $derived(panelExplorerState(panel, timeRangeOverride, variableOverrides));
-	const explorerHref = $derived(panelExplorerHref(panel.panelType, explorerState));
+	// A Text panel has no query to open - no explorer link, and nothing for a chart click to drill into.
+	const explorerHref = $derived(panel.panelType === 'Text' ? null : panelExplorerHref(panel.panelType, explorerState));
 
-	function explorerLabel(panelType: DashboardPanel['panelType']): string {
+	function explorerLabel(panelType: Exclude<DashboardPanel['panelType'], 'Text'>): string {
 		switch (panelType) {
 			case 'Logs':
 				return m.dashboardPanelCard_openInLogs();
@@ -234,6 +242,7 @@
 	}
 
 	function openRange(range: { from: Date; to: Date }, groupKey?: string | null): void {
+		if (panel.panelType === 'Text') return;
 		let state = withCustomRange(explorerState, range.from, range.to);
 		if (groupKey !== undefined) state = withLogsGroup(state, groupKey);
 		void goto(panelExplorerHref(panel.panelType, state));
@@ -280,16 +289,18 @@
 			{/if}
 			<Badge variant="outline" class="shrink-0">{panelTypeLabel(panel.panelType)}</Badge>
 		</div>
-		<Button
-			variant="ghost"
-			size="icon-sm"
-			class="text-muted-foreground hover:text-foreground shrink-0"
-			title={explorerLabel(panel.panelType)}
-			aria-label={explorerLabel(panel.panelType)}
-			href={explorerHref}
-		>
-			<TelescopeIcon />
-		</Button>
+		{#if panel.panelType !== 'Text' && explorerHref}
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="text-muted-foreground hover:text-foreground shrink-0"
+				title={explorerLabel(panel.panelType)}
+				aria-label={explorerLabel(panel.panelType)}
+				href={explorerHref}
+			>
+				<TelescopeIcon />
+			</Button>
+		{/if}
 		{#if alertDraft}
 			<Button
 				variant="ghost"
@@ -311,8 +322,11 @@
 			<DownloadIcon />
 		</Button>
 		{#if editing}
+			{#if panel.panelType === 'Text'}
+				<TextPanelEditPopover markdown={textPanelMarkdown(panel.query)} onApply={onSetText} />
+			{/if}
 			<PanelDescriptionPopover description={panel.description} onApply={onSetDescription} />
-			{#if variables.length > 0}
+			{#if variables.length > 0 && panel.panelType !== 'Text'}
 				<PanelVariablesPopover {variables} excludedVariableIds={panel.excludedVariableIds} onToggle={onToggleVariable} />
 			{/if}
 			{#if panel.panelType === 'Metrics'}
@@ -360,8 +374,10 @@
 		{/if}
 	</div>
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden" use:inViewport={() => (visible = true)}>
-		{#if visible}
-			{#if panel.panelType === 'Logs'}
+		{#if visible || panel.panelType === 'Text'}
+			{#if panel.panelType === 'Text'}
+				<DashboardTextPanelBody query={panel.query} {variables} {variableValues} />
+			{:else if panel.panelType === 'Logs'}
 				<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} onOpenRange={openRange} />
 			{:else if panel.panelType === 'Metrics'}
 				<DashboardMetricsPanelBody

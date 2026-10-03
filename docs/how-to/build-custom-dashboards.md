@@ -81,6 +81,23 @@ Every change saves immediately — there's no separate "Save" step. Click
 **Done editing** to leave edit mode and lock the layout again (view mode
 never risks an accidental drag).
 
+## Adding a text panel
+
+A **Text** panel holds Markdown notes instead of a query: a runbook link, a
+section header, or a reminder of who owns the service. Pick **Text** in the
+Add panel dialog and write the Markdown. In edit mode, the pencil icon in
+the panel's header changes it later.
+
+Supported Markdown: headings, paragraphs, bulleted and numbered lists, block
+quotes, horizontal rules, fenced code, **bold**, *italic*, `inline code`, and
+links. Links must be `http://` or `https://`, and they open in a new tab.
+Raw HTML is never rendered, so `<b>x</b>` shows up as literal text. `$name` /
+`${name}` references are filled in from the dashboard's variables, the same
+way they are in panel titles. A text panel never runs a query, so refresh,
+time-range overrides and variable opt-outs don't apply to it, and it renders
+immediately instead of waiting to scroll into view. It also has no "Open in
+explorer" or "Create alert" action.
+
 ## Grouping panels into rows
 
 ![Panels grouped into collapsible rows](../screenshots/build-custom-dashboards-2-en.webp)

@@ -58,6 +58,7 @@ const TRACES_TYPES = new Set(['traces']);
 
 function mapPanelType(type: string | undefined): PanelType | null {
 	if (!type) return null;
+	if (type === 'text') return 'Text';
 	if (METRICS_TYPES.has(type)) return 'Metrics';
 	if (LOGS_TYPES.has(type)) return 'Logs';
 	if (TRACES_TYPES.has(type)) return 'Traces';
@@ -67,6 +68,8 @@ function mapPanelType(type: string | undefined): PanelType | null {
 /** Blank-slate query for a freshly-imported panel of `panelType` - identical to what a brand-new panel of that type gets from AddPanelDialog before the user configures anything (see this module's header comment for why nothing more specific can be filled in here). */
 function defaultQueryFor(panelType: PanelType): unknown {
 	switch (panelType) {
+		case 'Text':
+			return { markdown: '' };
 		case 'Logs':
 			return {
 				timeRangePreset: '1h',
@@ -109,6 +112,7 @@ interface GrafanaPanel {
 	title?: unknown;
 	gridPos?: unknown;
 	panels?: unknown;
+	options?: unknown;
 }
 
 function isGrafanaPanel(value: unknown): value is GrafanaPanel {
@@ -180,7 +184,9 @@ export function parseGrafanaDashboard(parsed: unknown): GrafanaImportResult | nu
 	for (const raw of flattenPanels(root.panels)) {
 		const rawType = typeof raw.type === 'string' ? raw.type : undefined;
 		const panelType = mapPanelType(rawType);
-		if (!panelType) {
+		// A Grafana text panel in `html` mode can't be shown as Markdown (Flare never renders raw HTML), so it's skipped like any other unsupported type.
+		const textOptions = (raw.options ?? {}) as { mode?: unknown; content?: unknown };
+		if (!panelType || (panelType === 'Text' && textOptions.mode === 'html')) {
 			skippedCount++;
 			if (rawType) skippedTypes.add(rawType);
 			continue;
@@ -190,7 +196,7 @@ export function parseGrafanaDashboard(parsed: unknown): GrafanaImportResult | nu
 			panelType,
 			title: typeof raw.title === 'string' && raw.title.trim() ? raw.title : panelType,
 			layout: convertGridPos(raw.gridPos, panels),
-			query: defaultQueryFor(panelType),
+			query: panelType === 'Text' ? { markdown: typeof textOptions.content === 'string' ? textOptions.content : '' } : defaultQueryFor(panelType),
 			visualization: panelType === 'Metrics' && rawType ? METRICS_VISUALIZATIONS[rawType] : undefined
 		});
 	}

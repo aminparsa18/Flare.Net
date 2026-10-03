@@ -43,6 +43,7 @@
 		onRemove,
 		onRename,
 		onSetDescription,
+		onSetText,
 		onDuplicate,
 		onExport,
 		onToggleVariable,
@@ -71,6 +72,7 @@
 		onRemove: (id: string) => void;
 		onRename: (id: string, title: string) => void;
 		onSetDescription: (id: string, description: string) => void;
+		onSetText: (id: string, markdown: string) => void;
 		onDuplicate: (id: string) => void;
 		onExport: (id: string) => void;
 		onToggleVariable: (id: string, variableId: string, excluded: boolean) => void;
@@ -157,6 +159,7 @@
 					onRemove={() => onRemove(panel.id)}
 					onRename={(title) => onRename(panel.id, title)}
 					onSetDescription={(description) => onSetDescription(panel.id, description)}
+					onSetText={(markdown) => onSetText(panel.id, markdown)}
 					onDuplicate={() => onDuplicate(panel.id)}
 					onExport={() => onExport(panel.id)}
 					onToggleVariable={(variableId, excluded) => onToggleVariable(panel.id, variableId, excluded)}

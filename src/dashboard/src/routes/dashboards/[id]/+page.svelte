@@ -335,6 +335,7 @@
 		onRemove={(id) => viewer.removePanel(id)}
 		onRename={(id, title) => viewer.renamePanel(id, title)}
 		onSetDescription={(id, description) => viewer.setPanelDescription(id, description)}
+		onSetText={(id, markdown) => viewer.setPanelText(id, markdown)}
 		onDuplicate={(id) => viewer.duplicatePanel(id)}
 		onExport={(id) => viewer.exportPanel(id)}
 		onToggleVariable={(id, variableId, excluded) => viewer.setPanelVariableExcluded(id, variableId, excluded)}
