@@ -98,12 +98,16 @@ public static class AlertMessageFormatter
     /// down") can't read as a new incident; <c>{{status}}</c> is "resolved" for a template that
     /// wants to word it itself.
     /// </summary>
+    /// <param name="format">
+    /// The channel's markup (<see cref="AlertMarkupFormat"/>) for a custom template; the built-in
+    /// wording ignores it. Defaults to plain text.
+    /// </param>
     /// <param name="appendLinks">
     /// False for <see cref="PagerDutyAlertNotifier"/>, whose built-in summary never carried
     /// link lines (it has <c>client_url</c>/<c>links</c> for those). Only affects the built-in
     /// text - the <c>{{rule_url}}</c>/<c>{{logs_url}}</c> placeholders resolve either way.
     /// </param>
-    public static AlertMessage BuildMessage(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool appendLinks = true, bool resolved = false)
+    public static AlertMessage BuildMessage(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool appendLinks = true, bool resolved = false, AlertMarkupFormat format = AlertMarkupFormat.Plain)
     {
         resolved = resolved && !isTest;
         var titleTemplate = rule.NotificationTitleTemplate;
@@ -117,13 +121,30 @@ public static class AlertMessageFormatter
         var labels = BuildTemplateLabels(rule);
         var prefix = isTest ? TestPrefix : resolved ? ResolvedPrefix : "";
 
-        var title = string.IsNullOrEmpty(titleTemplate) ? null : prefix + AlertTemplateRenderer.Render(titleTemplate, values, labels);
+        var title = string.IsNullOrEmpty(titleTemplate) ? null : prefix + RenderTemplate(titleTemplate, values, labels, format);
         // Only one of the two carries the prefix - with a title it's already the first thing
         // every channel shows, and a second "[Test]" on the body line would just be noise.
         var text = string.IsNullOrEmpty(bodyTemplate)
             ? BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved)
-            : (title is null ? prefix : "") + AlertTemplateRenderer.Render(bodyTemplate, values, labels);
+            : (title is null ? prefix : "") + RenderTemplate(bodyTemplate, values, labels, format);
         return new AlertMessage(title, text, IsCustom: true);
+    }
+
+    /// <summary>
+    /// <see cref="AlertMarkdown"/> in <paramref name="format"/>, falling back to the plain
+    /// placeholder substitution if the Markdown pass ever throws - a notification must still go
+    /// out with the author's text rather than fail on formatting (ADR-0090).
+    /// </summary>
+    private static string RenderTemplate(string template, IReadOnlyDictionary<string, string> values, IReadOnlyDictionary<string, string> labels, AlertMarkupFormat format)
+    {
+        try
+        {
+            return AlertMarkdown.Render(template, values, labels, format);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return AlertTemplateRenderer.Render(template, values, labels);
+        }
     }
 
     /// <summary>Prefixed to a custom-templated title/body on a test send - see <see cref="BuildMessage"/>.</summary>

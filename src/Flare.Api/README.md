@@ -244,9 +244,14 @@ breach count - see `AlertNotificationTestResult`.
 
 A rule's optional `notificationTitleTemplate`/`notificationBodyTemplate` replace the built-in
 notification wording (`AlertMessageFormatter.BuildMessage`) with `{{placeholder}}` text -
-plain substitution via `AlertTemplateRenderer`, no template engine; unknown placeholders are
-rejected on save. `/notification-preview` renders a draft's templates server-side for the rule
-form's live preview. See `docs-internal/adr/0052-alert-notification-templates.md`.
+substitution via `AlertTemplateRenderer`, no template engine; unknown placeholders are
+rejected on save. The text is also a small Markdown subset (bold, italic, code, links, lists)
+that `AlertMarkdown` renders per channel: Telegram HTML, Slack mrkdwn (webhook URLs on
+`hooks.slack.com`), an HTML email part beside the plain text, plain text for other webhooks
+and PagerDuty. `/notification-preview` renders a draft's templates server-side (including the
+per-channel output) for the rule form's live preview. See
+`docs-internal/adr/0052-alert-notification-templates.md` and
+`docs-internal/adr/0090-alert-template-markdown.md`.
 
 **Storage: `alert_rules` (ReplacingMergeTree) + `alert_events` (append-only MergeTree) +
 `notification_channels` (ReplacingMergeTree)**, `db/clickhouse/0003_alert_rules.sql` /

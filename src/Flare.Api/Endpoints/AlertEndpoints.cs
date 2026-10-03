@@ -290,11 +290,18 @@ public static class AlertEndpoints
         var rule = ToDraftRule(request, timeProvider.GetUtcNow()) with { Id = ruleId ?? Guid.Empty };
         var (observedValue, anomaly) = PreviewSample(rule);
         var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest: false, linkOptions.Value.PublicUrl, metricUnit: string.IsNullOrEmpty(rule.ThresholdUnit) ? null : rule.ThresholdUnit, rule.UpdatedAt, noData: false, anomaly);
+        string ForFormat(AlertMarkupFormat format) => AlertMessageFormatter.BuildMessage(rule, observedValue, isTest: false, linkOptions.Value.PublicUrl, metricUnit: string.IsNullOrEmpty(rule.ThresholdUnit) ? null : rule.ThresholdUnit, rule.UpdatedAt, noData: false, anomaly, format: format).Combined;
+        var hasTemplate = message.IsCustom;
         var preview = new AlertNotificationPreview
         {
             Title = message.Title ?? "",
             Text = message.Text,
             Error = request.ValidateTemplates() ?? "",
+            TelegramHtml = hasTemplate ? ForFormat(AlertMarkupFormat.TelegramHtml) : "",
+            SlackText = hasTemplate ? ForFormat(AlertMarkupFormat.SlackMrkdwn) : "",
+            EmailHtml = string.IsNullOrEmpty(rule.NotificationBodyTemplate)
+                ? ""
+                : AlertMessageFormatter.BuildMessage(rule, observedValue, isTest: false, linkOptions.Value.PublicUrl, metricUnit: string.IsNullOrEmpty(rule.ThresholdUnit) ? null : rule.ThresholdUnit, rule.UpdatedAt, noData: false, anomaly, format: AlertMarkupFormat.EmailHtml).Text,
         };
         return ApiSerialization.Write(http, preview, AlertsJsonContext.Default.AlertNotificationPreview);
     }

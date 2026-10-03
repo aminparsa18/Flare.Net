@@ -18,6 +18,16 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
+    /// <summary>
+    /// True for a Slack incoming-webhook URL (<c>hooks.slack.com</c>/<c>hooks.slack-gov.com</c>),
+    /// whose <c>text</c> is rendered as <c>mrkdwn</c> - a custom template then gets Slack
+    /// formatting; any other URL gets plain text. Host-based, not a channel setting (ADR-0090).
+    /// </summary>
+    internal static bool IsSlackWebhook(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        && (uri.Host.Equals("hooks.slack.com", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.Equals("hooks.slack-gov.com", StringComparison.OrdinalIgnoreCase));
+
     public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false)
     {
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
@@ -25,7 +35,7 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
         var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold;
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, format: IsSlackWebhook(channel.WebhookUrl) ? AlertMarkupFormat.SlackMrkdwn : AlertMarkupFormat.Plain);
         var payload = new
         {
             // Slack renders only `text`, so a custom title goes in as its first line; `title`

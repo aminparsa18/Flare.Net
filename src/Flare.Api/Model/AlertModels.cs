@@ -1044,6 +1044,15 @@ public sealed partial record AlertNotificationPreview
 
     /// <summary>Why the templates can't be saved as-is (unknown placeholder, too long) - "" when they're valid. <see cref="Title"/>/<see cref="Text"/> still carry a best-effort render.</summary>
     public string Error { get; init; } = "";
+
+    /// <summary><see cref="Title"/>/<see cref="Text"/> (title first) as Telegram HTML - "" unless the draft sets a title or body template (the built-in wording has no per-channel rendering).</summary>
+    public string TelegramHtml { get; init; } = "";
+
+    /// <summary>The same as Slack mrkdwn (what a Slack incoming-webhook URL receives) - "" unless a template is set.</summary>
+    public string SlackText { get; init; } = "";
+
+    /// <summary>The body as the email's HTML part - "" unless the draft sets a body template (a title-only template keeps the plain-text email).</summary>
+    public string EmailHtml { get; init; } = "";
 }
 
 /// <summary>

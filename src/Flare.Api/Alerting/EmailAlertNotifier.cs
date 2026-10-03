@@ -53,7 +53,18 @@ public sealed class EmailAlertNotifier(IOptions<EmailOptions> options, IOptions<
         var content = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved);
         message.Subject = content.Title
             ?? (isTest ? $"Flare test alert: {rule.Name}" : resolved ? $"Flare alert resolved: {rule.Name}" : noData ? $"Flare alert (no data): {rule.Name}" : anomaly is not null ? $"Flare alert (anomaly): {rule.Name}" : $"Flare alert: {rule.Name}");
-        message.Body = new TextPart("plain") { Text = content.Text };
+        // A custom body template gets an HTML part alongside the plain text (multipart/alternative); the
+        // built-in wording stays plain text only.
+        var textPart = new TextPart("plain") { Text = content.Text };
+        if (!string.IsNullOrEmpty(rule.NotificationBodyTemplate))
+        {
+            var html = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, format: AlertMarkupFormat.EmailHtml);
+            message.Body = new MultipartAlternative { textPart, new TextPart("html") { Text = html.Text } };
+        }
+        else
+        {
+            message.Body = textPart;
+        }
 
         try
         {
