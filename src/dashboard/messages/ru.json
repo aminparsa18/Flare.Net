@@ -2343,5 +2343,10 @@
 	"metricAttrRules_delete": "Удалить правило",
 	"metricAttrRules_viaPattern": "по шаблону {pattern}",
 	"metricAttrRules_defaultName": "Сокращение {metric}",
-	"metricAttrRules_irreversible": "Удалённые атрибуты нельзя восстановить для данных, принятых, пока правило включено."
+	"metricAttrRules_irreversible": "Удалённые атрибуты нельзя восстановить для данных, принятых, пока правило включено.",
+	"metricDashboards_heading": "Дашборды с этой метрикой",
+	"metricDashboards_hint": "Проверьте их перед переименованием, удалением или переопределением метрики.",
+	"metricDashboards_none": "Ни одна панель дашбордов не использует эту метрику.",
+	"metricDashboards_formula": "формула",
+	"metricDashboards_error": "Не удалось найти дашборды: {message}"
 }

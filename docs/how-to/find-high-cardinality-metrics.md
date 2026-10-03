@@ -92,6 +92,13 @@ Pick the service, window (5 minutes to 1 hour), and bucket width at the top.
 It starts on the service with the most series. A series with more samples
 than can be shown keeps its most recent ones and is marked **Latest only**.
 
+## See which dashboards use a metric
+
+Before you rename, drop or override a metric, open its panel and look at
+**Dashboards using this metric**. It lists every dashboard with a Metrics
+panel that charts the metric, including panels that use it in a formula
+(marked **formula**), each linking to the dashboard.
+
 ## Correct a metric's unit or description
 
 Admins can replace what the instrumentation sends. In the metric's panel,

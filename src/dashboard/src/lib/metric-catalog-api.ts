@@ -322,3 +322,30 @@ export async function resetMetricMetadataOverride(metricName: string): Promise<v
 		throw new Error(`DELETE /api/metrics/metadata-overrides failed: ${res.status} ${res.statusText}`);
 	}
 }
+
+export interface MetricDashboardPanelUsage {
+	panelId: string;
+	title: string;
+	/** The metric is one of a Formula panel's queries rather than the panel's single selected metric. */
+	inFormula: boolean;
+}
+
+export interface MetricDashboardUsage {
+	dashboardId: string;
+	dashboardName: string;
+	panels: MetricDashboardPanelUsage[];
+}
+
+/** Dashboards with a Metrics panel reading `metricName`, by dashboard name. Plain JSON - a small nested list isn't worth a MemoryPack companion. */
+export async function getMetricDashboardUsage(metricName: string, signal?: AbortSignal): Promise<MetricDashboardUsage[]> {
+	const res = await apiFetch(`${API_BASE_URL}/api/metrics/catalog/dashboards`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ metricName }),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/metrics/catalog/dashboards failed: ${res.status} ${res.statusText}`);
+	}
+	return ((await res.json()) as { dashboards: MetricDashboardUsage[] }).dashboards;
+}

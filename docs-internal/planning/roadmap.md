@@ -141,13 +141,6 @@ folders are where "what happened and why" actually lives.
   series a rule would remove, no page listing prefix rules that match no
   currently-ingested metric, and no user-facing how-to in `docs/`. Prior art:
   [signoz#11849](https://github.com/SigNoz/signoz/commit/d5221a6ff3b1b7a9b55492218c9f589845bcbc28).
-- **"Dashboards using this metric" in the metrics catalog.** The catalog's
-  inspect view doesn't show which dashboard panels (including formula
-  panels) reference a metric, so before renaming, dropping or overriding a
-  metric there's no way to see what breaks. Add a lookup over saved
-  dashboards' layout JSON by metric name (respecting dashboard visibility),
-  listed with deep links to each dashboard/panel. Not started. Prior art:
-  [signoz#11784](https://github.com/SigNoz/signoz/commit/5ab6636863aa3cab0b5b0a7e260be8c3f206841c).
 - **Free-text log search across all fields.** The free-text filter is a
   case-insensitive substring match on `Body` only, so an order ID that lives
   only in an attribute isn't found unless you know its key. Add an opt-in
