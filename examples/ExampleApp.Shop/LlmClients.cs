@@ -4,7 +4,8 @@ namespace ExampleApp.Shop;
 
 /// <summary>
 /// The shop's model calls - fraud-check explains its score with a chat model, notification-service
-/// drafts the order SMS with another, and the storefront embeds cart searches. The clients are
+/// drafts the order SMS with another, and the storefront rewrites search queries with a self-hosted
+/// model and embeds them. The clients are
 /// real Microsoft.Extensions.AI pipelines (<c>UseOpenTelemetry()</c> on top), so the spans and
 /// metrics they emit are exactly what an app calling OpenAI or Anthropic would send; only the
 /// model underneath is an in-process fake, so the demo needs no API key, no network and no extra
@@ -16,7 +17,9 @@ public static class LlmClients
     public const string InstrumentationName = "Microsoft.Extensions.AI";
 
     public const string FraudModel = "gpt-4o-mini";
-    public const string NotificationModel = "claude-sonnet-5-5";
+    public const string NotificationModel = "claude-haiku-4-5";
+    /// <summary>A self-hosted model: no built-in price, so the /llm page shows "No price" until an admin sets one.</summary>
+    public const string QueryRewriteModel = "llama3.1:8b";
     public const string EmbeddingModel = "text-embedding-3-small";
 
     public static IServiceCollection AddFraudChatClient(this IServiceCollection services) =>
@@ -24,6 +27,9 @@ public static class LlmClients
 
     public static IServiceCollection AddNotificationChatClient(this IServiceCollection services) =>
         services.AddSingleton(sp => Chat("anthropic", NotificationModel, medianMs: 1500, inputTokens: 260, outputTokens: 140, failureRate: 0.02, sp));
+
+    public static IServiceCollection AddQueryRewriteChatClient(this IServiceCollection services) =>
+        services.AddSingleton(sp => Chat("ollama", QueryRewriteModel, medianMs: 320, inputTokens: 60, outputTokens: 14, failureRate: 0.01, sp));
 
     public static IServiceCollection AddCartEmbeddings(this IServiceCollection services) =>
         services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>

@@ -84,7 +84,13 @@ l'explorateur de traces filtré sur les appels à ce modèle.
 - **Les spans d'agent et d'outil.** Les spans `invoke_agent`, `create_agent` et
   `execute_tool` ne sont pas comptés. Un span d'agent peut reprendre les tokens
   des appels de modèle qu'il contient ; les compter tous doublerait les totaux.
-- **Le coût.** La page affiche des tokens, pas un coût estimé.
+- **Le coût facturé.** **Est. cost** multiplie le nombre de tokens par un prix
+  au million de tokens : un tarif public intégré pour les modèles courants
+  d'OpenAI, Anthropic et Gemini (les versions datées comme
+  `gpt-4o-2024-08-06` prennent le prix de leur famille), ou celui qu'un
+  administrateur définit avec le crayon à côté du coût. Les modèles sans prix
+  affichent **No price**. Flare ne voit pas les tokens en cache ni remisés :
+  considérez le chiffre comme une estimation haute.
 - **La correspondance sur le modèle demandé.** **View traces** filtre sur
   `gen_ai.request.model` : un appel qui n'a renseigné que
   `gen_ai.response.model` apparaît dans le tableau mais pas dans cette liste de

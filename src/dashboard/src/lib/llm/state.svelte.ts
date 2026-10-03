@@ -4,13 +4,13 @@
 // No polling, same as ExternalApisState: every load aggregates the window's model-call spans
 // live, so it's an on-demand view with a manual refresh.
 
-import { getLlmModels, type LlmModel } from '$lib/llm-api';
+import { getLlmModels, resetLlmModelPrice, setLlmModelPrice, type LlmModel } from '$lib/llm-api';
 import { SERVICES_WINDOW_PRESETS, type ServicesWindowPreset } from '$lib/services/state.svelte';
 
 export type LlmWindowPreset = ServicesWindowPreset;
 export const LLM_WINDOW_PRESETS = SERVICES_WINDOW_PRESETS;
 
-export type LlmSortColumn = 'model' | 'perSecond' | 'errorRate' | 'p95Ms' | 'p99Ms' | 'inputTokens' | 'outputTokens' | 'lastSeenUnixMs';
+export type LlmSortColumn = 'model' | 'perSecond' | 'errorRate' | 'p95Ms' | 'p99Ms' | 'inputTokens' | 'outputTokens' | 'estimatedCost' | 'lastSeenUnixMs';
 
 /** Errors over calls, 0-1. */
 export function errorRate(row: { callCount: number; errorCount: number }): number {
@@ -75,6 +75,17 @@ export class LlmState {
 		this.#reload();
 	}
 
+	/** Admin: price a model, then reload so every row's cost reflects it. */
+	async savePrice(model: string, inputPerMillion: number, outputPerMillion: number): Promise<void> {
+		await setLlmModelPrice(model, inputPerMillion, outputPerMillion);
+		await this.load();
+	}
+
+	async resetPrice(model: string): Promise<void> {
+		await resetLlmModelPrice(model);
+		await this.load();
+	}
+
 	setSort(column: LlmSortColumn): void {
 		if (this.sortColumn === column) {
 			this.sortDescending = !this.sortDescending;
@@ -93,6 +104,9 @@ export class LlmState {
 					return direction * (a.model.localeCompare(b.model) || a.provider.localeCompare(b.provider));
 				case 'errorRate':
 					return direction * (errorRate(a) - errorRate(b));
+				case 'estimatedCost':
+					// Unpriced rows (null) sort as the cheapest, not as free-and-first on ascending.
+					return direction * ((a.estimatedCost ?? -1) - (b.estimatedCost ?? -1));
 				default:
 					return direction * (a[column] - b[column]);
 			}

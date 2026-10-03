@@ -1,5 +1,6 @@
 using ClickHouse.Driver;
 using Flare.Api.Model;
+using Flare.Identity.LlmPrices;
 using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Query;
@@ -14,7 +15,7 @@ public interface ILlmQueryService
 /// <see cref="LlmQueryBuilder"/> for the SQL. Same <c>ExecuteReaderAsync</c> + ordinal-read
 /// style as <see cref="ExternalApiQueryService"/>.
 /// </summary>
-public sealed class LlmQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ILlmQueryService
+public sealed class LlmQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, ILlmModelPriceStore priceStore, TimeProvider timeProvider) : ILlmQueryService
 {
     public async Task<LlmModelsResponse> GetModelsAsync(LlmModelsRequest request, CancellationToken cancellationToken)
     {
@@ -61,7 +62,7 @@ public sealed class LlmQueryService(IClickHouseClient client, IOptions<QueryLimi
         return new LlmModelsResponse
         {
             WindowMinutes = windowMinutes,
-            Models = models,
+            Models = LlmPricing.Apply(models, await priceStore.GetAllAsync(cancellationToken)),
             Services = services,
         };
     }

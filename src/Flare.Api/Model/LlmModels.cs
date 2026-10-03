@@ -56,6 +56,29 @@ public sealed partial record LlmModel
     public required ulong ServiceCount { get; init; }
 
     public required long LastSeenUnixMs { get; init; }
+
+    /// <summary>USD per million input tokens used for the estimate; null when no price is known (see <see cref="Query.LlmPricing"/>).</summary>
+    public double? InputPricePerMillion { get; init; }
+
+    public double? OutputPricePerMillion { get; init; }
+
+    /// <summary>True when the price is an admin override, false for a built-in default.</summary>
+    public bool PriceIsCustom { get; init; }
+
+    /// <summary>Input and output tokens times their prices, in USD; null when no price is known.</summary>
+    public double? EstimatedCost { get; init; }
+}
+
+/// <summary>Body of <c>PUT /api/llm/prices</c> - Admin-only. Prices are USD per million tokens.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record SetLlmModelPriceRequest
+{
+    public string? Model { get; init; }
+
+    public double InputPerMillion { get; init; }
+
+    public double OutputPerMillion { get; init; }
 }
 
 /// <summary>Response body for <c>POST /api/llm/models</c>. Hand-written on the MemoryPack TS side (it holds <see cref="IReadOnlyList{T}"/> fields).</summary>

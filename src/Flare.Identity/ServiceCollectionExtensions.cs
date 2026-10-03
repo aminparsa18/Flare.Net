@@ -4,6 +4,7 @@ using Flare.Identity.Audit;
 using Flare.Identity.Auth;
 using Flare.Identity.DashboardPins;
 using Flare.Identity.IngestKeys;
+using Flare.Identity.LlmPrices;
 using Flare.Identity.MetricMetadata;
 using Flare.Identity.PersonalAccessTokens;
 using Flare.Identity.SourceLinks;
@@ -46,6 +47,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<IApdexThresholdStore, SqliteApdexThresholdStore>();
         builder.Services.AddSingleton<ISourceLinkStore, SqliteSourceLinkStore>();
         builder.Services.AddSingleton<IMetricMetadataOverrideStore, SqliteMetricMetadataOverrideStore>();
+        builder.Services.AddSingleton<ILlmModelPriceStore, SqliteLlmModelPriceStore>();
         builder.Services.AddSingleton<IDashboardPinStore, SqliteDashboardPinStore>();
         builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();
         return builder;

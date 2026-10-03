@@ -16,6 +16,7 @@ public static class Storefront
         builder.Services.AddShopServiceClient("checkout-api").AddShopServiceClient("inventory-service");
         builder.AddKafkaProducer();
         builder.Services.AddCartEmbeddings();
+        builder.Services.AddQueryRewriteChatClient();
         builder.Services.AddHostedService<TrafficWorker>();
     }
 
@@ -51,9 +52,17 @@ public static class Storefront
             return Results.Ok(new { items = Random.Shared.Next(0, 5) });
         });
 
-        app.MapGet("/search", async (string q, IHttpClientFactory clients, IProducer<string, string> kafka, IEmbeddingGenerator<string, Embedding<float>> embeddings, CancellationToken ct) =>
+        app.MapGet("/search", async (string q, IHttpClientFactory clients, IProducer<string, string> kafka, IEmbeddingGenerator<string, Embedding<float>> embeddings, IChatClient chat, CancellationToken ct) =>
         {
             await TrackAsync(kafka, "search", ct);
+            // A small self-hosted model tidies the query first (the fake's canned answer is discarded); a failure doesn't block search.
+            try
+            {
+                await chat.GetResponseAsync($"Fix typos in this shop search query: {q}", new ChatOptions { ModelId = LlmClients.QueryRewriteModel, MaxOutputTokens = 32 }, ct);
+            }
+            catch (HttpRequestException)
+            {
+            }
             // Embeds the query for the semantic half of search.
             await embeddings.GenerateAsync([q], new EmbeddingGenerationOptions { ModelId = LlmClients.EmbeddingModel }, ct);
             using var response = await clients.CreateClient("inventory-service").GetAsync($"/inventory/search?q={Uri.EscapeDataString(q)}", ct);

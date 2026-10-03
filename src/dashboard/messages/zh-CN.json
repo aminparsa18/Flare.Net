@@ -2460,5 +2460,16 @@
 	"llmPage_viewTraces": "查看链路",
 	"llmPage_emptyTitle": "此时间窗口内没有模型调用",
 	"llmPage_emptyDescription": "此页面列出语言模型调用，数据来自带有 OpenTelemetry GenAI 属性（gen_ai.operation.name、gen_ai.request.model、gen_ai.usage.*）的 span——Microsoft.Extensions.AI 的 UseOpenTelemetry()、Semantic Kernel 及大多数提供方 SDK 都会产生这些属性。智能体和工具 span 不计入。",
-	"llmPage_hint": "按提供方和模型分组。模型取自 gen_ai.request.model（否则为 gen_ai.response.model）；token 数由 gen_ai.usage.input_tokens 和 output_tokens 求和。暂不显示预估费用。"
+	"llmPage_hint": "按提供方和模型分组。模型取自 gen_ai.request.model（否则为 gen_ai.response.model）；token 数由 gen_ai.usage.input_tokens 和 output_tokens 求和。预估费用使用内置标价，管理员可按模型覆盖。",
+	"llmPage_costColumn": "预估费用",
+	"llmPage_costUnpriced": "无价格",
+	"llmPage_priceCustom": "自定义价格",
+	"llmPage_priceTitle": "每百万 token 价格",
+	"llmPage_priceHint": "单位为美元，对所有用户生效。用于根据 token 数估算费用；缓存或折扣的 token 无法看到，因此结果是上限估算。",
+	"llmPage_priceInput": "输入",
+	"llmPage_priceOutput": "输出",
+	"llmPage_priceEdit": "编辑价格",
+	"llmPage_priceSave": "保存",
+	"llmPage_priceReset": "恢复默认",
+	"llmPage_priceInvalid": "请输入不小于 0 的价格。"
 }

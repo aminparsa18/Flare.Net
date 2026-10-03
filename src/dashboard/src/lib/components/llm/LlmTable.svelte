@@ -5,6 +5,8 @@
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import SortableHead from '$lib/components/external-apis/SortableHead.svelte';
 	import { llmContext } from '$lib/llm/context';
+	import { authContext } from '$lib/auth/context';
+	import LlmPricePopover from './LlmPricePopover.svelte';
 	import { errorRate, type LlmSortColumn } from '$lib/llm/state.svelte';
 	import { buildLlmCallTracesHref } from '$lib/deep-links';
 	import { formatPercent } from '$lib/indexing/format';
@@ -16,6 +18,17 @@
 	import * as m from '$lib/paraglide/messages';
 
 	const llm = llmContext.get();
+	const auth = authContext.get();
+
+	/** USD; small spends keep their cents, large ones drop them. */
+	function formatCost(usd: number): string {
+		if (usd > 0 && usd < 0.01) return '<$0.01';
+		return new Intl.NumberFormat(undefined, {
+			style: 'currency',
+			currency: 'USD',
+			maximumFractionDigits: usd >= 100 ? 0 : 2
+		}).format(usd);
+	}
 
 	// Same two-tier escalation as ExternalApisTable's errorRateClass.
 	function errorRateClass(rate: number): string {
@@ -35,6 +48,7 @@
 		{ column: 'p99Ms', label: m.llmPage_p99Column(), align: 'right' },
 		{ column: 'inputTokens', label: m.llmPage_inputTokensColumn(), align: 'right' },
 		{ column: 'outputTokens', label: m.llmPage_outputTokensColumn(), align: 'right' },
+		{ column: 'estimatedCost', label: m.llmPage_costColumn(), align: 'right' },
 		{ column: 'lastSeenUnixMs', label: m.llmPage_lastSeenColumn(), align: 'right' }
 	]);
 </script>
@@ -89,6 +103,29 @@
 						<Table.Cell class="text-right tabular-nums">{formatDurationNano(row.p99Ms * 1_000_000)}</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{formatCount(row.inputTokens)}</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{formatCount(row.outputTokens)}</Table.Cell>
+						<Table.Cell class="text-right tabular-nums">
+							<span class="inline-flex items-center justify-end gap-1">
+								{#if row.estimatedCost != null}
+									<span
+										title="{row.inputPricePerMillion} / {row.outputPricePerMillion} {m.llmPage_priceTitle()}{row.priceIsCustom ? ` · ${m.llmPage_priceCustom()}` : ''}"
+									>
+										{formatCost(row.estimatedCost)}
+									</span>
+								{:else}
+									<span class="text-muted-foreground">{m.llmPage_costUnpriced()}</span>
+								{/if}
+								{#if auth.isAdmin && row.model}
+									<LlmPricePopover
+										model={row.model}
+										inputPrice={row.inputPricePerMillion}
+										outputPrice={row.outputPricePerMillion}
+										isCustom={row.priceIsCustom}
+										onSave={(input, output) => llm.savePrice(row.model, input, output)}
+										onReset={() => llm.resetPrice(row.model)}
+									/>
+								{/if}
+							</span>
+						</Table.Cell>
 						<Table.Cell class="text-muted-foreground text-right tabular-nums" title={formatDateTime(row.lastSeenUnixMs)}>
 							{formatAgo(row.lastSeenUnixMs, nowMs)}
 						</Table.Cell>
