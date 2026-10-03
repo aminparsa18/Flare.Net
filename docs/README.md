@@ -41,6 +41,7 @@ the full rule set on what goes where.
 - [Monitor Kubernetes clusters (nodes, workloads, pods, volumes) with the OpenTelemetry Collector](how-to/monitor-kubernetes.md)
 - [Monitor message queues](how-to/monitor-message-queues.md)
 - [Monitor external APIs](how-to/monitor-external-apis.md)
+- [Monitor LLM calls](how-to/monitor-llm-calls.md)
 - [Find where requests drop off with trace funnels](how-to/analyze-trace-funnels.md)
 - [Find N+1 queries](how-to/find-n-plus-one-queries.md)
 - [Find traces by how their spans relate](how-to/find-traces-by-structure.md)
