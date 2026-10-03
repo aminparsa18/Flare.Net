@@ -193,8 +193,8 @@ CERT`, read `kubectl -n kube-system logs deploy/traefik | grep -i acme`.
 ### Known limits
 
 - The Hosts page is empty. The collector runs without the `hostmetrics` receiver.
-- On 4 GB of RAM, Kafka and the traffic generator (1 request per second) are the first things to
-  trim if pods get OOM-killed.
+- The whole stack uses about 3.3 GB of a 4 GB box, so keep 4 GB of swap enabled. Kafka and the
+  traffic generator (1 request per second) are the first things to trim if pods get OOM-killed.
 - Hostnames that are on a network blocklist (some wildcard-DNS services such as `sslip.io`) can
   be unreachable from restricted networks. Use a real domain for a public demo.
 
