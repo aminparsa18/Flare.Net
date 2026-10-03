@@ -93,7 +93,14 @@ if (publishing)
 
 var kafka = builder.AddKafka("kafka");
 
-var shopdb = builder.AddPostgres("postgres").AddDatabase("shopdb");
+var postgres = builder.AddPostgres("postgres");
+// AddDatabase creates shopdb only under `aspire run`; the Kubernetes chart gets a bare Postgres
+// with just the default `postgres` database, so inventory/order-service crash on connect. The
+// official image creates the database named by POSTGRES_DB on first init. (The shop creates its
+// own tables on startup - see ShopDatabase.cs.)
+if (publishing)
+    postgres.WithEnvironment("POSTGRES_DB", "shopdb");
+var shopdb = postgres.AddDatabase("shopdb");
 
 IResourceBuilder<ProjectResource> AddShopService(string name) =>
     // No launch profile: eight resources share this one project, so each gets its own
