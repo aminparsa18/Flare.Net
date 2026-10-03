@@ -44,7 +44,7 @@ public interface IDashboardQueryService
 /// </remarks>
 public sealed class DashboardQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IDashboardQueryService
 {
-    private const string DashboardColumns = "Id, Name, Description, OwnerUserId, LayoutJson, CreatedAt, UpdatedAt";
+    private const string DashboardColumns = "Id, Name, Description, OwnerUserId, LayoutJson, CreatedAt, UpdatedAt, Tags";
 
     public async Task<Dashboard> CreateAsync(DashboardRequest request, Guid? ownerUserId, CancellationToken cancellationToken)
     {
@@ -55,6 +55,7 @@ public sealed class DashboardQueryService(IClickHouseClient client, IOptions<Que
             Name = request.Name,
             Description = request.Description ?? "",
             OwnerUserId = ownerUserId,
+            Tags = DashboardTags.Normalize(request.Tags),
             LayoutJson = request.LayoutJson,
             CreatedAt = now,
             UpdatedAt = now,
@@ -92,6 +93,7 @@ public sealed class DashboardQueryService(IClickHouseClient client, IOptions<Que
         {
             Name = request.Name,
             Description = request.Description ?? "",
+            Tags = request.Tags is null ? existing.Tags : DashboardTags.Normalize(request.Tags),
             LayoutJson = request.LayoutJson,
             UpdatedAt = timeProvider.GetUtcNow(),
         };
@@ -123,6 +125,7 @@ public sealed class DashboardQueryService(IClickHouseClient client, IOptions<Que
         // convention AlertQueryService.InsertHistoryEntryAsync uses for its own Nullable
         // columns; the driver has no implicit Guid?-to-DBNull mapping.
         parameters.AddParameter("ownerUserId", (object?)dashboard.OwnerUserId ?? DBNull.Value);
+        parameters.AddParameter("tags", dashboard.Tags.ToArray());
         parameters.AddParameter("isDeleted", isDeleted ? (byte)1 : (byte)0);
         // GetRawText(), not JsonSerializer.Serialize(dashboard.LayoutJson) - LayoutJson is
         // already a parsed JsonElement (the request body's own "layoutJson" property), so
@@ -134,9 +137,9 @@ public sealed class DashboardQueryService(IClickHouseClient client, IOptions<Que
 
         const string sql = """
             INSERT INTO dashboards
-                (Id, Name, Description, OwnerUserId, IsDeleted, LayoutJson, CreatedAt, UpdatedAt)
+                (Id, Name, Description, Tags, OwnerUserId, IsDeleted, LayoutJson, CreatedAt, UpdatedAt)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {ownerUserId:Nullable(UUID)}, {isDeleted:UInt8}, {layoutJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {tags:Array(String)}, {ownerUserId:Nullable(UUID)}, {isDeleted:UInt8}, {layoutJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -162,6 +165,7 @@ public sealed class DashboardQueryService(IClickHouseClient client, IOptions<Que
         LayoutJson = JsonDocument.Parse(reader.GetString(4)).RootElement,
         CreatedAt = ReadUtc(reader, 5),
         UpdatedAt = ReadUtc(reader, 6),
+        Tags = reader.GetFieldValue<string[]>(7),
     };
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>

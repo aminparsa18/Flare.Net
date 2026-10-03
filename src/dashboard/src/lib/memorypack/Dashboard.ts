@@ -13,6 +13,8 @@
 // doc comment for the same versioning rule). It's a nullable Guid, written/read via
 // `writeNullableGuid`/`readNullableGuid` - see `AlertChannelResult.ts` (source-gen'd) for
 // the same pattern on its own nullable Guid field, `channelId`.
+//
+// `tags` (ADR-0089) follows `ownerUserId` for the same reason.
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -26,6 +28,7 @@ export class Dashboard {
 	createdAt: Date;
 	updatedAt: Date;
 	ownerUserId: string | null;
+	tags: (string | null)[] | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -35,6 +38,7 @@ export class Dashboard {
 		this.createdAt = new Date(0);
 		this.updatedAt = new Date(0);
 		this.ownerUserId = null;
+		this.tags = null;
 	}
 
 	static serialize(value: Dashboard | null): Uint8Array {
@@ -49,7 +53,7 @@ export class Dashboard {
 			return;
 		}
 
-		writer.writeObjectHeader(7);
+		writer.writeObjectHeader(8);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -57,6 +61,7 @@ export class Dashboard {
 		writeDateTimeOffset(writer, value.createdAt);
 		writeDateTimeOffset(writer, value.updatedAt);
 		writer.writeNullableGuid(value.ownerUserId);
+		writer.writeArray(value.tags, (writer, x) => writer.writeString(x));
 	}
 
 	static serializeArray(value: (Dashboard | null)[] | null): Uint8Array {
@@ -80,7 +85,7 @@ export class Dashboard {
 		}
 
 		const value = new Dashboard();
-		if (count == 7) {
+		if (count == 8) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -88,7 +93,8 @@ export class Dashboard {
 			value.createdAt = readDateTimeOffset(reader);
 			value.updatedAt = readDateTimeOffset(reader);
 			value.ownerUserId = reader.readNullableGuid();
-		} else if (count > 7) {
+			value.tags = reader.readArray((reader) => reader.readString());
+		} else if (count > 8) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -106,6 +112,8 @@ export class Dashboard {
 			if (count == 6) return value;
 			value.ownerUserId = reader.readNullableGuid();
 			if (count == 7) return value;
+			value.tags = reader.readArray((reader) => reader.readString());
+			if (count == 8) return value;
 		}
 		return value;
 	}

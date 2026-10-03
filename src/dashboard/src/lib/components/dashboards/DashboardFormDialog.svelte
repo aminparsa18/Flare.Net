@@ -20,6 +20,7 @@
 
 	let name = $state('');
 	let description = $state('');
+	let tagsText = $state('');
 
 	// Resets the draft whenever the dialog opens for a different target - same
 	// "only reacts to identity change, not every keystroke" reasoning
@@ -29,9 +30,11 @@
 		if (target === 'new') {
 			name = '';
 			description = '';
+			tagsText = '';
 		} else if (target) {
 			name = target.name;
 			description = target.description;
+			tagsText = target.tags.join(', ');
 		}
 	});
 
@@ -42,7 +45,11 @@
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
 		const wasNew = dashboards.formTarget === 'new';
-		const id = await dashboards.save(name, description);
+		const id = await dashboards.save(
+			name,
+			description,
+			tagsText.split(',').map((t) => t.trim()).filter(Boolean)
+		);
 		// A brand-new dashboard has no panels yet - land straight on its (empty) viewer,
 		// which is where the "pin a panel from Logs/Traces/Metrics" guidance lives, rather
 		// than back on the list the user would just click through again.
@@ -68,6 +75,11 @@
 			<div class="space-y-2">
 				<label for="dashboard-form-description" class="text-sm font-medium">{m.dashboardFormDialog_descriptionLabel()}</label>
 				<Textarea id="dashboard-form-description" bind:value={description} rows={2} />
+			</div>
+			<div class="space-y-2">
+				<label for="dashboard-form-tags" class="text-sm font-medium">{m.dashboardFormDialog_tagsLabel()}</label>
+				<Input id="dashboard-form-tags" bind:value={tagsText} placeholder={m.dashboardFormDialog_tagsPlaceholder()} />
+				<p class="text-muted-foreground text-xs">{m.dashboardFormDialog_tagsHint()}</p>
 			</div>
 			{#if dashboards.saveError}
 				<p class="text-destructive text-sm">{dashboards.saveError}</p>

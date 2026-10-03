@@ -21,6 +21,8 @@
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Badge } from '$lib/components/ui/badge';
 	import DashboardTemplatesDialog from './DashboardTemplatesDialog.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
@@ -33,6 +35,9 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import UploadIcon from '@lucide/svelte/icons/upload';
 	import LayoutTemplateIcon from '@lucide/svelte/icons/layout-template';
+	import PinIcon from '@lucide/svelte/icons/pin';
+	import PinOffIcon from '@lucide/svelte/icons/pin-off';
+	import SearchIcon from '@lucide/svelte/icons/search';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import DownloadIcon from '@lucide/svelte/icons/download';
@@ -132,6 +137,20 @@
 		</Empty.Content>
 	</Empty.Root>
 {:else}
+	<div class="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+		<div class="relative w-64">
+			<SearchIcon class="text-muted-foreground absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+			<Input bind:value={dashboards.search} placeholder={m.dashboardTable_searchPlaceholder()} class="h-8 pl-7" />
+		</div>
+		{#each dashboards.allTags as tag (tag)}
+			<button type="button" onclick={() => dashboards.toggleTag(tag)} aria-pressed={dashboards.activeTags.includes(tag)}>
+				<Badge variant={dashboards.activeTags.includes(tag) ? 'default' : 'outline'}>{tag}</Badge>
+			</button>
+		{/each}
+		{#if dashboards.activeTags.length > 0}
+			<Button variant="ghost" size="sm" onclick={() => (dashboards.activeTags = [])}>{m.dashboardTable_clearTags()}</Button>
+		{/if}
+	</div>
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		<Table.Root>
 			<Table.Header>
@@ -143,17 +162,35 @@
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
-				{#each dashboards.dashboards as dashboard (dashboard.id)}
+				{#each dashboards.visible as dashboard (dashboard.id)}
 					<Table.Row>
 						<Table.Cell class="font-medium">
 							<a href={dashboardPath(dashboard)} class="hover:underline">{dashboard.name}</a>
 							{#if dashboard.description}
 								<p class="text-muted-foreground font-normal">{dashboard.description}</p>
 							{/if}
+							{#if dashboard.tags.length > 0}
+								<div class="mt-1 flex flex-wrap gap-1">
+									{#each dashboard.tags as tag (tag)}
+										<button type="button" onclick={() => dashboards.toggleTag(tag)}>
+											<Badge variant="secondary" class="font-normal">{tag}</Badge>
+										</button>
+									{/each}
+								</div>
+							{/if}
 						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{dashboard.layout.panels.length}</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{formatDateTime(dashboard.updatedAt)}</Table.Cell>
 						<Table.Cell class="text-right">
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								title={dashboards.isPinned(dashboard.id) ? m.dashboardTable_unpin() : m.dashboardTable_pin()}
+								aria-pressed={dashboards.isPinned(dashboard.id)}
+								onclick={() => dashboards.togglePin(dashboard.id)}
+							>
+								{#if dashboards.isPinned(dashboard.id)}<PinOffIcon />{:else}<PinIcon />{/if}
+							</Button>
 							<Button variant="ghost" size="sm" href={dashboardPath(dashboard)}>{m.dashboardTable_open()}</Button>
 							{#if auth.canMutate}
 								{#if auth.canMutateDashboard(dashboard.ownerUserId)}
@@ -184,5 +221,8 @@
 				{/each}
 			</Table.Body>
 		</Table.Root>
+		{#if dashboards.visible.length === 0}
+			<p class="text-muted-foreground p-6 text-center text-sm">{m.dashboardTable_noMatches()}</p>
+		{/if}
 	</div>
 {/if}

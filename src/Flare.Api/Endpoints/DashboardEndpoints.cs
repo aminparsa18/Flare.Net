@@ -5,6 +5,7 @@ using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
 using Flare.Identity.Auth;
+using Flare.Identity.DashboardPins;
 using Flare.Identity.Users;
 
 namespace Flare.Api.Endpoints;
@@ -46,6 +47,11 @@ public static class DashboardEndpoints
         endpoints.MapPost("/api/dashboards", HandleCreateAsync).RequireAuthorization(AuthorizationPolicies.RequireMember);
         endpoints.MapGet("/api/dashboards", HandleListAsync);
         endpoints.MapGet("/api/dashboards/{id:guid}", HandleGetAsync);
+        // Pins are a personal ordering preference, so - unlike the mutations above - a Viewer
+        // may set them (ADR-0089).
+        endpoints.MapGet("/api/dashboards/pins", HandleListPinsAsync);
+        endpoints.MapPut("/api/dashboards/{id:guid}/pin", HandlePinAsync);
+        endpoints.MapDelete("/api/dashboards/{id:guid}/pin", HandleUnpinAsync);
         endpoints.MapPut("/api/dashboards/{id:guid}", HandleUpdateAsync).RequireAuthorization(AuthorizationPolicies.RequireMember);
         endpoints.MapDelete("/api/dashboards/{id:guid}", HandleDeleteAsync).RequireAuthorization(AuthorizationPolicies.RequireMember);
         return endpoints;
@@ -66,6 +72,11 @@ public static class DashboardEndpoints
         if (request is null)
         {
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (DashboardTags.Validate(request.Tags) is { } tagsError)
+        {
+            return Results.Problem(tagsError, statusCode: StatusCodes.Status400BadRequest);
         }
 
         // Whoever's authenticated when RequireMember lets this request through becomes the
@@ -107,6 +118,11 @@ public static class DashboardEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (DashboardTags.Validate(request.Tags) is { } tagsError)
+        {
+            return Results.Problem(tagsError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var existing = await dashboards.GetAsync(id, cancellationToken);
         if (existing is null)
         {
@@ -143,6 +159,32 @@ public static class DashboardEndpoints
         var deleted = await dashboards.DeleteAsync(id, cancellationToken);
         return deleted ? Results.NoContent() : Results.NotFound();
     }
+
+    internal static async Task<IResult> HandleListPinsAsync(HttpContext http, ClaimsPrincipal principal, IDashboardPinStore pins, CancellationToken cancellationToken)
+    {
+        var ids = await pins.ListAsync(PinOwnerId(principal), cancellationToken);
+        return ApiSerialization.Write(http, new DashboardPinsResponse { DashboardIds = ids }, DashboardsJsonContext.Default.DashboardPinsResponse);
+    }
+
+    internal static async Task<IResult> HandlePinAsync(Guid id, ClaimsPrincipal principal, IDashboardQueryService dashboards, IDashboardPinStore pins, CancellationToken cancellationToken)
+    {
+        if (await dashboards.GetAsync(id, cancellationToken) is null)
+        {
+            return Results.NotFound();
+        }
+
+        await pins.PinAsync(PinOwnerId(principal), id, cancellationToken);
+        return Results.NoContent();
+    }
+
+    internal static async Task<IResult> HandleUnpinAsync(Guid id, ClaimsPrincipal principal, IDashboardPinStore pins, CancellationToken cancellationToken)
+    {
+        await pins.UnpinAsync(PinOwnerId(principal), id, cancellationToken);
+        return Results.NoContent();
+    }
+
+    /// <summary>The caller's user id, or <see cref="Guid.Empty"/> when Flare's opt-in auth is off - pins are then shared by everyone, the only identity there is.</summary>
+    private static Guid PinOwnerId(ClaimsPrincipal principal) => TryGetCurrentUserId(principal, out var userId) ? userId : Guid.Empty;
 
     /// <summary>
     /// Whether <paramref name="principal"/> may update/delete <paramref name="dashboard"/> -

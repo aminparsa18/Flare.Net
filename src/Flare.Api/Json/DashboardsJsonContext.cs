@@ -17,4 +17,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(DashboardRequest))]
 [JsonSerializable(typeof(Dashboard))]
 [JsonSerializable(typeof(DashboardListResponse))]
+[JsonSerializable(typeof(DashboardPinsResponse))]
 public sealed partial class DashboardsJsonContext : JsonSerializerContext;

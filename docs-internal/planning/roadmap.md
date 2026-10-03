@@ -155,13 +155,6 @@ folders are where "what happened and why" actually lives.
   common models, overridable). Consider pre-aggregation like ADR-0031 if
   volumes warrant it. Needs an ADR. Not started. Prior art:
   [signoz#10908](https://github.com/SigNoz/signoz/commit/755390c4b5b2456a7c5c44d98fe8fcb18671616b).
-- **Pin and tag dashboards.** Dashboards have no tags and no pinning: the only
-  per-user ordering is the single home dashboard (`home-preference.ts`), which
-  gets painful past a few dozen dashboards. Add free-form tags on dashboards
-  (filter chips + search on the list page) and a per-user pin/favourite
-  stored in Identity that floats pinned dashboards to the top of the list
-  and the command palette. Not started. Prior art:
-  [signoz#11219](https://github.com/SigNoz/signoz/commit/b22eef6a65211f66f5f0a50c6ce3b019fee4b532).
 - **Metric attribute reduction: preview and docs.** The ingest engine,
   `/api/metric-attribute-rules` CRUD and the catalog's "Reduce attributes"
   section shipped (ADR-0083), but there's no dry-run preview of how many
