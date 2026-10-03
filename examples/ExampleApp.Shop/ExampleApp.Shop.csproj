@@ -11,6 +11,7 @@
     <PackageReference Include="Confluent.Kafka" />
     <PackageReference Include="OpenTelemetry.Instrumentation.ConfluentKafka" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
   </ItemGroup>
 
 </Project>

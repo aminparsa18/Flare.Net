@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using Microsoft.Extensions.AI;
 
 namespace ExampleApp.Shop;
 
@@ -9,18 +10,35 @@ namespace ExampleApp.Shop;
 /// </summary>
 public static class NotificationService
 {
-    public static void AddServices(WebApplicationBuilder builder) =>
+    public static void AddServices(WebApplicationBuilder builder)
+    {
+        builder.Services.AddNotificationChatClient();
         builder.Services.AddHostedService<OrderNotifier>();
+    }
 
     /// <summary>The second consumer group the consumer-slowdown scenario throttles (invoice PDF rendering).</summary>
-    private sealed class OrderNotifier(IConfiguration configuration, ILogger<OrderNotifier> logger, ExternalApiClient external, ScenarioState scenario)
+    private sealed class OrderNotifier(IConfiguration configuration, ILogger<OrderNotifier> logger, ExternalApiClient external, ScenarioState scenario, IChatClient chat)
         : KafkaConsumerWorker(configuration, logger, KafkaClients.OrdersCreated, "order-notifier")
     {
         protected override async ValueTask HandleAsync(ConsumeResult<string, string> message, CancellationToken ct)
         {
             var order = OrderEvent.FromJson(message.Message.Value);
 
-            using (var sms = await external.TwilioSendSmsAsync(order.Phone ?? "+15005550009", $"Order {order.OrderId} confirmed: {order.Total} {order.Currency}", ct))
+            // A model drafts the SMS; if the provider rate-limits it, the plain template goes out.
+            var text = $"Order {order.OrderId} confirmed: {order.Total} {order.Currency}";
+            try
+            {
+                var draft = await chat.GetResponseAsync(
+                    $"Write a friendly one-line SMS confirming order {order.OrderId} for {order.Total} {order.Currency}.",
+                    new ChatOptions { ModelId = LlmClients.NotificationModel, MaxOutputTokens = 160 }, ct);
+                text = $"{text} - {draft.Text}";
+            }
+            catch (HttpRequestException ex)
+            {
+                logger.LogWarning(ex, "SMS draft for order {OrderId} unavailable, sending the template", order.OrderId);
+            }
+
+            using (var sms = await external.TwilioSendSmsAsync(order.Phone ?? "+15005550009", text, ct))
             {
                 if (!sms.IsSuccessStatusCode)
                 {

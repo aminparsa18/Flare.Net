@@ -62,6 +62,7 @@ Where each dashboard page gets its data:
 | Services → Database tab | Npgsql spans from inventory-service and order-service (`db.system.name=postgresql`) |
 | Errors | Real unhandled exceptions: an expired promo code hits a `NullReferenceException` in checkout-api, and a replayed order id makes Postgres throw 23505 in order-service. Card declines are recorded on payment-service's span too |
 | External APIs | HttpClient calls to api.stripe.com, api.twilio.com, api.sendgrid.com, hooks.slack.com, maps.googleapis.com and inventory.partner-corp.com, including 402/429/503s, dropped connections, and timeouts with no status code |
+| LLM | Microsoft.Extensions.AI calls with `UseOpenTelemetry()` over an in-process fake model (no API key, no extra container): fraud-check explains its score with a `gpt-4o-mini` chat call, notification-service drafts the order SMS with `claude-sonnet-5-5`, and the storefront embeds search queries with `text-embedding-3-small`. A few percent fail with a 429, as a rate-limited provider would |
 | Message queues | Confluent.Kafka publish/process spans; the collector's kafkametrics receiver supplies consumer lag |
 | Hosts | The collector's hostmetrics receiver (one host, `shop-docker-host`: Docker's VM on Docker Desktop) |
 | Metrics, Metrics catalog | ASP.NET Core/HttpClient/runtime/Kafka/Npgsql metrics plus the shop's own `ExampleApp.Shop` meter |

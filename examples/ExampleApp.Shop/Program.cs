@@ -36,10 +36,13 @@ builder.Services.AddOpenTelemetry()
         // Npgsql 10 ships its own ActivitySource - no instrumentation package, just
         // subscribe to it.
         .AddSource("Npgsql")
+        // Microsoft.Extensions.AI's UseOpenTelemetry() decorator, named in LlmClients.
+        .AddSource(LlmClients.InstrumentationName)
         .AddProcessor(sp => new PeerServiceProcessor(sp.GetRequiredService<IConfiguration>())))
     .WithMetrics(metrics => metrics
         .AddMeter(KafkaClients.InstrumentationName)
         .AddMeter("Npgsql")
+        .AddMeter(LlmClients.InstrumentationName)
         .AddMeter(ShopMetrics.MeterName));
 
 builder.Services.AddSingleton(new ShopRoleInfo(role));
@@ -57,6 +60,9 @@ switch (role)
         break;
     case ShopRole.PaymentService:
         PaymentService.AddServices(builder);
+        break;
+    case ShopRole.FraudCheck:
+        builder.Services.AddFraudChatClient();
         break;
     case ShopRole.OrderService:
         OrderService.AddServices(builder);

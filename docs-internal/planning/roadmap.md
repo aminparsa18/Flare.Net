@@ -100,14 +100,12 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **LLM observability from GenAI semconv.** Nothing reads `gen_ai.*` span
-  attributes today, though .NET apps using Microsoft.Extensions.AI or
-  Semantic Kernel emit them. Add a page built from `gen_ai.*` spans: calls,
-  latency, error rate, and input/output tokens by `gen_ai.request.model`,
-  `gen_ai.system`/provider and service, with drill-down to traces. Add an
-  editable model → price-per-token table for estimated cost (seeded with
-  common models, overridable). Consider pre-aggregation like ADR-0031 if
-  volumes warrant it. Needs an ADR. Not started. Prior art:
+- **LLM observability from GenAI semconv, remaining phases.**
+  [ADR-0100](../adr/0100-llm-observability-genai-spans.md) covers the
+  per-model usage page (`POST /api/llm/models` and the `/llm` dashboard page). Still to do: an editable model → price-per-token table for
+  estimated cost (seeded with common models, overridable; needs its own ADR
+  and an Identity store), a per-model drill-down to traces, and
+  pre-aggregation like ADR-0031 if volumes warrant it. Prior art:
   [signoz#10908](https://github.com/SigNoz/signoz/commit/755390c4b5b2456a7c5c44d98fe8fcb18671616b).
 - **"Explain this exception" LLM action.** Stack frames link to source and show the throw site
   inline (ADR-0095, ADR-0096). Add an action that sends the exception, stack trace and that source
