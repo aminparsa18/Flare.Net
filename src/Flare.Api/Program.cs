@@ -228,6 +228,7 @@ builder.Services.AddSingleton<ITraceFunnelQueryService, TraceFunnelQueryService>
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<IMetricAttributeRuleQueryService, MetricAttributeRuleQueryService>();
+builder.Services.AddSingleton<IMetricAttributeRuleCoverageService, MetricAttributeRuleCoverageService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();

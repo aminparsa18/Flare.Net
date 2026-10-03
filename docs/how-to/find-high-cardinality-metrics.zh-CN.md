@@ -63,6 +63,8 @@
 （例如 `attributes` 或 `transform`）删除或改写该属性。停止上报的序列在超出所选
 时间窗口后会从目录中消失。
 
+也可以在 Flare 内用[摄取规则](reduce-metric-attributes.zh-CN.md)移除属性，保存前会预览将被移除的序列数。
+
 ## 查看指标样本如何变成图表
 
 ![检视标签页：按分桶分组的原始样本](../screenshots/find-high-cardinality-metrics-3-ch.webp)

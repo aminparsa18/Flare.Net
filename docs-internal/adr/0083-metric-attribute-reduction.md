@@ -50,7 +50,7 @@ applies enabled rules in `MetricFlushWorker`, right before the batch is written.
   reset-aware `increase()` ([ADR-0044](0044-metric-alert-reset-aware-increase.md)).
   Prefer rules on delta temporality, gauges and histograms, or drop attributes
   that were constant per series anyway.
-- Reduction is irreversible for the data it applies to. There is no preview yet.
+- Reduction is irreversible for the data it applies to, which is why rules can be previewed first (see below).
 - A fault in the reducer falls back to writing the batch unreduced rather than
   stalling the flush.
 
@@ -62,8 +62,21 @@ drop (or keep) and save. The sheet also lists the rules covering the metric,
 including prefix rules, with an enable switch and delete. The catalog list
 already shows each metric's series count, which is how candidates are found.
 
-## Not done yet
+## Preview and unmatched rules
 
-- Dry-run preview (compare [ADR-0034](0034-pipeline-rules-preview.md)).
-- A view of prefix rules that match no currently-ingested metric.
-- A how-to in `docs/` (with translations).
+- `POST /api/metric-attribute-rules/preview` takes a draft rule (no name) and a
+  window (default 60 minutes, clamped like the catalog) and returns, per matched
+  metric, the series count as stored and with the rule's attribute filter
+  applied, most series removed first, capped at 100 metrics. Both counts are
+  `uniq(ServiceName, toString(DataPointAttributes))` over the stored rows, so the
+  "after" figure is the series identity the reducer merges onto. It reads stored
+  data, so metrics an existing rule already reduced look unchanged; other saved
+  rules are not simulated.
+- `GET /api/metric-attribute-rules/unmatched?windowMinutes=` returns the ids of
+  saved rules (exact or prefix) that match no metric name ingested in the window
+  (default and maximum 24 h). A metric quiet for longer than the window counts
+  as unmatched, so the dashboard words it as advice, not an error.
+- The catalog's Reduce attributes section gets a Preview button, and the catalog
+  page shows an unmatched-rules warning to Members. Both endpoints are
+  Member/Admin like the rest of the rule API.
+- The how-to is `docs/how-to/reduce-metric-attributes.md` (with translations).

@@ -70,6 +70,10 @@ OpenTelemetry Collector processor (for example `attributes` or `transform`)
 before it reaches Flare. Series that stop being reported leave the catalog
 once they fall outside the selected window.
 
+Or remove attributes inside Flare with an
+[ingest rule](reduce-metric-attributes.md), which previews the series it would
+remove before you save it.
+
 ## See how a metric's samples become a chart
 
 ![Inspect tab: raw samples grouped into buckets](../screenshots/find-high-cardinality-metrics-3-en.webp)

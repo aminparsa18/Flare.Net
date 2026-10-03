@@ -45,6 +45,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Trouver des traces selon les relations entre leurs spans](how-to/find-traces-by-structure.fr.md)
 - [Savoir si un span était lent par rapport à ses semblables](how-to/compare-span-duration.fr.md)
 - [Trouver les métriques à forte cardinalité](how-to/find-high-cardinality-metrics.fr.md)
+- [Réduire les attributs d'une métrique à l'ingestion](how-to/reduce-metric-attributes.fr.md)
 - [Accélérer les filtres sur un attribut de log ou de span fréquemment utilisé](how-to/promote-attribute-columns.fr.md)
 
 **Référence**

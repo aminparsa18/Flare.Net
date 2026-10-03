@@ -13,6 +13,8 @@ public static class MetricAttributeRuleEndpoints
     {
         endpoints.MapPost("/api/metric-attribute-rules", HandleCreateAsync);
         endpoints.MapGet("/api/metric-attribute-rules", HandleListAsync);
+        endpoints.MapGet("/api/metric-attribute-rules/unmatched", HandleUnmatchedAsync);
+        endpoints.MapPost("/api/metric-attribute-rules/preview", HandlePreviewAsync);
         endpoints.MapGet("/api/metric-attribute-rules/{id:guid}", HandleGetAsync);
         endpoints.MapPut("/api/metric-attribute-rules/{id:guid}", HandleUpdateAsync);
         endpoints.MapDelete("/api/metric-attribute-rules/{id:guid}", HandleDeleteAsync);
@@ -36,6 +38,35 @@ public static class MetricAttributeRuleEndpoints
     {
         var list = await rules.ListAsync(cancellationToken);
         return ApiSerialization.Write(http, new MetricAttributeRuleListResponse { Rules = list }, MetricAttributeRulesJsonContext.Default.MetricAttributeRuleListResponse);
+    }
+
+    private static async Task<IResult> HandleUnmatchedAsync(HttpContext http, IMetricAttributeRuleCoverageService coverage, int? windowMinutes, CancellationToken cancellationToken) =>
+        ApiSerialization.Write(http, await coverage.FindUnmatchedAsync(windowMinutes, cancellationToken), MetricAttributeRulesJsonContext.Default.MetricAttributeRuleUnmatchedResponse);
+
+    private static async Task<IResult> HandlePreviewAsync(HttpContext http, IMetricAttributeRuleCoverageService coverage, CancellationToken cancellationToken)
+    {
+        MetricAttributeRulePreviewRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, MetricAttributeRulesJsonContext.Default.MetricAttributeRulePreviewRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request.Validate() is { } validationError)
+        {
+            return Results.Problem(validationError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await coverage.PreviewAsync(request, cancellationToken);
+        return ApiSerialization.Write(http, response, MetricAttributeRulesJsonContext.Default.MetricAttributeRulePreviewResponse);
     }
 
     private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, IMetricAttributeRuleQueryService rules, CancellationToken cancellationToken)

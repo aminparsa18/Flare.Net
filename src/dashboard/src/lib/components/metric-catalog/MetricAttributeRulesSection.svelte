@@ -13,6 +13,8 @@
 		createMetricAttributeRule,
 		deleteMetricAttributeRule,
 		listMetricAttributeRules,
+		previewMetricAttributeRule,
+		type MetricAttributeRulePreview,
 		ruleMatchesMetric,
 		updateMetricAttributeRule,
 		type MetricAttributeRule,
@@ -37,6 +39,15 @@
 	let mode = $state<MetricAttributeRuleMode>('Drop');
 	let busy = $state(false);
 	let error = $state<string | null>(null);
+	let preview = $state<MetricAttributeRulePreview | null>(null);
+
+	// A preview describes one draft; any change to the draft invalidates it.
+	$effect(() => {
+		void selected.length;
+		void mode;
+		void metricName;
+		preview = null;
+	});
 
 	const covering = $derived(rules.filter((r) => ruleMatchesMetric(r, metricName)));
 
@@ -70,6 +81,11 @@
 	function toggle(key: string, checked: boolean): void {
 		selected = checked ? [...selected, key] : selected.filter((k) => k !== key);
 	}
+
+	const runPreview = () =>
+		run(async () => {
+			preview = await previewMetricAttributeRule({ metricName, mode, attributes: selected });
+		});
 
 	const create = () =>
 		run(async () => {
@@ -135,8 +151,34 @@
 						</Button>
 					{/each}
 				</div>
+				<Button variant="outline" size="sm" disabled={busy || selected.length === 0} onclick={runPreview}>{m.metricAttrRules_preview()}</Button>
 				<Button size="sm" disabled={busy || selected.length === 0} onclick={create}>{m.metricAttrRules_create()}</Button>
 			</div>
+			{#if preview}
+				<div class="rounded-md bg-muted/50 p-2 text-xs">
+					{#if preview.metrics.length === 0}
+						<p>{m.metricAttrRules_previewEmpty({ hours: Math.round(preview.windowMinutes / 60) })}</p>
+					{:else}
+						<p class="font-medium">
+							{m.metricAttrRules_previewTotal({ before: formatCount(preview.seriesBefore), after: formatCount(preview.seriesAfter) })}
+						</p>
+						{#if preview.metrics.length > 1}
+							<ul class="mt-1 space-y-0.5">
+								{#each preview.metrics as row (row.metricName)}
+									<li class="flex justify-between gap-2">
+										<span class="font-mono break-all">{row.metricName}</span>
+										<span class="tabular-nums">{formatCount(row.seriesBefore)} → {formatCount(row.seriesAfter)}</span>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+						{#if preview.truncated}
+							<p class="text-muted-foreground mt-1">{m.metricAttrRules_previewTruncated()}</p>
+						{/if}
+						<p class="text-muted-foreground mt-1">{m.metricAttrRules_previewCaveat({ hours: Math.round(preview.windowMinutes / 60) })}</p>
+					{/if}
+				</div>
+			{/if}
 			<p class="text-muted-foreground text-xs">{m.metricAttrRules_irreversible()}</p>
 		</div>
 	{/if}

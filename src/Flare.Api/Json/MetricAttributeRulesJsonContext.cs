@@ -10,5 +10,8 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(MetricAttributeRuleRequest))]
 [JsonSerializable(typeof(MetricAttributeRule))]
 [JsonSerializable(typeof(MetricAttributeRuleListResponse))]
+[JsonSerializable(typeof(MetricAttributeRulePreviewRequest))]
+[JsonSerializable(typeof(MetricAttributeRulePreviewResponse))]
+[JsonSerializable(typeof(MetricAttributeRuleUnmatchedResponse))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 public sealed partial class MetricAttributeRulesJsonContext : JsonSerializerContext;
