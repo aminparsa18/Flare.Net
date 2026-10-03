@@ -53,7 +53,7 @@
 						<div class="min-w-0">
 							<div class="flex items-center gap-2">
 								<span class="truncate text-sm font-medium">{variable.name}</span>
-								<Badge variant="outline">{variable.sourceKind === 'Query' ? m.manageVariables_sourceQuery() : m.manageVariables_sourceCustom()}</Badge>
+								<Badge variant="outline">{variable.sourceKind === 'Query' ? m.manageVariables_sourceQuery() : variable.sourceKind === 'Textbox' ? m.manageVariables_sourceTextbox() : m.manageVariables_sourceCustom()}</Badge>
 								{#if dependsOnName(variable)}
 									<Badge variant="secondary">{m.manageVariables_dependsOn({ name: dependsOnName(variable) ?? '' })}</Badge>
 								{/if}

@@ -378,6 +378,10 @@ yourself, and any number of them can exist on one dashboard:
      resolved automatically (the same lookup Logs'/Traces' own attribute
      filter builders already use for autocomplete).
    - **Custom list** — a fixed, comma-separated list you type in yourself.
+   - **Free text** — no list at all: viewers type a value (a user ID, an
+     order ID, a tenant) into a box in the dashboard header, applied on
+     Enter or when the box loses focus. An empty box means "All". Always
+     single-valued, so **Allow multiple values** doesn't apply.
 4. Optionally tick **Allow multiple values** to let viewers pick several
    values at once (for example, two services) instead of just one — see
    "Multi-value variables" below.

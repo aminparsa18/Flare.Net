@@ -95,6 +95,9 @@
 		{ value: 'Scope', label: m.variableForm_bagScope() }
 	];
 
+	/** A Textbox variable is always single-valued - the `multi` checkbox is hidden for it, and a stale `multi` from before switching Values is ignored. */
+	const isMulti = $derived(multi && sourceKind !== 'Textbox');
+
 	const canSubmit = $derived(name.trim() !== '' && (target !== 'Attribute' || attributeKey.trim() !== ''));
 
 	function splitList(draft: string): string[] {
@@ -121,9 +124,9 @@
 			attributeKey: target === 'Attribute' ? attributeKey.trim() : undefined,
 			sourceKind,
 			customValues: sourceKind === 'Custom' ? splitList(customValuesDraft) : undefined,
-			multi: multi || undefined,
-			defaultValue: multi ? null : defaultValue.trim() || null,
-			defaultValues: multi ? [...new Set(splitList(defaultValue))] : undefined,
+			multi: isMulti || undefined,
+			defaultValue: isMulti ? null : defaultValue.trim() || null,
+			defaultValues: isMulti ? [...new Set(splitList(defaultValue))] : undefined,
 			// Meaningless for a Custom variable (its list is fixed, nothing to narrow) even if a
 			// dependency was picked before switching Values to Custom - dropped here rather than
 			// left stale in the saved definition.
@@ -196,9 +199,12 @@
 					<Button type="button" variant={sourceKind === 'Custom' ? 'default' : 'outline'} size="sm" onclick={() => (sourceKind = 'Custom')}>
 						{m.variableForm_sourceCustom()}
 					</Button>
+					<Button type="button" variant={sourceKind === 'Textbox' ? 'default' : 'outline'} size="sm" onclick={() => (sourceKind = 'Textbox')}>
+						{m.variableForm_sourceTextbox()}
+					</Button>
 				</div>
 				<p class="text-muted-foreground text-xs">
-					{sourceKind === 'Query' ? m.variableForm_sourceQueryHint() : m.variableForm_sourceCustomHint()}
+					{sourceKind === 'Query' ? m.variableForm_sourceQueryHint() : sourceKind === 'Textbox' ? m.variableForm_sourceTextboxHint() : m.variableForm_sourceCustomHint()}
 				</p>
 			</div>
 
@@ -227,20 +233,22 @@
 				</div>
 			{/if}
 
-			<div class="space-y-1">
-				<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-					<Checkbox bind:checked={multi} />
-					{m.variableForm_multiLabel()}
-				</label>
-				<p class="text-muted-foreground text-xs">{m.variableForm_multiHint()}</p>
-			</div>
+			{#if sourceKind !== 'Textbox'}
+				<div class="space-y-1">
+					<label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+						<Checkbox bind:checked={multi} />
+						{m.variableForm_multiLabel()}
+					</label>
+					<p class="text-muted-foreground text-xs">{m.variableForm_multiHint()}</p>
+				</div>
+			{/if}
 
 			<div class="space-y-2">
-				<label for="variable-form-default" class="text-sm font-medium">{multi ? m.variableForm_defaultValuesLabel() : m.variableForm_defaultValueLabel()}</label>
+				<label for="variable-form-default" class="text-sm font-medium">{isMulti ? m.variableForm_defaultValuesLabel() : m.variableForm_defaultValueLabel()}</label>
 				<Input
 					id="variable-form-default"
 					bind:value={defaultValue}
-					placeholder={multi ? m.variableForm_defaultValuesPlaceholder() : m.variableForm_defaultValuePlaceholder()}
+					placeholder={isMulti ? m.variableForm_defaultValuesPlaceholder() : m.variableForm_defaultValuePlaceholder()}
 				/>
 			</div>
 

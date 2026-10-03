@@ -187,11 +187,13 @@ export type DashboardAttributeBag = 'Log' | 'Span' | 'Resource' | 'Scope';
 export type DashboardVariableTarget = 'Service' | 'Attribute';
 
 /** Where a variable's selectable values come from - `Query` resolves them live (see
- *  `resolveQueryVariableOptions`), `Custom` is a fixed, hand-typed list. Session-only
+ *  `resolveQueryVariableOptions`), `Custom` is a fixed, hand-typed list, `Textbox` has no
+ *  list at all (the viewer types a free value - a user ID, an order ID - and an empty box
+ *  means "All"; always single-valued, `multi` is ignored). Session-only
  *  *selection* (which value is currently picked) still lives in `DashboardViewerState`,
  *  same as Phase 2's time-range override - only the variable's *definition* (this shape)
  *  is part of the saved dashboard. */
-export type DashboardVariableSourceKind = 'Query' | 'Custom';
+export type DashboardVariableSourceKind = 'Query' | 'Custom' | 'Textbox';
 
 /**
  * One dashboard-wide, user-defined variable (see

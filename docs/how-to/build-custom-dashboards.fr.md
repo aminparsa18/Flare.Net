@@ -440,6 +440,11 @@ bord :
      pour l'auto-complétion).
    - **Liste personnalisée** — une liste fixe, séparée par des virgules,
      que vous saisissez vous-même.
+   - **Texte libre** — aucune liste : les utilisateurs saisissent une valeur
+     (un ID utilisateur, un ID de commande, un tenant) dans un champ de
+     l'en-tête du tableau de bord, appliquée avec Entrée ou à la perte du
+     focus. Un champ vide signifie « Tout ». Toujours mono-valeur, donc
+     **Autoriser plusieurs valeurs** ne s'applique pas.
 4. Cochez éventuellement **Autoriser plusieurs valeurs** pour permettre de
    choisir plusieurs valeurs à la fois (par exemple, deux services) au lieu
    d'une seule — voir « Variables à valeurs multiples » ci-dessous.
