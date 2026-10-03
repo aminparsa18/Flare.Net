@@ -24,12 +24,12 @@ public sealed class TelegramAlertNotifier(HttpClient httpClient, IOptions<AlertL
 {
     public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false)
     {
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved);
-        // Plain text (no parse_mode at all) for a custom template: an unmatched `_`/`*` in
-        // user-authored text, or in a rendered value like a service name, would make Telegram
-        // reject the whole send under Markdown. The built-in wording keeps its parse mode.
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, format: AlertMarkupFormat.TelegramHtml);
+        // A custom template is rendered as Telegram HTML (AlertMarkdown escapes every value and
+        // emits only b/i/code/a), so user text can't make Telegram reject the send the way an
+        // unmatched `_`/`*` would under Markdown. The built-in wording keeps its Markdown parse mode.
         object payload = message.IsCustom
-            ? new { chat_id = channel.TelegramChatId, text = message.Combined }
+            ? new { chat_id = channel.TelegramChatId, text = message.Combined, parse_mode = "HTML" }
             : new { chat_id = channel.TelegramChatId, text = message.Combined, parse_mode = "Markdown" };
 
         try

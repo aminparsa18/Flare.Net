@@ -1067,6 +1067,7 @@
 							class="font-mono text-xs"
 						/>
 						<span class="text-muted-foreground text-xs">{m.alertRuleForm_templateBodyHint()}</span>
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_templateMarkdownHint()}</span>
 					</div>
 					<p class="text-muted-foreground text-xs">
 						{m.alertRuleForm_templatePlaceholdersLabel()}
@@ -1088,6 +1089,25 @@
 							</div>
 							{#if notificationPreview.error}
 								<span class="text-destructive text-xs">{notificationPreview.error}</span>
+							{/if}
+							{#if notificationPreview.telegramHtml || notificationPreview.slackText || notificationPreview.emailHtml}
+								<details class="text-xs">
+									<summary class="text-muted-foreground cursor-pointer">{m.alertRuleForm_templatePreviewChannels()}</summary>
+									<div class="mt-1 flex flex-col gap-2">
+										{#each [
+											{ label: m.alertRuleForm_templatePreviewTelegram(), text: notificationPreview.telegramHtml },
+											{ label: m.alertRuleForm_templatePreviewSlack(), text: notificationPreview.slackText },
+											{ label: m.alertRuleForm_templatePreviewEmail(), text: notificationPreview.emailHtml }
+										] as channel (channel.label)}
+											{#if channel.text}
+												<div>
+													<div class="font-medium">{channel.label}</div>
+													<pre class="bg-muted/50 mt-0.5 rounded-md border p-2 font-mono break-words whitespace-pre-wrap">{channel.text}</pre>
+												</div>
+											{/if}
+										{/each}
+									</div>
+								</details>
 							{/if}
 						{:else}
 							<Spinner class="size-3.5" />

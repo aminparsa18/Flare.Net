@@ -135,17 +135,6 @@ folders are where "what happened and why" actually lives.
   keyed on the full series identity, not the rendered text. Not started.
   Prior art:
   [signoz#10529](https://github.com/SigNoz/signoz/commit/6fb92880cc4390838f372ccea2773b4e0e33b403).
-- **Markdown in alert notification templates, rendered per channel.**
-  Custom templates (ADR-0052) are sent as plain text. Telegram drops
-  `parse_mode` for user text because it can't be guaranteed valid, and email
-  has no HTML part. Parse templates as a small CommonMark subset (bold,
-  italic, links, inline code, lists) and render each channel's format with
-  proper escaping: Telegram HTML mode, Slack mrkdwn, an email HTML part
-  alongside plain text, plain text for webhook/PagerDuty. Fall back to plain
-  text if rendering fails, and show the per-channel output in the existing
-  server-side preview. Probably a short follow-up ADR to 0052. Not started.
-  Prior art:
-  [signoz#10682](https://github.com/SigNoz/signoz/commit/30d3f754b56b39c4660ca18bdf8e4d8d0a38b845).
 - **LLM observability from GenAI semconv.** Nothing reads `gen_ai.*` span
   attributes today, though .NET apps using Microsoft.Extensions.AI or
   Semantic Kernel emit them. Add a page built from `gen_ai.*` spans: calls,

@@ -326,6 +326,12 @@ export interface AlertNotificationPreview {
 	text: string;
 	/** Why the templates can't be saved as-is - '' when valid. */
 	error: string;
+	/** Title + body as Telegram HTML - '' unless a template is set. */
+	telegramHtml: string;
+	/** Title + body as Slack mrkdwn (sent to hooks.slack.com URLs) - '' unless a template is set. */
+	slackText: string;
+	/** The body as the email's HTML part - '' unless a body template is set. */
+	emailHtml: string;
 }
 
 /** Placeholder names a notification template may use, besides `labels.<key>` - mirrors `AlertTemplateRenderer.Names`. */
@@ -710,5 +716,12 @@ export async function previewAlertNotification(request: AlertRuleRequest, ruleId
 	if (dtoResult == null) {
 		throw new Error('Empty response body decoding AlertNotificationPreview.');
 	}
-	return { title: dtoResult.title ?? '', text: dtoResult.text ?? '', error: dtoResult.error ?? '' };
+	return {
+		title: dtoResult.title ?? '',
+		text: dtoResult.text ?? '',
+		error: dtoResult.error ?? '',
+		telegramHtml: dtoResult.telegramHtml ?? '',
+		slackText: dtoResult.slackText ?? '',
+		emailHtml: dtoResult.emailHtml ?? ''
+	};
 }
