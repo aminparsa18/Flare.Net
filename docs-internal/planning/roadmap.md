@@ -116,15 +116,11 @@ folders are where "what happened and why" actually lives.
   and incident.io
   ([signoz#12644](https://github.com/SigNoz/signoz/commit/e84a61d43f7f5a7b10a955f0e2b4444b7443d4e7)).
   Not started.
-- **Exception → source code.** Exceptions show a stack trace but nothing
-  links a frame to the code that ran. Use `code.filepath`/`code.lineno` (and
-  the stack trace's own `in File:line` frames) plus the app's commit
-  (`service.version` or a `vcs.revision`-style resource attribute, which
-  SourceLink-enabled builds can stamp) to show the failing lines inline and
-  link to the repo at that commit (GitHub/GitLab/Azure DevOps URL patterns,
-  repo URL configured per service). Optional follow-up: an "explain this
-  exception" LLM action with the real source in context, under the AI
-  constraints below. Not started.
+- **Exception → source code, inline.** Stack frames link to the repo at the build's commit
+  (ADR-0095). Still open: show the failing lines inline in the dialog. That needs Flare to fetch
+  from GitHub/GitLab/Azure DevOps with a per-service credential, plus caching and redaction
+  thought. Then an optional "explain this exception" LLM action with the real source in context,
+  under the AI constraints below. Not started.
 - **AI incident summary on alerts (opt-in).** When a rule fires, run the
   same data `flare export --trace-id` bundles (a representative failing
   trace, its logs, the rule's metric window) through an LLM. Add the summary

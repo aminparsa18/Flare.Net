@@ -27,6 +27,8 @@ public class ExceptionOccurrenceQueryBuilderTests
         Assert.Contains("Name AS SpanName", result.Sql);
         Assert.Contains("EventTime AS Timestamp", result.Sql);
         Assert.Contains("EventAttributes['exception.stacktrace'] AS Stacktrace", result.Sql);
+        Assert.Contains("ResourceAttributes['vcs.revision']", result.Sql);
+        Assert.Contains("ResourceAttributes['service.version'])) AS Revision", result.Sql);
         Assert.Contains("FROM spans", result.Sql);
         Assert.Contains("ORDER BY EventTime DESC", result.Sql);
     }

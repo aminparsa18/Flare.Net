@@ -114,6 +114,8 @@ export interface ExceptionOccurrence {
 	spanName: string;
 	timestamp: string;
 	stacktrace: string;
+	/** Build revision (commit SHA / `service.version`) - see `ExceptionOccurrence.Revision`; '' when unset. */
+	revision: string;
 }
 
 function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccurrence {
@@ -123,7 +125,8 @@ function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccu
 		serviceName: dto.serviceName ?? '',
 		spanName: dto.spanName ?? '',
 		timestamp: dto.timestamp.toISOString(),
-		stacktrace: dto.stacktrace ?? ''
+		stacktrace: dto.stacktrace ?? '',
+		revision: dto.revision ?? ''
 	};
 }
 

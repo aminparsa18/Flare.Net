@@ -17,7 +17,14 @@
 	import { EditorState, RangeSetBuilder } from '@codemirror/state';
 	import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate, drawSelection, highlightSpecialChars, lineNumbers } from '@codemirror/view';
 
-	let { trace, maxHeight = '20rem', class: className = '' }: { trace: string; maxHeight?: string; class?: string } = $props();
+	// `linkFor` (ADR-0095) maps a frame's location text (`/src/File.cs:line 228`) to a repo URL, or
+	// null when it can't be linked; linkable locations become click-through links.
+	let {
+		trace,
+		maxHeight = '20rem',
+		class: className = '',
+		linkFor
+	}: { trace: string; maxHeight?: string; class?: string; linkFor?: (location: string) => string | null } = $props();
 
 	let container: HTMLDivElement | undefined = $state();
 	let view: EditorView | undefined;
@@ -95,7 +102,7 @@
 		return [[start, start + type.length, 'exceptionType']];
 	}
 
-	function buildDecorations(state: EditorState): DecorationSet {
+	function buildDecorations(state: EditorState, linkFor?: (location: string) => string | null): DecorationSet {
 		const builder = new RangeSetBuilder<Decoration>();
 		for (let i = 1; i <= state.doc.lines; i++) {
 			const line = state.doc.line(i);
@@ -106,24 +113,42 @@
 			}
 			const tokens = tokenizeFrameLine(line.from, text) ?? tokenizeHeaderLine(line.from, text);
 			for (const [from, to, kind] of tokens ?? []) {
-				if (to > from) builder.add(from, to, markDeco[kind]);
+				if (to <= from) continue;
+				const href = kind === 'location' ? linkFor?.(state.doc.sliceString(from, to)) : null;
+				builder.add(
+					from,
+					to,
+					href ? Decoration.mark({ class: 'cm-stacktrace-location cm-stacktrace-link', attributes: { 'data-href': href } }) : markDeco[kind]
+				);
 			}
 		}
 		return builder.finish();
 	}
 
-	const stackTraceHighlighter = ViewPlugin.fromClass(
-		class {
-			decorations: DecorationSet;
-			constructor(view: EditorView) {
-				this.decorations = buildDecorations(view.state);
-			}
-			update(update: ViewUpdate) {
-				if (update.docChanged) this.decorations = buildDecorations(update.state);
-			}
-		},
-		{ decorations: (plugin) => plugin.decorations }
-	);
+	function createHighlighter(linkFor?: (location: string) => string | null) {
+		return ViewPlugin.fromClass(
+			class {
+				decorations: DecorationSet;
+				constructor(view: EditorView) {
+					this.decorations = buildDecorations(view.state, linkFor);
+				}
+				update(update: ViewUpdate) {
+					if (update.docChanged) this.decorations = buildDecorations(update.state, linkFor);
+				}
+			},
+			{ decorations: (plugin) => plugin.decorations }
+		);
+	}
+
+	// A plain click on a linkable location opens it; a drag-select (non-collapsed selection) doesn't.
+	const openLinkOnClick = EditorView.domEventHandlers({
+		click(event) {
+			const href = (event.target as HTMLElement).closest<HTMLElement>('[data-href]')?.dataset.href;
+			if (!href || window.getSelection()?.toString()) return false;
+			window.open(href, '_blank', 'noopener,noreferrer');
+			return true;
+		}
+	});
 
 	$effect(() => {
 		if (!container) return;
@@ -156,6 +181,7 @@
 			'.cm-stacktrace-symbol': { color: 'var(--foreground)', fontWeight: '500' },
 			'.cm-stacktrace-args': { color: 'var(--muted-foreground)' },
 			'.cm-stacktrace-location': { color: 'var(--chart-1)' },
+			'.cm-stacktrace-link': { textDecoration: 'underline', cursor: 'pointer' },
 			'.cm-stacktrace-exception-type': { color: 'var(--destructive)', fontWeight: '500' },
 			'.cm-stacktrace-caused-by': { color: 'var(--destructive)', fontWeight: '500' }
 		});
@@ -170,7 +196,8 @@
 					EditorView.lineWrapping,
 					EditorState.readOnly.of(true),
 					EditorView.editable.of(false),
-					stackTraceHighlighter,
+					createHighlighter(linkFor),
+					openLinkOnClick,
 					theme
 				]
 			}),

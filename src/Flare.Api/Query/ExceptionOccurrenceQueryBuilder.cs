@@ -38,7 +38,9 @@ public static class ExceptionOccurrenceQueryBuilder
             "    ServiceName,\n" +
             "    Name AS SpanName,\n" +
             "    EventTime AS Timestamp,\n" +
-            "    EventAttributes['exception.stacktrace'] AS Stacktrace\n" +
+            "    EventAttributes['exception.stacktrace'] AS Stacktrace,\n" +
+            "    if(ResourceAttributes['vcs.ref.head.revision'] != '', ResourceAttributes['vcs.ref.head.revision'],\n" +
+            "        if(ResourceAttributes['vcs.revision'] != '', ResourceAttributes['vcs.revision'], ResourceAttributes['service.version'])) AS Revision\n" +
             "FROM spans\n" +
             "ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
             $"WHERE {filterSql.WhereSql}\n" +

@@ -2398,5 +2398,14 @@
 	"metricDashboards_hint": "Проверьте их перед переименованием, удалением или переопределением метрики.",
 	"metricDashboards_none": "Ни одна панель дашбордов не использует эту метрику.",
 	"metricDashboards_formula": "формула",
-	"metricDashboards_error": "Не удалось найти дашборды: {message}"
+	"metricDashboards_error": "Не удалось найти дашборды: {message}",
+	"sourceLinkPopover_title": "Ссылка на исходники",
+	"sourceLinkPopover_titleForService": "Репозиторий исходников для {serviceName}",
+	"sourceLinkPopover_description": "Пути к файлам в кадрах стека становятся ссылками на этот репозиторий на коммите сборки (из vcs.revision или service.version). Префикс пути — каталог сборки, который нужно отбросить, например /src/ или /home/runner/work/shop/shop/.",
+	"sourceLinkPopover_repoUrlPlaceholder": "https://github.com/acme/shop",
+	"sourceLinkPopover_defaultRefPlaceholder": "Запасная ветка или тег (например, main)",
+	"sourceLinkPopover_pathPrefixPlaceholder": "Префикс пути сборки для отбрасывания (необязательно)",
+	"sourceLinkPopover_invalidUrl": "Введите http(s)-адрес репозитория.",
+	"sourceLinkPopover_remove": "Удалить",
+	"sourceLinkPopover_save": "Сохранить"
 }
