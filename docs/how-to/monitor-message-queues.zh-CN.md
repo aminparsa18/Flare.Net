@@ -35,6 +35,8 @@ using var consumer = consumerBuilder.Build();
 
 对于 RabbitMQ.Client 7+，改为添加它的活动源：`tracing.AddSource("RabbitMQ.Client.*")`。
 
+对于 MassTransit 8（Apache 许可），添加它的活动源：`tracing.AddSource("MassTransit")`。无需其他配置。尽管 MassTransit 只在发送 span 上设置 `messaging.system`，Flare 会从 MassTransit 的端点地址推断系统和目标。每种消息类型对应一行，以 MassTransit 发布它所用的 exchange 命名（例如 `Orders.Contracts:SubmitOrder`），生产者和消费者合并显示。消费者故障会发布到 `MassTransit:Fault--...` 行。Backlog 列保持为空，因为队列名与行名不同。MassTransit 9 是商业版，需要许可证密钥，未经测试。
+
 ## 查看 Messaging 页面
 
 ![消息队列页面：Kafka 主题和 RabbitMQ 队列的发布与消费速率、错误率、p99 和积压](../screenshots/monitor-message-queues-ch.webp)
@@ -126,7 +128,7 @@ service:
       exporters: [otlp]
 ```
 
-Flare 按名称把队列匹配到某一行：使用该行自身的名称以及其 span 携带的每个路由键。这涵盖了直接发布到的队列、以其队列命名的 exchange（MassTransit 的约定），以及路由键等于队列名的 direct exchange。**Backlog** 列显示匹配队列最新的就绪 + 未确认消息数。打开该行可查看每个队列的这两个计数。路由键不对应任何队列的 topic 或 fanout exchange 显示 **—**。
+Flare 按名称把队列匹配到某一行：使用该行自身的名称以及其 span 携带的每个路由键。这涵盖了直接发布到的队列、以其队列命名的 exchange，以及路由键等于队列名的 direct exchange。**Backlog** 列显示匹配队列最新的就绪 + 未确认消息数。打开该行可查看每个队列的这两个计数。路由键不对应任何队列的 topic 或 fanout exchange 显示 **—**。
 
 ## 故障排查
 

@@ -50,6 +50,17 @@ spans.
 Pour RabbitMQ.Client 7+, ajoutez plutôt ses sources d'activités :
 `tracing.AddSource("RabbitMQ.Client.*")`.
 
+Pour MassTransit 8 (licence Apache), ajoutez sa source d'activités :
+`tracing.AddSource("MassTransit")`. Rien d'autre n'est nécessaire, bien que
+MassTransit ne renseigne `messaging.system` que sur ses spans d'envoi : Flare
+déduit le système et la destination de l'adresse de point de terminaison de
+MassTransit. Chaque type de message a une ligne, nommée d'après l'exchange où
+MassTransit le publie (par exemple `Orders.Contracts:SubmitOrder`), avec
+producteurs et consommateurs réunis. Les fautes de consommateurs sont publiées
+sur une ligne `MassTransit:Fault--...`. La colonne Backlog reste vide, car le
+nom de la file diffère de celui de la ligne. MassTransit 9 est commercial et
+exige une clé de licence ; il n'a pas été testé.
+
 ## Lire la page Messaging
 
 ![Page Messaging : topics Kafka et files RabbitMQ avec débits de publication et de consommation, taux d'erreur, p99 et backlog](../screenshots/monitor-message-queues-en.webp)
@@ -177,7 +188,7 @@ service:
 Flare associe les files à une ligne par leur nom. Il utilise le nom de la
 ligne et chaque clé de routage portée par ses spans. Cela couvre les files
 sur lesquelles on publie directement, les exchanges nommés d'après leur file
-(la convention de MassTransit) et les exchanges directs dont la clé de
+et les exchanges directs dont la clé de
 routage est le nom de la file. La colonne **Backlog** affiche le dernier
 total prêts + non acquittés des files associées. Ouvrez la ligne pour voir
 ces deux compteurs pour chaque file. Un exchange topic ou fanout dont les

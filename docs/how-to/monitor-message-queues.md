@@ -47,6 +47,16 @@ describes. Clients built with the plain Confluent builders don't emit spans.
 For RabbitMQ.Client 7+, add its activity sources instead:
 `tracing.AddSource("RabbitMQ.Client.*")`.
 
+For MassTransit 8 (Apache licensed), add its activity source:
+`tracing.AddSource("MassTransit")`. Nothing else is needed, even though
+MassTransit sets `messaging.system` only on its send spans: Flare takes the
+system and the destination from MassTransit's endpoint address. Each message
+type gets one row, named after the exchange MassTransit publishes it to
+(for example `Orders.Contracts:SubmitOrder`), with producers and consumers
+together. Consumer faults are published to a `MassTransit:Fault--...` row.
+The Backlog column stays empty, because the queue's name differs from the
+row's. MassTransit 9 is commercial and needs a license key; it was not tested.
+
 ## Read the Messaging page
 
 ![Messaging page: Kafka topics and RabbitMQ queues with publish and consume rates, error rate, p99 and backlog](../screenshots/monitor-message-queues-en.webp)
@@ -167,7 +177,7 @@ service:
 
 Flare matches queues to a row by name. It uses the row's own name and every
 routing key its spans carried. That covers queues published to directly,
-exchanges named after their queue (MassTransit's convention), and direct
+exchanges named after their queue, and direct
 exchanges whose routing key is the queue name. The **Backlog** column is
 the latest ready + unacknowledged count of the matched queues. Open the
 row to see each queue's ready and unacked counts. A topic or fanout exchange

@@ -156,8 +156,21 @@ public class MessagingQueryBuilderTests
     {
         var expr = MessagingQueryBuilder.DestinationExpr;
 
-        Assert.StartsWith("if(SpanAttributes['messaging.system'] = 'rabbitmq' AND SpanAttributes['messaging.destination.name'] IN ('', 'amq.default')", expr);
+        Assert.Contains("= 'rabbitmq' AND SpanAttributes['messaging.destination.name'] IN ('', 'amq.default')", expr);
         Assert.Contains($"AND {MessagingQueryBuilder.RoutingKeyExpr} != '', {MessagingQueryBuilder.RoutingKeyExpr}, SpanAttributes['messaging.destination.name'])", expr);
+    }
+
+    [Fact]
+    public void MassTransitSpans_AreKeyedByTheirEndpointAddress()
+    {
+        // MassTransit sets messaging.system on send spans only, and the queue name only on receive spans.
+        var address = "SpanAttributes['messaging.masstransit.destination_address']";
+
+        Assert.StartsWith($"if(SpanAttributes['messaging.system'] != '' OR {address} = '', SpanAttributes['messaging.system'], ", MessagingQueryBuilder.SystemExpr);
+        Assert.Contains("= 'sb', 'servicebus'", MessagingQueryBuilder.SystemExpr);
+        Assert.StartsWith($"if({address} != '', extract({address}, ", MessagingQueryBuilder.DestinationExpr);
+        Assert.Contains("mapContains(SpanAttributes, 'messaging.masstransit.destination_address')", MessagingQueryBuilder.MessagingSpanExpr);
+        Assert.Contains("mapContains(SpanAttributes, 'messaging.system')", MessagingQueryBuilder.MessagingSpanExpr);
     }
 
     [Fact]

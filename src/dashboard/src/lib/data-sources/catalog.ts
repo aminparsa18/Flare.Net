@@ -71,6 +71,8 @@ import FlameIcon from '@lucide/svelte/icons/flame';
 import NetworkIcon from '@lucide/svelte/icons/network';
 // RabbitMQ's logo is a rabbit, and lucide happens to ship one.
 import RabbitIcon from '@lucide/svelte/icons/rabbit';
+// MassTransit is a service bus; lucide's bus icon is the literal match.
+import BusIcon from '@lucide/svelte/icons/bus';
 
 export interface GuideStep {
 	heading: string;
@@ -767,6 +769,40 @@ service:
 				}
 			]
 		},
+		masstransit: {
+			id: 'masstransit',
+			title: m.dataSourceCatalog_masstransitTitle(),
+			icon: BusIcon,
+			intro: m.dataSourceCatalog_masstransitIntro(),
+			steps: [
+				{
+					heading: m.dataSourceCatalog_masstransitStep1Heading(),
+					body: m.dataSourceCatalog_masstransitStep1Body(),
+					code: {
+						text: 'dotnet add package MassTransit.RabbitMQ --version 8.*\ndotnet add package OpenTelemetry.Extensions.Hosting\ndotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol'
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_masstransitStep2Heading(),
+					body: m.dataSourceCatalog_masstransitStep2Body(),
+					code: {
+						label: 'Program.cs',
+						text: `using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("your-service"))
+    .WithTracing(tracing => tracing
+        .AddSource("MassTransit")
+        .AddOtlpExporter(otlp => otlp.Endpoint = new Uri("${ep.grpcUri}")));`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_masstransitStep3Heading(),
+					body: m.dataSourceCatalog_masstransitStep3Body()
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: m.dataSourceCatalog_customTitle(),
@@ -817,7 +853,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 		{ id: 'platforms', label: m.dataSourceCatalog_categoryPlatforms(), itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
 		{ id: 'shippers', label: m.dataSourceCatalog_categoryShippers(), itemIds: ['vector', 'fluent-bit', 'syslog'] },
 		{ id: 'metrics', label: m.dataSourceCatalog_categoryMetrics(), itemIds: ['prometheus'] },
-		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka', 'rabbitmq'] },
+		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka', 'rabbitmq', 'masstransit'] },
 		{
 			id: 'languages',
 			label: m.dataSourceCatalog_categoryLanguages(),
