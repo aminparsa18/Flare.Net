@@ -20,13 +20,20 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public static class MaintenanceWindowSchedule
 {
-    /// <summary>The first window in <paramref name="windows"/> covering <paramref name="ruleId"/> that is active at <paramref name="now"/>, or null.</summary>
-    public static MaintenanceWindow? FindActive(IEnumerable<MaintenanceWindow> windows, Guid ruleId, DateTimeOffset now) =>
-        windows.FirstOrDefault(w => Covers(w, ruleId) && IsActive(w, now));
+    /// <summary>The first window in <paramref name="windows"/> covering <paramref name="rule"/> that is active at <paramref name="now"/>, or null.</summary>
+    public static MaintenanceWindow? FindActive(IEnumerable<MaintenanceWindow> windows, AlertRule rule, DateTimeOffset now) =>
+        windows.FirstOrDefault(w => Covers(w, rule) && IsActive(w, now));
 
-    /// <summary>True when <paramref name="window"/> silences <paramref name="ruleId"/> - an empty <see cref="MaintenanceWindow.RuleIds"/> covers every rule.</summary>
-    public static bool Covers(MaintenanceWindow window, Guid ruleId) =>
-        window.RuleIds.Count == 0 || window.RuleIds.Contains(ruleId);
+    /// <summary>
+    /// True when <paramref name="window"/> silences <paramref name="rule"/>: a window with
+    /// neither <see cref="MaintenanceWindow.RuleIds"/> nor <see cref="MaintenanceWindow.LabelMatchers"/>
+    /// covers every rule; otherwise a rule is covered when listed by id <i>or</i> its
+    /// <see cref="AlertRule.Labels"/> contain every matcher pair.
+    /// </summary>
+    public static bool Covers(MaintenanceWindow window, AlertRule rule) =>
+        (window.RuleIds.Count == 0 && window.LabelMatchers.Count == 0)
+        || window.RuleIds.Contains(rule.Id)
+        || AlertLabels.MatchesAll(window.LabelMatchers, rule.Labels);
 
     public static bool IsActive(MaintenanceWindow window, DateTimeOffset now)
     {

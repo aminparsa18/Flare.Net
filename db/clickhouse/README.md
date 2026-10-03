@@ -204,6 +204,11 @@ See [ADR-0077](../../docs-internal/adr/0077-alert-rule-severity.md).
 (`String`, default `''` meaning "already in the series' unit", so existing rules are unchanged).
 See [ADR-0080](../../docs-internal/adr/0080-alert-threshold-unit.md).
 
+`0042_alert_rule_labels.sql` - user-defined alert rule labels: `alert_rules.LabelsJson` and
+`maintenance_windows.LabelMatchersJson` (`String` JSON objects, default `'{}'` meaning none, so
+existing rules and windows are unchanged). See
+[ADR-0084](../../docs-internal/adr/0084-alert-rule-labels.md).
+
 Every table above uses plain `MergeTree`/`ReplacingMergeTree` - this directory is v1's
 **single-node** ClickHouse schema. `../clickhouse-cluster/` is an opt-in, 1:1 variant of
 the same 10 migrations using `ReplicatedMergeTree`/`Distributed` tables instead, for the

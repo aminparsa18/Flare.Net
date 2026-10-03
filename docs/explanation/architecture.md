@@ -303,6 +303,10 @@ The "Maintenance" tab schedules one-off, daily or weekly maintenance windows
 (in a chosen time zone) for every rule or selected ones. During a window,
 rules still evaluate, but a breach is recorded in the rule's history as
 suppressed instead of notifying (see [ADR-0055](../../docs-internal/adr/0055-alert-maintenance-windows.md)).
+Rules can carry your own key/value labels (`team=payments`), filterable in the rules
+list and available as `{{labels.team}}` and in webhook payloads. A window can also
+cover rules by label instead of, or as well as, by name, so new rules are covered
+automatically (see [ADR-0084](../../docs-internal/adr/0084-alert-rule-labels.md)).
 When a firing rule recovers, its channels get a "Resolved" notification, and PagerDuty
 incidents close automatically. Each channel can opt out with its "Send resolved
 notifications" switch. The rule's history records the resolution next to the fire

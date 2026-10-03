@@ -15,6 +15,7 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import { formatDateTimeMinutes } from '$lib/time/format';
+	import { formatLabels } from '$lib/alerts/labels';
 
 	const maintenance = maintenanceWindowsContext.get();
 
@@ -111,7 +112,16 @@
 						</Table.Cell>
 						<Table.Cell class="text-muted-foreground text-xs">{schedule(mw)}</Table.Cell>
 						<Table.Cell class="text-muted-foreground">
-							{mw.ruleIds.length === 0 ? m.maintenanceWindowTable_allRules() : m.maintenanceWindowTable_ruleCount({ count: mw.ruleIds.length })}
+							{#if mw.ruleIds.length === 0 && Object.keys(mw.labelMatchers).length === 0}
+								{m.maintenanceWindowTable_allRules()}
+							{:else}
+								{#if mw.ruleIds.length > 0}
+									<p>{m.maintenanceWindowTable_ruleCount({ count: mw.ruleIds.length })}</p>
+								{/if}
+								{#if Object.keys(mw.labelMatchers).length > 0}
+									<p class="font-mono text-xs">{m.maintenanceWindowTable_labelMatchers({ labels: formatLabels(mw.labelMatchers) })}</p>
+								{/if}
+							{/if}
 						</Table.Cell>
 						<Table.Cell>
 							<Badge variant={windowStatus === 'active' ? 'warning' : windowStatus === 'scheduled' ? 'secondary' : 'outline'}>

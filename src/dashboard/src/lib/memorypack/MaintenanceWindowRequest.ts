@@ -6,6 +6,7 @@
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { writeDateTimeOffset, writeNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
 
 export class MaintenanceWindowRequest {
 	name: string | null = null;
@@ -17,10 +18,11 @@ export class MaintenanceWindowRequest {
 	daysOfWeek: number[] | null = null;
 	repeatUntil: Date | null = null;
 	timeZone: string | null = null;
+	labelMatchers: StringRecord = null;
 
 	static serialize(value: MaintenanceWindowRequest): Uint8Array {
 		const writer = MemoryPackWriter.getSharedInstance();
-		writer.writeObjectHeader(9);
+		writer.writeObjectHeader(10);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeArray(value.ruleIds, (writer, x) => writer.writeGuid(x));
@@ -30,6 +32,7 @@ export class MaintenanceWindowRequest {
 		writer.writeArray(value.daysOfWeek, (writer, x) => writer.writeInt32(x));
 		writeNullableDateTimeOffset(writer, value.repeatUntil);
 		writer.writeString(value.timeZone);
+		writeStringRecord(writer, value.labelMatchers);
 		return writer.toArray();
 	}
 }

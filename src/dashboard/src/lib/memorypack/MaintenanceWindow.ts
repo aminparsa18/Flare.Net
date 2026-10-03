@@ -7,6 +7,7 @@
 
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
 import { readDateTimeOffset, readNullableDateTimeOffset } from '$lib/memorypack/date-time-offset';
+import { readStringRecord, type StringRecord } from '$lib/memorypack/string-record';
 
 export class MaintenanceWindow {
 	id: string;
@@ -21,6 +22,8 @@ export class MaintenanceWindow {
 	timeZone: string | null;
 	createdAt: Date;
 	updatedAt: Date;
+	/** Label key/value pairs a rule's labels must all contain (ADR-0084). */
+	labelMatchers: StringRecord;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -35,6 +38,7 @@ export class MaintenanceWindow {
 		this.timeZone = null;
 		this.createdAt = new Date(0);
 		this.updatedAt = new Date(0);
+		this.labelMatchers = null;
 	}
 
 	static deserialize(buffer: ArrayBuffer): MaintenanceWindow | null {
@@ -48,7 +52,7 @@ export class MaintenanceWindow {
 		}
 
 		const value = new MaintenanceWindow();
-		if (count == 12) {
+		if (count == 13) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -61,6 +65,7 @@ export class MaintenanceWindow {
 			value.timeZone = reader.readString();
 			value.createdAt = readDateTimeOffset(reader);
 			value.updatedAt = readDateTimeOffset(reader);
+			value.labelMatchers = readStringRecord(reader);
 		} else {
 			// No older/newer shape exists yet - a new trailing field appends an `else if` branch
 			// here, same versioning scheme every other hand-written class in this folder uses.

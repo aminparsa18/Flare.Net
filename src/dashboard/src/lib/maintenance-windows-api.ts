@@ -35,6 +35,8 @@ export interface MaintenanceWindow {
 	timeZone: string;
 	createdAt: string;
 	updatedAt: string;
+	/** Label key/value pairs a rule's labels must all contain for this window to cover it; covers a rule listed in `ruleIds` OR matching these. Both empty = every rule. */
+	labelMatchers: Record<string, string>;
 }
 
 export interface MaintenanceWindowRequest {
@@ -47,6 +49,7 @@ export interface MaintenanceWindowRequest {
 	daysOfWeek: number[];
 	repeatUntil: string | null;
 	timeZone: string;
+	labelMatchers: Record<string, string>;
 }
 
 export interface MaintenanceWindowListResponse {
@@ -68,7 +71,8 @@ function toMaintenanceWindow(dto: GeneratedMaintenanceWindow): MaintenanceWindow
 		repeatUntil: dto.repeatUntil?.toISOString() ?? null,
 		timeZone: dto.timeZone ?? 'UTC',
 		createdAt: dto.createdAt.toISOString(),
-		updatedAt: dto.updatedAt.toISOString()
+		updatedAt: dto.updatedAt.toISOString(),
+		labelMatchers: dto.labelMatchers ?? {}
 	};
 }
 
@@ -83,6 +87,7 @@ function toGeneratedRequest(request: MaintenanceWindowRequest): GeneratedMainten
 	dto.daysOfWeek = request.daysOfWeek;
 	dto.repeatUntil = request.repeatUntil == null ? null : new Date(request.repeatUntil);
 	dto.timeZone = request.timeZone;
+	dto.labelMatchers = request.labelMatchers;
 	return dto;
 }
 

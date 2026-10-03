@@ -9,6 +9,8 @@ import {
 	type MaintenanceWindow,
 	type MaintenanceWindowRequest
 } from '$lib/maintenance-windows-api';
+import type { AlertRule } from '$lib/alerts-api';
+import { labelsMatch } from '$lib/alerts/labels';
 
 export class MaintenanceWindowsState {
 	windows = $state.raw<MaintenanceWindow[]>([]);
@@ -22,9 +24,13 @@ export class MaintenanceWindowsState {
 	saving = $state(false);
 	saveError = $state<string | null>(null);
 
-	/** True when an active window silences `ruleId` - drives the rules table's "muted" badge. */
-	isRuleMuted(ruleId: string): boolean {
-		return this.windows.some((w) => this.activeWindowIds.includes(w.id) && (w.ruleIds.length === 0 || w.ruleIds.includes(ruleId)));
+	/** True when an active window silences `rule` - drives the rules table's "muted" badge. Mirrors the server's `MaintenanceWindowSchedule.Covers`: a window with neither rule ids nor label matchers covers everything, otherwise a listed id OR matching labels. */
+	isRuleMuted(rule: Pick<AlertRule, 'id' | 'labels'>): boolean {
+		return this.windows.some(
+			(w) =>
+				this.activeWindowIds.includes(w.id) &&
+				((w.ruleIds.length === 0 && Object.keys(w.labelMatchers).length === 0) || w.ruleIds.includes(rule.id) || labelsMatch(w.labelMatchers, rule.labels))
+		);
 	}
 
 	async load(): Promise<void> {

@@ -16,7 +16,7 @@
 // `AlertRule.AnomalyCondition` (ADR-0048). `minDataPoints` was appended after `anomalyCondition`,
 // same reasoning - see `AlertRule.MinDataPoints` (ADR-0050). `notificationTitleTemplate`/
 // `notificationBodyTemplate` were appended after `minDataPoints`, same reasoning (ADR-0052). `recoveryThreshold` was appended after `notificationBodyTemplate`, same
-// reasoning - see `AlertRule.RecoveryThreshold` (ADR-0076). `severity` was appended after `recoveryThreshold`, same reasoning (ADR-0077). `thresholdUnit` was appended after `severity`, same reasoning (ADR-0080).
+// reasoning - see `AlertRule.RecoveryThreshold` (ADR-0076). `severity` was appended after `recoveryThreshold`, same reasoning (ADR-0077). `thresholdUnit` was appended after `severity`, same reasoning (ADR-0080). `labels` was appended after `thresholdUnit`, same reasoning (ADR-0084).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -26,6 +26,7 @@ import { LogFilter } from '$lib/memorypack/LogFilter';
 import { MetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
 import { ExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
 import { AnomalyCondition } from '$lib/memorypack/AnomalyCondition';
+import { readStringRecord, writeStringRecord, type StringRecord } from '$lib/memorypack/string-record';
 
 export class AlertRule {
 	id: string;
@@ -57,6 +58,7 @@ export class AlertRule {
 	recoveryThreshold: number | null;
 	severity: number;
 	thresholdUnit: string | null;
+	labels: StringRecord;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -88,6 +90,7 @@ export class AlertRule {
 		this.recoveryThreshold = null;
 		this.severity = 0;
 		this.thresholdUnit = null;
+		this.labels = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -102,7 +105,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(29);
+		writer.writeObjectHeader(30);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -132,6 +135,7 @@ export class AlertRule {
 		writer.writeNullableFloat64(value.recoveryThreshold);
 		writer.writeInt32(value.severity);
 		writer.writeString(value.thresholdUnit);
+		writeStringRecord(writer, value.labels);
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -155,7 +159,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 29) {
+		if (count == 30) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -185,7 +189,8 @@ export class AlertRule {
 			value.recoveryThreshold = reader.readNullableFloat64();
 			value.severity = reader.readInt32();
 			value.thresholdUnit = reader.readString();
-		} else if (count > 29) {
+			value.labels = readStringRecord(reader);
+		} else if (count > 30) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -247,6 +252,8 @@ export class AlertRule {
 			if (count == 28) return value;
 			value.thresholdUnit = reader.readString();
 			if (count == 29) return value;
+			value.labels = readStringRecord(reader);
+			if (count == 30) return value;
 		}
 		return value;
 	}

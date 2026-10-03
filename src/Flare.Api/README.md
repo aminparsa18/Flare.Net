@@ -303,7 +303,10 @@ beyond the rule's threshold (history rows carry `BaselineMean`/`ZScore`) - see
 window (`/api/maintenance-windows` CRUD, `maintenance_windows` table, one-off/daily/weekly in an
 IANA time zone, all rules or listed ones) is recorded as `NotificationStatus = "Suppressed"` with
 `SuppressedByWindow` set instead of notifying, and cooldown ignores suppressed rows once the window
-ends - see `docs-internal/adr/0055-alert-maintenance-windows.md`. No streaming/near-real-time evaluation — deliberately out of scope
+ends - see `docs-internal/adr/0055-alert-maintenance-windows.md`. `Labels` (user key/value pairs, stored as `alert_rules.LabelsJson`)
+are merged into the `{{labels.<key>}}` template values (winning over condition-derived ones) and sent as `labels` in webhook/PagerDuty
+payloads; a window's `LabelMatchers` cover every rule whose labels contain all the pairs, in addition to its `RuleIds`
+(`MaintenanceWindowSchedule.Covers`) - see `docs-internal/adr/0084-alert-rule-labels.md`. No streaming/near-real-time evaluation — deliberately out of scope
 for this pass, since polling matches "threshold/query-based" exactly and is the simplest
 correct implementation.
 

@@ -365,7 +365,7 @@ public sealed class AlertEvaluationWorker(
         // Inside a maintenance window, cooldown counts suppressed events too - one suppressed
         // history row per cooldown, not one per tick. Outside, it ignores them, so a breach
         // that outlasts the window notifies as soon as the window ends.
-        var window = MaintenanceWindowSchedule.FindActive(windows, rule.Id, now);
+        var window = MaintenanceWindowSchedule.FindActive(windows, rule, now);
         var lastFired = await alerts.GetLastFiredAsync(rule.Id, includeSuppressed: window is not null, cancellationToken);
         if (lastFired is { } last && now - last < TimeSpan.FromSeconds(rule.CooldownSeconds))
         {
@@ -406,7 +406,7 @@ public sealed class AlertEvaluationWorker(
     /// </summary>
     private async Task ResolveIfFiringAsync(AlertRule rule, AlertFiringState? firingState, IReadOnlyList<MaintenanceWindow> windows, DateTimeOffset now, ulong observedCount, double? observedValue, string? metricUnit, AnomalyScore? anomaly, CancellationToken cancellationToken)
     {
-        var window = MaintenanceWindowSchedule.FindActive(windows, rule.Id, now);
+        var window = MaintenanceWindowSchedule.FindActive(windows, rule, now);
         var action = AlertResolutionPolicy.Decide(firingState, window is not null);
         if (action == AlertResolutionAction.None)
         {

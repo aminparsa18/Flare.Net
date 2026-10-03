@@ -41,6 +41,8 @@
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import { ALERT_SEVERITIES } from '$lib/memorypack/enums';
 	import { severityLabel } from '$lib/alerts/severity';
+	import LabelsInput from '$lib/components/alerts/LabelsInput.svelte';
+	import type { Labels } from '$lib/alerts/labels';
 	import * as m from '$lib/paraglide/messages';
 
 	// Which MetricAlertAggregation values are meaningful for each MetricPointType - see
@@ -90,6 +92,8 @@
 	let recoveryThresholdText = $state('');
 	// Unit the metric threshold (and recovery threshold) is typed in; '' = the metric's own unit.
 	let thresholdUnit = $state('');
+	let ruleLabels = $state<Labels>({});
+	let labelsValid = $state(true);
 	// Custom notification templates (ADR-0052) - off sends '' for both, i.e. the built-in wording.
 	let templatesEnabled = $state(false);
 	let notificationTitleTemplate = $state('');
@@ -182,6 +186,8 @@
 			recoveryEnabled = false;
 			recoveryThresholdText = '';
 			thresholdUnit = '';
+			ruleLabels = {};
+			labelsValid = true;
 			templatesEnabled = false;
 			notificationTitleTemplate = '';
 			notificationBodyTemplate = '';
@@ -252,6 +258,8 @@
 			recoveryEnabled = target.recoveryThreshold !== null;
 			recoveryThresholdText = target.recoveryThreshold !== null ? String(target.recoveryThreshold) : '';
 			thresholdUnit = target.thresholdUnit;
+			ruleLabels = { ...target.labels };
+			labelsValid = true;
 			templatesEnabled = target.notificationTitleTemplate !== '' || target.notificationBodyTemplate !== '';
 			notificationTitleTemplate = target.notificationTitleTemplate;
 			notificationBodyTemplate = target.notificationBodyTemplate;
@@ -369,6 +377,7 @@
 
 	const canSave = $derived(
 		name.trim().length > 0 &&
+			labelsValid &&
 			hasChannel &&
 			hasCondition &&
 			Number.isFinite(windowSeconds) &&
@@ -511,6 +520,7 @@
 			recoveryThreshold: recoveryActive ? recoveryThreshold : undefined,
 			thresholdUnit: conditionKind === 'MetricThreshold' && thresholdUnitOptions.includes(thresholdUnit) ? thresholdUnit : undefined,
 			severity: ruleSeverity,
+			labels: Object.keys(ruleLabels).length ? ruleLabels : undefined,
 			notificationTitleTemplate: templatesEnabled ? notificationTitleTemplate.trim() : '',
 			notificationBodyTemplate: templatesEnabled ? notificationBodyTemplate.trim() : '',
 			anomalyCondition:
@@ -656,6 +666,18 @@
 					</Select.Content>
 				</Select.Root>
 				<span class="text-muted-foreground text-xs">{m.alertRuleForm_severityHint()}</span>
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-medium">{m.alertRuleForm_labelsLabel()}</span>
+				<LabelsInput
+					value={ruleLabels}
+					onChange={(next, valid) => {
+						ruleLabels = next;
+						labelsValid = valid;
+					}}
+				/>
+				<span class="text-muted-foreground text-xs">{m.alertRuleForm_labelsHint()}</span>
 			</div>
 
 			{#if conditionKind === 'Anomaly'}

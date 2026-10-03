@@ -35,4 +35,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(ExceptionCountCondition))]
 [JsonSerializable(typeof(AnomalyCondition))]
 [JsonSerializable(typeof(IReadOnlyList<AlertChannelResult>))]
+[JsonSerializable(typeof(IReadOnlyDictionary<string, string>))]
 public sealed partial class AlertsJsonContext : JsonSerializerContext;

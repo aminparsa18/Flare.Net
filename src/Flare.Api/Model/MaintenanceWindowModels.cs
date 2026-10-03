@@ -31,7 +31,11 @@ public sealed partial record MaintenanceWindow
 
     public string Description { get; init; } = "";
 
-    /// <summary>The alert rules this window silences; empty = every rule.</summary>
+    /// <summary>
+    /// The alert rules this window silences by id. A window with neither <see cref="RuleIds"/>
+    /// nor <see cref="LabelMatchers"/> covers every rule; with either, it covers a rule that is
+    /// listed here <i>or</i> whose <see cref="AlertRule.Labels"/> satisfy <see cref="LabelMatchers"/>.
+    /// </summary>
     public IReadOnlyList<Guid> RuleIds { get; init; } = [];
 
     /// <summary>Start of the first (for <see cref="MaintenanceWindowRecurrence.None"/>, the only) occurrence. For a recurring window, also the earliest instant any occurrence can start.</summary>
@@ -58,6 +62,14 @@ public sealed partial record MaintenanceWindow
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>
+    /// Label key/value pairs a rule's <see cref="AlertRule.Labels"/> must all contain (exact
+    /// match) for this window to cover it, e.g. <c>team=payments</c> - so rules created later
+    /// are covered automatically. Empty = no label matcher. Appended after
+    /// <see cref="UpdatedAt"/>, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> LabelMatchers { get; init; } = new Dictionary<string, string>();
 }
 
 /// <summary>
@@ -93,6 +105,9 @@ public sealed partial record MaintenanceWindowRequest
     public DateTimeOffset? RepeatUntil { get; init; }
 
     public string? TimeZone { get; init; }
+
+    /// <summary>See <see cref="MaintenanceWindow.LabelMatchers"/>'s doc comment. Omitted/null means none. Appended after <see cref="TimeZone"/>.</summary>
+    public IReadOnlyDictionary<string, string>? LabelMatchers { get; init; }
 
     /// <summary>Returns an error message, or null when this request is valid. Called by <c>MaintenanceWindowEndpoints</c>'s create/update handlers.</summary>
     public string? Validate()
@@ -166,7 +181,7 @@ public sealed partial record MaintenanceWindowRequest
             return "repeatUntil must be after startsAt.";
         }
 
-        return null;
+        return AlertLabels.Validate(LabelMatchers, "labelMatchers");
     }
 }
 

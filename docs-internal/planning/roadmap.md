@@ -155,17 +155,6 @@ folders are where "what happened and why" actually lives.
   common models, overridable). Consider pre-aggregation like ADR-0031 if
   volumes warrant it. Needs an ADR. Not started. Prior art:
   [signoz#10908](https://github.com/SigNoz/signoz/commit/755390c4b5b2456a7c5c44d98fe8fcb18671616b).
-- **User-defined alert rule labels + label-scoped maintenance windows.**
-  Maintenance windows match only an explicit `RuleIds` list (empty = all),
-  and rules have no user labels: `{{labels.<key>}}` in templates comes from
-  series attributes, not tags set on the rule. Add `Labels` (key/value) to
-  alert rules, filterable in the alerts list and exposed to templates and
-  webhook payloads. Add a label matcher on maintenance windows (e.g.
-  `team=payments`) as an alternative to picking rules, so new rules are
-  covered automatically. This also gives the "Alert rule severity" item and
-  any future label-based channel routing a natural home. Not started. Prior
-  art:
-  [signoz#11186](https://github.com/SigNoz/signoz/commit/6cf22e98ddc86f1f1a28eaebbd4d1cab2007a252).
 - **Pin and tag dashboards.** Dashboards have no tags and no pinning: the only
   per-user ordering is the single home dashboard (`home-preference.ts`), which
   gets painful past a few dozen dashboards. Add free-form tags on dashboards
