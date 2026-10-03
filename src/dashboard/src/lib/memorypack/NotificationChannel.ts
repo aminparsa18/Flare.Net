@@ -3,7 +3,7 @@
 // `NotificationChannel` field-for-field, in declared order. Can't carry
 // `[GenerateTypeScript]` itself: it has its own `DateTimeOffset` `CreatedAt`/`UpdatedAt` -
 // same reason `AlertRule.ts` is hand-written instead of generated.
-// The `jira*` fields were appended after `sendResolved` (ADR-0097); `incidentIoToken` after them (ADR-0098).
+// The `jira*` fields were appended after `sendResolved` (ADR-0097); `incidentIoToken` and `jsmOpsApiKey` after them (ADR-0098, ADR-0099).
 // `sendResolved` was appended after `updatedAt`, same versioning reasoning as `AlertRule.ts` (ADR-0064).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
@@ -30,6 +30,7 @@ export class NotificationChannel {
 	jiraProjectKey: string | null;
 	jiraIssueType: string | null;
 	incidentIoToken: string | null;
+	jsmOpsApiKey: string | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -50,6 +51,7 @@ export class NotificationChannel {
 		this.jiraProjectKey = null;
 		this.jiraIssueType = null;
 		this.incidentIoToken = null;
+		this.jsmOpsApiKey = null;
 	}
 
 	static serialize(value: NotificationChannel | null): Uint8Array {
@@ -64,7 +66,7 @@ export class NotificationChannel {
 			return;
 		}
 
-		writer.writeObjectHeader(18);
+		writer.writeObjectHeader(19);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -83,6 +85,7 @@ export class NotificationChannel {
 		writer.writeString(value.jiraProjectKey);
 		writer.writeString(value.jiraIssueType);
 		writer.writeString(value.incidentIoToken);
+		writer.writeString(value.jsmOpsApiKey);
 	}
 
 	static serializeArray(value: (NotificationChannel | null)[] | null): Uint8Array {
@@ -106,7 +109,7 @@ export class NotificationChannel {
 		}
 
 		const value = new NotificationChannel();
-		if (count == 18) {
+		if (count == 19) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -125,7 +128,8 @@ export class NotificationChannel {
 			value.jiraProjectKey = reader.readString();
 			value.jiraIssueType = reader.readString();
 			value.incidentIoToken = reader.readString();
-		} else if (count > 18) {
+			value.jsmOpsApiKey = reader.readString();
+		} else if (count > 19) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -165,6 +169,8 @@ export class NotificationChannel {
 			if (count == 17) return value;
 			value.incidentIoToken = reader.readString();
 			if (count == 18) return value;
+			value.jsmOpsApiKey = reader.readString();
+			if (count == 19) return value;
 		}
 		return value;
 	}

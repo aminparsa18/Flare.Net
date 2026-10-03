@@ -44,6 +44,8 @@ export interface NotificationChannel {
 	jiraIssueType: string;
 	/** Meaningful only when `type` is `'IncidentIo'` (its alert source URL is `webhookUrl`). */
 	incidentIoToken: string;
+	/** Meaningful only when `type` is `'JsmOps'`. */
+	jsmOpsApiKey: string;
 	createdAt: string;
 	updatedAt: string;
 	/** Whether a firing rule's recovery sends a "Resolved" notification through this channel (PagerDuty: auto-resolves the incident). */
@@ -66,6 +68,7 @@ export interface NotificationChannelRequest {
 	jiraProjectKey?: string;
 	jiraIssueType?: string;
 	incidentIoToken?: string;
+	jsmOpsApiKey?: string;
 	/** Omitted means true. */
 	sendResolved?: boolean;
 }
@@ -91,6 +94,7 @@ function toNotificationChannel(dto: GeneratedNotificationChannel): NotificationC
 		jiraProjectKey: dto.jiraProjectKey ?? '',
 		jiraIssueType: dto.jiraIssueType ?? '',
 		incidentIoToken: dto.incidentIoToken ?? '',
+		jsmOpsApiKey: dto.jsmOpsApiKey ?? '',
 		createdAt: dto.createdAt.toISOString(),
 		updatedAt: dto.updatedAt.toISOString(),
 		sendResolved: dto.sendResolved
@@ -114,6 +118,7 @@ function toGeneratedNotificationChannelRequest(request: NotificationChannelReque
 	dto.jiraProjectKey = request.jiraProjectKey ?? null;
 	dto.jiraIssueType = request.jiraIssueType ?? null;
 	dto.incidentIoToken = request.incidentIoToken ?? null;
+	dto.jsmOpsApiKey = request.jsmOpsApiKey ?? null;
 	return dto;
 }
 

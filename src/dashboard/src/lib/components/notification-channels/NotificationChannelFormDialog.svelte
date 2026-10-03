@@ -36,6 +36,7 @@
 	let jiraProjectKey = $state('');
 	let jiraIssueType = $state('');
 	let incidentIoToken = $state('');
+	let jsmOpsApiKey = $state('');
 	let sendResolved = $state(true);
 
 	let sendTestResult = $state<AlertNotificationTestResult | null>(null);
@@ -61,6 +62,7 @@
 			jiraProjectKey = '';
 			jiraIssueType = '';
 			incidentIoToken = '';
+			jsmOpsApiKey = '';
 			sendResolved = true;
 		} else if (target) {
 			name = target.name;
@@ -77,6 +79,7 @@
 			jiraProjectKey = target.jiraProjectKey;
 			jiraIssueType = target.jiraIssueType;
 			incidentIoToken = target.incidentIoToken;
+			jsmOpsApiKey = target.jsmOpsApiKey;
 			sendResolved = target.sendResolved;
 		}
 	});
@@ -86,6 +89,8 @@
 			? webhookUrl.trim().length > 0
 			: type === 'IncidentIo'
 				? webhookUrl.trim().length > 0 && incidentIoToken.trim().length > 0
+				: type === 'JsmOps'
+					? jsmOpsApiKey.trim().length > 0
 			: type === 'Telegram'
 				? telegramBotToken.trim().length > 0 && telegramChatId.trim().length > 0
 				: type === 'Email'
@@ -117,6 +122,7 @@
 			jiraProjectKey: type === 'Jira' ? jiraProjectKey.trim() : '',
 			jiraIssueType: type === 'Jira' ? jiraIssueType.trim() : '',
 			incidentIoToken: type === 'IncidentIo' ? incidentIoToken.trim() : '',
+			jsmOpsApiKey: type === 'JsmOps' ? jsmOpsApiKey.trim() : '',
 			sendResolved
 		};
 	}
@@ -186,7 +192,9 @@
 												? m.notificationChannelForm_jiraLabel()
 												: type === 'IncidentIo'
 													? m.notificationChannelForm_incidentIoLabel()
-													: m.alertRuleForm_channelWebhook()}
+													: type === 'JsmOps'
+														? m.notificationChannelForm_jsmOpsLabel()
+														: m.alertRuleForm_channelWebhook()}
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="Webhook" label={m.alertRuleForm_channelWebhook()} />
@@ -197,6 +205,7 @@
 						<Select.Item value="Discord" label={m.notificationChannelForm_discordLabel()} />
 						<Select.Item value="Jira" label={m.notificationChannelForm_jiraLabel()} />
 						<Select.Item value="IncidentIo" label={m.notificationChannelForm_incidentIoLabel()} />
+						<Select.Item value="JsmOps" label={m.notificationChannelForm_jsmOpsLabel()} />
 					</Select.Content>
 				</Select.Root>
 			</div>
@@ -231,6 +240,12 @@
 					<span class="text-xs font-medium">{m.alertRuleForm_emailToLabel()}</span>
 					<Input bind:value={emailTo} placeholder={m.alertRuleForm_emailToPlaceholder()} />
 					<span class="text-muted-foreground text-xs">{m.alertRuleForm_emailToHint()}</span>
+				</div>
+			{:else if type === 'JsmOps'}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.notificationChannelForm_jsmOpsApiKeyLabel()}</span>
+					<Input type="password" bind:value={jsmOpsApiKey} />
+					<span class="text-muted-foreground text-xs">{m.notificationChannelForm_jsmOpsHint()}</span>
 				</div>
 			{:else if type === 'Jira'}
 				<div class="flex flex-col gap-1">

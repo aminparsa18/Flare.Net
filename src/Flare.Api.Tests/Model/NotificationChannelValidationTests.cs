@@ -170,6 +170,30 @@ public class NotificationChannelValidationTests
         Assert.NotNull(request.ValidateDestination());
     }
 
+    [Fact]
+    public void JsmOps_WithKey_IsValid()
+    {
+        Assert.Null(new NotificationChannelRequest { Name = "t", Type = NotificationChannelType.JsmOps, JsmOpsApiKey = "k" }.ValidateDestination());
+    }
+
+    [Fact]
+    public void JsmOps_WithoutKey_IsInvalid()
+    {
+        Assert.NotNull(new NotificationChannelRequest { Name = "t", Type = NotificationChannelType.JsmOps }.ValidateDestination());
+    }
+
+    [Fact]
+    public void JsmOps_WithAnotherDestination_IsInvalid()
+    {
+        Assert.NotNull(new NotificationChannelRequest { Name = "t", Type = NotificationChannelType.JsmOps, JsmOpsApiKey = "k", EmailTo = "a@b.com" }.ValidateDestination());
+    }
+
+    [Fact]
+    public void JsmOpsKey_OnAnotherType_IsInvalid()
+    {
+        Assert.NotNull((Build(NotificationChannelType.Webhook, webhookUrl: "https://example.com/hook") with { JsmOpsApiKey = "k" }).ValidateDestination());
+    }
+
     private static NotificationChannelRequest IncidentIo() => new()
     {
         Name = "test",
