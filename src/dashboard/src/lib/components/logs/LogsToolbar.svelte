@@ -9,6 +9,7 @@
 	import LogsFunctionsPopover from './LogsFunctionsPopover.svelte';
 	import LogsTimeShiftPopover from './LogsTimeShiftPopover.svelte';
 	import LogsLinesPerRowMenu from './LogsLinesPerRowMenu.svelte';
+	import LogsBodyColumnsPopover from './LogsBodyColumnsPopover.svelte';
 	import PatternsModal from './PatternsModal.svelte';
 	import ExportDialog from './ExportDialog.svelte';
 	import ShareViewButton from './ShareViewButton.svelte';
@@ -163,6 +164,8 @@
 		onChange={(lines) => explorer.setMaxLinesPerRow(lines)}
 		onColumnChange={(column, visible) => explorer.setColumnVisibility(column, visible)}
 	/>
+
+	<LogsBodyColumnsPopover paths={explorer.filter.bodyColumns} onApply={(paths) => explorer.setBodyColumns(paths)} />
 
 	<!-- Clearing filters also leaves whatever saved view was loaded, so the next visit
 	     starts from defaults rather than restoring it ($lib/saved-views/last-used.ts). -->

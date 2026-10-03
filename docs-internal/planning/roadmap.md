@@ -198,14 +198,6 @@ folders are where "what happened and why" actually lives.
   ([signoz#12644](https://github.com/SigNoz/signoz/commit/e84a61d43f7f5a7b10a955f0e2b4444b7443d4e7)).
   Not started. Prior art:
   [signoz#12314](https://github.com/SigNoz/signoz/commit/e9726776ab7a1adfc50540925ae016f183bf7cbc).
-- **JSON body fields as log table columns.** Log table columns are
-  Time/Message plus pinned attributes. A JSON body path (e.g. `$.order.id`)
-  can be filtered on but not shown as a column. Allow adding a body path as a
-  column, using the same path syntax as `BodyJsonFilters`, extracted
-  client-side from the already-loaded body (no extra query; empty when the
-  body isn't JSON or lacks the path), and persisted like other column
-  choices. Not started. Prior art:
-  [signoz#12503](https://github.com/SigNoz/signoz/commit/a355996a5d1eddeec7416859daec4a570a56a126).
 - **Text/Markdown dashboard panel.** `PanelType` is only
   `Logs`/`Traces`/`Metrics`, so a dashboard can't carry notes, runbook links
   or section headers (panel descriptions are plain text by design). Add a

@@ -35,12 +35,14 @@
 	// showBodyColumn); whichever column ends up last takes the remaining width (1fr).
 	const showTime = $derived(explorer.filter.showTimestampColumn);
 	const showBody = $derived(explorer.filter.showBodyColumn);
+	const bodyColumns = $derived(explorer.filter.bodyColumns);
 	let COLUMNS = $derived.by(() => {
 		const cols = [
 			showTime && '170px', // fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width
 			'90px',
 			'160px',
 			!explorer.live && '90px', // fits Duration's widest realistic value (e.g. "12.34s")
+			...bodyColumns.map(() => '140px'),
 			showBody && '1fr'
 		].filter((c): c is string => !!c);
 		if (!showBody) cols[cols.length - 1] = `minmax(${cols[cols.length - 1]}, 1fr)`;
@@ -69,6 +71,9 @@
 		{#if !explorer.live}
 			<span>{m.logsTable_colDuration()}</span>
 		{/if}
+		{#each bodyColumns as path (path)}
+			<span class="truncate font-mono" title={path}>{path}</span>
+		{/each}
 		{#if showBody}
 			<span>{m.logsTable_colMessage()}</span>
 		{/if}
@@ -110,7 +115,7 @@
 			class="min-h-0 flex-1"
 		>
 			{#snippet children(event)}
-				<LogRow {event} {lines} {showTime} {showBody} live={explorer.live} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
+				<LogRow {event} {lines} {showTime} {showBody} {bodyColumns} live={explorer.live} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
 			{/snippet}
 		</VirtualList>
 		{#if explorer.loadingMore}

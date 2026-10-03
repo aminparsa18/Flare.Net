@@ -48,3 +48,17 @@ export function displayBody(body: string): string {
 	const value = (parsed as Record<string, JsonValue>)[keys[0]];
 	return typeof value === 'string' ? value : body;
 }
+
+/**
+ * Value at a BodyJsonFilter-style dotted path (object keys only) for a table cell: scalars as
+ * text, nested objects/arrays as compact JSON, and '' when the body isn't JSON or lacks the path.
+ */
+export function extractBodyPath(parsed: JsonValue | null, path: string): string {
+	let node: JsonValue | undefined = parsed ?? undefined;
+	for (const key of path.split('.')) {
+		if (node === null || typeof node !== 'object' || Array.isArray(node) || !Object.hasOwn(node, key)) return '';
+		node = node[key];
+	}
+	if (node === undefined || node === null) return '';
+	return typeof node === 'string' ? node : JSON.stringify(node);
+}
