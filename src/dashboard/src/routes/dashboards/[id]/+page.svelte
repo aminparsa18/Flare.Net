@@ -341,6 +341,7 @@
 		onSetYAxisBounds={(id, min, max, scale) => viewer.setPanelYAxisBounds(id, min, max, scale)}
 		onSetThresholds={(id, thresholds) => viewer.setPanelThresholds(id, thresholds)}
 		onSetVisualization={(id, visualization, reducer) => viewer.setPanelVisualization(id, visualization, reducer)}
+		onSetStacking={(id, stacking) => viewer.setPanelStacking(id, stacking)}
 		onSetColumnUnits={(id, columnUnits) => viewer.setPanelColumnUnits(id, columnUnits)}
 		onSetDecimals={(id, decimals) => viewer.setPanelDecimals(id, decimals)}
 		onSetLegend={(id, legendPosition, seriesColors) => viewer.setPanelLegend(id, legendPosition, seriesColors)}

@@ -30,7 +30,7 @@
 	import ColumnUnitsPopover from './ColumnUnitsPopover.svelte';
 	import DecimalsPopover from './DecimalsPopover.svelte';
 	import LegendPopover from './LegendPopover.svelte';
-	import { effectivePanelYAxisScale, parseVisualization, usesLegend, usesYAxis, usesYAxisScale, type PanelReducer, type PanelVisualization } from '$lib/dashboards/visualization';
+	import { effectivePanelYAxisScale, parseStacking, parseVisualization, usesLegend, usesYAxis, usesYAxisScale, type PanelReducer, type PanelStacking, type PanelVisualization } from '$lib/dashboards/visualization';
 	import type { YAxisScale } from '$lib/metrics/axis';
 	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
 	import { parseLegendPosition, parseSeriesColors, type LegendPosition } from '$lib/dashboards/legend';
@@ -67,6 +67,7 @@
 		onSetYAxisBounds,
 		onSetThresholds,
 		onSetVisualization,
+		onSetStacking,
 		onSetColumnUnits,
 		onSetDecimals,
 		onSetLegend,
@@ -90,6 +91,7 @@
 		onSetYAxisBounds: (min: number | null, max: number | null, scale: YAxisScale) => void;
 		onSetThresholds: (thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (visualization: PanelVisualization, reducer: PanelReducer | null) => void;
+		onSetStacking: (stacking: PanelStacking) => void;
 		onSetColumnUnits: (columnUnits: Partial<Record<PanelReducer, string>>) => void;
 		onSetDecimals: (decimals: number | undefined) => void;
 		onSetLegend: (legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>) => void;
@@ -122,6 +124,7 @@
 	const displayTitle = $derived(resolvePanelTitle(panel.title, variables, variableValues, m.dashboardViewer_variableAll()));
 
 	const visualization = $derived(parseVisualization(panel.visualization));
+	const stacking = $derived(parseStacking(panel.stacking, panel.visualization));
 	const yAxisScale = $derived(effectivePanelYAxisScale(panel));
 	const legendPosition = $derived(parseLegendPosition(panel.legendPosition));
 	const seriesColors = $derived(parseSeriesColors(panel.seriesColors));
@@ -312,7 +315,7 @@
 				<PanelVariablesPopover {variables} excludedVariableIds={panel.excludedVariableIds} onToggle={onToggleVariable} />
 			{/if}
 			{#if panel.panelType === 'Metrics'}
-				<VisualizationMenu {visualization} reducer={panel.reducer ?? null} onChange={onSetVisualization} />
+				<VisualizationMenu {visualization} {stacking} reducer={panel.reducer ?? null} onChange={onSetVisualization} onStackingChange={onSetStacking} />
 				{#if usesYAxis(visualization)}
 					<YAxisBoundsPopover
 						yAxisMin={panel.yAxisMin}
@@ -370,6 +373,7 @@
 					{yAxisScale}
 					thresholds={panel.thresholds}
 					{visualization}
+					{stacking}
 					reducer={panel.reducer}
 					columnUnits={panel.columnUnits}
 					decimals={panel.decimals}

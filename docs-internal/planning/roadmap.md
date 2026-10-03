@@ -205,11 +205,10 @@ folders are where "what happened and why" actually lives.
   HTML, links only http(s)), with `$variable` substitution like panel titles.
   No query, so it's excluded from refresh/lazy-load. Not started. Prior art:
   [signoz#12712](https://github.com/SigNoz/signoz/commit/851abd2c93af8b9dba28224e36e0e3ffa0a01309).
-- **Percent (100%) stacking.** Only `stackedBar` exists, in absolute values,
-  and time series can't stack. Add a stacking option (none/normal/percent) to
-  `timeSeries` and `bar`, folding `stackedBar` into `bar` + normal with a
-  migration of saved panels. Percent mode divides each bucket by its total
-  and shows the y-axis as 0–100%. Not started. Prior art:
+- **Stacking for the time series line chart.** The bar chart has a stacking
+  option (none/normal/percent, ADR-0086), but `timeSeries` can't stack: it
+  would need stacked areas in both `MetricChart` and `FormulaChart`, reusing
+  the bar chart's percent-share math. Not started. Prior art:
   [signoz#12632](https://github.com/SigNoz/signoz/commit/485aed0e1ae0928661f452df6ad058331cd5501a).
 - **Built-in dashboard templates.** Flare ships no dashboards: users start
   empty or import Grafana JSON. Ship a few templates for what .NET apps emit

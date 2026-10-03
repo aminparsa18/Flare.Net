@@ -19,9 +19,29 @@ export function formatValue(raw: number, unit: string | null | undefined, decima
 	return formatAtScale(raw, resolveAxisScale(unit, Math.abs(raw)), decimals);
 }
 
-export type PanelVisualization = 'timeSeries' | 'bar' | 'stackedBar' | 'value' | 'pie' | 'table' | 'histogram' | 'heatmap';
+export type PanelVisualization = 'timeSeries' | 'bar' | 'value' | 'pie' | 'table' | 'histogram' | 'heatmap';
 
-export const PANEL_VISUALIZATIONS: readonly PanelVisualization[] = ['timeSeries', 'bar', 'stackedBar', 'value', 'pie', 'table', 'histogram', 'heatmap'];
+export const PANEL_VISUALIZATIONS: readonly PanelVisualization[] = ['timeSeries', 'bar', 'value', 'pie', 'table', 'histogram', 'heatmap'];
+
+/** How a multi-series bar chart combines its series per bucket: side by side (`none`), piled
+ *  up to the bucket's total (`normal`), or piled up and rescaled so every bucket fills
+ *  0-100% (`percent`, showing each series' share). */
+export type PanelStacking = 'none' | 'normal' | 'percent';
+
+export const PANEL_STACKINGS: readonly PanelStacking[] = ['none', 'normal', 'percent'];
+
+/** Visualizations that honour `stacking` - the bar chart. */
+export function usesStacking(visualization: PanelVisualization): boolean {
+	return visualization === 'bar';
+}
+
+/** A panel's effective stacking. A stored `stacking` wins; otherwise a legacy
+ *  `visualization: 'stackedBar'` (the pre-`stacking` spelling of bar + normal) reads as
+ *  `normal`, and everything else as `none`. */
+export function parseStacking(raw: unknown, rawVisualization?: unknown): PanelStacking {
+	if (PANEL_STACKINGS.includes(raw as PanelStacking)) return raw as PanelStacking;
+	return rawVisualization === 'stackedBar' ? 'normal' : 'none';
+}
 
 /** How a series' per-bucket values collapse into the one number a Value/Pie panel (and the
  *  Table's highlighted column) shows. */
@@ -41,13 +61,13 @@ export function needsBuckets(visualization: PanelVisualization): boolean {
 
 /** Visualizations drawn against a Y axis, and so honour `yAxisMin`/`yAxisMax`. */
 export function usesYAxis(visualization: PanelVisualization): boolean {
-	return visualization === 'timeSeries' || visualization === 'bar' || visualization === 'stackedBar';
+	return visualization === 'timeSeries' || visualization === 'bar';
 }
 
 /** Visualizations that draw a per-series legend, and so honour `legendPosition`/`seriesColors`
  *  (see `$lib/dashboards/legend.ts`). Value/Table/Histogram/Heatmap have no per-series marks to key. */
 export function usesLegend(visualization: PanelVisualization): boolean {
-	return visualization === 'timeSeries' || visualization === 'bar' || visualization === 'stackedBar' || visualization === 'pie';
+	return visualization === 'timeSeries' || visualization === 'bar' || visualization === 'pie';
 }
 
 /** Visualizations that can switch to a log Y axis - the line chart only; a bar grows from
@@ -63,9 +83,11 @@ export function effectivePanelYAxisScale(panel: { yAxisScale?: unknown; query: u
 	return parseYAxisScale((panel.query as { yAxisScale?: unknown } | null)?.yAxisScale);
 }
 
-/** Lenient read of a stored value - anything unrecognised (a hand-edited import, a value
+/** Lenient read of a stored value - the retired `stackedBar` maps to `bar` (its stacking is
+ *  recovered by `parseStacking`); anything unrecognised (a hand-edited import, a value
  *  from a newer build) falls back to the line chart every panel had before this existed. */
 export function parseVisualization(raw: unknown): PanelVisualization {
+	if (raw === 'stackedBar') return 'bar';
 	return PANEL_VISUALIZATIONS.includes(raw as PanelVisualization) ? (raw as PanelVisualization) : 'timeSeries';
 }
 
