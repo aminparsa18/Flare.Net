@@ -33,7 +33,7 @@
 	import { effectivePanelYAxisScale, parseStacking, parseVisualization, usesLegend, usesYAxis, usesYAxisScale, type PanelReducer, type PanelStacking, type PanelVisualization } from '$lib/dashboards/visualization';
 	import type { YAxisScale } from '$lib/metrics/axis';
 	import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
-	import { parseLegendPosition, parseSeriesColors, type LegendPosition } from '$lib/dashboards/legend';
+	import { parseLegendFormat, parseLegendPosition, parseSeriesColors, type LegendPosition } from '$lib/dashboards/legend';
 	import type { DashboardPanel, DashboardRow, DashboardVariable } from '$lib/dashboards-api';
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
@@ -94,7 +94,7 @@
 		onSetStacking: (stacking: PanelStacking) => void;
 		onSetColumnUnits: (columnUnits: Partial<Record<PanelReducer, string>>) => void;
 		onSetDecimals: (decimals: number | undefined) => void;
-		onSetLegend: (legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>) => void;
+		onSetLegend: (legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>, legendFormat: string | undefined) => void;
 		rows: DashboardRow[];
 		/** The row this panel currently sits in, or `null` for the ungrouped area. */
 		rowId: string | null;
@@ -128,6 +128,7 @@
 	const yAxisScale = $derived(effectivePanelYAxisScale(panel));
 	const legendPosition = $derived(parseLegendPosition(panel.legendPosition));
 	const seriesColors = $derived(parseSeriesColors(panel.seriesColors));
+	const legendFormat = $derived(parseLegendFormat(panel.legendFormat));
 
 	/** The series the Metrics body last fetched (`seriesLabel` keys) - reported up from
 	 *  DashboardMetricsPanelBody so LegendPopover can list them without owning the query. */
@@ -330,7 +331,7 @@
 				{/if}
 				<DecimalsPopover decimals={panel.decimals} onApply={onSetDecimals} />
 				{#if usesLegend(visualization)}
-					<LegendPopover {legendPosition} {seriesColors} {seriesKeys} onApply={onSetLegend} />
+					<LegendPopover {legendPosition} {seriesColors} {legendFormat} {seriesKeys} onApply={onSetLegend} />
 				{/if}
 				<ThresholdsPopover thresholds={panel.thresholds} onApply={onSetThresholds} />
 			{/if}
@@ -379,6 +380,7 @@
 					decimals={panel.decimals}
 					{legendPosition}
 					{seriesColors}
+					{legendFormat}
 					bind:seriesKeys
 					title={displayTitle}
 					onOpenRange={openRange}

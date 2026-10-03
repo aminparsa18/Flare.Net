@@ -31,7 +31,8 @@
 		columnUnits: rawColumnUnits,
 		decimals: rawDecimals,
 		legendPosition,
-		seriesColors = {}
+		seriesColors = {},
+		legendFormat
 	}: {
 		visualization: Exclude<PanelVisualization, 'timeSeries'>;
 		stacking?: PanelStacking;
@@ -48,6 +49,8 @@
 		/** `DashboardPanel.legendPosition`/`seriesColors`, already parsed - only Bar and Pie draw a legend. */
 		legendPosition?: LegendPosition;
 		seriesColors?: Record<string, ThresholdColor>;
+		/** `DashboardPanel.legendFormat`, already parsed - overrides the automatic series labels. */
+		legendFormat?: string;
 	} = $props();
 
 	const explorer = metricsExplorerContext.get();
@@ -57,7 +60,7 @@
 	// own remarks) - its points carry a plain `value`, read the same way as a Gauge's.
 	const resultType = $derived(isFormula ? null : explorer.resultType);
 	const unit = $derived(isFormula ? null : (explorer.selected?.unit ?? null));
-	const series = $derived(toVizSeries(isFormula ? explorer.formulaSeries : explorer.series, resultType));
+	const series = $derived(toVizSeries(isFormula ? explorer.formulaSeries : explorer.series, resultType, legendFormat));
 	const reducer = $derived(resolveReducer(rawReducer, resultType));
 	const columnUnits = $derived(parseColumnUnits(rawColumnUnits));
 	const decimals = $derived(parseDecimals(rawDecimals));

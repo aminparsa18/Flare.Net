@@ -26,7 +26,7 @@
 	import ChartCsvButton from './ChartCsvButton.svelte';
 	import { downloadTimeSeriesCsv } from '$lib/dashboards/chart-csv';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
-	import { legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
+	import { formatSeriesLabel, legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
 	import * as m from '$lib/paraglide/messages';
 	import { formatChartTime } from '$lib/time/format';
 
@@ -43,6 +43,7 @@
 		yAxisScale,
 		legendPosition = 'bottom',
 		seriesColors = {},
+		legendFormat,
 		stacking = 'none',
 		title = ''
 	}: {
@@ -54,6 +55,7 @@
 		yAxisScale?: YAxisScale;
 		legendPosition?: LegendPosition;
 		seriesColors?: Record<string, ThresholdColor>;
+		legendFormat?: string;
 		/** Stacked areas instead of lines (`DashboardPanel.stacking`); `percent` fills every bucket to 0-100%. */
 		stacking?: PanelStacking;
 		/** The panel's title - names the downloaded CSV; the formula itself on the Explorer page. */
@@ -70,7 +72,7 @@
 
 	const lines = $derived<LineSpec[]>(
 		explorer.formulaSeries.map((series) => ({
-			label: seriesLabel(series),
+			label: formatSeriesLabel(legendFormat, series) ?? seriesLabel(series),
 			color: seriesColorOverride(seriesColors, seriesLabel(series)) ?? seriesColor(seriesLabel(series)),
 			points: series.points.filter((p): p is typeof p & { value: number } => p.value != null).map((p) => ({ time: new Date(p.bucketStart).getTime(), raw: p.value }))
 		}))

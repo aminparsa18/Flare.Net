@@ -286,6 +286,16 @@ override drops out of the result, the popover shows it struck through so
 you can reset it. **Reset** clears both the position and every color
 override.
 
+### Custom series labels
+
+The same popover has a **Label template** field. Write `{{service}}` for the
+service name and `{{key}}` for any attribute value, for example
+`{{service}} {{http.route}} {{http.response.status_code}}`. A key the series
+doesn't carry renders empty. Leave the field blank to keep the automatic
+labels. The template changes only the text shown (legend, tooltip, bar and
+pie labels, table and CSV column names); colors stay pinned to the series'
+full identity, so renaming a label never resets an override.
+
 ## Overriding the time range for a session
 
 The **time range** picker in a dashboard's header (next to Edit) lets you

@@ -126,15 +126,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **Custom legend format template for Metrics panels.** Series labels are
-  automatic only (service + every attribute, compacted). Per-series color
-  overrides exist, but there's no label pattern. Add an optional per-panel
-  template such as `{{http.route}} {{http.response.status_code}}`, resolved
-  per series (`{{service}}` for the service name, missing keys render empty)
-  and falling back to the automatic label when unset. Keep color overrides
-  keyed on the full series identity, not the rendered text. Not started.
-  Prior art:
-  [signoz#10529](https://github.com/SigNoz/signoz/commit/6fb92880cc4390838f372ccea2773b4e0e33b403).
 - **LLM observability from GenAI semconv.** Nothing reads `gen_ai.*` span
   attributes today, though .NET apps using Microsoft.Extensions.AI or
   Semantic Kernel emit them. Add a page built from `gen_ai.*` spans: calls,

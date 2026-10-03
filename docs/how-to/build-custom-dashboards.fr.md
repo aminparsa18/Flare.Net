@@ -330,6 +330,17 @@ toutes les visualisations de ce panneau. Si une série surchargée disparaît
 du résultat, elle apparaît barrée pour que vous puissiez la réinitialiser.
 **Reset** efface la position et toutes les surcharges de couleur.
 
+### Libellés de séries personnalisés
+
+La même fenêtre contient un champ **Modèle de libellé**. Écrivez `{{service}}`
+pour le nom du service et `{{key}}` pour la valeur de n'importe quel attribut,
+par exemple `{{service}} {{http.route}} {{http.response.status_code}}`. Une clé
+absente de la série donne une chaîne vide. Laissez le champ vide pour garder
+les libellés automatiques. Le modèle ne change que le texte affiché (légende,
+infobulle, libellés des barres et du camembert, noms de colonnes du tableau et
+du CSV) ; les couleurs restent liées à l'identité complète de la série, donc
+renommer un libellé ne réinitialise jamais une couleur.
+
 ## Surcharger la plage de temps pour une session
 
 Le sélecteur de **plage de temps** dans l'en-tête d'un tableau de bord

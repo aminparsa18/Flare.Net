@@ -28,7 +28,7 @@
 	import ChartCsvButton from './ChartCsvButton.svelte';
 	import { downloadTimeSeriesCsv } from '$lib/dashboards/chart-csv';
 	import { matchThreshold, thresholdColorValue, type PanelThreshold, type ThresholdColor } from '$lib/dashboards/thresholds';
-	import { legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
+	import { formatSeriesLabel, legendLayout, seriesColorOverride, type LegendPosition } from '$lib/dashboards/legend';
 	import { seriesLabel as seriesColorKey } from '$lib/dashboards/visualization';
 	import * as m from '$lib/paraglide/messages';
 	import { formatChartTime } from '$lib/time/format';
@@ -76,6 +76,7 @@
 		yAxisScale,
 		legendPosition = 'bottom',
 		seriesColors = {},
+		legendFormat,
 		stacking = 'none',
 		title = '',
 		onPointClick
@@ -89,6 +90,7 @@
 		yAxisScale?: YAxisScale;
 		legendPosition?: LegendPosition;
 		seriesColors?: Record<string, ThresholdColor>;
+		legendFormat?: string;
 		/** Stacked areas instead of lines (`DashboardPanel.stacking`) - Gauge/Sum series only; `percent` fills every bucket to 0-100%. */
 		stacking?: PanelStacking;
 		/** The panel's title - names the downloaded CSV; the metric name on the Explorer page. */
@@ -437,7 +439,7 @@
 
 		return visibleSeries.map((series) => ({
 			color: seriesColorOverride(seriesColors, seriesColorKey(series)) ?? seriesColor(seriesLabel(series)),
-			label: compactSeriesLabel(series, visibleSeries),
+			label: formatSeriesLabel(legendFormat, series) ?? compactSeriesLabel(series, visibleSeries),
 			detail: seriesLabel(series),
 			points: series.points
 				.filter((p) => (isSum && sumMode === 'count' ? p.count != null : p.value != null))
