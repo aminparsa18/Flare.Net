@@ -119,6 +119,9 @@ public sealed partial record ExceptionOccurrence
 
     /// <summary><c>exception.stacktrace</c>. May be empty - OTel's semantic conventions don't require it, and a merely-constructed-but-never-thrown exception has a null <c>StackTrace</c> in .NET.</summary>
     public required string Stacktrace { get; init; }
+
+    /// <summary>The emitting app's build revision, for linking stack frames to source: the span's <c>vcs.ref.head.revision</c> / <c>vcs.revision</c> resource attribute, else <c>service.version</c> (SourceLink-stamped .NET versions look like <c>1.2.3+abc1234</c>). Empty when none is set. Last member on purpose - MemoryPack tolerates trailing additions.</summary>
+    public string Revision { get; init; } = "";
 }
 
 /// <summary>

@@ -457,6 +457,7 @@ authenticatedRoutes.MapLogTailEndpoints();
 authenticatedRoutes.MapSpanEndpoints();
 authenticatedRoutes.MapMetricsEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
+authenticatedRoutes.MapSourceLinkReadEndpoints();
 authenticatedRoutes.MapHostInventoryEndpoints();
 authenticatedRoutes.MapMetricCatalogEndpoints();
 authenticatedRoutes.MapPodMetricsEndpoints();
@@ -520,6 +521,9 @@ adminRoutes.MapAuthSettingsEndpoints();
 // alongside the rest of the Services tab - any Viewer needs it to render the tab's Apdex
 // column tooltip.
 adminRoutes.MapApdexThresholdEndpoints();
+// Same reasoning for source-repo links - they change where every user's stack-trace links
+// point. Reading stays on authenticatedRoutes (ADR-0095).
+adminRoutes.MapSourceLinkWriteEndpoints();
 // Same reasoning for a metric's unit/description override - it changes what every user sees
 // for that metric. Reading needs no route of its own: the catalog and /api/metrics/names
 // return the overridden values (ADR-0065).

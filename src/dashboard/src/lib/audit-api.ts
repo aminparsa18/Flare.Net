@@ -59,6 +59,7 @@ export const AUDIT_RESOURCE_TYPES = [
 	'oidc-settings',
 	'proxy-auth-settings',
 	'apdex-threshold',
+	'source-link',
 	'metric-metadata',
 	'promoted-attribute'
 ] as const;

@@ -15,6 +15,7 @@ export class ExceptionOccurrence {
 	spanName: string | null;
 	timestamp: Date;
 	stacktrace: string | null;
+	revision: string | null;
 
 	constructor() {
 		this.traceId = null;
@@ -23,6 +24,7 @@ export class ExceptionOccurrence {
 		this.spanName = null;
 		this.timestamp = new Date(0);
 		this.stacktrace = null;
+		this.revision = null;
 	}
 
 	static serialize(value: ExceptionOccurrence | null): Uint8Array {
@@ -37,13 +39,14 @@ export class ExceptionOccurrence {
 			return;
 		}
 
-		writer.writeObjectHeader(6);
+		writer.writeObjectHeader(7);
 		writer.writeString(value.traceId);
 		writer.writeString(value.spanId);
 		writer.writeString(value.serviceName);
 		writer.writeString(value.spanName);
 		writeDateTimeOffset(writer, value.timestamp);
 		writer.writeString(value.stacktrace);
+		writer.writeString(value.revision);
 	}
 
 	static serializeArray(value: (ExceptionOccurrence | null)[] | null): Uint8Array {
@@ -67,14 +70,15 @@ export class ExceptionOccurrence {
 		}
 
 		const value = new ExceptionOccurrence();
-		if (count == 6) {
+		if (count == 7) {
 			value.traceId = reader.readString();
 			value.spanId = reader.readString();
 			value.serviceName = reader.readString();
 			value.spanName = reader.readString();
 			value.timestamp = readDateTimeOffset(reader);
 			value.stacktrace = reader.readString();
-		} else if (count > 6) {
+			value.revision = reader.readString();
+		} else if (count > 7) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -90,6 +94,8 @@ export class ExceptionOccurrence {
 			if (count == 5) return value;
 			value.stacktrace = reader.readString();
 			if (count == 6) return value;
+			value.revision = reader.readString();
+			if (count == 7) return value;
 		}
 		return value;
 	}

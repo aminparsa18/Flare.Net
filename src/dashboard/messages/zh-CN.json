@@ -2398,5 +2398,14 @@
 	"metricDashboards_hint": "重命名、删除或覆盖该指标前请先检查这些仪表板。",
 	"metricDashboards_none": "没有仪表板面板使用此指标。",
 	"metricDashboards_formula": "公式",
-	"metricDashboards_error": "无法查找仪表板:{message}"
+	"metricDashboards_error": "无法查找仪表板:{message}",
+	"sourceLinkPopover_title": "源码链接",
+	"sourceLinkPopover_titleForService": "{serviceName} 的源码仓库",
+	"sourceLinkPopover_description": "堆栈帧中的文件位置会链接到此仓库中该构建对应的提交（来自 vcs.revision 或 service.version）。路径前缀是需要去掉的构建目录，例如 /src/ 或 /home/runner/work/shop/shop/。",
+	"sourceLinkPopover_repoUrlPlaceholder": "https://github.com/acme/shop",
+	"sourceLinkPopover_defaultRefPlaceholder": "备用分支或标签（例如 main）",
+	"sourceLinkPopover_pathPrefixPlaceholder": "需要去掉的构建路径前缀（可选）",
+	"sourceLinkPopover_invalidUrl": "请输入仓库的 http(s) 地址。",
+	"sourceLinkPopover_remove": "移除",
+	"sourceLinkPopover_save": "保存"
 }

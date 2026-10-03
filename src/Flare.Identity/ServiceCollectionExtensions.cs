@@ -6,6 +6,7 @@ using Flare.Identity.DashboardPins;
 using Flare.Identity.IngestKeys;
 using Flare.Identity.MetricMetadata;
 using Flare.Identity.PersonalAccessTokens;
+using Flare.Identity.SourceLinks;
 using Flare.Identity.Users;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -43,6 +44,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<IOidcSettingsStore, SqliteOidcSettingsStore>();
         builder.Services.AddSingleton<IProxyAuthSettingsStore, SqliteProxyAuthSettingsStore>();
         builder.Services.AddSingleton<IApdexThresholdStore, SqliteApdexThresholdStore>();
+        builder.Services.AddSingleton<ISourceLinkStore, SqliteSourceLinkStore>();
         builder.Services.AddSingleton<IMetricMetadataOverrideStore, SqliteMetricMetadataOverrideStore>();
         builder.Services.AddSingleton<IDashboardPinStore, SqliteDashboardPinStore>();
         builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();

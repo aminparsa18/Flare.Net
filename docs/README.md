@@ -43,6 +43,7 @@ the full rule set on what goes where.
 - [Monitor external APIs](how-to/monitor-external-apis.md)
 - [Find where requests drop off with trace funnels](how-to/analyze-trace-funnels.md)
 - [Find traces by how their spans relate](how-to/find-traces-by-structure.md)
+- [Link exception stack traces to your source code](how-to/link-exceptions-to-source-code.md)
 - [Tell whether a span was slow for what it is](how-to/compare-span-duration.md)
 - [Find high-cardinality metrics](how-to/find-high-cardinality-metrics.md)
 - [Reduce a metric's attributes at ingest](how-to/reduce-metric-attributes.md)

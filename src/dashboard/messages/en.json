@@ -2398,5 +2398,14 @@
 	"metricDashboards_hint": "Check these before renaming, dropping or overriding the metric.",
 	"metricDashboards_none": "No dashboard panel reads this metric.",
 	"metricDashboards_formula": "formula",
-	"metricDashboards_error": "Could not look up dashboards: {message}"
+	"metricDashboards_error": "Could not look up dashboards: {message}",
+	"sourceLinkPopover_title": "Source link",
+	"sourceLinkPopover_titleForService": "Source repository for {serviceName}",
+	"sourceLinkPopover_description": "Stack-frame file locations become links to this repository at the build's commit (from vcs.revision or service.version). Path prefix is the build directory to strip, e.g. /src/ or /home/runner/work/shop/shop/.",
+	"sourceLinkPopover_repoUrlPlaceholder": "https://github.com/acme/shop",
+	"sourceLinkPopover_defaultRefPlaceholder": "Fallback branch or tag (e.g. main)",
+	"sourceLinkPopover_pathPrefixPlaceholder": "Build path prefix to strip (optional)",
+	"sourceLinkPopover_invalidUrl": "Enter the repository's http(s) URL.",
+	"sourceLinkPopover_remove": "Remove",
+	"sourceLinkPopover_save": "Save"
 }

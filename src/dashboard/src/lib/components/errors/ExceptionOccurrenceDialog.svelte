@@ -13,13 +13,46 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
+	import SourceLinkPopover from './SourceLinkPopover.svelte';
 	import { errorsExplorerContext } from '$lib/errors/context';
+	import { authContext } from '$lib/auth/context';
+	import { createFrameLinker, type SourceLinkConfig } from '$lib/errors/source-links';
+	import { deleteSourceLink, listSourceLinks, setSourceLink } from '$lib/source-links-api';
 	import * as m from '$lib/paraglide/messages';
 	import { formatTimestamp } from '$lib/time/format';
 
 	const errors = errorsExplorerContext.get();
 
+	const auth = authContext.get();
+
 	const open = $derived(errors.selectedGroup !== null);
+
+	// Per-service repo config (ADR-0095) turns frame locations into repo links. Fetched when the
+	// dialog first opens; a failed fetch just leaves traces unlinked. Editing is Admin-only (or
+	// auth off), matching the server-side policy so nobody sees a control that would 403.
+	let sourceLinks = $state<SourceLinkConfig[]>([]);
+	let sourceLinksLoaded = false;
+	const canEditSourceLinks = $derived(!auth.authEnabled || auth.currentUser?.role === 'Admin');
+
+	$effect(() => {
+		if (!open || sourceLinksLoaded) return;
+		sourceLinksLoaded = true;
+		listSourceLinks()
+			.then((links) => (sourceLinks = links))
+			.catch(() => (sourceLinksLoaded = false));
+	});
+
+	const configFor = (serviceName: string): SourceLinkConfig | undefined => sourceLinks.find((l) => l.serviceName === serviceName);
+
+	async function saveSourceLink(config: SourceLinkConfig): Promise<void> {
+		await setSourceLink(config);
+		sourceLinks = [...sourceLinks.filter((l) => l.serviceName !== config.serviceName), config];
+	}
+
+	async function removeSourceLink(serviceName: string): Promise<void> {
+		await deleteSourceLink(serviceName);
+		sourceLinks = sourceLinks.filter((l) => l.serviceName !== serviceName);
+	}
 
 	function handleOpenChange(next: boolean): void {
 		if (!next) errors.selectGroup(null);
@@ -77,10 +110,25 @@
 							{#if occurrence.stacktrace}
 								<Table.Row>
 									<Table.Cell colspan={4} class="bg-muted/30 p-0">
-										<details class="px-3 py-2">
-											<summary class="text-muted-foreground cursor-pointer text-xs">{m.exceptionOccurrenceDialog_showStacktrace()}</summary>
-											<StackTraceViewer trace={occurrence.stacktrace} maxHeight="16rem" class="mt-2" />
-										</details>
+										<div class="flex items-start gap-1 px-3 py-2">
+											<details class="min-w-0 flex-1">
+												<summary class="text-muted-foreground cursor-pointer text-xs">{m.exceptionOccurrenceDialog_showStacktrace()}</summary>
+												<StackTraceViewer
+													trace={occurrence.stacktrace}
+													maxHeight="16rem"
+													class="mt-2"
+													linkFor={createFrameLinker(configFor(occurrence.serviceName), occurrence.revision)}
+												/>
+											</details>
+											{#if canEditSourceLinks}
+												<SourceLinkPopover
+													serviceName={occurrence.serviceName}
+													config={configFor(occurrence.serviceName)}
+													onSave={saveSourceLink}
+													onRemove={() => removeSourceLink(occurrence.serviceName)}
+												/>
+											{/if}
+										</div>
 									</Table.Cell>
 								</Table.Row>
 							{/if}
