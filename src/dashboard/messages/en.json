@@ -2275,5 +2275,15 @@
 	"serviceAccounts_empty": "No service accounts yet.",
 	"serviceAccounts_tokens": "Tokens",
 	"serviceAccounts_noTokens": "No tokens yet.",
-	"serviceAccounts_revoke": "Revoke"
+	"serviceAccounts_revoke": "Revoke",
+	"metricAttrRules_heading": "Reduce attributes at ingest",
+	"metricAttrRules_hint": "Drop high-cardinality attributes (or keep only the ones you need) before this metric is stored. Applies to new data from the next rule refresh, within about 30 seconds.",
+	"metricAttrRules_modeDrop": "Drop selected",
+	"metricAttrRules_modeKeepOnly": "Keep only selected",
+	"metricAttrRules_create": "Create rule",
+	"metricAttrRules_enabled": "Rule enabled",
+	"metricAttrRules_delete": "Delete rule",
+	"metricAttrRules_viaPattern": "via {pattern}",
+	"metricAttrRules_defaultName": "Reduce {metric}",
+	"metricAttrRules_irreversible": "Removed attributes cannot be recovered for data already ingested or ingested while the rule is on."
 }

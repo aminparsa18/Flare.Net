@@ -227,6 +227,7 @@ builder.Services.AddSingleton<IExternalApiQueryService, ExternalApiQueryService>
 builder.Services.AddSingleton<ITraceFunnelQueryService, TraceFunnelQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
+builder.Services.AddSingleton<IMetricAttributeRuleQueryService, MetricAttributeRuleQueryService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
 builder.Services.AddSingleton<IIngestionStatsQueryService, IngestionStatsQueryService>();
@@ -493,6 +494,9 @@ memberRoutes.MapMaintenanceWindowEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a pipeline rule mutates
 // every future log's Body/attributes at ingest, not just something read-only.
 memberRoutes.MapPipelineRuleEndpoints();
+// Same Member/Admin-only rationale - a metric attribute rule permanently strips attributes from
+// every future matching data point at ingest.
+memberRoutes.MapMetricAttributeRuleEndpoints();
 
 // Ingest API key issuance/revocation is Admin-only - a leaked key lets any caller ingest
 // telemetry as this Flare instance, so this isn't something a Member should be able to

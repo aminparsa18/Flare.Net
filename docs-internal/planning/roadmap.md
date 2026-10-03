@@ -173,15 +173,11 @@ folders are where "what happened and why" actually lives.
   stored in Identity that floats pinned dashboards to the top of the list
   and the command palette. Not started. Prior art:
   [signoz#11219](https://github.com/SigNoz/signoz/commit/b22eef6a65211f66f5f0a50c6ce3b019fee4b532).
-- **Per-metric attribute reduction at ingest.** Pipeline rules only apply to
-  logs, so there's no way to stop a high-cardinality data-point attribute
-  (`http.url`, `user.id`, a request ID) from exploding a metric's series
-  count before it reaches ClickHouse. Add per-metric rules (metric name or
-  prefix → attributes to drop or keep-only) applied in the metric write
-  path. Points that collapse onto the same series are re-aggregated (sum for
-  delta Sum/histogram buckets, last-value for gauges/cumulative). The metrics
-  catalog shows each metric's series count to pick candidates. Needs an ADR.
-  Not started. Prior art:
+- **Metric attribute reduction: preview and docs.** The ingest engine,
+  `/api/metric-attribute-rules` CRUD and the catalog's "Reduce attributes"
+  section shipped (ADR-0083), but there's no dry-run preview of how many
+  series a rule would remove, no page listing prefix rules that match no
+  currently-ingested metric, and no user-facing how-to in `docs/`. Prior art:
   [signoz#11849](https://github.com/SigNoz/signoz/commit/d5221a6ff3b1b7a9b55492218c9f589845bcbc28).
 - **"Dashboards using this metric" in the metrics catalog.** The catalog's
   inspect view doesn't show which dashboard panels (including formula
