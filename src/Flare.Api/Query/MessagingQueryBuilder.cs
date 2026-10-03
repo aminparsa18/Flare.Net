@@ -39,6 +39,13 @@ public sealed record MessagingSql(string Sql, ClickHouseParameterCollection Para
 /// against a real broker; see ADR-0056.
 /// </para>
 /// <para>
+/// <b>Publish by kind vs. by operation.</b> The Azure Service Bus SDK emits a PRODUCER
+/// <c>Message</c> span with no operation for every message plus a <c>send</c> CLIENT span per
+/// call, so counting both doubled every publish. Same fix as above: a span classified as a
+/// publish only by its kind is dropped when the same (system, destination, service) has spans
+/// whose operation says publish. See ADR-0092.
+/// </para>
+/// <para>
 /// <b>Attribute fallbacks.</b> Partition and consumer group read the current attribute name
 /// first and the older Kafka-specific one second (<see cref="PartitionExpr"/>,
 /// <see cref="ConsumerGroupExpr"/>) - .NET instrumentations in the wild still emit either.
@@ -352,7 +359,8 @@ public static class MessagingQueryBuilder
         "    SELECT\n" +
         "        *,\n" +
         $"        if(SpanRole = '{PublishRole}', '{PublishRole}', '{ConsumeRole}') AS Role,\n" +
-        "        max(SpanRole = 'process') OVER (PARTITION BY MsgSystem, MsgDestination, ServiceName, MsgGroup) AS HasProcess\n" +
+        "        max(SpanRole = 'process') OVER (PARTITION BY MsgSystem, MsgDestination, ServiceName, MsgGroup) AS HasProcess,\n" +
+        $"        max(SpanRole = '{PublishRole}' AND NOT PublishByKind) OVER (PARTITION BY MsgSystem, MsgDestination, ServiceName) AS HasPublishOp\n" +
         "    FROM (\n" +
         "        SELECT\n" +
         "            ServiceName,\n" +
@@ -364,13 +372,15 @@ public static class MessagingQueryBuilder
         $"            {ConsumerGroupExpr} AS MsgGroup,\n" +
         $"            {RoutingKeyExpr} AS MsgRoutingKey,\n" +
         "            toUInt64OrNull(SpanAttributes['messaging.message.body.size']) AS BodySize,\n" +
-        $"            {SpanRoleExpr} AS SpanRole\n" +
+        $"            {SpanRoleExpr} AS SpanRole,\n" +
+        $"            ({OperationExpr} = '' AND Kind = 4) AS PublishByKind\n" +
         "        FROM spans\n" +
         $"        WHERE {where}\n" +
         "    )\n" +
         "    WHERE SpanRole != ''\n" +
         ")\n" +
-        "WHERE (SpanRole != 'receive' OR NOT HasProcess)";
+        "WHERE (SpanRole != 'receive' OR NOT HasProcess)\n" +
+        "    AND (NOT PublishByKind OR NOT HasPublishOp)";
 
     private static string SpanWhere(ClickHouseParameterCollection parameters, int windowMinutes, DateTimeOffset end, string? service, string? system, string? destination)
     {

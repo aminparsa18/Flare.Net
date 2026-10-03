@@ -73,6 +73,8 @@ import NetworkIcon from '@lucide/svelte/icons/network';
 import RabbitIcon from '@lucide/svelte/icons/rabbit';
 // MassTransit is a service bus; lucide's bus icon is the literal match.
 import BusIcon from '@lucide/svelte/icons/bus';
+// Azure Service Bus: no brand logos in lucide, so a cloud.
+import CloudIcon from '@lucide/svelte/icons/cloud';
 
 export interface GuideStep {
 	heading: string;
@@ -803,6 +805,43 @@ builder.Services.AddOpenTelemetry()
 				}
 			]
 		},
+		servicebus: {
+			id: 'servicebus',
+			title: m.dataSourceCatalog_servicebusTitle(),
+			icon: CloudIcon,
+			intro: m.dataSourceCatalog_servicebusIntro(),
+			steps: [
+				{
+					heading: m.dataSourceCatalog_servicebusStep1Heading(),
+					body: m.dataSourceCatalog_servicebusStep1Body(),
+					code: {
+						text: 'dotnet add package Azure.Messaging.ServiceBus\ndotnet add package OpenTelemetry.Extensions.Hosting\ndotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol'
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_servicebusStep2Heading(),
+					body: m.dataSourceCatalog_servicebusStep2Body(),
+					code: {
+						label: 'Program.cs',
+						text: `using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+// The Azure SDK keeps its tracing behind this switch. Set it before creating any client.
+AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true);
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("your-service"))
+    .WithTracing(tracing => tracing
+        .AddSource("Azure.Messaging.ServiceBus.*")
+        .AddOtlpExporter(otlp => otlp.Endpoint = new Uri("${ep.grpcUri}")));`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_servicebusStep3Heading(),
+					body: m.dataSourceCatalog_servicebusStep3Body()
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: m.dataSourceCatalog_customTitle(),
@@ -853,7 +892,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 		{ id: 'platforms', label: m.dataSourceCatalog_categoryPlatforms(), itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
 		{ id: 'shippers', label: m.dataSourceCatalog_categoryShippers(), itemIds: ['vector', 'fluent-bit', 'syslog'] },
 		{ id: 'metrics', label: m.dataSourceCatalog_categoryMetrics(), itemIds: ['prometheus'] },
-		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka', 'rabbitmq', 'masstransit'] },
+		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka', 'rabbitmq', 'masstransit', 'servicebus'] },
 		{
 			id: 'languages',
 			label: m.dataSourceCatalog_categoryLanguages(),

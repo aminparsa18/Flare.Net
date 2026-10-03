@@ -61,6 +61,21 @@ sur une ligne `MassTransit:Fault--...`. La colonne Backlog reste vide, car le
 nom de la file diffère de celui de la ligne. MassTransit 9 est commercial et
 exige une clé de licence ; il n'a pas été testé.
 
+Pour Azure Service Bus, ajoutez les sources d'activités du SDK Azure :
+`tracing.AddSource("Azure.Messaging.ServiceBus.*")`. Le SDK garde son
+traçage derrière un commutateur expérimental : appelez
+`AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)` au
+démarrage, ou définissez la variable d'environnement
+`AZURE_EXPERIMENTAL_ENABLE_ACTIVITY_SOURCE=true`. Sans cela, le SDK n'émet
+aucun span. Chaque file ou rubrique (topic) donne une ligne. Le span
+`Message` de chaque message et le span `send` décrivent la même publication ;
+Flare ne compte donc que les spans `send`, et un envoi par lot compte une fois
+par appel, non par message. Le SDK ne marque pas un span comme échoué quand
+votre gestionnaire lève une exception : le nombre d'erreurs de consommation
+reste à 0, et les nouvelles tentatives apparaissent comme des consommations
+supplémentaires. Vérifié avec Azure.Messaging.ServiceBus 7.21 sur l'émulateur
+Service Bus de Microsoft.
+
 ## Lire la page Messaging
 
 ![Page Messaging : topics Kafka et files RabbitMQ avec débits de publication et de consommation, taux d'erreur, p99 et backlog](../screenshots/monitor-message-queues-en.webp)

@@ -34,6 +34,15 @@ public class MessagingQueryBuilderTests
     }
 
     [Fact]
+    public void SpanSource_DropsKindOnlyPublishSpansWhenOperationPublishSpansExist()
+    {
+        var result = MessagingQueryBuilder.BuildDestinations(new MessagingDestinationsRequest(), 60, End);
+
+        Assert.Contains("max(SpanRole = 'publish' AND NOT PublishByKind) OVER (PARTITION BY MsgSystem, MsgDestination, ServiceName) AS HasPublishOp", result.Sql);
+        Assert.Contains("AND Kind = 4) AS PublishByKind", result.Sql);
+    }
+
+    [Fact]
     public void SpanSource_DropsReceiveSpansOfConsumersThatAlsoEmitProcessSpans()
     {
         var result = MessagingQueryBuilder.BuildDestinations(new MessagingDestinationsRequest(), 60, End);
@@ -41,7 +50,7 @@ public class MessagingQueryBuilderTests
         Assert.Contains("max(SpanRole = 'process') OVER (PARTITION BY MsgSystem, MsgDestination, ServiceName, MsgGroup) AS HasProcess", result.Sql);
         Assert.Contains("if(SpanRole = 'publish', 'publish', 'consume') AS Role", result.Sql);
         Assert.Contains("WHERE SpanRole != ''", result.Sql);
-        Assert.Contains("WHERE (SpanRole != 'receive' OR NOT HasProcess)", result.Sql);
+        Assert.Contains("WHERE (SpanRole != 'receive' OR NOT HasProcess)\n    AND (NOT PublishByKind OR NOT HasPublishOp)", result.Sql);
     }
 
     [Fact]
@@ -123,7 +132,7 @@ public class MessagingQueryBuilderTests
         var request = new MessagingDestinationDetailRequest { System = "kafka", Destination = "orders" };
         var result = MessagingQueryBuilder.BuildPartitions(request, 60, End);
 
-        Assert.Contains("WHERE (SpanRole != 'receive' OR NOT HasProcess)\n    AND MsgPartition != ''", result.Sql);
+        Assert.Contains("WHERE (SpanRole != 'receive' OR NOT HasProcess)\n    AND (NOT PublishByKind OR NOT HasPublishOp)\n    AND MsgPartition != ''", result.Sql);
         Assert.Contains("ORDER BY toUInt64OrNull(MsgPartition) ASC NULLS LAST", result.Sql);
     }
 

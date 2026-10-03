@@ -58,6 +58,20 @@ using var consumer = consumerBuilder.Build();
 очереди отличается от имени строки. MassTransit 9 коммерческий и требует
 ключ лицензии; он не проверялся.
 
+Для Azure Service Bus добавьте источники активностей Azure SDK:
+`tracing.AddSource("Azure.Messaging.ServiceBus.*")`. SDK держит трассировку
+за экспериментальным переключателем: вызовите при старте
+`AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true)` или
+задайте переменную окружения `AZURE_EXPERIMENTAL_ENABLE_ACTIVITY_SOURCE=true`.
+Без этого SDK не создаёт спаны. Каждая очередь или топик — одна строка. Спан
+`Message` каждого сообщения и спан `send` описывают одну и ту же публикацию,
+поэтому Flare считает только спаны `send`: пакетная отправка учитывается один
+раз за вызов, а не за сообщение. SDK не помечает спан как неудачный, когда
+ваш обработчик выбрасывает исключение, поэтому число ошибок потребления
+остаётся 0, а повторные попытки видны как дополнительные потребления.
+Проверено на Azure.Messaging.ServiceBus 7.21 с эмулятором Service Bus от
+Microsoft.
+
 ## Страница Messaging
 
 ![Страница очередей: топики Kafka и очереди RabbitMQ со скоростью публикации и потребления, долей ошибок, p99 и необработанными сообщениями](../screenshots/monitor-message-queues-ru.webp)
