@@ -2016,6 +2016,8 @@
 	"pinToDashboardDialog_cancel": "Отмена",
 	"pinToDashboardDialog_pin": "Закрепить",
 	"pinToDashboard_trigger": "Закрепить на дашборде",
+	"createAlertButton_trigger": "Создать оповещение",
+	"createAlertButton_name": "Оповещение: {title}",
 	"nav_pipelineRules": "Правила конвейера",
 	"pipelineRulesPage_title": "Flare — Правила конвейера",
 	"pipelineRuleTable_heading": "Правила конвейера",
