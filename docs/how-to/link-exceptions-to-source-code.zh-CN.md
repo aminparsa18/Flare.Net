@@ -36,6 +36,21 @@ Flare 会回退到下面配置的默认分支或标签。
 启用 `<Deterministic>` 和 `ContinuousIntegrationBuild` 的构建会把路径改写为以 `/_/`
 开头，Flare 无需前缀即可去掉它。
 
+## 内联显示出错的代码行
+
+当某个帧链接到你的仓库时，堆栈跟踪下方会出现 **Show source** 按钮，显示抛出位置
+（第一个可链接的帧）周围的代码行。
+
+Flare 的 API 会从你的仓库托管平台获取文件，因此私有仓库需要只读访问令牌。在同一个
+链接图标表单中填写：
+
+- GitHub：对 **Contents** 有读取权限的细粒度令牌。
+- GitLab：具有 `read_repository` 范围的令牌。
+- Azure DevOps：具有 **Code (Read)** 权限的个人访问令牌。
+
+令牌只能写入：Flare 不会再次显示它，字段留空则保留已保存的令牌。公共仓库无需令牌。
+Flare 不会跟随重定向，会忽略超过 2 MB 的文件，并将文件缓存 10 分钟。
+
 ## 帧没有变成链接的情况
 
 Flare 宁可保留纯文本也不猜测：
@@ -47,3 +62,4 @@ Flare 宁可保留纯文本也不猜测：
 ## 另请参阅
 
 - [架构决策：ADR-0095](../../docs-internal/adr/0095-exception-source-links.md)
+- [ADR-0096](../../docs-internal/adr/0096-inline-exception-source.md)

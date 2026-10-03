@@ -9,4 +9,6 @@ namespace Flare.Api.Json;
     UseStringEnumConverter = true)]
 [JsonSerializable(typeof(SourceLinkDto))]
 [JsonSerializable(typeof(SourceLinkListResponse))]
+[JsonSerializable(typeof(SourceSnippetRequest))]
+[JsonSerializable(typeof(SourceSnippetResponse))]
 public sealed partial class SourceLinksJsonContext : JsonSerializerContext;

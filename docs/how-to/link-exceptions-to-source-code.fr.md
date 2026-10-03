@@ -48,6 +48,25 @@ Les builds avec `<Deterministic>` et `ContinuousIntegrationBuild` réécrivent
 déjà les chemins pour qu'ils commencent par `/_/` ; Flare le retire sans
 préfixe.
 
+## Afficher les lignes en cause directement
+
+Quand une frame renvoie vers votre dépôt, un bouton **Show source** apparaît sous
+la trace de pile. Il affiche les lignes autour du point de levée (la première
+frame pouvant être liée).
+
+L'API de Flare récupère le fichier chez votre hébergeur de dépôt ; un dépôt privé
+exige donc un jeton d'accès en lecture seule. Saisissez-le dans le même formulaire
+de l'icône de lien :
+
+- GitHub : un jeton à granularité fine avec accès en lecture à **Contents**.
+- GitLab : un jeton avec la portée `read_repository`.
+- Azure DevOps : un jeton d'accès personnel avec **Code (Read)**.
+
+Le jeton est en écriture seule : Flare ne l'affiche plus, et laisser le champ vide
+conserve le jeton enregistré. Les dépôts publics fonctionnent sans jeton. Flare ne
+suit pas les redirections, ignore les fichiers de plus de 2 Mo et met un fichier en
+cache pendant 10 minutes.
+
 ## Quand une frame n'est pas liée
 
 Flare laisse la frame en texte brut plutôt que de deviner :
@@ -60,3 +79,4 @@ Flare laisse la frame en texte brut plutôt que de deviner :
 ## Voir aussi
 
 - [Décision d'architecture : ADR-0095](../../docs-internal/adr/0095-exception-source-links.md)
+- [ADR-0096](../../docs-internal/adr/0096-inline-exception-source.md)

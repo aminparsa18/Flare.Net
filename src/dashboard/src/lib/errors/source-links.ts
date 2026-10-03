@@ -12,6 +12,10 @@ export interface SourceLinkConfig {
 	repoUrl: string;
 	defaultRef: string;
 	pathPrefix: string;
+	/** Write-only: sent on save (omit = keep the stored token, '' = clear), never returned. */
+	accessToken?: string;
+	/** Response-only: whether a token is stored. */
+	hasAccessToken?: boolean;
 }
 
 export interface FrameLocation {
@@ -92,15 +96,49 @@ export function buildSourceUrl(config: SourceLinkConfig, ref: ResolvedRef, path:
 	}
 }
 
+export interface FrameTarget {
+	ref: ResolvedRef;
+	/** Repo-relative path. */
+	path: string;
+	line: number;
+}
+
+function resolveTarget(config: SourceLinkConfig, ref: ResolvedRef, location: string): FrameTarget | null {
+	const frame = parseFrameLocation(location);
+	if (!frame) return null;
+	const path = repoRelativePath(frame.path, config);
+	return path ? { ref, path, line: frame.line } : null;
+}
+
 /** Builds the `linkFor` callback StackTraceViewer takes, or undefined when there's nothing to link to. */
 export function createFrameLinker(config: SourceLinkConfig | undefined, revision: string): ((location: string) => string | null) | undefined {
 	if (!config) return undefined;
 	const ref = resolveRef(revision, config);
 	if (!ref) return undefined;
 	return (location) => {
-		const frame = parseFrameLocation(location);
-		if (!frame) return null;
-		const path = repoRelativePath(frame.path, config);
-		return path ? buildSourceUrl(config, ref, path, frame.line) : null;
+		const target = resolveTarget(config, ref, location);
+		return target ? buildSourceUrl(config, ref, target.path, target.line) : null;
 	};
+}
+
+// A frame line's location text: .NET `... in /src/File.cs:line 42`, or Node/Java `at fn (/src/f.js:10:5)`.
+const DOTNET_LOCATION = /\s+in\s+(.+:line\s+\d+)\s*$/;
+const PAREN_LOCATION = /\(([^()]+:\d+(?::\d+)?)\)\s*$/;
+
+/**
+ * The first (top-most, i.e. the throw site) frame of `trace` that links to the repo, for the
+ * inline source preview. Null when the service has no config, no commit/ref, or no frame maps
+ * to a repo path.
+ */
+export function firstFrameTarget(trace: string, config: SourceLinkConfig | undefined, revision: string): FrameTarget | null {
+	if (!config) return null;
+	const ref = resolveRef(revision, config);
+	if (!ref) return null;
+	for (const line of trace.split('\n')) {
+		if (!/^\s*at\s/.test(line)) continue;
+		const location = DOTNET_LOCATION.exec(line)?.[1] ?? PAREN_LOCATION.exec(line)?.[1];
+		const target = location ? resolveTarget(config, ref, location) : null;
+		if (target) return target;
+	}
+	return null;
 }

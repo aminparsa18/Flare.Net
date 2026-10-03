@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
+using Flare.Api.Source;
 using Flare.Identity.SourceLinks;
 
 namespace Flare.Api.Endpoints;
@@ -17,6 +18,7 @@ public static class SourceLinkEndpoints
     public static IEndpointRouteBuilder MapSourceLinkReadEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/source-links", HandleListAsync);
+        endpoints.MapPost("/api/source-links/snippet", HandleSnippetAsync);
         return endpoints;
     }
 
@@ -38,10 +40,34 @@ public static class SourceLinkEndpoints
                 Provider = c.Provider,
                 RepoUrl = c.RepoUrl,
                 DefaultRef = c.DefaultRef,
-                PathPrefix = c.PathPrefix
+                PathPrefix = c.PathPrefix,
+                HasAccessToken = !string.IsNullOrEmpty(c.AccessToken)
             })]
         };
         return ApiSerialization.Write(http, response, SourceLinksJsonContext.Default.SourceLinkListResponse);
+    }
+
+    private static async Task<IResult> HandleSnippetAsync(HttpContext http, ISourceSnippetService snippets, CancellationToken cancellationToken)
+    {
+        SourceSnippetRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, SourceLinksJsonContext.Default.SourceSnippetRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var (snippet, error) = await snippets.GetAsync(request, cancellationToken);
+        return snippet is null
+            ? Results.Problem(error, statusCode: StatusCodes.Status422UnprocessableEntity)
+            : ApiSerialization.Write(http, snippet, SourceLinksJsonContext.Default.SourceSnippetResponse);
     }
 
     private static async Task<IResult> HandleSetAsync(HttpContext http, string serviceName, ISourceLinkStore store, CancellationToken cancellationToken)
@@ -68,7 +94,7 @@ public static class SourceLinkEndpoints
 
         // The route's service name is authoritative; any serviceName in the body is ignored.
         await store.SetAsync(
-            new SourceLinkConfig(serviceName, request.Provider, request.RepoUrl.Trim().TrimEnd('/'), request.DefaultRef.Trim(), request.PathPrefix.Trim()),
+            new SourceLinkConfig(serviceName, request.Provider, request.RepoUrl.Trim().TrimEnd('/'), request.DefaultRef.Trim(), request.PathPrefix.Trim(), request.AccessToken?.Trim()),
             cancellationToken);
         return Results.NoContent();
     }
