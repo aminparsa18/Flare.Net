@@ -2267,5 +2267,13 @@
 	"auditLogPage_loadMore": "加载更多",
 	"auditLogPage_changesColumn": "变更",
 	"auditLogPage_changesCount": "已更改 {count} 项",
-	"auditLogPage_changeEmptyValue": "（空）"
+	"auditLogPage_changeEmptyValue": "（空）",
+	"serviceAccounts_title": "服务账号",
+	"serviceAccounts_description": "供 CI、脚本以及 MCP 端点等集成使用的非人类账号。它们只能使用管理员在此签发的访问令牌登录；角色和停用请在上方的用户表中修改。",
+	"serviceAccounts_namePlaceholder": "例如 ci-pipeline",
+	"serviceAccounts_create": "创建服务账号",
+	"serviceAccounts_empty": "还没有服务账号。",
+	"serviceAccounts_tokens": "令牌",
+	"serviceAccounts_noTokens": "还没有令牌。",
+	"serviceAccounts_revoke": "撤销"
 }

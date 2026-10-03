@@ -1,3 +1,4 @@
+using Flare.Mcp;
 using Flare.Cli.Commands;
 using Xunit;
 

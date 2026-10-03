@@ -1,4 +1,4 @@
-namespace Flare.Cli.Internal;
+namespace Flare.Mcp;
 
 /// <summary>
 /// Shared parsing for the repeatable <c>--attr</c>/<c>--attr-not</c>/<c>--attr-exists</c>/

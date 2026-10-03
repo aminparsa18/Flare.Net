@@ -99,9 +99,23 @@ même si les outils sont déjà en lecture seule. L'instance locale permanente a
 l'authentification désactivée par défaut et écoute sur la boucle locale ; elle
 ne nécessite donc aucun jeton.
 
+## Se connecter en HTTP
+
+Flare.Api expose aussi les mêmes outils sur un point d'accès [streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http) à `/mcp` : un Flare partagé ou distant ne nécessite donc aucune installation locale de `flare`. Envoyez votre jeton d'accès personnel dans un en-tête Bearer.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http flare https://flare.example.com/mcp \
+  --header "Authorization: Bearer flr_pat_..."
+```
+
+**Cursor** ou **VS Code** : utilisez `"type": "http"` (Cursor : seulement `"url"`) avec la même URL et un en-tête `Authorization`.
+
+Le point d'accès est sans état et chaque appel d'outil s'exécute en tant qu'utilisateur du jeton : les contrôles de rôle et la limite de débit par jeton s'appliquent comme pour l'API REST. Les cookies de session ne sont pas acceptés, seulement les jetons Bearer (ou rien, quand l'authentification est désactivée). Si Flare.Api n'arrive pas à joindre sa propre adresse d'écoute, définissez `Mcp__SelfUrl`.
+
 ## Limites
 
-- stdio uniquement : Flare.Api n'expose pas encore de point d'accès
-  streamable-HTTP.
+- Pour un usage partagé ou en CI, authentifiez-vous avec un jeton de [compte de service](configure-authentication.fr.md#comptes-de-service) plutôt que celui d'une personne.
 - Aucun outil d'écriture (création d'alertes, mise en sourdine, etc.), par
   conception.

@@ -173,4 +173,28 @@ public class SqliteUserStoreTests : IAsyncLifetime
         // SQLite itself, same precedent as CreateAsync_ThrowsOnDuplicateUsername above.
         await Assert.ThrowsAnyAsync<Exception>(() => _store.CreateFromExternalAsync("Entra", "oid-789", "mallory2@example.com", UserRole.Viewer));
     }
+
+    [Fact]
+    public async Task CreateServiceAccountAsync_IsAServiceAccount_AndCanNeverPassPasswordLogin()
+    {
+        var created = await _store.CreateServiceAccountAsync("ci-bot", UserRole.Viewer);
+
+        Assert.True(created.IsServiceAccount);
+        Assert.Equal("ServiceAccount", created.AuthProvider);
+        var found = await _store.FindByUsernameAsync("ci-bot");
+        Assert.True(found!.IsServiceAccount);
+        Assert.Equal(UserRole.Viewer, found.Role);
+        Assert.Null(await _store.VerifyPasswordAsync("ci-bot", ""));
+        Assert.Null(await _store.VerifyPasswordAsync("ci-bot", "ci-bot"));
+    }
+
+    [Fact]
+    public async Task ServiceAccount_IsDisabledLikeAnyUser()
+    {
+        var created = await _store.CreateServiceAccountAsync("ci-bot", UserRole.Member);
+
+        await _store.SetDisabledAsync(created.Id, true);
+
+        Assert.True((await _store.FindByIdAsync(created.Id))!.IsDisabled);
+    }
 }

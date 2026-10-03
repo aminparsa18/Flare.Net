@@ -278,6 +278,26 @@ their own; there's no admin step.
   the session cookie. Use a session (i.e. stay logged in) for live-tail;
   PATs are for plain request/response calls.
 
+## Service accounts
+
+A service account is a non-human account for CI, scripts and shared
+integrations (such as the [`/mcp` endpoint](connect-ai-assistants.md)), so they
+don't depend on a person's token. `Admin`-only, in the Service accounts section
+of `/auth`:
+
+- **Create one**: name and role (`POST /api/service-accounts`). It can't sign
+  in with a password or SSO.
+- **Issue a token**: `POST /api/service-accounts/{id}/access-tokens`
+  (`{"name": "ci", "expiresInDays": 90}`), or the **Tokens** button in the
+  dashboard. The raw token is shown once. Use it like any
+  [personal access token](#personal-access-tokens); it carries the account's
+  role.
+- **Rotate or revoke**: issue a new token, then `DELETE /api/access-tokens/{id}`
+  the old one. A service account can't mint tokens itself, so every issue lands
+  in the [audit log](#audit-log) under an Admin.
+- **Change role or disable**: in the Users table, like any user. Disabling
+  stops its tokens immediately.
+
 ## Managing users
 
 `Admin`-only, in the Users section of `/auth` (`GET`/`PATCH /api/users/*`) —

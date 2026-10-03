@@ -18,4 +18,10 @@ public sealed record User(
     DateTimeOffset CreatedAt,
     bool IsDisabled,
     string AuthProvider = "Local",
-    string? ExternalId = null);
+    string? ExternalId = null)
+{
+    /// <summary>AuthProvider value for non-human accounts (Migrations/0021_service_accounts.sql).</summary>
+    public const string ServiceAccountProvider = "ServiceAccount";
+
+    public bool IsServiceAccount => AuthProvider == ServiceAccountProvider;
+}

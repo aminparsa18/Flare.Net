@@ -44,3 +44,13 @@ public sealed partial record SetUserDisabledRequest
 {
     public required bool IsDisabled { get; init; }
 }
+
+/// <summary>Request body for <c>POST /api/service-accounts</c>.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record CreateServiceAccountRequest
+{
+    public required string Name { get; init; }
+
+    public required UserRole Role { get; init; }
+}

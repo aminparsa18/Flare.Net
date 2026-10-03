@@ -32,7 +32,7 @@ public static class PersonalAccessTokenEndpoints
     /// <summary>Matches GitHub's fine-grained PAT range (1 day - 1 year) loosely; the
     /// upper bound exists so "no expiration" (<c>null</c>) is a deliberate opt-in rather
     /// than something a caller backs into with a huge number.</summary>
-    private const int MaxExpiresInDays = 365;
+    internal const int MaxExpiresInDays = 365;
 
     public static IEndpointRouteBuilder MapPersonalAccessTokenEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -43,11 +43,18 @@ public static class PersonalAccessTokenEndpoints
     }
 
     private static async Task<IResult> HandleCreateAsync(
-        HttpContext http, ClaimsPrincipal principal, IPersonalAccessTokenStore tokens, TimeProvider timeProvider, CancellationToken cancellationToken)
+        HttpContext http, ClaimsPrincipal principal, IPersonalAccessTokenStore tokens, IUserStore users, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(principal, out var userId))
         {
             return Results.Unauthorized();
+        }
+
+        // A service account's token can't mint more tokens (or extend its own life): its
+        // tokens are issued and rotated by an Admin only (ServiceAccountEndpoints).
+        if ((await users.FindByIdAsync(userId, cancellationToken))?.IsServiceAccount == true)
+        {
+            return Results.Forbid();
         }
 
         CreateAccessTokenRequest? request;
@@ -131,7 +138,7 @@ public static class PersonalAccessTokenEndpoints
         return idClaim is not null && Guid.TryParse(idClaim, out userId);
     }
 
-    private static AccessTokenDto ToDto(PersonalAccessToken token, TimeProvider timeProvider) => new()
+    internal static AccessTokenDto ToDto(PersonalAccessToken token, TimeProvider timeProvider) => new()
     {
         Id = token.Id,
         Name = token.Name,

@@ -20,11 +20,13 @@ COPY Directory.Build.props Directory.Packages.props global.json ./
 COPY src/Flare.Api/Flare.Api.csproj src/Flare.Api/
 COPY src/Flare.ServiceDefaults/Flare.ServiceDefaults.csproj src/Flare.ServiceDefaults/
 COPY src/Flare.Identity/Flare.Identity.csproj src/Flare.Identity/
+COPY src/Flare.Mcp/Flare.Mcp.csproj src/Flare.Mcp/
 RUN dotnet restore src/Flare.Api/Flare.Api.csproj
 
 COPY src/Flare.Api/ src/Flare.Api/
 COPY src/Flare.ServiceDefaults/ src/Flare.ServiceDefaults/
 COPY src/Flare.Identity/ src/Flare.Identity/
+COPY src/Flare.Mcp/ src/Flare.Mcp/
 RUN dotnet build src/Flare.Api/Flare.Api.csproj -c Release --no-restore
 
 # ---- Stage 2: the actual SvelteKit build - Node only, no .NET SDK here on purpose -----

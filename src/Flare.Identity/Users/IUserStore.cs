@@ -36,6 +36,12 @@ public interface IUserStore
     /// in the response, to avoid leaking whether a username exists.</summary>
     Task<User?> VerifyPasswordAsync(string username, string password, CancellationToken cancellationToken = default);
 
+    /// <summary>Creates a non-human principal (AuthProvider "ServiceAccount") that can only
+    /// authenticate with personal access tokens. Like <see cref="CreateFromExternalAsync"/> it
+    /// gets a hash of a random, never-revealed password, so it can never pass
+    /// <see cref="VerifyPasswordAsync"/>.</summary>
+    Task<User> CreateServiceAccountAsync(string name, UserRole role, CancellationToken cancellationToken = default);
+
     Task SetDisabledAsync(Guid id, bool isDisabled, CancellationToken cancellationToken = default);
 
     Task SetRoleAsync(Guid id, UserRole role, CancellationToken cancellationToken = default);

@@ -2267,5 +2267,13 @@
 	"auditLogPage_loadMore": "Загрузить ещё",
 	"auditLogPage_changesColumn": "Изменения",
 	"auditLogPage_changesCount": "изменено: {count}",
-	"auditLogPage_changeEmptyValue": "(пусто)"
+	"auditLogPage_changeEmptyValue": "(пусто)",
+	"serviceAccounts_title": "Сервисные аккаунты",
+	"serviceAccounts_description": "Нечеловеческие аккаунты для CI, скриптов и интеграций, например MCP-эндпоинта. Входят только по токенам доступа, которые выдаёт администратор здесь; роль и отключение меняются в таблице пользователей выше.",
+	"serviceAccounts_namePlaceholder": "например, ci-pipeline",
+	"serviceAccounts_create": "Создать сервисный аккаунт",
+	"serviceAccounts_empty": "Сервисных аккаунтов пока нет.",
+	"serviceAccounts_tokens": "Токены",
+	"serviceAccounts_noTokens": "Токенов пока нет.",
+	"serviceAccounts_revoke": "Отозвать"
 }

@@ -99,7 +99,22 @@ flare mcp --api-url https://flare.example.com --token flr_pat_...
 экземпляре аутентификация по умолчанию выключена, и он слушает только
 loopback, поэтому токен не нужен.
 
+## Подключение по HTTP
+
+Flare.Api также отдаёт те же инструменты через [streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http)-эндпоинт `/mcp`, поэтому общему или удалённому Flare не нужна локальная установка `flare`. Передавайте персональный токен доступа в заголовке Bearer.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http flare https://flare.example.com/mcp \
+  --header "Authorization: Bearer flr_pat_..."
+```
+
+**Cursor** или **VS Code**: укажите `"type": "http"` (в Cursor достаточно `"url"`) с тем же URL и заголовком `Authorization`.
+
+Эндпоинт не хранит состояния, а каждый вызов инструмента выполняется от имени пользователя токена, поэтому проверки ролей и лимит запросов на токен работают так же, как для REST API. Cookie сессии не принимаются, только Bearer-токены (или ничего, если аутентификация выключена). Если Flare.Api не может обратиться к собственному адресу, задайте `Mcp__SelfUrl`.
+
 ## Ограничения
 
-- Только stdio: у Flare.Api пока нет streamable-HTTP-эндпоинта.
+- Для общего или CI-использования аутентифицируйтесь токеном [сервисного аккаунта](configure-authentication.ru.md#сервисные-аккаунты), а не токеном человека.
 - Инструментов записи (создание алертов, заглушение и т. п.) нет — так задумано.

@@ -87,7 +87,22 @@ flare mcp --api-url https://flare.example.com --token flr_pat_...
 工具本身也是只读的）。本地常驻实例默认关闭身份验证并只监听回环地址，因此不需要
 令牌。
 
+## 通过 HTTP 连接
+
+Flare.Api 也在 `/mcp` 以 [streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http) 端点提供同一组工具，因此共享或远程的 Flare 无需在本地安装 `flare`。请在 Bearer 请求头中携带个人访问令牌。
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http flare https://flare.example.com/mcp \
+  --header "Authorization: Bearer flr_pat_..."
+```
+
+**Cursor** 或 **VS Code**：使用 `"type": "http"`（Cursor 只需 `"url"`），填入相同的 URL 和 `Authorization` 请求头。
+
+该端点无状态，每次工具调用都以令牌所属用户的身份执行，因此角色检查和按令牌的速率限制与 REST API 完全一致。不接受会话 Cookie，只接受 Bearer 令牌（认证关闭时则无需任何凭据）。如果 Flare.Api 无法访问自己的监听地址，请设置 `Mcp__SelfUrl`。
+
 ## 限制
 
-- 仅支持 stdio：Flare.Api 上还没有 streamable-HTTP 端点。
+- 共享或 CI 场景请使用[服务账号](configure-authentication.zh-CN.md#服务账号)的令牌，而不是个人令牌。
 - 按设计没有写入类工具（创建告警、静默等）。

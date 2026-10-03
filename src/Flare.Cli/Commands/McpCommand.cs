@@ -1,6 +1,8 @@
+using Flare.Mcp;
 using System.ComponentModel;
 using System.Net.Http.Headers;
 using Flare.Cli.Internal;
+using Flare.Mcp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -58,7 +60,7 @@ internal sealed class McpCommand : AsyncCommand<McpCommand.Settings>
 
         var builder = Host.CreateEmptyApplicationBuilder(settings: null);
         builder.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
-        builder.Services.AddSingleton(new FlareApiClient(http, ready));
+        builder.Services.AddSingleton(new FlareApiClient(http, ready ? null : "Flare is not initialized on this machine - run `flare start` first."));
         builder.Services
             .AddMcpServer(o => o.ServerInfo = new() { Name = "flare", Version = typeof(McpCommand).Assembly.GetName().Version?.ToString() ?? "0" })
             .WithStdioServerTransport()
@@ -68,6 +70,3 @@ internal sealed class McpCommand : AsyncCommand<McpCommand.Settings>
         return 0;
     }
 }
-
-/// <summary>Resolved API endpoint for the targeted instance, injected into the tools.</summary>
-internal sealed record FlareApiClient(HttpClient Http, bool InstanceInitialized);

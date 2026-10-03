@@ -126,15 +126,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **Service accounts.** Personal access tokens (ADR-0019) are owned by a
-  user, so CI, a Grafana datasource or a script has to borrow a human
-  account and breaks when that person is disabled or leaves. Add a
-  `ServiceAccount` principal in Identity (name, role, disabled flag) that can
-  own PATs and go through the same auth handler and per-token rate limits
-  (ADR-0028), plus admin-only management UI and an audit trail of who
-  created/rotated which token (audit events from ADR-0079 already cover PAT
-  create/revoke). Needs an ADR. Not started. Prior art:
-  [signoz#10436](https://github.com/SigNoz/signoz/commit/37cd1ab84b2c40aabcc2390b354fe87e64e91a7b).
 - **Custom legend format template for Metrics panels.** Series labels are
   automatic only (service + every attribute, compacted). Per-series color
   overrides exist, but there's no label pattern. Add an optional per-panel
@@ -155,13 +146,6 @@ folders are where "what happened and why" actually lives.
   server-side preview. Probably a short follow-up ADR to 0052. Not started.
   Prior art:
   [signoz#10682](https://github.com/SigNoz/signoz/commit/30d3f754b56b39c4660ca18bdf8e4d8d0a38b845).
-- **MCP server: streamable HTTP and service accounts.** `flare mcp` (stdio,
-  read-only tools, PAT via `--token`/`FLARE_API_TOKEN`, last-run scoping,
-  trace diff) shipped; what's left is hosting the same tools as a streamable
-  HTTP endpoint in `Flare.Api` so a remote or shared Flare needs no local
-  `flare` install, and authenticating with a service account once those
-  exist instead of a personal token. Needs the tool classes moved out of
-  `Flare.Cli` into a shared library first. Not started.
 - **LLM observability from GenAI semconv.** Nothing reads `gen_ai.*` span
   attributes today, though .NET apps using Microsoft.Extensions.AI or
   Semantic Kernel emit them. Add a page built from `gen_ai.*` spans: calls,
