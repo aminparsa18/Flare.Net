@@ -42,6 +42,7 @@ import {
 } from '$lib/dashboards-api';
 import { downloadBlob } from '$lib/logs/export';
 import { parseGrafanaDashboard } from './grafana-import';
+import { buildTemplateLayout, type DashboardTemplate } from './templates';
 import * as m from '$lib/paraglide/messages';
 
 export class DashboardsState {
@@ -197,6 +198,13 @@ export class DashboardsState {
 
 		this.importError = m.dashboardTable_importInvalidShape();
 		return null;
+	}
+
+	/** Creates a dashboard from a built-in template (see ./templates.ts) and returns its id, or `null` on failure (surfaced through importError, same as an import). The result is an ordinary editable dashboard. */
+	async installTemplate(template: DashboardTemplate): Promise<string | null> {
+		this.importError = null;
+		this.importWarning = null;
+		return this.#createFromImport(template.name(), template.description(), buildTemplateLayout(template));
 	}
 
 	async #createFromImport(name: string, description: string | undefined, layout: DashboardLayout): Promise<string | null> {
