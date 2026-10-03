@@ -7,11 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- AddDockerComposeEnvironment - proves out docs/aspire-hosting.md's "Publishing /
-         deploying via aspire publish" section end-to-end (`aspire publish`/`aspire deploy`
-         against this AppHost). Purely a deployment target: registering it has no effect on
-         the default `aspire run`/`dotnet run` inner loop. -->
-    <PackageReference Include="Aspire.Hosting.Docker" />
+    <!-- AddKubernetesEnvironment - the demo's deployment target (.github/workflows/deploy-demo.yml).
+         Registering it has no effect on the default `aspire run`/`dotnet run` inner loop. -->
+    <PackageReference Include="Aspire.Hosting.Kubernetes" />
     <!-- The shop demo's backing services (see Program.cs): Kafka for the Message queues
          page, Postgres for the Services breakdown's Database tab. -->
     <PackageReference Include="Aspire.Hosting.Kafka" />
