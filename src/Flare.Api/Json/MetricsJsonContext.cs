@@ -28,4 +28,6 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(MetricCatalogInspectRequest))]
 [JsonSerializable(typeof(MetricCatalogInspectResponse))]
 [JsonSerializable(typeof(SetMetricMetadataOverrideRequest))]
+[JsonSerializable(typeof(MetricDashboardUsageRequest))]
+[JsonSerializable(typeof(MetricDashboardUsageResponse))]
 public sealed partial class MetricsJsonContext : JsonSerializerContext;

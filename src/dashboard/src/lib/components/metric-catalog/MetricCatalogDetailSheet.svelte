@@ -9,6 +9,7 @@
 	import { authContext } from '$lib/auth/context';
 	import MetricInspectPanel from './MetricInspectPanel.svelte';
 	import MetricAttributeRulesSection from './MetricAttributeRulesSection.svelte';
+	import MetricDashboardUsageSection from './MetricDashboardUsageSection.svelte';
 	import MetricMetadataOverridePopover from './MetricMetadataOverridePopover.svelte';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
 	import { buildMetricsExplorerHref } from '$lib/deep-links';
@@ -199,6 +200,8 @@
 							</Table.Body>
 						</Table.Root>
 					</section>
+
+					<MetricDashboardUsageSection metricName={selected.metricName} />
 
 					<section>
 						<h3 class="text-sm font-medium">{m.metricCatalog_relatedHeading()}</h3>

@@ -101,6 +101,14 @@ d'intervalle. Le service par défaut est celui qui a le plus de séries. Une
 série qui a plus d'échantillons que ce qui peut être affiché garde les plus
 récents et porte la mention **Latest only**.
 
+## Voir quels tableaux de bord utilisent une métrique
+
+Avant de renommer, supprimer ou remplacer une métrique, ouvrez son panneau et
+consultez **Dashboards using this metric** (Tableaux de bord utilisant cette
+métrique). La liste contient chaque tableau de bord ayant un panneau Metrics
+qui trace la métrique, y compris les panneaux qui l'utilisent dans une formule
+(marqués **formula**), avec un lien vers chaque tableau de bord.
+
 ## Corriger l'unité ou la description d'une métrique
 
 Les administrateurs peuvent remplacer ce qu'envoie l'instrumentation. Dans le

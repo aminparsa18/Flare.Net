@@ -10,7 +10,9 @@ namespace Flare.Api.Endpoints;
 /// its series count, sample volume, and last-received time) and
 /// <c>POST /api/metrics/catalog/detail</c> (one metric's services, per-attribute cardinality,
 /// and related metrics), and <c>POST /api/metrics/catalog/inspect</c> (a few series' raw
-/// samples and their time/space reduction - see <see cref="MetricInspectReducer"/>) - see
+/// samples and their time/space reduction - see <see cref="MetricInspectReducer"/>), and
+/// <c>POST /api/metrics/catalog/dashboards</c> (which dashboard panels read the metric - see
+/// <see cref="MetricDashboardUsageFinder"/>) - see
 /// <see cref="MetricCatalogQueryBuilder"/>.
 /// </summary>
 /// <remarks>POST + JSON body, same rationale as <see cref="MetricsEndpoints"/>.</remarks>
@@ -21,6 +23,7 @@ public static class MetricCatalogEndpoints
         endpoints.MapPost("/api/metrics/catalog", HandleListAsync);
         endpoints.MapPost("/api/metrics/catalog/detail", HandleDetailAsync);
         endpoints.MapPost("/api/metrics/catalog/inspect", HandleInspectAsync);
+        endpoints.MapPost("/api/metrics/catalog/dashboards", HandleDashboardsAsync);
         return endpoints;
     }
 
@@ -89,5 +92,30 @@ public static class MetricCatalogEndpoints
 
         var response = await queryService.InspectAsync(request, cancellationToken);
         return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricCatalogInspectResponse);
+    }
+
+    private static async Task<IResult> HandleDashboardsAsync(
+        HttpContext http,
+        IDashboardQueryService dashboards,
+        CancellationToken cancellationToken)
+    {
+        MetricDashboardUsageRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, MetricsJsonContext.Default.MetricDashboardUsageRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (string.IsNullOrWhiteSpace(request?.MetricName))
+        {
+            return Results.Problem("metricName is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var all = await dashboards.ListAsync(cancellationToken);
+        var response = new MetricDashboardUsageResponse { Dashboards = MetricDashboardUsageFinder.Find(all, request.MetricName) };
+        return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricDashboardUsageResponse);
     }
 }

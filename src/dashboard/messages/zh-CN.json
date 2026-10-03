@@ -2343,5 +2343,10 @@
 	"metricAttrRules_delete": "删除规则",
 	"metricAttrRules_viaPattern": "通过 {pattern}",
 	"metricAttrRules_defaultName": "精简 {metric}",
-	"metricAttrRules_irreversible": "规则生效期间摄取的数据,其被移除的属性无法恢复。"
+	"metricAttrRules_irreversible": "规则生效期间摄取的数据,其被移除的属性无法恢复。",
+	"metricDashboards_heading": "使用此指标的仪表板",
+	"metricDashboards_hint": "重命名、删除或覆盖该指标前请先检查这些仪表板。",
+	"metricDashboards_none": "没有仪表板面板使用此指标。",
+	"metricDashboards_formula": "公式",
+	"metricDashboards_error": "无法查找仪表板:{message}"
 }
