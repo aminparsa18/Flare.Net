@@ -4,6 +4,7 @@ using Flare.Ingest.Auth;
 using Flare.Ingest.Otlp;
 using Flare.Ingest.Patterns;
 using Flare.Ingest.Pipeline;
+using Flare.Ingest.Pipeline.MetricRules;
 using Flare.Ingest.Pipeline.Rules;
 using Flare.Ingest.Prometheus;
 using Flare.Ingest.Sinks;
@@ -101,6 +102,13 @@ builder.Services.AddHostedService<SpanFlushWorker>();
 // types (Gauge/Sum/Histogram); see MetricFlushWorker's remarks for why.
 builder.Services.AddSingleton<IMetricEventSink, RedisStreamMetricEventSink>();
 builder.Services.AddSingleton<IClickHouseMetricWriter, ClickHouseMetricWriter>();
+// Same "one instance, two roles" cache registration as PipelineRuleCache above.
+builder.Services.Configure<MetricAttributeRuleOptions>(
+    builder.Configuration.GetSection(MetricAttributeRuleOptions.SectionName));
+builder.Services.AddSingleton<IMetricAttributeRuleStore, ClickHouseMetricAttributeRuleStore>();
+builder.Services.AddSingleton<MetricAttributeRuleCache>();
+builder.Services.AddSingleton<IMetricAttributeRuleCache>(sp => sp.GetRequiredService<MetricAttributeRuleCache>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<MetricAttributeRuleCache>());
 builder.Services.AddHostedService<MetricFlushWorker>();
 
 // Native Prometheus scrape (Planning.md v20) - a second, pull-side receiver feeding the

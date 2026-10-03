@@ -38,6 +38,10 @@ public static class AuditActionClassifier
         new("PUT", "/api/pipeline-rules/{id:guid}", "pipeline-rule", "update", "id"),
         new("DELETE", "/api/pipeline-rules/{id:guid}", "pipeline-rule", "delete", "id"),
 
+        new("POST", "/api/metric-attribute-rules", "metric-attribute-rule", "create", null),
+        new("PUT", "/api/metric-attribute-rules/{id:guid}", "metric-attribute-rule", "update", "id"),
+        new("DELETE", "/api/metric-attribute-rules/{id:guid}", "metric-attribute-rule", "delete", "id"),
+
         new("POST", "/api/dashboards", "dashboard", "create", null),
         new("PUT", "/api/dashboards/{id:guid}", "dashboard", "update", "id"),
         new("DELETE", "/api/dashboards/{id:guid}", "dashboard", "delete", "id"),

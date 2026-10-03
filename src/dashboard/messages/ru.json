@@ -2275,5 +2275,15 @@
 	"serviceAccounts_empty": "Сервисных аккаунтов пока нет.",
 	"serviceAccounts_tokens": "Токены",
 	"serviceAccounts_noTokens": "Токенов пока нет.",
-	"serviceAccounts_revoke": "Отозвать"
+	"serviceAccounts_revoke": "Отозвать",
+	"metricAttrRules_heading": "Сокращение атрибутов при приёме",
+	"metricAttrRules_hint": "Отбрасывайте атрибуты с высокой кардинальностью (или оставляйте только нужные) до сохранения этой метрики. Применяется к новым данным после обновления правил, примерно в течение 30 секунд.",
+	"metricAttrRules_modeDrop": "Отбросить выбранные",
+	"metricAttrRules_modeKeepOnly": "Оставить только выбранные",
+	"metricAttrRules_create": "Создать правило",
+	"metricAttrRules_enabled": "Правило включено",
+	"metricAttrRules_delete": "Удалить правило",
+	"metricAttrRules_viaPattern": "по шаблону {pattern}",
+	"metricAttrRules_defaultName": "Сокращение {metric}",
+	"metricAttrRules_irreversible": "Удалённые атрибуты нельзя восстановить для данных, принятых, пока правило включено."
 }

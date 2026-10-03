@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Flare.Ingest.Model;
+using Flare.Ingest.Pipeline.MetricRules;
 using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
@@ -34,6 +35,8 @@ namespace Flare.Ingest.Pipeline;
 public sealed class MetricFlushWorker(
     IConnectionMultiplexer connectionMultiplexer,
     IClickHouseMetricWriter writer,
+    IMetricAttributeRuleCache ruleCache,
+    IOptions<MetricAttributeRuleOptions> ruleOptions,
     IOptions<MetricEventPipelineOptions> options,
     IFlushHealthTracker flushHealth,
     ILogger<MetricFlushWorker> logger) : BackgroundService
@@ -193,13 +196,38 @@ public sealed class MetricFlushWorker(
         }
     }
 
+    /// <summary>
+    /// Applies <see cref="MetricAttributeReducer"/> to the batch just before it's written
+    /// (ADR-0083). A reducer fault falls back to the unreduced points rather than failing
+    /// the flush - an un-reduced metric is only wasteful, a stuck flush loses data.
+    /// </summary>
+    private IReadOnlyList<MetricPointRecord> ApplyAttributeRules(List<(RedisValue Id, MetricPointRecord Point)> batch)
+    {
+        var points = batch.Select(b => b.Point).ToList();
+        var rules = ruleCache.CurrentRules;
+        if (!ruleOptions.Value.Enabled || rules.Count == 0)
+        {
+            return points;
+        }
+
+        try
+        {
+            return MetricAttributeReducer.Reduce(points, rules);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Metric attribute reduction failed; writing {Count} points unreduced.", points.Count);
+            return points;
+        }
+    }
+
     private async Task FlushAsync(IDatabase db, MetricEventPipelineOptions opts, List<(RedisValue Id, MetricPointRecord Point)> batch)
     {
         var gauges = new List<GaugePointRecord>();
         var sums = new List<SumPointRecord>();
         var histograms = new List<HistogramPointRecord>();
         var exponentialHistograms = new List<ExponentialHistogramPointRecord>();
-        foreach (var (_, point) in batch)
+        foreach (var point in ApplyAttributeRules(batch))
         {
             switch (point)
             {

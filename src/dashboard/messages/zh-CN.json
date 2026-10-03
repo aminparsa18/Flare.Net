@@ -2275,5 +2275,15 @@
 	"serviceAccounts_empty": "还没有服务账号。",
 	"serviceAccounts_tokens": "令牌",
 	"serviceAccounts_noTokens": "还没有令牌。",
-	"serviceAccounts_revoke": "撤销"
+	"serviceAccounts_revoke": "撤销",
+	"metricAttrRules_heading": "在摄取时精简属性",
+	"metricAttrRules_hint": "在存储此指标之前,丢弃高基数属性(或仅保留所需属性)。对新数据生效,规则刷新后(约 30 秒内)开始应用。",
+	"metricAttrRules_modeDrop": "丢弃所选",
+	"metricAttrRules_modeKeepOnly": "仅保留所选",
+	"metricAttrRules_create": "创建规则",
+	"metricAttrRules_enabled": "规则已启用",
+	"metricAttrRules_delete": "删除规则",
+	"metricAttrRules_viaPattern": "通过 {pattern}",
+	"metricAttrRules_defaultName": "精简 {metric}",
+	"metricAttrRules_irreversible": "规则生效期间摄取的数据,其被移除的属性无法恢复。"
 }

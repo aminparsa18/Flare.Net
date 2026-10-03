@@ -8,6 +8,7 @@
 	import { metricCatalogContext } from '$lib/metric-catalog/context';
 	import { authContext } from '$lib/auth/context';
 	import MetricInspectPanel from './MetricInspectPanel.svelte';
+	import MetricAttributeRulesSection from './MetricAttributeRulesSection.svelte';
 	import MetricMetadataOverridePopover from './MetricMetadataOverridePopover.svelte';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
 	import { buildMetricsExplorerHref } from '$lib/deep-links';
@@ -168,6 +169,10 @@
 							</Table.Root>
 						{/if}
 					</section>
+
+					{#if detail.attributes.length > 0 || auth.canMutate}
+						<MetricAttributeRulesSection metricName={selected.metricName} attributes={detail.attributes} canMutate={auth.canMutate} />
+					{/if}
 
 					<section>
 						<h3 class="text-sm font-medium">{m.metricCatalog_servicesHeading()}</h3>
