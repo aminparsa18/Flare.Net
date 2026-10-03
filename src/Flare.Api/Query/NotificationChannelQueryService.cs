@@ -34,10 +34,10 @@ public interface INotificationChannelQueryService
 public sealed class NotificationChannelQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : INotificationChannelQueryService
 {
     private const string ChannelColumns =
-        "Id, Name, Description, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, SendResolved, JiraBaseUrl, JiraEmail, JiraApiToken, JiraProjectKey, JiraIssueType";
+        "Id, Name, Description, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, SendResolved, JiraBaseUrl, JiraEmail, JiraApiToken, JiraProjectKey, JiraIssueType, IncidentIoToken";
 
     /// <summary>See <see cref="AlertQueryService.ResolveDefaults"/>'s remarks - same nullable-optional-field coalescing, for <see cref="NotificationChannelRequest"/> instead of <see cref="AlertRuleRequest"/>.</summary>
-    internal static (string Description, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey, bool SendResolved, string JiraBaseUrl, string JiraEmail, string JiraApiToken, string JiraProjectKey, string JiraIssueType) ResolveDefaults(NotificationChannelRequest request) => (
+    internal static (string Description, string WebhookUrl, string TelegramBotToken, string TelegramChatId, string EmailTo, string PagerDutyRoutingKey, bool SendResolved, string JiraBaseUrl, string JiraEmail, string JiraApiToken, string JiraProjectKey, string JiraIssueType, string IncidentIoToken) ResolveDefaults(NotificationChannelRequest request) => (
         Description: request.Description ?? "",
         WebhookUrl: request.WebhookUrl ?? "",
         TelegramBotToken: request.TelegramBotToken ?? "",
@@ -49,7 +49,8 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
         JiraEmail: request.JiraEmail?.Trim() ?? "",
         JiraApiToken: request.JiraApiToken?.Trim() ?? "",
         JiraProjectKey: request.JiraProjectKey?.Trim() ?? "",
-        JiraIssueType: request.JiraIssueType?.Trim() ?? "");
+        JiraIssueType: request.JiraIssueType?.Trim() ?? "",
+        IncidentIoToken: request.IncidentIoToken?.Trim() ?? "");
 
     public async Task<NotificationChannel> CreateAsync(NotificationChannelRequest request, CancellationToken cancellationToken)
     {
@@ -72,6 +73,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
             JiraApiToken = defaults.JiraApiToken,
             JiraProjectKey = defaults.JiraProjectKey,
             JiraIssueType = defaults.JiraIssueType,
+            IncidentIoToken = defaults.IncidentIoToken,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -135,6 +137,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
             JiraApiToken = defaults.JiraApiToken,
             JiraProjectKey = defaults.JiraProjectKey,
             JiraIssueType = defaults.JiraIssueType,
+            IncidentIoToken = defaults.IncidentIoToken,
             UpdatedAt = timeProvider.GetUtcNow(),
         };
 
@@ -174,14 +177,15 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
         parameters.AddParameter("jiraApiToken", channel.JiraApiToken);
         parameters.AddParameter("jiraProjectKey", channel.JiraProjectKey);
         parameters.AddParameter("jiraIssueType", channel.JiraIssueType);
+        parameters.AddParameter("incidentIoToken", channel.IncidentIoToken);
         parameters.AddParameter("createdAt", channel.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", channel.UpdatedAt.UtcDateTime);
 
         const string sql = """
             INSERT INTO notification_channels
-                (Id, Name, Description, IsDeleted, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, SendResolved, JiraBaseUrl, JiraEmail, JiraApiToken, JiraProjectKey, JiraIssueType, CreatedAt, UpdatedAt)
+                (Id, Name, Description, IsDeleted, Type, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, SendResolved, JiraBaseUrl, JiraEmail, JiraApiToken, JiraProjectKey, JiraIssueType, IncidentIoToken, CreatedAt, UpdatedAt)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {type:String}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {sendResolved:UInt8}, {jiraBaseUrl:String}, {jiraEmail:String}, {jiraApiToken:String}, {jiraProjectKey:String}, {jiraIssueType:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {type:String}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {sendResolved:UInt8}, {jiraBaseUrl:String}, {jiraEmail:String}, {jiraApiToken:String}, {jiraProjectKey:String}, {jiraIssueType:String}, {incidentIoToken:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -217,6 +221,7 @@ public sealed class NotificationChannelQueryService(IClickHouseClient client, IO
         JiraApiToken = reader.GetString(14),
         JiraProjectKey = reader.GetString(15),
         JiraIssueType = reader.GetString(16),
+        IncidentIoToken = reader.GetString(17),
     };
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>

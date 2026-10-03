@@ -26,6 +26,7 @@
 			case 'Webhook':
 			case 'Teams':
 			case 'Discord':
+			case 'IncidentIo':
 				return channel.webhookUrl;
 			case 'Telegram':
 				return channel.telegramChatId ? `chat ${channel.telegramChatId}` : '';

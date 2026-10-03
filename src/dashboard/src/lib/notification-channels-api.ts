@@ -27,7 +27,7 @@ export interface NotificationChannel {
 	name: string;
 	description: string;
 	type: NotificationChannelType;
-	/** Meaningful only when `type` is `'Webhook'`, `'Teams'` or `'Discord'`. */
+	/** Meaningful only when `type` is `'Webhook'`, `'Teams'`, `'Discord'` or `'IncidentIo'`. */
 	webhookUrl: string;
 	/** Meaningful only when `type` is `'Telegram'`. */
 	telegramBotToken: string;
@@ -42,6 +42,8 @@ export interface NotificationChannel {
 	jiraApiToken: string;
 	jiraProjectKey: string;
 	jiraIssueType: string;
+	/** Meaningful only when `type` is `'IncidentIo'` (its alert source URL is `webhookUrl`). */
+	incidentIoToken: string;
 	createdAt: string;
 	updatedAt: string;
 	/** Whether a firing rule's recovery sends a "Resolved" notification through this channel (PagerDuty: auto-resolves the incident). */
@@ -63,6 +65,7 @@ export interface NotificationChannelRequest {
 	jiraApiToken?: string;
 	jiraProjectKey?: string;
 	jiraIssueType?: string;
+	incidentIoToken?: string;
 	/** Omitted means true. */
 	sendResolved?: boolean;
 }
@@ -87,6 +90,7 @@ function toNotificationChannel(dto: GeneratedNotificationChannel): NotificationC
 		jiraApiToken: dto.jiraApiToken ?? '',
 		jiraProjectKey: dto.jiraProjectKey ?? '',
 		jiraIssueType: dto.jiraIssueType ?? '',
+		incidentIoToken: dto.incidentIoToken ?? '',
 		createdAt: dto.createdAt.toISOString(),
 		updatedAt: dto.updatedAt.toISOString(),
 		sendResolved: dto.sendResolved
@@ -109,6 +113,7 @@ function toGeneratedNotificationChannelRequest(request: NotificationChannelReque
 	dto.jiraApiToken = request.jiraApiToken ?? null;
 	dto.jiraProjectKey = request.jiraProjectKey ?? null;
 	dto.jiraIssueType = request.jiraIssueType ?? null;
+	dto.incidentIoToken = request.incidentIoToken ?? null;
 	return dto;
 }
 

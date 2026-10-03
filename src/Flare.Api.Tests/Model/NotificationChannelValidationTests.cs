@@ -145,6 +145,39 @@ public class NotificationChannelValidationTests
         Assert.NotNull(request.ValidateDestination());
     }
 
+    [Fact]
+    public void IncidentIo_WithUrlAndToken_IsValid()
+    {
+        Assert.Null(IncidentIo().ValidateDestination());
+    }
+
+    [Fact]
+    public void IncidentIo_WithoutToken_IsInvalid()
+    {
+        Assert.NotNull((IncidentIo() with { IncidentIoToken = "" }).ValidateDestination());
+    }
+
+    [Fact]
+    public void IncidentIo_WithAnotherDestination_IsInvalid()
+    {
+        Assert.NotNull((IncidentIo() with { EmailTo = "a@b.com" }).ValidateDestination());
+    }
+
+    [Fact]
+    public void IncidentIoToken_OnAnotherType_IsInvalid()
+    {
+        var request = Build(NotificationChannelType.Webhook, webhookUrl: "https://example.com/hook") with { IncidentIoToken = "t" };
+        Assert.NotNull(request.ValidateDestination());
+    }
+
+    private static NotificationChannelRequest IncidentIo() => new()
+    {
+        Name = "test",
+        Type = NotificationChannelType.IncidentIo,
+        WebhookUrl = "https://api.incident.io/v2/alert_events/http/abc",
+        IncidentIoToken = "tok",
+    };
+
     private static NotificationChannelRequest Jira(string baseUrl = "https://acme.atlassian.net", string token = "tok") => new()
     {
         Name = "test",
