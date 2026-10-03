@@ -17,7 +17,8 @@ public sealed record MessagingSql(string Sql, ClickHouseParameterCollection Para
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Which spans count.</b> Only spans with a <c>messaging.system</c> attribute - the
+/// <b>Which spans count.</b> Only spans with a <c>messaging.system</c> attribute (or a MassTransit
+/// endpoint address, <see cref="MessagingSpanExpr"/>; ADR-0091) - the
 /// <c>mapContains</c> guard lets <c>idx_span_attr_key</c> (0007_spans.sql) skip granules with
 /// no messaging spans at all, which is most of them. Each span is then classified by
 /// <see cref="SpanRoleExpr"/>: the operation attribute (<c>messaging.operation.type</c>, else
@@ -65,7 +66,26 @@ public static class MessagingQueryBuilder
     /// <summary>The OTel Collector <c>rabbitmq</c> receiver's per-queue message count (resource attributes <c>rabbitmq.vhost.name</c>/<c>rabbitmq.queue.name</c>, datapoint attribute <c>state</c> = <c>ready</c>/<c>unacknowledged</c>). A non-monotonic sum, so it lands in <c>metrics_sum</c>.</summary>
     public const string QueueDepthMetric = "rabbitmq.message.current";
 
-    public const string SystemExpr = "SpanAttributes['messaging.system']";
+    /// <summary>MassTransit's own endpoint address on every send, receive and process span (e.g. <c>rabbitmq://host/vhost/Demo:SubmitOrder</c>). See ADR-0091.</summary>
+    public const string MassTransitAddressAttribute = "messaging.masstransit.destination_address";
+
+    private const string MassTransitAddressExpr = "SpanAttributes['" + MassTransitAddressAttribute + "']";
+
+    public const string RawSystemExpr = "SpanAttributes['messaging.system']";
+
+    /// <summary>
+    /// <c>messaging.system</c>, else - for MassTransit, which sets it on send spans only - the
+    /// scheme of its endpoint address (<c>sb</c> reported as the semantic convention's
+    /// <c>servicebus</c>).
+    /// </summary>
+    public const string SystemExpr =
+        "if(SpanAttributes['messaging.system'] != '' OR " + MassTransitAddressExpr + " = '', SpanAttributes['messaging.system'], " +
+        "if(extract(" + MassTransitAddressExpr + ", '^([A-Za-z][A-Za-z0-9+.-]*)://') = 'sb', 'servicebus', " +
+        "extract(" + MassTransitAddressExpr + ", '^([A-Za-z][A-Za-z0-9+.-]*)://')))";
+
+    /// <summary>A span that belongs on the Messaging page: names a system, or is a MassTransit span (whose receive/process spans don't).</summary>
+    public const string MessagingSpanExpr =
+        "(mapContains(SpanAttributes, 'messaging.system') OR mapContains(SpanAttributes, '" + MassTransitAddressAttribute + "'))";
 
     public const string RoutingKeyExpr = "SpanAttributes['messaging.rabbitmq.destination.routing_key']";
 
@@ -77,8 +97,17 @@ public static class MessagingQueryBuilder
     /// the semantic conventions ask for when the exchange is empty. See ADR-0057.
     /// </summary>
     public const string DestinationExpr =
+        $"if({MassTransitAddressExpr} != '', {MassTransitEntityExpr}, " +
         $"if({SystemExpr} = 'rabbitmq' AND {RawDestinationExpr} IN ('', 'amq.default') AND {RoutingKeyExpr} != '', " +
-        $"{RoutingKeyExpr}, {RawDestinationExpr})";
+        $"{RoutingKeyExpr}, {RawDestinationExpr}))";
+
+    /// <summary>
+    /// The last path segment of MassTransit's endpoint address, minus any query string. MassTransit
+    /// sends to a per-message-type exchange but receives from a queue, and puts the queue in
+    /// <c>messaging.destination.name</c> on receive spans and nowhere on process spans, so the
+    /// address is the only name all three span types share. See ADR-0091.
+    /// </summary>
+    private const string MassTransitEntityExpr = "extract(" + MassTransitAddressExpr + @", '([^/?]+)(?:\\?.*)?$')";
 
     public const string RawDestinationExpr = "SpanAttributes['messaging.destination.name']";
 
@@ -353,7 +382,7 @@ public static class MessagingQueryBuilder
         {
             "StartTime >= {from:DateTime64(9)}",
             "StartTime < {to:DateTime64(9)}",
-            "mapContains(SpanAttributes, 'messaging.system')",
+            MessagingSpanExpr,
         };
 
         if (!string.IsNullOrWhiteSpace(service))
@@ -365,15 +394,15 @@ public static class MessagingQueryBuilder
         if (!string.IsNullOrWhiteSpace(system))
         {
             parameters.AddParameter("system", system);
-            clauses.Add($"{SystemExpr} = {{system:String}}");
+            clauses.Add($"{(system == "kafka" ? RawSystemExpr : SystemExpr)} = {{system:String}}");
         }
 
         if (destination is not null)
         {
-            // The raw attribute comparison can use idx_span_attr_value; the RabbitMQ-normalizing
-            // if() can't, so it's only paid for where it can change the answer.
+            // The raw attribute comparison can use idx_span_attr_value; the normalizing if() can't,
+            // so it's only paid for where it can change the answer (everything but Kafka).
             parameters.AddParameter("destination", destination);
-            var destinationExpr = system == "rabbitmq" ? DestinationExpr : RawDestinationExpr;
+            var destinationExpr = system == "kafka" ? RawDestinationExpr : DestinationExpr;
             clauses.Add($"{destinationExpr} = {{destination:String}}");
         }
 
