@@ -583,6 +583,8 @@
 	"kubernetesPage_activeCount": "активно: {count}",
 	"kubernetesPage_desiredLabel": "Желаемо",
 	"kubernetesPage_readyLabel": "Готово",
+	"kubernetesPage_misscheduledCount": "неверно размещено: {count}",
+	"kubernetesPage_misscheduledLabel": "Неверно размещены",
 	"kubernetesPage_currentLabel": "Текущие",
 	"kubernetesPage_activeLabel": "Активные",
 	"kubernetesPage_succeededLabel": "Успешные",

@@ -129,6 +129,9 @@ public class KubernetesWorkloadQueryBuilderTests
         Assert.Contains("toStartOfInterval(Time, INTERVAL {bucketWidth:UInt32} SECOND) AS Key", result.Sql);
         Assert.Contains("ResourceAttributes['k8s.daemonset.name'] = {name:String}", result.Sql);
         Assert.Contains("'k8s.daemonset.ready_nodes'", result.Sql);
+        Assert.Contains("'k8s.daemonset.misscheduled_nodes'", result.Sql);
+        Assert.Contains("'k8s.daemonset.node.misscheduled'", result.Sql);
+        Assert.Contains("'misscheduled'", result.Sql);
         Assert.DoesNotContain("uniqExact", result.Sql);
     }
 

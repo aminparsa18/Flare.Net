@@ -177,7 +177,7 @@ choisissez un type. La colonne **Status** dépend du type :
 |---|---|---|
 | Deployment | Réplicas disponibles sur désirés | `k8s.deployment.available`, `k8s.deployment.desired` |
 | StatefulSet | Pods prêts sur désirés | `k8s.statefulset.ready_pods`, `k8s.statefulset.desired_pods` |
-| DaemonSet | Nœuds prêts sur désirés | `k8s.daemonset.ready_nodes`, `k8s.daemonset.desired_scheduled_nodes` |
+| DaemonSet | Nœuds prêts sur désirés, plus un badge rouge si des nœuds sont mal planifiés | `k8s.daemonset.ready_nodes`, `k8s.daemonset.desired_scheduled_nodes`, `k8s.daemonset.misscheduled_nodes` |
 | Job | Pods réussis sur désirés, pods en échec, pods actifs | `k8s.job.successful_pods`, `k8s.job.desired_successful_pods`, `k8s.job.failed_pods`, `k8s.job.active_pods` |
 | CronJob | Jobs actifs | `k8s.cronjob.active_jobs` |
 

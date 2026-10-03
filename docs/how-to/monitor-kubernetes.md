@@ -173,7 +173,7 @@ kind. The **Status** column depends on the kind:
 |---|---|---|
 | Deployment | Available of desired replicas | `k8s.deployment.available`, `k8s.deployment.desired` |
 | StatefulSet | Ready of desired pods | `k8s.statefulset.ready_pods`, `k8s.statefulset.desired_pods` |
-| DaemonSet | Ready of desired nodes | `k8s.daemonset.ready_nodes`, `k8s.daemonset.desired_scheduled_nodes` |
+| DaemonSet | Ready of desired nodes, plus a red badge when nodes are misscheduled | `k8s.daemonset.ready_nodes`, `k8s.daemonset.desired_scheduled_nodes`, `k8s.daemonset.misscheduled_nodes` |
 | Job | Succeeded of desired pods, failed pods, active pods | `k8s.job.successful_pods`, `k8s.job.desired_successful_pods`, `k8s.job.failed_pods`, `k8s.job.active_pods` |
 | CronJob | Active jobs | `k8s.cronjob.active_jobs` |
 

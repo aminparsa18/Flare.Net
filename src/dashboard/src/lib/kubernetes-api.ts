@@ -113,7 +113,7 @@ export interface KubernetesWorkloadRef {
 
 /**
  * Counts are the latest k8s_cluster readings and only the ones the kind reports are ever set
- * (desired/ready for Deployment, + current for StatefulSet/DaemonSet, desired/active/
+ * (desired/ready for Deployment, + current for StatefulSet/DaemonSet, misscheduled for DaemonSet, desired/active/
  * succeeded/failed for Job, active for CronJob); pod count and usage need kubeletstats plus
  * the k8sattributes processor tagging pods with their workload.
  */
@@ -121,6 +121,7 @@ export interface KubernetesWorkloadCounts {
 	desired: number | null;
 	ready: number | null;
 	current: number | null;
+	misscheduled: number | null;
 	active: number | null;
 	succeeded: number | null;
 	failed: number | null;
@@ -319,7 +320,7 @@ export async function listKubernetesPods(windowMinutes: number, filter: Kubernet
 }
 
 function counts(c: KubernetesWorkloadCounts): KubernetesWorkloadCounts {
-	return { desired: c.desired, ready: c.ready, current: c.current, active: c.active, succeeded: c.succeeded, failed: c.failed };
+	return { desired: c.desired, ready: c.ready, current: c.current, misscheduled: c.misscheduled, active: c.active, succeeded: c.succeeded, failed: c.failed };
 }
 
 export async function listKubernetesWorkloads(
