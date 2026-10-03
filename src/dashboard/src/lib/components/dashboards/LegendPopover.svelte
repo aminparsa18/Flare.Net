@@ -10,7 +10,8 @@
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
-	import { LEGEND_POSITIONS, type LegendPosition } from '$lib/dashboards/legend';
+	import { Input } from '$lib/components/ui/input';
+	import { LEGEND_FORMAT_EXAMPLE, LEGEND_POSITIONS, type LegendPosition } from '$lib/dashboards/legend';
 	import { THRESHOLD_COLORS, thresholdColorValue, type ThresholdColor } from '$lib/dashboards/thresholds';
 	import { thresholdColorLabel } from './threshold-color-label';
 	import ListIcon from '@lucide/svelte/icons/list';
@@ -19,13 +20,15 @@
 	let {
 		legendPosition,
 		seriesColors,
+		legendFormat,
 		seriesKeys,
 		onApply
 	}: {
 		legendPosition: LegendPosition | undefined;
 		seriesColors: Record<string, ThresholdColor>;
+		legendFormat: string | undefined;
 		seriesKeys: string[];
-		onApply: (legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>) => void;
+		onApply: (legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>, legendFormat: string | undefined) => void;
 	} = $props();
 
 	/** Select values - bits-ui treats `''` as "nothing selected", so the defaults get a sentinel. */
@@ -48,15 +51,17 @@
 	let open = $state(false);
 	let draftPosition = $state<string>(AUTO);
 	let draftColors = $state<Record<string, string>>({});
+	let draftFormat = $state('');
 
 	const listedKeys = $derived([...new Set([...seriesKeys, ...Object.keys(seriesColors)])]);
-	const hasCustomization = $derived(legendPosition !== undefined || Object.keys(seriesColors).length > 0);
+	const hasCustomization = $derived(legendPosition !== undefined || legendFormat !== undefined || Object.keys(seriesColors).length > 0);
 
 	// Re-seeded from the saved values each time this opens - see YAxisBoundsPopover.svelte.
 	$effect(() => {
 		if (open) {
 			draftPosition = legendPosition ?? AUTO;
 			draftColors = { ...seriesColors };
+			draftFormat = legendFormat ?? '';
 		}
 	});
 
@@ -65,12 +70,12 @@
 		for (const [key, color] of Object.entries(draftColors)) {
 			if (color in THRESHOLD_COLORS) colors[key] = color as ThresholdColor;
 		}
-		onApply(draftPosition === AUTO ? undefined : (draftPosition as LegendPosition), colors);
+		onApply(draftPosition === AUTO ? undefined : (draftPosition as LegendPosition), colors, draftFormat.trim() === '' ? undefined : draftFormat);
 		open = false;
 	}
 
 	function clear(): void {
-		onApply(undefined, {});
+		onApply(undefined, {}, undefined);
 		open = false;
 	}
 
@@ -108,6 +113,10 @@
 				</Select.Content>
 			</Select.Root>
 		</label>
+
+		<p class="mt-4 mb-1 text-xs font-medium">{m.legendPopover_format()}</p>
+		<p class="text-muted-foreground mb-2 text-xs">{m.legendPopover_formatDescription()}</p>
+		<Input class="h-8 font-mono text-xs" bind:value={draftFormat} placeholder={LEGEND_FORMAT_EXAMPLE} aria-label={m.legendPopover_format()} />
 
 		<p class="mt-4 mb-1 text-xs font-medium">{m.legendPopover_seriesColors()}</p>
 		<p class="text-muted-foreground mb-2 text-xs">{m.legendPopover_seriesColorsDescription()}</p>

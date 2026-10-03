@@ -344,7 +344,7 @@
 		onSetStacking={(id, stacking) => viewer.setPanelStacking(id, stacking)}
 		onSetColumnUnits={(id, columnUnits) => viewer.setPanelColumnUnits(id, columnUnits)}
 		onSetDecimals={(id, decimals) => viewer.setPanelDecimals(id, decimals)}
-		onSetLegend={(id, legendPosition, seriesColors) => viewer.setPanelLegend(id, legendPosition, seriesColors)}
+		onSetLegend={(id, legendPosition, seriesColors, legendFormat) => viewer.setPanelLegend(id, legendPosition, seriesColors, legendFormat)}
 		onMoveToRow={(id, target) => viewer.movePanelToRow(id, target)}
 	/>
 {/snippet}

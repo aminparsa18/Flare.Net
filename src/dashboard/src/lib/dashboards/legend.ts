@@ -10,6 +10,7 @@
 // Colors come from the thresholds' fixed named palette rather than free-form hex, for the same
 // reason that palette exists: every entry reads on both the light and dark chart backgrounds.
 
+import type { MetricSeries } from '$lib/metrics-api';
 import { THRESHOLD_COLORS, thresholdColorValue, type ThresholdColor } from './thresholds';
 
 export type LegendPosition = 'bottom' | 'right' | 'hidden';
@@ -48,4 +49,28 @@ export function legendLayout(position: Exclude<LegendPosition, 'hidden'>): { wra
 export function seriesColorOverride(overrides: Readonly<Record<string, ThresholdColor>> | undefined, key: string): string | undefined {
 	const color = overrides?.[key];
 	return color ? thresholdColorValue(color) : undefined;
+}
+
+/** Example shown as the template input's placeholder - not a default, an unset template keeps the automatic labels. */
+export const LEGEND_FORMAT_EXAMPLE = '{{service}} {{http.route}}';
+
+/** Lenient read of `DashboardPanel.legendFormat` - `undefined` for unset, blank or non-string. */
+export function parseLegendFormat(raw: unknown): string | undefined {
+	return typeof raw === 'string' && raw.trim() !== '' ? raw : undefined;
+}
+
+/**
+ * Renders a legend template for one series: `{{service}}` is the service name, any other
+ * `{{key}}` is that attribute's value, and a key the series doesn't carry renders empty.
+ * A template that renders to nothing but whitespace returns `null` so the caller falls back
+ * to its automatic label rather than drawing a blank legend entry. Only the displayed text
+ * is affected - color overrides stay keyed on `seriesLabel`.
+ */
+export function formatSeriesLabel(template: string | undefined, series: Pick<MetricSeries, 'serviceName' | 'attributes'>): string | null {
+	if (!template) return null;
+	const rendered = template
+		.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_, key: string) => (key === 'service' ? series.serviceName : (series.attributes[key] ?? '')))
+		.replace(/\s+/g, ' ')
+		.trim();
+	return rendered === '' ? null : rendered;
 }

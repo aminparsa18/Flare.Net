@@ -9,6 +9,7 @@
 // Only Metrics panels have alternatives: a Logs panel is a volume chart and a Traces panel a
 // trace list, neither of which is a numeric series set these reshapes apply to.
 
+import { formatSeriesLabel } from './legend';
 import { isHistogramType, type MetricPointType, type MetricSeries, type MetricSeriesPoint } from '$lib/metrics-api';
 import { formatAtScale, niceAxisTicks, parseYAxisScale, resolveAxisScale, type AxisScale, type YAxisScale } from '$lib/metrics/axis';
 
@@ -175,11 +176,11 @@ export function byMagnitude(series: readonly VizSeries[]): VizSeries[] {
 	return [...series].sort((a, b) => magnitude(b) - magnitude(a));
 }
 
-export function toVizSeries(series: readonly MetricSeries[], resultType: MetricPointType | null): VizSeries[] {
+export function toVizSeries(series: readonly MetricSeries[], resultType: MetricPointType | null, legendFormat?: string): VizSeries[] {
 	const labels = displayLabels(series);
 	return series.map((s, i) => ({
 		label: seriesLabel(s),
-		displayLabel: labels[i],
+		displayLabel: formatSeriesLabel(legendFormat, s) ?? labels[i],
 		points: s.points
 			.map((p) => ({ time: new Date(p.bucketStart).getTime(), value: pointValue(p, resultType) }))
 			.filter((p): p is { time: number; value: number } => p.value != null && Number.isFinite(p.value))

@@ -488,15 +488,15 @@ export class DashboardViewerState {
 	}
 
 	/** Replaces `panelId`'s legend placement and per-series color overrides
-	 *  (`DashboardPanel.legendPosition`/`seriesColors`) through `#saveLayout`. `undefined` and
+	 *  (`DashboardPanel.legendPosition`/`seriesColors`/`legendFormat`) through `#saveLayout`. `undefined` and
 	 *  an empty map clear their fields rather than saving the default. */
-	async setPanelLegend(panelId: string, legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>): Promise<void> {
+	async setPanelLegend(panelId: string, legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>, legendFormat?: string): Promise<void> {
 		const dashboard = this.dashboard;
 		if (!dashboard) return;
 		try {
 			this.dashboard = await this.#saveLayout({
 				panels: dashboard.layout.panels.map((p) =>
-					p.id === panelId ? { ...p, legendPosition, seriesColors: Object.keys(seriesColors).length ? seriesColors : undefined } : p
+					p.id === panelId ? { ...p, legendPosition, seriesColors: Object.keys(seriesColors).length ? seriesColors : undefined, legendFormat } : p
 				)
 			});
 		} catch (err) {

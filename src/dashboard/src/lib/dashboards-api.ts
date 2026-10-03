@@ -133,6 +133,13 @@ export interface DashboardPanel {
 	 */
 	seriesColors?: Record<string, ThresholdColor>;
 	/**
+	 * Legend label template for a `Metrics` panel, e.g. `{{service}} {{http.route}}` -
+	 * `{{service}}` is the service name, any other `{{key}}` an attribute value, a missing key
+	 * renders empty. `undefined` keeps the automatic labels. Colors stay keyed on the full
+	 * series identity, not this text. See `formatSeriesLabel` in `$lib/dashboards/legend.ts`.
+	 */
+	legendFormat?: string;
+	/**
 	 * `id` of the `DashboardRow` this panel sits under, or `undefined`/`null` for the
 	 * ungrouped area above every row (where every panel lived before rows existed).
 	 * `layout.y` is relative to that row's own grid, not the whole dashboard - each row is

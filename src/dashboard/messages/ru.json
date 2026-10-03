@@ -1931,6 +1931,8 @@
 	"legendPopover_positionBottom": "Снизу",
 	"legendPopover_positionRight": "Справа",
 	"legendPopover_positionHidden": "Скрыта",
+	"legendPopover_format": "Шаблон подписи",
+	"legendPopover_formatDescription": "Своя подпись ряда. Заключите ключ атрибута в двойные фигурные скобки или используйте service для имени сервиса; отсутствующий ключ даёт пустую строку. Оставьте пустым для автоматических подписей.",
 	"legendPopover_seriesColors": "Цвета рядов",
 	"legendPopover_seriesColorsDescription": "Закрепите за рядом цвет. «По умолчанию» оставляет автоматический цвет палитры. Зачёркнутых рядов нет в текущем результате.",
 	"legendPopover_noSeries": "Ряды ещё не загружены.",

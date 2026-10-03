@@ -1931,6 +1931,8 @@
 	"legendPopover_positionBottom": "底部",
 	"legendPopover_positionRight": "右侧",
 	"legendPopover_positionHidden": "隐藏",
+	"legendPopover_format": "标签模板",
+	"legendPopover_formatDescription": "自定义序列标签。用双花括号包裹属性键，或用 service 表示服务名；缺失的键显示为空。留空则使用自动标签。",
 	"legendPopover_seriesColors": "序列颜色",
 	"legendPopover_seriesColorsDescription": "为序列固定一种颜色。“默认”保留自动分配的调色板颜色。带删除线的序列不在当前结果中。",
 	"legendPopover_noSeries": "尚未加载任何序列。",

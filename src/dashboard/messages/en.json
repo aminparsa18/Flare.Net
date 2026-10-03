@@ -1931,6 +1931,8 @@
 	"legendPopover_positionBottom": "Bottom",
 	"legendPopover_positionRight": "Right",
 	"legendPopover_positionHidden": "Hidden",
+	"legendPopover_format": "Label template",
+	"legendPopover_formatDescription": "Custom series label. Wrap an attribute key in double curly braces, or use service for the service name; a missing key renders empty. Leave blank for automatic labels.",
 	"legendPopover_seriesColors": "Series colors",
 	"legendPopover_seriesColorsDescription": "Pin a series to a color. Default keeps its automatic palette color. Struck-through series aren't in the current result.",
 	"legendPopover_noSeries": "No series loaded yet.",

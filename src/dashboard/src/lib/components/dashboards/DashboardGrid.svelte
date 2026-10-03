@@ -80,7 +80,7 @@
 		onSetStacking: (id: string, stacking: PanelStacking) => void;
 		onSetColumnUnits: (id: string, columnUnits: Partial<Record<PanelReducer, string>>) => void;
 		onSetDecimals: (id: string, decimals: number | undefined) => void;
-		onSetLegend: (id: string, legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>) => void;
+		onSetLegend: (id: string, legendPosition: LegendPosition | undefined, seriesColors: Record<string, ThresholdColor>, legendFormat: string | undefined) => void;
 		onMoveToRow: (id: string, rowId: string | null) => void;
 	} = $props();
 
@@ -166,7 +166,7 @@
 					onSetStacking={(stacking) => onSetStacking(panel.id, stacking)}
 					onSetColumnUnits={(columnUnits) => onSetColumnUnits(panel.id, columnUnits)}
 					onSetDecimals={(decimals) => onSetDecimals(panel.id, decimals)}
-					onSetLegend={(legendPosition, seriesColors) => onSetLegend(panel.id, legendPosition, seriesColors)}
+					onSetLegend={(legendPosition, seriesColors, legendFormat) => onSetLegend(panel.id, legendPosition, seriesColors, legendFormat)}
 					{rows}
 					{rowId}
 					onMoveToRow={(target) => onMoveToRow(panel.id, target)}
