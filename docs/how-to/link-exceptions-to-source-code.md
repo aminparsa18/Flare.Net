@@ -41,6 +41,22 @@ to the default branch or tag you configure below.
 Builds with `<Deterministic>` and `ContinuousIntegrationBuild` already rewrite
 paths to start with `/_/`, which Flare strips without a prefix.
 
+## Show the failing lines inline
+
+When a frame links to your repository, a **Show source** button appears under the
+stack trace. It shows the lines around the throw site (the first linkable frame).
+
+Flare's API fetches the file from your repository host, so a private repository
+needs a read-only access token. Enter it in the same link-icon form:
+
+- GitHub: a fine-grained token with read access to **Contents**.
+- GitLab: a token with the `read_repository` scope.
+- Azure DevOps: a personal access token with **Code (Read)**.
+
+The token is write-only: Flare never shows it again, and leaving the field blank
+keeps the saved one. Public repositories work without a token. Flare doesn't
+follow redirects, ignores files over 2 MB and caches a file for 10 minutes.
+
 ## When a frame isn't linked
 
 Flare leaves a frame as plain text rather than guess:
@@ -52,3 +68,4 @@ Flare leaves a frame as plain text rather than guess:
 ## See also
 
 - [Architecture decision: ADR-0095](../../docs-internal/adr/0095-exception-source-links.md)
+- [ADR-0096](../../docs-internal/adr/0096-inline-exception-source.md)

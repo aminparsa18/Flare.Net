@@ -36,3 +36,24 @@ export async function deleteSourceLink(serviceName: string): Promise<void> {
 	const res = await apiFetch(`${BASE}/${encodeURIComponent(serviceName)}`, { method: 'DELETE' });
 	if (!res.ok) throw await failure(res, 'DELETE /api/source-links');
 }
+
+export interface SourceSnippet {
+	/** 1-based number of `lines[0]`. */
+	startLine: number;
+	lines: string[];
+}
+
+/** Lines around a frame, fetched by the API from the service's repo host. Throws with the API's reason (e.g. private repo, no token). */
+export async function getSourceSnippet(
+	request: { serviceName: string; ref: string; isCommit: boolean; path: string; line: number },
+	signal?: AbortSignal
+): Promise<SourceSnippet> {
+	const res = await apiFetch(`${BASE}/snippet`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(request),
+		signal
+	});
+	if (!res.ok) throw await failure(res, 'POST /api/source-links/snippet');
+	return (await res.json()) as SourceSnippet;
+}

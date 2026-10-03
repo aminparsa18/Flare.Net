@@ -14,9 +14,10 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
 	import SourceLinkPopover from './SourceLinkPopover.svelte';
+	import SourceSnippet from './SourceSnippet.svelte';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import { authContext } from '$lib/auth/context';
-	import { createFrameLinker, type SourceLinkConfig } from '$lib/errors/source-links';
+	import { createFrameLinker, firstFrameTarget, type SourceLinkConfig } from '$lib/errors/source-links';
 	import { deleteSourceLink, listSourceLinks, setSourceLink } from '$lib/source-links-api';
 	import * as m from '$lib/paraglide/messages';
 	import { formatTimestamp } from '$lib/time/format';
@@ -46,7 +47,8 @@
 
 	async function saveSourceLink(config: SourceLinkConfig): Promise<void> {
 		await setSourceLink(config);
-		sourceLinks = [...sourceLinks.filter((l) => l.serviceName !== config.serviceName), config];
+		// Re-read rather than patch locally: the token is write-only, so hasAccessToken is server state.
+		sourceLinks = await listSourceLinks();
 	}
 
 	async function removeSourceLink(serviceName: string): Promise<void> {
@@ -108,6 +110,7 @@
 								</Table.Cell>
 							</Table.Row>
 							{#if occurrence.stacktrace}
+							{@const target = firstFrameTarget(occurrence.stacktrace, configFor(occurrence.serviceName), occurrence.revision)}
 								<Table.Row>
 									<Table.Cell colspan={4} class="bg-muted/30 p-0">
 										<div class="flex items-start gap-1 px-3 py-2">
@@ -119,6 +122,9 @@
 													class="mt-2"
 													linkFor={createFrameLinker(configFor(occurrence.serviceName), occurrence.revision)}
 												/>
+												{#if target}
+													<SourceSnippet serviceName={occurrence.serviceName} {target} />
+												{/if}
 											</details>
 											{#if canEditSourceLinks}
 												<SourceLinkPopover

@@ -2407,5 +2407,8 @@
 	"sourceLinkPopover_pathPrefixPlaceholder": "Build path prefix to strip (optional)",
 	"sourceLinkPopover_invalidUrl": "Enter the repository's http(s) URL.",
 	"sourceLinkPopover_remove": "Remove",
-	"sourceLinkPopover_save": "Save"
+	"sourceLinkPopover_save": "Save",
+	"sourceSnippet_show": "Show source ({location})",
+	"sourceLinkPopover_tokenPlaceholder": "Read-only access token (optional, for source preview)",
+	"sourceLinkPopover_tokenSavedPlaceholder": "Token saved - leave blank to keep"
 }

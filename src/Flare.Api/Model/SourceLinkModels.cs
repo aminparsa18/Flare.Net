@@ -22,6 +22,12 @@ public sealed record SourceLinkDto
     /// <summary>Build-machine directory stripped from frame paths to get a repo-relative path. Empty = match by the frame's file name tail.</summary>
     public string PathPrefix { get; init; } = "";
 
+    /// <summary>Write-only read-only-scope host token for inline source: null keeps the stored one, empty clears it. Never returned.</summary>
+    public string? AccessToken { get; init; }
+
+    /// <summary>Response-only: whether a token is stored.</summary>
+    public bool HasAccessToken { get; init; }
+
     /// <summary>Returns a user-facing validation error, or null when valid.</summary>
     public string? Validate()
     {
@@ -47,4 +53,26 @@ public sealed record SourceLinkDto
 public sealed record SourceLinkListResponse
 {
     public required IReadOnlyList<SourceLinkDto> Links { get; init; }
+}
+
+/// <summary>Request for <c>POST /api/source-links/snippet</c>: lines around <see cref="Line"/> of <see cref="Path"/> (repo-relative) at <see cref="Ref"/>, from the service's configured repo.</summary>
+public sealed record SourceSnippetRequest
+{
+    public required string ServiceName { get; init; }
+
+    public required string Ref { get; init; }
+
+    public bool IsCommit { get; init; }
+
+    public required string Path { get; init; }
+
+    public required int Line { get; init; }
+}
+
+public sealed record SourceSnippetResponse
+{
+    /// <summary>1-based number of <see cref="Lines"/>[0].</summary>
+    public required int StartLine { get; init; }
+
+    public required IReadOnlyList<string> Lines { get; init; }
 }

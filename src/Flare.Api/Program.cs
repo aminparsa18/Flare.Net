@@ -344,6 +344,10 @@ builder.Services.Configure<AlertLinkOptions>(builder.Configuration.GetSection(Al
 // four and picks per-rule which one to delegate to. EmailAlertNotifier gets no typed
 // HttpClient - MailKit's SmtpClient is its own socket-based client, not HTTP.
 builder.Services.AddFlareMcp(builder.Configuration);
+// No redirects: the repo host token must never follow one to another host.
+builder.Services.AddHttpClient(Flare.Api.Source.SourceSnippetService.HttpClientName)
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddSingleton<Flare.Api.Source.ISourceSnippetService, Flare.Api.Source.SourceSnippetService>();
 builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");

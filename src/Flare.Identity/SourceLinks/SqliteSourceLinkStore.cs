@@ -8,7 +8,7 @@ public sealed class SqliteSourceLinkStore(IdentityDbConnectionFactory connection
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT ServiceName, Provider, RepoUrl, DefaultRef, PathPrefix FROM SourceLinks ORDER BY ServiceName";
+        command.CommandText = "SELECT ServiceName, Provider, RepoUrl, DefaultRef, PathPrefix, AccessToken FROM SourceLinks ORDER BY ServiceName";
 
         var result = new List<SourceLinkConfig>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -20,7 +20,7 @@ public sealed class SqliteSourceLinkStore(IdentityDbConnectionFactory connection
                 continue;
             }
 
-            result.Add(new SourceLinkConfig(reader.GetString(0), provider, reader.GetString(2), reader.GetString(3), reader.GetString(4)));
+            result.Add(new SourceLinkConfig(reader.GetString(0), provider, reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
         }
 
         return result;
@@ -32,13 +32,14 @@ public sealed class SqliteSourceLinkStore(IdentityDbConnectionFactory connection
         await using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO SourceLinks (ServiceName, Provider, RepoUrl, DefaultRef, PathPrefix, UpdatedAt)
-            VALUES ($serviceName, $provider, $repoUrl, $defaultRef, $pathPrefix, $updatedAt)
+            INSERT INTO SourceLinks (ServiceName, Provider, RepoUrl, DefaultRef, PathPrefix, AccessToken, UpdatedAt)
+            VALUES ($serviceName, $provider, $repoUrl, $defaultRef, $pathPrefix, $accessToken, $updatedAt)
             ON CONFLICT(ServiceName) DO UPDATE SET
                 Provider = excluded.Provider,
                 RepoUrl = excluded.RepoUrl,
                 DefaultRef = excluded.DefaultRef,
                 PathPrefix = excluded.PathPrefix,
+                AccessToken = CASE WHEN $clearToken THEN NULL ELSE COALESCE(excluded.AccessToken, SourceLinks.AccessToken) END,
                 UpdatedAt = excluded.UpdatedAt
             """;
         command.Parameters.AddWithValue("$serviceName", config.ServiceName);
@@ -46,6 +47,8 @@ public sealed class SqliteSourceLinkStore(IdentityDbConnectionFactory connection
         command.Parameters.AddWithValue("$repoUrl", config.RepoUrl);
         command.Parameters.AddWithValue("$defaultRef", config.DefaultRef);
         command.Parameters.AddWithValue("$pathPrefix", config.PathPrefix);
+        command.Parameters.AddWithValue("$accessToken", string.IsNullOrEmpty(config.AccessToken) ? DBNull.Value : config.AccessToken);
+        command.Parameters.AddWithValue("$clearToken", config.AccessToken == "" ? 1 : 0);
         command.Parameters.AddWithValue("$updatedAt", timeProvider.GetUtcNow().ToString("O"));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }

@@ -13,13 +13,17 @@ public enum SourceLinkProvider
 /// when an exception's own commit can't be determined; <see cref="PathPrefix"/> is the
 /// build-machine directory stripped from stack-frame paths to get a repo-relative path
 /// (e.g. <c>/_/</c> for deterministic builds, <c>/src/</c> inside a Docker build).
+/// <see cref="AccessToken"/> is an optional read-only host token for fetching source: on
+/// <see cref="ISourceLinkStore.SetAsync"/> null keeps the stored token and empty clears it;
+/// <see cref="ISourceLinkStore.GetAllAsync"/> always returns the stored value.
 /// </summary>
 public sealed record SourceLinkConfig(
     string ServiceName,
     SourceLinkProvider Provider,
     string RepoUrl,
     string DefaultRef,
-    string PathPrefix);
+    string PathPrefix,
+    string? AccessToken = null);
 
 /// <summary>Per-service source-repo config for exception stack-trace links - see docs-internal/adr/0095-exception-source-links.md.</summary>
 public interface ISourceLinkStore

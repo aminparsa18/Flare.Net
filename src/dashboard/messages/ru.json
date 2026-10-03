@@ -2407,5 +2407,8 @@
 	"sourceLinkPopover_pathPrefixPlaceholder": "Префикс пути сборки для отбрасывания (необязательно)",
 	"sourceLinkPopover_invalidUrl": "Введите http(s)-адрес репозитория.",
 	"sourceLinkPopover_remove": "Удалить",
-	"sourceLinkPopover_save": "Сохранить"
+	"sourceLinkPopover_save": "Сохранить",
+	"sourceSnippet_show": "Показать исходники ({location})",
+	"sourceLinkPopover_tokenPlaceholder": "Токен только для чтения (необязательно, для просмотра исходников)",
+	"sourceLinkPopover_tokenSavedPlaceholder": "Токен сохранён — оставьте пустым, чтобы не менять"
 }

@@ -52,4 +52,17 @@ public class SqliteSourceLinkStoreTests : IAsyncLifetime
 
         Assert.Equal("b", Assert.Single(await _store.GetAllAsync()).ServiceName);
     }
+
+    [Fact]
+    public async Task SetAsync_NullTokenKeepsStoredToken_EmptyClearsIt()
+    {
+        SourceLinkConfig With(string? token) => new("a", SourceLinkProvider.GitHub, "https://github.com/x/a", "", "", token);
+
+        await _store.SetAsync(With("secret"));
+        await _store.SetAsync(With(null));
+        Assert.Equal("secret", Assert.Single(await _store.GetAllAsync()).AccessToken);
+
+        await _store.SetAsync(With(""));
+        Assert.Null(Assert.Single(await _store.GetAllAsync()).AccessToken);
+    }
 }

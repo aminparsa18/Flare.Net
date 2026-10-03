@@ -26,6 +26,8 @@
 	let repoUrl = $state('');
 	let defaultRef = $state('');
 	let pathPrefix = $state('');
+	// Write-only: always starts blank; blank on save keeps the stored token.
+	let accessToken = $state('');
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 
@@ -36,6 +38,7 @@
 			repoUrl = config?.repoUrl ?? '';
 			defaultRef = config?.defaultRef ?? '';
 			pathPrefix = config?.pathPrefix ?? '';
+			accessToken = '';
 			error = null;
 		}
 	});
@@ -58,7 +61,7 @@
 			error = m.sourceLinkPopover_invalidUrl();
 			return Promise.resolve();
 		}
-		return run(() => onSave({ serviceName, provider, repoUrl: repoUrl.trim(), defaultRef: defaultRef.trim(), pathPrefix: pathPrefix.trim() }));
+		return run(() => onSave({ serviceName, provider, repoUrl: repoUrl.trim(), defaultRef: defaultRef.trim(), pathPrefix: pathPrefix.trim(), accessToken: accessToken.trim() || undefined }));
 	}
 </script>
 
@@ -88,6 +91,14 @@
 			<Input bind:value={repoUrl} placeholder={m.sourceLinkPopover_repoUrlPlaceholder()} class="h-8" disabled={saving} />
 			<Input bind:value={defaultRef} placeholder={m.sourceLinkPopover_defaultRefPlaceholder()} class="h-8" disabled={saving} />
 			<Input bind:value={pathPrefix} placeholder={m.sourceLinkPopover_pathPrefixPlaceholder()} class="h-8" disabled={saving} />
+			<Input
+				type="password"
+				autocomplete="off"
+				bind:value={accessToken}
+				placeholder={config?.hasAccessToken ? m.sourceLinkPopover_tokenSavedPlaceholder() : m.sourceLinkPopover_tokenPlaceholder()}
+				class="h-8"
+				disabled={saving}
+			/>
 		</div>
 		{#if error}
 			<p class="text-destructive mt-2 text-xs">{error}</p>
