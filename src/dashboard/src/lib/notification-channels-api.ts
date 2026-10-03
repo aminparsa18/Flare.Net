@@ -36,6 +36,12 @@ export interface NotificationChannel {
 	emailTo: string;
 	/** Meaningful only when `type` is `'PagerDuty'`. */
 	pagerDutyRoutingKey: string;
+	/** Meaningful only when `type` is `'Jira'`. */
+	jiraBaseUrl: string;
+	jiraEmail: string;
+	jiraApiToken: string;
+	jiraProjectKey: string;
+	jiraIssueType: string;
 	createdAt: string;
 	updatedAt: string;
 	/** Whether a firing rule's recovery sends a "Resolved" notification through this channel (PagerDuty: auto-resolves the incident). */
@@ -52,6 +58,11 @@ export interface NotificationChannelRequest {
 	telegramChatId?: string;
 	emailTo?: string;
 	pagerDutyRoutingKey?: string;
+	jiraBaseUrl?: string;
+	jiraEmail?: string;
+	jiraApiToken?: string;
+	jiraProjectKey?: string;
+	jiraIssueType?: string;
 	/** Omitted means true. */
 	sendResolved?: boolean;
 }
@@ -71,6 +82,11 @@ function toNotificationChannel(dto: GeneratedNotificationChannel): NotificationC
 		telegramChatId: dto.telegramChatId ?? '',
 		emailTo: dto.emailTo ?? '',
 		pagerDutyRoutingKey: dto.pagerDutyRoutingKey ?? '',
+		jiraBaseUrl: dto.jiraBaseUrl ?? '',
+		jiraEmail: dto.jiraEmail ?? '',
+		jiraApiToken: dto.jiraApiToken ?? '',
+		jiraProjectKey: dto.jiraProjectKey ?? '',
+		jiraIssueType: dto.jiraIssueType ?? '',
 		createdAt: dto.createdAt.toISOString(),
 		updatedAt: dto.updatedAt.toISOString(),
 		sendResolved: dto.sendResolved
@@ -88,6 +104,11 @@ function toGeneratedNotificationChannelRequest(request: NotificationChannelReque
 	dto.emailTo = request.emailTo ?? null;
 	dto.pagerDutyRoutingKey = request.pagerDutyRoutingKey ?? null;
 	dto.sendResolved = request.sendResolved ?? null;
+	dto.jiraBaseUrl = request.jiraBaseUrl ?? null;
+	dto.jiraEmail = request.jiraEmail ?? null;
+	dto.jiraApiToken = request.jiraApiToken ?? null;
+	dto.jiraProjectKey = request.jiraProjectKey ?? null;
+	dto.jiraIssueType = request.jiraIssueType ?? null;
 	return dto;
 }
 

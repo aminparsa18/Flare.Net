@@ -110,6 +110,51 @@ public class NotificationChannelValidationTests
         Assert.NotNull(Build(type, webhookUrl: "https://example.com/hook", emailTo: "oncall@example.com").ValidateDestination());
     }
 
+    [Fact]
+    public void Jira_WithAllRequiredFields_IsValid()
+    {
+        Assert.Null(Jira().ValidateDestination());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not a url")]
+    [InlineData("ftp://acme.atlassian.net")]
+    public void Jira_WithMissingOrMalformedBaseUrl_IsInvalid(string baseUrl)
+    {
+        Assert.NotNull(Jira(baseUrl: baseUrl).ValidateDestination());
+    }
+
+    [Fact]
+    public void Jira_WithMissingToken_IsInvalid()
+    {
+        Assert.NotNull(Jira(token: "").ValidateDestination());
+    }
+
+    [Fact]
+    public void Jira_WithAnotherDestination_IsInvalid()
+    {
+        var request = Jira() with { WebhookUrl = "https://example.com/hook" };
+        Assert.NotNull(request.ValidateDestination());
+    }
+
+    [Fact]
+    public void JiraFields_OnAnotherType_AreInvalid()
+    {
+        var request = Build(NotificationChannelType.Webhook, webhookUrl: "https://example.com/hook") with { JiraProjectKey = "OPS" };
+        Assert.NotNull(request.ValidateDestination());
+    }
+
+    private static NotificationChannelRequest Jira(string baseUrl = "https://acme.atlassian.net", string token = "tok") => new()
+    {
+        Name = "test",
+        Type = NotificationChannelType.Jira,
+        JiraBaseUrl = baseUrl,
+        JiraEmail = "bot@acme.com",
+        JiraApiToken = token,
+        JiraProjectKey = "OPS",
+    };
+
     private static NotificationChannelRequest Build(
         NotificationChannelType type,
         string webhookUrl = "",

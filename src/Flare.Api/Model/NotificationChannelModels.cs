@@ -21,6 +21,8 @@ public enum NotificationChannelType
     // destination - a Teams Workflows webhook / Discord webhook URL.
     Teams,
     Discord,
+    // Appended after Discord. Uses the Jira* fields below; see ADR-0097.
+    Jira,
 }
 
 /// <summary>
@@ -71,6 +73,21 @@ public sealed partial record NotificationChannel
     /// <see cref="UpdatedAt"/>, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
     /// </summary>
     public bool SendResolved { get; init; } = true;
+
+    /// <summary>Jira Cloud site root, e.g. <c>https://acme.atlassian.net</c>. Meaningful only when <see cref="Type"/> is <see cref="NotificationChannelType.Jira"/>. The Jira* fields are appended after <see cref="SendResolved"/> (MemoryPack versioning).</summary>
+    public string JiraBaseUrl { get; init; } = "";
+
+    /// <summary>Atlassian account email for the API token (HTTP Basic user). Jira channels only.</summary>
+    public string JiraEmail { get; init; } = "";
+
+    /// <summary>Atlassian API token (HTTP Basic password). Jira channels only.</summary>
+    public string JiraApiToken { get; init; } = "";
+
+    /// <summary>Key of the project issues are created in, e.g. <c>OPS</c>. Jira channels only.</summary>
+    public string JiraProjectKey { get; init; } = "";
+
+    /// <summary>Issue type name, e.g. <c>Bug</c>. Empty means <c>Task</c>. Jira channels only.</summary>
+    public string JiraIssueType { get; init; } = "";
 }
 
 /// <summary>
@@ -104,6 +121,16 @@ public sealed partial record NotificationChannelRequest
     /// <summary>See <see cref="NotificationChannel.SendResolved"/>'s doc comment. Omitted/null means true - nullable for the same "omitted vs explicitly false" reason <see cref="AlertRuleRequest.Enabled"/> is.</summary>
     public bool? SendResolved { get; init; }
 
+    public string? JiraBaseUrl { get; init; }
+
+    public string? JiraEmail { get; init; }
+
+    public string? JiraApiToken { get; init; }
+
+    public string? JiraProjectKey { get; init; }
+
+    public string? JiraIssueType { get; init; }
+
     /// <summary>
     /// Requires exactly the destination field(s) matching <see cref="Type"/> to be set,
     /// and none of the others - the <see cref="NotificationChannel"/> counterpart to
@@ -120,9 +147,18 @@ public sealed partial record NotificationChannelRequest
         var hasChatId = !string.IsNullOrWhiteSpace(TelegramChatId);
         var hasEmail = !string.IsNullOrWhiteSpace(EmailTo);
         var hasPagerDuty = !string.IsNullOrWhiteSpace(PagerDutyRoutingKey);
+        var hasJiraField = !string.IsNullOrWhiteSpace(JiraBaseUrl) || !string.IsNullOrWhiteSpace(JiraEmail) || !string.IsNullOrWhiteSpace(JiraApiToken)
+            || !string.IsNullOrWhiteSpace(JiraProjectKey) || !string.IsNullOrWhiteSpace(JiraIssueType);
 
         return Type switch
         {
+            NotificationChannelType.Jira when string.IsNullOrWhiteSpace(JiraBaseUrl) || string.IsNullOrWhiteSpace(JiraEmail) || string.IsNullOrWhiteSpace(JiraApiToken) || string.IsNullOrWhiteSpace(JiraProjectKey)
+                => "jiraBaseUrl, jiraEmail, jiraApiToken and jiraProjectKey are all required when type is Jira.",
+            NotificationChannelType.Jira when !Uri.TryCreate(JiraBaseUrl, UriKind.Absolute, out var jiraUri) || jiraUri.Scheme is not ("https" or "http")
+                => "jiraBaseUrl must be an absolute http(s) URL.",
+            NotificationChannelType.Jira when hasWebhook || hasBotToken || hasChatId || hasEmail || hasPagerDuty => "Only the jira* fields may be set when type is Jira.",
+            NotificationChannelType.Jira => null,
+            _ when hasJiraField => $"The jira* fields may only be set when type is Jira.",
             NotificationChannelType.Teams or NotificationChannelType.Discord when !hasWebhook => $"webhookUrl is required when type is {Type}.",
             NotificationChannelType.Teams or NotificationChannelType.Discord when hasBotToken || hasChatId || hasEmail || hasPagerDuty => $"Only webhookUrl may be set when type is {Type}.",
             NotificationChannelType.Webhook when !hasWebhook => "webhookUrl is required when type is Webhook.",

@@ -3,6 +3,7 @@
 // `NotificationChannel` field-for-field, in declared order. Can't carry
 // `[GenerateTypeScript]` itself: it has its own `DateTimeOffset` `CreatedAt`/`UpdatedAt` -
 // same reason `AlertRule.ts` is hand-written instead of generated.
+// The `jira*` fields were appended after `sendResolved` (ADR-0097).
 // `sendResolved` was appended after `updatedAt`, same versioning reasoning as `AlertRule.ts` (ADR-0064).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
@@ -23,6 +24,11 @@ export class NotificationChannel {
 	createdAt: Date;
 	updatedAt: Date;
 	sendResolved: boolean;
+	jiraBaseUrl: string | null;
+	jiraEmail: string | null;
+	jiraApiToken: string | null;
+	jiraProjectKey: string | null;
+	jiraIssueType: string | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -37,6 +43,11 @@ export class NotificationChannel {
 		this.createdAt = new Date(0);
 		this.updatedAt = new Date(0);
 		this.sendResolved = true;
+		this.jiraBaseUrl = null;
+		this.jiraEmail = null;
+		this.jiraApiToken = null;
+		this.jiraProjectKey = null;
+		this.jiraIssueType = null;
 	}
 
 	static serialize(value: NotificationChannel | null): Uint8Array {
@@ -51,7 +62,7 @@ export class NotificationChannel {
 			return;
 		}
 
-		writer.writeObjectHeader(12);
+		writer.writeObjectHeader(17);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -64,6 +75,11 @@ export class NotificationChannel {
 		writeDateTimeOffset(writer, value.createdAt);
 		writeDateTimeOffset(writer, value.updatedAt);
 		writer.writeBoolean(value.sendResolved);
+		writer.writeString(value.jiraBaseUrl);
+		writer.writeString(value.jiraEmail);
+		writer.writeString(value.jiraApiToken);
+		writer.writeString(value.jiraProjectKey);
+		writer.writeString(value.jiraIssueType);
 	}
 
 	static serializeArray(value: (NotificationChannel | null)[] | null): Uint8Array {
@@ -87,7 +103,7 @@ export class NotificationChannel {
 		}
 
 		const value = new NotificationChannel();
-		if (count == 12) {
+		if (count == 17) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -100,7 +116,12 @@ export class NotificationChannel {
 			value.createdAt = readDateTimeOffset(reader);
 			value.updatedAt = readDateTimeOffset(reader);
 			value.sendResolved = reader.readBoolean();
-		} else if (count > 12) {
+			value.jiraBaseUrl = reader.readString();
+			value.jiraEmail = reader.readString();
+			value.jiraApiToken = reader.readString();
+			value.jiraProjectKey = reader.readString();
+			value.jiraIssueType = reader.readString();
+		} else if (count > 17) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -128,6 +149,16 @@ export class NotificationChannel {
 			if (count == 11) return value;
 			value.sendResolved = reader.readBoolean();
 			if (count == 12) return value;
+			value.jiraBaseUrl = reader.readString();
+			if (count == 13) return value;
+			value.jiraEmail = reader.readString();
+			if (count == 14) return value;
+			value.jiraApiToken = reader.readString();
+			if (count == 15) return value;
+			value.jiraProjectKey = reader.readString();
+			if (count == 16) return value;
+			value.jiraIssueType = reader.readString();
+			if (count == 17) return value;
 		}
 		return value;
 	}
