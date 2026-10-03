@@ -25,6 +25,8 @@ public enum NotificationChannelType
     Jira,
     // Appended after Jira. Uses WebhookUrl (the alert source URL) plus IncidentIoToken; see ADR-0098.
     IncidentIo,
+    // Appended after IncidentIo. Uses JsmOpsApiKey only; see ADR-0099.
+    JsmOps,
 }
 
 /// <summary>
@@ -93,6 +95,9 @@ public sealed partial record NotificationChannel
 
     /// <summary>Bearer token of the incident.io HTTP alert source (its URL is <see cref="WebhookUrl"/>). Meaningful only when <see cref="Type"/> is <see cref="NotificationChannelType.IncidentIo"/>. Appended after <see cref="JiraIssueType"/> (MemoryPack versioning).</summary>
     public string IncidentIoToken { get; init; } = "";
+
+    /// <summary>JSM Operations integration API key (sent as <c>GenieKey</c>). Meaningful only when <see cref="Type"/> is <see cref="NotificationChannelType.JsmOps"/>. Appended after <see cref="IncidentIoToken"/> (MemoryPack versioning).</summary>
+    public string JsmOpsApiKey { get; init; } = "";
 }
 
 /// <summary>
@@ -138,6 +143,8 @@ public sealed partial record NotificationChannelRequest
 
     public string? IncidentIoToken { get; init; }
 
+    public string? JsmOpsApiKey { get; init; }
+
     /// <summary>
     /// Requires exactly the destination field(s) matching <see cref="Type"/> to be set,
     /// and none of the others - the <see cref="NotificationChannel"/> counterpart to
@@ -154,12 +161,17 @@ public sealed partial record NotificationChannelRequest
         var hasChatId = !string.IsNullOrWhiteSpace(TelegramChatId);
         var hasEmail = !string.IsNullOrWhiteSpace(EmailTo);
         var hasPagerDuty = !string.IsNullOrWhiteSpace(PagerDutyRoutingKey);
+        var hasJsmOpsKey = !string.IsNullOrWhiteSpace(JsmOpsApiKey);
         var hasIncidentIoToken = !string.IsNullOrWhiteSpace(IncidentIoToken);
         var hasJiraField = !string.IsNullOrWhiteSpace(JiraBaseUrl) || !string.IsNullOrWhiteSpace(JiraEmail) || !string.IsNullOrWhiteSpace(JiraApiToken)
             || !string.IsNullOrWhiteSpace(JiraProjectKey) || !string.IsNullOrWhiteSpace(JiraIssueType);
 
         return Type switch
         {
+            NotificationChannelType.JsmOps when !hasJsmOpsKey => "jsmOpsApiKey is required when type is JsmOps.",
+            NotificationChannelType.JsmOps when hasWebhook || hasBotToken || hasChatId || hasEmail || hasPagerDuty || hasJiraField || hasIncidentIoToken => "Only jsmOpsApiKey may be set when type is JsmOps.",
+            NotificationChannelType.JsmOps => null,
+            _ when hasJsmOpsKey => "jsmOpsApiKey may only be set when type is JsmOps.",
             NotificationChannelType.IncidentIo when !hasWebhook || !hasIncidentIoToken => "webhookUrl and incidentIoToken are both required when type is IncidentIo.",
             NotificationChannelType.IncidentIo when !Uri.TryCreate(WebhookUrl, UriKind.Absolute, out var incidentUri) || incidentUri.Scheme is not ("https" or "http") => "webhookUrl must be an absolute http(s) URL.",
             NotificationChannelType.IncidentIo when hasBotToken || hasChatId || hasEmail || hasPagerDuty || hasJiraField => "Only webhookUrl and incidentIoToken may be set when type is IncidentIo.",

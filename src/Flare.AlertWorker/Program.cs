@@ -46,6 +46,7 @@ builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
 builder.Services.AddHttpClient<TeamsAlertNotifier>("alert-teams");
 builder.Services.AddHttpClient<JiraAlertNotifier>("alert-jira");
 builder.Services.AddHttpClient<IncidentIoAlertNotifier>("alert-incidentio");
+builder.Services.AddHttpClient<JsmOpsAlertNotifier>("alert-jsmops");
 builder.Services.AddHttpClient<DiscordAlertNotifier>("alert-discord");
 builder.Services.AddSingleton<EmailAlertNotifier>();
 // Registered as its own concrete type (not just IAlertNotifier) so AlertEvaluationWorker

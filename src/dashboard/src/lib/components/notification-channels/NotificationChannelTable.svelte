@@ -34,6 +34,8 @@
 				return channel.emailTo;
 			case 'PagerDuty':
 				return channel.pagerDutyRoutingKey ? `${channel.pagerDutyRoutingKey.slice(0, 6)}…` : '';
+			case 'JsmOps':
+				return channel.jsmOpsApiKey ? `${channel.jsmOpsApiKey.slice(0, 6)}…` : '';
 			case 'Jira':
 				return channel.jiraProjectKey ? `${channel.jiraBaseUrl} (${channel.jiraProjectKey})` : '';
 		}

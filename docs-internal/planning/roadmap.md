@@ -109,12 +109,6 @@ folders are where "what happened and why" actually lives.
   common models, overridable). Consider pre-aggregation like ADR-0031 if
   volumes warrant it. Needs an ADR. Not started. Prior art:
   [signoz#10908](https://github.com/SigNoz/signoz/commit/755390c4b5b2456a7c5c44d98fe8fcb18671616b).
-- **JSM Ops notification channel.** Channel types are
-  Webhook/Telegram/Email/PagerDuty/Teams/Discord/Jira/IncidentIo (ADR-0094, ADR-0097,
-  ADR-0098). Add a notifier for JSM Ops alerts (open an alert, close on recovery;
-  the Jira channel only covers Jira Cloud issues)
-  ([signoz#12478](https://github.com/SigNoz/signoz/commit/160a1b018cd9cd7396ff8b6906be158ed16cfb0b)).
-  Not started.
 - **"Explain this exception" LLM action.** Stack frames link to source and show the throw site
   inline (ADR-0095, ADR-0096). Add an action that sends the exception, stack trace and that source
   to an LLM for an explanation, under the AI constraints below (the source needs redaction there).

@@ -4,7 +4,7 @@ namespace Flare.Api.Alerting;
 
 /// <summary>
 /// The <see cref="IAlertNotifier"/> actually registered for DI - picks Telegram, Email,
-/// PagerDuty, Teams, Discord, Jira, incident.io, or webhook/Slack per <see cref="NotificationChannel.Type"/> and delegates,
+/// PagerDuty, Teams, Discord, Jira, incident.io, JSM Ops, or webhook/Slack per <see cref="NotificationChannel.Type"/> and delegates,
 /// so <see cref="AlertEvaluationWorker"/> (which only ever depends on
 /// <see cref="IAlertNotifier"/>/<see cref="SendAllAsync"/>) needs no per-channel branching
 /// of its own.
@@ -27,7 +27,8 @@ public sealed class CompositeAlertNotifier(
     TeamsAlertNotifier teams,
     DiscordAlertNotifier discord,
     JiraAlertNotifier jira,
-    IncidentIoAlertNotifier incidentIo) : IAlertNotifier
+    IncidentIoAlertNotifier incidentIo,
+    JsmOpsAlertNotifier jsmOps) : IAlertNotifier
 {
     public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false)
     {
@@ -40,6 +41,7 @@ public sealed class CompositeAlertNotifier(
             NotificationChannelType.Discord => discord,
             NotificationChannelType.Jira => jira,
             NotificationChannelType.IncidentIo => incidentIo,
+            NotificationChannelType.JsmOps => jsmOps,
             _ => webhook,
         };
 

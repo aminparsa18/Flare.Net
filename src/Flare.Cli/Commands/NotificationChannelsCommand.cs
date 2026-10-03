@@ -99,6 +99,7 @@ internal sealed class NotificationChannelsListCommand : AsyncCommand<Notificatio
         "Email" => channel.EmailTo,
         "PagerDuty" => string.IsNullOrEmpty(channel.PagerDutyRoutingKey) ? "" : $"{channel.PagerDutyRoutingKey[..Math.Min(6, channel.PagerDutyRoutingKey.Length)]}…",
         "Jira" => string.IsNullOrEmpty(channel.JiraProjectKey) ? "" : $"{channel.JiraBaseUrl} ({channel.JiraProjectKey})",
+        "JsmOps" => string.IsNullOrEmpty(channel.JsmOpsApiKey) ? "" : $"{channel.JsmOpsApiKey[..Math.Min(6, channel.JsmOpsApiKey.Length)]}…",
         _ => "",
     };
 }
@@ -168,6 +169,10 @@ internal sealed class NotificationChannelsCreateCommand : AsyncCommand<Notificat
         [Description("Required (with --webhook-url, the alert source URL) when --type incidentio.")]
         public string? IncidentIoToken { get; init; }
 
+        [CommandOption("--jsmops-api-key <KEY>")]
+        [Description("Required when --type jsmops.")]
+        public string? JsmOpsApiKey { get; init; }
+
         [CommandOption("--send-resolved <BOOL>")]
         [Description("Send a \"Resolved\" notification when a firing rule recovers (for PagerDuty, auto-resolves the incident): true or false. Defaults to true.")]
         public bool? SendResolved { get; init; }
@@ -215,6 +220,7 @@ internal sealed class NotificationChannelsCreateCommand : AsyncCommand<Notificat
             JiraProjectKey = settings.JiraProjectKey,
             JiraIssueType = settings.JiraIssueType,
             IncidentIoToken = settings.IncidentIoToken,
+            JsmOpsApiKey = settings.JsmOpsApiKey,
             SendResolved = settings.SendResolved,
         };
 
@@ -317,6 +323,10 @@ internal sealed class NotificationChannelsUpdateCommand : AsyncCommand<Notificat
         [Description("")]
         public string? IncidentIoToken { get; init; }
 
+        [CommandOption("--jsmops-api-key <KEY>")]
+        [Description("")]
+        public string? JsmOpsApiKey { get; init; }
+
         [CommandOption("--send-resolved <BOOL>")]
         [Description("Send a \"Resolved\" notification when a firing rule recovers (for PagerDuty, auto-resolves the incident): true or false. Unchanged when omitted.")]
         public bool? SendResolved { get; init; }
@@ -400,6 +410,7 @@ internal sealed class NotificationChannelsUpdateCommand : AsyncCommand<Notificat
             JiraProjectKey = Carry(settings.JiraProjectKey, existing.JiraProjectKey),
             JiraIssueType = Carry(settings.JiraIssueType, existing.JiraIssueType),
             IncidentIoToken = Carry(settings.IncidentIoToken, existing.IncidentIoToken),
+            JsmOpsApiKey = Carry(settings.JsmOpsApiKey, existing.JsmOpsApiKey),
             // Always sent - PUT replaces the whole channel, and an omitted value means true.
             SendResolved = settings.SendResolved ?? existing.SendResolved,
         };
@@ -619,7 +630,7 @@ internal sealed class NotificationChannelsSendTestCommand : AsyncCommand<Notific
 /// </summary>
 internal static class NotificationChannelTypeParsing
 {
-    public const string ValidValues = "webhook, telegram, email, pagerduty, teams, discord, jira, incidentio";
+    public const string ValidValues = "webhook, telegram, email, pagerduty, teams, discord, jira, incidentio, jsmops";
 
     public static string? Normalize(string? type) => type?.Trim().ToLowerInvariant() switch
     {
@@ -628,6 +639,7 @@ internal static class NotificationChannelTypeParsing
         "email" => "Email",
         "pagerduty" or "pager-duty" => "PagerDuty",
         "jira" => "Jira",
+        "jsmops" or "jsm-ops" or "jsm" => "JsmOps",
         "incidentio" or "incident.io" or "incident-io" => "IncidentIo",
         "teams" or "msteams" => "Teams",
         "discord" => "Discord",
@@ -662,7 +674,7 @@ internal sealed class NotificationChannelWire
 
     public string Description { get; init; } = "";
 
-    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord" | "Jira" | "IncidentIo".</summary>
+    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord" | "Jira" | "IncidentIo" | "JsmOps".</summary>
     public required string Type { get; init; }
 
     public string WebhookUrl { get; init; } = "";
@@ -687,6 +699,8 @@ internal sealed class NotificationChannelWire
 
     public string IncidentIoToken { get; init; } = "";
 
+    public string JsmOpsApiKey { get; init; } = "";
+
     public DateTimeOffset CreatedAt { get; init; }
 
     public DateTimeOffset UpdatedAt { get; init; }
@@ -705,7 +719,7 @@ internal sealed class NotificationChannelRequestWire
 
     public string? Description { get; init; }
 
-    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord" | "Jira" | "IncidentIo".</summary>
+    /// <summary>"Webhook" | "Telegram" | "Email" | "PagerDuty" | "Teams" | "Discord" | "Jira" | "IncidentIo" | "JsmOps".</summary>
     public required string Type { get; init; }
 
     public string? WebhookUrl { get; init; }
@@ -729,6 +743,8 @@ internal sealed class NotificationChannelRequestWire
     public string? JiraIssueType { get; init; }
 
     public string? IncidentIoToken { get; init; }
+
+    public string? JsmOpsApiKey { get; init; }
 
     /// <summary>Null means true (the API's default).</summary>
     public bool? SendResolved { get; init; }

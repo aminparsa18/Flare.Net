@@ -2,18 +2,22 @@ namespace Flare.Api.Alerting;
 
 /// <summary>
 /// The POST-and-record-the-outcome step <see cref="TeamsAlertNotifier"/>,
-/// <see cref="DiscordAlertNotifier"/> and <see cref="IncidentIoAlertNotifier"/> share: a network/URL/timeout failure becomes a failed
+/// <see cref="DiscordAlertNotifier"/>, <see cref="IncidentIoAlertNotifier"/> and <see cref="JsmOpsAlertNotifier"/> share: a network/URL/timeout failure becomes a failed
 /// <see cref="NotificationResult"/> rather than an exception that would abort the tick for
 /// every other rule (same contract as <see cref="WebhookAlertNotifier"/>).
 /// </summary>
 internal static class WebhookPost
 {
-    public static async Task<NotificationResult> SendAsync(HttpClient httpClient, string url, object payload, CancellationToken cancellationToken, string? bearerToken = null)
+    public static async Task<NotificationResult> SendAsync(HttpClient httpClient, string url, object payload, CancellationToken cancellationToken, string? bearerToken = null, System.Net.Http.Headers.AuthenticationHeaderValue? authorization = null)
     {
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = JsonContent.Create(payload) };
-            if (bearerToken is not null)
+            if (authorization is not null)
+            {
+                request.Headers.Authorization = authorization;
+            }
+            else if (bearerToken is not null)
             {
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearerToken);
             }
