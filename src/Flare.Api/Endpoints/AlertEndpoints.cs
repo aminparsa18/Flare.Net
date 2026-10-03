@@ -261,6 +261,7 @@ public static class AlertEndpoints
             RecoveryThreshold = request.RecoveryThreshold,
             Severity = defaults.Severity,
             ThresholdUnit = defaults.ThresholdUnit,
+            Labels = defaults.Labels,
         };
     }
 

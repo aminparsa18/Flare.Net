@@ -14,4 +14,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(MaintenanceWindowRequest))]
 [JsonSerializable(typeof(MaintenanceWindow))]
 [JsonSerializable(typeof(MaintenanceWindowListResponse))]
+[JsonSerializable(typeof(IReadOnlyDictionary<string, string>))]
 public sealed partial class MaintenanceWindowsJsonContext : JsonSerializerContext;

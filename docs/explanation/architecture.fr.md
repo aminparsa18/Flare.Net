@@ -324,6 +324,11 @@ quotidiennes ou hebdomadaires (dans un fuseau horaire choisi) pour toutes les
 règles ou une sélection. Pendant une fenêtre, les règles sont toujours
 évaluées, mais un dépassement est enregistré comme supprimé dans l'historique
 de la règle au lieu de notifier (voir [ADR-0055](../../docs-internal/adr/0055-alert-maintenance-windows.md)).
+Les règles peuvent porter vos propres étiquettes clé/valeur (`team=payments`),
+filtrables dans la liste des règles et disponibles via `{{labels.team}}` et dans
+les payloads webhook. Une fenêtre peut aussi couvrir des règles par étiquette, en
+plus ou à la place d'une sélection par nom, de sorte que les nouvelles règles sont
+couvertes automatiquement (voir [ADR-0084](../../docs-internal/adr/0084-alert-rule-labels.md)).
 Quand une règle déclenchée revient à la normale, ses canaux reçoivent une
 notification « Resolved », et les incidents PagerDuty se ferment
 automatiquement. Chaque canal peut s'en désabonner avec son interrupteur

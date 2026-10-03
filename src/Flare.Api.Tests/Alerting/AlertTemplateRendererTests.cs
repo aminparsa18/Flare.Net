@@ -93,6 +93,18 @@ public class AlertTemplateRendererTests
     }
 
     [Fact]
+    public void BuildTemplateLabels_UserLabelsAreAddedAndWinOverDerivedOnes()
+    {
+        var rule = MakeRule() with { Labels = new Dictionary<string, string> { ["team"] = "payments", ["service.name"] = "pay-svc" } };
+
+        var labels = AlertMessageFormatter.BuildTemplateLabels(rule);
+
+        Assert.Equal("payments", labels["team"]);
+        Assert.Equal("pay-svc", labels["service.name"]);
+        Assert.Equal("prod", labels["deployment.environment"]);
+    }
+
+    [Fact]
     public void BuildTemplateLabels_TakesServicesAndEqualityAttributesOnly()
     {
         var labels = AlertMessageFormatter.BuildTemplateLabels(MakeRule());

@@ -19,11 +19,13 @@ public class MaintenanceWindowScheduleTests
         DayOfWeek[]? days = null,
         DateTimeOffset? repeatUntil = null,
         string timeZone = "UTC",
-        Guid[]? ruleIds = null) => new()
+        Guid[]? ruleIds = null,
+        Dictionary<string, string>? matchers = null) => new()
     {
         Id = Guid.NewGuid(),
         Name = "deploy",
         RuleIds = ruleIds ?? [],
+        LabelMatchers = matchers ?? [],
         StartsAt = startsAt,
         EndsAt = startsAt + duration,
         Recurrence = recurrence,
@@ -32,6 +34,18 @@ public class MaintenanceWindowScheduleTests
         TimeZone = timeZone,
         CreatedAt = startsAt,
         UpdatedAt = startsAt,
+    };
+
+    private static AlertRule Rule(Guid? id = null, Dictionary<string, string>? labels = null) => new()
+    {
+        Id = id ?? Guid.NewGuid(),
+        Name = "rule",
+        Condition = new LogFilter(),
+        Threshold = new AlertThreshold { Count = 1 },
+        WindowSeconds = 60,
+        CreatedAt = DateTimeOffset.UnixEpoch,
+        UpdatedAt = DateTimeOffset.UnixEpoch,
+        Labels = labels ?? [],
     };
 
     private static DateTimeOffset Utc(int month, int day, int hour, int minute = 0) => new(2026, month, day, hour, minute, 0, TimeSpan.Zero);
@@ -138,18 +152,40 @@ public class MaintenanceWindowScheduleTests
     }
 
     [Fact]
-    public void EmptyRuleIds_CoversEveryRule()
+    public void NoRuleIdsAndNoMatchers_CoversEveryRule()
     {
-        Assert.True(MaintenanceWindowSchedule.Covers(Window(Utc(9, 1, 0), TimeSpan.FromHours(1)), Guid.NewGuid()));
+        Assert.True(MaintenanceWindowSchedule.Covers(Window(Utc(9, 1, 0), TimeSpan.FromHours(1)), Rule()));
+    }
+
+    [Fact]
+    public void LabelMatchers_CoverOnlyRulesWithEveryPair()
+    {
+        var window = Window(Utc(9, 1, 0), TimeSpan.FromHours(1), matchers: new() { ["team"] = "payments", ["env"] = "prod" });
+
+        Assert.True(MaintenanceWindowSchedule.Covers(window, Rule(labels: new() { ["team"] = "payments", ["env"] = "prod", ["extra"] = "x" })));
+        Assert.False(MaintenanceWindowSchedule.Covers(window, Rule(labels: new() { ["team"] = "payments" })));
+        Assert.False(MaintenanceWindowSchedule.Covers(window, Rule(labels: new() { ["team"] = "payments", ["env"] = "staging" })));
+        Assert.False(MaintenanceWindowSchedule.Covers(window, Rule()));
+    }
+
+    [Fact]
+    public void RuleIdsAndLabelMatchers_AreAUnion()
+    {
+        var listed = Guid.NewGuid();
+        var window = Window(Utc(9, 1, 0), TimeSpan.FromHours(1), ruleIds: [listed], matchers: new() { ["team"] = "payments" });
+
+        Assert.True(MaintenanceWindowSchedule.Covers(window, Rule(listed)));
+        Assert.True(MaintenanceWindowSchedule.Covers(window, Rule(labels: new() { ["team"] = "payments" })));
+        Assert.False(MaintenanceWindowSchedule.Covers(window, Rule(labels: new() { ["team"] = "search" })));
     }
 
     [Fact]
     public void FindActive_OnlyMatchesActiveWindowsCoveringTheRule()
     {
-        var rule = Guid.NewGuid();
+        var rule = Rule();
         var otherRule = Window(Utc(9, 25, 10), TimeSpan.FromHours(2), ruleIds: [Guid.NewGuid()]);
-        var inactive = Window(Utc(9, 24, 10), TimeSpan.FromHours(2), ruleIds: [rule]);
-        var match = Window(Utc(9, 25, 11), TimeSpan.FromHours(2), ruleIds: [rule]);
+        var inactive = Window(Utc(9, 24, 10), TimeSpan.FromHours(2), ruleIds: [rule.Id]);
+        var match = Window(Utc(9, 25, 11), TimeSpan.FromHours(2), ruleIds: [rule.Id]);
 
         Assert.Same(match, MaintenanceWindowSchedule.FindActive([otherRule, inactive, match], rule, Utc(9, 25, 11, 30)));
         Assert.Null(MaintenanceWindowSchedule.FindActive([otherRule, inactive], rule, Utc(9, 25, 11, 30)));

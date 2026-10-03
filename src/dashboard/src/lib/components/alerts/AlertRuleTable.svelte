@@ -50,7 +50,7 @@
 		if (search !== page.url.search) replaceState(page.url.pathname + search, page.state);
 	});
 
-	const visibleRules = $derived(applyAlertListView(alerts.rules, alerts.statuses, (id) => maintenance.isRuleMuted(id), view));
+	const visibleRules = $derived(applyAlertListView(alerts.rules, alerts.statuses, (rule) => maintenance.isRuleMuted(rule), view));
 
 	function toggleSort(key: RuleSortKey): void {
 		view = view.sort === key ? { ...view, direction: view.direction === 'asc' ? 'desc' : 'asc' } : { ...view, sort: key, direction: key === 'lastFired' ? 'desc' : 'asc' };
@@ -205,6 +205,7 @@
 			<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
 			<Input class="h-8 pl-8" placeholder={m.alertRuleTable_searchPlaceholder()} bind:value={view.query} />
 		</div>
+		<Input class="h-8 w-48" placeholder={m.alertRuleTable_labelFilterPlaceholder()} bind:value={view.label} />
 		<select class="border-input bg-background h-8 rounded-md border px-2 text-sm" bind:value={view.state}>
 			{#each RULE_STATE_FILTERS as state (state)}
 				<option value={state}>{stateLabel(state)}</option>
@@ -217,7 +218,7 @@
 			{/each}
 		</select>
 		{#if isAlertListViewActive(view)}
-			<Button variant="ghost" size="sm" onclick={() => (view = { ...view, query: '', state: 'all', kind: 'all' })}>
+			<Button variant="ghost" size="sm" onclick={() => (view = { ...view, query: '', label: '', state: 'all', kind: 'all' })}>
 				{m.alertRuleTable_clearFilters()}
 			</Button>
 		{/if}
@@ -266,6 +267,13 @@
 							{#if rule.description}
 								<p class="text-muted-foreground font-normal">{rule.description}</p>
 							{/if}
+							{#if Object.keys(rule.labels).length > 0}
+								<div class="mt-1 flex flex-wrap gap-1">
+									{#each Object.entries(rule.labels) as [key, value] (key)}
+										<Badge variant="outline" class="font-mono text-xs font-normal">{key}={value}</Badge>
+									{/each}
+								</div>
+							{/if}
 						</Table.Cell>
 						<Table.Cell><Badge variant={severityBadgeVariant(rule.severity)}>{severityLabel(rule.severity)}</Badge></Table.Cell>
 						<Table.Cell class="text-muted-foreground">{summarizeCondition(rule)}</Table.Cell>
@@ -299,7 +307,7 @@
 							<Badge variant={rule.enabled ? 'secondary' : 'outline'}
 								>{rule.enabled ? m.alertRuleTable_enabled() : m.alertRuleTable_disabled()}</Badge
 							>
-							{#if rule.enabled && maintenance.isRuleMuted(rule.id)}
+							{#if rule.enabled && maintenance.isRuleMuted(rule)}
 								<Badge variant="outline" class="ml-1" title={m.alertRuleTable_mutedHint()}>{m.alertRuleTable_muted()}</Badge>
 							{/if}
 							{#if testResults[rule.id] === 'loading'}

@@ -86,6 +86,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
                 {
                     ruleId = rule.Id,
                     ruleName = rule.Name,
+                    labels = rule.Labels,
                     conditionKind = rule.ConditionKind.ToString(),
                     severity = rule.Severity.ToString().ToLowerInvariant(),
                     observedCount = isMetric ? 0UL : (ulong)observedValue,

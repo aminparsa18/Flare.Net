@@ -38,6 +38,8 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
             title = message.Title,
             ruleId = rule.Id,
             ruleName = rule.Name,
+            // The rule's user-defined labels ({"team":"payments"}) - empty object when none.
+            labels = rule.Labels,
             conditionKind = rule.ConditionKind.ToString(),
             // observedCount/thresholdCount stay ulong (unchanged wire shape for existing
             // LogCount consumers); observedValue/thresholdValue are the new generic doubles

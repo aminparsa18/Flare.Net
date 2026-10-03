@@ -211,7 +211,8 @@ public static class AlertMessageFormatter
     /// log attribute filter using <see cref="AttributeFilterOperator.Equals"/> (other operators
     /// don't pin a single value) or metric attribute filter (always an equality). Alert rules
     /// evaluate one aggregate series, not one per group, so these are the rule's own scope,
-    /// not per-series group labels. Several values for one key are joined with ", ".
+    /// not per-series group labels. Several values for one key are joined with ", ". The rule's
+    /// user-defined <see cref="AlertRule.Labels"/> are merged on top.
     /// </summary>
     internal static IReadOnlyDictionary<string, string> BuildTemplateLabels(AlertRule rule)
     {
@@ -267,7 +268,15 @@ public static class AlertMessageFormatter
                 break;
         }
 
-        return labels.ToDictionary(kv => kv.Key, kv => string.Join(", ", kv.Value), StringComparer.Ordinal);
+        var result = labels.ToDictionary(kv => kv.Key, kv => string.Join(", ", kv.Value), StringComparer.Ordinal);
+
+        // The rule's own user-defined labels win over a same-named condition-derived one.
+        foreach (var (key, value) in rule.Labels)
+        {
+            result[key] = value;
+        }
+
+        return result;
     }
 
     private static AlertConditionKind RuleSeriesKind(AlertRule rule) => AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition);

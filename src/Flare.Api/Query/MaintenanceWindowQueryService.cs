@@ -1,7 +1,9 @@
+using System.Text.Json;
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Json;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
 
@@ -31,7 +33,7 @@ public interface IMaintenanceWindowQueryService
 public sealed class MaintenanceWindowQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IMaintenanceWindowQueryService
 {
     private const string WindowColumns =
-        "Id, Name, Description, RuleIds, StartsAt, EndsAt, Recurrence, DaysOfWeek, RepeatUntil, TimeZone, CreatedAt, UpdatedAt";
+        "Id, Name, Description, RuleIds, StartsAt, EndsAt, Recurrence, DaysOfWeek, RepeatUntil, TimeZone, CreatedAt, UpdatedAt, LabelMatchersJson";
 
     /// <summary>See <see cref="AlertQueryService.ResolveDefaults"/>'s remarks - same nullable-optional-field coalescing, for <see cref="MaintenanceWindowRequest"/>.</summary>
     internal static MaintenanceWindow Apply(MaintenanceWindow window, MaintenanceWindowRequest request)
@@ -49,6 +51,7 @@ public sealed class MaintenanceWindowQueryService(IClickHouseClient client, IOpt
             DaysOfWeek = recurrence == MaintenanceWindowRecurrence.Weekly ? (request.DaysOfWeek ?? []).Order().ToList() : [],
             RepeatUntil = recurrence == MaintenanceWindowRecurrence.None ? null : request.RepeatUntil,
             TimeZone = string.IsNullOrWhiteSpace(request.TimeZone) ? "UTC" : request.TimeZone,
+            LabelMatchers = AlertLabels.Normalize(request.LabelMatchers),
         };
     }
 
@@ -135,12 +138,13 @@ public sealed class MaintenanceWindowQueryService(IClickHouseClient client, IOpt
         parameters.AddParameter("timeZone", window.TimeZone);
         parameters.AddParameter("createdAt", window.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", window.UpdatedAt.UtcDateTime);
+        parameters.AddParameter("labelMatchersJson", JsonSerializer.Serialize(window.LabelMatchers, MaintenanceWindowsJsonContext.Default.IReadOnlyDictionaryStringString));
 
         const string sql = """
             INSERT INTO maintenance_windows
-                (Id, Name, Description, IsDeleted, RuleIds, StartsAt, EndsAt, Recurrence, DaysOfWeek, RepeatUntil, TimeZone, CreatedAt, UpdatedAt)
+                (Id, Name, Description, IsDeleted, RuleIds, StartsAt, EndsAt, Recurrence, DaysOfWeek, RepeatUntil, TimeZone, CreatedAt, UpdatedAt, LabelMatchersJson)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {ruleIds:Array(UUID)}, {startsAt:DateTime64(3)}, {endsAt:DateTime64(3)}, {recurrence:String}, {daysOfWeek:Array(UInt8)}, {repeatUntil:Nullable(DateTime64(3))}, {timeZone:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {ruleIds:Array(UUID)}, {startsAt:DateTime64(3)}, {endsAt:DateTime64(3)}, {recurrence:String}, {daysOfWeek:Array(UInt8)}, {repeatUntil:Nullable(DateTime64(3))}, {timeZone:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {labelMatchersJson:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -160,6 +164,7 @@ public sealed class MaintenanceWindowQueryService(IClickHouseClient client, IOpt
         TimeZone = reader.GetString(9),
         CreatedAt = ReadUtc(reader, 10),
         UpdatedAt = ReadUtc(reader, 11),
+        LabelMatchers = JsonSerializer.Deserialize(reader.GetString(12), MaintenanceWindowsJsonContext.Default.IReadOnlyDictionaryStringString) ?? new Dictionary<string, string>(),
     };
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>

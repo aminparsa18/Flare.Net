@@ -16,6 +16,8 @@
 	import { browserTimeZone, instantToZoned, timeZoneOptions, zonedToInstant } from '$lib/time/time-zone';
 	import type { MaintenanceWindowRecurrence, MaintenanceWindowRequest } from '$lib/maintenance-windows-api';
 	import * as m from '$lib/paraglide/messages';
+	import LabelsInput from '$lib/components/alerts/LabelsInput.svelte';
+	import type { Labels } from '$lib/alerts/labels';
 
 	const alerts = alertsContext.get();
 	const maintenance = maintenanceWindowsContext.get();
@@ -34,6 +36,8 @@
 	let name = $state('');
 	let description = $state('');
 	let ruleIds = $state<string[]>([]);
+	let labelMatchers = $state<Labels>({});
+	let matchersValid = $state(true);
 	let timeZone = $state('UTC');
 	let startsLocal = $state('');
 	let endsLocal = $state('');
@@ -49,6 +53,8 @@
 			name = '';
 			description = '';
 			ruleIds = [];
+			labelMatchers = {};
+			matchersValid = true;
 			timeZone = browserTimeZone();
 			startsLocal = instantToZoned(start, timeZone);
 			endsLocal = instantToZoned(new Date(start.getTime() + HOUR_MS), timeZone);
@@ -59,6 +65,8 @@
 			name = target.name;
 			description = target.description;
 			ruleIds = [...target.ruleIds];
+			labelMatchers = { ...target.labelMatchers };
+			matchersValid = true;
 			timeZone = target.timeZone;
 			startsLocal = instantToZoned(new Date(target.startsAt), target.timeZone);
 			endsLocal = instantToZoned(new Date(target.endsAt), target.timeZone);
@@ -83,7 +91,7 @@
 		return null;
 	});
 
-	const canSave = $derived(name.trim().length > 0 && startsLocal !== '' && endsLocal !== '' && error === null);
+	const canSave = $derived(name.trim().length > 0 && matchersValid && startsLocal !== '' && endsLocal !== '' && error === null);
 
 	function toggleDay(day: number): void {
 		daysOfWeek = daysOfWeek.includes(day) ? daysOfWeek.filter((d) => d !== day) : [...daysOfWeek, day];
@@ -94,6 +102,7 @@
 			name: name.trim(),
 			description: description.trim(),
 			ruleIds,
+			labelMatchers,
 			startsAt: zonedToInstant(startsLocal, timeZone).toISOString(),
 			endsAt: zonedToInstant(endsLocal, timeZone).toISOString(),
 			recurrence,
@@ -132,6 +141,18 @@
 					/>
 				</div>
 				<span class="text-muted-foreground text-xs">{m.maintenanceWindowForm_rulesHint()}</span>
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-medium">{m.maintenanceWindowForm_labelMatchersLabel()}</span>
+				<LabelsInput
+					value={labelMatchers}
+					onChange={(next, valid) => {
+						labelMatchers = next;
+						matchersValid = valid;
+					}}
+				/>
+				<span class="text-muted-foreground text-xs">{m.maintenanceWindowForm_labelMatchersHint()}</span>
 			</div>
 
 			<div class="flex flex-col gap-1">

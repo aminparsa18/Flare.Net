@@ -495,6 +495,18 @@ public sealed partial record AlertRule
     /// Appended after <see cref="Severity"/>, same versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public string ThresholdUnit { get; init; } = "";
+
+    /// <summary>
+    /// User-defined key/value labels (<c>team=payments</c>, <c>env=prod</c>) set on the rule
+    /// itself - not derived from its condition. Filterable in the alerts list, exposed as
+    /// <c>{{labels.&lt;key&gt;}}</c> in notification templates (overriding a same-named
+    /// condition-derived label) and as <c>labels</c> in webhook/PagerDuty payloads, and matched
+    /// by a <see cref="MaintenanceWindow.LabelMatchers"/> so a window covers new rules
+    /// automatically. Empty (the default, and every rule created before this field existed)
+    /// means none. See <c>docs-internal/adr/0084-alert-rule-labels.md</c>. Appended after
+    /// <see cref="ThresholdUnit"/>, same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Labels { get; init; } = new Dictionary<string, string>();
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -593,6 +605,9 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.ThresholdUnit"/>'s doc comment. Omitted/null means "" (the series' own unit). Appended after <see cref="Severity"/>.</summary>
     public string? ThresholdUnit { get; init; }
+
+    /// <summary>See <see cref="AlertRule.Labels"/>'s doc comment. Omitted/null means none. Appended after <see cref="ThresholdUnit"/>.</summary>
+    public IReadOnlyDictionary<string, string>? Labels { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
@@ -708,7 +723,7 @@ public sealed partial record AlertRuleRequest
             _ => null,
         };
 
-        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateRecoveryThreshold(kind) ?? ValidateThresholdUnit(kind) ?? ValidateTemplates();
+        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateRecoveryThreshold(kind) ?? ValidateThresholdUnit(kind) ?? ValidateTemplates() ?? AlertLabels.Validate(Labels, "labels");
     }
 
     /// <summary>

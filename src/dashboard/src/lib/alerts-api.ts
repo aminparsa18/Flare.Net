@@ -187,6 +187,8 @@ export interface AlertRule {
 	severity: AlertSeverity;
 	/** Unit `metricThresholdValue`/`recoveryThreshold` were typed in (e.g. `ms`); empty means the metric's own unit. */
 	thresholdUnit: string;
+	/** User-defined key/value labels (`team=payments`) - filterable, exposed to templates/webhooks, matched by maintenance windows (ADR-0084). */
+	labels: Record<string, string>;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -227,6 +229,8 @@ export interface AlertRuleRequest {
 	severity?: AlertSeverity;
 	/** See `AlertRule.thresholdUnit`. Omitted/undefined means the metric's own unit. */
 	thresholdUnit?: string;
+	/** See `AlertRule.labels`. Omitted/undefined means none. */
+	labels?: Record<string, string>;
 }
 
 export interface AlertRuleListResponse {
@@ -433,7 +437,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		notificationBodyTemplate: dto.notificationBodyTemplate ?? '',
 		recoveryThreshold: dto.recoveryThreshold,
 		severity: alertSeverityToString(dto.severity),
-		thresholdUnit: dto.thresholdUnit ?? ''
+		thresholdUnit: dto.thresholdUnit ?? '',
+		labels: dto.labels ?? {}
 	};
 }
 
@@ -473,6 +478,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.recoveryThreshold = request.recoveryThreshold ?? null;
 	dto.severity = request.severity == null ? null : alertSeverityFromString(request.severity);
 	dto.thresholdUnit = request.thresholdUnit || null;
+	dto.labels = request.labels ?? null;
 	return dto;
 }
 
