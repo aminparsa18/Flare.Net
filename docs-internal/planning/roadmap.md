@@ -99,12 +99,6 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Dashboard edit mode hides narrow panels' titles.** On panels ≤ 4 grid
-  columns wide at a ~1300 px viewport, the per-panel edit toolbar (move,
-  alert, export, edit, filter, visualization, colors, row, duplicate,
-  delete) takes the whole header: the title shrinks to nothing and the
-  panel-type badge overlaps the icons. Needs an overflow menu or a
-  wrapping header in edit mode.
 - **Docs for the span duration percentile.** The "pN of `<name>` in
   `<service>`" line in `SpanDetailSheet` (`POST /api/spans/duration-percentile`,
   ±1h window, hidden under 10 similar spans) isn't mentioned in the traces

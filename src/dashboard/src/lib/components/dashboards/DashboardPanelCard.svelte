@@ -250,8 +250,10 @@
 </script>
 
 <div class="flex h-full flex-col rounded-lg border">
-	<div class="flex items-center justify-between gap-2 border-b px-3 py-2">
-		<div class="flex min-w-0 flex-1 items-center gap-2">
+	<!-- In edit mode the toolbar is long; let it wrap below the title instead of squeezing the
+	     title to nothing (the title group keeps a min width, so buttons wrap once it'd go under it). -->
+	<div class="flex items-center justify-between gap-2 border-b px-3 py-2" class:flex-wrap={editing}>
+		<div class="flex flex-1 items-center gap-2 {editing ? 'min-w-36' : 'min-w-0'}">
 			{#if editing}
 				<span class="panel-drag-handle text-muted-foreground hover:text-foreground shrink-0 cursor-grab" title={m.dashboardPanelCard_dragHandle()}>
 					<GripVerticalIcon class="size-4" />
