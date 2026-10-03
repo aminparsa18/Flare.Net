@@ -188,7 +188,7 @@
 {#if visualization !== 'timeSeries'}
 	<MetricsVisualization {visualization} {stacking} {reducer} {columnUnits} {decimals} {title} {legendPosition} {seriesColors} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} thresholds={thresholds ?? []} />
 {:else if explorer.mode === 'formula'}
-	<FormulaChart {title} decimals={parseDecimals(decimals)} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} {legendPosition} {seriesColors} />
+	<FormulaChart {title} {stacking} decimals={parseDecimals(decimals)} yAxisMin={yAxisMin ?? null} yAxisMax={yAxisMax ?? null} {yAxisScale} thresholds={thresholds ?? []} {legendPosition} {seriesColors} />
 {:else}
 	<MetricChart
 		{title}
@@ -200,6 +200,7 @@
 		thresholds={thresholds ?? []}
 		{legendPosition}
 		{seriesColors}
+		{stacking}
 		onPointClick={openAroundPoint}
 	/>
 {/if}

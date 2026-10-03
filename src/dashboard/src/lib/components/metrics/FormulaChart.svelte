@@ -19,6 +19,8 @@
 	import BucketIntervalMenu from '$lib/components/logs/BucketIntervalMenu.svelte';
 	import { seriesColor } from '$lib/metrics/chart-colors';
 	import { seriesLabel } from '$lib/dashboards/visualization';
+	import { areaPath, stackExtent, stackLines, topEdgePath } from '$lib/dashboards/stacking';
+	import type { PanelStacking } from '$lib/dashboards/visualization';
 	import ThresholdOverlay from './ThresholdOverlay.svelte';
 	import YAxisScaleToggle from './YAxisScaleToggle.svelte';
 	import ChartCsvButton from './ChartCsvButton.svelte';
@@ -41,6 +43,7 @@
 		yAxisScale,
 		legendPosition = 'bottom',
 		seriesColors = {},
+		stacking = 'none',
 		title = ''
 	}: {
 		yAxisMin?: number | null;
@@ -51,6 +54,8 @@
 		yAxisScale?: YAxisScale;
 		legendPosition?: LegendPosition;
 		seriesColors?: Record<string, ThresholdColor>;
+		/** Stacked areas instead of lines (`DashboardPanel.stacking`); `percent` fills every bucket to 0-100%. */
+		stacking?: PanelStacking;
 		/** The panel's title - names the downloaded CSV; the formula itself on the Explorer page. */
 		title?: string;
 	} = $props();
@@ -76,15 +81,23 @@
 	const bucketTimes = $derived([...new Set(lines.flatMap((l) => l.points.map((p) => p.time)))].sort((a, b) => a - b));
 	const bucketIndexOf = $derived(new Map(bucketTimes.map((t, i) => [t, i])));
 
+	// Stacked areas (ADR-0086): per-series bands instead of lines. Log scale can't stack, so
+	// stacking wins over it; percent mode also drops the soft Y bounds and thresholds, which
+	// are in the formula's own units.
+	const stackActive = $derived(stacking !== 'none' && lines.length > 0);
+	const percent = $derived(stackActive && stacking === 'percent');
+	const layers = $derived(stackActive ? stackLines(lines, bucketTimes, stacking as 'normal' | 'percent') : []);
+	const extent = $derived(stackExtent(layers));
+
 	const rawValues = $derived(lines.flatMap((l) => l.points.map((p) => p.raw)));
-	const dataMax = $derived(rawValues.length > 0 ? Math.max(...rawValues) : 0);
-	const dataMin = $derived(rawValues.length > 0 ? Math.min(0, ...rawValues) : 0);
+	const dataMax = $derived(stackActive ? extent.hi : rawValues.length > 0 ? Math.max(...rawValues) : 0);
+	const dataMin = $derived(stackActive ? extent.lo : rawValues.length > 0 ? Math.min(0, ...rawValues) : 0);
 
 	// yAxisMin/yAxisMax narrow the "nice" domain the same way MetricChart's own
 	// domainMin/domainMax do - see that file's remarks for how "soft" is applied (the bound
 	// only ever widens the domain outward, never clips data that falls past it).
-	const domainMin = $derived(yAxisMin != null ? Math.min(yAxisMin, dataMin) : dataMin);
-	const domainMax = $derived(yAxisMax != null ? Math.max(yAxisMax, dataMax) : dataMax);
+	const domainMin = $derived(yAxisMin != null && !percent ? Math.min(yAxisMin, dataMin) : dataMin);
+	const domainMax = $derived(yAxisMax != null && !percent ? Math.max(yAxisMax, dataMax) : dataMax);
 
 	// Dimensionless - a formula result has no single declared unit of its own (its operands
 	// might each have different, or no, units - e.g. `(A/B)*100` for a ratio-as-percentage
@@ -93,7 +106,7 @@
 	// Log scale - same decade ticks and "positive values only, else stay linear" fallback as
 	// MetricChart's own `logActive`/`ticks`; see there.
 	const positiveValues = $derived(rawValues.filter((v) => v > 0));
-	const logActive = $derived((yAxisScale ?? explorer.filter.yAxisScale) === 'log' && positiveValues.length > 0);
+	const logActive = $derived(!stackActive && (yAxisScale ?? explorer.filter.yAxisScale) === 'log' && positiveValues.length > 0);
 	const ticks = $derived.by(() => {
 		if (!logActive) return niceAxisTicks(domainMin, domainMax, axisScale);
 		const lo = Math.min(...positiveValues, yAxisMin != null && yAxisMin > 0 ? yAxisMin : Infinity);
@@ -164,6 +177,17 @@
 		);
 	}
 
+	/** Axis tick label - `50%` on a percent-stacked chart. */
+	function formatTick(n: number): string {
+		return percent ? `${formatAtScale(n, axisScale, 0)}%` : formatValue(n);
+	}
+
+	function layerAtHover(layer: (typeof layers)[number]) {
+		if (safeHoverIndex === null) return undefined;
+		const p = layer.points[safeHoverIndex];
+		return p && p.raw != null ? p : undefined;
+	}
+
 	function formatValue(n: number): string {
 		return logActive ? formatAutoScaled(n, null, decimals) : formatAtScale(n, axisScale, decimals);
 	}
@@ -217,7 +241,7 @@
 			<div class="relative flex-1 {layout.plot}">
 				<div class="text-muted-foreground pointer-events-none absolute inset-y-0 left-0 w-10 text-[10px]" style="height: {CHART_HEIGHT}px">
 					{#each ticks.values as tick (tick)}
-						{@const label = formatValue(tick)}
+						{@const label = formatTick(tick)}
 						<span class="absolute inset-x-1 -translate-y-1/2 truncate leading-none" style="top: {yFor(tick)}px" title={label}>
 							{label}
 						</span>
@@ -241,7 +265,7 @@
 										<line x1="0" y1={yFor(tick)} x2={CHART_WIDTH} y2={yFor(tick)} class="text-border" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke" />
 									{/each}
 
-									<ThresholdOverlay {thresholds} {yFor} {minValue} {maxValue} width={CHART_WIDTH} peakY={PEAK_Y} baselineY={BASELINE_Y} />
+									<ThresholdOverlay thresholds={percent ? [] : thresholds} {yFor} {minValue} {maxValue} width={CHART_WIDTH} peakY={PEAK_Y} baselineY={BASELINE_Y} />
 
 									{#if safeHoverIndex !== null}
 										<line
@@ -257,12 +281,19 @@
 										/>
 									{/if}
 
+									{#if stackActive}
+										{#each layers as layer, i (layer.label)}
+											<path d={areaPath(layer.points, xFor, yFor)} fill={lines[i].color} fill-opacity="0.55" stroke="none" />
+											<path d={topEdgePath(layer.points, xFor, yFor)} fill="none" stroke={lines[i].color} stroke-width="1.5" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+										{/each}
+									{:else}
 									{#each lines as line (line.label)}
 										<path d={pathFor(line.points)} fill="none" stroke={line.color} stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
 										{#each plotted(line.points) as point (point.time)}
 											<circle cx={xFor(point.time)} cy={yFor(point.raw)} r={bucketTimes.length > 60 ? 0 : 2.5} fill={line.color} />
 										{/each}
 									{/each}
+									{/if}
 								</svg>
 							{/snippet}
 						</Tooltip.Trigger>
@@ -270,6 +301,18 @@
 							<Tooltip.Content>
 								<div class="flex flex-col gap-0.5">
 									<span class="font-medium">{formatBucketTime(bucketTimes[safeHoverIndex])}</span>
+									{#if stackActive}
+										{#each layers as layer, i (layer.label)}
+											{@const point = layerAtHover(layer)}
+											{#if point}
+												<span class="flex items-center gap-1.5">
+													<span class="inline-block h-2 w-2 shrink-0 rounded-sm" style="background: {lines[i].color};"></span>
+													{layer.label}: {formatAtScale(point.raw!, resolveAxisScale(null, Math.abs(point.raw!)), decimals)}
+													{#if percent}<span class="text-muted-foreground">({point.share.toFixed(1)}%)</span>{/if}
+												</span>
+											{/if}
+										{/each}
+									{:else}
 									{#each lines as line (line.label)}
 										{@const point = pointAtHover(line)}
 										{#if point}
@@ -283,6 +326,7 @@
 											</span>
 										{/if}
 									{/each}
+									{/if}
 								</div>
 							</Tooltip.Content>
 						{/if}

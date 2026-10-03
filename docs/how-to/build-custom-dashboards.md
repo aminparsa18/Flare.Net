@@ -125,8 +125,9 @@ without touching the query:
 | **Histogram** | How often the query's values fell in each range: value ranges along the bottom, number of readings up the side. |
 | **Heatmap** | How a Histogram metric's distribution moves over time: time along the bottom, value ranges up the side, color for how many observations fell there. |
 
-A bar chart's **Stacking** setting (in the same menu) changes how its series
-combine in each bucket: **None** puts them side by side, **Stacked** piles
+A **Time series** or **Bar chart** panel's **Stacking** setting (in the same menu)
+changes how its series combine in each bucket (a time series stacks as filled
+areas; log scale and the histogram/comparison views don't stack): **None** puts them side by side, **Stacked** piles
 them into one bar whose height is the bucket's total, and **Stacked (100%)**
 rescales every bucket to fill 0-100% so each series shows its share. Hovering
 a 100% bar still shows the real values. Soft Y-axis bounds and thresholds are

@@ -30,9 +30,9 @@ export type PanelStacking = 'none' | 'normal' | 'percent';
 
 export const PANEL_STACKINGS: readonly PanelStacking[] = ['none', 'normal', 'percent'];
 
-/** Visualizations that honour `stacking` - the bar chart. */
+/** Visualizations that honour `stacking` - the bar chart, and the line chart (as stacked areas). */
 export function usesStacking(visualization: PanelVisualization): boolean {
-	return visualization === 'bar';
+	return visualization === 'bar' || visualization === 'timeSeries';
 }
 
 /** A panel's effective stacking. A stored `stacking` wins; otherwise a legacy

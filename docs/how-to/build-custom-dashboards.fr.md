@@ -144,7 +144,7 @@ façon dont ce même résultat est dessiné, sans toucher à la requête :
 | **Histogramme** | La fréquence à laquelle les valeurs de la requête tombent dans chaque plage : les plages de valeurs en bas, le nombre de mesures sur le côté. |
 | **Carte de chaleur** | L'évolution dans le temps de la distribution d'une métrique Histogram : le temps en bas, les plages de valeurs sur le côté, la couleur indiquant le nombre d'observations. |
 
-Le réglage **Empilement** d'un diagramme en barres (dans le même menu) change la
+Le réglage **Empilement** d'une série temporelle ou d'un diagramme en barres (dans le même menu ; une série temporelle s'empile en aires remplies, l'échelle logarithmique ne s'empile pas) change la
 façon dont ses séries se combinent dans chaque intervalle : **Aucun** les place côte
 à côte, **Empilé** les empile en une barre dont la hauteur est le total de
 l'intervalle, et **Empilé (100 %)** ramène chaque intervalle à 0-100 % pour montrer
