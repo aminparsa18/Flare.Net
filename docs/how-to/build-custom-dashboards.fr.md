@@ -635,6 +635,17 @@ Depuis la page **Dashboards**, vous pouvez :
 
   Un fichier invalide ou sans rapport (ni l'un ni l'autre format) est rejeté
   avec une erreur affichée plutôt qu'importé partiellement.
+- **Étiqueter et épingler** les tableaux de bord pour garder une longue liste
+  maniable. Ajoutez des tags libres (10 au maximum par tableau de bord, 32
+  caractères chacun, enregistrés en minuscules) depuis la boîte de dialogue de
+  création/renommage ; la page Dashboards affiche alors une zone de recherche
+  (nom, description et tags) et une pastille par tag utilisé — cliquez sur les
+  pastilles pour filtrer, un tableau de bord devant porter tous les tags
+  sélectionnés. L'icône d'épingle d'une ligne place ce tableau de bord en haut
+  de *votre* liste, le plus récemment épinglé en premier. Les épingles sont
+  propres à chaque utilisateur et tout utilisateur connecté, Viewer compris,
+  peut en poser ; avec l'authentification désactivée, elles sont partagées. Les
+  tags appartiennent au tableau de bord : qui peut le renommer peut les changer.
 - **Supprimer** un tableau de bord. Cela ne supprime que l'objet tableau de
   bord lui-même — cela ne touche jamais aux données Logs/Traces/Metrics
   sous-jacentes.

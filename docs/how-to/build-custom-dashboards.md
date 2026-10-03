@@ -540,6 +540,15 @@ From the **Dashboards** page you can:
 
   An invalid or unrelated file (neither shape) is rejected with an inline
   error rather than partially imported.
+- **Tag and pin** dashboards to keep a long list manageable. Add free-form
+  tags (up to 10 per dashboard, 32 characters each, stored in lowercase)
+  from the create/rename dialog; the Dashboards page then shows a search box
+  (matching name, description and tags) and a chip per tag in use — click
+  chips to filter, and a dashboard must carry every selected tag. The pin
+  icon on a row floats that dashboard to the top of *your* list, most
+  recently pinned first. Pins are per user and any signed-in user, Viewers
+  included, can set them; with auth disabled they are shared. Tags belong to
+  the dashboard, so anyone who may rename it may change them.
 - **Delete** a dashboard. This only removes the dashboard object itself —
   it never touches the underlying Logs/Traces/Metrics data.
 

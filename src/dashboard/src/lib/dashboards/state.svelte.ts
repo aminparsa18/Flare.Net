@@ -36,6 +36,8 @@ import {
 	createDashboard,
 	updateDashboard,
 	deleteDashboard,
+	listDashboardPins,
+	setDashboardPinned,
 	parseLayout,
 	type DashboardSummary,
 	type DashboardLayout
@@ -66,12 +68,61 @@ export class DashboardsState {
 	 *  round-trips its panels' real queries, so there's nothing to warn about. */
 	importWarning = $state<string | null>(null);
 
+	/** Ids the current user has pinned, most recently pinned first (ADR-0089). */
+	pinnedIds = $state.raw<string[]>([]);
+	/** Free-text name/description/tag filter for the list page. */
+	search = $state('');
+	/** Tag chips toggled on; a dashboard must carry every one. */
+	activeTags = $state.raw<string[]>([]);
+
+	/** Every tag in use, alphabetical, for the filter chips. */
+	allTags = $derived([...new Set(this.dashboards.flatMap((d) => d.tags))].sort());
+
+	/** The list page's rows: filtered by search and tag chips, pinned dashboards first (most recently pinned on top), the rest in the server's name order. */
+	visible = $derived.by(() => {
+		const query = this.search.trim().toLowerCase();
+		const filtered = this.dashboards.filter(
+			(d) =>
+				this.activeTags.every((t) => d.tags.includes(t)) &&
+				(!query || d.name.toLowerCase().includes(query) || d.description.toLowerCase().includes(query) || d.tags.some((t) => t.includes(query)))
+		);
+		const rank = (d: DashboardSummary): number => {
+			const i = this.pinnedIds.indexOf(d.id);
+			return i < 0 ? Infinity : i;
+		};
+		return filtered.toSorted((a, b) => rank(a) - rank(b)); // stable: unpinned keep name order
+	});
+
+	isPinned(id: string): boolean {
+		return this.pinnedIds.includes(id);
+	}
+
+	toggleTag(tag: string): void {
+		this.activeTags = this.activeTags.includes(tag) ? this.activeTags.filter((t) => t !== tag) : [...this.activeTags, tag];
+	}
+
+	/** Optimistic: flips the pin locally, then reverts if the API call fails. */
+	async togglePin(id: string): Promise<void> {
+		const previous = this.pinnedIds;
+		const pinned = !previous.includes(id);
+		this.pinnedIds = pinned ? [id, ...previous] : previous.filter((p) => p !== id);
+		try {
+			await setDashboardPinned(id, pinned);
+		} catch (err) {
+			this.pinnedIds = previous;
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	async load(): Promise<void> {
 		this.loading = true;
 		this.error = null;
 		try {
-			const res = await listDashboards();
+			const [res, pins] = await Promise.all([listDashboards(), listDashboardPins().catch(() => this.pinnedIds)]);
 			this.dashboards = res.dashboards;
+			this.pinnedIds = pins;
+			// A tag chip whose last dashboard was retagged or deleted would filter to nothing with no way to clear it.
+			this.activeTags = this.activeTags.filter((t) => this.allTags.includes(t));
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
 		} finally {
@@ -94,19 +145,19 @@ export class DashboardsState {
 	}
 
 	/** Returns the created dashboard's id (so the caller can navigate straight to its viewer) or `null` on failure. */
-	async save(name: string, description: string): Promise<string | null> {
+	async save(name: string, description: string, tags: string[]): Promise<string | null> {
 		const target = this.formTarget;
 		if (!target) return null;
 		this.saving = true;
 		this.saveError = null;
 		try {
 			if (target === 'new') {
-				const created = await createDashboard({ name, description, layout: { panels: [], variables: [] } });
+				const created = await createDashboard({ name, description, tags, layout: { panels: [], variables: [] } });
 				this.formTarget = null;
 				await this.load();
 				return created.id;
 			} else {
-				await updateDashboard(target.id, { name, description, layout: target.layout });
+				await updateDashboard(target.id, { name, description, tags, layout: target.layout });
 				this.formTarget = null;
 				await this.load();
 				return target.id;
@@ -135,6 +186,7 @@ export class DashboardsState {
 			const copy = await createDashboard({
 				name: m.dashboardTable_duplicateName({ name: dashboard.name }),
 				description: dashboard.description,
+				tags: dashboard.tags,
 				layout: dashboard.layout
 			});
 			await this.load();
@@ -150,7 +202,7 @@ export class DashboardsState {
 	 *  file couldn't yet re-import (no import path exists), but stands on its own as a
 	 *  human-readable backup/diff-able snapshot in the meantime. */
 	exportDashboard(dashboard: DashboardSummary): void {
-		const body = { name: dashboard.name, description: dashboard.description, layout: dashboard.layout };
+		const body = { name: dashboard.name, description: dashboard.description, tags: dashboard.tags, layout: dashboard.layout };
 		const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json;charset=utf-8' });
 		downloadBlob(blob, `flare-dashboard_${slugify(dashboard.name)}.json`);
 	}
@@ -183,8 +235,9 @@ export class DashboardsState {
 		}
 
 		if (parsed != null && typeof parsed === 'object' && typeof (parsed as { name?: unknown }).name === 'string' && (parsed as { name: string }).name.trim()) {
-			const body = parsed as { name: string; description?: unknown; layout?: unknown };
-			return this.#createFromImport(body.name, typeof body.description === 'string' ? body.description : undefined, parseLayout(body.layout));
+			const body = parsed as { name: string; description?: unknown; tags?: unknown; layout?: unknown };
+			const tags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === 'string') : undefined;
+			return this.#createFromImport(body.name, typeof body.description === 'string' ? body.description : undefined, parseLayout(body.layout), tags);
 		}
 
 		const grafana = parseGrafanaDashboard(parsed);
@@ -207,9 +260,9 @@ export class DashboardsState {
 		return this.#createFromImport(template.name(), template.description(), buildTemplateLayout(template));
 	}
 
-	async #createFromImport(name: string, description: string | undefined, layout: DashboardLayout): Promise<string | null> {
+	async #createFromImport(name: string, description: string | undefined, layout: DashboardLayout, tags?: string[]): Promise<string | null> {
 		try {
-			const created = await createDashboard({ name, description, layout });
+			const created = await createDashboard({ name, description, tags, layout });
 			await this.load();
 			return created.id;
 		} catch (err) {

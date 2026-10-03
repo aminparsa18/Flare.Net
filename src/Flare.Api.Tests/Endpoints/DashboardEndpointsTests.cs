@@ -3,6 +3,7 @@ using System.Text.Json;
 using Flare.Api.Endpoints;
 using Flare.Api.Model;
 using Flare.Api.Tests.TestSupport;
+using Flare.Identity.DashboardPins;
 using Flare.Identity.Users;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -199,5 +200,90 @@ public class DashboardEndpointsTests
 
         Assert.Equal(StatusCodes.Status204NoContent, context.Response.StatusCode);
         Assert.Null(await dashboards.GetAsync(dashboard.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Create_RejectsTooManyTags()
+    {
+        var dashboards = new FakeDashboardQueryService();
+        var tags = Enumerable.Range(0, DashboardTags.MaxTags + 1).Select(i => $"t{i}").ToArray();
+        var context = CreateContext(new { name = "New", description = "", layoutJson = new { }, tags });
+        context.User = AuthenticatedPrincipal(Guid.NewGuid());
+
+        var result = await DashboardEndpoints.HandleCreateAsync(context, context.User, dashboards, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+        Assert.Empty(await dashboards.ListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Pin_ForUnknownDashboard_Returns404()
+    {
+        var context = CreateContext();
+        context.User = AuthenticatedPrincipal(Guid.NewGuid());
+        var pins = new InMemoryPinStore();
+
+        var result = await DashboardEndpoints.HandlePinAsync(Guid.NewGuid(), context.User, new FakeDashboardQueryService(), pins, CancellationToken.None);
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+        Assert.Empty(pins.Pins);
+    }
+
+    [Fact]
+    public async Task Pin_ThenUnpin_PinsForTheCallerOnly_ViewerIncluded()
+    {
+        var dashboards = new FakeDashboardQueryService();
+        var dashboard = SeedDashboard(dashboards, Guid.NewGuid());
+        var viewerId = Guid.NewGuid();
+        var principal = AuthenticatedPrincipal(viewerId, UserRole.Viewer);
+        var pins = new InMemoryPinStore();
+
+        var pinContext = CreateContext();
+        await (await DashboardEndpoints.HandlePinAsync(dashboard.Id, principal, dashboards, pins, CancellationToken.None)).ExecuteAsync(pinContext);
+
+        Assert.Equal(StatusCodes.Status204NoContent, pinContext.Response.StatusCode);
+        Assert.Equal([dashboard.Id], await pins.ListAsync(viewerId));
+        Assert.Empty(await pins.ListAsync(Guid.NewGuid()));
+
+        await (await DashboardEndpoints.HandleUnpinAsync(dashboard.Id, principal, pins, CancellationToken.None)).ExecuteAsync(CreateContext());
+        Assert.Empty(await pins.ListAsync(viewerId));
+    }
+
+    [Fact]
+    public async Task Pin_WithAuthDisabled_UsesTheSharedEmptyGuidOwner()
+    {
+        var dashboards = new FakeDashboardQueryService();
+        var dashboard = SeedDashboard(dashboards, null);
+        var pins = new InMemoryPinStore();
+
+        await (await DashboardEndpoints.HandlePinAsync(dashboard.Id, Unauthenticated, dashboards, pins, CancellationToken.None)).ExecuteAsync(CreateContext());
+
+        Assert.Equal([dashboard.Id], await pins.ListAsync(Guid.Empty));
+    }
+
+    private sealed class InMemoryPinStore : IDashboardPinStore
+    {
+        public List<(Guid UserId, Guid DashboardId)> Pins { get; } = [];
+
+        public Task<IReadOnlyList<Guid>> ListAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<Guid>>(Pins.Where(p => p.UserId == userId).Select(p => p.DashboardId).Reverse().ToList());
+
+        public Task PinAsync(Guid userId, Guid dashboardId, CancellationToken cancellationToken = default)
+        {
+            if (!Pins.Contains((userId, dashboardId)))
+            {
+                Pins.Add((userId, dashboardId));
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task UnpinAsync(Guid userId, Guid dashboardId, CancellationToken cancellationToken = default)
+        {
+            Pins.Remove((userId, dashboardId));
+            return Task.CompletedTask;
+        }
     }
 }

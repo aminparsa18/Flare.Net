@@ -255,6 +255,8 @@ export interface DashboardSummary {
 	 *  may still mutate it - `AuthState.canMutateDashboard` is the UI's own mirror of that
 	 *  rule, `DashboardEndpoints.CanMutate` the server-enforced one. */
 	ownerUserId: string | null;
+	/** Free-form lowercase tags (ADR-0089); `[]` for an untagged dashboard. */
+	tags: string[];
 }
 
 /** Create/update request body - same shape as `DashboardSummary` minus the server-assigned fields. */
@@ -262,6 +264,8 @@ export interface DashboardRequest {
 	name: string;
 	description?: string;
 	layout: DashboardLayout;
+	/** Omitted leaves an update's existing tags untouched; `[]` clears them. */
+	tags?: string[];
 }
 
 export interface DashboardListResponse {
@@ -296,7 +300,8 @@ function toDashboardSummary(dto: GeneratedDashboard): DashboardSummary {
 		layout: parseLayout(dto.layoutJson),
 		createdAt: dto.createdAt.toISOString(),
 		updatedAt: dto.updatedAt.toISOString(),
-		ownerUserId: dto.ownerUserId
+		ownerUserId: dto.ownerUserId,
+		tags: (dto.tags ?? []).filter((t): t is string => t != null)
 	};
 }
 
@@ -313,6 +318,7 @@ function toGeneratedDashboardRequest(request: DashboardRequest): GeneratedDashbo
 	dto.name = request.name;
 	dto.description = request.description ?? null;
 	dto.layoutJson = request.layout;
+	dto.tags = request.tags ?? null;
 	return dto;
 }
 
@@ -366,5 +372,21 @@ export async function deleteDashboard(id: string): Promise<void> {
 	const res = await apiFetch(`${API_BASE_URL}/api/dashboards/${id}`, { method: 'DELETE' });
 	if (!res.ok) {
 		throw new Error(`DELETE /api/dashboards/${id} failed: ${res.status} ${res.statusText}`);
+	}
+}
+
+/** The caller's pinned dashboard ids, most recently pinned first (ADR-0089). Plain JSON - a bare id list isn't worth a MemoryPack companion. */
+export async function listDashboardPins(signal?: AbortSignal): Promise<string[]> {
+	const res = await apiFetch(`${API_BASE_URL}/api/dashboards/pins`, { signal });
+	if (!res.ok) {
+		throw new Error(`GET /api/dashboards/pins failed: ${res.status} ${res.statusText}`);
+	}
+	return ((await res.json()) as { dashboardIds: string[] }).dashboardIds;
+}
+
+export async function setDashboardPinned(id: string, pinned: boolean): Promise<void> {
+	const res = await apiFetch(`${API_BASE_URL}/api/dashboards/${id}/pin`, { method: pinned ? 'PUT' : 'DELETE' });
+	if (!res.ok) {
+		throw new Error(`${pinned ? 'PUT' : 'DELETE'} /api/dashboards/${id}/pin failed: ${res.status} ${res.statusText}`);
 	}
 }

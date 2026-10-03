@@ -52,6 +52,14 @@ public sealed partial record Dashboard
     /// <see cref="AlertRule.ExceptionCondition"/>'s own doc comment gives.
     /// </summary>
     public Guid? OwnerUserId { get; init; }
+
+    /// <summary>
+    /// Free-form tags (see <see cref="DashboardTags"/>) the Dashboards page filters by. Empty
+    /// for an untagged dashboard, including every one that predates
+    /// <c>db/clickhouse/0043_dashboard_tags.sql</c>. Appended last for the same MemoryPack
+    /// versioning reason as <see cref="OwnerUserId"/>.
+    /// </summary>
+    public IReadOnlyList<string> Tags { get; init; } = [];
 }
 
 /// <summary>Create/update request body for <c>/api/dashboards</c>.</summary>
@@ -70,6 +78,15 @@ public sealed partial record DashboardRequest
     /// <summary>Serialized via <see cref="Json.JsonElementMemoryPackFormatter"/> - see its remarks.</summary>
     [MemoryPackAllowSerialize]
     public required JsonElement LayoutJson { get; init; }
+
+    /// <summary>Null leaves an update's existing tags untouched, so a client that predates tags can't wipe them; an empty list clears them. Appended last - see <see cref="Dashboard.Tags"/>.</summary>
+    public IReadOnlyList<string>? Tags { get; init; }
+}
+
+/// <summary>Response body for <c>GET /api/dashboards/pins</c>: the caller's pinned dashboard ids, most recently pinned first (ADR-0089).</summary>
+public sealed record DashboardPinsResponse
+{
+    public required IReadOnlyList<Guid> DashboardIds { get; init; }
 }
 
 /// <summary>Response body for <c>GET /api/dashboards</c>.</summary>
