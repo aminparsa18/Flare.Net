@@ -61,6 +61,11 @@ sur une ligne `MassTransit:Fault--...`. La colonne Backlog reste vide, car le
 nom de la file diffère de celui de la ligne. MassTransit 9 est commercial et
 exige une clé de licence ; il n'a pas été testé.
 
+Pour NATS, ajoutez la source d'activités de NATS.Net : `tracing.AddSource("NATS.Net")`.
+Flare ignore le trafic propre au client (appels à l'API JetStream, acquittements
+par message et boîtes de réponse temporaires) : les lignes sont donc les sujets
+de votre application. Vérifié avec NATS.Net 3.3 sur nats-server 2.x.
+
 Pour Azure Service Bus, ajoutez les sources d'activités du SDK Azure :
 `tracing.AddSource("Azure.Messaging.ServiceBus.*")`. Le SDK garde son
 traçage derrière un commutateur expérimental : appelez
@@ -89,7 +94,7 @@ topic ou à une file :
 | Error rate | Part des spans de publication et de consommation en erreur |
 | Publish p99 / Consume p99 | Durée de span au 99e centile |
 | Producers / consumers | Nombre de services qui y ont publié et qui l'ont consommé |
-| Backlog | Messages en attente : retard des consommateurs Kafka ou profondeur des files RabbitMQ, voir [Kafka](#voir-le-retard-des-consommateurs-kafka) et [RabbitMQ](#voir-la-profondeur-des-files-rabbitmq) |
+| Backlog | Messages en attente : retard des consommateurs Kafka, profondeur des files RabbitMQ ou messages en attente NATS JetStream, voir [Kafka](#voir-le-retard-des-consommateurs-kafka), [RabbitMQ](#voir-la-profondeur-des-files-rabbitmq) et [NATS](#voir-le-retard-backlog-dun-consommateur-nats-jetstream) |
 
 La latence de consommation est la durée du span de consommation lui-même : le
 temps de traitement pour un span `process`, ou le temps de récupération pour un
@@ -208,6 +213,49 @@ routage est le nom de la file. La colonne **Backlog** affiche le dernier
 total prêts + non acquittés des files associées. Ouvrez la ligne pour voir
 ces deux compteurs pour chaque file. Un exchange topic ou fanout dont les
 clés de routage ne nomment aucune file affiche **—**.
+
+## Voir le retard (backlog) d'un consommateur NATS JetStream
+
+Le retard d'un consommateur JetStream n'est pas dans les spans.
+`prometheus-nats-exporter` le publie sous `jetstream_consumer_num_pending` et
+`jetstream_consumer_num_ack_pending`, et le récepteur `prometheus` de
+l'OpenTelemetry Collector peut interroger l'exporteur puis envoyer les métriques
+à Flare. Lancez l'exporteur à côté du serveur, avec `-jsz=all` pour qu'il
+rapporte les consommateurs :
+
+```bash
+prometheus-nats-exporter -jsz=all -varz http://nats:8222
+```
+
+```yaml
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: nats
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['natsexp:7777']
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      exporters: [otlp_grpc/flare]
+```
+
+Flare retrouve les consommateurs d'un sujet à partir de ses spans de réception :
+NATS.Net place sur chaque message JetStream le sujet d'acquittement, qui nomme le
+flux et le consommateur. La colonne **Backlog** est la somme des messages en
+attente et en attente d'acquittement du consommateur. Ouvrez la ligne pour voir
+chaque flux et consommateur ; « Ready » est le nombre en attente (pas encore
+livrés) et « Unacked » le nombre livré mais non acquitté. Un consommateur qui
+dessert plusieurs sujets affiche son unique retard sur chacun. Les abonnements
+NATS de base n'ont pas de retard : ces lignes affichent **—**.
 
 ## Dépannage
 

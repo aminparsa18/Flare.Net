@@ -56,13 +56,15 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Backlog for more brokers on the Messaging page.** Kafka (consumer lag)
-  and RabbitMQ (queue depth, ADR-0057) fill the `Backlog` column. Next:
-  Service Bus active/dead-letter counts via the collector's Azure Monitor
-  receiver, Amazon SQS (`OpenTelemetry.Instrumentation.AWS` spans +
-  CloudWatch depth), and NATS (NATS.Net v2 activity source). Each is one
-  more metric lookup next to `MessagingQueryBuilder.BuildQueueDepth`. Not
-  started.
+- **Backlog for more brokers on the Messaging page.** Kafka (consumer lag),
+  RabbitMQ (queue depth, ADR-0057) and NATS JetStream (ADR-0093) fill the
+  `Backlog` column. Next: Service Bus active/dead-letter counts via the
+  collector's `azuremonitor` receiver (needs a real Azure subscription to
+  verify; the emulator exposes no metrics), and Amazon SQS. The collector's
+  `awscloudwatch` receiver reads CloudWatch *Logs*, so SQS queue depth would
+  need CloudWatch Metric Streams through the `awsfirehose` receiver. Each
+  is one more metric lookup next to `MessagingQueryBuilder.BuildQueueDepth`.
+  Not started.
 - **Create/invite additional local users.** With local auth,
   `/api/auth/bootstrap` creates only the first admin, and
   `UserEndpoints` can list users, change a role and disable a user, but not

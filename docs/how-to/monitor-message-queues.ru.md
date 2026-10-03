@@ -58,6 +58,11 @@ using var consumer = consumerBuilder.Build();
 очереди отличается от имени строки. MassTransit 9 коммерческий и требует
 ключ лицензии; он не проверялся.
 
+Для NATS добавьте источник активностей NATS.Net: `tracing.AddSource("NATS.Net")`.
+Flare пропускает собственный трафик клиента (вызовы API JetStream, подтверждения
+по каждому сообщению и временные ящики ответов), поэтому строки — это темы
+вашего приложения. Проверено на NATS.Net 3.3 с nats-server 2.x.
+
 Для Azure Service Bus добавьте источники активностей Azure SDK:
 `tracing.AddSource("Azure.Messaging.ServiceBus.*")`. SDK держит трассировку
 за экспериментальным переключателем: вызовите при старте
@@ -85,7 +90,7 @@ Microsoft.
 | Error rate | Доля спанов публикации и потребления со статусом ошибки |
 | Publish p99 / Consume p99 | 99-й перцентиль длительности спана |
 | Producers / consumers | Сколько сервисов публиковали в него и потребляли из него |
-| Backlog | Ожидающие сообщения: отставание потребителей Kafka или глубина очередей RabbitMQ, см. [Kafka](#отставание-потребителей-kafka) и [RabbitMQ](#глубина-очередей-rabbitmq) |
+| Backlog | Ожидающие сообщения: отставание потребителей Kafka, глубина очередей RabbitMQ или ожидающие сообщения NATS JetStream, см. [Kafka](#отставание-потребителей-kafka), [RabbitMQ](#глубина-очередей-rabbitmq) и [NATS](#backlog-потребителя-nats-jetstream) |
 
 Задержка потребления — это длительность самого спана потребления: время
 обработки для спана `process` или время получения для потребителя, который
@@ -200,6 +205,48 @@ Flare сопоставляет очереди со строкой по имен�
 неподтверждённых сообщений найденных очередей. Откройте строку, чтобы увидеть
 оба счётчика для каждой очереди. Topic- или fanout-exchange, ключи которых не
 совпадают ни с одной очередью, показывают **—**.
+
+## Backlog потребителя NATS JetStream
+
+Backlog потребителя JetStream в спанах отсутствует. `prometheus-nats-exporter`
+публикует его как `jetstream_consumer_num_pending` и
+`jetstream_consumer_num_ack_pending`, а приёмник `prometheus` в OpenTelemetry
+Collector может опрашивать экспортёр и отправлять метрики во Flare. Запустите
+экспортёр рядом с сервером с флагом `-jsz=all`, чтобы он отдавал потребителей:
+
+```bash
+prometheus-nats-exporter -jsz=all -varz http://nats:8222
+```
+
+```yaml
+receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: nats
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['natsexp:7777']
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      exporters: [otlp_grpc/flare]
+```
+
+Flare находит потребителей темы по её спанам получения: NATS.Net кладёт в
+каждое сообщение JetStream тему подтверждения, в которой указаны поток и
+потребитель. Столбец **Backlog** — это сумма ожидающих доставки и ожидающих
+подтверждения сообщений потребителя. Откройте строку, чтобы увидеть каждый поток
+и потребителя: «Ready» — ожидающие (ещё не доставленные), «Unacked» — доставленные,
+но не подтверждённые. Потребитель, обслуживающий несколько тем, показывает свой
+единственный backlog в каждой из них. У обычных подписок NATS backlog нет, такие
+строки показывают **—**.
 
 ## Устранение неполадок
 

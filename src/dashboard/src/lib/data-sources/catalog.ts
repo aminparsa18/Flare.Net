@@ -75,6 +75,8 @@ import RabbitIcon from '@lucide/svelte/icons/rabbit';
 import BusIcon from '@lucide/svelte/icons/bus';
 // Azure Service Bus: no brand logos in lucide, so a cloud.
 import CloudIcon from '@lucide/svelte/icons/cloud';
+// NATS: no brand logo in lucide; an antenna reads as pub/sub broadcast.
+import AntennaIcon from '@lucide/svelte/icons/antenna';
 
 export interface GuideStep {
 	heading: string;
@@ -842,6 +844,65 @@ builder.Services.AddOpenTelemetry()
 				}
 			]
 		},
+		nats: {
+			id: 'nats',
+			title: m.dataSourceCatalog_natsTitle(),
+			icon: AntennaIcon,
+			intro: m.dataSourceCatalog_natsIntro(),
+			steps: [
+				{
+					heading: m.dataSourceCatalog_natsStep1Heading(),
+					body: m.dataSourceCatalog_natsStep1Body(),
+					code: {
+						text: 'dotnet add package NATS.Net\ndotnet add package OpenTelemetry.Extensions.Hosting\ndotnet add package OpenTelemetry.Exporter.OpenTelemetryProtocol'
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_natsStep2Heading(),
+					body: m.dataSourceCatalog_natsStep2Body(),
+					code: {
+						label: 'Program.cs',
+						text: `using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("your-service"))
+    .WithTracing(tracing => tracing
+        .AddSource("NATS.Net")
+        .AddOtlpExporter(otlp => otlp.Endpoint = new Uri("${ep.grpcUri}")));`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_natsStep3Heading(),
+					body: m.dataSourceCatalog_natsStep3Body(),
+					code: {
+						label: 'config.yaml',
+						text: `receivers:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: nats
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['nats-exporter:7777']
+exporters:
+  otlp/flare:
+    endpoint: ${ep.grpcHostPort}
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheus]
+      exporters: [otlp/flare]`
+					}
+				},
+				{
+					heading: m.dataSourceCatalog_natsStep4Heading(),
+					body: m.dataSourceCatalog_natsStep4Body()
+				}
+			]
+		},
 		custom: {
 			id: 'custom',
 			title: m.dataSourceCatalog_customTitle(),
@@ -892,7 +953,7 @@ export function buildCategories(ep: GuideEndpoints): { categories: GuideCategory
 		{ id: 'platforms', label: m.dataSourceCatalog_categoryPlatforms(), itemIds: ['kubernetes', 'docker', 'linux', 'windows'] },
 		{ id: 'shippers', label: m.dataSourceCatalog_categoryShippers(), itemIds: ['vector', 'fluent-bit', 'syslog'] },
 		{ id: 'metrics', label: m.dataSourceCatalog_categoryMetrics(), itemIds: ['prometheus'] },
-		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka', 'rabbitmq', 'masstransit', 'servicebus'] },
+		{ id: 'messaging', label: m.dataSourceCatalog_categoryMessaging(), itemIds: ['kafka', 'rabbitmq', 'masstransit', 'servicebus', 'nats'] },
 		{
 			id: 'languages',
 			label: m.dataSourceCatalog_categoryLanguages(),
