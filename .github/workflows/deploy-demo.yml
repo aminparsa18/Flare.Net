@@ -70,8 +70,8 @@ jobs:
           Parameters__registry_repository: ${{ env.REPO_LOWER }}
           Parameters__dashboard_host: ${{ vars.DEMO_HOST }}
           Parameters__api_host: api.${{ vars.DEMO_HOST }}
-          Parameters__public_dashboard_url: http://${{ vars.DEMO_HOST }}
-          Parameters__public_api_url: http://api.${{ vars.DEMO_HOST }}
+          Parameters__public_dashboard_url: https://${{ vars.DEMO_HOST }}
+          Parameters__public_api_url: https://api.${{ vars.DEMO_HOST }}
         run: aspire deploy --environment production --non-interactive
 
       - name: Show rollout status

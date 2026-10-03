@@ -77,9 +77,19 @@ if (publishing)
         return resource.GetEndpoint("http");
     }
 
-    k8s.AddIngress("flare-dashboard-ingress").WithIngressClass("traefik")
+    // HTTPS only: some networks intercept plain HTTP on port 80 (a block page answers for the
+    // server), but 443 gets through. `websecure` + a cert resolver makes Traefik serve a real
+    // Let's Encrypt certificate. The resolver named "letsencrypt" is configured on the cluster's
+    // Traefik (a HelmChartConfig on the k3s box); without it Traefik serves its self-signed cert.
+    IResourceBuilder<KubernetesIngressResource> Secure(IResourceBuilder<KubernetesIngressResource> ingress) =>
+        ingress.WithIngressClass("traefik")
+            .WithIngressAnnotation("traefik.ingress.kubernetes.io/router.entrypoints", "websecure")
+            .WithIngressAnnotation("traefik.ingress.kubernetes.io/router.tls", "true")
+            .WithIngressAnnotation("traefik.ingress.kubernetes.io/router.tls.certresolver", "letsencrypt");
+
+    Secure(k8s.AddIngress("flare-dashboard-ingress"))
         .WithPath(dashboardHost, "/", FlareEndpoint("flare-dashboard"));
-    k8s.AddIngress("flare-api-ingress").WithIngressClass("traefik")
+    Secure(k8s.AddIngress("flare-api-ingress"))
         .WithPath(apiHost, "/", FlareEndpoint("flare-api"));
 }
 
