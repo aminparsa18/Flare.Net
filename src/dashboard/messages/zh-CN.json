@@ -2016,6 +2016,8 @@
 	"pinToDashboardDialog_cancel": "取消",
 	"pinToDashboardDialog_pin": "固定",
 	"pinToDashboard_trigger": "固定到仪表板",
+	"createAlertButton_trigger": "创建警报",
+	"createAlertButton_name": "警报:{title}",
 	"nav_pipelineRules": "管道规则",
 	"pipelineRulesPage_title": "Flare — 管道规则",
 	"pipelineRuleTable_heading": "管道规则",

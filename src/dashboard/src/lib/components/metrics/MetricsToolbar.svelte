@@ -8,6 +8,7 @@
 	import MetricsTimeShiftPopover from '$lib/components/metrics/MetricsTimeShiftPopover.svelte';
 	import ViewsMenu from '$lib/components/saved-views/ViewsMenu.svelte';
 	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
+	import CreateAlertButton from '$lib/components/alerts/CreateAlertButton.svelte';
 	import { Switch } from '$lib/components/ui/switch';
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
@@ -246,6 +247,17 @@
 	<!-- DashboardMetricsPanelBody.svelte now renders FormulaChart for a formula-mode panel
 	     (docs-internal/adr/0037-dashboard-metrics-formula-panels.md, closing the follow-up
 	     ADR-0036 left open) - pinning is available in both modes. -->
+	<CreateAlertButton
+		draft={() =>
+			explorer.selected
+				? {
+						kind: 'MetricThreshold',
+						name: m.createAlertButton_name({ title: explorer.selected.metricName }),
+						metricName: explorer.selected.metricName,
+						metricType: explorer.selected.type
+					}
+				: null}
+	/>
 	<PinToDashboardButton
 		panelType="Metrics"
 		currentState={() => explorer.toSavedViewState()}

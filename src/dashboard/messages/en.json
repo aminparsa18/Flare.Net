@@ -2016,6 +2016,8 @@
 	"pinToDashboardDialog_cancel": "Cancel",
 	"pinToDashboardDialog_pin": "Pin",
 	"pinToDashboard_trigger": "Pin to dashboard",
+	"createAlertButton_trigger": "Create alert",
+	"createAlertButton_name": "Alert: {title}",
 	"nav_pipelineRules": "Pipeline Rules",
 	"pipelineRulesPage_title": "Flare — Pipeline Rules",
 	"pipelineRuleTable_heading": "Pipeline Rules",

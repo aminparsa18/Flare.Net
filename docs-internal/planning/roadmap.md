@@ -155,14 +155,6 @@ folders are where "what happened and why" actually lives.
   ([signoz#12644](https://github.com/SigNoz/signoz/commit/e84a61d43f7f5a7b10a955f0e2b4444b7443d4e7)).
   Not started. Prior art:
   [signoz#12314](https://github.com/SigNoz/signoz/commit/e9726776ab7a1adfc50540925ae016f183bf7cbc).
-- **"Create alert" from the Logs and Metrics explorers.** Dashboard panels
-  can draft an alert from their query (`DashboardPanelCard`) and explorers
-  can pin to a dashboard, but there's no "Create alert from this query" in
-  the explorers themselves, so the filter has to be rebuilt by hand in the
-  alert form. Add a toolbar action that opens `AlertRuleFormDialog` prefilled
-  from the current explorer state (LogCount for Logs, metric threshold for
-  Metrics), reusing the panel's drafting code. Not started. Prior art:
-  [signoz#12981](https://github.com/SigNoz/signoz/commit/adfcebf855bf792c74acfd4b01f7a0fcf29a3831).
 - **Exception → source code.** Exceptions show a stack trace but nothing
   links a frame to the code that ran. Use `code.filepath`/`code.lineno` (and
   the stack trace's own `in File:line` frames) plus the app's commit
