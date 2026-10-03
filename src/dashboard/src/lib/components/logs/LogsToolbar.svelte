@@ -201,6 +201,16 @@
 		/>
 	</div>
 
+	<Button
+		variant={explorer.filter.searchAllFields ? 'default' : 'outline'}
+		size="sm"
+		aria-pressed={explorer.filter.searchAllFields}
+		title={m.logsToolbar_searchAllFieldsHint()}
+		onclick={() => explorer.setSearchAllFields(!explorer.filter.searchAllFields)}
+	>
+		{m.logsToolbar_searchAllFields()}
+	</Button>
+
 	<!-- Clicking anywhere on the button (including the badge) toggles live via the shared
 	     onclick below - the badge is a label, not a separate control. Once actually
 	     streaming ("open"), it reads "Pause" so the button communicates what clicking does

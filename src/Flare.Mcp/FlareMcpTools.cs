@@ -23,6 +23,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
         [Description("Exact service names to include. Omit for all services.")] string[]? services = null,
         [Description("Severity buckets: trace, debug, info, warn, error, fatal. Omit for all.")] string[]? levels = null,
         [Description("Case-insensitive substring match against the log body.")] string? search = null,
+        [Description("Also match `search` against log-attribute and resource-attribute values, not just the body. Slower: scans every row in the window.")] bool searchAllFields = false,
         [Description("Exact lower-hex trace id.")] string? traceId = null,
         [Description("Log attribute equals filters, each formatted key=value.")] string[]? attributes = null,
         [Description("How far back to look: e.g. 15m, 1h, 6h, 24h, 7d. Default 1h.")] string since = "1h",
@@ -67,6 +68,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
             SeverityNumbers = severityNumbers.Count > 0 ? severityNumbers : null,
             TraceId = string.IsNullOrWhiteSpace(traceId) ? null : traceId,
             Search = string.IsNullOrWhiteSpace(search) ? null : search,
+            SearchAllFields = searchAllFields,
             Attributes = parsedAttrs.Count > 0
                 ? parsedAttrs.Select(a => new AttributeFilterWire { Key = a.Key, Value = a.Value, Operator = a.Operator }).ToList()
                 : null,

@@ -21,6 +21,8 @@ internal sealed class LogFilterWire
 
     public string? Search { get; init; }
 
+    public bool SearchAllFields { get; init; }
+
     public IReadOnlyList<AttributeFilterWire>? Attributes { get; init; }
 
     public SpanFilterWire? TraceSpanFilter { get; init; }

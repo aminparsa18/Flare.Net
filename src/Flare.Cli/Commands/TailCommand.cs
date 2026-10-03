@@ -32,6 +32,10 @@ internal sealed class TailCommand : AsyncCommand<TailCommand.Settings>
         [CommandOption("--search <TEXT>")]
         [Description("Case-insensitive substring match against the log body.")]
         public string? Search { get; init; }
+
+        [CommandOption("--search-all-fields")]
+        [Description("Also match --search against attribute and resource values, not just the body (slower: scans every row in the window).")]
+        public bool SearchAllFields { get; init; }
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
@@ -96,6 +100,7 @@ internal sealed class TailCommand : AsyncCommand<TailCommand.Settings>
                 SeverityNumbers = severityNumbers,
                 TraceId = settings.TraceId,
                 Search = settings.Search,
+                SearchAllFields = settings.SearchAllFields,
             },
             cts.Token);
 

@@ -98,6 +98,24 @@ public class LogFilterMatcherTests
     }
 
     [Theory]
+    [InlineData(false, "ORD-1", false)]
+    [InlineData(true, "ord-1", true)]
+    [InlineData(true, "host-9", true)]
+    [InlineData(true, "nope", false)]
+    public void Matches_Search_SearchAllFields_ChecksAttributeValuesOnlyWhenOptedIn(bool allFields, string search, bool expected)
+    {
+        var logEvent = MinimalLogEvent() with
+        {
+            Body = "order placed",
+            LogAttributes = new Dictionary<string, string> { ["order.id"] = "ORD-1" },
+            ResourceAttributes = new Dictionary<string, string> { ["host.name"] = "host-9" },
+        };
+        var filter = new LogFilter { Search = search, SearchAllFields = allFields };
+
+        Assert.Equal(expected, LogFilterMatcher.Matches(logEvent, filter));
+    }
+
+    [Theory]
     [InlineData(AttributeBag.Log, "GET", true)]
     [InlineData(AttributeBag.Log, "POST", false)]
     [InlineData(AttributeBag.Resource, "GET", false)]

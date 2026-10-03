@@ -49,8 +49,7 @@ public static class LogFilterMatcher
             return false;
         }
 
-        if (!string.IsNullOrEmpty(filter.Search)
-            && !logEvent.Body.Contains(filter.Search, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(filter.Search) && !SearchMatches(logEvent, filter))
         {
             return false;
         }
@@ -124,6 +123,32 @@ public static class LogFilterMatcher
     }
 
     /// <summary>Mirrors <see cref="LogFilterSqlBuilder"/>'s <c>ScopeNamesClause</c>: exact (ordinal) match on any plain entry, or an ordinal prefix match on any <c>*</c>-suffixed one.</summary>
+    /// <summary>Mirrors <see cref="LogFilterSqlBuilder"/>'s <c>Search</c> clause: <c>Body</c>, plus every log/resource attribute value when <see cref="LogFilter.SearchAllFields"/> is set.</summary>
+    private static bool SearchMatches(LogEventDto logEvent, LogFilter filter)
+    {
+        var term = filter.Search!;
+        if (logEvent.Body.Contains(term, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return filter.SearchAllFields
+            && (AnyValueContains(logEvent.LogAttributes, term) || AnyValueContains(logEvent.ResourceAttributes, term));
+    }
+
+    private static bool AnyValueContains(IReadOnlyDictionary<string, string> bag, string term)
+    {
+        foreach (var value in bag.Values)
+        {
+            if (value.Contains(term, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool ScopeNameMatches(string scopeName, IReadOnlyList<string> scopeNames)
     {
         var (exact, prefixes) = LogFilterSqlBuilder.SplitScopeNames(scopeNames);

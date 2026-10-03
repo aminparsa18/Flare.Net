@@ -47,6 +47,16 @@ public static class LogFilterSqlBuilder
         $"{BodyIndexExpr} LIKE lowerUTF8({patternParameter})";
 
     /// <summary>
+    /// <see cref="BodyLikeSql"/> OR'd with the same case-insensitive match against every
+    /// log-attribute and resource-attribute value. The attribute branches can't use a skip
+    /// index, which is why <see cref="LogFilter.SearchAllFields"/> is opt-in.
+    /// </summary>
+    public static string SearchAllFieldsSql(string patternParameter) =>
+        $"({BodyLikeSql(patternParameter)}"
+        + $" OR arrayExists(v -> lowerUTF8(v) LIKE lowerUTF8({patternParameter}), mapValues(LogAttributes))"
+        + $" OR arrayExists(v -> lowerUTF8(v) LIKE lowerUTF8({patternParameter}), mapValues(ResourceAttributes)))";
+
+    /// <summary>
     /// <c>idx_body_ngram</c>'s indexed expression. ClickHouse only uses a skip index when
     /// the query's expression matches it exactly; a unit test checks migration 0036 uses this.
     /// </summary>
@@ -119,7 +129,7 @@ public static class LogFilterSqlBuilder
             // rather than built server-side via concat('%', {search:String}, '%') -
             // same match, one fewer moving part.
             parameters.AddParameter("search", ContainsPattern(filter.Search));
-            clauses.Add(BodyLikeSql("{search:String}"));
+            clauses.Add(filter.SearchAllFields ? SearchAllFieldsSql("{search:String}") : BodyLikeSql("{search:String}"));
         }
 
         if (filter.Attributes is { Count: > 0 } attributes)

@@ -129,6 +129,8 @@
 	"logsToolbar_clearAttributeFilter": "Очистить фильтр по атрибуту",
 	"logsToolbar_clearFilters": "Очистить фильтры",
 	"logsToolbar_searchPlaceholder": "Поиск по тексту сообщения...",
+	"logsToolbar_searchAllFields": "Все поля",
+	"logsToolbar_searchAllFieldsHint": "Искать также по значениям атрибутов и ресурса, а не только по тексту сообщения (медленнее)",
 	"logsToolbar_live": "Прямой эфир",
 	"logsToolbar_pause": "Пауза",
 	"logsToolbar_linesPerRow": "Строк: {count}",

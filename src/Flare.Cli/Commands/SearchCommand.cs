@@ -50,6 +50,10 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
         [Description("Case-insensitive substring match against the log body.")]
         public string? Search { get; init; }
 
+        [CommandOption("--search-all-fields")]
+        [Description("Also match --search against attribute and resource values, not just the body (slower: scans every row in the window).")]
+        public bool SearchAllFields { get; init; }
+
         [CommandOption("--attr <KEY=VALUE>")]
         [Description("Log attribute equals: key=value. Repeatable.")]
         public string[] Attr { get; init; } = [];
@@ -157,6 +161,7 @@ internal sealed class SearchCommand : AsyncCommand<SearchCommand.Settings>
             SpanId = string.IsNullOrWhiteSpace(settings.SpanId) ? null : settings.SpanId,
             PatternId = string.IsNullOrWhiteSpace(settings.PatternId) ? null : settings.PatternId,
             Search = string.IsNullOrWhiteSpace(settings.Search) ? null : settings.Search,
+            SearchAllFields = settings.SearchAllFields,
             Attributes = parsedAttrs.Count > 0
                 ? parsedAttrs.Select(a => new AttributeFilterWire { Key = a.Key, Value = a.Value, Operator = a.Operator }).ToList()
                 : null,

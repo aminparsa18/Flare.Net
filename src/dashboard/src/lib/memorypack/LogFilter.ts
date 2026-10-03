@@ -36,6 +36,7 @@ export class LogFilter {
 	bodyJsonFilters: (BodyJsonFilter | null)[] | null;
 	scopeNames: (string | null)[] | null;
 	traceSpanFilter: SpanFilter | null;
+	searchAllFields: boolean;
 
 	constructor() {
 		this.from = null;
@@ -50,6 +51,7 @@ export class LogFilter {
 		this.bodyJsonFilters = null;
 		this.scopeNames = null;
 		this.traceSpanFilter = null;
+		this.searchAllFields = false;
 	}
 
 	static serialize(value: LogFilter | null): Uint8Array {
@@ -64,7 +66,7 @@ export class LogFilter {
 			return;
 		}
 
-		writer.writeObjectHeader(12);
+		writer.writeObjectHeader(13);
 		writeNullableDateTimeOffset(writer, value.from);
 		writeNullableDateTimeOffset(writer, value.to);
 		writer.writeArray(value.services, (writer, x) => writer.writeString(x));
@@ -77,6 +79,7 @@ export class LogFilter {
 		writer.writeArray(value.bodyJsonFilters, (writer, x) => BodyJsonFilter.serializeCore(writer, x));
 		writer.writeArray(value.scopeNames, (writer, x) => writer.writeString(x));
 		SpanFilter.serializeCore(writer, value.traceSpanFilter);
+		writer.writeBoolean(value.searchAllFields);
 	}
 
 	static deserialize(buffer: ArrayBuffer): LogFilter | null {
@@ -90,7 +93,7 @@ export class LogFilter {
 		}
 
 		const value = new LogFilter();
-		if (count == 12) {
+		if (count == 13) {
 			value.from = readNullableDateTimeOffset(reader);
 			value.to = readNullableDateTimeOffset(reader);
 			value.services = reader.readArray((reader) => reader.readString());
@@ -103,7 +106,8 @@ export class LogFilter {
 			value.bodyJsonFilters = reader.readArray((reader) => BodyJsonFilter.deserializeCore(reader));
 			value.scopeNames = reader.readArray((reader) => reader.readString());
 			value.traceSpanFilter = SpanFilter.deserializeCore(reader);
-		} else if (count > 12) {
+			value.searchAllFields = reader.readBoolean();
+		} else if (count > 13) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -131,6 +135,8 @@ export class LogFilter {
 			if (count == 11) return value;
 			value.traceSpanFilter = SpanFilter.deserializeCore(reader);
 			if (count == 12) return value;
+			value.searchAllFields = reader.readBoolean();
+			if (count == 13) return value;
 		}
 		return value;
 	}
@@ -182,6 +188,8 @@ export function logFilterToPlain(dto: LogFilter): PlainLogFilter {
 						maxDurationNano:
 							dto.traceSpanFilter.maxDurationNano == null ? undefined : Number(dto.traceSpanFilter.maxDurationNano)
 					}
+		,
+		searchAllFields: dto.searchAllFields || undefined
 	};
 }
 
@@ -222,5 +230,6 @@ export function logFilterFromPlain(filter: PlainLogFilter | undefined): LogFilte
 				});
 	dto.scopeNames = filter.scopeNames ?? null;
 	dto.traceSpanFilter = filter.traceSpanFilter == null ? null : toGeneratedSpanFilter(filter.traceSpanFilter);
+	dto.searchAllFields = filter.searchAllFields ?? false;
 	return dto;
 }

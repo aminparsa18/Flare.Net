@@ -129,6 +129,8 @@
 	"logsToolbar_clearAttributeFilter": "Clear attribute filter",
 	"logsToolbar_clearFilters": "Clear filters",
 	"logsToolbar_searchPlaceholder": "Search message body...",
+	"logsToolbar_searchAllFields": "All fields",
+	"logsToolbar_searchAllFieldsHint": "Also match attribute and resource values, not just the message body (slower)",
 	"logsToolbar_live": "Live",
 	"logsToolbar_pause": "Pause",
 	"logsToolbar_linesPerRow": "Lines: {count}",

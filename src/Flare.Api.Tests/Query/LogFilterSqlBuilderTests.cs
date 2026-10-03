@@ -122,6 +122,25 @@ public class LogFilterSqlBuilderTests
         Assert.Equal("%boom%", result.Parameters.ToDictionary()["search"]);
     }
 
+    [Fact]
+    public void Build_WithSearchAllFields_AlsoMatchesAttributeAndResourceValues()
+    {
+        var result = LogFilterSqlBuilder.Build(new LogFilter { Search = "ord-1", SearchAllFields = true }, Now);
+
+        Assert.Contains("lowerUTF8(Body) LIKE lowerUTF8({search:String})", result.WhereSql);
+        Assert.Contains("mapValues(LogAttributes)", result.WhereSql);
+        Assert.Contains("mapValues(ResourceAttributes)", result.WhereSql);
+        Assert.Equal("%ord-1%", result.Parameters.ToDictionary()["search"]);
+    }
+
+    [Fact]
+    public void Build_WithSearchAllFields_ButNoSearch_AddsNothing()
+    {
+        var result = LogFilterSqlBuilder.Build(new LogFilter { SearchAllFields = true }, Now);
+
+        Assert.DoesNotContain("mapValues", result.WhereSql);
+    }
+
     [Theory]
     [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.Sql.0036_logs_body_ngram_index.sql")]
     [InlineData("Flare.ServiceDefaults.ClickHouseMigrations.SqlCluster.0036_logs_body_ngram_index.sql")]

@@ -90,6 +90,8 @@ export interface LogsFilterState {
 	traceSpan: TraceSpanFilterState;
 	severityNumbers: number[];
 	search: string;
+	/** Also match `search` against attribute/resource values (opt-in - full-column scan). */
+	searchAllFields: boolean;
 	/** Exact PatternId match - set only via applyPatternIdFilter (the Patterns view's "View examples" drill-down), never part of a saved view. */
 	patternId: string;
 	/** Exact TraceId match - set only via applyTraceIdFilter (EventDetailSheet's "Logs for this trace"), never part of a saved view, same reasoning as patternId. */
@@ -226,6 +228,8 @@ export interface LogsSavedViewState {
 	traceSpan?: TraceSpanFilterState;
 	severityNumbers: number[];
 	search: string;
+	/** Optional - saved views written before this field existed fall back to body-only search. */
+	searchAllFields?: boolean;
 	attributeFilters: AttributeFilter[];
 	bodyJsonFilters: BodyJsonFilter[];
 	postProcessFunctions: LogPostProcessFunction[];
@@ -252,6 +256,7 @@ export class LogsExplorerState {
 		traceSpan: emptyTraceSpanFilter(),
 		severityNumbers: [],
 		search: '',
+		searchAllFields: false,
 		patternId: '',
 		traceId: '',
 		attribute: null,
@@ -431,7 +436,10 @@ export class LogsExplorerState {
 		if (this.filter.scopeNames.length) filter.scopeNames = [...this.filter.scopeNames];
 		if (isTraceSpanFilterActive(this.filter.traceSpan)) filter.traceSpanFilter = toTraceSpanFilter(this.filter.traceSpan);
 		if (this.filter.severityNumbers.length) filter.severityNumbers = [...this.filter.severityNumbers];
-		if (this.filter.search.trim()) filter.search = this.filter.search.trim();
+		if (this.filter.search.trim()) {
+			filter.search = this.filter.search.trim();
+			if (this.filter.searchAllFields) filter.searchAllFields = true;
+		}
 		if (this.filter.patternId) filter.patternId = this.filter.patternId;
 		if (this.filter.traceId) filter.traceId = this.filter.traceId;
 		// The deep-link `attribute` (if any) always leads, followed by the user-built
@@ -730,6 +738,15 @@ export class LogsExplorerState {
 		addRecentSearch(search);
 	}
 
+	/** Toggles whether the free-text search also covers attribute/resource values; re-runs the search only when there's text to search for. */
+	setSearchAllFields(on: boolean): void {
+		this.filter.searchAllFields = on;
+		if (this.filter.search.trim()) {
+			this.selectedBucketRange = null;
+			this.applyFilterChange();
+		}
+	}
+
 	/** Whether the toolbar's "Clear filters" button has anything to do - same fields `resetFilters` zeroes out. Drives that button's disabled state so it isn't a permanently-live no-op. */
 	hasActiveFilters(): boolean {
 		return (
@@ -762,6 +779,7 @@ export class LogsExplorerState {
 	#clearContentFilters(): void {
 		this.selectedBucketRange = null;
 		this.filter.search = '';
+		this.filter.searchAllFields = false;
 		this.filter.services = [];
 		this.filter.scopeNames = [];
 		this.filter.traceSpan = emptyTraceSpanFilter();
@@ -850,6 +868,7 @@ export class LogsExplorerState {
 			traceSpan: { ...this.filter.traceSpan, services: [...this.filter.traceSpan.services] },
 			severityNumbers: [...this.filter.severityNumbers],
 			search: this.filter.search,
+			searchAllFields: this.filter.searchAllFields,
 			attributeFilters: this.filter.attributeFilters.map((a) => ({ ...a })),
 			bodyJsonFilters: this.filter.bodyJsonFilters.map((f) => ({ ...f })),
 			postProcessFunctions: this.filter.postProcessFunctions.map((f) => ({ ...f })),
@@ -883,6 +902,7 @@ export class LogsExplorerState {
 			traceSpan: s.traceSpan ? { ...emptyTraceSpanFilter(), ...s.traceSpan } : emptyTraceSpanFilter(),
 			severityNumbers: s.severityNumbers ?? [],
 			search: s.search ?? '',
+			searchAllFields: s.searchAllFields ?? false,
 			patternId: '', // never part of a saved view - see LogsFilterState.patternId's remarks
 			traceId: s.traceId ?? '', // only ever set by deep links, see LogsSavedViewState.traceId
 			attribute: null, // never part of a saved view - see LogsFilterState.attribute's own remarks
@@ -974,6 +994,7 @@ export class LogsExplorerState {
 			traceSpan: emptyTraceSpanFilter(),
 			severityNumbers: [],
 			search: '',
+			searchAllFields: false,
 			patternId: '',
 			traceId: '',
 			attribute: params.attribute,
