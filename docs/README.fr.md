@@ -43,6 +43,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Surveiller les API externes](how-to/monitor-external-apis.fr.md)
 - [Trouver où les requêtes décrochent avec les entonnoirs de traces](how-to/analyze-trace-funnels.fr.md)
 - [Trouver des traces selon les relations entre leurs spans](how-to/find-traces-by-structure.fr.md)
+- [Savoir si un span était lent par rapport à ses semblables](how-to/compare-span-duration.fr.md)
 - [Trouver les métriques à forte cardinalité](how-to/find-high-cardinality-metrics.fr.md)
 - [Accélérer les filtres sur un attribut de log ou de span fréquemment utilisé](how-to/promote-attribute-columns.fr.md)
 
