@@ -40,7 +40,84 @@ public static class AlertEndpoints
         // wording) with illustrative values - the rule form's live preview. Never sends and
         // never queries ClickHouse, so it's cheap enough to call on every (debounced) edit.
         endpoints.MapPost("/api/alerts/notification-preview", HandleNotificationPreviewAsync);
+
+        // Portable JSON export/import of rules (channels and SLOs referenced by name).
+        endpoints.MapGet("/api/alerts/export", HandleExportAsync);
+        endpoints.MapPost("/api/alerts/import", HandleImportAsync);
         return endpoints;
+    }
+
+    // `ids` (optional, repeatable): export just those rules; omitted means every rule.
+    private static async Task<IResult> HandleExportAsync(Guid[]? ids, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, CancellationToken cancellationToken)
+    {
+        var rules = await alerts.ListAsync(cancellationToken);
+        if (ids is { Length: > 0 })
+        {
+            var wanted = ids.ToHashSet();
+            rules = [.. rules.Where(r => wanted.Contains(r.Id))];
+        }
+
+        var channelNames = (await channels.ListAsync(cancellationToken)).ToDictionary(c => c.Id, c => c.Name);
+        var sloNames = (await slos.ListAsync(cancellationToken)).ToDictionary(s => s.Id, s => s.Name);
+        return Results.Json(AlertRuleTransfer.Export(rules, channelNames, sloNames), AlertsJsonContext.Default.AlertRulesExport);
+    }
+
+    // `dryRun=true` reports what would happen without creating anything. A rule whose name
+    // already exists (or repeats earlier in the file) is skipped, never overwritten.
+    private static async Task<IResult> HandleImportAsync(HttpContext http, bool? dryRun, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, CancellationToken cancellationToken)
+    {
+        AlertRulesExport? document;
+        try
+        {
+            document = await JsonSerializer.DeserializeAsync(http.Request.Body, AlertsJsonContext.Default.AlertRulesExport, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (document is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (document.Version != AlertRulesExport.CurrentVersion)
+        {
+            return Results.Problem($"Unsupported export version {document.Version} (expected {AlertRulesExport.CurrentVersion}).", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var channelIds = AlertRuleTransfer.ByName((await channels.ListAsync(cancellationToken)).Select(c => (c.Id, c.Name)));
+        var sloIds = AlertRuleTransfer.ByName((await slos.ListAsync(cancellationToken)).Select(s => (s.Id, s.Name)));
+        var taken = new HashSet<string>((await alerts.ListAsync(cancellationToken)).Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
+
+        var results = new List<AlertImportItemResult>();
+        foreach (var item in document.Rules)
+        {
+            var name = item.Rule?.Name ?? "";
+            var (request, error) = AlertRuleTransfer.Resolve(item, channelIds, sloIds);
+            if (error is not null)
+            {
+                results.Add(new AlertImportItemResult(name, AlertImportOutcome.Error, error));
+                continue;
+            }
+
+            if (!taken.Add(request!.Name))
+            {
+                results.Add(new AlertImportItemResult(name, AlertImportOutcome.Skip, "A rule with this name already exists."));
+                continue;
+            }
+
+            if (dryRun == true)
+            {
+                results.Add(new AlertImportItemResult(name, AlertImportOutcome.Create));
+                continue;
+            }
+
+            var rule = await alerts.CreateAsync(request, cancellationToken);
+            results.Add(new AlertImportItemResult(name, AlertImportOutcome.Create, Id: rule.Id));
+        }
+
+        return Results.Json(new AlertRulesImportResult { DryRun = dryRun == true, Items = results }, AlertsJsonContext.Default.AlertRulesImportResult);
     }
 
     private static async Task<IResult> HandleCreateAsync(HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)

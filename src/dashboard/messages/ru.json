@@ -2610,5 +2610,19 @@
 	"muteRule_1d": "1 день",
 	"muteRule_1w": "1 неделя",
 	"muteRule_untilLabel": "Заглушить до",
-	"muteRule_untilButton": "Заглушить до"
+	"muteRule_untilButton": "Заглушить до",
+	"alertTransfer_export": "Экспорт",
+	"alertTransfer_exportTitle": "Скачать показанные правила (все, если фильтр не задан) в JSON",
+	"alertTransfer_import": "Импорт",
+	"alertTransfer_importTitle": "Импортировать правила оповещений из JSON-экспорта",
+	"alertTransfer_dialogTitle": "Импорт правил оповещений",
+	"alertTransfer_dialogDescription": "Каналы и SLO сопоставляются по имени. Правила с уже существующим именем пропускаются.",
+	"alertTransfer_summary": "Создать: {create}, пропущено: {skip}, с ошибками: {error}",
+	"alertTransfer_confirm": "Импортировать правил: {count}",
+	"alertTransfer_invalidFile": "Файл не является корректным JSON.",
+	"alertTransfer_done": "Импортировано правил: {count}.",
+	"alertTransfer_close": "Закрыть",
+	"alertTransfer_outcomeCreate": "Создать",
+	"alertTransfer_outcomeSkip": "Пропуск",
+	"alertTransfer_outcomeError": "Ошибка"
 }

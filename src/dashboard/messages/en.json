@@ -2610,5 +2610,19 @@
 	"muteRule_1d": "1 day",
 	"muteRule_1w": "1 week",
 	"muteRule_untilLabel": "Mute until",
-	"muteRule_untilButton": "Mute until"
+	"muteRule_untilButton": "Mute until",
+	"alertTransfer_export": "Export",
+	"alertTransfer_exportTitle": "Download the rules shown (all rules when no filter is active) as JSON",
+	"alertTransfer_import": "Import",
+	"alertTransfer_importTitle": "Import alert rules from a JSON export",
+	"alertTransfer_dialogTitle": "Import alert rules",
+	"alertTransfer_dialogDescription": "Channels and SLOs are matched by name. Rules whose name already exists are skipped.",
+	"alertTransfer_summary": "{create} to create, {skip} skipped, {error} with errors",
+	"alertTransfer_confirm": "Import {count} rules",
+	"alertTransfer_invalidFile": "That file isn't valid JSON.",
+	"alertTransfer_done": "Imported {count} rules.",
+	"alertTransfer_close": "Close",
+	"alertTransfer_outcomeCreate": "Create",
+	"alertTransfer_outcomeSkip": "Skip",
+	"alertTransfer_outcomeError": "Error"
 }

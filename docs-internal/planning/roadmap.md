@@ -113,14 +113,6 @@ folders are where "what happened and why" actually lives.
   ADR (rendering dependency, auth). Not started. Prior art:
   [signoz PR #10809](https://github.com/SigNoz/signoz/pull/10809) /
   [#10810](https://github.com/SigNoz/signoz/pull/10810) (open, unmerged).
-- **Import/export alert rules.** Dashboards can be exported/imported, but
-  alert rules can't, and `flare alerts` is read-only. Add JSON export of
-  selected or all rules (channels and maintenance windows referenced by name,
-  ids dropped) and import with a dry-run summary (create/skip on name
-  conflict). Expose it via `flare alerts export|import` and buttons on the
-  alerts page. That enables GitOps and moving rules between instances. Not
-  started. Prior art:
-  [signoz PR #9505](https://github.com/SigNoz/signoz/pull/9505) (open, unmerged).
 - **"Did you mean…" for empty results caused by case.** Attribute filters
   match exactly, so `level=warn` against data that says `Warn` silently
   returns nothing. When a log/span search returns zero rows and used
