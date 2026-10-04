@@ -14,12 +14,15 @@ import { defaultSelection } from './variables';
 
 const VAR_PREFIX = 'var-';
 const RANGE_PARAM = 'range';
+const RANGE_OFF = 'off';
 
 /** Fixed-duration presets only - the override can't express an absolute custom range. */
 const OVERRIDE_PRESETS = new Set<string>(TIME_RANGE_PRESETS.filter((p) => p.value !== 'custom').map((p) => p.value));
 
 export interface DashboardUrlState {
 	range: TimeRangePreset | null;
+	/** `?range=off`: an explicit "each panel's own range", overriding a saved default. */
+	rangeOff: boolean;
 	/** Only variables the URL actually mentions; absent ids keep their default. */
 	variableValues: Record<string, string[]>;
 }
@@ -28,6 +31,8 @@ export function parseDashboardUrlState(search: URLSearchParams, variables: Dashb
 	const rawRange = search.get(RANGE_PARAM);
 	const range = rawRange && OVERRIDE_PRESETS.has(rawRange) ? (rawRange as TimeRangePreset) : null;
 
+	const rangeOff = rawRange === RANGE_OFF;
+
 	const variableValues: Record<string, string[]> = {};
 	for (const variable of variables) {
 		const key = VAR_PREFIX + variable.id;
@@ -35,7 +40,7 @@ export function parseDashboardUrlState(search: URLSearchParams, variables: Dashb
 		const values = search.getAll(key).filter((v) => v !== '');
 		variableValues[variable.id] = variable.multi ? values : values.slice(0, 1);
 	}
-	return { range, variableValues };
+	return { range, rangeOff, variableValues };
 }
 
 /** Only state that differs from the dashboard's own defaults is written, keeping links short. */
@@ -43,13 +48,16 @@ export function buildDashboardUrlSearch(
 	current: URLSearchParams,
 	range: TimeRangePreset | null,
 	variables: DashboardVariable[],
-	variableValues: Record<string, string[]>
+	variableValues: Record<string, string[]>,
+	defaultRange: TimeRangePreset | null = null
 ): string {
 	const next = new URLSearchParams(current);
 	for (const key of [...next.keys()]) {
 		if (key === RANGE_PARAM || key.startsWith(VAR_PREFIX)) next.delete(key);
 	}
-	if (range) next.set(RANGE_PARAM, range);
+	if (range && range !== defaultRange) next.set(RANGE_PARAM, range);
+	// No override while a default is saved must be spelled out, or the link would reopen at the default.
+	else if (!range && defaultRange) next.set(RANGE_PARAM, RANGE_OFF);
 	for (const variable of variables) {
 		const values = variableValues[variable.id];
 		if (!values) continue;

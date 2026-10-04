@@ -374,6 +374,16 @@ navigateur uniquement : elle n'est jamais enregistrée sur le tableau de
 bord, donc elle ne change jamais ce que voient les autres personnes qui
 l'ouvrent.
 
+## Définir une plage de temps par défaut
+
+Par défaut, un tableau de bord s'ouvre avec la plage enregistrée de chaque panneau.
+Pour qu'il s'ouvre sur une seule plage (un tableau de bord de capacité « 7 derniers
+jours », par exemple), cliquez sur **Edit**, choisissez la plage dans le sélecteur de
+temps, puis cliquez sur **Save range as default**. Le propriétaire et les Members
+peuvent le faire ; la valeur est enregistrée avec le tableau de bord et s'applique à
+tous les lecteurs. Un `?range=` dans le lien la remplace. Pour la retirer, remettez le
+sélecteur sur la plage propre à chaque panneau et cliquez sur **Clear default range**.
+
 ## Partager une vue de tableau de bord
 
 La surcharge de plage de temps et chaque sélection de variable sont reflétées dans l'URL

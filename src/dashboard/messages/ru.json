@@ -1851,6 +1851,8 @@
 	"dashboardViewer_addRow": "Добавить строку",
 	"dashboardViewer_timeRangeOverrideTitle": "Переопределить временной диапазон всех панелей для этого сеанса",
 	"dashboardViewer_timeRangeOverrideOff": "Диапазон каждой панели",
+	"dashboardViewer_saveDefaultRange": "Сохранить диапазон по умолчанию",
+	"dashboardViewer_clearDefaultRange": "Сбросить диапазон по умолчанию",
 	"dashboardViewer_variableAll": "Все",
 	"dashboardViewer_variableMore": "{first} +{count}",
 	"dashboardViewer_variableFilterPlaceholder": "Фильтр значений…",
