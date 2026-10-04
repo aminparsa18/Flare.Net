@@ -98,6 +98,15 @@ public static class MessagingQueryBuilder
     public const string ServiceBusActiveMessagesMetric = "azure_activemessages_average";
 
     /// <summary>
+    /// CloudWatch's SQS queue depth, as it leaves the Collector: the <c>awsfirehose</c>
+    /// receiver turns a Metric Streams record into a Summary (dropped at ingest), and the
+    /// <c>transform</c> processor's <c>extract_avg_metric()</c> adds this gauge (sum / count,
+    /// suffix <c>_avg</c>). The queue is the <c>QueueName</c> data-point attribute; the account
+    /// and region are resource attributes. See ADR-0120.
+    /// </summary>
+    public const string SqsVisibleMessagesMetric = "ApproximateNumberOfMessagesVisible_avg";
+
+    /// <summary>
     /// <c>stream/consumer</c> of the JetStream consumer a NATS receive span came from, read
     /// from the ack subject NATS.Net puts in <c>messaging.nats.message.reply_to</c>:
     /// <c>$JS.ACK.&lt;stream&gt;.&lt;consumer&gt;.…</c> (9 tokens), or with a domain and account
@@ -430,6 +439,63 @@ public static class MessagingQueryBuilder
             "LIMIT {limit:UInt32}";
 
         return new MessagingSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// Latest <see cref="SqsVisibleMessagesMetric"/> per SQS queue in the window, restricted to
+    /// <paramref name="queues"/> (columns: Queue, Visible). <c>argMax</c> per account, region and
+    /// queue, then summed over them, so one queue name in two regions adds up like a RabbitMQ
+    /// queue across vhosts.
+    /// </summary>
+    public static MessagingSql BuildSqsBacklog(int windowMinutes, DateTimeOffset end, IReadOnlyCollection<string> queues)
+    {
+        var parameters = TimeParameters(windowMinutes, end);
+        parameters.AddParameter("visibleMetric", SqsVisibleMessagesMetric);
+        parameters.AddParameter("queues", queues.ToArray());
+        parameters.AddParameter("limit", (uint)(MaxDestinations + 1));
+
+        var sql = "SELECT Queue, toInt64(round(sum(Value))) AS Visible\n" +
+            "FROM (\n" +
+            "    SELECT\n" +
+            "        ResourceAttributes['cloud.account.id'] AS Account,\n" +
+            "        ResourceAttributes['cloud.region'] AS Region,\n" +
+            "        DataPointAttributes['QueueName'] AS Queue,\n" +
+            "        argMax(Value, Time) AS Value\n" +
+            "    FROM metrics_gauge\n" +
+            "    WHERE MetricName = {visibleMetric:String} AND Time >= {from:DateTime64(9)} AND Time < {to:DateTime64(9)}\n" +
+            "        AND DataPointAttributes['QueueName'] IN {queues:Array(String)}\n" +
+            "    GROUP BY Account, Region, Queue\n" +
+            ")\n" +
+            "GROUP BY Queue\n" +
+            "ORDER BY Queue\n" +
+            "LIMIT {limit:UInt32}";
+
+        return new MessagingSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// The SQS queue names a destination row stands for: the destination itself (a queue name
+    /// per the semantic convention), or - for an instrumentation that reports the queue URL
+    /// instead - the URL's last path segment.
+    /// </summary>
+    public static IReadOnlyList<string> SqsQueueCandidates(string destination)
+    {
+        var candidates = new List<string>();
+        if (destination.Length > 0)
+        {
+            candidates.Add(destination);
+        }
+
+        if (destination.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+            var name = destination.TrimEnd('/').Split('/')[^1];
+            if (name.Length > 0 && !candidates.Contains(name))
+            {
+                candidates.Add(name);
+            }
+        }
+
+        return candidates;
     }
 
     /// <summary>

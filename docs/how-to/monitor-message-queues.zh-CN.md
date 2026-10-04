@@ -53,7 +53,7 @@ using var consumer = consumerBuilder.Build();
 | Error rate | 带错误状态的发布和消费 span 所占比例 |
 | Publish p99 / Consume p99 | span 时长的第 99 百分位 |
 | Producers / consumers | 向其发布和从中消费的服务数量 |
-| Backlog | 等待处理的消息：Kafka 消费者延迟、RabbitMQ 队列深度NATS JetStream 待处理消息或 Service Bus 活动消息，见 [Kafka](#查看-kafka-消费者延迟)、[RabbitMQ](#查看-rabbitmq-队列深度)、[NATS](#查看-nats-jetstream-积压) 和 [Service Bus](#查看-service-bus-积压) |
+| Backlog | 等待处理的消息：Kafka 消费者延迟、RabbitMQ 队列深度NATS JetStream 待处理消息或 Service Bus 活动消息或 Amazon SQS 可见消息，见 [Kafka](#查看-kafka-消费者延迟)、[RabbitMQ](#查看-rabbitmq-队列深度)、[NATS](#查看-nats-jetstream-积压) [Service Bus](#查看-service-bus-积压) 和 [SQS](#查看-amazon-sqs-积压) |
 
 消费延迟是消费 span 自身的时长：对 `process` span 是处理时间，对只发出 `receive` span 的消费者是拉取时间。它不是消息在队列中等待的时间。
 
@@ -205,6 +205,47 @@ service:
 `azure_activemessages_average`，所以请保留 Average 聚合。**Backlog** 列是队列最新的活动
 消息数；对 `topic/Subscriptions/名称` 的接收行，则是该订阅的活动消息数。死信消息不计入。
 Azure Monitor 每分钟上报一次，所以积压大约有这么长的延迟。接收器没有上报的实体显示 **—**。
+
+## 查看 Amazon SQS 积压
+
+队列的积压不在 span 里。CloudWatch 将它发布为 `ApproximateNumberOfMessagesVisible`。
+OpenTelemetry Collector 的 `awscloudwatch` 接收器读取的是 CloudWatch *日志*，所以指标要走
+CloudWatch Metric Stream → Kinesis Data Firehose，再由 Collector（contrib 发行版）的
+`awsfirehose` 接收器充当 Firehose 的 HTTP 端点。创建输出格式为 **JSON**、命名空间过滤为
+`AWS/SQS` 的 metric stream，并让其 Firehose 指向 Collector。Firehose 需要 HTTPS 端点，
+所以请把 Collector 放在终止 TLS 的负载均衡器或代理之后，并在两端设置相同的访问密钥。
+
+接收器会把每条记录转成 summary，而 Flare 不存储 summary。`transform` 处理器将它转换为名为
+`ApproximateNumberOfMessagesVisible_avg` 的 gauge：
+
+```yaml
+receivers:
+  awsfirehose:
+    endpoint: 0.0.0.0:4433
+    record_type: cwmetrics
+    access_key: ${env:FIREHOSE_ACCESS_KEY}
+processors:
+  transform/sqs:
+    metric_statements:
+      - context: metric
+        statements:
+          - extract_avg_metric() where name == "ApproximateNumberOfMessagesVisible"
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [awsfirehose]
+      processors: [transform/sqs]
+      exporters: [otlp_grpc/flare]
+```
+
+**Backlog** 列是行目的地所指队列最新的可见消息数（如果你的埋点上报的是队列 URL，则按 URL 的最后一段匹配）。
+处理中和延迟的消息不计入。Metric Streams 会在 SQS 一分钟的上报之外再增加几分钟延迟。CloudWatch 没有上报的队列显示 **—**。
+仅依据接收器源码验证，未在真实 AWS 账号上验证。
 
 ## 故障排查
 

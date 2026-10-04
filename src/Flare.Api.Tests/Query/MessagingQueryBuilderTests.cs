@@ -285,4 +285,26 @@ public class MessagingQueryBuilderTests
     {
         Assert.Equal(expected, MessagingQueryBuilder.ServiceBusEntityCandidates(destination));
     }
+
+    [Fact]
+    public void BuildSqsBacklog_TakesLatestVisibleMessagesPerAccountRegionAndQueue()
+    {
+        var result = MessagingQueryBuilder.BuildSqsBacklog(60, End, ["orders"]);
+
+        Assert.Contains("FROM metrics_gauge", result.Sql);
+        Assert.Contains("DataPointAttributes['QueueName'] IN {queues:Array(String)}", result.Sql);
+        Assert.Contains("GROUP BY Account, Region, Queue\n", result.Sql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal(MessagingQueryBuilder.SqsVisibleMessagesMetric, parameters["visibleMetric"]);
+        Assert.Equal(new[] { "orders" }, parameters["queues"]);
+    }
+
+    [Theory]
+    [InlineData("orders", new[] { "orders" })]
+    [InlineData("https://sqs.us-east-1.amazonaws.com/123456789012/orders", new[] { "https://sqs.us-east-1.amazonaws.com/123456789012/orders", "orders" })]
+    [InlineData("", new string[0])]
+    public void SqsQueueCandidates_AddsTheUrlsQueueName(string destination, string[] expected)
+    {
+        Assert.Equal(expected, MessagingQueryBuilder.SqsQueueCandidates(destination));
+    }
 }

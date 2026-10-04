@@ -31,6 +31,9 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
     /// <summary>The <c>messaging.system</c> value Azure.Messaging.ServiceBus sets - the system active-message counts are looked up for.</summary>
     private const string ServiceBusSystem = "servicebus";
 
+    /// <summary>The <c>messaging.system</c> values the AWS SDK instrumentation sets for SQS: the current <c>aws_sqs</c> and the earlier <c>aws.sqs</c>.</summary>
+    private static bool IsSqs(string system) => system is "aws_sqs" or "aws.sqs";
+
     public async Task<MessagingDestinationsResponse> GetDestinationsAsync(MessagingDestinationsRequest request, CancellationToken cancellationToken)
     {
         var windowMinutes = MessagingQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
@@ -163,6 +166,47 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
                     if (activeByEntity.TryGetValue(entity, out var active))
                     {
                         backlog = (backlog ?? 0) + active;
+                    }
+                }
+
+                if (backlog is not null)
+                {
+                    destinations[i] = destinations[i] with { Backlog = backlog };
+                }
+            }
+        }
+
+        if (destinations.Exists(d => IsSqs(d.System)))
+        {
+            var allQueues = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var destination in destinations.Where(d => IsSqs(d.System)))
+            {
+                allQueues.UnionWith(MessagingQueryBuilder.SqsQueueCandidates(destination.Destination));
+            }
+
+            var visibleByQueue = new Dictionary<string, long>(StringComparer.Ordinal);
+            var sqsSql = MessagingQueryBuilder.BuildSqsBacklog(windowMinutes, end, allQueues);
+            await using (var reader = await client.ExecuteReaderAsync(sqsSql.Sql, sqsSql.Parameters, SafetyOptions(), cancellationToken))
+            {
+                while (reader.Read())
+                {
+                    visibleByQueue[reader.GetString(0)] = reader.GetFieldValue<long>(1);
+                }
+            }
+
+            for (var i = 0; i < destinations.Count; i++)
+            {
+                if (!IsSqs(destinations[i].System))
+                {
+                    continue;
+                }
+
+                long? backlog = null;
+                foreach (var queue in MessagingQueryBuilder.SqsQueueCandidates(destinations[i].Destination))
+                {
+                    if (visibleByQueue.TryGetValue(queue, out var visible))
+                    {
+                        backlog = (backlog ?? 0) + visible;
                     }
                 }
 
