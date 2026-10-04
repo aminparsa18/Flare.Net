@@ -12,6 +12,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { formatMs, formatPercent } from '$lib/indexing/format';
 	import RuntimeHealthSection from './RuntimeHealthSection.svelte';
+	import VersionComparisonSection from './VersionComparisonSection.svelte';
 	import { servicesContext } from '$lib/services/context';
 	import { SERVICES_WINDOW_PRESETS } from '$lib/services/state.svelte';
 	import { getServiceCallBreakdown, type ServiceCallBreakdown } from '$lib/services-api';
@@ -89,6 +90,7 @@
 					service={services.selectedService}
 					windowMinutes={SERVICES_WINDOW_PRESETS.find((p) => p.value === services.windowPreset)?.minutes ?? 15}
 				/>
+				<VersionComparisonSection service={services.selectedService} />
 			{/if}
 			{#if loading && !breakdown}
 				<div class="flex justify-center py-12">

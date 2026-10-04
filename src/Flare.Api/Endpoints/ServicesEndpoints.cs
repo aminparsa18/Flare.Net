@@ -28,6 +28,7 @@ public static class ServicesEndpoints
         endpoints.MapPost("/api/services/dependencies", HandleGetDependenciesAsync);
         endpoints.MapPost("/api/services/breakdown", HandleGetBreakdownAsync);
         endpoints.MapPost("/api/services/runtime-health", HandleGetRuntimeHealthAsync);
+        endpoints.MapPost("/api/services/version-comparison", HandleGetVersionComparisonAsync);
         // Viewer-readable, unlike the mutating PUT/DELETE in ApdexThresholdEndpoints
         // (Admin-only, mapped on adminRoutes) - any Viewer needs the configured
         // thresholds to render the Services tab's Apdex column tooltip.
@@ -134,6 +135,31 @@ public static class ServicesEndpoints
 
         var response = await queryService.GetFindingsAsync(request.Service, request, cancellationToken);
         return ApiSerialization.Write(http, response, RuntimeHealthJsonContext.Default.RuntimeHealthResponse);
+    }
+
+    /// <summary>What changed between two <c>service.version</c> values of one service - see <see cref="VersionComparisonQueryBuilder"/>.</summary>
+    private static async Task<IResult> HandleGetVersionComparisonAsync(
+        HttpContext http,
+        IVersionComparisonQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        VersionComparisonRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, VersionComparisonJsonContext.Default.VersionComparisonRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Service))
+        {
+            return Results.Problem("service is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await queryService.CompareAsync(request.Service, request, cancellationToken);
+        return ApiSerialization.Write(http, response, VersionComparisonJsonContext.Default.VersionComparisonResponse);
     }
 
     private static async Task<IResult> HandleGetApdexThresholdsAsync(
