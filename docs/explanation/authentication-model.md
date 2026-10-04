@@ -140,9 +140,13 @@ cost of any single request. A token that exceeds it gets a `429` with a
 `Retry-After` header until the window resets; a normal dashboard session
 (cookie-authenticated) is never affected, no matter how many requests it
 makes. The limit is in-memory and per-process, which is safe rather than
-a gap: `Flare.Api` already only ever runs as a single replica (see
+a gap: `Flare.Api` runs as a single replica (SQLite, the default identity
+store, can't be shared across hosts — see
 [ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md)),
-so there's no second process this state would need to be shared with. See
+so there's no second process this state would need to be shared with. If you
+switch the identity store to Postgres and run more than one `Flare.Api`
+replica, the limit becomes per replica, not global
+([ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md)). See
 [ADR-0028](../../docs-internal/adr/0028-personal-access-token-rate-limiting.md)
 for the full decision.
 

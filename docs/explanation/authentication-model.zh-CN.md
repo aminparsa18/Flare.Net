@@ -135,10 +135,12 @@ row 将强制每个遥测发射应用程序链接到某人的
 （`max_execution_time`、`max_rows_to_read` 等）相互独立。一旦超出限制，
 该令牌会收到带 `Retry-After` 响应头的 `429`，直到窗口重置为止；普通
 的仪表盘会话（Cookie 认证）无论发出多少请求都不受影响。该限制保存在
-内存中、按进程隔离，这并非缺陷而是有意为之的选择：`Flare.Api` 本身
-就只以单副本运行（参见
+内存中、按进程隔离，这并非缺陷而是有意为之的选择：`Flare.Api` 以单副本
+运行（默认的身份存储 SQLite 无法跨主机共享，参见
 [ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md)），
-因此不存在需要与之共享该状态的第二个进程。完整决策参见
+因此不存在需要与之共享该状态的第二个进程。若将身份存储切换为 Postgres 并运行多个
+`Flare.Api` 副本，该限制将按副本分别生效，而非全局
+（[ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md)）。完整决策参见
 [ADR-0028](../../docs-internal/adr/0028-personal-access-token-rate-limiting.md)。
 
 ## 每种方法的工作原理

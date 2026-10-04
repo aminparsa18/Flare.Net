@@ -13,7 +13,7 @@ Flare is a self-hosted, OpenTelemetry-native observability platform for .NET —
 ```
 src/Flare.Ingest         OTLP receiver (gRPC :4317, HTTP :4318) -> LogEvent -> Redis Streams -> ClickHouse
 src/Flare.Api             Query API over ClickHouse: search/aggregate/live-tail (WebSocket)/alerts/views
-src/Flare.Identity        Auth: local accounts, Entra ID, LDAP, OIDC, reverse-proxy trusted headers (embedded SQLite)
+src/Flare.Identity        Auth: local accounts, Entra ID, LDAP, OIDC, reverse-proxy trusted headers (embedded SQLite by default, optional Postgres)
 src/Flare.AppHost         .NET Aspire local orchestration (the dev inner loop)
 src/Flare.Cli             Global dotnet tool ("flare start/stop/status/...") managing a standing standalone stack
 src/Flare.Mcp             Read-only MCP tools shared by `flare mcp` (stdio) and Flare.Api's `/mcp` streamable HTTP endpoint; carries the CLI/MCP wire DTOs
