@@ -28,6 +28,7 @@
 	import { browserTimeZone, timeZoneOptions } from '$lib/time/time-zone';
 	import { formatUtcOffset } from '$lib/time/format';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import { updateNotice } from '$lib/version/update-notice.svelte';
 	import { page } from '$app/state';
@@ -178,6 +179,15 @@
 		     the default ("system") for one frame, corrected the instant the client hydrates.
 		     Harmless: the anti-FOUC script in +layout.svelte already set the *page's* actual
 		     theme correctly before paint, this only affects this menu's own selected state. -->
+		<DropdownMenu.Item>
+			{#snippet child({ props })}
+				<a href={withBase('/settings/appearance')} {...props}>
+					<SettingsIcon />
+					{m.settings_heading()}
+				</a>
+			{/snippet}
+		</DropdownMenu.Item>
+		<DropdownMenu.Separator />
 		<DropdownMenu.Label>{m.nav_appearance()}</DropdownMenu.Label>
 		<DropdownMenu.RadioGroup value={userPrefersMode.current} onValueChange={(v) => setMode(v as 'light' | 'dark' | 'system')}>
 			<DropdownMenu.RadioItem value="light">

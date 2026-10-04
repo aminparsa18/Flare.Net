@@ -25,6 +25,17 @@
 		     unauthenticated route, more) into results. static/robots.txt denies crawling;
 		     this covers pages reached by a direct link, which robots.txt alone doesn't. -->
 		<meta name="robots" content="noindex, nofollow" />
+		<!-- Replays Settings > Appearance prefs ($lib/appearance/prefs.svelte.ts, same storage key)
+		     onto <html> before first paint so density/font size don't flash on load. -->
+		<script>
+			try {
+				var a = JSON.parse(localStorage.getItem('flare.appearance') || '{}');
+				var d = document.documentElement.dataset;
+				if (a.density === 'compact') d.density = 'compact';
+				if (a.fontSize === 'small' || a.fontSize === 'large') d.fontSize = a.fontSize;
+				if (a.reduceMotion === true) d.reduceMotion = 'true';
+			} catch (e) {}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
