@@ -2762,5 +2762,16 @@
 	"settingsExplorer_pinnedLogs": "Log attributes",
 	"settingsExplorer_pinnedSpans": "Span attributes",
 	"settingsExplorer_pinnedNone": "None pinned.",
-	"settingsExplorer_unpin": "Unpin {key}"
+	"settingsExplorer_unpin": "Unpin {key}",
+	"settingsExplorer_resetSection": "Reset",
+	"settingsExplorer_homeDashboard": "Home dashboard",
+	"settingsExplorer_homeDashboardNone": "None",
+	"settingsExplorer_liveAutoScroll": "Auto-scroll to the newest row while live-tailing",
+	"settingsExplorer_storedHeading": "Remembered in this browser",
+	"settingsExplorer_storedDescription": "Small conveniences that live only in this browser. Clearing one never touches your saved views or dashboards.",
+	"settingsExplorer_clearCollapsed": "Reset collapsed filter rows and charts",
+	"settingsExplorer_clearRecentSearches": "Clear recent searches",
+	"settingsExplorer_clearRecentRanges": "Clear recent custom ranges",
+	"settingsExplorer_clearLastViews": "Forget last-used saved views",
+	"settingsExplorer_cleared": "Cleared"
 }

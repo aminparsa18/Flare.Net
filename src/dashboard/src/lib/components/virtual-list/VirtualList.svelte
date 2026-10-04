@@ -13,6 +13,8 @@
 		/** Fires (repeatedly, while still within threshold) once scroll nears the bottom - callers debounce/guard on their own loading state. */
 		onEndReached?: () => void;
 		endReachedThreshold?: number;
+		/** When false, rows arriving at the front never move the view, even from the top (live-tail "don't auto-scroll"). Default true: at the top the newest row pushes in. */
+		followNewest?: boolean;
 		children: Snippet<[item: T, index: number]>;
 		class?: string;
 	}
@@ -29,6 +31,7 @@
 		overscan = 8,
 		onEndReached,
 		endReachedThreshold = 200,
+		followNewest = true,
 		children,
 		class: className
 	}: VirtualListProps<T> = $props();
@@ -248,7 +251,7 @@
 		const prev = previousItems;
 		previousItems = items;
 		if (!containerEl || prev === undefined || items === prev || prev.length === 0) return;
-		if (containerEl.scrollTop === 0) return; // already pinned to the newest row - let content push in naturally
+		if (followNewest && containerEl.scrollTop === 0) return; // already pinned to the newest row - let content push in naturally
 
 		// Grew from the front (a prepend): find where the old topmost row (prev[0]) now
 		// sits in `items`. Found at a positive index -> shift the view down to compensate.

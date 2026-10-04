@@ -126,13 +126,6 @@ folders are where "what happened and why" actually lives.
   Not started. Sections:
   - **Appearance & layout** (`/settings/appearance` shipped, synced per
     user, ADR-0110). Remaining: a live preview (deferred).
-  - **Explorer defaults** (`/settings/explorer` shipped, synced per user,
-    ADR-0110: landing page, log lines/columns, live-tail on open and
-    buffer size, chart bucket interval, facet sidebar open, pinned
-    attributes list). Remaining: live-tail auto-scroll, a "home dashboard"
-    landing choice that names a specific dashboard, and moving the
-    per-browser collapse flags and recent searches in with a reset per
-    section.
   - **Notifications**: where the update-available notice shows, browser
     notification opt-in for fired alerts, per-user alert email opt-out.
   - **Account & security**: profile and password change (local accounts),
