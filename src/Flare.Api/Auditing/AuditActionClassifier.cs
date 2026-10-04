@@ -75,6 +75,8 @@ public static class AuditActionClassifier
         new("PUT", "/api/source-links/{serviceName}", "source-link", "update", "serviceName"),
         new("DELETE", "/api/source-links/{serviceName}", "source-link", "delete", "serviceName"),
 
+        new("POST", "/api/ai/explain-exception", "ai-explain-exception", "explain", null),
+
         new("PUT", "/api/metrics/metadata-overrides", "metric-metadata", "update", null),
         new("DELETE", "/api/metrics/metadata-overrides", "metric-metadata", "delete", null),
 

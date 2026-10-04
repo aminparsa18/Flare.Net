@@ -67,6 +67,27 @@ conserve le jeton enregistré. Les dépôts publics fonctionnent sans jeton. Fla
 suit pas les redirections, ignore les fichiers de plus de 2 Mo et met un fichier en
 cache pendant 10 minutes.
 
+## Expliquer une exception avec l'IA (facultatif)
+
+Flare peut demander à un modèle de langage d'expliquer une exception. La fonction est
+désactivée par défaut et utilise votre modèle : tout endpoint compatible OpenAI, y compris
+un Ollama local. Définissez sur `Flare.Api` :
+
+```bash
+Ai__Enabled=true
+Ai__Endpoint=http://localhost:11434/v1   # URL de base ; Flare appelle /chat/completions
+Ai__Model=llama3.1
+Ai__ApiKey=...                            # facultatif pour les modèles locaux
+```
+
+Un bouton **Expliquer cette exception** apparaît alors sous chaque occurrence. Il envoie à
+votre modèle le type et le message de l'exception, la pile d'appels et le code source du
+point de levée. Flare masque d'abord les jetons, mots de passe, secrets de chaîne de
+connexion, e-mails et adresses IP, mais la détection par motifs peut en oublier : utilisez
+un modèle local si le code est sensible. Le prompt est limité à `Ai__MaxInputChars` (12000)
+et la réponse à `Ai__MaxOutputTokens` (800). Chaque requête figure dans le journal d'audit
+et le prompt masqué est journalisé au niveau Debug.
+
 ## Quand une frame n'est pas liée
 
 Flare laisse la frame en texte brut plutôt que de deviner :
@@ -80,3 +101,4 @@ Flare laisse la frame en texte brut plutôt que de deviner :
 
 - [Décision d'architecture : ADR-0095](../../docs-internal/adr/0095-exception-source-links.md)
 - [ADR-0096](../../docs-internal/adr/0096-inline-exception-source.md)
+- [ADR-0103](../../docs-internal/adr/0103-explain-exception-llm.md)

@@ -15,6 +15,8 @@
 	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
 	import SourceLinkPopover from './SourceLinkPopover.svelte';
 	import SourceSnippet from './SourceSnippet.svelte';
+	import ExplainException from './ExplainException.svelte';
+	import { getAiEnabled } from '$lib/ai-api';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import { authContext } from '$lib/auth/context';
 	import { createFrameLinker, firstFrameTarget, type SourceLinkConfig } from '$lib/errors/source-links';
@@ -41,6 +43,15 @@
 		listSourceLinks()
 			.then((links) => (sourceLinks = links))
 			.catch(() => (sourceLinksLoaded = false));
+	});
+
+	// Opt-in AI action (ADR-0103): shown only when an admin configured a model.
+	let aiEnabled = $state(false);
+	let aiChecked = false;
+	$effect(() => {
+		if (!open || aiChecked) return;
+		aiChecked = true;
+		getAiEnabled().then((enabled) => (aiEnabled = enabled));
 	});
 
 	const configFor = (serviceName: string): SourceLinkConfig | undefined => sourceLinks.find((l) => l.serviceName === serviceName);
@@ -124,6 +135,19 @@
 												/>
 												{#if target}
 													<SourceSnippet serviceName={occurrence.serviceName} {target} />
+												{/if}
+												{#if aiEnabled}
+													<ExplainException
+														request={{
+															serviceName: occurrence.serviceName,
+															exceptionType: errors.selectedGroup?.exceptionType ?? '',
+															exceptionMessage: errors.selectedGroup?.exceptionMessage,
+															stacktrace: occurrence.stacktrace,
+															source: target
+																? { serviceName: occurrence.serviceName, ref: target.ref.ref, isCommit: target.ref.isCommit, path: target.path, line: target.line }
+																: undefined
+														}}
+													/>
 												{/if}
 											</details>
 											{#if canEditSourceLinks}

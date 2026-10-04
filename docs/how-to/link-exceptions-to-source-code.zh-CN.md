@@ -51,6 +51,23 @@ Flare 的 API 会从你的仓库托管平台获取文件，因此私有仓库需
 令牌只能写入：Flare 不会再次显示它，字段留空则保留已保存的令牌。公共仓库无需令牌。
 Flare 不会跟随重定向，会忽略超过 2 MB 的文件，并将文件缓存 10 分钟。
 
+## 用 AI 解释异常（可选）
+
+Flare 可以请语言模型解释异常。该功能默认关闭，使用你自己的模型：任何兼容 OpenAI 的端点，
+包括本地 Ollama。在 `Flare.Api` 上设置：
+
+```bash
+Ai__Enabled=true
+Ai__Endpoint=http://localhost:11434/v1   # 基础 URL；Flare 会调用 /chat/completions
+Ai__Model=llama3.1
+Ai__ApiKey=...                            # 本地模型可不填
+```
+
+之后每个异常出现记录下会出现 **解释此异常** 按钮。点击后，异常类型和消息、堆栈跟踪以及抛出位置的源码
+会发送给你的模型。发送前 Flare 会对令牌、密码、连接字符串密钥、邮箱和 IP 地址脱敏，但模式匹配可能有遗漏，
+因此代码敏感时请使用本地模型。提示词上限为 `Ai__MaxInputChars`（12000），回答上限为
+`Ai__MaxOutputTokens`（800）。每次请求都会记入审计日志，脱敏后的提示词以 Debug 级别写入日志。
+
 ## 帧没有变成链接的情况
 
 Flare 宁可保留纯文本也不猜测：
@@ -63,3 +80,4 @@ Flare 宁可保留纯文本也不猜测：
 
 - [架构决策：ADR-0095](../../docs-internal/adr/0095-exception-source-links.md)
 - [ADR-0096](../../docs-internal/adr/0096-inline-exception-source.md)
+- [ADR-0103](../../docs-internal/adr/0103-explain-exception-llm.md)
