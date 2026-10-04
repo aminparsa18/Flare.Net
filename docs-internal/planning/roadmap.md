@@ -113,3 +113,51 @@ folders are where "what happened and why" actually lives.
   ADR (rendering dependency, auth). Not started. Prior art:
   [signoz PR #10809](https://github.com/SigNoz/signoz/pull/10809) /
   [#10810](https://github.com/SigNoz/signoz/pull/10810) (open, unmerged).
+- **User settings page (`/settings`), starting with Appearance & layout.**
+  The dashboard has outgrown the user-menu dropdown as the home for
+  preferences: theme, language and display time zone live in
+  `NavUserMenu.svelte`, and the rest are scattered across per-feature
+  `localStorage` keys with no UI to see or reset them (pinned log
+  attributes, facet sidebar prefs, logs column visibility and lines per
+  row, home-dashboard choice, last-used saved views, recent searches and
+  custom ranges, update-notice dismissal). Build a sectioned settings
+  route (left rail of sections, deep-linkable `/settings/<section>`) and
+  move the dropdown's controls there, leaving the dropdown as a shortcut.
+  Not started. Sections:
+  - **Appearance & layout** (`/settings/appearance` shipped: theme, top bar
+    vs. collapsible sidebar, table density, text size, reduce motion;
+    client-only `localStorage`, `$lib/appearance/prefs.svelte.ts`).
+    Remaining: content width (full-bleed / centered), monospace font for
+    log bodies, high-contrast option, accent colour, sidebar
+    expand-on-hover, a live preview, and moving theme/language/time zone
+    out of the user-menu dropdown into settings. Preferences should also
+    be saved server-side per user (alongside the per-user dashboard
+    ownership record) so they follow the user across browsers, with
+    `localStorage` kept as the pre-paint cache.
+  - **Regional**: language, display time zone, time format (12/24h),
+    first day of week, number and date format, default relative time
+    range for each explorer.
+  - **Explorer defaults**: default lookback, logs lines per row and
+    columns, pinned attributes, facet sidebar open/closed, live-tail
+    behaviour (auto-scroll, buffer size), chart bucket interval default,
+    default landing page (home dashboard or explorer) - consolidating
+    today's scattered per-feature prefs into one place with a "reset to
+    defaults" per section.
+  - **Notifications**: where the update-available notice shows, browser
+    notification opt-in for fired alerts, per-user alert email opt-out.
+  - **Account & security**: profile and password change (local accounts),
+    personal access tokens (move the existing `/access-tokens` page in),
+    active sessions with sign-out-everywhere, and a data export of the
+    user's own saved views and dashboards.
+  - **Keyboard**: shortcut cheat sheet and rebinding for the command
+    palette and explorer shortcuts.
+  - **Workspace (admin-only, separate group)**: the instance-level pages
+    that are top-level routes today (ingest keys, notification channels,
+    maintenance windows, pipeline rules, audit log, indexing) grouped
+    under a "Workspace" heading so the main nav shrinks to the
+    observability surfaces; instance defaults an admin can set for new
+    users (theme, layout, time zone).
+  Also: settings search (reuse the command palette index), and import/
+  export of user preferences as JSON. Needs an ADR for where preferences
+  are stored (identity SQLite vs. client-only) and the layout-switching
+  approach in the root layout.

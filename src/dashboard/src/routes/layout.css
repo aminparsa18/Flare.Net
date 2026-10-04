@@ -179,3 +179,26 @@
 		@apply font-sans;
 	}
 }
+
+/* Settings > Appearance (src/lib/appearance/prefs.svelte.ts). Tailwind sizes are rem-based, so
+   scaling the root font size scales the whole UI. */
+html[data-font-size='small'] {
+	font-size: 14px;
+}
+html[data-font-size='large'] {
+	font-size: 18px;
+}
+html[data-density='compact'] [data-slot='table-cell'] {
+	padding-block: 0.125rem;
+}
+html[data-density='compact'] [data-slot='table-head'] {
+	height: 2rem;
+}
+html[data-reduce-motion='true'] *,
+html[data-reduce-motion='true'] *::before,
+html[data-reduce-motion='true'] *::after {
+	animation-duration: 0.01ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.01ms !important;
+	scroll-behavior: auto !important;
+}

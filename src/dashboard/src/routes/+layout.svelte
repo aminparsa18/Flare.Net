@@ -5,6 +5,8 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AppNav from '$lib/components/nav/AppNav.svelte';
+	import SideNav from '$lib/components/nav/SideNav.svelte';
+	import { appearance } from '$lib/appearance/prefs.svelte';
 	import CommandPalette from '$lib/components/nav/CommandPalette.svelte';
 	import UpdateNotice from '$lib/components/nav/UpdateNotice.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -42,6 +44,12 @@
 	// route's actual content is ever painted before the client has confirmed a session.
 	$effect(() => {
 		auth.initialize();
+	});
+
+	// Keeps <html data-density/...> in step with the stored appearance prefs (app.html's inline
+	// script already set them pre-paint; this covers changes made from Settings).
+	$effect(() => {
+		appearance.applyToDocument();
 	});
 
 	const onAuthRoute = $derived(AUTH_ROUTES.includes(stripBase(page.url.pathname)));
@@ -137,14 +145,21 @@
 	<!-- Shared across every route (Logs, Alerts, ...) - a route's own root div is
 	     responsible for its own scroll/height handling below this, same as the Logs
 	     page's `flex h-screen flex-col` already did before this nav existed. -->
-	<div class="flex h-screen flex-col">
+	<div class={appearance.navLayout === 'sidebar' && showChrome ? 'flex h-screen flex-row' : 'flex h-screen flex-col'}>
 		{#if showChrome}
-			<AppNav bind:commandPaletteOpen />
-			<UpdateNotice />
+			{#if appearance.navLayout === 'sidebar'}
+				<SideNav bind:commandPaletteOpen />
+			{:else}
+				<AppNav bind:commandPaletteOpen />
+			{/if}
 			<CommandPalette bind:open={commandPaletteOpen} />
 		{/if}
-		<div class="min-h-0 flex-1">
-			{@render children()}
+		<!-- Sidebar layout: the notice banner sits above the page, beside the sidebar. -->
+		<div class="flex min-h-0 min-w-0 flex-1 flex-col">
+			{#if showChrome}<UpdateNotice />{/if}
+			<div class="min-h-0 flex-1">
+				{@render children()}
+			</div>
 		</div>
 	</div>
 {:else if redirectError}
