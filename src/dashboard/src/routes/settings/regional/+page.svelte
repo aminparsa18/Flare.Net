@@ -7,6 +7,7 @@
 	import { regional, DEFAULT_RANGE_CHOICES } from '$lib/regional/prefs.svelte';
 	import { presetLabel } from '$lib/logs/time-range';
 	import { formatTimestamp } from '$lib/time/format';
+	import { formatNumber } from '$lib/format/number';
 	import * as m from '$lib/paraglide/messages';
 
 	// Endonyms, never translated - same convention as the user menu's language picker.
@@ -82,6 +83,23 @@
 			]}
 		/>
 		<p class="text-muted-foreground text-sm">{m.settingsRegional_sample({ sample })}</p>
+	</section>
+
+	<section class="flex flex-col gap-3">
+		<h3 class="font-medium">{m.settingsRegional_numberFormatHeading()}</h3>
+		<ChoiceGroup
+			label={m.settingsRegional_numberFormatHeading()}
+			value={regional.numberFormat}
+			onchange={(v) => regional.set('numberFormat', v)}
+			options={[
+				{ value: 'auto', label: m.settingsRegional_numberFormatAuto() },
+				{ value: 'en-US', label: '1,234,567.89' },
+				{ value: 'de-DE', label: '1.234.567,89' },
+				{ value: 'fr-FR', label: '1 234 567,89' },
+				{ value: 'de-CH', label: "1’234’567.89" }
+			]}
+		/>
+		<p class="text-muted-foreground text-sm">{m.settingsRegional_sample({ sample: formatNumber(1234567.89) })}</p>
 	</section>
 
 	<section class="flex flex-col gap-3">

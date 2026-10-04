@@ -2729,5 +2729,7 @@
 	"settingsRegional_defaultRangeNote": "Применяется при следующей загрузке страницы; сохранённые представления и ссылки сохраняют свой диапазон.",
 	"settingsRegional_explorerLogs": "Логи",
 	"settingsRegional_explorerTraces": "Трассы",
-	"settingsRegional_explorerMetrics": "Метрики"
+	"settingsRegional_explorerMetrics": "Метрики",
+	"settingsRegional_numberFormatHeading": "Формат чисел",
+	"settingsRegional_numberFormatAuto": "По умолчанию в браузере"
 }

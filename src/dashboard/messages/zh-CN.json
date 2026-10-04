@@ -2729,5 +2729,7 @@
 	"settingsRegional_defaultRangeNote": "下次加载页面时生效；已保存的视图和链接保留各自的时间范围。",
 	"settingsRegional_explorerLogs": "日志",
 	"settingsRegional_explorerTraces": "追踪",
-	"settingsRegional_explorerMetrics": "指标"
+	"settingsRegional_explorerMetrics": "指标",
+	"settingsRegional_numberFormatHeading": "数字格式",
+	"settingsRegional_numberFormatAuto": "浏览器默认"
 }

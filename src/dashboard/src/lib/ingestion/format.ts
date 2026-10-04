@@ -2,6 +2,7 @@
 // byte formatter anywhere else in the dashboard to reuse (every other page counts events,
 // never bytes).
 
+import { lazyNumberFormat } from '$lib/format/number';
 import type { IngestionProtocol, IngestionSignal } from '../ingestion-api';
 import * as m from '$lib/paraglide/messages';
 
@@ -53,7 +54,7 @@ export function signalLabel(signal: IngestionSignal | string): string {
 	}
 }
 
-const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+const compactNumber = lazyNumberFormat({ notation: 'compact', maximumFractionDigits: 1 });
 
 export function formatCount(n: number): string {
 	return compactNumber.format(n);

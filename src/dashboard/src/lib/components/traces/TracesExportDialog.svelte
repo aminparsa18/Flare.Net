@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	// Exports the Traces explorer's list as CSV or NDJSON with a chosen column subset. Same
 	// two-decision shape as logs/ExportDialog.svelte (which rows, which format) plus the
 	// columns; the pipeline lives in `$lib/traces/export.ts`.
@@ -72,7 +73,7 @@
 			}
 			downloadBlob(tracesToBlob(spans, columns, format), traceExportFilename(range, truncated, format, scope));
 			open = false;
-			if (truncated) alert(m.tracesExport_truncatedAlert({ count: spans.length.toLocaleString() }));
+			if (truncated) alert(m.tracesExport_truncatedAlert({ count: formatNumber(spans.length) }));
 		} catch (err) {
 			if (abortController?.signal.aborted) {
 				open = false;
@@ -109,7 +110,7 @@
 				<span class="text-sm font-medium">{m.exportDialog_rowsLabel()}</span>
 				<div class="flex gap-2">
 					<Button type="button" variant={scope === 'visible' ? 'default' : 'outline'} size="sm" class="flex-1" onclick={() => (scope = 'visible')}>
-						{m.exportDialog_rowsVisible({ count: explorer.traces.length.toLocaleString() })}
+						{m.exportDialog_rowsVisible({ count: formatNumber(explorer.traces.length) })}
 					</Button>
 					<Button type="button" variant={scope === 'filtered' ? 'default' : 'outline'} size="sm" class="flex-1" onclick={() => (scope = 'filtered')}>
 						{m.exportDialog_rowsFiltered()}

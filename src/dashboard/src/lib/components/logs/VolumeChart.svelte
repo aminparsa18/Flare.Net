@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { lazyNumberFormat } from '$lib/format/number';
 	import { browser } from '$app/environment';
 	import { aggregateLogs, type LogAggregateBucket } from '$lib/api';
 	import type { VolumeGroupBy } from '$lib/logs/state.svelte';
@@ -537,7 +538,7 @@
 		return formatAxisTime(iso, rangeFrom && rangeTo ? new Date(rangeTo).getTime() - new Date(rangeFrom).getTime() : 0);
 	}
 
-	const compactCount = new Intl.NumberFormat(undefined, { notation: 'compact' });
+	const compactCount = lazyNumberFormat({ notation: 'compact' });
 	function formatCount(n: number): string {
 		return compactCount.format(n);
 	}

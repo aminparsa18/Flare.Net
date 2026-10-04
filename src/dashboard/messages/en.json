@@ -2729,5 +2729,7 @@
 	"settingsRegional_defaultRangeNote": "Applies the next time the page loads; saved views and links keep their own range.",
 	"settingsRegional_explorerLogs": "Logs",
 	"settingsRegional_explorerTraces": "Traces",
-	"settingsRegional_explorerMetrics": "Metrics"
+	"settingsRegional_explorerMetrics": "Metrics",
+	"settingsRegional_numberFormatHeading": "Number format",
+	"settingsRegional_numberFormatAuto": "Browser default"
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	import { withBase } from '$lib/paths';
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
@@ -186,7 +187,7 @@
 			<Alert.Root class="mx-4 mt-3 w-auto">
 				<TriangleAlertIcon />
 				<Alert.Title>{m.tracePage_truncatedTitle()}</Alert.Title>
-				<Alert.Description>{m.tracePage_truncatedDescription({ count: detail.trace.spans.length.toLocaleString() })}
+				<Alert.Description>{m.tracePage_truncatedDescription({ count: formatNumber(detail.trace.spans.length) })}
 					{#if detail.childLoadError}<span class="text-destructive"> {detail.childLoadError}</span>{/if}
 				</Alert.Description>
 			</Alert.Root>

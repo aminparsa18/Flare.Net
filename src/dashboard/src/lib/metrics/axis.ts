@@ -1,3 +1,4 @@
+import { formatNumber, lazyNumberFormat } from '$lib/format/number';
 // Y-axis scale + tick generation for MetricChart. Two concerns live here:
 //
 //  1. Unit-aware value formatting, derived from the OTel/UCUM unit string a producer
@@ -67,23 +68,15 @@ const BYTE_SCALES: ScaleStep[] = [
 	{ perBase: 1, label: 'B' }
 ];
 
-const compactFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1, notation: 'compact' });
-const preciseFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
-const tinyFormat = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 2 });
-const scientificFormat = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 2, notation: 'scientific' });
-
-const fixedFormats = new Map<string, Intl.NumberFormat>();
+const compactFormat = lazyNumberFormat({ maximumFractionDigits: 1, notation: 'compact' });
+const preciseFormat = lazyNumberFormat({ maximumFractionDigits: 2 });
+const tinyFormat = lazyNumberFormat({ maximumSignificantDigits: 2 });
+const scientificFormat = lazyNumberFormat({ maximumSignificantDigits: 2, notation: 'scientific' });
 
 /** Per-panel `decimals` override: exactly `decimals` fraction digits, compact ("1.40k") from the thousands up. No tiny/scientific fallback - the user chose the precision. */
 function formatFixed(n: number, decimals: number): string {
 	const compact = Math.abs(n) >= 1000;
-	const key = `${compact ? 'c' : 'p'}${decimals}`;
-	let fmt = fixedFormats.get(key);
-	if (!fmt) {
-		fmt = new Intl.NumberFormat(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals, ...(compact ? { notation: 'compact' as const } : {}) });
-		fixedFormats.set(key, fmt);
-	}
-	return fmt.format(n);
+	return formatNumber(n, { minimumFractionDigits: decimals, maximumFractionDigits: decimals, ...(compact ? { notation: 'compact' as const } : {}) });
 }
 
 /** Lenient read of `DashboardPanel.decimals` - an integer 0-6, else `undefined` (auto). */

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { lazyNumberFormat } from '$lib/format/number';
 	import AnsiText from './AnsiText.svelte';
 	import { stripAnsi } from '$lib/logs/ansi';
 	// Seq-style SQL query bar: `select count(*)|* from stream [where ...] [group by
@@ -355,7 +356,7 @@
 	// maximumFractionDigits caps avg()'s fractional results (e.g. avg(SeverityNumber) ->
 	// 12.399999999999998) at 2 decimals - a no-op for plain counts, which are always
 	// whole (Intl doesn't pad trailing zeros without a matching minimumFractionDigits).
-	const compactCount = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 2 });
+	const compactCount = lazyNumberFormat({ notation: 'compact', maximumFractionDigits: 2 });
 	function formatCount(n: number): string {
 		return compactCount.format(n);
 	}

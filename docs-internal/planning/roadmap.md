@@ -127,10 +127,8 @@ folders are where "what happened and why" actually lives.
   - **Appearance & layout** (`/settings/appearance` shipped, synced per
     user, ADR-0110). Remaining: a live preview (deferred).
   - **Regional** (`/settings/regional` shipped: language, display time
-    zone, 12/24h time format, date order, first day of week, default
-    time range per explorer; synced per user). Remaining: number format -
-    the many module-scope `Intl.NumberFormat(undefined, ...)` call sites
-    need a shared locale-aware formatter first.
+    zone, 12/24h time format, date order, number format, first day of
+    week, default time range per explorer; synced per user). Complete.
   - **Explorer defaults**: default lookback, logs lines per row and
     columns, pinned attributes, facet sidebar open/closed, live-tail
     behaviour (auto-scroll, buffer size), chart bucket interval default,

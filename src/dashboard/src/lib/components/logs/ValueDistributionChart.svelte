@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { lazyNumberFormat } from '$lib/format/number';
 	// Seq calls this the per-event scatter/density chart: pick a numeric property and see
 	// its values plotted over time, color-coded by how many events land on the same
 	// (time, value) cell. Flare's logs have no first-class numeric field to default to
@@ -290,7 +291,7 @@
 		return formatAxisTime(iso, rangeFrom && rangeTo ? new Date(rangeTo).getTime() - new Date(rangeFrom).getTime() : 0);
 	}
 
-	const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+	const compactNumber = lazyNumberFormat({ notation: 'compact', maximumFractionDigits: 1 });
 
 	function formatValue(v: number): string {
 		return compactNumber.format(v);

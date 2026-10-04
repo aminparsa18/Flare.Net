@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	// The last run's per-step figures. Traces, errors and drop-off counts open the matching
 	// drill-down (FunnelTracesSheet). Labels come from TraceFunnelState.resultSteps - the
 	// steps this result was computed for - not the live editor.
@@ -28,7 +29,7 @@
 
 {#snippet drillLink(count: number, stepIndex: number, outcome: TraceFunnelOutcome, extraClass: string)}
 	{#if count > 0}
-		<button type="button" class="tabular-nums hover:underline {extraClass}" onclick={() => funnel.openDrill(stepIndex, outcome)} title={count.toLocaleString()}>
+		<button type="button" class="tabular-nums hover:underline {extraClass}" onclick={() => funnel.openDrill(stepIndex, outcome)} title={formatNumber(count)}>
 			{formatCount(count)}
 		</button>
 	{:else}
@@ -49,7 +50,7 @@
 		<p class="text-muted-foreground text-sm">{m.funnelsPage_noTraces()}</p>
 	{:else}
 		<p class="text-muted-foreground mb-2 text-sm">
-			{m.funnelsPage_summary({ entered: entered.toLocaleString(), completed: percentOf(result.steps[result.steps.length - 1].traceCount, entered) })}
+			{m.funnelsPage_summary({ entered: formatNumber(entered), completed: percentOf(result.steps[result.steps.length - 1].traceCount, entered) })}
 		</p>
 		<Table.Root class={funnel.loading ? 'opacity-60' : ''}>
 			<Table.Header>

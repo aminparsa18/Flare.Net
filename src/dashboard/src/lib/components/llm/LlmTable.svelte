@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -23,11 +24,11 @@
 	/** USD; small spends keep their cents, large ones drop them. */
 	function formatCost(usd: number): string {
 		if (usd > 0 && usd < 0.01) return '<$0.01';
-		return new Intl.NumberFormat(undefined, {
+		return formatNumber(usd, {
 			style: 'currency',
 			currency: 'USD',
 			maximumFractionDigits: usd >= 100 ? 0 : 2
-		}).format(usd);
+		});
 	}
 
 	// Same two-tier escalation as ExternalApisTable's errorRateClass.
