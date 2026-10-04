@@ -2,6 +2,7 @@
 	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
 	import TraceRow from './TraceRow.svelte';
 	import * as Empty from '$lib/components/ui/empty';
+	import CaseSuggestions from '$lib/components/CaseSuggestions.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ChevronUpIcon from '@lucide/svelte/icons/chevron-up';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -66,6 +67,9 @@
 				<Empty.Title>{m.traceList_emptyTitle()}</Empty.Title>
 				<Empty.Description>{m.traceList_emptyDescription()}</Empty.Description>
 			</Empty.Header>
+			<Empty.Content>
+				<CaseSuggestions suggestions={explorer.caseSuggestions} onApply={(s) => explorer.applyCaseSuggestion(s)} />
+			</Empty.Content>
 		</Empty.Root>
 	{:else}
 		<VirtualList

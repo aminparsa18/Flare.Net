@@ -113,14 +113,6 @@ folders are where "what happened and why" actually lives.
   ADR (rendering dependency, auth). Not started. Prior art:
   [signoz PR #10809](https://github.com/SigNoz/signoz/pull/10809) /
   [#10810](https://github.com/SigNoz/signoz/pull/10810) (open, unmerged).
-- **"Did you mean…" for empty results caused by case.** Attribute filters
-  match exactly, so `level=warn` against data that says `Warn` silently
-  returns nothing. When a log/span search returns zero rows and used
-  `Equals`/`In` attribute filters, run one cheap capped query for
-  case-insensitive matches of those values in the same window. Offer
-  one-click replacements ("No results. Did you mean `Warn` (1,204)?"). Not
-  started. Prior art:
-  [signoz PR #10077](https://github.com/SigNoz/signoz/pull/10077) (open, unmerged).
 - **Prometheus-compatible query API (subset).** Grafana and
   `prometheus-adapter` (Kubernetes HPA on custom metrics) can't use Flare as
   a data source. Add a read-only Prometheus HTTP API subset over the metric

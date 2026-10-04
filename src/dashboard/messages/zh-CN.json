@@ -2627,5 +2627,6 @@
 	"alertTransfer_close": "关闭",
 	"alertTransfer_outcomeCreate": "创建",
 	"alertTransfer_outcomeSkip": "跳过",
-	"alertTransfer_outcomeError": "错误"
+	"alertTransfer_outcomeError": "错误",
+	"caseSuggestions_title": "您是不是想找："
 }
