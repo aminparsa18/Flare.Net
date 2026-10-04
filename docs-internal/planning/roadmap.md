@@ -123,13 +123,6 @@ folders are where "what happened and why" actually lives.
   PATs. Unsupported PromQL returns a clear error rather than a partial
   answer. Full PromQL is out of scope. Needs an ADR. Not started. Prior art:
   [signoz PR #11555](https://github.com/SigNoz/signoz/pull/11555) (open, unmerged).
-- **"Around a time" in the time picker.** Incident work starts from one
-  timestamp (an alert, a log line, a span), but the picker offers only
-  presets and absolute ranges. Add an "Around" mode: paste or pick a time
-  (display time zone) and a ± window (1m/5m/15m/1h) that sets the absolute
-  range. Also add a "Show ±5m around this" action on log rows and spans.
-  Not started. Prior art:
-  [signoz PR #12579](https://github.com/SigNoz/signoz/pull/12579) (open, unmerged).
 - **Repeat a panel per variable value.** No way to get "one latency panel per
   selected service" without duplicating panels by hand. Add a panel option
   "repeat for variable X" (multi-value variables, ADR-0058) that renders one

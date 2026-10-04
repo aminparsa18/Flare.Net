@@ -15,6 +15,9 @@
 		formatCustomRangeLabel,
 		type TimeRangePreset
 	} from '$lib/logs/time-range';
+	import { Input } from '$lib/components/ui/input';
+	import { AROUND_WINDOWS_MS, AROUND_DEFAULT_MS, aroundRange, parseAroundTime } from '$lib/time/around';
+	import { instantToZoned } from '$lib/time/time-zone';
 	import { loadRecentRanges, pushRecentRange, type RecentRange } from '$lib/logs/recent-custom-ranges';
 	import * as m from '$lib/paraglide/messages';
 
@@ -32,6 +35,10 @@
 
 	let open = $state(false);
 	let showCustom = $state(false);
+	let showAround = $state(false);
+	let aroundText = $state('');
+	let aroundHalfMs = $state<number>(AROUND_DEFAULT_MS);
+	const aroundTime = $derived(parseAroundTime(aroundText, displayTimeZone.resolved));
 	let recentRanges = $state<RecentRange[]>(loadRecentRanges());
 	let calendarValue = $state<{ start: DateValue | undefined; end: DateValue | undefined }>({
 		start: undefined,
@@ -56,6 +63,21 @@
 		showCustom = false;
 	}
 
+	function openAround() {
+		aroundText = instantToZoned(new Date(), displayTimeZone.resolved).replace('T', ' ');
+		showAround = true;
+	}
+
+	function applyAround() {
+		if (!aroundTime) return;
+		applyRange(aroundRange(aroundTime, aroundHalfMs));
+		showAround = false;
+	}
+
+	function windowLabel(ms: number): string {
+		return ms >= 3_600_000 ? `±${ms / 3_600_000}h` : `±${ms / 60_000}m`;
+	}
+
 	function applyCustomRange() {
 		if (!calendarValue.start || !calendarValue.end) return;
 		// Picked calendar days are days in the display time zone, same as every timestamp shown.
@@ -68,6 +90,7 @@
 		recentRanges = pushRecentRange(range);
 		open = false;
 		showCustom = false;
+		showAround = false;
 	}
 
 	// 'all time' has no fixed duration to pan by, and an unresolved 'custom' (no dates
@@ -107,13 +130,52 @@
 				{/snippet}
 			</Popover.Trigger>
 			<Popover.Content class="w-auto p-2" align="start">
-				{#if !showCustom}
+				{#if showAround}
+					<div class="flex w-72 flex-col gap-2 p-1">
+						<label class="text-muted-foreground text-xs" for="around-time">
+							{m.timeRangePicker_aroundTime({ zone: displayTimeZone.resolved })}
+						</label>
+						<div class="flex gap-1">
+							<Input
+								id="around-time"
+								bind:value={aroundText}
+								placeholder={m.timeRangePicker_aroundPlaceholder()}
+								aria-invalid={aroundText.trim() !== '' && !aroundTime}
+								onkeydown={(e) => e.key === 'Enter' && applyAround()}
+							/>
+							<Button variant="outline" size="sm" onclick={openAround}>{m.timeRangePicker_aroundNow()}</Button>
+						</div>
+						{#if aroundText.trim() !== '' && !aroundTime}
+							<span class="text-destructive text-xs">{m.timeRangePicker_aroundInvalid()}</span>
+						{/if}
+						<span class="text-muted-foreground text-xs">{m.timeRangePicker_aroundWindow()}</span>
+						<div class="flex gap-1">
+							{#each AROUND_WINDOWS_MS as ms (ms)}
+								<Button
+									variant={aroundHalfMs === ms ? 'default' : 'outline'}
+									size="sm"
+									class="flex-1"
+									onclick={() => (aroundHalfMs = ms)}
+								>
+									{windowLabel(ms)}
+								</Button>
+							{/each}
+						</div>
+						<div class="flex justify-end gap-2">
+							<Button variant="ghost" size="sm" onclick={() => (showAround = false)}>{m.timeRangePicker_back()}</Button>
+							<Button size="sm" disabled={!aroundTime} onclick={applyAround}>{m.timeRangePicker_apply()}</Button>
+						</div>
+					</div>
+				{:else if !showCustom}
 					<div class="flex flex-col gap-1">
 						{#each presets as preset (preset)}
 							<Button variant="ghost" size="sm" class="justify-start" onclick={() => selectPreset(preset)}>
 								{presetLabel(preset)}
 							</Button>
 						{/each}
+						<Button variant="ghost" size="sm" class="justify-start" onclick={openAround}>
+							{m.timeRangePicker_around()}
+						</Button>
 					</div>
 						{#if recentRanges.length > 0}
 							<div class="mt-1 flex flex-col gap-1 border-t pt-1">

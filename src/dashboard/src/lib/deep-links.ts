@@ -302,6 +302,17 @@ export function buildServiceVersionErrorsHref(service: string, version: string, 
  * query for the same reason as `buildTracesAttributeFilterHref` (the span may be a child).
  * The range reaches back to the span, like that builder's.
  */
+/** `/traces?state=` over `centerMs` ± `halfMs` - the span detail sheet's "around this" action. */
+export function buildTracesAroundHref(centerMs: number, halfMs: number): string {
+	const state: TracesSavedViewState = {
+		timeRangePreset: 'custom',
+		customRange: { from: new Date(centerMs - halfMs).toISOString(), to: new Date(centerMs + halfMs).toISOString() },
+		services: [],
+		attributeFilters: []
+	};
+	return withBase(`/traces?state=${encodeStateDeepLinkParam(state)}`);
+}
+
 export function buildSpanNameTracesHref(span: { serviceName: string; name: string; startTime: string }): string {
 	const ageMs = Date.now() - new Date(span.startTime).getTime();
 	const fixed = TIME_RANGE_PRESETS.filter((p) => p.durationMs != null);
