@@ -360,7 +360,7 @@ export const NOTIFICATION_TEMPLATE_PLACEHOLDERS = [
 	'rule_name', 'rule_id', 'description', 'severity', 'status', 'condition_kind',
 	'value', 'threshold', 'comparator', 'window', 'window_seconds',
 	'metric', 'exception_type', 'baseline_mean', 'z_score',
-	'fired_at', 'rule_url', 'logs_url', 'data_url', 'message'
+	'fired_at', 'rule_url', 'logs_url', 'data_url', 'log_samples', 'message'
 ] as const;
 
 function toAlertThreshold(dto: GeneratedAlertThreshold): AlertThreshold {

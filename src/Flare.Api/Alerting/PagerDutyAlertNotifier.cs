@@ -38,7 +38,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
     /// <summary>The Events API v2 <c>dedup_key</c> a rule's triggers and its resolve share - see this class's remarks.</summary>
     public static string DedupKey(AlertRule rule) => $"flare-alert-{rule.Id:N}";
 
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null)
     {
         if (resolved && !isTest)
         {
@@ -63,7 +63,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         // A burn-rate rule's observed value is a rate (e.g. 14.4), not a count - same non-count handling as a metric.
         var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold || rule.ConditionKind == AlertConditionKind.SloBurnRate;
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false, logSamples: logSamples);
         var payload = new
         {
             routing_key = channel.PagerDutyRoutingKey,

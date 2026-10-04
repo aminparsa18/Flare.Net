@@ -104,14 +104,6 @@ folders are where "what happened and why" actually lives.
   stabilizes, store per-service profiles, and link spans to flame graphs of
   what the code was doing during that span. Placeholder for when the spec
   and .NET support settle. Not started.
-- **Recent log lines in LogCount alert notifications.** Notifications carry
-  the count and a "Matching logs" link but none of the lines themselves.
-  When a LogCount rule fires, fetch the newest ~5 matching events (same
-  filter and window as the evaluation, best-effort, so a failure never blocks
-  the notification), each truncated to ~500 chars. Expose them as a
-  `{{log_samples}}` template value (ADR-0052) and in the default message.
-  Skip for no-data alerts. Not started. Prior art:
-  [signoz PR #11537](https://github.com/SigNoz/signoz/pull/11537) (open, unmerged).
 - **Scheduled dashboard reports.** There's no way to email a dashboard on a
   schedule (weekly SLO/latency report to a team). Add per-dashboard
   schedules (cron, recipients, relative time range, variable values), a

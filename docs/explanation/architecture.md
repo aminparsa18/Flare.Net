@@ -295,6 +295,7 @@ A metric rule's threshold can be typed in a different unit than the metric's
 comparison (see [ADR-0080](../../docs-internal/adr/0080-alert-threshold-unit.md)).
 A rule can also override its notification title/body with a template
 using placeholders such as `{{value}}`, `{{threshold}}`, `{{logs_url}}`,
+`{{log_samples}}` (the newest matching log lines of a log-count alert),
 or `{{labels.service.name}}`, previewed live in the rule form.
 With a public URL configured, each notification links to the data that
 fired: the matching logs, the metric's chart, or the matching exceptions,

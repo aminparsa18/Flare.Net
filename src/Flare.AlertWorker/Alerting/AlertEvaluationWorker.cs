@@ -408,13 +408,37 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly);
+        var logSamples = await TryGetLogSamplesAsync(rule, from, now, noData, cancellationToken);
+        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly, logSamples: logSamples);
         var firedEntry = WithNotificationOutcome(BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly), rule, ruleChannels, results, "fired");
         await alerts.InsertEventAsync(firedEntry, cancellationToken);
 
         // After the plain notification and history row are out (ADR-0104): the optional AI summary
         // runs on its own bounded background task and can never delay or lose the alert.
         incidentSummaries.Enqueue(rule, firedEntry, ruleChannels, metricUnit, anomaly);
+    }
+
+    /// <summary>
+    /// The newest few events behind a <see cref="AlertConditionKind.LogCount"/> fire, for the
+    /// <c>{{log_samples}}</c> placeholder (ADR-0052). Best-effort: any failure is logged and
+    /// yields null, so a slow or broken sample query never blocks the notification.
+    /// </summary>
+    private async Task<string?> TryGetLogSamplesAsync(AlertRule rule, DateTimeOffset from, DateTimeOffset now, bool noData, CancellationToken cancellationToken)
+    {
+        if (noData || rule.ConditionKind != AlertConditionKind.LogCount)
+        {
+            return null;
+        }
+
+        try
+        {
+            return AlertLogSamples.Join(await alerts.GetSampleLogsAsync(rule.Condition, from, now, AlertLogSamples.Count, cancellationToken));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not fetch sample log lines for alert rule {RuleId} ({RuleName}); notifying without them.", rule.Id, rule.Name);
+            return null;
+        }
     }
 
     /// <summary>

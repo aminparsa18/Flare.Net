@@ -27,6 +27,34 @@ public class AlertMessageFormatterTests
     };
 
     [Fact]
+    public void BuildText_appends_log_samples_for_a_real_fire_only()
+    {
+        const string samples = "10:00:01 Error api: boom";
+        Assert.Contains("Recent logs:\n" + samples, AlertMessageFormatter.BuildText(MakeRule(), 12, logSamples: samples));
+        Assert.DoesNotContain("Recent logs", AlertMessageFormatter.BuildText(MakeRule(), 12, isTest: true, logSamples: samples));
+        Assert.DoesNotContain("Recent logs", AlertMessageFormatter.BuildText(MakeRule(), 12, noData: true, logSamples: samples));
+        Assert.DoesNotContain("Recent logs", AlertMessageFormatter.BuildText(MakeRule(), 12, resolved: true, logSamples: samples));
+    }
+
+    [Fact]
+    public void BuildMessage_renders_log_samples_placeholder()
+    {
+        var rule = MakeRule() with { NotificationBodyTemplate = "{{value}} errors:\n{{log_samples}}" };
+        var message = AlertMessageFormatter.BuildMessage(rule, 3, isTest: false, publicUrl: null, metricUnit: null, DateTimeOffset.UnixEpoch, noData: false, anomaly: null, logSamples: "line one\nline two");
+        Assert.Equal("3 errors:\nline one\nline two", message.Text);
+    }
+
+    [Fact]
+    public void FormatLine_flattens_and_truncates_the_body()
+    {
+        var line = AlertLogSamples.FormatLine(new DateTime(2026, 1, 1, 10, 0, 1), "Error", "api", "a\r\nb\n" + new string('x', 600));
+        Assert.StartsWith("10:00:01 Error api: a b xxx", line);
+        Assert.EndsWith("...", line);
+        Assert.DoesNotContain('\n', line);
+        Assert.Equal("10:00:01 Error api: ".Length + AlertLogSamples.MaxBodyChars + 3, line.Length);
+    }
+
+    [Fact]
     public void BuildText_CriticalSeverity_IsUnlabeled()
     {
         Assert.StartsWith(":rotating_light: Alert", AlertMessageFormatter.BuildText(MakeRule(), 12));

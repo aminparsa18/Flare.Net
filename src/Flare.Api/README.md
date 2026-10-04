@@ -417,6 +417,17 @@ the webhook's `dataUrl`, PagerDuty's `links` entry and `custom_details.dataUrl`,
 for existing consumers. The payload is standard base64, percent-escaped, not
 base64url: base64url's `_` breaks Telegram's `parse_mode: Markdown`.
 
+## Recent log lines in LogCount notifications
+
+When a `LogCount` rule fires, `AlertEvaluationWorker` fetches the newest 5 events matching the
+rule's filter over the evaluated window (`IAlertQueryService.GetSampleLogsAsync`), one line each
+(`HH:mm:ss severity service: body`, body flattened to one line and cut at 500 chars). They
+appear as a `Recent logs:` block in the built-in text and as the `{{log_samples}}` template
+placeholder (ADR-0052). The fetch is best-effort - a failure is logged and the notification
+goes out without them. It's skipped for no-data, resolved and test sends, for every other
+condition kind, and for PagerDuty/Teams' built-in summaries (which never carried body lines;
+their templates can still use the placeholder).
+
 ## A known, inherited trade-off
 
 `logs`' `ORDER BY (ServiceName, SeverityNumber, Timestamp, TraceId)` favors "browse one
