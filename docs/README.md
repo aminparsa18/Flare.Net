@@ -46,6 +46,7 @@ the full rule set on what goes where.
 - [Find N+1 queries](how-to/find-n-plus-one-queries.md)
 - [Find traces by how their spans relate](how-to/find-traces-by-structure.md)
 - [Link exception stack traces to your source code](how-to/link-exceptions-to-source-code.md)
+- [Get an AI summary of a fired alert](how-to/summarize-alerts-with-ai.md)
 - [Tell whether a span was slow for what it is](how-to/compare-span-duration.md)
 - [Find high-cardinality metrics](how-to/find-high-cardinality-metrics.md)
 - [Reduce a metric's attributes at ingest](how-to/reduce-metric-attributes.md)

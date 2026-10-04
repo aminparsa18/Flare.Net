@@ -46,6 +46,7 @@
 - [查找 N+1 查询](how-to/find-n-plus-one-queries.zh-CN.md)
 - [按 span 之间的关系查找追踪](how-to/find-traces-by-structure.zh-CN.md)
 - [将异常堆栈跟踪链接到源代码](how-to/link-exceptions-to-source-code.zh-CN.md)
+- [获取已触发告警的 AI 摘要](how-to/summarize-alerts-with-ai.zh-CN.md)
 - [判断 span 相对同类是否偏慢](how-to/compare-span-duration.zh-CN.md)
 - [找出高基数指标](how-to/find-high-cardinality-metrics.zh-CN.md)
 - [在摄取时精简指标的属性](how-to/reduce-metric-attributes.zh-CN.md)

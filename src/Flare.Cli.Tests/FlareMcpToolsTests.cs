@@ -117,4 +117,19 @@ public class FlareMcpToolsTests
         Assert.Contains("No 'POST /checkout' trace", text);
         Assert.DoesNotContain("trace=other", text);
     }
+
+    [Fact]
+    public async Task ListFiringAlerts_IncludesAiSummaryWhenPresent()
+    {
+        var handler = new StubHandler(req => req.RequestUri!.AbsolutePath switch
+        {
+            "/api/alerts" => Json("""{"rules":[{"id":"1456d212-b231-48cf-b0a0-593d09f8739f","name":"Checkout errors","enabled":true,"threshold":{"count":5,"comparator":"GreaterThanOrEqual"},"windowSeconds":300}]}"""),
+            _ => Json("""{"events":[{"firedAt":"2026-10-04T01:33:10+00:00","observedCount":8,"thresholdCount":5,"windowSeconds":300,"notificationStatus":"Sent","resolved":false,"suppressedByWindow":"","aiSummary":"Payments failing.\nCheck provider.","aiModel":"m1"}]}"""),
+        });
+
+        var text = await Tools(handler).ListFiringAlerts();
+
+        Assert.Contains("Checkout errors: fired", text);
+        Assert.Contains("AI summary (m1): Payments failing. Check provider.", text);
+    }
 }

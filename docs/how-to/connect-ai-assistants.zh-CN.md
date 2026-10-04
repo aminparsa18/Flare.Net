@@ -48,7 +48,7 @@ claude mcp add flare -- flare mcp
 | `list_metrics` | 有哪些指标（名称、类型、单位、服务）。 |
 | `query_metric` | 按序列汇总一个指标：首个/最后/最小/平均/最大值，直方图则给出百分位数。 |
 | `list_exceptions` | 排名靠前的异常分组，含次数和受影响的服务。 |
-| `list_firing_alerts` | 当前正在触发的告警规则。 |
+| `list_firing_alerts` | 当前正在触发的告警规则；若已[启用](summarize-alerts-with-ai.zh-CN.md)，附带 AI 事件摘要。 |
 | `list_runs` | 某服务上次启动的时间，以及更早的启动。 |
 | `diff_traces` | 比较两条追踪：新增/移除的跨度、耗时和错误的变化。 |
 | `compare_runs` | 同一端点在服务上一次运行与最近一次运行中的差异。 |

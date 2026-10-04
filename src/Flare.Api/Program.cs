@@ -357,10 +357,11 @@ builder.Services.AddSingleton<Flare.Api.Source.ISourceSnippetService, Flare.Api.
 // cut off and re-send a slow, non-idempotent LLM call, so it's removed; the service owns the timeout.
 builder.Services.Configure<Flare.Api.Ai.AiOptions>(builder.Configuration.GetSection(Flare.Api.Ai.AiOptions.SectionName));
 #pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is marked experimental
-builder.Services.AddHttpClient(Flare.Api.Ai.ExceptionExplainService.HttpClientName)
+builder.Services.AddHttpClient(Flare.Api.Ai.OpenAiCompatibleLlmClient.HttpClientName)
     .RemoveAllResilienceHandlers()
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 #pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<Flare.Api.Ai.ILlmClient, Flare.Api.Ai.OpenAiCompatibleLlmClient>();
 builder.Services.AddSingleton<Flare.Api.Ai.IExceptionExplainService, Flare.Api.Ai.ExceptionExplainService>();
 builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");

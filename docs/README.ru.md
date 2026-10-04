@@ -46,6 +46,7 @@
 - [Как найти N+1 запросы](how-to/find-n-plus-one-queries.ru.md)
 - [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
 - [Связать трассировки стека исключений с исходным кодом](how-to/link-exceptions-to-source-code.ru.md)
+- [Получение сводки ИИ по сработавшему оповещению](how-to/summarize-alerts-with-ai.ru.md)
 - [Как понять, был ли спан медленным для своего типа](how-to/compare-span-duration.ru.md)
 - [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)
 - [Как сократить атрибуты метрики при приёме](how-to/reduce-metric-attributes.ru.md)

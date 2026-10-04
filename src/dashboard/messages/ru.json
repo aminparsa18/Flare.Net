@@ -2259,6 +2259,7 @@
 	"alertRuleTable_noMatches": "Нет правил, подходящих под фильтры.",
 	"alertRuleTable_clearFilters": "Сбросить фильтры",
 	"alertHistory_suppressedBy": "Не отправлено - подавлено окном обслуживания \"{window}\".",
+	"alertHistory_aiSummary": "Сводка ИИ ({model})",
 	"notificationChannelForm_sendResolvedLabel": "Отправлять уведомления о восстановлении",
 	"notificationChannelForm_sendResolvedHint": "Когда сработавшее правило возвращается в норму, отправлять через этот канал сообщение «Resolved». Для PagerDuty инцидент закрывается автоматически.",
 	"alertHistory_resolvedBadge": "Восстановлено",

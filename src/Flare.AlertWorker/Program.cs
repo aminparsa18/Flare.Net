@@ -1,3 +1,4 @@
+using Flare.Api.Ai;
 using Flare.Api.Alerting;
 using Flare.Api.Query;
 using Flare.AlertWorker.Alerting;
@@ -54,6 +55,19 @@ builder.Services.AddSingleton<EmailAlertNotifier>();
 // IAlertNotifier interface - same registration shape as Flare.Api's own Program.cs.
 builder.Services.AddSingleton<CompositeAlertNotifier>();
 builder.Services.AddSingleton<IAlertNotifier>(sp => sp.GetRequiredService<CompositeAlertNotifier>());
+
+// AI incident summaries (ADR-0104): opt-in via Ai__Enabled + Ai__IncidentSummaries, same Ai section
+// Flare.Api binds. Its HttpClient drops the resilience handler (10s attempt timeout, retries) - the
+// LLM client owns the timeout and a model call must not be re-sent.
+builder.Services.Configure<AiOptions>(builder.Configuration.GetSection(AiOptions.SectionName));
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is marked experimental
+builder.Services.AddHttpClient(OpenAiCompatibleLlmClient.HttpClientName)
+    .RemoveAllResilienceHandlers()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+#pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<ILlmClient, OpenAiCompatibleLlmClient>();
+builder.Services.AddSingleton<IAlertEvidenceQueryService, AlertEvidenceQueryService>();
+builder.Services.AddSingleton<IIncidentSummaryService, IncidentSummaryService>();
 
 builder.Services.AddHostedService<AlertEvaluationWorker>();
 

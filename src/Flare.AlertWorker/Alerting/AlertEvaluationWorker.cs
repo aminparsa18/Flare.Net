@@ -66,6 +66,7 @@ public sealed class AlertEvaluationWorker(
     INotificationChannelQueryService channels,
     IMaintenanceWindowQueryService maintenanceWindows,
     CompositeAlertNotifier notifier,
+    IIncidentSummaryService incidentSummaries,
     IConnectionMultiplexer redis,
     IOptions<AlertingOptions> options,
     TimeProvider timeProvider,
@@ -394,9 +395,12 @@ public sealed class AlertEvaluationWorker(
         }
 
         var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly);
-        await alerts.InsertEventAsync(
-            WithNotificationOutcome(BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly), rule, ruleChannels, results, "fired"),
-            cancellationToken);
+        var firedEntry = WithNotificationOutcome(BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly), rule, ruleChannels, results, "fired");
+        await alerts.InsertEventAsync(firedEntry, cancellationToken);
+
+        // After the plain notification and history row are out (ADR-0104): the optional AI summary
+        // runs on its own bounded background task and can never delay or lose the alert.
+        incidentSummaries.Enqueue(rule, firedEntry, ruleChannels, metricUnit, anomaly);
     }
 
     /// <summary>

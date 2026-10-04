@@ -21,7 +21,23 @@ public sealed record ExceptionCountConditionSql(string Sql, ClickHouseParameterC
 /// </summary>
 public static class ExceptionCountConditionQueryBuilder
 {
-    public static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to)
+    public static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to) =>
+        Build(condition, from, to, "count()", "");
+
+    /// <summary>
+    /// The matching occurrences grouped by (type, message), most frequent first - the incident
+    /// summary's view of the same condition <see cref="Build(ExceptionCountCondition, DateTimeOffset, DateTimeOffset)"/> counts.
+    /// Columns: type, message, count, service, a sample trace id (or "").
+    /// </summary>
+    public static ExceptionCountConditionSql BuildTopGroups(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, int limit) =>
+        Build(
+            condition,
+            from,
+            to,
+            "EventAttributes['exception.type'] AS ExType, EventAttributes['exception.message'] AS ExMessage, count() AS Occurrences, any(ServiceName), anyIf(TraceId, TraceId != '')",
+            $"\nGROUP BY ExType, ExMessage ORDER BY Occurrences DESC LIMIT {Math.Clamp(limit, 1, 50)}");
+
+    private static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, string select, string suffix)
     {
         // Same System.Text.Json init-only-property caveat MetricAlertConditionQueryBuilder
         // guards against - condition.Filter's `= new()` default doesn't survive
@@ -40,9 +56,9 @@ public static class ExceptionCountConditionQueryBuilder
             clauses += " AND EventAttributes['exception.message'] = {exceptionMessage:String}";
         }
 
-        var sql = "SELECT count() FROM spans\n" +
+        var sql = $"SELECT {select} FROM spans\n" +
             "ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
-            $"WHERE {clauses}";
+            $"WHERE {clauses}{suffix}";
 
         return new ExceptionCountConditionSql(sql, filterSql.Parameters);
     }

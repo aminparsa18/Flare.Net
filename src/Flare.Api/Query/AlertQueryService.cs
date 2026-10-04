@@ -88,6 +88,12 @@ public interface IAlertQueryService
     Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<AlertHistoryEntry>> GetHistoryAsync(Guid ruleId, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records the AI incident summary for a fired event, with the exact redacted prompt that was
+    /// sent to the model - see <c>docs-internal/adr/0104-ai-incident-summary.md</c>.
+    /// </summary>
+    Task InsertEventSummaryAsync(Guid eventId, Guid ruleId, string model, string summary, string prompt, DateTimeOffset createdAt, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -504,6 +510,58 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
     }
 
+    public async Task InsertEventSummaryAsync(Guid eventId, Guid ruleId, string model, string summary, string prompt, DateTimeOffset createdAt, CancellationToken cancellationToken)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("eventId", eventId);
+        parameters.AddParameter("ruleId", ruleId);
+        parameters.AddParameter("createdAt", createdAt.UtcDateTime);
+        parameters.AddParameter("model", model);
+        parameters.AddParameter("summary", summary);
+        parameters.AddParameter("prompt", prompt);
+
+        const string sql = """
+            INSERT INTO alert_event_summaries (EventId, RuleId, CreatedAt, Model, Summary, Prompt)
+            VALUES ({eventId:UUID}, {ruleId:UUID}, {createdAt:DateTime64(3)}, {model:String}, {summary:String}, {prompt:String})
+            """;
+
+        await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
+    }
+
+    /// <summary>Summaries for <paramref name="eventIds"/> of one rule, keyed by event id. A missing table (migration not applied yet) reads as none.</summary>
+    private async Task<Dictionary<Guid, (string Summary, string Model)>> GetSummariesAsync(Guid ruleId, IReadOnlyList<Guid> eventIds, CancellationToken cancellationToken)
+    {
+        var summaries = new Dictionary<Guid, (string, string)>();
+        if (eventIds.Count == 0)
+        {
+            return summaries;
+        }
+
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("ruleId", ruleId);
+        parameters.AddParameter("eventIds", eventIds.ToArray());
+        const string sql = """
+            SELECT EventId, Summary, Model
+            FROM alert_event_summaries
+            WHERE RuleId = {ruleId:UUID} AND EventId IN {eventIds:Array(UUID)}
+            """;
+
+        try
+        {
+            await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
+            while (reader.Read())
+            {
+                summaries[reader.GetGuid(0)] = (reader.GetString(1), reader.GetString(2));
+            }
+        }
+        catch (ClickHouseServerException)
+        {
+            // An instance that hasn't run migration 0048 yet: history still works, without summaries.
+        }
+
+        return summaries;
+    }
+
     public async Task<IReadOnlyList<AlertHistoryEntry>> GetHistoryAsync(Guid ruleId, int limit, CancellationToken cancellationToken)
     {
         var parameters = new ClickHouseParameterCollection();
@@ -547,7 +605,10 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             });
         }
 
-        return events;
+        var summaries = await GetSummariesAsync(ruleId, events.Select(e => e.EventId).ToList(), cancellationToken);
+        return summaries.Count == 0
+            ? events
+            : events.Select(e => summaries.TryGetValue(e.EventId, out var s) ? e with { AiSummary = s.Summary, AiModel = s.Model } : e).ToList();
     }
 
     private async Task InsertRuleVersionAsync(AlertRule rule, bool isDeleted, CancellationToken cancellationToken)
