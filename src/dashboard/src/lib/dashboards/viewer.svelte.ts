@@ -28,7 +28,7 @@ import { getHomeDashboardId, setHomeDashboardId, clearHomeDashboardIdIfMatching 
 import { nextPanelPosition, panelsInRow } from './layout';
 import { slugify } from './state.svelte';
 import { downloadBlob } from '$lib/logs/export';
-import { defaultSelection, resolveQueryVariableOptions, type VariableDependency } from './variables';
+import { applyValueRegex, defaultSelection, resolveQueryVariableOptions, type VariableDependency } from './variables';
 import type { PanelThreshold, ThresholdColor } from './thresholds';
 import type { LegendPosition } from './legend';
 import { parseStacking, parseVisualization, type PanelReducer, type PanelStacking, type PanelVisualization } from './visualization';
@@ -185,11 +185,11 @@ export class DashboardViewerState {
 				return [];
 			}
 			if (variable.sourceKind === 'Custom') {
-				const options = variable.customValues ?? [];
+				const options = applyValueRegex(variable, variable.customValues ?? []);
 				resolved.set(variable.id, options);
 				return options;
 			}
-			const options = await resolveQueryVariableOptions(variable, await this.#resolveDependency(variable, byId, resolveOne, resolvingIds));
+			const options = applyValueRegex(variable, await resolveQueryVariableOptions(variable, await this.#resolveDependency(variable, byId, resolveOne, resolvingIds)));
 			resolved.set(variable.id, options);
 			return options;
 		};
@@ -249,7 +249,7 @@ export class DashboardViewerState {
 		const dependency: VariableDependency | undefined = parent && parentValues?.length ? { variable: parent, values: parentValues } : undefined;
 		const dependents = this.variables.filter((v) => v.dependsOnVariableId === changedId && v.sourceKind === 'Query');
 		for (const dependent of dependents) {
-			const options = await resolveQueryVariableOptions(dependent, dependency);
+			const options = applyValueRegex(dependent, await resolveQueryVariableOptions(dependent, dependency));
 			this.variableOptions = { ...this.variableOptions, [dependent.id]: options };
 			const current = this.variableValues[dependent.id] ?? [];
 			const kept = current.filter((v) => options.includes(v));

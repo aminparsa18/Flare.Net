@@ -243,6 +243,15 @@ export interface DashboardVariable {
 	 * parent's own selected value changes.
 	 */
 	dependsOnVariableId?: string | null;
+	/**
+	 * Optional regular expression applied to this variable's resolved option list (`Query` or
+	 * `Custom`): only values matching it are offered, e.g. `^prod-` for "only prod namespaces".
+	 * If it has a capture group, the first group's text becomes the option's *displayed* label
+	 * (`^prod-(.*)$` shows `prod-api` as `api`); the selected value stays the raw one, so panel
+	 * filters still match real data. An invalid pattern is ignored (no filtering). Applied
+	 * client-side - see `applyValueRegex`/`variableOptionLabel` in `$lib/dashboards/variables.ts`.
+	 */
+	valueRegex?: string | null;
 }
 
 /** The parsed shape of a `Dashboard`'s opaque `layoutJson` blob. */

@@ -11,6 +11,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import type { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
 	import type { DashboardAttributeBag, DashboardVariable, DashboardVariableSourceKind, DashboardVariableTarget } from '$lib/dashboards-api';
+	import { compileValueRegex } from '$lib/dashboards/variables';
 	import * as m from '$lib/paraglide/messages';
 
 	let { viewer }: { viewer: DashboardViewerState } = $props();
@@ -35,6 +36,7 @@
 	/** One value, or (when `multi`) a comma-separated list - see `splitList`. */
 	let defaultValue = $state('');
 	let multi = $state(false);
+	let valueRegex = $state('');
 	/** `NONE` means "independent" (no `dependsOnVariableId`) - see the field's own remarks on `DashboardVariable`. Only meaningful (and only shown) for a `Query`-sourced variable. */
 	let dependsOnVariableId = $state(NONE);
 
@@ -73,6 +75,7 @@
 			customValuesDraft = '';
 			defaultValue = '';
 			multi = false;
+			valueRegex = '';
 			dependsOnVariableId = NONE;
 		} else if (t) {
 			name = t.name;
@@ -83,6 +86,7 @@
 			sourceKind = t.sourceKind;
 			customValuesDraft = (t.customValues ?? []).join(', ');
 			multi = t.multi ?? false;
+			valueRegex = t.valueRegex ?? '';
 			defaultValue = multi ? (t.defaultValues ?? []).join(', ') : (t.defaultValue ?? '');
 			dependsOnVariableId = t.dependsOnVariableId ?? NONE;
 		}
@@ -98,7 +102,9 @@
 	/** A Textbox variable is always single-valued - the `multi` checkbox is hidden for it, and a stale `multi` from before switching Values is ignored. */
 	const isMulti = $derived(multi && sourceKind !== 'Textbox');
 
-	const canSubmit = $derived(name.trim() !== '' && (target !== 'Attribute' || attributeKey.trim() !== ''));
+	const regexInvalid = $derived(valueRegex.trim() !== '' && compileValueRegex(valueRegex) === null);
+
+	const canSubmit = $derived(name.trim() !== '' && !regexInvalid && (target !== 'Attribute' || attributeKey.trim() !== ''));
 
 	function splitList(draft: string): string[] {
 		return draft
@@ -124,6 +130,7 @@
 			attributeKey: target === 'Attribute' ? attributeKey.trim() : undefined,
 			sourceKind,
 			customValues: sourceKind === 'Custom' ? splitList(customValuesDraft) : undefined,
+			valueRegex: sourceKind !== 'Textbox' && valueRegex.trim() ? valueRegex.trim() : undefined,
 			multi: isMulti || undefined,
 			defaultValue: isMulti ? null : defaultValue.trim() || null,
 			defaultValues: isMulti ? [...new Set(splitList(defaultValue))] : undefined,
@@ -230,6 +237,16 @@
 						</Select.Content>
 					</Select.Root>
 					<p class="text-muted-foreground text-xs">{m.variableForm_dependsOnHint()}</p>
+				</div>
+			{/if}
+
+			{#if sourceKind !== 'Textbox'}
+				<div class="space-y-2">
+					<label for="variable-form-regex" class="text-sm font-medium">{m.variableForm_regexLabel()}</label>
+					<Input id="variable-form-regex" bind:value={valueRegex} placeholder="^prod-(.*)$" class="font-mono" aria-invalid={regexInvalid} />
+					<p class={regexInvalid ? 'text-destructive text-xs' : 'text-muted-foreground text-xs'}>
+						{regexInvalid ? m.variableForm_regexInvalid() : m.variableForm_regexHint()}
+					</p>
 				</div>
 			{/if}
 

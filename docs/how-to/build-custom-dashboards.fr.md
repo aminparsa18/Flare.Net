@@ -507,6 +507,18 @@ un raccourci **Uniquement** qui ne sélectionne que celle-ci. L'en-tête
 affiche la première valeur sélectionnée suivie du nombre d'autres valeurs
 sélectionnées (par exemple, `Service: checkout +2`).
 
+### Filtrer les valeurs d'une variable avec une regex
+
+Une variable « Depuis une requête » ou « Liste personnalisée » a un champ
+facultatif **Filtrer les valeurs (regex)**. Seules les valeurs qui
+correspondent à l'expression sont proposées (et « Tout » ne couvre qu'elles),
+par ex. `^prod-` pour « uniquement les espaces de noms `prod-*` ». Si
+l'expression contient un groupe de capture, son texte devient le libellé
+*affiché* : `^prod-(.*)$` ne propose que les valeurs `prod-` et affiche
+`prod-api` comme `api`. La valeur sélectionnée reste l'originale, donc les
+filtres des panneaux continuent de correspondre aux données réelles. Une
+expression invalide est refusée dans le formulaire.
+
 ### Chaînage de variables
 
 Une variable « Depuis une requête » peut optionnellement **dépendre** d'une

@@ -9,6 +9,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import type { DashboardVariable } from '$lib/dashboards-api';
+	import { variableOptionLabel } from '$lib/dashboards/variables';
 	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import * as m from '$lib/paraglide/messages';
 
@@ -35,13 +36,13 @@
 	const allOptions = $derived([...options, ...selected.filter((v) => !options.includes(v))]);
 	const visibleOptions = $derived.by(() => {
 		const needle = filter.trim().toLowerCase();
-		return needle ? allOptions.filter((o) => o.toLowerCase().includes(needle)) : allOptions;
+		return needle ? allOptions.filter((o) => variableOptionLabel(variable, o).toLowerCase().includes(needle)) : allOptions;
 	});
 
 	const label = $derived.by(() => {
 		if (selected.length === 0) return m.dashboardViewer_variableAll();
-		if (selected.length === 1) return selected[0];
-		return m.dashboardViewer_variableMore({ first: selected[0], count: selected.length - 1 });
+		if (selected.length === 1) return variableOptionLabel(variable, selected[0]);
+		return m.dashboardViewer_variableMore({ first: variableOptionLabel(variable, selected[0]), count: selected.length - 1 });
 	});
 
 	function toggle(value: string, checked: boolean): void {
@@ -71,7 +72,7 @@
 				<div class="group hover:bg-accent flex items-center gap-2 rounded px-2 py-1.5 text-sm">
 					<label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
 						<Checkbox checked={selected.includes(option)} onCheckedChange={(checked) => toggle(option, checked)} />
-						<span class="truncate" title={option}>{option}</span>
+						<span class="truncate" title={option}>{variableOptionLabel(variable, option)}</span>
 					</label>
 					<button
 						type="button"
