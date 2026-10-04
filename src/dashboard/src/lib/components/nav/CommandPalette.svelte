@@ -25,7 +25,7 @@
 	import { firesInFields, isEditableTarget, matchesCombo } from '$lib/keyboard/shortcuts';
 	import { goto } from '$app/navigation';
 	import { authContext } from '$lib/auth/context';
-	import { navLinks, type NavLink } from './nav-links';
+	import { navLinks, settingsManagementLinks, type NavLink } from './nav-links';
 	import { listSavedViews, type SavedView } from '$lib/saved-views-api';
 	import { savedViewPath } from '$lib/saved-views/page-paths';
 	import { activeLogsExplorer } from '$lib/logs/active-explorer.svelte';
@@ -49,11 +49,15 @@
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import HistoryIcon from '@lucide/svelte/icons/history';
+	import TargetIcon from '@lucide/svelte/icons/target';
+	import WorkflowIcon from '@lucide/svelte/icons/workflow';
+	import KeyIcon from '@lucide/svelte/icons/key';
+	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
 	const auth = authContext.get();
-	const links = $derived(navLinks(auth));
+	const links = $derived([...navLinks(auth), ...settingsManagementLinks(auth)]);
 
 	const NAV_ICONS: Record<NavLink['href'], Component> = {
 		'/': ScrollTextIcon,
@@ -67,7 +71,11 @@
 		'/kubernetes': ContainerIcon,
 		'/dashboards': LayoutDashboardIcon,
 		'/views': LayoutGridIcon,
-		'/auth': ShieldIcon
+		'/auth': ShieldIcon,
+		'/settings/slos': TargetIcon,
+		'/settings/pipeline-rules': WorkflowIcon,
+		'/settings/ingest-keys': KeyIcon,
+		'/settings/access-tokens': KeyRoundIcon
 	};
 
 	let views = $state<SavedView[]>([]);

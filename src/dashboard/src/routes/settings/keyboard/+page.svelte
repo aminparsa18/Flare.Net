@@ -13,6 +13,15 @@
 
 	const actionLabels: Record<ShortcutAction, () => string> = {
 		commandPalette: () => m.settingsKeyboard_action_commandPalette(),
+		showShortcuts: () => m.settingsKeyboard_action_showShortcuts(),
+		goLogs: () => m.settingsKeyboard_action_goTo({ page: m.nav_logs() }),
+		goTraces: () => m.settingsKeyboard_action_goTo({ page: m.nav_traces() }),
+		goMetrics: () => m.settingsKeyboard_action_goTo({ page: m.nav_metrics() }),
+		goAlerts: () => m.settingsKeyboard_action_goTo({ page: m.nav_alerts() }),
+		goDashboards: () => m.settingsKeyboard_action_goTo({ page: m.nav_dashboards() }),
+		toggleLive: () => m.settingsKeyboard_action_toggleLive(),
+		focusSearch: () => m.settingsKeyboard_action_focusSearch(),
+		exportLogs: () => m.settingsKeyboard_action_exportLogs(),
 		nextEvent: () => m.settingsKeyboard_action_nextEvent(),
 		prevEvent: () => m.settingsKeyboard_action_prevEvent()
 	};
@@ -22,8 +31,8 @@
 		stepEvents: () => m.settingsKeyboard_fixed_stepEvents()
 	};
 	const groups: { heading: () => string; actions: ShortcutAction[] }[] = [
-		{ heading: () => m.settingsKeyboard_global(), actions: ['commandPalette'] },
-		{ heading: () => m.settingsKeyboard_logs(), actions: ['nextEvent', 'prevEvent'] }
+		{ heading: () => m.settingsKeyboard_global(), actions: ['commandPalette', 'showShortcuts', 'goLogs', 'goTraces', 'goMetrics', 'goAlerts', 'goDashboards'] },
+		{ heading: () => m.settingsKeyboard_logs(), actions: ['toggleLive', 'focusSearch', 'exportLogs', 'nextEvent', 'prevEvent'] }
 	];
 
 	const mac = isMac();

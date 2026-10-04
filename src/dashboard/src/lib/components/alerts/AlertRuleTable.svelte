@@ -397,7 +397,7 @@
 								variant="ghost"
 								size="icon-sm"
 								title={m.alertRuleTable_actionEdit()}
-								onclick={() => (rule.conditionKind === 'SloBurnRate' && rule.sloCondition ? goto(withBase(`/slos?slo=${rule.sloCondition.sloId}`)) : alerts.openEdit(rule))}
+								onclick={() => (rule.conditionKind === 'SloBurnRate' && rule.sloCondition ? goto(withBase(`/settings/slos?slo=${rule.sloCondition.sloId}`)) : alerts.openEdit(rule))}
 							>
 								<PencilIcon />
 							</Button>

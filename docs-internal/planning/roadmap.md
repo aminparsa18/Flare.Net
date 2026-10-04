@@ -127,12 +127,13 @@ folders are where "what happened and why" actually lives.
   - **Appearance & layout** (`/settings/appearance` shipped, synced per
     user, ADR-0110). Remaining: a live preview (deferred).
   - **Account & security**: profile and password change (local accounts),
-    personal access tokens (move the existing `/access-tokens` page in),
+    personal access tokens (page already moved to `/settings/access-tokens`),
     active sessions with sign-out-everywhere, and a data export of the
     user's own saved views and dashboards.
   - **Workspace (admin-only, separate group)**: the instance-level pages
-    that are top-level routes today (ingest keys, notification channels,
-    maintenance windows, pipeline rules, audit log, indexing) grouped
+    that are top-level routes today (notification channels,
+    maintenance windows, audit log, indexing; ingest keys, SLOs and
+    pipeline rules already moved to `/settings/*`) grouped
     under a "Workspace" heading so the main nav shrinks to the
     observability surfaces; instance defaults an admin can set for new
     users (theme, layout, time zone).

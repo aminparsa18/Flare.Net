@@ -3,11 +3,33 @@
 // Cmd on macOS and Ctrl elsewhere, matched as either so a binding made on one machine works
 // on the other when the document syncs.
 
-export const SHORTCUT_ACTIONS = ['commandPalette', 'nextEvent', 'prevEvent'] as const;
+export const SHORTCUT_ACTIONS = [
+	'commandPalette',
+	'showShortcuts',
+	'goLogs',
+	'goTraces',
+	'goMetrics',
+	'goAlerts',
+	'goDashboards',
+	'toggleLive',
+	'focusSearch',
+	'exportLogs',
+	'nextEvent',
+	'prevEvent'
+] as const;
 export type ShortcutAction = (typeof SHORTCUT_ACTIONS)[number];
 
 export const DEFAULT_BINDINGS: Record<ShortcutAction, string> = {
 	commandPalette: 'Mod+K',
+	showShortcuts: '?',
+	goLogs: '1',
+	goTraces: '2',
+	goMetrics: '3',
+	goAlerts: '4',
+	goDashboards: '5',
+	toggleLive: 'L',
+	focusSearch: '/',
+	exportLogs: 'E',
 	nextEvent: 'J',
 	prevEvent: 'K'
 };
