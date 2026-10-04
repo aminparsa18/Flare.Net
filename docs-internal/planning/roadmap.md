@@ -100,10 +100,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **LLM observability: pre-aggregation.** [ADR-0100](../adr/0100-llm-observability-genai-spans.md)
-  and [ADR-0101](../adr/0101-llm-estimated-cost.md) compute `/llm` from `spans` at query time. If
-  volumes warrant it, add a pre-aggregated table like ADR-0031. Prior art:
-  [signoz#10908](https://github.com/SigNoz/signoz/commit/755390c4b5b2456a7c5c44d98fe8fcb18671616b).
 - **"Explain this exception" LLM action.** Stack frames link to source and show the throw site
   inline (ADR-0095, ADR-0096). Add an action that sends the exception, stack trace and that source
   to an LLM for an explanation, under the AI constraints below (the source needs redaction there).

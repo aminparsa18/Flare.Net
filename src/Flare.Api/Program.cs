@@ -214,6 +214,9 @@ builder.Services.Configure<ServiceMetricsOptions>(builder.Configuration.GetSecti
 // service_dependency_nodes/service_call_breakdown_* paths; see
 // ServiceDependencyQueryService.GetGraphAsync/ServiceCallBreakdownQueryService.GetBreakdownAsync.
 builder.Services.Configure<ServiceDependencyMetricsOptions>(builder.Configuration.GetSection(ServiceDependencyMetricsOptions.SectionName));
+// LlmMetricsOptions - the ADR-0102 rollback valve for the pre-aggregated llm_model_calls path;
+// see LlmQueryService.GetModelsAsync.
+builder.Services.Configure<LlmMetricsOptions>(builder.Configuration.GetSection(LlmMetricsOptions.SectionName));
 builder.Services.AddSingleton<IServiceOverviewQueryService, ServiceOverviewQueryService>();
 builder.Services.AddSingleton<IServiceDependencyQueryService, ServiceDependencyQueryService>();
 builder.Services.AddSingleton<IServiceCallBreakdownQueryService, ServiceCallBreakdownQueryService>();

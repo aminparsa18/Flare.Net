@@ -111,6 +111,13 @@ why (parent/child spans of a genuine cross-service edge routinely land in differ
 flush batches, so a correct edges aggregate needs a self-join design this migration
 hasn't verified against real ClickHouse behavior).
 
+`0047_llm_model_calls.sql` - an `AggregatingMergeTree` table + materialized view on
+`spans` holding per-(service, provider, model) minute buckets of call/error/token counts
+and a `quantiles` state, so the `/llm` page reads a rollup instead of scanning `gen_ai.*`
+spans. The view repeats `LlmQueryBuilder`'s expressions (a test keeps them in sync). No
+backfill; `LlmMetrics:Enabled=false` falls back to the live query. See
+[ADR-0102](../../docs-internal/adr/0102-llm-model-calls-pre-aggregation.md).
+
 `0025_spans_start_time_projection.sql` - a `StartTime`-ordered projection
 (`spans_by_start_time`) on `spans`, covering the columns the Map view's live edges
 self-join reads. `spans`' own `TraceId`-first sort key meant that query read the whole

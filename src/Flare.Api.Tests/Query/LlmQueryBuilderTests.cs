@@ -76,4 +76,77 @@ public class LlmQueryBuilderTests
         Assert.Contains("groupUniqArray(1000)(ServiceName)", built.Sql);
         Assert.DoesNotContain("{service:String}", built.Sql);
     }
+
+    [Fact]
+    public void BuildModelsFromRollup_ReadsTheRollup_AndMergesQuantileStates()
+    {
+        var built = LlmQueryBuilder.BuildModelsFromRollup(new LlmModelsRequest(), 60, End);
+
+        Assert.Contains("FROM llm_model_calls", built.Sql);
+        Assert.DoesNotContain("FROM spans", built.Sql);
+        Assert.Contains("quantilesMerge(0.5, 0.95, 0.99)(QuantileState) AS Quantiles", built.Sql);
+        Assert.Contains("sum(CallCount) AS CallCount", built.Sql);
+        Assert.Contains("GROUP BY LlmProvider, LlmModel", built.Sql);
+        Assert.Contains("LIMIT {limit:UInt32}", built.Sql);
+        Assert.DoesNotContain("{service:String}", built.Sql);
+    }
+
+    [Fact]
+    public void BuildModelsFromRollup_RoundsTheWindowOutToWholeMinutes()
+    {
+        var end = new DateTimeOffset(2026, 10, 3, 12, 0, 30, TimeSpan.Zero);
+        var built = LlmQueryBuilder.BuildModelsFromRollup(new LlmModelsRequest(), 60, end);
+
+        Assert.Equal(new DateTime(2026, 10, 3, 11, 0, 0, DateTimeKind.Utc), Param(built, "from"));
+        Assert.Equal(new DateTime(2026, 10, 3, 12, 1, 0, DateTimeKind.Utc), Param(built, "to"));
+    }
+
+    [Fact]
+    public void BuildModelsFromRollup_ServiceFilter_IsABoundParameter()
+    {
+        var built = LlmQueryBuilder.BuildModelsFromRollup(new LlmModelsRequest { Service = "checkout" }, 60, End);
+
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+        Assert.DoesNotContain("checkout", built.Sql);
+    }
+
+    [Fact]
+    public void BuildFacetsFromRollup_IgnoresTheServiceFilter()
+    {
+        var built = LlmQueryBuilder.BuildFacetsFromRollup(60, End);
+
+        Assert.Contains("FROM llm_model_calls", built.Sql);
+        Assert.Contains("groupUniqArray(1000)(ServiceName)", built.Sql);
+        Assert.DoesNotContain("{service:String}", built.Sql);
+    }
+
+    /// <summary>The migration's view repeats the builder's expressions; this fails if the two drift.</summary>
+    [Theory]
+    [InlineData("db/clickhouse/0047_llm_model_calls.sql")]
+    [InlineData("db/clickhouse-cluster/0047_llm_model_calls.sql")]
+    public void RollupMigration_RepeatsTheBuilderExpressionsVerbatim(string relativePath)
+    {
+        var sql = File.ReadAllText(Path.Combine(RepoRoot(), relativePath));
+
+        Assert.Contains(LlmQueryBuilder.ProviderExpr, sql);
+        Assert.Contains(LlmQueryBuilder.ModelExpr, sql);
+        Assert.Contains(LlmQueryBuilder.InputTokensExpr, sql);
+        Assert.Contains(LlmQueryBuilder.OutputTokensExpr, sql);
+        Assert.Contains("IN ('chat', 'text_completion', 'generate_content', 'embeddings')", sql);
+        Assert.Contains("SpanAttributes['gen_ai.operation.name'] = ''", sql);
+    }
+
+    private static object? Param(LlmSql built, string name) =>
+        built.Parameters.ToDictionary()[name];
+
+    private static string RepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Flare.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        return dir?.FullName ?? throw new InvalidOperationException("Flare.slnx not found above the test output directory.");
+    }
 }
