@@ -40,6 +40,9 @@ Flare 的确切角色、身份解析事实和配置密钥
 | `Identity:Provider` | `Sqlite` | 存储用户、会话、API 密钥和身份验证设置的数据库：`Sqlite`（嵌入式文件，默认）或 `Postgres`（外部服务器，可在多台主机的进程间共享）。参见 [ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md)。 |
 | `Identity:ConnectionString` | 未设置 | Npgsql 连接字符串，例如 `Host=postgres;Database=flare_identity;Username=flare;Password=...`。当 `Identity:Provider` 为 `Postgres` 时必填，否则忽略。 |
 | `Identity:DbPath` | `flare-identity.db` | 共享 SQLite 文件的路径。在任何实际部署中设置为卷支持的绝对路径 - `docker-compose.yml` 和 `Flare.AppHost` 已经为您执行此操作。 |
+| `Identity:Admin:Username` / `Identity:Admin:Password` | 未设置 | 在尚无任何用户时，于启动时创建此管理员账户，适用于无界面安装。参见 [ADR-0117](../../docs-internal/adr/0117-admin-from-configuration.md)。 |
+| `Identity:Admin:PasswordFile` | 未设置 | 从此文件（Docker/Kubernetes 密钥）读取密码，代替 `Identity:Admin:Password`。 |
+| `Identity:Admin:Reconcile` | `false` | 每次启动时还会将该账户重置为配置的密码、Admin 角色并启用。在界面中修改的密码会在重启后恢复。 |
 | `Auth:CookieName` | `flare_session` | 会话 cookie 名称。 |
 | `Auth:SessionLifetime` | `14.00:00:00`（14 天） | 固定会话过期，在登录时设置。 |
 | `Auth:CookieSecure` | `true` | 仅为本地普通 HTTP 开发设置 `false`。 |

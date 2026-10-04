@@ -43,6 +43,9 @@ erroné.
 | `Identity:Provider` | `Sqlite` | Base de données qui stocke utilisateurs, sessions, clés API et paramètres d'authentification : `Sqlite` (fichier embarqué, par défaut) ou `Postgres` (serveur externe, partageable entre processus sur plusieurs hôtes). Voir [ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md). |
 | `Identity:ConnectionString` | non défini | Chaîne de connexion Npgsql, p. ex. `Host=postgres;Database=flare_identity;Username=flare;Password=...`. Obligatoire quand `Identity:Provider` vaut `Postgres`, ignorée sinon. |
 | `Identity:DbPath` | `flare-identity.db` | Chemin vers le fichier SQLite partagé. Réglez-le sur un chemin absolu adossé à un volume dans tout déploiement réel — `docker-compose.yml` et `Flare.AppHost` le font déjà pour vous. |
+| `Identity:Admin:Username` / `Identity:Admin:Password` | non défini | Crée ce compte Admin au démarrage s'il n'existe encore aucun utilisateur, pour les installations sans interface. Voir [ADR-0117](../../docs-internal/adr/0117-admin-from-configuration.md). |
+| `Identity:Admin:PasswordFile` | non défini | Lit le mot de passe dans ce fichier (secret Docker/Kubernetes) au lieu de `Identity:Admin:Password`. |
+| `Identity:Admin:Reconcile` | `false` | Réinitialise aussi le compte indiqué (mot de passe configuré, rôle Admin, activé) à chaque démarrage. Un mot de passe modifié dans l'interface revient à la valeur configurée au redémarrage. |
 | `Auth:CookieName` | `flare_session` | Nom du cookie de session. |
 | `Auth:SessionLifetime` | `14.00:00:00` (14 jours) | Expiration fixe de la session, définie à la connexion. |
 | `Auth:CookieSecure` | `true` | Ne réglez `false` que pour le développement local en HTTP simple. |

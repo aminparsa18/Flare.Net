@@ -39,4 +39,28 @@ public sealed class IdentityOptions
     /// <summary>Npgsql connection string (<see cref="IdentityProvider.Postgres"/> only),
     /// e.g. <c>Host=postgres;Database=flare_identity;Username=flare;Password=...</c>.</summary>
     public string? ConnectionString { get; set; }
+
+    /// <summary>Optional admin account provisioned from configuration (ADR-0117).</summary>
+    public AdminProvisioningOptions Admin { get; set; } = new();
+}
+
+/// <summary>
+/// <c>Identity:Admin:*</c> - lets a headless install (compose, the <c>flare</c> CLI,
+/// Kubernetes) come up with a known login instead of the interactive
+/// <c>/api/auth/bootstrap</c> flow.
+/// </summary>
+public sealed class AdminProvisioningOptions
+{
+    public string? Username { get; set; }
+
+    public string? Password { get; set; }
+
+    /// <summary>Path to a file holding the password (Docker/Kubernetes secret). Wins over
+    /// <see cref="Password"/> when both are set; one trailing newline is trimmed.</summary>
+    public string? PasswordFile { get; set; }
+
+    /// <summary>When true, every start also resets the named account to the configured
+    /// password, Admin role and enabled, so configuration stays the source of truth.
+    /// Off by default: the account is only created when no user exists.</summary>
+    public bool Reconcile { get; set; }
 }

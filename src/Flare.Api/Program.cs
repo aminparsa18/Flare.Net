@@ -443,6 +443,13 @@ await IdentityMigrationRunner.ApplyAsync(
     app.Logger,
     CancellationToken.None);
 
+// Optional Identity:Admin:* provisioning (ADR-0117) - after migrations, before serving.
+await AdminProvisioner.ApplyAsync(
+    app.Services.GetRequiredService<IUserStore>(),
+    app.Services.GetRequiredService<IOptions<IdentityOptions>>().Value.Admin,
+    app.Logger,
+    CancellationToken.None);
+
 // Sub-path hosting (Flare:BasePath / Flare__BasePath, e.g. /flare) - first, so every later
 // middleware and endpoint sees the request already split into PathBase + Path. No-op unset.
 app.UseFlareBasePath(BasePath.Normalize(builder.Configuration[BasePath.ConfigurationKey]));
