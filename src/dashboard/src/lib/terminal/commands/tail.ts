@@ -18,12 +18,13 @@ interface ParsedArgs {
 	levels: string[];
 	traceId?: string;
 	search?: string;
+	searchAllFields: boolean;
 }
 
 class UsageError extends Error {}
 
 function parseArgs(args: string[]): ParsedArgs {
-	const result: ParsedArgs = { services: [], levels: [] };
+	const result: ParsedArgs = { services: [], levels: [], searchAllFields: false };
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
@@ -41,6 +42,9 @@ function parseArgs(args: string[]): ParsedArgs {
 				break;
 			case '--search':
 				result.search = requireValue(args, ++i, arg);
+				break;
+			case '--search-all-fields':
+				result.searchAllFields = true;
 				break;
 			default:
 				throw new UsageError(`tail: unrecognized option '${arg}'`);
@@ -76,6 +80,7 @@ function buildFilter(parsed: ParsedArgs): LogFilter {
 	}
 	if (parsed.traceId) filter.traceId = parsed.traceId;
 	if (parsed.search) filter.search = parsed.search;
+	if (parsed.searchAllFields) filter.searchAllFields = true;
 	return filter;
 }
 
@@ -98,7 +103,7 @@ function formatEvent(event: LogEventDto): string {
 export const tailCommand: TerminalCommand = {
 	name: 'tail',
 	summary: 'Streams live log events (same feed as the Logs Explorer).',
-	usage: 'tail [-s|--service <name>]... [-l|--level <level>]... [--trace-id <id>] [--search <text>]',
+	usage: 'tail [-s|--service <name>]... [-l|--level <level>]... [--trace-id <id>] [--search <text>] [--search-all-fields]',
 	run(args, term): TerminalHandle {
 		let parsed: ParsedArgs;
 		let filter: LogFilter;

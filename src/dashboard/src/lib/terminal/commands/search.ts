@@ -11,11 +11,14 @@
 
 import { searchLogs, type AttributeFilter, type LogEventDto, type LogFilter } from '$lib/api';
 import { SEVERITY_BUCKETS, severityNumbersForBucket } from '$lib/logs/severity';
+import type { SpanFilter } from '$lib/traces-api';
 import { parseAttrBareKey, parseAttrKeyValue, type AttrFlagEntry } from './attr-flags';
+import { parseDurationNano } from './duration';
+import { UsageError } from './usage-error';
 import type { TerminalCommand } from '../types';
 import { formatTimeOfDay } from '$lib/time/format';
 
-export class UsageError extends Error {}
+export { UsageError };
 
 export interface ParsedLogArgs {
 	services: string[];
@@ -24,7 +27,12 @@ export interface ParsedLogArgs {
 	spanId?: string;
 	patternId?: string;
 	search?: string;
+	searchAllFields: boolean;
 	attrs: AttrFlagEntry[];
+	traceSpanServices: string[];
+	traceSpanError: boolean;
+	traceSpanNames: string[];
+	traceSpanMinDurationNano?: number;
 	sinceMs: number;
 }
 
@@ -33,7 +41,16 @@ const DEFAULT_LIMIT = 20;
 
 /** Shared by search.ts/export.ts - both take the same filter flags, only search.ts also has -n/--limit. */
 export function parseLogFilterArgs(args: string[], commandName: string, startIndex = 0): { parsed: ParsedLogArgs; nextIndex: number } {
-	const result: ParsedLogArgs = { services: [], levels: [], attrs: [], sinceMs: DEFAULT_SINCE_MS };
+	const result: ParsedLogArgs = {
+		services: [],
+		levels: [],
+		searchAllFields: false,
+		attrs: [],
+		traceSpanServices: [],
+		traceSpanError: false,
+		traceSpanNames: [],
+		sinceMs: DEFAULT_SINCE_MS
+	};
 	let i = startIndex;
 
 	for (; i < args.length; i++) {
@@ -58,6 +75,21 @@ export function parseLogFilterArgs(args: string[], commandName: string, startInd
 				break;
 			case '--search':
 				result.search = requireValue(args, ++i, arg, commandName);
+				break;
+			case '--search-all-fields':
+				result.searchAllFields = true;
+				break;
+			case '--trace-span-service':
+				result.traceSpanServices.push(requireValue(args, ++i, arg, commandName));
+				break;
+			case '--trace-span-error':
+				result.traceSpanError = true;
+				break;
+			case '--trace-span-name':
+				result.traceSpanNames.push(requireValue(args, ++i, arg, commandName));
+				break;
+			case '--trace-span-min-duration':
+				result.traceSpanMinDurationNano = parseDurationNano(requireValue(args, ++i, arg, commandName), commandName, arg);
 				break;
 			case '--attr':
 				result.attrs.push(parseAttrKeyValue(requireValue(args, ++i, arg, commandName), arg, commandName, 'Equals'));
@@ -102,9 +134,9 @@ export function severityNumbersForLevel(level: string, commandName: string): num
 
 // Mirrors Flare.Cli's TracesCommand.cs/SearchCommand.cs TryParseSince - any magnitude,
 // s/m/h/d suffix.
-export function parseSince(text: string, commandName: string): number {
+export function parseSince(text: string, commandName: string, flag = '--since'): number {
 	const match = text.trim().match(/^([0-9.]+)([smhd])$/i);
-	if (!match) throw new UsageError(`${commandName}: couldn't parse --since '${text}' - expected e.g. 15m, 1h, 6h, 24h, 7d`);
+	if (!match) throw new UsageError(`${commandName}: couldn't parse ${flag} '${text}' - expected e.g. 15m, 1h, 6h, 24h, 7d`);
 	const value = Number.parseFloat(match[1]);
 	const msByUnit: Record<string, number> = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 };
 	return value * msByUnit[match[2].toLowerCase()];
@@ -122,8 +154,22 @@ export function buildLogFilter(parsed: ParsedLogArgs, commandName: string): LogF
 	if (parsed.spanId) filter.spanId = parsed.spanId;
 	if (parsed.patternId) filter.patternId = parsed.patternId;
 	if (parsed.search) filter.search = parsed.search;
+	if (parsed.searchAllFields) filter.searchAllFields = true;
 	if (parsed.attrs.length > 0) {
 		filter.attributes = parsed.attrs.map((a): AttributeFilter => ({ bag: 'Log', key: a.key, value: a.value, operator: a.operator }));
+	}
+	if (
+		parsed.traceSpanServices.length > 0 ||
+		parsed.traceSpanError ||
+		parsed.traceSpanNames.length > 0 ||
+		parsed.traceSpanMinDurationNano !== undefined
+	) {
+		const traceSpanFilter: SpanFilter = {};
+		if (parsed.traceSpanServices.length > 0) traceSpanFilter.services = parsed.traceSpanServices;
+		if (parsed.traceSpanError) traceSpanFilter.statusCodes = ['STATUS_CODE_ERROR'];
+		if (parsed.traceSpanNames.length > 0) traceSpanFilter.names = parsed.traceSpanNames;
+		if (parsed.traceSpanMinDurationNano !== undefined) traceSpanFilter.minDurationNano = parsed.traceSpanMinDurationNano;
+		filter.traceSpanFilter = traceSpanFilter;
 	}
 	return filter;
 }
@@ -139,7 +185,6 @@ function parseSearchArgs(args: string[]): SearchArgs {
 	for (let i = nextIndex; i < args.length; i++) {
 		const arg = args[i];
 		switch (arg) {
-			case '-n':
 			case '--limit': {
 				const raw = requireValue(args, ++i, arg, 'search');
 				const value = Number.parseInt(raw, 10);
@@ -181,7 +226,7 @@ export const searchCommand: TerminalCommand = {
 	name: 'search',
 	summary: 'One-shot log search (same feed as the Logs Explorer).',
 	usage:
-		'search [-s|--service <name>]... [-l|--level <level>]... [--trace-id <id>] [--span-id <id>] [--pattern-id <id>] [--search <text>] [--attr <key=value>]... [--attr-not <key=value>]... [--attr-exists <key>]... [--attr-absent <key>]... [--since <range>] [-n|--limit <count>]',
+		'search [-s|--service <name>]... [-l|--level <level>]... [--trace-id <id>] [--span-id <id>] [--pattern-id <id>] [--search <text>] [--search-all-fields] [--attr <key=value>]... [--attr-not <key=value>]... [--attr-exists <key>]... [--attr-absent <key>]... [--trace-span-service <name>]... [--trace-span-error] [--trace-span-name <name>]... [--trace-span-min-duration <d>] [--since <range>] [--limit <count>]',
 	async run(args, term) {
 		let parsed: SearchArgs;
 		try {
