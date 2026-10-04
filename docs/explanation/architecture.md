@@ -303,6 +303,7 @@ The "Maintenance" tab schedules one-off, daily or weekly maintenance windows
 (in a chosen time zone) for every rule or selected ones. During a window,
 rules still evaluate, but a breach is recorded in the rule's history as
 suppressed instead of notifying (see [ADR-0055](../../docs-internal/adr/0055-alert-maintenance-windows.md)).
+Each rule row also has a Mute action (15 min to 1 week, or until a date, with an optional reason) that creates a one-off window scoped to that rule; the row shows "Muted until …" and an Unmute button ends it early.
 Rules can carry your own key/value labels (`team=payments`), filterable in the rules
 list and available as `{{labels.team}}` and in webhook payloads. A window can also
 cover rules by label instead of, or as well as, by name, so new rules are covered

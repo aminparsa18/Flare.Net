@@ -2597,5 +2597,18 @@
 	"alertRuleTable_sloSummary": "Бюджет ошибок SLO",
 	"alertRuleTable_sloThresholdText": "расход >= {rate}x за {long} и {short}",
 	"alertRuleTable_testResultFiringSlo": "расход {rate}x",
-	"alertRuleTable_testResultNotFiringSlo": "расход сейчас {rate}x"
+	"alertRuleTable_testResultNotFiringSlo": "расход сейчас {rate}x",
+	"alertRuleTable_mutedUntil": "Заглушено до {time}",
+	"muteRule_action": "Заглушить",
+	"muteRule_unmute": "Включить (завершить окно заглушения сейчас)",
+	"muteRule_heading": "Заглушить «{name}»",
+	"muteRule_reasonLabel": "Причина",
+	"muteRule_reasonPlaceholder": "Причина (необязательно)",
+	"muteRule_15m": "15 мин",
+	"muteRule_1h": "1 час",
+	"muteRule_4h": "4 часа",
+	"muteRule_1d": "1 день",
+	"muteRule_1w": "1 неделя",
+	"muteRule_untilLabel": "Заглушить до",
+	"muteRule_untilButton": "Заглушить до"
 }

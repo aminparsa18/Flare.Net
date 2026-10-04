@@ -2597,5 +2597,18 @@
 	"alertRuleTable_sloSummary": "SLO 错误预算",
 	"alertRuleTable_sloThresholdText": "{long} 与 {short} 内消耗 >= {rate}x",
 	"alertRuleTable_testResultFiringSlo": "消耗 {rate}x",
-	"alertRuleTable_testResultNotFiringSlo": "当前消耗 {rate}x"
+	"alertRuleTable_testResultNotFiringSlo": "当前消耗 {rate}x",
+	"alertRuleTable_mutedUntil": "已静默至 {time}",
+	"muteRule_action": "静默",
+	"muteRule_unmute": "取消静默（立即结束静默窗口）",
+	"muteRule_heading": "静默「{name}」",
+	"muteRule_reasonLabel": "原因",
+	"muteRule_reasonPlaceholder": "原因（可选）",
+	"muteRule_15m": "15 分钟",
+	"muteRule_1h": "1 小时",
+	"muteRule_4h": "4 小时",
+	"muteRule_1d": "1 天",
+	"muteRule_1w": "1 周",
+	"muteRule_untilLabel": "静默至",
+	"muteRule_untilButton": "静默至"
 }

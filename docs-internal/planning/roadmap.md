@@ -104,14 +104,6 @@ folders are where "what happened and why" actually lives.
   stabilizes, store per-service profiles, and link spans to flame graphs of
   what the code was doing during that span. Placeholder for when the spec
   and .NET support settle. Not started.
-- **Mute a rule from the alerts list/detail.** The alerts list already shows
-  a "muted" state from maintenance windows, but muting means going to
-  Maintenance windows and building one by hand. Add a Mute action on each
-  rule with quick durations (15m/1h/4h/1d/1w, or until a date) and an
-  optional reason. It creates a one-off maintenance window scoped to that
-  rule (no new storage), plus a muted badge with the end time and an Unmute
-  that ends the window early. Not started. Prior art:
-  [signoz PR #11273](https://github.com/SigNoz/signoz/pull/11273) (open, unmerged).
 - **Recent log lines in LogCount alert notifications.** Notifications carry
   the count and a "Matching logs" link but none of the lines themselves.
   When a LogCount rule fires, fetch the newest ~5 matching events (same

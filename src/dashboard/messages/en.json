@@ -2597,5 +2597,18 @@
 	"alertRuleTable_sloSummary": "SLO error budget",
 	"alertRuleTable_sloThresholdText": "burn >= {rate}x over {long} and {short}",
 	"alertRuleTable_testResultFiringSlo": "burning {rate}x",
-	"alertRuleTable_testResultNotFiringSlo": "burning {rate}x now"
+	"alertRuleTable_testResultNotFiringSlo": "burning {rate}x now",
+	"alertRuleTable_mutedUntil": "Muted until {time}",
+	"muteRule_action": "Mute",
+	"muteRule_unmute": "Unmute (end the mute window now)",
+	"muteRule_heading": "Mute \"{name}\"",
+	"muteRule_reasonLabel": "Reason",
+	"muteRule_reasonPlaceholder": "Reason (optional)",
+	"muteRule_15m": "15 min",
+	"muteRule_1h": "1 hour",
+	"muteRule_4h": "4 hours",
+	"muteRule_1d": "1 day",
+	"muteRule_1w": "1 week",
+	"muteRule_untilLabel": "Mute until",
+	"muteRule_untilButton": "Mute until"
 }
