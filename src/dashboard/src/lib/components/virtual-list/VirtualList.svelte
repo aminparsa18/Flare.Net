@@ -15,6 +15,8 @@
 		endReachedThreshold?: number;
 		/** When false, rows arriving at the front never move the view, even from the top (live-tail "don't auto-scroll"). Default true: at the top the newest row pushes in. */
 		followNewest?: boolean;
+		/** Key of one row that renders taller than itemHeight (an inline-expanded row). Its extra height is measured from the `[data-vl-expanded]` wrapper, so the rest of the list stays fixed-height math. */
+		expandedKey?: string | number | null;
 		children: Snippet<[item: T, index: number]>;
 		class?: string;
 	}
@@ -32,6 +34,7 @@
 		onEndReached,
 		endReachedThreshold = 200,
 		followNewest = true,
+		expandedKey = null,
 		children,
 		class: className
 	}: VirtualListProps<T> = $props();
@@ -63,7 +66,26 @@
 		return 1;
 	});
 
-	const totalHeight = $derived(items.length * safeItemHeight);
+	// One row may be taller (inline expansion): `extra` px on top of itemHeight, measured below.
+	// Everything else stays uniform, so index<->offset is plain arithmetic plus one correction.
+	const expandedIndex = $derived(expandedKey === null ? -1 : items.findIndex((item, i) => getKey(item, i) === expandedKey));
+	let measuredExtra = $state(0);
+	const extra = $derived(expandedIndex >= 0 ? measuredExtra : 0);
+
+	/** Pixel offset of the top of row `index`. */
+	function topOf(index: number): number {
+		return index * safeItemHeight + (expandedIndex >= 0 && index > expandedIndex ? extra : 0);
+	}
+
+	/** Index of the row containing pixel offset `y`. */
+	function indexAt(y: number): number {
+		if (expandedIndex < 0 || y < topOf(expandedIndex) + safeItemHeight + extra) {
+			return expandedIndex >= 0 && y >= topOf(expandedIndex) ? expandedIndex : Math.floor(y / safeItemHeight);
+		}
+		return Math.floor((y - extra) / safeItemHeight);
+	}
+
+	const totalHeight = $derived(items.length * safeItemHeight + extra);
 	const visibleCount = $derived(Math.ceil(containerHeight / safeItemHeight) + overscan * 2);
 	// Clamped against `items.length` (via maxStartIndex), not just against 0 - `items` can
 	// *shrink* out from under a stale `scrollTop` (disabling live tail swaps a large
@@ -73,12 +95,10 @@
 	// `items.slice(startIndex, endIndex)` silently return [] - the whole list appearing to
 	// vanish even though valid rows exist.
 	const maxStartIndex = $derived(Math.max(0, items.length - visibleCount));
-	const startIndex = $derived(
-		Math.max(0, Math.min(maxStartIndex, Math.floor(scrollTop / safeItemHeight) - overscan))
-	);
+	const startIndex = $derived(Math.max(0, Math.min(maxStartIndex, indexAt(scrollTop) - overscan)));
 	const endIndex = $derived(Math.min(items.length, startIndex + visibleCount));
 	const visibleItems = $derived(items.slice(startIndex, endIndex));
-	const offsetY = $derived(startIndex * safeItemHeight);
+	const offsetY = $derived(topOf(startIndex));
 
 	// Plain event attribute for the scroll listener (direct user-interaction handling),
 	// not $effect+addEventListener - $effect is reserved below for the ResizeObserver,
@@ -125,7 +145,7 @@
 	/** Scrolls the minimum distance that brings row `index` fully into view (no-op if it already is). */
 	export function scrollToIndex(index: number) {
 		if (!containerEl || index < 0 || index >= items.length) return;
-		const top = index * safeItemHeight;
+		const top = topOf(index);
 		const bottom = top + safeItemHeight;
 		const viewTop = containerEl.scrollTop;
 		const viewBottom = viewTop + containerEl.clientHeight;
@@ -200,6 +220,20 @@
 				`VirtualList: getKey produced ${duplicates.size} duplicate key(s) across ${items.length} items (e.g. ${[...duplicates].slice(0, 5).join(', ')}) - keyed {#each} will misbehave (wrong row reused or dropped on reorder).`
 			);
 		}
+	});
+
+	// Measures the expanded row's wrapper (row + detail) while it is rendered; when it is
+	// scrolled out of the window the last measurement stands.
+	$effect(() => {
+		void visibleItems;
+		if (!containerEl || expandedKey === null) return;
+		const el = containerEl.querySelector<HTMLElement>('[data-vl-expanded]');
+		if (!el) return;
+		const update = () => (measuredExtra = Math.max(0, el.offsetHeight - safeItemHeight));
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(el);
+		return () => observer.disconnect();
 	});
 
 	$effect(() => {
@@ -326,7 +360,9 @@
 	<div style="height: {totalHeight}px; position: relative;">
 		<div style="transform: translateY({offsetY}px);">
 			{#each visibleItems as item, i (getKey(item, startIndex + i))}
-				{@render children(item, startIndex + i)}
+				<div data-vl-expanded={getKey(item, startIndex + i) === expandedKey ? '' : undefined}>
+					{@render children(item, startIndex + i)}
+				</div>
 			{/each}
 		</div>
 	</div>
