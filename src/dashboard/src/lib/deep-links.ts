@@ -251,6 +251,52 @@ export function buildServiceWindowLogsHref(service: string, fromMs: number, toMs
 }
 
 /**
+ * `/traces?state=` for traces with a span of `service` running `version` over an explicit window
+ * (epoch ms) - the version comparison's click-through. A one-condition structural query rather
+ * than a root-row attribute filter, because the service often isn't the trace's root. `spanName`
+ * narrows to one endpoint; slowest first, since the question is "did this version slow down".
+ */
+export function buildServiceVersionTracesHref(service: string, version: string, fromMs: number, toMs: number, spanName?: string): string {
+	const condition: TraceSpanCondition = {
+		name: 'A',
+		serviceName: service,
+		attributes: [{ bag: 'Resource', key: 'service.version', value: version, operator: 'Equals' }]
+	};
+	if (spanName) condition.spanName = spanName;
+	const state: TracesSavedViewState = {
+		timeRangePreset: 'custom',
+		customRange: { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() },
+		services: [],
+		attributeFilters: [],
+		structure: { expression: 'A', conditions: [condition] },
+		sortBy: 'Duration'
+	};
+	return withBase(`/traces?state=${encodeStateDeepLinkParam(state)}`);
+}
+
+/** `/?state=` (Logs) for one service's logs running `version` over an explicit window (epoch ms). */
+export function buildServiceVersionLogsHref(service: string, version: string, fromMs: number, toMs: number): string {
+	const state: Partial<LogsSavedViewState> = {
+		timeRangePreset: 'custom',
+		customRange: { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() },
+		services: [service],
+		attributeFilters: [{ bag: 'Resource', key: 'service.version', value: version }]
+	};
+	return withBase(`/?state=${encodeStateDeepLinkParam(state)}`);
+}
+
+/** `/errors?state=` for one exception type of `service` running `version` over an explicit window (epoch ms). */
+export function buildServiceVersionErrorsHref(service: string, version: string, exceptionType: string, fromMs: number, toMs: number): string {
+	return buildErrorsDeepLinkHref({
+		customRange: { from: new Date(fromMs), to: new Date(toMs) },
+		services: [service],
+		resourceAttributes: [{ key: 'service.version', value: version }],
+		exceptionType,
+		exceptionMessage: ''
+	});
+}
+
+/**
  * `/traces?state=` for the spans sharing this one's service + name, slowest first - the
  * click-through from SpanDetailSheet's duration percentile. A one-condition structural
  * query for the same reason as `buildTracesAttributeFilterHref` (the span may be a child).

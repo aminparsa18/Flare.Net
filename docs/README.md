@@ -45,6 +45,7 @@ the full rule set on what goes where.
 - [Find where requests drop off with trace funnels](how-to/analyze-trace-funnels.md)
 - [Find N+1 queries](how-to/find-n-plus-one-queries.md)
 - [Find .NET runtime health problems](how-to/find-runtime-health-problems.md)
+- [Compare two deploys of a service](how-to/compare-deploys.md)
 - [Find traces by how their spans relate](how-to/find-traces-by-structure.md)
 - [Link exception stack traces to your source code](how-to/link-exceptions-to-source-code.md)
 - [Get an AI summary of a fired alert](how-to/summarize-alerts-with-ai.md)

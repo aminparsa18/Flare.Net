@@ -231,6 +231,7 @@ builder.Services.AddSingleton<ILlmQueryService, LlmQueryService>();
 builder.Services.AddSingleton<ITraceFunnelQueryService, TraceFunnelQueryService>();
 builder.Services.AddSingleton<INPlusOneQueryService, NPlusOneQueryService>();
 builder.Services.AddSingleton<IRuntimeHealthQueryService, RuntimeHealthQueryService>();
+builder.Services.AddSingleton<IVersionComparisonQueryService, VersionComparisonQueryService>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<IMetricAttributeRuleQueryService, MetricAttributeRuleQueryService>();

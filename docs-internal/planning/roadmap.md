@@ -100,13 +100,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **Deploy / version comparison view.** "Did my deploy break anything?" in
-  one screen: pick a service and two `service.version` values (default: the
-  latest vs the previous). Compare new Drain log patterns (ADR-0007),
-  error-rate and p95 latency per endpoint, new exception types, and new
-  outbound dependencies. Each row links into the explorers scoped to that
-  version. Versions are detected from first-seen timestamps. No new storage
-  is needed for v1. Not started.
 - **SLOs with error budgets and burn-rate alerts.** Define SLOs on span data
   (availability: non-error ratio of a service/endpoint; latency: % of
   requests under a threshold) with a target and window (e.g. 99.5% over
