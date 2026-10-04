@@ -100,13 +100,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **.NET runtime health detectors.** Turn `System.Runtime` metrics into
-  findings on the service page rather than charts to interpret. Thread-pool
-  starvation: queue length rising while completed work items flatline. GC
-  pause spikes / time-in-GC above a threshold. Lock contention rate jumps.
-  Exception-rate jumps. Each finding links to the window and related
-  traces. Pairs with the built-in dashboards item, which shows the raw
-  metrics. Not started.
 - **Deploy / version comparison view.** "Did my deploy break anything?" in
   one screen: pick a service and two `service.version` values (default: the
   latest vs the previous). Compare new Drain log patterns (ADR-0007),

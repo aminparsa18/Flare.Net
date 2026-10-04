@@ -44,6 +44,7 @@
 - [监控 LLM 调用](how-to/monitor-llm-calls.zh-CN.md)
 - [使用追踪漏斗找出请求流失的环节](how-to/analyze-trace-funnels.zh-CN.md)
 - [查找 N+1 查询](how-to/find-n-plus-one-queries.zh-CN.md)
+- [查找 .NET 运行时健康问题](how-to/find-runtime-health-problems.zh-CN.md)
 - [按 span 之间的关系查找追踪](how-to/find-traces-by-structure.zh-CN.md)
 - [将异常堆栈跟踪链接到源代码](how-to/link-exceptions-to-source-code.zh-CN.md)
 - [获取已触发告警的 AI 摘要](how-to/summarize-alerts-with-ai.zh-CN.md)

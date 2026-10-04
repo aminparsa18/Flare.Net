@@ -44,6 +44,7 @@
 - [Отслеживание вызовов LLM](how-to/monitor-llm-calls.ru.md)
 - [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/analyze-trace-funnels.ru.md)
 - [Как найти N+1 запросы](how-to/find-n-plus-one-queries.ru.md)
+- [Как найти проблемы со средой выполнения .NET](how-to/find-runtime-health-problems.ru.md)
 - [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
 - [Связать трассировки стека исключений с исходным кодом](how-to/link-exceptions-to-source-code.ru.md)
 - [Получение сводки ИИ по сработавшему оповещению](how-to/summarize-alerts-with-ai.ru.md)
