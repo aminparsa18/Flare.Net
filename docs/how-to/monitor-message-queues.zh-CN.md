@@ -53,7 +53,7 @@ using var consumer = consumerBuilder.Build();
 | Error rate | 带错误状态的发布和消费 span 所占比例 |
 | Publish p99 / Consume p99 | span 时长的第 99 百分位 |
 | Producers / consumers | 向其发布和从中消费的服务数量 |
-| Backlog | 等待处理的消息：Kafka 消费者延迟、RabbitMQ 队列深度或 NATS JetStream 待处理消息，见 [Kafka](#查看-kafka-消费者延迟)、[RabbitMQ](#查看-rabbitmq-队列深度) 和 [NATS](#查看-nats-jetstream-积压) |
+| Backlog | 等待处理的消息：Kafka 消费者延迟、RabbitMQ 队列深度NATS JetStream 待处理消息或 Service Bus 活动消息，见 [Kafka](#查看-kafka-消费者延迟)、[RabbitMQ](#查看-rabbitmq-队列深度)、[NATS](#查看-nats-jetstream-积压) 和 [Service Bus](#查看-service-bus-积压) |
 
 消费延迟是消费 span 自身的时长：对 `process` span 是处理时间，对只发出 `receive` span 的消费者是拉取时间。它不是消息在队列中等待的时间。
 
@@ -164,6 +164,47 @@ service:
 ```
 
 Flare 通过主题的接收 span 找到它的消费者：NATS.Net 会在每条 JetStream 消息上带上确认主题，其中包含流和消费者的名称。**Backlog** 列是该消费者待投递加待确认的消息数。打开该行可查看每个流和消费者，表中的 “Ready” 表示待投递（尚未投递），“Unacked” 表示已投递但未确认。服务多个主题的消费者会在每个主题上显示它唯一的积压。核心 NATS 订阅没有积压，这些行显示 **—**。
+
+## 查看 Service Bus 积压
+
+队列或订阅的积压不在 span 里。Azure 将它发布为 `ActiveMessages` 指标，OpenTelemetry
+Collector（contrib 发行版）的 `azuremonitor` 接收器读取 Azure Monitor 并发送给 Flare。
+配置该指标时带上 `EntityName` 维度，让每个队列和订阅成为独立的序列：
+
+```yaml
+receivers:
+  azuremonitor:
+    subscription_ids: ["${env:AZURE_SUBSCRIPTION_ID}"]
+    auth: service_principal
+    tenant_id: ${env:AZURE_TENANT_ID}
+    client_id: ${env:AZURE_CLIENT_ID}
+    client_secret: ${env:AZURE_CLIENT_SECRET}
+    services:
+      - Microsoft.ServiceBus/namespaces
+    metrics:
+      "microsoft.servicebus/namespaces":
+        ActiveMessages: [Average]
+    dimensions:
+      enabled: true
+      overrides:
+        "Microsoft.ServiceBus/namespaces":
+          ActiveMessages: [EntityName]
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [azuremonitor]
+      exporters: [otlp_grpc/flare]
+```
+
+服务主体需要在命名空间上拥有 **Monitoring Reader** 角色。Flare 读取
+`azure_activemessages_average`，所以请保留 Average 聚合。**Backlog** 列是队列最新的活动
+消息数；对 `topic/Subscriptions/名称` 的接收行，则是该订阅的活动消息数。死信消息不计入。
+Azure Monitor 每分钟上报一次，所以积压大约有这么长的延迟。接收器没有上报的实体显示 **—**。
 
 ## 故障排查
 

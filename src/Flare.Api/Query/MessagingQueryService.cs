@@ -28,6 +28,9 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
     /// <summary>The <c>messaging.system</c> value NATS.Net sets - the system JetStream consumer backlog is looked up for.</summary>
     private const string NatsSystem = "nats";
 
+    /// <summary>The <c>messaging.system</c> value Azure.Messaging.ServiceBus sets - the system active-message counts are looked up for.</summary>
+    private const string ServiceBusSystem = "servicebus";
+
     public async Task<MessagingDestinationsResponse> GetDestinationsAsync(MessagingDestinationsRequest request, CancellationToken cancellationToken)
     {
         var windowMinutes = MessagingQueryBuilder.ClampWindowMinutes(request.WindowMinutes);
@@ -119,6 +122,47 @@ public sealed class MessagingQueryService(IClickHouseClient client, IOptions<Que
                     if (depthByQueue.TryGetValue(queue, out var depth))
                     {
                         backlog = (backlog ?? 0) + depth;
+                    }
+                }
+
+                if (backlog is not null)
+                {
+                    destinations[i] = destinations[i] with { Backlog = backlog };
+                }
+            }
+        }
+
+        if (destinations.Exists(d => d.System == ServiceBusSystem))
+        {
+            var allEntities = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var destination in destinations.Where(d => d.System == ServiceBusSystem))
+            {
+                allEntities.UnionWith(MessagingQueryBuilder.ServiceBusEntityCandidates(destination.Destination));
+            }
+
+            var activeByEntity = new Dictionary<string, long>(StringComparer.Ordinal);
+            var backlogSql = MessagingQueryBuilder.BuildServiceBusBacklog(windowMinutes, end, allEntities);
+            await using (var reader = await client.ExecuteReaderAsync(backlogSql.Sql, backlogSql.Parameters, SafetyOptions(), cancellationToken))
+            {
+                while (reader.Read())
+                {
+                    activeByEntity[reader.GetString(0)] = reader.GetFieldValue<long>(1);
+                }
+            }
+
+            for (var i = 0; i < destinations.Count; i++)
+            {
+                if (destinations[i].System != ServiceBusSystem)
+                {
+                    continue;
+                }
+
+                long? backlog = null;
+                foreach (var entity in MessagingQueryBuilder.ServiceBusEntityCandidates(destinations[i].Destination))
+                {
+                    if (activeByEntity.TryGetValue(entity, out var active))
+                    {
+                        backlog = (backlog ?? 0) + active;
                     }
                 }
 

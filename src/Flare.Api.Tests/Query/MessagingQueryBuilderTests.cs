@@ -262,4 +262,27 @@ public class MessagingQueryBuilderTests
         Assert.Equal(MessagingQueryBuilder.JetStreamPendingMetric, parameters["pendingMetric"]);
         Assert.Equal(MessagingQueryBuilder.JetStreamAckPendingMetric, parameters["ackPendingMetric"]);
     }
+
+    [Fact]
+    public void BuildServiceBusBacklog_TakesLatestActiveMessagesPerNamespaceAndEntity()
+    {
+        var result = MessagingQueryBuilder.BuildServiceBusBacklog(60, End, ["orders", "payments"]);
+
+        Assert.Contains("FROM metrics_gauge", result.Sql);
+        Assert.Contains("DataPointAttributes['metadata_entityname'] IN {entities:Array(String)}", result.Sql);
+        Assert.Contains("GROUP BY ResourceId, Entity\n", result.Sql);
+        var parameters = result.Parameters.ToDictionary();
+        Assert.Equal(MessagingQueryBuilder.ServiceBusActiveMessagesMetric, parameters["activeMetric"]);
+        Assert.Equal(new[] { "orders", "payments" }, parameters["entities"]);
+    }
+
+    [Theory]
+    [InlineData("orders", new[] { "orders" })]
+    [InlineData("events/Subscriptions/billing", new[] { "events/Subscriptions/billing", "billing" })]
+    [InlineData("a/b", new[] { "a/b" })]
+    [InlineData("", new string[0])]
+    public void ServiceBusEntityCandidates_AddsTheSubscriptionNameForAReceivePath(string destination, string[] expected)
+    {
+        Assert.Equal(expected, MessagingQueryBuilder.ServiceBusEntityCandidates(destination));
+    }
 }
