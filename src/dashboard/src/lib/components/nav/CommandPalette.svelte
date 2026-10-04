@@ -29,6 +29,7 @@
 	import { listSavedViews, type SavedView } from '$lib/saved-views-api';
 	import { savedViewPath } from '$lib/saved-views/page-paths';
 	import { activeLogsExplorer } from '$lib/logs/active-explorer.svelte';
+	import { settingEntries } from '$lib/settings/search-index';
 	import { getRecentSearches } from '$lib/logs/recent-searches';
 	import * as m from '$lib/paraglide/messages';
 	import type { Component } from 'svelte';
@@ -53,6 +54,7 @@
 	import WorkflowIcon from '@lucide/svelte/icons/workflow';
 	import KeyIcon from '@lucide/svelte/icons/key';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import WrenchIcon from '@lucide/svelte/icons/wrench';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
@@ -81,6 +83,8 @@
 		'/settings/indexing': RefreshCwIcon,
 		'/settings/access-tokens': KeyRoundIcon
 	};
+
+	const settings = $derived(settingEntries());
 
 	let views = $state<SavedView[]>([]);
 	let loading = $state(false);
@@ -167,6 +171,15 @@
 				<Command.Item value={link.label} onSelect={() => selectNav(link.href)}>
 					<Icon />
 					<span>{link.label}</span>
+				</Command.Item>
+			{/each}
+		</Command.Group>
+		<Command.Group heading={m.commandPalette_settings()}>
+			{#each settings as entry (entry.href + entry.label)}
+				<Command.Item value="{entry.label} {entry.section} settings" onSelect={() => selectNav(entry.href)}>
+					<SettingsIcon />
+					<span class="truncate">{entry.label}</span>
+					<Command.Shortcut>{entry.section}</Command.Shortcut>
 				</Command.Item>
 			{/each}
 		</Command.Group>

@@ -96,5 +96,3 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-  Also: settings search (reuse the command palette index). Preference
-  import/export as JSON shipped on Settings > Account (`$lib/prefs-backup.ts`).

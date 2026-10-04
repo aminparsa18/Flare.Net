@@ -21,6 +21,7 @@
 	import LayersIcon from '@lucide/svelte/icons/layers';
 	import { authContext } from '$lib/auth/context';
 	import { settingsManagementLinks, workspaceLinks } from '$lib/components/nav/nav-links';
+	import { searchSettings } from '$lib/settings/search-index';
 	import * as m from '$lib/paraglide/messages';
 
 	const { children } = $props();
@@ -62,6 +63,9 @@
 
 	// The management tables (SLOs, pipeline rules, tokens, workspace pages) need the full width; the
 	// preference forms read better in a narrow column.
+	let query = $state('');
+	const results = $derived(searchSettings(query));
+
 	const wide = $derived(
 		[...Object.keys(MANAGEMENT_ICONS), ...Object.keys(WORKSPACE_ICONS)].some((href) => stripBase(page.url.pathname).startsWith(href))
 	);
@@ -82,6 +86,31 @@
 <div class="flex h-full flex-col overflow-y-auto md:flex-row">
 	<aside class="shrink-0 border-b p-4 md:w-56 md:border-r md:border-b-0">
 		<h1 class="mb-3 px-2 text-lg font-semibold">{m.settings_heading()}</h1>
+		<input
+			type="search"
+			bind:value={query}
+			placeholder={m.settings_searchPlaceholder()}
+			aria-label={m.settings_searchPlaceholder()}
+			class="border-input bg-background mb-3 h-8 w-full rounded-md border px-2 text-sm"
+		/>
+		{#if query.trim()}
+			<ul class="flex flex-col gap-1" aria-label={m.settings_searchResults()}>
+				{#each results as r (r.href + r.label)}
+					<li>
+						<a
+							href={withBase(r.href)}
+							onclick={() => (query = '')}
+							class={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'h-auto w-full flex-col items-start gap-0 py-1.5')}
+						>
+							<span>{r.label}</span>
+							<span class="text-muted-foreground text-xs">{r.section}</span>
+						</a>
+					</li>
+				{:else}
+					<li class="text-muted-foreground px-2 text-sm">{m.settings_searchNoResults()}</li>
+				{/each}
+			</ul>
+		{:else}
 		<nav class="flex gap-1 md:flex-col" aria-label={m.settings_heading()}>
 			{#each sections as section (section.href)}
 				{@render railLink(section)}
@@ -95,6 +124,7 @@
 				{/each}
 			{/if}
 		</nav>
+		{/if}
 	</aside>
 	<main class="min-w-0 flex-1 p-6">
 		<div class={cn('mx-auto', !wide && 'max-w-3xl')}>
