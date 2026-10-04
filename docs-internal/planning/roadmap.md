@@ -123,11 +123,3 @@ folders are where "what happened and why" actually lives.
   PATs. Unsupported PromQL returns a clear error rather than a partial
   answer. Full PromQL is out of scope. Needs an ADR. Not started. Prior art:
   [signoz PR #11555](https://github.com/SigNoz/signoz/pull/11555) (open, unmerged).
-- **Investigate: do attribute filters use the `mapValues` bloom indexes?**
-  Migrations define `bloom_filter` indexes on `mapValues(LogAttributes)`,
-  `ResourceAttributes` and `SpanAttributes`, but `AttributeClause` emits
-  `mapContains(...)` + `map[key] = v`. Check with `EXPLAIN indexes = 1` on a
-  realistic dataset whether those indexes skip granules. If not, add a
-  redundant `has(mapValues(map), v)` predicate for `Equals`/`In` and record
-  the before/after in `docs-internal/investigations/`. Not started. Prior art:
-  [signoz PR #12614](https://github.com/SigNoz/signoz/pull/12614) (open, unmerged).
