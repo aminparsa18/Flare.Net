@@ -123,14 +123,6 @@ folders are where "what happened and why" actually lives.
   PATs. Unsupported PromQL returns a clear error rather than a partial
   answer. Full PromQL is out of scope. Needs an ADR. Not started. Prior art:
   [signoz PR #11555](https://github.com/SigNoz/signoz/pull/11555) (open, unmerged).
-- **Retry notification sends on 429/5xx.** `Webhook`/`Telegram`/`PagerDuty`
-  notifiers send once with no retry, so a rate-limited (HTTP 429) or briefly
-  failing endpoint silently drops the page. Add bounded retries with backoff
-  on 429 (honouring `Retry-After`), 5xx and timeouts via
-  `Microsoft.Extensions.Http.Resilience` on the notifier `HttpClient`s. Log
-  the final failure into alert history. Keep send-test single-shot so users
-  see the real error. Not started. Prior art:
-  [signoz PR #12892](https://github.com/SigNoz/signoz/pull/12892) (open, unmerged).
 - **Kubernetes events tab.** The `/kubernetes` page has nodes, pods,
   workloads and volumes but no events. The collector's `k8sobjects` receiver
   (watch `events`) delivers them as OTLP logs. Add an Events tab filtering

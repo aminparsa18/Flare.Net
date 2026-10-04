@@ -26,7 +26,7 @@ public static class Extensions
 
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
-            http.AddStandardResilienceHandler();
+            http.AddStandardResilienceHandler(Flare.ServiceDefaults.HttpRetryScope.Tune);
             http.AddServiceDiscovery();
         });
 
