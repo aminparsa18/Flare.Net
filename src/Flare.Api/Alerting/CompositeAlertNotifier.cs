@@ -45,6 +45,8 @@ public sealed class CompositeAlertNotifier(
             _ => webhook,
         };
 
+        // Dispose restores the flag on return; the callee already captured it in its own async flow.
+        using var _ = Flare.ServiceDefaults.HttpRetryScope.SingleShot(isTest);
         return notifier.SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit, noData, anomaly, resolved, logSamples);
     }
 
