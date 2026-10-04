@@ -2814,5 +2814,10 @@
 	"settingsNotifications_browserTitle": "Сработало оповещение Flare",
 	"settingsNotifications_browserUnsupported": "Этот браузер не поддерживает уведомления.",
 	"settingsNotifications_browserDenied": "Уведомления для этого сайта заблокированы в настройках браузера.",
-	"settingsNotifications_emailNote": "Письма об оповещениях уходят получателям, указанным в каждом канале уведомлений, поэтому отписки на уровне пользователя нет; измените получателей в канале."
+	"settingsNotifications_emailNote": "Письма об оповещениях уходят получателям, указанным в каждом канале уведомлений, поэтому отписки на уровне пользователя нет; измените получателей в канале.",
+	"mcpConnect_heading": "Подключить ИИ-ассистента",
+	"mcpConnect_description": "Flare предоставляет MCP-эндпоинт только для чтения: {url}. Создайте токен ниже и зарегистрируйте его в Claude Code, Cursor или VS Code.",
+	"mcpConnect_copy": "Копировать команду",
+	"mcpConnect_copied": "Скопировано",
+	"mcpConnect_docs": "Руководство по настройке"
 }

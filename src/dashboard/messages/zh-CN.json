@@ -2814,5 +2814,10 @@
 	"settingsNotifications_browserTitle": "Flare 告警已触发",
 	"settingsNotifications_browserUnsupported": "此浏览器不支持通知。",
 	"settingsNotifications_browserDenied": "浏览器设置中已屏蔽此站点的通知。",
-	"settingsNotifications_emailNote": "告警邮件发送给各通知渠道中配置的收件人，因此没有按用户的退订选项；如需更改，请编辑对应渠道。"
+	"settingsNotifications_emailNote": "告警邮件发送给各通知渠道中配置的收件人，因此没有按用户的退订选项；如需更改，请编辑对应渠道。",
+	"mcpConnect_heading": "连接 AI 助手",
+	"mcpConnect_description": "Flare 在 {url} 提供只读 MCP 端点。在下方创建令牌，并将其注册到 Claude Code、Cursor 或 VS Code。",
+	"mcpConnect_copy": "复制命令",
+	"mcpConnect_copied": "已复制",
+	"mcpConnect_docs": "设置指南"
 }

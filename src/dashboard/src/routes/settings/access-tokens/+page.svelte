@@ -7,6 +7,7 @@
 	import { AccessTokensState } from '$lib/access-tokens/state.svelte';
 	import { accessTokensContext } from '$lib/access-tokens/context';
 	import AccessTokenTable from '$lib/components/access-tokens/AccessTokenTable.svelte';
+	import McpConnectCard from '$lib/components/access-tokens/McpConnectCard.svelte';
 	import CreateAccessTokenDialog from '$lib/components/access-tokens/CreateAccessTokenDialog.svelte';
 	import * as m from '$lib/paraglide/messages';
 
@@ -21,6 +22,7 @@
 	<title>{m.accessTokensPage_title()}</title>
 </svelte:head>
 
+<McpConnectCard />
 <div class="flex h-full flex-col">
 	<AccessTokenTable />
 </div>

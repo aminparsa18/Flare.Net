@@ -2814,5 +2814,10 @@
 	"settingsNotifications_browserTitle": "Flare alert fired",
 	"settingsNotifications_browserUnsupported": "This browser does not support notifications.",
 	"settingsNotifications_browserDenied": "Notifications are blocked for this site in your browser settings.",
-	"settingsNotifications_emailNote": "Alert emails go to the recipients configured on each notification channel, so there is no per-user opt-out; edit the channel to change who receives them."
+	"settingsNotifications_emailNote": "Alert emails go to the recipients configured on each notification channel, so there is no per-user opt-out; edit the channel to change who receives them.",
+	"mcpConnect_heading": "Connect an AI assistant",
+	"mcpConnect_description": "Flare exposes a read-only MCP endpoint at {url}. Create a token below and register it with Claude Code, Cursor or VS Code.",
+	"mcpConnect_copy": "Copy command",
+	"mcpConnect_copied": "Copied",
+	"mcpConnect_docs": "Setup guide"
 }
