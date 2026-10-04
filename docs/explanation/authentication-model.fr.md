@@ -107,6 +107,8 @@ jeton séparé nécessaire.
 Les sessions expirent par défaut après 14 jours fixes
 (`Auth:SessionLifetime`), sans fenêtre glissante.
 
+Chaque utilisateur connecté voit ses propres sessions actives sous **Paramètres → Compte et sécurité** : il peut en fermer une seule, fermer toutes les autres ou se déconnecter partout. Les sessions sont identifiées par un identifiant à sens unique, jamais par le jeton du cookie. La même page propose un export JSON des vues enregistrées de l'utilisateur et des tableaux de bord dont il est propriétaire.
+
 ## Où vivent les comptes
 
 Les utilisateurs, sessions, clés API d'ingestion et tous les paramètres

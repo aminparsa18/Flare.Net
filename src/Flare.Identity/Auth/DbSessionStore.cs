@@ -85,6 +85,28 @@ public sealed class DbSessionStore(IdentityDbConnectionFactory connectionFactory
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Session>> ListForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, UserId, CreatedAt, ExpiresAt, LastSeenAt FROM Sessions WHERE UserId = @userId";
+        command.AddParameter("@userId", userId.ToString());
+
+        var now = timeProvider.GetUtcNow();
+        var sessions = new List<Session>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var session = ReadSession(reader);
+            if (session.ExpiresAt > now)
+            {
+                sessions.Add(session);
+            }
+        }
+
+        return [.. sessions.OrderByDescending(s => s.LastSeenAt)];
+    }
+
     public async Task TouchLastSeenAsync(string token, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);

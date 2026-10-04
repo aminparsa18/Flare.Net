@@ -42,6 +42,10 @@ internal sealed class FakeSessionStore : ISessionStore
         return Task.CompletedTask;
     }
 
+    public Task<IReadOnlyList<Session>> ListForUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Session>>(
+            [.. _sessionsByToken.Values.Where(s => s.UserId == userId && s.ExpiresAt > DateTimeOffset.UtcNow).OrderByDescending(s => s.LastSeenAt)]);
+
     public Task TouchLastSeenAsync(string token, CancellationToken cancellationToken = default)
     {
         if (_sessionsByToken.TryGetValue(token, out var session))

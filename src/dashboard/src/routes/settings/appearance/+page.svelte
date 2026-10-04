@@ -4,6 +4,8 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import { Button } from '$lib/components/ui/button';
 	import { appearance } from '$lib/appearance/prefs.svelte';
+	import * as Table from '$lib/components/ui/table';
+	import { Badge } from '$lib/components/ui/badge';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
@@ -19,6 +21,12 @@
 		orange: 'oklch(0.62 0.18 50)',
 		rose: 'oklch(0.58 0.21 12)'
 	};
+
+	const PREVIEW_ROWS = [
+		{ time: '12:04:31', level: 'info', service: 'checkout', body: 'Order 8841 placed in 212 ms' },
+		{ time: '12:04:32', level: 'warn', service: 'payments', body: 'Retrying charge after timeout (attempt 2)' },
+		{ time: '12:04:33', level: 'error', service: 'payments', body: 'Card processor returned 502' }
+	];
 
 	type Mode = 'light' | 'dark' | 'system';
 </script>
@@ -37,6 +45,37 @@
 			{m.settingsAppearance_reset()}
 		</Button>
 	</div>
+
+	<section class="bg-card flex flex-col gap-3 rounded-lg border p-4" aria-label={m.settingsAppearance_previewHeading()}>
+		<div class="flex items-center justify-between gap-2">
+			<h3 class="font-medium">{m.settingsAppearance_previewHeading()}</h3>
+			<span class="text-muted-foreground text-xs">{m.settingsAppearance_previewHint()}</span>
+		</div>
+		<Table.Root>
+			<Table.Header>
+				<Table.Row>
+					<Table.Head>{m.settingsAppearance_previewTime()}</Table.Head>
+					<Table.Head>{m.settingsAppearance_previewLevel()}</Table.Head>
+					<Table.Head>{m.settingsAppearance_previewService()}</Table.Head>
+					<Table.Head>{m.settingsAppearance_previewMessage()}</Table.Head>
+				</Table.Row>
+			</Table.Header>
+			<Table.Body>
+				{#each PREVIEW_ROWS as row (row.time)}
+					<Table.Row>
+						<Table.Cell class="text-muted-foreground">{row.time}</Table.Cell>
+						<Table.Cell><Badge variant={row.level === 'error' ? 'destructive' : 'secondary'}>{row.level}</Badge></Table.Cell>
+						<Table.Cell>{row.service}</Table.Cell>
+						<Table.Cell data-log-body>{row.body}</Table.Cell>
+					</Table.Row>
+				{/each}
+			</Table.Body>
+		</Table.Root>
+		<div class="flex gap-2">
+			<Button size="sm">{m.settingsAppearance_previewPrimary()}</Button>
+			<Button size="sm" variant="outline">{m.settingsAppearance_previewSecondary()}</Button>
+		</div>
+	</section>
 
 	<section class="flex flex-col gap-3">
 		<h3 class="font-medium">{m.settingsAppearance_themeHeading()}</h3>

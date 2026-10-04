@@ -1,12 +1,19 @@
 <script lang="ts">
-	// Self-service password change for local accounts (POST /api/auth/password). SSO
-	// accounts have no Flare-managed password, so the nav entry is hidden for them.
+	// Account & security: password change for local accounts (POST /api/auth/password; SSO
+	// accounts have no Flare-managed password, so that card is hidden for them), active
+	// sessions, and a data export.
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
+	import SessionsCard from '$lib/components/settings/SessionsCard.svelte';
+	import DataExportCard from '$lib/components/settings/DataExportCard.svelte';
+	import { authContext } from '$lib/auth/context';
 	import { changeOwnPassword } from '$lib/users-api';
 	import * as m from '$lib/paraglide/messages';
+
+	const auth = authContext.get();
+	const isLocal = $derived(auth.currentUser?.authProvider === 'Local');
 
 	let current = $state('');
 	let next = $state('');
@@ -38,6 +45,8 @@
 	<title>{m.settingsAccount_title()}</title>
 </svelte:head>
 
+<div class="flex flex-col gap-6">
+{#if isLocal}
 <Card.Root>
 	<Card.Header>
 		<Card.Title>{m.settingsAccount_heading()}</Card.Title>
@@ -58,3 +67,8 @@
 		</form>
 	</Card.Content>
 </Card.Root>
+{/if}
+
+<SessionsCard />
+<DataExportCard />
+</div>

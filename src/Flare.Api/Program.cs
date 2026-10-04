@@ -522,6 +522,7 @@ authenticatedRoutes.MapSloReadEndpoints();
 // remarks for why any authenticated Viewer-and-up (not RequireMember/RequireAdmin) can
 // mint one of these for themselves.
 authenticatedRoutes.MapPersonalAccessTokenEndpoints();
+authenticatedRoutes.MapSessionEndpoints();
 
 // MCP over streamable HTTP. Authenticated like the REST routes it wraps but deliberately NOT
 // in authenticatedRoutes: each tool call re-enters /api/* over loopback with the caller's

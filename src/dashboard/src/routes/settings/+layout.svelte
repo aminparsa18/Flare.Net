@@ -37,8 +37,9 @@
 		{ href: '/settings/explorer', label: m.settingsExplorer_navLabel(), icon: CompassIcon },
 		{ href: '/settings/keyboard', label: m.settingsKeyboard_navLabel(), icon: KeyboardIcon },
 		{ href: '/settings/notifications', label: m.settingsNotifications_navLabel(), icon: BellIcon },
-		// Only local accounts have a Flare-managed password to change.
-		...(auth.currentUser?.authProvider === 'Local'
+		// Sessions and data export apply to every signed-in account; the password card
+		// inside is local-only.
+		...(auth.currentUser
 			? [{ href: '/settings/account', label: m.settingsAccount_navLabel(), icon: UserIcon }]
 			: []),
 		...settingsManagementLinks(auth).map((link) => ({ ...link, icon: MANAGEMENT_ICONS[link.href as keyof typeof MANAGEMENT_ICONS] }))
