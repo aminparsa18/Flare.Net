@@ -10,6 +10,7 @@
 // `baselineMean`/`zScore` were appended after `noData`, same reasoning (ADR-0048).
 // `suppressedByWindow` was appended after `zScore`, same reasoning (ADR-0055).
 // `resolved` was appended after `suppressedByWindow`, same reasoning (ADR-0064).
+// `aiSummary`/`aiModel` were appended after `resolved`, same reasoning (ADR-0104).
 
 import { MemoryPackWriter } from '$lib/generated/memorypack/MemoryPackWriter.js';
 import { MemoryPackReader } from '$lib/generated/memorypack/MemoryPackReader.js';
@@ -36,6 +37,8 @@ export class AlertHistoryEntry {
 	zScore: number | null;
 	suppressedByWindow: string | null;
 	resolved: boolean;
+	aiSummary: string | null;
+	aiModel: string | null;
 
 	constructor() {
 		this.eventId = '00000000-0000-0000-0000-000000000000';
@@ -57,6 +60,8 @@ export class AlertHistoryEntry {
 		this.zScore = null;
 		this.suppressedByWindow = null;
 		this.resolved = false;
+		this.aiSummary = null;
+		this.aiModel = null;
 	}
 
 	static serialize(value: AlertHistoryEntry | null): Uint8Array {
@@ -71,7 +76,7 @@ export class AlertHistoryEntry {
 			return;
 		}
 
-		writer.writeObjectHeader(19);
+		writer.writeObjectHeader(21);
 		writer.writeGuid(value.eventId);
 		writer.writeGuid(value.ruleId);
 		writer.writeString(value.ruleName);
@@ -91,6 +96,8 @@ export class AlertHistoryEntry {
 		writer.writeNullableFloat64(value.zScore);
 		writer.writeString(value.suppressedByWindow);
 		writer.writeBoolean(value.resolved);
+		writer.writeString(value.aiSummary);
+		writer.writeString(value.aiModel);
 	}
 
 	static serializeArray(value: (AlertHistoryEntry | null)[] | null): Uint8Array {
@@ -114,7 +121,7 @@ export class AlertHistoryEntry {
 		}
 
 		const value = new AlertHistoryEntry();
-		if (count == 19) {
+		if (count == 21) {
 			value.eventId = reader.readGuid();
 			value.ruleId = reader.readGuid();
 			value.ruleName = reader.readString();
@@ -134,7 +141,9 @@ export class AlertHistoryEntry {
 			value.zScore = reader.readNullableFloat64();
 			value.suppressedByWindow = reader.readString();
 			value.resolved = reader.readBoolean();
-		} else if (count > 19) {
+			value.aiSummary = reader.readString();
+			value.aiModel = reader.readString();
+		} else if (count > 21) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -176,6 +185,10 @@ export class AlertHistoryEntry {
 			if (count == 18) return value;
 			value.resolved = reader.readBoolean();
 			if (count == 19) return value;
+			value.aiSummary = reader.readString();
+			if (count == 20) return value;
+			value.aiModel = reader.readString();
+			if (count == 21) return value;
 		}
 		return value;
 	}

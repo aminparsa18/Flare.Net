@@ -464,7 +464,7 @@ internal sealed class FlareMcpTools(FlareApiClient api)
     }
 
     [McpServerTool(Name = "list_firing_alerts", ReadOnly = true)]
-    [Description("List alert rules that are currently firing (fired and not yet resolved), with when they last fired, what was observed vs the threshold, and the notification status. Empty when everything is healthy.")]
+    [Description("List alert rules that are currently firing (fired and not yet resolved), with when they last fired, what was observed vs the threshold, and the notification status, plus the AI incident summary when the instance has them enabled. Empty when everything is healthy.")]
     public async Task<string> ListFiringAlerts(CancellationToken cancellationToken = default)
     {
         if (NotReady() is { } notReady)
@@ -516,6 +516,10 @@ internal sealed class FlareMcpTools(FlareApiClient api)
             }
 
             sb.AppendLine($"{rule.Name}: fired {latest.FiredAt.UtcDateTime:yyyy-MM-dd HH:mm:ss}Z observed={latest.ObservedValue?.ToString("G4") ?? latest.ObservedCount.ToString()} threshold={latest.ThresholdValue?.ToString("G4") ?? latest.ThresholdCount.ToString()} window={latest.WindowSeconds}s notification={latest.NotificationStatus}{(string.IsNullOrEmpty(latest.SuppressedByWindow) ? "" : " (suppressed by maintenance window)")}");
+            if (!string.IsNullOrEmpty(latest.AiSummary))
+            {
+                sb.AppendLine($"  AI summary ({latest.AiModel}): {latest.AiSummary.ReplaceLineEndings(" ")}");
+            }
         }
 
         return sb.Length == 0 ? $"No alerts firing ({enabled.Count} enabled rules checked)." : sb.ToString();
@@ -768,6 +772,11 @@ internal sealed class AlertHistoryEntryWire
     public string SuppressedByWindow { get; init; } = "";
 
     public bool Resolved { get; init; }
+
+    /// <summary>The model-written incident summary (ADR-0104); "" when none was generated.</summary>
+    public string AiSummary { get; init; } = "";
+
+    public string AiModel { get; init; } = "";
 }
 
 internal sealed class AlertHistoryResponseWire

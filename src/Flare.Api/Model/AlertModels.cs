@@ -936,6 +936,17 @@ public sealed partial record AlertHistoryEntry
     /// Appended after <see cref="SuppressedByWindow"/>, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
     /// </summary>
     public bool Resolved { get; init; }
+
+    /// <summary>
+    /// The model-written incident summary for this fire, or "" when none was generated (AI off, over
+    /// the hourly cap, or the call failed) - see <c>docs-internal/adr/0104-ai-incident-summary.md</c>.
+    /// Read from <c>alert_event_summaries</c>, not stored on the event. Appended after
+    /// <see cref="Resolved"/>, same versioning reasoning as <see cref="AlertRule.ConditionKind"/>.
+    /// </summary>
+    public string AiSummary { get; init; } = "";
+
+    /// <summary>The model that wrote <see cref="AiSummary"/>; "" when there is none. Appended after <see cref="AiSummary"/>.</summary>
+    public string AiModel { get; init; } = "";
 }
 
 /// <summary>

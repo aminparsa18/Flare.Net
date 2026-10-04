@@ -100,6 +100,15 @@
 								{#if entry.notificationError}
 									<p class="text-destructive mt-1">{entry.notificationError}</p>
 								{/if}
+								{#if entry.aiSummary}
+									<!-- Plain text on purpose: model output is never rendered as markdown/HTML (ADR-0104). -->
+									<div class="bg-muted/50 mt-2 rounded-md p-2">
+										<p class="text-muted-foreground mb-1 text-xs">
+											{m.alertHistory_aiSummary({ model: entry.aiModel })}
+										</p>
+										<p class="whitespace-pre-wrap">{entry.aiSummary}</p>
+									</div>
+								{/if}
 								{#if entry.channelResults.length > 1}
 									<!-- Fan-out fire (see docs-internal/adr/0021-reusable-notification-channels.md) -
 									     notificationStatus/notificationError above are the summary across every

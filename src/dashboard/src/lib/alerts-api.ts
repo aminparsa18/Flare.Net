@@ -271,6 +271,10 @@ export interface AlertHistoryEntry {
 	suppressedByWindow: string;
 	/** True for a resolution - the rule recovered after firing - rather than a fire. `firedAt` is then when the recovery was observed. */
 	resolved: boolean;
+	/** Model-written incident summary for this fire (ADR-0104); '' when none was generated. */
+	aiSummary: string;
+	/** The model that wrote `aiSummary`; '' when there is none. */
+	aiModel: string;
 }
 
 /** One channel's outcome within a fan-out fire - `AlertHistoryEntry.channelResults`'s element shape. */
@@ -519,7 +523,9 @@ function toAlertHistoryEntry(dto: GeneratedAlertHistoryEntry): AlertHistoryEntry
 		baselineMean: dto.baselineMean ?? undefined,
 		zScore: dto.zScore ?? undefined,
 		suppressedByWindow: dto.suppressedByWindow ?? '',
-		resolved: dto.resolved
+		resolved: dto.resolved,
+		aiSummary: dto.aiSummary ?? '',
+		aiModel: dto.aiModel ?? ''
 	};
 }
 

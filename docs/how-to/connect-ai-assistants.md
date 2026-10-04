@@ -51,7 +51,7 @@ flood the assistant's context.
 | `list_metrics` | Which metrics exist (name, type, unit, service). |
 | `query_metric` | One metric summarized per series: first/last/min/avg/max, or percentiles for histograms. |
 | `list_exceptions` | Top exception groups with counts and affected services. |
-| `list_firing_alerts` | Alert rules firing right now. |
+| `list_firing_alerts` | Alert rules firing right now, with the AI incident summary when [enabled](summarize-alerts-with-ai.md). |
 | `list_runs` | When a service was last started, and the starts before it. |
 | `diff_traces` | Two traces compared: spans added/removed, duration and error changes. |
 | `compare_runs` | The same endpoint in the service's previous run versus its latest run, diffed. |

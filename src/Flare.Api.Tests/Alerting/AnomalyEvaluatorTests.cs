@@ -119,6 +119,8 @@ public class AnomalyEvaluatorTests
 
         public Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task InsertEventSummaryAsync(Guid eventId, Guid ruleId, string model, string summary, string prompt, DateTimeOffset createdAt, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyList<AlertHistoryEntry>> GetHistoryAsync(Guid ruleId, int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

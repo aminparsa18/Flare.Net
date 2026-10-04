@@ -46,6 +46,8 @@ app.Configure(config =>
     {
         alerts.AddCommand<AlertsListCommand>("list")
             .WithDescription("List saved alert rules.");
+        alerts.AddCommand<AlertsHistoryCommand>("history")
+            .WithDescription("Show a rule's recent fired/resolved events, with the AI incident summary when there is one.");
         alerts.AddCommand<AlertsTestCommand>("test")
             .WithDescription("Dry-run fire a saved alert rule (ignores cooldown, sends no notification).");
         alerts.AddCommand<AlertsSendTestCommand>("send-test")

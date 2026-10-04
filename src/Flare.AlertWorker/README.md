@@ -62,8 +62,9 @@ than one process" shape `Flare.Identity` already is for `Flare.Ingest`/`Flare.Ap
 ## Project layout
 
 ```
-Alerting/   AlertEvaluationWorker (the poll-loop BackgroundService), AlertingOptions -
-            the only two types that live here rather than in Flare.Api.
+Alerting/   AlertEvaluationWorker (the poll-loop BackgroundService), AlertingOptions,
+            IncidentSummaryService (optional AI summary after a fire, ADR-0104) -
+            the only types that live here rather than in Flare.Api.
 Program.cs  Minimal host: ClickHouse/Redis client wiring, the same alert-notifier DI
             registrations Flare.Api's own Program.cs makes, /health + /alive only (no
             other HTTP surface - AddServiceDefaults()/MapDefaultEndpoints() are pulled in
@@ -83,6 +84,11 @@ server for the Email channel) configuration keys `Flare.Api` already documents, 
 `ConnectionStrings__clickhousedb`/`ConnectionStrings__redis` — see
 `docker-compose.yml`/`.env.example` for the full set. Webhook/Telegram/PagerDuty channels
 need no app-wide config; their URL/token/routing key live per-rule.
+
+Optional AI incident summaries (`docs-internal/adr/0104-ai-incident-summary.md`) read the
+same `Ai__*` section `Flare.Api` binds (`Ai__Enabled`, `Ai__IncidentSummaries`,
+`Ai__Endpoint`, `Ai__Model`, ...), so those keys must be set on this service too. Off by
+default; a fire's plain notification is always sent first.
 
 ## Tests
 

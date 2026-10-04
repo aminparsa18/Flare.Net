@@ -2259,6 +2259,7 @@
 	"alertRuleTable_noMatches": "没有符合筛选条件的规则。",
 	"alertRuleTable_clearFilters": "清除筛选",
 	"alertHistory_suppressedBy": "未发送 - 已被维护窗口“{window}”抑制。",
+	"alertHistory_aiSummary": "AI 摘要（{model}）",
 	"notificationChannelForm_sendResolvedLabel": "发送恢复通知",
 	"notificationChannelForm_sendResolvedHint": "当已触发的规则恢复正常时，通过此渠道发送一条“Resolved”消息。对于 PagerDuty，会自动解决该事件。",
 	"alertHistory_resolvedBadge": "已恢复",

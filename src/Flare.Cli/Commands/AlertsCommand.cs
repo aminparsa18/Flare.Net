@@ -289,6 +289,97 @@ internal sealed class AlertsSendTestCommand : AsyncCommand<AlertsSendTestCommand
     }
 }
 
+/// <summary>
+/// <c>flare alerts history &lt;ID&gt;</c> - recent fired/resolved events for one rule via
+/// <c>GET /api/alerts/{id}/history</c>, including the AI incident summary
+/// (<c>docs-internal/adr/0104-ai-incident-summary.md</c>) when the instance generated one.
+/// </summary>
+internal sealed class AlertsHistoryCommand : AsyncCommand<AlertsHistoryCommand.Settings>
+{
+    internal sealed class Settings : InstanceSettings
+    {
+        [CommandArgument(0, "<ID>")]
+        [Description("The alert rule's id (see `flare alerts list`).")]
+        public required Guid Id { get; init; }
+
+        [CommandOption("--limit <COUNT>")]
+        [Description("How many recent events to show. Default 20.")]
+        public int Limit { get; init; } = 20;
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        var instance = FlareHome.ResolveTarget(settings.InstanceName);
+
+        if (!instance.IsInitialized)
+        {
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
+            return 1;
+        }
+
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
+        using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
+
+        AlertHistoryResponseWire? response;
+        try
+        {
+            using var httpResponse = await http.GetAsync($"/api/alerts/{settings.Id}/history?limit={Math.Clamp(settings.Limit, 1, 200)}", cancellationToken);
+
+            if (httpResponse.StatusCode == HttpStatusCode.NotFound)
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] No alert rule with id {settings.Id}.");
+                return 1;
+            }
+
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] GET /api/alerts/{settings.Id}/history failed: {(int)httpResponse.StatusCode} {httpResponse.ReasonPhrase}");
+                return 1;
+            }
+
+            response = await httpResponse.Content.ReadFromJsonAsync<AlertHistoryResponseWire>(WireJsonOptions.Instance, cancellationToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] Couldn't reach the API on localhost:{port} - is `api` running? Check `flare status`.");
+            return 1;
+        }
+
+        var events = response?.Events ?? [];
+        if (events.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[grey]This rule has never fired.[/]");
+            return 0;
+        }
+
+        var table = new Table().Border(TableBorder.Rounded);
+        table.AddColumn("When (UTC)");
+        table.AddColumn("Event");
+        table.AddColumn("Observed");
+        table.AddColumn("Threshold");
+        table.AddColumn("Notification");
+        foreach (var e in events.OrderByDescending(e => e.FiredAt))
+        {
+            table.AddRow(
+                e.FiredAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+                e.Resolved ? "resolved" : "fired",
+                Markup.Escape(e.ObservedValue?.ToString("G4", CultureInfo.InvariantCulture) ?? e.ObservedCount.ToString(CultureInfo.InvariantCulture)),
+                Markup.Escape(e.ThresholdValue?.ToString("G4", CultureInfo.InvariantCulture) ?? e.ThresholdCount.ToString(CultureInfo.InvariantCulture)),
+                Markup.Escape(e.NotificationStatus));
+        }
+
+        AnsiConsole.Write(table);
+
+        foreach (var e in events.Where(e => !string.IsNullOrEmpty(e.AiSummary)).OrderByDescending(e => e.FiredAt))
+        {
+            AnsiConsole.MarkupLine($"\n[bold]AI summary[/] [grey]({e.FiredAt.UtcDateTime:HH:mm:ss}Z, {Markup.Escape(e.AiModel)})[/]");
+            AnsiConsole.WriteLine(e.AiSummary);
+        }
+
+        return 0;
+    }
+}
+
 // ---- Wire DTOs - hand-mirror of Flare.Api's Model/AlertModels.cs (see AlertsJsonContext's
 // camelCase-properties/PascalCase-string-enum-values convention). Condition (LogFilter) is
 // deliberately omitted - not rendered by either command here yet. -------------

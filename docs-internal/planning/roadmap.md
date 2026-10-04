@@ -100,16 +100,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **AI incident summary on alerts (opt-in).** When a rule fires, run the
-  same data `flare export --trace-id` bundles (a representative failing
-  trace, its logs, the rule's metric window) through an LLM. Add the summary
-  to the notification and alert history: first error, failing span/service,
-  what changed vs. the previous window. Constraints for every AI feature:
-  off by default; bring-your-own model (OpenAI-compatible endpoint,
-  including local Ollama); attribute/body redaction before anything leaves
-  the box; record what was sent (feeds the audit-log item); bounded token
-  budget per alert; never blocks or delays the plain notification. Needs an
-  ADR. Not started.
 - **Natural language → typed filters.** Let users type "5xx on checkout in
   the last hour, excluding health checks" and have an LLM produce a
   `LogFilter`/`SpanFilter` (incl. structural trace queries) as JSON, checked
