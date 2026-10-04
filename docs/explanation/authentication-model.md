@@ -93,6 +93,8 @@ request as any other same-site request, no separate token needed.
 Sessions default to a 14-day fixed expiry (`Auth:SessionLifetime`), no
 sliding window.
 
+Every signed-in user can see their own active sessions under **Settings → Account & security**, sign out a single one, sign out all the others, or sign out everywhere. Sessions are listed by a one-way handle, never the cookie token. The same page offers a JSON export of the user's saved views and the dashboards they own.
+
 ## Where accounts live
 
 Users, sessions, ingest API keys, and all auth settings are stored in an

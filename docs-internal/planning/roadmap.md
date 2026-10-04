@@ -95,12 +95,6 @@ folders are where "what happened and why" actually lives.
   route (left rail of sections, deep-linkable `/settings/<section>`) and
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Sections:
-  - **Appearance & layout** (`/settings/appearance` shipped, synced per
-    user, ADR-0110). Remaining: a live preview (deferred).
-  - **Account & security**: profile and password change (local accounts),
-    personal access tokens (page already moved to `/settings/access-tokens`),
-    active sessions with sign-out-everywhere, and a data export of the
-    user's own saved views and dashboards.
   - **Workspace (admin-only, separate group)**: the instance-level pages
     that are top-level routes today (notification channels,
     maintenance windows, audit log, indexing; ingest keys, SLOs and

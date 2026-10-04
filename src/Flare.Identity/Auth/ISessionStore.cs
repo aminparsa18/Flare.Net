@@ -22,6 +22,9 @@ public interface ISessionStore
     /// caller's own, after a self-service password change).</summary>
     Task DeleteAllForUserExceptAsync(Guid userId, string keepToken, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the user's unexpired sessions, most recently active first.</summary>
+    Task<IReadOnlyList<Session>> ListForUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
     /// <summary>Bumps <see cref="Session.LastSeenAt"/> to now. Callers should throttle
     /// how often this is invoked per session (e.g. at most once a minute) - it's for an
     /// admin-facing "last active" display only, not for computing expiry.</summary>
