@@ -1,3 +1,5 @@
+using Flare.Api.Auth;
+using MimeKit;
 using System.Text.Json;
 using Flare.Api.Auditing;
 using Flare.Api.Json;
@@ -37,7 +39,7 @@ public static class UserEndpoints
     /// <summary>Creates a local account whose password nobody knows (random, discarded) and
     /// returns a one-time set-password token for the admin to hand over.</summary>
     internal static async Task<IResult> HandleInviteAsync(
-        HttpContext http, IUserStore users, IPasswordSetTokenStore tokens, IAuthSettingsStore authSettings, CancellationToken cancellationToken)
+        HttpContext http, IUserStore users, IPasswordSetTokenStore tokens, IAuthSettingsStore authSettings, IPasswordResetMailer mailer, CancellationToken cancellationToken)
     {
         if (!(await authSettings.GetAsync(cancellationToken)).LocalEnabled)
         {
@@ -67,9 +69,14 @@ public static class UserEndpoints
 
         var user = await users.CreateAsync(username, $"{Guid.NewGuid():N}{Guid.NewGuid():N}", request.Role, cancellationToken);
         var token = await tokens.CreateAsync(user.Id, PasswordSetPurpose.Invite, InviteLifetime, cancellationToken);
+        // The username is the address (ADR-0113); the raw link is still returned so the admin can copy it.
+        var emailed = mailer.IsConfigured
+            && username.Contains('@')
+            && MailboxAddress.TryParse(username, out _)
+            && await mailer.SendAsync(username, mailer.BuildLink(token.RawToken), cancellationToken, invite: true);
         return ApiSerialization.Write(
             http,
-            new PasswordSetLinkResponse { User = ToDto(user), Token = token.RawToken, ExpiresAt = token.ExpiresAt },
+            new PasswordSetLinkResponse { User = ToDto(user), Token = token.RawToken, ExpiresAt = token.ExpiresAt, EmailSent = emailed },
             UsersJsonContext.Default.PasswordSetLinkResponse,
             statusCode: StatusCodes.Status201Created);
     }

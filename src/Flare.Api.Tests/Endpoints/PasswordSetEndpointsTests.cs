@@ -53,7 +53,7 @@ public class PasswordSetEndpointsTests
         var sessions = new FakeSessionStore();
 
         var ic = Ctx(new { username = "newbie", role = "Member" });
-        Assert.Equal(201, await Run(await UserEndpoints.HandleInviteAsync(ic, users, tokens, new FakeAuthSettingsStore(), default), ic));
+        Assert.Equal(201, await Run(await UserEndpoints.HandleInviteAsync(ic, users, tokens, new FakeAuthSettingsStore(), new FakePasswordResetMailer(), default), ic));
         var link = await ReadLink(ic);
 
         var sc = Ctx(new { token = link.Token, password = "brand-new-pass" });
@@ -65,12 +65,27 @@ public class PasswordSetEndpointsTests
     }
 
     [Fact]
+    public async Task Invite_EmailUsername_SendsEmail_PlainUsernameDoesNot()
+    {
+        var mailer = new FakePasswordResetMailer();
+        var users = new FakeUserStore();
+        var tokens = new FakePasswordSetTokenStore();
+        var a = Ctx(new { username = "new@example.com", role = "Viewer" });
+        Assert.Equal(201, await Run(await UserEndpoints.HandleInviteAsync(a, users, tokens, new FakeAuthSettingsStore(), mailer, default), a));
+        Assert.True((await ReadLink(a)).EmailSent);
+        var b = Ctx(new { username = "plain", role = "Viewer" });
+        Assert.Equal(201, await Run(await UserEndpoints.HandleInviteAsync(b, users, tokens, new FakeAuthSettingsStore(), mailer, default), b));
+        Assert.False((await ReadLink(b)).EmailSent);
+        Assert.Single(mailer.Sent);
+    }
+
+    [Fact]
     public async Task Invite_DuplicateUsername_Conflicts()
     {
         var users = new FakeUserStore();
         await users.CreateAsync("taken", "password-123", UserRole.Viewer);
         var c = Ctx(new { username = "TAKEN", role = "Viewer" });
-        Assert.Equal(409, await Run(await UserEndpoints.HandleInviteAsync(c, users, new FakePasswordSetTokenStore(), new FakeAuthSettingsStore(), default), c));
+        Assert.Equal(409, await Run(await UserEndpoints.HandleInviteAsync(c, users, new FakePasswordSetTokenStore(), new FakeAuthSettingsStore(), new FakePasswordResetMailer(), default), c));
     }
 
     [Fact]

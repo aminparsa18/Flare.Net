@@ -2837,6 +2837,7 @@
 	"userInvite_linkTitle": "Ссылка для установки пароля: {username}",
 	"userInvite_linkHint": "Передайте ссылку безопасным способом. Она показывается один раз и истекает {expires}.",
 	"userInvite_copy": "Скопировать ссылку",
+	"userInvite_emailed": "Мы также отправили эту ссылку на адрес {username}.",
 	"userInvite_copied": "Скопировано",
 	"userInvite_done": "Готово",
 	"setPassword_title": "Задайте пароль",

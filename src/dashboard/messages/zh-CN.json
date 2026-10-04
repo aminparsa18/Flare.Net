@@ -2837,6 +2837,7 @@
 	"userInvite_linkTitle": "{username} 的设置密码链接",
 	"userInvite_linkHint": "请通过安全渠道分享此链接。它仅显示一次，并将于 {expires} 过期。",
 	"userInvite_copy": "复制链接",
+	"userInvite_emailed": "我们也已将此链接发送到 {username}。",
 	"userInvite_copied": "已复制",
 	"userInvite_done": "完成",
 	"setPassword_title": "设置密码",

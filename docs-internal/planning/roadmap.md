@@ -65,10 +65,10 @@ folders are where "what happened and why" actually lives.
   need CloudWatch Metric Streams through the `awsfirehose` receiver. Each
   is one more metric lookup next to `MessagingQueryBuilder.BuildQueueDepth`.
   Not started.
-- **Local user lifecycle follow-ups.** Invite, admin reset link, set-password
-  redemption, `POST /api/auth/password` (ADR-0112) and emailed forgot-password
-  (ADR-0113) shipped. Still open: emailing invites ([signoz#10073](https://github.com/SigNoz/signoz/commit/e1ac992e5a65b49678187303840e79b568feea87));
-  bulk invite; a durable (shared) forgot-password throttle. Not started.
+- **Local user lifecycle follow-ups.** Invite, admin reset, set-password,
+  change-password (ADR-0112), emailed forgot-password (ADR-0113) and emailed
+  invites (ADR-0114) shipped. Still open: bulk invite; a durable (shared)
+  forgot-password throttle. Not started.
 - **OpenAPI.NET v3 (`Microsoft.OpenApi` 3.x, OpenAPI spec 3.2).** Blocked on
   `Microsoft.AspNetCore.OpenApi`: 10.0.x caps it at `[2.12.0, 3.0.0)`, so the
   direct pin in `Directory.Packages.props` stays on 2.x. The first release
