@@ -132,9 +132,12 @@ export class DashboardViewerState {
 			this.variables = this.dashboard.layout.variables;
 			this.collapsedRowIds = new Set(this.rows.filter((r) => r.collapsed).map((r) => r.id));
 			this.#reseedVariableValues();
+			// An explicit `?range=` below wins over the owner-set default.
+			this.timeRangeOverride = this.dashboard.layout.defaultTimeRange ?? null;
 			if (urlSearch) {
 				const fromUrl = parseDashboardUrlState(urlSearch, this.variables);
 				if (fromUrl.range) this.timeRangeOverride = fromUrl.range;
+				else if (fromUrl.rangeOff) this.timeRangeOverride = null;
 				this.variableValues = { ...this.variableValues, ...fromUrl.variableValues };
 			}
 		} catch (err) {
@@ -227,6 +230,18 @@ export class DashboardViewerState {
 		this.editing = v;
 	}
 
+	/** Owner-facing: persists `preset` (or clears it with `null`) as the range this dashboard
+	 *  opens with - the one persisted counterpart to the session-only `timeRangeOverride`. */
+	async setDefaultTimeRange(preset: TimeRangePreset | null): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({ panels: dashboard.layout.panels, defaultTimeRange: preset });
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	setTimeRangeOverride(preset: TimeRangePreset | null): void {
 		this.timeRangeOverride = preset;
 	}
@@ -297,7 +312,7 @@ export class DashboardViewerState {
 	 *  below (updateLayout/addPanel/renamePanel/removePanel) only ever mean to touch `panels`,
 	 *  so without this a drag/resize would silently wipe out every variable definition and
 	 *  row the next time it fired. */
-	async #saveLayout(layout: Pick<DashboardLayout, 'panels'> & Partial<Pick<DashboardLayout, 'variables' | 'rows'>>): Promise<DashboardSummary | null> {
+	async #saveLayout(layout: Pick<DashboardLayout, 'panels'> & Partial<Pick<DashboardLayout, 'variables' | 'rows'>> & { defaultTimeRange?: TimeRangePreset | null }): Promise<DashboardSummary | null> {
 		const dashboard = this.dashboard;
 		if (!dashboard) return null;
 		const full: DashboardLayout = {
@@ -305,6 +320,9 @@ export class DashboardViewerState {
 			variables: layout.variables ?? dashboard.layout.variables,
 			rows: layout.rows ?? dashboard.layout.rows ?? []
 		};
+		// `null` clears the default; `undefined` (every other caller) keeps what's saved.
+		const defaultTimeRange = layout.defaultTimeRange === undefined ? dashboard.layout.defaultTimeRange : layout.defaultTimeRange;
+		if (defaultTimeRange) full.defaultTimeRange = defaultTimeRange;
 		return updateDashboard(dashboard.id, { name: dashboard.name, description: dashboard.description, layout: full });
 	}
 

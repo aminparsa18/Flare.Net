@@ -123,12 +123,6 @@ folders are where "what happened and why" actually lives.
   PATs. Unsupported PromQL returns a clear error rather than a partial
   answer. Full PromQL is out of scope. Needs an ADR. Not started. Prior art:
   [signoz PR #11555](https://github.com/SigNoz/signoz/pull/11555) (open, unmerged).
-- **Per-dashboard default time range.** Dashboards open with the viewer's
-  last-used range, so a "last 7 days" capacity dashboard opens at 1h. Add an
-  optional default range to the dashboard (owner-set in settings), applied on
-  open unless the URL carries an explicit range (composes with the
-  dashboard-URL-state item). Not started. Prior art:
-  [signoz PR #12861](https://github.com/SigNoz/signoz/pull/12861) (open, unmerged).
 - **"Around a time" in the time picker.** Incident work starts from one
   timestamp (an alert, a log line, a span), but the picker offers only
   presets and absolute ranges. Add an "Around" mode: paste or pick a time

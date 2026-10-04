@@ -75,7 +75,7 @@
 	let urlSyncReady = $state(false);
 	$effect(() => {
 		if (!urlSyncReady) return;
-		const search = buildDashboardUrlSearch(page.url.searchParams, viewer.timeRangeOverride, viewer.variables, viewer.variableValues);
+		const search = buildDashboardUrlSearch(page.url.searchParams, viewer.timeRangeOverride, viewer.variables, viewer.variableValues, viewer.dashboard?.layout.defaultTimeRange ?? null);
 		if (search !== page.url.search) replaceState(page.url.pathname + search, page.state);
 	});
 
@@ -222,6 +222,12 @@
 
 				{#if auth.canMutateDashboard(viewer.dashboard?.ownerUserId ?? null)}
 					{#if viewer.editing}
+						{#if viewer.timeRangeOverride !== (viewer.dashboard?.layout.defaultTimeRange ?? null)}
+							<Button variant="outline" size="sm" onclick={() => viewer.setDefaultTimeRange(viewer.timeRangeOverride)}>
+								<ClockIcon data-icon="inline-start" />
+								{viewer.timeRangeOverride ? m.dashboardViewer_saveDefaultRange() : m.dashboardViewer_clearDefaultRange()}
+							</Button>
+						{/if}
 						<Button variant="outline" size="sm" onclick={() => (manageVariablesOpen = true)}>
 							<SlidersHorizontalIcon data-icon="inline-start" />
 							{m.dashboardViewer_manageVariables()}

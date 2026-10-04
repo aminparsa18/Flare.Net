@@ -323,6 +323,15 @@ the page) to go back to each panel showing whatever range it was saved
 with. This override is per-browser-session only: it's never saved to the
 dashboard, so it never changes what anyone else sees when they open it.
 
+## Setting a default time range
+
+By default a dashboard opens with each panel's own saved range. To open it at one
+range instead (a "last 7 days" capacity dashboard, say), click **Edit**, pick the
+range in the time-range selector, and click **Save range as default**. Dashboard
+owners and Members can do this; it's saved with the dashboard, so it applies to
+every viewer. A `?range=` in the link overrides it. To remove it, switch the
+selector to **Each panel's own range** and click **Clear default range**.
+
 ## Sharing a dashboard view
 
 The time-range override and every variable selection are mirrored into the page URL

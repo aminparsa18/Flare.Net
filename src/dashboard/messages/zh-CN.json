@@ -1851,6 +1851,8 @@
 	"dashboardViewer_addRow": "添加行",
 	"dashboardViewer_timeRangeOverrideTitle": "在本次会话中覆盖所有面板的时间范围",
 	"dashboardViewer_timeRangeOverrideOff": "各面板自身的范围",
+	"dashboardViewer_saveDefaultRange": "将此范围设为默认",
+	"dashboardViewer_clearDefaultRange": "清除默认范围",
 	"dashboardViewer_variableAll": "全部",
 	"dashboardViewer_variableMore": "{first} +{count}",
 	"dashboardViewer_variableFilterPlaceholder": "筛选值…",

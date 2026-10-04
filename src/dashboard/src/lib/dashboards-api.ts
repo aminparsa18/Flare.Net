@@ -20,6 +20,7 @@ import { DashboardRequest as GeneratedDashboardRequest } from '$lib/memorypack/D
 import { DashboardListResponse as GeneratedDashboardListResponse } from '$lib/memorypack/DashboardListResponse';
 import type { PanelThreshold, ThresholdColor } from '$lib/dashboards/thresholds';
 import type { LegendPosition } from '$lib/dashboards/legend';
+import { TIME_RANGE_PRESETS, type TimeRangePreset } from '$lib/logs/time-range';
 import type { YAxisScale } from '$lib/metrics/axis';
 import type { PanelReducer, PanelStacking, PanelVisualization } from '$lib/dashboards/visualization';
 
@@ -261,6 +262,9 @@ export interface DashboardLayout {
 	variables: DashboardVariable[];
 	/** Absent (or `[]`) for a dashboard with no rows, including every one saved before rows existed. */
 	rows?: DashboardRow[];
+	/** Owner-set range the dashboard opens with (a fixed-duration preset, never `custom`);
+	 *  absent means each panel opens with its own saved range. An explicit `?range=` wins. */
+	defaultTimeRange?: TimeRangePreset;
 }
 
 /** A named, multi-panel dashboard. */
@@ -301,13 +305,18 @@ const EMPTY_LAYOUT: DashboardLayout = { panels: [], variables: [] };
  *  `variables` existed (or an imported Flare-export file predating it) has no such field at
  *  all - defaulted to `[]` here rather than rejected, same "additive, tolerant of older
  *  shapes" rule the ClickHouse migrations doc applies to storage. */
+function isDefaultRangePreset(v: unknown): v is TimeRangePreset {
+	return typeof v === 'string' && v !== 'custom' && TIME_RANGE_PRESETS.some((p) => p.value === v);
+}
+
 export function parseLayout(raw: unknown): DashboardLayout {
 	if (raw != null && typeof raw === 'object' && Array.isArray((raw as DashboardLayout).panels)) {
 		const layout = raw as Partial<DashboardLayout>;
 		return {
 			panels: layout.panels!,
 			variables: Array.isArray(layout.variables) ? layout.variables : [],
-			rows: Array.isArray(layout.rows) ? layout.rows : []
+			rows: Array.isArray(layout.rows) ? layout.rows : [],
+			...(isDefaultRangePreset(layout.defaultTimeRange) ? { defaultTimeRange: layout.defaultTimeRange } : {})
 		};
 	}
 	return EMPTY_LAYOUT;

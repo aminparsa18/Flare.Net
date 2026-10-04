@@ -1851,6 +1851,8 @@
 	"dashboardViewer_addRow": "Add row",
 	"dashboardViewer_timeRangeOverrideTitle": "Override every panel's time range for this session",
 	"dashboardViewer_timeRangeOverrideOff": "Each panel's own range",
+	"dashboardViewer_saveDefaultRange": "Save range as default",
+	"dashboardViewer_clearDefaultRange": "Clear default range",
 	"dashboardViewer_variableAll": "All",
 	"dashboardViewer_variableMore": "{first} +{count}",
 	"dashboardViewer_variableFilterPlaceholder": "Filter values…",
