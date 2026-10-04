@@ -121,14 +121,6 @@ folders are where "what happened and why" actually lives.
   one-click replacements ("No results. Did you mean `Warn` (1,204)?"). Not
   started. Prior art:
   [signoz PR #10077](https://github.com/SigNoz/signoz/pull/10077) (open, unmerged).
-- **Regex filter on dashboard variable values.** Query-sourced variables
-  list every distinct value, so e.g. "only `prod-*` namespaces" or "strip the
-  `prod-` prefix" isn't possible. Add an optional regex on
-  `DashboardVariable` applied to the value list, default and "All". An
-  optional capture group extracts the displayed/substituted value
-  (`^prod-(.*)$`). Validate it in the variable form, and apply it
-  client-side so no API change is needed. Not started. Prior art:
-  [signoz PR #11816](https://github.com/SigNoz/signoz/pull/11816) (open, unmerged).
 - **Prometheus-compatible query API (subset).** Grafana and
   `prometheus-adapter` (Kubernetes HPA on custom metrics) can't use Flare as
   a data source. Add a read-only Prometheus HTTP API subset over the metric

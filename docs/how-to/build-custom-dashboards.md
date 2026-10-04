@@ -435,6 +435,16 @@ shows an **Only** shortcut that selects just that one. The header shows the
 first selected value plus how many more are selected (for example,
 `Service: checkout +2`).
 
+### Filtering a variable's values with a regex
+
+A "From query" or "Custom list" variable has an optional **Filter values
+(regex)** field. Only values matching the expression are offered (and
+"All" covers just those), e.g. `^prod-` for "only `prod-*` namespaces". If
+the expression has a capture group, its text becomes the *displayed* label:
+`^prod-(.*)$` offers only `prod-` values and shows `prod-api` as `api`. The
+selected value is still the original one, so panel filters keep matching
+real data. An invalid expression is rejected in the form.
+
 ### Variable chaining
 
 A "From query" variable can optionally **depend on** another variable

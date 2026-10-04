@@ -44,6 +44,30 @@ export interface VariableDependency {
 	values: string[];
 }
 
+/** Compiles a variable's `valueRegex`, or `null` when it's unset/blank/invalid (an invalid
+ *  pattern silently means "no filtering" - the form rejects it up front). */
+export function compileValueRegex(source: string | null | undefined): RegExp | null {
+	if (!source?.trim()) return null;
+	try {
+		return new RegExp(source);
+	} catch {
+		return null;
+	}
+}
+
+/** Keeps only the options matching `variable.valueRegex` (all of them when it's unset). */
+export function applyValueRegex(variable: DashboardVariable, options: string[]): string[] {
+	const re = compileValueRegex(variable.valueRegex);
+	return re ? options.filter((o) => re.test(o)) : options;
+}
+
+/** The label to show for a raw option value: the regex's first capture group when it has one
+ *  and it matched, else the raw value. The raw value is still what gets selected/filtered on. */
+export function variableOptionLabel(variable: DashboardVariable, value: string): string {
+	const re = compileValueRegex(variable.valueRegex);
+	return (re && re.exec(value)?.[1]) || value;
+}
+
 /** A variable's session-start selection - `defaultValues` for a `multi` variable,
  *  `defaultValue` otherwise, `[]` ("All") when neither is set. */
 export function defaultSelection(variable: DashboardVariable): string[] {

@@ -31,7 +31,8 @@
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
 	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
-	import type { DashboardPanel } from '$lib/dashboards-api';
+	import type { DashboardPanel, DashboardVariable } from '$lib/dashboards-api';
+	import { variableOptionLabel } from '$lib/dashboards/variables';
 	import * as m from '$lib/paraglide/messages';
 
 	const auth = authContext.get();
@@ -111,8 +112,9 @@
 	// anything). A `multi` variable (ADR-0058) gets VariableMultiPicker's checkbox list instead.
 	const VARIABLE_OFF = '__all__';
 
-	function variableLabel(variableId: string): string {
-		return viewer.variableValues[variableId]?.[0] ?? m.dashboardViewer_variableAll();
+	function variableLabel(variable: DashboardVariable): string {
+		const value = viewer.variableValues[variable.id]?.[0];
+		return value === undefined ? m.dashboardViewer_variableAll() : variableOptionLabel(variable, value);
 	}
 
 	function handleVariableChange(variableId: string, value: string): void {
@@ -206,12 +208,12 @@
 						>
 							<Select.Trigger class="w-auto" title={variable.description || variable.name}>
 								<SlidersHorizontalIcon data-icon="inline-start" />
-								{variable.name}: {variableLabel(variable.id)}
+								{variable.name}: {variableLabel(variable)}
 							</Select.Trigger>
 							<Select.Content>
 								<Select.Item value={VARIABLE_OFF} label={m.dashboardViewer_variableAll()} />
 								{#each viewer.variableOptions[variable.id] ?? [] as option (option)}
-									<Select.Item value={option} label={option} />
+									<Select.Item value={option} label={variableOptionLabel(variable, option)} />
 								{/each}
 							</Select.Content>
 						</Select.Root>
