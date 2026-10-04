@@ -8,6 +8,7 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import SessionsCard from '$lib/components/settings/SessionsCard.svelte';
 	import DataExportCard from '$lib/components/settings/DataExportCard.svelte';
+	import PreferencesBackupCard from '$lib/components/settings/PreferencesBackupCard.svelte';
 	import { authContext } from '$lib/auth/context';
 	import { changeOwnPassword } from '$lib/users-api';
 	import * as m from '$lib/paraglide/messages';
@@ -71,4 +72,5 @@
 
 <SessionsCard />
 <DataExportCard />
+<PreferencesBackupCard />
 </div>
