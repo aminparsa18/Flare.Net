@@ -12,6 +12,7 @@ using Flare.Api.HostStats;
 using Flare.Api.KubernetesResources;
 using Flare.Api.LiveTail;
 using Flare.Api.Pipeline;
+using Flare.Api.Prometheus;
 using Flare.Api.Query;
 using Flare.Api.ResourceGraph;
 using Flare.Api.Updates;
@@ -207,6 +208,8 @@ builder.Services.AddSingleton<IMetricQueryService>(sp => new CachingMetricQueryS
     sp.GetRequiredService<ICacheProvider>(),
     sp.GetRequiredService<IOptions<QueryCacheOptions>>(),
     sp.GetRequiredService<TimeProvider>()));
+// Prometheus-compatible query API subset (ADR-0109) - a PromQL translator over IMetricQueryService.
+builder.Services.AddSingleton(sp => new Flare.Api.Prometheus.PromEvaluator(sp.GetRequiredService<IMetricQueryService>()));
 // ServiceMetricsOptions - the ADR-0030 rollback valve for the pre-aggregated
 // service_metrics path; see ServiceOverviewQueryService.GetOverviewAsync.
 builder.Services.Configure<ServiceMetricsOptions>(builder.Configuration.GetSection(ServiceMetricsOptions.SectionName));
@@ -482,6 +485,7 @@ authenticatedRoutes.MapLogsEndpoints();
 authenticatedRoutes.MapLogTailEndpoints();
 authenticatedRoutes.MapSpanEndpoints();
 authenticatedRoutes.MapMetricsEndpoints();
+authenticatedRoutes.MapPrometheusEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapSourceLinkReadEndpoints();
 authenticatedRoutes.MapAiEndpoints();

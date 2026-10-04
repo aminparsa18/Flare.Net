@@ -113,13 +113,3 @@ folders are where "what happened and why" actually lives.
   ADR (rendering dependency, auth). Not started. Prior art:
   [signoz PR #10809](https://github.com/SigNoz/signoz/pull/10809) /
   [#10810](https://github.com/SigNoz/signoz/pull/10810) (open, unmerged).
-- **Prometheus-compatible query API (subset).** Grafana and
-  `prometheus-adapter` (Kubernetes HPA on custom metrics) can't use Flare as
-  a data source. Add a read-only Prometheus HTTP API subset over the metric
-  tables: `/api/v1/series`, `/labels`, `/label/<name>/values`, and
-  `/query` + `/query_range` for simple selectors with `rate`/`increase`/
-  `sum|avg|max by (…)`/`histogram_quantile`. Map OTel names to Prometheus
-  conventions (dots → underscores, unit/type suffixes) and authenticate with
-  PATs. Unsupported PromQL returns a clear error rather than a partial
-  answer. Full PromQL is out of scope. Needs an ADR. Not started. Prior art:
-  [signoz PR #11555](https://github.com/SigNoz/signoz/pull/11555) (open, unmerged).

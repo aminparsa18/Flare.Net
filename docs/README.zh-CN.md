@@ -36,6 +36,7 @@
 -[Configure authentication](how-to/configure-authentication.zh-CN.md)
 -[Run in cluster mode](how-to/run-cluster-mode.zh-CN.md)
 - [让 AI 助手查询 Flare](how-to/connect-ai-assistants.zh-CN.md)
+- [用 Grafana 或 Prometheus API 查询 Flare](how-to/query-with-prometheus-api.zh-CN.md)
 -[在子路径下提供服务](how-to/serve-under-a-sub-path.zh-CN.md)
 -[使用 OpenTelemetry Collector 监控主机](how-to/monitor-hosts.zh-CN.md)
 - [使用 OpenTelemetry Collector 监控 Kubernetes 集群（节点、工作负载、Pod、卷）](how-to/monitor-kubernetes.zh-CN.md)

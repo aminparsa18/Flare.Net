@@ -34,6 +34,7 @@ the full rule set on what goes where.
 - [Configure authentication](how-to/configure-authentication.md)
 - [Run in cluster mode](how-to/run-cluster-mode.md)
 - [Let an AI assistant query Flare](how-to/connect-ai-assistants.md)
+- [Query Flare with Grafana or the Prometheus API](how-to/query-with-prometheus-api.md)
 - [Serve under a sub-path](how-to/serve-under-a-sub-path.md)
 - [Build a custom dashboard](how-to/build-custom-dashboards.md)
 - [Extract or redact fields at ingest](how-to/manage-pipeline-rules.md)
