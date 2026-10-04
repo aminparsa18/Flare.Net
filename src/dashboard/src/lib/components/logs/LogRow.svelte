@@ -73,10 +73,11 @@
 		     than collapsing them; line-clamp cuts it at exactly `lines` lines so it can never
 		     outgrow the fixed row height VirtualList positions rows by. -->
 		<span
+			data-log-body
 			class="overflow-hidden leading-5 break-words whitespace-pre-wrap"
 			style="display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: {lines}; line-clamp: {lines};"
 		><AnsiText text={displayBody(event.body)} /></span>
 	{:else if showBody}
-		<span class="truncate leading-5"><AnsiText text={displayBody(event.body)} /></span>
+		<span data-log-body class="truncate leading-5"><AnsiText text={displayBody(event.body)} /></span>
 	{/if}
 </button>

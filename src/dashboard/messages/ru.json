@@ -2688,5 +2688,14 @@
 	"settingsAppearance_motionHeading": "Анимация",
 	"settingsAppearance_reduceMotionLabel": "Уменьшить анимацию",
 	"settingsAppearance_reduceMotionDescription": "Отключает анимации и переходы.",
-	"settingsAppearance_storageNote": "Эти настройки сохраняются только в этом браузере."
+	"settingsAppearance_storageNote": "Эти настройки сохраняются в вашей учётной записи и кэшируются в этом браузере.",
+	"settingsAppearance_contentWidthHeading": "Ширина содержимого",
+	"settingsAppearance_contentWidthFull": "На всю ширину",
+	"settingsAppearance_contentWidthFullDescription": "Страницы занимают всё окно.",
+	"settingsAppearance_contentWidthCentered": "По центру",
+	"settingsAppearance_contentWidthCenteredDescription": "На больших экранах ширина страниц ограничена для удобного чтения.",
+	"settingsAppearance_monoLogsLabel": "Моноширинный шрифт для логов",
+	"settingsAppearance_monoLogsDescription": "Показывать тексты логов моноширинным шрифтом.",
+	"settingsAppearance_highContrastLabel": "Высокая контрастность",
+	"settingsAppearance_highContrastDescription": "Более контрастные текст и границы."
 }

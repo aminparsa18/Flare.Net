@@ -93,6 +93,36 @@
 	</section>
 
 	<section class="flex flex-col gap-3">
+		<h3 class="font-medium">{m.settingsAppearance_contentWidthHeading()}</h3>
+		<ChoiceGroup
+			label={m.settingsAppearance_contentWidthHeading()}
+			value={appearance.contentWidth}
+			onchange={(v) => appearance.set('contentWidth', v)}
+			options={[
+				{ value: 'full', label: m.settingsAppearance_contentWidthFull(), description: m.settingsAppearance_contentWidthFullDescription() },
+				{ value: 'centered', label: m.settingsAppearance_contentWidthCentered(), description: m.settingsAppearance_contentWidthCenteredDescription() }
+			]}
+		/>
+	</section>
+
+	<section class="flex flex-col gap-3">
+		<label class="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm">
+			<span>
+				<span class="block font-medium">{m.settingsAppearance_monoLogsLabel()}</span>
+				<span class="text-muted-foreground text-xs">{m.settingsAppearance_monoLogsDescription()}</span>
+			</span>
+			<Switch checked={appearance.monoLogs} onCheckedChange={(v) => appearance.set('monoLogs', v)} />
+		</label>
+		<label class="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm">
+			<span>
+				<span class="block font-medium">{m.settingsAppearance_highContrastLabel()}</span>
+				<span class="text-muted-foreground text-xs">{m.settingsAppearance_highContrastDescription()}</span>
+			</span>
+			<Switch checked={appearance.highContrast} onCheckedChange={(v) => appearance.set('highContrast', v)} />
+		</label>
+	</section>
+
+	<section class="flex flex-col gap-3">
 		<h3 class="font-medium">{m.settingsAppearance_motionHeading()}</h3>
 		<label class="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm">
 			<span>

@@ -52,6 +52,12 @@
 		appearance.applyToDocument();
 	});
 
+	// Pull per-user appearance prefs from the server once someone can actually see the app
+	// (ADR-0110); a no-op on /login and until a session exists.
+	$effect(() => {
+		if (readyToRenderChildren && !onAuthRoute) void appearance.syncFromServer();
+	});
+
 	const onAuthRoute = $derived(AUTH_ROUTES.includes(stripBase(page.url.pathname)));
 
 	// /auth (the consolidated enable-auth/configure-methods/manage-users screen) is the
@@ -157,7 +163,7 @@
 		<!-- Sidebar layout: the notice banner sits above the page, beside the sidebar. -->
 		<div class="flex min-h-0 min-w-0 flex-1 flex-col">
 			{#if showChrome}<UpdateNotice />{/if}
-			<div class="min-h-0 flex-1">
+			<div class="app-content min-h-0 flex-1">
 				{@render children()}
 			</div>
 		</div>

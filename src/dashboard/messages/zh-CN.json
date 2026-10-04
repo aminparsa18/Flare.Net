@@ -2688,5 +2688,14 @@
 	"settingsAppearance_motionHeading": "动效",
 	"settingsAppearance_reduceMotionLabel": "减少动效",
 	"settingsAppearance_reduceMotionDescription": "关闭动画和过渡效果。",
-	"settingsAppearance_storageNote": "这些设置仅保存在当前浏览器中。"
+	"settingsAppearance_storageNote": "这些设置会保存到您的账户，并缓存在当前浏览器中。",
+	"settingsAppearance_contentWidthHeading": "内容宽度",
+	"settingsAppearance_contentWidthFull": "全宽",
+	"settingsAppearance_contentWidthFullDescription": "页面撑满整个窗口。",
+	"settingsAppearance_contentWidthCentered": "居中",
+	"settingsAppearance_contentWidthCenteredDescription": "在大屏幕上将页面限制在易读的宽度内。",
+	"settingsAppearance_monoLogsLabel": "日志消息使用等宽字体",
+	"settingsAppearance_monoLogsDescription": "以等宽字体显示日志正文。",
+	"settingsAppearance_highContrastLabel": "高对比度",
+	"settingsAppearance_highContrastDescription": "增强文字和边框的对比度。"
 }
