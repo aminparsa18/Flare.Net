@@ -5,6 +5,8 @@
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Separator } from '$lib/components/ui/separator';
+	import ClockIcon from '@lucide/svelte/icons/clock';
+	import { AROUND_DEFAULT_MS } from '$lib/time/around';
 	import { Button } from '$lib/components/ui/button';
 	import AttributeTable from '$lib/components/logs/AttributeTable.svelte';
 	import StackTraceViewer from '$lib/components/logs/StackTraceViewer.svelte';
@@ -15,7 +17,7 @@
 	import { traceDetailContext } from '$lib/traces/trace-context';
 	import { searchLogs, type LogEventDto } from '$lib/api';
 	import { getSpanDurationPercentile, type SpanAttributeBag, type SpanDto, type SpanDurationPercentile } from '$lib/traces-api';
-	import { buildSpanLogsHref, buildSpanNameTracesHref, buildTracesAttributeFilterHref } from '$lib/deep-links';
+	import { buildSpanLogsHref, buildSpanNameTracesHref, buildTracesAroundHref, buildTracesAttributeFilterHref } from '$lib/deep-links';
 	import { goto } from '$app/navigation';
 	import { pinnedSpanAttributes } from '$lib/logs/pinned-attributes.svelte';
 	import { severityVariant } from '$lib/logs/severity';
@@ -202,7 +204,11 @@
 						{m.spanDetail_percentileLabel({ percentile: Math.round(percentile.percentile), name: span.name, service: span.serviceName || '—' })}
 					</a>
 				{/if}
-				<div>
+				<div class="flex flex-wrap gap-2">
+					<Button variant="outline" size="sm" href={buildTracesAroundHref(new Date(span.startTime).getTime(), AROUND_DEFAULT_MS)}>
+						<ClockIcon data-icon="inline-start" />
+						{m.spanDetail_aroundThis()}
+					</Button>
 					<Button variant="outline" size="sm" onclick={() => copySpanLink(span.traceId, span.spanId)}>
 						{#if linkCopied}
 							<CheckIcon data-icon="inline-start" />

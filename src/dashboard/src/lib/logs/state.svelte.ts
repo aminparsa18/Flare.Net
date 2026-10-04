@@ -599,6 +599,17 @@ export class LogsExplorerState {
 	}
 
 	/**
+	 * Sets the window to `center` ± `halfMs` - the "Around a time" picker mode and the "Show
+	 * ±5m around this" row action. Unlike setCustomRange it also exits live mode (pivoting
+	 * from "now" to "what happened back then", same as focusBucketRange) and drops any
+	 * bar-click selection.
+	 */
+	focusAround(range: { from: Date; to: Date }): void {
+		if (this.live) this.setLive(false);
+		this.setCustomRange(range);
+	}
+
+	/**
 	 * Shifts the current time window backward (-1) or forward (+1) by its own duration -
 	 * "Last 7 days" panned back becomes the 7 days before that, same back/forward arrows
 	 * Seq's toolbar has next to its range picker. Lands on an explicit custom range (like

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AroundTimePopover from '$lib/components/AroundTimePopover.svelte';
 	import { withBase } from '$lib/paths';
 	import { goto } from '$app/navigation';
 	import * as Select from '$lib/components/ui/select';
@@ -83,6 +84,7 @@
 			{/each}
 		</Select.Content>
 	</Select.Root>
+	<AroundTimePopover onApply={(range) => explorer.setCustomRange(range)} />
 
 	<PopoverMultiSelect
 		label={m.tracesToolbar_serviceLabel()}

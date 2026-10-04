@@ -281,6 +281,13 @@ export class TracesExplorerState {
 		void this.runSearch();
 	}
 
+	/** Lands the filter on an explicit [from, to) range - the "Around a time" picker. */
+	setCustomRange(range: { from: Date; to: Date }): void {
+		this.filter.timeRangePreset = 'custom';
+		this.filter.customRange = { from: range.from.toISOString(), to: range.to.toISOString() };
+		void this.runSearch();
+	}
+
 	setServices(services: string[]): void {
 		this.filter.services = services;
 		void this.runSearch();

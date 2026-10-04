@@ -19,6 +19,8 @@
 	import type { BodyJsonFilterOperator } from '$lib/api';
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import { severityVariant } from '$lib/logs/severity';
+	import ClockIcon from '@lucide/svelte/icons/clock';
+	import { AROUND_DEFAULT_MS, aroundRange } from '$lib/time/around';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import { pinnedAttributes } from '$lib/logs/pinned-attributes.svelte';
 	import { formatDurationNano } from '$lib/traces/duration';
@@ -261,6 +263,17 @@
 						variant="outline"
 						size="sm"
 						class={explorer.selectedIndex >= 0 ? '' : 'ml-auto'}
+						onclick={() => {
+							explorer.selectedEventId = null;
+							explorer.focusAround(aroundRange(new Date(event.timestamp), AROUND_DEFAULT_MS));
+						}}
+					>
+						<ClockIcon />
+						{m.eventDetail_aroundThis()}
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
 						onclick={() => {
 							// Clears selectedEventId (closing this sheet) *before* opening
 							// context - two independent bits-ui Sheet.Root instances open at
