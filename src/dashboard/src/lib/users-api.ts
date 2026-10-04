@@ -84,3 +84,53 @@ export async function setUserDisabled(id: string, isDisabled: boolean): Promise<
 	}
 	return decodeUserSummary(res);
 }
+
+export interface PasswordSetLink {
+	user: UserSummary;
+	token: string;
+	expiresAt: string;
+}
+
+// The invite/reset endpoints use plain JSON (the wire DTO carries a DateTimeOffset, which
+// MemoryPack's TypeScript generator can't emit, and these are rare admin actions).
+async function postJson(path: string, body?: unknown): Promise<Response> {
+	return apiFetch(`${API_BASE_URL}${path}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+		body: body === undefined ? undefined : JSON.stringify(body)
+	});
+}
+
+async function readPasswordSetLink(res: Response, what: string): Promise<PasswordSetLink> {
+	if (res.status === 409) throw new Error('A user with that username already exists.');
+	if (!res.ok) throw new Error(`${what} failed: ${res.status} ${res.statusText}`);
+	const dto = await res.json();
+	return {
+		user: { ...dto.user, createdAt: dto.user.createdAt },
+		token: dto.token,
+		expiresAt: dto.expiresAt
+	};
+}
+
+/** `POST /api/users/invite` - creates a local account and returns its one-time set-password token. */
+export async function inviteUser(username: string, role: UserRole): Promise<PasswordSetLink> {
+	return readPasswordSetLink(await postJson('/api/users/invite', { username, role }), 'POST /api/users/invite');
+}
+
+/** `POST /api/users/{id}/password-reset` - new one-time link for a local account; revokes its sessions. */
+export async function createPasswordReset(id: string): Promise<PasswordSetLink> {
+	return readPasswordSetLink(await postJson(`/api/users/${id}/password-reset`), `POST /api/users/${id}/password-reset`);
+}
+
+/** `POST /api/auth/set-password` - redeems a token. Unauthenticated. Throws a user-facing message on an invalid/expired link. */
+export async function setPasswordWithToken(token: string, password: string): Promise<void> {
+	const res = await postJson('/api/auth/set-password', { token, password });
+	if (!res.ok) throw new Error(res.status === 400 ? 'invalid' : `POST /api/auth/set-password failed: ${res.status} ${res.statusText}`);
+}
+
+/** `POST /api/auth/password` - self-service change for the signed-in local account. Throws `invalid` on a 400 (wrong current password or too-short new one). */
+export async function changeOwnPassword(currentPassword: string, newPassword: string): Promise<void> {
+	const res = await postJson('/api/auth/password', { currentPassword, newPassword });
+	if (res.status === 400) throw new Error('invalid');
+	if (!res.ok) throw new Error(`POST /api/auth/password failed: ${res.status} ${res.statusText}`);
+}

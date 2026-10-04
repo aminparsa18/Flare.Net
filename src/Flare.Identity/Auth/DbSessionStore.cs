@@ -75,6 +75,16 @@ public sealed class DbSessionStore(IdentityDbConnectionFactory connectionFactory
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task DeleteAllForUserExceptAsync(Guid userId, string keepToken, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM Sessions WHERE UserId = @userId AND Id <> @keep";
+        command.AddParameter("@userId", userId.ToString());
+        command.AddParameter("@keep", keepToken);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task TouchLastSeenAsync(string token, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);

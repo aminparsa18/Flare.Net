@@ -14,6 +14,7 @@
 	import TargetIcon from '@lucide/svelte/icons/target';
 	import WorkflowIcon from '@lucide/svelte/icons/workflow';
 	import KeyIcon from '@lucide/svelte/icons/key';
+	import UserIcon from '@lucide/svelte/icons/user';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import { authContext } from '$lib/auth/context';
 	import { settingsManagementLinks } from '$lib/components/nav/nav-links';
@@ -36,6 +37,10 @@
 		{ href: '/settings/explorer', label: m.settingsExplorer_navLabel(), icon: CompassIcon },
 		{ href: '/settings/keyboard', label: m.settingsKeyboard_navLabel(), icon: KeyboardIcon },
 		{ href: '/settings/notifications', label: m.settingsNotifications_navLabel(), icon: BellIcon },
+		// Only local accounts have a Flare-managed password to change.
+		...(auth.currentUser?.authProvider === 'Local'
+			? [{ href: '/settings/account', label: m.settingsAccount_navLabel(), icon: UserIcon }]
+			: []),
 		...settingsManagementLinks(auth).map((link) => ({ ...link, icon: MANAGEMENT_ICONS[link.href as keyof typeof MANAGEMENT_ICONS] }))
 	]);
 

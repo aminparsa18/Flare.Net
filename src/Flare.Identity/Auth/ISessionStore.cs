@@ -18,6 +18,10 @@ public interface ISessionStore
     /// <summary>Revokes every session for a user (e.g. when an admin disables the account).</summary>
     Task DeleteAllForUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    /// <summary>Revokes every session for a user except <paramref name="keepToken"/> (the
+    /// caller's own, after a self-service password change).</summary>
+    Task DeleteAllForUserExceptAsync(Guid userId, string keepToken, CancellationToken cancellationToken = default);
+
     /// <summary>Bumps <see cref="Session.LastSeenAt"/> to now. Callers should throttle
     /// how often this is invoked per session (e.g. at most once a minute) - it's for an
     /// admin-facing "last active" display only, not for computing expiry.</summary>

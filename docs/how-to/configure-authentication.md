@@ -308,6 +308,14 @@ waiting for someone to remove their group/role assignment upstream. Flare
 refuses to demote or disable the **last enabled Admin** — that would be a
 lockout recoverable only by editing the SQLite file directly.
 
+### Inviting users and resetting passwords
+
+**Invite user** in the Users table (`POST /api/users/invite`, username + role) creates a local account nobody can sign in to yet and shows a one-time `/set-password?token=…` link. Send it to the person; they choose their own password on that page. The link works once and expires after 3 days. Flare doesn't email it - copy it from the dialog, which shows it only once.
+
+**Reset link** on a local account's row (`POST /api/users/{id}/password-reset`) issues a new link (valid 24 hours), replaces any earlier unused one, and signs that account out everywhere immediately. Redeeming either kind of link also signs the account out of every existing session. Only local accounts have a Flare-managed password; SSO accounts don't get these controls.
+
+A signed-in local user can change their own password with `POST /api/auth/password` (`currentPassword`, `newPassword`, minimum 8 characters); their other sessions are revoked and the current one stays signed in.
+
 ## Audit log
 
 Flare records who changed what. Every successful change to an alert rule, notification channel, maintenance window, pipeline rule, dashboard, saved view, user role or disabled flag, personal access token, ingest key, auth setting, Apdex threshold, metric metadata override or promoted attribute becomes one audit event: time, actor, action, resource type and id, route, source IP, and whether the actor used a session or a personal access token.

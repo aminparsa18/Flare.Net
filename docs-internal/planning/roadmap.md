@@ -65,26 +65,11 @@ folders are where "what happened and why" actually lives.
   need CloudWatch Metric Streams through the `awsfirehose` receiver. Each
   is one more metric lookup next to `MessagingQueryBuilder.BuildQueueDepth`.
   Not started.
-- **Create/invite additional local users.** With local auth,
-  `/api/auth/bootstrap` creates only the first admin, and
-  `UserEndpoints` can list users, change a role and disable a user, but not
-  create one - there's no API or dashboard path to a second local account
-  (live e2e runs have had to write users into the identity database directly). Needed: an
-  admin-only "invite user" (email/username + role → one-time
-  set-password link, expiring) plus a dashboard form on the users page;
-  bulk invite is a nice-to-have. Not started. Prior art:
-  [signoz#6057](https://github.com/SigNoz/signoz/commit/fc4b55cb34b48fd3f47719be6ad6008b42d7e77d).
-  The same expiring set-password token should also back a forgot-password
-  flow: there's no reset today, so a locked-out local user needs direct
-  database access. Email the link when SMTP is configured, otherwise let an
-  admin generate one
-  ([signoz#10073](https://github.com/SigNoz/signoz/commit/e1ac992e5a65b49678187303840e79b568feea87)).
-  Also missing: local users can't change their own password at all
-  (`AuthEndpoints` has only login/logout/bootstrap), and `ISessionStore` can't
-  drop a user's sessions. Add `POST /api/auth/password` (current + new, same
-  strength rules as bootstrap) that revokes the user's other sessions, and
-  make any reset (forgot-password or admin) revoke all of them
-  ([signoz#12531](https://github.com/SigNoz/signoz/commit/faaed20dbd08c320fcda4f9cc004d2091c4045de)).
+- **Local user lifecycle follow-ups.** Invite, admin reset link, set-password
+  redemption and `POST /api/auth/password` shipped (ADR-0112). Still open:
+  a self-service forgot-password flow that emails the link when SMTP is configured
+  ([signoz#10073](https://github.com/SigNoz/signoz/commit/e1ac992e5a65b49678187303840e79b568feea87));
+  emailing invites; bulk invite. Not started.
 - **OpenAPI.NET v3 (`Microsoft.OpenApi` 3.x, OpenAPI spec 3.2).** Blocked on
   `Microsoft.AspNetCore.OpenApi`: 10.0.x caps it at `[2.12.0, 3.0.0)`, so the
   direct pin in `Directory.Packages.props` stays on 2.x. The first release
