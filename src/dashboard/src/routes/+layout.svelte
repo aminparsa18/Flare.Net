@@ -6,6 +6,7 @@
 	import { page } from '$app/state';
 	import AppNav from '$lib/components/nav/AppNav.svelte';
 	import SideNav from '$lib/components/nav/SideNav.svelte';
+	import { keyboardPrefs } from '$lib/keyboard/prefs.svelte';
 	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
 	import { regional } from '$lib/regional/prefs.svelte';
 	import { appearance, type Theme } from '$lib/appearance/prefs.svelte';
@@ -66,6 +67,7 @@
 			void appearance.syncFromServer();
 			void regional.syncFromServer();
 			void explorerPrefs.syncFromServer();
+			void keyboardPrefs.syncFromServer();
 		}
 	});
 

@@ -10,6 +10,8 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import { AROUND_DEFAULT_MS, aroundRange } from '$lib/time/around';
 	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
+	import { keyboardPrefs } from '$lib/keyboard/prefs.svelte';
+	import { isEditableTarget, matchesCombo } from '$lib/keyboard/shortcuts';
 	import { logsExplorerContext } from '$lib/logs/context';
 	import EventDetailBody from './EventDetailBody.svelte';
 	import * as m from '$lib/paraglide/messages';
@@ -17,18 +19,17 @@
 
 	const explorer = logsExplorerContext.get();
 
-	// j/k and ↑/↓ step through the result list while the drawer is open; ignored while typing
-	// in a field or when a modifier is held.
+	// Step through the result list while the drawer (or an inline row) is open; ignored while
+	// typing in a field. j/k are rebindable (Settings > Keyboard); the arrows are fixed, and in
+	// inline mode keep scrolling the list instead.
 	function onNavKey(e: KeyboardEvent) {
-		if (explorer.selectedIndex < 0 || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
-		const t = e.target as HTMLElement | null;
-		if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-		// Inline expansion leaves the list on screen, so the arrows keep scrolling it; only j/k step.
-		const arrows = explorerPrefs.rowClickAction === 'panel';
-		const delta = e.key === 'j' || (arrows && e.key === 'ArrowDown') ? 1 : e.key === 'k' || (arrows && e.key === 'ArrowUp') ? -1 : 0;
-		if (!delta) return;
+		if (explorer.selectedIndex < 0 || e.defaultPrevented || isEditableTarget(e.target)) return;
+		const arrows = explorerPrefs.rowClickAction === 'panel' && !e.ctrlKey && !e.metaKey && !e.altKey;
+		const next = matchesCombo(e, keyboardPrefs.combo('nextEvent')) || (arrows && e.key === 'ArrowDown');
+		const prev = matchesCombo(e, keyboardPrefs.combo('prevEvent')) || (arrows && e.key === 'ArrowUp');
+		if (!next && !prev) return;
 		e.preventDefault();
-		void explorer.selectAdjacent(delta);
+		void explorer.selectAdjacent(next ? 1 : -1);
 	}
 </script>
 
