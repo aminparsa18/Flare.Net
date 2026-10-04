@@ -8,6 +8,7 @@
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
 	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
 	import { parseStateDeepLinkParam, parseTracesDeepLinkParams } from '$lib/deep-links';
+	import NaturalLanguageFilter from '$lib/components/NaturalLanguageFilter.svelte';
 	import TracesToolbar from '$lib/components/traces/TracesToolbar.svelte';
 	import SpanAttributeFiltersRow from '$lib/components/traces/SpanAttributeFiltersRow.svelte';
 	import TraceStructureEditor from '$lib/components/traces/TraceStructureEditor.svelte';
@@ -21,6 +22,8 @@
 	import FacetSidebar from '$lib/components/facets/FacetSidebar.svelte';
 	import { FacetSidebarPrefs } from '$lib/facets/prefs.svelte';
 	import { TRACE_FACET_BAGS, traceFacetDefinitions, traceFacetReloadKey } from '$lib/traces/facets';
+	import type { TimeRangePreset } from '$lib/logs/time-range';
+	import type { SpanAttributeFilter, TraceStructureFilter } from '$lib/traces-api';
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = tracesExplorerContext.set(new TracesExplorerState());
@@ -130,6 +133,19 @@
 <div class="flex h-full flex-col">
 	{#if activeTab === 'traces'}
 		<TracesToolbar {activeTab} onTabChange={setActiveTab} />
+		<NaturalLanguageFilter
+			target="Traces"
+			knownServices={() => explorer.knownServices}
+			apply={(f) =>
+				explorer.applySavedViewState({
+					timeRangePreset: f.timeRangePreset as TimeRangePreset,
+					customRange: f.customRange ?? null,
+					services: f.services,
+					statusCodes: f.statusCodes,
+					attributeFilters: f.attributeFilters as SpanAttributeFilter[],
+					structure: (f.structure as TraceStructureFilter | undefined) ?? null
+				})}
+		/>
 		<div class="flex min-h-0 flex-1">
 			<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
 			<div class="flex min-w-0 flex-1 flex-col">

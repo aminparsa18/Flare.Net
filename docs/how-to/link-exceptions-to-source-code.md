@@ -77,6 +77,17 @@ but pattern matching can miss things, so use a local model if the code is sensit
 prompt is capped at `Ai__MaxInputChars` (12000) and the answer at `Ai__MaxOutputTokens`
 (800). Each request is in the audit log and the redacted prompt is logged at Debug.
 
+## Filter logs and traces in plain English (optional)
+
+With the same `Ai__*` settings, the Logs and Traces pages show an **Ask AI** box. Type something like
+"5xx on checkout in the last hour, excluding health checks" and Flare sets the time range,
+services, severity, text search and attribute filters for you. On Traces it can also build a
+structural query ("checkout traces where the payments span failed"). The model only proposes
+filters in a fixed vocabulary, never SQL. Flare checks the proposal and drops anything invalid,
+then shows the result as the normal editable filters, so you can adjust it and learn the UI.
+The request and your service names are sent to the model (redacted); log and trace data are not.
+If a part of your request couldn't be expressed, a note under the box says so.
+
 ## When a frame isn't linked
 
 Flare leaves a frame as plain text rather than guess:

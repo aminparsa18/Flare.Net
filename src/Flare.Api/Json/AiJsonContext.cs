@@ -10,6 +10,8 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(AiStatusResponse))]
 [JsonSerializable(typeof(ExplainExceptionRequest))]
 [JsonSerializable(typeof(ExplainExceptionResponse))]
+[JsonSerializable(typeof(NlFilterRequest))]
+[JsonSerializable(typeof(NlFilterResponse))]
 [JsonSerializable(typeof(ChatCompletionRequest))]
 [JsonSerializable(typeof(ChatCompletionResponse))]
 public sealed partial class AiJsonContext : JsonSerializerContext;

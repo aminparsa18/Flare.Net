@@ -100,13 +100,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **Natural language → typed filters.** Let users type "5xx on checkout in
-  the last hour, excluding health checks" and have an LLM produce a
-  `LogFilter`/`SpanFilter` (incl. structural trace queries) as JSON, checked
-  by the existing validators before it runs. That's safer than text-to-SQL,
-  since the model can never issue arbitrary ClickHouse queries. Show the
-  generated filter as normal editable chips so users learn the UI. Same AI
-  constraints as the incident-summary item. Not started.
 - **.NET runtime health detectors.** Turn `System.Runtime` metrics into
   findings on the service page rather than charts to interpret. Thread-pool
   starvation: queue length rising while completed work items flatline. GC
