@@ -42,6 +42,9 @@ Entra/OIDC перенаправляют на `/login?error=account-disabled`; LD
 | `Identity:Provider` | `Sqlite` | База данных для пользователей, сессий, ключей API и настроек аутентификации: `Sqlite` (встроенный файл, по умолчанию) или `Postgres` (внешний сервер, общий для процессов на разных хостах). См. [ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md). |
 | `Identity:ConnectionString` | не задано | Строка подключения Npgsql, например `Host=postgres;Database=flare_identity;Username=flare;Password=...`. Обязательна при `Identity:Provider` = `Postgres`, иначе игнорируется. |
 | `Identity:DbPath` | `flare-identity.db` | Путь к общему файлу SQLite. В любом реальном развёртывании установите абсолютный путь, привязанный к тому, — `docker-compose.yml` и `Flare.AppHost` уже делают это за вас. |
+| `Identity:Admin:Username` / `Identity:Admin:Password` | не задано | Создаёт эту учётную запись Admin при запуске, если пользователей ещё нет, для установок без интерфейса. См. [ADR-0117](../../docs-internal/adr/0117-admin-from-configuration.md). |
+| `Identity:Admin:PasswordFile` | не задано | Читает пароль из этого файла (секрет Docker/Kubernetes) вместо `Identity:Admin:Password`. |
+| `Identity:Admin:Reconcile` | `false` | При каждом запуске также сбрасывает указанную учётную запись к заданному паролю, роли Admin и включённому состоянию. Пароль, изменённый в интерфейсе, вернётся к заданному после перезапуска. |
 | `Auth:CookieName` | `flare_session` | Имя cookie сеанса. |
 | `Auth:SessionLifetime` | `14.00:00:00` (14 дней) | Фиксированный срок истечения сеанса, устанавливается при входе. |
 | `Auth:CookieSecure` | `true` | Устанавливайте `false` только для локальной разработки по обычному HTTP. |

@@ -38,6 +38,9 @@ generic `401` a wrong password gets.
 | `Identity:Provider` | `Sqlite` | Which database stores users, sessions, API keys and auth settings: `Sqlite` (embedded file, the default) or `Postgres` (an external server, so several processes on different hosts can share it). See [ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md). |
 | `Identity:ConnectionString` | unset | Npgsql connection string, e.g. `Host=postgres;Database=flare_identity;Username=flare;Password=...`. Required when `Identity:Provider` is `Postgres`; ignored otherwise. |
 | `Identity:DbPath` | `flare-identity.db` | Path to the shared SQLite file. Set to a volume-backed absolute path in any real deployment — `docker-compose.yml` and `Flare.AppHost` already do this for you. |
+| `Identity:Admin:Username` / `Identity:Admin:Password` | unset | Create this Admin account at startup when no user exists yet, for headless installs. See [ADR-0117](../../docs-internal/adr/0117-admin-from-configuration.md). |
+| `Identity:Admin:PasswordFile` | unset | Read the password from this file (Docker/Kubernetes secret) instead of `Identity:Admin:Password`. |
+| `Identity:Admin:Reconcile` | `false` | Also reset the named account to the configured password, Admin role and enabled on every start. A password changed in the UI reverts on restart. |
 | `Auth:CookieName` | `flare_session` | Session cookie name. |
 | `Auth:SessionLifetime` | `14.00:00:00` (14 days) | Fixed session expiry, set at login. |
 | `Auth:CookieSecure` | `true` | Set `false` only for local plain-HTTP dev. |

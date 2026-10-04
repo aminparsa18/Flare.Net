@@ -71,15 +71,6 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Provision the admin account from configuration.** The first admin can
-  only be created interactively via `/api/auth/bootstrap`, so headless
-  installs (compose, the `flare` CLI, Kubernetes/Helm) can't come up with a
-  known login. Add optional `Identity__Admin__Username`/`__Password` (plus a
-  `__PasswordFile` variant for secrets), applied on startup only when no
-  admin exists. An explicit opt-in flag can also reconcile the password to
-  config on every start, in which case that account is protected from
-  deletion/demotion in the UI. Not started. Prior art:
-  [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
 - **Continuous profiling (later).** Ingest the OTLP profiles signal once it
   stabilizes, store per-service profiles, and link spans to flame graphs of
   what the code was doing during that span. Placeholder for when the spec
