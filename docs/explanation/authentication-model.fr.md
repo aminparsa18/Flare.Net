@@ -161,10 +161,14 @@ Un jeton qui dépasse cette limite reçoit un `429` avec un en-tête
 tableau de bord normale (authentifiée par cookie) n'est jamais affectée,
 quel que soit le nombre de requêtes qu'elle effectue. La limite est en
 mémoire et par processus, ce qui n'est pas une lacune mais un choix sûr :
-`Flare.Api` ne s'exécute déjà qu'en une seule réplique (voir
+`Flare.Api` s'exécute en une seule réplique (SQLite, le magasin d'identité
+par défaut, ne peut pas être partagé entre hôtes — voir
 [ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md)),
 il n'y a donc aucun second processus avec lequel cet état devrait être
-partagé. Voir
+partagé. Si vous passez le magasin d'identité à Postgres et exécutez
+plusieurs réplicas de `Flare.Api`, la limite devient propre à chaque
+réplique, et non globale
+([ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md)). Voir
 [ADR-0028](../../docs-internal/adr/0028-personal-access-token-rate-limiting.md)
 pour la décision complète.
 

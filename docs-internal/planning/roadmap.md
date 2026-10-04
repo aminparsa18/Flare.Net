@@ -69,14 +69,14 @@ folders are where "what happened and why" actually lives.
   `/api/auth/bootstrap` creates only the first admin, and
   `UserEndpoints` can list users, change a role and disable a user, but not
   create one - there's no API or dashboard path to a second local account
-  (live e2e runs have had to write users into SQLite directly). Needed: an
+  (live e2e runs have had to write users into the identity database directly). Needed: an
   admin-only "invite user" (email/username + role → one-time
   set-password link, expiring) plus a dashboard form on the users page;
   bulk invite is a nice-to-have. Not started. Prior art:
   [signoz#6057](https://github.com/SigNoz/signoz/commit/fc4b55cb34b48fd3f47719be6ad6008b42d7e77d).
   The same expiring set-password token should also back a forgot-password
   flow: there's no reset today, so a locked-out local user needs direct
-  SQLite access. Email the link when SMTP is configured, otherwise let an
+  database access. Email the link when SMTP is configured, otherwise let an
   admin generate one
   ([signoz#10073](https://github.com/SigNoz/signoz/commit/e1ac992e5a65b49678187303840e79b568feea87)).
   Also missing: local users can't change their own password at all
