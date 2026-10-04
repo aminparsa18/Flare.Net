@@ -6,6 +6,16 @@ namespace Flare.Api.Tests.TestSupport;
 internal sealed class FakePasswordSetTokenStore : IPasswordSetTokenStore
 {
     private readonly Dictionary<string, (Guid UserId, DateTimeOffset ExpiresAt)> _tokens = [];
+    private readonly Dictionary<Guid, DateTimeOffset> _lastCreated = [];
+
+    public async Task<IssuedPasswordSetToken?> TryCreateAsync(Guid userId, PasswordSetPurpose purpose, TimeSpan lifetime, TimeSpan minInterval, CancellationToken cancellationToken = default)
+    {
+        if (_lastCreated.TryGetValue(userId, out var last) && DateTimeOffset.UtcNow - last < minInterval)
+        {
+            return null;
+        }
+        return await CreateAsync(userId, purpose, lifetime, cancellationToken);
+    }
 
     public Task<IssuedPasswordSetToken> CreateAsync(Guid userId, PasswordSetPurpose purpose, TimeSpan lifetime, CancellationToken cancellationToken = default)
     {
@@ -13,6 +23,7 @@ internal sealed class FakePasswordSetTokenStore : IPasswordSetTokenStore
         {
             _tokens.Remove(key);
         }
+        _lastCreated[userId] = DateTimeOffset.UtcNow;
         var raw = Guid.NewGuid().ToString("N");
         var expiresAt = DateTimeOffset.UtcNow + lifetime;
         _tokens[raw] = (userId, expiresAt);

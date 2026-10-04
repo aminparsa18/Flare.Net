@@ -17,7 +17,7 @@ public class ForgotPasswordEndpointTests
         var c = new DefaultHttpContext { RequestServices = Services };
         c.Request.Body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { username })));
         c.Response.Body = new MemoryStream();
-        var r = await AuthEndpoints.HandleForgotPasswordAsync(c, users, tokens, new FakeAuthSettingsStore(), mailer, TimeProvider.System, default);
+        var r = await AuthEndpoints.HandleForgotPasswordAsync(c, users, tokens, new FakeAuthSettingsStore(), mailer, default);
         await r.ExecuteAsync(c);
         return c.Response.StatusCode;
     }
@@ -58,8 +58,9 @@ public class ForgotPasswordEndpointTests
         var mailer = new FakePasswordResetMailer();
         await users.CreateAsync("grace@example.com", "password-123", UserRole.Viewer);
 
-        await Post("grace@example.com", users, new FakePasswordSetTokenStore(), mailer);
-        Assert.Equal(204, await Post("GRACE@example.com", users, new FakePasswordSetTokenStore(), mailer));
+        var tokens = new FakePasswordSetTokenStore();
+        await Post("grace@example.com", users, tokens, mailer);
+        Assert.Equal(204, await Post("GRACE@example.com", users, tokens, mailer));
         Assert.Single(mailer.Sent);
     }
 

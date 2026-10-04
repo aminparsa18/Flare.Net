@@ -280,7 +280,6 @@ public static class AuthEndpoints
 
     internal static readonly TimeSpan ForgotPasswordLifetime = TimeSpan.FromHours(1);
     internal static readonly TimeSpan ForgotPasswordCooldown = TimeSpan.FromMinutes(1);
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTimeOffset> ForgotPasswordLastSent = new();
 
     /// <summary>Self-service "forgot password" (ADR-0113): when SMTP + public URL are configured and the
     /// username is the address of a live local account, emails a 1-hour set-password link. Always 204 -
@@ -291,7 +290,6 @@ public static class AuthEndpoints
         IPasswordSetTokenStore tokens,
         IAuthSettingsStore authSettings,
         IPasswordResetMailer mailer,
-        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         if (!(await authSettings.GetAsync(cancellationToken)).LocalEnabled || !mailer.IsConfigured)
@@ -315,28 +313,16 @@ public static class AuthEndpoints
             return Results.Problem("Username is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var now = timeProvider.GetUtcNow();
-        var key = username.ToUpperInvariant();
-        // Cooldown applies whether or not the account exists, so timing/behaviour doesn't leak existence.
-        var throttled = false;
-        ForgotPasswordLastSent.AddOrUpdate(
-            key,
-            _ => now,
-            (_, last) =>
-            {
-                throttled = now - last < ForgotPasswordCooldown;
-                return throttled ? last : now;
-            });
-        if (throttled)
-        {
-            return Results.NoContent();
-        }
-
         var user = await users.FindByUsernameAsync(username, cancellationToken);
         if (user is { IsDisabled: false, AuthProvider: "Local" } && user.Username.Contains('@') && MailboxAddress.TryParse(user.Username, out _))
         {
-            var issued = await tokens.CreateAsync(user.Id, PasswordSetPurpose.Reset, ForgotPasswordLifetime, cancellationToken);
-            await mailer.SendAsync(user.Username, mailer.BuildLink(issued.RawToken), cancellationToken);
+            // Throttled in the identity DB (shared across replicas, survives restarts): a token issued
+            // within the cooldown means this request is silently dropped.
+            var issued = await tokens.TryCreateAsync(user.Id, PasswordSetPurpose.Reset, ForgotPasswordLifetime, ForgotPasswordCooldown, cancellationToken);
+            if (issued is not null)
+            {
+                await mailer.SendAsync(user.Username, mailer.BuildLink(issued.RawToken), cancellationToken);
+            }
         }
 
         return Results.NoContent();

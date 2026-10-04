@@ -34,6 +34,25 @@ public class DbPasswordSetTokenStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task TryCreate_ThrottlesWithinInterval_ThenAllowsAgain()
+    {
+        var user = await _users.CreateAsync("a", "password-123", UserRole.Viewer);
+        var first = await _tokens.TryCreateAsync(user.Id, PasswordSetPurpose.Reset, TimeSpan.FromHours(1), TimeSpan.FromMinutes(1));
+        Assert.NotNull(first);
+
+        Assert.Null(await _tokens.TryCreateAsync(user.Id, PasswordSetPurpose.Reset, TimeSpan.FromHours(1), TimeSpan.FromMinutes(1)));
+        // The first token must survive a throttled attempt.
+        Assert.Equal(user.Id, await _tokens.ConsumeAsync(first!.RawToken));
+
+        var second = await _tokens.TryCreateAsync(user.Id, PasswordSetPurpose.Reset, TimeSpan.FromHours(1), TimeSpan.FromMinutes(1));
+        Assert.NotNull(second);
+        // A zero interval always replaces the previous token.
+        var third = await _tokens.TryCreateAsync(user.Id, PasswordSetPurpose.Reset, TimeSpan.FromHours(1), TimeSpan.Zero);
+        Assert.NotNull(third);
+        Assert.Null(await _tokens.ConsumeAsync(second!.RawToken));
+    }
+
+    [Fact]
     public async Task Consume_RejectsExpiredAndUnknownTokens()
     {
         var user = await _users.CreateAsync("a", "password-123", UserRole.Viewer);
