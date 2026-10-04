@@ -47,6 +47,7 @@
 		onDuplicate,
 		onExport,
 		onToggleVariable,
+		onSetRepeat,
 		onSetYAxisBounds,
 		onSetThresholds,
 		onSetVisualization,
@@ -76,6 +77,7 @@
 		onDuplicate: (id: string) => void;
 		onExport: (id: string) => void;
 		onToggleVariable: (id: string, variableId: string, excluded: boolean) => void;
+		onSetRepeat: (id: string, variableId: string | null, direction: 'horizontal' | 'vertical') => void;
 		onSetYAxisBounds: (id: string, min: number | null, max: number | null, scale: YAxisScale) => void;
 		onSetThresholds: (id: string, thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (id: string, visualization: PanelVisualization, reducer: PanelReducer | null) => void;
@@ -163,6 +165,7 @@
 					onDuplicate={() => onDuplicate(panel.id)}
 					onExport={() => onExport(panel.id)}
 					onToggleVariable={(variableId, excluded) => onToggleVariable(panel.id, variableId, excluded)}
+					onSetRepeat={(variableId, direction) => onSetRepeat(panel.id, variableId, direction)}
 					onSetYAxisBounds={(min, max, scale) => onSetYAxisBounds(panel.id, min, max, scale)}
 					onSetThresholds={(thresholds) => onSetThresholds(panel.id, thresholds)}
 					onSetVisualization={(visualization, reducer) => onSetVisualization(panel.id, visualization, reducer)}

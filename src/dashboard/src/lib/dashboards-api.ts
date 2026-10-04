@@ -59,6 +59,17 @@ export interface DashboardPanel {
 	 */
 	excludedVariableIds?: string[];
 	/**
+	 * `id` of a `multi` `DashboardVariable` this panel repeats for: with two or more values
+	 * selected, the card renders one copy of the panel per value, each with that variable pinned
+	 * to its one value (ADR-0058's multi-value selection, one value per copy). Copies are derived
+	 * at render time and never stored. `undefined`, an "All"/single-value selection, an excluded
+	 * or since-removed variable all render the one normal panel. See `repeatValues` in
+	 * `$lib/dashboards/variables.ts`.
+	 */
+	repeatVariableId?: string;
+	/** How repeated copies are laid out inside the card; `undefined` is `'horizontal'`. */
+	repeatDirection?: 'horizontal' | 'vertical';
+	/**
 	 * Soft Y-axis floor/ceiling for a `Metrics` panel's chart (roadmap's "Soft Y-axis
 	 * min/max on metric charts" item) - `undefined`/`null` on either means "auto" (the
 	 * chart's own default, floored/ceilinged to the data itself, same as before this field

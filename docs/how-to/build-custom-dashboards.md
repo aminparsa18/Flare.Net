@@ -491,6 +491,18 @@ definition (title, size, query), which variables a panel opts out of is
 saved with the dashboard — unlike a variable's own *selected value*,
 which stays session-only.
 
+### Repeating a panel per variable value
+
+To get one panel per selected value (say, one latency chart per service),
+open **Edit** mode and click the **repeat** icon in the panel's header (only
+shown once the dashboard has a multi-value variable). Pick the variable under
+**Repeat for** and choose **Side by side** or **Stacked**. With two or more
+values selected, the panel shows one copy per value, each narrowed to just
+that value and labelled with it; clicking a chart or the "Open in" button in
+a copy opens that value's data. With **All** or a single value selected, the
+panel renders normally. Copies are derived when the dashboard is displayed,
+so only the repeat setting is saved, not the copies.
+
 ## Creating an alert from a panel
 
 Click the **bell** icon in a Logs or Metrics panel's header to open the

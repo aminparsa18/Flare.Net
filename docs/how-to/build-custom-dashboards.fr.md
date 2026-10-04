@@ -517,6 +517,19 @@ un raccourci **Uniquement** qui ne sélectionne que celle-ci. L'en-tête
 affiche la première valeur sélectionnée suivie du nombre d'autres valeurs
 sélectionnées (par exemple, `Service: checkout +2`).
 
+### Répéter un panneau par valeur de variable
+
+Pour obtenir un panneau par valeur sélectionnée (par exemple un graphique de
+latence par service), ouvrez le mode **Edit** et cliquez sur l'icône
+**répéter** dans l'en-tête du panneau (affichée uniquement si le tableau de
+bord a une variable à valeurs multiples). Choisissez la variable sous
+**Répéter pour**, puis **Côte à côte** ou **Empilés**. Avec deux valeurs ou
+plus sélectionnées, le panneau affiche une copie par valeur, chacune limitée
+à cette valeur et étiquetée avec elle ; cliquer sur un graphique ou sur le
+bouton « Ouvrir dans » d'une copie ouvre les données de cette valeur. Avec
+**Tous** ou une seule valeur, le panneau s'affiche normalement. Les copies
+sont calculées à l'affichage : seul le réglage de répétition est enregistré.
+
 ### Filtrer les valeurs d'une variable avec une regex
 
 Une variable « Depuis une requête » ou « Liste personnalisée » a un champ
