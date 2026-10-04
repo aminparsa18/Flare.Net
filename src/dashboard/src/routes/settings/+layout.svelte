@@ -7,11 +7,15 @@
 	import { buttonVariants } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
+	import GlobeIcon from '@lucide/svelte/icons/globe';
 	import * as m from '$lib/paraglide/messages';
 
 	const { children } = $props();
 
-	const sections = $derived([{ href: '/settings/appearance', label: m.settingsAppearance_navLabel(), icon: PaletteIcon }]);
+	const sections = $derived([
+		{ href: '/settings/appearance', label: m.settingsAppearance_navLabel(), icon: PaletteIcon },
+		{ href: '/settings/regional', label: m.settingsRegional_navLabel(), icon: GlobeIcon }
+	]);
 </script>
 
 <div class="flex h-full flex-col overflow-y-auto md:flex-row">

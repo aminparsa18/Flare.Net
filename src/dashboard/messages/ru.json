@@ -2697,5 +2697,21 @@
 	"settingsAppearance_monoLogsLabel": "Моноширинный шрифт для логов",
 	"settingsAppearance_monoLogsDescription": "Показывать тексты логов моноширинным шрифтом.",
 	"settingsAppearance_highContrastLabel": "Высокая контрастность",
-	"settingsAppearance_highContrastDescription": "Более контрастные текст и границы."
+	"settingsAppearance_highContrastDescription": "Более контрастные текст и границы.",
+	"settingsAppearance_accentHeading": "Акцентный цвет",
+	"settingsAppearance_accent_default": "По умолчанию",
+	"settingsAppearance_accent_blue": "Синий",
+	"settingsAppearance_accent_violet": "Фиолетовый",
+	"settingsAppearance_accent_green": "Зелёный",
+	"settingsAppearance_accent_orange": "Оранжевый",
+	"settingsAppearance_accent_rose": "Розовый",
+	"settingsAppearance_sidebarHoverExpandLabel": "Раскрывать при наведении",
+	"settingsAppearance_sidebarHoverExpandDescription": "Сворачиваемая боковая панель раскрывается поверх страницы при наведении.",
+	"settingsRegional_navLabel": "Региональные",
+	"settingsRegional_title": "Региональные настройки",
+	"settingsRegional_heading": "Региональные",
+	"settingsRegional_description": "Язык и часовой пояс. В меню пользователя остаются ярлыки для них.",
+	"settingsRegional_languageHeading": "Язык",
+	"settingsRegional_timeZoneHeading": "Часовой пояс отображения",
+	"settingsRegional_timeZoneDescription": "Метки времени в панели показываются в этом часовом поясе."
 }

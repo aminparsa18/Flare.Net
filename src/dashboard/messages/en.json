@@ -2697,5 +2697,21 @@
 	"settingsAppearance_monoLogsLabel": "Monospace log messages",
 	"settingsAppearance_monoLogsDescription": "Show log bodies in a monospace font.",
 	"settingsAppearance_highContrastLabel": "High contrast",
-	"settingsAppearance_highContrastDescription": "Stronger text and border contrast."
+	"settingsAppearance_highContrastDescription": "Stronger text and border contrast.",
+	"settingsAppearance_accentHeading": "Accent colour",
+	"settingsAppearance_accent_default": "Default",
+	"settingsAppearance_accent_blue": "Blue",
+	"settingsAppearance_accent_violet": "Violet",
+	"settingsAppearance_accent_green": "Green",
+	"settingsAppearance_accent_orange": "Orange",
+	"settingsAppearance_accent_rose": "Rose",
+	"settingsAppearance_sidebarHoverExpandLabel": "Expand on hover",
+	"settingsAppearance_sidebarHoverExpandDescription": "Float the collapsed sidebar open while the pointer is over it.",
+	"settingsRegional_navLabel": "Regional",
+	"settingsRegional_title": "Regional settings",
+	"settingsRegional_heading": "Regional",
+	"settingsRegional_description": "Language and time zone. The user menu keeps these as shortcuts.",
+	"settingsRegional_languageHeading": "Language",
+	"settingsRegional_timeZoneHeading": "Display time zone",
+	"settingsRegional_timeZoneDescription": "Timestamps across the dashboard are shown in this zone."
 }

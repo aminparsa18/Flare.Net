@@ -34,7 +34,12 @@
 
 	const auth = authContext.get();
 	const links = $derived(navLinks(auth).filter((link) => !link.inMenu));
-	const collapsed = $derived(appearance.sidebarCollapsed);
+	// Hover-expand: a collapsed rail keeps its 3.5rem slot in the layout but its nav floats
+	// over the page at full width while hovered, so content doesn't reflow.
+	let hovered = $state(false);
+	const railed = $derived(appearance.sidebarCollapsed);
+	const floating = $derived(railed && appearance.sidebarHoverExpand && hovered);
+	const collapsed = $derived(railed && !floating);
 
 	const ICONS: Record<string, Component> = {
 		'/': ScrollTextIcon,
@@ -56,8 +61,18 @@
 	}
 </script>
 
+<div
+	role="presentation"
+	class={cn('relative h-full shrink-0', railed && 'w-14')}
+	onmouseenter={() => (hovered = true)}
+	onmouseleave={() => (hovered = false)}
+>
 <nav
-	class={cn('bg-background flex h-full shrink-0 flex-col gap-2 border-r p-2 transition-[width]', collapsed ? 'w-14' : 'w-56')}
+	class={cn(
+		'bg-background flex h-full shrink-0 flex-col gap-2 border-r p-2 transition-[width]',
+		collapsed ? 'w-14' : 'w-56',
+		floating && 'absolute inset-y-0 left-0 z-40 shadow-lg'
+	)}
 	aria-label="Main"
 >
 	<div class={cn('flex items-center', collapsed ? 'justify-center' : 'justify-between px-1')}>
@@ -115,3 +130,4 @@
 		</div>
 	</div>
 </nav>
+</div>
