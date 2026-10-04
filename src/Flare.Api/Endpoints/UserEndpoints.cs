@@ -29,6 +29,7 @@ public static class UserEndpoints
         endpoints.MapPatch("/api/users/{id:guid}/role", HandleSetRoleAsync);
         endpoints.MapPatch("/api/users/{id:guid}/disabled", HandleSetDisabledAsync);
         endpoints.MapPost("/api/users/invite", HandleInviteAsync);
+        endpoints.MapPost("/api/users/invite/bulk", HandleBulkInviteAsync);
         endpoints.MapPost("/api/users/{id:guid}/password-reset", HandlePasswordResetAsync);
         return endpoints;
     }
@@ -79,6 +80,76 @@ public static class UserEndpoints
             new PasswordSetLinkResponse { User = ToDto(user), Token = token.RawToken, ExpiresAt = token.ExpiresAt, EmailSent = emailed },
             UsersJsonContext.Default.PasswordSetLinkResponse,
             statusCode: StatusCodes.Status201Created);
+    }
+
+    internal const int MaxBulkInvites = 100;
+
+    /// <summary>Invites many usernames at once (ADR-0115): per-name outcome, never all-or-nothing.
+    /// Duplicates within the request and already-existing usernames are reported, not errors.</summary>
+    internal static async Task<IResult> HandleBulkInviteAsync(
+        HttpContext http, IUserStore users, IPasswordSetTokenStore tokens, IAuthSettingsStore authSettings, IPasswordResetMailer mailer, CancellationToken cancellationToken)
+    {
+        if (!(await authSettings.GetAsync(cancellationToken)).LocalEnabled)
+        {
+            return Results.Problem("Local accounts are disabled.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        BulkInviteRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, UsersJsonContext.Default.BulkInviteRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var names = request?.Usernames?.Select(n => n?.Trim() ?? "").Where(n => n.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (request is null || names is null || names.Count == 0)
+        {
+            return Results.Problem("At least one username is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (names.Count > MaxBulkInvites)
+        {
+            return Results.Problem($"At most {MaxBulkInvites} users can be invited at once.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var results = new List<BulkInviteResultItem>(names.Count);
+        var expiresAt = default(DateTimeOffset);
+        foreach (var name in names)
+        {
+            if (await users.FindByUsernameAsync(name, cancellationToken) is not null)
+            {
+                results.Add(new BulkInviteResultItem { Username = name, Status = "Exists" });
+                continue;
+            }
+
+            User user;
+            try
+            {
+                user = await users.CreateAsync(name, $"{Guid.NewGuid():N}{Guid.NewGuid():N}", request.Role, cancellationToken);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                // e.g. lost a uniqueness race with a concurrent create.
+                results.Add(new BulkInviteResultItem { Username = name, Status = "Invalid" });
+                continue;
+            }
+
+            var token = await tokens.CreateAsync(user.Id, PasswordSetPurpose.Invite, InviteLifetime, cancellationToken);
+            expiresAt = token.ExpiresAt;
+            var emailed = mailer.IsConfigured
+                && name.Contains('@')
+                && MailboxAddress.TryParse(name, out _)
+                && await mailer.SendAsync(name, mailer.BuildLink(token.RawToken), cancellationToken, invite: true);
+            results.Add(new BulkInviteResultItem { Username = name, Status = "Created", Token = token.RawToken, EmailSent = emailed });
+        }
+
+        return ApiSerialization.Write(
+            http,
+            new BulkInviteResponse { ExpiresAt = expiresAt, Results = [.. results] },
+            UsersJsonContext.Default.BulkInviteResponse);
     }
 
     /// <summary>Admin-generated reset link for a local account. Revokes the user's sessions

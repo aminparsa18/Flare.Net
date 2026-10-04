@@ -67,8 +67,8 @@ folders are where "what happened and why" actually lives.
   Not started.
 - **Local user lifecycle follow-ups.** Invite, admin reset, set-password,
   change-password (ADR-0112), emailed forgot-password (ADR-0113) and emailed
-  invites (ADR-0114) shipped. Still open: bulk invite; a durable (shared)
-  forgot-password throttle. Not started.
+  invites (ADR-0114) and bulk invite (ADR-0115) shipped. Still open: a durable
+  (shared) forgot-password throttle. Not started.
 - **OpenAPI.NET v3 (`Microsoft.OpenApi` 3.x, OpenAPI spec 3.2).** Blocked on
   `Microsoft.AspNetCore.OpenApi`: 10.0.x caps it at `[2.12.0, 3.0.0)`, so the
   direct pin in `Directory.Packages.props` stays on 2.x. The first release

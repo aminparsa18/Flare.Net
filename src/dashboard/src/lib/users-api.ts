@@ -142,3 +142,23 @@ export async function requestPasswordReset(username: string): Promise<void> {
 	const res = await postJson('/api/auth/forgot-password', { username });
 	if (!res.ok) throw new Error(`POST /api/auth/forgot-password failed: ${res.status} ${res.statusText}`);
 }
+
+export interface BulkInviteItem {
+	username: string;
+	status: 'Created' | 'Exists' | 'Invalid';
+	token?: string;
+	emailSent: boolean;
+}
+
+export interface BulkInviteResult {
+	expiresAt: string;
+	results: BulkInviteItem[];
+}
+
+/** `POST /api/users/invite/bulk` - per-name outcome; each `Created` item carries its one-time token. */
+export async function bulkInviteUsers(usernames: string[], role: UserRole): Promise<BulkInviteResult> {
+	const res = await postJson('/api/users/invite/bulk', { usernames, role });
+	if (res.status === 400) throw new Error((await res.json().catch(() => null))?.detail ?? 'Invalid request.');
+	if (!res.ok) throw new Error(`POST /api/users/invite/bulk failed: ${res.status} ${res.statusText}`);
+	return res.json();
+}

@@ -80,6 +80,32 @@ public class PasswordSetEndpointsTests
     }
 
     [Fact]
+    public async Task BulkInvite_ReportsPerNameOutcome_AndDedupes()
+    {
+        var users = new FakeUserStore();
+        await users.CreateAsync("taken", "password-123", UserRole.Viewer);
+        var mailer = new FakePasswordResetMailer();
+        var c = Ctx(new { usernames = new[] { "a@example.com", "A@example.com", "b", "TAKEN", "  " }, role = "Viewer" });
+        Assert.Equal(200, await Run(await UserEndpoints.HandleBulkInviteAsync(c, users, new FakePasswordSetTokenStore(), new FakeAuthSettingsStore(), mailer, default), c));
+        c.Response.Body.Position = 0;
+        var res = (await JsonSerializer.DeserializeAsync(c.Response.Body, UsersJsonContext.Default.BulkInviteResponse))!;
+        Assert.Equal(["Created", "Created", "Exists"], res.Results.Select(r => r.Status));
+        Assert.True(res.Results[0].EmailSent);
+        Assert.False(res.Results[1].EmailSent);
+        Assert.NotNull(await users.FindByUsernameAsync("b"));
+        Assert.Single(mailer.Sent);
+    }
+
+    [Fact]
+    public async Task BulkInvite_EmptyOrTooMany_IsRejected()
+    {
+        var none = Ctx(new { usernames = Array.Empty<string>(), role = "Viewer" });
+        Assert.Equal(400, await Run(await UserEndpoints.HandleBulkInviteAsync(none, new FakeUserStore(), new FakePasswordSetTokenStore(), new FakeAuthSettingsStore(), new FakePasswordResetMailer(), default), none));
+        var many = Ctx(new { usernames = Enumerable.Range(0, 101).Select(i => $"u{i}").ToArray(), role = "Viewer" });
+        Assert.Equal(400, await Run(await UserEndpoints.HandleBulkInviteAsync(many, new FakeUserStore(), new FakePasswordSetTokenStore(), new FakeAuthSettingsStore(), new FakePasswordResetMailer(), default), many));
+    }
+
+    [Fact]
     public async Task Invite_DuplicateUsername_Conflicts()
     {
         var users = new FakeUserStore();

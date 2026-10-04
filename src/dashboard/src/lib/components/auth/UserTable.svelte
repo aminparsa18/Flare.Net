@@ -47,11 +47,29 @@
 
 	async function submitInvite(e: SubmitEvent) {
 		e.preventDefault();
-		if (!inviteUsername.trim()) return;
-		if (await users.invite(inviteUsername.trim(), inviteRole)) {
+		// One name per line (or comma/semicolon/space separated): several go through the bulk endpoint.
+		const names = inviteUsername.split(/[\s,;]+/).filter(Boolean);
+		if (names.length === 0) return;
+		const ok = names.length === 1 ? await users.invite(names[0], inviteRole) : await users.inviteMany(names, inviteRole);
+		if (ok) {
 			inviteOpen = false;
 			inviteUsername = '';
 		}
+	}
+
+	function linkFor(token: string): string {
+		return `${window.location.origin}${withBase('/set-password')}?token=${encodeURIComponent(token)}`;
+	}
+
+	async function copyAllLinks() {
+		const lines = (users.bulkResult?.results ?? []).filter((r) => r.token).map((r) => `${r.username}\t${linkFor(r.token!)}`);
+		await navigator.clipboard.writeText(lines.join('\n'));
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
+
+	function statusLabel(status: string): string {
+		return status === 'Created' ? m.userInvite_bulkCreated() : status === 'Exists' ? m.userInvite_bulkExists() : m.userInvite_bulkInvalid();
 	}
 
 	const linkUrl = $derived(
@@ -162,7 +180,14 @@
 			{#if users.inviteError}
 				<Alert variant="destructive"><AlertDescription>{users.inviteError}</AlertDescription></Alert>
 			{/if}
-			<Input placeholder={m.userInvite_username()} bind:value={inviteUsername} autocomplete="off" />
+			<textarea
+				class="border-input bg-background min-h-20 rounded-md border px-3 py-2 text-sm"
+				placeholder={m.userInvite_username()}
+				bind:value={inviteUsername}
+				autocomplete="off"
+				rows="3"
+			></textarea>
+			<p class="text-muted-foreground text-xs">{m.userInvite_bulkHint()}</p>
 			<Select.Root type="single" bind:value={inviteRole}>
 				<Select.Trigger class="w-full">{m.userInvite_role()}: {roleLabel(inviteRole)}</Select.Trigger>
 				<Select.Content>
@@ -194,6 +219,31 @@
 		<Dialog.Footer>
 			<Button variant="outline" onclick={copyLink}>{copied ? m.userInvite_copied() : m.userInvite_copy()}</Button>
 			<Button onclick={() => (users.issuedLink = null)}>{m.userInvite_done()}</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root open={users.bulkResult !== null} onOpenChange={(o) => !o && (users.bulkResult = null)}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>{m.userInvite_bulkTitle()}</Dialog.Title>
+			<Dialog.Description>
+				{m.userInvite_bulkHintResult({ expires: users.bulkResult ? new Date(users.bulkResult.expiresAt).toLocaleString() : '' })}
+			</Dialog.Description>
+		</Dialog.Header>
+		<ul class="max-h-72 divide-y overflow-auto text-sm">
+			{#each users.bulkResult?.results ?? [] as r (r.username)}
+				<li class="flex items-center justify-between gap-2 py-1.5">
+					<span class="truncate">{r.username}</span>
+					<span class="text-muted-foreground shrink-0 text-xs">
+						{statusLabel(r.status)}{r.emailSent ? ` · ${m.userInvite_bulkEmailed()}` : ''}
+					</span>
+				</li>
+			{/each}
+		</ul>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={copyAllLinks}>{copied ? m.userInvite_copied() : m.userInvite_bulkCopyAll()}</Button>
+			<Button onclick={() => (users.bulkResult = null)}>{m.userInvite_done()}</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

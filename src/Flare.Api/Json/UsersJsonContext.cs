@@ -16,5 +16,7 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(SetUserDisabledRequest))]
 [JsonSerializable(typeof(CreateServiceAccountRequest))]
 [JsonSerializable(typeof(InviteUserRequest))]
+[JsonSerializable(typeof(BulkInviteRequest))]
+[JsonSerializable(typeof(BulkInviteResponse))]
 [JsonSerializable(typeof(PasswordSetLinkResponse))]
 public sealed partial class UsersJsonContext : JsonSerializerContext;

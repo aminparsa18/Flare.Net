@@ -2,7 +2,7 @@
 // ($lib/alerts/state.svelte.ts): a class with $state fields, provided via usersContext
 // (context.ts) rather than passed as props, per this repo's svelte-best-practices skill.
 
-import { listUsers, setUserRole, setUserDisabled, inviteUser, createPasswordReset, type PasswordSetLink, type UserSummary } from '$lib/users-api';
+import { listUsers, setUserRole, setUserDisabled, inviteUser, bulkInviteUsers, createPasswordReset, type BulkInviteResult, type PasswordSetLink, type UserSummary } from '$lib/users-api';
 import type { UserRole } from '$lib/auth-api';
 
 export class UsersState {
@@ -65,6 +65,21 @@ export class UsersState {
 			const link = await inviteUser(username, role);
 			this.users = [...this.users, link.user].sort((a, b) => a.username.localeCompare(b.username));
 			this.issuedLink = link;
+			return true;
+		} catch (err) {
+			this.inviteError = err instanceof Error ? err.message : String(err);
+			return false;
+		}
+	}
+
+	/** Result of the last bulk invite, shown once in a dialog then discarded. */
+	bulkResult = $state<BulkInviteResult | null>(null);
+
+	async inviteMany(usernames: string[], role: UserRole): Promise<boolean> {
+		this.inviteError = null;
+		try {
+			this.bulkResult = await bulkInviteUsers(usernames, role);
+			await this.load();
 			return true;
 		} catch (err) {
 			this.inviteError = err instanceof Error ? err.message : String(err);

@@ -312,6 +312,8 @@ lockout recoverable only by editing the SQLite file directly.
 
 **Invite user** in the Users table (`POST /api/users/invite`, username + role) creates a local account nobody can sign in to yet and shows a one-time `/set-password?token=…` link. Send it to the person; they choose their own password on that page. The link works once and expires after 3 days. If SMTP and `Alerting:PublicUrl` are configured and the username is an email address, Flare also emails it; either way, copy it from the dialog, which shows it only once.
 
+**Bulk invite:** put several usernames in the invite box (one per line, or comma-separated, up to 100). Flare creates each account, skips ones that already exist, and shows a results list with a "Copy all links" button (`POST /api/users/invite/bulk`).
+
 **Reset link** on a local account's row (`POST /api/users/{id}/password-reset`) issues a new link (valid 24 hours), replaces any earlier unused one, and signs that account out everywhere immediately. Redeeming either kind of link also signs the account out of every existing session. Only local accounts have a Flare-managed password; SSO accounts don't get these controls.
 
 A signed-in local user can change their own password with `POST /api/auth/password` (`currentPassword`, `newPassword`, minimum 8 characters); their other sessions are revoked and the current one stays signed in.
