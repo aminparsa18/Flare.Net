@@ -416,6 +416,24 @@ export class DashboardViewerState {
 		}
 	}
 
+	/** Sets/clears `panelId`'s "repeat for variable" option (`DashboardPanel.repeatVariableId`/
+	 *  `repeatDirection`) through `#saveLayout`. `null` variable clears both fields. */
+	async setPanelRepeat(panelId: string, variableId: string | null, direction: 'horizontal' | 'vertical'): Promise<void> {
+		const dashboard = this.dashboard;
+		if (!dashboard) return;
+		try {
+			this.dashboard = await this.#saveLayout({
+				panels: dashboard.layout.panels.map((p) =>
+					p.id === panelId
+						? { ...p, repeatVariableId: variableId ?? undefined, repeatDirection: variableId && direction === 'vertical' ? 'vertical' : undefined }
+						: p
+				)
+			});
+		} catch (err) {
+			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
 	/** Sets/clears `panelId`'s soft Y-axis min/max override (`DashboardPanel.yAxisMin`/
 	 *  `yAxisMax` - roadmap's "Soft Y-axis min/max on metric charts" item) - a layout-level
 	 *  field (persisted per panel, like `title`/`excludedVariableIds`), so it goes through

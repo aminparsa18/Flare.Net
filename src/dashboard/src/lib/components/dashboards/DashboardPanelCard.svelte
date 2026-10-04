@@ -23,6 +23,7 @@
 	import DashboardTextPanelBody from './panels/DashboardTextPanelBody.svelte';
 	import TextPanelEditPopover from './TextPanelEditPopover.svelte';
 	import PanelVariablesPopover from './PanelVariablesPopover.svelte';
+	import RepeatPanelPopover from './RepeatPanelPopover.svelte';
 	import YAxisBoundsPopover from './YAxisBoundsPopover.svelte';
 	import ThresholdsPopover from './ThresholdsPopover.svelte';
 	import MoveToRowMenu from './MoveToRowMenu.svelte';
@@ -41,7 +42,7 @@
 	import type { TimeRangePreset } from '$lib/logs/time-range';
 	import type { LogsSavedViewState } from '$lib/logs/state.svelte';
 	import type { MetricsSavedViewState } from '$lib/metrics/state.svelte';
-	import { resolvePanelTitle, resolveVariableOverrides } from '$lib/dashboards/variables';
+	import { repeatValues, resolvePanelTitle, resolveVariableOverrides, type ResolvedVariableOverrides } from '$lib/dashboards/variables';
 	import { buildAlertDeepLinkHref, type AlertPanelDraft } from '$lib/deep-links';
 	import { panelExplorerHref, panelExplorerState, withCustomRange, withLogsGroup } from '$lib/dashboards/explore-links';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -68,6 +69,7 @@
 		onDuplicate,
 		onExport,
 		onToggleVariable,
+		onSetRepeat,
 		onSetYAxisBounds,
 		onSetThresholds,
 		onSetVisualization,
@@ -93,6 +95,7 @@
 		onDuplicate: () => void;
 		onExport: () => void;
 		onToggleVariable: (variableId: string, excluded: boolean) => void;
+		onSetRepeat: (variableId: string | null, direction: 'horizontal' | 'vertical') => void;
 		onSetYAxisBounds: (min: number | null, max: number | null, scale: YAxisScale) => void;
 		onSetThresholds: (thresholds: PanelThreshold[]) => void;
 		onSetVisualization: (visualization: PanelVisualization, reducer: PanelReducer | null) => void;
@@ -114,6 +117,22 @@
 	 *  `panel` keeps its object identity across an unrelated panel's edit - see
 	 *  DashboardViewerState.updateLayout/renamePanel/removePanel). */
 	const variableOverrides = $derived(resolveVariableOverrides(variables, variableValues, panel.excludedVariableIds ?? []));
+
+	/** One copy per selected value of `panel.repeatVariableId` (see `repeatValues`), each with
+	 *  that variable pinned to its one value - `[]` for the normal single render. Derived at
+	 *  render time, never stored. Chart drill-downs and the "Open in" link follow the copy. */
+	const repeatCopies = $derived(
+		panel.panelType === 'Text'
+			? []
+			: repeatValues(variables, variableValues, panel.repeatVariableId, panel.excludedVariableIds ?? []).map((value) => {
+					const pinned = { ...variableValues, [panel.repeatVariableId!]: [value] };
+					return {
+						value,
+						title: resolvePanelTitle(panel.title, variables, pinned, m.dashboardViewer_variableAll()),
+						overrides: resolveVariableOverrides(variables, pinned, panel.excludedVariableIds ?? [])
+					};
+				})
+	);
 
 	/** Lazy panel rendering (roadmap's "lazy-loading panels", signoz#2133) - the body below
 	 *  (and its query) doesn't mount until this card has actually scrolled near the
@@ -241,13 +260,45 @@
 		}
 	}
 
-	function openRange(range: { from: Date; to: Date }, groupKey?: string | null): void {
+	function openRange(range: { from: Date; to: Date }, groupKey?: string | null, overrides: ResolvedVariableOverrides = variableOverrides): void {
 		if (panel.panelType === 'Text') return;
-		let state = withCustomRange(explorerState, range.from, range.to);
+		let state = withCustomRange(overrides === variableOverrides ? explorerState : panelExplorerState(panel, timeRangeOverride, overrides), range.from, range.to);
 		if (groupKey !== undefined) state = withLogsGroup(state, groupKey);
 		void goto(panelExplorerHref(panel.panelType, state));
 	}
 </script>
+
+{#snippet panelBody(overrides: ResolvedVariableOverrides, copyTitle: string)}
+			{#if panel.panelType === 'Text'}
+				<DashboardTextPanelBody query={panel.query} {variables} {variableValues} />
+			{:else if panel.panelType === 'Logs'}
+				<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} variableOverrides={overrides} {refreshToken} onOpenRange={(range, groupKey) => openRange(range, groupKey, overrides)} />
+			{:else if panel.panelType === 'Metrics'}
+				<DashboardMetricsPanelBody
+					query={panel.query}
+					{timeRangeOverride}
+					variableOverrides={overrides}
+					{refreshToken}
+					yAxisMin={panel.yAxisMin}
+					yAxisMax={panel.yAxisMax}
+					{yAxisScale}
+					thresholds={panel.thresholds}
+					{visualization}
+					{stacking}
+					reducer={panel.reducer}
+					columnUnits={panel.columnUnits}
+					decimals={panel.decimals}
+					{legendPosition}
+					{seriesColors}
+					{legendFormat}
+					bind:seriesKeys
+					title={copyTitle}
+					onOpenRange={(range) => openRange(range, undefined, overrides)}
+				/>
+			{:else if panel.panelType === 'Traces'}
+				<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} variableOverrides={overrides} {refreshToken} />
+			{/if}
+{/snippet}
 
 <div class="flex h-full flex-col rounded-lg border">
 	<!-- In edit mode the toolbar is long; let it wrap below the title instead of squeezing the
@@ -351,6 +402,9 @@
 				{/if}
 				<ThresholdsPopover thresholds={panel.thresholds} onApply={onSetThresholds} />
 			{/if}
+			{#if variables.some((v) => v.multi) && panel.panelType !== 'Text'}
+				<RepeatPanelPopover {variables} repeatVariableId={panel.repeatVariableId} repeatDirection={panel.repeatDirection} onChange={onSetRepeat} />
+			{/if}
 			{#if rows.length > 0}
 				<MoveToRowMenu {rows} {rowId} onMove={onMoveToRow} />
 			{/if}
@@ -377,34 +431,19 @@
 	</div>
 	<div class="flex min-h-0 flex-1 flex-col overflow-hidden" use:inViewport={() => (visible = true)}>
 		{#if visible || panel.panelType === 'Text'}
-			{#if panel.panelType === 'Text'}
-				<DashboardTextPanelBody query={panel.query} {variables} {variableValues} />
-			{:else if panel.panelType === 'Logs'}
-				<DashboardLogsPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} onOpenRange={openRange} />
-			{:else if panel.panelType === 'Metrics'}
-				<DashboardMetricsPanelBody
-					query={panel.query}
-					{timeRangeOverride}
-					{variableOverrides}
-					{refreshToken}
-					yAxisMin={panel.yAxisMin}
-					yAxisMax={panel.yAxisMax}
-					{yAxisScale}
-					thresholds={panel.thresholds}
-					{visualization}
-					{stacking}
-					reducer={panel.reducer}
-					columnUnits={panel.columnUnits}
-					decimals={panel.decimals}
-					{legendPosition}
-					{seriesColors}
-					{legendFormat}
-					bind:seriesKeys
-					title={displayTitle}
-					onOpenRange={openRange}
-				/>
-			{:else if panel.panelType === 'Traces'}
-				<DashboardTracesPanelBody query={panel.query} {timeRangeOverride} {variableOverrides} {refreshToken} />
+			{#if repeatCopies.length > 0}
+				<div class="flex min-h-0 flex-1 gap-2 overflow-auto p-2 {panel.repeatDirection === 'vertical' ? 'flex-col' : 'flex-row'}">
+					{#each repeatCopies as copy (copy.value)}
+						<div class="flex min-h-48 min-w-48 flex-1 flex-col overflow-hidden rounded-md border">
+							<div class="text-muted-foreground truncate border-b px-2 py-1 text-xs font-medium" title={copy.value}>{copy.value}</div>
+							<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+								{@render panelBody(copy.overrides, `${copy.title} (${copy.value})`)}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				{@render panelBody(variableOverrides, displayTitle)}
 			{/if}
 		{:else}
 			<div class="flex h-full items-center justify-center"><Spinner /></div>

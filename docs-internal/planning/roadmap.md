@@ -123,13 +123,6 @@ folders are where "what happened and why" actually lives.
   PATs. Unsupported PromQL returns a clear error rather than a partial
   answer. Full PromQL is out of scope. Needs an ADR. Not started. Prior art:
   [signoz PR #11555](https://github.com/SigNoz/signoz/pull/11555) (open, unmerged).
-- **Repeat a panel per variable value.** No way to get "one latency panel per
-  selected service" without duplicating panels by hand. Add a panel option
-  "repeat for variable X" (multi-value variables, ADR-0058) that renders one
-  copy per selected value with that variable pinned, laid out horizontally
-  or vertically. Copies are view-only and derived at render time, not
-  stored. Not started. Prior art:
-  [signoz PR #12605](https://github.com/SigNoz/signoz/pull/12605) (open, unmerged).
 - **Investigate: do attribute filters use the `mapValues` bloom indexes?**
   Migrations define `bloom_filter` indexes on `mapValues(LogAttributes)`,
   `ResourceAttributes` and `SpanAttributes`, but `AttributeClause` emits

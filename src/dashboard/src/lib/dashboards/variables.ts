@@ -225,6 +225,22 @@ export function resolveVariableOverrides(
 	return { services, attributes };
 }
 
+/** The values a panel repeats over - the current selection of its `repeatVariableId` variable
+ *  when that variable still exists, isn't opted out of for this panel, and has two or more
+ *  values selected; otherwise `[]` (render the one normal panel). "All" (no selection) never
+ *  repeats: it would need the variable's whole option list, which the viewer doesn't hold. */
+export function repeatValues(
+	variables: readonly DashboardVariable[],
+	selections: Record<string, string[]>,
+	repeatVariableId: string | undefined,
+	excludedVariableIds: readonly string[] = []
+): string[] {
+	if (!repeatVariableId || excludedVariableIds.includes(repeatVariableId)) return [];
+	if (!variables.some((v) => v.id === repeatVariableId)) return [];
+	const values = selections[repeatVariableId] ?? [];
+	return values.length > 1 ? values : [];
+}
+
 /** Narrows `overrides.attributes` to the ones a Logs panel's `AttributeFilter[]` can
  *  actually express - `Log`/`Resource`/`Scope` map straight onto Logs' own `AttributeBag`,
  *  `Span` is dropped (a Traces-only bag, see `DashboardAttributeBag`'s own remarks). */
