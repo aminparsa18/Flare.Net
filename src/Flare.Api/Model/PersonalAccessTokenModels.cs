@@ -37,7 +37,7 @@ public sealed partial record CreateAccessTokenRequest
 
 /// <summary><see cref="RawToken"/> is shown exactly once, here - Flare never stores or
 /// displays it again after this response (see
-/// <see cref="Identity.PersonalAccessTokens.SqlitePersonalAccessTokenStore"/>).</summary>
+/// <see cref="Identity.PersonalAccessTokens.DbPersonalAccessTokenStore"/>).</summary>
 [MemoryPackable]
 public sealed partial record CreateAccessTokenResponse
 {

@@ -96,11 +96,14 @@ sliding window.
 ## Where accounts live
 
 Users, sessions, ingest API keys, and all auth settings are stored in an
-**embedded SQLite file**, not a separate database container — why, and the
-trade-off it creates (`Flare.Api` limited to a single replica), is recorded
-in
-[ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md).
-`Flare.Ingest` shares the same file, read-mostly.
+**embedded SQLite file** by default, not a separate database container.
+`Flare.Ingest` shares the same file, read-mostly. SQLite can't be shared
+across hosts, so a deployment that needs the identity store to be reachable
+from several machines (cluster mode does this) sets `Identity:Provider` to
+`Postgres` and points `Identity:ConnectionString` at a PostgreSQL server
+instead. The decision and its trade-offs are in
+[ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md) and
+[ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md).
 
 ## Ingest API keys
 

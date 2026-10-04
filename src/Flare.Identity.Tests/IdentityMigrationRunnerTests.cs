@@ -7,12 +7,18 @@ namespace Flare.Identity.Tests;
 
 public class IdentityMigrationRunnerTests : IAsyncLifetime
 {
-    private readonly IdentityTestDatabase _database = new();
+    private readonly IdentityTestDatabase _database = new(IdentityProvider.Sqlite);
 
     // IdentityTestDatabase.InitializeAsync already runs ApplyAsync once - these tests
     // exercise running it again on top of that, confirming the whole point of the
     // idempotent-migration-file convention (Migrations/0001_identity.sql uses
     // CREATE TABLE/INDEX IF NOT EXISTS throughout).
+    // Derived from the embedded files rather than hard-coded, so adding a migration doesn't
+    // silently break the concurrency tests below (it did, at 0026).
+    private static readonly long SqliteMigrationCount = typeof(IdentityMigrationRunner).Assembly
+        .GetManifestResourceNames()
+        .Count(n => n.StartsWith("Flare.Identity.Migrations.Sqlite.", StringComparison.Ordinal));
+
     public Task InitializeAsync() => _database.InitializeAsync();
 
     public Task DisposeAsync() => _database.DisposeAsync();
@@ -122,8 +128,8 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
 
         await using (var selectSession = verifyConnection.CreateCommand())
         {
-            selectSession.CommandText = "SELECT UserId FROM Sessions WHERE Id = $id";
-            selectSession.Parameters.AddWithValue("$id", sessionId);
+            selectSession.CommandText = "SELECT UserId FROM Sessions WHERE Id = @id";
+            selectSession.AddParameter("@id", sessionId);
             var userId = (string?)await selectSession.ExecuteScalarAsync();
             Assert.Equal(localUserId.ToString(), userId);
         }
@@ -135,9 +141,9 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
             insertAdUser.CommandText =
                 """
                 INSERT INTO Users (Id, Username, PasswordHash, Role, CreatedAt, UpdatedAt, IsDisabled, AuthProvider, ExternalId)
-                VALUES ($id, 'ad-user', 'hash-3', 'Member', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 0, 'ActiveDirectory', 'ad-object-guid')
+                VALUES (@id, 'ad-user', 'hash-3', 'Member', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 0, 'ActiveDirectory', 'ad-object-guid')
                 """;
-            insertAdUser.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
+            insertAdUser.AddParameter("@id", Guid.NewGuid().ToString());
             var exception = await Record.ExceptionAsync(() => insertAdUser.ExecuteNonQueryAsync());
             Assert.Null(exception);
         }
@@ -218,7 +224,7 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
             await using var verify = await factory.OpenAsync();
             await using var count = verify.CreateCommand();
             count.CommandText = "SELECT COUNT(*) FROM schema_migrations";
-            Assert.Equal(25L, (long)(await count.ExecuteScalarAsync())!);
+            Assert.Equal(SqliteMigrationCount, (long)(await count.ExecuteScalarAsync())!);
         }
         finally
         {
@@ -248,7 +254,7 @@ public class IdentityMigrationRunnerTests : IAsyncLifetime
             await using var verify = await factoryA.OpenAsync();
             await using var count = verify.CreateCommand();
             count.CommandText = "SELECT COUNT(*) FROM schema_migrations";
-            Assert.Equal(25L, (long)(await count.ExecuteScalarAsync())!);
+            Assert.Equal(SqliteMigrationCount, (long)(await count.ExecuteScalarAsync())!);
         }
         finally
         {

@@ -14,6 +14,7 @@
          Options in transitively, so no separate PackageReference for those is needed. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Npgsql" />
     <!-- Direct references (see Directory.Packages.props) so the pinned, patched 2.1.12
          versions win over Microsoft.Data.Sqlite's own transitive >=2.1.11 floor. -->
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
@@ -23,8 +24,11 @@
   <ItemGroup>
     <!-- Embedded the same way Flare.ServiceDefaults embeds db/clickhouse/*.sql for
          ClickHouseMigrationRunner - see IdentityMigrationRunner's remarks. -->
-    <EmbeddedResource Include="Migrations\*.sql">
-      <LogicalName>Flare.Identity.Migrations.Sql.%(Filename)%(Extension)</LogicalName>
+    <EmbeddedResource Include="Migrations\Sqlite\*.sql">
+      <LogicalName>Flare.Identity.Migrations.Sqlite.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\Postgres\*.sql">
+      <LogicalName>Flare.Identity.Migrations.Postgres.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

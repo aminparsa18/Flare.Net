@@ -3,7 +3,7 @@ using Flare.Identity.Auth;
 namespace Flare.Api.Tests.TestSupport;
 
 /// <summary>In-memory <see cref="ILoginAttemptStore"/> - same convention as
-/// <see cref="FakeSessionStore"/>. Mirrors <c>SqliteLoginAttemptStore</c>'s policy
+/// <see cref="FakeSessionStore"/>. Mirrors <c>DbLoginAttemptStore</c>'s policy
 /// (window/threshold/lockout-duration) against a provided <see cref="TimeProvider"/> so
 /// tests can fast-forward a fake clock instead of sleeping real time.</summary>
 internal sealed class FakeLoginAttemptStore(
@@ -22,7 +22,7 @@ internal sealed class FakeLoginAttemptStore(
         if (!_attempts.TryGetValue(key, out var entry) || entry.LockedUntil is not { } lockedUntil)
         {
             // No row, or one still below the failure threshold - leave it alone; see
-            // SqliteLoginAttemptStore.GetLockedUntilAsync's remarks for why reaping here
+            // DbLoginAttemptStore.GetLockedUntilAsync's remarks for why reaping here
             // would be wrong.
             return Task.FromResult<DateTimeOffset?>(null);
         }

@@ -35,6 +35,8 @@ generic `401` a wrong password gets.
 
 | Key | Default | What it does |
 |---|---|---|
+| `Identity:Provider` | `Sqlite` | Which database stores users, sessions, API keys and auth settings: `Sqlite` (embedded file, the default) or `Postgres` (an external server, so several processes on different hosts can share it). See [ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md). |
+| `Identity:ConnectionString` | unset | Npgsql connection string, e.g. `Host=postgres;Database=flare_identity;Username=flare;Password=...`. Required when `Identity:Provider` is `Postgres`; ignored otherwise. |
 | `Identity:DbPath` | `flare-identity.db` | Path to the shared SQLite file. Set to a volume-backed absolute path in any real deployment — `docker-compose.yml` and `Flare.AppHost` already do this for you. |
 | `Auth:CookieName` | `flare_session` | Session cookie name. |
 | `Auth:SessionLifetime` | `14.00:00:00` (14 days) | Fixed session expiry, set at login. |

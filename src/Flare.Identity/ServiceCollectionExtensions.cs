@@ -35,23 +35,23 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.Configure<EntraOptions>(builder.Configuration.GetSection(EntraOptions.SectionName));
         builder.Services.AddSingleton<IdentityDbConnectionFactory>();
         builder.Services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
-        builder.Services.AddSingleton<IUserStore, SqliteUserStore>();
-        builder.Services.AddSingleton<ISessionStore, SqliteSessionStore>();
-        builder.Services.AddSingleton<ILoginAttemptStore, SqliteLoginAttemptStore>();
-        builder.Services.AddSingleton<IIngestApiKeyStore, SqliteIngestApiKeyStore>();
-        builder.Services.AddSingleton<IPersonalAccessTokenStore, SqlitePersonalAccessTokenStore>();
-        builder.Services.AddSingleton<IEntraSettingsStore, SqliteEntraSettingsStore>();
-        builder.Services.AddSingleton<IAuthSettingsStore, SqliteAuthSettingsStore>();
-        builder.Services.AddSingleton<ILdapSettingsStore, SqliteLdapSettingsStore>();
-        builder.Services.AddSingleton<IOidcSettingsStore, SqliteOidcSettingsStore>();
-        builder.Services.AddSingleton<IProxyAuthSettingsStore, SqliteProxyAuthSettingsStore>();
-        builder.Services.AddSingleton<IApdexThresholdStore, SqliteApdexThresholdStore>();
-        builder.Services.AddSingleton<ISourceLinkStore, SqliteSourceLinkStore>();
-        builder.Services.AddSingleton<IMetricMetadataOverrideStore, SqliteMetricMetadataOverrideStore>();
-        builder.Services.AddSingleton<ILlmModelPriceStore, SqliteLlmModelPriceStore>();
-        builder.Services.AddSingleton<IDashboardPinStore, SqliteDashboardPinStore>();
-        builder.Services.AddSingleton<IUserPreferencesStore, SqliteUserPreferencesStore>();
-        builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();
+        builder.Services.AddSingleton<IUserStore, DbUserStore>();
+        builder.Services.AddSingleton<ISessionStore, DbSessionStore>();
+        builder.Services.AddSingleton<ILoginAttemptStore, DbLoginAttemptStore>();
+        builder.Services.AddSingleton<IIngestApiKeyStore, DbIngestApiKeyStore>();
+        builder.Services.AddSingleton<IPersonalAccessTokenStore, DbPersonalAccessTokenStore>();
+        builder.Services.AddSingleton<IEntraSettingsStore, DbEntraSettingsStore>();
+        builder.Services.AddSingleton<IAuthSettingsStore, DbAuthSettingsStore>();
+        builder.Services.AddSingleton<ILdapSettingsStore, DbLdapSettingsStore>();
+        builder.Services.AddSingleton<IOidcSettingsStore, DbOidcSettingsStore>();
+        builder.Services.AddSingleton<IProxyAuthSettingsStore, DbProxyAuthSettingsStore>();
+        builder.Services.AddSingleton<IApdexThresholdStore, DbApdexThresholdStore>();
+        builder.Services.AddSingleton<ISourceLinkStore, DbSourceLinkStore>();
+        builder.Services.AddSingleton<IMetricMetadataOverrideStore, DbMetricMetadataOverrideStore>();
+        builder.Services.AddSingleton<ILlmModelPriceStore, DbLlmModelPriceStore>();
+        builder.Services.AddSingleton<IDashboardPinStore, DbDashboardPinStore>();
+        builder.Services.AddSingleton<IUserPreferencesStore, DbUserPreferencesStore>();
+        builder.Services.AddSingleton<IAuditEventStore, DbAuditEventStore>();
         return builder;
     }
 
@@ -64,7 +64,7 @@ public static class FlareIdentityServiceCollectionExtensions
     {
         builder.Services.Configure<IdentityOptions>(builder.Configuration.GetSection(IdentityOptions.SectionName));
         builder.Services.AddSingleton<IdentityDbConnectionFactory>();
-        builder.Services.AddSingleton<IIngestApiKeyStore, SqliteIngestApiKeyStore>();
+        builder.Services.AddSingleton<IIngestApiKeyStore, DbIngestApiKeyStore>();
         return builder;
     }
 }

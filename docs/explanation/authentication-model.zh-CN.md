@@ -97,12 +97,13 @@ Entra / Active Directory / OpenID Connect / 反向代理）已打开
 
 ## 账户所在地
 
-用户、会话、摄取 API 密钥和所有身份验证设置都存储在
-**嵌入式 SQLite 文件**，而不是单独的数据库容器 - 为什么以及
-它创建的权衡（`Flare.Api` 仅限于单个副本）被记录
-在
-[ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md)。
-`Flare.Ingest` 共享同一个文件，主要是读取。
+用户、会话、摄取 API 密钥和所有身份验证设置默认存储在**嵌入式 SQLite
+文件**中，而不是单独的数据库容器。`Flare.Ingest` 共享同一个文件，主要是读取。
+SQLite 无法跨主机共享，因此需要从多台机器访问身份存储的部署（集群模式即如此）
+会将 `Identity:Provider` 设为 `Postgres`，并让 `Identity:ConnectionString`
+指向 PostgreSQL 服务器。该决策及其权衡记录在
+[ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md) 和
+[ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md)。
 
 ## 摄取 API 密钥
 

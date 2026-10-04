@@ -44,7 +44,7 @@ internal sealed class FakeLdapSettingsStore : ILdapSettingsStore
             Port = port,
             UseSsl = useSsl,
             // Direct clear semantics, not a fallback to the previous value - mirrors
-            // SqliteLdapSettingsStore's real (non-COALESCE) behavior for this field.
+            // DbLdapSettingsStore's real (non-COALESCE) behavior for this field.
             PinnedCertificatePem = pinnedCertificatePem,
             BaseDn = baseDn,
             BindDn = bindDn,
