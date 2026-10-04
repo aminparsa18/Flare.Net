@@ -17,7 +17,7 @@ public interface IPasswordResetMailer
     string BuildLink(string rawToken);
 
     /// <summary>Sends the link; returns false (never throws, except on cancellation) when delivery fails.</summary>
-    Task<bool> SendAsync(string to, string link, CancellationToken cancellationToken);
+    Task<bool> SendAsync(string to, string link, CancellationToken cancellationToken, bool invite = false);
 }
 
 /// <summary>MailKit-backed <see cref="IPasswordResetMailer"/> over the same app-wide SMTP server
@@ -33,16 +33,18 @@ public sealed class PasswordResetMailer(IOptions<EmailOptions> email, IOptions<A
     public string BuildLink(string rawToken) =>
         $"{links.Value.PublicUrl.TrimEnd('/')}/set-password?token={Uri.EscapeDataString(rawToken)}";
 
-    public async Task<bool> SendAsync(string to, string link, CancellationToken cancellationToken)
+    public async Task<bool> SendAsync(string to, string link, CancellationToken cancellationToken, bool invite = false)
     {
         var opts = email.Value;
         var message = new MimeMessage();
         message.From.Add(MailboxAddress.Parse(opts.From));
         message.To.Add(MailboxAddress.Parse(to));
-        message.Subject = "Reset your Flare password";
+        message.Subject = invite ? "You're invited to Flare" : "Reset your Flare password";
         message.Body = new TextPart("plain")
         {
-            Text = $"Someone asked to reset the password for this Flare account.\n\nSet a new password (the link works once and expires in 1 hour):\n{link}\n\nIf this wasn't you, ignore this email - your password is unchanged.\n",
+            Text = invite
+                ? $"You've been invited to Flare.\n\nSet your password (the link works once and expires in 3 days):\n{link}\n"
+                : $"Someone asked to reset the password for this Flare account.\n\nSet a new password (the link works once and expires in 1 hour):\n{link}\n\nIf this wasn't you, ignore this email - your password is unchanged.\n",
         };
 
         try

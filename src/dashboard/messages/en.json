@@ -2837,6 +2837,7 @@
 	"userInvite_linkTitle": "Set-password link for {username}",
 	"userInvite_linkHint": "Share this link securely. It is shown only once and expires {expires}.",
 	"userInvite_copy": "Copy link",
+	"userInvite_emailed": "We also emailed this link to {username}.",
 	"userInvite_copied": "Copied",
 	"userInvite_done": "Done",
 	"setPassword_title": "Set your password",

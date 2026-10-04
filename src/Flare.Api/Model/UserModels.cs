@@ -75,4 +75,7 @@ public sealed partial record PasswordSetLinkResponse
     public required string Token { get; init; }
 
     public required DateTimeOffset ExpiresAt { get; init; }
+
+    /// <summary>True when the link was also emailed to the account (invite, SMTP configured, email username).</summary>
+    public bool EmailSent { get; init; }
 }

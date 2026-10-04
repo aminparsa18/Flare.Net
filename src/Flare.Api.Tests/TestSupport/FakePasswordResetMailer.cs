@@ -11,7 +11,7 @@ internal sealed class FakePasswordResetMailer : IPasswordResetMailer
 
     public string BuildLink(string rawToken) => $"https://flare.test/set-password?token={rawToken}";
 
-    public Task<bool> SendAsync(string to, string link, CancellationToken cancellationToken)
+    public Task<bool> SendAsync(string to, string link, CancellationToken cancellationToken, bool invite = false)
     {
         Sent.Add((to, link));
         return Task.FromResult(true);

@@ -187,6 +187,9 @@
 				{m.userInvite_linkHint({ expires: users.issuedLink ? new Date(users.issuedLink.expiresAt).toLocaleString() : '' })}
 			</Dialog.Description>
 		</Dialog.Header>
+		{#if users.issuedLink?.emailSent}
+			<p class="text-muted-foreground text-sm">{m.userInvite_emailed({ username: users.issuedLink.user.username })}</p>
+		{/if}
 		<Input readonly value={linkUrl} onfocus={(e) => e.currentTarget.select()} />
 		<Dialog.Footer>
 			<Button variant="outline" onclick={copyLink}>{copied ? m.userInvite_copied() : m.userInvite_copy()}</Button>

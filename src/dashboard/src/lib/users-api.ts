@@ -89,6 +89,7 @@ export interface PasswordSetLink {
 	user: UserSummary;
 	token: string;
 	expiresAt: string;
+	emailSent: boolean;
 }
 
 // The invite/reset endpoints use plain JSON (the wire DTO carries a DateTimeOffset, which
@@ -108,7 +109,8 @@ async function readPasswordSetLink(res: Response, what: string): Promise<Passwor
 	return {
 		user: { ...dto.user, createdAt: dto.user.createdAt },
 		token: dto.token,
-		expiresAt: dto.expiresAt
+		expiresAt: dto.expiresAt,
+		emailSent: dto.emailSent === true
 	};
 }
 
