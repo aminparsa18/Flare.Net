@@ -279,7 +279,7 @@ pas ».
 
 ### Indexation
 
-`/indexing` — le stockage ClickHouse sous-jacent rendu visible : stockage
+`/settings/indexing` — le stockage ClickHouse sous-jacent rendu visible : stockage
 total (compressé/non compressé), nombre de lignes, répartition table par
 table (`logs`, `spans`, `metrics_sum`, `metrics_histogram`,
 `metrics_gauge`, …) avec les taux de compression, la croissance sur les 30

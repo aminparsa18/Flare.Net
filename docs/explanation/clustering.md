@@ -126,7 +126,7 @@ the exact config keys.
 ![Cluster status panel on the Indexing page](../screenshots/clustering-en.webp)
 
 `GET /api/indexing/cluster` backs a panel on the **Indexing** page
-(`/indexing`, not `/resources` — Resources' Docker-based pollers are
+(`/settings/indexing`, not `/resources` — Resources' Docker-based pollers are
 explicitly single-host concepts, unrelated to ClickHouse cluster state).
 Renders nothing on a default single-node deployment — the endpoint skips
 querying ClickHouse entirely when `ClickHouse:ClusterMode` is off. When

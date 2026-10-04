@@ -128,7 +128,7 @@ ClickHouse 自己的客户端重试/负载平衡策略）是
 ![索引页面上的集群状态面板](../screenshots/clustering-ch.webp)
 
 `GET /api/indexing/cluster` 支持 **索引** 页面上的面板
-（`/indexing`，而不是 `/resources` — Resources 的基于 Docker 的轮询器是
+（`/settings/indexing`，而不是 `/resources` — Resources 的基于 Docker 的轮询器是
 明确的单主机概念，与 ClickHouse 集群状态无关）。
 在默认单节点部署上不渲染任何内容 - 端点会跳过
 当 `ClickHouse:ClusterMode` 关闭时完全查询 ClickHouse。什么时候

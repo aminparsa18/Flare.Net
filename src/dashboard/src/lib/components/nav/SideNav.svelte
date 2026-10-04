@@ -20,7 +20,6 @@
 	import MailOpenIcon from '@lucide/svelte/icons/mail-open';
 	import ChartLineIcon from '@lucide/svelte/icons/chart-line';
 	import DatabaseIcon from '@lucide/svelte/icons/database';
-	import LayersIcon from '@lucide/svelte/icons/layers';
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import BoxesIcon from '@lucide/svelte/icons/boxes';
 	import LayoutDashboardIcon from '@lucide/svelte/icons/layout-dashboard';
@@ -48,7 +47,6 @@
 		'/messaging': MailOpenIcon,
 		'/metrics': ChartLineIcon,
 		'/ingestion': DatabaseIcon,
-		'/indexing': LayersIcon,
 		'/alerts': BellIcon,
 		'/resources': BoxesIcon,
 		'/dashboards': LayoutDashboardIcon,

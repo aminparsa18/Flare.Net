@@ -16,7 +16,6 @@
 	import * as m from '$lib/paraglide/messages';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PlugIcon from '@lucide/svelte/icons/plug';
-	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
@@ -130,18 +129,6 @@
 				</a>
 			{/snippet}
 		</DropdownMenu.Item>
-		<!-- Audit log is Admin-only on the backend - same gate nav-links.ts applies to /auth, including
-		     "everyone while auth is off". -->
-		{#if !auth.authEnabled || auth.currentUser?.role === 'Admin'}
-			<DropdownMenu.Item>
-				{#snippet child({ props })}
-					<a href={withBase('/audit-log')} {...props}>
-						<ScrollTextIcon />
-						{m.auditLogPage_heading()}
-					</a>
-				{/snippet}
-			</DropdownMenu.Item>
-		{/if}
 		<DropdownMenu.Separator />
 
 		{#if auth.authEnabled}

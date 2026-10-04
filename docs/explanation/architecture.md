@@ -261,7 +261,7 @@ types) and why. The page to check first if "my logs aren't showing up."
 
 ### Indexing
 
-`/indexing` — the underlying ClickHouse store made visible: total storage
+`/settings/indexing` — the underlying ClickHouse store made visible: total storage
 (compressed/uncompressed), row counts, table-by-table breakdown (`logs`,
 `spans`, `metrics_sum`, `metrics_histogram`, `metrics_gauge`, …) with
 compression ratios, growth over the last 30 days, and the skip indexes

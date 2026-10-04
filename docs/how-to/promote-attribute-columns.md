@@ -20,7 +20,7 @@ Results don't change.
 
 ## Promote a key
 
-1. Open **Indexing** and scroll to **Promoted attributes**.
+1. Open **Settings → Workspace → Indexing** and scroll to **Promoted attributes**.
 2. Pick the table (**Logs** or **Spans**), then the set (**Log** or **Span**,
    **Resource** or **Scope**), and type the key, for example `http.route`.
 3. Leave **Backfill existing data** on unless the table is very large and its

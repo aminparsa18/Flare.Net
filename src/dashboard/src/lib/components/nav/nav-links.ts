@@ -31,7 +31,6 @@ export function navLinks(auth: AuthState): NavLink[] {
 		{ href: '/llm', label: m.nav_llm(), inMenu: true },
 		{ href: '/metrics', label: m.nav_metrics() },
 		{ href: '/ingestion', label: m.nav_ingestion() },
-		{ href: '/indexing', label: m.nav_indexing() },
 		{ href: '/alerts', label: m.nav_alerts() },
 		{ href: '/resources', label: m.nav_resources() },
 		{ href: '/hosts', label: m.nav_hosts(), inMenu: true },
@@ -44,14 +43,25 @@ export function navLinks(auth: AuthState): NavLink[] {
 
 /** Settings sections that used to be top-level pages (/settings/slos, /settings/pipeline-rules,
  *  /settings/ingest-keys, /settings/access-tokens). Shared by the settings rail and the command
- *  palette. Ingest keys are Admin-only on the backend (same gate as /auth, including "everyone
- *  while auth is off"); personal access tokens need a signed-in identity to own one. */
+ *  palette. Personal access tokens need a signed-in identity to own one. */
 export function settingsManagementLinks(auth: AuthState): NavLink[] {
-	const isAdmin = !auth.authEnabled || auth.currentUser?.role === 'Admin';
 	return [
 		{ href: '/settings/slos', label: m.nav_slos() },
 		{ href: '/settings/pipeline-rules', label: m.nav_pipelineRules() },
-		...(isAdmin ? [{ href: '/settings/ingest-keys', label: m.ingestKeysPage_heading() }] : []),
 		...(auth.authEnabled ? [{ href: '/settings/access-tokens', label: m.accessTokensPage_heading() }] : [])
+	];
+}
+
+/** Instance-level admin pages (Settings > Workspace): notification channels, maintenance
+ *  windows, audit log, indexing, ingest keys. Same Admin gate as /auth, including "everyone
+ *  while auth is off". Shared by the settings rail and the command palette. */
+export function workspaceLinks(auth: AuthState): NavLink[] {
+	if (auth.authEnabled && auth.currentUser?.role !== 'Admin') return [];
+	return [
+		{ href: '/settings/channels', label: m.notificationChannelTable_heading() },
+		{ href: '/settings/maintenance-windows', label: m.maintenanceWindowTable_heading() },
+		{ href: '/settings/audit-log', label: m.auditLogPage_heading() },
+		{ href: '/settings/indexing', label: m.nav_indexing() },
+		{ href: '/settings/ingest-keys', label: m.ingestKeysPage_heading() }
 	];
 }

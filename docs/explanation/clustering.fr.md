@@ -149,7 +149,7 @@ pour les clés de configuration exactes.
 ![Panneau de statut du cluster sur la page Indexing](../screenshots/clustering-en.webp)
 
 `GET /api/indexing/cluster` alimente un panneau sur la page **Indexing**
-(`/indexing`, pas `/resources` — les pollers basés sur Docker de
+(`/settings/indexing`, pas `/resources` — les pollers basés sur Docker de
 Resources sont explicitement des concepts mono-hôte, sans rapport avec
 l'état du cluster ClickHouse). N'affiche rien sur un déploiement à nœud
 unique par défaut — le point de terminaison saute entièrement la requête
