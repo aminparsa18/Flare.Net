@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
 	import { regional } from '$lib/regional/prefs.svelte';
 	import { withBase } from '$lib/paths';
 	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
@@ -119,6 +120,7 @@
 			getKey={(event) => event.eventId}
 			ariaLabel={m.logsTable_ariaLabel()}
 			onEndReached={() => void explorer.loadMore()}
+			followNewest={!explorer.live || explorerPrefs.liveAutoScroll}
 			class="min-h-0 flex-1"
 		>
 			{#snippet children(event)}

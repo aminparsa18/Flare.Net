@@ -2762,5 +2762,16 @@
 	"settingsExplorer_pinnedLogs": "Атрибуты логов",
 	"settingsExplorer_pinnedSpans": "Атрибуты спанов",
 	"settingsExplorer_pinnedNone": "Ничего не закреплено.",
-	"settingsExplorer_unpin": "Открепить {key}"
+	"settingsExplorer_unpin": "Открепить {key}",
+	"settingsExplorer_resetSection": "Сбросить",
+	"settingsExplorer_homeDashboard": "Домашняя панель",
+	"settingsExplorer_homeDashboardNone": "Нет",
+	"settingsExplorer_liveAutoScroll": "Автопрокрутка к новой записи в live tail",
+	"settingsExplorer_storedHeading": "Запоминается в этом браузере",
+	"settingsExplorer_storedDescription": "Мелочи, которые хранятся только в этом браузере. Очистка не затрагивает сохранённые представления и панели.",
+	"settingsExplorer_clearCollapsed": "Сбросить свёрнутые строки фильтров и графики",
+	"settingsExplorer_clearRecentSearches": "Очистить недавние поиски",
+	"settingsExplorer_clearRecentRanges": "Очистить недавние произвольные диапазоны",
+	"settingsExplorer_clearLastViews": "Забыть последние использованные представления",
+	"settingsExplorer_cleared": "Очищено"
 }

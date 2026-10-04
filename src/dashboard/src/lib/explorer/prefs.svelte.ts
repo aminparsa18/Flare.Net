@@ -25,6 +25,8 @@ export interface ExplorerPrefs {
 	showMessageColumn: boolean;
 	/** Logs open in live-tail mode rather than running a one-off search. */
 	liveByDefault: boolean;
+	/** Live tail: the newest row pushes in while the view is at the top; off keeps whatever you are looking at still. */
+	liveAutoScroll: boolean;
 	/** How many rows the browser keeps while live-tailing. */
 	liveBuffer: number;
 	/** Chart bucket width in seconds for Logs and Metrics; null = auto. */
@@ -39,6 +41,7 @@ export const DEFAULTS: ExplorerPrefs = {
 	showTimeColumn: true,
 	showMessageColumn: true,
 	liveByDefault: true,
+	liveAutoScroll: true,
 	liveBuffer: 2000,
 	bucketWidthSeconds: null,
 	facetSidebarOpen: true
@@ -59,6 +62,7 @@ function parse(s: Record<string, unknown>): ExplorerPrefs {
 		showTimeColumn: bool(s.showTimeColumn, DEFAULTS.showTimeColumn),
 		showMessageColumn: bool(s.showMessageColumn, DEFAULTS.showMessageColumn),
 		liveByDefault: bool(s.liveByDefault, DEFAULTS.liveByDefault),
+		liveAutoScroll: bool(s.liveAutoScroll, DEFAULTS.liveAutoScroll),
 		liveBuffer: pick(s.liveBuffer, LIVE_BUFFER_CHOICES, DEFAULTS.liveBuffer),
 		bucketWidthSeconds: normalizeBucketWidthSeconds(s.bucketWidthSeconds),
 		facetSidebarOpen: bool(s.facetSidebarOpen, DEFAULTS.facetSidebarOpen)
@@ -84,6 +88,7 @@ class ExplorerSettings {
 	showTimeColumn = $state(DEFAULTS.showTimeColumn);
 	showMessageColumn = $state(DEFAULTS.showMessageColumn);
 	liveByDefault = $state(DEFAULTS.liveByDefault);
+	liveAutoScroll = $state(DEFAULTS.liveAutoScroll);
 	liveBuffer = $state(DEFAULTS.liveBuffer);
 	bucketWidthSeconds = $state<number | null>(DEFAULTS.bucketWidthSeconds);
 	facetSidebarOpen = $state(DEFAULTS.facetSidebarOpen);
@@ -99,15 +104,21 @@ class ExplorerSettings {
 		this.#persist();
 	}
 
-	reset(): void {
-		this.#assign(DEFAULTS);
+	reset(keys?: readonly (keyof ExplorerPrefs)[]): void {
+		if (!keys) this.#assign(DEFAULTS);
+		else for (const k of keys) (this as ExplorerPrefs)[k] = DEFAULTS[k] as never;
 		this.#persist();
 	}
 
-	/** True when every setting is at its default - disables the reset button. */
-	get isDefault(): boolean {
+	/** True when the given settings (default: all) are at their defaults - disables a reset button. */
+	isDefaultFor(keys: readonly (keyof ExplorerPrefs)[] = Object.keys(DEFAULTS) as (keyof ExplorerPrefs)[]): boolean {
 		const s = this.#snapshot();
-		return (Object.keys(DEFAULTS) as (keyof ExplorerPrefs)[]).every((k) => s[k] === DEFAULTS[k]);
+		return keys.every((k) => s[k] === DEFAULTS[k]);
+	}
+
+	/** True when every setting is at its default. */
+	get isDefault(): boolean {
+		return this.isDefaultFor();
 	}
 
 	/** Pulls the server copy once per page load; it wins when present, otherwise this browser seeds it. */
@@ -130,6 +141,7 @@ class ExplorerSettings {
 		this.showTimeColumn = p.showTimeColumn;
 		this.showMessageColumn = p.showMessageColumn;
 		this.liveByDefault = p.liveByDefault;
+		this.liveAutoScroll = p.liveAutoScroll;
 		this.liveBuffer = p.liveBuffer;
 		this.bucketWidthSeconds = p.bucketWidthSeconds;
 		this.facetSidebarOpen = p.facetSidebarOpen;
@@ -142,6 +154,7 @@ class ExplorerSettings {
 			showTimeColumn: this.showTimeColumn,
 			showMessageColumn: this.showMessageColumn,
 			liveByDefault: this.liveByDefault,
+			liveAutoScroll: this.liveAutoScroll,
 			liveBuffer: this.liveBuffer,
 			bucketWidthSeconds: this.bucketWidthSeconds,
 			facetSidebarOpen: this.facetSidebarOpen

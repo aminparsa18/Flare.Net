@@ -2762,5 +2762,16 @@
 	"settingsExplorer_pinnedLogs": "日志属性",
 	"settingsExplorer_pinnedSpans": "Span 属性",
 	"settingsExplorer_pinnedNone": "没有固定项。",
-	"settingsExplorer_unpin": "取消固定 {key}"
+	"settingsExplorer_unpin": "取消固定 {key}",
+	"settingsExplorer_resetSection": "重置",
+	"settingsExplorer_homeDashboard": "主页仪表板",
+	"settingsExplorer_homeDashboardNone": "无",
+	"settingsExplorer_liveAutoScroll": "实时跟踪时自动滚动到最新一行",
+	"settingsExplorer_storedHeading": "此浏览器中记住的内容",
+	"settingsExplorer_storedDescription": "仅保存在此浏览器中的小便利。清除不会影响已保存的视图或仪表板。",
+	"settingsExplorer_clearCollapsed": "重置已折叠的筛选行和图表",
+	"settingsExplorer_clearRecentSearches": "清除最近的搜索",
+	"settingsExplorer_clearRecentRanges": "清除最近的自定义范围",
+	"settingsExplorer_clearLastViews": "忘记上次使用的已保存视图",
+	"settingsExplorer_cleared": "已清除"
 }
