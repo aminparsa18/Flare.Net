@@ -26,7 +26,10 @@ clés de configuration exactes, voir [la référence](../reference/clustering-co
    ```
 
    Cela lance 4 nœuds ClickHouse (2 shards × 2 réplicas), un quorum
-   Keeper à 3 nœuds, deux réplicas `Flare.Ingest`, `Flare.Api` et le
+   Keeper à 3 nœuds, un conteneur PostgreSQL pour le magasin d'identité
+   (utilisateurs, sessions, clés API, paramètres d'authentification — voir
+   [ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md)),
+   deux réplicas `Flare.Ingest`, `Flare.Api` et le
    tableau de bord. `docker-compose.yml` (le défaut à nœud unique) reste
    intact et n'est pas affecté — les deux sont des piles indépendantes.
 

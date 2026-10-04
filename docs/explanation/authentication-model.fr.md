@@ -109,13 +109,17 @@ Les sessions expirent par défaut après 14 jours fixes
 
 ## Où vivent les comptes
 
-Les utilisateurs, les sessions, les clés API d'ingestion et tous les
-paramètres d'authentification sont stockés dans un **fichier SQLite
-embarqué**, pas dans un conteneur de base de données séparé — pourquoi, et
-le compromis que cela crée (`Flare.Api` limité à une seule réplique), est
-consigné dans
-[ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md).
-`Flare.Ingest` partage le même fichier, principalement en lecture.
+Les utilisateurs, sessions, clés API d'ingestion et tous les paramètres
+d'authentification sont stockés par défaut dans un **fichier SQLite
+embarqué**, et non dans un conteneur de base de données séparé.
+`Flare.Ingest` partage le même fichier, principalement en lecture. SQLite ne
+peut pas être partagé entre hôtes ; un déploiement qui a besoin que le
+magasin d'identité soit accessible depuis plusieurs machines (le mode
+cluster le fait) règle `Identity:Provider` sur `Postgres` et pointe
+`Identity:ConnectionString` vers un serveur PostgreSQL. La décision et ses
+compromis sont consignés dans
+[ADR-0004](../../docs-internal/adr/0004-embedded-sqlite-for-identity.md) et
+[ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md).
 
 ## Clés API d'ingestion
 

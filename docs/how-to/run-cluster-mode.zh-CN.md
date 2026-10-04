@@ -25,7 +25,9 @@
    ```
 
    这会产生 4 个 ClickHouse 节点（2 个分片 × 2 个副本），一个 3 节点
-   Keeper 仲裁、两个 `Flare.Ingest` 副本、`Flare.Api` 和
+   Keeper 仲裁、一个用于身份存储（用户、会话、API 密钥、身份验证设置，参见
+   [ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md)）的
+   PostgreSQL 容器、两个 `Flare.Ingest` 副本、`Flare.Api` 和
    仪表板。 `docker-compose.yml`（单节点默认值）保持不变
    并且不受影响——两者是独立的堆栈。
 

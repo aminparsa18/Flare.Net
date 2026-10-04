@@ -68,7 +68,7 @@ public sealed partial record CreateIngestApiKeyRequest
 }
 
 /// <summary><see cref="RawKey"/> is shown exactly once, here - Flare never stores or
-/// displays it again after this response (see <see cref="Identity.IngestKeys.SqliteIngestApiKeyStore"/>).</summary>
+/// displays it again after this response (see <see cref="Identity.IngestKeys.DbIngestApiKeyStore"/>).</summary>
 [MemoryPackable]
 public sealed partial record CreateIngestApiKeyResponse
 {

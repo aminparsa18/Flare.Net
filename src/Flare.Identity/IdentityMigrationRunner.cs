@@ -1,12 +1,15 @@
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 using Microsoft.Extensions.Logging;
 
 namespace Flare.Identity;
 
 /// <summary>
-/// Applies every <c>Migrations/*.sql</c> file not yet recorded as applied, against the
-/// shared identity SQLite database. Call <see cref="ApplyAsync"/> once at startup, from
-/// both <c>Flare.Api</c> and <c>Flare.Ingest</c>.
+/// Applies every migration file not yet recorded as applied, against the shared identity
+/// database - <c>Migrations/Sqlite/*.sql</c> or <c>Migrations/Postgres/*.sql</c> depending
+/// on <see cref="IdentityDbConnectionFactory.Provider"/>. Call <see cref="ApplyAsync"/> once
+/// at startup, from both <c>Flare.Api</c> and <c>Flare.Ingest</c>. The Postgres path
+/// serialises concurrent starters with a transaction-scoped advisory lock (see
+/// <see cref="ApplyPostgresAsync"/>); the rest of this comment is the SQLite history.
 /// <b>Found the hard way</b> (a real `docker compose up` on a fresh volume, not a unit
 /// test), twice over:
 /// <list type="number">
@@ -45,7 +48,12 @@ namespace Flare.Identity;
 /// </remarks>
 public static class IdentityMigrationRunner
 {
-    private const string ResourcePrefix = "Flare.Identity.Migrations.Sql.";
+    private const string SqliteResourcePrefix = "Flare.Identity.Migrations.Sqlite.";
+    private const string PostgresResourcePrefix = "Flare.Identity.Migrations.Postgres.";
+
+    // Arbitrary but fixed 64-bit key for pg_advisory_xact_lock - every Flare process
+    // applying identity migrations must use the same one. ASCII "FLAREIDM".
+    private const long PostgresAdvisoryLockKey = 0x464C41524549444D;
 
     // Deliberately much larger than IdentityDbConnectionFactory's own 5000ms default
     // (tuned for a single hot-path app query retrying past a brief writer collision).
@@ -57,7 +65,33 @@ public static class IdentityMigrationRunner
     // connection it opens.
     private const int MigrationBusyTimeoutMilliseconds = 30_000;
 
-    public static async Task ApplyAsync(IdentityDbConnectionFactory connectionFactory, ILogger logger, CancellationToken cancellationToken = default)
+    public static Task ApplyAsync(IdentityDbConnectionFactory connectionFactory, ILogger logger, CancellationToken cancellationToken = default) =>
+        connectionFactory.Provider == IdentityProvider.Postgres
+            ? ApplyPostgresAsync(connectionFactory, logger, cancellationToken)
+            : ApplySqliteAsync(connectionFactory, logger, cancellationToken);
+
+    /// <summary>
+    /// Postgres twin of <see cref="ApplySqliteAsync"/>. DDL is transactional in Postgres, so
+    /// the whole batch still commits or rolls back together, and a transaction-scoped
+    /// advisory lock taken first plays the role SQLite's <c>BEGIN IMMEDIATE</c> does: a
+    /// second process (Ingest racing Api, or several Api replicas) blocks on the lock until
+    /// the winner commits, then re-reads <c>schema_migrations</c> and finds everything
+    /// already applied. The lock releases automatically at COMMIT/ROLLBACK.
+    /// </summary>
+    private static async Task ApplyPostgresAsync(IdentityDbConnectionFactory connectionFactory, ILogger logger, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        await ExecuteRawAsync(connection, $"SELECT pg_advisory_xact_lock({PostgresAdvisoryLockKey})", cancellationToken);
+        await ExecuteRawAsync(connection, "CREATE TABLE IF NOT EXISTS schema_migrations (Name TEXT PRIMARY KEY, AppliedAt TEXT NOT NULL)", cancellationToken);
+
+        await ApplyPendingAsync(connection, logger, PostgresResourcePrefix, cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static async Task ApplySqliteAsync(IdentityDbConnectionFactory connectionFactory, ILogger logger, CancellationToken cancellationToken)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
 
@@ -87,68 +121,12 @@ public static class IdentityMigrationRunner
 
         try
         {
-            await using (var createTrackingTable = connection.CreateCommand())
-            {
-                createTrackingTable.CommandText =
-                    """
-                    CREATE TABLE IF NOT EXISTS schema_migrations
-                    (
-                        Name TEXT PRIMARY KEY,
-                        AppliedAt TEXT NOT NULL
-                    )
-                    """;
-                await createTrackingTable.ExecuteNonQueryAsync(cancellationToken);
-            }
+            await ExecuteRawAsync(
+                connection,
+                "CREATE TABLE IF NOT EXISTS schema_migrations (Name TEXT PRIMARY KEY, AppliedAt TEXT NOT NULL)",
+                cancellationToken);
 
-            var applied = new HashSet<string>(StringComparer.Ordinal);
-            await using (var selectApplied = connection.CreateCommand())
-            {
-                selectApplied.CommandText = "SELECT Name FROM schema_migrations";
-                await using var reader = await selectApplied.ExecuteReaderAsync(cancellationToken);
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    applied.Add(reader.GetString(0));
-                }
-            }
-
-            var assembly = typeof(IdentityMigrationRunner).Assembly;
-            var migrationNames = assembly.GetManifestResourceNames()
-                .Where(n => n.StartsWith(ResourcePrefix, StringComparison.Ordinal))
-                .Select(n => n[ResourcePrefix.Length..])
-                // Numeric filename prefix (0001_, 0002_, ...) sorts correctly as plain text
-                // as long as every migration keeps the same digit count - same convention/
-                // caveat as ClickHouseMigrationRunner.
-                .OrderBy(n => n, StringComparer.Ordinal)
-                .ToList();
-
-            foreach (var migrationName in migrationNames)
-            {
-                if (applied.Contains(migrationName))
-                {
-                    continue;
-                }
-
-                logger.LogInformation("Applying identity migration {MigrationName}", migrationName);
-
-                var sql = await ReadEmbeddedSqlAsync(assembly, ResourcePrefix + migrationName, cancellationToken);
-
-                await using (var applyMigration = connection.CreateCommand())
-                {
-                    applyMigration.CommandText = sql;
-                    await applyMigration.ExecuteNonQueryAsync(cancellationToken);
-                }
-
-                await using (var recordMigration = connection.CreateCommand())
-                {
-                    // OR IGNORE retained for defense-in-depth even though the outer
-                    // BEGIN IMMEDIATE above should make a genuine race here impossible
-                    // now - cheap, and matches this table's UNIQUE constraint on Name.
-                    recordMigration.CommandText = "INSERT OR IGNORE INTO schema_migrations (Name, AppliedAt) VALUES ($name, $appliedAt)";
-                    recordMigration.Parameters.AddWithValue("$name", migrationName);
-                    recordMigration.Parameters.AddWithValue("$appliedAt", DateTimeOffset.UtcNow.ToString("O"));
-                    await recordMigration.ExecuteNonQueryAsync(cancellationToken);
-                }
-            }
+            await ApplyPendingAsync(connection, logger, SqliteResourcePrefix, cancellationToken);
 
             await ExecuteRawAsync(connection, "COMMIT;", cancellationToken);
         }
@@ -168,7 +146,60 @@ public static class IdentityMigrationRunner
         }
     }
 
-    private static async Task ExecuteRawAsync(SqliteConnection connection, string sql, CancellationToken cancellationToken)
+    private static async Task ApplyPendingAsync(DbConnection connection, ILogger logger, string resourcePrefix, CancellationToken cancellationToken)
+    {
+        var applied = new HashSet<string>(StringComparer.Ordinal);
+        await using (var selectApplied = connection.CreateCommand())
+        {
+            selectApplied.CommandText = "SELECT Name FROM schema_migrations";
+            await using var reader = await selectApplied.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                applied.Add(reader.GetString(0));
+            }
+        }
+
+        var assembly = typeof(IdentityMigrationRunner).Assembly;
+        var migrationNames = assembly.GetManifestResourceNames()
+            .Where(n => n.StartsWith(resourcePrefix, StringComparison.Ordinal))
+            .Select(n => n[resourcePrefix.Length..])
+            // Numeric filename prefix (0001_, 0002_, ...) sorts correctly as plain text
+            // as long as every migration keeps the same digit count - same convention/
+            // caveat as ClickHouseMigrationRunner.
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
+
+        foreach (var migrationName in migrationNames)
+        {
+            if (applied.Contains(migrationName))
+            {
+                continue;
+            }
+
+            logger.LogInformation("Applying identity migration {MigrationName}", migrationName);
+
+            var sql = await ReadEmbeddedSqlAsync(assembly, resourcePrefix + migrationName, cancellationToken);
+
+            await using (var applyMigration = connection.CreateCommand())
+            {
+                applyMigration.CommandText = sql;
+                await applyMigration.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using (var recordMigration = connection.CreateCommand())
+            {
+                // ON CONFLICT DO NOTHING retained for defense-in-depth even though the outer
+                // lock/transaction should make a genuine race here impossible - cheap, and
+                // matches this table's PRIMARY KEY on Name.
+                recordMigration.CommandText = "INSERT INTO schema_migrations (Name, AppliedAt) VALUES (@name, @appliedAt) ON CONFLICT DO NOTHING";
+                recordMigration.AddParameter("@name", migrationName);
+                recordMigration.AddParameter("@appliedAt", DateTimeOffset.UtcNow.ToString("O"));
+                await recordMigration.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+    }
+
+    private static async Task ExecuteRawAsync(DbConnection connection, string sql, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.CommandText = sql;

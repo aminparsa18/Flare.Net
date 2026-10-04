@@ -1,6 +1,6 @@
 # ADR-0004: Embedded SQLite for identity/auth storage
 
-Status: Accepted
+Status: Accepted (partly superseded by [ADR-0111](0111-pluggable-identity-store-postgres.md): SQLite is still the default, Postgres is now an option)
 Date: 2026-08-10 (introduced with local auth, v11)
 
 ## Context

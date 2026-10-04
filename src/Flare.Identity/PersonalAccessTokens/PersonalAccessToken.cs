@@ -1,7 +1,7 @@
 namespace Flare.Identity.PersonalAccessTokens;
 
 /// <summary>A named personal access token belonging to a <see cref="Users.User"/>. Never
-/// carries the raw token value - only <see cref="SqlitePersonalAccessTokenStore.CreateAsync"/>
+/// carries the raw token value - only <see cref="DbPersonalAccessTokenStore.CreateAsync"/>
 /// ever sees the raw value, and only at creation time, matching
 /// <see cref="IngestKeys.IngestApiKey"/>'s "shown once, never retrievable again" UX.</summary>
 public sealed record PersonalAccessToken(

@@ -211,6 +211,29 @@ services:
       timeout: 5s
       retries: 20
 
+  # Identity/auth store (users, sessions, ingest API keys, auth settings) - Postgres here
+  # instead of the embedded SQLite file the base docker-compose.yml uses, because SQLite
+  # can't be shared by several processes across hosts and would pin `api` to a single
+  # replica (ADR-0111, which supersedes ADR-0004). Telemetry stays in ClickHouse; this holds
+  # only small, low-write configuration tables.
+  postgres:
+    image: postgres:17-alpine
+    labels:
+      flare.resource: "true"
+      flare.role: "postgres"
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flare
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flare}
+      POSTGRES_DB: flare_identity
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flare -d flare_identity"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   # Two Flare.Ingest replicas sharing one Redis Streams consumer group - proves
   # LogEventPipelineOptions.ConsumerName's machine/process-derived default (Workstream 1
   # of the "Multi-node scaling" item) actually works, not just unit-tested.
@@ -232,14 +255,14 @@ services:
     depends_on:
       clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     environment:
       ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
       LogPattern__SharedStore: "true"
-      Identity__DbPath: "/data/identity/flare-identity.db"
-    volumes:
-      - identity-data:/data/identity
+      Identity__Provider: "Postgres"
+      Identity__ConnectionString: "Host=postgres;Database=flare_identity;Username=flare;Password=${POSTGRES_PASSWORD:-flare}"
     ports:
       - "${FLARE_INGEST_GRPC_PORT:-4317}:4317"
       - "${FLARE_INGEST_HTTP_PORT:-4318}:4318"
@@ -261,14 +284,14 @@ services:
     depends_on:
       clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     environment:
       ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
       ClickHouse__ClusterMode: "true"
       LogPattern__SharedStore: "true"
-      Identity__DbPath: "/data/identity/flare-identity.db"
-    volumes:
-      - identity-data:/data/identity
+      Identity__Provider: "Postgres"
+      Identity__ConnectionString: "Host=postgres;Database=flare_identity;Username=flare;Password=${POSTGRES_PASSWORD:-flare}"
     ports:
       - "${FLARE_INGEST2_GRPC_PORT:-4319}:4317"
       - "${FLARE_INGEST2_HTTP_PORT:-4320}:4318"
@@ -290,6 +313,7 @@ services:
     depends_on:
       clickhouse-lb: { condition: service_healthy }
       redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     environment:
       ConnectionStrings__clickhousedb: "Host=clickhouse-lb;Port=8123;Database=clickhousedb;Username=default;Password=${CLICKHOUSE_PASSWORD:-flare}"
       ConnectionStrings__redis: "redis:6379,password=${REDIS_PASSWORD:-flare}"
@@ -305,11 +329,10 @@ services:
       Email__Password: "${SMTP_PASSWORD:-}"
       Email__From: "${SMTP_FROM:-}"
       Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
-      Identity__DbPath: "/data/identity/flare-identity.db"
+      Identity__Provider: "Postgres"
+      Identity__ConnectionString: "Host=postgres;Database=flare_identity;Username=flare;Password=${POSTGRES_PASSWORD:-flare}"
       Cors__AllowedOrigins__0: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
       DockerResources__ProxyUrl: "${FLARE_DOCKER_PROXY_URL:-}"
-    volumes:
-      - identity-data:/data/identity
     ports:
       - "${FLARE_API_PORT:-8080}:8080"
     healthcheck:
@@ -389,4 +412,4 @@ volumes:
   clickhouse-3-data:
   clickhouse-4-data:
   redis-data:
-  identity-data:
+  postgres-data:

@@ -5,7 +5,7 @@ namespace Flare.Identity.IngestKeys;
 
 /// <summary>
 /// Shared SHA-256 hashing for ingest API keys - used both by <c>Flare.Api</c> (hashing a
-/// newly-generated raw key before storing it, in <see cref="SqliteIngestApiKeyStore.CreateAsync"/>)
+/// newly-generated raw key before storing it, in <see cref="DbIngestApiKeyStore.CreateAsync"/>)
 /// and by <c>Flare.Ingest</c> (hashing a presented <c>Authorization: Bearer</c> key to
 /// check against the cached active-hash set). SHA-256, not PBKDF2: this is a high-QPS
 /// per-request check on the ingest hot path, not a login, and a 256-bit random key has no

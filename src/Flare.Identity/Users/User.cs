@@ -3,7 +3,7 @@ namespace Flare.Identity.Users;
 /// <summary>
 /// A user account - local, Entra-provisioned, or Active Directory-provisioned.
 /// Deliberately carries no <c>PasswordHash</c> - that stays internal to
-/// <see cref="SqliteUserStore"/>, reachable only through
+/// <see cref="DbUserStore"/>, reachable only through
 /// <see cref="IUserStore.VerifyPasswordAsync"/>, so it can never leak into an API
 /// response by accident.
 /// </summary>

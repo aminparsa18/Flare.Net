@@ -23,7 +23,9 @@ config keys, see [the reference](../reference/clustering-config.md).
    ```
 
    This brings up 4 ClickHouse nodes (2 shards × 2 replicas), a 3-node
-   Keeper quorum, two `Flare.Ingest` replicas, `Flare.Api`, and the
+   Keeper quorum, a PostgreSQL container for the identity store (users, sessions,
+   API keys, auth settings — see [ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md)),
+   two `Flare.Ingest` replicas, `Flare.Api`, and the
    dashboard. `docker-compose.yml` (the single-node default) is untouched
    and unaffected — the two are independent stacks.
 

@@ -39,6 +39,8 @@ Entra/OIDC перенаправляют на `/login?error=account-disabled`; LD
 
 | Ключ | По умолчанию | Что делает |
 |---|---|---|
+| `Identity:Provider` | `Sqlite` | База данных для пользователей, сессий, ключей API и настроек аутентификации: `Sqlite` (встроенный файл, по умолчанию) или `Postgres` (внешний сервер, общий для процессов на разных хостах). См. [ADR-0111](../../docs-internal/adr/0111-pluggable-identity-store-postgres.md). |
+| `Identity:ConnectionString` | не задано | Строка подключения Npgsql, например `Host=postgres;Database=flare_identity;Username=flare;Password=...`. Обязательна при `Identity:Provider` = `Postgres`, иначе игнорируется. |
 | `Identity:DbPath` | `flare-identity.db` | Путь к общему файлу SQLite. В любом реальном развёртывании установите абсолютный путь, привязанный к тому, — `docker-compose.yml` и `Flare.AppHost` уже делают это за вас. |
 | `Auth:CookieName` | `flare_session` | Имя cookie сеанса. |
 | `Auth:SessionLifetime` | `14.00:00:00` (14 дней) | Фиксированный срок истечения сеанса, устанавливается при входе. |
