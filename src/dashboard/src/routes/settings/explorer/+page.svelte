@@ -7,6 +7,8 @@
 		LANDING_PAGES,
 		LINES_PER_ROW_CHOICES,
 		LIVE_BUFFER_CHOICES,
+		ROW_CLICK_ACTIONS,
+		type RowClickAction,
 		BUCKET_WIDTH_OPTIONS_SECONDS,
 		type LandingPage
 	} from '$lib/explorer/prefs.svelte';
@@ -25,6 +27,11 @@
 		traces: () => m.settingsExplorer_landingTraces(),
 		metrics: () => m.settingsExplorer_landingMetrics(),
 		errors: () => m.settingsExplorer_landingErrors()
+	};
+
+	const rowClickLabels: Record<RowClickAction, () => string> = {
+		panel: () => m.settingsExplorer_rowClickPanel(),
+		inline: () => m.settingsExplorer_rowClickInline()
 	};
 
 	let dashboards = $state<DashboardSummary[]>([]);
@@ -47,7 +54,7 @@
 
 	const sections = {
 		landing: ['landingPage'],
-		logTable: ['linesPerRow', 'showTimeColumn', 'showMessageColumn'],
+		logTable: ['rowClickAction', 'linesPerRow', 'showTimeColumn', 'showMessageColumn'],
 		live: ['liveByDefault', 'liveAutoScroll', 'liveBuffer'],
 		charts: ['bucketWidthSeconds'],
 		facets: ['facetSidebarOpen']
@@ -108,6 +115,19 @@
 
 	<section class="flex flex-col gap-2">
 		{@render sectionHeader(m.settingsExplorer_logTableHeading(), sections.logTable)}
+		<label class={rowClass}>
+			<span>
+				{m.settingsExplorer_rowClick()}
+				<span class="text-muted-foreground block text-xs">{m.settingsExplorer_rowClickHint()}</span>
+			</span>
+			<select
+				class={selectClass}
+				value={explorerPrefs.rowClickAction}
+				onchange={(e) => explorerPrefs.set('rowClickAction', e.currentTarget.value as RowClickAction)}
+			>
+				{#each ROW_CLICK_ACTIONS as a (a)}<option value={a}>{rowClickLabels[a]()}</option>{/each}
+			</select>
+		</label>
 		<label class={rowClass}>
 			<span>{m.settingsExplorer_linesPerRow()}</span>
 			<select

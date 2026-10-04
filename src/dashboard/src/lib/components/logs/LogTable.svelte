@@ -4,6 +4,7 @@
 	import { withBase } from '$lib/paths';
 	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
 	import LogRow from './LogRow.svelte';
+	import EventDetailBody from './EventDetailBody.svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import CaseSuggestions from '$lib/components/CaseSuggestions.svelte';
 	import { Lottie } from '$lib/components/ui/lottie';
@@ -14,6 +15,7 @@
 	import * as m from '$lib/paraglide/messages';
 
 	const explorer = logsExplorerContext.get();
+	const inline = $derived(explorerPrefs.rowClickAction === 'inline');
 
 	let list = $state<ReturnType<typeof VirtualList<LogEventDto>> | null>(null);
 	// Keeps the row behind the details drawer in view as prev/next moves the selection.
@@ -121,10 +123,25 @@
 			ariaLabel={m.logsTable_ariaLabel()}
 			onEndReached={() => void explorer.loadMore()}
 			followNewest={!explorer.live || explorerPrefs.liveAutoScroll}
+			expandedKey={inline && explorer.selectedIndex >= 0 ? explorer.selectedEventId : null}
 			class="min-h-0 flex-1"
 		>
 			{#snippet children(event)}
-				<LogRow {event} {lines} {showTime} {showBody} {bodyColumns} live={explorer.live} onSelect={(e) => (explorer.selectedEventId = e.eventId)} />
+				<LogRow
+					{event}
+					{lines}
+					{showTime}
+					{showBody}
+					{bodyColumns}
+					live={explorer.live}
+					expanded={inline && explorer.selectedEventId === event.eventId}
+					onSelect={(e) => (explorer.selectedEventId = inline && explorer.selectedEventId === e.eventId ? null : e.eventId)}
+				/>
+				{#if inline && explorer.selectedEventId === event.eventId}
+					<div class="bg-muted/20 max-h-[70vh] overflow-y-auto border-b px-4 py-3">
+						<EventDetailBody {event} showActions />
+					</div>
+				{/if}
 			{/snippet}
 		</VirtualList>
 		{#if explorer.loadingMore}

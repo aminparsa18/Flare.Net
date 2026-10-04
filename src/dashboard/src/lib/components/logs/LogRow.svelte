@@ -16,6 +16,7 @@
 		showTime = true,
 		showBody = true,
 		bodyColumns = [],
+		expanded = false,
 		onSelect
 	}: {
 		event: LogEventDto;
@@ -27,6 +28,8 @@
 		showBody?: boolean;
 		/** LogsFilterState.bodyColumns - one extra cell per path, between Duration and Message. */
 		bodyColumns?: string[];
+		/** Inline-expansion mode: this row's details are showing right below it. */
+		expanded?: boolean;
 		onSelect: (event: LogEventDto) => void;
 	} = $props();
 
@@ -43,6 +46,7 @@
 <button
 	type="button"
 	class={[
+		expanded && 'bg-muted/50',
 		'hover:bg-muted/50 focus-visible:bg-muted/50 grid w-full gap-3 overflow-hidden border-b px-3 text-left text-sm focus-visible:outline-none',
 		// Multi-line rows pin every column to the body's first line (py-1.5 + a 20px
 		// leading-5 line box each) instead of centering Time/Level/Service against a tall
@@ -50,6 +54,7 @@
 		multiline ? 'items-start py-1.5' : 'items-center'
 	]}
 	style="grid-template-columns: var(--log-row-columns); height: var(--log-row-height); min-height: var(--log-row-height); max-height: var(--log-row-height);"
+	aria-expanded={expanded || undefined}
 	onclick={() => onSelect(event)}
 >
 	{#if showTime}
