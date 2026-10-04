@@ -27,6 +27,7 @@ public static class ServicesEndpoints
         endpoints.MapPost("/api/services/overview", HandleGetOverviewAsync);
         endpoints.MapPost("/api/services/dependencies", HandleGetDependenciesAsync);
         endpoints.MapPost("/api/services/breakdown", HandleGetBreakdownAsync);
+        endpoints.MapPost("/api/services/runtime-health", HandleGetRuntimeHealthAsync);
         // Viewer-readable, unlike the mutating PUT/DELETE in ApdexThresholdEndpoints
         // (Admin-only, mapped on adminRoutes) - any Viewer needs the configured
         // thresholds to render the Services tab's Apdex column tooltip.
@@ -108,6 +109,31 @@ public static class ServicesEndpoints
             request.ResourceAttributes,
             cancellationToken);
         return ApiSerialization.Write(http, response, ServicesJsonContext.Default.ServiceCallBreakdownResponse);
+    }
+
+    /// <summary>.NET runtime health findings for one service - see <see cref="RuntimeHealthDetector"/>.</summary>
+    private static async Task<IResult> HandleGetRuntimeHealthAsync(
+        HttpContext http,
+        IRuntimeHealthQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        RuntimeHealthRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, RuntimeHealthJsonContext.Default.RuntimeHealthRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Service))
+        {
+            return Results.Problem("service is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await queryService.GetFindingsAsync(request.Service, request, cancellationToken);
+        return ApiSerialization.Write(http, response, RuntimeHealthJsonContext.Default.RuntimeHealthResponse);
     }
 
     private static async Task<IResult> HandleGetApdexThresholdsAsync(

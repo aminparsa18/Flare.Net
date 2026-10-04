@@ -225,6 +225,32 @@ export function buildTracesAttributeFilterHref(
 }
 
 /**
+ * `/traces?state=` for one service over an explicit window (epoch ms) - the runtime health
+ * findings' "traces in this window" link. Slowest first, since a runtime problem shows up
+ * as latency; no structural query, so the list's own service filter does the narrowing.
+ */
+export function buildServiceWindowTracesHref(service: string, fromMs: number, toMs: number): string {
+	const state: TracesSavedViewState = {
+		timeRangePreset: 'custom',
+		customRange: { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() },
+		services: [service],
+		attributeFilters: [],
+		sortBy: 'Duration'
+	};
+	return withBase(`/traces?state=${encodeStateDeepLinkParam(state)}`);
+}
+
+/** `/?state=` (Logs) for one service over an explicit window (epoch ms) - the runtime health findings' "logs in this window" link. */
+export function buildServiceWindowLogsHref(service: string, fromMs: number, toMs: number): string {
+	const state: Partial<LogsSavedViewState> = {
+		timeRangePreset: 'custom',
+		customRange: { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() },
+		services: [service]
+	};
+	return withBase(`/?state=${encodeStateDeepLinkParam(state)}`);
+}
+
+/**
  * `/traces?state=` for the spans sharing this one's service + name, slowest first - the
  * click-through from SpanDetailSheet's duration percentile. A one-condition structural
  * query for the same reason as `buildTracesAttributeFilterHref` (the span may be a child).

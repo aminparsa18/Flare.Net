@@ -11,6 +11,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { formatMs, formatPercent } from '$lib/indexing/format';
+	import RuntimeHealthSection from './RuntimeHealthSection.svelte';
 	import { servicesContext } from '$lib/services/context';
 	import { SERVICES_WINDOW_PRESETS } from '$lib/services/state.svelte';
 	import { getServiceCallBreakdown, type ServiceCallBreakdown } from '$lib/services-api';
@@ -83,6 +84,12 @@
 			<Dialog.Description>{m.serviceCallBreakdown_description()}</Dialog.Description>
 		</Dialog.Header>
 		<div class="max-h-[60vh] space-y-6 overflow-auto">
+			{#if services.selectedService}
+				<RuntimeHealthSection
+					service={services.selectedService}
+					windowMinutes={SERVICES_WINDOW_PRESETS.find((p) => p.value === services.windowPreset)?.minutes ?? 15}
+				/>
+			{/if}
 			{#if loading && !breakdown}
 				<div class="flex justify-center py-12">
 					<Spinner class="size-6" />
