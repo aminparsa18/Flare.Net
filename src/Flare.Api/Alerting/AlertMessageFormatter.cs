@@ -57,7 +57,7 @@ public static class AlertMessageFormatter
     /// breach; <paramref name="firedAt"/> is then when the recovery was observed. Ignored when
     /// <paramref name="isTest"/>.
     /// </param>
-    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false)
+    public static string BuildText(AlertRule rule, double observedValue, bool isTest = false, string? publicUrl = null, string? metricUnit = null, DateTimeOffset? firedAt = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null)
     {
         var text = isTest
             ? $":test_tube: Test notification for alert \"{rule.Name}\" - if you're seeing this, the channel is configured correctly."
@@ -74,6 +74,11 @@ public static class AlertMessageFormatter
         if (!isTest && !resolved && rule.Severity != AlertSeverity.Critical)
         {
             text = $"[{rule.Severity.ToString().ToUpperInvariant()}] {text}";
+        }
+
+        if (!isTest && !noData && !resolved && logSamples is { Length: > 0 } samples)
+        {
+            text = $"{text}\nRecent logs:\n{samples}";
         }
 
         if (!noData && firedAt is { } at && BuildFiredDataUrl(rule, publicUrl, at) is { } dataUrl)
@@ -107,17 +112,17 @@ public static class AlertMessageFormatter
     /// link lines (it has <c>client_url</c>/<c>links</c> for those). Only affects the built-in
     /// text - the <c>{{rule_url}}</c>/<c>{{logs_url}}</c> placeholders resolve either way.
     /// </param>
-    public static AlertMessage BuildMessage(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool appendLinks = true, bool resolved = false, AlertMarkupFormat format = AlertMarkupFormat.Plain)
+    public static AlertMessage BuildMessage(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool appendLinks = true, bool resolved = false, AlertMarkupFormat format = AlertMarkupFormat.Plain, string? logSamples = null)
     {
         resolved = resolved && !isTest;
         var titleTemplate = rule.NotificationTitleTemplate;
         var bodyTemplate = rule.NotificationBodyTemplate;
         if (string.IsNullOrEmpty(titleTemplate) && string.IsNullOrEmpty(bodyTemplate))
         {
-            return new AlertMessage(null, BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved), IsCustom: false);
+            return new AlertMessage(null, BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved, logSamples: appendLinks ? logSamples : null), IsCustom: false);
         }
 
-        var values = BuildTemplateValues(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, resolved);
+        var values = BuildTemplateValues(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, resolved, logSamples);
         var labels = BuildTemplateLabels(rule);
         var prefix = isTest ? TestPrefix : resolved ? ResolvedPrefix : "";
 
@@ -125,7 +130,7 @@ public static class AlertMessageFormatter
         // Only one of the two carries the prefix - with a title it's already the first thing
         // every channel shows, and a second "[Test]" on the body line would just be noise.
         var text = string.IsNullOrEmpty(bodyTemplate)
-            ? BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved)
+            ? BuildText(rule, observedValue, isTest, appendLinks ? publicUrl : null, metricUnit, appendLinks ? firedAt : null, noData, anomaly, resolved, logSamples: appendLinks ? logSamples : null)
             : (title is null ? prefix : "") + RenderTemplate(bodyTemplate, values, labels, format);
         return new AlertMessage(title, text, IsCustom: true);
     }
@@ -162,7 +167,7 @@ public static class AlertMessageFormatter
     /// public URL) is "". <c>{{data_url}}</c> is the kind-appropriate <see cref="BuildFiredDataUrl"/>
     /// link; <c>{{logs_url}}</c> stays logs-only, as it was before metric/exception links existed.
     /// </summary>
-    internal static IReadOnlyDictionary<string, string> BuildTemplateValues(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool resolved = false)
+    internal static IReadOnlyDictionary<string, string> BuildTemplateValues(AlertRule rule, double observedValue, bool isTest, string? publicUrl, string? metricUnit, DateTimeOffset firedAt, bool noData, AnomalyScore? anomaly, bool resolved = false, string? logSamples = null)
     {
         var seriesKind = RuleSeriesKind(rule);
         var isAnomaly = rule.ConditionKind == AlertConditionKind.Anomaly;
@@ -229,6 +234,8 @@ public static class AlertMessageFormatter
             ["rule_url"] = BuildRuleUrl(rule, publicUrl) ?? "",
             ["logs_url"] = noData && !isTest ? "" : BuildMatchingLogsUrl(rule, publicUrl, firedAt) ?? "",
             ["data_url"] = noData && !isTest ? "" : BuildFiredDataUrl(rule, publicUrl, firedAt) ?? "",
+            // Newest matching log lines of a LogCount fire (empty for every other kind, a test, or a no-data/resolved send).
+            ["log_samples"] = noData || resolved || isTest ? "" : logSamples ?? "",
             // The built-in wording without its link lines - lets a template wrap rather than
             // replace it ("{{message}} - runbook: https://...").
             ["message"] = BuildText(rule, observedValue, isTest, publicUrl: null, metricUnit, firedAt: null, noData, anomaly, resolved),

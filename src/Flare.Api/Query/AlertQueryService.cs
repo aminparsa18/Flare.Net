@@ -3,6 +3,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Alerting;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
@@ -27,6 +28,13 @@ public interface IAlertQueryService
 
     /// <summary>Reuses <see cref="LogFilterSqlBuilder"/> against the <c>logs</c> table with <paramref name="condition"/>'s own From/To overridden by the caller's window.</summary>
     Task<ulong> CountMatchingLogsAsync(LogFilter condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The newest <paramref name="limit"/> events <see cref="CountMatchingLogsAsync"/> would count over the same window,
+    /// each pre-formatted as one "time severity service: body" line with the body cut to <see cref="AlertLogSamples.MaxBodyChars"/>
+    /// - what <c>{{log_samples}}</c> renders (ADR-0052). Best-effort: callers swallow failures so a sample never blocks a notification.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetSampleLogsAsync(LogFilter condition, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
 
     /// <summary>
     /// The <see cref="AlertConditionKind.MetricThreshold"/> counterpart to
@@ -277,6 +285,21 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         var sql = $"SELECT count() FROM logs WHERE {built.WhereSql}";
         var result = await client.ExecuteScalarAsync(sql, built.Parameters, EvaluationSafetyOptions(), cancellationToken);
         return ToUInt64(result);
+    }
+
+    public async Task<IReadOnlyList<string>> GetSampleLogsAsync(LogFilter condition, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken)
+    {
+        var windowed = condition with { From = from, To = to };
+        var built = LogFilterSqlBuilder.Build(windowed, to, promotedAttributes.Logs);
+        var sql = $"SELECT Timestamp, SeverityText, ServiceName, Body FROM logs WHERE {built.WhereSql} ORDER BY Timestamp DESC LIMIT {Math.Clamp(limit, 1, 20)}";
+        await using var reader = await client.ExecuteReaderAsync(sql, built.Parameters, EvaluationSafetyOptions(), cancellationToken);
+        var lines = new List<string>();
+        while (reader.Read())
+        {
+            lines.Add(AlertLogSamples.FormatLine(reader.GetFieldValue<DateTime>(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)));
+        }
+
+        return lines;
     }
 
     public async Task<(double Value, string? Unit)> EvaluateMetricConditionAsync(MetricAlertCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)

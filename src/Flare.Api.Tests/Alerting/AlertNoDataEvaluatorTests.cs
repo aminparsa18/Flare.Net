@@ -82,6 +82,8 @@ public class AlertNoDataEvaluatorTests
 
         public List<(string Kind, DateTimeOffset From, DateTimeOffset To)> Calls { get; } = [];
 
+        public Task<IReadOnlyList<string>> GetSampleLogsAsync(LogFilter condition, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken) => throw new NotImplementedException();
+
         public Task<ulong> CountMatchingLogsAsync(LogFilter condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
         {
             Calls.Add(("logs", from, to));
