@@ -125,15 +125,13 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Sections:
   - **Appearance & layout** (`/settings/appearance` shipped: theme, top bar
-    vs. collapsible sidebar, table density, text size, reduce motion;
-    client-only `localStorage`, `$lib/appearance/prefs.svelte.ts`).
-    Remaining: content width (full-bleed / centered), monospace font for
-    log bodies, high-contrast option, accent colour, sidebar
+    vs. collapsible sidebar, table density, text size, reduce motion,
+    content width, monospace log bodies, high contrast; client-only `localStorage`, `$lib/appearance/prefs.svelte.ts`).
+    Remaining: accent colour, sidebar
     expand-on-hover, a live preview, and moving theme/language/time zone
-    out of the user-menu dropdown into settings. Preferences should also
-    be saved server-side per user (alongside the per-user dashboard
-    ownership record) so they follow the user across browsers, with
-    `localStorage` kept as the pre-paint cache.
+    out of the user-menu dropdown into settings. Appearance prefs now sync
+    per user (ADR-0110); theme, language and time zone are still
+    local-only and should join that document when they move.
   - **Regional**: language, display time zone, time format (12/24h),
     first day of week, number and date format, default relative time
     range for each explorer.

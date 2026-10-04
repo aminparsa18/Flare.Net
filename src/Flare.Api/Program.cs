@@ -501,6 +501,7 @@ authenticatedRoutes.MapTraceFunnelEndpoints();
 authenticatedRoutes.MapNPlusOneEndpoints();
 authenticatedRoutes.MapSavedViewEndpoints();
 authenticatedRoutes.MapDashboardEndpoints();
+authenticatedRoutes.MapUserPreferencesEndpoints();
 authenticatedRoutes.MapIngestionEndpoints();
 authenticatedRoutes.MapPipelineEndpoints();
 authenticatedRoutes.MapIndexingEndpoints();

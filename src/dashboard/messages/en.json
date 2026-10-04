@@ -2688,5 +2688,14 @@
 	"settingsAppearance_motionHeading": "Motion",
 	"settingsAppearance_reduceMotionLabel": "Reduce motion",
 	"settingsAppearance_reduceMotionDescription": "Turns off animations and transitions.",
-	"settingsAppearance_storageNote": "These settings are saved in this browser only."
+	"settingsAppearance_storageNote": "These settings are saved to your account and also cached in this browser.",
+	"settingsAppearance_contentWidthHeading": "Content width",
+	"settingsAppearance_contentWidthFull": "Full width",
+	"settingsAppearance_contentWidthFullDescription": "Pages stretch to fill the window.",
+	"settingsAppearance_contentWidthCentered": "Centered",
+	"settingsAppearance_contentWidthCenteredDescription": "Pages are capped at a readable width on large screens.",
+	"settingsAppearance_monoLogsLabel": "Monospace log messages",
+	"settingsAppearance_monoLogsDescription": "Show log bodies in a monospace font.",
+	"settingsAppearance_highContrastLabel": "High contrast",
+	"settingsAppearance_highContrastDescription": "Stronger text and border contrast."
 }
