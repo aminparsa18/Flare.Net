@@ -56,15 +56,12 @@ folders are where "what happened and why" actually lives.
   reading under N% of their table's total rows" from `system.query_log`) —
   real, just not skip-index-specific, since primary-key pruning contributes
   too.
-- **Backlog for more brokers on the Messaging page.** Kafka (consumer lag),
-  RabbitMQ (queue depth, ADR-0057), NATS JetStream (ADR-0093) and Service Bus
-  active messages (ADR-0119) fill the `Backlog` column. Service Bus is
-  unverified against a real Azure subscription: confirm the
-  `azure_activemessages_average` / `metadata_entityname` names with the
-  `azuremonitor` receiver. Next: Amazon SQS. The collector's `awscloudwatch`
-  receiver reads CloudWatch *Logs*, so SQS queue depth would need CloudWatch
-  Metric Streams through the `awsfirehose` receiver. It is one more metric
-  lookup next to `MessagingQueryBuilder.BuildQueueDepth`. Not started.
+- **Verify the Service Bus and SQS Messaging backlog against real clouds.**
+  ADR-0119 and ADR-0120 took metric and attribute names from the Collector
+  receivers' source, not a live run. Confirm `azure_activemessages_average` with
+  `metadata_entityname` (`azuremonitor` receiver) and
+  `ApproximateNumberOfMessagesVisible_avg` with `QueueName` (`awsfirehose` +
+  `transform`), and fix the constants in `MessagingQueryBuilder` if they differ.
 - **OpenAPI.NET v3 (`Microsoft.OpenApi` 3.x, OpenAPI spec 3.2).** Blocked on
   `Microsoft.AspNetCore.OpenApi`: 10.0.x caps it at `[2.12.0, 3.0.0)`, so the
   direct pin in `Directory.Packages.props` stays on 2.x. The first release

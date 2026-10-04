@@ -90,7 +90,7 @@ Microsoft.
 | Error rate | Доля спанов публикации и потребления со статусом ошибки |
 | Publish p99 / Consume p99 | 99-й перцентиль длительности спана |
 | Producers / consumers | Сколько сервисов публиковали в него и потребляли из него |
-| Backlog | Ожидающие сообщения: отставание потребителей Kafka, глубина очередей RabbitMQ ожидающие сообщения NATS JetStream или активные сообщения Service Bus, см. [Kafka](#отставание-потребителей-kafka), [RabbitMQ](#глубина-очередей-rabbitmq), [NATS](#backlog-потребителя-nats-jetstream) и [Service Bus](#backlog-service-bus) |
+| Backlog | Ожидающие сообщения: отставание потребителей Kafka, глубина очередей RabbitMQ ожидающие сообщения NATS JetStream или активные сообщения Service Bus или видимые сообщения Amazon SQS, см. [Kafka](#отставание-потребителей-kafka), [RabbitMQ](#глубина-очередей-rabbitmq), [NATS](#backlog-потребителя-nats-jetstream) [Service Bus](#backlog-service-bus) и [SQS](#backlog-amazon-sqs) |
 
 Задержка потребления — это длительность самого спана потребления: время
 обработки для спана `process` или время получения для потребителя, который
@@ -291,6 +291,53 @@ Flare читает `azure_activemessages_average`, поэтому оставьт
 получения `topic/Subscriptions/имя`, подписки. Сообщения в очереди недоставленных
 (dead-letter) не учитываются. Azure Monitor публикует раз в минуту, так что backlog
 отстаёт примерно на это время. Сущности, о которых ресивер не сообщает, показывают **—**.
+
+## Backlog Amazon SQS
+
+Backlog очереди в спанах отсутствует. CloudWatch публикует его как
+`ApproximateNumberOfMessagesVisible`. Ресивер `awscloudwatch` OpenTelemetry Collector
+читает *логи* CloudWatch, поэтому для метрик нужен CloudWatch Metric Stream в
+Kinesis Data Firehose, а ресивер `awsfirehose` Collector (дистрибутив contrib) служит
+HTTP-эндпоинтом Firehose. Создайте metric stream в формате вывода **JSON**, с фильтром
+по пространству имён `AWS/SQS`, и направьте его Firehose на Collector. Firehose
+требует HTTPS-эндпоинт, поэтому поставьте Collector за балансировщик или прокси,
+который терминирует TLS, и задайте один и тот же ключ доступа с обеих сторон.
+
+Ресивер превращает каждую запись в summary, который Flare не хранит. Процессор
+`transform` конвертирует его в gauge с именем
+`ApproximateNumberOfMessagesVisible_avg`:
+
+```yaml
+receivers:
+  awsfirehose:
+    endpoint: 0.0.0.0:4433
+    record_type: cwmetrics
+    access_key: ${env:FIREHOSE_ACCESS_KEY}
+processors:
+  transform/sqs:
+    metric_statements:
+      - context: metric
+        statements:
+          - extract_avg_metric() where name == "ApproximateNumberOfMessagesVisible"
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [awsfirehose]
+      processors: [transform/sqs]
+      exporters: [otlp_grpc/flare]
+```
+
+Колонка **Backlog** — последнее число видимых сообщений очереди, имя которой указано
+в назначении строки (или, если инструментирование передаёт URL очереди, в последнем
+сегменте URL). Сообщения в обработке и отложенные не учитываются. Metric Streams
+добавляют пару минут к минутной отчётности SQS. Очереди, о которых CloudWatch не
+сообщает, показывают **—**. Проверено только по исходному коду ресиверов, не на
+реальном аккаунте AWS.
 
 ## Устранение неполадок
 

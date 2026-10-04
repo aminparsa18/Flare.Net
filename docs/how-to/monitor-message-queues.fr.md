@@ -94,7 +94,7 @@ topic ou à une file :
 | Error rate | Part des spans de publication et de consommation en erreur |
 | Publish p99 / Consume p99 | Durée de span au 99e centile |
 | Producers / consumers | Nombre de services qui y ont publié et qui l'ont consommé |
-| Backlog | Messages en attente : retard des consommateurs Kafka, profondeur des files RabbitMQ messages en attente NATS JetStream ou messages actifs Service Bus, voir [Kafka](#voir-le-retard-des-consommateurs-kafka), [RabbitMQ](#voir-la-profondeur-des-files-rabbitmq), [NATS](#voir-le-retard-backlog-dun-consommateur-nats-jetstream) et [Service Bus](#voir-le-backlog-service-bus) |
+| Backlog | Messages en attente : retard des consommateurs Kafka, profondeur des files RabbitMQ messages en attente NATS JetStream ou messages actifs Service Bus ou messages visibles Amazon SQS, voir [Kafka](#voir-le-retard-des-consommateurs-kafka), [RabbitMQ](#voir-la-profondeur-des-files-rabbitmq), [NATS](#voir-le-retard-backlog-dun-consommateur-nats-jetstream) [Service Bus](#voir-le-backlog-service-bus) et [SQS](#voir-le-backlog-amazon-sqs) |
 
 La latence de consommation est la durée du span de consommation lui-même : le
 temps de traitement pour un span `process`, ou le temps de récupération pour un
@@ -301,6 +301,54 @@ Flare lit `azure_activemessages_average` : gardez l'agrégation Average. La colo
 une ligne de réception `topic/Subscriptions/nom`. Les messages en file de lettres mortes
 ne sont pas comptés. Azure Monitor publie une fois par minute, le backlog accuse donc
 ce retard. Les entités que le récepteur ne remonte pas affichent **—**.
+
+## Voir le backlog Amazon SQS
+
+Le backlog d'une file n'est pas dans les spans. CloudWatch le publie comme
+`ApproximateNumberOfMessagesVisible`. Le récepteur `awscloudwatch` de l'OpenTelemetry
+Collector lit les *journaux* CloudWatch ; pour les métriques, la voie est un
+CloudWatch Metric Stream vers Kinesis Data Firehose, avec le récepteur `awsfirehose`
+du Collector (distribution contrib) comme point de terminaison HTTP de Firehose.
+Créez le metric stream au format de sortie **JSON**, filtré sur l'espace de noms
+`AWS/SQS`, et pointez son Firehose vers le Collector. Firehose exige un point de
+terminaison HTTPS : placez le Collector derrière un répartiteur de charge ou un proxy
+qui termine TLS, et définissez la même clé d'accès des deux côtés.
+
+Le récepteur transforme chaque enregistrement en summary, que Flare ne stocke pas.
+Le processeur `transform` le convertit en gauge nommée
+`ApproximateNumberOfMessagesVisible_avg` :
+
+```yaml
+receivers:
+  awsfirehose:
+    endpoint: 0.0.0.0:4433
+    record_type: cwmetrics
+    access_key: ${env:FIREHOSE_ACCESS_KEY}
+processors:
+  transform/sqs:
+    metric_statements:
+      - context: metric
+        statements:
+          - extract_avg_metric() where name == "ApproximateNumberOfMessagesVisible"
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [awsfirehose]
+      processors: [transform/sqs]
+      exporters: [otlp_grpc/flare]
+```
+
+La colonne **Backlog** est le dernier nombre de messages visibles de la file nommée
+par la destination de la ligne (ou, si votre instrumentation indique l'URL de la file,
+par le dernier segment de l'URL). Les messages en cours de traitement ou différés ne
+sont pas comptés. Les Metric Streams ajoutent quelques minutes au rapport d'une minute
+de SQS. Les files que CloudWatch ne remonte pas affichent **—**. Vérifié uniquement
+d'après le code source des récepteurs, pas sur un compte AWS réel.
 
 ## Dépannage
 
