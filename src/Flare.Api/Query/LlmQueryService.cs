@@ -15,7 +15,7 @@ public interface ILlmQueryService
 /// <see cref="LlmQueryBuilder"/> for the SQL. Same <c>ExecuteReaderAsync</c> + ordinal-read
 /// style as <see cref="ExternalApiQueryService"/>.
 /// </summary>
-public sealed class LlmQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, ILlmModelPriceStore priceStore, TimeProvider timeProvider) : ILlmQueryService
+public sealed class LlmQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, ILlmModelPriceStore priceStore, TimeProvider timeProvider, IOptions<LlmMetricsOptions> llmMetricsOptions) : ILlmQueryService
 {
     public async Task<LlmModelsResponse> GetModelsAsync(LlmModelsRequest request, CancellationToken cancellationToken)
     {
@@ -24,7 +24,10 @@ public sealed class LlmQueryService(IClickHouseClient client, IOptions<QueryLimi
         var seconds = windowMinutes * 60.0;
 
         var models = new List<LlmModel>();
-        var built = LlmQueryBuilder.BuildModels(request, windowMinutes, end);
+        var useRollup = llmMetricsOptions.Value.Enabled;
+        var built = useRollup
+            ? LlmQueryBuilder.BuildModelsFromRollup(request, windowMinutes, end)
+            : LlmQueryBuilder.BuildModels(request, windowMinutes, end);
         await using (var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken))
         {
             while (reader.Read() && models.Count < LlmQueryBuilder.MaxRows)
@@ -50,7 +53,9 @@ public sealed class LlmQueryService(IClickHouseClient client, IOptions<QueryLimi
         }
 
         string[] services = [];
-        var facetsSql = LlmQueryBuilder.BuildFacets(windowMinutes, end);
+        var facetsSql = useRollup
+            ? LlmQueryBuilder.BuildFacetsFromRollup(windowMinutes, end)
+            : LlmQueryBuilder.BuildFacets(windowMinutes, end);
         await using (var reader = await client.ExecuteReaderAsync(facetsSql.Sql, facetsSql.Parameters, SafetyOptions(), cancellationToken))
         {
             if (reader.Read())

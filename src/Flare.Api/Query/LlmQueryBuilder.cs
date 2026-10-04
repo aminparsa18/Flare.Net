@@ -10,7 +10,7 @@ public sealed record LlmSql(string Sql, ClickHouseParameterCollection Parameters
 /// <summary>
 /// Pure SQL builder for the <c>/llm</c> page (<c>POST /api/llm/models</c>) - model calls
 /// grouped by provider and model, derived from spans' OTel GenAI <c>gen_ai.*</c> attributes at
-/// query time. No new table; see docs-internal/adr/0100-llm-observability-genai-spans.md.
+/// query time (ADR-0100), or from the <c>llm_model_calls</c> rollup when enabled (ADR-0102).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -104,6 +104,74 @@ public static class LlmQueryBuilder
             $"FROM {SpanSource(where)}";
 
         return new LlmSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// Same result shape as <see cref="BuildModels"/>, read from the flush-time <c>llm_model_calls</c>
+    /// rollup (0047_llm_model_calls.sql, ADR-0102) instead of scanning <c>spans</c>. The window
+    /// is floored/ceiled to whole minutes, the same bounded edge over-inclusion as ADR-0030.
+    /// </summary>
+    public static LlmSql BuildModelsFromRollup(LlmModelsRequest request, int windowMinutes, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = RollupWhere(parameters, windowMinutes, end, request.Service);
+        parameters.AddParameter("limit", (uint)(MaxRows + 1));
+
+        var sql = "SELECT\n" +
+            "    Provider AS LlmProvider,\n" +
+            "    Model AS LlmModel,\n" +
+            "    sum(CallCount) AS CallCount,\n" +
+            "    sum(ErrorCount) AS ErrorCount,\n" +
+            "    quantilesMerge(0.5, 0.95, 0.99)(QuantileState) AS Quantiles,\n" +
+            "    sum(InputTokens) AS InputTokens,\n" +
+            "    sum(OutputTokens) AS OutputTokens,\n" +
+            "    uniqExact(ServiceName) AS ServiceCount,\n" +
+            "    toUnixTimestamp64Milli(max(LastSeen)) AS LastSeenUnixMs\n" +
+            "FROM llm_model_calls\n" +
+            $"WHERE {where}\n" +
+            "GROUP BY LlmProvider, LlmModel\n" +
+            "ORDER BY CallCount DESC, LlmModel\n" +
+            "LIMIT {limit:UInt32}";
+
+        return new LlmSql(sql, parameters);
+    }
+
+    /// <summary>Rollup counterpart of <see cref="BuildFacets"/>.</summary>
+    public static LlmSql BuildFacetsFromRollup(int windowMinutes, DateTimeOffset end)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = RollupWhere(parameters, windowMinutes, end, service: null);
+
+        var sql = "SELECT arraySort(groupUniqArray(1000)(ServiceName)) AS Services\n" +
+            "FROM llm_model_calls\n" +
+            $"WHERE {where}";
+
+        return new LlmSql(sql, parameters);
+    }
+
+    private static string RollupWhere(ClickHouseParameterCollection parameters, int windowMinutes, DateTimeOffset end, string? service)
+    {
+        parameters.AddParameter("from", FloorToMinute(end.AddMinutes(-windowMinutes).UtcDateTime));
+        parameters.AddParameter("to", CeilToMinute(end.UtcDateTime));
+
+        var clauses = new List<string> { "TimeBucket >= {from:DateTime}", "TimeBucket < {to:DateTime}" };
+
+        if (!string.IsNullOrWhiteSpace(service))
+        {
+            parameters.AddParameter("service", service);
+            clauses.Add("ServiceName = {service:String}");
+        }
+
+        return string.Join(" AND ", clauses);
+    }
+
+    private static DateTime FloorToMinute(DateTime value) =>
+        value.AddTicks(-(value.Ticks % TimeSpan.TicksPerMinute));
+
+    private static DateTime CeilToMinute(DateTime value)
+    {
+        var floored = FloorToMinute(value);
+        return floored == value ? floored : floored.AddMinutes(1);
     }
 
     /// <summary>The per-span projection every query here aggregates over; the trailing <c>WHERE</c> is the inner query's.</summary>
