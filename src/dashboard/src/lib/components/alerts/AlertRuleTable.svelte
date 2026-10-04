@@ -24,6 +24,7 @@
 		type RuleSortKey
 	} from '$lib/alerts/list-view';
 	import MuteRuleMenu from './MuteRuleMenu.svelte';
+	import AlertRulesTransfer from './AlertRulesTransfer.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { alertsContext } from '$lib/alerts/context';
 	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
@@ -179,10 +180,13 @@
 		<h1 class="text-sm font-semibold">{m.alertRuleTable_heading()}</h1>
 		<p class="text-muted-foreground text-xs">{m.alertRuleTable_subheading()}</p>
 	</div>
-	<Button size="sm" onclick={() => alerts.openCreate()}>
-		<PlusIcon data-icon="inline-start" />
-		{m.alertRuleTable_newAlert()}
-	</Button>
+	<div class="flex items-center gap-2">
+		<AlertRulesTransfer ruleIds={isAlertListViewActive(view) ? visibleRules.map((r) => r.id) : []} />
+		<Button size="sm" onclick={() => alerts.openCreate()}>
+			<PlusIcon data-icon="inline-start" />
+			{m.alertRuleTable_newAlert()}
+		</Button>
+	</div>
 </div>
 
 {#if alerts.loading}

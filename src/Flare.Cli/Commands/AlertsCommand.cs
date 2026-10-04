@@ -387,6 +387,137 @@ internal sealed class AlertsHistoryCommand : AsyncCommand<AlertsHistoryCommand.S
     }
 }
 
+/// <summary>
+/// <c>flare alerts export [--output FILE]</c> - writes every alert rule as the portable JSON
+/// document <c>GET /api/alerts/export</c> serves (channels and SLOs by name, no ids or
+/// credentials), to stdout or a file, for GitOps or moving rules between instances.
+/// </summary>
+internal sealed class AlertsExportCommand : AsyncCommand<AlertsExportCommand.Settings>
+{
+    internal sealed class Settings : InstanceSettings
+    {
+        [CommandOption("-o|--output <FILE>")]
+        [Description("Write the export to this file instead of stdout.")]
+        public string? Output { get; init; }
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        var instance = FlareHome.ResolveTarget(settings.InstanceName);
+        if (!instance.IsInitialized)
+        {
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
+            return 1;
+        }
+
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
+        using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
+        try
+        {
+            using var response = await http.GetAsync("/api/alerts/export", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] GET /api/alerts/export failed: {(int)response.StatusCode} {response.ReasonPhrase}");
+                return 1;
+            }
+
+            var document = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var json = JsonSerializer.Serialize(document, new JsonSerializerOptions { WriteIndented = true });
+            if (settings.Output is { Length: > 0 } path)
+            {
+                await File.WriteAllTextAsync(path, json + Environment.NewLine, cancellationToken);
+                AnsiConsole.MarkupLine($"[green]✓[/] Exported {document.GetProperty("rules").GetArrayLength()} rule(s) to {Markup.Escape(path)}");
+            }
+            else
+            {
+                Console.Out.WriteLine(json);
+            }
+
+            return 0;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] Couldn't reach the API on localhost:{port} - is `api` running? Check `flare status`.");
+            return 1;
+        }
+    }
+}
+
+/// <summary>
+/// <c>flare alerts import FILE [--dry-run]</c> - posts a document from <c>flare alerts export</c>
+/// to <c>POST /api/alerts/import</c> and prints the per-rule create/skip/error summary. Rules
+/// whose name already exists are skipped, never overwritten; exit code is 1 if any rule errored.
+/// </summary>
+internal sealed class AlertsImportCommand : AsyncCommand<AlertsImportCommand.Settings>
+{
+    internal sealed class Settings : InstanceSettings
+    {
+        [CommandArgument(0, "<FILE>")]
+        [Description("JSON file produced by `flare alerts export`.")]
+        public string File { get; init; } = "";
+
+        [CommandOption("--dry-run")]
+        [Description("Report what would be created or skipped without creating anything.")]
+        public bool DryRun { get; init; }
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        var instance = FlareHome.ResolveTarget(settings.InstanceName);
+        if (!instance.IsInitialized)
+        {
+            AnsiConsole.MarkupLine($"[grey]Not initialized yet - run `{instance.StartHint}` first.[/]");
+            return 1;
+        }
+
+        if (!System.IO.File.Exists(settings.File))
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] File not found: {Markup.Escape(settings.File)}");
+            return 1;
+        }
+
+        var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
+        using var http = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}") };
+        try
+        {
+            using var body = new StringContent(await System.IO.File.ReadAllTextAsync(settings.File, cancellationToken), System.Text.Encoding.UTF8, "application/json");
+            using var response = await http.PostAsync($"/api/alerts/import?dryRun={(settings.DryRun ? "true" : "false")}", body, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] POST /api/alerts/import failed: {(int)response.StatusCode} {response.ReasonPhrase}");
+                return 1;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var table = new Table().Border(TableBorder.Rounded);
+            table.AddColumn("Rule");
+            table.AddColumn("Outcome");
+            table.AddColumn("Detail");
+            foreach (var item in result.GetProperty("items").EnumerateArray())
+            {
+                var outcome = item.GetProperty("outcome").GetString();
+                var color = outcome switch { "Create" => "green", "Error" => "red", _ => "grey" };
+                table.AddRow(
+                    Markup.Escape(item.GetProperty("name").GetString() ?? ""),
+                    $"[{color}]{outcome}[/]",
+                    Markup.Escape(item.TryGetProperty("message", out var message) ? message.GetString() ?? "" : ""));
+            }
+
+            AnsiConsole.Write(table);
+            var created = result.GetProperty("created").GetInt32();
+            var errors = result.GetProperty("errors").GetInt32();
+            var verb = settings.DryRun ? "would create" : "created";
+            AnsiConsole.MarkupLine($"{verb} {created}, skipped {result.GetProperty("skipped").GetInt32()}, {errors} error(s){(settings.DryRun ? " [grey](dry run)[/]" : "")}");
+            return errors > 0 ? 1 : 0;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException)
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] Couldn't reach the API on localhost:{port} - is `api` running? Check `flare status`.");
+            return 1;
+        }
+    }
+}
+
 // ---- Wire DTOs - hand-mirror of Flare.Api's Model/AlertModels.cs (see AlertsJsonContext's
 // camelCase-properties/PascalCase-string-enum-values convention). Condition (LogFilter) is
 // deliberately omitted - not rendered by either command here yet. -------------

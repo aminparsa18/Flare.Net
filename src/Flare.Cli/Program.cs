@@ -52,6 +52,10 @@ app.Configure(config =>
             .WithDescription("Dry-run fire a saved alert rule (ignores cooldown, sends no notification).");
         alerts.AddCommand<AlertsSendTestCommand>("send-test")
             .WithDescription("Send a real test notification through a saved alert rule's configured channel.");
+        alerts.AddCommand<AlertsExportCommand>("export")
+            .WithDescription("Export every alert rule as portable JSON (channels/SLOs by name, no ids or credentials).");
+        alerts.AddCommand<AlertsImportCommand>("import")
+            .WithDescription("Import rules from a `flare alerts export` file (--dry-run to preview; existing names are skipped).");
     });
     config.AddBranch("apikey", apikey =>
     {

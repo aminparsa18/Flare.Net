@@ -637,6 +637,57 @@ export async function deleteAlertRule(id: string): Promise<void> {
 	}
 }
 
+// ---- Export / import (JSON only; channels and SLOs referenced by name) ------
+
+/** The portable document from `GET /api/alerts/export` - opaque here, only round-tripped to import. */
+export interface AlertRulesExport {
+	version: number;
+	rules: { rule: { name: string }; channels?: string[]; sloName?: string }[];
+}
+
+export interface AlertImportItemResult {
+	name: string;
+	outcome: 'Create' | 'Skip' | 'Error';
+	message?: string | null;
+	id?: string | null;
+}
+
+export interface AlertRulesImportResult {
+	dryRun: boolean;
+	items: AlertImportItemResult[];
+	created: number;
+	skipped: number;
+	errors: number;
+}
+
+/** Exports `ids` (or every rule when omitted/empty). */
+export async function exportAlertRules(ids?: string[]): Promise<AlertRulesExport> {
+	const query = ids?.length ? `?${ids.map((id) => `ids=${encodeURIComponent(id)}`).join('&')}` : '';
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/export${query}`);
+	if (!res.ok) {
+		throw new Error(`GET /api/alerts/export failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as AlertRulesExport;
+}
+
+export async function importAlertRules(document: unknown, dryRun: boolean): Promise<AlertRulesImportResult> {
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/import?dryRun=${dryRun}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(document)
+	});
+	if (!res.ok) {
+		let detail = `${res.status} ${res.statusText}`;
+		try {
+			detail = ((await res.json()) as { detail?: string }).detail ?? detail;
+		} catch {
+			// non-JSON error body - keep the status line
+		}
+		throw new Error(detail);
+	}
+	return (await res.json()) as AlertRulesImportResult;
+}
+
 // ---- History -----------------------------------------------------------------
 
 export async function getAlertHistory(id: string, limit = 50, signal?: AbortSignal): Promise<AlertHistoryResponse> {

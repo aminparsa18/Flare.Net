@@ -2610,5 +2610,19 @@
 	"muteRule_1d": "1 天",
 	"muteRule_1w": "1 周",
 	"muteRule_untilLabel": "静默至",
-	"muteRule_untilButton": "静默至"
+	"muteRule_untilButton": "静默至",
+	"alertTransfer_export": "导出",
+	"alertTransfer_exportTitle": "将当前显示的规则（未筛选时为全部规则）下载为 JSON",
+	"alertTransfer_import": "导入",
+	"alertTransfer_importTitle": "从 JSON 导出文件导入警报规则",
+	"alertTransfer_dialogTitle": "导入警报规则",
+	"alertTransfer_dialogDescription": "通知渠道和 SLO 按名称匹配。名称已存在的规则将被跳过。",
+	"alertTransfer_summary": "待创建 {create} 条，跳过 {skip} 条，出错 {error} 条",
+	"alertTransfer_confirm": "导入 {count} 条规则",
+	"alertTransfer_invalidFile": "该文件不是有效的 JSON。",
+	"alertTransfer_done": "已导入 {count} 条规则。",
+	"alertTransfer_close": "关闭",
+	"alertTransfer_outcomeCreate": "创建",
+	"alertTransfer_outcomeSkip": "跳过",
+	"alertTransfer_outcomeError": "错误"
 }
