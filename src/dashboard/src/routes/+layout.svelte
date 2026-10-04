@@ -13,6 +13,7 @@
 	import { regional } from '$lib/regional/prefs.svelte';
 	import { appearance, type Theme } from '$lib/appearance/prefs.svelte';
 	import CommandPalette from '$lib/components/nav/CommandPalette.svelte';
+	import GlobalShortcuts from '$lib/components/nav/GlobalShortcuts.svelte';
 	import UpdateNotice from '$lib/components/nav/UpdateNotice.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Alert, AlertTitle, AlertDescription } from '$lib/components/ui/alert';
@@ -182,6 +183,7 @@
 				<AppNav bind:commandPaletteOpen />
 			{/if}
 			<CommandPalette bind:open={commandPaletteOpen} />
+			<GlobalShortcuts />
 		{/if}
 		<!-- Sidebar layout: the notice banner sits above the page, beside the sidebar. -->
 		<div class="flex min-h-0 min-w-0 flex-1 flex-col">

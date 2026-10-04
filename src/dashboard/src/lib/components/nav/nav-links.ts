@@ -33,13 +33,25 @@ export function navLinks(auth: AuthState): NavLink[] {
 		{ href: '/ingestion', label: m.nav_ingestion() },
 		{ href: '/indexing', label: m.nav_indexing() },
 		{ href: '/alerts', label: m.nav_alerts() },
-		{ href: '/slos', label: m.nav_slos(), inMenu: true },
-		{ href: '/pipeline-rules', label: m.nav_pipelineRules(), inMenu: true },
 		{ href: '/resources', label: m.nav_resources() },
 		{ href: '/hosts', label: m.nav_hosts(), inMenu: true },
 		{ href: '/kubernetes', label: m.nav_kubernetes(), inMenu: true },
 		{ href: '/dashboards', label: m.nav_dashboards() },
 		{ href: '/views', label: m.nav_views() },
 		...(!auth.authEnabled || auth.currentUser?.role === 'Admin' ? [{ href: '/auth', label: m.nav_auth() }] : [])
+	];
+}
+
+/** Settings sections that used to be top-level pages (/settings/slos, /settings/pipeline-rules,
+ *  /settings/ingest-keys, /settings/access-tokens). Shared by the settings rail and the command
+ *  palette. Ingest keys are Admin-only on the backend (same gate as /auth, including "everyone
+ *  while auth is off"); personal access tokens need a signed-in identity to own one. */
+export function settingsManagementLinks(auth: AuthState): NavLink[] {
+	const isAdmin = !auth.authEnabled || auth.currentUser?.role === 'Admin';
+	return [
+		{ href: '/settings/slos', label: m.nav_slos() },
+		{ href: '/settings/pipeline-rules', label: m.nav_pipelineRules() },
+		...(isAdmin ? [{ href: '/settings/ingest-keys', label: m.ingestKeysPage_heading() }] : []),
+		...(auth.authEnabled ? [{ href: '/settings/access-tokens', label: m.accessTokensPage_heading() }] : [])
 	];
 }

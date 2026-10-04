@@ -11,17 +11,39 @@
 	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import CompassIcon from '@lucide/svelte/icons/compass';
+	import TargetIcon from '@lucide/svelte/icons/target';
+	import WorkflowIcon from '@lucide/svelte/icons/workflow';
+	import KeyIcon from '@lucide/svelte/icons/key';
+	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
+	import { authContext } from '$lib/auth/context';
+	import { settingsManagementLinks } from '$lib/components/nav/nav-links';
 	import * as m from '$lib/paraglide/messages';
 
 	const { children } = $props();
+
+	const auth = authContext.get();
+
+	const MANAGEMENT_ICONS = {
+		'/settings/slos': TargetIcon,
+		'/settings/pipeline-rules': WorkflowIcon,
+		'/settings/ingest-keys': KeyIcon,
+		'/settings/access-tokens': KeyRoundIcon
+	} as const;
 
 	const sections = $derived([
 		{ href: '/settings/appearance', label: m.settingsAppearance_navLabel(), icon: PaletteIcon },
 		{ href: '/settings/regional', label: m.settingsRegional_navLabel(), icon: GlobeIcon },
 		{ href: '/settings/explorer', label: m.settingsExplorer_navLabel(), icon: CompassIcon },
 		{ href: '/settings/keyboard', label: m.settingsKeyboard_navLabel(), icon: KeyboardIcon },
-		{ href: '/settings/notifications', label: m.settingsNotifications_navLabel(), icon: BellIcon }
+		{ href: '/settings/notifications', label: m.settingsNotifications_navLabel(), icon: BellIcon },
+		...settingsManagementLinks(auth).map((link) => ({ ...link, icon: MANAGEMENT_ICONS[link.href as keyof typeof MANAGEMENT_ICONS] }))
 	]);
+
+	// The management tables (SLOs, pipeline rules, keys, tokens) need the full width; the
+	// preference forms read better in a narrow column.
+	const wide = $derived(
+		Object.keys(MANAGEMENT_ICONS).some((href) => stripBase(page.url.pathname).startsWith(href))
+	);
 </script>
 
 <div class="flex h-full flex-col overflow-y-auto md:flex-row">
@@ -42,7 +64,7 @@
 		</nav>
 	</aside>
 	<main class="min-w-0 flex-1 p-6">
-		<div class="mx-auto max-w-3xl">
+		<div class={cn('mx-auto', !wide && 'max-w-3xl')}>
 			{@render children()}
 		</div>
 	</main>

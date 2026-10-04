@@ -16,9 +16,7 @@
 	import * as m from '$lib/paraglide/messages';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PlugIcon from '@lucide/svelte/icons/plug';
-	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
-	import KeyIcon from '@lucide/svelte/icons/key';
 	import SunIcon from '@lucide/svelte/icons/sun';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
@@ -36,7 +34,6 @@
 	import { navLinks } from './nav-links';
 	import type { Component } from 'svelte';
 	import EarthIcon from '@lucide/svelte/icons/earth';
-	import WorkflowIcon from '@lucide/svelte/icons/workflow';
 	import ServerIcon from '@lucide/svelte/icons/server';
 	import ContainerIcon from '@lucide/svelte/icons/container';
 
@@ -46,7 +43,6 @@
 
 	const MENU_LINK_ICONS: Record<string, Component> = {
 		'/external-apis': EarthIcon,
-		'/pipeline-rules': WorkflowIcon,
 		'/hosts': ServerIcon,
 		'/kubernetes': ContainerIcon
 	};
@@ -134,17 +130,9 @@
 				</a>
 			{/snippet}
 		</DropdownMenu.Item>
-		<!-- Ingest keys (and their ingestion limits, ADR-0051) are Admin-only on the backend -
-		     same gate nav-links.ts applies to /auth, including "everyone while auth is off". -->
+		<!-- Audit log is Admin-only on the backend - same gate nav-links.ts applies to /auth, including
+		     "everyone while auth is off". -->
 		{#if !auth.authEnabled || auth.currentUser?.role === 'Admin'}
-			<DropdownMenu.Item>
-				{#snippet child({ props })}
-					<a href={withBase('/ingest-keys')} {...props}>
-						<KeyIcon />
-						{m.ingestKeysPage_heading()}
-					</a>
-				{/snippet}
-			</DropdownMenu.Item>
 			<DropdownMenu.Item>
 				{#snippet child({ props })}
 					<a href={withBase('/audit-log')} {...props}>
@@ -161,17 +149,6 @@
 				<span class="truncate">{auth.currentUser?.username}</span>
 				<Badge variant="outline">{auth.currentUser?.role}</Badge>
 			</DropdownMenu.Label>
-			<!-- Personal access tokens (ADR-0019) only make sense once there's a real signed-in
-			     identity to own one - same auth.authEnabled gate as the username/role label
-			     above, unlike /data-sources' link below which is unconditional. -->
-			<DropdownMenu.Item>
-				{#snippet child({ props })}
-					<a href={withBase('/access-tokens')} {...props}>
-						<KeyRoundIcon />
-						{m.accessTokensPage_heading()}
-					</a>
-				{/snippet}
-			</DropdownMenu.Item>
 			<DropdownMenu.Separator />
 		{/if}
 

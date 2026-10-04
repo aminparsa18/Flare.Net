@@ -206,6 +206,7 @@
 		<SearchIcon class="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2" />
 		<Input
 			class="pl-8"
+			data-logs-search
 			placeholder={m.logsToolbar_searchPlaceholder()}
 			value={searchDraft}
 			oninput={(e) => handleSearchInput(e.currentTarget.value)}
