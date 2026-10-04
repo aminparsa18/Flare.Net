@@ -318,7 +318,7 @@ lockout recoverable only by editing the SQLite file directly.
 
 A signed-in local user can change their own password with `POST /api/auth/password` (`currentPassword`, `newPassword`, minimum 8 characters); their other sessions are revoked and the current one stays signed in.
 
-**Forgot password?** When `Email:Host`, `Email:From` and `Alerting:PublicUrl` are all set, the sign-in page shows a "Forgot password?" link. It emails a 1-hour, single-use set-password link (`POST /api/auth/forgot-password`) to a local account whose username is its email address; accounts with other usernames still need an admin reset link. The response is identical whether or not the account exists, and repeat requests for one username within a minute are ignored.
+**Forgot password?** When `Email:Host`, `Email:From` and `Alerting:PublicUrl` are all set, the sign-in page shows a "Forgot password?" link. It emails a 1-hour, single-use set-password link (`POST /api/auth/forgot-password`) to a local account whose username is its email address; accounts with other usernames still need an admin reset link. The response is identical whether or not the account exists, and repeat requests for one account within a minute are ignored (tracked in the identity database, so it holds across restarts and replicas).
 
 ## Audit log
 
