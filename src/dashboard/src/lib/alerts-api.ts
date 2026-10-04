@@ -721,10 +721,14 @@ export async function sendTestAlertRule(id: string): Promise<AlertNotificationTe
 	return toAlertNotificationTestResult(dto);
 }
 
-/** Sends a real test notification through an unsaved draft's configured channel - lets the create/edit form verify a channel before Save. */
-export async function sendTestDraftAlertRule(request: AlertRuleRequest): Promise<AlertNotificationTestResult> {
+/**
+ * Sends a real test notification through an unsaved draft's configured channel - lets the create/edit form verify a channel before Save.
+ * `ruleId` is the saved rule being edited, if any: reads mask credentials, so the server swaps an unchanged masked secret for the stored one.
+ */
+export async function sendTestDraftAlertRule(request: AlertRuleRequest, ruleId?: string): Promise<AlertNotificationTestResult> {
 	const dto = toGeneratedAlertRuleRequest(request);
-	const res = await apiFetch(`${API_BASE_URL}/api/alerts/send-test`, {
+	const query = ruleId ? `?ruleId=${encodeURIComponent(ruleId)}` : '';
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/send-test${query}`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),
 		body: memoryPackBody(GeneratedAlertRuleRequest.serialize(dto))

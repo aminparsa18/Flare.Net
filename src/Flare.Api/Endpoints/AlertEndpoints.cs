@@ -72,13 +72,14 @@ public static class AlertEndpoints
 
         var rule = await alerts.CreateAsync(request, cancellationToken);
         AuditContext.SetResourceId(http, rule.Id);
-        return ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule, statusCode: StatusCodes.Status201Created);
+        return ApiSerialization.Write(http, NotificationSecrets.Redact(rule), AlertsJsonContext.Default.AlertRule, statusCode: StatusCodes.Status201Created);
     }
 
     private static async Task<IResult> HandleListAsync(HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
+        // Reads mask a rule's legacy inline credentials (see NotificationSecrets).
         var rules = await alerts.ListAsync(cancellationToken);
-        return ApiSerialization.Write(http, new AlertRuleListResponse { Rules = rules }, AlertsJsonContext.Default.AlertRuleListResponse);
+        return ApiSerialization.Write(http, new AlertRuleListResponse { Rules = [.. rules.Select(NotificationSecrets.Redact)] }, AlertsJsonContext.Default.AlertRuleListResponse);
     }
 
     // JSON only: a small per-rule status list for the rules table, not worth a MemoryPack type.
@@ -91,7 +92,7 @@ public static class AlertEndpoints
     private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
-        return rule is null ? Results.NotFound() : ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule);
+        return rule is null ? Results.NotFound() : ApiSerialization.Write(http, NotificationSecrets.Redact(rule), AlertsJsonContext.Default.AlertRule);
     }
 
     private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
@@ -111,6 +112,10 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        // A legacy inline secret sent back as its own mask means "unchanged".
+        var before = await alerts.GetAsync(id, cancellationToken);
+        request = NotificationSecrets.Restore(request, before);
+
         if (request.ValidateChannel() is { } channelError)
         {
             return Results.Problem(channelError, statusCode: StatusCodes.Status400BadRequest);
@@ -121,14 +126,13 @@ public static class AlertEndpoints
             return Results.Problem(conditionError, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var before = await alerts.GetAsync(id, cancellationToken);
         var rule = await alerts.UpdateAsync(id, request, cancellationToken);
         if (rule is not null)
         {
-            AuditContext.SetChange(http, AlertsJsonContext.Default.AlertRule, before, rule);
+            AuditContext.SetChange(http, AlertsJsonContext.Default.AlertRule, NotificationSecrets.RedactOrNull(before), NotificationSecrets.Redact(rule));
         }
 
-        return rule is null ? Results.NotFound() : ApiSerialization.Write(http, rule, AlertsJsonContext.Default.AlertRule);
+        return rule is null ? Results.NotFound() : ApiSerialization.Write(http, NotificationSecrets.Redact(rule), AlertsJsonContext.Default.AlertRule);
     }
 
     private static async Task<IResult> HandleDeleteAsync(Guid id, IAlertQueryService alerts, CancellationToken cancellationToken)
@@ -188,7 +192,9 @@ public static class AlertEndpoints
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertNotificationTestResult);
     }
 
-    private static async Task<IResult> HandleSendTestDraftAsync(HttpContext http, INotificationChannelQueryService channels, CompositeAlertNotifier notifier, TimeProvider timeProvider, CancellationToken cancellationToken)
+    // `ruleId` (optional, query string): the saved rule an edit form is testing, so a legacy
+    // inline secret the form still holds only as its mask resolves to the stored value.
+    private static async Task<IResult> HandleSendTestDraftAsync(HttpContext http, Guid? ruleId, IAlertQueryService alerts, INotificationChannelQueryService channels, CompositeAlertNotifier notifier, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -203,6 +209,11 @@ public static class AlertEndpoints
         if (request is null)
         {
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (ruleId is { } savedId)
+        {
+            request = NotificationSecrets.Restore(request, await alerts.GetAsync(savedId, cancellationToken));
         }
 
         // Unlike the dry-run draft test above, this one actually notifies - so it needs

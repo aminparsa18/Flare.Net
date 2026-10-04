@@ -566,7 +566,8 @@
 		sendingTest = true;
 		sendTestError = null;
 		try {
-			sendTestResult = await sendTestDraftAlertRule(buildRequest());
+			const editing = alerts.formTarget;
+			sendTestResult = await sendTestDraftAlertRule(buildRequest(), editing && editing !== 'new' ? editing.id : undefined);
 		} catch (err) {
 			sendTestError = err instanceof Error ? err.message : String(err);
 		} finally {
