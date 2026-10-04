@@ -100,13 +100,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **SLOs with error budgets and burn-rate alerts.** Define SLOs on span data
-  (availability: non-error ratio of a service/endpoint; latency: % of
-  requests under a threshold) with a target and window (e.g. 99.5% over
-  28d). Show remaining error budget, plus multi-window burn-rate alerting
-  (e.g. 1h/5m fast burn, 6h/30m slow burn) through the existing alert
-  pipeline and channels. Likely needs a pre-aggregated per-minute
-  good/total table for long windows. Needs an ADR. Not started.
 - **Continuous profiling (later).** Ingest the OTLP profiles signal once it
   stabilizes, store per-service profiles, and link spans to flame graphs of
   what the code was doing during that span. Placeholder for when the spec

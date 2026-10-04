@@ -304,7 +304,7 @@ evaluation - see `docs-internal/adr/0080-alert-threshold-unit.md`. An `Anomaly` 
 threshold: `Alerting/AnomalyEvaluator` evaluates its source series over the current window and
 over the same window 1..N days/weeks back, and `Alerting/AnomalyScoring` fires on a z-score
 beyond the rule's threshold (history rows carry `BaselineMean`/`ZScore`) - see
-`docs-internal/adr/0048-anomaly-detection-alerting.md`. A breach during an active maintenance
+`docs-internal/adr/0048-anomaly-detection-alerting.md`. A `SloBurnRate` rule breaches when an SLO's burn rate is at or above its threshold over both a long and a short window (`Alerting/SloBurnRateEvaluator`; SLOs live under `/api/slos` - `Query/SloQueryService`, SQL in `Query/SloQueryBuilder`) - see `docs-internal/adr/0108-slo-error-budgets.md`. A breach during an active maintenance
 window (`/api/maintenance-windows` CRUD, `maintenance_windows` table, one-off/daily/weekly in an
 IANA time zone, all rules or listed ones) is recorded as `NotificationStatus = "Suppressed"` with
 `SuppressedByWindow` set instead of notifying, and cooldown ignores suppressed rows once the window

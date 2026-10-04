@@ -542,4 +542,53 @@ public class AlertMessageFormatterTests
 
         Assert.Equal("[Test] test", message.Title);
     }
+
+    private static AlertRule MakeSloRule() => MakeRule("Checkout fast burn") with
+    {
+        ConditionKind = AlertConditionKind.SloBurnRate,
+        WindowSeconds = 3600,
+        SloCondition = new SloBurnRateCondition { SloId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"), LongWindowSeconds = 3600, ShortWindowSeconds = 300, BurnRateThreshold = 14.4 },
+    };
+
+    [Fact]
+    public void BuildText_SloBurnRate_ReportsTheBurnRateNotATruncatedCount()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeSloRule(), 15.26);
+
+        Assert.Contains("error budget burning at 15.3x over the last 3600s", text);
+        Assert.Contains("threshold >= 14.4x", text);
+        Assert.DoesNotContain("events", text);
+    }
+
+    [Fact]
+    public void BuildText_SloBurnRate_Resolved_ReportsTheRecoveredRate()
+    {
+        var text = AlertMessageFormatter.BuildText(MakeSloRule(), 0.4, resolved: true);
+
+        Assert.Contains("resolved", text);
+        Assert.Contains("burn rate back to 0.4x", text);
+    }
+
+    [Fact]
+    public void BuildFiredDataUrl_SloBurnRate_LinksToTheSloPage()
+    {
+        var url = AlertMessageFormatter.BuildFiredDataUrl(MakeSloRule(), "https://flare.example/", DateTimeOffset.UnixEpoch);
+
+        Assert.Equal("https://flare.example/slos?slo=aaaaaaaa-0000-0000-0000-000000000001", url);
+        Assert.Equal("SLO", AlertMessageFormatter.FiredDataLabel(MakeSloRule()));
+    }
+
+    [Fact]
+    public void BuildTemplateValues_SloBurnRate_FormatsValueAndThresholdAsRates()
+    {
+        var values = AlertMessageFormatter.BuildTemplateValues(MakeSloRule(), 15.26, isTest: false, publicUrl: null, metricUnit: null, DateTimeOffset.UnixEpoch, noData: false, anomaly: null);
+
+        Assert.Equal("15.3", values["value"]);
+        Assert.Equal("14.4", values["threshold"]);
+        Assert.Equal(">=", values["comparator"]);
+    }
+
+    [Fact]
+    public void ThresholdValueOf_SloBurnRate_IsTheBurnRateThreshold() =>
+        Assert.Equal(14.4, AlertMessageFormatter.ThresholdValueOf(MakeSloRule()));
 }

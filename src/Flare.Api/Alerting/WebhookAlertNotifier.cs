@@ -34,7 +34,8 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
         // No scoped-logs link for a no-data fire - by definition there are no matching logs to show.
         var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, linkOptions.Value.PublicUrl, firedAt);
-        var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold;
+        // A burn-rate rule's observed value is a rate (e.g. 14.4), not a count - same non-count handling as a metric.
+        var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold || rule.ConditionKind == AlertConditionKind.SloBurnRate;
         var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, format: IsSlackWebhook(channel.WebhookUrl) ? AlertMarkupFormat.SlackMrkdwn : AlertMarkupFormat.Plain);
         var payload = new
         {
@@ -59,7 +60,7 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
             thresholdCount = rule.Threshold.Count,
             observedValue,
             // An anomaly rule has no fixed threshold - see baselineMean/zScore below instead.
-            thresholdValue = rule.ConditionKind == AlertConditionKind.Anomaly ? null : rule.MetricThresholdValue,
+            thresholdValue = AlertMessageFormatter.ThresholdValueOf(rule),
             metricName = rule.MetricCondition?.MetricName,
             windowSeconds = noData ? rule.NoDataWindowSeconds : rule.WindowSeconds,
             // True for an absent-data fire (AlertRule.NoDataWindowSeconds) - the observed

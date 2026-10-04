@@ -51,6 +51,9 @@ public enum AlertSeverity
 /// <see cref="AnomalyCondition.Source"/>, read from that kind's own condition field) against
 /// its own seasonal baseline instead of a fixed threshold - see
 /// <c>docs-internal/adr/0048-anomaly-detection-alerting.md</c>.
+/// <see cref="SloBurnRate"/> evaluates <see cref="AlertRule.SloCondition"/>: the multi-window
+/// error-budget burn rate of an <see cref="Slo"/> - see
+/// <c>docs-internal/adr/0108-slo-error-budgets.md</c>.
 /// </remarks>
 public enum AlertConditionKind
 {
@@ -58,6 +61,7 @@ public enum AlertConditionKind
     MetricThreshold,
     ExceptionCount,
     Anomaly,
+    SloBurnRate,
 }
 
 /// <summary>The seasonal period an <see cref="AnomalyCondition"/>'s baseline windows are shifted back by.</summary>
@@ -507,6 +511,16 @@ public sealed partial record AlertRule
     /// <see cref="ThresholdUnit"/>, same versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public IReadOnlyDictionary<string, string> Labels { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Set (non-null) only for <see cref="AlertConditionKind.SloBurnRate"/> rules; null/ignored
+    /// otherwise. Breached when the SLO's burn rate is at or above
+    /// <see cref="SloBurnRateCondition.BurnRateThreshold"/> over both of its windows;
+    /// <see cref="WindowSeconds"/> equals <see cref="SloBurnRateCondition.LongWindowSeconds"/>.
+    /// <see cref="Threshold"/> is an unused placeholder. Appended after <see cref="Labels"/>,
+    /// same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public SloBurnRateCondition? SloCondition { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -609,6 +623,9 @@ public sealed partial record AlertRuleRequest
     /// <summary>See <see cref="AlertRule.Labels"/>'s doc comment. Omitted/null means none. Appended after <see cref="ThresholdUnit"/>.</summary>
     public IReadOnlyDictionary<string, string>? Labels { get; init; }
 
+    /// <summary>See <see cref="AlertRule.SloCondition"/>'s doc comment. Appended after <see cref="Labels"/>, same versioning reasoning.</summary>
+    public SloBurnRateCondition? SloCondition { get; init; }
+
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
     /// (<see cref="WebhookUrl"/> - covers both a generic webhook consumer and Slack -
@@ -689,6 +706,7 @@ public sealed partial record AlertRuleRequest
             AlertConditionKind.ExceptionCount when ExceptionCondition is null =>
                 "exceptionCondition is required when conditionKind is ExceptionCount.",
             AlertConditionKind.Anomaly => ValidateAnomaly(),
+            AlertConditionKind.SloBurnRate => ValidateSloBurnRate(),
             _ => null,
         };
 
@@ -698,6 +716,8 @@ public sealed partial record AlertRuleRequest
             0 => null,
             _ when seriesKind == AlertConditionKind.ExceptionCount =>
                 "noDataWindowSeconds is not supported when conditionKind is ExceptionCount - zero exceptions is the healthy state, not missing data.",
+            _ when seriesKind == AlertConditionKind.SloBurnRate =>
+                "noDataWindowSeconds is not supported when conditionKind is SloBurnRate - a window with no requests has no burn rate, not a missing exporter.",
             < MinNoDataWindowSeconds =>
                 $"noDataWindowSeconds must be 0 (disabled) or at least {MinNoDataWindowSeconds}.",
             _ => null,
@@ -760,6 +780,36 @@ public sealed partial record AlertRuleRequest
     }
 
     /// <summary>
+    /// <see cref="AlertConditionKind.SloBurnRate"/> arm of <see cref="ValidateCondition"/>:
+    /// <see cref="SloCondition"/> set with an SLO id, a short window shorter than the long one,
+    /// both within <see cref="SloBurnRateCondition.MinWindowSeconds"/>..<see cref="SloBurnRateCondition.MaxWindowSeconds"/>,
+    /// <see cref="WindowSeconds"/> equal to the long window (so the history and the interval
+    /// check read it right), and a sane burn-rate threshold.
+    /// </summary>
+    private string? ValidateSloBurnRate()
+    {
+        if (SloCondition is not { } slo)
+        {
+            return "sloCondition is required when conditionKind is SloBurnRate.";
+        }
+
+        return slo switch
+        {
+            _ when slo.SloId == Guid.Empty => "sloCondition.sloId is required.",
+            _ when slo.LongWindowSeconds is < SloBurnRateCondition.MinWindowSeconds or > SloBurnRateCondition.MaxWindowSeconds
+                || slo.ShortWindowSeconds is < SloBurnRateCondition.MinWindowSeconds or > SloBurnRateCondition.MaxWindowSeconds =>
+                $"sloCondition windows must be between {SloBurnRateCondition.MinWindowSeconds} and {SloBurnRateCondition.MaxWindowSeconds} seconds.",
+            _ when slo.ShortWindowSeconds >= slo.LongWindowSeconds =>
+                "sloCondition.shortWindowSeconds must be shorter than longWindowSeconds.",
+            _ when WindowSeconds != slo.LongWindowSeconds =>
+                "windowSeconds must equal sloCondition.longWindowSeconds.",
+            _ when !(slo.BurnRateThreshold > 0 && slo.BurnRateThreshold <= SloBurnRateCondition.MaxBurnRateThreshold) =>
+                $"sloCondition.burnRateThreshold must be greater than 0 and at most {SloBurnRateCondition.MaxBurnRateThreshold}.",
+            _ => null,
+        };
+    }
+
+    /// <summary>
     /// <see cref="RecoveryThreshold"/> arm of <see cref="ValidateCondition"/>: finite, not for
     /// <see cref="AlertConditionKind.Anomaly"/>, and on the recovering side of the threshold -
     /// below it for the default "at or above" comparator, above it for
@@ -782,6 +832,11 @@ public sealed partial record AlertRuleRequest
         if (kind == AlertConditionKind.Anomaly)
         {
             return "recoveryThreshold is not supported when conditionKind is Anomaly - an anomaly rule has no fixed threshold to recover from.";
+        }
+
+        if (kind == AlertConditionKind.SloBurnRate)
+        {
+            return "recoveryThreshold is not supported when conditionKind is SloBurnRate - its short window already makes it recover quickly.";
         }
 
         var threshold = kind == AlertConditionKind.MetricThreshold ? MetricThresholdValue ?? 0 : Threshold.Count;

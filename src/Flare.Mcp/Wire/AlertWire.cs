@@ -44,11 +44,23 @@ internal sealed class AlertRuleWire
     /// <summary>See <c>Flare.Api.Model.AlertRule.ChannelIds</c>'s doc comment - saved notification-channel IDs this rule fans out to, instead of one of the legacy inline fields above. <see cref="AlertsListCommand"/> still only shows the count (see <c>DescribeChannel</c>), not each channel's name - resolving IDs to names via <c>flare notification-channels list</c> (<c>NotificationChannelsCommand.cs</c>) remains a named follow-up.</summary>
     public IReadOnlyList<Guid> ChannelIds { get; init; } = [];
 
-    /// <summary>"LogCount" | "MetricThreshold" | "ExceptionCount" | "Anomaly". Absent from older servers, where it reads as "LogCount".</summary>
+    /// <summary>"LogCount" | "MetricThreshold" | "ExceptionCount" | "Anomaly" | "SloBurnRate". Absent from older servers, where it reads as "LogCount".</summary>
     public string ConditionKind { get; init; } = "LogCount";
 
     /// <summary>Set only when <see cref="ConditionKind"/> is "Anomaly" - see <c>Flare.Api.Model.AnomalyCondition</c>.</summary>
     public AnomalyConditionWire? AnomalyCondition { get; init; }
+
+    /// <summary>Set only when <see cref="ConditionKind"/> is "SloBurnRate" - see <c>Flare.Api.Model.SloBurnRateCondition</c>.</summary>
+    public SloConditionWire? SloCondition { get; init; }
+}
+
+internal sealed class SloConditionWire
+{
+    public int LongWindowSeconds { get; init; }
+
+    public int ShortWindowSeconds { get; init; }
+
+    public double BurnRateThreshold { get; init; }
 }
 
 internal sealed class AnomalyConditionWire

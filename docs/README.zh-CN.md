@@ -46,6 +46,7 @@
 - [查找 N+1 查询](how-to/find-n-plus-one-queries.zh-CN.md)
 - [查找 .NET 运行时健康问题](how-to/find-runtime-health-problems.zh-CN.md)
 - [对比服务的两次部署](how-to/compare-deploys.zh-CN.md)
+- [定义 SLO 并在错误预算被快速消耗时收到告警](how-to/define-slos.zh-CN.md)
 - [按 span 之间的关系查找追踪](how-to/find-traces-by-structure.zh-CN.md)
 - [将异常堆栈跟踪链接到源代码](how-to/link-exceptions-to-source-code.zh-CN.md)
 - [获取已触发告警的 AI 摘要](how-to/summarize-alerts-with-ai.zh-CN.md)

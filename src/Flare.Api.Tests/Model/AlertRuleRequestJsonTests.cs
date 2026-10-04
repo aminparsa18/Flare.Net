@@ -163,4 +163,22 @@ public class AlertQueryServiceDefaultsTests
         Assert.Equal("oncall@example.com", defaults.EmailTo);
         Assert.Equal("R0123456789ABCDEF0123456789ABCDE", defaults.PagerDutyRoutingKey);
     }
+
+    [Fact]
+    public void Deserialize_SloBurnRateCondition_RoundTripsThroughTheAlertsContext()
+    {
+        const string json = """
+            {"name":"x","threshold":{"count":1},"windowSeconds":3600,"conditionKind":"SloBurnRate",
+             "sloCondition":{"sloId":"aaaaaaaa-0000-0000-0000-000000000001","longWindowSeconds":3600,"shortWindowSeconds":300,"burnRateThreshold":14.4}}
+            """;
+
+        var request = JsonSerializer.Deserialize(json, AlertsJsonContext.Default.AlertRuleRequest)!;
+
+        Assert.Equal(AlertConditionKind.SloBurnRate, request.ConditionKind);
+        Assert.Equal(14.4, request.SloCondition!.BurnRateThreshold);
+        Assert.Null(request.ValidateCondition());
+
+        var stored = JsonSerializer.Serialize(request.SloCondition, AlertsJsonContext.Default.SloBurnRateCondition);
+        Assert.Equal(request.SloCondition, JsonSerializer.Deserialize(stored, AlertsJsonContext.Default.SloBurnRateCondition));
+    }
 }

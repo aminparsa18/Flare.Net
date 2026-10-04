@@ -75,7 +75,12 @@ internal sealed class AlertsListCommand : AsyncCommand<AlertsListCommand.Setting
             table.AddRow(
                 Markup.Escape(rule.Name),
                 enabled,
-                rule is { ConditionKind: "Anomaly", AnomalyCondition: { } anomaly } ? DescribeAnomaly(anomaly) : $"{comparator} {rule.Threshold.Count}",
+                rule switch
+                {
+                    { ConditionKind: "Anomaly", AnomalyCondition: { } anomaly } => DescribeAnomaly(anomaly),
+                    { ConditionKind: "SloBurnRate", SloCondition: { } slo } => $"burn >= {slo.BurnRateThreshold.ToString(CultureInfo.InvariantCulture)}x over {FormatWindow(slo.LongWindowSeconds)} and {FormatWindow(slo.ShortWindowSeconds)}",
+                    _ => $"{comparator} {rule.Threshold.Count}",
+                },
                 FormatWindow(rule.WindowSeconds),
                 DescribeChannel(rule),
                 $"[grey]{rule.Id}[/]");
@@ -205,6 +210,8 @@ internal sealed class AlertsTestCommand : AsyncCommand<AlertsTestCommand.Setting
                 $"[yellow]Insufficient data[/]: only {result.DataPointCount} data point(s) in the last {result.WindowSeconds}s - below the rule's minimum, so it can't fire",
             { ConditionKind: "Anomaly", ZScore: { } z, BaselineMean: { } mean } =>
                 $"Observed: {FormatNumber(result.ObservedValue)} vs baseline mean {FormatNumber(mean)} (z = {z.ToString("+0.00;-0.00", CultureInfo.InvariantCulture)}, {result.BaselineSampleCount} baseline windows, window: {result.WindowSeconds}s)",
+            { ConditionKind: "SloBurnRate" } =>
+                $"Burn rate over the long window: {FormatNumber(result.ObservedValue)}x (window: {result.WindowSeconds}s; fires only if the short window is burning too)",
             { ConditionKind: "Anomaly" } =>
                 $"[yellow]Not enough history[/]: only {result.BaselineSampleCount} baseline window(s) had data - an anomaly rule needs at least 3 before it can fire",
             _ => $"Observed count: {result.ObservedCount} (window: {result.WindowSeconds}s)",

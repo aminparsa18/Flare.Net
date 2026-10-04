@@ -72,6 +72,7 @@ import { AlertNotificationPreview as GeneratedAlertNotificationPreview } from '$
 import { MetricAlertCondition as GeneratedMetricAlertCondition } from '$lib/memorypack/MetricAlertCondition';
 import { ExceptionCountCondition as GeneratedExceptionCountCondition } from '$lib/memorypack/ExceptionCountCondition';
 import { AnomalyCondition as GeneratedAnomalyCondition } from '$lib/memorypack/AnomalyCondition';
+import { SloBurnRateCondition as GeneratedSloBurnRateCondition } from '$lib/memorypack/SloBurnRateCondition';
 import { type ExceptionFilter, toGeneratedExceptionFilter, fromGeneratedExceptionFilter } from './errors-api';
 
 // ---- Shared shapes (AlertModels.cs) ---------------------------------------
@@ -121,6 +122,18 @@ export interface AlertThreshold {
  * `AlertRule.condition`'s comment. `exceptionMessage` empty/undefined matches every message
  * for `exceptionType` - see `ExceptionCountCondition.ExceptionMessage`'s C#-side doc comment.
  */
+/**
+ * An `'SloBurnRate'` rule's condition - breached when the SLO's error-budget burn rate is at or
+ * above `burnRateThreshold` over BOTH windows. `windowSeconds` on the rule must equal
+ * `longWindowSeconds`. See `docs-internal/adr/0108-slo-error-budgets.md`.
+ */
+export interface SloBurnRateCondition {
+	sloId: string;
+	longWindowSeconds: number;
+	shortWindowSeconds: number;
+	burnRateThreshold: number;
+}
+
 export interface ExceptionCountCondition {
 	exceptionType: string;
 	exceptionMessage?: string;
@@ -189,6 +202,8 @@ export interface AlertRule {
 	thresholdUnit: string;
 	/** User-defined key/value labels (`team=payments`) - filterable, exposed to templates/webhooks, matched by maintenance windows (ADR-0084). */
 	labels: Record<string, string>;
+	/** Set only when `conditionKind` is `'SloBurnRate'`. */
+	sloCondition?: SloBurnRateCondition;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -217,6 +232,8 @@ export interface AlertRuleRequest {
 	/** See `AlertRule.evaluationIntervalSeconds`. Omitted/undefined means 0 (every poll tick). */
 	evaluationIntervalSeconds?: number;
 	anomalyCondition?: AnomalyCondition;
+	/** See `AlertRule.sloCondition`. */
+	sloCondition?: SloBurnRateCondition;
 	/** See `AlertRule.minDataPoints`. Omitted/undefined means 0 (disabled). */
 	minDataPoints?: number;
 	/** See `AlertRule.notificationTitleTemplate`. Omitted/undefined means '' (built-in). */
@@ -417,6 +434,26 @@ function toGeneratedAnomalyCondition(condition: AnomalyCondition | undefined): G
 	return dto;
 }
 
+function toSloBurnRateCondition(dto: GeneratedSloBurnRateCondition | null): SloBurnRateCondition | undefined {
+	if (dto == null) return undefined;
+	return {
+		sloId: dto.sloId,
+		longWindowSeconds: dto.longWindowSeconds,
+		shortWindowSeconds: dto.shortWindowSeconds,
+		burnRateThreshold: dto.burnRateThreshold
+	};
+}
+
+function toGeneratedSloBurnRateCondition(condition: SloBurnRateCondition | undefined): GeneratedSloBurnRateCondition | null {
+	if (condition == null) return null;
+	const dto = new GeneratedSloBurnRateCondition();
+	dto.sloId = condition.sloId;
+	dto.longWindowSeconds = condition.longWindowSeconds;
+	dto.shortWindowSeconds = condition.shortWindowSeconds;
+	dto.burnRateThreshold = condition.burnRateThreshold;
+	return dto;
+}
+
 function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 	return {
 		id: dto.id,
@@ -448,7 +485,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		recoveryThreshold: dto.recoveryThreshold,
 		severity: alertSeverityToString(dto.severity),
 		thresholdUnit: dto.thresholdUnit ?? '',
-		labels: dto.labels ?? {}
+		labels: dto.labels ?? {},
+		sloCondition: toSloBurnRateCondition(dto.sloCondition)
 	};
 }
 
@@ -489,6 +527,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.severity = request.severity == null ? null : alertSeverityFromString(request.severity);
 	dto.thresholdUnit = request.thresholdUnit || null;
 	dto.labels = request.labels ?? null;
+	dto.sloCondition = toGeneratedSloBurnRateCondition(request.sloCondition);
 	return dto;
 }
 
