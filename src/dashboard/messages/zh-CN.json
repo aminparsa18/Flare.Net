@@ -2697,5 +2697,21 @@
 	"settingsAppearance_monoLogsLabel": "日志消息使用等宽字体",
 	"settingsAppearance_monoLogsDescription": "以等宽字体显示日志正文。",
 	"settingsAppearance_highContrastLabel": "高对比度",
-	"settingsAppearance_highContrastDescription": "增强文字和边框的对比度。"
+	"settingsAppearance_highContrastDescription": "增强文字和边框的对比度。",
+	"settingsAppearance_accentHeading": "强调色",
+	"settingsAppearance_accent_default": "默认",
+	"settingsAppearance_accent_blue": "蓝色",
+	"settingsAppearance_accent_violet": "紫色",
+	"settingsAppearance_accent_green": "绿色",
+	"settingsAppearance_accent_orange": "橙色",
+	"settingsAppearance_accent_rose": "玫红",
+	"settingsAppearance_sidebarHoverExpandLabel": "悬停时展开",
+	"settingsAppearance_sidebarHoverExpandDescription": "鼠标悬停时，折叠的侧边栏浮动展开。",
+	"settingsRegional_navLabel": "区域",
+	"settingsRegional_title": "区域设置",
+	"settingsRegional_heading": "区域",
+	"settingsRegional_description": "语言和时区。用户菜单中保留了这些快捷入口。",
+	"settingsRegional_languageHeading": "语言",
+	"settingsRegional_timeZoneHeading": "显示时区",
+	"settingsRegional_timeZoneDescription": "仪表板中的时间戳将以此时区显示。"
 }

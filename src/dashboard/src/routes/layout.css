@@ -223,3 +223,65 @@ html.dark[data-high-contrast='true'] {
 	--border: oklch(1 0 0 / 40%);
 	--input: oklch(1 0 0 / 45%);
 }
+
+/* Settings > Appearance accent colour: overrides the primary (buttons, links, focus ring). */
+html[data-accent='blue'] {
+	--primary: oklch(0.55 0.2 255);
+	--primary-foreground: oklch(0.985 0 0);
+	--ring: oklch(0.55 0.2 255);
+	--sidebar-primary: oklch(0.55 0.2 255);
+}
+html.dark[data-accent='blue'] {
+	--primary: oklch(0.65 0.2 255);
+	--primary-foreground: oklch(0.145 0 0);
+	--ring: oklch(0.65 0.2 255);
+	--sidebar-primary: oklch(0.65 0.2 255);
+}
+html[data-accent='violet'] {
+	--primary: oklch(0.55 0.22 293);
+	--primary-foreground: oklch(0.985 0 0);
+	--ring: oklch(0.55 0.22 293);
+	--sidebar-primary: oklch(0.55 0.22 293);
+}
+html.dark[data-accent='violet'] {
+	--primary: oklch(0.65 0.22 293);
+	--primary-foreground: oklch(0.145 0 0);
+	--ring: oklch(0.65 0.22 293);
+	--sidebar-primary: oklch(0.65 0.22 293);
+}
+html[data-accent='green'] {
+	--primary: oklch(0.55 0.16 150);
+	--primary-foreground: oklch(0.985 0 0);
+	--ring: oklch(0.55 0.16 150);
+	--sidebar-primary: oklch(0.55 0.16 150);
+}
+html.dark[data-accent='green'] {
+	--primary: oklch(0.65 0.16 150);
+	--primary-foreground: oklch(0.145 0 0);
+	--ring: oklch(0.65 0.16 150);
+	--sidebar-primary: oklch(0.65 0.16 150);
+}
+html[data-accent='orange'] {
+	--primary: oklch(0.62 0.18 50);
+	--primary-foreground: oklch(0.985 0 0);
+	--ring: oklch(0.62 0.18 50);
+	--sidebar-primary: oklch(0.62 0.18 50);
+}
+html.dark[data-accent='orange'] {
+	--primary: oklch(0.72 0.18 50);
+	--primary-foreground: oklch(0.145 0 0);
+	--ring: oklch(0.72 0.18 50);
+	--sidebar-primary: oklch(0.72 0.18 50);
+}
+html[data-accent='rose'] {
+	--primary: oklch(0.58 0.21 12);
+	--primary-foreground: oklch(0.985 0 0);
+	--ring: oklch(0.58 0.21 12);
+	--sidebar-primary: oklch(0.58 0.21 12);
+}
+html.dark[data-accent='rose'] {
+	--primary: oklch(0.68 0.21 12);
+	--primary-foreground: oklch(0.145 0 0);
+	--ring: oklch(0.68 0.21 12);
+	--sidebar-primary: oklch(0.68 0.21 12);
+}

@@ -15,6 +15,8 @@ export type NavLayout = 'top' | 'sidebar';
 export type Density = 'comfortable' | 'compact';
 export type FontSize = 'small' | 'default' | 'large';
 export type ContentWidth = 'full' | 'centered';
+export const ACCENTS = ['default', 'blue', 'violet', 'green', 'orange', 'rose'] as const;
+export type Accent = (typeof ACCENTS)[number];
 
 export interface AppearancePrefs {
 	navLayout: NavLayout;
@@ -27,6 +29,9 @@ export interface AppearancePrefs {
 	/** Monospace font for log message bodies. */
 	monoLogs: boolean;
 	highContrast: boolean;
+	accent: Accent;
+	/** Sidebar layout, collapsed rail only: float open while hovered. */
+	sidebarHoverExpand: boolean;
 }
 
 export const DEFAULTS: AppearancePrefs = {
@@ -37,7 +42,9 @@ export const DEFAULTS: AppearancePrefs = {
 	reduceMotion: false,
 	contentWidth: 'full',
 	monoLogs: false,
-	highContrast: false
+	highContrast: false,
+	accent: 'default',
+	sidebarHoverExpand: false
 };
 
 function pick<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -53,7 +60,9 @@ function parse(s: Partial<Record<keyof AppearancePrefs, unknown>>): AppearancePr
 		reduceMotion: typeof s.reduceMotion === 'boolean' ? s.reduceMotion : DEFAULTS.reduceMotion,
 		contentWidth: pick(s.contentWidth, ['full', 'centered'], DEFAULTS.contentWidth),
 		monoLogs: typeof s.monoLogs === 'boolean' ? s.monoLogs : DEFAULTS.monoLogs,
-		highContrast: typeof s.highContrast === 'boolean' ? s.highContrast : DEFAULTS.highContrast
+		highContrast: typeof s.highContrast === 'boolean' ? s.highContrast : DEFAULTS.highContrast,
+		accent: pick(s.accent, ACCENTS, DEFAULTS.accent),
+		sidebarHoverExpand: typeof s.sidebarHoverExpand === 'boolean' ? s.sidebarHoverExpand : DEFAULTS.sidebarHoverExpand
 	};
 }
 
@@ -79,6 +88,8 @@ class AppearanceSettings {
 	contentWidth = $state<ContentWidth>(DEFAULTS.contentWidth);
 	monoLogs = $state(DEFAULTS.monoLogs);
 	highContrast = $state(DEFAULTS.highContrast);
+	accent = $state<Accent>(DEFAULTS.accent);
+	sidebarHoverExpand = $state(DEFAULTS.sidebarHoverExpand);
 
 	#pushTimer: ReturnType<typeof setTimeout> | undefined;
 	#synced = false;
@@ -133,6 +144,7 @@ class AppearanceSettings {
 		d.contentWidth = this.contentWidth;
 		d.monoLogs = String(this.monoLogs);
 		d.highContrast = String(this.highContrast);
+		d.accent = this.accent;
 	}
 
 	#assign(p: AppearancePrefs): void {
@@ -144,6 +156,8 @@ class AppearanceSettings {
 		this.contentWidth = p.contentWidth;
 		this.monoLogs = p.monoLogs;
 		this.highContrast = p.highContrast;
+		this.accent = p.accent;
+		this.sidebarHoverExpand = p.sidebarHoverExpand;
 	}
 
 	#snapshot(): AppearancePrefs {
@@ -155,7 +169,9 @@ class AppearanceSettings {
 			reduceMotion: this.reduceMotion,
 			contentWidth: this.contentWidth,
 			monoLogs: this.monoLogs,
-			highContrast: this.highContrast
+			highContrast: this.highContrast,
+			accent: this.accent,
+			sidebarHoverExpand: this.sidebarHoverExpand
 		};
 	}
 

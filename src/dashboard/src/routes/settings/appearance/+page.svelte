@@ -9,7 +9,16 @@
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
 	import PanelTopIcon from '@lucide/svelte/icons/panel-top';
 	import PanelLeftIcon from '@lucide/svelte/icons/panel-left';
+	import { ACCENTS } from '$lib/appearance/prefs.svelte';
 	import * as m from '$lib/paraglide/messages';
+
+	const SWATCH: Record<string, string> = {
+		blue: 'oklch(0.55 0.2 255)',
+		violet: 'oklch(0.55 0.22 293)',
+		green: 'oklch(0.55 0.16 150)',
+		orange: 'oklch(0.62 0.18 50)',
+		rose: 'oklch(0.58 0.21 12)'
+	};
 
 	type Mode = 'light' | 'dark' | 'system';
 </script>
@@ -62,7 +71,35 @@
 				</span>
 				<Switch checked={appearance.sidebarCollapsed} onCheckedChange={(v) => appearance.set('sidebarCollapsed', v)} />
 			</label>
+			{#if appearance.sidebarCollapsed}
+				<label class="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm">
+					<span>
+						<span class="block font-medium">{m.settingsAppearance_sidebarHoverExpandLabel()}</span>
+						<span class="text-muted-foreground text-xs">{m.settingsAppearance_sidebarHoverExpandDescription()}</span>
+					</span>
+					<Switch checked={appearance.sidebarHoverExpand} onCheckedChange={(v) => appearance.set('sidebarHoverExpand', v)} />
+				</label>
+			{/if}
 		{/if}
+	</section>
+
+	<section class="flex flex-col gap-3">
+		<h3 class="font-medium">{m.settingsAppearance_accentHeading()}</h3>
+		<div class="flex flex-wrap gap-2" role="radiogroup" aria-label={m.settingsAppearance_accentHeading()}>
+			{#each ACCENTS as accent (accent)}
+				<button
+					type="button"
+					role="radio"
+					aria-checked={appearance.accent === accent}
+					data-accent={accent}
+					class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm {appearance.accent === accent ? 'border-primary ring-primary/40 ring-2' : ''}"
+					onclick={() => appearance.set('accent', accent)}
+				>
+					<span class="size-4 rounded-full border" style={accent === 'default' ? 'background: var(--foreground)' : `background: ${SWATCH[accent]}`}></span>
+					{m[`settingsAppearance_accent_${accent}`]()}
+				</button>
+			{/each}
+		</div>
 	</section>
 
 	<section class="flex flex-col gap-3">

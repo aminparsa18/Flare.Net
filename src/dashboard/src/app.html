@@ -37,6 +37,7 @@
 				if (a.contentWidth === 'centered') d.contentWidth = 'centered';
 				if (a.monoLogs === true) d.monoLogs = 'true';
 				if (a.highContrast === true) d.highContrast = 'true';
+				if (typeof a.accent === 'string' && a.accent !== 'default') d.accent = a.accent;
 			} catch (e) {}
 		</script>
 		%sveltekit.head%
