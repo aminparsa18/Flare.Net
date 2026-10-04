@@ -8,6 +8,7 @@
 	import { cn } from '$lib/utils';
 	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import GlobeIcon from '@lucide/svelte/icons/globe';
+	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
 	import CompassIcon from '@lucide/svelte/icons/compass';
 	import * as m from '$lib/paraglide/messages';
 
@@ -16,7 +17,8 @@
 	const sections = $derived([
 		{ href: '/settings/appearance', label: m.settingsAppearance_navLabel(), icon: PaletteIcon },
 		{ href: '/settings/regional', label: m.settingsRegional_navLabel(), icon: GlobeIcon },
-		{ href: '/settings/explorer', label: m.settingsExplorer_navLabel(), icon: CompassIcon }
+		{ href: '/settings/explorer', label: m.settingsExplorer_navLabel(), icon: CompassIcon },
+		{ href: '/settings/keyboard', label: m.settingsKeyboard_navLabel(), icon: KeyboardIcon }
 	]);
 </script>
 

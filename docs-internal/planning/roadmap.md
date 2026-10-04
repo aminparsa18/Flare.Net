@@ -132,8 +132,6 @@ folders are where "what happened and why" actually lives.
     personal access tokens (move the existing `/access-tokens` page in),
     active sessions with sign-out-everywhere, and a data export of the
     user's own saved views and dashboards.
-  - **Keyboard**: shortcut cheat sheet and rebinding for the command
-    palette and explorer shortcuts.
   - **Workspace (admin-only, separate group)**: the instance-level pages
     that are top-level routes today (ingest keys, notification channels,
     maintenance windows, pipeline rules, audit log, indexing) grouped

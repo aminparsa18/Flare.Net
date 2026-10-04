@@ -21,6 +21,8 @@
 	// controls that would no-op. "Change Environment" and "Jump to Errors" are still out
 	// of scope - no Environment/Exceptions concept exists anywhere in this codebase yet.
 	import * as Command from '$lib/components/ui/command';
+	import { keyboardPrefs } from '$lib/keyboard/prefs.svelte';
+	import { firesInFields, isEditableTarget, matchesCombo } from '$lib/keyboard/shortcuts';
 	import { goto } from '$app/navigation';
 	import { authContext } from '$lib/auth/context';
 	import { navLinks, type NavLink } from './nav-links';
@@ -134,8 +136,8 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent): void {
-		if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-			e.preventDefault(); // stop the browser's own bookmark-bar/location-bar shortcut
+		if (matchesCombo(e, keyboardPrefs.combo('commandPalette')) && (firesInFields(keyboardPrefs.combo('commandPalette')) || !isEditableTarget(e.target))) {
+			e.preventDefault(); // stop the browser's own shortcut for this combo (Ctrl/Cmd+K is the bookmark/location bar)
 			open = true; // open-only - Escape/outside-click (free via Dialog.Root) are the only close paths
 		}
 	}
