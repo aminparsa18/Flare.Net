@@ -52,19 +52,20 @@ public static class NotificationChannelEndpoints
 
         var channel = await channels.CreateAsync(request, cancellationToken);
         AuditContext.SetResourceId(http, channel.Id);
-        return ApiSerialization.Write(http, channel, NotificationChannelsJsonContext.Default.NotificationChannel, statusCode: StatusCodes.Status201Created);
+        return ApiSerialization.Write(http, NotificationSecrets.Redact(channel), NotificationChannelsJsonContext.Default.NotificationChannel, statusCode: StatusCodes.Status201Created);
     }
 
+    // Every read masks credentials (see NotificationSecrets) - Viewers and PATs can list channels.
     private static async Task<IResult> HandleListAsync(HttpContext http, INotificationChannelQueryService channels, CancellationToken cancellationToken)
     {
         var list = await channels.ListAsync(cancellationToken);
-        return ApiSerialization.Write(http, new NotificationChannelListResponse { Channels = list }, NotificationChannelsJsonContext.Default.NotificationChannelListResponse);
+        return ApiSerialization.Write(http, new NotificationChannelListResponse { Channels = [.. list.Select(NotificationSecrets.Redact)] }, NotificationChannelsJsonContext.Default.NotificationChannelListResponse);
     }
 
     private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, INotificationChannelQueryService channels, CancellationToken cancellationToken)
     {
         var channel = await channels.GetAsync(id, cancellationToken);
-        return channel is null ? Results.NotFound() : ApiSerialization.Write(http, channel, NotificationChannelsJsonContext.Default.NotificationChannel);
+        return channel is null ? Results.NotFound() : ApiSerialization.Write(http, NotificationSecrets.Redact(channel), NotificationChannelsJsonContext.Default.NotificationChannel);
     }
 
     private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, INotificationChannelQueryService channels, CancellationToken cancellationToken)
@@ -84,19 +85,23 @@ public static class NotificationChannelEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        // A secret sent back as its own mask means "unchanged" - restore before validating,
+        // since a masked webhook URL wouldn't pass the URL checks.
+        var before = await channels.GetAsync(id, cancellationToken);
+        request = NotificationSecrets.Restore(request, before);
+
         if (request.ValidateDestination() is { } error)
         {
             return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var before = await channels.GetAsync(id, cancellationToken);
         var channel = await channels.UpdateAsync(id, request, cancellationToken);
         if (channel is not null)
         {
-            AuditContext.SetChange(http, NotificationChannelsJsonContext.Default.NotificationChannel, before, channel);
+            AuditContext.SetChange(http, NotificationChannelsJsonContext.Default.NotificationChannel, NotificationSecrets.RedactOrNull(before), NotificationSecrets.Redact(channel));
         }
 
-        return channel is null ? Results.NotFound() : ApiSerialization.Write(http, channel, NotificationChannelsJsonContext.Default.NotificationChannel);
+        return channel is null ? Results.NotFound() : ApiSerialization.Write(http, NotificationSecrets.Redact(channel), NotificationChannelsJsonContext.Default.NotificationChannel);
     }
 
     private static async Task<IResult> HandleDeleteAsync(Guid id, INotificationChannelQueryService channels, CancellationToken cancellationToken)

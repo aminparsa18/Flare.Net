@@ -104,3 +104,106 @@ folders are where "what happened and why" actually lives.
   stabilizes, store per-service profiles, and link spans to flame graphs of
   what the code was doing during that span. Placeholder for when the spec
   and .NET support settle. Not started.
+- **Mute a rule from the alerts list/detail.** The alerts list already shows
+  a "muted" state from maintenance windows, but muting means going to
+  Maintenance windows and building one by hand. Add a Mute action on each
+  rule with quick durations (15m/1h/4h/1d/1w, or until a date) and an
+  optional reason. It creates a one-off maintenance window scoped to that
+  rule (no new storage), plus a muted badge with the end time and an Unmute
+  that ends the window early. Not started. Prior art:
+  [signoz PR #11273](https://github.com/SigNoz/signoz/pull/11273) (open, unmerged).
+- **Recent log lines in LogCount alert notifications.** Notifications carry
+  the count and a "Matching logs" link but none of the lines themselves.
+  When a LogCount rule fires, fetch the newest ~5 matching events (same
+  filter and window as the evaluation, best-effort, so a failure never blocks
+  the notification), each truncated to ~500 chars. Expose them as a
+  `{{log_samples}}` template value (ADR-0052) and in the default message.
+  Skip for no-data alerts. Not started. Prior art:
+  [signoz PR #11537](https://github.com/SigNoz/signoz/pull/11537) (open, unmerged).
+- **Scheduled dashboard reports.** There's no way to email a dashboard on a
+  schedule (weekly SLO/latency report to a team). Add per-dashboard
+  schedules (cron, recipients, relative time range, variable values), a
+  runner in `Flare.AlertWorker` that renders the dashboard to PDF/PNG via
+  headless Chromium (Playwright) using a short-lived service token, sent
+  through the existing SMTP config, and run history with errors. Needs an
+  ADR (rendering dependency, auth). Not started. Prior art:
+  [signoz PR #10809](https://github.com/SigNoz/signoz/pull/10809) /
+  [#10810](https://github.com/SigNoz/signoz/pull/10810) (open, unmerged).
+- **Import/export alert rules.** Dashboards can be exported/imported, but
+  alert rules can't, and `flare alerts` is read-only. Add JSON export of
+  selected or all rules (channels and maintenance windows referenced by name,
+  ids dropped) and import with a dry-run summary (create/skip on name
+  conflict). Expose it via `flare alerts export|import` and buttons on the
+  alerts page. That enables GitOps and moving rules between instances. Not
+  started. Prior art:
+  [signoz PR #9505](https://github.com/SigNoz/signoz/pull/9505) (open, unmerged).
+- **"Did you mean…" for empty results caused by case.** Attribute filters
+  match exactly, so `level=warn` against data that says `Warn` silently
+  returns nothing. When a log/span search returns zero rows and used
+  `Equals`/`In` attribute filters, run one cheap capped query for
+  case-insensitive matches of those values in the same window. Offer
+  one-click replacements ("No results. Did you mean `Warn` (1,204)?"). Not
+  started. Prior art:
+  [signoz PR #10077](https://github.com/SigNoz/signoz/pull/10077) (open, unmerged).
+- **Regex filter on dashboard variable values.** Query-sourced variables
+  list every distinct value, so e.g. "only `prod-*` namespaces" or "strip the
+  `prod-` prefix" isn't possible. Add an optional regex on
+  `DashboardVariable` applied to the value list, default and "All". An
+  optional capture group extracts the displayed/substituted value
+  (`^prod-(.*)$`). Validate it in the variable form, and apply it
+  client-side so no API change is needed. Not started. Prior art:
+  [signoz PR #11816](https://github.com/SigNoz/signoz/pull/11816) (open, unmerged).
+- **Prometheus-compatible query API (subset).** Grafana and
+  `prometheus-adapter` (Kubernetes HPA on custom metrics) can't use Flare as
+  a data source. Add a read-only Prometheus HTTP API subset over the metric
+  tables: `/api/v1/series`, `/labels`, `/label/<name>/values`, and
+  `/query` + `/query_range` for simple selectors with `rate`/`increase`/
+  `sum|avg|max by (…)`/`histogram_quantile`. Map OTel names to Prometheus
+  conventions (dots → underscores, unit/type suffixes) and authenticate with
+  PATs. Unsupported PromQL returns a clear error rather than a partial
+  answer. Full PromQL is out of scope. Needs an ADR. Not started. Prior art:
+  [signoz PR #11555](https://github.com/SigNoz/signoz/pull/11555) (open, unmerged).
+- **Retry notification sends on 429/5xx.** `Webhook`/`Telegram`/`PagerDuty`
+  notifiers send once with no retry, so a rate-limited (HTTP 429) or briefly
+  failing endpoint silently drops the page. Add bounded retries with backoff
+  on 429 (honouring `Retry-After`), 5xx and timeouts via
+  `Microsoft.Extensions.Http.Resilience` on the notifier `HttpClient`s. Log
+  the final failure into alert history. Keep send-test single-shot so users
+  see the real error. Not started. Prior art:
+  [signoz PR #12892](https://github.com/SigNoz/signoz/pull/12892) (open, unmerged).
+- **Kubernetes events tab.** The `/kubernetes` page has nodes, pods,
+  workloads and volumes but no events. The collector's `k8sobjects` receiver
+  (watch `events`) delivers them as OTLP logs. Add an Events tab filtering
+  those logs (reason, Normal/Warning type, involved object kind/name,
+  namespace) with links from each pod/node detail to its events, and a
+  data-sources docs snippet for the receiver config. No new storage. Not
+  started. Prior art:
+  [signoz PR #12803](https://github.com/SigNoz/signoz/pull/12803) (open, unmerged).
+- **Per-dashboard default time range.** Dashboards open with the viewer's
+  last-used range, so a "last 7 days" capacity dashboard opens at 1h. Add an
+  optional default range to the dashboard (owner-set in settings), applied on
+  open unless the URL carries an explicit range (composes with the
+  dashboard-URL-state item). Not started. Prior art:
+  [signoz PR #12861](https://github.com/SigNoz/signoz/pull/12861) (open, unmerged).
+- **"Around a time" in the time picker.** Incident work starts from one
+  timestamp (an alert, a log line, a span), but the picker offers only
+  presets and absolute ranges. Add an "Around" mode: paste or pick a time
+  (display time zone) and a ± window (1m/5m/15m/1h) that sets the absolute
+  range. Also add a "Show ±5m around this" action on log rows and spans.
+  Not started. Prior art:
+  [signoz PR #12579](https://github.com/SigNoz/signoz/pull/12579) (open, unmerged).
+- **Repeat a panel per variable value.** No way to get "one latency panel per
+  selected service" without duplicating panels by hand. Add a panel option
+  "repeat for variable X" (multi-value variables, ADR-0058) that renders one
+  copy per selected value with that variable pinned, laid out horizontally
+  or vertically. Copies are view-only and derived at render time, not
+  stored. Not started. Prior art:
+  [signoz PR #12605](https://github.com/SigNoz/signoz/pull/12605) (open, unmerged).
+- **Investigate: do attribute filters use the `mapValues` bloom indexes?**
+  Migrations define `bloom_filter` indexes on `mapValues(LogAttributes)`,
+  `ResourceAttributes` and `SpanAttributes`, but `AttributeClause` emits
+  `mapContains(...)` + `map[key] = v`. Check with `EXPLAIN indexes = 1` on a
+  realistic dataset whether those indexes skip granules. If not, add a
+  redundant `has(mapValues(map), v)` predicate for `Equals`/`In` and record
+  the before/after in `docs-internal/investigations/`. Not started. Prior art:
+  [signoz PR #12614](https://github.com/SigNoz/signoz/pull/12614) (open, unmerged).
