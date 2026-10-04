@@ -342,6 +342,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<HostStatsPoller>()
 // independent of the poll loop - Flare.AlertWorker reuses these same types via a
 // ProjectReference rather than a second copy.
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.AddSingleton<Flare.Api.Auth.IPasswordResetMailer, Flare.Api.Auth.PasswordResetMailer>();
 // The dashboard's public base URL, for the deep link every notifier appends to a fired
 // alert - blank (no link) unless an operator sets it. Same "Alerting" section
 // AlertingOptions.PollInterval/MaxRulesPerTick bind from in Flare.AlertWorker, via its own

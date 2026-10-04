@@ -77,6 +77,7 @@ export interface BootstrapStatusResponse {
 	 * `loginViaProxy()` automatically (see ProxyAuthLoginEndpoints' own disabled-gate
 	 * 404), since there's no user action to trigger. */
 	proxyAuthEnabled: boolean;
+	passwordResetEmailEnabled: boolean;
 }
 
 function toBootstrapStatusResponse(dto: GeneratedBootstrapStatusResponse): BootstrapStatusResponse {
@@ -88,7 +89,8 @@ function toBootstrapStatusResponse(dto: GeneratedBootstrapStatusResponse): Boots
 		ldapEnabled: dto.ldapEnabled,
 		oidcEnabled: dto.oidcEnabled,
 		oidcDisplayName: dto.oidcDisplayName,
-		proxyAuthEnabled: dto.proxyAuthEnabled
+		proxyAuthEnabled: dto.proxyAuthEnabled,
+		passwordResetEmailEnabled: dto.passwordResetEmailEnabled
 	};
 }
 

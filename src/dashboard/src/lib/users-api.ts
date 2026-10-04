@@ -134,3 +134,9 @@ export async function changeOwnPassword(currentPassword: string, newPassword: st
 	if (res.status === 400) throw new Error('invalid');
 	if (!res.ok) throw new Error(`POST /api/auth/password failed: ${res.status} ${res.statusText}`);
 }
+
+/** `POST /api/auth/forgot-password` - emails a reset link when the account exists; always resolves the same way so it can't be used to probe usernames. */
+export async function requestPasswordReset(username: string): Promise<void> {
+	const res = await postJson('/api/auth/forgot-password', { username });
+	if (!res.ok) throw new Error(`POST /api/auth/forgot-password failed: ${res.status} ${res.statusText}`);
+}

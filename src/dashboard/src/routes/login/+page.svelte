@@ -15,6 +15,7 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { authContext } from '$lib/auth/context';
+	import { requestPasswordReset } from '$lib/users-api';
 	import { getBootstrapStatus, startEntraLogin, startOidcLogin, type BootstrapStatusResponse } from '$lib/auth-api';
 	import * as m from '$lib/paraglide/messages';
 
@@ -88,6 +89,26 @@
 	const passwordsMatch = $derived(confirmPassword.length === 0 || password === confirmPassword);
 	const canSubmitBootstrap = $derived(username.trim().length > 0 && password.length >= 8 && password === confirmPassword);
 
+	let forgotMode = $state(false);
+	let forgotBusy = $state(false);
+	let forgotSent = $state(false);
+	let forgotError = $state<string | null>(null);
+	const showForgotLink = $derived(!showBootstrap && !usingLdap && showLocalForm && status?.passwordResetEmailEnabled === true);
+
+	async function handleForgot(event: SubmitEvent) {
+		event.preventDefault();
+		forgotBusy = true;
+		forgotError = null;
+		try {
+			await requestPasswordReset(username.trim());
+			forgotSent = true;
+		} catch (err) {
+			forgotError = String(err);
+		} finally {
+			forgotBusy = false;
+		}
+	}
+
 	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		if (showBootstrap) {
@@ -118,6 +139,9 @@
 			{#if showBootstrap}
 				<Card.Title>{m.login_createAdminTitle()}</Card.Title>
 				<Card.Description>{m.login_createAdminDescription()}</Card.Description>
+			{:else if forgotMode}
+				<Card.Title>{m.login_forgotTitle()}</Card.Title>
+				<Card.Description>{m.login_forgotDescription()}</Card.Description>
 			{:else}
 				<Card.Title>{m.login_signInTitle()}</Card.Title>
 				<Card.Description>{m.login_signInDescription()}</Card.Description>
@@ -126,6 +150,22 @@
 		<Card.Content>
 			{#if showProxyAuthLoading}
 				<div class="flex justify-center py-4"><Spinner /></div>
+			{:else if forgotMode}
+				<form class="flex flex-col gap-3" onsubmit={handleForgot}>
+					{#if forgotSent}
+						<Alert><AlertDescription>{m.login_forgotSent()}</AlertDescription></Alert>
+					{:else}
+						{#if forgotError}
+							<Alert variant="destructive"><AlertDescription>{forgotError}</AlertDescription></Alert>
+						{/if}
+						<div class="flex flex-col gap-1">
+							<label for="forgot-username" class="text-xs font-medium">{m.login_usernameLabel()}</label>
+							<Input id="forgot-username" bind:value={username} autocomplete="username" autofocus required />
+						</div>
+						<Button type="submit" disabled={forgotBusy}>{m.login_forgotSend()}</Button>
+					{/if}
+					<Button type="button" variant="ghost" onclick={() => { forgotMode = false; forgotSent = false; forgotError = null; }}>{m.login_forgotBack()}</Button>
+				</form>
 			{:else}
 				{#if ssoError}
 					<Alert variant="destructive" class="mb-3">
@@ -229,6 +269,11 @@
 								{showBootstrap ? m.login_createAdminAccount() : m.login_signIn()}
 							{/if}
 						</Button>
+						{#if showForgotLink}
+							<button type="button" class="text-muted-foreground hover:text-foreground text-center text-xs underline" onclick={() => (forgotMode = true)}>
+								{m.login_forgotPassword()}
+							</button>
+						{/if}
 					</form>
 				{:else if !showEntraButton && !showOidcButton && !proxyAuthFailed}
 					<p class="text-muted-foreground text-sm">{m.login_noMethodConfigured()}</p>
