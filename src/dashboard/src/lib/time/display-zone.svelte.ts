@@ -3,8 +3,7 @@
 // named IANA zone. Picked from the user menu (NavUserMenu.svelte); ./format.ts's formatters
 // all read it, so switching re-renders every timestamp on the page at once.
 //
-// Per-browser preference in localStorage, same as $lib/logs/pinned-attributes - no
-// server-side user settings store exists, and a display preference doesn't warrant one.
+// Cached in localStorage and synced per user through $lib/regional (ADR-0110).
 import { browser } from '$app/environment';
 import { browserTimeZone, instantToZoned, zonedToInstant } from './time-zone';
 
@@ -37,6 +36,9 @@ function load(): DisplayTimeZone {
 class DisplayTimeZoneSetting {
 	zone = $state<DisplayTimeZone>(load());
 
+	/** Called after a user-initiated change; $lib/regional wires this to server sync. */
+	onChange: (() => void) | undefined;
+
 	/** The concrete IANA zone `zone` stands for - resolves 'local' to the browser's. */
 	get resolved(): string {
 		return this.zone === 'local' ? browserTimeZone() : this.zone;
@@ -47,9 +49,10 @@ class DisplayTimeZoneSetting {
 		return this.zone === 'local' || this.zone === browserTimeZone();
 	}
 
-	set(zone: DisplayTimeZone): void {
+	set(zone: DisplayTimeZone, options: { silent?: boolean } = {}): void {
 		if (zone !== 'local' && !isValidZone(zone)) return;
 		this.zone = zone;
+		if (!options.silent) this.onChange?.();
 		if (!browser) return;
 		try {
 			localStorage.setItem(STORAGE_KEY, zone);
@@ -79,8 +82,11 @@ export function startOfDisplayDay(at: Date, daysBack = 0): Date {
 	return zonedToInstant(`${day}T00:00`, zone);
 }
 
-/** Monday-based (ISO 8601) week start, in the display zone, of the week `at` falls in. */
-export function startOfDisplayWeek(at: Date): Date {
+/** First day of the week as a `Date#getDay` index (0=Sun..6=Sat), set from Settings > Regional. */
+export const WEEK_START_DAY: Record<'monday' | 'sunday' | 'saturday', number> = { monday: 1, sunday: 0, saturday: 6 };
+
+/** Start, in the display zone, of the week `at` falls in; the first day follows `weekStartDay` (Monday, ISO 8601, by default). */
+export function startOfDisplayWeek(at: Date, weekStartDay = 1): Date {
 	let weekday: number; // 0=Sun..6=Sat, as Date#getDay
 	if (displayTimeZone.isLocal) {
 		weekday = at.getDay();
@@ -88,5 +94,5 @@ export function startOfDisplayWeek(at: Date): Date {
 		const [y, m, d] = instantToZoned(at, displayTimeZone.resolved).slice(0, 10).split('-').map(Number);
 		weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 	}
-	return startOfDisplayDay(at, weekday === 0 ? 6 : weekday - 1);
+	return startOfDisplayDay(at, (weekday - weekStartDay + 7) % 7);
 }

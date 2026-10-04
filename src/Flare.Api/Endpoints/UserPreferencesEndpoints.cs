@@ -15,7 +15,7 @@ public static class UserPreferencesEndpoints
     internal const int MaxBytes = 4096;
 
     /// <summary>Preference groups the dashboard may store. An allow-list keeps the table from becoming arbitrary storage.</summary>
-    internal static readonly string[] AllowedKeys = ["appearance"];
+    internal static readonly string[] AllowedKeys = ["appearance", "regional"];
 
     public static IEndpointRouteBuilder MapUserPreferencesEndpoints(this IEndpointRouteBuilder endpoints)
     {

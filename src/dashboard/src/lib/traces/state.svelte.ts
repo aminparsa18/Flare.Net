@@ -5,6 +5,7 @@
 // waterfall/detail view is the value being built, not a live span firehose), so this is
 // simpler than LogsExplorerState: no connection/live/dropped-count fields at all.
 
+import { regional } from '$lib/regional/prefs.svelte';
 import { SPAN_SORT_KEYS, getSpanAttributeValues, searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey, type TraceStructureFilter } from '$lib/traces-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { findCaseSuggestions, applyCaseSuggestion as applyCaseSuggestionTo, type CaseSuggestion } from '$lib/case-suggestions';
@@ -62,7 +63,7 @@ function emptyFilter(timeRangePreset: TimeRangePreset, services: string[] = [], 
 }
 
 export class TracesExplorerState {
-	filter = $state<TracesFilterState>(emptyFilter('1h'));
+	filter = $state<TracesFilterState>(emptyFilter(regional.defaultRanges.traces));
 
 	// One row per trace (root spans), or per service request in `entrySpansOnly` mode -
 	// see `rowKey`. Never mutated in place, always a wholesale

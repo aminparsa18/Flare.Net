@@ -31,5 +31,11 @@ Settings > Appearance (nav layout, density, text size, content width, ...) lived
 - Last write wins; two browsers editing at once can overwrite each other. Acceptable for UI prefs.
 - A user's first browser after upgrade seeds the server copy; a second browser with different
   local prefs adopts the server's on next load.
-- Theme (mode-watcher), language and display time zone are still local-only; moving them into this
-  document is a follow-up.
+- Allow-listed keys: `appearance` and `regional`. Theme joins the `appearance` document (mode-watcher
+  still owns the pre-paint class; the root layout feeds its choice into the synced prefs and applies
+  the server's choice with `setMode`). The `regional` document carries language, display time zone,
+  time format, date order, first day of week and each explorer's default time range.
+- Changing language reloads the page and the server copy would win on reload, so the new language is
+  pushed before `setLocale` runs.
+- Default time ranges are read when an explorer's state is constructed, so a server value fetched in
+  a browser that has never seen it applies from the next page load.

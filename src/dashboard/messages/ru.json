@@ -2713,5 +2713,21 @@
 	"settingsRegional_description": "Язык и часовой пояс. В меню пользователя остаются ярлыки для них.",
 	"settingsRegional_languageHeading": "Язык",
 	"settingsRegional_timeZoneHeading": "Часовой пояс отображения",
-	"settingsRegional_timeZoneDescription": "Метки времени в панели показываются в этом часовом поясе."
+	"settingsRegional_timeZoneDescription": "Метки времени в панели показываются в этом часовом поясе.",
+	"settingsRegional_timeFormatHeading": "Формат времени",
+	"settingsRegional_timeFormat24h": "24-часовой",
+	"settingsRegional_timeFormat12h": "12-часовой (AM/PM)",
+	"settingsRegional_dateOrderHeading": "Формат даты",
+	"settingsRegional_sample": "Пример: {sample}",
+	"settingsRegional_weekStartHeading": "Первый день недели",
+	"settingsRegional_weekStartDescription": "Используется диапазоном «Эта неделя».",
+	"settingsRegional_weekMonday": "Понедельник",
+	"settingsRegional_weekSunday": "Воскресенье",
+	"settingsRegional_weekSaturday": "Суббота",
+	"settingsRegional_defaultRangeHeading": "Диапазон времени по умолчанию",
+	"settingsRegional_defaultRangeDescription": "Диапазон, с которым открывается каждый обозреватель.",
+	"settingsRegional_defaultRangeNote": "Применяется при следующей загрузке страницы; сохранённые представления и ссылки сохраняют свой диапазон.",
+	"settingsRegional_explorerLogs": "Логи",
+	"settingsRegional_explorerTraces": "Трассы",
+	"settingsRegional_explorerMetrics": "Метрики"
 }

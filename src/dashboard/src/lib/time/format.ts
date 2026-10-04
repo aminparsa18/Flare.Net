@@ -1,7 +1,8 @@
 // The one place every displayed timestamp is formatted - tables, log/trace rows, detail
 // sheets, chart axes/tooltips, the terminal. Everything renders in the display time zone
-// (./display-zone.svelte.ts) and always 24-hour, so switching the zone or reading two
-// screens side by side never shows the same instant two different ways.
+// (./display-zone.svelte.ts), and in the user's chosen clock (24h by default) and date order
+// (ISO by default) from $lib/regional - one choice applied everywhere, so two screens side by
+// side never show the same instant two different ways.
 //
 // Built from wall-clock parts rather than toLocaleString: the numeric shapes below
 // (YYYY-MM-DD HH:mm:ss.SSS etc.) are fixed-width regardless of locale, which the
@@ -12,6 +13,7 @@
 // Callers inside a template/$derived re-run automatically when the zone changes, since
 // every function here reads displayTimeZone.zone.
 import { getLocale } from '$lib/paraglide/runtime';
+import { regional } from '$lib/regional/prefs.svelte';
 import { displayTimeZone } from './display-zone.svelte';
 
 export type TimeInput = string | number | Date;
@@ -84,10 +86,38 @@ function wallClock(value: TimeInput): WallClock {
 
 const pad = (n: number, len = 2) => String(n).padStart(len, '0');
 
-const ymd = (c: WallClock) => `${c.year}-${pad(c.month)}-${pad(c.day)}`;
-const hm = (c: WallClock) => `${pad(c.hour)}:${pad(c.minute)}`;
-const hms = (c: WallClock) => `${hm(c)}:${pad(c.second)}`;
-const hmsms = (c: WallClock) => `${hms(c)}.${pad(c.ms, 3)}`;
+/** Hour/minute/second joined in the chosen clock; 12h stays fixed-width (`02:03 PM`) for the monospace columns. */
+function clock(c: WallClock, tail: string): string {
+	if (regional.timeFormat === '24h') return `${pad(c.hour)}:${tail}`;
+	const h = c.hour % 12 === 0 ? 12 : c.hour % 12;
+	return `${pad(h)}:${tail}`;
+}
+const suffix = (c: WallClock) => (regional.timeFormat === '24h' ? '' : c.hour < 12 ? ' AM' : ' PM');
+
+const ymd = (c: WallClock) => {
+	switch (regional.dateOrder) {
+		case 'dmy':
+			return `${pad(c.day)}/${pad(c.month)}/${c.year}`;
+		case 'mdy':
+			return `${pad(c.month)}/${pad(c.day)}/${c.year}`;
+		default:
+			return `${c.year}-${pad(c.month)}-${pad(c.day)}`;
+	}
+};
+/** Month and day only, numeric - the row timestamp's date part. */
+const md = (c: WallClock) => {
+	switch (regional.dateOrder) {
+		case 'dmy':
+			return `${pad(c.day)}/${pad(c.month)}`;
+		case 'mdy':
+			return `${pad(c.month)}/${pad(c.day)}`;
+		default:
+			return `${pad(c.month)}-${pad(c.day)}`;
+	}
+};
+const hm = (c: WallClock) => clock(c, pad(c.minute)) + suffix(c);
+const hms = (c: WallClock) => clock(c, `${pad(c.minute)}:${pad(c.second)}`) + suffix(c);
+const hmsms = (c: WallClock) => clock(c, `${pad(c.minute)}:${pad(c.second)}.${pad(c.ms, 3)}`) + suffix(c);
 
 const monthDayFormatters = new Map<string, Intl.DateTimeFormat>();
 
@@ -127,7 +157,7 @@ export function formatDateTimeMinutes(value: TimeInput): string {
 /** `09-26 14:03:05.123` - the fixed-width time column of Logs/Traces rows and the terminal's listings. */
 export function formatRowTimestamp(value: TimeInput): string {
 	const c = wallClock(value);
-	return `${pad(c.month)}-${pad(c.day)} ${hmsms(c)}`;
+	return `${md(c)} ${hmsms(c)}`;
 }
 
 /** Time of day only: `14:03`, `14:03:05`, or `14:03:05.123`. */
