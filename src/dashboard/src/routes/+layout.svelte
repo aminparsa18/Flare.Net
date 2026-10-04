@@ -7,6 +7,8 @@
 	import AppNav from '$lib/components/nav/AppNav.svelte';
 	import SideNav from '$lib/components/nav/SideNav.svelte';
 	import { keyboardPrefs } from '$lib/keyboard/prefs.svelte';
+	import { notificationPrefs } from '$lib/notifications/prefs.svelte';
+	import { startAlertWatcher, browserNotificationsSupported } from '$lib/notifications/alert-watcher.svelte';
 	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
 	import { regional } from '$lib/regional/prefs.svelte';
 	import { appearance, type Theme } from '$lib/appearance/prefs.svelte';
@@ -68,7 +70,15 @@
 			void regional.syncFromServer();
 			void explorerPrefs.syncFromServer();
 			void keyboardPrefs.syncFromServer();
+			void notificationPrefs.syncFromServer();
 		}
+	});
+
+	// Browser notifications for fired alerts: runs only while opted in, signed in and permitted.
+	$effect(() => {
+		if (!readyToRenderChildren || onAuthRoute || !notificationPrefs.browserAlerts) return;
+		if (!browserNotificationsSupported() || Notification.permission !== 'granted') return;
+		return startAlertWatcher();
 	});
 
 	const onAuthRoute = $derived(AUTH_ROUTES.includes(stripBase(page.url.pathname)));

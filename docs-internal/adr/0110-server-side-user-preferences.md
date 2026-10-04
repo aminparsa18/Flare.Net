@@ -31,7 +31,7 @@ Settings > Appearance (nav layout, density, text size, content width, ...) lived
 - Last write wins; two browsers editing at once can overwrite each other. Acceptable for UI prefs.
 - A user's first browser after upgrade seeds the server copy; a second browser with different
   local prefs adopts the server's on next load.
-- Allow-listed keys: `appearance`, `regional`, `keyboard` (only the shortcut bindings that differ from the defaults: command palette, next/previous log event; rebinding rejects duplicates) and `explorer` (landing page, log table layout, live-tail
+- Allow-listed keys: `appearance`, `regional`, `keyboard`, `notifications` (show the update-available banner; opt in to browser notifications for fired alerts, polled from `/api/alerts/states` while a tab is open; notification permission itself is per browser and does not sync) (only the shortcut bindings that differ from the defaults: command palette, next/previous log event; rebinding rejects duplicates) and `explorer` (landing page, log table layout, live-tail
   defaults (open live, auto-scroll, buffer), chart bucket interval, facet sidebar default; read when an explorer's state is constructed). Theme joins the `appearance` document (mode-watcher
   still owns the pre-paint class; the root layout feeds its choice into the synced prefs and applies
   the server's choice with `setMode`). The `regional` document carries language, display time zone,

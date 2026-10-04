@@ -4,6 +4,7 @@
 	// Mounted only while the app chrome shows, so /login never fetches /api/version.
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import { notificationPrefs } from '$lib/notifications/prefs.svelte';
 	import { updateNotice } from '$lib/version/update-notice.svelte';
 	import { formatCalendarDay } from '$lib/time/format';
 	import * as m from '$lib/paraglide/messages';
@@ -18,7 +19,7 @@
 	const release = $derived(updateNotice.availableRelease);
 </script>
 
-{#if updateNotice.showBanner && release}
+{#if notificationPrefs.showUpdateNotice && updateNotice.showBanner && release}
 	<div
 		class="flex items-center gap-2 border-b bg-primary/5 px-4 py-1.5 text-sm"
 		role="status"

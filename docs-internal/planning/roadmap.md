@@ -126,8 +126,6 @@ folders are where "what happened and why" actually lives.
   Not started. Sections:
   - **Appearance & layout** (`/settings/appearance` shipped, synced per
     user, ADR-0110). Remaining: a live preview (deferred).
-  - **Notifications**: where the update-available notice shows, browser
-    notification opt-in for fired alerts, per-user alert email opt-out.
   - **Account & security**: profile and password change (local accounts),
     personal access tokens (move the existing `/access-tokens` page in),
     active sessions with sign-out-everywhere, and a data export of the
