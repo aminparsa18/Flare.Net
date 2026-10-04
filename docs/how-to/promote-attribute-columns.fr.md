@@ -22,7 +22,7 @@ filtres de Traces. Les résultats ne changent pas.
 
 ## Promouvoir une clé
 
-1. Ouvrez **Indexing** et faites défiler jusqu'à **Promoted attributes**.
+1. Ouvrez **Settings → Workspace → Indexing** et faites défiler jusqu'à **Promoted attributes**.
 2. Choisissez la table (**Logs** ou **Spans**), puis l'ensemble (**Log** ou
    **Span**, **Resource** ou **Scope**), et saisissez la clé, par exemple
    `http.route`.

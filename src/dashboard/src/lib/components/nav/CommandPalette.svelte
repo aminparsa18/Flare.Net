@@ -25,7 +25,7 @@
 	import { firesInFields, isEditableTarget, matchesCombo } from '$lib/keyboard/shortcuts';
 	import { goto } from '$app/navigation';
 	import { authContext } from '$lib/auth/context';
-	import { navLinks, settingsManagementLinks, type NavLink } from './nav-links';
+	import { navLinks, settingsManagementLinks, workspaceLinks, type NavLink } from './nav-links';
 	import { listSavedViews, type SavedView } from '$lib/saved-views-api';
 	import { savedViewPath } from '$lib/saved-views/page-paths';
 	import { activeLogsExplorer } from '$lib/logs/active-explorer.svelte';
@@ -53,18 +53,18 @@
 	import WorkflowIcon from '@lucide/svelte/icons/workflow';
 	import KeyIcon from '@lucide/svelte/icons/key';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
+	import WrenchIcon from '@lucide/svelte/icons/wrench';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
 	const auth = authContext.get();
-	const links = $derived([...navLinks(auth), ...settingsManagementLinks(auth)]);
+	const links = $derived([...navLinks(auth), ...settingsManagementLinks(auth), ...workspaceLinks(auth)]);
 
 	const NAV_ICONS: Record<NavLink['href'], Component> = {
 		'/': ScrollTextIcon,
 		'/traces': WaypointsIcon,
 		'/metrics': ChartLineIcon,
 		'/ingestion': UploadIcon,
-		'/indexing': RefreshCwIcon,
 		'/alerts': BellIcon,
 		'/resources': NetworkIcon,
 		'/hosts': ServerIcon,
@@ -75,6 +75,10 @@
 		'/settings/slos': TargetIcon,
 		'/settings/pipeline-rules': WorkflowIcon,
 		'/settings/ingest-keys': KeyIcon,
+		'/settings/channels': BellIcon,
+		'/settings/maintenance-windows': WrenchIcon,
+		'/settings/audit-log': ScrollTextIcon,
+		'/settings/indexing': RefreshCwIcon,
 		'/settings/access-tokens': KeyRoundIcon
 	};
 

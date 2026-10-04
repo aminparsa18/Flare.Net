@@ -16,8 +16,11 @@
 	import KeyIcon from '@lucide/svelte/icons/key';
 	import UserIcon from '@lucide/svelte/icons/user';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
+	import WrenchIcon from '@lucide/svelte/icons/wrench';
+	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
+	import LayersIcon from '@lucide/svelte/icons/layers';
 	import { authContext } from '$lib/auth/context';
-	import { settingsManagementLinks } from '$lib/components/nav/nav-links';
+	import { settingsManagementLinks, workspaceLinks } from '$lib/components/nav/nav-links';
 	import * as m from '$lib/paraglide/messages';
 
 	const { children } = $props();
@@ -27,8 +30,16 @@
 	const MANAGEMENT_ICONS = {
 		'/settings/slos': TargetIcon,
 		'/settings/pipeline-rules': WorkflowIcon,
-		'/settings/ingest-keys': KeyIcon,
 		'/settings/access-tokens': KeyRoundIcon
+	} as const;
+
+	// Admin-only instance pages, rendered under their own "Workspace" heading.
+	const WORKSPACE_ICONS = {
+		'/settings/channels': BellIcon,
+		'/settings/maintenance-windows': WrenchIcon,
+		'/settings/audit-log': ScrollTextIcon,
+		'/settings/indexing': LayersIcon,
+		'/settings/ingest-keys': KeyIcon
 	} as const;
 
 	const sections = $derived([
@@ -45,28 +56,44 @@
 		...settingsManagementLinks(auth).map((link) => ({ ...link, icon: MANAGEMENT_ICONS[link.href as keyof typeof MANAGEMENT_ICONS] }))
 	]);
 
-	// The management tables (SLOs, pipeline rules, keys, tokens) need the full width; the
+	const workspaceSections = $derived(
+		workspaceLinks(auth).map((link) => ({ ...link, icon: WORKSPACE_ICONS[link.href as keyof typeof WORKSPACE_ICONS] }))
+	);
+
+	// The management tables (SLOs, pipeline rules, tokens, workspace pages) need the full width; the
 	// preference forms read better in a narrow column.
 	const wide = $derived(
-		Object.keys(MANAGEMENT_ICONS).some((href) => stripBase(page.url.pathname).startsWith(href))
+		[...Object.keys(MANAGEMENT_ICONS), ...Object.keys(WORKSPACE_ICONS)].some((href) => stripBase(page.url.pathname).startsWith(href))
 	);
 </script>
+
+{#snippet railLink(section: { href: string; label: string; icon: typeof PaletteIcon })}
+	{@const active = stripBase(page.url.pathname).startsWith(section.href)}
+	<a
+		href={withBase(section.href)}
+		aria-current={active ? 'page' : undefined}
+		class={cn(buttonVariants({ variant: active ? 'secondary' : 'ghost', size: 'sm' }), 'justify-start')}
+	>
+		<section.icon class="size-4" />
+		{section.label}
+	</a>
+{/snippet}
 
 <div class="flex h-full flex-col overflow-y-auto md:flex-row">
 	<aside class="shrink-0 border-b p-4 md:w-56 md:border-r md:border-b-0">
 		<h1 class="mb-3 px-2 text-lg font-semibold">{m.settings_heading()}</h1>
 		<nav class="flex gap-1 md:flex-col" aria-label={m.settings_heading()}>
 			{#each sections as section (section.href)}
-				{@const active = stripBase(page.url.pathname).startsWith(section.href)}
-				<a
-					href={withBase(section.href)}
-					aria-current={active ? 'page' : undefined}
-					class={cn(buttonVariants({ variant: active ? 'secondary' : 'ghost', size: 'sm' }), 'justify-start')}
-				>
-					<section.icon class="size-4" />
-					{section.label}
-				</a>
+				{@render railLink(section)}
 			{/each}
+			{#if workspaceSections.length}
+				<h2 class="text-muted-foreground mt-3 hidden px-2 text-xs font-medium uppercase md:block">
+					{m.settings_workspaceHeading()}
+				</h2>
+				{#each workspaceSections as section (section.href)}
+					{@render railLink(section)}
+				{/each}
+			{/if}
 		</nav>
 	</aside>
 	<main class="min-w-0 flex-1 p-6">

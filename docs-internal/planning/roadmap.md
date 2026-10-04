@@ -94,14 +94,8 @@ folders are where "what happened and why" actually lives.
   custom ranges, update-notice dismissal). Build a sectioned settings
   route (left rail of sections, deep-linkable `/settings/<section>`) and
   move the dropdown's controls there, leaving the dropdown as a shortcut.
-  Not started. Sections:
-  - **Workspace (admin-only, separate group)**: the instance-level pages
-    that are top-level routes today (notification channels,
-    maintenance windows, audit log, indexing; ingest keys, SLOs and
-    pipeline rules already moved to `/settings/*`) grouped
-    under a "Workspace" heading so the main nav shrinks to the
-    observability surfaces; instance defaults an admin can set for new
-    users (theme, layout, time zone).
+  Not started. Remaining: instance defaults an admin can set for new users
+  (theme, layout, time zone).
   Also: settings search (reuse the command palette index), and import/
   export of user preferences as JSON. Needs an ADR for where preferences
   are stored (identity SQLite vs. client-only) and the layout-switching

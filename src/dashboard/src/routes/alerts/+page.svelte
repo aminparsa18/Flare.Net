@@ -8,29 +8,19 @@
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
 	import { MaintenanceWindowsState } from '$lib/maintenance-windows/state.svelte';
 	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
-	import { Button } from '$lib/components/ui/button';
 	import AlertRuleTable from '$lib/components/alerts/AlertRuleTable.svelte';
 	import AlertRuleFormDialog from '$lib/components/alerts/AlertRuleFormDialog.svelte';
 	import AlertHistorySheet from '$lib/components/alerts/AlertHistorySheet.svelte';
-	import NotificationChannelTable from '$lib/components/notification-channels/NotificationChannelTable.svelte';
 	import NotificationChannelFormDialog from '$lib/components/notification-channels/NotificationChannelFormDialog.svelte';
-	import MaintenanceWindowTable from '$lib/components/maintenance-windows/MaintenanceWindowTable.svelte';
 	import MaintenanceWindowFormDialog from '$lib/components/maintenance-windows/MaintenanceWindowFormDialog.svelte';
 	import * as m from '$lib/paraglide/messages';
 
-	// Notification channels (docs-internal/adr/0021-reusable-notification-channels.md)
-	// live as a second tab on this same page rather than their own top-level route/nav
-	// entry - deliberately not surfaced as its own thing to navigate to on its own; a
-	// channel only matters in service of an alert rule. Both states are provided here
-	// (not just the active tab's) since AlertRuleFormDialog's channel picker needs
-	// NotificationChannelsState-loaded data even while the Rules tab is showing.
+	// Channels and maintenance windows are managed under Settings > Workspace, but their state
+	// is still provided here: AlertRuleFormDialog's channel picker needs the loaded channels, and
+	// the Rules table badges rules an active maintenance window is muting.
 	const alerts = alertsContext.set(new AlertsState());
 	const channels = notificationChannelsContext.set(new NotificationChannelsState());
-	// Maintenance windows (ADR-0055) are a third tab for the same reason - and loaded up front
-	// too, since the Rules tab badges rules an active window is muting.
 	const maintenance = maintenanceWindowsContext.set(new MaintenanceWindowsState());
-
-	let tab = $state<'rules' | 'channels' | 'maintenance'>('rules');
 
 	onMount(() => {
 		void channels.load();
@@ -66,24 +56,7 @@
 </svelte:head>
 
 <div class="flex h-full flex-col">
-	<div class="flex items-center gap-1 border-b px-4 py-2">
-		<Button variant={tab === 'rules' ? 'secondary' : 'ghost'} size="sm" onclick={() => (tab = 'rules')}>
-			{m.nav_alerts()}
-		</Button>
-		<Button variant={tab === 'channels' ? 'secondary' : 'ghost'} size="sm" onclick={() => (tab = 'channels')}>
-			{m.notificationChannelTable_heading()}
-		</Button>
-		<Button variant={tab === 'maintenance' ? 'secondary' : 'ghost'} size="sm" onclick={() => (tab = 'maintenance')}>
-			{m.maintenanceWindowTable_heading()}
-		</Button>
-	</div>
-	{#if tab === 'rules'}
-		<AlertRuleTable />
-	{:else if tab === 'channels'}
-		<NotificationChannelTable />
-	{:else}
-		<MaintenanceWindowTable />
-	{/if}
+	<AlertRuleTable />
 </div>
 <AlertRuleFormDialog />
 <AlertHistorySheet />

@@ -134,7 +134,7 @@ Flare 具有三个合法的安装路径，每个路径解决不同的问题，�
 
 ### 索引
 
-`/indexing` — 底层的 ClickHouse 存储变得可见：总存储（压缩/未压缩）、行数、逐表细分（`logs`、`spans`、`metrics_sum`、`metrics_histogram`、`metrics_gauge` 等）以及压缩率、过去 30 天的增长以及支持快速过滤的跳过索引。对于容量规划或只是查看字节的去向很有用。在集群模式下，这也是集群面板所在的位置 - 请参阅 [`clustering.md`](clustering.zh-CN.md#仪表板索引页面上的集群状态)。
+`/settings/indexing` — 底层的 ClickHouse 存储变得可见：总存储（压缩/未压缩）、行数、逐表细分（`logs`、`spans`、`metrics_sum`、`metrics_histogram`、`metrics_gauge` 等）以及压缩率、过去 30 天的增长以及支持快速过滤的跳过索引。对于容量规划或只是查看字节的去向很有用。在集群模式下，这也是集群面板所在的位置 - 请参阅 [`clustering.md`](clustering.zh-CN.md#仪表板索引页面上的集群状态)。
 
 ![Indexing](../screenshots/indexing-ch.webp)
 
