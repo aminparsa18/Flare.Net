@@ -34,6 +34,9 @@
 				if (a.density === 'compact') d.density = 'compact';
 				if (a.fontSize === 'small' || a.fontSize === 'large') d.fontSize = a.fontSize;
 				if (a.reduceMotion === true) d.reduceMotion = 'true';
+				if (a.contentWidth === 'centered') d.contentWidth = 'centered';
+				if (a.monoLogs === true) d.monoLogs = 'true';
+				if (a.highContrast === true) d.highContrast = 'true';
 			} catch (e) {}
 		</script>
 		%sveltekit.head%
