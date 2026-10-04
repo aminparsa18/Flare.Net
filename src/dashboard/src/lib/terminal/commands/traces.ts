@@ -8,13 +8,14 @@
 // mirror Flare.Cli's Internal/AttributeFlagParsing.cs the same way, always against the
 // default Span bag (no --attr-bag flag yet).
 
-import { searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter } from '$lib/traces-api';
+import { searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey, type TraceSpanCondition } from '$lib/traces-api';
 import { formatDurationNano } from '$lib/traces/duration';
 import { parseAttrBareKey, parseAttrKeyValue, type AttrFlagEntry } from './attr-flags';
+import { parseDurationNano } from './duration';
+import { UsageError } from './usage-error';
 import type { TerminalCommand } from '../types';
 import { formatTimeOfDay } from '$lib/time/format';
 
-class UsageError extends Error {}
 
 interface ParsedArgs {
 	services: string[];
@@ -24,6 +25,11 @@ interface ParsedArgs {
 	attrs: AttrFlagEntry[];
 	minDurationNano?: number;
 	maxDurationNano?: number;
+	entry: boolean;
+	specs: string[];
+	where?: string;
+	sortBy: SpanSortKey;
+	sortAscending: boolean;
 	sinceMs: number;
 	limit: number;
 }
@@ -32,7 +38,18 @@ const DEFAULT_SINCE_MS = 60 * 60_000;
 const DEFAULT_LIMIT = 20;
 
 function parseArgs(args: string[]): ParsedArgs {
-	const result: ParsedArgs = { services: [], statusCodes: [], kinds: [], attrs: [], sinceMs: DEFAULT_SINCE_MS, limit: DEFAULT_LIMIT };
+	const result: ParsedArgs = {
+		services: [],
+		statusCodes: [],
+		kinds: [],
+		attrs: [],
+		entry: false,
+		specs: [],
+		sortBy: 'StartTime',
+		sortAscending: false,
+		sinceMs: DEFAULT_SINCE_MS,
+		limit: DEFAULT_LIMIT
+	};
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
@@ -63,15 +80,31 @@ function parseArgs(args: string[]): ParsedArgs {
 				result.attrs.push(parseAttrBareKey(requireValue(args, ++i, arg), arg, 'traces', 'Absent'));
 				break;
 			case '--min-duration':
-				result.minDurationNano = parseDurationNano(requireValue(args, ++i, arg));
+				result.minDurationNano = parseDurationNano(requireValue(args, ++i, arg), 'traces', arg);
 				break;
 			case '--max-duration':
-				result.maxDurationNano = parseDurationNano(requireValue(args, ++i, arg));
+				result.maxDurationNano = parseDurationNano(requireValue(args, ++i, arg), 'traces', arg);
+				break;
+			case '--entry':
+				result.entry = true;
+				break;
+			case '--span':
+				result.specs.push(requireValue(args, ++i, arg));
+				break;
+			case '--where':
+				result.where = requireValue(args, ++i, arg);
+				break;
+			case '--sort': {
+				const raw = requireValue(args, ++i, arg);
+				result.sortBy = parseSort(raw);
+				break;
+			}
+			case '--asc':
+				result.sortAscending = true;
 				break;
 			case '--since':
 				result.sinceMs = parseSince(requireValue(args, ++i, arg));
 				break;
-			case '-n':
 			case '--limit': {
 				const raw = requireValue(args, ++i, arg);
 				const value = Number.parseInt(raw, 10);
@@ -127,22 +160,68 @@ function parseKind(kind: string): number {
 	}
 }
 
-// Mirrors Flare.Cli's TracesCommand.cs TryParseDurationNano - a bare number (nanoseconds)
-// or a number with a us/ms/s/m unit suffix.
-function parseDurationNano(text: string): number {
-	const match = text.trim().match(/^([0-9.]+)\s*(ns|us|µs|ms|s|m)?$/i);
-	if (!match) throw new UsageError(`traces: couldn't parse duration '${text}' - expected e.g. 500ms, 2s, 1.5m`);
-	const value = Number.parseFloat(match[1]);
-	const unit = (match[2] ?? 'ns').toLowerCase();
-	const multiplierByUnit: Record<string, number> = {
-		ns: 1,
-		us: 1_000,
-		µs: 1_000,
-		ms: 1_000_000,
-		s: 1_000_000_000,
-		m: 60 * 1_000_000_000
-	};
-	return Math.round(value * multiplierByUnit[unit]);
+// Mirrors Flare.Cli's TracesCommand.cs TryExpandSort - friendly --sort names onto SpanSortKey.
+function parseSort(sort: string): SpanSortKey {
+	switch (sort.trim().toLowerCase()) {
+		case 'time':
+			return 'StartTime';
+		case 'duration':
+			return 'Duration';
+		case 'spans':
+			return 'SpanCount';
+		default:
+			throw new UsageError(`traces: unknown --sort '${sort}' - expected one of: time, duration, spans`);
+	}
+}
+
+// Mirrors Flare.Cli's TracesCommand.cs TryParseStructure - --span/--where into a
+// SpanFilter.Structure. Only the spec syntax is checked here; the expression itself (and
+// which letters it may use) is validated by the API, whose 400 detail searchSpans surfaces.
+function parseStructure(specs: string[], where: string | undefined): { conditions: TraceSpanCondition[]; expression: string } {
+	if (!where || where.trim().length === 0) throw new UsageError(`traces: --span needs --where, e.g. --where "A => B".`);
+	if (specs.length === 0) throw new UsageError(`traces: --where needs at least one --span condition, e.g. --span "A:service=checkout".`);
+
+	const conditions: TraceSpanCondition[] = [];
+	for (const spec of specs) {
+		const colon = spec.indexOf(':');
+		if (colon <= 0) {
+			throw new UsageError(`traces: couldn't parse --span '${spec}' - expected LETTER:key=value,..., e.g. A:service=checkout.`);
+		}
+		const condition: TraceSpanCondition = { name: spec.slice(0, colon).trim() };
+		for (const pair of spec.slice(colon + 1).split(',').map((p) => p.trim()).filter((p) => p.length > 0)) {
+			const eq = pair.indexOf('=');
+			const key = eq > 0 ? pair.slice(0, eq).trim().toLowerCase() : '';
+			const value = eq > 0 ? pair.slice(eq + 1).trim() : '';
+			const fail = () =>
+				new UsageError(`traces: couldn't parse '${pair}' in --span '${spec}' - keys are service, name, status (ok/error/unset), min-duration (e.g. 500ms).`);
+			switch (key) {
+				case 'service':
+					condition.serviceName = value;
+					break;
+				case 'name':
+					condition.spanName = value;
+					break;
+				case 'status':
+					try {
+						condition.statusCode = parseStatus(value);
+					} catch {
+						throw fail();
+					}
+					break;
+				case 'min-duration':
+					try {
+						condition.minDurationNano = parseDurationNano(value, 'traces');
+					} catch {
+						throw fail();
+					}
+					break;
+				default:
+					throw fail();
+			}
+		}
+		conditions.push(condition);
+	}
+	return { conditions, expression: where };
 }
 
 // Mirrors Flare.Cli's TracesCommand.cs TryParseSince - any magnitude, s/m/h/d suffix (not
@@ -201,7 +280,7 @@ export const tracesCommand: TerminalCommand = {
 	name: 'traces',
 	summary: 'Searches recent traces (same feed as the Trace List).',
 	usage:
-		'traces [-s|--service <name>]... [--status <ok|error|unset>]... [--kind <kind>]... [--trace-id <id>] [--attr <key=value>]... [--attr-not <key=value>]... [--attr-exists <key>]... [--attr-absent <key>]... [--min-duration <d>] [--max-duration <d>] [--since <range>] [-n|--limit <count>]',
+		'traces [-s|--service <name>]... [--status <ok|error|unset>]... [--kind <kind>]... [--trace-id <id>] [--attr <key=value>]... [--attr-not <key=value>]... [--attr-exists <key>]... [--attr-absent <key>]... [--min-duration <d>] [--max-duration <d>] [--entry] [--span <spec>]... [--where <expr>] [--sort time|duration|spans] [--asc] [--since <range>] [--limit <count>]',
 	async run(args, term) {
 		let parsed: ParsedArgs;
 		try {
@@ -214,7 +293,8 @@ export const tracesCommand: TerminalCommand = {
 		const to = new Date();
 		const from = new Date(to.getTime() - parsed.sinceMs);
 
-		const filter: SpanFilter = { from: from.toISOString(), to: to.toISOString(), rootSpansOnly: true };
+		const filter: SpanFilter = { from: from.toISOString(), to: to.toISOString(), rootSpansOnly: !parsed.entry };
+		if (parsed.entry) filter.entrySpansOnly = true;
 		if (parsed.services.length > 0) filter.services = parsed.services;
 		if (parsed.statusCodes.length > 0) filter.statusCodes = parsed.statusCodes;
 		if (parsed.kinds.length > 0) filter.kinds = parsed.kinds;
@@ -224,10 +304,23 @@ export const tracesCommand: TerminalCommand = {
 		}
 		if (parsed.minDurationNano !== undefined) filter.minDurationNano = parsed.minDurationNano;
 		if (parsed.maxDurationNano !== undefined) filter.maxDurationNano = parsed.maxDurationNano;
+		if (parsed.where !== undefined || parsed.specs.length > 0) {
+			try {
+				filter.structure = parseStructure(parsed.specs, parsed.where);
+			} catch (err) {
+				term.writeLine(err instanceof Error ? err.message : String(err), 'error');
+				return;
+			}
+		}
 
 		let response;
 		try {
-			response = await searchSpans({ filter, pageSize: Math.min(Math.max(parsed.limit, 1), 500) });
+			response = await searchSpans({
+				filter,
+				pageSize: Math.min(Math.max(parsed.limit, 1), 500),
+				sortBy: parsed.sortBy,
+				sortAscending: parsed.sortAscending
+			});
 		} catch (err) {
 			term.writeLine(`traces: ${err instanceof Error ? err.message : String(err)}`, 'error');
 			return;

@@ -6,14 +6,14 @@
 
 import type { TerminalCommand } from '../types';
 
-export function hostOnlyCommand(name: string, summary: string): TerminalCommand {
+export function hostOnlyCommand(name: string, summary: string, cliInvocation = name): TerminalCommand {
 	return {
 		name,
 		summary: `${summary} (not available here)`,
-		usage: name,
+		usage: cliInvocation,
 		run(_args, term) {
 			term.writeLine(
-				`${name}: not available from the dashboard - this needs access to the host machine. Run \`flare ${name}\` in a real terminal instead.`,
+				`${name}: not available from the dashboard - this needs access to the host machine. Run \`flare ${cliInvocation}\` in a real terminal instead.`,
 				'error'
 			);
 		}

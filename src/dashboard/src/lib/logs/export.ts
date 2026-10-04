@@ -42,15 +42,15 @@ export interface ExportResult {
 	truncated: boolean;
 }
 
-/** Paginates /api/logs/search for `filter` until exhausted or EXPORT_ROW_CAP is hit. */
-export async function fetchAllForExport(filter: LogFilter, signal?: AbortSignal): Promise<ExportResult> {
+/** Paginates /api/logs/search for `filter` until exhausted or `rowCap` (default EXPORT_ROW_CAP) is hit. */
+export async function fetchAllForExport(filter: LogFilter, signal?: AbortSignal, rowCap = EXPORT_ROW_CAP): Promise<ExportResult> {
 	const events: LogEventDto[] = [];
 	let cursor: string | undefined;
 	for (;;) {
 		const res = await searchLogs({ filter, cursor, pageSize: EXPORT_PAGE_SIZE }, signal);
 		events.push(...res.events);
-		if (events.length >= EXPORT_ROW_CAP) {
-			return { events: events.slice(0, EXPORT_ROW_CAP), truncated: res.nextCursor != null };
+		if (events.length >= rowCap) {
+			return { events: events.slice(0, rowCap), truncated: res.nextCursor != null };
 		}
 		if (!res.nextCursor) return { events, truncated: false };
 		cursor = res.nextCursor;
@@ -133,6 +133,11 @@ function eventToJsonObject(event: LogEventDto) {
 
 export function eventsToJson(events: LogEventDto[]): string {
 	return JSON.stringify(events.map(eventToJsonObject), null, 2);
+}
+
+/** One JSON object per line (same field set as `eventsToJson`, no enclosing array) - what flare.cli's `export` writes by default. */
+export function eventsToNdjson(events: LogEventDto[]): string {
+	return events.map((e) => JSON.stringify(eventToJsonObject(e))).join('\n') + (events.length > 0 ? '\n' : '');
 }
 
 /** Escapes text content for use inside an XML element - `&`/`<`/`>` are the only characters that are ever unsafe there. */

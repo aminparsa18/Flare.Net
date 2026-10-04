@@ -134,6 +134,19 @@ async function decodeNotificationChannel(res: Response): Promise<NotificationCha
 	return toNotificationChannel(dto);
 }
 
+/** A 400 carries a ProblemDetails `detail` (e.g. `ValidateDestination()`'s message) worth showing verbatim instead of a bare status line. */
+async function failureMessage(res: Response, fallback: string): Promise<string> {
+	if (res.status === 400) {
+		try {
+			const problem = await res.json();
+			return problem?.detail || problem?.title || fallback;
+		} catch {
+			// Not JSON - keep the generic message.
+		}
+	}
+	return fallback;
+}
+
 // ---- CRUD ------------------------------------------------------------------
 
 export async function listNotificationChannels(signal?: AbortSignal): Promise<NotificationChannelListResponse> {
@@ -161,7 +174,7 @@ export async function createNotificationChannel(request: NotificationChannelRequ
 		body: memoryPackBody(GeneratedNotificationChannelRequest.serialize(dto))
 	});
 	if (!res.ok) {
-		throw new Error(`POST /api/notification-channels failed: ${res.status} ${res.statusText}`);
+		throw new Error(await failureMessage(res, `POST /api/notification-channels failed: ${res.status} ${res.statusText}`));
 	}
 	return decodeNotificationChannel(res);
 }
@@ -174,7 +187,7 @@ export async function updateNotificationChannel(id: string, request: Notificatio
 		body: memoryPackBody(GeneratedNotificationChannelRequest.serialize(dto))
 	});
 	if (!res.ok) {
-		throw new Error(`PUT /api/notification-channels/${id} failed: ${res.status} ${res.statusText}`);
+		throw new Error(await failureMessage(res, `PUT /api/notification-channels/${id} failed: ${res.status} ${res.statusText}`));
 	}
 	return decodeNotificationChannel(res);
 }

@@ -30,7 +30,6 @@ function parseArgs(args: string[]): ParsedArgs {
 			case '--since':
 				result.sinceMs = parseSince(requireValue(args, ++i, arg));
 				break;
-			case '-n':
 			case '--limit': {
 				const raw = requireValue(args, ++i, arg);
 				const value = Number.parseInt(raw, 10);
@@ -73,7 +72,7 @@ function formatRow(metric: MetricNameInfo): string {
 export const metricsCommand: TerminalCommand = {
 	name: 'metrics',
 	summary: 'Lists discoverable metrics (same feed as the Metric Picker).',
-	usage: 'metrics [-s|--service <name>]... [--since <range>] [-n|--limit <count>]',
+	usage: 'metrics [-s|--service <name>]... [--since <range>] [--limit <count>]',
 	async run(args, term) {
 		let parsed: ParsedArgs;
 		try {
