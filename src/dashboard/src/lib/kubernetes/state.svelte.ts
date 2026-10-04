@@ -27,11 +27,13 @@ import {
 	type KubernetesWorkloadRef,
 	type KubernetesWorkloadSummary
 } from '$lib/kubernetes-api';
+import { searchLogs } from '$lib/api';
+import { buildKubernetesEventsFilter, parseKubernetesEvent, type KubernetesEvent, type KubernetesEventFilters } from './events';
 import { getPodMetrics, type PodMetricsResponse } from '$lib/pods-api';
 import { HOSTS_WINDOW_PRESETS, type HostsWindowPreset } from '$lib/hosts/state.svelte';
 import { workloadStatusRank } from './format';
 
-export const KUBERNETES_TABS = ['nodes', 'namespaces', 'workloads', 'pods', 'volumes'] as const;
+export const KUBERNETES_TABS = ['nodes', 'namespaces', 'workloads', 'pods', 'volumes', 'events'] as const;
 export type KubernetesTab = (typeof KUBERNETES_TABS)[number];
 export type KubernetesWindowPreset = HostsWindowPreset;
 export const KUBERNETES_WINDOW_PRESETS = HOSTS_WINDOW_PRESETS;
@@ -47,6 +49,7 @@ const TEXT_COLUMNS = new Set<string>(['nodeName', 'podName', 'namespace', 'phase
 
 const POLL_INTERVAL_MS = 30_000;
 const SEARCH_DEBOUNCE_MS = 300;
+const EVENTS_PAGE_SIZE = 200;
 
 export interface PodRef {
 	namespace: string;
@@ -92,7 +95,7 @@ export class KubernetesState {
 	error = $state<string | null>(null);
 
 	/** Each tab's own search box. */
-	search = $state<Record<KubernetesTab, string>>({ nodes: '', namespaces: '', workloads: '', pods: '', volumes: '' });
+	search = $state<Record<KubernetesTab, string>>({ nodes: '', namespaces: '', workloads: '', pods: '', volumes: '', events: '' });
 	/** Empty string = all namespaces. Shared by the Workloads, Pods and Volumes tabs. */
 	namespace = $state('');
 	knownNamespaces = $state.raw<string[]>([]);
@@ -139,6 +142,15 @@ export class KubernetesState {
 	volumesSortColumn = $state<VolumesSortColumn>('usedPercent');
 	volumesSortDescending = $state(true);
 
+	// Events tab - k8sobjects event logs, see events.ts. `eventType`/`eventObject` are its own
+	// filters; the namespace picker is shared with Workloads/Pods/Volumes.
+	events = $state.raw<KubernetesEvent[] | null>(null);
+	eventsTruncated = $state(false);
+	/** Empty = Warning and Normal. */
+	eventType = $state('');
+	/** Involved-object filter set by a node/pod sheet's "View events" - null = any object. */
+	eventObject = $state<{ kind: string; name: string } | null>(null);
+
 	// Drill-downs - at most one sheet open at a time.
 	selectedNode = $state<string | null>(null);
 	nodeDetail = $state.raw<KubernetesNodeMetricsResponse | null>(null);
@@ -172,6 +184,8 @@ export class KubernetesState {
 				return this.pods;
 			case 'volumes':
 				return this.volumes;
+			case 'events':
+				return this.events;
 		}
 	}
 
@@ -191,6 +205,9 @@ export class KubernetesState {
 				break;
 			case 'volumes':
 				this.volumes = null;
+				break;
+			case 'events':
+				this.events = null;
 				break;
 		}
 	}
@@ -255,6 +272,22 @@ export class KubernetesState {
 					this.knownNamespaces = addKnown(this.knownNamespaces, response.volumes.map((v) => v.namespace));
 					break;
 				}
+				case 'events': {
+					const filters: KubernetesEventFilters = {
+						type: this.eventType,
+						namespace: this.namespace,
+						kind: this.eventObject?.kind ?? '',
+						name: this.eventObject?.name ?? '',
+						search
+					};
+					const from = new Date(Date.now() - minutes * 60_000).toISOString();
+					const response = await searchLogs({ filter: buildKubernetesEventsFilter(filters, from), pageSize: EVENTS_PAGE_SIZE }, abort.signal);
+					if (abort.signal.aborted) return;
+					this.events = response.events.map(parseKubernetesEvent).filter((e): e is KubernetesEvent => e !== null);
+					this.eventsTruncated = response.nextCursor !== null;
+					this.knownNamespaces = addKnown(this.knownNamespaces, this.events.map((e) => e.namespace));
+					break;
+				}
 			}
 			this.loadedAt = Date.now();
 		} catch (err) {
@@ -301,10 +334,39 @@ export class KubernetesState {
 	setNamespace(namespace: string): void {
 		if (this.namespace === namespace) return;
 		this.namespace = namespace;
-		// Shared by three tabs - the inactive ones are stale too.
+		// Shared by four tabs - the inactive ones are stale too.
 		this.workloads = null;
 		this.pods = null;
 		this.volumes = null;
+		this.events = null;
+		void this.load();
+	}
+
+	setEventType(type: string): void {
+		if (this.eventType === type) return;
+		this.eventType = type;
+		this.#reload();
+	}
+
+	setEventObject(object: { kind: string; name: string } | null): void {
+		this.eventObject = object;
+		this.#reload();
+	}
+
+	/** A node/pod sheet's "View events": the Events tab scoped to that object. */
+	showEventsFor(object: { kind: string; name: string }, namespace = ''): void {
+		this.closeDetail();
+		this.search.events = '';
+		this.eventType = '';
+		this.eventObject = object;
+		if (this.namespace !== namespace) {
+			this.namespace = namespace;
+			this.workloads = null;
+			this.pods = null;
+			this.volumes = null;
+		}
+		this.events = null;
+		this.tab = 'events';
 		void this.load();
 	}
 
@@ -349,6 +411,7 @@ export class KubernetesState {
 			this.namespace = namespace;
 			this.workloads = null;
 			this.volumes = null;
+			this.events = null;
 		}
 		this.nodeFilter = filters.nodeName ?? '';
 		this.workloadFilter = filters.workload ?? null;

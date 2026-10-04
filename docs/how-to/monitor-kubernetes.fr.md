@@ -218,6 +218,42 @@ trié par **Used %**, le plus plein en premier. La recherche porte sur le nom du
 volume ou de la réclamation. Cliquez sur un volume pour voir les graphiques de
 ses octets utilisés, de son pourcentage utilisé et de ses inodes.
 
+## Lire l'onglet Events
+
+Passez à l'onglet **Events**, ou ouvrez `/kubernetes?tab=events`. Il liste les événements
+Kubernetes (`BackOff`, `FailedScheduling`, `OOMKilling`, etc.), du plus récent au plus ancien.
+Ils proviennent du [récepteur `k8sobjects`](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sobjectsreceiver) du collecteur, qui les envoie sous forme
+de logs. Le collecteur a besoin des droits RBAC `list` et `watch` sur `events` :
+
+```yaml
+receivers:
+  k8sobjects:
+    objects:
+      - name: events
+        mode: watch
+        group: events.k8s.io
+
+service:
+  pipelines:
+    logs:
+      receivers: [k8sobjects]
+      exporters: [otlp]
+```
+
+Utilisez `mode: watch`. Flare lit l'événement dans le corps du watch (`object.reason`,
+`object.involvedObject.kind`, etc.) ; les événements collectés avec `mode: pull` n'ont pas
+d'enveloppe `object` et ne s'affichent pas.
+
+Chaque ligne indique l'heure, le **Type** (`Warning` ou `Normal`), la **Reason**, l'objet
+concerné, son namespace et le message. Un événement répété affiche son compteur (`×5`).
+Utilisez les sélecteurs de namespace et de type, ou recherchez dans la raison et le message.
+Cliquez sur un Pod ou un Node pour ouvrir son panneau.
+
+Le panneau d'un pod ou d'un nœud a un bouton **Voir les événements** qui ouvre cet onglet
+filtré sur cet objet ; effacez le filtre avec le **×** de sa pastille. Aucun nouveau stockage :
+les événements sont de simples logs, visibles aussi dans le Logs explorer. L'onglet affiche
+les 200 derniers événements de la fenêtre.
+
 ## Limites et obsolescence
 
 Un **—** signifie que Flare n'a reçu aucune donnée pour cette métrique dans la

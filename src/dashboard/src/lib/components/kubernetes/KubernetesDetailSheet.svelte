@@ -199,7 +199,15 @@
 							{m.kubernetesPage_viewPods()}
 						</Button>
 					{/if}
+					{#if k8s.selectedNode}
+						<Button variant="outline" size="sm" onclick={() => k8s.showEventsFor({ kind: 'Node', name: k8s.selectedNode! })}>
+							{m.kubernetesPage_viewEvents()}
+						</Button>
+					{/if}
 					{#if k8s.selectedPod}
+						<Button variant="outline" size="sm" onclick={() => k8s.showEventsFor({ kind: 'Pod', name: k8s.selectedPod!.podName }, k8s.selectedPod!.namespace)}>
+							{m.kubernetesPage_viewEvents()}
+						</Button>
 						<a class={buttonVariants({ variant: 'outline', size: 'sm' })} href={buildKubernetesPodLogsHref(k8s.selectedPod, k8s.windowPreset)}>
 							{m.kubernetesPage_viewLogs()}
 						</a>
