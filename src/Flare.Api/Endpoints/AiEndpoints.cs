@@ -13,6 +13,7 @@ public static class AiEndpoints
     {
         endpoints.MapGet("/api/ai/status", HandleStatus);
         endpoints.MapPost("/api/ai/explain-exception", HandleExplainAsync);
+        endpoints.MapPost("/api/ai/nl-filter", HandleNlFilterAsync);
         return endpoints;
     }
 
@@ -46,5 +47,34 @@ public static class AiEndpoints
         return result is null
             ? Results.Problem(error, statusCode: StatusCodes.Status502BadGateway)
             : ApiSerialization.Write(http, result, AiJsonContext.Default.ExplainExceptionResponse);
+    }
+
+    private static async Task<IResult> HandleNlFilterAsync(HttpContext http, INlFilterService service, CancellationToken cancellationToken)
+    {
+        if (!service.IsEnabled)
+        {
+            return Results.Problem("AI features are not enabled on this Flare instance.", statusCode: StatusCodes.Status404NotFound);
+        }
+
+        NlFilterRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AiJsonContext.Default.NlFilterRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        AuditContext.SetResourceId(http, request.Target);
+        var (result, error) = await service.GenerateAsync(request, cancellationToken);
+        return result is null
+            ? Results.Problem(error, statusCode: StatusCodes.Status502BadGateway)
+            : ApiSerialization.Write(http, result, AiJsonContext.Default.NlFilterResponse);
     }
 }

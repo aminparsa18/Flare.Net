@@ -363,6 +363,7 @@ builder.Services.AddHttpClient(Flare.Api.Ai.OpenAiCompatibleLlmClient.HttpClient
 #pragma warning restore EXTEXP0001
 builder.Services.AddSingleton<Flare.Api.Ai.ILlmClient, Flare.Api.Ai.OpenAiCompatibleLlmClient>();
 builder.Services.AddSingleton<Flare.Api.Ai.IExceptionExplainService, Flare.Api.Ai.ExceptionExplainService>();
+builder.Services.AddSingleton<Flare.Api.Ai.INlFilterService, Flare.Api.Ai.NlFilterService>();
 builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");

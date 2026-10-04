@@ -88,6 +88,16 @@ un modèle local si le code est sensible. Le prompt est limité à `Ai__MaxInput
 et la réponse à `Ai__MaxOutputTokens` (800). Chaque requête figure dans le journal d'audit
 et le prompt masqué est journalisé au niveau Debug.
 
+## Filtrer logs et traces en langage naturel (facultatif)
+
+Avec les mêmes réglages `Ai__*`, les pages Logs et Traces affichent un champ **Demander à l'IA**. Saisissez par exemple
+« 5xx sur checkout dans la dernière heure, sans les health checks » et Flare renseigne la période, les services,
+la sévérité, la recherche texte et les filtres d'attributs. Sur Traces, il peut aussi construire une requête structurelle
+(« traces checkout où le span payments a échoué »). Le modèle ne propose que des filtres dans un vocabulaire fixe, jamais du SQL.
+Flare vérifie la proposition, écarte ce qui est invalide, puis affiche le résultat sous forme de filtres modifiables habituels.
+La requête et les noms de services sont envoyés au modèle (après masquage) ; les données de logs et de traces ne le sont pas.
+Si une partie de la demande n'a pas pu être exprimée, une note sous le champ l'indique.
+
 ## Quand une frame n'est pas liée
 
 Flare laisse la frame en texte brut plutôt que de deviner :

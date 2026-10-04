@@ -9,6 +9,7 @@
 	import { parseLogsDeepLinkParams, parseLogContextDeepLinkParams, parseStateDeepLinkParam } from '$lib/deep-links';
 	import { getHomeDashboardId } from '$lib/dashboards/home-preference';
 	import { dashboardPath } from '$lib/dashboards/page-paths';
+	import NaturalLanguageFilter from '$lib/components/NaturalLanguageFilter.svelte';
 	import LogsToolbar from '$lib/components/logs/LogsToolbar.svelte';
 	import VolumeChart from '$lib/components/logs/VolumeChart.svelte';
 	import ValueDistributionChart from '$lib/components/logs/ValueDistributionChart.svelte';
@@ -110,6 +111,19 @@
 
 <div class="flex h-full flex-col">
 	<LogsToolbar />
+	<NaturalLanguageFilter
+		target="Logs"
+		knownServices={() => explorer.knownServices}
+		apply={(f) =>
+			explorer.applySavedViewState({
+				timeRangePreset: f.timeRangePreset,
+				customRange: f.customRange ?? null,
+				services: f.services,
+				severityNumbers: f.severityNumbers,
+				search: f.search,
+				attributeFilters: f.attributeFilters
+			})}
+	/>
 	<div class="flex min-h-0 flex-1">
 		<FacetSidebar {facets} reloadKey={facetReloadKey} prefs={facetPrefs} bagOptions={facetBagOptions} />
 		<div class="flex min-w-0 flex-1 flex-col">
