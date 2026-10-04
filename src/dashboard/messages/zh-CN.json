@@ -2794,5 +2794,20 @@
 	"settingsExplorer_clearRecentSearches": "清除最近的搜索",
 	"settingsExplorer_clearRecentRanges": "清除最近的自定义范围",
 	"settingsExplorer_clearLastViews": "忘记上次使用的已保存视图",
-	"settingsExplorer_cleared": "已清除"
+	"settingsExplorer_cleared": "已清除",
+	"settingsNotifications_navLabel": "通知",
+	"settingsNotifications_title": "通知设置",
+	"settingsNotifications_heading": "通知",
+	"settingsNotifications_description": "选择 Flare 向你显示哪些通知。更改会同步到你的账户。",
+	"settingsNotifications_reset": "重置",
+	"settingsNotifications_updateHeading": "更新",
+	"settingsNotifications_updateNotice": "显示新版本横幅",
+	"settingsNotifications_updateNoticeHint": "无论是否开启，用户菜单中的版本信息都会保留。",
+	"settingsNotifications_browserHeading": "已触发的告警",
+	"settingsNotifications_browserAlerts": "告警触发时的浏览器通知",
+	"settingsNotifications_browserHint": "当 Flare 标签页打开时，若有告警规则触发，将弹出通知。权限按浏览器分别授予。",
+	"settingsNotifications_browserTitle": "Flare 告警已触发",
+	"settingsNotifications_browserUnsupported": "此浏览器不支持通知。",
+	"settingsNotifications_browserDenied": "浏览器设置中已屏蔽此站点的通知。",
+	"settingsNotifications_emailNote": "告警邮件发送给各通知渠道中配置的收件人，因此没有按用户的退订选项；如需更改，请编辑对应渠道。"
 }

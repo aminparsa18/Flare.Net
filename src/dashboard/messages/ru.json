@@ -2794,5 +2794,20 @@
 	"settingsExplorer_clearRecentSearches": "Очистить недавние поиски",
 	"settingsExplorer_clearRecentRanges": "Очистить недавние произвольные диапазоны",
 	"settingsExplorer_clearLastViews": "Забыть последние использованные представления",
-	"settingsExplorer_cleared": "Очищено"
+	"settingsExplorer_cleared": "Очищено",
+	"settingsNotifications_navLabel": "Уведомления",
+	"settingsNotifications_title": "Настройки уведомлений",
+	"settingsNotifications_heading": "Уведомления",
+	"settingsNotifications_description": "Выберите, какие уведомления показывает Flare. Изменения синхронизируются с вашей учётной записью.",
+	"settingsNotifications_reset": "Сбросить",
+	"settingsNotifications_updateHeading": "Обновления",
+	"settingsNotifications_updateNotice": "Показывать баннер о новой версии",
+	"settingsNotifications_updateNoticeHint": "Строка с версией в меню пользователя остаётся в любом случае.",
+	"settingsNotifications_browserHeading": "Сработавшие оповещения",
+	"settingsNotifications_browserAlerts": "Уведомления браузера о сработавших оповещениях",
+	"settingsNotifications_browserHint": "Уведомление появляется, когда правило оповещения срабатывает при открытой вкладке Flare. Разрешение выдаётся для каждого браузера отдельно.",
+	"settingsNotifications_browserTitle": "Сработало оповещение Flare",
+	"settingsNotifications_browserUnsupported": "Этот браузер не поддерживает уведомления.",
+	"settingsNotifications_browserDenied": "Уведомления для этого сайта заблокированы в настройках браузера.",
+	"settingsNotifications_emailNote": "Письма об оповещениях уходят получателям, указанным в каждом канале уведомлений, поэтому отписки на уровне пользователя нет; измените получателей в канале."
 }
