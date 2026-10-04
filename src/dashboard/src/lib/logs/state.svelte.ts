@@ -24,6 +24,7 @@ import { findCaseSuggestions, applyCaseSuggestion as applyCaseSuggestionTo, type
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from './time-range';
 import { addRecentSearch } from './recent-searches';
 import { normalizeBucketWidthSeconds } from './bucket-width';
+import { explorerPrefs } from '$lib/explorer/prefs.svelte';
 
 const PAGE_SIZE = 100;
 
@@ -33,7 +34,7 @@ const PAGE_SIZE = 100;
  * how many *undelivered* messages the server buffers before reporting drops; this is how
  * much history the browser keeps on screen. Don't "fix" these into one number.
  */
-const LIVE_CAP = 2000;
+const LIVE_CAP = 2000; // default; Settings > Explorer overrides it (explorerPrefs.liveBuffer)
 
 /**
  * Client-side cap on accumulated non-live pagination (`loadMore`), same idea as
@@ -267,12 +268,12 @@ export class LogsExplorerState {
 		bodyJsonFilters: [],
 		postProcessFunctions: [],
 		timeShiftSeconds: null,
-		maxLinesPerRow: 1,
-		showTimestampColumn: true,
-		showBodyColumn: true,
+		maxLinesPerRow: explorerPrefs.linesPerRow,
+		showTimestampColumn: explorerPrefs.showTimeColumn,
+		showBodyColumn: explorerPrefs.showMessageColumn,
 		bodyColumns: [],
 		volumeGroupBy: null,
-		bucketWidthSeconds: null
+		bucketWidthSeconds: explorerPrefs.bucketWidthSeconds
 	});
 
 	/** Human-readable label for filter.patternId (the pattern's template text) - UI-only, set by applyPatternIdFilter, never sent to the server (LogFilter carries only the id). */
@@ -280,7 +281,7 @@ export class LogsExplorerState {
 
 	/** Logs Explorer opens in live mode by default - see +page.svelte's onMount, which calls
 	 *  startLiveTail() instead of runSearch() when this is true at mount time. */
-	live = $state(true);
+	live = $state(explorerPrefs.liveByDefault);
 	connectionStatus = $state<LiveTailStatus>('closed');
 	droppedCount = $state(0);
 
@@ -833,8 +834,9 @@ export class LogsExplorerState {
 		if (this.#seenIds.has(event.eventId)) return; // duplicate delivery (e.g. a re-subscribe race)
 		this.#seenIds.add(event.eventId);
 		const next = [event, ...this.events];
-		if (next.length > LIVE_CAP) {
-			const evicted = next.splice(LIVE_CAP);
+		const cap = explorerPrefs.liveBuffer || LIVE_CAP;
+		if (next.length > cap) {
+			const evicted = next.splice(cap);
 			for (const e of evicted) this.#seenIds.delete(e.eventId);
 		}
 		this.events = next;

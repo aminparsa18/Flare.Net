@@ -6,6 +6,7 @@
 	import { page } from '$app/state';
 	import AppNav from '$lib/components/nav/AppNav.svelte';
 	import SideNav from '$lib/components/nav/SideNav.svelte';
+	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
 	import { regional } from '$lib/regional/prefs.svelte';
 	import { appearance, type Theme } from '$lib/appearance/prefs.svelte';
 	import CommandPalette from '$lib/components/nav/CommandPalette.svelte';
@@ -64,6 +65,7 @@
 		if (readyToRenderChildren && !onAuthRoute) {
 			void appearance.syncFromServer();
 			void regional.syncFromServer();
+			void explorerPrefs.syncFromServer();
 		}
 	});
 

@@ -7,6 +7,8 @@
 	import { resolveRequestedSavedView } from '$lib/saved-views/hydrate';
 	import { resolveLastUsedSavedView } from '$lib/saved-views/last-used';
 	import { parseLogsDeepLinkParams, parseLogContextDeepLinkParams, parseStateDeepLinkParam } from '$lib/deep-links';
+	import { explorerPrefs } from '$lib/explorer/prefs.svelte';
+	import { withBase } from '$lib/paths';
 	import { getHomeDashboardId } from '$lib/dashboards/home-preference';
 	import { dashboardPath } from '$lib/dashboards/page-paths';
 	import NaturalLanguageFilter from '$lib/components/NaturalLanguageFilter.svelte';
@@ -46,7 +48,12 @@
 		// searchParams.size) still means "show the Logs Explorer", not the home dashboard.
 		// replaceState so the redirect doesn't leave an extra "/" entry for Back to land on.
 		if (page.url.searchParams.size === 0) {
-			const homeId = getHomeDashboardId();
+			// Settings > Explorer's landing page wins over the home dashboard when it names another page.
+			if (explorerPrefs.landingPage !== 'default' && explorerPrefs.landingPage !== 'logs') {
+				void goto(withBase(`/${explorerPrefs.landingPage}`), { replaceState: true });
+				return;
+			}
+			const homeId = explorerPrefs.landingPage === 'logs' ? null : getHomeDashboardId();
 			if (homeId) {
 				void goto(dashboardPath({ id: homeId }), { replaceState: true });
 				return;
