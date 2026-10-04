@@ -367,6 +367,8 @@ uniquement en modifiant directement le fichier SQLite.
 
 Un utilisateur local connecté peut changer son propre mot de passe via `POST /api/auth/password` (`currentPassword`, `newPassword`, 8 caractères minimum) ; ses autres sessions sont révoquées et la session courante reste ouverte.
 
+**Mot de passe oublié ?** Lorsque `Email:Host`, `Email:From` et `Alerting:PublicUrl` sont tous définis, la page de connexion affiche un lien « Mot de passe oublié ? ». Il envoie par e-mail un lien de définition de mot de passe à usage unique, valable 1 heure (`POST /api/auth/forgot-password`), à un compte local dont le nom d'utilisateur est son adresse e-mail ; les autres comptes ont toujours besoin d'un lien de réinitialisation d'un administrateur. La réponse est identique que le compte existe ou non, et les demandes répétées pour un même nom dans la minute sont ignorées.
+
 ## Journal d'audit
 
 Flare enregistre qui a modifié quoi. Chaque modification réussie d'une règle d'alerte, d'un canal de notification, d'une fenêtre de maintenance, d'une règle de pipeline, d'un tableau de bord, d'une vue enregistrée, du rôle ou de l'état désactivé d'un utilisateur, d'un jeton d'accès personnel, d'une clé d'ingestion, d'un paramètre d'authentification, d'un seuil Apdex, d'un remplacement de métadonnées de métrique ou d'un attribut promu devient un événement d'audit : heure, acteur, action, type et identifiant de la ressource, route, adresse IP source, et si l'acteur a utilisé une session ou un jeton d'accès personnel.

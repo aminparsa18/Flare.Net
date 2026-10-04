@@ -80,6 +80,10 @@ public sealed partial record BootstrapStatusResponse
     /// automatically when this is true, with no button/user action (see
     /// <c>ProxyAuthLoginEndpoints</c>'s own disabled-gate 404).</summary>
     public required bool ProxyAuthEnabled { get; init; }
+
+    /// <summary>Whether the login page should offer "Forgot password?" - local login is on and
+    /// SMTP plus a public URL are configured (ADR-0113).</summary>
+    public required bool PasswordResetEmailEnabled { get; init; }
 }
 
 /// <summary>Request body for <c>POST /api/auth/password</c> (self-service change).</summary>
@@ -100,4 +104,12 @@ public sealed partial record SetPasswordRequest
     public required string Token { get; init; }
 
     public required string Password { get; init; }
+}
+
+/// <summary>Request body for <c>POST /api/auth/forgot-password</c>.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record ForgotPasswordRequest
+{
+    public required string Username { get; init; }
 }

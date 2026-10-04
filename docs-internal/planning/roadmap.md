@@ -66,10 +66,9 @@ folders are where "what happened and why" actually lives.
   is one more metric lookup next to `MessagingQueryBuilder.BuildQueueDepth`.
   Not started.
 - **Local user lifecycle follow-ups.** Invite, admin reset link, set-password
-  redemption and `POST /api/auth/password` shipped (ADR-0112). Still open:
-  a self-service forgot-password flow that emails the link when SMTP is configured
-  ([signoz#10073](https://github.com/SigNoz/signoz/commit/e1ac992e5a65b49678187303840e79b568feea87));
-  emailing invites; bulk invite. Not started.
+  redemption, `POST /api/auth/password` (ADR-0112) and emailed forgot-password
+  (ADR-0113) shipped. Still open: emailing invites ([signoz#10073](https://github.com/SigNoz/signoz/commit/e1ac992e5a65b49678187303840e79b568feea87));
+  bulk invite; a durable (shared) forgot-password throttle. Not started.
 - **OpenAPI.NET v3 (`Microsoft.OpenApi` 3.x, OpenAPI spec 3.2).** Blocked on
   `Microsoft.AspNetCore.OpenApi`: 10.0.x caps it at `[2.12.0, 3.0.0)`, so the
   direct pin in `Directory.Packages.props` stays on 2.x. The first release

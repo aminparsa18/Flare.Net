@@ -1,11 +1,13 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Flare.Api.Auth;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
 using Flare.Identity.PasswordSetTokens;
 using Flare.Identity.Users;
 using Microsoft.Extensions.Options;
+using MimeKit;
 
 namespace Flare.Api.Endpoints;
 
@@ -24,6 +26,7 @@ public static class AuthEndpoints
         endpoints.MapGet("/api/auth/me", HandleMeAsync);
         endpoints.MapPost("/api/auth/password", HandleChangePasswordAsync);
         endpoints.MapPost("/api/auth/set-password", HandleSetPasswordAsync);
+        endpoints.MapPost("/api/auth/forgot-password", HandleForgotPasswordAsync);
         endpoints.MapPost("/api/auth/bootstrap", HandleBootstrapAsync);
         endpoints.MapGet("/api/auth/bootstrap/status", HandleBootstrapStatusAsync);
         return endpoints;
@@ -275,6 +278,70 @@ public static class AuthEndpoints
         return Results.NoContent();
     }
 
+    internal static readonly TimeSpan ForgotPasswordLifetime = TimeSpan.FromHours(1);
+    internal static readonly TimeSpan ForgotPasswordCooldown = TimeSpan.FromMinutes(1);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTimeOffset> ForgotPasswordLastSent = new();
+
+    /// <summary>Self-service "forgot password" (ADR-0113): when SMTP + public URL are configured and the
+    /// username is the address of a live local account, emails a 1-hour set-password link. Always 204 -
+    /// the response never reveals whether the account exists or the mail was sent.</summary>
+    internal static async Task<IResult> HandleForgotPasswordAsync(
+        HttpContext http,
+        IUserStore users,
+        IPasswordSetTokenStore tokens,
+        IAuthSettingsStore authSettings,
+        IPasswordResetMailer mailer,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        if (!(await authSettings.GetAsync(cancellationToken)).LocalEnabled || !mailer.IsConfigured)
+        {
+            return Results.NotFound();
+        }
+
+        ForgotPasswordRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AuthJsonContext.Default.ForgotPasswordRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var username = request?.Username?.Trim();
+        if (string.IsNullOrEmpty(username))
+        {
+            return Results.Problem("Username is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var key = username.ToUpperInvariant();
+        // Cooldown applies whether or not the account exists, so timing/behaviour doesn't leak existence.
+        var throttled = false;
+        ForgotPasswordLastSent.AddOrUpdate(
+            key,
+            _ => now,
+            (_, last) =>
+            {
+                throttled = now - last < ForgotPasswordCooldown;
+                return throttled ? last : now;
+            });
+        if (throttled)
+        {
+            return Results.NoContent();
+        }
+
+        var user = await users.FindByUsernameAsync(username, cancellationToken);
+        if (user is { IsDisabled: false, AuthProvider: "Local" } && user.Username.Contains('@') && MailboxAddress.TryParse(user.Username, out _))
+        {
+            var issued = await tokens.CreateAsync(user.Id, PasswordSetPurpose.Reset, ForgotPasswordLifetime, cancellationToken);
+            await mailer.SendAsync(user.Username, mailer.BuildLink(issued.RawToken), cancellationToken);
+        }
+
+        return Results.NoContent();
+    }
+
     internal static async Task<IResult> HandleBootstrapAsync(
         HttpContext http,
         IUserStore users,
@@ -347,6 +414,7 @@ public static class AuthEndpoints
         ILdapSettingsStore ldapSettings,
         IOidcSettingsStore oidcSettings,
         IProxyAuthSettingsStore proxyAuthSettings,
+        IPasswordResetMailer mailer,
         CancellationToken cancellationToken)
     {
         var needsBootstrap = !await users.AnyAsync(cancellationToken);
@@ -367,6 +435,7 @@ public static class AuthEndpoints
                 OidcEnabled = oidc.Enabled,
                 OidcDisplayName = oidc.DisplayName,
                 ProxyAuthEnabled = proxyAuth.Enabled,
+                PasswordResetEmailEnabled = auth.LocalEnabled && mailer.IsConfigured,
             },
             AuthJsonContext.Default.BootstrapStatusResponse);
     }
