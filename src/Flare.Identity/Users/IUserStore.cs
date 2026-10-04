@@ -45,4 +45,8 @@ public interface IUserStore
     Task SetDisabledAsync(Guid id, bool isDisabled, CancellationToken cancellationToken = default);
 
     Task SetRoleAsync(Guid id, UserRole role, CancellationToken cancellationToken = default);
+
+    /// <summary>Replaces a local account's password hash. Callers enforce strength rules and
+    /// session revocation.</summary>
+    Task SetPasswordAsync(Guid id, string newPassword, CancellationToken cancellationToken = default);
 }

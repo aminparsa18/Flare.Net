@@ -54,3 +54,25 @@ public sealed partial record CreateServiceAccountRequest
 
     public required UserRole Role { get; init; }
 }
+
+/// <summary>Request body for <c>POST /api/users/invite</c>.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record InviteUserRequest
+{
+    public required string Username { get; init; }
+
+    public required UserRole Role { get; init; }
+}
+
+/// <summary>Response for invite / admin password reset: the one-time token to put in a
+/// <c>/set-password?token=</c> link. Shown once; only its hash is stored.</summary>
+[MemoryPackable]
+public sealed partial record PasswordSetLinkResponse
+{
+    public required UserSummaryDto User { get; init; }
+
+    public required string Token { get; init; }
+
+    public required DateTimeOffset ExpiresAt { get; init; }
+}

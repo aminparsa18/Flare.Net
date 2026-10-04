@@ -3,6 +3,7 @@ using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Identity.Auth;
+using Flare.Identity.PasswordSetTokens;
 using Flare.Identity.Users;
 using Microsoft.Extensions.Options;
 
@@ -21,6 +22,8 @@ public static class AuthEndpoints
         endpoints.MapPost("/api/auth/login", HandleLoginAsync);
         endpoints.MapPost("/api/auth/logout", HandleLogoutAsync);
         endpoints.MapGet("/api/auth/me", HandleMeAsync);
+        endpoints.MapPost("/api/auth/password", HandleChangePasswordAsync);
+        endpoints.MapPost("/api/auth/set-password", HandleSetPasswordAsync);
         endpoints.MapPost("/api/auth/bootstrap", HandleBootstrapAsync);
         endpoints.MapGet("/api/auth/bootstrap/status", HandleBootstrapStatusAsync);
         return endpoints;
@@ -166,6 +169,112 @@ public static class AuthEndpoints
         return user is null || user.IsDisabled ? Results.Unauthorized() : ApiSerialization.Write(http, ToDto(user), AuthJsonContext.Default.AuthUserDto);
     }
 
+    internal const int MinPasswordLength = 8;
+
+    /// <summary>Self-service change for a local account: verifies the current password, then
+    /// revokes every other session (the caller's own stays signed in).</summary>
+    internal static async Task<IResult> HandleChangePasswordAsync(
+        HttpContext http,
+        ClaimsPrincipal principal,
+        IUserStore users,
+        ISessionStore sessions,
+        IOptions<AuthOptions> authOptions,
+        CancellationToken cancellationToken)
+    {
+        if (principal.Identity is not { IsAuthenticated: true }
+            || !Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
+            return Results.Unauthorized();
+        }
+
+        ChangePasswordRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AuthJsonContext.Default.ChangePasswordRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null || string.IsNullOrEmpty(request.CurrentPassword) || string.IsNullOrEmpty(request.NewPassword))
+        {
+            return Results.Problem("Current and new password are required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request.NewPassword.Length < MinPasswordLength)
+        {
+            return Results.Problem($"Password must be at least {MinPasswordLength} characters.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var user = await users.FindByIdAsync(userId, cancellationToken);
+        if (user is null || user.IsDisabled || user.AuthProvider != "Local")
+        {
+            return Results.Problem("Only local accounts have a Flare-managed password.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (await users.VerifyPasswordAsync(user.Username, request.CurrentPassword, cancellationToken) is null)
+        {
+            return Results.Problem("Current password is incorrect.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        await users.SetPasswordAsync(user.Id, request.NewPassword, cancellationToken);
+        if (http.Request.Cookies.TryGetValue(authOptions.Value.CookieName, out var token) && !string.IsNullOrEmpty(token))
+        {
+            await sessions.DeleteAllForUserExceptAsync(user.Id, token, cancellationToken);
+        }
+        else
+        {
+            // Authenticated by PAT rather than cookie - no session to keep.
+            await sessions.DeleteAllForUserAsync(user.Id, cancellationToken);
+        }
+
+        return Results.NoContent();
+    }
+
+    /// <summary>Redeems an invite/reset token (unauthenticated - the token is the credential),
+    /// sets the password, and revokes all of the user's existing sessions. Does not sign in:
+    /// the user logs in normally afterwards.</summary>
+    internal static async Task<IResult> HandleSetPasswordAsync(
+        HttpContext http,
+        IUserStore users,
+        ISessionStore sessions,
+        IPasswordSetTokenStore tokens,
+        CancellationToken cancellationToken)
+    {
+        SetPasswordRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AuthJsonContext.Default.SetPasswordRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrEmpty(request.Password))
+        {
+            return Results.Problem("Token and password are required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // Validated before consuming so a too-short password doesn't burn the link.
+        if (request.Password.Length < MinPasswordLength)
+        {
+            return Results.Problem($"Password must be at least {MinPasswordLength} characters.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var userId = await tokens.ConsumeAsync(request.Token, cancellationToken);
+        var user = userId is { } id ? await users.FindByIdAsync(id, cancellationToken) : null;
+        if (user is null || user.IsDisabled || user.AuthProvider != "Local")
+        {
+            return Results.Problem("This link is invalid or has expired.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        await users.SetPasswordAsync(user.Id, request.Password, cancellationToken);
+        await sessions.DeleteAllForUserAsync(user.Id, cancellationToken);
+        return Results.NoContent();
+    }
+
     internal static async Task<IResult> HandleBootstrapAsync(
         HttpContext http,
         IUserStore users,
@@ -204,9 +313,9 @@ public static class AuthEndpoints
             return Results.Problem("Username and password are required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (request.Password.Length < 8)
+        if (request.Password.Length < MinPasswordLength)
         {
-            return Results.Problem("Password must be at least 8 characters.", statusCode: StatusCodes.Status400BadRequest);
+            return Results.Problem($"Password must be at least {MinPasswordLength} characters.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         User user;

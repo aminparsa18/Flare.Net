@@ -7,6 +7,7 @@ using Flare.Identity.UserPreferences;
 using Flare.Identity.IngestKeys;
 using Flare.Identity.LlmPrices;
 using Flare.Identity.MetricMetadata;
+using Flare.Identity.PasswordSetTokens;
 using Flare.Identity.PersonalAccessTokens;
 using Flare.Identity.SourceLinks;
 using Flare.Identity.Users;
@@ -37,6 +38,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<IPasswordHasher, AspNetPasswordHasher>();
         builder.Services.AddSingleton<IUserStore, DbUserStore>();
         builder.Services.AddSingleton<ISessionStore, DbSessionStore>();
+        builder.Services.AddSingleton<IPasswordSetTokenStore, DbPasswordSetTokenStore>();
         builder.Services.AddSingleton<ILoginAttemptStore, DbLoginAttemptStore>();
         builder.Services.AddSingleton<IIngestApiKeyStore, DbIngestApiKeyStore>();
         builder.Services.AddSingleton<IPersonalAccessTokenStore, DbPersonalAccessTokenStore>();

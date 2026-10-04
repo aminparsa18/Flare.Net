@@ -358,6 +358,15 @@ groupe/rôle en amont. Flare refuse de rétrograder ou de désactiver le
 **dernier Admin activé** — cela entraînerait un verrouillage récupérable
 uniquement en modifiant directement le fichier SQLite.
 
+
+### Inviter des utilisateurs et réinitialiser les mots de passe
+
+**Inviter un utilisateur** dans le tableau des utilisateurs (`POST /api/users/invite`, nom + rôle) crée un compte local auquel personne ne peut encore se connecter et affiche un lien à usage unique `/set-password?token=…`. Transmettez-le à la personne : elle choisit son mot de passe sur cette page. Le lien ne fonctionne qu'une fois et expire après 3 jours. Flare ne l'envoie pas par e-mail : copiez-le depuis la boîte de dialogue, qui ne l'affiche qu'une seule fois.
+
+**Lien de réinitialisation** sur la ligne d'un compte local (`POST /api/users/{id}/password-reset`) émet un nouveau lien (valable 24 heures), remplace tout lien précédent non utilisé et déconnecte immédiatement ce compte partout. Utiliser l'un ou l'autre type de lien déconnecte aussi toutes les sessions existantes. Seuls les comptes locaux ont un mot de passe géré par Flare ; les comptes SSO n'ont pas ces contrôles.
+
+Un utilisateur local connecté peut changer son propre mot de passe via `POST /api/auth/password` (`currentPassword`, `newPassword`, 8 caractères minimum) ; ses autres sessions sont révoquées et la session courante reste ouverte.
+
 ## Journal d'audit
 
 Flare enregistre qui a modifié quoi. Chaque modification réussie d'une règle d'alerte, d'un canal de notification, d'une fenêtre de maintenance, d'une règle de pipeline, d'un tableau de bord, d'une vue enregistrée, du rôle ou de l'état désactivé d'un utilisateur, d'un jeton d'accès personnel, d'une clé d'ingestion, d'un paramètre d'authentification, d'un seuil Apdex, d'un remplacement de métadonnées de métrique ou d'un attribut promu devient un événement d'audit : heure, acteur, action, type et identifiant de la ressource, route, adresse IP source, et si l'acteur a utilisé une session ou un jeton d'accès personnel.

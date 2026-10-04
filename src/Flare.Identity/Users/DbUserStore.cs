@@ -151,6 +151,17 @@ public sealed class DbUserStore(
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task SetPasswordAsync(Guid id, string newPassword, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE Users SET PasswordHash = @hash, UpdatedAt = @updatedAt WHERE Id = @id";
+        command.AddParameter("@hash", passwordHasher.HashPassword(newPassword));
+        command.AddParameter("@updatedAt", timeProvider.GetUtcNow().ToString("O"));
+        command.AddParameter("@id", id.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task SetRoleAsync(Guid id, UserRole role, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);

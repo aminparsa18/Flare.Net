@@ -83,6 +83,10 @@
 	});
 
 	const onAuthRoute = $derived(AUTH_ROUTES.includes(stripBase(page.url.pathname)));
+	// Reachable regardless of session/auth state (an invited user redeeming a set-password
+	// link has no session yet, and one already signed in elsewhere must still see it) and
+	// rendered without app chrome.
+	const onPublicRoute = $derived(stripBase(page.url.pathname) === '/set-password');
 
 	// /auth (the consolidated enable-auth/configure-methods/manage-users screen) is the
 	// one Admin-only route (server-side enforcement lives in the endpoints it calls -
@@ -101,7 +105,7 @@
 	// meaningless in that state, so visiting it directly still bounces to "/".
 	// Doesn't run (and doesn't need to) until auth.initializing flips false - see above.
 	$effect(() => {
-		if (auth.initializing) return;
+		if (auth.initializing || onPublicRoute) return;
 
 		if (!auth.authEnabled) {
 			if (onAuthRoute) void goto(withBase('/'));
@@ -150,7 +154,8 @@
 	// the bounce completes.
 	const readyToRenderChildren = $derived(
 		!auth.initializing &&
-			(!auth.authEnabled
+			(onPublicRoute ||
+				!auth.authEnabled
 				? !onAuthRoute
 				: onAuthRoute || (auth.currentUser !== null && (!onAdminOnlyRoute || auth.currentUser.role === 'Admin')))
 	);
@@ -159,7 +164,7 @@
 	// off (everyone gets full access, including finding their way to turn it on) or
 	// someone's actually signed in - either way, never on the /login screen itself (its
 	// links would just bounce back through the guard above).
-	const showChrome = $derived(!onAuthRoute && (!auth.authEnabled || auth.currentUser !== null) && !chrome.hidden);
+	const showChrome = $derived(!onAuthRoute && !onPublicRoute && (!auth.authEnabled || auth.currentUser !== null) && !chrome.hidden);
 </script>
 
 <!-- Handles both the dark/light class on <html> and, crucially, injects an inline

@@ -13,4 +13,6 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(AuthUserDto))]
 [JsonSerializable(typeof(LogoutResponse))]
 [JsonSerializable(typeof(BootstrapStatusResponse))]
+[JsonSerializable(typeof(ChangePasswordRequest))]
+[JsonSerializable(typeof(SetPasswordRequest))]
 public sealed partial class AuthJsonContext : JsonSerializerContext;

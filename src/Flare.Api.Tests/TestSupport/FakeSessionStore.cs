@@ -33,6 +33,15 @@ internal sealed class FakeSessionStore : ISessionStore
         return Task.CompletedTask;
     }
 
+    public Task DeleteAllForUserExceptAsync(Guid userId, string keepToken, CancellationToken cancellationToken = default)
+    {
+        foreach (var key in _sessionsByToken.Where(kv => kv.Value.UserId == userId && kv.Key != keepToken).Select(kv => kv.Key).ToList())
+        {
+            _sessionsByToken.Remove(key);
+        }
+        return Task.CompletedTask;
+    }
+
     public Task TouchLastSeenAsync(string token, CancellationToken cancellationToken = default)
     {
         if (_sessionsByToken.TryGetValue(token, out var session))

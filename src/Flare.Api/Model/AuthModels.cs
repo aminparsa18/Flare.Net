@@ -81,3 +81,23 @@ public sealed partial record BootstrapStatusResponse
     /// <c>ProxyAuthLoginEndpoints</c>'s own disabled-gate 404).</summary>
     public required bool ProxyAuthEnabled { get; init; }
 }
+
+/// <summary>Request body for <c>POST /api/auth/password</c> (self-service change).</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record ChangePasswordRequest
+{
+    public required string CurrentPassword { get; init; }
+
+    public required string NewPassword { get; init; }
+}
+
+/// <summary>Request body for <c>POST /api/auth/set-password</c> (redeems an invite/reset token).</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record SetPasswordRequest
+{
+    public required string Token { get; init; }
+
+    public required string Password { get; init; }
+}

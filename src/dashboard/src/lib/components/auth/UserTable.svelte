@@ -13,6 +13,10 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Badge } from '$lib/components/ui/badge';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { withBase } from '$lib/paths';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import { usersContext } from '$lib/users/context';
@@ -35,12 +39,39 @@
 				return m.userRole_viewer();
 		}
 	}
+
+	let inviteOpen = $state(false);
+	let inviteUsername = $state('');
+	let inviteRole = $state<UserRole>('Viewer');
+	let copied = $state(false);
+
+	async function submitInvite(e: SubmitEvent) {
+		e.preventDefault();
+		if (!inviteUsername.trim()) return;
+		if (await users.invite(inviteUsername.trim(), inviteRole)) {
+			inviteOpen = false;
+			inviteUsername = '';
+		}
+	}
+
+	const linkUrl = $derived(
+		users.issuedLink ? `${window.location.origin}${withBase('/set-password')}?token=${encodeURIComponent(users.issuedLink.token)}` : ''
+	);
+
+	async function copyLink() {
+		await navigator.clipboard.writeText(linkUrl);
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
 </script>
 
 <Card.Root class="shrink-0">
 	<Card.Header>
 		<Card.Title>{m.userTable_title()}</Card.Title>
 		<Card.Description>{m.userTable_description()}</Card.Description>
+		<Card.Action>
+			<Button size="sm" onclick={() => ((inviteOpen = true), (users.inviteError = null))}>{m.userTable_invite()}</Button>
+		</Card.Action>
 	</Card.Header>
 	<Card.Content>
 		{#if users.saveError}
@@ -102,6 +133,11 @@
 								>
 							</Table.Cell>
 							<Table.Cell class="text-right">
+								{#if user.authProvider === 'Local'}
+									<Button variant="ghost" size="sm" disabled={isSaving} onclick={() => users.issueResetLink(user)}>
+										{m.userTable_resetLink()}
+									</Button>
+								{/if}
 								<Switch
 									checked={!user.isDisabled}
 									disabled={isSaving}
@@ -115,3 +151,46 @@
 		{/if}
 	</Card.Content>
 </Card.Root>
+
+<Dialog.Root bind:open={inviteOpen}>
+	<Dialog.Content>
+		<form class="flex flex-col gap-3" onsubmit={submitInvite}>
+			<Dialog.Header>
+				<Dialog.Title>{m.userInvite_title()}</Dialog.Title>
+				<Dialog.Description>{m.userInvite_description()}</Dialog.Description>
+			</Dialog.Header>
+			{#if users.inviteError}
+				<Alert variant="destructive"><AlertDescription>{users.inviteError}</AlertDescription></Alert>
+			{/if}
+			<Input placeholder={m.userInvite_username()} bind:value={inviteUsername} autocomplete="off" />
+			<Select.Root type="single" bind:value={inviteRole}>
+				<Select.Trigger class="w-full">{m.userInvite_role()}: {roleLabel(inviteRole)}</Select.Trigger>
+				<Select.Content>
+					{#each ROLES as role (role)}
+						<Select.Item value={role} label={roleLabel(role)} />
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<Dialog.Footer>
+				<Button type="button" variant="outline" onclick={() => (inviteOpen = false)}>{m.userInvite_cancel()}</Button>
+				<Button type="submit">{m.userInvite_create()}</Button>
+			</Dialog.Footer>
+		</form>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root open={users.issuedLink !== null} onOpenChange={(o) => !o && (users.issuedLink = null)}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>{m.userInvite_linkTitle({ username: users.issuedLink?.user.username ?? '' })}</Dialog.Title>
+			<Dialog.Description>
+				{m.userInvite_linkHint({ expires: users.issuedLink ? new Date(users.issuedLink.expiresAt).toLocaleString() : '' })}
+			</Dialog.Description>
+		</Dialog.Header>
+		<Input readonly value={linkUrl} onfocus={(e) => e.currentTarget.select()} />
+		<Dialog.Footer>
+			<Button variant="outline" onclick={copyLink}>{copied ? m.userInvite_copied() : m.userInvite_copy()}</Button>
+			<Button onclick={() => (users.issuedLink = null)}>{m.userInvite_done()}</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

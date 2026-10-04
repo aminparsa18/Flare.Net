@@ -2,6 +2,8 @@ using System.Text.Json;
 using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
+using Flare.Identity.Auth;
+using Flare.Identity.PasswordSetTokens;
 using Flare.Identity.Users;
 
 namespace Flare.Api.Endpoints;
@@ -24,7 +26,76 @@ public static class UserEndpoints
         endpoints.MapGet("/api/users", HandleListAsync);
         endpoints.MapPatch("/api/users/{id:guid}/role", HandleSetRoleAsync);
         endpoints.MapPatch("/api/users/{id:guid}/disabled", HandleSetDisabledAsync);
+        endpoints.MapPost("/api/users/invite", HandleInviteAsync);
+        endpoints.MapPost("/api/users/{id:guid}/password-reset", HandlePasswordResetAsync);
         return endpoints;
+    }
+
+    internal static readonly TimeSpan InviteLifetime = TimeSpan.FromDays(3);
+    internal static readonly TimeSpan ResetLifetime = TimeSpan.FromHours(24);
+
+    /// <summary>Creates a local account whose password nobody knows (random, discarded) and
+    /// returns a one-time set-password token for the admin to hand over.</summary>
+    internal static async Task<IResult> HandleInviteAsync(
+        HttpContext http, IUserStore users, IPasswordSetTokenStore tokens, IAuthSettingsStore authSettings, CancellationToken cancellationToken)
+    {
+        if (!(await authSettings.GetAsync(cancellationToken)).LocalEnabled)
+        {
+            return Results.Problem("Local accounts are disabled.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        InviteUserRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, UsersJsonContext.Default.InviteUserRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Username))
+        {
+            return Results.Problem("Username is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var username = request.Username.Trim();
+        if (await users.FindByUsernameAsync(username, cancellationToken) is not null)
+        {
+            return Results.Problem("A user with that username already exists.", statusCode: StatusCodes.Status409Conflict);
+        }
+
+        var user = await users.CreateAsync(username, $"{Guid.NewGuid():N}{Guid.NewGuid():N}", request.Role, cancellationToken);
+        var token = await tokens.CreateAsync(user.Id, PasswordSetPurpose.Invite, InviteLifetime, cancellationToken);
+        return ApiSerialization.Write(
+            http,
+            new PasswordSetLinkResponse { User = ToDto(user), Token = token.RawToken, ExpiresAt = token.ExpiresAt },
+            UsersJsonContext.Default.PasswordSetLinkResponse,
+            statusCode: StatusCodes.Status201Created);
+    }
+
+    /// <summary>Admin-generated reset link for a local account. Revokes the user's sessions
+    /// immediately - a reset is usually "I'm locked out" or "this account may be compromised".</summary>
+    internal static async Task<IResult> HandlePasswordResetAsync(
+        Guid id, HttpContext http, IUserStore users, ISessionStore sessions, IPasswordSetTokenStore tokens, CancellationToken cancellationToken)
+    {
+        var target = await users.FindByIdAsync(id, cancellationToken);
+        if (target is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (target.AuthProvider != "Local")
+        {
+            return Results.Problem("Only local accounts have a Flare-managed password.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var token = await tokens.CreateAsync(target.Id, PasswordSetPurpose.Reset, ResetLifetime, cancellationToken);
+        await sessions.DeleteAllForUserAsync(target.Id, cancellationToken);
+        return ApiSerialization.Write(
+            http,
+            new PasswordSetLinkResponse { User = ToDto(target), Token = token.RawToken, ExpiresAt = token.ExpiresAt },
+            UsersJsonContext.Default.PasswordSetLinkResponse);
     }
 
     internal static async Task<IResult> HandleListAsync(HttpContext http, IUserStore users, CancellationToken cancellationToken)
