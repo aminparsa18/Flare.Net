@@ -100,10 +100,6 @@ folders are where "what happened and why" actually lives.
   config on every start, in which case that account is protected from
   deletion/demotion in the UI. Not started. Prior art:
   [signoz#10313](https://github.com/SigNoz/signoz/commit/6de4520a958fd68c733cf39dbb7594e6198e964d).
-- **"Explain this exception" LLM action.** Stack frames link to source and show the throw site
-  inline (ADR-0095, ADR-0096). Add an action that sends the exception, stack trace and that source
-  to an LLM for an explanation, under the AI constraints below (the source needs redaction there).
-  Not started.
 - **AI incident summary on alerts (opt-in).** When a rule fires, run the
   same data `flare export --trace-id` bundles (a representative failing
   trace, its logs, the rule's metric window) through an LLM. Add the summary

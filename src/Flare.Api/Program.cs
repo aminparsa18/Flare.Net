@@ -353,6 +353,15 @@ builder.Services.AddFlareMcp(builder.Configuration);
 builder.Services.AddHttpClient(Flare.Api.Source.SourceSnippetService.HttpClientName)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddSingleton<Flare.Api.Source.ISourceSnippetService, Flare.Api.Source.SourceSnippetService>();
+// AI actions (ADR-0103): the standard resilience handler's 10s attempt timeout and retries would
+// cut off and re-send a slow, non-idempotent LLM call, so it's removed; the service owns the timeout.
+builder.Services.Configure<Flare.Api.Ai.AiOptions>(builder.Configuration.GetSection(Flare.Api.Ai.AiOptions.SectionName));
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is marked experimental
+builder.Services.AddHttpClient(Flare.Api.Ai.ExceptionExplainService.HttpClientName)
+    .RemoveAllResilienceHandlers()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+#pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<Flare.Api.Ai.IExceptionExplainService, Flare.Api.Ai.ExceptionExplainService>();
 builder.Services.AddHttpClient<WebhookAlertNotifier>("alert-webhook");
 builder.Services.AddHttpClient<TelegramAlertNotifier>("alert-telegram");
 builder.Services.AddHttpClient<PagerDutyAlertNotifier>("alert-pagerduty");
@@ -470,6 +479,7 @@ authenticatedRoutes.MapSpanEndpoints();
 authenticatedRoutes.MapMetricsEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapSourceLinkReadEndpoints();
+authenticatedRoutes.MapAiEndpoints();
 authenticatedRoutes.MapHostInventoryEndpoints();
 authenticatedRoutes.MapMetricCatalogEndpoints();
 authenticatedRoutes.MapPodMetricsEndpoints();

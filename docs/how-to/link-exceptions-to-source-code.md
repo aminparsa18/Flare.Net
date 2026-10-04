@@ -57,6 +57,26 @@ The token is write-only: Flare never shows it again, and leaving the field blank
 keeps the saved one. Public repositories work without a token. Flare doesn't
 follow redirects, ignores files over 2 MB and caches a file for 10 minutes.
 
+## Explain an exception with AI (optional)
+
+Flare can ask a language model to explain an exception. It is off by default and
+uses a model you bring: any OpenAI-compatible endpoint, including a local Ollama.
+Set these on `Flare.Api`:
+
+```bash
+Ai__Enabled=true
+Ai__Endpoint=http://localhost:11434/v1   # base URL; Flare calls /chat/completions
+Ai__Model=llama3.1
+Ai__ApiKey=...                            # optional for local models
+```
+
+An **Explain this exception** button then appears under each occurrence. Clicking it sends
+the exception type and message, the stack trace and the throw-site source to your model.
+Flare redacts tokens, passwords, connection-string secrets, emails and IP addresses first,
+but pattern matching can miss things, so use a local model if the code is sensitive. The
+prompt is capped at `Ai__MaxInputChars` (12000) and the answer at `Ai__MaxOutputTokens`
+(800). Each request is in the audit log and the redacted prompt is logged at Debug.
+
 ## When a frame isn't linked
 
 Flare leaves a frame as plain text rather than guess:
@@ -69,3 +89,4 @@ Flare leaves a frame as plain text rather than guess:
 
 - [Architecture decision: ADR-0095](../../docs-internal/adr/0095-exception-source-links.md)
 - [ADR-0096](../../docs-internal/adr/0096-inline-exception-source.md)
+- [ADR-0103](../../docs-internal/adr/0103-explain-exception-llm.md)
