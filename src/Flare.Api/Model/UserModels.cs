@@ -79,3 +79,36 @@ public sealed partial record PasswordSetLinkResponse
     /// <summary>True when the link was also emailed to the account (invite, SMTP configured, email username).</summary>
     public bool EmailSent { get; init; }
 }
+
+/// <summary>Request body for <c>POST /api/users/invite/bulk</c> (ADR-0115).</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record BulkInviteRequest
+{
+    public required string[] Usernames { get; init; }
+
+    public required UserRole Role { get; init; }
+}
+
+/// <summary>One line of a bulk invite result. <see cref="Status"/> is <c>Created</c>, <c>Exists</c> or
+/// <c>Invalid</c>; <see cref="Token"/> is set only for <c>Created</c>.</summary>
+[MemoryPackable]
+public sealed partial record BulkInviteResultItem
+{
+    public required string Username { get; init; }
+
+    public required string Status { get; init; }
+
+    public string? Token { get; init; }
+
+    public bool EmailSent { get; init; }
+}
+
+/// <summary>Response for <c>POST /api/users/invite/bulk</c>.</summary>
+[MemoryPackable]
+public sealed partial record BulkInviteResponse
+{
+    public required DateTimeOffset ExpiresAt { get; init; }
+
+    public required BulkInviteResultItem[] Results { get; init; }
+}
