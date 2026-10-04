@@ -16,6 +16,8 @@ export const STORAGE_KEY = 'flare.regional';
 export type TimeFormat = '24h' | '12h';
 export type DateOrder = 'iso' | 'dmy' | 'mdy';
 export type WeekStart = 'monday' | 'sunday' | 'saturday';
+export const NUMBER_FORMATS = ['auto', 'en-US', 'de-DE', 'fr-FR', 'de-CH'] as const;
+export type NumberFormatChoice = (typeof NUMBER_FORMATS)[number];
 export type Explorer = 'logs' | 'traces' | 'metrics';
 
 /** Presets offered as a default; fixed durations only, so all three explorers accept them. */
@@ -26,6 +28,8 @@ export interface RegionalPrefs {
 	timeFormat: TimeFormat;
 	dateOrder: DateOrder;
 	weekStart: WeekStart;
+	/** Separator style for numbers; 'auto' follows the browser's locale. */
+	numberFormat: NumberFormatChoice;
 	defaultRanges: Record<Explorer, DefaultRange>;
 }
 
@@ -33,6 +37,7 @@ export const DEFAULTS: RegionalPrefs = {
 	timeFormat: '24h',
 	dateOrder: 'iso',
 	weekStart: 'monday',
+	numberFormat: 'auto',
 	defaultRanges: { logs: '1h', traces: '1h', metrics: '1h' }
 };
 
@@ -46,6 +51,7 @@ function parse(s: Record<string, unknown>): RegionalPrefs {
 		timeFormat: pick(s.timeFormat, ['24h', '12h'], DEFAULTS.timeFormat),
 		dateOrder: pick(s.dateOrder, ['iso', 'dmy', 'mdy'], DEFAULTS.dateOrder),
 		weekStart: pick(s.weekStart, ['monday', 'sunday', 'saturday'], DEFAULTS.weekStart),
+		numberFormat: pick(s.numberFormat, NUMBER_FORMATS, DEFAULTS.numberFormat),
 		defaultRanges: {
 			logs: pick(r.logs, DEFAULT_RANGE_CHOICES, DEFAULTS.defaultRanges.logs),
 			traces: pick(r.traces, DEFAULT_RANGE_CHOICES, DEFAULTS.defaultRanges.traces),
@@ -71,6 +77,7 @@ class RegionalSettings {
 	timeFormat = $state<TimeFormat>(DEFAULTS.timeFormat);
 	dateOrder = $state<DateOrder>(DEFAULTS.dateOrder);
 	weekStart = $state<WeekStart>(DEFAULTS.weekStart);
+	numberFormat = $state<NumberFormatChoice>(DEFAULTS.numberFormat);
 	defaultRanges = $state<Record<Explorer, DefaultRange>>({ ...DEFAULTS.defaultRanges });
 
 	#synced = false;
@@ -81,7 +88,7 @@ class RegionalSettings {
 		displayTimeZone.onChange = () => this.#persist();
 	}
 
-	set<K extends 'timeFormat' | 'dateOrder' | 'weekStart'>(key: K, value: RegionalPrefs[K]): void {
+	set<K extends 'timeFormat' | 'dateOrder' | 'weekStart' | 'numberFormat'>(key: K, value: RegionalPrefs[K]): void {
 		(this as Pick<RegionalPrefs, K>)[key] = value;
 		this.#persist();
 	}
@@ -121,6 +128,7 @@ class RegionalSettings {
 		this.timeFormat = p.timeFormat;
 		this.dateOrder = p.dateOrder;
 		this.weekStart = p.weekStart;
+		this.numberFormat = p.numberFormat;
 		this.defaultRanges = { ...p.defaultRanges };
 	}
 
@@ -129,6 +137,7 @@ class RegionalSettings {
 			timeFormat: this.timeFormat,
 			dateOrder: this.dateOrder,
 			weekStart: this.weekStart,
+			numberFormat: this.numberFormat,
 			defaultRanges: { ...this.defaultRanges },
 			timeZone: displayTimeZone.zone,
 			locale: getLocale()
@@ -138,8 +147,8 @@ class RegionalSettings {
 	#saveLocal(): void {
 		if (!browser) return;
 		try {
-			const { timeFormat, dateOrder, weekStart, defaultRanges } = this.#snapshot();
-			localStorage.setItem(STORAGE_KEY, JSON.stringify({ timeFormat, dateOrder, weekStart, defaultRanges }));
+			const { timeFormat, dateOrder, weekStart, numberFormat, defaultRanges } = this.#snapshot();
+			localStorage.setItem(STORAGE_KEY, JSON.stringify({ timeFormat, dateOrder, weekStart, numberFormat, defaultRanges }));
 		} catch {
 			// Storage full/disabled - the change still applies for this session.
 		}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
@@ -118,11 +119,11 @@
 					<dl class="grid grid-cols-3 gap-3">
 						<div class="rounded-md border p-3">
 							<dt class="text-muted-foreground text-xs">{m.metricCatalog_seriesColumn()}</dt>
-							<dd class="text-lg tabular-nums {cardinalityClass(totals.series)}" title={totals.series.toLocaleString()}>{formatCount(totals.series)}</dd>
+							<dd class="text-lg tabular-nums {cardinalityClass(totals.series)}" title={formatNumber(totals.series)}>{formatCount(totals.series)}</dd>
 						</div>
 						<div class="rounded-md border p-3">
 							<dt class="text-muted-foreground text-xs">{m.metricCatalog_samplesColumn()}</dt>
-							<dd class="text-lg tabular-nums" title={totals.samples.toLocaleString()}>{formatCount(totals.samples)}</dd>
+							<dd class="text-lg tabular-nums" title={formatNumber(totals.samples)}>{formatCount(totals.samples)}</dd>
 						</div>
 						<div class="rounded-md border p-3">
 							<dt class="text-muted-foreground text-xs">{m.metricCatalog_servicesColumn()}</dt>

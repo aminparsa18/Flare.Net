@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	// Exports the Logs Explorer's logs as a downloaded file. Asks the user which rows and
 	// which format, rather than assuming - a first cut of this feature always exported the
 	// full filtered result set silently, which read as "wrong" to anyone who expected an
@@ -78,7 +79,7 @@
 			downloadBlob(eventsToBlob(events, format), exportFilename(range, truncated, format, scope));
 			open = false;
 			if (truncated) {
-				alert(m.exportDialog_truncatedAlert({ count: events.length.toLocaleString() }));
+				alert(m.exportDialog_truncatedAlert({ count: formatNumber(events.length) }));
 			}
 		} catch (err) {
 			if (abortController?.signal.aborted) {
@@ -125,7 +126,7 @@
 						class="flex-1"
 						onclick={() => (scope = 'visible')}
 					>
-						{m.exportDialog_rowsVisible({ count: explorer.events.length.toLocaleString() })}
+						{m.exportDialog_rowsVisible({ count: formatNumber(explorer.events.length) })}
 					</Button>
 					<Button
 						type="button"

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	// Matches EventDetailSheet.svelte's established "detail viewer" use of Sheet
 	// (open/onOpenChange bound to a runes-state field) - AlertRuleFormDialog.svelte uses
 	// Dialog instead, for its different "bounded form" role.
@@ -72,8 +73,8 @@
 										{m.alertHistory_entrySummaryNoData({ window: entry.windowSeconds })}
 									{:else if entry.conditionKind === 'Anomaly'}
 										{m.alertHistory_entrySummaryAnomaly({
-											value: (entry.observedValue ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 }),
-											mean: (entry.baselineMean ?? 0).toLocaleString(undefined, { maximumFractionDigits: 3 }),
+											value: formatNumber(entry.observedValue ?? 0, { maximumFractionDigits: 3 }),
+											mean: formatNumber(entry.baselineMean ?? 0, { maximumFractionDigits: 3 }),
 											z: (entry.zScore ?? 0).toFixed(1),
 											window: entry.windowSeconds
 										})}

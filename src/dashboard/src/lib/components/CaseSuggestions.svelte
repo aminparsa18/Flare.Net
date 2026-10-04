@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	import type { CaseSuggestion } from '$lib/case-suggestions';
 	import * as m from '$lib/paraglide/messages';
 
@@ -15,7 +16,7 @@
 					class="hover:bg-muted rounded-md border px-2 py-1 font-mono text-xs"
 					onclick={() => onApply(s)}
 				>
-					{s.key}={s.actual} <span class="text-muted-foreground">({s.count.toLocaleString()})</span>
+					{s.key}={s.actual} <span class="text-muted-foreground">({formatNumber(s.count)})</span>
 				</button>
 			{/each}
 		</div>

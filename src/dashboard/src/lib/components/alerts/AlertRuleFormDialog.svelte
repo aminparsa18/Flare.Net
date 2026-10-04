@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	// Create/edit alert rule. Uses `Dialog` (scaffolded in the ui/ tree but unused
 	// anywhere before this feature) rather than `Sheet` - a bounded form fits Dialog's
 	// modal-and-done shape better than Sheet's established "detail viewer" role
@@ -537,7 +538,7 @@
 	}
 
 	function formatAnomalyNumber(value: number): string {
-		return value.toLocaleString(undefined, { maximumFractionDigits: 3 });
+		return formatNumber(value, { maximumFractionDigits: 3 });
 	}
 
 	function formatZScore(z: number): string {

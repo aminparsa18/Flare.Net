@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { lazyNumberFormat } from '$lib/format/number';
 	import { onMount } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Table from '$lib/components/ui/table';
@@ -28,7 +29,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
-	const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+	const compactNumber = lazyNumberFormat({ notation: 'compact', maximumFractionDigits: 1 });
 
 	// Dialog.Content is portalled and unmounted while closed (bits-ui doesn't keep closed
 	// content in the tree) - this component only exists in the DOM while open, so onMount

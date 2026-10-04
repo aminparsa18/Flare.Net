@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber } from '$lib/format/number';
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Badge } from '$lib/components/ui/badge';
@@ -111,10 +112,10 @@
 							{metric.unit ?? '—'}{#if metric.hasMetadataOverride}<span class="text-primary" aria-label={m.metricMetadata_overridden()}>*</span>{/if}
 						</Table.Cell>
 						<Table.Cell class="text-right tabular-nums">{metric.serviceCount}</Table.Cell>
-						<Table.Cell class="text-right tabular-nums {cardinalityClass(metric.seriesCount)}" title={metric.seriesCount.toLocaleString()}>
+						<Table.Cell class="text-right tabular-nums {cardinalityClass(metric.seriesCount)}" title={formatNumber(metric.seriesCount)}>
 							{formatCount(metric.seriesCount)}
 						</Table.Cell>
-						<Table.Cell class="text-right tabular-nums" title={metric.sampleCount.toLocaleString()}>{formatCount(metric.sampleCount)}</Table.Cell>
+						<Table.Cell class="text-right tabular-nums" title={formatNumber(metric.sampleCount)}>{formatCount(metric.sampleCount)}</Table.Cell>
 						<Table.Cell class="text-right tabular-nums" title={formatDateTime(metric.lastReceivedMs)}>
 							{formatAgo(metric.lastReceivedMs, catalog.loadedAt)}
 						</Table.Cell>

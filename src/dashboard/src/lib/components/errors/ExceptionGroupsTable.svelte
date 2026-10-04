@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { lazyNumberFormat } from '$lib/format/number';
 	import * as Table from '$lib/components/ui/table';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -13,7 +14,7 @@
 
 	const errors = errorsExplorerContext.get();
 
-	const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+	const compactNumber = lazyNumberFormat({ notation: 'compact', maximumFractionDigits: 1 });
 
 	interface ColumnDef {
 		column: ErrorsSortColumn;

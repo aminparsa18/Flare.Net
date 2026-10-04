@@ -1,5 +1,6 @@
 // Shared display helpers for the Metrics catalog table and its drill-down sheet.
 
+import { formatNumber } from '$lib/format/number';
 import type { MetricPointType } from '$lib/metrics-api';
 import * as m from '$lib/paraglide/messages';
 
@@ -33,7 +34,7 @@ export function formatAgo(timestampMs: number, nowMs: number): string {
 
 /** A raw sample/bucket value: integers as-is with separators, fractions to at most 4 decimals. */
 export function formatSampleValue(value: number): string {
-	return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+	return formatNumber(value, { maximumFractionDigits: 4 });
 }
 
 /** A signed contribution - "+10", "-6", "0". */
