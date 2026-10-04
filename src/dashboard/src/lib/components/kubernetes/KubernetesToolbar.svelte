@@ -8,6 +8,7 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { kubernetesContext } from '$lib/kubernetes/context';
+	import { KUBERNETES_EVENT_TYPES } from '$lib/kubernetes/events';
 	import { KUBERNETES_WINDOW_PRESETS, type KubernetesTab, type KubernetesWindowPreset } from '$lib/kubernetes/state.svelte';
 	import { KUBERNETES_WORKLOAD_KINDS, type KubernetesWorkloadKind } from '$lib/kubernetes-api';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
@@ -24,7 +25,8 @@
 		{ tab: 'namespaces', label: m.kubernetesPage_namespacesTab },
 		{ tab: 'workloads', label: m.kubernetesPage_workloadsTab },
 		{ tab: 'pods', label: m.kubernetesPage_podsTab },
-		{ tab: 'volumes', label: m.kubernetesPage_volumesTab }
+		{ tab: 'volumes', label: m.kubernetesPage_volumesTab },
+		{ tab: 'events', label: m.kubernetesPage_eventsTab }
 	];
 
 	const searchPlaceholder = $derived(
@@ -33,7 +35,8 @@
 			namespaces: m.kubernetesPage_namespaceSearchPlaceholder,
 			workloads: m.kubernetesPage_workloadSearchPlaceholder,
 			pods: m.kubernetesPage_podSearchPlaceholder,
-			volumes: m.kubernetesPage_volumeSearchPlaceholder
+			volumes: m.kubernetesPage_volumeSearchPlaceholder,
+			events: m.kubernetesPage_eventSearchPlaceholder
 		}[k8s.tab]()
 	);
 </script>
@@ -118,6 +121,26 @@
 		{/if}
 	{:else if k8s.tab === 'workloads' || k8s.tab === 'volumes'}
 		{@render namespaceFilter()}
+	{:else if k8s.tab === 'events'}
+		{@render namespaceFilter()}
+		{@render filter(k8s.eventType, [...KUBERNETES_EVENT_TYPES], m.kubernetesPage_allEventTypes(), m.kubernetesPage_eventTypeFilterLabel(), (v) =>
+			k8s.setEventType(v)
+		)}
+		{#if k8s.eventObject}
+			<Badge variant="secondary" class="gap-1 pr-1">
+				<span class="text-muted-foreground">{k8s.eventObject.kind}</span>
+				{k8s.eventObject.name}
+				<button
+					type="button"
+					class="hover:bg-muted rounded-sm p-0.5"
+					aria-label={m.kubernetesPage_clearEventObjectFilter()}
+					title={m.kubernetesPage_clearEventObjectFilter()}
+					onclick={() => k8s.setEventObject(null)}
+				>
+					<XIcon class="size-3" />
+				</button>
+			</Badge>
+		{/if}
 	{/if}
 	<Select.Root type="single" value={k8s.windowPreset} onValueChange={(v) => v && k8s.setWindowPreset(v as KubernetesWindowPreset)}>
 		<Select.Trigger class="ml-auto w-auto">

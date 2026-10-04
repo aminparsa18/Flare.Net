@@ -163,6 +163,38 @@ Pod 下钻视图中的 **View logs** 会打开 **Logs**，并按该 Pod 的 `k8s
 
 卷的数值是窗口内的最新读数而不是平均值，因此正在写满的卷会显示当前水位。表格按 **Used %** 排序，最满的在前。搜索匹配卷名或声明名。点击卷可查看其已用字节、已用百分比和 inode 图表。
 
+## 查看 Events 标签页
+
+切换到 **Events** 标签页，或打开 `/kubernetes?tab=events`。它按时间倒序列出 Kubernetes
+事件（`BackOff`、`FailedScheduling`、`OOMKilling` 等）。事件来自采集器的
+[`k8sobjects` 接收器](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sobjectsreceiver)，它将事件作为日志发送。采集器需要对 `events` 拥有
+`list` 和 `watch` 的 RBAC 权限：
+
+```yaml
+receivers:
+  k8sobjects:
+    objects:
+      - name: events
+        mode: watch
+        group: events.k8s.io
+
+service:
+  pipelines:
+    logs:
+      receivers: [k8sobjects]
+      exporters: [otlp]
+```
+
+请使用 `mode: watch`。Flare 从 watch 正文中读取事件（`object.reason`、
+`object.involvedObject.kind` 等）；以 `mode: pull` 采集的事件没有 `object` 包装，不会显示。
+
+每行显示时间、**Type**（`Warning` 或 `Normal`）、**Reason**、涉及的对象、其命名空间和消息。
+重复事件会显示次数（`×5`）。可使用命名空间和类型筛选，或搜索原因与消息。点击 Pod 或 Node
+可打开其详情面板。
+
+Pod 或节点的面板有 **查看事件** 按钮，会打开按该对象筛选的此标签页；点击筛选标签上的 **×** 清除。
+无需新增存储：事件就是普通日志，也会出现在 Logs 浏览器中。该标签页显示窗口内最新的 200 条事件。
+
 ## 限制与过期
 
 **—** 表示 Flare 在该窗口内没有收到该指标的数据，绝不会显示为 0。

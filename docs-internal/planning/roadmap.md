@@ -123,14 +123,6 @@ folders are where "what happened and why" actually lives.
   PATs. Unsupported PromQL returns a clear error rather than a partial
   answer. Full PromQL is out of scope. Needs an ADR. Not started. Prior art:
   [signoz PR #11555](https://github.com/SigNoz/signoz/pull/11555) (open, unmerged).
-- **Kubernetes events tab.** The `/kubernetes` page has nodes, pods,
-  workloads and volumes but no events. The collector's `k8sobjects` receiver
-  (watch `events`) delivers them as OTLP logs. Add an Events tab filtering
-  those logs (reason, Normal/Warning type, involved object kind/name,
-  namespace) with links from each pod/node detail to its events, and a
-  data-sources docs snippet for the receiver config. No new storage. Not
-  started. Prior art:
-  [signoz PR #12803](https://github.com/SigNoz/signoz/pull/12803) (open, unmerged).
 - **Per-dashboard default time range.** Dashboards open with the viewer's
   last-used range, so a "last 7 days" capacity dashboard opens at 1h. Add an
   optional default range to the dashboard (owner-set in settings), applied on

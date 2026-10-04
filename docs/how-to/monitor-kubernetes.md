@@ -210,6 +210,42 @@ filling volume shows its current level. The table sorts by **Used %**, fullest
 first. Search matches the volume or claim name. Click a volume for charts of
 its used bytes, used %, and inodes %.
 
+## Read the Events tab
+
+Switch to the **Events** tab, or open `/kubernetes?tab=events`. It lists Kubernetes
+events (`BackOff`, `FailedScheduling`, `OOMKilling`, and so on), newest first. They
+come from the collector's [`k8sobjects` receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/k8sobjectsreceiver), which sends them as
+logs. The collector needs RBAC to `list` and `watch` `events`:
+
+```yaml
+receivers:
+  k8sobjects:
+    objects:
+      - name: events
+        mode: watch
+        group: events.k8s.io
+
+service:
+  pipelines:
+    logs:
+      receivers: [k8sobjects]
+      exporters: [otlp]
+```
+
+Use `mode: watch`. Flare reads an event from the watch body (`object.reason`,
+`object.involvedObject.kind`, and so on); events collected with `mode: pull` have
+no `object` wrapper and don't show up.
+
+Each row shows the time, **Type** (`Warning` or `Normal`), **Reason**, the involved
+object, its namespace, and the message. A repeated event shows its count (`×5`). Use
+the namespace and type pickers, or search the reason and message. Click a Pod or
+Node to open its sheet.
+
+A pod's or node's sheet has a **View events** button that opens this tab filtered
+to that object; clear the filter with the **×** on its chip. No new storage is
+involved: events are ordinary logs, so they also appear in the Logs explorer. The
+tab shows the newest 200 events in the window.
+
 ## Limits and staleness
 
 A **—** means Flare received no data for that metric in the window. It is
