@@ -7,13 +7,16 @@
 // display prefs ($lib/time/display-zone). Signed-in state also syncs to the server per user
 // (ADR-0110) so prefs follow the user across browsers; localStorage stays the pre-paint cache.
 import { browser } from '$app/environment';
-import { API_BASE_URL, apiFetch } from '$lib/api';
+import { setMode } from 'mode-watcher';
+import { createPrefsSync } from '$lib/prefs-sync';
 
 export const STORAGE_KEY = 'flare.appearance';
 
 export type NavLayout = 'top' | 'sidebar';
 export type Density = 'comfortable' | 'compact';
 export type FontSize = 'small' | 'default' | 'large';
+export type Theme = 'light' | 'dark' | 'system';
+const THEMES: readonly Theme[] = ['light', 'dark', 'system'];
 export type ContentWidth = 'full' | 'centered';
 export const ACCENTS = ['default', 'blue', 'violet', 'green', 'orange', 'rose'] as const;
 export type Accent = (typeof ACCENTS)[number];
@@ -32,6 +35,8 @@ export interface AppearancePrefs {
 	accent: Accent;
 	/** Sidebar layout, collapsed rail only: float open while hovered. */
 	sidebarHoverExpand: boolean;
+	/** Mirrors mode-watcher's choice (which owns the pre-paint class) so it can sync per user. */
+	theme: Theme;
 }
 
 export const DEFAULTS: AppearancePrefs = {
@@ -44,7 +49,8 @@ export const DEFAULTS: AppearancePrefs = {
 	monoLogs: false,
 	highContrast: false,
 	accent: 'default',
-	sidebarHoverExpand: false
+	sidebarHoverExpand: false,
+	theme: 'system'
 };
 
 function pick<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -62,7 +68,8 @@ function parse(s: Partial<Record<keyof AppearancePrefs, unknown>>): AppearancePr
 		monoLogs: typeof s.monoLogs === 'boolean' ? s.monoLogs : DEFAULTS.monoLogs,
 		highContrast: typeof s.highContrast === 'boolean' ? s.highContrast : DEFAULTS.highContrast,
 		accent: pick(s.accent, ACCENTS, DEFAULTS.accent),
-		sidebarHoverExpand: typeof s.sidebarHoverExpand === 'boolean' ? s.sidebarHoverExpand : DEFAULTS.sidebarHoverExpand
+		sidebarHoverExpand: typeof s.sidebarHoverExpand === 'boolean' ? s.sidebarHoverExpand : DEFAULTS.sidebarHoverExpand,
+		theme: pick(s.theme, ['light', 'dark', 'system'], DEFAULTS.theme)
 	};
 }
 
@@ -76,8 +83,7 @@ function load(): AppearancePrefs {
 	}
 }
 
-const ENDPOINT = `${API_BASE_URL}/api/me/preferences/appearance`;
-const PUSH_DELAY_MS = 500;
+const sync = createPrefsSync('appearance');
 
 class AppearanceSettings {
 	navLayout = $state<NavLayout>(DEFAULTS.navLayout);
@@ -90,9 +96,10 @@ class AppearanceSettings {
 	highContrast = $state(DEFAULTS.highContrast);
 	accent = $state<Accent>(DEFAULTS.accent);
 	sidebarHoverExpand = $state(DEFAULTS.sidebarHoverExpand);
+	theme = $state<Theme>(DEFAULTS.theme);
 
-	#pushTimer: ReturnType<typeof setTimeout> | undefined;
 	#synced = false;
+	#themeObserved = false;
 
 	constructor() {
 		this.#assign(load());
@@ -109,6 +116,7 @@ class AppearanceSettings {
 
 	reset(): void {
 		this.#assign(DEFAULTS);
+		setMode(this.theme);
 		this.#persist();
 	}
 
@@ -120,18 +128,31 @@ class AppearanceSettings {
 	async syncFromServer(): Promise<void> {
 		if (!browser || this.#synced) return;
 		this.#synced = true;
-		try {
-			const res = await apiFetch(ENDPOINT);
-			if (res.status === 204) {
-				if (!this.isDefault) this.#push();
-				return;
-			}
-			if (!res.ok) return;
-			this.#assign(parse((await res.json()) as Record<string, unknown>));
-			this.#persist(false);
-		} catch {
-			// Offline / older server without the endpoint - local prefs stay authoritative.
+		const doc = await sync.pull();
+		if (doc === undefined) return; // offline / older server - local prefs stay authoritative
+		if (doc === null) {
+			if (!this.isDefault) this.#push();
+			return;
 		}
+		const keepTheme = this.theme;
+		this.#assign(parse(doc));
+		if (!THEMES.includes(doc.theme as Theme)) this.theme = keepTheme; // doc predates theme sync
+		this.#persist(false);
+		setMode(this.theme); // no-op when mode-watcher already agrees
+	}
+
+	/**
+	 * Called by the root layout with mode-watcher's current choice. The first call just adopts it
+	 * (so `isDefault` and the first upload are accurate); later calls are real changes to sync.
+	 */
+	observeTheme(mode: Theme): void {
+		if (mode === this.theme) {
+			this.#themeObserved = true;
+			return;
+		}
+		this.theme = mode;
+		if (this.#themeObserved) this.#persist();
+		this.#themeObserved = true;
 	}
 
 	/** Mirrors the prefs onto <html>; called from the root layout so SSR-hydrated state and the DOM agree. */
@@ -158,6 +179,7 @@ class AppearanceSettings {
 		this.highContrast = p.highContrast;
 		this.accent = p.accent;
 		this.sidebarHoverExpand = p.sidebarHoverExpand;
+		this.theme = p.theme;
 	}
 
 	#snapshot(): AppearancePrefs {
@@ -171,27 +193,20 @@ class AppearanceSettings {
 			monoLogs: this.monoLogs,
 			highContrast: this.highContrast,
 			accent: this.accent,
-			sidebarHoverExpand: this.sidebarHoverExpand
+			sidebarHoverExpand: this.sidebarHoverExpand,
+			theme: this.theme
 		};
 	}
 
 	#schedulePush(): void {
-		if (!browser) return;
-		clearTimeout(this.#pushTimer);
-		this.#pushTimer = setTimeout(() => this.#push(), PUSH_DELAY_MS);
+		if (browser) sync.schedulePush(() => this.#snapshot());
 	}
 
 	#push(): void {
-		void apiFetch(ENDPOINT, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(this.#snapshot())
-		}).catch(() => {
-			// Best-effort; the next change retries.
-		});
+		void sync.pushNow(this.#snapshot());
 	}
 
-		#persist(push = true): void {
+	#persist(push = true): void {
 		this.applyToDocument();
 		if (push) this.#schedulePush();
 		if (!browser) return;

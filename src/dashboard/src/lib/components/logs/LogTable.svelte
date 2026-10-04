@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { regional } from '$lib/regional/prefs.svelte';
 	import { withBase } from '$lib/paths';
 	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
 	import LogRow from './LogRow.svelte';
@@ -39,7 +40,7 @@
 	const bodyColumns = $derived(explorer.filter.bodyColumns);
 	let COLUMNS = $derived.by(() => {
 		const cols = [
-			showTime && '170px', // fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width
+			showTime && (regional.timeFormat === '12h' ? '210px' : '170px'), // fits the Time column's fixed "MM-DD HH:mm:ss.SSS" width (+ " PM" in 12h)
 			'90px',
 			'160px',
 			!explorer.live && '90px', // fits Duration's widest realistic value (e.g. "12.34s")

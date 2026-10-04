@@ -2713,5 +2713,21 @@
 	"settingsRegional_description": "Language and time zone. The user menu keeps these as shortcuts.",
 	"settingsRegional_languageHeading": "Language",
 	"settingsRegional_timeZoneHeading": "Display time zone",
-	"settingsRegional_timeZoneDescription": "Timestamps across the dashboard are shown in this zone."
+	"settingsRegional_timeZoneDescription": "Timestamps across the dashboard are shown in this zone.",
+	"settingsRegional_timeFormatHeading": "Time format",
+	"settingsRegional_timeFormat24h": "24-hour",
+	"settingsRegional_timeFormat12h": "12-hour (AM/PM)",
+	"settingsRegional_dateOrderHeading": "Date format",
+	"settingsRegional_sample": "Example: {sample}",
+	"settingsRegional_weekStartHeading": "First day of the week",
+	"settingsRegional_weekStartDescription": "Used by the \"This week\" time range.",
+	"settingsRegional_weekMonday": "Monday",
+	"settingsRegional_weekSunday": "Sunday",
+	"settingsRegional_weekSaturday": "Saturday",
+	"settingsRegional_defaultRangeHeading": "Default time range",
+	"settingsRegional_defaultRangeDescription": "The time range each explorer opens with.",
+	"settingsRegional_defaultRangeNote": "Applies the next time the page loads; saved views and links keep their own range.",
+	"settingsRegional_explorerLogs": "Logs",
+	"settingsRegional_explorerTraces": "Traces",
+	"settingsRegional_explorerMetrics": "Metrics"
 }

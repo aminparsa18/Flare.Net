@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { stripBase, withBase } from '$lib/paths';
 	import './layout.css';
-	import { ModeWatcher } from 'mode-watcher';
+	import { ModeWatcher, userPrefersMode } from 'mode-watcher';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import AppNav from '$lib/components/nav/AppNav.svelte';
 	import SideNav from '$lib/components/nav/SideNav.svelte';
-	import { appearance } from '$lib/appearance/prefs.svelte';
+	import { regional } from '$lib/regional/prefs.svelte';
+	import { appearance, type Theme } from '$lib/appearance/prefs.svelte';
 	import CommandPalette from '$lib/components/nav/CommandPalette.svelte';
 	import UpdateNotice from '$lib/components/nav/UpdateNotice.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -52,10 +53,18 @@
 		appearance.applyToDocument();
 	});
 
+	// Feeds mode-watcher's theme choice into the synced appearance doc (it owns the pre-paint class itself).
+	$effect(() => {
+		appearance.observeTheme(userPrefersMode.current as Theme);
+	});
+
 	// Pull per-user appearance prefs from the server once someone can actually see the app
 	// (ADR-0110); a no-op on /login and until a session exists.
 	$effect(() => {
-		if (readyToRenderChildren && !onAuthRoute) void appearance.syncFromServer();
+		if (readyToRenderChildren && !onAuthRoute) {
+			void appearance.syncFromServer();
+			void regional.syncFromServer();
+		}
 	});
 
 	const onAuthRoute = $derived(AUTH_ROUTES.includes(stripBase(page.url.pathname)));

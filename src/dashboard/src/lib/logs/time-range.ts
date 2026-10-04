@@ -11,8 +11,9 @@
 // directly off these arrays (see MetricsToolbar.svelte/TracesToolbar.svelte for the
 // correct pattern).
 import * as m from '$lib/paraglide/messages';
-import { startOfDisplayDay, startOfDisplayWeek } from '$lib/time/display-zone.svelte';
+import { startOfDisplayDay, startOfDisplayWeek, WEEK_START_DAY } from '$lib/time/display-zone.svelte';
 import { formatTimestamp } from '$lib/time/format';
+import { regional } from '$lib/regional/prefs.svelte';
 
 export type TimeRangePreset =
 	| '5m'
@@ -121,7 +122,7 @@ export function resolveTimeRange(
 	}
 	if (preset === 'thisWeek') {
 		const to = new Date();
-		return { from: startOfDisplayWeek(to).toISOString(), to: to.toISOString() };
+		return { from: startOfDisplayWeek(to, WEEK_START_DAY[regional.weekStart]).toISOString(), to: to.toISOString() };
 	}
 	const durationMs = TIME_RANGE_PRESETS.find((p) => p.value === preset)?.durationMs;
 	if (!durationMs) return null;

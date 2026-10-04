@@ -124,17 +124,13 @@ folders are where "what happened and why" actually lives.
   route (left rail of sections, deep-linkable `/settings/<section>`) and
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Sections:
-  - **Appearance & layout** (`/settings/appearance` shipped: theme, top bar
-    vs. collapsible sidebar with expand-on-hover, table density, text size,
-    reduce motion, content width, monospace log bodies, high contrast,
-    accent colour; `$lib/appearance/prefs.svelte.ts`, synced per user,
-    ADR-0110). Remaining: a live preview, and syncing theme (still
-    mode-watcher / `localStorage` only).
+  - **Appearance & layout** (`/settings/appearance` shipped, synced per
+    user, ADR-0110). Remaining: a live preview (deferred).
   - **Regional** (`/settings/regional` shipped: language, display time
-    zone; the user menu keeps them as shortcuts, both still per-browser).
-    Remaining: time format (12/24h),
-    first day of week, number and date format, default relative time
-    range for each explorer.
+    zone, 12/24h time format, date order, first day of week, default
+    time range per explorer; synced per user). Remaining: number format -
+    the many module-scope `Intl.NumberFormat(undefined, ...)` call sites
+    need a shared locale-aware formatter first.
   - **Explorer defaults**: default lookback, logs lines per row and
     columns, pinned attributes, facet sidebar open/closed, live-tail
     behaviour (auto-scroll, buffer size), chart bucket interval default,

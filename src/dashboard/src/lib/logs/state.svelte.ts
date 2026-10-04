@@ -3,6 +3,7 @@
 // svelte-best-practices skill ("use classes with $state fields... instead of stores",
 // "consider context instead of a shared module").
 
+import { regional } from '$lib/regional/prefs.svelte';
 import type { SpanFilter } from '$lib/traces-api';
 import {
 	getLogAttributeValues,
@@ -251,7 +252,7 @@ export interface LogsSavedViewState {
 
 export class LogsExplorerState {
 	filter = $state<LogsFilterState>({
-		timeRangePreset: '1h',
+		timeRangePreset: regional.defaultRanges.logs,
 		customRange: null,
 		services: [],
 		scopeNames: [],

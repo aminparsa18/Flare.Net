@@ -2713,5 +2713,21 @@
 	"settingsRegional_description": "语言和时区。用户菜单中保留了这些快捷入口。",
 	"settingsRegional_languageHeading": "语言",
 	"settingsRegional_timeZoneHeading": "显示时区",
-	"settingsRegional_timeZoneDescription": "仪表板中的时间戳将以此时区显示。"
+	"settingsRegional_timeZoneDescription": "仪表板中的时间戳将以此时区显示。",
+	"settingsRegional_timeFormatHeading": "时间格式",
+	"settingsRegional_timeFormat24h": "24 小时制",
+	"settingsRegional_timeFormat12h": "12 小时制（AM/PM）",
+	"settingsRegional_dateOrderHeading": "日期格式",
+	"settingsRegional_sample": "示例：{sample}",
+	"settingsRegional_weekStartHeading": "每周第一天",
+	"settingsRegional_weekStartDescription": "用于“本周”时间范围。",
+	"settingsRegional_weekMonday": "星期一",
+	"settingsRegional_weekSunday": "星期日",
+	"settingsRegional_weekSaturday": "星期六",
+	"settingsRegional_defaultRangeHeading": "默认时间范围",
+	"settingsRegional_defaultRangeDescription": "各浏览器页面打开时使用的时间范围。",
+	"settingsRegional_defaultRangeNote": "下次加载页面时生效；已保存的视图和链接保留各自的时间范围。",
+	"settingsRegional_explorerLogs": "日志",
+	"settingsRegional_explorerTraces": "追踪",
+	"settingsRegional_explorerMetrics": "指标"
 }

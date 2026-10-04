@@ -12,7 +12,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { authContext } from '$lib/auth/context';
 	import { setMode, userPrefersMode } from 'mode-watcher';
-	import { getLocale, setLocale, locales, type Locale } from '$lib/paraglide/runtime';
+	import { getLocale, locales, type Locale } from '$lib/paraglide/runtime';
 	import * as m from '$lib/paraglide/messages';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import PlugIcon from '@lucide/svelte/icons/plug';
@@ -24,6 +24,7 @@
 	import MonitorIcon from '@lucide/svelte/icons/monitor';
 	import LanguagesIcon from '@lucide/svelte/icons/languages';
 	import GlobeIcon from '@lucide/svelte/icons/globe';
+	import { regional } from '$lib/regional/prefs.svelte';
 	import { displayTimeZone } from '$lib/time/display-zone.svelte';
 	import { browserTimeZone, timeZoneOptions } from '$lib/time/time-zone';
 	import { formatUtcOffset } from '$lib/time/format';
@@ -213,7 +214,7 @@
 				<span class="text-muted-foreground ml-auto">{localeLabels[getLocale()]}</span>
 			</DropdownMenu.SubTrigger>
 			<DropdownMenu.SubContent>
-				<DropdownMenu.RadioGroup value={getLocale()} onValueChange={(v) => v && setLocale(v as Locale)}>
+				<DropdownMenu.RadioGroup value={getLocale()} onValueChange={(v) => v && void regional.changeLocale(v as Locale)}>
 					{#each locales as l (l)}
 						<DropdownMenu.RadioItem value={l}>{localeLabels[l]}</DropdownMenu.RadioItem>
 					{/each}

@@ -10,6 +10,7 @@
 // With `filter.compareEnabled` on, the series query becomes two parallel /query calls
 // (current + previous period) - see runQuery's own remarks.
 
+import { regional } from '$lib/regional/prefs.svelte';
 import {
 	getMetricNames,
 	isHistogramType,
@@ -192,7 +193,7 @@ const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 export class MetricsExplorerState {
 	filter = $state<MetricsFilterState>({
-		timeRangePreset: '1h',
+		timeRangePreset: regional.defaultRanges.metrics,
 		customRange: null,
 		services: [],
 		compareEnabled: false,
