@@ -5,6 +5,7 @@
 // filtered*, not how the sidebar is arranged.
 import { browser } from '$app/environment';
 import type { AttributeFacetRef } from './types';
+import { explorerPrefs } from '$lib/explorer/prefs.svelte';
 
 interface StoredPrefs {
 	open?: unknown;
@@ -26,6 +27,7 @@ export class FacetSidebarPrefs<TBag extends string> {
 	constructor(storageKey: string, defaults: AttributeFacetRef<TBag>[], bags: readonly TBag[]) {
 		this.#storageKey = storageKey;
 		this.attributes = defaults;
+		this.open = explorerPrefs.facetSidebarOpen; // a stored per-page choice below still wins
 		if (!browser) return;
 		try {
 			const raw = localStorage.getItem(storageKey);

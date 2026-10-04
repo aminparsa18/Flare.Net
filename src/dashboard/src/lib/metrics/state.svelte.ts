@@ -11,6 +11,7 @@
 // (current + previous period) - see runQuery's own remarks.
 
 import { regional } from '$lib/regional/prefs.svelte';
+import { explorerPrefs } from '$lib/explorer/prefs.svelte';
 import {
 	getMetricNames,
 	isHistogramType,
@@ -203,7 +204,7 @@ export class MetricsExplorerState {
 		havingValue: null,
 		postProcessFunctions: [],
 		timeShiftSeconds: null,
-		bucketWidthSeconds: null,
+		bucketWidthSeconds: explorerPrefs.bucketWidthSeconds,
 		yAxisScale: 'linear'
 	});
 
