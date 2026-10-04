@@ -3,6 +3,7 @@
 	import VirtualList from '$lib/components/virtual-list/VirtualList.svelte';
 	import LogRow from './LogRow.svelte';
 	import * as Empty from '$lib/components/ui/empty';
+	import CaseSuggestions from '$lib/components/CaseSuggestions.svelte';
 	import { Lottie } from '$lib/components/ui/lottie';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { logsExplorerContext } from '$lib/logs/context';
@@ -94,6 +95,11 @@
 					{explorer.live ? m.logsTable_waitingDescription() : m.logsTable_noEventsDescription()}
 				</Empty.Description>
 			</Empty.Header>
+			{#if !explorer.live}
+				<Empty.Content>
+					<CaseSuggestions suggestions={explorer.caseSuggestions} onApply={(s) => explorer.applyCaseSuggestion(s)} />
+				</Empty.Content>
+			{/if}
 			{#if explorer.live}
 				<!-- Only for the live/nothing-has-arrived-yet case, not the filtered/no-match one -
 				     a search that just doesn't match anything isn't a "how do I send logs" moment. -->

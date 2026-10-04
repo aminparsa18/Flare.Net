@@ -5,8 +5,9 @@
 // waterfall/detail view is the value being built, not a live span firehose), so this is
 // simpler than LogsExplorerState: no connection/live/dropped-count fields at all.
 
-import { SPAN_SORT_KEYS, searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey, type TraceStructureFilter } from '$lib/traces-api';
+import { SPAN_SORT_KEYS, getSpanAttributeValues, searchSpans, type SpanAttributeFilter, type SpanDto, type SpanFilter, type SpanSortKey, type TraceStructureFilter } from '$lib/traces-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
+import { findCaseSuggestions, applyCaseSuggestion as applyCaseSuggestionTo, type CaseSuggestion } from '$lib/case-suggestions';
 import { durationBucketRange } from './duration-buckets';
 
 const PAGE_SIZE = 100;
@@ -71,6 +72,8 @@ export class TracesExplorerState {
 	nextCursor = $state<string | null>(null);
 
 	loading = $state(false);
+	/** "Did you mean..." case-variant replacements for an empty result - see `$lib/case-suggestions.ts`. */
+	caseSuggestions = $state.raw<CaseSuggestion[]>([]);
 	loadingMore = $state(false);
 	error = $state<string | null>(null);
 
@@ -198,18 +201,39 @@ export class TracesExplorerState {
 
 		this.loading = true;
 		this.error = null;
+		this.caseSuggestions = [];
 		try {
 			const res = await searchSpans({ filter: this.buildFilter(this.#resolvedRange()), pageSize: PAGE_SIZE, ...this.#sort() }, abort.signal);
 			if (abort.signal.aborted) return;
 			this.#seenRowKeys = new Set();
 			this.traces = this.#dedupeAgainstSeen(res.spans);
 			this.nextCursor = res.nextCursor;
+			if (this.traces.length === 0) void this.#loadCaseSuggestions(abort.signal);
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.error = err instanceof Error ? err.message : String(err);
 		} finally {
 			if (!abort.signal.aborted) this.loading = false;
 		}
+	}
+
+	/** Best-effort: only runs for an empty result with user-built Equals/In attribute filters; failures leave no suggestions. */
+	async #loadCaseSuggestions(signal: AbortSignal): Promise<void> {
+		const filters = this.filter.attributeFilters;
+		if (filters.length === 0) return;
+		const range = this.#resolvedRange();
+		const suggestions = await findCaseSuggestions(filters, async (index, prefix, limit) => {
+			const rest = filters.filter((_, i) => i !== index);
+			const f = filters[index];
+			const res = await getSpanAttributeValues({ filter: this.buildFilter(range, { attributeFilters: rest }), bag: f.bag, key: f.key, prefix, limit }, signal);
+			return res.values;
+		});
+		if (!signal.aborted) this.caseSuggestions = suggestions;
+	}
+
+	/** Swaps the mistyped-case value for the suggested one and re-runs the search. */
+	applyCaseSuggestion(s: CaseSuggestion): void {
+		this.setAttributeFilters(applyCaseSuggestionTo(this.filter.attributeFilters, s));
 	}
 
 	async loadMore(): Promise<void> {

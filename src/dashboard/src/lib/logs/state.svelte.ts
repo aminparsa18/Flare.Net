@@ -5,6 +5,7 @@
 
 import type { SpanFilter } from '$lib/traces-api';
 import {
+	getLogAttributeValues,
 	searchLogs,
 	aggregateLogs,
 	connectLiveTail,
@@ -18,6 +19,7 @@ import {
 	type BodyJsonFilter,
 	type LogPostProcessFunction
 } from '$lib/api';
+import { findCaseSuggestions, applyCaseSuggestion as applyCaseSuggestionTo, type CaseSuggestion } from '$lib/case-suggestions';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from './time-range';
 import { addRecentSearch } from './recent-searches';
 import { normalizeBucketWidthSeconds } from './bucket-width';
@@ -313,6 +315,8 @@ export class LogsExplorerState {
 	// LogEventDto - so $state.raw skips deep-proxying each event (and its three
 	// attribute-bag records) for zero fine-grained-reactivity benefit.
 	events = $state.raw<LogEventDto[]>([]);
+	/** "Did you mean..." case-variant replacements for an empty result - see `$lib/case-suggestions.ts`. */
+	caseSuggestions = $state.raw<CaseSuggestion[]>([]);
 	nextCursor = $state<string | null>(null);
 
 	loading = $state(false);
@@ -501,6 +505,7 @@ export class LogsExplorerState {
 
 		this.loading = true;
 		this.error = null;
+		this.caseSuggestions = [];
 		try {
 			const res = await searchLogs(
 				{ filter: this.buildFilter(this.#resolvedRange()), pageSize: PAGE_SIZE, includeSpanDuration: true },
@@ -510,12 +515,32 @@ export class LogsExplorerState {
 			this.#seenIds = new Set();
 			this.events = this.#dedupeAgainstSeen(res.events);
 			this.nextCursor = res.nextCursor;
+			if (this.events.length === 0) void this.#loadCaseSuggestions(abort.signal);
 		} catch (err) {
 			if (abort.signal.aborted) return;
 			this.error = err instanceof Error ? err.message : String(err);
 		} finally {
 			if (!abort.signal.aborted) this.loading = false;
 		}
+	}
+
+	/** Best-effort: only runs for an empty result with user-built Equals/In attribute filters; failures leave no suggestions. */
+	async #loadCaseSuggestions(signal: AbortSignal): Promise<void> {
+		const filters = this.filter.attributeFilters;
+		if (filters.length === 0) return;
+		const range = this.#resolvedRange();
+		const suggestions = await findCaseSuggestions(filters, async (index, prefix, limit) => {
+			const rest = filters.filter((_, i) => i !== index);
+			const f = filters[index];
+			const res = await getLogAttributeValues({ filter: this.buildFilter(range, rest), bag: f.bag, key: f.key, prefix, limit }, signal);
+			return res.values;
+		});
+		if (!signal.aborted) this.caseSuggestions = suggestions;
+	}
+
+	/** Swaps the mistyped-case value for the suggested one and re-runs the search. */
+	applyCaseSuggestion(s: CaseSuggestion): void {
+		this.setAttributeFilters(applyCaseSuggestionTo(this.filter.attributeFilters, s));
 	}
 
 	async loadMore(): Promise<void> {

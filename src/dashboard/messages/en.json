@@ -2627,5 +2627,6 @@
 	"alertTransfer_close": "Close",
 	"alertTransfer_outcomeCreate": "Create",
 	"alertTransfer_outcomeSkip": "Skip",
-	"alertTransfer_outcomeError": "Error"
+	"alertTransfer_outcomeError": "Error",
+	"caseSuggestions_title": "Did you mean:"
 }

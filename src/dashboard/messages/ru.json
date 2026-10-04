@@ -2627,5 +2627,6 @@
 	"alertTransfer_close": "Закрыть",
 	"alertTransfer_outcomeCreate": "Создать",
 	"alertTransfer_outcomeSkip": "Пропуск",
-	"alertTransfer_outcomeError": "Ошибка"
+	"alertTransfer_outcomeError": "Ошибка",
+	"caseSuggestions_title": "Возможно, вы имели в виду:"
 }
