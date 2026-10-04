@@ -87,7 +87,7 @@ Open **Messaging** in the top nav. Each row is one topic or queue:
 | Error rate | Share of publish and consume spans with an error status |
 | Publish p99 / Consume p99 | 99th-percentile span duration |
 | Producers / consumers | How many services published to and consumed from it |
-| Backlog | Messages waiting: Kafka consumer lag, RabbitMQ queue depth or NATS JetStream pending messages, see [Kafka](#see-kafka-consumer-lag), [RabbitMQ](#see-rabbitmq-queue-depth) and [NATS](#see-nats-jetstream-backlog) |
+| Backlog | Messages waiting: Kafka consumer lag, RabbitMQ queue depth, NATS JetStream pending messages or Service Bus active messages, see [Kafka](#see-kafka-consumer-lag), [RabbitMQ](#see-rabbitmq-queue-depth), [NATS](#see-nats-jetstream-backlog) and [Service Bus](#see-service-bus-backlog) |
 
 Consume latency is the consume span's own duration: the handling time for a
 `process` span, or the fetch time for a consumer that only emits `receive`
@@ -241,6 +241,51 @@ Open the row to see each stream and consumer; the table's "Ready" is pending
 (not yet delivered) and "Unacked" is delivered but not acknowledged. A consumer
 that serves several subjects shows its one backlog on each of them. Core NATS
 subscriptions have no backlog, so those rows show **—**.
+
+## See Service Bus backlog
+
+A queue's or subscription's backlog isn't in spans. Azure publishes it as the
+`ActiveMessages` metric, and the OpenTelemetry Collector's `azuremonitor`
+receiver (contrib distribution) reads Azure Monitor and sends it to Flare.
+Configure the metric with the `EntityName` dimension, so each queue and
+subscription is its own series:
+
+```yaml
+receivers:
+  azuremonitor:
+    subscription_ids: ["${env:AZURE_SUBSCRIPTION_ID}"]
+    auth: service_principal
+    tenant_id: ${env:AZURE_TENANT_ID}
+    client_id: ${env:AZURE_CLIENT_ID}
+    client_secret: ${env:AZURE_CLIENT_SECRET}
+    services:
+      - Microsoft.ServiceBus/namespaces
+    metrics:
+      "microsoft.servicebus/namespaces":
+        ActiveMessages: [Average]
+    dimensions:
+      enabled: true
+      overrides:
+        "Microsoft.ServiceBus/namespaces":
+          ActiveMessages: [EntityName]
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [azuremonitor]
+      exporters: [otlp_grpc/flare]
+```
+
+The service principal needs the **Monitoring Reader** role on the namespace.
+Flare reads `azure_activemessages_average`, so keep the Average aggregation.
+The **Backlog** column is the latest active-message count of the queue, or of
+the subscription for a `topic/Subscriptions/name` receive row. Dead-lettered
+messages aren't counted. Azure Monitor reports once a minute, so the backlog
+lags by about that. Entities the receiver doesn't report show **—**.
 
 ## Troubleshooting
 

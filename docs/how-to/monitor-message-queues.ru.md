@@ -90,7 +90,7 @@ Microsoft.
 | Error rate | Доля спанов публикации и потребления со статусом ошибки |
 | Publish p99 / Consume p99 | 99-й перцентиль длительности спана |
 | Producers / consumers | Сколько сервисов публиковали в него и потребляли из него |
-| Backlog | Ожидающие сообщения: отставание потребителей Kafka, глубина очередей RabbitMQ или ожидающие сообщения NATS JetStream, см. [Kafka](#отставание-потребителей-kafka), [RabbitMQ](#глубина-очередей-rabbitmq) и [NATS](#backlog-потребителя-nats-jetstream) |
+| Backlog | Ожидающие сообщения: отставание потребителей Kafka, глубина очередей RabbitMQ ожидающие сообщения NATS JetStream или активные сообщения Service Bus, см. [Kafka](#отставание-потребителей-kafka), [RabbitMQ](#глубина-очередей-rabbitmq), [NATS](#backlog-потребителя-nats-jetstream) и [Service Bus](#backlog-service-bus) |
 
 Задержка потребления — это длительность самого спана потребления: время
 обработки для спана `process` или время получения для потребителя, который
@@ -247,6 +247,50 @@ Flare находит потребителей темы по её спанам п
 но не подтверждённые. Потребитель, обслуживающий несколько тем, показывает свой
 единственный backlog в каждой из них. У обычных подписок NATS backlog нет, такие
 строки показывают **—**.
+
+## Backlog Service Bus
+
+Backlog очереди или подписки в спанах отсутствует. Azure публикует его как метрику
+`ActiveMessages`, а ресивер `azuremonitor` OpenTelemetry Collector (дистрибутив contrib)
+читает Azure Monitor и отправляет её во Flare. Настройте метрику с измерением
+`EntityName`, чтобы каждая очередь и подписка была отдельным рядом:
+
+```yaml
+receivers:
+  azuremonitor:
+    subscription_ids: ["${env:AZURE_SUBSCRIPTION_ID}"]
+    auth: service_principal
+    tenant_id: ${env:AZURE_TENANT_ID}
+    client_id: ${env:AZURE_CLIENT_ID}
+    client_secret: ${env:AZURE_CLIENT_SECRET}
+    services:
+      - Microsoft.ServiceBus/namespaces
+    metrics:
+      "microsoft.servicebus/namespaces":
+        ActiveMessages: [Average]
+    dimensions:
+      enabled: true
+      overrides:
+        "Microsoft.ServiceBus/namespaces":
+          ActiveMessages: [EntityName]
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [azuremonitor]
+      exporters: [otlp_grpc/flare]
+```
+
+Сервисному принципалу нужна роль **Monitoring Reader** на пространстве имён.
+Flare читает `azure_activemessages_average`, поэтому оставьте агрегацию Average.
+Колонка **Backlog** — последнее число активных сообщений очереди или, для строки
+получения `topic/Subscriptions/имя`, подписки. Сообщения в очереди недоставленных
+(dead-letter) не учитываются. Azure Monitor публикует раз в минуту, так что backlog
+отстаёт примерно на это время. Сущности, о которых ресивер не сообщает, показывают **—**.
 
 ## Устранение неполадок
 

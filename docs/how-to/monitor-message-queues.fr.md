@@ -94,7 +94,7 @@ topic ou à une file :
 | Error rate | Part des spans de publication et de consommation en erreur |
 | Publish p99 / Consume p99 | Durée de span au 99e centile |
 | Producers / consumers | Nombre de services qui y ont publié et qui l'ont consommé |
-| Backlog | Messages en attente : retard des consommateurs Kafka, profondeur des files RabbitMQ ou messages en attente NATS JetStream, voir [Kafka](#voir-le-retard-des-consommateurs-kafka), [RabbitMQ](#voir-la-profondeur-des-files-rabbitmq) et [NATS](#voir-le-retard-backlog-dun-consommateur-nats-jetstream) |
+| Backlog | Messages en attente : retard des consommateurs Kafka, profondeur des files RabbitMQ messages en attente NATS JetStream ou messages actifs Service Bus, voir [Kafka](#voir-le-retard-des-consommateurs-kafka), [RabbitMQ](#voir-la-profondeur-des-files-rabbitmq), [NATS](#voir-le-retard-backlog-dun-consommateur-nats-jetstream) et [Service Bus](#voir-le-backlog-service-bus) |
 
 La latence de consommation est la durée du span de consommation lui-même : le
 temps de traitement pour un span `process`, ou le temps de récupération pour un
@@ -256,6 +256,51 @@ chaque flux et consommateur ; « Ready » est le nombre en attente (pas encore
 livrés) et « Unacked » le nombre livré mais non acquitté. Un consommateur qui
 dessert plusieurs sujets affiche son unique retard sur chacun. Les abonnements
 NATS de base n'ont pas de retard : ces lignes affichent **—**.
+
+## Voir le backlog Service Bus
+
+Le backlog d'une file ou d'un abonnement n'est pas dans les spans. Azure le publie
+comme la métrique `ActiveMessages`, et le récepteur `azuremonitor` de l'OpenTelemetry
+Collector (distribution contrib) lit Azure Monitor et l'envoie à Flare. Configurez la
+métrique avec la dimension `EntityName`, pour que chaque file et chaque abonnement soit
+sa propre série :
+
+```yaml
+receivers:
+  azuremonitor:
+    subscription_ids: ["${env:AZURE_SUBSCRIPTION_ID}"]
+    auth: service_principal
+    tenant_id: ${env:AZURE_TENANT_ID}
+    client_id: ${env:AZURE_CLIENT_ID}
+    client_secret: ${env:AZURE_CLIENT_SECRET}
+    services:
+      - Microsoft.ServiceBus/namespaces
+    metrics:
+      "microsoft.servicebus/namespaces":
+        ActiveMessages: [Average]
+    dimensions:
+      enabled: true
+      overrides:
+        "Microsoft.ServiceBus/namespaces":
+          ActiveMessages: [EntityName]
+exporters:
+  otlp_grpc/flare:
+    endpoint: flare-ingest:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    metrics:
+      receivers: [azuremonitor]
+      exporters: [otlp_grpc/flare]
+```
+
+Le principal de service a besoin du rôle **Monitoring Reader** sur l'espace de noms.
+Flare lit `azure_activemessages_average` : gardez l'agrégation Average. La colonne
+**Backlog** est le dernier nombre de messages actifs de la file, ou de l'abonnement pour
+une ligne de réception `topic/Subscriptions/nom`. Les messages en file de lettres mortes
+ne sont pas comptés. Azure Monitor publie une fois par minute, le backlog accuse donc
+ce retard. Les entités que le récepteur ne remonte pas affichent **—**.
 
 ## Dépannage
 

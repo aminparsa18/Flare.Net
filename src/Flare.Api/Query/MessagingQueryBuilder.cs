@@ -91,6 +91,13 @@ public static class MessagingQueryBuilder
     public const string JetStreamAckPendingMetric = "jetstream_consumer_num_ack_pending";
 
     /// <summary>
+    /// The Collector <c>azuremonitor</c> receiver's Service Bus active-message count, the
+    /// Average aggregation (<c>azure_&lt;metric&gt;_&lt;aggregation&gt;</c>, a gauge). The entity is the
+    /// <c>metadata_entityname</c> data-point attribute (the <c>EntityName</c> dimension). See ADR-0119.
+    /// </summary>
+    public const string ServiceBusActiveMessagesMetric = "azure_activemessages_average";
+
+    /// <summary>
     /// <c>stream/consumer</c> of the JetStream consumer a NATS receive span came from, read
     /// from the ack subject NATS.Net puts in <c>messaging.nats.message.reply_to</c>:
     /// <c>$JS.ACK.&lt;stream&gt;.&lt;consumer&gt;.…</c> (9 tokens), or with a domain and account
@@ -392,6 +399,59 @@ public static class MessagingQueryBuilder
             "LIMIT {limit:UInt32}";
 
         return new MessagingSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// Latest <see cref="ServiceBusActiveMessagesMetric"/> per Service Bus entity in the window,
+    /// restricted to <paramref name="entities"/> (columns: Entity, Active). <c>argMax</c> per
+    /// namespace and entity, then summed over namespaces, so the same entity name in two
+    /// namespaces adds up the way a RabbitMQ queue name repeated across vhosts does.
+    /// </summary>
+    public static MessagingSql BuildServiceBusBacklog(int windowMinutes, DateTimeOffset end, IReadOnlyCollection<string> entities)
+    {
+        var parameters = TimeParameters(windowMinutes, end);
+        parameters.AddParameter("activeMetric", ServiceBusActiveMessagesMetric);
+        parameters.AddParameter("entities", entities.ToArray());
+        parameters.AddParameter("limit", (uint)(MaxDestinations + 1));
+
+        var sql = "SELECT Entity, toInt64(round(sum(Value))) AS Active\n" +
+            "FROM (\n" +
+            "    SELECT\n" +
+            "        DataPointAttributes['azuremonitor.resource_id'] AS ResourceId,\n" +
+            "        DataPointAttributes['metadata_entityname'] AS Entity,\n" +
+            "        argMax(Value, Time) AS Value\n" +
+            "    FROM metrics_gauge\n" +
+            "    WHERE MetricName = {activeMetric:String} AND Time >= {from:DateTime64(9)} AND Time < {to:DateTime64(9)}\n" +
+            "        AND DataPointAttributes['metadata_entityname'] IN {entities:Array(String)}\n" +
+            "    GROUP BY ResourceId, Entity\n" +
+            ")\n" +
+            "GROUP BY Entity\n" +
+            "ORDER BY Entity\n" +
+            "LIMIT {limit:UInt32}";
+
+        return new MessagingSql(sql, parameters);
+    }
+
+    /// <summary>
+    /// The Service Bus entity names a destination row stands for: the destination itself (a
+    /// queue or topic) plus, for a subscription receive path (<c>topic/Subscriptions/name</c>),
+    /// the subscription name, which is what the metric's <c>EntityName</c> carries for one.
+    /// </summary>
+    public static IReadOnlyList<string> ServiceBusEntityCandidates(string destination)
+    {
+        var candidates = new List<string>();
+        if (destination.Length > 0)
+        {
+            candidates.Add(destination);
+        }
+
+        var parts = destination.Split('/');
+        if (parts.Length == 3 && parts[1].Equals("subscriptions", StringComparison.OrdinalIgnoreCase) && parts[2].Length > 0)
+        {
+            candidates.Add(parts[2]);
+        }
+
+        return candidates;
     }
 
     /// <summary>
