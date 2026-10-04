@@ -143,7 +143,7 @@ public static class AlertEndpoints
         return ApiSerialization.Write(http, new AlertHistoryResponse { Events = events }, AlertsJsonContext.Default.AlertHistoryResponse);
     }
 
-    private static async Task<IResult> HandleTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, ISloQueryService slos, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
         if (rule is null)
@@ -151,11 +151,11 @@ public static class AlertEndpoints
             return Results.NotFound();
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ThresholdUnit, rule.ExceptionCondition, rule.AnomalyCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, rule.MinDataPoints, cancellationToken);
+        var result = await EvaluateAsync(alerts, slos, timeProvider, rule.ConditionKind, rule.Condition, rule.Threshold, rule.MetricCondition, rule.MetricThresholdValue, rule.ThresholdUnit, rule.ExceptionCondition, rule.AnomalyCondition, rule.SloCondition, rule.WindowSeconds, rule.NoDataWindowSeconds, rule.MinDataPoints, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
-    private static async Task<IResult> HandleTestDraftAsync(HttpContext http, IAlertQueryService alerts, TimeProvider timeProvider, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleTestDraftAsync(HttpContext http, IAlertQueryService alerts, ISloQueryService slos, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -172,7 +172,7 @@ public static class AlertEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var result = await EvaluateAsync(alerts, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ThresholdUnit, request.ExceptionCondition, request.AnomalyCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, request.MinDataPoints ?? 0, cancellationToken);
+        var result = await EvaluateAsync(alerts, slos, timeProvider, request.ConditionKind ?? AlertConditionKind.LogCount, request.Condition, request.Threshold, request.MetricCondition, request.MetricThresholdValue, request.ThresholdUnit, request.ExceptionCondition, request.AnomalyCondition, request.SloCondition, request.WindowSeconds, request.NoDataWindowSeconds ?? 0, request.MinDataPoints ?? 0, cancellationToken);
         return ApiSerialization.Write(http, result, AlertsJsonContext.Default.AlertTestResult);
     }
 
@@ -262,6 +262,7 @@ public static class AlertEndpoints
             Severity = defaults.Severity,
             ThresholdUnit = defaults.ThresholdUnit,
             Labels = defaults.Labels,
+            SloCondition = request.SloCondition,
         };
     }
 
@@ -317,6 +318,11 @@ public static class AlertEndpoints
         if (rule.ConditionKind == AlertConditionKind.Anomaly)
         {
             return (150, new AnomalyScore(Current: 150, SampleCount: rule.AnomalyCondition?.BaselinePeriods ?? 0, BaselineMean: 100, ZScore: 3, Breached: true));
+        }
+
+        if (rule.ConditionKind == AlertConditionKind.SloBurnRate)
+        {
+            return (rule.SloCondition?.BurnRateThreshold ?? 0, null);
         }
 
         var breaches = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual;
@@ -378,6 +384,7 @@ public static class AlertEndpoints
     /// </summary>
     private static async Task<AlertTestResult> EvaluateAsync(
         IAlertQueryService alerts,
+        ISloQueryService slos,
         TimeProvider timeProvider,
         AlertConditionKind conditionKind,
         LogFilter condition,
@@ -387,6 +394,7 @@ public static class AlertEndpoints
         string? thresholdUnit,
         ExceptionCountCondition? exceptionCondition,
         AnomalyCondition? anomalyCondition,
+        SloBurnRateCondition? sloCondition,
         int windowSeconds,
         int noDataWindowSeconds,
         int minDataPoints,
@@ -443,6 +451,21 @@ public static class AlertEndpoints
                 BaselineMean = score?.BaselineMean,
                 ZScore = score?.ZScore,
                 BaselineSampleCount = score?.SampleCount ?? 0,
+            };
+        }
+
+        if (conditionKind == AlertConditionKind.SloBurnRate)
+        {
+            // A draft with no (or a deleted) SLO reports "wouldn't fire", same leniency as the other kinds.
+            var burn = sloCondition is null ? null : await SloBurnRateEvaluator.EvaluateAsync(slos, sloCondition, cancellationToken);
+            return new AlertTestResult
+            {
+                ObservedCount = 0,
+                WouldFire = burn?.Breached ?? false,
+                EvaluatedAt = now,
+                WindowSeconds = windowSeconds,
+                ConditionKind = conditionKind,
+                ObservedValue = burn?.LongBurnRate,
             };
         }
 

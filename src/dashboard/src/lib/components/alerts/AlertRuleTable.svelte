@@ -8,7 +8,9 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
+	import { withBase } from '$lib/paths';
+	import { formatBurnRate, formatWindow } from '$lib/slos/burn-rate';
 	import { formatDateTime } from '$lib/time/format';
 	import {
 		applyAlertListView,
@@ -65,11 +67,13 @@
 			LogCount: m.alertRuleForm_conditionKindLogCount(),
 			MetricThreshold: m.alertRuleForm_conditionKindMetricThreshold(),
 			ExceptionCount: m.alertRuleForm_conditionKindExceptionCount(),
-			Anomaly: m.alertRuleForm_conditionKindAnomaly()
+			Anomaly: m.alertRuleForm_conditionKindAnomaly(),
+			SloBurnRate: m.alertRuleForm_conditionKindSloBurnRate()
 		}[kind];
 	}
 
 	function summarizeCondition(rule: AlertRule): string {
+		if (rule.conditionKind === 'SloBurnRate') return m.alertRuleTable_sloSummary();
 		// An Anomaly rule's series is one of the other three kinds' conditions (ADR-0048).
 		const kind = rule.conditionKind === 'Anomaly' ? (rule.anomalyCondition?.source ?? 'LogCount') : rule.conditionKind;
 		if (kind === 'MetricThreshold') {
@@ -117,6 +121,11 @@
 			return a.seasonality === 'Weekly'
 				? m.alertRuleTable_anomalyTextWeekly({ z, periods: a.baselinePeriods, window: rule.windowSeconds })
 				: m.alertRuleTable_anomalyTextDaily({ z, periods: a.baselinePeriods, window: rule.windowSeconds });
+		}
+
+		if (rule.conditionKind === 'SloBurnRate' && rule.sloCondition) {
+			const c = rule.sloCondition;
+			return m.alertRuleTable_sloThresholdText({ rate: formatBurnRate(c.burnRateThreshold), long: formatWindow(c.longWindowSeconds), short: formatWindow(c.shortWindowSeconds) });
 		}
 
 		const symbol = rule.threshold.comparator === 'LessThan' ? '<' : '>=';
@@ -327,6 +336,10 @@
 											: result.wouldFire
 												? m.alertRuleTable_testResultAnomalyFiring({ z: result.zScore.toFixed(1) })
 												: m.alertRuleTable_testResultAnomalyNotFiring({ z: result.zScore.toFixed(1) })}
+									{:else if result.conditionKind === 'SloBurnRate'}
+										{result.wouldFire
+											? m.alertRuleTable_testResultFiringSlo({ rate: formatBurnRate(result.observedValue ?? 0) })
+											: m.alertRuleTable_testResultNotFiringSlo({ rate: formatBurnRate(result.observedValue ?? 0) })}
 									{:else if result.conditionKind === 'MetricThreshold'}
 										{result.wouldFire
 											? m.alertRuleTable_testResultFiringMetric({ value: result.observedValue ?? 0 })
@@ -372,7 +385,12 @@
 							<Button variant="ghost" size="icon-sm" title={m.alertRuleTable_actionHistory()} onclick={() => alerts.openHistory(rule)}>
 								<HistoryIcon />
 							</Button>
-							<Button variant="ghost" size="icon-sm" title={m.alertRuleTable_actionEdit()} onclick={() => alerts.openEdit(rule)}>
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								title={m.alertRuleTable_actionEdit()}
+								onclick={() => (rule.conditionKind === 'SloBurnRate' && rule.sloCondition ? goto(withBase(`/slos?slo=${rule.sloCondition.sloId}`)) : alerts.openEdit(rule))}
+							>
 								<PencilIcon />
 							</Button>
 							<Button

@@ -113,7 +113,7 @@ public interface IAlertQueryService
 public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes) : IAlertQueryService
 {
     private const string RuleColumns =
-        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson";
+        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson, SloConditionJson";
 
     /// <summary>
     /// Resolves <see cref="AlertRuleRequest"/>'s nullable optional members to their real
@@ -181,6 +181,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             Severity = defaults.Severity,
             ThresholdUnit = defaults.ThresholdUnit,
             Labels = defaults.Labels,
+            SloCondition = request.SloCondition,
         };
 
         await InsertRuleVersionAsync(rule, isDeleted: false, cancellationToken);
@@ -242,6 +243,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             Severity = defaults.Severity,
             ThresholdUnit = defaults.ThresholdUnit,
             Labels = defaults.Labels,
+            SloCondition = request.SloCondition,
         };
 
         await InsertRuleVersionAsync(updated, isDeleted: false, cancellationToken);
@@ -646,12 +648,13 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("severity", rule.Severity.ToString());
         parameters.AddParameter("thresholdUnit", rule.ThresholdUnit);
         parameters.AddParameter("labelsJson", JsonSerializer.Serialize(rule.Labels, AlertsJsonContext.Default.IReadOnlyDictionaryStringString));
+        parameters.AddParameter("sloConditionJson", rule.SloCondition is null ? "" : JsonSerializer.Serialize(rule.SloCondition, AlertsJsonContext.Default.SloBurnRateCondition));
 
         const string sql = """
             INSERT INTO alert_rules
-                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson)
+                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson, SloConditionJson)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)}, {channelIds:Array(UUID)}, {exceptionConditionJson:String}, {noDataWindowSeconds:UInt32}, {evaluationIntervalSeconds:UInt32}, {anomalyConditionJson:String}, {minDataPoints:UInt32}, {notificationTitleTemplate:String}, {notificationBodyTemplate:String}, {recoveryThreshold:Nullable(Float64)}, {severity:String}, {thresholdUnit:String}, {labelsJson:String})
+                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)}, {channelIds:Array(UUID)}, {exceptionConditionJson:String}, {noDataWindowSeconds:UInt32}, {evaluationIntervalSeconds:UInt32}, {anomalyConditionJson:String}, {minDataPoints:UInt32}, {notificationTitleTemplate:String}, {notificationBodyTemplate:String}, {recoveryThreshold:Nullable(Float64)}, {severity:String}, {thresholdUnit:String}, {labelsJson:String}, {sloConditionJson:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -710,6 +713,9 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         Severity = Enum.Parse<AlertSeverity>(reader.GetString(28)),
         ThresholdUnit = reader.GetString(29),
         Labels = JsonSerializer.Deserialize(reader.GetString(30), AlertsJsonContext.Default.IReadOnlyDictionaryStringString) ?? new Dictionary<string, string>(),
+        SloCondition = NullIfEmpty(reader.GetString(31)) is { } sloJson
+            ? JsonSerializer.Deserialize(sloJson, AlertsJsonContext.Default.SloBurnRateCondition)
+            : null,
     };
 
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;

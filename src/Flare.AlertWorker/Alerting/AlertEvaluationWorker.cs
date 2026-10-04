@@ -65,6 +65,7 @@ public sealed class AlertEvaluationWorker(
     IAlertQueryService alerts,
     INotificationChannelQueryService channels,
     IMaintenanceWindowQueryService maintenanceWindows,
+    ISloQueryService slos,
     CompositeAlertNotifier notifier,
     IIncidentSummaryService incidentSummaries,
     IConnectionMultiplexer redis,
@@ -326,6 +327,19 @@ public sealed class AlertEvaluationWorker(
             observedValue = anomaly.Current;
             breached = anomaly.Breached;
         }
+        else if (rule.ConditionKind == AlertConditionKind.SloBurnRate)
+        {
+            var burn = rule.SloCondition is null ? null : await SloBurnRateEvaluator.EvaluateAsync(slos, rule.SloCondition, cancellationToken);
+            if (burn is null)
+            {
+                logger.LogWarning("Alert rule {RuleId} ({RuleName}) is SloBurnRate but has no condition or its SLO no longer exists; skipping.", rule.Id, rule.Name);
+                return;
+            }
+
+            // The long window's rate is the headline value; no events in it reads as 0, not a gap.
+            observedValue = burn.LongBurnRate ?? 0;
+            breached = burn.Breached;
+        }
         else if (rule.ConditionKind == AlertConditionKind.ExceptionCount)
         {
             if (rule.ExceptionCondition is null)
@@ -493,9 +507,9 @@ public sealed class AlertEvaluationWorker(
         NotificationStatus = "",
         ConditionKind = rule.ConditionKind,
         ObservedValue = observedValue,
-        // An anomaly rule has no fixed threshold - its MetricThresholdValue is a
-        // leftover placeholder when the source is a metric, not something to record.
-        ThresholdValue = rule.ConditionKind == AlertConditionKind.Anomaly ? null : rule.MetricThresholdValue,
+        // An anomaly rule has no fixed threshold (its MetricThresholdValue is a leftover
+        // placeholder when the source is a metric); a burn-rate rule's is its burn-rate threshold.
+        ThresholdValue = AlertMessageFormatter.ThresholdValueOf(rule),
         NoData = noData,
         BaselineMean = anomaly?.BaselineMean,
         ZScore = anomaly?.ZScore,

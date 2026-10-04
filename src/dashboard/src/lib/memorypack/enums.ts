@@ -185,7 +185,7 @@ export function logPostProcessFunctionTypeFromString(value: LogPostProcessFuncti
 }
 
 /** Matches `AlertModels.cs`'s `AlertConditionKind` member order. Not itself MemoryPack-TS-generated - `AlertRule`/`AlertRuleRequest`, its only consumers, are hand-written (nest `LogFilter`). */
-const ALERT_CONDITION_KIND_NAMES = ['LogCount', 'MetricThreshold', 'ExceptionCount', 'Anomaly'] as const;
+const ALERT_CONDITION_KIND_NAMES = ['LogCount', 'MetricThreshold', 'ExceptionCount', 'Anomaly', 'SloBurnRate'] as const;
 
 export type AlertConditionKindName = (typeof ALERT_CONDITION_KIND_NAMES)[number];
 

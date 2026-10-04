@@ -66,6 +66,49 @@ public class AlertConditionValidationTests
         Assert.NotNull(request.ValidateCondition());
     }
 
+    private static SloBurnRateCondition MakeSlo(int longSeconds = 3600, int shortSeconds = 300, double threshold = 14.4, Guid? sloId = null) => new()
+    {
+        SloId = sloId ?? Guid.NewGuid(),
+        LongWindowSeconds = longSeconds,
+        ShortWindowSeconds = shortSeconds,
+        BurnRateThreshold = threshold,
+    };
+
+    [Fact]
+    public void SloBurnRate_WithCondition_IsValid() =>
+        Assert.Null((Build(AlertConditionKind.SloBurnRate, windowSeconds: 3600) with { SloCondition = MakeSlo() }).ValidateCondition());
+
+    [Fact]
+    public void SloBurnRate_MissingCondition_IsInvalid() =>
+        Assert.NotNull(Build(AlertConditionKind.SloBurnRate, windowSeconds: 3600).ValidateCondition());
+
+    [Theory]
+    [InlineData(3600, 3600, 14.4)] // short not shorter than long
+    [InlineData(3600, 30, 14.4)] // short window below the minimum
+    [InlineData(3600, 300, 0)] // threshold must be positive
+    [InlineData(3600, 300, 5000)] // threshold above the cap
+    [InlineData(3600, 300, double.NaN)]
+    public void SloBurnRate_BadWindowsOrThreshold_IsInvalid(int longSeconds, int shortSeconds, double threshold) =>
+        Assert.NotNull((Build(AlertConditionKind.SloBurnRate, windowSeconds: longSeconds) with { SloCondition = MakeSlo(longSeconds, shortSeconds, threshold) }).ValidateCondition());
+
+    [Fact]
+    public void SloBurnRate_EmptySloId_IsInvalid() =>
+        Assert.NotNull((Build(AlertConditionKind.SloBurnRate, windowSeconds: 3600) with { SloCondition = MakeSlo(sloId: Guid.Empty) }).ValidateCondition());
+
+    [Fact]
+    public void SloBurnRate_WindowSecondsMustEqualTheLongWindow() =>
+        Assert.NotNull((Build(AlertConditionKind.SloBurnRate, windowSeconds: 300) with { SloCondition = MakeSlo() }).ValidateCondition());
+
+    [Fact]
+    public void SloBurnRate_RejectsNoDataRecoveryAndMinDataPoints()
+    {
+        var request = Build(AlertConditionKind.SloBurnRate, windowSeconds: 3600) with { SloCondition = MakeSlo() };
+
+        Assert.NotNull((request with { NoDataWindowSeconds = 600 }).ValidateCondition());
+        Assert.NotNull((request with { RecoveryThreshold = 0 }).ValidateCondition());
+        Assert.NotNull((request with { MinDataPoints = 5 }).ValidateCondition());
+    }
+
     private static MetricAlertCondition MakeCondition() => new() { MetricName = "process.threads", Type = MetricPointType.Gauge };
 
     private static ExceptionCountCondition MakeExceptionCondition() => new() { ExceptionType = "System.NullReferenceException" };

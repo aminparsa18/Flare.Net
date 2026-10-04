@@ -61,7 +61,8 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
         // No fired-data link for a no-data fire - by definition there is no matching data to show.
         var logsUrl = noData ? null : AlertMessageFormatter.BuildMatchingLogsUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, linkOptions.Value.PublicUrl, firedAt);
-        var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold;
+        // A burn-rate rule's observed value is a rate (e.g. 14.4), not a count - same non-count handling as a metric.
+        var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold || rule.ConditionKind == AlertConditionKind.SloBurnRate;
         var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false);
         var payload = new
         {
@@ -92,7 +93,7 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
                     observedCount = isMetric ? 0UL : (ulong)observedValue,
                     thresholdCount = rule.Threshold.Count,
                     observedValue,
-                    thresholdValue = rule.ConditionKind == AlertConditionKind.Anomaly ? null : rule.MetricThresholdValue,
+                    thresholdValue = AlertMessageFormatter.ThresholdValueOf(rule),
                     metricName = rule.MetricCondition?.MetricName,
                     noData,
                     baselineMean = anomaly?.BaselineMean,

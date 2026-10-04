@@ -33,6 +33,7 @@ export function navLinks(auth: AuthState): NavLink[] {
 		{ href: '/ingestion', label: m.nav_ingestion() },
 		{ href: '/indexing', label: m.nav_indexing() },
 		{ href: '/alerts', label: m.nav_alerts() },
+		{ href: '/slos', label: m.nav_slos(), inMenu: true },
 		{ href: '/pipeline-rules', label: m.nav_pipelineRules(), inMenu: true },
 		{ href: '/resources', label: m.nav_resources() },
 		{ href: '/hosts', label: m.nav_hosts(), inMenu: true },

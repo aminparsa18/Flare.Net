@@ -46,6 +46,7 @@
 - [Как найти N+1 запросы](how-to/find-n-plus-one-queries.ru.md)
 - [Как найти проблемы со средой выполнения .NET](how-to/find-runtime-health-problems.ru.md)
 - [Как сравнить два деплоя сервиса](how-to/compare-deploys.ru.md)
+- [Как задать SLO и получать оповещения о расходе бюджета ошибок](how-to/define-slos.ru.md)
 - [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
 - [Связать трассировки стека исключений с исходным кодом](how-to/link-exceptions-to-source-code.ru.md)
 - [Получение сводки ИИ по сработавшему оповещению](how-to/summarize-alerts-with-ai.ru.md)

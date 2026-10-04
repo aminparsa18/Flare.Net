@@ -26,6 +26,11 @@ An `Anomaly` rule instead scores its series (the log, metric or exception condit
 fires on a z-score beyond its threshold - N+1 queries per evaluation, run through the shared
 `Alerting/AnomalyEvaluator` - see
 [`docs-internal/adr/0048-anomaly-detection-alerting.md`](../../docs-internal/adr/0048-anomaly-detection-alerting.md).
+
+A `SloBurnRate` rule evaluates one SLO's error-budget burn rate over its long and short windows
+(`Alerting/SloBurnRateEvaluator`, reading the `span_sli_minute` pre-aggregate) and breaches only
+when both are at or above the threshold - see
+[`docs-internal/adr/0108-slo-error-budgets.md`](../../docs-internal/adr/0108-slo-error-budgets.md).
 A rule with `EvaluationIntervalSeconds > 0` is evaluated only on ticks where it's due
 (its last-evaluated marker, a per-rule Redis key `flare:alerts:last-eval:{id}`, is at least
 that old minus half a poll interval), so slow/expensive rules can run every 5m/15m instead

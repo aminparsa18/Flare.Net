@@ -179,6 +179,11 @@ public static class AlertMessageFormatter
                 threshold = MetricUnitFormatter.Format(tv, scale);
             }
         }
+        else if (rule.ConditionKind == AlertConditionKind.SloBurnRate)
+        {
+            value = FormatBurnRate(observedValue);
+            threshold = rule.SloCondition is { } slo ? FormatBurnRate(slo.BurnRateThreshold) : "";
+        }
         else
         {
             value = ((ulong)(anomaly?.Current ?? observedValue)).ToString(CultureInfo.InvariantCulture);
@@ -188,7 +193,11 @@ public static class AlertMessageFormatter
             }
         }
 
-        if (!isAnomaly)
+        if (rule.ConditionKind == AlertConditionKind.SloBurnRate)
+        {
+            comparator = ">=";
+        }
+        else if (!isAnomaly)
         {
             comparator = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
         }
@@ -354,6 +363,11 @@ public static class AlertMessageFormatter
                 : $"{head}: back within its usual range in the last {rule.WindowSeconds}s";
         }
 
+        if (rule.ConditionKind == AlertConditionKind.SloBurnRate)
+        {
+            return $"{head}: error budget burn rate back to {FormatBurnRate(observedValue)}x over the last {rule.WindowSeconds}s{SloThresholdSuffix(rule)}";
+        }
+
         var comparatorSymbol = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
         if (rule.ConditionKind == AlertConditionKind.MetricThreshold)
         {
@@ -370,8 +384,33 @@ public static class AlertMessageFormatter
         return $"{head}: {what} (threshold {comparatorSymbol} {rule.Threshold.Count}) in the last {rule.WindowSeconds}s";
     }
 
+    /// <summary>Burn rates read as "14.4", "6" or "0.5" - at most one decimal, no trailing zero.</summary>
+    internal static string FormatBurnRate(double burnRate) => burnRate.ToString("0.#", CultureInfo.InvariantCulture);
+
+    private static string SloThresholdSuffix(AlertRule rule) =>
+        rule.SloCondition is { } slo ? $" (threshold >= {FormatBurnRate(slo.BurnRateThreshold)}x, also over {slo.ShortWindowSeconds}s)" : "";
+
+    /// <summary>
+    /// The numeric threshold a rule is compared against, for payloads that carry one:
+    /// <see cref="AlertRule.MetricThresholdValue"/> for a metric rule, the burn-rate threshold
+    /// for an <see cref="AlertConditionKind.SloBurnRate"/> rule, null for an anomaly rule
+    /// (no fixed threshold) - and for a count rule, whose threshold is
+    /// <see cref="AlertThreshold.Count"/> instead.
+    /// </summary>
+    public static double? ThresholdValueOf(AlertRule rule) => rule.ConditionKind switch
+    {
+        AlertConditionKind.Anomaly => null,
+        AlertConditionKind.SloBurnRate => rule.SloCondition?.BurnRateThreshold,
+        _ => rule.MetricThresholdValue,
+    };
+
     private static string BuildFiredText(AlertRule rule, double observedValue, string? metricUnit)
     {
+        if (rule.ConditionKind == AlertConditionKind.SloBurnRate)
+        {
+            return $":rotating_light: Alert \"{rule.Name}\" fired: error budget burning at {FormatBurnRate(observedValue)}x over the last {rule.WindowSeconds}s{SloThresholdSuffix(rule)}";
+        }
+
         var comparatorSymbol = rule.Threshold.Comparator == ThresholdComparator.GreaterThanOrEqual ? ">=" : "<";
 
         if (rule.ConditionKind == AlertConditionKind.MetricThreshold)
@@ -476,8 +515,15 @@ public static class AlertMessageFormatter
         {
             AlertConditionKind.MetricThreshold => BuildMetricChartUrl(rule, publicUrl, firedAt),
             AlertConditionKind.ExceptionCount => BuildMatchingExceptionsUrl(rule, publicUrl, firedAt),
+            AlertConditionKind.SloBurnRate => BuildSloUrl(rule, publicUrl),
             _ => BuildMatchingLogsUrl(rule, publicUrl, firedAt),
         };
+
+    /// <summary>Deep link to the rule's SLO on the dashboard's SLO page (<c>/slos?slo={id}</c>), or null without a public URL or SLO.</summary>
+    private static string? BuildSloUrl(AlertRule rule, string? publicUrl) =>
+        string.IsNullOrWhiteSpace(publicUrl) || rule.SloCondition is not { } slo
+            ? null
+            : $"{publicUrl.TrimEnd('/')}/slos?slo={Uri.EscapeDataString(slo.SloId.ToString())}";
 
     /// <summary>What <see cref="BuildFiredDataUrl"/>'s link opens, for the text line in front of it and PagerDuty's link text.</summary>
     public static string FiredDataLabel(AlertRule rule) =>
@@ -485,6 +531,7 @@ public static class AlertMessageFormatter
         {
             AlertConditionKind.MetricThreshold => "Metric chart",
             AlertConditionKind.ExceptionCount => "Matching exceptions",
+            AlertConditionKind.SloBurnRate => "SLO",
             _ => "Matching logs",
         };
 

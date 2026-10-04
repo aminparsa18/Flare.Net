@@ -24,7 +24,7 @@ export interface AlertListView {
 export const DEFAULT_ALERT_LIST_VIEW: AlertListView = { query: '', label: '', state: 'all', kind: 'all', sort: 'name', direction: 'asc' };
 
 export const RULE_STATE_FILTERS: RuleStateFilter[] = ['all', 'firing', 'ok', 'disabled', 'muted'];
-export const RULE_KIND_FILTERS: AlertConditionKind[] = ['LogCount', 'MetricThreshold', 'ExceptionCount', 'Anomaly'];
+export const RULE_KIND_FILTERS: AlertConditionKind[] = ['LogCount', 'MetricThreshold', 'ExceptionCount', 'Anomaly', 'SloBurnRate'];
 const SORT_KEYS: RuleSortKey[] = ['name', 'state', 'lastFired'];
 
 /** A rule's single display state: disabled wins, then firing, then ok. Muted is a separate overlay (see `isMuted`). */
