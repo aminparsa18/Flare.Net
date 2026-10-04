@@ -324,6 +324,7 @@ quotidiennes ou hebdomadaires (dans un fuseau horaire choisi) pour toutes les
 règles ou une sélection. Pendant une fenêtre, les règles sont toujours
 évaluées, mais un dépassement est enregistré comme supprimé dans l'historique
 de la règle au lieu de notifier (voir [ADR-0055](../../docs-internal/adr/0055-alert-maintenance-windows.md)).
+Chaque ligne de règle a aussi une action Mute (de 15 min à 1 semaine, ou jusqu'à une date, avec un motif facultatif) qui crée une fenêtre ponctuelle propre à cette règle ; la ligne affiche « Muted until … » et un bouton Unmute y met fin plus tôt.
 Les règles peuvent porter vos propres étiquettes clé/valeur (`team=payments`),
 filtrables dans la liste des règles et disponibles via `{{labels.team}}` et dans
 les payloads webhook. Une fenêtre peut aussi couvrir des règles par étiquette, en

@@ -23,6 +23,7 @@
 		type AlertListView,
 		type RuleSortKey
 	} from '$lib/alerts/list-view';
+	import MuteRuleMenu from './MuteRuleMenu.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { alertsContext } from '$lib/alerts/context';
 	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
@@ -317,7 +318,9 @@
 								>{rule.enabled ? m.alertRuleTable_enabled() : m.alertRuleTable_disabled()}</Badge
 							>
 							{#if rule.enabled && maintenance.isRuleMuted(rule)}
-								<Badge variant="outline" class="ml-1" title={m.alertRuleTable_mutedHint()}>{m.alertRuleTable_muted()}</Badge>
+								<Badge variant="outline" class="ml-1" title={m.alertRuleTable_mutedHint()}
+									>{maintenance.muteEndsAt(rule) ? m.alertRuleTable_mutedUntil({ time: formatDateTime(maintenance.muteEndsAt(rule)!) }) : m.alertRuleTable_muted()}</Badge
+								>
 							{/if}
 							{#if testResults[rule.id] === 'loading'}
 								<Badge variant="outline" class="ml-1">{m.alertRuleTable_testing()}</Badge>
@@ -382,6 +385,7 @@
 							>
 								<SendIcon />
 							</Button>
+							<MuteRuleMenu {rule} />
 							<Button variant="ghost" size="icon-sm" title={m.alertRuleTable_actionHistory()} onclick={() => alerts.openHistory(rule)}>
 								<HistoryIcon />
 							</Button>
