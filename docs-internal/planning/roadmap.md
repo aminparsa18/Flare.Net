@@ -93,3 +93,104 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
+- **Alert acknowledgement, escalation and on-call.** Fired alerts can notify a
+  channel and later resolve (ADR-0064), but nothing tracks who's handling them.
+  Add ack/snooze on a firing alert (shown in the Alerts list and in
+  `alert_events`), escalation policies ("not acked after 15 minutes, notify
+  channel B"), and simple on-call rotations that choose the target channel.
+  Builds on resolved notifications and maintenance windows (ADR-0055). Needs an
+  ADR.
+- **Tail-based and head sampling at ingest.** Every span is stored today. Add
+  per-service / per-ingest-key sampling rules that always keep error and
+  slow traces and sample the rest, decided in `Flare.Ingest` before the Redis
+  buffer. Tail decisions need a short per-trace hold window, so size that
+  against buffer memory. The RED and service-map pre-aggregations (ADR-0030,
+  ADR-0031) must be computed before dropping, or sampled services will
+  under-report rates. Pairs with retention above as the second storage-cost
+  lever. Needs an ADR. Not started.
+- **Per-team / per-project scoping.** Roles (`Admin`/`Member`/`Viewer`) are
+  global. Add a project or team boundary that scopes services, dashboards,
+  alerts, SLOs and ingest keys, with roles per team, so one instance can serve
+  several groups. Touches the Identity schema (both Sqlite and Postgres
+  migrations), every query endpoint (a service allow-list injected into
+  `LogFilter`/`SpanFilter`), and ingest-key issuance. The largest item here;
+  needs a design discussion and an ADR before any code.
+- **Synthetic monitoring.** No HTTP/TCP/TLS-expiry probes exist. Add scheduled
+  probes run from `Flare.AlertWorker`, results stored as metrics (up, latency,
+  cert expiry days) so existing metric alerts, SLOs and dashboards work on them
+  with no new alert type. Multi-location probing is out of scope for v1.
+- **Log-based metrics.** Turn a saved `LogFilter` (plus optional group-by) into
+  a persisted metric via a ClickHouse materialized view, so charting or
+  alerting on "count of X" doesn't scan logs each time. Natural home is a new
+  pipeline-rule-style definition (ADR-0033); watch cardinality of the group-by
+  and surface it on the cardinality page. Needs an ADR.
+- **Config-as-code beyond alerts.** `flare alerts export`/`import` and
+  dashboard JSON export exist, but SLOs, notification channels, pipeline rules,
+  maintenance windows, metric attribute rules and ingest keys can't be moved or
+  versioned. Generalize to a single `flare apply -f` / `flare export --all`
+  with the same by-name references and never-export-credentials rules as the
+  alert export. The Terraform provider below builds on this. Not started.
+- **Terraform / OpenTofu provider.** Manage Flare declaratively next to the
+  infrastructure it observes. The API is already close to provider-shaped:
+  alerts, SLOs and notification channels have full CRUD by GUID id, and service
+  accounts with access tokens (ADR-0082) give a non-interactive credential, so
+  the provider authenticates with a token and needs no session flow. Ship as a
+  separate repo (Go, `terraform-plugin-framework`) published to the Terraform
+  and OpenTofu registries, v1 resources: `flare_notification_channel`,
+  `flare_alert_rule`, `flare_slo`, `flare_dashboard`, `flare_pipeline_rule`,
+  `flare_maintenance_window`, `flare_ingest_key`, `flare_service_account`.
+  Open questions to settle in the ADR: (1) the OpenAPI document is only mapped
+  in Development (`MapOpenApi` in `Flare.Api/Program.cs`), so decide whether to
+  publish it as a build artifact and generate resource schemas from it
+  (`terraform-plugin-codegen-openapi`) or hand-write them; (2) references are
+  by id in the API but by name in the alert export, so the provider should
+  expose names as the stable key and resolve ids itself, otherwise plans churn
+  on recreated channels; (3) credentials (webhook URLs, SMTP, ingest-key
+  secrets) are write-only and never returned, so they need `sensitive`,
+  write-only attributes and a drift story; (4) API version compatibility,
+  since the provider and the server release separately (use `/api/version`,
+  ADR-0068). Depends on the config-as-code item for the by-name conventions
+  and for any resource that has no CRUD endpoint yet (maintenance windows,
+  metric attribute rules). Also ship `flare_*` data sources for channels and
+  services so alert rules can reference them. Not started.
+- **Official Helm chart for Flare.** The install paths are Aspire, compose and
+  the CLI; Kubernetes users have only the Aspire publish output. Ship a chart
+  for ingest, api, dashboard, alert worker, Redis and ClickHouse (single node,
+  with cluster mode via the ClickHouse operator or external ClickHouse), with
+  values for Identity Postgres (ADR-0111), ingress and sub-path hosting
+  (ADR-0078). Document it under `docs/how-to/`.
+- **OTLP forwarding and archive export.** No way to copy ingested telemetry
+  elsewhere. Add per-ingest-key or per-service forwarding of logs, traces and
+  metrics to another OTLP endpoint (migration and dual-write) and an optional
+  Parquet/NDJSON archive to S3-compatible storage; coordinate with the cold
+  storage item so the two don't both claim the S3 config surface.
+- **Browser RUM and source maps (later).** No browser signal exists. Start with
+  accepting OTel-JS / Faro browser telemetry through the existing OTLP path
+  (page loads, web vitals, JS errors), a source-map upload API for symbolicating
+  stack traces on `/errors`, and a Frontend page. Only worth it if Flare targets
+  full-stack teams, not just .NET backends.
+- **Usage and cost view (later).** Roll up per-service and per-ingest-key
+  volume (events/day, bytes on disk, largest attributes) from data the
+  Ingestion, Indexing and cardinality pages already read, so users can see
+  what's driving storage before choosing sampling or retention rules.
+- **Status page (later).** A public read-only page of service health and SLO
+  status. Depends on synthetic monitoring and SLOs (ADR-0108) shipping first.
+- **Shared alert notification templates.** ADR-0052 templates are per rule
+  (`NotificationTitleTemplate` / `NotificationBodyTemplate` on `AlertRule`,
+  edited in the rule form), so the same wording on many rules is pasted and
+  maintained once per rule. Add named, reusable templates managed on a
+  Settings page next to notification channels: a rule picks a template by
+  reference (its own inline text stays as an override), editing a template
+  updates every rule that uses it, and an instance-wide default template
+  applies to rules that pick none (the built-in wording in
+  `AlertMessageFormatter` stays the fallback, so existing rules are
+  unchanged). Same `{{placeholder}}` set and save-time validation as
+  ADR-0052 (`AlertTemplateRenderer`), same live preview. Design points for
+  the ADR: separate fired / resolved bodies (today `{{status}}` is the only
+  difference); an optional per-channel-type body (short for Telegram, long for
+  email, since the title already maps onto each channel's own subject field);
+  deleting a template that rules still use should be refused or list the rules;
+  `flare alerts export`/`import` and the Terraform provider reference templates
+  by name; audit-log entries (ADR-0079). Needs a ClickHouse or Identity-store
+  migration decision (config tables follow ADR-0009 / ADR-0074 conventions) and
+  an ADR that supersedes or extends ADR-0052. Not started.

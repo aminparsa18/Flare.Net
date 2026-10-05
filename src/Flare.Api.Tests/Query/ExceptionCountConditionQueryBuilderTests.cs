@@ -69,4 +69,22 @@ public class ExceptionCountConditionQueryBuilderTests
 
         Assert.Contains("ServiceName IN {services:Array(String)}", result.Sql);
     }
+
+    [Fact]
+    public void Build_WithIgnoredGroupKeys_ExcludesThem()
+    {
+        var result = ExceptionCountConditionQueryBuilder.Build(
+            new ExceptionCountCondition { ExceptionType = "System.NullReferenceException" }, From, To, ["T\u001fm"]);
+
+        Assert.Contains("NOT IN {ignoredGroupKeys:Array(String)}", result.Sql);
+    }
+
+    [Fact]
+    public void Build_WithoutIgnoredGroupKeys_AddsNoExclusion()
+    {
+        var result = ExceptionCountConditionQueryBuilder.Build(
+            new ExceptionCountCondition { ExceptionType = "System.NullReferenceException" }, From, To, []);
+
+        Assert.DoesNotContain("ignoredGroupKeys", result.Sql);
+    }
 }

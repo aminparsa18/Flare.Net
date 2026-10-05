@@ -402,6 +402,7 @@ builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChan
 // suppress notifications while one is active.
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
+builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 
 builder.Services.AddOpenApi();
 
@@ -502,6 +503,7 @@ authenticatedRoutes.MapMetricCatalogEndpoints();
 authenticatedRoutes.MapPodMetricsEndpoints();
 authenticatedRoutes.MapKubernetesInventoryEndpoints();
 authenticatedRoutes.MapExceptionEndpoints();
+authenticatedRoutes.MapErrorIssueReadEndpoints();
 authenticatedRoutes.MapMessagingEndpoints();
 authenticatedRoutes.MapExternalApiEndpoints();
 authenticatedRoutes.MapLlmEndpoints();
@@ -541,6 +543,8 @@ memberRoutes.MapNotificationChannelEndpoints();
 memberRoutes.MapMaintenanceWindowEndpoints();
 // Same Member/Admin-only rationale - an SLO's burn-rate rules page people; reads are on authenticatedRoutes.
 memberRoutes.MapSloWriteEndpoints();
+// Same Member/Admin-only rationale - ignoring an error group silences exception-count alert rules.
+memberRoutes.MapErrorIssueWriteEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a pipeline rule mutates
 // every future log's Body/attributes at ingest, not just something read-only.
 memberRoutes.MapPipelineRuleEndpoints();

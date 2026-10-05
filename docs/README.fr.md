@@ -50,6 +50,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Définir des SLO et être alerté quand le budget d'erreurs se consomme](how-to/define-slos.fr.md)
 - [Trouver des traces selon les relations entre leurs spans](how-to/find-traces-by-structure.fr.md)
 - [Relier les traces de pile d'exception à votre code source](how-to/link-exceptions-to-source-code.fr.md)
+- [Trier les erreurs et détecter les régressions](how-to/triage-errors.fr.md)
 - [Obtenir un résumé IA d'une alerte déclenchée](how-to/summarize-alerts-with-ai.fr.md)
 - [Savoir si un span était lent par rapport à ses semblables](how-to/compare-span-duration.fr.md)
 - [Trouver les métriques à forte cardinalité](how-to/find-high-cardinality-metrics.fr.md)
