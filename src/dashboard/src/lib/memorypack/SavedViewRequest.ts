@@ -12,12 +12,14 @@ export class SavedViewRequest {
 	description: string | null;
 	pageType: number;
 	state: unknown;
+	projectId: string | null;
 
 	constructor() {
 		this.name = null;
 		this.description = null;
 		this.pageType = 0;
 		this.state = null;
+		this.projectId = null;
 	}
 
 	static serialize(value: SavedViewRequest | null): Uint8Array {
@@ -32,11 +34,12 @@ export class SavedViewRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(4);
+		writer.writeObjectHeader(5);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeInt32(value.pageType);
 		writer.writeString(JSON.stringify(value.state ?? null));
+		writer.writeNullableGuid(value.projectId);
 	}
 
 	static deserialize(buffer: ArrayBuffer): SavedViewRequest | null {
@@ -50,12 +53,13 @@ export class SavedViewRequest {
 		}
 
 		const value = new SavedViewRequest();
-		if (count == 4) {
+		if (count == 5) {
 			value.name = reader.readString();
 			value.description = reader.readString();
 			value.pageType = reader.readInt32();
 			value.state = JSON.parse(reader.readString() ?? 'null');
-		} else if (count > 4) {
+			value.projectId = reader.readNullableGuid();
+		} else if (count > 5) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -67,6 +71,8 @@ export class SavedViewRequest {
 			if (count == 3) return value;
 			value.state = JSON.parse(reader.readString() ?? 'null');
 			if (count == 4) return value;
+			value.projectId = reader.readNullableGuid();
+			if (count == 5) return value;
 		}
 		return value;
 	}

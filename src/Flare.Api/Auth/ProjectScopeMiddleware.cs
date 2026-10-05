@@ -6,8 +6,8 @@ using Flare.Identity.Users;
 namespace Flare.Api.Auth;
 
 /// <summary>
-/// Sets <see cref="ServiceScope.Current"/> for the request from the caller's project
-/// memberships (ADR-0123). Runs after authentication; unauthenticated requests (auth disabled)
+/// Sets <see cref="ServiceScope.Current"/> and the request's <see cref="ProjectAccess"/> from the
+/// caller's project memberships (ADR-0123). Runs after authentication; unauthenticated requests (auth disabled)
 /// and global Admins stay unrestricted.
 /// </summary>
 public sealed class ProjectScopeMiddleware(RequestDelegate next)
@@ -26,6 +26,7 @@ public sealed class ProjectScopeMiddleware(RequestDelegate next)
             ? await projects.ListMembershipsAsync(id, context.RequestAborted)
             : [];
         ServiceScope.Current = ProjectScopeEvaluator.Resolve(false, all, memberships);
+        context.SetProjectAccess(ProjectAccess.ForMember(memberships));
         try
         {
             await next(context);

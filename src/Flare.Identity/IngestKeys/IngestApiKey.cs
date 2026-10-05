@@ -8,6 +8,9 @@ public sealed record IngestApiKey(Guid Id, string Name, DateTimeOffset CreatedAt
     public bool IsActive => RevokedAt is null;
 
     public IngestApiKeyLimits Limits { get; init; } = IngestApiKeyLimits.None;
+
+    /// <summary>The owning project (ADR-0123), or null for an instance-wide key.</summary>
+    public Guid? ProjectId { get; init; }
 }
 
 /// <summary>What <c>Flare.Ingest</c>'s validation cache needs per active key: the hash to

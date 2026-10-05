@@ -3,6 +3,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Auth;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
 
@@ -39,7 +40,7 @@ public interface ISavedViewQueryService
 /// </remarks>
 public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ISavedViewQueryService
 {
-    private const string ViewColumns = "Id, Name, Description, PageType, StateJson, CreatedAt, UpdatedAt";
+    private const string ViewColumns = "Id, Name, Description, PageType, StateJson, CreatedAt, UpdatedAt, ProjectId";
 
     public async Task<SavedView> CreateAsync(SavedViewRequest request, CancellationToken cancellationToken)
     {
@@ -51,6 +52,7 @@ public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<Que
             Description = request.Description ?? "",
             PageType = request.PageType,
             State = request.State,
+            ProjectId = ProjectGuard.Normalize(request.ProjectId),
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -100,6 +102,7 @@ public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<Que
             Description = request.Description ?? "",
             PageType = request.PageType,
             State = request.State,
+            ProjectId = ProjectGuard.ResolveForUpdate(existing.ProjectId, request.ProjectId),
             UpdatedAt = timeProvider.GetUtcNow(),
         };
 
@@ -134,12 +137,13 @@ public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<Que
         parameters.AddParameter("stateJson", view.State.GetRawText());
         parameters.AddParameter("createdAt", view.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", view.UpdatedAt.UtcDateTime);
+        parameters.AddParameter("projectId", (object?)view.ProjectId ?? DBNull.Value);
 
         const string sql = """
             INSERT INTO saved_views
-                (Id, Name, Description, IsDeleted, PageType, StateJson, CreatedAt, UpdatedAt)
+                (Id, Name, Description, IsDeleted, PageType, StateJson, CreatedAt, UpdatedAt, ProjectId)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {pageType:String}, {stateJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {pageType:String}, {stateJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {projectId:Nullable(UUID)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -165,6 +169,7 @@ public sealed class SavedViewQueryService(IClickHouseClient client, IOptions<Que
         State = JsonDocument.Parse(reader.GetString(4)).RootElement,
         CreatedAt = ReadUtc(reader, 5),
         UpdatedAt = ReadUtc(reader, 6),
+        ProjectId = reader.IsDBNull(7) ? null : reader.GetGuid(7),
     };
 
     /// <summary>See <see cref="LogQueryService"/>'s identical helper's remarks - same <c>DateTime64</c>/<c>Kind=Unspecified</c> driver behavior applies here.</summary>

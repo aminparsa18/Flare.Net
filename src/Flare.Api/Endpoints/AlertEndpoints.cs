@@ -1,9 +1,11 @@
 using System.Text.Json;
 using Flare.Api.Alerting;
 using Flare.Api.Auditing;
+using Flare.Api.Auth;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Flare.Identity.Projects;
 using Microsoft.Extensions.Options;
 
 namespace Flare.Api.Endpoints;
@@ -48,9 +50,10 @@ public static class AlertEndpoints
     }
 
     // `ids` (optional, repeatable): export just those rules; omitted means every rule.
-    private static async Task<IResult> HandleExportAsync(Guid[]? ids, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleExportAsync(Guid[]? ids, HttpContext http, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, CancellationToken cancellationToken)
     {
-        var rules = await alerts.ListAsync(cancellationToken);
+        var access = http.GetProjectAccess();
+        var rules = access.Filter(await alerts.ListAsync(cancellationToken), r => r.ProjectId);
         if (ids is { Length: > 0 })
         {
             var wanted = ids.ToHashSet();
@@ -58,7 +61,7 @@ public static class AlertEndpoints
         }
 
         var channelNames = (await channels.ListAsync(cancellationToken)).ToDictionary(c => c.Id, c => c.Name);
-        var sloNames = (await slos.ListAsync(cancellationToken)).ToDictionary(s => s.Id, s => s.Name);
+        var sloNames = access.Filter(await slos.ListAsync(cancellationToken), s => s.ProjectId).ToDictionary(s => s.Id, s => s.Name);
         return Results.Json(AlertRuleTransfer.Export(rules, channelNames, sloNames), AlertsJsonContext.Default.AlertRulesExport);
     }
 
@@ -87,7 +90,8 @@ public static class AlertEndpoints
         }
 
         var channelIds = AlertRuleTransfer.ByName((await channels.ListAsync(cancellationToken)).Select(c => (c.Id, c.Name)));
-        var sloIds = AlertRuleTransfer.ByName((await slos.ListAsync(cancellationToken)).Select(s => (s.Id, s.Name)));
+        var access = http.GetProjectAccess();
+        var sloIds = AlertRuleTransfer.ByName(access.Filter(await slos.ListAsync(cancellationToken), s => s.ProjectId).Select(s => (s.Id, s.Name)));
         var taken = new HashSet<string>((await alerts.ListAsync(cancellationToken)).Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
 
         var results = new List<AlertImportItemResult>();
@@ -120,7 +124,7 @@ public static class AlertEndpoints
         return Results.Json(new AlertRulesImportResult { DryRun = dryRun == true, Items = results }, AlertsJsonContext.Default.AlertRulesImportResult);
     }
 
-    private static async Task<IResult> HandleCreateAsync(HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleCreateAsync(HttpContext http, IAlertQueryService alerts, IProjectStore projects, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -147,6 +151,11 @@ public static class AlertEndpoints
             return Results.Problem(conditionError, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (await ProjectGuard.CheckTargetAsync(http, projects, null, ProjectGuard.Normalize(request.ProjectId), cancellationToken) is { } projectProblem)
+        {
+            return projectProblem;
+        }
+
         var rule = await alerts.CreateAsync(request, cancellationToken);
         AuditContext.SetResourceId(http, rule.Id);
         return ApiSerialization.Write(http, NotificationSecrets.Redact(rule), AlertsJsonContext.Default.AlertRule, statusCode: StatusCodes.Status201Created);
@@ -155,24 +164,31 @@ public static class AlertEndpoints
     private static async Task<IResult> HandleListAsync(HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
         // Reads mask a rule's legacy inline credentials (see NotificationSecrets).
-        var rules = await alerts.ListAsync(cancellationToken);
+        var rules = http.GetProjectAccess().Filter(await alerts.ListAsync(cancellationToken), r => r.ProjectId);
         return ApiSerialization.Write(http, new AlertRuleListResponse { Rules = [.. rules.Select(NotificationSecrets.Redact)] }, AlertsJsonContext.Default.AlertRuleListResponse);
     }
 
     // JSON only: a small per-rule status list for the rules table, not worth a MemoryPack type.
-    private static async Task<IResult> HandleStatesAsync(IAlertQueryService alerts, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleStatesAsync(HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
         var statuses = await alerts.GetRuleStatusesAsync(cancellationToken);
+        var access = http.GetProjectAccess();
+        if (!access.IsUnrestricted)
+        {
+            var visible = access.Filter(await alerts.ListAsync(cancellationToken), r => r.ProjectId).Select(r => r.Id).ToHashSet();
+            statuses = [.. statuses.Where(s => visible.Contains(s.RuleId))];
+        }
+
         return Results.Json(new AlertRuleStatusResponse(statuses), AlertsJsonContext.Default.AlertRuleStatusResponse);
     }
 
     private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
-        return rule is null ? Results.NotFound() : ApiSerialization.Write(http, NotificationSecrets.Redact(rule), AlertsJsonContext.Default.AlertRule);
+        return rule is null || !http.GetProjectAccess().CanRead(rule.ProjectId) ? Results.NotFound() : ApiSerialization.Write(http, NotificationSecrets.Redact(rule), AlertsJsonContext.Default.AlertRule);
     }
 
-    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IAlertQueryService alerts, IProjectStore projects, CancellationToken cancellationToken)
     {
         AlertRuleRequest? request;
         try
@@ -191,6 +207,20 @@ public static class AlertEndpoints
 
         // A legacy inline secret sent back as its own mask means "unchanged".
         var before = await alerts.GetAsync(id, cancellationToken);
+        if (before is not null)
+        {
+            if (ProjectGuard.CheckExisting(http, before.ProjectId) is { } denied)
+            {
+                return denied;
+            }
+
+            var target = ProjectGuard.ResolveForUpdate(before.ProjectId, request.ProjectId);
+            if (await ProjectGuard.CheckTargetAsync(http, projects, before.ProjectId, target, cancellationToken) is { } projectProblem)
+            {
+                return projectProblem;
+            }
+        }
+
         request = NotificationSecrets.Restore(request, before);
 
         if (request.ValidateChannel() is { } channelError)
@@ -212,14 +242,24 @@ public static class AlertEndpoints
         return rule is null ? Results.NotFound() : ApiSerialization.Write(http, NotificationSecrets.Redact(rule), AlertsJsonContext.Default.AlertRule);
     }
 
-    private static async Task<IResult> HandleDeleteAsync(Guid id, IAlertQueryService alerts, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleDeleteAsync(Guid id, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
+        if (await alerts.GetAsync(id, cancellationToken) is { } existing && ProjectGuard.CheckExisting(http, existing.ProjectId) is { } denied)
+        {
+            return denied;
+        }
+
         var deleted = await alerts.DeleteAsync(id, cancellationToken);
         return deleted ? Results.NoContent() : Results.NotFound();
     }
 
     private static async Task<IResult> HandleHistoryAsync(Guid id, int? limit, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
+        if (await alerts.GetAsync(id, cancellationToken) is { } owner && !http.GetProjectAccess().CanRead(owner.ProjectId))
+        {
+            return Results.NotFound();
+        }
+
         var events = await alerts.GetHistoryAsync(id, limit is > 0 ? limit.Value : 50, cancellationToken);
         return ApiSerialization.Write(http, new AlertHistoryResponse { Events = events }, AlertsJsonContext.Default.AlertHistoryResponse);
     }
@@ -227,7 +267,7 @@ public static class AlertEndpoints
     private static async Task<IResult> HandleTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, ISloQueryService slos, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
-        if (rule is null)
+        if (rule is null || !http.GetProjectAccess().CanRead(rule.ProjectId))
         {
             return Results.NotFound();
         }
@@ -260,7 +300,7 @@ public static class AlertEndpoints
     private static async Task<IResult> HandleSendTestSavedAsync(Guid id, HttpContext http, IAlertQueryService alerts, INotificationChannelQueryService channels, CompositeAlertNotifier notifier, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
         var rule = await alerts.GetAsync(id, cancellationToken);
-        if (rule is null)
+        if (rule is null || !http.GetProjectAccess().CanRead(rule.ProjectId))
         {
             return Results.NotFound();
         }
@@ -290,7 +330,8 @@ public static class AlertEndpoints
 
         if (ruleId is { } savedId)
         {
-            request = NotificationSecrets.Restore(request, await alerts.GetAsync(savedId, cancellationToken));
+            var saved = await alerts.GetAsync(savedId, cancellationToken);
+            request = NotificationSecrets.Restore(request, saved is not null && http.GetProjectAccess().CanRead(saved.ProjectId) ? saved : null);
         }
 
         // Unlike the dry-run draft test above, this one actually notifies - so it needs

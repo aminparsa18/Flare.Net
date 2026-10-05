@@ -9,9 +9,9 @@ internal sealed class FakeIngestApiKeyStore : IIngestApiKeyStore
     private readonly Dictionary<Guid, IngestApiKey> _keysById = [];
     private readonly Dictionary<Guid, string> _rawKeysById = [];
 
-    public Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, CancellationToken cancellationToken = default)
+    public Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, Guid? projectId = null, CancellationToken cancellationToken = default)
     {
-        var key = new IngestApiKey(Guid.NewGuid(), name, DateTimeOffset.UtcNow, RevokedAt: null);
+        var key = new IngestApiKey(Guid.NewGuid(), name, DateTimeOffset.UtcNow, RevokedAt: null) { ProjectId = projectId };
         var rawKey = Guid.NewGuid().ToString("N");
         _keysById[key.Id] = key;
         _rawKeysById[key.Id] = rawKey;
@@ -20,6 +20,16 @@ internal sealed class FakeIngestApiKeyStore : IIngestApiKeyStore
 
     public Task<IReadOnlyList<IngestApiKey>> ListAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<IngestApiKey>>(_keysById.Values.ToList());
+
+    public Task<bool> SetProjectAsync(Guid id, Guid? projectId, CancellationToken cancellationToken = default)
+    {
+        if (!_keysById.TryGetValue(id, out var key))
+        {
+            return Task.FromResult(false);
+        }
+        _keysById[id] = key with { ProjectId = projectId };
+        return Task.FromResult(true);
+    }
 
     public Task RevokeAsync(Guid id, CancellationToken cancellationToken = default)
     {

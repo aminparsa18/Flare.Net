@@ -1,11 +1,13 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Flare.Api.Auditing;
+using Flare.Api.Auth;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
 using Flare.Identity.Auth;
 using Flare.Identity.DashboardPins;
+using Flare.Identity.Projects;
 using Flare.Identity.Users;
 
 namespace Flare.Api.Endpoints;
@@ -57,7 +59,7 @@ public static class DashboardEndpoints
         return endpoints;
     }
 
-    internal static async Task<IResult> HandleCreateAsync(HttpContext http, ClaimsPrincipal principal, IDashboardQueryService dashboards, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleCreateAsync(HttpContext http, ClaimsPrincipal principal, IDashboardQueryService dashboards, IProjectStore projects, CancellationToken cancellationToken)
     {
         DashboardRequest? request;
         try
@@ -77,6 +79,11 @@ public static class DashboardEndpoints
         if (DashboardTags.Validate(request.Tags) is { } tagsError)
         {
             return Results.Problem(tagsError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (await ProjectGuard.CheckTargetAsync(http, projects, null, ProjectGuard.Normalize(request.ProjectId), cancellationToken) is { } projectProblem)
+        {
+            return projectProblem;
         }
 
         // Whoever's authenticated when RequireMember lets this request through becomes the
@@ -91,17 +98,17 @@ public static class DashboardEndpoints
 
     internal static async Task<IResult> HandleListAsync(HttpContext http, IDashboardQueryService dashboards, CancellationToken cancellationToken)
     {
-        var list = await dashboards.ListAsync(cancellationToken);
+        var list = http.GetProjectAccess().Filter(await dashboards.ListAsync(cancellationToken), d => d.ProjectId);
         return ApiSerialization.Write(http, new DashboardListResponse { Dashboards = list }, DashboardsJsonContext.Default.DashboardListResponse);
     }
 
     internal static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, IDashboardQueryService dashboards, CancellationToken cancellationToken)
     {
         var dashboard = await dashboards.GetAsync(id, cancellationToken);
-        return dashboard is null ? Results.NotFound() : ApiSerialization.Write(http, dashboard, DashboardsJsonContext.Default.Dashboard);
+        return dashboard is null || !http.GetProjectAccess().CanRead(dashboard.ProjectId) ? Results.NotFound() : ApiSerialization.Write(http, dashboard, DashboardsJsonContext.Default.Dashboard);
     }
 
-    internal static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, ClaimsPrincipal principal, IDashboardQueryService dashboards, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, ClaimsPrincipal principal, IDashboardQueryService dashboards, IProjectStore projects, CancellationToken cancellationToken)
     {
         DashboardRequest? request;
         try
@@ -124,14 +131,20 @@ public static class DashboardEndpoints
         }
 
         var existing = await dashboards.GetAsync(id, cancellationToken);
-        if (existing is null)
+        if (existing is null || !http.GetProjectAccess().CanRead(existing.ProjectId))
         {
             return Results.NotFound();
         }
 
-        if (!CanMutate(existing, principal))
+        if (!CanMutate(existing, principal, http.GetProjectAccess()))
         {
             return Results.Forbid();
+        }
+
+        var target = ProjectGuard.ResolveForUpdate(existing.ProjectId, request.ProjectId);
+        if (await ProjectGuard.CheckTargetAsync(http, projects, existing.ProjectId, target, cancellationToken) is { } projectProblem)
+        {
+            return projectProblem;
         }
 
         var dashboard = await dashboards.UpdateAsync(id, request, cancellationToken);
@@ -143,15 +156,15 @@ public static class DashboardEndpoints
         return dashboard is null ? Results.NotFound() : ApiSerialization.Write(http, dashboard, DashboardsJsonContext.Default.Dashboard);
     }
 
-    internal static async Task<IResult> HandleDeleteAsync(Guid id, ClaimsPrincipal principal, IDashboardQueryService dashboards, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandleDeleteAsync(Guid id, HttpContext http, ClaimsPrincipal principal, IDashboardQueryService dashboards, CancellationToken cancellationToken)
     {
         var existing = await dashboards.GetAsync(id, cancellationToken);
-        if (existing is null)
+        if (existing is null || !http.GetProjectAccess().CanRead(existing.ProjectId))
         {
             return Results.NotFound();
         }
 
-        if (!CanMutate(existing, principal))
+        if (!CanMutate(existing, principal, http.GetProjectAccess()))
         {
             return Results.Forbid();
         }
@@ -166,9 +179,9 @@ public static class DashboardEndpoints
         return ApiSerialization.Write(http, new DashboardPinsResponse { DashboardIds = ids }, DashboardsJsonContext.Default.DashboardPinsResponse);
     }
 
-    internal static async Task<IResult> HandlePinAsync(Guid id, ClaimsPrincipal principal, IDashboardQueryService dashboards, IDashboardPinStore pins, CancellationToken cancellationToken)
+    internal static async Task<IResult> HandlePinAsync(Guid id, HttpContext http, ClaimsPrincipal principal, IDashboardQueryService dashboards, IDashboardPinStore pins, CancellationToken cancellationToken)
     {
-        if (await dashboards.GetAsync(id, cancellationToken) is null)
+        if (await dashboards.GetAsync(id, cancellationToken) is not { } dashboard || !http.GetProjectAccess().CanRead(dashboard.ProjectId))
         {
             return Results.NotFound();
         }
@@ -189,11 +202,24 @@ public static class DashboardEndpoints
     /// <summary>
     /// Whether <paramref name="principal"/> may update/delete <paramref name="dashboard"/> -
     /// true for an unowned dashboard (see <see cref="Dashboard.OwnerUserId"/>'s remarks), the
-    /// dashboard's own owner, or an Admin. <see cref="AuthorizationPolicies.RequireMember"/>
+    /// dashboard's own owner, or an Admin - and, for a project-owned dashboard, only when the
+    /// caller also has the Admin/Member role in that project (a project Admin bypasses ownership). <see cref="AuthorizationPolicies.RequireMember"/>
     /// on the route has already ruled out a Viewer by the time this runs.
     /// </summary>
-    private static bool CanMutate(Dashboard dashboard, ClaimsPrincipal principal)
+    private static bool CanMutate(Dashboard dashboard, ClaimsPrincipal principal, ProjectAccess access)
     {
+        // A project-owned dashboard needs the Admin/Member project role, and a project Admin
+        // may change any dashboard in the project whoever owns it (ADR-0123).
+        if (!access.CanWrite(dashboard.ProjectId))
+        {
+            return false;
+        }
+
+        if (dashboard.ProjectId is not null && access.CanManage(dashboard.ProjectId))
+        {
+            return true;
+        }
+
         if (dashboard.OwnerUserId is not { } ownerId)
         {
             return true;

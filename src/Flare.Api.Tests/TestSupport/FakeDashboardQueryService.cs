@@ -1,3 +1,4 @@
+using Flare.Api.Auth;
 using Flare.Api.Model;
 using Flare.Api.Query;
 
@@ -27,6 +28,7 @@ internal sealed class FakeDashboardQueryService : IDashboardQueryService
             Name = request.Name,
             Description = request.Description ?? "",
             OwnerUserId = ownerUserId,
+            ProjectId = ProjectGuard.Normalize(request.ProjectId),
             LayoutJson = request.LayoutJson,
             CreatedAt = now,
             UpdatedAt = now,
@@ -52,6 +54,7 @@ internal sealed class FakeDashboardQueryService : IDashboardQueryService
         {
             Name = request.Name,
             Description = request.Description ?? "",
+            ProjectId = ProjectGuard.ResolveForUpdate(existing.ProjectId, request.ProjectId),
             LayoutJson = request.LayoutJson,
             UpdatedAt = DateTimeOffset.UtcNow,
         };

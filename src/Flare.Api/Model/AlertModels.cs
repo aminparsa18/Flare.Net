@@ -521,6 +521,14 @@ public sealed partial record AlertRule
     /// same versioning reasoning as <see cref="ConditionKind"/>.
     /// </summary>
     public SloBurnRateCondition? SloCondition { get; init; }
+
+    /// <summary>
+    /// The owning project (ADR-0123), or null for an instance-wide object (the default, and every
+    /// row that predates <c>db/clickhouse/0052_project_id.sql</c>). On a request, null leaves an
+    /// update's existing project untouched so a client that predates projects can't un-scope an
+    /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
+    /// </summary>
+    public Guid? ProjectId { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -625,6 +633,14 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.SloCondition"/>'s doc comment. Appended after <see cref="Labels"/>, same versioning reasoning.</summary>
     public SloBurnRateCondition? SloCondition { get; init; }
+
+    /// <summary>
+    /// The owning project (ADR-0123), or null for an instance-wide object (the default, and every
+    /// row that predates <c>db/clickhouse/0052_project_id.sql</c>). On a request, null leaves an
+    /// update's existing project untouched so a client that predates projects can't un-scope an
+    /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
+    /// </summary>
+    public Guid? ProjectId { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
