@@ -162,6 +162,8 @@ public static class LlmQueryBuilder
             clauses.Add("ServiceName = {service:String}");
         }
 
+        ServiceScope.Append(clauses, parameters);
+
         return string.Join(" AND ", clauses);
     }
 
@@ -210,6 +212,8 @@ public static class LlmQueryBuilder
             parameters.AddParameter("service", service);
             clauses.Add("ServiceName = {service:String}");
         }
+
+        ServiceScope.Append(clauses, parameters);
 
         return string.Join(" AND ", clauses);
     }

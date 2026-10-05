@@ -54,7 +54,7 @@ public static class SloQueryBuilder
 
         var sql = $"SELECT\n    {string.Join(",\n    ", columns)}\n" +
             "FROM span_sli_minute\n" +
-            $"WHERE {ScopeWhere(slo)}\n" +
+            $"WHERE {ScopeWhere(slo, parameters)}\n" +
             "    AND TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}";
         return new SloSql(sql, parameters);
     }
@@ -71,15 +71,15 @@ public static class SloQueryBuilder
             "    sum(TotalCount) AS Total,\n" +
             $"    sum({BadExpression(slo)}) AS Bad\n" +
             "FROM span_sli_minute\n" +
-            $"WHERE {ScopeWhere(slo)}\n" +
+            $"WHERE {ScopeWhere(slo, parameters)}\n" +
             "    AND TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}\n" +
             "GROUP BY Hour\n" +
             "ORDER BY Hour";
         return new SloSql(sql, parameters);
     }
 
-    private static string ScopeWhere(Slo slo) =>
-        "ServiceName = {service:String}" + (slo.OperationName.Length > 0 ? " AND Name = {operation:String}" : "");
+    private static string ScopeWhere(Slo slo, ClickHouseParameterCollection parameters) =>
+        "ServiceName = {service:String}" + (slo.OperationName.Length > 0 ? " AND Name = {operation:String}" : "") + ServiceScope.Suffix(parameters);
 
     private static ClickHouseParameterCollection ScopeParameters(Slo slo)
     {

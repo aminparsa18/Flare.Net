@@ -465,6 +465,8 @@ app.UseAuthorization();
 // After UseAuthorization() - the PatRateLimit policy's partition-key factory reads
 // HttpContext.User, which only authentication middleware populates.
 app.UseRateLimiter();
+// Restricts non-admin callers to their projects' services (ADR-0123).
+app.UseMiddleware<ProjectScopeMiddleware>();
 // After authentication + authorization so the actor is known and rejected requests are never
 // recorded; wraps the endpoint so it can read the final status code (ADR-0079).
 app.UseMiddleware<AuditMiddleware>();
@@ -574,6 +576,8 @@ adminRoutes.MapApdexThresholdEndpoints();
 // Same reasoning for source-repo links - they change where every user's stack-trace links
 // point. Reading stays on authenticatedRoutes (ADR-0095).
 adminRoutes.MapSourceLinkWriteEndpoints();
+// Projects (ADR-0123): admin-managed service boundaries + per-project member roles.
+adminRoutes.MapProjectEndpoints();
 // Same reasoning for a metric's unit/description override - it changes what every user sees
 // for that metric. Reading needs no route of its own: the catalog and /api/metrics/names
 // return the overridden values (ADR-0065).

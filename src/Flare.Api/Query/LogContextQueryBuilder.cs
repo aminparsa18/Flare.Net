@@ -61,7 +61,7 @@ public static class LogContextQueryBuilder
         anchorParameters.AddParameter("anchorId", request.EventId);
         var anchorSql = $"SELECT {LogEventColumns.SelectList}\n" +
             "FROM logs\n" +
-            "WHERE Timestamp = {anchorTs:DateTime64(9)} AND EventId = {anchorId:UUID}\n" +
+            "WHERE Timestamp = {anchorTs:DateTime64(9)} AND EventId = {anchorId:UUID}" + ServiceScope.Suffix(anchorParameters) + "\n" +
             "LIMIT 1";
 
         // Same "(Timestamp, EventId) < cursor, ORDER BY ... DESC" shape as
@@ -83,7 +83,7 @@ public static class LogContextQueryBuilder
         beforeParameters.AddParameter("beforeLimit", (uint)(beforeLimit + 1));
         var beforeSql = $"SELECT {LogEventColumns.SelectList}\n" +
             "FROM logs\n" +
-            "WHERE (Timestamp, EventId) < ({anchorTs:DateTime64(9)}, {anchorId:UUID})" + sourceClause + "\n" +
+            "WHERE (Timestamp, EventId) < ({anchorTs:DateTime64(9)}, {anchorId:UUID})" + sourceClause + ServiceScope.Suffix(beforeParameters) + "\n" +
             "ORDER BY Timestamp DESC, EventId DESC\n" +
             "LIMIT {beforeLimit:UInt64}";
 
@@ -97,7 +97,7 @@ public static class LogContextQueryBuilder
         afterParameters.AddParameter("afterLimit", (uint)(afterLimit + 1));
         var afterSql = $"SELECT {LogEventColumns.SelectList}\n" +
             "FROM logs\n" +
-            "WHERE (Timestamp, EventId) > ({anchorTs:DateTime64(9)}, {anchorId:UUID})" + sourceClause + "\n" +
+            "WHERE (Timestamp, EventId) > ({anchorTs:DateTime64(9)}, {anchorId:UUID})" + sourceClause + ServiceScope.Suffix(afterParameters) + "\n" +
             "ORDER BY Timestamp ASC, EventId ASC\n" +
             "LIMIT {afterLimit:UInt64}";
 

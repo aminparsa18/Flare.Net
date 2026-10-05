@@ -27,8 +27,13 @@ namespace Flare.Api.Query;
 /// </remarks>
 public static class LogFilterMatcher
 {
-    public static bool Matches(LogEventDto logEvent, LogFilter filter)
+    public static bool Matches(LogEventDto logEvent, LogFilter filter, IReadOnlyList<string>? allowedServices = null)
     {
+        if (allowedServices is not null && !Identity.Projects.ProjectServicePattern.MatchesAny(allowedServices, logEvent.ServiceName))
+        {
+            return false;
+        }
+
         if (filter.Services is { Count: > 0 } services && !services.Contains(logEvent.ServiceName, StringComparer.Ordinal))
         {
             return false;

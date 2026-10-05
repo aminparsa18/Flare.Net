@@ -3,6 +3,7 @@ using Flare.Identity.Apdex;
 using Flare.Identity.Audit;
 using Flare.Identity.Auth;
 using Flare.Identity.DashboardPins;
+using Flare.Identity.Projects;
 using Flare.Identity.UserPreferences;
 using Flare.Identity.IngestKeys;
 using Flare.Identity.LlmPrices;
@@ -52,6 +53,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<IMetricMetadataOverrideStore, DbMetricMetadataOverrideStore>();
         builder.Services.AddSingleton<ILlmModelPriceStore, DbLlmModelPriceStore>();
         builder.Services.AddSingleton<IDashboardPinStore, DbDashboardPinStore>();
+        builder.Services.AddSingleton<IProjectStore, DbProjectStore>();
         builder.Services.AddSingleton<IUserPreferencesStore, DbUserPreferencesStore>();
         builder.Services.AddSingleton<IAuditEventStore, DbAuditEventStore>();
         return builder;

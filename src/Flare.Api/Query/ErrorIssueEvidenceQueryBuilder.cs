@@ -42,7 +42,7 @@ public static class ErrorIssueEvidenceQueryBuilder
         var sql = $"SELECT {GroupKeySql} AS GroupKey, ResourceAttributes['service.version'] AS Version, count() AS Occurrences\n" +
             "FROM spans\n" +
             "ARRAY JOIN Events.TimeUnixNano AS EventTime, Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
-            "WHERE EventName = 'exception' AND StartTime >= {from:DateTime64(9)}\n" +
+            "WHERE EventName = 'exception' AND StartTime >= {from:DateTime64(9)}" + ServiceScope.Suffix(parameters) + "\n" +
             "  AND GroupKey IN {keys:Array(String)}\n" +
             "  AND toUnixTimestamp64Milli(EventTime) > transform(GroupKey, {keys:Array(String)}, {changedMs:Array(Int64)}, toInt64(0))\n" +
             "GROUP BY GroupKey, Version";
@@ -59,7 +59,7 @@ public static class ErrorIssueEvidenceQueryBuilder
         var sql = "SELECT DISTINCT ResourceAttributes['service.version']\n" +
             "FROM spans\n" +
             "ARRAY JOIN Events.Name AS EventName, Events.Attributes AS EventAttributes\n" +
-            "WHERE EventName = 'exception' AND StartTime >= {from:DateTime64(9)}\n" +
+            "WHERE EventName = 'exception' AND StartTime >= {from:DateTime64(9)}" + ServiceScope.Suffix(parameters) + "\n" +
             "  AND EventAttributes['exception.type'] = {exceptionType:String}\n" +
             "  AND EventAttributes['exception.message'] = {exceptionMessage:String}";
         return new ErrorIssueSql(sql, parameters);

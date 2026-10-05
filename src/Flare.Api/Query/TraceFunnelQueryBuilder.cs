@@ -204,6 +204,8 @@ public static class TraceFunnelQueryBuilder
             where.Add("ServiceName IN {funnelServices:Array(String)}");
         }
 
+        ServiceScope.Append(where, parameters);
+
         where.Add($"({string.Join(" OR ", matches)})");
 
         var arrays = matches.Select((match, i) =>

@@ -72,6 +72,12 @@ public static class AuditActionClassifier
         new("PUT", "/api/services/apdex-thresholds/{serviceName}", "apdex-threshold", "update", "serviceName"),
         new("DELETE", "/api/services/apdex-thresholds/{serviceName}", "apdex-threshold", "delete", "serviceName"),
 
+        new("POST", "/api/projects", "project", "create", null),
+        new("PUT", "/api/projects/{id:guid}", "project", "update", "id"),
+        new("DELETE", "/api/projects/{id:guid}", "project", "delete", "id"),
+        new("PUT", "/api/projects/{id:guid}/members/{userId:guid}", "project-member", "update", "id"),
+        new("DELETE", "/api/projects/{id:guid}/members/{userId:guid}", "project-member", "delete", "id"),
+
         new("PUT", "/api/source-links/{serviceName}", "source-link", "update", "serviceName"),
         new("DELETE", "/api/source-links/{serviceName}", "source-link", "delete", "serviceName"),
 

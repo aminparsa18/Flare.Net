@@ -351,6 +351,8 @@ public static class ExternalApiQueryBuilder
             clauses.Add("ServiceName = {service:String}");
         }
 
+        ServiceScope.Append(clauses, parameters);
+
         if (domain is not null)
         {
             parameters.AddParameter("domain", domain);

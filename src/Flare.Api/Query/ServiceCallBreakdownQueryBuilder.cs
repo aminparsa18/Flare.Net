@@ -123,6 +123,7 @@ public static class ServiceCallBreakdownQueryBuilder
             "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}",
         };
         ResourceAttributeFilterSqlBuilder.AppendClauses(externalCallsClauses, externalCallsParameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
+        ServiceScope.Append(externalCallsClauses, externalCallsParameters);
 
         var externalCallsSql = "SELECT\n" +
             $"    {ExternalTargetExpr} AS PeerService,\n" +
@@ -148,6 +149,7 @@ public static class ServiceCallBreakdownQueryBuilder
             "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}",
         };
         ResourceAttributeFilterSqlBuilder.AppendClauses(databaseCallsClauses, databaseCallsParameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
+        ServiceScope.Append(databaseCallsClauses, databaseCallsParameters);
 
         var databaseCallsSql = "SELECT\n" +
             $"    {DbSystemExpr} AS DbSystem,\n" +

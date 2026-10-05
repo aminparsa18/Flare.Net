@@ -67,6 +67,7 @@ public static class ServiceOverviewQueryBuilder
             "ParentSpanId = ''",
         };
         ResourceAttributeFilterSqlBuilder.AppendClauses(clauses, parameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
+        ServiceScope.Append(clauses, parameters);
 
         var sql = "SELECT\n" +
             "    ServiceName,\n" +

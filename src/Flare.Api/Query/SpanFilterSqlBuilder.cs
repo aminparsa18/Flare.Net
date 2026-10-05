@@ -49,6 +49,8 @@ public static class SpanFilterSqlBuilder
             clauses.Add("ServiceName IN {services:Array(String)}");
         }
 
+        ServiceScope.Append(clauses, parameters);
+
         if (filter.Kinds is { Count: > 0 } kinds)
         {
             parameters.AddParameter("kinds", kinds.ToArray());

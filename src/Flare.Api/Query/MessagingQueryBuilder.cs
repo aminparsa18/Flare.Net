@@ -604,6 +604,8 @@ public static class MessagingQueryBuilder
             clauses.Add("ServiceName = {service:String}");
         }
 
+        ServiceScope.Append(clauses, parameters);
+
         if (!string.IsNullOrWhiteSpace(system))
         {
             parameters.AddParameter("system", system);

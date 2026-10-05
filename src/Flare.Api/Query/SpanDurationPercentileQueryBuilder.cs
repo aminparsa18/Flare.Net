@@ -27,13 +27,13 @@ public static class SpanDurationPercentileQueryBuilder
         parameters.AddParameter("from", (request.StartTime - WindowHalfWidth).UtcDateTime);
         parameters.AddParameter("to", (request.StartTime + WindowHalfWidth).UtcDateTime);
 
-        const string sql = "SELECT count() AS Total,\n" +
+        var sql = "SELECT count() AS Total,\n" +
             "    countIf(DurationNano <= {duration:UInt64}) AS AtOrBelow,\n" +
             "    quantile(0.5)(DurationNano) AS P50,\n" +
             "    quantile(0.95)(DurationNano) AS P95,\n" +
             "    quantile(0.99)(DurationNano) AS P99\n" +
             "FROM spans\n" +
-            "WHERE ServiceName = {serviceName:String} AND Name = {spanName:String}\n" +
+            "WHERE ServiceName = {serviceName:String} AND Name = {spanName:String}" + ServiceScope.Suffix(parameters) + "\n" +
             "    AND StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}";
 
         return new SpanDurationPercentileSql(sql, parameters);
