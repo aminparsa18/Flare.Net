@@ -52,6 +52,7 @@ Protos/       Vendored official OTLP .proto files - see Protos/VENDORED.md for w
 Model/        LogEvent - the internal, transport-agnostic representation.
 Otlp/         OtlpLogMapper (OTLP -> LogEvent), the gRPC service, the HTTP endpoint.
 Sinks/        ILogEventSink and its RedisStreamLogEventSink implementation.
+Sampling/     Head + tail trace sampling (TraceSampler, the sink decorator, the sweep worker).
 Pipeline/     LogEventPipelineOptions, the Redis<->LogEvent JSON wire format
               (LogEventJsonContext), the ClickHouse row mapper/writer, and
               ClickHouseFlushWorker (the consumer group read + batch-flush loop).
@@ -88,6 +89,45 @@ don't set this below what your exporters send. Without this setting, gRPC's buil
 cap applied. An oversized HTTP body gets `413` and counts as `payload-too-large` on the
 Ingestion page. The HTTP receivers hold each body in memory, so this is also the
 per-request memory ceiling. It's read once at startup.
+
+## Trace sampling
+
+Off by default. When enabled, spans pass through a sampler before the Redis buffer so
+dropped spans cost no stream memory or ClickHouse storage (ADR-0122). A trace is held in
+process memory for `HoldWindow` after its first span arrives:
+
+- if any span has an error status, or lasts at least the slow threshold, the whole trace is
+  kept at full fidelity (`SampleWeight` 1);
+- otherwise, when the window ends, a span survives only if its trace id hashes into its
+  policy's 1-in-N bucket, and is stored with `SampleWeight = N`.
+
+The RED, service-map, call-breakdown, LLM and SLO rollups sum `SampleWeight`, so their
+counts stay unbiased; percentiles read weighted t-digest states. The Traces explorer, the
+span search and the waterfall show only what was stored.
+
+| Setting | Env var | Default |
+|---|---|---|
+| `Enabled` | `Sampling__Enabled` | `false` |
+| `DefaultKeepOneIn` | `Sampling__DefaultKeepOneIn` | `1` (keep everything) |
+| `SlowThreshold` | `Sampling__SlowThreshold` | `00:00:01`; `00:00:00` turns the slow rule off |
+| `HoldWindow` | `Sampling__HoldWindow` | `00:00:30` |
+| `DecisionTtl` | `Sampling__DecisionTtl` | `00:02:00` (how long a trace's verdict is remembered for late spans) |
+| `MaxHeldSpans` | `Sampling__MaxHeldSpans` | `200000` |
+| `SweepInterval` | `Sampling__SweepInterval` | `00:00:01` |
+| `Rules` | `Sampling__Rules__0__Service`, `__IngestKeyId`, `__KeepOneIn`, `__SlowThreshold` | none |
+
+A rule needs a `Service` (exact `service.name`), an `IngestKeyId` (the id of the ingest key
+the export used), or both. The most specific match wins: service + key, then service, then
+key, then the defaults. Each span is judged by its own service's rule, so a span's weight is
+exactly its own service's N and per-service counts stay exact.
+
+Memory is roughly spans/second × `HoldWindow` × the in-memory size of a span, capped by
+`MaxHeldSpans`. Past the cap, new spans skip the hold and take the 1-in-N decision at once,
+with no error/slow protection. Held state is per process: head decisions hash the trace id
+so replicas agree, but an error seen on one replica doesn't rescue spans held on another, so
+route a trace's spans to one replica (an otelcol `loadbalancing` exporter keyed by trace id)
+if you run several. A graceful shutdown decides every held trace before exiting; a crash
+loses whatever was held.
 
 ## Smoke-testing manually
 

@@ -7,6 +7,7 @@ using Flare.Ingest.Pipeline;
 using Flare.Ingest.Pipeline.MetricRules;
 using Flare.Ingest.Pipeline.Rules;
 using Flare.Ingest.Prometheus;
+using Flare.Ingest.Sampling;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Flare.ServiceDefaults.ClickHouseMigrations;
@@ -94,7 +95,28 @@ builder.Services.AddSingleton<IPipelineRuleAnnotator, PipelineRuleAnnotator>();
 
 // Spans - a parallel, deliberately un-unified pipeline alongside the logs one above
 // (own Redis stream, own flush worker); see SpanFlushWorker's remarks for why.
-builder.Services.AddSingleton<ISpanEventSink, RedisStreamSpanEventSink>();
+// Head + tail sampling (ADR-0122) wraps the Redis sink only when Sampling:Enabled - off, the
+// sink is the plain one and none of this runs.
+var samplingOptions = builder.Configuration.GetSection(TraceSamplingOptions.SectionName).Get<TraceSamplingOptions>()
+    ?? new TraceSamplingOptions();
+if (samplingOptions.Enabled)
+{
+    samplingOptions.Validate();
+    builder.Services.Configure<TraceSamplingOptions>(builder.Configuration.GetSection(TraceSamplingOptions.SectionName));
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddSingleton(new TraceSampler(samplingOptions));
+    builder.Services.AddKeyedSingleton<ISpanEventSink, RedisStreamSpanEventSink>(TraceSamplingWorker.InnerSinkKey);
+    builder.Services.AddSingleton<ISpanEventSink>(sp => new SamplingSpanEventSink(
+        sp.GetRequiredKeyedService<ISpanEventSink>(TraceSamplingWorker.InnerSinkKey),
+        sp.GetRequiredService<TraceSampler>(),
+        sp.GetRequiredService<IHttpContextAccessor>(),
+        sp.GetRequiredService<TimeProvider>()));
+    builder.Services.AddHostedService<TraceSamplingWorker>();
+}
+else
+{
+    builder.Services.AddSingleton<ISpanEventSink, RedisStreamSpanEventSink>();
+}
 builder.Services.AddSingleton<IClickHouseSpanWriter, ClickHouseSpanWriter>();
 builder.Services.AddHostedService<SpanFlushWorker>();
 

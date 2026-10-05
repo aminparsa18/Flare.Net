@@ -14,10 +14,10 @@ public class ServiceCallBreakdownQueryBuilderTests
         var result = ServiceCallBreakdownQueryBuilder.Build("checkout-api", TimeSpan.FromMinutes(15), Now);
 
         Assert.Contains($"{ServiceCallBreakdownQueryBuilder.ExternalTargetExpr} AS PeerService", result.ExternalCallsSql);
-        Assert.Contains("count() AS CallCount", result.ExternalCallsSql);
-        Assert.Contains("countIf(StatusCode = {errorStatus:String}) AS ErrorCount", result.ExternalCallsSql);
-        Assert.Contains("quantile(0.5)(DurationNano) AS P50DurationNano", result.ExternalCallsSql);
-        Assert.Contains("quantile(0.95)(DurationNano) AS P95DurationNano", result.ExternalCallsSql);
+        Assert.Contains("sum(SampleWeight) AS CallCount", result.ExternalCallsSql);
+        Assert.Contains("sumIf(SampleWeight, StatusCode = {errorStatus:String}) AS ErrorCount", result.ExternalCallsSql);
+        Assert.Contains("quantileTDigestWeighted(0.5)(DurationNano, SampleWeight) AS P50DurationNano", result.ExternalCallsSql);
+        Assert.Contains("quantileTDigestWeighted(0.95)(DurationNano, SampleWeight) AS P95DurationNano", result.ExternalCallsSql);
         Assert.Contains($"WHERE ServiceName = {{service:String}} AND {ServiceCallBreakdownQueryBuilder.ExternalTargetExpr} != ''", result.ExternalCallsSql);
         Assert.Contains("GROUP BY PeerService", result.ExternalCallsSql);
         Assert.Contains("ORDER BY CallCount DESC", result.ExternalCallsSql);

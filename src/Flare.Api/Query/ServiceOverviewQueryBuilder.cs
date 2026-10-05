@@ -70,11 +70,11 @@ public static class ServiceOverviewQueryBuilder
 
         var sql = "SELECT\n" +
             "    ServiceName,\n" +
-            "    count() AS RequestCount,\n" +
-            "    countIf(StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
-            "    quantile(0.5)(DurationNano) AS P50DurationNano,\n" +
-            "    quantile(0.95)(DurationNano) AS P95DurationNano,\n" +
-            "    quantile(0.99)(DurationNano) AS P99DurationNano\n" +
+            "    sum(SampleWeight) AS RequestCount,\n" +
+            "    sumIf(SampleWeight, StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
+            "    quantileTDigestWeighted(0.5)(DurationNano, SampleWeight) AS P50DurationNano,\n" +
+            "    quantileTDigestWeighted(0.95)(DurationNano, SampleWeight) AS P95DurationNano,\n" +
+            "    quantileTDigestWeighted(0.99)(DurationNano, SampleWeight) AS P99DurationNano\n" +
             "FROM spans\n" +
             "WHERE " + string.Join(" AND ", clauses) + "\n" +
             "GROUP BY ServiceName\n" +

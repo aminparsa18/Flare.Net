@@ -124,6 +124,13 @@ counts, filled by a materialized view on `spans`), and `alert_rules.SloCondition
 `SloBurnRate` condition kind. Only sees spans inserted after it exists; the file's header
 carries a one-off back-fill. See [ADR-0108](../../docs-internal/adr/0108-slo-error-budgets.md).
 
+`0051_span_sample_weight.sql` - `spans.SampleWeight` (and `outbound_calls.SampleWeight`) for
+ingest-side sampling: how many real spans a stored span stands for, 1 unless a 1-in-N head
+decision kept it. Re-creates the RED, service-map, call-breakdown, LLM, SLI and outbound
+materialized views to sum the weight instead of counting rows, and adds weighted t-digest
+percentile columns plus `SampledCount` beside the original quantile states. See
+[ADR-0122](../../docs-internal/adr/0122-ingest-trace-sampling.md).
+
 `0025_spans_start_time_projection.sql` - a `StartTime`-ordered projection
 (`spans_by_start_time`) on `spans`, covering the columns the Map view's live edges
 self-join reads. `spans`' own `TraceId`-first sort key meant that query read the whole

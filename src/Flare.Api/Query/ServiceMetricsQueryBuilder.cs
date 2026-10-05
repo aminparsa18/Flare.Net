@@ -61,9 +61,9 @@ public static class ServiceMetricsQueryBuilder
             "    ServiceName,\n" +
             "    sum(RequestCount) AS RequestCount,\n" +
             "    sum(ErrorCount) AS ErrorCount,\n" +
-            "    quantileMerge(0.5)(P50State) AS P50DurationNano,\n" +
-            "    quantileMerge(0.95)(P95State) AS P95DurationNano,\n" +
-            "    quantileMerge(0.99)(P99State) AS P99DurationNano\n" +
+            $"    {SampledQuantileSql.Merge(0.5, "P50State", "P50WState")} AS P50DurationNano,\n" +
+            $"    {SampledQuantileSql.Merge(0.95, "P95State", "P95WState")} AS P95DurationNano,\n" +
+            $"    {SampledQuantileSql.Merge(0.99, "P99State", "P99WState")} AS P99DurationNano\n" +
             "FROM service_metrics\n" +
             "WHERE TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}\n" +
             "GROUP BY ServiceName\n" +

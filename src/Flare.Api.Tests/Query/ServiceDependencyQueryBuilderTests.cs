@@ -14,9 +14,9 @@ public class ServiceDependencyQueryBuilderTests
         var result = ServiceDependencyQueryBuilder.Build(TimeSpan.FromMinutes(15), Now);
 
         Assert.Contains("if(SpanAttributes['peer.service'] != '', SpanAttributes['peer.service'], ServiceName) AS Service", result.NodesSql);
-        Assert.Contains("count() AS SpanCount", result.NodesSql);
-        Assert.Contains("countIf(StatusCode = {errorStatus:String}) AS ErrorCount", result.NodesSql);
-        Assert.Contains("sum(DurationNano) AS TotalDurationNano", result.NodesSql);
+        Assert.Contains("sum(SampleWeight) AS SpanCount", result.NodesSql);
+        Assert.Contains("sumIf(SampleWeight, StatusCode = {errorStatus:String}) AS ErrorCount", result.NodesSql);
+        Assert.Contains("sum(DurationNano * SampleWeight) AS TotalDurationNano", result.NodesSql);
         Assert.Contains("topK(3)(Name) AS TopOperations", result.NodesSql);
         Assert.Contains("FROM spans\n", result.NodesSql);
         Assert.Contains("GROUP BY Service", result.NodesSql);
@@ -30,8 +30,8 @@ public class ServiceDependencyQueryBuilderTests
 
         Assert.Contains("if(parent.SpanAttributes['peer.service'] != '', parent.SpanAttributes['peer.service'], parent.ServiceName) AS Source", result.EdgesSql);
         Assert.Contains("if(child.SpanAttributes['peer.service'] != '', child.SpanAttributes['peer.service'], child.ServiceName) AS Target", result.EdgesSql);
-        Assert.Contains("count() AS CallCount", result.EdgesSql);
-        Assert.Contains("sum(child.DurationNano) AS TotalDurationNano", result.EdgesSql);
+        Assert.Contains("sum(child.SampleWeight) AS CallCount", result.EdgesSql);
+        Assert.Contains("sum(child.DurationNano * child.SampleWeight) AS TotalDurationNano", result.EdgesSql);
         Assert.Contains("INNER JOIN spans AS parent ON parent.TraceId = child.TraceId AND parent.SpanId = child.ParentSpanId", result.EdgesSql);
         Assert.Contains("child.ParentSpanId != ''", result.EdgesSql);
         Assert.Contains("HAVING Source != Target", result.EdgesSql);
