@@ -62,6 +62,8 @@ export class AlertRule {
 	labels: StringRecord;
 	sloCondition: SloBurnRateCondition | null;
 	projectId: string | null;
+	escalateAfterMinutes: number;
+	escalationChannelIds: (string | null)[] | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -96,6 +98,8 @@ export class AlertRule {
 		this.labels = null;
 		this.sloCondition = null;
 		this.projectId = null;
+		this.escalateAfterMinutes = 0;
+		this.escalationChannelIds = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -110,7 +114,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(32);
+		writer.writeObjectHeader(34);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -143,6 +147,8 @@ export class AlertRule {
 		writeStringRecord(writer, value.labels);
 		SloBurnRateCondition.serializeCore(writer, value.sloCondition);
 		writer.writeNullableGuid(value.projectId);
+		writer.writeInt32(value.escalateAfterMinutes);
+		writer.writeArray(value.escalationChannelIds, (writer, x) => writer.writeGuid(x!));
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -166,7 +172,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 32) {
+		if (count == 34) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -199,7 +205,9 @@ export class AlertRule {
 			value.labels = readStringRecord(reader);
 			value.sloCondition = SloBurnRateCondition.deserializeCore(reader);
 			value.projectId = reader.readNullableGuid();
-		} else if (count > 32) {
+			value.escalateAfterMinutes = reader.readInt32();
+			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
+		} else if (count > 34) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -267,6 +275,10 @@ export class AlertRule {
 			if (count == 31) return value;
 			value.projectId = reader.readNullableGuid();
 			if (count == 32) return value;
+			value.escalateAfterMinutes = reader.readInt32();
+			if (count == 33) return value;
+			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 34) return value;
 		}
 		return value;
 	}

@@ -206,6 +206,9 @@ export interface AlertRule {
 	sloCondition?: SloBurnRateCondition;
 	/** Owning project (ADR-0123); `null` = instance-wide. */
 	projectId: string | null;
+	/** Minutes after the incident first notifies before an unacknowledged one escalates to `escalationChannelIds` (ADR-0125); 0 disables it. */
+	escalateAfterMinutes: number;
+	escalationChannelIds: string[];
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -252,6 +255,10 @@ export interface AlertRuleRequest {
 	labels?: Record<string, string>;
 	/** Omitted keeps an update's current project; `NO_PROJECT` clears it (ADR-0123). */
 	projectId?: string | null;
+	/** See `AlertRule.escalateAfterMinutes`. Omitted/undefined means 0 (off) - an update that omits it turns escalation off. */
+	escalateAfterMinutes?: number;
+	/** See `AlertRule.escalationChannelIds`. */
+	escalationChannelIds?: string[];
 }
 
 export interface AlertRuleListResponse {
@@ -296,6 +303,8 @@ export interface AlertHistoryEntry {
 	aiSummary: string;
 	/** The model that wrote `aiSummary`; '' when there is none. */
 	aiModel: string;
+	/** True for the row an escalation records (ADR-0125): the incident went unacknowledged and was sent to the escalation channels. */
+	escalated: boolean;
 }
 
 /** One channel's outcome within a fan-out fire - `AlertHistoryEntry.channelResults`'s element shape. */
@@ -491,7 +500,9 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		thresholdUnit: dto.thresholdUnit ?? '',
 		labels: dto.labels ?? {},
 		sloCondition: toSloBurnRateCondition(dto.sloCondition),
-		projectId: dto.projectId
+		projectId: dto.projectId,
+		escalateAfterMinutes: dto.escalateAfterMinutes,
+		escalationChannelIds: (dto.escalationChannelIds ?? []).filter((id): id is string => id != null)
 	};
 }
 
@@ -534,6 +545,8 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.labels = request.labels ?? null;
 	dto.sloCondition = toGeneratedSloBurnRateCondition(request.sloCondition);
 	dto.projectId = request.projectId ?? null;
+	dto.escalateAfterMinutes = request.escalateAfterMinutes ?? null;
+	dto.escalationChannelIds = request.escalationChannelIds ?? null;
 	return dto;
 }
 
@@ -570,7 +583,8 @@ function toAlertHistoryEntry(dto: GeneratedAlertHistoryEntry): AlertHistoryEntry
 		suppressedByWindow: dto.suppressedByWindow ?? '',
 		resolved: dto.resolved,
 		aiSummary: dto.aiSummary ?? '',
-		aiModel: dto.aiModel ?? ''
+		aiModel: dto.aiModel ?? '',
+		escalated: dto.escalated
 	};
 }
 

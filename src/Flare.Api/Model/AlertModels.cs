@@ -529,6 +529,17 @@ public sealed partial record AlertRule
     /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
     /// </summary>
     public Guid? ProjectId { get; init; }
+
+    /// <summary>
+    /// Minutes after an incident first notifies at which, if nobody has acknowledged it, it is
+    /// escalated once to <see cref="EscalationChannelIds"/>. 0 (the default, and every rule
+    /// created before this field existed) disables escalation. A snooze does not stop it; only
+    /// an ack does. See <c>docs-internal/adr/0125-alert-escalation.md</c>. Appended after <see cref="ProjectId"/>, same versioning reasoning as <see cref="ConditionKind"/>.
+    /// </summary>
+    public int EscalateAfterMinutes { get; init; }
+
+    /// <summary>Where an escalation is sent, instead of <see cref="ChannelIds"/>. Ignored while <see cref="EscalateAfterMinutes"/> is 0. Appended after <see cref="EscalateAfterMinutes"/>.</summary>
+    public IReadOnlyList<Guid> EscalationChannelIds { get; init; } = [];
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -641,6 +652,12 @@ public sealed partial record AlertRuleRequest
     /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
     /// </summary>
     public Guid? ProjectId { get; init; }
+
+    /// <summary>See <see cref="AlertRule.EscalateAfterMinutes"/>'s doc comment. Omitted/null means 0 (disabled). Appended after <see cref="ProjectId"/>.</summary>
+    public int? EscalateAfterMinutes { get; init; }
+
+    /// <summary>See <see cref="AlertRule.EscalationChannelIds"/>'s doc comment. Omitted/null means none. Appended after <see cref="EscalateAfterMinutes"/>.</summary>
+    public IReadOnlyList<Guid>? EscalationChannelIds { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
@@ -759,7 +776,7 @@ public sealed partial record AlertRuleRequest
             _ => null,
         };
 
-        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateRecoveryThreshold(kind) ?? ValidateThresholdUnit(kind) ?? ValidateTemplates() ?? AlertLabels.Validate(Labels, "labels");
+        return conditionError ?? noDataError ?? intervalError ?? minDataPointsError ?? ValidateRecoveryThreshold(kind) ?? ValidateEscalation() ?? ValidateThresholdUnit(kind) ?? ValidateTemplates() ?? AlertLabels.Validate(Labels, "labels");
     }
 
     /// <summary>
@@ -824,6 +841,9 @@ public sealed partial record AlertRuleRequest
             _ => null,
         };
     }
+
+    /// <summary>Escalation arm of <see cref="ValidateCondition"/>: a bounded delay and at least one distinct target channel.</summary>
+    private string? ValidateEscalation() => Alerting.AlertEscalationPolicy.Validate(EscalateAfterMinutes ?? 0, EscalationChannelIds);
 
     /// <summary>
     /// <see cref="RecoveryThreshold"/> arm of <see cref="ValidateCondition"/>: finite, not for
@@ -1018,6 +1038,9 @@ public sealed partial record AlertHistoryEntry
 
     /// <summary>The model that wrote <see cref="AiSummary"/>; "" when there is none. Appended after <see cref="AiSummary"/>.</summary>
     public string AiModel { get; init; } = "";
+
+    /// <summary>True for the row an escalation records (ADR-0125): the incident went unacknowledged and was sent to the rule's escalation channels. Appended after <see cref="AiModel"/>.</summary>
+    public bool Escalated { get; init; }
 }
 
 /// <summary>
@@ -1038,6 +1061,12 @@ public sealed record AlertFiringState(DateTimeOffset LastFiredAt, bool Notified)
 
     /// <summary>The newest ack/snooze/clear action that applies to this incident (ADR-0124); null when none does.</summary>
     public AlertAck? Ack { get; init; }
+
+    /// <summary>When this incident first notified (its earliest non-suppressed fire since the last resolution); null if none has. Escalation counts from here (ADR-0125).</summary>
+    public DateTimeOffset? IncidentNotifiedAt { get; init; }
+
+    /// <summary>When this incident was escalated; null if it hasn't been. An incident escalates at most once.</summary>
+    public DateTimeOffset? EscalatedAt { get; init; }
 }
 
 /// <summary>What an <see cref="AlertAck"/> row does.</summary>

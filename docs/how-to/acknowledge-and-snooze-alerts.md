@@ -55,3 +55,21 @@ note) for each acknowledged or snoozed rule. When Flare's authentication is off,
 the "who" is empty.
 
 Why it works this way: [ADR-0124](../../docs-internal/adr/0124-alert-acknowledgement-and-snooze.md).
+
+## Escalate if nobody acknowledges
+
+A rule can send an unacknowledged incident to a second set of channels. In the
+rule form, turn on **Escalate if not acknowledged**, set the delay in minutes
+and pick the channels. Over the API these are `escalateAfterMinutes` (1 to
+10080, 0 turns it off) and `escalationChannelIds`.
+
+Once an incident has been notified for that many minutes without an acknowledge,
+Flare sends it once to the escalation channels, with `[Escalated]` in front of
+the rule name, and records it in the rule's history. A snooze does not stop
+this, only an acknowledge does. A maintenance window delays it. The "Resolved"
+message still goes to the rule's own channels only.
+
+Escalation needs channels from **Notification channels**, so it is not available
+on rules that still use an inline webhook or e-mail address.
+
+Why it works this way: [ADR-0125](../../docs-internal/adr/0125-alert-escalation.md).
