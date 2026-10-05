@@ -93,13 +93,13 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Alert acknowledgement, escalation and on-call.** Fired alerts can notify a
-  channel and later resolve (ADR-0064), but nothing tracks who's handling them.
-  Add ack/snooze on a firing alert (shown in the Alerts list and in
-  `alert_events`), escalation policies ("not acked after 15 minutes, notify
-  channel B"), and simple on-call rotations that choose the target channel.
-  Builds on resolved notifications and maintenance windows (ADR-0055). Needs an
-  ADR.
+- **Alert escalation and on-call.** Acknowledge and snooze shipped (ADR-0124), so
+  a firing alert records who is handling it. Still missing: escalation policies
+  ("not acked after 15 minutes, notify channel B", stopped only by an ack, not a
+  snooze) and simple on-call rotations that choose the target channel. Builds on
+  the derived ack state and maintenance windows (ADR-0055). Needs an ADR. Also
+  open: ack from the notification itself (Slack button, PagerDuty ack sync) and a
+  `flare alerts ack` CLI command.
 - **Synthetic monitoring.** No HTTP/TCP/TLS-expiry probes exist. Add scheduled
   probes run from `Flare.AlertWorker`, results stored as metrics (up, latency,
   cert expiry days) so existing metric alerts, SLOs and dashboards work on them

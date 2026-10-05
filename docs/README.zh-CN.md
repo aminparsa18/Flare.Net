@@ -53,6 +53,7 @@
 - [将异常堆栈跟踪链接到源代码](how-to/link-exceptions-to-source-code.zh-CN.md)
 - [分诊错误并发现回归](how-to/triage-errors.zh-CN.md)
 - [获取已触发告警的 AI 摘要](how-to/summarize-alerts-with-ai.zh-CN.md)
+- [确认或暂缓正在触发的告警](how-to/acknowledge-and-snooze-alerts.zh-CN.md)
 - [判断 span 相对同类是否偏慢](how-to/compare-span-duration.zh-CN.md)
 - [找出高基数指标](how-to/find-high-cardinality-metrics.zh-CN.md)
 - [在摄取时精简指标的属性](how-to/reduce-metric-attributes.zh-CN.md)

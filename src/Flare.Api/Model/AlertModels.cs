@@ -1031,7 +1031,34 @@ public sealed partial record AlertHistoryEntry
 /// not a maintenance-window "Suppressed") - i.e. someone was paged, so the recovery owes them a
 /// "Resolved" notification. False when every fire since was suppressed.
 /// </param>
-public sealed record AlertFiringState(DateTimeOffset LastFiredAt, bool Notified);
+public sealed record AlertFiringState(DateTimeOffset LastFiredAt, bool Notified)
+{
+    /// <summary>When the incident last resolved before this one started; null if it never has. An ack older than this belongs to a previous incident.</summary>
+    public DateTimeOffset? LastResolvedAt { get; init; }
+
+    /// <summary>The newest ack/snooze/clear action that applies to this incident (ADR-0124); null when none does.</summary>
+    public AlertAck? Ack { get; init; }
+}
+
+/// <summary>What an <see cref="AlertAck"/> row does.</summary>
+public enum AlertAckKind
+{
+    /// <summary>Someone is handling it: re-notifications stop for the rest of the incident.</summary>
+    Ack,
+
+    /// <summary>Re-notifications stop until <see cref="AlertAck.SnoozedUntil"/>.</summary>
+    Snooze,
+
+    /// <summary>Withdraws an earlier ack or snooze.</summary>
+    Clear,
+}
+
+/// <summary>One acknowledge / snooze / clear action on a firing rule - a row of <c>alert_acknowledgements</c> (ADR-0124).</summary>
+/// <param name="AckedBy">The acting user's name; empty when Flare's opt-in auth is off.</param>
+public sealed record AlertAck(Guid RuleId, DateTimeOffset AckedAt, string AckedBy, AlertAckKind Kind, DateTimeOffset? SnoozedUntil, string Note);
+
+/// <summary>Body of <c>POST /api/alerts/{id}/ack</c> and <c>/snooze</c>. <see cref="SnoozeMinutes"/> is required by snooze and ignored by ack.</summary>
+public sealed record AlertAckRequest(int? SnoozeMinutes = null, string? Note = null);
 
 /// <summary>
 /// One rule's firing/ok state and last fire, for the dashboard's rules list (search/filter/sort).
@@ -1039,7 +1066,8 @@ public sealed record AlertFiringState(DateTimeOffset LastFiredAt, bool Notified)
 /// </summary>
 /// <param name="Firing">Latest fire is newer than latest resolution (ADR-0064), whether or not it was notified.</param>
 /// <param name="LastFiredAt">Latest non-resolution event, suppressed or not; null if the rule never fired.</param>
-public sealed record AlertRuleStatus(Guid RuleId, bool Firing, DateTimeOffset? LastFiredAt);
+/// <param name="Ack">The ack/snooze applying to the current incident, or null (always null for an ok rule; ADR-0124).</param>
+public sealed record AlertRuleStatus(Guid RuleId, bool Firing, DateTimeOffset? LastFiredAt, AlertAck? Ack = null);
 
 /// <summary>Response body for <c>GET /api/alerts/states</c> (JSON only - not MemoryPack'd).</summary>
 public sealed record AlertRuleStatusResponse(IReadOnlyList<AlertRuleStatus> Statuses);

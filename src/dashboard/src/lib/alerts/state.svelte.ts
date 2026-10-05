@@ -64,6 +64,11 @@ export class AlertsState {
 		}
 	}
 
+	/** Replaces one rule's status after an ack/snooze/clear, without refetching every rule's. */
+	setStatus(status: AlertRuleStatus): void {
+		this.statuses = new Map(this.statuses).set(status.ruleId, status);
+	}
+
 	async loadStatuses(): Promise<void> {
 		try {
 			this.statuses = new Map((await listAlertRuleStatuses()).map((s) => [s.ruleId, s]));

@@ -96,6 +96,9 @@ public interface IAlertQueryService
 
     Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken);
 
+    /// <summary>Appends an acknowledge / snooze / clear action for a rule (ADR-0124).</summary>
+    Task InsertAckAsync(AlertAck ack, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<AlertHistoryEntry>> GetHistoryAsync(Guid ruleId, int limit, CancellationToken cancellationToken);
 
     /// <summary>
@@ -453,7 +456,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         // comparison is NULL, hence the explicit IS NULL arms. Rows sit in (RuleId, FiredAt)
         // order, so this only reads the given rules' granules.
         const string sql = """
-            SELECT RuleId, lastFired, lastNotified IS NOT NULL AND (lastResolved IS NULL OR lastNotified > lastResolved) AS notified
+            SELECT RuleId, lastFired, lastNotified IS NOT NULL AND (lastResolved IS NULL OR lastNotified > lastResolved) AS notified, lastResolved
             FROM
             (
                 SELECT
@@ -468,13 +471,76 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             WHERE lastFired IS NOT NULL AND (lastResolved IS NULL OR lastFired > lastResolved)
             """;
 
-        await using var reader = await client.ExecuteReaderAsync(sql, parameters, EvaluationSafetyOptions(), cancellationToken);
-        while (reader.Read())
+        var resolvedAt = new Dictionary<Guid, DateTimeOffset?>();
+        await using (var reader = await client.ExecuteReaderAsync(sql, parameters, EvaluationSafetyOptions(), cancellationToken))
         {
-            states[reader.GetGuid(0)] = new AlertFiringState(ReadUtc(reader, 1), Convert.ToBoolean(reader.GetValue(2)));
+            while (reader.Read())
+            {
+                var id = reader.GetGuid(0);
+                resolvedAt[id] = reader.IsDBNull(3) ? null : ReadUtc(reader, 3);
+                states[id] = new AlertFiringState(ReadUtc(reader, 1), Convert.ToBoolean(reader.GetValue(2))) { LastResolvedAt = resolvedAt[id] };
+            }
+        }
+
+        if (states.Count == 0)
+        {
+            return states;
+        }
+
+        // Only a firing rule's ack matters, so look acks up after, for just those rules.
+        var acks = await GetLatestAcksAsync(states.Keys.ToArray(), cancellationToken);
+        foreach (var (id, state) in states.ToArray())
+        {
+            if (acks.TryGetValue(id, out var latest))
+            {
+                states[id] = state with { Ack = AlertAckPolicy.Effective(latest, state.LastResolvedAt) };
+            }
         }
 
         return states;
+    }
+
+    /// <summary>Newest ack/snooze/clear row per rule, for the given rules (all rules when null).</summary>
+    private async Task<Dictionary<Guid, AlertAck>> GetLatestAcksAsync(Guid[]? ruleIds, CancellationToken cancellationToken)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        var where = "";
+        if (ruleIds is not null)
+        {
+            parameters.AddParameter("ruleIds", ruleIds);
+            where = "WHERE RuleId IN {ruleIds:Array(UUID)}";
+        }
+
+        var sql = $"""
+            SELECT RuleId, max(AckedAt), argMax(AckedBy, AckedAt), argMax(Kind, AckedAt), argMax(SnoozedUntil, AckedAt), argMax(Note, AckedAt)
+            FROM alert_acknowledgements
+            {where}
+            GROUP BY RuleId
+            """;
+
+        var acks = new Dictionary<Guid, AlertAck>();
+        await using var reader = await client.ExecuteReaderAsync(sql, parameters, EvaluationSafetyOptions(), cancellationToken);
+        while (reader.Read())
+        {
+            var id = reader.GetGuid(0);
+            acks[id] = new AlertAck(id, ReadUtc(reader, 1), reader.GetString(2), Enum.Parse<AlertAckKind>(reader.GetString(3)), reader.IsDBNull(4) ? null : ReadUtc(reader, 4), reader.GetString(5));
+        }
+
+        return acks;
+    }
+
+    public async Task InsertAckAsync(AlertAck ack, CancellationToken cancellationToken)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("ruleId", ack.RuleId);
+        parameters.AddParameter("ackedAt", ack.AckedAt.UtcDateTime);
+        parameters.AddParameter("ackedBy", ack.AckedBy);
+        parameters.AddParameter("kind", ack.Kind.ToString());
+        parameters.AddParameter("snoozedUntil", ack.SnoozedUntil is { } until ? until.UtcDateTime : DBNull.Value);
+        parameters.AddParameter("note", ack.Note);
+        await client.ExecuteNonQueryAsync(
+            "INSERT INTO alert_acknowledgements (RuleId, AckedAt, AckedBy, Kind, SnoozedUntil, Note) VALUES ({ruleId:UUID}, {ackedAt:DateTime64(3)}, {ackedBy:String}, {kind:String}, {snoozedUntil:Nullable(DateTime64(3))}, {note:String})",
+            parameters, SafetyOptions(), cancellationToken);
     }
 
     public async Task<IReadOnlyList<AlertRuleStatus>> GetRuleStatusesAsync(CancellationToken cancellationToken)
@@ -482,7 +548,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         // Same latest-fire-vs-latest-resolution derivation as GetFiringStatesAsync (ADR-0064),
         // but unfiltered by rule and keeping lastFired for the ok rules too.
         const string sql = """
-            SELECT RuleId, lastFired, lastFired IS NOT NULL AND (lastResolved IS NULL OR lastFired > lastResolved) AS firing
+            SELECT RuleId, lastFired, lastFired IS NOT NULL AND (lastResolved IS NULL OR lastFired > lastResolved) AS firing, lastResolved
             FROM
             (
                 SELECT
@@ -494,14 +560,15 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             )
             """;
 
+        var acks = await GetLatestAcksAsync(null, cancellationToken);
         var statuses = new List<AlertRuleStatus>();
         await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
         while (reader.Read())
         {
-            statuses.Add(new AlertRuleStatus(
-                reader.GetGuid(0),
-                Convert.ToBoolean(reader.GetValue(2)),
-                reader.IsDBNull(1) ? null : ReadUtc(reader, 1)));
+            var id = reader.GetGuid(0);
+            var firing = Convert.ToBoolean(reader.GetValue(2));
+            var ack = firing && acks.TryGetValue(id, out var latest) ? AlertAckPolicy.Effective(latest, reader.IsDBNull(3) ? null : ReadUtc(reader, 3)) : null;
+            statuses.Add(new AlertRuleStatus(id, firing, reader.IsDBNull(1) ? null : ReadUtc(reader, 1), ack));
         }
 
         return statuses;

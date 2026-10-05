@@ -27,6 +27,10 @@ public static class AlertEndpoints
         endpoints.MapPut("/api/alerts/{id:guid}", HandleUpdateAsync);
         endpoints.MapDelete("/api/alerts/{id:guid}", HandleDeleteAsync);
         endpoints.MapGet("/api/alerts/{id:guid}/history", HandleHistoryAsync);
+        // Acknowledge / snooze / clear the current incident of a firing rule (ADR-0124).
+        endpoints.MapPost("/api/alerts/{id:guid}/ack", (Guid id, HttpContext http, IAlertQueryService alerts, TimeProvider time, CancellationToken ct) => HandleAckAsync(id, AlertAckKind.Ack, http, alerts, time, ct));
+        endpoints.MapPost("/api/alerts/{id:guid}/snooze", (Guid id, HttpContext http, IAlertQueryService alerts, TimeProvider time, CancellationToken ct) => HandleAckAsync(id, AlertAckKind.Snooze, http, alerts, time, ct));
+        endpoints.MapDelete("/api/alerts/{id:guid}/ack", (Guid id, HttpContext http, IAlertQueryService alerts, TimeProvider time, CancellationToken ct) => HandleAckAsync(id, AlertAckKind.Clear, http, alerts, time, ct));
         // Saved-rule dry-run first (more specific route) so it doesn't get shadowed by
         // the draft-rule route below.
         endpoints.MapPost("/api/alerts/{id:guid}/test", HandleTestSavedAsync);
@@ -251,6 +255,63 @@ public static class AlertEndpoints
 
         var deleted = await alerts.DeleteAsync(id, cancellationToken);
         return deleted ? Results.NoContent() : Results.NotFound();
+    }
+
+    private static async Task<IResult> HandleAckAsync(Guid id, AlertAckKind kind, HttpContext http, IAlertQueryService alerts, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        var rule = await alerts.GetAsync(id, cancellationToken);
+        if (rule is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (ProjectGuard.CheckExisting(http, rule.ProjectId) is { } denied)
+        {
+            return denied;
+        }
+
+        AlertAckRequest? request = null;
+        if (kind != AlertAckKind.Clear && http.Request.ContentLength is > 0)
+        {
+            try
+            {
+                request = await ApiSerialization.ReadAsync(http, AlertsJsonContext.Default.AlertAckRequest, cancellationToken);
+            }
+            catch (JsonException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }
+
+        DateTimeOffset? until = null;
+        var now = timeProvider.GetUtcNow();
+        if (kind == AlertAckKind.Snooze)
+        {
+            if (AlertAckPolicy.ValidateSnooze(request?.SnoozeMinutes) is { } error)
+            {
+                return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            until = now.AddMinutes(request!.SnoozeMinutes!.Value);
+        }
+
+        // Only a firing rule has an incident to acknowledge; a clear is allowed whenever one is.
+        var states = await alerts.GetFiringStatesAsync([id], cancellationToken);
+        if (!states.TryGetValue(id, out var state))
+        {
+            return Results.Problem("The alert rule isn't firing, so there is nothing to acknowledge.", statusCode: StatusCodes.Status409Conflict);
+        }
+
+        var note = (request?.Note ?? "").Trim();
+        if (note.Length > 500)
+        {
+            return Results.Problem("note can be at most 500 characters.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var ack = new AlertAck(id, now, http.User.Identity?.Name ?? "", kind, until, note);
+        await alerts.InsertAckAsync(ack, cancellationToken);
+        var effective = AlertAckPolicy.Effective(ack, state.LastResolvedAt);
+        return Results.Json(new AlertRuleStatus(id, true, state.LastFiredAt, effective), AlertsJsonContext.Default.AlertRuleStatus);
     }
 
     private static async Task<IResult> HandleHistoryAsync(Guid id, int? limit, HttpContext http, IAlertQueryService alerts, CancellationToken cancellationToken)

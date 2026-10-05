@@ -401,6 +401,14 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
+        // Acknowledged or snoozed (ADR-0124): someone owns this incident, so a re-notification
+        // is noise. Nothing is recorded, like the cooldown skip; the resolution still notifies.
+        if (AlertAckPolicy.Silences(firingState?.Ack, now))
+        {
+            logger.LogDebug("Alert rule {RuleId} ({RuleName}) breached but is {AckKind} by {AckedBy}; not re-notifying.", rule.Id, rule.Name, firingState!.Ack!.Kind, firingState.Ack.AckedBy);
+            return;
+        }
+
         var ruleChannels = await NotificationChannelResolver.ResolveAsync(rule, channels, cancellationToken);
         if (ruleChannels.Count == 0)
         {
