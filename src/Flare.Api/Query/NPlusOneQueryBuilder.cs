@@ -93,6 +93,8 @@ public static class NPlusOneQueryBuilder
             clauses.Add("ServiceName = {service:String}");
         }
 
+        ServiceScope.Append(clauses, parameters);
+
         var sql =
             "SELECT\n" +
             "    ServiceName,\n" +

@@ -58,6 +58,7 @@ public static class ServiceApdexQueryBuilder
             "ParentSpanId = ''",
         };
         ResourceAttributeFilterSqlBuilder.AppendClauses(clauses, parameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
+        ServiceScope.Append(clauses, parameters);
 
         var thresholdExpr = BuildThresholdExpr(thresholdOverridesMs, parameters);
 

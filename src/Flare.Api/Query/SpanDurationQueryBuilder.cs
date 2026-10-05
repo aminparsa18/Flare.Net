@@ -42,9 +42,9 @@ public static class SpanDurationQueryBuilder
         parameters.AddParameter("traceIds", distinctPairs.Select(p => p.TraceId).Distinct().ToArray());
         parameters.AddParameter("spanIds", distinctPairs.Select(p => p.SpanId).Distinct().ToArray());
 
-        const string sql = "SELECT TraceId, SpanId, DurationNano\n" +
+        var sql = "SELECT TraceId, SpanId, DurationNano\n" +
             "FROM spans\n" +
-            "WHERE TraceId IN {traceIds:Array(String)} AND SpanId IN {spanIds:Array(String)}";
+            "WHERE TraceId IN {traceIds:Array(String)} AND SpanId IN {spanIds:Array(String)}" + ServiceScope.Suffix(parameters);
 
         return new SpanDurationSql(sql, parameters);
     }

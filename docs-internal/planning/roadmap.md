@@ -100,13 +100,11 @@ folders are where "what happened and why" actually lives.
   channel B"), and simple on-call rotations that choose the target channel.
   Builds on resolved notifications and maintenance windows (ADR-0055). Needs an
   ADR.
-- **Per-team / per-project scoping.** Roles (`Admin`/`Member`/`Viewer`) are
-  global. Add a project or team boundary that scopes services, dashboards,
-  alerts, SLOs and ingest keys, with roles per team, so one instance can serve
-  several groups. Touches the Identity schema (both Sqlite and Postgres
-  migrations), every query endpoint (a service allow-list injected into
-  `LogFilter`/`SpanFilter`), and ingest-key issuance. The largest item here;
-  needs a design discussion and an ADR before any code.
+- **Per-team / per-project scoping, phases 3-4.** Projects, per-project member roles and
+  query-time service scoping (every service-keyed query, live-tail) shipped (ADR-0123).
+  Remaining: `ProjectId` on dashboards, alerts, SLOs, saved views and ingest keys, with
+  project roles deciding who can edit; a dashboard project switcher and admin page.
+  Infrastructure inventory and broker backlog gauges stay unscoped (see the ADR).
 - **Synthetic monitoring.** No HTTP/TCP/TLS-expiry probes exist. Add scheduled
   probes run from `Flare.AlertWorker`, results stored as metrics (up, latency,
   cert expiry days) so existing metric alerts, SLOs and dashboards work on them

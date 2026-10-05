@@ -34,7 +34,7 @@ public static class TraceByIdQueryBuilder
 
         var sql = $"SELECT {SpanColumns.SelectList}\n" +
             "FROM spans\n" +
-            "WHERE TraceId = {traceId:String}\n" +
+            "WHERE TraceId = {traceId:String}" + ServiceScope.Suffix(parameters) + "\n" +
             "ORDER BY StartTime\n" +
             "LIMIT {limit:UInt64}";
 

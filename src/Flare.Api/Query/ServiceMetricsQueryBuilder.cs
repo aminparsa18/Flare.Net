@@ -56,6 +56,9 @@ public static class ServiceMetricsQueryBuilder
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("from", from);
         parameters.AddParameter("to", to);
+        var scope = new List<string>();
+        ServiceScope.Append(scope, parameters);
+        var scopeSql = string.Concat(scope.Select(c => " AND " + c));
 
         var sql = "SELECT\n" +
             "    ServiceName,\n" +
@@ -65,7 +68,7 @@ public static class ServiceMetricsQueryBuilder
             $"    {SampledQuantileSql.Merge(0.95, "P95State", "P95WState")} AS P95DurationNano,\n" +
             $"    {SampledQuantileSql.Merge(0.99, "P99State", "P99WState")} AS P99DurationNano\n" +
             "FROM service_metrics\n" +
-            "WHERE TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}\n" +
+            "WHERE TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}" + scopeSql + "\n" +
             "GROUP BY ServiceName\n" +
             "ORDER BY RequestCount DESC";
 

@@ -146,6 +146,7 @@ public static class ServiceDependencyQueryBuilder
 
         var nodesClauses = new List<string> { "StartTime >= {from:DateTime64(9)} AND StartTime < {to:DateTime64(9)}" };
         ResourceAttributeFilterSqlBuilder.AppendClauses(nodesClauses, nodesParameters, resourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
+        ServiceScope.Append(nodesClauses, nodesParameters, EffectiveServiceExpr(string.Empty));
 
         var nodesSql = "SELECT\n" +
             $"    {EffectiveServiceExpr(string.Empty)} AS Service,\n" +
@@ -172,6 +173,9 @@ public static class ServiceDependencyQueryBuilder
         };
         ResourceAttributeFilterSqlBuilder.AppendClauses(edgesClauses, edgesParameters, resourceAttributes, columnAlias: "parent.", paramPrefix: "parent");
         ResourceAttributeFilterSqlBuilder.AppendClauses(edgesClauses, edgesParameters, resourceAttributes, columnAlias: "child.", paramPrefix: "child");
+        // Both ends must be in scope: an edge to a service the caller can't see would leak its name.
+        ServiceScope.Append(edgesClauses, edgesParameters, EffectiveServiceExpr("parent."), "Parent");
+        ServiceScope.Append(edgesClauses, edgesParameters, EffectiveServiceExpr("child."), "Child");
 
         var edgesSql = "SELECT\n" +
             $"    {EffectiveServiceExpr("parent.")} AS Source,\n" +
@@ -196,6 +200,7 @@ public static class ServiceDependencyQueryBuilder
             "client.SpanAttributes['peer.service'] = ''",
         };
         ResourceAttributeFilterSqlBuilder.AppendClauses(leavesClauses, leavesParameters, resourceAttributes, columnAlias: "client.", paramPrefix: "client");
+        ServiceScope.Append(leavesClauses, leavesParameters, "client.ServiceName");
 
         var leavesSql = "SELECT\n" +
             "    client.ServiceName AS Source,\n" +
@@ -225,6 +230,7 @@ public static class ServiceDependencyQueryBuilder
     /// </summary>
     public static (string Sql, ClickHouseParameterCollection Parameters) BuildExternalLeavesFromOutboundCalls(TimeSpan window, DateTimeOffset now)
     {
+        var parameters = ExternalLeavesParameters(window, now);
         var sql = "SELECT\n" +
             "    client.ServiceName AS Source,\n" +
             "    client.Domain AS Target,\n" +
@@ -234,12 +240,12 @@ public static class ServiceDependencyQueryBuilder
             "    topK(3)(client.Name) AS TopOperations\n" +
             "FROM outbound_calls AS client\n" +
             UnansweredCallsJoin +
-            "WHERE client.StartTime >= {from:DateTime64(9)} AND client.StartTime < {to:DateTime64(9)}\n" +
+            "WHERE client.StartTime >= {from:DateTime64(9)} AND client.StartTime < {to:DateTime64(9)}" + ServiceScope.Suffix(parameters, "client.ServiceName") + "\n" +
             "GROUP BY Source, Target\n" +
             "ORDER BY CallCount DESC\n" +
             $"LIMIT {MaxExternalLeaves}";
 
-        return (sql, ExternalLeavesParameters(window, now));
+        return (sql, parameters);
     }
 
     /// <summary>Keeps only client spans no span in the (skew-widened) window names as its parent. The subquery reads only projection columns, so it uses <c>spans_by_start_time</c>.</summary>

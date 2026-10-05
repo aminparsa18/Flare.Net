@@ -94,6 +94,8 @@ public static class LogFilterSqlBuilder
             clauses.Add("ServiceName IN {services:Array(String)}");
         }
 
+        ServiceScope.Append(clauses, parameters);
+
         if (filter.SeverityNumbers is { Count: > 0 } severities)
         {
             parameters.AddParameter("severities", severities.ToArray());

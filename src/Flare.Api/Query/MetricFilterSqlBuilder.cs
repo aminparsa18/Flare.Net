@@ -43,6 +43,8 @@ public static class MetricFilterSqlBuilder
             clauses.Add("ServiceName IN {services:Array(String)}");
         }
 
+        ServiceScope.Append(clauses, parameters);
+
         if (filter.Attributes is { Count: > 0 } attributes)
         {
             for (var i = 0; i < attributes.Count; i++)

@@ -53,7 +53,7 @@ public static class ServiceCallBreakdownMetricsQueryBuilder
             $"    {SampledQuantileSql.Merge(0.5, "P50State", "P50WState")} AS P50DurationNano,\n" +
             $"    {SampledQuantileSql.Merge(0.95, "P95State", "P95WState")} AS P95DurationNano\n" +
             "FROM service_call_breakdown_external\n" +
-            "WHERE ServiceName = {service:String} AND TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}\n" +
+            "WHERE ServiceName = {service:String} AND TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}" + ServiceScope.Suffix(externalCallsParameters) + "\n" +
             "GROUP BY PeerService\n" +
             "ORDER BY CallCount DESC";
 
@@ -70,7 +70,7 @@ public static class ServiceCallBreakdownMetricsQueryBuilder
             $"    {SampledQuantileSql.Merge(0.5, "P50State", "P50WState")} AS P50DurationNano,\n" +
             $"    {SampledQuantileSql.Merge(0.95, "P95State", "P95WState")} AS P95DurationNano\n" +
             "FROM service_call_breakdown_database\n" +
-            "WHERE ServiceName = {service:String} AND TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}\n" +
+            "WHERE ServiceName = {service:String} AND TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}" + ServiceScope.Suffix(databaseCallsParameters) + "\n" +
             "GROUP BY DbSystem, DbOperation\n" +
             "ORDER BY CallCount DESC";
 

@@ -53,7 +53,7 @@ public static class ServiceDependencyMetricsQueryBuilder
             "    sum(TotalDurationNano) AS TotalDurationNano,\n" +
             "    topKMerge(3)(TopOperationsState) AS TopOperations\n" +
             "FROM service_dependency_nodes\n" +
-            "WHERE TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}\n" +
+            "WHERE TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}" + ServiceScope.Suffix(parameters, "Service") + "\n" +
             "GROUP BY Service\n" +
             "ORDER BY SpanCount DESC";
 

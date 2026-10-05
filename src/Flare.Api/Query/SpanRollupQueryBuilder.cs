@@ -38,9 +38,9 @@ public static class SpanRollupQueryBuilder
         parameters.AddParameter("traceIds", traceIds.Distinct().ToArray());
         parameters.AddParameter("errorStatus", "STATUS_CODE_ERROR");
 
-        const string sql = "SELECT TraceId, count() AS SpanCount, countIf(StatusCode = {errorStatus:String}) > 0 AS HasError\n" +
+        var sql = "SELECT TraceId, count() AS SpanCount, countIf(StatusCode = {errorStatus:String}) > 0 AS HasError\n" +
             "FROM spans\n" +
-            "WHERE TraceId IN {traceIds:Array(String)}\n" +
+            "WHERE TraceId IN {traceIds:Array(String)}" + ServiceScope.Suffix(parameters) + "\n" +
             "GROUP BY TraceId";
 
         return new SpanRollupSql(sql, parameters);

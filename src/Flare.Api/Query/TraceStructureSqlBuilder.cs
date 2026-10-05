@@ -90,6 +90,7 @@ public static class TraceStructureSqlBuilder
             prefilter.Append(" AND ServiceName IN {tsServices:Array(String)}");
         }
 
+        prefilter.Append(ServiceScope.Suffix(parameters));
         prefilter.Append($" AND ({string.Join(" OR ", matches.Values)})");
 
         if (!hasDescendant)

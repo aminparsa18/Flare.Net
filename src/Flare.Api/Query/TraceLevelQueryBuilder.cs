@@ -30,7 +30,7 @@ public static class TraceLevelQueryBuilder
         // subquery is denied (same reasoning as SpanFilterSqlBuilder's GLOBAL IN).
         var sql = $"SELECT {SpanColumns.SelectList}\n" +
             "FROM spans\n" +
-            "WHERE TraceId = {traceId:String}\n" +
+            "WHERE TraceId = {traceId:String}" + ServiceScope.Suffix(parameters) + "\n" +
             "  AND (ParentSpanId = '' OR ParentSpanId GLOBAL NOT IN (SELECT SpanId FROM spans WHERE TraceId = {traceId:String}))\n" +
             "ORDER BY StartTime\n" +
             "LIMIT {limit:UInt64}";
@@ -48,7 +48,7 @@ public static class TraceLevelQueryBuilder
 
         var sql = $"SELECT {SpanColumns.SelectList}\n" +
             "FROM spans\n" +
-            "WHERE TraceId = {traceId:String}\n" +
+            "WHERE TraceId = {traceId:String}" + ServiceScope.Suffix(parameters) + "\n" +
             "  AND ParentSpanId IN {parents:Array(String)}\n" +
             "ORDER BY StartTime\n" +
             "LIMIT {limit:UInt64}";

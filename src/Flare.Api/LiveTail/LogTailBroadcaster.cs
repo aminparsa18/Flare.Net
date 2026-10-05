@@ -118,7 +118,7 @@ public sealed class LogTailBroadcaster(
 
         foreach (var subscription in _subscriptions.Keys)
         {
-            if (LogFilterMatcher.Matches(dto, subscription.Filter))
+            if (LogFilterMatcher.Matches(dto, subscription.Filter, subscription.AllowedServices))
             {
                 subscription.TryPublishEvent(dto);
             }

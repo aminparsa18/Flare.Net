@@ -25,9 +25,11 @@ public static class ActiveServicesQueryBuilder
         // leading key, so the WHERE clause still means a bounded-by-partition scan rather
         // than a tight primary-key range - acceptable at Flare's stated scale, same
         // tradeoff LogAggregateQueryBuilder's own remarks already document for this table.
-        const string sql = "SELECT ServiceName, max(Timestamp) AS LastSeenAt\n" +
+        var scope = new List<string>();
+        ServiceScope.Append(scope, parameters);
+        var sql = "SELECT ServiceName, max(Timestamp) AS LastSeenAt\n" +
             "FROM logs\n" +
-            "WHERE Timestamp >= {since:DateTime64(9)}\n" +
+            "WHERE Timestamp >= {since:DateTime64(9)}" + string.Concat(scope.Select(c => " AND " + c)) + "\n" +
             "GROUP BY ServiceName\n" +
             "ORDER BY LastSeenAt DESC";
 

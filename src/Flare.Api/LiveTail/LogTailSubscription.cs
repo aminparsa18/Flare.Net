@@ -33,6 +33,9 @@ public sealed class LogTailSubscription
         });
     }
 
+    /// <summary>The service allow-list of the connecting user (ADR-0123), captured at subscribe time; null = unrestricted.</summary>
+    public IReadOnlyList<string>? AllowedServices { get; } = Query.ServiceScope.Current;
+
     /// <summary>The current filter, applied by <see cref="LogTailBroadcaster"/> at fan-out time. Replaced wholesale on every <see cref="LogTailClientMessageType.Subscribe"/> message.</summary>
     public LogFilter Filter { get; set; } = new();
 

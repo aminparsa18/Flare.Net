@@ -55,6 +55,8 @@ public static class ExceptionFilterSqlBuilder
             clauses.Add("ServiceName IN {services:Array(String)}");
         }
 
+        ServiceScope.Append(clauses, parameters);
+
         ResourceAttributeFilterSqlBuilder.AppendClauses(clauses, parameters, filter.ResourceAttributes, columnAlias: string.Empty, paramPrefix: string.Empty);
 
         return new ExceptionFilterSql(string.Join(" AND ", clauses), parameters);

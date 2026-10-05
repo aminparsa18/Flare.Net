@@ -15,6 +15,12 @@ public sealed class VersionComparisonQueryService(IClickHouseClient client, IOpt
     public async Task<VersionComparisonResponse> CompareAsync(string service, VersionComparisonRequest request, CancellationToken cancellationToken)
     {
         var lookbackHours = VersionComparisonQueryBuilder.ClampLookbackHours(request.LookbackHours);
+        if (!ServiceScope.Allows(service))
+        {
+            // Out of the caller's project scope: same shape as a service with no versions.
+            return new VersionComparisonResponse { LookbackHours = lookbackHours, Versions = [], Endpoints = [], NewExceptions = [], NewDependencies = [], NewLogPatterns = [] };
+        }
+
         var to = timeProvider.GetUtcNow();
         var from = to - TimeSpan.FromHours(lookbackHours);
 
