@@ -23,6 +23,7 @@
 		type AlertListView,
 		type RuleSortKey
 	} from '$lib/alerts/list-view';
+	import AckRuleMenu from './AckRuleMenu.svelte';
 	import MuteRuleMenu from './MuteRuleMenu.svelte';
 	import AlertRulesTransfer from './AlertRulesTransfer.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -318,6 +319,18 @@
 						<Table.Cell>
 							{#if ruleState(rule, alerts.statuses.get(rule.id)) === 'firing'}
 								<Badge variant="destructive" class="mr-1">{m.alertRuleTable_stateFiring()}</Badge>
+								{@const ack = alerts.statuses.get(rule.id)?.ack}
+								{#if ack}
+									<Badge variant="outline" class="mr-1" title={ack.note || m.alertRuleTable_ackedHint({ time: formatDateTime(ack.ackedAt) })}>
+										{#if ack.kind === 'Snooze' && ack.snoozedUntil}
+											{m.alertRuleTable_stateSnoozedUntil({ time: formatDateTime(ack.snoozedUntil) })}
+										{:else if ack.ackedBy}
+											{m.alertRuleTable_stateAcknowledgedBy({ user: ack.ackedBy })}
+										{:else}
+											{m.alertRuleTable_stateAcknowledged()}
+										{/if}
+									</Badge>
+								{/if}
 							{/if}
 							<Badge variant={rule.enabled ? 'secondary' : 'outline'}
 								>{rule.enabled ? m.alertRuleTable_enabled() : m.alertRuleTable_disabled()}</Badge
@@ -390,6 +403,9 @@
 							>
 								<SendIcon />
 							</Button>
+							{#if ruleState(rule, alerts.statuses.get(rule.id)) === 'firing'}
+								<AckRuleMenu {rule} status={alerts.statuses.get(rule.id)} />
+							{/if}
 							<MuteRuleMenu {rule} />
 							<Button variant="ghost" size="icon-sm" title={m.alertRuleTable_actionHistory()} onclick={() => alerts.openHistory(rule)}>
 								<HistoryIcon />

@@ -2968,5 +2968,22 @@
 	"moveIngestKeyDialog_title": "Проект для «{name}»",
 	"moveIngestKeyDialog_description": "Меняется только принадлежность: то, что ключ может принимать, не меняется.",
 	"moveIngestKeyDialog_cancel": "Отмена",
-	"moveIngestKeyDialog_save": "Сохранить"
+	"moveIngestKeyDialog_save": "Сохранить",
+	"ackRule_action": "Подтвердить или отложить",
+	"ackRule_heading": "Обработка «{name}»",
+	"ackRule_notePlaceholder": "Заметка (необязательно)",
+	"ackRule_noteLabel": "Заметка к подтверждению",
+	"ackRule_ack": "Подтвердить",
+	"ackRule_ackHint": "Повторные уведомления прекратятся до восстановления.",
+	"ackRule_snoozeHeading": "Или отложить повторные уведомления на",
+	"ackRule_15m": "15 мин",
+	"ackRule_1h": "1 час",
+	"ackRule_4h": "4 часа",
+	"ackRule_1d": "1 день",
+	"ackRule_clear": "Снять",
+	"ackRule_clearAction": "Снять подтверждение",
+	"alertRuleTable_stateAcknowledged": "Подтверждено",
+	"alertRuleTable_stateAcknowledgedBy": "Подтвердил(а) {user}",
+	"alertRuleTable_stateSnoozedUntil": "Отложено до {time}",
+	"alertRuleTable_ackedHint": "Подтверждено {time}"
 }

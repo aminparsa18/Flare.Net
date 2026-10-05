@@ -2968,5 +2968,22 @@
 	"moveIngestKeyDialog_title": "“{name}”的项目",
 	"moveIngestKeyDialog_description": "仅更改归属：密钥可采集的内容不变。",
 	"moveIngestKeyDialog_cancel": "取消",
-	"moveIngestKeyDialog_save": "保存"
+	"moveIngestKeyDialog_save": "保存",
+	"ackRule_action": "确认或暂缓",
+	"ackRule_heading": "处理“{name}”",
+	"ackRule_notePlaceholder": "备注(可选)",
+	"ackRule_noteLabel": "确认备注",
+	"ackRule_ack": "确认",
+	"ackRule_ackHint": "在告警恢复前不再重复通知。",
+	"ackRule_snoozeHeading": "或暂缓重复通知",
+	"ackRule_15m": "15 分钟",
+	"ackRule_1h": "1 小时",
+	"ackRule_4h": "4 小时",
+	"ackRule_1d": "1 天",
+	"ackRule_clear": "撤销",
+	"ackRule_clearAction": "撤销确认",
+	"alertRuleTable_stateAcknowledged": "已确认",
+	"alertRuleTable_stateAcknowledgedBy": "{user} 已确认",
+	"alertRuleTable_stateSnoozedUntil": "暂缓至 {time}",
+	"alertRuleTable_ackedHint": "确认于 {time}"
 }

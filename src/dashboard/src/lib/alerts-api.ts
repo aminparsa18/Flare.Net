@@ -590,6 +590,17 @@ export interface AlertRuleStatus {
 	ruleId: string;
 	firing: boolean;
 	lastFiredAt?: string;
+	/** The ack/snooze applying to the current incident (ADR-0124); absent when none does. */
+	ack?: AlertAck;
+}
+
+export interface AlertAck {
+	ruleId: string;
+	ackedAt: string;
+	ackedBy: string;
+	kind: 'Ack' | 'Snooze' | 'Clear';
+	snoozedUntil?: string;
+	note: string;
 }
 
 export async function listAlertRuleStatuses(signal?: AbortSignal): Promise<AlertRuleStatus[]> {
@@ -597,9 +608,31 @@ export async function listAlertRuleStatuses(signal?: AbortSignal): Promise<Alert
 	if (!res.ok) {
 		throw new Error(`GET /api/alerts/states failed: ${res.status} ${res.statusText}`);
 	}
-	const body = (await res.json()) as { statuses?: { ruleId: string; firing: boolean; lastFiredAt?: string | null }[] };
-	return (body.statuses ?? []).map((s) => ({ ruleId: s.ruleId, firing: s.firing, lastFiredAt: s.lastFiredAt ?? undefined }));
+	const body = (await res.json()) as { statuses?: { ruleId: string; firing: boolean; lastFiredAt?: string | null; ack?: AlertAck | null }[] };
+	return (body.statuses ?? []).map((s) => ({ ruleId: s.ruleId, firing: s.firing, lastFiredAt: s.lastFiredAt ?? undefined, ack: s.ack ?? undefined }));
 }
+
+async function sendAck(id: string, action: 'ack' | 'snooze', method: 'POST' | 'DELETE', body?: { snoozeMinutes?: number; note?: string }): Promise<AlertRuleStatus> {
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}/${action}`, {
+		method,
+		headers: body ? { 'Content-Type': 'application/json' } : undefined,
+		body: body ? JSON.stringify(body) : undefined
+	});
+	if (!res.ok) {
+		throw new Error((await res.json().catch(() => null))?.detail ?? `${method} /api/alerts/${id}/${action} failed: ${res.status} ${res.statusText}`);
+	}
+	const s = (await res.json()) as { ruleId: string; firing: boolean; lastFiredAt?: string | null; ack?: AlertAck | null };
+	return { ruleId: s.ruleId, firing: s.firing, lastFiredAt: s.lastFiredAt ?? undefined, ack: s.ack ?? undefined };
+}
+
+/** Acknowledge the rule's current incident: re-notifications stop until it resolves (ADR-0124). */
+export const ackAlertRule = (id: string, note?: string) => sendAck(id, 'ack', 'POST', { note });
+
+/** Silence re-notifications for `minutes`. */
+export const snoozeAlertRule = (id: string, minutes: number, note?: string) => sendAck(id, 'snooze', 'POST', { snoozeMinutes: minutes, note });
+
+/** Withdraw an ack or snooze. */
+export const clearAlertAck = (id: string) => sendAck(id, 'ack', 'DELETE');
 
 export async function getAlertRule(id: string, signal?: AbortSignal): Promise<AlertRule> {
 	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}`, { headers: memoryPackAcceptHeaders(), signal });

@@ -119,6 +119,7 @@ public class AlertNoDataEvaluatorTests
         public Task<IReadOnlyList<AlertRuleStatus>> GetRuleStatusesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task InsertEventAsync(AlertHistoryEntry entry, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task InsertAckAsync(AlertAck ack, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task InsertEventSummaryAsync(Guid eventId, Guid ruleId, string model, string summary, string prompt, DateTimeOffset createdAt, CancellationToken cancellationToken) => throw new NotSupportedException();
 

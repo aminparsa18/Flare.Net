@@ -53,6 +53,7 @@
 - [Связать трассировки стека исключений с исходным кодом](how-to/link-exceptions-to-source-code.ru.md)
 - [Разбор ошибок и поиск регрессий](how-to/triage-errors.ru.md)
 - [Получение сводки ИИ по сработавшему оповещению](how-to/summarize-alerts-with-ai.ru.md)
+- [Подтверждение и откладывание оповещения](how-to/acknowledge-and-snooze-alerts.ru.md)
 - [Как понять, был ли спан медленным для своего типа](how-to/compare-span-duration.ru.md)
 - [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)
 - [Как сократить атрибуты метрики при приёме](how-to/reduce-metric-attributes.ru.md)

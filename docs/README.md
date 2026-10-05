@@ -53,6 +53,7 @@ the full rule set on what goes where.
 - [Link exception stack traces to your source code](how-to/link-exceptions-to-source-code.md)
 - [Triage errors and catch regressions](how-to/triage-errors.md)
 - [Get an AI summary of a fired alert](how-to/summarize-alerts-with-ai.md)
+- [Acknowledge or snooze a firing alert](how-to/acknowledge-and-snooze-alerts.md)
 - [Tell whether a span was slow for what it is](how-to/compare-span-duration.md)
 - [Find high-cardinality metrics](how-to/find-high-cardinality-metrics.md)
 - [Reduce a metric's attributes at ingest](how-to/reduce-metric-attributes.md)

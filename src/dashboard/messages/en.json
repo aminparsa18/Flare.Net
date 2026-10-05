@@ -2968,5 +2968,22 @@
 	"moveIngestKeyDialog_title": "Project for \"{name}\"",
 	"moveIngestKeyDialog_description": "Ownership only: what the key may ingest doesn't change.",
 	"moveIngestKeyDialog_cancel": "Cancel",
-	"moveIngestKeyDialog_save": "Save"
+	"moveIngestKeyDialog_save": "Save",
+	"ackRule_action": "Acknowledge or snooze",
+	"ackRule_heading": "Handle \"{name}\"",
+	"ackRule_notePlaceholder": "Note (optional)",
+	"ackRule_noteLabel": "Acknowledgement note",
+	"ackRule_ack": "Acknowledge",
+	"ackRule_ackHint": "Stops re-notifications until the alert resolves.",
+	"ackRule_snoozeHeading": "Or snooze re-notifications for",
+	"ackRule_15m": "15 min",
+	"ackRule_1h": "1 hour",
+	"ackRule_4h": "4 hours",
+	"ackRule_1d": "1 day",
+	"ackRule_clear": "Clear",
+	"ackRule_clearAction": "Clear acknowledgement",
+	"alertRuleTable_stateAcknowledged": "Acknowledged",
+	"alertRuleTable_stateAcknowledgedBy": "Acknowledged by {user}",
+	"alertRuleTable_stateSnoozedUntil": "Snoozed until {time}",
+	"alertRuleTable_ackedHint": "Acknowledged {time}"
 }
