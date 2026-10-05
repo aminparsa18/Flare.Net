@@ -30,6 +30,17 @@ evaluation after its cooldown.
 While a rule is acknowledged or snoozed, the same button becomes **Clear
 acknowledgement**. Clearing it lets the next breach notify normally.
 
+## Use the CLI
+
+```bash
+flare alerts ack <rule-id> --note "Looking into the checkout DB"
+flare alerts snooze <rule-id> --minutes 60
+flare alerts unack <rule-id>
+```
+
+Find the id with `flare alerts list`. Each command exits with 1 if the rule
+doesn't exist or isn't firing.
+
 ## Use the API
 
 All three calls need write access to the rule's project and return `409` when
@@ -73,3 +84,26 @@ Escalation needs channels from **Notification channels**, so it is not available
 on rules that still use an inline webhook or e-mail address.
 
 Why it works this way: [ADR-0125](../../docs-internal/adr/0125-alert-escalation.md).
+
+## Escalate to whoever is on call
+
+An on-call rotation is a list of notification channels that take turns, each for
+a fixed shift. Create one under **Settings > Workspace > On-call rotations**:
+pick the channels in shift order (one per person or team), the shift length in
+hours (a day is 24, a week is 168) and when the first shift starts. The first
+channel is on call from that moment, the next takes over after one shift, and
+the list repeats after the last. The page shows who is on call now and until
+when.
+
+Then, in a rule's escalation settings, pick the rotation. When the incident
+escalates, Flare sends it to the channel on call at that moment, plus any
+escalation channels the rule also lists. Over the API this is
+`escalationRotationId` on the rule, and the rotations themselves are under
+`/api/oncall-rotations` (`channelIds`, `shiftHours`, `startsAt`).
+
+A rotation only chooses the escalation target. The first notification still goes
+to the rule's own channels. Deleting a rotation leaves its rules escalating to
+their fixed channels only. There are no one-off overrides yet; to swap a shift,
+edit the participant list.
+
+Why it works this way: [ADR-0126](../../docs-internal/adr/0126-alert-oncall-rotations.md).

@@ -6,6 +6,8 @@
 	import { parseAlertDeepLinkParams } from '$lib/deep-links';
 	import { NotificationChannelsState } from '$lib/notification-channels/state.svelte';
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
+	import { OnCallRotationsState } from '$lib/oncall-rotations/state.svelte';
+	import { onCallRotationsContext } from '$lib/oncall-rotations/context';
 	import { MaintenanceWindowsState } from '$lib/maintenance-windows/state.svelte';
 	import { maintenanceWindowsContext } from '$lib/maintenance-windows/context';
 	import AlertRuleTable from '$lib/components/alerts/AlertRuleTable.svelte';
@@ -21,10 +23,13 @@
 	const alerts = alertsContext.set(new AlertsState());
 	const channels = notificationChannelsContext.set(new NotificationChannelsState());
 	const maintenance = maintenanceWindowsContext.set(new MaintenanceWindowsState());
+	// The rule form's escalation section picks from the loaded rotations.
+	const rotations = onCallRotationsContext.set(new OnCallRotationsState());
 
 	onMount(() => {
 		void channels.load();
 		void maintenance.load();
+		void rotations.load();
 
 		// "Create alert" from a dashboard Logs/Metrics panel (DashboardPanelCard.svelte) -
 		// checked before the rule list even loads (unlike ?rule= below, which needs

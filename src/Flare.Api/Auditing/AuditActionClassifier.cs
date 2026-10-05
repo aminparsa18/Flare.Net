@@ -34,6 +34,10 @@ public static class AuditActionClassifier
         new("PUT", "/api/maintenance-windows/{id:guid}", "maintenance-window", "update", "id"),
         new("DELETE", "/api/maintenance-windows/{id:guid}", "maintenance-window", "delete", "id"),
 
+        new("POST", "/api/oncall-rotations", "oncall-rotation", "create", null),
+        new("PUT", "/api/oncall-rotations/{id:guid}", "oncall-rotation", "update", "id"),
+        new("DELETE", "/api/oncall-rotations/{id:guid}", "oncall-rotation", "delete", "id"),
+
         new("POST", "/api/pipeline-rules", "pipeline-rule", "create", null),
         new("PUT", "/api/pipeline-rules/{id:guid}", "pipeline-rule", "update", "id"),
         new("DELETE", "/api/pipeline-rules/{id:guid}", "pipeline-rule", "delete", "id"),

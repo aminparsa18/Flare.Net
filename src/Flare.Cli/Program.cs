@@ -56,6 +56,12 @@ app.Configure(config =>
             .WithDescription("Export every alert rule as portable JSON (channels/SLOs by name, no ids or credentials).");
         alerts.AddCommand<AlertsImportCommand>("import")
             .WithDescription("Import rules from a `flare alerts export` file (--dry-run to preview; existing names are skipped).");
+        alerts.AddCommand<AlertsAckCommand>("ack")
+            .WithDescription("Acknowledge a firing rule's incident (stops re-notifications and escalation).");
+        alerts.AddCommand<AlertsSnoozeCommand>("snooze")
+            .WithDescription("Snooze a firing rule's re-notifications for N minutes (does not stop escalation).");
+        alerts.AddCommand<AlertsUnackCommand>("unack")
+            .WithDescription("Clear a rule's acknowledgement or snooze.");
     });
     config.AddBranch("apikey", apikey =>
     {

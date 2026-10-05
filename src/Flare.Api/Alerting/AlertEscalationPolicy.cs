@@ -23,7 +23,7 @@ public static class AlertEscalationPolicy
     /// </summary>
     public static bool IsDue(AlertRule rule, AlertFiringState? state, bool maintenanceWindowActive, DateTimeOffset now)
     {
-        if (rule.EscalateAfterMinutes <= 0 || rule.EscalationChannelIds.Count == 0 || state is null)
+        if (rule.EscalateAfterMinutes <= 0 || (rule.EscalationChannelIds.Count == 0 && rule.EscalationRotationId is null) || state is null)
         {
             return false;
         }
@@ -42,7 +42,7 @@ public static class AlertEscalationPolicy
     }
 
     /// <summary>Validates a rule's escalation settings; returns an error message or null.</summary>
-    public static string? Validate(int escalateAfterMinutes, IReadOnlyList<Guid>? channelIds)
+    public static string? Validate(int escalateAfterMinutes, IReadOnlyList<Guid>? channelIds, Guid? rotationId = null)
     {
         if (escalateAfterMinutes is < 0 or > MaxEscalateAfterMinutes)
         {
@@ -54,9 +54,14 @@ public static class AlertEscalationPolicy
             return null;
         }
 
+        if (rotationId == Guid.Empty)
+        {
+            return "escalationRotationId must not be an empty id.";
+        }
+
         if (channelIds is not { Count: > 0 })
         {
-            return "escalationChannelIds must list at least one channel when escalateAfterMinutes is set.";
+            return rotationId is null ? "escalationChannelIds must list at least one channel (or set escalationRotationId) when escalateAfterMinutes is set." : null;
         }
 
         return channelIds.Distinct().Count() != channelIds.Count ? "escalationChannelIds must not repeat a channel." : null;

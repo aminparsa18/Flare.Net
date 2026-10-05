@@ -23,6 +23,16 @@
 
 规则处于已确认或已暂缓状态时,同一个按钮会变成**撤销确认**。撤销后,下一次超标会正常通知。
 
+## 使用 CLI
+
+```bash
+flare alerts ack <rule-id> --note "Looking into the checkout DB"
+flare alerts snooze <rule-id> --minutes 60
+flare alerts unack <rule-id>
+```
+
+用 `flare alerts list` 查找 id。若规则不存在或未在触发，命令以退出码 1 结束。
+
 ## 使用 API
 
 三个调用都需要对规则所在项目有写权限,规则未触发时返回 `409`。
@@ -58,3 +68,18 @@ curl -X DELETE http://localhost:5080/api/alerts/<rule-id>/ack
 升级需要使用**通知渠道**中的渠道,因此仍使用内联 webhook 或邮箱地址的规则无法使用。
 
 为什么这样设计:[ADR-0125](../../docs-internal/adr/0125-alert-escalation.md)。
+
+## 升级给当前值班的人
+
+值班轮换是一组通知渠道，按固定班次轮流值班。在**设置 > 工作区 > 值班轮换**中创建：按班次顺序选择渠道
+（每个人或团队一个）、班次时长（小时，一天为 24，一周为 168）以及第一个班次的开始时间。从那一刻起第一个渠道值班，
+一个班次后由下一个接替，排到最后一个后从头重复。该页面会显示当前值班的渠道及其值班截止时间。
+
+然后在规则的升级设置中选择该轮换。事件升级时，Flare 会把它发送到当时值班的渠道，以及规则另外列出的固定升级渠道。
+通过 API 则是规则上的 `escalationRotationId`，轮换本身位于 `/api/oncall-rotations`
+（`channelIds`、`shiftHours`、`startsAt`）。
+
+轮换只决定升级的目标。第一条通知仍发送到规则自己的渠道。删除轮换后，使用它的规则只会升级到各自固定的渠道。
+目前没有临时替班；要换班，请直接编辑参与者列表。
+
+为什么这样设计:[ADR-0126](../../docs-internal/adr/0126-alert-oncall-rotations.md)。

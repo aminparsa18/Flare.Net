@@ -209,6 +209,8 @@ export interface AlertRule {
 	/** Minutes after the incident first notifies before an unacknowledged one escalates to `escalationChannelIds` (ADR-0125); 0 disables it. */
 	escalateAfterMinutes: number;
 	escalationChannelIds: string[];
+	/** On-call rotation whose current on-call channel an escalation also goes to (ADR-0126); `null` = none. */
+	escalationRotationId: string | null;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -259,6 +261,8 @@ export interface AlertRuleRequest {
 	escalateAfterMinutes?: number;
 	/** See `AlertRule.escalationChannelIds`. */
 	escalationChannelIds?: string[];
+	/** See `AlertRule.escalationRotationId`. Omitted/null means none. */
+	escalationRotationId?: string | null;
 }
 
 export interface AlertRuleListResponse {
@@ -502,7 +506,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		sloCondition: toSloBurnRateCondition(dto.sloCondition),
 		projectId: dto.projectId,
 		escalateAfterMinutes: dto.escalateAfterMinutes,
-		escalationChannelIds: (dto.escalationChannelIds ?? []).filter((id): id is string => id != null)
+		escalationChannelIds: (dto.escalationChannelIds ?? []).filter((id): id is string => id != null),
+		escalationRotationId: dto.escalationRotationId
 	};
 }
 
@@ -547,6 +552,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.projectId = request.projectId ?? null;
 	dto.escalateAfterMinutes = request.escalateAfterMinutes ?? null;
 	dto.escalationChannelIds = request.escalationChannelIds ?? null;
+	dto.escalationRotationId = request.escalationRotationId ?? null;
 	return dto;
 }
 

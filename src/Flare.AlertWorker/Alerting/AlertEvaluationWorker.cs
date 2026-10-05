@@ -65,6 +65,7 @@ public sealed class AlertEvaluationWorker(
     IAlertQueryService alerts,
     INotificationChannelQueryService channels,
     IMaintenanceWindowQueryService maintenanceWindows,
+    IOnCallRotationQueryService rotations,
     ISloQueryService slos,
     CompositeAlertNotifier notifier,
     IIncidentSummaryService incidentSummaries,
@@ -448,7 +449,17 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
-        var targets = await channels.GetByIdsAsync(rule.EscalationChannelIds, cancellationToken);
+        OnCallRotation? rotation = null;
+        if (rule.EscalationRotationId is { } rotationId)
+        {
+            rotation = await rotations.GetAsync(rotationId, cancellationToken);
+            if (rotation is null)
+            {
+                logger.LogWarning("Alert rule {RuleId} ({RuleName}) escalates to on-call rotation {RotationId}, which no longer exists.", rule.Id, rule.Name, rotationId);
+            }
+        }
+
+        var targets = await channels.GetByIdsAsync(OnCallSchedule.EscalationTargets(rule.EscalationChannelIds, rotation, now), cancellationToken);
         if (targets.Count == 0)
         {
             logger.LogWarning("Alert rule {RuleId} ({RuleName}) is due to escalate but none of its escalation channels resolve; skipping.", rule.Id, rule.Name);

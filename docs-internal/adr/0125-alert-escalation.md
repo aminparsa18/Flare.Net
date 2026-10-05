@@ -49,6 +49,7 @@ which would choose that target channel, are a further layer and stay out of this
 
 ## Not decided here
 
-- **On-call rotations** choosing the escalation target.
+- **On-call rotations** choosing the escalation target (shipped in ADR-0126).
 - **Multi-step policies** (escalate again after a further delay).
-- **Ack from the notification** (Slack button, PagerDuty ack sync) and a `flare alerts ack` command.
+- **Ack from the notification** (Slack button, PagerDuty ack sync). The `flare alerts ack|snooze|unack`
+  commands shipped afterwards as a thin client over the ADR-0124 endpoints.

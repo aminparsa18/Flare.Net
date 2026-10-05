@@ -26,6 +26,7 @@ builder.Services.AddHostedService<PromotedAttributeRefreshWorker>();
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChannelQueryService>();
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
+builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 

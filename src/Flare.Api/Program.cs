@@ -401,6 +401,7 @@ builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChan
 // Maintenance windows (ADR-0055) - CRUD here; AlertEvaluationWorker reads the same table to
 // suppress notifications while one is active.
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
+builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 
@@ -544,6 +545,8 @@ memberRoutes.MapNotificationChannelEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a maintenance window silences
 // alert notifications.
 memberRoutes.MapMaintenanceWindowEndpoints();
+// Same Member/Admin-only rationale - a rotation chooses who an escalation pages.
+memberRoutes.MapOnCallRotationEndpoints();
 // Same Member/Admin-only rationale - an SLO's burn-rate rules page people; reads are on authenticatedRoutes.
 memberRoutes.MapSloWriteEndpoints();
 // Same Member/Admin-only rationale - ignoring an error group silences exception-count alert rules.

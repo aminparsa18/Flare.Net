@@ -540,6 +540,12 @@ public sealed partial record AlertRule
 
     /// <summary>Where an escalation is sent, instead of <see cref="ChannelIds"/>. Ignored while <see cref="EscalateAfterMinutes"/> is 0. Appended after <see cref="EscalateAfterMinutes"/>.</summary>
     public IReadOnlyList<Guid> EscalationChannelIds { get; init; } = [];
+
+    /// <summary>
+    /// An on-call rotation (ADR-0126) whose current on-call channel an escalation also goes to,
+    /// in addition to <see cref="EscalationChannelIds"/>. Null (the default) means none. Appended after <see cref="EscalationChannelIds"/>.
+    /// </summary>
+    public Guid? EscalationRotationId { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -658,6 +664,9 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.EscalationChannelIds"/>'s doc comment. Omitted/null means none. Appended after <see cref="EscalateAfterMinutes"/>.</summary>
     public IReadOnlyList<Guid>? EscalationChannelIds { get; init; }
+
+    /// <summary>See <see cref="AlertRule.EscalationRotationId"/>'s doc comment. Omitted/null means none. Appended after <see cref="EscalationChannelIds"/>.</summary>
+    public Guid? EscalationRotationId { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
@@ -843,7 +852,7 @@ public sealed partial record AlertRuleRequest
     }
 
     /// <summary>Escalation arm of <see cref="ValidateCondition"/>: a bounded delay and at least one distinct target channel.</summary>
-    private string? ValidateEscalation() => Alerting.AlertEscalationPolicy.Validate(EscalateAfterMinutes ?? 0, EscalationChannelIds);
+    private string? ValidateEscalation() => Alerting.AlertEscalationPolicy.Validate(EscalateAfterMinutes ?? 0, EscalationChannelIds, EscalationRotationId);
 
     /// <summary>
     /// <see cref="RecoveryThreshold"/> arm of <see cref="ValidateCondition"/>: finite, not for
