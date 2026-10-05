@@ -48,6 +48,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Trouver les problèmes de santé du runtime .NET](how-to/find-runtime-health-problems.fr.md)
 - [Comparer deux déploiements d'un service](how-to/compare-deploys.fr.md)
 - [Définir des SLO et être alerté quand le budget d'erreurs se consomme](how-to/define-slos.fr.md)
+- [Organiser les équipes avec des projets](how-to/organize-teams-with-projects.fr.md)
 - [Trouver des traces selon les relations entre leurs spans](how-to/find-traces-by-structure.fr.md)
 - [Relier les traces de pile d'exception à votre code source](how-to/link-exceptions-to-source-code.fr.md)
 - [Trier les erreurs et détecter les régressions](how-to/triage-errors.fr.md)

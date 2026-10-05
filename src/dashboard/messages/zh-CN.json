@@ -2963,5 +2963,10 @@
 	"projectPicker_hint": "只有项目成员可以查看或修改。",
 	"projectSwitcher_label": "项目",
 	"projectSwitcher_all": "所有项目",
-	"ingestKeyTable_projectColumn": "项目"
+	"ingestKeyTable_projectColumn": "项目",
+	"ingestKeyTable_moveProject": "更换项目",
+	"moveIngestKeyDialog_title": "“{name}”的项目",
+	"moveIngestKeyDialog_description": "仅更改归属：密钥可采集的内容不变。",
+	"moveIngestKeyDialog_cancel": "取消",
+	"moveIngestKeyDialog_save": "保存"
 }

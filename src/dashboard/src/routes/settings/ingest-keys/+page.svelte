@@ -8,6 +8,7 @@
 	import { ingestKeysContext } from '$lib/ingest-keys/context';
 	import IngestKeyTable from '$lib/components/ingest-keys/IngestKeyTable.svelte';
 	import CreateIngestKeyDialog from '$lib/components/ingest-keys/CreateIngestKeyDialog.svelte';
+	import MoveIngestKeyDialog from '$lib/components/ingest-keys/MoveIngestKeyDialog.svelte';
 	import IngestKeyLimitsDialog from '$lib/components/ingest-keys/IngestKeyLimitsDialog.svelte';
 	import * as m from '$lib/paraglide/messages';
 
@@ -18,7 +19,7 @@
 	onMount(() => {
 		void keys.load();
 		const timer = setInterval(() => {
-			if (!document.hidden && !keys.createOpen && !keys.limitsTarget) void keys.load(true);
+			if (!document.hidden && !keys.createOpen && !keys.limitsTarget && !keys.moveTarget) void keys.load(true);
 		}, REFRESH_INTERVAL_MS);
 		return () => clearInterval(timer);
 	});
@@ -33,3 +34,4 @@
 </div>
 <CreateIngestKeyDialog />
 <IngestKeyLimitsDialog />
+<MoveIngestKeyDialog />

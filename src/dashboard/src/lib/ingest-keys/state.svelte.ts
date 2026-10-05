@@ -7,6 +7,7 @@ import {
 	createIngestApiKey,
 	listIngestApiKeys,
 	revokeIngestApiKey,
+	setIngestApiKeyProject,
 	updateIngestApiKeyLimits,
 	type IngestApiKeyDto,
 	type IngestApiKeyLimits
@@ -26,6 +27,9 @@ export class IngestKeysState {
 
 	/** The key whose limits dialog is open, or null when closed. */
 	limitsTarget = $state<IngestApiKeyDto | null>(null);
+
+	/** The key whose project dialog is open, or null when closed. */
+	moveTarget = $state<IngestApiKeyDto | null>(null);
 
 	/** `silent` skips the spinner - used by the page's usage auto-refresh so the table
 	 *  doesn't flash every few seconds. */
@@ -72,6 +76,30 @@ export class IngestKeysState {
 			await this.load(true);
 		} catch (err) {
 			this.error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	openMove(key: IngestApiKeyDto): void {
+		this.saveError = null;
+		this.moveTarget = key;
+	}
+
+	closeMove(): void {
+		this.moveTarget = null;
+	}
+
+	async saveMove(projectId: string | null): Promise<void> {
+		if (!this.moveTarget) return;
+		this.saving = true;
+		this.saveError = null;
+		try {
+			await setIngestApiKeyProject(this.moveTarget.id, projectId);
+			this.moveTarget = null;
+			await this.load(true);
+		} catch (err) {
+			this.saveError = err instanceof Error ? err.message : String(err);
+		} finally {
+			this.saving = false;
 		}
 	}
 
