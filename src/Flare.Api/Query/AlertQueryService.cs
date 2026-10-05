@@ -118,7 +118,7 @@ public interface IAlertQueryService
 /// back immediately" CRUD). All reads go through <see cref="LatestVersionSql"/>
 /// (latest version per Id, then <c>IsDeleted = 0</c>). See db/clickhouse/0003_alert_rules.sql for the full rationale.
 /// </remarks>
-public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes) : IAlertQueryService
+public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues) : IAlertQueryService
 {
     private const string RuleColumns =
         "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson, SloConditionJson";
@@ -407,7 +407,9 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
 
     public async Task<ulong> CountMatchingExceptionsAsync(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
-        var built = ExceptionCountConditionQueryBuilder.Build(condition, from, to);
+        // Groups an operator ignored on /errors (ADR-0121) don't count towards the rule.
+        var ignored = await errorIssues.ListIgnoredKeysAsync(cancellationToken);
+        var built = ExceptionCountConditionQueryBuilder.Build(condition, from, to, ignored);
         var result = await client.ExecuteScalarAsync(built.Sql, built.Parameters, EvaluationSafetyOptions(), cancellationToken);
         return ToUInt64(result);
     }

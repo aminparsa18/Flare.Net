@@ -8,11 +8,15 @@
 	import ArrowUpDownIcon from '@lucide/svelte/icons/arrow-up-down';
 	import BugIcon from '@lucide/svelte/icons/bug';
 	import { errorsExplorerContext } from '$lib/errors/context';
+	import { authContext } from '$lib/auth/context';
+	import ErrorIssueStatus from './ErrorIssueStatus.svelte';
+	import ErrorIssueActions from './ErrorIssueActions.svelte';
 	import type { ErrorsSortColumn } from '$lib/errors/state.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import { formatDateTime } from '$lib/time/format';
 
 	const errors = errorsExplorerContext.get();
+	const auth = authContext.get();
 
 	const compactNumber = lazyNumberFormat({ notation: 'compact', maximumFractionDigits: 1 });
 
@@ -42,6 +46,9 @@
 </script>
 
 <div class="px-4 pb-4">
+	{#if errors.issueError}
+		<p class="text-destructive pb-2 text-xs" role="alert">{errors.issueError}</p>
+	{/if}
 	{#if errors.loading && errors.groups.length === 0}
 		<div class="flex h-32 items-center justify-center">
 			<Spinner />
@@ -92,6 +99,8 @@
 							</button>
 						</Table.Head>
 					{/each}
+					<Table.Head>{m.errorIssue_statusColumn()}</Table.Head>
+					{#if auth.canMutate}<Table.Head class="w-10"></Table.Head>{/if}
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
@@ -107,6 +116,8 @@
 						<Table.Cell class="text-right tabular-nums">{group.affectedServices.length}</Table.Cell>
 						<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(group.firstSeen)}</Table.Cell>
 						<Table.Cell class="text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(group.lastSeen)}</Table.Cell>
+						<Table.Cell><ErrorIssueStatus issue={errors.issueFor(group)} /></Table.Cell>
+						{#if auth.canMutate}<Table.Cell class="text-right"><ErrorIssueActions {group} /></Table.Cell>{/if}
 					</Table.Row>
 				{/each}
 			</Table.Body>

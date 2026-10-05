@@ -12,6 +12,7 @@ import {
 	type ExceptionGroup,
 	type ExceptionOccurrencesResponse
 } from '$lib/errors-api';
+import { issueKey, listErrorIssues, upsertErrorIssue, type ErrorIssue, type ErrorIssueRequest, type ErrorIssueStatus } from '$lib/error-issues-api';
 import type { ResourceAttributeFilter } from '$lib/services-api';
 import { resolveTimeRange, type TimeRangePreset, type ResolvedTimeRange } from '$lib/logs/time-range';
 import { buildErrorsDeepLinkHref, type ErrorsDeepLinkState } from '$lib/deep-links';
@@ -36,6 +37,9 @@ export interface ErrorsFilterState {
 /** Mirrors `ExceptionGroupQueryBuilder.MaxTopN` on the API side. */
 const MAX_GROUPS = 1_000;
 
+/** The status filter: 'active' (the default) hides Ignored groups, 'all' shows everything. */
+export type ErrorsStatusFilter = 'active' | 'all' | ErrorIssueStatus;
+
 export type ErrorsSortColumn = 'exceptionType' | 'exceptionMessage' | 'occurrenceCount' | 'affectedServices' | 'firstSeen' | 'lastSeen';
 
 export class ErrorsExplorerState {
@@ -54,6 +58,12 @@ export class ErrorsExplorerState {
 
 	loading = $state(false);
 	error = $state<string | null>(null);
+
+	/** Triage state (ADR-0121) by `issueKey(type, message)`; a group with no entry is Open. Reassigned wholesale, like `groups`. */
+	issues = $state.raw<Map<string, ErrorIssue>>(new Map());
+	statusFilter = $state<ErrorsStatusFilter>('active');
+	/** Last failed triage write (e.g. a Viewer's 403), shown above the table. */
+	issueError = $state<string | null>(null);
 
 	/** The window `groups` was fetched over - pinned per search (a relative preset's "now" moves on), so a row's new-tab link (`groupHref`) reopens exactly what the table shows. */
 	searchedRange = $state.raw<ResolvedTimeRange | null>(null);
@@ -113,8 +123,14 @@ export class ErrorsExplorerState {
 			// off the end of a busy window's ranking.
 			const topN = this.filter.exceptionType ? MAX_GROUPS : undefined;
 			const range = this.currentRange();
-			const res = await getExceptionGroups({ filter: this.buildFilter(range), topN }, abort.signal);
+			// Triage state is best-effort: a failed read leaves every group looking Open
+			// rather than failing the whole page.
+			const [res, issues] = await Promise.all([
+				getExceptionGroups({ filter: this.buildFilter(range), topN }, abort.signal),
+				listErrorIssues(abort.signal).catch(() => null)
+			]);
 			if (abort.signal.aborted) return;
+			if (issues) this.issues = new Map(issues.map((i) => [issueKey(i.exceptionType, i.exceptionMessage), i]));
 			this.groups = res.groups;
 			this.searchedRange = range;
 			this.knownServices = [...new Set([...this.knownServices, ...res.groups.flatMap((g) => g.affectedServices)])].sort();
@@ -139,6 +155,8 @@ export class ErrorsExplorerState {
 	 * one message; the table otherwise lists every message of that type).
 	 */
 	async applyDeepLinkState(state: ErrorsDeepLinkState): Promise<void> {
+		// A linked group must show even when it is currently ignored.
+		this.statusFilter = 'all';
 		this.filter = {
 			timeRangePreset: 'custom',
 			customRange: state.customRange,
@@ -171,13 +189,42 @@ export class ErrorsExplorerState {
 		this.filter.exceptionMessage = '';
 	}
 
-	/** `groups` minus anything outside the type/message narrowing - what the table shows, before sorting. */
+	/** The group's triage state, or null while nobody has triaged it (reads as Open). */
+	issueFor(group: ExceptionGroup): ErrorIssue | null {
+		return this.issues.get(issueKey(group.exceptionType, group.exceptionMessage)) ?? null;
+	}
+
+	statusOf(group: ExceptionGroup): ErrorIssueStatus {
+		return this.issueFor(group)?.status ?? 'Open';
+	}
+
+	setStatusFilter(filter: ErrorsStatusFilter): void {
+		this.statusFilter = filter;
+	}
+
+	/** Applies one triage change (resolve / ignore / reopen / assign) and folds the answer into `issues`. */
+	async updateIssue(group: ExceptionGroup, change: Omit<ErrorIssueRequest, 'exceptionType' | 'exceptionMessage'>): Promise<void> {
+		this.issueError = null;
+		try {
+			const updated = await upsertErrorIssue({ exceptionType: group.exceptionType, exceptionMessage: group.exceptionMessage, ...change });
+			const next = new Map(this.issues);
+			const key = issueKey(group.exceptionType, group.exceptionMessage);
+			if (updated) next.set(key, updated);
+			else next.delete(key);
+			this.issues = next;
+		} catch (err) {
+			this.issueError = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	/** `groups` minus anything outside the type/message narrowing and the status filter - what the table shows, before sorting. */
 	visibleGroups(): ExceptionGroup[] {
 		const { exceptionType, exceptionMessage } = this.filter;
-		if (!exceptionType) return this.groups;
-		return this.groups.filter(
-			(g) => g.exceptionType === exceptionType && (!exceptionMessage || g.exceptionMessage === exceptionMessage)
-		);
+		return this.groups.filter((g) => {
+			if (exceptionType && (g.exceptionType !== exceptionType || (exceptionMessage && g.exceptionMessage !== exceptionMessage))) return false;
+			const status = this.statusOf(g);
+			return this.statusFilter === 'all' || (this.statusFilter === 'active' ? status !== 'Ignored' : status === this.statusFilter);
+		});
 	}
 
 	setServices(services: string[]): void {
@@ -192,7 +239,7 @@ export class ErrorsExplorerState {
 
 	/** Whether the toolbar's "Clear filters" button has anything to do. */
 	hasActiveFilters(): boolean {
-		return this.filter.services.length > 0 || this.filter.resourceAttributes.length > 0 || this.filter.exceptionType !== '';
+		return this.filter.services.length > 0 || this.filter.resourceAttributes.length > 0 || this.filter.exceptionType !== '' || this.statusFilter !== 'active';
 	}
 
 	/** Toolbar's "Clear filters" button - same "leave the time range alone" scope LogsExplorerState.resetFilters documents for itself. */
@@ -200,6 +247,7 @@ export class ErrorsExplorerState {
 		this.filter.services = [];
 		this.filter.resourceAttributes = [];
 		this.clearExceptionType();
+		this.statusFilter = 'active';
 		void this.runSearch();
 	}
 

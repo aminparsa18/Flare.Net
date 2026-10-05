@@ -9,6 +9,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { errorsExplorerContext } from '$lib/errors/context';
 	import { TIME_RANGE_PRESETS, presetLabel, formatCustomRangeLabel, type TimeRangePreset } from '$lib/logs/time-range';
+	import type { ErrorsStatusFilter } from '$lib/errors/state.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const errors = errorsExplorerContext.get();
@@ -29,6 +30,15 @@
 	const exceptionTypeLabel = $derived(
 		errors.filter.exceptionMessage ? `${errors.filter.exceptionType}: ${errors.filter.exceptionMessage}` : errors.filter.exceptionType
 	);
+
+	const statusOptions = $derived<{ value: ErrorsStatusFilter; label: string }[]>([
+		{ value: 'active', label: m.errorIssue_filterActive() },
+		{ value: 'all', label: m.errorIssue_filterAll() },
+		{ value: 'Open', label: m.errorIssue_statusOpen() },
+		{ value: 'Regressed', label: m.errorIssue_statusRegressed() },
+		{ value: 'Resolved', label: m.errorIssue_statusResolved() },
+		{ value: 'Ignored', label: m.errorIssue_statusIgnored() }
+	]);
 
 	const serviceOptions = $derived(errors.knownServices.map((s) => ({ value: s, label: s })));
 </script>
@@ -56,6 +66,17 @@
 		selected={errors.filter.services}
 		onChange={(next) => errors.setServices(next)}
 	/>
+
+	<Select.Root type="single" value={errors.statusFilter} onValueChange={(v) => v && errors.setStatusFilter(v as ErrorsStatusFilter)}>
+		<Select.Trigger class="w-auto" aria-label={m.errorIssue_filterLabel()}>
+			{statusOptions.find((o) => o.value === errors.statusFilter)?.label}
+		</Select.Trigger>
+		<Select.Content>
+			{#each statusOptions as option (option.value)}
+				<Select.Item value={option.value} label={option.label} />
+			{/each}
+		</Select.Content>
+	</Select.Root>
 
 	{#if errors.filter.exceptionType}
 		<!-- Set only by a fired exception alert's link - no other control removes it, so it

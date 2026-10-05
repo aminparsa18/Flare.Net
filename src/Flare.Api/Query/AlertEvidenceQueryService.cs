@@ -21,7 +21,7 @@ public interface IAlertEvidenceQueryService
     Task<IReadOnlyList<IncidentErrorSpan>> GetErrorSpansAsync(string traceId, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken);
 }
 
-public sealed class AlertEvidenceQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, IPromotedAttributeRegistry promotedAttributes) : IAlertEvidenceQueryService
+public sealed class AlertEvidenceQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues) : IAlertEvidenceQueryService
 {
     public async Task<IReadOnlyList<IncidentLogPattern>> GetLogPatternsAsync(LogFilter filter, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken)
     {
@@ -49,7 +49,8 @@ public sealed class AlertEvidenceQueryService(IClickHouseClient client, IOptions
 
     public async Task<IReadOnlyList<IncidentExceptionGroup>> GetExceptionGroupsAsync(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, int limit, CancellationToken cancellationToken)
     {
-        var built = ExceptionCountConditionQueryBuilder.BuildTopGroups(condition, from, to, limit);
+        var ignored = await errorIssues.ListIgnoredKeysAsync(cancellationToken);
+        var built = ExceptionCountConditionQueryBuilder.BuildTopGroups(condition, from, to, limit, ignored);
         await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, QuerySafety.AlertEvaluation(queryLimits.Value), cancellationToken);
         var rows = new List<IncidentExceptionGroup>();
         while (reader.Read())

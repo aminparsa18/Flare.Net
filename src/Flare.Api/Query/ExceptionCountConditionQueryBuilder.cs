@@ -21,23 +21,25 @@ public sealed record ExceptionCountConditionSql(string Sql, ClickHouseParameterC
 /// </summary>
 public static class ExceptionCountConditionQueryBuilder
 {
-    public static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to) =>
-        Build(condition, from, to, "count()", "");
+    /// <param name="ignoredGroupKeys"><see cref="Errors.ErrorIssueFingerprint.Key"/> of groups an operator ignored (<c>error_issues</c>); their events are not counted. Null/empty = count everything.</param>
+    public static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, IReadOnlyList<string>? ignoredGroupKeys = null) =>
+        Build(condition, from, to, "count()", "", ignoredGroupKeys);
 
     /// <summary>
     /// The matching occurrences grouped by (type, message), most frequent first - the incident
     /// summary's view of the same condition <see cref="Build(ExceptionCountCondition, DateTimeOffset, DateTimeOffset)"/> counts.
     /// Columns: type, message, count, service, a sample trace id (or "").
     /// </summary>
-    public static ExceptionCountConditionSql BuildTopGroups(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, int limit) =>
+    public static ExceptionCountConditionSql BuildTopGroups(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, int limit, IReadOnlyList<string>? ignoredGroupKeys = null) =>
         Build(
             condition,
             from,
             to,
             "EventAttributes['exception.type'] AS ExType, EventAttributes['exception.message'] AS ExMessage, count() AS Occurrences, any(ServiceName), anyIf(TraceId, TraceId != '')",
-            $"\nGROUP BY ExType, ExMessage ORDER BY Occurrences DESC LIMIT {Math.Clamp(limit, 1, 50)}");
+            $"\nGROUP BY ExType, ExMessage ORDER BY Occurrences DESC LIMIT {Math.Clamp(limit, 1, 50)}",
+            ignoredGroupKeys);
 
-    private static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, string select, string suffix)
+    private static ExceptionCountConditionSql Build(ExceptionCountCondition condition, DateTimeOffset from, DateTimeOffset to, string select, string suffix, IReadOnlyList<string>? ignoredGroupKeys)
     {
         // Same System.Text.Json init-only-property caveat MetricAlertConditionQueryBuilder
         // guards against - condition.Filter's `= new()` default doesn't survive
@@ -54,6 +56,12 @@ public static class ExceptionCountConditionQueryBuilder
         {
             filterSql.Parameters.AddParameter("exceptionMessage", condition.ExceptionMessage);
             clauses += " AND EventAttributes['exception.message'] = {exceptionMessage:String}";
+        }
+
+        if (ignoredGroupKeys is { Count: > 0 })
+        {
+            filterSql.Parameters.AddParameter("ignoredGroupKeys", ignoredGroupKeys.ToArray());
+            clauses += " AND concat(EventAttributes['exception.type'], char(31), EventAttributes['exception.message']) NOT IN {ignoredGroupKeys:Array(String)}";
         }
 
         var sql = $"SELECT {select} FROM spans\n" +
