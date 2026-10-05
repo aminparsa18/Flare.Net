@@ -24,6 +24,7 @@ export class SavedView {
 	state: unknown;
 	createdAt: Date;
 	updatedAt: Date;
+	projectId: string | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -33,6 +34,7 @@ export class SavedView {
 		this.state = null;
 		this.createdAt = new Date(0);
 		this.updatedAt = new Date(0);
+		this.projectId = null;
 	}
 
 	static serialize(value: SavedView | null): Uint8Array {
@@ -47,7 +49,7 @@ export class SavedView {
 			return;
 		}
 
-		writer.writeObjectHeader(7);
+		writer.writeObjectHeader(8);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -55,6 +57,7 @@ export class SavedView {
 		writer.writeString(JSON.stringify(value.state ?? null));
 		writeDateTimeOffset(writer, value.createdAt);
 		writeDateTimeOffset(writer, value.updatedAt);
+		writer.writeNullableGuid(value.projectId);
 	}
 
 	static serializeArray(value: (SavedView | null)[] | null): Uint8Array {
@@ -78,7 +81,7 @@ export class SavedView {
 		}
 
 		const value = new SavedView();
-		if (count == 7) {
+		if (count == 8) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -86,7 +89,8 @@ export class SavedView {
 			value.state = JSON.parse(reader.readString() ?? 'null');
 			value.createdAt = readDateTimeOffset(reader);
 			value.updatedAt = readDateTimeOffset(reader);
-		} else if (count > 7) {
+			value.projectId = reader.readNullableGuid();
+		} else if (count > 8) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -104,6 +108,8 @@ export class SavedView {
 			if (count == 6) return value;
 			value.updatedAt = readDateTimeOffset(reader);
 			if (count == 7) return value;
+			value.projectId = reader.readNullableGuid();
+			if (count == 8) return value;
 		}
 		return value;
 	}

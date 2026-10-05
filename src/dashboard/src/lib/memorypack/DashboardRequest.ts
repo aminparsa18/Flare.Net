@@ -12,12 +12,14 @@ export class DashboardRequest {
 	description: string | null;
 	layoutJson: unknown;
 	tags: (string | null)[] | null;
+	projectId: string | null;
 
 	constructor() {
 		this.name = null;
 		this.description = null;
 		this.layoutJson = null;
 		this.tags = null;
+		this.projectId = null;
 	}
 
 	static serialize(value: DashboardRequest | null): Uint8Array {
@@ -32,11 +34,12 @@ export class DashboardRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(4);
+		writer.writeObjectHeader(5);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeString(JSON.stringify(value.layoutJson ?? null));
 		writer.writeArray(value.tags, (writer, x) => writer.writeString(x));
+		writer.writeNullableGuid(value.projectId);
 	}
 
 	static deserialize(buffer: ArrayBuffer): DashboardRequest | null {
@@ -50,12 +53,13 @@ export class DashboardRequest {
 		}
 
 		const value = new DashboardRequest();
-		if (count == 4) {
+		if (count == 5) {
 			value.name = reader.readString();
 			value.description = reader.readString();
 			value.layoutJson = JSON.parse(reader.readString() ?? 'null');
 			value.tags = reader.readArray((reader) => reader.readString());
-		} else if (count > 4) {
+			value.projectId = reader.readNullableGuid();
+		} else if (count > 5) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -67,6 +71,8 @@ export class DashboardRequest {
 			if (count == 3) return value;
 			value.tags = reader.readArray((reader) => reader.readString());
 			if (count == 4) return value;
+			value.projectId = reader.readNullableGuid();
+			if (count == 5) return value;
 		}
 		return value;
 	}

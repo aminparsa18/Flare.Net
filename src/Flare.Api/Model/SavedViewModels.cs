@@ -45,6 +45,14 @@ public sealed partial record SavedView
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>
+    /// The owning project (ADR-0123), or null for an instance-wide object (the default, and every
+    /// row that predates <c>db/clickhouse/0052_project_id.sql</c>). On a request, null leaves an
+    /// update's existing project untouched so a client that predates projects can't un-scope an
+    /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
+    /// </summary>
+    public Guid? ProjectId { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/views</c>.</summary>
@@ -69,6 +77,14 @@ public sealed partial record SavedViewRequest
     /// <summary>Serialized via <see cref="Json.JsonElementMemoryPackFormatter"/> - see its remarks.</summary>
     [MemoryPackAllowSerialize]
     public required JsonElement State { get; init; }
+
+    /// <summary>
+    /// The owning project (ADR-0123), or null for an instance-wide object (the default, and every
+    /// row that predates <c>db/clickhouse/0052_project_id.sql</c>). On a request, null leaves an
+    /// update's existing project untouched so a client that predates projects can't un-scope an
+    /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
+    /// </summary>
+    public Guid? ProjectId { get; init; }
 }
 
 /// <summary>Response body for <c>GET /api/views</c>.</summary>

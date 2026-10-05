@@ -29,6 +29,7 @@ export class Dashboard {
 	updatedAt: Date;
 	ownerUserId: string | null;
 	tags: (string | null)[] | null;
+	projectId: string | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -39,6 +40,7 @@ export class Dashboard {
 		this.updatedAt = new Date(0);
 		this.ownerUserId = null;
 		this.tags = null;
+		this.projectId = null;
 	}
 
 	static serialize(value: Dashboard | null): Uint8Array {
@@ -53,7 +55,7 @@ export class Dashboard {
 			return;
 		}
 
-		writer.writeObjectHeader(8);
+		writer.writeObjectHeader(9);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -62,6 +64,7 @@ export class Dashboard {
 		writeDateTimeOffset(writer, value.updatedAt);
 		writer.writeNullableGuid(value.ownerUserId);
 		writer.writeArray(value.tags, (writer, x) => writer.writeString(x));
+		writer.writeNullableGuid(value.projectId);
 	}
 
 	static serializeArray(value: (Dashboard | null)[] | null): Uint8Array {
@@ -85,7 +88,7 @@ export class Dashboard {
 		}
 
 		const value = new Dashboard();
-		if (count == 8) {
+		if (count == 9) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -94,7 +97,8 @@ export class Dashboard {
 			value.updatedAt = readDateTimeOffset(reader);
 			value.ownerUserId = reader.readNullableGuid();
 			value.tags = reader.readArray((reader) => reader.readString());
-		} else if (count > 8) {
+			value.projectId = reader.readNullableGuid();
+		} else if (count > 9) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -114,6 +118,8 @@ export class Dashboard {
 			if (count == 7) return value;
 			value.tags = reader.readArray((reader) => reader.readString());
 			if (count == 8) return value;
+			value.projectId = reader.readNullableGuid();
+			if (count == 9) return value;
 		}
 		return value;
 	}

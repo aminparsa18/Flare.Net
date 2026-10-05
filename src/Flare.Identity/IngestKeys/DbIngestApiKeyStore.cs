@@ -4,7 +4,7 @@ namespace Flare.Identity.IngestKeys;
 
 public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFactory, TimeProvider timeProvider) : IIngestApiKeyStore
 {
-    public async Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, Guid? projectId = null, CancellationToken cancellationToken = default)
     {
         var id = Guid.NewGuid();
         var now = timeProvider.GetUtcNow();
@@ -15,16 +15,17 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         await using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO IngestApiKeys (Id, Name, KeyHash, CreatedAt, RevokedAt)
-            VALUES (@id, @name, @keyHash, @createdAt, NULL)
+            INSERT INTO IngestApiKeys (Id, Name, KeyHash, CreatedAt, RevokedAt, ProjectId)
+            VALUES (@id, @name, @keyHash, @createdAt, NULL, @projectId)
             """;
         command.AddParameter("@id", id.ToString());
         command.AddParameter("@name", name);
         command.AddParameter("@keyHash", keyHash);
         command.AddParameter("@createdAt", now.ToString("O"));
+        command.AddParameter("@projectId", (object?)projectId?.ToString() ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
 
-        return (new IngestApiKey(id, name, now, RevokedAt: null), rawKey);
+        return (new IngestApiKey(id, name, now, RevokedAt: null) { ProjectId = projectId }, rawKey);
     }
 
     public async Task<IReadOnlyList<IngestApiKey>> ListAsync(CancellationToken cancellationToken = default)
@@ -34,7 +35,7 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         command.CommandText =
             """
             SELECT Id, Name, CreatedAt, RevokedAt,
-                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay
+                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, ProjectId
             FROM IngestApiKeys ORDER BY CreatedAt
             """;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -49,9 +50,20 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
                 RevokedAt: reader.IsDBNull(3) ? null : DateTimeOffset.Parse(reader.GetString(3)))
             {
                 Limits = ReadLimits(reader, firstOrdinal: 4),
+                ProjectId = reader.IsDBNull(9) ? null : Guid.Parse(reader.GetString(9)),
             });
         }
         return keys;
+    }
+
+    public async Task<bool> SetProjectAsync(Guid id, Guid? projectId, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE IngestApiKeys SET ProjectId = @projectId WHERE Id = @id";
+        command.AddParameter("@id", id.ToString());
+        command.AddParameter("@projectId", (object?)projectId?.ToString() ?? DBNull.Value);
+        return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
     public async Task RevokeAsync(Guid id, CancellationToken cancellationToken = default)

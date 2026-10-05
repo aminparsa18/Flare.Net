@@ -3,10 +3,14 @@ namespace Flare.Identity.IngestKeys;
 public interface IIngestApiKeyStore
 {
     /// <summary>Creates a new key and returns both the stored record and the raw key
-    /// value - the raw value is generated here and only ever returned this once.</summary>
-    Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, CancellationToken cancellationToken = default);
+    /// value - the raw value is generated here and only ever returned this once.
+    /// <paramref name="projectId"/> tags the key with an owning project (ADR-0123); null = instance-wide.</summary>
+    Task<(IngestApiKey Key, string RawKey)> CreateAsync(string name, Guid? projectId = null, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<IngestApiKey>> ListAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Moves a key to another project, or to instance-wide with null. False if no key has that id.</summary>
+    Task<bool> SetProjectAsync(Guid id, Guid? projectId, CancellationToken cancellationToken = default);
 
     Task RevokeAsync(Guid id, CancellationToken cancellationToken = default);
 

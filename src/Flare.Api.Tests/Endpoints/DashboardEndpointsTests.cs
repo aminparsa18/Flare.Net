@@ -69,7 +69,7 @@ public class DashboardEndpointsTests
         var context = CreateContext(new { name = "New", description = "", layoutJson = new { } });
         context.User = AuthenticatedPrincipal(ownerId);
 
-        var result = await DashboardEndpoints.HandleCreateAsync(context, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleCreateAsync(context, context.User, dashboards, new FakeProjectStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status201Created, context.Response.StatusCode);
@@ -86,7 +86,7 @@ public class DashboardEndpointsTests
         var context = CreateContext(new { name = "New", description = "", layoutJson = new { } });
         context.User = Unauthenticated;
 
-        var result = await DashboardEndpoints.HandleCreateAsync(context, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleCreateAsync(context, context.User, dashboards, new FakeProjectStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status201Created, context.Response.StatusCode);
@@ -103,7 +103,7 @@ public class DashboardEndpointsTests
         var context = CreateContext(UpdateBody());
         context.User = AuthenticatedPrincipal(ownerId);
 
-        var result = await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, dashboards, new FakeProjectStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -123,7 +123,7 @@ public class DashboardEndpointsTests
         var context = CreateContext(UpdateBody());
         context.User = AuthenticatedPrincipal(Guid.NewGuid()); // a different Member
 
-        var result = await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, dashboards, new FakeProjectStore(), CancellationToken.None);
 
         Assert.IsType<Microsoft.AspNetCore.Http.HttpResults.ForbidHttpResult>(result);
     }
@@ -136,7 +136,7 @@ public class DashboardEndpointsTests
         var context = CreateContext(UpdateBody());
         context.User = AuthenticatedPrincipal(Guid.NewGuid(), UserRole.Admin);
 
-        var result = await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, dashboards, new FakeProjectStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -151,7 +151,7 @@ public class DashboardEndpointsTests
         var context = CreateContext(UpdateBody());
         context.User = AuthenticatedPrincipal(Guid.NewGuid());
 
-        var result = await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleUpdateAsync(dashboard.Id, context, context.User, dashboards, new FakeProjectStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -164,7 +164,7 @@ public class DashboardEndpointsTests
         var context = CreateContext(UpdateBody());
         context.User = AuthenticatedPrincipal(Guid.NewGuid());
 
-        var result = await DashboardEndpoints.HandleUpdateAsync(Guid.NewGuid(), context, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleUpdateAsync(Guid.NewGuid(), context, context.User, dashboards, new FakeProjectStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
@@ -180,7 +180,7 @@ public class DashboardEndpointsTests
         var context = CreateContext();
         context.User = AuthenticatedPrincipal(Guid.NewGuid());
 
-        var result = await DashboardEndpoints.HandleDeleteAsync(dashboard.Id, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleDeleteAsync(dashboard.Id, context, context.User, dashboards, CancellationToken.None);
 
         Assert.IsType<Microsoft.AspNetCore.Http.HttpResults.ForbidHttpResult>(result);
         Assert.NotNull(await dashboards.GetAsync(dashboard.Id, CancellationToken.None));
@@ -195,7 +195,7 @@ public class DashboardEndpointsTests
         var context = CreateContext();
         context.User = AuthenticatedPrincipal(ownerId);
 
-        var result = await DashboardEndpoints.HandleDeleteAsync(dashboard.Id, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleDeleteAsync(dashboard.Id, context, context.User, dashboards, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status204NoContent, context.Response.StatusCode);
@@ -210,7 +210,7 @@ public class DashboardEndpointsTests
         var context = CreateContext(new { name = "New", description = "", layoutJson = new { }, tags });
         context.User = AuthenticatedPrincipal(Guid.NewGuid());
 
-        var result = await DashboardEndpoints.HandleCreateAsync(context, context.User, dashboards, CancellationToken.None);
+        var result = await DashboardEndpoints.HandleCreateAsync(context, context.User, dashboards, new FakeProjectStore(), CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
@@ -224,7 +224,7 @@ public class DashboardEndpointsTests
         context.User = AuthenticatedPrincipal(Guid.NewGuid());
         var pins = new InMemoryPinStore();
 
-        var result = await DashboardEndpoints.HandlePinAsync(Guid.NewGuid(), context.User, new FakeDashboardQueryService(), pins, CancellationToken.None);
+        var result = await DashboardEndpoints.HandlePinAsync(Guid.NewGuid(), context, context.User, new FakeDashboardQueryService(), pins, CancellationToken.None);
         await result.ExecuteAsync(context);
 
         Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
@@ -241,7 +241,7 @@ public class DashboardEndpointsTests
         var pins = new InMemoryPinStore();
 
         var pinContext = CreateContext();
-        await (await DashboardEndpoints.HandlePinAsync(dashboard.Id, principal, dashboards, pins, CancellationToken.None)).ExecuteAsync(pinContext);
+        await (await DashboardEndpoints.HandlePinAsync(dashboard.Id, pinContext, principal, dashboards, pins, CancellationToken.None)).ExecuteAsync(pinContext);
 
         Assert.Equal(StatusCodes.Status204NoContent, pinContext.Response.StatusCode);
         Assert.Equal([dashboard.Id], await pins.ListAsync(viewerId));
@@ -258,7 +258,7 @@ public class DashboardEndpointsTests
         var dashboard = SeedDashboard(dashboards, null);
         var pins = new InMemoryPinStore();
 
-        await (await DashboardEndpoints.HandlePinAsync(dashboard.Id, Unauthenticated, dashboards, pins, CancellationToken.None)).ExecuteAsync(CreateContext());
+        await (await DashboardEndpoints.HandlePinAsync(dashboard.Id, CreateContext(), Unauthenticated, dashboards, pins, CancellationToken.None)).ExecuteAsync(CreateContext());
 
         Assert.Equal([dashboard.Id], await pins.ListAsync(Guid.Empty));
     }

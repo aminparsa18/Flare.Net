@@ -24,6 +24,7 @@ export class IngestApiKeyDto {
 	bytesThisMinute: bigint;
 	eventsToday: bigint;
 	bytesToday: bigint;
+	projectId: string | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -40,6 +41,7 @@ export class IngestApiKeyDto {
 		this.bytesThisMinute = 0n;
 		this.eventsToday = 0n;
 		this.bytesToday = 0n;
+		this.projectId = null;
 	}
 
 	static serialize(value: IngestApiKeyDto | null): Uint8Array {
@@ -54,7 +56,7 @@ export class IngestApiKeyDto {
 			return;
 		}
 
-		writer.writeObjectHeader(14);
+		writer.writeObjectHeader(15);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writeDateTimeOffset(writer, value.createdAt);
@@ -69,6 +71,7 @@ export class IngestApiKeyDto {
 		writer.writeInt64(value.bytesThisMinute);
 		writer.writeInt64(value.eventsToday);
 		writer.writeInt64(value.bytesToday);
+		writer.writeNullableGuid(value.projectId);
 	}
 
 	static serializeArray(value: (IngestApiKeyDto | null)[] | null): Uint8Array {
@@ -92,7 +95,7 @@ export class IngestApiKeyDto {
 		}
 
 		const value = new IngestApiKeyDto();
-		if (count == 14) {
+		if (count == 15) {
 			value.id = reader.readGuid();
 			value.name = reader.readString() ?? '';
 			value.createdAt = readDateTimeOffset(reader);
@@ -107,7 +110,8 @@ export class IngestApiKeyDto {
 			value.bytesThisMinute = reader.readInt64();
 			value.eventsToday = reader.readInt64();
 			value.bytesToday = reader.readInt64();
-		} else if (count > 14) {
+			value.projectId = reader.readNullableGuid();
+		} else if (count > 15) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -139,6 +143,8 @@ export class IngestApiKeyDto {
 			if (count == 13) return value;
 			value.bytesToday = reader.readInt64();
 			if (count == 14) return value;
+			value.projectId = reader.readNullableGuid();
+			if (count == 15) return value;
 		}
 		return value;
 	}

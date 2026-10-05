@@ -61,6 +61,7 @@ export class AlertRule {
 	thresholdUnit: string | null;
 	labels: StringRecord;
 	sloCondition: SloBurnRateCondition | null;
+	projectId: string | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -94,6 +95,7 @@ export class AlertRule {
 		this.thresholdUnit = null;
 		this.labels = null;
 		this.sloCondition = null;
+		this.projectId = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -108,7 +110,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(31);
+		writer.writeObjectHeader(32);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -140,6 +142,7 @@ export class AlertRule {
 		writer.writeString(value.thresholdUnit);
 		writeStringRecord(writer, value.labels);
 		SloBurnRateCondition.serializeCore(writer, value.sloCondition);
+		writer.writeNullableGuid(value.projectId);
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -163,7 +166,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 31) {
+		if (count == 32) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -195,7 +198,8 @@ export class AlertRule {
 			value.thresholdUnit = reader.readString();
 			value.labels = readStringRecord(reader);
 			value.sloCondition = SloBurnRateCondition.deserializeCore(reader);
-		} else if (count > 31) {
+			value.projectId = reader.readNullableGuid();
+		} else if (count > 32) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -261,6 +265,8 @@ export class AlertRule {
 			if (count == 30) return value;
 			value.sloCondition = SloBurnRateCondition.deserializeCore(reader);
 			if (count == 31) return value;
+			value.projectId = reader.readNullableGuid();
+			if (count == 32) return value;
 		}
 		return value;
 	}

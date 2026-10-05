@@ -1,6 +1,6 @@
 # ADR-0123: Projects: per-team scoping by service allow-list
 
-Status: Accepted (phases 1 and 2 implemented; 3-4 pending)
+Status: Accepted (phases 1-3 implemented; 4 pending)
 
 Date: 2026-10-05
 
@@ -34,8 +34,9 @@ without re-plumbing the telemetry tables.
 2. **Done (partially, see below):** resolve the caller's allowed-service set (union of their projects' patterns; global Admin
    and instances with no projects are unrestricted) and apply it to log, span, metric and
    exception queries, live-tail and the MCP tools.
-3. `ProjectId` on dashboards, alert rules, SLOs and ingest keys; list/CRUD filtered by
-   membership, with project role deciding who may edit.
+3. **Done:** `ProjectId` on dashboards, saved views, alert rules, SLOs and ingest keys;
+   list/CRUD filtered by membership, with project role deciding who may edit (see
+   "Phase 3 as built").
 4. Dashboard: project switcher and a Projects admin page.
 
 ## Consequences
@@ -71,5 +72,42 @@ without re-plumbing the telemetry tables.
   destination only becomes discoverable through scoped spans, but a caller who guesses a
   topic name can read its backlog. Closing this needs an infrastructure-level boundary and
   is out of scope for service allow-lists.
-- Config objects (dashboards, alerts, SLOs, saved views, ingest keys) are still visible to
-  everyone; that is phase 3.
+- Config objects (dashboards, alerts, SLOs, saved views, ingest keys) were still visible to
+  everyone at this point; phase 3 closes that.
+
+## Phase 3 as built
+
+- **Storage:** a nullable `ProjectId` on `dashboards`, `saved_views`, `alert_rules` and `slos`
+  (ClickHouse migration 0052, plus its cluster variant) and on Identity's `IngestApiKeys`
+  (Sqlite 0029, Postgres 0004). It is part of each versioned row, so moving an object between
+  projects is an ordinary update. There is no foreign key (different store); an object whose
+  project was deleted is hidden from non-admins until a global Admin reassigns it.
+- **Null means instance-wide**, the default for every existing row: visible to everyone and
+  editable under the same rules as before (route policy, plus dashboard ownership). Nothing
+  changes for an instance that doesn't assign projects.
+- **Read:** a project-owned object is visible only to that project's members and to global
+  Admins; to anyone else it is a 404, so existence doesn't leak. Lists are filtered, and so are
+  the alert states, alert export, the SLO names an export/import resolves, and the dashboards
+  the metric catalog reports as using a metric.
+- **Write:** needs the project role `Admin` or `Member` (a project `Viewer` gets a 403). The
+  project role can only **narrow** the global role: the route's `RequireMember` policy still
+  runs first, so a global Viewer who is a project Member still can't edit. A project `Admin`
+  may also change any dashboard in the project regardless of its owner (ADR-0027 ownership
+  still applies to project Members). Creating or moving an object into a project needs write
+  access to that project, and the project must exist (400 otherwise).
+- **Update semantics:** `projectId` omitted keeps the object's current project, so a client
+  that predates projects can't un-scope an object by saving it; `00000000-0000-0000-0000-000000000000`
+  clears it. A move needs write access to both the old and the new project.
+- **Resolved once per request** by `ProjectScopeMiddleware` into `ProjectAccess` (stashed on
+  `HttpContext.Items`); handlers read it through `ProjectGuard`. Global Admins and
+  auth-disabled instances are unrestricted. Unlike service scoping, an instance with no
+  projects is not special-cased here, because no object can legitimately carry a `ProjectId`.
+- **Ingest keys** only record ownership (`POST /api/ingest-keys` takes `projectId`,
+  `PUT /api/ingest-keys/{id}/project` moves one). Managing keys stays global-Admin-only: a key
+  can ingest under any `service.name`, so letting a project Admin mint keys would let them
+  write into other projects' services. Opening that up needs a per-key service restriction
+  first.
+- **Not scoped:** alert evaluation and notification (workers run unrestricted, as designed),
+  notification channels and maintenance windows (shared infrastructure), and pipeline rules.
+  An alert's `{{...}}` payload isn't redacted by project; the rule's own project decides who
+  can read or edit it, and its condition was authored by someone who could query that data.

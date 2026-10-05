@@ -102,4 +102,22 @@ public class DbIngestApiKeyStoreTests : IAsyncLifetime
     {
         Assert.False(await _store.UpdateLimitsAsync(Guid.NewGuid(), IngestApiKeyLimits.None));
     }
+    [Fact]
+    public async Task ProjectId_RoundTripsThroughCreateListAndSetProject()
+    {
+        var project = Guid.NewGuid();
+        var (tagged, _) = await _store.CreateAsync("tagged", project);
+        var (untagged, _) = await _store.CreateAsync("untagged");
+
+        var keys = await _store.ListAsync();
+        Assert.Equal(project, keys.Single(k => k.Id == tagged.Id).ProjectId);
+        Assert.Null(keys.Single(k => k.Id == untagged.Id).ProjectId);
+
+        Assert.True(await _store.SetProjectAsync(untagged.Id, project));
+        Assert.True(await _store.SetProjectAsync(tagged.Id, null));
+        keys = await _store.ListAsync();
+        Assert.Equal(project, keys.Single(k => k.Id == untagged.Id).ProjectId);
+        Assert.Null(keys.Single(k => k.Id == tagged.Id).ProjectId);
+        Assert.False(await _store.SetProjectAsync(Guid.NewGuid(), project));
+    }
 }

@@ -60,6 +60,14 @@ public sealed partial record Dashboard
     /// versioning reason as <see cref="OwnerUserId"/>.
     /// </summary>
     public IReadOnlyList<string> Tags { get; init; } = [];
+
+    /// <summary>
+    /// The owning project (ADR-0123), or null for an instance-wide object (the default, and every
+    /// row that predates <c>db/clickhouse/0052_project_id.sql</c>). On a request, null leaves an
+    /// update's existing project untouched so a client that predates projects can't un-scope an
+    /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
+    /// </summary>
+    public Guid? ProjectId { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/dashboards</c>.</summary>
@@ -81,6 +89,14 @@ public sealed partial record DashboardRequest
 
     /// <summary>Null leaves an update's existing tags untouched, so a client that predates tags can't wipe them; an empty list clears them. Appended last - see <see cref="Dashboard.Tags"/>.</summary>
     public IReadOnlyList<string>? Tags { get; init; }
+
+    /// <summary>
+    /// The owning project (ADR-0123), or null for an instance-wide object (the default, and every
+    /// row that predates <c>db/clickhouse/0052_project_id.sql</c>). On a request, null leaves an
+    /// update's existing project untouched so a client that predates projects can't un-scope an
+    /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
+    /// </summary>
+    public Guid? ProjectId { get; init; }
 }
 
 /// <summary>Response body for <c>GET /api/dashboards/pins</c>: the caller's pinned dashboard ids, most recently pinned first (ADR-0089).</summary>

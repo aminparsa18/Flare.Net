@@ -1,8 +1,10 @@
 using System.Text.Json;
 using Flare.Api.Auditing;
+using Flare.Api.Auth;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Flare.Identity.Projects;
 
 namespace Flare.Api.Endpoints;
 
@@ -24,7 +26,7 @@ public static class SavedViewEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> HandleCreateAsync(HttpContext http, ISavedViewQueryService views, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleCreateAsync(HttpContext http, ISavedViewQueryService views, IProjectStore projects, CancellationToken cancellationToken)
     {
         SavedViewRequest? request;
         try
@@ -41,6 +43,11 @@ public static class SavedViewEndpoints
             return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (await ProjectGuard.CheckTargetAsync(http, projects, null, ProjectGuard.Normalize(request.ProjectId), cancellationToken) is { } projectProblem)
+        {
+            return projectProblem;
+        }
+
         var view = await views.CreateAsync(request, cancellationToken);
         AuditContext.SetResourceId(http, view.Id);
         return ApiSerialization.Write(http, view, SavedViewsJsonContext.Default.SavedView, statusCode: StatusCodes.Status201Created);
@@ -48,17 +55,17 @@ public static class SavedViewEndpoints
 
     private static async Task<IResult> HandleListAsync(SavedViewPageType? pageType, HttpContext http, ISavedViewQueryService views, CancellationToken cancellationToken)
     {
-        var list = await views.ListAsync(pageType, cancellationToken);
+        var list = http.GetProjectAccess().Filter(await views.ListAsync(pageType, cancellationToken), v => v.ProjectId);
         return ApiSerialization.Write(http, new SavedViewListResponse { Views = list }, SavedViewsJsonContext.Default.SavedViewListResponse);
     }
 
     private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, ISavedViewQueryService views, CancellationToken cancellationToken)
     {
         var view = await views.GetAsync(id, cancellationToken);
-        return view is null ? Results.NotFound() : ApiSerialization.Write(http, view, SavedViewsJsonContext.Default.SavedView);
+        return view is null || !http.GetProjectAccess().CanRead(view.ProjectId) ? Results.NotFound() : ApiSerialization.Write(http, view, SavedViewsJsonContext.Default.SavedView);
     }
 
-    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, ISavedViewQueryService views, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, ISavedViewQueryService views, IProjectStore projects, CancellationToken cancellationToken)
     {
         SavedViewRequest? request;
         try
@@ -76,6 +83,20 @@ public static class SavedViewEndpoints
         }
 
         var before = await views.GetAsync(id, cancellationToken);
+        if (before is not null)
+        {
+            if (ProjectGuard.CheckExisting(http, before.ProjectId) is { } denied)
+            {
+                return denied;
+            }
+
+            var target = ProjectGuard.ResolveForUpdate(before.ProjectId, request.ProjectId);
+            if (await ProjectGuard.CheckTargetAsync(http, projects, before.ProjectId, target, cancellationToken) is { } projectProblem)
+            {
+                return projectProblem;
+            }
+        }
+
         var view = await views.UpdateAsync(id, request, cancellationToken);
         if (view is not null)
         {
@@ -85,8 +106,13 @@ public static class SavedViewEndpoints
         return view is null ? Results.NotFound() : ApiSerialization.Write(http, view, SavedViewsJsonContext.Default.SavedView);
     }
 
-    private static async Task<IResult> HandleDeleteAsync(Guid id, ISavedViewQueryService views, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleDeleteAsync(Guid id, HttpContext http, ISavedViewQueryService views, CancellationToken cancellationToken)
     {
+        if (await views.GetAsync(id, cancellationToken) is { } existing && ProjectGuard.CheckExisting(http, existing.ProjectId) is { } denied)
+        {
+            return denied;
+        }
+
         var deleted = await views.DeleteAsync(id, cancellationToken);
         return deleted ? Results.NoContent() : Results.NotFound();
     }

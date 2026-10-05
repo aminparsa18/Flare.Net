@@ -47,6 +47,14 @@ public sealed partial record Slo
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>
+    /// The owning project (ADR-0123), or null for an instance-wide object (the default, and every
+    /// row that predates <c>db/clickhouse/0052_project_id.sql</c>). On a request, null leaves an
+    /// update's existing project untouched so a client that predates projects can't un-scope an
+    /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
+    /// </summary>
+    public Guid? ProjectId { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/slos</c>.</summary>
@@ -76,6 +84,14 @@ public sealed partial record SloRequest
 
     /// <summary>Omitted/null means 28.</summary>
     public int? WindowDays { get; init; }
+
+    /// <summary>
+    /// The owning project (ADR-0123), or null for an instance-wide object (the default, and every
+    /// row that predates <c>db/clickhouse/0052_project_id.sql</c>). On a request, null leaves an
+    /// update's existing project untouched so a client that predates projects can't un-scope an
+    /// object, and <see cref="Guid.Empty"/> clears it. Appended last - see the other appended members' versioning remarks.
+    /// </summary>
+    public Guid? ProjectId { get; init; }
 
     /// <summary>Returns an error message, or null when this request is valid.</summary>
     public string? Validate()

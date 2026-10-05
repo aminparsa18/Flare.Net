@@ -2,6 +2,7 @@ using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Auth;
 using Flare.Api.Model;
 using Flare.Api.Slos;
 using Microsoft.Extensions.Options;
@@ -35,7 +36,7 @@ public interface ISloQueryService
 public sealed class SloQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ISloQueryService
 {
     private const string SloColumns =
-        "Id, Name, Description, Kind, ServiceName, OperationName, TargetPercent, LatencyThresholdMs, WindowDays, CreatedAt, UpdatedAt";
+        "Id, Name, Description, Kind, ServiceName, OperationName, TargetPercent, LatencyThresholdMs, WindowDays, CreatedAt, UpdatedAt, ProjectId";
 
     internal static Slo Apply(Slo slo, SloRequest request) => slo with
     {
@@ -48,6 +49,7 @@ public sealed class SloQueryService(IClickHouseClient client, IOptions<QueryLimi
         // Normalized so a stored SLO never carries a threshold its kind ignores.
         LatencyThresholdMs = request.Kind == SloKind.Latency ? request.LatencyThresholdMs ?? 0 : 0,
         WindowDays = request.WindowDays ?? 28,
+        ProjectId = ProjectGuard.ResolveForUpdate(slo.ProjectId, request.ProjectId),
     };
 
     public async Task<Slo> CreateAsync(SloRequest request, CancellationToken cancellationToken)
@@ -179,12 +181,13 @@ public sealed class SloQueryService(IClickHouseClient client, IOptions<QueryLimi
         parameters.AddParameter("windowDays", (ushort)slo.WindowDays);
         parameters.AddParameter("createdAt", slo.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", slo.UpdatedAt.UtcDateTime);
+        parameters.AddParameter("projectId", (object?)slo.ProjectId ?? DBNull.Value);
 
         const string sql = """
             INSERT INTO slos
-                (Id, Name, Description, IsDeleted, Kind, ServiceName, OperationName, TargetPercent, LatencyThresholdMs, WindowDays, CreatedAt, UpdatedAt)
+                (Id, Name, Description, IsDeleted, Kind, ServiceName, OperationName, TargetPercent, LatencyThresholdMs, WindowDays, CreatedAt, UpdatedAt, ProjectId)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {kind:String}, {serviceName:String}, {operationName:String}, {targetPercent:Float64}, {latencyThresholdMs:UInt32}, {windowDays:UInt16}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {kind:String}, {serviceName:String}, {operationName:String}, {targetPercent:Float64}, {latencyThresholdMs:UInt32}, {windowDays:UInt16}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {projectId:Nullable(UUID)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -209,6 +212,7 @@ public sealed class SloQueryService(IClickHouseClient client, IOptions<QueryLimi
         WindowDays = reader.GetFieldValue<ushort>(8),
         CreatedAt = ReadUtc(reader, 9),
         UpdatedAt = ReadUtc(reader, 10),
+        ProjectId = reader.IsDBNull(11) ? null : reader.GetGuid(11),
     };
 
     /// <summary>See <see cref="MaintenanceWindowQueryService"/>'s identical helper's remarks.</summary>

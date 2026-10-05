@@ -39,6 +39,9 @@ public sealed partial record IngestApiKeyDto
     public long EventsToday { get; init; }
 
     public long BytesToday { get; init; }
+
+    /// <summary>The owning project (ADR-0123), or null for an instance-wide key. Appended last for the same hand-written TypeScript reader reason as the members above.</summary>
+    public Guid? ProjectId { get; init; }
 }
 
 /// <summary>Request body for <c>PUT /api/ingest-keys/{id}/limits</c> - replaces all five
@@ -65,6 +68,17 @@ public sealed partial record UpdateIngestApiKeyLimitsRequest
 public sealed partial record CreateIngestApiKeyRequest
 {
     public required string Name { get; init; }
+
+    /// <summary>Tags the key with an owning project (ADR-0123); null or <see cref="Guid.Empty"/> = instance-wide.</summary>
+    public Guid? ProjectId { get; init; }
+}
+
+/// <summary>Request body for <c>PUT /api/ingest-keys/{id}/project</c>. A null or <see cref="Guid.Empty"/> project makes the key instance-wide.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record SetIngestApiKeyProjectRequest
+{
+    public Guid? ProjectId { get; init; }
 }
 
 /// <summary><see cref="RawKey"/> is shown exactly once, here - Flare never stores or

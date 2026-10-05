@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Flare.Api.Auth;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
@@ -114,7 +115,7 @@ public static class MetricCatalogEndpoints
             return Results.Problem("metricName is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var all = await dashboards.ListAsync(cancellationToken);
+        var all = http.GetProjectAccess().Filter(await dashboards.ListAsync(cancellationToken), d => d.ProjectId);
         var response = new MetricDashboardUsageResponse { Dashboards = MetricDashboardUsageFinder.Find(all, request.MetricName) };
         return ApiSerialization.Write(http, response, MetricsJsonContext.Default.MetricDashboardUsageResponse);
     }
