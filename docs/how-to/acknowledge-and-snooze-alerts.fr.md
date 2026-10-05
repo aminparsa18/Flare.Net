@@ -57,3 +57,23 @@ suspension, note) pour chaque règle acquittée ou suspendue. Si l'authentificat
 de Flare est désactivée, le « qui » est vide.
 
 Pourquoi ce fonctionnement : [ADR-0124](../../docs-internal/adr/0124-alert-acknowledgement-and-snooze.md).
+
+## Escalader si personne n'acquitte
+
+Une règle peut envoyer un incident non acquitté vers d'autres canaux. Dans le
+formulaire de la règle, activez **Escalade si non acquitté**, indiquez le délai
+en minutes et choisissez les canaux. Via l'API, ce sont `escalateAfterMinutes`
+(1 à 10080, 0 désactive) et `escalationChannelIds`.
+
+Quand un incident a été notifié depuis ce nombre de minutes sans acquittement,
+Flare l'envoie une seule fois aux canaux d'escalade, avec `[Escalated]` devant
+le nom de la règle, et l'ajoute à l'historique de la règle. Une mise en
+sommeil n'arrête pas l'escalade, seul un acquittement le fait. Une fenêtre de
+maintenance la retarde. Le message « Resolved » ne part que vers les canaux
+propres à la règle.
+
+L'escalade nécessite des canaux de **Notification channels** ; elle n'est donc
+pas disponible pour les règles qui utilisent encore un webhook ou une adresse
+e-mail en ligne.
+
+Pourquoi ce fonctionnement : [ADR-0125](../../docs-internal/adr/0125-alert-escalation.md).

@@ -93,6 +93,9 @@
 	let ruleSeverity = $state<AlertSeverity>('Critical');
 	let recoveryEnabled = $state(false);
 	let recoveryThresholdText = $state('');
+	let escalateEnabled = $state(false);
+	let escalateMinutesText = $state('15');
+	let escalationChannelIds = $state<string[]>([]);
 	// Unit the metric threshold (and recovery threshold) is typed in; '' = the metric's own unit.
 	let thresholdUnit = $state('');
 	let ruleLabels = $state<Labels>({});
@@ -189,6 +192,9 @@
 			ruleSeverity = 'Critical';
 			recoveryEnabled = false;
 			recoveryThresholdText = '';
+			escalateEnabled = false;
+			escalateMinutesText = '15';
+			escalationChannelIds = [];
 			thresholdUnit = '';
 			ruleLabels = {};
 			labelsValid = true;
@@ -262,6 +268,9 @@
 			ruleSeverity = target.severity;
 			recoveryEnabled = target.recoveryThreshold !== null;
 			recoveryThresholdText = target.recoveryThreshold !== null ? String(target.recoveryThreshold) : '';
+			escalateEnabled = target.escalateAfterMinutes > 0;
+			escalateMinutesText = target.escalateAfterMinutes > 0 ? String(target.escalateAfterMinutes) : '15';
+			escalationChannelIds = [...target.escalationChannelIds];
 			thresholdUnit = target.thresholdUnit;
 			ruleLabels = { ...target.labels };
 			labelsValid = true;
@@ -339,6 +348,9 @@
 	// Mirrors AlertRuleRequest.ValidateCondition's evaluationIntervalSeconds <= windowSeconds rule.
 	const evaluationIntervalTooLong = $derived(evaluationIntervalSeconds > 0 && Number.isFinite(windowSeconds) && evaluationIntervalSeconds > windowSeconds);
 
+	const escalateMinutes = $derived(Number(escalateMinutesText));
+	const escalateValid = $derived(!escalateEnabled || (Number.isInteger(escalateMinutes) && escalateMinutes >= 1 && escalateMinutes <= 10080 && escalationChannelIds.length > 0));
+
 	const hasChannel = $derived(
 		usingLegacyChannel
 			? channel === 'webhook'
@@ -393,6 +405,7 @@
 			(!noDataActive || (Number.isInteger(noDataWindowSeconds) && noDataWindowSeconds >= MIN_NO_DATA_WINDOW_SECONDS)) &&
 			!evaluationIntervalTooLong &&
 			(!recoveryActive || recoveryValid) &&
+			escalateValid &&
 			(!minDataPointsActive || (Number.isInteger(minDataPoints) && minDataPoints >= 1 && minDataPoints <= MAX_MIN_DATA_POINTS)) &&
 			!(templatesEnabled && notificationPreview?.error)
 	);
@@ -524,6 +537,8 @@
 			evaluationIntervalSeconds,
 			minDataPoints: minDataPointsActive ? minDataPoints : 0,
 			recoveryThreshold: recoveryActive ? recoveryThreshold : undefined,
+			escalateAfterMinutes: escalateEnabled ? escalateMinutes : 0,
+			escalationChannelIds: escalateEnabled ? [...escalationChannelIds] : [],
 			thresholdUnit: conditionKind === 'MetricThreshold' && thresholdUnitOptions.includes(thresholdUnit) ? thresholdUnit : undefined,
 			severity: ruleSeverity,
 			labels: Object.keys(ruleLabels).length ? ruleLabels : undefined,
@@ -964,6 +979,33 @@
 						{/if}
 					{/if}
 					<span class="text-muted-foreground text-xs">{m.alertRuleForm_recoveryHint()}</span>
+				</div>
+			{/if}
+
+			{#if !usingLegacyChannel}
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center gap-2">
+						<Switch bind:checked={escalateEnabled} />
+						<span class="text-xs font-medium">{m.alertRuleForm_escalateLabel()}</span>
+					</div>
+					{#if escalateEnabled}
+						<div class="flex flex-wrap items-center gap-2">
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_escalateAfter()}</span>
+							<Input type="number" min="1" max="10080" step="1" bind:value={escalateMinutesText} class="w-24" />
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_escalateMinutes()}</span>
+							<PopoverMultiSelect
+								label={m.alertRuleForm_channelsLabel()}
+								options={channelOptions}
+								selected={escalationChannelIds}
+								onChange={(next) => (escalationChannelIds = next)}
+								onOpenChange={(isOpen) => isOpen && void channels.load()}
+							/>
+						</div>
+						{#if !escalateValid}
+							<span class="text-destructive text-xs">{m.alertRuleForm_escalateInvalid()}</span>
+						{/if}
+					{/if}
+					<span class="text-muted-foreground text-xs">{m.alertRuleForm_escalateHint()}</span>
 				</div>
 			{/if}
 

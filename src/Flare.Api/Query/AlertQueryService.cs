@@ -125,7 +125,7 @@ public interface IAlertQueryService
 public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider, IPromotedAttributeRegistry promotedAttributes, IErrorIssueQueryService errorIssues) : IAlertQueryService
 {
     private const string RuleColumns =
-        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson, SloConditionJson, ProjectId";
+        "Id, Name, Description, Enabled, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson, SloConditionJson, ProjectId, EscalateAfterMinutes, EscalationChannelIds";
 
     /// <summary>
     /// Resolves <see cref="AlertRuleRequest"/>'s nullable optional members to their real
@@ -195,6 +195,8 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             Labels = defaults.Labels,
             SloCondition = request.SloCondition,
             ProjectId = ProjectGuard.Normalize(request.ProjectId),
+            EscalateAfterMinutes = request.EscalateAfterMinutes ?? 0,
+            EscalationChannelIds = request.EscalationChannelIds ?? [],
         };
 
         await InsertRuleVersionAsync(rule, isDeleted: false, cancellationToken);
@@ -258,6 +260,8 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             Labels = defaults.Labels,
             SloCondition = request.SloCondition,
             ProjectId = ProjectGuard.ResolveForUpdate(existing.ProjectId, request.ProjectId),
+            EscalateAfterMinutes = request.EscalateAfterMinutes ?? 0,
+            EscalationChannelIds = request.EscalationChannelIds ?? [],
         };
 
         await InsertRuleVersionAsync(updated, isDeleted: false, cancellationToken);
@@ -436,8 +440,8 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         // indistinguishable from "fired at the epoch" - the -OrNull combinator gives a
         // real NULL for "never fired" instead.
         var sql = includeSuppressed
-            ? "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID} AND Resolved = 0"
-            : "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID} AND Resolved = 0 AND NotificationStatus != 'Suppressed'";
+            ? "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID} AND Resolved = 0 AND Escalated = 0"
+            : "SELECT maxOrNull(FiredAt) FROM alert_events WHERE RuleId = {ruleId:UUID} AND Resolved = 0 AND Escalated = 0 AND NotificationStatus != 'Suppressed'";
         var result = await client.ExecuteScalarAsync(sql, parameters, EvaluationSafetyOptions(), cancellationToken);
         return result is DateTime dt ? new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc)) : null;
     }
@@ -461,8 +465,8 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             (
                 SELECT
                     RuleId,
-                    maxIfOrNull(FiredAt, Resolved = 0) AS lastFired,
-                    maxIfOrNull(FiredAt, Resolved = 0 AND NotificationStatus != 'Suppressed') AS lastNotified,
+                    maxIfOrNull(FiredAt, Resolved = 0 AND Escalated = 0) AS lastFired,
+                    maxIfOrNull(FiredAt, Resolved = 0 AND Escalated = 0 AND NotificationStatus != 'Suppressed') AS lastNotified,
                     maxIfOrNull(FiredAt, Resolved = 1) AS lastResolved
                 FROM alert_events
                 WHERE RuleId IN {ruleIds:Array(UUID)}
@@ -489,15 +493,54 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
 
         // Only a firing rule's ack matters, so look acks up after, for just those rules.
         var acks = await GetLatestAcksAsync(states.Keys.ToArray(), cancellationToken);
+        var escalations = await GetIncidentEscalationsAsync(states.Keys.ToArray(), cancellationToken);
         foreach (var (id, state) in states.ToArray())
         {
-            if (acks.TryGetValue(id, out var latest))
+            var next = acks.TryGetValue(id, out var latest) ? state with { Ack = AlertAckPolicy.Effective(latest, state.LastResolvedAt) } : state;
+            if (escalations.TryGetValue(id, out var incident))
             {
-                states[id] = state with { Ack = AlertAckPolicy.Effective(latest, state.LastResolvedAt) };
+                next = next with { IncidentNotifiedAt = incident.NotifiedAt, EscalatedAt = incident.EscalatedAt };
             }
+
+            states[id] = next;
         }
 
         return states;
+    }
+
+    /// <summary>
+    /// For the given firing rules: when the current incident first notified and when it escalated
+    /// (ADR-0125). "Current" is after the rule's latest resolution; no resolution reads as the
+    /// epoch, which every event is after.
+    /// </summary>
+    private async Task<Dictionary<Guid, (DateTimeOffset? NotifiedAt, DateTimeOffset? EscalatedAt)>> GetIncidentEscalationsAsync(Guid[] ruleIds, CancellationToken cancellationToken)
+    {
+        var parameters = new ClickHouseParameterCollection();
+        parameters.AddParameter("ruleIds", ruleIds);
+        const string sql = """
+            SELECT e.RuleId,
+                minIfOrNull(e.FiredAt, e.Escalated = 0 AND e.NotificationStatus != 'Suppressed'),
+                maxIfOrNull(e.FiredAt, e.Escalated = 1)
+            FROM alert_events AS e
+            INNER JOIN
+            (
+                SELECT RuleId, maxIf(FiredAt, Resolved = 1) AS resolvedAt
+                FROM alert_events
+                WHERE RuleId IN {ruleIds:Array(UUID)}
+                GROUP BY RuleId
+            ) AS r ON e.RuleId = r.RuleId
+            WHERE e.RuleId IN {ruleIds:Array(UUID)} AND e.Resolved = 0 AND e.FiredAt > r.resolvedAt
+            GROUP BY e.RuleId
+            """;
+
+        var incidents = new Dictionary<Guid, (DateTimeOffset?, DateTimeOffset?)>();
+        await using var reader = await client.ExecuteReaderAsync(sql, parameters, EvaluationSafetyOptions(), cancellationToken);
+        while (reader.Read())
+        {
+            incidents[reader.GetGuid(0)] = (reader.IsDBNull(1) ? null : ReadUtc(reader, 1), reader.IsDBNull(2) ? null : ReadUtc(reader, 2));
+        }
+
+        return incidents;
     }
 
     /// <summary>Newest ack/snooze/clear row per rule, for the given rules (all rules when null).</summary>
@@ -553,7 +596,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             (
                 SELECT
                     RuleId,
-                    maxIfOrNull(FiredAt, Resolved = 0) AS lastFired,
+                    maxIfOrNull(FiredAt, Resolved = 0 AND Escalated = 0) AS lastFired,
                     maxIfOrNull(FiredAt, Resolved = 1) AS lastResolved
                 FROM alert_events
                 GROUP BY RuleId
@@ -596,12 +639,13 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("zScore", (object?)entry.ZScore ?? DBNull.Value);
         parameters.AddParameter("suppressedByWindow", entry.SuppressedByWindow);
         parameters.AddParameter("resolved", entry.Resolved ? (byte)1 : (byte)0);
+        parameters.AddParameter("escalated", entry.Escalated ? (byte)1 : (byte)0);
 
         const string sql = """
             INSERT INTO alert_events
-                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow, Resolved)
+                (EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow, Resolved, Escalated)
             VALUES
-                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)}, {channelResultsJson:String}, {noData:UInt8}, {baselineMean:Nullable(Float64)}, {zScore:Nullable(Float64)}, {suppressedByWindow:String}, {resolved:UInt8})
+                ({eventId:UUID}, {ruleId:UUID}, {ruleName:String}, {firedAt:DateTime64(3)}, {observedCount:UInt64}, {thresholdCount:UInt64}, {windowSeconds:UInt32}, {status:String}, {statusCode:Int32}, {error:String}, {conditionKind:String}, {observedValue:Nullable(Float64)}, {thresholdValue:Nullable(Float64)}, {channelResultsJson:String}, {noData:UInt8}, {baselineMean:Nullable(Float64)}, {zScore:Nullable(Float64)}, {suppressedByWindow:String}, {resolved:UInt8}, {escalated:UInt8})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -665,7 +709,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("ruleId", ruleId);
         parameters.AddParameter("limit", (uint)limit);
         const string sql = """
-            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow, Resolved
+            SELECT EventId, RuleId, RuleName, FiredAt, ObservedCount, ThresholdCount, WindowSeconds, NotificationStatus, NotificationStatusCode, NotificationError, ConditionKind, ObservedValue, ThresholdValue, ChannelResultsJson, NoData, BaselineMean, ZScore, SuppressedByWindow, Resolved, Escalated
             FROM alert_events
             WHERE RuleId = {ruleId:UUID}
             ORDER BY FiredAt DESC
@@ -699,6 +743,7 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
                 ZScore = reader.IsDBNull(16) ? null : reader.GetFieldValue<double>(16),
                 SuppressedByWindow = reader.GetString(17),
                 Resolved = reader.GetByte(18) != 0,
+                Escalated = reader.GetByte(19) != 0,
             });
         }
 
@@ -745,12 +790,14 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
         parameters.AddParameter("labelsJson", JsonSerializer.Serialize(rule.Labels, AlertsJsonContext.Default.IReadOnlyDictionaryStringString));
         parameters.AddParameter("sloConditionJson", rule.SloCondition is null ? "" : JsonSerializer.Serialize(rule.SloCondition, AlertsJsonContext.Default.SloBurnRateCondition));
         parameters.AddParameter("projectId", (object?)rule.ProjectId ?? DBNull.Value);
+        parameters.AddParameter("escalateAfterMinutes", (uint)rule.EscalateAfterMinutes);
+        parameters.AddParameter("escalationChannelIds", rule.EscalationChannelIds.ToArray());
 
         const string sql = """
             INSERT INTO alert_rules
-                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson, SloConditionJson, ProjectId)
+                (Id, Name, Description, Enabled, IsDeleted, ConditionJson, ThresholdCount, ThresholdComparator, WindowSeconds, CooldownSeconds, WebhookUrl, TelegramBotToken, TelegramChatId, EmailTo, PagerDutyRoutingKey, CreatedAt, UpdatedAt, ConditionKind, MetricConditionJson, MetricThresholdValue, ChannelIds, ExceptionConditionJson, NoDataWindowSeconds, EvaluationIntervalSeconds, AnomalyConditionJson, MinDataPoints, NotificationTitleTemplate, NotificationBodyTemplate, RecoveryThreshold, Severity, ThresholdUnit, LabelsJson, SloConditionJson, ProjectId, EscalateAfterMinutes, EscalationChannelIds)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)}, {channelIds:Array(UUID)}, {exceptionConditionJson:String}, {noDataWindowSeconds:UInt32}, {evaluationIntervalSeconds:UInt32}, {anomalyConditionJson:String}, {minDataPoints:UInt32}, {notificationTitleTemplate:String}, {notificationBodyTemplate:String}, {recoveryThreshold:Nullable(Float64)}, {severity:String}, {thresholdUnit:String}, {labelsJson:String}, {sloConditionJson:String}, {projectId:Nullable(UUID)})
+                ({id:UUID}, {name:String}, {description:String}, {enabled:UInt8}, {isDeleted:UInt8}, {conditionJson:String}, {thresholdCount:UInt64}, {thresholdComparator:String}, {windowSeconds:UInt32}, {cooldownSeconds:UInt32}, {webhookUrl:String}, {telegramBotToken:String}, {telegramChatId:String}, {emailTo:String}, {pagerDutyRoutingKey:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {conditionKind:String}, {metricConditionJson:String}, {metricThresholdValue:Nullable(Float64)}, {channelIds:Array(UUID)}, {exceptionConditionJson:String}, {noDataWindowSeconds:UInt32}, {evaluationIntervalSeconds:UInt32}, {anomalyConditionJson:String}, {minDataPoints:UInt32}, {notificationTitleTemplate:String}, {notificationBodyTemplate:String}, {recoveryThreshold:Nullable(Float64)}, {severity:String}, {thresholdUnit:String}, {labelsJson:String}, {sloConditionJson:String}, {projectId:Nullable(UUID)}, {escalateAfterMinutes:UInt32}, {escalationChannelIds:Array(UUID)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -813,6 +860,8 @@ public sealed class AlertQueryService(IClickHouseClient client, IOptions<QueryLi
             ? JsonSerializer.Deserialize(sloJson, AlertsJsonContext.Default.SloBurnRateCondition)
             : null,
         ProjectId = reader.IsDBNull(32) ? null : reader.GetGuid(32),
+        EscalateAfterMinutes = (int)reader.GetFieldValue<uint>(33),
+        EscalationChannelIds = reader.GetFieldValue<Guid[]>(34),
     };
 
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;

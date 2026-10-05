@@ -52,6 +52,8 @@ export class AlertRuleRequest {
 	labels: StringRecord;
 	sloCondition: SloBurnRateCondition | null;
 	projectId: string | null;
+	escalateAfterMinutes: number | null;
+	escalationChannelIds: (string | null)[] | null;
 
 	constructor() {
 		this.name = null;
@@ -83,6 +85,8 @@ export class AlertRuleRequest {
 		this.labels = null;
 		this.sloCondition = null;
 		this.projectId = null;
+		this.escalateAfterMinutes = null;
+		this.escalationChannelIds = null;
 	}
 
 	static serialize(value: AlertRuleRequest | null): Uint8Array {
@@ -97,7 +101,7 @@ export class AlertRuleRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(29);
+		writer.writeObjectHeader(31);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeNullableBoolean(value.enabled);
@@ -127,6 +131,8 @@ export class AlertRuleRequest {
 		writeStringRecord(writer, value.labels);
 		SloBurnRateCondition.serializeCore(writer, value.sloCondition);
 		writer.writeNullableGuid(value.projectId);
+		writer.writeNullableInt32(value.escalateAfterMinutes);
+		writer.writeArray(value.escalationChannelIds, (writer, x) => writer.writeGuid(x!));
 	}
 
 	static deserialize(buffer: ArrayBuffer): AlertRuleRequest | null {
@@ -140,7 +146,7 @@ export class AlertRuleRequest {
 		}
 
 		const value = new AlertRuleRequest();
-		if (count == 29) {
+		if (count == 31) {
 			value.name = reader.readString();
 			value.description = reader.readString();
 			value.enabled = reader.readNullableBoolean();
@@ -170,7 +176,9 @@ export class AlertRuleRequest {
 			value.labels = readStringRecord(reader);
 			value.sloCondition = SloBurnRateCondition.deserializeCore(reader);
 			value.projectId = reader.readNullableGuid();
-		} else if (count > 29) {
+			value.escalateAfterMinutes = reader.readNullableInt32();
+			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
+		} else if (count > 31) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -232,6 +240,10 @@ export class AlertRuleRequest {
 			if (count == 28) return value;
 			value.projectId = reader.readNullableGuid();
 			if (count == 29) return value;
+			value.escalateAfterMinutes = reader.readNullableInt32();
+			if (count == 30) return value;
+			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 31) return value;
 		}
 		return value;
 	}

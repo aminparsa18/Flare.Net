@@ -377,6 +377,13 @@ public sealed class AlertEvaluationWorker(
             return;
         }
 
+        // Escalation (ADR-0125) runs before the ack/cooldown skips below: those silence
+        // re-notifications, not an unacknowledged incident going stale.
+        if (firingStateKnown)
+        {
+            await EscalateIfDueAsync(rule, windows, firingState, now, noData, observedCount, observedValue, metricUnit, anomaly, cancellationToken);
+        }
+
         // Inside a maintenance window, cooldown counts suppressed events too - one suppressed
         // history row per cooldown, not one per tick. Outside, it ignores them, so a breach
         // that outlasts the window notifies as soon as the window ends.
@@ -424,6 +431,34 @@ public sealed class AlertEvaluationWorker(
         // After the plain notification and history row are out (ADR-0104): the optional AI summary
         // runs on its own bounded background task and can never delay or lose the alert.
         incidentSummaries.Enqueue(rule, firedEntry, ruleChannels, metricUnit, anomaly);
+    }
+
+    /// <summary>
+    /// Sends the one escalation of an incident that is still breached, unacknowledged and older
+    /// than <see cref="AlertRule.EscalateAfterMinutes"/> (<see cref="AlertEscalationPolicy.IsDue"/>)
+    /// to <see cref="AlertRule.EscalationChannelIds"/>, and records it as an <c>Escalated</c>
+    /// history row so it isn't sent twice. The rule is renamed with a prefix for the send, so
+    /// the channel can tell it from the first page.
+    /// </summary>
+    private async Task EscalateIfDueAsync(AlertRule rule, IReadOnlyList<MaintenanceWindow> windows, AlertFiringState? firingState, DateTimeOffset now, bool noData, ulong observedCount, double? observedValue, string? metricUnit, AnomalyScore? anomaly, CancellationToken cancellationToken)
+    {
+        var window = MaintenanceWindowSchedule.FindActive(windows, rule, now);
+        if (!AlertEscalationPolicy.IsDue(rule, firingState, window is not null, now))
+        {
+            return;
+        }
+
+        var targets = await channels.GetByIdsAsync(rule.EscalationChannelIds, cancellationToken);
+        if (targets.Count == 0)
+        {
+            logger.LogWarning("Alert rule {RuleId} ({RuleName}) is due to escalate but none of its escalation channels resolve; skipping.", rule.Id, rule.Name);
+            return;
+        }
+
+        logger.LogInformation("Alert rule {RuleId} ({RuleName}) unacknowledged for {Minutes}m; escalating to {ChannelCount} channel(s).", rule.Id, rule.Name, rule.EscalateAfterMinutes, targets.Count);
+        var results = await notifier.SendAllAsync(rule with { Name = AlertEscalationPolicy.NamePrefix + rule.Name }, targets, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly);
+        var entry = BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly) with { Escalated = true };
+        await alerts.InsertEventAsync(WithNotificationOutcome(entry, rule, targets, results, "escalated"), cancellationToken);
     }
 
     /// <summary>

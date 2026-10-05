@@ -46,3 +46,15 @@ curl -X DELETE http://localhost:5080/api/alerts/<rule-id>/ack
 备注)。Flare 的认证关闭时,操作人为空。
 
 为什么这样设计:[ADR-0124](../../docs-internal/adr/0124-alert-acknowledgement-and-snooze.md)。
+
+## 无人确认时升级
+
+规则可以把未确认的事件发送到另一组渠道。在规则表单中打开**未确认则升级**,设置延迟分钟数并选择渠道。
+通过 API 则是 `escalateAfterMinutes`(1 到 10080,0 表示关闭)和 `escalationChannelIds`。
+
+事件发出通知后,若这么多分钟内无人确认,Flare 会向升级渠道发送一次,规则名前带有 `[Escalated]`,并记入规则历史。
+暂缓不会阻止升级,只有确认才会。维护窗口会推迟升级。"已恢复"消息仍只发送到规则自己的渠道。
+
+升级需要使用**通知渠道**中的渠道,因此仍使用内联 webhook 或邮箱地址的规则无法使用。
+
+为什么这样设计:[ADR-0125](../../docs-internal/adr/0125-alert-escalation.md)。
