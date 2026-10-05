@@ -64,6 +64,7 @@ export class AlertRule {
 	projectId: string | null;
 	escalateAfterMinutes: number;
 	escalationChannelIds: (string | null)[] | null;
+	escalationRotationId: string | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -100,6 +101,7 @@ export class AlertRule {
 		this.projectId = null;
 		this.escalateAfterMinutes = 0;
 		this.escalationChannelIds = null;
+		this.escalationRotationId = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -114,7 +116,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(34);
+		writer.writeObjectHeader(35);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -149,6 +151,7 @@ export class AlertRule {
 		writer.writeNullableGuid(value.projectId);
 		writer.writeInt32(value.escalateAfterMinutes);
 		writer.writeArray(value.escalationChannelIds, (writer, x) => writer.writeGuid(x!));
+		writer.writeNullableGuid(value.escalationRotationId);
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -172,7 +175,7 @@ export class AlertRule {
 		}
 
 		const value = new AlertRule();
-		if (count == 34) {
+		if (count == 35) {
 			value.id = reader.readGuid();
 			value.name = reader.readString();
 			value.description = reader.readString();
@@ -207,7 +210,8 @@ export class AlertRule {
 			value.projectId = reader.readNullableGuid();
 			value.escalateAfterMinutes = reader.readInt32();
 			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
-		} else if (count > 34) {
+			value.escalationRotationId = reader.readNullableGuid();
+		} else if (count > 35) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -279,6 +283,8 @@ export class AlertRule {
 			if (count == 33) return value;
 			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
 			if (count == 34) return value;
+			value.escalationRotationId = reader.readNullableGuid();
+			if (count == 35) return value;
 		}
 		return value;
 	}

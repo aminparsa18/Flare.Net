@@ -93,11 +93,11 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Alert on-call rotations and ack from the notification.** Escalation to a fixed channel
-  after N minutes shipped (ADR-0125). Still missing: on-call rotations that choose the
-  escalation target, multi-step policies (escalate again after a further delay), ack from the
-  notification itself (Slack button, PagerDuty ack sync) and a `flare alerts ack` CLI command.
-  Needs an ADR.
+- **Ack from the notification, and richer escalation.** Escalation (ADR-0125), the
+  `flare alerts ack|snooze|unack` commands and on-call rotations (ADR-0126) shipped. Still
+  missing: ack from the notification itself (a signed one-click link, Slack button, PagerDuty
+  ack sync), multi-step policies (escalate again after a further delay), and rotation overrides
+  or time-of-day restrictions. Needs an ADR.
 - **Synthetic monitoring.** No HTTP/TCP/TLS-expiry probes exist. Add scheduled
   probes run from `Flare.AlertWorker`, results stored as metrics (up, latency,
   cert expiry days) so existing metric alerts, SLOs and dashboards work on them

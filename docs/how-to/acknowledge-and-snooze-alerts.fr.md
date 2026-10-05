@@ -32,6 +32,17 @@ Tant qu'une règle est acquittée ou suspendue, le même bouton devient **Annule
 l'acquittement**. L'annuler permet au prochain dépassement de notifier
 normalement.
 
+## Via la CLI
+
+```bash
+flare alerts ack <rule-id> --note "Looking into the checkout DB"
+flare alerts snooze <rule-id> --minutes 60
+flare alerts unack <rule-id>
+```
+
+Trouvez l'identifiant avec `flare alerts list`. Chaque commande se termine avec le
+code 1 si la règle n'existe pas ou n'est pas déclenchée.
+
 ## Via l'API
 
 Les trois appels exigent l'accès en écriture au projet de la règle et renvoient
@@ -77,3 +88,28 @@ pas disponible pour les règles qui utilisent encore un webhook ou une adresse
 e-mail en ligne.
 
 Pourquoi ce fonctionnement : [ADR-0125](../../docs-internal/adr/0125-alert-escalation.md).
+
+## Escalader vers la personne d'astreinte
+
+Une rotation d'astreinte est une liste de canaux de notification qui se
+relaient, chacun pour une durée de garde fixe. Créez-en une dans **Paramètres >
+Espace de travail > Rotations d'astreinte** : choisissez les canaux dans l'ordre
+des gardes (un par personne ou équipe), la durée d'une garde en heures (un jour
+fait 24, une semaine 168) et le début de la première garde. Le premier canal est
+d'astreinte à partir de ce moment, le suivant prend le relais après une garde, et
+la liste recommence après le dernier. La page indique qui est d'astreinte
+maintenant et jusqu'à quand.
+
+Ensuite, dans les paramètres d'escalade d'une règle, choisissez la rotation.
+Quand l'incident escalade, Flare l'envoie au canal d'astreinte à cet instant, en
+plus des canaux d'escalade fixes de la règle. Via l'API, c'est
+`escalationRotationId` sur la règle ; les rotations elles-mêmes sont sous
+`/api/oncall-rotations` (`channelIds`, `shiftHours`, `startsAt`).
+
+Une rotation ne choisit que la cible de l'escalade. La première notification va
+toujours aux canaux propres de la règle. Supprimer une rotation laisse ses
+règles escalader vers leurs seuls canaux fixes. Il n'y a pas encore de
+remplacement ponctuel ; pour échanger une garde, modifiez la liste des
+participants.
+
+Pourquoi ce fonctionnement : [ADR-0126](../../docs-internal/adr/0126-alert-oncall-rotations.md).

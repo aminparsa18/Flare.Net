@@ -40,6 +40,10 @@ public class AlertEscalationPolicyTests
     }
 
     [Fact]
+    public void A_rotation_alone_is_enough_to_escalate() =>
+        Assert.True(AlertEscalationPolicy.IsDue(Rule(channels: 0) with { EscalationRotationId = Guid.NewGuid() }, State(), false, Now));
+
+    [Fact]
     public void Not_due_when_nobody_was_paged_or_already_escalated()
     {
         Assert.False(AlertEscalationPolicy.IsDue(Rule(), State(notified: false), false, Now));
@@ -69,5 +73,15 @@ public class AlertEscalationPolicyTests
         Assert.NotNull(AlertEscalationPolicy.Validate(AlertEscalationPolicy.MaxEscalateAfterMinutes + 1, [id]));
         Assert.NotNull(AlertEscalationPolicy.Validate(15, []));
         Assert.NotNull(AlertEscalationPolicy.Validate(15, [id, id]));
+    }
+
+    [Fact]
+    public void Validate_accepts_a_rotation_in_place_of_channels()
+    {
+        var rotation = Guid.NewGuid();
+        Assert.Null(AlertEscalationPolicy.Validate(15, [], rotation));
+        Assert.Null(AlertEscalationPolicy.Validate(15, null, rotation));
+        Assert.Null(AlertEscalationPolicy.Validate(15, [Guid.NewGuid()], rotation));
+        Assert.NotNull(AlertEscalationPolicy.Validate(15, [], Guid.Empty));
     }
 }

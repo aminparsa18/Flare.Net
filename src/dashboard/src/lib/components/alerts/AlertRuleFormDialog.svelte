@@ -19,6 +19,7 @@
 	import { alertsContext } from '$lib/alerts/context';
 	import type { ResourceAttributeFilter } from '$lib/services-api';
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
+	import { onCallRotationsContext } from '$lib/oncall-rotations/context';
 	import {
 		testDraftAlertRule,
 		sendTestDraftAlertRule,
@@ -64,6 +65,7 @@
 	// contexts) - reusing that already-loaded state instead of a separate fetch here
 	// means a channel created/edited on that tab is immediately visible in this picker.
 	const channels = notificationChannelsContext.get();
+	const rotations = onCallRotationsContext.get();
 
 	const open = $derived(alerts.formTarget !== null);
 	const isEdit = $derived(alerts.formTarget !== null && alerts.formTarget !== 'new');
@@ -96,6 +98,8 @@
 	let escalateEnabled = $state(false);
 	let escalateMinutesText = $state('15');
 	let escalationChannelIds = $state<string[]>([]);
+	// '' = no rotation.
+	let escalationRotationId = $state('');
 	// Unit the metric threshold (and recovery threshold) is typed in; '' = the metric's own unit.
 	let thresholdUnit = $state('');
 	let ruleLabels = $state<Labels>({});
@@ -195,6 +199,7 @@
 			escalateEnabled = false;
 			escalateMinutesText = '15';
 			escalationChannelIds = [];
+			escalationRotationId = '';
 			thresholdUnit = '';
 			ruleLabels = {};
 			labelsValid = true;
@@ -271,6 +276,7 @@
 			escalateEnabled = target.escalateAfterMinutes > 0;
 			escalateMinutesText = target.escalateAfterMinutes > 0 ? String(target.escalateAfterMinutes) : '15';
 			escalationChannelIds = [...target.escalationChannelIds];
+			escalationRotationId = target.escalationRotationId ?? '';
 			thresholdUnit = target.thresholdUnit;
 			ruleLabels = { ...target.labels };
 			labelsValid = true;
@@ -349,7 +355,7 @@
 	const evaluationIntervalTooLong = $derived(evaluationIntervalSeconds > 0 && Number.isFinite(windowSeconds) && evaluationIntervalSeconds > windowSeconds);
 
 	const escalateMinutes = $derived(Number(escalateMinutesText));
-	const escalateValid = $derived(!escalateEnabled || (Number.isInteger(escalateMinutes) && escalateMinutes >= 1 && escalateMinutes <= 10080 && escalationChannelIds.length > 0));
+	const escalateValid = $derived(!escalateEnabled || (Number.isInteger(escalateMinutes) && escalateMinutes >= 1 && escalateMinutes <= 10080 && (escalationChannelIds.length > 0 || escalationRotationId !== '')));
 
 	const hasChannel = $derived(
 		usingLegacyChannel
@@ -466,6 +472,7 @@
 	const metricNameOptions = $derived(knownMetrics.map((mi) => ({ value: mi.metricName, label: mi.metricName })));
 	const aggregationOptions = $derived(AGGREGATIONS_BY_TYPE[metricType]);
 	const severityOptions = $derived(SEVERITY_BUCKETS.map((b) => ({ value: b.id, label: severityBucketLabel(b) })));
+	const rotationOptions = $derived(rotations.rotations.map((r) => ({ value: r.rotation.id, label: r.rotation.name })));
 	const channelOptions = $derived(channels.channels.map((c) => ({ value: c.id, label: `${c.name} (${c.type})` })));
 	const selectedSeverityIds = $derived(
 		SEVERITY_BUCKETS.filter((b) => severityNumbersForBucket(b).every((n) => severityNumbers.includes(n))).map((b) => b.id)
@@ -539,6 +546,7 @@
 			recoveryThreshold: recoveryActive ? recoveryThreshold : undefined,
 			escalateAfterMinutes: escalateEnabled ? escalateMinutes : 0,
 			escalationChannelIds: escalateEnabled ? [...escalationChannelIds] : [],
+			escalationRotationId: escalateEnabled && escalationRotationId !== '' ? escalationRotationId : null,
 			thresholdUnit: conditionKind === 'MetricThreshold' && thresholdUnitOptions.includes(thresholdUnit) ? thresholdUnit : undefined,
 			severity: ruleSeverity,
 			labels: Object.keys(ruleLabels).length ? ruleLabels : undefined,
@@ -1000,6 +1008,20 @@
 								onChange={(next) => (escalationChannelIds = next)}
 								onOpenChange={(isOpen) => isOpen && void channels.load()}
 							/>
+						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_escalateRotation()}</span>
+							<Select.Root type="single" value={escalationRotationId} onValueChange={(v) => (escalationRotationId = v)}>
+								<Select.Trigger class="w-56">
+									{rotationOptions.find((o) => o.value === escalationRotationId)?.label ?? m.alertRuleForm_escalateRotationNone()}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="" label={m.alertRuleForm_escalateRotationNone()} />
+									{#each rotationOptions as option (option.value)}
+										<Select.Item value={option.value} label={option.label} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
 						</div>
 						{#if !escalateValid}
 							<span class="text-destructive text-xs">{m.alertRuleForm_escalateInvalid()}</span>

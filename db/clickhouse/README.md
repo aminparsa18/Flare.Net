@@ -124,6 +124,11 @@ counts, filled by a materialized view on `spans`), and `alert_rules.SloCondition
 `SloBurnRate` condition kind. Only sees spans inserted after it exists; the file's header
 carries a one-off back-fill. See [ADR-0108](../../docs-internal/adr/0108-slo-error-budgets.md).
 
+`0055_oncall_rotations.sql` - a new `oncall_rotations` table (ordered notification channels,
+shift length, first-shift start; same CRUD-via-tombstone `ReplacingMergeTree` as
+`maintenance_windows`) and a nullable `alert_rules.EscalationRotationId`. See
+[ADR-0126](../../docs-internal/adr/0126-alert-oncall-rotations.md).
+
 `0052_project_id.sql` - a nullable `ProjectId` on `dashboards`, `saved_views`, `alert_rules`
 and `slos`: the owning project, NULL (every existing row) meaning instance-wide. See
 [ADR-0123](../../docs-internal/adr/0123-projects-team-scoping.md).

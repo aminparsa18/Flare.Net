@@ -17,6 +17,7 @@
 	import UserIcon from '@lucide/svelte/icons/user';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import WrenchIcon from '@lucide/svelte/icons/wrench';
+	import PhoneCallIcon from '@lucide/svelte/icons/phone-call';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import LayersIcon from '@lucide/svelte/icons/layers';
 	import FolderIcon from '@lucide/svelte/icons/folder';
@@ -39,6 +40,7 @@
 	const WORKSPACE_ICONS = {
 		'/settings/channels': BellIcon,
 		'/settings/maintenance-windows': WrenchIcon,
+		'/settings/oncall-rotations': PhoneCallIcon,
 		'/settings/audit-log': ScrollTextIcon,
 		'/settings/indexing': LayersIcon,
 		'/settings/projects': FolderIcon,
