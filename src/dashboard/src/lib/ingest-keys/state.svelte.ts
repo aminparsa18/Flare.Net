@@ -52,11 +52,11 @@ export class IngestKeysState {
 		this.revealedKey = null;
 	}
 
-	async create(name: string): Promise<void> {
+	async create(name: string, projectId: string | null = null): Promise<void> {
 		this.saving = true;
 		this.saveError = null;
 		try {
-			const response = await createIngestApiKey({ name });
+			const response = await createIngestApiKey({ name, projectId });
 			this.revealedKey = response.rawKey;
 			await this.load(true);
 		} catch (err) {

@@ -44,6 +44,10 @@ public sealed class ProjectAccess
     /// <summary>The ids of the projects the caller belongs to, or null when unrestricted.</summary>
     public IReadOnlyCollection<Guid>? MemberProjectIds => roles?.Keys.ToArray();
 
+    /// <summary>The caller's project role, or null for a non-member. Unrestricted callers administer everything.</summary>
+    public UserRole? RoleIn(Guid projectId) =>
+        roles is null ? UserRole.Admin : roles.TryGetValue(projectId, out var role) ? role : null;
+
     public IReadOnlyList<T> Filter<T>(IEnumerable<T> items, Func<T, Guid?> projectId) =>
         roles is null ? [.. items] : [.. items.Where(i => CanRead(projectId(i)))];
 }

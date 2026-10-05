@@ -8,6 +8,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
+	import { projects } from '$lib/projects/store.svelte';
 	import { createSavedView, type PageType, type SavedView } from '$lib/saved-views-api';
 	import * as m from '$lib/paraglide/messages';
 
@@ -26,6 +28,7 @@
 
 	let name = $state('');
 	let description = $state('');
+	let projectId = $state<string | null>(null);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 
@@ -33,6 +36,7 @@
 		if (open) {
 			name = '';
 			description = '';
+			projectId = projects.defaultForNew;
 			error = null;
 		}
 	});
@@ -46,7 +50,7 @@
 		saving = true;
 		error = null;
 		try {
-			const view = await createSavedView({ name, description, pageType, state: currentState() });
+			const view = await createSavedView({ name, description, pageType, state: currentState(), projectId });
 			open = false;
 			onSaved(view);
 		} catch (err) {
@@ -72,6 +76,7 @@
 				<label for="save-view-description" class="text-sm font-medium">{m.saveViewDialog_descriptionLabel()}</label>
 				<Textarea id="save-view-description" bind:value={description} rows={2} />
 			</div>
+			<ProjectPicker bind:value={projectId} />
 			{#if error}
 				<p class="text-destructive text-sm">{error}</p>
 			{/if}

@@ -45,6 +45,7 @@ import {
 import { downloadBlob } from '$lib/logs/export';
 import { parseGrafanaDashboard } from './grafana-import';
 import { buildTemplateLayout, type DashboardTemplate } from './templates';
+import { projects, projectIdForRequest } from '$lib/projects/store.svelte';
 import * as m from '$lib/paraglide/messages';
 
 export class DashboardsState {
@@ -83,6 +84,7 @@ export class DashboardsState {
 		const query = this.search.trim().toLowerCase();
 		const filtered = this.dashboards.filter(
 			(d) =>
+				projects.visible(d.projectId) &&
 				this.activeTags.every((t) => d.tags.includes(t)) &&
 				(!query || d.name.toLowerCase().includes(query) || d.description.toLowerCase().includes(query) || d.tags.some((t) => t.includes(query)))
 		);
@@ -145,19 +147,19 @@ export class DashboardsState {
 	}
 
 	/** Returns the created dashboard's id (so the caller can navigate straight to its viewer) or `null` on failure. */
-	async save(name: string, description: string, tags: string[]): Promise<string | null> {
+	async save(name: string, description: string, tags: string[], projectId: string | null = null): Promise<string | null> {
 		const target = this.formTarget;
 		if (!target) return null;
 		this.saving = true;
 		this.saveError = null;
 		try {
 			if (target === 'new') {
-				const created = await createDashboard({ name, description, tags, layout: { panels: [], variables: [] } });
+				const created = await createDashboard({ name, description, tags, projectId, layout: { panels: [], variables: [] } });
 				this.formTarget = null;
 				await this.load();
 				return created.id;
 			} else {
-				await updateDashboard(target.id, { name, description, tags, layout: target.layout });
+				await updateDashboard(target.id, { name, description, tags, layout: target.layout, projectId: projectIdForRequest(projectId, target.projectId) });
 				this.formTarget = null;
 				await this.load();
 				return target.id;
@@ -187,7 +189,8 @@ export class DashboardsState {
 				name: m.dashboardTable_duplicateName({ name: dashboard.name }),
 				description: dashboard.description,
 				tags: dashboard.tags,
-				layout: dashboard.layout
+				layout: dashboard.layout,
+				projectId: dashboard.projectId
 			});
 			await this.load();
 			return copy.id;
@@ -262,7 +265,7 @@ export class DashboardsState {
 
 	async #createFromImport(name: string, description: string | undefined, layout: DashboardLayout, tags?: string[]): Promise<string | null> {
 		try {
-			const created = await createDashboard({ name, description, tags, layout });
+			const created = await createDashboard({ name, description, tags, layout, projectId: projects.defaultForNew });
 			await this.load();
 			return created.id;
 		} catch (err) {

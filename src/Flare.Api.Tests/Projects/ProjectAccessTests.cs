@@ -83,4 +83,14 @@ public class ProjectAccessTests
         Assert.Equal(Search, ProjectGuard.ResolveForUpdate(Payments, Search));
         Assert.Null(ProjectGuard.ResolveForUpdate(null, null));
     }
+
+    [Fact]
+    public void RoleIn_ReportsMembershipRole_AndAdminWhenUnrestricted()
+    {
+        var access = ProjectAccess.ForMember([new ProjectMembership(Payments, UserRole.Member)]);
+
+        Assert.Equal(UserRole.Member, access.RoleIn(Payments));
+        Assert.Null(access.RoleIn(Search));
+        Assert.Equal(UserRole.Admin, ProjectAccess.Unrestricted.RoleIn(Search));
+    }
 }

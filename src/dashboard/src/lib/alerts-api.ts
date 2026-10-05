@@ -204,6 +204,8 @@ export interface AlertRule {
 	labels: Record<string, string>;
 	/** Set only when `conditionKind` is `'SloBurnRate'`. */
 	sloCondition?: SloBurnRateCondition;
+	/** Owning project (ADR-0123); `null` = instance-wide. */
+	projectId: string | null;
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -248,6 +250,8 @@ export interface AlertRuleRequest {
 	thresholdUnit?: string;
 	/** See `AlertRule.labels`. Omitted/undefined means none. */
 	labels?: Record<string, string>;
+	/** Omitted keeps an update's current project; `NO_PROJECT` clears it (ADR-0123). */
+	projectId?: string | null;
 }
 
 export interface AlertRuleListResponse {
@@ -486,7 +490,8 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		severity: alertSeverityToString(dto.severity),
 		thresholdUnit: dto.thresholdUnit ?? '',
 		labels: dto.labels ?? {},
-		sloCondition: toSloBurnRateCondition(dto.sloCondition)
+		sloCondition: toSloBurnRateCondition(dto.sloCondition),
+		projectId: dto.projectId
 	};
 }
 
@@ -528,6 +533,7 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.thresholdUnit = request.thresholdUnit || null;
 	dto.labels = request.labels ?? null;
 	dto.sloCondition = toGeneratedSloBurnRateCondition(request.sloCondition);
+	dto.projectId = request.projectId ?? null;
 	return dto;
 }
 

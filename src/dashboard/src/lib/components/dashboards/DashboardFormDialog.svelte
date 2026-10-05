@@ -9,6 +9,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
+	import { projects } from '$lib/projects/store.svelte';
 	import { dashboardsContext } from '$lib/dashboards/context';
 	import { dashboardPath } from '$lib/dashboards/page-paths';
 	import * as m from '$lib/paraglide/messages';
@@ -21,6 +23,7 @@
 	let name = $state('');
 	let description = $state('');
 	let tagsText = $state('');
+	let projectId = $state<string | null>(null);
 
 	// Resets the draft whenever the dialog opens for a different target - same
 	// "only reacts to identity change, not every keystroke" reasoning
@@ -31,10 +34,12 @@
 			name = '';
 			description = '';
 			tagsText = '';
+			projectId = projects.defaultForNew;
 		} else if (target) {
 			name = target.name;
 			description = target.description;
 			tagsText = target.tags.join(', ');
+			projectId = target.projectId;
 		}
 	});
 
@@ -48,7 +53,8 @@
 		const id = await dashboards.save(
 			name,
 			description,
-			tagsText.split(',').map((t) => t.trim()).filter(Boolean)
+			tagsText.split(',').map((t) => t.trim()).filter(Boolean),
+			projectId
 		);
 		// A brand-new dashboard has no panels yet - land straight on its (empty) viewer,
 		// which is where the "pin a panel from Logs/Traces/Metrics" guidance lives, rather
@@ -81,6 +87,7 @@
 				<Input id="dashboard-form-tags" bind:value={tagsText} placeholder={m.dashboardFormDialog_tagsPlaceholder()} />
 				<p class="text-muted-foreground text-xs">{m.dashboardFormDialog_tagsHint()}</p>
 			</div>
+			<ProjectPicker bind:value={projectId} />
 			{#if dashboards.saveError}
 				<p class="text-destructive text-sm">{dashboards.saveError}</p>
 			{/if}

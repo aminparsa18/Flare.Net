@@ -7,9 +7,12 @@
 
 import { listSavedViews, deleteSavedView, updateSavedView, type SavedView } from '$lib/saved-views-api';
 import { forgetLastUsedViewId } from './last-used';
+import { projects } from '$lib/projects/store.svelte';
 
 export class SavedViewsState {
 	views = $state.raw<SavedView[]>([]);
+	/** `views` narrowed to the active project (plus instance-wide ones). */
+	shown = $derived(this.views.filter((v) => projects.visible(v.projectId)));
 	loading = $state(false);
 	error = $state<string | null>(null);
 

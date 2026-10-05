@@ -33,6 +33,8 @@ export interface SavedView {
 	state: unknown;
 	createdAt: string;
 	updatedAt: string;
+	/** Owning project (ADR-0123); `null` = instance-wide. */
+	projectId: string | null;
 }
 
 /** Create/update request body - same shape as `SavedView` minus the server-assigned fields. */
@@ -41,6 +43,8 @@ export interface SavedViewRequest {
 	description?: string;
 	pageType: PageType;
 	state: unknown;
+	/** Omitted keeps an update's current project; `NO_PROJECT` clears it (ADR-0123). */
+	projectId?: string | null;
 }
 
 export interface SavedViewListResponse {
@@ -55,7 +59,8 @@ function toSavedView(dto: GeneratedSavedView): SavedView {
 		pageType: savedViewPageTypeToString(dto.pageType),
 		state: dto.state,
 		createdAt: dto.createdAt.toISOString(),
-		updatedAt: dto.updatedAt.toISOString()
+		updatedAt: dto.updatedAt.toISOString(),
+		projectId: dto.projectId
 	};
 }
 
@@ -73,6 +78,7 @@ function toGeneratedSavedViewRequest(request: SavedViewRequest): GeneratedSavedV
 	dto.description = request.description ?? null;
 	dto.pageType = savedViewPageTypeFromString(request.pageType);
 	dto.state = request.state;
+	dto.projectId = request.projectId ?? null;
 	return dto;
 }
 

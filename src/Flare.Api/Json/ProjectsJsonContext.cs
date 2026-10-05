@@ -9,6 +9,7 @@ namespace Flare.Api.Json;
     UseStringEnumConverter = true)]
 [JsonSerializable(typeof(ProjectDto))]
 [JsonSerializable(typeof(ProjectListResponse))]
+[JsonSerializable(typeof(MyProjectListResponse))]
 [JsonSerializable(typeof(ProjectMemberListResponse))]
 [JsonSerializable(typeof(SetProjectMemberRequest))]
 public sealed partial class ProjectsJsonContext : JsonSerializerContext;

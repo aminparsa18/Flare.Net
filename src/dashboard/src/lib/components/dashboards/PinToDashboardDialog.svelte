@@ -13,6 +13,7 @@
 	import { listDashboards, createDashboard, updateDashboard, type DashboardSummary, type PanelType } from '$lib/dashboards-api';
 	import { nextPanelPosition, panelsInRow } from '$lib/dashboards/layout';
 	import { authContext } from '$lib/auth/context';
+	import { projects } from '$lib/projects/store.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const auth = authContext.get();
@@ -88,7 +89,7 @@
 			};
 
 			if (!target) {
-				await createDashboard({ name: newDashboardName, description: '', layout: { panels: [panel], variables: [] } });
+				await createDashboard({ name: newDashboardName, description: '', layout: { panels: [panel], variables: [] }, projectId: projects.defaultForNew });
 			} else {
 				await updateDashboard(target.id, {
 					name: target.name,

@@ -9,6 +9,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import SaveViewDialog from './SaveViewDialog.svelte';
+	import { projects } from '$lib/projects/store.svelte';
 	import { listSavedViews, type PageType, type SavedView } from '$lib/saved-views-api';
 	import { setLastUsedViewId } from '$lib/saved-views/last-used';
 	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
@@ -35,7 +36,7 @@
 		loading = true;
 		try {
 			const res = await listSavedViews(pageType);
-			views = res.views;
+			views = res.views.filter((v) => projects.visible(v.projectId));
 		} catch {
 			views = []; // non-critical - the picker just shows empty until reopened
 		} finally {

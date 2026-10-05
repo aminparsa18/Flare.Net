@@ -512,6 +512,7 @@ authenticatedRoutes.MapLlmEndpoints();
 authenticatedRoutes.MapTraceFunnelEndpoints();
 authenticatedRoutes.MapNPlusOneEndpoints();
 authenticatedRoutes.MapSavedViewEndpoints();
+authenticatedRoutes.MapMyProjectEndpoints();
 authenticatedRoutes.MapDashboardEndpoints();
 authenticatedRoutes.MapUserPreferencesEndpoints();
 authenticatedRoutes.MapIngestionEndpoints();

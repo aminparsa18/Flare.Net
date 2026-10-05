@@ -53,7 +53,7 @@ export function settingsManagementLinks(auth: AuthState): NavLink[] {
 }
 
 /** Instance-level admin pages (Settings > Workspace): notification channels, maintenance
- *  windows, audit log, indexing, ingest keys. Same Admin gate as /auth, including "everyone
+ *  windows, audit log, indexing, projects, ingest keys. Same Admin gate as /auth, including "everyone
  *  while auth is off". Shared by the settings rail and the command palette. */
 export function workspaceLinks(auth: AuthState): NavLink[] {
 	if (auth.authEnabled && auth.currentUser?.role !== 'Admin') return [];
@@ -62,6 +62,7 @@ export function workspaceLinks(auth: AuthState): NavLink[] {
 		{ href: '/settings/maintenance-windows', label: m.maintenanceWindowTable_heading() },
 		{ href: '/settings/audit-log', label: m.auditLogPage_heading() },
 		{ href: '/settings/indexing', label: m.nav_indexing() },
+		{ href: '/settings/projects', label: m.projectsPage_heading() },
 		{ href: '/settings/ingest-keys', label: m.ingestKeysPage_heading() }
 	];
 }

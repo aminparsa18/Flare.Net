@@ -44,6 +44,8 @@
 	import { severityLabel } from '$lib/alerts/severity';
 	import LabelsInput from '$lib/components/alerts/LabelsInput.svelte';
 	import type { Labels } from '$lib/alerts/labels';
+	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
+	import { projects, projectIdForRequest } from '$lib/projects/store.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	// Which MetricAlertAggregation values are meaningful for each MetricPointType - see
@@ -95,6 +97,7 @@
 	let thresholdUnit = $state('');
 	let ruleLabels = $state<Labels>({});
 	let labelsValid = $state(true);
+	let projectId = $state<string | null>(null);
 	// Custom notification templates (ADR-0052) - off sends '' for both, i.e. the built-in wording.
 	let templatesEnabled = $state(false);
 	let notificationTitleTemplate = $state('');
@@ -189,6 +192,7 @@
 			thresholdUnit = '';
 			ruleLabels = {};
 			labelsValid = true;
+			projectId = projects.defaultForNew;
 			templatesEnabled = false;
 			notificationTitleTemplate = '';
 			notificationBodyTemplate = '';
@@ -261,6 +265,7 @@
 			thresholdUnit = target.thresholdUnit;
 			ruleLabels = { ...target.labels };
 			labelsValid = true;
+			projectId = target.projectId;
 			templatesEnabled = target.notificationTitleTemplate !== '' || target.notificationBodyTemplate !== '';
 			notificationTitleTemplate = target.notificationTitleTemplate;
 			notificationBodyTemplate = target.notificationBodyTemplate;
@@ -522,6 +527,7 @@
 			thresholdUnit: conditionKind === 'MetricThreshold' && thresholdUnitOptions.includes(thresholdUnit) ? thresholdUnit : undefined,
 			severity: ruleSeverity,
 			labels: Object.keys(ruleLabels).length ? ruleLabels : undefined,
+			projectId: projectIdForRequest(projectId, alerts.formTarget && alerts.formTarget !== 'new' ? alerts.formTarget.projectId : null),
 			notificationTitleTemplate: templatesEnabled ? notificationTitleTemplate.trim() : '',
 			notificationBodyTemplate: templatesEnabled ? notificationBodyTemplate.trim() : '',
 			anomalyCondition:
@@ -681,6 +687,8 @@
 				/>
 				<span class="text-muted-foreground text-xs">{m.alertRuleForm_labelsHint()}</span>
 			</div>
+
+			<ProjectPicker bind:value={projectId} />
 
 			{#if conditionKind === 'Anomaly'}
 				<div class="flex flex-col gap-1">
