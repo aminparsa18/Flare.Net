@@ -7,6 +7,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
+	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
+	import { projects } from '$lib/projects/store.svelte';
 	import { ingestKeysContext } from '$lib/ingest-keys/context';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -16,11 +18,13 @@
 	const keys = ingestKeysContext.get();
 
 	let name = $state('');
+	let projectId = $state<string | null>(null);
 	let copied = $state(false);
 
 	$effect(() => {
 		if (keys.createOpen) {
 			name = '';
+			projectId = projects.defaultForNew;
 			copied = false;
 		}
 	});
@@ -32,7 +36,7 @@
 
 	async function handleSubmit(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
-		await keys.create(name);
+		await keys.create(name, projectId);
 	}
 
 	async function handleCopy(): Promise<void> {
@@ -73,6 +77,7 @@
 					<label for="ingest-key-name" class="text-sm font-medium">{m.createIngestKeyDialog_nameLabel()}</label>
 					<Input id="ingest-key-name" bind:value={name} required placeholder={m.createIngestKeyDialog_namePlaceholder()} />
 				</div>
+				<ProjectPicker bind:value={projectId} includeAll />
 				{#if keys.saveError}
 					<p class="text-destructive text-sm">{keys.saveError}</p>
 				{/if}

@@ -24,6 +24,8 @@ export interface Slo {
 	windowDays: number;
 	createdAt: string;
 	updatedAt: string;
+	/** Owning project (ADR-0123); `null` = instance-wide. */
+	projectId: string | null;
 }
 
 export interface SloRequest {
@@ -35,6 +37,8 @@ export interface SloRequest {
 	targetPercent: number;
 	latencyThresholdMs: number | null;
 	windowDays: number;
+	/** Omitted keeps an update's current project; `NO_PROJECT` clears it (ADR-0123). */
+	projectId?: string | null;
 }
 
 export interface SloWindowStats {

@@ -12,6 +12,7 @@
 	import { navLinks } from './nav-links';
 	import TerminalModal from './TerminalModal.svelte';
 	import NavUserMenu from './NavUserMenu.svelte';
+	import ProjectSwitcher from '$lib/components/projects/ProjectSwitcher.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import * as m from '$lib/paraglide/messages';
 
@@ -70,6 +71,7 @@
 		</kbd>
 	</Button>
 	<TerminalModal />
+	<ProjectSwitcher />
 	<div class="ml-auto">
 		<NavUserMenu />
 	</div>

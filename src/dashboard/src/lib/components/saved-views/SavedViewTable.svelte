@@ -69,7 +69,7 @@
 	<div class="flex flex-1 items-center justify-center">
 		<p class="text-destructive text-sm">{views.error}</p>
 	</div>
-{:else if views.views.length === 0}
+{:else if views.shown.length === 0}
 	<Empty.Root class="flex-1">
 		<Empty.Header>
 			<Empty.Media>
@@ -91,7 +91,7 @@
 				</Table.Row>
 			</Table.Header>
 			<Table.Body>
-				{#each views.views as view (view.id)}
+				{#each views.shown as view (view.id)}
 					<Table.Row>
 						<Table.Cell class="font-medium">
 							{view.name}

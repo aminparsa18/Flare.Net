@@ -17,6 +17,20 @@ public sealed record ProjectListResponse
     public required IReadOnlyList<ProjectDto> Projects { get; init; }
 }
 
+/// <summary>A project the caller can see, with their own role in it (<c>/api/projects/mine</c>).</summary>
+public sealed record MyProjectDto
+{
+    public Guid Id { get; init; }
+    public required string Name { get; init; }
+    public string Description { get; init; } = "";
+    public UserRole Role { get; init; }
+}
+
+public sealed record MyProjectListResponse
+{
+    public required IReadOnlyList<MyProjectDto> Projects { get; init; }
+}
+
 public sealed record ProjectMemberDto
 {
     public Guid UserId { get; init; }

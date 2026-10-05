@@ -15,6 +15,7 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import { projects } from '$lib/projects/store.svelte';
 	import * as m from '$lib/paraglide/messages';
 	import { formatDateTime } from '$lib/time/format';
 
@@ -97,6 +98,7 @@
 				<Table.Row>
 					<Table.Head>{m.ingestKeyTable_nameColumn()}</Table.Head>
 					<Table.Head>{m.ingestKeyTable_statusColumn()}</Table.Head>
+					{#if projects.mine.length}<Table.Head>{m.ingestKeyTable_projectColumn()}</Table.Head>{/if}
 					<Table.Head>{m.ingestKeyTable_createdColumn()}</Table.Head>
 					<Table.Head>{m.ingestKeyTable_limitsColumn()}</Table.Head>
 					<Table.Head>{m.ingestKeyTable_thisMinuteColumn()}</Table.Head>
@@ -116,6 +118,9 @@
 								<Badge variant="destructive">{m.ingestKeyTable_statusRevoked()}</Badge>
 							{/if}
 						</Table.Cell>
+						{#if projects.mine.length}
+							<Table.Cell class="text-muted-foreground">{projects.nameOf(key.projectId) ?? '—'}</Table.Cell>
+						{/if}
 						<Table.Cell class="text-muted-foreground">{formatDateTime(key.createdAt)}</Table.Cell>
 						<Table.Cell>
 							{#if active}

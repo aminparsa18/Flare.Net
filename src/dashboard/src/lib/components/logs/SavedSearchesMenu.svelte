@@ -10,6 +10,7 @@
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import SaveSearchDialog from './SaveSearchDialog.svelte';
+	import { projects } from '$lib/projects/store.svelte';
 	import { listSavedViews, deleteSavedView, type SavedView } from '$lib/saved-views-api';
 	import { forgetLastUsedViewId, setLastUsedViewId } from '$lib/saved-views/last-used';
 	import StarIcon from '@lucide/svelte/icons/star';
@@ -37,7 +38,7 @@
 		loading = true;
 		try {
 			const res = await listSavedViews('Logs');
-			views = res.views;
+			views = res.views.filter((v) => projects.visible(v.projectId));
 		} catch {
 			views = []; // non-critical - the picker just shows empty until reopened
 		} finally {

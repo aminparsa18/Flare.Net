@@ -293,6 +293,8 @@ export interface DashboardSummary {
 	ownerUserId: string | null;
 	/** Free-form lowercase tags (ADR-0089); `[]` for an untagged dashboard. */
 	tags: string[];
+	/** Owning project (ADR-0123); `null` = instance-wide. */
+	projectId: string | null;
 }
 
 /** Create/update request body - same shape as `DashboardSummary` minus the server-assigned fields. */
@@ -302,6 +304,8 @@ export interface DashboardRequest {
 	layout: DashboardLayout;
 	/** Omitted leaves an update's existing tags untouched; `[]` clears them. */
 	tags?: string[];
+	/** Omitted keeps an update's current project; `NO_PROJECT` clears it (ADR-0123). */
+	projectId?: string | null;
 }
 
 export interface DashboardListResponse {
@@ -342,7 +346,8 @@ function toDashboardSummary(dto: GeneratedDashboard): DashboardSummary {
 		createdAt: dto.createdAt.toISOString(),
 		updatedAt: dto.updatedAt.toISOString(),
 		ownerUserId: dto.ownerUserId,
-		tags: (dto.tags ?? []).filter((t): t is string => t != null)
+		tags: (dto.tags ?? []).filter((t): t is string => t != null),
+		projectId: dto.projectId
 	};
 }
 
@@ -360,6 +365,7 @@ function toGeneratedDashboardRequest(request: DashboardRequest): GeneratedDashbo
 	dto.description = request.description ?? null;
 	dto.layoutJson = request.layout;
 	dto.tags = request.tags ?? null;
+	dto.projectId = request.projectId ?? null;
 	return dto;
 }
 

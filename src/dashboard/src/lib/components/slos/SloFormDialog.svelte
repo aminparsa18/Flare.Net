@@ -7,6 +7,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import ProjectPicker from '$lib/components/projects/ProjectPicker.svelte';
+	import { projects, projectIdForRequest } from '$lib/projects/store.svelte';
 	import { createSlo, updateSlo, SLO_LATENCY_LADDER_MS, type Slo, type SloKind } from '$lib/slos-api';
 	import * as m from '$lib/paraglide/messages';
 
@@ -37,6 +39,7 @@
 	let targetPercent = $state('99.5');
 	let latencyThresholdMs = $state(500);
 	let windowDays = $state(28);
+	let projectId = $state<string | null>(null);
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 
@@ -50,6 +53,7 @@
 			targetPercent = '99.5';
 			latencyThresholdMs = 500;
 			windowDays = 28;
+			projectId = projects.defaultForNew;
 		} else if (target) {
 			name = target.name;
 			description = target.description;
@@ -59,6 +63,7 @@
 			targetPercent = String(target.targetPercent);
 			latencyThresholdMs = target.latencyThresholdMs || 500;
 			windowDays = target.windowDays;
+			projectId = target.projectId;
 		}
 		saveError = null;
 	});
@@ -79,7 +84,8 @@
 				operationName: operationName.trim(),
 				targetPercent: targetValue,
 				latencyThresholdMs: kind === 'Latency' ? latencyThresholdMs : null,
-				windowDays
+				windowDays,
+				projectId: projectIdForRequest(projectId, isEdit ? (target as Slo).projectId : null)
 			};
 			onsaved(isEdit ? await updateSlo((target as Slo).id, request) : await createSlo(request));
 		} catch (e) {
@@ -120,6 +126,8 @@
 				</Select.Root>
 				<span class="text-muted-foreground text-xs">{kind === 'Latency' ? m.sloForm_kindHintLatency() : m.sloForm_kindHintAvailability()}</span>
 			</div>
+
+			<ProjectPicker bind:value={projectId} />
 
 			<div class="flex flex-col gap-1">
 				<span class="text-xs font-medium">{m.sloForm_serviceLabel()}</span>

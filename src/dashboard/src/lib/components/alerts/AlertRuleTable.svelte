@@ -39,6 +39,7 @@
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import BellIcon from '@lucide/svelte/icons/bell';
+	import { projects } from '$lib/projects/store.svelte';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
@@ -54,7 +55,7 @@
 		if (search !== page.url.search) replaceState(page.url.pathname + search, page.state);
 	});
 
-	const visibleRules = $derived(applyAlertListView(alerts.rules, alerts.statuses, (rule) => maintenance.isRuleMuted(rule), view));
+	const visibleRules = $derived(applyAlertListView(alerts.rules.filter((r) => projects.visible(r.projectId)), alerts.statuses, (rule) => maintenance.isRuleMuted(rule), view));
 
 	function toggleSort(key: RuleSortKey): void {
 		view = view.sort === key ? { ...view, direction: view.direction === 'asc' ? 'desc' : 'asc' } : { ...view, sort: key, direction: key === 'lastFired' ? 'desc' : 'asc' };

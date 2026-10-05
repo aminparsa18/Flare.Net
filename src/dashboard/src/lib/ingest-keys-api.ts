@@ -41,10 +41,13 @@ export interface IngestApiKeyDto extends IngestApiKeyLimits, IngestApiKeyUsage {
 	createdAt: string;
 	revokedAt: string | null;
 	isActive: boolean;
+	/** Owning project (ADR-0123); `null` = instance-wide. */
+	projectId: string | null;
 }
 
 export interface CreateIngestApiKeyRequest {
 	name: string;
+	projectId?: string | null;
 }
 
 /** `rawKey` is shown exactly once, here - Flare never stores or displays it again after this response. */
@@ -65,6 +68,7 @@ function toIngestApiKey(dto: GeneratedIngestApiKeyDto): IngestApiKeyDto {
 		createdAt: dto.createdAt.toISOString(),
 		revokedAt: dto.revokedAt?.toISOString() ?? null,
 		isActive: dto.isActive,
+		projectId: dto.projectId,
 		limitsEnabled: dto.limitsEnabled,
 		maxEventsPerMinute: toNumber(dto.maxEventsPerMinute),
 		maxBytesPerMinute: toNumber(dto.maxBytesPerMinute),
@@ -80,6 +84,7 @@ function toIngestApiKey(dto: GeneratedIngestApiKeyDto): IngestApiKeyDto {
 export async function createIngestApiKey(request: CreateIngestApiKeyRequest): Promise<CreateIngestApiKeyResponse> {
 	const dto = new GeneratedCreateIngestApiKeyRequest();
 	dto.name = request.name;
+	dto.projectId = request.projectId ?? null;
 	const res = await apiFetch(`${API_BASE_URL}/api/ingest-keys`, {
 		method: 'POST',
 		headers: memoryPackRequestHeaders(),

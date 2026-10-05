@@ -1,6 +1,6 @@
 # ADR-0123: Projects: per-team scoping by service allow-list
 
-Status: Accepted (phases 1-3 implemented; 4 pending)
+Status: Accepted (implemented)
 
 Date: 2026-10-05
 
@@ -37,7 +37,8 @@ without re-plumbing the telemetry tables.
 3. **Done:** `ProjectId` on dashboards, saved views, alert rules, SLOs and ingest keys;
    list/CRUD filtered by membership, with project role deciding who may edit (see
    "Phase 3 as built").
-4. Dashboard: project switcher and a Projects admin page.
+4. **Done:** dashboard project switcher, Projects admin page, project pickers on the forms
+   (see "Phase 4 as built").
 
 ## Consequences
 
@@ -111,3 +112,23 @@ without re-plumbing the telemetry tables.
   notification channels and maintenance windows (shared infrastructure), and pipeline rules.
   An alert's `{{...}}` payload isn't redacted by project; the rule's own project decides who
   can read or edit it, and its condition was authored by someone who could query that data.
+
+## Phase 4 as built
+
+- **`GET /api/projects/mine`** (any authenticated user) returns the projects the caller belongs
+  to with their own role; global Admins and auth-disabled instances get every project as
+  `Admin`. The admin `/api/projects` list stays Admin-only, so the switcher and the form
+  pickers use `/mine` and work for non-admins.
+- **Switcher** (`ProjectSwitcher` in the nav, hidden until the caller has a project) is a
+  *view filter on config lists* (dashboards, alerts, SLOs, saved views) and the default project
+  for new objects. It is stored per browser. It does not narrow telemetry queries: those are
+  already scoped server-side to the union of the caller's projects, and adding a per-request
+  "active project" would be a second scoping mechanism to keep leak-free. Instance-wide
+  objects (`ProjectId` null) always show.
+- **Projects admin page** at Settings > Workspace > Projects: CRUD, the service-pattern
+  allow-list (one per line) and per-project members with roles.
+- **Pickers** (`ProjectPicker`) on the dashboard, alert, SLO, saved-view and ingest-key create
+  forms, listing only projects the caller can write to; hidden when there are none. A cleared
+  picker on an object that had a project sends the empty GUID, since omitting `projectId`
+  keeps the current one. Moving an ingest key between projects after creation has no UI yet
+  (`PUT /api/ingest-keys/{id}/project` exists).

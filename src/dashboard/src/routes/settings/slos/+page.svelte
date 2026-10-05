@@ -12,6 +12,7 @@
 	import SloFormDialog from '$lib/components/slos/SloFormDialog.svelte';
 	import SloDetailSheet from '$lib/components/slos/SloDetailSheet.svelte';
 	import { authContext } from '$lib/auth/context';
+	import { projects } from '$lib/projects/store.svelte';
 	import { deleteSlo, getSloStatus, listSlos, type Slo, type SloStatus } from '$lib/slos-api';
 	import { getServiceOverview } from '$lib/services-api';
 	import { listAlertRules } from '$lib/alerts-api';
@@ -23,7 +24,8 @@
 
 	const auth = authContext.get();
 
-	let slos = $state<Slo[]>([]);
+	let allSlos = $state<Slo[]>([]);
+	const slos = $derived(allSlos.filter((s) => projects.visible(s.projectId)));
 	let statuses = $state<Record<string, SloStatus | 'error'>>({});
 	/** SLO id -> number of burn-rate alert rules watching it. */
 	let alertCounts = $state<Record<string, number>>({});
@@ -35,7 +37,7 @@
 
 	async function load(): Promise<void> {
 		try {
-			slos = await listSlos();
+			allSlos = await listSlos();
 			error = null;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);

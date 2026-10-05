@@ -22,6 +22,7 @@
 	import { authContext } from '$lib/auth/context';
 	import { getBootstrapStatus } from '$lib/auth-api';
 	import { ChromeVisibilityState, setChromeVisibilityContext } from '$lib/chrome/context.svelte';
+	import { projects } from '$lib/projects/store.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	const { children } = $props();
@@ -72,6 +73,7 @@
 			void explorerPrefs.syncFromServer();
 			void keyboardPrefs.syncFromServer();
 			void notificationPrefs.syncFromServer();
+			void projects.load();
 		}
 	});
 
