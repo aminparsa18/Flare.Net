@@ -15,11 +15,11 @@ public class ServiceOverviewQueryBuilderTests
 
         Assert.Contains("SELECT", result.Sql);
         Assert.Contains("ServiceName", result.Sql);
-        Assert.Contains("count() AS RequestCount", result.Sql);
-        Assert.Contains("countIf(StatusCode = {errorStatus:String}) AS ErrorCount", result.Sql);
-        Assert.Contains("quantile(0.5)(DurationNano) AS P50DurationNano", result.Sql);
-        Assert.Contains("quantile(0.95)(DurationNano) AS P95DurationNano", result.Sql);
-        Assert.Contains("quantile(0.99)(DurationNano) AS P99DurationNano", result.Sql);
+        Assert.Contains("sum(SampleWeight) AS RequestCount", result.Sql);
+        Assert.Contains("sumIf(SampleWeight, StatusCode = {errorStatus:String}) AS ErrorCount", result.Sql);
+        Assert.Contains("quantileTDigestWeighted(0.5)(DurationNano, SampleWeight) AS P50DurationNano", result.Sql);
+        Assert.Contains("quantileTDigestWeighted(0.95)(DurationNano, SampleWeight) AS P95DurationNano", result.Sql);
+        Assert.Contains("quantileTDigestWeighted(0.99)(DurationNano, SampleWeight) AS P99DurationNano", result.Sql);
         Assert.Contains("FROM spans", result.Sql);
         Assert.Contains("GROUP BY ServiceName", result.Sql);
         Assert.Contains("ORDER BY RequestCount DESC", result.Sql);

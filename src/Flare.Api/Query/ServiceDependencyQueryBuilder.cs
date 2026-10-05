@@ -149,9 +149,9 @@ public static class ServiceDependencyQueryBuilder
 
         var nodesSql = "SELECT\n" +
             $"    {EffectiveServiceExpr(string.Empty)} AS Service,\n" +
-            "    count() AS SpanCount,\n" +
-            "    countIf(StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
-            "    sum(DurationNano) AS TotalDurationNano,\n" +
+            "    sum(SampleWeight) AS SpanCount,\n" +
+            "    sumIf(SampleWeight, StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
+            "    sum(DurationNano * SampleWeight) AS TotalDurationNano,\n" +
             "    topK(3)(Name) AS TopOperations\n" +
             "FROM spans\n" +
             "WHERE " + string.Join(" AND ", nodesClauses) + "\n" +
@@ -176,8 +176,8 @@ public static class ServiceDependencyQueryBuilder
         var edgesSql = "SELECT\n" +
             $"    {EffectiveServiceExpr("parent.")} AS Source,\n" +
             $"    {EffectiveServiceExpr("child.")} AS Target,\n" +
-            "    count() AS CallCount,\n" +
-            "    sum(child.DurationNano) AS TotalDurationNano\n" +
+            "    sum(child.SampleWeight) AS CallCount,\n" +
+            "    sum(child.DurationNano * child.SampleWeight) AS TotalDurationNano\n" +
             "FROM spans AS child\n" +
             "INNER JOIN spans AS parent ON parent.TraceId = child.TraceId AND parent.SpanId = child.ParentSpanId\n" +
             "WHERE " + string.Join(" AND ", edgesClauses) + "\n" +
@@ -200,9 +200,9 @@ public static class ServiceDependencyQueryBuilder
         var leavesSql = "SELECT\n" +
             "    client.ServiceName AS Source,\n" +
             $"    {ExternalApiQueryBuilder.DomainExpr} AS Target,\n" +
-            "    count() AS CallCount,\n" +
-            "    countIf(client.StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
-            "    sum(client.DurationNano) AS TotalDurationNano,\n" +
+            "    sum(client.SampleWeight) AS CallCount,\n" +
+            "    sumIf(client.SampleWeight, client.StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
+            "    sum(client.DurationNano * client.SampleWeight) AS TotalDurationNano,\n" +
             "    topK(3)(client.Name) AS TopOperations\n" +
             "FROM spans AS client\n" +
             UnansweredCallsJoin +
@@ -228,9 +228,9 @@ public static class ServiceDependencyQueryBuilder
         var sql = "SELECT\n" +
             "    client.ServiceName AS Source,\n" +
             "    client.Domain AS Target,\n" +
-            "    count() AS CallCount,\n" +
-            "    countIf(client.StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
-            "    sum(client.DurationNano) AS TotalDurationNano,\n" +
+            "    sum(client.SampleWeight) AS CallCount,\n" +
+            "    sumIf(client.SampleWeight, client.StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
+            "    sum(client.DurationNano * client.SampleWeight) AS TotalDurationNano,\n" +
             "    topK(3)(client.Name) AS TopOperations\n" +
             "FROM outbound_calls AS client\n" +
             UnansweredCallsJoin +

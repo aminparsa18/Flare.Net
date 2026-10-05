@@ -100,14 +100,6 @@ folders are where "what happened and why" actually lives.
   channel B"), and simple on-call rotations that choose the target channel.
   Builds on resolved notifications and maintenance windows (ADR-0055). Needs an
   ADR.
-- **Tail-based and head sampling at ingest.** Every span is stored today. Add
-  per-service / per-ingest-key sampling rules that always keep error and
-  slow traces and sample the rest, decided in `Flare.Ingest` before the Redis
-  buffer. Tail decisions need a short per-trace hold window, so size that
-  against buffer memory. The RED and service-map pre-aggregations (ADR-0030,
-  ADR-0031) must be computed before dropping, or sampled services will
-  under-report rates. Pairs with retention above as the second storage-cost
-  lever. Needs an ADR. Not started.
 - **Per-team / per-project scoping.** Roles (`Admin`/`Member`/`Viewer`) are
   global. Add a project or team boundary that scopes services, dashboards,
   alerts, SLOs and ingest keys, with roles per team, so one instance can serve

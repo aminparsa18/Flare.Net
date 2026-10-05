@@ -126,10 +126,10 @@ public static class ServiceCallBreakdownQueryBuilder
 
         var externalCallsSql = "SELECT\n" +
             $"    {ExternalTargetExpr} AS PeerService,\n" +
-            "    count() AS CallCount,\n" +
-            "    countIf(StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
-            "    quantile(0.5)(DurationNano) AS P50DurationNano,\n" +
-            "    quantile(0.95)(DurationNano) AS P95DurationNano\n" +
+            "    sum(SampleWeight) AS CallCount,\n" +
+            "    sumIf(SampleWeight, StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
+            "    quantileTDigestWeighted(0.5)(DurationNano, SampleWeight) AS P50DurationNano,\n" +
+            "    quantileTDigestWeighted(0.95)(DurationNano, SampleWeight) AS P95DurationNano\n" +
             "FROM spans\n" +
             "WHERE " + string.Join(" AND ", externalCallsClauses) + "\n" +
             "GROUP BY PeerService\n" +
@@ -152,10 +152,10 @@ public static class ServiceCallBreakdownQueryBuilder
         var databaseCallsSql = "SELECT\n" +
             $"    {DbSystemExpr} AS DbSystem,\n" +
             $"    {DbOperationExpr} AS DbOperation,\n" +
-            "    count() AS CallCount,\n" +
-            "    countIf(StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
-            "    quantile(0.5)(DurationNano) AS P50DurationNano,\n" +
-            "    quantile(0.95)(DurationNano) AS P95DurationNano\n" +
+            "    sum(SampleWeight) AS CallCount,\n" +
+            "    sumIf(SampleWeight, StatusCode = {errorStatus:String}) AS ErrorCount,\n" +
+            "    quantileTDigestWeighted(0.5)(DurationNano, SampleWeight) AS P50DurationNano,\n" +
+            "    quantileTDigestWeighted(0.95)(DurationNano, SampleWeight) AS P95DurationNano\n" +
             "FROM spans\n" +
             "WHERE " + string.Join(" AND ", databaseCallsClauses) + "\n" +
             "GROUP BY DbSystem, DbOperation\n" +

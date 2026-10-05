@@ -48,6 +48,46 @@ public class RedisEventPayloadTests
     }
 
     [Fact]
+    public void Encode_Then_Decode_RoundTrips_SpanRecord_SampleWeight()
+    {
+        var original = new SpanRecord
+        {
+            TraceId = "abc123",
+            SpanId = "def456",
+            Kind = 2,
+            StartTime = new DateTimeOffset(2026, 9, 4, 12, 0, 0, TimeSpan.Zero),
+            EndTime = new DateTimeOffset(2026, 9, 4, 12, 0, 1, TimeSpan.Zero),
+            IngestedAt = new DateTimeOffset(2026, 9, 4, 12, 0, 2, TimeSpan.Zero),
+            DurationNano = 1_000_000_000,
+            StatusCode = 1,
+            ResourceAttributes = new Dictionary<string, string>(),
+            ScopeAttributes = new Dictionary<string, string>(),
+            SpanAttributes = new Dictionary<string, string>(),
+            Events = [],
+            Links = [],
+            SampleWeight = 25,
+        };
+
+        var decoded = RedisEventPayload.Decode(RedisEventPayload.Encode(original), SpanEventJsonContext.Default.SpanRecord);
+
+        Assert.Equal(25u, decoded.SampleWeight);
+    }
+
+    [Fact]
+    public void Decode_SpanRecordJsonWithoutSampleWeight_IsStoredAtWeightOne()
+    {
+        // A payload buffered before SampleWeight existed (the JSON fallback path). STJ doesn't
+        // apply the property's initializer here, so the decoded value is 0 - the row mapper's
+        // floor is what guarantees it is stored (and summed by the MVs) as 1.
+        var legacyJson = System.Text.Encoding.UTF8.GetBytes(
+            "{\"TraceId\":\"t\",\"SpanId\":\"s\",\"Kind\":1,\"StartTime\":\"2026-09-04T12:00:00+00:00\",\"EndTime\":\"2026-09-04T12:00:01+00:00\",\"IngestedAt\":\"2026-09-04T12:00:02+00:00\",\"DurationNano\":1,\"StatusCode\":1,\"ResourceAttributes\":{},\"ScopeAttributes\":{},\"SpanAttributes\":{},\"Events\":[],\"Links\":[]}");
+
+        var decoded = RedisEventPayload.Decode(legacyJson, SpanEventJsonContext.Default.SpanRecord);
+
+        Assert.Equal(1u, ClickHouseSpanRowMapper.ToRow(decoded)[^1]);
+    }
+
+    [Fact]
     public void Encode_Then_Decode_RoundTrips_SpanRecord_WithEvents()
     {
         var original = new SpanRecord

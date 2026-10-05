@@ -21,6 +21,7 @@ public class ClickHouseSpanRowMapperTests
                 "ScopeName", "ScopeVersion", "ScopeAttributes", "SpanAttributes",
                 "Events.TimeUnixNano", "Events.Name", "Events.Attributes", "IngestedAt",
                 "Links.TraceId", "Links.SpanId", "Links.TraceState", "Links.Attributes",
+                "SampleWeight",
             ],
             ClickHouseSpanRowMapper.Columns);
     }
@@ -34,6 +35,18 @@ public class ClickHouseSpanRowMapperTests
         var row = ClickHouseSpanRowMapper.ToRow(span);
 
         Assert.Equal(ingestedAt.UtcDateTime, row[22]);
+    }
+
+    [Theory]
+    [InlineData(1u, 1u)]
+    [InlineData(50u, 50u)]
+    [InlineData(0u, 1u)]
+    public void ToRow_WritesSampleWeight_AsTheLastColumn_FlooredAtOne(uint weight, uint expected)
+    {
+        var row = ClickHouseSpanRowMapper.ToRow(MinimalSpan() with { SampleWeight = weight });
+
+        Assert.Equal(expected, row[^1]);
+        Assert.Equal("SampleWeight", ClickHouseSpanRowMapper.Columns[^1]);
     }
 
     [Fact]

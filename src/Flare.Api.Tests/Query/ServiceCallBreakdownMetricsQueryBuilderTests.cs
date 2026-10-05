@@ -14,8 +14,8 @@ public class ServiceCallBreakdownMetricsQueryBuilderTests
 
         Assert.Contains("sum(CallCount) AS CallCount", result.ExternalCallsSql);
         Assert.Contains("sum(ErrorCount) AS ErrorCount", result.ExternalCallsSql);
-        Assert.Contains("quantileMerge(0.5)(P50State) AS P50DurationNano", result.ExternalCallsSql);
-        Assert.Contains("quantileMerge(0.95)(P95State) AS P95DurationNano", result.ExternalCallsSql);
+        Assert.Contains("if(sum(SampledCount) = 0, quantileMerge(0.5)(P50State), quantileTDigestWeightedMerge(0.5)(P50WState)) AS P50DurationNano", result.ExternalCallsSql);
+        Assert.Contains("if(sum(SampledCount) = 0, quantileMerge(0.95)(P95State), quantileTDigestWeightedMerge(0.95)(P95WState)) AS P95DurationNano", result.ExternalCallsSql);
         Assert.Contains("FROM service_call_breakdown_external", result.ExternalCallsSql);
         Assert.Contains("WHERE ServiceName = {service:String} AND TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}", result.ExternalCallsSql);
         Assert.Contains("GROUP BY PeerService", result.ExternalCallsSql);

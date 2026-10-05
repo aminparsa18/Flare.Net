@@ -75,11 +75,11 @@ public static class LlmQueryBuilder
         var sql = "SELECT\n" +
             "    LlmProvider,\n" +
             "    LlmModel,\n" +
-            "    count() AS CallCount,\n" +
-            "    countIf(IsError) AS ErrorCount,\n" +
-            "    quantiles(0.5, 0.95, 0.99)(DurationNano) AS Quantiles,\n" +
-            "    sum(InputTokens) AS InputTokens,\n" +
-            "    sum(OutputTokens) AS OutputTokens,\n" +
+            "    sum(SampleWeight) AS CallCount,\n" +
+            "    sumIf(SampleWeight, IsError) AS ErrorCount,\n" +
+            "    quantilesTDigestWeighted(0.5, 0.95, 0.99)(DurationNano, SampleWeight) AS Quantiles,\n" +
+            "    sum(InputTokens * SampleWeight) AS InputTokens,\n" +
+            "    sum(OutputTokens * SampleWeight) AS OutputTokens,\n" +
             "    uniqExact(ServiceName) AS ServiceCount,\n" +
             "    toUnixTimestamp64Milli(max(StartTime)) AS LastSeenUnixMs\n" +
             $"FROM {SpanSource(where)}\n" +
@@ -122,7 +122,7 @@ public static class LlmQueryBuilder
             "    Model AS LlmModel,\n" +
             "    sum(CallCount) AS CallCount,\n" +
             "    sum(ErrorCount) AS ErrorCount,\n" +
-            "    quantilesMerge(0.5, 0.95, 0.99)(QuantileState) AS Quantiles,\n" +
+            $"    {SampledQuantileSql.MergeMany("0.5, 0.95, 0.99", "QuantileState", "QuantileWState")} AS Quantiles,\n" +
             "    sum(InputTokens) AS InputTokens,\n" +
             "    sum(OutputTokens) AS OutputTokens,\n" +
             "    uniqExact(ServiceName) AS ServiceCount,\n" +
@@ -181,6 +181,7 @@ public static class LlmQueryBuilder
         "        ServiceName,\n" +
         "        StartTime,\n" +
         "        DurationNano,\n" +
+        "        SampleWeight,\n" +
         "        StatusCode = 'STATUS_CODE_ERROR' AS IsError,\n" +
         $"        {ProviderExpr} AS LlmProvider,\n" +
         $"        {ModelExpr} AS LlmModel,\n" +

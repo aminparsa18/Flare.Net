@@ -16,9 +16,9 @@ public class ServiceMetricsQueryBuilderTests
         Assert.Contains("ServiceName", result.Sql);
         Assert.Contains("sum(RequestCount) AS RequestCount", result.Sql);
         Assert.Contains("sum(ErrorCount) AS ErrorCount", result.Sql);
-        Assert.Contains("quantileMerge(0.5)(P50State) AS P50DurationNano", result.Sql);
-        Assert.Contains("quantileMerge(0.95)(P95State) AS P95DurationNano", result.Sql);
-        Assert.Contains("quantileMerge(0.99)(P99State) AS P99DurationNano", result.Sql);
+        Assert.Contains("if(sum(SampledCount) = 0, quantileMerge(0.5)(P50State), quantileTDigestWeightedMerge(0.5)(P50WState)) AS P50DurationNano", result.Sql);
+        Assert.Contains("if(sum(SampledCount) = 0, quantileMerge(0.95)(P95State), quantileTDigestWeightedMerge(0.95)(P95WState)) AS P95DurationNano", result.Sql);
+        Assert.Contains("if(sum(SampledCount) = 0, quantileMerge(0.99)(P99State), quantileTDigestWeightedMerge(0.99)(P99WState)) AS P99DurationNano", result.Sql);
         Assert.Contains("FROM service_metrics", result.Sql);
         Assert.Contains("GROUP BY ServiceName", result.Sql);
         Assert.Contains("ORDER BY RequestCount DESC", result.Sql);

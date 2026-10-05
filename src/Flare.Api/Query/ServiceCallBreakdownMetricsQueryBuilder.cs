@@ -50,8 +50,8 @@ public static class ServiceCallBreakdownMetricsQueryBuilder
             "    PeerService,\n" +
             "    sum(CallCount) AS CallCount,\n" +
             "    sum(ErrorCount) AS ErrorCount,\n" +
-            "    quantileMerge(0.5)(P50State) AS P50DurationNano,\n" +
-            "    quantileMerge(0.95)(P95State) AS P95DurationNano\n" +
+            $"    {SampledQuantileSql.Merge(0.5, "P50State", "P50WState")} AS P50DurationNano,\n" +
+            $"    {SampledQuantileSql.Merge(0.95, "P95State", "P95WState")} AS P95DurationNano\n" +
             "FROM service_call_breakdown_external\n" +
             "WHERE ServiceName = {service:String} AND TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}\n" +
             "GROUP BY PeerService\n" +
@@ -67,8 +67,8 @@ public static class ServiceCallBreakdownMetricsQueryBuilder
             "    DbOperation,\n" +
             "    sum(CallCount) AS CallCount,\n" +
             "    sum(ErrorCount) AS ErrorCount,\n" +
-            "    quantileMerge(0.5)(P50State) AS P50DurationNano,\n" +
-            "    quantileMerge(0.95)(P95State) AS P95DurationNano\n" +
+            $"    {SampledQuantileSql.Merge(0.5, "P50State", "P50WState")} AS P50DurationNano,\n" +
+            $"    {SampledQuantileSql.Merge(0.95, "P95State", "P95WState")} AS P95DurationNano\n" +
             "FROM service_call_breakdown_database\n" +
             "WHERE ServiceName = {service:String} AND TimeBucket >= {from:DateTime} AND TimeBucket < {to:DateTime}\n" +
             "GROUP BY DbSystem, DbOperation\n" +

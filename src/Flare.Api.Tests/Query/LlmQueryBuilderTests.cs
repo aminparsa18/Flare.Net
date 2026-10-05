@@ -54,7 +54,7 @@ public class LlmQueryBuilderTests
         Assert.Contains("mapContains(SpanAttributes, 'gen_ai.operation.name')", built.Sql);
         Assert.Contains(LlmQueryBuilder.ModelCallCondition, built.Sql);
         Assert.Contains("GROUP BY LlmProvider, LlmModel", built.Sql);
-        Assert.Contains("sum(InputTokens) AS InputTokens", built.Sql);
+        Assert.Contains("sum(InputTokens * SampleWeight) AS InputTokens", built.Sql);
         Assert.Contains("LIMIT {limit:UInt32}", built.Sql);
         Assert.DoesNotContain("{service:String}", built.Sql);
     }
@@ -84,7 +84,7 @@ public class LlmQueryBuilderTests
 
         Assert.Contains("FROM llm_model_calls", built.Sql);
         Assert.DoesNotContain("FROM spans", built.Sql);
-        Assert.Contains("quantilesMerge(0.5, 0.95, 0.99)(QuantileState) AS Quantiles", built.Sql);
+        Assert.Contains("if(sum(SampledCount) = 0, quantilesMerge(0.5, 0.95, 0.99)(QuantileState), quantilesTDigestWeightedMerge(0.5, 0.95, 0.99)(QuantileWState)) AS Quantiles", built.Sql);
         Assert.Contains("sum(CallCount) AS CallCount", built.Sql);
         Assert.Contains("GROUP BY LlmProvider, LlmModel", built.Sql);
         Assert.Contains("LIMIT {limit:UInt32}", built.Sql);

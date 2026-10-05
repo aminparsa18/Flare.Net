@@ -37,7 +37,8 @@ public static class ClickHouseSpanRowMapper
     /// the <c>Events</c> Nested column's three desugared array columns, then
     /// <c>IngestedAt</c> (added via <c>0011_ingest_receipt_time.sql</c>), then the
     /// <c>Links</c> Nested column's four desugared array columns (added via
-    /// <c>0013_span_links.sql</c>) listed last, in migration order.
+    /// <c>0013_span_links.sql</c>), then <c>SampleWeight</c> (<c>0051_span_sample_weight.sql</c>),
+    /// listed last, in migration order.
     /// </summary>
     public static readonly IReadOnlyList<string> Columns =
     [
@@ -68,6 +69,7 @@ public static class ClickHouseSpanRowMapper
         "Links.SpanId",
         "Links.TraceState",
         "Links.Attributes",
+        "SampleWeight",
     ];
 
     /// <summary>Maps a single <see cref="SpanRecord"/> to a row, positionally matching <see cref="Columns"/>.</summary>
@@ -100,6 +102,9 @@ public static class ClickHouseSpanRowMapper
         span.Links.Select(l => l.SpanId).ToArray(),
         span.Links.Select(l => l.TraceState ?? string.Empty).ToArray(),
         span.Links.Select(l => new Dictionary<string, string>(l.Attributes)).ToArray(),
+        // Floor of 1: a zero (e.g. a payload that predates the field) would zero the
+        // weighted pre-aggregations instead of counting the span once.
+        Math.Max(span.SampleWeight, 1u),
     ];
 
     /// <summary>Maps a batch of spans to rows, in the same order.</summary>
