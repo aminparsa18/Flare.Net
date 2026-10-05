@@ -2963,5 +2963,10 @@
 	"projectPicker_hint": "Видеть и изменять это могут только участники проекта.",
 	"projectSwitcher_label": "Проект",
 	"projectSwitcher_all": "Все проекты",
-	"ingestKeyTable_projectColumn": "Проект"
+	"ingestKeyTable_projectColumn": "Проект",
+	"ingestKeyTable_moveProject": "Сменить проект",
+	"moveIngestKeyDialog_title": "Проект для «{name}»",
+	"moveIngestKeyDialog_description": "Меняется только принадлежность: то, что ключ может принимать, не меняется.",
+	"moveIngestKeyDialog_cancel": "Отмена",
+	"moveIngestKeyDialog_save": "Сохранить"
 }

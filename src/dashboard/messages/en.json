@@ -2963,5 +2963,10 @@
 	"projectPicker_hint": "Only members of the project can see or change this.",
 	"projectSwitcher_label": "Project",
 	"projectSwitcher_all": "All projects",
-	"ingestKeyTable_projectColumn": "Project"
+	"ingestKeyTable_projectColumn": "Project",
+	"ingestKeyTable_moveProject": "Change project",
+	"moveIngestKeyDialog_title": "Project for \"{name}\"",
+	"moveIngestKeyDialog_description": "Ownership only: what the key may ingest doesn't change.",
+	"moveIngestKeyDialog_cancel": "Cancel",
+	"moveIngestKeyDialog_save": "Save"
 }

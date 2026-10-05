@@ -48,6 +48,7 @@ the full rule set on what goes where.
 - [Find .NET runtime health problems](how-to/find-runtime-health-problems.md)
 - [Compare two deploys of a service](how-to/compare-deploys.md)
 - [Define SLOs and get alerted when the error budget burns](how-to/define-slos.md)
+- [Organize teams with projects](how-to/organize-teams-with-projects.md)
 - [Find traces by how their spans relate](how-to/find-traces-by-structure.md)
 - [Link exception stack traces to your source code](how-to/link-exceptions-to-source-code.md)
 - [Triage errors and catch regressions](how-to/triage-errors.md)

@@ -18,6 +18,7 @@
 	import Share2Icon from '@lucide/svelte/icons/share-2';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import { logsExplorerContext } from '$lib/logs/context';
+	import { projects } from '$lib/projects/store.svelte';
 	import { createSavedView } from '$lib/saved-views-api';
 	import { savedViewPath } from '$lib/saved-views/page-paths';
 	import { presetLabel } from '$lib/logs/time-range';
@@ -58,7 +59,8 @@
 					range: rangeLabel()
 				}),
 				pageType: 'Logs',
-				state: explorer.toSavedViewState()
+				state: explorer.toSavedViewState(),
+				projectId: projects.defaultForNew
 			});
 			await navigator.clipboard.writeText(`${location.origin}${savedViewPath(view)}`);
 			copied = true;

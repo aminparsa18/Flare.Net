@@ -13,6 +13,7 @@
 	import { formatBytes, formatCount } from '$lib/ingestion/format';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import FolderInputIcon from '@lucide/svelte/icons/folder-input';
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { projects } from '$lib/projects/store.svelte';
@@ -144,6 +145,11 @@
 							{/if}
 						</Table.Cell>
 						<Table.Cell class="text-right">
+							{#if projects.mine.length}
+								<Button variant="ghost" size="icon-sm" title={m.ingestKeyTable_moveProject()} onclick={() => keys.openMove(key)}>
+									<FolderInputIcon />
+								</Button>
+							{/if}
 							<Button
 								variant="ghost"
 								size="icon-sm"

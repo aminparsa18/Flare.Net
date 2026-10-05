@@ -48,6 +48,7 @@
 - [查找 .NET 运行时健康问题](how-to/find-runtime-health-problems.zh-CN.md)
 - [对比服务的两次部署](how-to/compare-deploys.zh-CN.md)
 - [定义 SLO 并在错误预算被快速消耗时收到告警](how-to/define-slos.zh-CN.md)
+- [使用项目组织团队](how-to/organize-teams-with-projects.zh-CN.md)
 - [按 span 之间的关系查找追踪](how-to/find-traces-by-structure.zh-CN.md)
 - [将异常堆栈跟踪链接到源代码](how-to/link-exceptions-to-source-code.zh-CN.md)
 - [分诊错误并发现回归](how-to/triage-errors.zh-CN.md)

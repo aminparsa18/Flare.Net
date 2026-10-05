@@ -130,5 +130,7 @@ without re-plumbing the telemetry tables.
 - **Pickers** (`ProjectPicker`) on the dashboard, alert, SLO, saved-view and ingest-key create
   forms, listing only projects the caller can write to; hidden when there are none. A cleared
   picker on an object that had a project sends the empty GUID, since omitting `projectId`
-  keeps the current one. Moving an ingest key between projects after creation has no UI yet
-  (`PUT /api/ingest-keys/{id}/project` exists).
+  keeps the current one. An ingest key can be moved afterwards from its row on the Ingest keys
+  page. "Share view" links default to the active project like any other new object, so a
+  recipient outside that project gets a 404; switch to "All projects" first to share widely.
+- User docs: `docs/how-to/organize-teams-with-projects.md`.

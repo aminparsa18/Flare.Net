@@ -13,6 +13,8 @@
 
 import { API_BASE_URL, apiFetch, memoryPackAcceptHeaders, memoryPackBody, memoryPackRequestHeaders } from './api';
 import { CreateIngestApiKeyRequest as GeneratedCreateIngestApiKeyRequest } from '$lib/generated/memorypack/CreateIngestApiKeyRequest.js';
+import { SetIngestApiKeyProjectRequest as GeneratedSetIngestApiKeyProjectRequest } from '$lib/generated/memorypack/SetIngestApiKeyProjectRequest.js';
+import { NO_PROJECT } from './projects-api';
 import { UpdateIngestApiKeyLimitsRequest as GeneratedUpdateIngestApiKeyLimitsRequest } from '$lib/generated/memorypack/UpdateIngestApiKeyLimitsRequest.js';
 import { CreateIngestApiKeyResponse as GeneratedCreateIngestApiKeyResponse } from '$lib/memorypack/CreateIngestApiKeyResponse';
 import { IngestApiKeyListResponse as GeneratedIngestApiKeyListResponse } from '$lib/memorypack/IngestApiKeyListResponse';
@@ -114,6 +116,20 @@ export async function revokeIngestApiKey(id: string): Promise<void> {
 	const res = await apiFetch(`${API_BASE_URL}/api/ingest-keys/${id}`, { method: 'DELETE' });
 	if (!res.ok) {
 		throw new Error(`DELETE /api/ingest-keys/${id} failed: ${res.status} ${res.statusText}`);
+	}
+}
+
+/** 204 No Content on success. `null` moves the key back to instance-wide (ADR-0123). */
+export async function setIngestApiKeyProject(id: string, projectId: string | null): Promise<void> {
+	const dto = new GeneratedSetIngestApiKeyProjectRequest();
+	dto.projectId = projectId ?? NO_PROJECT;
+	const res = await apiFetch(`${API_BASE_URL}/api/ingest-keys/${id}/project`, {
+		method: 'PUT',
+		headers: memoryPackRequestHeaders(),
+		body: memoryPackBody(GeneratedSetIngestApiKeyProjectRequest.serialize(dto))
+	});
+	if (!res.ok) {
+		throw new Error(`PUT /api/ingest-keys/${id}/project failed: ${res.status} ${res.statusText}`);
 	}
 }
 
