@@ -54,4 +54,63 @@ public static class SyntheticHeaders
     // RFC 9110 token characters.
     private static bool IsTokenChar(char c) =>
         c is > ' ' and < (char)127 && "()<>@,;:\\\"/[]?={}".IndexOf(c) < 0;
+
+    /// <summary>What every header value is replaced with in API responses.</summary>
+    public const string Mask = "********";
+
+    /// <summary>The text with every header value replaced by <see cref="Mask"/>, so secrets never leave the API.</summary>
+    public static string MaskValues(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return "";
+        }
+
+        var lines = new List<string>();
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = raw.TrimEnd('\r');
+            var colon = line.IndexOf(':');
+            if (colon > 0)
+            {
+                lines.Add($"{line[..colon].Trim()}: {Mask}");
+            }
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// Replaces each submitted <c>Name: ********</c> line with the stored value of the same header name (case-insensitive,
+    /// in order), so editing a monitor without retyping its secrets keeps them.
+    /// </summary>
+    public static string RestoreMasked(string? submitted, string? stored)
+    {
+        if (string.IsNullOrWhiteSpace(submitted) || !submitted.Contains(Mask, StringComparison.Ordinal))
+        {
+            return submitted ?? "";
+        }
+
+        var remaining = Parse(stored).Headers.ToList();
+        var lines = new List<string>();
+        foreach (var raw in submitted.Split('\n'))
+        {
+            var line = raw.TrimEnd('\r');
+            var colon = line.IndexOf(':');
+            if (colon > 0 && line[(colon + 1)..].Trim() == Mask)
+            {
+                var name = line[..colon].Trim();
+                var index = remaining.FindIndex(h => h.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                if (index >= 0)
+                {
+                    line = $"{name}: {remaining[index].Value}";
+                    remaining.RemoveAt(index);
+                }
+            }
+
+            lines.Add(line);
+        }
+
+        return string.Join('\n', lines);
+    }
 }

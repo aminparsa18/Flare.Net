@@ -3,6 +3,7 @@ using Flare.Api.Auditing;
 using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.Query;
+using Flare.Api.Synthetic;
 
 namespace Flare.Api.Endpoints;
 
@@ -32,7 +33,7 @@ public static class SyntheticMonitorEndpoints
 
         var monitor = await monitors.CreateAsync(request!, cancellationToken);
         AuditContext.SetResourceId(http, monitor.Id);
-        return Results.Json(monitor, SyntheticMonitorsJsonContext.Default.SyntheticMonitor, statusCode: StatusCodes.Status201Created);
+        return Results.Json(Masked(monitor), SyntheticMonitorsJsonContext.Default.SyntheticMonitor, statusCode: StatusCodes.Status201Created);
     }
 
     private static async Task<IResult> HandleListAsync(ISyntheticMonitorQueryService monitors, CancellationToken cancellationToken)
@@ -41,14 +42,14 @@ public static class SyntheticMonitorEndpoints
         var statuses = await monitors.LatestStatusesAsync(cancellationToken);
         var withStatus = list.Select(m => statuses.TryGetValue(m.Name, out var byLocation)
             ? m with { Latest = byLocation.Select(l => l.Status).MaxBy(s => s.Time), LocationStatuses = byLocation }
-            : m).ToList();
+            : m).Select(Masked).ToList();
         return Results.Json(new SyntheticMonitorListResponse(withStatus), SyntheticMonitorsJsonContext.Default.SyntheticMonitorListResponse);
     }
 
     private static async Task<IResult> HandleGetAsync(Guid id, ISyntheticMonitorQueryService monitors, CancellationToken cancellationToken)
     {
         var monitor = await monitors.GetAsync(id, cancellationToken);
-        return monitor is null ? Results.NotFound() : Results.Json(monitor, SyntheticMonitorsJsonContext.Default.SyntheticMonitor);
+        return monitor is null ? Results.NotFound() : Results.Json(Masked(monitor), SyntheticMonitorsJsonContext.Default.SyntheticMonitor);
     }
 
     private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, ISyntheticMonitorQueryService monitors, CancellationToken cancellationToken)
@@ -60,15 +61,26 @@ public static class SyntheticMonitorEndpoints
         }
 
         var before = await monitors.GetAsync(id, cancellationToken);
-        var monitor = await monitors.UpdateAsync(id, request!, cancellationToken);
+        if (before is null)
+        {
+            return Results.NotFound();
+        }
+
+        // Masked header values in the submitted text mean "keep the stored value".
+        var restored = request! with { RequestHeaders = SyntheticHeaders.RestoreMasked(request!.RequestHeaders, before.RequestHeaders) };
+        var monitor = await monitors.UpdateAsync(id, restored, cancellationToken);
         if (monitor is null)
         {
             return Results.NotFound();
         }
 
-        AuditContext.SetChange(http, SyntheticMonitorsJsonContext.Default.SyntheticMonitor, before, monitor);
-        return Results.Json(monitor, SyntheticMonitorsJsonContext.Default.SyntheticMonitor);
+        AuditContext.SetChange(http, SyntheticMonitorsJsonContext.Default.SyntheticMonitor, Masked(before), Masked(monitor));
+        return Results.Json(Masked(monitor), SyntheticMonitorsJsonContext.Default.SyntheticMonitor);
     }
+
+    /// <summary>Header values can hold secrets (an <c>Authorization</c> token), so responses and audit entries never carry them.</summary>
+    private static SyntheticMonitor Masked(SyntheticMonitor monitor) =>
+        monitor with { RequestHeaders = SyntheticHeaders.MaskValues(monitor.RequestHeaders) };
 
     private static async Task<IResult> HandleDeleteAsync(Guid id, ISyntheticMonitorQueryService monitors, CancellationToken cancellationToken) =>
         await monitors.DeleteAsync(id, cancellationToken) ? Results.NoContent() : Results.NotFound();
