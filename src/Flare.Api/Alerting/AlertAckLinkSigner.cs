@@ -33,6 +33,14 @@ public sealed class AlertAckLinkSigner(IDataProtectionProvider provider, IOption
     // Bump the suffix to invalidate every outstanding link.
     private const string Purpose = "Flare.AlertAckLink.v1";
 
+    /// <summary>The <c>token</c> query value of an ack link from <see cref="CreateUrl"/>; null when <paramref name="url"/> has none.</summary>
+    public static string? TokenFromUrl(string? url)
+    {
+        const string marker = "token=";
+        var at = url?.IndexOf(marker, StringComparison.Ordinal) ?? -1;
+        return at < 0 ? null : Uri.UnescapeDataString(url![(at + marker.Length)..]);
+    }
+
     private readonly ITimeLimitedDataProtector protector = provider.CreateProtector(Purpose).ToTimeLimitedDataProtector();
 
     public string? CreateUrl(Guid ruleId, DateTimeOffset issuedAt)

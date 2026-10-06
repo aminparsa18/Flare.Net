@@ -67,10 +67,43 @@ Flare：链接本身就是凭证，确认记录为 `notification link`（如果�
 用户名）。
 
 链接只对发送它的那次事件有效，并在 24 小时后过期（`Alerting:AckLinkLifetimeHours`）；
-每条通知都会带有新的链接。如果告警在此期间已恢复，页面会提示。暂不支持 Slack 按钮和
-PagerDuty 确认同步。
+每条通知都会带有新的链接。如果告警在此期间已恢复，页面会提示。
 
 设计原因：[ADR-0127](../../docs-internal/adr/0127-alert-ack-link.md)。
+
+## 从 Slack 确认
+
+Slack 频道可以在告警下方显示 **Acknowledge** 按钮。这需要一个 Slack 应用，因为 Slack
+只会把按钮点击发送给应用：
+
+1. 创建 Slack 应用，为它添加传入 webhook，并在通知渠道中使用该 webhook URL（和以前一样，
+   是 `hooks.slack.com` 的 URL）。
+2. 在 **Interactivity & Shortcuts** 中开启交互，并把 Request URL 设为
+   `https://<你的-api-主机>/api/alerts/slack-interactivity`。这是 Flare.Api 的地址，Slack 必须能访问到。
+3. 把应用的 **Signing Secret** 填入 Flare.Api 和 Flare.AlertWorker 的
+   `Alerting:SlackSigningSecret`（环境变量为 `Alerting__SlackSigningSecret`）。
+   worker 只用它来决定是否添加按钮。
+
+设置密钥后，发往 Slack webhook 的触发通知会带有该按钮。点击后确认该事件，记录为
+`Slack: <用户名>`，并在频道中发布 “acknowledged by”。Flare 会校验 Slack 的请求签名，
+并拒绝超过五分钟的请求。未设置密钥时不会发送按钮，该端点返回 404。旧消息上已过期、
+或告警已恢复的按钮，只会回复点击者本人。
+
+## 从 PagerDuty 确认
+
+如果规则通知的是 PagerDuty 渠道，在 PagerDuty 中确认事件也可以在 Flare 中确认它：
+
+1. 在 PagerDuty 中添加 **V3 webhook 订阅**（Integrations > Generic Webhooks），URL 为
+   `https://<你的-api-主机>/api/alerts/pagerduty-webhook`，事件选择
+   `incident.acknowledged` 和 `incident.unacknowledged`。
+2. 把订阅的密钥填入 Flare.Api 的 `Alerting:PagerDutyWebhookSecret`。
+
+在 PagerDuty 中的确认会在 Flare 中记录为 `PagerDuty: <名称>`，重复通知和升级随之停止。
+如果 PagerDuty 的确认超时或被撤销，Flare 会清除它从 PagerDuty 记录的确认，而不会动在
+Flare 中做的确认。只匹配由 Flare 创建的事件，依据其事件键 `flare-alert-...`。同步是单向的：
+在 Flare 中确认不会改变 PagerDuty 事件。
+
+设计原因：[ADR-0138](../../docs-internal/adr/0138-alert-ack-slack-pagerduty.md)。
 
 ## 无人确认时升级
 

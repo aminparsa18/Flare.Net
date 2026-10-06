@@ -80,10 +80,49 @@ a session).
 
 A link works for the incident it was sent for and expires after 24 hours
 (`Alerting:AckLinkLifetimeHours`); each notification carries a fresh one. If the
-alert has resolved in the meantime, the page says so. A Slack button and
-PagerDuty ack sync are not available yet.
+alert has resolved in the meantime, the page says so.
 
 Why it works this way: [ADR-0127](../../docs-internal/adr/0127-alert-ack-link.md).
+
+## Acknowledge from Slack
+
+A Slack channel can show an **Acknowledge** button under the alert. It needs a
+Slack app, because Slack only delivers button clicks to an app:
+
+1. Create a Slack app, add an incoming webhook to it and use that webhook URL in a
+   notification channel (a `hooks.slack.com` URL, as before).
+2. Under **Interactivity & Shortcuts**, turn interactivity on and set the Request URL
+   to `https://<your-api-host>/api/alerts/slack-interactivity`. This is the address of
+   Flare.Api, which Slack must be able to reach.
+3. Copy the app's **Signing Secret** into `Alerting:SlackSigningSecret` on both
+   Flare.Api and Flare.AlertWorker (`Alerting__SlackSigningSecret` as an environment
+   variable). The worker only uses it to decide whether to add the button.
+
+With the secret set, a firing notification to a Slack webhook carries the button.
+Pressing it acknowledges the incident, recorded as `Slack: <username>`, and posts
+"acknowledged by" in the channel. Flare checks Slack's request signature and
+refuses anything older than five minutes. Without the secret the button is not
+sent and the endpoint answers 404. A button on an old message that has expired or
+whose alert has resolved replies only to the person who pressed it.
+
+## Acknowledge from PagerDuty
+
+If a rule notifies a PagerDuty channel, acknowledging the incident in PagerDuty
+can acknowledge it in Flare too:
+
+1. In PagerDuty, add a **V3 webhook subscription** (Integrations > Generic
+   Webhooks) with the URL `https://<your-api-host>/api/alerts/pagerduty-webhook` and the
+   events `incident.acknowledged` and `incident.unacknowledged`.
+2. Copy the subscription's secret into `Alerting:PagerDutyWebhookSecret` on Flare.Api.
+
+An acknowledge in PagerDuty is recorded in Flare as `PagerDuty: <name>`, so
+re-notifications and escalation stop. If PagerDuty's acknowledgement times out or is
+withdrawn, Flare clears the acknowledgement it recorded from PagerDuty, and leaves
+one made in Flare alone. Only incidents Flare opened are matched, by their
+`flare-alert-...` incident key. The sync goes one way: acknowledging in Flare does
+not change the PagerDuty incident.
+
+Why it works this way: [ADR-0138](../../docs-internal/adr/0138-alert-ack-slack-pagerduty.md).
 
 ## Escalate if nobody acknowledges
 

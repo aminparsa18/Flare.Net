@@ -93,10 +93,6 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Ack from Slack and PagerDuty.** The signed acknowledge link (ADR-0127) and the
-  `flare alerts ack|snooze|unack` commands shipped. Still missing: a Slack button and
-  PagerDuty ack sync. Both are inbound integrations that need per-instance setup (a Slack app,
-  a PagerDuty webhook). Needs an ADR.
 - **Rotation schedule restrictions.** Rotations (ADR-0126) are fixed-length back-to-back
   shifts with one-off overrides (ADR-0137). Not expressible: time-of-day or weekday
   restrictions such as "business hours only" or follow-the-sun. Needs an ADR.

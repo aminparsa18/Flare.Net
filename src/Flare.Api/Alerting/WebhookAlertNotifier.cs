@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
 
@@ -27,6 +28,35 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
         Uri.TryCreate(url, UriKind.Absolute, out var uri)
         && (uri.Host.Equals("hooks.slack.com", StringComparison.OrdinalIgnoreCase)
             || uri.Host.Equals("hooks.slack-gov.com", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The Slack Acknowledge button's <c>action_id</c>, matched by <c>/api/alerts/slack-interactivity</c>.</summary>
+    internal const string SlackAckActionId = "flare_ack";
+
+    // Slack rejects a section whose text passes 3000 characters.
+    private const int SlackSectionLimit = 2900;
+
+    /// <summary>
+    /// Blocks carrying the message and an Acknowledge button for a real firing Slack send when the
+    /// Slack app is set up (<paramref name="signingSecret"/> present); null otherwise. The button's
+    /// value is the signed token from <paramref name="ackUrl"/>, which the interactivity endpoint redeems.
+    /// </summary>
+    internal static object[]? SlackAckBlocks(string? webhookUrl, string text, string? ackUrl, bool resolved, bool isTest, string signingSecret)
+    {
+        if (resolved || isTest || string.IsNullOrEmpty(signingSecret) || !IsSlackWebhook(webhookUrl) || AlertAckLinkSigner.TokenFromUrl(ackUrl) is not { } token)
+        {
+            return null;
+        }
+
+        return
+        [
+            new { type = "section", text = new { type = "mrkdwn", text = text.Length > SlackSectionLimit ? text[..SlackSectionLimit] + "..." : text } },
+            new
+            {
+                type = "actions",
+                elements = new object[] { new { type = "button", action_id = SlackAckActionId, style = "primary", text = new { type = "plain_text", text = "Acknowledge" }, value = token } },
+            },
+        ];
+    }
 
     public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
@@ -87,11 +117,21 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
             // Signed one-click acknowledge link (ADR-0127), null for a test/resolved send or without
             // Alerting:PublicUrl. Opens a confirmation page in the dashboard - it never acks on a bare GET.
             ackUrl,
+            // Slack only: the message as blocks plus an Acknowledge button (ADR-0138). `text` above
+            // stays as the notification fallback. Null here, and removed before sending, otherwise.
+            blocks = SlackAckBlocks(channel.WebhookUrl, message.Combined, ackUrl, resolved, isTest, linkOptions.Value.SlackSigningSecret),
         };
 
         try
         {
-            using var response = await httpClient.PostAsJsonAsync(channel.WebhookUrl, payload, cancellationToken);
+            // `blocks` is the one field dropped rather than sent as null: Slack validates it when present.
+            var body = JsonSerializer.SerializeToNode(payload, JsonSerializerOptions.Web)!.AsObject();
+            if (payload.blocks is null)
+            {
+                body.Remove("blocks");
+            }
+
+            using var response = await httpClient.PostAsJsonAsync(channel.WebhookUrl, body, cancellationToken);
             return new NotificationResult(
                 response.IsSuccessStatusCode,
                 (int)response.StatusCode,
