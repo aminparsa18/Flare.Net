@@ -68,10 +68,13 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Continuous profiling (later).** Ingest the OTLP profiles signal once it
-  stabilizes, store per-service profiles, and link spans to flame graphs of
-  what the code was doing during that span. Placeholder for when the spec
-  and .NET support settle. Not started.
+- **Continuous profiling: query and UI.** Ingest and storage are done
+  ([ADR-0141](../adr/0141-continuous-profiling-ingest.md)): OTLP profiles land in
+  `profile_samples` with the stack resolved and the span link in `TraceId`/`SpanId`.
+  The query API (`/api/profiles/types`, `/api/profiles/flamegraph`) is done. Remaining: a
+  Profiles page, a "profile for this span" link from the trace waterfall, the Ingestion and
+  Pipeline pages listing the profiles signal, retention, and an e2e with the Collector's
+  pprof receiver. OTLP profiles is still Alpha, so re-check the vendored proto on each tag bump.
 - **Scheduled dashboard reports.** There's no way to email a dashboard on a
   schedule (weekly SLO/latency report to a team). Add per-dashboard
   schedules (cron, recipients, relative time range, variable values), a

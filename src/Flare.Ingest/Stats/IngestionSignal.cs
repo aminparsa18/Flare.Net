@@ -10,4 +10,5 @@ public enum IngestionSignal
     Logs,
     Traces,
     Metrics,
+    Profiles,
 }

@@ -47,6 +47,8 @@ builder.Services.Configure<SpanEventPipelineOptions>(
     builder.Configuration.GetSection(SpanEventPipelineOptions.SectionName));
 builder.Services.Configure<MetricEventPipelineOptions>(
     builder.Configuration.GetSection(MetricEventPipelineOptions.SectionName));
+builder.Services.Configure<ProfileEventPipelineOptions>(
+    builder.Configuration.GetSection(ProfileEventPipelineOptions.SectionName));
 
 // Redis: durable buffer the pipeline writes to (RedisStreamLogEventSink) and reads from
 // (ClickHouseFlushWorker). ClickHouse: batched insert destination. Connection names must
@@ -120,6 +122,12 @@ else
 }
 builder.Services.AddSingleton<IClickHouseSpanWriter, ClickHouseSpanWriter>();
 builder.Services.AddHostedService<SpanFlushWorker>();
+
+// Profiles (ADR-0141, OTLP profiles is Alpha) - another parallel pipeline: own Redis stream,
+// own flush worker, own ClickHouse table.
+builder.Services.AddSingleton<IProfileSampleSink, RedisStreamProfileSampleSink>();
+builder.Services.AddSingleton<IClickHouseProfileWriter, ClickHouseProfileWriter>();
+builder.Services.AddHostedService<ProfileFlushWorker>();
 
 // Metrics - unlike spans, one shared Redis stream/flush worker for all three point
 // types (Gauge/Sum/Histogram); see MetricFlushWorker's remarks for why.
@@ -220,5 +228,8 @@ app.MapOtlpHttpTraceEndpoint();
 
 app.MapGrpcService<OtlpGrpcMetricsService>();
 app.MapOtlpHttpMetricsEndpoint();
+
+app.MapGrpcService<OtlpGrpcProfilesService>();
+app.MapOtlpHttpProfilesEndpoint();
 
 app.Run();
