@@ -87,6 +87,76 @@ public class SyntheticMonitorTests
         CreatedAt = DateTimeOffset.UnixEpoch, UpdatedAt = DateTimeOffset.UnixEpoch,
     };
 
+    [Fact]
+    public async Task Dns_probe_resolves_localhost_and_checks_the_expected_answer()
+    {
+        var prober = new SyntheticProber(new NoHttp(), TimeProvider.System);
+        var monitor = Monitor(SyntheticMonitorKind.Dns, "localhost") with { Method = "A" };
+
+        var up = await prober.ProbeAsync(monitor with { ExpectedAnswer = "127.0.0.1" }, CancellationToken.None);
+        var wrong = await prober.ProbeAsync(monitor with { ExpectedAnswer = "203.0.113.9" }, CancellationToken.None);
+
+        Assert.True(up.Up);
+        Assert.False(wrong.Up);
+        Assert.Contains("does not include", wrong.Error);
+    }
+
+    [Fact]
+    public async Task Udp_probe_is_up_only_when_a_matching_reply_arrives()
+    {
+        using var server = new System.Net.Sockets.UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        var port = ((IPEndPoint)server.Client.LocalEndPoint!).Port;
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                var received = await server.ReceiveAsync();
+                await server.SendAsync("pong"u8.ToArray(), received.RemoteEndPoint);
+            }
+        });
+        var prober = new SyntheticProber(new NoHttp(), TimeProvider.System);
+        var monitor = Monitor(SyntheticMonitorKind.Udp, $"127.0.0.1:{port}") with { RequestBody = "ping" };
+
+        var up = await prober.ProbeAsync(monitor with { ExpectedAnswer = "pong" }, CancellationToken.None);
+        var mismatch = await prober.ProbeAsync(monitor with { ExpectedAnswer = "nope" }, CancellationToken.None);
+
+        Assert.True(up.Up);
+        Assert.False(mismatch.Up);
+    }
+
+    [Fact]
+    public async Task Udp_probe_with_no_reply_is_down()
+    {
+        using var silent = new System.Net.Sockets.UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        var port = ((IPEndPoint)silent.Client.LocalEndPoint!).Port;
+        var prober = new SyntheticProber(new NoHttp(), TimeProvider.System);
+
+        var result = await prober.ProbeAsync(Monitor(SyntheticMonitorKind.Udp, $"127.0.0.1:{port}", timeout: 1), CancellationToken.None);
+
+        Assert.False(result.Up);
+        Assert.Contains("timed out", result.Error);
+    }
+
+    [Theory]
+    [InlineData(SyntheticMonitorKind.Dns, "example.com", true)]
+    [InlineData(SyntheticMonitorKind.Icmp, "10.0.0.1", true)]
+    [InlineData(SyntheticMonitorKind.Icmp, "::1", true)]
+    [InlineData(SyntheticMonitorKind.Dns, "example.com:53", false)]
+    [InlineData(SyntheticMonitorKind.Icmp, "https://example.com", false)]
+    [InlineData(SyntheticMonitorKind.Udp, "example.com", false)]
+    [InlineData(SyntheticMonitorKind.Udp, "example.com:53", true)]
+    public void New_kinds_validate_their_targets(SyntheticMonitorKind kind, string target, bool valid) =>
+        Assert.Equal(valid, new SyntheticMonitorRequest { Name = "n", Kind = kind, Target = target }.Validate() is null);
+
+    [Fact]
+    public void Dns_validation_checks_record_type_and_expected_address()
+    {
+        var ok = new SyntheticMonitorRequest { Name = "n", Kind = SyntheticMonitorKind.Dns, Target = "example.com", Method = "AAAA", ExpectedAnswer = "::1" };
+        Assert.Null(ok.Validate());
+        Assert.NotNull((ok with { Method = "MX" }).Validate());
+        Assert.NotNull((ok with { ExpectedAnswer = "not-an-ip" }).Validate());
+    }
+
     private sealed class NoHttp : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => throw new InvalidOperationException("unused");

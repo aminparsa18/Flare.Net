@@ -3,6 +3,14 @@ namespace Flare.Api.Synthetic;
 /// <summary>Parsing for the <c>host:port</c> targets of Tcp and Tls monitors - pure.</summary>
 public static class SyntheticTarget
 {
+    /// <summary>Whether <paramref name="target"/> is a bare host name or IP address: no port, scheme, path or whitespace.</summary>
+    public static bool IsHostname(string target)
+    {
+        var text = target.Trim();
+        return text.Length is > 0 and <= 253 && !text.Any(c => char.IsWhiteSpace(c) || c is '/' or '@' or '?' or '#')
+            && (text.Count(c => c == ':') == 0 || System.Net.IPAddress.TryParse(text, out _));
+    }
+
     /// <summary>
     /// Splits <paramref name="target"/> into host and port. A bracketed IPv6 literal (<c>[::1]:443</c>) is
     /// supported. Returns null when the host is empty or the port is missing (and there is no

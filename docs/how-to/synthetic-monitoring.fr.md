@@ -14,13 +14,16 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 
 | Champ | Signification |
 | --- | --- |
-| `kind` | `Http`, `Tcp` ou `Tls`. |
-| `target` | Http : une URL `http(s)` absolue. Tcp : `host:port`. Tls : `host` ou `host:port` (443 par défaut). |
+| `kind` | `Http`, `Tcp`, `Tls`, `Dns`, `Udp` ou `Icmp`. |
+| `target` | Http : une URL `http(s)` absolue. Tcp : `host:port`. Tls : `host` ou `host:port` (443 par défaut). Dns, Icmp : un nom d'hôte ou une adresse IP. Udp : `host:port`. |
 | `method` | Http uniquement : `GET` (défaut), `HEAD`, `POST` ou `OPTIONS`. |
 | `expectedStatus` | Http uniquement : le statut considéré comme « up ». `0` (défaut) signifie tout 2xx ou 3xx. |
 | `requestHeaders` | Http uniquement : en-têtes de requête, un `Name: value` par ligne. L'API ne renvoie jamais les valeurs : elles sont lues sous la forme `********`, et envoyer `Name: ********` lors d'une mise à jour conserve la valeur stockée. |
 | `requestBody` | Http uniquement, `POST` uniquement : le corps de la requête. Un en-tête `Content-Type` définit son type. |
+| `expectedAnswer` | Dns : une adresse IP que la réponse doit inclure (`method` est alors le type d'enregistrement, `A` par défaut ou `AAAA`). Udp : texte que la réponse doit contenir ; `requestBody` est le datagramme envoyé. |
 | `bodyContains` / `bodyNotContains` | Http uniquement : le corps de la réponse doit contenir / ne doit pas contenir ce texte (sensible à la casse ; seul le premier 1 Mio est lu). Une assertion échouée enregistre `synthetic.up` à 0. |
+| `bodyMatchesRegex` | Http uniquement : le corps de la réponse doit correspondre à cette expression régulière. Le moteur est en temps linéaire : lookarounds et rétroréférences sont refusés. |
+| `jsonPath` / `jsonPathEquals` | Http uniquement : un chemin tel que `$.data.items[0].status` ou `$['key']` qui doit exister dans la réponse JSON, et éventuellement valoir `jsonPathEquals` (chaînes sans guillemets, autres valeurs en texte JSON). |
 | `intervalSeconds` | De 10 à 86400, 60 par défaut. |
 | `timeoutSeconds` | De 1 à 120, 10 par défaut, sans dépasser l'intervalle. |
 | `enabled` | `false` met le moniteur en pause. |

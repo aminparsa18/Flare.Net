@@ -3,7 +3,7 @@
 
 import { API_BASE_URL, apiFetch } from './api';
 
-export type SyntheticMonitorKind = 'Http' | 'Tcp' | 'Tls';
+export type SyntheticMonitorKind = 'Http' | 'Tcp' | 'Tls' | 'Dns' | 'Udp' | 'Icmp';
 
 export interface SyntheticMonitorStatus {
 	up: boolean;
@@ -33,6 +33,11 @@ export interface SyntheticMonitor {
 	requestBody: string;
 	bodyContains: string;
 	bodyNotContains: string;
+	bodyMatchesRegex: string;
+	jsonPath: string;
+	jsonPathEquals: string;
+	/** Dns: an IP the answer must include. Udp: text the reply must contain. */
+	expectedAnswer: string;
 	intervalSeconds: number;
 	timeoutSeconds: number;
 	/** Probe locations that run this monitor; empty means every location. */
@@ -57,6 +62,10 @@ export interface SyntheticMonitorRequest {
 	requestBody: string;
 	bodyContains: string;
 	bodyNotContains: string;
+	bodyMatchesRegex: string;
+	jsonPath: string;
+	jsonPathEquals: string;
+	expectedAnswer: string;
 	intervalSeconds: number;
 	timeoutSeconds: number;
 	locations: string[];

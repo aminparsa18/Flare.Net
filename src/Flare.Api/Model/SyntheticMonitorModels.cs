@@ -13,6 +13,15 @@ public enum SyntheticMonitorKind
 
     /// <summary>A TLS handshake to <c>host:port</c>; also reports days until the certificate expires.</summary>
     Tls,
+
+    /// <summary>A DNS lookup of <see cref="SyntheticMonitor.Target"/> (an A or AAAA record via the system resolver).</summary>
+    Dns,
+
+    /// <summary>A UDP datagram to <c>host:port</c>; up when a reply arrives.</summary>
+    Udp,
+
+    /// <summary>An ICMP echo (ping) to a host.</summary>
+    Icmp,
 }
 
 /// <summary>
@@ -52,6 +61,21 @@ public sealed record SyntheticMonitor
 
     /// <summary>Http only: the response body must not contain this text. Empty means no assertion.</summary>
     public string BodyNotContains { get; init; } = "";
+
+    /// <summary>Http only: the response body must match this regular expression (non-backtracking engine). Empty means no assertion.</summary>
+    public string BodyMatchesRegex { get; init; } = "";
+
+    /// <summary>Http only: a path such as <c>$.data.status</c> that must exist in the JSON response. Empty means no assertion.</summary>
+    public string JsonPath { get; init; } = "";
+
+    /// <summary>Http only: the value <see cref="JsonPath"/> must equal (strings unquoted, other values as JSON text). Empty means it only has to exist.</summary>
+    public string JsonPathEquals { get; init; } = "";
+
+    /// <summary>
+    /// Dns: an address the answer must include. Udp: text the reply must contain. Empty means any answer / any
+    /// reply. Ignored by other kinds. For Dns, <see cref="Method"/> holds the record type (<c>A</c> or <c>AAAA</c>).
+    /// </summary>
+    public string ExpectedAnswer { get; init; } = "";
 
     public int IntervalSeconds { get; init; } = 60;
 
@@ -127,6 +151,10 @@ public sealed record SyntheticMonitorRequest
     public const int MaxLocations = 20;
     public const int MaxLocationLength = 64;
 
+    public const int MaxUdpPayloadLength = 1_400;
+
+    private static readonly string[] DnsRecordTypes = ["A", "AAAA"];
+
     private static readonly string[] AllowedMethods = ["GET", "HEAD", "POST", "OPTIONS"];
 
     public required string Name { get; init; }
@@ -150,6 +178,14 @@ public sealed record SyntheticMonitorRequest
     public string? BodyContains { get; init; }
 
     public string? BodyNotContains { get; init; }
+
+    public string? BodyMatchesRegex { get; init; }
+
+    public string? JsonPath { get; init; }
+
+    public string? JsonPathEquals { get; init; }
+
+    public string? ExpectedAnswer { get; init; }
 
     public int? IntervalSeconds { get; init; }
 
@@ -223,12 +259,53 @@ public sealed record SyntheticMonitorRequest
             {
                 return $"bodyContains and bodyNotContains must be at most {MaxAssertionLength} characters.";
             }
+
+            if ((BodyMatchesRegex?.Length ?? 0) > MaxAssertionLength || (JsonPath?.Length ?? 0) > MaxAssertionLength || (JsonPathEquals?.Length ?? 0) > MaxAssertionLength)
+            {
+                return $"bodyMatchesRegex, jsonPath and jsonPathEquals must be at most {MaxAssertionLength} characters.";
+            }
+
+            var assertionError = SyntheticAssertions.ValidateRegex(BodyMatchesRegex) ?? SyntheticAssertions.ValidateJsonPath(JsonPath);
+            if (assertionError is not null)
+            {
+                return assertionError;
+            }
+
+            if (string.IsNullOrEmpty(JsonPath) && !string.IsNullOrEmpty(JsonPathEquals))
+            {
+                return "jsonPathEquals requires jsonPath.";
+            }
+        }
+        else if (kind is SyntheticMonitorKind.Dns or SyntheticMonitorKind.Icmp)
+        {
+            if (!SyntheticTarget.IsHostname(Target))
+            {
+                return "target must be a host name or IP address.";
+            }
+
+            if (kind == SyntheticMonitorKind.Dns)
+            {
+                if (Method is { Length: > 0 } record && !DnsRecordTypes.Contains(record.ToUpperInvariant()))
+                {
+                    return $"method (the record type) must be one of {string.Join(", ", DnsRecordTypes)}.";
+                }
+
+                if ((ExpectedAnswer?.Length ?? 0) > 0 && !System.Net.IPAddress.TryParse(ExpectedAnswer!.Trim(), out _))
+                {
+                    return "expectedAnswer must be an IP address.";
+                }
+            }
         }
         else if (SyntheticTarget.ParseHostPort(Target, kind == SyntheticMonitorKind.Tls ? 443 : null) is null)
         {
             return kind == SyntheticMonitorKind.Tls
                 ? "target must be host or host:port."
                 : "target must be host:port.";
+        }
+        else if (kind == SyntheticMonitorKind.Udp
+            && ((RequestBody?.Length ?? 0) > MaxUdpPayloadLength || (ExpectedAnswer?.Length ?? 0) > MaxAssertionLength))
+        {
+            return $"requestBody must be at most {MaxUdpPayloadLength} characters and expectedAnswer at most {MaxAssertionLength}.";
         }
 
         if (IntervalSeconds is { } interval && (interval < MinIntervalSeconds || interval > MaxIntervalSeconds))

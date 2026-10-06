@@ -32,7 +32,7 @@ public interface ISyntheticMonitorQueryService
 /// </summary>
 public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ISyntheticMonitorQueryService
 {
-    private const string Columns = "Id, Name, Description, Enabled, Kind, Target, Method, ExpectedStatus, IntervalSeconds, TimeoutSeconds, CreatedAt, UpdatedAt, RequestHeaders, RequestBody, BodyContains, BodyNotContains, Locations";
+    private const string Columns = "Id, Name, Description, Enabled, Kind, Target, Method, ExpectedStatus, IntervalSeconds, TimeoutSeconds, CreatedAt, UpdatedAt, RequestHeaders, RequestBody, BodyContains, BodyNotContains, Locations, BodyMatchesRegex, JsonPath, JsonPathEquals, ExpectedAnswer";
 
     internal static SyntheticMonitor Apply(SyntheticMonitor monitor, SyntheticMonitorRequest request) => monitor with
     {
@@ -41,12 +41,16 @@ public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOpti
         Enabled = request.Enabled ?? true,
         Kind = request.Kind ?? SyntheticMonitorKind.Http,
         Target = request.Target.Trim(),
-        Method = (request.Method ?? "GET").ToUpperInvariant(),
+        Method = (request.Method is { Length: > 0 } m ? m : request.Kind == SyntheticMonitorKind.Dns ? "A" : "GET").ToUpperInvariant(),
         ExpectedStatus = request.ExpectedStatus ?? 0,
         RequestHeaders = request.RequestHeaders?.Trim() ?? "",
         RequestBody = request.RequestBody ?? "",
         BodyContains = request.BodyContains ?? "",
         BodyNotContains = request.BodyNotContains ?? "",
+        BodyMatchesRegex = request.BodyMatchesRegex ?? "",
+        JsonPath = request.JsonPath?.Trim() ?? "",
+        JsonPathEquals = request.JsonPathEquals ?? "",
+        ExpectedAnswer = request.ExpectedAnswer?.Trim() ?? "",
         IntervalSeconds = request.IntervalSeconds ?? 60,
         TimeoutSeconds = request.TimeoutSeconds ?? 10,
         Locations = request.NormalizedLocations(),
@@ -178,15 +182,19 @@ public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOpti
         parameters.AddParameter("requestBody", monitor.RequestBody);
         parameters.AddParameter("bodyContains", monitor.BodyContains);
         parameters.AddParameter("bodyNotContains", monitor.BodyNotContains);
+        parameters.AddParameter("bodyMatchesRegex", monitor.BodyMatchesRegex);
+        parameters.AddParameter("jsonPath", monitor.JsonPath);
+        parameters.AddParameter("jsonPathEquals", monitor.JsonPathEquals);
+        parameters.AddParameter("expectedAnswer", monitor.ExpectedAnswer);
         parameters.AddParameter("locations", monitor.Locations.ToArray());
         parameters.AddParameter("createdAt", monitor.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", monitor.UpdatedAt.UtcDateTime);
 
         const string sql = """
             INSERT INTO synthetic_monitors
-                (Id, Name, Description, IsDeleted, Enabled, Kind, Target, Method, ExpectedStatus, IntervalSeconds, TimeoutSeconds, CreatedAt, UpdatedAt, RequestHeaders, RequestBody, BodyContains, BodyNotContains, Locations)
+                (Id, Name, Description, IsDeleted, Enabled, Kind, Target, Method, ExpectedStatus, IntervalSeconds, TimeoutSeconds, CreatedAt, UpdatedAt, RequestHeaders, RequestBody, BodyContains, BodyNotContains, Locations, BodyMatchesRegex, JsonPath, JsonPathEquals, ExpectedAnswer)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {enabled:UInt8}, {kind:String}, {target:String}, {method:String}, {expectedStatus:UInt16}, {intervalSeconds:UInt32}, {timeoutSeconds:UInt32}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {requestHeaders:String}, {requestBody:String}, {bodyContains:String}, {bodyNotContains:String}, {locations:Array(String)})
+                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {enabled:UInt8}, {kind:String}, {target:String}, {method:String}, {expectedStatus:UInt16}, {intervalSeconds:UInt32}, {timeoutSeconds:UInt32}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {requestHeaders:String}, {requestBody:String}, {bodyContains:String}, {bodyNotContains:String}, {locations:Array(String)}, {bodyMatchesRegex:String}, {jsonPath:String}, {jsonPathEquals:String}, {expectedAnswer:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -211,6 +219,10 @@ public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOpti
         BodyContains = reader.GetString(14),
         BodyNotContains = reader.GetString(15),
         Locations = reader.GetFieldValue<string[]>(16),
+        BodyMatchesRegex = reader.GetString(17),
+        JsonPath = reader.GetString(18),
+        JsonPathEquals = reader.GetString(19),
+        ExpectedAnswer = reader.GetString(20),
     };
 
     private static DateTimeOffset ReadUtc(ClickHouseDataReader reader, int ordinal) =>

@@ -28,6 +28,9 @@ public sealed class SyntheticProber(IHttpClientFactory httpClientFactory, TimePr
             {
                 SyntheticMonitorKind.Http => await ProbeHttpAsync(monitor, started, timeout.Token),
                 SyntheticMonitorKind.Tcp => await ProbeTcpAsync(monitor, started, timeout.Token),
+                SyntheticMonitorKind.Dns => await ProbeDnsAsync(monitor, started, timeout.Token),
+                SyntheticMonitorKind.Udp => await ProbeUdpAsync(monitor, started, timeout.Token),
+                SyntheticMonitorKind.Icmp => await ProbeIcmpAsync(monitor, started, timeout.Token),
                 _ => await ProbeTlsAsync(monitor, started, timeout.Token),
             };
         }
@@ -35,7 +38,7 @@ public sealed class SyntheticProber(IHttpClientFactory httpClientFactory, TimePr
         {
             return Failed(started, $"timed out after {monitor.TimeoutSeconds}s");
         }
-        catch (Exception ex) when (ex is HttpRequestException or SocketException or IOException or System.Security.Authentication.AuthenticationException or InvalidOperationException)
+        catch (Exception ex) when (ex is HttpRequestException or SocketException or IOException or System.Net.NetworkInformation.PingException or System.Security.Authentication.AuthenticationException or InvalidOperationException)
         {
             return Failed(started, ex.GetBaseException().Message);
         }
@@ -62,7 +65,8 @@ public sealed class SyntheticProber(IHttpClientFactory httpClientFactory, TimePr
             }
         }
 
-        var assertsBody = monitor.BodyContains.Length > 0 || monitor.BodyNotContains.Length > 0;
+        var assertsBody = monitor.BodyContains.Length > 0 || monitor.BodyNotContains.Length > 0
+            || monitor.BodyMatchesRegex.Length > 0 || monitor.JsonPath.Length > 0;
         // Headers only unless a body assertion needs the body: the probe measures time to first response, and
         // must not download a large body for nothing.
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
@@ -76,7 +80,8 @@ public sealed class SyntheticProber(IHttpClientFactory httpClientFactory, TimePr
         if (assertsBody)
         {
             var body = await ReadBodyAsync(response, cancellationToken);
-            error = BodyAssertionError(body, monitor.BodyContains, monitor.BodyNotContains);
+            error = BodyAssertionError(body, monitor.BodyContains, monitor.BodyNotContains)
+                ?? SyntheticAssertions.Error(body, monitor.BodyMatchesRegex, monitor.JsonPath, monitor.JsonPathEquals);
         }
 
         return new SyntheticProbeResult(error is null, ElapsedMs(started), status, null, error);
@@ -123,6 +128,48 @@ public sealed class SyntheticProber(IHttpClientFactory httpClientFactory, TimePr
         using var tcp = new TcpClient();
         await tcp.ConnectAsync(host, port, cancellationToken);
         return new SyntheticProbeResult(true, ElapsedMs(started), null, null, null);
+    }
+
+    private static async Task<SyntheticProbeResult> ProbeDnsAsync(SyntheticMonitor monitor, long started, CancellationToken cancellationToken)
+    {
+        var family = monitor.Method.Equals("AAAA", StringComparison.OrdinalIgnoreCase) ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork;
+        var addresses = (await System.Net.Dns.GetHostAddressesAsync(monitor.Target.Trim(), family, cancellationToken)).ToList();
+        if (addresses.Count == 0)
+        {
+            return new SyntheticProbeResult(false, ElapsedMs(started), null, null, "no addresses returned");
+        }
+
+        if (System.Net.IPAddress.TryParse(monitor.ExpectedAnswer, out var expected) && !addresses.Contains(expected))
+        {
+            return new SyntheticProbeResult(false, ElapsedMs(started), null, null, $"answer {string.Join(", ", addresses)} does not include {expected}");
+        }
+
+        return new SyntheticProbeResult(true, ElapsedMs(started), null, null, null);
+    }
+
+    private static async Task<SyntheticProbeResult> ProbeUdpAsync(SyntheticMonitor monitor, long started, CancellationToken cancellationToken)
+    {
+        var (host, port) = SyntheticTarget.ParseHostPort(monitor.Target, null) ?? throw new InvalidOperationException("invalid target");
+        using var udp = new UdpClient();
+        udp.Connect(host, port); // connected, so an ICMP port-unreachable surfaces as a SocketException
+        await udp.SendAsync(System.Text.Encoding.UTF8.GetBytes(monitor.RequestBody), cancellationToken);
+        var reply = await udp.ReceiveAsync(cancellationToken);
+        if (monitor.ExpectedAnswer.Length > 0
+            && !System.Text.Encoding.UTF8.GetString(reply.Buffer).Contains(monitor.ExpectedAnswer, StringComparison.Ordinal))
+        {
+            return new SyntheticProbeResult(false, ElapsedMs(started), null, null, "reply does not contain the expected text");
+        }
+
+        return new SyntheticProbeResult(true, ElapsedMs(started), null, null, null);
+    }
+
+    private static async Task<SyntheticProbeResult> ProbeIcmpAsync(SyntheticMonitor monitor, long started, CancellationToken cancellationToken)
+    {
+        using var ping = new System.Net.NetworkInformation.Ping();
+        var reply = await ping.SendPingAsync(monitor.Target.Trim(), TimeSpan.FromSeconds(monitor.TimeoutSeconds), cancellationToken: cancellationToken);
+        return reply.Status == System.Net.NetworkInformation.IPStatus.Success
+            ? new SyntheticProbeResult(true, ElapsedMs(started), null, null, null)
+            : new SyntheticProbeResult(false, ElapsedMs(started), null, null, $"ping failed: {reply.Status}");
     }
 
     private async Task<SyntheticProbeResult> ProbeTlsAsync(SyntheticMonitor monitor, long started, CancellationToken cancellationToken)
