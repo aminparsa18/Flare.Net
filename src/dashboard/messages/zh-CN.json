@@ -3088,7 +3088,7 @@
 	"synthetic_targetHintUdp": "host:port。收到回复数据报时为正常。",
 	"synthetic_targetHintIcmp": "主机名或 IP 地址。ICMP 回显得到响应时为正常。",
 	"synthetic_recordTypeLabel": "记录类型",
-	"synthetic_expectedAddressLabel": "答案必须包含（可选 IP）",
+	"synthetic_expectedAddressLabel": "答案必须包含（A/AAAA 为 IP，其他为文本）",
 	"synthetic_udpPayloadLabel": "负载（可选）",
 	"synthetic_udpReplyContainsLabel": "回复必须包含（可选）",
 	"synthetic_udpHint": "UDP 没有握手：超时内无回复即视为故障，因此仅适用于总会应答的服务。",

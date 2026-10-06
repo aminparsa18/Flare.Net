@@ -20,7 +20,7 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 | `expectedStatus` | Http only: the status that counts as up. `0` (default) means any 2xx or 3xx. |
 | `requestHeaders` | Http only: request headers, one `Name: value` per line. The API never returns the values: they read back as `********`, and sending `Name: ********` on an update keeps the stored value. |
 | `requestBody` | Http only, `POST` only: the request body. A `Content-Type` header sets its type. |
-| `expectedAnswer` | Dns: an IP address the answer must include (`method` is then the record type, `A` by default or `AAAA`). Udp: text the reply must contain; `requestBody` is the datagram sent. |
+| `expectedAnswer` | Dns: text the answer must include (`method` is then the record type: `A` by default, `AAAA`, `MX`, `TXT` or `CNAME`; for `A`/`AAAA` it must be an IP address; MX answers read `10 mail.example.com`; MX, TXT and CNAME are queried directly from the worker's configured name servers). Udp: text the reply must contain; `requestBody` is the datagram sent. |
 | `bodyContains` / `bodyNotContains` | Http only: the response body must contain / must not contain this text (case-sensitive; only the first 1 MiB is read). A failed assertion records `synthetic.up` as 0. |
 | `bodyMatchesRegex` | Http only: the response body must match this regular expression. It runs on a linear-time engine, so lookarounds and backreferences are rejected. |
 | `jsonPath` / `jsonPathEquals` | Http only: a path such as `$.data.items[0].status` or `$['key']` that must exist in the JSON response, and optionally equal `jsonPathEquals` (strings unquoted, other values as JSON text). |

@@ -132,6 +132,23 @@ public sealed class SyntheticProber(IHttpClientFactory httpClientFactory, TimePr
 
     private static async Task<SyntheticProbeResult> ProbeDnsAsync(SyntheticMonitor monitor, long started, CancellationToken cancellationToken)
     {
+        if (SyntheticDnsWire.TypeFor(monitor.Method) is { } type)
+        {
+            var records = await SyntheticDnsWire.ResolveAsync(monitor.Target.Trim(), type, cancellationToken);
+            if (records.Count == 0)
+            {
+                return new SyntheticProbeResult(false, ElapsedMs(started), null, null, $"no {monitor.Method.ToUpperInvariant()} records returned");
+            }
+
+            var wanted = monitor.ExpectedAnswer.Trim().TrimEnd('.');
+            if (wanted.Length > 0 && !records.Any(r => r.Contains(wanted, StringComparison.OrdinalIgnoreCase)))
+            {
+                return new SyntheticProbeResult(false, ElapsedMs(started), null, null, $"answer {string.Join(" | ", records)} does not include {wanted}");
+            }
+
+            return new SyntheticProbeResult(true, ElapsedMs(started), null, null, null);
+        }
+
         var family = monitor.Method.Equals("AAAA", StringComparison.OrdinalIgnoreCase) ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork;
         var addresses = (await System.Net.Dns.GetHostAddressesAsync(monitor.Target.Trim(), family, cancellationToken)).ToList();
         if (addresses.Count == 0)

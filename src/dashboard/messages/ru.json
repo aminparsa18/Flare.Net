@@ -3088,7 +3088,7 @@
 	"synthetic_targetHintUdp": "host:port. Работает, если пришла датаграмма-ответ.",
 	"synthetic_targetHintIcmp": "Имя хоста или IP-адрес. Работает, если ICMP echo получает ответ.",
 	"synthetic_recordTypeLabel": "Тип записи",
-	"synthetic_expectedAddressLabel": "Ответ должен включать (необязательно, IP)",
+	"synthetic_expectedAddressLabel": "Ответ должен включать (IP для A/AAAA, иначе текст)",
 	"synthetic_udpPayloadLabel": "Нагрузка (необязательно)",
 	"synthetic_udpReplyContainsLabel": "Ответ должен содержать (необязательно)",
 	"synthetic_udpHint": "У UDP нет рукопожатия: без ответа за время ожидания монитор считается недоступным, поэтому используйте его только для сервисов, которые всегда отвечают.",
