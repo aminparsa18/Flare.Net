@@ -228,4 +228,45 @@ public class SyntheticMonitorTests
         Assert.Equal("application/json", seen.Content!.Headers.ContentType!.MediaType);
         Assert.Equal("{\"a\":1}", sentBody);
     }
+
+    [Fact]
+    public void Monitor_without_locations_runs_everywhere_and_with_locations_only_there()
+    {
+        var any = Monitor(SyntheticMonitorKind.Tcp, "db:5432");
+        var scoped = any with { Locations = ["eu-west", "us-east"] };
+
+        Assert.True(any.RunsAt("anywhere"));
+        Assert.True(scoped.RunsAt("eu-west"));
+        Assert.False(scoped.RunsAt("ap-south"));
+        Assert.False(scoped.RunsAt("EU-WEST"));
+    }
+
+    [Fact]
+    public void Request_normalizes_locations()
+    {
+        var request = new SyntheticMonitorRequest
+        {
+            Name = "m",
+            Target = "https://example.test",
+            Locations = [" eu-west ", "eu-west", "", "us.east_1"],
+        };
+
+        Assert.Equal(["eu-west", "us.east_1"], request.NormalizedLocations());
+        Assert.Null(request.Validate());
+    }
+
+    [Theory]
+    [InlineData("eu west")]
+    [InlineData("eu/west")]
+    [InlineData("é")]
+    public void Request_rejects_invalid_location_names(string location) =>
+        Assert.NotNull(new SyntheticMonitorRequest { Name = "m", Target = "https://example.test", Locations = [location] }.Validate());
+
+    [Fact]
+    public void Request_rejects_too_many_or_too_long_locations()
+    {
+        var many = Enumerable.Range(0, SyntheticMonitorRequest.MaxLocations + 1).Select(i => $"l{i}").ToList();
+        Assert.NotNull(new SyntheticMonitorRequest { Name = "m", Target = "https://example.test", Locations = many }.Validate());
+        Assert.NotNull(new SyntheticMonitorRequest { Name = "m", Target = "https://example.test", Locations = [new string('a', 65)] }.Validate());
+    }
 }

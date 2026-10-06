@@ -63,6 +63,7 @@ internal sealed class SyntheticMonitorsListCommand : AsyncCommand<SyntheticMonit
         table.AddColumn("Target");
         table.AddColumn("Every");
         table.AddColumn("Enabled");
+        table.AddColumn("Locations");
         table.AddColumn("Latest");
         table.AddColumn("Id");
 
@@ -74,7 +75,8 @@ internal sealed class SyntheticMonitorsListCommand : AsyncCommand<SyntheticMonit
                 Markup.Escape(monitor.Target),
                 SyntheticMonitorFormat.Interval(monitor.IntervalSeconds),
                 monitor.Enabled ? "yes" : "[grey]no[/]",
-                SyntheticMonitorFormat.Latest(monitor.Latest),
+                monitor.Locations.Count == 0 ? "[grey]all[/]" : Markup.Escape(string.Join(", ", monitor.Locations)),
+                SyntheticMonitorFormat.Latest(monitor),
                 $"[grey]{monitor.Id}[/]");
         }
 
@@ -130,6 +132,10 @@ internal sealed class SyntheticMonitorsCreateCommand : AsyncCommand<SyntheticMon
         [Description("Http only: up only when the response body does not contain this text.")]
         public string? BodyNotContains { get; init; }
 
+        [CommandOption("--location <LOCATION>")]
+        [Description("A probe location that runs this monitor (matches a worker's Synthetic:Location). Repeat for several; none means every location. On update, replaces all existing locations.")]
+        public string[]? Locations { get; init; }
+
         [CommandOption("--interval <SECONDS>")]
         [Description("Seconds between probes, 10 to 86400. Defaults to 60.")]
         public int? IntervalSeconds { get; init; }
@@ -177,6 +183,7 @@ internal sealed class SyntheticMonitorsCreateCommand : AsyncCommand<SyntheticMon
             RequestBody = settings.Body,
             BodyContains = settings.BodyContains,
             BodyNotContains = settings.BodyNotContains,
+            Locations = settings.Locations is { Length: > 0 } ? settings.Locations : null,
             IntervalSeconds = settings.IntervalSeconds,
             TimeoutSeconds = settings.TimeoutSeconds,
             Enabled = settings.Enabled,
@@ -263,6 +270,10 @@ internal sealed class SyntheticMonitorsUpdateCommand : AsyncCommand<SyntheticMon
         [Description("Http only: up only when the response body does not contain this text.")]
         public string? BodyNotContains { get; init; }
 
+        [CommandOption("--location <LOCATION>")]
+        [Description("A probe location that runs this monitor (matches a worker's Synthetic:Location). Repeat for several; none means every location. On update, replaces all existing locations.")]
+        public string[]? Locations { get; init; }
+
         [CommandOption("--interval <SECONDS>")]
         public int? IntervalSeconds { get; init; }
 
@@ -327,6 +338,7 @@ internal sealed class SyntheticMonitorsUpdateCommand : AsyncCommand<SyntheticMon
                 RequestBody = settings.Body ?? existing.RequestBody,
                 BodyContains = settings.BodyContains ?? existing.BodyContains,
                 BodyNotContains = settings.BodyNotContains ?? existing.BodyNotContains,
+                Locations = settings.Locations is { Length: > 0 } ? settings.Locations : existing.Locations,
                 IntervalSeconds = settings.IntervalSeconds ?? existing.IntervalSeconds,
                 TimeoutSeconds = settings.TimeoutSeconds ?? existing.TimeoutSeconds,
                 Enabled = settings.Enabled ?? existing.Enabled,
@@ -434,7 +446,18 @@ internal static class SyntheticMonitorFormat
         _ => $"{seconds} s",
     };
 
-    public static string Latest(SyntheticMonitorStatusWire? latest)
+    public static string Latest(SyntheticMonitorWire monitor)
+    {
+        // Several locations: one entry each ("eu up 42 ms, us down"), so a regional outage is visible.
+        if (monitor.LocationStatuses.Count > 1)
+        {
+            return string.Join(", ", monitor.LocationStatuses.Select(l => $"{Markup.Escape(l.Location)} {Status(l.Status)}"));
+        }
+
+        return Status(monitor.Latest);
+    }
+
+    private static string Status(SyntheticMonitorStatusWire? latest)
     {
         if (latest is null)
         {
@@ -485,7 +508,18 @@ internal sealed class SyntheticMonitorWire
 
     public int TimeoutSeconds { get; init; } = 10;
 
+    public List<string> Locations { get; init; } = [];
+
     public SyntheticMonitorStatusWire? Latest { get; init; }
+
+    public List<SyntheticLocationStatusWire> LocationStatuses { get; init; } = [];
+}
+
+internal sealed class SyntheticLocationStatusWire
+{
+    public string Location { get; init; } = "";
+
+    public SyntheticMonitorStatusWire? Status { get; init; }
 }
 
 internal sealed class SyntheticMonitorListResponseWire
@@ -518,6 +552,8 @@ internal sealed class SyntheticMonitorRequestWire
     public int? IntervalSeconds { get; init; }
 
     public int? TimeoutSeconds { get; init; }
+
+    public IReadOnlyList<string>? Locations { get; init; }
 
     public bool? Enabled { get; init; }
 }

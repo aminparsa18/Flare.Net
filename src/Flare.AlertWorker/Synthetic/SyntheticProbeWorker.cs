@@ -12,7 +12,7 @@ namespace Flare.AlertWorker.Synthetic;
 /// </summary>
 /// <remarks>
 /// Every replica runs this loop, so a probe is claimed with <c>SET NX</c> on a per-monitor Redis key whose
-/// expiry is the monitor's interval: whichever replica sets it runs that probe, the rest skip it until the key
+/// expiry is the monitor's interval (and which names the location, so each location probes independently): whichever replica sets it runs that probe, the rest skip it until the key
 /// expires. Unlike <see cref="Alerting.AlertEvaluationWorker"/> there is no per-tick lock - monitors are
 /// independent, so replicas can split them. A replica that dies after claiming loses at most one probe.
 /// </remarks>
@@ -57,28 +57,30 @@ public sealed class SyntheticProbeWorker(
     private async Task TickAsync(SemaphoreSlim gate, CancellationToken cancellationToken)
     {
         var db = redis.GetDatabase();
+        var location = LocationOf(options.Value);
         var running = new List<Task>();
         foreach (var monitor in await monitors.ListAsync(cancellationToken))
         {
             if (!monitor.Enabled
-                || !await db.StringSetAsync(ClaimKey(monitor.Id), "1", TimeSpan.FromSeconds(monitor.IntervalSeconds), When.NotExists))
+                || !monitor.RunsAt(location)
+                || !await db.StringSetAsync(ClaimKey(monitor.Id, location), "1", TimeSpan.FromSeconds(monitor.IntervalSeconds), When.NotExists))
             {
                 continue;
             }
 
             await gate.WaitAsync(cancellationToken);
-            running.Add(RunAsync(monitor, gate, cancellationToken));
+            running.Add(RunAsync(monitor, location, gate, cancellationToken));
         }
 
         await Task.WhenAll(running);
     }
 
-    private async Task RunAsync(SyntheticMonitor monitor, SemaphoreSlim gate, CancellationToken cancellationToken)
+    private async Task RunAsync(SyntheticMonitor monitor, string location, SemaphoreSlim gate, CancellationToken cancellationToken)
     {
         try
         {
             var result = await prober.ProbeAsync(monitor, cancellationToken);
-            await writer.WriteAsync(monitor, result, timeProvider.GetUtcNow(), cancellationToken);
+            await writer.WriteAsync(monitor, location, result, timeProvider.GetUtcNow(), cancellationToken);
             if (!result.Up)
             {
                 logger.LogDebug("Monitor {Monitor} ({Target}) is down: {Error}", monitor.Name, monitor.Target, result.Error);
@@ -98,5 +100,10 @@ public sealed class SyntheticProbeWorker(
         }
     }
 
-    private static RedisKey ClaimKey(Guid monitorId) => $"flare:synthetic:claim:{monitorId:N}";
+    /// <summary>This worker's location name, falling back to <see cref="SyntheticMetrics.DefaultLocation"/> when blank.</summary>
+    internal static string LocationOf(SyntheticOptions options) =>
+        string.IsNullOrWhiteSpace(options.Location) ? SyntheticMetrics.DefaultLocation : options.Location.Trim();
+
+    // Per location, so every location probes once per interval; replicas of the same location share the key.
+    private static RedisKey ClaimKey(Guid monitorId, string location) => $"flare:synthetic:claim:{monitorId:N}:{location}";
 }

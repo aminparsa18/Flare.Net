@@ -73,6 +73,7 @@
 					<Table.Head>{m.synthetic_colType()}</Table.Head>
 					<Table.Head>{m.synthetic_colTarget()}</Table.Head>
 					<Table.Head>{m.synthetic_colInterval()}</Table.Head>
+					<Table.Head>{m.synthetic_colLocations()}</Table.Head>
 					<Table.Head>{m.synthetic_colStatus()}</Table.Head>
 					<Table.Head>{m.synthetic_colEnabled()}</Table.Head>
 					<Table.Head class="text-right">{m.synthetic_colActions()}</Table.Head>
@@ -92,6 +93,9 @@
 							{monitor.target}
 						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{interval(monitor.intervalSeconds)}</Table.Cell>
+						<Table.Cell class="text-muted-foreground text-xs">
+							{monitor.locations?.length ? monitor.locations.join(', ') : m.synthetic_locationsAll()}
+						</Table.Cell>
 						<Table.Cell title={monitor.latest ? m.synthetic_statusChecked({ time: formatDateTime(monitor.latest.time) }) : undefined}>
 							{#if !monitor.latest}
 								<span class="text-muted-foreground text-xs">{m.synthetic_statusNoData()}</span>
@@ -101,6 +105,18 @@
 								</Badge>
 								{#if monitor.latest.durationMs !== null}
 									<span class="text-muted-foreground ml-1 text-xs">{Math.round(monitor.latest.durationMs)} ms</span>
+								{/if}
+								{#if (monitor.locationStatuses?.length ?? 0) > 1}
+									<div class="mt-1 flex flex-wrap gap-1">
+										{#each monitor.locationStatuses ?? [] as loc (loc.location)}
+											<Badge
+												variant={loc.status.up ? 'outline' : 'destructive'}
+												title={m.synthetic_statusChecked({ time: formatDateTime(loc.status.time) })}
+											>
+												{loc.location}{loc.status.durationMs !== null ? ` ${Math.round(loc.status.durationMs)} ms` : ''}
+											</Badge>
+										{/each}
+									</div>
 								{/if}
 							{/if}
 						</Table.Cell>

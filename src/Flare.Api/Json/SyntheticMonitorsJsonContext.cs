@@ -14,4 +14,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(SyntheticMonitor))]
 [JsonSerializable(typeof(SyntheticMonitorListResponse))]
 [JsonSerializable(typeof(SyntheticMonitorStatus))]
+[JsonSerializable(typeof(SyntheticLocationStatus))]
 public sealed partial class SyntheticMonitorsJsonContext : JsonSerializerContext;

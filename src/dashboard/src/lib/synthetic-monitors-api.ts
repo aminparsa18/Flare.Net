@@ -13,6 +13,11 @@ export interface SyntheticMonitorStatus {
 	certExpiryDays: number | null;
 }
 
+export interface SyntheticLocationStatus {
+	location: string;
+	status: SyntheticMonitorStatus;
+}
+
 export interface SyntheticMonitor {
 	id: string;
 	name: string;
@@ -30,10 +35,14 @@ export interface SyntheticMonitor {
 	bodyNotContains: string;
 	intervalSeconds: number;
 	timeoutSeconds: number;
+	/** Probe locations that run this monitor; empty means every location. */
+	locations: string[];
 	createdAt: string;
 	updatedAt: string;
 	/** Most recent probe result; only present on list responses, and absent until a probe has run. */
 	latest?: SyntheticMonitorStatus | null;
+	/** Latest result per location; only present on list responses. */
+	locationStatuses?: SyntheticLocationStatus[];
 }
 
 export interface SyntheticMonitorRequest {
@@ -50,6 +59,7 @@ export interface SyntheticMonitorRequest {
 	bodyNotContains: string;
 	intervalSeconds: number;
 	timeoutSeconds: number;
+	locations: string[];
 }
 
 async function failure(res: Response, what: string): Promise<Error> {
