@@ -39,6 +39,11 @@ builder.WebHost.ConfigureKestrel(options =>
     options.ListenAnyIP(4318, o => o.Protocols = HttpProtocols.Http1AndHttp2);
 });
 
+// The Collector's otlphttp exporter (and most OTLP/HTTP SDKs) gzip request bodies by
+// default. The built-in providers handle gzip/deflate/br via Content-Encoding and keep
+// enforcing Kestrel's MaxRequestBodySize on the decompressed stream.
+builder.Services.AddRequestDecompression();
+
 builder.Services.AddGrpc(options => options.MaxReceiveMessageSize = (int)otlpReceiverOptions.MaxRequestSizeBytes);
 
 builder.Services.Configure<LogEventPipelineOptions>(
@@ -214,6 +219,8 @@ await IdentityMigrationRunner.ApplyAsync(
 await app.Services.GetRequiredService<IngestApiKeyCache>().InitializeAsync(CancellationToken.None);
 
 app.MapDefaultEndpoints();
+
+app.UseRequestDecompression();
 
 // Must come after MapDefaultEndpoints() (so /health and /alive stay reachable
 // unconditionally - see the middleware's own remarks for why this is a positive

@@ -91,7 +91,8 @@ public static class ProfileQueryBuilder
             "Timestamp < {to:DateTime64(9)}",
         };
 
-        if (!string.IsNullOrWhiteSpace(service))
+        // Empty is a real value: profiles without a service.name are stored under ''.
+        if (service is not null)
         {
             parameters.AddParameter("service", service);
             clauses.Add("ServiceName = {service:String}");

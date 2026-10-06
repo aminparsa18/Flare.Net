@@ -46,6 +46,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Surveiller les appels LLM](how-to/monitor-llm-calls.fr.md)
 - [Trouver où les requêtes décrochent avec les entonnoirs de traces](how-to/analyze-trace-funnels.fr.md)
 - [Trouver les requêtes N+1](how-to/find-n-plus-one-queries.fr.md)
+- [Explorer les profils continus](how-to/profile-with-continuous-profiling.fr.md)
 - [Trouver les problèmes de santé du runtime .NET](how-to/find-runtime-health-problems.fr.md)
 - [Comparer deux déploiements d'un service](how-to/compare-deploys.fr.md)
 - [Définir des SLO et être alerté quand le budget d'erreurs se consomme](how-to/define-slos.fr.md)

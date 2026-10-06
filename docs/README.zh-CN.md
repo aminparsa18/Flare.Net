@@ -46,6 +46,7 @@
 - [监控 LLM 调用](how-to/monitor-llm-calls.zh-CN.md)
 - [使用追踪漏斗找出请求流失的环节](how-to/analyze-trace-funnels.zh-CN.md)
 - [查找 N+1 查询](how-to/find-n-plus-one-queries.zh-CN.md)
+- [使用持续性能剖析](how-to/profile-with-continuous-profiling.zh-CN.md)
 - [查找 .NET 运行时健康问题](how-to/find-runtime-health-problems.zh-CN.md)
 - [对比服务的两次部署](how-to/compare-deploys.zh-CN.md)
 - [定义 SLO 并在错误预算被快速消耗时收到告警](how-to/define-slos.zh-CN.md)

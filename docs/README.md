@@ -46,6 +46,7 @@ the full rule set on what goes where.
 - [Monitor LLM calls](how-to/monitor-llm-calls.md)
 - [Find where requests drop off with trace funnels](how-to/analyze-trace-funnels.md)
 - [Find N+1 queries](how-to/find-n-plus-one-queries.md)
+- [Explore continuous profiles](how-to/profile-with-continuous-profiling.md)
 - [Find .NET runtime health problems](how-to/find-runtime-health-problems.md)
 - [Compare two deploys of a service](how-to/compare-deploys.md)
 - [Define SLOs and get alerted when the error budget burns](how-to/define-slos.md)

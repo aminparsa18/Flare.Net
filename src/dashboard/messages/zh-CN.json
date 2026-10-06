@@ -3187,5 +3187,7 @@
 	"profilesPage_clearSpan": "清除",
 	"spanDetail_viewProfile": "查看性能剖析",
 	"ingestionSignal_profiles": "性能剖析",
-	"rejectedTelemetryDialog_profileNoun": "性能剖析"
+	"rejectedTelemetryDialog_profileNoun": "性能剖析",
+	"profilesPage_noService": "（无服务名）",
+	"profilesPage_noStacks": "这些样本不带调用栈，因此无法绘制火焰图。请确认发送端包含调用栈数据。"
 }

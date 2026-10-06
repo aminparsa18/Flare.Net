@@ -51,7 +51,7 @@ public sealed partial record ProfileTypesResponse
 [GenerateTypeScript]
 public sealed partial record FlameGraphRequest
 {
-    /// <summary>Exact <c>ServiceName</c>. Required.</summary>
+    /// <summary>Exact <c>ServiceName</c>. Required, but may be empty: profiles whose resource has no <c>service.name</c> are stored with an empty one.</summary>
     public string? Service { get; init; }
 
     /// <summary>Exact sample type, e.g. <c>cpu</c>. Required - values of different types aren't summable.</summary>

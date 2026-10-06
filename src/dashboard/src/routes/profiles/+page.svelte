@@ -35,6 +35,9 @@
 	const sampleTypes = $derived(types.filter((t) => t.service === service));
 	const windowMinutes = $derived(SERVICES_WINDOW_PRESETS.find((p) => p.value === windowPreset)?.minutes ?? 60);
 
+	// Profiles from senders that set no service.name (e.g. the Collector's pprof receiver) are stored under ''.
+	const serviceLabel = (s: string) => s || m.profilesPage_noService();
+
 	function syncUrl() {
 		const q = new URLSearchParams();
 		if (service) q.set('service', service);
@@ -60,7 +63,7 @@
 			if (!types.some((t) => t.service === service && t.sampleType === sampleType)) {
 				sampleType = types.find((t) => t.service === service)?.sampleType ?? '';
 			}
-			if (service && sampleType) {
+			if (sampleType) {
 				graph = await getFlameGraph(
 					{ service, sampleType, windowMinutes, traceId: traceId || undefined, spanId: spanId || undefined },
 					mine.signal
@@ -105,10 +108,10 @@
 				void load();
 			}}
 		>
-			<Select.Trigger class="w-48">{service || m.profilesPage_service()}</Select.Trigger>
+			<Select.Trigger class="w-48">{typesLoaded && sampleType ? serviceLabel(service) : m.profilesPage_service()}</Select.Trigger>
 			<Select.Content>
 				{#each services as s (s)}
-					<Select.Item value={s} label={s} />
+					<Select.Item value={s} label={serviceLabel(s)} />
 				{/each}
 			</Select.Content>
 		</Select.Root>
@@ -176,6 +179,8 @@
 		<p class="text-muted-foreground px-4 py-6 text-sm">{m.profilesPage_noTypes()}</p>
 	{:else if graph && graph.root.total === 0}
 		<p class="text-muted-foreground px-4 py-6 text-sm">{m.profilesPage_empty()}</p>
+	{:else if graph && graph.root.children.length === 0}
+		<p class="text-muted-foreground px-4 py-6 text-sm">{m.profilesPage_noStacks()}</p>
 	{:else if graph}
 		<ProfileFlameGraph {graph} />
 	{:else if !typesLoaded}
