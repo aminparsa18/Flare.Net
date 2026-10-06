@@ -14,7 +14,7 @@ public enum SyntheticMonitorKind
     /// <summary>A TLS handshake to <c>host:port</c>; also reports days until the certificate expires.</summary>
     Tls,
 
-    /// <summary>A DNS lookup of <see cref="SyntheticMonitor.Target"/> (an A or AAAA record via the system resolver).</summary>
+    /// <summary>A DNS lookup of <see cref="SyntheticMonitor.Target"/> (an A or AAAA record via the system resolver, or an MX, TXT or CNAME record queried from the configured name servers).</summary>
     Dns,
 
     /// <summary>A UDP datagram to <c>host:port</c>; up when a reply arrives.</summary>
@@ -73,7 +73,7 @@ public sealed record SyntheticMonitor
 
     /// <summary>
     /// Dns: an address the answer must include. Udp: text the reply must contain. Empty means any answer / any
-    /// reply. Ignored by other kinds. For Dns, <see cref="Method"/> holds the record type (<c>A</c> or <c>AAAA</c>).
+    /// reply. Ignored by other kinds. For Dns, <see cref="Method"/> holds the record type (<c>A</c>, <c>AAAA</c>, <c>MX</c>, <c>TXT</c> or <c>CNAME</c>); for MX, TXT and CNAME the answer must contain this text.
     /// </summary>
     public string ExpectedAnswer { get; init; } = "";
 
@@ -153,7 +153,7 @@ public sealed record SyntheticMonitorRequest
 
     public const int MaxUdpPayloadLength = 1_400;
 
-    private static readonly string[] DnsRecordTypes = ["A", "AAAA"];
+    private static readonly string[] DnsRecordTypes = ["A", "AAAA", "MX", "TXT", "CNAME"];
 
     private static readonly string[] AllowedMethods = ["GET", "HEAD", "POST", "OPTIONS"];
 
@@ -290,9 +290,9 @@ public sealed record SyntheticMonitorRequest
                     return $"method (the record type) must be one of {string.Join(", ", DnsRecordTypes)}.";
                 }
 
-                if ((ExpectedAnswer?.Length ?? 0) > 0 && !System.Net.IPAddress.TryParse(ExpectedAnswer!.Trim(), out _))
+                if ((ExpectedAnswer?.Length ?? 0) > 0 && (Method is not { Length: > 0 } || Method.ToUpperInvariant() is "A" or "AAAA") && !System.Net.IPAddress.TryParse(ExpectedAnswer!.Trim(), out _))
                 {
-                    return "expectedAnswer must be an IP address.";
+                    return "expectedAnswer must be an IP address for A and AAAA records.";
                 }
             }
         }

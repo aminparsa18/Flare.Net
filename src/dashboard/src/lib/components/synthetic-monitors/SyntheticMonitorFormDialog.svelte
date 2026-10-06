@@ -184,7 +184,7 @@
 						<Select.Root type="single" value={dnsRecord} onValueChange={(v) => (dnsRecord = v)}>
 							<Select.Trigger class="w-28">{dnsRecord}</Select.Trigger>
 							<Select.Content>
-								{#each ['A', 'AAAA'] as option (option)}
+								{#each ['A', 'AAAA', 'MX', 'TXT', 'CNAME'] as option (option)}
 									<Select.Item value={option} label={option} />
 								{/each}
 							</Select.Content>

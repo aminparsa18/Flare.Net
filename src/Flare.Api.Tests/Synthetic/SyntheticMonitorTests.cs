@@ -149,11 +149,47 @@ public class SyntheticMonitorTests
         Assert.Equal(valid, new SyntheticMonitorRequest { Name = "n", Kind = kind, Target = target }.Validate() is null);
 
     [Fact]
+    public async Task Dns_client_decodes_mx_txt_and_cname_answers_from_a_name_server()
+    {
+        using var server = new System.Net.Sockets.UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
+        var endpoint = (IPEndPoint)server.Client.LocalEndPoint!;
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                var request = await server.ReceiveAsync();
+                var q = request.Buffer;
+                var type = (ushort)((q[^4] << 8) | q[^3]);
+                byte[] rdata = type switch
+                {
+                    15 => [0, 10, 4, (byte)'m', (byte)'a', (byte)'i', (byte)'l', 0xC0, 12], // 10 mail.<question name>
+                    16 => [3, (byte)'a', (byte)'b', (byte)'c', 2, (byte)'d', (byte)'e'],
+                    _ => [3, (byte)'w', (byte)'w', (byte)'w', 0xC0, 12],
+                };
+                var reply = new List<byte> { q[0], q[1], 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0 };
+                reply.AddRange(q.Skip(12));
+                reply.AddRange(new byte[] { 0xC0, 12, (byte)(type >> 8), (byte)type, 0, 1, 0, 0, 0, 60, 0, (byte)rdata.Length });
+                reply.AddRange(rdata);
+                await server.SendAsync(reply.ToArray(), request.RemoteEndPoint);
+            }
+        });
+
+        var mx = await SyntheticDnsWire.ResolveAsync(endpoint, "example.com", SyntheticDnsWire.TypeMx, CancellationToken.None);
+        var txt = await SyntheticDnsWire.ResolveAsync(endpoint, "example.com", SyntheticDnsWire.TypeTxt, CancellationToken.None);
+        var cname = await SyntheticDnsWire.ResolveAsync(endpoint, "example.com", SyntheticDnsWire.TypeCname, CancellationToken.None);
+
+        Assert.Equal(["10 mail.example.com"], mx);
+        Assert.Equal(["abcde"], txt);
+        Assert.Equal(["www.example.com"], cname);
+    }
+
+    [Fact]
     public void Dns_validation_checks_record_type_and_expected_address()
     {
         var ok = new SyntheticMonitorRequest { Name = "n", Kind = SyntheticMonitorKind.Dns, Target = "example.com", Method = "AAAA", ExpectedAnswer = "::1" };
         Assert.Null(ok.Validate());
-        Assert.NotNull((ok with { Method = "MX" }).Validate());
+        Assert.NotNull((ok with { Method = "SRV" }).Validate());
+        Assert.Null((ok with { Method = "MX", ExpectedAnswer = "mail.example.com" }).Validate());
         Assert.NotNull((ok with { ExpectedAnswer = "not-an-ip" }).Validate());
     }
 

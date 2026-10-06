@@ -145,11 +145,11 @@ internal sealed class SyntheticMonitorsCreateCommand : AsyncCommand<SyntheticMon
         public string? JsonPathEquals { get; init; }
 
         [CommandOption("--expected-answer <ANSWER>")]
-        [Description("Dns: an IP address the answer must include. Udp: text the reply must contain.")]
+        [Description("Dns: an IP address (A/AAAA) or text (MX/TXT/CNAME) the answer must include. Udp: text the reply must contain.")]
         public string? ExpectedAnswer { get; init; }
 
         [CommandOption("--record-type <TYPE>")]
-        [Description("Dns only: A (default) or AAAA.")]
+        [Description("Dns only: A (default), AAAA, MX, TXT or CNAME.")]
         public string? RecordType { get; init; }
 
         [CommandOption("--location <LOCATION>")]
@@ -307,11 +307,11 @@ internal sealed class SyntheticMonitorsUpdateCommand : AsyncCommand<SyntheticMon
         public string? JsonPathEquals { get; init; }
 
         [CommandOption("--expected-answer <ANSWER>")]
-        [Description("Dns: an IP address the answer must include. Udp: text the reply must contain.")]
+        [Description("Dns: an IP address (A/AAAA) or text (MX/TXT/CNAME) the answer must include. Udp: text the reply must contain.")]
         public string? ExpectedAnswer { get; init; }
 
         [CommandOption("--record-type <TYPE>")]
-        [Description("Dns only: A (default) or AAAA.")]
+        [Description("Dns only: A (default), AAAA, MX, TXT or CNAME.")]
         public string? RecordType { get; init; }
 
         [CommandOption("--location <LOCATION>")]
