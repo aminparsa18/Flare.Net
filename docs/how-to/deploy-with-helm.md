@@ -9,7 +9,9 @@ and Redis - into a Kubernetes cluster using the chart in
 - A cluster, `kubectl` and Helm 3.
 - A default StorageClass (or set the `*.storageClass` values) for the bundled
   ClickHouse, Redis and identity volumes.
-- A clone of this repository. The chart is not published to a registry yet.
+- This repository cloned, or a release of the chart from the OCI registry: replace
+  `./deploy/helm/flare` below with `oci://ghcr.io/aminparsa18/charts/flare` and add `--version <x.y.z>`
+  (published from each release tag).
 
 ## Try it with port-forwards
 
@@ -126,5 +128,5 @@ job to run. Bump `image.tag` to move versions; it defaults to the chart's
 [Aspire's Helm chart docs](https://aspire.dev/deployment/kubernetes/helm-charts/))
 generates a chart for *your* AppHost's resources. This chart is Flare's own,
 independent of any AppHost. A consumer AppHost that wants Flare in the same
-cluster can install this chart alongside its own with `AddHelmChart`, once the
-chart is published to an OCI registry.
+cluster can install this chart alongside its own with `AddHelmChart`, using the OCI
+chart above.

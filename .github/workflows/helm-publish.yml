@@ -1,0 +1,39 @@
+# Publishes the Helm chart (deploy/helm/flare) as an OCI artifact to GHCR on every release
+# tag, next to the Docker Hub images docker-publish.yml pushes for the same tag:
+#   helm install flare oci://ghcr.io/<owner>/charts/flare --version <x.y.z>
+# The chart's `version` and `appVersion` are both stamped from the git tag, so a chart
+# release always installs the images of the same release by default.
+name: Helm Publish
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Chart version to publish (x.y.z, no leading v)"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Package
+        id: pkg
+        run: |
+          version="${{ inputs.version || github.ref_name }}"
+          version="${version#v}"
+          helm lint deploy/helm/flare
+          helm package deploy/helm/flare --version "$version" --app-version "$version" -d dist
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Push to GHCR
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm push dist/flare-${{ steps.pkg.outputs.version }}.tgz "oci://ghcr.io/${owner}/charts"
