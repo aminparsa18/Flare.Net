@@ -3187,5 +3187,7 @@
 	"profilesPage_clearSpan": "Clear",
 	"spanDetail_viewProfile": "View profile",
 	"ingestionSignal_profiles": "Profiles",
-	"rejectedTelemetryDialog_profileNoun": "profile"
+	"rejectedTelemetryDialog_profileNoun": "profile",
+	"profilesPage_noService": "(no service)",
+	"profilesPage_noStacks": "These samples carry no call stacks, so there is no flame graph to draw. Check that your sender includes stack data."
 }

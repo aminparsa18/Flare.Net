@@ -54,9 +54,9 @@ public static class ProfileEndpoints
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (request is null || string.IsNullOrWhiteSpace(request.Service) || string.IsNullOrWhiteSpace(request.SampleType))
+        if (request is null || request.Service is null || string.IsNullOrWhiteSpace(request.SampleType))
         {
-            return Results.Problem("A request body with a service and a sampleType is required.", statusCode: StatusCodes.Status400BadRequest);
+            return Results.Problem("A request body with a service (empty for series without a service.name) and a sampleType is required.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         var response = await queryService.GetFlameGraphAsync(request, cancellationToken);

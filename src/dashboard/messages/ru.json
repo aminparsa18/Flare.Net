@@ -3187,5 +3187,7 @@
 	"profilesPage_clearSpan": "Сбросить",
 	"spanDetail_viewProfile": "Открыть профиль",
 	"ingestionSignal_profiles": "Профили",
-	"rejectedTelemetryDialog_profileNoun": "профиль"
+	"rejectedTelemetryDialog_profileNoun": "профиль",
+	"profilesPage_noService": "(без сервиса)",
+	"profilesPage_noStacks": "У этих выборок нет стеков вызовов, поэтому flame graph построить нельзя. Убедитесь, что отправитель передаёт данные о стеках."
 }

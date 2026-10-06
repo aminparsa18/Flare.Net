@@ -30,6 +30,14 @@ public class ProfileQueryBuilderTests
     }
 
     [Fact]
+    public void BuildFlameGraph_EmptyService_StillFiltersToTheSeriesWithoutAServiceName()
+    {
+        var built = ProfileQueryBuilder.BuildFlameGraph(new FlameGraphRequest { Service = "", SampleType = "cpu" }, 60, End);
+
+        Assert.Contains("ServiceName = {service:String}", built.Sql);
+    }
+
+    [Fact]
     public void BuildFlameGraph_NarrowsToTheSpan_WhenTraceAndSpanAreGiven()
     {
         var built = ProfileQueryBuilder.BuildFlameGraph(

@@ -46,6 +46,7 @@
 - [Отслеживание вызовов LLM](how-to/monitor-llm-calls.ru.md)
 - [Поиск мест, где отсеиваются запросы, с помощью воронок трассировок](how-to/analyze-trace-funnels.ru.md)
 - [Как найти N+1 запросы](how-to/find-n-plus-one-queries.ru.md)
+- [Как изучать непрерывные профили](how-to/profile-with-continuous-profiling.ru.md)
 - [Как найти проблемы со средой выполнения .NET](how-to/find-runtime-health-problems.ru.md)
 - [Как сравнить два деплоя сервиса](how-to/compare-deploys.ru.md)
 - [Как задать SLO и получать оповещения о расходе бюджета ошибок](how-to/define-slos.ru.md)
