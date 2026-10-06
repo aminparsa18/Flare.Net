@@ -22,9 +22,9 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class TelegramAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, format: AlertMarkupFormat.TelegramHtml, logSamples: logSamples);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, format: AlertMarkupFormat.TelegramHtml, logSamples: logSamples, ackUrl: ackUrl);
         // A custom template is rendered as Telegram HTML (AlertMarkdown escapes every value and
         // emits only b/i/code/a), so user text can't make Telegram reject the send the way an
         // unmatched `_`/`*` would under Markdown. The built-in wording keeps its Markdown parse mode.

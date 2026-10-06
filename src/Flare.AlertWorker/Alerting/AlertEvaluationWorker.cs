@@ -68,6 +68,7 @@ public sealed class AlertEvaluationWorker(
     IOnCallRotationQueryService rotations,
     ISloQueryService slos,
     CompositeAlertNotifier notifier,
+    IAlertAckLinkSigner ackLinks,
     IIncidentSummaryService incidentSummaries,
     IConnectionMultiplexer redis,
     IOptions<AlertingOptions> options,
@@ -425,7 +426,7 @@ public sealed class AlertEvaluationWorker(
         }
 
         var logSamples = await TryGetLogSamplesAsync(rule, from, now, noData, cancellationToken);
-        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly, logSamples: logSamples);
+        var results = await notifier.SendAllAsync(rule, ruleChannels, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly, logSamples: logSamples, ackUrl: ackLinks.CreateUrl(rule.Id, now));
         var firedEntry = WithNotificationOutcome(BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly), rule, ruleChannels, results, "fired");
         await alerts.InsertEventAsync(firedEntry, cancellationToken);
 
@@ -467,7 +468,7 @@ public sealed class AlertEvaluationWorker(
         }
 
         logger.LogInformation("Alert rule {RuleId} ({RuleName}) unacknowledged for {Minutes}m; escalating to {ChannelCount} channel(s).", rule.Id, rule.Name, rule.EscalateAfterMinutes, targets.Count);
-        var results = await notifier.SendAllAsync(rule with { Name = AlertEscalationPolicy.NamePrefix + rule.Name }, targets, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly);
+        var results = await notifier.SendAllAsync(rule with { Name = AlertEscalationPolicy.NamePrefix + rule.Name }, targets, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly, ackUrl: ackLinks.CreateUrl(rule.Id, now));
         var entry = BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly) with { Escalated = true };
         await alerts.InsertEventAsync(WithNotificationOutcome(entry, rule, targets, results, "escalated"), cancellationToken);
     }

@@ -26,4 +26,11 @@ public sealed class AlertLinkOptions
     /// hosting, or that the dashboard's own <c>ORIGIN</c> is set to for docker-compose/CLI.
     /// </summary>
     public string PublicUrl { get; set; } = "";
+
+    /// <summary>
+    /// How long a signed acknowledge link (<c>{{ack_url}}</c>, ADR-0127) stays valid. Every
+    /// notification of an incident carries a fresh one, so this only has to outlast the gap
+    /// between two notifications.
+    /// </summary>
+    public int AckLinkLifetimeHours { get; set; } = 24;
 }

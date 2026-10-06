@@ -1,6 +1,7 @@
 using Flare.Api.Ai;
 using Flare.Api.Alerting;
 using Flare.Api.Query;
+using Microsoft.AspNetCore.DataProtection;
 using Flare.AlertWorker.Alerting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,6 +38,14 @@ builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailO
 // from, via its own options class in Flare.Api since Flare.Api's own send-test endpoints
 // need it too and PollInterval/MaxRulesPerTick are meaningless there.
 builder.Services.Configure<AlertLinkOptions>(builder.Configuration.GetSection(AlertLinkOptions.SectionName));
+// Signs the acknowledge link ({{ack_url}}, ADR-0127). Flare.Api redeems it, so both processes must share one
+// Data Protection key ring: same application name and Redis key as Flare.Api's Program.cs.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Flare")
+    .PersistKeysToStackExchangeRedis(
+        () => StackExchange.Redis.ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("redis")!).GetDatabase(),
+        "Flare-DataProtection-Keys");
+builder.Services.AddSingleton<IAlertAckLinkSigner, AlertAckLinkSigner>();
 // Named/typed HttpClients so the webhook/Slack, Telegram, and PagerDuty senders inherit
 // AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
 // discovery) for free - same registration Flare.Api's own Program.cs makes for its

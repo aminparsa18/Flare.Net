@@ -67,6 +67,24 @@ the "who" is empty.
 
 Why it works this way: [ADR-0124](../../docs-internal/adr/0124-alert-acknowledgement-and-snooze.md).
 
+## Acknowledge from the notification
+
+With `Alerting:PublicUrl` set, every notification for a firing or escalated alert
+carries an **Acknowledge** link, also available to templates as `{{ack_url}}`
+(Teams shows it as a button, the generic webhook as `ackUrl`). Opening it shows
+the rule and an **Acknowledge** button; nothing happens until you press it, so
+mail scanners and chat previews can't acknowledge an alert by fetching the link.
+You don't need to be signed in: the link itself is the credential, and the
+acknowledgement is recorded as `notification link` (or as your name, if you have
+a session).
+
+A link works for the incident it was sent for and expires after 24 hours
+(`Alerting:AckLinkLifetimeHours`); each notification carries a fresh one. If the
+alert has resolved in the meantime, the page says so. A Slack button and
+PagerDuty ack sync are not available yet.
+
+Why it works this way: [ADR-0127](../../docs-internal/adr/0127-alert-ack-link.md).
+
 ## Escalate if nobody acknowledges
 
 A rule can send an unacknowledged incident to a second set of channels. In the

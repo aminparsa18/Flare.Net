@@ -27,6 +27,26 @@ public class AlertMessageFormatterTests
     };
 
     [Fact]
+    public void BuildText_appends_ack_link_for_a_real_fire_only()
+    {
+        const string url = "https://flare.example.com/ack?token=abc";
+        Assert.Contains("\nAcknowledge: " + url, AlertMessageFormatter.BuildText(MakeRule(), 12, ackUrl: url));
+        Assert.DoesNotContain("Acknowledge", AlertMessageFormatter.BuildText(MakeRule(), 12));
+        Assert.DoesNotContain("Acknowledge", AlertMessageFormatter.BuildText(MakeRule(), 12, isTest: true, ackUrl: url));
+        Assert.DoesNotContain("Acknowledge", AlertMessageFormatter.BuildText(MakeRule(), 12, resolved: true, ackUrl: url));
+    }
+
+    [Fact]
+    public void BuildMessage_renders_ack_url_placeholder_and_blanks_it_for_a_test()
+    {
+        const string url = "https://flare.example.com/ack?token=abc";
+        var rule = MakeRule() with { NotificationBodyTemplate = "ack: {{ack_url}}" };
+
+        Assert.Equal("ack: " + url, AlertMessageFormatter.BuildMessage(rule, 12, isTest: false, null, null, DateTimeOffset.UnixEpoch, noData: false, anomaly: null, ackUrl: url).Text);
+        Assert.Equal("[Test] ack: ", AlertMessageFormatter.BuildMessage(rule, 12, isTest: true, null, null, DateTimeOffset.UnixEpoch, noData: false, anomaly: null, ackUrl: url).Text);
+    }
+
+    [Fact]
     public void BuildText_appends_log_samples_for_a_real_fire_only()
     {
         const string samples = "10:00:01 Error api: boom";

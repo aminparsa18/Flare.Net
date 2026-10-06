@@ -43,6 +43,8 @@
 	// now folded into /login itself (see that page), reached only when auth is actually
 	// on and there's no session, per opt-in auth (docs/auth.md).
 	const AUTH_ROUTES = ['/login'];
+	// /ack is the target of a notification's signed acknowledge link: the token is the credential.
+	const PUBLIC_ROUTES = ['/set-password', '/ack'];
 
 	// $effect bodies never run during SSR (Svelte 5's server renderer only evaluates
 	// template/derived state, not effects) - this only ever fires client-side, once, on
@@ -88,7 +90,7 @@
 	// Reachable regardless of session/auth state (an invited user redeeming a set-password
 	// link has no session yet, and one already signed in elsewhere must still see it) and
 	// rendered without app chrome.
-	const onPublicRoute = $derived(stripBase(page.url.pathname) === '/set-password');
+	const onPublicRoute = $derived(PUBLIC_ROUTES.includes(stripBase(page.url.pathname)));
 
 	// /auth (the consolidated enable-auth/configure-methods/manage-users screen) is the
 	// one Admin-only route (server-side enforcement lives in the endpoints it calls -

@@ -3026,5 +3026,16 @@
 	"oncall_errorShift": "Длительность смены — от 1 до 8760 часов.",
 	"oncall_errorParticipants": "Добавьте хотя бы одного участника.",
 	"alertRuleForm_escalateRotation": "График дежурств",
-	"alertRuleForm_escalateRotationNone": "Нет"
+	"alertRuleForm_escalateRotationNone": "Нет",
+	"ackLink_title": "Подтверждение оповещения",
+	"ackLink_description": "Подтвердите, что вы занимаетесь этим оповещением. Повторные уведомления прекратятся до его разрешения.",
+	"ackLink_confirm": "Подтвердить",
+	"ackLink_done": "Подтверждено. Повторные уведомления по этому инциденту прекращены.",
+	"ackLink_alreadyBy": "Уже подтверждено: {user}.",
+	"ackLink_alreadyAnon": "Уже подтверждено.",
+	"ackLink_snoozed": "Это оповещение отложено.",
+	"ackLink_invalid": "Ссылка недействительна или срок её действия истёк. Откройте оповещение во Flare, чтобы подтвердить его.",
+	"ackLink_notFiring": "Это оповещение больше не срабатывает, подтверждать нечего.",
+	"ackLink_missingToken": "В ссылке нет токена.",
+	"ackLink_openAlerts": "Открыть оповещения"
 }

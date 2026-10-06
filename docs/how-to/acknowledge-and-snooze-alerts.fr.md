@@ -69,6 +69,26 @@ de Flare est désactivée, le « qui » est vide.
 
 Pourquoi ce fonctionnement : [ADR-0124](../../docs-internal/adr/0124-alert-acknowledgement-and-snooze.md).
 
+## Acquitter depuis la notification
+
+Lorsque `Alerting:PublicUrl` est défini, chaque notification d'une alerte
+déclenchée ou escaladée contient un lien **Acknowledge**, également disponible
+pour les modèles sous `{{ack_url}}` (Teams l'affiche comme un bouton, le webhook
+générique comme `ackUrl`). Il ouvre une page qui affiche la règle et un bouton
+**Acquitter** ; rien ne se passe tant que vous n'appuyez pas dessus, si bien que
+les scanners de courrier et les aperçus de messagerie ne peuvent pas acquitter
+une alerte en ouvrant le lien. Il n'est pas nécessaire d'être connecté : le lien
+lui-même sert d'identifiant, et l'acquittement est enregistré sous
+`notification link` (ou sous votre nom si vous avez une session).
+
+Un lien est valable pour l'incident pour lequel il a été envoyé et expire après
+24 heures (`Alerting:AckLinkLifetimeHours`) ; chaque notification en contient un
+nouveau. Si l'alerte est résolue entre-temps, la page l'indique. Un bouton Slack
+et la synchronisation des acquittements avec PagerDuty ne sont pas encore
+disponibles.
+
+Pourquoi c'est conçu ainsi : [ADR-0127](../../docs-internal/adr/0127-alert-ack-link.md).
+
 ## Escalader si personne n'acquitte
 
 Une règle peut envoyer un incident non acquitté vers d'autres canaux. Dans le

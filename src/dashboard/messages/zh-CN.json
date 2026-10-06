@@ -3026,5 +3026,16 @@
 	"oncall_errorShift": "班次时长必须在 1 到 8760 小时之间。",
 	"oncall_errorParticipants": "至少添加一位参与者。",
 	"alertRuleForm_escalateRotation": "值班轮换",
-	"alertRuleForm_escalateRotationNone": "无"
+	"alertRuleForm_escalateRotationNone": "无",
+	"ackLink_title": "确认告警",
+	"ackLink_description": "确认你正在处理此告警。在其恢复之前将不再重复通知。",
+	"ackLink_confirm": "确认",
+	"ackLink_done": "已确认。此事件的重复通知已停止。",
+	"ackLink_alreadyBy": "已由 {user} 确认。",
+	"ackLink_alreadyAnon": "已确认。",
+	"ackLink_snoozed": "此告警已被延后。",
+	"ackLink_invalid": "此链接无效或已过期。请在 Flare 中打开该告警进行确认。",
+	"ackLink_notFiring": "此告警已不再触发，无需确认。",
+	"ackLink_missingToken": "此链接缺少令牌。",
+	"ackLink_openAlerts": "打开告警"
 }
