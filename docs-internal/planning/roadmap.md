@@ -116,11 +116,6 @@ folders are where "what happened and why" actually lives.
   and for any resource that has no CRUD endpoint yet (maintenance windows,
   metric attribute rules). Also ship `flare_*` data sources for channels and
   services so alert rules can reference them. Not started.
-- **Artifact Hub listing for the Helm chart.** `helm-publish.yml` pushes the chart
-  to `oci://ghcr.io/aminparsa18/charts/flare` on release tags. Add an
-  `artifacthub-repo.yml` and register the repository on Artifact Hub so the chart is
-  discoverable; also verify the first real tag push end to end (the GHCR package
-  must be set to public once, in the package settings).
 - **OTLP forwarding and archive export.** No way to copy ingested telemetry
   elsewhere. Add per-ingest-key or per-service forwarding of logs, traces and
   metrics to another OTLP endpoint (migration and dual-write) and an optional
