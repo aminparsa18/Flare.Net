@@ -58,6 +58,8 @@ An alert on `synthetic.up` with **Min** below 1 fires when any location sees the
 
 With four locations, **Last** below 0.76 means two or more are down. Pick the threshold between the fractions you want to tell apart.
 
+You don't have to work these out: the bell button on a monitor's row opens the alert form filtered to that monitor, with a **Down from at least N of M locations** picker that sets **Last** and the threshold for you.
+
 ## Alert on a monitor
 
 Create a normal metric alert rule on one of those metrics, filtered by the `monitor` attribute:

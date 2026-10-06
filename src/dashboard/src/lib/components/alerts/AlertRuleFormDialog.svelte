@@ -39,7 +39,9 @@
 	} from '$lib/alerts-api';
 	import { aggregateLogs } from '$lib/api';
 	import { compatibleUnits } from '$lib/metrics/axis';
-	import { getMetricNames, type MetricNameInfo, type MetricPointType } from '$lib/metrics-api';
+	import { getMetricNames, type MetricFilter, type MetricNameInfo, type MetricPointType } from '$lib/metrics-api';
+	import { listSyntheticMonitors } from '$lib/synthetic-monitors-api';
+	import { quorumMinDown, quorumThreshold } from '$lib/synthetic-monitors/quorum';
 	import { SEVERITY_BUCKETS, severityBucketLabel, severityNumbersForBucket } from '$lib/logs/severity';
 	import { ALERT_SEVERITIES } from '$lib/memorypack/enums';
 	import { severityLabel } from '$lib/alerts/severity';
@@ -137,6 +139,45 @@
 	let metricType = $state<MetricPointType>('Gauge');
 	let metricAggregation = $state<MetricAlertAggregation>('Value');
 	let metricThresholdValueText = $state('0');
+	// The condition's metric filter. There is no filter editor, so this only carries what a draft
+	// (a synthetic monitor's "Create alert") or an existing rule already has, and is sent back unchanged.
+	let metricFilter = $state<MetricFilter | undefined>(undefined);
+	// "Down from at least N of M locations" picker (ADR-0132); shown for `synthetic.up` filtered to one monitor.
+	let quorumMin = $state(1);
+	let quorumTotal = $state(0);
+	let quorumPending = false;
+	const quorumMonitor = $derived(
+		conditionKind === 'MetricThreshold' && metricName === 'synthetic.up'
+			? (metricFilter?.attributes?.find((a) => a.key === 'monitor')?.value ?? null)
+			: null
+	);
+
+	$effect(() => {
+		const monitor = quorumMonitor;
+		if (!monitor) return;
+		let cancelled = false;
+		void listSyntheticMonitors()
+			.then((all) => {
+				const found = all.find((x) => x.name === monitor);
+				if (cancelled || !found) return;
+				quorumTotal = Math.max(1, found.locations.length || (found.locationStatuses?.length ?? 0));
+				if (quorumPending) {
+					quorumPending = false;
+					applyQuorum(1);
+				} else if (metricAggregation === 'Last' && comparator === 'LessThan') {
+					quorumMin = quorumMinDown(metricThresholdValue, quorumTotal);
+				}
+			})
+			.catch(() => {});
+		return () => (cancelled = true);
+	});
+
+	function applyQuorum(minDown: number): void {
+		quorumMin = Math.min(Math.max(1, minDown || 1), quorumTotal);
+		metricAggregation = 'Last';
+		comparator = 'LessThan';
+		metricThresholdValueText = String(quorumThreshold(quorumMin, quorumTotal));
+	}
 
 	// Exception-count condition (AlertConditionKind.ExceptionCount) - see
 	// docs-internal/adr/0022-exception-count-alerting.md. Reuses `services` above for its
@@ -222,6 +263,8 @@
 			metricType = 'Gauge';
 			metricAggregation = 'Value';
 			metricThresholdValueText = '0';
+			metricFilter = undefined;
+			quorumPending = false;
 			exceptionType = '';
 			exceptionMessage = '';
 			exceptionResourceAttributes = [];
@@ -247,6 +290,10 @@
 					metricName = draft.metricName;
 					metricType = draft.metricType;
 					metricAggregation = AGGREGATIONS_BY_TYPE[draft.metricType][0];
+					if (draft.syntheticMonitor) {
+						metricFilter = { attributes: [{ key: 'monitor', value: draft.syntheticMonitor }] };
+						quorumPending = true;
+					}
 				}
 				alerts.createDraft = null;
 			}
@@ -306,6 +353,7 @@
 			metricType = target.metricCondition?.type ?? 'Gauge';
 			metricAggregation = target.metricCondition?.aggregation ?? 'Value';
 			metricThresholdValueText = String(target.metricThresholdValue ?? 0);
+			metricFilter = target.metricCondition?.filter;
 			exceptionType = target.exceptionCondition?.exceptionType ?? '';
 			exceptionMessage = target.exceptionCondition?.exceptionMessage ?? '';
 			exceptionResourceAttributes = target.exceptionCondition?.filter?.resourceAttributes ?? [];
@@ -523,7 +571,7 @@
 			// above already use.
 			metricCondition:
 				seriesKind === 'MetricThreshold'
-					? { metricName: metricName.trim(), type: metricType, aggregation: metricAggregation }
+					? { metricName: metricName.trim(), type: metricType, aggregation: metricAggregation, filter: metricFilter }
 					: undefined,
 			metricThresholdValue: conditionKind === 'MetricThreshold' ? metricThresholdValue : undefined,
 			exceptionCondition:
@@ -805,6 +853,21 @@
 						<span class="text-muted-foreground text-xs">
 							{comparator === 'LessThan' ? m.alertRuleForm_gaugeMatchHintLessThan() : m.alertRuleForm_gaugeMatchHintGreaterOrEqual()}
 						</span>
+					{/if}
+					{#if quorumMonitor && quorumTotal > 0}
+						<div class="mt-1 flex flex-wrap items-center gap-2">
+							<span class="text-xs font-medium">{m.alertRuleForm_quorumLabel()}</span>
+							<Select.Root type="single" value={String(quorumMin)} onValueChange={(v) => v && applyQuorum(Number(v))}>
+								<Select.Trigger class="w-16">{quorumMin}</Select.Trigger>
+								<Select.Content>
+									{#each Array.from({ length: quorumTotal }, (_, i) => i + 1) as n (n)}
+										<Select.Item value={String(n)} label={String(n)} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+							<span class="text-muted-foreground text-xs">{m.alertRuleForm_quorumOf({ total: quorumTotal })}</span>
+						</div>
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_quorumHint()}</span>
 					{/if}
 				</div>
 			{/if}

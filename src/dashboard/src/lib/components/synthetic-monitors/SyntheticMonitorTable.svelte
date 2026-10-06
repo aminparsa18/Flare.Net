@@ -9,18 +9,36 @@
 	import { syntheticMonitorsContext } from '$lib/synthetic-monitors/context';
 	import type { SyntheticMonitor } from '$lib/synthetic-monitors-api';
 	import { formatDateTime } from '$lib/time/format';
+	import { goto } from '$app/navigation';
+	import { authContext } from '$lib/auth/context';
+	import { buildAlertDeepLinkHref } from '$lib/deep-links';
 	import * as m from '$lib/paraglide/messages';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import BellPlusIcon from '@lucide/svelte/icons/bell-plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import RadarIcon from '@lucide/svelte/icons/radar';
 
 	const monitors = syntheticMonitorsContext.get();
+	const auth = authContext.get();
 
 	function interval(seconds: number): string {
 		if (seconds % 3600 === 0) return m.synthetic_intervalHours({ count: seconds / 3600 });
 		if (seconds % 60 === 0) return m.synthetic_intervalMinutes({ count: seconds / 60 });
 		return m.synthetic_intervalSeconds({ count: seconds });
+	}
+
+	/** Opens the alert form pre-filled for this monitor: `synthetic.up`, filtered to it, with the "N of M locations" picker. */
+	function createAlert(monitor: SyntheticMonitor): void {
+		void goto(
+			buildAlertDeepLinkHref({
+				kind: 'MetricThreshold',
+				name: m.synthetic_alertName({ name: monitor.name }),
+				metricName: 'synthetic.up',
+				metricType: 'Gauge',
+				syntheticMonitor: monitor.name
+			})
+		);
 	}
 
 	async function handleDelete(monitor: SyntheticMonitor): Promise<void> {
@@ -124,6 +142,11 @@
 							<Switch size="sm" checked={monitor.enabled} onCheckedChange={(v) => monitors.setEnabled(monitor, v)} />
 						</Table.Cell>
 						<Table.Cell class="text-right">
+							{#if auth.canMutate}
+								<Button variant="ghost" size="icon-sm" title={m.synthetic_actionCreateAlert()} onclick={() => createAlert(monitor)}>
+									<BellPlusIcon />
+								</Button>
+							{/if}
 							<Button variant="ghost" size="icon-sm" title={m.synthetic_actionEdit()} onclick={() => monitors.openEdit(monitor)}>
 								<PencilIcon />
 							</Button>

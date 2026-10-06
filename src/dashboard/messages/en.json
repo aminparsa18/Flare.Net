@@ -3049,7 +3049,7 @@
 	"synthetic_colInterval": "Every",
 	"synthetic_colEnabled": "Enabled",
 	"synthetic_headersLabel": "Request headers",
-	"synthetic_headersHint": "One per line, Name: value. Stored in clear text, visible to members.",
+	"synthetic_headersHint": "One per line, Name: value. Values are hidden after saving; keep ******** to leave one unchanged.",
 	"synthetic_bodyLabel": "Request body (POST only)",
 	"synthetic_bodyContainsLabel": "Response must contain",
 	"synthetic_bodyNotContainsLabel": "Response must not contain",
@@ -3086,5 +3086,10 @@
 	"synthetic_intervalLabel": "Interval (seconds)",
 	"synthetic_timeoutLabel": "Timeout (seconds)",
 	"synthetic_errorInterval": "Interval must be between 10 and 86400 seconds.",
-	"synthetic_errorTimeout": "Timeout must be between 1 and 120 seconds and not above the interval."
+	"synthetic_errorTimeout": "Timeout must be between 1 and 120 seconds and not above the interval.",
+	"synthetic_actionCreateAlert": "Create alert",
+	"synthetic_alertName": "{name} down",
+	"alertRuleForm_quorumLabel": "Down from at least",
+	"alertRuleForm_quorumOf": "of {total} locations",
+	"alertRuleForm_quorumHint": "Picking a number sets Last below a threshold on the fraction of locations that see the monitor up."
 }

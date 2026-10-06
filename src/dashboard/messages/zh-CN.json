@@ -3049,7 +3049,7 @@
 	"synthetic_colInterval": "间隔",
 	"synthetic_colEnabled": "启用",
 	"synthetic_headersLabel": "请求头",
-	"synthetic_headersHint": "每行一个，格式 Name: value。以明文存储，成员可见。",
+	"synthetic_headersHint": "每行一个，格式 Name: value。保存后值会被隐藏；保留 ******** 表示不修改。",
 	"synthetic_bodyLabel": "请求体（仅 POST）",
 	"synthetic_bodyContainsLabel": "响应必须包含",
 	"synthetic_bodyNotContainsLabel": "响应不得包含",
@@ -3086,5 +3086,10 @@
 	"synthetic_intervalLabel": "间隔（秒）",
 	"synthetic_timeoutLabel": "超时（秒）",
 	"synthetic_errorInterval": "间隔必须在 10 到 86400 秒之间。",
-	"synthetic_errorTimeout": "超时必须在 1 到 120 秒之间，且不超过间隔。"
+	"synthetic_errorTimeout": "超时必须在 1 到 120 秒之间，且不超过间隔。",
+	"synthetic_actionCreateAlert": "创建告警",
+	"synthetic_alertName": "{name} down",
+	"alertRuleForm_quorumLabel": "至少 down 的位置数",
+	"alertRuleForm_quorumOf": "共 {total} 个位置",
+	"alertRuleForm_quorumHint": "选择数字会为 Last 设置阈值，依据是认为监控正常的位置所占比例。"
 }

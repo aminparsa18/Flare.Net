@@ -58,6 +58,8 @@ Une alerte sur `synthetic.up` avec **Min** inférieur à 1 se déclenche quand u
 
 Avec quatre emplacements, **Last** inférieur à 0,76 signifie que deux ou plus sont en panne. Choisissez un seuil situé entre les fractions à distinguer.
 
+Inutile de les calculer : le bouton cloche sur la ligne d'un moniteur ouvre le formulaire d'alerte filtré sur ce moniteur, avec un sélecteur **En panne depuis au moins N des M emplacements** qui règle **Last** et le seuil à votre place.
+
 ## Alerter sur un moniteur
 
 Créez une règle d'alerte de métrique normale sur l'une de ces métriques, filtrée par l'attribut `monitor` :

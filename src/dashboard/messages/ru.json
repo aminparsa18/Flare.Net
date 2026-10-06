@@ -3049,7 +3049,7 @@
 	"synthetic_colInterval": "Каждые",
 	"synthetic_colEnabled": "Включён",
 	"synthetic_headersLabel": "Заголовки запроса",
-	"synthetic_headersHint": "По одному в строке, Name: value. Хранятся открытым текстом и видны участникам.",
+	"synthetic_headersHint": "По одному в строке, Name: value. После сохранения значения скрыты; оставьте ********, чтобы не менять значение.",
 	"synthetic_bodyLabel": "Тело запроса (только POST)",
 	"synthetic_bodyContainsLabel": "Ответ должен содержать",
 	"synthetic_bodyNotContainsLabel": "Ответ не должен содержать",
@@ -3086,5 +3086,10 @@
 	"synthetic_intervalLabel": "Интервал (секунды)",
 	"synthetic_timeoutLabel": "Тайм-аут (секунды)",
 	"synthetic_errorInterval": "Интервал должен быть от 10 до 86400 секунд.",
-	"synthetic_errorTimeout": "Тайм-аут должен быть от 1 до 120 секунд и не больше интервала."
+	"synthetic_errorTimeout": "Тайм-аут должен быть от 1 до 120 секунд и не больше интервала.",
+	"synthetic_actionCreateAlert": "Создать алерт",
+	"synthetic_alertName": "{name} недоступен",
+	"alertRuleForm_quorumLabel": "Недоступен минимум из",
+	"alertRuleForm_quorumOf": "из {total} локаций",
+	"alertRuleForm_quorumHint": "Выбор числа задаёт порог для Last по доле локаций, из которых монитор доступен."
 }

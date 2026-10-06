@@ -18,6 +18,11 @@ the monitor up, so a quorum is a threshold on it: below 1 is "any down" (same as
 least half down", below 0.01 is "all down". The how-to page lists the recipes and removes the incorrect
 group-by advice.
 
+The monitors table has a "Create alert" button that opens the alert form filtered to the monitor, with a
+"down from at least N of M locations" picker (M = the monitor's locations, or those that have reported).
+The picker sets `Last`, `<` and the threshold `(M - N + 0.5) / M`. The alert form now keeps a rule's metric
+filter instead of dropping it on save.
+
 ## Consequences
 
 - The threshold depends on how many locations report, so adding a location shifts the fractions.
