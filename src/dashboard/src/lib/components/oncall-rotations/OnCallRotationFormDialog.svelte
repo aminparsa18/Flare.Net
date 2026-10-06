@@ -10,7 +10,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onCallRotationsContext } from '$lib/oncall-rotations/context';
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
-	import { browserTimeZone, instantToZoned, zonedToInstant } from '$lib/time/time-zone';
+	import { browserTimeZone, instantToZoned, timeZoneOptions, zonedToInstant } from '$lib/time/time-zone';
 	import type { OnCallRotationRequest } from '$lib/oncall-rotations-api';
 	import * as m from '$lib/paraglide/messages';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -24,6 +24,22 @@
 	const isEdit = $derived(oncall.formTarget !== null && oncall.formTarget !== 'new');
 	const zone = browserTimeZone();
 	const MAX_SHIFT_HOURS = 24 * 365;
+	const zones = timeZoneOptions();
+	// 2023-01-01 was a Sunday - index = System.DayOfWeek ordinal. Listed Monday-first.
+	const weekdays = [1, 2, 3, 4, 5, 6, 0].map((day) => ({
+		day,
+		label: new Date(Date.UTC(2023, 0, 1 + day)).toLocaleDateString(undefined, { weekday: 'short', timeZone: 'UTC' })
+	}));
+
+	function toTime(minute: number): string {
+		return `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+	}
+
+	function toMinute(time: string, isEnd: boolean): number {
+		const [h, min] = time.split(':').map(Number);
+		const minute = h * 60 + min;
+		return isEnd && minute === 0 ? 1440 : minute;
+	}
 
 	let name = $state('');
 	let description = $state('');
@@ -32,6 +48,11 @@
 	let startsLocal = $state('');
 	// Overrides are edited as wall-clock strings in the browser's zone, like the first-shift start.
 	let overrides = $state<{ channelId: string; startsLocal: string; endsLocal: string }[]>([]);
+	let coverageOn = $state(false);
+	let coverageDays = $state<number[]>([1, 2, 3, 4, 5]);
+	let coverageFrom = $state('09:00');
+	let coverageTo = $state('17:00');
+	let coverageZone = $state('UTC');
 
 	$effect(() => {
 		const target = oncall.formTarget;
@@ -42,6 +63,11 @@
 			shiftHoursText = '168';
 			startsLocal = instantToZoned(new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000), zone);
 			overrides = [];
+			coverageOn = false;
+			coverageDays = [1, 2, 3, 4, 5];
+			coverageFrom = '09:00';
+			coverageTo = '17:00';
+			coverageZone = zone;
 		} else if (target) {
 			name = target.name;
 			description = target.description;
@@ -53,6 +79,11 @@
 				startsLocal: instantToZoned(new Date(o.startsAt), zone),
 				endsLocal: instantToZoned(new Date(o.endsAt), zone)
 			}));
+			coverageOn = !!target.coverage;
+			coverageDays = target.coverage ? [...target.coverage.days] : [1, 2, 3, 4, 5];
+			coverageFrom = toTime(target.coverage?.startMinute ?? 540);
+			coverageTo = toTime(target.coverage?.endMinute ?? 1020);
+			coverageZone = target.coverage?.timeZone ?? zone;
 		}
 	});
 
@@ -65,7 +96,14 @@
 			(o) => o.channelId !== '' && o.startsLocal !== '' && o.endsLocal !== '' && zonedToInstant(o.endsLocal, zone) > zonedToInstant(o.startsLocal, zone)
 		)
 	);
-	const canSave = $derived(name.trim().length > 0 && shiftValid && participantsValid && overridesValid && startsLocal !== '');
+	const coverageValid = $derived(
+		!coverageOn || (coverageDays.length > 0 && zones.includes(coverageZone) && coverageFrom !== '' && coverageTo !== '' && toMinute(coverageFrom, false) !== toMinute(coverageTo, true))
+	);
+	const canSave = $derived(name.trim().length > 0 && shiftValid && participantsValid && overridesValid && coverageValid && startsLocal !== '');
+
+	function toggleCoverageDay(day: number): void {
+		coverageDays = coverageDays.includes(day) ? coverageDays.filter((d) => d !== day) : [...coverageDays, day];
+	}
 
 	function updateOverride(index: number, patch: Partial<(typeof overrides)[number]>): void {
 		overrides = overrides.map((o, i) => (i === index ? { ...o, ...patch } : o));
@@ -99,7 +137,10 @@
 				channelId: o.channelId,
 				startsAt: zonedToInstant(o.startsLocal, zone).toISOString(),
 				endsAt: zonedToInstant(o.endsLocal, zone).toISOString()
-			}))
+			})),
+			coverage: coverageOn
+				? { timeZone: coverageZone, days: [...coverageDays].sort(), startMinute: toMinute(coverageFrom, false), endMinute: toMinute(coverageTo, true) }
+				: null
 		};
 	}
 </script>
@@ -217,6 +258,49 @@
 				<span class="text-muted-foreground text-xs">{m.oncall_overridesHint()}</span>
 				{#if !overridesValid}
 					<span class="text-destructive text-xs">{m.oncall_errorOverrides()}</span>
+				{/if}
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-medium">{m.oncall_coverageLabel()}</span>
+				<label class="flex items-center gap-2 text-sm">
+					<input type="checkbox" bind:checked={coverageOn} />
+					{m.oncall_coverageEnabled()}
+				</label>
+				{#if coverageOn}
+					<div class="flex flex-col gap-2">
+						<div class="flex flex-wrap gap-1" aria-label={m.oncall_coverageDays()}>
+							{#each weekdays as { day, label } (day)}
+								<Button
+									variant={coverageDays.includes(day) ? 'secondary' : 'outline'}
+									size="sm"
+									aria-pressed={coverageDays.includes(day)}
+									onclick={() => toggleCoverageDay(day)}
+								>
+									{label}
+								</Button>
+							{/each}
+						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							<span class="text-muted-foreground text-xs">{m.oncall_coverageFrom()}</span>
+							<Input type="time" bind:value={coverageFrom} class="w-28" />
+							<span class="text-muted-foreground text-xs">{m.oncall_coverageTo()}</span>
+							<Input type="time" bind:value={coverageTo} class="w-28" />
+						</div>
+						<div class="flex flex-col gap-1">
+							<span class="text-muted-foreground text-xs">{m.oncall_coverageZone()}</span>
+							<Input bind:value={coverageZone} list="oncall-coverage-time-zones" aria-invalid={!zones.includes(coverageZone)} />
+							<datalist id="oncall-coverage-time-zones">
+								{#each zones as z (z)}
+									<option value={z}></option>
+								{/each}
+							</datalist>
+						</div>
+						<span class="text-muted-foreground text-xs">{m.oncall_coverageHint()}</span>
+						{#if !coverageValid}
+							<span class="text-destructive text-xs">{m.oncall_errorCoverage()}</span>
+						{/if}
+					</div>
 				{/if}
 			</div>
 

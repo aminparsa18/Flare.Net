@@ -136,6 +136,10 @@ holds the step number. See [ADR-0136](../../docs-internal/adr/0136-alert-multi-s
 `0062_oncall_rotation_overrides.sql` - `oncall_rotations.Overrides`: a JSON array of one-off swaps. See
 [ADR-0137](../../docs-internal/adr/0137-oncall-rotation-overrides.md).
 
+`0063_oncall_rotation_coverage.sql` - `oncall_rotations.Coverage`: a JSON weekly window (days, hours, time
+zone) the rotation is limited to, or `''` for always. See
+[ADR-0139](../../docs-internal/adr/0139-oncall-rotation-coverage.md).
+
 `0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
 same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
 `metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).

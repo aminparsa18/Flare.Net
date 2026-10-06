@@ -97,6 +97,8 @@
 							<Badge variant="secondary">{channelName(status.onCallChannelId)}</Badge>
 							{#if status.isOverride}
 								<Badge variant="outline">{m.oncall_override()}</Badge>
+							{:else if status.inCoverage === false}
+								<Badge variant="outline">{m.oncall_outsideCoverage()}</Badge>
 							{/if}
 							<p class="text-muted-foreground mt-1 text-xs">{m.oncall_until({ time: formatDateTimeMinutes(status.shiftEndsAt) })}</p>
 						</Table.Cell>

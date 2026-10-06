@@ -93,9 +93,6 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Rotation schedule restrictions.** Rotations (ADR-0126) are fixed-length back-to-back
-  shifts with one-off overrides (ADR-0137). Not expressible: time-of-day or weekday
-  restrictions such as "business hours only" or follow-the-sun. Needs an ADR.
 - **Log-based metrics.** Turn a saved `LogFilter` (plus optional group-by) into
   a persisted metric via a ClickHouse materialized view, so charting or
   alerting on "count of X" doesn't scan logs each time. Natural home is a new
@@ -146,6 +143,25 @@ folders are where "what happened and why" actually lives.
   (page loads, web vitals, JS errors), a source-map upload API for symbolicating
   stack traces on `/errors`, and a Frontend page. Only worth it if Flare targets
   full-stack teams, not just .NET backends.
+- **.NET MAUI / mobile SDK (later).** No client-app signal exists beyond what a
+  hand-wired OTel exporter sends. Phase 1 is a docs how-to ("Send telemetry
+  from a MAUI app to Flare") using stock `OpenTelemetry` packages, since OTLP
+  already works and it will surface the real gaps. Phase 2 ships a
+  `Flare.Maui` NuGet package (`UseFlare()` on `MauiAppBuilder`): OTLP/HTTP
+  export (gRPC is unreliable on iOS/Android) with an on-disk retry queue for
+  offline use, batching and compression, device/OS/app-version resource
+  attributes, a stable `session.id`, automatic spans for navigation and
+  `HttpClient`, and unhandled-exception capture (including
+  `TaskScheduler.UnobservedTaskException` and native crash reports delivered on
+  next launch). Phase 3 is server side: scoped public ingest keys (allowed
+  services, rate cap, write-only; builds on ADR-0051, since a key shipped in an
+  app binary is effectively public), a Sessions/Devices view grouping traces by
+  `session.id`, and app-version breakdowns on `/errors`. Phase 4 is
+  symbolication of trimmed/AOT stack traces, sharing the upload API from the
+  Browser RUM item above. Design points for the ADR: wrap `OpenTelemetry` or
+  stay a thin configuration package; trimming/AOT compatibility; privacy
+  defaults (no PII in attributes, opt-in device id). First check how ingest keys
+  behave for a public-client scenario (CORS, per-key service allowlists).
 - **Usage and cost view (later).** Roll up per-service and per-ingest-key
   volume (events/day, bytes on disk, largest attributes) from data the
   Ingestion, Indexing and cardinality pages already read, so users can see

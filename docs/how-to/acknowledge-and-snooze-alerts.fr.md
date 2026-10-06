@@ -182,4 +182,13 @@ terminé, le planning reprend sans changement. Si des remplacements se chevauche
 celui qui a commencé en dernier l'emporte. Via l'API, c'est `overrides`
 (`channelId`, `startsAt`, `endsAt`) sur la rotation.
 
+Pour ne notifier qu'à certaines heures (« heures ouvrées uniquement »), activez
+**Couverture** dans la rotation : jours de la semaine, heure de début et de fin, et
+fuseau horaire. En dehors de la plage, personne dans la rotation n'est notifié, mais
+les canaux d'escalade fixes de la règle et les remplacements le sont toujours, et le
+tableau affiche « Hors couverture ». Une fin antérieure au début passe minuit. Si une
+règle doit toujours joindre quelqu'un, donnez-lui un canal d'escalade fixe en secours.
+Via l'API, c'est `coverage` (`timeZone`, `days` avec 0 pour dimanche, `startMinute`,
+`endMinute`) sur la rotation.
+
 Pourquoi ce fonctionnement : [ADR-0126](../../docs-internal/adr/0126-alert-oncall-rotations.md).

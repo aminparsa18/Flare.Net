@@ -26,7 +26,47 @@ public static class OnCallSchedule
             return new OnCallRotationStatus(rotation, swap.ChannelId, swap.EndsAt, Resolve(rotation, swap.EndsAt).OnCallChannelId, IsOverride: true);
         }
 
-        return ResolveScheduled(rotation, now);
+        var scheduled = ResolveScheduled(rotation, now);
+        return IsCovered(rotation.Coverage, now) ? scheduled : scheduled with { InCoverage = false };
+    }
+
+    /// <summary>Looks up an IANA (or Windows) zone id; false when this host doesn't know it.</summary>
+    public static bool TryFindZone(string id, out TimeZoneInfo zone)
+    {
+        try
+        {
+            zone = TimeZoneInfo.FindSystemTimeZoneById(id);
+            return true;
+        }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            zone = TimeZoneInfo.Utc;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="now"/> falls inside <paramref name="coverage"/> (always true for null).
+    /// A zone this host can't resolve counts as covered: a stored rotation must not silently stop paging.
+    /// </summary>
+    public static bool IsCovered(OnCallCoverage? coverage, DateTimeOffset now)
+    {
+        if (coverage is null || !TryFindZone(coverage.TimeZone, out var zone))
+        {
+            return true;
+        }
+
+        var local = TimeZoneInfo.ConvertTime(now, zone);
+        var minute = (local.Hour * 60) + local.Minute;
+        var today = (int)local.DayOfWeek;
+        if (coverage.StartMinute < coverage.EndMinute)
+        {
+            return coverage.Days.Contains(today) && minute >= coverage.StartMinute && minute < coverage.EndMinute;
+        }
+
+        // Wraps past midnight: the evening part belongs to today, the morning part to yesterday's window.
+        return (coverage.Days.Contains(today) && minute >= coverage.StartMinute)
+            || (coverage.Days.Contains((today + 6) % 7) && minute < coverage.EndMinute);
     }
 
     private static OnCallRotationStatus ResolveScheduled(OnCallRotation rotation, DateTimeOffset now)
@@ -49,7 +89,8 @@ public static class OnCallSchedule
 
     /// <summary>
     /// The channels an escalation goes to: the rule's fixed escalation channels plus the one on
-    /// call in <paramref name="rotation"/> (null when the rule has none, or it was deleted), without repeats.
+    /// call in <paramref name="rotation"/> (null when the rule has none, or it was deleted), without repeats. Outside the
+    /// rotation's coverage window only the fixed channels remain, unless an override is active.
     /// </summary>
     public static IReadOnlyList<Guid> EscalationTargets(IReadOnlyList<Guid> fixedChannelIds, OnCallRotation? rotation, DateTimeOffset now)
     {
@@ -58,6 +99,7 @@ public static class OnCallSchedule
             return fixedChannelIds;
         }
 
-        return [.. fixedChannelIds.Append(Resolve(rotation, now).OnCallChannelId).Distinct()];
+        var status = Resolve(rotation, now);
+        return status.InCoverage ? [.. fixedChannelIds.Append(status.OnCallChannelId).Distinct()] : fixedChannelIds;
     }
 }
