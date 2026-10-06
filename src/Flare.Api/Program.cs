@@ -352,6 +352,7 @@ builder.Services.AddSingleton<Flare.Api.Auth.IPasswordResetMailer, Flare.Api.Aut
 // options class since those two knobs are AlertWorker-only.
 builder.Services.Configure<AlertLinkOptions>(builder.Configuration.GetSection(AlertLinkOptions.SectionName));
 builder.Services.AddSingleton<IAlertAckLinkSigner, AlertAckLinkSigner>();
+builder.Services.AddSingleton<IDashboardRenderTokenSigner, DashboardRenderTokenSigner>();
 // Named/typed HttpClients so the webhook/Slack, Telegram, and PagerDuty senders inherit
 // AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
 // discovery) for free. Registered as their own concrete types, not IAlertNotifier -
@@ -406,6 +407,7 @@ builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChan
 // suppress notifications while one is active.
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
 builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQueryService>();
+builder.Services.AddSingleton<IDashboardScheduleQueryService, DashboardScheduleQueryService>();
 // Synthetic monitors (ADR-0128) - CRUD here; Flare.AlertWorker runs the probes.
 builder.Services.AddSingleton<ISyntheticMonitorQueryService, SyntheticMonitorQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
@@ -558,6 +560,8 @@ memberRoutes.MapNotificationChannelEndpoints();
 memberRoutes.MapMaintenanceWindowEndpoints();
 // Same Member/Admin-only rationale - a rotation chooses who an escalation pages.
 memberRoutes.MapOnCallRotationEndpoints();
+// Same Member/Admin-only rationale - a schedule makes this server email a rendered dashboard to the addresses it names.
+memberRoutes.MapDashboardScheduleEndpoints();
 // Same Member/Admin-only rationale - a monitor makes this server send requests to the target it names.
 memberRoutes.MapSyntheticMonitorEndpoints();
 // Same Member/Admin-only rationale - an SLO's burn-rate rules page people; reads are on authenticatedRoutes.

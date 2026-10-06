@@ -195,6 +195,13 @@ services:
     build:
       context: .
       dockerfile: src/Flare.AlertWorker/Dockerfile
+      # Scheduled dashboard reports (ADR-0142) need a Chromium in this image: set FLARE_REPORTS_CHROMIUM=true
+      # (and FLARE_REPORTS_ENABLED=true below) to turn them on. Off by default to keep the image small.
+      args:
+        INSTALL_CHROMIUM: "${FLARE_REPORTS_CHROMIUM:-false}"
+    # Lets Chromium reach the dashboard and API through their published host ports (see Reports__ChromiumArgs).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # See ingest's identical restart comment above.
     restart: unless-stopped
     # See ingest's identical labels comment above.
@@ -223,6 +230,13 @@ services:
       # actually sends real fired-alert notifications, so this is what puts a working
       # link back to the rule in them.
       Alerting__PublicUrl: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
+      # Scheduled dashboard reports (ADR-0142). The browser inside this container opens the dashboard at the
+      # same localhost URLs a user's browser does; the resolver rule sends `localhost` to the Docker host, where
+      # the dashboard and API ports are published.
+      Reports__Enabled: "${FLARE_REPORTS_ENABLED:-false}"
+      Reports__DashboardUrl: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
+      Reports__ApiUrl: "${PUBLIC_API_URL:-http://localhost:8080}"
+      Reports__ChromiumArgs__0: "--host-resolver-rules=MAP localhost host.docker.internal"
     # No published ports (internal only, same as redis) - nothing outside this stack
     # talks to this process directly.
     healthcheck:

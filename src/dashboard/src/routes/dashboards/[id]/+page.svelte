@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { buildDashboardUrlSearch } from '$lib/dashboards/url-state';
+	import { isReportSearch, markReportReady } from '$lib/dashboards/report-mode';
 	import { onMount, onDestroy } from 'svelte';
 	import { authContext } from '$lib/auth/context';
 	import { DashboardViewerState } from '$lib/dashboards/viewer.svelte';
@@ -13,6 +14,7 @@
 	import { panelsInRow } from '$lib/dashboards/layout';
 	import AddPanelDialog from '$lib/components/dashboards/AddPanelDialog.svelte';
 	import ManageVariablesDialog from '$lib/components/dashboards/ManageVariablesDialog.svelte';
+	import DashboardSchedulesDialog from '$lib/components/dashboards/DashboardSchedulesDialog.svelte';
 	import VariableTextbox from '$lib/components/dashboards/VariableTextbox.svelte';
 	import VariableMultiPicker from '$lib/components/dashboards/VariableMultiPicker.svelte';
 	import * as Empty from '$lib/components/ui/empty';
@@ -28,6 +30,7 @@
 	import ClockIcon from '@lucide/svelte/icons/clock';
 	import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
+	import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import Maximize2Icon from '@lucide/svelte/icons/maximize-2';
 	import Minimize2Icon from '@lucide/svelte/icons/minimize-2';
@@ -42,6 +45,7 @@
 	 *  "Add panel"), a row id when opened from that row's own header. */
 	let addPanelRowId = $state<string | null>(null);
 	let manageVariablesOpen = $state(false);
+	let schedulesOpen = $state(false);
 
 	// Full-screen/TV mode: hides AppNav (via the layout-provided chrome signal - see
 	// $lib/chrome/context.svelte.ts) and asks the browser's Fullscreen API to fill the screen with
@@ -50,6 +54,8 @@
 	// however fullscreen ends - our own button, the browser's native Escape handling, or the
 	// user hitting F11 - since all three fire the same `fullscreenchange` event.
 	const chrome = getChromeVisibilityContext();
+	// Scheduled-report render (ADR-0142): a read-only view with no toolbar, every row open, every panel loaded.
+	const reportMode = isReportSearch(page.url.searchParams);
 	let rootEl = $state<HTMLDivElement>();
 	let isFullscreen = $state(false);
 	// Safari's un-prefixed detection lags; requestFullscreen()/exitFullscreen() are still
@@ -80,7 +86,13 @@
 	});
 
 	onMount(() => {
-		void viewer.load(page.params.id!, page.url.searchParams).then(() => (urlSyncReady = true));
+		if (reportMode) chrome.hidden = true;
+		void viewer
+			.load(page.params.id!, page.url.searchParams)
+			.then(() => (urlSyncReady = true))
+			.finally(() => {
+				if (reportMode) markReportReady();
+			});
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
 	});
 
@@ -144,9 +156,11 @@
 
 <div class="flex h-full flex-col" bind:this={rootEl}>
 	<div class="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-		<Button variant="ghost" size="icon-sm" href={withBase('/dashboards')} title={m.dashboardViewer_back()}>
-			<ArrowLeftIcon />
-		</Button>
+		{#if !reportMode}
+			<Button variant="ghost" size="icon-sm" href={withBase('/dashboards')} title={m.dashboardViewer_back()}>
+				<ArrowLeftIcon />
+			</Button>
+		{/if}
 		<div class="min-w-0">
 			<h1 class="truncate text-sm font-semibold">{viewer.dashboard?.name ?? ''}</h1>
 			{#if viewer.dashboard?.description}
@@ -154,7 +168,7 @@
 			{/if}
 		</div>
 
-		{#if viewer.dashboard}
+		{#if viewer.dashboard && !reportMode}
 			<div class="ml-auto flex items-center gap-2">
 				<Button
 					variant={viewer.isHome ? 'secondary' : 'ghost'}
@@ -221,6 +235,9 @@
 				{/each}
 
 				{#if auth.canMutateDashboard(viewer.dashboard?.ownerUserId ?? null)}
+					<Button variant="ghost" size="icon-sm" title={m.schedule_open()} onclick={() => (schedulesOpen = true)}>
+						<CalendarClockIcon />
+					</Button>
 					{#if viewer.editing}
 						{#if viewer.timeRangeOverride !== (viewer.dashboard?.layout.defaultTimeRange ?? null)}
 							<Button variant="outline" size="sm" onclick={() => viewer.setDefaultTimeRange(viewer.timeRangeOverride)}>
@@ -312,7 +329,7 @@
 				<DashboardRowSection
 					{row}
 					panelCount={rowPanels.length}
-					collapsed={viewer.collapsedRowIds.has(row.id)}
+					collapsed={!reportMode && viewer.collapsedRowIds.has(row.id)}
 					editing={viewer.editing}
 					isFirst={index === 0}
 					isLast={index === viewer.rows.length - 1}
@@ -368,3 +385,4 @@
 	onAdd={(panel) => viewer.addPanel({ ...panel, rowId: addPanelRowId ?? undefined })}
 />
 <ManageVariablesDialog bind:open={manageVariablesOpen} {viewer} />
+<DashboardSchedulesDialog bind:open={schedulesOpen} {viewer} />

@@ -3,6 +3,7 @@
   <ItemGroup>
     <PackageReference Include="Aspire.ClickHouse.Driver" />
     <PackageReference Include="Aspire.StackExchange.Redis" />
+    <PackageReference Include="Microsoft.Playwright" />
   </ItemGroup>
 
   <ItemGroup>

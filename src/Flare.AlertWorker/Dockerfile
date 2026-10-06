@@ -55,6 +55,18 @@ WORKDIR /app
 # Flare.Api/Dockerfile's own libldap2 requirement was.
 COPY --from=build /app .
 
+# Scheduled dashboard reports (ADR-0142) render in a headless Chromium. It is off the default image so the
+# worker stays small; build with `--build-arg INSTALL_CHROMIUM=true` (docker-compose.yml's FLARE_REPORTS_CHROMIUM)
+# to add it, then set Reports__Enabled=true. This uses the Chromium Playwright itself downloads (the driver ships
+# in the publish output), because Ubuntu's apt `chromium` package is only a snap stub.
+ARG INSTALL_CHROMIUM=false
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN if [ "$INSTALL_CHROMIUM" = "true" ]; then \
+        /app/.playwright/node/linux-x64/node /app/.playwright/package/cli.js install --with-deps chromium \
+        && apt-get install -y --no-install-recommends fonts-noto-cjk fonts-noto-color-emoji \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # Single Kestrel listener, same "just needs one predictable port" reasoning as
 # Flare.Api/Dockerfile - this process exposes nothing but /health and /alive.
 ENV ASPNETCORE_HTTP_PORTS=8080

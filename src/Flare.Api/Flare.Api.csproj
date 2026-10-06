@@ -4,6 +4,7 @@
     <PackageReference Include="Aspire.ClickHouse.Driver" />
     <PackageReference Include="Aspire.StackExchange.Redis" />
     <PackageReference Include="MailKit" />
+    <PackageReference Include="Cronos" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.StackExchangeRedis" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
