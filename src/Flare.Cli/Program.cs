@@ -63,6 +63,13 @@ app.Configure(config =>
         alerts.AddCommand<AlertsUnackCommand>("unack")
             .WithDescription("Clear a rule's acknowledgement or snooze.");
     });
+    config.AddBranch("config", configBranch =>
+    {
+        configBranch.AddCommand<ConfigExportCommand>("export")
+            .WithDescription("Export alerts, channels, SLOs, pipeline rules, maintenance windows, metric attribute rules and ingest-key limits as one portable JSON file (by-name references, credentials as ${ENV_VAR}).");
+        configBranch.AddCommand<ConfigApplyCommand>("apply")
+            .WithDescription("Create or update everything in a `flare config export` file (matched by name; --dry-run to preview; nothing is deleted).");
+    });
     config.AddBranch("apikey", apikey =>
     {
         apikey.AddCommand<ApiKeyCreateCommand>("create")

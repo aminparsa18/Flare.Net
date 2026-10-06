@@ -69,9 +69,10 @@ public static class AlertEndpoints
         return Results.Json(AlertRuleTransfer.Export(rules, channelNames, sloNames), AlertsJsonContext.Default.AlertRulesExport);
     }
 
-    // `dryRun=true` reports what would happen without creating anything. A rule whose name
-    // already exists (or repeats earlier in the file) is skipped, never overwritten.
-    private static async Task<IResult> HandleImportAsync(HttpContext http, bool? dryRun, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, CancellationToken cancellationToken)
+    // `dryRun=true` reports what would happen without writing anything. A rule whose name
+    // already exists is skipped, unless `update=true` (`flare config apply`), which replaces it
+    // in place. A name repeated earlier in the same file is always skipped.
+    private static async Task<IResult> HandleImportAsync(HttpContext http, bool? dryRun, bool? update, IAlertQueryService alerts, INotificationChannelQueryService channels, ISloQueryService slos, CancellationToken cancellationToken)
     {
         AlertRulesExport? document;
         try
@@ -96,7 +97,12 @@ public static class AlertEndpoints
         var channelIds = AlertRuleTransfer.ByName((await channels.ListAsync(cancellationToken)).Select(c => (c.Id, c.Name)));
         var access = http.GetProjectAccess();
         var sloIds = AlertRuleTransfer.ByName(access.Filter(await slos.ListAsync(cancellationToken), s => s.ProjectId).Select(s => (s.Id, s.Name)));
-        var taken = new HashSet<string>((await alerts.ListAsync(cancellationToken)).Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
+        var existing = await alerts.ListAsync(cancellationToken);
+        var taken = new HashSet<string>(existing.Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
+        var updatable = update == true
+            ? AlertRuleTransfer.ByName(access.Filter(existing, r => r.ProjectId).Select(r => (r.Id, r.Name)))
+            : [];
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var results = new List<AlertImportItemResult>();
         foreach (var item in document.Rules)
@@ -109,9 +115,26 @@ public static class AlertEndpoints
                 continue;
             }
 
-            if (!taken.Add(request!.Name))
+            if (!seen.Add(request!.Name))
             {
-                results.Add(new AlertImportItemResult(name, AlertImportOutcome.Skip, "A rule with this name already exists."));
+                results.Add(new AlertImportItemResult(name, AlertImportOutcome.Skip, "A rule with this name appears earlier in the file."));
+                continue;
+            }
+
+            if (taken.Contains(request.Name))
+            {
+                if (!updatable.TryGetValue(request.Name, out var existingId))
+                {
+                    results.Add(new AlertImportItemResult(name, AlertImportOutcome.Skip, "A rule with this name already exists."));
+                    continue;
+                }
+
+                if (dryRun != true)
+                {
+                    await alerts.UpdateAsync(existingId, request, cancellationToken);
+                }
+
+                results.Add(new AlertImportItemResult(name, AlertImportOutcome.Update, Id: existingId));
                 continue;
             }
 
