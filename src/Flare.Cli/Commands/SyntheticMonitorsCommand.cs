@@ -259,7 +259,8 @@ internal sealed class SyntheticMonitorsUpdateCommand : AsyncCommand<SyntheticMon
         [Description("The monitor's id (see `flare synthetic-monitors list`).")]
         public required Guid Id { get; init; }
 
-        [CommandOption("--name <NAME>")]
+        [CommandOption("--rename <NAME>")]
+        [Description("New name (--rename, not --name: that is the instance-targeting flag every command shares).")]
         public string? Name { get; init; }
 
         [CommandOption("--target <TARGET>")]
