@@ -109,6 +109,12 @@ e-mail en ligne.
 
 Pourquoi ce fonctionnement : [ADR-0125](../../docs-internal/adr/0125-alert-escalation.md).
 
+## Escalader à nouveau si personne n'acquitte
+
+Dans les mêmes réglages d'escalade, activez **Puis escalader à nouveau**, indiquez un délai supplémentaire en minutes et choisissez les canaux. Si personne n'a acquitté l'incident passé ce délai après la première escalade, Flare l'envoie une fois de plus à ces canaux, toujours avec `[Escalated]` devant le nom de la règle. Via l'API, ce sont `secondEscalateAfterMinutes` (1 à 10080, 0 : pas de second palier) et `secondEscalationChannelIds`. Le second palier suppose le premier, et un acquittement arrête les deux. La rotation d'astreinte ne concerne que le premier palier.
+
+Pourquoi ce fonctionnement : [ADR-0136](../../docs-internal/adr/0136-alert-multi-step-escalation.md).
+
 ## Escalader vers la personne d'astreinte
 
 Une rotation d'astreinte est une liste de canaux de notification qui se

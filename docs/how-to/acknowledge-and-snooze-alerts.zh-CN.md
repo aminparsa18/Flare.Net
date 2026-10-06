@@ -84,6 +84,12 @@ PagerDuty 确认同步。
 
 为什么这样设计:[ADR-0125](../../docs-internal/adr/0125-alert-escalation.md)。
 
+## 仍无人确认时再次升级
+
+在同一组升级设置中，打开**之后再次升级**，设置额外的延迟分钟数并选择渠道。如果自第一次升级起经过这么久仍无人确认，Flare 会再向这些渠道发送一次，规则名称前同样带有 `[Escalated]`。通过 API 对应 `secondEscalateAfterMinutes`（1 到 10080，0 表示没有第二步）和 `secondEscalationChannelIds`。第二步以第一步为前提，确认会同时停止两步。值班轮换只作用于第一步。
+
+原因见：[ADR-0136](../../docs-internal/adr/0136-alert-multi-step-escalation.md)。
+
 ## 升级给当前值班的人
 
 值班轮换是一组通知渠道，按固定班次轮流值班。在**设置 > 工作区 > 值班轮换**中创建：按班次顺序选择渠道

@@ -55,6 +55,8 @@ export class AlertRuleRequest {
 	escalateAfterMinutes: number | null;
 	escalationChannelIds: (string | null)[] | null;
 	escalationRotationId: string | null;
+	secondEscalateAfterMinutes: number | null;
+	secondEscalationChannelIds: (string | null)[] | null;
 
 	constructor() {
 		this.name = null;
@@ -89,6 +91,8 @@ export class AlertRuleRequest {
 		this.escalateAfterMinutes = null;
 		this.escalationChannelIds = null;
 		this.escalationRotationId = null;
+		this.secondEscalateAfterMinutes = null;
+		this.secondEscalationChannelIds = null;
 	}
 
 	static serialize(value: AlertRuleRequest | null): Uint8Array {
@@ -103,7 +107,7 @@ export class AlertRuleRequest {
 			return;
 		}
 
-		writer.writeObjectHeader(32);
+		writer.writeObjectHeader(34);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
 		writer.writeNullableBoolean(value.enabled);
@@ -136,6 +140,8 @@ export class AlertRuleRequest {
 		writer.writeNullableInt32(value.escalateAfterMinutes);
 		writer.writeArray(value.escalationChannelIds, (writer, x) => writer.writeGuid(x!));
 		writer.writeNullableGuid(value.escalationRotationId);
+		writer.writeNullableInt32(value.secondEscalateAfterMinutes);
+		writer.writeArray(value.secondEscalationChannelIds, (writer, x) => writer.writeGuid(x!));
 	}
 
 	static deserialize(buffer: ArrayBuffer): AlertRuleRequest | null {
@@ -182,7 +188,9 @@ export class AlertRuleRequest {
 			value.escalateAfterMinutes = reader.readNullableInt32();
 			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
 			value.escalationRotationId = reader.readNullableGuid();
-		} else if (count > 32) {
+			value.secondEscalateAfterMinutes = reader.readNullableInt32();
+			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
+		} else if (count > 34) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -250,6 +258,10 @@ export class AlertRuleRequest {
 			if (count == 31) return value;
 			value.escalationRotationId = reader.readNullableGuid();
 			if (count == 32) return value;
+			value.secondEscalateAfterMinutes = reader.readNullableInt32();
+			if (count == 33) return value;
+			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 34) return value;
 		}
 		return value;
 	}

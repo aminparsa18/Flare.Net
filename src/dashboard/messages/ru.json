@@ -3103,5 +3103,8 @@
 	"synthetic_alertName": "{name} недоступен",
 	"alertRuleForm_quorumLabel": "Недоступен минимум из",
 	"alertRuleForm_quorumOf": "из {total} локаций",
-	"alertRuleForm_quorumHint": "Выбор числа задаёт порог для Last по доле локаций, из которых монитор доступен."
+	"alertRuleForm_quorumHint": "Выбор числа задаёт порог для Last по доле локаций, из которых монитор доступен.",
+	"alertRuleForm_secondEscalateLabel": "Затем эскалировать ещё раз",
+	"alertRuleForm_secondEscalateMinutes": "минут после первой эскалации, уведомить",
+	"alertRuleForm_secondEscalateInvalid": "Укажите задержку от 1 до 10080 минут и хотя бы один канал."
 }

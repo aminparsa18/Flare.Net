@@ -3103,5 +3103,8 @@
 	"synthetic_alertName": "{name} down",
 	"alertRuleForm_quorumLabel": "至少 down 的位置数",
 	"alertRuleForm_quorumOf": "共 {total} 个位置",
-	"alertRuleForm_quorumHint": "选择数字会为 Last 设置阈值，依据是认为监控正常的位置所占比例。"
+	"alertRuleForm_quorumHint": "选择数字会为 Last 设置阈值，依据是认为监控正常的位置所占比例。",
+	"alertRuleForm_secondEscalateLabel": "之后再次升级",
+	"alertRuleForm_secondEscalateMinutes": "分钟（自第一次升级起），通知",
+	"alertRuleForm_secondEscalateInvalid": "请选择 1 到 10080 分钟之间的延迟，并至少选择一个渠道。"
 }

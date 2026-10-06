@@ -546,6 +546,16 @@ public sealed partial record AlertRule
     /// in addition to <see cref="EscalationChannelIds"/>. Null (the default) means none. Appended after <see cref="EscalationChannelIds"/>.
     /// </summary>
     public Guid? EscalationRotationId { get; init; }
+
+    /// <summary>
+    /// Minutes after the first escalation before a still-unacknowledged incident takes a second step
+    /// to <see cref="SecondEscalationChannelIds"/> (ADR-0136). 0 (the default) means no second step.
+    /// Appended after <see cref="EscalationRotationId"/>.
+    /// </summary>
+    public int SecondEscalateAfterMinutes { get; init; }
+
+    /// <summary>Where the second escalation step goes. Ignored while <see cref="SecondEscalateAfterMinutes"/> is 0. Appended after <see cref="SecondEscalateAfterMinutes"/>.</summary>
+    public IReadOnlyList<Guid> SecondEscalationChannelIds { get; init; } = [];
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -667,6 +677,12 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.EscalationRotationId"/>'s doc comment. Omitted/null means none. Appended after <see cref="EscalationChannelIds"/>.</summary>
     public Guid? EscalationRotationId { get; init; }
+
+    /// <summary>See <see cref="AlertRule.SecondEscalateAfterMinutes"/>'s doc comment. Omitted/null means 0 (no second step). Appended after <see cref="EscalationRotationId"/>.</summary>
+    public int? SecondEscalateAfterMinutes { get; init; }
+
+    /// <summary>See <see cref="AlertRule.SecondEscalationChannelIds"/>'s doc comment. Omitted/null means none. Appended after <see cref="SecondEscalateAfterMinutes"/>.</summary>
+    public IReadOnlyList<Guid>? SecondEscalationChannelIds { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel
@@ -852,7 +868,7 @@ public sealed partial record AlertRuleRequest
     }
 
     /// <summary>Escalation arm of <see cref="ValidateCondition"/>: a bounded delay and at least one distinct target channel.</summary>
-    private string? ValidateEscalation() => Alerting.AlertEscalationPolicy.Validate(EscalateAfterMinutes ?? 0, EscalationChannelIds, EscalationRotationId);
+    private string? ValidateEscalation() => Alerting.AlertEscalationPolicy.Validate(EscalateAfterMinutes ?? 0, EscalationChannelIds, EscalationRotationId, SecondEscalateAfterMinutes ?? 0, SecondEscalationChannelIds);
 
     /// <summary>
     /// <see cref="RecoveryThreshold"/> arm of <see cref="ValidateCondition"/>: finite, not for
@@ -1050,6 +1066,9 @@ public sealed partial record AlertHistoryEntry
 
     /// <summary>True for the row an escalation records (ADR-0125): the incident went unacknowledged and was sent to the rule's escalation channels. Appended after <see cref="AiModel"/>.</summary>
     public bool Escalated { get; init; }
+
+    /// <summary>Which escalation step this row records (1 or 2, ADR-0136); 0 for a row that is not an escalation. Appended after <see cref="Escalated"/>.</summary>
+    public int EscalationStep { get; init; }
 }
 
 /// <summary>
@@ -1074,8 +1093,11 @@ public sealed record AlertFiringState(DateTimeOffset LastFiredAt, bool Notified)
     /// <summary>When this incident first notified (its earliest non-suppressed fire since the last resolution); null if none has. Escalation counts from here (ADR-0125).</summary>
     public DateTimeOffset? IncidentNotifiedAt { get; init; }
 
-    /// <summary>When this incident was escalated; null if it hasn't been. An incident escalates at most once.</summary>
+    /// <summary>When this incident was escalated; null if it hasn't been. Each step fires at most once per incident.</summary>
     public DateTimeOffset? EscalatedAt { get; init; }
+
+    /// <summary>When this incident took its second escalation step (ADR-0136); null if it hasn't.</summary>
+    public DateTimeOffset? SecondEscalatedAt { get; init; }
 }
 
 /// <summary>What an <see cref="AlertAck"/> row does.</summary>

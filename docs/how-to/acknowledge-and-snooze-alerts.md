@@ -103,6 +103,12 @@ on rules that still use an inline webhook or e-mail address.
 
 Why it works this way: [ADR-0125](../../docs-internal/adr/0125-alert-escalation.md).
 
+## Escalate again if it is still unacknowledged
+
+In the same escalation settings, turn on **Then escalate again**, set a further delay in minutes and pick the channels. If nobody has acknowledged the incident that long after the first escalation, Flare sends it once more to those channels, again with `[Escalated]` in front of the rule name. Over the API these are `secondEscalateAfterMinutes` (1 to 10080, 0 means no second step) and `secondEscalationChannelIds`. The second step needs the first one, and an acknowledge stops both. The on-call rotation applies to the first step only.
+
+Why it works this way: [ADR-0136](../../docs-internal/adr/0136-alert-multi-step-escalation.md).
+
 ## Escalate to whoever is on call
 
 An on-call rotation is a list of notification channels that take turns, each for

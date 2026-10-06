@@ -84,4 +84,42 @@ public class AlertEscalationPolicyTests
         Assert.Null(AlertEscalationPolicy.Validate(15, [Guid.NewGuid()], rotation));
         Assert.NotNull(AlertEscalationPolicy.Validate(15, [], Guid.Empty));
     }
+
+    private static AlertRule TwoStepRule() => Rule() with { SecondEscalateAfterMinutes = 30, SecondEscalationChannelIds = [Guid.NewGuid()] };
+
+    [Fact]
+    public void Second_step_is_due_once_the_delay_after_the_first_passes()
+    {
+        Assert.Equal(0, AlertEscalationPolicy.NextStepDue(TwoStepRule(), State() with { EscalatedAt = Now.AddMinutes(-29) }, false, Now));
+        Assert.Equal(2, AlertEscalationPolicy.NextStepDue(TwoStepRule(), State() with { EscalatedAt = Now.AddMinutes(-30) }, false, Now));
+    }
+
+    [Fact]
+    public void Second_step_fires_once_and_never_before_the_first()
+    {
+        Assert.Equal(0, AlertEscalationPolicy.NextStepDue(TwoStepRule(), State() with { EscalatedAt = Now.AddMinutes(-60), SecondEscalatedAt = Now.AddMinutes(-5) }, false, Now));
+        Assert.Equal(1, AlertEscalationPolicy.NextStepDue(TwoStepRule(), State(), false, Now));
+    }
+
+    [Fact]
+    public void Second_step_respects_ack_maintenance_and_missing_config()
+    {
+        var escalated = State() with { EscalatedAt = Now.AddMinutes(-60) };
+        var ack = new AlertAck(Guid.NewGuid(), Now.AddMinutes(-5), "a", AlertAckKind.Ack, null, "");
+        Assert.Equal(0, AlertEscalationPolicy.NextStepDue(TwoStepRule(), escalated with { Ack = ack }, false, Now));
+        Assert.Equal(0, AlertEscalationPolicy.NextStepDue(TwoStepRule(), escalated, true, Now));
+        Assert.Equal(0, AlertEscalationPolicy.NextStepDue(Rule(), escalated, false, Now));
+    }
+
+    [Fact]
+    public void Validates_the_second_step()
+    {
+        var id = Guid.NewGuid();
+        Assert.Null(AlertEscalationPolicy.Validate(15, [id], null, 30, [id]));
+        Assert.NotNull(AlertEscalationPolicy.Validate(15, [id], null, 30, []));
+        Assert.NotNull(AlertEscalationPolicy.Validate(15, [id], null, 30, [id, id]));
+        Assert.NotNull(AlertEscalationPolicy.Validate(0, null, null, 30, [id]));
+        Assert.NotNull(AlertEscalationPolicy.Validate(15, [id], null, 0, [id]));
+        Assert.NotNull(AlertEscalationPolicy.Validate(15, [id], null, AlertEscalationPolicy.MaxEscalateAfterMinutes + 1, [id]));
+    }
 }
