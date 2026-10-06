@@ -12,6 +12,7 @@ namespace Flare.Api.Json;
     UseStringEnumConverter = true)]
 [JsonSerializable(typeof(OnCallRotationRequest))]
 [JsonSerializable(typeof(OnCallOverride[]))]
+[JsonSerializable(typeof(OnCallCoverage))]
 [JsonSerializable(typeof(OnCallRotation))]
 [JsonSerializable(typeof(OnCallRotationStatus))]
 [JsonSerializable(typeof(OnCallRotationListResponse))]

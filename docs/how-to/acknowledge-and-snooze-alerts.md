@@ -175,4 +175,12 @@ as an override. After it ends the schedule carries on unchanged. If overrides
 overlap, the one that started last wins. Over the API they are `overrides`
 (`channelId`, `startsAt`, `endsAt`) on the rotation.
 
+To page only at set times ("business hours only"), turn on **Coverage** in the
+rotation: weekdays, a start and end time, and a time zone. Outside the window nobody
+on the rotation is paged, but the rule's fixed escalation channels and any override
+still are, and the table shows "Outside coverage". An end earlier than the start runs
+past midnight. If a rule must always reach someone, give it a fixed escalation
+channel as a backstop. Over the API it is `coverage` (`timeZone`, `days` with 0 for
+Sunday, `startMinute`, `endMinute`) on the rotation.
+
 Why it works this way: [ADR-0126](../../docs-internal/adr/0126-alert-oncall-rotations.md).

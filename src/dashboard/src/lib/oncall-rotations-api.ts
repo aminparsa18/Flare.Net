@@ -11,6 +11,14 @@ export interface OnCallOverride {
 	channelId: string;
 }
 
+/** Weekly window a rotation pages in: `days` are 0 (Sunday) to 6; minutes are after local midnight in `timeZone`. */
+export interface OnCallCoverage {
+	timeZone: string;
+	days: number[];
+	startMinute: number;
+	endMinute: number;
+}
+
 export interface OnCallRotation {
 	id: string;
 	name: string;
@@ -21,6 +29,7 @@ export interface OnCallRotation {
 	/** ISO instant the first shift starts. */
 	startsAt: string;
 	overrides: OnCallOverride[];
+	coverage?: OnCallCoverage | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -33,6 +42,8 @@ export interface OnCallRotationStatus {
 	nextChannelId: string;
 	/** True when `onCallChannelId` is a one-off override rather than the scheduled participant. */
 	isOverride?: boolean;
+	/** False when the rotation's coverage window is closed, so nobody is paged. */
+	inCoverage?: boolean;
 }
 
 export interface OnCallRotationRequest {
@@ -42,6 +53,7 @@ export interface OnCallRotationRequest {
 	shiftHours: number;
 	startsAt: string;
 	overrides: OnCallOverride[];
+	coverage: OnCallCoverage | null;
 }
 
 async function failure(res: Response, what: string): Promise<Error> {

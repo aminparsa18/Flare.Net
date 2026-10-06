@@ -31,7 +31,7 @@ public interface IOnCallRotationQueryService
 /// </summary>
 public sealed class OnCallRotationQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IOnCallRotationQueryService
 {
-    private const string Columns = "Id, Name, Description, ChannelIds, ShiftHours, StartsAt, CreatedAt, UpdatedAt, Overrides";
+    private const string Columns = "Id, Name, Description, ChannelIds, ShiftHours, StartsAt, CreatedAt, UpdatedAt, Overrides, Coverage";
 
     internal static OnCallRotation Apply(OnCallRotation rotation, OnCallRotationRequest request) => rotation with
     {
@@ -41,6 +41,7 @@ public sealed class OnCallRotationQueryService(IClickHouseClient client, IOption
         ShiftHours = request.ShiftHours ?? 168,
         StartsAt = request.StartsAt,
         Overrides = request.Overrides ?? [],
+        Coverage = request.Coverage,
     };
 
     public async Task<OnCallRotation> CreateAsync(OnCallRotationRequest request, CancellationToken cancellationToken)
@@ -114,11 +115,13 @@ public sealed class OnCallRotationQueryService(IClickHouseClient client, IOption
         parameters.AddParameter("updatedAt", rotation.UpdatedAt.UtcDateTime);
         parameters.AddParameter("overrides", JsonSerializer.Serialize(rotation.Overrides.ToArray(), OnCallRotationsJsonContext.Default.OnCallOverrideArray));
 
+        parameters.AddParameter("coverage", rotation.Coverage is null ? "" : JsonSerializer.Serialize(rotation.Coverage, OnCallRotationsJsonContext.Default.OnCallCoverage));
+
         const string sql = """
             INSERT INTO oncall_rotations
-                (Id, Name, Description, IsDeleted, ChannelIds, ShiftHours, StartsAt, CreatedAt, UpdatedAt, Overrides)
+                (Id, Name, Description, IsDeleted, ChannelIds, ShiftHours, StartsAt, CreatedAt, UpdatedAt, Overrides, Coverage)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {channelIds:Array(UUID)}, {shiftHours:UInt32}, {startsAt:DateTime64(3)}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {overrides:String})
+                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {channelIds:Array(UUID)}, {shiftHours:UInt32}, {startsAt:DateTime64(3)}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {overrides:String}, {coverage:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -135,6 +138,7 @@ public sealed class OnCallRotationQueryService(IClickHouseClient client, IOption
         CreatedAt = ReadUtc(reader, 6),
         UpdatedAt = ReadUtc(reader, 7),
         Overrides = ParseOverrides(reader.GetString(8)),
+        Coverage = ParseCoverage(reader.GetString(9)),
     };
 
     private static OnCallOverride[] ParseOverrides(string json)
@@ -147,6 +151,24 @@ public sealed class OnCallRotationQueryService(IClickHouseClient client, IOption
         {
             // A hand-edited bad value must not take the rotation (and every rule escalating to it) down.
             return [];
+        }
+    }
+
+    private static OnCallCoverage? ParseCoverage(string json)
+    {
+        if (json.Length == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(json, OnCallRotationsJsonContext.Default.OnCallCoverage);
+        }
+        catch (JsonException)
+        {
+            // Same stance as overrides: a bad stored value reads as unrestricted, so paging continues.
+            return null;
         }
     }
 
