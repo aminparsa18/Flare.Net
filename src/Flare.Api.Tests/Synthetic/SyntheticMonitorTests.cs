@@ -159,6 +159,19 @@ public class SyntheticMonitorTests
         Assert.Null(SyntheticMonitorStatus.FromPoints([new(SyntheticMetrics.Duration, T1, 5)]));
 
     [Fact]
+    public void Headers_mask_every_value() =>
+        Assert.Equal("Authorization: ********\nX-Env: ********", SyntheticHeaders.MaskValues("Authorization: Bearer s3cret\r\n\nX-Env: prod"));
+
+    [Fact]
+    public void Headers_restore_masked_values_by_name_and_keep_new_ones()
+    {
+        var restored = SyntheticHeaders.RestoreMasked(
+            "authorization: ********\nX-New: fresh\nX-Env: ********",
+            "Authorization: Bearer s3cret\nX-Env: prod");
+        Assert.Equal("authorization: Bearer s3cret\nX-New: fresh\nX-Env: prod", restored);
+    }
+
+    [Fact]
     public void Headers_parse_name_value_lines()
     {
         var result = SyntheticHeaders.Parse("Authorization: Bearer a:b\r\n\nX-Env:  prod ");

@@ -18,7 +18,7 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 | `target` | Http : une URL `http(s)` absolue. Tcp : `host:port`. Tls : `host` ou `host:port` (443 par défaut). |
 | `method` | Http uniquement : `GET` (défaut), `HEAD`, `POST` ou `OPTIONS`. |
 | `expectedStatus` | Http uniquement : le statut considéré comme « up ». `0` (défaut) signifie tout 2xx ou 3xx. |
-| `requestHeaders` | Http uniquement : en-têtes de requête, un `Name: value` par ligne. Stockés en clair et visibles par tous les membres ; préférez un jeton dédié à faibles privilèges. |
+| `requestHeaders` | Http uniquement : en-têtes de requête, un `Name: value` par ligne. L'API ne renvoie jamais les valeurs : elles sont lues sous la forme `********`, et envoyer `Name: ********` lors d'une mise à jour conserve la valeur stockée. |
 | `requestBody` | Http uniquement, `POST` uniquement : le corps de la requête. Un en-tête `Content-Type` définit son type. |
 | `bodyContains` / `bodyNotContains` | Http uniquement : le corps de la réponse doit contenir / ne doit pas contenir ce texte (sensible à la casse ; seul le premier 1 Mio est lu). Une assertion échouée enregistre `synthetic.up` à 0. |
 | `intervalSeconds` | De 10 à 86400, 60 par défaut. |
