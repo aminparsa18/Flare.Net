@@ -41,6 +41,18 @@ public sealed record SyntheticMonitor
     /// <summary>Http only: the status that counts as up. 0 means any 2xx or 3xx.</summary>
     public int ExpectedStatus { get; init; }
 
+    /// <summary>Http only: one <c>Name: value</c> header per line. Empty means none.</summary>
+    public string RequestHeaders { get; init; } = "";
+
+    /// <summary>Http POST only. Empty means no body.</summary>
+    public string RequestBody { get; init; } = "";
+
+    /// <summary>Http only: the response body must contain this text. Empty means no assertion.</summary>
+    public string BodyContains { get; init; } = "";
+
+    /// <summary>Http only: the response body must not contain this text. Empty means no assertion.</summary>
+    public string BodyNotContains { get; init; } = "";
+
     public int IntervalSeconds { get; init; } = 60;
 
     public int TimeoutSeconds { get; init; } = 10;
@@ -48,6 +60,43 @@ public sealed record SyntheticMonitor
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
+
+    /// <summary>The most recent probe result. Filled only by the list endpoint; null when no result has been recorded yet.</summary>
+    public SyntheticMonitorStatus? Latest { get; init; }
+}
+
+/// <summary>The most recent probe result of a monitor, read back from its <see cref="SyntheticMetrics"/> points.</summary>
+public sealed record SyntheticMonitorStatus(
+    bool Up,
+    DateTimeOffset Time,
+    double? DurationMs,
+    int? HttpStatus,
+    double? CertExpiryDays)
+{
+    /// <summary>One stored point: a metric name, its timestamp and its value.</summary>
+    public readonly record struct Point(string MetricName, DateTimeOffset Time, double Value);
+
+    /// <summary>
+    /// Builds the status from one monitor's latest point per metric. The <see cref="SyntheticMetrics.Up"/> point
+    /// anchors the probe: the other metrics count only when written by that same probe, so a failed probe (which
+    /// writes no status code or certificate) never shows an older probe's values. Null when there is no up point.
+    /// </summary>
+    public static SyntheticMonitorStatus? FromPoints(IReadOnlyCollection<Point> points)
+    {
+        var up = points.Where(p => p.MetricName == SyntheticMetrics.Up).Select(p => (Point?)p).FirstOrDefault();
+        if (up is null)
+        {
+            return null;
+        }
+
+        double? Same(string name) => points.Where(p => p.MetricName == name && p.Time == up.Value.Time).Select(p => (double?)p.Value).FirstOrDefault();
+        return new SyntheticMonitorStatus(
+            up.Value.Value >= 0.5,
+            up.Value.Time,
+            Same(SyntheticMetrics.Duration),
+            Same(SyntheticMetrics.HttpStatusCode) is { } status ? (int)status : null,
+            Same(SyntheticMetrics.CertExpiryDays));
+    }
 }
 
 /// <summary>Create/update body for <c>/api/synthetic-monitors</c>.</summary>
@@ -58,6 +107,8 @@ public sealed record SyntheticMonitorRequest
     public const int MinIntervalSeconds = 10;
     public const int MaxIntervalSeconds = 86_400;
     public const int MaxTimeoutSeconds = 120;
+    public const int MaxRequestBodyLength = 65_536;
+    public const int MaxAssertionLength = 1_000;
 
     private static readonly string[] AllowedMethods = ["GET", "HEAD", "POST", "OPTIONS"];
 
@@ -74,6 +125,14 @@ public sealed record SyntheticMonitorRequest
     public string? Method { get; init; }
 
     public int? ExpectedStatus { get; init; }
+
+    public string? RequestHeaders { get; init; }
+
+    public string? RequestBody { get; init; }
+
+    public string? BodyContains { get; init; }
+
+    public string? BodyNotContains { get; init; }
 
     public int? IntervalSeconds { get; init; }
 
@@ -113,6 +172,29 @@ public sealed record SyntheticMonitorRequest
             if (ExpectedStatus is < 0 or > 599 or (> 0 and < 100))
             {
                 return "expectedStatus must be 0 (any 2xx/3xx) or an HTTP status code.";
+            }
+
+            if (SyntheticHeaders.Parse(RequestHeaders) is { Error: { } headerError })
+            {
+                return headerError;
+            }
+
+            if (!string.IsNullOrEmpty(RequestBody))
+            {
+                if (RequestBody.Length > MaxRequestBodyLength)
+                {
+                    return $"requestBody must be at most {MaxRequestBodyLength} characters.";
+                }
+
+                if (!string.Equals(Method ?? "GET", "POST", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "requestBody can only be sent with method POST.";
+                }
+            }
+
+            if ((BodyContains?.Length ?? 0) > MaxAssertionLength || (BodyNotContains?.Length ?? 0) > MaxAssertionLength)
+            {
+                return $"bodyContains and bodyNotContains must be at most {MaxAssertionLength} characters.";
             }
         }
         else if (SyntheticTarget.ParseHostPort(Target, kind == SyntheticMonitorKind.Tls ? 443 : null) is null)

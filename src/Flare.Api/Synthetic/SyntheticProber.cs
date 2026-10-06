@@ -48,11 +48,73 @@ public sealed class SyntheticProber(IHttpClientFactory httpClientFactory, TimePr
     {
         using var client = httpClientFactory.CreateClient(HttpClientName);
         using var request = new HttpRequestMessage(new HttpMethod(monitor.Method), monitor.Target);
-        // Headers only: the probe measures time to first response, and must not download a large body.
+        if (monitor.RequestBody.Length > 0)
+        {
+            request.Content = new StringContent(monitor.RequestBody, System.Text.Encoding.UTF8);
+            request.Content.Headers.ContentType = null; // a configured Content-Type header decides; otherwise none
+        }
+
+        foreach (var (name, value) in SyntheticHeaders.Parse(monitor.RequestHeaders).Headers)
+        {
+            if (!request.Headers.TryAddWithoutValidation(name, value))
+            {
+                request.Content?.Headers.TryAddWithoutValidation(name, value);
+            }
+        }
+
+        var assertsBody = monitor.BodyContains.Length > 0 || monitor.BodyNotContains.Length > 0;
+        // Headers only unless a body assertion needs the body: the probe measures time to first response, and
+        // must not download a large body for nothing.
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         var status = (int)response.StatusCode;
-        var up = StatusMatches(status, monitor.ExpectedStatus);
-        return new SyntheticProbeResult(up, ElapsedMs(started), status, null, up ? null : $"unexpected status {status}");
+        if (!StatusMatches(status, monitor.ExpectedStatus))
+        {
+            return new SyntheticProbeResult(false, ElapsedMs(started), status, null, $"unexpected status {status}");
+        }
+
+        string? error = null;
+        if (assertsBody)
+        {
+            var body = await ReadBodyAsync(response, cancellationToken);
+            error = BodyAssertionError(body, monitor.BodyContains, monitor.BodyNotContains);
+        }
+
+        return new SyntheticProbeResult(error is null, ElapsedMs(started), status, null, error);
+    }
+
+    /// <summary>Maximum bytes of a response body read for assertions.</summary>
+    public const int MaxBodyBytes = 1_048_576;
+
+    private static async Task<string> ReadBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var buffer = new byte[MaxBodyBytes];
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var n = await stream.ReadAsync(buffer.AsMemory(read), cancellationToken);
+            if (n == 0)
+            {
+                break;
+            }
+
+            read += n;
+        }
+
+        return System.Text.Encoding.UTF8.GetString(buffer, 0, read);
+    }
+
+    /// <summary>The failure reason when <paramref name="body"/> breaks an assertion, else null. Case-sensitive substring checks.</summary>
+    public static string? BodyAssertionError(string body, string contains, string notContains)
+    {
+        if (contains.Length > 0 && !body.Contains(contains, StringComparison.Ordinal))
+        {
+            return "response body does not contain the expected text";
+        }
+
+        return notContains.Length > 0 && body.Contains(notContains, StringComparison.Ordinal)
+            ? "response body contains the forbidden text"
+            : null;
     }
 
     private static async Task<SyntheticProbeResult> ProbeTcpAsync(SyntheticMonitor monitor, long started, CancellationToken cancellationToken)

@@ -8,6 +8,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import { syntheticMonitorsContext } from '$lib/synthetic-monitors/context';
 	import type { SyntheticMonitor } from '$lib/synthetic-monitors-api';
+	import { formatDateTime } from '$lib/time/format';
 	import * as m from '$lib/paraglide/messages';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
@@ -72,6 +73,7 @@
 					<Table.Head>{m.synthetic_colType()}</Table.Head>
 					<Table.Head>{m.synthetic_colTarget()}</Table.Head>
 					<Table.Head>{m.synthetic_colInterval()}</Table.Head>
+					<Table.Head>{m.synthetic_colStatus()}</Table.Head>
 					<Table.Head>{m.synthetic_colEnabled()}</Table.Head>
 					<Table.Head class="text-right">{m.synthetic_colActions()}</Table.Head>
 				</Table.Row>
@@ -90,6 +92,18 @@
 							{monitor.target}
 						</Table.Cell>
 						<Table.Cell class="text-muted-foreground">{interval(monitor.intervalSeconds)}</Table.Cell>
+						<Table.Cell title={monitor.latest ? m.synthetic_statusChecked({ time: formatDateTime(monitor.latest.time) }) : undefined}>
+							{#if !monitor.latest}
+								<span class="text-muted-foreground text-xs">{m.synthetic_statusNoData()}</span>
+							{:else}
+								<Badge variant={monitor.latest.up ? 'secondary' : 'destructive'}>
+									{monitor.latest.up ? m.synthetic_statusUp() : m.synthetic_statusDown()}
+								</Badge>
+								{#if monitor.latest.durationMs !== null}
+									<span class="text-muted-foreground ml-1 text-xs">{Math.round(monitor.latest.durationMs)} ms</span>
+								{/if}
+							{/if}
+						</Table.Cell>
 						<Table.Cell>
 							<Switch size="sm" checked={monitor.enabled} onCheckedChange={(v) => monitors.setEnabled(monitor, v)} />
 						</Table.Cell>

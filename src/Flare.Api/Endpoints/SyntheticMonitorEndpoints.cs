@@ -38,7 +38,9 @@ public static class SyntheticMonitorEndpoints
     private static async Task<IResult> HandleListAsync(ISyntheticMonitorQueryService monitors, CancellationToken cancellationToken)
     {
         var list = await monitors.ListAsync(cancellationToken);
-        return Results.Json(new SyntheticMonitorListResponse(list), SyntheticMonitorsJsonContext.Default.SyntheticMonitorListResponse);
+        var statuses = await monitors.LatestStatusesAsync(cancellationToken);
+        var withStatus = list.Select(m => statuses.TryGetValue(m.Name, out var latest) ? m with { Latest = latest } : m).ToList();
+        return Results.Json(new SyntheticMonitorListResponse(withStatus), SyntheticMonitorsJsonContext.Default.SyntheticMonitorListResponse);
     }
 
     private static async Task<IResult> HandleGetAsync(Guid id, ISyntheticMonitorQueryService monitors, CancellationToken cancellationToken)

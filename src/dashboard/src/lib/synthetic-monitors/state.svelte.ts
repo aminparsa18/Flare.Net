@@ -75,6 +75,10 @@ export class SyntheticMonitorsState {
 				target: monitor.target,
 				method: monitor.method,
 				expectedStatus: monitor.expectedStatus,
+				requestHeaders: monitor.requestHeaders,
+				requestBody: monitor.requestBody,
+				bodyContains: monitor.bodyContains,
+				bodyNotContains: monitor.bodyNotContains,
 				intervalSeconds: monitor.intervalSeconds,
 				timeoutSeconds: monitor.timeoutSeconds
 			});

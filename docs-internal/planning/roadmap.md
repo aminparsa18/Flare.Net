@@ -100,9 +100,10 @@ folders are where "what happened and why" actually lives.
   (escalate again after a further delay), and rotation overrides or time-of-day restrictions.
   Needs an ADR.
 - **Synthetic monitoring follow-ups.** HTTP, TCP and TLS-expiry probes shipped (ADR-0128): API and a
-  Settings page, results stored as `synthetic.*` gauge metrics. Still missing: `flare` CLI commands
-  and a latest-status column for monitors, multi-location probing, response-body assertions, request headers/bodies,
-  and DNS/UDP/ICMP probes.
+  Settings page, results stored as `synthetic.*` gauge metrics. `flare synthetic-monitors` CLI commands and a
+  latest-status column shipped. Request headers/bodies and response-body
+  substring assertions shipped (ADR-0129). Still missing: multi-location probing, masking secret header
+  values, regex or JSON-path assertions, and DNS/UDP/ICMP probes.
 - **Log-based metrics.** Turn a saved `LogFilter` (plus optional group-by) into
   a persisted metric via a ClickHouse materialized view, so charting or
   alerting on "count of X" doesn't scan logs each time. Natural home is a new
