@@ -14,13 +14,16 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 
 | Field | Meaning |
 | --- | --- |
-| `kind` | `Http`, `Tcp` or `Tls`. |
-| `target` | Http: an absolute `http(s)` URL. Tcp: `host:port`. Tls: `host` or `host:port` (443 by default). |
+| `kind` | `Http`, `Tcp`, `Tls`, `Dns`, `Udp` or `Icmp`. |
+| `target` | Http: an absolute `http(s)` URL. Tcp: `host:port`. Tls: `host` or `host:port` (443 by default). Dns, Icmp: a host name or IP address. Udp: `host:port`. |
 | `method` | Http only: `GET` (default), `HEAD`, `POST` or `OPTIONS`. |
 | `expectedStatus` | Http only: the status that counts as up. `0` (default) means any 2xx or 3xx. |
 | `requestHeaders` | Http only: request headers, one `Name: value` per line. The API never returns the values: they read back as `********`, and sending `Name: ********` on an update keeps the stored value. |
 | `requestBody` | Http only, `POST` only: the request body. A `Content-Type` header sets its type. |
+| `expectedAnswer` | Dns: an IP address the answer must include (`method` is then the record type, `A` by default or `AAAA`). Udp: text the reply must contain; `requestBody` is the datagram sent. |
 | `bodyContains` / `bodyNotContains` | Http only: the response body must contain / must not contain this text (case-sensitive; only the first 1 MiB is read). A failed assertion records `synthetic.up` as 0. |
+| `bodyMatchesRegex` | Http only: the response body must match this regular expression. It runs on a linear-time engine, so lookarounds and backreferences are rejected. |
+| `jsonPath` / `jsonPathEquals` | Http only: a path such as `$.data.items[0].status` or `$['key']` that must exist in the JSON response, and optionally equal `jsonPathEquals` (strings unquoted, other values as JSON text). |
 | `intervalSeconds` | 10 to 86400, 60 by default. |
 | `timeoutSeconds` | 1 to 120, 10 by default, not above the interval. |
 | `enabled` | `false` pauses the monitor. |

@@ -98,11 +98,11 @@ internal sealed class SyntheticMonitorsCreateCommand : AsyncCommand<SyntheticMon
         public required string Name { get; init; }
 
         [CommandOption("--target <TARGET>")]
-        [Description("Http: an absolute http(s) URL. Tcp: host:port. Tls: host or host:port. Required.")]
+        [Description("Http: an absolute http(s) URL. Tcp: host:port. Tls: host or host:port. Dns/Icmp: a host name. Udp: host:port. Required.")]
         public string? Target { get; init; }
 
         [CommandOption("--kind <KIND>")]
-        [Description("http, tcp, or tls. Defaults to http.")]
+        [Description("http, tcp, tls, dns, udp, or icmp. Defaults to http.")]
         public string? Kind { get; init; }
 
         [CommandOption("--description <DESCRIPTION>")]
@@ -131,6 +131,26 @@ internal sealed class SyntheticMonitorsCreateCommand : AsyncCommand<SyntheticMon
         [CommandOption("--body-not-contains <TEXT>")]
         [Description("Http only: up only when the response body does not contain this text.")]
         public string? BodyNotContains { get; init; }
+
+        [CommandOption("--body-regex <PATTERN>")]
+        [Description("Http only: up only when the response body matches this regular expression (no lookarounds or backreferences).")]
+        public string? BodyMatchesRegex { get; init; }
+
+        [CommandOption("--json-path <PATH>")]
+        [Description("Http only: a path such as $.data.status that must exist in the JSON response.")]
+        public string? JsonPath { get; init; }
+
+        [CommandOption("--json-path-equals <VALUE>")]
+        [Description("Http only: the value --json-path must equal.")]
+        public string? JsonPathEquals { get; init; }
+
+        [CommandOption("--expected-answer <ANSWER>")]
+        [Description("Dns: an IP address the answer must include. Udp: text the reply must contain.")]
+        public string? ExpectedAnswer { get; init; }
+
+        [CommandOption("--record-type <TYPE>")]
+        [Description("Dns only: A (default) or AAAA.")]
+        public string? RecordType { get; init; }
 
         [CommandOption("--location <LOCATION>")]
         [Description("A probe location that runs this monitor (matches a worker's Synthetic:Location). Repeat for several; none means every location. On update, replaces all existing locations.")]
@@ -177,12 +197,16 @@ internal sealed class SyntheticMonitorsCreateCommand : AsyncCommand<SyntheticMon
             Target = settings.Target,
             Description = settings.Description,
             Kind = kind,
-            Method = settings.Method,
+            Method = settings.RecordType ?? settings.Method,
             ExpectedStatus = settings.ExpectedStatus,
             RequestHeaders = settings.Headers is { Length: > 0 } ? string.Join('\n', settings.Headers) : null,
             RequestBody = settings.Body,
             BodyContains = settings.BodyContains,
             BodyNotContains = settings.BodyNotContains,
+            BodyMatchesRegex = settings.BodyMatchesRegex,
+            ExpectedAnswer = settings.ExpectedAnswer,
+            JsonPath = settings.JsonPath,
+            JsonPathEquals = settings.JsonPathEquals,
             Locations = settings.Locations is { Length: > 0 } ? settings.Locations : null,
             IntervalSeconds = settings.IntervalSeconds,
             TimeoutSeconds = settings.TimeoutSeconds,
@@ -270,6 +294,26 @@ internal sealed class SyntheticMonitorsUpdateCommand : AsyncCommand<SyntheticMon
         [Description("Http only: up only when the response body does not contain this text.")]
         public string? BodyNotContains { get; init; }
 
+        [CommandOption("--body-regex <PATTERN>")]
+        [Description("Http only: up only when the response body matches this regular expression (no lookarounds or backreferences).")]
+        public string? BodyMatchesRegex { get; init; }
+
+        [CommandOption("--json-path <PATH>")]
+        [Description("Http only: a path such as $.data.status that must exist in the JSON response.")]
+        public string? JsonPath { get; init; }
+
+        [CommandOption("--json-path-equals <VALUE>")]
+        [Description("Http only: the value --json-path must equal.")]
+        public string? JsonPathEquals { get; init; }
+
+        [CommandOption("--expected-answer <ANSWER>")]
+        [Description("Dns: an IP address the answer must include. Udp: text the reply must contain.")]
+        public string? ExpectedAnswer { get; init; }
+
+        [CommandOption("--record-type <TYPE>")]
+        [Description("Dns only: A (default) or AAAA.")]
+        public string? RecordType { get; init; }
+
         [CommandOption("--location <LOCATION>")]
         [Description("A probe location that runs this monitor (matches a worker's Synthetic:Location). Repeat for several; none means every location. On update, replaces all existing locations.")]
         public string[]? Locations { get; init; }
@@ -332,12 +376,16 @@ internal sealed class SyntheticMonitorsUpdateCommand : AsyncCommand<SyntheticMon
                 Target = settings.Target ?? existing.Target,
                 Description = settings.Description ?? existing.Description,
                 Kind = kind ?? existing.Kind,
-                Method = settings.Method ?? existing.Method,
+                Method = settings.RecordType ?? settings.Method ?? existing.Method,
+                ExpectedAnswer = settings.ExpectedAnswer ?? existing.ExpectedAnswer,
                 ExpectedStatus = settings.ExpectedStatus ?? existing.ExpectedStatus,
                 RequestHeaders = settings.Headers is { Length: > 0 } ? string.Join('\n', settings.Headers) : existing.RequestHeaders,
                 RequestBody = settings.Body ?? existing.RequestBody,
                 BodyContains = settings.BodyContains ?? existing.BodyContains,
                 BodyNotContains = settings.BodyNotContains ?? existing.BodyNotContains,
+                BodyMatchesRegex = settings.BodyMatchesRegex ?? existing.BodyMatchesRegex,
+                JsonPath = settings.JsonPath ?? existing.JsonPath,
+                JsonPathEquals = settings.JsonPathEquals ?? existing.JsonPathEquals,
                 Locations = settings.Locations is { Length: > 0 } ? settings.Locations : existing.Locations,
                 IntervalSeconds = settings.IntervalSeconds ?? existing.IntervalSeconds,
                 TimeoutSeconds = settings.TimeoutSeconds ?? existing.TimeoutSeconds,
@@ -436,6 +484,9 @@ internal static class SyntheticMonitorFormat
         "http" => "Http",
         "tcp" => "Tcp",
         "tls" => "Tls",
+        "dns" => "Dns",
+        "udp" => "Udp",
+        "icmp" => "Icmp",
         _ => null,
     };
 
@@ -504,6 +555,14 @@ internal sealed class SyntheticMonitorWire
 
     public string BodyNotContains { get; init; } = "";
 
+    public string BodyMatchesRegex { get; init; } = "";
+
+    public string JsonPath { get; init; } = "";
+
+    public string JsonPathEquals { get; init; } = "";
+
+    public string ExpectedAnswer { get; init; } = "";
+
     public int IntervalSeconds { get; init; } = 60;
 
     public int TimeoutSeconds { get; init; } = 10;
@@ -548,6 +607,14 @@ internal sealed class SyntheticMonitorRequestWire
     public string? BodyContains { get; init; }
 
     public string? BodyNotContains { get; init; }
+
+    public string? BodyMatchesRegex { get; init; }
+
+    public string? JsonPath { get; init; }
+
+    public string? JsonPathEquals { get; init; }
+
+    public string? ExpectedAnswer { get; init; }
 
     public int? IntervalSeconds { get; init; }
 

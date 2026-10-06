@@ -16,7 +16,7 @@
 	const open = $derived(monitors.formTarget !== null);
 	const isEdit = $derived(monitors.formTarget !== null && monitors.formTarget !== 'new');
 
-	const KINDS: SyntheticMonitorKind[] = ['Http', 'Tcp', 'Tls'];
+	const KINDS: SyntheticMonitorKind[] = ['Http', 'Tcp', 'Tls', 'Dns', 'Udp', 'Icmp'];
 	const METHODS = ['GET', 'HEAD', 'POST', 'OPTIONS'];
 
 	let name = $state('');
@@ -29,6 +29,11 @@
 	let requestBody = $state('');
 	let bodyContains = $state('');
 	let bodyNotContains = $state('');
+	let bodyMatchesRegex = $state('');
+	let jsonPath = $state('');
+	let jsonPathEquals = $state('');
+	let expectedAnswer = $state('');
+	let dnsRecord = $state('A');
 	let intervalText = $state('60');
 	let timeoutText = $state('10');
 	let locationsText = $state('');
@@ -47,6 +52,11 @@
 			requestBody = '';
 			bodyContains = '';
 			bodyNotContains = '';
+			bodyMatchesRegex = '';
+			jsonPath = '';
+			jsonPathEquals = '';
+			expectedAnswer = '';
+			dnsRecord = 'A';
 			intervalText = '60';
 			timeoutText = '10';
 			locationsText = '';
@@ -62,6 +72,11 @@
 			requestBody = t.requestBody ?? '';
 			bodyContains = t.bodyContains ?? '';
 			bodyNotContains = t.bodyNotContains ?? '';
+			bodyMatchesRegex = t.bodyMatchesRegex ?? '';
+			jsonPath = t.jsonPath ?? '';
+			jsonPathEquals = t.jsonPathEquals ?? '';
+			expectedAnswer = t.expectedAnswer ?? '';
+			dnsRecord = t.kind === 'Dns' && t.method ? t.method : 'A';
 			intervalText = String(t.intervalSeconds);
 			timeoutText = String(t.timeoutSeconds);
 			locationsText = (t.locations ?? []).join(', ');
@@ -80,6 +95,7 @@
 		if (!text) return false;
 		if (kind === 'Http') return /^https?:\/\/[^\s/]+/i.test(text);
 		if (kind === 'Tls') return !/[\s/]/.test(text);
+		if (kind === 'Dns' || kind === 'Icmp') return !/[\s/@?#]/.test(text) && (!text.includes(':') || /^[0-9a-f:.]+$/i.test(text));
 		return /^(\[[^\]]+\]|[^\s/:]+):\d{1,5}$/.test(text);
 	});
 	const locations = $derived(locationsText.split(/[,\s]+/).filter((l) => l.length > 0));
@@ -87,7 +103,7 @@
 	const canSave = $derived(name.trim().length > 0 && targetValid && intervalValid && timeoutValid && locationsValid && (kind !== 'Http' || statusValid));
 
 	const targetPlaceholder = $derived(
-		kind === 'Http' ? 'https://example.com/health' : kind === 'Tcp' ? 'db.internal:5432' : 'example.com:443'
+		kind === 'Http' ? 'https://example.com/health' : kind === 'Tcp' ? 'db.internal:5432' : kind === 'Udp' ? 'ntp.internal:123' : kind === 'Tls' ? 'example.com:443' : 'example.com'
 	);
 
 	function buildRequest(): SyntheticMonitorRequest {
@@ -97,12 +113,16 @@
 			enabled,
 			kind,
 			target: target.trim(),
-			method: kind === 'Http' ? method : 'GET',
+			method: kind === 'Http' ? method : kind === 'Dns' ? dnsRecord : 'GET',
 			expectedStatus: kind === 'Http' ? expectedStatus : 0,
 			requestHeaders: kind === 'Http' ? requestHeaders.trim() : '',
-			requestBody: kind === 'Http' && method === 'POST' ? requestBody : '',
+			requestBody: (kind === 'Http' && method === 'POST') || kind === 'Udp' ? requestBody : '',
+			expectedAnswer: kind === 'Dns' || kind === 'Udp' ? expectedAnswer.trim() : '',
 			bodyContains: kind === 'Http' ? bodyContains : '',
 			bodyNotContains: kind === 'Http' ? bodyNotContains : '',
+			bodyMatchesRegex: kind === 'Http' ? bodyMatchesRegex : '',
+			jsonPath: kind === 'Http' ? jsonPath.trim() : '',
+			jsonPathEquals: kind === 'Http' && jsonPath.trim() ? jsonPathEquals : '',
 			intervalSeconds: interval,
 			timeoutSeconds: timeout,
 			locations
@@ -143,9 +163,49 @@
 				<span class="text-xs font-medium">{m.synthetic_targetLabel()}</span>
 				<Input bind:value={target} placeholder={targetPlaceholder} class="font-mono" aria-invalid={target !== '' && !targetValid} />
 				<span class="text-muted-foreground text-xs">
-					{kind === 'Http' ? m.synthetic_targetHintHttp() : kind === 'Tcp' ? m.synthetic_targetHintTcp() : m.synthetic_targetHintTls()}
+					{kind === 'Http'
+						? m.synthetic_targetHintHttp()
+						: kind === 'Tcp'
+							? m.synthetic_targetHintTcp()
+							: kind === 'Dns'
+								? m.synthetic_targetHintDns()
+								: kind === 'Udp'
+									? m.synthetic_targetHintUdp()
+									: kind === 'Icmp'
+										? m.synthetic_targetHintIcmp()
+										: m.synthetic_targetHintTls()}
 				</span>
 			</div>
+
+			{#if kind === 'Dns'}
+				<div class="flex gap-3">
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.synthetic_recordTypeLabel()}</span>
+						<Select.Root type="single" value={dnsRecord} onValueChange={(v) => (dnsRecord = v)}>
+							<Select.Trigger class="w-28">{dnsRecord}</Select.Trigger>
+							<Select.Content>
+								{#each ['A', 'AAAA'] as option (option)}
+									<Select.Item value={option} label={option} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<div class="flex flex-1 flex-col gap-1">
+						<span class="text-xs font-medium">{m.synthetic_expectedAddressLabel()}</span>
+						<Input bind:value={expectedAnswer} maxlength={100} class="font-mono" />
+					</div>
+				</div>
+			{:else if kind === 'Udp'}
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.synthetic_udpPayloadLabel()}</span>
+					<Textarea bind:value={requestBody} rows={2} maxlength={1400} class="font-mono text-xs" />
+				</div>
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.synthetic_udpReplyContainsLabel()}</span>
+					<Input bind:value={expectedAnswer} maxlength={1000} />
+				</div>
+				<span class="text-muted-foreground -mt-2 text-xs">{m.synthetic_udpHint()}</span>
+			{/if}
 
 			{#if kind === 'Http'}
 				<div class="flex gap-3">
@@ -191,6 +251,22 @@
 					</div>
 				</div>
 				<span class="text-muted-foreground -mt-2 text-xs">{m.synthetic_assertionHint()}</span>
+
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.synthetic_bodyRegexLabel()}</span>
+					<Input bind:value={bodyMatchesRegex} maxlength={1000} class="font-mono text-xs" />
+				</div>
+				<div class="flex gap-3">
+					<div class="flex flex-1 flex-col gap-1">
+						<span class="text-xs font-medium">{m.synthetic_jsonPathLabel()}</span>
+						<Input bind:value={jsonPath} maxlength={1000} placeholder="$.data.status" class="font-mono text-xs" />
+					</div>
+					<div class="flex flex-1 flex-col gap-1">
+						<span class="text-xs font-medium">{m.synthetic_jsonPathEqualsLabel()}</span>
+						<Input bind:value={jsonPathEquals} maxlength={1000} disabled={!jsonPath.trim()} />
+					</div>
+				</div>
+				<span class="text-muted-foreground -mt-2 text-xs">{m.synthetic_jsonAssertionHint()}</span>
 			{/if}
 
 			<div class="flex gap-3">

@@ -79,6 +79,10 @@ export class SyntheticMonitorsState {
 				requestBody: monitor.requestBody,
 				bodyContains: monitor.bodyContains,
 				bodyNotContains: monitor.bodyNotContains,
+				bodyMatchesRegex: monitor.bodyMatchesRegex ?? '',
+				jsonPath: monitor.jsonPath ?? '',
+				jsonPathEquals: monitor.jsonPathEquals ?? '',
+				expectedAnswer: monitor.expectedAnswer ?? '',
 				intervalSeconds: monitor.intervalSeconds,
 				timeoutSeconds: monitor.timeoutSeconds,
 				locations: monitor.locations ?? []

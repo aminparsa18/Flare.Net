@@ -14,13 +14,16 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 
 | 字段 | 含义 |
 | --- | --- |
-| `kind` | `Http`、`Tcp` 或 `Tls`。 |
-| `target` | Http：绝对的 `http(s)` URL。Tcp：`host:port`。Tls：`host` 或 `host:port`（默认 443）。 |
+| `kind` | `Http`、`Tcp`、`Tls`、`Dns`、`Udp` 或 `Icmp`。 |
+| `target` | Http：绝对的 `http(s)` URL。Tcp：`host:port`。Tls：`host` 或 `host:port`（默认 443）。 Dns、Icmp：主机名或 IP 地址。Udp：`host:port`。 |
 | `method` | 仅 Http：`GET`（默认）、`HEAD`、`POST` 或 `OPTIONS`。 |
 | `expectedStatus` | 仅 Http：视为正常的状态码。`0`（默认）表示任意 2xx 或 3xx。 |
 | `requestHeaders` | 仅 Http：请求头，每行一个 `Name: value`。API 不会返回这些值：读取时显示为 `********`，更新时发送 `Name: ********` 即保留已存储的值。 |
 | `requestBody` | 仅 Http 且仅 `POST`：请求体。类型由 `Content-Type` 请求头决定。 |
+| `expectedAnswer` | Dns：应答必须包含的 IP 地址（此时 `method` 为记录类型，默认 `A`，也可为 `AAAA`）。Udp：回复必须包含的文本；`requestBody` 为发送的数据报。 |
 | `bodyContains` / `bodyNotContains` | 仅 Http：响应体必须包含 / 不得包含此文本（区分大小写；只读取前 1 MiB）。断言失败会将 `synthetic.up` 记为 0。 |
+| `bodyMatchesRegex` | 仅 Http：响应体必须匹配该正则表达式。引擎为线性时间，因此不支持环视和反向引用。 |
+| `jsonPath` / `jsonPathEquals` | 仅 Http：形如 `$.data.items[0].status` 或 `$['key']` 的路径必须存在于 JSON 响应中，并可选地等于 `jsonPathEquals`（字符串不带引号，其他值按 JSON 文本）。 |
 | `intervalSeconds` | 10 到 86400，默认 60。 |
 | `timeoutSeconds` | 1 到 120，默认 10，不得超过间隔。 |
 | `enabled` | `false` 暂停该监控。 |
