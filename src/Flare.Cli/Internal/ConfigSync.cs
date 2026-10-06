@@ -380,6 +380,9 @@ internal static partial class ConfigSync
         return sb.ToString();
     }
 
+    /// <summary>Copy of <paramref name="item"/> without nulls, empty strings and empty collections (the server's alert export lists every unset field).</summary>
+    public static JsonObject Compact(JsonObject item) => Prune(item) as JsonObject ?? new JsonObject();
+
     private static JsonNode? Prune(JsonNode? node)
     {
         switch (node)

@@ -116,7 +116,7 @@ internal sealed class ConfigExportCommand : AsyncCommand<ConfigExportCommand.Set
                 Add(kind.Section, (await api.ListAsync(kind.ListPath, kind.ListProperty)).Select(i => ConfigSync.ToExportItem(kind, i, alertNames)));
             }
 
-            Add(ConfigSync.AlertsSection, ((await api.GetAsync("/api/alerts/export"))?["rules"] as JsonArray ?? []).OfType<JsonObject>().Select(i => (JsonObject)i.DeepClone()));
+            Add(ConfigSync.AlertsSection, ((await api.GetAsync("/api/alerts/export"))?["rules"] as JsonArray ?? []).OfType<JsonObject>().Select(ConfigSync.Compact));
             Add(ConfigSync.WindowsSection, (await api.ListAsync(ConfigSync.Windows.ListPath, ConfigSync.Windows.ListProperty)).Select(i => ConfigSync.ToExportItem(ConfigSync.Windows, i, alertNames)));
             Add(ConfigSync.IngestKeysSection, (await api.ListAsync("/api/ingest-keys", "keys")).Select(ConfigSync.ToExportKey).OfType<JsonObject>());
 
