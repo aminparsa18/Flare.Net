@@ -38,6 +38,7 @@
 - [Дать ИИ-ассистенту доступ к Flare](how-to/connect-ai-assistants.ru.md)
 - [Как запрашивать Flare из Grafana или через API Prometheus](how-to/query-with-prometheus-api.ru.md)
 - [Работа по вложенному пути](how-to/serve-under-a-sub-path.ru.md)
+- [Развёртывание с Helm](how-to/deploy-with-helm.ru.md)
 - [Мониторинг хостов с OpenTelemetry Collector](how-to/monitor-hosts.ru.md)
 - [Мониторинг кластеров Kubernetes (узлы, рабочие нагрузки, поды, тома) с OpenTelemetry Collector](how-to/monitor-kubernetes.ru.md)
 - [Мониторинг очередей сообщений](how-to/monitor-message-queues.ru.md)
