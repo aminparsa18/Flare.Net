@@ -39,7 +39,9 @@ public static class SyntheticMonitorEndpoints
     {
         var list = await monitors.ListAsync(cancellationToken);
         var statuses = await monitors.LatestStatusesAsync(cancellationToken);
-        var withStatus = list.Select(m => statuses.TryGetValue(m.Name, out var latest) ? m with { Latest = latest } : m).ToList();
+        var withStatus = list.Select(m => statuses.TryGetValue(m.Name, out var byLocation)
+            ? m with { Latest = byLocation.Select(l => l.Status).MaxBy(s => s.Time), LocationStatuses = byLocation }
+            : m).ToList();
         return Results.Json(new SyntheticMonitorListResponse(withStatus), SyntheticMonitorsJsonContext.Default.SyntheticMonitorListResponse);
     }
 

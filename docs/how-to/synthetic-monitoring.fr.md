@@ -42,6 +42,14 @@ Un délai dépassé, une erreur de connexion, une négociation TLS échouée (un
 
 Le tableau des sondes affiche le dernier résultat de chaque sonde (up ou down, avec le temps de la sonde), et `flare synthetic-monitors list` l'affiche dans le terminal. `create`, `update` et `delete` existent aussi ; voir la [référence CLI](../reference/cli-commands.fr.md).
 
+## Sonder depuis plusieurs emplacements
+
+Chaque `Flare.AlertWorker` nomme l'endroit d'où il sonde avec `Synthetic__Location` (par défaut `default`). Lancez un worker par région avec son propre nom, tous pointant vers les mêmes ClickHouse et Redis, par exemple `Synthetic__Location=eu-west` dans l'un et `us-east` dans l'autre.
+
+Le champ **Emplacements de sonde** d'un moniteur (ou `flare synthetic-monitors create ... --location eu-west --location us-east`) liste les emplacements qui l'exécutent ; laissez-le vide pour l'exécuter depuis chaque worker. Chaque emplacement sonde une fois par intervalle, et chaque résultat porte un attribut `location`. Le tableau affiche un badge par emplacement dès que plusieurs ont répondu.
+
+Une alerte sur `synthetic.up` avec **Min** inférieur à 1 se déclenche quand un emplacement quelconque voit le moniteur en panne. Pour n'alerter que lorsque tous les emplacements le voient, regroupez la règle par `location`.
+
 ## Alerter sur un moniteur
 
 Créez une règle d'alerte de métrique normale sur l'une de ces métriques, filtrée par l'attribut `monitor` :
@@ -53,6 +61,6 @@ Créez une règle d'alerte de métrique normale sur l'une de ces métriques, fil
 
 ## Limites
 
-- Les sondes s'exécutent là où tourne `Flare.AlertWorker` : elles testent la joignabilité depuis cet unique endroit.
+- Les sondes s'exécutent là où tourne `Flare.AlertWorker` ; pour sonder depuis plusieurs endroits, voir [Sonder depuis plusieurs emplacements](#sonder-depuis-plusieurs-emplacements).
 - Un moniteur fait envoyer des requêtes par le serveur vers sa cible, y compris des hôtes internes. Définissez `Synthetic__Enabled=false` sur le worker pour désactiver les sondes.
 - `Synthetic__PollInterval` (5 s) et `Synthetic__MaxConcurrency` (20) règlent l'exécuteur.

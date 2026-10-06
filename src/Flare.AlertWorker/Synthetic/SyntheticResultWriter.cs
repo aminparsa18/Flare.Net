@@ -37,7 +37,7 @@ public sealed class SyntheticResultWriter(IClickHouseClient client, IOptions<Que
         return points;
     }
 
-    public async Task WriteAsync(SyntheticMonitor monitor, SyntheticProbeResult result, DateTimeOffset time, CancellationToken cancellationToken)
+    public async Task WriteAsync(SyntheticMonitor monitor, string location, SyntheticProbeResult result, DateTimeOffset time, CancellationToken cancellationToken)
     {
         var points = Points(result);
         var parameters = new ClickHouseParameterCollection();
@@ -48,6 +48,7 @@ public sealed class SyntheticResultWriter(IClickHouseClient client, IOptions<Que
         parameters.AddParameter("monitor", monitor.Name);
         parameters.AddParameter("kind", monitor.Kind.ToString());
         parameters.AddParameter("target", monitor.Target);
+        parameters.AddParameter("location", location);
         parameters.AddParameter("time", time.UtcDateTime);
 
         // One INSERT ... SELECT for all points: arrayZip + arrayJoin turns the three parallel arrays into rows,
@@ -59,7 +60,7 @@ public sealed class SyntheticResultWriter(IClickHouseClient client, IOptions<Que
             SELECT
                 p.1, '', p.2, {service:String}, '', map(), '', 'flare.synthetic',
                 '', map(),
-                map('monitor', {monitor:String}, 'kind', {kind:String}, 'target', {target:String}),
+                map('monitor', {monitor:String}, 'kind', {kind:String}, 'target', {target:String}, 'location', {location:String}),
                 toDateTime64({time:DateTime64(3)}, 9), toDateTime64({time:DateTime64(3)}, 9), p.3, now64(9)
             FROM (SELECT arrayJoin(arrayZip({names:Array(String)}, {units:Array(String)}, {values:Array(Float64)})) AS p)
             """;

@@ -31,6 +31,7 @@
 	let bodyNotContains = $state('');
 	let intervalText = $state('60');
 	let timeoutText = $state('10');
+	let locationsText = $state('');
 	let enabled = $state(true);
 
 	$effect(() => {
@@ -48,6 +49,7 @@
 			bodyNotContains = '';
 			intervalText = '60';
 			timeoutText = '10';
+			locationsText = '';
 			enabled = true;
 		} else if (t) {
 			name = t.name;
@@ -62,6 +64,7 @@
 			bodyNotContains = t.bodyNotContains ?? '';
 			intervalText = String(t.intervalSeconds);
 			timeoutText = String(t.timeoutSeconds);
+			locationsText = (t.locations ?? []).join(', ');
 			enabled = t.enabled;
 		}
 	});
@@ -79,7 +82,9 @@
 		if (kind === 'Tls') return !/[\s/]/.test(text);
 		return /^(\[[^\]]+\]|[^\s/:]+):\d{1,5}$/.test(text);
 	});
-	const canSave = $derived(name.trim().length > 0 && targetValid && intervalValid && timeoutValid && (kind !== 'Http' || statusValid));
+	const locations = $derived(locationsText.split(/[,\s]+/).filter((l) => l.length > 0));
+	const locationsValid = $derived(locations.length <= 20 && locations.every((l) => /^[A-Za-z0-9._-]{1,64}$/.test(l)));
+	const canSave = $derived(name.trim().length > 0 && targetValid && intervalValid && timeoutValid && locationsValid && (kind !== 'Http' || statusValid));
 
 	const targetPlaceholder = $derived(
 		kind === 'Http' ? 'https://example.com/health' : kind === 'Tcp' ? 'db.internal:5432' : 'example.com:443'
@@ -99,7 +104,8 @@
 			bodyContains: kind === 'Http' ? bodyContains : '',
 			bodyNotContains: kind === 'Http' ? bodyNotContains : '',
 			intervalSeconds: interval,
-			timeoutSeconds: timeout
+			timeoutSeconds: timeout,
+			locations
 		};
 	}
 </script>
@@ -197,6 +203,14 @@
 					<Input type="number" min="1" max="120" step="1" bind:value={timeoutText} class="w-28" aria-invalid={!timeoutValid} />
 				</div>
 			</div>
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-medium">{m.synthetic_locationsLabel()}</span>
+				<Input bind:value={locationsText} placeholder="eu-west, us-east" class="font-mono" aria-invalid={!locationsValid} />
+				<span class="text-xs {locationsValid ? 'text-muted-foreground' : 'text-destructive'}">
+					{locationsValid ? m.synthetic_locationsHint() : m.synthetic_locationsError()}
+				</span>
+			</div>
+
 			{#if !intervalValid}
 				<span class="text-destructive text-xs">{m.synthetic_errorInterval()}</span>
 			{:else if !timeoutValid}

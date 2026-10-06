@@ -80,7 +80,8 @@ export class SyntheticMonitorsState {
 				bodyContains: monitor.bodyContains,
 				bodyNotContains: monitor.bodyNotContains,
 				intervalSeconds: monitor.intervalSeconds,
-				timeoutSeconds: monitor.timeoutSeconds
+				timeoutSeconds: monitor.timeoutSeconds,
+				locations: monitor.locations ?? []
 			});
 			await this.load();
 		} catch (err) {

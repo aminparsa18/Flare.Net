@@ -57,13 +57,28 @@ public sealed record SyntheticMonitor
 
     public int TimeoutSeconds { get; init; } = 10;
 
+    /// <summary>
+    /// The probe locations that run this monitor, matched against each worker's <c>Synthetic:Location</c>.
+    /// Empty means every location.
+    /// </summary>
+    public IReadOnlyList<string> Locations { get; init; } = [];
+
+    /// <summary>Whether this monitor runs at <paramref name="location"/>: it lists no locations (every one) or lists this one.</summary>
+    public bool RunsAt(string location) => Locations.Count == 0 || Locations.Contains(location, StringComparer.Ordinal);
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
 
     /// <summary>The most recent probe result. Filled only by the list endpoint; null when no result has been recorded yet.</summary>
     public SyntheticMonitorStatus? Latest { get; init; }
+
+    /// <summary>The most recent result from each location that has reported. Filled only by the list endpoint.</summary>
+    public IReadOnlyList<SyntheticLocationStatus> LocationStatuses { get; init; } = [];
 }
+
+/// <summary>One location's most recent result for a monitor.</summary>
+public sealed record SyntheticLocationStatus(string Location, SyntheticMonitorStatus Status);
 
 /// <summary>The most recent probe result of a monitor, read back from its <see cref="SyntheticMetrics"/> points.</summary>
 public sealed record SyntheticMonitorStatus(
@@ -109,6 +124,8 @@ public sealed record SyntheticMonitorRequest
     public const int MaxTimeoutSeconds = 120;
     public const int MaxRequestBodyLength = 65_536;
     public const int MaxAssertionLength = 1_000;
+    public const int MaxLocations = 20;
+    public const int MaxLocationLength = 64;
 
     private static readonly string[] AllowedMethods = ["GET", "HEAD", "POST", "OPTIONS"];
 
@@ -137,6 +154,16 @@ public sealed record SyntheticMonitorRequest
     public int? IntervalSeconds { get; init; }
 
     public int? TimeoutSeconds { get; init; }
+
+    public IReadOnlyList<string>? Locations { get; init; }
+
+    /// <summary>The locations, trimmed, de-duplicated and without blanks.</summary>
+    public IReadOnlyList<string> NormalizedLocations() =>
+        (Locations ?? []).Select(l => l.Trim()).Where(l => l.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+
+    public static bool IsValidLocation(string location) =>
+        location.Length is > 0 and <= MaxLocationLength
+        && location.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-');
 
     /// <summary>Returns an error message, or null when this request is valid.</summary>
     public string? Validate()
@@ -214,6 +241,17 @@ public sealed record SyntheticMonitorRequest
             return $"timeoutSeconds must be between 1 and {MaxTimeoutSeconds}.";
         }
 
+        var locations = NormalizedLocations();
+        if (locations.Count > MaxLocations)
+        {
+            return $"locations must list at most {MaxLocations} names.";
+        }
+
+        if (locations.Any(l => !IsValidLocation(l)))
+        {
+            return $"each location must be 1 to {MaxLocationLength} letters, digits, '.', '_' or '-'.";
+        }
+
         return (TimeoutSeconds ?? 10) > (IntervalSeconds ?? 60) ? "timeoutSeconds must not exceed intervalSeconds." : null;
     }
 }
@@ -237,4 +275,10 @@ public static class SyntheticMetrics
     public const string MonitorAttribute = "monitor";
     public const string KindAttribute = "kind";
     public const string TargetAttribute = "target";
+
+    /// <summary>The probe location that produced the point (the worker's <c>Synthetic:Location</c>).</summary>
+    public const string LocationAttribute = "location";
+
+    /// <summary>The location name of a worker with none configured, and of points written before locations existed.</summary>
+    public const string DefaultLocation = "default";
 }

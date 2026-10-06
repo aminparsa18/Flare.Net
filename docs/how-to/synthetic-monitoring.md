@@ -42,6 +42,14 @@ A timeout, connection error, failed TLS handshake (an expired, untrusted or mism
 
 The monitors table shows each monitor's latest result (up or down, with the probe time), and `flare synthetic-monitors list` shows the same from the terminal. `create`, `update` and `delete` are there too; see the [CLI reference](../reference/cli-commands.md).
 
+## Probe from several locations
+
+Each `Flare.AlertWorker` names the place it probes from with `Synthetic__Location` (default `default`). Run a worker in each region with its own name, all pointing at the same ClickHouse and Redis, for example `Synthetic__Location=eu-west` in one and `us-east` in another.
+
+A monitor's **Probe locations** field (or `flare synthetic-monitors create ... --location eu-west --location us-east`) lists the locations that run it; leave it empty to run it from every worker. Every location probes once per interval, and every result carries a `location` attribute. The table shows a badge per location when more than one has reported.
+
+An alert on `synthetic.up` with **Min** below 1 fires when any location sees the monitor down. To alert only when every location does, group the rule by `location`.
+
 ## Alert on a monitor
 
 Create a normal metric alert rule on one of those metrics, filtered by the `monitor` attribute:
@@ -53,6 +61,6 @@ Create a normal metric alert rule on one of those metrics, filtered by the `moni
 
 ## Limits
 
-- Probes run from where `Flare.AlertWorker` runs, so they test reachability from that one place.
+- Probes run from where `Flare.AlertWorker` runs. To probe from more than one place, see [Probe from several locations](#probe-from-several-locations).
 - A monitor makes the server send requests to its target, including internal hosts. Set `Synthetic__Enabled=false` on the worker to turn probing off.
 - `Synthetic__PollInterval` (5 s) and `Synthetic__MaxConcurrency` (20) tune the runner.

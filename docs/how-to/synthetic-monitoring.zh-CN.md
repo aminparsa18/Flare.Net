@@ -42,6 +42,14 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 
 监控表格会显示每个监控最近一次的结果（up 或 down，以及探测耗时），`flare synthetic-monitors list` 在终端中显示同样的内容。也可使用 `create`、`update` 和 `delete`；参见 [CLI 参考](../reference/cli-commands.zh-CN.md)。
 
+## 从多个位置探测
+
+每个 `Flare.AlertWorker` 通过 `Synthetic__Location`（默认 `default`）给出自己的探测位置名称。在每个区域运行一个使用各自名称的 worker，并让它们连接同一个 ClickHouse 和 Redis，例如一个设置 `Synthetic__Location=eu-west`，另一个设置 `us-east`。
+
+监控的 **探测位置** 字段（或 `flare synthetic-monitors create ... --location eu-west --location us-east`）列出运行它的位置；留空则由每个 worker 运行。每个位置在每个间隔内各探测一次，每条结果都带有 `location` 属性。当有多个位置上报时，表格会为每个位置显示一个徽标。
+
+对 `synthetic.up` 设置 **Min** 低于 1 的告警，会在任一位置发现监控 down 时触发。若只想在所有位置都 down 时告警，请按 `location` 对规则分组。
+
 ## 对监控设置告警
 
 对上述指标创建普通的指标告警规则，并按 `monitor` 属性过滤：
@@ -53,6 +61,6 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 
 ## 限制
 
-- 探测在 `Flare.AlertWorker` 运行的位置执行，只能测试从该处出发的可达性。
+- 探测在 `Flare.AlertWorker` 运行的位置执行；如需从多个位置探测，参见[从多个位置探测](#从多个位置探测)。
 - 监控会让服务器向其目标发送请求，包括内部主机。如需关闭探测，请在 worker 上设置 `Synthetic__Enabled=false`。
 - `Synthetic__PollInterval`（5 秒）和 `Synthetic__MaxConcurrency`（20）用于调整运行器。

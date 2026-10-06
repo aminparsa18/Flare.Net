@@ -14,8 +14,8 @@ public interface ISyntheticMonitorQueryService
     /// <summary>Every (non-deleted) monitor.</summary>
     Task<IReadOnlyList<SyntheticMonitor>> ListAsync(CancellationToken cancellationToken);
 
-    /// <summary>Each monitor's latest probe result, keyed by monitor name (the <c>monitor</c> metric attribute). Monitors with no recent result are absent.</summary>
-    Task<IReadOnlyDictionary<string, SyntheticMonitorStatus>> LatestStatusesAsync(CancellationToken cancellationToken);
+    /// <summary>Each monitor's latest probe result per location, keyed by monitor name (the <c>monitor</c> metric attribute). Monitors with no recent result are absent.</summary>
+    Task<IReadOnlyDictionary<string, IReadOnlyList<SyntheticLocationStatus>>> LatestStatusesAsync(CancellationToken cancellationToken);
 
     Task<SyntheticMonitor?> GetAsync(Guid id, CancellationToken cancellationToken);
 
@@ -32,7 +32,7 @@ public interface ISyntheticMonitorQueryService
 /// </summary>
 public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : ISyntheticMonitorQueryService
 {
-    private const string Columns = "Id, Name, Description, Enabled, Kind, Target, Method, ExpectedStatus, IntervalSeconds, TimeoutSeconds, CreatedAt, UpdatedAt, RequestHeaders, RequestBody, BodyContains, BodyNotContains";
+    private const string Columns = "Id, Name, Description, Enabled, Kind, Target, Method, ExpectedStatus, IntervalSeconds, TimeoutSeconds, CreatedAt, UpdatedAt, RequestHeaders, RequestBody, BodyContains, BodyNotContains, Locations";
 
     internal static SyntheticMonitor Apply(SyntheticMonitor monitor, SyntheticMonitorRequest request) => monitor with
     {
@@ -49,6 +49,7 @@ public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOpti
         BodyNotContains = request.BodyNotContains ?? "",
         IntervalSeconds = request.IntervalSeconds ?? 60,
         TimeoutSeconds = request.TimeoutSeconds ?? 10,
+        Locations = request.NormalizedLocations(),
     };
 
     public async Task<SyntheticMonitor> CreateAsync(SyntheticMonitorRequest request, CancellationToken cancellationToken)
@@ -74,44 +75,55 @@ public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOpti
         return monitors;
     }
 
-    public async Task<IReadOnlyDictionary<string, SyntheticMonitorStatus>> LatestStatusesAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<SyntheticLocationStatus>>> LatestStatusesAsync(CancellationToken cancellationToken)
     {
         // The longest allowed interval is 24 h, so two days always covers a monitor that is still running.
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("service", SyntheticMetrics.ServiceName);
         parameters.AddParameter("since", timeProvider.GetUtcNow().AddDays(-2).UtcDateTime);
         const string sql = """
-            SELECT DataPointAttributes['monitor'] AS Monitor, MetricName, max(Time) AS LastTime, argMax(Value, Time) AS LastValue
+            SELECT DataPointAttributes['monitor'] AS Monitor, DataPointAttributes['location'] AS Location, MetricName, max(Time) AS LastTime, argMax(Value, Time) AS LastValue
             FROM metrics_gauge
             WHERE ServiceName = {service:String}
               AND Time >= {since:DateTime64(3)}
               AND MetricName IN ('synthetic.up', 'synthetic.duration', 'synthetic.http.status_code', 'synthetic.cert.expiry_days')
-            GROUP BY Monitor, MetricName
+            GROUP BY Monitor, Location, MetricName
             """;
 
         await using var reader = await client.ExecuteReaderAsync(sql, parameters, SafetyOptions(), cancellationToken);
-        var byMonitor = new Dictionary<string, List<SyntheticMonitorStatus.Point>>();
+        var byMonitorLocation = new Dictionary<(string Monitor, string Location), List<SyntheticMonitorStatus.Point>>();
         while (reader.Read())
         {
-            var monitor = reader.GetString(0);
-            if (!byMonitor.TryGetValue(monitor, out var points))
+            // Points written before locations existed carry no location attribute.
+            var location = reader.GetString(1) is { Length: > 0 } named ? named : SyntheticMetrics.DefaultLocation;
+            var key = (reader.GetString(0), location);
+            if (!byMonitorLocation.TryGetValue(key, out var points))
             {
-                byMonitor[monitor] = points = [];
+                byMonitorLocation[key] = points = [];
             }
 
-            points.Add(new SyntheticMonitorStatus.Point(reader.GetString(1), ReadUtc(reader, 2), reader.GetDouble(3)));
+            points.Add(new SyntheticMonitorStatus.Point(reader.GetString(2), ReadUtc(reader, 3), reader.GetDouble(4)));
         }
 
-        var statuses = new Dictionary<string, SyntheticMonitorStatus>();
-        foreach (var (monitor, points) in byMonitor)
+        var statuses = new Dictionary<string, List<SyntheticLocationStatus>>();
+        foreach (var ((monitor, location), points) in byMonitorLocation)
         {
-            if (SyntheticMonitorStatus.FromPoints(points) is { } status)
+            if (SyntheticMonitorStatus.FromPoints(points) is not { } status)
             {
-                statuses[monitor] = status;
+                continue;
             }
+
+            if (!statuses.TryGetValue(monitor, out var list))
+            {
+                statuses[monitor] = list = [];
+            }
+
+            list.Add(new SyntheticLocationStatus(location, status));
         }
 
-        return statuses;
+        return statuses.ToDictionary(
+            kv => kv.Key,
+            kv => (IReadOnlyList<SyntheticLocationStatus>)kv.Value.OrderBy(l => l.Location, StringComparer.Ordinal).ToList());
     }
 
     public async Task<SyntheticMonitor?> GetAsync(Guid id, CancellationToken cancellationToken)
@@ -166,14 +178,15 @@ public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOpti
         parameters.AddParameter("requestBody", monitor.RequestBody);
         parameters.AddParameter("bodyContains", monitor.BodyContains);
         parameters.AddParameter("bodyNotContains", monitor.BodyNotContains);
+        parameters.AddParameter("locations", monitor.Locations.ToArray());
         parameters.AddParameter("createdAt", monitor.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", monitor.UpdatedAt.UtcDateTime);
 
         const string sql = """
             INSERT INTO synthetic_monitors
-                (Id, Name, Description, IsDeleted, Enabled, Kind, Target, Method, ExpectedStatus, IntervalSeconds, TimeoutSeconds, CreatedAt, UpdatedAt, RequestHeaders, RequestBody, BodyContains, BodyNotContains)
+                (Id, Name, Description, IsDeleted, Enabled, Kind, Target, Method, ExpectedStatus, IntervalSeconds, TimeoutSeconds, CreatedAt, UpdatedAt, RequestHeaders, RequestBody, BodyContains, BodyNotContains, Locations)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {enabled:UInt8}, {kind:String}, {target:String}, {method:String}, {expectedStatus:UInt16}, {intervalSeconds:UInt32}, {timeoutSeconds:UInt32}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {requestHeaders:String}, {requestBody:String}, {bodyContains:String}, {bodyNotContains:String})
+                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {enabled:UInt8}, {kind:String}, {target:String}, {method:String}, {expectedStatus:UInt16}, {intervalSeconds:UInt32}, {timeoutSeconds:UInt32}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {requestHeaders:String}, {requestBody:String}, {bodyContains:String}, {bodyNotContains:String}, {locations:Array(String)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -197,6 +210,7 @@ public sealed class SyntheticMonitorQueryService(IClickHouseClient client, IOpti
         RequestBody = reader.GetString(13),
         BodyContains = reader.GetString(14),
         BodyNotContains = reader.GetString(15),
+        Locations = reader.GetFieldValue<string[]>(16),
     };
 
     private static DateTimeOffset ReadUtc(ClickHouseDataReader reader, int ordinal) =>
