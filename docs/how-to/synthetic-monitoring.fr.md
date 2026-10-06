@@ -18,6 +18,9 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 | `target` | Http : une URL `http(s)` absolue. Tcp : `host:port`. Tls : `host` ou `host:port` (443 par défaut). |
 | `method` | Http uniquement : `GET` (défaut), `HEAD`, `POST` ou `OPTIONS`. |
 | `expectedStatus` | Http uniquement : le statut considéré comme « up ». `0` (défaut) signifie tout 2xx ou 3xx. |
+| `requestHeaders` | Http uniquement : en-têtes de requête, un `Name: value` par ligne. Stockés en clair et visibles par tous les membres ; préférez un jeton dédié à faibles privilèges. |
+| `requestBody` | Http uniquement, `POST` uniquement : le corps de la requête. Un en-tête `Content-Type` définit son type. |
+| `bodyContains` / `bodyNotContains` | Http uniquement : le corps de la réponse doit contenir / ne doit pas contenir ce texte (sensible à la casse ; seul le premier 1 Mio est lu). Une assertion échouée enregistre `synthetic.up` à 0. |
 | `intervalSeconds` | De 10 à 86400, 60 par défaut. |
 | `timeoutSeconds` | De 1 à 120, 10 par défaut, sans dépasser l'intervalle. |
 | `enabled` | `false` met le moniteur en pause. |
@@ -36,6 +39,8 @@ Chaque sonde écrit des métriques gauge pour le service `flare-synthetic`, avec
 | `synthetic.cert.expiry_days` | Tls uniquement : jours avant l'expiration du certificat. |
 
 Un délai dépassé, une erreur de connexion, une négociation TLS échouée (un certificat expiré, non approuvé ou ne correspondant pas à l'hôte la fait échouer) ou un statut inattendu enregistrent tous `synthetic.up` à 0.
+
+Le tableau des sondes affiche le dernier résultat de chaque sonde (up ou down, avec le temps de la sonde), et `flare synthetic-monitors list` l'affiche dans le terminal. `create`, `update` et `delete` existent aussi ; voir la [référence CLI](../reference/cli-commands.fr.md).
 
 ## Alerter sur un moniteur
 

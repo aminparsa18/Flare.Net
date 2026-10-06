@@ -119,4 +119,113 @@ public class SyntheticMonitorTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             prober.ProbeAsync(Monitor(SyntheticMonitorKind.Tcp, "127.0.0.1:9"), cts.Token));
     }
+
+    private static readonly DateTimeOffset T1 = new(2026, 10, 6, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void Status_takes_other_metrics_from_the_same_probe()
+    {
+        var status = SyntheticMonitorStatus.FromPoints(
+        [
+            new(SyntheticMetrics.Up, T1, 1),
+            new(SyntheticMetrics.Duration, T1, 42.5),
+            new(SyntheticMetrics.HttpStatusCode, T1, 200),
+        ]);
+
+        Assert.NotNull(status);
+        Assert.True(status.Up);
+        Assert.Equal(42.5, status.DurationMs);
+        Assert.Equal(200, status.HttpStatus);
+        Assert.Null(status.CertExpiryDays);
+    }
+
+    [Fact]
+    public void Status_ignores_values_from_an_older_probe()
+    {
+        var status = SyntheticMonitorStatus.FromPoints(
+        [
+            new(SyntheticMetrics.Up, T1, 0),
+            new(SyntheticMetrics.Duration, T1, 10_000),
+            new(SyntheticMetrics.CertExpiryDays, T1.AddMinutes(-1), 30),
+        ]);
+
+        Assert.NotNull(status);
+        Assert.False(status.Up);
+        Assert.Null(status.CertExpiryDays);
+    }
+
+    [Fact]
+    public void Status_is_null_without_an_up_point() =>
+        Assert.Null(SyntheticMonitorStatus.FromPoints([new(SyntheticMetrics.Duration, T1, 5)]));
+
+    [Fact]
+    public void Headers_parse_name_value_lines()
+    {
+        var result = SyntheticHeaders.Parse("Authorization: Bearer a:b\r\n\nX-Env:  prod ");
+
+        Assert.Null(result.Error);
+        Assert.Equal([("Authorization", "Bearer a:b"), ("X-Env", "prod")], result.Headers);
+    }
+
+    [Theory]
+    [InlineData("no colon here")]
+    [InlineData(": value")]
+    [InlineData("Bad Name: v")]
+    [InlineData("X: a\u0001b")]
+    public void Headers_reject_malformed_lines(string text) => Assert.NotNull(SyntheticHeaders.Parse(text).Error);
+
+    [Fact]
+    public void Request_body_requires_post()
+    {
+        var get = new SyntheticMonitorRequest { Name = "n", Target = "https://example.com", RequestBody = "{}" };
+        Assert.NotNull(get.Validate());
+        Assert.Null((get with { Method = "post" }).Validate());
+    }
+
+    [Theory]
+    [InlineData("{\"ok\":true}", "ok", "", null)]
+    [InlineData("{\"ok\":true}", "healthy", "", "response body does not contain the expected text")]
+    [InlineData("an error page", "", "error", "response body contains the forbidden text")]
+    [InlineData("fine", "fin", "error", null)]
+    public void Body_assertions(string body, string contains, string notContains, string? expected) =>
+        Assert.Equal(expected, SyntheticProber.BodyAssertionError(body, contains, notContains));
+
+    private sealed class FakeHttp(HttpMessageHandler handler) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(handler);
+    }
+
+    private sealed class CapturingHandler(string body, Action<HttpRequestMessage, string> capture) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            capture(request, request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken));
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
+        }
+    }
+
+    [Fact]
+    public async Task Http_probe_sends_headers_and_body_and_checks_the_response_body()
+    {
+        HttpRequestMessage? seen = null;
+        var sentBody = "";
+        var prober = new SyntheticProber(new FakeHttp(new CapturingHandler("status: healthy", (r, b) => { seen = r; sentBody = b; })), TimeProvider.System);
+        var monitor = Monitor(SyntheticMonitorKind.Http, "https://example.test/h") with
+        {
+            Method = "POST",
+            RequestHeaders = "X-Token: abc\nContent-Type: application/json",
+            RequestBody = "{\"a\":1}",
+            BodyContains = "healthy",
+        };
+
+        var up = await prober.ProbeAsync(monitor, CancellationToken.None);
+        var down = await prober.ProbeAsync(monitor with { BodyContains = "degraded" }, CancellationToken.None);
+
+        Assert.True(up.Up);
+        Assert.False(down.Up);
+        Assert.Equal(200, down.HttpStatus);
+        Assert.Equal("abc", Assert.Single(seen!.Headers.GetValues("X-Token")));
+        Assert.Equal("application/json", seen.Content!.Headers.ContentType!.MediaType);
+        Assert.Equal("{\"a\":1}", sentBody);
+    }
 }

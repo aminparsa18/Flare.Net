@@ -18,6 +18,9 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 | `target` | Http: an absolute `http(s)` URL. Tcp: `host:port`. Tls: `host` or `host:port` (443 by default). |
 | `method` | Http only: `GET` (default), `HEAD`, `POST` or `OPTIONS`. |
 | `expectedStatus` | Http only: the status that counts as up. `0` (default) means any 2xx or 3xx. |
+| `requestHeaders` | Http only: request headers, one `Name: value` per line. Stored in clear text and visible to every member, so prefer a dedicated low-privilege token. |
+| `requestBody` | Http only, `POST` only: the request body. A `Content-Type` header sets its type. |
+| `bodyContains` / `bodyNotContains` | Http only: the response body must contain / must not contain this text (case-sensitive; only the first 1 MiB is read). A failed assertion records `synthetic.up` as 0. |
 | `intervalSeconds` | 10 to 86400, 60 by default. |
 | `timeoutSeconds` | 1 to 120, 10 by default, not above the interval. |
 | `enabled` | `false` pauses the monitor. |
@@ -36,6 +39,8 @@ Every probe writes gauge metrics for service `flare-synthetic`, each with the at
 | `synthetic.cert.expiry_days` | Tls only: days until the certificate expires. |
 
 A timeout, connection error, failed TLS handshake (an expired, untrusted or mismatched certificate fails it) or unexpected status all record `synthetic.up` as 0.
+
+The monitors table shows each monitor's latest result (up or down, with the probe time), and `flare synthetic-monitors list` shows the same from the terminal. `create`, `update` and `delete` are there too; see the [CLI reference](../reference/cli-commands.md).
 
 ## Alert on a monitor
 

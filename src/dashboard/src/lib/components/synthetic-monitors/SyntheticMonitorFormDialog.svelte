@@ -25,6 +25,10 @@
 	let target = $state('');
 	let method = $state('GET');
 	let expectedStatusText = $state('0');
+	let requestHeaders = $state('');
+	let requestBody = $state('');
+	let bodyContains = $state('');
+	let bodyNotContains = $state('');
 	let intervalText = $state('60');
 	let timeoutText = $state('10');
 	let enabled = $state(true);
@@ -38,6 +42,10 @@
 			target = '';
 			method = 'GET';
 			expectedStatusText = '0';
+			requestHeaders = '';
+			requestBody = '';
+			bodyContains = '';
+			bodyNotContains = '';
 			intervalText = '60';
 			timeoutText = '10';
 			enabled = true;
@@ -48,6 +56,10 @@
 			target = t.target;
 			method = t.method;
 			expectedStatusText = String(t.expectedStatus);
+			requestHeaders = t.requestHeaders ?? '';
+			requestBody = t.requestBody ?? '';
+			bodyContains = t.bodyContains ?? '';
+			bodyNotContains = t.bodyNotContains ?? '';
 			intervalText = String(t.intervalSeconds);
 			timeoutText = String(t.timeoutSeconds);
 			enabled = t.enabled;
@@ -82,6 +94,10 @@
 			target: target.trim(),
 			method: kind === 'Http' ? method : 'GET',
 			expectedStatus: kind === 'Http' ? expectedStatus : 0,
+			requestHeaders: kind === 'Http' ? requestHeaders.trim() : '',
+			requestBody: kind === 'Http' && method === 'POST' ? requestBody : '',
+			bodyContains: kind === 'Http' ? bodyContains : '',
+			bodyNotContains: kind === 'Http' ? bodyNotContains : '',
 			intervalSeconds: interval,
 			timeoutSeconds: timeout
 		};
@@ -144,6 +160,31 @@
 					</div>
 				</div>
 				<span class="text-muted-foreground -mt-2 text-xs">{m.synthetic_expectedStatusHint()}</span>
+
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.synthetic_headersLabel()}</span>
+					<Textarea bind:value={requestHeaders} rows={3} class="font-mono text-xs" placeholder="Authorization: Bearer ..." />
+					<span class="text-muted-foreground text-xs">{m.synthetic_headersHint()}</span>
+				</div>
+
+				{#if method === 'POST'}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.synthetic_bodyLabel()}</span>
+						<Textarea bind:value={requestBody} rows={3} class="font-mono text-xs" />
+					</div>
+				{/if}
+
+				<div class="flex gap-3">
+					<div class="flex flex-1 flex-col gap-1">
+						<span class="text-xs font-medium">{m.synthetic_bodyContainsLabel()}</span>
+						<Input bind:value={bodyContains} maxlength={1000} />
+					</div>
+					<div class="flex flex-1 flex-col gap-1">
+						<span class="text-xs font-medium">{m.synthetic_bodyNotContainsLabel()}</span>
+						<Input bind:value={bodyNotContains} maxlength={1000} />
+					</div>
+				</div>
+				<span class="text-muted-foreground -mt-2 text-xs">{m.synthetic_assertionHint()}</span>
 			{/if}
 
 			<div class="flex gap-3">

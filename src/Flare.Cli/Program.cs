@@ -81,6 +81,17 @@ app.Configure(config =>
         notificationChannels.AddCommand<NotificationChannelsSendTestCommand>("send-test")
             .WithDescription("Send a real test notification through a saved channel.");
     });
+    config.AddBranch("synthetic-monitors", syntheticMonitors =>
+    {
+        syntheticMonitors.AddCommand<SyntheticMonitorsListCommand>("list")
+            .WithDescription("List synthetic monitors with their latest result.");
+        syntheticMonitors.AddCommand<SyntheticMonitorsCreateCommand>("create")
+            .WithDescription("Create an HTTP, TCP or TLS probe.");
+        syntheticMonitors.AddCommand<SyntheticMonitorsUpdateCommand>("update")
+            .WithDescription("Update a monitor (only the options you pass change).");
+        syntheticMonitors.AddCommand<SyntheticMonitorsDeleteCommand>("delete")
+            .WithDescription("Delete a monitor.");
+    });
     config.AddBranch("instances", instances =>
     {
         instances.AddCommand<InstancesListCommand>("list")

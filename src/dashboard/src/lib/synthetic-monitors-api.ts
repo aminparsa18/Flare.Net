@@ -5,6 +5,14 @@ import { API_BASE_URL, apiFetch } from './api';
 
 export type SyntheticMonitorKind = 'Http' | 'Tcp' | 'Tls';
 
+export interface SyntheticMonitorStatus {
+	up: boolean;
+	time: string;
+	durationMs: number | null;
+	httpStatus: number | null;
+	certExpiryDays: number | null;
+}
+
 export interface SyntheticMonitor {
 	id: string;
 	name: string;
@@ -15,10 +23,17 @@ export interface SyntheticMonitor {
 	method: string;
 	/** 0 means any 2xx or 3xx. */
 	expectedStatus: number;
+	/** One `Name: value` header per line. */
+	requestHeaders: string;
+	requestBody: string;
+	bodyContains: string;
+	bodyNotContains: string;
 	intervalSeconds: number;
 	timeoutSeconds: number;
 	createdAt: string;
 	updatedAt: string;
+	/** Most recent probe result; only present on list responses, and absent until a probe has run. */
+	latest?: SyntheticMonitorStatus | null;
 }
 
 export interface SyntheticMonitorRequest {
@@ -29,6 +44,10 @@ export interface SyntheticMonitorRequest {
 	target: string;
 	method: string;
 	expectedStatus: number;
+	requestHeaders: string;
+	requestBody: string;
+	bodyContains: string;
+	bodyNotContains: string;
 	intervalSeconds: number;
 	timeoutSeconds: number;
 }

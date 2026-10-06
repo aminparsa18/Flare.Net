@@ -18,6 +18,9 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 | `target` | Http：绝对的 `http(s)` URL。Tcp：`host:port`。Tls：`host` 或 `host:port`（默认 443）。 |
 | `method` | 仅 Http：`GET`（默认）、`HEAD`、`POST` 或 `OPTIONS`。 |
 | `expectedStatus` | 仅 Http：视为正常的状态码。`0`（默认）表示任意 2xx 或 3xx。 |
+| `requestHeaders` | 仅 Http：请求头，每行一个 `Name: value`。以明文存储且所有成员可见，建议使用专用的低权限令牌。 |
+| `requestBody` | 仅 Http 且仅 `POST`：请求体。类型由 `Content-Type` 请求头决定。 |
+| `bodyContains` / `bodyNotContains` | 仅 Http：响应体必须包含 / 不得包含此文本（区分大小写；只读取前 1 MiB）。断言失败会将 `synthetic.up` 记为 0。 |
 | `intervalSeconds` | 10 到 86400，默认 60。 |
 | `timeoutSeconds` | 1 到 120，默认 10，不得超过间隔。 |
 | `enabled` | `false` 暂停该监控。 |
@@ -36,6 +39,8 @@ curl -X POST "$FLARE_API/api/synthetic-monitors" \
 | `synthetic.cert.expiry_days` | 仅 Tls：距证书过期的天数。 |
 
 超时、连接错误、TLS 握手失败（证书过期、不受信任或与主机名不匹配都会导致失败）以及意外的状态码，都会将 `synthetic.up` 记为 0。
+
+监控表格会显示每个监控最近一次的结果（up 或 down，以及探测耗时），`flare synthetic-monitors list` 在终端中显示同样的内容。也可使用 `create`、`update` 和 `delete`；参见 [CLI 参考](../reference/cli-commands.zh-CN.md)。
 
 ## 对监控设置告警
 
