@@ -58,6 +58,7 @@ the full rule set on what goes where.
 - [Tell whether a span was slow for what it is](how-to/compare-span-duration.md)
 - [Find high-cardinality metrics](how-to/find-high-cardinality-metrics.md)
 - [Reduce a metric's attributes at ingest](how-to/reduce-metric-attributes.md)
+- [Turn a log search into a metric](how-to/log-based-metrics.md)
 - [Speed up filters on a frequently used log or span attribute](how-to/promote-attribute-columns.md)
 
 **Reference**

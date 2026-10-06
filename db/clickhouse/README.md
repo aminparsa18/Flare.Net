@@ -140,6 +140,11 @@ holds the step number. See [ADR-0136](../../docs-internal/adr/0136-alert-multi-s
 zone) the rotation is limited to, or `''` for always. See
 [ADR-0139](../../docs-internal/adr/0139-oncall-rotation-coverage.md).
 
+`0064_log_metrics.sql` - a new `log_metrics` table (saved log condition + group-by keys,
+same CRUD-via-tombstone `ReplacingMergeTree` as `pipeline_rules`). `Flare.Ingest` counts the matching logs
+per flush and writes delta sums to `metrics_sum`. See
+[ADR-0140](../../docs-internal/adr/0140-log-based-metrics.md).
+
 `0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
 same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
 `metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).

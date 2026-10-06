@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Flare.Ingest.Model;
 using Flare.Ingest.Patterns;
+using Flare.Ingest.Pipeline.LogMetrics;
 using Flare.Ingest.Pipeline.Rules;
 using Flare.Ingest.Stats;
 using Microsoft.Extensions.Options;
@@ -50,6 +51,7 @@ public sealed class ClickHouseFlushWorker(
     IFlushHealthTracker flushHealth,
     IPipelineRuleAnnotator pipelineRuleAnnotator,
     ILogPatternAnnotator patternAnnotator,
+    ILogMetricEmitter logMetricEmitter,
     ILogger<ClickHouseFlushWorker> logger) : BackgroundService
 {
     private static readonly RedisValue DataField = "data";
@@ -231,6 +233,7 @@ public sealed class ClickHouseFlushWorker(
             await db.StreamAcknowledgeAsync(opts.StreamKey, opts.ConsumerGroup, ids);
             logger.LogDebug("Flushed {Count} log events to ClickHouse.", events.Length);
             await flushHealth.RecordSuccessAsync(IngestionSignal.Logs, events.Length);
+            await EmitLogMetricsAsync(annotated, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -241,6 +244,23 @@ public sealed class ClickHouseFlushWorker(
             // Deliberately do not XACK - entries stay in the PEL and are retried once
             // they age past ReclaimIdle (see ReclaimStalePendingAsync).
             await flushHealth.RecordFailureAsync(IngestionSignal.Logs, $"{ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Best-effort, with its own catch so a failure never reaches the write catch above: the log
+    /// batch is already written and acked, so failing it here would only re-deliver (and duplicate)
+    /// logs. A failed metric write loses that batch's log-metric counts and is logged (ADR-0140).
+    /// </summary>
+    private async Task EmitLogMetricsAsync(IReadOnlyList<LogEvent> events, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await logMetricEmitter.EmitAsync(events, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Failed to write log-based metrics for a batch of {Count} log events; their counts are dropped.", events.Count);
         }
     }
 }

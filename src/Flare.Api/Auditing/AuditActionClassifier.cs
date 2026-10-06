@@ -50,6 +50,10 @@ public static class AuditActionClassifier
         new("PUT", "/api/metric-attribute-rules/{id:guid}", "metric-attribute-rule", "update", "id"),
         new("DELETE", "/api/metric-attribute-rules/{id:guid}", "metric-attribute-rule", "delete", "id"),
 
+        new("POST", "/api/log-metrics", "log-metric", "create", null),
+        new("PUT", "/api/log-metrics/{id:guid}", "log-metric", "update", "id"),
+        new("DELETE", "/api/log-metrics/{id:guid}", "log-metric", "delete", "id"),
+
         new("POST", "/api/dashboards", "dashboard", "create", null),
         new("PUT", "/api/dashboards/{id:guid}", "dashboard", "update", "id"),
         new("DELETE", "/api/dashboards/{id:guid}", "dashboard", "delete", "id"),

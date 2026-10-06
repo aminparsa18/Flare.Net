@@ -4,6 +4,7 @@ using Flare.Ingest.Auth;
 using Flare.Ingest.Otlp;
 using Flare.Ingest.Patterns;
 using Flare.Ingest.Pipeline;
+using Flare.Ingest.Pipeline.LogMetrics;
 using Flare.Ingest.Pipeline.MetricRules;
 using Flare.Ingest.Pipeline.Rules;
 using Flare.Ingest.Prometheus;
@@ -132,6 +133,16 @@ builder.Services.AddSingleton<MetricAttributeRuleCache>();
 builder.Services.AddSingleton<IMetricAttributeRuleCache>(sp => sp.GetRequiredService<MetricAttributeRuleCache>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MetricAttributeRuleCache>());
 builder.Services.AddHostedService<MetricFlushWorker>();
+
+// Log-based metrics (ADR-0140): ClickHouseFlushWorker counts matching logs per flush and
+// writes them through IClickHouseMetricWriter. Same "one instance, two roles" cache.
+builder.Services.Configure<LogMetricOptions>(
+    builder.Configuration.GetSection(LogMetricOptions.SectionName));
+builder.Services.AddSingleton<ILogMetricStore, ClickHouseLogMetricStore>();
+builder.Services.AddSingleton<LogMetricCache>();
+builder.Services.AddSingleton<ILogMetricCache>(sp => sp.GetRequiredService<LogMetricCache>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<LogMetricCache>());
+builder.Services.AddSingleton<ILogMetricEmitter, LogMetricEmitter>();
 
 // Native Prometheus scrape (Planning.md v20) - a second, pull-side receiver feeding the
 // same IMetricEventSink/pipeline as the OTLP metrics endpoints above. No-ops with zero

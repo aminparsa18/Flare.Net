@@ -93,11 +93,11 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Log-based metrics.** Turn a saved `LogFilter` (plus optional group-by) into
-  a persisted metric via a ClickHouse materialized view, so charting or
-  alerting on "count of X" doesn't scan logs each time. Natural home is a new
-  pipeline-rule-style definition (ADR-0033); watch cardinality of the group-by
-  and surface it on the cardinality page. Needs an ADR.
+- **Log-based metrics UI.** The engine and `/api/log-metrics` CRUD shipped
+  (ADR-0140). Remaining: a management page, a "create a metric from this
+  search" action in the Logs explorer that carries the current filter over, and
+  a dry-run preview of how many series the group-by keys would create. Not
+  started.
 - **Config-as-code beyond alerts.** `flare alerts export`/`import` and
   dashboard JSON export exist, but SLOs, notification channels, pipeline rules,
   maintenance windows, metric attribute rules and ingest keys can't be moved or
