@@ -6,14 +6,29 @@ d'alerte sur cette métrique lisent une petite série temporelle au lieu de
 parcourir la table des logs à chaque fois, ce qui garde « les erreurs de
 checkout par minute » peu coûteux sur une instance chargée.
 
-Il n'y a pas encore de page du tableau de bord pour cela. Vous gérez les
-métriques de logs via l'API.
+Gérez les métriques de logs dans **Paramètres > Métriques de logs**, ou via
+l'API.
 
 ## Prérequis
 
 - Un compte Membre ou Administrateur, ou un [jeton d'accès personnel](configure-authentication.fr.md#jetons-daccès-personnels)
   associé. Les lecteurs ne peuvent pas créer de métriques de logs.
 - L'adresse de l'API de Flare, `http://localhost:8080` dans les exemples.
+
+## Créer une métrique depuis le tableau de bord
+
+Dans l'explorateur de logs, définissez le filtre à compter puis cliquez sur
+**Créer une métrique**. Le formulaire s'ouvre avec ce filtre déjà rempli, filtres
+d'attributs compris. Donnez un nom, choisissez le nom de la métrique et ajoutez
+éventuellement des clés de regroupement, puis cliquez sur **Prévisualiser les
+séries** : Flare lit la dernière heure de logs stockés et indique combien de
+séries ces clés créeraient, en listant les plus actives. Si ce nombre est
+élevé, retirez une clé avant d'enregistrer. Vous pouvez aussi partir de zéro
+avec **Nouvelle métrique de logs** dans **Paramètres > Métriques de logs**, qui
+permet aussi de lister, suspendre, modifier et supprimer les métriques.
+
+Le même aperçu est disponible via `POST /api/log-metrics/preview` avec un corps
+`{ "condition": {...}, "groupBy": [...] }`.
 
 ## Créer une métrique de logs
 

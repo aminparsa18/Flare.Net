@@ -22,6 +22,7 @@
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import LayersIcon from '@lucide/svelte/icons/layers';
 	import FolderIcon from '@lucide/svelte/icons/folder';
+	import SigmaIcon from '@lucide/svelte/icons/sigma';
 	import { authContext } from '$lib/auth/context';
 	import { settingsManagementLinks, workspaceLinks } from '$lib/components/nav/nav-links';
 	import { searchSettings } from '$lib/settings/search-index';
@@ -34,6 +35,7 @@
 	const MANAGEMENT_ICONS = {
 		'/settings/slos': TargetIcon,
 		'/settings/pipeline-rules': WorkflowIcon,
+		'/settings/log-metrics': SigmaIcon,
 		'/settings/access-tokens': KeyRoundIcon
 	} as const;
 

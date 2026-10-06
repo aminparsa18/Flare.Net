@@ -10,6 +10,8 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(LogMetricRequest))]
 [JsonSerializable(typeof(LogMetric))]
 [JsonSerializable(typeof(LogMetricListResponse))]
+[JsonSerializable(typeof(LogMetricPreviewRequest))]
+[JsonSerializable(typeof(LogMetricPreviewResponse))]
 [JsonSerializable(typeof(LogFilter))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 public sealed partial class LogMetricsJsonContext : JsonSerializerContext;

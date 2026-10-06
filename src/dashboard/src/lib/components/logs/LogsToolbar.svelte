@@ -16,6 +16,7 @@
 	import SavedSearchesMenu from '$lib/components/logs/SavedSearchesMenu.svelte';
 	import PinToDashboardButton from '$lib/components/dashboards/PinToDashboardButton.svelte';
 	import CreateAlertButton from '$lib/components/alerts/CreateAlertButton.svelte';
+	import CreateLogMetricButton from '$lib/components/log-metrics/CreateLogMetricButton.svelte';
 	import RadioIcon from '@lucide/svelte/icons/radio';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import XIcon from '@lucide/svelte/icons/x';
@@ -196,6 +197,8 @@
 			search: explorer.filter.search
 		})}
 	/>
+
+	<CreateLogMetricButton filter={() => explorer.buildFilter(null)} />
 
 	<PatternsModal onSelectPattern={(patternId, template) => explorer.applyPatternIdFilter(patternId, template)} />
 

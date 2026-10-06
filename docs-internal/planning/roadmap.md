@@ -93,11 +93,6 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Log-based metrics UI.** The engine and `/api/log-metrics` CRUD shipped
-  (ADR-0140). Remaining: a management page, a "create a metric from this
-  search" action in the Logs explorer that carries the current filter over, and
-  a dry-run preview of how many series the group-by keys would create. Not
-  started.
 - **Config-as-code beyond alerts.** `flare alerts export`/`import` and
   dashboard JSON export exist, but SLOs, notification channels, pipeline rules,
   maintenance windows, metric attribute rules and ingest keys can't be moved or

@@ -93,3 +93,49 @@ public sealed partial record LogMetricRequest
         return null;
     }
 }
+
+/// <summary>Body of <c>POST /api/log-metrics/preview</c>: a draft's condition and group-by keys, no name needed.</summary>
+[MemoryPackable]
+public sealed partial record LogMetricPreviewRequest
+{
+    public LogFilter? Condition { get; init; }
+
+    public IReadOnlyList<string>? GroupBy { get; init; }
+
+    /// <summary>Same group-by rules as <see cref="LogMetricRequest.Validate"/>; returns an error message, or null when valid.</summary>
+    public string? Validate() =>
+        GroupBy is null
+            ? null
+            : new LogMetricRequest { Name = "preview", MetricName = "preview", GroupBy = GroupBy }.Validate();
+}
+
+/// <summary>One series the draft would emit: the group-by values (aligned with the request's keys; empty when a log has no value) and how many logs carried them.</summary>
+[MemoryPackable]
+public sealed partial record LogMetricPreviewSeries
+{
+    public required string ServiceName { get; init; }
+
+    public required IReadOnlyList<string> Values { get; init; }
+
+    public required long Count { get; init; }
+}
+
+/// <summary>
+/// Dry-run of a log metric over the last <see cref="WindowMinutes"/> minutes of stored logs.
+/// <see cref="SeriesCount"/> is capped at <see cref="Query.LogMetricPreviewQueryBuilder.MaxSeries"/>
+/// (<see cref="SeriesCapped"/> says it was hit); <see cref="TotalLogs"/> counts only the series read.
+/// </summary>
+[MemoryPackable]
+public sealed partial record LogMetricPreviewResponse
+{
+    public required int WindowMinutes { get; init; }
+
+    public required long TotalLogs { get; init; }
+
+    public required int SeriesCount { get; init; }
+
+    public required bool SeriesCapped { get; init; }
+
+    /// <summary>Highest-count series first, at most <see cref="Query.LogMetricPreviewQueryBuilder.TopSeries"/>.</summary>
+    public required IReadOnlyList<LogMetricPreviewSeries> Top { get; init; }
+}

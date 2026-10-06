@@ -52,6 +52,7 @@
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import TargetIcon from '@lucide/svelte/icons/target';
 	import WorkflowIcon from '@lucide/svelte/icons/workflow';
+	import SigmaIcon from '@lucide/svelte/icons/sigma';
 	import KeyIcon from '@lucide/svelte/icons/key';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
@@ -78,6 +79,7 @@
 		'/auth': ShieldIcon,
 		'/settings/slos': TargetIcon,
 		'/settings/pipeline-rules': WorkflowIcon,
+		'/settings/log-metrics': SigmaIcon,
 		'/settings/ingest-keys': KeyIcon,
 		'/settings/channels': BellIcon,
 		'/settings/maintenance-windows': WrenchIcon,

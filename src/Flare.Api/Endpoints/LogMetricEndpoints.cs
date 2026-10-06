@@ -12,6 +12,7 @@ public static class LogMetricEndpoints
     public static IEndpointRouteBuilder MapLogMetricEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/log-metrics", HandleCreateAsync);
+        endpoints.MapPost("/api/log-metrics/preview", HandlePreviewAsync);
         endpoints.MapGet("/api/log-metrics", HandleListAsync);
         endpoints.MapGet("/api/log-metrics/{id:guid}", HandleGetAsync);
         endpoints.MapPut("/api/log-metrics/{id:guid}", HandleUpdateAsync);
@@ -30,6 +31,32 @@ public static class LogMetricEndpoints
         var metric = await metrics.CreateAsync(request!, cancellationToken);
         AuditContext.SetResourceId(http, metric.Id);
         return ApiSerialization.Write(http, metric, LogMetricsJsonContext.Default.LogMetric, statusCode: StatusCodes.Status201Created);
+    }
+
+    private static async Task<IResult> HandlePreviewAsync(HttpContext http, ILogMetricQueryService metrics, CancellationToken cancellationToken)
+    {
+        LogMetricPreviewRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, LogMetricsJsonContext.Default.LogMetricPreviewRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request.Validate() is { } validationError)
+        {
+            return Results.Problem(validationError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var response = await metrics.PreviewAsync(request, cancellationToken);
+        return ApiSerialization.Write(http, response, LogMetricsJsonContext.Default.LogMetricPreviewResponse);
     }
 
     private static async Task<IResult> HandleListAsync(HttpContext http, ILogMetricQueryService metrics, CancellationToken cancellationToken)
