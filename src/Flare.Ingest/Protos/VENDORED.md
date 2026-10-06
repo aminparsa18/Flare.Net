@@ -20,7 +20,13 @@ opentelemetry/proto/trace/v1/trace.proto
 opentelemetry/proto/collector/trace/v1/trace_service.proto
 opentelemetry/proto/metrics/v1/metrics.proto
 opentelemetry/proto/collector/metrics/v1/metrics_service.proto
+opentelemetry/proto/profiles/v1development/profiles.proto
+opentelemetry/proto/collector/profiles/v1development/profiles_service.proto
 ```
+
+The two profiles files were added 2026-10-06 at the same `v1.11.0` tag (ADR-0141). Profiles
+is **Alpha**: the package is `v1development` and field numbers may still change, so a tag bump
+that touches these two files needs the profiles mapper's tests re-run, not just a re-vendor.
 
 ## Why vendored, not a NuGet dependency
 

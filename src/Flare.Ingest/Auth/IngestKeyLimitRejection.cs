@@ -86,6 +86,10 @@ public static class IngestKeyLimitRejection
         {
             return IngestionSignal.Metrics;
         }
+        if (path.StartsWith("/v1development/profiles", StringComparison.Ordinal) || path.Contains(".profiles.v1development.", StringComparison.Ordinal))
+        {
+            return IngestionSignal.Profiles;
+        }
         return null;
     }
 
