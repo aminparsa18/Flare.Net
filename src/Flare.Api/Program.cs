@@ -292,6 +292,7 @@ builder.Services.AddSingleton<IClusterStatusService>(sp => new ClusterQueryServi
 builder.Services.Configure<LogEventPipelineOptions>(builder.Configuration.GetSection(LogEventPipelineOptions.SectionName));
 builder.Services.Configure<SpanEventPipelineOptions>(builder.Configuration.GetSection(SpanEventPipelineOptions.SectionName));
 builder.Services.Configure<MetricEventPipelineOptions>(builder.Configuration.GetSection(MetricEventPipelineOptions.SectionName));
+builder.Services.Configure<ProfileEventPipelineOptions>(builder.Configuration.GetSection(ProfileEventPipelineOptions.SectionName));
 builder.Services.AddSingleton<PipelineStreamKeys>();
 
 builder.Services.AddSingleton<IPipelineQueryService, PipelineQueryService>();

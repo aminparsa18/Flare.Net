@@ -37,7 +37,7 @@ export function userRoleFromString(value: UserRoleName): UserRole {
 }
 
 /** Matches `IngestionModels.cs`'s `IngestionSignal` member order. */
-const INGESTION_SIGNAL_NAMES = ['Logs', 'Traces', 'Metrics'] as const;
+const INGESTION_SIGNAL_NAMES = ['Logs', 'Traces', 'Metrics', 'Profiles'] as const;
 
 export type IngestionSignalName = (typeof INGESTION_SIGNAL_NAMES)[number];
 
