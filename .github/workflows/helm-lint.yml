@@ -21,3 +21,27 @@ jobs:
             --set ingress.otlpHttp.enabled=true --set ingress.otlpGrpc.enabled=true > /dev/null
           helm template t $c --set clickhouse.enabled=false --set clickhouse.external.host=ch \
             --set clickhouse.external.clusterMode=true --set redis.enabled=false --set redis.external.host=r > /dev/null
+  # Real install on a throwaway kind cluster: catches what lint/template can't (probe paths,
+  # startup order, PVC scheduling). Pulls the released images named by the chart, so it runs
+  # at the chart's appVersion rather than the PR's code - it validates the chart, not the apps.
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - uses: helm/kind-action@v1
+      - name: Install chart
+        run: helm install flare deploy/helm/flare -n flare --create-namespace --wait --timeout 10m
+      - name: Smoke test
+        run: |
+          kubectl -n flare port-forward svc/flare-flare-api 8080:8080 &
+          kubectl -n flare port-forward svc/flare-flare-ingest 4318:4318 &
+          sleep 5
+          curl -fsS http://localhost:8080/health
+          curl -fsS -X POST http://localhost:4318/v1/logs -H 'content-type: application/json' -d '{"resourceLogs":[]}'
+      - name: Dump state on failure
+        if: failure()
+        run: |
+          kubectl -n flare get pods -o wide
+          kubectl -n flare describe pods | tail -80
+          kubectl -n flare logs --all-containers --tail=50 -l app.kubernetes.io/instance=flare
