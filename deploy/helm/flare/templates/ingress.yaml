@@ -1,0 +1,62 @@
+{{- if .Values.ingress.enabled }}
+{{- $base := include "flare.basePath" . }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "flare.name" . }}
+  labels: {{- include "flare.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          # The prefix is not stripped: the API and dashboard both serve under Flare__BasePath.
+          - path: {{ $base }}/api
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "flare.name" . }}-api, port: { number: 8080 } }
+          - path: {{ $base }}/mcp
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "flare.name" . }}-api, port: { number: 8080 } }
+          - path: {{ $base }}/
+            pathType: Prefix
+            backend:
+              service: { name: {{ include "flare.name" . }}-dashboard, port: { number: 3000 } }
+{{- end }}
+{{- range $kind, $cfg := dict "http" .Values.ingress.otlpHttp "grpc" .Values.ingress.otlpGrpc }}
+{{- if and $.Values.ingress.enabled $cfg.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "flare.name" $ }}-otlp-{{ $kind }}
+  labels: {{- include "flare.labels" $ | nindent 4 }}
+  {{- with $cfg.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $.Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ $cfg.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "flare.name" $ }}-ingest
+                port: { number: {{ if eq $kind "grpc" }}4317{{ else }}4318{{ end }} }
+{{- end }}
+{{- end }}

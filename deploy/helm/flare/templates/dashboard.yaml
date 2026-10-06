@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "flare.name" . }}-dashboard
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "flare.selector" (dict "Release" .Release "component" "dashboard") | nindent 4 }}
+  ports:
+    - { name: http, port: 3000, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "flare.name" . }}-dashboard
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.dashboard.replicas }}
+  selector:
+    matchLabels: {{- include "flare.selector" (dict "Release" .Release "component" "dashboard") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "flare.selector" (dict "Release" .Release "component" "dashboard") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.dashboard.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.dashboard.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: dashboard
+          image: {{ include "flare.image" (dict "root" . "name" "dashboard") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - { name: http, containerPort: 3000 }
+          env:
+            # Both resolve from the *browser* (the dashboard is a client-rendered SPA), not
+            # from inside the cluster.
+            - name: PUBLIC_API_URL
+              value: {{ include "flare.publicApiUrl" . | quote }}
+            - name: ORIGIN
+              value: {{ include "flare.origin" . | quote }}
+            - name: FLARE_BASE_PATH
+              value: {{ include "flare.basePath" . | quote }}
+            {{- with .Values.dashboard.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          readinessProbe:
+            httpGet: { path: {{ include "flare.basePath" . }}/, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: {{ include "flare.basePath" . }}/, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          {{- with .Values.dashboard.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}

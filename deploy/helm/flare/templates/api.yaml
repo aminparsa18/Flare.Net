@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "flare.name" . }}-api
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "flare.selector" (dict "Release" .Release "component" "api") | nindent 4 }}
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "flare.name" . }}-api
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels: {{- include "flare.selector" (dict "Release" .Release "component" "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "flare.selector" (dict "Release" .Release "component" "api") | nindent 8 }}
+        {{- if eq .Values.identity.provider "Sqlite" }}
+        flare.io/identity-store: shared
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "flare.identityAffinity" . | nindent 6 }}
+      {{- with .Values.api.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: api
+          image: {{ include "flare.image" (dict "root" . "name" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            {{- include "flare.backingEnv" . | nindent 12 }}
+            {{- include "flare.identityEnv" . | nindent 12 }}
+            {{- include "flare.smtpEnv" . | nindent 12 }}
+            - name: Cors__AllowedOrigins__0
+              value: {{ include "flare.origin" . | quote }}
+            - name: Alerting__PublicUrl
+              value: {{ include "flare.dashboardUrl" . | quote }}
+            - name: Flare__BasePath
+              value: {{ include "flare.basePath" . | quote }}
+            {{- if gt (int .Values.ingest.replicas) 1 }}
+            - name: LogPattern__SharedStore
+              value: "true"
+            {{- end }}
+            {{- with .Values.api.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          {{- with .Values.api.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- include "flare.identityMount" . | nindent 10 }}
+      {{- include "flare.identityVolume" . | nindent 6 }}

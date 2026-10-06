@@ -1,0 +1,61 @@
+{{- if and (eq .Values.identity.provider "Postgres") .Values.identity.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "flare.name" . }}-postgres
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "flare.selector" (dict "Release" .Release "component" "postgres") | nindent 4 }}
+  ports:
+    - { name: postgres, port: 5432 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "flare.name" . }}-postgres
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "flare.name" . }}-postgres
+  replicas: 1
+  selector:
+    matchLabels: {{- include "flare.selector" (dict "Release" .Release "component" "postgres") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "flare.selector" (dict "Release" .Release "component" "postgres") | nindent 8 }}
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.identity.postgres.image }}
+          env:
+            - { name: POSTGRES_USER, value: flare }
+            - { name: POSTGRES_DB, value: flare_identity }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flare.postgresSecret" . }}
+                  key: postgres-password
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "flare", "-d", "flare_identity"]
+            periodSeconds: 5
+          {{- with .Values.identity.postgres.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.identity.postgres.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.identity.postgres.persistence.size }}
+{{- end }}
