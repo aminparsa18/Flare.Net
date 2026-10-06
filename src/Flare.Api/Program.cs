@@ -238,6 +238,7 @@ builder.Services.AddSingleton<IVersionComparisonQueryService, VersionComparisonQ
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<IMetricAttributeRuleQueryService, MetricAttributeRuleQueryService>();
+builder.Services.AddSingleton<ILogMetricQueryService, LogMetricQueryService>();
 builder.Services.AddSingleton<IMetricAttributeRuleCoverageService, MetricAttributeRuleCoverageService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
@@ -566,6 +567,8 @@ memberRoutes.MapPipelineRuleEndpoints();
 // Same Member/Admin-only rationale - a metric attribute rule permanently strips attributes from
 // every future matching data point at ingest.
 memberRoutes.MapMetricAttributeRuleEndpoints();
+// Same Member/Admin-only rationale - a log metric writes a new metric at ingest and every group-by key adds series.
+memberRoutes.MapLogMetricEndpoints();
 
 // Ingest API key issuance/revocation is Admin-only - a leaked key lets any caller ingest
 // telemetry as this Flare instance, so this isn't something a Member should be able to
