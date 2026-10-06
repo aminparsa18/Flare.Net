@@ -93,12 +93,6 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Config-as-code beyond alerts.** `flare alerts export`/`import` and
-  dashboard JSON export exist, but SLOs, notification channels, pipeline rules,
-  maintenance windows, metric attribute rules and ingest keys can't be moved or
-  versioned. Generalize to a single `flare apply -f` / `flare export --all`
-  with the same by-name references and never-export-credentials rules as the
-  alert export. The Terraform provider below builds on this. Not started.
 - **Terraform / OpenTofu provider.** Manage Flare declaratively next to the
   infrastructure it observes. The API is already close to provider-shaped:
   alerts, SLOs and notification channels have full CRUD by GUID id, and service

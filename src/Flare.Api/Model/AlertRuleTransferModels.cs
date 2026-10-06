@@ -44,6 +44,9 @@ public enum AlertImportOutcome
 
     /// <summary>The entry can't be imported; <see cref="AlertImportItemResult.Message"/> says why.</summary>
     Error,
+
+    /// <summary>A rule with the same name existed and was (or, on a dry run, would be) replaced - only with <c>update=true</c>.</summary>
+    Update,
 }
 
 public sealed record AlertImportItemResult(string Name, AlertImportOutcome Outcome, string? Message = null, Guid? Id = null);
@@ -58,6 +61,8 @@ public sealed record AlertRulesImportResult
     public int Created => Items.Count(i => i.Outcome == AlertImportOutcome.Create);
 
     public int Skipped => Items.Count(i => i.Outcome == AlertImportOutcome.Skip);
+
+    public int Updated => Items.Count(i => i.Outcome == AlertImportOutcome.Update);
 
     public int Errors => Items.Count(i => i.Outcome == AlertImportOutcome.Error);
 }
