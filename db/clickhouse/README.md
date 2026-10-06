@@ -145,6 +145,11 @@ same CRUD-via-tombstone `ReplacingMergeTree` as `pipeline_rules`). `Flare.Ingest
 per flush and writes delta sums to `metrics_sum`. See
 [ADR-0140](../../docs-internal/adr/0140-log-based-metrics.md).
 
+`0066_dashboard_schedules.sql` - `dashboard_schedules` (cron, recipients, relative range and variable
+values per dashboard; config-table shape, read as the latest version per `Id`) and the append-only
+`dashboard_report_runs` history (90-day TTL). See
+[ADR-0142](../../docs-internal/adr/0142-scheduled-dashboard-reports.md).
+
 `0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
 same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
 `metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).

@@ -47,6 +47,8 @@
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.6.0" />
     <!-- Flare.ServiceDefaults: standard Aspire template observability stack -->
     <PackageVersion Include="MailKit" Version="4.18.0" />
+    <PackageVersion Include="Cronos" Version="0.11.1" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.56.0" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.12" />

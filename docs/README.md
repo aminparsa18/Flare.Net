@@ -38,6 +38,7 @@ the full rule set on what goes where.
 - [Serve under a sub-path](how-to/serve-under-a-sub-path.md)
 - [Deploy with Helm](how-to/deploy-with-helm.md)
 - [Build a custom dashboard](how-to/build-custom-dashboards.md)
+- [Email a dashboard on a schedule](how-to/schedule-dashboard-reports.md)
 - [Extract or redact fields at ingest](how-to/manage-pipeline-rules.md)
 - [Monitor hosts with the OpenTelemetry Collector](how-to/monitor-hosts.md)
 - [Monitor Kubernetes clusters (nodes, workloads, pods, volumes) with the OpenTelemetry Collector](how-to/monitor-kubernetes.md)

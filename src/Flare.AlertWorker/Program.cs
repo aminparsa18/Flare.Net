@@ -4,6 +4,8 @@ using Flare.Api.Query;
 using Microsoft.AspNetCore.DataProtection;
 using Flare.AlertWorker.Alerting;
 using Flare.AlertWorker.Synthetic;
+using Flare.AlertWorker.Reports;
+using Flare.Identity.Auth;
 using Flare.Api.Synthetic;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,6 +50,7 @@ builder.Services.AddDataProtection()
         () => StackExchange.Redis.ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("redis")!).GetDatabase(),
         "Flare-DataProtection-Keys");
 builder.Services.AddSingleton<IAlertAckLinkSigner, AlertAckLinkSigner>();
+builder.Services.AddSingleton<IDashboardRenderTokenSigner, DashboardRenderTokenSigner>();
 // Named/typed HttpClients so the webhook/Slack, Telegram, and PagerDuty senders inherit
 // AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
 // discovery) for free - same registration Flare.Api's own Program.cs makes for its
@@ -95,6 +98,15 @@ builder.Services.AddHttpClient(SyntheticProber.HttpClientName).RemoveAllResilien
 builder.Services.AddSingleton<SyntheticProber>();
 builder.Services.AddSingleton<SyntheticResultWriter>();
 builder.Services.AddHostedService<SyntheticProbeWorker>();
+
+// Scheduled dashboard reports (ADR-0142). Off unless Reports:Enabled; renders need a Chromium (see the how-to).
+builder.Services.Configure<ReportsOptions>(builder.Configuration.GetSection(ReportsOptions.SectionName));
+builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
+builder.Services.AddSingleton<IDashboardScheduleQueryService, DashboardScheduleQueryService>();
+builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
+builder.Services.AddSingleton<IDashboardRenderer, PlaywrightDashboardRenderer>();
+builder.Services.AddSingleton<IDashboardReportMailer, DashboardReportMailer>();
+builder.Services.AddHostedService<DashboardReportWorker>();
 
 var app = builder.Build();
 

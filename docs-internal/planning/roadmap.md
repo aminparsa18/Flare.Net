@@ -75,15 +75,6 @@ folders are where "what happened and why" actually lives.
   practical source. `profile_samples` has no TTL, same as spans, so retention rides on the
   "Retention policies" item above. OTLP profiles is still Alpha, so re-check the vendored
   proto on each tag bump.
-- **Scheduled dashboard reports.** There's no way to email a dashboard on a
-  schedule (weekly SLO/latency report to a team). Add per-dashboard
-  schedules (cron, recipients, relative time range, variable values), a
-  runner in `Flare.AlertWorker` that renders the dashboard to PDF/PNG via
-  headless Chromium (Playwright) using a short-lived service token, sent
-  through the existing SMTP config, and run history with errors. Needs an
-  ADR (rendering dependency, auth). Not started. Prior art:
-  [signoz PR #10809](https://github.com/SigNoz/signoz/pull/10809) /
-  [#10810](https://github.com/SigNoz/signoz/pull/10810) (open, unmerged).
 - **User settings page (`/settings`), starting with Appearance & layout.**
   The dashboard has outgrown the user-menu dropdown as the home for
   preferences: theme, language and display time zone live in
