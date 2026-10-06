@@ -40,6 +40,7 @@ export class AlertHistoryEntry {
 	aiSummary: string | null;
 	aiModel: string | null;
 	escalated: boolean;
+	escalationStep: number;
 
 	constructor() {
 		this.eventId = '00000000-0000-0000-0000-000000000000';
@@ -64,6 +65,7 @@ export class AlertHistoryEntry {
 		this.aiSummary = null;
 		this.aiModel = null;
 		this.escalated = false;
+		this.escalationStep = 0;
 	}
 
 	static serialize(value: AlertHistoryEntry | null): Uint8Array {
@@ -78,7 +80,7 @@ export class AlertHistoryEntry {
 			return;
 		}
 
-		writer.writeObjectHeader(22);
+		writer.writeObjectHeader(23);
 		writer.writeGuid(value.eventId);
 		writer.writeGuid(value.ruleId);
 		writer.writeString(value.ruleName);
@@ -101,6 +103,7 @@ export class AlertHistoryEntry {
 		writer.writeString(value.aiSummary);
 		writer.writeString(value.aiModel);
 		writer.writeBoolean(value.escalated);
+		writer.writeInt32(value.escalationStep);
 	}
 
 	static serializeArray(value: (AlertHistoryEntry | null)[] | null): Uint8Array {
@@ -147,7 +150,8 @@ export class AlertHistoryEntry {
 			value.aiSummary = reader.readString();
 			value.aiModel = reader.readString();
 			value.escalated = reader.readBoolean();
-		} else if (count > 22) {
+			value.escalationStep = reader.readInt32();
+		} else if (count > 23) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -195,6 +199,8 @@ export class AlertHistoryEntry {
 			if (count == 21) return value;
 			value.escalated = reader.readBoolean();
 			if (count == 22) return value;
+			value.escalationStep = reader.readInt32();
+			if (count == 23) return value;
 		}
 		return value;
 	}

@@ -436,22 +436,27 @@ public sealed class AlertEvaluationWorker(
     }
 
     /// <summary>
-    /// Sends the one escalation of an incident that is still breached, unacknowledged and older
-    /// than <see cref="AlertRule.EscalateAfterMinutes"/> (<see cref="AlertEscalationPolicy.IsDue"/>)
-    /// to <see cref="AlertRule.EscalationChannelIds"/>, and records it as an <c>Escalated</c>
-    /// history row so it isn't sent twice. The rule is renamed with a prefix for the send, so
+    /// Sends the next escalation step of an incident that is still breached and unacknowledged
+    /// (<see cref="AlertEscalationPolicy.NextStepDue"/>): step 1 to
+    /// <see cref="AlertRule.EscalationChannelIds"/> (plus the rotation), step 2 (ADR-0136) to
+    /// <see cref="AlertRule.SecondEscalationChannelIds"/>. Each is recorded as an <c>Escalated</c>
+    /// history row carrying its step, so it isn't sent twice. The rule is renamed with a prefix for the send, so
     /// the channel can tell it from the first page.
     /// </summary>
     private async Task EscalateIfDueAsync(AlertRule rule, IReadOnlyList<MaintenanceWindow> windows, AlertFiringState? firingState, DateTimeOffset now, bool noData, ulong observedCount, double? observedValue, string? metricUnit, AnomalyScore? anomaly, CancellationToken cancellationToken)
     {
         var window = MaintenanceWindowSchedule.FindActive(windows, rule, now);
-        if (!AlertEscalationPolicy.IsDue(rule, firingState, window is not null, now))
+        var step = AlertEscalationPolicy.NextStepDue(rule, firingState, window is not null, now);
+        if (step == 0)
         {
             return;
         }
 
+        var stepChannelIds = step == 2 ? rule.SecondEscalationChannelIds : rule.EscalationChannelIds;
+        var stepMinutes = step == 2 ? rule.SecondEscalateAfterMinutes : rule.EscalateAfterMinutes;
+
         OnCallRotation? rotation = null;
-        if (rule.EscalationRotationId is { } rotationId)
+        if (step == 1 && rule.EscalationRotationId is { } rotationId)
         {
             rotation = await rotations.GetAsync(rotationId, cancellationToken);
             if (rotation is null)
@@ -460,16 +465,16 @@ public sealed class AlertEvaluationWorker(
             }
         }
 
-        var targets = await channels.GetByIdsAsync(OnCallSchedule.EscalationTargets(rule.EscalationChannelIds, rotation, now), cancellationToken);
+        var targets = await channels.GetByIdsAsync(OnCallSchedule.EscalationTargets(stepChannelIds, rotation, now), cancellationToken);
         if (targets.Count == 0)
         {
-            logger.LogWarning("Alert rule {RuleId} ({RuleName}) is due to escalate but none of its escalation channels resolve; skipping.", rule.Id, rule.Name);
+            logger.LogWarning("Alert rule {RuleId} ({RuleName}) is due to escalate (step {Step}) but none of its escalation channels resolve; skipping.", rule.Id, rule.Name, step);
             return;
         }
 
-        logger.LogInformation("Alert rule {RuleId} ({RuleName}) unacknowledged for {Minutes}m; escalating to {ChannelCount} channel(s).", rule.Id, rule.Name, rule.EscalateAfterMinutes, targets.Count);
+        logger.LogInformation("Alert rule {RuleId} ({RuleName}) still unacknowledged {Minutes}m after the previous step; escalating (step {Step}) to {ChannelCount} channel(s).", rule.Id, rule.Name, stepMinutes, step, targets.Count);
         var results = await notifier.SendAllAsync(rule with { Name = AlertEscalationPolicy.NamePrefix + rule.Name }, targets, observedValue ?? observedCount, now, cancellationToken, metricUnit: metricUnit, noData: noData, anomaly: anomaly, ackUrl: ackLinks.CreateUrl(rule.Id, now));
-        var entry = BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly) with { Escalated = true };
+        var entry = BuildHistoryEntry(rule, now, noData, observedCount, observedValue, anomaly) with { Escalated = true, EscalationStep = step };
         await alerts.InsertEventAsync(WithNotificationOutcome(entry, rule, targets, results, "escalated"), cancellationToken);
     }
 

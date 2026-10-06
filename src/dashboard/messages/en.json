@@ -3103,5 +3103,8 @@
 	"synthetic_alertName": "{name} down",
 	"alertRuleForm_quorumLabel": "Down from at least",
 	"alertRuleForm_quorumOf": "of {total} locations",
-	"alertRuleForm_quorumHint": "Picking a number sets Last below a threshold on the fraction of locations that see the monitor up."
+	"alertRuleForm_quorumHint": "Picking a number sets Last below a threshold on the fraction of locations that see the monitor up.",
+	"alertRuleForm_secondEscalateLabel": "Then escalate again",
+	"alertRuleForm_secondEscalateMinutes": "minutes after the first escalation, notify",
+	"alertRuleForm_secondEscalateInvalid": "Choose a delay between 1 and 10080 minutes and at least one channel."
 }

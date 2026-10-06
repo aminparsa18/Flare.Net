@@ -211,6 +211,9 @@ export interface AlertRule {
 	escalationChannelIds: string[];
 	/** On-call rotation whose current on-call channel an escalation also goes to (ADR-0126); `null` = none. */
 	escalationRotationId: string | null;
+	/** Minutes after the first escalation before a still-unacknowledged incident takes a second step to `secondEscalationChannelIds` (ADR-0136); 0 = no second step. */
+	secondEscalateAfterMinutes: number;
+	secondEscalationChannelIds: string[];
 }
 
 /** Create/update request body - same shape as `AlertRule` minus the server-assigned fields. */
@@ -263,6 +266,10 @@ export interface AlertRuleRequest {
 	escalationChannelIds?: string[];
 	/** See `AlertRule.escalationRotationId`. Omitted/null means none. */
 	escalationRotationId?: string | null;
+	/** See `AlertRule.secondEscalateAfterMinutes`. Omitted/undefined means 0 (no second step). */
+	secondEscalateAfterMinutes?: number;
+	/** See `AlertRule.secondEscalationChannelIds`. */
+	secondEscalationChannelIds?: string[];
 }
 
 export interface AlertRuleListResponse {
@@ -507,7 +514,9 @@ function toAlertRule(dto: GeneratedAlertRule): AlertRule {
 		projectId: dto.projectId,
 		escalateAfterMinutes: dto.escalateAfterMinutes,
 		escalationChannelIds: (dto.escalationChannelIds ?? []).filter((id): id is string => id != null),
-		escalationRotationId: dto.escalationRotationId
+		escalationRotationId: dto.escalationRotationId,
+		secondEscalateAfterMinutes: dto.secondEscalateAfterMinutes,
+		secondEscalationChannelIds: (dto.secondEscalationChannelIds ?? []).filter((id): id is string => id != null)
 	};
 }
 
@@ -553,6 +562,8 @@ function toGeneratedAlertRuleRequest(request: AlertRuleRequest): GeneratedAlertR
 	dto.escalateAfterMinutes = request.escalateAfterMinutes ?? null;
 	dto.escalationChannelIds = request.escalationChannelIds ?? null;
 	dto.escalationRotationId = request.escalationRotationId ?? null;
+	dto.secondEscalateAfterMinutes = request.secondEscalateAfterMinutes ?? null;
+	dto.secondEscalationChannelIds = request.secondEscalationChannelIds ?? null;
 	return dto;
 }
 

@@ -102,6 +102,9 @@
 	let escalationChannelIds = $state<string[]>([]);
 	// '' = no rotation.
 	let escalationRotationId = $state('');
+	let secondEscalateEnabled = $state(false);
+	let secondEscalateMinutesText = $state('30');
+	let secondEscalationChannelIds = $state<string[]>([]);
 	// Unit the metric threshold (and recovery threshold) is typed in; '' = the metric's own unit.
 	let thresholdUnit = $state('');
 	let ruleLabels = $state<Labels>({});
@@ -241,6 +244,9 @@
 			escalateMinutesText = '15';
 			escalationChannelIds = [];
 			escalationRotationId = '';
+			secondEscalateEnabled = false;
+			secondEscalateMinutesText = '30';
+			secondEscalationChannelIds = [];
 			thresholdUnit = '';
 			ruleLabels = {};
 			labelsValid = true;
@@ -324,6 +330,9 @@
 			escalateMinutesText = target.escalateAfterMinutes > 0 ? String(target.escalateAfterMinutes) : '15';
 			escalationChannelIds = [...target.escalationChannelIds];
 			escalationRotationId = target.escalationRotationId ?? '';
+			secondEscalateEnabled = target.secondEscalateAfterMinutes > 0;
+			secondEscalateMinutesText = target.secondEscalateAfterMinutes > 0 ? String(target.secondEscalateAfterMinutes) : '30';
+			secondEscalationChannelIds = [...target.secondEscalationChannelIds];
 			thresholdUnit = target.thresholdUnit;
 			ruleLabels = { ...target.labels };
 			labelsValid = true;
@@ -403,6 +412,12 @@
 	const evaluationIntervalTooLong = $derived(evaluationIntervalSeconds > 0 && Number.isFinite(windowSeconds) && evaluationIntervalSeconds > windowSeconds);
 
 	const escalateMinutes = $derived(Number(escalateMinutesText));
+	const secondEscalateMinutes = $derived(Number(secondEscalateMinutesText));
+	const secondEscalateValid = $derived(
+		!escalateEnabled ||
+			!secondEscalateEnabled ||
+			(Number.isInteger(secondEscalateMinutes) && secondEscalateMinutes >= 1 && secondEscalateMinutes <= 10080 && secondEscalationChannelIds.length > 0)
+	);
 	const escalateValid = $derived(!escalateEnabled || (Number.isInteger(escalateMinutes) && escalateMinutes >= 1 && escalateMinutes <= 10080 && (escalationChannelIds.length > 0 || escalationRotationId !== '')));
 
 	const hasChannel = $derived(
@@ -460,6 +475,7 @@
 			!evaluationIntervalTooLong &&
 			(!recoveryActive || recoveryValid) &&
 			escalateValid &&
+			secondEscalateValid &&
 			(!minDataPointsActive || (Number.isInteger(minDataPoints) && minDataPoints >= 1 && minDataPoints <= MAX_MIN_DATA_POINTS)) &&
 			!(templatesEnabled && notificationPreview?.error)
 	);
@@ -595,6 +611,8 @@
 			escalateAfterMinutes: escalateEnabled ? escalateMinutes : 0,
 			escalationChannelIds: escalateEnabled ? [...escalationChannelIds] : [],
 			escalationRotationId: escalateEnabled && escalationRotationId !== '' ? escalationRotationId : null,
+			secondEscalateAfterMinutes: escalateEnabled && secondEscalateEnabled ? secondEscalateMinutes : 0,
+			secondEscalationChannelIds: escalateEnabled && secondEscalateEnabled ? [...secondEscalationChannelIds] : [],
 			thresholdUnit: conditionKind === 'MetricThreshold' && thresholdUnitOptions.includes(thresholdUnit) ? thresholdUnit : undefined,
 			severity: ruleSeverity,
 			labels: Object.keys(ruleLabels).length ? ruleLabels : undefined,
@@ -1088,6 +1106,27 @@
 						</div>
 						{#if !escalateValid}
 							<span class="text-destructive text-xs">{m.alertRuleForm_escalateInvalid()}</span>
+						{/if}
+						<div class="flex items-center gap-2">
+							<Switch bind:checked={secondEscalateEnabled} />
+							<span class="text-xs font-medium">{m.alertRuleForm_secondEscalateLabel()}</span>
+						</div>
+						{#if secondEscalateEnabled}
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="text-muted-foreground text-xs">{m.alertRuleForm_escalateAfter()}</span>
+								<Input type="number" min="1" max="10080" step="1" bind:value={secondEscalateMinutesText} class="w-24" />
+								<span class="text-muted-foreground text-xs">{m.alertRuleForm_secondEscalateMinutes()}</span>
+								<PopoverMultiSelect
+									label={m.alertRuleForm_channelsLabel()}
+									options={channelOptions}
+									selected={secondEscalationChannelIds}
+									onChange={(next) => (secondEscalationChannelIds = next)}
+									onOpenChange={(isOpen) => isOpen && void channels.load()}
+								/>
+							</div>
+							{#if !secondEscalateValid}
+								<span class="text-destructive text-xs">{m.alertRuleForm_secondEscalateInvalid()}</span>
+							{/if}
 						{/if}
 					{/if}
 					<span class="text-muted-foreground text-xs">{m.alertRuleForm_escalateHint()}</span>

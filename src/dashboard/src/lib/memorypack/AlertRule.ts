@@ -65,6 +65,8 @@ export class AlertRule {
 	escalateAfterMinutes: number;
 	escalationChannelIds: (string | null)[] | null;
 	escalationRotationId: string | null;
+	secondEscalateAfterMinutes: number;
+	secondEscalationChannelIds: (string | null)[] | null;
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -102,6 +104,8 @@ export class AlertRule {
 		this.escalateAfterMinutes = 0;
 		this.escalationChannelIds = null;
 		this.escalationRotationId = null;
+		this.secondEscalateAfterMinutes = 0;
+		this.secondEscalationChannelIds = null;
 	}
 
 	static serialize(value: AlertRule | null): Uint8Array {
@@ -116,7 +120,7 @@ export class AlertRule {
 			return;
 		}
 
-		writer.writeObjectHeader(35);
+		writer.writeObjectHeader(37);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writer.writeString(value.description);
@@ -152,6 +156,8 @@ export class AlertRule {
 		writer.writeInt32(value.escalateAfterMinutes);
 		writer.writeArray(value.escalationChannelIds, (writer, x) => writer.writeGuid(x!));
 		writer.writeNullableGuid(value.escalationRotationId);
+		writer.writeInt32(value.secondEscalateAfterMinutes);
+		writer.writeArray(value.secondEscalationChannelIds, (writer, x) => writer.writeGuid(x!));
 	}
 
 	static serializeArray(value: (AlertRule | null)[] | null): Uint8Array {
@@ -211,7 +217,9 @@ export class AlertRule {
 			value.escalateAfterMinutes = reader.readInt32();
 			value.escalationChannelIds = reader.readArray((reader) => reader.readGuid());
 			value.escalationRotationId = reader.readNullableGuid();
-		} else if (count > 35) {
+			value.secondEscalateAfterMinutes = reader.readInt32();
+			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
+		} else if (count > 37) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -285,6 +293,10 @@ export class AlertRule {
 			if (count == 34) return value;
 			value.escalationRotationId = reader.readNullableGuid();
 			if (count == 35) return value;
+			value.secondEscalateAfterMinutes = reader.readInt32();
+			if (count == 36) return value;
+			value.secondEscalationChannelIds = reader.readArray((reader) => reader.readGuid());
+			if (count == 37) return value;
 		}
 		return value;
 	}
