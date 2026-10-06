@@ -119,6 +119,8 @@ export interface AlertDraftFromMetricsPanel {
 	name: string;
 	metricName: string;
 	metricType: MetricPointType;
+	/** Synthetic monitor name: filters the rule to that monitor and opens the form's "N of M locations" picker. */
+	syntheticMonitor?: string;
 }
 
 export type AlertPanelDraft = AlertDraftFromLogsPanel | AlertDraftFromMetricsPanel;
@@ -136,6 +138,7 @@ export function buildAlertDeepLinkHref(draft: AlertPanelDraft): string {
 	} else {
 		params.set('metricName', draft.metricName);
 		params.set('metricType', draft.metricType);
+		if (draft.syntheticMonitor) params.set('monitor', draft.syntheticMonitor);
 	}
 	return withBase(`/alerts?${params.toString()}`);
 }
@@ -487,7 +490,8 @@ export function parseAlertDeepLinkParams(url: URL): AlertPanelDraft | null {
 		const metricName = url.searchParams.get('metricName');
 		const metricType = url.searchParams.get('metricType');
 		if (!metricName || !isMetricPointType(metricType)) return null;
-		return { kind, name, metricName, metricType };
+		const syntheticMonitor = url.searchParams.get('monitor') || undefined;
+		return { kind, name, metricName, metricType, syntheticMonitor };
 	}
 	const services = url.searchParams.get('services');
 	const severities = url.searchParams.get('severities');
