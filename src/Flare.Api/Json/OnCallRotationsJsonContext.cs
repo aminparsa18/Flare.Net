@@ -11,6 +11,7 @@ namespace Flare.Api.Json;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     UseStringEnumConverter = true)]
 [JsonSerializable(typeof(OnCallRotationRequest))]
+[JsonSerializable(typeof(OnCallOverride[]))]
 [JsonSerializable(typeof(OnCallRotation))]
 [JsonSerializable(typeof(OnCallRotationStatus))]
 [JsonSerializable(typeof(OnCallRotationListResponse))]

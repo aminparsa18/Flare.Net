@@ -24,10 +24,16 @@ public sealed record OnCallRotation
     /// <summary>Start of the first shift (participant 0). Before it, participant 0 is on call.</summary>
     public required DateTimeOffset StartsAt { get; init; }
 
+    /// <summary>One-off swaps: while one covers the current instant, its channel is on call instead of the scheduled participant.</summary>
+    public IReadOnlyList<OnCallOverride> Overrides { get; init; } = [];
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
 }
+
+/// <summary>A one-off swap in an <see cref="OnCallRotation"/>: <see cref="ChannelId"/> is on call from <see cref="StartsAt"/> (inclusive) to <see cref="EndsAt"/> (exclusive).</summary>
+public sealed record OnCallOverride(DateTimeOffset StartsAt, DateTimeOffset EndsAt, Guid ChannelId);
 
 /// <summary>Create/update body for <c>/api/oncall-rotations</c>.</summary>
 public sealed record OnCallRotationRequest
@@ -35,6 +41,7 @@ public sealed record OnCallRotationRequest
     public const int MaxNameLength = 200;
     public const int MaxParticipants = 50;
     public const int MaxShiftHours = 24 * 365;
+    public const int MaxOverrides = 100;
 
     public required string Name { get; init; }
 
@@ -45,6 +52,8 @@ public sealed record OnCallRotationRequest
     public int? ShiftHours { get; init; }
 
     public required DateTimeOffset StartsAt { get; init; }
+
+    public IReadOnlyList<OnCallOverride>? Overrides { get; init; }
 
     /// <summary>Returns an error message, or null when this request is valid.</summary>
     public string? Validate()
@@ -76,7 +85,20 @@ public sealed record OnCallRotationRequest
             return "channelIds must not contain an empty id.";
         }
 
-        return ShiftHours is null or < 1 or > MaxShiftHours ? $"shiftHours must be between 1 and {MaxShiftHours}." : null;
+        if (ShiftHours is null or < 1 or > MaxShiftHours)
+        {
+            return $"shiftHours must be between 1 and {MaxShiftHours}.";
+        }
+
+        if (Overrides is { Count: > MaxOverrides })
+        {
+            return $"overrides can list at most {MaxOverrides} entries.";
+        }
+
+        // Overlaps are allowed (the latest-starting one wins); an empty or backwards range is not.
+        return Overrides?.Any(o => o.ChannelId == Guid.Empty || o.EndsAt <= o.StartsAt) == true
+            ? "each override needs a channel and an end after its start."
+            : null;
     }
 }
 
@@ -84,7 +106,8 @@ public sealed record OnCallRotationRequest
 /// <param name="OnCallChannelId">The channel on call at the request time.</param>
 /// <param name="ShiftEndsAt">When that shift ends.</param>
 /// <param name="NextChannelId">Who takes over at <paramref name="ShiftEndsAt"/>.</param>
-public sealed record OnCallRotationStatus(OnCallRotation Rotation, Guid OnCallChannelId, DateTimeOffset ShiftEndsAt, Guid NextChannelId);
+/// <param name="IsOverride">True when <paramref name="OnCallChannelId"/> is a one-off override rather than the scheduled participant.</param>
+public sealed record OnCallRotationStatus(OnCallRotation Rotation, Guid OnCallChannelId, DateTimeOffset ShiftEndsAt, Guid NextChannelId, bool IsOverride = false);
 
 /// <summary>Response body for <c>GET /api/oncall-rotations</c>.</summary>
 public sealed record OnCallRotationListResponse(IReadOnlyList<OnCallRotationStatus> Rotations);

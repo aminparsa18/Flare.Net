@@ -30,6 +30,8 @@
 	let participants = $state<string[]>([]);
 	let shiftHoursText = $state('168');
 	let startsLocal = $state('');
+	// Overrides are edited as wall-clock strings in the browser's zone, like the first-shift start.
+	let overrides = $state<{ channelId: string; startsLocal: string; endsLocal: string }[]>([]);
 
 	$effect(() => {
 		const target = oncall.formTarget;
@@ -39,12 +41,18 @@
 			participants = [''];
 			shiftHoursText = '168';
 			startsLocal = instantToZoned(new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000), zone);
+			overrides = [];
 		} else if (target) {
 			name = target.name;
 			description = target.description;
 			participants = [...target.channelIds];
 			shiftHoursText = String(target.shiftHours);
 			startsLocal = instantToZoned(new Date(target.startsAt), zone);
+			overrides = (target.overrides ?? []).map((o) => ({
+				channelId: o.channelId,
+				startsLocal: instantToZoned(new Date(o.startsAt), zone),
+				endsLocal: instantToZoned(new Date(o.endsAt), zone)
+			}));
 		}
 	});
 
@@ -52,7 +60,22 @@
 	const shiftHours = $derived(Number(shiftHoursText));
 	const shiftValid = $derived(Number.isInteger(shiftHours) && shiftHours >= 1 && shiftHours <= MAX_SHIFT_HOURS);
 	const participantsValid = $derived(participants.length > 0 && participants.every((id) => id !== ''));
-	const canSave = $derived(name.trim().length > 0 && shiftValid && participantsValid && startsLocal !== '');
+	const overridesValid = $derived(
+		overrides.every(
+			(o) => o.channelId !== '' && o.startsLocal !== '' && o.endsLocal !== '' && zonedToInstant(o.endsLocal, zone) > zonedToInstant(o.startsLocal, zone)
+		)
+	);
+	const canSave = $derived(name.trim().length > 0 && shiftValid && participantsValid && overridesValid && startsLocal !== '');
+
+	function updateOverride(index: number, patch: Partial<(typeof overrides)[number]>): void {
+		overrides = overrides.map((o, i) => (i === index ? { ...o, ...patch } : o));
+	}
+
+	function addOverride(): void {
+		const start = instantToZoned(new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000), zone);
+		const end = instantToZoned(new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000 + 8 * 3_600_000), zone);
+		overrides = [...overrides, { channelId: '', startsLocal: start, endsLocal: end }];
+	}
 
 	function channelLabel(id: string): string {
 		return channelOptions.find((o) => o.value === id)?.label ?? m.oncall_unknownChannel();
@@ -71,7 +94,12 @@
 			description: description.trim(),
 			channelIds: participants,
 			shiftHours,
-			startsAt: zonedToInstant(startsLocal, zone).toISOString()
+			startsAt: zonedToInstant(startsLocal, zone).toISOString(),
+			overrides: overrides.map((o) => ({
+				channelId: o.channelId,
+				startsAt: zonedToInstant(o.startsLocal, zone).toISOString(),
+				endsAt: zonedToInstant(o.endsLocal, zone).toISOString()
+			}))
 		};
 	}
 </script>
@@ -153,6 +181,43 @@
 				<span class="text-xs font-medium">{m.oncall_startsLabel()}</span>
 				<Input type="datetime-local" bind:value={startsLocal} class="w-60" />
 				<span class="text-muted-foreground text-xs">{m.oncall_startsHint()}</span>
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-medium">{m.oncall_overridesLabel()}</span>
+				{#each overrides as override, index (index)}
+					<div class="flex flex-wrap items-center gap-1">
+						<Select.Root
+							type="single"
+							value={override.channelId}
+							onValueChange={(v) => updateOverride(index, { channelId: v })}
+							onOpenChange={(isOpen) => isOpen && void channels.load()}
+						>
+							<Select.Trigger class="min-w-0 flex-1">{override.channelId ? channelLabel(override.channelId) : m.oncall_choosePlaceholder()}</Select.Trigger>
+							<Select.Content>
+								{#each channelOptions as option (option.value)}
+									<Select.Item value={option.value} label={option.label} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+						<Button variant="ghost" size="icon-sm" title={m.oncall_remove()} onclick={() => (overrides = overrides.filter((_, i) => i !== index))}>
+							<XIcon />
+						</Button>
+						<Input type="datetime-local" value={override.startsLocal} oninput={(e) => updateOverride(index, { startsLocal: e.currentTarget.value })} class="w-52" />
+						<span class="text-muted-foreground text-xs">→</span>
+						<Input type="datetime-local" value={override.endsLocal} oninput={(e) => updateOverride(index, { endsLocal: e.currentTarget.value })} class="w-52" />
+					</div>
+				{/each}
+				<div>
+					<Button variant="outline" size="sm" onclick={addOverride}>
+						<PlusIcon data-icon="inline-start" />
+						{m.oncall_addOverride()}
+					</Button>
+				</div>
+				<span class="text-muted-foreground text-xs">{m.oncall_overridesHint()}</span>
+				{#if !overridesValid}
+					<span class="text-destructive text-xs">{m.oncall_errorOverrides()}</span>
+				{/if}
 			</div>
 
 			{#if oncall.saveError}

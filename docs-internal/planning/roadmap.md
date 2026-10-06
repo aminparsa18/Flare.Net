@@ -95,9 +95,10 @@ folders are where "what happened and why" actually lives.
   (theme, layout, time zone).
 - **Richer escalation and ack integrations.** Escalation (ADR-0125), the
   `flare alerts ack|snooze|unack` commands, on-call rotations (ADR-0126) and the signed
-  acknowledge link in notifications (ADR-0127) and a second escalation step (ADR-0136) shipped.
+  acknowledge link in notifications (ADR-0127), a second escalation step (ADR-0136) and
+  rotation overrides (ADR-0137) shipped.
   Still missing: a Slack button and PagerDuty ack sync (inbound integrations that need
-  per-instance setup), more than two steps, and rotation overrides or time-of-day restrictions.
+  per-instance setup), more than two steps, and time-of-day restrictions on rotations.
   Needs an ADR.
 - **Log-based metrics.** Turn a saved `LogFilter` (plus optional group-by) into
   a persisted metric via a ClickHouse materialized view, so charting or

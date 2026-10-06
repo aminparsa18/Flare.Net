@@ -134,8 +134,14 @@ plus des canaux d'escalade fixes de la règle. Via l'API, c'est
 
 Une rotation ne choisit que la cible de l'escalade. La première notification va
 toujours aux canaux propres de la règle. Supprimer une rotation laisse ses
-règles escalader vers leurs seuls canaux fixes. Il n'y a pas encore de
-remplacement ponctuel ; pour échanger une garde, modifiez la liste des
-participants.
+règles escalader vers leurs seuls canaux fixes. 
+
+Pour échanger une garde une seule fois (« Priya couvre mardi »), ajoutez un
+**remplacement** à la rotation : un canal, une heure de début et une heure de fin.
+Tant qu'il est actif, ce canal est de garde à la place du participant prévu, les
+escalades lui sont envoyées et la page l'indique comme remplacement. Une fois
+terminé, le planning reprend sans changement. Si des remplacements se chevauchent,
+celui qui a commencé en dernier l'emporte. Via l'API, c'est `overrides`
+(`channelId`, `startsAt`, `endsAt`) sur la rotation.
 
 Pourquoi ce fonctionnement : [ADR-0126](../../docs-internal/adr/0126-alert-oncall-rotations.md).

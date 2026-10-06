@@ -127,7 +127,13 @@ escalation channels the rule also lists. Over the API this is
 
 A rotation only chooses the escalation target. The first notification still goes
 to the rule's own channels. Deleting a rotation leaves its rules escalating to
-their fixed channels only. There are no one-off overrides yet; to swap a shift,
-edit the participant list.
+their fixed channels only.
+
+To swap a shift once ("Priya covers Tuesday"), add an **override** in the rotation:
+a channel and a start and end time. While it is in effect that channel is on call
+instead of the scheduled participant, escalations go to it, and the page marks it
+as an override. After it ends the schedule carries on unchanged. If overrides
+overlap, the one that started last wins. Over the API they are `overrides`
+(`channelId`, `startsAt`, `endsAt`) on the rotation.
 
 Why it works this way: [ADR-0126](../../docs-internal/adr/0126-alert-oncall-rotations.md).
