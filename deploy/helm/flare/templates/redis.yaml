@@ -1,0 +1,62 @@
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "flare.name" . }}-redis
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "flare.selector" (dict "Release" .Release "component" "redis") | nindent 4 }}
+  ports:
+    - { name: redis, port: 6379 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "flare.name" . }}-redis
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "flare.name" . }}-redis
+  replicas: 1
+  selector:
+    matchLabels: {{- include "flare.selector" (dict "Release" .Release "component" "redis") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "flare.selector" (dict "Release" .Release "component" "redis") | nindent 8 }}
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          # RDB snapshots keep buffered-but-unflushed events across a Redis restart (ADR-0002),
+          # same as docker-compose.yml. The password comes from the environment so it never
+          # lands in the pod spec's args.
+          command: ["sh", "-c", "exec redis-server --requirepass \"$REDIS_PASSWORD\" --save 30 100"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "flare.redisSecret" . }}
+                  key: redis-password
+          ports:
+            - { name: redis, containerPort: 6379 }
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            periodSeconds: 5
+          {{- with .Values.redis.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - { name: data, mountPath: /data }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.redis.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.persistence.size }}
+{{- end }}

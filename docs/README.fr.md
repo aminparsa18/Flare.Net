@@ -38,6 +38,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Laisser un assistant IA interroger Flare](how-to/connect-ai-assistants.fr.md)
 - [Interroger Flare avec Grafana ou l'API Prometheus](how-to/query-with-prometheus-api.fr.md)
 - [Servir sous un sous-chemin](how-to/serve-under-a-sub-path.fr.md)
+- [Déployer avec Helm](how-to/deploy-with-helm.fr.md)
 - [Surveiller des hôtes avec l'OpenTelemetry Collector](how-to/monitor-hosts.fr.md)
 - [Surveiller les clusters Kubernetes (nœuds, charges de travail, pods, volumes) avec l'OpenTelemetry Collector](how-to/monitor-kubernetes.fr.md)
 - [Surveiller des files de messages](how-to/monitor-message-queues.fr.md)

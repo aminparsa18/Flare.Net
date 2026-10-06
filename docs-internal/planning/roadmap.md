@@ -116,12 +116,11 @@ folders are where "what happened and why" actually lives.
   and for any resource that has no CRUD endpoint yet (maintenance windows,
   metric attribute rules). Also ship `flare_*` data sources for channels and
   services so alert rules can reference them. Not started.
-- **Official Helm chart for Flare.** The install paths are Aspire, compose and
-  the CLI; Kubernetes users have only the Aspire publish output. Ship a chart
-  for ingest, api, dashboard, alert worker, Redis and ClickHouse (single node,
-  with cluster mode via the ClickHouse operator or external ClickHouse), with
-  values for Identity Postgres (ADR-0111), ingress and sub-path hosting
-  (ADR-0078). Document it under `docs/how-to/`.
+- **Publish the Helm chart.** `deploy/helm/flare` ships in the repo but is only
+  installable from a clone. Package it in the release workflow and push it to
+  an OCI registry (and index it on Artifact Hub), so `helm install` and Aspire's
+  `AddHelmChart` can reference it by version. Also add a values JSON schema and
+  an end-to-end kind install to CI (today CI only lints and renders).
 - **OTLP forwarding and archive export.** No way to copy ingested telemetry
   elsewhere. Add per-ingest-key or per-service forwarding of logs, traces and
   metrics to another OTLP endpoint (migration and dual-write) and an optional

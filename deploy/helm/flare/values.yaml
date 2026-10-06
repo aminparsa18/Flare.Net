@@ -1,0 +1,138 @@
+# Flare Helm chart. Every value below has a working default, so
+#   helm install flare ./deploy/helm/flare
+# brings up the whole stack (bundled ClickHouse + Redis, embedded-SQLite identity).
+# Reach it with the `kubectl port-forward` commands printed by NOTES.txt, or turn on
+# `ingress` for a real hostname. See docs/how-to/deploy-with-helm.md.
+
+image:
+  registry: docker.io
+  repository: apardev          # images are <registry>/<repository>/flare-<component>
+  tag: ""                      # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Public address of the dashboard, as the browser sees it, without a trailing slash or the
+# base path (e.g. https://flare.example.com). Drives the dashboard's ORIGIN/PUBLIC_API_URL,
+# the API's CORS allow-list and the deep links in alert notifications. Leave empty to use
+# `kubectl port-forward` defaults (dashboard http://localhost:7777, api http://localhost:8080).
+publicUrl: ""
+# Sub-path hosting (ADR-0078, docs/how-to/serve-under-a-sub-path.md), e.g. /flare. Empty = root.
+basePath: ""
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: flare.example.com
+  tls: []                      # standard Ingress `tls:` list
+  # Optional extra hosts that expose the OTLP receiver outside the cluster. Cluster-local
+  # apps should just use the `<release>-flare-ingest` Service (4317 gRPC / 4318 HTTP).
+  otlpHttp:
+    enabled: false
+    host: otlp.example.com
+    annotations: {}
+  otlpGrpc:
+    enabled: false
+    host: otlp-grpc.example.com
+    # Needs a controller that speaks gRPC; this is the ingress-nginx spelling.
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: GRPC
+
+ingest:
+  replicas: 1                  # >1 also turns on LogPattern__SharedStore (shared Drain state)
+  resources: {}
+  service:
+    type: ClusterIP
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+
+api:
+  replicas: 1
+  resources: {}
+  extraEnv: []                 # e.g. Query__* caps, Cors__AllowedOrigins__1
+  nodeSelector: {}
+  tolerations: []
+
+alertWorker:
+  replicas: 1                  # keep at 1 unless you know the rules tolerate duplicate evaluation
+  resources: {}
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+
+dashboard:
+  replicas: 1
+  resources: {}
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+
+# App-wide SMTP server for the Email alert channel. Blank = Email channel unavailable.
+email:
+  host: ""
+  port: 587
+  username: ""
+  from: ""
+  useStartTls: true
+  password: ""
+  existingSecret: ""           # Secret holding the password under key `smtp-password`
+
+clickhouse:
+  # false = use an existing server (single node, or a cluster behind a load balancer/Service).
+  # Use this for cluster mode, e.g. one managed by the Altinity ClickHouse operator.
+  enabled: true
+  image: clickhouse/clickhouse-server:latest
+  resources: {}
+  persistence:
+    size: 50Gi
+    storageClass: ""
+  # Only used when enabled=false.
+  external:
+    host: ""
+    port: 8123
+    username: default
+    # Run the db/clickhouse-cluster migrations (ReplicatedMergeTree/Distributed, ON CLUSTER
+    # 'flare_cluster'). See docs/explanation/clustering.md for the server-side prerequisites.
+    clusterMode: false
+  password: ""                 # empty = generated once and kept across upgrades
+  existingSecret: ""           # Secret holding the password under key `clickhouse-password`
+
+redis:
+  enabled: true                # false = use an existing Redis
+  image: redis:7
+  resources: {}
+  persistence:
+    size: 5Gi
+    storageClass: ""
+  external:
+    host: ""
+    port: 6379
+  password: ""                 # empty = generated once and kept across upgrades
+  existingSecret: ""           # Secret holding the password under key `redis-password`
+
+identity:
+  # Sqlite: one PVC shared by ingest and api. Needs ReadWriteMany, or ReadWriteOnce (the
+  # default), in which case the chart pins ingest and api onto the same node.
+  # Postgres: required for multiple nodes or HA (ADR-0111).
+  provider: Sqlite
+  sqlite:
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    storageClass: ""
+  postgres:
+    # Bundled single-instance Postgres. Set false and give `external` for a managed one.
+    enabled: true
+    image: postgres:17
+    resources: {}
+    persistence:
+      size: 5Gi
+      storageClass: ""
+    password: ""               # empty = generated once and kept across upgrades
+    existingSecret: ""         # Secret holding the password under key `postgres-password`
+    external:
+      # Npgsql connection string used when postgres.enabled=false.
+      connectionString: ""
+      existingSecret: ""       # Secret holding it under key `identity-connection-string`
+
+podSecurityContext: {}

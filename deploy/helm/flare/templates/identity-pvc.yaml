@@ -1,0 +1,15 @@
+{{- if eq .Values.identity.provider "Sqlite" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "flare.name" . }}-identity
+  labels: {{- include "flare.labels" . | nindent 4 }}
+spec:
+  accessModes: [{{ .Values.identity.sqlite.accessMode }}]
+  {{- with .Values.identity.sqlite.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.identity.sqlite.size }}
+{{- end }}

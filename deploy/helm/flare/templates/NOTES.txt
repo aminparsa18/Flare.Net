@@ -1,0 +1,22 @@
+Flare {{ .Chart.AppVersion }} is installing as "{{ .Release.Name }}".
+
+{{- if .Values.ingress.enabled }}
+
+Dashboard: {{ include "flare.origin" . }}{{ include "flare.basePath" . }}/
+{{- if not .Values.publicUrl }}
+  WARNING: ingress is enabled but `publicUrl` is empty, so the dashboard and CORS are still
+  configured for localhost. Set --set publicUrl=https://{{ .Values.ingress.host }}
+{{- end }}
+{{- else }}
+
+Reach it with port-forwards (the dashboard talks to the API from your browser):
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "flare.name" . }}-dashboard 7777:3000
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "flare.name" . }}-api 8080:8080
+
+Then open http://localhost:7777 and create the admin account on first run.
+{{- end }}
+
+Send OTLP from apps in this cluster to:
+  gRPC  {{ include "flare.name" . }}-ingest.{{ .Release.Namespace }}:4317
+  HTTP  http://{{ include "flare.name" . }}-ingest.{{ .Release.Namespace }}:4318

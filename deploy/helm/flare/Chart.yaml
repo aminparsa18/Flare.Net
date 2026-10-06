@@ -1,0 +1,9 @@
+apiVersion: v2
+name: flare
+description: Self-hosted OpenTelemetry-native observability for .NET - logs, traces and metrics with alerting.
+type: application
+version: 0.1.0
+# Default image tag for every Flare image (apardev/flare-*). Bump with each release.
+appVersion: "0.5.1"
+home: https://github.com/aminparsa18/Flare.Net
+keywords: [observability, opentelemetry, logs, traces, metrics, clickhouse]
