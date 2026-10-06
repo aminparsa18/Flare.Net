@@ -1098,6 +1098,12 @@ public sealed record AlertAck(Guid RuleId, DateTimeOffset AckedAt, string AckedB
 /// <summary>Body of <c>POST /api/alerts/{id}/ack</c> and <c>/snooze</c>. <see cref="SnoozeMinutes"/> is required by snooze and ignored by ack.</summary>
 public sealed record AlertAckRequest(int? SnoozeMinutes = null, string? Note = null);
 
+/// <summary>Body of <c>POST /api/alerts/ack-link</c>: the signed token from a notification's <c>{{ack_url}}</c> (ADR-0127).</summary>
+public sealed record AlertAckLinkRequest(string? Token = null);
+
+/// <summary>What a signed ack link points at, for the dashboard's confirmation page. <see cref="Ack"/> is set once the incident is already acknowledged or snoozed.</summary>
+public sealed record AlertAckLinkInfo(string RuleName, AlertAck? Ack);
+
 /// <summary>
 /// One rule's firing/ok state and last fire, for the dashboard's rules list (search/filter/sort).
 /// A rule that has never fired is <c>Firing = false</c> with a null <see cref="LastFiredAt"/>.

@@ -57,6 +57,21 @@ curl -X DELETE http://localhost:5080/api/alerts/<rule-id>/ack
 
 为什么这样设计:[ADR-0124](../../docs-internal/adr/0124-alert-acknowledgement-and-snooze.md)。
 
+## 从通知中确认
+
+设置了 `Alerting:PublicUrl` 后，每条触发或升级的告警通知都会带有一个
+**Acknowledge** 链接，模板中也可以用 `{{ack_url}}` 引用（Teams 中显示为按钮，通用
+Webhook 中为 `ackUrl` 字段）。打开链接会显示规则名称和一个**确认**按钮；在你点击
+之前不会发生任何事，因此邮件扫描器和聊天预览无法通过访问链接来确认告警。无需登录
+Flare：链接本身就是凭证，确认记录为 `notification link`（如果有会话，则记录为你的
+用户名）。
+
+链接只对发送它的那次事件有效，并在 24 小时后过期（`Alerting:AckLinkLifetimeHours`）；
+每条通知都会带有新的链接。如果告警在此期间已恢复，页面会提示。暂不支持 Slack 按钮和
+PagerDuty 确认同步。
+
+设计原因：[ADR-0127](../../docs-internal/adr/0127-alert-ack-link.md)。
+
 ## 无人确认时升级
 
 规则可以把未确认的事件发送到另一组渠道。在规则表单中打开**未确认则升级**,设置延迟分钟数并选择渠道。

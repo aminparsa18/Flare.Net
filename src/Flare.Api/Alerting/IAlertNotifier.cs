@@ -63,5 +63,5 @@ public interface IAlertNotifier
     /// <see cref="PagerDutyAlertNotifier"/> sends an Events API v2 <c>resolve</c> instead of a
     /// <c>trigger</c>. Only sent to channels with <see cref="NotificationChannel.SendResolved"/>.
     /// </param>
-    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null);
+    Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null);
 }

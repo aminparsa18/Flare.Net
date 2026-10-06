@@ -377,7 +377,7 @@ export const NOTIFICATION_TEMPLATE_PLACEHOLDERS = [
 	'rule_name', 'rule_id', 'description', 'severity', 'status', 'condition_kind',
 	'value', 'threshold', 'comparator', 'window', 'window_seconds',
 	'metric', 'exception_type', 'baseline_mean', 'z_score',
-	'fired_at', 'rule_url', 'logs_url', 'data_url', 'log_samples', 'message'
+	'fired_at', 'rule_url', 'logs_url', 'data_url', 'ack_url', 'log_samples', 'message'
 ] as const;
 
 function toAlertThreshold(dto: GeneratedAlertThreshold): AlertThreshold {
@@ -653,6 +653,46 @@ export const snoozeAlertRule = (id: string, minutes: number, note?: string) => s
 
 /** Withdraw an ack or snooze. */
 export const clearAlertAck = (id: string) => sendAck(id, 'ack', 'DELETE');
+
+/** What a notification's signed ack link points at (ADR-0127). `ack` is set once the incident is already acknowledged or snoozed. */
+export interface AckLinkInfo {
+	ruleName: string;
+	ack?: AlertAck;
+}
+
+/** `invalid`: bad, tampered or expired link. `notFiring`: the incident it was sent for has resolved (or the rule is gone). */
+export class AckLinkError extends Error {
+	constructor(
+		readonly kind: 'invalid' | 'notFiring' | 'other',
+		message: string
+	) {
+		super(message);
+	}
+}
+
+async function readAckLink(res: Response, what: string): Promise<AckLinkInfo> {
+	if (!res.ok) {
+		const kind = res.status === 400 ? 'invalid' : res.status === 409 ? 'notFiring' : 'other';
+		throw new AckLinkError(kind, `${what} failed: ${res.status} ${res.statusText}`);
+	}
+	const dto = (await res.json()) as { ruleName: string; ack?: AlertAck | null };
+	return { ruleName: dto.ruleName, ack: dto.ack ?? undefined };
+}
+
+/** `GET /api/alerts/ack-link` - describes the alert a signed link acknowledges, without acknowledging it. Unauthenticated. */
+export async function getAckLink(token: string, signal?: AbortSignal): Promise<AckLinkInfo> {
+	return readAckLink(await apiFetch(`${API_BASE_URL}/api/alerts/ack-link?token=${encodeURIComponent(token)}`, { signal }), 'GET /api/alerts/ack-link');
+}
+
+/** `POST /api/alerts/ack-link` - acknowledges the incident the signed link was sent for. Unauthenticated: the token is the credential. */
+export async function redeemAckLink(token: string): Promise<AckLinkInfo> {
+	const res = await apiFetch(`${API_BASE_URL}/api/alerts/ack-link`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ token })
+	});
+	return readAckLink(res, 'POST /api/alerts/ack-link');
+}
 
 export async function getAlertRule(id: string, signal?: AbortSignal): Promise<AlertRule> {
 	const res = await apiFetch(`${API_BASE_URL}/api/alerts/${id}`, { headers: memoryPackAcceptHeaders(), signal });

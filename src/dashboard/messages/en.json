@@ -3026,5 +3026,16 @@
 	"oncall_errorShift": "Shift length must be between 1 and 8760 hours.",
 	"oncall_errorParticipants": "Add at least one participant.",
 	"alertRuleForm_escalateRotation": "On-call rotation",
-	"alertRuleForm_escalateRotationNone": "None"
+	"alertRuleForm_escalateRotationNone": "None",
+	"ackLink_title": "Acknowledge alert",
+	"ackLink_description": "Confirm that you are handling this alert. Re-notifications stop until it resolves.",
+	"ackLink_confirm": "Acknowledge",
+	"ackLink_done": "Acknowledged. Re-notifications for this incident have stopped.",
+	"ackLink_alreadyBy": "Already acknowledged by {user}.",
+	"ackLink_alreadyAnon": "Already acknowledged.",
+	"ackLink_snoozed": "This alert is snoozed.",
+	"ackLink_invalid": "This link is invalid or has expired. Open the alert in Flare to acknowledge it.",
+	"ackLink_notFiring": "This alert is no longer firing, so there is nothing to acknowledge.",
+	"ackLink_missingToken": "This link is missing its token.",
+	"ackLink_openAlerts": "Open alerts"
 }

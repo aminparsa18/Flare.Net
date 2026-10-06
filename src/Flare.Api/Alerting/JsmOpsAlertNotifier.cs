@@ -38,7 +38,7 @@ public sealed class JsmOpsAlertNotifier(HttpClient httpClient, IOptions<AlertLin
         _ => "P5",
     };
 
-    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null)
+    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
         if (resolved && !isTest)
         {
@@ -50,7 +50,7 @@ public sealed class JsmOpsAlertNotifier(HttpClient httpClient, IOptions<AlertLin
                 authorization: GenieKey(channel));
         }
 
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, logSamples: logSamples);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, logSamples: logSamples, ackUrl: ackUrl);
         var payload = new
         {
             message = Truncate(message.Title ?? message.Text.Split('\n', 2)[0], MaxMessageLength),

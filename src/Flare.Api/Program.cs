@@ -348,6 +348,7 @@ builder.Services.AddSingleton<Flare.Api.Auth.IPasswordResetMailer, Flare.Api.Aut
 // AlertingOptions.PollInterval/MaxRulesPerTick bind from in Flare.AlertWorker, via its own
 // options class since those two knobs are AlertWorker-only.
 builder.Services.Configure<AlertLinkOptions>(builder.Configuration.GetSection(AlertLinkOptions.SectionName));
+builder.Services.AddSingleton<IAlertAckLinkSigner, AlertAckLinkSigner>();
 // Named/typed HttpClients so the webhook/Slack, Telegram, and PagerDuty senders inherit
 // AddServiceDefaults()'s ConfigureHttpClientDefaults (resilience handler + service
 // discovery) for free. Registered as their own concrete types, not IAlertNotifier -
@@ -481,6 +482,8 @@ if (app.Environment.IsDevelopment())
 
 // Unauthenticated by design - a client can't have a session yet when calling these.
 app.MapAuthEndpoints();
+// Signed acknowledge links from alert notifications (ADR-0127): the token is the credential, so no session is needed.
+app.MapAlertAckLinkEndpoints();
 app.MapEntraAuthEndpoints();
 app.MapLdapAuthEndpoints();
 app.MapOidcAuthEndpoints();

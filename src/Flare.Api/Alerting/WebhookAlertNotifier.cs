@@ -28,7 +28,7 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
         && (uri.Host.Equals("hooks.slack.com", StringComparison.OrdinalIgnoreCase)
             || uri.Host.Equals("hooks.slack-gov.com", StringComparison.OrdinalIgnoreCase));
 
-    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, linkOptions.Value.PublicUrl);
         // No scoped-logs link for a no-data fire - by definition there are no matching logs to show.
@@ -36,7 +36,7 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
         var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, linkOptions.Value.PublicUrl, firedAt);
         // A burn-rate rule's observed value is a rate (e.g. 14.4), not a count - same non-count handling as a metric.
         var isMetric = AnomalyScoring.SeriesKind(rule.ConditionKind, rule.AnomalyCondition) == AlertConditionKind.MetricThreshold || rule.ConditionKind == AlertConditionKind.SloBurnRate;
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, format: IsSlackWebhook(channel.WebhookUrl) ? AlertMarkupFormat.SlackMrkdwn : AlertMarkupFormat.Plain, logSamples: logSamples);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, linkOptions.Value.PublicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, format: IsSlackWebhook(channel.WebhookUrl) ? AlertMarkupFormat.SlackMrkdwn : AlertMarkupFormat.Plain, logSamples: logSamples, ackUrl: ackUrl);
         var payload = new
         {
             // Slack renders only `text`, so a custom title goes in as its first line; `title`
@@ -84,6 +84,9 @@ public sealed class WebhookAlertNotifier(HttpClient httpClient, IOptions<AlertLi
             // The fired data for any rule kind (Logs, the metric's chart, or the matching
             // exceptions) - see AlertMessageFormatter.BuildFiredDataUrl. Equals logsUrl for LogCount.
             dataUrl,
+            // Signed one-click acknowledge link (ADR-0127), null for a test/resolved send or without
+            // Alerting:PublicUrl. Opens a confirmation page in the dashboard - it never acks on a bare GET.
+            ackUrl,
         };
 
         try

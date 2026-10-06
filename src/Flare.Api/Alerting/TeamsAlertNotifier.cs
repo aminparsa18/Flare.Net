@@ -18,7 +18,7 @@ namespace Flare.Api.Alerting;
 /// </remarks>
 public sealed class TeamsAlertNotifier(HttpClient httpClient, IOptions<AlertLinkOptions> linkOptions) : IAlertNotifier
 {
-    internal static object BuildPayload(AlertMessage message, string? ruleUrl, string? dataUrl, string dataLabel)
+    internal static object BuildPayload(AlertMessage message, string? ruleUrl, string? dataUrl, string dataLabel, string? ackUrl = null)
     {
         var body = new List<object>();
         if (message.Title is not null)
@@ -37,6 +37,11 @@ public sealed class TeamsAlertNotifier(HttpClient httpClient, IOptions<AlertLink
         if (dataUrl is not null)
         {
             actions.Add(new Dictionary<string, object?> { ["type"] = "Action.OpenUrl", ["title"] = $"{dataLabel} in Flare", ["url"] = dataUrl });
+        }
+
+        if (ackUrl is not null)
+        {
+            actions.Add(new Dictionary<string, object?> { ["type"] = "Action.OpenUrl", ["title"] = "Acknowledge", ["url"] = ackUrl });
         }
 
         var card = new Dictionary<string, object?>
@@ -66,15 +71,15 @@ public sealed class TeamsAlertNotifier(HttpClient httpClient, IOptions<AlertLink
         };
     }
 
-    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null)
+    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
         var publicUrl = linkOptions.Value.PublicUrl;
         // The buttons carry the links, so the built-in text doesn't repeat them (appendLinks: false).
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false, resolved: resolved, logSamples: logSamples);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, appendLinks: false, resolved: resolved, logSamples: logSamples, ackUrl: ackUrl);
         var ruleUrl = AlertMessageFormatter.BuildRuleUrl(rule, publicUrl);
         // No fired-data link for a no-data fire - by definition there is no matching data to show.
         var dataUrl = noData ? null : AlertMessageFormatter.BuildFiredDataUrl(rule, publicUrl, firedAt);
-        var payload = BuildPayload(message, ruleUrl, dataUrl, AlertMessageFormatter.FiredDataLabel(rule));
+        var payload = BuildPayload(message, ruleUrl, dataUrl, AlertMessageFormatter.FiredDataLabel(rule), isTest || resolved ? null : ackUrl);
         return WebhookPost.SendAsync(httpClient, channel.WebhookUrl, payload, cancellationToken);
     }
 }

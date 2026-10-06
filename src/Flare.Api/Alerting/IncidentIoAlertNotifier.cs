@@ -26,10 +26,10 @@ public sealed class IncidentIoAlertNotifier(HttpClient httpClient, IOptions<Aler
     internal static string CapDescription(string text) =>
         text.Length <= MaxDescriptionLength ? text : text[..(MaxDescriptionLength - 1)] + "…";
 
-    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null)
+    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
         var publicUrl = linkOptions.Value.PublicUrl;
-        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, logSamples: logSamples);
+        var message = AlertMessageFormatter.BuildMessage(rule, observedValue, isTest, publicUrl, metricUnit, firedAt, noData, anomaly, resolved: resolved, logSamples: logSamples, ackUrl: ackUrl);
         var metadata = new Dictionary<string, string>(rule.Labels)
         {
             ["rule"] = rule.Name,

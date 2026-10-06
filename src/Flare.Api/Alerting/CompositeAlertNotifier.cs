@@ -30,7 +30,7 @@ public sealed class CompositeAlertNotifier(
     IncidentIoAlertNotifier incidentIo,
     JsmOpsAlertNotifier jsmOps) : IAlertNotifier
 {
-    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null)
+    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
         IAlertNotifier notifier = channel.Type switch
         {
@@ -47,13 +47,13 @@ public sealed class CompositeAlertNotifier(
 
         // Dispose restores the flag on return; the callee already captured it in its own async flow.
         using var _ = Flare.ServiceDefaults.HttpRetryScope.SingleShot(isTest);
-        return notifier.SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit, noData, anomaly, resolved, logSamples);
+        return notifier.SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit, noData, anomaly, resolved, logSamples, ackUrl);
     }
 
     /// <summary>See this class's remarks. Sends to every one of <paramref name="channels"/> concurrently - independent I/O against unrelated third-party endpoints, so there's no reason to serialize them.</summary>
-    public async Task<IReadOnlyList<NotificationResult>> SendAllAsync(AlertRule rule, IReadOnlyList<NotificationChannel> channels, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null)
+    public async Task<IReadOnlyList<NotificationResult>> SendAllAsync(AlertRule rule, IReadOnlyList<NotificationChannel> channels, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
-        var sends = channels.Select(channel => SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit, noData, anomaly, resolved, logSamples));
+        var sends = channels.Select(channel => SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit, noData, anomaly, resolved, logSamples, ackUrl));
         return await Task.WhenAll(sends);
     }
 }

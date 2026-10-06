@@ -417,6 +417,17 @@ the webhook's `dataUrl`, PagerDuty's `links` entry and `custom_details.dataUrl`,
 for existing consumers. The payload is standard base64, percent-escaped, not
 base64url: base64url's `_` breaks Telegram's `parse_mode: Markdown`.
 
+## Acknowledge link in notifications
+
+`AlertEvaluationWorker` asks `IAlertAckLinkSigner` for a link on every real fire and escalation
+send and passes it down as `ackUrl` (`IAlertNotifier.SendAsync`). It becomes the `{{ack_url}}`
+placeholder, an `Acknowledge:` line in the built-in text, a Teams card action, the webhook
+payload's `ackUrl` and PagerDuty's `custom_details.ackUrl`. The token is Data Protection output
+(time-limited, bound to the rule and the issue time), so Flare.AlertWorker registers Data
+Protection against the same Redis key ring as this project. The dashboard's public `/ack` page
+calls the anonymous `GET`/`POST /api/alerts/ack-link` (`AlertAckLinkEndpoints`); only the POST
+records an ack. Blank `Alerting:PublicUrl` means no link. See ADR-0127.
+
 ## Recent log lines in LogCount notifications
 
 When a `LogCount` rule fires, `AlertEvaluationWorker` fetches the newest 5 events matching the
