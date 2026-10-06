@@ -76,6 +76,53 @@ public class OnCallScheduleTests
     }
 
     [Fact]
+    public void An_active_override_replaces_the_scheduled_participant()
+    {
+        var rotation = Rotation() with { Overrides = [new OnCallOverride(Start.AddHours(6), Start.AddHours(12), C)] };
+
+        var during = OnCallSchedule.Resolve(rotation, Start.AddHours(8));
+        Assert.Equal(C, during.OnCallChannelId);
+        Assert.True(during.IsOverride);
+        Assert.Equal(Start.AddHours(12), during.ShiftEndsAt);
+        Assert.Equal(A, during.NextChannelId);
+
+        // Start inclusive, end exclusive; outside it the schedule applies again.
+        Assert.Equal(C, OnCallSchedule.Resolve(rotation, Start.AddHours(6)).OnCallChannelId);
+        var after = OnCallSchedule.Resolve(rotation, Start.AddHours(12));
+        Assert.Equal(A, after.OnCallChannelId);
+        Assert.False(after.IsOverride);
+        Assert.False(OnCallSchedule.Resolve(rotation, Start.AddHours(5)).IsOverride);
+    }
+
+    [Fact]
+    public void Of_overlapping_overrides_the_latest_starting_wins()
+    {
+        var rotation = Rotation() with
+        {
+            Overrides = [new OnCallOverride(Start, Start.AddHours(10), B), new OnCallOverride(Start.AddHours(4), Start.AddHours(6), C)],
+        };
+        Assert.Equal(C, OnCallSchedule.Resolve(rotation, Start.AddHours(5)).OnCallChannelId);
+        Assert.Equal(B, OnCallSchedule.Resolve(rotation, Start.AddHours(7)).OnCallChannelId);
+    }
+
+    [Fact]
+    public void Escalation_targets_follow_the_override()
+    {
+        var rotation = Rotation() with { Overrides = [new OnCallOverride(Start, Start.AddHours(1), C)] };
+        Assert.Equal([C], OnCallSchedule.EscalationTargets([], rotation, Start));
+    }
+
+    [Fact]
+    public void Override_validation()
+    {
+        var ok = new OnCallRotationRequest { Name = "p", ChannelIds = [A], ShiftHours = 24, StartsAt = Start };
+        Assert.Null((ok with { Overrides = [new OnCallOverride(Start, Start.AddHours(1), B)] }).Validate());
+        Assert.NotNull((ok with { Overrides = [new OnCallOverride(Start, Start, B)] }).Validate());
+        Assert.NotNull((ok with { Overrides = [new OnCallOverride(Start, Start.AddHours(1), Guid.Empty)] }).Validate());
+        Assert.NotNull((ok with { Overrides = [.. Enumerable.Repeat(new OnCallOverride(Start, Start.AddHours(1), B), OnCallRotationRequest.MaxOverrides + 1)] }).Validate());
+    }
+
+    [Fact]
     public void Request_validation()
     {
         var ok = new OnCallRotationRequest { Name = "p", ChannelIds = [A, B], ShiftHours = 24, StartsAt = Start };

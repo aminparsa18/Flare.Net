@@ -133,6 +133,9 @@ shift length, first-shift start; same CRUD-via-tombstone `ReplacingMergeTree` as
 `SecondEscalationChannelIds`: an optional second escalation step. `alert_events.Escalated` now
 holds the step number. See [ADR-0136](../../docs-internal/adr/0136-alert-multi-step-escalation.md).
 
+`0062_oncall_rotation_overrides.sql` - `oncall_rotations.Overrides`: a JSON array of one-off swaps. See
+[ADR-0137](../../docs-internal/adr/0137-oncall-rotation-overrides.md).
+
 `0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
 same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
 `metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).

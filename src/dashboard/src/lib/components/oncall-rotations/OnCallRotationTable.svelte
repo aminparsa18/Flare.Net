@@ -95,6 +95,9 @@
 						<Table.Cell class="text-muted-foreground">{shiftLength(status.rotation.shiftHours)}</Table.Cell>
 						<Table.Cell>
 							<Badge variant="secondary">{channelName(status.onCallChannelId)}</Badge>
+							{#if status.isOverride}
+								<Badge variant="outline">{m.oncall_override()}</Badge>
+							{/if}
 							<p class="text-muted-foreground mt-1 text-xs">{m.oncall_until({ time: formatDateTimeMinutes(status.shiftEndsAt) })}</p>
 						</Table.Cell>
 						<Table.Cell class="text-right">

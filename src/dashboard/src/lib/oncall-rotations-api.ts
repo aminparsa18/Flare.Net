@@ -4,6 +4,13 @@
 
 import { API_BASE_URL, apiFetch } from './api';
 
+/** A one-off swap: `channelId` is on call from `startsAt` to `endsAt` (ISO instants). */
+export interface OnCallOverride {
+	startsAt: string;
+	endsAt: string;
+	channelId: string;
+}
+
 export interface OnCallRotation {
 	id: string;
 	name: string;
@@ -13,6 +20,7 @@ export interface OnCallRotation {
 	shiftHours: number;
 	/** ISO instant the first shift starts. */
 	startsAt: string;
+	overrides: OnCallOverride[];
 	createdAt: string;
 	updatedAt: string;
 }
@@ -23,6 +31,8 @@ export interface OnCallRotationStatus {
 	onCallChannelId: string;
 	shiftEndsAt: string;
 	nextChannelId: string;
+	/** True when `onCallChannelId` is a one-off override rather than the scheduled participant. */
+	isOverride?: boolean;
 }
 
 export interface OnCallRotationRequest {
@@ -31,6 +41,7 @@ export interface OnCallRotationRequest {
 	channelIds: string[];
 	shiftHours: number;
 	startsAt: string;
+	overrides: OnCallOverride[];
 }
 
 async function failure(res: Response, what: string): Promise<Error> {

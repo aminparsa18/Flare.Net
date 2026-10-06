@@ -15,6 +15,22 @@ public static class OnCallSchedule
     /// </summary>
     public static OnCallRotationStatus Resolve(OnCallRotation rotation, DateTimeOffset now)
     {
+        // A one-off override wins over the schedule (ADR-0137); of several that overlap, the latest-starting.
+        var active = rotation.Overrides
+            .Where(o => o.StartsAt <= now && now < o.EndsAt)
+            .OrderByDescending(o => o.StartsAt)
+            .Cast<OnCallOverride?>()
+            .FirstOrDefault();
+        if (active is { } swap)
+        {
+            return new OnCallRotationStatus(rotation, swap.ChannelId, swap.EndsAt, Resolve(rotation, swap.EndsAt).OnCallChannelId, IsOverride: true);
+        }
+
+        return ResolveScheduled(rotation, now);
+    }
+
+    private static OnCallRotationStatus ResolveScheduled(OnCallRotation rotation, DateTimeOffset now)
+    {
         var count = rotation.ChannelIds.Count;
         var shift = TimeSpan.FromHours(rotation.ShiftHours);
         if (now < rotation.StartsAt)

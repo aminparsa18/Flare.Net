@@ -1,7 +1,9 @@
+using System.Text.Json;
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.ADO.Readers;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Json;
 using Flare.Api.Model;
 using Microsoft.Extensions.Options;
 
@@ -29,7 +31,7 @@ public interface IOnCallRotationQueryService
 /// </summary>
 public sealed class OnCallRotationQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IOnCallRotationQueryService
 {
-    private const string Columns = "Id, Name, Description, ChannelIds, ShiftHours, StartsAt, CreatedAt, UpdatedAt";
+    private const string Columns = "Id, Name, Description, ChannelIds, ShiftHours, StartsAt, CreatedAt, UpdatedAt, Overrides";
 
     internal static OnCallRotation Apply(OnCallRotation rotation, OnCallRotationRequest request) => rotation with
     {
@@ -38,6 +40,7 @@ public sealed class OnCallRotationQueryService(IClickHouseClient client, IOption
         ChannelIds = request.ChannelIds ?? [],
         ShiftHours = request.ShiftHours ?? 168,
         StartsAt = request.StartsAt,
+        Overrides = request.Overrides ?? [],
     };
 
     public async Task<OnCallRotation> CreateAsync(OnCallRotationRequest request, CancellationToken cancellationToken)
@@ -109,12 +112,13 @@ public sealed class OnCallRotationQueryService(IClickHouseClient client, IOption
         parameters.AddParameter("startsAt", rotation.StartsAt.UtcDateTime);
         parameters.AddParameter("createdAt", rotation.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", rotation.UpdatedAt.UtcDateTime);
+        parameters.AddParameter("overrides", JsonSerializer.Serialize(rotation.Overrides.ToArray(), OnCallRotationsJsonContext.Default.OnCallOverrideArray));
 
         const string sql = """
             INSERT INTO oncall_rotations
-                (Id, Name, Description, IsDeleted, ChannelIds, ShiftHours, StartsAt, CreatedAt, UpdatedAt)
+                (Id, Name, Description, IsDeleted, ChannelIds, ShiftHours, StartsAt, CreatedAt, UpdatedAt, Overrides)
             VALUES
-                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {channelIds:Array(UUID)}, {shiftHours:UInt32}, {startsAt:DateTime64(3)}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {name:String}, {description:String}, {isDeleted:UInt8}, {channelIds:Array(UUID)}, {shiftHours:UInt32}, {startsAt:DateTime64(3)}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {overrides:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -130,7 +134,21 @@ public sealed class OnCallRotationQueryService(IClickHouseClient client, IOption
         StartsAt = ReadUtc(reader, 5),
         CreatedAt = ReadUtc(reader, 6),
         UpdatedAt = ReadUtc(reader, 7),
+        Overrides = ParseOverrides(reader.GetString(8)),
     };
+
+    private static OnCallOverride[] ParseOverrides(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize(json, OnCallRotationsJsonContext.Default.OnCallOverrideArray) ?? [];
+        }
+        catch (JsonException)
+        {
+            // A hand-edited bad value must not take the rotation (and every rule escalating to it) down.
+            return [];
+        }
+    }
 
     private static DateTimeOffset ReadUtc(ClickHouseDataReader reader, int ordinal) =>
         new(DateTime.SpecifyKind(reader.GetDateTime(ordinal), DateTimeKind.Utc));
