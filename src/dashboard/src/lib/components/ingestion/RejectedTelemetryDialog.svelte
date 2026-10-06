@@ -44,6 +44,8 @@
 				return m.rejectedTelemetryDialog_traceNoun();
 			case 'Metrics':
 				return m.rejectedTelemetryDialog_metricNoun();
+			case 'Profiles':
+				return m.rejectedTelemetryDialog_profileNoun();
 		}
 	}
 

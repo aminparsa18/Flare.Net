@@ -133,12 +133,14 @@ public class PipelineQueryServiceTests
     [InlineData(IngestionSignal.Logs, "flare:logs", "flare-ingest")]
     [InlineData(IngestionSignal.Traces, "flare:spans", "flare-ingest-spans")]
     [InlineData(IngestionSignal.Metrics, "flare:metrics", "flare-ingest-metrics")]
+    [InlineData(IngestionSignal.Profiles, "flare:profiles", "flare-ingest-profiles")]
     public void PipelineStreamKeys_DefaultOptions_MatchFlareIngestPipelineOptionsDefaults(IngestionSignal signal, string streamKey, string consumerGroup)
     {
         var keys = new PipelineStreamKeys(
             Options.Create(new LogEventPipelineOptions()),
             Options.Create(new SpanEventPipelineOptions()),
-            Options.Create(new MetricEventPipelineOptions()));
+            Options.Create(new MetricEventPipelineOptions()),
+            Options.Create(new ProfileEventPipelineOptions()));
 
         Assert.Equal(streamKey, keys.StreamKey(signal));
         Assert.Equal(consumerGroup, keys.ConsumerGroup(signal));
@@ -151,7 +153,8 @@ public class PipelineQueryServiceTests
         var keys = new PipelineStreamKeys(
             Options.Create(new LogEventPipelineOptions { StreamKey = "custom:logs", ConsumerGroup = "custom-ingest", StreamMaxLength = 2_000_000 }),
             Options.Create(new SpanEventPipelineOptions()),
-            Options.Create(new MetricEventPipelineOptions()));
+            Options.Create(new MetricEventPipelineOptions()),
+            Options.Create(new ProfileEventPipelineOptions()));
 
         // The overridden signal picks up the override...
         Assert.Equal("custom:logs", keys.StreamKey(IngestionSignal.Logs));

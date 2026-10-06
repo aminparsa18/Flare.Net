@@ -70,7 +70,9 @@
 			['Traces', 'Http'],
 			['Metrics', 'Grpc'],
 			['Metrics', 'Http'],
-			['Metrics', 'Scrape']
+			['Metrics', 'Scrape'],
+			['Profiles', 'Grpc'],
+			['Profiles', 'Http']
 		];
 		return order.map(
 			([signal, protocol]) => totals.get(key(signal, protocol)) ?? { signal, protocol, requests: 0, records: 0, bytes: 0, rejected: 0 }

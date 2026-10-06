@@ -68,13 +68,13 @@ folders are where "what happened and why" actually lives.
   that allows 3.x is 11.0 (RC1 requires `[3.10.0, 4.0.0)`), which needs the
   `net11.0` upgrade, so do both together; no 10.0.x servicing release has lifted the cap.
   See the [OpenAPI.NET v2/v3 announcement](https://devblogs.microsoft.com/openapi/openapi-net-release-announcements/).
-- **Continuous profiling: query and UI.** Ingest and storage are done
-  ([ADR-0141](../adr/0141-continuous-profiling-ingest.md)): OTLP profiles land in
-  `profile_samples` with the stack resolved and the span link in `TraceId`/`SpanId`.
-  The query API (`/api/profiles/types`, `/api/profiles/flamegraph`) is done. Remaining: a
-  Profiles page, a "profile for this span" link from the trace waterfall, the Ingestion and
-  Pipeline pages listing the profiles signal, retention, and an e2e with the Collector's
-  pprof receiver. OTLP profiles is still Alpha, so re-check the vendored proto on each tag bump.
+- **Continuous profiling: docs and e2e.** Ingest, storage, the query API, the
+  Profiles page (`/profiles`), the span-detail "View profile" link and the profiles signal on
+  the Ingestion/Pipeline pages are done ([ADR-0141](../adr/0141-continuous-profiling-ingest.md)).
+  Remaining: a how-to guide (en/fr/ru/zh-CN) and a live e2e with the Collector's pprof
+  receiver. `profile_samples` has no TTL, same as spans, so retention rides on the
+  "Retention policies" item above. OTLP profiles is still Alpha, so re-check the vendored
+  proto on each tag bump.
 - **Scheduled dashboard reports.** There's no way to email a dashboard on a
   schedule (weekly SLO/latency report to a team). Add per-dashboard
   schedules (cron, recipients, relative time range, variable values), a

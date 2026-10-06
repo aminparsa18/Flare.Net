@@ -26,13 +26,15 @@ namespace Flare.Api.Query;
 public sealed class PipelineStreamKeys(
     IOptions<LogEventPipelineOptions> logOptions,
     IOptions<SpanEventPipelineOptions> spanOptions,
-    IOptions<MetricEventPipelineOptions> metricOptions)
+    IOptions<MetricEventPipelineOptions> metricOptions,
+    IOptions<ProfileEventPipelineOptions> profileOptions)
 {
     public string StreamKey(IngestionSignal signal) => signal switch
     {
         IngestionSignal.Logs => logOptions.Value.StreamKey,
         IngestionSignal.Traces => spanOptions.Value.StreamKey,
         IngestionSignal.Metrics => metricOptions.Value.StreamKey,
+        IngestionSignal.Profiles => profileOptions.Value.StreamKey,
         _ => throw new ArgumentOutOfRangeException(nameof(signal), signal, null),
     };
 
@@ -41,6 +43,7 @@ public sealed class PipelineStreamKeys(
         IngestionSignal.Logs => logOptions.Value.ConsumerGroup,
         IngestionSignal.Traces => spanOptions.Value.ConsumerGroup,
         IngestionSignal.Metrics => metricOptions.Value.ConsumerGroup,
+        IngestionSignal.Profiles => profileOptions.Value.ConsumerGroup,
         _ => throw new ArgumentOutOfRangeException(nameof(signal), signal, null),
     };
 
@@ -50,6 +53,7 @@ public sealed class PipelineStreamKeys(
         IngestionSignal.Logs => logOptions.Value.StreamMaxLength,
         IngestionSignal.Traces => spanOptions.Value.StreamMaxLength,
         IngestionSignal.Metrics => metricOptions.Value.StreamMaxLength,
+        IngestionSignal.Profiles => profileOptions.Value.StreamMaxLength,
         _ => throw new ArgumentOutOfRangeException(nameof(signal), signal, null),
     };
 }
