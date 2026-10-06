@@ -58,25 +58,15 @@ public static class AlertAckLinkEndpoints
         return Results.Json(new AlertAckLinkInfo(resolved.Rule.Name, AlertAckPolicy.Effective(ack, resolved.State!.LastResolvedAt)), AlertsJsonContext.Default.AlertAckLinkInfo);
     }
 
-    /// <summary>
-    /// The rule and its live incident behind <paramref name="token"/>. A link is good only for the
-    /// incident it was sent for: one issued before the rule's latest resolution is stale, so an old
-    /// message can't acknowledge a later, unrelated incident.
-    /// </summary>
+    /// <summary>The rule and its live incident behind <paramref name="token"/>, or the failure response (see <see cref="AlertAckResolver"/>).</summary>
     private static async Task<(AlertRule? Rule, AlertFiringState? State, IResult? Failure)> ResolveAsync(string? token, IAlertAckLinkSigner signer, IAlertQueryService alerts, CancellationToken cancellationToken)
     {
-        if (signer.Validate(token) is not { } claims)
+        var resolution = await AlertAckResolver.ResolveTokenAsync(token, signer, alerts, cancellationToken);
+        return resolution.Failure switch
         {
-            return (null, null, Results.Problem("This link is invalid or has expired.", statusCode: StatusCodes.Status400BadRequest));
-        }
-
-        var rule = await alerts.GetAsync(claims.RuleId, cancellationToken);
-        var states = rule is null ? null : await alerts.GetFiringStatesAsync([rule.Id], cancellationToken);
-        if (rule is null || states is null || !states.TryGetValue(rule.Id, out var state) || (state.LastResolvedAt is { } resolvedAt && claims.IssuedAt <= resolvedAt))
-        {
-            return (null, null, Results.Problem("This alert is no longer firing, so there is nothing to acknowledge.", statusCode: StatusCodes.Status409Conflict));
-        }
-
-        return (rule, state, null);
+            AlertAckFailure.InvalidToken => (null, null, Results.Problem("This link is invalid or has expired.", statusCode: StatusCodes.Status400BadRequest)),
+            AlertAckFailure.NotFiring => (null, null, Results.Problem("This alert is no longer firing, so there is nothing to acknowledge.", statusCode: StatusCodes.Status409Conflict)),
+            _ => (resolution.Rule, resolution.State, null),
+        };
     }
 }

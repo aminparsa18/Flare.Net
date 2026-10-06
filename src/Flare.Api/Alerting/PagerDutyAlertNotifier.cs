@@ -38,6 +38,10 @@ public sealed class PagerDutyAlertNotifier(HttpClient httpClient, IOptions<Alert
     /// <summary>The Events API v2 <c>dedup_key</c> a rule's triggers and its resolve share - see this class's remarks.</summary>
     public static string DedupKey(AlertRule rule) => $"flare-alert-{rule.Id:N}";
 
+    /// <summary>The rule id inside a <see cref="DedupKey"/> (PagerDuty's <c>incident_key</c>); null for any other key, including a test send's.</summary>
+    public static Guid? RuleIdFromDedupKey(string? key) =>
+        key is not null && key.StartsWith("flare-alert-", StringComparison.Ordinal) && Guid.TryParseExact(key["flare-alert-".Length..], "N", out var id) ? id : null;
+
     public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
         if (resolved && !isTest)

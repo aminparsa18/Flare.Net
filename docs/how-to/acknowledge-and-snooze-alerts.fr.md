@@ -83,11 +83,49 @@ lui-même sert d'identifiant, et l'acquittement est enregistré sous
 
 Un lien est valable pour l'incident pour lequel il a été envoyé et expire après
 24 heures (`Alerting:AckLinkLifetimeHours`) ; chaque notification en contient un
-nouveau. Si l'alerte est résolue entre-temps, la page l'indique. Un bouton Slack
-et la synchronisation des acquittements avec PagerDuty ne sont pas encore
-disponibles.
+nouveau. Si l'alerte est résolue entre-temps, la page l'indique.
 
 Pourquoi c'est conçu ainsi : [ADR-0127](../../docs-internal/adr/0127-alert-ack-link.md).
+
+## Acquitter depuis Slack
+
+Un canal Slack peut afficher un bouton **Acknowledge** sous l'alerte. Il faut une
+application Slack, car Slack ne livre les clics sur un bouton qu'à une application :
+
+1. Créez une application Slack, ajoutez-lui un webhook entrant et utilisez l'URL de ce
+   webhook dans un canal de notification (une URL `hooks.slack.com`, comme avant).
+2. Dans **Interactivity & Shortcuts**, activez l'interactivité et définissez la Request URL
+   sur `https://<votre-hôte-api>/api/alerts/slack-interactivity`. C'est l'adresse de
+   Flare.Api, que Slack doit pouvoir joindre.
+3. Copiez le **Signing Secret** de l'application dans `Alerting:SlackSigningSecret` sur
+   Flare.Api et sur Flare.AlertWorker (`Alerting__SlackSigningSecret` en variable
+   d'environnement). Le worker s'en sert uniquement pour décider d'ajouter le bouton.
+
+Une fois le secret défini, une notification d'alerte active vers un webhook Slack porte
+le bouton. Un clic acquitte l'incident, enregistré comme `Slack: <nom d'utilisateur>`, et
+publie « acknowledged by » dans le canal. Flare vérifie la signature de la requête Slack
+et refuse toute requête de plus de cinq minutes. Sans secret, le bouton n'est pas envoyé
+et le point d'accès répond 404. Un bouton sur un ancien message expiré, ou dont l'alerte
+est résolue, ne répond qu'à la personne qui a cliqué.
+
+## Acquitter depuis PagerDuty
+
+Si une règle notifie un canal PagerDuty, acquitter l'incident dans PagerDuty peut
+l'acquitter aussi dans Flare :
+
+1. Dans PagerDuty, ajoutez un **abonnement webhook V3** (Integrations > Generic
+   Webhooks) avec l'URL `https://<votre-hôte-api>/api/alerts/pagerduty-webhook` et les
+   événements `incident.acknowledged` et `incident.unacknowledged`.
+2. Copiez le secret de l'abonnement dans `Alerting:PagerDutyWebhookSecret` sur Flare.Api.
+
+Un acquittement dans PagerDuty est enregistré dans Flare comme `PagerDuty: <nom>` : les
+nouvelles notifications et l'escalade s'arrêtent. Si l'acquittement PagerDuty expire ou est
+retiré, Flare annule l'acquittement qu'il avait enregistré depuis PagerDuty, et laisse
+celui fait dans Flare. Seuls les incidents ouverts par Flare sont reconnus, grâce à leur
+clé d'incident `flare-alert-...`. La synchronisation est à sens unique : acquitter dans
+Flare ne modifie pas l'incident PagerDuty.
+
+Pourquoi c'est conçu ainsi : [ADR-0138](../../docs-internal/adr/0138-alert-ack-slack-pagerduty.md).
 
 ## Escalader si personne n'acquitte
 

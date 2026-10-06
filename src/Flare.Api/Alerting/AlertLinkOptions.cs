@@ -33,4 +33,17 @@ public sealed class AlertLinkOptions
     /// between two notifications.
     /// </summary>
     public int AckLinkLifetimeHours { get; set; } = 24;
+
+    /// <summary>
+    /// Signing secret of the Slack app whose interactivity Request URL is
+    /// <c>/api/alerts/slack-interactivity</c> (ADR-0138). Blank turns the Acknowledge button and
+    /// that endpoint off. Set it on Flare.AlertWorker too, which decides whether to add the button.
+    /// </summary>
+    public string SlackSigningSecret { get; set; } = "";
+
+    /// <summary>
+    /// Secret of the PagerDuty V3 webhook subscription that targets
+    /// <c>/api/alerts/pagerduty-webhook</c> (ADR-0138). Blank turns that endpoint off.
+    /// </summary>
+    public string PagerDutyWebhookSecret { get; set; } = "";
 }

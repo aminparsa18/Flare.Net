@@ -428,6 +428,13 @@ Protection against the same Redis key ring as this project. The dashboard's publ
 calls the anonymous `GET`/`POST /api/alerts/ack-link` (`AlertAckLinkEndpoints`); only the POST
 records an ack. Blank `Alerting:PublicUrl` means no link. See ADR-0127.
 
+Two more anonymous, signature-verified endpoints (`AlertAckIntegrationEndpoints`, ADR-0138) record
+the same `Ack` from elsewhere: `POST /api/alerts/slack-interactivity` (the Slack app's Request URL;
+`Alerting:SlackSigningSecret`, also needed by Flare.AlertWorker, which adds the Acknowledge button
+to Slack-webhook sends) and `POST /api/alerts/pagerduty-webhook` (a V3 webhook subscription;
+`Alerting:PagerDutyWebhookSecret`). Each is 404 while its secret is blank. `AlertAckResolver`
+finds the live incident for all three paths.
+
 ## Recent log lines in LogCount notifications
 
 When a `LogCount` rule fires, `AlertEvaluationWorker` fetches the newest 5 events matching the

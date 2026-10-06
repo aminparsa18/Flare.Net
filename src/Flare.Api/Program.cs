@@ -486,6 +486,8 @@ if (app.Environment.IsDevelopment())
 app.MapAuthEndpoints();
 // Signed acknowledge links from alert notifications (ADR-0127): the token is the credential, so no session is needed.
 app.MapAlertAckLinkEndpoints();
+// Slack button clicks and PagerDuty ack events (ADR-0138): the request signature is the credential; 404 until a secret is configured.
+app.MapAlertAckIntegrationEndpoints();
 app.MapEntraAuthEndpoints();
 app.MapLdapAuthEndpoints();
 app.MapOidcAuthEndpoints();
