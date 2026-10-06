@@ -5,13 +5,27 @@ metric. Charts and alert rules on that metric read a small time series instead
 of scanning the logs table each time, so "errors from checkout per minute" stays
 cheap on a busy instance.
 
-There is no dashboard page for this yet. You manage log metrics with the API.
+Manage log metrics in **Settings > Log Metrics**, or with the API.
 
 ## Prerequisites
 
 - A Member or Admin account, or a [personal access token](configure-authentication.md#personal-access-tokens)
   for one. Viewers can't create log metrics.
 - Flare's API address, `http://localhost:8080` in the examples.
+
+## Create a metric from the dashboard
+
+In the Logs explorer, set the filter you want to count and click **Create
+metric**. The form opens with that filter filled in, including attribute
+filters. Give it a name, pick a metric name and optionally add group-by keys,
+then click **Preview series**: it reads the last hour of stored logs and shows
+how many series the group-by keys would create, with the busiest ones listed.
+If that number is large, remove a key before saving. You can also start from
+scratch with **New log metric** on **Settings > Log Metrics**, which also lists,
+pauses, edits and deletes metrics.
+
+The same preview is available as `POST /api/log-metrics/preview` with a body of
+`{ "condition": {...}, "groupBy": [...] }`.
 
 ## Create a log metric
 

@@ -21,6 +21,9 @@ public interface ILogMetricQueryService
 
     /// <summary>Soft-deletes (inserts a tombstone version) - see 0064_log_metrics.sql. Returns false if <paramref name="id"/> doesn't exist. Already-emitted data stays in <c>metrics_sum</c>.</summary>
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Dry-runs a draft over the last hour of stored logs: how many series its group-by keys would create. See <see cref="LogMetricPreviewQueryBuilder"/>.</summary>
+    Task<LogMetricPreviewResponse> PreviewAsync(LogMetricPreviewRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>ClickHouse seam for log-metric CRUD against <c>log_metrics</c> - same tombstone/latest-version shape as <see cref="MetricAttributeRuleQueryService"/>. <c>Flare.Ingest</c> reads the table through its own mirrored read-only store.</summary>
@@ -103,6 +106,41 @@ public sealed class LogMetricQueryService(IClickHouseClient client, IOptions<Que
 
         await InsertVersionAsync(existing with { UpdatedAt = timeProvider.GetUtcNow() }, isDeleted: true, cancellationToken);
         return true;
+    }
+
+    public async Task<LogMetricPreviewResponse> PreviewAsync(LogMetricPreviewRequest request, CancellationToken cancellationToken)
+    {
+        var built = LogMetricPreviewQueryBuilder.Build(request, timeProvider.GetUtcNow());
+        var keyCount = (request.GroupBy ?? []).Select(k => k.Trim()).Distinct(StringComparer.Ordinal).Count();
+
+        await using var reader = await client.ExecuteReaderAsync(built.Sql, built.Parameters, SafetyOptions(), cancellationToken);
+        var series = new List<LogMetricPreviewSeries>();
+        long total = 0;
+        var seriesCount = 0;
+        while (reader.Read())
+        {
+            var count = (long)reader.GetFieldValue<ulong>(1 + keyCount);
+            total += count;
+            seriesCount++;
+            if (series.Count < LogMetricPreviewQueryBuilder.TopSeries)
+            {
+                series.Add(new LogMetricPreviewSeries
+                {
+                    ServiceName = reader.GetString(0),
+                    Values = Enumerable.Range(1, keyCount).Select(reader.GetString).ToArray(),
+                    Count = count,
+                });
+            }
+        }
+
+        return new LogMetricPreviewResponse
+        {
+            WindowMinutes = (int)LogMetricPreviewQueryBuilder.Window.TotalMinutes,
+            TotalLogs = total,
+            SeriesCount = seriesCount,
+            SeriesCapped = seriesCount >= LogMetricPreviewQueryBuilder.MaxSeries,
+            Top = series,
+        };
     }
 
     private static string[] Normalize(IReadOnlyList<string>? keys) =>
