@@ -403,6 +403,8 @@ builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChan
 // suppress notifications while one is active.
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
 builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQueryService>();
+// Synthetic monitors (ADR-0128) - CRUD here; Flare.AlertWorker runs the probes.
+builder.Services.AddSingleton<ISyntheticMonitorQueryService, SyntheticMonitorQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 
@@ -550,6 +552,8 @@ memberRoutes.MapNotificationChannelEndpoints();
 memberRoutes.MapMaintenanceWindowEndpoints();
 // Same Member/Admin-only rationale - a rotation chooses who an escalation pages.
 memberRoutes.MapOnCallRotationEndpoints();
+// Same Member/Admin-only rationale - a monitor makes this server send requests to the target it names.
+memberRoutes.MapSyntheticMonitorEndpoints();
 // Same Member/Admin-only rationale - an SLO's burn-rate rules page people; reads are on authenticatedRoutes.
 memberRoutes.MapSloWriteEndpoints();
 // Same Member/Admin-only rationale - ignoring an error group silences exception-count alert rules.

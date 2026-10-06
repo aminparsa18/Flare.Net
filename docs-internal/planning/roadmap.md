@@ -99,10 +99,10 @@ folders are where "what happened and why" actually lives.
   PagerDuty ack sync (inbound integrations that need per-instance setup), multi-step policies
   (escalate again after a further delay), and rotation overrides or time-of-day restrictions.
   Needs an ADR.
-- **Synthetic monitoring.** No HTTP/TCP/TLS-expiry probes exist. Add scheduled
-  probes run from `Flare.AlertWorker`, results stored as metrics (up, latency,
-  cert expiry days) so existing metric alerts, SLOs and dashboards work on them
-  with no new alert type. Multi-location probing is out of scope for v1.
+- **Synthetic monitoring follow-ups.** HTTP, TCP and TLS-expiry probes shipped (ADR-0128): API and a
+  Settings page, results stored as `synthetic.*` gauge metrics. Still missing: `flare` CLI commands
+  and a latest-status column for monitors, multi-location probing, response-body assertions, request headers/bodies,
+  and DNS/UDP/ICMP probes.
 - **Log-based metrics.** Turn a saved `LogFilter` (plus optional group-by) into
   a persisted metric via a ClickHouse materialized view, so charting or
   alerting on "count of X" doesn't scan logs each time. Natural home is a new

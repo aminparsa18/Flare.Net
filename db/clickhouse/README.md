@@ -129,6 +129,10 @@ shift length, first-shift start; same CRUD-via-tombstone `ReplacingMergeTree` as
 `maintenance_windows`) and a nullable `alert_rules.EscalationRotationId`. See
 [ADR-0126](../../docs-internal/adr/0126-alert-oncall-rotations.md).
 
+`0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
+same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
+`metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).
+
 `0052_project_id.sql` - a nullable `ProjectId` on `dashboards`, `saved_views`, `alert_rules`
 and `slos`: the owning project, NULL (every existing row) meaning instance-wide. See
 [ADR-0123](../../docs-internal/adr/0123-projects-team-scoping.md).

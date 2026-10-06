@@ -38,6 +38,10 @@ public static class AuditActionClassifier
         new("PUT", "/api/oncall-rotations/{id:guid}", "oncall-rotation", "update", "id"),
         new("DELETE", "/api/oncall-rotations/{id:guid}", "oncall-rotation", "delete", "id"),
 
+        new("POST", "/api/synthetic-monitors", "synthetic-monitor", "create", null),
+        new("PUT", "/api/synthetic-monitors/{id:guid}", "synthetic-monitor", "update", "id"),
+        new("DELETE", "/api/synthetic-monitors/{id:guid}", "synthetic-monitor", "delete", "id"),
+
         new("POST", "/api/pipeline-rules", "pipeline-rule", "create", null),
         new("PUT", "/api/pipeline-rules/{id:guid}", "pipeline-rule", "update", "id"),
         new("DELETE", "/api/pipeline-rules/{id:guid}", "pipeline-rule", "delete", "id"),

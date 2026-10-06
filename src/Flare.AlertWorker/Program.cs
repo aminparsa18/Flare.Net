@@ -3,6 +3,8 @@ using Flare.Api.Alerting;
 using Flare.Api.Query;
 using Microsoft.AspNetCore.DataProtection;
 using Flare.AlertWorker.Alerting;
+using Flare.AlertWorker.Synthetic;
+using Flare.Api.Synthetic;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -82,6 +84,17 @@ builder.Services.AddSingleton<IAlertEvidenceQueryService, AlertEvidenceQueryServ
 builder.Services.AddSingleton<IIncidentSummaryService, IncidentSummaryService>();
 
 builder.Services.AddHostedService<AlertEvaluationWorker>();
+
+// Synthetic monitoring (ADR-0128). The probe client drops the resilience handler (retries, 10s attempt
+// timeout): a probe is one honest attempt bounded by the monitor's own timeout.
+builder.Services.Configure<SyntheticOptions>(builder.Configuration.GetSection(SyntheticOptions.SectionName));
+builder.Services.AddSingleton<ISyntheticMonitorQueryService, SyntheticMonitorQueryService>();
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is marked experimental
+builder.Services.AddHttpClient(SyntheticProber.HttpClientName).RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+builder.Services.AddSingleton<SyntheticProber>();
+builder.Services.AddSingleton<SyntheticResultWriter>();
+builder.Services.AddHostedService<SyntheticProbeWorker>();
 
 var app = builder.Build();
 

@@ -57,6 +57,7 @@
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import WrenchIcon from '@lucide/svelte/icons/wrench';
 	import PhoneCallIcon from '@lucide/svelte/icons/phone-call';
+	import RadarIcon from '@lucide/svelte/icons/radar';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -81,6 +82,7 @@
 		'/settings/channels': BellIcon,
 		'/settings/maintenance-windows': WrenchIcon,
 		'/settings/oncall-rotations': PhoneCallIcon,
+		'/settings/synthetic-monitors': RadarIcon,
 		'/settings/audit-log': ScrollTextIcon,
 		'/settings/indexing': RefreshCwIcon,
 		'/settings/access-tokens': KeyRoundIcon
