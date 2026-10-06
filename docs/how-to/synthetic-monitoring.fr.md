@@ -48,7 +48,15 @@ Chaque `Flare.AlertWorker` nomme l'endroit d'où il sonde avec `Synthetic__Locat
 
 Le champ **Emplacements de sonde** d'un moniteur (ou `flare synthetic-monitors create ... --location eu-west --location us-east`) liste les emplacements qui l'exécutent ; laissez-le vide pour l'exécuter depuis chaque worker. Chaque emplacement sonde une fois par intervalle, et chaque résultat porte un attribut `location`. Le tableau affiche un badge par emplacement dès que plusieurs ont répondu.
 
-Une alerte sur `synthetic.up` avec **Min** inférieur à 1 se déclenche quand un emplacement quelconque voit le moniteur en panne. Pour n'alerter que lorsque tous les emplacements le voient, regroupez la règle par `location`.
+Une alerte sur `synthetic.up` avec **Min** inférieur à 1 se déclenche quand un emplacement quelconque voit le moniteur en panne. Pour alerter sur un quorum d'emplacements, utilisez plutôt **Last**. Chaque emplacement est sa propre série et **Last** fait la moyenne du dernier résultat de chaque série ; pour `synthetic.up`, c'est donc la fraction d'emplacements qui voient le moniteur en service :
+
+| Se déclenche quand | Agrégation et seuil |
+|--------------------|---------------------|
+| un emplacement est en panne | **Min** inférieur à 1 |
+| au moins la moitié des emplacements sont en panne | **Last** inférieur à 0,51 |
+| tous les emplacements sont en panne | **Last** inférieur à 0,01 |
+
+Avec quatre emplacements, **Last** inférieur à 0,76 signifie que deux ou plus sont en panne. Choisissez un seuil situé entre les fractions à distinguer.
 
 ## Alerter sur un moniteur
 

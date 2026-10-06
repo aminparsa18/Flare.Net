@@ -48,7 +48,15 @@ Each `Flare.AlertWorker` names the place it probes from with `Synthetic__Locatio
 
 A monitor's **Probe locations** field (or `flare synthetic-monitors create ... --location eu-west --location us-east`) lists the locations that run it; leave it empty to run it from every worker. Every location probes once per interval, and every result carries a `location` attribute. The table shows a badge per location when more than one has reported.
 
-An alert on `synthetic.up` with **Min** below 1 fires when any location sees the monitor down. To alert only when every location does, group the rule by `location`.
+An alert on `synthetic.up` with **Min** below 1 fires when any location sees the monitor down. To alert on a quorum of locations, use **Last** instead. Each location is its own series, and **Last** averages every series' latest result, so for `synthetic.up` it is the fraction of locations that see the monitor up:
+
+| Fire when | Aggregation and threshold |
+|-----------|---------------------------|
+| any location is down | **Min** below 1 |
+| at least half of the locations are down | **Last** below 0.51 |
+| every location is down | **Last** below 0.01 |
+
+With four locations, **Last** below 0.76 means two or more are down. Pick the threshold between the fractions you want to tell apart.
 
 ## Alert on a monitor
 

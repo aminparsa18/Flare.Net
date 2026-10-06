@@ -103,7 +103,7 @@ folders are where "what happened and why" actually lives.
   Settings page, results stored as `synthetic.*` gauge metrics. `flare synthetic-monitors` CLI commands and a
   latest-status column shipped. Request headers/bodies and response-body
   substring assertions shipped (ADR-0129). Multi-location probing shipped (ADR-0130). Secret header values are masked in API responses (ADR-0131). Still missing:
-  quorum alerting across locations, regex or JSON-path assertions, and DNS/UDP/ICMP probes.
+  regex or JSON-path assertions, and DNS/UDP/ICMP probes.
 - **Log-based metrics.** Turn a saved `LogFilter` (plus optional group-by) into
   a persisted metric via a ClickHouse materialized view, so charting or
   alerting on "count of X" doesn't scan logs each time. Natural home is a new
