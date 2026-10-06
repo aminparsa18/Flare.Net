@@ -61,6 +61,7 @@ export function workspaceLinks(auth: AuthState): NavLink[] {
 		{ href: '/settings/channels', label: m.notificationChannelTable_heading() },
 		{ href: '/settings/maintenance-windows', label: m.maintenanceWindowTable_heading() },
 		{ href: '/settings/oncall-rotations', label: m.oncall_heading() },
+		{ href: '/settings/synthetic-monitors', label: m.synthetic_heading() },
 		{ href: '/settings/audit-log', label: m.auditLogPage_heading() },
 		{ href: '/settings/indexing', label: m.nav_indexing() },
 		{ href: '/settings/projects', label: m.projectsPage_heading() },

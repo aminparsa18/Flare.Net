@@ -18,6 +18,7 @@
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import WrenchIcon from '@lucide/svelte/icons/wrench';
 	import PhoneCallIcon from '@lucide/svelte/icons/phone-call';
+	import RadarIcon from '@lucide/svelte/icons/radar';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import LayersIcon from '@lucide/svelte/icons/layers';
 	import FolderIcon from '@lucide/svelte/icons/folder';
@@ -41,6 +42,7 @@
 		'/settings/channels': BellIcon,
 		'/settings/maintenance-windows': WrenchIcon,
 		'/settings/oncall-rotations': PhoneCallIcon,
+		'/settings/synthetic-monitors': RadarIcon,
 		'/settings/audit-log': ScrollTextIcon,
 		'/settings/indexing': LayersIcon,
 		'/settings/projects': FolderIcon,
