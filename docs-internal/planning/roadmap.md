@@ -6,19 +6,14 @@ to enforce (a completed item is deleted here the same PR that ships it,
 not checked off and kept); `git log` and the `adr`/`investigations`
 folders are where "what happened and why" actually lives.
 
-- **Retention follow-ups: Aspire RustFS resource, UI/CLI/docs.** Shipped:
+- **Retention follow-ups: UI/CLI/docs.** Shipped:
   per-signal TTLs applied asynchronously
   ([ADR-0143](../adr/0143-retention-ttl.md)), cold storage as a ClickHouse
   S3 disk on RustFS, opt in through `docker-compose.cold-storage.yml`
   ([ADR-0144](../adr/0144-cold-storage-rustfs.md)), and per-resource rules
-  ([ADR-0145](../adr/0145-per-resource-retention.md)). Still open, in this
-  order:
-  1. **RustFS in the Aspire paths.** An `AddRustFs` resource (and bucket
-     creation) in `Flare.AppHost`, and a `WithColdStorage()` on
-     `AddFlare()` in `Flare.Hosting.Aspire` that mounts
-     `cold-storage.xml` and passes the credentials. The compose overlays are
-     the only supported route today.
-  2. **Dashboard settings page, `flare retention` CLI, and a how-to** (plus
+  ([ADR-0145](../adr/0145-per-resource-retention.md)); the cold tier is also
+  available from the Aspire paths (`WithColdStorage()`). Still open:
+  1. **Dashboard settings page, `flare retention` CLI, and a how-to** (plus
      its `.ru`/`.fr`/`.zh-CN` siblings). The API is the only surface so far;
      the page should show actual vs expected, rule editing, and the cold
      volume picker from `coldStorage`.

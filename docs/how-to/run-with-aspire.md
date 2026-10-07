@@ -121,6 +121,21 @@ Once you actually publish/deploy to a Kubernetes target, the same
 provider — see [Publishing / deploying](#publishing--deploying) below and
 [ADR-0006](../../docs-internal/adr/0006-kubernetes-resource-graph-rbac-scoping.md).
 
+## Cold storage (optional)
+
+To let retention move aged data to cheap object storage instead of only deleting it
+([ADR-0144](../../docs-internal/adr/0144-cold-storage-rustfs.md)), add the cold tier:
+
+```csharp
+var flare = builder.AddFlare("flare").WithColdStorage();
+```
+
+This adds a RustFS (S3-compatible) container, a one-shot job that creates its bucket, and the
+`flare_tiered` ClickHouse storage policy. Nothing moves until you set a cold-after value with
+`PUT /api/retention`. It is off by default, and the config ships inside the generated ClickHouse
+image, so it publishes like the rest of the stack. Pass your own `accessKey`/`secretKey` parameters
+outside local use; the defaults are fixed, local-only values.
+
 ## Installing
 
 ```sh
