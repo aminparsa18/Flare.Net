@@ -49,6 +49,8 @@ corps masqué ne fuite jamais non plus dans un modèle de cluster.
 
 ![Modification d'une règle qui masque les numéros de carte](../screenshots/manage-pipeline-rules-2-en.webp)
 
+Les noms de règles sont uniques (sans distinction de casse) : enregistrer une règle dont le nom est déjà pris par une autre est refusé avec un 409, ce qui permet aux outils de désigner une règle par son nom.
+
 ## Créer une règle d'extraction
 
 1. Ouvrez **Pipeline Rules** → **New rule**.

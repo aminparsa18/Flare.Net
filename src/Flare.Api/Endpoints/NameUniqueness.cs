@@ -1,7 +1,7 @@
 namespace Flare.Api.Endpoints;
 
 /// <summary>
-/// Names of notification channels, alert rules and SLOs are unique (case-insensitive), because declarative
+/// Names of notification channels, alert rules, SLOs, pipeline rules and maintenance windows are unique (case-insensitive), because declarative
 /// tooling addresses them by name and the alert import already resolves references that way (ADR-0146).
 /// Enforced on write rather than by a constraint: these live in ClickHouse, which has none, and rows that
 /// predate the rule must stay editable, so an unchanged name is never rejected.
