@@ -670,6 +670,10 @@ Depuis la page **Dashboards**, vous pouvez :
   un modèle ne se remplit donc que pour l'instrumentation que vous avez
   activée.
 - **Renommer** le nom ou la description d'un tableau de bord.
+  Les noms sont uniques (sans distinction de casse) au sein d'un projet, les
+  tableaux de bord de toute l'instance partageant un même espace ; un nom déjà
+  utilisé est refusé avec un 409. Dupliquer deux fois un tableau de bord nomme
+  la seconde copie « *(copy) 2* ».
 - **Dupliquer** un tableau de bord — crée une copie indépendante avec les
   mêmes panneaux, nommée « *(copie)* », que vous pouvez ensuite modifier
   séparément.
