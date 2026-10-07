@@ -60,6 +60,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Trouver les métriques à forte cardinalité](how-to/find-high-cardinality-metrics.fr.md)
 - [Réduire les attributs d'une métrique à l'ingestion](how-to/reduce-metric-attributes.fr.md)
 - [Transformer une recherche de logs en métrique](how-to/log-based-metrics.fr.md)
+- [Définir la rétention des données et déplacer les anciennes données vers un stockage froid](how-to/set-data-retention.fr.md)
 - [Accélérer les filtres sur un attribut de log ou de span fréquemment utilisé](how-to/promote-attribute-columns.fr.md)
 
 **Référence**

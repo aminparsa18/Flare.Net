@@ -99,6 +99,13 @@ app.Configure(config =>
         syntheticMonitors.AddCommand<SyntheticMonitorsDeleteCommand>("delete")
             .WithDescription("Delete a monitor.");
     });
+    config.AddBranch("retention", retention =>
+    {
+        retention.AddCommand<RetentionShowCommand>("show")
+            .WithDescription("Show data retention per signal, as ClickHouse has it now.");
+        retention.AddCommand<RetentionSetCommand>("set")
+            .WithDescription("Set a signal's retention, cold-storage tiering and per-resource rules (admin).");
+    });
     config.AddBranch("instances", instances =>
     {
         instances.AddCommand<InstancesListCommand>("list")
