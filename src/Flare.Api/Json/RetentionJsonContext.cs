@@ -8,4 +8,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(RetentionResponse))]
 [JsonSerializable(typeof(SetRetentionRequest))]
 [JsonSerializable(typeof(SetRetentionResponse))]
+[JsonSerializable(typeof(IReadOnlyList<RetentionRule>))]
 public sealed partial class RetentionJsonContext : JsonSerializerContext;

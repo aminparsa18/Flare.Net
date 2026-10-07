@@ -51,7 +51,7 @@ public static class RetentionEndpoints
 
         try
         {
-            var transactionId = await retention.RequestAsync(request.Signals!, request.ColdAfterDays, principal.Identity?.Name ?? "", cancellationToken);
+            var transactionId = await retention.RequestAsync(request.Signals!, request.ColdAfterDays, request.Rules, principal.Identity?.Name ?? "", cancellationToken);
             return ApiSerialization.Write(http, new SetRetentionResponse { TransactionId = transactionId }, RetentionJsonContext.Default.SetRetentionResponse, StatusCodes.Status202Accepted);
         }
         catch (ColdStorageUnavailableException ex)

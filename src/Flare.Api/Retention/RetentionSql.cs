@@ -15,8 +15,8 @@ public enum TtlKind
     Custom,
 }
 
-/// <summary>A table's TTL: <see cref="Days"/> until rows are deleted (0 = never) and <see cref="ColdAfterDays"/> until parts move to the cold volume (0 = never).</summary>
-public readonly record struct TtlState(TtlKind Kind, int Days, int ColdAfterDays = 0);
+/// <summary>A table's TTL: <see cref="Days"/> until rows are deleted (0 = never) and <see cref="ColdAfterDays"/> until parts move to the cold volume (0 = never). <see cref="PerResource"/> means the delete rule reads each row's <c>_retention_days</c> instead of one fixed number, and <see cref="Days"/> is then 0.</summary>
+public readonly record struct TtlState(TtlKind Kind, int Days, int ColdAfterDays = 0, bool PerResource = false);
 
 /// <summary>Pure SQL building/parsing for retention; the ClickHouse seam is <see cref="RetentionService"/>.</summary>
 public static partial class RetentionSql
@@ -29,8 +29,18 @@ public static partial class RetentionSql
 
     public const string ColdVolume = "cold";
 
-    /// <summary>Upper bound (100 years) purely to reject fat-fingered input.</summary>
-    public const int MaxDays = 36_500;
+    /// <summary>The per-row retention column (migration 0069) and its "keep forever" value.</summary>
+    public const string RetentionColumn = "_retention_days";
+
+    /// <summary>
+    /// The <c>_retention_days</c> value that means "keep forever". Not larger on purpose: TTL expressions are <c>DateTime</c> arithmetic, and <c>DateTime</c> ends in
+    /// 2106, so <c>now + 36500 days</c> wraps into the past and the TTL deletes the row. 20000 days
+    /// (about 55 years) stays in range for any timestamp up to 2051.
+    /// </summary>
+    public const int ForeverDays = 20_000;
+
+    /// <summary>Upper bound on a retention or cold-after value (50 years): the most that is safe inside <see cref="ForeverDays"/>'s <c>DateTime</c> range, and below it so "forever" can't be mistaken for a real value.</summary>
+    public const int MaxDays = 18_250;
 
     private static string Target(string table, bool clusterMode) =>
         clusterMode ? $"{Database}.{table}_local ON CLUSTER '{ClusterName}'" : $"{Database}.{table}";
@@ -38,13 +48,13 @@ public static partial class RetentionSql
     /// <summary>
     /// <c>ALTER TABLE ... MODIFY TTL</c> (or <c>REMOVE TTL</c> when both are 0) for one data table:
     /// parts older than <paramref name="coldAfterDays"/> move to the cold volume, rows older than
-    /// <paramref name="days"/> are deleted. Either may be 0 on its own (tier-only keeps data forever).
+    /// <paramref name="days"/> are deleted (or, with <paramref name="perResource"/>, as long as each row's own <c>_retention_days</c>). Either may be 0 on its own (tier-only keeps data forever).
     /// In cluster mode the statement targets the <c>_local</c> storage table <c>ON CLUSTER</c>: a
     /// <c>Distributed</c> table can't carry a TTL (ADR-0003). The caller must run it with
     /// <c>materialize_ttl_after_modify = 0</c> so existing parts are re-evaluated by background merges
     /// instead of being rewritten up front (<see cref="AlterSettings"/>).
     /// </summary>
-    public static string BuildAlter(string table, string timeColumn, int days, bool clusterMode, int coldAfterDays = 0)
+    public static string BuildAlter(string table, string timeColumn, int days, bool clusterMode, int coldAfterDays = 0, bool perResource = false)
     {
         var rules = new List<string>(2);
         if (coldAfterDays > 0)
@@ -52,7 +62,11 @@ public static partial class RetentionSql
             rules.Add($"toDateTime({timeColumn}) + toIntervalDay({coldAfterDays}) TO VOLUME '{ColdVolume}'");
         }
 
-        if (days > 0)
+        if (perResource)
+        {
+            rules.Add($"toDateTime({timeColumn}) + toIntervalDay({RetentionColumn})");
+        }
+        else if (days > 0)
         {
             rules.Add($"toDateTime({timeColumn}) + toIntervalDay({days})");
         }
@@ -61,6 +75,26 @@ public static partial class RetentionSql
             ? $"ALTER TABLE {Target(table, clusterMode)} REMOVE TTL"
             : $"ALTER TABLE {Target(table, clusterMode)} MODIFY TTL {string.Join(", ", rules)}";
     }
+
+    /// <summary>
+    /// The <c>MODIFY COLUMN _retention_days ... DEFAULT</c> statements for one table. Cluster mode needs
+    /// two - the <c>_local</c> storage table and the <c>Distributed</c> one - because inserts through the
+    /// Distributed table are filled with that table's own default (migration 0069).
+    /// </summary>
+    public static IReadOnlyList<string> BuildSetRetentionDefault(string table, string defaultExpression, bool clusterMode) =>
+        clusterMode
+            ?
+            [
+                $"ALTER TABLE {Database}.{table}_local ON CLUSTER '{ClusterName}' MODIFY COLUMN {RetentionColumn} UInt16 DEFAULT {defaultExpression}",
+                $"ALTER TABLE {Database}.{table} ON CLUSTER '{ClusterName}' MODIFY COLUMN {RetentionColumn} UInt16 DEFAULT {defaultExpression}",
+            ]
+            : [$"ALTER TABLE {Database}.{table} MODIFY COLUMN {RetentionColumn} UInt16 DEFAULT {defaultExpression}"];
+
+    /// <summary>Reads each data table's current <c>_retention_days</c> default expression.</summary>
+    public static string BuildRetentionDefaultsSql(bool clusterMode) =>
+        $"SELECT table, default_expression FROM system.columns WHERE database = '{Database}' AND name = '{RetentionColumn}' AND table IN ("
+        + string.Join(", ", RetentionSignal.All.SelectMany(s => s.Tables).Select(t => $"'{(clusterMode ? t + "_local" : t)}'"))
+        + ")";
 
     /// <summary>Assigns <see cref="StoragePolicy"/> to a table. Needed once per table before a TO VOLUME rule is accepted; idempotent.</summary>
     public static string BuildAssignPolicy(string table, bool clusterMode) =>
@@ -107,14 +141,14 @@ public static partial class RetentionSql
         }
 
         var plain = FlareTtl().Match(clause.Groups["expr"].Value);
-        if (!plain.Success || !(plain.Groups["days"].Success || plain.Groups["cold"].Success))
+        if (!plain.Success || !(plain.Groups["days"].Success || plain.Groups["per"].Success || plain.Groups["cold"].Success))
         {
             return new TtlState(TtlKind.Custom, 0);
         }
 
         var days = plain.Groups["days"].Success ? int.Parse(plain.Groups["days"].Value) : 0;
         var cold = plain.Groups["cold"].Success ? int.Parse(plain.Groups["cold"].Value) : 0;
-        return new TtlState(TtlKind.Days, days, cold);
+        return new TtlState(TtlKind.Days, days, cold, plain.Groups["per"].Success);
     }
 
     /// <summary>Collapses the per-table states of one signal: identical states stay as they are, anything else is <see cref="TtlKind.Custom"/> (mixed).</summary>
@@ -129,6 +163,6 @@ public static partial class RetentionSql
     /// The two rule shapes Flare writes, in the order ClickHouse prints them: an optional
     /// <c>... TO VOLUME 'cold'</c> move rule, then an optional delete rule.
     /// </summary>
-    [GeneratedRegex(@"^(?:toDateTime\(\w+\)\s*\+\s*toIntervalDay\((?<cold>\d+)\)\s+TO VOLUME 'cold'(?:,\s*)?)?(?:toDateTime\(\w+\)\s*\+\s*toIntervalDay\((?<days>\d+)\))?$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(?:toDateTime\(\w+\)\s*\+\s*toIntervalDay\((?<cold>\d+)\)\s+TO VOLUME 'cold'(?:,\s*)?)?(?:toDateTime\(\w+\)\s*\+\s*toIntervalDay\((?:(?<days>\d+)|(?<per>_retention_days))\))?$", RegexOptions.CultureInvariant)]
     private static partial Regex FlareTtl();
 }

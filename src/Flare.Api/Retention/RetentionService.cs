@@ -1,7 +1,9 @@
+using System.Text.Json;
 using System.Threading.Channels;
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Json;
 using Flare.Api.Query;
 using Microsoft.Extensions.Options;
 
@@ -17,7 +19,7 @@ public interface IRetentionService
     /// the background worker. Throws <see cref="RetentionBusyException"/> while an earlier
     /// request is still applying - mutations aren't queued behind each other.
     /// </summary>
-    Task<Guid> RequestAsync(IReadOnlyDictionary<string, int> daysBySignal, IReadOnlyDictionary<string, int>? coldAfterBySignal, string requestedBy, CancellationToken cancellationToken);
+    Task<Guid> RequestAsync(IReadOnlyDictionary<string, int> daysBySignal, IReadOnlyDictionary<string, int>? coldAfterBySignal, IReadOnlyDictionary<string, IReadOnlyList<RetentionRule>>? rulesBySignal, string requestedBy, CancellationToken cancellationToken);
 }
 
 /// <summary>Thrown by <see cref="IRetentionService.RequestAsync"/> when cold storage is asked for but ClickHouse has no cold volume.</summary>
@@ -47,13 +49,14 @@ public sealed class RetentionService(
     private readonly Channel<Job> _jobs = Channel.CreateUnbounded<Job>();
     private readonly SemaphoreSlim _requestGate = new(1, 1);
 
-    private readonly record struct Job(Guid TransactionId, IReadOnlyDictionary<string, (int Days, int ColdAfterDays)> BySignal, string RequestedBy, DateTimeOffset RequestedAt);
+    private readonly record struct Job(Guid TransactionId, IReadOnlyDictionary<string, (int Days, int ColdAfterDays, IReadOnlyList<RetentionRule> Rules)> BySignal, string RequestedBy, DateTimeOffset RequestedAt);
 
-    private sealed record Operation(Guid TransactionId, string Signal, int Days, int ColdAfterDays, string Status, string Error, DateTimeOffset RequestedAt, DateTimeOffset UpdatedAt);
+    private sealed record Operation(Guid TransactionId, string Signal, int Days, int ColdAfterDays, IReadOnlyList<RetentionRule> Rules, string Status, string Error, DateTimeOffset RequestedAt, DateTimeOffset UpdatedAt);
 
     public async Task<RetentionResponse> GetAsync(CancellationToken cancellationToken)
     {
         var actual = await ReadActualAsync(cancellationToken);
+        var defaults = await ReadRetentionDefaultsAsync(cancellationToken);
         var operations = await ReadOperationsAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
 
@@ -61,6 +64,18 @@ public sealed class RetentionService(
         foreach (var signal in RetentionSignal.All)
         {
             var state = RetentionSql.Combine(signal.Tables.Select(t => actual.GetValueOrDefault(t, new TtlState(TtlKind.None, 0))).ToArray());
+            IReadOnlyList<RetentionRule> actualRules = [];
+            if (state is { Kind: TtlKind.Days, PerResource: true })
+            {
+                // The TTL reads each row's column, so the rules and the default retention live in the column's default.
+                var expressions = signal.Tables.Select(t => defaults.GetValueOrDefault(t, "")).Distinct().ToArray();
+                var parsed = expressions.Length == 1 ? RetentionRuleSql.ParseDefaultExpression(expressions[0]) : null;
+                state = parsed is { } p
+                    ? state with { Days = p.DefaultDays }
+                    : new TtlState(TtlKind.Custom, 0);
+                actualRules = parsed?.Rules ?? [];
+            }
+
             var last = operations.FirstOrDefault(o => o.Signal == signal.Name);
             var (status, error) = last is null ? (null, null) : EffectiveStatus(last, now);
             signals.Add(new SignalRetention
@@ -72,6 +87,8 @@ public sealed class RetentionService(
                 ActualState = state.Kind.ToString().ToLowerInvariant(),
                 ExpectedDays = last?.Days,
                 ExpectedColdAfterDays = last?.ColdAfterDays,
+                ActualRules = actualRules,
+                ExpectedRules = last?.Rules ?? [],
                 Status = status,
                 Error = error,
                 TransactionId = last?.TransactionId,
@@ -82,7 +99,7 @@ public sealed class RetentionService(
         return new RetentionResponse { Signals = signals, ColdStorage = await ReadColdStorageAsync(cancellationToken) };
     }
 
-    public async Task<Guid> RequestAsync(IReadOnlyDictionary<string, int> daysBySignal, IReadOnlyDictionary<string, int>? coldAfterBySignal, string requestedBy, CancellationToken cancellationToken)
+    public async Task<Guid> RequestAsync(IReadOnlyDictionary<string, int> daysBySignal, IReadOnlyDictionary<string, int>? coldAfterBySignal, IReadOnlyDictionary<string, IReadOnlyList<RetentionRule>>? rulesBySignal, string requestedBy, CancellationToken cancellationToken)
     {
         await _requestGate.WaitAsync(cancellationToken);
         try
@@ -96,9 +113,10 @@ public sealed class RetentionService(
 
             // Canonical signal names, so "Logs" and "logs" can't both be recorded.
             var cold = (coldAfterBySignal ?? new Dictionary<string, int>()).ToDictionary(kv => RetentionSignal.Find(kv.Key)!.Name, kv => kv.Value);
+            var rules = (rulesBySignal ?? new Dictionary<string, IReadOnlyList<RetentionRule>>()).ToDictionary(kv => RetentionSignal.Find(kv.Key)!.Name, kv => kv.Value);
             var normalized = daysBySignal.ToDictionary(
                 kv => RetentionSignal.Find(kv.Key)!.Name,
-                kv => (Days: kv.Value, ColdAfterDays: cold.GetValueOrDefault(RetentionSignal.Find(kv.Key)!.Name)));
+                kv => (Days: kv.Value, ColdAfterDays: cold.GetValueOrDefault(RetentionSignal.Find(kv.Key)!.Name), Rules: rules.GetValueOrDefault(RetentionSignal.Find(kv.Key)!.Name) ?? []));
 
             if (normalized.Values.Any(v => v.ColdAfterDays > 0) && !(await ReadColdStorageAsync(cancellationToken)).Available)
             {
@@ -106,9 +124,9 @@ public sealed class RetentionService(
             }
 
             var transactionId = Guid.NewGuid();
-            foreach (var (signal, (days, coldAfterDays)) in normalized)
+            foreach (var (signal, (days, coldAfterDays, signalRules)) in normalized)
             {
-                await InsertOperationAsync(transactionId, signal, days, coldAfterDays, RetentionStatus.Pending, "", requestedBy, now, now, cancellationToken);
+                await InsertOperationAsync(transactionId, signal, days, coldAfterDays, signalRules, RetentionStatus.Pending, "", requestedBy, now, now, cancellationToken);
             }
 
             await _jobs.Writer.WriteAsync(new Job(transactionId, normalized, requestedBy, now), cancellationToken);
@@ -124,11 +142,13 @@ public sealed class RetentionService(
     {
         await foreach (var job in _jobs.Reader.ReadAllAsync(stoppingToken))
         {
-            foreach (var (signalName, (days, coldAfterDays)) in job.BySignal)
+            foreach (var (signalName, (days, coldAfterDays, rules)) in job.BySignal)
             {
                 var signal = RetentionSignal.Find(signalName)!;
                 try
                 {
+                    var perResource = rules.Count > 0;
+                    var defaultExpression = RetentionRuleSql.BuildDefaultExpression(rules, days);
                     foreach (var table in signal.Tables)
                     {
                         if (coldAfterDays > 0)
@@ -136,15 +156,23 @@ public sealed class RetentionService(
                             await EnsureStoragePolicyAsync(table, stoppingToken);
                         }
 
-                        await client.ExecuteNonQueryAsync(
-                            RetentionSql.BuildAlter(table, signal.TimeColumn, days, clusterMode, coldAfterDays),
-                            null,
-                            new QueryOptions { CustomSettings = new Dictionary<string, object>(RetentionSql.AlterSettings) },
-                            stoppingToken);
+                        // Rules on: the column must compute the right value before the TTL starts reading it.
+                        // Rules off: point the TTL back at a fixed number first, only then reset the column.
+                        if (perResource)
+                        {
+                            await RunAlterAsync(RetentionSql.BuildSetRetentionDefault(table, defaultExpression, clusterMode), stoppingToken);
+                        }
+
+                        await RunAlterAsync([RetentionSql.BuildAlter(table, signal.TimeColumn, days, clusterMode, coldAfterDays, perResource)], stoppingToken);
+
+                        if (!perResource)
+                        {
+                            await RunAlterAsync(RetentionSql.BuildSetRetentionDefault(table, RetentionRuleSql.BuildDefaultExpression([], 0), clusterMode), stoppingToken);
+                        }
                     }
 
                     logger.LogInformation("Retention for {Signal} set to {Days} days, cold after {ColdAfterDays} (0 = off).", signal.Name, days, coldAfterDays);
-                    await InsertOperationAsync(job.TransactionId, signal.Name, days, coldAfterDays, RetentionStatus.Success, "", job.RequestedBy, job.RequestedAt, timeProvider.GetUtcNow(), stoppingToken);
+                    await InsertOperationAsync(job.TransactionId, signal.Name, days, coldAfterDays, rules, RetentionStatus.Success, "", job.RequestedBy, job.RequestedAt, timeProvider.GetUtcNow(), stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -153,10 +181,35 @@ public sealed class RetentionService(
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "Applying retention for {Signal} failed.", signal.Name);
-                    await InsertOperationAsync(job.TransactionId, signal.Name, days, coldAfterDays, RetentionStatus.Failed, ex.Message, job.RequestedBy, job.RequestedAt, timeProvider.GetUtcNow(), stoppingToken);
+                    await InsertOperationAsync(job.TransactionId, signal.Name, days, coldAfterDays, rules, RetentionStatus.Failed, ex.Message, job.RequestedBy, job.RequestedAt, timeProvider.GetUtcNow(), stoppingToken);
                 }
             }
         }
+    }
+
+    private async Task RunAlterAsync(IReadOnlyList<string> statements, CancellationToken cancellationToken)
+    {
+        foreach (var statement in statements)
+        {
+            await client.ExecuteNonQueryAsync(
+                statement,
+                null,
+                new QueryOptions { CustomSettings = new Dictionary<string, object>(RetentionSql.AlterSettings) },
+                cancellationToken);
+        }
+    }
+
+    private async Task<Dictionary<string, string>> ReadRetentionDefaultsAsync(CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<string, string>();
+        await using var reader = await client.ExecuteReaderAsync(RetentionSql.BuildRetentionDefaultsSql(clusterMode), null, SafetyOptions(), cancellationToken);
+        while (reader.Read())
+        {
+            var name = reader.GetString(0);
+            result[clusterMode ? name[..^"_local".Length] : name] = reader.GetString(1);
+        }
+
+        return result;
     }
 
     /// <summary>A TO VOLUME rule is only accepted once the table's storage policy has that volume; assigning it is idempotent but skipped when already set.</summary>
@@ -225,9 +278,9 @@ public sealed class RetentionService(
     private async Task<List<Operation>> ReadOperationsAsync(CancellationToken cancellationToken)
     {
         var sql = $"""
-            SELECT TransactionId, Signal, Days, ColdAfterDays, Status, Error, RequestedAt, UpdatedAt
+            SELECT TransactionId, Signal, Days, ColdAfterDays, RulesJson, Status, Error, RequestedAt, UpdatedAt
             FROM (
-                SELECT TransactionId, Signal, Days, ColdAfterDays, Status, Error, RequestedAt, UpdatedAt
+                SELECT TransactionId, Signal, Days, ColdAfterDays, RulesJson, Status, Error, RequestedAt, UpdatedAt
                 FROM retention_operations
                 ORDER BY UpdatedAt DESC LIMIT 1 BY TransactionId, Signal)
             ORDER BY RequestedAt DESC, UpdatedAt DESC
@@ -242,22 +295,24 @@ public sealed class RetentionService(
                 reader.GetString(1),
                 (int)reader.GetFieldValue<uint>(2),
                 (int)reader.GetFieldValue<uint>(3),
-                reader.GetString(4),
+                ParseRules(reader.GetString(4)),
                 reader.GetString(5),
-                new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(6), DateTimeKind.Utc)),
-                new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(7), DateTimeKind.Utc))));
+                reader.GetString(6),
+                new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(7), DateTimeKind.Utc)),
+                new DateTimeOffset(DateTime.SpecifyKind(reader.GetDateTime(8), DateTimeKind.Utc))));
         }
 
         return operations;
     }
 
-    private async Task InsertOperationAsync(Guid transactionId, string signal, int days, int coldAfterDays, string status, string error, string requestedBy, DateTimeOffset requestedAt, DateTimeOffset updatedAt, CancellationToken cancellationToken)
+    private async Task InsertOperationAsync(Guid transactionId, string signal, int days, int coldAfterDays, IReadOnlyList<RetentionRule> rules, string status, string error, string requestedBy, DateTimeOffset requestedAt, DateTimeOffset updatedAt, CancellationToken cancellationToken)
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("transactionId", transactionId);
         parameters.AddParameter("signal", signal);
         parameters.AddParameter("days", (uint)days);
         parameters.AddParameter("coldAfterDays", (uint)coldAfterDays);
+        parameters.AddParameter("rulesJson", rules.Count == 0 ? "" : JsonSerializer.Serialize(rules, RetentionJsonContext.Default.IReadOnlyListRetentionRule));
         parameters.AddParameter("status", status);
         parameters.AddParameter("error", error);
         parameters.AddParameter("requestedBy", requestedBy);
@@ -266,13 +321,16 @@ public sealed class RetentionService(
 
         const string sql = """
             INSERT INTO retention_operations
-                (TransactionId, Signal, Days, ColdAfterDays, Status, Error, RequestedBy, RequestedAt, UpdatedAt)
+                (TransactionId, Signal, Days, ColdAfterDays, RulesJson, Status, Error, RequestedBy, RequestedAt, UpdatedAt)
             VALUES
-                ({transactionId:UUID}, {signal:String}, {days:UInt32}, {coldAfterDays:UInt32}, {status:String}, {error:String}, {requestedBy:String}, {requestedAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({transactionId:UUID}, {signal:String}, {days:UInt32}, {coldAfterDays:UInt32}, {rulesJson:String}, {status:String}, {error:String}, {requestedBy:String}, {requestedAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
     }
+
+    private static IReadOnlyList<RetentionRule> ParseRules(string json) =>
+        string.IsNullOrEmpty(json) ? [] : JsonSerializer.Deserialize(json, RetentionJsonContext.Default.IReadOnlyListRetentionRule) ?? [];
 
     private QueryOptions SafetyOptions() => QuerySafety.ExecutionTimeOnly(queryLimits.Value);
 }
