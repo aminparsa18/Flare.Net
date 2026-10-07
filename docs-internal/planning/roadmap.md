@@ -51,8 +51,10 @@ folders are where "what happened and why" actually lives.
 - **Terraform / OpenTofu provider.** Design settled in ADR-0146 (separate Go repo,
   hand-written schemas, names as the stable key, write-only secrets, `/api/version`
   compatibility). Phase 1 server prerequisites are done; remaining: the provider
-  repo (`flare_notification_channel`, `flare_alert_rule`, `flare_slo` first) and
-  registry publishing. Needs a Go toolchain. Not started.
+  repo (`flare_notification_channel`, `flare_alert_rule` and `flare_slo` written and verified
+  with OpenTofu against a live stack; automated acceptance tests, then the remaining
+  phase-3 resources) and registry publishing. Needs a Go
+  toolchain. In progress.
 - **OTLP forwarding and archive export.** No way to copy ingested telemetry
   elsewhere. Add per-ingest-key or per-service forwarding of logs, traces and
   metrics to another OTLP endpoint (migration and dual-write) and an optional
