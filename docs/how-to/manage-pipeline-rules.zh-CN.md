@@ -35,6 +35,8 @@ ClickHouse 之前。保存规则前先预览它（见下文[保存前预览规�
 
 ![编辑屏蔽银行卡号的脱敏规则](../screenshots/manage-pipeline-rules-2-ch.webp)
 
+规则名称唯一（不区分大小写）：保存与其他规则同名的规则会被拒绝并返回 409，因此工具可以按名称定位规则。
+
 ## 创建提取规则
 
 1. 打开 **Pipeline Rules** → **New rule**。

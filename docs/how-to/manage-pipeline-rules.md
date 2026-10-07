@@ -42,6 +42,8 @@ either.
 
 ![Editing a redaction rule that masks card numbers](../screenshots/manage-pipeline-rules-2-en.webp)
 
+Rule names are unique (case-insensitive): saving a rule whose name another rule already uses is rejected with a 409, so tooling can address a rule by name.
+
 ## Create an extraction rule
 
 1. Open **Pipeline Rules** → **New rule**.
