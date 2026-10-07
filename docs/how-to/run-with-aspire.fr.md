@@ -137,6 +137,23 @@ Kubernetes basé sur RBAC — voir
 [Publication / déploiement](#publication--déploiement) ci-dessous et
 [ADR-0006](../../docs-internal/adr/0006-kubernetes-resource-graph-rbac-scoping.md).
 
+## Stockage à froid (optionnel)
+
+Pour que la rétention déplace les données anciennes vers un stockage objet bon marché au lieu de
+seulement les supprimer ([ADR-0144](../../docs-internal/adr/0144-cold-storage-rustfs.md)), ajoutez
+le niveau froid :
+
+```csharp
+var flare = builder.AddFlare("flare").WithColdStorage();
+```
+
+Cela ajoute un conteneur RustFS (compatible S3), une tâche ponctuelle qui crée son bucket et la
+politique de stockage ClickHouse `flare_tiered`. Rien n'est déplacé tant que vous ne définissez pas
+une valeur cold-after via `PUT /api/retention`. Désactivé par défaut ; la configuration est incluse
+dans l'image ClickHouse générée, donc elle se publie comme le reste de la pile. Hors usage local,
+fournissez vos propres paramètres `accessKey`/`secretKey` ; les valeurs par défaut sont fixes et
+réservées au local.
+
 ## Installation
 
 ```sh

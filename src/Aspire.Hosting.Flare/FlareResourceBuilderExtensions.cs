@@ -1126,6 +1126,96 @@ public static class FlareResourceBuilderExtensions
     }
 
     /// <summary>
+    /// Adds the opt-in cold tier for retention: a RustFS (S3-compatible) container, a one-shot job that
+    /// creates its bucket, and the <c>flare_tiered</c> ClickHouse storage policy
+    /// (<c>docs-internal/adr/0144-cold-storage-rustfs.md</c>) wired to it.
+    /// </summary>
+    /// <remarks>
+    /// Equivalent to layering <c>docker-compose.cold-storage.yml</c> over the standalone stack. It only makes
+    /// the policy available; nothing moves to RustFS until retention is set with a cold-after value
+    /// (<c>PUT /api/retention</c>). The ClickHouse config is baked into the same generated image that carries
+    /// the init scripts, so it publishes like the rest of the stack. Call this once, any time after
+    /// <see cref="AddFlare"/>.
+    /// </remarks>
+    /// <param name="flare">The Flare resource builder.</param>
+    /// <param name="accessKey">RustFS access key and ClickHouse's S3 key id. Defaults to a fixed, shell-safe <c>flarecold</c> parameter.</param>
+    /// <param name="secretKey">RustFS secret key. Defaults to a fixed, shell-safe secret parameter - override it outside local use.</param>
+    /// <param name="bucket">Bucket the cold disk stores parts in.</param>
+    /// <returns><paramref name="flare"/>, for chaining.</returns>
+    public static IResourceBuilder<FlareResource> WithColdStorage(
+        this IResourceBuilder<FlareResource> flare,
+        IResourceBuilder<ParameterResource>? accessKey = null,
+        IResourceBuilder<ParameterResource>? secretKey = null,
+        string bucket = "flare-cold")
+    {
+        ArgumentNullException.ThrowIfNull(flare);
+        ArgumentException.ThrowIfNullOrEmpty(bucket);
+
+        var builder = flare.ApplicationBuilder;
+        var name = flare.Resource.Name;
+        var clickhouse = GetClickHouseBuilder(flare);
+
+        // Same reasoning as the ClickHouse password: a fixed, shell-safe default rather than a random one.
+        accessKey ??= builder.AddParameter($"{name}-cold-access-key", "flarecold", secret: true);
+        secretKey ??= builder.AddParameter($"{name}-cold-secret-key", "flarecold-secret", secret: true);
+
+        var rustfs = builder.AddContainer($"{name}-rustfs", FlareContainerImageTags.RustFsImage)
+            .WithHttpEndpoint(targetPort: 9000, name: "s3")
+            .WithHttpEndpoint(targetPort: 9001, name: "console")
+            .WithEnvironment("RUSTFS_ACCESS_KEY", accessKey)
+            .WithEnvironment("RUSTFS_SECRET_KEY", secretKey)
+            .WithVolume($"{name}-rustfs-data", "/data")
+            .WithHttpHealthCheck("/health", 200, "s3")
+            .WithParentRelationship(flare)
+            .WithFlareResourceLabels("rustfs");
+
+        // RustFS doesn't create buckets on demand and ClickHouse's S3 disk won't either.
+        var bucketInit = builder.AddContainer($"{name}-rustfs-init", FlareContainerImageTags.McImage)
+            .WithEntrypoint("/bin/sh")
+            .WithArgs(
+                "-c",
+                $"until mc alias set rustfs \"$RUSTFS_ENDPOINT\" \"$RUSTFS_ACCESS_KEY\" \"$RUSTFS_SECRET_KEY\" >/dev/null 2>&1; do sleep 2; done; mc mb --ignore-existing rustfs/{bucket}")
+            .WithEnvironment("RUSTFS_ENDPOINT", rustfs.GetEndpoint("s3"))
+            .WithEnvironment("RUSTFS_ACCESS_KEY", accessKey)
+            .WithEnvironment("RUSTFS_SECRET_KEY", secretKey)
+            .WaitFor(rustfs)
+            .WithParentRelationship(flare)
+            .WithFlareResourceLabels("rustfs-init");
+
+        clickhouse
+            .WithEnvironment("FLARE_COLD_ENDPOINT", ReferenceExpression.Create($"{rustfs.GetEndpoint("s3")}/{bucket}/"))
+            .WithEnvironment("FLARE_COLD_ACCESS_KEY", accessKey)
+            .WithEnvironment("FLARE_COLD_SECRET_KEY", secretKey)
+            .WaitForCompletion(bucketInit);
+
+        AddColdStorageConfigToClickHouseImage(clickhouse.Resource);
+        return flare;
+    }
+
+    /// <summary>
+    /// Adds <c>cold-storage.xml</c> to the generated ClickHouse image's build context and a <c>COPY</c> for it,
+    /// so the config ships with the image (publishable) instead of being bind-mounted from this machine.
+    /// </summary>
+    private static void AddColdStorageConfigToClickHouseImage(ClickHouseServerResource clickhouse)
+    {
+        const string ResourceName = "Aspire.Hosting.Flare.ColdStorage.cold-storage.xml";
+
+        var build = clickhouse.Annotations.OfType<DockerfileBuildAnnotation>().FirstOrDefault()
+            ?? throw new InvalidOperationException($"{clickhouse.Name} has no generated Dockerfile build to add the cold-storage config to.");
+
+        using var stream = typeof(FlareResourceBuilderExtensions).Assembly.GetManifestResourceStream(ResourceName)
+            ?? throw new InvalidOperationException($"Embedded resource '{ResourceName}' is missing.");
+        using (var file = File.Create(Path.Combine(build.ContextPath, "cold-storage.xml")))
+        {
+            stream.CopyTo(file);
+        }
+
+        File.AppendAllText(
+            build.DockerfilePath,
+            $"{Environment.NewLine}COPY cold-storage.xml /etc/clickhouse-server/config.d/cold-storage.xml{Environment.NewLine}");
+    }
+
+    /// <summary>
     /// Writes this package's embedded ClickHouse init scripts (<c>db/clickhouse/*.sql</c> in
     /// Flare's own repo) plus a generated <c>Dockerfile</c> into a fresh temp directory, and
     /// returns that directory's absolute path as a <c>WithDockerfile</c> build context.
@@ -1214,4 +1304,8 @@ internal static class FlareContainerImageTags
     /// same as <c>docker-compose.yml</c>'s own <c>docker-proxy</c> service.
     /// </summary>
     internal const string DockerProxyImage = "tecnativa/docker-socket-proxy";
+
+    /// <summary>Opt-in cold tier (<see cref="FlareResourceBuilderExtensions.WithColdStorage"/>): the S3-compatible store and the one-shot bucket creator, same images as <c>docker-compose.cold-storage.yml</c>.</summary>
+    internal const string RustFsImage = "rustfs/rustfs:latest";
+    internal const string McImage = "minio/mc:latest";
 }

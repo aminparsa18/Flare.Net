@@ -74,6 +74,20 @@ var flare = builder.AddFlare("flare", enableResourceGraph: true);
 
 一旦您实际发布/部署到 Kubernetes 目标，相同的 `enableResourceGraph: true` 就会连接一个 Kubernetes 原生的基于 RBAC 的提供程序 — 请参阅下面的 [Publishing / deploying](#发布部署) 和 [ADR-0006](../../docs-internal/adr/0006-kubernetes-resource-graph-rbac-scoping.md)。
 
+## 冷存储（可选）
+
+如果希望保留策略把过期数据迁移到廉价的对象存储，而不仅仅是删除
+（[ADR-0144](../../docs-internal/adr/0144-cold-storage-rustfs.md)），请添加冷存储层：
+
+```csharp
+var flare = builder.AddFlare("flare").WithColdStorage();
+```
+
+这会添加一个 RustFS（兼容 S3）容器、一个创建其 bucket 的一次性任务，以及 ClickHouse 存储策略
+`flare_tiered`。在通过 `PUT /api/retention` 设置 cold-after 值之前，不会迁移任何数据。默认关闭；
+配置已打包进生成的 ClickHouse 镜像，因此与其余栈一样可以发布。非本地使用时请传入自己的
+`accessKey`/`secretKey` 参数；默认值是固定的，仅供本地使用。
+
 ## 安装中
 
 ```sh

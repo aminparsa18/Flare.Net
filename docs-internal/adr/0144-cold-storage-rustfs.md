@@ -56,5 +56,8 @@ want old data on cheap object storage and still queryable.
   free/total bytes come from ClickHouse and describe an object store, so treat them as informational.
 - Switching a table back off tiering removes the move rule but leaves its policy and any parts already
   on `cold` where they are; they are still read normally and still deleted by the delete rule.
-- Not yet done: an `AddRustFs` resource in `Flare.AppHost` and the `Flare.Hosting.Aspire` integration.
-  The compose overlays are the supported path. Remaining work is on the roadmap.
+- The Aspire paths have it too: `Flare.AppHost` adds RustFS, a bucket job and the config mount when run
+  with `--Flare:ColdStorage=true`, and `AddFlare().WithColdStorage()` in `Flare.Hosting.Aspire` does the same
+  for consumers, baking `cold-storage.xml` into the generated ClickHouse image so it publishes. Both use
+  plain containers (`rustfs/rustfs`, `minio/mc`) rather than a community RustFS package, gate on RustFS's
+  `/health`, and keep the retry loop in the bucket job. Verified live in both.
