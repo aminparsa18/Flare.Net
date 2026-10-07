@@ -30,6 +30,15 @@ public class RetentionSqlTests
     }
 
     [Fact]
+    public void Limits_StayInsideClickHouseDateTimeRange()
+    {
+        // DateTime is UInt32 seconds since 1970 (ends 2106-02-07); a TTL past that wraps into the past and deletes the row.
+        var limit = new DateTime(2106, 2, 7, 0, 0, 0, DateTimeKind.Utc);
+        Assert.True(RetentionSql.MaxDays < RetentionSql.ForeverDays);
+        Assert.True(new DateTime(2051, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddDays(RetentionSql.ForeverDays) < limit);
+    }
+
+    [Fact]
     public void AlterSettings_SkipMaterializingExistingParts()
     {
         Assert.Equal(0, RetentionSql.AlterSettings["materialize_ttl_after_modify"]);

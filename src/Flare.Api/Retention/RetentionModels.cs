@@ -10,6 +10,21 @@ public static class RetentionStatus
     public const string Failed = "failed";
 }
 
+/// <summary>
+/// One per-resource retention rule: rows whose resource attribute <see cref="Attribute"/> equals
+/// <see cref="Value"/> are kept <see cref="Days"/> days (0 = forever) instead of the signal's default.
+/// Rules are ordered; the first match wins.
+/// </summary>
+[MemoryPackable]
+public sealed partial record RetentionRule
+{
+    public required string Attribute { get; init; }
+
+    public required string Value { get; init; }
+
+    public required int Days { get; init; }
+}
+
 /// <summary>One signal's retention: what ClickHouse actually has versus what was last asked for.</summary>
 [MemoryPackable]
 public sealed partial record SignalRetention
@@ -32,6 +47,12 @@ public sealed partial record SignalRetention
 
     /// <summary>The cold-after value of the last request (0 = no tiering). Null if retention was never set through Flare.</summary>
     public int? ExpectedColdAfterDays { get; init; }
+
+    /// <summary>The per-resource rules live in ClickHouse (parsed from the <c>_retention_days</c> default), in match order. Empty when retention is one value for the whole signal.</summary>
+    public IReadOnlyList<RetentionRule> ActualRules { get; init; } = [];
+
+    /// <summary>The rules of the last request.</summary>
+    public IReadOnlyList<RetentionRule> ExpectedRules { get; init; } = [];
 
     /// <summary><c>pending</c>, <c>success</c> or <c>failed</c> for the last request; null if there never was one.</summary>
     public string? Status { get; init; }
@@ -84,6 +105,13 @@ public sealed partial record SetRetentionRequest
     /// <summary>Signal name to the age in days at which its data moves to cold storage. Optional; a signal named here must also be in <see cref="Signals"/>, and the value must be less than its retention unless that is 0 (tier-only, keep forever).</summary>
     public IReadOnlyDictionary<string, int>? ColdAfterDays { get; init; }
 
+    /// <summary>
+    /// Signal name to ordered per-resource rules; <c>signals[name]</c> is then the default for rows no
+    /// rule matches. A signal named here must also be in <see cref="Signals"/>. Omit (or send an empty
+    /// list) for one retention across the whole signal.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<RetentionRule>>? Rules { get; init; }
+
     public string? Validate()
     {
         if (Signals is not { Count: > 0 })
@@ -104,6 +132,19 @@ public sealed partial record SetRetentionRequest
             }
         }
 
+        foreach (var (name, rules) in Rules ?? new Dictionary<string, IReadOnlyList<RetentionRule>>())
+        {
+            if (!Signals.Keys.Any(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                return $"rules names '{name}', which is not in signals.";
+            }
+
+            if (RetentionRuleSql.Validate(name, rules) is { } ruleError)
+            {
+                return ruleError;
+            }
+        }
+
         foreach (var (name, coldDays) in ColdAfterDays ?? new Dictionary<string, int>())
         {
             var requested = Signals.Where(kv => string.Equals(kv.Key, name, StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -118,13 +159,22 @@ public sealed partial record SetRetentionRequest
                 return $"{name}: coldAfterDays must be between 0 (no tiering) and {RetentionSql.MaxDays}.";
             }
 
-            if (coldDays > 0 && days > 0 && coldDays >= days)
+            var shortest = ShortestRetention(requested[0].Key, days);
+            if (coldDays > 0 && shortest > 0 && coldDays >= shortest)
             {
-                return $"{name}: coldAfterDays ({coldDays}) must be less than its retention ({days}), or the data would be deleted before it moves.";
+                return $"{name}: coldAfterDays ({coldDays}) must be less than its shortest retention ({shortest}), or the data would be deleted before it moves.";
             }
         }
 
         return null;
+    }
+
+    /// <summary>The smallest finite retention of a signal across its default and rules; 0 when every value is "forever".</summary>
+    private int ShortestRetention(string signalKey, int defaultDays)
+    {
+        var rules = Rules?.FirstOrDefault(kv => string.Equals(kv.Key, signalKey, StringComparison.OrdinalIgnoreCase)).Value ?? [];
+        var finite = rules.Select(r => r.Days).Append(defaultDays).Where(d => d > 0).ToArray();
+        return finite.Length == 0 ? 0 : finite.Min();
     }
 }
 

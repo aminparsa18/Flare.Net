@@ -162,6 +162,11 @@ not migrations; they are ClickHouse server config in `config/cold-storage.xml`, 
 `docker-compose.cold-storage.yml` - see
 [ADR-0144](../../docs-internal/adr/0144-cold-storage-rustfs.md).
 
+`0069_retention_per_resource.sql` - adds `_retention_days UInt16 DEFAULT 20000` to the seven raw telemetry
+tables and `RulesJson` to `retention_operations`. The column holds each row's own lifetime, computed at
+insert from the retention rules; a table's TTL points at it only once rules are set - see
+[ADR-0145](../../docs-internal/adr/0145-per-resource-retention.md).
+
 `0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
 same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
 `metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).
