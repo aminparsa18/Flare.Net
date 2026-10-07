@@ -156,6 +156,12 @@ retention TTLs themselves are applied with `ALTER TABLE ... MODIFY TTL` at runti
 migration, so a TTL is never baked into a table definition - see
 [ADR-0143](../../docs-internal/adr/0143-retention-ttl.md).
 
+`0068_retention_cold_after.sql` - adds `ColdAfterDays` to `retention_operations`: the age at which a
+signal's parts move to the cold (S3/RustFS) volume. The disk and `flare_tiered` policy themselves are
+not migrations; they are ClickHouse server config in `config/cold-storage.xml`, mounted by
+`docker-compose.cold-storage.yml` - see
+[ADR-0144](../../docs-internal/adr/0144-cold-storage-rustfs.md).
+
 `0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
 same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
 `metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).
