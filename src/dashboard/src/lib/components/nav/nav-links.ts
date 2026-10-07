@@ -66,6 +66,7 @@ export function workspaceLinks(auth: AuthState): NavLink[] {
 		{ href: '/settings/synthetic-monitors', label: m.synthetic_heading() },
 		{ href: '/settings/audit-log', label: m.auditLogPage_heading() },
 		{ href: '/settings/indexing', label: m.nav_indexing() },
+		{ href: '/settings/retention', label: m.nav_retention() },
 		{ href: '/settings/projects', label: m.projectsPage_heading() },
 		{ href: '/settings/ingest-keys', label: m.ingestKeysPage_heading() }
 	];

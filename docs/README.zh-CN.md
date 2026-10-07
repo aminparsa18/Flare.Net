@@ -60,6 +60,7 @@
 - [找出高基数指标](how-to/find-high-cardinality-metrics.zh-CN.md)
 - [在摄取时精简指标的属性](how-to/reduce-metric-attributes.zh-CN.md)
 - [把日志搜索变成指标](how-to/log-based-metrics.zh-CN.md)
+- [设置数据保留时长并将旧数据迁移到冷存储](how-to/set-data-retention.zh-CN.md)
 - [加速对常用日志或 Span 属性的过滤](how-to/promote-attribute-columns.zh-CN.md)
 
 **参考**

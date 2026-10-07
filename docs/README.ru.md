@@ -60,6 +60,7 @@
 - [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)
 - [Как сократить атрибуты метрики при приёме](how-to/reduce-metric-attributes.ru.md)
 - [Как превратить поиск по логам в метрику](how-to/log-based-metrics.ru.md)
+- [Как задать срок хранения данных и перенести старые данные в холодное хранилище](how-to/set-data-retention.ru.md)
 - [Ускорить фильтры по часто используемому атрибуту лога или спана](how-to/promote-attribute-columns.ru.md)
 
 **Справочник**

@@ -21,6 +21,7 @@
 	import RadarIcon from '@lucide/svelte/icons/radar';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import LayersIcon from '@lucide/svelte/icons/layers';
+	import HourglassIcon from '@lucide/svelte/icons/hourglass';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import SigmaIcon from '@lucide/svelte/icons/sigma';
 	import { authContext } from '$lib/auth/context';
@@ -47,6 +48,7 @@
 		'/settings/synthetic-monitors': RadarIcon,
 		'/settings/audit-log': ScrollTextIcon,
 		'/settings/indexing': LayersIcon,
+		'/settings/retention': HourglassIcon,
 		'/settings/projects': FolderIcon,
 		'/settings/ingest-keys': KeyIcon
 	} as const;

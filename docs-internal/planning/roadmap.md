@@ -6,18 +6,6 @@ to enforce (a completed item is deleted here the same PR that ships it,
 not checked off and kept); `git log` and the `adr`/`investigations`
 folders are where "what happened and why" actually lives.
 
-- **Retention follow-ups: UI/CLI/docs.** Shipped:
-  per-signal TTLs applied asynchronously
-  ([ADR-0143](../adr/0143-retention-ttl.md)), cold storage as a ClickHouse
-  S3 disk on RustFS, opt in through `docker-compose.cold-storage.yml`
-  ([ADR-0144](../adr/0144-cold-storage-rustfs.md)), and per-resource rules
-  ([ADR-0145](../adr/0145-per-resource-retention.md)); the cold tier is also
-  available from the Aspire paths (`WithColdStorage()`). Still open:
-  1. **Dashboard settings page, `flare retention` CLI, and a how-to** (plus
-     its `.ru`/`.fr`/`.zh-CN` siblings). The API is the only surface so far;
-     the page should show actual vs expected, rule editing, and the cold
-     volume picker from `coldStorage`.
-
 - **Research: a real "skip-index effectiveness" signal for the Indexing
   page.** Deliberately not shipped — ClickHouse doesn't expose this as
   reliable production telemetry today. Full findings, including upstream

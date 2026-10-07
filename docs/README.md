@@ -62,6 +62,7 @@ the full rule set on what goes where.
 - [Find high-cardinality metrics](how-to/find-high-cardinality-metrics.md)
 - [Reduce a metric's attributes at ingest](how-to/reduce-metric-attributes.md)
 - [Turn a log search into a metric](how-to/log-based-metrics.md)
+- [Set data retention and move old data to cold storage](how-to/set-data-retention.md)
 - [Speed up filters on a frequently used log or span attribute](how-to/promote-attribute-columns.md)
 
 **Reference**
