@@ -150,6 +150,12 @@ values per dashboard; config-table shape, read as the latest version per `Id`) a
 `dashboard_report_runs` history (90-day TTL). See
 [ADR-0142](../../docs-internal/adr/0142-scheduled-dashboard-reports.md).
 
+`0067_retention_operations.sql` - the `retention_operations` table: the pending/success/failed
+history of `PUT /api/retention` changes, one row-version per `(TransactionId, Signal)`. The
+retention TTLs themselves are applied with `ALTER TABLE ... MODIFY TTL` at runtime, not in a
+migration, so a TTL is never baked into a table definition - see
+[ADR-0143](../../docs-internal/adr/0143-retention-ttl.md).
+
 `0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
 same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
 `metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).
