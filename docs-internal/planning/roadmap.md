@@ -6,23 +6,18 @@ to enforce (a completed item is deleted here the same PR that ships it,
 not checked off and kept); `git log` and the `adr`/`investigations`
 folders are where "what happened and why" actually lives.
 
-- **Retention follow-ups: cold storage to S3-compatible object storage
-  (RustFS), per-resource rules, UI/CLI/docs.** The base shipped: per-signal
-  TTLs applied asynchronously with status tracking, see
-  [`../adr/0143-retention-ttl.md`](../adr/0143-retention-ttl.md). Still open,
-  in this order:
-  1. **Cold storage.** Not app-level archival: ClickHouse's own tiered
-     storage. An S3-backed disk/volume (RustFS; see
-     [rustfs/rustfs](https://github.com/rustfs/rustfs)) in ClickHouse's own
-     config, a storage policy assigned to each table once, and
-     `MODIFY TTL ... DELETE, ... TO VOLUME 'cold'` moving aged parts onto it.
-     Set `perform_ttl_move_on_insert: 0` on the volume, or ClickHouse
-     evaluates the move rule synchronously on every insert once cold storage
-     exists ([signoz#1448](https://github.com/SigNoz/signoz/commit/f8f903848e914d529617c6e10c69b3644f8d4c30)).
-     Read `system.disks` so the UI offers volumes that are actually configured
-     instead of free text. Needs a RustFS resource in `Flare.AppHost`, the
-     compose files and the Aspire hosting integration; `RetentionSql.ParseTtl`
-     treats a `TO VOLUME` clause as `custom` today and must learn it.
+- **Retention follow-ups: Aspire RustFS resource, per-resource rules,
+  UI/CLI/docs.** Shipped: per-signal TTLs applied asynchronously
+  ([ADR-0143](../adr/0143-retention-ttl.md)) and cold storage as a
+  ClickHouse S3 disk on RustFS, opt in through
+  `docker-compose.cold-storage.yml`
+  ([ADR-0144](../adr/0144-cold-storage-rustfs.md)). Still open, in this
+  order:
+  1. **RustFS in the Aspire paths.** An `AddRustFs` resource (and bucket
+     creation) in `Flare.AppHost`, and a `WithColdStorage()` on
+     `AddFlare()` in `Flare.Hosting.Aspire` that mounts
+     `cold-storage.xml` and passes the credentials. The compose overlays are
+     the only supported route today.
   2. **Per-resource retention** (keep `deployment.environment=dev` 7 days,
      everything else 30): a `_retention_days` column from ordered
      resource-attribute rules (`multiIf(...)`), TTL

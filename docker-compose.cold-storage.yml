@@ -1,0 +1,53 @@
+# Opt-in cold tier for retention: RustFS (S3-compatible object storage) as a second ClickHouse
+# disk. Layer it over the standalone stack:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cold-storage.yml up
+#
+# For cluster mode use docker-compose.cold-storage.cluster.yml instead (same RustFS, but the
+# disk is mounted into all four ClickHouse nodes).
+#
+# It only makes the `flare_tiered` storage policy available (db/clickhouse/config/cold-storage.xml);
+# nothing moves to RustFS until retention is set with a cold-after value (PUT /api/retention).
+# See docs-internal/adr/0144-cold-storage-rustfs.md.
+
+services:
+  rustfs:
+    image: rustfs/rustfs:latest
+    environment:
+      RUSTFS_ACCESS_KEY: ${FLARE_COLD_ACCESS_KEY:-flarecold}
+      RUSTFS_SECRET_KEY: ${FLARE_COLD_SECRET_KEY:-flarecold-secret}
+    volumes:
+      - rustfs-data:/data
+    ports:
+      # S3 API and web console; change the host side if 9000/9001 are taken.
+      - "${RUSTFS_S3_PORT:-9000}:9000"
+      - "${RUSTFS_CONSOLE_PORT:-9001}:9001"
+
+  # One-shot: RustFS doesn't create buckets on demand, and ClickHouse's S3 disk won't either.
+  rustfs-init:
+    image: minio/mc:latest
+    depends_on:
+      - rustfs
+    restart: "no"
+    environment:
+      FLARE_COLD_ACCESS_KEY: ${FLARE_COLD_ACCESS_KEY:-flarecold}
+      FLARE_COLD_SECRET_KEY: ${FLARE_COLD_SECRET_KEY:-flarecold-secret}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set rustfs http://rustfs:9000 "$$FLARE_COLD_ACCESS_KEY" "$$FLARE_COLD_SECRET_KEY" >/dev/null 2>&1; do sleep 2; done
+        mc mb --ignore-existing rustfs/flare-cold
+
+  clickhouse:
+    depends_on:
+      rustfs-init: { condition: service_completed_successfully }
+    environment:
+      FLARE_COLD_ENDPOINT: http://rustfs:9000/flare-cold/
+      FLARE_COLD_ACCESS_KEY: ${FLARE_COLD_ACCESS_KEY:-flarecold}
+      FLARE_COLD_SECRET_KEY: ${FLARE_COLD_SECRET_KEY:-flarecold-secret}
+    volumes:
+      - ./db/clickhouse/config/cold-storage.xml:/etc/clickhouse-server/config.d/cold-storage.xml:ro
+
+volumes:
+  rustfs-data:

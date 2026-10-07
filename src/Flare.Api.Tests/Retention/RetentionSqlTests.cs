@@ -61,7 +61,7 @@ public class RetentionSqlTests
     }
 
     [Theory]
-    [InlineData("TTL toDateTime(Timestamp) + toIntervalDay(30) TO VOLUME 'cold'")]
+    [InlineData("TTL toDateTime(Timestamp) + toIntervalDay(30) TO VOLUME 'other'")]
     [InlineData("TTL toDateTime(Timestamp) + toIntervalHour(12)")]
     [InlineData("TTL toDateTime(Timestamp) + toIntervalDay(7) DELETE WHERE ServiceName = 'x'")]
     public void ParseTtl_AnythingFlareDidNotWrite_IsCustom(string ttlClause)
@@ -82,6 +82,43 @@ public class RetentionSqlTests
     {
         const string ddl = "CREATE TABLE t (`Timestamp` DateTime, `Body` String TTL Timestamp + toIntervalDay(1)) ENGINE = MergeTree ORDER BY Timestamp SETTINGS index_granularity = 8192";
         Assert.Equal(TtlKind.None, RetentionSql.ParseTtl(ddl).Kind);
+    }
+
+    [Fact]
+    public void BuildAlter_WithColdAfter_AddsMoveRuleBeforeDeleteRule()
+    {
+        Assert.Equal(
+            "ALTER TABLE clickhousedb.logs MODIFY TTL toDateTime(Timestamp) + toIntervalDay(7) TO VOLUME 'cold', toDateTime(Timestamp) + toIntervalDay(30)",
+            RetentionSql.BuildAlter("logs", "Timestamp", 30, clusterMode: false, coldAfterDays: 7));
+    }
+
+    [Fact]
+    public void BuildAlter_TierOnly_KeepsDataForever()
+    {
+        Assert.Equal(
+            "ALTER TABLE clickhousedb.logs_local ON CLUSTER 'flare_cluster' MODIFY TTL toDateTime(Timestamp) + toIntervalDay(7) TO VOLUME 'cold'",
+            RetentionSql.BuildAlter("logs", "Timestamp", 0, clusterMode: true, coldAfterDays: 7));
+    }
+
+    [Fact]
+    public void BuildAssignPolicy_TargetsLocalTableInClusterMode()
+    {
+        Assert.Equal("ALTER TABLE clickhousedb.logs MODIFY SETTING storage_policy = 'flare_tiered'", RetentionSql.BuildAssignPolicy("logs", false));
+        Assert.Equal("ALTER TABLE clickhousedb.logs_local ON CLUSTER 'flare_cluster' MODIFY SETTING storage_policy = 'flare_tiered'", RetentionSql.BuildAssignPolicy("logs", true));
+    }
+
+    [Fact]
+    public void ParseTtl_MoveAndDeleteRules_ReadsBoth()
+    {
+        const string ddl = "CREATE TABLE t (`Time` DateTime) ENGINE = MergeTree ORDER BY Time TTL toDateTime(Time) + toIntervalDay(7) TO VOLUME 'cold', toDateTime(Time) + toIntervalDay(30) SETTINGS index_granularity = 8192, storage_policy = 'flare_tiered'";
+        Assert.Equal(new TtlState(TtlKind.Days, 30, 7), RetentionSql.ParseTtl(ddl));
+    }
+
+    [Fact]
+    public void ParseTtl_MoveRuleOnly_IsTierOnlyWithNoDeletion()
+    {
+        const string ddl = "CREATE TABLE t (`Time` DateTime) ENGINE = MergeTree ORDER BY Time TTL toDateTime(Time) + toIntervalDay(7) TO VOLUME 'cold' SETTINGS storage_policy = 'flare_tiered'";
+        Assert.Equal(new TtlState(TtlKind.Days, 0, 7), RetentionSql.ParseTtl(ddl));
     }
 
     [Fact]
@@ -140,5 +177,51 @@ public class SetRetentionRequestTests
     {
         var request = new SetRetentionRequest { Signals = new Dictionary<string, int> { ["logs"] = days } };
         Assert.NotNull(request.Validate());
+    }
+
+    [Fact]
+    public void Validate_ColdAfterLessThanRetention_IsAccepted()
+    {
+        var request = new SetRetentionRequest
+        {
+            Signals = new Dictionary<string, int> { ["logs"] = 30 },
+            ColdAfterDays = new Dictionary<string, int> { ["Logs"] = 7 },
+        };
+        Assert.Null(request.Validate());
+    }
+
+    [Fact]
+    public void Validate_TierOnlyWithZeroRetention_IsAccepted()
+    {
+        var request = new SetRetentionRequest
+        {
+            Signals = new Dictionary<string, int> { ["logs"] = 0 },
+            ColdAfterDays = new Dictionary<string, int> { ["logs"] = 7 },
+        };
+        Assert.Null(request.Validate());
+    }
+
+    [Theory]
+    [InlineData(30)]
+    [InlineData(45)]
+    public void Validate_ColdAfterNotBeforeRetention_IsRejected(int coldDays)
+    {
+        var request = new SetRetentionRequest
+        {
+            Signals = new Dictionary<string, int> { ["logs"] = 30 },
+            ColdAfterDays = new Dictionary<string, int> { ["logs"] = coldDays },
+        };
+        Assert.Contains("must be less than", request.Validate());
+    }
+
+    [Fact]
+    public void Validate_ColdAfterForSignalNotInSignals_IsRejected()
+    {
+        var request = new SetRetentionRequest
+        {
+            Signals = new Dictionary<string, int> { ["logs"] = 30 },
+            ColdAfterDays = new Dictionary<string, int> { ["traces"] = 7 },
+        };
+        Assert.Contains("not in signals", request.Validate());
     }
 }
