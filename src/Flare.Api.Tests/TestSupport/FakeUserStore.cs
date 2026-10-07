@@ -71,6 +71,9 @@ internal sealed class FakeUserStore : IUserStore
         return Task.CompletedTask;
     }
 
+    public Task<bool> DeleteServiceAccountAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_usersById.TryGetValue(id, out var entry) && entry.User.IsServiceAccount && _usersById.Remove(id));
+
     public Task SetPasswordAsync(Guid id, string newPassword, CancellationToken cancellationToken = default)
     {
         if (_usersById.TryGetValue(id, out var entry))

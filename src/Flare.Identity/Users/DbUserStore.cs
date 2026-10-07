@@ -151,6 +151,39 @@ public sealed class DbUserStore(
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<bool> DeleteServiceAccountAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        // Child rows first: foreign keys are enforced on Postgres (and on SQLite for the tables that declare them).
+        // The service-account check comes last so a human id deletes nothing, but runs in the same transaction.
+        foreach (var statement in new[]
+        {
+            "DELETE FROM Sessions WHERE UserId = @id",
+            "DELETE FROM PersonalAccessTokens WHERE UserId = @id",
+            "DELETE FROM PasswordSetTokens WHERE UserId = @id",
+            "DELETE FROM ProjectMembers WHERE UserId = @id",
+            "DELETE FROM UserPreferences WHERE UserId = @id",
+            "DELETE FROM DashboardPins WHERE UserId = @id",
+        })
+        {
+            await using var child = connection.CreateCommand();
+            child.Transaction = transaction;
+            child.CommandText = statement + " AND EXISTS (SELECT 1 FROM Users WHERE Id = @id AND AuthProvider = 'ServiceAccount')";
+            child.AddParameter("@id", id.ToString());
+            await child.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "DELETE FROM Users WHERE Id = @id AND AuthProvider = 'ServiceAccount'";
+        command.AddParameter("@id", id.ToString());
+        var deleted = await command.ExecuteNonQueryAsync(cancellationToken) > 0;
+        await transaction.CommitAsync(cancellationToken);
+        return deleted;
+    }
+
     public async Task SetPasswordAsync(Guid id, string newPassword, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);

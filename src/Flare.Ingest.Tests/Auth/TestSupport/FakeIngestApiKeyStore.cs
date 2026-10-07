@@ -31,6 +31,16 @@ internal sealed class FakeIngestApiKeyStore : IIngestApiKeyStore
         return Task.FromResult(true);
     }
 
+    public Task<bool> RenameAsync(Guid id, string name, CancellationToken cancellationToken = default)
+    {
+        if (!_keysById.TryGetValue(id, out var key))
+        {
+            return Task.FromResult(false);
+        }
+        _keysById[id] = key with { Name = name };
+        return Task.FromResult(true);
+    }
+
     public Task RevokeAsync(Guid id, CancellationToken cancellationToken = default)
     {
         if (_keysById.TryGetValue(id, out var key))

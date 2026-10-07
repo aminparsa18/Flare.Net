@@ -183,6 +183,11 @@ public static class AlertEndpoints
             return projectProblem;
         }
 
+        if (NameUniqueness.Conflict((await alerts.ListAsync(cancellationToken)).Select(r => (r.Id, r.Name)), "alert rule", request.Name) is { } taken)
+        {
+            return taken;
+        }
+
         var rule = await alerts.CreateAsync(request, cancellationToken);
         AuditContext.SetResourceId(http, rule.Id);
         return ApiSerialization.Write(http, NotificationSecrets.Redact(rule), AlertsJsonContext.Default.AlertRule, statusCode: StatusCodes.Status201Created);
@@ -249,6 +254,11 @@ public static class AlertEndpoints
         }
 
         request = NotificationSecrets.Restore(request, before);
+
+        if (NameUniqueness.Conflict((await alerts.ListAsync(cancellationToken)).Select(r => (r.Id, r.Name)), "alert rule", request.Name, id, before?.Name) is { } taken)
+        {
+            return taken;
+        }
 
         if (request.ValidateChannel() is { } channelError)
         {

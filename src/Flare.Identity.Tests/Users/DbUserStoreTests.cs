@@ -197,4 +197,27 @@ public class DbUserStoreTests : IAsyncLifetime
 
         Assert.True((await _store.FindByIdAsync(created.Id))!.IsDisabled);
     }
+
+    [Fact]
+    public async Task DeleteServiceAccountAsync_RemovesTheAccountAndItsTokens()
+    {
+        var account = await _store.CreateServiceAccountAsync("ci", UserRole.Member);
+        var tokens = new Flare.Identity.PersonalAccessTokens.DbPersonalAccessTokenStore(_database.ConnectionFactory, TimeProvider.System);
+        await tokens.CreateAsync(account.Id, "deploy", null);
+
+        Assert.True(await _store.DeleteServiceAccountAsync(account.Id));
+
+        Assert.Null(await _store.FindByIdAsync(account.Id));
+        Assert.Empty(await tokens.ListForUserAsync(account.Id));
+        Assert.False(await _store.DeleteServiceAccountAsync(account.Id));
+    }
+
+    [Fact]
+    public async Task DeleteServiceAccountAsync_NeverDeletesAHumanAccount()
+    {
+        var human = await _store.CreateAsync("alice", "alice-password", UserRole.Admin);
+
+        Assert.False(await _store.DeleteServiceAccountAsync(human.Id));
+        Assert.NotNull(await _store.FindByIdAsync(human.Id));
+    }
 }

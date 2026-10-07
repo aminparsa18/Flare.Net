@@ -262,6 +262,7 @@ machines), séparément des comptes utilisateurs.
   30 secondes — `Flare.Ingest` met en cache l'ensemble des clés actives
   en mémoire et le rafraîchit sur une minuterie plutôt que d'interroger
   SQLite à chaque requête d'ingestion.
+- **La renommer** : `PUT /api/ingest-keys/{id}/name`. Les noms sont uniques parmi les clés actives (sans distinction de casse) ; le nom d'une clé révoquée peut être réutilisé.
 - **La limiter** (facultatif) : sur la page **Ingest keys**, ou via
   `PUT /api/ingest-keys/{id}/limits`, plafonnez les événements et/ou les
   octets d'une clé par minute UTC et par jour UTC, avec un interrupteur
@@ -345,6 +346,7 @@ la section Comptes de service de `/auth` :
   [journal d'audit](#journal-daudit) sous un Admin.
 - **Changer le rôle ou désactiver** : dans le tableau Utilisateurs, comme pour
   tout utilisateur. La désactivation coupe ses jetons immédiatement.
+- **Lire ou supprimer** : `GET /api/service-accounts/{id}`, `DELETE /api/service-accounts/{id}`. La suppression est définitive et retire ses jetons et ses appartenances aux projets ; pour conserver le compte sans qu'il puisse s'authentifier, désactivez-le. Seuls les comptes de service peuvent être supprimés ainsi.
 
 ## Gérer les utilisateurs
 

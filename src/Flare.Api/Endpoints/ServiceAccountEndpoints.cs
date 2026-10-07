@@ -24,6 +24,8 @@ public static class ServiceAccountEndpoints
     public static IEndpointRouteBuilder MapServiceAccountEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/service-accounts", HandleCreateAsync);
+        endpoints.MapGet("/api/service-accounts/{id:guid}", HandleGetAsync);
+        endpoints.MapDelete("/api/service-accounts/{id:guid}", HandleDeleteAsync);
         endpoints.MapPost("/api/service-accounts/{id:guid}/access-tokens", HandleCreateTokenAsync);
         endpoints.MapGet("/api/service-accounts/{id:guid}/access-tokens", HandleListTokensAsync);
         return endpoints;
@@ -55,6 +57,28 @@ public static class ServiceAccountEndpoints
         var account = await users.CreateServiceAccountAsync(name, request!.Role, cancellationToken);
         AuditContext.SetResourceId(http, account.Id);
         return ApiSerialization.Write(http, ToDto(account), UsersJsonContext.Default.UserSummaryDto, statusCode: StatusCodes.Status201Created);
+    }
+
+    private static async Task<IResult> HandleGetAsync(Guid id, HttpContext http, IUserStore users, CancellationToken cancellationToken)
+    {
+        var account = await users.FindByIdAsync(id, cancellationToken);
+        return account is { IsServiceAccount: true }
+            ? ApiSerialization.Write(http, ToDto(account), UsersJsonContext.Default.UserSummaryDto)
+            : Results.NotFound();
+    }
+
+    /// <summary>Permanent: the account, its tokens and its memberships go. To keep the account but stop it
+    /// authenticating, disable it through <c>PATCH /api/users/{id}/disabled</c> instead.</summary>
+    private static async Task<IResult> HandleDeleteAsync(Guid id, HttpContext http, IUserStore users, CancellationToken cancellationToken)
+    {
+        var account = await users.FindByIdAsync(id, cancellationToken);
+        if (account is not { IsServiceAccount: true } || !await users.DeleteServiceAccountAsync(id, cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        AuditContext.SetResourceId(http, id);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> HandleCreateTokenAsync(

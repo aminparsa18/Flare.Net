@@ -120,4 +120,14 @@ public class DbIngestApiKeyStoreTests : IAsyncLifetime
         Assert.Null(keys.Single(k => k.Id == tagged.Id).ProjectId);
         Assert.False(await _store.SetProjectAsync(Guid.NewGuid(), project));
     }
+
+    [Fact]
+    public async Task RenameAsync_ChangesTheName_AndReportsMissingKeys()
+    {
+        var (key, _) = await _store.CreateAsync("old-name");
+
+        Assert.True(await _store.RenameAsync(key.Id, "new-name"));
+        Assert.Equal("new-name", Assert.Single(await _store.ListAsync()).Name);
+        Assert.False(await _store.RenameAsync(Guid.NewGuid(), "x"));
+    }
 }
