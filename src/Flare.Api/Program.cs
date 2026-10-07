@@ -14,6 +14,7 @@ using Flare.Api.LiveTail;
 using Flare.Api.Pipeline;
 using Flare.Api.Prometheus;
 using Flare.Api.Query;
+using Flare.Api.Retention;
 using Flare.Api.ResourceGraph;
 using Flare.Api.Updates;
 using Flare.Identity;
@@ -240,6 +241,16 @@ builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<IMetricAttributeRuleQueryService, MetricAttributeRuleQueryService>();
 builder.Services.AddSingleton<ILogMetricQueryService, LogMetricQueryService>();
+// Data retention (ADR-0143): factory registration for the same ClickHouse:ClusterMode reason as
+// SpanQueryService above - cluster mode alters the `_local` tables ON CLUSTER.
+builder.Services.AddSingleton(sp => new RetentionService(
+    sp.GetRequiredService<IClickHouseClient>(),
+    sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
+    sp.GetRequiredService<TimeProvider>(),
+    sp.GetRequiredService<ILogger<RetentionService>>(),
+    clusterMode: builder.Configuration.GetValue<bool>("ClickHouse:ClusterMode")));
+builder.Services.AddSingleton<IRetentionService>(sp => sp.GetRequiredService<RetentionService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RetentionService>());
 builder.Services.AddSingleton<IMetricAttributeRuleCoverageService, MetricAttributeRuleCoverageService>();
 builder.Services.AddSingleton<ISavedViewQueryService, SavedViewQueryService>();
 builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
@@ -576,6 +587,7 @@ memberRoutes.MapPipelineRuleEndpoints();
 memberRoutes.MapMetricAttributeRuleEndpoints();
 // Same Member/Admin-only rationale - a log metric writes a new metric at ingest and every group-by key adds series.
 memberRoutes.MapLogMetricEndpoints();
+memberRoutes.MapRetentionReadEndpoints();
 
 // Ingest API key issuance/revocation is Admin-only - a leaked key lets any caller ingest
 // telemetry as this Flare instance, so this isn't something a Member should be able to
@@ -596,6 +608,8 @@ adminRoutes.MapAuthSettingsEndpoints();
 // alongside the rest of the Services tab - any Viewer needs it to render the tab's Apdex
 // column tooltip.
 adminRoutes.MapApdexThresholdEndpoints();
+// Changing retention deletes data - Admin-only; reading it (above) is open to members.
+adminRoutes.MapRetentionWriteEndpoints();
 // Same reasoning for source-repo links - they change where every user's stack-trace links
 // point. Reading stays on authenticatedRoutes (ADR-0095).
 adminRoutes.MapSourceLinkWriteEndpoints();

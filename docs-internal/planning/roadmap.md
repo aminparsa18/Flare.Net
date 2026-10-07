@@ -6,45 +6,31 @@ to enforce (a completed item is deleted here the same PR that ships it,
 not checked off and kept); `git log` and the `adr`/`investigations`
 folders are where "what happened and why" actually lives.
 
-- **Retention policies + cold storage to S3-compatible object storage
-  (RustFS).** A separate item from multi-node scaling (which shipped —
-  see [`../adr/0003-distributed-tables-plain-names-and-sharding.md`](../adr/0003-distributed-tables-plain-names-and-sharding.md)
-  and [`../../docs/explanation/clustering.md`](../../docs/explanation/clustering.md)):
-  this one is retention/cold storage, not horizontal availability/
-  throughput. Not started. Prior-art design worth reusing, from SigNoz's
-  TTL/cold-storage implementation ([signoz#1173](https://github.com/SigNoz/signoz/commit/5d080f5564c7839d0908db48bc8fff47d0e55648)):
-  cold storage isn't app-level archival, it's ClickHouse's own tiered
-  storage — an S3-backed disk/volume defined in ClickHouse's own config,
-  with `ALTER TABLE ... MODIFY TTL ... DELETE, ... TO VOLUME 'x'` moving
-  aged parts onto it, so a table's storage policy just needs assigning
-  once (idempotent) rather than anything bespoke on Flare's side; a
-  `GetDisks`-style read of `system.disks` lets the retention UI offer a
-  dropdown of volumes actually configured instead of free text. Because
-  that `MODIFY TTL` is a long-running ClickHouse mutation, the set-TTL
-  API should be async and status-tracked (a small table keyed by a
-  transaction id, `pending`/`success`/`failed`, one row per underlying
-  table) rather than blocking the request — reject a second set-TTL call
-  while one's still `pending` instead of queuing another mutation, and
-  have the GET endpoint return both the *actual* TTL (parsed live from
-  ClickHouse) and the *expected* one (what was last requested) plus
-  status, so the UI can show "applying…" instead of a stale value. One
-  more ClickHouse config gotcha to get right when this is built: set
-  `perform_ttl_move_on_insert: 0` on the S3 volume in ClickHouse's
-  storage config - without it, ClickHouse evaluates the TTL-move rule
-  synchronously on every insert once cold storage is configured, adding
-  latency to the ingest path; the flag defers it to ClickHouse's
-  background merge process instead
-  ([signoz#1448](https://github.com/SigNoz/signoz/commit/f8f903848e914d529617c6e10c69b3644f8d4c30)).
-  Worth designing in from the start: per-resource retention (e.g. keep
-  `deployment.environment=dev` for 7 days, everything else 30) via a
-  `_retention_days` column computed from ordered resource-attribute rules
-  (`multiIf(...)`) and a TTL of `Timestamp + toIntervalDay(_retention_days)`,
-  with a default when no rule matches
-  ([signoz#8513](https://github.com/SigNoz/signoz/commit/4daec45d987ab07a095f1c225db63193fef93f65)).
-  Run every `MODIFY TTL` with `SETTINGS materialize_ttl_after_modify=0`,
-  or each retention change rewrites every existing part up front instead
-  of letting merges apply it
-  ([signoz#9189](https://github.com/SigNoz/signoz/commit/7ddaa84387748a7ee36a1e19199078f86518eee3)).
+- **Retention follow-ups: cold storage to S3-compatible object storage
+  (RustFS), per-resource rules, UI/CLI/docs.** The base shipped: per-signal
+  TTLs applied asynchronously with status tracking, see
+  [`../adr/0143-retention-ttl.md`](../adr/0143-retention-ttl.md). Still open,
+  in this order:
+  1. **Cold storage.** Not app-level archival: ClickHouse's own tiered
+     storage. An S3-backed disk/volume (RustFS; see
+     [rustfs/rustfs](https://github.com/rustfs/rustfs)) in ClickHouse's own
+     config, a storage policy assigned to each table once, and
+     `MODIFY TTL ... DELETE, ... TO VOLUME 'cold'` moving aged parts onto it.
+     Set `perform_ttl_move_on_insert: 0` on the volume, or ClickHouse
+     evaluates the move rule synchronously on every insert once cold storage
+     exists ([signoz#1448](https://github.com/SigNoz/signoz/commit/f8f903848e914d529617c6e10c69b3644f8d4c30)).
+     Read `system.disks` so the UI offers volumes that are actually configured
+     instead of free text. Needs a RustFS resource in `Flare.AppHost`, the
+     compose files and the Aspire hosting integration; `RetentionSql.ParseTtl`
+     treats a `TO VOLUME` clause as `custom` today and must learn it.
+  2. **Per-resource retention** (keep `deployment.environment=dev` 7 days,
+     everything else 30): a `_retention_days` column from ordered
+     resource-attribute rules (`multiIf(...)`), TTL
+     `Timestamp + toIntervalDay(_retention_days)`, with a default when no rule
+     matches ([signoz#8513](https://github.com/SigNoz/signoz/commit/4daec45d987ab07a095f1c225db63193fef93f65)).
+  3. **Dashboard settings page, `flare retention` CLI, and a how-to** (plus
+     its `.ru`/`.fr`/`.zh-CN` siblings). The API is the only surface so far.
+
 - **Research: a real "skip-index effectiveness" signal for the Indexing
   page.** Deliberately not shipped — ClickHouse doesn't expose this as
   reliable production telemetry today. Full findings, including upstream
