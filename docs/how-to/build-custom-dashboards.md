@@ -574,6 +574,9 @@ From the **Dashboards** page you can:
   stays empty until a service actually emits its metric, so a template
   only fills in for the instrumentation you have enabled.
 - **Rename** a dashboard's name or description.
+  Names are unique (case-insensitive) within a project, with instance-wide
+  dashboards sharing one namespace; a name already in use is rejected with a
+  409. Duplicating a dashboard twice names the second copy "*(copy) 2*".
 - **Duplicate** a dashboard — creates an independent copy with the same
   panels, named "*(copy)*", that you can then edit separately.
 - **Export** a dashboard — downloads its name, description, and panel

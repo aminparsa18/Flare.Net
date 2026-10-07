@@ -185,8 +185,13 @@ export class DashboardsState {
 	 *  caller can navigate straight to it) or `null` on failure. */
 	async duplicate(dashboard: DashboardSummary): Promise<string | null> {
 		try {
+			// Names are unique per project (ADR-0147), so a second duplicate gets a numeric suffix.
+			const base = m.dashboardTable_duplicateName({ name: dashboard.name });
+			const taken = new Set(this.dashboards.filter((d) => d.projectId === dashboard.projectId).map((d) => d.name.trim().toLowerCase()));
+			let name: string = base;
+			for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base} ${n}`;
 			const copy = await createDashboard({
-				name: m.dashboardTable_duplicateName({ name: dashboard.name }),
+				name,
 				description: dashboard.description,
 				tags: dashboard.tags,
 				layout: dashboard.layout,
