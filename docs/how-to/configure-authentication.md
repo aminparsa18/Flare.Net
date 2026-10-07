@@ -227,6 +227,7 @@ accounts.
   seconds — `Flare.Ingest` caches the active-key set in memory and
   refreshes it on a timer rather than hitting SQLite on every ingest
   request.
+- **Rename it**: `PUT /api/ingest-keys/{id}/name`. Names are unique among active keys (case-insensitive), so a name can address a key; a revoked key's name can be reused.
 - **Limit it** (optional): on the **Ingest keys** page, or
   `PUT /api/ingest-keys/{id}/limits`, cap a key's events and/or bytes per
   UTC minute and per UTC day, with an on/off toggle. Events are log
@@ -297,6 +298,7 @@ of `/auth`:
   in the [audit log](#audit-log) under an Admin.
 - **Change role or disable**: in the Users table, like any user. Disabling
   stops its tokens immediately.
+- **Read or delete**: `GET /api/service-accounts/{id}`, `DELETE /api/service-accounts/{id}`. Delete is permanent and removes its tokens and project memberships; to keep the account but stop it authenticating, disable it instead. Only service accounts can be deleted this way.
 
 ## Managing users
 

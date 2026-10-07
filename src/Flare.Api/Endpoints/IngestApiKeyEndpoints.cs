@@ -25,6 +25,7 @@ public static class IngestApiKeyEndpoints
         endpoints.MapDelete("/api/ingest-keys/{id:guid}", HandleRevokeAsync);
         endpoints.MapPut("/api/ingest-keys/{id:guid}/limits", HandleUpdateLimitsAsync);
         endpoints.MapPut("/api/ingest-keys/{id:guid}/project", HandleSetProjectAsync);
+        endpoints.MapPut("/api/ingest-keys/{id:guid}/name", HandleRenameAsync);
         return endpoints;
     }
 
@@ -49,6 +50,12 @@ public static class IngestApiKeyEndpoints
         if (await ProjectGuard.CheckTargetAsync(http, projects, null, projectId, cancellationToken) is { } projectProblem)
         {
             return projectProblem;
+        }
+
+        request = request with { Name = request.Name.Trim() };
+        if (await NameInUseAsync(keys, request.Name, exceptId: null, cancellationToken))
+        {
+            return Results.Problem($"An active ingest key named '{request.Name}' already exists.", statusCode: StatusCodes.Status409Conflict);
         }
 
         var (key, rawKey) = await keys.CreateAsync(request.Name, projectId, cancellationToken);
@@ -113,6 +120,47 @@ public static class IngestApiKeyEndpoints
         }
 
         AuditContext.SetChange(http, before, limits);
+        return Results.NoContent();
+    }
+
+    /// <summary>Names are the stable handle declarative tooling addresses a key by (ADR-0146), so they're unique among
+    /// active keys, case-insensitively. Revoked keys keep their name and don't count, so a rotated key can reuse it.
+    /// Checked on write rather than by a constraint so existing duplicates don't block a migration.</summary>
+    private static async Task<bool> NameInUseAsync(IIngestApiKeyStore keys, string name, Guid? exceptId, CancellationToken cancellationToken) =>
+        (await keys.ListAsync(cancellationToken)).Any(k =>
+            k.IsActive && k.Id != exceptId && string.Equals(k.Name, name, StringComparison.OrdinalIgnoreCase));
+
+    private static async Task<IResult> HandleRenameAsync(Guid id, HttpContext http, IIngestApiKeyStore keys, CancellationToken cancellationToken)
+    {
+        RenameIngestApiKeyRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, IngestApiKeysJsonContext.Default.RenameIngestApiKeyRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var name = request?.Name?.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            return Results.Problem("Name is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var before = (await keys.ListAsync(cancellationToken)).FirstOrDefault(k => k.Id == id);
+        if (before is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (await NameInUseAsync(keys, name, id, cancellationToken))
+        {
+            return Results.Problem($"An active ingest key named '{name}' already exists.", statusCode: StatusCodes.Status409Conflict);
+        }
+
+        await keys.RenameAsync(id, name, cancellationToken);
+        AuditContext.SetChange(http, new { before.Name }, new { Name = name });
         return Results.NoContent();
     }
 

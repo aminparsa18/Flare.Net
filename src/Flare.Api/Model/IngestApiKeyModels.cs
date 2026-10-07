@@ -81,6 +81,14 @@ public sealed partial record SetIngestApiKeyProjectRequest
     public Guid? ProjectId { get; init; }
 }
 
+/// <summary>Request body for <c>PUT /api/ingest-keys/{id}/name</c>.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record RenameIngestApiKeyRequest
+{
+    public required string Name { get; init; }
+}
+
 /// <summary><see cref="RawKey"/> is shown exactly once, here - Flare never stores or
 /// displays it again after this response (see <see cref="Identity.IngestKeys.DbIngestApiKeyStore"/>).</summary>
 [MemoryPackable]

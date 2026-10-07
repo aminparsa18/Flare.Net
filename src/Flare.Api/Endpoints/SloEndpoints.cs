@@ -67,6 +67,11 @@ public static class SloEndpoints
             return projectProblem;
         }
 
+        if (NameUniqueness.Conflict((await slos.ListAsync(cancellationToken)).Select(s => (s.Id, s.Name)), "SLO", request!.Name) is { } taken)
+        {
+            return taken;
+        }
+
         var slo = await slos.CreateAsync(request!, cancellationToken);
         AuditContext.SetResourceId(http, slo.Id);
         return ApiSerialization.Write(http, slo, SloJsonContext.Default.Slo, statusCode: StatusCodes.Status201Created);
@@ -93,6 +98,11 @@ public static class SloEndpoints
             {
                 return projectProblem;
             }
+        }
+
+        if (NameUniqueness.Conflict((await slos.ListAsync(cancellationToken)).Select(s => (s.Id, s.Name)), "SLO", request!.Name, id, before?.Name) is { } taken)
+        {
+            return taken;
         }
 
         var slo = await slos.UpdateAsync(id, request!, cancellationToken);

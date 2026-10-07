@@ -95,6 +95,7 @@
 - **创建一个**：仅 `Admin`，在仪表板的 **Ingest keys** 页面（右上角的 `⋯` 菜单）或通过 `POST /api/ingest-keys`（将其命名为 `"prod-collector"`）。原始密钥**仅显示一次** - 立即将其复制到安全的地方。
 - **使用它**：在您的 OTLP 导出器上发送 `Authorization: Bearer <key>`（gRPC 或 HTTP - 两者检查方式相同）。
 - **撤销它**：`DELETE /api/ingest-keys/{id}`。在 30 秒内生效 - `Flare.Ingest` 将活动密钥集缓存在内存中并在计时器上刷新它，而不是在每个摄取请求时点击 SQLite。
+- **重命名**：`PUT /api/ingest-keys/{id}/name`。名称在活动密钥中唯一（不区分大小写）；已撤销密钥的名称可以重复使用。
 - **限制它**（可选）：在 **Ingest keys** 页面或通过 `PUT /api/ingest-keys/{id}/limits`，按 UTC 分钟和 UTC 天为密钥设置事件数和/或字节数上限，并带有启用开关。事件指日志记录、Span 和指标数据点。达到上限的密钥会收到可重试的 OTLP 限流响应 —— 带 `Retry-After` 的 HTTP `429`，或带 `RetryInfo` 延迟的 gRPC `RESOURCE_EXHAUSTED` —— 因此导出器会退避并重试，而不是丢弃数据。同一页面显示每个密钥在当前分钟和当天的用量。限制仅在 `Auth:IngestKeyRequired=true` 时生效（否则导出器可以直接省略密钥），从不适用于 `Auth:StaticIngestApiKey`，更改与吊销一样在 30 秒内生效。这是软上限：只要用量仍低于上限，批次就会被接受，因此一个时间窗口可能会因正在处理的批次而略微超出上限。
 - **迁移每个导出器后，启用强制执行：创建至少一个密钥，更新导出器以发送它，*然后*设置 `Auth:IngestKeyRequired=true`（默认为 `false`，因此升级现有部署不会突然拒绝匿名摄取）。该标志独立于仪表板的“需要登录”开关 - 摄取强制和仪表板/API 用户身份验证是单独的门。
 - **对于自动化设置**（AppHost 在任一进程开始之前连接资源图，其中“单击仪表板中的按钮”不适合）：`Auth:StaticIngestApiKey` 是通过配置设置的固定键，与通过 UI 创建的任何键一起有效。这是 `Flare.AppHost`（本地开发）和 `Aspire.Hosting.Flare` 的 `AddFlare(..., apiKey: ...)` 使用的。
@@ -120,6 +121,7 @@
 - **轮换或撤销**：签发新令牌，再对旧令牌执行 `DELETE /api/access-tokens/{id}`。
   服务账号自己不能签发令牌，因此每次签发都会以某位管理员的名义记入[审计日志](#审计日志)。
 - **修改角色或停用**：在用户表中操作，与任何用户相同。停用后其令牌立即失效。
+- **查看或删除**：`GET /api/service-accounts/{id}`、`DELETE /api/service-accounts/{id}`。删除不可恢复，会移除其令牌和项目成员身份；若只想让账号无法认证，请改为停用。只有服务账号可以这样删除。
 
 ## 管理用户
 

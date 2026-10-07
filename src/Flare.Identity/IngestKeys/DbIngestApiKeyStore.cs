@@ -66,6 +66,16 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
+    public async Task<bool> RenameAsync(Guid id, string name, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE IngestApiKeys SET Name = @name WHERE Id = @id";
+        command.AddParameter("@id", id.ToString());
+        command.AddParameter("@name", name);
+        return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
+    }
+
     public async Task RevokeAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);

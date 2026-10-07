@@ -12,6 +12,9 @@ public interface IIngestApiKeyStore
     /// <summary>Moves a key to another project, or to instance-wide with null. False if no key has that id.</summary>
     Task<bool> SetProjectAsync(Guid id, Guid? projectId, CancellationToken cancellationToken = default);
 
+    /// <summary>Renames a key. False when it doesn't exist.</summary>
+    Task<bool> RenameAsync(Guid id, string name, CancellationToken cancellationToken = default);
+
     Task RevokeAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>Replaces a key's ingestion limits (ADR-0051). Returns false if no key has

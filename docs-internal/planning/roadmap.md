@@ -48,29 +48,11 @@ folders are where "what happened and why" actually lives.
   move the dropdown's controls there, leaving the dropdown as a shortcut.
   Not started. Remaining: instance defaults an admin can set for new users
   (theme, layout, time zone).
-- **Terraform / OpenTofu provider.** Manage Flare declaratively next to the
-  infrastructure it observes. The API is already close to provider-shaped:
-  alerts, SLOs and notification channels have full CRUD by GUID id, and service
-  accounts with access tokens (ADR-0082) give a non-interactive credential, so
-  the provider authenticates with a token and needs no session flow. Ship as a
-  separate repo (Go, `terraform-plugin-framework`) published to the Terraform
-  and OpenTofu registries, v1 resources: `flare_notification_channel`,
-  `flare_alert_rule`, `flare_slo`, `flare_dashboard`, `flare_pipeline_rule`,
-  `flare_maintenance_window`, `flare_ingest_key`, `flare_service_account`.
-  Open questions to settle in the ADR: (1) the OpenAPI document is only mapped
-  in Development (`MapOpenApi` in `Flare.Api/Program.cs`), so decide whether to
-  publish it as a build artifact and generate resource schemas from it
-  (`terraform-plugin-codegen-openapi`) or hand-write them; (2) references are
-  by id in the API but by name in the alert export, so the provider should
-  expose names as the stable key and resolve ids itself, otherwise plans churn
-  on recreated channels; (3) credentials (webhook URLs, SMTP, ingest-key
-  secrets) are write-only and never returned, so they need `sensitive`,
-  write-only attributes and a drift story; (4) API version compatibility,
-  since the provider and the server release separately (use `/api/version`,
-  ADR-0068). Depends on the config-as-code item for the by-name conventions
-  and for any resource that has no CRUD endpoint yet (maintenance windows,
-  metric attribute rules). Also ship `flare_*` data sources for channels and
-  services so alert rules can reference them. Not started.
+- **Terraform / OpenTofu provider.** Design settled in ADR-0146 (separate Go repo,
+  hand-written schemas, names as the stable key, write-only secrets, `/api/version`
+  compatibility). Phase 1 server prerequisites are done; remaining: the provider
+  repo (`flare_notification_channel`, `flare_alert_rule`, `flare_slo` first) and
+  registry publishing. Needs a Go toolchain. Not started.
 - **OTLP forwarding and archive export.** No way to copy ingested telemetry
   elsewhere. Add per-ingest-key or per-service forwarding of logs, traces and
   metrics to another OTLP endpoint (migration and dual-write) and an optional
