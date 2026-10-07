@@ -77,6 +77,8 @@ curl -X POST http://localhost:8080/api/metric-attribute-rules \
 and returns the series counts per matching metric. A prefix rule also shows
 up under the panel of every metric it matches, marked "via http.client.*".
 
+Rule names are unique (case-insensitive): saving a rule whose name another rule already uses is rejected with a 409, so tooling can address a rule by name.
+
 ## Turn off or delete a rule
 
 The metric's panel lists the rules that cover it, including prefix rules. Use

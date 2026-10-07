@@ -86,6 +86,8 @@ renvoie le nombre de séries par métrique concernée. Une règle à préfixe ap
 aussi dans le panneau de chaque métrique qu'elle couvre, marquée « via
 http.client.* ».
 
+Les noms de règles sont uniques (sans distinction de casse) : enregistrer une règle dont le nom est déjà pris par une autre est refusé avec un 409, ce qui permet aux outils de désigner une règle par son nom.
+
 ## Désactiver ou supprimer une règle
 
 Le panneau de la métrique liste les règles qui la couvrent, y compris celles à
