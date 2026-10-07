@@ -53,10 +53,11 @@ folders are where "what happened and why" actually lives.
   compatibility). Server prerequisites (phases 1 and 3 name uniqueness) are done and
   the provider repo has `flare_notification_channel`, `flare_alert_rule`, `flare_slo`,
   `flare_maintenance_window`, `flare_pipeline_rule`, `flare_ingest_key`,
-  `flare_service_account` and `flare_dashboard` (layout JSON passed through as-is,
-  ADR-0147 makes names unique per project), verified with OpenTofu acceptance tests
-  against a live stack. Remaining: `flare_metric_attribute_rule`, the `minServerVersion` bump once a Flare release
-  containing the server changes is cut, and registry publishing. In progress.
+  `flare_service_account`, `flare_dashboard` (layout JSON passed through as-is,
+  ADR-0147 makes names unique per project) and `flare_metric_attribute_rule`, verified
+  with OpenTofu acceptance tests against a live stack. Remaining: the `minServerVersion`
+  bump once a Flare release containing the server changes is cut, and registry
+  publishing. In progress.
 - **OTLP forwarding and archive export.** No way to copy ingested telemetry
   elsewhere. Add per-ingest-key or per-service forwarding of logs, traces and
   metrics to another OTLP endpoint (migration and dual-write) and an optional
