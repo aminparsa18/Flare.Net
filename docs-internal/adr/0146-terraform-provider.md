@@ -55,7 +55,7 @@ a "config-as-code" item would settle naming. Checking the code first:
    migration: these tables live in ClickHouse, which has no unique constraints, and checking on write
    means existing duplicates don't block anything, since an unchanged name is never rejected. Ingest-key
    names are unique among *active* keys so a rotated key can reuse its name. Dashboards are per-user, so
-   their names stay non-unique. Pipeline rules and maintenance windows got the same check in phase 3 (a
+   their names stay non-unique. Pipeline rules, maintenance windows and metric attribute rules got the same check in phase 3 (a
    follow-up PR, ahead of their provider resources). Dashboards became unique per project in ADR-0147.
    The check is read-then-write, so two concurrent creates of one name can both succeed; acceptable for
    an admin-driven API, and the provider's single apply is sequential.
