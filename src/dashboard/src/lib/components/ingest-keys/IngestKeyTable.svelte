@@ -14,6 +14,7 @@
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import FolderInputIcon from '@lucide/svelte/icons/folder-input';
+	import GlobeIcon from '@lucide/svelte/icons/globe';
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import { projects } from '$lib/projects/store.svelte';
@@ -102,6 +103,7 @@
 					{#if projects.mine.length}<Table.Head>{m.ingestKeyTable_projectColumn()}</Table.Head>{/if}
 					<Table.Head>{m.ingestKeyTable_createdColumn()}</Table.Head>
 					<Table.Head>{m.ingestKeyTable_limitsColumn()}</Table.Head>
+					<Table.Head>{m.ingestKeyTable_accessColumn()}</Table.Head>
 					<Table.Head>{m.ingestKeyTable_thisMinuteColumn()}</Table.Head>
 					<Table.Head>{m.ingestKeyTable_todayColumn()}</Table.Head>
 					<Table.Head class="text-right">{m.ingestKeyTable_actionsColumn()}</Table.Head>
@@ -131,6 +133,15 @@
 							{/if}
 						</Table.Cell>
 						<Table.Cell>
+							{#if key.allowedOrigins.length || key.allowedServices.length}
+								<Badge variant="secondary">
+									{m.ingestKeyTable_accessScoped({ origins: key.allowedOrigins.length, services: key.allowedServices.length })}
+								</Badge>
+							{:else}
+								<span class="text-muted-foreground text-xs">{m.ingestKeyTable_accessOpen()}</span>
+							{/if}
+						</Table.Cell>
+						<Table.Cell>
 							{#if key.isActive}
 								{@render usageCell(key.eventsThisMinute, key.maxEventsPerMinute, key.bytesThisMinute, key.maxBytesPerMinute, active)}
 							{:else}
@@ -150,6 +161,15 @@
 									<FolderInputIcon />
 								</Button>
 							{/if}
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								title={m.ingestKeyTable_editAccess()}
+								disabled={!key.isActive}
+								onclick={() => keys.openAccess(key)}
+							>
+								<GlobeIcon />
+							</Button>
 							<Button
 								variant="ghost"
 								size="icon-sm"

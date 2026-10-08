@@ -78,6 +78,8 @@ sont obligatoires, l'exporteur a besoin de
 JavaScript : tous les visiteurs peuvent la lire. Créez une clé dédiée au
 navigateur et limitez-la aux origines de votre site :
 
+Dans le tableau de bord, ouvrez **Settings > Ingest keys** et utilisez le bouton globe d'une clé pour modifier ses origines et services autorisés ; `flare apikey scope` fait de même depuis un terminal. Les appels d'API correspondants :
+
 ```bash
 curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/origins \
   -H "Authorization: Bearer $FLARE_TOKEN" \
