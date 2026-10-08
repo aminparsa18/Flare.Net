@@ -63,13 +63,6 @@ folders are where "what happened and why" actually lives.
   metrics to another OTLP endpoint (migration and dual-write) and an optional
   Parquet/NDJSON archive to S3-compatible storage; coordinate with the cold
   storage item so the two don't both claim the S3 config surface.
-- **Browser RUM and source maps (later).** No browser signal exists. Start with
-  accepting OTel-JS / Faro browser telemetry through the existing OTLP path
-  (page loads, web vitals, JS errors), a source-map upload API for symbolicating
-  stack traces on `/errors`, and a Frontend page. Only worth it if Flare targets
-  full-stack teams, not just .NET backends. Started: CORS on the OTLP/HTTP receiver, a
-  browser how-to and per-key origin and service allowlists (ADR-0149, ADR-0150) are in;
-  the CLI and the dashboard can set them (`flare apikey create/scope`, Settings > Ingest keys); JS errors (spans on `/errors`) and web vitals (histograms plus a dashboard template) use existing signals (ADR-0151); source-map upload and read-time symbolication on `/errors` are in (ADR-0152); remaining are the Frontend page and a dashboard view of uploaded maps.
 - **.NET MAUI / mobile SDK (later).** No client-app signal exists beyond what a
   hand-wired OTel exporter sends. Phase 1 is a docs how-to ("Send telemetry
   from a MAUI app to Flare") using stock `OpenTelemetry` packages, since OTLP
@@ -84,8 +77,8 @@ folders are where "what happened and why" actually lives.
   services, rate cap, write-only; builds on ADR-0051, since a key shipped in an
   app binary is effectively public), a Sessions/Devices view grouping traces by
   `session.id`, and app-version breakdowns on `/errors`. Phase 4 is
-  symbolication of trimmed/AOT stack traces, sharing the upload API from the
-  Browser RUM item above. Design points for the ADR: wrap `OpenTelemetry` or
+  symbolication of trimmed/AOT stack traces, sharing the source-map upload API
+  (ADR-0152). Design points for the ADR: wrap `OpenTelemetry` or
   stay a thin configuration package; trimming/AOT compatibility; privacy
   defaults (no PII in attributes, opt-in device id). First check how ingest keys
   behave for a public-client scenario (CORS, per-key service allowlists).

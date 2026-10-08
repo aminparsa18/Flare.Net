@@ -173,6 +173,10 @@ document.addEventListener('visibilitychange', () => {
 
 在 **Dashboards** 页面选择 **Create from template > Web vitals**。面板展示各指标的百分位数；Google 的目标值按 p75 衡量（LCP 低于 2.5 秒，INP 低于 200 毫秒，CLS 低于 0.1）。
 
+## 按路由拆分 vitals
+
+在传给 `histogram.record` 的属性中加入 `url.template`(如 `/orders/:id` 这样的路由模式,而不是原始 URL)。在**前端**页面展开服务即可看到各路由的 vitals。**页面加载**列统计 FCP 测量次数,每次页面加载一次。
+
 ## 还原压缩后的堆栈跟踪
 
 生产环境的 bundle 是压缩过的，因此错误堆栈看起来像 `at o (…/app-abc123.js:1:30)`。上传构建产生的 source map 后，Flare 会在 **Errors** 页面显示原始的函数、文件、行和列；堆栈被改写的记录会带有 **Source map applied** 标记。
@@ -193,6 +197,10 @@ flare sourcemaps upload ./dist --url https://flare.example.com \
 每个 `dist/**/*.map` 文件会以去掉 `.map` 的路径存储，例如 `dist/assets/app-abc123.js.map` 存为 `assets/app-abc123.js`。堆栈帧会匹配其脚本 URL 路径所能以之结尾的最长已存储路径。`flare sourcemaps list` 显示已存储的内容，`flare sourcemaps delete --service my-web-app --release 1.4.2` 删除某个版本。原始 API 为 `PUT /api/source-maps?service=&version=&bundle=`，请求体为 map 的 JSON。
 
 还原在打开某条记录时进行，因此错误发生之后才上传的 map 同样适用。map 通过 `service.name` 加 `service.version`（或 `vcs.revision` 资源属性）匹配，所以只要旧版本的错误仍在出现，就请保留它们的 map。接受最大 50 MB 的 map；索引 map（`sections`）会被拒绝。如果不想公开源码，请不要公开提供 `.map` 文件，也不要把它们部署到 bundle 里。
+
+## 在“前端”页面查看
+
+打开**前端**(用户菜单的**更多**列表中)。页面按服务显示所选时段内 LCP、INP、CLS、FCP 和 TTFB 的第 75 百分位(按 Google 阈值着色)及浏览器评为良好的测量占比,并列出浏览器端的主要 JavaScript 错误。这些错误是带有 `telemetry.sdk.language = webjs` 的资源产生的异常,点击**在错误页中打开**可继续查看。**设置 > Source maps** 按版本列出已上传的映射并可删除。
 
 ## 验证是否生效
 
