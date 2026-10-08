@@ -11,6 +11,7 @@ using Flare.Identity.MetricMetadata;
 using Flare.Identity.PasswordSetTokens;
 using Flare.Identity.PersonalAccessTokens;
 using Flare.Identity.SourceLinks;
+using Flare.Identity.SourceMaps;
 using Flare.Identity.Users;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -50,6 +51,7 @@ public static class FlareIdentityServiceCollectionExtensions
         builder.Services.AddSingleton<IProxyAuthSettingsStore, DbProxyAuthSettingsStore>();
         builder.Services.AddSingleton<IApdexThresholdStore, DbApdexThresholdStore>();
         builder.Services.AddSingleton<ISourceLinkStore, DbSourceLinkStore>();
+        builder.Services.AddSingleton<ISourceMapStore, DbSourceMapStore>();
         builder.Services.AddSingleton<IMetricMetadataOverrideStore, DbMetricMetadataOverrideStore>();
         builder.Services.AddSingleton<ILlmModelPriceStore, DbLlmModelPriceStore>();
         builder.Services.AddSingleton<IDashboardPinStore, DbDashboardPinStore>();

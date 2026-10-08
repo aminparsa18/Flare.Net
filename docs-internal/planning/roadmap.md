@@ -69,7 +69,7 @@ folders are where "what happened and why" actually lives.
   stack traces on `/errors`, and a Frontend page. Only worth it if Flare targets
   full-stack teams, not just .NET backends. Started: CORS on the OTLP/HTTP receiver, a
   browser how-to and per-key origin and service allowlists (ADR-0149, ADR-0150) are in;
-  the CLI and the dashboard can set them (`flare apikey create/scope`, Settings > Ingest keys); JS errors (spans on `/errors`) and web vitals (histograms plus a dashboard template) use existing signals (ADR-0151); remaining are the source-map upload API and the Frontend page.
+  the CLI and the dashboard can set them (`flare apikey create/scope`, Settings > Ingest keys); JS errors (spans on `/errors`) and web vitals (histograms plus a dashboard template) use existing signals (ADR-0151); source-map upload and read-time symbolication on `/errors` are in (ADR-0152); remaining are the Frontend page and a dashboard view of uploaded maps.
 - **.NET MAUI / mobile SDK (later).** No client-app signal exists beyond what a
   hand-wired OTel exporter sends. Phase 1 is a docs how-to ("Send telemetry
   from a MAUI app to Flare") using stock `OpenTelemetry` packages, since OTLP

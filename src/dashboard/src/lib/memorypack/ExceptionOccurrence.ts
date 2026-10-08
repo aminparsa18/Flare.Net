@@ -16,6 +16,8 @@ export class ExceptionOccurrence {
 	timestamp: Date;
 	stacktrace: string | null;
 	revision: string | null;
+	serviceVersion: string | null;
+	symbolicated: boolean;
 
 	constructor() {
 		this.traceId = null;
@@ -25,6 +27,8 @@ export class ExceptionOccurrence {
 		this.timestamp = new Date(0);
 		this.stacktrace = null;
 		this.revision = null;
+		this.serviceVersion = null;
+		this.symbolicated = false;
 	}
 
 	static serialize(value: ExceptionOccurrence | null): Uint8Array {
@@ -39,7 +43,7 @@ export class ExceptionOccurrence {
 			return;
 		}
 
-		writer.writeObjectHeader(7);
+		writer.writeObjectHeader(9);
 		writer.writeString(value.traceId);
 		writer.writeString(value.spanId);
 		writer.writeString(value.serviceName);
@@ -47,6 +51,8 @@ export class ExceptionOccurrence {
 		writeDateTimeOffset(writer, value.timestamp);
 		writer.writeString(value.stacktrace);
 		writer.writeString(value.revision);
+		writer.writeString(value.serviceVersion);
+		writer.writeBoolean(value.symbolicated);
 	}
 
 	static serializeArray(value: (ExceptionOccurrence | null)[] | null): Uint8Array {
@@ -70,7 +76,7 @@ export class ExceptionOccurrence {
 		}
 
 		const value = new ExceptionOccurrence();
-		if (count == 7) {
+		if (count == 9) {
 			value.traceId = reader.readString();
 			value.spanId = reader.readString();
 			value.serviceName = reader.readString();
@@ -78,7 +84,9 @@ export class ExceptionOccurrence {
 			value.timestamp = readDateTimeOffset(reader);
 			value.stacktrace = reader.readString();
 			value.revision = reader.readString();
-		} else if (count > 7) {
+			value.serviceVersion = reader.readString();
+			value.symbolicated = reader.readBoolean();
+		} else if (count > 9) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -96,6 +104,10 @@ export class ExceptionOccurrence {
 			if (count == 6) return value;
 			value.revision = reader.readString();
 			if (count == 7) return value;
+			value.serviceVersion = reader.readString();
+			if (count == 8) return value;
+			value.symbolicated = reader.readBoolean();
+			if (count == 9) return value;
 		}
 		return value;
 	}

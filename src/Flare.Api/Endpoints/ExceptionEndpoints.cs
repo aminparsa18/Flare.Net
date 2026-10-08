@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Flare.Api.Json;
 using Flare.Api.Model;
+using Flare.Api.SourceMaps;
 using Flare.Api.Query;
 
 namespace Flare.Api.Endpoints;
@@ -47,6 +48,7 @@ public static class ExceptionEndpoints
     private static async Task<IResult> HandleGetOccurrencesAsync(
         HttpContext http,
         IExceptionQueryService queryService,
+        IStackTraceSymbolicator symbolicator,
         CancellationToken cancellationToken)
     {
         ExceptionOccurrencesRequest? request;
@@ -65,7 +67,21 @@ public static class ExceptionEndpoints
         }
 
         var response = await queryService.GetOccurrencesAsync(request, cancellationToken);
+        response = response with { Occurrences = await SymbolicateAsync(response.Occurrences, symbolicator, cancellationToken) };
         return ApiSerialization.Write(http, response, ErrorsJsonContext.Default.ExceptionOccurrencesResponse);
+    }
+
+    /// <summary>Rewrites browser stack frames from uploaded source maps (ADR-0152); an occurrence nothing matches is returned as-is.</summary>
+    private static async Task<IReadOnlyList<ExceptionOccurrence>> SymbolicateAsync(IReadOnlyList<ExceptionOccurrence> occurrences, IStackTraceSymbolicator symbolicator, CancellationToken cancellationToken)
+    {
+        var result = new List<ExceptionOccurrence>(occurrences.Count);
+        foreach (var occurrence in occurrences)
+        {
+            var (stacktrace, symbolicated) = await symbolicator.SymbolicateAsync(occurrence.ServiceName, [occurrence.ServiceVersion, occurrence.Revision], occurrence.Stacktrace, cancellationToken);
+            result.Add(symbolicated ? occurrence with { Stacktrace = stacktrace, Symbolicated = true } : occurrence);
+        }
+
+        return result;
     }
 
     private static async Task<IResult> HandleGetFacetValuesAsync(

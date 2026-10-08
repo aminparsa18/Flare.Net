@@ -173,6 +173,27 @@ document.addEventListener('visibilitychange', () => {
 
 在 **Dashboards** 页面选择 **Create from template > Web vitals**。面板展示各指标的百分位数；Google 的目标值按 p75 衡量（LCP 低于 2.5 秒，INP 低于 200 毫秒，CLS 低于 0.1）。
 
+## 还原压缩后的堆栈跟踪
+
+生产环境的 bundle 是压缩过的，因此错误堆栈看起来像 `at o (…/app-abc123.js:1:30)`。上传构建产生的 source map 后，Flare 会在 **Errors** 页面显示原始的函数、文件、行和列；堆栈被改写的记录会带有 **Source map applied** 标记。
+
+先让应用上报其构建所对应的版本，值要与上传时使用的一致：
+
+```ts
+resourceFromAttributes({ 'service.name': 'my-web-app', 'service.version': '1.4.2' })
+```
+
+然后在 CI 步骤中从构建输出上传 map，并在 `FLARE_API_TOKEN` 中提供管理员的[个人访问令牌](configure-authentication.md)：
+
+```bash
+flare sourcemaps upload ./dist --url https://flare.example.com \
+  --service my-web-app --release 1.4.2
+```
+
+每个 `dist/**/*.map` 文件会以去掉 `.map` 的路径存储，例如 `dist/assets/app-abc123.js.map` 存为 `assets/app-abc123.js`。堆栈帧会匹配其脚本 URL 路径所能以之结尾的最长已存储路径。`flare sourcemaps list` 显示已存储的内容，`flare sourcemaps delete --service my-web-app --release 1.4.2` 删除某个版本。原始 API 为 `PUT /api/source-maps?service=&version=&bundle=`，请求体为 map 的 JSON。
+
+还原在打开某条记录时进行，因此错误发生之后才上传的 map 同样适用。map 通过 `service.name` 加 `service.version`（或 `vcs.revision` 资源属性）匹配，所以只要旧版本的错误仍在出现，就请保留它们的 map。接受最大 50 MB 的 map；索引 map（`sections`）会被拒绝。如果不想公开源码，请不要公开提供 `.map` 文件，也不要把它们部署到 bundle 里。
+
 ## 验证是否生效
 
 打开 **Traces** 页面，按服务 `my-web-app` 过滤。一次页面加载会显示为 `documentLoad` trace，
@@ -181,5 +202,4 @@ document.addEventListener('visibilitychange', () => {
 
 ## 限制
 
-- 压缩后的 bundle 的堆栈跟踪目前尚未符号化。
 - 关闭标签页时，浏览器可能会丢失最后一批数据。

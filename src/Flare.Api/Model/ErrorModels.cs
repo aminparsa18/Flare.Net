@@ -122,6 +122,12 @@ public sealed partial record ExceptionOccurrence
 
     /// <summary>The emitting app's build revision, for linking stack frames to source: the span's <c>vcs.ref.head.revision</c> / <c>vcs.revision</c> resource attribute, else <c>service.version</c> (SourceLink-stamped .NET versions look like <c>1.2.3+abc1234</c>). Empty when none is set. Last member on purpose - MemoryPack tolerates trailing additions.</summary>
     public string Revision { get; init; } = "";
+
+    /// <summary>The span's <c>service.version</c> resource attribute, which an uploaded source map's version is matched against (ADR-0152). Empty when none is set.</summary>
+    public string ServiceVersion { get; init; } = "";
+
+    /// <summary>True when <see cref="Stacktrace"/> was rewritten from an uploaded source map (browser frames mapped back to original sources).</summary>
+    public bool Symbolicated { get; init; }
 }
 
 /// <summary>

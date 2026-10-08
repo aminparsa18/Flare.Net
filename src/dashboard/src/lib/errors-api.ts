@@ -116,6 +116,8 @@ export interface ExceptionOccurrence {
 	stacktrace: string;
 	/** Build revision (commit SHA / `service.version`) - see `ExceptionOccurrence.Revision`; '' when unset. */
 	revision: string;
+	/** True when the stack trace was rewritten from an uploaded source map (ADR-0152). */
+	symbolicated: boolean;
 }
 
 function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccurrence {
@@ -126,7 +128,8 @@ function toExceptionOccurrence(dto: GeneratedExceptionOccurrence): ExceptionOccu
 		spanName: dto.spanName ?? '',
 		timestamp: dto.timestamp.toISOString(),
 		stacktrace: dto.stacktrace ?? '',
-		revision: dto.revision ?? ''
+		revision: dto.revision ?? '',
+		symbolicated: dto.symbolicated
 	};
 }
 

@@ -65,6 +65,8 @@ public sealed class ExceptionQueryService(IClickHouseClient client, IOptions<Que
                 SpanName = reader.GetString(3),
                 Timestamp = ReadUtc(reader, 4),
                 Stacktrace = reader.GetString(5),
+                Revision = reader.GetString(6),
+                ServiceVersion = reader.GetString(7),
             });
         }
 

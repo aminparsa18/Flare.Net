@@ -825,6 +825,7 @@
 	"exceptionOccurrenceDialog_timestampColumn": "时间",
 	"exceptionOccurrenceDialog_viewTrace": "查看追踪",
 	"exceptionOccurrenceDialog_showStacktrace": "显示堆栈跟踪",
+	"exceptionOccurrenceDialog_symbolicated": "已应用 source map",
 	"metricsToolbar_serviceLabel": "服务",
 	"metricsToolbar_groupByLabel": "分组方式",
 	"metricsToolbar_groupByWithKey": "分组方式:{key}",

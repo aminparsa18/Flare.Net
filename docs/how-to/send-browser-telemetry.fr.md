@@ -184,6 +184,27 @@ document.addEventListener('visibilitychange', () => {
 
 Sur la page **Dashboards**, choisissez **Create from template > Web vitals**. Les panneaux affichent les percentiles de chaque indicateur ; les objectifs de Google se mesurent au p75 (LCP sous 2,5 s, INP sous 200 ms, CLS sous 0,1).
 
+## Symboliser les traces de pile minifiées
+
+Les bundles de production sont minifiés : la pile d'une erreur ressemble à `at o (…/app-abc123.js:1:30)`. Importez les source maps du build et Flare affiche à la place la fonction, le fichier, la ligne et la colonne d'origine sur **Errors** ; une occurrence dont la trace a été réécrite porte le badge **Source map applied**.
+
+Faites d'abord déclarer à l'application la version dont elle provient, avec la même valeur que lors de l'import :
+
+```ts
+resourceFromAttributes({ 'service.name': 'my-web-app', 'service.version': '1.4.2' })
+```
+
+Importez ensuite les maps depuis la sortie du build dans une étape CI, avec un [jeton d'accès personnel](configure-authentication.md) d'administrateur dans `FLARE_API_TOKEN` :
+
+```bash
+flare sourcemaps upload ./dist --url https://flare.example.com \
+  --service my-web-app --release 1.4.2
+```
+
+Chaque fichier `dist/**/*.map` est stocké sous son chemin sans `.map` : `dist/assets/app-abc123.js.map` devient `assets/app-abc123.js`. Une frame correspond au plus long chemin stocké par lequel se termine l'URL de son script. `flare sourcemaps list` montre ce qui est stocké et `flare sourcemaps delete --service my-web-app --release 1.4.2` supprime une version. L'API brute est `PUT /api/source-maps?service=&version=&bundle=` avec le JSON de la map comme corps.
+
+La symbolisation a lieu à l'ouverture d'une occurrence : les maps importées après une erreur s'y appliquent aussi. Une map est associée via `service.name` et `service.version` (ou l'attribut de ressource `vcs.revision`) ; conservez donc les maps des anciennes versions tant que leurs erreurs surviennent. Les maps jusqu'à 50 Mo sont acceptées ; les index maps (`sections`) sont refusées. Ne servez pas les fichiers `.map` publiquement si vous ne voulez pas exposer votre source, et ne les déployez pas avec le bundle.
+
 ## Vérifier que ça fonctionne
 
 Ouvrez la page **Traces** et filtrez sur le service `my-web-app`. Un chargement de
@@ -193,5 +214,4 @@ page apparaît comme une trace `documentLoad` avec des spans enfants
 
 ## Limites
 
-- Les traces de pile des bundles minifiés ne sont pas encore symbolisées.
 - Les navigateurs peuvent perdre le dernier lot à la fermeture d'un onglet.

@@ -825,6 +825,7 @@
 	"exceptionOccurrenceDialog_timestampColumn": "Время",
 	"exceptionOccurrenceDialog_viewTrace": "Просмотреть трассировку",
 	"exceptionOccurrenceDialog_showStacktrace": "Показать стек вызовов",
+	"exceptionOccurrenceDialog_symbolicated": "Применена карта кода",
 	"metricsToolbar_serviceLabel": "Сервис",
 	"metricsToolbar_groupByLabel": "Группировать по",
 	"metricsToolbar_groupByWithKey": "Группировать по: {key}",
