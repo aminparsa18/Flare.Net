@@ -825,6 +825,7 @@
 	"exceptionOccurrenceDialog_timestampColumn": "Time",
 	"exceptionOccurrenceDialog_viewTrace": "View trace",
 	"exceptionOccurrenceDialog_showStacktrace": "Show stack trace",
+	"exceptionOccurrenceDialog_symbolicated": "Source map applied",
 	"metricsToolbar_serviceLabel": "Service",
 	"metricsToolbar_groupByLabel": "Group by",
 	"metricsToolbar_groupByWithKey": "Group by: {key}",

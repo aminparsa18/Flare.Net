@@ -375,6 +375,7 @@ builder.Services.AddFlareMcp(builder.Configuration);
 builder.Services.AddHttpClient(Flare.Api.Source.SourceSnippetService.HttpClientName)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddSingleton<Flare.Api.Source.ISourceSnippetService, Flare.Api.Source.SourceSnippetService>();
+builder.Services.AddSingleton<Flare.Api.SourceMaps.IStackTraceSymbolicator, Flare.Api.SourceMaps.StackTraceSymbolicator>();
 // AI actions (ADR-0103): the standard resilience handler's 10s attempt timeout and retries would
 // cut off and re-send a slow, non-idempotent LLM call, so it's removed; the service owns the timeout.
 builder.Services.Configure<Flare.Api.Ai.AiOptions>(builder.Configuration.GetSection(Flare.Api.Ai.AiOptions.SectionName));
@@ -525,6 +526,7 @@ authenticatedRoutes.MapMetricsEndpoints();
 authenticatedRoutes.MapPrometheusEndpoints();
 authenticatedRoutes.MapServicesEndpoints();
 authenticatedRoutes.MapSourceLinkReadEndpoints();
+authenticatedRoutes.MapSourceMapReadEndpoints();
 authenticatedRoutes.MapAiEndpoints();
 authenticatedRoutes.MapHostInventoryEndpoints();
 authenticatedRoutes.MapMetricCatalogEndpoints();
@@ -617,6 +619,8 @@ adminRoutes.MapRetentionWriteEndpoints();
 // Same reasoning for source-repo links - they change where every user's stack-trace links
 // point. Reading stays on authenticatedRoutes (ADR-0095).
 adminRoutes.MapSourceLinkWriteEndpoints();
+// Source-map upload/delete (ADR-0152): changes what every user sees on /errors, and is what CI calls.
+adminRoutes.MapSourceMapWriteEndpoints();
 // Projects (ADR-0123): admin-managed service boundaries + per-project member roles.
 adminRoutes.MapProjectEndpoints();
 // Same reasoning for a metric's unit/description override - it changes what every user sees

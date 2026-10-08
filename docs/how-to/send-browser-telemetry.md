@@ -125,7 +125,7 @@ window.addEventListener('error', (e) => report(e.error ?? e.message));
 window.addEventListener('unhandledrejection', (e) => report(e.reason));
 ```
 
-The errors appear on **Errors** grouped by type and message. Add the resource filter `telemetry.sdk.language = webjs` to see browser errors only. Throw `Error` objects: a thrown string has no type, so it is not grouped. Stack traces from minified bundles are not symbolicated yet.
+The errors appear on **Errors** grouped by type and message. Add the resource filter `telemetry.sdk.language = webjs` to see browser errors only. Throw `Error` objects: a thrown string has no type, so it is not grouped. Upload source maps to read minified stacks (see below).
 
 ## Report web vitals
 
@@ -180,6 +180,27 @@ document.addEventListener('visibilitychange', () => {
 
 On the **Dashboards** page choose **Create from template > Web vitals**. The panels chart each vital's percentiles; Google's targets are measured at p75 (LCP under 2.5 s, INP under 200 ms, CLS under 0.1).
 
+## Symbolicate minified stack traces
+
+Production bundles are minified, so an error's stack shows `at o (…/app-abc123.js:1:30)`. Upload the build's source maps and Flare shows the original function, file, line and column on **Errors** instead; an occurrence whose trace was rewritten carries a **Source map applied** badge.
+
+First make the app report the release it was built from, using the same value you upload with:
+
+```ts
+resourceFromAttributes({ 'service.name': 'my-web-app', 'service.version': '1.4.2' })
+```
+
+Then upload the maps from your build output as a CI step, with a [personal access token](configure-authentication.md) of an admin in `FLARE_API_TOKEN`:
+
+```bash
+flare sourcemaps upload ./dist --url https://flare.example.com \
+  --service my-web-app --release 1.4.2
+```
+
+Each `dist/**/*.map` file is stored under its path with `.map` removed, so `dist/assets/app-abc123.js.map` is stored as `assets/app-abc123.js`. A frame matches the longest stored path that its script URL ends with. `flare sourcemaps list` shows what is stored and `flare sourcemaps delete --service my-web-app --release 1.4.2` removes a release. The raw API is `PUT /api/source-maps?service=&version=&bundle=` with the map JSON as the body.
+
+Symbolication happens when you open an occurrence, so maps uploaded after an error still apply to it. A map is matched on `service.name` plus `service.version` (or the `vcs.revision` resource attribute), so keep old releases' maps while their errors still occur. Maps up to 50 MB are accepted; index maps (`sections`) are rejected. Do not serve the `.map` files publicly if you don't want your source readable, and keep them out of the deployed bundle.
+
 ## Check it worked
 
 Open the **Traces** page and filter by service `my-web-app`. A page load shows
@@ -189,5 +210,4 @@ services.
 
 ## Limits
 
-- Stack traces from minified bundles are not symbolicated yet.
 - Browsers may drop the last batch when a tab closes.

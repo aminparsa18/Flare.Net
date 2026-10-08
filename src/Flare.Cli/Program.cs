@@ -77,6 +77,15 @@ app.Configure(config =>
         apikey.AddCommand<ApiKeyScopeCommand>("scope")
             .WithDescription("Restrict an ingest key to browser origins and/or services.");
     });
+    config.AddBranch("sourcemaps", sourcemaps =>
+    {
+        sourcemaps.AddCommand<SourceMapsUploadCommand>("upload")
+            .WithDescription("Upload JavaScript source maps so browser stack traces on /errors show original sources.");
+        sourcemaps.AddCommand<SourceMapsListCommand>("list")
+            .WithDescription("List uploaded source maps.");
+        sourcemaps.AddCommand<SourceMapsDeleteCommand>("delete")
+            .WithDescription("Delete a release's source maps (or one bundle's).");
+    });
     config.AddBranch("notification-channels", notificationChannels =>
     {
         notificationChannels.AddCommand<NotificationChannelsListCommand>("list")
