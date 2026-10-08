@@ -11,9 +11,15 @@ public sealed record IngestApiKey(Guid Id, string Name, DateTimeOffset CreatedAt
 
     /// <summary>The owning project (ADR-0123), or null for an instance-wide key.</summary>
     public Guid? ProjectId { get; init; }
+
+    /// <summary>Browser origins allowed to use this key (ADR-0149); empty = unrestricted.</summary>
+    public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
 }
 
 /// <summary>What <c>Flare.Ingest</c>'s validation cache needs per active key: the hash to
 /// match a presented key against, plus the id/name/limits to enforce and attribute usage
 /// under (ADR-0051).</summary>
-public sealed record ActiveIngestApiKey(Guid Id, string Name, string KeyHash, IngestApiKeyLimits Limits);
+public sealed record ActiveIngestApiKey(Guid Id, string Name, string KeyHash, IngestApiKeyLimits Limits)
+{
+    public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
+}

@@ -22,4 +22,13 @@ public sealed class OtlpReceiverOptions
     /// per-request memory ceiling. Must fit in an <see cref="int"/> (the gRPC limit's type).
     /// </summary>
     public long MaxRequestSizeBytes { get; set; } = DefaultMaxRequestSizeBytes;
+
+    /// <summary>
+    /// Browser origins allowed to POST OTLP/HTTP (e.g. <c>https://app.example.com</c>), bound
+    /// from <c>Otlp__AllowedOrigins__0</c>. Empty (the default) sends no CORS headers, so
+    /// browser exporters are blocked and server-side exporters are unaffected. <c>*</c> allows
+    /// any origin - fine only with ingest keys off or a key you accept being public, since a
+    /// key embedded in a web page is visible to every visitor.
+    /// </summary>
+    public string[] AllowedOrigins { get; set; } = [];
 }

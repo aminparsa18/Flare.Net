@@ -30,6 +30,22 @@ public class DbIngestApiKeyStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SetAllowedOriginsAsync_RoundTripsThroughListAndActiveKeys_AndClears()
+    {
+        var (key, _) = await _store.CreateAsync("browser");
+        Assert.Empty((await _store.ListAsync()).Single().AllowedOrigins);
+
+        Assert.True(await _store.SetAllowedOriginsAsync(key.Id, ["https://a.example.com", "http://localhost:5173"]));
+
+        Assert.Equal(["https://a.example.com", "http://localhost:5173"], (await _store.ListAsync()).Single().AllowedOrigins);
+        Assert.Equal(["https://a.example.com", "http://localhost:5173"], (await _store.ListActiveKeysAsync()).Single().AllowedOrigins);
+
+        await _store.SetAllowedOriginsAsync(key.Id, []);
+        Assert.Empty((await _store.ListAsync()).Single().AllowedOrigins);
+        Assert.False(await _store.SetAllowedOriginsAsync(Guid.NewGuid(), []));
+    }
+
+    [Fact]
     public async Task CreateAsync_GeneratesADifferentRawKeyEachTime()
     {
         var (_, rawA) = await _store.CreateAsync("key-a");

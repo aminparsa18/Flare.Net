@@ -82,6 +82,11 @@ accepts. The same value applies to gRPC (`MaxReceiveMessageSize`) and HTTP (Kest
 | Setting | Env var | Default |
 |---|---|---|
 | `MaxRequestSizeBytes` | `Otlp__MaxRequestSizeBytes` | `67108864` (64 MiB) |
+| `AllowedOrigins` | `Otlp__AllowedOrigins__0`, `__1`, ... | empty (no CORS headers) |
+
+`AllowedOrigins` lets browser exporters (OTel-JS, Faro) POST to `:4318`: it answers the CORS
+preflight before the ingest-key check. `*` allows any origin. A key shipped in a web page is
+public, so pair browser origins with a restricted key.
 
 64 MiB is the OpenTelemetry spec's recommended cap and the .NET SDK exporter's own default.
 An exporter treats a size rejection as non-retryable and drops the **whole** batch, so

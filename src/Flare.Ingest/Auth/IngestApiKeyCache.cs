@@ -23,6 +23,11 @@ public sealed class IngestApiKeyCache(IIngestApiKeyStore store, IOptions<IngestA
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(30);
 
     private volatile Dictionary<string, IngestKeyCacheEntry> _activeKeys = [];
+    private volatile HashSet<string> _keyOrigins = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True when any active key lists <paramref name="origin"/> - what the CORS preflight
+    /// (which carries no key) is answered from; the per-key check happens on the real request (ADR-0149).</summary>
+    public bool AnyKeyAllowsOrigin(string origin) => _keyOrigins.Contains(origin);
 
     /// <summary>Takes the raw presented key (e.g. straight off the <c>Authorization:
     /// Bearer</c> header) and hashes it internally - callers never need to know the hash
@@ -58,7 +63,10 @@ public sealed class IngestApiKeyCache(IIngestApiKeyStore store, IOptions<IngestA
             var map = new Dictionary<string, IngestKeyCacheEntry>(keys.Count + 1, StringComparer.Ordinal);
             foreach (var key in keys)
             {
-                map[key.KeyHash] = new IngestKeyCacheEntry(key.Id, key.Name, key.Limits);
+                map[key.KeyHash] = new IngestKeyCacheEntry(key.Id, key.Name, key.Limits)
+                {
+                    AllowedOrigins = key.AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase),
+                };
             }
 
             // Merged into the same lookup path rather than a separate check - the static
@@ -69,6 +77,7 @@ public sealed class IngestApiKeyCache(IIngestApiKeyStore store, IOptions<IngestA
                 map.TryAdd(IngestApiKeyHasher.Hash(options.Value.StaticIngestApiKey), IngestKeyCacheEntry.StaticKey);
             }
 
+            _keyOrigins = map.Values.SelectMany(k => k.AllowedOrigins).ToHashSet(StringComparer.OrdinalIgnoreCase);
             _activeKeys = map;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -85,5 +94,8 @@ public sealed class IngestApiKeyCache(IIngestApiKeyStore store, IOptions<IngestA
 /// limits or usage tracking (ADR-0051).</summary>
 public sealed record IngestKeyCacheEntry(Guid? KeyId, string Name, IngestApiKeyLimits Limits)
 {
+    /// <summary>Browser origins this key is restricted to (ADR-0149); empty = unrestricted.</summary>
+    public IReadOnlySet<string> AllowedOrigins { get; init; } = new HashSet<string>();
+
     public static readonly IngestKeyCacheEntry StaticKey = new(null, "static", IngestApiKeyLimits.None);
 }

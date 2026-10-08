@@ -26,6 +26,7 @@ public static class IngestApiKeyEndpoints
         endpoints.MapPut("/api/ingest-keys/{id:guid}/limits", HandleUpdateLimitsAsync);
         endpoints.MapPut("/api/ingest-keys/{id:guid}/project", HandleSetProjectAsync);
         endpoints.MapPut("/api/ingest-keys/{id:guid}/name", HandleRenameAsync);
+        endpoints.MapPut("/api/ingest-keys/{id:guid}/origins", HandleSetOriginsAsync);
         return endpoints;
     }
 
@@ -164,6 +165,41 @@ public static class IngestApiKeyEndpoints
         return Results.NoContent();
     }
 
+    /// <summary>Restricts a key to browser origins (ADR-0149); an empty list lifts the restriction. Takes effect
+    /// within the Ingest key cache's refresh interval, like limits.</summary>
+    private static async Task<IResult> HandleSetOriginsAsync(Guid id, HttpContext http, IIngestApiKeyStore keys, CancellationToken cancellationToken)
+    {
+        SetIngestApiKeyOriginsRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, IngestApiKeysJsonContext.Default.SetIngestApiKeyOriginsRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request is null)
+        {
+            return Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var (origins, error) = IngestKeyOrigins.Normalize(request.Origins);
+        if (origins is null)
+        {
+            return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var before = (await keys.ListAsync(cancellationToken)).FirstOrDefault(k => k.Id == id);
+        if (before is null || !await keys.SetAllowedOriginsAsync(id, origins, cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        AuditContext.SetChange(http, new { before.AllowedOrigins }, new { AllowedOrigins = origins });
+        return Results.NoContent();
+    }
+
     /// <summary>Moves a key to another project, or to instance-wide (ADR-0123). Ownership metadata only: the
     /// key's own behaviour (what it may ingest) doesn't change, which is why managing keys stays Admin-only.</summary>
     private static async Task<IResult> HandleSetProjectAsync(Guid id, HttpContext http, IIngestApiKeyStore keys, IProjectStore projects, CancellationToken cancellationToken)
@@ -246,5 +282,6 @@ public static class IngestApiKeyEndpoints
         EventsToday = usage.EventsToday,
         BytesToday = usage.BytesToday,
         ProjectId = key.ProjectId,
+        AllowedOrigins = key.AllowedOrigins,
     };
 }

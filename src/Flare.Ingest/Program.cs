@@ -12,6 +12,7 @@ using Flare.Ingest.Sampling;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Flare.ServiceDefaults.ClickHouseMigrations;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,6 +44,22 @@ builder.WebHost.ConfigureKestrel(options =>
 // default. The built-in providers handle gzip/deflate/br via Content-Encoding and keep
 // enforcing Kestrel's MaxRequestBodySize on the decompressed stream.
 builder.Services.AddRequestDecompression();
+
+// Browser OTLP exporters (OTel-JS, Faro) are cross-origin, so they need a CORS preflight
+// answer. An origin is allowed if it is in Otlp:AllowedOrigins or listed on any active
+// ingest key (ADR-0149); with neither, no CORS headers are sent. The preflight carries no
+// key, so which key may use which origin is enforced on the actual request, in
+// IngestApiKeyValidationMiddleware.
+const string BrowserCorsPolicy = "OtlpBrowser";
+builder.Services.AddCors();
+builder.Services.AddOptions<CorsOptions>().Configure<IngestApiKeyCache>((cors, keyCache) =>
+    cors.AddPolicy(BrowserCorsPolicy, policy =>
+    {
+        var origins = otlpReceiverOptions.AllowedOrigins;
+        policy.SetIsOriginAllowed(origin =>
+            origins.Contains("*") || origins.Contains(origin, StringComparer.OrdinalIgnoreCase) || keyCache.AnyKeyAllowsOrigin(origin));
+        policy.WithMethods("POST").WithHeaders("Content-Type", "Content-Encoding", "Authorization").SetPreflightMaxAge(TimeSpan.FromHours(1));
+    }));
 
 builder.Services.AddGrpc(options => options.MaxReceiveMessageSize = (int)otlpReceiverOptions.MaxRequestSizeBytes);
 
@@ -221,6 +238,11 @@ await app.Services.GetRequiredService<IngestApiKeyCache>().InitializeAsync(Cance
 app.MapDefaultEndpoints();
 
 app.UseRequestDecompression();
+
+// Before the key check: a preflight OPTIONS carries no Authorization header, so it must be
+// answered here rather than rejected with 401. With no origins configured the policy
+// matches nothing, so no CORS headers are emitted.
+app.UseCors(BrowserCorsPolicy);
 
 // Must come after MapDefaultEndpoints() (so /health and /alive stay reachable
 // unconditionally - see the middleware's own remarks for why this is a positive

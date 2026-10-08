@@ -25,6 +25,7 @@ export class IngestApiKeyDto {
 	eventsToday: bigint;
 	bytesToday: bigint;
 	projectId: string | null;
+	allowedOrigins: string[];
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -42,6 +43,7 @@ export class IngestApiKeyDto {
 		this.eventsToday = 0n;
 		this.bytesToday = 0n;
 		this.projectId = null;
+		this.allowedOrigins = [];
 	}
 
 	static serialize(value: IngestApiKeyDto | null): Uint8Array {
@@ -56,7 +58,7 @@ export class IngestApiKeyDto {
 			return;
 		}
 
-		writer.writeObjectHeader(15);
+		writer.writeObjectHeader(16);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writeDateTimeOffset(writer, value.createdAt);
@@ -72,6 +74,7 @@ export class IngestApiKeyDto {
 		writer.writeInt64(value.eventsToday);
 		writer.writeInt64(value.bytesToday);
 		writer.writeNullableGuid(value.projectId);
+		writer.writeArray(value.allowedOrigins, (writer, x) => writer.writeString(x));
 	}
 
 	static serializeArray(value: (IngestApiKeyDto | null)[] | null): Uint8Array {
@@ -95,7 +98,7 @@ export class IngestApiKeyDto {
 		}
 
 		const value = new IngestApiKeyDto();
-		if (count == 15) {
+		if (count == 16) {
 			value.id = reader.readGuid();
 			value.name = reader.readString() ?? '';
 			value.createdAt = readDateTimeOffset(reader);
@@ -111,7 +114,8 @@ export class IngestApiKeyDto {
 			value.eventsToday = reader.readInt64();
 			value.bytesToday = reader.readInt64();
 			value.projectId = reader.readNullableGuid();
-		} else if (count > 15) {
+			value.allowedOrigins = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
+		} else if (count > 16) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -145,6 +149,8 @@ export class IngestApiKeyDto {
 			if (count == 14) return value;
 			value.projectId = reader.readNullableGuid();
 			if (count == 15) return value;
+			value.allowedOrigins = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
+			if (count == 16) return value;
 		}
 		return value;
 	}

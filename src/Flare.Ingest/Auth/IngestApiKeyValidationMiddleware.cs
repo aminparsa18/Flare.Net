@@ -60,6 +60,17 @@ public sealed class IngestApiKeyValidationMiddleware(
             return;
         }
 
+        // An origin-restricted key (ADR-0149) is a browser key: it only works from a listed
+        // Origin. A missing Origin (curl, a server exporter) is refused too. The header is
+        // spoofable outside a browser, so this limits where a leaked key is usable from a
+        // web page, not who can send with it.
+        if (key.AllowedOrigins.Count > 0
+            && !(context.Request.Headers.Origin.ToString() is { Length: > 0 } origin && key.AllowedOrigins.Contains(origin)))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
         if (key.KeyId is not { } keyId)
         {
             await next(context);

@@ -21,6 +21,10 @@ public interface IIngestApiKeyStore
     /// that id. Allowed on a revoked key too - harmless, and it keeps this a plain update.</summary>
     Task<bool> UpdateLimitsAsync(Guid id, IngestApiKeyLimits limits, CancellationToken cancellationToken = default);
 
+    /// <summary>Replaces a key's browser-origin allowlist with already-normalized origins
+    /// (<see cref="IngestKeyOrigins.Normalize"/>); empty = unrestricted (ADR-0149). False if no key has that id.</summary>
+    Task<bool> SetAllowedOriginsAsync(Guid id, IReadOnlyList<string> origins, CancellationToken cancellationToken = default);
+
     /// <summary>Every currently-active key's hash, id, name and limits. <c>Flare.Ingest</c>
     /// polls this on a timer (see docs/auth.md) to build its in-memory validation cache,
     /// rather than hitting SQLite on every OTLP request - the ingest hot path only ever

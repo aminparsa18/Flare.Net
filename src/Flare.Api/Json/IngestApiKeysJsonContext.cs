@@ -13,4 +13,5 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(UpdateIngestApiKeyLimitsRequest))]
 [JsonSerializable(typeof(SetIngestApiKeyProjectRequest))]
 [JsonSerializable(typeof(RenameIngestApiKeyRequest))]
+[JsonSerializable(typeof(SetIngestApiKeyOriginsRequest))]
 public sealed partial class IngestApiKeysJsonContext : JsonSerializerContext;
