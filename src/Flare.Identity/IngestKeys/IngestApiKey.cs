@@ -14,6 +14,9 @@ public sealed record IngestApiKey(Guid Id, string Name, DateTimeOffset CreatedAt
 
     /// <summary>Browser origins allowed to use this key (ADR-0149); empty = unrestricted.</summary>
     public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
+
+    /// <summary>service.name values this key may write for (ADR-0150); empty = any.</summary>
+    public IReadOnlyList<string> AllowedServices { get; init; } = [];
 }
 
 /// <summary>What <c>Flare.Ingest</c>'s validation cache needs per active key: the hash to
@@ -22,4 +25,6 @@ public sealed record IngestApiKey(Guid Id, string Name, DateTimeOffset CreatedAt
 public sealed record ActiveIngestApiKey(Guid Id, string Name, string KeyHash, IngestApiKeyLimits Limits)
 {
     public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
+
+    public IReadOnlyList<string> AllowedServices { get; init; } = [];
 }

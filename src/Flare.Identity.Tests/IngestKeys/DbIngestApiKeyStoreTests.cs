@@ -46,6 +46,21 @@ public class DbIngestApiKeyStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SetAllowedServicesAsync_RoundTripsThroughListAndActiveKeys_AndClears()
+    {
+        var (key, _) = await _store.CreateAsync("browser");
+
+        Assert.True(await _store.SetAllowedServicesAsync(key.Id, ["web", "checkout"]));
+
+        Assert.Equal(["web", "checkout"], (await _store.ListAsync()).Single().AllowedServices);
+        Assert.Equal(["web", "checkout"], (await _store.ListActiveKeysAsync()).Single().AllowedServices);
+
+        await _store.SetAllowedServicesAsync(key.Id, []);
+        Assert.Empty((await _store.ListAsync()).Single().AllowedServices);
+        Assert.False(await _store.SetAllowedServicesAsync(Guid.NewGuid(), []));
+    }
+
+    [Fact]
     public async Task CreateAsync_GeneratesADifferentRawKeyEachTime()
     {
         var (_, rawA) = await _store.CreateAsync("key-a");

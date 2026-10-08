@@ -88,6 +88,16 @@ the list; curl and server exporters get `403`. A listed origin is also allowed
 through CORS, so with a restricted key you don't need `Otlp__AllowedOrigins`.
 Changes apply within 30 seconds. An empty list removes the restriction.
 
+You can also pin the key to the services it may write for. An export containing any
+other (or no) `service.name` is refused with `403`:
+
+```bash
+curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/services \
+  -H "Authorization: Bearer $FLARE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "services": ["my-web-app"] }'
+```
+
 This does not make the key secret: anyone can still forge an `Origin` header
 outside a browser. Set [per-key limits](configure-authentication.md#ingest-api-keys)
 to cap what a leaked key can send.

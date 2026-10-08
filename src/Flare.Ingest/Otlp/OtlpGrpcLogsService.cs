@@ -25,6 +25,12 @@ public sealed class OtlpGrpcLogsService(
         // for stats purposes without needing the original raw bytes.
         var byteCount = request.CalculateSize();
 
+        if (IngestKeyScope.RejectsServices(context.GetHttpContext(), request.ResourceLogs.Select(r => r.Resource)))
+        {
+            await stats.RecordRejectedAsync(IngestionSignal.Logs, IngestionProtocol.Grpc, "service-not-allowed", context.CancellationToken);
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Service not allowed for this ingest key"));
+        }
+
         // Captured once per request, not per record - see LogEvent.IngestedAt's remarks
         // and ADR-0014.
         var ingestedAt = timeProvider.GetUtcNow();

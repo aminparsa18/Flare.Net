@@ -88,7 +88,7 @@ public sealed class IngestApiKeyValidationMiddleware(
             return;
         }
 
-        var usage = new IngestKeyUsageFeature(keyId);
+        var usage = new IngestKeyUsageFeature(keyId) { AllowedServices = key.AllowedServices };
         context.Features.Set(usage);
 
         await next(context);

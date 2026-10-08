@@ -21,6 +21,12 @@ public sealed class OtlpGrpcProfilesService(
         ServerCallContext context)
     {
         var byteCount = request.CalculateSize();
+
+        if (IngestKeyScope.RejectsServices(context.GetHttpContext(), request.ResourceProfiles.Select(r => r.Resource)))
+        {
+            await stats.RecordRejectedAsync(IngestionSignal.Profiles, IngestionProtocol.Grpc, "service-not-allowed", context.CancellationToken);
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Service not allowed for this ingest key"));
+        }
         var ingestedAt = timeProvider.GetUtcNow();
 
         int count;
