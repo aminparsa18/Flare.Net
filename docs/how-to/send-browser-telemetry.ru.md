@@ -88,6 +88,16 @@ curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/origins \
 разрешён в CORS, поэтому с ограниченным ключом `Otlp__AllowedOrigins` не нужен.
 Изменения применяются в течение 30 секунд. Пустой список снимает ограничение.
 
+Ключ также можно привязать к сервисам, для которых ему разрешена запись. Экспорт с
+любым другим `service.name` (или без него) отклоняется с `403`:
+
+```bash
+curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/services \
+  -H "Authorization: Bearer $FLARE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "services": ["my-web-app"] }'
+```
+
 Это не делает ключ секретным: вне браузера любой может подделать заголовок
 `Origin`. Задайте [лимиты на ключ](configure-authentication.ru.md#ключи-api-приёма-данных),
 чтобы ограничить объём, который может отправить утёкший ключ.

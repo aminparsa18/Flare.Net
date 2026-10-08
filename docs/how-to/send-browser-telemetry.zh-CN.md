@@ -82,6 +82,16 @@ curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/origins \
 也会通过 CORS，因此使用受限密钥时无需设置 `Otlp__AllowedOrigins`。更改在 30 秒内生效。
 空列表表示取消限制。
 
+还可以将密钥限定为只能为指定服务写入数据。包含其他 `service.name`（或没有 `service.name`）的导出
+会被拒绝并返回 `403`：
+
+```bash
+curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/services \
+  -H "Authorization: Bearer $FLARE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "services": ["my-web-app"] }'
+```
+
 这并不会让密钥变成机密：在浏览器之外任何人都可以伪造 `Origin` 头。请设置
 [按密钥的限额](configure-authentication.zh-CN.md#摄取-api-密钥)，以限制泄露的密钥能发送的数据量。
 

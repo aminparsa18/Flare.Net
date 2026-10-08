@@ -84,6 +84,12 @@ public static class OtlpHttpProfilesEndpoints
             return Results.BadRequest();
         }
 
+        if (IngestKeyScope.RejectsServices(http, request.ResourceProfiles.Select(r => r.Resource)))
+        {
+            await stats.RecordRejectedAsync(IngestionSignal.Profiles, IngestionProtocol.Http, "service-not-allowed", cancellationToken);
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
         // Captured once per request, not per sample - see LogEvent.IngestedAt's remarks
         // and ADR-0014.
         var ingestedAt = timeProvider.GetUtcNow();

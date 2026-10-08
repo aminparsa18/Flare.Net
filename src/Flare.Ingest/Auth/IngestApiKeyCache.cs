@@ -66,6 +66,7 @@ public sealed class IngestApiKeyCache(IIngestApiKeyStore store, IOptions<IngestA
                 map[key.KeyHash] = new IngestKeyCacheEntry(key.Id, key.Name, key.Limits)
                 {
                     AllowedOrigins = key.AllowedOrigins.ToHashSet(StringComparer.OrdinalIgnoreCase),
+                    AllowedServices = key.AllowedServices.ToHashSet(StringComparer.Ordinal),
                 };
             }
 
@@ -96,6 +97,9 @@ public sealed record IngestKeyCacheEntry(Guid? KeyId, string Name, IngestApiKeyL
 {
     /// <summary>Browser origins this key is restricted to (ADR-0149); empty = unrestricted.</summary>
     public IReadOnlySet<string> AllowedOrigins { get; init; } = new HashSet<string>();
+
+    /// <summary>service.name values this key may write for (ADR-0150); empty = any.</summary>
+    public IReadOnlySet<string> AllowedServices { get; init; } = new HashSet<string>();
 
     public static readonly IngestKeyCacheEntry StaticKey = new(null, "static", IngestApiKeyLimits.None);
 }

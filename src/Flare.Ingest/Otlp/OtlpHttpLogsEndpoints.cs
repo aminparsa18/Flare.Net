@@ -85,6 +85,12 @@ public static class OtlpHttpLogsEndpoints
             return Results.BadRequest();
         }
 
+        if (IngestKeyScope.RejectsServices(http, request.ResourceLogs.Select(r => r.Resource)))
+        {
+            await stats.RecordRejectedAsync(IngestionSignal.Logs, IngestionProtocol.Http, "service-not-allowed", cancellationToken);
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
         // Captured once per request, not per record - see LogEvent.IngestedAt's remarks
         // and ADR-0014.
         var ingestedAt = timeProvider.GetUtcNow();

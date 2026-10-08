@@ -23,6 +23,12 @@ public sealed class OtlpGrpcTraceService(
     {
         var byteCount = request.CalculateSize();
 
+        if (IngestKeyScope.RejectsServices(context.GetHttpContext(), request.ResourceSpans.Select(r => r.Resource)))
+        {
+            await stats.RecordRejectedAsync(IngestionSignal.Traces, IngestionProtocol.Grpc, "service-not-allowed", context.CancellationToken);
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "Service not allowed for this ingest key"));
+        }
+
         // Captured once per request, not per span - see LogEvent.IngestedAt's remarks
         // and ADR-0014 (SpanRecord.IngestedAt follows the same convention).
         var ingestedAt = timeProvider.GetUtcNow();

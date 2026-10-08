@@ -26,6 +26,7 @@ export class IngestApiKeyDto {
 	bytesToday: bigint;
 	projectId: string | null;
 	allowedOrigins: string[];
+	allowedServices: string[];
 
 	constructor() {
 		this.id = '00000000-0000-0000-0000-000000000000';
@@ -44,6 +45,7 @@ export class IngestApiKeyDto {
 		this.bytesToday = 0n;
 		this.projectId = null;
 		this.allowedOrigins = [];
+		this.allowedServices = [];
 	}
 
 	static serialize(value: IngestApiKeyDto | null): Uint8Array {
@@ -58,7 +60,7 @@ export class IngestApiKeyDto {
 			return;
 		}
 
-		writer.writeObjectHeader(16);
+		writer.writeObjectHeader(17);
 		writer.writeGuid(value.id);
 		writer.writeString(value.name);
 		writeDateTimeOffset(writer, value.createdAt);
@@ -75,6 +77,7 @@ export class IngestApiKeyDto {
 		writer.writeInt64(value.bytesToday);
 		writer.writeNullableGuid(value.projectId);
 		writer.writeArray(value.allowedOrigins, (writer, x) => writer.writeString(x));
+		writer.writeArray(value.allowedServices, (writer, x) => writer.writeString(x));
 	}
 
 	static serializeArray(value: (IngestApiKeyDto | null)[] | null): Uint8Array {
@@ -98,7 +101,7 @@ export class IngestApiKeyDto {
 		}
 
 		const value = new IngestApiKeyDto();
-		if (count == 16) {
+		if (count == 17) {
 			value.id = reader.readGuid();
 			value.name = reader.readString() ?? '';
 			value.createdAt = readDateTimeOffset(reader);
@@ -115,7 +118,8 @@ export class IngestApiKeyDto {
 			value.bytesToday = reader.readInt64();
 			value.projectId = reader.readNullableGuid();
 			value.allowedOrigins = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
-		} else if (count > 16) {
+			value.allowedServices = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
+		} else if (count > 17) {
 			throw new Error("Current object's property count is larger than type schema, can't deserialize about versioning.");
 		} else {
 			if (count == 0) return value;
@@ -151,6 +155,8 @@ export class IngestApiKeyDto {
 			if (count == 15) return value;
 			value.allowedOrigins = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
 			if (count == 16) return value;
+			value.allowedServices = (reader.readArray((reader) => reader.readString()) ?? []).map((x) => x ?? '');
+			if (count == 17) return value;
 		}
 		return value;
 	}

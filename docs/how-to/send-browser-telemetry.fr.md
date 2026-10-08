@@ -91,6 +91,16 @@ origine listée est aussi autorisée par CORS : avec une clé restreinte,
 `Otlp__AllowedOrigins` n'est pas nécessaire. Les changements s'appliquent sous 30
 secondes. Une liste vide supprime la restriction.
 
+Vous pouvez aussi limiter la clé aux services pour lesquels elle peut écrire. Un export
+contenant un autre `service.name` (ou aucun) est refusé avec `403` :
+
+```bash
+curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/services \
+  -H "Authorization: Bearer $FLARE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "services": ["my-web-app"] }'
+```
+
 Cela ne rend pas la clé secrète : n'importe qui peut forger un en-tête `Origin`
 hors d'un navigateur. Définissez des
 [limites par clé](configure-authentication.fr.md#clés-api-dingestion) pour plafonner

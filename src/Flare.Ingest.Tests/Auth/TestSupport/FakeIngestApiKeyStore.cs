@@ -70,11 +70,21 @@ internal sealed class FakeIngestApiKeyStore : IIngestApiKeyStore
         return Task.FromResult(true);
     }
 
+    public Task<bool> SetAllowedServicesAsync(Guid id, IReadOnlyList<string> services, CancellationToken cancellationToken = default)
+    {
+        if (!_keysById.TryGetValue(id, out var key))
+        {
+            return Task.FromResult(false);
+        }
+        _keysById[id] = key with { AllowedServices = services };
+        return Task.FromResult(true);
+    }
+
     public Task<IReadOnlyList<ActiveIngestApiKey>> ListActiveKeysAsync(CancellationToken cancellationToken = default)
     {
         var keys = _keysById.Values
             .Where(k => k.IsActive)
-            .Select(k => new ActiveIngestApiKey(k.Id, k.Name, IngestApiKeyHasher.Hash(_rawKeysById[k.Id]), k.Limits) { AllowedOrigins = k.AllowedOrigins })
+            .Select(k => new ActiveIngestApiKey(k.Id, k.Name, IngestApiKeyHasher.Hash(_rawKeysById[k.Id]), k.Limits) { AllowedOrigins = k.AllowedOrigins, AllowedServices = k.AllowedServices })
             .ToList();
         return Task.FromResult<IReadOnlyList<ActiveIngestApiKey>>(keys);
     }

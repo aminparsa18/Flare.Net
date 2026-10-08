@@ -45,6 +45,17 @@ public sealed partial record IngestApiKeyDto
 
     /// <summary>Browser origins the key is restricted to (ADR-0149); empty = unrestricted. Appended last, same reason.</summary>
     public IReadOnlyList<string> AllowedOrigins { get; init; } = [];
+
+    /// <summary>service.name values the key may write for (ADR-0150); empty = any. Appended last, same reason.</summary>
+    public IReadOnlyList<string> AllowedServices { get; init; } = [];
+}
+
+/// <summary>Request body for <c>PUT /api/ingest-keys/{id}/services</c> - replaces the allowlist; empty removes the restriction.</summary>
+[MemoryPackable]
+[GenerateTypeScript]
+public sealed partial record SetIngestApiKeyServicesRequest
+{
+    public required string[] Services { get; init; }
 }
 
 /// <summary>Request body for <c>PUT /api/ingest-keys/{id}/origins</c> - replaces the allowlist; empty removes the restriction.</summary>

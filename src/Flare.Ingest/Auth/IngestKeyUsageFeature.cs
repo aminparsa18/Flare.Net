@@ -18,6 +18,9 @@ public sealed class IngestKeyUsageFeature(Guid keyId)
 {
     public Guid KeyId { get; } = keyId;
 
+    /// <summary>The key's service allowlist (ADR-0150), checked by <see cref="IngestKeyScope"/>; empty = any.</summary>
+    public IReadOnlySet<string> AllowedServices { get; init; } = new HashSet<string>();
+
     public long Events { get; private set; }
 
     public long Bytes { get; private set; }
