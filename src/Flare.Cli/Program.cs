@@ -73,7 +73,9 @@ app.Configure(config =>
     config.AddBranch("apikey", apikey =>
     {
         apikey.AddCommand<ApiKeyCreateCommand>("create")
-            .WithDescription("Create a new ingest API key.");
+            .WithDescription("Create a new ingest API key (optionally restricted to --origin/--service).");
+        apikey.AddCommand<ApiKeyScopeCommand>("scope")
+            .WithDescription("Restrict an ingest key to browser origins and/or services.");
     });
     config.AddBranch("notification-channels", notificationChannels =>
     {
