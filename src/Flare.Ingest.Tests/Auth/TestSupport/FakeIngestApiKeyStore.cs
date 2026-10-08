@@ -60,11 +60,21 @@ internal sealed class FakeIngestApiKeyStore : IIngestApiKeyStore
         return Task.FromResult(true);
     }
 
+    public Task<bool> SetAllowedOriginsAsync(Guid id, IReadOnlyList<string> origins, CancellationToken cancellationToken = default)
+    {
+        if (!_keysById.TryGetValue(id, out var key))
+        {
+            return Task.FromResult(false);
+        }
+        _keysById[id] = key with { AllowedOrigins = origins };
+        return Task.FromResult(true);
+    }
+
     public Task<IReadOnlyList<ActiveIngestApiKey>> ListActiveKeysAsync(CancellationToken cancellationToken = default)
     {
         var keys = _keysById.Values
             .Where(k => k.IsActive)
-            .Select(k => new ActiveIngestApiKey(k.Id, k.Name, IngestApiKeyHasher.Hash(_rawKeysById[k.Id]), k.Limits))
+            .Select(k => new ActiveIngestApiKey(k.Id, k.Name, IngestApiKeyHasher.Hash(_rawKeysById[k.Id]), k.Limits) { AllowedOrigins = k.AllowedOrigins })
             .ToList();
         return Task.FromResult<IReadOnlyList<ActiveIngestApiKey>>(keys);
     }

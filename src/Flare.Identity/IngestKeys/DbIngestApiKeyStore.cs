@@ -35,7 +35,7 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         command.CommandText =
             """
             SELECT Id, Name, CreatedAt, RevokedAt,
-                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, ProjectId
+                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, ProjectId, AllowedOrigins
             FROM IngestApiKeys ORDER BY CreatedAt
             """;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -51,9 +51,20 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
             {
                 Limits = ReadLimits(reader, firstOrdinal: 4),
                 ProjectId = reader.IsDBNull(9) ? null : Guid.Parse(reader.GetString(9)),
+                AllowedOrigins = IngestKeyOrigins.Deserialize(reader.IsDBNull(10) ? null : reader.GetString(10)),
             });
         }
         return keys;
+    }
+
+    public async Task<bool> SetAllowedOriginsAsync(Guid id, IReadOnlyList<string> origins, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE IngestApiKeys SET AllowedOrigins = @origins WHERE Id = @id";
+        command.AddParameter("@id", id.ToString());
+        command.AddParameter("@origins", (object?)IngestKeyOrigins.Serialize(origins) ?? DBNull.Value);
+        return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
     }
 
     public async Task<bool> SetProjectAsync(Guid id, Guid? projectId, CancellationToken cancellationToken = default)
@@ -116,7 +127,7 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
         command.CommandText =
             """
             SELECT Id, Name, KeyHash,
-                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay
+                   LimitsEnabled, MaxEventsPerMinute, MaxBytesPerMinute, MaxEventsPerDay, MaxBytesPerDay, AllowedOrigins
             FROM IngestApiKeys WHERE RevokedAt IS NULL
             """;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -128,7 +139,10 @@ public sealed class DbIngestApiKeyStore(IdentityDbConnectionFactory connectionFa
                 Id: Guid.Parse(reader.GetString(0)),
                 Name: reader.GetString(1),
                 KeyHash: reader.GetString(2),
-                Limits: ReadLimits(reader, firstOrdinal: 3)));
+                Limits: ReadLimits(reader, firstOrdinal: 3))
+            {
+                AllowedOrigins = IngestKeyOrigins.Deserialize(reader.IsDBNull(8) ? null : reader.GetString(8)),
+            });
         }
         return keys;
     }
