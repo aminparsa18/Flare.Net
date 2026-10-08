@@ -25,6 +25,7 @@
 	import HourglassIcon from '@lucide/svelte/icons/hourglass';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import SigmaIcon from '@lucide/svelte/icons/sigma';
+	import FileCodeIcon from '@lucide/svelte/icons/file-code';
 	import { authContext } from '$lib/auth/context';
 	import { settingsManagementLinks, workspaceLinks } from '$lib/components/nav/nav-links';
 	import { searchSettings } from '$lib/settings/search-index';
@@ -52,7 +53,8 @@
 		'/settings/indexing': LayersIcon,
 		'/settings/retention': HourglassIcon,
 		'/settings/projects': FolderIcon,
-		'/settings/ingest-keys': KeyIcon
+		'/settings/ingest-keys': KeyIcon,
+		'/settings/source-maps': FileCodeIcon
 	} as const;
 
 	const sections = $derived([

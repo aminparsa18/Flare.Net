@@ -180,6 +180,10 @@ document.addEventListener('visibilitychange', () => {
 
 On the **Dashboards** page choose **Create from template > Web vitals**. The panels chart each vital's percentiles; Google's targets are measured at p75 (LCP under 2.5 s, INP under 200 ms, CLS under 0.1).
 
+## Break vitals down by route
+
+Add `url.template` (the route pattern such as `/orders/:id`, not the raw URL) to the attributes passed to `histogram.record`. Expanding a service on the **Frontend** page then shows each route's vitals. The **Page loads** column counts FCP measurements, one per page load.
+
 ## Symbolicate minified stack traces
 
 Production bundles are minified, so an error's stack shows `at o (…/app-abc123.js:1:30)`. Upload the build's source maps and Flare shows the original function, file, line and column on **Errors** instead; an occurrence whose trace was rewritten carries a **Source map applied** badge.
@@ -197,9 +201,13 @@ flare sourcemaps upload ./dist --url https://flare.example.com \
   --service my-web-app --release 1.4.2
 ```
 
-Each `dist/**/*.map` file is stored under its path with `.map` removed, so `dist/assets/app-abc123.js.map` is stored as `assets/app-abc123.js`. A frame matches the longest stored path that its script URL ends with. `flare sourcemaps list` shows what is stored and `flare sourcemaps delete --service my-web-app --release 1.4.2` removes a release. The raw API is `PUT /api/source-maps?service=&version=&bundle=` with the map JSON as the body.
+Each `dist/**/*.map` file is stored under its path with `.map` removed, so `dist/assets/app-abc123.js.map` is stored as `assets/app-abc123.js`. A frame matches the longest stored path that its script URL ends with. `flare sourcemaps list` (or **Settings > Source maps**) shows what is stored and `flare sourcemaps delete --service my-web-app --release 1.4.2` removes a release. The raw API is `PUT /api/source-maps?service=&version=&bundle=` with the map JSON as the body.
 
 Symbolication happens when you open an occurrence, so maps uploaded after an error still apply to it. A map is matched on `service.name` plus `service.version` (or the `vcs.revision` resource attribute), so keep old releases' maps while their errors still occur. Maps up to 50 MB are accepted; index maps (`sections`) are rejected. Do not serve the `.map` files publicly if you don't want your source readable, and keep them out of the deployed bundle.
+
+## See it on the Frontend page
+
+Open **Frontend** (in the user menu's **More** list). It shows each service's 75th-percentile LCP, INP, CLS, FCP and TTFB over the chosen window, coloured against Google's thresholds, with the share of measurements the browser rated good, and the top browser JavaScript errors. The errors are the exceptions from resources with `telemetry.sdk.language = webjs`; **Open in Errors** continues there. **Settings > Source maps** lists the uploaded maps by release and deletes them.
 
 ## Check it worked
 

@@ -184,6 +184,10 @@ document.addEventListener('visibilitychange', () => {
 
 Sur la page **Dashboards**, choisissez **Create from template > Web vitals**. Les panneaux affichent les percentiles de chaque indicateur ; les objectifs de Google se mesurent au p75 (LCP sous 2,5 s, INP sous 200 ms, CLS sous 0,1).
 
+## Ventiler les vitals par route
+
+Ajoutez `url.template` (le motif de route comme `/orders/:id`, pas l'URL brute) aux attributs passés à `histogram.record`. Déplier un service sur la page **Frontend** affiche alors les vitals de chaque route. La colonne **Chargements de page** compte les mesures FCP, une par chargement.
+
 ## Symboliser les traces de pile minifiées
 
 Les bundles de production sont minifiés : la pile d'une erreur ressemble à `at o (…/app-abc123.js:1:30)`. Importez les source maps du build et Flare affiche à la place la fonction, le fichier, la ligne et la colonne d'origine sur **Errors** ; une occurrence dont la trace a été réécrite porte le badge **Source map applied**.
@@ -204,6 +208,10 @@ flare sourcemaps upload ./dist --url https://flare.example.com \
 Chaque fichier `dist/**/*.map` est stocké sous son chemin sans `.map` : `dist/assets/app-abc123.js.map` devient `assets/app-abc123.js`. Une frame correspond au plus long chemin stocké par lequel se termine l'URL de son script. `flare sourcemaps list` montre ce qui est stocké et `flare sourcemaps delete --service my-web-app --release 1.4.2` supprime une version. L'API brute est `PUT /api/source-maps?service=&version=&bundle=` avec le JSON de la map comme corps.
 
 La symbolisation a lieu à l'ouverture d'une occurrence : les maps importées après une erreur s'y appliquent aussi. Une map est associée via `service.name` et `service.version` (ou l'attribut de ressource `vcs.revision`) ; conservez donc les maps des anciennes versions tant que leurs erreurs surviennent. Les maps jusqu'à 50 Mo sont acceptées ; les index maps (`sections`) sont refusées. Ne servez pas les fichiers `.map` publiquement si vous ne voulez pas exposer votre source, et ne les déployez pas avec le bundle.
+
+## Voir les données sur la page Frontend
+
+Ouvrez **Frontend** (dans la liste **Plus** du menu utilisateur). Elle affiche, par service, le 75e centile de LCP, INP, CLS, FCP et TTFB sur la période choisie, coloré selon les seuils de Google, avec la part des mesures jugées bonnes par le navigateur, ainsi que les principales erreurs JavaScript du navigateur. Ce sont les exceptions des ressources avec `telemetry.sdk.language = webjs` ; **Ouvrir dans Erreurs** y mène. **Paramètres > Source maps** liste les maps envoyées par version et permet de les supprimer.
 
 ## Vérifier que ça fonctionne
 
