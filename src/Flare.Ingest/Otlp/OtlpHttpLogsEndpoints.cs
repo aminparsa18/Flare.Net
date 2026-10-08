@@ -1,4 +1,5 @@
 using Flare.Ingest.Auth;
+using Flare.Ingest.Forwarding;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Google.Protobuf;
@@ -26,6 +27,7 @@ public static class OtlpHttpLogsEndpoints
         ILogEventSink sink,
         IIngestionStatsTracker stats,
         TimeProvider timeProvider,
+        IOtlpForwarder forwarder,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -106,6 +108,7 @@ public static class OtlpHttpLogsEndpoints
 
         await stats.RecordAcceptedAsync(IngestionSignal.Logs, IngestionProtocol.Http, count, byteCount, cancellationToken);
         IngestKeyUsageFeature.Add(http, count, byteCount);
+        forwarder.Forward(http, request);
         await stats.RecordServiceBreakdownAsync(IngestionSignal.Logs, ServiceBreakdown.Build(records, byteCount), cancellationToken);
 
         logger.LogDebug("Ingested {Count} log record(s) via HTTP ({ContentType})", count, isJson ? "json" : "protobuf");

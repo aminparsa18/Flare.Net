@@ -1,4 +1,5 @@
 using Flare.Ingest.Auth;
+using Flare.Ingest.Forwarding;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Grpc.Core;
@@ -14,6 +15,7 @@ public sealed class OtlpGrpcLogsService(
     ILogEventSink sink,
     IIngestionStatsTracker stats,
     TimeProvider timeProvider,
+    IOtlpForwarder forwarder,
     ILogger<OtlpGrpcLogsService> logger) : LogsService.LogsServiceBase
 {
     public override async Task<ExportLogsServiceResponse> Export(
@@ -56,6 +58,7 @@ public sealed class OtlpGrpcLogsService(
 
         await stats.RecordAcceptedAsync(IngestionSignal.Logs, IngestionProtocol.Grpc, count, byteCount, context.CancellationToken);
         IngestKeyUsageFeature.Add(context.GetHttpContext(), count, byteCount);
+        forwarder.Forward(context.GetHttpContext(), request);
         await stats.RecordServiceBreakdownAsync(IngestionSignal.Logs, ServiceBreakdown.Build(records, byteCount), context.CancellationToken);
 
         logger.LogDebug("Ingested {Count} log record(s) via gRPC", count);
