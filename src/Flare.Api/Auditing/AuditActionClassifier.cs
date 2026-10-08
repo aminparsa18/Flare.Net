@@ -34,6 +34,10 @@ public static class AuditActionClassifier
         new("PUT", "/api/maintenance-windows/{id:guid}", "maintenance-window", "update", "id"),
         new("DELETE", "/api/maintenance-windows/{id:guid}", "maintenance-window", "delete", "id"),
 
+        new("POST", "/api/alert-templates", "alert-template", "create", null),
+        new("PUT", "/api/alert-templates/{id:guid}", "alert-template", "update", "id"),
+        new("DELETE", "/api/alert-templates/{id:guid}", "alert-template", "delete", "id"),
+
         new("POST", "/api/oncall-rotations", "oncall-rotation", "create", null),
         new("PUT", "/api/oncall-rotations/{id:guid}", "oncall-rotation", "update", "id"),
         new("DELETE", "/api/oncall-rotations/{id:guid}", "oncall-rotation", "delete", "id"),

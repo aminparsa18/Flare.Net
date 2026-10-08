@@ -167,6 +167,11 @@ tables and `RulesJson` to `retention_operations`. The column holds each row's ow
 insert from the retention rules; a table's TTL points at it only once rules are set - see
 [ADR-0145](../../docs-internal/adr/0145-per-resource-retention.md).
 
+`0070_alert_templates.sql` - a new `alert_templates` table (named, reusable notification title/body
+templates; same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`) and a nullable
+`alert_rules.NotificationTemplateId`. See
+[ADR-0148](../../docs-internal/adr/0148-shared-alert-notification-templates.md).
+
 `0056_synthetic_monitors.sql` - a new `synthetic_monitors` table (scheduled HTTP, TCP and TLS probes,
 same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`). Results are written to
 `metrics_gauge`. See [ADR-0128](../../docs-internal/adr/0128-synthetic-monitoring.md).

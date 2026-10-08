@@ -19,6 +19,7 @@
 	import { alertsContext } from '$lib/alerts/context';
 	import type { ResourceAttributeFilter } from '$lib/services-api';
 	import { notificationChannelsContext } from '$lib/notification-channels/context';
+	import { listAlertTemplates, type AlertTemplate } from '$lib/alert-templates-api';
 	import { onCallRotationsContext } from '$lib/oncall-rotations/context';
 	import {
 		testDraftAlertRule,
@@ -111,6 +112,9 @@
 	let labelsValid = $state(true);
 	let projectId = $state<string | null>(null);
 	// Custom notification templates (ADR-0052) - off sends '' for both, i.e. the built-in wording.
+	let notificationTemplateId = $state('');
+	// Shared templates (ADR-0148), loaded once for the picker; a failed load just hides the choices.
+	let sharedTemplates = $state.raw<AlertTemplate[]>([]);
 	let templatesEnabled = $state(false);
 	let notificationTitleTemplate = $state('');
 	let notificationBodyTemplate = $state('');
@@ -251,6 +255,7 @@
 			ruleLabels = {};
 			labelsValid = true;
 			projectId = projects.defaultForNew;
+			notificationTemplateId = '';
 			templatesEnabled = false;
 			notificationTitleTemplate = '';
 			notificationBodyTemplate = '';
@@ -337,6 +342,7 @@
 			ruleLabels = { ...target.labels };
 			labelsValid = true;
 			projectId = target.projectId;
+			notificationTemplateId = target.notificationTemplateId ?? '';
 			templatesEnabled = target.notificationTitleTemplate !== '' || target.notificationBodyTemplate !== '';
 			notificationTitleTemplate = target.notificationTitleTemplate;
 			notificationBodyTemplate = target.notificationBodyTemplate;
@@ -487,7 +493,14 @@
 	// Same wide-window discovery for the metric-name picker - getMetricNames() with no
 	// filter, same "no Explorer state to borrow one from" reasoning as knownServices.
 	let knownMetrics = $state<MetricNameInfo[]>([]);
-	onMount(() => {
+	// Refreshed on every open so a template created in Settings shows up without a reload.
+	$effect(() => {
+		if (!open) return;
+		listAlertTemplates()
+			.then((list) => (sharedTemplates = list))
+			.catch(() => (sharedTemplates = []));
+	});
+		onMount(() => {
 		void loadKnownServices();
 		void loadKnownMetrics();
 	});
@@ -617,6 +630,7 @@
 			severity: ruleSeverity,
 			labels: Object.keys(ruleLabels).length ? ruleLabels : undefined,
 			projectId: projectIdForRequest(projectId, alerts.formTarget && alerts.formTarget !== 'new' ? alerts.formTarget.projectId : null),
+			notificationTemplateId: notificationTemplateId !== '' ? notificationTemplateId : null,
 			notificationTitleTemplate: templatesEnabled ? notificationTitleTemplate.trim() : '',
 			notificationBodyTemplate: templatesEnabled ? notificationBodyTemplate.trim() : '',
 			anomalyCondition:
@@ -1223,6 +1237,23 @@
 			{/if}
 
 			<div class="flex flex-col gap-2 border-t pt-3">
+				{#if sharedTemplates.length > 0 || notificationTemplateId !== ''}
+					<div class="flex flex-col gap-1">
+						<span class="text-xs font-medium">{m.alertRuleForm_sharedTemplateLabel()}</span>
+						<Select.Root type="single" value={notificationTemplateId} onValueChange={(v) => (notificationTemplateId = v ?? '')}>
+							<Select.Trigger class="w-64">
+								{sharedTemplates.find((t) => t.id === notificationTemplateId)?.name ?? m.alertRuleForm_sharedTemplateNone()}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="" label={m.alertRuleForm_sharedTemplateNone()} />
+								{#each sharedTemplates as template (template.id)}
+									<Select.Item value={template.id} label={template.name} />
+								{/each}
+							</Select.Content>
+						</Select.Root>
+						<span class="text-muted-foreground text-xs">{m.alertRuleForm_sharedTemplateHint()}</span>
+					</div>
+				{/if}
 				<div class="flex items-center gap-2">
 					<Switch bind:checked={templatesEnabled} />
 					<span class="text-xs font-medium">{m.alertRuleForm_templatesLabel()}</span>
