@@ -1,6 +1,7 @@
 using ClickHouse.Driver;
 using Flare.Identity;
 using Flare.Ingest.Auth;
+using Flare.Ingest.Forwarding;
 using Flare.Ingest.Otlp;
 using Flare.Ingest.Patterns;
 using Flare.Ingest.Pipeline;
@@ -181,6 +182,15 @@ builder.Services.Configure<PrometheusScrapeOptions>(
     builder.Configuration.GetSection(PrometheusScrapeOptions.SectionName));
 builder.Services.AddHttpClient("PrometheusScrape");
 builder.Services.AddHostedService<PrometheusScrapeWorker>();
+
+// OTLP forwarding (ADR-0155): copies accepted logs/traces/metrics to other OTLP/HTTP endpoints.
+// Off with no Forwarding:Targets configured. One instance serves as both the IOtlpForwarder the
+// receivers call and the hosted service that drains the per-target queues.
+builder.Services.Configure<ForwardingOptions>(builder.Configuration.GetSection(ForwardingOptions.SectionName));
+builder.Services.AddHttpClient("OtlpForwarding");
+builder.Services.AddSingleton<OtlpForwarder>();
+builder.Services.AddSingleton<IOtlpForwarder>(sp => sp.GetRequiredService<OtlpForwarder>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<OtlpForwarder>());
 
 // Ingestion-page operational stats (Planning.md v8) - shares the same Redis connection
 // as the sinks above rather than adding new infrastructure.

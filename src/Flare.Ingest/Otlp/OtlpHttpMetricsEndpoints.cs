@@ -1,4 +1,5 @@
 using Flare.Ingest.Auth;
+using Flare.Ingest.Forwarding;
 using Flare.Ingest.Sinks;
 using Flare.Ingest.Stats;
 using Google.Protobuf;
@@ -27,6 +28,7 @@ public static class OtlpHttpMetricsEndpoints
         IMetricEventSink sink,
         IIngestionStatsTracker stats,
         TimeProvider timeProvider,
+        IOtlpForwarder forwarder,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -100,6 +102,7 @@ public static class OtlpHttpMetricsEndpoints
 
         await stats.RecordAcceptedAsync(IngestionSignal.Metrics, IngestionProtocol.Http, result.Points.Count, byteCount, cancellationToken);
         IngestKeyUsageFeature.Add(http, result.Points.Count, byteCount);
+        forwarder.Forward(http, request);
         await stats.RecordServiceBreakdownAsync(
             IngestionSignal.Metrics,
             ServiceBreakdown.Build(result.Points.Select(p => (p.ServiceName, ClockSkew.Nanos(ingestedAt, p.Time))), byteCount),
