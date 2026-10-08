@@ -1,4 +1,5 @@
 using Flare.Api.Model;
+using Flare.Api.Query;
 
 namespace Flare.Api.Alerting;
 
@@ -28,9 +29,10 @@ public sealed class CompositeAlertNotifier(
     DiscordAlertNotifier discord,
     JiraAlertNotifier jira,
     IncidentIoAlertNotifier incidentIo,
-    JsmOpsAlertNotifier jsmOps) : IAlertNotifier
+    JsmOpsAlertNotifier jsmOps,
+    IAlertTemplateQueryService templates) : IAlertNotifier
 {
-    public Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
+    public async Task<NotificationResult> SendAsync(AlertRule rule, NotificationChannel channel, double observedValue, DateTimeOffset firedAt, CancellationToken cancellationToken, bool isTest = false, string? metricUnit = null, bool noData = false, AnomalyScore? anomaly = null, bool resolved = false, string? logSamples = null, string? ackUrl = null)
     {
         IAlertNotifier notifier = channel.Type switch
         {
@@ -45,9 +47,28 @@ public sealed class CompositeAlertNotifier(
             _ => webhook,
         };
 
+        rule = await ResolveTemplateAsync(rule, channel.Type, resolved, cancellationToken);
+
         // Dispose restores the flag on return; the callee already captured it in its own async flow.
         using var _ = Flare.ServiceDefaults.HttpRetryScope.SingleShot(isTest);
-        return notifier.SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit, noData, anomaly, resolved, logSamples, ackUrl);
+        return await notifier.SendAsync(rule, channel, observedValue, firedAt, cancellationToken, isTest, metricUnit, noData, anomaly, resolved, logSamples, ackUrl);
+    }
+
+    /// <summary>
+    /// Fills the rule's empty title/body from its shared template (ADR-0148) so the notifiers and
+    /// <see cref="AlertMessageFormatter"/> need no template awareness. A template lookup failure must
+    /// not block a page, so it falls back to the rule's own wording.
+    /// </summary>
+    private async Task<AlertRule> ResolveTemplateAsync(AlertRule rule, NotificationChannelType channelType, bool resolved, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return AlertTemplateResolver.Apply(rule, await templates.ListAsync(cancellationToken), channelType, resolved);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return rule;
+        }
     }
 
     /// <summary>See this class's remarks. Sends to every one of <paramref name="channels"/> concurrently - independent I/O against unrelated third-party endpoints, so there's no reason to serialize them.</summary>

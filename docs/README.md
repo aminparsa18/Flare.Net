@@ -57,6 +57,7 @@ the full rule set on what goes where.
 - [Triage errors and catch regressions](how-to/triage-errors.md)
 - [Get an AI summary of a fired alert](how-to/summarize-alerts-with-ai.md)
 - [Acknowledge or snooze a firing alert](how-to/acknowledge-and-snooze-alerts.md)
+- [Share notification wording across alert rules](how-to/share-alert-notification-templates.md)
 - [Monitor endpoints, ports and certificates with synthetic probes](how-to/synthetic-monitoring.md)
 - [Tell whether a span was slow for what it is](how-to/compare-span-duration.md)
 - [Find high-cardinality metrics](how-to/find-high-cardinality-metrics.md)

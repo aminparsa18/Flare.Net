@@ -556,6 +556,14 @@ public sealed partial record AlertRule
 
     /// <summary>Where the second escalation step goes. Ignored while <see cref="SecondEscalateAfterMinutes"/> is 0. Appended after <see cref="SecondEscalateAfterMinutes"/>.</summary>
     public IReadOnlyList<Guid> SecondEscalationChannelIds { get; init; } = [];
+
+    /// <summary>
+    /// A shared <see cref="AlertTemplate"/> (ADR-0148) whose wording this rule uses; null (the
+    /// default) picks none, so the instance default template, if any, applies. This rule's own
+    /// <see cref="NotificationTitleTemplate"/>/<see cref="NotificationBodyTemplate"/> still win
+    /// per field. Appended after <see cref="SecondEscalationChannelIds"/>.
+    /// </summary>
+    public Guid? NotificationTemplateId { get; init; }
 }
 
 /// <summary>Create/update request body for <c>/api/alerts</c>.</summary>
@@ -683,6 +691,9 @@ public sealed partial record AlertRuleRequest
 
     /// <summary>See <see cref="AlertRule.SecondEscalationChannelIds"/>'s doc comment. Omitted/null means none. Appended after <see cref="SecondEscalateAfterMinutes"/>.</summary>
     public IReadOnlyList<Guid>? SecondEscalationChannelIds { get; init; }
+
+    /// <summary>See <see cref="AlertRule.NotificationTemplateId"/>'s doc comment. Omitted/null means none. Appended after <see cref="SecondEscalationChannelIds"/>.</summary>
+    public Guid? NotificationTemplateId { get; init; }
 
     /// <summary>
     /// Exactly one notification mode: either the legacy inline channel

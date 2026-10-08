@@ -12,12 +12,13 @@ public static class AlertRuleTransfer
     public static AlertRulesExport Export(
         IEnumerable<AlertRule> rules,
         IReadOnlyDictionary<Guid, string> channelNames,
-        IReadOnlyDictionary<Guid, string> sloNames) => new()
+        IReadOnlyDictionary<Guid, string> sloNames,
+        IReadOnlyDictionary<Guid, string>? templateNames = null) => new()
         {
-            Rules = [.. rules.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).Select(r => ExportRule(r, channelNames, sloNames))],
+            Rules = [.. rules.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).Select(r => ExportRule(r, channelNames, sloNames, templateNames ?? new Dictionary<Guid, string>()))],
         };
 
-    private static AlertRuleExportItem ExportRule(AlertRule rule, IReadOnlyDictionary<Guid, string> channelNames, IReadOnlyDictionary<Guid, string> sloNames)
+    private static AlertRuleExportItem ExportRule(AlertRule rule, IReadOnlyDictionary<Guid, string> channelNames, IReadOnlyDictionary<Guid, string> sloNames, IReadOnlyDictionary<Guid, string> templateNames)
     {
         var hasInline = rule.ChannelIds.Count == 0
             && (rule.WebhookUrl.Length > 0 || rule.TelegramBotToken.Length > 0 || rule.EmailTo.Length > 0 || rule.PagerDutyRoutingKey.Length > 0);
@@ -54,7 +55,9 @@ public static class AlertRuleTransfer
                 ThresholdUnit = rule.ThresholdUnit,
                 Labels = rule.Labels,
                 SloCondition = rule.SloCondition is { } s ? s with { SloId = Guid.Empty } : null,
+                NotificationTemplateId = null,
             },
+            TemplateName = rule.NotificationTemplateId is { } templateId && templateNames.TryGetValue(templateId, out var templateName) ? templateName : null,
             Channels = [.. rule.ChannelIds.Select(id => channelNames.TryGetValue(id, out var name) ? name : id.ToString())],
             SloName = sloName,
             OmittedInlineChannel = hasInline,
@@ -68,7 +71,8 @@ public static class AlertRuleTransfer
     public static (AlertRuleRequest? Request, string? Error) Resolve(
         AlertRuleExportItem item,
         IReadOnlyDictionary<string, Guid> channelIds,
-        IReadOnlyDictionary<string, Guid> sloIds)
+        IReadOnlyDictionary<string, Guid> sloIds,
+        IReadOnlyDictionary<string, Guid>? templateIds = null)
     {
         if (item.Rule is null)
         {
@@ -122,6 +126,16 @@ public static class AlertRuleTransfer
             }
 
             request = request with { SloCondition = slo with { SloId = sloId } };
+        }
+
+        if (!string.IsNullOrEmpty(item.TemplateName))
+        {
+            if (templateIds is null || !templateIds.TryGetValue(item.TemplateName, out var templateId))
+            {
+                return (null, $"Unknown notification template '{item.TemplateName}'.");
+            }
+
+            request = request with { NotificationTemplateId = templateId };
         }
 
         var error = request.ValidateChannel() ?? request.ValidateCondition();

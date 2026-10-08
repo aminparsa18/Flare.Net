@@ -417,6 +417,8 @@ builder.Services.AddSingleton<INotificationChannelQueryService, NotificationChan
 // Maintenance windows (ADR-0055) - CRUD here; AlertEvaluationWorker reads the same table to
 // suppress notifications while one is active.
 builder.Services.AddSingleton<IMaintenanceWindowQueryService, MaintenanceWindowQueryService>();
+// Shared alert notification templates (ADR-0148) - CRUD here; CompositeAlertNotifier resolves them at send time.
+builder.Services.AddSingleton<IAlertTemplateQueryService, AlertTemplateQueryService>();
 builder.Services.AddSingleton<IOnCallRotationQueryService, OnCallRotationQueryService>();
 builder.Services.AddSingleton<IDashboardScheduleQueryService, DashboardScheduleQueryService>();
 // Synthetic monitors (ADR-0128) - CRUD here; Flare.AlertWorker runs the probes.
@@ -569,6 +571,8 @@ memberRoutes.MapNotificationChannelEndpoints();
 // Same Member/Admin-only rationale as MapAlertEndpoints above - a maintenance window silences
 // alert notifications.
 memberRoutes.MapMaintenanceWindowEndpoints();
+// Same Member/Admin-only rationale - a template decides what every alert notification says.
+memberRoutes.MapAlertTemplateEndpoints();
 // Same Member/Admin-only rationale - a rotation chooses who an escalation pages.
 memberRoutes.MapOnCallRotationEndpoints();
 // Same Member/Admin-only rationale - a schedule makes this server email a rendered dashboard to the addresses it names.

@@ -93,22 +93,7 @@ folders are where "what happened and why" actually lives.
   what's driving storage before choosing sampling or retention rules.
 - **Status page (later).** A public read-only page of service health and SLO
   status. Depends on synthetic monitoring and SLOs (ADR-0108) shipping first.
-- **Shared alert notification templates.** ADR-0052 templates are per rule
-  (`NotificationTitleTemplate` / `NotificationBodyTemplate` on `AlertRule`,
-  edited in the rule form), so the same wording on many rules is pasted and
-  maintained once per rule. Add named, reusable templates managed on a
-  Settings page next to notification channels: a rule picks a template by
-  reference (its own inline text stays as an override), editing a template
-  updates every rule that uses it, and an instance-wide default template
-  applies to rules that pick none (the built-in wording in
-  `AlertMessageFormatter` stays the fallback, so existing rules are
-  unchanged). Same `{{placeholder}}` set and save-time validation as
-  ADR-0052 (`AlertTemplateRenderer`), same live preview. Design points for
-  the ADR: separate fired / resolved bodies (today `{{status}}` is the only
-  difference); an optional per-channel-type body (short for Telegram, long for
-  email, since the title already maps onto each channel's own subject field);
-  deleting a template that rules still use should be refused or list the rules;
-  `flare alerts export`/`import` and the Terraform provider reference templates
-  by name; audit-log entries (ADR-0079). Needs a ClickHouse or Identity-store
-  migration decision (config tables follow ADR-0009 / ADR-0074 conventions) and
-  an ADR that supersedes or extends ADR-0052. Not started.
+- **Terraform / CLI for notification templates.** Shared templates (ADR-0148)
+  are managed in Settings and by name in `flare alerts export`/`import`, but the
+  Terraform provider has no `flare_alert_template` resource and the CLI no
+  `alert-templates` command.
