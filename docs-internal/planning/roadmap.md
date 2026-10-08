@@ -58,12 +58,10 @@ folders are where "what happened and why" actually lives.
   with OpenTofu acceptance tests against a live stack. `minServerVersion` is set to 0.6.0
   (assumed next release; fix it if the release is numbered differently). Remaining:
   registry publishing. In progress.
-- **Archive export to S3-compatible storage.** OTLP forwarding to other endpoints
-  shipped (ADR-0155). Remaining: an optional Parquet/NDJSON archive of ingested
-  telemetry to S3-compatible storage. Cold storage (ADR-0144) already owns the
-  RustFS/S3 config surface for ClickHouse tiering, so reuse its `FLARE_COLD_*`
-  credentials and bucket settings rather than adding a second set. Also open for
-  forwarding: a managed UI/API for targets and a durable (Redis-backed) queue.
+- **Forwarding and archive follow-ups.** OTLP forwarding (ADR-0155) and the S3
+  archive (ADR-0156) shipped config-only. Open: a managed UI/API for forwarding
+  targets and archive settings, a durable (Redis-backed) forwarding queue, and
+  archive status on the Ingestion page (last exported hour, failures).
 - **.NET MAUI / mobile SDK (later).** No client-app signal exists beyond what a
   hand-wired OTel exporter sends. Phase 1 is a docs how-to ("Send telemetry
   from a MAUI app to Flare") using stock `OpenTelemetry` packages, since OTLP

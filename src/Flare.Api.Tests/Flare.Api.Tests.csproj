@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Flare.Api\Flare.Api.csproj" />
+    <ProjectReference Include="..\Flare.AlertWorker\Flare.AlertWorker.csproj" />
   </ItemGroup>
 
 </Project>
