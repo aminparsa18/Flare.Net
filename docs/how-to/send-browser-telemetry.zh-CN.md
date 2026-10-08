@@ -71,6 +71,8 @@ registerInstrumentations({
 `headers: { Authorization: 'Bearer <密钥>' }`。该密钥会随 JavaScript 一起发布，每位访问者都能看到。
 请为浏览器创建专用密钥，并将其限制在你站点的来源：
 
+在仪表板中打开 **Settings > Ingest keys**，点击密钥上的地球图标即可编辑其允许的来源和服务；终端中可使用 `flare apikey scope`。对应的 API 调用：
+
 ```bash
 curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/origins \
   -H "Authorization: Bearer $FLARE_TOKEN" \

@@ -76,6 +76,8 @@ the exporter needs `headers: { Authorization: 'Bearer <key>' }`. That key ships
 in your JavaScript, so every visitor can read it. Create a dedicated key for
 the browser and restrict it to your site's origins:
 
+In the dashboard, open **Settings > Ingest keys** and use the globe button on a key to edit its allowed origins and services; `flare apikey scope` does the same from a terminal. The API calls behind them:
+
 ```bash
 curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/origins \
   -H "Authorization: Bearer $FLARE_TOKEN" \
