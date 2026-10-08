@@ -662,7 +662,7 @@ Depuis la page **Dashboards**, vous pouvez :
   Core** (`http.server.*`, `kestrel.*`), **HttpClient** (`http.client.*`),
   **runtime .NET** (`dotnet.*` : GC, pool de threads, exceptions,
   processus), **métriques hôte** (récepteur hostmetrics du collecteur,
-  `system.*`) et **Kubernetes** (`k8s.*`). Chacun est un ensemble de
+  `system.*`) **Kubernetes** (`k8s.*`) et **Web vitals** (`browser.web_vital.*`). Chacun est un ensemble de
   panneaux Metrics avec une variable **Service** qui choisit les métriques
   de quel service afficher. L'installation crée un tableau de bord
   ordinaire — modifiez-le, renommez-le ou supprimez-le comme n'importe quel

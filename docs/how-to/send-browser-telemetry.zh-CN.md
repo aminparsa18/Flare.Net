@@ -97,6 +97,82 @@ curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/services \
 这并不会让密钥变成机密：在浏览器之外任何人都可以伪造 `Origin` 头。请设置
 [按密钥的限额](configure-authentication.zh-CN.md#摄取-api-密钥)，以限制泄露的密钥能发送的数据量。
 
+## 上报 JavaScript 错误
+
+Flare 的 **Errors** 页面会对记录在 span 上的异常进行分组。把每个未捕获的错误作为带异常事件的短 span 上报：
+
+```ts
+import { trace, SpanStatusCode } from '@opentelemetry/api';
+
+const tracer = trace.getTracer('browser-errors');
+
+function report(error: unknown) {
+  const err = error instanceof Error ? error : new Error(String(error));
+  const span = tracer.startSpan('js.error');
+  span.recordException(err);
+  span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+  span.end();
+}
+
+window.addEventListener('error', (e) => report(e.error ?? e.message));
+window.addEventListener('unhandledrejection', (e) => report(e.reason));
+```
+
+错误会按类型和消息分组显示在 **Errors** 页面。添加资源过滤条件 `telemetry.sdk.language = webjs` 即可只看浏览器错误。请抛出 `Error` 对象：抛出的字符串没有类型，因此不会被分组。压缩后的 bundle 的堆栈跟踪目前尚未符号化。
+
+## 上报 Web vitals
+
+把每个 Core Web Vital 记录为名为 `browser.web_vital.<name>`（`lcp`、`inp`、`cls`、`fcp`、`ttfb`）的直方图，并以 `rating`（`good`、`needs-improvement`、`poor`）作为属性：
+
+```bash
+npm install web-vitals @opentelemetry/sdk-metrics \
+  @opentelemetry/exporter-metrics-otlp-http
+```
+
+```ts
+import { metrics } from '@opentelemetry/api';
+import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { resourceFromAttributes } from '@opentelemetry/resources';
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals';
+
+const meterProvider = new MeterProvider({
+  resource: resourceFromAttributes({ 'service.name': 'my-web-app' }),
+  readers: [
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter({ url: 'https://flare.example.com:4318/v1/metrics' }),
+      exportIntervalMillis: 30_000
+    })
+  ]
+});
+metrics.setGlobalMeterProvider(meterProvider);
+const meter = metrics.getMeter('web-vitals');
+
+const MS = [100, 200, 500, 1000, 2000, 2500, 4000, 6000, 10000];
+const SCORE = [0.01, 0.05, 0.1, 0.15, 0.25, 0.5, 1];
+
+function track(name: string, unit: string, buckets: number[], subscribe: typeof onLCP) {
+  const histogram = meter.createHistogram(`browser.web_vital.${name}`, {
+    unit,
+    advice: { explicitBucketBoundaries: buckets }
+  });
+  subscribe(({ value, rating }) => histogram.record(value, { rating }));
+}
+
+track('lcp', 'ms', MS, onLCP);
+track('inp', 'ms', MS, onINP);
+track('fcp', 'ms', MS, onFCP);
+track('ttfb', 'ms', MS, onTTFB);
+track('cls', '1', SCORE, onCLS);
+
+// INP and CLS settle when the page is hidden; flush before the tab goes away.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') void meterProvider.forceFlush();
+});
+```
+
+在 **Dashboards** 页面选择 **Create from template > Web vitals**。面板展示各指标的百分位数；Google 的目标值按 p75 衡量（LCP 低于 2.5 秒，INP 低于 200 毫秒，CLS 低于 0.1）。
+
 ## 验证是否生效
 
 打开 **Traces** 页面，按服务 `my-web-app` 过滤。一次页面加载会显示为 `documentLoad` trace，
@@ -105,6 +181,5 @@ curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/services \
 
 ## 限制
 
-- 这里只涉及 trace。Web vitals 和 JavaScript 错误需要额外的插桩，压缩后的 bundle 的堆栈跟踪
-  目前尚未符号化。
+- 压缩后的 bundle 的堆栈跟踪目前尚未符号化。
 - 关闭标签页时，浏览器可能会丢失最后一批数据。

@@ -1841,6 +1841,8 @@
 	"dashboardTemplate_hostmetrics_description": "CPU, память, нагрузка, файловая система, диск и сеть от ресивера hostmetrics коллектора (system.*).",
 	"dashboardTemplate_kubernetes_name": "Kubernetes",
 	"dashboardTemplate_kubernetes_description": "CPU/память узлов и подов, использование лимитов и реплики деплойментов (k8s.*).",
+	"dashboardTemplate_webVitals_name": "Web vitals",
+	"dashboardTemplate_webVitals_description": "Core Web Vitals браузера - LCP, INP, CLS, FCP и TTFB (browser.web_vital.*).",
 	"dashboardFormDialog_renameTitle": "Переименовать дашборд",
 	"dashboardFormDialog_createTitle": "Новый дашборд",
 	"dashboardFormDialog_renameDescription": "Измените название или описание этого дашборда.",
