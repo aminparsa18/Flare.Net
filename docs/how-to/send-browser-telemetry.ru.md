@@ -104,6 +104,82 @@ curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/services \
 `Origin`. Задайте [лимиты на ключ](configure-authentication.ru.md#ключи-api-приёма-данных),
 чтобы ограничить объём, который может отправить утёкший ключ.
 
+## Отправка ошибок JavaScript
+
+Страница **Errors** в Flare группирует исключения, записанные в спанах. Отправляйте каждую необработанную ошибку как короткий спан с событием исключения:
+
+```ts
+import { trace, SpanStatusCode } from '@opentelemetry/api';
+
+const tracer = trace.getTracer('browser-errors');
+
+function report(error: unknown) {
+  const err = error instanceof Error ? error : new Error(String(error));
+  const span = tracer.startSpan('js.error');
+  span.recordException(err);
+  span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+  span.end();
+}
+
+window.addEventListener('error', (e) => report(e.error ?? e.message));
+window.addEventListener('unhandledrejection', (e) => report(e.reason));
+```
+
+Ошибки появятся на странице **Errors**, сгруппированные по типу и сообщению. Добавьте фильтр по атрибуту ресурса `telemetry.sdk.language = webjs`, чтобы видеть только ошибки браузера. Бросайте объекты `Error`: у брошенной строки нет типа, поэтому она не группируется. Стеки из минифицированных бандлов пока не символизируются.
+
+## Отправка web vitals
+
+Записывайте каждый Core Web Vital как гистограмму `browser.web_vital.<name>` (`lcp`, `inp`, `cls`, `fcp`, `ttfb`) с атрибутом `rating` (`good`, `needs-improvement`, `poor`):
+
+```bash
+npm install web-vitals @opentelemetry/sdk-metrics \
+  @opentelemetry/exporter-metrics-otlp-http
+```
+
+```ts
+import { metrics } from '@opentelemetry/api';
+import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { resourceFromAttributes } from '@opentelemetry/resources';
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals';
+
+const meterProvider = new MeterProvider({
+  resource: resourceFromAttributes({ 'service.name': 'my-web-app' }),
+  readers: [
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter({ url: 'https://flare.example.com:4318/v1/metrics' }),
+      exportIntervalMillis: 30_000
+    })
+  ]
+});
+metrics.setGlobalMeterProvider(meterProvider);
+const meter = metrics.getMeter('web-vitals');
+
+const MS = [100, 200, 500, 1000, 2000, 2500, 4000, 6000, 10000];
+const SCORE = [0.01, 0.05, 0.1, 0.15, 0.25, 0.5, 1];
+
+function track(name: string, unit: string, buckets: number[], subscribe: typeof onLCP) {
+  const histogram = meter.createHistogram(`browser.web_vital.${name}`, {
+    unit,
+    advice: { explicitBucketBoundaries: buckets }
+  });
+  subscribe(({ value, rating }) => histogram.record(value, { rating }));
+}
+
+track('lcp', 'ms', MS, onLCP);
+track('inp', 'ms', MS, onINP);
+track('fcp', 'ms', MS, onFCP);
+track('ttfb', 'ms', MS, onTTFB);
+track('cls', '1', SCORE, onCLS);
+
+// INP and CLS settle when the page is hidden; flush before the tab goes away.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') void meterProvider.forceFlush();
+});
+```
+
+На странице **Dashboards** выберите **Create from template > Web vitals**. Панели показывают перцентили каждой метрики; целевые значения Google измеряются по p75 (LCP менее 2,5 с, INP менее 200 мс, CLS менее 0,1).
+
 ## Проверка
 
 Откройте страницу **Traces** и отфильтруйте по сервису `my-web-app`. Загрузка
@@ -113,7 +189,5 @@ curl -X PUT http://localhost:8080/api/ingest-keys/$KEY_ID/services \
 
 ## Ограничения
 
-- Здесь рассматриваются только трассы. Для web vitals и ошибок JavaScript нужна
-  дополнительная инструментация, а стеки из минифицированных бандлов пока не
-  символизируются.
+- Стеки из минифицированных бандлов пока не символизируются.
 - Браузер может потерять последний пакет при закрытии вкладки.

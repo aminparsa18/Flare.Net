@@ -108,6 +108,82 @@ hors d'un navigateur. Définissez des
 [limites par clé](configure-authentication.fr.md#clés-api-dingestion) pour plafonner
 ce qu'une clé divulguée peut envoyer.
 
+## Signaler les erreurs JavaScript
+
+La page **Errors** de Flare regroupe les exceptions enregistrées sur des spans. Signalez chaque erreur non interceptée sous forme de court span avec un événement d'exception :
+
+```ts
+import { trace, SpanStatusCode } from '@opentelemetry/api';
+
+const tracer = trace.getTracer('browser-errors');
+
+function report(error: unknown) {
+  const err = error instanceof Error ? error : new Error(String(error));
+  const span = tracer.startSpan('js.error');
+  span.recordException(err);
+  span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+  span.end();
+}
+
+window.addEventListener('error', (e) => report(e.error ?? e.message));
+window.addEventListener('unhandledrejection', (e) => report(e.reason));
+```
+
+Les erreurs apparaissent sur **Errors**, regroupées par type et message. Ajoutez le filtre de ressource `telemetry.sdk.language = webjs` pour ne voir que les erreurs du navigateur. Levez des objets `Error` : une chaîne levée n'a pas de type et n'est donc pas regroupée. Les traces de pile des bundles minifiés ne sont pas encore symbolisées.
+
+## Signaler les web vitals
+
+Enregistrez chaque Core Web Vital sous forme d'histogramme nommé `browser.web_vital.<name>` (`lcp`, `inp`, `cls`, `fcp`, `ttfb`) avec le `rating` (`good`, `needs-improvement`, `poor`) en attribut :
+
+```bash
+npm install web-vitals @opentelemetry/sdk-metrics \
+  @opentelemetry/exporter-metrics-otlp-http
+```
+
+```ts
+import { metrics } from '@opentelemetry/api';
+import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { resourceFromAttributes } from '@opentelemetry/resources';
+import { onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals';
+
+const meterProvider = new MeterProvider({
+  resource: resourceFromAttributes({ 'service.name': 'my-web-app' }),
+  readers: [
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter({ url: 'https://flare.example.com:4318/v1/metrics' }),
+      exportIntervalMillis: 30_000
+    })
+  ]
+});
+metrics.setGlobalMeterProvider(meterProvider);
+const meter = metrics.getMeter('web-vitals');
+
+const MS = [100, 200, 500, 1000, 2000, 2500, 4000, 6000, 10000];
+const SCORE = [0.01, 0.05, 0.1, 0.15, 0.25, 0.5, 1];
+
+function track(name: string, unit: string, buckets: number[], subscribe: typeof onLCP) {
+  const histogram = meter.createHistogram(`browser.web_vital.${name}`, {
+    unit,
+    advice: { explicitBucketBoundaries: buckets }
+  });
+  subscribe(({ value, rating }) => histogram.record(value, { rating }));
+}
+
+track('lcp', 'ms', MS, onLCP);
+track('inp', 'ms', MS, onINP);
+track('fcp', 'ms', MS, onFCP);
+track('ttfb', 'ms', MS, onTTFB);
+track('cls', '1', SCORE, onCLS);
+
+// INP and CLS settle when the page is hidden; flush before the tab goes away.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') void meterProvider.forceFlush();
+});
+```
+
+Sur la page **Dashboards**, choisissez **Create from template > Web vitals**. Les panneaux affichent les percentiles de chaque indicateur ; les objectifs de Google se mesurent au p75 (LCP sous 2,5 s, INP sous 200 ms, CLS sous 0,1).
+
 ## Vérifier que ça fonctionne
 
 Ouvrez la page **Traces** et filtrez sur le service `my-web-app`. Un chargement de
@@ -117,7 +193,5 @@ page apparaît comme une trace `documentLoad` avec des spans enfants
 
 ## Limites
 
-- Seules les traces sont couvertes ici. Les web vitals et les erreurs JavaScript
-  demandent une instrumentation supplémentaire, et les traces de pile des bundles
-  minifiés ne sont pas encore symbolisées.
+- Les traces de pile des bundles minifiés ne sont pas encore symbolisées.
 - Les navigateurs peuvent perdre le dernier lot à la fermeture d'un onglet.

@@ -168,6 +168,23 @@ export const DASHBOARD_TEMPLATES: readonly DashboardTemplate[] = [
 				]
 			}
 		]
+	},
+	{
+		id: 'web-vitals',
+		name: () => m.dashboardTemplate_webVitals_name(),
+		description: () => m.dashboardTemplate_webVitals_description(),
+		sections: [
+			{
+				panels: [
+					{ title: 'Largest Contentful Paint', description: 'browser.web_vital.lcp percentiles. Good is under 2.5 s at p75.', metric: 'browser.web_vital.lcp', type: 'Histogram' },
+					{ title: 'Interaction to Next Paint', description: 'browser.web_vital.inp percentiles. Good is under 200 ms at p75.', metric: 'browser.web_vital.inp', type: 'Histogram' },
+					{ title: 'Cumulative Layout Shift', description: 'browser.web_vital.cls percentiles. Good is under 0.1 at p75.', metric: 'browser.web_vital.cls', type: 'Histogram' },
+					{ title: 'First Contentful Paint', metric: 'browser.web_vital.fcp', type: 'Histogram' },
+					{ title: 'Time to First Byte', metric: 'browser.web_vital.ttfb', type: 'Histogram' },
+					{ title: 'LCP heatmap', metric: 'browser.web_vital.lcp', type: 'Histogram', visualization: 'heatmap' }
+				]
+			}
+		]
 	}
 ];
 

@@ -1841,6 +1841,8 @@
 	"dashboardTemplate_hostmetrics_description": "来自收集器 hostmetrics 接收器的 CPU、内存、负载、文件系统、磁盘和网络 (system.*)。",
 	"dashboardTemplate_kubernetes_name": "Kubernetes",
 	"dashboardTemplate_kubernetes_description": "节点和 Pod 的 CPU/内存、限额利用率以及 Deployment 副本 (k8s.*)。",
+	"dashboardTemplate_webVitals_name": "Web 核心指标",
+	"dashboardTemplate_webVitals_description": "浏览器 Core Web Vitals - LCP、INP、CLS、FCP 和 TTFB (browser.web_vital.*)。",
 	"dashboardFormDialog_renameTitle": "重命名仪表板",
 	"dashboardFormDialog_createTitle": "新建仪表板",
 	"dashboardFormDialog_renameDescription": "更新此仪表板的名称或描述。",

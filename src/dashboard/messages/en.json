@@ -1841,6 +1841,8 @@
 	"dashboardTemplate_hostmetrics_description": "CPU, memory, load, filesystem, disk and network from the collector hostmetrics receiver (system.*).",
 	"dashboardTemplate_kubernetes_name": "Kubernetes",
 	"dashboardTemplate_kubernetes_description": "Node and pod CPU/memory, limits utilization and deployment replicas (k8s.*).",
+	"dashboardTemplate_webVitals_name": "Web vitals",
+	"dashboardTemplate_webVitals_description": "Browser Core Web Vitals - LCP, INP, CLS, FCP and TTFB (browser.web_vital.*).",
 	"dashboardFormDialog_renameTitle": "Rename dashboard",
 	"dashboardFormDialog_createTitle": "New dashboard",
 	"dashboardFormDialog_renameDescription": "Update this dashboard's name or description.",

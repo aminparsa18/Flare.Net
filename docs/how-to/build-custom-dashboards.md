@@ -567,8 +567,9 @@ From the **Dashboards** page you can:
   common OpenTelemetry sources emit: **ASP.NET Core** (`http.server.*`,
   `kestrel.*`), **HttpClient** (`http.client.*`), **.NET runtime**
   (`dotnet.*`: GC, thread pool, exceptions, process), **Host metrics**
-  (the collector's hostmetrics receiver, `system.*`) and **Kubernetes**
-  (`k8s.*`). Each is a set of Metrics panels with a **Service** variable
+  (the collector's hostmetrics receiver, `system.*`), **Kubernetes**
+  (`k8s.*`) and **Web vitals** (`browser.web_vital.*`, see
+  [Send browser telemetry](send-browser-telemetry.md)). Each is a set of Metrics panels with a **Service** variable
   that picks which service's metrics they show. Installing creates an
   ordinary dashboard — edit, rename or delete it like any other. A panel
   stays empty until a service actually emits its metric, so a template
