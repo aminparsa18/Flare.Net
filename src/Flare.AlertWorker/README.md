@@ -73,6 +73,9 @@ Alerting/   AlertEvaluationWorker (the poll-loop BackgroundService), AlertingOpt
 Reports/    DashboardReportWorker (claims due dashboard schedules, renders, emails, records the
             run), PlaywrightDashboardRenderer, DashboardReportMailer, ReportsOptions -
             scheduled dashboard reports (ADR-0142). Off unless Reports__Enabled.
+Archive/    ArchiveWorker (exports finished ingest hours to S3-compatible storage with INSERT INTO
+            FUNCTION s3), ArchiveSql, ArchiveOptions - telemetry archive (ADR-0156). Off unless
+            Archive__Enabled.
 Program.cs  Minimal host: ClickHouse/Redis client wiring, the same alert-notifier DI
             registrations Flare.Api's own Program.cs makes, /health + /alive only (no
             other HTTP surface - AddServiceDefaults()/MapDefaultEndpoints() are pulled in

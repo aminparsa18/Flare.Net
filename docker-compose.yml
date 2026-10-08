@@ -237,6 +237,13 @@ services:
       Reports__DashboardUrl: "http://localhost:${FLARE_DASHBOARD_PORT:-7777}"
       Reports__ApiUrl: "${PUBLIC_API_URL:-http://localhost:8080}"
       Reports__ChromiumArgs__0: "--host-resolver-rules=MAP localhost host.docker.internal"
+      # Telemetry archive to S3-compatible storage (ADR-0156). Off unless FLARE_ARCHIVE_ENABLED=true.
+      Archive__Enabled: "${FLARE_ARCHIVE_ENABLED:-false}"
+      Archive__Endpoint: "${FLARE_ARCHIVE_ENDPOINT:-}"
+      Archive__AccessKey: "${FLARE_ARCHIVE_ACCESS_KEY:-}"
+      Archive__SecretKey: "${FLARE_ARCHIVE_SECRET_KEY:-}"
+      Archive__Prefix: "${FLARE_ARCHIVE_PREFIX:-flare}"
+      Archive__Format: "${FLARE_ARCHIVE_FORMAT:-Parquet}"
     # No published ports (internal only, same as redis) - nothing outside this stack
     # talks to this process directly.
     healthcheck:

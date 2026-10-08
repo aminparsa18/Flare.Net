@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Flare.AlertWorker.Alerting;
 using Flare.AlertWorker.Synthetic;
 using Flare.AlertWorker.Reports;
+using Flare.AlertWorker.Archive;
 using Flare.Identity.Auth;
 using Flare.Api.Synthetic;
 
@@ -108,6 +109,10 @@ builder.Services.AddSingleton<IDashboardQueryService, DashboardQueryService>();
 builder.Services.AddSingleton<IDashboardRenderer, PlaywrightDashboardRenderer>();
 builder.Services.AddSingleton<IDashboardReportMailer, DashboardReportMailer>();
 builder.Services.AddHostedService<DashboardReportWorker>();
+
+// Telemetry archive to S3-compatible storage (ADR-0156). Off unless Archive:Enabled.
+builder.Services.Configure<ArchiveOptions>(builder.Configuration.GetSection(ArchiveOptions.SectionName));
+builder.Services.AddHostedService<ArchiveWorker>();
 
 var app = builder.Build();
 
