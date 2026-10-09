@@ -59,6 +59,7 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Acquitter ou suspendre une alerte en cours](how-to/acknowledge-and-snooze-alerts.fr.md)
 - [Partager la formulation des notifications entre règles](how-to/share-alert-notification-templates.fr.md)
 - [Envoyer la télémétrie du navigateur à Flare](how-to/send-browser-telemetry.fr.md)
+- [Envoyer la télémétrie d'une application .NET MAUI à Flare](how-to/send-maui-telemetry.fr.md)
 - [Savoir si un span était lent par rapport à ses semblables](how-to/compare-span-duration.fr.md)
 - [Trouver les métriques à forte cardinalité](how-to/find-high-cardinality-metrics.fr.md)
 - [Réduire les attributs d'une métrique à l'ingestion](how-to/reduce-metric-attributes.fr.md)

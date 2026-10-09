@@ -59,6 +59,7 @@
 - [确认或暂缓正在触发的告警](how-to/acknowledge-and-snooze-alerts.zh-CN.md)
 - [在多条告警规则间共享通知措辞](how-to/share-alert-notification-templates.zh-CN.md)
 - [将浏览器遥测发送到 Flare](how-to/send-browser-telemetry.zh-CN.md)
+- [将 .NET MAUI 应用的遥测数据发送到 Flare](how-to/send-maui-telemetry.zh-CN.md)
 - [判断 span 相对同类是否偏慢](how-to/compare-span-duration.zh-CN.md)
 - [找出高基数指标](how-to/find-high-cardinality-metrics.zh-CN.md)
 - [在摄取时精简指标的属性](how-to/reduce-metric-attributes.zh-CN.md)

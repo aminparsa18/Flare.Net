@@ -59,6 +59,7 @@
 - [Подтверждение и откладывание оповещения](how-to/acknowledge-and-snooze-alerts.ru.md)
 - [Общие формулировки уведомлений в правилах](how-to/share-alert-notification-templates.ru.md)
 - [Отправить телеметрию браузера во Flare](how-to/send-browser-telemetry.ru.md)
+- [Отправить телеметрию из приложения .NET MAUI во Flare](how-to/send-maui-telemetry.ru.md)
 - [Как понять, был ли спан медленным для своего типа](how-to/compare-span-duration.ru.md)
 - [Как найти метрики с высокой кардинальностью](how-to/find-high-cardinality-metrics.ru.md)
 - [Как сократить атрибуты метрики при приёме](how-to/reduce-metric-attributes.ru.md)
