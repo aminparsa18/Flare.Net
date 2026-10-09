@@ -3165,6 +3165,8 @@
 	"statusSubscribe_button": "Subscribe",
 	"statusSubscribe_sent": "Check your inbox: we sent a link to confirm this address.",
 	"statusSubscribe_hint": "You will be emailed when an incident is opened or updated. Every email has an unsubscribe link.",
+	"statusSubscribe_componentsAll": "Leave all unticked to hear about every component, or tick the ones you care about.",
+	"statusSubscribe_componentsSome": "Only incidents affecting the ticked components. Incidents that name no component always reach you.",
 	"statusSubscribe_confirmTitle": "Confirm subscription",
 	"statusSubscribe_confirmPrompt": "Send incident updates about {page} to {email}?",
 	"statusSubscribe_confirmButton": "Confirm",
