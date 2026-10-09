@@ -10,7 +10,17 @@ public sealed class ForwardingOptions
 {
     public const string SectionName = "Forwarding";
 
+    /// <summary>Targets defined in configuration. Targets managed from the dashboard (ADR-0157) are added to these.</summary>
     public List<ForwardingTargetOptions> Targets { get; set; } = [];
+
+    /// <summary>How often managed targets are re-read, so an edit in the dashboard applies without a restart.</summary>
+    public TimeSpan RefreshInterval { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>A queued request older than this is dropped instead of delivered - stale telemetry is rarely worth sending.</summary>
+    public TimeSpan MaxAge { get; set; } = TimeSpan.FromHours(6);
+
+    /// <summary>How long an undelivered request waits before it is retried by a sender.</summary>
+    public TimeSpan ReclaimIdle { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>Throws on a target that could never deliver, so a typo fails at startup rather than silently dropping data.</summary>
     public void Validate()
@@ -60,9 +70,9 @@ public sealed class ForwardingTargetOptions
 
     public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(10);
 
-    /// <summary>Requests buffered in memory per target; when full the newest are dropped and counted, never blocking ingest.</summary>
-    public int QueueCapacity { get; set; } = 1000;
+    /// <summary>Requests the target's Redis queue keeps; past this the oldest are trimmed, so a dead destination can never fill Redis.</summary>
+    public int QueueCapacity { get; set; } = 10000;
 
-    /// <summary>Delivery attempts (first try included) for network errors, 429 and 5xx.</summary>
+    /// <summary>Immediate delivery attempts (first try included) for network errors, 429 and 5xx, before the request waits to be retried.</summary>
     public int MaxAttempts { get; set; } = 3;
 }
