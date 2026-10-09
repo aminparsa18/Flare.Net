@@ -60,6 +60,7 @@ the full rule set on what goes where.
 - [Share notification wording across alert rules](how-to/share-alert-notification-templates.md)
 - [Send browser telemetry to Flare](how-to/send-browser-telemetry.md)
 - [Monitor endpoints, ports and certificates with synthetic probes](how-to/synthetic-monitoring.md)
+- [Publish a status page](how-to/publish-a-status-page.md)
 - [Tell whether a span was slow for what it is](how-to/compare-span-duration.md)
 - [Find high-cardinality metrics](how-to/find-high-cardinality-metrics.md)
 - [Reduce a metric's attributes at ingest](how-to/reduce-metric-attributes.md)

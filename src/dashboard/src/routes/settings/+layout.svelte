@@ -51,6 +51,7 @@
 		'/settings/alert-templates': FileTextIcon,
 		'/settings/oncall-rotations': PhoneCallIcon,
 		'/settings/synthetic-monitors': RadarIcon,
+		'/settings/status-pages': GlobeIcon,
 		'/settings/audit-log': ScrollTextIcon,
 		'/settings/indexing': LayersIcon,
 		'/settings/usage': ChartColumnIcon,

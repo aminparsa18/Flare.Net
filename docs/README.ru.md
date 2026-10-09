@@ -50,6 +50,7 @@
 - [Как найти проблемы со средой выполнения .NET](how-to/find-runtime-health-problems.ru.md)
 - [Как сравнить два деплоя сервиса](how-to/compare-deploys.ru.md)
 - [Как задать SLO и получать оповещения о расходе бюджета ошибок](how-to/define-slos.ru.md)
+- [Как опубликовать страницу статуса](how-to/publish-a-status-page.ru.md)
 - [Как организовать команды с помощью проектов](how-to/organize-teams-with-projects.ru.md)
 - [Поиск трассировок по связям между спанами](how-to/find-traces-by-structure.ru.md)
 - [Связать трассировки стека исключений с исходным кодом](how-to/link-exceptions-to-source-code.ru.md)
