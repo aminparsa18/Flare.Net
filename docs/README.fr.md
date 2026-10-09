@@ -63,6 +63,8 @@ arborescence, dans [`../docs-internal/`](../docs-internal/) — voir le
 - [Réduire les attributs d'une métrique à l'ingestion](how-to/reduce-metric-attributes.fr.md)
 - [Transformer une recherche de logs en métrique](how-to/log-based-metrics.fr.md)
 - [Définir la rétention des données et déplacer les anciennes données vers un stockage froid](how-to/set-data-retention.fr.md)
+- [Transférer la télémétrie vers un autre endpoint OTLP](how-to/forward-telemetry-to-another-otlp-endpoint.fr.md)
+- [Archiver la télémétrie vers un stockage compatible S3](how-to/archive-telemetry-to-s3.fr.md)
 - [Accélérer les filtres sur un attribut de log ou de span fréquemment utilisé](how-to/promote-attribute-columns.fr.md)
 
 **Référence**

@@ -188,6 +188,7 @@ builder.Services.AddHostedService<PrometheusScrapeWorker>();
 // receivers call and the hosted service that drains the per-target queues.
 builder.Services.Configure<ForwardingOptions>(builder.Configuration.GetSection(ForwardingOptions.SectionName));
 builder.Services.AddHttpClient("OtlpForwarding");
+builder.Services.AddSingleton<IForwardingTargetStore, ClickHouseForwardingTargetStore>();
 builder.Services.AddSingleton<OtlpForwarder>();
 builder.Services.AddSingleton<IOtlpForwarder>(sp => sp.GetRequiredService<OtlpForwarder>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<OtlpForwarder>());

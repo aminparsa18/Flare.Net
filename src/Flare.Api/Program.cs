@@ -8,6 +8,7 @@ using Flare.Api.Auth;
 using Flare.Api.Caching;
 using Flare.Api.DockerResources;
 using Flare.Api.Endpoints;
+using Flare.Api.Export;
 using Flare.Api.HostStats;
 using Flare.Api.KubernetesResources;
 using Flare.Api.LiveTail;
@@ -240,6 +241,9 @@ builder.Services.AddSingleton<IVersionComparisonQueryService, VersionComparisonQ
 builder.Services.AddSingleton<IAlertQueryService, AlertQueryService>();
 builder.Services.AddSingleton<IPipelineRuleQueryService, PipelineRuleQueryService>();
 builder.Services.AddSingleton<IMetricAttributeRuleQueryService, MetricAttributeRuleQueryService>();
+// Managed OTLP forwarding targets + S3 archive settings (ADR-0157), and the status the workers publish to Redis.
+builder.Services.AddSingleton<ITelemetryExportQueryService, TelemetryExportQueryService>();
+builder.Services.AddSingleton<IExportStatusStore, RedisExportStatusStore>();
 builder.Services.AddSingleton<ILogMetricQueryService, LogMetricQueryService>();
 // Data retention (ADR-0143): factory registration for the same ClickHouse:ClusterMode reason as
 // SpanQueryService above - cluster mode alters the `_local` tables ON CLUSTER.
@@ -547,6 +551,8 @@ authenticatedRoutes.MapUserPreferencesEndpoints();
 authenticatedRoutes.MapIngestionEndpoints();
 authenticatedRoutes.MapPipelineEndpoints();
 authenticatedRoutes.MapIndexingEndpoints();
+// Archive status holds no secrets and feeds the Ingestion page (ADR-0157); the targets/settings are Admin-only below.
+authenticatedRoutes.MapTelemetryExportStatusEndpoints();
 authenticatedRoutes.MapResourceGraphEndpoints();
 authenticatedRoutes.MapHostStatsEndpoints();
 authenticatedRoutes.MapVersionEndpoints();
@@ -616,6 +622,8 @@ adminRoutes.MapAuthSettingsEndpoints();
 adminRoutes.MapApdexThresholdEndpoints();
 // Changing retention deletes data - Admin-only; reading it (above) is open to members.
 adminRoutes.MapRetentionWriteEndpoints();
+// Forwarding targets and archive settings hold destination credentials and ship all telemetry out (ADR-0157).
+adminRoutes.MapTelemetryExportAdminEndpoints();
 // Same reasoning for source-repo links - they change where every user's stack-trace links
 // point. Reading stays on authenticatedRoutes (ADR-0095).
 adminRoutes.MapSourceLinkWriteEndpoints();

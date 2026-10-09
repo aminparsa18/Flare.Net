@@ -63,6 +63,8 @@
 - [在摄取时精简指标的属性](how-to/reduce-metric-attributes.zh-CN.md)
 - [把日志搜索变成指标](how-to/log-based-metrics.zh-CN.md)
 - [设置数据保留时长并将旧数据迁移到冷存储](how-to/set-data-retention.zh-CN.md)
+- [将遥测数据转发到另一个 OTLP 端点](how-to/forward-telemetry-to-another-otlp-endpoint.zh-CN.md)
+- [将遥测数据归档到 S3 兼容存储](how-to/archive-telemetry-to-s3.zh-CN.md)
 - [加速对常用日志或 Span 属性的过滤](how-to/promote-attribute-columns.zh-CN.md)
 
 **参考**

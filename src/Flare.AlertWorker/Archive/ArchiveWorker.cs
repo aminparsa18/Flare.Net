@@ -1,6 +1,9 @@
 using ClickHouse.Driver;
 using ClickHouse.Driver.ADO.Parameters;
 using ClickHouse.Driver.Utility;
+using Flare.Api.Export;
+using Flare.Api.Model;
+using Flare.Api.Query;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
@@ -18,6 +21,8 @@ namespace Flare.AlertWorker.Archive;
 /// </remarks>
 public sealed class ArchiveWorker(
     IClickHouseClient client,
+    ITelemetryExportQueryService settingsStore,
+    IExportStatusStore statusStore,
     IConnectionMultiplexer redis,
     IOptions<ArchiveOptions> options,
     TimeProvider timeProvider,
@@ -26,35 +31,87 @@ public sealed class ArchiveWorker(
     private static readonly RedisKey LockKey = "flare:archive:lock";
     private static readonly RedisKey WatermarkKey = "flare:archive:watermark";
 
+    private readonly Dictionary<string, ArchiveTableStatus> tableStatus = [];
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var opts = options.Value;
-        if (!opts.Enabled)
-        {
-            logger.LogInformation("Telemetry archive is off (Archive:Enabled is false).");
-            return;
-        }
-
-        if (opts.Validate() is { } problem)
-        {
-            logger.LogWarning("{Problem} The telemetry archive stays off.", problem);
-            return;
-        }
-
-        var signals = opts.Signals.Count == 0 ? Enum.GetValues<ArchiveSignal>() : [.. opts.Signals];
-        var tables = signals.SelectMany(ArchiveSql.TablesFor).Distinct().ToList();
-
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                await PollAsync(opts, tables, stoppingToken);
-                await Task.Delay(opts.PollInterval, stoppingToken);
+                var (opts, source) = await ResolveAsync(stoppingToken);
+                await ReportWorkerAsync(opts, source);
+                if (opts is not null)
+                {
+                    var signals = opts.Signals.Count == 0 ? Enum.GetValues<ArchiveSignal>() : [.. opts.Signals];
+                    await PollAsync(opts, signals.SelectMany(ArchiveSql.TablesFor).Distinct().ToList(), stoppingToken);
+                }
+
+                await Task.Delay(options.Value.PollInterval, stoppingToken);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             // Normal shutdown.
+        }
+    }
+
+    /// <summary>Settings saved from the dashboard (ADR-0157) win over the <c>Archive</c> configuration; null options = the archive is off or incomplete.</summary>
+    private async Task<(ArchiveOptions? Options, string Source)> ResolveAsync(CancellationToken ct)
+    {
+        var configured = options.Value;
+        ArchiveSettings? stored = null;
+        try
+        {
+            stored = await settingsStore.GetArchiveAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not read the saved archive settings; using configuration for this poll.");
+        }
+
+        var effective = stored is null
+            ? configured
+            : new ArchiveOptions
+            {
+                Enabled = stored.Enabled,
+                Endpoint = stored.Endpoint,
+                AccessKey = stored.AccessKey,
+                SecretKey = stored.SecretKey,
+                Prefix = stored.Prefix,
+                Format = stored.Format == ArchiveFileFormat.Ndjson ? ArchiveFormat.Ndjson : ArchiveFormat.Parquet,
+                Signals = stored.Signals.Select(x => (ArchiveSignal)(int)x).ToList(),
+                PollInterval = configured.PollInterval,
+                Lag = configured.Lag,
+                StartFrom = configured.StartFrom,
+                MaxWindowsPerPoll = configured.MaxWindowsPerPoll,
+                MaxExecutionSeconds = configured.MaxExecutionSeconds,
+            };
+        var source = stored is null ? "config" : "settings";
+
+        if (!effective.Enabled)
+        {
+            return (null, source);
+        }
+
+        if (effective.Validate() is { } problem)
+        {
+            logger.LogWarning("{Problem} The telemetry archive is idle until this is fixed.", problem);
+            return (null, source);
+        }
+
+        return (effective, source);
+    }
+
+    private async Task ReportWorkerAsync(ArchiveOptions? opts, string source)
+    {
+        try
+        {
+            await statusStore.WriteArchiveWorkerAsync(new ArchiveWorkerState(opts is not null, source, timeProvider.GetUtcNow()));
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Could not publish archive worker state.");
         }
     }
 
@@ -94,11 +151,24 @@ public sealed class ArchiveWorker(
         {
             try
             {
-                await ExportAsync(opts, table, next, ct);
+                var rows = await ExportAsync(opts, table, next, ct);
+                await RecordAsync(table, previous => previous with
+                {
+                    LastExportedHour = next,
+                    LastSuccessAt = timeProvider.GetUtcNow(),
+                    LastRows = rows > 0 ? rows : previous.LastRows,
+                    LastError = null,
+                    LastErrorAt = null,
+                });
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "Archiving {Table} for {Hour:u} failed; will retry.", table, next);
+                await RecordAsync(table, previous => previous with
+                {
+                    LastError = ex.Message.Length > 500 ? ex.Message[..500] : ex.Message,
+                    LastErrorAt = timeProvider.GetUtcNow(),
+                });
                 return;
             }
 
@@ -107,7 +177,7 @@ public sealed class ArchiveWorker(
         }
     }
 
-    private async Task ExportAsync(ArchiveOptions opts, string table, DateTimeOffset hour, CancellationToken ct)
+    private async Task<long> ExportAsync(ArchiveOptions opts, string table, DateTimeOffset hour, CancellationToken ct)
     {
         var parameters = new ClickHouseParameterCollection();
         parameters.AddParameter("from", hour.UtcDateTime);
@@ -121,7 +191,7 @@ public sealed class ArchiveWorker(
         var rows = Convert.ToInt64(await client.ExecuteScalarAsync(ArchiveSql.CountSql(table), parameters, settings, ct));
         if (rows == 0)
         {
-            return;
+            return 0;
         }
 
         var key = ArchiveSql.ObjectKey(opts.Prefix, table, hour, opts.Format);
@@ -129,5 +199,20 @@ public sealed class ArchiveWorker(
             ArchiveSql.ExportSql(opts.Endpoint, key, opts.AccessKey, opts.SecretKey, table, opts.Format),
             parameters, settings, ct);
         logger.LogInformation("Archived {Rows} row(s) of {Table} for {Hour:u} to {Key}.", rows, table, hour, key);
+        return rows;
+    }
+
+    private async Task RecordAsync(string table, Func<ArchiveTableStatus, ArchiveTableStatus> change)
+    {
+        var status = change(tableStatus.GetValueOrDefault(table) ?? new ArchiveTableStatus { Table = table });
+        tableStatus[table] = status;
+        try
+        {
+            await statusStore.WriteArchiveTableAsync(status);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Could not publish archive status for {Table}.", table);
+        }
     }
 }
