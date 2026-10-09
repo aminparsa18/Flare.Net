@@ -24,6 +24,7 @@
 	import IncidentsDialog from './IncidentsDialog.svelte';
 	import { listSyntheticMonitors } from '$lib/synthetic-monitors-api';
 	import { listSlos } from '$lib/slos-api';
+	import { listNotificationChannels } from '$lib/notification-channels-api';
 	import { withBase } from '$lib/paths';
 	import * as m from '$lib/paraglide/messages';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -39,6 +40,9 @@
 	let error = $state<string | null>(null);
 	// What a component can point at: [kind:id] -> label.
 	let options = $state<{ key: string; kind: 'Monitor' | 'Slo'; refId: string; label: string }[]>([]);
+	// Channels that suit an announcement (not PagerDuty, Jira and the like): id -> name.
+	let channelOptions = $state<{ id: string; name: string }[]>([]);
+	const SUBSCRIBER_TYPES = ['Webhook', 'Telegram', 'Email', 'Teams', 'Discord'];
 
 	// Form: null = closed, 'new' = create, otherwise the page being edited.
 	let target = $state<StatusPage | 'new' | null>(null);
@@ -47,19 +51,22 @@
 	let description = $state('');
 	let enabled = $state(false);
 	let components = $state<StatusPageComponent[]>([]);
+	let subscribers = $state<string[]>([]);
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 	let incidentsFor = $state<StatusPage | null>(null);
 
 	const slugValid = $derived(isValidSlug(slug));
 	const canSave = $derived(slugValid && title.trim().length > 0 && components.every((c) => c.name.trim().length > 0));
+	const unsubscribed = $derived(channelOptions.filter((c) => !subscribers.includes(c.id)));
 	const unused = $derived(options.filter((o) => !components.some((c) => c.kind === o.kind && c.refId === o.refId)));
 
 	async function load(): Promise<void> {
 		loading = true;
 		try {
-			const [list, monitors, slos] = await Promise.all([listStatusPages(), listSyntheticMonitors(), listSlos()]);
+			const [list, monitors, slos, channels] = await Promise.all([listStatusPages(), listSyntheticMonitors(), listSlos(), listNotificationChannels()]);
 			pages = list;
+			channelOptions = channels.channels.filter((c) => SUBSCRIBER_TYPES.includes(c.type)).map((c) => ({ id: c.id, name: c.name }));
 			options = [
 				...monitors.map((x) => ({ key: `Monitor:${x.id}`, kind: 'Monitor' as const, refId: x.id, label: x.name })),
 				...slos.map((x) => ({ key: `Slo:${x.id}`, kind: 'Slo' as const, refId: x.id, label: x.name }))
@@ -83,6 +90,7 @@
 		description = page?.description ?? '';
 		enabled = page?.enabled ?? false;
 		components = page ? page.components.map((c) => ({ ...c })) : [];
+		subscribers = page ? [...page.subscriberChannelIds] : [];
 	}
 
 	function labelFor(c: StatusPageComponent): string {
@@ -91,7 +99,7 @@
 
 	async function save(): Promise<void> {
 		if (target === null) return;
-		const request: StatusPageRequest = { slug: slug.trim(), title: title.trim(), description: description.trim(), enabled, components };
+		const request: StatusPageRequest = { slug: slug.trim(), title: title.trim(), description: description.trim(), enabled, components, subscriberChannelIds: subscribers };
 		saving = true;
 		saveError = null;
 		try {
@@ -123,6 +131,10 @@
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
 		}
+	}
+
+	function channelName(id: string): string {
+		return channelOptions.find((c) => c.id === id)?.name ?? m.statusPages_missingChannel();
 	}
 
 	function addComponent(key: string): void {
@@ -257,6 +269,31 @@
 					<span class="text-muted-foreground text-xs">{m.statusPages_noSources()}</span>
 				{/if}
 				<span class="text-muted-foreground text-xs">{m.statusPages_componentsHint()}</span>
+			</div>
+
+			<div class="flex flex-col gap-2">
+				<span class="text-xs font-medium">{m.statusPages_subscribersLabel()}</span>
+				{#each subscribers as id (id)}
+					<div class="flex items-center gap-2">
+						<span class="flex-1 truncate text-sm">{channelName(id)}</span>
+						<Button variant="ghost" size="icon-sm" title={m.statusPages_removeSubscriber()} onclick={() => (subscribers = subscribers.filter((s) => s !== id))}>
+							<XIcon />
+						</Button>
+					</div>
+				{/each}
+				{#if unsubscribed.length > 0}
+					<Select.Root type="single" value="" onValueChange={(id) => id && (subscribers = [...subscribers, id])}>
+						<Select.Trigger class="w-full">{m.statusPages_addSubscriber()}</Select.Trigger>
+						<Select.Content>
+							{#each unsubscribed as channel (channel.id)}
+								<Select.Item value={channel.id} label={channel.name}>{channel.name}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				{:else if channelOptions.length === 0}
+					<span class="text-muted-foreground text-xs">{m.statusPages_noChannels()}</span>
+				{/if}
+				<span class="text-muted-foreground text-xs">{m.statusPages_subscribersHint()}</span>
 			</div>
 
 			<label class="flex items-center gap-2 text-sm">

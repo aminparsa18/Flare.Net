@@ -47,7 +47,7 @@ public static class StatusPageEndpoints
         return Results.Json(page, StatusPagesJsonContext.Default.PublicStatusPage);
     }
 
-    private static async Task<IResult> HandleCreateAsync(HttpContext http, IStatusPageQueryService pages, ISyntheticMonitorQueryService monitors, ISloQueryService slos, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleCreateAsync(HttpContext http, IStatusPageQueryService pages, ISyntheticMonitorQueryService monitors, ISloQueryService slos, INotificationChannelQueryService channels, CancellationToken cancellationToken)
     {
         var (request, problem) = await ReadRequestAsync(http, cancellationToken);
         if (problem is not null)
@@ -55,7 +55,7 @@ public static class StatusPageEndpoints
             return problem;
         }
 
-        if (await CheckAsync(request!, null, pages, monitors, slos, cancellationToken) is { } rejected)
+        if (await CheckAsync(request!, null, pages, monitors, slos, channels, cancellationToken) is { } rejected)
         {
             return rejected;
         }
@@ -74,7 +74,7 @@ public static class StatusPageEndpoints
         return page is null ? Results.NotFound() : Results.Json(page, StatusPagesJsonContext.Default.StatusPage);
     }
 
-    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IStatusPageQueryService pages, ISyntheticMonitorQueryService monitors, ISloQueryService slos, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleUpdateAsync(Guid id, HttpContext http, IStatusPageQueryService pages, ISyntheticMonitorQueryService monitors, ISloQueryService slos, INotificationChannelQueryService channels, CancellationToken cancellationToken)
     {
         var (request, problem) = await ReadRequestAsync(http, cancellationToken);
         if (problem is not null)
@@ -82,7 +82,7 @@ public static class StatusPageEndpoints
             return problem;
         }
 
-        if (await CheckAsync(request!, id, pages, monitors, slos, cancellationToken) is { } rejected)
+        if (await CheckAsync(request!, id, pages, monitors, slos, channels, cancellationToken) is { } rejected)
         {
             return rejected;
         }
@@ -102,7 +102,7 @@ public static class StatusPageEndpoints
             ? Results.NotFound()
             : Results.Json(new StatusIncidentListResponse(await incidents.ListAsync(id, cancellationToken)), StatusPagesJsonContext.Default.StatusIncidentListResponse);
 
-    private static async Task<IResult> HandleOpenIncidentAsync(Guid id, HttpContext http, IStatusPageQueryService pages, IStatusIncidentQueryService incidents, TimeProvider time, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleOpenIncidentAsync(Guid id, HttpContext http, IStatusPageQueryService pages, IStatusIncidentQueryService incidents, IStatusIncidentNotifier notifier, TimeProvider time, CancellationToken cancellationToken)
     {
         var (request, problem) = await ReadBodyAsync(http, StatusPagesJsonContext.Default.StatusIncidentRequest, r => r.Validate(), cancellationToken);
         if (problem is not null)
@@ -123,6 +123,7 @@ public static class StatusPageEndpoints
 
         var incident = StatusIncidents.Open(id, request!, time.GetUtcNow());
         await incidents.SaveAsync(incident, cancellationToken);
+        await notifier.NotifyAsync(page, incident, incident.Updates[^1], cancellationToken);
         AuditContext.SetResourceId(http, incident.Id);
         return Results.Json(incident, StatusPagesJsonContext.Default.StatusIncident, statusCode: StatusCodes.Status201Created);
     }
@@ -133,7 +134,7 @@ public static class StatusPageEndpoints
             ? Results.Problem($"Component {id} is not on this status page.", statusCode: StatusCodes.Status400BadRequest)
             : null;
 
-    private static async Task<IResult> HandleUpdateIncidentAsync(Guid id, Guid incidentId, HttpContext http, IStatusPageQueryService pages, IStatusIncidentQueryService incidents, TimeProvider time, CancellationToken cancellationToken)
+    private static async Task<IResult> HandleUpdateIncidentAsync(Guid id, Guid incidentId, HttpContext http, IStatusPageQueryService pages, IStatusIncidentQueryService incidents, IStatusIncidentNotifier notifier, TimeProvider time, CancellationToken cancellationToken)
     {
         var (request, problem) = await ReadBodyAsync(http, StatusPagesJsonContext.Default.StatusIncidentUpdateRequest, r => r.Validate(), cancellationToken);
         if (problem is not null)
@@ -147,7 +148,8 @@ public static class StatusPageEndpoints
             return Results.NotFound();
         }
 
-        if (request!.Components is not null && await pages.GetAsync(id, cancellationToken) is { } page && UnknownComponent(request.Components, page) is { } unknown)
+        var page = await pages.GetAsync(id, cancellationToken);
+        if (request!.Components is not null && page is not null && UnknownComponent(request.Components, page) is { } unknown)
         {
             return unknown;
         }
@@ -159,6 +161,11 @@ public static class StatusPageEndpoints
         }
 
         await incidents.SaveAsync(updated, cancellationToken);
+        if (page is not null)
+        {
+            await notifier.NotifyAsync(page, updated, updated.Updates[^1], cancellationToken);
+        }
+
         return Results.Json(updated, StatusPagesJsonContext.Default.StatusIncident);
     }
 
@@ -175,12 +182,30 @@ public static class StatusPageEndpoints
         IStatusPageQueryService pages,
         ISyntheticMonitorQueryService monitors,
         ISloQueryService slos,
+        INotificationChannelQueryService channels,
         CancellationToken cancellationToken)
     {
         var slug = request.Slug.Trim();
         if ((await pages.ListAsync(cancellationToken)).Any(p => p.Id != exceptId && string.Equals(p.Slug, slug, StringComparison.Ordinal)))
         {
             return Results.Problem($"A status page with slug '{slug}' already exists.", statusCode: StatusCodes.Status409Conflict);
+        }
+
+        if (request.SubscriberChannelIds is { Count: > 0 } subscribers)
+        {
+            var found = (await channels.GetByIdsAsync(subscribers, cancellationToken)).ToDictionary(c => c.Id);
+            foreach (var channelId in subscribers)
+            {
+                if (!found.TryGetValue(channelId, out var channel))
+                {
+                    return Results.Problem($"Notification channel {channelId} does not exist.", statusCode: StatusCodes.Status400BadRequest);
+                }
+
+                if (!StatusIncidentNotifier.IsSupported(channel.Type))
+                {
+                    return Results.Problem($"Notification channel '{channel.Name}' is a {channel.Type} channel; status page subscribers can be webhook, Slack, Telegram, email, Teams or Discord channels.", statusCode: StatusCodes.Status400BadRequest);
+                }
+            }
         }
 
         var components = request.Components ?? [];

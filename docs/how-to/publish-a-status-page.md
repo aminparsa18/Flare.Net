@@ -65,6 +65,10 @@ Computed health says what is up; an incident says why, in your words. In **Setti
 
 Open incidents show above the components on the public page, and resolved ones stay for 14 days. Incidents do not change the computed state or the banner. The API is `/api/status-pages/{id}/incidents`; update text is public, so keep secrets out of it. Tick the components an incident affects and the public page names them next to it; the `components` field of the API takes their monitor or SLO ids, and a later update can change the list. It is a label only: the component's computed state is unchanged.
 
+### Notify channels
+
+A page can tell your own channels when an incident is opened or updated. In the page editor, add channels under **Incident notifications**, or pass `--subscriber <channel-id>` (repeatable) to `flare status-pages create` or `update`; the API field is `subscriberChannelIds`. Each update is sent as a message with the page, the status, the incident title, your text, the affected components and a link to the public page. Only webhook (including Slack), Telegram, email, Teams and Discord channels qualify; a delivery failure is logged and never blocks posting the update. The link needs `Alerting__PublicUrl` set. These are your channels, not a sign-up form for visitors.
+
 ## Things to know
 
 - The page is public to anyone who can reach the instance. Unpublish or delete it to take the link down at once.

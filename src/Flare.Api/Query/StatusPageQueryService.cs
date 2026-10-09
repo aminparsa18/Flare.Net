@@ -33,7 +33,7 @@ public interface IStatusPageQueryService
 /// </summary>
 public sealed class StatusPageQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IStatusPageQueryService
 {
-    private const string Columns = "Id, Slug, Title, Description, Enabled, ComponentsJson, CreatedAt, UpdatedAt";
+    private const string Columns = "Id, Slug, Title, Description, Enabled, ComponentsJson, CreatedAt, UpdatedAt, SubscriberChannelIds";
 
     internal static StatusPage Apply(StatusPage page, StatusPageRequest request) => page with
     {
@@ -42,6 +42,7 @@ public sealed class StatusPageQueryService(IClickHouseClient client, IOptions<Qu
         Description = request.Description?.Trim() ?? "",
         Enabled = request.Enabled ?? false,
         Components = (request.Components ?? []).Select(c => c with { Name = c.Name.Trim() }).ToList(),
+        SubscriberChannelIds = request.SubscriberChannelIds is null ? page.SubscriberChannelIds : request.SubscriberChannelIds.Distinct().ToList(),
     };
 
     public async Task<StatusPage> CreateAsync(StatusPageRequest request, CancellationToken cancellationToken)
@@ -116,12 +117,13 @@ public sealed class StatusPageQueryService(IClickHouseClient client, IOptions<Qu
         parameters.AddParameter("componentsJson", JsonSerializer.Serialize(page.Components, StatusPagesJsonContext.Default.IReadOnlyListStatusPageComponent));
         parameters.AddParameter("createdAt", page.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", page.UpdatedAt.UtcDateTime);
+        parameters.AddParameter("subscribers", page.SubscriberChannelIds.ToArray());
 
         const string sql = """
             INSERT INTO status_pages
-                (Id, Slug, Title, Description, IsDeleted, Enabled, ComponentsJson, CreatedAt, UpdatedAt)
+                (Id, Slug, Title, Description, IsDeleted, Enabled, ComponentsJson, CreatedAt, UpdatedAt, SubscriberChannelIds)
             VALUES
-                ({id:UUID}, {slug:String}, {title:String}, {description:String}, {isDeleted:UInt8}, {enabled:UInt8}, {componentsJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {slug:String}, {title:String}, {description:String}, {isDeleted:UInt8}, {enabled:UInt8}, {componentsJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {subscribers:Array(UUID)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -137,6 +139,7 @@ public sealed class StatusPageQueryService(IClickHouseClient client, IOptions<Qu
         Components = JsonSerializer.Deserialize(reader.GetString(5), StatusPagesJsonContext.Default.IReadOnlyListStatusPageComponent) ?? [],
         CreatedAt = ReadUtc(reader, 6),
         UpdatedAt = ReadUtc(reader, 7),
+        SubscriberChannelIds = reader.GetFieldValue<Guid[]>(8),
     };
 
     private static DateTimeOffset ReadUtc(ClickHouseDataReader reader, int ordinal) =>
