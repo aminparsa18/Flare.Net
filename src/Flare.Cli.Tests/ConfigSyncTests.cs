@@ -171,4 +171,79 @@ public class ConfigSyncTests
         Assert.Equal(ConfigOutcome.Update, ConfigSync.PlanKeys([Obj("""{"name":"prod","limitsEnabled":true,"maxEventsPerMinute":900}""")], existing)[0].Outcome);
         Assert.False(ConfigSync.KeyLimitsBody(Obj("""{"name":"prod"}"""))["limitsEnabled"]!.GetValue<bool>());
     }
+
+    private static readonly ConfigKind Forwarding = ConfigSync.RestKinds.Single(k => k.Section == ConfigSync.ForwardingSection);
+
+    private const string StoredTarget = """
+        {"id":"t1","name":"Grafana","enabled":true,"endpoint":"https://o.example.com","headers":{"Authorization":"\u2022\u2022cret"},
+         "signals":["Logs"],"services":[],"ingestKeyIds":["k1"],"gzip":true,"createdAt":"x","updatedAt":"y"}
+        """;
+
+    [Fact]
+    public void ForwardingTarget_ExportReplacesHeaderValuesAndKeyIds()
+    {
+        var item = ConfigSync.ToExportItem(Forwarding, Obj(StoredTarget), NoAlerts, new Dictionary<string, string> { ["k1"] = "prod" });
+
+        Assert.Equal("${FLARE_FORWARDINGTARGETS_GRAFANA_HEADERS_AUTHORIZATION}", item["headers"]!["Authorization"]!.GetValue<string>());
+        Assert.Equal("prod", item["ingestKeyNames"]![0]!.GetValue<string>());
+        Assert.Null(item["ingestKeyIds"]);
+        Assert.Null(item["id"]);
+    }
+
+    [Fact]
+    public void ForwardingTarget_BuildBodyResolvesHeaderEnvKeepsStoredMaskAndMapsKeyNames()
+    {
+        var keys = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["prod"] = "k1" };
+        var existing = new ConfigExisting("t1", "Grafana", Obj(StoredTarget), Obj("{}"));
+        var desired = Obj("""{"name":"Grafana","endpoint":"https://o.example.com","headers":{"Authorization":"${TOKEN}","X-Org":"${ORG}"},"ingestKeyNames":["PROD"]}""");
+
+        var (body, sent, error) = ConfigSync.BuildBody(Forwarding, desired, existing, n => n == "TOKEN" ? "Bearer real" : null, NoAlerts, false, keys);
+
+        Assert.Equal("headers.X-Org: environment variable ORG is not set.", error);
+
+        existing = new ConfigExisting("t1", "Grafana", Obj(StoredTarget.Replace("\"Authorization\"", "\"X-Org\":\"\u2022\u2022org\",\"Authorization\"")), Obj("{}"));
+        (body, sent, error) = ConfigSync.BuildBody(Forwarding, desired, existing, n => n == "TOKEN" ? "Bearer real" : null, NoAlerts, false, keys);
+
+        Assert.Null(error);
+        Assert.True(sent);
+        Assert.Equal("Bearer real", body!["headers"]!["Authorization"]!.GetValue<string>());
+        Assert.Equal("\u2022\u2022org", body["headers"]!["X-Org"]!.GetValue<string>());
+        Assert.Equal("k1", body["ingestKeyIds"]![0]!.GetValue<string>());
+
+        Assert.Contains("Unknown active ingest key", ConfigSync.BuildBody(Forwarding, Obj("""{"name":"a","endpoint":"https://x","ingestKeyNames":["nope"]}"""), null, _ => null, NoAlerts, false, keys).Error);
+    }
+
+    [Fact]
+    public void ForwardingTarget_PlanComparesHeaderNamesNotValues()
+    {
+        var existing = Existing(Forwarding, StoredTarget);
+        var same = Obj("""{"name":"Grafana","enabled":true,"endpoint":"https://o.example.com","headers":{"Authorization":"${T}"},"signals":["Logs"],"gzip":true,"ingestKeyNames":["k1"]}""");
+
+        Assert.Equal(ConfigOutcome.Unchanged, ConfigSync.Plan(Forwarding, [same], [existing], _ => null)[0].Outcome);
+        Assert.Equal(ConfigOutcome.Update, ConfigSync.Plan(Forwarding, [same], [existing], n => n == "T" ? "v" : null)[0].Outcome);
+        Assert.Equal(ConfigOutcome.Update, ConfigSync.Plan(Forwarding, [Obj("""{"name":"Grafana","endpoint":"https://o.example.com","headers":{"Other":"x"},"signals":["Logs"],"ingestKeyNames":["k1"]}""")], [existing], _ => null)[0].Outcome);
+    }
+
+    [Fact]
+    public void Archive_ExportOnlyWhenSavedAndPlansCreateUpdateUnchanged()
+    {
+        Assert.Null(ConfigSync.ToExportArchive(Obj("""{"saved":false,"endpoint":"","accessKey":"","secretKey":""}""")));
+
+        var stored = Obj("""{"saved":true,"enabled":true,"endpoint":"https://s3.example.com/b","accessKey":"\u2022\u2022AK","secretKey":"\u2022\u2022SK","prefix":"flare","format":"Parquet","signals":[],"updatedAt":"x"}""");
+        var export = ConfigSync.ToExportArchive(stored)!;
+        Assert.Equal("${FLARE_ARCHIVE_ACCESSKEY}", export["accessKey"]!.GetValue<string>());
+        Assert.Null(export["saved"]);
+
+        Assert.Equal(ConfigOutcome.Create, ConfigSync.PlanArchive(export, null, _ => null));
+        Assert.Equal(ConfigOutcome.Unchanged, ConfigSync.PlanArchive(export, export, _ => null));
+        Assert.Equal(ConfigOutcome.Update, ConfigSync.PlanArchive(export, export, n => n == "FLARE_ARCHIVE_ACCESSKEY" ? "new" : null));
+
+        var changed = (JsonObject)export.DeepClone();
+        changed["format"] = "Ndjson";
+        Assert.Equal(ConfigOutcome.Update, ConfigSync.PlanArchive(changed, export, _ => null));
+
+        // No env and nothing stored: first save cannot proceed.
+        Assert.NotNull(ConfigSync.BuildArchiveBody(export, Obj("""{"saved":false,"accessKey":"","secretKey":""}"""), _ => null).Error);
+        Assert.Equal("\u2022\u2022AK", ConfigSync.BuildArchiveBody(export, stored, _ => null).Body!["accessKey"]!.GetValue<string>());
+    }
 }

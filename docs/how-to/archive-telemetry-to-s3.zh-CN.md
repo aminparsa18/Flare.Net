@@ -33,6 +33,34 @@ FLARE_ARCHIVE_SECRET_KEY=...
 | `PollInterval` | `00:05:00` | 多久查找一次已结束的小时。 |
 | `MaxWindowsPerPoll` | `6` | 追赶期间每次轮询每张表导出的小时数。 |
 
+## 通过 CLI 或 Terraform 管理归档
+
+无需仪表板即可管理已保存的设置。需要 Admin 角色。
+
+```bash
+flare archive set --endpoint https://s3.eu-west-1.amazonaws.com/my-bucket \
+  --access-key <key> --secret-key <secret> --format parquet --signal logs
+flare archive show
+flare archive status
+flare archive reset --yes
+```
+
+首次 `set` 之后，省略的选项保持当前值，密钥保持已存储的值。`reset` 会删除已保存的设置，归档重新遵循 `Archive` 配置。
+
+使用 Flare 的 Terraform / OpenTofu 提供程序（每个 Flare 实例只有一份归档配置）：
+
+```hcl
+resource "flare_archive_settings" "archive" {
+  endpoint   = "https://s3.eu-west-1.amazonaws.com/my-bucket"
+  access_key = var.archive_access_key
+  secret_key = var.archive_secret_key
+  format     = "Parquet"
+  signals    = ["Logs"]
+}
+```
+
+密钥只写不读：Flare 不会返回它们，因此在 Terraform 之外所做的更改不会被检测到。销毁该资源会执行 `reset`。
+
 ## 查看进度
 
 遥测导出页面上的**导出状态**表，以及摄取页面上的**归档**卡片（所有已登录用户可见，仅在归档运行时显示），会按表列出最近导出的小时、其中的行数、上次成功的时间和最近一次错误，例如存储桶无法访问或凭据错误。错误会一直显示到下一次导出成功；worker 每次轮询都会重试。

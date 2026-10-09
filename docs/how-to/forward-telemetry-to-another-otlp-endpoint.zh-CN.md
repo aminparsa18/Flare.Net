@@ -50,6 +50,34 @@ Flare 会在 `Endpoint` 后追加 `/v1/logs`、`/v1/traces` 或 `/v1/metrics`，
 
 配置中无效的目标（URL 错误、名称重复）会使 Flare.Ingest 在启动时停止。
 
+## 通过 CLI 或 Terraform 管理目标
+
+无需仪表板即可管理已保存的目标。需要 Admin 角色。
+
+```bash
+flare forwarding create grafana --endpoint https://otlp.example.com \
+  --header 'Authorization=Bearer <token>' --signal logs --signal traces
+flare forwarding list
+flare forwarding update <id> --service checkout
+flare forwarding status
+flare forwarding delete <id> --yes
+```
+
+`update` 只更改你传入的选项：`--header` 设置一个请求头并保留其余，`--clear-headers` 清除全部，`--all-signals`、`--all-services` 和 `--any-ingest-key` 会清除对应的过滤条件。请求头的值在 `list` 中被遮蔽，之后不再显示。
+
+使用 Flare 的 Terraform / OpenTofu 提供程序：
+
+```hcl
+resource "flare_forwarding_target" "grafana" {
+  name     = "grafana"
+  endpoint = "https://otlp.example.com"
+  headers  = { Authorization = "Bearer ${var.grafana_token}" }
+  signals  = ["Logs", "Traces"]
+}
+```
+
+请求头的值只写不读：Flare 不会返回它们，因此在 Terraform 之外所做的更改不会被检测到。`Forwarding:Targets` 配置中的目标是独立的，不通过这种方式管理。
+
 ## 需要了解
 
 - 只转发 Flare 已接受的请求。被拒绝的请求（超出摄取密钥限额、服务不被允许、格式错误）不会转发。

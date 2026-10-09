@@ -59,6 +59,34 @@ Three settings apply to every target and sit directly under `Forwarding`:
 
 An invalid target in configuration (bad URL, duplicate name) stops Flare.Ingest at startup.
 
+## Manage targets from the CLI or Terraform
+
+Saved targets can be managed without the dashboard. Both need an Admin.
+
+```bash
+flare forwarding create grafana --endpoint https://otlp.example.com \
+  --header 'Authorization=Bearer <token>' --signal logs --signal traces
+flare forwarding list
+flare forwarding update <id> --service checkout
+flare forwarding status
+flare forwarding delete <id> --yes
+```
+
+`update` changes only the options you pass; `--header` sets one header and keeps the others, `--clear-headers` removes them all, and `--all-signals`, `--all-services` and `--any-ingest-key` clear those filters. Header values are masked in `list` and never shown again.
+
+With the Flare Terraform / OpenTofu provider:
+
+```hcl
+resource "flare_forwarding_target" "grafana" {
+  name     = "grafana"
+  endpoint = "https://otlp.example.com"
+  headers  = { Authorization = "Bearer ${var.grafana_token}" }
+  signals  = ["Logs", "Traces"]
+}
+```
+
+Header values are write-only: Flare never returns them, so a change made outside Terraform is not detected. Targets in `Forwarding:Targets` configuration are separate and not managed this way.
+
 ## What to expect
 
 - Only requests Flare accepted are forwarded. Rejected ones (over an ingest key's limit, service not

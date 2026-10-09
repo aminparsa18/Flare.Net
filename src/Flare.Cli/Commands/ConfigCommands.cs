@@ -69,7 +69,8 @@ internal sealed class ConfigApiException(string message) : Exception(message);
 
 /// <summary>
 /// <c>flare config export [--output FILE]</c> - writes the instance's alert rules, notification
-/// channels, SLOs, pipeline rules, metric attribute rules, maintenance windows and ingest-key limits
+/// channels, SLOs, pipeline rules, metric attribute rules, forwarding targets, the S3 archive settings,
+/// maintenance windows and ingest-key limits
 /// as one portable JSON document for git or another instance. References are by name, ids and
 /// timestamps are dropped, and credentials become <c>${ENV_VAR}</c> placeholders - never values.
 /// </summary>
@@ -99,6 +100,9 @@ internal sealed class ConfigExportCommand : AsyncCommand<ConfigExportCommand.Set
             var alertNames = (await api.ListAsync("/api/alerts", "rules"))
                 .ToDictionary(r => r["id"]!.GetValue<string>(), r => r["name"]!.GetValue<string>());
 
+            var ingestKeys = await api.ListAsync("/api/ingest-keys", "keys");
+            var keyNames = ingestKeys.ToDictionary(k => k["id"]!.GetValue<string>(), k => k["name"]!.GetValue<string>());
+
             var document = new JsonObject { ["version"] = ConfigSync.CurrentVersion };
             var counts = new List<string>();
             void Add(string section, IEnumerable<JsonObject> items)
@@ -113,12 +117,18 @@ internal sealed class ConfigExportCommand : AsyncCommand<ConfigExportCommand.Set
 
             foreach (var kind in ConfigSync.RestKinds)
             {
-                Add(kind.Section, (await api.ListAsync(kind.ListPath, kind.ListProperty)).Select(i => ConfigSync.ToExportItem(kind, i, alertNames)));
+                Add(kind.Section, (await api.ListAsync(kind.ListPath, kind.ListProperty)).Select(i => ConfigSync.ToExportItem(kind, i, alertNames, keyNames)));
+            }
+
+            if (await api.GetAsync("/api/archive/settings") is JsonObject archiveSettings && ConfigSync.ToExportArchive(archiveSettings) is { } archive)
+            {
+                document[ConfigSync.ArchiveSection] = archive;
+                counts.Add("archive settings");
             }
 
             Add(ConfigSync.AlertsSection, ((await api.GetAsync("/api/alerts/export"))?["rules"] as JsonArray ?? []).OfType<JsonObject>().Select(i => (JsonObject)i.DeepClone()));
             Add(ConfigSync.WindowsSection, (await api.ListAsync(ConfigSync.Windows.ListPath, ConfigSync.Windows.ListProperty)).Select(i => ConfigSync.ToExportItem(ConfigSync.Windows, i, alertNames)));
-            Add(ConfigSync.IngestKeysSection, (await api.ListAsync("/api/ingest-keys", "keys")).Select(ConfigSync.ToExportKey).OfType<JsonObject>());
+            Add(ConfigSync.IngestKeysSection, ingestKeys.Select(ConfigSync.ToExportKey).OfType<JsonObject>());
 
             var json = document.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
             if (settings.Output is { Length: > 0 } path)
@@ -173,6 +183,7 @@ internal sealed class ConfigApplyCommand : AsyncCommand<ConfigApplyCommand.Setti
         ConfigSync.AlertsSection,
         ConfigSync.WindowsSection,
         ConfigSync.IngestKeysSection,
+        ConfigSync.ArchiveSection,
     ];
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
@@ -270,6 +281,20 @@ internal sealed class ConfigApplyCommand : AsyncCommand<ConfigApplyCommand.Setti
         var pendingSlos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var existingChannels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var existingSlos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var keyIdsByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var keyNamesById = new Dictionary<string, string>();
+        if (document[ConfigSync.ForwardingSection] is JsonArray { Count: > 0 })
+        {
+            foreach (var key in await api.ListAsync("/api/ingest-keys", "keys"))
+            {
+                var id = key["id"]!.GetValue<string>();
+                keyNamesById[id] = key["name"]!.GetValue<string>();
+                if (ConfigSync.ToExportKey(key) is not null)
+                {
+                    keyIdsByName.TryAdd(key["name"]!.GetValue<string>(), id);
+                }
+            }
+        }
 
         foreach (var kind in ConfigSync.RestKinds)
         {
@@ -279,7 +304,7 @@ internal sealed class ConfigApplyCommand : AsyncCommand<ConfigApplyCommand.Setti
                 continue;
             }
 
-            var existing = await FetchExistingAsync(api, kind, empty);
+            var existing = await FetchExistingAsync(api, kind, empty, keyNamesById);
             if (kind.Section == "notificationChannels")
             {
                 existingChannels.UnionWith(existing.Select(e => e.Name));
@@ -289,7 +314,7 @@ internal sealed class ConfigApplyCommand : AsyncCommand<ConfigApplyCommand.Setti
                 existingSlos.UnionWith(existing.Select(e => e.Name));
             }
 
-            var plan = await ApplyKindAsync(api, kind, desired, existing, empty, Env, dryRun, allowPendingRules: false);
+            var plan = await ApplyKindAsync(api, kind, desired, existing, empty, Env, dryRun, allowPendingRules: false, keyIdsByName);
             rows.AddRange(plan);
             var created = plan.Where(p => p.Outcome == ConfigOutcome.Create).Select(p => p.Name);
             (kind.Section == "notificationChannels" ? pendingChannels : kind.Section == "slos" ? pendingSlos : []).UnionWith(created);
@@ -346,12 +371,42 @@ internal sealed class ConfigApplyCommand : AsyncCommand<ConfigApplyCommand.Setti
             }
         }
 
+        if (document[ConfigSync.ArchiveSection] is JsonObject archive)
+        {
+            rows.Add(await ApplyArchiveAsync(api, archive, dryRun, Env));
+        }
+
         return rows;
     }
 
-    private static async Task<List<ConfigExisting>> FetchExistingAsync(ConfigApi api, ConfigKind kind, IReadOnlyDictionary<string, string> alertNamesById) =>
+    /// <summary>The archive is a single settings object: saved with one PUT, no name to match on.</summary>
+    private static async Task<ConfigPlanItem> ApplyArchiveAsync(ConfigApi api, JsonObject desired, bool dryRun, Func<string, string?> env)
+    {
+        const string name = "archive";
+        var current = await api.GetAsync("/api/archive/settings") as JsonObject;
+        var existing = current is null ? null : ConfigSync.ToExportArchive(current);
+        var outcome = ConfigSync.PlanArchive(desired, existing, env);
+        var (body, _, error) = ConfigSync.BuildArchiveBody(desired, current, env);
+        if (error is not null)
+        {
+            return new ConfigPlanItem(ConfigSync.ArchiveSection, name, ConfigOutcome.Error, error);
+        }
+
+        if (outcome == ConfigOutcome.Unchanged || dryRun)
+        {
+            return new ConfigPlanItem(ConfigSync.ArchiveSection, name, outcome);
+        }
+
+        var (_, sendError) = await api.SendAsync(HttpMethod.Put, "/api/archive/settings", body!);
+        return sendError is null
+            ? new ConfigPlanItem(ConfigSync.ArchiveSection, name, outcome)
+            : new ConfigPlanItem(ConfigSync.ArchiveSection, name, ConfigOutcome.Error, sendError);
+    }
+
+    private static async Task<List<ConfigExisting>> FetchExistingAsync(
+        ConfigApi api, ConfigKind kind, IReadOnlyDictionary<string, string> alertNamesById, IReadOnlyDictionary<string, string>? ingestKeyNamesById = null) =>
         [.. (await api.ListAsync(kind.ListPath, kind.ListProperty))
-            .Select(i => new ConfigExisting(i["id"]!.GetValue<string>(), i["name"]!.GetValue<string>(), i, ConfigSync.ToExportItem(kind, i, alertNamesById)))];
+            .Select(i => new ConfigExisting(i["id"]!.GetValue<string>(), i["name"]!.GetValue<string>(), i, ConfigSync.ToExportItem(kind, i, alertNamesById, ingestKeyNamesById)))];
 
     /// <summary>Plans one REST-shaped kind and, unless <paramref name="dryRun"/>, performs the creates and updates.</summary>
     private static async Task<List<ConfigPlanItem>> ApplyKindAsync(
@@ -362,7 +417,8 @@ internal sealed class ConfigApplyCommand : AsyncCommand<ConfigApplyCommand.Setti
         IReadOnlyDictionary<string, string> alertIdsByName,
         Func<string, string?> env,
         bool dryRun,
-        bool allowPendingRules)
+        bool allowPendingRules,
+        IReadOnlyDictionary<string, string>? ingestKeyIdsByName = null)
     {
         var byName = ConfigSync.ByName(existing);
         var plan = ConfigSync.Plan(kind, desired, existing, env);
@@ -376,7 +432,7 @@ internal sealed class ConfigApplyCommand : AsyncCommand<ConfigApplyCommand.Setti
 
             var source = desired.First(d => string.Equals(ConfigSync.NameOf(d, kind.Section), item.Name, StringComparison.OrdinalIgnoreCase));
             byName.TryGetValue(item.Name, out var current);
-            var (body, _, buildError) = ConfigSync.BuildBody(kind, source, current, env, alertIdsByName, allowPendingRules);
+            var (body, _, buildError) = ConfigSync.BuildBody(kind, source, current, env, alertIdsByName, allowPendingRules, ingestKeyIdsByName);
             if (buildError is not null)
             {
                 plan[i] = item with { Outcome = ConfigOutcome.Error, Detail = buildError };

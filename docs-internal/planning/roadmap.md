@@ -54,12 +54,11 @@ folders are where "what happened and why" actually lives.
   the provider repo has `flare_notification_channel`, `flare_alert_rule`, `flare_slo`,
   `flare_maintenance_window`, `flare_pipeline_rule`, `flare_ingest_key`,
   `flare_service_account`, `flare_dashboard` (layout JSON passed through as-is,
-  ADR-0147 makes names unique per project) and `flare_metric_attribute_rule`, verified
+  ADR-0147 makes names unique per project), `flare_metric_attribute_rule`,
+  `flare_forwarding_target` and `flare_archive_settings` (ADR-0157), verified
   with OpenTofu acceptance tests against a live stack. `minServerVersion` is set to 0.6.0
   (assumed next release; fix it if the release is numbered differently). Remaining:
   registry publishing. In progress.
-- **Forwarding and archive as code.** The managed forwarding targets and archive settings (ADR-0157) have no
-  Terraform resources or `flare` CLI commands yet, so they can only be changed from the dashboard or API.
 - **.NET MAUI / mobile SDK (later).** No client-app signal exists beyond what a
   hand-wired OTel exporter sends. Phase 1 is a docs how-to ("Send telemetry
   from a MAUI app to Flare") using stock `OpenTelemetry` packages, since OTLP

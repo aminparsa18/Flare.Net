@@ -117,6 +117,30 @@ app.Configure(config =>
         retention.AddCommand<RetentionSetCommand>("set")
             .WithDescription("Set a signal's retention, cold-storage tiering and per-resource rules (admin).");
     });
+    config.AddBranch("forwarding", forwarding =>
+    {
+        forwarding.AddCommand<ForwardingListCommand>("list")
+            .WithDescription("List managed OTLP forwarding targets (admin).");
+        forwarding.AddCommand<ForwardingCreateCommand>("create")
+            .WithDescription("Create a forwarding target that copies incoming telemetry to another OTLP endpoint.");
+        forwarding.AddCommand<ForwardingUpdateCommand>("update")
+            .WithDescription("Update a forwarding target (only the options you pass change).");
+        forwarding.AddCommand<ForwardingDeleteCommand>("delete")
+            .WithDescription("Delete a forwarding target and its queue.");
+        forwarding.AddCommand<ForwardingStatusCommand>("status")
+            .WithDescription("Show queue depth and delivery counters per forwarding target.");
+    });
+    config.AddBranch("archive", archive =>
+    {
+        archive.AddCommand<ArchiveShowCommand>("show")
+            .WithDescription("Show the saved S3 archive settings (keys masked).");
+        archive.AddCommand<ArchiveSetCommand>("set")
+            .WithDescription("Save S3 archive settings (only the options you pass change after the first save).");
+        archive.AddCommand<ArchiveResetCommand>("reset")
+            .WithDescription("Delete the saved settings so the archive follows configuration again.");
+        archive.AddCommand<ArchiveStatusCommand>("status")
+            .WithDescription("Show the last exported hour and any error per archived table.");
+    });
     config.AddBranch("instances", instances =>
     {
         instances.AddCommand<InstancesListCommand>("list")

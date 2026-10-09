@@ -50,6 +50,34 @@ Trois réglages s'appliquent à toutes les cibles et se placent directement sous
 
 Une cible invalide en configuration (URL incorrecte, nom en double) arrête Flare.Ingest au démarrage.
 
+## Gérer les cibles depuis la CLI ou Terraform
+
+Les cibles enregistrées se gèrent sans le tableau de bord. Le rôle Admin est requis.
+
+```bash
+flare forwarding create grafana --endpoint https://otlp.example.com \
+  --header 'Authorization=Bearer <token>' --signal logs --signal traces
+flare forwarding list
+flare forwarding update <id> --service checkout
+flare forwarding status
+flare forwarding delete <id> --yes
+```
+
+`update` ne modifie que les options passées : `--header` définit un en-tête et conserve les autres, `--clear-headers` les supprime tous, et `--all-signals`, `--all-services` et `--any-ingest-key` retirent ces filtres. Les valeurs d'en-tête sont masquées dans `list` et ne sont plus jamais affichées.
+
+Avec le fournisseur Terraform / OpenTofu de Flare :
+
+```hcl
+resource "flare_forwarding_target" "grafana" {
+  name     = "grafana"
+  endpoint = "https://otlp.example.com"
+  headers  = { Authorization = "Bearer ${var.grafana_token}" }
+  signals  = ["Logs", "Traces"]
+}
+```
+
+Les valeurs d'en-tête sont en écriture seule : Flare ne les renvoie jamais, donc une modification faite hors de Terraform n'est pas détectée. Les cibles de la configuration `Forwarding:Targets` sont distinctes et ne sont pas gérées ainsi.
+
 ## À quoi s'attendre
 
 - Seules les requêtes acceptées par Flare sont transférées. Celles qui sont rejetées (limite d'une clé d'ingestion dépassée, service non autorisé, requête malformée) ne le sont pas.
