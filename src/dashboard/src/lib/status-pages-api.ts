@@ -91,6 +91,8 @@ export interface PublicStatusPage {
 	generatedAt: string;
 	components: PublicStatusComponent[];
 	incidents: PublicStatusIncident[];
+	/** Whether visitors can sign up for incident emails (the server has SMTP and a public URL). */
+	subscribable: boolean;
 }
 
 /** Lowercase letters, digits and inner hyphens, 1-64 characters. Mirrors `StatusPageRequest.IsValidSlug`. */
@@ -165,4 +167,39 @@ export async function getPublicStatus(slug: string, signal?: AbortSignal): Promi
 	if (res.status === 404) return null;
 	if (!res.ok) throw await failure(res, 'GET /api/public/status');
 	return (await res.json()) as PublicStatusPage;
+}
+
+/** `POST /api/public/status/{slug}/subscribe` - asks for a confirmation email. Always succeeds for a valid address, whether or not it was already subscribed. */
+export async function subscribeToStatus(slug: string, email: string): Promise<void> {
+	const res = await fetch(`${API_BASE_URL}/api/public/status/${encodeURIComponent(slug)}/subscribe`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+		body: JSON.stringify({ email })
+	});
+	if (!res.ok) throw await failure(res, 'POST /api/public/status/subscribe');
+}
+
+export type SubscriptionAction = 'confirm' | 'unsubscribe';
+
+export interface SubscriptionInfo {
+	pageTitle: string;
+	email: string;
+}
+
+/** Describes what a signed subscription link is for. Changes nothing, so a mail scanner fetching the link is harmless. */
+export async function getSubscriptionInfo(action: SubscriptionAction, token: string, signal?: AbortSignal): Promise<SubscriptionInfo> {
+	const res = await fetch(`${API_BASE_URL}/api/public/status/subscriptions/${action}?token=${encodeURIComponent(token)}`, { headers: { Accept: 'application/json' }, signal });
+	if (!res.ok) throw await failure(res, `GET /api/public/status/subscriptions/${action}`);
+	return (await res.json()) as SubscriptionInfo;
+}
+
+/** Confirms or removes the subscription the signed link was sent for. Unauthenticated: the token is the credential. */
+export async function redeemSubscription(action: SubscriptionAction, token: string): Promise<SubscriptionInfo> {
+	const res = await fetch(`${API_BASE_URL}/api/public/status/subscriptions/${action}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+		body: JSON.stringify({ token })
+	});
+	if (!res.ok) throw await failure(res, `POST /api/public/status/subscriptions/${action}`);
+	return (await res.json()) as SubscriptionInfo;
 }

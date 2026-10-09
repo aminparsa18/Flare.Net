@@ -80,10 +80,11 @@ folders are where "what happened and why" actually lives.
   behave for a public-client scenario (CORS, per-key service allowlists).
 - **Status page follow-ups.** Status pages (ADR-0158) and their incidents
   (ADR-0159), including which components an incident affects (ADR-0160), are in,
-  as is the `flare status-pages incidents` CLI and notifying saved channels about
-  incidents (ADR-0161). Still missing: public visitor subscriptions (email or
-  webhook sign-up with verification and unsubscribe), custom domains and
-  branding, and a Terraform resource for incidents.
+  as is the `flare status-pages incidents` CLI, notifying saved channels about
+  incidents (ADR-0161) and visitor email subscriptions (ADR-0162). Still missing:
+  custom domains and branding, per-component subscriptions, a CLI view of
+  subscribers, and a `subscriber_channel_ids` attribute on the Terraform
+  provider's `flare_status_page` resource.
 - **Terraform / CLI for notification templates.** Shared templates (ADR-0148)
   are managed in Settings and by name in `flare alerts export`/`import`, but the
   Terraform provider has no `flare_alert_template` resource and the CLI no

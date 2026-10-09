@@ -35,7 +35,7 @@ public static class StatusPageEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> HandlePublicAsync(string slug, HttpContext http, IPublicStatusService status, CancellationToken cancellationToken)
+    private static async Task<IResult> HandlePublicAsync(string slug, HttpContext http, IPublicStatusService status, IStatusSubscriberMailer mailer, CancellationToken cancellationToken)
     {
         var page = StatusPageRequest.IsValidSlug(slug) ? await status.GetAsync(slug, cancellationToken) : null;
         if (page is null)
@@ -44,7 +44,7 @@ public static class StatusPageEndpoints
         }
 
         http.Response.Headers.CacheControl = $"public, max-age={(int)PublicStatusService.CacheTtl.TotalSeconds}";
-        return Results.Json(page, StatusPagesJsonContext.Default.PublicStatusPage);
+        return Results.Json(page with { Subscribable = mailer.IsAvailable }, StatusPagesJsonContext.Default.PublicStatusPage);
     }
 
     private static async Task<IResult> HandleCreateAsync(HttpContext http, IStatusPageQueryService pages, ISyntheticMonitorQueryService monitors, ISloQueryService slos, INotificationChannelQueryService channels, CancellationToken cancellationToken)

@@ -69,6 +69,12 @@ Open incidents show above the components on the public page, and resolved ones s
 
 A page can tell your own channels when an incident is opened or updated. In the page editor, add channels under **Incident notifications**, or pass `--subscriber <channel-id>` (repeatable) to `flare status-pages create` or `update`; the API field is `subscriberChannelIds`. Each update is sent as a message with the page, the status, the incident title, your text, the affected components and a link to the public page. Only webhook (including Slack), Telegram, email, Teams and Discord channels qualify; a delivery failure is logged and never blocks posting the update. The link needs `Alerting__PublicUrl` set. These are your channels, not a sign-up form for visitors.
 
+### Let visitors subscribe by email
+
+When the server can send email (`Email__Host`, `Email__From`) and knows its public address (`Alerting__PublicUrl`), the public page shows a **Get updates by email** form. A visitor enters an address, gets a confirmation link, and after confirming receives an email for every incident opened or updated on that page. Every email carries an unsubscribe link. Without that configuration the form is hidden.
+
+An unconfirmed address is mailed again at most every 10 minutes, a page keeps up to 2,000 subscribers, and sign-up requests are limited to 30 per hour per caller address (behind a reverse proxy that is the proxy's address). The form gives the same answer whether or not an address is already subscribed. Admins list a page's subscribers with `GET /api/status-pages/{id}/subscribers` and remove one with `DELETE /api/status-pages/{id}/subscribers/{subscriberId}`.
+
 ## Things to know
 
 - The page is public to anyone who can reach the instance. Unpublish or delete it to take the link down at once.

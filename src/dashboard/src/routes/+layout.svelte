@@ -46,7 +46,8 @@
 	// /ack is the target of a notification's signed acknowledge link: the token is the credential.
 	// /status/{slug} is a published status page (ADR-0158): public by design, no session involved.
 	const PUBLIC_ROUTES = ['/set-password', '/ack'];
-	const PUBLIC_PREFIXES = ['/status/'];
+	// /subscribe/{confirm,unsubscribe} are the targets of the signed links in status page subscription emails (ADR-0162).
+	const PUBLIC_PREFIXES = ['/status/', '/subscribe/'];
 
 	// $effect bodies never run during SSR (Svelte 5's server renderer only evaluates
 	// template/derived state, not effects) - this only ever fires client-side, once, on
