@@ -110,9 +110,15 @@ public static class StatusPageEndpoints
             return problem;
         }
 
-        if (await pages.GetAsync(id, cancellationToken) is null)
+        var page = await pages.GetAsync(id, cancellationToken);
+        if (page is null)
         {
             return Results.NotFound();
+        }
+
+        if (UnknownComponent(request!.Components, page) is { } unknown)
+        {
+            return unknown;
         }
 
         var incident = StatusIncidents.Open(id, request!, time.GetUtcNow());
@@ -121,7 +127,13 @@ public static class StatusPageEndpoints
         return Results.Json(incident, StatusPagesJsonContext.Default.StatusIncident, statusCode: StatusCodes.Status201Created);
     }
 
-    private static async Task<IResult> HandleUpdateIncidentAsync(Guid id, Guid incidentId, HttpContext http, IStatusIncidentQueryService incidents, TimeProvider time, CancellationToken cancellationToken)
+    /// <summary>A 400 naming the first id that is not a component of <paramref name="page"/>; null when every id is.</summary>
+    private static IResult? UnknownComponent(IReadOnlyList<Guid>? requested, StatusPage page) =>
+        StatusIncidents.FirstUnknownComponent(requested, page.Components) is { } id
+            ? Results.Problem($"Component {id} is not on this status page.", statusCode: StatusCodes.Status400BadRequest)
+            : null;
+
+    private static async Task<IResult> HandleUpdateIncidentAsync(Guid id, Guid incidentId, HttpContext http, IStatusPageQueryService pages, IStatusIncidentQueryService incidents, TimeProvider time, CancellationToken cancellationToken)
     {
         var (request, problem) = await ReadBodyAsync(http, StatusPagesJsonContext.Default.StatusIncidentUpdateRequest, r => r.Validate(), cancellationToken);
         if (problem is not null)
@@ -133,6 +145,11 @@ public static class StatusPageEndpoints
         if (existing is null)
         {
             return Results.NotFound();
+        }
+
+        if (request!.Components is not null && await pages.GetAsync(id, cancellationToken) is { } page && UnknownComponent(request.Components, page) is { } unknown)
+        {
+            return unknown;
         }
 
         var (updated, error) = StatusIncidents.AddUpdate(existing, request!, time.GetUtcNow());

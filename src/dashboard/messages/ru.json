@@ -3194,6 +3194,8 @@
 	"statusIncidents_identified": "Причина найдена",
 	"statusIncidents_monitoring": "Наблюдаем",
 	"statusIncidents_resolved": "Решён",
+	"statusIncidents_affects": "Затрагивает",
+	"statusPublic_incidentAffects": "Затронуто: {components}",
 	"statusPublic_incidentsHeading": "Инциденты",
 	"statusPublic_incidentResolvedAt": "Решён {time}",
 	"alertRuleForm_quorumLabel": "Недоступен минимум из",

@@ -53,7 +53,7 @@ public class StatusIncidentsTests
         var recent = Incident(StatusIncidentStatus.Resolved, Now.AddDays(-3), Now.AddDays(-2));
         var old = Incident(StatusIncidentStatus.Resolved, Now.AddDays(-30), Now.AddDays(-29));
 
-        var shown = StatusIncidents.ForPublic([old, recent, open], Now);
+        var shown = StatusIncidents.ForPublic([old, recent, open], [], Now);
 
         Assert.Equal(2, shown.Count);
         Assert.Null(shown[0].ResolvedAt);
@@ -67,4 +67,46 @@ public class StatusIncidentsTests
     [InlineData("t", "m", true)]
     public void Request_Validates(string title, string message, bool valid) =>
         Assert.Equal(valid, new StatusIncidentRequest { Title = title, Message = message }.Validate() is null);
+
+    private static readonly StatusPageComponent Web = new("Website", StatusComponentKind.Monitor, Guid.NewGuid());
+    private static readonly StatusPageComponent Api = new("API", StatusComponentKind.Slo, Guid.NewGuid());
+
+    [Fact]
+    public void Open_KeepsDistinctComponents()
+    {
+        var incident = StatusIncidents.Open(Guid.NewGuid(), new StatusIncidentRequest { Title = "x", Message = "m", Components = [Web.RefId, Web.RefId, Api.RefId] }, Now);
+        Assert.Equal([Web.RefId, Api.RefId], incident.Components);
+    }
+
+    [Fact]
+    public void AddUpdate_NullKeepsComponents_EmptyClearsThem()
+    {
+        var open = StatusIncidents.Open(Guid.NewGuid(), new StatusIncidentRequest { Title = "x", Message = "m", Components = [Web.RefId] }, Now);
+
+        var (kept, _) = StatusIncidents.AddUpdate(open, new StatusIncidentUpdateRequest { Status = StatusIncidentStatus.Monitoring, Message = "m" }, Now);
+        Assert.Equal([Web.RefId], kept!.Components);
+
+        var (replaced, _) = StatusIncidents.AddUpdate(open, new StatusIncidentUpdateRequest { Status = StatusIncidentStatus.Monitoring, Message = "m", Components = [Api.RefId] }, Now);
+        Assert.Equal([Api.RefId], replaced!.Components);
+
+        var (cleared, _) = StatusIncidents.AddUpdate(open, new StatusIncidentUpdateRequest { Status = StatusIncidentStatus.Monitoring, Message = "m", Components = [] }, Now);
+        Assert.Empty(cleared!.Components);
+    }
+
+    [Fact]
+    public void FirstUnknownComponent_FindsAnIdNotOnThePage()
+    {
+        var stray = Guid.NewGuid();
+        Assert.Null(StatusIncidents.FirstUnknownComponent(null, [Web]));
+        Assert.Null(StatusIncidents.FirstUnknownComponent([Web.RefId], [Web, Api]));
+        Assert.Equal(stray, StatusIncidents.FirstUnknownComponent([Web.RefId, stray], [Web, Api]));
+    }
+
+    [Fact]
+    public void ForPublic_NamesAffectedComponents_InPageOrder_AndDropsRemovedOnes()
+    {
+        var incident = Incident(StatusIncidentStatus.Identified, Now.AddHours(-1)) with { Components = [Api.RefId, Web.RefId, Guid.NewGuid()] };
+        var shown = StatusIncidents.ForPublic([incident], [Web, Api], Now);
+        Assert.Equal(["Website", "API"], shown[0].Components);
+    }
 }

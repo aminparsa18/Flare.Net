@@ -3194,6 +3194,8 @@
 	"statusIncidents_identified": "Identified",
 	"statusIncidents_monitoring": "Monitoring",
 	"statusIncidents_resolved": "Resolved",
+	"statusIncidents_affects": "Affects",
+	"statusPublic_incidentAffects": "Affects: {components}",
 	"statusPublic_incidentsHeading": "Incidents",
 	"statusPublic_incidentResolvedAt": "Resolved {time}",
 	"alertRuleForm_quorumLabel": "Down from at least",

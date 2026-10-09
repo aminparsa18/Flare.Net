@@ -29,7 +29,7 @@ public interface IStatusIncidentQueryService
 /// </summary>
 public sealed class StatusIncidentQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IStatusIncidentQueryService
 {
-    private const string Columns = "Id, PageId, Title, UpdatesJson, CreatedAt, UpdatedAt";
+    private const string Columns = "Id, PageId, Title, UpdatesJson, CreatedAt, UpdatedAt, Components";
 
     public async Task<IReadOnlyList<StatusIncident>> ListAsync(Guid pageId, CancellationToken cancellationToken)
     {
@@ -79,14 +79,15 @@ public sealed class StatusIncidentQueryService(IClickHouseClient client, IOption
         parameters.AddParameter("title", incident.Title);
         parameters.AddParameter("isDeleted", isDeleted ? (byte)1 : (byte)0);
         parameters.AddParameter("updatesJson", JsonSerializer.Serialize(incident.Updates, StatusPagesJsonContext.Default.IReadOnlyListStatusIncidentUpdate));
+        parameters.AddParameter("components", incident.Components.ToArray());
         parameters.AddParameter("createdAt", incident.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", incident.UpdatedAt.UtcDateTime);
 
         const string sql = """
             INSERT INTO status_incidents
-                (Id, PageId, Title, IsDeleted, UpdatesJson, CreatedAt, UpdatedAt)
+                (Id, PageId, Title, IsDeleted, UpdatesJson, Components, CreatedAt, UpdatedAt)
             VALUES
-                ({id:UUID}, {pageId:UUID}, {title:String}, {isDeleted:UInt8}, {updatesJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {pageId:UUID}, {title:String}, {isDeleted:UInt8}, {updatesJson:String}, {components:Array(UUID)}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -100,6 +101,7 @@ public sealed class StatusIncidentQueryService(IClickHouseClient client, IOption
         Updates = JsonSerializer.Deserialize(reader.GetString(3), StatusPagesJsonContext.Default.IReadOnlyListStatusIncidentUpdate) ?? [],
         CreatedAt = ReadUtc(reader, 4),
         UpdatedAt = ReadUtc(reader, 5),
+        Components = reader.GetFieldValue<Guid[]>(6),
     };
 
     private static DateTimeOffset ReadUtc(ClickHouseDataReader reader, int ordinal) =>

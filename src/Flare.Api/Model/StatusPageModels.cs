@@ -159,6 +159,9 @@ public sealed record StatusIncident
 
     public IReadOnlyList<StatusIncidentUpdate> Updates { get; init; } = [];
 
+    /// <summary>The <see cref="StatusPageComponent.RefId"/>s of the page components this incident affects; empty when it is not tied to one.</summary>
+    public IReadOnlyList<Guid> Components { get; init; } = [];
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
@@ -183,6 +186,9 @@ public sealed record StatusIncidentRequest
 
     public required string Message { get; init; }
 
+    /// <summary>The page components affected, by <see cref="StatusPageComponent.RefId"/>. Each must be on the page.</summary>
+    public IReadOnlyList<Guid>? Components { get; init; }
+
     public string? Validate()
     {
         if (string.IsNullOrWhiteSpace(Title) || Title.Trim().Length > MaxTitleLength)
@@ -201,6 +207,9 @@ public sealed record StatusIncidentUpdateRequest
 
     public required string Message { get; init; }
 
+    /// <summary>Replaces the affected components when set; null leaves them as they are, an empty list clears them.</summary>
+    public IReadOnlyList<Guid>? Components { get; init; }
+
     public string? Validate() => ValidateMessage(Message);
 
     internal static string? ValidateMessage(string? message) =>
@@ -209,5 +218,5 @@ public sealed record StatusIncidentUpdateRequest
             : null;
 }
 
-/// <summary>An incident as the public page shows it: timeline newest first, no ids.</summary>
-public sealed record PublicStatusIncident(string Title, StatusIncidentStatus Status, DateTimeOffset StartedAt, DateTimeOffset? ResolvedAt, IReadOnlyList<StatusIncidentUpdate> Updates);
+/// <summary>An incident as the public page shows it: timeline newest first, no ids. <see cref="Components"/> are the display names of the page components it affects.</summary>
+public sealed record PublicStatusIncident(string Title, StatusIncidentStatus Status, DateTimeOffset StartedAt, DateTimeOffset? ResolvedAt, IReadOnlyList<StatusIncidentUpdate> Updates, IReadOnlyList<string> Components);

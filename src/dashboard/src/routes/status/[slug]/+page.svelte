@@ -104,6 +104,9 @@
 								{INCIDENT_LABEL[incident.status]()}
 							</span>
 						</div>
+						{#if incident.components.length > 0}
+							<span class="text-muted-foreground text-xs">{m.statusPublic_incidentAffects({ components: incident.components.join(', ') })}</span>
+						{/if}
 						{#if incident.resolvedAt}
 							<span class="text-muted-foreground text-xs">{m.statusPublic_incidentResolvedAt({ time: formatDateTime(incident.resolvedAt) })}</span>
 						{/if}

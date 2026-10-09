@@ -120,6 +120,17 @@ app.Configure(config =>
             .WithDescription("Update a status page (only the options you pass change).");
         statusPages.AddCommand<StatusPagesDeleteCommand>("delete")
             .WithDescription("Delete a status page.");
+        statusPages.AddBranch("incidents", incidents =>
+        {
+            incidents.AddCommand<StatusIncidentsListCommand>("list")
+                .WithDescription("List a status page's incidents.");
+            incidents.AddCommand<StatusIncidentsOpenCommand>("open")
+                .WithDescription("Open an incident with its first update.");
+            incidents.AddCommand<StatusIncidentsUpdateCommand>("update")
+                .WithDescription("Post an update to an incident (Resolved closes it).");
+            incidents.AddCommand<StatusIncidentsDeleteCommand>("delete")
+                .WithDescription("Delete an incident.");
+        });
     });
     config.AddBranch("retention", retention =>
     {

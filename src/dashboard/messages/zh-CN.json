@@ -3194,6 +3194,8 @@
 	"statusIncidents_identified": "已定位",
 	"statusIncidents_monitoring": "观察中",
 	"statusIncidents_resolved": "已解决",
+	"statusIncidents_affects": "影响",
+	"statusPublic_incidentAffects": "受影响:{components}",
 	"statusPublic_incidentsHeading": "事件",
 	"statusPublic_incidentResolvedAt": "已于 {time} 解决",
 	"alertRuleForm_quorumLabel": "至少 down 的位置数",

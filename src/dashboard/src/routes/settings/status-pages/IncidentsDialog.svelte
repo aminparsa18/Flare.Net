@@ -4,6 +4,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -31,8 +32,9 @@
 	let newTitle = $state('');
 	let newStatus = $state<StatusIncidentStatus>('Investigating');
 	let newMessage = $state('');
+	let newComponents = $state<string[]>([]);
 	// Draft update per incident id.
-	let drafts = $state<Record<string, { status: StatusIncidentStatus; message: string }>>({});
+	let drafts = $state<Record<string, { status: StatusIncidentStatus; message: string; components: string[] }>>({});
 
 	const LABEL: Record<StatusIncidentStatus, () => string> = {
 		Investigating: () => m.statusIncidents_investigating(),
@@ -69,20 +71,21 @@
 		}
 	}
 
-	const draft = (i: StatusIncident) => (drafts[i.id] ??= { status: i.status, message: '' });
+	const draft = (i: StatusIncident) => (drafts[i.id] ??= { status: i.status, message: '', components: [...i.components] });
 
 	const openIncident = () =>
 		run(async () => {
-			await openStatusIncident(page.id, { title: newTitle.trim(), status: newStatus, message: newMessage.trim() });
+			await openStatusIncident(page.id, { title: newTitle.trim(), status: newStatus, message: newMessage.trim(), components: newComponents });
 			newTitle = '';
 			newMessage = '';
 			newStatus = 'Investigating';
+			newComponents = [];
 		});
 
 	const postUpdate = (i: StatusIncident) =>
 		run(async () => {
 			const d = draft(i);
-			await postStatusIncidentUpdate(page.id, i.id, { status: d.status, message: d.message.trim() });
+			await postStatusIncidentUpdate(page.id, i.id, { status: d.status, message: d.message.trim(), components: d.components });
 			delete drafts[i.id];
 		});
 
@@ -103,6 +106,25 @@
 	</Select.Root>
 {/snippet}
 
+{#snippet componentPicker(selected: string[], onChange: (v: string[]) => void)}
+	{#if page.components.length > 0}
+		<div class="flex flex-col gap-1">
+			<span class="text-muted-foreground text-xs">{m.statusIncidents_affects()}</span>
+			<div class="flex flex-wrap gap-x-4 gap-y-1">
+				{#each page.components as component (component.refId)}
+					<label class="flex items-center gap-2 text-sm">
+						<Checkbox
+							checked={selected.includes(component.refId)}
+							onCheckedChange={(v) => onChange(v === true ? [...selected, component.refId] : selected.filter((id) => id !== component.refId))}
+						/>
+						{component.name}
+					</label>
+				{/each}
+			</div>
+		</div>
+	{/if}
+{/snippet}
+
 <Dialog.Root open onOpenChange={(o) => !o && onclose()}>
 	<Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
 		<Dialog.Header>
@@ -114,6 +136,7 @@
 			<span class="text-sm font-medium">{m.statusIncidents_new()}</span>
 			<Input bind:value={newTitle} maxlength={200} placeholder={m.statusIncidents_titleLabel()} aria-label={m.statusIncidents_titleLabel()} />
 			<Textarea bind:value={newMessage} rows={2} maxlength={4000} placeholder={m.statusIncidents_messageLabel()} aria-label={m.statusIncidents_messageLabel()} />
+			{@render componentPicker(newComponents, (v) => (newComponents = v))}
 			<div class="flex items-center justify-between gap-2">
 				{@render statusSelect(newStatus, (v) => (newStatus = v))}
 				<Button size="sm" onclick={openIncident} disabled={busy || !newTitle.trim() || !newMessage.trim()}>{m.statusIncidents_open()}</Button>
@@ -149,6 +172,7 @@
 						{/each}
 					</ol>
 					<Textarea bind:value={d.message} rows={2} maxlength={4000} placeholder={m.statusIncidents_messageLabel()} aria-label={m.statusIncidents_messageLabel()} />
+					{@render componentPicker(d.components, (v) => (d.components = v))}
 					<div class="flex items-center justify-between gap-2">
 						{@render statusSelect(d.status, (v) => (d.status = v))}
 						<Button size="sm" variant="outline" onclick={() => postUpdate(incident)} disabled={busy || !d.message.trim()}>{m.statusIncidents_postUpdate()}</Button>
