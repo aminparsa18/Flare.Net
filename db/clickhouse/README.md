@@ -167,6 +167,10 @@ tables and `RulesJson` to `retention_operations`. The column holds each row's ow
 insert from the retention rules; a table's TTL points at it only once rules are set - see
 [ADR-0145](../../docs-internal/adr/0145-per-resource-retention.md).
 
+`0072_status_pages.sql` - a new `status_pages` table (a public page's slug, title and components, each
+backed by a synthetic monitor or an SLO; same CRUD-via-tombstone `ReplacingMergeTree` as
+`alert_templates`). See [ADR-0158](../../docs-internal/adr/0158-status-pages.md).
+
 `0070_alert_templates.sql` - a new `alert_templates` table (named, reusable notification title/body
 templates; same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`) and a nullable
 `alert_rules.NotificationTemplateId`. See

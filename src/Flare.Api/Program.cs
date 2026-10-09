@@ -15,6 +15,7 @@ using Flare.Api.LiveTail;
 using Flare.Api.Pipeline;
 using Flare.Api.Prometheus;
 using Flare.Api.Query;
+using Flare.Api.Status;
 using Flare.Api.Retention;
 using Flare.Api.ResourceGraph;
 using Flare.Api.Updates;
@@ -430,6 +431,9 @@ builder.Services.AddSingleton<IDashboardScheduleQueryService, DashboardScheduleQ
 // Synthetic monitors (ADR-0128) - CRUD here; Flare.AlertWorker runs the probes.
 builder.Services.AddSingleton<ISyntheticMonitorQueryService, SyntheticMonitorQueryService>();
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IStatusPageQueryService, StatusPageQueryService>();
+builder.Services.AddSingleton<IPublicStatusService, PublicStatusService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 
 builder.Services.AddOpenApi();
@@ -510,6 +514,8 @@ if (app.Environment.IsDevelopment())
 app.MapAuthEndpoints();
 // Signed acknowledge links from alert notifications (ADR-0127): the token is the credential, so no session is needed.
 app.MapAlertAckLinkEndpoints();
+// Public status pages (ADR-0158): served to anyone while a page is enabled; nothing internal in the response.
+app.MapPublicStatusEndpoints();
 // Slack button clicks and PagerDuty ack events (ADR-0138): the request signature is the credential; 404 until a secret is configured.
 app.MapAlertAckIntegrationEndpoints();
 app.MapEntraAuthEndpoints();
@@ -608,6 +614,8 @@ memberRoutes.MapRetentionReadEndpoints();
 var adminRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireAdmin);
 adminRoutes.MapIngestApiKeyEndpoints();
 adminRoutes.MapUsageEndpoints();
+// Publishing a status page exposes health data to anyone with the URL (ADR-0158).
+adminRoutes.MapStatusPageAdminEndpoints();
 adminRoutes.MapAuditLogEndpoints();
 adminRoutes.MapUserEndpoints();
 adminRoutes.MapServiceAccountEndpoints();
