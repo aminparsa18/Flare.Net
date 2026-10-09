@@ -59,22 +59,15 @@ folders are where "what happened and why" actually lives.
   with OpenTofu acceptance tests against a live stack. `minServerVersion` is set to 0.6.0
   (assumed next release; fix it if the release is numbered differently). Remaining:
   registry publishing. In progress.
-- **.NET MAUI / mobile SDK (later).** No client-app signal exists beyond what a
-  hand-wired OTel exporter sends. Phase 1 is a docs how-to ("Send telemetry
-  from a MAUI app to Flare") using stock `OpenTelemetry` packages, since OTLP
-  already works and it will surface the real gaps. Phase 2 ships a
-  `Flare.Maui` NuGet package (`UseFlare()` on `MauiAppBuilder`): OTLP/HTTP
-  export (gRPC is unreliable on iOS/Android) with an on-disk retry queue for
-  offline use, batching and compression, device/OS/app-version resource
-  attributes, a stable `session.id`, automatic spans for navigation and
-  `HttpClient`, and unhandled-exception capture (including
-  `TaskScheduler.UnobservedTaskException` and native crash reports delivered on
-  next launch). Phase 3 is server side: scoped public ingest keys (allowed
+- **.NET MAUI / mobile SDK (later).** `Flare.Maui` (ADR-0166, `src/Flare.Maui`) ships the
+  `UseFlare()` core: OTLP/HTTP export, disk retry, device/session attributes, `HttpClient`
+  and Shell navigation spans, unhandled-exception capture. Remaining for it: native crash
+  reports delivered on next launch (Android `ApplicationExitInfo`, iOS MetricKit), Windows,
+  NuGet publishing (needs a macOS runner with the MAUI workloads; the package is outside
+  `Flare.slnx` for that reason), and a CI job for `Flare.Maui.slnx`, and verifying on a device
+  or emulator. Phase 3 is server side: scoped public ingest keys (allowed
   services, rate cap, write-only; builds on ADR-0051, since a key shipped in an
   app binary is effectively public), a Sessions/Devices view grouping traces by
   `session.id`, and app-version breakdowns on `/errors`. Phase 4 is
   symbolication of trimmed/AOT stack traces, sharing the source-map upload API
-  (ADR-0152). Design points for the ADR: wrap `OpenTelemetry` or
-  stay a thin configuration package; trimming/AOT compatibility; privacy
-  defaults (no PII in attributes, opt-in device id). First check how ingest keys
-  behave for a public-client scenario (CORS, per-key service allowlists).
+  (ADR-0152). Trimming/AOT compatibility of the OpenTelemetry SDK is untested.

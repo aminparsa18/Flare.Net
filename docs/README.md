@@ -59,6 +59,7 @@ the full rule set on what goes where.
 - [Acknowledge or snooze a firing alert](how-to/acknowledge-and-snooze-alerts.md)
 - [Share notification wording across alert rules](how-to/share-alert-notification-templates.md)
 - [Send browser telemetry to Flare](how-to/send-browser-telemetry.md)
+- [Send telemetry from a .NET MAUI app to Flare](how-to/send-maui-telemetry.md)
 - [Monitor endpoints, ports and certificates with synthetic probes](how-to/synthetic-monitoring.md)
 - [Publish a status page](how-to/publish-a-status-page.md)
 - [Tell whether a span was slow for what it is](how-to/compare-span-duration.md)

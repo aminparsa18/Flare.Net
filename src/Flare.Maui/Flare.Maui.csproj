@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Directory.Build.props sets a single TargetFramework; clear it so TargetFrameworks wins.
+         Plain net10.0 carries only the MAUI-free core (unit-tested); the mobile targets add the glue. -->
+    <TargetFramework />
+    <TargetFrameworks>net10.0;net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">24.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-ios'))">15.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-maccatalyst'))">15.0</SupportedOSPlatformVersion>
+    <UseMaui Condition="'$(TargetFramework)' != 'net10.0'">true</UseMaui>
+    <SingleProject>false</SingleProject>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Flare.Maui</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Amin Parsa</Authors>
+    <Description>.NET MAUI client for Flare: builder.UseFlare() sends traces, logs and metrics over OTLP/HTTP with an offline queue, device and session attributes, HttpClient and Shell navigation spans, and unhandled-exception capture.</Description>
+    <PackageTags>maui;flare;opentelemetry;otlp;observability;mobile</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/aminparsa18/Flare.Net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/aminparsa18/Flare.Net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageIcon>logo.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\logo.png" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="Flare.Maui.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0'">
+    <PackageReference Include="Microsoft.Maui.Controls" />
+  </ItemGroup>
+
+  <!-- MAUI glue: not compiled for the plain net10.0 core. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <Compile Remove="Platform\**" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Flare.Maui/Flare.Maui.csproj" />
+    <Project Path="src/Flare.Maui.Tests/Flare.Maui.Tests.csproj" />
+  </Folder>
+</Solution>
