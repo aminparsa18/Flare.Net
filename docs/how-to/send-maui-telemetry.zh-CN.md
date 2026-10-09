@@ -141,6 +141,8 @@ sealed class SessionProcessor : BaseProcessor<Activity>
 在导出器之前通过 `.AddProcessor(new SessionProcessor())` 注册它。在 **Traces** 中按
 `session.id` 过滤，即可看到一次启动的完整过程。
 
+**Sessions** 页面（`⋯` 菜单中）列出时间窗口内的每次启动，包括应用版本、设备、页面、链路数和错误数。可以按应用版本或仅含错误的会话筛选，点击会话即可打开其链路。该包会自动设置 `session.id`；手动配置时需要上面的处理器。
+
 ## 报告未处理的异常
 
 Flare 的 **Errors** 页面会对记录在 span 上的异常进行分组。将每次崩溃报告为一个带有

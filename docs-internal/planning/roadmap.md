@@ -65,9 +65,8 @@ folders are where "what happened and why" actually lives.
   reports delivered on next launch (Android `ApplicationExitInfo`, iOS MetricKit), Windows,
   NuGet publishing (needs a macOS runner with the MAUI workloads; the package is outside
   `Flare.slnx` for that reason), and a CI job for `Flare.Maui.slnx`, and verifying on a device
-  or emulator. Phase 3 is server side: scoped public ingest keys (allowed
-  services, rate cap, write-only; builds on ADR-0051, since a key shipped in an
-  app binary is effectively public), a Sessions/Devices view grouping traces by
-  `session.id`, and app-version breakdowns on `/errors`. Phase 4 is
+  or emulator. Server side (ADR-0167) is done: scoped ingest keys (ADR-0149/0150/0051), the
+  Sessions page, and app-version facets on `/errors`. Remaining there: a per-session timeline
+  and a rollup table if long windows prove slow. Phase 4 is
   symbolication of trimmed/AOT stack traces, sharing the source-map upload API
   (ADR-0152). Trimming/AOT compatibility of the OpenTelemetry SDK is untested.

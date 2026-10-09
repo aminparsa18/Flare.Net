@@ -145,6 +145,11 @@ sealed class SessionProcessor : BaseProcessor<Activity>
 Register it with `.AddProcessor(new SessionProcessor())` before the exporter.
 Filter on `session.id` in **Traces** to see one launch end to end.
 
+The **Sessions** page (in the `⋯` menu) lists every launch in the window with its
+app version, device, screens, trace count and error count. Filter by app version or
+errors only, and click a session to open its traces. The package sets `session.id`
+for you; a hand-rolled setup needs the processor above.
+
 ## Report unhandled exceptions
 
 Flare's **Errors** page groups exceptions recorded on spans. Report each crash
