@@ -1,0 +1,59 @@
+# Restores, builds and tests Flare.Maui.slnx on macOS with the MAUI workloads installed.
+#
+# Separate from ci.yml on purpose: Flare.Maui multi-targets android/ios/maccatalyst, which
+# only build with the MAUI workloads (and, for iOS, Xcode) on a macOS runner - and macOS
+# minutes cost ten times Linux ones. So it runs only when the MAUI project, its tests, or
+# this workflow change, and on demand. Flare.Maui is deliberately outside Flare.slnx
+# (ADR-0166), so ci.yml never builds it; this is the signal that the mobile targets compile.
+#
+# The tests are the plain net10.0 core tests (Flare.Maui.Tests); there is no device or
+# emulator here, so the Platform/ glue is only compile-checked.
+
+name: MAUI CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Flare.Maui/**'
+      - 'src/Flare.Maui.Tests/**'
+      - 'Flare.Maui.slnx'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - '.github/workflows/maui-ci.yml'
+  pull_request:
+    paths:
+      - 'src/Flare.Maui/**'
+      - 'src/Flare.Maui.Tests/**'
+      - 'Flare.Maui.slnx'
+      - '.github/workflows/maui-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: maui-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore MAUI workloads
+        run: dotnet workload restore Flare.Maui.slnx
+
+      - name: Restore
+        run: dotnet restore Flare.Maui.slnx
+
+      - name: Build
+        run: dotnet build Flare.Maui.slnx --no-restore -c Release
+
+      - name: Test
+        run: dotnet test Flare.Maui.slnx --no-build -c Release --logger "console;verbosity=normal"
