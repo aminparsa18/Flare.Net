@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -7,7 +8,9 @@ namespace Flare.Mcp.DotnetSymbols;
 /// Function-to-source table for Native AOT stack frames (<c>at Ns.Type.Method(Args) + 0x48</c>, an offset from
 /// the function's entry). Built from the image's debug symbols (an Apple <c>.dSYM</c>) by
 /// <see cref="NativeSymbolsBuilder"/>; the mangled linkage name is stored as is and matched here, so the
-/// mangling rules can evolve without re-uploading. See ADR-0168.
+/// mangling rules can evolve without re-uploading. Functions that were matched to their managed method (see
+/// <see cref="ManagedOverloads"/>) also carry its printed parameter types, which is what tells overloads apart.
+/// See ADR-0168 and ADR-0171.
 /// </summary>
 public sealed partial class NativeSymbols
 {
@@ -17,7 +20,9 @@ public sealed partial class NativeSymbols
     private readonly Function[] _functions;
     private readonly Dictionary<string, List<int>> _bySuffix = new(StringComparer.Ordinal);
 
-    internal sealed record Function(string Symbol, int[] Offset, int[] Line, int[] File);
+    /// <param name="Base">The frame-form mangled name (<c>My_Shop_Cart__Add</c>), when the managed method is known.</param>
+    /// <param name="Parameters">The printed parameter types (<c>String, Int32</c>), when the managed method is known.</param>
+    internal sealed record Function(string Symbol, int[] Offset, int[] Line, int[] File, string? Base = null, string? Parameters = null);
 
     private NativeSymbols(string uuid, string[] files, Function[] functions)
     {
@@ -32,9 +37,6 @@ public sealed partial class NativeSymbols
 
     public static string BundleName(string uuid) => uuid + BundleSuffix;
 
-    [GeneratedRegex(@"<[^<>]*>$")]
-    private static partial Regex TrailingGenericArguments();
-
     [GeneratedRegex(@"\[[^\[\]]*\]")]
     private static partial Regex BracketedGenericParameters();
 
@@ -45,6 +47,13 @@ public sealed partial class NativeSymbols
         var names = new HashSet<string>(_functions.Select(f => Normalize(f.Symbol)), StringComparer.Ordinal);
         for (var i = 0; i < _functions.Length; i++)
         {
+            if (_functions[i].Base is { } known)
+            {
+                // The managed method is known, so the name is exact and the "_N" overload guess is not needed.
+                AddExact(known, i);
+                continue;
+            }
+
             var name = Normalize(_functions[i].Symbol);
             AddSuffixes(name, i);
 
@@ -61,17 +70,55 @@ public sealed partial class NativeSymbols
     {
         for (var at = name.IndexOf('_'); at >= 0; at = name.IndexOf('_', at + 1))
         {
-            var suffix = name[(at + 1)..];
-            if (!_bySuffix.TryGetValue(suffix, out var list))
-            {
-                _bySuffix[suffix] = list = [];
-            }
-
-            list.Add(function);
+            AddExact(name[(at + 1)..], function);
         }
     }
 
-    private static string Normalize(string symbol) => TrailingGenericArguments().Replace(symbol.TrimStart('_'), "");
+    private void AddExact(string key, int function)
+    {
+        if (!_bySuffix.TryGetValue(key, out var list))
+        {
+            _bySuffix[key] = list = [];
+        }
+
+        list.Add(function);
+    }
+
+    /// <summary>
+    /// A symbol without its leading underscores and without generic instantiations: <c>Gen_1&lt;Int32&gt;__Foo_0</c>
+    /// is the same linkage name as <c>Gen_1&lt;__Canon&gt;__Foo_0</c> (a sanitized name never contains <c>&lt;</c>).
+    /// </summary>
+    internal static string Normalize(string symbol)
+    {
+        var builder = new StringBuilder(symbol.Length);
+        var depth = 0;
+        foreach (var c in symbol.TrimStart('_'))
+        {
+            if (c == '<')
+            {
+                depth++;
+            }
+            else if (c == '>' && depth > 0)
+            {
+                depth--;
+            }
+            else if (depth == 0)
+            {
+                builder.Append(c);
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>Every character outside <c>[A-Za-z0-9]</c> becomes <c>_</c>, as in the compiler's linkage names.</summary>
+    internal static string Sanitize(string s) => string.Create(s.Length, s, (span, src) =>
+    {
+        for (var i = 0; i < src.Length; i++)
+        {
+            span[i] = char.IsAsciiLetterOrDigit(src[i]) ? src[i] : '_';
+        }
+    });
 
     /// <summary>
     /// The linkage-name form of a frame's method name: every character outside <c>[A-Za-z0-9]</c> becomes <c>_</c>,
@@ -84,14 +131,6 @@ public sealed partial class NativeSymbols
         var type = split < 0 ? "" : name[..split];
         var method = split < 0 ? name : name[(split + 1)..];
         return Sanitize(type) + (type.Length > 0 ? "__" : "") + Sanitize(method);
-
-        static string Sanitize(string s) => string.Create(s.Length, s, (span, src) =>
-        {
-            for (var i = 0; i < src.Length; i++)
-            {
-                span[i] = char.IsAsciiLetterOrDigit(src[i]) ? src[i] : '_';
-            }
-        });
     }
 
     /// <summary>Index of the dot that separates the method from its type: the last one outside <c>&lt;&gt;</c> (a ".ctor" keeps its dot).</summary>
@@ -121,15 +160,37 @@ public sealed partial class NativeSymbols
     /// Source position of the instruction at <paramref name="offset"/> bytes into <paramref name="frameMethod"/>.
     /// Null when no function matches, or when several do and they disagree (overloads).
     /// </summary>
-    public (string File, int Line)? Lookup(string frameMethod, int offset)
+    public (string File, int Line)? Lookup(string frameMethod, int offset) => Lookup(frameMethod, null, offset);
+
+    /// <summary>
+    /// As above, with the parameter list the frame printed (<c>String, Int32</c>). Overloads are told apart by it
+    /// when the file knows their managed signatures; for functions without one the answer is still null unless
+    /// every candidate lands on the same line.
+    /// </summary>
+    public (string File, int Line)? Lookup(string frameMethod, string? frameArguments, int offset)
     {
-        if (!_bySuffix.TryGetValue(Mangle(frameMethod), out var candidates))
+        if (!_bySuffix.TryGetValue(Mangle(frameMethod), out var all))
         {
             return null;
         }
 
+        var candidates = all.Distinct().ToList();
+        if (frameArguments is not null)
+        {
+            var wanted = frameArguments.Replace(" ", "");
+            var matching = candidates.Where(i => _functions[i].Parameters?.Replace(" ", "") == wanted).ToList();
+            if (matching.Count > 0)
+            {
+                candidates = matching;
+            }
+            else if (candidates.All(i => _functions[i].Parameters is not null))
+            {
+                return null; // every overload is known and none of them is the frame's
+            }
+        }
+
         (string File, int Line)? found = null;
-        foreach (var index in candidates.Distinct())
+        foreach (var index in candidates)
         {
             var hit = At(_functions[index], Math.Max(offset - 1, 0));
             if (hit is null || (found is not null && found != hit))
@@ -187,7 +248,10 @@ public sealed partial class NativeSymbols
                     i++;
                 }
 
-                functions.Add(new Function(f.GetProperty("n").GetString()!, offset, line, file));
+                functions.Add(new Function(
+                    f.GetProperty("n").GetString()!, offset, line, file,
+                    f.TryGetProperty("b", out var b) ? b.GetString() : null,
+                    f.TryGetProperty("p", out var p) ? p.GetString() : null));
             }
 
             return new NativeSymbols(root.GetProperty("uuid").GetString()!.ToLowerInvariant(), files, [.. functions]);
@@ -198,7 +262,7 @@ public sealed partial class NativeSymbols
         }
     }
 
-    internal static byte[] Serialize(string uuid, IReadOnlyList<string> files, IEnumerable<(string Symbol, (int Offset, int Line, int File)[] Rows)> functions)
+    internal static byte[] Serialize(string uuid, IReadOnlyList<string> files, IEnumerable<(string Symbol, (int Offset, int Line, int File)[] Rows, string? Base, string? Parameters)> functions)
     {
         using var stream = new MemoryStream();
         using (var w = new Utf8JsonWriter(stream))
@@ -214,10 +278,16 @@ public sealed partial class NativeSymbols
 
             w.WriteEndArray();
             w.WriteStartArray("functions");
-            foreach (var (symbol, rows) in functions)
+            foreach (var (symbol, rows, baseName, parameters) in functions)
             {
                 w.WriteStartObject();
                 w.WriteString("n", symbol);
+                if (baseName is not null && parameters is not null)
+                {
+                    w.WriteString("b", baseName);
+                    w.WriteString("p", parameters);
+                }
+
                 w.WriteStartArray("r");
                 foreach (var (offset, line, file) in rows)
                 {

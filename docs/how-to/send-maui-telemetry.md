@@ -200,11 +200,17 @@ Upload the `.dSYM` that `dotnet publish` writes next to the binary:
 
 ```bash
 flare sourcemaps upload-native bin/Release/net10.0-ios/ios-arm64/publish/MyApp.dSYM \
+  --managed obj/Release/net10.0-ios/ios-arm64 \
   --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
 ```
 
-Methods that have overloads stay unresolved, because the compiler's numbering of
-overloads cannot be recovered from the symbols.
+`--managed` takes the dll and portable PDB the app was compiled from (a file or a
+directory, repeatable; use the ones in `obj/`, not a copy from another build). Without
+it, a method that has overloads stays unresolved, because the compiler numbers them
+`Add`, `Add_0`, `Add_1` and the `.dSYM` alone cannot say which is which. With it, Flare
+reads the same order from the dll's metadata and matches the parameter types in the
+frame (`Add(String)`, `Add(Int32)`). A function whose lines don't match the PDB is left
+unmatched, with a note, so a stale dll never gives a wrong line.
 
 ## Flush when the app is backgrounded
 

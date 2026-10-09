@@ -7,14 +7,19 @@ namespace Flare.Mcp.DotnetSymbols;
 /// Builds <see cref="NativeSymbols"/> from a 64-bit Mach-O debug file (the <c>DWARF/{name}</c> file inside a
 /// <c>.dSYM</c> bundle, which is what Native AOT for iOS and macOS produces): function addresses come from
 /// the symbol table, source lines from the DWARF 2-4 <c>.debug_line</c> program. Functions defined in the
-/// .NET runtime's own sources (<c>/_/src/runtime/</c>) are left out to keep the file small.
+/// .NET runtime's own sources (<c>/_/src/runtime/</c>) are left out to keep the file small. With the managed
+/// assemblies (<see cref="ManagedOverloads"/>) each function is also tied to its overload by parameter types.
 /// </summary>
 public static class NativeSymbolsBuilder
 {
     private const string RuntimeSourcePrefix = "/_/src/runtime/";
 
-    /// <summary><paramref name="path"/> is a <c>.dSYM</c> bundle directory or the DWARF file inside it.</summary>
-    public static (byte[]? Json, string? Uuid, string? Error) Build(string path)
+    /// <summary>
+    /// <paramref name="path"/> is a <c>.dSYM</c> bundle directory or the DWARF file inside it.
+    /// <paramref name="managedAssemblies"/> are the dlls (with their PDBs) the app was compiled from; <paramref name="report"/>
+    /// receives a line about how many functions were tied to a managed overload.
+    /// </summary>
+    public static (byte[]? Json, string? Uuid, string? Error) Build(string path, IReadOnlyList<string>? managedAssemblies = null, Action<string>? report = null)
     {
         if (Directory.Exists(path))
         {
@@ -30,7 +35,7 @@ public static class NativeSymbolsBuilder
 
         try
         {
-            return Build(File.ReadAllBytes(path));
+            return Build(File.ReadAllBytes(path), managedAssemblies is { Count: > 0 } ? ReadManaged(managedAssemblies, report) : null, report);
         }
         catch (Exception ex) when (ex is FormatException or IndexOutOfRangeException or ArgumentOutOfRangeException)
         {
@@ -38,7 +43,39 @@ public static class NativeSymbolsBuilder
         }
     }
 
-    internal static (byte[]? Json, string? Uuid, string? Error) Build(byte[] image)
+    /// <summary>The managed methods of every assembly with a usable PDB; a symbol two assemblies disagree on is dropped.</summary>
+    private static List<ManagedMethod> ReadManaged(IReadOnlyList<string> assemblies, Action<string>? report)
+    {
+        var methods = new List<ManagedMethod>();
+        var skipped = 0;
+        foreach (var dll in assemblies)
+        {
+            try
+            {
+                var (read, _) = ManagedOverloads.Read(dll);
+                if (read is null)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                methods.AddRange(read);
+            }
+            catch (Exception ex) when (ex is BadImageFormatException or IOException or InvalidOperationException)
+            {
+                // a native or unreadable file next to the managed ones
+            }
+        }
+
+        if (skipped > 0)
+        {
+            report?.Invoke($"{skipped} managed assembl{(skipped == 1 ? "y" : "ies")} without a usable PDB skipped.");
+        }
+
+        return methods;
+    }
+
+    internal static (byte[]? Json, string? Uuid, string? Error) Build(byte[] image, IReadOnlyList<ManagedMethod>? managed = null, Action<string>? report = null)
     {
         var macho = MachO.Read(image);
         if (macho is null)
@@ -61,7 +98,9 @@ public static class NativeSymbolsBuilder
         var addresses = macho.Symbols.Select(s => s.Address).Distinct().Order().ToArray();
         var files = new List<string>();
         var fileIndex = new Dictionary<string, int>(StringComparer.Ordinal);
-        var functions = new List<(string, (int, int, int)[])>();
+        var functions = new List<(string, (int, int, int)[], string?, string?)>();
+        var byName = ByName(managed);
+        int identified = 0, unverified = 0;
         foreach (var symbol in macho.Symbols.Where(s => IsFunctionName(s.Name)).DistinctBy(s => s.Address))
         {
             var next = addresses.FirstOrDefault(a => a > symbol.Address);
@@ -89,12 +128,60 @@ public static class NativeSymbolsBuilder
                 }
             }
 
-            functions.Add((symbol.Name.TrimStart('_'), [.. compact]));
+            string? baseName = null, parameters = null;
+            if (byName.TryGetValue(NativeSymbols.Normalize(symbol.Name), out var method) && method is { Parameters: not null })
+            {
+                // A stale or different build of the dll would name the wrong overload, so the lines must agree too.
+                if (compact.Any(c => method.Spans.Any(s => s.Document == Path.GetFileName(files[c.Item3]) && c.Item2 >= s.FirstLine && c.Item2 <= s.LastLine)))
+                {
+                    (baseName, parameters) = (method.Base, method.Parameters);
+                    identified++;
+                }
+                else
+                {
+                    unverified++;
+                }
+            }
+
+            functions.Add((symbol.Name.TrimStart('_'), [.. compact], baseName, parameters));
+        }
+
+        if (managed is not null)
+        {
+            report?.Invoke($"{identified} function(s) tied to their managed overload"
+                + (unverified > 0 ? $", {unverified} left out because their lines do not match the PDB (is the dll from the same build?)" : "")
+                + ".");
         }
 
         return functions.Count == 0
             ? (null, macho.Uuid, "no application functions with line information")
             : (NativeSymbols.Serialize(macho.Uuid, files, functions), macho.Uuid, null);
+    }
+
+    private static Dictionary<string, ManagedMethod> ByName(IReadOnlyList<ManagedMethod>? managed)
+    {
+        // The same assembly can be found twice (obj/ and bin/ copies); two different answers for one symbol are no answer.
+        var result = new Dictionary<string, ManagedMethod>(StringComparer.Ordinal);
+        var conflicting = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var method in managed ?? [])
+        {
+            if (result.TryAdd(method.Symbol, method))
+            {
+                continue;
+            }
+
+            if (result[method.Symbol].Parameters != method.Parameters || result[method.Symbol].Base != method.Base)
+            {
+                conflicting.Add(method.Symbol);
+            }
+        }
+
+        foreach (var name in conflicting)
+        {
+            result.Remove(name);
+        }
+
+        return result;
     }
 
     // Exception-handling tables, frame records, vtables and runtime helpers share the symbol table with code.

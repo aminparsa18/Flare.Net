@@ -21,33 +21,15 @@ public static class DotnetSymbolsBuilder
         var md = pe.GetMetadataReader();
         var mvid = md.GetGuid(md.GetModuleDefinition().Mvid);
 
-        MetadataReaderProvider? provider = null;
+        var provider = OpenPdb(pe, dllPath, out var pdbError);
+        if (provider is null)
+        {
+            return (null, mvid, pdbError);
+        }
+
         try
         {
-            var entries = pe.ReadDebugDirectory();
-            var embedded = entries.FirstOrDefault(e => e.Type == DebugDirectoryEntryType.EmbeddedPortablePdb);
-            if (embedded.Type == DebugDirectoryEntryType.EmbeddedPortablePdb)
-            {
-                provider = pe.ReadEmbeddedPortablePdbDebugDirectoryData(embedded);
-            }
-            else
-            {
-                var pdbPath = Path.ChangeExtension(dllPath, ".pdb");
-                if (!File.Exists(pdbPath))
-                {
-                    return (null, mvid, "no embedded PDB and no sibling .pdb");
-                }
-
-                provider = MetadataReaderProvider.FromPortablePdbStream(new MemoryStream(File.ReadAllBytes(pdbPath)));
-            }
-
             var pdb = provider.GetMetadataReader();
-            var codeView = entries.FirstOrDefault(e => e.Type == DebugDirectoryEntryType.CodeView);
-            if (codeView.Type == DebugDirectoryEntryType.CodeView
-                && pe.ReadCodeViewDebugDirectoryData(codeView).Guid != new Guid(pdb.DebugMetadataHeader!.Id.AsSpan(0, 16)))
-            {
-                return (null, mvid, "the PDB does not belong to this build of the assembly");
-            }
 
             var documents = new List<string>();
             var documentIndex = new Dictionary<DocumentHandle, int>();
@@ -96,17 +78,61 @@ public static class DotnetSymbolsBuilder
 
             return (DotnetSymbols.Serialize(mvid, documents, methods), mvid, null);
         }
-        catch (BadImageFormatException)
-        {
-            return (null, mvid, "the PDB is not a portable PDB (set <DebugType>portable</DebugType>)");
-        }
         finally
         {
-            provider?.Dispose();
+            provider.Dispose();
         }
     }
 
-    private static string TypeName(MetadataReader reader, TypeDefinitionHandle handle)
+    /// <summary>
+    /// The portable PDB of an assembly (embedded, or a sibling <c>.pdb</c>), checked to belong to this build of it.
+    /// Null with <paramref name="error"/> set when there is none or it can't be used.
+    /// </summary>
+    internal static MetadataReaderProvider? OpenPdb(PEReader pe, string dllPath, out string? error)
+    {
+        error = null;
+        MetadataReaderProvider? provider = null;
+        try
+        {
+            var entries = pe.ReadDebugDirectory();
+            var embedded = entries.FirstOrDefault(e => e.Type == DebugDirectoryEntryType.EmbeddedPortablePdb);
+            if (embedded.Type == DebugDirectoryEntryType.EmbeddedPortablePdb)
+            {
+                provider = pe.ReadEmbeddedPortablePdbDebugDirectoryData(embedded);
+            }
+            else
+            {
+                var pdbPath = Path.ChangeExtension(dllPath, ".pdb");
+                if (!File.Exists(pdbPath))
+                {
+                    error = "no embedded PDB and no sibling .pdb";
+                    return null;
+                }
+
+                provider = MetadataReaderProvider.FromPortablePdbStream(new MemoryStream(File.ReadAllBytes(pdbPath)));
+            }
+
+            var pdb = provider.GetMetadataReader();
+            var codeView = entries.FirstOrDefault(e => e.Type == DebugDirectoryEntryType.CodeView);
+            if (codeView.Type == DebugDirectoryEntryType.CodeView
+                && pe.ReadCodeViewDebugDirectoryData(codeView).Guid != new Guid(pdb.DebugMetadataHeader!.Id.AsSpan(0, 16)))
+            {
+                error = "the PDB does not belong to this build of the assembly";
+                provider.Dispose();
+                return null;
+            }
+
+            return provider;
+        }
+        catch (BadImageFormatException)
+        {
+            error = "the PDB is not a portable PDB (set <DebugType>portable</DebugType>)";
+            provider?.Dispose();
+            return null;
+        }
+    }
+
+    internal static string TypeName(MetadataReader reader, TypeDefinitionHandle handle)
     {
         var type = reader.GetTypeDefinition(handle);
         var name = reader.GetString(type.Name);
@@ -120,7 +146,7 @@ public static class DotnetSymbolsBuilder
         return ns.Length == 0 ? name : ns + "." + name;
     }
 
-    private static string DocumentName(MetadataReader reader, DocumentNameBlobHandle handle)
+    internal static string DocumentName(MetadataReader reader, DocumentNameBlobHandle handle)
     {
         var blob = reader.GetBlobReader(handle);
         var separator = (char)blob.ReadByte();

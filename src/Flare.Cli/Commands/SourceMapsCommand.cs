@@ -293,7 +293,8 @@ internal sealed class SourceMapsUploadDotnetCommand : AsyncCommand<SourceMapsUpl
 /// <summary>
 /// <c>flare sourcemaps upload-native &lt;DSYM&gt;...</c> - for each <c>.dSYM</c> bundle (or its DWARF file) builds a
 /// function-to-line table and uploads it as <c>{uuid}.native.json</c>, which Native AOT frames of that release
-/// are looked up in (ADR-0168). Run it on the <c>.dSYM</c> next to the published binary.
+/// are looked up in (ADR-0168). Run it on the <c>.dSYM</c> next to the published binary. <c>--managed</c> adds the
+/// dll and PDB the binary was compiled from, which lets overloaded methods be told apart by parameter types (ADR-0171).
 /// </summary>
 internal sealed class SourceMapsUploadNativeCommand : AsyncCommand<SourceMapsUploadNativeCommand.Settings>
 {
@@ -302,6 +303,10 @@ internal sealed class SourceMapsUploadNativeCommand : AsyncCommand<SourceMapsUpl
         [CommandArgument(0, "<DSYM>")]
         [Description("A .dSYM bundle (or the DWARF file inside it) produced by `dotnet publish` with PublishAot.")]
         public required string[] Paths { get; init; }
+
+        [CommandOption("--managed <PATH>")]
+        [Description("The assembly (.dll with its .pdb) or a directory of them the app was compiled from, e.g. obj/Release/net10.0/osx-arm64. Lets overloaded methods resolve by parameter types. Repeatable.")]
+        public string[]? Managed { get; init; }
     }
 
     protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
@@ -310,6 +315,24 @@ internal sealed class SourceMapsUploadNativeCommand : AsyncCommand<SourceMapsUpl
         {
             AnsiConsole.MarkupLine("[red]✗[/] --service and --release are required.");
             return 1;
+        }
+
+        var managed = new List<string>();
+        foreach (var path in settings.Managed ?? [])
+        {
+            if (Directory.Exists(path))
+            {
+                managed.AddRange(Directory.EnumerateFiles(Path.GetFullPath(path), "*.dll", SearchOption.AllDirectories));
+            }
+            else if (File.Exists(path))
+            {
+                managed.Add(path);
+            }
+            else
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(path)} does not exist.");
+                return 1;
+            }
         }
 
         using var http = settings.CreateClient();
@@ -327,7 +350,7 @@ internal sealed class SourceMapsUploadNativeCommand : AsyncCommand<SourceMapsUpl
                 return 1;
             }
 
-            var (json, uuid, error) = NativeSymbolsBuilder.Build(path);
+            var (json, uuid, error) = NativeSymbolsBuilder.Build(path, managed, note => AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(note)}[/]"));
             if (json is null || uuid is null)
             {
                 failed++;

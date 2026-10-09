@@ -199,10 +199,11 @@ Pour un build **Native AOT** (`PublishAot`, iOS), les frames s'affichent `at MyA
 
 ```bash
 flare sourcemaps upload-native bin/Release/net10.0-ios/ios-arm64/publish/MyApp.dSYM \
+  --managed obj/Release/net10.0-ios/ios-arm64 \
   --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
 ```
 
-Les méthodes surchargées restent non résolues : la numérotation des surcharges par le compilateur ne peut pas être retrouvée à partir des symboles.
+`--managed` prend la dll et le PDB portable à partir desquels l'application a été compilée (un fichier ou un répertoire, répétable ; utilisez ceux de `obj/`, pas une copie d'un autre build). Sans cette option, une méthode surchargée reste non résolue : le compilateur numérote les surcharges `Add`, `Add_0`, `Add_1` et le `.dSYM` seul ne dit pas laquelle est laquelle. Avec elle, Flare relit le même ordre dans les métadonnées de la dll et compare les types de paramètres de la frame (`Add(String)`, `Add(Int32)`). Une fonction dont les lignes ne correspondent pas au PDB reste non associée, avec une note, de sorte qu'une dll obsolète ne donne jamais une mauvaise ligne.
 
 ## Vider le tampon quand l'application passe en arrière-plan
 

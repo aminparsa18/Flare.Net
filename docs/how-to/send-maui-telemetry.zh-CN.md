@@ -180,16 +180,17 @@ flare sourcemaps upload-dotnet obj/Release/net10.0-android \
   --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
 ```
 
-该命令读取每个 dll 及其 portable PDB(`<DebugType>portable</DebugType>`,默认值),之后 **Errors** 页面会为可解析的帧显示 `File.cs:line 23`。暂不支持 Native AOT(`PublishAot`)帧。
+该命令读取每个 dll 及其 portable PDB(`<DebugType>portable</DebugType>`,默认值),之后 **Errors** 页面会为可解析的帧显示 `File.cs:line 23`。
 
 对于 **Native AOT** 构建(`PublishAot`,iOS),堆栈帧显示为 `at MyApp.Cart.Add(String) + 0x48`。请上传 `dotnet publish` 在二进制文件旁生成的 `.dSYM`:
 
 ```bash
 flare sourcemaps upload-native bin/Release/net10.0-ios/ios-arm64/publish/MyApp.dSYM \
+  --managed obj/Release/net10.0-ios/ios-arm64 \
   --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
 ```
 
-存在重载的方法保持未解析,因为无法从符号中还原编译器对重载的编号。
+`--managed` 接受应用编译所用的 dll 及其 portable PDB(文件或目录,可重复;请使用 `obj/` 中的文件,不要用其他构建的副本)。不加此选项时,存在重载的方法保持未解析:编译器把重载编号为 `Add`、`Add_0`、`Add_1`,仅凭 `.dSYM` 无法判断哪个是哪个。加上后,Flare 会从 dll 的元数据中还原同样的顺序,并匹配堆栈帧中的参数类型(`Add(String)`、`Add(Int32)`)。行号与 PDB 不一致的函数不会被关联,并给出提示,因此过期的 dll 不会产生错误的行号。
 
 ## 应用进入后台时刷新
 
