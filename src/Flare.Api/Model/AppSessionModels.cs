@@ -69,3 +69,67 @@ public sealed record AppSessionsResponse
     /// <summary>Every <c>service.version</c> with sessions in the window, unaffected by the version filter.</summary>
     public required IReadOnlyList<string> Versions { get; init; }
 }
+
+/// <summary>
+/// Request body for <c>POST /api/app-sessions/timeline</c> - one session's spans in start-time order.
+/// The window bounds the <c>spans</c> scan; the sessions table passes the session's own first/last
+/// seen padded by a minute. See docs-internal/adr/0170-app-session-timeline.md.
+/// </summary>
+public sealed record AppSessionTimelineRequest
+{
+    public string? SessionId { get; init; }
+
+    /// <summary>Window start, Unix epoch ms; null = <see cref="Query.AppSessionQueryBuilder.DefaultTimelineLookbackMinutes"/> before the end.</summary>
+    public long? FromUnixMs { get; init; }
+
+    /// <summary>Window end, Unix epoch ms; null = now.</summary>
+    public long? ToUnixMs { get; init; }
+}
+
+/// <summary>One span of a session. Times are Unix epoch milliseconds.</summary>
+public sealed record AppSessionTimelineEvent
+{
+    public required string TraceId { get; init; }
+
+    public required string SpanId { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string ServiceName { get; init; }
+
+    public required long StartUnixMs { get; init; }
+
+    public required double DurationMs { get; init; }
+
+    /// <summary><c>screen.name</c>, or empty.</summary>
+    public required string Screen { get; init; }
+
+    public required bool IsError { get; init; }
+
+    public required string StatusMessage { get; init; }
+
+    /// <summary>First <c>exception.type</c> on the span's events, or empty.</summary>
+    public required string ExceptionType { get; init; }
+
+    /// <summary>First <c>exception.message</c> on the span's events, or empty.</summary>
+    public required string ExceptionMessage { get; init; }
+}
+
+public sealed record AppSessionTimelineResponse
+{
+    public required string SessionId { get; init; }
+
+    /// <summary>Empty when the session has no spans in the window.</summary>
+    public required string ServiceName { get; init; }
+
+    public required string Version { get; init; }
+
+    public required string Os { get; init; }
+
+    public required string Device { get; init; }
+
+    public required IReadOnlyList<AppSessionTimelineEvent> Events { get; init; }
+
+    /// <summary>True when the session has more spans than <see cref="Query.AppSessionQueryBuilder.MaxTimelineRows"/>.</summary>
+    public required bool Truncated { get; init; }
+}

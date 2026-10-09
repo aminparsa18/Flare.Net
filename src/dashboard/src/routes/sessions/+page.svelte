@@ -13,7 +13,7 @@
 	import SmartphoneIcon from '@lucide/svelte/icons/smartphone';
 	import { AppSessionsState, APP_SESSIONS_WINDOW_PRESETS, type AppSessionsWindowPreset } from '$lib/app-sessions/state.svelte';
 	import { servicesWindowPresetLabel } from '$lib/services/state.svelte';
-	import { buildSessionTracesHref } from '$lib/deep-links';
+	import { buildSessionTimelineHref } from '$lib/deep-links';
 	import { formatCount } from '$lib/ingestion/format';
 	import { formatDateTime } from '$lib/time/format';
 	import { formatAgo } from '$lib/components/metric-catalog/format';
@@ -27,7 +27,7 @@
 	onMount(() => sessions.load());
 	onDestroy(() => sessions.dispose());
 
-	// A session's last span can be seconds old; the traces link spans first-to-last with a minute either side.
+	// A session's last span can be seconds old; the timeline link spans first-to-last with a minute either side.
 	const PAD_MS = 60_000;
 </script>
 
@@ -121,8 +121,8 @@
 							<Table.Cell class="font-mono text-xs">
 								<a
 									class="hover:underline"
-									href={buildSessionTracesHref(row.sessionId, row.firstSeenUnixMs - PAD_MS, row.lastSeenUnixMs + PAD_MS)}
-									title={m.sessionsPage_viewTraces()}
+									href={buildSessionTimelineHref(row.sessionId, row.firstSeenUnixMs - PAD_MS, row.lastSeenUnixMs + PAD_MS)}
+									title={m.sessionsPage_viewTimeline()}
 								>
 									{row.sessionId.slice(0, 8)}
 								</a>
