@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using Flare.Identity.SourceMaps;
+using Flare.Mcp.DotnetSymbols;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Flare.Api.SourceMaps;
@@ -33,6 +34,14 @@ public sealed class StackTraceSymbolicator(ISourceMapStore store) : IStackTraceS
             return (stacktrace, false);
         }
 
+        var (afterBrowser, browser) = await SymbolicateBrowserAsync(serviceName, versions, stacktrace, cancellationToken);
+        var (afterDotnet, dotnet) = await SymbolicateDotnetAsync(serviceName, versions, afterBrowser, cancellationToken);
+        var (afterNative, native) = await SymbolicateNativeAotAsync(serviceName, versions, afterDotnet, cancellationToken);
+        return (afterNative, browser || dotnet || native);
+    }
+
+    private async Task<(string Stacktrace, bool Symbolicated)> SymbolicateBrowserAsync(string serviceName, IReadOnlyList<string> versions, string stacktrace, CancellationToken cancellationToken)
+    {
         var frames = new List<BrowserFrame>();
         foreach (var line in stacktrace.Split('\n'))
         {
@@ -58,6 +67,72 @@ public sealed class StackTraceSymbolicator(ISourceMapStore store) : IStackTraceS
             maps.GetValueOrDefault(frame.Url) is { } map ? map.Lookup(frame.Line - 1, frame.Column - 1) : null);
     }
 
+    /// <summary>Mono frames (trimmed/AOT MAUI builds): one uploaded symbols file per assembly MVID.</summary>
+    private async Task<(string Stacktrace, bool Symbolicated)> SymbolicateDotnetAsync(string serviceName, IReadOnlyList<string> versions, string stacktrace, CancellationToken cancellationToken)
+    {
+        var symbols = new Dictionary<Guid, DotnetSymbols?>();
+        foreach (var mvid in MonoStackTrace.Frames(stacktrace).Select(f => f.Mvid).Distinct())
+        {
+            symbols[mvid] = await FindSymbolsAsync(serviceName, versions, mvid, cancellationToken);
+        }
+
+        return symbols.Count == 0
+            ? (stacktrace, false)
+            : MonoStackTrace.Rewrite(stacktrace, frame =>
+                symbols.GetValueOrDefault(frame.Mvid)?.Lookup(frame.Method, frame.ParameterNames, frame.IlOffset));
+    }
+
+    /// <summary>
+    /// Native AOT frames carry no image id, so every native symbols file uploaded for the release is tried;
+    /// a frame resolves when exactly one file knows it (a release normally has one per architecture).
+    /// </summary>
+    private async Task<(string Stacktrace, bool Symbolicated)> SymbolicateNativeAotAsync(string serviceName, IReadOnlyList<string> versions, string stacktrace, CancellationToken cancellationToken)
+    {
+        if (!NativeAotStackTrace.HasFrames(stacktrace))
+        {
+            return (stacktrace, false);
+        }
+
+        var files = new List<NativeSymbols>();
+        foreach (var version in versions.Where(v => v.Length > 0).Distinct())
+        {
+            foreach (var bundle in (await store.ListBundlesAsync(serviceName, version, cancellationToken)).Where(b => b.EndsWith(NativeSymbols.BundleSuffix, StringComparison.Ordinal)))
+            {
+                if (await LoadCachedAsync(serviceName, version, bundle, NativeSymbols.Parse, cancellationToken) is { } symbols)
+                {
+                    files.Add(symbols);
+                }
+            }
+
+            if (files.Count > 0)
+            {
+                break;
+            }
+        }
+
+        return files.Count == 0
+            ? (stacktrace, false)
+            : NativeAotStackTrace.Rewrite(stacktrace, frame =>
+            {
+                var hits = files.Select(f => f.Lookup(frame.Method, frame.Offset)).Where(h => h is not null).Distinct().ToList();
+                return hits.Count == 1 ? hits[0] : null;
+            });
+    }
+
+    private async Task<DotnetSymbols?> FindSymbolsAsync(string serviceName, IReadOnlyList<string> versions, Guid mvid, CancellationToken cancellationToken)
+    {
+        var bundle = DotnetSymbols.BundleName(mvid);
+        foreach (var version in versions.Where(v => v.Length > 0).Distinct())
+        {
+            if (await LoadCachedAsync(serviceName, version, bundle, DotnetSymbols.Parse, cancellationToken) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
     private async Task<SourceMap?> FindMapAsync(string serviceName, IReadOnlyList<string> versions, string url, CancellationToken cancellationToken)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
@@ -73,35 +148,46 @@ public sealed class StackTraceSymbolicator(ISourceMapStore store) : IStackTraceS
                 continue;
             }
 
-            var stored = await store.GetAsync(serviceName, version, bundle, cancellationToken);
-            if (stored is null)
+            if (await LoadCachedAsync(serviceName, version, bundle, SourceMap.Parse, cancellationToken) is { } map)
             {
-                continue;
-            }
-
-            var key = $"{serviceName}\n{version}\n{bundle}\n{stored.Value.UploadedAt:O}";
-            if (_cache.TryGetValue(key, out SourceMap? cached) && cached is not null)
-            {
-                return cached;
-            }
-
-            try
-            {
-                using var gzip = new GZipStream(new MemoryStream(stored.Value.GzipContent), CompressionMode.Decompress);
-                using var json = new MemoryStream();
-                await gzip.CopyToAsync(json, cancellationToken);
-                var map = SourceMap.Parse(json.GetBuffer().AsSpan(0, (int)json.Length));
-                _cache.Set(key, map, new MemoryCacheEntryOptions { Size = json.Length, SlidingExpiration = TimeSpan.FromMinutes(10) });
                 return map;
-            }
-            catch (Exception ex) when (ex is FormatException or InvalidDataException)
-            {
-                // A stored map that no longer parses just leaves its frames unresolved.
             }
         }
 
         return null;
     }
+
+    private async Task<T?> LoadCachedAsync<T>(string serviceName, string version, string bundle, ParseMap<T> parse, CancellationToken cancellationToken) where T : class
+    {
+        var stored = await store.GetAsync(serviceName, version, bundle, cancellationToken);
+        if (stored is null)
+        {
+            return null;
+        }
+
+        var key = $"{serviceName}\n{version}\n{bundle}\n{stored.Value.UploadedAt:O}";
+        if (_cache.TryGetValue(key, out T? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        try
+        {
+            using var gzip = new GZipStream(new MemoryStream(stored.Value.GzipContent), CompressionMode.Decompress);
+            using var json = new MemoryStream();
+            await gzip.CopyToAsync(json, cancellationToken);
+            var parsed = parse(json.GetBuffer().AsSpan(0, (int)json.Length));
+            _cache.Set(key, parsed, new MemoryCacheEntryOptions { Size = json.Length, SlidingExpiration = TimeSpan.FromMinutes(10) });
+            return parsed;
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidDataException)
+        {
+            // A stored file that no longer parses just leaves its frames unresolved.
+            return null;
+        }
+    }
+
+    private delegate T ParseMap<out T>(ReadOnlySpan<byte> json);
 
     /// <summary>The longest uploaded bundle path that the served script's path ends with.</summary>
     public static string? BestBundle(IEnumerable<string> bundles, string urlPath)

@@ -81,6 +81,10 @@ app.Configure(config =>
     {
         sourcemaps.AddCommand<SourceMapsUploadCommand>("upload")
             .WithDescription("Upload JavaScript source maps so browser stack traces on /errors show original sources.");
+        sourcemaps.AddCommand<SourceMapsUploadDotnetCommand>("upload-dotnet")
+            .WithDescription("Upload .NET assembly symbols (dll + portable PDB) so trimmed/AOT MAUI stack traces show source lines.");
+        sourcemaps.AddCommand<SourceMapsUploadNativeCommand>("upload-native")
+            .WithDescription("Upload Native AOT debug symbols (.dSYM) so AOT stack traces show source lines.");
         sourcemaps.AddCommand<SourceMapsListCommand>("list")
             .WithDescription("List uploaded source maps.");
         sourcemaps.AddCommand<SourceMapsDeleteCommand>("delete")

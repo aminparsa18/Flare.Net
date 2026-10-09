@@ -171,6 +171,26 @@ TaskScheduler.UnobservedTaskException += (_, e) => Report(e.Exception, fatal: fa
 某个平台。致命的原生崩溃（SIGSEGV、iOS 看门狗终止）不会到达托管处理程序，因此不会
 被报告。
 
+## 还原发布构建的堆栈
+
+发布构建会被裁剪,常为 AOT 编译,且不带 PDB,因此崩溃显示为 `at MyApp.Cart.Add (System.String sku) [0x0001a] in <8e3f…>:0`。请在 CI 中为每个版本上传符号,`--release` 取应用上报的 `service.version`:
+
+```bash
+flare sourcemaps upload-dotnet obj/Release/net10.0-android \
+  --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
+```
+
+该命令读取每个 dll 及其 portable PDB(`<DebugType>portable</DebugType>`,默认值),之后 **Errors** 页面会为可解析的帧显示 `File.cs:line 23`。暂不支持 Native AOT(`PublishAot`)帧。
+
+对于 **Native AOT** 构建(`PublishAot`,iOS),堆栈帧显示为 `at MyApp.Cart.Add(String) + 0x48`。请上传 `dotnet publish` 在二进制文件旁生成的 `.dSYM`:
+
+```bash
+flare sourcemaps upload-native bin/Release/net10.0-ios/ios-arm64/publish/MyApp.dSYM \
+  --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
+```
+
+存在重载的方法保持未解析,因为无法从符号中还原编译器对重载的编号。
+
 ## 应用进入后台时刷新
 
 移动操作系统会在没有警告的情况下挂起或终止后台应用。请在窗口的 `Stopped` 事件中

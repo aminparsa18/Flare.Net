@@ -184,6 +184,26 @@ pour voir une seule plateforme. Les plantages natifs fatals (un SIGSEGV, un kill
 par le watchdog iOS) n'atteignent aucun gestionnaire managé et ne sont pas
 signalés.
 
+## Symboliser les stack traces des builds release
+
+Les builds release sont trimmed, souvent compilés en AOT, et sans PDB : un plantage s'affiche `at MyApp.Cart.Add (System.String sku) [0x0001a] in <8e3f…>:0`. Envoyez les symboles de chaque release depuis la CI, avec la valeur `--release` que l'application rapporte comme `service.version` :
+
+```bash
+flare sourcemaps upload-dotnet obj/Release/net10.0-android \
+  --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
+```
+
+La commande lit chaque dll et son PDB portable (`<DebugType>portable</DebugType>`, valeur par défaut) ; la page **Errors** affiche alors `File.cs:line 23` pour les frames résolues.
+
+Pour un build **Native AOT** (`PublishAot`, iOS), les frames s'affichent `at MyApp.Cart.Add(String) + 0x48`. Envoyez le `.dSYM` que `dotnet publish` écrit à côté du binaire :
+
+```bash
+flare sourcemaps upload-native bin/Release/net10.0-ios/ios-arm64/publish/MyApp.dSYM \
+  --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
+```
+
+Les méthodes surchargées restent non résolues : la numérotation des surcharges par le compilateur ne peut pas être retrouvée à partir des symboles.
+
 ## Vider le tampon quand l'application passe en arrière-plan
 
 Les OS mobiles suspendent ou tuent une application en arrière-plan sans
