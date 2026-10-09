@@ -99,6 +99,17 @@ app.Configure(config =>
         notificationChannels.AddCommand<NotificationChannelsSendTestCommand>("send-test")
             .WithDescription("Send a real test notification through a saved channel.");
     });
+    config.AddBranch("alert-templates", alertTemplates =>
+    {
+        alertTemplates.AddCommand<AlertTemplatesListCommand>("list")
+            .WithDescription("List shared alert notification templates.");
+        alertTemplates.AddCommand<AlertTemplatesCreateCommand>("create")
+            .WithDescription("Create a shared notification template.");
+        alertTemplates.AddCommand<AlertTemplatesUpdateCommand>("update")
+            .WithDescription("Update a template (only the options you pass change).");
+        alertTemplates.AddCommand<AlertTemplatesDeleteCommand>("delete")
+            .WithDescription("Delete a template (refused while rules use it).");
+    });
     config.AddBranch("synthetic-monitors", syntheticMonitors =>
     {
         syntheticMonitors.AddCommand<SyntheticMonitorsListCommand>("list")

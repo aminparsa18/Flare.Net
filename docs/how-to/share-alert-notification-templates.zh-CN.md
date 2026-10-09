@@ -23,6 +23,37 @@
 
 仍被规则使用的模板无法删除。错误信息会列出这些规则；请先在它们上选择其他模板。
 
+## 通过 CLI 或 Terraform 管理模板
+
+```bash
+flare alert-templates create pager-short --title '[{{status}}] {{rule_name}}' \
+  --body '{{rule_name}}: {{value}} in the last {{window}}' \
+  --channel-body 'Telegram={{rule_name}} {{status}}' --default true
+flare alert-templates list
+flare alert-templates update <ID> --body '{{message}}'
+flare alert-templates delete <ID> --yes
+```
+
+`update` 会先获取现有模板，只更改你传入的选项；传入空值（如 `--body ''`）可清除某段文本。`--channel-body 类型=文本` 可重复使用，并会替换所有现有的按渠道正文。未加 `--yes` 时 `delete` 会提示确认，且在仍有规则使用该模板时会被拒绝。
+
+使用 Flare 的 Terraform / OpenTofu 提供程序时，规则按名称选择模板：
+
+```hcl
+resource "flare_alert_template" "short" {
+  name           = "pager-short"
+  title_template = "[{{status}}] {{rule_name}}"
+  body_template  = "{{rule_name}}: {{value}} in the last {{window}}"
+  channel_bodies = { Telegram = "{{rule_name}} {{status}}" }
+}
+
+resource "flare_alert_rule" "errors" {
+  # ...
+  notification_template = flare_alert_template.short.name
+}
+```
+
+重命名模板会就地更新，规则仍指向它。`terraform import flare_alert_template.short <id 或名称>` 可接管现有模板。
+
 ## 导出与导入
 
 `flare alerts export` 按名称记录规则的模板，`import` 在目标实例上按该名称查找。请先在目标实例上创建该模板，否则该规则会被报告为错误。

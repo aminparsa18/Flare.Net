@@ -63,5 +63,6 @@ Named, reusable templates, extending ADR-0052 (nothing in it is superseded).
   hand-written MemoryPack TS companions are updated to match, since they reject
   unknown trailing members.
 - Each notification does one small read of `alert_templates`.
-- Not covered: the Terraform provider (separate repo) does not yet manage
-  templates, and the CLI has no `flare alert-templates` command.
+- `flare alert-templates` (list/create/update/delete) and the Terraform
+  `flare_alert_template` resource manage templates as code; `flare_alert_rule`
+  picks one by name through `notification_template`.

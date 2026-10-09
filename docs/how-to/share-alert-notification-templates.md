@@ -33,6 +33,37 @@ no template picked, rules keep each channel's built-in wording.
 A template that rules still use can't be deleted. The error lists the rules;
 pick another template on them first.
 
+## Manage templates from the CLI or Terraform
+
+```bash
+flare alert-templates create pager-short --title '[{{status}}] {{rule_name}}' \
+  --body '{{rule_name}}: {{value}} in the last {{window}}' \
+  --channel-body 'Telegram={{rule_name}} {{status}}' --default true
+flare alert-templates list
+flare alert-templates update <ID> --body '{{message}}'
+flare alert-templates delete <ID> --yes
+```
+
+`update` fetches the existing template and changes only the options you pass; pass an empty value such as `--body ''` to clear a text. `--channel-body TYPE=TEXT` is repeatable and replaces all existing per-channel bodies. `delete` prompts unless `--yes`, and is refused while rules use the template.
+
+With the Flare Terraform / OpenTofu provider, a rule picks a template by name:
+
+```hcl
+resource "flare_alert_template" "short" {
+  name           = "pager-short"
+  title_template = "[{{status}}] {{rule_name}}"
+  body_template  = "{{rule_name}}: {{value}} in the last {{window}}"
+  channel_bodies = { Telegram = "{{rule_name}} {{status}}" }
+}
+
+resource "flare_alert_rule" "errors" {
+  # ...
+  notification_template = flare_alert_template.short.name
+}
+```
+
+Renaming a template updates it in place, and rules keep pointing at it. `terraform import flare_alert_template.short <id-or-name>` adopts an existing one.
+
 ## Export and import
 
 `flare alerts export` records a rule's template by name, and `import` looks the
