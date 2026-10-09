@@ -78,10 +78,6 @@ folders are where "what happened and why" actually lives.
   stay a thin configuration package; trimming/AOT compatibility; privacy
   defaults (no PII in attributes, opt-in device id). First check how ingest keys
   behave for a public-client scenario (CORS, per-key service allowlists).
-- **Usage and cost view (later).** Roll up per-service and per-ingest-key
-  volume (events/day, bytes on disk, largest attributes) from data the
-  Ingestion, Indexing and cardinality pages already read, so users can see
-  what's driving storage before choosing sampling or retention rules.
 - **Status page (later).** A public read-only page of service health and SLO
   status. Depends on synthetic monitoring and SLOs (ADR-0108) shipping first.
 - **Terraform / CLI for notification templates.** Shared templates (ADR-0148)

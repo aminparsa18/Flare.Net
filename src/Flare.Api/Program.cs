@@ -266,6 +266,7 @@ builder.Services.AddSingleton<IIngestApiKeyUsageQueryService, IngestApiKeyUsageQ
 // from single-node-scoped to cluster()/clusterAllReplicas()-scoped. Factory registration
 // (not a plain AddSingleton<,>) since the ctor now takes that bool alongside its two
 // injected dependencies.
+builder.Services.AddSingleton<IUsageQueryService, UsageQueryService>();
 builder.Services.AddSingleton<IIndexingQueryService>(sp => new IndexingQueryService(
     sp.GetRequiredService<IClickHouseClient>(),
     sp.GetRequiredService<IOptions<QueryLimitsOptions>>(),
@@ -606,6 +607,7 @@ memberRoutes.MapRetentionReadEndpoints();
 // self-service.
 var adminRoutes = app.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireAdmin);
 adminRoutes.MapIngestApiKeyEndpoints();
+adminRoutes.MapUsageEndpoints();
 adminRoutes.MapAuditLogEndpoints();
 adminRoutes.MapUserEndpoints();
 adminRoutes.MapServiceAccountEndpoints();

@@ -65,6 +65,7 @@ the full rule set on what goes where.
 - [Reduce a metric's attributes at ingest](how-to/reduce-metric-attributes.md)
 - [Turn a log search into a metric](how-to/log-based-metrics.md)
 - [Set data retention and move old data to cold storage](how-to/set-data-retention.md)
+- [See what is driving storage](how-to/see-what-drives-storage.md)
 - [Forward telemetry to another OTLP endpoint](how-to/forward-telemetry-to-another-otlp-endpoint.md)
 - [Archive telemetry to S3-compatible storage](how-to/archive-telemetry-to-s3.md)
 - [Speed up filters on a frequently used log or span attribute](how-to/promote-attribute-columns.md)
