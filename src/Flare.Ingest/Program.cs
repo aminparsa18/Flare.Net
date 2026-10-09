@@ -187,7 +187,11 @@ builder.Services.AddHostedService<PrometheusScrapeWorker>();
 // Off with no Forwarding:Targets configured. One instance serves as both the IOtlpForwarder the
 // receivers call and the hosted service that drains the per-target queues.
 builder.Services.Configure<ForwardingOptions>(builder.Configuration.GetSection(ForwardingOptions.SectionName));
-builder.Services.AddHttpClient("OtlpForwarding");
+// The forwarder owns retry, backoff and the per-target timeout; the standard resilience handler's own
+// retries and 30s total timeout would stack under them (a dead destination took ~40s per request).
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is marked experimental
+builder.Services.AddHttpClient("OtlpForwarding").RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
 builder.Services.AddSingleton<IForwardingTargetStore, ClickHouseForwardingTargetStore>();
 builder.Services.AddSingleton<OtlpForwarder>();
 builder.Services.AddSingleton<IOtlpForwarder>(sp => sp.GetRequiredService<OtlpForwarder>());

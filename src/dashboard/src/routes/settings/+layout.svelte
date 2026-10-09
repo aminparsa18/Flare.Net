@@ -22,6 +22,7 @@
 	import RadarIcon from '@lucide/svelte/icons/radar';
 	import ScrollTextIcon from '@lucide/svelte/icons/scroll-text';
 	import LayersIcon from '@lucide/svelte/icons/layers';
+	import SendIcon from '@lucide/svelte/icons/send';
 	import HourglassIcon from '@lucide/svelte/icons/hourglass';
 	import FolderIcon from '@lucide/svelte/icons/folder';
 	import SigmaIcon from '@lucide/svelte/icons/sigma';
@@ -52,6 +53,7 @@
 		'/settings/audit-log': ScrollTextIcon,
 		'/settings/indexing': LayersIcon,
 		'/settings/retention': HourglassIcon,
+		'/settings/telemetry-export': SendIcon,
 		'/settings/projects': FolderIcon,
 		'/settings/ingest-keys': KeyIcon,
 		'/settings/source-maps': FileCodeIcon

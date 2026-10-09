@@ -69,6 +69,7 @@ export function workspaceLinks(auth: AuthState): NavLink[] {
 		{ href: '/settings/audit-log', label: m.auditLogPage_heading() },
 		{ href: '/settings/indexing', label: m.nav_indexing() },
 		{ href: '/settings/retention', label: m.nav_retention() },
+		{ href: '/settings/telemetry-export', label: m.telemetryExport_navLabel() },
 		{ href: '/settings/projects', label: m.projectsPage_heading() },
 		{ href: '/settings/ingest-keys', label: m.ingestKeysPage_heading() },
 		{ href: '/settings/source-maps', label: m.sourceMapsPage_heading() }
