@@ -50,6 +50,34 @@ Flare добавляет `/v1/logs`, `/v1/traces` или `/v1/metrics` к `Endpo
 
 Некорректная цель в конфигурации (неверный URL, повторяющееся имя) останавливает Flare.Ingest при запуске.
 
+## Управление целями из CLI или Terraform
+
+Сохранённые цели можно настраивать без дашборда. Нужна роль Admin.
+
+```bash
+flare forwarding create grafana --endpoint https://otlp.example.com \
+  --header 'Authorization=Bearer <token>' --signal logs --signal traces
+flare forwarding list
+flare forwarding update <id> --service checkout
+flare forwarding status
+flare forwarding delete <id> --yes
+```
+
+`update` меняет только переданные параметры: `--header` задаёт один заголовок и оставляет остальные, `--clear-headers` удаляет все, а `--all-signals`, `--all-services` и `--any-ingest-key` снимают соответствующие фильтры. Значения заголовков в `list` скрыты и больше не показываются.
+
+С провайдером Flare для Terraform / OpenTofu:
+
+```hcl
+resource "flare_forwarding_target" "grafana" {
+  name     = "grafana"
+  endpoint = "https://otlp.example.com"
+  headers  = { Authorization = "Bearer ${var.grafana_token}" }
+  signals  = ["Logs", "Traces"]
+}
+```
+
+Значения заголовков только записываются: Flare их не возвращает, поэтому изменение вне Terraform не обнаруживается. Цели из конфигурации `Forwarding:Targets` отдельные и таким образом не управляются.
+
 ## Чего ожидать
 
 - Пересылаются только запросы, которые Flare принял. Отклонённые (превышен лимит ключа приёма, сервис не разрешён, неверный формат) не пересылаются.

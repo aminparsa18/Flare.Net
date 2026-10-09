@@ -33,6 +33,34 @@ FLARE_ARCHIVE_SECRET_KEY=...
 | `PollInterval` | `00:05:00` | Fréquence de recherche des heures terminées. |
 | `MaxWindowsPerPoll` | `6` | Heures exportées par table et par passage pendant le rattrapage. |
 
+## Gérer l'archive depuis la CLI ou Terraform
+
+Les paramètres enregistrés se gèrent sans le tableau de bord. Le rôle Admin est requis.
+
+```bash
+flare archive set --endpoint https://s3.eu-west-1.amazonaws.com/my-bucket \
+  --access-key <key> --secret-key <secret> --format parquet --signal logs
+flare archive show
+flare archive status
+flare archive reset --yes
+```
+
+Après le premier `set`, les options omises gardent leur valeur actuelle et les clés restent celles enregistrées. `reset` supprime les paramètres enregistrés : l'archive suit de nouveau la configuration `Archive`.
+
+Avec le fournisseur Terraform / OpenTofu de Flare (une instance Flare n'a qu'une seule configuration d'archive) :
+
+```hcl
+resource "flare_archive_settings" "archive" {
+  endpoint   = "https://s3.eu-west-1.amazonaws.com/my-bucket"
+  access_key = var.archive_access_key
+  secret_key = var.archive_secret_key
+  format     = "Parquet"
+  signals    = ["Logs"]
+}
+```
+
+Les clés sont en écriture seule : Flare ne les renvoie jamais, donc une modification faite hors de Terraform n'est pas détectée. Détruire la ressource exécute `reset`.
+
 ## Suivre sa progression
 
 Le tableau **État de l'export** de la page Export de télémétrie et la carte **Archive** de la page Ingestion (visible par tout utilisateur connecté, affichée seulement tant que l'archive est active) indiquent pour chaque table la dernière heure exportée, le nombre de lignes qu'elle contenait, la date du dernier succès et la dernière erreur, par exemple un bucket inaccessible ou de mauvais identifiants. Une erreur reste visible jusqu'au prochain export réussi ; le worker réessaie à chaque passage.

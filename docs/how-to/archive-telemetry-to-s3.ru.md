@@ -33,6 +33,34 @@ FLARE_ARCHIVE_SECRET_KEY=...
 | `PollInterval` | `00:05:00` | Как часто искать завершённые часы. |
 | `MaxWindowsPerPoll` | `6` | Часов на таблицу за один проход при догоне. |
 
+## Управление архивом из CLI или Terraform
+
+Сохранённые настройки можно менять без дашборда. Нужна роль Admin.
+
+```bash
+flare archive set --endpoint https://s3.eu-west-1.amazonaws.com/my-bucket \
+  --access-key <key> --secret-key <secret> --format parquet --signal logs
+flare archive show
+flare archive status
+flare archive reset --yes
+```
+
+После первого `set` пропущенные параметры сохраняют текущее значение, а ключи остаются прежними. `reset` удаляет сохранённые настройки, и архив снова следует конфигурации `Archive`.
+
+С провайдером Flare для Terraform / OpenTofu (в экземпляре Flare ровно одна конфигурация архива):
+
+```hcl
+resource "flare_archive_settings" "archive" {
+  endpoint   = "https://s3.eu-west-1.amazonaws.com/my-bucket"
+  access_key = var.archive_access_key
+  secret_key = var.archive_secret_key
+  format     = "Parquet"
+  signals    = ["Logs"]
+}
+```
+
+Ключи только записываются: Flare их не возвращает, поэтому изменение вне Terraform не обнаруживается. Удаление ресурса выполняет `reset`.
+
 ## Следите за ходом выгрузки
 
 Таблица **Статус экспорта** на странице «Экспорт телеметрии» и карточка **Архив** на странице «Приём» (видна любому вошедшему пользователю и только пока архив активен) показывают для каждой таблицы последний выгруженный час, число строк в нём, время последнего успеха и последнюю ошибку, например недоступный бакет или неверные учётные данные. Ошибка остаётся видна до следующей успешной выгрузки; воркер повторяет попытку при каждом проходе.

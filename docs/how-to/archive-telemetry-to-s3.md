@@ -41,6 +41,34 @@ FLARE_ARCHIVE_SECRET_KEY=...
 | `PollInterval` | `00:05:00` | How often to look for finished hours. |
 | `MaxWindowsPerPoll` | `6` | Hours exported per table per poll while catching up. |
 
+## Manage the archive from the CLI or Terraform
+
+The saved settings can be managed without the dashboard. Both need an Admin.
+
+```bash
+flare archive set --endpoint https://s3.eu-west-1.amazonaws.com/my-bucket \
+  --access-key <key> --secret-key <secret> --format parquet --signal logs
+flare archive show
+flare archive status
+flare archive reset --yes
+```
+
+After the first `set`, options you leave out keep their current value, and the keys stay as stored. `reset` deletes the saved settings so the archive follows the `Archive` configuration again.
+
+With the Flare Terraform / OpenTofu provider, which has exactly one archive configuration per Flare instance:
+
+```hcl
+resource "flare_archive_settings" "archive" {
+  endpoint   = "https://s3.eu-west-1.amazonaws.com/my-bucket"
+  access_key = var.archive_access_key
+  secret_key = var.archive_secret_key
+  format     = "Parquet"
+  signals    = ["Logs"]
+}
+```
+
+The keys are write-only: Flare never returns them, so a change made outside Terraform is not detected. Destroying the resource runs `reset`.
+
 ## Check its progress
 
 The **Export status** table on the Telemetry export page, and the **Archive** card on the Ingestion page
