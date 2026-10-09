@@ -183,6 +183,26 @@ TaskScheduler.UnobservedTaskException += (_, e) => Report(e.Exception, fatal: fa
 платформу. Фатальные нативные сбои (SIGSEGV, завершение iOS watchdog) не
 доходят до управляемых обработчиков и не регистрируются.
 
+## Символизация стеков релизных сборок
+
+Релизные сборки обрезаются (trimming), часто компилируются в AOT и идут без PDB, поэтому сбой выглядит как `at MyApp.Cart.Add (System.String sku) [0x0001a] in <8e3f…>:0`. Загружайте символы каждого релиза из CI со значением `--release`, которое приложение передаёт как `service.version`:
+
+```bash
+flare sourcemaps upload-dotnet obj/Release/net10.0-android \
+  --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
+```
+
+Команда читает каждую dll и её portable PDB (`<DebugType>portable</DebugType>`, значение по умолчанию), после чего страница **Errors** показывает `File.cs:line 23` для разрешённых кадров.
+
+Для сборки **Native AOT** (`PublishAot`, iOS) кадры выглядят как `at MyApp.Cart.Add(String) + 0x48`. Загрузите `.dSYM`, который `dotnet publish` создаёт рядом с бинарным файлом:
+
+```bash
+flare sourcemaps upload-native bin/Release/net10.0-ios/ios-arm64/publish/MyApp.dSYM \
+  --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
+```
+
+Методы с перегрузками остаются неразрешёнными: нумерацию перегрузок компилятора нельзя восстановить из символов.
+
 ## Сбрасывайте буфер при уходе в фон
 
 Мобильные ОС приостанавливают или завершают приложение в фоне без

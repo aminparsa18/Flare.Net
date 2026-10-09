@@ -67,6 +67,8 @@ folders are where "what happened and why" actually lives.
   `Flare.slnx` for that reason), and a CI job for `Flare.Maui.slnx`, and verifying on a device
   or emulator. Server side (ADR-0167) is done: scoped ingest keys (ADR-0149/0150/0051), the
   Sessions page, and app-version facets on `/errors`. Remaining there: a per-session timeline
-  and a rollup table if long windows prove slow. Phase 4 is
-  symbolication of trimmed/AOT stack traces, sharing the source-map upload API
-  (ADR-0152). Trimming/AOT compatibility of the OpenTelemetry SDK is untested.
+  and a rollup table if long windows prove slow. Trimmed/Mono
+  stack traces are symbolicated from uploaded dll+PDB symbols (ADR-0168); Native AOT frames on
+  iOS/macOS are covered from the `.dSYM`; remaining there: overloaded AOT methods (unresolved), ELF/PDB
+  symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.
+  Trimming/AOT compatibility of the OpenTelemetry SDK is untested.

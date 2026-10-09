@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Flare.Cli.Internal;
+using Flare.Mcp.DotnetSymbols;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -173,6 +174,191 @@ internal sealed class SourceMapsUploadCommand : AsyncCommand<SourceMapsUploadCom
         }
 
         return response.ReasonPhrase ?? "";
+    }
+}
+
+/// <summary>
+/// <c>flare sourcemaps upload-dotnet &lt;PATH&gt;...</c> - for each assembly (a dll, or a directory searched
+/// recursively) builds a compact symbols file from the dll and its portable PDB (sibling or embedded) and
+/// uploads it as <c>{mvid}.dotnet.json</c>, which Mono-style frames of trimmed/AOT builds are matched by (ADR-0168).
+/// Assemblies without a usable PDB are skipped with a note; only a failed upload makes the command fail.
+/// </summary>
+internal sealed class SourceMapsUploadDotnetCommand : AsyncCommand<SourceMapsUploadDotnetCommand.Settings>
+{
+    internal sealed class Settings : SourceMapsSettings
+    {
+        [CommandArgument(0, "<PATH>")]
+        [Description("An assembly (.dll) or a directory containing them (e.g. your obj/Release/net10.0-android folder).")]
+        public required string[] Paths { get; init; }
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(settings.Service) || string.IsNullOrWhiteSpace(settings.Release))
+        {
+            AnsiConsole.MarkupLine("[red]✗[/] --service and --release are required.");
+            return 1;
+        }
+
+        var dlls = new List<string>();
+        foreach (var path in settings.Paths)
+        {
+            if (Directory.Exists(path))
+            {
+                dlls.AddRange(Directory.EnumerateFiles(Path.GetFullPath(path), "*.dll", SearchOption.AllDirectories));
+            }
+            else if (File.Exists(path))
+            {
+                dlls.Add(path);
+            }
+            else
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(path)} does not exist.");
+                return 1;
+            }
+        }
+
+        using var http = settings.CreateClient();
+        if (http is null)
+        {
+            return 1;
+        }
+
+        int uploaded = 0, failed = 0;
+        var seen = new HashSet<Guid>();
+        foreach (var dll in dlls)
+        {
+            (byte[]? json, Guid mvid, string? error) built;
+            try
+            {
+                built = DotnetSymbolsBuilder.Build(dll);
+            }
+            catch (Exception ex) when (ex is BadImageFormatException or IOException or InvalidOperationException)
+            {
+                continue; // native or unreadable file next to the managed ones
+            }
+
+            if (built.json is null)
+            {
+                if (built.mvid != default)
+                {
+                    AnsiConsole.MarkupLine($"[grey]- {Markup.Escape(Path.GetFileName(dll))}: skipped, {Markup.Escape(built.error ?? "")}[/]");
+                }
+
+                continue;
+            }
+
+            if (!seen.Add(built.mvid))
+            {
+                continue;
+            }
+
+            var bundle = DotnetSymbols.BundleName(built.mvid);
+            var query = $"/api/source-maps?service={Uri.EscapeDataString(settings.Service)}&version={Uri.EscapeDataString(settings.Release)}&bundle={Uri.EscapeDataString(bundle)}";
+            try
+            {
+                using var content = new ByteArrayContent(built.json);
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                using var response = await http.PutAsync(query, content, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    uploaded++;
+                    AnsiConsole.MarkupLine($"[green]✓[/] {Markup.Escape(Path.GetFileName(dll))} ({built.mvid:N})");
+                    continue;
+                }
+
+                failed++;
+                AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(Path.GetFileName(dll))}: {(int)response.StatusCode} {Markup.Escape(await SourceMapsUploadCommand.ProblemDetail(response, cancellationToken))}");
+            }
+            catch (HttpRequestException ex)
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] Couldn't reach {Markup.Escape(http.BaseAddress!.ToString())}: {Markup.Escape(ex.Message)}");
+                return 1;
+            }
+        }
+
+        if (uploaded == 0 && failed == 0)
+        {
+            AnsiConsole.MarkupLine("[red]✗[/] No assemblies with a portable PDB found.");
+            return 1;
+        }
+
+        AnsiConsole.MarkupLine(failed == 0
+            ? $"[green]✓[/] Uploaded symbols for {uploaded} assembl{(uploaded == 1 ? "y" : "ies")} ({Markup.Escape(settings.Service)} {Markup.Escape(settings.Release)})."
+            : $"[red]✗[/] {failed} upload(s) failed.");
+        return failed == 0 ? 0 : 1;
+    }
+}
+
+/// <summary>
+/// <c>flare sourcemaps upload-native &lt;DSYM&gt;...</c> - for each <c>.dSYM</c> bundle (or its DWARF file) builds a
+/// function-to-line table and uploads it as <c>{uuid}.native.json</c>, which Native AOT frames of that release
+/// are looked up in (ADR-0168). Run it on the <c>.dSYM</c> next to the published binary.
+/// </summary>
+internal sealed class SourceMapsUploadNativeCommand : AsyncCommand<SourceMapsUploadNativeCommand.Settings>
+{
+    internal sealed class Settings : SourceMapsSettings
+    {
+        [CommandArgument(0, "<DSYM>")]
+        [Description("A .dSYM bundle (or the DWARF file inside it) produced by `dotnet publish` with PublishAot.")]
+        public required string[] Paths { get; init; }
+    }
+
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(settings.Service) || string.IsNullOrWhiteSpace(settings.Release))
+        {
+            AnsiConsole.MarkupLine("[red]✗[/] --service and --release are required.");
+            return 1;
+        }
+
+        using var http = settings.CreateClient();
+        if (http is null)
+        {
+            return 1;
+        }
+
+        var failed = 0;
+        foreach (var path in settings.Paths)
+        {
+            if (!Directory.Exists(path) && !File.Exists(path))
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(path)} does not exist.");
+                return 1;
+            }
+
+            var (json, uuid, error) = NativeSymbolsBuilder.Build(path);
+            if (json is null || uuid is null)
+            {
+                failed++;
+                AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(path)}: {Markup.Escape(error ?? "no symbols")}");
+                continue;
+            }
+
+            var bundle = NativeSymbols.BundleName(uuid);
+            var query = $"/api/source-maps?service={Uri.EscapeDataString(settings.Service)}&version={Uri.EscapeDataString(settings.Release)}&bundle={Uri.EscapeDataString(bundle)}";
+            try
+            {
+                using var content = new ByteArrayContent(json);
+                content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                using var response = await http.PutAsync(query, content, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    AnsiConsole.MarkupLine($"[green]✓[/] {Markup.Escape(Path.GetFileName(path.TrimEnd('/')))} ({uuid}, {json.Length / 1024:N0} KB)");
+                    continue;
+                }
+
+                failed++;
+                AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(path)}: {(int)response.StatusCode} {Markup.Escape(await SourceMapsUploadCommand.ProblemDetail(response, cancellationToken))}");
+            }
+            catch (HttpRequestException ex)
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] Couldn't reach {Markup.Escape(http.BaseAddress!.ToString())}: {Markup.Escape(ex.Message)}");
+                return 1;
+            }
+        }
+
+        return failed == 0 ? 0 : 1;
     }
 }
 

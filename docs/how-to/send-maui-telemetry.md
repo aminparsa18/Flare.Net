@@ -179,6 +179,33 @@ group by exception type and message. Add the resource filter
 Fatal native crashes (a SIGSEGV, an iOS watchdog kill) never reach a managed
 handler and are not reported.
 
+## Symbolicate release stack traces
+
+Release builds are trimmed and often AOT-compiled, and ship no PDBs, so a crash
+reads `at MyApp.Cart.Add (System.String sku) [0x0001a] in <8e3f…>:0`. Upload the
+symbols of each release from CI, with the `--release` value your app reports as
+`service.version`:
+
+```bash
+flare sourcemaps upload-dotnet obj/Release/net10.0-android \
+  --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
+```
+
+The command reads each dll and its portable PDB (`<DebugType>portable</DebugType>`,
+the default), and the **Errors** page then shows `File.cs:line 23` for the frames it
+can resolve.
+
+For a **Native AOT** build (`PublishAot`, iOS), frames read `at MyApp.Cart.Add(String) + 0x48`.
+Upload the `.dSYM` that `dotnet publish` writes next to the binary:
+
+```bash
+flare sourcemaps upload-native bin/Release/net10.0-ios/ios-arm64/publish/MyApp.dSYM \
+  --service my-app --release 1.4.2 --url https://flare.example.com --token $FLARE_API_TOKEN
+```
+
+Methods that have overloads stay unresolved, because the compiler's numbering of
+overloads cannot be recovered from the symbols.
+
 ## Flush when the app is backgrounded
 
 Mobile OSes suspend or kill a backgrounded app without warning. Flush from the

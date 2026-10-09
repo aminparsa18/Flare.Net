@@ -3,6 +3,7 @@ using Flare.Api.Json;
 using Flare.Api.Model;
 using Flare.Api.SourceMaps;
 using Flare.Identity.SourceMaps;
+using Flare.Mcp.DotnetSymbols;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace Flare.Api.Endpoints;
@@ -74,7 +75,26 @@ public static class SourceMapEndpoints
 
         try
         {
-            SourceMap.Parse(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+            var bytes = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
+            if (bundle.EndsWith(DotnetSymbols.BundleSuffix, StringComparison.Ordinal))
+            {
+                // .NET symbols (ADR-0168): the bundle name must be the file's own MVID, since frames find it by that.
+                if (DotnetSymbols.Parse(bytes).Mvid.ToString("N") + DotnetSymbols.BundleSuffix != bundle)
+                {
+                    return Results.Problem($"A .NET symbols bundle must be named {{mvid}}{DotnetSymbols.BundleSuffix} after the assembly's MVID.", statusCode: StatusCodes.Status400BadRequest);
+                }
+            }
+            else if (bundle.EndsWith(NativeSymbols.BundleSuffix, StringComparison.Ordinal))
+            {
+                if (NativeSymbols.BundleName(NativeSymbols.Parse(bytes).Uuid) != bundle)
+                {
+                    return Results.Problem($"A native symbols bundle must be named {{uuid}}{NativeSymbols.BundleSuffix} after the image's UUID.", statusCode: StatusCodes.Status400BadRequest);
+                }
+            }
+            else
+            {
+                SourceMap.Parse(bytes);
+            }
         }
         catch (FormatException ex)
         {

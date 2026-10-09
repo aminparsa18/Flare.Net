@@ -15,4 +15,7 @@
     <ProjectReference Include="..\Flare.AlertWorker\Flare.AlertWorker.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="SourceMaps\Fixtures\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
