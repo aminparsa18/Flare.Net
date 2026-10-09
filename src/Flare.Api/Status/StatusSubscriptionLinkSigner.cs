@@ -21,11 +21,17 @@ public interface IStatusSubscriptionLinkSigner
     /// <summary>The dashboard link that unsubscribes <paramref name="email"/>, or null when <see cref="AlertLinkOptions.PublicUrl"/> is blank.</summary>
     string? UnsubscribeUrl(Guid pageId, string email);
 
+    /// <summary>The dashboard link where <paramref name="email"/> changes which components it hears about (ADR-0164), or null when <see cref="AlertLinkOptions.PublicUrl"/> is blank.</summary>
+    string? PreferencesUrl(Guid pageId, string email);
+
     /// <summary>The claims behind a confirm <paramref name="token"/>; null when malformed, tampered with or expired.</summary>
     StatusSubscriptionClaims? ValidateConfirm(string? token);
 
     /// <summary>The claims behind an unsubscribe <paramref name="token"/>; null when malformed or tampered with.</summary>
     StatusSubscriptionClaims? ValidateUnsubscribe(string? token);
+
+    /// <summary>The claims behind a preferences <paramref name="token"/>; null when malformed or tampered with.</summary>
+    StatusSubscriptionClaims? ValidatePreferences(string? token);
 }
 
 public sealed class StatusSubscriptionLinkSigner(IDataProtectionProvider provider, IOptions<AlertLinkOptions> options) : IStatusSubscriptionLinkSigner
@@ -34,6 +40,8 @@ public sealed class StatusSubscriptionLinkSigner(IDataProtectionProvider provide
     private const string ConfirmPurpose = "Flare.StatusSubscription.Confirm.v1";
     private const string UnsubscribePurpose = "Flare.StatusSubscription.Unsubscribe.v1";
 
+    private const string PreferencesPurpose = "Flare.StatusSubscription.Preferences.v1";
+
     private static readonly TimeSpan ConfirmLifetime = TimeSpan.FromDays(3);
 
     // An unsubscribe link sits in every email, so it must keep working for as long as someone might still hold one.
@@ -41,14 +49,20 @@ public sealed class StatusSubscriptionLinkSigner(IDataProtectionProvider provide
 
     private readonly ITimeLimitedDataProtector confirm = provider.CreateProtector(ConfirmPurpose).ToTimeLimitedDataProtector();
     private readonly ITimeLimitedDataProtector unsubscribe = provider.CreateProtector(UnsubscribePurpose).ToTimeLimitedDataProtector();
+    private readonly ITimeLimitedDataProtector preferences = provider.CreateProtector(PreferencesPurpose).ToTimeLimitedDataProtector();
 
     public string? ConfirmUrl(Guid pageId, string email) => Url("confirm", confirm, ConfirmLifetime, pageId, email);
 
     public string? UnsubscribeUrl(Guid pageId, string email) => Url("unsubscribe", unsubscribe, UnsubscribeLifetime, pageId, email);
 
+    // Like the unsubscribe link it sits in every email, so it lives as long.
+    public string? PreferencesUrl(Guid pageId, string email) => Url("preferences", preferences, UnsubscribeLifetime, pageId, email);
+
     public StatusSubscriptionClaims? ValidateConfirm(string? token) => Validate(confirm, token);
 
     public StatusSubscriptionClaims? ValidateUnsubscribe(string? token) => Validate(unsubscribe, token);
+
+    public StatusSubscriptionClaims? ValidatePreferences(string? token) => Validate(preferences, token);
 
     private string? Url(string route, ITimeLimitedDataProtector protector, TimeSpan lifetime, Guid pageId, string email)
     {

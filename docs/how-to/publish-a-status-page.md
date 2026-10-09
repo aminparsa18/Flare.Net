@@ -72,9 +72,15 @@ A page can tell your own channels when an incident is opened or updated. In the 
 
 ### Let visitors subscribe by email
 
-When the server can send email (`Email__Host`, `Email__From`) and knows its public address (`Alerting__PublicUrl`), the public page shows a **Get updates by email** form. A visitor enters an address, gets a confirmation link, and after confirming receives an email for every incident opened or updated on that page. Every email carries an unsubscribe link. Without that configuration the form is hidden. Visitors can also tick the components they care about; they then only get incidents that affect one of them, plus any incident that names no component. A verified address keeps its selection until it unsubscribes and subscribes again.
+When the server can send email (`Email__Host`, `Email__From`) and knows its public address (`Alerting__PublicUrl`), the public page shows a **Get updates by email** form. A visitor enters an address, gets a confirmation link, and after confirming receives an email for every incident opened or updated on that page. Every email carries an unsubscribe link. Without that configuration the form is hidden. Visitors can also tick the components they care about; they then only get incidents that affect one of them, plus any incident that names no component. A verified address cannot be changed from the public form (otherwise anyone who knew an address could narrow that person's alerts); instead, on a page with more than one component, every incident email carries a **Choose which components you hear about** link that opens a page where the subscriber ticks components and saves.
 
 An unconfirmed address is mailed again at most every 10 minutes, a page keeps up to 2,000 subscribers, and sign-up requests are limited to 30 per hour per caller address (behind a reverse proxy that is the proxy's address). The form gives the same answer whether or not an address is already subscribed. Admins list a page's subscribers with `GET /api/status-pages/{id}/subscribers` and remove one with `DELETE /api/status-pages/{id}/subscribers/{subscriberId}`.
+
+### Brand the page and serve it on your own domain
+
+Each page can have a **logo** (`logoUrl`, an https image), an **accent color** (`accentColor`, `#rrggbb`), a **support link** (`supportUrl`, https or `mailto:`), shown as "Contact support", and a **custom domain** (`domain`, e.g. `status.example.com`). Set them in the page editor, or with `--logo-url`, `--accent-color`, `--support-url` and `--domain` on `flare status-pages create` and `update`; an empty value clears a field and leaving it out keeps it.
+
+Flare does not issue certificates or manage DNS. Point the host's DNS and TLS (your reverse proxy or load balancer) at the dashboard, then set the domain on the page. That host serves only the page: `/` redirects to `/status/<slug>`, and everything else, including the rest of the dashboard, returns 404. Do not use the dashboard's own host as a page domain. Each domain belongs to one page. If the dashboard reaches the API at a different address from browsers, set `API_INTERNAL_URL` on the dashboard. Changes can take up to a minute to show. Subscription emails still link to `Alerting__PublicUrl`.
 
 ## Things to know
 

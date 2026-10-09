@@ -55,10 +55,25 @@ public sealed record StatusPage
     /// <summary>Saved notification channels (ADR-0161) that hear about every incident opened or updated on this page.</summary>
     public IReadOnlyList<Guid> SubscriberChannelIds { get; init; } = [];
 
+    /// <summary>A host the page is also served on (ADR-0165), e.g. <c>status.acme.com</c>; empty for none. Unique across pages.</summary>
+    public string Domain { get; init; } = "";
+
+    /// <summary>An https image URL shown above the title; empty for none.</summary>
+    public string LogoUrl { get; init; } = "";
+
+    /// <summary><c>#rrggbb</c> used for the page's accent; empty for the default.</summary>
+    public string AccentColor { get; init; } = "";
+
+    /// <summary>An https or mailto link shown as "Contact support"; empty for none.</summary>
+    public string SupportUrl { get; init; } = "";
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
 }
+
+/// <summary>Response body for <c>GET /api/public/status/domain/{host}</c>.</summary>
+public sealed record StatusDomainResponse(string Slug);
 
 public sealed record StatusPageListResponse(IReadOnlyList<StatusPage> Pages);
 
@@ -84,6 +99,45 @@ public sealed record StatusPageRequest
     /// <summary>Null leaves an existing page's subscribers as they are; an empty list clears them.</summary>
     public IReadOnlyList<Guid>? SubscriberChannelIds { get; init; }
 
+    /// <summary>Null leaves an existing page's value as it is; an empty string clears it (ADR-0165).</summary>
+    public string? Domain { get; init; }
+
+    public string? LogoUrl { get; init; }
+
+    public string? AccentColor { get; init; }
+
+    public string? SupportUrl { get; init; }
+
+    public const int MaxUrlLength = 2_048;
+
+    /// <summary>A lower-cased DNS host name with at least two labels: no scheme, port, path or IP address.</summary>
+    public static bool IsValidDomain(string domain)
+    {
+        if (domain.Length is 0 or > 253 || !domain.Contains('.') || System.Net.IPAddress.TryParse(domain, out _))
+        {
+            return false;
+        }
+
+        return domain.Split('.').All(label =>
+            label.Length is > 0 and <= 63
+            && label[0] != '-' && label[^1] != '-'
+            && label.All(c => c is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-'));
+    }
+
+    public static bool IsValidAccentColor(string color) =>
+        color.Length == 7 && color[0] == '#' && color[1..].All(Uri.IsHexDigit);
+
+    /// <summary>An absolute https URL; when <paramref name="allowMailto"/>, also a <c>mailto:</c> address.</summary>
+    public static bool IsValidLink(string url, bool allowMailto)
+    {
+        if (url.Length > MaxUrlLength || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.Scheme == Uri.UriSchemeHttps && uri.UserInfo.Length == 0 || allowMailto && uri.Scheme == Uri.UriSchemeMailto && uri.UserInfo.Length > 0 && uri.Host.Length > 0;
+    }
+
     /// <summary>Lowercase letters, digits and inner hyphens, 1-64 characters: safe in a URL path with no escaping.</summary>
     public static bool IsValidSlug(string slug) =>
         slug.Length is > 0 and <= 64
@@ -106,6 +160,26 @@ public sealed record StatusPageRequest
         if ((Description?.Length ?? 0) > MaxDescriptionLength)
         {
             return $"description must be at most {MaxDescriptionLength} characters.";
+        }
+
+        if (Domain is { Length: > 0 } domain && !IsValidDomain(domain.Trim().ToLowerInvariant()))
+        {
+            return "domain must be a host name such as status.example.com, with no scheme, port or path.";
+        }
+
+        if (AccentColor is { Length: > 0 } color && !IsValidAccentColor(color.Trim()))
+        {
+            return "accentColor must look like #1a73e8.";
+        }
+
+        if (LogoUrl is { Length: > 0 } logo && !IsValidLink(logo.Trim(), allowMailto: false))
+        {
+            return "logoUrl must be an https URL.";
+        }
+
+        if (SupportUrl is { Length: > 0 } support && !IsValidLink(support.Trim(), allowMailto: true))
+        {
+            return "supportUrl must be an https URL or a mailto: link.";
         }
 
         if ((SubscriberChannelIds?.Count ?? 0) > MaxSubscribers)
@@ -142,8 +216,8 @@ public sealed record StatusDay(string Date, double? UptimePercent);
 /// <summary>One component as the public page shows it. <see cref="Key"/> is an opaque per-page handle (a hash of page and component) a visitor can subscribe to; it reveals nothing about the monitor or SLO behind it.</summary>
 public sealed record PublicStatusComponent(string Name, StatusState State, double? UptimePercent, IReadOnlyList<StatusDay> Days, Guid Key = default);
 
-/// <summary>Response body for <c>GET /api/public/status/{slug}</c>. Carries nothing internal: no ids, targets or monitor names. <see cref="Subscribable"/> says whether visitors can sign up for incident emails (SMTP and a public URL are configured). <see cref="Incidents"/> are the open ones, then those resolved within <see cref="Status.StatusIncidents.RecentDays"/> days.</summary>
-public sealed record PublicStatusPage(string Title, string Description, StatusState Overall, DateTimeOffset GeneratedAt, IReadOnlyList<PublicStatusComponent> Components, IReadOnlyList<PublicStatusIncident> Incidents, bool Subscribable = false);
+/// <summary>Response body for <c>GET /api/public/status/{slug}</c>. Carries nothing internal: no ids, targets or monitor names. <see cref="Subscribable"/> says whether visitors can sign up for incident emails (SMTP and a public URL are configured). <see cref="Slug"/> and the branding fields come from the page settings (ADR-0165). <see cref="Incidents"/> are the open ones, then those resolved within <see cref="Status.StatusIncidents.RecentDays"/> days.</summary>
+public sealed record PublicStatusPage(string Title, string Description, StatusState Overall, DateTimeOffset GeneratedAt, IReadOnlyList<PublicStatusComponent> Components, IReadOnlyList<PublicStatusIncident> Incidents, bool Subscribable = false, string Slug = "", string LogoUrl = "", string AccentColor = "", string SupportUrl = "");
 
 /// <summary>Where an incident is in its life; each written update carries one, and the latest is the incident's.</summary>
 public enum StatusIncidentStatus
@@ -272,3 +346,17 @@ public sealed record StatusSubscriptionTokenRequest
 
 /// <summary>What a confirm or unsubscribe link is for, so the page can say which status page it concerns.</summary>
 public sealed record StatusSubscriptionInfo(string PageTitle, string Email);
+
+/// <summary>One component a subscriber can choose; <see cref="Key"/> is the same opaque handle the public page shows.</summary>
+public sealed record StatusSubscriptionComponent(Guid Key, string Name);
+
+/// <summary>What a preferences link shows: the page's components and the keys currently chosen (empty = every component).</summary>
+public sealed record StatusSubscriptionPreferences(string PageTitle, string Email, IReadOnlyList<StatusSubscriptionComponent> Components, IReadOnlyList<Guid> Selected);
+
+/// <summary>Body of <c>POST /api/public/status/subscriptions/preferences</c>: the signed token and the component keys to hear about (null or empty = every component).</summary>
+public sealed record StatusSubscriptionPreferencesRequest
+{
+    public string? Token { get; init; }
+
+    public IReadOnlyList<Guid>? Components { get; init; }
+}

@@ -78,13 +78,6 @@ folders are where "what happened and why" actually lives.
   stay a thin configuration package; trimming/AOT compatibility; privacy
   defaults (no PII in attributes, opt-in device id). First check how ingest keys
   behave for a public-client scenario (CORS, per-key service allowlists).
-- **Status page follow-ups.** Status pages (ADR-0158) and their incidents
-  (ADR-0159), including which components an incident affects (ADR-0160), are in,
-  as is the `flare status-pages incidents` CLI, notifying saved channels about
-  incidents (ADR-0161), visitor email subscriptions (ADR-0162) and the `flare
-  status-pages subscribers` CLI and per-component visitor subscriptions
-  (ADR-0163). Still missing: custom domains and branding, and a signed
-  preference link so a verified subscriber can change their components.
 - **Terraform / CLI for notification templates.** Shared templates (ADR-0148)
   are managed in Settings and by name in `flare alerts export`/`import`, but the
   Terraform provider has no `flare_alert_template` resource and the CLI no

@@ -18,13 +18,15 @@ public static class StatusSubscriptionEndpoints
 
     public static IEndpointRouteBuilder MapStatusSubscriptionEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/public/status/{slug}/subscribe", HandleSubscribeAsync).RequireRateLimiting(RateLimitPolicy);
+        endpoints.MapPost("/api/public/status/{slug}/subscribe", HandleSubscribeAsync).RequireRateLimiting(RateLimitPolicy).RequireCors(StatusCorsPolicyProvider.PolicyName);
         endpoints.MapGet("/api/public/status/subscriptions/confirm", (string? token, IStatusSubscriptionLinkSigner signer, IStatusPageQueryService pages, CancellationToken ct) =>
             HandleInfoAsync(signer.ValidateConfirm(token), pages, ct));
         endpoints.MapPost("/api/public/status/subscriptions/confirm", HandleConfirmAsync).RequireRateLimiting(RateLimitPolicy);
         endpoints.MapGet("/api/public/status/subscriptions/unsubscribe", (string? token, IStatusSubscriptionLinkSigner signer, IStatusPageQueryService pages, CancellationToken ct) =>
             HandleInfoAsync(signer.ValidateUnsubscribe(token), pages, ct));
         endpoints.MapPost("/api/public/status/subscriptions/unsubscribe", HandleUnsubscribeAsync).RequireRateLimiting(RateLimitPolicy);
+        endpoints.MapGet("/api/public/status/subscriptions/preferences", HandlePreferencesInfoAsync);
+        endpoints.MapPost("/api/public/status/subscriptions/preferences", HandlePreferencesSaveAsync).RequireRateLimiting(RateLimitPolicy);
         return endpoints;
     }
 
@@ -172,6 +174,68 @@ public static class StatusSubscriptionEndpoints
         // Idempotent: unsubscribing twice, or an address that was removed by an admin, is still a success.
         await subscribers.DeleteAsync(claims.PageId, StatusSubscriptions.IdFor(claims.PageId, claims.Email), cancellationToken);
         return await HandleInfoAsync(claims, pages, cancellationToken);
+    }
+
+    private static async Task<IResult> HandlePreferencesInfoAsync(
+        string? token,
+        IStatusSubscriptionLinkSigner signer,
+        IStatusPageQueryService pages,
+        IStatusSubscriberQueryService subscribers,
+        CancellationToken cancellationToken) =>
+        signer.ValidatePreferences(token) is { } claims
+            ? await PreferencesAsync(claims, pages, subscribers, null, cancellationToken)
+            : InvalidLink();
+
+    private static async Task<IResult> HandlePreferencesSaveAsync(
+        HttpContext http,
+        IStatusSubscriptionLinkSigner signer,
+        IStatusPageQueryService pages,
+        IStatusSubscriberQueryService subscribers,
+        TimeProvider time,
+        CancellationToken cancellationToken)
+    {
+        var (body, problem) = await ReadAsync(http, StatusPagesJsonContext.Default.StatusSubscriptionPreferencesRequest, cancellationToken);
+        if (problem is not null)
+        {
+            return problem;
+        }
+
+        if (signer.ValidatePreferences(body!.Token) is not { } claims)
+        {
+            return InvalidLink();
+        }
+
+        return await PreferencesAsync(claims, pages, subscribers, (body.Components ?? [], time), cancellationToken);
+    }
+
+    /// <summary>Describes (and, when <paramref name="change"/> is given, first updates) a verified subscriber's selection. Only a verified address has one to edit.</summary>
+    private static async Task<IResult> PreferencesAsync(
+        StatusSubscriptionClaims claims,
+        IStatusPageQueryService pages,
+        IStatusSubscriberQueryService subscribers,
+        (IReadOnlyList<Guid> Components, TimeProvider Time)? change,
+        CancellationToken cancellationToken)
+    {
+        var page = await pages.GetAsync(claims.PageId, cancellationToken);
+        var subscriber = await subscribers.GetAsync(claims.PageId, StatusSubscriptions.IdFor(claims.PageId, claims.Email), cancellationToken);
+        if (page is null || subscriber is not { Verified: true })
+        {
+            return Results.Problem("This subscription no longer exists. Subscribe again from the status page.", statusCode: StatusCodes.Status404NotFound);
+        }
+
+        if (change is { } c)
+        {
+            if (!StatusSubscriptions.TryNormalizeComponents(page, c.Components, out var normalized))
+            {
+                return Results.Problem("One of the selected components is not on this status page.", statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            subscriber = subscriber with { Components = normalized, UpdatedAt = c.Time.GetUtcNow() };
+            await subscribers.SaveAsync(subscriber, cancellationToken);
+        }
+
+        var components = page.Components.Select(x => new StatusSubscriptionComponent(StatusSubscriptions.ComponentKey(page.Id, x.RefId), x.Name)).ToList();
+        return Results.Json(new StatusSubscriptionPreferences(page.Title, claims.Email, components, subscriber.Components), StatusPagesJsonContext.Default.StatusSubscriptionPreferences);
     }
 
     private static IResult InvalidLink() =>
