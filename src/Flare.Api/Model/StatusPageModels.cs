@@ -142,8 +142,8 @@ public sealed record StatusDay(string Date, double? UptimePercent);
 /// <summary>One component as the public page shows it.</summary>
 public sealed record PublicStatusComponent(string Name, StatusState State, double? UptimePercent, IReadOnlyList<StatusDay> Days);
 
-/// <summary>Response body for <c>GET /api/public/status/{slug}</c>. Carries nothing internal: no ids, targets or monitor names. <see cref="Incidents"/> are the open ones, then those resolved within <see cref="Status.StatusIncidents.RecentDays"/> days.</summary>
-public sealed record PublicStatusPage(string Title, string Description, StatusState Overall, DateTimeOffset GeneratedAt, IReadOnlyList<PublicStatusComponent> Components, IReadOnlyList<PublicStatusIncident> Incidents);
+/// <summary>Response body for <c>GET /api/public/status/{slug}</c>. Carries nothing internal: no ids, targets or monitor names. <see cref="Subscribable"/> says whether visitors can sign up for incident emails (SMTP and a public URL are configured). <see cref="Incidents"/> are the open ones, then those resolved within <see cref="Status.StatusIncidents.RecentDays"/> days.</summary>
+public sealed record PublicStatusPage(string Title, string Description, StatusState Overall, DateTimeOffset GeneratedAt, IReadOnlyList<PublicStatusComponent> Components, IReadOnlyList<PublicStatusIncident> Incidents, bool Subscribable = false);
 
 /// <summary>Where an incident is in its life; each written update carries one, and the latest is the incident's.</summary>
 public enum StatusIncidentStatus
@@ -232,3 +232,37 @@ public sealed record StatusIncidentUpdateRequest
 
 /// <summary>An incident as the public page shows it: timeline newest first, no ids. <see cref="Components"/> are the display names of the page components it affects.</summary>
 public sealed record PublicStatusIncident(string Title, StatusIncidentStatus Status, DateTimeOffset StartedAt, DateTimeOffset? ResolvedAt, IReadOnlyList<StatusIncidentUpdate> Updates, IReadOnlyList<string> Components);
+
+/// <summary>An email address that asked to hear about a status page's incidents (ADR-0162). Only <see cref="Verified"/> addresses are mailed.</summary>
+public sealed record StatusSubscriber
+{
+    public required Guid Id { get; init; }
+
+    public required Guid PageId { get; init; }
+
+    /// <summary>Lower-cased.</summary>
+    public required string Email { get; init; }
+
+    public bool Verified { get; init; }
+
+    public required DateTimeOffset CreatedAt { get; init; }
+
+    public required DateTimeOffset UpdatedAt { get; init; }
+}
+
+public sealed record StatusSubscriberListResponse(IReadOnlyList<StatusSubscriber> Subscribers);
+
+/// <summary>Body of <c>POST /api/public/status/{slug}/subscribe</c>.</summary>
+public sealed record StatusSubscribeRequest
+{
+    public string? Email { get; init; }
+}
+
+/// <summary>Body of the confirm and unsubscribe posts: the signed token from the email link.</summary>
+public sealed record StatusSubscriptionTokenRequest
+{
+    public string? Token { get; init; }
+}
+
+/// <summary>What a confirm or unsubscribe link is for, so the page can say which status page it concerns.</summary>
+public sealed record StatusSubscriptionInfo(string PageTitle, string Email);

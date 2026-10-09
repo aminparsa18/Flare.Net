@@ -3,9 +3,11 @@
 	// session while an admin has it enabled (ADR-0158). Shows only display names, states and uptime.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getPublicStatus, type PublicStatusPage, type StatusIncidentStatus, type StatusState } from '$lib/status-pages-api';
+	import { getPublicStatus, subscribeToStatus, type PublicStatusPage, type StatusIncidentStatus, type StatusState } from '$lib/status-pages-api';
 	import { formatDateTime } from '$lib/time/format';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { Input } from '$lib/components/ui/input';
+	import { Button } from '$lib/components/ui/button';
 	import * as m from '$lib/paraglide/messages';
 
 	const slug = $derived(page.params.slug ?? '');
@@ -15,6 +17,25 @@
 	let notFound = $state(false);
 	let error = $state<string | null>(null);
 	let loading = $state(true);
+
+	let email = $state('');
+	let subscribing = $state(false);
+	let subscribed = $state(false);
+	let subscribeError = $state<string | null>(null);
+
+	async function subscribe(event: SubmitEvent): Promise<void> {
+		event.preventDefault();
+		subscribing = true;
+		subscribeError = null;
+		try {
+			await subscribeToStatus(slug, email.trim());
+			subscribed = true;
+		} catch (err) {
+			subscribeError = err instanceof Error ? err.message : String(err);
+		} finally {
+			subscribing = false;
+		}
+	}
 
 	async function load(): Promise<void> {
 		try {
@@ -152,6 +173,25 @@
 				</li>
 			{/each}
 		</ul>
+
+		{#if status.subscribable}
+			<section class="flex flex-col gap-2 rounded-lg border p-4">
+				<h2 class="text-sm font-medium">{m.statusSubscribe_heading()}</h2>
+				{#if subscribed}
+					<p class="text-sm">{m.statusSubscribe_sent()}</p>
+				{:else}
+					<form class="flex gap-2" onsubmit={subscribe}>
+						<Input type="email" bind:value={email} required maxlength={254} placeholder="you@example.com" aria-label={m.statusSubscribe_emailLabel()} class="flex-1" />
+						<Button type="submit" size="sm" disabled={subscribing || email.trim() === ''}>
+							{#if subscribing}<Spinner class="size-3.5" />{/if}
+							{m.statusSubscribe_button()}
+						</Button>
+					</form>
+					{#if subscribeError}<p class="text-destructive text-xs">{subscribeError}</p>{/if}
+					<p class="text-muted-foreground text-xs">{m.statusSubscribe_hint()}</p>
+				{/if}
+			</section>
+		{/if}
 
 		<footer class="text-muted-foreground text-xs">{m.statusPublic_updated({ time: formatDateTime(status.generatedAt) })}</footer>
 	{/if}

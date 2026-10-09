@@ -69,6 +69,12 @@ resource "flare_status_page" "public" {
 
 页面可以在事件被创建或更新时通知你自己的渠道。在页面编辑器的 **事件通知** 下添加渠道，或向 `flare status-pages create` / `update` 传入 `--subscriber <渠道 id>`（可重复）；API 字段为 `subscriberChannelIds`。每次更新都会以消息发送，包含页面、状态、事件标题、你的文字、受影响的组件以及公开页面链接。仅支持 Webhook（含 Slack）、Telegram、邮件、Teams 和 Discord 渠道；发送失败只会记录日志，不会阻止更新发布。链接需要设置 `Alerting__PublicUrl`。这些是你自己的渠道，不是面向访客的订阅表单。
 
+### 允许访客通过邮件订阅
+
+当服务器能发送邮件（`Email__Host`、`Email__From`）并知道自己的公开地址（`Alerting__PublicUrl`）时，公开页面会显示 **通过邮件获取更新** 表单。访客输入邮箱地址，收到确认链接，确认后，该页面每创建或更新一个事件都会收到一封邮件。每封邮件都带有退订链接。未做上述配置时，表单会隐藏。
+
+未确认的地址最多每 10 分钟再收到一封邮件，每个页面最多保留 2000 位订阅者，订阅请求按调用方地址限制为每小时 30 次（位于反向代理之后时即代理的地址）。无论地址是否已订阅，表单给出的回应都相同。管理员可用 `GET /api/status-pages/{id}/subscribers` 查看页面的订阅者，用 `DELETE /api/status-pages/{id}/subscribers/{subscriberId}` 移除某一位。
+
 ## 注意事项
 
 - 任何能访问该实例的人都能看到此页面。取消发布或删除页面即可立即让链接失效。

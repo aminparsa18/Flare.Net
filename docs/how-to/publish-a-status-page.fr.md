@@ -69,6 +69,12 @@ Les incidents ouverts s'affichent au-dessus des composants sur la page publique,
 
 Une page peut prévenir vos propres canaux lorsqu'un incident est ouvert ou mis à jour. Dans l'éditeur de la page, ajoutez des canaux sous **Notifications d'incident**, ou passez `--subscriber <id-du-canal>` (répétable) à `flare status-pages create` ou `update` ; le champ d'API est `subscriberChannelIds`. Chaque mise à jour part sous forme de message avec la page, le statut, le titre de l'incident, votre texte, les composants touchés et un lien vers la page publique. Seuls les canaux webhook (Slack inclus), Telegram, e-mail, Teams et Discord conviennent ; un échec d'envoi est journalisé et ne bloque jamais la publication de la mise à jour. Le lien demande `Alerting__PublicUrl`. Ce sont vos canaux, pas un formulaire d'inscription pour les visiteurs.
 
+### Laisser les visiteurs s'abonner par e-mail
+
+Quand le serveur peut envoyer des e-mails (`Email__Host`, `Email__From`) et connaît son adresse publique (`Alerting__PublicUrl`), la page publique affiche un formulaire **Recevoir les mises à jour par e-mail**. Le visiteur saisit une adresse, reçoit un lien de confirmation, puis, une fois confirmé, reçoit un e-mail pour chaque incident ouvert ou mis à jour sur cette page. Chaque e-mail contient un lien de désabonnement. Sans cette configuration, le formulaire est masqué.
+
+Une adresse non confirmée ne reçoit un nouvel e-mail qu'au plus toutes les 10 minutes, une page garde jusqu'à 2 000 abonnés, et les inscriptions sont limitées à 30 par heure et par adresse appelante (derrière un reverse proxy, c'est l'adresse du proxy). Le formulaire répond de la même façon qu'une adresse soit déjà abonnée ou non. Les administrateurs listent les abonnés d'une page avec `GET /api/status-pages/{id}/subscribers` et en suppriment un avec `DELETE /api/status-pages/{id}/subscribers/{subscriberId}`.
+
 ## À savoir
 
 - La page est publique pour toute personne pouvant joindre l'instance. Dépubliez-la ou supprimez-la pour désactiver le lien immédiatement.

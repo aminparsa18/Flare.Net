@@ -152,8 +152,19 @@ builder.Services.AddRateLimiter(options =>
         }
 
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        await context.HttpContext.Response.WriteAsync("Personal access token rate limit exceeded.", cancellationToken);
+        await context.HttpContext.Response.WriteAsync("Rate limit exceeded.", cancellationToken);
     };
+
+    // Public status page subscriptions (ADR-0162): partitioned by caller address. Behind a reverse proxy
+    // that address is the proxy's, so this is a generous backstop; the per-address resend cooldown and the
+    // per-page cap are what actually bound abuse.
+    options.AddPolicy(StatusSubscriptionEndpoints.RateLimitPolicy, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromHours(1),
+            QueueLimit = 0,
+        }));
 
     options.AddPolicy(PatRateLimitPolicy, httpContext =>
     {
@@ -435,6 +446,9 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IStatusPageQueryService, StatusPageQueryService>();
 builder.Services.AddSingleton<IStatusIncidentQueryService, StatusIncidentQueryService>();
 builder.Services.AddSingleton<IStatusIncidentNotifier, StatusIncidentNotifier>();
+builder.Services.AddSingleton<IStatusSubscriberQueryService, StatusSubscriberQueryService>();
+builder.Services.AddSingleton<IStatusSubscriberMailer, StatusSubscriberMailer>();
+builder.Services.AddSingleton<IStatusSubscriptionLinkSigner, StatusSubscriptionLinkSigner>();
 builder.Services.AddSingleton<IPublicStatusService, PublicStatusService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 
@@ -518,6 +532,7 @@ app.MapAuthEndpoints();
 app.MapAlertAckLinkEndpoints();
 // Public status pages (ADR-0158): served to anyone while a page is enabled; nothing internal in the response.
 app.MapPublicStatusEndpoints();
+app.MapStatusSubscriptionEndpoints();
 // Slack button clicks and PagerDuty ack events (ADR-0138): the request signature is the credential; 404 until a secret is configured.
 app.MapAlertAckIntegrationEndpoints();
 app.MapEntraAuthEndpoints();
@@ -618,6 +633,7 @@ adminRoutes.MapIngestApiKeyEndpoints();
 adminRoutes.MapUsageEndpoints();
 // Publishing a status page exposes health data to anyone with the URL (ADR-0158).
 adminRoutes.MapStatusPageAdminEndpoints();
+adminRoutes.MapStatusSubscriberAdminEndpoints();
 adminRoutes.MapAuditLogEndpoints();
 adminRoutes.MapUserEndpoints();
 adminRoutes.MapServiceAccountEndpoints();

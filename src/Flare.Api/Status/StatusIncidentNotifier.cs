@@ -6,8 +6,9 @@ using Microsoft.Extensions.Options;
 namespace Flare.Api.Status;
 
 /// <summary>
-/// Tells a status page's subscribed channels (ADR-0161) that an incident was opened or updated. It sends
-/// through the existing alert notifiers by dressing the incident as an <see cref="AlertRule"/> whose title and
+/// Tells a status page's subscribed channels (ADR-0161) and verified email subscribers (ADR-0162) that an incident
+/// was opened or updated. Channels are sent through
+/// the existing alert notifiers by dressing the incident as an <see cref="AlertRule"/> whose title and
 /// body are literal text, so no channel needs incident-specific code.
 /// </summary>
 public interface IStatusIncidentNotifier
@@ -20,6 +21,9 @@ public sealed class StatusIncidentNotifier(
     CompositeAlertNotifier notifier,
     INotificationChannelQueryService channels,
     IOptions<AlertLinkOptions> linkOptions,
+    IStatusSubscriberQueryService subscribers,
+    IStatusSubscriberMailer mailer,
+    IStatusSubscriptionLinkSigner signer,
     ILogger<StatusIncidentNotifier> logger) : IStatusIncidentNotifier
 {
     /// <summary>Channel types that make sense for a human-readable announcement; PagerDuty, Jira and the like would open a ticket or page someone.</summary>
@@ -28,6 +32,39 @@ public sealed class StatusIncidentNotifier(
             or NotificationChannelType.Teams or NotificationChannelType.Discord;
 
     public async Task NotifyAsync(StatusPage page, StatusIncident incident, StatusIncidentUpdate update, CancellationToken cancellationToken)
+    {
+        // Independent: a dead channel must not stop the emails, and the reverse.
+        await NotifyChannelsAsync(page, incident, update, cancellationToken);
+        await NotifyEmailSubscribersAsync(page, incident, update, cancellationToken);
+    }
+
+    private async Task NotifyEmailSubscribersAsync(StatusPage page, StatusIncident incident, StatusIncidentUpdate update, CancellationToken cancellationToken)
+    {
+        if (!mailer.IsAvailable)
+        {
+            return;
+        }
+
+        try
+        {
+            var recipients = (await subscribers.ListAsync(page.Id, cancellationToken))
+                .Where(s => s.Verified)
+                .Select(s => signer.UnsubscribeUrl(page.Id, s.Email) is { } url ? new StatusMailRecipient(s.Email, url) : null)
+                .OfType<StatusMailRecipient>()
+                .ToList();
+            var failed = await mailer.SendIncidentAsync(page, incident, update, ComponentNames(page, incident), recipients, cancellationToken);
+            if (failed > 0)
+            {
+                logger.LogWarning("Status page '{Slug}': {Failed} of {Total} subscriber emails were not delivered", page.Slug, failed, recipients.Count);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Status page '{Slug}' subscriber emails failed", page.Slug);
+        }
+    }
+
+    private async Task NotifyChannelsAsync(StatusPage page, StatusIncident incident, StatusIncidentUpdate update, CancellationToken cancellationToken)
     {
         if (page.SubscriberChannelIds.Count == 0)
         {
