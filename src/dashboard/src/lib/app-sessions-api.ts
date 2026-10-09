@@ -54,3 +54,47 @@ export async function getAppSessions(query: AppSessionsQuery, signal?: AbortSign
 	}
 	return (await res.json()) as AppSessionsResponse;
 }
+
+export interface AppSessionTimelineEvent {
+	traceId: string;
+	spanId: string;
+	name: string;
+	serviceName: string;
+	startUnixMs: number;
+	durationMs: number;
+	/** `screen.name`, '' when the span has none. */
+	screen: string;
+	isError: boolean;
+	statusMessage: string;
+	exceptionType: string;
+	exceptionMessage: string;
+}
+
+export interface AppSessionTimeline {
+	sessionId: string;
+	/** Empty when the session has no spans in the window. */
+	serviceName: string;
+	version: string;
+	os: string;
+	device: string;
+	events: AppSessionTimelineEvent[];
+	/** The session has more spans than the server returns. */
+	truncated: boolean;
+}
+
+export async function getAppSessionTimeline(
+	sessionId: string,
+	range: { fromUnixMs?: number; toUnixMs?: number },
+	signal?: AbortSignal
+): Promise<AppSessionTimeline> {
+	const res = await apiFetch(`${API_BASE_URL}/api/app-sessions/timeline`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ sessionId, fromUnixMs: range.fromUnixMs ?? null, toUnixMs: range.toUnixMs ?? null }),
+		signal
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/app-sessions/timeline failed: ${res.status} ${res.statusText}`);
+	}
+	return (await res.json()) as AppSessionTimeline;
+}

@@ -66,8 +66,8 @@ folders are where "what happened and why" actually lives.
   NuGet publishing (needs a macOS runner with the MAUI workloads; the package is outside
   `Flare.slnx` for that reason), and a CI job for `Flare.Maui.slnx`, and verifying on a device
   or emulator. Server side (ADR-0167) is done: scoped ingest keys (ADR-0149/0150/0051), the
-  Sessions page, and app-version facets on `/errors`. Remaining there: a per-session timeline
-  and a rollup table if long windows prove slow. Trimmed/Mono
+  Sessions page, and app-version facets on `/errors`. Remaining there: a rollup table if long
+  windows prove slow. The per-session timeline is done (ADR-0170). Trimmed/Mono
   stack traces are symbolicated from uploaded dll+PDB symbols (ADR-0168); Native AOT frames on
   iOS/macOS are covered from the `.dSYM`; remaining there: overloaded AOT methods (unresolved), ELF/PDB
   symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.

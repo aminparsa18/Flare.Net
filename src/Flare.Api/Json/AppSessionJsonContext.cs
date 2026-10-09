@@ -9,4 +9,6 @@ namespace Flare.Api.Json;
     UseStringEnumConverter = true)]
 [JsonSerializable(typeof(AppSessionsRequest))]
 [JsonSerializable(typeof(AppSessionsResponse))]
+[JsonSerializable(typeof(AppSessionTimelineRequest))]
+[JsonSerializable(typeof(AppSessionTimelineResponse))]
 public sealed partial class AppSessionJsonContext : JsonSerializerContext;

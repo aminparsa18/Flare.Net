@@ -59,4 +59,61 @@ public class AppSessionQueryBuilderTests
         Assert.DoesNotContain("{service:String}", built.Sql);
         Assert.DoesNotContain("{version:String}", built.Sql);
     }
+
+    [Fact]
+    public void BuildTimeline_FiltersOnSessionIdParameter_OrderedByStart()
+    {
+        var built = AppSessionQueryBuilder.BuildTimeline("abc", End.AddHours(-1), End);
+
+        Assert.Contains("SpanAttributes['session.id'] = {sessionId:String}", built.Sql);
+        Assert.Contains("mapContains(SpanAttributes, 'session.id')", built.Sql);
+        Assert.Contains("ORDER BY StartTime, SpanId", built.Sql);
+        Assert.Contains("LIMIT {limit:UInt32}", built.Sql);
+        Assert.DoesNotContain("abc", built.Sql);
+    }
+
+    [Fact]
+    public void ResolveTimelineWindow_DefaultsToADayBeforeNow()
+    {
+        var (from, to) = AppSessionQueryBuilder.ResolveTimelineWindow(new AppSessionTimelineRequest(), End);
+
+        Assert.Equal(End, to);
+        Assert.Equal(End.AddMinutes(-AppSessionQueryBuilder.DefaultTimelineLookbackMinutes), from);
+    }
+
+    [Fact]
+    public void ResolveTimelineWindow_UsesGivenBounds()
+    {
+        var f = End.AddHours(-2).ToUnixTimeMilliseconds();
+        var t = End.AddHours(-1).ToUnixTimeMilliseconds();
+
+        var (from, to) = AppSessionQueryBuilder.ResolveTimelineWindow(new AppSessionTimelineRequest { FromUnixMs = f, ToUnixMs = t }, End);
+
+        Assert.Equal(f, from.ToUnixTimeMilliseconds());
+        Assert.Equal(t, to.ToUnixTimeMilliseconds());
+    }
+
+    [Fact]
+    public void ResolveTimelineWindow_InvertedRange_KeepsEndAndWidensBackwards()
+    {
+        var t = End.AddHours(-1).ToUnixTimeMilliseconds();
+
+        var (from, to) = AppSessionQueryBuilder.ResolveTimelineWindow(
+            new AppSessionTimelineRequest { FromUnixMs = End.ToUnixTimeMilliseconds(), ToUnixMs = t }, End);
+
+        Assert.True(from < to);
+        Assert.Equal(t, to.ToUnixTimeMilliseconds());
+    }
+
+    [Fact]
+    public void ResolveTimelineWindow_CapsWidthKeepingTheEnd()
+    {
+        var f = End.AddDays(-60).ToUnixTimeMilliseconds();
+
+        var (from, to) = AppSessionQueryBuilder.ResolveTimelineWindow(
+            new AppSessionTimelineRequest { FromUnixMs = f, ToUnixMs = End.ToUnixTimeMilliseconds() }, End);
+
+        Assert.Equal(End, to);
+        Assert.Equal(TimeSpan.FromMinutes(AppSessionQueryBuilder.MaxTimelineWindowMinutes), to - from);
+    }
 }

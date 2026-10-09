@@ -16,7 +16,30 @@ public static class AppSessionEndpoints
     public static IEndpointRouteBuilder MapAppSessionEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/app-sessions/list", HandleListAsync);
+        endpoints.MapPost("/api/app-sessions/timeline", HandleTimelineAsync);
         return endpoints;
+    }
+
+    private static async Task<IResult> HandleTimelineAsync(
+        HttpContext http,
+        IAppSessionQueryService queryService,
+        CancellationToken cancellationToken)
+    {
+        AppSessionTimelineRequest? request;
+        try
+        {
+            request = await ApiSerialization.ReadAsync(http, AppSessionJsonContext.Default.AppSessionTimelineRequest, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (string.IsNullOrWhiteSpace(request?.SessionId))
+            return Results.Problem("sessionId is required.", statusCode: StatusCodes.Status400BadRequest);
+
+        var response = await queryService.GetTimelineAsync(request.SessionId, request, cancellationToken);
+        return ApiSerialization.Write(http, response, AppSessionJsonContext.Default.AppSessionTimelineResponse);
     }
 
     private static async Task<IResult> HandleListAsync(

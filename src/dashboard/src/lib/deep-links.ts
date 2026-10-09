@@ -556,3 +556,8 @@ export function buildSessionTracesHref(sessionId: string, fromMs: number, toMs: 
 	};
 	return withBase(`/traces?state=${encodeStateDeepLinkParam(state)}`);
 }
+
+/** The `/sessions/[sessionId]` timeline; the range bounds the spans scan (the sessions table passes the session's own span, padded). */
+export function buildSessionTimelineHref(sessionId: string, fromMs: number, toMs: number): string {
+	return withBase(`/sessions/${encodeURIComponent(sessionId)}?from=${Math.floor(fromMs)}&to=${Math.ceil(toMs)}`);
+}
