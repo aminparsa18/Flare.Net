@@ -76,8 +76,8 @@ public sealed class PublicStatusService(
         foreach (var component in page.Components)
         {
             components.Add(component.Kind == StatusComponentKind.Monitor
-                ? MonitorComponent(component, allMonitors, statuses, uptime, today, now)
-                : await SloComponentAsync(component, allSlos, today, cancellationToken));
+                ? MonitorComponent(page.Id, component, allMonitors, statuses, uptime, today, now)
+                : await SloComponentAsync(page.Id, component, allSlos, today, cancellationToken));
         }
 
         var published = StatusIncidents.ForPublic(await incidents.ListAsync(page.Id, cancellationToken), page.Components, now);
@@ -85,6 +85,7 @@ public sealed class PublicStatusService(
     }
 
     private static PublicStatusComponent MonitorComponent(
+        Guid pageId,
         StatusPageComponent component,
         Dictionary<Guid, SyntheticMonitor> allMonitors,
         IReadOnlyDictionary<string, IReadOnlyList<SyntheticLocationStatus>>? statuses,
@@ -95,20 +96,20 @@ public sealed class PublicStatusService(
         // A component whose monitor was deleted stays on the page as Unknown instead of disappearing silently.
         if (!allMonitors.TryGetValue(component.RefId, out var monitor))
         {
-            return Unknown(component, today);
+            return Unknown(pageId, component, today);
         }
 
         var locations = statuses is not null && statuses.TryGetValue(monitor.Name, out var found) ? found : [];
         var byDay = uptime is not null && uptime.TryGetValue(monitor.Name, out var days) ? days : new Dictionary<DateOnly, double>();
         var history = StatusEvaluator.Days(byDay, today);
-        return new PublicStatusComponent(component.Name, StatusEvaluator.MonitorState(monitor, locations, now), StatusEvaluator.UptimePercent(history), history);
+        return new PublicStatusComponent(component.Name, StatusEvaluator.MonitorState(monitor, locations, now), StatusEvaluator.UptimePercent(history), history, StatusSubscriptions.ComponentKey(pageId, component.RefId));
     }
 
-    private async Task<PublicStatusComponent> SloComponentAsync(StatusPageComponent component, Dictionary<Guid, Slo> allSlos, DateOnly today, CancellationToken cancellationToken)
+    private async Task<PublicStatusComponent> SloComponentAsync(Guid pageId, StatusPageComponent component, Dictionary<Guid, Slo> allSlos, DateOnly today, CancellationToken cancellationToken)
     {
         if (!allSlos.TryGetValue(component.RefId, out var slo))
         {
-            return Unknown(component, today);
+            return Unknown(pageId, component, today);
         }
 
         var status = await slos.GetStatusAsync(slo, cancellationToken);
@@ -117,9 +118,9 @@ public sealed class PublicStatusService(
             .Where(g => g.Sum(p => p.Total) > 0)
             .ToDictionary(g => g.Key, g => SloCalculator.Sli(g.Sum(p => p.Total), g.Sum(p => p.Bad))!.Value);
         var history = StatusEvaluator.Days(byDay, today);
-        return new PublicStatusComponent(component.Name, StatusEvaluator.SloState(status.ErrorBudgetRemaining), status.Sli is { } sli ? Math.Round(sli, 3) : null, history);
+        return new PublicStatusComponent(component.Name, StatusEvaluator.SloState(status.ErrorBudgetRemaining), status.Sli is { } sli ? Math.Round(sli, 3) : null, history, StatusSubscriptions.ComponentKey(pageId, component.RefId));
     }
 
-    private static PublicStatusComponent Unknown(StatusPageComponent component, DateOnly today) =>
-        new(component.Name, StatusState.Unknown, null, StatusEvaluator.Days(new Dictionary<DateOnly, double>(), today));
+    private static PublicStatusComponent Unknown(Guid pageId, StatusPageComponent component, DateOnly today) =>
+        new(component.Name, StatusState.Unknown, null, StatusEvaluator.Days(new Dictionary<DateOnly, double>(), today), StatusSubscriptions.ComponentKey(pageId, component.RefId));
 }

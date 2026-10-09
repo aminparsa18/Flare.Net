@@ -139,8 +139,8 @@ public sealed record StatusPageRequest
 /// <summary>One day of a component's history; <see cref="UptimePercent"/> is null when nothing was recorded that day.</summary>
 public sealed record StatusDay(string Date, double? UptimePercent);
 
-/// <summary>One component as the public page shows it.</summary>
-public sealed record PublicStatusComponent(string Name, StatusState State, double? UptimePercent, IReadOnlyList<StatusDay> Days);
+/// <summary>One component as the public page shows it. <see cref="Key"/> is an opaque per-page handle (a hash of page and component) a visitor can subscribe to; it reveals nothing about the monitor or SLO behind it.</summary>
+public sealed record PublicStatusComponent(string Name, StatusState State, double? UptimePercent, IReadOnlyList<StatusDay> Days, Guid Key = default);
 
 /// <summary>Response body for <c>GET /api/public/status/{slug}</c>. Carries nothing internal: no ids, targets or monitor names. <see cref="Subscribable"/> says whether visitors can sign up for incident emails (SMTP and a public URL are configured). <see cref="Incidents"/> are the open ones, then those resolved within <see cref="Status.StatusIncidents.RecentDays"/> days.</summary>
 public sealed record PublicStatusPage(string Title, string Description, StatusState Overall, DateTimeOffset GeneratedAt, IReadOnlyList<PublicStatusComponent> Components, IReadOnlyList<PublicStatusIncident> Incidents, bool Subscribable = false);
@@ -245,6 +245,9 @@ public sealed record StatusSubscriber
 
     public bool Verified { get; init; }
 
+    /// <summary>The <see cref="PublicStatusComponent.Key"/>s this subscriber wants incidents for (ADR-0163). Empty means every component.</summary>
+    public IReadOnlyList<Guid> Components { get; init; } = [];
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
@@ -256,6 +259,9 @@ public sealed record StatusSubscriberListResponse(IReadOnlyList<StatusSubscriber
 public sealed record StatusSubscribeRequest
 {
     public string? Email { get; init; }
+
+    /// <summary>Component keys from the public page; null or empty subscribes to every component.</summary>
+    public IReadOnlyList<Guid>? Components { get; init; }
 }
 
 /// <summary>Body of the confirm and unsubscribe posts: the signed token from the email link.</summary>

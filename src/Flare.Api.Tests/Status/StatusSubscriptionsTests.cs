@@ -48,7 +48,7 @@ public class StatusSubscriptionsTests
     [Fact]
     public void Subscribe_NewAddress_SavesUnverifiedAndSendsConfirmation()
     {
-        var (save, send) = StatusSubscriptions.Subscribe(null, PageId, "a@example.com", Now);
+        var (save, send) = StatusSubscriptions.Subscribe(null, PageId, "a@example.com", [], Now);
 
         Assert.True(send);
         Assert.NotNull(save);
@@ -61,7 +61,7 @@ public class StatusSubscriptionsTests
     {
         var existing = Row(verified: true, updated: Now.AddDays(-1));
 
-        Assert.Equal((null, false), StatusSubscriptions.Subscribe(existing, PageId, existing.Email, Now));
+        Assert.Equal((null, false), StatusSubscriptions.Subscribe(existing, PageId, existing.Email, [], Now));
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class StatusSubscriptionsTests
     {
         var existing = Row(verified: false, updated: Now.AddMinutes(-2));
 
-        Assert.Equal((null, false), StatusSubscriptions.Subscribe(existing, PageId, existing.Email, Now));
+        Assert.Equal((null, false), StatusSubscriptions.Subscribe(existing, PageId, existing.Email, [], Now));
     }
 
     [Fact]
@@ -77,11 +77,73 @@ public class StatusSubscriptionsTests
     {
         var existing = Row(verified: false, updated: Now.AddMinutes(-30));
 
-        var (save, send) = StatusSubscriptions.Subscribe(existing, PageId, existing.Email, Now);
+        var (save, send) = StatusSubscriptions.Subscribe(existing, PageId, existing.Email, [], Now);
 
         Assert.True(send);
         Assert.Equal(Now, save!.UpdatedAt);
         Assert.Equal(existing.CreatedAt, save.CreatedAt);
+    }
+
+    private static readonly Guid RefA = Guid.NewGuid();
+    private static readonly Guid RefB = Guid.NewGuid();
+    private static readonly Guid RefC = Guid.NewGuid();
+
+    private static StatusPage Page() => new()
+    {
+        Id = PageId, Slug = "acme", Title = "Acme", CreatedAt = Now, UpdatedAt = Now,
+        Components = [new("A", StatusComponentKind.Monitor, RefA), new("B", StatusComponentKind.Slo, RefB), new("C", StatusComponentKind.Slo, RefC)],
+    };
+
+    [Fact]
+    public void ComponentKey_IsStableAndPerPage()
+    {
+        Assert.Equal(StatusSubscriptions.ComponentKey(PageId, RefA), StatusSubscriptions.ComponentKey(PageId, RefA));
+        Assert.NotEqual(StatusSubscriptions.ComponentKey(PageId, RefA), StatusSubscriptions.ComponentKey(PageId, RefB));
+        Assert.NotEqual(StatusSubscriptions.ComponentKey(PageId, RefA), StatusSubscriptions.ComponentKey(Guid.NewGuid(), RefA));
+        Assert.NotEqual(RefA, StatusSubscriptions.ComponentKey(PageId, RefA));
+    }
+
+    [Fact]
+    public void TryNormalizeComponents_NoneOrAll_MeansEverything()
+    {
+        var page = Page();
+        Assert.True(StatusSubscriptions.TryNormalizeComponents(page, null, out var none));
+        Assert.Empty(none);
+        var all = page.Components.Select(c => StatusSubscriptions.ComponentKey(PageId, c.RefId)).ToList();
+        Assert.True(StatusSubscriptions.TryNormalizeComponents(page, all, out var everything));
+        Assert.Empty(everything);
+    }
+
+    [Fact]
+    public void TryNormalizeComponents_SubsetIsKeptDistinct_UnknownIsRejected()
+    {
+        var page = Page();
+        var a = StatusSubscriptions.ComponentKey(PageId, RefA);
+        Assert.True(StatusSubscriptions.TryNormalizeComponents(page, [a, a], out var subset));
+        Assert.Equal([a], subset);
+        Assert.False(StatusSubscriptions.TryNormalizeComponents(page, [a, Guid.NewGuid()], out _));
+        Assert.False(StatusSubscriptions.TryNormalizeComponents(page, [RefA], out _));
+    }
+
+    [Fact]
+    public void Wants_FiltersByComponentButNeverDropsUnscopedIncidents()
+    {
+        var onlyA = Row(true, Now) with { Components = [StatusSubscriptions.ComponentKey(PageId, RefA)] };
+        Assert.True(StatusSubscriptions.Wants(Row(true, Now), PageId, [RefB]));
+        Assert.True(StatusSubscriptions.Wants(onlyA, PageId, [RefA, RefB]));
+        Assert.False(StatusSubscriptions.Wants(onlyA, PageId, [RefB]));
+        Assert.True(StatusSubscriptions.Wants(onlyA, PageId, []));
+    }
+
+    [Fact]
+    public void Subscribe_PendingAddress_TakesNewComponents()
+    {
+        var existing = Row(verified: false, updated: Now.AddMinutes(-30));
+        var picked = new[] { StatusSubscriptions.ComponentKey(PageId, RefA) };
+
+        var (save, _) = StatusSubscriptions.Subscribe(existing, PageId, existing.Email, picked, Now);
+
+        Assert.Equal(picked, save!.Components);
     }
 
     [Fact]

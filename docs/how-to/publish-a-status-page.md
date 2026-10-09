@@ -56,6 +56,7 @@ resource "flare_status_page" "public" {
   components = [
     { name = "API", kind = "Slo", ref_id = flare_slo.api.id },
   ]
+  subscriber_channel_ids = [flare_notification_channel.oncall.id]
 }
 ```
 
@@ -71,7 +72,7 @@ A page can tell your own channels when an incident is opened or updated. In the 
 
 ### Let visitors subscribe by email
 
-When the server can send email (`Email__Host`, `Email__From`) and knows its public address (`Alerting__PublicUrl`), the public page shows a **Get updates by email** form. A visitor enters an address, gets a confirmation link, and after confirming receives an email for every incident opened or updated on that page. Every email carries an unsubscribe link. Without that configuration the form is hidden.
+When the server can send email (`Email__Host`, `Email__From`) and knows its public address (`Alerting__PublicUrl`), the public page shows a **Get updates by email** form. A visitor enters an address, gets a confirmation link, and after confirming receives an email for every incident opened or updated on that page. Every email carries an unsubscribe link. Without that configuration the form is hidden. Visitors can also tick the components they care about; they then only get incidents that affect one of them, plus any incident that names no component. A verified address keeps its selection until it unsubscribes and subscribes again.
 
 An unconfirmed address is mailed again at most every 10 minutes, a page keeps up to 2,000 subscribers, and sign-up requests are limited to 30 per hour per caller address (behind a reverse proxy that is the proxy's address). The form gives the same answer whether or not an address is already subscribed. Admins list a page's subscribers with `GET /api/status-pages/{id}/subscribers` and remove one with `DELETE /api/status-pages/{id}/subscribers/{subscriberId}`.
 

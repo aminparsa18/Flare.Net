@@ -44,6 +44,8 @@ export interface StatusDay {
 }
 
 export interface PublicStatusComponent {
+	/** Opaque per-page handle to subscribe to this component. */
+	key: string;
 	name: string;
 	state: StatusState;
 	uptimePercent: number | null;
@@ -169,12 +171,12 @@ export async function getPublicStatus(slug: string, signal?: AbortSignal): Promi
 	return (await res.json()) as PublicStatusPage;
 }
 
-/** `POST /api/public/status/{slug}/subscribe` - asks for a confirmation email. Always succeeds for a valid address, whether or not it was already subscribed. */
-export async function subscribeToStatus(slug: string, email: string): Promise<void> {
+/** `POST /api/public/status/{slug}/subscribe` - asks for a confirmation email. `components` are component keys; empty means every component. Always succeeds for a valid address, whether or not it was already subscribed. */
+export async function subscribeToStatus(slug: string, email: string, components: string[] = []): Promise<void> {
 	const res = await fetch(`${API_BASE_URL}/api/public/status/${encodeURIComponent(slug)}/subscribe`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-		body: JSON.stringify({ email })
+		body: JSON.stringify({ email, components })
 	});
 	if (!res.ok) throw await failure(res, 'POST /api/public/status/subscribe');
 }

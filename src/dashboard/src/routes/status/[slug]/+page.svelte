@@ -8,6 +8,7 @@
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as m from '$lib/paraglide/messages';
 
 	const slug = $derived(page.params.slug ?? '');
@@ -22,13 +23,15 @@
 	let subscribing = $state(false);
 	let subscribed = $state(false);
 	let subscribeError = $state<string | null>(null);
+	/** Component keys the visitor ticked; empty means every component. */
+	let pickedComponents = $state<string[]>([]);
 
 	async function subscribe(event: SubmitEvent): Promise<void> {
 		event.preventDefault();
 		subscribing = true;
 		subscribeError = null;
 		try {
-			await subscribeToStatus(slug, email.trim());
+			await subscribeToStatus(slug, email.trim(), pickedComponents);
 			subscribed = true;
 		} catch (err) {
 			subscribeError = err instanceof Error ? err.message : String(err);
@@ -180,12 +183,28 @@
 				{#if subscribed}
 					<p class="text-sm">{m.statusSubscribe_sent()}</p>
 				{:else}
-					<form class="flex gap-2" onsubmit={subscribe}>
-						<Input type="email" bind:value={email} required maxlength={254} placeholder="you@example.com" aria-label={m.statusSubscribe_emailLabel()} class="flex-1" />
-						<Button type="submit" size="sm" disabled={subscribing || email.trim() === ''}>
-							{#if subscribing}<Spinner class="size-3.5" />{/if}
-							{m.statusSubscribe_button()}
-						</Button>
+					<form class="flex flex-col gap-3" onsubmit={subscribe}>
+						<div class="flex gap-2">
+							<Input type="email" bind:value={email} required maxlength={254} placeholder="you@example.com" aria-label={m.statusSubscribe_emailLabel()} class="flex-1" />
+							<Button type="submit" size="sm" disabled={subscribing || email.trim() === ''}>
+								{#if subscribing}<Spinner class="size-3.5" />{/if}
+								{m.statusSubscribe_button()}
+							</Button>
+						</div>
+						{#if status.components.length > 1}
+							<fieldset class="flex flex-col gap-1.5">
+								<legend class="text-muted-foreground mb-1 text-xs">{pickedComponents.length === 0 ? m.statusSubscribe_componentsAll() : m.statusSubscribe_componentsSome()}</legend>
+								{#each status.components as component (component.key)}
+									<label class="flex items-center gap-2 text-sm">
+										<Checkbox
+											checked={pickedComponents.includes(component.key)}
+											onCheckedChange={(v) => (pickedComponents = v === true ? [...pickedComponents, component.key] : pickedComponents.filter((k) => k !== component.key))}
+										/>
+										{component.name}
+									</label>
+								{/each}
+							</fieldset>
+						{/if}
 					</form>
 					{#if subscribeError}<p class="text-destructive text-xs">{subscribeError}</p>{/if}
 					<p class="text-muted-foreground text-xs">{m.statusSubscribe_hint()}</p>

@@ -3165,6 +3165,8 @@
 	"statusSubscribe_button": "订阅",
 	"statusSubscribe_sent": "请查看收件箱：我们已发送确认此地址的链接。",
 	"statusSubscribe_hint": "事件被创建或更新时，你会收到邮件。每封邮件都带有退订链接。",
+	"statusSubscribe_componentsAll": "全部不勾选表示接收所有组件的通知，或只勾选你关心的组件。",
+	"statusSubscribe_componentsSome": "仅接收影响所勾选组件的事件。未指明组件的事件始终会发送给你。",
 	"statusSubscribe_confirmTitle": "确认订阅",
 	"statusSubscribe_confirmPrompt": "将 {page} 的事件更新发送到 {email}？",
 	"statusSubscribe_confirmButton": "确认",

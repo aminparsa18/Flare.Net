@@ -56,6 +56,7 @@ resource "flare_status_page" "public" {
   components = [
     { name = "API", kind = "Slo", ref_id = flare_slo.api.id },
   ]
+  subscriber_channel_ids = [flare_notification_channel.oncall.id]
 }
 ```
 
@@ -71,7 +72,7 @@ resource "flare_status_page" "public" {
 
 ### 允许访客通过邮件订阅
 
-当服务器能发送邮件（`Email__Host`、`Email__From`）并知道自己的公开地址（`Alerting__PublicUrl`）时，公开页面会显示 **通过邮件获取更新** 表单。访客输入邮箱地址，收到确认链接，确认后，该页面每创建或更新一个事件都会收到一封邮件。每封邮件都带有退订链接。未做上述配置时，表单会隐藏。
+当服务器能发送邮件（`Email__Host`、`Email__From`）并知道自己的公开地址（`Alerting__PublicUrl`）时，公开页面会显示 **通过邮件获取更新** 表单。访客输入邮箱地址，收到确认链接，确认后，该页面每创建或更新一个事件都会收到一封邮件。每封邮件都带有退订链接。未做上述配置时，表单会隐藏。访客还可以勾选自己关心的组件；此后只会收到影响这些组件的事件，以及未指明任何组件的事件。已验证的地址会保留其选择，直到退订后重新订阅。
 
 未确认的地址最多每 10 分钟再收到一封邮件，每个页面最多保留 2000 位订阅者，订阅请求按调用方地址限制为每小时 30 次（位于反向代理之后时即代理的地址）。无论地址是否已订阅，表单给出的回应都相同。管理员可用 `GET /api/status-pages/{id}/subscribers` 查看页面的订阅者，用 `DELETE /api/status-pages/{id}/subscribers/{subscriberId}` 移除某一位。
 

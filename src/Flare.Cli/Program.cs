@@ -131,6 +131,13 @@ app.Configure(config =>
             incidents.AddCommand<StatusIncidentsDeleteCommand>("delete")
                 .WithDescription("Delete an incident.");
         });
+        statusPages.AddBranch("subscribers", subscribers =>
+        {
+            subscribers.AddCommand<StatusSubscribersListCommand>("list")
+                .WithDescription("List a status page's visitor email subscribers.");
+            subscribers.AddCommand<StatusSubscribersRemoveCommand>("remove")
+                .WithDescription("Remove a subscriber.");
+        });
     });
     config.AddBranch("retention", retention =>
     {

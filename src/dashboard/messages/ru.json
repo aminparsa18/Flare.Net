@@ -3165,6 +3165,8 @@
 	"statusSubscribe_button": "Подписаться",
 	"statusSubscribe_sent": "Проверьте почту: мы отправили ссылку для подтверждения адреса.",
 	"statusSubscribe_hint": "Вам придёт письмо, когда инцидент будет открыт или обновлён. В каждом письме есть ссылка для отписки.",
+	"statusSubscribe_componentsAll": "Не отмечайте ничего, чтобы получать уведомления обо всех компонентах, или отметьте нужные.",
+	"statusSubscribe_componentsSome": "Только инциденты, затрагивающие отмеченные компоненты. Инциденты без указанных компонентов приходят всегда.",
 	"statusSubscribe_confirmTitle": "Подтверждение подписки",
 	"statusSubscribe_confirmPrompt": "Отправлять обновления об инцидентах {page} на {email}?",
 	"statusSubscribe_confirmButton": "Подтвердить",

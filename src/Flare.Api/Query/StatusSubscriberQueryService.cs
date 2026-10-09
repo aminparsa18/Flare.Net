@@ -24,7 +24,7 @@ public interface IStatusSubscriberQueryService
 /// <summary>The ClickHouse seam for <c>status_subscribers</c> (migration 0076); same shape as <see cref="StatusIncidentQueryService"/>.</summary>
 public sealed class StatusSubscriberQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IStatusSubscriberQueryService
 {
-    private const string Columns = "Id, PageId, Email, Verified, CreatedAt, UpdatedAt";
+    private const string Columns = "Id, PageId, Email, Verified, CreatedAt, UpdatedAt, Components";
 
     public async Task<IReadOnlyList<StatusSubscriber>> ListAsync(Guid pageId, CancellationToken cancellationToken)
     {
@@ -76,12 +76,13 @@ public sealed class StatusSubscriberQueryService(IClickHouseClient client, IOpti
         parameters.AddParameter("verified", subscriber.Verified ? (byte)1 : (byte)0);
         parameters.AddParameter("createdAt", subscriber.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", subscriber.UpdatedAt.UtcDateTime);
+        parameters.AddParameter("components", subscriber.Components.ToArray());
 
         const string sql = """
             INSERT INTO status_subscribers
-                (Id, PageId, Email, IsDeleted, Verified, CreatedAt, UpdatedAt)
+                (Id, PageId, Email, IsDeleted, Verified, CreatedAt, UpdatedAt, Components)
             VALUES
-                ({id:UUID}, {pageId:UUID}, {email:String}, {isDeleted:UInt8}, {verified:UInt8}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)})
+                ({id:UUID}, {pageId:UUID}, {email:String}, {isDeleted:UInt8}, {verified:UInt8}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {components:Array(UUID)})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -95,6 +96,7 @@ public sealed class StatusSubscriberQueryService(IClickHouseClient client, IOpti
         Verified = reader.GetFieldValue<byte>(3) != 0,
         CreatedAt = ReadUtc(reader, 4),
         UpdatedAt = ReadUtc(reader, 5),
+        Components = reader.GetFieldValue<Guid[]>(6),
     };
 
     private static DateTimeOffset ReadUtc(ClickHouseDataReader reader, int ordinal) =>

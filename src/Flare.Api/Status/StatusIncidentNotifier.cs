@@ -48,7 +48,7 @@ public sealed class StatusIncidentNotifier(
         try
         {
             var recipients = (await subscribers.ListAsync(page.Id, cancellationToken))
-                .Where(s => s.Verified)
+                .Where(s => s.Verified && StatusSubscriptions.Wants(s, page.Id, incident.Components))
                 .Select(s => signer.UnsubscribeUrl(page.Id, s.Email) is { } url ? new StatusMailRecipient(s.Email, url) : null)
                 .OfType<StatusMailRecipient>()
                 .ToList();

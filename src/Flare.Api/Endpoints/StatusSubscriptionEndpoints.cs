@@ -72,6 +72,11 @@ public static class StatusSubscriptionEndpoints
             return Results.Problem("Enter a valid email address.", statusCode: StatusCodes.Status400BadRequest);
         }
 
+        if (!StatusSubscriptions.TryNormalizeComponents(page, body.Components, out var components))
+        {
+            return Results.Problem("One of the selected components is not on this status page.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var all = await subscribers.ListAsync(page.Id, cancellationToken);
         var id = StatusSubscriptions.IdFor(page.Id, email);
         var existing = all.FirstOrDefault(s => s.Id == id);
@@ -80,7 +85,7 @@ public static class StatusSubscriptionEndpoints
             return Results.Problem("This status page cannot take more subscribers.", statusCode: StatusCodes.Status409Conflict);
         }
 
-        var (save, send) = StatusSubscriptions.Subscribe(existing, page.Id, email, time.GetUtcNow());
+        var (save, send) = StatusSubscriptions.Subscribe(existing, page.Id, email, components, time.GetUtcNow());
         if (save is not null)
         {
             await subscribers.SaveAsync(save, cancellationToken);

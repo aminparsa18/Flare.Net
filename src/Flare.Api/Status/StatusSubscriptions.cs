@@ -49,13 +49,49 @@ public static class StatusSubscriptions
     public static Guid IdFor(Guid pageId, string email) =>
         new(SHA256.HashData(Encoding.UTF8.GetBytes($"{pageId:N}|{email}"))[..16]);
 
+    /// <summary>The opaque handle the public page shows for a component (ADR-0163): stable, per page, and not reversible to the monitor or SLO id.</summary>
+    public static Guid ComponentKey(Guid pageId, Guid refId) =>
+        new(SHA256.HashData(Encoding.UTF8.GetBytes($"component|{pageId:N}|{refId:N}"))[..16]);
+
+    /// <summary>
+    /// Validates the component keys a visitor picked. Unknown keys are an error; picking none, or every component,
+    /// is normalised to the empty list (= everything), so a component added to the page later is not silently missed.
+    /// </summary>
+    public static bool TryNormalizeComponents(StatusPage page, IReadOnlyList<Guid>? requested, out IReadOnlyList<Guid> components)
+    {
+        components = [];
+        if (requested is not { Count: > 0 })
+        {
+            return true;
+        }
+
+        var valid = page.Components.Select(c => ComponentKey(page.Id, c.RefId)).ToHashSet();
+        var picked = requested.Distinct().ToList();
+        if (picked.Any(k => !valid.Contains(k)))
+        {
+            return false;
+        }
+
+        components = picked.Count >= valid.Count ? [] : picked;
+        return true;
+    }
+
+    /// <summary>
+    /// Whether a subscriber hears about an incident touching <paramref name="incidentComponents"/> (page component ref ids).
+    /// Everyone hears about an incident that names no component, since nobody can tell whether it concerns them.
+    /// </summary>
+    public static bool Wants(StatusSubscriber subscriber, Guid pageId, IReadOnlyList<Guid> incidentComponents) =>
+        subscriber.Components.Count == 0
+        || incidentComponents.Count == 0
+        || incidentComponents.Any(refId => subscriber.Components.Contains(ComponentKey(pageId, refId)));
+
     /// <summary>
     /// What a subscribe request does. <c>Save</c> is the row to write (null: nothing to write) and <c>SendConfirmation</c>
-    /// whether to email the confirmation link. A verified address, or one confirmed-mailed within
+    /// whether to email the confirmation link. A pending row takes the newly picked components; a verified address, or one confirmed-mailed within
     /// <see cref="ResendCooldown"/>, changes nothing - the caller answers the same either way so the form never
     /// reveals who is subscribed.
     /// </summary>
-    public static (StatusSubscriber? Save, bool SendConfirmation) Subscribe(StatusSubscriber? existing, Guid pageId, string email, DateTimeOffset now)
+    public static (StatusSubscriber? Save, bool SendConfirmation) Subscribe(StatusSubscriber? existing, Guid pageId, string email, IReadOnlyList<Guid> components, DateTimeOffset now)
     {
         if (existing is { Verified: true })
         {
@@ -68,8 +104,8 @@ public static class StatusSubscriptions
         }
 
         var row = existing is null
-            ? new StatusSubscriber { Id = IdFor(pageId, email), PageId = pageId, Email = email, CreatedAt = now, UpdatedAt = now }
-            : existing with { UpdatedAt = now };
+            ? new StatusSubscriber { Id = IdFor(pageId, email), PageId = pageId, Email = email, Components = components, CreatedAt = now, UpdatedAt = now }
+            : existing with { Components = components, UpdatedAt = now };
         return (row, true);
     }
 }
