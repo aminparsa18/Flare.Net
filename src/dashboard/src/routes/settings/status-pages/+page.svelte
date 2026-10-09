@@ -21,6 +21,7 @@
 		type StatusPageComponent,
 		type StatusPageRequest
 	} from '$lib/status-pages-api';
+	import IncidentsDialog from './IncidentsDialog.svelte';
 	import { listSyntheticMonitors } from '$lib/synthetic-monitors-api';
 	import { listSlos } from '$lib/slos-api';
 	import { withBase } from '$lib/paths';
@@ -31,6 +32,7 @@
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import GlobeIcon from '@lucide/svelte/icons/globe';
 	import XIcon from '@lucide/svelte/icons/x';
+	import MegaphoneIcon from '@lucide/svelte/icons/megaphone';
 
 	let pages = $state<StatusPage[]>([]);
 	let loading = $state(true);
@@ -47,6 +49,7 @@
 	let components = $state<StatusPageComponent[]>([]);
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
+	let incidentsFor = $state<StatusPage | null>(null);
 
 	const slugValid = $derived(isValidSlug(slug));
 	const canSave = $derived(slugValid && title.trim().length > 0 && components.every((c) => c.name.trim().length > 0));
@@ -187,6 +190,7 @@
 							<Button variant="ghost" size="icon-sm" title={m.statusPages_actionOpen()} href={withBase(`/status/${page.slug}`)} target="_blank" rel="noopener">
 								<ExternalLinkIcon />
 							</Button>
+							<Button variant="ghost" size="icon-sm" title={m.statusPages_actionIncidents()} onclick={() => (incidentsFor = page)}><MegaphoneIcon /></Button>
 							<Button variant="ghost" size="icon-sm" title={m.statusPages_actionEdit()} onclick={() => openForm(page)}><PencilIcon /></Button>
 							<Button variant="ghost" size="icon-sm" class="text-destructive hover:text-destructive" title={m.statusPages_actionDelete()} onclick={() => remove(page)}>
 								<Trash2Icon />
@@ -197,6 +201,10 @@
 			</Table.Body>
 		</Table.Root>
 	</div>
+{/if}
+
+{#if incidentsFor}
+	<IncidentsDialog page={incidentsFor} onclose={() => (incidentsFor = null)} />
 {/if}
 
 <Dialog.Root open={target !== null} onOpenChange={(o) => !o && (target = null)}>

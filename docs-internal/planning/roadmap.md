@@ -78,10 +78,10 @@ folders are where "what happened and why" actually lives.
   stay a thin configuration package; trimming/AOT compatibility; privacy
   defaults (no PII in attributes, opt-in device id). First check how ingest keys
   behave for a public-client scenario (CORS, per-key service allowlists).
-- **Status page follow-ups.** Status pages (ADR-0158) show component state and
-  90-day uptime. Still missing: incidents with written updates, subscriptions,
-  custom domains and branding, a `flare status-pages` command and a Terraform
-  resource.
+- **Status page follow-ups.** Status pages (ADR-0158) and their incidents
+  (ADR-0159) are in. Still missing: subscriptions, custom domains and branding,
+  linking an incident to the components it affects, and a CLI command and
+  Terraform resource for incidents.
 - **Terraform / CLI for notification templates.** Shared templates (ADR-0148)
   are managed in Settings and by name in `flare alerts export`/`import`, but the
   Terraform provider has no `flare_alert_template` resource and the CLI no

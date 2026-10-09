@@ -130,5 +130,84 @@ public sealed record StatusDay(string Date, double? UptimePercent);
 /// <summary>One component as the public page shows it.</summary>
 public sealed record PublicStatusComponent(string Name, StatusState State, double? UptimePercent, IReadOnlyList<StatusDay> Days);
 
-/// <summary>Response body for <c>GET /api/public/status/{slug}</c>. Carries nothing internal: no ids, targets or monitor names.</summary>
-public sealed record PublicStatusPage(string Title, string Description, StatusState Overall, DateTimeOffset GeneratedAt, IReadOnlyList<PublicStatusComponent> Components);
+/// <summary>Response body for <c>GET /api/public/status/{slug}</c>. Carries nothing internal: no ids, targets or monitor names. <see cref="Incidents"/> are the open ones, then those resolved within <see cref="Status.StatusIncidents.RecentDays"/> days.</summary>
+public sealed record PublicStatusPage(string Title, string Description, StatusState Overall, DateTimeOffset GeneratedAt, IReadOnlyList<PublicStatusComponent> Components, IReadOnlyList<PublicStatusIncident> Incidents);
+
+/// <summary>Where an incident is in its life; each written update carries one, and the latest is the incident's.</summary>
+public enum StatusIncidentStatus
+{
+    Investigating,
+    Identified,
+    Monitoring,
+    Resolved,
+}
+
+/// <summary>One entry in an incident's timeline.</summary>
+public sealed record StatusIncidentUpdate(DateTimeOffset At, StatusIncidentStatus Status, string Message);
+
+/// <summary>
+/// A written incident on a <see cref="StatusPage"/>: a title and a timeline of updates (oldest first).
+/// Its status is the latest update's, and it is resolved once that update is <see cref="StatusIncidentStatus.Resolved"/>.
+/// </summary>
+public sealed record StatusIncident
+{
+    public required Guid Id { get; init; }
+
+    public required Guid PageId { get; init; }
+
+    public required string Title { get; init; }
+
+    public IReadOnlyList<StatusIncidentUpdate> Updates { get; init; } = [];
+
+    public required DateTimeOffset CreatedAt { get; init; }
+
+    public required DateTimeOffset UpdatedAt { get; init; }
+
+    public StatusIncidentStatus Status => Updates.Count == 0 ? StatusIncidentStatus.Investigating : Updates[^1].Status;
+
+    public DateTimeOffset? ResolvedAt => Status == StatusIncidentStatus.Resolved ? Updates[^1].At : null;
+}
+
+public sealed record StatusIncidentListResponse(IReadOnlyList<StatusIncident> Incidents);
+
+/// <summary>Body for <c>POST /api/status-pages/{id}/incidents</c> (opens an incident with its first update).</summary>
+public sealed record StatusIncidentRequest
+{
+    public const int MaxTitleLength = 200;
+    public const int MaxMessageLength = 4_000;
+
+    public required string Title { get; init; }
+
+    /// <summary>Defaults to <see cref="StatusIncidentStatus.Investigating"/>.</summary>
+    public StatusIncidentStatus? Status { get; init; }
+
+    public required string Message { get; init; }
+
+    public string? Validate()
+    {
+        if (string.IsNullOrWhiteSpace(Title) || Title.Trim().Length > MaxTitleLength)
+        {
+            return $"title is required and must be at most {MaxTitleLength} characters.";
+        }
+
+        return StatusIncidentUpdateRequest.ValidateMessage(Message);
+    }
+}
+
+/// <summary>Body for <c>POST /api/status-pages/{id}/incidents/{incidentId}/updates</c>.</summary>
+public sealed record StatusIncidentUpdateRequest
+{
+    public required StatusIncidentStatus Status { get; init; }
+
+    public required string Message { get; init; }
+
+    public string? Validate() => ValidateMessage(Message);
+
+    internal static string? ValidateMessage(string? message) =>
+        string.IsNullOrWhiteSpace(message) || message.Trim().Length > StatusIncidentRequest.MaxMessageLength
+            ? $"message is required and must be at most {StatusIncidentRequest.MaxMessageLength} characters."
+            : null;
+}
+
+/// <summary>An incident as the public page shows it: timeline newest first, no ids.</summary>
+public sealed record PublicStatusIncident(string Title, StatusIncidentStatus Status, DateTimeOffset StartedAt, DateTimeOffset? ResolvedAt, IReadOnlyList<StatusIncidentUpdate> Updates);

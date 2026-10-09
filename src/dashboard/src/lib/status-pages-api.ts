@@ -46,12 +46,43 @@ export interface PublicStatusComponent {
 	days: StatusDay[];
 }
 
+export type StatusIncidentStatus = 'Investigating' | 'Identified' | 'Monitoring' | 'Resolved';
+export const INCIDENT_STATUSES: StatusIncidentStatus[] = ['Investigating', 'Identified', 'Monitoring', 'Resolved'];
+
+export interface StatusIncidentUpdate {
+	at: string;
+	status: StatusIncidentStatus;
+	message: string;
+}
+
+/** Admin view: the timeline is oldest first. */
+export interface StatusIncident {
+	id: string;
+	pageId: string;
+	title: string;
+	updates: StatusIncidentUpdate[];
+	createdAt: string;
+	updatedAt: string;
+	status: StatusIncidentStatus;
+	resolvedAt: string | null;
+}
+
+/** Public view: the timeline is newest first. */
+export interface PublicStatusIncident {
+	title: string;
+	status: StatusIncidentStatus;
+	startedAt: string;
+	resolvedAt: string | null;
+	updates: StatusIncidentUpdate[];
+}
+
 export interface PublicStatusPage {
 	title: string;
 	description: string;
 	overall: StatusState;
 	generatedAt: string;
 	components: PublicStatusComponent[];
+	incidents: PublicStatusIncident[];
 }
 
 /** Lowercase letters, digits and inner hyphens, 1-64 characters. Mirrors `StatusPageRequest.IsValidSlug`. */
@@ -94,6 +125,30 @@ export async function updateStatusPage(id: string, request: StatusPageRequest): 
 export async function deleteStatusPage(id: string): Promise<void> {
 	const res = await apiFetch(`${API_BASE_URL}/api/status-pages/${id}`, { method: 'DELETE' });
 	if (!res.ok) throw await failure(res, `DELETE /api/status-pages/${id}`);
+}
+
+export async function listStatusIncidents(pageId: string): Promise<StatusIncident[]> {
+	const res = await apiFetch(`${API_BASE_URL}/api/status-pages/${pageId}/incidents`, { headers: { Accept: 'application/json' } });
+	if (!res.ok) throw await failure(res, 'GET /api/status-pages/incidents');
+	return ((await res.json()) as { incidents?: StatusIncident[] }).incidents ?? [];
+}
+
+export async function openStatusIncident(pageId: string, request: { title: string; status: StatusIncidentStatus; message: string }): Promise<StatusIncident> {
+	const res = await apiFetch(`${API_BASE_URL}/api/status-pages/${pageId}/incidents`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(request) });
+	if (!res.ok) throw await failure(res, 'POST /api/status-pages/incidents');
+	return (await res.json()) as StatusIncident;
+}
+
+export async function postStatusIncidentUpdate(pageId: string, incidentId: string, request: { status: StatusIncidentStatus; message: string }): Promise<StatusIncident> {
+	const res = await apiFetch(`${API_BASE_URL}/api/status-pages/${pageId}/incidents/${incidentId}/updates`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(request) });
+	if (!res.ok) throw await failure(res, 'POST /api/status-pages/incidents/updates');
+	return (await res.json()) as StatusIncident;
+}
+
+/** 204 No Content on success. */
+export async function deleteStatusIncident(pageId: string, incidentId: string): Promise<void> {
+	const res = await apiFetch(`${API_BASE_URL}/api/status-pages/${pageId}/incidents/${incidentId}`, { method: 'DELETE' });
+	if (!res.ok) throw await failure(res, 'DELETE /api/status-pages/incidents');
 }
 
 /** Null when no enabled page has this slug. Sends no credentials: the endpoint is public. */

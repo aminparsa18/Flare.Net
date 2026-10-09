@@ -21,6 +21,10 @@ public static class StatusPageEndpoints
         endpoints.MapGet("/api/status-pages/{id:guid}", HandleGetAsync);
         endpoints.MapPut("/api/status-pages/{id:guid}", HandleUpdateAsync);
         endpoints.MapDelete("/api/status-pages/{id:guid}", HandleDeleteAsync);
+        endpoints.MapGet("/api/status-pages/{id:guid}/incidents", HandleListIncidentsAsync);
+        endpoints.MapPost("/api/status-pages/{id:guid}/incidents", HandleOpenIncidentAsync);
+        endpoints.MapPost("/api/status-pages/{id:guid}/incidents/{incidentId:guid}/updates", HandleUpdateIncidentAsync);
+        endpoints.MapDelete("/api/status-pages/{id:guid}/incidents/{incidentId:guid}", HandleDeleteIncidentAsync);
         return endpoints;
     }
 
@@ -93,6 +97,57 @@ public static class StatusPageEndpoints
         return page is null ? Results.NotFound() : Results.Json(page, StatusPagesJsonContext.Default.StatusPage);
     }
 
+    private static async Task<IResult> HandleListIncidentsAsync(Guid id, IStatusPageQueryService pages, IStatusIncidentQueryService incidents, CancellationToken cancellationToken) =>
+        await pages.GetAsync(id, cancellationToken) is null
+            ? Results.NotFound()
+            : Results.Json(new StatusIncidentListResponse(await incidents.ListAsync(id, cancellationToken)), StatusPagesJsonContext.Default.StatusIncidentListResponse);
+
+    private static async Task<IResult> HandleOpenIncidentAsync(Guid id, HttpContext http, IStatusPageQueryService pages, IStatusIncidentQueryService incidents, TimeProvider time, CancellationToken cancellationToken)
+    {
+        var (request, problem) = await ReadBodyAsync(http, StatusPagesJsonContext.Default.StatusIncidentRequest, r => r.Validate(), cancellationToken);
+        if (problem is not null)
+        {
+            return problem;
+        }
+
+        if (await pages.GetAsync(id, cancellationToken) is null)
+        {
+            return Results.NotFound();
+        }
+
+        var incident = StatusIncidents.Open(id, request!, time.GetUtcNow());
+        await incidents.SaveAsync(incident, cancellationToken);
+        AuditContext.SetResourceId(http, incident.Id);
+        return Results.Json(incident, StatusPagesJsonContext.Default.StatusIncident, statusCode: StatusCodes.Status201Created);
+    }
+
+    private static async Task<IResult> HandleUpdateIncidentAsync(Guid id, Guid incidentId, HttpContext http, IStatusIncidentQueryService incidents, TimeProvider time, CancellationToken cancellationToken)
+    {
+        var (request, problem) = await ReadBodyAsync(http, StatusPagesJsonContext.Default.StatusIncidentUpdateRequest, r => r.Validate(), cancellationToken);
+        if (problem is not null)
+        {
+            return problem;
+        }
+
+        var existing = await incidents.GetAsync(id, incidentId, cancellationToken);
+        if (existing is null)
+        {
+            return Results.NotFound();
+        }
+
+        var (updated, error) = StatusIncidents.AddUpdate(existing, request!, time.GetUtcNow());
+        if (updated is null)
+        {
+            return Results.Problem(error, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        await incidents.SaveAsync(updated, cancellationToken);
+        return Results.Json(updated, StatusPagesJsonContext.Default.StatusIncident);
+    }
+
+    private static async Task<IResult> HandleDeleteIncidentAsync(Guid id, Guid incidentId, IStatusIncidentQueryService incidents, CancellationToken cancellationToken) =>
+        await incidents.DeleteAsync(id, incidentId, cancellationToken) ? Results.NoContent() : Results.NotFound();
+
     private static async Task<IResult> HandleDeleteAsync(Guid id, IStatusPageQueryService pages, CancellationToken cancellationToken) =>
         await pages.DeleteAsync(id, cancellationToken) ? Results.NoContent() : Results.NotFound();
 
@@ -153,5 +208,30 @@ public static class StatusPageEndpoints
         }
 
         return (request, null);
+    }
+
+    private static async Task<(T? Body, IResult? Problem)> ReadBodyAsync<T>(
+        HttpContext http,
+        System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo,
+        Func<T, string?> validate,
+        CancellationToken cancellationToken)
+        where T : class
+    {
+        T? body;
+        try
+        {
+            body = await ApiSerialization.ReadAsync(http, typeInfo, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            return (null, Results.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest));
+        }
+
+        if (body is null)
+        {
+            return (null, Results.Problem("Request body is required.", statusCode: StatusCodes.Status400BadRequest));
+        }
+
+        return validate(body) is { } error ? (null, Results.Problem(error, statusCode: StatusCodes.Status400BadRequest)) : (body, null);
     }
 }

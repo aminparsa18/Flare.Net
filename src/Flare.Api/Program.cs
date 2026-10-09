@@ -433,6 +433,7 @@ builder.Services.AddSingleton<ISyntheticMonitorQueryService, SyntheticMonitorQue
 builder.Services.AddSingleton<ISloQueryService, SloQueryService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IStatusPageQueryService, StatusPageQueryService>();
+builder.Services.AddSingleton<IStatusIncidentQueryService, StatusIncidentQueryService>();
 builder.Services.AddSingleton<IPublicStatusService, PublicStatusService>();
 builder.Services.AddSingleton<IErrorIssueQueryService, ErrorIssueQueryService>();
 

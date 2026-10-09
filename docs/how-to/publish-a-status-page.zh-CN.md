@@ -33,6 +33,38 @@ curl -X POST "$FLARE_API/api/status-pages" \
 
 顶部横幅显示各组件中最差的状态。每个组件还有一条最多 90 天的条形图，每个 UTC 日一段：可用率 99.9% 及以上为绿色，95% 及以上为琥珀色，低于 95% 为红色。监控的某一天是探测成功的比例，SLO 的某一天是正常事件的比例，且 SLO 显示的天数不超过它自己的窗口。
 
+## 通过 CLI 或 Terraform 管理页面
+
+两者都需要 Admin 角色。
+
+```bash
+flare status-pages create acme-public --title 'Acme status' \
+  --component 'API=slo:<slo-id>' --component 'Website=monitor:<monitor-id>' --enabled true
+flare status-pages list
+flare status-pages update <id> --enabled false
+```
+
+`update` 只修改你传入的选项；`--component` 会替换所有组件。
+
+使用 Flare 的 Terraform / OpenTofu provider：
+
+```hcl
+resource "flare_status_page" "public" {
+  slug    = "acme-public"
+  title   = "Acme status"
+  enabled = true
+  components = [
+    { name = "API", kind = "Slo", ref_id = flare_slo.api.id },
+  ]
+}
+```
+
+## 发布事件
+
+计算得出的健康状态说明哪些服务正常；事件则用你自己的话说明原因。在 **Settings > Status pages** 中打开页面的 **Incidents** 对话框，用标题、状态（Investigating、Identified、Monitoring 或 Resolved）和消息报告事件，之后随进展发布更新。发布 **Resolved** 更新即关闭该事件。
+
+未解决的事件显示在公开页面组件的上方，已解决的事件保留 14 天。事件不会改变计算出的状态或横幅。API 为 `/api/status-pages/{id}/incidents`；更新内容是公开的，请勿包含机密。
+
 ## 注意事项
 
 - 任何能访问该实例的人都能看到此页面。取消发布或删除页面即可立即让链接失效。

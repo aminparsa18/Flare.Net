@@ -33,6 +33,38 @@ curl -X POST "$FLARE_API/api/status-pages" \
 
 La bannière du haut affiche le pire état parmi les composants. Chaque composant a aussi une barre de 90 jours au plus, un segment par jour UTC : vert à 99,9 % ou plus, ambre à 95 % ou plus, rouge en dessous. Le jour d'un moniteur est la part de sondes réussies. Le jour d'un SLO est la part d'événements corrects, et un SLO n'affiche pas plus de jours que sa propre fenêtre.
 
+## Gérer les pages depuis la CLI ou Terraform
+
+Les deux exigent un rôle Admin.
+
+```bash
+flare status-pages create acme-public --title 'Acme status' \
+  --component 'API=slo:<slo-id>' --component 'Website=monitor:<monitor-id>' --enabled true
+flare status-pages list
+flare status-pages update <id> --enabled false
+```
+
+`update` ne modifie que les options passées ; `--component` remplace tous les composants.
+
+Avec le provider Terraform / OpenTofu de Flare :
+
+```hcl
+resource "flare_status_page" "public" {
+  slug    = "acme-public"
+  title   = "Acme status"
+  enabled = true
+  components = [
+    { name = "API", kind = "Slo", ref_id = flare_slo.api.id },
+  ]
+}
+```
+
+## Publier des incidents
+
+L'état calculé dit ce qui fonctionne ; un incident explique pourquoi, avec vos mots. Dans **Paramètres > Pages de statut**, ouvrez la boîte **Incidents** d'une page, signalez un incident avec un titre, un statut (Investigating, Identified, Monitoring ou Resolved) et un message, puis publiez des mises à jour au fil de l'eau. Une mise à jour **Resolved** le clôt.
+
+Les incidents ouverts s'affichent au-dessus des composants sur la page publique, et les incidents résolus y restent 14 jours. Les incidents ne modifient ni l'état calculé ni la bannière. L'API est `/api/status-pages/{id}/incidents` ; le texte des mises à jour est public, n'y mettez donc aucun secret.
+
 ## À savoir
 
 - La page est publique pour toute personne pouvant joindre l'instance. Dépubliez-la ou supprimez-la pour désactiver le lien immédiatement.

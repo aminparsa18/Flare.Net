@@ -33,6 +33,38 @@ curl -X POST "$FLARE_API/api/status-pages" \
 
 Баннер вверху показывает худшее состояние среди компонентов. У каждого компонента также есть полоса до 90 дней, по одному сегменту на день UTC: зелёный при 99,9% и выше, жёлтый при 95% и выше, красный ниже. День монитора — доля успешных проверок. День SLO — доля хороших событий, и SLO показывает не больше дней, чем его окно.
 
+## Управление страницами из CLI или Terraform
+
+Для обоих нужна роль Admin.
+
+```bash
+flare status-pages create acme-public --title 'Acme status' \
+  --component 'API=slo:<slo-id>' --component 'Website=monitor:<monitor-id>' --enabled true
+flare status-pages list
+flare status-pages update <id> --enabled false
+```
+
+`update` меняет только переданные опции; `--component` заменяет все компоненты.
+
+С провайдером Flare для Terraform / OpenTofu:
+
+```hcl
+resource "flare_status_page" "public" {
+  slug    = "acme-public"
+  title   = "Acme status"
+  enabled = true
+  components = [
+    { name = "API", kind = "Slo", ref_id = flare_slo.api.id },
+  ]
+}
+```
+
+## Публикация инцидентов
+
+Вычисленное состояние показывает, что работает; инцидент объясняет почему, вашими словами. В **Settings > Status pages** откройте диалог **Incidents** страницы, сообщите об инциденте с заголовком, статусом (Investigating, Identified, Monitoring или Resolved) и сообщением, затем публикуйте обновления по мере развития. Обновление **Resolved** закрывает инцидент.
+
+Открытые инциденты показываются над компонентами на публичной странице, решённые остаются на ней 14 дней. Инциденты не меняют вычисленное состояние и баннер. API: `/api/status-pages/{id}/incidents`; текст обновлений публичный, не включайте в него секреты.
+
 ## Что важно знать
 
 - Страница публична для всех, кто имеет доступ к экземпляру. Снимите публикацию или удалите страницу, чтобы ссылка перестала работать сразу.

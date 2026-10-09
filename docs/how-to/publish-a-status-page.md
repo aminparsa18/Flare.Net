@@ -33,6 +33,38 @@ curl -X POST "$FLARE_API/api/status-pages" \
 
 The banner at the top shows the worst state among the components. Each component also has a bar of up to 90 days, one segment per UTC day, green at 99.9% or more, amber at 95% or more and red below that. A monitor's day is the share of probes that were up. An SLO's day is the share of good events, and an SLO shows only as many days as its own window.
 
+## Manage pages from the CLI or Terraform
+
+Both need an Admin.
+
+```bash
+flare status-pages create acme-public --title 'Acme status' \
+  --component 'API=slo:<slo-id>' --component 'Website=monitor:<monitor-id>' --enabled true
+flare status-pages list
+flare status-pages update <id> --enabled false
+```
+
+`update` changes only the options you pass; `--component` replaces all components.
+
+With the Flare Terraform / OpenTofu provider:
+
+```hcl
+resource "flare_status_page" "public" {
+  slug    = "acme-public"
+  title   = "Acme status"
+  enabled = true
+  components = [
+    { name = "API", kind = "Slo", ref_id = flare_slo.api.id },
+  ]
+}
+```
+
+## Post incidents
+
+Computed health says what is up; an incident says why, in your words. In **Settings > Status pages**, open a page's **Incidents** dialog, report an incident with a title, a status (Investigating, Identified, Monitoring or Resolved) and a message, then post further updates as it progresses. Posting a **Resolved** update closes it.
+
+Open incidents show above the components on the public page, and resolved ones stay for 14 days. Incidents do not change the computed state or the banner. The API is `/api/status-pages/{id}/incidents`; update text is public, so keep secrets out of it.
+
 ## Things to know
 
 - The page is public to anyone who can reach the instance. Unpublish or delete it to take the link down at once.

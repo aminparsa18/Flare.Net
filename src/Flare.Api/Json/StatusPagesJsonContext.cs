@@ -15,4 +15,9 @@ namespace Flare.Api.Json;
 [JsonSerializable(typeof(StatusPageListResponse))]
 [JsonSerializable(typeof(PublicStatusPage))]
 [JsonSerializable(typeof(IReadOnlyList<StatusPageComponent>))]
+[JsonSerializable(typeof(StatusIncidentRequest))]
+[JsonSerializable(typeof(StatusIncidentUpdateRequest))]
+[JsonSerializable(typeof(StatusIncident))]
+[JsonSerializable(typeof(StatusIncidentListResponse))]
+[JsonSerializable(typeof(IReadOnlyList<StatusIncidentUpdate>))]
 public sealed partial class StatusPagesJsonContext : JsonSerializerContext;

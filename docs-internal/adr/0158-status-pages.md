@@ -57,6 +57,5 @@ read-only page they can hand out: what is up, what is not, and how the last thre
 
 ## Not decided here
 
-- **Incidents and announcements** (a status history with written updates), subscriptions, custom domains and
-  branding. Each can be added without changing this shape.
-- A `flare status-pages` CLI command and a Terraform resource.
+- Subscriptions, custom domains and branding. Each can be added without changing this shape.
+- Incidents and announcements: see [ADR-0159](0159-status-page-incidents.md).
