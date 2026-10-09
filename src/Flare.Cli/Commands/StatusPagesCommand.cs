@@ -102,6 +102,10 @@ internal sealed class StatusPagesCreateCommand : AsyncCommand<StatusPagesCreateC
         [Description("A row as 'Display name=monitor:<id>' or 'Display name=slo:<id>'. Repeat for several. On update, replaces all existing components.")]
         public string[]? Components { get; init; }
 
+        [CommandOption("--subscriber <CHANNEL_ID>")]
+        [Description("A notification channel id (see `flare notification-channels list`) to tell about every incident on this page. Repeat for several. Webhook, Slack, Telegram, email, Teams or Discord channels only.")]
+        public string[]? Subscribers { get; init; }
+
         [CommandOption("--enabled <BOOL>")]
         [Description("true publishes the page to anyone with the URL. Defaults to false.")]
         public bool? Enabled { get; init; }
@@ -129,6 +133,12 @@ internal sealed class StatusPagesCreateCommand : AsyncCommand<StatusPagesCreateC
             return 1;
         }
 
+        if (!StatusPageFormat.TryParseSubscribers(settings.Subscribers, out var subscribers, out var subscriberError))
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(subscriberError)}");
+            return 1;
+        }
+
         var request = new StatusPageRequestWire
         {
             Slug = settings.Slug,
@@ -136,6 +146,7 @@ internal sealed class StatusPagesCreateCommand : AsyncCommand<StatusPagesCreateC
             Description = settings.Description,
             Enabled = settings.Enabled,
             Components = components,
+            SubscriberChannelIds = subscribers,
         };
 
         var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
@@ -197,6 +208,10 @@ internal sealed class StatusPagesUpdateCommand : AsyncCommand<StatusPagesUpdateC
         [Description("A row as 'Display name=monitor:<id>' or 'Display name=slo:<id>'. Repeat for several. Replaces all existing components.")]
         public string[]? Components { get; init; }
 
+        [CommandOption("--subscriber <CHANNEL_ID>")]
+        [Description("A notification channel id to tell about every incident on this page. Repeat for several. Replaces all existing subscribers; omit to leave them as they are.")]
+        public string[]? Subscribers { get; init; }
+
         [CommandOption("--enabled <BOOL>")]
         [Description("true or false.")]
         public bool? Enabled { get; init; }
@@ -215,6 +230,12 @@ internal sealed class StatusPagesUpdateCommand : AsyncCommand<StatusPagesUpdateC
         if (settings.Components is { Length: > 0 } && !StatusPageFormat.TryParseComponents(settings.Components, out components, out var error))
         {
             AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(error)}");
+            return 1;
+        }
+
+        if (!StatusPageFormat.TryParseSubscribers(settings.Subscribers, out var subscribers, out var subscriberError))
+        {
+            AnsiConsole.MarkupLine($"[red]✗[/] {Markup.Escape(subscriberError)}");
             return 1;
         }
 
@@ -250,6 +271,7 @@ internal sealed class StatusPagesUpdateCommand : AsyncCommand<StatusPagesUpdateC
                 Description = settings.Description ?? existing.Description,
                 Enabled = settings.Enabled ?? existing.Enabled,
                 Components = components ?? existing.Components,
+                SubscriberChannelIds = subscribers,
             };
 
             using var putResponse = await http.PutAsJsonAsync($"/api/status-pages/{settings.Id}", request, WireJsonOptions.Instance, cancellationToken);
@@ -340,6 +362,32 @@ internal sealed class StatusPagesDeleteCommand : AsyncCommand<StatusPagesDeleteC
 internal static class StatusPageFormat
 {
     /// <summary>Parses <c>Name=monitor:&lt;guid&gt;</c> / <c>Name=slo:&lt;guid&gt;</c> into wire components.</summary>
+    /// <summary>Parses repeated <c>--subscriber</c> channel ids; null (none given) stays null so an update leaves subscribers alone.</summary>
+    public static bool TryParseSubscribers(IEnumerable<string>? values, out List<Guid>? ids, out string error)
+    {
+        ids = null;
+        error = "";
+        if (values is null)
+        {
+            return true;
+        }
+
+        var parsed = new List<Guid>();
+        foreach (var value in values)
+        {
+            if (!Guid.TryParse(value, out var id))
+            {
+                error = $"--subscriber '{value}' is not a channel id (a GUID).";
+                return false;
+            }
+
+            parsed.Add(id);
+        }
+
+        ids = parsed;
+        return true;
+    }
+
     public static bool TryParseComponents(IEnumerable<string> values, out List<StatusPageComponentWire> components, out string error)
     {
         components = [];
@@ -391,6 +439,8 @@ internal sealed class StatusPageWire
     public bool Enabled { get; init; }
 
     public List<StatusPageComponentWire> Components { get; init; } = [];
+
+    public List<Guid> SubscriberChannelIds { get; init; } = [];
 }
 
 internal sealed class StatusPageListResponseWire
@@ -409,4 +459,7 @@ internal sealed class StatusPageRequestWire
     public bool? Enabled { get; init; }
 
     public List<StatusPageComponentWire>? Components { get; init; }
+
+    /// <summary>Null leaves an existing page's subscribers untouched; an empty list clears them.</summary>
+    public List<Guid>? SubscriberChannelIds { get; init; }
 }

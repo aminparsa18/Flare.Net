@@ -28,6 +28,31 @@ public class StatusPageComponentParseTests
     }
 }
 
+public class StatusPageSubscriberParseTests
+{
+    [Fact]
+    public void None_StaysNull_SoUpdateLeavesSubscribersAlone()
+    {
+        Assert.True(StatusPageFormat.TryParseSubscribers(null, out var ids, out _));
+        Assert.Null(ids);
+    }
+
+    [Fact]
+    public void Parses_ChannelIds()
+    {
+        var id = Guid.NewGuid();
+        Assert.True(StatusPageFormat.TryParseSubscribers([id.ToString()], out var ids, out _));
+        Assert.Equal([id], ids);
+    }
+
+    [Fact]
+    public void Rejects_NonGuid()
+    {
+        Assert.False(StatusPageFormat.TryParseSubscribers(["slack"], out _, out var error));
+        Assert.Contains("--subscriber", error);
+    }
+}
+
 public class StatusIncidentCliTests
 {
     [Theory]

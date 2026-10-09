@@ -52,6 +52,9 @@ public sealed record StatusPage
 
     public IReadOnlyList<StatusPageComponent> Components { get; init; } = [];
 
+    /// <summary>Saved notification channels (ADR-0161) that hear about every incident opened or updated on this page.</summary>
+    public IReadOnlyList<Guid> SubscriberChannelIds { get; init; } = [];
+
     public required DateTimeOffset CreatedAt { get; init; }
 
     public required DateTimeOffset UpdatedAt { get; init; }
@@ -66,6 +69,7 @@ public sealed record StatusPageRequest
     public const int MaxDescriptionLength = 1_000;
     public const int MaxComponents = 50;
     public const int MaxComponentNameLength = 100;
+    public const int MaxSubscribers = 20;
 
     public required string Slug { get; init; }
 
@@ -76,6 +80,9 @@ public sealed record StatusPageRequest
     public bool? Enabled { get; init; }
 
     public IReadOnlyList<StatusPageComponent>? Components { get; init; }
+
+    /// <summary>Null leaves an existing page's subscribers as they are; an empty list clears them.</summary>
+    public IReadOnlyList<Guid>? SubscriberChannelIds { get; init; }
 
     /// <summary>Lowercase letters, digits and inner hyphens, 1-64 characters: safe in a URL path with no escaping.</summary>
     public static bool IsValidSlug(string slug) =>
@@ -99,6 +106,11 @@ public sealed record StatusPageRequest
         if ((Description?.Length ?? 0) > MaxDescriptionLength)
         {
             return $"description must be at most {MaxDescriptionLength} characters.";
+        }
+
+        if ((SubscriberChannelIds?.Count ?? 0) > MaxSubscribers)
+        {
+            return $"a page can have at most {MaxSubscribers} subscribed channels.";
         }
 
         var components = Components ?? [];

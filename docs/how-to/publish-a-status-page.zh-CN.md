@@ -65,6 +65,10 @@ resource "flare_status_page" "public" {
 
 未解决的事件显示在公开页面组件的上方，已解决的事件保留 14 天。事件不会改变计算出的状态或横幅。API 为 `/api/status-pages/{id}/incidents`；更新内容是公开的，请勿包含机密。 勾选事件影响的组件，公开页面会在事件旁列出它们；API 的 `components` 字段接受它们的监控或 SLO id，后续更新可修改该列表。这只是标注，组件的计算状态不会改变。
 
+### 通知渠道
+
+页面可以在事件被创建或更新时通知你自己的渠道。在页面编辑器的 **事件通知** 下添加渠道，或向 `flare status-pages create` / `update` 传入 `--subscriber <渠道 id>`（可重复）；API 字段为 `subscriberChannelIds`。每次更新都会以消息发送，包含页面、状态、事件标题、你的文字、受影响的组件以及公开页面链接。仅支持 Webhook（含 Slack）、Telegram、邮件、Teams 和 Discord 渠道；发送失败只会记录日志，不会阻止更新发布。链接需要设置 `Alerting__PublicUrl`。这些是你自己的渠道，不是面向访客的订阅表单。
+
 ## 注意事项
 
 - 任何能访问该实例的人都能看到此页面。取消发布或删除页面即可立即让链接失效。

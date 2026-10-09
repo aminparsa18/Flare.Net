@@ -20,6 +20,8 @@ export interface StatusPage {
 	description: string;
 	enabled: boolean;
 	components: StatusPageComponent[];
+	/** Notification channel ids told about every incident on this page (ADR-0161). */
+	subscriberChannelIds: string[];
 	createdAt: string;
 	updatedAt: string;
 }
@@ -30,6 +32,8 @@ export interface StatusPageRequest {
 	description: string;
 	enabled: boolean;
 	components: StatusPageComponent[];
+	/** Omit to leave an existing page's subscribers as they are. */
+	subscriberChannelIds?: string[];
 }
 
 export interface StatusDay {

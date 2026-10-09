@@ -65,6 +65,10 @@ L'état calculé dit ce qui fonctionne ; un incident explique pourquoi, avec vos
 
 Les incidents ouverts s'affichent au-dessus des composants sur la page publique, et les incidents résolus y restent 14 jours. Les incidents ne modifient ni l'état calculé ni la bannière. L'API est `/api/status-pages/{id}/incidents` ; le texte des mises à jour est public, n'y mettez donc aucun secret. Cochez les composants touchés par un incident et la page publique les nomme à côté ; le champ `components` de l'API prend leurs ids de moniteur ou de SLO, et une mise à jour ultérieure peut modifier la liste. C'est une simple étiquette : l'état calculé du composant ne change pas.
 
+### Notifier des canaux
+
+Une page peut prévenir vos propres canaux lorsqu'un incident est ouvert ou mis à jour. Dans l'éditeur de la page, ajoutez des canaux sous **Notifications d'incident**, ou passez `--subscriber <id-du-canal>` (répétable) à `flare status-pages create` ou `update` ; le champ d'API est `subscriberChannelIds`. Chaque mise à jour part sous forme de message avec la page, le statut, le titre de l'incident, votre texte, les composants touchés et un lien vers la page publique. Seuls les canaux webhook (Slack inclus), Telegram, e-mail, Teams et Discord conviennent ; un échec d'envoi est journalisé et ne bloque jamais la publication de la mise à jour. Le lien demande `Alerting__PublicUrl`. Ce sont vos canaux, pas un formulaire d'inscription pour les visiteurs.
+
 ## À savoir
 
 - La page est publique pour toute personne pouvant joindre l'instance. Dépubliez-la ou supprimez-la pour désactiver le lien immédiatement.
