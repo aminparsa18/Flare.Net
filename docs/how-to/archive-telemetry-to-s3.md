@@ -5,10 +5,22 @@ long-term keeping or for analysis in tools such as DuckDB, Athena or Spark. The 
 the archive is a copy. To keep old data *queryable* on cheap storage instead, see
 [Set data retention](set-data-retention.md).
 
-## Turn it on
+## Turn it on in the dashboard
 
-Create a bucket (for example in RustFS or MinIO), then set these on **Flare.AlertWorker**. With the
-standalone compose stack, put them in `.env`:
+Create a bucket (for example in RustFS or MinIO), then open **Settings > Workspace > Telemetry export**
+(admins only), fill in the **Archive** form (bucket URL, access key, secret key, prefix, format and signals),
+switch **Archive enabled** on and save. The archive worker re-reads its settings on every poll (every five
+minutes by default), so no restart is needed. Keys are hidden once saved; leave them as they are to keep them.
+
+Saved settings **replace** the worker's `Archive` configuration as a whole, not field by field, until you choose
+**Reset to configuration**, which deletes them. The form shows whether the archive is active and whether it is
+using the saved settings or the configuration.
+
+Use a different bucket from the cold-storage one.
+
+## Or turn it on in files
+
+Set these on **Flare.AlertWorker** instead. With the standalone compose stack, put them in `.env`:
 
 ```bash
 FLARE_ARCHIVE_ENABLED=true
@@ -16,8 +28,6 @@ FLARE_ARCHIVE_ENDPOINT=http://rustfs:9000/flare-archive   # path-style bucket UR
 FLARE_ARCHIVE_ACCESS_KEY=...
 FLARE_ARCHIVE_SECRET_KEY=...
 ```
-
-Use a different bucket from the cold-storage one.
 
 | Setting (`Archive__…`) | Default | Meaning |
 |---|---|---|
@@ -30,6 +40,13 @@ Use a different bucket from the cold-storage one.
 | `Lag` | `00:10:00` | How long after an hour ends it is exported. |
 | `PollInterval` | `00:05:00` | How often to look for finished hours. |
 | `MaxWindowsPerPoll` | `6` | Hours exported per table per poll while catching up. |
+
+## Check its progress
+
+The **Export status** table on the Telemetry export page, and the **Archive** card on the Ingestion page
+(visible to every signed-in user, shown only while the archive is active), list for each table the last hour
+exported, the rows it held, when it last succeeded and the last error, such as an unreachable bucket or wrong
+credentials. An error stays visible until the next successful export; the worker retries every poll.
 
 ## What gets written
 
@@ -54,4 +71,4 @@ Read it back, for example with DuckDB: `SELECT * FROM read_parquet('s3://flare-a
 - Profiles and Flare's own configuration tables are not archived.
 - The credentials are sent to ClickHouse inside the export statement, so they appear in its query log.
 
-Design notes: [ADR-0156](../../docs-internal/adr/0156-telemetry-archive-s3.md).
+Design notes: [ADR-0156](../../docs-internal/adr/0156-telemetry-archive-s3.md), [ADR-0157](../../docs-internal/adr/0157-managed-telemetry-export.md).

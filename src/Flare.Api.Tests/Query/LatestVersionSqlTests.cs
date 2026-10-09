@@ -33,4 +33,15 @@ public class LatestVersionSqlTests
 
         Assert.EndsWith("LIMIT 1 BY Id) WHERE IsDeleted = 0 AND Enabled = 1 ORDER BY Name", sql);
     }
+
+    [Fact]
+    public void Select_IdWhere_MayFilterOnAColumnTheProjectionOmits()
+    {
+        // telemetry_exports lists one Kind without projecting it; the outer SELECT must not mention Kind
+        // (it was in latestWhere once, which ClickHouse rejects as an unknown identifier).
+        var sql = LatestVersionSql.Select("telemetry_exports", "Id, Name", idWhere: "Kind = 0", orderBy: "Name");
+
+        Assert.Contains("FROM telemetry_exports WHERE Kind = 0 ORDER BY UpdatedAt DESC LIMIT 1 BY Id)", sql);
+        Assert.EndsWith("WHERE IsDeleted = 0 ORDER BY Name", sql);
+    }
 }

@@ -80,7 +80,7 @@ public sealed class TelemetryExportQueryService(IClickHouseClient client, IOptio
 
     public async Task<IReadOnlyList<ForwardingTarget>> ListForwardingAsync(CancellationToken cancellationToken)
     {
-        var sql = LatestVersionSql.Select("telemetry_exports", Columns, latestWhere: $"Kind = {ForwardingKind}", orderBy: "Name");
+        var sql = LatestVersionSql.Select("telemetry_exports", Columns, idWhere: $"Kind = {ForwardingKind}", orderBy: "Name");
         await using var reader = await client.ExecuteReaderAsync(sql, null, SafetyOptions(), cancellationToken);
         var targets = new List<ForwardingTarget>();
         while (reader.Read())

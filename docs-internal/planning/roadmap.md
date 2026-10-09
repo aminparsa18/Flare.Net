@@ -58,10 +58,8 @@ folders are where "what happened and why" actually lives.
   with OpenTofu acceptance tests against a live stack. `minServerVersion` is set to 0.6.0
   (assumed next release; fix it if the release is numbered differently). Remaining:
   registry publishing. In progress.
-- **Forwarding and archive follow-ups.** OTLP forwarding (ADR-0155) and the S3
-  archive (ADR-0156) shipped config-only. Open: a managed UI/API for forwarding
-  targets and archive settings, a durable (Redis-backed) forwarding queue, and
-  archive status on the Ingestion page (last exported hour, failures).
+- **Forwarding and archive as code.** The managed forwarding targets and archive settings (ADR-0157) have no
+  Terraform resources or `flare` CLI commands yet, so they can only be changed from the dashboard or API.
 - **.NET MAUI / mobile SDK (later).** No client-app signal exists beyond what a
   hand-wired OTel exporter sends. Phase 1 is a docs how-to ("Send telemetry
   from a MAUI app to Flare") using stock `OpenTelemetry` packages, since OTLP

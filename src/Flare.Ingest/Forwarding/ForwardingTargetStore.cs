@@ -5,7 +5,26 @@ using ClickHouse.Driver;
 namespace Flare.Ingest.Forwarding;
 
 /// <summary>A forwarding target saved from the dashboard (ADR-0157), as Flare.Ingest runs it.</summary>
-public sealed record ManagedForwardingTarget(Guid Id, ForwardingTargetOptions Options);
+public sealed record ManagedForwardingTarget(Guid Id, ForwardingTargetOptions Options)
+{
+    /// <summary>Builds a target from a <c>telemetry_exports</c> row; null when <paramref name="configJson"/> is the JSON <c>null</c>.</summary>
+    public static ManagedForwardingTarget? FromRow(Guid id, string name, string configJson)
+    {
+        var config = JsonSerializer.Deserialize(configJson, ForwardingConfigJsonContext.Default.ForwardingConfigJson);
+        return config is null
+            ? null
+            : new ManagedForwardingTarget(id, new ForwardingTargetOptions
+            {
+                Name = name,
+                Endpoint = config.Endpoint ?? "",
+                Headers = config.Headers ?? [],
+                Signals = config.Signals ?? [],
+                Services = config.Services ?? [],
+                IngestKeyIds = config.IngestKeyIds ?? [],
+                Gzip = config.Gzip ?? true,
+            });
+    }
+}
 
 public interface IForwardingTargetStore
 {
@@ -15,17 +34,19 @@ public interface IForwardingTargetStore
 /// <summary>The <c>ConfigJson</c> of a forwarding row - mirrors Flare.Api's <c>ForwardingConfig</c>.</summary>
 internal sealed record ForwardingConfigJson
 {
-    public string Endpoint { get; init; } = "";
+    public string? Endpoint { get; init; }
 
-    public Dictionary<string, string> Headers { get; init; } = [];
+    // Nullable with the defaults applied in FromRow: the source-generated deserializer leaves an absent
+    // property null rather than keeping its initializer.
+    public Dictionary<string, string>? Headers { get; init; }
 
-    public List<ForwardingSignal> Signals { get; init; } = [];
+    public List<ForwardingSignal>? Signals { get; init; }
 
-    public List<string> Services { get; init; } = [];
+    public List<string>? Services { get; init; }
 
-    public List<Guid> IngestKeyIds { get; init; } = [];
+    public List<Guid>? IngestKeyIds { get; init; }
 
-    public bool Gzip { get; init; } = true;
+    public bool? Gzip { get; init; }
 }
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UseStringEnumConverter = true)]
@@ -57,22 +78,10 @@ public sealed class ClickHouseForwardingTargetStore(IClickHouseClient client) : 
         var targets = new List<ManagedForwardingTarget>();
         while (reader.Read())
         {
-            var config = JsonSerializer.Deserialize(reader.GetString(2), ForwardingConfigJsonContext.Default.ForwardingConfigJson);
-            if (config is null)
+            if (ManagedForwardingTarget.FromRow(reader.GetGuid(0), reader.GetString(1), reader.GetString(2)) is { } target)
             {
-                continue;
+                targets.Add(target);
             }
-
-            targets.Add(new ManagedForwardingTarget(reader.GetGuid(0), new ForwardingTargetOptions
-            {
-                Name = reader.GetString(1),
-                Endpoint = config.Endpoint,
-                Headers = config.Headers,
-                Signals = config.Signals,
-                Services = config.Services,
-                IngestKeyIds = config.IngestKeyIds,
-                Gzip = config.Gzip,
-            }));
         }
 
         return targets;

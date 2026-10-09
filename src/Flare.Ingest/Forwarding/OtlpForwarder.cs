@@ -298,9 +298,12 @@ public sealed class OtlpForwarder : BackgroundService, IOtlpForwarder
         return [.. entries.Where(e => !e.IsNull)];
     }
 
-    private bool Expired(StreamEntry entry) =>
-        long.TryParse(entry.Id.ToString().Split('-')[0], CultureInfo.InvariantCulture, out var ms)
-        && _time.GetUtcNow() - DateTimeOffset.FromUnixTimeMilliseconds(ms) > _options.MaxAge;
+    private bool Expired(StreamEntry entry) => IsExpired(entry.Id.ToString(), _time.GetUtcNow(), _options.MaxAge);
+
+    /// <summary>A Redis stream id is <c>&lt;enqueue-ms&gt;-&lt;seq&gt;</c>, so the queue entry's age needs no extra field.</summary>
+    public static bool IsExpired(string streamEntryId, DateTimeOffset now, TimeSpan maxAge) =>
+        long.TryParse(streamEntryId.Split('-')[0], CultureInfo.InvariantCulture, out var ms)
+        && now - DateTimeOffset.FromUnixTimeMilliseconds(ms) > maxAge;
 
     private async Task<(Outcome, string?)> DeliverAsync(HttpClient http, Target target, StreamEntry entry, CancellationToken ct)
     {
