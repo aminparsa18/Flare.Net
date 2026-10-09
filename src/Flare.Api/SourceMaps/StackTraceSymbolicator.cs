@@ -114,7 +114,7 @@ public sealed class StackTraceSymbolicator(ISourceMapStore store) : IStackTraceS
             ? (stacktrace, false)
             : NativeAotStackTrace.Rewrite(stacktrace, frame =>
             {
-                var hits = files.Select(f => f.Lookup(frame.Method, frame.Offset)).Where(h => h is not null).Distinct().ToList();
+                var hits = files.Select(f => f.Lookup(frame.Method, frame.Arguments, frame.Offset)).Where(h => h is not null).Distinct().ToList();
                 return hits.Count == 1 ? hits[0] : null;
             });
     }

@@ -69,6 +69,6 @@ folders are where "what happened and why" actually lives.
   Sessions page, and app-version facets on `/errors`. Remaining there: a rollup table if long
   windows prove slow. The per-session timeline is done (ADR-0170). Trimmed/Mono
   stack traces are symbolicated from uploaded dll+PDB symbols (ADR-0168); Native AOT frames on
-  iOS/macOS are covered from the `.dSYM`; remaining there: overloaded AOT methods (unresolved), ELF/PDB
+  iOS/macOS are covered from the `.dSYM`; remaining there: ELF/PDB
   symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.
   The `Platform/` glue's trimming (the core is verified, ADR-0169) is untested until a device build.
