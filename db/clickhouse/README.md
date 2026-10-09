@@ -171,6 +171,10 @@ insert from the retention rules; a table's TTL points at it only once rules are 
 backed by a synthetic monitor or an SLO; same CRUD-via-tombstone `ReplacingMergeTree` as
 `alert_templates`). See [ADR-0158](../../docs-internal/adr/0158-status-pages.md).
 
+`0073_status_incidents.sql` - a new `status_incidents` table (a written incident on a status page with its
+timeline of updates as a JSON array; same CRUD-via-tombstone `ReplacingMergeTree` as `status_pages`). See
+[ADR-0159](../../docs-internal/adr/0159-status-page-incidents.md).
+
 `0070_alert_templates.sql` - a new `alert_templates` table (named, reusable notification title/body
 templates; same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`) and a nullable
 `alert_rules.NotificationTemplateId`. See

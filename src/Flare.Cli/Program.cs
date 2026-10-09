@@ -110,6 +110,17 @@ app.Configure(config =>
         syntheticMonitors.AddCommand<SyntheticMonitorsDeleteCommand>("delete")
             .WithDescription("Delete a monitor.");
     });
+    config.AddBranch("status-pages", statusPages =>
+    {
+        statusPages.AddCommand<StatusPagesListCommand>("list")
+            .WithDescription("List public status pages.");
+        statusPages.AddCommand<StatusPagesCreateCommand>("create")
+            .WithDescription("Create a status page (unpublished until --enabled true).");
+        statusPages.AddCommand<StatusPagesUpdateCommand>("update")
+            .WithDescription("Update a status page (only the options you pass change).");
+        statusPages.AddCommand<StatusPagesDeleteCommand>("delete")
+            .WithDescription("Delete a status page.");
+    });
     config.AddBranch("retention", retention =>
     {
         retention.AddCommand<RetentionShowCommand>("show")

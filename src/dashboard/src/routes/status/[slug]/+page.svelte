@@ -3,7 +3,7 @@
 	// session while an admin has it enabled (ADR-0158). Shows only display names, states and uptime.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getPublicStatus, type PublicStatusPage, type StatusState } from '$lib/status-pages-api';
+	import { getPublicStatus, type PublicStatusPage, type StatusIncidentStatus, type StatusState } from '$lib/status-pages-api';
 	import { formatDateTime } from '$lib/time/format';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import * as m from '$lib/paraglide/messages';
@@ -47,6 +47,12 @@
 		Outage: () => m.statusPublic_bannerOutage(),
 		Unknown: () => m.statusPublic_bannerUnknown()
 	};
+	const INCIDENT_LABEL: Record<StatusIncidentStatus, () => string> = {
+		Investigating: () => m.statusIncidents_investigating(),
+		Identified: () => m.statusIncidents_identified(),
+		Monitoring: () => m.statusIncidents_monitoring(),
+		Resolved: () => m.statusIncidents_resolved()
+	};
 	const TONE: Record<StatusState, string> = {
 		Operational: 'bg-emerald-500',
 		Degraded: 'bg-amber-500',
@@ -86,6 +92,34 @@
 			<span class="size-3 shrink-0 rounded-full {TONE[status.overall]}"></span>
 			<span class="font-medium">{BANNER[status.overall]()}</span>
 		</div>
+
+		{#if status.incidents.length > 0}
+			<section class="flex flex-col gap-3">
+				<h2 class="text-sm font-semibold">{m.statusPublic_incidentsHeading()}</h2>
+				{#each status.incidents as incident (incident.startedAt + incident.title)}
+					<article class="flex flex-col gap-2 rounded-lg border p-4">
+						<div class="flex items-center justify-between gap-3">
+							<span class="font-medium">{incident.title}</span>
+							<span class="text-xs {incident.resolvedAt ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'}">
+								{INCIDENT_LABEL[incident.status]()}
+							</span>
+						</div>
+						{#if incident.resolvedAt}
+							<span class="text-muted-foreground text-xs">{m.statusPublic_incidentResolvedAt({ time: formatDateTime(incident.resolvedAt) })}</span>
+						{/if}
+						<ol class="flex flex-col gap-2 text-sm">
+							{#each incident.updates as update (update.at)}
+								<li>
+									<span class="font-medium">{INCIDENT_LABEL[update.status]()}</span>
+									<span class="text-muted-foreground text-xs"> - {formatDateTime(update.at)}</span>
+									<p class="whitespace-pre-wrap">{update.message}</p>
+								</li>
+							{/each}
+						</ol>
+					</article>
+				{/each}
+			</section>
+		{/if}
 
 		<ul class="flex flex-col gap-3">
 			{#each status.components as component (component.name)}

@@ -18,6 +18,7 @@ public interface IPublicStatusService
 /// </summary>
 public sealed class PublicStatusService(
     IStatusPageQueryService pages,
+    IStatusIncidentQueryService incidents,
     ISyntheticMonitorQueryService monitors,
     ISloQueryService slos,
     IMemoryCache cache,
@@ -79,7 +80,8 @@ public sealed class PublicStatusService(
                 : await SloComponentAsync(component, allSlos, today, cancellationToken));
         }
 
-        return new PublicStatusPage(page.Title, page.Description, StatusEvaluator.Overall(components.Select(c => c.State).ToList()), now, components);
+        var published = StatusIncidents.ForPublic(await incidents.ListAsync(page.Id, cancellationToken), now);
+        return new PublicStatusPage(page.Title, page.Description, StatusEvaluator.Overall(components.Select(c => c.State).ToList()), now, components, published);
     }
 
     private static PublicStatusComponent MonitorComponent(
