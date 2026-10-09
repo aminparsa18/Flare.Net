@@ -540,3 +540,19 @@ export function buildSpanLogsHref(span: { traceId: string; startTime: string; en
 	};
 	return withBase(`/?state=${encodeStateDeepLinkParam(state)}`);
 }
+
+/**
+ * `/traces?state=` for every trace of one app session (`session.id`, ADR-0167) over an explicit
+ * window (epoch ms). A one-condition structural query rather than a root-row attribute filter:
+ * the attribute is on each span, but the trace's root may be a server span without it.
+ */
+export function buildSessionTracesHref(sessionId: string, fromMs: number, toMs: number): string {
+	const state: TracesSavedViewState = {
+		timeRangePreset: 'custom',
+		customRange: { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() },
+		services: [],
+		attributeFilters: [],
+		structure: { expression: 'A', conditions: [{ name: 'A', attributes: [{ bag: 'Span', key: 'session.id', value: sessionId, operator: 'Equals' }] }] }
+	};
+	return withBase(`/traces?state=${encodeStateDeepLinkParam(state)}`);
+}

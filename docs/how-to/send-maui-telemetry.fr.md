@@ -148,6 +148,11 @@ sealed class SessionProcessor : BaseProcessor<Activity>
 Enregistrez-le avec `.AddProcessor(new SessionProcessor())` avant l'exportateur.
 Filtrez sur `session.id` dans **Traces** pour voir un lancement de bout en bout.
 
+La page **Sessions** (menu `⋯`) liste chaque lancement de la fenêtre avec la version de
+l'application, l'appareil, les écrans, le nombre de traces et d'erreurs. Filtrez par version
+ou ne gardez que les sessions en erreur, puis cliquez sur une session pour ouvrir ses traces.
+Le paquet définit `session.id` pour vous ; une configuration manuelle a besoin du processeur ci-dessus.
+
 ## Signaler les exceptions non gérées
 
 La page **Errors** de Flare regroupe les exceptions enregistrées sur des spans.
