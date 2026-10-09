@@ -63,9 +63,9 @@ folders are where "what happened and why" actually lives.
   `UseFlare()` core: OTLP/HTTP export, disk retry, device/session attributes, `HttpClient`
   and Shell navigation spans, unhandled-exception capture. Remaining for it: native crash
   reports delivered on next launch (Android `ApplicationExitInfo`, iOS MetricKit), Windows,
-  NuGet publishing (needs a macOS runner with the MAUI workloads; the package is outside
-  `Flare.slnx` for that reason), and a CI job for `Flare.Maui.slnx`, and verifying on a device
-  or emulator. Server side (ADR-0167) is done: scoped ingest keys (ADR-0149/0150/0051), the
+  and verifying on a device or emulator. The macOS CI job (`maui-ci.yml`) and the NuGet
+  publish path (`flare-maui-v*` tag in `nuget-publish.yml`) exist but have not run yet: the
+  first release also needs a nuget.org trusted-publishing policy for `Flare.Maui`. Server side (ADR-0167) is done: scoped ingest keys (ADR-0149/0150/0051), the
   Sessions page, and app-version facets on `/errors`. Remaining there: a rollup table if long
   windows prove slow. The per-session timeline is done (ADR-0170). Trimmed/Mono
   stack traces are symbolicated from uploaded dll+PDB symbols (ADR-0168); Native AOT frames on

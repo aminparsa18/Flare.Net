@@ -21,6 +21,11 @@
 #     see src/Flare.Cli/Flare.Cli.csproj's PackageId comment. ToolCommandName is still
 #     `flare`; only the PackageId differs.)
 #
+#   - Flare.Maui           (project: src/Flare.Maui/)            <- tag flare-maui-v*.*.*
+#     Multi-targets net10.0 + android/ios/maccatalyst, so unlike the others it packs on a
+#     macOS runner after `dotnet workload restore` (see ADR-0166 and maui-ci.yml). The
+#     job's runner is therefore chosen from the tag / manual input, not fixed.
+#
 # Adding a new package: add its tag pattern under `on.push.tags`, a case arm in
 # "Resolve target package" below (and to the workflow_dispatch `package` choices), and a
 # matching nuget.org trusted-publishing policy (Repository Owner: aminparsa18,
@@ -44,6 +49,7 @@ on:
       - 'aspire-hosting-flare-v*.*.*'
       - 'aspire-flare-v*.*.*'
       - 'flare-cli-v*.*.*'
+      - 'flare-maui-v*.*.*'
   workflow_dispatch:
     inputs:
       package:
@@ -54,6 +60,7 @@ on:
           - Flare.Hosting.Aspire
           - Flare.Aspire
           - Flare.Cli
+          - Flare.Maui
 
 concurrency:
   group: nuget-publish-${{ github.workflow }}-${{ github.ref }}
@@ -62,7 +69,8 @@ concurrency:
 jobs:
   publish:
     name: Pack and push
-    runs-on: ubuntu-latest
+    # Flare.Maui needs the iOS/Mac Catalyst workloads, which only install on macOS.
+    runs-on: ${{ (startsWith(github.ref_name, 'flare-maui-v') || inputs.package == 'Flare.Maui') && 'macos-latest' || 'ubuntu-latest' }}
     environment: release
     permissions:
       id-token: write # required for NuGet/login's OIDC token exchange
@@ -89,6 +97,7 @@ jobs:
               aspire-hosting-flare-v*) PACKAGE="Flare.Hosting.Aspire" ;;
               aspire-flare-v*) PACKAGE="Flare.Aspire" ;;
               flare-cli-v*) PACKAGE="Flare.Cli" ;;
+              flare-maui-v*) PACKAGE="Flare.Maui" ;;
               *) echo "::error::Unrecognized tag $GITHUB_REF_NAME"; exit 1 ;;
             esac
           fi
@@ -105,6 +114,11 @@ jobs:
             Flare.Cli)
               echo "project=src/Flare.Cli/Flare.Cli.csproj" >> "$GITHUB_OUTPUT"
               echo "tag_prefix=flare-cli-v" >> "$GITHUB_OUTPUT"
+              ;;
+            Flare.Maui)
+              echo "project=src/Flare.Maui/Flare.Maui.csproj" >> "$GITHUB_OUTPUT"
+              echo "tag_prefix=flare-maui-v" >> "$GITHUB_OUTPUT"
+              echo "needs_maui=true" >> "$GITHUB_OUTPUT"
               ;;
             *)
               echo "::error::Unknown package '$PACKAGE'"; exit 1 ;;
@@ -125,6 +139,12 @@ jobs:
             echo "::error::Tag version (${{ steps.version.outputs.VERSION }}) doesn't match csproj Version ($PROJECT_VERSION)"
             exit 1
           fi
+
+      # Installs exactly the workloads the project's target frameworks need (android, ios,
+      # maccatalyst, maui) rather than a hard-coded list that could drift.
+      - name: Restore MAUI workloads
+        if: steps.package.outputs.needs_maui == 'true'
+        run: dotnet workload restore ${{ steps.package.outputs.project }}
 
       - name: Pack
         run: dotnet pack ${{ steps.package.outputs.project }} -c Release -o ./artifacts
