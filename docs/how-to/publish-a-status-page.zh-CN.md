@@ -63,7 +63,7 @@ resource "flare_status_page" "public" {
 
 计算得出的健康状态说明哪些服务正常；事件则用你自己的话说明原因。在 **Settings > Status pages** 中打开页面的 **Incidents** 对话框，用标题、状态（Investigating、Identified、Monitoring 或 Resolved）和消息报告事件，之后随进展发布更新。发布 **Resolved** 更新即关闭该事件。
 
-未解决的事件显示在公开页面组件的上方，已解决的事件保留 14 天。事件不会改变计算出的状态或横幅。API 为 `/api/status-pages/{id}/incidents`；更新内容是公开的，请勿包含机密。
+未解决的事件显示在公开页面组件的上方，已解决的事件保留 14 天。事件不会改变计算出的状态或横幅。API 为 `/api/status-pages/{id}/incidents`；更新内容是公开的，请勿包含机密。 勾选事件影响的组件，公开页面会在事件旁列出它们；API 的 `components` 字段接受它们的监控或 SLO id，后续更新可修改该列表。这只是标注，组件的计算状态不会改变。
 
 ## 注意事项
 

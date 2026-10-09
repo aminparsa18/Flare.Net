@@ -63,7 +63,7 @@ resource "flare_status_page" "public" {
 
 Computed health says what is up; an incident says why, in your words. In **Settings > Status pages**, open a page's **Incidents** dialog, report an incident with a title, a status (Investigating, Identified, Monitoring or Resolved) and a message, then post further updates as it progresses. Posting a **Resolved** update closes it.
 
-Open incidents show above the components on the public page, and resolved ones stay for 14 days. Incidents do not change the computed state or the banner. The API is `/api/status-pages/{id}/incidents`; update text is public, so keep secrets out of it.
+Open incidents show above the components on the public page, and resolved ones stay for 14 days. Incidents do not change the computed state or the banner. The API is `/api/status-pages/{id}/incidents`; update text is public, so keep secrets out of it. Tick the components an incident affects and the public page names them next to it; the `components` field of the API takes their monitor or SLO ids, and a later update can change the list. It is a label only: the component's computed state is unchanged.
 
 ## Things to know
 

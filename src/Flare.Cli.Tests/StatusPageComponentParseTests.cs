@@ -27,3 +27,15 @@ public class StatusPageComponentParseTests
         Assert.Contains("--component", error);
     }
 }
+
+public class StatusIncidentCliTests
+{
+    [Theory]
+    [InlineData("resolved", "Resolved")]
+    [InlineData(" MONITORING ", "Monitoring")]
+    [InlineData("investigating", "Investigating")]
+    [InlineData("done", null)]
+    [InlineData(null, null)]
+    public void NormalizeStatus_AcceptsAnyCasing(string? input, string? expected) =>
+        Assert.Equal(expected, StatusIncidentCli.NormalizeStatus(input));
+}

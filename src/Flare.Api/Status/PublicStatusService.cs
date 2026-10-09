@@ -80,7 +80,7 @@ public sealed class PublicStatusService(
                 : await SloComponentAsync(component, allSlos, today, cancellationToken));
         }
 
-        var published = StatusIncidents.ForPublic(await incidents.ListAsync(page.Id, cancellationToken), now);
+        var published = StatusIncidents.ForPublic(await incidents.ListAsync(page.Id, cancellationToken), page.Components, now);
         return new PublicStatusPage(page.Title, page.Description, StatusEvaluator.Overall(components.Select(c => c.State).ToList()), now, components, published);
     }
 

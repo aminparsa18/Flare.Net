@@ -175,6 +175,9 @@ backed by a synthetic monitor or an SLO; same CRUD-via-tombstone `ReplacingMerge
 timeline of updates as a JSON array; same CRUD-via-tombstone `ReplacingMergeTree` as `status_pages`). See
 [ADR-0159](../../docs-internal/adr/0159-status-page-incidents.md).
 
+`0074_status_incident_components.sql` - adds `status_incidents.Components Array(UUID)`: the page components (monitor or
+SLO ids) an incident affects. See [ADR-0160](../../docs-internal/adr/0160-status-incident-components.md).
+
 `0070_alert_templates.sql` - a new `alert_templates` table (named, reusable notification title/body
 templates; same CRUD-via-tombstone `ReplacingMergeTree` as `maintenance_windows`) and a nullable
 `alert_rules.NotificationTemplateId`. See

@@ -61,6 +61,8 @@ export interface StatusIncident {
 	pageId: string;
 	title: string;
 	updates: StatusIncidentUpdate[];
+	/** `refId`s of the page components this incident affects. */
+	components: string[];
 	createdAt: string;
 	updatedAt: string;
 	status: StatusIncidentStatus;
@@ -74,6 +76,8 @@ export interface PublicStatusIncident {
 	startedAt: string;
 	resolvedAt: string | null;
 	updates: StatusIncidentUpdate[];
+	/** Display names of the affected components. */
+	components: string[];
 }
 
 export interface PublicStatusPage {
@@ -133,13 +137,13 @@ export async function listStatusIncidents(pageId: string): Promise<StatusInciden
 	return ((await res.json()) as { incidents?: StatusIncident[] }).incidents ?? [];
 }
 
-export async function openStatusIncident(pageId: string, request: { title: string; status: StatusIncidentStatus; message: string }): Promise<StatusIncident> {
+export async function openStatusIncident(pageId: string, request: { title: string; status: StatusIncidentStatus; message: string; components: string[] }): Promise<StatusIncident> {
 	const res = await apiFetch(`${API_BASE_URL}/api/status-pages/${pageId}/incidents`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(request) });
 	if (!res.ok) throw await failure(res, 'POST /api/status-pages/incidents');
 	return (await res.json()) as StatusIncident;
 }
 
-export async function postStatusIncidentUpdate(pageId: string, incidentId: string, request: { status: StatusIncidentStatus; message: string }): Promise<StatusIncident> {
+export async function postStatusIncidentUpdate(pageId: string, incidentId: string, request: { status: StatusIncidentStatus; message: string; components: string[] }): Promise<StatusIncident> {
 	const res = await apiFetch(`${API_BASE_URL}/api/status-pages/${pageId}/incidents/${incidentId}/updates`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(request) });
 	if (!res.ok) throw await failure(res, 'POST /api/status-pages/incidents/updates');
 	return (await res.json()) as StatusIncident;

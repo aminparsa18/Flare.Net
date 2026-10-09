@@ -63,7 +63,7 @@ resource "flare_status_page" "public" {
 
 L'état calculé dit ce qui fonctionne ; un incident explique pourquoi, avec vos mots. Dans **Paramètres > Pages de statut**, ouvrez la boîte **Incidents** d'une page, signalez un incident avec un titre, un statut (Investigating, Identified, Monitoring ou Resolved) et un message, puis publiez des mises à jour au fil de l'eau. Une mise à jour **Resolved** le clôt.
 
-Les incidents ouverts s'affichent au-dessus des composants sur la page publique, et les incidents résolus y restent 14 jours. Les incidents ne modifient ni l'état calculé ni la bannière. L'API est `/api/status-pages/{id}/incidents` ; le texte des mises à jour est public, n'y mettez donc aucun secret.
+Les incidents ouverts s'affichent au-dessus des composants sur la page publique, et les incidents résolus y restent 14 jours. Les incidents ne modifient ni l'état calculé ni la bannière. L'API est `/api/status-pages/{id}/incidents` ; le texte des mises à jour est public, n'y mettez donc aucun secret. Cochez les composants touchés par un incident et la page publique les nomme à côté ; le champ `components` de l'API prend leurs ids de moniteur ou de SLO, et une mise à jour ultérieure peut modifier la liste. C'est une simple étiquette : l'état calculé du composant ne change pas.
 
 ## À savoir
 

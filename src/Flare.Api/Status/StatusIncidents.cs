@@ -20,6 +20,7 @@ public static class StatusIncidents
         PageId = pageId,
         Title = request.Title.Trim(),
         Updates = [new StatusIncidentUpdate(now, request.Status ?? StatusIncidentStatus.Investigating, request.Message.Trim())],
+        Components = Distinct(request.Components),
         CreatedAt = now,
         UpdatedAt = now,
     };
@@ -33,17 +34,39 @@ public static class StatusIncidents
         }
 
         var update = new StatusIncidentUpdate(now, request.Status, request.Message.Trim());
-        return (incident with { Updates = [.. incident.Updates, update], UpdatedAt = now }, null);
+        var components = request.Components is null ? incident.Components : Distinct(request.Components);
+        return (incident with { Updates = [.. incident.Updates, update], Components = components, UpdatedAt = now }, null);
     }
 
+    /// <summary>The first id of <paramref name="requested"/> that is not a component of the page, or null when all are (or none were asked for).</summary>
+    public static Guid? FirstUnknownComponent(IEnumerable<Guid>? requested, IReadOnlyList<StatusPageComponent> pageComponents)
+    {
+        var known = pageComponents.Select(c => c.RefId).ToHashSet();
+        foreach (var id in requested ?? [])
+        {
+            if (!known.Contains(id))
+            {
+                return id;
+            }
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<Guid> Distinct(IReadOnlyList<Guid>? ids) => ids is null ? [] : ids.Distinct().ToList();
+
     /// <summary>Open incidents (oldest first), then incidents resolved within <see cref="RecentDays"/> (newest first).</summary>
-    public static IReadOnlyList<PublicStatusIncident> ForPublic(IEnumerable<StatusIncident> incidents, DateTimeOffset now)
+    public static IReadOnlyList<PublicStatusIncident> ForPublic(IEnumerable<StatusIncident> incidents, IReadOnlyList<StatusPageComponent> pageComponents, DateTimeOffset now)
     {
         var cutoff = now - TimeSpan.FromDays(RecentDays);
         var all = incidents.ToList();
         var open = all.Where(i => i.ResolvedAt is null).OrderBy(i => i.CreatedAt);
         var resolved = all.Where(i => i.ResolvedAt is { } at && at >= cutoff).OrderByDescending(i => i.ResolvedAt);
         return open.Concat(resolved).Select(i => new PublicStatusIncident(
-            i.Title, i.Status, i.CreatedAt, i.ResolvedAt, i.Updates.Reverse().ToList())).ToList();
+            i.Title, i.Status, i.CreatedAt, i.ResolvedAt, i.Updates.Reverse().ToList(), AffectedNames(i, pageComponents))).ToList();
     }
+
+    /// <summary>Display names of the page components the incident affects, in page order. An id that is no longer on the page is dropped.</summary>
+    private static IReadOnlyList<string> AffectedNames(StatusIncident incident, IReadOnlyList<StatusPageComponent> pageComponents) =>
+        pageComponents.Where(c => incident.Components.Contains(c.RefId)).Select(c => c.Name).ToList();
 }
