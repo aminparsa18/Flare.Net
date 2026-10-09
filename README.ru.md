@@ -93,6 +93,8 @@
 
 Хотите, чтобы ИИ-ассистент читал вашу телеметрию? `flare mcp` — это [MCP](https://modelcontextprotocol.io)-сервер только для чтения; см. [docs/how-to/connect-ai-assistants.ru.md](docs/how-to/connect-ai-assistants.ru.md).
 
+Разрабатываете мобильное приложение? [`Flare.Maui`](src/Flare.Maui) (предварительная версия, в NuGet пока нет) добавляет `builder.UseFlare(...)` в приложение .NET MAUI: экспорт OTLP/HTTP с очередью без сети, атрибуты устройства и сессии, спаны `HttpClient` и навигации Shell, перехват необработанных исключений — см. [docs/how-to/send-maui-telemetry.md](docs/how-to/send-maui-telemetry.ru.md).
+
 ## Локальная разработка
 
 Автономный Docker — это не сценарий для цикла локальной разработки — см. [Flare.AppHost](src/Flare.AppHost) (.NET Aspire) для этого, а также README каждого проекта (например, [src/dashboard/README.md](src/dashboard/README.md)) для запуска по отдельности.

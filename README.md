@@ -91,6 +91,8 @@ Outgrowing a single ClickHouse node? There's an opt-in multi-node cluster setup 
 
 Want your AI assistant to read your telemetry? `flare mcp` is a read-only [MCP](https://modelcontextprotocol.io) server — see [docs/how-to/connect-ai-assistants.md](docs/how-to/connect-ai-assistants.md).
 
+Building a mobile app? [`Flare.Maui`](src/Flare.Maui) (preview, not yet on NuGet) adds `builder.UseFlare(...)` to a .NET MAUI app: OTLP/HTTP export with an offline queue, device and session attributes, `HttpClient` and Shell navigation spans, and unhandled-exception capture — see [docs/how-to/send-maui-telemetry.md](docs/how-to/send-maui-telemetry.md).
+
 ## Local development
 
 Standalone Docker isn't the dev-inner-loop story — see [Flare.AppHost](src/Flare.AppHost) (.NET Aspire) for that, and each project's own README (e.g. [src/dashboard/README.md](src/dashboard/README.md)) for running it individually.
@@ -111,6 +113,7 @@ Flare is actively developed and currently provides:
 - Aspire integration
 - Docker deployment
 - Flare CLI
+- .NET MAUI client (preview)
 
 ### Next
 
