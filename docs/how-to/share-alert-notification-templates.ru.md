@@ -37,6 +37,37 @@
 Шаблон, который ещё используют правила, удалить нельзя. В сообщении об ошибке
 перечислены эти правила; сначала выберите в них другой шаблон.
 
+## Управление шаблонами из CLI или Terraform
+
+```bash
+flare alert-templates create pager-short --title '[{{status}}] {{rule_name}}' \
+  --body '{{rule_name}}: {{value}} in the last {{window}}' \
+  --channel-body 'Telegram={{rule_name}} {{status}}' --default true
+flare alert-templates list
+flare alert-templates update <ID> --body '{{message}}'
+flare alert-templates delete <ID> --yes
+```
+
+`update` загружает существующий шаблон и меняет только переданные параметры; чтобы очистить текст, передайте пустое значение, например `--body ''`. `--channel-body ТИП=ТЕКСТ` можно повторять, он заменяет все существующие тексты для каналов. `delete` спрашивает подтверждение без `--yes` и отклоняется, пока шаблон используют правила.
+
+С провайдером Flare для Terraform / OpenTofu правило выбирает шаблон по имени:
+
+```hcl
+resource "flare_alert_template" "short" {
+  name           = "pager-short"
+  title_template = "[{{status}}] {{rule_name}}"
+  body_template  = "{{rule_name}}: {{value}} in the last {{window}}"
+  channel_bodies = { Telegram = "{{rule_name}} {{status}}" }
+}
+
+resource "flare_alert_rule" "errors" {
+  # ...
+  notification_template = flare_alert_template.short.name
+}
+```
+
+Переименование обновляет шаблон на месте, правила продолжают на него ссылаться. `terraform import flare_alert_template.short <id-или-имя>` берёт под управление существующий шаблон.
+
 ## Экспорт и импорт
 
 `flare alerts export` записывает шаблон правила по названию, а `import` ищет это

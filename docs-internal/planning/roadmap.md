@@ -78,7 +78,3 @@ folders are where "what happened and why" actually lives.
   stay a thin configuration package; trimming/AOT compatibility; privacy
   defaults (no PII in attributes, opt-in device id). First check how ingest keys
   behave for a public-client scenario (CORS, per-key service allowlists).
-- **Terraform / CLI for notification templates.** Shared templates (ADR-0148)
-  are managed in Settings and by name in `flare alerts export`/`import`, but the
-  Terraform provider has no `flare_alert_template` resource and the CLI no
-  `alert-templates` command.
