@@ -468,6 +468,8 @@ builder.Services.AddCors(options =>
         .AllowAnyHeader()
         .AllowCredentials());
 });
+// The public status endpoints also accept the origin of any enabled page's custom domain (ADR-0165).
+builder.Services.AddSingleton<Microsoft.AspNetCore.Cors.Infrastructure.ICorsPolicyProvider, StatusCorsPolicyProvider>();
 
 var app = builder.Build();
 

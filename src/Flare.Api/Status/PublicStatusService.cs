@@ -9,6 +9,9 @@ public interface IPublicStatusService
 {
     /// <summary>The public view of the page published at <paramref name="slug"/>, or null when there is none.</summary>
     Task<PublicStatusPage?> GetAsync(string slug, CancellationToken cancellationToken);
+
+    /// <summary>The slug of the enabled page served on <paramref name="host"/> (ADR-0165), or null. Case-insensitive; backed by one cached map of every domain, so arbitrary hosts cost nothing extra.</summary>
+    Task<string?> SlugForDomainAsync(string host, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -52,6 +55,21 @@ public sealed class PublicStatusService(
         }
     }
 
+    public async Task<string?> SlugForDomainAsync(string host, CancellationToken cancellationToken)
+    {
+        const string key = "status-page-domains";
+        if (!cache.TryGetValue(key, out IReadOnlyDictionary<string, string>? domains) || domains is null)
+        {
+            domains = (await pages.ListAsync(cancellationToken))
+                .Where(p => p.Enabled && p.Domain.Length > 0)
+                .GroupBy(p => p.Domain, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Slug, StringComparer.Ordinal);
+            cache.Set(key, domains, CacheTtl);
+        }
+
+        return domains.TryGetValue(host.ToLowerInvariant(), out var slug) ? slug : null;
+    }
+
     private async Task<PublicStatusPage> BuildAsync(StatusPage page, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
@@ -81,7 +99,7 @@ public sealed class PublicStatusService(
         }
 
         var published = StatusIncidents.ForPublic(await incidents.ListAsync(page.Id, cancellationToken), page.Components, now);
-        return new PublicStatusPage(page.Title, page.Description, StatusEvaluator.Overall(components.Select(c => c.State).ToList()), now, components, published);
+        return new PublicStatusPage(page.Title, page.Description, StatusEvaluator.Overall(components.Select(c => c.State).ToList()), now, components, published, Slug: page.Slug, LogoUrl: page.LogoUrl, AccentColor: page.AccentColor, SupportUrl: page.SupportUrl);
     }
 
     private static PublicStatusComponent MonitorComponent(

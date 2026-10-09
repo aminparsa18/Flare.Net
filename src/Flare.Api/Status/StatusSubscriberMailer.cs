@@ -7,8 +7,8 @@ using MimeKit;
 
 namespace Flare.Api.Status;
 
-/// <summary>One verified subscriber and the link that removes them.</summary>
-public sealed record StatusMailRecipient(string Email, string UnsubscribeUrl);
+/// <summary>One verified subscriber, the link that removes them and, when the page has components to choose from, the link that edits their selection.</summary>
+public sealed record StatusMailRecipient(string Email, string UnsubscribeUrl, string? PreferencesUrl = null);
 
 /// <summary>
 /// Sends the two emails a visitor subscription needs (ADR-0162): the confirmation link, and each incident
@@ -123,7 +123,13 @@ public sealed class StatusSubscriberMailer(IOptions<EmailOptions> email, IOption
         }
 
         lines.Add($"{publicUrl.TrimEnd('/')}/status/{page.Slug}");
-        lines.Add($"You get this because you subscribed to {page.Title}. Unsubscribe: {recipient.UnsubscribeUrl}");
+        var footer = $"You get this because you subscribed to {page.Title}. Unsubscribe: {recipient.UnsubscribeUrl}";
+        if (recipient.PreferencesUrl is not null)
+        {
+            footer += $"\nChoose which components you hear about: {recipient.PreferencesUrl}";
+        }
+
+        lines.Add(footer);
         message.Body = new TextPart("plain") { Text = string.Join("\n\n", lines) + "\n" };
         return message;
     }

@@ -52,6 +52,10 @@
 	let enabled = $state(false);
 	let components = $state<StatusPageComponent[]>([]);
 	let subscribers = $state<string[]>([]);
+	let domain = $state('');
+	let logoUrl = $state('');
+	let accentColor = $state('');
+	let supportUrl = $state('');
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 	let incidentsFor = $state<StatusPage | null>(null);
@@ -91,6 +95,10 @@
 		enabled = page?.enabled ?? false;
 		components = page ? page.components.map((c) => ({ ...c })) : [];
 		subscribers = page ? [...page.subscriberChannelIds] : [];
+		domain = page?.domain ?? '';
+		logoUrl = page?.logoUrl ?? '';
+		accentColor = page?.accentColor ?? '';
+		supportUrl = page?.supportUrl ?? '';
 	}
 
 	function labelFor(c: StatusPageComponent): string {
@@ -99,7 +107,13 @@
 
 	async function save(): Promise<void> {
 		if (target === null) return;
-		const request: StatusPageRequest = { slug: slug.trim(), title: title.trim(), description: description.trim(), enabled, components, subscriberChannelIds: subscribers };
+		const request: StatusPageRequest = { slug: slug.trim(), title: title.trim(), description: description.trim(), enabled, components,
+			subscriberChannelIds: subscribers,
+			domain: domain.trim(),
+			logoUrl: logoUrl.trim(),
+			accentColor: accentColor.trim(),
+			supportUrl: supportUrl.trim()
+		};
 		saving = true;
 		saveError = null;
 		try {
@@ -239,6 +253,28 @@
 			<div class="flex flex-col gap-1">
 				<span class="text-xs font-medium">{m.statusPages_descriptionLabel()}</span>
 				<Textarea bind:value={description} rows={2} maxlength={1000} />
+			</div>
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-medium">{m.statusPages_domainLabel()}</span>
+				<Input bind:value={domain} maxlength={253} placeholder="status.example.com" class="font-mono" />
+				<span class="text-muted-foreground text-xs">{m.statusPages_domainHint()}</span>
+			</div>
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.statusPages_logoLabel()}</span>
+					<Input bind:value={logoUrl} maxlength={2048} placeholder="https://example.com/logo.svg" />
+				</div>
+				<div class="flex flex-col gap-1">
+					<span class="text-xs font-medium">{m.statusPages_accentLabel()}</span>
+					<div class="flex items-center gap-2">
+						<input type="color" class="h-9 w-10 shrink-0 cursor-pointer rounded border bg-transparent p-0.5" value={/^#[0-9a-fA-F]{6}$/.test(accentColor) ? accentColor : '#3b82f6'} oninput={(e) => (accentColor = e.currentTarget.value)} aria-label={m.statusPages_accentLabel()} />
+						<Input bind:value={accentColor} maxlength={7} placeholder="#3b82f6" class="font-mono" />
+					</div>
+				</div>
+			</div>
+			<div class="flex flex-col gap-1">
+				<span class="text-xs font-medium">{m.statusPages_supportLabel()}</span>
+				<Input bind:value={supportUrl} maxlength={2048} placeholder="mailto:support@example.com" />
 			</div>
 
 			<div class="flex flex-col gap-2">

@@ -15,6 +15,8 @@
 	const REFRESH_MS = 60_000;
 
 	let status = $state<PublicStatusPage | null>(null);
+	// The server validates #rrggbb; checking again keeps a hostile value out of the style attribute.
+	const accent = $derived(status && /^#[0-9a-fA-F]{6}$/.test(status.accentColor) ? status.accentColor : '');
 	let notFound = $state(false);
 	let error = $state<string | null>(null);
 	let loading = $state(true);
@@ -97,7 +99,7 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-4 py-10">
+<div class="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-4 py-10" style={accent ? `--status-accent: ${accent}` : undefined}>
 	{#if loading}
 		<div class="flex flex-1 items-center justify-center"><Spinner /></div>
 	{:else if notFound}
@@ -105,7 +107,10 @@
 	{:else if error && !status}
 		<p class="text-destructive m-auto text-sm">{error}</p>
 	{:else if status}
-		<header class="flex flex-col gap-1">
+		<header class="flex flex-col gap-1 {accent ? 'border-l-4 pl-3' : ''}" style={accent ? 'border-color: var(--status-accent)' : undefined}>
+			{#if status.logoUrl}
+				<img src={status.logoUrl} alt="" class="mb-2 max-h-12 w-auto max-w-48 self-start object-contain" referrerpolicy="no-referrer" />
+			{/if}
 			<h1 class="text-2xl font-semibold">{status.title}</h1>
 			{#if status.description}
 				<p class="text-muted-foreground text-sm">{status.description}</p>
@@ -186,7 +191,7 @@
 					<form class="flex flex-col gap-3" onsubmit={subscribe}>
 						<div class="flex gap-2">
 							<Input type="email" bind:value={email} required maxlength={254} placeholder="you@example.com" aria-label={m.statusSubscribe_emailLabel()} class="flex-1" />
-							<Button type="submit" size="sm" disabled={subscribing || email.trim() === ''}>
+							<Button type="submit" size="sm" disabled={subscribing || email.trim() === ''} style={accent ? 'background-color: var(--status-accent); color: white' : undefined}>
 								{#if subscribing}<Spinner class="size-3.5" />{/if}
 								{m.statusSubscribe_button()}
 							</Button>
@@ -212,6 +217,11 @@
 			</section>
 		{/if}
 
-		<footer class="text-muted-foreground text-xs">{m.statusPublic_updated({ time: formatDateTime(status.generatedAt) })}</footer>
+		<footer class="text-muted-foreground flex flex-wrap items-center justify-between gap-2 text-xs">
+			<span>{m.statusPublic_updated({ time: formatDateTime(status.generatedAt) })}</span>
+			{#if status.supportUrl}
+				<a href={status.supportUrl} class="underline underline-offset-2" rel="noopener noreferrer">{m.statusPublic_contactSupport()}</a>
+			{/if}
+		</footer>
 	{/if}
 </div>

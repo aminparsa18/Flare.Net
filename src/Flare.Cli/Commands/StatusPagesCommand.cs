@@ -61,6 +61,7 @@ internal sealed class StatusPagesListCommand : AsyncCommand<StatusPagesListComma
         table.AddColumn("Slug");
         table.AddColumn("Title");
         table.AddColumn("Published");
+        table.AddColumn("Domain");
         table.AddColumn("Components");
         table.AddColumn("Id");
 
@@ -70,6 +71,7 @@ internal sealed class StatusPagesListCommand : AsyncCommand<StatusPagesListComma
                 Markup.Escape(page.Slug),
                 Markup.Escape(page.Title),
                 page.Enabled ? "[green]yes[/]" : "[grey]no[/]",
+                page.Domain.Length > 0 ? Markup.Escape(page.Domain) : "[grey]-[/]",
                 page.Components.Count.ToString(),
                 $"[grey]{page.Id}[/]");
         }
@@ -105,6 +107,22 @@ internal sealed class StatusPagesCreateCommand : AsyncCommand<StatusPagesCreateC
         [CommandOption("--subscriber <CHANNEL_ID>")]
         [Description("A notification channel id (see `flare notification-channels list`) to tell about every incident on this page. Repeat for several. Webhook, Slack, Telegram, email, Teams or Discord channels only.")]
         public string[]? Subscribers { get; init; }
+
+        [CommandOption("--domain <HOST>")]
+        [Description("A host to also serve this page on, e.g. status.example.com (ADR-0165). You point DNS and TLS at the dashboard yourself. Pass an empty string to clear it.")]
+        public string? Domain { get; init; }
+
+        [CommandOption("--logo-url <URL>")]
+        [Description("An https image shown above the title. Empty string clears it.")]
+        public string? LogoUrl { get; init; }
+
+        [CommandOption("--accent-color <COLOR>")]
+        [Description("A #rrggbb color for the page's accent. Empty string clears it.")]
+        public string? AccentColor { get; init; }
+
+        [CommandOption("--support-url <URL>")]
+        [Description("An https or mailto: link shown as \"Contact support\". Empty string clears it.")]
+        public string? SupportUrl { get; init; }
 
         [CommandOption("--enabled <BOOL>")]
         [Description("true publishes the page to anyone with the URL. Defaults to false.")]
@@ -147,6 +165,10 @@ internal sealed class StatusPagesCreateCommand : AsyncCommand<StatusPagesCreateC
             Enabled = settings.Enabled,
             Components = components,
             SubscriberChannelIds = subscribers,
+            Domain = settings.Domain,
+            LogoUrl = settings.LogoUrl,
+            AccentColor = settings.AccentColor,
+            SupportUrl = settings.SupportUrl,
         };
 
         var port = instance.ReadEnvValue("FLARE_API_PORT", "8080");
@@ -212,6 +234,22 @@ internal sealed class StatusPagesUpdateCommand : AsyncCommand<StatusPagesUpdateC
         [Description("A notification channel id to tell about every incident on this page. Repeat for several. Replaces all existing subscribers; omit to leave them as they are.")]
         public string[]? Subscribers { get; init; }
 
+        [CommandOption("--domain <HOST>")]
+        [Description("A host to also serve this page on, e.g. status.example.com (ADR-0165). You point DNS and TLS at the dashboard yourself. Pass an empty string to clear it.")]
+        public string? Domain { get; init; }
+
+        [CommandOption("--logo-url <URL>")]
+        [Description("An https image shown above the title. Empty string clears it.")]
+        public string? LogoUrl { get; init; }
+
+        [CommandOption("--accent-color <COLOR>")]
+        [Description("A #rrggbb color for the page's accent. Empty string clears it.")]
+        public string? AccentColor { get; init; }
+
+        [CommandOption("--support-url <URL>")]
+        [Description("An https or mailto: link shown as \"Contact support\". Empty string clears it.")]
+        public string? SupportUrl { get; init; }
+
         [CommandOption("--enabled <BOOL>")]
         [Description("true or false.")]
         public bool? Enabled { get; init; }
@@ -272,6 +310,10 @@ internal sealed class StatusPagesUpdateCommand : AsyncCommand<StatusPagesUpdateC
                 Enabled = settings.Enabled ?? existing.Enabled,
                 Components = components ?? existing.Components,
                 SubscriberChannelIds = subscribers,
+                Domain = settings.Domain,
+                LogoUrl = settings.LogoUrl,
+                AccentColor = settings.AccentColor,
+                SupportUrl = settings.SupportUrl,
             };
 
             using var putResponse = await http.PutAsJsonAsync($"/api/status-pages/{settings.Id}", request, WireJsonOptions.Instance, cancellationToken);
@@ -441,6 +483,8 @@ internal sealed class StatusPageWire
     public List<StatusPageComponentWire> Components { get; init; } = [];
 
     public List<Guid> SubscriberChannelIds { get; init; } = [];
+
+    public string Domain { get; init; } = "";
 }
 
 internal sealed class StatusPageListResponseWire
@@ -462,4 +506,13 @@ internal sealed class StatusPageRequestWire
 
     /// <summary>Null leaves an existing page's subscribers untouched; an empty list clears them.</summary>
     public List<Guid>? SubscriberChannelIds { get; init; }
+
+    /// <summary>Null leaves the existing value; an empty string clears it (ADR-0165).</summary>
+    public string? Domain { get; init; }
+
+    public string? LogoUrl { get; init; }
+
+    public string? AccentColor { get; init; }
+
+    public string? SupportUrl { get; init; }
 }

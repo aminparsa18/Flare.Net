@@ -22,6 +22,12 @@ export interface StatusPage {
 	components: StatusPageComponent[];
 	/** Notification channel ids told about every incident on this page (ADR-0161). */
 	subscriberChannelIds: string[];
+	/** A host the page is also served on (ADR-0165); empty for none. */
+	domain: string;
+	logoUrl: string;
+	/** `#rrggbb`, or empty for the default. */
+	accentColor: string;
+	supportUrl: string;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -34,6 +40,11 @@ export interface StatusPageRequest {
 	components: StatusPageComponent[];
 	/** Omit to leave an existing page's subscribers as they are. */
 	subscriberChannelIds?: string[];
+	/** Omit to leave the existing value as it is; an empty string clears it. */
+	domain?: string;
+	logoUrl?: string;
+	accentColor?: string;
+	supportUrl?: string;
 }
 
 export interface StatusDay {
@@ -95,6 +106,9 @@ export interface PublicStatusPage {
 	incidents: PublicStatusIncident[];
 	/** Whether visitors can sign up for incident emails (the server has SMTP and a public URL). */
 	subscribable: boolean;
+	logoUrl: string;
+	accentColor: string;
+	supportUrl: string;
 }
 
 /** Lowercase letters, digits and inner hyphens, 1-64 characters. Mirrors `StatusPageRequest.IsValidSlug`. */
@@ -204,4 +218,30 @@ export async function redeemSubscription(action: SubscriptionAction, token: stri
 	});
 	if (!res.ok) throw await failure(res, `POST /api/public/status/subscriptions/${action}`);
 	return (await res.json()) as SubscriptionInfo;
+}
+
+export interface SubscriptionPreferences {
+	pageTitle: string;
+	email: string;
+	components: { key: string; name: string }[];
+	/** Keys currently chosen; empty means every component. */
+	selected: string[];
+}
+
+/** Describes a verified subscriber's component selection for a signed preferences link. Changes nothing. */
+export async function getSubscriptionPreferences(token: string, signal?: AbortSignal): Promise<SubscriptionPreferences> {
+	const res = await fetch(`${API_BASE_URL}/api/public/status/subscriptions/preferences?token=${encodeURIComponent(token)}`, { headers: { Accept: 'application/json' }, signal });
+	if (!res.ok) throw await failure(res, 'GET /api/public/status/subscriptions/preferences');
+	return (await res.json()) as SubscriptionPreferences;
+}
+
+/** Saves the components a subscriber hears about; empty means every component. Unauthenticated: the token is the credential. */
+export async function saveSubscriptionPreferences(token: string, components: string[]): Promise<SubscriptionPreferences> {
+	const res = await fetch(`${API_BASE_URL}/api/public/status/subscriptions/preferences`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+		body: JSON.stringify({ token, components })
+	});
+	if (!res.ok) throw await failure(res, 'POST /api/public/status/subscriptions/preferences');
+	return (await res.json()) as SubscriptionPreferences;
 }

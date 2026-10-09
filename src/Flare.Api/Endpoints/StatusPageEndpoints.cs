@@ -31,8 +31,22 @@ public static class StatusPageEndpoints
     /// <summary>Mapped outside the authenticated groups: the page being enabled is the only credential.</summary>
     public static IEndpointRouteBuilder MapPublicStatusEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/api/public/status/{slug}", HandlePublicAsync);
+        endpoints.MapGet("/api/public/status/{slug}", HandlePublicAsync).RequireCors(StatusCorsPolicyProvider.PolicyName);
+        endpoints.MapGet("/api/public/status/domain/{host}", HandleDomainAsync).RequireCors(StatusCorsPolicyProvider.PolicyName);
         return endpoints;
+    }
+
+    /// <summary>Which page a custom domain serves (ADR-0165); the dashboard asks this to route a request by its Host.</summary>
+    private static async Task<IResult> HandleDomainAsync(string host, HttpContext http, IPublicStatusService status, CancellationToken cancellationToken)
+    {
+        var slug = await status.SlugForDomainAsync(host, cancellationToken);
+        if (slug is null)
+        {
+            return Results.NotFound();
+        }
+
+        http.Response.Headers.CacheControl = $"public, max-age={(int)PublicStatusService.CacheTtl.TotalSeconds}";
+        return Results.Json(new StatusDomainResponse(slug), StatusPagesJsonContext.Default.StatusDomainResponse);
     }
 
     private static async Task<IResult> HandlePublicAsync(string slug, HttpContext http, IPublicStatusService status, IStatusSubscriberMailer mailer, CancellationToken cancellationToken)
@@ -186,9 +200,16 @@ public static class StatusPageEndpoints
         CancellationToken cancellationToken)
     {
         var slug = request.Slug.Trim();
-        if ((await pages.ListAsync(cancellationToken)).Any(p => p.Id != exceptId && string.Equals(p.Slug, slug, StringComparison.Ordinal)))
+        var all = await pages.ListAsync(cancellationToken);
+        if (all.Any(p => p.Id != exceptId && string.Equals(p.Slug, slug, StringComparison.Ordinal)))
         {
             return Results.Problem($"A status page with slug '{slug}' already exists.", statusCode: StatusCodes.Status409Conflict);
+        }
+
+        var domain = request.Domain?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(domain) && all.Any(p => p.Id != exceptId && string.Equals(p.Domain, domain, StringComparison.Ordinal)))
+        {
+            return Results.Problem($"Another status page already uses the domain '{domain}'.", statusCode: StatusCodes.Status409Conflict);
         }
 
         if (request.SubscriberChannelIds is { Count: > 0 } subscribers)

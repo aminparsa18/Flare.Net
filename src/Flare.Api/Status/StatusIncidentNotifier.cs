@@ -49,7 +49,7 @@ public sealed class StatusIncidentNotifier(
         {
             var recipients = (await subscribers.ListAsync(page.Id, cancellationToken))
                 .Where(s => s.Verified && StatusSubscriptions.Wants(s, page.Id, incident.Components))
-                .Select(s => signer.UnsubscribeUrl(page.Id, s.Email) is { } url ? new StatusMailRecipient(s.Email, url) : null)
+                .Select(s => signer.UnsubscribeUrl(page.Id, s.Email) is { } url ? new StatusMailRecipient(s.Email, url, page.Components.Count > 1 ? signer.PreferencesUrl(page.Id, s.Email) : null) : null)
                 .OfType<StatusMailRecipient>()
                 .ToList();
             var failed = await mailer.SendIncidentAsync(page, incident, update, ComponentNames(page, incident), recipients, cancellationToken);

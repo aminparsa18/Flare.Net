@@ -21,6 +21,9 @@ public interface IStatusPageQueryService
     /// <summary>The page published at <paramref name="slug"/>, or null when there is none or it is disabled.</summary>
     Task<StatusPage?> GetPublishedBySlugAsync(string slug, CancellationToken cancellationToken);
 
+    /// <summary>The page published on <paramref name="domain"/> (lower-case host), or null when there is none or it is disabled.</summary>
+    Task<StatusPage?> GetPublishedByDomainAsync(string domain, CancellationToken cancellationToken);
+
     Task<StatusPage?> UpdateAsync(Guid id, StatusPageRequest request, CancellationToken cancellationToken);
 
     /// <summary>Soft-deletes (inserts a tombstone version) - see 0072_status_pages.sql. Returns false if <paramref name="id"/> doesn't exist.</summary>
@@ -33,7 +36,7 @@ public interface IStatusPageQueryService
 /// </summary>
 public sealed class StatusPageQueryService(IClickHouseClient client, IOptions<QueryLimitsOptions> queryLimits, TimeProvider timeProvider) : IStatusPageQueryService
 {
-    private const string Columns = "Id, Slug, Title, Description, Enabled, ComponentsJson, CreatedAt, UpdatedAt, SubscriberChannelIds";
+    private const string Columns = "Id, Slug, Title, Description, Enabled, ComponentsJson, CreatedAt, UpdatedAt, SubscriberChannelIds, Domain, LogoUrl, AccentColor, SupportUrl";
 
     internal static StatusPage Apply(StatusPage page, StatusPageRequest request) => page with
     {
@@ -42,6 +45,10 @@ public sealed class StatusPageQueryService(IClickHouseClient client, IOptions<Qu
         Description = request.Description?.Trim() ?? "",
         Enabled = request.Enabled ?? false,
         Components = (request.Components ?? []).Select(c => c with { Name = c.Name.Trim() }).ToList(),
+        Domain = request.Domain is null ? page.Domain : request.Domain.Trim().ToLowerInvariant(),
+        LogoUrl = request.LogoUrl is null ? page.LogoUrl : request.LogoUrl.Trim(),
+        AccentColor = request.AccentColor is null ? page.AccentColor : request.AccentColor.Trim().ToLowerInvariant(),
+        SupportUrl = request.SupportUrl is null ? page.SupportUrl : request.SupportUrl.Trim(),
         SubscriberChannelIds = request.SubscriberChannelIds is null ? page.SubscriberChannelIds : request.SubscriberChannelIds.Distinct().ToList(),
     };
 
@@ -79,6 +86,9 @@ public sealed class StatusPageQueryService(IClickHouseClient client, IOptions<Qu
     // rather than in SQL, where it would also match superseded versions.
     public async Task<StatusPage?> GetPublishedBySlugAsync(string slug, CancellationToken cancellationToken) =>
         (await ListAsync(cancellationToken)).FirstOrDefault(p => p.Enabled && string.Equals(p.Slug, slug, StringComparison.Ordinal));
+
+    public async Task<StatusPage?> GetPublishedByDomainAsync(string domain, CancellationToken cancellationToken) =>
+        domain.Length == 0 ? null : (await ListAsync(cancellationToken)).FirstOrDefault(p => p.Enabled && string.Equals(p.Domain, domain, StringComparison.Ordinal));
 
     public async Task<StatusPage?> UpdateAsync(Guid id, StatusPageRequest request, CancellationToken cancellationToken)
     {
@@ -118,12 +128,16 @@ public sealed class StatusPageQueryService(IClickHouseClient client, IOptions<Qu
         parameters.AddParameter("createdAt", page.CreatedAt.UtcDateTime);
         parameters.AddParameter("updatedAt", page.UpdatedAt.UtcDateTime);
         parameters.AddParameter("subscribers", page.SubscriberChannelIds.ToArray());
+        parameters.AddParameter("domain", page.Domain);
+        parameters.AddParameter("logoUrl", page.LogoUrl);
+        parameters.AddParameter("accentColor", page.AccentColor);
+        parameters.AddParameter("supportUrl", page.SupportUrl);
 
         const string sql = """
             INSERT INTO status_pages
-                (Id, Slug, Title, Description, IsDeleted, Enabled, ComponentsJson, CreatedAt, UpdatedAt, SubscriberChannelIds)
+                (Id, Slug, Title, Description, IsDeleted, Enabled, ComponentsJson, CreatedAt, UpdatedAt, SubscriberChannelIds, Domain, LogoUrl, AccentColor, SupportUrl)
             VALUES
-                ({id:UUID}, {slug:String}, {title:String}, {description:String}, {isDeleted:UInt8}, {enabled:UInt8}, {componentsJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {subscribers:Array(UUID)})
+                ({id:UUID}, {slug:String}, {title:String}, {description:String}, {isDeleted:UInt8}, {enabled:UInt8}, {componentsJson:String}, {createdAt:DateTime64(3)}, {updatedAt:DateTime64(3)}, {subscribers:Array(UUID)}, {domain:String}, {logoUrl:String}, {accentColor:String}, {supportUrl:String})
             """;
 
         await client.ExecuteNonQueryAsync(sql, parameters, SafetyOptions(), cancellationToken);
@@ -140,6 +154,10 @@ public sealed class StatusPageQueryService(IClickHouseClient client, IOptions<Qu
         CreatedAt = ReadUtc(reader, 6),
         UpdatedAt = ReadUtc(reader, 7),
         SubscriberChannelIds = reader.GetFieldValue<Guid[]>(8),
+        Domain = reader.GetString(9),
+        LogoUrl = reader.GetString(10),
+        AccentColor = reader.GetString(11),
+        SupportUrl = reader.GetString(12),
     };
 
     private static DateTimeOffset ReadUtc(ClickHouseDataReader reader, int ordinal) =>

@@ -159,6 +159,13 @@ public class StatusSubscriptionsTests
         Assert.Null(signer.ValidateUnsubscribe(confirm));
         Assert.Null(signer.ValidateConfirm(unsubscribe));
         Assert.Null(signer.ValidateConfirm("garbage"));
+
+        var preferences = Token(signer.PreferencesUrl(PageId, "a@example.com"));
+        Assert.Equal(new StatusSubscriptionClaims(PageId, "a@example.com"), signer.ValidatePreferences(preferences));
+        Assert.Null(signer.ValidatePreferences(unsubscribe));
+        Assert.Null(signer.ValidatePreferences(confirm));
+        Assert.Null(signer.ValidateUnsubscribe(preferences));
+        Assert.Null(signer.ValidateConfirm(preferences));
         Assert.Null(signer.ValidateConfirm(null));
     }
 
@@ -169,6 +176,7 @@ public class StatusSubscriptionsTests
 
         Assert.Null(signer.ConfirmUrl(PageId, "a@example.com"));
         Assert.Null(signer.UnsubscribeUrl(PageId, "a@example.com"));
+        Assert.Null(signer.PreferencesUrl(PageId, "a@example.com"));
     }
 
     [Fact]
@@ -188,6 +196,20 @@ public class StatusSubscriptionsTests
         Assert.Contains("Affected: API", text);
         Assert.Contains("https://flare.example.com/status/acme", text);
         Assert.Contains("Unsubscribe: https://flare.example.com/subscribe/unsubscribe?token=t", text);
+    }
+
+    [Fact]
+    public void Mailer_IncidentEmail_LinksToPreferencesOnlyWhenGiven()
+    {
+        var page = new StatusPage { Id = PageId, Slug = "acme", Title = "Acme", CreatedAt = Now, UpdatedAt = Now };
+        var incident = new StatusIncident { Id = Guid.NewGuid(), PageId = PageId, Title = "API down", CreatedAt = Now, UpdatedAt = Now };
+        var update = new StatusIncidentUpdate(Now, StatusIncidentStatus.Monitoring, "Fix is out.");
+
+        var with = StatusSubscriberMailer.BuildIncident("flare@example.com", page, incident, update, [], "https://flare.example.com/", new StatusMailRecipient("a@example.com", "https://x/u", "https://x/p"));
+        var without = StatusSubscriberMailer.BuildIncident("flare@example.com", page, incident, update, [], "https://flare.example.com/", new StatusMailRecipient("a@example.com", "https://x/u"));
+
+        Assert.Contains("Choose which components you hear about: https://x/p", with.TextBody);
+        Assert.DoesNotContain("Choose which components", without.TextBody);
     }
 
     private static string? Token(string? url) => AlertAckLinkSigner.TokenFromUrl(url);
