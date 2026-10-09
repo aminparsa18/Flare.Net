@@ -13,6 +13,13 @@
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
+  <!-- The MAUI-free core is trim- and AOT-clean (ADR-0169). Only the plain net10.0 target is analysed here:
+       the mobile targets need the MAUI workloads and their trim story is owned by the MAUI SDK. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <IsTrimmable>true</IsTrimmable>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
   <PropertyGroup>
     <PackageId>Flare.Maui</PackageId>
     <Version>0.1.0</Version>

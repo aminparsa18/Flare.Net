@@ -71,4 +71,4 @@ folders are where "what happened and why" actually lives.
   stack traces are symbolicated from uploaded dll+PDB symbols (ADR-0168); Native AOT frames on
   iOS/macOS are covered from the `.dSYM`; remaining there: overloaded AOT methods (unresolved), ELF/PDB
   symbols for Linux/Windows AOT, and verifying Mono's offsets on a device.
-  Trimming/AOT compatibility of the OpenTelemetry SDK is untested.
+  The `Platform/` glue's trimming (the core is verified, ADR-0169) is untested until a device build.
