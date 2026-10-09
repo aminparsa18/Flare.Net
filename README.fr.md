@@ -93,6 +93,8 @@ Vous dépassez les capacités d'un seul nœud ClickHouse ? Il existe une configu
 
 Vous voulez que votre assistant IA lise votre télémétrie ? `flare mcp` est un serveur [MCP](https://modelcontextprotocol.io) en lecture seule — voir [docs/how-to/connect-ai-assistants.fr.md](docs/how-to/connect-ai-assistants.fr.md).
 
+Vous développez une application mobile ? [`Flare.Maui`](src/Flare.Maui) (aperçu, pas encore sur NuGet) ajoute `builder.UseFlare(...)` à une application .NET MAUI : export OTLP/HTTP avec file hors ligne, attributs d'appareil et de session, spans `HttpClient` et de navigation Shell, capture des exceptions non gérées — voir [docs/how-to/send-maui-telemetry.md](docs/how-to/send-maui-telemetry.fr.md).
+
 ## Développement local
 
 Docker autonome n'est pas la boucle de développement locale — voir [Flare.AppHost](src/Flare.AppHost) (.NET Aspire) pour cela, et le README de chaque projet (par exemple [src/dashboard/README.md](src/dashboard/README.md)) pour l'exécuter individuellement.
