@@ -17,6 +17,7 @@ Scenario[] scenarios =
     new HostsScenario(),
     new KubernetesScenario(),
     new PipelineScenario(),
+    new MobileScenario(),
 ];
 
 SeederOptions options;
