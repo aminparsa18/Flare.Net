@@ -161,7 +161,12 @@ public static class FlareMaui
 
         if (options.CaptureUnhandledExceptions)
         {
-            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options), options.ScrubAttribute, _runs is null ? null : _runs.MarkFatal);
+            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options), options.ScrubAttribute, () =>
+            {
+                // The crash flush blocks the UI thread past the hang threshold, which the watchdog would report as a hang.
+                _hangs?.Pause();
+                _runs?.MarkFatal();
+            });
             _reporter.Attach();
         }
     }
