@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Runtime.InteropServices;
 using Flare.Maui;
 using Microsoft.Extensions.Logging;
 
@@ -90,4 +91,32 @@ public partial class MainPage : ContentPage
 
     void OnCrashClicked(object? sender, EventArgs e) =>
         throw new InvalidOperationException("Deliberate crash from ExampleApp.Maui");
+
+    void OnUserToggled(object? sender, ToggledEventArgs e)
+    {
+        // Release health counts users from user.id; the e-mail is sent only because SendDefaultPii is on in MauiProgram.
+        FlareMaui.SetUser(e.Value ? "demo-user-1" : null, "Demo User", "demo@example.com");
+        FlareMaui.SetTag("plan", e.Value ? "pro" : null);
+        FlareMaui.SetContext("cart", e.Value ? new Dictionary<string, string> { ["items"] = "3", ["currency"] = "EUR" } : null);
+        Say(e.Value ? "User, tag and cart context set on every span and log." : "User cleared.");
+    }
+
+    // Blocks the main thread. On Android, tapping meanwhile past ~5 s makes the system record an ANR, which is
+    // reported on the next launch (kill the app while frozen); the hang watchdog reports app.hang on both platforms.
+    void OnFreezeClicked(object? sender, EventArgs e)
+    {
+        Say("Freezing...");
+        Thread.Sleep(TimeSpan.FromSeconds(15));
+    }
+
+    // SIGABRT from native code never reaches a managed handler. Relaunch to see it reported from
+    // ApplicationExitInfo (Android) or, up to a day later, MetricKit (iOS).
+    void OnNativeCrashClicked(object? sender, EventArgs e)
+    {
+        FlareMaui.Flush();
+        abort();
+    }
+
+    [DllImport("libc")]
+    static extern void abort();
 }
