@@ -92,8 +92,10 @@ folders are where "what happened and why" actually lives.
     masking of sensitive views before capture.
   - Network breadcrumbs and request/response sizes, and offline-aware failures (distinguish no connectivity from a
     server error).
-  - Mobile performance follow-ups (ADR-0180): verify on an Android device and an iOS device; a trend over time and an
-    alert rule on a start/load regression; iOS process start time; time-to-first-frame rather than first resume.
+  - Mobile performance follow-ups (ADR-0180; verified on a real Android device, arm64 Debug, by Maestro flows 12-14):
+    an iOS device, an Android emulator and a Release build; a trend over time and an alert rule on a start/load
+    regression; iOS process start time; time-to-first-frame rather than first resume (a warm start is only the
+    `OnRestart` to `OnResume` gap, about 12 ms).
   - Profiling: sampled UI-thread profiles attached to slow transactions.
   - User feedback: an in-app "report a problem" prompt that attaches the session, with a dashboard inbox.
   - Windows support, and a live (not startup-only) offline queue cap.
