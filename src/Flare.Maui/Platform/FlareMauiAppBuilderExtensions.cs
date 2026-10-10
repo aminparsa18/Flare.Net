@@ -32,6 +32,9 @@ public static class FlareMauiAppBuilderExtensions
             AppInfo.BuildString);
 
         if (options.CaptureScreenshotOnError) FlareMaui.ScreenshotCapture = ScreenshotCapture.CaptureAsync;
+#if ANDROID
+        FlareMaui.MainThreadStackCapture = MainThreadStack.Capture;
+#endif
         FlareMaui.Initialize(options, device, Path.Combine(FileSystem.CacheDirectory, "flare-otlp"),
             Path.Combine(FileSystem.AppDataDirectory, "flare"));
         if (options.CaptureNativeCrashes) NativeCrashSource.CollectAndReport();

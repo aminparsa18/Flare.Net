@@ -226,6 +226,14 @@ Trois spans alimentent la section **Performance** de la page Sessions, à côté
 `TracePerformance = false` désactive les trois. Sur un appareil 90 ou 120 Hz, le seuil de lenteur par défaut laisse
 passer les images comprises entre le budget de l'écran et 20 ms ; abaissez-le si cela compte pour votre application.
 
+### Comprendre pourquoi un écran se charge lentement
+
+Sur Android, un `screen.load` d'au moins `ProfileSlowLoadThreshold` (500 ms par défaut) porte un profil échantillonné du
+thread UI : `profile.samples` et `profile.stacks`. La pile est lue toutes les `ProfileSampleInterval` (50 ms) pendant le
+chargement uniquement, puis repliée en une ligne par pile distincte, `count root;...;leaf`, la plus fréquente d'abord.
+Ce sont des frames Java d'Android : elles montrent quel appel de la plateforme était occupé, pas la méthode C#. iOS
+n'enregistre aucun profil. `ProfileSlowLoads = false` le désactive.
+
 ## Joindre des captures d'écran aux erreurs
 
 Activez `CaptureScreenshotOnError = true` pour envoyer une capture de la page courante à chaque exception signalée.

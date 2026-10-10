@@ -187,6 +187,10 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 
 `TracePerformance = false` 会关闭这三种 span。在 90 或 120 Hz 设备上，默认的慢帧阈值会放过耗时介于显示预算与 20 毫秒之间的帧；如果这对你的应用很重要，请调低它。
 
+### 找出屏幕加载缓慢的原因
+
+在 Android 上，耗时不少于 `ProfileSlowLoadThreshold`（默认 500 毫秒）的 `screen.load` 会带有 UI 线程的采样剖析：`profile.samples` 和 `profile.stacks`。仅在加载期间每隔 `ProfileSampleInterval`（50 毫秒）读取一次堆栈，并按不同堆栈折叠为一行，格式为 `count root;...;leaf`，出现次数最多的在前。这些是 Android 的 Java 帧，显示的是哪个平台调用在忙，而不是 C# 方法。iOS 不记录剖析。`ProfileSlowLoads = false` 可将其关闭。
+
 ## 为错误附加截图
 
 设置 `CaptureScreenshotOnError = true` 后，每次上报异常时都会上传当前页面的截图，并在会话页面对应行显示 **Screenshot** 按钮。该功能默认关闭，因为截图会包含屏幕上的一切内容，包括用户输入的文字。图片为 JPEG，通过降低质量保持在 `ScreenshotMaxBytes` 以内（默认 300 KB，最大 512 KB），每次启动最多 5 张、每 10 秒最多 1 张。上传发往同一端点的 `POST /v1/screenshots`，使用相同的摄取密钥，并遵循链路的保留设置。请在应用中隐藏敏感视图，避免被截取。

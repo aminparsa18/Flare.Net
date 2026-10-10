@@ -96,7 +96,7 @@ folders are where "what happened and why" actually lives.
     an iOS device, an Android emulator and a Release build; a trend over time and an alert rule on a start/load
     regression; iOS process start time; time-to-first-frame rather than first resume (a warm start is only the
     `OnRestart` to `OnResume` gap, about 12 ms).
-  - Profiling: sampled UI-thread profiles attached to slow transactions.
+  - Profiling follow-ups (ADR-0181): iOS, `app.start` profiles, managed frames, and a flame graph in the dashboard.
   - User feedback: an in-app "report a problem" prompt that attaches the session, with a dashboard inbox.
   - Windows support, and a live (not startup-only) offline queue cap.
   - Log-record `BeforeSend` and resource-attribute scrubbing; extend `ScrubAttribute` to exceptions recorded by other
