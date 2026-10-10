@@ -55,7 +55,7 @@ public class EnrichmentTests
         using var tracer = Sdk.CreateTracerProviderBuilder()
             .AddSource("test.enrich")
             .AddProcessor(new EnrichmentProcessor(e))
-            .AddProcessor(new ScrubProcessor(Scrub))
+            .AddProcessor(new ScrubProcessor(Scrub, null))
             .AddInMemoryExporter(spans)
             .Build();
         using (var a = source.StartActivity("one")) a?.SetTag("drop", "x");
@@ -87,10 +87,104 @@ public class EnrichmentTests
         using var source = new ActivitySource("test.scrubthrow");
         using var tracer = Sdk.CreateTracerProviderBuilder()
             .AddSource("test.scrubthrow")
-            .AddProcessor(new ScrubProcessor((_, _) => throw new InvalidOperationException()))
+            .AddProcessor(new ScrubProcessor((_, _) => throw new InvalidOperationException(), null))
             .AddInMemoryExporter(spans)
             .Build();
         using (var a = source.StartActivity("one")) a?.SetTag("k", "v");
         Assert.Equal("v", Assert.Single(spans).GetTagItem("k"));
     }
+
+    [Fact]
+    public void Scrubber_covers_span_name_status_and_flare_reported_exceptions()
+    {
+        object? Scrub(string key, object? v) => key switch
+        {
+            "span.name" => "GET /users/{id}",
+            "exception.message" => "[redacted]",
+            "status.message" => "[redacted]",
+            _ => v
+        };
+        var spans = new List<Activity>();
+        using var source = new ActivitySource("test.scrubnames");
+        using var tracer = Sdk.CreateTracerProviderBuilder()
+            .AddSource("test.scrubnames")
+            .AddProcessor(new ScrubProcessor(Scrub, null))
+            .AddInMemoryExporter(spans)
+            .Build();
+
+        new UnhandledExceptionReporter(source, _ => { }, scrub: Scrub).Report(new InvalidOperationException("secret@example.com"), fatal: false);
+        using (var a = source.StartActivity("GET /users/42")) a?.SetStatus(ActivityStatusCode.Error, "user 42 failed");
+
+        Assert.Equal(2, spans.Count);
+        var crash = spans.Single(s => s.OperationName == "app.unhandled_exception");
+        var ev = Assert.Single(crash.Events);
+        Assert.Equal("[redacted]", ev.Tags.Single(t => t.Key == "exception.message").Value);
+        Assert.Equal("System.InvalidOperationException", ev.Tags.Single(t => t.Key == "exception.type").Value);
+        Assert.DoesNotContain("secret@example.com", crash.StatusDescription);
+        var named = spans.Single(s => s != crash);
+        Assert.Equal("[redacted]", named.StatusDescription);
+    }
+
+    [Fact]
+    public void BeforeSend_drops_spans_it_rejects()
+    {
+        var spans = new List<Activity>();
+        using var source = new ActivitySource("test.beforesend");
+        using var tracer = Sdk.CreateTracerProviderBuilder()
+            .AddSource("test.beforesend")
+            .AddProcessor(new ScrubProcessor(null, a => a.OperationName != "noisy"))
+            .AddInMemoryExporter(spans)
+            .Build();
+
+        source.StartActivity("noisy")?.Dispose();
+        source.StartActivity("kept")?.Dispose();
+
+        Assert.Equal("kept", Assert.Single(spans).OperationName);
+    }
+}
+
+public class OfflineQueueTests
+{
+    private static string NewDir() => Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "flare-q-" + Guid.NewGuid().ToString("N"))).FullName;
+
+    private static string Write(string dir, string name, int bytes, DateTime written)
+    {
+        var path = Path.Combine(dir, name);
+        File.WriteAllBytes(path, new byte[bytes]);
+        File.SetLastWriteTimeUtc(path, written);
+        return path;
+    }
+
+    [Fact]
+    public void Prune_removes_expired_files_then_the_oldest_until_under_the_cap()
+    {
+        var dir = NewDir();
+        try
+        {
+            var now = new DateTime(2026, 10, 10, 12, 0, 0, DateTimeKind.Utc);
+            var expired = Write(dir, "old", 10, now.AddDays(-3));
+            var a = Write(dir, "a", 100, now.AddHours(-3));
+            var b = Write(dir, "b", 100, now.AddHours(-2));
+            var c = Write(dir, "c", 100, now.AddHours(-1));
+
+            OfflineQueue.Prune(dir, maxBytes: 250, TimeSpan.FromDays(2), now);
+
+            Assert.False(File.Exists(expired));
+            Assert.False(File.Exists(a));        // oldest of the rest goes first
+            Assert.True(File.Exists(b));
+            Assert.True(File.Exists(c));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void Prune_ignores_a_missing_directory() =>
+        OfflineQueue.Prune(Path.Combine(Path.GetTempPath(), "flare-q-missing-" + Guid.NewGuid().ToString("N")), 1, TimeSpan.FromDays(1), DateTime.UtcNow);
+
+    [Fact]
+    public void Options_reject_a_non_positive_queue_age() =>
+        Assert.Throws<InvalidOperationException>(() => new FlareMauiOptions
+        {
+            Endpoint = new Uri("http://h:4318"), ServiceName = "a", OfflineQueueMaxAge = TimeSpan.Zero
+        }.Validate());
 }

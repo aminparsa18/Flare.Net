@@ -109,7 +109,11 @@ public static class FlareMaui
         options.Validate();
         if (Tracing is not null) return;
 
-        if (options.EnableOfflineQueue) EnableDiskRetry(queueDirectory);
+        if (options.EnableOfflineQueue)
+        {
+            OfflineQueue.Prune(queueDirectory, options.OfflineQueueMaxBytes, options.OfflineQueueMaxAge, DateTime.UtcNow);
+            EnableDiskRetry(queueDirectory);
+        }
 
         var resource = BuildResource(options, device);
         SessionId = NewSessionId();
@@ -124,7 +128,8 @@ public static class FlareMaui
             .AddProcessor(new EnrichmentProcessor(_enrichment));
         foreach (var s in options.AdditionalSources) tracing.AddSource(s);
         if (options.InstrumentHttpClient) tracing.AddHttpClientInstrumentation();
-        if (options.ScrubAttribute is { } scrub) tracing.AddProcessor(new ScrubProcessor(scrub));
+        if (options.ScrubAttribute is not null || options.BeforeSend is not null)
+            tracing.AddProcessor(new ScrubProcessor(options.ScrubAttribute, options.BeforeSend));
         tracing.AddOtlpExporter(o => ConfigureExporter(o, options, "traces"));
         Tracing = tracing.Build();
 
@@ -139,7 +144,7 @@ public static class FlareMaui
 
         if (options.CaptureUnhandledExceptions)
         {
-            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options));
+            _reporter = new UnhandledExceptionReporter(Source, Flush, ScreenshotAfterReport(options), options.ScrubAttribute);
             _reporter.Attach();
         }
     }

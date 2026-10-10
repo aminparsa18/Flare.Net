@@ -180,6 +180,15 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 
 No device identifier is sent either way.
 
+To drop a span entirely, set `BeforeSend`, which returns `false` for spans you do not want sent (it does not apply to
+logs). `ScrubAttribute` also receives span names (key `span.name`), span status messages (`status.message`) and, for
+exceptions Flare reports itself, `exception.type`, `exception.message` and `exception.stacktrace`. Exceptions
+recorded by other instrumentation are not scrubbed.
+
+Failed exports are retried from disk. At startup Flare deletes queued files older than `OfflineQueueMaxAge`
+(2 days) and then the oldest ones until the queue fits `OfflineQueueMaxBytes` (25 MB). It is a startup trim, so the
+queue can exceed the size while the app runs.
+
 ## Check release health
 
 The top of the **Sessions** page shows each app version's crash-free sessions and crash-free users for the window,

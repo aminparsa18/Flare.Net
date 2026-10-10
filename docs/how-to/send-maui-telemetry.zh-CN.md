@@ -165,6 +165,10 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 
 无论哪种情况都不会发送设备标识符。
 
+若要彻底丢弃某个链路段，请设置 `BeforeSend`，对不想发送的链路段返回 `false`（对日志无效）。`ScrubAttribute` 还会收到链路段名称（键 `span.name`）、状态消息（`status.message`），以及由 Flare 自己上报的异常的 `exception.type`、`exception.message` 和 `exception.stacktrace`。其他插桩记录的异常不会被清除。
+
+导出失败的数据会从磁盘重试。启动时 Flare 会删除早于 `OfflineQueueMaxAge`（2 天）的队列文件，再删除最旧的文件，直到队列不超过 `OfflineQueueMaxBytes`（25 MB）。这只是启动时的清理，应用运行期间队列可能超过该大小。
+
 ## 查看版本健康度
 
 **Sessions** 页面顶部按应用版本显示窗口内的无崩溃会话和无崩溃用户比例，方便把新版本与上一版本对比。应用上报了致命的未处理异常即视为会话崩溃；低于 99% 时以红色显示。用户数按链路段或资源上的 `user.id` 属性统计。`Flare.Maui` 不会设置该属性，因此在应用自行添加之前，用户列显示为短横线。

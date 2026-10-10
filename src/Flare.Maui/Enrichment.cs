@@ -76,13 +76,31 @@ internal sealed class EnrichmentLogProcessor(FlareEnrichment enrichment) : BaseP
 }
 
 /// <summary>
-/// Runs <see cref="FlareMauiOptions.ScrubAttribute"/> over every span tag when the span ends. Added last, so it
-/// sees what the other processors added. A scrubber that throws is ignored: it must not break the app's spans.
+/// When a span ends, drops it if <see cref="FlareMauiOptions.BeforeSend"/> says so, otherwise runs
+/// <see cref="FlareMauiOptions.ScrubAttribute"/> over its name, status message and every tag. Added last, so it sees
+/// what the other processors added. A callback that throws is ignored: it must not break the app's spans.
 /// </summary>
-internal sealed class ScrubProcessor(Func<string, object?, object?> scrub) : BaseProcessor<Activity>
+internal sealed class ScrubProcessor(Func<string, object?, object?>? scrub, Func<Activity, bool>? beforeSend) : BaseProcessor<Activity>
 {
+    internal const string SpanNameKey = "span.name";
+    internal const string StatusMessageKey = "status.message";
+
     public override void OnEnd(Activity data)
     {
+        if (beforeSend is not null)
+        {
+            var keep = true;
+            try { keep = beforeSend(data); }
+            catch { /* keep the span */ }
+            if (!keep)
+            {
+                // The exporter processors only queue recorded spans; this one runs before them.
+                data.ActivityTraceFlags &= ~ActivityTraceFlags.Recorded;
+                return;
+            }
+        }
+
+        if (scrub is null) return;
         foreach (var tag in data.TagObjects.ToList())
         {
             object? result;
@@ -90,6 +108,14 @@ internal sealed class ScrubProcessor(Func<string, object?, object?> scrub) : Bas
             catch { continue; }
             if (!Equals(result, tag.Value)) data.SetTag(tag.Key, result);
         }
+
+        try
+        {
+            if (scrub(SpanNameKey, data.DisplayName) is string name && name.Length > 0) data.DisplayName = name;
+            if (data.StatusDescription is { Length: > 0 } status && scrub(StatusMessageKey, status) is string message)
+                data.SetStatus(data.Status, message);
+        }
+        catch { /* leave them as they were */ }
     }
 }
 

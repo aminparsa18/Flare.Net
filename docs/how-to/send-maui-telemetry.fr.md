@@ -183,6 +183,15 @@ o.ScrubAttribute = (key, value) => key == "http.url" ? Redact((string?)value) : 
 
 Aucun identifiant d'appareil n'est envoyé dans les deux cas.
 
+Pour supprimer entièrement un span, définissez `BeforeSend`, qui renvoie `false` pour les spans à ne pas envoyer
+(sans effet sur les logs). `ScrubAttribute` reçoit aussi les noms de span (clé `span.name`), les messages de statut
+(`status.message`) et, pour les exceptions signalées par Flare lui-même, `exception.type`, `exception.message` et
+`exception.stacktrace`. Les exceptions enregistrées par d'autres instrumentations ne sont pas nettoyées.
+
+Les exports échoués sont rejoués depuis le disque. Au démarrage, Flare supprime les fichiers en attente plus
+vieux que `OfflineQueueMaxAge` (2 jours), puis les plus anciens jusqu'à passer sous `OfflineQueueMaxBytes` (25 Mo).
+C'est un nettoyage au démarrage : la file peut dépasser cette taille pendant l'exécution.
+
 ## Vérifier la santé d'une version
 
 Le haut de la page **Sessions** affiche, pour chaque version de l'application, les sessions sans plantage et les
