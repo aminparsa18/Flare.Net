@@ -206,3 +206,68 @@ public sealed record ReleaseHealthResponse
 
     public required IReadOnlyList<ReleaseHealthVersion> Versions { get; init; }
 }
+
+/// <summary>
+/// Request for <c>POST /api/app-sessions/performance</c>: app start and per-screen load and frame health over a window.
+/// See docs-internal/adr/0180-maui-mobile-performance.md.
+/// </summary>
+public sealed record AppPerformanceRequest
+{
+    /// <summary>Lookback window; null/non-positive = <see cref="Query.AppSessionQueryBuilder.DefaultWindowMinutes"/>, clamped server-side.</summary>
+    public int? WindowMinutes { get; init; }
+
+    /// <summary>Where the window ends, as Unix epoch milliseconds; null = now.</summary>
+    public long? EndUnixMs { get; init; }
+
+    /// <summary>Exact <c>ServiceName</c>. Null/empty = all services.</summary>
+    public string? Service { get; init; }
+
+    /// <summary>Exact <c>service.version</c>. Null/empty = all versions.</summary>
+    public string? Version { get; init; }
+}
+
+/// <summary>Cold or warm app starts of one version, as <c>app.start</c> span durations.</summary>
+public sealed record AppStartStat
+{
+    public required string Version { get; init; }
+
+    /// <summary><c>cold</c> or <c>warm</c>.</summary>
+    public required string Type { get; init; }
+
+    public required ulong Count { get; init; }
+
+    public required double P50Ms { get; init; }
+
+    public required double P95Ms { get; init; }
+}
+
+/// <summary>One screen's load time (<c>screen.load</c> spans) and frame health (<c>screen.frames</c> spans).</summary>
+public sealed record ScreenPerformance
+{
+    public required string Screen { get; init; }
+
+    public required ulong Loads { get; init; }
+
+    public required double LoadP50Ms { get; init; }
+
+    public required double LoadP95Ms { get; init; }
+
+    /// <summary>Screen visits that reported frames.</summary>
+    public required ulong Visits { get; init; }
+
+    public required ulong Frames { get; init; }
+
+    /// <summary>Frames over the slow threshold, frozen ones included.</summary>
+    public required ulong SlowFrames { get; init; }
+
+    public required ulong FrozenFrames { get; init; }
+}
+
+public sealed record AppPerformanceResponse
+{
+    public required int WindowMinutes { get; init; }
+
+    public required IReadOnlyList<AppStartStat> Starts { get; init; }
+
+    public required IReadOnlyList<ScreenPerformance> Screens { get; init; }
+}

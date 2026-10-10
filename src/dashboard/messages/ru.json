@@ -3588,5 +3588,21 @@
 	"sessionsPage_health_users": "Пользователи",
 	"sessionsPage_health_crashFreeUsers": "Пользователи без сбоев",
 	"sessionsPage_health_crashedOf": "Сбоев: {crashed} из {total} сессий",
-	"sessionsPage_health_hint": "Сессия считается завершившейся сбоем, если приложение сообщило о фатальном необработанном исключении. Пользователи считаются по атрибуту user.id; без него показывается прочерк."
+	"sessionsPage_health_hint": "Сессия считается завершившейся сбоем, если приложение сообщило о фатальном необработанном исключении. Пользователи считаются по атрибуту user.id; без него показывается прочерк.",
+	"sessionsPage_perf_heading": "Производительность",
+	"sessionsPage_perf_startType": "Запуск",
+	"sessionsPage_perf_starts": "Запусков",
+	"sessionsPage_perf_p50": "Медиана",
+	"sessionsPage_perf_p95": "p95",
+	"sessionsPage_perf_cold": "Холодный",
+	"sessionsPage_perf_warm": "Тёплый",
+	"sessionsPage_perf_screen": "Экран",
+	"sessionsPage_perf_loads": "Загрузок",
+	"sessionsPage_perf_loadP50": "Загрузка, медиана",
+	"sessionsPage_perf_loadP95": "Загрузка, p95",
+	"sessionsPage_perf_frames": "Кадров",
+	"sessionsPage_perf_slowFrames": "Медленные кадры",
+	"sessionsPage_perf_frozenFrames": "Зависшие кадры",
+	"sessionsPage_perf_framesOf": "{count} из {total} кадров",
+	"sessionsPage_perf_hint": "Холодный запуск идёт от старта процесса (Android) или от вызова UseFlare (iOS) до выхода приложения на передний план; тёплый — от возврата на передний план. Загрузка — это переход Shell до показа экрана. Медленный кадр по умолчанию занял 20 мс и больше, зависший — 700 мс и больше; зависшие кадры считаются и медленными."
 }

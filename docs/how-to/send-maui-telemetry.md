@@ -205,6 +205,22 @@ the app is in the background. On Android the span also carries `hang.stacktrace`
 frames show as the runtime's native ones); iOS has no way to read another thread's stack. A paused debugger looks
 like a hang, so set `DetectAppHangs = false` while debugging if it is noisy.
 
+## Measure app performance
+
+Three spans feed the **Performance** section of the Sessions page, next to release health:
+
+- `app.start`, with `app.start.type` of `cold` or `warm`. A cold start runs from process start (Android) or from
+  the `UseFlare` call (iOS, `app.start.origin` says which) until the app is in the foreground. A warm start runs from
+  returning to the foreground. A dialog or the notification shade closing is not a start.
+- `screen.load`: a Shell navigation, from `Navigating` until the screen is shown, with `screen.name`.
+- `screen.frames`: one per screen visit (and when the app goes to the background), with `frames.total`,
+  `frames.slow` and `frames.frozen`. A frame is slow at `SlowFrameThreshold` (20 ms by default) and frozen at
+  `FrozenFrameThreshold` (700 ms); a frozen frame counts as slow too. Android reads `FrameMetrics` (API 26+),
+  iOS times a `CADisplayLink`.
+
+`TracePerformance = false` turns all three off. On a 90 or 120 Hz device the default slow threshold lets frames
+between the display's budget and 20 ms through; lower it if that matters for your app.
+
 ## Attach screenshots to errors
 
 Set `CaptureScreenshotOnError = true` to upload a screenshot of the current page whenever an exception is

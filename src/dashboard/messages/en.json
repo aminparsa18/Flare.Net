@@ -3588,5 +3588,21 @@
 	"sessionsPage_health_users": "Users",
 	"sessionsPage_health_crashFreeUsers": "Crash-free users",
 	"sessionsPage_health_crashedOf": "{crashed} of {total} sessions crashed",
-	"sessionsPage_health_hint": "A session crashed when the app reported a fatal unhandled exception. Users are counted from the user.id attribute and show a dash when the app sets none."
+	"sessionsPage_health_hint": "A session crashed when the app reported a fatal unhandled exception. Users are counted from the user.id attribute and show a dash when the app sets none.",
+	"sessionsPage_perf_heading": "Performance",
+	"sessionsPage_perf_startType": "Start",
+	"sessionsPage_perf_starts": "Starts",
+	"sessionsPage_perf_p50": "Median",
+	"sessionsPage_perf_p95": "p95",
+	"sessionsPage_perf_cold": "Cold",
+	"sessionsPage_perf_warm": "Warm",
+	"sessionsPage_perf_screen": "Screen",
+	"sessionsPage_perf_loads": "Loads",
+	"sessionsPage_perf_loadP50": "Load median",
+	"sessionsPage_perf_loadP95": "Load p95",
+	"sessionsPage_perf_frames": "Frames",
+	"sessionsPage_perf_slowFrames": "Slow frames",
+	"sessionsPage_perf_frozenFrames": "Frozen frames",
+	"sessionsPage_perf_framesOf": "{count} of {total} frames",
+	"sessionsPage_perf_hint": "A cold start runs from process start (Android) or from UseFlare (iOS) until the app is in the foreground; a warm start from returning to the foreground. Load is a Shell navigation until the screen is shown. A slow frame took 20 ms or more by default, a frozen one 700 ms or more; frozen frames count as slow too."
 }

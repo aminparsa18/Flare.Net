@@ -30,6 +30,12 @@ the background; `DetectAppHangs = false` turns it off. On Android the span carri
 thread's stack ([ADR-0173](../../docs-internal/adr/0173-maui-app-hang-detection.md),
 [ADR-0179](../../docs-internal/adr/0179-maui-hang-stacks.md)).
 
+Performance (`o.TracePerformance`, on by default): an `app.start` span (cold from process start on Android or from
+`UseFlare` on iOS; warm from returning to the foreground), a `screen.load` span per Shell navigation and a
+`screen.frames` span per screen visit with slow and frozen frame counts (`SlowFrameThreshold` 20 ms,
+`FrozenFrameThreshold` 700 ms). The Sessions page shows them per screen
+([ADR-0180](../../docs-internal/adr/0180-maui-mobile-performance.md)).
+
 Error screenshots are opt-in (`o.CaptureScreenshotOnError = true`): the current page is captured when an exception is
 reported, uploaded to `/v1/screenshots` and shown on the session timeline. A screenshot can contain anything on screen
 ([ADR-0174](../../docs-internal/adr/0174-maui-error-screenshots.md)).
